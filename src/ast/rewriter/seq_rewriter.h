@@ -128,6 +128,8 @@ class seq_rewriter {
         void insert(decl_kind op, expr* a, expr* b, expr* c, expr* r);
     };
 
+    friend class seq::derive;
+
     seq_util       m_util;
     arith_util     m_autil;
     bool_rewriter  m_br;
@@ -332,7 +334,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_br(m, p), m_derive(m), // m_re2aut(m), 
+        m_util(m), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m), 
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }

@@ -22,6 +22,7 @@ Authors:
 --*/
 
 #include "ast/rewriter/seq_derive.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -30,13 +31,15 @@ Authors:
 
 namespace seq {
 
-    derive::derive(ast_manager& m) :
+    derive::derive(ast_manager& m, seq_rewriter& re) :
         m(m),
         m_util(m),
         m_autil(m),
         m_br(m),
+        m_re(re),
         m_trail(m),
-        m_ele(m) {
+        m_ele(m),
+        m_path_expr(m) {
         m_br.set_flat_and_or(false);
     }
 
@@ -71,9 +74,12 @@ namespace seq {
             return expr_ref(cached, m);
         m_ele = ele;
         m_depth = 0;
-        m_union_hoist_budget = 0;
+        // Initialize path state for inline pruning
+        m_path.reset();
+        m_intervals.reset();
+        m_intervals.push_back(std::make_pair(0u, u().max_char()));
+        m_path_expr = m.mk_true();
         expr_ref result = derive_rec(r);
-        result = simplify_ite(result);
         m_ele = nullptr;
         // Cache and pin the final result
         m_top_cache.insert(ele, r, result);
@@ -529,87 +535,6 @@ namespace seq {
     // Smart constructors with simplification
     // -------------------------------------------------------
 
-    // Lightweight structural subsumption: checks if L(a) ⊆ L(b)
-    // Returns true only when subsumption can be determined structurally.
-    bool derive::is_subset(expr* a, expr* b) {
-        if (a == b) return true;
-        if (re().is_empty(a)) return true;
-        if (re().is_full_seq(b)) return true;
-
-        // a ⊆ .+ iff a is non-nullable (non-nullable means ε ∉ L(a))
-        expr* b1 = nullptr;
-        if (re().is_plus(b, b1) && re().is_full_char(b1) &&
-            re().get_info(a).nullable == l_false)
-            return true;
-
-        // a ⊆ a* (since a* accepts everything a does and more)
-        if (re().is_star(b, b1) && a == b1) return true;
-
-        // a* ⊆ b* if a ⊆ b
-        expr* a1 = nullptr;
-        if (re().is_star(a, a1) && re().is_star(b, b1) && is_subset(a1, b1)) return true;
-
-        // a ⊆ b1 ∪ b2 if a ⊆ b1 or a ⊆ b2
-        if (re().is_union(b, b1, a1)) {
-            if (is_subset(a, b1) || is_subset(a, a1)) return true;
-        }
-
-        // a1 ∪ a2 ⊆ b if a1 ⊆ b and a2 ⊆ b
-        if (re().is_union(a, a1, b1)) {
-            if (is_subset(a1, b) && is_subset(b1, b)) return true;
-        }
-
-        // a1 ∩ a2 ⊆ b if a1 ⊆ b or a2 ⊆ b
-        if (re().is_intersection(a, a1, b1)) {
-            if (is_subset(a1, b) || is_subset(b1, b)) return true;
-        }
-
-        // a ⊆ b1 ∩ b2 if a ⊆ b1 and a ⊆ b2
-        if (re().is_intersection(b, b1, a1)) {
-            if (is_subset(a, b1) && is_subset(a, a1)) return true;
-        }
-
-        // concat subsumption: a1·a2 ⊆ b1·b2 when a1 ⊆ b1 and a2 ⊆ b2
-        expr* a2 = nullptr, * b2 = nullptr;
-        if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && 
-            is_subset(a1, b1) && is_subset(a2, b2))
-            return true;
-
-        // Σ*-suffix subsumption: a ⊆ Σ*·B when a's right concat spine contains Σ*·B
-        // Proof: if a = X·(Σ*·B), then L(a) = L(X)·L(Σ*·B). Every s in L(a) is
-        // of the form p·t where t ∈ L(Σ*·B), meaning t has a suffix in L(B).
-        // Therefore p·t also has that suffix, so p·t ∈ L(Σ*·B) = L(b).
-        if (re().is_concat(b, b1, b2) && re().is_full_seq(b1)) {
-            expr* cur = a;
-            expr *l, *r;
-            while (re().is_concat(cur, l, r)) {
-                if (cur == b) return true;
-                cur = r;
-            }
-            if (cur == b) return true;
-            // Also check: a is a union and all members ⊆ b
-            // (handled by the union check above, but double-check for nested concats)
-        }
-
-        // a ⊆ Σ*·B when a is a concat and its right spine contains b
-        // (handles non-Σ*-starting concats too, via recursive check)
-        if (re().is_concat(b, b1, b2) && re().is_full_seq(b1) && re().is_concat(a, a1, a2)) {
-            // Check if the tail of a (a2) is a subset of b
-            if (is_subset(a2, b)) return true;
-        }
-
-        // loop subsumption: r{la,ua} ⊆ r{lb,ub} when lb <= la and ua <= ub
-        unsigned la, ua, lb, ub;
-        if (re().is_loop(a, a1, la, ua) && re().is_loop(b, b1, lb, ub) &&
-            a1 == b1 && lb <= la && ua <= ub)
-            return true;
-
-        // complement: ~a ⊆ ~b if b ⊆ a
-        if (re().is_complement(a, a1) && re().is_complement(b, b1))
-            return is_subset(b1, a1);
-
-        return false;
-    }
 
     // Extract character range [lo, hi] from a derivative condition.
     // Conditions are of the form:
@@ -623,19 +548,18 @@ namespace seq {
         lo = 0;
         hi = u().max_char();
 
-        // Negation: ~(range [a,b]) = [0,a-1] ∪ [b+1,max]
-        // We don't handle negation here — it's handled via pred_implies logic
+        // Negation: not handled here — handled via pred_implies logic
         if (m.is_not(cond, e1))
             return false;
 
         // Equality: ele == c → range [c, c]
         if (m.is_eq(cond, e1, e2)) {
             unsigned v;
-            if (u().is_const_char(e1, v) && !u().is_const_char(e2, v)) {
+            if (u().is_const_char(e1, v) && e2 == m_ele) {
                 lo = hi = v;
                 return true;
             }
-            if (u().is_const_char(e2, v) && !u().is_const_char(e1, v)) {
+            if (u().is_const_char(e2, v) && e1 == m_ele) {
                 lo = hi = v;
                 return true;
             }
@@ -646,33 +570,17 @@ namespace seq {
         if (m.is_and(cond, e1, e2)) {
             expr *a1, *a2, *b1, *b2;
             unsigned v;
-            if (u().is_char_le(e1, a1, a2) && u().is_char_le(e2, b1, b2)) {
-                // e1: a1 <= a2, e2: b1 <= b2
-                // Expect: lo <= ele (a1=const, a2=var) and ele <= hi (b1=var, b2=const)
-                // OR: ele <= hi (a1=var, a2=const) and lo <= ele (b1=const, b2=var)
-                if (u().is_const_char(a1, v) && u().is_const_char(b2, lo)) {
-                    // e1: const <= a2, e2: b1 <= const
-                    // This is: v <= ele and ele <= lo — wrong naming, let me fix
-                    lo = v;
-                    hi = 0;
-                    if (u().is_const_char(b2, hi))
-                        return true;
-                }
-            }
-            // Try more carefully: extract from each conjunct
-            lo = 0;
-            hi = u().max_char();
             if (u().is_char_le(e1, a1, a2)) {
-                if (u().is_const_char(a1, v) && !u().is_const_char(a2, v))
+                if (u().is_const_char(a1, v) && a2 == m_ele)
                     lo = std::max(lo, v); // v <= ele
-                else if (!u().is_const_char(a1, v) && u().is_const_char(a2, v))
+                else if (a1 == m_ele && u().is_const_char(a2, v))
                     hi = std::min(hi, v); // ele <= v
             }
             if (u().is_char_le(e2, b1, b2)) {
                 unsigned v2;
-                if (u().is_const_char(b1, v2) && !u().is_const_char(b2, v2))
+                if (u().is_const_char(b1, v2) && b2 == m_ele)
                     lo = std::max(lo, v2); // v2 <= ele
-                else if (!u().is_const_char(b1, v2) && u().is_const_char(b2, v2))
+                else if (b1 == m_ele && u().is_const_char(b2, v2))
                     hi = std::min(hi, v2); // ele <= v2
             }
             return lo <= hi;
@@ -681,11 +589,11 @@ namespace seq {
         // Single char_le
         if (u().is_char_le(cond, lhs, rhs)) {
             unsigned v;
-            if (u().is_const_char(lhs, v) && !u().is_const_char(rhs, v)) {
+            if (u().is_const_char(lhs, v) && rhs == m_ele) {
                 lo = v; // v <= ele
                 return true;
             }
-            if (!u().is_const_char(lhs, v) && u().is_const_char(rhs, v)) {
+            if (lhs == m_ele && u().is_const_char(rhs, v)) {
                 hi = v; // ele <= v
                 return true;
             }
@@ -694,67 +602,125 @@ namespace seq {
         return false;
     }
 
-    // Check if a condition is a recognizable character condition (or negation thereof)
-    bool derive::is_char_cond(expr* c) {
-        unsigned lo, hi;
-        expr* e1;
-        if (m.is_not(c, e1))
-            return is_char_cond(e1);
-        return extract_char_range(c, lo, hi);
-    }
-
     // Predicate implication for character range conditions.
     // Returns true if: whenever cond_a is true, cond_b must also be true.
     // Used for BDD-merge of derivative ITE trees.
-    bool derive::pred_implies(expr* a, expr* b) {
-        if (a == b) return true;
+    // pred_implies(sign_a, a, sign_b, b): does (sign_a ? ¬a : a) imply (sign_b ? ¬b : b)?
+    bool derive::pred_implies(bool sign_a, expr* a, bool sign_b, expr* b) {
+        // Same atom: check sign compatibility
+        if (a == b) return sign_a == sign_b;
 
-        expr *nota = nullptr, *notb = nullptr;
-
-        // ~a implies ~b  iff  b implies a
-        if (m.is_not(a, nota) && m.is_not(b, notb))
-            return pred_implies(notb, nota);
+        // Both negated: ¬a → ¬b iff b → a, i.e. pred_implies(false, b, false, a)
+        if (sign_a && sign_b)
+            return pred_implies(false, b, false, a);
 
         unsigned lo_a, hi_a, lo_b, hi_b;
 
-        // a implies b: range_a ⊆ range_b
-        if (extract_char_range(a, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
-            return lo_b <= lo_a && hi_a <= hi_b;
-
-        // a implies ~b: range_a ∩ range_b = ∅
-        if (m.is_not(b, notb)) {
-            if (extract_char_range(a, lo_a, hi_a) && extract_char_range(notb, lo_b, hi_b))
+        if (!sign_a && !sign_b) {
+            // a → b: range_a ⊆ range_b
+            if (extract_char_range(a, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
+                return lo_b <= lo_a && hi_a <= hi_b;
+        }
+        else if (!sign_a && sign_b) {
+            // a → ¬b: range_a ∩ range_b = ∅
+            if (extract_char_range(a, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
                 return hi_a < lo_b || hi_b < lo_a;
         }
-
-        // ~a implies b: complement of range_a ⊆ range_b
-        // This is true when range_b covers everything outside range_a
-        // i.e., lo_b == 0 and hi_b >= max_char, minus range_a... complex, skip for now
-        if (m.is_not(a, nota)) {
-            if (extract_char_range(nota, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
-                return lo_b <= 0 && hi_b >= u().max_char(); // only if b is universal
+        else if (sign_a && !sign_b) {
+            // ¬a → b: complement of range_a ⊆ range_b
+            if (extract_char_range(a, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
+                return lo_b == 0 && hi_b >= u().max_char();
         }
 
         return false;
     }
 
+    bool derive::pred_implies(expr* a, expr* b) {
+        expr* nota = nullptr, * notb = nullptr;
+        bool sign_a = m.is_not(a, nota);
+        bool sign_b = m.is_not(b, notb);
+        return pred_implies(sign_a, sign_a ? nota : a, sign_b, sign_b ? notb : b);
+    }
+
     expr_ref derive::mk_union(expr* a, expr* b) {
-        // Check op cache
+        // Check path-aware op cache
+        expr* pe = get_path_expr();
         expr* cached = nullptr;
-        if (m_union_cache.find(a, b, cached))
+        if (m_union_cache.find(a, b, pe, cached))
             return expr_ref(cached, m);
 
         expr_ref result = mk_union_core(a, b);
 
         // Store in cache
-        m_union_cache.insert(a, b, result);
+        m_union_cache.insert(a, b, pe, result);
         m_trail.push_back(a);
         m_trail.push_back(b);
+        m_trail.push_back(pe);
         m_trail.push_back(result);
         return result;
     }
 
+    // Lightweight structural subsumption: checks if L(a) ⊆ L(b)
+    bool derive::is_subset(expr* a, expr* b) {
+        if (a == b) return true;
+        if (re().is_empty(a)) return true;
+        if (re().is_full_seq(b)) return true;
+
+        expr* b1 = nullptr;
+        if (re().is_plus(b, b1) && re().is_full_char(b1) &&
+            re().get_info(a).nullable == l_false)
+            return true;
+
+        if (re().is_star(b, b1) && a == b1) return true;
+
+        expr* a1 = nullptr;
+        if (re().is_star(a, a1) && re().is_star(b, b1) && is_subset(a1, b1)) return true;
+
+        if (re().is_union(b, b1, a1)) {
+            if (is_subset(a, b1) || is_subset(a, a1)) return true;
+        }
+        if (re().is_union(a, a1, b1)) {
+            if (is_subset(a1, b) && is_subset(b1, b)) return true;
+        }
+        if (re().is_intersection(a, a1, b1)) {
+            if (is_subset(a1, b) || is_subset(b1, b)) return true;
+        }
+        if (re().is_intersection(b, b1, a1)) {
+            if (is_subset(a, b1) && is_subset(a, a1)) return true;
+        }
+
+        expr* a2 = nullptr, * b2 = nullptr;
+        if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) &&
+            is_subset(a1, b1) && is_subset(a2, b2))
+            return true;
+
+        // loop subsumption: r{la,ua} ⊆ r{lb,ub} when lb <= la and ua <= ub
+        unsigned la, ua, lb, ub;
+        if (re().is_loop(a, a1, la, ua) && re().is_loop(b, b1, lb, ub) &&
+            a1 == b1 && lb <= la && ua <= ub)
+            return true;
+
+        if (re().is_complement(a, a1) && re().is_complement(b, b1))
+            return is_subset(b1, a1);
+
+        return false;
+    }
+
+    void derive::flatten_union(expr* e, expr_ref_vector& args) {
+        expr* a, *b;
+        if (re().is_union(e, a, b)) {
+            flatten_union(a, args);
+            flatten_union(b, args);
+        } else {
+            args.push_back(e);
+        }
+    }
+
     expr_ref derive::mk_union_core(expr* a, expr* b) {
+        // Canonical order: smaller id first
+        if (a->get_id() > b->get_id())
+            std::swap(a, b);
+
         // Identity / annihilator
         if (a == b) return expr_ref(a, m);
         if (re().is_empty(a)) return expr_ref(b, m);
@@ -769,141 +735,83 @@ namespace seq {
         if (re().is_complement(b, c) && c == a)
             return expr_ref(re().mk_full_seq(a->get_sort()), m);
 
-        // Subsumption: a ∪ b = b if a ⊆ b, a ∪ b = a if b ⊆ a
-        if (is_subset(a, b)) return expr_ref(b, m);
-        if (is_subset(b, a)) return expr_ref(a, m);
+        // ITE handling with path pruning
+        expr *c1, *t1, *e1, *c2, *t2, *e2;
+        auto union_op = [&](expr* x, expr* y) { return mk_union(x, y); };
+
+        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
+            expr_ref r(m);
+            if (c1 == c2)
+                r = apply_ite(c1, t1, e1, t2, e2, union_op);
+            else
+                r = apply_ite(c1, t1, e1, b, union_op);
+            if (r) return r;
+            return expr_ref(re().mk_empty(a->get_sort()), m);
+        }
+        if (m_path_stack.size() < 8) {
+            if (m.is_ite(a, c1, t1, e1)) {
+                expr_ref r = apply_ite(c1, t1, e1, b, union_op);
+                if (r) return r;
+                return expr_ref(re().mk_empty(a->get_sort()), m);
+            }
+            if (m.is_ite(b, c2, t2, e2)) {
+                expr_ref r = apply_ite(c2, t2, e2, a, union_op);
+                if (r) return r;
+                return expr_ref(re().mk_empty(a->get_sort()), m);
+            }
+        }
 
         // Prefix factoring: a·x ∪ a·y = a·(x ∪ y)
         expr *a1, *a2, *b1, *b2;
         if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && a1 == b1) {
             expr_ref tail = mk_union(a2, b2);
-            return mk_deriv_concat(expr_ref(a1, m), tail);
+            return mk_deriv_concat(a1, tail);
         }
 
-        // ITE handling for union
-        expr *c1, *t1, *e1, *c2, *t2, *e2;
+        // star absorbs epsilon: r* ∪ ε = r*
+        if (re().is_star(a) && re().is_epsilon(b)) return expr_ref(a, m);
+        if (re().is_star(b) && re().is_epsilon(a)) return expr_ref(b, m);
 
-        // Same condition merge (cheap, always correct)
-        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1 == c2) {
-            expr_ref then_br = mk_union(t1, t2);
-            expr_ref else_br = mk_union(e1, e2);
-            return mk_ite(c1, then_br, else_br);
-        }
+        // Subsumption: a ∪ b = b if a ⊆ b, a ∪ b = a if b ⊆ a
+        if (is_subset(a, b)) return expr_ref(b, m);
+        if (is_subset(b, a)) return expr_ref(a, m);
 
-        // Budget-limited one-sided char-cond hoisting.
-        // Enables BDD merge for small alphabets; budget caps work for large ones.
-        if (m_union_hoist_budget < m_max_union_hoist_budget) {
-            if (m.is_ite(a, c1, t1, e1) && is_char_cond(c1)) {
-                ++m_union_hoist_budget;
-                return mk_ite(c1, mk_union(t1, b), mk_union(e1, b));
-            }
-            if (m.is_ite(b, c2, t2, e2) && is_char_cond(c2)) {
-                ++m_union_hoist_budget;
-                return mk_ite(c2, mk_union(a, t2), mk_union(a, e2));
-            }
-        }
-
-        // Conservative ITE hoisting via subsumption:
-        // Only hoist when at least one branch simplifies by is_subset.
-        // Skip expensive is_subset on branches that are themselves ITE trees.
-        if (m.is_ite(a, c1, t1, e1)) {
-            bool t1_sub_b = !m.is_ite(t1) && is_subset(t1, b);
-            bool b_sub_t1 = !m.is_ite(t1) && !t1_sub_b && is_subset(b, t1);
-            bool e1_sub_b = !m.is_ite(e1) && is_subset(e1, b);
-            bool b_sub_e1 = !m.is_ite(e1) && !e1_sub_b && is_subset(b, e1);
-            if (t1_sub_b || b_sub_t1 || e1_sub_b || b_sub_e1) {
-                expr_ref then_br = t1_sub_b ? expr_ref(b, m) : b_sub_t1 ? expr_ref(t1, m) : mk_union(t1, b);
-                expr_ref else_br = e1_sub_b ? expr_ref(b, m) : b_sub_e1 ? expr_ref(e1, m) : mk_union(e1, b);
-                return mk_ite(c1, then_br, else_br);
-            }
-        }
-        if (m.is_ite(b, c2, t2, e2)) {
-            bool t2_sub_a = !m.is_ite(t2) && is_subset(t2, a);
-            bool a_sub_t2 = !m.is_ite(t2) && !t2_sub_a && is_subset(a, t2);
-            bool e2_sub_a = !m.is_ite(e2) && is_subset(e2, a);
-            bool a_sub_e2 = !m.is_ite(e2) && !e2_sub_a && is_subset(a, e2);
-            if (t2_sub_a || a_sub_t2 || e2_sub_a || a_sub_e2) {
-                expr_ref then_br = t2_sub_a ? expr_ref(a, m) : a_sub_t2 ? expr_ref(t2, m) : mk_union(a, t2);
-                expr_ref else_br = e2_sub_a ? expr_ref(a, m) : a_sub_e2 ? expr_ref(e2, m) : mk_union(a, e2);
-                return mk_ite(c2, then_br, else_br);
-            }
-        }
-
-        // BDD merge for union: only when both are ITE and pred_implies fires
-        // (avoids exponential blowup when conditions are unrelated)
-        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
-            // Only merge if we can determine the relationship between conditions
-            bool c1_imp_c2 = pred_implies(c1, c2);
-            bool c1_imp_nc2 = !c1_imp_c2 && pred_implies(c1, m.mk_not(c2));
-            expr_ref notc1(m.mk_not(c1), m);
-            bool nc1_imp_c2 = pred_implies(notc1, c2);
-            bool nc1_imp_nc2 = !nc1_imp_c2 && pred_implies(notc1, m.mk_not(c2));
-            if (c1_imp_c2 || c1_imp_nc2 || nc1_imp_c2 || nc1_imp_nc2) {
-                // pred_implies fires — safe to merge without exponential blowup
-                expr_ref r1(m), r2(m);
-                // Under c1:
-                if (c1_imp_c2)
-                    r1 = mk_union(t1, t2);
-                else if (c1_imp_nc2)
-                    r1 = mk_union(t1, e2);
-                else
-                    r1 = mk_union(t1, b);
-                // Under ~c1:
-                if (nc1_imp_c2)
-                    r2 = mk_union(e1, t2);
-                else if (nc1_imp_nc2)
-                    r2 = mk_union(e1, e2);
-                else
-                    r2 = mk_union(e1, b);
-                return mk_ite(c1, r1, r2);
-            }
-        }
-
-        // ACI: flatten, sort, deduplicate
+        // ACI normalization: flatten, sort by id, deduplicate
         expr_ref_vector args(m);
         flatten_union(a, args);
         flatten_union(b, args);
-
-        // Sort by expr id for canonical form
-        std::stable_sort(args.data(), args.data() + args.size(),
-            [](expr* x, expr* y) { return x->get_id() < y->get_id(); });
-
-        // Deduplicate
-        unsigned j = 0;
-        for (unsigned i = 0; i < args.size(); ++i) {
-            if (j > 0 && args.get(i) == args.get(j - 1))
-                continue; // skip duplicate
-            if (re().is_empty(args.get(i)))
-                continue; // skip empty
-            if (re().is_full_seq(args.get(i)))
-                return expr_ref(args.get(i), m); // universal absorbs
-            args.set(j++, args.get(i));
+        std::sort(args.data(), args.data() + args.size(), [](expr* x, expr* y) { return x->get_id() < y->get_id(); });
+        expr_ref result(args.get(0), m);
+        for (unsigned i = 1; i < args.size(); ++i) {
+            if (args.get(i) != args.get(i - 1))
+                result = expr_ref(re().mk_union(result, args.get(i)), m);
         }
-        args.shrink(j);
-
-        if (args.empty())
-            return expr_ref(re().mk_empty(a->get_sort()), m);
-
-        return mk_union_from_sorted(args);
+        return result;
     }
 
     expr_ref derive::mk_inter(expr* a, expr* b) {
-        // Check op cache
+        // Check path-aware op cache
+        expr* pe = get_path_expr();
         expr* cached = nullptr;
-        if (m_inter_cache.find(a, b, cached))
+        if (m_inter_cache.find(a, b, pe, cached))
             return expr_ref(cached, m);
 
         expr_ref result = mk_inter_core(a, b);
 
         // Store in cache
-        m_inter_cache.insert(a, b, result);
+        m_inter_cache.insert(a, b, pe, result);
         m_trail.push_back(a);
         m_trail.push_back(b);
+        m_trail.push_back(pe);
         m_trail.push_back(result);
         return result;
     }
 
     expr_ref derive::mk_inter_core(expr* a, expr* b) {
+        // Canonical order: smaller id first
+        if (a->get_id() > b->get_id())
+            std::swap(a, b);
+
         // Identity / annihilator
         if (a == b) return expr_ref(a, m);
         if (re().is_empty(a)) return expr_ref(a, m);
@@ -918,127 +826,34 @@ namespace seq {
         if (re().is_complement(b, c) && c == a)
             return expr_ref(re().mk_empty(a->get_sort()), m);
 
-        // Subsumption: a ∩ b = a if a ⊆ b, a ∩ b = b if b ⊆ a
-        if (is_subset(a, b)) return expr_ref(a, m);
-        if (is_subset(b, a)) return expr_ref(b, m);
-
-        // Prefix factoring: a·x ∩ a·y = a·(x ∩ y)
-        expr *a1, *b1, *a2, *b2;
-        if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && a1 == b1) {
-            expr_ref tail = mk_inter(a2, b2);
-            return mk_deriv_concat(expr_ref(a1, m), tail);
-        }
-
-        // ITE handling for intersection
+        // ITE handling with path pruning
         expr *c1, *t1, *e1, *c2, *t2, *e2;
+        auto inter_op = [&](expr* x, expr* y) { return mk_inter(x, y); };
 
-        // Same condition merge
-        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1 == c2) {
-            expr_ref then_br = mk_inter(t1, t2);
-            expr_ref else_br = mk_inter(e1, e2);
-            return mk_ite(c1, then_br, else_br);
-        }
-
-        // Both-ITE with pred_implies: exploit condition relationships (no depth cost)
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
-            // Order conditions: larger id on outside
-            if (c1->get_id() < c2->get_id()) {
-                std::swap(a, b);
-                std::swap(c1, c2);
-                std::swap(t1, t2);
-                std::swap(e1, e2);
+            expr_ref r(m);
+            if (c1 == c2)
+                r = apply_ite(c1, t1, e1, t2, e2, inter_op);
+            else
+                r = apply_ite(c1, t1, e1, b, inter_op);
+            if (r) return r;
+            return expr_ref(re().mk_empty(a->get_sort()), m);
+        }
+        if (m_path_stack.size() < 8) {
+            if (m.is_ite(a, c1, t1, e1)) {
+                expr_ref r = apply_ite(c1, t1, e1, b, inter_op);
+                if (r) return r;
+                return expr_ref(re().mk_empty(a->get_sort()), m);
             }
-            expr_ref r1(m), r2(m);
-            bool have_r1 = false, have_r2 = false;
-            // Under c1: what do we know about c2?
-            if (pred_implies(c1, c2)) {
-                r1 = mk_inter(t1, t2); have_r1 = true;
-            } else if (pred_implies(c1, m.mk_not(c2))) {
-                r1 = mk_inter(t1, e2); have_r1 = true;
-            }
-            // Under ~c1: what do we know about c2?
-            expr_ref notc1(m.mk_not(c1), m);
-            if (pred_implies(notc1, c2)) {
-                r2 = mk_inter(e1, t2); have_r2 = true;
-            } else if (pred_implies(notc1, m.mk_not(c2))) {
-                r2 = mk_inter(e1, e2); have_r2 = true;
-            }
-            if (have_r1 || have_r2) {
-                if (!have_r1) r1 = mk_inter(t1, b);
-                if (!have_r2) r2 = mk_inter(e1, b);
-                return mk_ite(c1, r1, r2);
+            if (m.is_ite(b, c2, t2, e2)) {
+                expr_ref r = apply_ite(c2, t2, e2, a, inter_op);
+                if (r) return r;
+                return expr_ref(re().mk_empty(a->get_sort()), m);
             }
         }
 
-        // ITE hoisting with depth bound (fallback when pred_implies doesn't fire)
-        // Character conditions (recognizable ranges) get a larger depth allowance
-        // since they form bounded BDD minterms for small alphabets.
-        if (m.is_ite(a, c1, t1, e1)) {
-            bool char_cond = is_char_cond(c1);
-            unsigned max_depth = char_cond ? 8 : m_max_inter_hoist_depth;
-            if (m_inter_hoist_depth < max_depth) {
-                m_inter_hoist_depth++;
-                expr_ref then_br = mk_inter(t1, b);
-                expr_ref else_br = mk_inter(e1, b);
-                m_inter_hoist_depth--;
-                return mk_ite(c1, then_br, else_br);
-            }
-        }
-        if (m.is_ite(b, c2, t2, e2)) {
-            bool char_cond = is_char_cond(c2);
-            unsigned max_depth = char_cond ? 8 : m_max_inter_hoist_depth;
-            if (m_inter_hoist_depth < max_depth) {
-                m_inter_hoist_depth++;
-                expr_ref then_br = mk_inter(a, t2);
-                expr_ref else_br = mk_inter(a, e2);
-                m_inter_hoist_depth--;
-                return mk_ite(c2, then_br, else_br);
-            }
-        }
-
-        // ACI: flatten, sort, deduplicate
-        expr_ref_vector args(m);
-        flatten_inter(a, args);
-        flatten_inter(b, args);
-
-        std::stable_sort(args.data(), args.data() + args.size(),
-            [](expr* x, expr* y) { return x->get_id() < y->get_id(); });
-
-        unsigned j = 0;
-        for (unsigned i = 0; i < args.size(); ++i) {
-            if (j > 0 && args.get(i) == args.get(j - 1))
-                continue;
-            if (re().is_full_seq(args.get(i)))
-                continue; // skip universal
-            if (re().is_empty(args.get(i)))
-                return expr_ref(args.get(i), m); // empty absorbs
-            args.set(j++, args.get(i));
-        }
-        args.shrink(j);
-
-        if (args.empty())
-            return expr_ref(re().mk_full_seq(a->get_sort()), m);
-
-        // Special: r* ∩ .+ = r+
-        expr* star_body = nullptr;
-        int star_idx = -1, dotplus_idx = -1;
-        for (unsigned i = 0; i < args.size(); ++i) {
-            if (re().is_star(args.get(i), star_body))
-                star_idx = i;
-            if (re().is_dot_plus(args.get(i)))
-                dotplus_idx = i;
-        }
-        if (star_idx >= 0 && dotplus_idx >= 0 && star_body) {
-            args.set(star_idx, re().mk_plus(star_body));
-            // Remove .+ by shifting
-            for (unsigned i = dotplus_idx; i + 1 < args.size(); ++i)
-                args.set(i, args.get(i + 1));
-            args.shrink(args.size() - 1);
-            if (args.size() == 1)
-                return expr_ref(args.get(0), m);
-        }
-
-        return mk_inter_from_sorted(args);
+        // Base case: build raw intersection
+        return expr_ref(re().mk_inter(a, b), m);
     }
 
     expr_ref derive::mk_concat(expr* a, expr* b) {
@@ -1067,16 +882,18 @@ namespace seq {
     }
 
     expr_ref derive::mk_complement(expr* a) {
-        // Check op cache
+        // Check path-aware op cache
+        expr* pe = get_path_expr();
         expr* cached = nullptr;
-        if (m_complement_cache.find(a, cached))
+        if (m_complement_cache.find(a, pe, cached))
             return expr_ref(cached, m);
 
         expr_ref result = mk_complement_core(a);
 
         // Store in cache
-        m_complement_cache.insert(a, result);
+        m_complement_cache.insert(a, pe, result);
         m_trail.push_back(a);
+        m_trail.push_back(pe);
         m_trail.push_back(result);
         return result;
     }
@@ -1093,17 +910,13 @@ namespace seq {
         if (re().is_full_seq(a))
             return expr_ref(re().mk_empty(a->get_sort()), m);
 
-        // Push through ITE: ~(ite(c, t, e)) → ite(c, ~t, ~e)
-        // Only distribute if t or e is empty, full, or a complement
-        // (avoids exponential blowup on complex ITE trees)
+        // Push through ITE with path pruning: ~(ite(c, t, e)) → ite(c, ~t, ~e)
         expr* c, * t, * e;
         if (m.is_ite(a, c, t, e)) {
-            if (re().is_empty(t) || re().is_full_seq(t) || re().is_complement(t) ||
-                re().is_empty(e) || re().is_full_seq(e) || re().is_complement(e)) {
-                expr_ref ct = mk_complement(t);
-                expr_ref ce = mk_complement(e);
-                return mk_ite(c, ct, ce);
-            }
+            auto comp_op = [&](expr* x) { return mk_complement(x); };
+            expr_ref r = apply_ite(c, t, e, comp_op);
+            if (r) return r;
+            return expr_ref(re().mk_full_seq(a->get_sort()), m);
         }
 
         // ~ε → .+
@@ -1122,86 +935,11 @@ namespace seq {
             return expr_ref(t, m);
         if (m.is_false(c))
             return expr_ref(e, m);
-        lbool cond_val = eval_cond(c);
+        // Use path-aware condition evaluation
+        lbool cond_val = eval_path_cond(c);
         if (cond_val == l_true) return expr_ref(t, m);
         if (cond_val == l_false) return expr_ref(e, m);
         return expr_ref(m.mk_ite(c, t, e), m);
-    }
-
-    // -------------------------------------------------------
-    // ACI normalization helpers
-    // -------------------------------------------------------
-
-    void derive::flatten_union(expr* r, expr_ref_vector& args) {
-        expr* a = nullptr, * b = nullptr;
-        if (re().is_union(r, a, b)) {
-            flatten_union(a, args);
-            flatten_union(b, args);
-        }
-        else {
-            args.push_back(r);
-        }
-    }
-
-    void derive::flatten_inter(expr* r, expr_ref_vector& args) {
-        expr* a = nullptr, * b = nullptr;
-        if (re().is_intersection(r, a, b)) {
-            flatten_inter(a, args);
-            flatten_inter(b, args);
-        }
-        else {
-            args.push_back(r);
-        }
-    }
-
-    expr_ref derive::mk_union_from_sorted(expr_ref_vector& args) {
-        if (args.empty()) {
-            UNREACHABLE();
-            return expr_ref(m.mk_true(), m);
-        }
-        // Remove subsumed elements: if a ⊆ b, drop a from union
-        for (unsigned i = 0; i < args.size(); ++i) {
-            for (unsigned j = 0; j < args.size(); ++j) {
-                if (i != j && args.get(i) && args.get(j) && is_subset(args.get(i), args.get(j))) {
-                    args[i] = args.back();
-                    args.pop_back();
-                    --i;
-                    break;
-                }
-            }
-        }
-        if (args.size() == 1)
-            return expr_ref(args.get(0), m);
-        // Build right-associated union
-        expr_ref result(args.back(), m);
-        for (unsigned i = args.size() - 1; i-- > 0; )
-            result = expr_ref(re().mk_union(args.get(i), result), m);
-        return result;
-    }
-
-    expr_ref derive::mk_inter_from_sorted(expr_ref_vector& args) {
-        if (args.empty()) {
-            UNREACHABLE();
-            return expr_ref(m.mk_true(), m);
-        }
-        // Remove subsuming elements: if a ⊆ b, drop b from intersection
-        for (unsigned i = 0; i < args.size(); ++i) {
-            for (unsigned j = 0; j < args.size(); ++j) {
-                if (i != j && args.get(i) && args.get(j) && is_subset(args.get(i), args.get(j))) {
-                    args[j] = args.back();
-                    args.pop_back();
-                    if (j < i) --i;
-                    --j;
-                }
-            }
-        }
-        if (args.size() == 1)
-            return expr_ref(args.get(0), m);
-        // Build right-associated intersection
-        expr_ref result(args.back(), m);
-        for (unsigned i = args.size() - 1; i-- > 0; )
-            result = expr_ref(re().mk_inter(args.get(i), result), m);
-        return result;
     }
 
     // -------------------------------------------------------
@@ -1249,7 +987,239 @@ namespace seq {
     }
 
     // -------------------------------------------------------
-    // Post-processing: simplify ITE conditions w.r.t. m_ele
+    // Path management for inline pruning
+    // -------------------------------------------------------
+
+    lbool derive::push(expr* c, bool sign) {
+        // Check if (c, sign) is already determined by the path
+        lbool cv = eval_path_cond(c);
+        if (cv == l_true && !sign) return l_true;   // c implied true, push(c,false) is redundant
+        if (cv == l_false && sign) return l_true;   // c implied false, push(c,true) is redundant  
+        if (cv == l_true && sign) return l_false;   // c implied true, push(c,true) contradicts
+        if (cv == l_false && !sign) return l_false; // c implied false, push(c,false) contradicts
+
+        // Save current state
+        unsigned saved_path_sz = m_path.size();
+        intervals_t saved_intervals(m_intervals);
+        expr* saved_path_expr = m_path_expr;
+
+        // Push atoms onto path and check for contradiction or implication
+        lbool atoms_result = push_path_atoms(c, sign);
+        if (atoms_result == l_false) {
+            m_path.shrink(saved_path_sz);
+            m_intervals = saved_intervals;
+            return l_false;
+        }
+
+        // Update intervals
+        lbool intervals_result = push_intervals_impl(c, sign);
+        if (intervals_result == l_false) {
+            m_path.shrink(saved_path_sz);
+            m_intervals = saved_intervals;
+            return l_false;
+        }
+
+        // If both determined the atom is implied, no need to actually push
+        if (atoms_result == l_true && intervals_result == l_true) {
+            m_path.shrink(saved_path_sz);
+            m_intervals = saved_intervals;
+            return l_true;
+        }
+
+        // Update path expression
+        expr* atom = sign ? m.mk_not(c) : c;
+        m_path_expr = m.mk_and(m_path_expr, atom);
+        m_trail.push_back(m_path_expr);
+
+        // Commit: save state for pop()
+        m_path_stack.push_back({ saved_path_sz, std::move(saved_intervals), saved_path_expr });
+        return l_undef;
+    }
+
+    void derive::pop() {
+        SASSERT(!m_path_stack.empty());
+        auto const& saved = m_path_stack.back();
+        m_path.shrink(saved.path_sz);
+        m_intervals = saved.intervals;
+        m_path_expr = saved.path_expr;
+        m_path_stack.pop_back();
+    }
+
+    // Binary apply_ite: hoist ite(c, t, e) op r with path pruning
+    expr_ref derive::apply_ite(expr* c, expr* t, expr* e, expr* r, std::function<expr_ref(expr*, expr*)> apply_op) {
+        expr_ref then_br(m), else_br(m);
+        switch (push(c, false)) {
+        case l_true:  return apply_op(t, r);
+        case l_undef: then_br = apply_op(t, r); pop(); break;
+        case l_false: break;
+        }
+        switch (push(c, true)) {
+        case l_true:  return apply_op(e, r);
+        case l_undef: else_br = apply_op(e, r); pop(); break;
+        case l_false: break;
+        }
+        if (then_br && else_br) return mk_ite(c, then_br, else_br);
+        if (then_br) return then_br;
+        if (else_br) return else_br;
+        return expr_ref(nullptr, m);
+    }
+
+    // Same-condition merge: ite(c, t1, e1) op ite(c, t2, e2) → ite(c, t1 op t2, e1 op e2)
+    expr_ref derive::apply_ite(expr* c, expr* t1, expr* e1, expr* t2, expr* e2, std::function<expr_ref(expr*, expr*)> apply_op) {
+        expr_ref then_br(m), else_br(m);
+        switch (push(c, false)) {
+        case l_true:  return apply_op(t1, t2);
+        case l_undef: then_br = apply_op(t1, t2); pop(); break;
+        case l_false: break;
+        }
+        switch (push(c, true)) {
+        case l_true:  return apply_op(e1, e2);
+        case l_undef: else_br = apply_op(e1, e2); pop(); break;
+        case l_false: break;
+        }
+        if (then_br && else_br) return mk_ite(c, then_br, else_br);
+        if (then_br) return then_br;
+        if (else_br) return else_br;
+        return expr_ref(nullptr, m);
+    }
+
+    // Unary apply_ite: hoist ite(c, t, e) through unary op with path pruning
+    expr_ref derive::apply_ite(expr* c, expr* t, expr* e, std::function<expr_ref(expr*)> apply_op) {
+        expr_ref then_br(m), else_br(m);
+        switch (push(c, false)) {
+        case l_true:  return apply_op(t);
+        case l_undef: then_br = apply_op(t); pop(); break;
+        case l_false: break;
+        }
+        switch (push(c, true)) {
+        case l_true:  return apply_op(e);
+        case l_undef: else_br = apply_op(e); pop(); break;
+        case l_false: break;
+        }
+        if (then_br && else_br) return mk_ite(c, then_br, else_br);
+        if (then_br) return then_br;
+        if (else_br) return else_br;
+        return expr_ref(nullptr, m);
+    }
+
+    // Push signed atoms onto m_path. Returns l_true if implied, l_false if contradicted, l_undef if pushed.
+    lbool derive::push_path_atoms(expr* c, bool sign) {
+        // Check if (c, sign) is already determined by the path
+        for (auto const& [cond, csign] : m_path) {
+            if (c == cond)
+                return csign == sign ? l_true : l_false;
+            expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
+            if (!csign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
+                if (m.is_value(lhs1)) std::swap(lhs1, rhs1);
+                if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
+                if (lhs1 == lhs2 && m.are_distinct(rhs1, rhs2))
+                    return sign ? l_true : l_false;
+            }
+        }
+
+        // Composite: conjunction assumed true, or disjunction assumed false
+        if (!sign && m.is_and(c)) {
+            bool all_implied = true;
+            for (expr* arg : *to_app(c)) {
+                lbool r = push_path_atoms(arg, false);
+                if (r == l_false) return l_false;
+                if (r == l_undef) all_implied = false;
+            }
+            return all_implied ? l_true : l_undef;
+        }
+        if (sign && m.is_or(c)) {
+            bool all_implied = true;
+            for (expr* arg : *to_app(c)) {
+                lbool r = push_path_atoms(arg, true);
+                if (r == l_false) return l_false;
+                if (r == l_undef) all_implied = false;
+            }
+            return all_implied ? l_true : l_undef;
+        }
+
+        // Atomic: push onto path
+        m_path.push_back({ c, sign });
+        return l_undef;
+    }
+
+    // Update m_intervals based on the condition. Returns l_true if implied, l_false if inconsistent, l_undef if pushed.
+    lbool derive::push_intervals_impl(expr* c, bool sign) {
+        unsigned lo = 0, hi = 0;
+        bool negated = false;
+        if (m_util.is_char_const_range(m_ele, c, lo, hi, negated)) {
+            bool effective_neg = (negated != sign);
+            if (!effective_neg) {
+                if (lo <= hi) {
+                    // Check if current intervals already imply [lo,hi]
+                    bool already_subset = true;
+                    for (auto const& [ilo, ihi] : m_intervals) {
+                        if (ilo < lo || ihi > hi) { already_subset = false; break; }
+                    }
+                    if (already_subset) return l_true;
+                    intersect_intervals(lo, hi, m_intervals);
+                } else {
+                    m_intervals.reset();
+                }
+            } else {
+                if (lo <= hi) {
+                    // Check if current intervals already exclude [lo,hi]
+                    bool already_excluded = true;
+                    for (auto const& [ilo, ihi] : m_intervals) {
+                        if (ilo <= hi && ihi >= lo) { already_excluded = false; break; }
+                    }
+                    if (already_excluded) return l_true;
+                    exclude_interval(lo, hi, m_intervals, u().max_char());
+                }
+            }
+        } else if (!sign && m.is_and(c)) {
+            bool all_implied = true;
+            for (expr* arg : *to_app(c)) {
+                lbool r = push_intervals_impl(arg, false);
+                if (r == l_false) return l_false;
+                if (r == l_undef) all_implied = false;
+            }
+            return all_implied ? l_true : (m_intervals.empty() ? l_false : l_undef);
+        } else if (sign && m.is_or(c)) {
+            bool all_implied = true;
+            for (expr* arg : *to_app(c)) {
+                lbool r = push_intervals_impl(arg, true);
+                if (r == l_false) return l_false;
+                if (r == l_undef) all_implied = false;
+            }
+            return all_implied ? l_true : (m_intervals.empty() ? l_false : l_undef);
+        }
+        return m_intervals.empty() ? l_false : l_undef;
+    }
+
+    // Evaluate a condition against the current path and intervals.
+    lbool derive::eval_path_cond(expr* c) {
+        // First try static evaluation (concrete m_ele, tautologies)
+        lbool v = eval_cond(c);
+        if (v != l_undef) return v;
+
+        // Check against path atoms
+        for (auto const& [cond, sign] : m_path) {
+            if (c == cond)
+                return sign ? l_false : l_true;
+        }
+
+        // Check against intervals
+        v = eval_range_cond(m_intervals, c);
+        if (v != l_undef) return v;
+
+        // Check pred_implies from path atoms
+        for (auto const& [cond, sign] : m_path) {
+            if (pred_implies(sign, cond, false, c))
+                return l_true;
+            if (pred_implies(sign, cond, true, c))
+                return l_false;
+        }
+
+        return l_undef;
+    }
+
+    // -------------------------------------------------------
+    // Condition evaluation helpers
     // -------------------------------------------------------
 
     lbool derive::eval_cond(expr* cond) {
@@ -1310,84 +1280,31 @@ namespace seq {
         return l_undef;
     }
 
-    // Evaluate a single atomic condition (char_le or equality) against path constraints.
-    // Returns l_true if path implies (c, !sign), l_false if path contradicts (c, !sign), l_undef otherwise.
-
-    lbool derive::push_path(path_t& path, expr* c, bool sign) {
-        // Check if (c, sign) is already determined by the path
-        for (auto const& [cond, csign] : path) {
-            if (c == cond)
-                return csign == sign ? l_true : l_false;
-
-            expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
-            if (!csign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
-                if (m.is_value(lhs1)) std::swap(lhs1, rhs1);
-                if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
-                if (lhs1 == lhs2 && m.are_distinct(rhs1, rhs2))
-                    return sign ? l_true : l_false;
-            }
-        }
-
-        // Composite case: conjunction (sign=false) or disjunction (sign=true)
-        if (!sign && m.is_and(c)) {
-            auto sz = path.size();
-            lbool r = l_true;
-            for (expr* arg : *to_app(c)) {
-                lbool v = push_path(path, arg, false);
-                if (v == l_false) { path.shrink(sz); return l_false; }
-                if (v == l_undef) r = l_undef;
-            }
-            if (r == l_true) path.shrink(sz);
-            return r;
-        }
-        if (sign && m.is_or(c)) {
-            auto sz = path.size();
-            lbool r = l_true;
-            for (expr* arg : *to_app(c)) {
-                lbool v = push_path(path, arg, true);
-                if (v == l_false) { path.shrink(sz); return l_false; }
-                if (v == l_undef) r = l_undef;
-            }
-            if (r == l_true) path.shrink(sz);
-            return r;
-        }
-
-        // Atomic case: not determined, push onto path
-        path.push_back({ c, sign });
-        return l_undef;
-    }
-
-    lbool derive::push_intervals(intervals_t& intervals, expr* c, bool sign) {
-        // First check if the condition is already determined by current intervals
-        lbool range_val = eval_range_cond(intervals, c);
-        if (range_val != l_undef)
-            return sign ? ~range_val : range_val;
-
-        // Not determined — modify intervals
+    lbool derive::eval_range_cond(intervals_t const& intervals, expr* c) {
+        if (intervals.empty())
+            return l_false;
         unsigned lo = 0, hi = 0;
         bool negated = false;
-        if (m_util.is_char_const_range(m_ele, c, lo, hi, negated)) {
-            bool effective_neg = (negated != sign);
-            if (!effective_neg) {
-                if (lo > hi)
-                    return l_false;
-                intersect_intervals(lo, hi, intervals);
-            } else {
-                if (lo <= hi)
-                    exclude_interval(lo, hi, intervals, u().max_char());
-            }
-        } else if (!sign && m.is_and(c)) {
-            auto saved = intervals;
-            for (expr* arg : *to_app(c)) {
-                lbool v = push_intervals(intervals, arg, false);
-                if (v == l_false) { intervals = saved; return l_false; }
-            }
-        } else if (sign && m.is_or(c)) {
-            auto saved = intervals;
-            for (expr* arg : *to_app(c)) {
-                lbool v = push_intervals(intervals, arg, true);
-                if (v == l_false) { intervals = saved; return l_false; }
-            }
+        if (!m_util.is_char_const_range(m_ele, c, lo, hi, negated))
+            return l_undef;
+        if (lo > hi) {
+            return negated ? l_true : l_false;
+        }
+        // Check if [lo, hi] overlaps with intervals and/or contains all intervals
+        bool any_overlap = false;
+        bool all_contained = true;
+        for (auto const& [r_lo, r_hi] : intervals) {
+            if (std::max(r_lo, lo) <= std::min(r_hi, hi))
+                any_overlap = true;
+            if (r_lo < lo || r_hi > hi)
+                all_contained = false;
+        }
+        if (!negated) {
+            if (!any_overlap) return l_false;
+            if (all_contained) return l_true;
+        } else {
+            if (all_contained) return l_false;
+            if (!any_overlap) return l_true;
         }
         return l_undef;
     }
@@ -1412,122 +1329,6 @@ namespace seq {
         intersect_intervals(0, lo - 1, ranges);
         intersect_intervals(hi + 1, max_char, right);
         ranges.append(right);
-    }
-
-    lbool derive::eval_range_cond(intervals_t const& intervals, expr* c) {
-        if (intervals.empty())
-            return l_false;
-        unsigned lo = 0, hi = 0;
-        bool negated = false;
-        if (!m_util.is_char_const_range(m_ele, c, lo, hi, negated))
-            return l_undef;
-        if (lo > hi) {
-            // c asserts x in empty range or c asserts x NOT in empty range
-            return negated ? l_true : l_false;
-        }
-        // Check if [lo, hi] overlaps with intervals and/or contains all intervals
-        bool any_overlap = false;
-        bool all_contained = true; // all intervals ⊆ [lo, hi]
-        for (auto const& [r_lo, r_hi] : intervals) {
-            if (std::max(r_lo, lo) <= std::min(r_hi, hi))
-                any_overlap = true;
-            if (r_lo < lo || r_hi > hi)
-                all_contained = false;
-        }
-        if (!negated) {
-            // c asserts x ∈ [lo, hi]
-            if (!any_overlap) return l_false;
-            if (all_contained) return l_true;
-        } else {
-            // c asserts x ∉ [lo, hi]
-            if (all_contained) return l_false; // all values are in [lo,hi], so ¬(x∈[lo,hi]) is false
-            if (!any_overlap) return l_true;   // no values are in [lo,hi], so ¬(x∈[lo,hi]) is true
-        }
-        return l_undef;
-    }
-
-    std::pair<expr_ref, expr_ref> derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e, unsigned depth) {
-        auto sz = path.size();
-        auto saved_intervals = intervals;
-
-        // Push c with sign=false (then-branch: c is true)
-        lbool path_val = push_path(path, c, false);
-        if (path_val != l_undef) {
-            path.shrink(sz);
-            expr_ref r = simplify_ite_rec(path, intervals, path_val == l_true ? t : e, depth);
-            return { r, r };
-        }
-
-        lbool intv_val = push_intervals(intervals, c, false);
-        if (intv_val != l_undef) {
-            path.shrink(sz);
-            intervals = saved_intervals;
-            expr_ref r = simplify_ite_rec(path, intervals, intv_val == l_true ? t : e, depth);
-            return { r, r };
-        }
-
-        // Then-branch increases depth
-        expr_ref st = simplify_ite_rec(path, intervals, t, depth + 1);
-        path.shrink(sz);
-        intervals = saved_intervals;
-
-        // Push c with sign=true (else-branch: c is false)
-        path_val = push_path(path, c, true);
-        if (path_val != l_undef) {
-            path.shrink(sz);
-            expr_ref r = simplify_ite_rec(path, intervals, path_val == l_true ? e : t, depth);
-            return { r, r };
-        }
-
-        intv_val = push_intervals(intervals, c, true);
-        if (intv_val != l_undef) {
-            path.shrink(sz);
-            intervals = saved_intervals;
-            expr_ref r = simplify_ite_rec(path, intervals, intv_val == l_true ? e : t, depth);
-            return { r, r };
-        }
-
-        // Else-branch does NOT increase depth (covers disjoint cases)
-        expr_ref se = simplify_ite_rec(path, intervals, e, depth);
-        path.shrink(sz);
-        intervals = saved_intervals;
-        return { st, se };
-    }
-
-    expr_ref derive::simplify_ite(expr* d) {
-        expr* c, * t, * e;
-        if (!m.is_ite(d, c, t, e))
-            return expr_ref(d, m);
-
-        lbool cond_val = eval_cond(c);
-        if (cond_val == l_true) return simplify_ite(t);
-        if (cond_val == l_false) return simplify_ite(e);
-
-        path_t path;
-        intervals_t intervals;
-        intervals.push_back(std::make_pair(0u, u().max_char()));
-        auto [st, se] = simplify_ite_rec(path, intervals, c, t, e, 0);
-        return mk_ite(c, st, se);
-    }
-
-    expr_ref derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d, unsigned depth) {
-        expr* c, * t, * e;
-        if (!m.is_ite(d, c, t, e))
-            return expr_ref(d, m);
-
-        // Depth limit reached — return without further simplification
-        if (depth >= m_max_simp_depth)
-            return expr_ref(d, m);
-
-        // Try to evaluate c directly (handles trivially true/false conditions)
-        lbool cond_val = eval_cond(c);
-        if (cond_val == l_true) return simplify_ite_rec(path, intervals, t, depth);
-        if (cond_val == l_false) return simplify_ite_rec(path, intervals, e, depth);
-
-        // Cannot simplify c: recurse into branches with extended paths
-        // push_path and push_intervals will check subsumption/contradiction
-        auto [st, se] = simplify_ite_rec(path, intervals, c, t, e, depth);
-        return mk_ite(c, st, se);
     }
 
 }
