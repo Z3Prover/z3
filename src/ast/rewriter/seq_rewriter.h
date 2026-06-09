@@ -23,6 +23,7 @@ Notes:
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/seq_subset.h"
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/sign.h"
@@ -128,6 +129,7 @@ class seq_rewriter {
     };
 
     seq_util       m_util;
+    seq_subset     m_subset;
     arith_util     m_autil;
     bool_rewriter  m_br;
     // re2automaton   m_re2aut;
@@ -340,7 +342,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_br(m, p), // m_re2aut(m), 
+        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), // m_re2aut(m), 
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
@@ -424,4 +426,3 @@ public:
     */
     lbool some_string_in_re(expr* r, zstring& s);
 };
-
