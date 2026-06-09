@@ -462,7 +462,7 @@ public:
             info(bool is_interpreted,
                 lbool is_nullable,
                 unsigned min_l,
-                bool is_classical = true) :
+                bool is_classical) :
                 known(l_true), 
                 interpreted(is_interpreted),
                 nullable(is_nullable),

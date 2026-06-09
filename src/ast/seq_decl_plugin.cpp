@@ -1655,7 +1655,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
         case OP_RE_EMPTY_SET:
             return info(true, l_false, UINT_MAX, false);
         case OP_RE_FULL_SEQ_SET:
-            return info(true, l_true, 0);
+            return info(true, l_true, 0, true);
         case OP_RE_STAR:
             i1 = get_info_rec(e->get_arg(0));
             return i1.star();
@@ -1667,7 +1667,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
         case OP_RE_OF_PRED:
             //TBD: check if the character predicate contains uninterpreted symbols or is nonground or is unsat
             //TBD: check if the range is unsat
-            return info(true, l_false, 1);
+            return info(true, l_false, 1, true);
         case OP_RE_CONCAT:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
@@ -1684,7 +1684,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             min_length = u.str.min_length(e->get_arg(0));
             is_value = m.is_value(e->get_arg(0));
             nullable = (is_value && min_length == 0 ? l_true : (min_length > 0 ? l_false : l_undef));
-            return info(is_value, nullable, min_length);
+            return info(is_value, nullable, min_length, true);
         case OP_RE_REVERSE:
             return get_info_rec(e->get_arg(0));
         case OP_RE_PLUS:
