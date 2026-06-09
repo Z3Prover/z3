@@ -3713,7 +3713,11 @@ namespace seq {
                 return false;
             for (unsigned i = 1; i < n && !current.empty(); ++i) {
                 sigma_pairs arg_i;
-                compute_sigma(m, seq, rw, r->arg(i), arg_i, threshold);
+                // A give-up on any conjunct must propagate as a give-up: silently
+                // treating arg_i as the empty split-set would collapse the whole
+                // intersection to ∅ and be misreported as an (unsound) conflict.
+                if (!compute_sigma(m, seq, rw, r->arg(i), arg_i, threshold))
+                    return false;
                 sigma_pairs tmp;
                 if (!intersect_sigma_pairs(m, seq, current, arg_i, tmp, threshold))
                     return false;
