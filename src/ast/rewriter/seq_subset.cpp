@@ -17,94 +17,58 @@ Author:
 
 #include "ast/rewriter/seq_subset.h"
 
-void seq_subset::flatten_concat(expr* r, ptr_vector<expr>& out) const {
-    expr* r1 = nullptr, * r2 = nullptr;
-    if (m_re.is_concat(r, r1, r2)) {
-        flatten_concat(r1, out);
-        flatten_concat(r2, out);
-    }
-    else {
-        out.push_back(r);
-    }
-}
-
-expr* seq_subset::mk_concat(ptr_vector<expr> const& es, unsigned lo, unsigned hi, sort* re_sort) const {
-    SASSERT(lo <= hi);
-    if (lo == hi)
-        return m_re.mk_epsilon(m_re.to_seq(re_sort));
-    expr* r = es[lo];
-    for (unsigned i = lo + 1; i < hi; ++i)
-        r = m_re.mk_concat(r, es[i]);
-    return r;
-}
-
 bool seq_subset::has_suffix(expr* r, expr* suffix) const {
-    ptr_vector<expr> rs, ss;
-    flatten_concat(r, rs);
-    flatten_concat(suffix, ss);
-    if (ss.size() > rs.size())
-        return false;
-    for (unsigned i = 0; i < ss.size(); ++i) {
-        if (ss[ss.size() - 1 - i] != rs[rs.size() - 1 - i])
-            return false;
-    }
-    return true;
+    if (r == suffix)
+        return true;
+    expr* r1 = nullptr, * r2 = nullptr;
+    return m_re.is_concat(r, r1, r2) && has_suffix(r2, suffix);
 }
 
-bool seq_subset::is_subset_slices(
-    ptr_vector<expr> const& as, unsigned alo, unsigned ahi,
-    ptr_vector<expr> const& bs, unsigned blo, unsigned bhi,
-    cache& visited) const {
-    SASSERT(alo <= ahi && blo <= bhi);
-    if (alo == ahi && blo == bhi)
-        return true;
-    sort* re_sort = alo < ahi ? as[alo]->get_sort() : bs[blo]->get_sort();
-    expr* a = mk_concat(as, alo, ahi, re_sort);
-    expr* b = mk_concat(bs, blo, bhi, re_sort);
-    return is_subset_rec(a, b, visited);
-}
-
-bool seq_subset::check_common_suffix(expr* a, expr* b, cache& visited) const {
-    ptr_vector<expr> as, bs;
-    flatten_concat(a, as);
-    flatten_concat(b, bs);
-
-    unsigned i = as.size(), j = bs.size();
-    while (i > 0 && j > 0 && as[i - 1] == bs[j - 1]) {
-        --i;
-        --j;
-    }
-    unsigned common = as.size() - i;
-    if (common == 0)
+bool seq_subset::strip_common_suffix(expr* a, expr* b, expr*& aprefix, expr*& bprefix) const {
+    expr* a1 = nullptr, * a2 = nullptr, * b1 = nullptr, * b2 = nullptr;
+    if (!m_re.is_concat(a, a1, a2) || !m_re.is_concat(b, b1, b2))
         return false;
 
-    // E1: A·R ⊆ B·R if A ⊆ B (for nested concatenations by stripping common suffix R).
-    if (is_subset_slices(as, 0, i, bs, 0, j, visited))
+    expr* atail = nullptr, * btail = nullptr;
+    if (strip_common_suffix(a2, b2, atail, btail)) {
+        aprefix = m_re.mk_concat(a1, atail);
+        bprefix = m_re.mk_concat(b1, btail);
         return true;
+    }
 
-    // E4: A·R ⊆ B*·R if A ⊆ B.
-    expr* bbase = nullptr;
-    if (j == 1 && m_re.is_star(bs[0], bbase)) {
-        expr* aprefix = mk_concat(as, 0, i, a->get_sort());
-        return is_subset_rec(aprefix, bbase, visited);
+    if (a2 == b2) {
+        aprefix = a1;
+        bprefix = b1;
+        return true;
     }
 
     return false;
 }
 
-bool seq_subset::check_common_prefix(expr* a, expr* b, cache& visited) const {
-    ptr_vector<expr> as, bs;
-    flatten_concat(a, as);
-    flatten_concat(b, bs);
+bool seq_subset::check_common_suffix(expr* a, expr* b, cache& visited) const {
+    expr* aprefix = nullptr, * bprefix = nullptr;
+    if (!strip_common_suffix(a, b, aprefix, bprefix))
+        return false;
 
-    unsigned i = 0;
-    while (i < as.size() && i < bs.size() && as[i] == bs[i])
-        ++i;
-    if (i == 0)
+    // E1: A·R ⊆ B·R if A ⊆ B (for nested concatenations by stripping common suffix R).
+    if (is_subset_rec(aprefix, bprefix, visited))
+        return true;
+
+    // E4: A·R ⊆ B*·R if A ⊆ B.
+    expr* bbase = nullptr;
+    if (m_re.is_star(bprefix, bbase))
+        return is_subset_rec(aprefix, bbase, visited);
+
+    return false;
+}
+
+bool seq_subset::check_common_prefix(expr* a, expr* b, cache& visited) const {
+    expr* a1 = nullptr, * a2 = nullptr, * b1 = nullptr, * b2 = nullptr;
+    if (!(m_re.is_concat(a, a1, a2) && m_re.is_concat(b, b1, b2) && a1 == b1))
         return false;
 
     // E1 dual: R·A ⊆ R·B if A ⊆ B (for nested concatenations by stripping common prefix R).
-    return is_subset_slices(as, i, as.size(), bs, i, bs.size(), visited);
+    return is_subset_rec(a2, b2, visited);
 }
 
 bool seq_subset::is_subset_rec(expr* a, expr* b, cache& visited) const {

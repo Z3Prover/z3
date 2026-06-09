@@ -25,13 +25,8 @@ class seq_subset {
 
     using cache = obj_pair_map<expr, expr, lbool>; // maps (a,b) to computed is_subset(a,b)
 
-    void flatten_concat(expr* r, ptr_vector<expr>& out) const;
-    expr* mk_concat(ptr_vector<expr> const& es, unsigned lo, unsigned hi, sort* re_sort) const;
     bool has_suffix(expr* r, expr* suffix) const;
-    bool is_subset_slices(
-        ptr_vector<expr> const& as, unsigned alo, unsigned ahi,
-        ptr_vector<expr> const& bs, unsigned blo, unsigned bhi,
-        cache& visited) const;
+    bool strip_common_suffix(expr* a, expr* b, expr*& aprefix, expr*& bprefix) const;
     bool check_common_suffix(expr* a, expr* b, cache& visited) const;
     bool check_common_prefix(expr* a, expr* b, cache& visited) const;
     bool is_subset_rec(expr* a, expr* b, cache& visited) const;
