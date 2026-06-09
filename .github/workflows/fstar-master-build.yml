@@ -115,7 +115,7 @@ jobs:
           rm -rf /tmp/gh-aw/agent/smt2-artifact
           mkdir -p /tmp/gh-aw/agent/smt2-artifact
           SMT2_PREVIEW=/tmp/gh-aw/agent/smt2-preview.md
-          : > "$SMT2_PREVIEW"
+          > "$SMT2_PREVIEW"
 
           if [ -d /tmp/gh-aw/agent/FStar ]; then
             mapfile -t SMT2_FILES < <(find /tmp/gh-aw/agent/FStar -type f -name '*.smt2' | sort)
@@ -180,8 +180,9 @@ jobs:
             const smt2PreviewFile = '/tmp/gh-aw/agent/smt2-preview.md';
             const maxPreviewChars = 55000;
             let smt2Preview = readIfExists(smt2PreviewFile) ?? '';
-            if (smt2Preview.length > maxPreviewChars) {
-              smt2Preview = `${smt2Preview.slice(0, maxPreviewChars)}\n\n... (truncated due to discussion size limits)`;
+            const smt2PreviewChars = Array.from(smt2Preview);
+            if (smt2PreviewChars.length > maxPreviewChars) {
+              smt2Preview = `${smt2PreviewChars.slice(0, maxPreviewChars).join('')}\n\n... (truncated due to discussion size limits)`;
             }
             const smt2Section = smt2ArtifactId
               ? [
