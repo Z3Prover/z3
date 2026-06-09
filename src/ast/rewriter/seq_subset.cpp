@@ -26,15 +26,16 @@ bool seq_subset::has_suffix(expr* r, expr* suffix) const {
 
 bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
     while (true) {
-        if (depth >= m_max_depth)
-            return false;
-
+        
         if (a == b)
             return true;
         if (m_re.is_empty(a))
             return true;
         if (m_re.is_full_seq(b))
             return true;
+
+        if (depth >= m_max_depth)
+            return false;        
 
         expr* a1 = nullptr, * a2 = nullptr, * b1 = nullptr, * b2 = nullptr;
         unsigned la, ua, lb, ub;
@@ -44,7 +45,7 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
             return true;
 
         // a ⊆ a*
-        if (m_re.is_star(b, b1) && a == b1)
+        if (m_re.is_star(b, b1) && is_subset_rec(a, b1, depth))
             return true;
 
         // E3: R ⊆ R*
@@ -89,7 +90,7 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
 
         // loop subsumption: r{la,ua} ⊆ r{lb,ub} when lb <= la and ua <= ub
         if (m_re.is_loop(a, a1, la, ua) && m_re.is_loop(b, b1, lb, ub) &&
-            a1 == b1 && lb <= la && ua <= ub)
+            is_subset_rec(a1, b1, depth + 1) && lb <= la && ua <= ub)
             return true;
 
         // complement: ~a ⊆ ~b if b ⊆ a
