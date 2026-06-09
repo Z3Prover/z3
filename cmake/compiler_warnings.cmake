@@ -12,6 +12,7 @@ set(GCC_ONLY_WARNINGS "")
 set(CLANG_ONLY_WARNINGS
   "-Wno-c++98-compat"
   "-Wno-c++98-compat-pedantic"
+  "-Wzero-length-array"
 )
 set(MSVC_WARNINGS "/W3")
 

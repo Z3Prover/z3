@@ -18,13 +18,14 @@ Author:
 #pragma once 
 
 #include "sat/sat_types.h"
+#include "util/trailing_array.h"
 #include "sat/smt/pb_constraint.h"
 
 
 namespace pb {
 
     class card : public constraint {
-        literal        m_lits[0];
+        TRAILING_ARRAY(literal, m_lits);
     public:
         static size_t get_obj_size(unsigned num_lits) { return sat::constraint_base::obj_size(sizeof(card) + num_lits * sizeof(literal)); }
         card(unsigned id, literal lit, literal_vector const& lits, unsigned k);

@@ -20,6 +20,7 @@ Revision History:
 
 
 #include "util/vector.h"
+#include "util/trailing_array.h"
 #include "util/hashtable.h"
 #include "util/buffer.h"
 #include "util/zstring.h"
@@ -642,7 +643,7 @@ class func_decl : public decl {
 
     unsigned         m_arity;
     sort *           m_range;
-    sort *           m_domain[0];
+    TRAILING_ARRAY(sort *, m_domain);
 
     static unsigned get_obj_size(unsigned arity) { return sizeof(func_decl) + arity * sizeof(sort *); }
 
@@ -725,7 +726,7 @@ class app : public expr {
     func_decl *  m_decl;
     unsigned     m_num_args;
     app_flags    m_flags;
-    expr *       m_args[0];
+    TRAILING_ARRAY(expr *, m_args);
 
     static unsigned get_obj_size(unsigned num_args) {
         return sizeof(app) + num_args * sizeof(expr *);
@@ -872,7 +873,7 @@ class quantifier : public expr {
     symbol              m_skid;
     unsigned            m_num_patterns;
     unsigned            m_num_no_patterns;
-    char                m_patterns_decls[0];
+    TRAILING_ARRAY(char, m_patterns_decls);
 
     static unsigned get_obj_size(unsigned num_decls, unsigned num_patterns, unsigned num_no_patterns) {
         return (unsigned)(sizeof(quantifier) + num_decls * (sizeof(sort *) + sizeof(symbol)) + (num_patterns + num_no_patterns) * sizeof(expr*));

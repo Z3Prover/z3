@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
+#include "util/trailing_array.h"
 #include "muz/base/dl_costs.h"
 #include "muz/base/dl_util.h"
 #include "ast/used_vars.h"
@@ -308,7 +309,7 @@ namespace datalog {
 
            The negated flag is never set for interpreted tails.
         */
-        app *   m_tail[0]; 
+        TRAILING_ARRAY(app *, m_tail); 
         
         static unsigned get_obj_size(unsigned n) { return sizeof(rule) + n * sizeof(app *); }
 

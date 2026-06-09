@@ -18,13 +18,14 @@ Author:
 #pragma once 
 
 #include "sat/sat_types.h"
+#include "util/trailing_array.h"
 #include "sat/smt/ba_constraint.h"
 
 
 namespace ba {
 
     class xr : public constraint {
-        literal        m_lits[0];        
+        TRAILING_ARRAY(literal, m_lits);        
     public:
         static size_t get_obj_size(unsigned num_lits) { return sat::constraint_base::obj_size(sizeof(xr) + num_lits * sizeof(literal)); }
         xr(unsigned id, literal_vector const& lits);

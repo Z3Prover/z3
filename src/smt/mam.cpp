@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include <algorithm>
+#include "util/trailing_array.h"
 
 #include "util/pool.h"
 #include "util/trail.h"
@@ -207,7 +208,7 @@ namespace {
 
           The size of the array is m_num_args.
         */
-        enode *         m_joints[0];
+        TRAILING_ARRAY(enode *, m_joints);
     };
 
     struct bind : public instruction {
@@ -223,21 +224,21 @@ namespace {
         approx_set     m_lbl_set;
         unsigned short m_num_args;
         unsigned       m_oreg;
-        unsigned       m_iregs[0];
+        TRAILING_ARRAY(unsigned, m_iregs);
     };
 
     struct yield : public instruction {
         quantifier *      m_qa;
         app *             m_pat;
         unsigned short    m_num_bindings;
-        unsigned          m_bindings[0];
+        TRAILING_ARRAY(unsigned, m_bindings);
     };
 
     struct is_cgr : public instruction {
         unsigned       m_ireg;
         func_decl *    m_label;
         unsigned short m_num_args;
-        unsigned       m_iregs[0];
+        TRAILING_ARRAY(unsigned, m_iregs);
     };
 
     void display_num_args(std::ostream & out, unsigned num_args) {

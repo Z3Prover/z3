@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "math/polynomial/polynomial.h"
+#include "util/trailing_array.h"
 #include "util/vector.h"
 #include "util/chashtable.h"
 #include "util/small_object_allocator.h"
@@ -160,7 +161,7 @@ namespace polynomial {
         unsigned  m_total_degree; //!< total degree of the monomial
         unsigned  m_size;         //!< number of powers
         unsigned  m_hash;
-        power     m_powers[0];
+        TRAILING_ARRAY(power, m_powers);
         friend class tmp_monomial;
 
         void sort() {

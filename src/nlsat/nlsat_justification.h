@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 
 #include "nlsat/nlsat_types.h"
+#include "util/trailing_array.h"
 #include "util/tptr.h"
 
 namespace nlsat {
@@ -38,7 +39,7 @@ namespace nlsat {
     class lazy_justification {
         unsigned m_num_literals;
         unsigned m_num_clauses;
-        char     m_data[0];
+        TRAILING_ARRAY(char, m_data);
         nlsat::clause* const* clauses() const { return (nlsat::clause *const*)(m_data); }
     public:
         static unsigned get_obj_size(unsigned nl, unsigned nc) { return sizeof(lazy_justification) + sizeof(literal)*nl + sizeof(nlsat::clause*)*nc; }

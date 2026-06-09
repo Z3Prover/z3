@@ -16,6 +16,7 @@ Author:
 --*/
 #pragma once
 #include "ast/ast.h"
+#include "util/trailing_array.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "sat/sat_solver.h"
@@ -31,7 +32,7 @@ namespace sat {
 
     class constraint_base {
         extension* m_ex = nullptr;
-        unsigned   m_mem[0];
+        TRAILING_ARRAY(unsigned, m_mem);
         static size_t ext_size() {
             return sizeof(((constraint_base*)nullptr)->m_ex);
         }

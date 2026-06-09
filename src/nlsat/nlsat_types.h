@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "math/polynomial/polynomial.h"
+#include "util/trailing_array.h"
 #include "util/buffer.h"
 #include "sat/sat_types.h"
 #include "util/z3_exception.h"
@@ -99,7 +100,7 @@ namespace nlsat {
     class ineq_atom : public atom {
         friend class solver;
         unsigned     m_size;
-        poly *       m_ps[0];
+        TRAILING_ARRAY(poly *, m_ps);
         ineq_atom(kind k, unsigned sz, poly * const * ps, bool const * is_even, var max_var);
         static unsigned get_obj_size(unsigned sz) { return sizeof(ineq_atom) + sizeof(poly*)*sz; }
     public:
