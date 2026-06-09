@@ -108,11 +108,11 @@ bool seq_subset::check_common_prefix(expr* a, expr* b, cache& visited) const {
 }
 
 bool seq_subset::is_subset_rec(expr* a, expr* b, cache& visited) const {
-    bool cached_result = false;
+    lbool cached_result = l_undef;
     if (visited.find(a, b, cached_result))
-        return cached_result;
-    bool& cache_ref = visited.insert_if_not_there(a, b, cached_result);
-    auto set_result = [&](bool v) -> bool { cache_ref = v; return v; };
+        return cached_result == l_true;
+    lbool& cache_ref = visited.insert_if_not_there(a, b, l_undef);
+    auto set_result = [&](bool v) -> bool { cache_ref = to_lbool(v); return v; };
 
     if (a == b)
         return set_result(true);
