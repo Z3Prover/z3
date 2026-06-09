@@ -238,6 +238,7 @@ def main():
         for fut in as_completed(futures):
             done += 1
             r = fut.result()
+            results.append(r)
             solver_part = "  ".join(f"{name}={r[name]:8s} ({r[f't_{name}']:.1f}s)" for name in SOLVER_NAMES)
             zipt_part = ""
             if zipt_bin:
@@ -315,11 +316,13 @@ def main():
     for r in results:
         status_counts[r["status"]] = status_counts.get(r["status"], 0) + 1
 
-    print(f"\nPROBLEM STATUS  (total {len(results)} files)")
+    total = len(results)
+    pct = lambda n: (100 * n / total) if total else 0.0
+    print(f"\nPROBLEM STATUS  (total {total} files)")
     print(f"{'─'*40}")
-    print(f"  {'sat':12s}: {status_counts['sat']:5d}  ({100*status_counts['sat']/len(results):.1f}%)")
-    print(f"  {'unsat':12s}: {status_counts['unsat']:5d}  ({100*status_counts['unsat']/len(results):.1f}%)")
-    print(f"  {'unknown':12s}: {status_counts['unknown']:5d}  ({100*status_counts['unknown']/len(results):.1f}%)")
+    print(f"  {'sat':12s}: {status_counts['sat']:5d}  ({pct(status_counts['sat']):.1f}%)")
+    print(f"  {'unsat':12s}: {status_counts['unsat']:5d}  ({pct(status_counts['unsat']):.1f}%)")
+    print(f"  {'unknown':12s}: {status_counts['unknown']:5d}  ({pct(status_counts['unknown']):.1f}%)")
     print(f"{'='*70}\n")
 
     # ── Optional CSV output ───────────────────────────────────────────────────
