@@ -1667,7 +1667,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
         case OP_RE_OF_PRED:
             //TBD: check if the character predicate contains uninterpreted symbols or is nonground or is unsat
             //TBD: check if the range is unsat
-            return info(true, l_false, 1, true);
+            return info(true, l_false, 1, false);
         case OP_RE_CONCAT:
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
