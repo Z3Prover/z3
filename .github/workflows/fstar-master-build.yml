@@ -107,12 +107,60 @@ jobs:
           test -x /tmp/gh-aw/agent/FStar/out/bin/fstar.exe || { echo "Error: FStar binary not found or not executable at /tmp/gh-aw/agent/FStar/out/bin/fstar.exe"; exit 1; }
           /tmp/gh-aw/agent/FStar/out/bin/fstar.exe --version | tee /tmp/gh-aw/agent/fstar-version.txt
 
+      - name: Collect generated SMT2 files
+        id: collect_smt2
+        if: always()
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/gh-aw/agent/smt2-artifact
+          mkdir -p /tmp/gh-aw/agent/smt2-artifact
+          SMT2_PREVIEW=/tmp/gh-aw/agent/smt2-preview.md
+          SMT2_HEAD_LINES=1000
+          > "$SMT2_PREVIEW"
+
+          if [ -d /tmp/gh-aw/agent/FStar ]; then
+            mapfile -t SMT2_FILES < <(find /tmp/gh-aw/agent/FStar -type f -name '*.smt2' | sort)
+          else
+            SMT2_FILES=()
+          fi
+
+          if [ "${#SMT2_FILES[@]}" -eq 0 ]; then
+            echo "has_files=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for file in "${SMT2_FILES[@]}"; do
+            rel="${file#/tmp/gh-aw/agent/FStar/}"
+            target="/tmp/gh-aw/agent/smt2-artifact/${rel}"
+            mkdir -p "$(dirname "$target")"
+            cp "$file" "$target"
+            {
+              printf '#### `%s`\n\n' "$rel"
+              printf '```smt2\n'
+              head -n "$SMT2_HEAD_LINES" "$file"
+              printf '\n```\n\n'
+            } >> "$SMT2_PREVIEW"
+          done
+
+          echo "has_files=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload generated SMT2 artifact
+        id: upload_smt2
+        if: always() && steps.collect_smt2.outputs.has_files == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fstar-generated-smt2-${{ github.run_id }}
+          path: /tmp/gh-aw/agent/smt2-artifact
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Create discussion summary
         if: always()
         uses: actions/github-script@v9
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           FSTAR_BUILD_OUTCOME: ${{ steps.build_fstar.outcome }}
+          SMT2_ARTIFACT_ID: ${{ steps.upload_smt2.outputs.artifact-id }}
         with:
           script: |
             const fs = require('fs');
@@ -128,6 +176,28 @@ jobs:
             const fstarStatus = fstarBuildSucceeded
               ? '✅ FStar build completed'
               : `⚠️ FStar build ${fstarBuildOutcome} (pipeline continued)`;
+            const smt2ArtifactId = (process.env.SMT2_ARTIFACT_ID || '').trim();
+            const smt2ArtifactUrl = smt2ArtifactId ? `${process.env.RUN_URL}/artifacts/${smt2ArtifactId}` : '';
+            const smt2PreviewFile = '/tmp/gh-aw/agent/smt2-preview.md';
+            const maxPreviewChars = 55000; // Keep below GitHub's 65536-character discussion body limit, leaving room for non-preview sections.
+            let smt2Preview = readIfExists(smt2PreviewFile) ?? '';
+            const smt2PreviewChars = Array.from(smt2Preview);
+            if (smt2PreviewChars.length > maxPreviewChars) {
+              smt2Preview = `${smt2PreviewChars.slice(0, maxPreviewChars).join('')}\n\n... (truncated due to discussion size limits)`;
+            }
+            const smt2Section = smt2ArtifactId
+              ? [
+                  `### Generated SMT2 files`,
+                  `- Artifact: ${smt2ArtifactUrl}`,
+                  ``,
+                  `First 1000 lines per generated \`.smt2\` file:`,
+                  ``,
+                  smt2Preview || '_No preview content available._'
+                ].join('\n')
+              : [
+                  `### Generated SMT2 files`,
+                  `- No generated \`.smt2\` files were found.`
+                ].join('\n');
             const date = new Date().toISOString().slice(0, 10);
 
             const owner = context.repo.owner;
@@ -170,6 +240,8 @@ jobs:
               `- Z3: \`${z3VersionText}\``,
               `- FStar: \`${fstarVersionText}\``,
               `- FStar commit: \`${fstarCommit}\``,
+              ``,
+              smt2Section,
               ``,
               `### Run`,
               `- Workflow run: ${process.env.RUN_URL}`
