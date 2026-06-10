@@ -135,7 +135,8 @@ class seq_rewriter {
     // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
-    bool           m_coalesce_chars;    
+    bool           m_coalesce_chars;
+    bool           m_in_bisim { false };
 
     enum length_comparison {
         shorter_c, 
@@ -180,6 +181,7 @@ class seq_rewriter {
     expr_ref mk_der_concat(expr* a, expr* b);
     expr_ref mk_der_union(expr* a, expr* b);
     expr_ref mk_der_inter(expr* a, expr* b);
+    expr_ref mk_der_xor(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
     expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
     expr_ref mk_der_antimirov_union(expr* r1, expr* r2);
@@ -262,6 +264,7 @@ class seq_rewriter {
     br_status mk_re_complement(expr* a, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
+    br_status mk_re_xor(expr* a, expr* b, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
     br_status mk_re_power(func_decl* f, expr* a, expr_ref& result);
@@ -378,6 +381,18 @@ public:
         expr_ref result(m());
         if (mk_re_concat(r1, r2, result) == BR_FAILED)
             result = re().mk_concat(r1, r2);
+        return result;
+    }
+
+    /*
+     * Construct r1 XOR r2 applying the structural rewrites in
+     * mk_re_xor (r XOR r = empty, comp/empty/full normalisation, AC
+     * ordering). Used by the bisimulation procedure.
+     */
+    expr_ref mk_re_xor_simplified(expr* r1, expr* r2) {
+        expr_ref result(m());
+        if (mk_re_xor(r1, r2, result) == BR_FAILED)
+            result = re().mk_xor(r1, r2);
         return result;
     }
 

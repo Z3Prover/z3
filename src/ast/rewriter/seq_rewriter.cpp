@@ -20,6 +20,7 @@ Authors:
 
 #include "util/uint_set.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_regex_bisim.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -266,6 +267,14 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
             result = args[0];
             st = BR_DONE;
         }          
+        break;
+    case OP_RE_XOR:
+        if (num_args == 2)
+            st = mk_re_xor(args[0], args[1], result);
+        else if (num_args == 1) {
+            result = args[0];
+            st = BR_DONE;
+        }
         break;
     case OP_RE_INTERSECT:
         if (num_args == 1) {
@@ -2622,6 +2631,12 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
         m_br.mk_not(is_nullable(r2), result);
         m_br.mk_and(result, is_nullable(r1), result);
     }
+    else if (re().is_xor(r, r1, r2)) {
+        // Null(r1 XOR r2) = Null(r1) XOR Null(r2)
+        expr_ref n1(is_nullable(r1), m());
+        expr_ref n2(is_nullable(r2), m());
+        result = m().mk_xor(n1, n2);
+    }
     else if (re().is_star(r) || 
         re().is_opt(r) ||
         re().is_full_seq(r) ||
@@ -2740,6 +2755,12 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         auto a = re().mk_reverse(r1);
         auto b = re().mk_reverse(r2);
         result = re().mk_diff(a, b);
+        return BR_REWRITE2;
+    }
+    else if (re().is_xor(r, r1, r2)) {
+        auto a = re().mk_reverse(r1);
+        auto b = re().mk_reverse(r2);
+        result = re().mk_xor(a, b);
         return BR_REWRITE2;
     }
     else if (m().is_ite(r, p, r1, r2)) {
@@ -2882,6 +2903,7 @@ bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
         re().is_concat(r, r1, r2) ||
         re().is_union(r, r1, r2) ||
         re().is_intersection(r, r1, r2) ||
+        re().is_xor(r, r1, r2) ||
         m().is_ite(r, p, r1, r2)) {
         check_deriv_normal_form(r1, new_level);
         check_deriv_normal_form(r2, new_level);
@@ -3120,6 +3142,10 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         result = mk_antimirov_deriv_intersection(e, 
             mk_antimirov_deriv(e, r1, path),
             mk_antimirov_deriv_negate(e, mk_antimirov_deriv(e, r2, path)), m().mk_true());
+    else if (re().is_xor(r, r1, r2))
+        // D(e, r1 XOR r2) = D(e, r1) XOR D(e, r2)
+        result = mk_der_xor(mk_antimirov_deriv(e, r1, path),
+                            mk_antimirov_deriv(e, r2, path));
     else if (re().is_of_pred(r, r1)) {
         array_util array(m());
         expr* args[2] = { r1, e };
@@ -3451,6 +3477,11 @@ expr_ref seq_rewriter::mk_regex_reverse(expr* r) {
         auto b1 = mk_regex_reverse(r2);
         result = re().mk_diff(a1, b1);
     }
+    else if (re().is_xor(r, r1, r2)) {
+        auto a1 = mk_regex_reverse(r1);
+        auto b1 = mk_regex_reverse(r2);
+        result = re().mk_xor(a1, b1);
+    }
     else if (re().is_star(r, r1))
         result = re().mk_star(mk_regex_reverse(r1));
     else if (re().is_plus(r, r1))
@@ -3556,6 +3587,10 @@ expr_ref seq_rewriter::mk_der_union(expr* r1, expr* r2) {
 
 expr_ref seq_rewriter::mk_der_inter(expr* r1, expr* r2) {
     return mk_der_op(OP_RE_INTERSECT, r1, r2);
+}
+
+expr_ref seq_rewriter::mk_der_xor(expr* r1, expr* r2) {
+    return mk_der_op(OP_RE_XOR, r1, r2);
 }
 
 expr_ref seq_rewriter::mk_der_concat(expr* r1, expr* r2) {
@@ -3729,7 +3764,7 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
                 return result;
             }
             // Order with higher IDs on the outside
-            bool is_symmetric = k == OP_RE_UNION || k == OP_RE_INTERSECT;
+            bool is_symmetric = k == OP_RE_UNION || k == OP_RE_INTERSECT || k == OP_RE_XOR;
             if (is_symmetric && get_id(ca) < get_id(cb)) {
                 std::swap(a, b);
                 std::swap(ca, cb);
@@ -3776,6 +3811,10 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
         if (BR_FAILED == mk_re_concat(a, b, result))
             result = re().mk_concat(a, b);
         break;
+    case OP_RE_XOR:
+        if (BR_FAILED == mk_re_xor(a, b, result))
+            result = re().mk_xor(a, b);
+        break;
     default:
         UNREACHABLE();
         break;
@@ -3804,6 +3843,10 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
         break;
     case OP_RE_CONCAT:
         if (BR_FAILED != mk_re_concat(a, b, result))
+            return result;
+        break;
+    case OP_RE_XOR:
+        if (BR_FAILED != mk_re_xor(a, b, result))
             return result;
         break;
     default:
@@ -3954,6 +3997,9 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
     }
     else if (re().is_diff(r, r1, r2)) {
         return mk_der_inter(mk_derivative(ele, r1), mk_der_compl(mk_derivative(ele, r2)));
+    }
+    else if (re().is_xor(r, r1, r2)) {
+        return mk_der_xor(mk_derivative(ele, r1), mk_derivative(ele, r2));
     }
     else if (m().is_ite(r, p, r1, r2)) {
         // there is no BDD normalization here
@@ -4756,6 +4802,69 @@ br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {
     return BR_REWRITE2;
 }
 
+/*
+   Symmetric difference / XOR of regexes.
+   LANG(a XOR b) = (LANG(a) \ LANG(b)) U (LANG(b) \ LANG(a))
+
+   Equivalence preserving rewrites applied here (paper Section 5):
+     r XOR r           = []
+     r XOR []          = r
+     [] XOR r          = r
+     comp(r) XOR comp(s)  = r XOR s
+     r XOR comp(s)     = comp(r XOR s)
+     comp(r) XOR s     = comp(r XOR s)
+     full_seq XOR r    = comp(r)
+     r XOR full_seq    = comp(r)
+   We also normalize the argument order using expression ids so that the
+   structure is canonical for AC.
+*/
+br_status seq_rewriter::mk_re_xor(expr* a, expr* b, expr_ref& result) {
+    if (a == b) {
+        result = re().mk_empty(a->get_sort());
+        return BR_DONE;
+    }
+    if (re().is_empty(a)) {
+        result = b;
+        return BR_DONE;
+    }
+    if (re().is_empty(b)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (re().is_full_seq(a)) {
+        result = re().mk_complement(b);
+        return BR_REWRITE1;
+    }
+    if (re().is_full_seq(b)) {
+        result = re().mk_complement(a);
+        return BR_REWRITE1;
+    }
+    expr* ra = nullptr, * rb = nullptr;
+    bool ca = re().is_complement(a, ra);
+    bool cb = re().is_complement(b, rb);
+    if (ca && cb) {
+        // comp(ra) XOR comp(rb) = ra XOR rb
+        result = re().mk_xor(ra, rb);
+        return BR_REWRITE1;
+    }
+    if (ca) {
+        // comp(ra) XOR b = comp(ra XOR b)
+        result = re().mk_complement(re().mk_xor(ra, b));
+        return BR_REWRITE2;
+    }
+    if (cb) {
+        // a XOR comp(rb) = comp(a XOR rb)
+        result = re().mk_complement(re().mk_xor(a, rb));
+        return BR_REWRITE2;
+    }
+    // Normalize order using expression ids (AC normalization).
+    if (a->get_id() > b->get_id()) {
+        result = re().mk_xor(b, a);
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
 
 br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
     rational n1, n2;
@@ -5176,6 +5285,30 @@ br_status seq_rewriter::reduce_re_eq(expr* l, expr* r, expr_ref& result) {
     }
     if (re().is_empty(r)) {
         return reduce_re_is_empty(l, result);
+    }
+    if (l == r) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    /*
+     * Try the union-find bisimulation procedure for ground regex equality.
+     * Guarded against re-entry because the bisim may construct equalities
+     * indirectly.  On l_undef the rewriter falls through to the existing
+     * axiomatisation path.
+     */
+    if (!m_in_bisim && is_ground(l) && is_ground(r)) {
+        flet<bool> _block(m_in_bisim, true);
+        seq::regex_bisim bisim(*this);
+        switch (bisim.are_equivalent(l, r)) {
+        case l_true:
+            result = m().mk_true();
+            return BR_DONE;
+        case l_false:
+            result = m().mk_false();
+            return BR_DONE;
+        case l_undef:
+            break;
+        }
     }
     return BR_FAILED;
 }

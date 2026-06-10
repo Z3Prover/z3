@@ -21,6 +21,7 @@ Author:
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
+#include "ast/rewriter/seq_regex_bisim.h"
 #include <ast/rewriter/expr_safe_replace.h>
 
 namespace smt {
@@ -460,6 +461,23 @@ namespace smt {
         if (re().is_empty(r))
             //trivially true
             return;
+        // Try the bisimulation procedure on ground regexes first.  If it
+        // returns a definite answer, dispatch the corresponding axiom and
+        // bypass the symbolic emptiness/derivative closure.
+        if (is_ground(r1) && is_ground(r2)) {
+            seq::regex_bisim bisim(seq_rw());
+            switch (bisim.are_equivalent(r1, r2)) {
+            case l_true:
+                STRACE(seq_regex_brief, tout << "bisim:eq ";);
+                return; // trivially true
+            case l_false:
+                STRACE(seq_regex_brief, tout << "bisim:neq ";);
+                th.add_axiom(~th.mk_eq(r1, r2, false), false_literal);
+                return;
+            case l_undef:
+                break;
+            }
+        }
         expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref f(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_empty = sk().mk_is_empty(r, r, f);
@@ -478,6 +496,20 @@ namespace smt {
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
+        if (is_ground(r1) && is_ground(r2)) {
+            seq::regex_bisim bisim(seq_rw());
+            switch (bisim.are_equivalent(r1, r2)) {
+            case l_true:
+                STRACE(seq_regex_brief, tout << "bisim:eq ";);
+                th.add_axiom(th.mk_eq(r1, r2, false), false_literal);
+                return;
+            case l_false:
+                STRACE(seq_regex_brief, tout << "bisim:neq ";);
+                return; // trivially satisfied
+            case l_undef:
+                break;
+            }
+        }
         expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
         expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
