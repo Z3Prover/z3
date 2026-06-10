@@ -38,8 +38,8 @@ bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& r
             if (r.is_empty(p1.m_d) || r.is_empty(p2.m_d) ||
                 r.is_empty(p1.m_n) || r.is_empty(p2.m_n))
                 continue;
-            result.push_back(split_pair(r.mk_inter(p1.m_d, p2.m_d),
-                                        r.mk_inter(p1.m_n, p2.m_n), m()));
+            result.push_back(split_pair(m_rw.mk_regex_inter_normalize(p1.m_d, p2.m_d),
+                                        m_rw.mk_regex_inter_normalize(p1.m_n, p2.m_n), m()));
             if (result.size() > threshold)
                 return false;
         }
@@ -85,6 +85,8 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     seq_util& sq = seq();
     seq_util::rex& rex = re();
     ast_manager& mm = m();
+
+    // std::cout << "compute " << mk_pp(r, m()) << std::endl;
 
     sort* seq_sort = nullptr;
     if (!sq.is_re(r, seq_sort))
@@ -147,9 +149,10 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     // union: sigma(r0 | ... | r_{n-1}) = U sigma(ri)   (re.union may be n-ary)
     if (rex.is_union(r)) {
         app* ap = to_app(r);
-        for (unsigned i = 0; i < ap->get_num_args(); ++i)
+        for (unsigned i = 0; i < ap->get_num_args(); ++i) {
             if (!compute(ap->get_arg(i), result, threshold, mode))
                 return false;
+        }
         return true;
     }
 
@@ -270,6 +273,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
 
     // bounded loop / ite / other: not handled (paper "v1: bail").
     TRACE(seq, tout << "seq_split: unsupported regex " << mk_pp(r, mm) << "\n";);
+    std::cout << "seq_split: unsupported regex " << mk_pp(r, mm) << std::endl;
     return false;
 }
 
@@ -278,7 +282,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
 //   { <D,N>, <D',N> } -> <D | D', N>      (by_left = false, group by N)
 // Only fires on syntactically-identical (perfectly-shared) key components, so
 // it is a conservative instance of the rule.
-void seq_split::merge_by(split_set& pairs, bool by_left) {
+void seq_split::merge_by(split_set& pairs, bool by_left) const {
     seq_util::rex& r = re();
     ast_manager& mm = m();
     obj_map<expr, unsigned> idx;   // key component -> position in `out`
@@ -289,7 +293,8 @@ void seq_split::merge_by(split_set& pairs, bool by_left) {
         unsigned pos;
         if (idx.find(key, pos)) {
             expr* prev = by_left ? out[pos].m_n.get() : out[pos].m_d.get();
-            const expr_ref u(r.mk_union(prev, other), mm);
+            seq_rewriter rw(m());
+            const expr_ref u(m_rw.mk_regex_union_normalize(prev, other), mm);
             if (by_left)
                 out[pos].m_n = u;
             else
@@ -328,9 +333,9 @@ void seq_split::simplify(split_set& pairs) {
     // 3. subsumption: drop <D_i,N_i> when L(D_i) subseteq L(D_j) and
     //    L(N_i) subseteq L(N_j) for some kept j.  seq_subset is conservative
     //    (returns true only for definite containment), so we never drop a
-    //    needed split.  Size-capped to bound the O(n^2) subset checks.
-    if (pairs.size() > 64)
-        return;
+    //    needed split.
+    //if (pairs.size() > 64)
+    //    return;
 
     struct row { expr* d; expr* n; unsigned idx; };
     vector<row> rows;

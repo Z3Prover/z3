@@ -603,7 +603,7 @@ namespace smt {
                     expr_ref conj(m.mk_and(mem_head, mem_tail), m);
                     lits.push_back(mk_literal(conj));
                     //seq::dep_tracker dep = nullptr;
-                    //std::cout << seq::mem_pp(seq::str_mem(m_sgraph.mk(head), m_sgraph.mk(sp.m_p), dep), m) << " && " << seq::mem_pp(seq::str_mem(m_sgraph.mk(tail), m_sgraph.mk(sp.m_q), dep), m) << "\n";
+                    //std::cout << seq::mem_pp(seq::str_mem(m_sgraph.mk(head), m_sgraph.mk(sp.m_d), dep), m) << " && " << seq::mem_pp(seq::str_mem(m_sgraph.mk(tail), m_sgraph.mk(sp.m_n), dep), m) << "\n";
                 }
                 //std::cout << std::endl;
                 ctx.mk_th_axiom(get_id(), lits.size(), lits.data());

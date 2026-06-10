@@ -75,7 +75,7 @@ class seq_split {
 
     // same-D / same-N merge: groups pairs that share a (syntactically identical)
     // left (resp. right) component and unions the other component.
-    void merge_by(split_set& pairs, bool by_left);
+    void merge_by(split_set& pairs, bool by_left) const;
 
 public:
     explicit seq_split(seq_rewriter& rw);
