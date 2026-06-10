@@ -1,0 +1,688 @@
+[
+  {
+    "file": "url/url_000_url_minimal_vs_url_with_ftp.smt2",
+    "category": "url",
+    "r1": "url_minimal",
+    "r2": "url_with_ftp",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_001_url_minimal_vs_url_stephenhay.smt2",
+    "category": "url",
+    "r1": "url_minimal",
+    "r2": "url_stephenhay",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_002_url_minimal_vs_url_domain_only.smt2",
+    "category": "url",
+    "r1": "url_minimal",
+    "r2": "url_domain_only",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_003_url_minimal_vs_url_domain_port.smt2",
+    "category": "url",
+    "r1": "url_minimal",
+    "r2": "url_domain_port",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_004_url_minimal_vs_url_domain_userinfo.smt2",
+    "category": "url",
+    "r1": "url_minimal",
+    "r2": "url_domain_userinfo",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_005_url_minimal_vs_url_domain_or_ip.smt2",
+    "category": "url",
+    "r1": "url_minimal",
+    "r2": "url_domain_or_ip",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_006_url_minimal_vs_url_strict_tld.smt2",
+    "category": "url",
+    "r1": "url_minimal",
+    "r2": "url_strict_tld",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_007_url_with_ftp_vs_url_stephenhay.smt2",
+    "category": "url",
+    "r1": "url_with_ftp",
+    "r2": "url_stephenhay",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_008_url_with_ftp_vs_url_domain_only.smt2",
+    "category": "url",
+    "r1": "url_with_ftp",
+    "r2": "url_domain_only",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_009_url_with_ftp_vs_url_domain_port.smt2",
+    "category": "url",
+    "r1": "url_with_ftp",
+    "r2": "url_domain_port",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_010_url_with_ftp_vs_url_domain_userinfo.smt2",
+    "category": "url",
+    "r1": "url_with_ftp",
+    "r2": "url_domain_userinfo",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_011_url_with_ftp_vs_url_domain_or_ip.smt2",
+    "category": "url",
+    "r1": "url_with_ftp",
+    "r2": "url_domain_or_ip",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_012_url_with_ftp_vs_url_strict_tld.smt2",
+    "category": "url",
+    "r1": "url_with_ftp",
+    "r2": "url_strict_tld",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_013_url_stephenhay_vs_url_domain_only.smt2",
+    "category": "url",
+    "r1": "url_stephenhay",
+    "r2": "url_domain_only",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_014_url_stephenhay_vs_url_domain_port.smt2",
+    "category": "url",
+    "r1": "url_stephenhay",
+    "r2": "url_domain_port",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_015_url_stephenhay_vs_url_domain_userinfo.smt2",
+    "category": "url",
+    "r1": "url_stephenhay",
+    "r2": "url_domain_userinfo",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_016_url_stephenhay_vs_url_domain_or_ip.smt2",
+    "category": "url",
+    "r1": "url_stephenhay",
+    "r2": "url_domain_or_ip",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_017_url_stephenhay_vs_url_strict_tld.smt2",
+    "category": "url",
+    "r1": "url_stephenhay",
+    "r2": "url_strict_tld",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_018_url_domain_only_vs_url_domain_port.smt2",
+    "category": "url",
+    "r1": "url_domain_only",
+    "r2": "url_domain_port",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_019_url_domain_only_vs_url_domain_userinfo.smt2",
+    "category": "url",
+    "r1": "url_domain_only",
+    "r2": "url_domain_userinfo",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_020_url_domain_only_vs_url_domain_or_ip.smt2",
+    "category": "url",
+    "r1": "url_domain_only",
+    "r2": "url_domain_or_ip",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_021_url_domain_only_vs_url_strict_tld.smt2",
+    "category": "url",
+    "r1": "url_domain_only",
+    "r2": "url_strict_tld",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_022_url_domain_port_vs_url_domain_userinfo.smt2",
+    "category": "url",
+    "r1": "url_domain_port",
+    "r2": "url_domain_userinfo",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_023_url_domain_port_vs_url_domain_or_ip.smt2",
+    "category": "url",
+    "r1": "url_domain_port",
+    "r2": "url_domain_or_ip",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_024_url_domain_port_vs_url_strict_tld.smt2",
+    "category": "url",
+    "r1": "url_domain_port",
+    "r2": "url_strict_tld",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_025_url_domain_userinfo_vs_url_domain_or_ip.smt2",
+    "category": "url",
+    "r1": "url_domain_userinfo",
+    "r2": "url_domain_or_ip",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_026_url_domain_userinfo_vs_url_strict_tld.smt2",
+    "category": "url",
+    "r1": "url_domain_userinfo",
+    "r2": "url_strict_tld",
+    "expected": "sat"
+  },
+  {
+    "file": "url/url_027_url_domain_or_ip_vs_url_strict_tld.smt2",
+    "category": "url",
+    "r1": "url_domain_or_ip",
+    "r2": "url_strict_tld",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_000_email_permissive_vs_email_no_plus.smt2",
+    "category": "email",
+    "r1": "email_permissive",
+    "r2": "email_no_plus",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_001_email_permissive_vs_email_plus_tag.smt2",
+    "category": "email",
+    "r1": "email_permissive",
+    "r2": "email_plus_tag",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_002_email_permissive_vs_email_alpha_start.smt2",
+    "category": "email",
+    "r1": "email_permissive",
+    "r2": "email_alpha_start",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_003_email_permissive_vs_email_strict_domain.smt2",
+    "category": "email",
+    "r1": "email_permissive",
+    "r2": "email_strict_domain",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_004_email_permissive_vs_email_length_limit.smt2",
+    "category": "email",
+    "r1": "email_permissive",
+    "r2": "email_length_limit",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_005_email_no_plus_vs_email_plus_tag.smt2",
+    "category": "email",
+    "r1": "email_no_plus",
+    "r2": "email_plus_tag",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_006_email_no_plus_vs_email_alpha_start.smt2",
+    "category": "email",
+    "r1": "email_no_plus",
+    "r2": "email_alpha_start",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_007_email_no_plus_vs_email_strict_domain.smt2",
+    "category": "email",
+    "r1": "email_no_plus",
+    "r2": "email_strict_domain",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_008_email_no_plus_vs_email_length_limit.smt2",
+    "category": "email",
+    "r1": "email_no_plus",
+    "r2": "email_length_limit",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_009_email_plus_tag_vs_email_alpha_start.smt2",
+    "category": "email",
+    "r1": "email_plus_tag",
+    "r2": "email_alpha_start",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_010_email_plus_tag_vs_email_strict_domain.smt2",
+    "category": "email",
+    "r1": "email_plus_tag",
+    "r2": "email_strict_domain",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_011_email_plus_tag_vs_email_length_limit.smt2",
+    "category": "email",
+    "r1": "email_plus_tag",
+    "r2": "email_length_limit",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_012_email_alpha_start_vs_email_strict_domain.smt2",
+    "category": "email",
+    "r1": "email_alpha_start",
+    "r2": "email_strict_domain",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_013_email_alpha_start_vs_email_length_limit.smt2",
+    "category": "email",
+    "r1": "email_alpha_start",
+    "r2": "email_length_limit",
+    "expected": "sat"
+  },
+  {
+    "file": "email/email_014_email_strict_domain_vs_email_length_limit.smt2",
+    "category": "email",
+    "r1": "email_strict_domain",
+    "r2": "email_length_limit",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_000_ipv4_unbounded_vs_ipv4_bounded.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_unbounded",
+    "r2": "ipv4_bounded",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_001_ipv4_unbounded_vs_ipv4_strict_255.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_unbounded",
+    "r2": "ipv4_strict_255",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_002_ipv4_unbounded_vs_ipv4_with_port.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_unbounded",
+    "r2": "ipv4_with_port",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_003_ipv4_unbounded_vs_ipv4_cidr.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_unbounded",
+    "r2": "ipv4_cidr",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_004_ipv4_bounded_vs_ipv4_strict_255.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_bounded",
+    "r2": "ipv4_strict_255",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_005_ipv4_bounded_vs_ipv4_with_port.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_bounded",
+    "r2": "ipv4_with_port",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_006_ipv4_bounded_vs_ipv4_cidr.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_bounded",
+    "r2": "ipv4_cidr",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_007_ipv4_strict_255_vs_ipv4_with_port.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_strict_255",
+    "r2": "ipv4_with_port",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_008_ipv4_strict_255_vs_ipv4_cidr.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_strict_255",
+    "r2": "ipv4_cidr",
+    "expected": "sat"
+  },
+  {
+    "file": "ipv4/ipv4_009_ipv4_with_port_vs_ipv4_cidr.smt2",
+    "category": "ipv4",
+    "r1": "ipv4_with_port",
+    "r2": "ipv4_cidr",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_000_date_naive_vs_date_month_valid.smt2",
+    "category": "date",
+    "r1": "date_naive",
+    "r2": "date_month_valid",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_001_date_naive_vs_date_day_valid.smt2",
+    "category": "date",
+    "r1": "date_naive",
+    "r2": "date_day_valid",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_002_date_naive_vs_date_full_valid.smt2",
+    "category": "date",
+    "r1": "date_naive",
+    "r2": "date_full_valid",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_003_date_naive_vs_date_us_format.smt2",
+    "category": "date",
+    "r1": "date_naive",
+    "r2": "date_us_format",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_004_date_month_valid_vs_date_day_valid.smt2",
+    "category": "date",
+    "r1": "date_month_valid",
+    "r2": "date_day_valid",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_005_date_month_valid_vs_date_full_valid.smt2",
+    "category": "date",
+    "r1": "date_month_valid",
+    "r2": "date_full_valid",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_006_date_month_valid_vs_date_us_format.smt2",
+    "category": "date",
+    "r1": "date_month_valid",
+    "r2": "date_us_format",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_007_date_day_valid_vs_date_full_valid.smt2",
+    "category": "date",
+    "r1": "date_day_valid",
+    "r2": "date_full_valid",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_008_date_day_valid_vs_date_us_format.smt2",
+    "category": "date",
+    "r1": "date_day_valid",
+    "r2": "date_us_format",
+    "expected": "sat"
+  },
+  {
+    "file": "date/date_009_date_full_valid_vs_date_us_format.smt2",
+    "category": "date",
+    "r1": "date_full_valid",
+    "r2": "date_us_format",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_000_phone_digits_10_vs_phone_us_dashes.smt2",
+    "category": "phone",
+    "r1": "phone_digits_10",
+    "r2": "phone_us_dashes",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_001_phone_digits_10_vs_phone_us_dots.smt2",
+    "category": "phone",
+    "r1": "phone_digits_10",
+    "r2": "phone_us_dots",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_002_phone_digits_10_vs_phone_us_parens.smt2",
+    "category": "phone",
+    "r1": "phone_digits_10",
+    "r2": "phone_us_parens",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_003_phone_digits_10_vs_phone_e164.smt2",
+    "category": "phone",
+    "r1": "phone_digits_10",
+    "r2": "phone_e164",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_004_phone_us_dashes_vs_phone_us_dots.smt2",
+    "category": "phone",
+    "r1": "phone_us_dashes",
+    "r2": "phone_us_dots",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_005_phone_us_dashes_vs_phone_us_parens.smt2",
+    "category": "phone",
+    "r1": "phone_us_dashes",
+    "r2": "phone_us_parens",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_006_phone_us_dashes_vs_phone_e164.smt2",
+    "category": "phone",
+    "r1": "phone_us_dashes",
+    "r2": "phone_e164",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_007_phone_us_dots_vs_phone_us_parens.smt2",
+    "category": "phone",
+    "r1": "phone_us_dots",
+    "r2": "phone_us_parens",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_008_phone_us_dots_vs_phone_e164.smt2",
+    "category": "phone",
+    "r1": "phone_us_dots",
+    "r2": "phone_e164",
+    "expected": "sat"
+  },
+  {
+    "file": "phone/phone_009_phone_us_parens_vs_phone_e164.smt2",
+    "category": "phone",
+    "r1": "phone_us_parens",
+    "r2": "phone_e164",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_000_css_hex3_vs_css_hex6.smt2",
+    "category": "css",
+    "r1": "css_hex3",
+    "r2": "css_hex6",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_001_css_hex3_vs_css_hex3or6.smt2",
+    "category": "css",
+    "r1": "css_hex3",
+    "r2": "css_hex3or6",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_002_css_hex3_vs_css_hex6_lower.smt2",
+    "category": "css",
+    "r1": "css_hex3",
+    "r2": "css_hex6_lower",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_003_css_hex3_vs_css_hex8_rgba.smt2",
+    "category": "css",
+    "r1": "css_hex3",
+    "r2": "css_hex8_rgba",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_004_css_hex3_vs_css_rgb_func.smt2",
+    "category": "css",
+    "r1": "css_hex3",
+    "r2": "css_rgb_func",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_005_css_hex6_vs_css_hex3or6.smt2",
+    "category": "css",
+    "r1": "css_hex6",
+    "r2": "css_hex3or6",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_006_css_hex6_vs_css_hex6_lower.smt2",
+    "category": "css",
+    "r1": "css_hex6",
+    "r2": "css_hex6_lower",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_007_css_hex6_vs_css_hex8_rgba.smt2",
+    "category": "css",
+    "r1": "css_hex6",
+    "r2": "css_hex8_rgba",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_008_css_hex6_vs_css_rgb_func.smt2",
+    "category": "css",
+    "r1": "css_hex6",
+    "r2": "css_rgb_func",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_009_css_hex3or6_vs_css_hex6_lower.smt2",
+    "category": "css",
+    "r1": "css_hex3or6",
+    "r2": "css_hex6_lower",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_010_css_hex3or6_vs_css_hex8_rgba.smt2",
+    "category": "css",
+    "r1": "css_hex3or6",
+    "r2": "css_hex8_rgba",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_011_css_hex3or6_vs_css_rgb_func.smt2",
+    "category": "css",
+    "r1": "css_hex3or6",
+    "r2": "css_rgb_func",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_012_css_hex6_lower_vs_css_hex8_rgba.smt2",
+    "category": "css",
+    "r1": "css_hex6_lower",
+    "r2": "css_hex8_rgba",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_013_css_hex6_lower_vs_css_rgb_func.smt2",
+    "category": "css",
+    "r1": "css_hex6_lower",
+    "r2": "css_rgb_func",
+    "expected": "sat"
+  },
+  {
+    "file": "css/css_014_css_hex8_rgba_vs_css_rgb_func.smt2",
+    "category": "css",
+    "r1": "css_hex8_rgba",
+    "r2": "css_rgb_func",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_000_snort_http_get_vs_snort_http_get_or_post.smt2",
+    "category": "snort",
+    "r1": "snort_http_get",
+    "r2": "snort_http_get_or_post",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_001_snort_http_get_vs_snort_http_any_method.smt2",
+    "category": "snort",
+    "r1": "snort_http_get",
+    "r2": "snort_http_any_method",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_002_snort_http_get_vs_snort_http_11_only.smt2",
+    "category": "snort",
+    "r1": "snort_http_get",
+    "r2": "snort_http_11_only",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_003_snort_http_get_vs_snort_http_with_host.smt2",
+    "category": "snort",
+    "r1": "snort_http_get",
+    "r2": "snort_http_with_host",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_004_snort_http_get_or_post_vs_snort_http_any_method.smt2",
+    "category": "snort",
+    "r1": "snort_http_get_or_post",
+    "r2": "snort_http_any_method",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_005_snort_http_get_or_post_vs_snort_http_11_only.smt2",
+    "category": "snort",
+    "r1": "snort_http_get_or_post",
+    "r2": "snort_http_11_only",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_006_snort_http_get_or_post_vs_snort_http_with_host.smt2",
+    "category": "snort",
+    "r1": "snort_http_get_or_post",
+    "r2": "snort_http_with_host",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_007_snort_http_any_method_vs_snort_http_11_only.smt2",
+    "category": "snort",
+    "r1": "snort_http_any_method",
+    "r2": "snort_http_11_only",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_008_snort_http_any_method_vs_snort_http_with_host.smt2",
+    "category": "snort",
+    "r1": "snort_http_any_method",
+    "r2": "snort_http_with_host",
+    "expected": "sat"
+  },
+  {
+    "file": "snort/snort_009_snort_http_11_only_vs_snort_http_with_host.smt2",
+    "category": "snort",
+    "r1": "snort_http_11_only",
+    "r2": "snort_http_with_host",
+    "expected": "sat"
+  }
+]

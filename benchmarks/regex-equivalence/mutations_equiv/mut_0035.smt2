@@ -1,0 +1,24 @@
+;; Mutation-Based Equivalence Benchmark
+;; Source:     AutomatArk / instance01165.smt2
+;; Mutations:  intersect_max_len_20
+;; Status:     sat
+;;
+;; Original regex vs mutated regex
+;; Equivalence check: unsat ⟺ L(R1) = L(R2)
+
+(set-info :smt-lib-version 2.6)
+(set-info :category "mutation")
+(set-info :status sat)
+(set-logic QF_S)
+
+
+;; R1: original
+;; R2: mutated (intersect_max_len_20)
+(assert
+  (not
+    (=
+      (re.++ (str.to_re "www.iggsey.com") (re.union (str.to_re " ") (str.to_re "\u{9}") (str.to_re "\u{a}") (str.to_re "\u{c}") (str.to_re "\u{d}")) (str.to_re "X-Mailer:\u{13}Computeron:com>2.41\u{a}"))
+      (re.++ (str.to_re "www.iggsey.com") (re.inter (re.union (str.to_re " ") (str.to_re "\u{9}") (str.to_re "\u{a}") (str.to_re "\u{c}") (str.to_re "\u{d}")) ((_ re.loop 0 20) re.allchar)) (str.to_re "X-Mailer:\u{13}Computeron:com>2.41\u{a}")))))
+
+(check-sat)
+(exit)

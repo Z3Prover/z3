@@ -1,0 +1,24 @@
+;; Mutation-Based Equivalence Benchmark
+;; Source:     AutomatArk / instance09228.smt2
+;; Mutations:  intersect_max_len_10, range_expand_hi
+;; Status:     sat
+;;
+;; Original regex vs mutated regex
+;; Equivalence check: unsat ⟺ L(R1) = L(R2)
+
+(set-info :smt-lib-version 2.6)
+(set-info :category "mutation")
+(set-info :status sat)
+(set-logic QF_S)
+
+
+;; R1: original
+;; R2: mutated (intersect_max_len_10, range_expand_hi)
+(assert
+  (not
+    (=
+      (re.union (re.++ ((_ re.loop 11 18) (re.range "0" "9")) (str.to_re "5") (re.union (str.to_re "0") (str.to_re "6") (str.to_re "7") (str.to_re "8"))) (re.++ ((_ re.loop 11 18) (re.range "0" "9")) (str.to_re "6") (re.union (str.to_re "0") (str.to_re "5"))) (re.++ (str.to_re "601") (re.comp (str.to_re "1")) ((_ re.loop 9 16) (re.range "0" "9"))) (re.++ (str.to_re "6011") ((_ re.loop 9 11) (re.range "0" "9"))) (re.++ (str.to_re "6011") ((_ re.loop 13 16) (re.range "0" "9"))) (re.++ (str.to_re "65") ((_ re.loop 11 13) (re.range "0" "9"))) (re.++ (str.to_re "65") ((_ re.loop 15 18) (re.range "0" "9"))) (re.++ (str.to_re "49030") (re.range "2" "9") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.++ (str.to_re "49033") (re.range "5" "9") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.++ (str.to_re "49110") (re.range "1" "2") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.++ (str.to_re "49117") (re.range "4" "9") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.++ (str.to_re "49118") (re.range "0" "2") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.++ (str.to_re "\u{a}4936") (re.union ((_ re.loop 12 12) (re.range "0" "9")) ((_ re.loop 14 15) (re.range "0" "9")))))
+      (re.union (re.++ ((_ re.loop 11 18) (re.range "0" "9")) (str.to_re "5") (re.union (str.to_re "0") (str.to_re "6") (str.to_re "7") (str.to_re "8"))) (re.++ ((_ re.loop 11 18) (re.range "0" "9")) (str.to_re "6") (re.union (str.to_re "0") (str.to_re "5"))) (re.++ (str.to_re "601") (re.comp (str.to_re "1")) ((_ re.loop 9 16) (re.range "0" ":"))) (re.++ (str.to_re "6011") ((_ re.loop 9 11) (re.range "0" "9"))) (re.++ (str.to_re "6011") ((_ re.loop 13 16) (re.range "0" "9"))) (re.++ (str.to_re "65") ((_ re.loop 11 13) (re.range "0" "9"))) (re.++ (str.to_re "65") ((_ re.loop 15 18) (re.range "0" "9"))) (re.++ (str.to_re "49030") (re.range "2" "9") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.++ (str.to_re "49033") (re.range "5" "9") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.inter (re.++ (str.to_re "49110") (re.range "1" "2") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) ((_ re.loop 0 10) re.allchar)) (re.++ (str.to_re "49117") (re.range "4" "9") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.++ (str.to_re "49118") (re.range "0" "2") (re.union ((_ re.loop 10 10) (re.range "0" "9")) ((_ re.loop 12 13) (re.range "0" "9")))) (re.++ (str.to_re "\u{a}4936") (re.union ((_ re.loop 12 12) (re.range "0" "9")) ((_ re.loop 14 15) (re.range "0" "9"))))))))
+
+(check-sat)
+(exit)

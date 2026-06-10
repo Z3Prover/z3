@@ -1,0 +1,23 @@
+;; Mutation-Based Equivalence Benchmark
+;; Source:     AutomatArk / instance07592.smt2
+;; Mutations:  range_shrink_lo, range_shrink_lo, range_shrink_lo
+;; Status:     sat
+;;
+;; Original regex vs mutated regex
+;; Equivalence check: unsat ⟺ L(R1) = L(R2)
+
+(set-info :smt-lib-version 2.6)
+(set-info :category "mutation")
+(set-info :status sat)
+(set-logic QF_S)
+
+(declare-const x String)
+
+;; R1: original
+;; R2: mutated (range_shrink_lo, range_shrink_lo, range_shrink_lo)
+(assert
+  (str.in_re x
+    (re.union (re.inter (re.++ (str.to_re "Host:") (re.+ (re.union (re.range "0" "9") (re.range "A" "Z") (re.range "a" "z") (str.to_re "_"))) (str.to_re "Pre/ta/NEWS/Keyloggeradfsgecoiwnf\u{1b}hirmvtg/ggqh.kqh\u{1b}\u{a}")) (re.comp (re.++ (str.to_re "Host:") (re.+ (re.union (re.range "1" "9") (re.range "B" "Z") (re.range "b" "z") (str.to_re "_"))) (str.to_re "Pre/ta/NEWS/Keyloggeradfsgecoiwnf\u{1b}hirmvtg/ggqh.kqh\u{1b}\u{a}")))) (re.inter (re.comp (re.++ (str.to_re "Host:") (re.+ (re.union (re.range "0" "9") (re.range "A" "Z") (re.range "a" "z") (str.to_re "_"))) (str.to_re "Pre/ta/NEWS/Keyloggeradfsgecoiwnf\u{1b}hirmvtg/ggqh.kqh\u{1b}\u{a}"))) (re.++ (str.to_re "Host:") (re.+ (re.union (re.range "1" "9") (re.range "B" "Z") (re.range "b" "z") (str.to_re "_"))) (str.to_re "Pre/ta/NEWS/Keyloggeradfsgecoiwnf\u{1b}hirmvtg/ggqh.kqh\u{1b}\u{a}"))))))
+
+(check-sat)
+(exit)
