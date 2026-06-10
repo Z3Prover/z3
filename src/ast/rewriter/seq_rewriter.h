@@ -195,9 +195,6 @@ class seq_rewriter {
     bool check_deriv_normal_form(expr* r, int level = 3);
     #endif
 
-    expr_ref mk_regex_reverse(expr* r);
-    expr_ref mk_regex_concat(expr* r1, expr* r2);
-
     expr_ref merge_regex_sets(expr* r1, expr* r2, expr* unit, std::function<bool(expr*, expr*&, expr*&)>& decompose, std::function<expr* (expr*, expr*)>& compose);
 
     // elem is (:var 0) and path a condition that may have (:var 0) as a free variable
@@ -338,11 +335,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-<<<<<<< HEAD
-        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m),  // m_re2aut(m), 
-=======
-        m_util(m), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m), 
->>>>>>> 8deac03ca (Refactor seq_derive: inline path pruning with ACI normalization)
+        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this),  // m_re2aut(m), 
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m) {
     }

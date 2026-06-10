@@ -252,7 +252,7 @@ namespace seq {
 
         // δ(reverse(r1)) - normalize by pushing reverse inward, then derive
         if (re().is_reverse(r, r1)) {
-            expr_ref norm = normalize_reverse(r1);
+            expr_ref norm = mk_regex_reverse(r1);
             if (norm != r)
                 return derive_rec(norm);
             return expr_ref(re().mk_derivative(m_ele, r), m);
@@ -423,96 +423,54 @@ namespace seq {
     }
 
     // -------------------------------------------------------
-    // Normalize reverse by pushing it inward
+    // Normalize reverse
     // -------------------------------------------------------
 
-    expr_ref derive::normalize_reverse(expr* r) {
-        expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * p = nullptr;
+    expr_ref derive::mk_regex_reverse(expr* r) {
+        expr* r1 = nullptr, * r2 = nullptr, * c = nullptr;
         unsigned lo = 0, hi = 0;
-        zstring zs;
-
-        // reverse(reverse(r1)) = r1
-        if (re().is_reverse(r, r1))
-            return expr_ref(r1, m);
-
-        // reverse(r1 · r2) = reverse(r2) · reverse(r1)
-        if (re().is_concat(r, r1, r2)) {
-            expr_ref a(re().mk_reverse(r2), m);
-            expr_ref b(re().mk_reverse(r1), m);
-            return expr_ref(re().mk_concat(a, b), m);
+        expr_ref result(m);
+        if (re().is_empty(r) || re().is_range(r) || re().is_epsilon(r) || re().is_full_seq(r) ||
+            re().is_full_char(r) || re().is_dot_plus(r) || re().is_of_pred(r))
+            result = r;
+        else if (re().is_to_re(r))
+            result = re().mk_reverse(r);
+        else if (re().is_reverse(r, r1))
+            result = r1;
+        else if (re().is_concat(r, r1, r2))
+            result = mk_concat(mk_regex_reverse(r2), mk_regex_reverse(r1));
+        else if (m.is_ite(r, c, r1, r2))
+            result = m.mk_ite(c, mk_regex_reverse(r1), mk_regex_reverse(r2));
+        else if (re().is_union(r, r1, r2)) {
+            auto a1 = mk_regex_reverse(r1);
+            auto b1 = mk_regex_reverse(r2);
+            result = re().mk_union(a1, b1);
         }
-
-        // reverse(r1 ∪ r2) = reverse(r1) ∪ reverse(r2)
-        if (re().is_union(r, r1, r2)) {
-            expr_ref a(re().mk_reverse(r1), m);
-            expr_ref b(re().mk_reverse(r2), m);
-            return expr_ref(re().mk_union(a, b), m);
+        else if (re().is_intersection(r, r1, r2)) {
+            auto a1 = mk_regex_reverse(r1);
+            auto b1 = mk_regex_reverse(r2);
+            result = re().mk_inter(a1, b1);
         }
-
-        // reverse(r1 ∩ r2) = reverse(r1) ∩ reverse(r2)
-        if (re().is_intersection(r, r1, r2)) {
-            expr_ref a(re().mk_reverse(r1), m);
-            expr_ref b(re().mk_reverse(r2), m);
-            return m_re.mk_inter(a, b);
+        else if (re().is_diff(r, r1, r2)) {
+            auto a1 = mk_regex_reverse(r1);
+            auto b1 = mk_regex_reverse(r2);
+            result = re().mk_diff(a1, b1);
         }
-
-        // reverse(r1 \ r2) = reverse(r1) \ reverse(r2)
-        if (re().is_diff(r, r1, r2)) {
-            expr_ref a(re().mk_reverse(r1), m);
-            expr_ref b(re().mk_reverse(r2), m);
-            return expr_ref(re().mk_diff(a, b), m);
-        }
-
-        // reverse(ite(c, r1, r2)) = ite(c, reverse(r1), reverse(r2))
-        if (m.is_ite(r, p, r1, r2))
-            return expr_ref(m.mk_ite(p, re().mk_reverse(r1), re().mk_reverse(r2)), m);
-
-        // reverse(r1?) = reverse(r1)?
-        if (re().is_opt(r, r1))
-            return expr_ref(re().mk_opt(re().mk_reverse(r1)), m);
-
-        // reverse(~r1) = ~reverse(r1)
-        if (re().is_complement(r, r1))
-            return expr_ref(re().mk_complement(re().mk_reverse(r1)), m);
-
-        // reverse(r1*) = reverse(r1)*
-        if (re().is_star(r, r1))
-            return expr_ref(re().mk_star(re().mk_reverse(r1)), m);
-
-        // reverse(r1+) = reverse(r1)+
-        if (re().is_plus(r, r1))
-            return expr_ref(re().mk_plus(re().mk_reverse(r1)), m);
-
-        // reverse(r1{lo,}) = reverse(r1){lo,}
-        if (re().is_loop(r, r1, lo))
-            return expr_ref(re().mk_loop(re().mk_reverse(r1), lo), m);
-
-        // reverse(r1{lo,hi}) = reverse(r1){lo,hi}
-        if (re().is_loop(r, r1, lo, hi))
-            return expr_ref(re().mk_loop_proper(re().mk_reverse(r1), lo, hi), m);
-
-        // Symmetric: full_seq, empty, range, full_char, of_pred
-        if (re().is_full_seq(r) || re().is_empty(r) || re().is_range(r) ||
-            re().is_full_char(r) || re().is_of_pred(r))
-            return expr_ref(r, m);
-
-        // reverse(to_re(s)) where s is a string literal
-        if (re().is_to_re(r, s) && u().str.is_string(s, zs))
-            return expr_ref(re().mk_to_re(u().str.mk_string(zs.reverse())), m);
-
-        // reverse(to_re(unit)) = to_re(unit)
-        if (re().is_to_re(r, s) && u().str.is_unit(s))
-            return expr_ref(r, m);
-
-        // reverse(to_re(s1 ++ s2)) = reverse(to_re(s2)) · reverse(to_re(s1))
-        if (re().is_to_re(r, s) && u().str.is_concat(s, r1, r2)) {
-            expr_ref a(re().mk_reverse(re().mk_to_re(r2)), m);
-            expr_ref b(re().mk_reverse(re().mk_to_re(r1)), m);
-            return expr_ref(re().mk_concat(a, b), m);
-        }
-
-        // Stuck — cannot normalize further
-        return expr_ref(re().mk_reverse(r), m);
+        else if (re().is_star(r, r1))
+            result = re().mk_star(mk_regex_reverse(r1));
+        else if (re().is_plus(r, r1))
+            result = re().mk_plus(mk_regex_reverse(r1));
+        else if (re().is_loop(r, r1, lo))
+            result = re().mk_loop(mk_regex_reverse(r1), lo);
+        else if (re().is_loop(r, r1, lo, hi))
+            result = re().mk_loop_proper(mk_regex_reverse(r1), lo, hi);
+        else if (re().is_opt(r, r1))
+            result = re().mk_opt(mk_regex_reverse(r1));
+        else if (re().is_complement(r, r1))
+            result = re().mk_complement(mk_regex_reverse(r1));
+        else
+            result = re().mk_reverse(r);
+        return result;
     }
 
     // -------------------------------------------------------
@@ -520,16 +478,92 @@ namespace seq {
     // -------------------------------------------------------
 
     expr_ref derive::is_nullable(expr* r) {
-        // First, try the static info which handles ground/interpreted regex
-        lbool nb = re().get_info(r).nullable;
-        if (nb == l_true)
-            return expr_ref(m.mk_true(), m);
-        if (nb == l_false)
-            return expr_ref(m.mk_false(), m);
-        // For symbolic regexes, return a membership predicate
-        sort* s = nullptr;
-        VERIFY(m_util.is_re(r, s));
-        return expr_ref(re().mk_in_re(u().str.mk_empty(s), r), m);
+        SASSERT(m_util.is_re(r) || m_util.is_seq(r));
+        expr* r1 = nullptr, * r2 = nullptr, * cond = nullptr;
+        sort* seq_sort = nullptr;
+        unsigned lo = 0, hi = 0;
+        zstring s1;
+        expr_ref result(m);
+        if (re().is_concat(r, r1, r2) ||
+            re().is_intersection(r, r1, r2)) {
+            m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
+        }
+        else if (re().is_union(r, r1, r2) || re().is_antimirov_union(r, r1, r2)) {
+            m_br.mk_or(is_nullable(r1), is_nullable(r2), result);
+        }
+        else if (re().is_diff(r, r1, r2)) {
+            m_br.mk_not(is_nullable(r2), result);
+            m_br.mk_and(result, is_nullable(r1), result);
+        }
+        else if (re().is_star(r) ||
+            re().is_opt(r) ||
+            re().is_full_seq(r) ||
+            re().is_epsilon(r) ||
+            (re().is_loop(r, r1, lo) && lo == 0) ||
+            (re().is_loop(r, r1, lo, hi) && lo == 0)) {
+            result = m.mk_true();
+        }
+        else if (re().is_full_char(r) ||
+            re().is_empty(r) ||
+            re().is_of_pred(r) ||
+            re().is_range(r)) {
+            result = m.mk_false();
+        }
+        else if (re().is_plus(r, r1) ||
+            (re().is_loop(r, r1, lo) && lo > 0) ||
+            (re().is_loop(r, r1, lo, hi) && lo > 0) ||
+            (re().is_reverse(r, r1))) {
+            result = is_nullable(r1);
+        }
+        else if (re().is_complement(r, r1)) {
+            m_br.mk_not(is_nullable(r1), result);
+        }
+        else if (re().is_to_re(r, r1)) {
+            result = is_nullable(r1);
+        }
+        else if (m.is_ite(r, cond, r1, r2)) {
+            m_br.mk_ite(cond, is_nullable(r1), is_nullable(r2), result);
+        }
+        else if (m_util.is_re(r, seq_sort)) {
+            result = is_nullable_symbolic_regex(r, seq_sort);
+        }
+        else if (u().str.is_concat(r, r1, r2)) {
+            m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
+        }
+        else if (u().str.is_empty(r)) {
+            result = m.mk_true();
+        }
+        else if (u().str.is_unit(r)) {
+            result = m.mk_false();
+        }
+        else if (u().str.is_string(r, s1)) {
+            result = m.mk_bool_val(s1.length() == 0);
+        }
+        else {
+            SASSERT(m_util.is_seq(r));
+            result = m.mk_eq(u().str.mk_empty(r->get_sort()), r);
+        }
+        return result;
+    }
+
+    expr_ref derive::is_nullable_symbolic_regex(expr* r, sort* seq_sort) {
+        SASSERT(m_util.is_re(r));
+        expr* elem = nullptr, * r1 = r, * r2 = nullptr, * s = nullptr;
+        expr_ref elems(u().str.mk_empty(seq_sort), m);
+        expr_ref result(m);
+        while (re().is_derivative(r1, elem, r2)) {
+            if (u().str.is_empty(elems))
+                elems = u().str.mk_unit(elem);
+            else
+                elems = u().str.mk_concat(u().str.mk_unit(elem), elems);
+            r1 = r2;
+        }
+        if (re().is_to_re(r1, s)) {
+            result = m.mk_eq(elems, s);
+            return result;
+        }
+        result = re().mk_in_re(u().str.mk_empty(seq_sort), r);
+        return result;
     }
 
     // -------------------------------------------------------
@@ -694,10 +728,19 @@ namespace seq {
 
 
     expr_ref derive::mk_concat(expr* a, expr* b) {
+        sort* seq_s = nullptr, * ele_s = nullptr;
+        VERIFY(m_util.is_re(a, seq_s));
+        VERIFY(u().is_seq(seq_s, ele_s));
         if (re().is_empty(a)) return expr_ref(a, m);
         if (re().is_empty(b)) return expr_ref(b, m);
         if (re().is_epsilon(a)) return expr_ref(b, m);
         if (re().is_epsilon(b)) return expr_ref(a, m);
+        if (re().is_full_seq(a) && re().is_full_seq(b))
+            return expr_ref(a, m);
+        if (re().is_full_char(a) && re().is_full_seq(b))
+            return expr_ref(re().mk_plus(re().mk_full_char(ele_s)), m);
+        if (re().is_full_seq(a) && re().is_full_char(b))
+            return expr_ref(re().mk_plus(re().mk_full_char(ele_s)), m);
 
         // to_re(s1) · to_re(s2) → to_re(s1 ++ s2)
         expr* s1 = nullptr, * s2 = nullptr;

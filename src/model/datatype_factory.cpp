@@ -139,9 +139,6 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
 expr * datatype_factory::get_fresh_value(sort * s) {
     if (!m_util.is_datatype(s))
         return m_model.get_fresh_value(s);
-    if (m_fresh_depth >= m_max_fresh_depth)
-        return get_last_fresh_value(s);
-    struct depth_guard { unsigned& d; depth_guard(unsigned& d) : d(d) { ++d; } ~depth_guard() { --d; } } _dg(m_fresh_depth);
     TRACE(datatype, tout << "generating fresh value for: " << s->get_name() << "\n";);
     auto& [set, values] = get_value_set(s);
     // Approach 0) 
