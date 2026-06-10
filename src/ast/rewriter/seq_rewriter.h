@@ -265,6 +265,7 @@ class seq_rewriter {
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
     br_status mk_re_xor(expr* a, expr* b, expr_ref& result);
+    br_status mk_re_xor0(expr* a, expr* b, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
     br_status mk_re_power(func_decl* f, expr* a, expr_ref& result);
@@ -424,6 +425,17 @@ public:
     for example mk_derivative(a+) = (if (v0 = 'a') then a* else [])
     */
     expr_ref mk_derivative(expr* r);
+
+    /*
+    Classical (non-antimirov) Brzozowski derivative wrt the canonical
+    variable v0 = (:var 0). Unlike `mk_derivative` this entry point keeps
+    the symbolic derivative as a single transition regex (TRegex): boolean
+    operators are pushed into the ITE leaves rather than lifted to the top
+    via _OP_RE_ANTIMIROV_UNION. Used by the regex_bisim equivalence
+    procedure which relies on each leaf of D(p XOR q) being a coherent
+    XOR pair (D_v p) XOR (D_v q).
+    */
+    expr_ref mk_brz_derivative(expr* r);
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.

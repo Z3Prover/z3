@@ -104,6 +104,7 @@ Outline:
 #include "model/value_factory.h"
 #include "smt/smt_context.h"
 #include "smt/theory_seq.h"
+#include "ast/rewriter/seq_regex_bisim.h"
 #include "smt/theory_arith.h"
 #include "smt/theory_lra.h"
 #include "smt/smt_kernel.h"
@@ -1930,6 +1931,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq fixed length", m_stats.m_fixed_length);
     st.update("seq int.to.str", m_stats.m_int_string);
     st.update("seq str.from_ubv", m_stats.m_ubv_string);
+    seq::regex_bisim::collect_statistics(st);
 }
 
 void theory_seq::init_search_eh() {
