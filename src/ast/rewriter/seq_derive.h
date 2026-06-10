@@ -182,6 +182,11 @@ namespace seq {
          */
         expr_ref operator()(expr* r);
 
+        /**
+         * Nullable check: returns a Boolean expression that is true iff r accepts the empty string.
+         */
+        expr_ref nullable(expr* r) { return is_nullable(r); }
+
     };
 
 }

@@ -519,8 +519,7 @@ namespace seq {
             m_br.mk_not(is_nullable(r1), result);
         }
         else if (re().is_to_re(r, r1)) {
-            SASSERT(u().is_seq(r1->get_sort()));
-            result = m.mk_eq(u().str.mk_empty(r1->get_sort()), r1);
+            result = is_nullable(r1);
         }
         else if (m.is_ite(r, cond, r1, r2)) {
             m_br.mk_ite(cond, is_nullable(r1), is_nullable(r2), result);
