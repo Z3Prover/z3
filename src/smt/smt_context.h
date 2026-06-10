@@ -1703,6 +1703,9 @@ namespace smt {
 
         lbool setup_and_check(bool reset_cancel = true);
 
+        void prepare_parallel_source();
+        void prepare_for_parallel_worker();
+
         void reduce_assertions();
 
         bool resource_limits_exceeded();

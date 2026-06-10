@@ -318,6 +318,10 @@ public:
 
     virtual void pop_to_base_level() {}
 
+    virtual void prepare_for_parallel_source() {}
+
+    virtual void prepare_for_parallel_worker() {}
+
     virtual void set_preprocess(bool) {}
 
     virtual void set_max_conflicts(unsigned max_conflicts) {

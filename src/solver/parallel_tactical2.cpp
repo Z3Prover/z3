@@ -1094,6 +1094,9 @@ class parallel_solver {
             m_config.m_global_backbones = pp.num_bb_threads() > 0;
 
             s = src.translate(m, params);
+            // Run initial setup/internalization with preprocessing still enabled.
+            // After this, disable preprocessing so exchanged lemmas are asserted as-is.
+            s->prepare_for_parallel_worker();
             // don't share initial units
             s->pop_to_base_level();
             m_shared_units_prefix = s->get_assigned_literals().size();
@@ -1584,6 +1587,9 @@ class parallel_solver {
             : id(id), b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             s = src.translate(m, params);
+            // Run initial setup/internalization with preprocessing still enabled.
+            // After this, backbone worker lemmas can be asserted as-is.
+            s->prepare_for_parallel_worker();
             s->set_max_conflicts(m_bb_conflicts_per_chunk);
             s->pop_to_base_level();
             for (expr* a : src_asms)
@@ -1743,6 +1749,9 @@ class parallel_solver {
             : b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             s = src.translate(m, params);
+            // Run initial setup/internalization with preprocessing still enabled.
+            // After this, disable preprocessing so exchanged lemmas are asserted as-is.
+            s->prepare_for_parallel_worker();
             s->pop_to_base_level();
             // avoid preprocessing lemmas that are exchanged
             s->set_preprocess(false);
@@ -1848,6 +1857,8 @@ public:
         /* Build workers – each gets a translated solver copy. */
         m_workers.reset();
         scoped_limits sl(m_manager.limit());
+
+        m_solver->prepare_for_parallel_source();
 
         for (unsigned i = 0; i < num_threads; ++i) {
             params_ref worker_params = mk_worker_params(i);
@@ -1965,15 +1976,20 @@ public:
             throw default_exception(
                 "parallel_tactic2 does not work with trace streams");
 
-        /* Translate goal into a set of clauses + assumptions. */
         solver* s = m_solver->translate(m, m_params);
-        expr_ref_vector clauses(m);
         ptr_vector<expr> assumptions_raw;
         obj_map<expr, expr*> bool2dep;
         ref<generic_model_converter> fmc;
-        extract_clauses_and_dependencies(g, clauses, assumptions_raw, bool2dep, fmc);
-        for (expr* cl : clauses)
-            s->assert_expr(cl);
+        if (g->unsat_core_enabled()) {
+            expr_ref_vector clauses(m);
+            extract_clauses_and_dependencies(g, clauses, assumptions_raw, bool2dep, fmc);
+            for (expr* cl : clauses)
+                s->assert_expr(cl);
+        }
+        else {
+            for (unsigned i = 0; i < g->size(); ++i)
+                s->assert_expr(g->form(i));
+        }
 
         expr_ref_vector asms(m);
         asms.append(assumptions_raw.size(), assumptions_raw.data());

@@ -64,7 +64,7 @@ namespace {
         smt_params           m_smt_params;
         smt::kernel          m_context;
         cuber*               m_cuber;
-        random_gen           m_rand;
+        random_gen           m_cube_rand;
         symbol               m_logic;
         bool                 m_minimizing_core;
         bool                 m_core_extend_patterns;
@@ -78,7 +78,6 @@ namespace {
             m_smt_params(p),
             m_context(m, m_smt_params),
             m_cuber(nullptr),
-            m_rand(p.get_uint("random_seed", 0)),
             m_minimizing_core(false),
             m_core_extend_patterns(false),
             m_core_extend_patterns_max_distance(UINT_MAX),
@@ -261,6 +260,14 @@ namespace {
 
         void pop_to_base_level() override {
             m_context.pop_to_base_level();
+        }
+
+        void prepare_for_parallel_source() override {
+            const_cast<smt::kernel&>(m_context).get_context().prepare_parallel_source();
+        }
+
+        void prepare_for_parallel_worker() override {
+            const_cast<smt::kernel&>(m_context).get_context().prepare_for_parallel_worker();
         }
 
         void set_preprocess(bool f) override {
@@ -478,7 +485,9 @@ namespace {
                         continue;
                     candidates.push_back(e);
                     double new_score = ctx.get_activity(v);
-                    if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
+                    // Match smt_parallel: cube split tie-breaking is independent
+                    // of the per-worker SMT search seed.
+                    if (new_score > score || !result || (new_score == score && m_cube_rand(++n) == 0)) {
                         score = new_score;
                         result = e;
                     }
