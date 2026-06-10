@@ -3327,8 +3327,21 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
         result = r1;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r2;
-    else
-        result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
+    else {
+        // Range ∪ Range: [a,b] ∪ [c,d] = [min(a,c), max(b,d)] when overlapping or adjacent
+        unsigned lo1_v = 0, hi1_v = 0, lo2_v = 0, hi2_v = 0;
+        if (re().is_range(r1, lo1_v, hi1_v) && re().is_range(r2, lo2_v, hi2_v) &&
+            lo2_v <= hi1_v + 1 && lo1_v <= hi2_v + 1) {
+            unsigned new_lo = std::min(lo1_v, lo2_v);
+            unsigned new_hi = std::max(hi1_v, hi2_v);
+            if (new_lo == new_hi)
+                result = re().mk_to_re(str().mk_string(zstring(new_lo)));
+            else
+                result = re().mk_range(str().mk_string(zstring(new_lo)), str().mk_string(zstring(new_hi)));
+        }
+        else
+            result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
+    }
     return result;
 }
 
@@ -3357,8 +3370,22 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
         result = r2;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r1;
-    else 
-        result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);    
+    else {
+        // Range ∩ Range: [a,b] ∩ [c,d] = [max(a,c), min(b,d)] or empty
+        unsigned lo1_v = 0, hi1_v = 0, lo2_v = 0, hi2_v = 0;
+        if (re().is_range(r1, lo1_v, hi1_v) && re().is_range(r2, lo2_v, hi2_v)) {
+            unsigned new_lo = std::max(lo1_v, lo2_v);
+            unsigned new_hi = std::min(hi1_v, hi2_v);
+            if (new_lo > new_hi)
+                result = re().mk_empty(r1->get_sort());
+            else if (new_lo == new_hi)
+                result = re().mk_to_re(str().mk_string(zstring(new_lo)));
+            else
+                result = re().mk_range(str().mk_string(zstring(new_lo)), str().mk_string(zstring(new_hi)));
+        }
+        else
+            result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);
+    }
     return result;
 }
 
@@ -4787,6 +4814,34 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
         result = re().mk_plus(re().mk_full_char(a->get_sort()));
         return BR_DONE;
     }
+    // Range complement: comp([a,b]) → [0,a-1] ∪ [b+1,max] (or one half when a=0 or b=max)
+    unsigned lo_v = 0, hi_v = 0;
+    if (re().is_range(a, lo_v, hi_v)) {
+        unsigned max_c = u().max_char();
+        sort* srt = a->get_sort();
+        bool has_left = (lo_v > 0);
+        bool has_right = (hi_v < max_c);
+        if (!has_left && !has_right) {
+            // [0, max_c]: complement is empty
+            result = re().mk_empty(srt);
+            return BR_DONE;
+        }
+        if (!has_left) {
+            // [0, b]: complement is [b+1, max]
+            result = re().mk_range(str().mk_string(zstring(hi_v + 1)), str().mk_string(zstring(max_c)));
+            return BR_REWRITE1;
+        }
+        if (!has_right) {
+            // [a, max]: complement is [0, a-1]
+            result = re().mk_range(str().mk_string(zstring(0u)), str().mk_string(zstring(lo_v - 1)));
+            return BR_REWRITE1;
+        }
+        // General: [a, b] → [0, a-1] ∪ [b+1, max]
+        auto left = re().mk_range(str().mk_string(zstring(0u)), str().mk_string(zstring(lo_v - 1)));
+        auto right = re().mk_range(str().mk_string(zstring(hi_v + 1)), str().mk_string(zstring(max_c)));
+        result = re().mk_union(left, right);
+        return BR_REWRITE1;
+    }
     return BR_FAILED;
 }
 
@@ -5082,6 +5137,11 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     if (is_empty) {
         sort* srt = re().mk_re(lo->get_sort());
         result = re().mk_empty(srt);
+        return BR_DONE;
+    }
+    // Singleton: re.range "a" "a" → str.to_re "a"
+    if (slo.length() == 1 && shi.length() == 1 && slo[0] == shi[0]) {
+        result = re().mk_to_re(lo);
         return BR_DONE;
     }
 
