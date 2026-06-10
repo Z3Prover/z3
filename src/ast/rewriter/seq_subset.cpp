@@ -19,7 +19,6 @@ Author:
 
 bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
     while (true) {
-        
         if (a == b)
             return true;
         if (m_re.is_empty(a))
@@ -30,7 +29,7 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
             return true;
 
         if (depth >= m_max_depth)
-            return false;        
+            return false;
 
         expr* a1 = nullptr, * a2 = nullptr, * b1 = nullptr, * b2 = nullptr;
         unsigned la, ua, lb, ub;
@@ -39,16 +38,8 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
         if (m_re.is_dot_plus(b) && m_re.get_info(a).nullable == l_false)
             return true;
 
-        // a ⊆ a*
+        // a ⊆ a*: if b = b1* and a ⊆ b1, then a ⊆ b1*
         if (m_re.is_star(b, b1) && is_subset_rec(a, b1, depth))
-            return true;
-
-        // e ⊆ a*
-        if (m_re.is_epsilon(a) && m_re.is_star(b, b1))
-            return true;
-
-        // R ⊆ R*
-        if (m_re.is_star(b, b1) && is_subset_rec(a, b1, depth + 1))
             return true;
 
         // R1* ⊆ R2* if R1 ⊆ R2

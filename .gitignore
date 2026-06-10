@@ -124,3 +124,5 @@ bazel-*
 .deeptest/
 tptp_test/
 tptp_benchmarks/
+# Profiling output files
+gmon.out
