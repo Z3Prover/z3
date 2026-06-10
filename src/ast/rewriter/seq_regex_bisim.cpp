@@ -11,9 +11,9 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner)
     Margus Veanes   (veanes)
-
+    Nikolaj Bjorner (nbjorner)
+    
 --*/
 
 #include "ast/rewriter/seq_regex_bisim.h"
