@@ -139,14 +139,10 @@ class seq_rewriter {
     // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
-<<<<<<< HEAD
-    bool           m_coalesce_chars;
-    bool           m_in_bisim { false };
-=======
-    bool           m_coalesce_chars;    
+    bool m_coalesce_chars = false;
+    bool           m_in_bisim { false };   
     unsigned       m_re_deriv_depth { 0 };
     static const unsigned m_max_re_deriv_depth = 512;
->>>>>>> b5afa9200e22209daec4b6d64831f89b8b1dc822
 
     enum length_comparison {
         shorter_c, 
@@ -367,6 +363,13 @@ public:
         return result;
     }
 
+    expr_ref mk_xor0(expr *a, expr *b) {
+        expr_ref result(m());
+        if (mk_re_xor0(a, b, result) == BR_FAILED)
+            result = re().mk_xor(a, b);
+        return result;
+    }
+
     expr_ref mk_union(expr *a, expr *b) {
         expr_ref result(m());
         if (mk_re_union(a, b, result) == BR_FAILED)
@@ -448,7 +451,9 @@ public:
     procedure which relies on each leaf of D(p XOR q) being a coherent
     XOR pair (D_v p) XOR (D_v q).
     */
-    expr_ref mk_brz_derivative(expr* r);
+    expr_ref mk_brz_derivative(expr *r) {
+        return mk_derivative(r);
+    }
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
@@ -458,6 +463,8 @@ public:
     expr_ref mk_regex_union_normalize(expr* r1, expr* r2);
     /* Apply simplifications to the intersection to keep it normalized (r1 and r2 are not normalized)*/
     expr_ref mk_regex_inter_normalize(expr* r1, expr* r2);
+
+    expr_ref mk_regex_concat(expr *r1, expr *r2);
 
     /*
     * Extract some string that is a member of r. 

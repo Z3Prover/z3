@@ -188,6 +188,13 @@ namespace seq {
             return mk_union(d1, d2);
         }
 
+        // δ(r1 x r2) = δ(r1) x δ(r2)
+        if (re().is_xor(r, r1, r2)) {
+            expr_ref d1 = derive_rec(r1);
+            expr_ref d2 = derive_rec(r2);
+            return mk_xor(d1, d2);
+        }
+
         // δ(r1 ∩ r2) = δ(r1) ∩ δ(r2)
         if (re().is_intersection(r, r1, r2)) {
             expr_ref d1 = derive_rec(r1);
@@ -615,16 +622,26 @@ namespace seq {
     }
 
     bool derive::pred_implies(expr* a, expr* b) {
-<<<<<<< HEAD
         bool sign_a = m.is_not(a, a);
         bool sign_b = m.is_not(b, b);
         return pred_implies(sign_a, a, sign_b, b);
-=======
-        expr* nota = nullptr, * notb = nullptr;
-        bool sign_a = m.is_not(a, nota);
-        bool sign_b = m.is_not(b, notb);
-        return pred_implies(sign_a, sign_a ? nota : a, sign_b, sign_b ? notb : b);
->>>>>>> b5afa9200e22209daec4b6d64831f89b8b1dc822
+    }
+
+    expr_ref derive::mk_xor(expr *a, expr *b) {
+        return mk_xor_core(a, b);
+    }
+
+    expr_ref derive::mk_xor_core(expr *a, expr *b) {
+        // ITE handling with path pruning (before merge, since ITEs aren't part of sorted chains)
+        if (m.is_ite(a) || m.is_ite(b)) {
+            // Canonical order for non-ITE cases handled by merge below
+            auto xor_op = [&](expr *x, expr *y) { return mk_xor(x, y); };
+            expr_ref r = hoist_ite(a, b, xor_op);
+            if (r)
+                return r;
+        }
+
+        return m_re.mk_xor0(a, b);
     }
 
     expr_ref derive::mk_union(expr* a, expr* b) {
@@ -893,7 +910,6 @@ namespace seq {
         expr* saved_path_expr = m_path_expr;
 
         // Push atoms onto path and check for contradiction or implication
-<<<<<<< HEAD
         lbool result = push_path_atoms(c, sign);
         if (result != l_undef) {
             m_path.shrink(saved_path_sz);
@@ -909,31 +925,6 @@ namespace seq {
             m_intervals.shrink(saved_intervals_sz);
             m_intervals_start = saved_intervals_start;
             return result;
-=======
-        lbool atoms_result = push_path_atoms(c, sign);
-        if (atoms_result == l_false) {
-            m_path.shrink(saved_path_sz);
-            m_intervals.shrink(saved_intervals_sz);
-            m_intervals_start = saved_intervals_start;
-            return l_false;
-        }
-
-        // Update intervals
-        lbool intervals_result = push_intervals_impl(c, sign);
-        if (intervals_result == l_false) {
-            m_path.shrink(saved_path_sz);
-            m_intervals.shrink(saved_intervals_sz);
-            m_intervals_start = saved_intervals_start;
-            return l_false;
-        }
-
-        // If either determined the atom is implied, no need to actually push
-        if (atoms_result == l_true || intervals_result == l_true) {
-            m_path.shrink(saved_path_sz);
-            m_intervals.shrink(saved_intervals_sz);
-            m_intervals_start = saved_intervals_start;
-            return l_true;
->>>>>>> b5afa9200e22209daec4b6d64831f89b8b1dc822
         }
 
         // Update path expression

@@ -3903,6 +3903,48 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
+expr_ref seq_rewriter::mk_regex_concat(expr *r, expr *s) {
+    sort *seq_sort = nullptr, *ele_sort = nullptr;
+    VERIFY(m_util.is_re(r, seq_sort));
+    VERIFY(u().is_seq(seq_sort, ele_sort));
+    SASSERT(r->get_sort() == s->get_sort());
+    expr_ref result(m());
+    expr *r1, *r2;
+    if (re().is_epsilon(r) || re().is_empty(s))
+        result = s;
+    else if (re().is_epsilon(s) || re().is_empty(r))
+        result = r;
+    else if (re().is_full_seq(r) && re().is_full_seq(s))
+        result = r;
+    else if (re().is_full_char(r) && re().is_full_seq(s))
+        // ..* = .+
+        result = re().mk_plus(re().mk_full_char(ele_sort));
+    else if (re().is_full_seq(r) && re().is_full_char(s))
+        // .*. = .+
+        result = re().mk_plus(re().mk_full_char(ele_sort));
+    else if (re().is_concat(r, r1, r2))
+        // create the resulting concatenation in right-associative form except for the following case
+        // TODO: maintain the following invariant for A ++ B{m,n} + C
+        //       concat(concat(A, B{m,n}), C) (if A != () and C != ())
+        //       concat(B{m,n}, C) (if A == () and C != ())
+        // where A, B, C are regexes
+        // Using & below for Intersection and | for Union
+        // In other words, do not make A ++ B{m,n} into right-assoc form, but keep B{m,n} at the top
+        // This will help to identify this situation in the merge routine:
+        //               concat(concat(A, B{0,m}), C) | concat(concat(A, B{0,n}), C)
+        // simplifies to
+        //               concat(concat(A, B{0,max(m,n)}), C)
+        // analogously:
+        //               concat(concat(A, B{0,m}), C) & concat(concat(A, B{0,n}), C)
+        // simplifies to
+        //               concat(concat(A, B{0,min(m,n)}), C)
+        result = mk_regex_concat(r1, mk_regex_concat(r2, s));
+    else {
+        result = re().mk_concat(r, s);
+    }
+    return result;
+}
+
 bool seq_rewriter::are_complements(expr* r1, expr* r2) const {
     expr* r = nullptr;
     if (re().is_complement(r1, r) && r == r2)

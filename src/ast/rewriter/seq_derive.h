@@ -138,6 +138,8 @@ namespace seq {
         expr_ref mk_concat(expr* a, expr* b);
         expr_ref mk_complement(expr* a);
         expr_ref mk_complement_core(expr* a);
+        expr_ref mk_xor(expr *a, expr *b);
+        expr_ref mk_xor_core(expr *a, expr *b);
         expr_ref mk_ite(expr* c, expr* t, expr* e);
 
         // Distribute concatenation through ITE/union in derivative
