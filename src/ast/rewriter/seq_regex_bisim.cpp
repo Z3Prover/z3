@@ -34,7 +34,6 @@ namespace seq {
 
     void regex_bisim::reset() {
         m_uf.reset();
-        m_node_of.reset();
         m_pinned.reset();
         m_worklist.reset();
         m_steps = 0;
@@ -45,13 +44,10 @@ namespace seq {
        first encounter.
     */
     unsigned regex_bisim::node_of(expr* r) {
-        unsigned id = 0;
-        if (m_node_of.find(r, id))
-            return id;
-        id = m_uf.mk_var();
-        m_node_of.insert(r, id);
+        while (r->get_id() >= m_uf.get_num_vars())
+            m_uf.mk_var();
         m_pinned.push_back(r);
-        return id;
+        return r->get_id();
     }
 
     /*

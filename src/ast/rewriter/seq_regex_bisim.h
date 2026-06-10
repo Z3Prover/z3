@@ -65,7 +65,6 @@ namespace seq {
         seq_rewriter&            m_rw;
         seq_util                 m_util;
         basic_union_find         m_uf;
-        obj_map<expr, unsigned>  m_node_of;
         expr_ref_vector          m_pinned;
         expr_ref_vector          m_worklist;
         unsigned                 m_step_bound { 50000 };
