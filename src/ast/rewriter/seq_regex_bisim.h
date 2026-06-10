@@ -11,7 +11,8 @@ Abstract:
     equivalence, based on the construction described in:
 
       "Symbolic Extended Regular Expression Equivalence"
-      Veanes, Bjorner et al., CAV'26 (see \git\ere\cav26\paper.tex)
+      Ian, Kathi, Margus
+      
 
     The algorithm decides equivalence of two regexes p, q by performing
     a bisimulation search on the symbolic derivative of p XOR q. A
