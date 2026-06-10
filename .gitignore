@@ -6,6 +6,7 @@ crashes/
 *.pyo
 # Ignore callgrind files
 callgrind.out.*
+gmon.out
 # .hpp files are automatically generated
 *.hpp
 .env
