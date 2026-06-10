@@ -748,7 +748,7 @@ namespace seq {
             return expr_ref(re().mk_to_re(u().str.mk_concat(s1, s2)), m);
 
         // r* · r* → r*
-        expr* a1 = nullptr, * b1 = nullptr;
+        expr* a1 = nullptr, *a2 = nullptr, * b1 = nullptr;
         if (re().is_star(a, a1) && re().is_star(b, b1) && a1 == b1)
             return expr_ref(a, m);
 
