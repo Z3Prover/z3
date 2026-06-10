@@ -164,7 +164,7 @@ namespace smt {
         bool get_num_value(expr* e, rational& val) const;
         bool lower_bound(expr* e, rational& lo) const;
         bool upper_bound(expr* e, rational& hi) const;
-        bool get_length(expr* e, rational& val);
+        bool get_length(expr* e, rational& val) const;
         void add_length_axiom(literal lit);
         bool propagate_length_lemma(literal lit, seq::length_constraint const& lc);
         bool assert_nonneg_for_all_vars();

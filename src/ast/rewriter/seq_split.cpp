@@ -86,7 +86,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     seq_util::rex& rex = re();
     ast_manager& mm = m();
 
-    // std::cout << "compute " << mk_pp(r, m()) << std::endl;
+    // std::cout << "compute sigma of " << mk_pp(r, m()) << std::endl;
 
     sort* seq_sort = nullptr;
     if (!sq.is_re(r, seq_sort))
@@ -169,18 +169,21 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
             expr_ref left(mm), right(mm);
             if (i == 0)
                 left = rex.mk_epsilon(seq_sort);
-            else
+            else {
                 for (unsigned j = 0; j < i; ++j) {
                     expr* arg = ap->get_arg(j);
                     left = left ? expr_ref(rex.mk_concat(left, arg), mm) : expr_ref(arg, mm);
                 }
+            }
             if (i == n - 1)
                 right = rex.mk_epsilon(seq_sort);
-            else
-                for (unsigned j = i + 1; j < n; ++j) {
+            else {
+                right = ap->get_arg(i + 1);
+                for (unsigned j = i + 2; j < n; ++j) {
                     expr* arg = ap->get_arg(j);
-                    right = right ? expr_ref(rex.mk_concat(right, arg), mm) : expr_ref(arg, mm);
+                    right = rex.mk_concat(right, arg);
                 }
+            }
 
             for (auto const& [d, nn] : sigma_arg) {
                 const expr_ref p = m_rw.mk_re_append(left, d);
@@ -282,8 +285,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
 //   { <D,N>, <D',N> } -> <D | D', N>      (by_left = false, group by N)
 // Only fires on syntactically-identical (perfectly-shared) key components, so
 // it is a conservative instance of the rule.
-void seq_split::merge_by(split_set& pairs, bool by_left) const {
-    seq_util::rex& r = re();
+void seq_split::merge_by(split_set& pairs, const bool by_left) const {
     ast_manager& mm = m();
     obj_map<expr, unsigned> idx;   // key component -> position in `out`
     split_set out;

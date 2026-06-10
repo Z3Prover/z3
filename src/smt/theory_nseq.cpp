@@ -198,6 +198,7 @@ namespace smt {
             auto e1 = n1->get_expr();
             auto e2 = n2->get_expr();
             TRACE(seq, tout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << "\n");
+            //std::cout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << std::endl;
             if (m_seq.is_re(e1)) {
                 expr_ref s(m);
                 auto r = m_rewriter.mk_symmetric_diff(e1, e2);
@@ -286,14 +287,14 @@ namespace smt {
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         try {
             expr* e = ctx.bool_var2expr(v);
-            // std::cout << "assigned [" << sat::literal(v, is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
+            //std::cout << "assigned [" << sat::literal(v, !is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
             expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
             TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
             if (m_seq.str.is_in_re(e, s, re)) {
                 euf::snode* sn_str = get_snode(s);
                 euf::snode* sn_re  = get_snode(re);
-                literal lit(v, !is_true);
-                seq::dep_tracker dep = nullptr;
+                const literal lit(v, !is_true);
+                const seq::dep_tracker dep = nullptr;
                 if (is_true) {
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, dep));
@@ -304,7 +305,7 @@ namespace smt {
                     // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
                     // so the Nielsen graph sees it uniformly; the original negative literal
                     // is kept in mem_source for conflict reporting.
-                    expr_ref re_compl(m_seq.re.mk_complement(re), m);
+                    const expr_ref re_compl(m_seq.re.mk_complement(re), m);
                     euf::snode* sn_re_compl = get_snode(re_compl.get());
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, dep));
@@ -337,9 +338,9 @@ namespace smt {
                 enode* n1 = ensure_enode(a);
                 enode* n2 = ensure_enode(b);
                 if (n1->get_root() != n2->get_root()) {
-                    auto v1 = mk_var(n1);
-                    auto v2 = mk_var(n2);
-                    literal lit(v, false);
+                    const auto v1 = mk_var(n1);
+                    const auto v2 = mk_var(n2);
+                    const literal lit(v, false);
                     ctx.mark_as_relevant(n1);
                     ctx.mark_as_relevant(n2);
                     TRACE(seq, tout << "is-eq " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n");
@@ -536,12 +537,11 @@ namespace smt {
             zstring str;
             const expr_ref arg(to_app(re)->get_arg(0), m);
             if (m_seq.str.is_string(arg, str)) {
-                literal_vector lits;
-                lits.push_back(~mem.lit);
-                lits.push_back(mk_literal(m.mk_eq(m_seq.str.mk_string(str), arg)));
-                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+                const expr_ref eq(m.mk_eq(s, arg), m);
+                ctx.mk_th_axiom(get_id(), ~mem.lit, mk_literal(eq));
                 m_ignored_mem.insert(mem.lit);
                 ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
+                return;
             }
         }
 
@@ -574,6 +574,11 @@ namespace smt {
             if (!m_rewriter.split(mem.m_regex->get_expr(), pairs, threshold))
                 // we give up
                 return;
+
+            //std::cout << "Pairs:\n";
+            //for (auto& pair: pairs) {
+            //    std::cout << mk_pp(pair.m_d, m) << " ; " << mk_pp(pair.m_n, m) << std::endl;
+            //}
 
             m_rewriter.simplify_split(pairs);
 
@@ -716,6 +721,7 @@ namespace smt {
             }
             else if (std::holds_alternative<mem_item>(item)) {
                 auto const& mem = std::get<mem_item>(item);
+                std::cout << "Adding " << seq::mem_pp(mem, m) << std::endl;
                 int triv = m_regex.check_trivial(mem);
                 if (triv > 0) {
                     ++num_mems;
@@ -1424,7 +1430,7 @@ namespace smt {
         return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
     }
 
-    bool theory_nseq::get_length(expr* e, rational& val) {
+    bool theory_nseq::get_length(expr* e, rational& val) const {
         rational val1;
         expr* e1 = nullptr;
         expr* e2 = nullptr;
