@@ -22,7 +22,6 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include <ast/rewriter/expr_safe_replace.h>
-#include <chrono>
 
 namespace smt {
 
@@ -223,40 +222,6 @@ namespace smt {
                 STRACE(seq_regex_brief, tout << "(dead) ";);
                 th.add_axiom(~lit);
                 return true;
-            }
-            // Second pass: deeper exploration for intersection/complement/diff regexes
-            // These are candidates for dead state detection (the result may be empty)
-            // For these, do unlimited depth exploration with a time budget
-            unsigned r_id = get_state_id(r);
-            expr* r1 = nullptr, *r2 = nullptr;
-            if (!m_state_graph.is_dead(r_id) && !m_state_graph.is_live(r_id) && 
-                (re().is_intersection(r, r1, r2) || re().is_complement(r, r1) || re().is_diff(r, r1, r2))) {
-                // Collect all unexplored states and explore them iteratively
-                // with a time budget
-                auto pass2_start = std::chrono::steady_clock::now();
-                bool changed = true;
-                while (changed && !m_state_graph.is_dead(r_id)) {
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now() - pass2_start).count();
-                    if (elapsed > 100) break;
-                    changed = false;
-                    for (unsigned i = 0; i < m_state_to_expr.size() && !m_state_graph.is_dead(r_id); ++i) {
-                        unsigned st_id = i + 1;
-                        if (m_state_graph.is_done(st_id) || m_state_graph.is_live(st_id) || m_state_graph.is_dead(st_id))
-                            continue;
-                        // This is an unexplored state — explore it
-                        expr* st = m_state_to_expr.get(i);
-                        if (re().get_info(st).nullable == l_true)
-                            continue;
-                        if (update_state_graph(st, 1))
-                            changed = true;
-                    }
-                }
-                if (m_state_graph.is_dead(r_id)) {
-                    STRACE(seq_regex_brief, tout << "(dead2) ";);
-                    th.add_axiom(~lit);
-                    return true;
-                }
             }
         }
         return false;
@@ -851,7 +816,7 @@ namespace smt {
     /*
         Update the state graph with expression r and all its derivatives.
     */
-    bool seq_regex::update_state_graph(expr* r, unsigned depth) {
+    bool seq_regex::update_state_graph(expr* r) {
         unsigned r_id = get_state_id(r);
         if (m_state_graph.is_done(r_id)) return false;
         if (m_state_graph.get_size() >= m_max_state_graph_size) {
@@ -894,38 +859,6 @@ namespace smt {
                 m_state_graph.add_edge(r_id, dr_id, maybecycle);
             }
             m_state_graph.mark_done(r_id);
-            // Explore direct targets for dead state detection (depth 1 only)
-            // This compensates for less-canonical derivative representations
-            if (depth < 1) {
-                for (auto const& dr: derivatives) {
-                    unsigned dr_id = get_state_id(dr);
-                    if (m_state_graph.is_done(dr_id) || m_state_graph.is_live(dr_id))
-                        continue;
-                    if (re().get_info(dr).nullable == l_true)
-                        continue;
-                    update_state_graph(dr, depth + 1);
-                }
-            }
-            else if (depth == 1) {
-                // At depth 1, do lightweight exploration: compute derivatives
-                // of this state's targets but only to check if they're all dead.
-                // Don't add complex states to the graph — just mark them dead if
-                // their get_info says min_length == UINT_MAX or is_empty.
-                for (auto const& dr: derivatives) {
-                    unsigned dr_id = get_state_id(dr);
-                    if (m_state_graph.is_done(dr_id) || m_state_graph.is_live(dr_id))
-                        continue;
-                    auto dr_info = re().get_info(dr);
-                    if (dr_info.nullable == l_true) {
-                        m_state_graph.add_state(dr_id);
-                        m_state_graph.mark_live(dr_id);
-                    }
-                    else if (re().is_empty(dr) || dr_info.min_length == UINT_MAX) {
-                        m_state_graph.add_state(dr_id);
-                        m_state_graph.mark_done(dr_id);
-                    }
-                }
-            }
         }
 
         STRACE(seq_regex, m_state_graph.display(tout););

@@ -195,9 +195,6 @@ class seq_rewriter {
     bool check_deriv_normal_form(expr* r, int level = 3);
     #endif
 
-    expr_ref mk_regex_reverse(expr* r);
-    expr_ref mk_regex_concat(expr* r1, expr* r2);
-
     expr_ref merge_regex_sets(expr* r1, expr* r2, expr* unit, std::function<bool(expr*, expr*&, expr*&)>& decompose, std::function<expr* (expr*, expr*)>& compose);
 
     // elem is (:var 0) and path a condition that may have (:var 0) as a free variable

@@ -125,6 +125,7 @@ namespace seq {
 
         // Nullable check: returns a Boolean expression
         expr_ref is_nullable(expr* r);
+        expr_ref is_nullable_symbolic_regex(expr* r, sort* seq_sort);
 
         // Smart constructors with path-aware simplification and ACI canonicalization
         expr_ref mk_union(expr* a, expr* b);
@@ -150,8 +151,8 @@ namespace seq {
         bool pred_implies(bool sign_a, expr* a, bool sign_b, expr* b);
         bool pred_implies(expr* a, expr* b);
 
-        // Normalize reverse(r) by pushing reverse inward
-        expr_ref normalize_reverse(expr* r);
+        // Normalize reverse(r)
+        expr_ref mk_regex_reverse(expr* r);
 
         // Condition evaluation helpers
         lbool eval_cond(expr* cond);
@@ -184,4 +185,3 @@ namespace seq {
     };
 
 }
-
