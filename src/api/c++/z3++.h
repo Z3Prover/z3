@@ -4925,7 +4925,7 @@ namespace z3 {
         
         void check_context(rcf_num const& other) const {
             if (m_ctx != other.m_ctx) {
-                throw exception("rcf_num objects from different contexts");
+                Z3_THROW(exception("rcf_num objects from different contexts"));
             }
         }
         
@@ -5105,9 +5105,9 @@ namespace z3 {
     */
     inline std::vector<rcf_num> rcf_roots(context& c, std::vector<rcf_num> const& coeffs) {
         if (coeffs.empty()) {
-            throw exception("polynomial coefficients cannot be empty");
+            Z3_THROW(exception("polynomial coefficients cannot be empty"));
         }
-        
+
         unsigned n = static_cast<unsigned>(coeffs.size());
         std::vector<Z3_rcf_num> a(n);
         std::vector<Z3_rcf_num> roots(n);

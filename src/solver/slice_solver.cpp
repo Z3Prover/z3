@@ -319,7 +319,7 @@ public:
         return s->check_sat_core(num_assumptions, assumptions);
     }
 
-    void collect_statistics(statistics& st) const override { s->collect_statistics(st); }
+    void collect_statistics_core(statistics& st) const override { s->collect_statistics(st); }
 
     void get_model_core(model_ref& mdl) override { s->get_model_core(mdl); }
 

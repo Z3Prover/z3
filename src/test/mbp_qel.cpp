@@ -239,6 +239,7 @@ static void test_dt_multiple_vars() {
 
     VERIFY(!m.is_false(projected));
     VERIFY(mdl->is_true(projected));
+    VERIFY(vars.empty());
 
     std::cout << "  PASS\n\n";
 }

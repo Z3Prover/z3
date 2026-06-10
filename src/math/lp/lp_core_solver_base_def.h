@@ -277,13 +277,11 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
         m_A.m_rows[c.var()][c.offset()].offset() = pivot_col_cell_index;
     }
     while (column.size() > 1) {
-        auto & c = column.back();
+        auto& c = column.back();
         SASSERT(c.var() != piv_row_index);
-        if(! m_A.pivot_row_to_row_given_cell(piv_row_index, c, j)) {
-            return false;
-        }
-        if (m_touched_rows!= nullptr)
+        if (m_touched_rows != nullptr)
             m_touched_rows->insert(c.var());
+        m_A.pivot_row_to_row_given_cell(piv_row_index, c, j);
     }
 
     if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs)

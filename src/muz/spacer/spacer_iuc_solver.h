@@ -147,7 +147,7 @@ public:
 
     /* check_sat_result interface */
 
-    void collect_statistics(statistics &st) const override ;
+    void collect_statistics_core(statistics &st) const override ;
     virtual void reset_statistics();
 
     void get_unsat_core(expr_ref_vector &r) override;

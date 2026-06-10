@@ -494,6 +494,31 @@ namespace smt {
         else if (is_app(n) && to_app(n)->get_family_id() == get_family_id()) {
             // These are the conversion functions fp.to_* */
             SASSERT(!m_fpa_util.is_float(n) && !m_fpa_util.is_rm(n));
+
+            // The conversion equality and side conditions for fp.to_* terms are
+            // emitted in internalize_term(), which runs exactly once. Those are
+            // asserted as theory axioms at the current decision level and are
+            // undone on DPLL backtracking, while internalize_term() is not run
+            // again for the already-internalized term (e.g. when the term lives
+            // at the user push base level and its clause is not reinitialized).
+            // The side conditions include the axioms linking FP uninterpreted
+            // functions to their bit-vector counterparts; losing them leaves the
+            // BV counterpart unconstrained and causes an incremental-mode
+            // soundness bug. relevant_eh re-fires on relevancy re-propagation
+            // after a backtrack, so re-emit them here to keep them in force.
+            switch ((fpa_op_kind)to_app(n)->get_decl_kind()) {
+            case OP_FPA_TO_FP:
+            case OP_FPA_TO_UBV:
+            case OP_FPA_TO_SBV:
+            case OP_FPA_TO_REAL:
+            case OP_FPA_TO_IEEE_BV: {
+                expr_ref conv = convert(n);
+                assert_cnstr(m.mk_eq(n, conv));
+                assert_cnstr(mk_side_conditions());
+                break;
+            }
+            default: /* ignore */;
+            }
         }
         else {
             /* Theory variables can be merged when (= bv-term (bvwrap fp-term)),
