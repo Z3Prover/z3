@@ -3576,291 +3576,6 @@ namespace seq {
     // Modifier: apply_regex_factorization (Boolean Closure)
     // -----------------------------------------------------------------------
 
-    // Cross-product intersection of two split-sets (split algebra):
-    //   S1 ⊓ S2 = { ⟨Δ1⊓Δ2, ∇1⊓∇2⟩ | ⟨Δ1,∇1⟩∈S1, ⟨Δ2,∇2⟩∈S2 }
-    // Pairs where either component is the empty regex are dropped (∅⊓r ≡ ∅).
-    static bool intersect_sigma_pairs(ast_manager& m, seq_util& seq,
-            sigma_pairs const& s1, sigma_pairs const& s2, sigma_pairs& result, unsigned threshold) {
-        for (auto const& p1 : s1) {
-            for (auto const& p2 : s2) {
-                if (seq.re.is_empty(p1.m_p) || seq.re.is_empty(p2.m_p) ||
-                    seq.re.is_empty(p1.m_q) || seq.re.is_empty(p2.m_q))
-                    continue;
-                result.push_back(sigma_pair(seq.re.mk_inter(p1.m_p, p2.m_p),
-                                            seq.re.mk_inter(p1.m_q, p2.m_q), m));
-                if (result.size() > threshold)
-                    return false;
-            }
-        }
-        return true;
-    }
-
-    // Complement of a split-set via De Morgan: ~S = ⊓_{s∈S} ~s,
-    //   ~⟨Δ,∇⟩ = { ⟨~Δ, .*⟩, ⟨.*, ~∇⟩ }   and   ~{} = { ⟨.*, .*⟩ }.
-    // str_sort is the sequence-element sort; mk_full_seq needs the regex sort.
-    // May produce up to 2^|sp| pairs (bounded downstream by the factorization threshold).
-    static bool complement_sigma_pairs(ast_manager& m, seq_util& seq, sort* str_sort,
-            sigma_pairs const& sp, sigma_pairs& result, unsigned threshold) {
-
-        sort* re_sort = seq.re.mk_re(str_sort);
-        const expr_ref full(seq.re.mk_full_seq(re_sort), m);   // .*
-        if (sp.empty()) {                                      // ~{} = ⟨.*, .*⟩
-            result.push_back(sigma_pair(full, full, m));
-            return true;
-        }
-        sigma_pairs acc;
-        acc.push_back(sigma_pair(seq.re.mk_complement(sp[0].m_p), full, m));
-        acc.push_back(sigma_pair(full, seq.re.mk_complement(sp[0].m_q), m));
-        for (unsigned i = 1; i < sp.size(); ++i) {
-            sigma_pairs next;
-            next.push_back(sigma_pair(seq.re.mk_complement(sp[i].m_p), full, m));
-            next.push_back(sigma_pair(full, seq.re.mk_complement(sp[i].m_q), m));
-            sigma_pairs tmp;
-            // De Morgan fold: acc := acc ⊓ ~sp[i]. intersect_sigma_pairs returns
-            // false ONLY when it overruns the threshold; in that case we must give
-            // up entirely (a partial fold is a strictly weaker — hence unsound —
-            // split set, since each ~sp[i] further constrains ~S).
-            if (!intersect_sigma_pairs(m, seq, acc, next, tmp, threshold))
-                return false;
-            acc = std::move(tmp);
-            if (acc.empty())            // intersection empty ⇒ ~S is empty
-                break;
-            if (acc.size() > threshold)
-                return false;
-        }
-        result.append(acc);
-        return true;
-    }
-
-    bool compute_sigma(ast_manager& m, seq_util& seq, seq_rewriter& rw, const euf::snode* r, sigma_pairs& result, unsigned threshold) {
-        SASSERT(r);
-        sort* str_sort = nullptr;
-        if (!seq.is_re(r->get_expr(), str_sort))
-            return false;
-        // std::cout << "Computing sigma of " << snode_label_html(r, m, false) << std::endl;
-
-        if (r->is_empty()) {
-            const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-            result.push_back(sigma_pair(eps, eps, m));
-            return true;
-        }
-        if (r->is_to_re()) {
-            const euf::snode* const c = r->arg0();
-            if (c->is_range()) {
-                const expr_ref ex(c->get_expr(), m);
-                const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-
-                result.push_back(sigma_pair(eps, ex, m));
-                result.push_back(sigma_pair(ex, eps, m));
-                return true;
-            }
-            if (c->is_empty()) {
-                const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-                result.push_back(sigma_pair(eps, eps, m));
-                return true;
-            }
-            if (c->is_char()) {
-                unsigned val;
-                VERIFY(seq.is_const_char(c->arg0()->get_expr(), val));
-                const expr_ref ex(seq.re.mk_to_re(seq.str.mk_string(zstring(val))), m);
-                const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-
-                result.push_back(sigma_pair(eps, ex, m));
-                result.push_back(sigma_pair(ex, eps, m));
-                return true;
-            }
-            zstring s;
-            if (c->is_string(s, seq)) {
-                for (unsigned i = 0; i <= s.length(); ++i) {
-                    expr_ref p(seq.re.mk_to_re(seq.str.mk_string(s.extract(0, i))), m);
-                    expr_ref q(seq.re.mk_to_re(seq.str.mk_string(s.extract(i, s.length() - i))), m);
-                    result.push_back(sigma_pair(p, q, m));
-                }
-                return true;
-            }
-            std::cout << mk_pp(c->get_expr(), m) << std::endl;
-            UNREACHABLE();
-            return false;
-        }
-        if (r->is_full_char()) {
-            const expr_ref ex(r->get_expr(), m);
-            const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-
-            result.push_back(sigma_pair(eps, ex, m));
-            result.push_back(sigma_pair(ex, eps, m));
-            return true;
-        }
-        if (r->is_full_seq()) {
-            const expr_ref ex(r->get_expr(), m);
-            result.push_back(sigma_pair(ex, ex, m));
-            return true;
-        }
-        if (r->is_union()) {
-            // σ(r₁ ⊔ r₂) = σ(r₁) ∪ σ(r₂)
-            SASSERT(r->num_args() >= 2);
-            for (unsigned i = 0; i < r->num_args(); i++) {
-                if (!compute_sigma(m, seq, rw, r->arg(i), result, threshold))
-                    return false;
-            }
-            return true;
-        }
-        if (r->is_intersect()) {
-            // σ(r₁ ⊓ r₂ ⊓ …) = σ(r₁) ⊓ σ(r₂) ⊓ …; empty intersection (0 args) = {⟨.*,.*⟩}
-            const unsigned n = r->num_args();
-            SASSERT(n >= 2);
-            sigma_pairs current;
-            if (!compute_sigma(m, seq, rw, r->arg0(), current, threshold))
-                return false;
-            for (unsigned i = 1; i < n && !current.empty(); ++i) {
-                sigma_pairs arg_i;
-                // A give-up on any conjunct must propagate as a give-up: silently
-                // treating arg_i as the empty split-set would collapse the whole
-                // intersection to ∅ and be misreported as an (unsound) conflict.
-                if (!compute_sigma(m, seq, rw, r->arg(i), arg_i, threshold))
-                    return false;
-                sigma_pairs tmp;
-                if (!intersect_sigma_pairs(m, seq, current, arg_i, tmp, threshold))
-                    return false;
-                current = std::move(tmp);
-            }
-            result.append(current);
-            return true;
-        }
-        if (r->is_complement()) {
-            // σ(~r) = ~σ(r)
-            sigma_pairs body_pairs;
-            if (!compute_sigma(m, seq, rw, r->arg0(), body_pairs, threshold))
-                return false;
-            return complement_sigma_pairs(m, seq, str_sort, body_pairs, result, threshold);
-        }
-        if (r->is_concat()) {
-            const unsigned n = r->num_args();
-            SASSERT(n >= 2);
-            for (unsigned i = 0; i < n; ++i) {
-                sigma_pairs sigma_arg;
-                if (!compute_sigma(m, seq, rw, r->arg(i), sigma_arg, threshold))
-                    return false;
-
-                expr_ref left(m);
-                expr_ref right(m);
-
-                if (i == 0)
-                    left = seq.re.mk_epsilon(str_sort);
-                else {
-                    for (unsigned j = 0; j < i; ++j) {
-                        const euf::snode* arg = r->arg(j);
-                        left = left ? seq.re.mk_concat(left, arg->get_expr()) : arg->get_expr();
-                    }
-                }
-
-                if (i == n - 1)
-                    right = seq.re.mk_epsilon(str_sort);
-                else {
-                    for (unsigned j = i + 1; j < n; ++j) {
-                        const euf::snode* arg = r->arg(j);
-                        right = right ? seq.re.mk_concat(right, arg->get_expr()) : arg->get_expr();
-                    }
-                }
-
-                for (auto const &[tp, tq] : sigma_arg) {
-                    expr_ref p = rw.mk_re_append(left, tp);
-                    expr_ref q = rw.mk_re_append(tq, right);
-                    result.push_back(sigma_pair(p, q, m));
-                }
-            }
-            return true;
-        }
-        if (r->is_star()) {
-            const euf::snode* body = r->arg0();
-            const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-            result.push_back(sigma_pair(eps, eps, m));
-
-            sigma_pairs sigma_body;
-            if (!compute_sigma(m, seq, rw, body, sigma_body, threshold))
-                return false;
-            for (auto const &[tp, tq] : sigma_body) {
-                auto p = rw.mk_re_append(r->get_expr(), tp);
-                auto q = rw.mk_re_append(tq, r->get_expr());
-                result.push_back(sigma_pair(p, q, m));
-            }
-            return true;
-        }
-        if (r->is_plus()) {
-            // r⁺ = r·r* ; by Kleene factorization σ(r⁺) = r*·σ(r)·r*.
-            // Same shape as the star rule but with the surrounding factor being
-            // body* without the {⟨ε,ε⟩} pair
-            const euf::snode* body = r->arg0();
-            const expr_ref star(seq.re.mk_star(body->get_expr()), m);   // body*
-
-            sigma_pairs sigma_body;
-            if (!compute_sigma(m, seq, rw, body, sigma_body, threshold))
-                return false;
-            for (auto const &[tp, tq] : sigma_body) {
-                auto p = rw.mk_re_append(star, tp);   // body* · tp
-                auto q = rw.mk_re_append(tq, star);   // tq · body*
-                result.push_back(sigma_pair(p, q, m));
-            }
-            return true;
-        }
-        // the simplifier should have eliminated most of them already
-        // TODO: so far, we are, however, still missing bounded repetitions and ite
-        std::cout << "Unknown element " << mk_pp(r->get_expr(), m) << std::endl;
-        return false;
-    }
-
-    void simplify_sigma_pairs(sigma_pairs& pairs, seq_regex& sr, euf::sgraph& sg) {
-        return; // For now
-        if (pairs.size() <= 1)
-            return;
-        // Guard against pathological cost: subsumption is O(n^2) language-subset
-        // BFS checks. Large split-sets are left to the factorization threshold.
-        if (pairs.size() > 64)
-            return;
-
-        struct row { euf::snode* p; euf::snode* q; unsigned idx; };
-
-        // Materialise snodes once; drop pairs with a structurally-empty component.
-        vector<row> rows;
-        for (unsigned i = 0; i < pairs.size(); ++i) {
-            euf::snode* p = sg.mk(pairs[i].m_p);
-            euf::snode* q = sg.mk(pairs[i].m_q);
-            if (sr.is_empty_regex(p) || sr.is_empty_regex(q))
-                continue;
-            rows.push_back({ p, q, i });
-        }
-
-        // a subsumes b iff L(b.p) ⊆ L(a.p) and L(b.q) ⊆ L(a.q).
-        // is_language_subset may return l_undef (inconclusive); only treat a
-        // definite l_true as subsumption, so we never drop a needed split.
-        auto subsumes = [&](row const& a, row const& b) {
-            return sr.is_language_subset(b.p, a.p) == l_true &&
-                   sr.is_language_subset(b.q, a.q) == l_true;
-        };
-
-        vector<row> kept;
-        for (row const& r : rows) {
-            bool redundant = false;
-            for (row const& k : kept)
-                if (subsumes(k, r)) { redundant = true; break; }
-            if (redundant)
-                continue;
-            // drop already-kept rows strictly subsumed by r
-            unsigned w = 0;
-            for (unsigned t = 0; t < kept.size(); ++t) {
-                if (subsumes(r, kept[t]))
-                    continue;
-                kept[w++] = kept[t];
-            }
-            kept.shrink(w);
-            kept.push_back(r);
-        }
-
-        sigma_pairs result;
-        for (row const& k : kept)
-            result.push_back(pairs[k.idx]);
-        pairs.swap(result);
-    }
-
     bool nielsen_graph::apply_regex_factorization(nielsen_node* node) {
         if (m_regex_factorization_threshold == 0)
             return false;
@@ -3874,14 +3589,14 @@ namespace seq {
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(mem.well_formed());
 
-            // compute_sigma handles all regex forms (incl. complement / intersection),
+            // split() handles all regex forms (incl. complement / intersection),
             // so the classical restriction is no longer needed.
             if (mem.m_str->is_empty() || mem.is_primitive())
                 continue;
 
-            // compute_sigma / compute_tau do not understand the projection
-            // operator (re.proj) — they would recurse into it and hit an
-            // UNREACHABLE.  Projection-constrained memberships are handled by the
+            // The split engine works on plain regex AST and does not understand the
+            // projection operator (re.proj) — it would give up on it anyway.
+            // Projection-constrained memberships are handled by the
             // cycle-decomposition path, so skip them here.
             if (mem.m_regex->has_projection())
                 continue;
@@ -3892,13 +3607,14 @@ namespace seq {
             euf::snode* tail = m_sg.drop_first(mem.m_str);
             SASSERT(tail);
 
-            sigma_pairs pairs;
+            // Decompose the regex into a split-set via the shared seq_split engine
+            // (sigma from the paper): first ∈ Δ ∧ tail ∈ ∇ for each ⟨Δ,∇⟩.
+            split_set pairs;
             seq_rewriter rw(m);
-            if (!compute_sigma(m, m_seq, rw, mem.m_regex, pairs, m_regex_factorization_threshold))
+            if (!rw.split(mem.m_regex->get_expr(), pairs, m_regex_factorization_threshold))
                 continue;
 
-            if (m_seq_regex)
-                simplify_sigma_pairs(pairs, *m_seq_regex, m_sg);
+            rw.simplify_split(pairs);
 
             vector<rf_split> feasible;
             dep_tracker eliminated_dep = mem.m_dep;

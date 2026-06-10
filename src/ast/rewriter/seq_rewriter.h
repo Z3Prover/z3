@@ -24,6 +24,7 @@ Notes:
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/seq_subset.h"
+#include "ast/rewriter/seq_split.h"
 #include "util/params.h"
 #include "util/lbool.h"
 #include "util/sign.h"
@@ -130,6 +131,7 @@ class seq_rewriter {
 
     seq_util       m_util;
     seq_subset     m_subset;
+    seq_split      m_split;
     arith_util     m_autil;
     bool_rewriter  m_br;
     // re2automaton   m_re2aut;
@@ -342,7 +344,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), // m_re2aut(m), 
+        m_util(m), m_subset(m_util.re), m_split(*this), m_autil(m), m_br(m, p), // m_re2aut(m),
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
     }
@@ -380,6 +382,12 @@ public:
             result = re().mk_concat(r1, r2);
         return result;
     }
+
+    // Split decomposition (sigma) of a regex; see seq_split.h.
+    bool split(expr* r, split_set& out, unsigned threshold, split_mode mode = split_mode::strong) {
+        return m_split.compute(r, out, threshold, mode);
+    }
+    void simplify_split(split_set& s) { m_split.simplify(s); }
 
     expr_ref mk_symmetric_diff(expr *r1, expr *r2);
 

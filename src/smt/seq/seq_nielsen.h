@@ -262,30 +262,6 @@ namespace seq {
 
     std::string snode_label_html(euf::snode const* n, ast_manager& m, bool html_escape);
 
-    // Split-pair produced by compute_sigma: uv |= r  iff  exists i: u |= m_p[i] and v |= m_q[i]
-    struct sigma_pair {
-        expr_ref m_p;
-        expr_ref m_q;
-        sigma_pair(expr* p, expr* q, ast_manager& m) : m_p(p, m), m_q(q, m) {
-            SASSERT(p && q);
-        }
-    };
-    typedef vector<sigma_pair> sigma_pairs;
-
-    // Compute the split-set sigma(r) per the splitting rules of the paper
-    // "Extended Regular Expression Membership". Generalises the classical compute_tau
-    // with intersection and complement cases via the split-set algebra.
-    // `result` is appended to (not cleared).
-    bool compute_sigma(ast_manager& m, seq_util& seq, seq_rewriter& rw, const euf::snode* r, sigma_pairs& result, unsigned threshold);
-
-    // Simplify a split-set in place using the split algebra's language-level rules
-    // (paper section "split-set simplification heuristics"): drop pairs with an
-    // empty-language component, and drop any split subsumed by another
-    // (<D_i,N_i> is subsumed by <D_j,N_j> iff L(D_i) subseteq L(D_j) and L(N_i) subseteq L(N_j)).
-    // Subsumption tames the 2^k blow-up of sigma(~r) (e.g. sigma(~a*): 8 -> 2).
-    // Requires the regex emptiness/subset checker and an sgraph to build snodes.
-    void simplify_sigma_pairs(sigma_pairs& pairs, seq_regex& sr, euf::sgraph& sg);
-
     // simplification result for constraint processing
     // mirrors ZIPT's SimplifyResult enum
     enum class simplify_result {

@@ -555,7 +555,7 @@ namespace smt {
 
         // Eager sigma factorization (token-level): when enabled, split a non-primitive
         // membership s ∈ r at the boundary between the first concat argument (head) and
-        // the rest (tail), using compute_sigma. This mirrors the lazy Nielsen
+        // the rest (tail), using the shared seq_split engine. This mirrors the lazy Nielsen
         // apply_regex_factorization and the paper's Reduce rule for x·u'.
         //   (s ∈ r) → ⋁_{⟨Δ,∇⟩∈σ(r)} ( head ∈ Δ ∧ tail ∈ ∇ )
         // Only fires for a concatenation s (single-variable s is already primitive).
@@ -570,12 +570,12 @@ namespace smt {
             const expr_ref tail(m_seq.str.mk_concat(na - 1, a->get_args() + 1, s->get_sort()), m);
 
             const unsigned threshold = get_fparams().m_nseq_regex_factorization_threshold;
-            seq::sigma_pairs pairs;
-            if (!seq::compute_sigma(m, m_seq, m_rewriter, mem.m_regex, pairs, threshold))
+            split_set pairs;
+            if (!m_rewriter.split(mem.m_regex->get_expr(), pairs, threshold))
                 // we give up
                 return;
 
-            seq::simplify_sigma_pairs(pairs, m_regex, m_sgraph);
+            m_rewriter.simplify_split(pairs);
 
             if (pairs.empty()) {
                 // no viable splits
@@ -598,8 +598,8 @@ namespace smt {
                 lits.push_back(~mem.lit);
                 //std::cout << "Decomposing into:\n";
                 for (auto const& sp : pairs) {
-                    expr_ref mem_head(m_seq.re.mk_in_re(head, sp.m_p), m);
-                    expr_ref mem_tail(m_seq.re.mk_in_re(tail, sp.m_q), m);
+                    expr_ref mem_head(m_seq.re.mk_in_re(head, sp.m_d), m);
+                    expr_ref mem_tail(m_seq.re.mk_in_re(tail, sp.m_n), m);
                     expr_ref conj(m.mk_and(mem_head, mem_tail), m);
                     lits.push_back(mk_literal(conj));
                     //seq::dep_tracker dep = nullptr;

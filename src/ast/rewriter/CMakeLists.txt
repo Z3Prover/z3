@@ -40,6 +40,7 @@ z3_add_component(rewriter
     seq_axioms.cpp
     seq_eq_solver.cpp
     seq_subset.cpp
+    seq_split.cpp
     seq_rewriter.cpp
     seq_skolem.cpp
     th_rewriter.cpp
