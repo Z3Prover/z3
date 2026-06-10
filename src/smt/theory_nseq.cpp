@@ -456,7 +456,7 @@ namespace smt {
 
         expr* const re = mem.m_regex->get_expr();
         expr* const s = mem.m_str->get_expr();
-        std::cout << "Propagating: " << seq::mem_pp(mem, m) << std::endl;
+        // std::cout << "Propagating: " << seq::mem_pp(mem, m) << std::endl;
 
         if (!mem.m_str->is_empty()) {
             if (mem.m_str->first()->is_char()) {
@@ -596,16 +596,16 @@ namespace smt {
                 // forward direction; mk_literal Tseitin-encodes each conjunction
                 literal_vector lits;
                 lits.push_back(~mem.lit);
-                std::cout << "Decomposing into:\n";
+                //std::cout << "Decomposing into:\n";
                 for (auto const& sp : pairs) {
                     expr_ref mem_head(m_seq.re.mk_in_re(head, sp.m_p), m);
                     expr_ref mem_tail(m_seq.re.mk_in_re(tail, sp.m_q), m);
                     expr_ref conj(m.mk_and(mem_head, mem_tail), m);
                     lits.push_back(mk_literal(conj));
-                    seq::dep_tracker dep = nullptr;
-                    std::cout << seq::mem_pp(seq::str_mem(m_sgraph.mk(head), m_sgraph.mk(sp.m_p), dep), m) << " && " << seq::mem_pp(seq::str_mem(m_sgraph.mk(tail), m_sgraph.mk(sp.m_q), dep), m) << "\n";
+                    //seq::dep_tracker dep = nullptr;
+                    //std::cout << seq::mem_pp(seq::str_mem(m_sgraph.mk(head), m_sgraph.mk(sp.m_p), dep), m) << " && " << seq::mem_pp(seq::str_mem(m_sgraph.mk(tail), m_sgraph.mk(sp.m_q), dep), m) << "\n";
                 }
-                std::cout << std::endl;
+                //std::cout << std::endl;
                 ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
                 m_ignored_mem.insert(mem.lit);
                 ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
@@ -964,7 +964,7 @@ namespace smt {
         bool all_sat = true;
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (const auto& c : m_nielsen.sat_node()->constraints()) {
-            std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
+            // std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
             // Ensure Nielsen assumptions participate in SAT search instead of
@@ -1153,10 +1153,7 @@ namespace smt {
               for (auto [a, b] : eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
         );
 
-        for (auto& eq : eqs) {
-            std::cout << mk_pp(eq.first->get_expr(), m) << " == " << mk_pp(eq.second->get_expr(), m) << std::endl;
-            SASSERT(eq.first->get_root() == eq.second->get_root());
-        };
+        SASSERT(std::ranges::all_of(eqs, [&](auto& eq) { return eq.first->get_root() == eq.second->get_root(); }));
 
         SASSERT(all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; }));
 
