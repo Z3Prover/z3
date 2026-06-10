@@ -581,10 +581,9 @@ namespace seq {
     }
 
     bool derive::pred_implies(expr* a, expr* b) {
-        expr* nota = nullptr, * notb = nullptr;
-        bool sign_a = m.is_not(a, nota);
-        bool sign_b = m.is_not(b, notb);
-        return pred_implies(sign_a, sign_a ? nota : a, sign_b, sign_b ? notb : b);
+        bool sign_a = m.is_not(a, a);
+        bool sign_b = m.is_not(b, b);
+        return pred_implies(sign_a, a, sign_b, b);
     }
 
     expr_ref derive::mk_union(expr* a, expr* b) {
@@ -711,11 +710,9 @@ namespace seq {
             return expr_ref(a, m);
 
         // Right-associate: (a · b) · c → a · (b · c)
-        if (re().is_concat(a, a1, b1)) {
-            expr_ref tail = mk_concat(b1, b);
-            return expr_ref(re().mk_concat(a1, tail), m);
-        }
-
+        if (re().is_concat(a, a1, a2)) 
+            return mk_concat(a1, mk_concat(a2, b));
+        
         return expr_ref(re().mk_concat(a, b), m);
     }
 
@@ -843,29 +840,21 @@ namespace seq {
         expr* saved_path_expr = m_path_expr;
 
         // Push atoms onto path and check for contradiction or implication
-        lbool atoms_result = push_path_atoms(c, sign);
-        if (atoms_result == l_false) {
+        lbool result = push_path_atoms(c, sign);
+        if (result != l_undef) {
             m_path.shrink(saved_path_sz);
             m_intervals.shrink(saved_intervals_sz);
             m_intervals_start = saved_intervals_start;
-            return l_false;
+            return result;
         }
 
         // Update intervals
-        lbool intervals_result = push_intervals_impl(c, sign);
-        if (intervals_result == l_false) {
+        result = push_intervals_impl(c, sign);
+        if (result != l_undef) {
             m_path.shrink(saved_path_sz);
             m_intervals.shrink(saved_intervals_sz);
             m_intervals_start = saved_intervals_start;
-            return l_false;
-        }
-
-        // If either determined the atom is implied, no need to actually push
-        if (atoms_result == l_true || intervals_result == l_true) {
-            m_path.shrink(saved_path_sz);
-            m_intervals.shrink(saved_intervals_sz);
-            m_intervals_start = saved_intervals_start;
-            return l_true;
+            return result;
         }
 
         // Update path expression
