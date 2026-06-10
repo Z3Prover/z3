@@ -453,7 +453,7 @@ namespace seq {
         if (re().is_intersection(r, r1, r2)) {
             expr_ref a(re().mk_reverse(r1), m);
             expr_ref b(re().mk_reverse(r2), m);
-            return expr_ref(re().mk_inter(a, b), m);
+            return m_re.mk_inter(a, b);
         }
 
         // reverse(r1 \ r2) = reverse(r1) \ reverse(r2)
@@ -607,49 +607,7 @@ namespace seq {
 
     // Lightweight structural subsumption: checks if L(a) ⊆ L(b)
     bool derive::is_subset(expr* a, expr* b) {
-        if (a == b) return true;
-        if (re().is_empty(a)) return true;
-        if (re().is_full_seq(a)) return re().is_full_seq(b);
-        if (re().is_full_seq(b)) return true;
-
-        expr* b1 = nullptr;
-        if (re().is_plus(b, b1) && re().is_full_char(b1) &&
-            re().get_info(a).nullable == l_false)
-            return true;
-
-        if (re().is_star(b, b1) && a == b1) return true;
-
-        expr* a1 = nullptr;
-        if (re().is_star(a, a1) && re().is_star(b, b1) && is_subset(a1, b1)) return true;
-
-        if (re().is_union(b, b1, a1)) {
-            if (is_subset(a, b1) || is_subset(a, a1)) return true;
-        }
-        if (re().is_union(a, a1, b1)) {
-            if (is_subset(a1, b) && is_subset(b1, b)) return true;
-        }
-        if (re().is_intersection(a, a1, b1)) {
-            if (is_subset(a1, b) || is_subset(b1, b)) return true;
-        }
-        if (re().is_intersection(b, b1, a1)) {
-            if (is_subset(a, b1) && is_subset(a, a1)) return true;
-        }
-
-        expr* a2 = nullptr, * b2 = nullptr;
-        if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) &&
-            is_subset(a1, b1) && is_subset(a2, b2))
-            return true;
-
-        // loop subsumption: r{la,ua} ⊆ r{lb,ub} when lb <= la and ua <= ub
-        unsigned la, ua, lb, ub;
-        if (re().is_loop(a, a1, la, ua) && re().is_loop(b, b1, lb, ub) &&
-            a1 == b1 && lb <= la && ua <= ub)
-            return true;
-
-        if (re().is_complement(a, a1) && re().is_complement(b, b1))
-            return is_subset(b1, a1);
-
-        return false;
+        return m_re.is_subset(a, b);
     }
 
     unsigned derive::union_id(expr* e) {
@@ -662,94 +620,7 @@ namespace seq {
         if (re().is_complement(a, c) && c == b) return true;
         if (re().is_complement(b, c) && c == a) return true;
         return false;
-    }
-
-    // Merge two sorted right-associated union chains.
-    // Uses is_subset for pairwise subsumption during merge.
-    expr_ref derive::merge_union(expr* r1, expr* r2) {
-        expr_ref _r1(r1, m), _r2(r2, m);
-
-        if (is_subset(r1, r2)) return expr_ref(r2, m);
-        if (is_subset(r2, r1)) return expr_ref(r1, m);
-
-        if (are_complements(r1, r2)) return expr_ref(re().mk_full_seq(r1->get_sort()), m);
-
-        // Flatten both chains into a vector, merge-sort style
-        expr_ref_vector elems(m);
-        auto collect = [&](expr* r) {
-            expr* a, *b;
-            while (re().is_union(r, a, b)) {
-                elems.push_back(a);
-                r = b;
-            }
-            elems.push_back(r);
-        };
-        unsigned split;
-        collect(r1);
-        split = elems.size();
-        collect(r2);
-
-        // Merge pass: produce sorted result with subsumption
-        expr_ref_vector result_elems(m);
-        unsigned i = 0, j = split;
-        while (i < split && j < elems.size()) {
-            expr* a = elems.get(i);
-            expr* b = elems.get(j);
-            if (a == b) {
-                result_elems.push_back(a);
-                ++i; ++j;
-            } else if (are_complements(a, b)) {
-                return expr_ref(re().mk_full_seq(r1->get_sort()), m);
-            } else {
-                unsigned aid = union_id(a), bid = union_id(b);
-                if (aid == bid) {
-                    // Same union_id: check subsumption
-                    if (is_subset(a, b))
-                        result_elems.push_back(b);
-                    else if (is_subset(b, a))
-                        result_elems.push_back(a);
-                    else {
-                        result_elems.push_back(a);
-                        result_elems.push_back(b);
-                    }
-                    ++i; ++j;
-                } else if (aid < bid) {
-                    result_elems.push_back(a);
-                    ++i;
-                } else {
-                    result_elems.push_back(b);
-                    ++j;
-                }
-            }
-        }
-        while (i < split) result_elems.push_back(elems.get(i++));
-        while (j < elems.size()) result_elems.push_back(elems.get(j++));
-
-        // Subsumption pass: check each element against its neighbors
-        // This catches cases like loop(0,k)·star ⊆ loop(0,k+1)·star
-        // which have different union_ids
-        unsigned n = result_elems.size();
-        svector<bool> removed(n, false);
-        for (unsigned k = 0; k + 1 < n; ++k) {
-            if (removed[k]) continue;
-            if (is_subset(result_elems.get(k), result_elems.get(k + 1))) {
-                removed[k] = true;
-            } else if (is_subset(result_elems.get(k + 1), result_elems.get(k))) {
-                removed[k + 1] = true;
-            }
-        }
-
-        // Build right-associated chain from result
-        expr_ref result(m);
-        for (unsigned k = n; k-- > 0; ) {
-            if (removed[k]) continue;
-            if (!result)
-                result = expr_ref(result_elems.get(k), m);
-            else
-                result = expr_ref(re().mk_union(result_elems.get(k), result.get()), m);
-        }
-        return result ? result : expr_ref(re().mk_empty(r1->get_sort()), m);
-    }
+    }    
 
     expr_ref derive::mk_union_core(expr* a, expr* b) {
         // ITE handling with path pruning (before merge, since ITEs aren't part of sorted chains)
@@ -767,8 +638,7 @@ namespace seq {
             return mk_deriv_concat(a1, tail);
         }
 
-        // Merge-based normalization: merge two sorted right-associated union chains
-        return merge_union(a, b);
+        return m_re.mk_union(a, b);
     }
 
     expr_ref derive::mk_inter(expr* a, expr* b) {
@@ -798,11 +668,13 @@ namespace seq {
         if (is_subset(b, a)) return expr_ref(b, m);
 
         // Complement absorption: r ∩ ~r = ∅
-        expr* c = nullptr;
+        expr *c = nullptr, *d = nullptr;
         if (re().is_complement(a, c) && c == b)
             return expr_ref(re().mk_empty(a->get_sort()), m);
         if (re().is_complement(b, c) && c == a)
             return expr_ref(re().mk_empty(a->get_sort()), m);
+        if (re().is_complement(a, c) && re().is_complement(b, d))
+            return expr_ref(re().mk_complement(mk_union_core(c, d)), m);
 
         // ITE handling with path pruning
         auto inter_op = [&](expr* x, expr* y) { return mk_inter(x, y); };
@@ -818,8 +690,9 @@ namespace seq {
         //     return mk_union(mk_inter(a, u1), mk_inter(a, u2));
 
         // Base case: build raw intersection
-        return expr_ref(re().mk_inter(a, b), m);
+        return m_re.mk_inter(a, b);
     }
+
 
     expr_ref derive::mk_concat(expr* a, expr* b) {
         if (re().is_empty(a)) return expr_ref(a, m);

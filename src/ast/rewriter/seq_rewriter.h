@@ -371,6 +371,27 @@ public:
         return result;
     }
 
+    expr_ref mk_union(expr *a, expr *b) {
+        expr_ref result(m());
+        if (mk_re_union(a, b, result) == BR_FAILED)
+            result = re().mk_union(a, b);
+        return result;
+    }
+
+    expr_ref mk_inter(expr *a, expr *b) {
+        expr_ref result(m());
+        if (mk_re_inter(a, b, result) == BR_FAILED)
+            result = re().mk_inter(a, b);
+        return result;
+    }
+
+    expr_ref mk_complement(expr *a) {
+        expr_ref result(m());
+        if (mk_re_complement(a, result) == BR_FAILED)
+            result = re().mk_complement(a);
+        return result;
+    }
+
     /*
     * makes concat and simplifies
     */
