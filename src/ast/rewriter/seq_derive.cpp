@@ -438,7 +438,7 @@ namespace seq {
         else if (re().is_reverse(r, r1))
             result = r1;
         else if (re().is_concat(r, r1, r2))
-            result = mk_concat(mk_regex_reverse(r2), mk_regex_reverse(r1));
+            result = re().mk_concat(mk_regex_reverse(r2), mk_regex_reverse(r1));
         else if (m.is_ite(r, c, r1, r2))
             result = m.mk_ite(c, mk_regex_reverse(r1), mk_regex_reverse(r2));
         else if (re().is_union(r, r1, r2)) {
@@ -519,7 +519,8 @@ namespace seq {
             m_br.mk_not(is_nullable(r1), result);
         }
         else if (re().is_to_re(r, r1)) {
-            result = is_nullable(r1);
+            SASSERT(u().is_seq(r1->get_sort()));
+            result = m.mk_eq(u().str.mk_empty(r1->get_sort()), r1);
         }
         else if (m.is_ite(r, cond, r1, r2)) {
             m_br.mk_ite(cond, is_nullable(r1), is_nullable(r2), result);
