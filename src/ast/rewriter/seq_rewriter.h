@@ -139,8 +139,14 @@ class seq_rewriter {
     // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
+<<<<<<< HEAD
     bool           m_coalesce_chars;
     bool           m_in_bisim { false };
+=======
+    bool           m_coalesce_chars;    
+    unsigned       m_re_deriv_depth { 0 };
+    static const unsigned m_max_re_deriv_depth = 512;
+>>>>>>> b5afa9200e22209daec4b6d64831f89b8b1dc822
 
     enum length_comparison {
         shorter_c, 
@@ -332,7 +338,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this),  // m_re2aut(m), 
+        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this),
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m) {
     }

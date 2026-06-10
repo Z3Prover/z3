@@ -615,9 +615,16 @@ namespace seq {
     }
 
     bool derive::pred_implies(expr* a, expr* b) {
+<<<<<<< HEAD
         bool sign_a = m.is_not(a, a);
         bool sign_b = m.is_not(b, b);
         return pred_implies(sign_a, a, sign_b, b);
+=======
+        expr* nota = nullptr, * notb = nullptr;
+        bool sign_a = m.is_not(a, nota);
+        bool sign_b = m.is_not(b, notb);
+        return pred_implies(sign_a, sign_a ? nota : a, sign_b, sign_b ? notb : b);
+>>>>>>> b5afa9200e22209daec4b6d64831f89b8b1dc822
     }
 
     expr_ref derive::mk_union(expr* a, expr* b) {
@@ -748,11 +755,14 @@ namespace seq {
             return expr_ref(re().mk_to_re(u().str.mk_concat(s1, s2)), m);
 
         // r* · r* → r*
+
         expr* a1 = nullptr, *a2 = nullptr, * b1 = nullptr;
+
         if (re().is_star(a, a1) && re().is_star(b, b1) && a1 == b1)
             return expr_ref(a, m);
 
         // Right-associate: (a · b) · c → a · (b · c)
+
         if (re().is_concat(a, a1, a2)) 
             return mk_concat(a1, mk_concat(a2, b));
         
@@ -883,6 +893,7 @@ namespace seq {
         expr* saved_path_expr = m_path_expr;
 
         // Push atoms onto path and check for contradiction or implication
+<<<<<<< HEAD
         lbool result = push_path_atoms(c, sign);
         if (result != l_undef) {
             m_path.shrink(saved_path_sz);
@@ -898,6 +909,31 @@ namespace seq {
             m_intervals.shrink(saved_intervals_sz);
             m_intervals_start = saved_intervals_start;
             return result;
+=======
+        lbool atoms_result = push_path_atoms(c, sign);
+        if (atoms_result == l_false) {
+            m_path.shrink(saved_path_sz);
+            m_intervals.shrink(saved_intervals_sz);
+            m_intervals_start = saved_intervals_start;
+            return l_false;
+        }
+
+        // Update intervals
+        lbool intervals_result = push_intervals_impl(c, sign);
+        if (intervals_result == l_false) {
+            m_path.shrink(saved_path_sz);
+            m_intervals.shrink(saved_intervals_sz);
+            m_intervals_start = saved_intervals_start;
+            return l_false;
+        }
+
+        // If either determined the atom is implied, no need to actually push
+        if (atoms_result == l_true || intervals_result == l_true) {
+            m_path.shrink(saved_path_sz);
+            m_intervals.shrink(saved_intervals_sz);
+            m_intervals_start = saved_intervals_start;
+            return l_true;
+>>>>>>> b5afa9200e22209daec4b6d64831f89b8b1dc822
         }
 
         // Update path expression

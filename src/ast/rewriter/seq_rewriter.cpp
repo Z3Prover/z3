@@ -2613,8 +2613,7 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
     return result;
 }
 
-
-/ ()
+/*
     Push reverse inwards (whenever possible).
 */
 br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
@@ -2842,14 +2841,6 @@ expr_ref seq_rewriter::mk_derivative(expr* r) {
     return result;
 }
 
-expr_ref seq_rewriter::mk_brz_derivative(expr* r) {
-    sort* seq_sort = nullptr, * ele_sort = nullptr;
-    VERIFY(m_util.is_re(r, seq_sort));
-    VERIFY(m_util.is_seq(seq_sort, ele_sort));
-    expr_ref v(m().mk_var(0, ele_sort), m());
-    return mk_derivative_rec(v, r);
-}
-
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     auto result = m_derive(ele, r);
     TRACE(seq,
@@ -3010,6 +3001,7 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
         return composeresult(ar);
     }
 }
+
 /*
 * calls elim_condition
 */
@@ -3394,7 +3386,6 @@ expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
     CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
 }
-
 
 
 /*************************************************
