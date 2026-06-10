@@ -38,7 +38,6 @@ Author:
 #include "util/obj_hashtable.h"
 #include "util/union_find.h"
 
-class statistics;
 class seq_rewriter;
 
 namespace seq {
@@ -61,30 +60,6 @@ namespace seq {
        conservatively returns l_undef.
     */
     class regex_bisim {
-    public:
-        // Aggregate counters across all regex_bisim invocations on this
-        // thread. Exposed via collect_statistics so `-st` reports them.
-        struct stats_t {
-            unsigned           m_queries     = 0;   // total are_equivalent calls
-            unsigned           m_decided     = 0;   // returned l_true or l_false
-            unsigned           m_undef       = 0;   // returned l_undef
-            // Per-reason undef counters (sum = m_undef):
-            unsigned           m_undef_unsupported = 0; // is_supported(p) || is_supported(q) failed
-            unsigned           m_undef_nullable    = 0; // a nullability check returned l_undef
-            unsigned           m_undef_leaf        = 0; // collect_leaves saw an unknown node
-            unsigned           m_undef_steps       = 0; // step bound exceeded
-            unsigned           m_steps_total = 0;   // worklist steps consumed
-            unsigned long long m_time_us_total = 0; // wall time in micros
-            // Fast classical-leaf shortcut: returned l_false because a bare
-            // classical leaf is non-empty (or two classical XOR sides have
-            // different min_length).
-            unsigned           m_decided_classical = 0;
-        };
-
-        static stats_t const& get_stats();
-        static void reset_stats();
-        static void collect_statistics(::statistics& st);
-
     private:
         ast_manager&             m;
         seq_rewriter&            m_rw;
