@@ -2914,11 +2914,16 @@ bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
 #endif
 
 expr_ref seq_rewriter::mk_derivative(expr* r) {
-    return m_derive(r);
+    auto result = m_derive(r);
+    TRACE(seq, tout << "Derivative of " << mk_pp(r, m()) << "\nis\n" << result << std::endl;);
+    return result;
 }
 
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    return m_derive(ele, r);
+    auto result = m_derive(ele, r);
+    TRACE(seq,
+          tout << "Derivative of " << mk_pp(r, m()) << " w.r.t. " << mk_pp(ele, m()) << "\nis\n" << result << std::endl;);
+    return result;
 }
 
 
