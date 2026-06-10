@@ -179,7 +179,6 @@ class seq_rewriter {
     void replace_all_subvectors(expr_ref_vector const& as, expr_ref_vector const& bs, expr* c, expr_ref_vector& result);
 
     // Calculate derivative, memoized and enforcing a normal form
-    expr_ref is_nullable_rec(expr* r);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_concat(expr* a, expr* b);
@@ -189,8 +188,6 @@ class seq_rewriter {
     expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
     expr_ref mk_der_antimirov_union(expr* r1, expr* r2);
     bool ite_bdds_compatible(expr* a, expr* b);
-    /* if r has the form deriv(en..deriv(e1,to_re(s))..) returns 's = [e1..en]' else returns '() in r'*/
-    expr_ref is_nullable_symbolic_regex(expr* r, sort* seq_sort);
     #ifdef Z3DEBUG
     bool check_deriv_normal_form(expr* r, int level = 3);
     #endif

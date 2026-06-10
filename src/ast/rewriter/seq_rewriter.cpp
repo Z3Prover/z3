@@ -2596,105 +2596,11 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
                                << mk_pp(r, m()) << std::endl;);
     expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr, nullptr), m());
     if (!result) {
-        result = is_nullable_rec(r);
+        result = m_derive.nullable(r);
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, nullptr, result);        
     }
     STRACE(seq_verbose, tout << "is_nullable result: "
                                << result << std::endl;);
-    return result;
-}
-
-expr_ref seq_rewriter::is_nullable_rec(expr* r) {
-    SASSERT(m_util.is_re(r) || m_util.is_seq(r));
-    expr* r1 = nullptr, *r2 = nullptr, *cond = nullptr;
-    sort* seq_sort = nullptr;
-    unsigned lo = 0, hi = 0;
-    zstring s1;
-    expr_ref result(m());
-    if (re().is_concat(r, r1, r2) ||
-        re().is_intersection(r, r1, r2)) { 
-        m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
-    }
-    else if (re().is_union(r, r1, r2) || re().is_antimirov_union(r, r1, r2)) {
-        m_br.mk_or(is_nullable(r1), is_nullable(r2), result);
-    }
-    else if (re().is_diff(r, r1, r2)) {
-        m_br.mk_not(is_nullable(r2), result);
-        m_br.mk_and(result, is_nullable(r1), result);
-    }
-    else if (re().is_star(r) || 
-        re().is_opt(r) ||
-        re().is_full_seq(r) ||
-        re().is_epsilon(r) ||
-        (re().is_loop(r, r1, lo) && lo == 0) || 
-        (re().is_loop(r, r1, lo, hi) && lo == 0)) {
-        result = m().mk_true();
-    }
-    else if (re().is_full_char(r) ||
-        re().is_empty(r) ||
-        re().is_of_pred(r) ||
-        re().is_range(r)) {
-        result = m().mk_false();
-    }
-    else if (re().is_plus(r, r1) ||
-        (re().is_loop(r, r1, lo) && lo > 0) ||
-        (re().is_loop(r, r1, lo, hi) && lo > 0) ||
-        (re().is_reverse(r, r1))) {
-        result = is_nullable(r1);
-    }
-    else if (re().is_complement(r, r1)) {
-        m_br.mk_not(is_nullable(r1), result);
-    }
-    else if (re().is_to_re(r, r1)) {        
-        result = is_nullable(r1);
-    }
-    else if (m().is_ite(r, cond, r1, r2)) {
-        m_br.mk_ite(cond, is_nullable(r1), is_nullable(r2), result);
-    }
-    else if (m_util.is_re(r, seq_sort)) {
-        result = is_nullable_symbolic_regex(r, seq_sort);
-    }
-    else if (str().is_concat(r, r1, r2)) {
-        m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
-    }
-    else if (str().is_empty(r)) {
-        result = m().mk_true();
-    }
-    else if (str().is_unit(r)) {
-        result = m().mk_false();
-    }
-    else if (str().is_string(r, s1)) {
-        result = m().mk_bool_val(s1.length() == 0);
-    }
-    else {
-        SASSERT(m_util.is_seq(r));
-        result = m().mk_eq(str().mk_empty(r->get_sort()), r);
-    }
-    return result;
-}
-
-expr_ref seq_rewriter::is_nullable_symbolic_regex(expr* r, sort* seq_sort) {
-    SASSERT(m_util.is_re(r));
-    expr* elem = nullptr, *r1 = r, * r2 = nullptr, * s = nullptr;
-    expr_ref elems(str().mk_empty(seq_sort), m());
-    expr_ref result(m());
-    while (re().is_derivative(r1, elem, r2)) {
-        if (str().is_empty(elems))
-            elems = str().mk_unit(elem);
-        else
-            elems = str().mk_concat(str().mk_unit(elem), elems);
-        r1 = r2;
-    }
-    if (re().is_to_re(r1, s)) {
-        // r is nullable  
-        // iff after taking the derivatives the remaining sequence is empty 
-        // iff the inner sequence equals to the sequence of derivative elements in reverse
-        result = m().mk_eq(elems, s);
-        return result;
-    }
-    // the default case when either r is not a derivative
-    // or when the nested derivatives are not applied to a sequence
-    result = re().mk_in_re(str().mk_empty(seq_sort), r);
     return result;
 }
 
