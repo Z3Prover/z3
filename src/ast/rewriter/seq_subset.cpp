@@ -39,6 +39,10 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
         if (m_re.is_dot_plus(b) && m_re.get_info(a).nullable == l_false)
             return true;
 
+        // e ⊆ a*
+        if (m_re.is_epsilon(a) && m_re.is_star(b, b1))
+            return true;
+
         // a ⊆ a*: if b = b1* and a ⊆ b1, then a ⊆ b1*
         if (m_re.is_star(b, b1) && is_subset_rec(a, b1, depth))
             return true;
