@@ -82,9 +82,7 @@ namespace seq {
         // Reject regexes mentioning free variables; the symbolic
         // derivative engine introduces (:var 0) only after we call it
         // ourselves, so any pre-existing variable would be a free var.
-        if (!is_ground(r))
-            return false;
-        return true;
+        return is_ground(r);
     }
 
     /*
