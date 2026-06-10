@@ -75,6 +75,10 @@ namespace seq {
             unsigned           m_undef_steps       = 0; // step bound exceeded
             unsigned           m_steps_total = 0;   // worklist steps consumed
             unsigned long long m_time_us_total = 0; // wall time in micros
+            // Fast classical-leaf shortcut: returned l_false because a bare
+            // classical leaf is non-empty (or two classical XOR sides have
+            // different min_length).
+            unsigned           m_decided_classical = 0;
         };
 
         static stats_t const& get_stats();
@@ -97,6 +101,14 @@ namespace seq {
         bool collect_leaves(expr* der, expr_ref_vector& leaves);
         lbool nullability(expr* r);
         bool is_supported(expr* r);
+        // Returns true if the leaf l proves that the original pair is
+        // inequivalent and the bisim can short-circuit to l_false.
+        // Uses the get_info().classical invariant: a classical regex
+        // has non-empty language, so a bare classical leaf (implicitly
+        // empty XOR r) is a distinguishing prefix. Similarly an XOR of
+        // two classical regexes with different min_length is
+        // distinguishing.
+        bool classical_distinguishing(expr* l);
         void reset();
 
         lbool are_equivalent_core(expr* p, expr* q);

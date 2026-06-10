@@ -48,6 +48,7 @@ namespace seq {
         st.update("seq bisim undef-leaf",   g_bisim_stats.m_undef_leaf);
         st.update("seq bisim undef-steps",  g_bisim_stats.m_undef_steps);
         st.update("seq bisim steps",     g_bisim_stats.m_steps_total);
+        st.update("seq bisim classical-cut", g_bisim_stats.m_decided_classical);
         st.update("seq bisim time",
                   static_cast<double>(g_bisim_stats.m_time_us_total) / 1e6);
     }
@@ -151,6 +152,45 @@ namespace seq {
     }
 
     /*
+       Fast inequivalence check based on the get_info().classical flag.
+
+       Invariant: if r is well-formed and get_info(r).classical is true,
+       then L(r) is non-empty. The flag is set for regexes built only
+       from str.to_re, re.all, union, concat, star, plus, opt, loop;
+       it excludes complement, intersection, diff, xor, and the empty
+       regex.
+
+       A bare regex leaf l (i.e. not a XOR pair) represents the implicit
+       pair (empty XOR l). If l is classical, L(l) is non-empty so the
+       pair is non-empty: the original two regexes have a distinguishing
+       prefix and are inequivalent.
+
+       For an XOR leaf xor(a, b): if both a and b are classical and have
+       different min_length, then the shortest word of one is not in the
+       other, so the pair is non-empty and we can short-circuit. (The
+       case a == b syntactically is already handled by mk_re_xor0.)
+
+       Returns true if the leaf proves inequivalence; false if no
+       conclusion can be drawn.
+    */
+    bool regex_bisim::classical_distinguishing(expr* l) {
+        expr* a = nullptr, * b = nullptr;
+        if (m_util.re.is_xor(l, a, b)) {
+            auto ia = m_util.re.get_info(a);
+            auto ib = m_util.re.get_info(b);
+            if (ia.is_known() && ib.is_known() &&
+                ia.classical && ib.classical &&
+                ia.min_length != ib.min_length)
+                return true;
+            return false;
+        }
+        if (m_util.re.is_empty(l))
+            return false;
+        auto info = m_util.re.get_info(l);
+        return info.is_known() && info.classical;
+    }
+
+    /*
        Merge the two sides of the XOR pair, returning true if a fresh
        merge happened (i.e. the pair must still be processed) and false
        if the two sides were already in the same union-find class.
@@ -217,6 +257,14 @@ namespace seq {
             return l_undef;
         }
 
+        // Classical-leaf shortcut applied to r0 (covers the case where
+        // mk_re_xor_simplified collapsed p XOR q to a bare classical
+        // residual, e.g. when one side reduced to empty).
+        if (classical_distinguishing(r0)) {
+            g_bisim_stats.m_decided_classical++;
+            return l_false;
+        }
+
         if (!merge_leaf(r0))
             return l_true; // already merged: trivially equivalent
         m_worklist.push_back(r0);
@@ -243,8 +291,9 @@ namespace seq {
                 return l_undef;
             }
 
-            // First pass: check for any nullable leaf which would be
-            // a definitive distinguishing prefix.
+            // First pass: check for any nullable leaf (definitive
+            // distinguishing empty-continuation word) or any classically
+            // non-empty leaf (definitive distinguishing non-empty prefix).
             for (expr* l : leaves) {
                 lbool nl = nullability(l);
                 if (nl == l_true)
@@ -252,6 +301,10 @@ namespace seq {
                 if (nl == l_undef) {
                     g_bisim_stats.m_undef_nullable++;
                     return l_undef;
+                }
+                if (classical_distinguishing(l)) {
+                    g_bisim_stats.m_decided_classical++;
+                    return l_false;
                 }
             }
 
