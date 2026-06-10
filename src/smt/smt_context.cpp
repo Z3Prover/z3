@@ -3652,15 +3652,11 @@ namespace smt {
         }
     }
 
-    void context::prepare_parallel_source() {
+    void context::setup_for_parallel() {
+        // Native SMT parallel configures the parent context before cloning workers.
+        // context::copy then configures/internalizes each worker copy while
+        // preprocessing is still enabled.
         setup_context(m_fparams.m_auto_config);
-    }
-
-    void context::prepare_for_parallel_worker() {
-        if (m_setup.already_configured())
-            return;
-        setup_context(m_fparams.m_auto_config);
-        internalize_assertions();
     }
 
     config_mode context::get_config_mode(bool use_static_features) const {

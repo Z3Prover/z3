@@ -1703,8 +1703,7 @@ namespace smt {
 
         lbool setup_and_check(bool reset_cancel = true);
 
-        void prepare_parallel_source();
-        void prepare_for_parallel_worker();
+        void setup_for_parallel();
 
         void reduce_assertions();
 
@@ -1922,5 +1921,4 @@ namespace smt {
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
 };
-
 

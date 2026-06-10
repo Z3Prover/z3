@@ -626,7 +626,7 @@ namespace smt {
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         ctx->pop_to_base_lvl();
-        ctx->get_fparams().m_preprocess = false;
+        ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
     }
 
     void parallel::core_minimizer_worker::cancel() {
@@ -887,6 +887,7 @@ namespace smt {
         ctx->pop_to_base_lvl();
         m_shared_units_prefix = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
+        ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
 
         smt_parallel_params pp(p.ctx.m_params);
         m_use_failed_literal_test = pp.num_global_bb_fl_threads() > 0;
