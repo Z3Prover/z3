@@ -1316,6 +1316,13 @@ namespace seq {
         // generalized regex factorization (Boolean closure derivation rule)
         bool apply_regex_factorization(nielsen_node* node);
 
+        // Lookahead oracle for apply_regex_factorization's split() call: returns
+        // true iff the split's right component `n_regex` is prefix-compatible with
+        // the constant character sequence `c` (the tail of the factorization starts
+        // with c).  Prunes splits whose tail-regex can never match c.  Sound to
+        // apply during split generation (prefix-, not strict-, match).
+        bool split_lookahead_viable(expr* n_regex, zstring const& c);
+
         // helper for apply_gpower_intr: fires the substitution.
         // `fwd=true` uses left-to-right decomposition; `fwd=false` mirrors ZIPT's
         // backward (right-to-left) direction.

@@ -471,7 +471,6 @@ namespace seq {
                 }
             } else if (tok->is_unit()) {
                 // seq.unit with non-literal character: show the character expression
-                std::cout << mk_pp(e, m) << std::endl;
                 expr* ch = to_app(e)->get_arg(0);
                 if (is_app(ch) && to_app(ch)->get_num_args() == 0)
                     result += "[" + dot_html_escape(to_app(ch)->get_decl()->get_name().str(), html_escape) + "]";

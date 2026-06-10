@@ -2458,7 +2458,7 @@ namespace seq {
                     euf::snode* tail = get_tail(var_head, a.mk_int(1), fwd);
                     euf::snode* replacement = dir_concat(m_sg, char_head, tail, fwd);
                     child = mk_child(node);
-                    e = mk_edge(node, child, "nielsen const >", false);
+                    e = mk_edge(node, child, "nielsen const &gt;", false);
                     e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(tail), a.mk_int(0)), eq.m_dep));
                     const nielsen_subst s2(var_head, replacement, eq.m_dep);
                     e->add_subst(s2);
@@ -2505,7 +2505,7 @@ namespace seq {
                 {
                     euf::snode* replacement = dir_concat(m_sg, rhead, get_tail(lhead, compute_length_expr(rhead).get(), fwd), fwd);
                     nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, "nielsen var >", false);
+                    nielsen_edge* e = mk_edge(node, child, "nielsen var &gt;", false);
                     const nielsen_subst s(lhead, replacement, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
@@ -2514,7 +2514,7 @@ namespace seq {
                 {
                     euf::snode* replacement = dir_concat(m_sg, lhead, get_tail(rhead, compute_length_expr(lhead).get(), fwd), fwd);
                     nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, "nielsen var <", false);
+                    nielsen_edge* e = mk_edge(node, child, "nielsen var &lt;", false);
                     const nielsen_subst s(rhead, replacement, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
@@ -3180,13 +3180,13 @@ namespace seq {
 
                     // Branch 1: pow_exp < count (i.e., count >= pow_exp + 1)
                     {
-                        nielsen_edge *e = mk_edge(node, mk_child(node), "power elim >", true);
+                        nielsen_edge *e = mk_edge(node, mk_child(node), "power elim &gt;", true);
                         const expr_ref pow_plus1(a.mk_add(pow_exp, a.mk_int(1)), m);
                         e->add_side_constraint(mk_constraint(a.mk_ge(norm_count, pow_plus1), eq.m_dep));
                     }
                     // Branch 2: count <= pow_exp (i.e., pow_exp >= count)
                     {
-                        nielsen_edge *e = mk_edge(node, mk_child(node), "power elim <=", true);
+                        nielsen_edge *e = mk_edge(node, mk_child(node), "power elim &le;", true);
                         e->add_side_constraint(mk_constraint(a.mk_ge(pow_exp, norm_count), eq.m_dep));
                     }
                     return true;
@@ -3246,7 +3246,7 @@ namespace seq {
 
         euf::snode* replacement = dir_concat(m_sg, base, nested_power_snode, fwd);
         child = mk_child(node);
-        e = mk_edge(node, child, "unwinding >", true);
+        e = mk_edge(node, child, "unwinding &gt;", true);
         const nielsen_subst s2(power, replacement, eq->m_dep);
         e->add_subst(s2);
         child->apply_subst(m_sg, s2);
@@ -3576,6 +3576,30 @@ namespace seq {
     // Modifier: apply_regex_factorization (Boolean Closure)
     // -----------------------------------------------------------------------
 
+    // Lookahead oracle for the split engine: is the split's right component
+    // `n_regex` prefix-compatible with the constant character sequence `c`?
+    // The factorization picks a boundary so the tail starts with c, hence the
+    // tail-regex ∇ must be able to match c as a prefix.  We use a *prefix* test
+    // (not strict "starts-with"): we accept as soon as N accepts a prefix of c
+    // (a suffix appended downstream can complete it).  This is sound to apply
+    // during split generation — it never drops a viable split.
+    bool nielsen_graph::split_lookahead_viable(expr* n_regex, zstring const& c) {
+        euf::snode* cur = m_sg.mk(n_regex);
+        if (!cur)
+            return true;   // conservative: keep
+        for (unsigned i = 0; i < c.length(); ++i) {
+            if (m_sg.re_nullable(cur) == l_true)
+                return true;            // N accepts the prefix c[0..i) → a suffix completes it
+            cur = m_sg.brzozowski_deriv(cur, m_sg.mk_char(c[i]));
+            if (!cur || cur->is_fail())
+                return false;           // N went (syntactically) dead before reaching c
+        }
+        // Consumed all of c without matching a prefix: keep iff δ_c(N) is non-empty
+        // (one BFS emptiness check rather than per-char; an empty-language state is
+        // never nullable, so the loop above can't wrongly early-accept it).
+        return !m_seq_regex->is_empty_regex(cur);
+    }
+
     bool nielsen_graph::apply_regex_factorization(nielsen_node* node) {
         if (m_regex_factorization_threshold == 0)
             return false;
@@ -3603,15 +3627,50 @@ namespace seq {
 
             euf::snode* first = mem.m_str->first();
             SASSERT(first);
-            SASSERT(!first->is_char());
-            euf::snode* tail = m_sg.drop_first(mem.m_str);
-            SASSERT(tail);
+            SASSERT(!first->is_char());     // constants are consumed earlier
+
+            // Choose the factorization boundary so the tail starts with the
+            // LONGEST run of concrete characters c — this gives the split-engine
+            // lookahead oracle the most pruning information.  head = u' (tokens
+            // before the run), tail = c · u''' (tokens from the run onward).
+            euf::snode_vector toks;
+            mem.m_str->collect_tokens(toks);
+            const unsigned total = toks.size();
+            unsigned run_start = 0, run_len = 0;
+            for (unsigned i = 0; i < total; ) {
+                if (!toks[i]->is_char()) { ++i; continue; }
+                unsigned j = i;
+                while (j < total && toks[j]->is_char()) ++j;
+                if (j - i > run_len) { run_len = j - i; run_start = i; }
+                i = j;
+            }
+            // No constant run → fall back to splitting off the first token.
+            const unsigned p = (run_len == 0) ? 1 : run_start;
+            SASSERT(p >= 1);
+            euf::snode* head = (p == 1) ? first : m_sg.drop_right(mem.m_str, total - p);
+            euf::snode* tail = m_sg.drop_left(mem.m_str, p);
+            SASSERT(head && tail);
+
+            // Build the constant lookahead c and (if non-empty) an oracle that
+            // prunes splits whose ∇ cannot match c.
+            zstring c;
+            for (unsigned i = 0; i < run_len; ++i) {
+                expr* ch; unsigned cv;
+                VERIFY(m_seq.str.is_unit(toks[run_start + i]->get_expr(), ch));
+                VERIFY(m_seq.is_const_char(ch, cv));
+                c = c + zstring(cv);
+            }
+            split_oracle oracle;
+            if (!c.empty())
+                oracle = [this, c](expr*, expr* n) { return split_lookahead_viable(n, c); };
 
             // Decompose the regex into a split-set via the shared seq_split engine
-            // (sigma from the paper): first ∈ Δ ∧ tail ∈ ∇ for each ⟨Δ,∇⟩.
+            // (sigma from the paper): head ∈ Δ ∧ tail ∈ ∇ for each ⟨Δ,∇⟩, with the
+            // lookahead oracle pruning non-viable ∇ during generation.
             split_set pairs;
             seq_rewriter rw(m);
-            if (!rw.split(mem.m_regex->get_expr(), pairs, m_regex_factorization_threshold))
+            if (!rw.split(mem.m_regex->get_expr(), pairs, m_regex_factorization_threshold,
+                          split_mode::strong, oracle))
                 continue;
 
             rw.simplify_split(pairs);
@@ -3623,14 +3682,18 @@ namespace seq {
                 euf::snode* sn_p = m_sg.mk(tp);
                 euf::snode* sn_q = m_sg.mk(tq);
 
-                // Also check intersection with other primitive constraints on `first`
+                // Also check intersection with other primitive constraints on `head`.
+                // Only valid when head is the single token `first`; for a multi-token
+                // head Δ constrains the whole prefix, so we only check Δ ≠ ∅.
                 ptr_vector<euf::snode> regexes_p;
                 regexes_p.push_back(sn_p);
                 dep_tracker first_filter_dep = nullptr;
-                for (auto const& prev_mem : node->str_mems()) {
-                    if (prev_mem.m_str == first) {
-                        regexes_p.push_back(prev_mem.m_regex);
-                        first_filter_dep = m_dep_mgr.mk_join(first_filter_dep, prev_mem.m_dep);
+                if (head == first) {
+                    for (auto const& prev_mem : node->str_mems()) {
+                        if (prev_mem.m_str == first) {
+                            regexes_p.push_back(prev_mem.m_regex);
+                            first_filter_dep = m_dep_mgr.mk_join(first_filter_dep, prev_mem.m_dep);
+                        }
                     }
                 }
                 if (m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
@@ -3666,7 +3729,7 @@ namespace seq {
                     }
                 }
 
-                child->add_str_mem(str_mem(first, m_p, m_dep));
+                child->add_str_mem(str_mem(head, m_p, m_dep));
                 child->add_str_mem(str_mem(tail, m_q, m_dep));
             }
             return true;
@@ -4246,7 +4309,7 @@ namespace seq {
             euf::snode* power_snode = m_sg.mk(power_expr);
             euf::snode* replacement = dir_concat(m_sg, base, power_snode, fwd);
             nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, "unwinding eq >", false);
+            nielsen_edge* e = mk_edge(node, child, "unwinding eq &gt;", false);
             const nielsen_subst s(power, replacement, eq->m_dep); // TODO review - ensure var does not occur in replacement.
             e->add_subst(s);
             child->apply_subst(m_sg, s);
@@ -4290,7 +4353,7 @@ namespace seq {
 
             euf::snode* replacement = dir_concat(m_sg, base, power_snode, fwd);
             nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, "unwinding mem >", false);
+            nielsen_edge* e = mk_edge(node, child, "unwinding mem &gt;", false);
             const nielsen_subst s(power, replacement, mem->m_dep); // TODO review - ensure var does not occur in replacement.
             e->add_subst(s);
             child->apply_subst(m_sg, s);

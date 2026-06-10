@@ -287,13 +287,13 @@ namespace smt {
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         try {
             expr* e = ctx.bool_var2expr(v);
-            //std::cout << "assigned [" << sat::literal(v, !is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
+            const literal lit(v, !is_true);
+            //std::cout << "assigned [" << lit << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
             expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
             TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
             if (m_seq.str.is_in_re(e, s, re)) {
                 euf::snode* sn_str = get_snode(s);
                 euf::snode* sn_re  = get_snode(re);
-                const literal lit(v, !is_true);
                 const seq::dep_tracker dep = nullptr;
                 if (is_true) {
                     ctx.push_trail(restore_vector(m_prop_queue));
@@ -314,18 +314,63 @@ namespace smt {
                 }
             }
             else if (m_seq.str.is_prefix(e)) {
+                zstring str;
+                if (m_seq.str.is_string(to_app(e)->get_arg(0), str)) {
+                    // prefix(u, v) with u const => v \in u \Sigma^*
+                    const expr_ref pre(m_seq.re.mk_in_re(to_app(e)->get_arg(1), m_seq.re.mk_concat(
+                        m_seq.re.mk_to_re(to_app(e)->get_arg(0)),
+                        m_seq.re.mk_full_seq(m_seq.re.mk_re(to_app(e)->get_arg(0)->get_sort()))
+                        )), m);
+                    ctx.internalize(pre, false);
+                    literal l = ctx.get_literal(pre);
+                    if (!is_true)
+                        l = ~l;
+                    ctx.mk_th_axiom(get_id(), ~lit, l);
+                    return;
+                }
                 if (is_true)
                     m_axioms.prefix_true_axiom(e);
                 else
                     m_axioms.prefix_axiom(e);
             }
             else if (m_seq.str.is_suffix(e)) {
+                zstring str;
+                if (m_seq.str.is_string(to_app(e)->get_arg(0), str)) {
+                    // suffix(u, v) with u const => v \in \Sigma* u
+                    const expr_ref suff(m_seq.re.mk_in_re(to_app(e)->get_arg(1), m_seq.re.mk_concat(
+                        m_seq.re.mk_full_seq(m_seq.re.mk_re(to_app(e)->get_arg(0)->get_sort())),
+                        m_seq.re.mk_to_re(to_app(e)->get_arg(0))
+                        )), m);
+                    ctx.internalize(suff, false);
+                    literal l = ctx.get_literal(suff);
+                    if (!is_true)
+                        l = ~l;
+                    ctx.mk_th_axiom(get_id(), ~lit, l);
+                    return;
+                }
                 if (is_true)
                     m_axioms.suffix_true_axiom(e);
                 else
                     m_axioms.suffix_axiom(e);
             }
             else if (m_seq.str.is_contains(e)) {
+                zstring str;
+                if (m_seq.str.is_string(to_app(e)->get_arg(1), str)) {
+                    // contains(u, v) with v const => u \in \Sigma* v \Sigma^*
+                    sort* re_sort = m_seq.re.mk_re(to_app(e)->get_arg(0)->get_sort());
+                    expr* all = m_seq.re.mk_full_seq(re_sort);
+                    const expr_ref con(m_seq.re.mk_in_re(to_app(e)->get_arg(0), m_seq.re.mk_concat(
+                        all,
+                        m_seq.re.mk_concat(
+                            m_seq.re.mk_to_re(to_app(e)->get_arg(1)), all)
+                    )), m);
+                    ctx.internalize(con, false);
+                    literal l = ctx.get_literal(con);
+                    if (!is_true)
+                        l = ~l;
+                    ctx.mk_th_axiom(get_id(), ~lit, l);
+                    return;
+                }
                 if (is_true)
                     m_axioms.contains_true_axiom(e);
                 else
@@ -457,7 +502,7 @@ namespace smt {
 
         expr* const re = mem.m_regex->get_expr();
         expr* const s = mem.m_str->get_expr();
-        // std::cout << "Propagating: " << seq::mem_pp(mem, m) << std::endl;
+        std::cout << "Propagating: " << seq::mem_pp(mem, m) << std::endl;
 
         if (!mem.m_str->is_empty()) {
             if (mem.m_str->first()->is_char()) {
@@ -721,7 +766,6 @@ namespace smt {
             }
             else if (std::holds_alternative<mem_item>(item)) {
                 auto const& mem = std::get<mem_item>(item);
-                std::cout << "Adding " << seq::mem_pp(mem, m) << std::endl;
                 int triv = m_regex.check_trivial(mem);
                 if (triv > 0) {
                     ++num_mems;

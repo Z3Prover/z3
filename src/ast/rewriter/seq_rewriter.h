@@ -383,9 +383,11 @@ public:
         return result;
     }
 
-    // Split decomposition (sigma) of a regex; see seq_split.h.
-    bool split(expr* r, split_set& out, unsigned threshold, split_mode mode = split_mode::strong) {
-        return m_split.compute(r, out, threshold, mode);
+    // Split decomposition (sigma) of a regex; see seq_split.h.  `oracle` (optional)
+    // prunes non-viable splits during generation.
+    bool split(expr* r, split_set& out, unsigned threshold,
+               split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
+        return m_split.compute(r, out, threshold, mode, oracle);
     }
     void simplify_split(split_set& s) { m_split.simplify(s); }
 
