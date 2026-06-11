@@ -280,6 +280,22 @@ namespace smt {
         smt_params_helper::collect_param_descrs(d);
     }
 
+    void kernel::pop_to_base_level() {
+        m_imp->m_kernel.pop_to_base_lvl();
+    }
+
+    void kernel::set_preprocess(bool f) {
+        m_imp->m_kernel.get_fparams().m_preprocess = f;
+    }
+
+    void kernel::reset_aux_statistics() {
+        m_imp->m_kernel.m_aux_stats.reset();
+    }
+
+    void kernel::add_aux_statistics(::statistics const& st) {
+        m_imp->m_kernel.m_aux_stats.copy(st);
+    }
+
     context & kernel::get_context() {
         return m_imp->m_kernel;
     }

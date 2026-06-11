@@ -405,6 +405,50 @@ public:
         }
     }
 
+    unsigned get_assign_level(expr* e) const override {
+        expr* atom = e;
+        m.is_not(e, atom);
+        sat::bool_var bv = m_map.to_bool_var(atom);
+        return bv == sat::null_bool_var ? UINT_MAX : m_solver.lvl(bv);
+    }
+
+    bool is_relevant(expr* e) const override {
+        expr* atom = e;
+        m.is_not(e, atom);
+        sat::bool_var bv = m_map.to_bool_var(atom);
+        if (bv == sat::null_bool_var)
+            return true;
+        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        return !ext || ext->is_relevant(bv);
+    }
+
+    unsigned get_num_bool_vars() const override {
+        return m_solver.num_vars();
+    }
+
+    unsigned get_bool_var(expr* e) const override {
+        expr* atom = e;
+        m.is_not(e, atom);
+        sat::bool_var bv = m_map.to_bool_var(atom);
+        return bv == sat::null_bool_var ? UINT_MAX : bv;
+    }
+
+    expr* bool_var2expr(unsigned v) const override {
+        return v < m_solver.num_vars() ? m_map.bool_var2expr(v) : nullptr;
+    }
+
+    lbool get_assignment(unsigned v) const override {
+        return v < m_solver.num_vars() ? m_solver.value(v) : l_undef;
+    }
+
+    double get_activity(unsigned v) const override {
+        return v < m_solver.num_vars() ? static_cast<double>(m_solver.get_activity(v)) : 0.0;
+    }
+
+    bool was_eliminated(unsigned v) const override {
+        return v < m_solver.num_vars() && m_solver.was_eliminated(v);
+    }
+
     expr_ref_vector get_trail(unsigned max_level) override {
         expr_ref_vector result(m);
         unsigned sz = m_solver.trail_size();
@@ -451,8 +495,35 @@ public:
                 vars.push_back(kv.m_value);
         }
         sat::literal_vector lits;
-        lbool result = m_solver.cube(vars, lits, backtrack_level);
         expr_ref_vector fmls(m);
+        if (!m_params.get_bool("cube.lookahead", false)) {
+            sat::bool_var best = sat::null_bool_var;
+            double best_activity = 0.0;
+            unsigned n = 0;
+            for (sat::bool_var v : vars) {
+                if (get_assignment(v) != l_undef || was_eliminated(v))
+                    continue;
+                double activity = get_activity(v);
+                if (best == sat::null_bool_var || activity > best_activity || (activity == best_activity && m_solver.rand()(++n) == 0)) {
+                    best = v;
+                    best_activity = activity;
+                }
+            }
+            if (best == sat::null_bool_var)
+                return expr_ref_vector(m);
+            expr* e = bool_var2expr(best);
+            SASSERT(e);
+            if (e)
+                fmls.push_back(e);
+            vs.reset();
+            for (sat::bool_var v : vars) {
+                expr* x = bool_var2expr(v);
+                if (x)
+                    vs.push_back(x);
+            }
+            return fmls;
+        }
+        lbool result = m_solver.cube(vars, lits, backtrack_level);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
@@ -480,6 +551,27 @@ public:
             set_reason_unknown(m_solver.get_reason_unknown());
         }
         return fmls;
+    }
+
+    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        if (!is_internalized()) {
+            lbool r = internalize_formulas();
+            if (r != l_true)
+                return;
+        }
+        convert_internalized();
+        sat::literal_vector lits;
+        m_solver.get_backbone_candidates(lits, max_num);
+        expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
+        m_map.mk_inv(lit2expr);
+        uint64_t now = m_solver.get_stats().m_conflicts;
+        for (sat::literal lit : lits) {
+            expr* e = lit2expr.get(lit.index());
+            if (!e)
+                continue;
+            candidates.push_back(scored_literal(m, e, static_cast<double>(now - m_solver.get_phase_birthdate(lit.var()))));
+        }
     }
 
     expr* congruence_next(expr* e) override { return e; }

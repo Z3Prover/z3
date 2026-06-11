@@ -64,6 +64,7 @@ namespace smt {
 
     class model_generator;
     class context;
+    class kernel;
 
     struct oom_exception : public z3_error {
         oom_exception() : z3_error(ERR_MEMOUT) {}
@@ -85,6 +86,7 @@ namespace smt {
         friend class model_generator;
         friend class lookahead;
         friend class parallel;
+        friend class kernel;
     public:
         statistics                  m_stats;
 
@@ -452,6 +454,8 @@ namespace smt {
         svector<double> const & get_activity_vector() const { return m_activity; }
 
         double get_activity(bool_var v) const { return m_activity[v]; }
+        unsigned get_num_assignments() const { return m_stats.m_num_assignments; }
+        unsigned get_birthdate(bool_var v) const { return m_birthdate[v]; }
 
         void set_activity(bool_var v, double act) { m_activity[v] = act; }
 
@@ -537,6 +541,8 @@ namespace smt {
         bool at_search_level() const {
             return m_scope_lvl == m_search_lvl;
         }
+
+        void pop_to_search_level() { pop_to_search_lvl(); }
 
         bool tracking_assumptions() const {
             return !m_assumptions.empty() && m_search_lvl > m_base_lvl;
@@ -1697,6 +1703,8 @@ namespace smt {
 
         lbool setup_and_check(bool reset_cancel = true);
 
+        void setup_for_parallel();
+
         void reduce_assertions();
 
         bool resource_limits_exceeded();
@@ -1913,5 +1921,4 @@ namespace smt {
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
 };
-
 
