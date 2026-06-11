@@ -19,14 +19,13 @@ Revision History:
 #pragma once
 
 #include "ast/rewriter/var_subst.h"
-#include "util/trailing_array.h"
 #include "util/map.h"
 
 class cached_var_subst {
     struct key {
         quantifier * m_qa;
         unsigned     m_num_bindings;
-        TRAILING_ARRAY(expr *, m_bindings);
+        expr *       m_bindings[0];
     };
     struct key_hash_proc {
         unsigned operator()(key * k) const {

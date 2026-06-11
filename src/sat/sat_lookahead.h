@@ -21,7 +21,6 @@ Notes:
 
 
 #include "util/small_object_allocator.h"
-#include "util/trailing_array.h"
 #include "sat/sat_elim_eqs.h"
 
 namespace pb {
@@ -148,7 +147,7 @@ namespace sat {
             unsigned m_size;         // number of non-false literals
             size_t   m_obj_size;     // object size (counting all literals)
             literal  m_head;         // head literal
-            TRAILING_ARRAY(literal, m_literals);  // list of literals, put any true literal in head.
+            literal  m_literals[0];  // list of literals, put any true literal in head.
             size_t num_lits() const {
                 return (m_obj_size - sizeof(nary)) / sizeof(literal);
             }

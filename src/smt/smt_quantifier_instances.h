@@ -1,4 +1,3 @@
-#include "util/trailing_array.h"
 /*++
 Copyright (c) 2006 Microsoft Corporation
 
@@ -26,7 +25,7 @@ namespace smt {
     class quantifier_instance {
         quantifier * m_quantifier;
         double       m_cost;
-        TRAILING_ARRAY(enode *, m_enodes);
+        enode *      m_enodes[0];
         quantifier_instance(quantifier * q, enode * const * enodes);
         friend class quantifier_instances;
     public:
