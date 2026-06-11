@@ -123,6 +123,28 @@ namespace seq {
 
         rw.simplify_split(result);
 
+        // Eagerly consume the constant run c from the tail by taking the c-derivative
+        // of each ∇:  tail = c·u''' ∈ ∇  ⟺  u''' ∈ δ_c(∇)  (Brzozowski).
+        // This makes progress — the returned tail becomes u''' (c consumed) — and
+        // drops any split whose ∇ cannot start with c, since there δ_c(∇) = ∅
+        // (e.g. the star rule's ⟨ε,ε⟩: δ_c(ε) = ∅ for non-empty c).  This is sound
+        // because ∇ is now a complete top-level component (no factor appended).
+        if (!c.empty()) {
+            unsigned w = 0;
+            for (unsigned i = 0; i < result.size(); ++i) {
+                euf::snode const* d = sg.mk(result[i].m_n);
+                for (unsigned k = 0; d && !d->is_fail() && k < c.length(); ++k) {
+                    d = sg.brzozowski_deriv(d, sg.mk_char(c[k]));
+                }
+                SASSERT(d);
+                if (d->is_fail())
+                    continue;   // ∇ can't start with c → infeasible split, drop
+                result[w++] = split_pair(result[i].m_d, d->get_expr(), m);
+            }
+            result.shrink(w);
+            tail = sg.drop_left(str, run_start + run_len);   // u''' (c consumed)
+        }
+
         return { head, tail };
     }
 
