@@ -136,7 +136,7 @@ namespace smt {
         // private helpers
         void populate_nielsen_graph();
         void explain_nielsen_conflict();
-        void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+        void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) const;
         void set_conflict(literal_vector const& lits) {
             const enode_pair_vector eqs;
             set_conflict(eqs, lits);

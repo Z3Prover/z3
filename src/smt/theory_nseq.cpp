@@ -613,8 +613,15 @@ namespace smt {
             split_set pairs;
             auto [head, tail] = seq::split_membership(mem.m_str, mem.m_regex, m_sg, threshold, pairs);
 
+            if (!head) {
+                // gave up
+                SASSERT(!tail);
+                return;
+            }
+
+            SASSERT(tail);
+
             if (pairs.empty()) {
-                // no viable splits
                 literal_vector lits;
                 lits.push_back(mem.lit);
                 set_conflict(lits);
