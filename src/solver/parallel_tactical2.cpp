@@ -1893,28 +1893,28 @@ public:
         for (auto& t : threads)
             t.join();
 
-        m_solver->reset_parallel_statistics();
+        m_solver->reset_statistics();
         statistics aux;
         for (auto* w : m_workers) {
             aux.reset();
             w->collect_statistics(aux);
-            m_solver->add_parallel_statistics(aux);
+            m_solver->add_statistics(aux);
         }
         aux.reset();
         m_batch_manager.collect_statistics(aux);
-        m_solver->add_parallel_statistics(aux);
+        m_solver->add_statistics(aux);
         if (m_core_minimizer_worker) {
             aux.reset();
             m_core_minimizer_worker->collect_statistics(aux);
-            m_solver->add_parallel_statistics(aux);
+            m_solver->add_statistics(aux);
         }
         for (auto* w : m_global_backbones_workers) {
             aux.reset();
             w->collect_statistics(aux);
-            m_solver->add_parallel_statistics(aux);
+            m_solver->add_statistics(aux);
         }
         m_stats.reset();
-        m_solver->collect_parallel_statistics(m_stats);
+        m_solver->collect_statistics(m_stats);
 
         m_manager.limit().reset_cancel();
 

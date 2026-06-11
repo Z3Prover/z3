@@ -57,7 +57,6 @@ solver* mk_smt2_solver(ast_manager& m, params_ref const& p, symbol const& logic 
 class solver : public check_sat_result, public user_propagator::core {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
-    statistics  m_parallel_stats;
 public:
     struct scored_literal {
         expr_ref lit;
@@ -330,18 +329,6 @@ public:
 
     virtual unsigned get_max_conflicts() const { return UINT_MAX; }
 
-    virtual void reset_parallel_statistics() {
-        m_parallel_stats.reset();
-    }
-
-    virtual void add_parallel_statistics(statistics const& st) {
-        m_parallel_stats.copy(st);
-    }
-
-    virtual void collect_parallel_statistics(statistics& st) const {
-        st.copy(m_parallel_stats);
-        collect_statistics(st);
-    }
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 

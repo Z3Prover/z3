@@ -279,18 +279,6 @@ namespace {
             return const_cast<smt::kernel&>(m_context).get_context().get_fparams().m_max_conflicts;
         }
 
-        void reset_parallel_statistics() override {
-            m_context.reset_aux_statistics();
-        }
-
-        void add_parallel_statistics(statistics const& st) override {
-            m_context.add_aux_statistics(st);
-        }
-
-        void collect_parallel_statistics(statistics& st) const override {
-            m_context.collect_statistics(st);
-        }
-
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
             ast_manager& m = get_manager();
             auto& ctx = m_context.get_context();
