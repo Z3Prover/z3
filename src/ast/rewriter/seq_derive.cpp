@@ -85,7 +85,7 @@ namespace seq {
             // Initialize path state for inline pruning
             m_path.reset();
             m_intervals.reset();
-            m_intervals.push_back(std::make_pair(0u, u().max_char()));
+            m_intervals.push_back({0u, u().max_char()});
             m_intervals_start = 0;
             m_path_expr = m.mk_true();
             result = derive_rec(r);
@@ -1052,6 +1052,7 @@ namespace seq {
             if (c == cond)
                 return csign == sign ? l_true : l_false;
             expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
+            // x = v, v != w |-> x != w             
             if (!csign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
                 if (m.is_value(lhs1)) std::swap(lhs1, rhs1);
                 if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
@@ -1254,10 +1255,12 @@ namespace seq {
         unsigned j = m_intervals_start;
         for (unsigned i = m_intervals_start; i < m_intervals.size(); ++i) {
             auto [lo1, hi1] = m_intervals[i];
-            if (hi < lo1)
+            if (hi < lo1 || lo > hi1) {
+                j = old_sz;
                 break;
+            }
             if (hi1 >= lo)
-                m_intervals[j++] = std::make_pair(std::max(lo1, lo), std::min(hi1, hi));
+                m_intervals[j++] = {std::max(lo1, lo), std::min(hi1, hi)};
         }
         m_intervals.shrink(j);
     }
@@ -1278,9 +1281,9 @@ namespace seq {
                 m_intervals.push_back(m_intervals[i]);
             } else {
                 if (ilo < lo)
-                    m_intervals.push_back(std::make_pair(ilo, lo - 1));
+                    m_intervals.push_back({ilo, lo - 1});
                 if (ihi > hi)
-                    m_intervals.push_back(std::make_pair(hi + 1, ihi));
+                    m_intervals.push_back({hi + 1, ihi});
             }
         }
         m_intervals_start = old_sz;
