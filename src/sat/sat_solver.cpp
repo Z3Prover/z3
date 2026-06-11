@@ -658,15 +658,19 @@ namespace sat {
             return;
         bool value = !l.sign();
         set_phase(l.var(), value);
-        if (m_best_phase[l.var()] != value)
-            m_best_phase_birthdate[l.var()] = m_stats.m_conflicts;
-        m_best_phase[l.var()] = value;
+        set_best_phase(l.var(), value);
     }
 
     void solver::set_phase(bool_var v, bool value) {
         if (m_phase[v] != value)
             m_phase_birthdate[v] = m_stats.m_conflicts;
         m_phase[v] = value;
+    }
+
+    void solver::set_best_phase(bool_var v, bool value) {
+        if (m_best_phase[v] != value)
+            m_best_phase_birthdate[v] = m_stats.m_conflicts;
+        m_best_phase[v] = value;
     }
 
     struct solver::cmp_activity {
@@ -1404,9 +1408,7 @@ namespace sat {
         if (mdl.size() == m_best_phase.size()) {
             for (unsigned i = 0; i < m_best_phase.size(); ++i) {
                 bool is_true = l_true == mdl[i];
-                if (m_best_phase[i] != is_true)
-                    m_best_phase_birthdate[i] = m_stats.m_conflicts;
-                m_best_phase[i] = is_true;
+                set_best_phase(i, is_true);
             }
 
             if (r == l_true) {
@@ -2201,9 +2203,7 @@ namespace sat {
                 m_model[v] = value(v);
                 bool is_true = value(v) == l_true;
                 set_phase(v, is_true);
-                if (m_best_phase[v] != is_true)
-                    m_best_phase_birthdate[v] = m_stats.m_conflicts;
-                m_best_phase[v] = is_true;
+                set_best_phase(v, is_true);
             }
         }
         TRACE(sat_mc_bug, m_mc.display(tout););
@@ -2980,9 +2980,7 @@ namespace sat {
             IF_VERBOSE(12, verbose_stream() << "sticky trail: " << head << "\n");
             for (unsigned i = 0; i < head; ++i) {
                 bool_var v = m_trail[i].var();
-                if (m_best_phase[v] != m_phase[v])
-                    m_best_phase_birthdate[v] = m_stats.m_conflicts;
-                m_best_phase[v] = m_phase[v];
+                set_best_phase(v, m_phase[v]);
             }
             set_has_new_best_phase(true);
         }
