@@ -653,14 +653,6 @@ namespace seq {
     }
 
     expr_ref derive::mk_xor_core(expr *a, expr *b) {
-        // ITE handling with path pruning (before merge, since ITEs aren't part of sorted chains)
-        if (m.is_ite(a) || m.is_ite(b)) {
-            // Canonical order for non-ITE cases handled by merge below
-            auto xor_op = [&](expr *x, expr *y) { return mk_xor(x, y); };
-            expr_ref r = hoist_ite(a, b, xor_op);
-            if (r)
-                return r;
-        }
 
         return m_re.mk_xor0(a, b);
     }
@@ -672,12 +664,25 @@ namespace seq {
         if (cache.find(a, b, pe, cached))
             return expr_ref(cached, m);
         expr_ref result(m);
+        // ITE handling with path pruning
+        auto inter_op = [&](expr *x, expr *y) { return mk_inter(x, y); };
+        auto union_op = [&](expr *x, expr *y) { return mk_union(x, y); };
+        auto xor_op   = [&](expr *x, expr *y) { return mk_xor(x, y); };
         switch (k) { 
         case OP_RE_UNION:
-            result = mk_union_core(a, b); 
+            result = hoist_ite(a, b, union_op);
+            if (!result)
+               result = mk_union_core(a, b); 
             break;
         case OP_RE_INTERSECT:
-            result = mk_inter_core(a, b); 
+            result = hoist_ite(a, b, inter_op);
+            if (!result)
+                result = mk_inter_core(a, b);            
+            break;
+        case OP_RE_XOR: 
+            result = hoist_ite(a, b, xor_op);
+            if (!result)
+                result = mk_xor_core(a, b); 
             break;
         default:
             UNREACHABLE(); 
@@ -709,13 +714,6 @@ namespace seq {
     }    
 
     expr_ref derive::mk_union_core(expr* a, expr* b) {
-        // ITE handling with path pruning (before merge, since ITEs aren't part of sorted chains)
-        if (m.is_ite(a) || m.is_ite(b)) {
-            // Canonical order for non-ITE cases handled by merge below
-            auto union_op = [&](expr* x, expr* y) { return mk_union(x, y); };
-            expr_ref r = hoist_ite(a, b, union_op);
-            if (r) return r;
-        }
 
         // Prefix factoring: a·x ∪ a·y = a·(x ∪ y)
         expr *a1, *a2, *b1, *b2;
@@ -746,10 +744,7 @@ namespace seq {
         if (re().is_complement(a, c) && re().is_complement(b, d))
             return expr_ref(re().mk_complement(mk_union_core(c, d)), m);
 
-        // ITE handling with path pruning
-        auto inter_op = [&](expr* x, expr* y) { return mk_inter(x, y); };
-        expr_ref r = hoist_ite(a, b, inter_op);
-        if (r) return r;
+
 
         // TODO: Distribution of intersection over union
         // Disabled pending performance analysis
