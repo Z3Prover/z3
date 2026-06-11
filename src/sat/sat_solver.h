@@ -376,6 +376,7 @@ namespace sat {
         void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
         void set_phase(literal l) override;
+        void set_phase(bool_var v, bool value);
         bool get_phase(bool_var b) { return m_phase.get(b, false); }
         bool get_best_phase(bool_var b) { return m_best_phase.get(b, false); }
         uint64_t get_phase_birthdate(bool_var b) const { return m_phase_birthdate.get(b, 0); }
