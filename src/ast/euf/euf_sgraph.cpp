@@ -907,7 +907,6 @@ namespace euf {
             return mk(e);
         }
 
-        std::cout << "Derivative of " << mk_pp(re_expr, m) << "\nwith respect to " << mk_pp(elem_expr, m) << std::endl;
         const expr_ref result = m_rewriter.mk_derivative(elem_expr, re_expr);
         SASSERT(result);
         return mk(result);

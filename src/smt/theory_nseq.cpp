@@ -502,7 +502,7 @@ namespace smt {
 
         expr* const re = mem.m_regex->get_expr();
         expr* const s = mem.m_str->get_expr();
-        std::cout << "Propagating: " << seq::mem_pp(mem, m) << std::endl;
+        //std::cout << "Propagating: " << seq::mem_pp(mem, m) << std::endl;
 
         if (!mem.m_str->is_empty()) {
             if (mem.m_str->first()->is_char()) {
@@ -632,16 +632,16 @@ namespace smt {
                 // forward direction; mk_literal Tseitin-encodes each conjunction
                 literal_vector lits;
                 lits.push_back(~mem.lit);
-                std::cout << "Decomposing into:\n";
+                //std::cout << "Decomposing into:\n";
                 for (auto const& sp : pairs) {
                     expr_ref mem_head(m_seq.re.mk_in_re(head->get_expr(), sp.m_d), m);
                     expr_ref mem_tail(m_seq.re.mk_in_re(tail->get_expr(), sp.m_n), m);
                     expr_ref conj(m.mk_and(mem_head, mem_tail), m);
                     lits.push_back(mk_literal(conj));
-                    seq::dep_tracker dep = nullptr;
-                    std::cout << seq::mem_pp(seq::str_mem(head, m_sg.mk(sp.m_d), dep), m) << " && " << seq::mem_pp(seq::str_mem(tail, m_sg.mk(sp.m_n), dep), m) << "\n";
+                    //seq::dep_tracker dep = nullptr;
+                    //std::cout << seq::mem_pp(seq::str_mem(head, m_sg.mk(sp.m_d), dep), m) << " && " << seq::mem_pp(seq::str_mem(tail, m_sg.mk(sp.m_n), dep), m) << "\n";
                 }
-                std::cout << std::endl;
+                //std::cout << std::endl;
                 ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
                 m_ignored_mem.insert(mem.lit);
                 ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
@@ -1183,7 +1183,7 @@ namespace smt {
 #endif
     }
 
-    void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
+    void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) const {
         TRACE(seq, tout << "nseq conflict: " << eqs.size() << " eqs, " << lits.size() << " lits\n";
               for (auto lit : lits) tout << ctx.literal2expr(lit) << "\n";
               for (auto [a, b] : eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
