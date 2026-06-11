@@ -627,12 +627,12 @@ namespace seq {
             return;
 
         // collect the original variables present in the root node's constraints
-        ptr_vector<euf::snode> vars;
+        euf::snode_vector vars;
         uint_set seen;
-        auto add_vars = [&](euf::snode* s) {
+        auto add_vars = [&](euf::snode const* s) {
             if (!s)
                 return;
-            for (euf::snode* t : s->collect_tokens())
+            for (euf::snode const* t : s->collect_tokens())
                 if (t->is_var() && !seen.contains(t->id())) {
                     seen.insert(t->id());
                     vars.push_back(t);
@@ -657,12 +657,14 @@ namespace seq {
         }
 
         bool any = false;
-        for (euf::snode* var : vars) {
-            euf::snode* val = var;
+        for (euf::snode const* var : vars) {
+            euf::snode const* val = var;
             // apply substitutions in root-to-node order (path is node-to-root)
-            for (unsigned i = path.size(); i-- > 0; )
-                for (nielsen_subst const& s : path[i]->subst())
+            for (unsigned i = path.size(); i-- > 0; ) {
+                for (nielsen_subst const& s : path[i]->subst()) {
                     val = sg.subst(val, s.m_var, s.m_replacement);
+                }
+            }
             if (val == var)
                 continue; // unchanged: variable is still free at this node
             if (!any) { out << "<br/>Subst:<br/>"; any = true; }
@@ -763,7 +765,7 @@ namespace seq {
         return ss.str();
     }
 
-    std::ostream& nielsen_graph::partial_dfa_to_dot(std::ostream& out, euf::snode* start_state, bool keep_names) const {
+    std::ostream& nielsen_graph::partial_dfa_to_dot(std::ostream& out, euf::snode const* start_state, bool keep_names) const {
         out << "digraph G {\n";
         out << "  node [shape=box];\n";
 
@@ -833,8 +835,8 @@ namespace seq {
 
             bool accepting = false;
             if (node_expr) {
-                euf::snode* sn = m_sg.mk(node_expr);
-                accepting = (const_cast<euf::sgraph&>(m_sg).re_nullable(sn) == l_true);
+                euf::snode const* sn = m_sg.mk(node_expr);
+                accepting = m_sg.re_nullable(sn) == l_true;
             }
 
             out << "  N" << node_id << " [";
@@ -873,7 +875,7 @@ namespace seq {
         return out;
     }
 
-    std::string nielsen_graph::partial_dfa_to_dot(euf::snode* start_state, bool keep_names) const {
+    std::string nielsen_graph::partial_dfa_to_dot(euf::snode const* start_state, bool keep_names) const {
         std::stringstream ss;
         partial_dfa_to_dot(ss, start_state, keep_names);
         return ss.str();

@@ -29,12 +29,12 @@ static void test_sgraph_classify() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    seq_util seq(m);
-    sort_ref str_sort(seq.str.mk_string_sort(), m);
+    const seq_util seq(m);
+    const sort_ref str_sort(seq.str.mk_string_sort(), m);
 
     // string variable
-    expr_ref x(m.mk_const("x", str_sort), m);
-    euf::snode* sx = sg.mk(x);
+    const expr_ref x(m.mk_const("x", str_sort), m);
+    euf::snode const* sx = sg.mk(x);
     SASSERT(sx && sx->is_var());
     SASSERT(!sx->is_ground());
     SASSERT(sx->is_regex_free());
@@ -43,8 +43,8 @@ static void test_sgraph_classify() {
     SASSERT(sx->is_token());
 
     // empty string
-    expr_ref empty(seq.str.mk_empty(str_sort), m);
-    euf::snode* se = sg.mk(empty);
+    const expr_ref empty(seq.str.mk_empty(str_sort), m);
+    euf::snode const* se = sg.mk(empty);
     SASSERT(se && se->is_empty());
     SASSERT(se->is_ground());
     SASSERT(se->level() == 0);
@@ -52,9 +52,9 @@ static void test_sgraph_classify() {
     SASSERT(!se->is_token());
 
     // character unit with literal char
-    expr_ref ch(seq.str.mk_char('A'), m);
-    expr_ref unit_a(seq.str.mk_unit(ch), m);
-    euf::snode* sca = sg.mk(unit_a);
+    const expr_ref ch(seq.str.mk_char('A'), m);
+    const expr_ref unit_a(seq.str.mk_unit(ch), m);
+    euf::snode const* sca = sg.mk(unit_a);
     SASSERT(sca && sca->is_char());
     SASSERT(sca->is_ground());
     SASSERT(sca->level() == 1);
@@ -62,9 +62,9 @@ static void test_sgraph_classify() {
     SASSERT(sca->is_token());
 
     // concat of two variables
-    expr_ref y(m.mk_const("y", str_sort), m);
-    expr_ref xy(seq.str.mk_concat(x, y), m);
-    euf::snode* sxy = sg.mk(xy);
+    const expr_ref y(m.mk_const("y", str_sort), m);
+    const expr_ref xy(seq.str.mk_concat(x, y), m);
+    euf::snode const* sxy = sg.mk(xy);
     SASSERT(sxy && sxy->is_concat());
     SASSERT(!sxy->is_ground());
     SASSERT(sxy->is_regex_free());
@@ -85,60 +85,60 @@ static void test_sgraph_regex() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    sort_ref str_sort(seq.str.mk_string_sort(), m);
+    const sort_ref str_sort(seq.str.mk_string_sort(), m);
 
-    expr_ref x(m.mk_const("x", str_sort), m);
+    const expr_ref x(m.mk_const("x", str_sort), m);
 
     // to_re
-    expr_ref to_re_x(seq.re.mk_to_re(x), m);
-    euf::snode* str = sg.mk(to_re_x);
+    const expr_ref to_re_x(seq.re.mk_to_re(x), m);
+    euf::snode const* str = sg.mk(to_re_x);
     SASSERT(str && str->is_to_re());
     SASSERT(!str->is_regex_free());
     SASSERT(str->num_args() == 1);
 
     // star
-    expr_ref star_x(seq.re.mk_star(to_re_x), m);
-    euf::snode* ss = sg.mk(star_x);
+    const expr_ref star_x(seq.re.mk_star(to_re_x), m);
+    euf::snode const* ss = sg.mk(star_x);
     SASSERT(ss && ss->is_star());
     SASSERT(!ss->is_regex_free());
     SASSERT(ss->num_args() == 1);
 
     // full_seq (.*)
-    expr_ref full_seq(seq.re.mk_full_seq(str_sort), m);
-    euf::snode* sfs = sg.mk(full_seq);
+    const expr_ref full_seq(seq.re.mk_full_seq(str_sort), m);
+    euf::snode const* sfs = sg.mk(full_seq);
     SASSERT(sfs && sfs->is_full_seq());
     SASSERT(sfs->is_ground());
 
     // full_char (.)
-    expr_ref full_char(seq.re.mk_full_char(str_sort), m);
-    euf::snode* sfc = sg.mk(full_char);
+    const expr_ref full_char(seq.re.mk_full_char(str_sort), m);
+    euf::snode const* sfc = sg.mk(full_char);
     SASSERT(sfc && sfc->is_full_char());
     SASSERT(sfc->is_ground());
 
     // empty set, fail
-    sort_ref re_sort(seq.re.mk_re(str_sort), m);
-    expr_ref empty_set(seq.re.mk_empty(re_sort), m);
-    euf::snode* sfail = sg.mk(empty_set);
+    const sort_ref re_sort(seq.re.mk_re(str_sort), m);
+    const expr_ref empty_set(seq.re.mk_empty(re_sort), m);
+    euf::snode const* sfail = sg.mk(empty_set);
     SASSERT(sfail && sfail->is_fail());
 
     // union: to_re(x) | star(to_re(x)), nullable because star is
-    expr_ref re_union(seq.re.mk_union(to_re_x, star_x), m);
-    euf::snode* su = sg.mk(re_union);
+    const expr_ref re_union(seq.re.mk_union(to_re_x, star_x), m);
+    euf::snode const* su = sg.mk(re_union);
     SASSERT(su && su->is_union());
 
     // intersection: to_re(x) & star(to_re(x)), nullable only if both are
-    expr_ref re_inter(seq.re.mk_inter(to_re_x, star_x), m);
-    euf::snode* si = sg.mk(re_inter);
+    const expr_ref re_inter(seq.re.mk_inter(to_re_x, star_x), m);
+    euf::snode const* si = sg.mk(re_inter);
     SASSERT(si && si->is_intersect());
 
     // complement of to_re(x): nullable because to_re(x) is not nullable
-    expr_ref re_comp(seq.re.mk_complement(to_re_x), m);
-    euf::snode* sc = sg.mk(re_comp);
+    const expr_ref re_comp(seq.re.mk_complement(to_re_x), m);
+    euf::snode const* sc = sg.mk(re_comp);
     SASSERT(sc && sc->is_complement());
 
     // in_re
-    expr_ref in_re(seq.re.mk_in_re(x, star_x), m);
-    euf::snode* sir = sg.mk(in_re);
+    const expr_ref in_re(seq.re.mk_in_re(x, star_x), m);
+    euf::snode const* sir = sg.mk(in_re);
     SASSERT(sir && sir->is_in_re());
     SASSERT(!sir->is_regex_free());
 
@@ -160,7 +160,7 @@ static void test_sgraph_power() {
     expr_ref n(arith.mk_int(3), m);
     expr_ref xn(seq.str.mk_power(x, n), m);
 
-    euf::snode* sp = sg.mk(xn);
+    euf::snode const* sp = sg.mk(xn);
     SASSERT(sp && sp->is_power());
     SASSERT(!sp->is_ground()); // base x is not ground
     SASSERT(sp->is_regex_free());
@@ -258,8 +258,8 @@ static void test_sgraph_find_idempotent() {
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
     expr_ref x(m.mk_const("x", str_sort), m);
-    euf::snode* s1 = sg.mk(x);
-    euf::snode* s2 = sg.mk(x);  // calling mk again returns same node
+    euf::snode const* s1 = sg.mk(x);
+    euf::snode const* s2 = sg.mk(x);  // calling mk again returns same node
     SASSERT(s1 == s2);
     SASSERT(s1 == sg.find(x));
 }
@@ -278,9 +278,9 @@ static void test_sgraph_mk_concat() {
     expr_ref y(m.mk_const("y", str_sort), m);
     expr_ref empty(seq.str.mk_empty(str_sort), m);
 
-    euf::snode* sx = sg.mk(x);
-    euf::snode* sy = sg.mk(y);
-    euf::snode* se = sg.mk(empty);
+    euf::snode const* sx = sg.mk(x);
+    euf::snode const* sy = sg.mk(y);
+    euf::snode const* se = sg.mk(empty);
 
     // concat with empty yields the non-empty side at sgraph level
     // (empty absorption is a property of the expression, checked via mk)
@@ -288,14 +288,14 @@ static void test_sgraph_mk_concat() {
 
     // normal concat via expression
     expr_ref xy(seq.str.mk_concat(x, y), m);
-    euf::snode* sxy = sg.mk(xy);
+    euf::snode const* sxy = sg.mk(xy);
     SASSERT(sxy && sxy->is_concat());
     SASSERT(sxy->num_args() == 2);
     SASSERT(sxy->arg(0) == sx);
     SASSERT(sxy->arg(1) == sy);
 
     // calling mk again with same expr returns same node
-    euf::snode* sxy2 = sg.mk(xy);
+    euf::snode const* sxy2 = sg.mk(xy);
     SASSERT(sxy == sxy2);
 }
 
@@ -314,14 +314,14 @@ static void test_sgraph_mk_power() {
     expr_ref n(arith.mk_int(5), m);
     expr_ref xn(seq.str.mk_power(x, n), m);
 
-    euf::snode* sx = sg.mk(x);
-    euf::snode* sp = sg.mk(xn);
+    euf::snode const* sx = sg.mk(x);
+    euf::snode const* sp = sg.mk(xn);
     SASSERT(sp && sp->is_power());
     SASSERT(sp->num_args() == 2);
     SASSERT(sp->arg(0) == sx);
 
     // calling mk again returns same node
-    euf::snode* sp2 = sg.mk(xn);
+    euf::snode const* sp2 = sg.mk(xn);
     SASSERT(sp == sp2);
 }
 
@@ -339,21 +339,21 @@ static void test_sgraph_first_last() {
     expr_ref b(m.mk_const("b", str_sort), m);
     expr_ref c(m.mk_const("c", str_sort), m);
 
-    euf::snode* sa = sg.mk(a);
-    euf::snode* sb = sg.mk(b);
-    euf::snode* sc = sg.mk(c);
+    euf::snode const* sa = sg.mk(a);
+    euf::snode const* sb = sg.mk(b);
+    euf::snode const* sc = sg.mk(c);
 
     // concat(concat(a,b),c): first=a, last=c
     expr_ref ab(seq.str.mk_concat(a, b), m);
     expr_ref ab_c(seq.str.mk_concat(ab, c), m);
-    euf::snode* sab_c = sg.mk(ab_c);
+    euf::snode const* sab_c = sg.mk(ab_c);
     SASSERT(sab_c->first() == sa);
     SASSERT(sab_c->last() == sc);
 
     // concat(a,concat(b,c)): first=a, last=c
     expr_ref bc(seq.str.mk_concat(b, c), m);
     expr_ref a_bc(seq.str.mk_concat(a, bc), m);
-    euf::snode* sa_bc = sg.mk(a_bc);
+    euf::snode const* sa_bc = sg.mk(a_bc);
     SASSERT(sa_bc->first() == sa);
     SASSERT(sa_bc->last() == sc);
 
@@ -378,13 +378,13 @@ static void test_sgraph_concat_metadata() {
     expr_ref ch(seq.str.mk_char('Z'), m);
     expr_ref unit_z(seq.str.mk_unit(ch), m);
 
-    euf::snode* sx = sg.mk(x);
-    euf::snode* se = sg.mk(empty);
-    euf::snode* sz = sg.mk(unit_z);
+    euf::snode const* sx = sg.mk(x);
+    euf::snode const* se = sg.mk(empty);
+    euf::snode const* sz = sg.mk(unit_z);
 
     // concat(x, unit('Z')): not ground (x is variable), regex_free, not nullable
     expr_ref xz(seq.str.mk_concat(x, unit_z), m);
-    euf::snode* sxz = sg.mk(xz);
+    euf::snode const* sxz = sg.mk(xz);
     SASSERT(!sxz->is_ground());
     SASSERT(sxz->is_regex_free());
     SASSERT(sxz->length() == 2);
@@ -392,14 +392,14 @@ static void test_sgraph_concat_metadata() {
 
     // concat(empty, empty): nullable (both empty)
     expr_ref empty2(seq.str.mk_concat(empty, empty), m);
-    euf::snode* see = sg.mk(empty2);
+    euf::snode const* see = sg.mk(empty2);
     SASSERT(see->is_ground());
     SASSERT(see->length() == 0);
 
     // deep chain: concat(concat(x,x),concat(x,x)) has level 3, length 4
     expr_ref xx(seq.str.mk_concat(x, x), m);
     expr_ref xxxx(seq.str.mk_concat(xx, xx), m);
-    euf::snode* sxxxx = sg.mk(xxxx);
+    euf::snode const* sxxxx = sg.mk(xxxx);
     SASSERT(sxxxx->level() == 3);
     SASSERT(sxxxx->length() == 4);
 }
@@ -437,40 +437,40 @@ static void test_sgraph_factory() {
     seq_util seq(m);
 
     // mk_var
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     SASSERT(x && x->is_var());
     SASSERT(!x->is_ground());
     SASSERT(x->length() == 1);
 
     // mk_char
-    euf::snode* a = sg.mk_char('A');
+    euf::snode const* a = sg.mk_char('A');
     SASSERT(a && a->is_char());
     SASSERT(a->is_ground());
     SASSERT(a->length() == 1);
 
     // mk_empty
-    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
+    euf::snode const* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     SASSERT(e && e->is_empty());
     SASSERT(e->length() == 0);
 
     // mk_concat with empty absorption
-    euf::snode* xe = sg.mk_concat(x, e);
+    euf::snode const* xe = sg.mk_concat(x, e);
     SASSERT(xe == x);
-    euf::snode* ex = sg.mk_concat(e, x);
+    euf::snode const* ex = sg.mk_concat(e, x);
     SASSERT(ex == x);
 
     // mk_concat of two variables
-    euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
-    euf::snode* xy = sg.mk_concat(x, y);
+    euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
+    euf::snode const* xy = sg.mk_concat(x, y);
     SASSERT(xy && xy->is_concat());
     SASSERT(xy->length() == 2);
     SASSERT(xy->arg(0) == x);
     SASSERT(xy->arg(1) == y);
 
     // mk_concat of multiple characters
-    euf::snode* b = sg.mk_char('B');
-    euf::snode* c = sg.mk_char('C');
-    euf::snode* abc = sg.mk_concat(sg.mk_concat(a, b), c);
+    euf::snode const* b = sg.mk_char('B');
+    euf::snode const* c = sg.mk_char('C');
+    euf::snode const* abc = sg.mk_concat(sg.mk_concat(a, b), c);
     SASSERT(abc->length() == 3);
     SASSERT(abc->is_ground());
     SASSERT(abc->first() == a);
@@ -486,15 +486,15 @@ static void test_sgraph_indexing() {
     euf::sgraph sg(m, eg);
     seq_util seq(m);
 
-    euf::snode* a = sg.mk_char('A');
-    euf::snode* b = sg.mk_char('B');
-    euf::snode* c = sg.mk_char('C');
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* a = sg.mk_char('A');
+    euf::snode const* b = sg.mk_char('B');
+    euf::snode const* c = sg.mk_char('C');
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
 
     // build concat(concat(a, b), concat(c, x)) => [A, B, C, x]
-    euf::snode* ab = sg.mk_concat(a, b);
-    euf::snode* cx = sg.mk_concat(c, x);
-    euf::snode* abcx = sg.mk_concat(ab, cx);
+    euf::snode const* ab = sg.mk_concat(a, b);
+    euf::snode const* cx = sg.mk_concat(c, x);
+    euf::snode const* abcx = sg.mk_concat(ab, cx);
 
     SASSERT(abcx->length() == 4);
 
@@ -519,7 +519,7 @@ static void test_sgraph_indexing() {
     SASSERT(a->at(1) == nullptr);
 
     // empty: at(0) is nullptr
-    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
+    euf::snode const* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     SASSERT(e->at(0) == nullptr);
     euf::snode_vector empty_tokens;
     e->collect_tokens(empty_tokens);
@@ -535,62 +535,62 @@ static void test_sgraph_drop() {
     euf::sgraph sg(m, eg);
     seq_util seq(m);
 
-    euf::snode* a = sg.mk_char('A');
-    euf::snode* b = sg.mk_char('B');
-    euf::snode* c = sg.mk_char('C');
-    euf::snode* d = sg.mk_char('D');
+    euf::snode const* a = sg.mk_char('A');
+    euf::snode const* b = sg.mk_char('B');
+    euf::snode const* c = sg.mk_char('C');
+    euf::snode const* d = sg.mk_char('D');
 
     // build concat(concat(a, b), concat(c, d)) => [A, B, C, D]
-    euf::snode* ab = sg.mk_concat(a, b);
-    euf::snode* cd = sg.mk_concat(c, d);
-    euf::snode* abcd = sg.mk_concat(ab, cd);
+    euf::snode const* ab = sg.mk_concat(a, b);
+    euf::snode const* cd = sg.mk_concat(c, d);
+    euf::snode const* abcd = sg.mk_concat(ab, cd);
 
     SASSERT(abcd->length() == 4);
 
     // drop_first: [A, B, C, D] => [B, C, D]
-    euf::snode* bcd = sg.drop_first(abcd);
+    euf::snode const* bcd = sg.drop_first(abcd);
     SASSERT(bcd->length() == 3);
     SASSERT(bcd->first() == b);
     SASSERT(bcd->last() == d);
 
     // drop_last: [A, B, C, D] => [A, B, C]
-    euf::snode* abc = sg.drop_last(abcd);
+    euf::snode const* abc = sg.drop_last(abcd);
     SASSERT(abc->length() == 3);
     SASSERT(abc->first() == a);
     SASSERT(abc->last() == c);
 
     // drop_left(2): [A, B, C, D] => [C, D]
-    euf::snode* cd2 = sg.drop_left(abcd, 2);
+    euf::snode const* cd2 = sg.drop_left(abcd, 2);
     SASSERT(cd2->length() == 2);
     SASSERT(cd2->first() == c);
 
     // drop_left(1): [A, B, C, D] => [B, C, D]
-    euf::snode* bcd2 = sg.drop_left(abcd, 1);
+    euf::snode const* bcd2 = sg.drop_left(abcd, 1);
     SASSERT(bcd2->length() == 3);
     SASSERT(bcd2->first() == b);
     SASSERT(bcd2->last() == d);
 
     // drop_right(2): [A, B, C, D] => [A, B]
-    euf::snode* ab2 = sg.drop_right(abcd, 2);
+    euf::snode const* ab2 = sg.drop_right(abcd, 2);
     SASSERT(ab2->length() == 2);
     SASSERT(ab2->last() == b);
 
     // drop_right(1): [A, B, C, D] => [A, B, C]
-    euf::snode* abc2 = sg.drop_right(abcd, 1);
+    euf::snode const* abc2 = sg.drop_right(abcd, 1);
     SASSERT(abc2->length() == 3);
     SASSERT(abc2->first() == a);
     SASSERT(abc2->last() == c);
 
     // drop all: [A, B, C, D] => empty
-    euf::snode* empty = sg.drop_left(abcd, 4);
+    euf::snode const* empty = sg.drop_left(abcd, 4);
     SASSERT(empty->is_empty());
 
     // drop from single token: [A] => empty
-    euf::snode* e = sg.drop_first(a);
+    euf::snode const* e = sg.drop_first(a);
     SASSERT(e->is_empty());
 
     // drop from empty: no change
-    euf::snode* ee = sg.drop_first(sg.mk_empty_seq(seq.str.mk_string_sort()));
+    euf::snode const* ee = sg.drop_first(sg.mk_empty_seq(seq.str.mk_string_sort()));
     SASSERT(ee->is_empty());
 }
 
@@ -603,29 +603,29 @@ static void test_sgraph_subst() {
     euf::sgraph sg(m, eg);
     seq_util seq(m);
 
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
-    euf::snode* a = sg.mk_char('A');
-    euf::snode* b = sg.mk_char('B');
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
+    euf::snode const* a = sg.mk_char('A');
+    euf::snode const* b = sg.mk_char('B');
 
     // concat(x, concat(a, x)) with x -> b gives concat(b, concat(a, b))
-    euf::snode* ax = sg.mk_concat(a, x);
-    euf::snode* xax = sg.mk_concat(x, ax);
+    euf::snode const* ax = sg.mk_concat(a, x);
+    euf::snode const* xax = sg.mk_concat(x, ax);
     SASSERT(xax->length() == 3);
 
-    euf::snode* result = sg.subst(xax, x, b);
+    euf::snode const* result = sg.subst(xax, x, b);
     SASSERT(result->length() == 3);
     SASSERT(result->first() == b);
     SASSERT(result->last() == b);
     SASSERT(result->at(1) == a); // middle is still 'A'
 
     // substitution of non-occurring variable is identity
-    euf::snode* same = sg.subst(xax, y, b);
+    euf::snode const* same = sg.subst(xax, y, b);
     SASSERT(same == xax);
 
     // substitution of variable with empty
-    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
-    euf::snode* collapsed = sg.subst(xax, x, e);
+    euf::snode const* e = sg.mk_empty_seq(seq.str.mk_string_sort());
+    euf::snode const* collapsed = sg.subst(xax, x, e);
     SASSERT(collapsed->length() == 1); // just 'a' remains
     SASSERT(collapsed == a);
 }
@@ -639,15 +639,15 @@ static void test_sgraph_complex_concat() {
     euf::sgraph sg(m, eg);
 
     // build a string "HELLO" = concat(H, concat(E, concat(L, concat(L, O))))
-    euf::snode* h = sg.mk_char('H');
-    euf::snode* e = sg.mk_char('E');
-    euf::snode* l = sg.mk_char('L');
-    euf::snode* o = sg.mk_char('O');
+    euf::snode const* h = sg.mk_char('H');
+    euf::snode const* e = sg.mk_char('E');
+    euf::snode const* l = sg.mk_char('L');
+    euf::snode const* o = sg.mk_char('O');
 
-    euf::snode* lo = sg.mk_concat(l, o);
-    euf::snode* llo = sg.mk_concat(l, lo);
-    euf::snode* ello = sg.mk_concat(e, llo);
-    euf::snode* hello = sg.mk_concat(h, ello);
+    euf::snode const* lo = sg.mk_concat(l, o);
+    euf::snode const* llo = sg.mk_concat(l, lo);
+    euf::snode const* ello = sg.mk_concat(e, llo);
+    euf::snode const* hello = sg.mk_concat(h, ello);
 
     SASSERT(hello->length() == 5);
     SASSERT(hello->is_ground());
@@ -662,24 +662,24 @@ static void test_sgraph_complex_concat() {
     SASSERT(hello->at(4) == o);
 
     // drop first 2 from "HELLO" => "LLO"
-    euf::snode* llo2 = sg.drop_left(hello, 2);
+    euf::snode const* llo2 = sg.drop_left(hello, 2);
     SASSERT(llo2->length() == 3);
     SASSERT(llo2->first() == l);
 
     // drop last 3 from "HELLO" => "HE"
-    euf::snode* he = sg.drop_right(hello, 3);
+    euf::snode const* he = sg.drop_right(hello, 3);
     SASSERT(he->length() == 2);
     SASSERT(he->first() == h);
     SASSERT(he->last() == e);
 
     // mixed variables and characters: concat(x, "AB", y)
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
-    euf::snode* a = sg.mk_char('A');
-    euf::snode* b = sg.mk_char('B');
-    euf::snode* ab = sg.mk_concat(a, b);
-    euf::snode* xab = sg.mk_concat(x, ab);
-    euf::snode* xaby = sg.mk_concat(xab, y);
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
+    euf::snode const* a = sg.mk_char('A');
+    euf::snode const* b = sg.mk_char('B');
+    euf::snode const* ab = sg.mk_concat(a, b);
+    euf::snode const* xab = sg.mk_concat(x, ab);
+    euf::snode const* xaby = sg.mk_concat(xab, y);
 
     SASSERT(xaby->length() == 4);
     SASSERT(!xaby->is_ground());
@@ -706,18 +706,18 @@ static void test_sgraph_brzozowski() {
     expr_ref to_re_a(seq.re.mk_to_re(unit_a), m);
     expr_ref star_a(seq.re.mk_star(to_re_a), m);
 
-    euf::snode* s_star_a = sg.mk(star_a);
-    euf::snode* s_unit_a = sg.mk(unit_a);
+    euf::snode const* s_star_a = sg.mk(star_a);
+    euf::snode const* s_unit_a = sg.mk(unit_a);
 
-    euf::snode* deriv = sg.brzozowski_deriv(s_star_a, s_unit_a);
+    euf::snode const* deriv = sg.brzozowski_deriv(s_star_a, s_unit_a);
     SASSERT(deriv != nullptr);
     std::cout << "  d/da(a*) kind: " << (int)deriv->kind() << "\n";
 
     // derivative of re.empty w.r.t. 'a' should be re.empty
     sort_ref re_sort(seq.re.mk_re(str_sort), m);
     expr_ref re_empty(seq.re.mk_empty(re_sort), m);
-    euf::snode* s_empty = sg.mk(re_empty);
-    euf::snode* deriv_empty = sg.brzozowski_deriv(s_empty, s_unit_a);
+    euf::snode const* s_empty = sg.mk(re_empty);
+    euf::snode const* deriv_empty = sg.brzozowski_deriv(s_empty, s_unit_a);
     SASSERT(deriv_empty != nullptr);
     SASSERT(deriv_empty->is_fail()); // derivative of empty set is empty set
     std::cout << "  d/da(empty) kind: " << (int)deriv_empty->kind() << "\n";
@@ -737,7 +737,7 @@ static void test_sgraph_minterms() {
 
     // simple regex with no character predicates: re.all (.*)
     expr_ref re_all(seq.re.mk_full_seq(str_sort), m);
-    euf::snode* s_re_all = sg.mk(re_all);
+    euf::snode const* s_re_all = sg.mk(re_all);
 
     euf::snode_vector minterms;
     sg.compute_minterms(s_re_all, minterms);
@@ -749,7 +749,7 @@ static void test_sgraph_minterms() {
     expr_ref evil(seq.re.mk_to_re(seq.str.mk_string(zstring("evil"))), m);
     expr_ref slash_evil(seq.re.mk_to_re(seq.str.mk_string(zstring("/evil"))), m);
     expr_ref union_re(seq.re.mk_union(evil, slash_evil), m);
-    euf::snode* s_union_re = sg.mk(union_re);
+    euf::snode const* s_union_re = sg.mk(union_re);
 
     euf::snode_vector union_minterms;
     sg.compute_minterms(s_union_re, union_minterms);

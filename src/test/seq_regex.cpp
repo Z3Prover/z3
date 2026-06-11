@@ -42,13 +42,13 @@ static void test_seq_regex_is_empty() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    seq::seq_regex nr(sg);
+    const seq::seq_regex nr(sg);
 
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
     // re.none is the empty language
-    expr_ref none_e(su.re.mk_empty(su.re.mk_re(str_sort)), m);
-    euf::snode* none_n = sg.mk(none_e.get());
+    const expr_ref none_e(su.re.mk_empty(su.re.mk_re(str_sort)), m);
+    euf::snode const* none_n = sg.mk(none_e.get());
     SASSERT(nr.is_empty_regex(none_n));
     std::cout << "  ok: re.none recognized as empty\n";
 }
@@ -60,13 +60,13 @@ static void test_seq_regex_is_full() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    seq::seq_regex nr(sg);
+    const seq::seq_regex nr(sg);
 
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
     // re.all (full sequence regex) is not empty
-    expr_ref full_e(su.re.mk_full_seq(su.re.mk_re(str_sort)), m);
-    euf::snode* full_n = sg.mk(full_e.get());
+    const expr_ref full_e(su.re.mk_full_seq(su.re.mk_re(str_sort)), m);
+    euf::snode const* full_n = sg.mk(full_e.get());
     SASSERT(!nr.is_empty_regex(full_n));
     std::cout << "  ok: re.all not recognized as empty\n";
 }
@@ -85,8 +85,8 @@ static void test_strengthened_stabilizer_null() {
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
-    expr_ref full_e(su.re.mk_full_seq(re_sort), m);
-    euf::snode* full_re = sg.mk(full_e);
+    const expr_ref full_e(su.re.mk_full_seq(re_sort), m);
+    euf::snode const* full_re = sg.mk(full_e);
 
     SASSERT(nr.strengthened_stabilizer(full_re, nullptr) == nullptr);
     SASSERT(nr.strengthened_stabilizer(nullptr, full_re) == nullptr);
@@ -106,14 +106,14 @@ static void test_strengthened_stabilizer_single_char() {
     seq_util su(m);
 
     // Build a*
-    expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
-    euf::snode* re_star_a = sg.mk(star_a);
+    const expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
+    euf::snode const* re_star_a = sg.mk(star_a);
 
     // Build history = char 'a' (single token, no concat needed)
-    euf::snode* tok_a = sg.mk_char('a');
-    euf::snode* history = tok_a;
+    euf::snode const* tok_a = sg.mk_char('a');
+    euf::snode const* history = tok_a;
 
-    euf::snode* result = nr.strengthened_stabilizer(re_star_a, history);
+    euf::snode const* result = nr.strengthened_stabilizer(re_star_a, history);
     // Should produce a non-null stabilizer body (to_re("a"))
     SASSERT(result != nullptr);
     std::cout << "  ok: a* with history 'a' -> non-null stabilizer\n";
@@ -132,16 +132,16 @@ static void test_strengthened_stabilizer_two_char() {
     seq_util su(m);
 
     // Build (ab)*
-    expr_ref ab(su.re.mk_to_re(su.str.mk_string("ab")), m);
-    expr_ref star_ab(su.re.mk_star(ab), m);
-    euf::snode* re_star_ab = sg.mk(star_ab);
+    const expr_ref ab(su.re.mk_to_re(su.str.mk_string("ab")), m);
+    const expr_ref star_ab(su.re.mk_star(ab), m);
+    euf::snode const* re_star_ab = sg.mk(star_ab);
 
     // Build history: concat(char_a, char_b) using string concat
-    euf::snode* tok_a = sg.mk_char('a');
-    euf::snode* tok_b = sg.mk_char('b');
-    euf::snode* history = sg.mk_concat(tok_a, tok_b);
+    euf::snode const* tok_a = sg.mk_char('a');
+    euf::snode const* tok_b = sg.mk_char('b');
+    euf::snode const* history = sg.mk_concat(tok_a, tok_b);
 
-    euf::snode* result = nr.strengthened_stabilizer(re_star_ab, history);
+    euf::snode const* result = nr.strengthened_stabilizer(re_star_ab, history);
     // Should produce a non-null stabilizer body
     SASSERT(result != nullptr);
     std::cout << "  ok: (ab)* with history 'ab' -> non-null stabilizer\n";
@@ -154,16 +154,16 @@ static void test_filtered_stabilizer_star_empty() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    seq::seq_regex nr(sg);
+    const seq::seq_regex nr(sg);
     seq_util su(m);
 
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
-    expr_ref full_e(su.re.mk_full_seq(re_sort), m);
-    euf::snode* full_re = sg.mk(full_e);
-    euf::snode* tok_a = sg.mk_char('a');
+    const expr_ref full_e(su.re.mk_full_seq(re_sort), m);
+    euf::snode const* full_re = sg.mk(full_e);
+    euf::snode const* tok_a = sg.mk_char('a');
 
-    euf::snode* result = nr.get_filtered_stabilizer_star(full_re, tok_a);
+    euf::snode const* result = nr.get_filtered_stabilizer_star(full_re, tok_a);
     SASSERT(result == nullptr);
     std::cout << "  ok: no stabilizers -> nullptr\n";
 }
@@ -179,17 +179,17 @@ static void test_filtered_stabilizer_star_with_stab() {
     seq_util su(m);
 
     // Build a* as the regex state
-    expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
-    euf::snode* re_star_a = sg.mk(star_a);
+    const expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
+    euf::snode const* re_star_a = sg.mk(star_a);
 
     // Register a stabilizer: to_re("b") — only accepts "b"
-    expr_ref stab_b(su.re.mk_to_re(su.str.mk_string("b")), m);
-    euf::snode* stab_b_sn = sg.mk(stab_b);
+    const expr_ref stab_b(su.re.mk_to_re(su.str.mk_string("b")), m);
+    euf::snode const* stab_b_sn = sg.mk(stab_b);
     nr.add_stabilizer(re_star_a, stab_b_sn);
 
     // Exclude char 'a': D('a', to_re("b")) should be fail
-    euf::snode* tok_a = sg.mk_char('a');
-    euf::snode* result = nr.get_filtered_stabilizer_star(re_star_a, tok_a);
+    euf::snode const* tok_a = sg.mk_char('a');
+    euf::snode const* result = nr.get_filtered_stabilizer_star(re_star_a, tok_a);
     // to_re("b") should pass the filter → result is star(to_re("b"))
     SASSERT(result != nullptr);
     SASSERT(result->is_star());
@@ -207,17 +207,17 @@ static void test_filtered_stabilizer_star_filtered() {
     seq_util su(m);
 
     // Build a* as the regex state
-    expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
-    euf::snode* re_star_a = sg.mk(star_a);
+    const expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
+    euf::snode const* re_star_a = sg.mk(star_a);
 
     // Register a stabilizer: to_re("a") — accepts "a"
-    expr_ref stab_a(su.re.mk_to_re(su.str.mk_string("a")), m);
-    euf::snode* stab_a_sn = sg.mk(stab_a);
+    const expr_ref stab_a(su.re.mk_to_re(su.str.mk_string("a")), m);
+    euf::snode const* stab_a_sn = sg.mk(stab_a);
     nr.add_stabilizer(re_star_a, stab_a_sn);
 
     // Exclude char 'a': D('a', to_re("a")) is NOT fail → filtered out
-    euf::snode* tok_a = sg.mk_char('a');
-    euf::snode* result = nr.get_filtered_stabilizer_star(re_star_a, tok_a);
+    euf::snode const* tok_a = sg.mk_char('a');
+    euf::snode const* result = nr.get_filtered_stabilizer_star(re_star_a, tok_a);
     SASSERT(result == nullptr);
     std::cout << "  ok: filter removes to_re('a') when excluding 'a'\n";
 }
@@ -234,26 +234,26 @@ static void test_extract_cycle_history_basic() {
 
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
-    expr_ref full_e(su.re.mk_full_seq(re_sort), m);
-    euf::snode* full_re = sg.mk(full_e);
+    const expr_ref full_e(su.re.mk_full_seq(re_sort), m);
+    euf::snode const* full_re = sg.mk(full_e);
 
-    euf::snode* tok_a = sg.mk_char('a');
-    euf::snode* tok_b = sg.mk_char('b');
-    euf::snode* tok_c = sg.mk_char('c');
+    euf::snode const* tok_a = sg.mk_char('a');
+    euf::snode const* tok_b = sg.mk_char('b');
+    euf::snode const* tok_c = sg.mk_char('c');
 
     // Ancestor history: just 'a' (length 1)
-    euf::snode* anc_hist = tok_a;
+    euf::snode const* anc_hist = tok_a;
 
     // Current history: concat(concat(a, b), c) = a,b,c (length 3)
-    euf::snode* cur_hist = sg.mk_concat(sg.mk_concat(tok_a, tok_b), tok_c);
+    euf::snode const* cur_hist = sg.mk_concat(sg.mk_concat(tok_a, tok_b), tok_c);
 
-    euf::snode* empty_str = sg.mk_empty_seq(str_sort);
-    seq::dep_tracker empty_dep = nullptr;
+    euf::snode const* empty_str = sg.mk_empty_seq(str_sort);
+    const seq::dep_tracker empty_dep = nullptr;
 
-    seq::str_mem ancestor(empty_str, full_re, empty_dep);
-    seq::str_mem current(empty_str, full_re, empty_dep);
+    const seq::str_mem ancestor(empty_str, full_re, empty_dep);
+    const seq::str_mem current(empty_str, full_re, empty_dep);
 
-    euf::snode* cycle = nr.extract_cycle_history(current, ancestor);
+    euf::snode const* cycle = nr.extract_cycle_history(current, ancestor);
     // Should return the last 2 tokens (b, c)
     SASSERT(cycle != nullptr);
     SASSERT(cycle->length() == 2);
@@ -272,20 +272,20 @@ static void test_extract_cycle_history_null_ancestor() {
 
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
-    expr_ref full_e(su.re.mk_full_seq(re_sort), m);
-    euf::snode* full_re = sg.mk(full_e);
+    const expr_ref full_e(su.re.mk_full_seq(re_sort), m);
+    euf::snode const* full_re = sg.mk(full_e);
 
-    euf::snode* tok_a = sg.mk_char('a');
-    euf::snode* tok_b = sg.mk_char('b');
-    euf::snode* cur_hist = sg.mk_concat(tok_a, tok_b);
-    euf::snode* empty_str = sg.mk_empty_seq(str_sort);
-    seq::dep_tracker empty_dep = nullptr;
+    euf::snode const* tok_a = sg.mk_char('a');
+    euf::snode const* tok_b = sg.mk_char('b');
+    euf::snode const* cur_hist = sg.mk_concat(tok_a, tok_b);
+    euf::snode const* empty_str = sg.mk_empty_seq(str_sort);
+    const seq::dep_tracker empty_dep = nullptr;
 
     // Ancestor has no history (nullptr)
-    seq::str_mem ancestor(empty_str, full_re, empty_dep);
-    seq::str_mem current(empty_str, full_re, empty_dep);
+    const seq::str_mem ancestor(empty_str, full_re, empty_dep);
+    const seq::str_mem current(empty_str, full_re, empty_dep);
 
-    euf::snode* cycle = nr.extract_cycle_history(current, ancestor);
+    euf::snode const* cycle = nr.extract_cycle_history(current, ancestor);
     // With null ancestor history, entire current history is the cycle
     SASSERT(cycle != nullptr);
     SASSERT(cycle->length() == 2);
@@ -304,9 +304,9 @@ static void test_bfs_empty_none() {
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
 
-    expr_ref none_e(su.re.mk_empty(re_sort), m);
-    euf::snode* none_re = sg.mk(none_e);
-    lbool result = nr.is_empty_bfs(none_re);
+    const expr_ref none_e(su.re.mk_empty(re_sort), m);
+    euf::snode const* none_re = sg.mk(none_e);
+    const lbool result = nr.is_empty_bfs(none_re);
     SASSERT(result == l_true);
     std::cout << "  ok: re.none -> l_true (empty)\n";
 }
@@ -323,9 +323,9 @@ static void test_bfs_nonempty_full() {
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
 
-    expr_ref full_e(su.re.mk_full_seq(re_sort), m);
-    euf::snode* full_re = sg.mk(full_e);
-    lbool result = nr.is_empty_bfs(full_re);
+    const expr_ref full_e(su.re.mk_full_seq(re_sort), m);
+    euf::snode const* full_re = sg.mk(full_e);
+    const lbool result = nr.is_empty_bfs(full_re);
     SASSERT(result == l_false);
     std::cout << "  ok: full_seq -> l_false (non-empty)\n";
 }
@@ -340,9 +340,9 @@ static void test_bfs_nonempty_to_re() {
     seq::seq_regex nr(sg);
     seq_util su(m);
 
-    expr_ref to_re_abc(su.re.mk_to_re(su.str.mk_string("abc")), m);
-    euf::snode* re_abc = sg.mk(to_re_abc);
-    lbool result = nr.is_empty_bfs(re_abc);
+    const expr_ref to_re_abc(su.re.mk_to_re(su.str.mk_string("abc")), m);
+    euf::snode const* re_abc = sg.mk(to_re_abc);
+    const lbool result = nr.is_empty_bfs(re_abc);
     SASSERT(result == l_false);
     std::cout << "  ok: to_re(\"abc\") -> l_false (non-empty)\n";
 }
@@ -357,9 +357,9 @@ static void test_bfs_nonempty_star() {
     seq::seq_regex nr(sg);
     seq_util su(m);
 
-    expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
-    euf::snode* re_star_a = sg.mk(star_a);
-    lbool result = nr.is_empty_bfs(re_star_a);
+    const expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
+    euf::snode const* re_star_a = sg.mk(star_a);
+    const lbool result = nr.is_empty_bfs(re_star_a);
     SASSERT(result == l_false);
     std::cout << "  ok: a* -> l_false (non-empty, accepts epsilon)\n";
 }
@@ -376,11 +376,11 @@ static void test_bfs_empty_union_of_empties() {
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
 
-    expr_ref none1(su.re.mk_empty(re_sort), m);
-    expr_ref none2(su.re.mk_empty(re_sort), m);
-    expr_ref union_e(su.re.mk_union(none1, none2), m);
-    euf::snode* re_union = sg.mk(union_e);
-    lbool result = nr.is_empty_bfs(re_union);
+    const expr_ref none1(su.re.mk_empty(re_sort), m);
+    const expr_ref none2(su.re.mk_empty(re_sort), m);
+    const expr_ref union_e(su.re.mk_union(none1, none2), m);
+    euf::snode const* re_union = sg.mk(union_e);
+    const lbool result = nr.is_empty_bfs(re_union);
     SASSERT(result == l_true);
     std::cout << "  ok: union(none, none) -> l_true (empty)\n";
 }
@@ -396,11 +396,11 @@ static void test_bfs_nonempty_range() {
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
 
-    expr_ref lo(su.mk_char('a'), m);
-    expr_ref hi(su.mk_char('z'), m);
-    expr_ref range_e(su.re.mk_range(su.str.mk_unit(lo), su.str.mk_unit(hi)), m);
-    euf::snode* re_range = sg.mk(range_e);
-    lbool result = nr.is_empty_bfs(re_range);
+    const expr_ref lo(su.mk_char('a'), m);
+    const expr_ref hi(su.mk_char('z'), m);
+    const expr_ref range_e(su.re.mk_range(su.str.mk_unit(lo), su.str.mk_unit(hi)), m);
+    euf::snode const* re_range = sg.mk(range_e);
+    const lbool result = nr.is_empty_bfs(re_range);
     SASSERT(result == l_false);
     std::cout << "  ok: range('a','z') -> l_false (non-empty)\n";
 }
@@ -417,9 +417,9 @@ static void test_bfs_empty_complement_full() {
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
 
-    expr_ref comp_full(su.re.mk_complement(su.re.mk_full_seq(re_sort)), m);
-    euf::snode* re_comp = sg.mk(comp_full);
-    lbool result = nr.is_empty_bfs(re_comp);
+    const expr_ref comp_full(su.re.mk_complement(su.re.mk_full_seq(re_sort)), m);
+    euf::snode const* re_comp = sg.mk(comp_full);
+    const lbool result = nr.is_empty_bfs(re_comp);
     SASSERT(result == l_true);
     std::cout << "  ok: ~full_seq -> l_true (empty)\n";
 }
@@ -433,7 +433,7 @@ static void test_bfs_null_safety() {
     euf::sgraph sg(m, eg);
     seq::seq_regex nr(sg);
 
-    lbool result = nr.is_empty_bfs(nullptr);
+    const lbool result = nr.is_empty_bfs(nullptr);
     SASSERT(result == l_undef);
     std::cout << "  ok: nullptr -> l_undef\n";
 }
@@ -449,13 +449,13 @@ static void test_bfs_bounded() {
     seq_util su(m);
 
     // (a|b)+ requires at least one char; with max_states=1 should bail
-    expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
-    expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
-    expr_ref ab_union(su.re.mk_union(a_re, b_re), m);
-    expr_ref ab_plus(su.re.mk_plus(ab_union), m);
-    euf::snode* re_plus = sg.mk(ab_plus);
+    const expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
+    const expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
+    const expr_ref ab_union(su.re.mk_union(a_re, b_re), m);
+    const expr_ref ab_plus(su.re.mk_plus(ab_union), m);
+    euf::snode const* re_plus = sg.mk(ab_plus);
 
-    lbool result = nr.is_empty_bfs(re_plus, 1);
+    const lbool result = nr.is_empty_bfs(re_plus, 1);
     SASSERT(result == l_undef);
     std::cout << "  ok: (a|b)+ with max_states=1 -> l_undef (bounded)\n";
 }
@@ -469,13 +469,13 @@ static void test_char_set_is_subset() {
     std::cout << "test_char_set_is_subset\n";
 
     // {a} ⊆ {a,b,c} = [97,100)
-    char_set cs1(char_range('a', 'b'));  // {a}
-    char_set cs2(char_range('a', 'd'));  // {a,b,c}
+    const char_set cs1(char_range('a', 'b'));  // {a}
+    const char_set cs2(char_range('a', 'd'));  // {a,b,c}
     SASSERT(cs1.is_subset(cs2));
     SASSERT(!cs2.is_subset(cs1));
 
     // empty ⊆ anything
-    char_set empty;
+    const char_set empty;
     SASSERT(empty.is_subset(cs1));
     SASSERT(empty.is_subset(cs2));
 
@@ -484,7 +484,7 @@ static void test_char_set_is_subset() {
     SASSERT(cs2.is_subset(cs2));
 
     // disjoint: {x} not ⊆ {a}
-    char_set cs3(char_range('x', 'y'));
+    const char_set cs3(char_range('x', 'y'));
     SASSERT(!cs3.is_subset(cs1));
 
     std::cout << "  ok\n";
@@ -500,10 +500,10 @@ static void test_stabilizer_store_basic() {
     seq::seq_regex nr(sg);
     seq_util su(m);
 
-    expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
-    expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
-    euf::snode* a_sn = sg.mk(a_re);
-    euf::snode* b_sn = sg.mk(b_re);
+    const expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
+    const expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
+    euf::snode const* a_sn = sg.mk(a_re);
+    euf::snode const* b_sn = sg.mk(b_re);
 
     SASSERT(!nr.has_stabilizers(a_sn));
     nr.add_stabilizer(a_sn, b_sn);
@@ -532,16 +532,16 @@ static void test_self_stabilizing() {
     seq::seq_regex nr(sg);
     seq_util su(m);
 
-    expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
-    euf::snode* a_sn = sg.mk(a_re);
+    const expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
+    euf::snode const* a_sn = sg.mk(a_re);
 
     SASSERT(!nr.is_self_stabilizing(a_sn));
     nr.set_self_stabilizing(a_sn);
     SASSERT(nr.is_self_stabilizing(a_sn));
 
     // star should be detected as self-stabilizing
-    expr_ref star_a(su.re.mk_star(a_re), m);
-    euf::snode* star_sn = sg.mk(star_a);
+    const expr_ref star_a(su.re.mk_star(a_re), m);
+    euf::snode const* star_sn = sg.mk(star_a);
     SASSERT(nr.compute_self_stabilizing(star_sn));
 
     std::cout << "  ok\n";
@@ -558,19 +558,19 @@ static void test_check_intersection_sat() {
     seq_util su(m);
 
     // a* ∩ (a|b)* should be non-empty (both accept "a")
-    expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
-    expr_ref star_a(su.re.mk_star(a_re), m);
-    expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
-    expr_ref ab_union(su.re.mk_union(a_re, b_re), m);
-    expr_ref star_ab(su.re.mk_star(ab_union), m);
+    const expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
+    const expr_ref star_a(su.re.mk_star(a_re), m);
+    const expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
+    const expr_ref ab_union(su.re.mk_union(a_re, b_re), m);
+    const expr_ref star_ab(su.re.mk_star(ab_union), m);
 
-    euf::snode* s1 = sg.mk(star_a);
-    euf::snode* s2 = sg.mk(star_ab);
-    ptr_vector<euf::snode> regexes;
+    euf::snode const* s1 = sg.mk(star_a);
+    euf::snode const* s2 = sg.mk(star_ab);
+    euf::snode_vector regexes;
     regexes.push_back(s1);
     regexes.push_back(s2);
 
-    lbool result = nr.check_intersection_emptiness(regexes, UINT_MAX);
+    const lbool result = nr.check_intersection_emptiness(regexes, UINT_MAX);
     SASSERT(result == l_false); // non-empty
     std::cout << "  ok: a* ∩ (a|b)* is non-empty\n";
 }
@@ -587,15 +587,15 @@ static void test_check_intersection_unsat() {
     sort* str_sort = su.str.mk_string_sort();
 
     // to_re("a") ∩ to_re("b") should be empty
-    expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
-    expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
-    euf::snode* s1 = sg.mk(a_re);
-    euf::snode* s2 = sg.mk(b_re);
-    ptr_vector<euf::snode> regexes;
+    const expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
+    const expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
+    euf::snode const* s1 = sg.mk(a_re);
+    euf::snode const* s2 = sg.mk(b_re);
+    euf::snode_vector regexes;
     regexes.push_back(s1);
     regexes.push_back(s2);
 
-    lbool result = nr.check_intersection_emptiness(regexes, UINT_MAX);
+    const lbool result = nr.check_intersection_emptiness(regexes, UINT_MAX);
     SASSERT(result == l_true); // empty
     std::cout << "  ok: to_re(a) ∩ to_re(b) is empty\n";
 }
@@ -611,16 +611,16 @@ static void test_is_language_subset_true() {
     seq_util su(m);
 
     // a* ⊆ (a|b)* should be true
-    expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
-    expr_ref star_a(su.re.mk_star(a_re), m);
-    expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
-    expr_ref ab_union(su.re.mk_union(a_re, b_re), m);
-    expr_ref star_ab(su.re.mk_star(ab_union), m);
+    const expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
+    const expr_ref star_a(su.re.mk_star(a_re), m);
+    const expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
+    const expr_ref ab_union(su.re.mk_union(a_re, b_re), m);
+    const expr_ref star_ab(su.re.mk_star(ab_union), m);
 
-    euf::snode* subset = sg.mk(star_a);
-    euf::snode* superset = sg.mk(star_ab);
+    euf::snode const* subset = sg.mk(star_a);
+    euf::snode const* superset = sg.mk(star_ab);
 
-    lbool result = nr.is_language_subset(subset, superset);
+    const lbool result = nr.is_language_subset(subset, superset);
     SASSERT(result == l_true);
     std::cout << "  ok: a* ⊆ (a|b)*\n";
 }
@@ -636,16 +636,16 @@ static void test_is_language_subset_false() {
     seq_util su(m);
 
     // (a|b)* ⊄ a* should be false (b ∈ (a|b)* but b ∉ a*)
-    expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
-    expr_ref star_a(su.re.mk_star(a_re), m);
-    expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
-    expr_ref ab_union(su.re.mk_union(a_re, b_re), m);
-    expr_ref star_ab(su.re.mk_star(ab_union), m);
+    const expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
+    const expr_ref star_a(su.re.mk_star(a_re), m);
+    const expr_ref b_re(su.re.mk_to_re(su.str.mk_string("b")), m);
+    const expr_ref ab_union(su.re.mk_union(a_re, b_re), m);
+    const expr_ref star_ab(su.re.mk_star(ab_union), m);
 
-    euf::snode* subset = sg.mk(star_ab);
-    euf::snode* superset = sg.mk(star_a);
+    euf::snode const* subset = sg.mk(star_ab);
+    euf::snode const* superset = sg.mk(star_a);
 
-    lbool result = nr.is_language_subset(subset, superset);
+    const lbool result = nr.is_language_subset(subset, superset);
     SASSERT(result == l_false);
     std::cout << "  ok: (a|b)* ⊄ a*\n";
 }
@@ -662,15 +662,15 @@ static void test_is_language_subset_trivial() {
     sort* str_sort = su.str.mk_string_sort();
 
     // ∅ ⊆ anything = true
-    expr_ref none(su.re.mk_empty(su.re.mk_re(str_sort)), m);
-    expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
-    euf::snode* empty_sn = sg.mk(none);
-    euf::snode* a_sn = sg.mk(a_re);
+    const expr_ref none(su.re.mk_empty(su.re.mk_re(str_sort)), m);
+    const expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
+    euf::snode const* empty_sn = sg.mk(none);
+    euf::snode const* a_sn = sg.mk(a_re);
     SASSERT(nr.is_language_subset(empty_sn, a_sn) == l_true);
 
     // anything ⊆ Σ* = true
-    expr_ref full(su.re.mk_full_seq(su.re.mk_re(str_sort)), m);
-    euf::snode* full_sn = sg.mk(full);
+    const expr_ref full(su.re.mk_full_seq(su.re.mk_re(str_sort)), m);
+    euf::snode const* full_sn = sg.mk(full);
     SASSERT(nr.is_language_subset(a_sn, full_sn) == l_true);
 
     // L ⊆ L = true (same pointer)
@@ -689,14 +689,14 @@ static void test_some_seq_in_re_excluded_low_regression() {
     seq_rewriter rw(m);
     th_rewriter tr(m);
 
-    expr_ref low(su.mk_char('A'), m);
-    expr_ref high(su.mk_char('Z'), m);
-    expr_ref range_az(su.re.mk_range(su.str.mk_unit(low), su.str.mk_unit(high)), m);
-    expr_ref not_a(su.re.mk_complement(su.re.mk_to_re(su.str.mk_string("A"))), m);
-    expr_ref re_expr(su.re.mk_inter(not_a, range_az), m);
+    const expr_ref low(su.mk_char('A'), m);
+    const expr_ref high(su.mk_char('Z'), m);
+    const expr_ref range_az(su.re.mk_range(su.str.mk_unit(low), su.str.mk_unit(high)), m);
+    const expr_ref not_a(su.re.mk_complement(su.re.mk_to_re(su.str.mk_string("A"))), m);
+    const expr_ref re_expr(su.re.mk_inter(not_a, range_az), m);
 
     expr_ref witness(m);
-    lbool wr = rw.some_seq_in_re(re_expr, witness);
+    const lbool wr = rw.some_seq_in_re(re_expr, witness);
     SASSERT(wr == l_true);
     SASSERT(witness);
 
@@ -704,7 +704,7 @@ static void test_some_seq_in_re_excluded_low_regression() {
     SASSERT(su.str.is_string(witness, ws));
     SASSERT(ws != zstring("A"));
 
-    expr_ref in_re(su.re.mk_in_re(witness, re_expr), m);
+    const expr_ref in_re(su.re.mk_in_re(witness, re_expr), m);
     expr_ref in_re_simpl(m);
     tr(in_re, in_re_simpl);
     SASSERT(m.is_true(in_re_simpl));
@@ -730,8 +730,8 @@ static void test_some_seq_in_re_inter_loop_regression() {
         return expr_ref(su.re.mk_to_re(su.str.mk_string(s)), m);
     };
     auto mk_range = [&](const char* lo, const char* hi) -> expr_ref {
-        expr_ref l(su.mk_char(lo[0]), m);
-        expr_ref h(su.mk_char(hi[0]), m);
+        const expr_ref l(su.mk_char(lo[0]), m);
+        const expr_ref h(su.mk_char(hi[0]), m);
         return expr_ref(su.re.mk_range(su.str.mk_unit(l), su.str.mk_unit(h)), m);
     };
     auto cat = [&](expr* a, expr* b) -> expr_ref {

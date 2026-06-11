@@ -52,7 +52,7 @@ namespace euf {
     }
 
     unsigned enode_concat_hash::operator()(enode* n) const {
-        snode* sn = sg.find(n->get_expr());
+        snode const* sn = sg.find(n->get_expr());
         if (sn && sn->has_cached_hash())
             return sn->assoc_hash();
         if (!is_any_concat(n, seq))
@@ -70,8 +70,8 @@ namespace euf {
         if (!is_any_concat(a, seq) || !is_any_concat(b, seq))
             return false;
         // fast-path: snode length check (O(1), avoids leaf allocation)
-        snode* sa = sg.find(a->get_expr());
-        snode* sb = sg.find(b->get_expr());
+        snode const* sa = sg.find(a->get_expr());
+        snode const* sb = sg.find(b->get_expr());
         if (sa && sb && sa->length() != sb->length())
             return false;
         // fast-path: cached associativity hash (O(1))

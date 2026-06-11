@@ -154,8 +154,8 @@ namespace euf {
 
         case snode_kind::s_concat: {
             SASSERT(n->num_args() == 2);
-            snode* l = n->arg(0);
-            snode* r = n->arg(1);
+            const snode* l = n->arg(0);
+            const snode* r = n->arg(1);
             n->m_ground = l->is_ground() && r->is_ground();
             n->m_regex_free = l->is_regex_free() && r->is_regex_free();
             n->m_is_classical = l->is_classical() && r->is_classical();
@@ -171,7 +171,7 @@ namespace euf {
             // NSB review: SASSERT(n->num_args() == 2); and simplify code       
             // NSB review: is this the correct definition of ground what about the exponent?
             SASSERT(n->num_args() >= 1);
-            snode* base = n->arg(0);
+            snode const* base = n->arg(0);
             n->m_ground = base->is_ground();
             n->m_regex_free = base->is_regex_free();
             n->m_is_classical = base->is_classical();
@@ -336,8 +336,8 @@ namespace euf {
             n->m_hash_matrix[1][1] = 1;
         }
         else if (n->is_concat()) {
-            snode* l = n->arg(0);
-            snode* r = n->arg(1);
+            snode const* l = n->arg(0);
+            snode const* r = n->arg(1);
             if (l->has_cached_hash() && r->has_cached_hash()) {
                 // 2x2 matrix multiplication: M(L) * M(R)
                 n->m_hash_matrix[0][0] = l->m_hash_matrix[0][0] * r->m_hash_matrix[0][0] + l->m_hash_matrix[0][1] * r->m_hash_matrix[1][0];
@@ -357,9 +357,9 @@ namespace euf {
         }
     }
 
-    snode *sgraph::mk_snode(expr *e, snode_kind k, unsigned num_args, snode *const *args) {
+    snode* sgraph::mk_snode(expr *e, const snode_kind k, const unsigned num_args, snode const** args) {
         SASSERT(e);
-        unsigned id = m_nodes.size();
+        const unsigned id = m_nodes.size();
         snode *n = snode::mk(m_region, e, k, id, num_args, args);
         compute_metadata(n);
         compute_hash_matrix(n);
@@ -379,10 +379,10 @@ namespace euf {
         return n;
     }
 
-    snode* sgraph::mk(expr* e) {
+    snode const* sgraph::mk(expr* e) {
         SASSERT(e);
         expr_ref _e(e, m); // pin locally to not clash with character creation, never needed if we use mk_enode early.
-        snode* n = find(e);
+        snode const* n = find(e);
         if (n)
             return n;
 
@@ -390,7 +390,7 @@ namespace euf {
         // so that Nielsen graph can do prefix matching on them
         zstring s;
         if (m_seq.str.is_string(e, s) && !s.empty()) {
-            snode* result = mk_char(s[s.length() - 1]);
+            snode const* result = mk_char(s[s.length() - 1]);
             for (unsigned i = s.length() - 1; i-- > 0; )
                 result = mk_concat(mk_char(s[i]), result);
             // register the original string expression as an alias
@@ -402,13 +402,13 @@ namespace euf {
             return result;
         }
 
-        snode_kind k = classify(e);
+        const snode_kind k = classify(e);
 
         if (!is_app(e))
             return mk_snode(e, k, 0, nullptr);
 
         app* a = to_app(e);
-        unsigned arity = a->get_num_args();
+        const unsigned arity = a->get_num_args();
 
         // recursively register children
         // for seq/re children, create classified snodes
@@ -416,14 +416,14 @@ namespace euf {
         snode_vector child_nodes;
         for (unsigned i = 0; i < arity; ++i) {
             expr* ch = a->get_arg(i);
-            snode* cn = mk(ch);
+            snode const* cn = mk(ch);
             child_nodes.push_back(cn);
         }
 
         return mk_snode(e, k, child_nodes.size(), child_nodes.data());
     }
 
-    snode* sgraph::find(expr* e) const {
+    snode const* sgraph::find(expr* e) const {
         if (!e)
             return nullptr;
         unsigned eid = e->get_id();
@@ -456,13 +456,13 @@ namespace euf {
         if (num_scopes == 0)
             return;
         SASSERT(num_scopes <= m_num_scopes);
-        unsigned new_lvl = m_num_scopes - num_scopes;
-        unsigned old_sz = m_scopes[new_lvl];
+        const unsigned new_lvl = m_num_scopes - num_scopes;
+        const unsigned old_sz = m_scopes[new_lvl];
 
         for (unsigned i = m_nodes.size(); i-- > old_sz; ) {
-            snode* n = m_nodes[i];
+            snode const* n = m_nodes[i];
             if (n->get_expr()) {
-                unsigned eid = n->get_expr()->get_id();
+                const unsigned eid = n->get_expr()->get_id();
                 if (eid < m_expr2snode.size())
                     m_expr2snode[eid] = nullptr;
             }
@@ -470,9 +470,9 @@ namespace euf {
         m_nodes.shrink(old_sz);
         m_scopes.shrink(new_lvl);
         // undo alias entries (string constant decompositions)
-        unsigned alias_old = m_alias_trail_lim[new_lvl];
+        const unsigned alias_old = m_alias_trail_lim[new_lvl];
         for (unsigned i = m_alias_trail.size(); i-- > alias_old; ) {
-            unsigned eid = m_alias_trail[i];
+            const unsigned eid = m_alias_trail[i];
             if (eid < m_expr2snode.size())
                 m_expr2snode[eid] = nullptr;
         }
@@ -482,23 +482,23 @@ namespace euf {
         m_egraph.pop(num_scopes);
     }
 
-    snode* sgraph::mk_var(symbol const& name, sort* s) {
-        expr_ref e(m.mk_const(name, s), m);
+    snode const* sgraph::mk_var(symbol const& name, sort* s) {
+        const expr_ref e(m.mk_const(name, s), m);
         return mk(e);
     }
 
-    snode* sgraph::mk_char(unsigned ch) {
-        expr_ref c(m_seq.str.mk_char(ch), m);
-        expr_ref u(m_seq.str.mk_unit(c), m);
+    snode const* sgraph::mk_char(unsigned ch) {
+        const expr_ref c(m_seq.str.mk_char(ch), m);
+        const expr_ref u(m_seq.str.mk_unit(c), m);
         return mk(u);
     }
 
-    snode* sgraph::mk_empty_seq(sort* s) {
-        expr_ref e(m_seq.str.mk_empty(s), m);
+    snode const* sgraph::mk_empty_seq(sort* s) {
+        const expr_ref e(m_seq.str.mk_empty(s), m);
         return mk(e);
     }
 
-    snode* sgraph::mk_concat(snode* a, snode* b) {
+    snode const* sgraph::mk_concat(snode const* a, snode const* b) {
         if (a->is_empty()) return b;
         if (b->is_empty()) return a;
         if (m_seq.is_re(a->get_expr()))
@@ -506,29 +506,29 @@ namespace euf {
         return mk(expr_ref(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m));
     }
 
-    snode* sgraph::drop_first(snode* n) {
+    snode const* sgraph::drop_first(snode const* n) {
         if (n->is_empty() || n->is_token())
             return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
-        snode* l = n->arg(0);
-        snode* r = n->arg(1);
+        snode const* l = n->arg(0);
+        snode const* r = n->arg(1);
         if (l->is_token() || l->is_empty())
             return r;
         return mk_concat(drop_first(l), r);
     }
 
-    snode* sgraph::drop_last(snode* n) {
+    snode const* sgraph::drop_last(snode const* n) {
         if (n->is_empty() || n->is_token())
             return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
-        snode* l = n->arg(0);
-        snode* r = n->arg(1);
+        snode const* l = n->arg(0);
+        snode const* r = n->arg(1);
         if (r->is_token() || r->is_empty())
             return l;
         return mk_concat(l, drop_last(r));
     }
 
-    snode* sgraph::drop_left(snode* n, unsigned count) {
+    snode const* sgraph::drop_left(snode const* n, unsigned count) {
         if (count == 0 || n->is_empty()) return n;
         if (count >= n->length()) return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
@@ -538,7 +538,7 @@ namespace euf {
         return drop_left(n->arg(1), count - left_len);
     }
 
-    snode* sgraph::drop_right(snode* n, unsigned count) {
+    snode const* sgraph::drop_right(snode const * n, unsigned count) {
         if (count == 0 || n->is_empty()) return n;
         if (count >= n->length()) return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
@@ -548,7 +548,7 @@ namespace euf {
         return drop_right(n->arg(0), count - right_len);
     }
 
-    snode* sgraph::subst(snode* n, snode* var, snode* replacement) {
+    snode const* sgraph::subst(snode const* n, snode const* var, snode const* replacement) {
         if (n == var)
             return replacement;
         if (n->is_empty() || n->is_char())
@@ -653,7 +653,7 @@ namespace euf {
         return l_false;
     }
 
-    lbool sgraph::re_nullable(snode* re) {
+    lbool sgraph::re_nullable(snode const* re) {
         if (!re)
             return l_undef;
         // Projection-free regexes: defer to the standard regex info.
@@ -693,7 +693,7 @@ namespace euf {
         }
     }
 
-    snode* sgraph::deriv_proj(snode* re, expr* ch) {
+    snode const* sgraph::deriv_proj(snode const* re, expr* ch) {
         SASSERT(re && re->get_expr());
         expr* re_expr = re->get_expr();
         sort* re_sort = re_expr->get_sort();
@@ -787,7 +787,7 @@ namespace euf {
             // else ⊥.  The gate is on the *current* state (paper §3.3).
             if (!m_proj_oracle || !m_proj_oracle->projection_state_in_Q(state, nu))
                 return mk(m_seq.re.mk_empty(re_sort));
-            snode* dstate = deriv_proj(re->arg(0), ch);   // arg(0) ≡ state
+            snode const* dstate = deriv_proj(re->arg(0), ch);   // arg(0) ≡ state
             if (!dstate || dstate->is_fail() || m_seq.re.is_empty(dstate->get_expr()))
                 return mk(m_seq.re.mk_empty(re_sort));
             // δ(state) may be concrete (one state) or an ite-term (symbolic
@@ -797,42 +797,42 @@ namespace euf {
         case snode_kind::s_ite: {
             // ite-structured residual (from a symbolic-character derivative):
             // δ_a(ite(c, th, el)) = ite(c, δ_a(th), δ_a(el)).
-            snode* dth = deriv_proj(re->arg(1), ch);
-            snode* del = deriv_proj(re->arg(2), ch);
+            snode const* dth = deriv_proj(re->arg(1), ch);
+            snode const* del = deriv_proj(re->arg(2), ch);
             return mk(expr_ref(m.mk_ite(re->arg(0)->get_expr(), dth->get_expr(), del->get_expr()), m));
         }
         case snode_kind::s_complement: {
-            snode* d = deriv_proj(re->arg(0), ch);
+            snode const* d = deriv_proj(re->arg(0), ch);
             return mk(expr_ref(mk_compl(d->get_expr()), m));
         }
         case snode_kind::s_intersect: {
-            snode* d0 = deriv_proj(re->arg(0), ch);
-            snode* d1 = deriv_proj(re->arg(1), ch);
+            snode const* d0 = deriv_proj(re->arg(0), ch);
+            snode const* d1 = deriv_proj(re->arg(1), ch);
             return mk(expr_ref(mk_inter(d0->get_expr(), d1->get_expr()), m));
         }
         case snode_kind::s_union: {
-            snode* d0 = deriv_proj(re->arg(0), ch);
-            snode* d1 = deriv_proj(re->arg(1), ch);
+            snode const* d0 = deriv_proj(re->arg(0), ch);
+            snode const* d1 = deriv_proj(re->arg(1), ch);
             return mk(expr_ref(mk_union(d0->get_expr(), d1->get_expr()), m));
         }
         case snode_kind::s_concat: {
             // δ_a(R·S) = δ_a(R)·S  ⊔  (nullable(R) ? δ_a(S) : ∅)
-            snode* d0 = deriv_proj(re->arg(0), ch);
+            snode const* d0 = deriv_proj(re->arg(0), ch);
             expr* head = mk_concat(d0->get_expr(), re->arg(1)->get_expr());
             if (re_nullable(re->arg(0)) == l_true) {
-                snode* d1 = deriv_proj(re->arg(1), ch);
+                snode const* d1 = deriv_proj(re->arg(1), ch);
                 head = mk_union(head, d1->get_expr());
             }
             return mk(expr_ref(head, m));
         }
         case snode_kind::s_star: {
             // δ_a(R*) = δ_a(R)·R*
-            snode* d = deriv_proj(re->arg(0), ch);
+            snode const* d = deriv_proj(re->arg(0), ch);
             return mk(expr_ref(mk_concat(d->get_expr(), re_expr), m));
         }
         case snode_kind::s_plus: {
             // δ_a(R+) = δ_a(R)·R*
-            snode* d = deriv_proj(re->arg(0), ch);
+            snode const* d = deriv_proj(re->arg(0), ch);
             expr_ref star(m_seq.re.mk_star(re->arg(0)->get_expr()), m);
             return mk(expr_ref(mk_concat(d->get_expr(), star), m));
         }
@@ -843,7 +843,7 @@ namespace euf {
         }
     }
 
-    snode* sgraph::brzozowski_deriv(snode* re, snode* elem) {
+    snode const* sgraph::brzozowski_deriv(snode const* re, snode const* elem) {
         expr* re_expr = re->get_expr();
         expr* elem_expr = elem->get_expr();
         SASSERT(re_expr);
@@ -900,23 +900,24 @@ namespace euf {
         // derivative states get distinct snode ids and BFS emptiness checks
         // fail to deduplicate, exploring an exploded state space.
         if (re->has_projection()) {
-            snode* d = deriv_proj(re, elem_expr);
+            snode const* d = deriv_proj(re, elem_expr);
             expr_ref e(d->get_expr(), m);
             th_rewriter trw(m);
             trw(e);
             return mk(e);
         }
 
-        expr_ref result = m_rewriter.mk_derivative(elem_expr, re_expr);
+        std::cout << "Derivative of " << mk_pp(re_expr, m) << "\nwith respect to " << mk_pp(elem_expr, m) << std::endl;
+        const expr_ref result = m_rewriter.mk_derivative(elem_expr, re_expr);
         SASSERT(result);
         return mk(result);
     }
 
-    bool sgraph::are_unit_distinct(snode* a, snode* b) const {
+    bool sgraph::are_unit_distinct(snode const* a, snode const* b) const {
         return a->is_char_or_unit() && b->is_char_or_unit() && m.are_distinct(a->get_expr(), b->get_expr());
     }
 
-    void sgraph::collect_re_predicates(snode* re, expr_ref_vector& preds) {
+    void sgraph::collect_re_predicates(snode const* re, expr_ref_vector& preds) {
         if (!re)
             return;
         expr* e = re->get_expr();
@@ -983,14 +984,14 @@ namespace euf {
         }
     }
 
-    void sgraph::compute_minterms(snode* re, snode_vector& minterms) {
+    void sgraph::compute_minterms(snode const* re, snode_vector& minterms) {
         expr_ref_vector preds(m);
         collect_re_predicates(re, preds);
         
-        unsigned max_c = m_seq.max_char();
+        const unsigned max_c = m_seq.max_char();
 
         if (preds.empty()) {
-            expr_ref fc(m_seq.re.mk_full_char(m_str_sort), m);
+            const expr_ref fc(m_seq.re.mk_full_char(m_str_sort), m);
             minterms.push_back(mk(fc));
             return;
         }
@@ -1106,7 +1107,7 @@ namespace euf {
             }
             return "?";
         };
-        for (snode* n : m_nodes) {
+        for (snode const* n : m_nodes) {
             out << "snode[" << n->id() << "] "
                 << kind_str(n->kind())
                 << " level=" << n->level()

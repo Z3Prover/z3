@@ -41,7 +41,7 @@ static void test_nseq_instantiation() {
     euf::sgraph sg(m, eg);
     nseq_basic_dummy_solver solver;
     seq::context_solver_i context_solver;
-    seq::nielsen_graph ng(sg, solver, context_solver);
+    const seq::nielsen_graph ng(sg, solver, context_solver);
     SASSERT(ng.root() == nullptr);
     SASSERT(ng.num_nodes() == 0);
     std::cout << "  ok\n";
@@ -50,7 +50,7 @@ static void test_nseq_instantiation() {
 // Test 2: parameter validation accepts "nseq"
 static void test_nseq_param_validation() {
     std::cout << "test_nseq_param_validation\n";
-    smt_params p;
+    const smt_params p;
     // Should not throw
     try {
         p.validate_string_solver(symbol("nseq"));
@@ -72,9 +72,9 @@ static void test_nseq_param_validation() {
 // Test 2b: parameter validation rejects invalid variants of "nseq"
 static void test_nseq_param_validation_rejects_invalid() {
     std::cout << "test_nseq_param_validation_rejects_invalid\n";
-    smt_params p;
+    const smt_params p;
     static const char* invalid_variants[] = { "nseq2", "NSEQ", "nseqq", "nse", "Nseq", "nseq ", "" };
-    for (auto s : invalid_variants) {
+    for (const auto s : invalid_variants) {
         bool threw = false;
         try {
             p.validate_string_solver(symbol(s));
@@ -94,7 +94,7 @@ static void test_nseq_simplification() {
     std::cout << "test_nseq_simplification\n";
     ast_manager m;
     reg_decl_plugins(m);
-    seq_util su(m);
+    const seq_util su(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     nseq_basic_dummy_solver solver;
@@ -102,12 +102,12 @@ static void test_nseq_simplification() {
     seq::nielsen_graph ng(sg, solver, context_solver);
 
     // Add a trivial equality: empty = empty
-    euf::snode* empty1 = sg.mk_empty_seq(su.str.mk_string_sort());
-    euf::snode* empty2 = sg.mk_empty_seq(su.str.mk_string_sort());
+    euf::snode const* empty1 = sg.mk_empty_seq(su.str.mk_string_sort());
+    euf::snode const* empty2 = sg.mk_empty_seq(su.str.mk_string_sort());
 
     ng.add_str_eq(empty1, empty2);
 
-    seq::nielsen_graph::search_result r = ng.solve();
+    const seq::nielsen_graph::search_result r = ng.solve();
     // empty = empty is trivially satisfied
     SASSERT(r == seq::nielsen_graph::search_result::sat);
     std::cout << "  ok: trivial equality solved as sat\n";
@@ -118,7 +118,7 @@ static void test_nseq_node_satisfied() {
     std::cout << "test_nseq_node_satisfied\n";
     ast_manager m;
     reg_decl_plugins(m);
-    seq_util su(m);
+    const seq_util su(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     nseq_basic_dummy_solver solver;
@@ -130,15 +130,15 @@ static void test_nseq_node_satisfied() {
     SASSERT(node->is_satisfied());
 
     // add a trivial equality
-    euf::snode *empty = sg.mk_empty_seq(su.str.mk_string_sort());
-    seq::dep_tracker dep = nullptr;
-    seq::str_eq eq(empty, empty, dep);
+    const euf::snode *empty = sg.mk_empty_seq(su.str.mk_string_sort());
+    const seq::dep_tracker dep = nullptr;
+    const seq::str_eq eq(empty, empty, dep);
     node->add_str_eq(eq);
     SASSERT(node->str_eqs().size() == 1);
     SASSERT(!node->str_eqs()[0].is_trivial() || node->str_eqs()[0].m_lhs == node->str_eqs()[0].m_rhs);
     // After simplification, trivial equalities should be removed
-    ptr_vector<seq::nielsen_edge> cur_path;
-    seq::simplify_result sr = node->simplify_and_init(cur_path);
+    const ptr_vector<seq::nielsen_edge> cur_path;
+    const seq::simplify_result sr = node->simplify_and_init(cur_path);
     
     VERIFY(sr == seq::simplify_result::satisfied || sr == seq::simplify_result::proceed);
     std::cout << "  ok\n";
@@ -155,11 +155,11 @@ static void test_nseq_symbol_clash() {
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
 
-    euf::snode* a = sg.mk_char('a');
-    euf::snode* b = sg.mk_char('b');
+    euf::snode const* a = sg.mk_char('a');
+    euf::snode const* b = sg.mk_char('b');
     ng.add_str_eq(a, b);
 
-    auto r = ng.solve();
+    const auto r = ng.solve();
     SASSERT(r == seq::nielsen_graph::search_result::unsat);
 
     // verify conflict explanation returns the equality index
@@ -183,10 +183,10 @@ static void test_nseq_var_eq_self() {
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
 
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     ng.add_str_eq(x, x);
 
-    auto r = ng.solve();
+    const auto r = ng.solve();
     SASSERT(r == seq::nielsen_graph::search_result::sat);
     std::cout << "  ok: x = x solved as sat\n";
 }
@@ -202,14 +202,14 @@ static void test_nseq_prefix_clash() {
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
 
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    euf::snode* a = sg.mk_char('a');
-    euf::snode* b = sg.mk_char('b');
-    euf::snode* xa = sg.mk_concat(x, a);
-    euf::snode* xb = sg.mk_concat(x, b);
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* a = sg.mk_char('a');
+    euf::snode const* b = sg.mk_char('b');
+    euf::snode const* xa = sg.mk_concat(x, a);
+    euf::snode const* xb = sg.mk_concat(x, b);
 
     ng.add_str_eq(xa, xb);
-    auto r = ng.solve();
+    const auto r = ng.solve();
     SASSERT(r == seq::nielsen_graph::search_result::unsat);
     std::cout << "  ok: x·a = x·b detected as unsat\n";
 }
@@ -225,14 +225,14 @@ static void test_nseq_const_nielsen_solvable() {
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
 
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
-    euf::snode* a = sg.mk_char('a');
-    euf::snode* ax = sg.mk_concat(a, x);
-    euf::snode* ay = sg.mk_concat(a, y);
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
+    euf::snode const* a = sg.mk_char('a');
+    euf::snode const* ax = sg.mk_concat(a, x);
+    euf::snode const* ay = sg.mk_concat(a, y);
 
     ng.add_str_eq(ax, ay);
-    auto r = ng.solve();
+    const auto r = ng.solve();
     // a·x = a·y simplifies to x = y which is satisfiable (x = y = ε)
     SASSERT(r == seq::nielsen_graph::search_result::sat);
     std::cout << "  ok: a·x = a·y solved as sat\n";
@@ -248,12 +248,12 @@ static void test_nseq_length_mismatch() {
     nseq_basic_dummy_solver solver;
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
-    euf::snode* a = sg.mk_char('a');
-    euf::snode* b = sg.mk_char('b');
-    euf::snode* ab = sg.mk_concat(a, b);
+    euf::snode const* a = sg.mk_char('a');
+    euf::snode const* b = sg.mk_char('b');
+    euf::snode const* ab = sg.mk_concat(a, b);
 
     ng.add_str_eq(ab, a);
-    auto r = ng.solve();
+    const auto r = ng.solve();
     SASSERT(r == seq::nielsen_graph::search_result::unsat);
     std::cout << "  ok: ab = a detected as unsat\n";
 }
@@ -270,15 +270,15 @@ static void test_setup_seq_str_dispatches_nseq() {
     smt::context ctx(m, params);
 
     // Assert a string equality to trigger string theory setup during check()
-    seq_util su(m);
+    const seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
-    app_ref x(m.mk_const(symbol("x_setup_test"), str_sort), m);
-    app_ref eq(m.mk_eq(x.get(), x.get()), m);
+    const app_ref x(m.mk_const(symbol("x_setup_test"), str_sort), m);
+    const app_ref eq(m.mk_eq(x.get(), x.get()), m);
     ctx.assert_expr(eq);
     ctx.check();
 
     // Verify that theory_nseq (not theory_seq) was registered for the "seq" family
-    family_id seq_fid = m.mk_family_id("seq");
+    const family_id seq_fid = m.mk_family_id("seq");
     SASSERT(ctx.get_theory(seq_fid) != nullptr);
     SASSERT(dynamic_cast<smt::theory_nseq*>(ctx.get_theory(seq_fid)) != nullptr);
     std::cout << "  ok: setup_seq_str dispatched to setup_nseq for 'nseq'\n";

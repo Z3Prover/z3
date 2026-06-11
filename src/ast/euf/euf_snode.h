@@ -36,7 +36,7 @@ namespace euf {
     class sgraph;
     class snode;
 
-    typedef ptr_vector<snode> snode_vector;
+    typedef ptr_vector<snode const> snode_vector;
 
     enum class snode_kind {
         s_empty,       // empty string (OP_SEQ_EMPTY or empty string constant)
@@ -85,7 +85,7 @@ namespace euf {
         // all zeros means not cached, non-zero means cached
         unsigned m_hash_matrix[2][2] = {{0, 0}, {0, 0}};
 
-        snode *m_args[0];  // variable-length array, allocated via get_snode_size(num_args)
+        snode const* m_args[0];  // variable-length array, allocated via get_snode_size(num_args)
 
         friend class sgraph;
 
@@ -93,9 +93,9 @@ namespace euf {
             return sizeof(snode) + num_args * sizeof(snode *);
         }
 
-        static snode *mk(region &r, expr *e, snode_kind k, unsigned id, unsigned num_args, snode *const *args) {
+        static snode *mk(region &r, expr *e, snode_kind k, unsigned id, unsigned num_args, snode const** args) {
             void *mem = r.allocate(get_snode_size(num_args));
-            snode *n = new (mem) snode();
+            snode * n = new (mem) snode();
             n->m_expr = e;
             n->m_kind = k;
             n->m_id = id;
@@ -107,7 +107,7 @@ namespace euf {
         }
 
     public:
-        expr *get_expr() const {
+        expr* get_expr() const {
             return m_expr; // assumed to be non-null
         }
         snode_kind kind() const {
@@ -121,12 +121,12 @@ namespace euf {
             return m_num_args;
         }
 
-        snode* arg(const unsigned i) const {
+        snode const* arg(const unsigned i) const {
             SASSERT(i < m_num_args);
             return m_args[i];
         }
 
-        snode* arg0() const {
+        snode const* arg0() const {
             return arg(0);
         }
 
@@ -137,11 +137,11 @@ namespace euf {
         // O(1) amortized per token, O(tree height) auxiliary memory.
         class token_iterator {
             snode_vector m_stack;        // pending subtrees, top == back()
-            snode *m_current = nullptr;  // current token, nullptr == end
+            snode const* m_current = nullptr;  // current token, nullptr == end
 
             void advance() {
                 while (!m_stack.empty()) {
-                    snode *n = m_stack.back();
+                    snode const* n = m_stack.back();
                     m_stack.pop_back();
                     if (n->is_concat()) {
                         m_stack.push_back(n->arg(1));
@@ -168,7 +168,7 @@ namespace euf {
                 advance();
             }
 
-            snode *operator*() const { return m_current; }
+            snode const* operator*() const { return m_current; }
             token_iterator &operator++() { advance(); return *this; }
             token_iterator operator++(int) { token_iterator t = *this; advance(); return t; }
             bool operator==(token_iterator const &o) const { return m_current == o.m_current; }
@@ -286,7 +286,7 @@ namespace euf {
             if (!is_concat())
                 return false;
             str.reset();
-            for (const snode* c : *this) {
+            for (snode const* c : *this) {
                 unsigned val;
                 if (!c->is_char())
                     return false;
@@ -309,34 +309,34 @@ namespace euf {
             }
         }
 
-        sort *get_sort() const {
+        sort* get_sort() const {
             return m_expr ? m_expr->get_sort() : nullptr;
         }
 
         // analogous to ZIPT's Str.First / Str.Last
         snode const *first() const {
-            snode const *s = this;
+            snode const* s = this;
             while (s->is_concat())
                 s = s->arg(0);
             return s;
         }
 
         snode const *last() const {
-            snode const *s = this;
+            snode const* s = this;
             while (s->is_concat())
                 s = s->arg(1);
             return s;
         }
 
-        snode *first() {
-            snode *s = this;
+        snode const* first() {
+            snode const* s = this;
             while (s->is_concat())
                 s = s->arg(0);
             return s;
         }
 
-        snode *last() {
-            snode *s = this;
+        snode const* last() {
+            snode const* s = this;
             while (s->is_concat())
                 s = s->arg(1);
             return s;
@@ -349,7 +349,7 @@ namespace euf {
                 arg(1)->collect_tokens(tokens);
             }
             else if (!is_empty())
-                tokens.push_back(const_cast<snode *>(this));
+                tokens.push_back(this);
         }
 
         snode_vector collect_tokens() const {
@@ -360,7 +360,7 @@ namespace euf {
 
         // access the i-th token (0-based, left-to-right order)
         // returns nullptr if i >= length()
-        snode *at(unsigned i) const {
+        snode const* at(const unsigned i) const {
             if (is_concat()) {
                 unsigned left_len = arg(0)->length();
                 if (i < left_len)
@@ -369,16 +369,16 @@ namespace euf {
             }
             if (is_empty())
                 return nullptr;
-            return i == 0 ? const_cast<snode *>(this) : nullptr;
+            return i == 0 ? this : nullptr;
         }
     };
 
 }
 
 struct spp {
-    euf::snode *n;
+    euf::snode const* n;
     ast_manager &m;
-    spp(euf::snode *n, ast_manager &m) : n(n), m(m) {}
+    spp(euf::snode const* n, ast_manager &m) : n(n), m(m) {}
 };
 
 inline std::ostream &operator<<(std::ostream &out, spp const&p) {

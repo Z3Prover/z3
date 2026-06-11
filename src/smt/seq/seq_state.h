@@ -29,19 +29,19 @@ namespace smt {
 
     struct tracked_str_eq : seq::str_eq {
         enode *m_l, *m_r;
-        tracked_str_eq(euf::snode *lhs, euf::snode *rhs, enode *l, enode *r, seq::dep_tracker const &dep)
+        tracked_str_eq(euf::snode const* lhs, euf::snode const* rhs, enode* l, enode* r, seq::dep_tracker const &dep)
             : str_eq(lhs, rhs, dep), m_l(l), m_r(r) {}
     };
 
     struct tracked_str_deq : seq::str_deq {
         sat::literal lit;
-        tracked_str_deq(euf::snode *lhs, euf::snode *rhs, const sat::literal lit, seq::dep_tracker const &dep)
+        tracked_str_deq(euf::snode const* lhs, euf::snode const* rhs, const sat::literal lit, seq::dep_tracker const &dep)
             : str_deq(lhs, rhs, dep), lit(lit) {}
     };
 
     struct tracked_str_mem : seq::str_mem {
         sat::literal lit;
-        tracked_str_mem(euf::snode *str, euf::snode *regex, const sat::literal lit, seq::dep_tracker const &dep)
+        tracked_str_mem(euf::snode const* str, euf::snode const* regex, const sat::literal lit, seq::dep_tracker const &dep)
             : str_mem(str, regex, dep), lit(lit) {}
     };
 

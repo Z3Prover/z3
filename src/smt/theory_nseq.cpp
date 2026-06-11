@@ -34,13 +34,13 @@ namespace smt {
         m_rewriter(m),
         m_arith_value(m),
         m_egraph(m),
-        m_sgraph(m, m_egraph),
+        m_sg(m, m_egraph),
         m_length_solver(m),
         m_context_solver(ctx, [this](expr* e1, expr* e2) { m_axioms.diseq_axiom(e1, e2); }),
-        m_nielsen(m_sgraph, m_length_solver, m_context_solver),
+        m_nielsen(m_sg, m_length_solver, m_context_solver),
         m_axioms(m_th_rewriter),
-        m_regex(m_sgraph),
-        m_model(m, ctx, m_seq, m_rewriter, m_sgraph),
+        m_regex(m_sg),
+        m_model(m, ctx, m_seq, m_rewriter, m_sg),
         m_relevant_lengths(m)
     {
         std::function<void(expr_ref_vector const&)> add_clause =
@@ -220,8 +220,8 @@ namespace smt {
             }
             if (!m_seq.is_seq(e1))
                 return;
-            euf::snode *s1 = get_snode(e1);
-            euf::snode *s2 = get_snode(e2);
+            euf::snode const* s1 = get_snode(e1);
+            euf::snode const* s2 = get_snode(e2);
             seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
             m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
@@ -266,8 +266,8 @@ namespace smt {
             if (get_fparams().m_nseq_axiomatize_diseq)
                 m_axioms.diseq_axiom(e1, e2);
             else {
-                euf::snode *s1 = get_snode(e1);
-                euf::snode *s2 = get_snode(e2);
+                euf::snode const* s1 = get_snode(e1);
+                euf::snode const* s2 = get_snode(e2);
                 const seq::dep_tracker dep = nullptr;
                 ctx.push_trail(restore_vector(m_prop_queue));
                 const expr_ref eq_expr(m.mk_eq(e1, e2), m);
@@ -284,7 +284,7 @@ namespace smt {
     // Boolean assignment notification
     // -----------------------------------------------------------------------
 
-    void theory_nseq::assign_eh(bool_var v, bool is_true) {
+    void theory_nseq::assign_eh(const bool_var v, const bool is_true) {
         try {
             expr* e = ctx.bool_var2expr(v);
             const literal lit(v, !is_true);
@@ -292,8 +292,8 @@ namespace smt {
             expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
             TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
             if (m_seq.str.is_in_re(e, s, re)) {
-                euf::snode* sn_str = get_snode(s);
-                euf::snode* sn_re  = get_snode(re);
+                euf::snode const* sn_str = get_snode(s);
+                euf::snode const* sn_re  = get_snode(re);
                 const seq::dep_tracker dep = nullptr;
                 if (is_true) {
                     ctx.push_trail(restore_vector(m_prop_queue));
@@ -306,7 +306,7 @@ namespace smt {
                     // so the Nielsen graph sees it uniformly; the original negative literal
                     // is kept in mem_source for conflict reporting.
                     const expr_ref re_compl(m_seq.re.mk_complement(re), m);
-                    euf::snode* sn_re_compl = get_snode(re_compl.get());
+                    euf::snode const* sn_re_compl = get_snode(re_compl.get());
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, dep));
                     m_last_constraint_added = ctx.get_scope_level();
@@ -385,13 +385,13 @@ namespace smt {
                 if (n1->get_root() != n2->get_root()) {
                     const auto v1 = mk_var(n1);
                     const auto v2 = mk_var(n2);
-                    const literal lit(v, false);
+                    const literal l(v, false);
                     ctx.mark_as_relevant(n1);
                     ctx.mark_as_relevant(n2);
                     TRACE(seq, tout << "is-eq " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n");
                     justification* js = ctx.mk_justification(
                         ext_theory_eq_propagation_justification(
-                            get_id(), ctx, 1, &lit, 0, nullptr, n1, n2));
+                            get_id(), ctx, 1, &l, 0, nullptr, n1, n2));
                     ctx.assign_eq(n1, n2, eq_justification(js));
                     new_eq_eh(v1, v2);
                 }
@@ -421,14 +421,14 @@ namespace smt {
 
     void theory_nseq::push_scope_eh() {
         theory::push_scope_eh();
-        m_sgraph.push();
+        m_sg.push();
         
     }
 
     void theory_nseq::pop_scope_eh(unsigned num_scopes) {
         try {
             theory::pop_scope_eh(num_scopes);
-            m_sgraph.pop(num_scopes);
+            m_sg.pop(num_scopes);
             // A pop may remove constraints and/or unassign forced Nielsen
             // literals; conservatively invalidate the cached SAT path.
             if (m_can_hot_restart && ctx.get_scope_level() - num_scopes < m_last_constraint_added)
@@ -506,15 +506,15 @@ namespace smt {
 
         if (!mem.m_str->is_empty()) {
             if (mem.m_str->first()->is_char()) {
-                euf::snode* re_node = mem.m_regex;
-                euf::snode* str_node = mem.m_str;
+                euf::snode const* re_node = mem.m_regex;
+                euf::snode const* str_node = mem.m_str;
                 do {
                     // eliminate leading character by derivatives; derive by the
                     // CURRENT leading char (str_node->first()), not the original
                     // mem.m_str->first() — otherwise a multi-char prefix is derived
                     // by its first char repeatedly (unsound).
-                    re_node = m_sgraph.brzozowski_deriv(re_node, str_node->first());
-                    str_node = m_sgraph.drop_first(str_node);
+                    re_node = m_sg.brzozowski_deriv(re_node, str_node->first());
+                    str_node = m_sg.drop_first(str_node);
                 } while (!str_node->is_empty() && str_node->first()->is_char());
 
                 if (re_node->is_fail()) {
@@ -532,7 +532,7 @@ namespace smt {
         }
         else {
             // check nullability
-            if (m_sgraph.re_nullable(mem.m_regex) == l_true) {
+            if (m_sg.re_nullable(mem.m_regex) == l_true) {
                 // empty string in nullable regex → trivially satisfied
                 m_ignored_mem.insert(mem.lit);
                 ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
@@ -570,7 +570,7 @@ namespace smt {
         }
 
         // empty string in non-nullable regex → conflict
-        if (mem.m_str->is_empty() && m_sgraph.re_nullable(mem.m_regex) == l_false) {
+        if (mem.m_str->is_empty() && m_sg.re_nullable(mem.m_regex) == l_false) {
             literal_vector lits;
             lits.push_back(mem.lit);
             set_conflict(lits);
@@ -607,25 +607,11 @@ namespace smt {
         if (get_fparams().m_nseq_regex_factorization_eager &&
             get_fparams().m_nseq_regex_factorization_threshold > 0 &&
             mem.m_str->is_concat()) {
-            const app* const a = to_app(s);
-            const unsigned na = a->get_num_args();
-            SASSERT(na >= 2);
-
-            const expr_ref head(a->get_arg(0), m);
-            const expr_ref tail(m_seq.str.mk_concat(na - 1, a->get_args() + 1, s->get_sort()), m);
 
             const unsigned threshold = get_fparams().m_nseq_regex_factorization_threshold;
+
             split_set pairs;
-            if (!m_rewriter.split(mem.m_regex->get_expr(), pairs, threshold))
-                // we give up
-                return;
-
-            //std::cout << "Pairs:\n";
-            //for (auto& pair: pairs) {
-            //    std::cout << mk_pp(pair.m_d, m) << " ; " << mk_pp(pair.m_n, m) << std::endl;
-            //}
-
-            m_rewriter.simplify_split(pairs);
+            auto [head, tail] = seq::split_membership(mem.m_str, mem.m_regex, m_sg, threshold, pairs);
 
             if (pairs.empty()) {
                 // no viable splits
@@ -638,24 +624,24 @@ namespace smt {
                 TRACE(seq, tout << "eager regex fact: " << mk_pp(s, m) << " in "
                                 << mk_pp(re, m) << " -> " << pairs.size() << " splits\n";);
 
-                if (!ctx.e_internalized(head))
-                    ctx.internalize(head, false);
-                if (!ctx.e_internalized(tail))
-                    ctx.internalize(tail, false);
+                if (!ctx.e_internalized(head->get_expr()))
+                    ctx.internalize(head->get_expr(), false);
+                if (!ctx.e_internalized(tail->get_expr()))
+                    ctx.internalize(tail->get_expr(), false);
 
                 // forward direction; mk_literal Tseitin-encodes each conjunction
                 literal_vector lits;
                 lits.push_back(~mem.lit);
-                //std::cout << "Decomposing into:\n";
+                std::cout << "Decomposing into:\n";
                 for (auto const& sp : pairs) {
-                    expr_ref mem_head(m_seq.re.mk_in_re(head, sp.m_d), m);
-                    expr_ref mem_tail(m_seq.re.mk_in_re(tail, sp.m_n), m);
+                    expr_ref mem_head(m_seq.re.mk_in_re(head->get_expr(), sp.m_d), m);
+                    expr_ref mem_tail(m_seq.re.mk_in_re(tail->get_expr(), sp.m_n), m);
                     expr_ref conj(m.mk_and(mem_head, mem_tail), m);
                     lits.push_back(mk_literal(conj));
-                    //seq::dep_tracker dep = nullptr;
-                    //std::cout << seq::mem_pp(seq::str_mem(m_sgraph.mk(head), m_sgraph.mk(sp.m_d), dep), m) << " && " << seq::mem_pp(seq::str_mem(m_sgraph.mk(tail), m_sgraph.mk(sp.m_n), dep), m) << "\n";
+                    seq::dep_tracker dep = nullptr;
+                    std::cout << seq::mem_pp(seq::str_mem(head, m_sg.mk(sp.m_d), dep), m) << " && " << seq::mem_pp(seq::str_mem(tail, m_sg.mk(sp.m_n), dep), m) << "\n";
                 }
-                //std::cout << std::endl;
+                std::cout << std::endl;
                 ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
                 m_ignored_mem.insert(mem.lit);
                 ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
@@ -1439,8 +1425,8 @@ namespace smt {
     // Helpers
     // -----------------------------------------------------------------------
 
-    euf::snode* theory_nseq::get_snode(expr* e) {
-        return m_sgraph.mk(e);
+    euf::snode const* theory_nseq::get_snode(expr* e) {
+        return m_sg.mk(e);
     }
 
     // -----------------------------------------------------------------------
@@ -1619,9 +1605,9 @@ namespace smt {
         // Check intersection emptiness for each variable.
         for (auto &[var_id, mem_indices] : var_to_mems) {
 
-            ptr_vector<euf::snode> regexes;
-            for (unsigned i : mem_indices) {
-                euf::snode* re = mems[i]->m_regex;
+            euf::snode_vector regexes;
+            for (const unsigned i : mem_indices) {
+                euf::snode const* re = mems[i]->m_regex;
                 SASSERT(re);
                 regexes.push_back(re);
             }
@@ -1828,11 +1814,11 @@ namespace smt {
 
         SASSERT(!var_to_mems.empty());
 
-        for (expr *len_expr : m_relevant_lengths) {
-            expr *s = nullptr;
+        for (expr* len_expr : m_relevant_lengths) {
+            expr* s = nullptr;
             VERIFY(m_seq.str.is_length(len_expr, s));
 
-            euf::snode *s_node = m_sgraph.find(s);
+            euf::snode const* s_node = m_sg.find(s);
             SASSERT(s_node);
 
             unsigned var_id = s_node->id();
@@ -1850,7 +1836,7 @@ namespace smt {
             const unsigned l = val_l.get_unsigned();
 
             unsigned_vector const &mem_indices = var_to_mems[var_id];
-            ptr_vector<euf::snode> regexes;
+            euf::snode_vector regexes;
             bool has_projection = false;
             for (auto i : mem_indices) {
                 SASSERT(mems[i].well_formed());
@@ -1873,18 +1859,18 @@ namespace smt {
 
             SASSERT(!regexes.empty());
             sort *ele_sort;
-            VERIFY(m_seq.is_seq(m_sgraph.get_str_sort(), ele_sort));
+            VERIFY(m_seq.is_seq(m_sg.get_str_sort(), ele_sort));
             unsigned g = 1;
             if (m_gradient_cache.contains(s))
                 g = m_gradient_cache[s];
             else
                 m_gradient_cache.insert(s, 1);
 
-            expr_ref allchar(m_seq.re.mk_full_char(m_seq.re.mk_re(m_sgraph.get_str_sort())), m);
+            expr_ref allchar(m_seq.re.mk_full_char(m_seq.re.mk_re(m_sg.get_str_sort())), m);
             expr_ref l_expr(m_autil.mk_int(l), m);
             expr_ref loop_l(m_seq.re.mk_loop_proper(allchar.get(), l, l), m);
 
-            euf::snode *sigmal_node = get_snode(loop_l.get());
+            euf::snode const* sigmal_node = get_snode(loop_l.get());
             regexes.push_back(sigmal_node);
             SASSERT(regexes.size() > 1);
 
@@ -1899,7 +1885,7 @@ namespace smt {
                 expr_ref star_g(m_seq.re.mk_star(loop_g.get()), m);
                 expr_ref sigmal_g_expr(m_seq.re.mk_concat(loop_l.get(), star_g.get()), m);
 
-                euf::snode *sigmal_g_node = get_snode(sigmal_g_expr.get());
+                euf::snode const* sigmal_g_node = get_snode(sigmal_g_expr.get());
                 regexes.push_back(sigmal_g_node);
 
                 lbool result_g = m_regex.check_intersection_emptiness(regexes);

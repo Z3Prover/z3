@@ -70,22 +70,92 @@ namespace seq {
         return result;
     }
 
+    std::pair<euf::snode const*, euf::snode const*> split_membership(euf::snode const *str, euf::snode const *regex, euf::sgraph& sg, unsigned threshold, split_set& result) {
+        seq_util& seq = sg.get_seq_util();
+        ast_manager& m = sg.get_manager();
+        euf::snode const* first = str->first();
+        SASSERT(first);
+        SASSERT(!first->is_char());     // constants are consumed earlier
+
+        // Choose the factorization boundary so the tail starts with the
+        // LONGEST run of concrete characters c — this gives the split-engine
+        // lookahead oracle the most pruning information.  head = u' (tokens
+        // before the run), tail = c · u''' (tokens from the run onward).
+        euf::snode_vector toks;
+        str->collect_tokens(toks);
+        const unsigned total = toks.size();
+        unsigned run_start = 0, run_len = 0;
+        for (unsigned i = 0; i < total; ) {
+            if (!toks[i]->is_char()) { ++i; continue; }
+            unsigned j = i;
+            while (j < total && toks[j]->is_char()) ++j;
+            if (j - i > run_len) { run_len = j - i; run_start = i; }
+            i = j;
+        }
+        // No constant run → fall back to splitting off the first token.
+        const unsigned p = run_len == 0 ? 1 : run_start;
+        SASSERT(p >= 1);
+        euf::snode const* head = p == 1 ? first : sg.drop_right(str, total - p);
+        euf::snode const* tail = sg.drop_left(str, p);
+        SASSERT(head && tail);
+
+        // Build the constant lookahead c and (if non-empty) an oracle that
+        // prunes splits whose ∇ cannot match c.
+        zstring c;
+        for (unsigned i = 0; i < run_len; ++i) {
+            expr* ch; unsigned cv;
+            VERIFY(seq.str.is_unit(toks[run_start + i]->get_expr(), ch));
+            VERIFY(seq.is_const_char(ch, cv));
+            c = c + zstring(cv);
+        }
+        split_oracle oracle;
+        if (!c.empty())
+            oracle = [&sg, c](expr*, expr* n) { return split_lookahead_viable(n, sg, c); };
+
+        // Decompose the regex into a split-set via the shared seq_split engine
+        // (sigma from the paper): head ∈ Δ ∧ tail ∈ ∇ for each ⟨Δ,∇⟩, with the
+        // lookahead oracle pruning non-viable ∇ during generation.
+        seq_rewriter rw(m);
+        if (!rw.split(regex->get_expr(), result, threshold, split_mode::strong, oracle)) {
+            result.clear();
+            return { nullptr, nullptr };
+        }
+
+        rw.simplify_split(result);
+
+        return { head, tail };
+    }
+
+    bool split_lookahead_viable(expr* n_regex, euf::sgraph& sg, zstring const& c) {
+        euf::snode const* cur = sg.mk(n_regex);
+        SASSERT(cur);
+        for (unsigned i = 0; i < c.length(); i++) {
+            if (sg.re_nullable(cur) == l_true)
+                return true;            // N accepts the prefix c[0..i) → a suffix completes it
+            cur = sg.brzozowski_deriv(cur, sg.mk_char(c[i]));
+            SASSERT(cur);
+            if (cur->is_fail())
+                return false;           // N went (syntactically) dead before reaching c
+        }
+        return !cur->is_fail();
+    }
+
     // Directional helpers mirroring ZIPT's fwd flag:
     // fwd=true  -> left-to-right (prefix/head)
     // fwd=false -> right-to-left (suffix/tail)
-    static euf::snode *dir_token(euf::snode *s, const bool fwd) {
+    static euf::snode const* dir_token(euf::snode const* s, const bool fwd) {
         if (!s)
             return nullptr;
         return fwd ? s->first() : s->last();
     }
 
-    static euf::snode *dir_drop(euf::sgraph &sg, euf::snode *s, const unsigned count, const bool fwd) {
+    static euf::snode const* dir_drop(euf::sgraph &sg, euf::snode const* s, const unsigned count, const bool fwd) {
         if (!s || count == 0)
             return s;
         return fwd ? sg.drop_left(s, count) : sg.drop_right(s, count);
     }
 
-    static euf::snode *dir_concat(euf::sgraph &sg, euf::snode *a, euf::snode *b, const bool fwd) {
+    static euf::snode const* dir_concat(euf::sgraph &sg, euf::snode const* a, euf::snode const* b, const bool fwd) {
         if (!a)
             return b;
         if (!b)
@@ -93,7 +163,7 @@ namespace seq {
         return fwd ? sg.mk_concat(a, b) : sg.mk_concat(b, a);
     }
 
-    static void collect_tokens_dir(euf::snode *s, const bool fwd, euf::snode_vector &toks) {
+    static void collect_tokens_dir(euf::snode const* s, const bool fwd, euf::snode_vector &toks) {
         toks.reset();
         if (!s)
             return;
@@ -104,7 +174,7 @@ namespace seq {
 
     // Right-derivative helper used by backward str_mem simplification:
     // dR(re, c) = reverse( derivative(c, reverse(re)) ).
-    static euf::snode *reverse_brzozowski_deriv(euf::sgraph &sg, euf::snode *re, euf::snode *elem) {
+    static euf::snode const* reverse_brzozowski_deriv(euf::sgraph &sg, euf::snode const* re, euf::snode const* elem) {
         if (!re || !elem || !re->get_expr() || !elem->get_expr())
             return nullptr;
         ast_manager &m = sg.get_manager();
@@ -141,14 +211,14 @@ namespace seq {
         return m_lhs == m_rhs || (m_lhs && m_rhs && m_lhs->is_empty() && m_rhs->is_empty());
     }
 
-    bool str_eq::contains_var(euf::snode *var) const {
+    bool str_eq::contains_var(euf::snode const* var) const {
         if (!var)
             return false;
         // check if var appears in the token list of lhs or rhs
         if (m_lhs) {
             euf::snode_vector tokens;
             m_lhs->collect_tokens(tokens);
-            for (const euf::snode *t : tokens) {
+            for (euf::snode const* t : tokens) {
                 if (t == var)
                     return true;
             }
@@ -156,7 +226,7 @@ namespace seq {
         if (m_rhs) {
             euf::snode_vector tokens;
             m_rhs->collect_tokens(tokens);
-            for (const euf::snode *t : tokens) {
+            for (euf::snode const* t : tokens) {
                 if (t == var)
                     return true;
             }
@@ -185,7 +255,7 @@ namespace seq {
         return n->graph().sg().re_nullable(m_regex) == l_false;
     }
 
-    bool str_mem::contains_var(euf::snode* var) const {
+    bool str_mem::contains_var(euf::snode const* var) const {
         SASSERT(var);
         if (m_str) {
             euf::snode_vector tokens;
@@ -392,7 +462,7 @@ namespace seq {
         }
     }
 
-    void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range, dep_tracker dep) {
+    void nielsen_node::add_char_range(euf::snode const* sym_char, char_set const& range, dep_tracker dep) {
         if (sym_char->is_char()) {
             // for a concrete character just check if it matches
             const expr * val = sym_char->get_expr();
@@ -506,7 +576,7 @@ namespace seq {
         return e;
     }
 
-    void nielsen_graph::add_str_eq(euf::snode *lhs, euf::snode *rhs, smt::enode *l, smt::enode *r) const {
+    void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs, smt::enode *l, smt::enode *r) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -518,7 +588,7 @@ namespace seq {
         m_root->add_str_eq(eq);
     }
 
-    void nielsen_graph::add_str_deq(euf::snode *lhs, euf::snode *rhs, sat::literal l) const {
+    void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal l) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(l);
         str_deq deq(lhs, rhs, dep);
         // check if root node contains this equation already
@@ -529,7 +599,7 @@ namespace seq {
         m_root->add_str_deq(deq);
     }
 
-    void nielsen_graph::add_str_mem(euf::snode *str, euf::snode *regex, sat::literal l) const {
+    void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal l) const {
         // check if root node contains this membership constraint already
         if (std::ranges::any_of(m_root->str_mems(),
                                 [&](const str_mem &e) { return e.m_regex == regex && e.m_str == str; }))
@@ -540,20 +610,20 @@ namespace seq {
     }
 
     // test-friendly overloads (no external dependency tracking)
-    void nielsen_graph::add_str_eq(euf::snode *lhs, euf::snode *rhs) {
+    void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs) {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
     }
 
-    void nielsen_graph::add_str_deq(euf::snode *lhs, euf::snode *rhs) {
+    void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs) {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_deq deq(lhs, rhs, dep);
         m_root->add_str_deq(deq);
     }
 
-    void nielsen_graph::add_str_mem(euf::snode *str, euf::snode *regex) {
+    void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex) {
         const dep_tracker dep = nullptr;
         m_root->add_str_mem(str_mem(str, regex, dep));
     }
@@ -600,7 +670,7 @@ namespace seq {
         n->add_constraint(constraint(le, dep, m));
     }
 
-    euf::snode *nielsen_graph::mk_projection_term(euf::snode *root_re, unsigned nu) {
+    euf::snode const* nielsen_graph::mk_projection_term(euf::snode const* root_re, unsigned nu) {
         SASSERT(root_re && root_re->get_expr());
         // π_{Q_nu, {root}}(root): current state == accepting state == root.
         expr_ref proj = m_sg.mk_re_proj(root_re->get_expr(), root_re->get_expr(), nu);
@@ -611,12 +681,12 @@ namespace seq {
     // nielsen_node: simplify_and_init
     // -----------------------------------------------------------------------
 
-    bool nielsen_node::check_empty_side_conflict(euf::sgraph& sg, euf::snode* non_empty_side,
+    bool nielsen_node::check_empty_side_conflict(euf::sgraph& sg, euf::snode const* non_empty_side,
                                                  dep_tracker const& dep) {
         euf::snode_vector tokens;
         non_empty_side->collect_tokens(tokens);
-        const bool has_char = std::ranges::any_of(tokens, [](euf::snode* t){ return t->is_char(); });
-        const bool all_eliminable = std::ranges::all_of(tokens, [](euf::snode* t){
+        const bool has_char = std::ranges::any_of(tokens, [](euf::snode const* t){ return t->is_char(); });
+        const bool all_eliminable = std::ranges::all_of(tokens, [](euf::snode const* t){
             return t->is_var() || t->is_power();
         });
         if (has_char || !all_eliminable) {
@@ -658,7 +728,7 @@ namespace seq {
     }
 
     // Get the base expression of a power snode.
-    static expr* get_power_base_expr(euf::snode* power, seq_util& seq) {
+    static expr* get_power_base_expr(euf::snode const* power, seq_util& seq) {
         if (!power || !power->is_power()) return nullptr;
         const expr * e = power->get_expr();
         expr* base = nullptr, *exp = nullptr;
@@ -666,7 +736,7 @@ namespace seq {
     }
 
     // Get the exponent expression of a power snode.
-    static expr* get_power_exp_expr(euf::snode* power, seq_util& seq) {
+    static expr* get_power_exp_expr(euf::snode const* power, seq_util& seq) {
         if (!power->is_power()) return nullptr;
         const expr * e = power->get_expr();
         expr* base = nullptr, *exp = nullptr;
@@ -678,7 +748,7 @@ namespace seq {
     //          power(c^e) · char(c) → power(c^(e+1)),
     //          power(c^e1) · power(c^e2) → power(c^(e1+e2)).
     // Returns new snode if merging happened, nullptr otherwise.
-    static euf::snode* merge_adjacent_powers(euf::sgraph& sg, euf::snode* side) {
+    static euf::snode const* merge_adjacent_powers(euf::sgraph& sg, euf::snode const* side) {
         if (!side || side->is_empty() || side->is_token())
             return nullptr;
 
@@ -696,7 +766,7 @@ namespace seq {
 
         unsigned i = 0;
         while (i < tokens.size()) {
-            euf::snode* tok = tokens[i];
+            euf::snode const* tok = tokens[i];
 
             // Case 1: current is a power token — absorb following same-base tokens.
             // Skip at leading position (i == 0) to keep exponents small: CommPower
@@ -710,7 +780,7 @@ namespace seq {
                 bool local_merged = false;
                 unsigned j = i + 1;
                 while (j < tokens.size()) {
-                    euf::snode* next = tokens[j];
+                    euf::snode const* next = tokens[j];
                     if (next->is_power()) {
                         const expr * nb = get_power_base_expr(next, seq);
                         if (nb == base_e) {
@@ -740,7 +810,7 @@ namespace seq {
             // Skip at leading position (i == 0) to avoid undoing power unwinding:
             // unwind produces u · u^(n-1); merging it back to u^n creates an infinite cycle.
             if (i > 0 && tok->is_char() && tok->get_expr() && i + 1 < tokens.size()) {
-                euf::snode* next = tokens[i + 1];
+                euf::snode const* next = tokens[i + 1];
                 if (next->is_power() && get_power_base_expr(next, seq) == tok->get_expr()) {
                     expr* base_e = tok->get_expr();
                     // Use same arg order as Case 1: add(exp, 1), not add(1, exp),
@@ -749,7 +819,7 @@ namespace seq {
                     expr* exp_acc = arith.mk_add(get_power_exp_expr(next, seq), arith.mk_int(1));
                     unsigned j = i + 2;
                     while (j < tokens.size()) {
-                        euf::snode* further = tokens[j];
+                        euf::snode const* further = tokens[j];
                         if (further->is_power() && get_power_base_expr(further, seq) == base_e) {
                             exp_acc = arith.mk_add(exp_acc, get_power_exp_expr(further, seq));
                             ++j; continue;
@@ -776,7 +846,7 @@ namespace seq {
         if (!merged)
             return nullptr;
 
-        euf::snode* rebuilt = nullptr;
+        euf::snode const* rebuilt = nullptr;
         for (const auto tok : result)
             rebuilt = rebuilt ? sg.mk_concat(rebuilt, tok) : tok;
         if (!rebuilt)
@@ -786,7 +856,7 @@ namespace seq {
 
     // Simplify constant-exponent powers: base^0 → ε, base^1 → base.
     // Returns new snode if any simplification happened, nullptr otherwise.
-    static euf::snode* simplify_const_powers(nielsen_node* node, euf::sgraph& sg, euf::snode* side, dep_tracker& dep) {
+    static euf::snode const* simplify_const_powers(nielsen_node* node, euf::sgraph& sg, euf::snode const* side, dep_tracker& dep) {
         dep = nullptr;
         SASSERT(side);
         if (side->is_empty())
@@ -800,7 +870,7 @@ namespace seq {
         bool simplified = false;
         euf::snode_vector result;
 
-        for (euf::snode* tok : tokens) {
+        for (euf::snode const* tok : tokens) {
             if (tok->is_power()) {
                 expr* exp_e = get_power_exp_expr(tok, seq);
                 rational ub;
@@ -814,7 +884,7 @@ namespace seq {
                     }
                     if (ub.is_one()) {
                         // base^1 → base
-                        euf::snode* base_sn = tok->arg0();
+                        euf::snode const* base_sn = tok->arg0();
                         if (base_sn) {
                             dep = node->graph().dep_mgr().mk_join(dep, ub_dep);
                             result.push_back(base_sn);
@@ -830,8 +900,8 @@ namespace seq {
         if (!simplified)
             return nullptr;
 
-        euf::snode* rebuilt = nullptr;
-        for (euf::snode* tok : result) {
+        euf::snode const* rebuilt = nullptr;
+        for (euf::snode const* tok : result) {
             rebuilt = rebuilt ? sg.mk_concat(rebuilt, tok) : tok;
         }
         if (!rebuilt)
@@ -845,7 +915,7 @@ namespace seq {
     // Returns (count_expr, num_tokens_consumed).  count_expr is nullptr
     // when no complete base-pattern match is found.
     static std::pair<expr_ref, unsigned> comm_power(
-            euf::snode* base_sn, euf::snode* side, ast_manager& m, seq_util& seq, const bool fwd) {
+            euf::snode const* base_sn, euf::snode const* side, ast_manager& m, seq_util& seq, const bool fwd) {
         arith_util arith(m);
         euf::snode_vector base_tokens, side_tokens;
         collect_tokens_dir(base_sn, fwd, base_tokens);
@@ -860,7 +930,7 @@ namespace seq {
 
         unsigned i = 0;
         for (; i < side_tokens.size(); i++) {
-            euf::snode* t = side_tokens[i];
+            euf::snode const* t = side_tokens[i];
             if (pos == 0) {
                 last_stable_idx = i;
                 last_stable_sum = sum;
@@ -879,7 +949,7 @@ namespace seq {
             // Skip at leading position (i == 0) to avoid undoing power unwinding:
             // unwind produces u · u^(n-1); merging it back to u^n creates an infinite cycle.
             if (i > 0 && t->is_power()) {
-                euf::snode* pow_base = t->arg0();
+                euf::snode const* pow_base = t->arg0();
                 if (pow_base) {
                     euf::snode_vector pb_tokens;
                     collect_tokens_dir(pow_base, fwd, pb_tokens);
@@ -907,7 +977,7 @@ namespace seq {
         return {expr_ref(last_stable_sum, m), last_stable_idx};
     }
 
-    euf::snode* nielsen_graph::to_partial_label_regex(euf::snode* label) const {
+    euf::snode const* nielsen_graph::to_partial_label_regex(euf::snode const* label) const {
         SASSERT(label && label->get_expr());
 
         expr* e = label->get_expr();
@@ -925,7 +995,7 @@ namespace seq {
         return nullptr;
     }
 
-    void nielsen_graph::record_partial_derivative_edge(euf::snode* src_re, euf::snode* label, euf::snode* dst_re) {
+    void nielsen_graph::record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* label, euf::snode const* dst_re) {
         SASSERT(src_re && dst_re);
         if (!src_re->is_ground() || !dst_re->is_ground())
             return;
@@ -942,7 +1012,7 @@ namespace seq {
         if (src_re->has_projection() || dst_re->has_projection())
             return;
 
-        //euf::snode* label_re = to_partial_label_regex(label);
+        //euf::snode const* label_re = to_partial_label_regex(label);
         //SASSERT(label_re);
         //if (!m_seq.is_re(label_re->get_expr()) || !label_re->is_ground())
         //    return;
@@ -985,7 +1055,7 @@ namespace seq {
         m_partial_dfa_in[dst_e->get_id()].push_back(edge_idx);
     }
 
-    bool nielsen_graph::collect_scc_for_projection(euf::snode* root_re, uint_set& scc) const {
+    bool nielsen_graph::collect_scc_for_projection(euf::snode const* root_re, uint_set& scc) const {
         scc.reset();
         if (!root_re || !root_re->get_expr())
             return false;
@@ -1109,7 +1179,7 @@ namespace seq {
         return newly_marked;
     }
 
-    bool nielsen_graph::try_extract_partial_projection(euf::snode* root_re, euf::snode*& projection_re) {
+    bool nielsen_graph::try_extract_partial_projection(euf::snode const* root_re, euf::snode const*& projection_re) {
         SASSERT(root_re && root_re->get_expr());
         projection_re = nullptr;
         if (!root_re->is_ground())
@@ -1137,7 +1207,7 @@ namespace seq {
         return true;
     }
 
-    euf::snode* nielsen_graph::get_slice(euf::snode* v, expr* left, expr* right) {
+    euf::snode const* nielsen_graph::get_slice(euf::snode const* v, expr* left, expr* right) {
         SASSERT(v && v->get_expr() && left && right);
         SASSERT(v->is_var());
 
@@ -1157,13 +1227,13 @@ namespace seq {
     }
 
 
-    euf::snode* nielsen_graph::get_tail(euf::snode* v, expr* cnt, const bool fwd) {
+    euf::snode const* nielsen_graph::get_tail(euf::snode const* v, expr* cnt, const bool fwd) {
         if (fwd)
             return get_slice(v, cnt, a.mk_int(0));
         return get_slice(v, a.mk_int(0), cnt);
     }
 
-    euf::snode* nielsen_graph::get_tail(euf::snode* v, const unsigned cnt, const bool fwd) {
+    euf::snode const* nielsen_graph::get_tail(euf::snode const* v, const unsigned cnt, const bool fwd) {
         return get_tail(v, a.mk_int(cnt), fwd);
     }
 
@@ -1212,11 +1282,11 @@ namespace seq {
                 changed = true;
             }
 
-            auto cannot_be_empty = [&](euf::snode* side) {
+            auto cannot_be_empty = [&](euf::snode const* side) {
                 euf::snode_vector tokens;
                 side->collect_tokens(tokens);
-                const bool has_char = std::ranges::any_of(tokens, [](euf::snode* t){ return t->is_char(); });
-                const bool all_eliminable = std::ranges::all_of(tokens, [](euf::snode* t){
+                const bool has_char = std::ranges::any_of(tokens, [](euf::snode const* t){ return t->is_char(); });
+                const bool all_eliminable = std::ranges::all_of(tokens, [](euf::snode const* t){
                     return t->is_var() || t->is_power();
                 });
                 return has_char || !all_eliminable;
@@ -1250,13 +1320,13 @@ namespace seq {
 
                 // simplify constant-exponent powers
                 dep_tracker lhs_pow_dep = nullptr;
-                if (euf::snode* s = simplify_const_powers(this, sg, deq.m_lhs, lhs_pow_dep)) {
+                if (euf::snode const* s = simplify_const_powers(this, sg, deq.m_lhs, lhs_pow_dep)) {
                     deq.m_lhs = s;
                     deq.m_dep = m_graph.dep_mgr().mk_join(deq.m_dep, lhs_pow_dep);
                     changed = true;
                 }
                 dep_tracker rhs_pow_dep = nullptr;
-                if (euf::snode* s = simplify_const_powers(this, sg, deq.m_rhs, rhs_pow_dep)) {
+                if (euf::snode const* s = simplify_const_powers(this, sg, deq.m_rhs, rhs_pow_dep)) {
                     deq.m_rhs = s;
                     deq.m_dep = m_graph.dep_mgr().mk_join(deq.m_dep, rhs_pow_dep);
                     changed = true;
@@ -1270,8 +1340,8 @@ namespace seq {
 
                     unsigned prefix = 0;
                     while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
-                        euf::snode* lt = lhs_toks[prefix];
-                        euf::snode* rt = rhs_toks[prefix];
+                        euf::snode const* lt = lhs_toks[prefix];
+                        euf::snode const* rt = rhs_toks[prefix];
                         if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++prefix;
                         }
@@ -1289,8 +1359,8 @@ namespace seq {
                     unsigned lsz = lhs_toks.size(), rsz = rhs_toks.size();
                     unsigned suffix = 0;
                     while (suffix < lsz - prefix && suffix < rsz - prefix) {
-                        euf::snode* lt = lhs_toks[lsz - 1 - suffix];
-                        euf::snode* rt = rhs_toks[rsz - 1 - suffix];
+                        euf::snode const* lt = lhs_toks[lsz - 1 - suffix];
+                        euf::snode const* rt = rhs_toks[rsz - 1 - suffix];
                         if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++suffix;
                         } else if (sg.are_unit_distinct(lt, rt)) {
@@ -1352,8 +1422,8 @@ namespace seq {
                     // --- prefix ---
                     unsigned prefix = 0;
                     while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
-                        euf::snode* lt = lhs_toks[prefix];
-                        euf::snode* rt = rhs_toks[prefix];
+                        euf::snode const* lt = lhs_toks[prefix];
+                        euf::snode const* rt = rhs_toks[prefix];
                         if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++prefix;
                         }
@@ -1370,8 +1440,8 @@ namespace seq {
                     unsigned lsz = lhs_toks.size(), rsz = rhs_toks.size();
                     unsigned suffix = 0;
                     while (suffix < lsz - prefix && suffix < rsz - prefix) {
-                        euf::snode* lt = lhs_toks[lsz - 1 - suffix];
-                        euf::snode* rt = rhs_toks[rsz - 1 - suffix];
+                        euf::snode const* lt = lhs_toks[lsz - 1 - suffix];
+                        euf::snode const* rt = rhs_toks[rsz - 1 - suffix];
                         if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++suffix;
                         } else if (sg.are_unit_distinct(lt, rt)) {
@@ -1400,22 +1470,22 @@ namespace seq {
 
                 // 3a: simplify constant-exponent powers (base^0 → ε, base^1 → base)
                 dep_tracker lhs_pow_dep = nullptr;
-                if (euf::snode* s = simplify_const_powers(this, sg, eq.m_lhs, lhs_pow_dep)) {
+                if (euf::snode const* s = simplify_const_powers(this, sg, eq.m_lhs, lhs_pow_dep)) {
                     eq.m_lhs = s;
                     eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, lhs_pow_dep);
                     changed = true;
                 }
                 dep_tracker rhs_pow_dep = nullptr;
-                if (euf::snode* s = simplify_const_powers(this, sg, eq.m_rhs, rhs_pow_dep)) {
+                if (euf::snode const* s = simplify_const_powers(this, sg, eq.m_rhs, rhs_pow_dep)) {
                     eq.m_rhs = s;
                     eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, rhs_pow_dep);
                     changed = true;
                 }
 
                 // 3b: merge adjacent same-base tokens into combined powers
-                if (euf::snode* s = merge_adjacent_powers(sg, eq.m_lhs))
+                if (euf::snode const* s = merge_adjacent_powers(sg, eq.m_lhs))
                     { eq.m_lhs = s; changed = true; }
-                if (euf::snode* s = merge_adjacent_powers(sg, eq.m_rhs))
+                if (euf::snode const* s = merge_adjacent_powers(sg, eq.m_rhs))
                     { eq.m_rhs = s; changed = true; }
 
                 // 3c: CommPower-based power elimination — when one side starts
@@ -1433,16 +1503,16 @@ namespace seq {
                 SASSERT(eq.well_formed());
                 bool comm_changed = false;
                 for (int side = 0; side < 2 && !comm_changed; ++side) {
-                    euf::snode*& pow_side = side == 0 ? eq.m_lhs : eq.m_rhs;
-                    euf::snode*& other_side = side == 0 ? eq.m_rhs : eq.m_lhs;
+                    euf::snode const*& pow_side = side == 0 ? eq.m_lhs : eq.m_rhs;
+                    euf::snode const*& other_side = side == 0 ? eq.m_rhs : eq.m_lhs;
                     if (!pow_side || !other_side)
                         continue;
                     for (unsigned od = 0; od < 2 && !comm_changed; ++od) {
                         bool fwd = od == 0;
-                        euf::snode* end_tok = dir_token(pow_side, fwd);
+                        euf::snode const* end_tok = dir_token(pow_side, fwd);
                         if (!end_tok || !end_tok->is_power())
                             continue;
-                        euf::snode* base_sn = end_tok->arg0();
+                        euf::snode const* base_sn = end_tok->arg0();
                         expr* pow_exp = get_power_exp_expr(end_tok, seq);
                         if (!base_sn || !pow_exp)
                             continue;
@@ -1509,8 +1579,8 @@ namespace seq {
                 SASSERT(eq.well_formed());
                 for (unsigned od = 0; od < 2 && !changed; ++od) {
                     bool fwd = (od == 0);
-                    euf::snode* lh = dir_token(eq.m_lhs, fwd);
-                    euf::snode* rh = dir_token(eq.m_rhs, fwd);
+                    euf::snode const* lh = dir_token(eq.m_lhs, fwd);
+                    euf::snode const* rh = dir_token(eq.m_rhs, fwd);
                     if (!(lh && rh && lh->is_power() && rh->is_power()))
                         continue;
                     expr* lb = get_power_base_expr(lh, seq);
@@ -1563,7 +1633,7 @@ namespace seq {
                                 expr_ref zero(m_graph.a.mk_int(0), m);
                                 add_constraint(m_graph.mk_constraint(m_graph.a.mk_ge(d, zero), eq.m_dep));
                                 expr_ref pw(seq.str.mk_power(lb, d), m);
-                                euf::snode*& larger_side = lp_le_rp ? eq.m_rhs : eq.m_lhs;
+                                euf::snode const*& larger_side = lp_le_rp ? eq.m_rhs : eq.m_lhs;
                                 larger_side = dir_concat(sg, sg.mk(pw), larger_side, fwd);
                             }
                             changed = true;
@@ -1582,11 +1652,11 @@ namespace seq {
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = od == 0;
                 while (!mem.m_str->is_empty()) {
-                    euf::snode* tok = dir_token(mem.m_str, fwd);
+                    euf::snode const* tok = dir_token(mem.m_str, fwd);
                     if (!tok || !tok->is_char_or_unit())
                         break;
-                    euf::snode* src_re = mem.m_regex;
-                    euf::snode* deriv = fwd
+                    euf::snode const* src_re = mem.m_regex;
+                    euf::snode const* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
                         : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
                     TRACE(seq, tout << mem_pp(mem, m) << " d: " << spp(deriv, m) << "\n");
@@ -1607,8 +1677,8 @@ namespace seq {
                             // per-minterm var_split behaviour).
                             euf::snode_vector mts;
                             sg.compute_minterms(src_re, mts);
-                            for (euf::snode* mt : mts) {
-                                euf::snode* mt_deriv = sg.brzozowski_deriv(src_re, mt);
+                            for (euf::snode const* mt : mts) {
+                                euf::snode const* mt_deriv = sg.brzozowski_deriv(src_re, mt);
                                 if (mt_deriv && !mt_deriv->is_fail() && mt_deriv->is_ground())
                                     m_graph.record_partial_derivative_edge(src_re, mt, mt_deriv);
                             }
@@ -1628,13 +1698,13 @@ namespace seq {
             while (mem.m_str && !mem.m_str->is_empty()) {
 
                 // TODO: generalize this to work for reverse derivative as well.
-                euf::snode *tok = mem.m_str->first();
+                euf::snode const* tok = mem.m_str->first();
                 if (!tok || !tok->is_char_or_unit())
                     break;
 
-                euf::snode* src_re = mem.m_regex;
+                euf::snode const* src_re = mem.m_regex;
 
-                euf::snode* next = nullptr;
+                euf::snode const* next = nullptr;
                 if (src_re->has_projection()) {
                     // The generic symbolic derivative cannot see the projection
                     // operator; route through the projection-aware derivative,
@@ -1661,8 +1731,8 @@ namespace seq {
                     if (src_re->is_ground()) {
                         euf::snode_vector mts;
                         sg.compute_minterms(src_re, mts);
-                        for (euf::snode* mt : mts) {
-                            euf::snode* mt_deriv = sg.brzozowski_deriv(src_re, mt);
+                        for (euf::snode const* mt : mts) {
+                            euf::snode const* mt_deriv = sg.brzozowski_deriv(src_re, mt);
                             if (mt_deriv && !mt_deriv->is_fail())
                                 m_graph.record_partial_derivative_edge(src_re, mt, mt_deriv);
                         }
@@ -1761,7 +1831,7 @@ namespace seq {
         return true;
     }
 
-    euf::snode* nielsen_graph::mk_rewrite(expr* e) const {
+    euf::snode const* nielsen_graph::mk_rewrite(expr* e) const {
         expr_ref er(e, m);
         th_rewriter rw(m);
         rw(er);
@@ -2107,7 +2177,7 @@ namespace seq {
 
             // 0. empty side propagation
             if (l->is_empty() || r->is_empty()) {
-                euf::snode* non_empty_side = l->is_empty() ? r : l;
+                euf::snode const* non_empty_side = l->is_empty() ? r : l;
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, "det", true);
                 euf::snode_vector tokens;
@@ -2117,7 +2187,7 @@ namespace seq {
                 eqs[eq_idx] = eqs.back();
                 eqs.pop_back();
 
-                for (euf::snode* t : tokens) {
+                for (euf::snode const* t : tokens) {
                     if (t->is_var()) {
                         nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), eq.m_dep);
                         e->add_subst(s);
@@ -2144,8 +2214,8 @@ namespace seq {
                 // --- prefix ---
                 unsigned prefix = 0;
                 while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
-                    euf::snode* lt = lhs_toks[prefix];
-                    euf::snode* rt = rhs_toks[prefix];
+                    euf::snode const* lt = lhs_toks[prefix];
+                    euf::snode const* rt = rhs_toks[prefix];
                     if (m.are_equal(lt->get_expr(), rt->get_expr()))
                         ++prefix;
                     else if (m_sg.are_unit_distinct(lt, rt))
@@ -2160,8 +2230,8 @@ namespace seq {
                         }
                         SASSERT(lt->is_unit());
 
-                        euf::snode* lhs_rest = m_sg.drop_left(l, prefix + 1);
-                        euf::snode* rhs_rest = m_sg.drop_left(r, prefix + 1);
+                        euf::snode const* lhs_rest = m_sg.drop_left(l, prefix + 1);
+                        euf::snode const* rhs_rest = m_sg.drop_left(r, prefix + 1);
 
                         auto& eqs = child->str_eqs();
                         eqs[eq_idx] = eqs.back();
@@ -2185,8 +2255,8 @@ namespace seq {
                 unsigned lsz = lhs_toks.size(), rsz = rhs_toks.size();
                 unsigned suffix = 0;
                 while (suffix < lsz - prefix && suffix < rsz - prefix) {
-                    euf::snode* lt = lhs_toks[lsz - 1 - suffix];
-                    euf::snode* rt = rhs_toks[rsz - 1 - suffix];
+                    euf::snode const* lt = lhs_toks[lsz - 1 - suffix];
+                    euf::snode const* rt = rhs_toks[rsz - 1 - suffix];
                     if (m.are_equal(lt->get_expr(), rt->get_expr()))
                         ++suffix;
                     else if (m_sg.are_unit_distinct(lt, rt))
@@ -2195,8 +2265,8 @@ namespace seq {
                         nielsen_node* child = mk_child(node);
                         nielsen_edge* e = mk_edge(node, child, "det", true);
 
-                        euf::snode* lhs_rest = m_sg.drop_right(l, suffix + 1);
-                        euf::snode* rhs_rest = m_sg.drop_right(r, suffix + 1);
+                        euf::snode const* lhs_rest = m_sg.drop_right(l, suffix + 1);
+                        euf::snode const* rhs_rest = m_sg.drop_right(r, suffix + 1);
 
                         auto& eqs = child->str_eqs();
                         eqs[eq_idx] = eqs.back();
@@ -2220,16 +2290,16 @@ namespace seq {
             // 2. power-character directional inconsistency
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = (od == 0);
-                euf::snode* lh = dir_token(l, fwd);
-                euf::snode* rh = dir_token(r, fwd);
+                euf::snode const* lh = dir_token(l, fwd);
+                euf::snode const* rh = dir_token(r, fwd);
                 for (int side = 0; side < 2; ++side) {
-                    euf::snode* pow_head = (side == 0) ? lh : rh;
-                    euf::snode* other_head = (side == 0) ? rh : lh;
+                    euf::snode const* pow_head = (side == 0) ? lh : rh;
+                    euf::snode const* other_head = (side == 0) ? rh : lh;
                     if (!pow_head || !pow_head->is_power() || !other_head || !other_head->is_char())
                         continue;
-                    euf::snode* base_sn = pow_head->arg0();
+                    euf::snode const* base_sn = pow_head->arg0();
                     if (!base_sn) continue;
-                    euf::snode* base_head = dir_token(base_sn, fwd);
+                    euf::snode const* base_head = dir_token(base_sn, fwd);
                     if (!base_head || !base_head->is_char()) continue;
                     if (m.are_equal(base_head->get_expr(), other_head->get_expr())) continue;
                     // Directional base/head mismatch -> force exponent 0 and power -> ε.
@@ -2251,10 +2321,10 @@ namespace seq {
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = od == 0;
 
-                euf::snode* var_side = nullptr;
-                euf::snode* char_side = nullptr;
-                euf::snode* lhead = dir_token(l, fwd);
-                euf::snode* rhead = dir_token(r, fwd);
+                euf::snode const* var_side = nullptr;
+                euf::snode const* char_side = nullptr;
+                euf::snode const* lhead = dir_token(l, fwd);
+                euf::snode const* rhead = dir_token(r, fwd);
                 if (!lhead || !rhead) continue;
 
                 if (lhead->is_var() && rhead->is_char()) {
@@ -2274,7 +2344,7 @@ namespace seq {
                 if (var_toks.size() <= 1 || char_toks.empty())
                     continue;
 
-                euf::snode* var_node = var_toks[0];
+                euf::snode const* var_node = var_toks[0];
                 SASSERT(var_node->is_var());
 
                 unsigned i = 0;
@@ -2284,8 +2354,8 @@ namespace seq {
                     bool failed = false;
 
                     while (j1 < var_toks.size() && j2 < char_toks.size()) {
-                        euf::snode* st1 = var_toks[j1];
-                        euf::snode* st2 = char_toks[j2];
+                        euf::snode const* st1 = var_toks[j1];
+                        euf::snode const* st2 = char_toks[j2];
 
                         if (!st2->is_char()) break;
                         if (st1->is_char()) {
@@ -2319,9 +2389,9 @@ namespace seq {
                 if (i == 0) continue;
 
                 bool skip_dir = false;
-                euf::snode* next_var = nullptr;
+                euf::snode const* next_var = nullptr;
                 for (unsigned k = i; k < char_toks.size(); ++k) {
-                    euf::snode* t = char_toks[k];
+                    euf::snode const* t = char_toks[k];
                     if (t->is_power()) {
                         skip_dir = true;
                         break;
@@ -2338,11 +2408,11 @@ namespace seq {
                     for (str_eq const& other_eq : node->str_eqs()) {
                         if (other_eq.is_trivial() || !other_eq.m_lhs || !other_eq.m_rhs)
                             continue;
-                        euf::snode* lh2 = dir_token(other_eq.m_lhs, fwd);
-                        euf::snode* rh2 = dir_token(other_eq.m_rhs, fwd);
+                        euf::snode const* lh2 = dir_token(other_eq.m_lhs, fwd);
+                        euf::snode const* rh2 = dir_token(other_eq.m_rhs, fwd);
                         if (!lh2 || !rh2) continue;
 
-                        auto record_dep = [&](euf::snode* head_var, euf::snode* other_side) {
+                        auto record_dep = [&](euf::snode const* head_var, euf::snode const* other_side) {
                             euf::snode_vector other_toks;
                             collect_tokens_dir(other_side, fwd, other_toks);
                             for (unsigned idx = 0; idx < other_toks.size(); ++idx) {
@@ -2383,12 +2453,12 @@ namespace seq {
                     if (cycle_found) continue;
                 }
 
-                euf::snode* prefix_sn = char_toks[0];
+                euf::snode const* prefix_sn = char_toks[0];
                 for (unsigned j = 1; j < i; ++j) {
                     prefix_sn = dir_concat(m_sg, prefix_sn, char_toks[j], fwd);
                 }
-                euf::snode* tail = get_tail(var_node, compute_length_expr(prefix_sn).get(), fwd);
-                euf::snode* replacement = dir_concat(m_sg, prefix_sn, tail, fwd);
+                euf::snode const* tail = get_tail(var_node, compute_length_expr(prefix_sn).get(), fwd);
+                euf::snode const* replacement = dir_concat(m_sg, prefix_sn, tail, fwd);
                 nielsen_subst s(var_node, replacement, eq.m_dep);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, "det", true);
@@ -2400,8 +2470,8 @@ namespace seq {
 
             // variable definition: x = t where x is a single var and x ∉ vars(t)
             // → deterministically substitute x → t throughout the node
-            euf::snode* var = nullptr;
-            euf::snode* def;
+            euf::snode const* var = nullptr;
+            euf::snode const* def;
 
             if (l->is_var() && !snode_contains_var(r, l)) {
                 var = l;
@@ -2439,14 +2509,14 @@ namespace seq {
             SASSERT(eq.well_formed());
             for (unsigned od = 0; od < 2; ++od) {
                 const bool fwd = (od == 0);
-                euf::snode* lhead = dir_token(eq.m_lhs, fwd);
-                euf::snode* rhead = dir_token(eq.m_rhs, fwd);
+                euf::snode const* lhead = dir_token(eq.m_lhs, fwd);
+                euf::snode const* rhead = dir_token(eq.m_rhs, fwd);
                 if (!lhead || !rhead)
                     continue;
 
                 // char vs var: branch 1: var -> ε, branch 2: var -> char·var   (depending on direction)
-                euf::snode* char_head = lhead->is_char_or_unit() ? lhead : (rhead->is_char_or_unit() ? rhead : nullptr);
-                euf::snode* var_head = lhead->is_var() ? lhead : (rhead->is_var() ? rhead : nullptr);
+                euf::snode const* char_head = lhead->is_char_or_unit() ? lhead : (rhead->is_char_or_unit() ? rhead : nullptr);
+                euf::snode const* var_head = lhead->is_var() ? lhead : (rhead->is_var() ? rhead : nullptr);
                 if (char_head && var_head) {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "nielsen const 0", true);
@@ -2455,8 +2525,8 @@ namespace seq {
                     child->apply_subst(m_sg, s1);
 
 
-                    euf::snode* tail = get_tail(var_head, a.mk_int(1), fwd);
-                    euf::snode* replacement = dir_concat(m_sg, char_head, tail, fwd);
+                    euf::snode const* tail = get_tail(var_head, a.mk_int(1), fwd);
+                    euf::snode const* replacement = dir_concat(m_sg, char_head, tail, fwd);
                     child = mk_child(node);
                     e = mk_edge(node, child, "nielsen const &gt;", false);
                     e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(tail), a.mk_int(0)), eq.m_dep));
@@ -2477,8 +2547,8 @@ namespace seq {
             SASSERT(eq.well_formed());
             for (unsigned od = 0; od < 2; ++od) {
                 const bool fwd = od == 0;
-                euf::snode* lhead = dir_token(eq.m_lhs, fwd);
-                euf::snode* rhead = dir_token(eq.m_rhs, fwd);
+                euf::snode const* lhead = dir_token(eq.m_lhs, fwd);
+                euf::snode const* rhead = dir_token(eq.m_rhs, fwd);
                 SASSERT(lhead && rhead);
                 SASSERT(lhead->id() != rhead->id());
                 if (!lhead->is_var() || !rhead->is_var())
@@ -2503,7 +2573,7 @@ namespace seq {
                 }
                 // child 3: x → y·x (no progress)
                 {
-                    euf::snode* replacement = dir_concat(m_sg, rhead, get_tail(lhead, compute_length_expr(rhead).get(), fwd), fwd);
+                    euf::snode const* replacement = dir_concat(m_sg, rhead, get_tail(lhead, compute_length_expr(rhead).get(), fwd), fwd);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "nielsen var &gt;", false);
                     const nielsen_subst s(lhead, replacement, eq.m_dep);
@@ -2512,7 +2582,7 @@ namespace seq {
                 }
                 // child 4: y → x·y (no progress)
                 {
-                    euf::snode* replacement = dir_concat(m_sg, lhead, get_tail(rhead, compute_length_expr(lhead).get(), fwd), fwd);
+                    euf::snode const* replacement = dir_concat(m_sg, lhead, get_tail(rhead, compute_length_expr(lhead).get(), fwd), fwd);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "nielsen var &lt;", false);
                     const nielsen_subst s(rhead, replacement, eq.m_dep);
@@ -2529,7 +2599,7 @@ namespace seq {
     // EqSplit helpers: token length classification
     // -----------------------------------------------------------------------
 
-    bool nielsen_graph::token_has_variable_length(euf::snode* tok) const {
+    bool nielsen_graph::token_has_variable_length(euf::snode const* tok) const {
         // Chars and units have known constant length 1.
         if (tok->is_char_or_unit())
             return false;
@@ -2546,7 +2616,7 @@ namespace seq {
         return true;
     }
 
-    unsigned nielsen_graph::token_const_length(euf::snode* tok) const {
+    unsigned nielsen_graph::token_const_length(euf::snode const* tok) const {
         if (tok->is_char_or_unit())
             return 1;
         if (tok->get_expr()) {
@@ -2638,7 +2708,7 @@ namespace seq {
 
             if (consume_lhs) {
                 if (li >= lhs_len) break;
-                euf::snode* tok = lhs_toks[li++];
+                euf::snode const* tok = lhs_toks[li++];
                 const bool is_var = token_has_variable_length(tok);
                 if (is_var) {
                     // Confirm any pending split point.
@@ -2658,7 +2728,7 @@ namespace seq {
             else {
                 if (ri >= rhs_len)
                     break;
-                euf::snode* tok = rhs_toks[ri++];
+                euf::snode const* tok = rhs_toks[ri++];
                 const bool is_var = token_has_variable_length(tok);
                 if (is_var) {
                     if (has_pending && (!has_best || std::abs(pending_padding) < std::abs(best_padding))) {
@@ -2725,20 +2795,20 @@ namespace seq {
                 continue;
 
             // Split the equation sides into prefix / suffix.
-            euf::snode* lhs_prefix = m_sg.drop_right(eq.m_lhs, lhs_toks.size() - split_lhs);
-            euf::snode* lhs_suffix = m_sg.drop_left(eq.m_lhs, split_lhs);
-            euf::snode* rhs_prefix = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - split_rhs);
-            euf::snode* rhs_suffix = m_sg.drop_left(eq.m_rhs, split_rhs);
+            euf::snode const* lhs_prefix = m_sg.drop_right(eq.m_lhs, lhs_toks.size() - split_lhs);
+            euf::snode const* lhs_suffix = m_sg.drop_left(eq.m_lhs, split_lhs);
+            euf::snode const* rhs_prefix = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - split_rhs);
+            euf::snode const* rhs_suffix = m_sg.drop_left(eq.m_rhs, split_rhs);
 
             // Build the two new equations, incorporating a padding variable if needed.
-            euf::snode* eq1_lhs = lhs_prefix;
-            euf::snode* eq1_rhs = rhs_prefix;
-            euf::snode* eq2_lhs = lhs_suffix;
-            euf::snode* eq2_rhs = rhs_suffix;
+            euf::snode const* eq1_lhs = lhs_prefix;
+            euf::snode const* eq1_rhs = rhs_prefix;
+            euf::snode const* eq2_lhs = lhs_suffix;
+            euf::snode const* eq2_rhs = rhs_suffix;
             th_rewriter rw(m);
 
 
-            euf::snode* pad = nullptr;
+            euf::snode const* pad = nullptr;
             if (padding != 0) {
                 // NSB review: can we represent pad_var using a string function?
                 expr *pad_var = m_sk.mk("eq-split", a.mk_int(padding), eq.m_lhs->get_expr(),
@@ -2795,7 +2865,7 @@ namespace seq {
     // nielsen_graph: mk_fresh_var
     // -----------------------------------------------------------------------
 
-    euf::snode* nielsen_graph::mk_fresh_var(sort* s) {
+    euf::snode const* nielsen_graph::mk_fresh_var(sort* s) {
         ++m_stats.m_num_fresh_vars;
         const std::string name = "v!" + std::to_string(m_fresh_cnt++);
         return m_sg.mk_var(symbol(name.c_str()), s);
@@ -2891,20 +2961,20 @@ namespace seq {
     // Helper: find a power token in any str_eq
     // -----------------------------------------------------------------------
 
-    euf::snode* nielsen_graph::find_power_token(nielsen_node* node) {
+    euf::snode const* nielsen_graph::find_power_token(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
                 continue;
             SASSERT(eq.well_formed());
             euf::snode_vector toks;
             eq.m_lhs->collect_tokens(toks);
-            for (euf::snode* t : toks) {
+            for (euf::snode const* t : toks) {
                 if (t->is_power())
                     return t;
             }
             toks.reset();
             eq.m_rhs->collect_tokens(toks);
-            for (euf::snode* t : toks) {
+            for (euf::snode const* t : toks) {
                 if (t->is_power())
                     return t;
             }
@@ -2918,8 +2988,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::find_power_vs_non_var(nielsen_node* node,
-                                            euf::snode*& power,
-                                            euf::snode*& other_head,
+                                            euf::snode const*& power,
+                                            euf::snode const*& other_head,
                                             str_eq const*& eq_out,
                                             bool& fwd) {
         for (str_eq const& eq : node->str_eqs()) {
@@ -2927,8 +2997,8 @@ namespace seq {
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
                 const bool local_fwd = (od == 0);
-                euf::snode* lhead = dir_token(eq.m_lhs, local_fwd);
-                euf::snode* rhead = dir_token(eq.m_rhs, local_fwd);
+                euf::snode const* lhead = dir_token(eq.m_lhs, local_fwd);
+                euf::snode const* rhead = dir_token(eq.m_rhs, local_fwd);
                 // Match power vs any non-variable, non-empty token (char, unit,
                 // power with different base, etc.).
                 // Same-base power vs power is handled by NumCmp (priority 3).
@@ -2958,8 +3028,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::find_power_vs_var(nielsen_node* node,
-                                          euf::snode*& power,
-                                          euf::snode*& var_head,
+                                          euf::snode const*& power,
+                                          euf::snode const*& var_head,
                                           str_eq const*& eq_out,
                                           bool& fwd) {
         for (str_eq const& eq : node->str_eqs()) {
@@ -2967,8 +3037,8 @@ namespace seq {
 
             for (unsigned od = 0; od < 2; ++od) {
                 const bool local_fwd = (od == 0);
-                euf::snode* lhead = dir_token(eq.m_lhs, local_fwd);
-                euf::snode* rhead = dir_token(eq.m_rhs, local_fwd);
+                euf::snode const* lhead = dir_token(eq.m_lhs, local_fwd);
+                euf::snode const* rhead = dir_token(eq.m_rhs, local_fwd);
                 if (lhead && lhead->is_power() && rhead && rhead->is_var()) {
                     power = lhead;
                     var_head = rhead;
@@ -2989,7 +3059,7 @@ namespace seq {
     }
 
     bool nielsen_graph::find_power_vs_var(nielsen_node* node,
-                                          euf::snode*& power,
+                                          euf::snode const*& power,
                                           str_mem const*& mem_out,
                                           bool& fwd) {
         for (str_mem const& mem : node->str_mems()) {
@@ -3000,7 +3070,7 @@ namespace seq {
 
             for (unsigned od = 0; od < 2; ++od) {
                 const bool local_fwd = (od == 0);
-                euf::snode* lhead = dir_token(mem.m_str, local_fwd);
+                euf::snode const* lhead = dir_token(mem.m_str, local_fwd);
                 if (lhead && lhead->is_power()) {
                     power = lhead;
                     mem_out = &mem;
@@ -3028,7 +3098,7 @@ namespace seq {
         // ExtendDir.  When both sides are non-empty and a power faces a
         // constant, ConstNumUnwinding (priority 4) handles it with both
         // n=0 and n≥1 branches.
-        euf::snode* power = nullptr;
+        euf::snode const* power = nullptr;
         dep_tracker dep = m_dep_mgr.mk_empty();
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
@@ -3049,7 +3119,7 @@ namespace seq {
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode *base = power->arg0();
+        euf::snode const* base = power->arg0();
 
         nielsen_node* child;
         nielsen_edge* e;
@@ -3091,8 +3161,8 @@ namespace seq {
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
                 const bool fwd = (od == 0);
-                euf::snode* lhead = dir_token(eq.m_lhs, fwd);
-                euf::snode* rhead = dir_token(eq.m_rhs, fwd);
+                euf::snode const* lhead = dir_token(eq.m_lhs, fwd);
+                euf::snode const* rhead = dir_token(eq.m_rhs, fwd);
                 if (!lhead || !rhead)
                     continue;
                 if (!lhead->is_power() || !rhead->is_power())
@@ -3149,18 +3219,18 @@ namespace seq {
                 continue;
 
             for (int side = 0; side < 2; ++side) {
-                euf::snode* pow_side   = (side == 0) ? eq.m_lhs : eq.m_rhs;
-                euf::snode* other_side = (side == 0) ? eq.m_rhs : eq.m_lhs;
+                euf::snode const* pow_side   = (side == 0) ? eq.m_lhs : eq.m_rhs;
+                euf::snode const* other_side = (side == 0) ? eq.m_rhs : eq.m_lhs;
                 // NB: Shuvendu - this test is always false
                 if (!pow_side || !other_side)
                     continue;
 
                 for (unsigned od = 0; od < 2; ++od) {
                     const bool fwd = od == 0;
-                    euf::snode* end_tok = dir_token(pow_side, fwd);
+                    euf::snode const* end_tok = dir_token(pow_side, fwd);
                     if (!end_tok || !end_tok->is_power())
                         continue;
-                    euf::snode* base_sn = end_tok->arg0();
+                    euf::snode const* base_sn = end_tok->arg0();
                     expr* pow_exp = get_power_exp_expr(end_tok, m_seq);
                     // NB: Shuvendu - this test is also redundant
                     if (!base_sn || !pow_exp)
@@ -3206,15 +3276,15 @@ namespace seq {
 
     bool nielsen_graph::apply_const_num_unwinding(nielsen_node* node) {
 
-        euf::snode *power = nullptr;
-        euf::snode *other_head = nullptr;
+        euf::snode const* power = nullptr;
+        euf::snode const* other_head = nullptr;
         str_eq const *eq = nullptr;
         bool fwd = true;
         if (!find_power_vs_non_var(node, power, other_head, eq, fwd))
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode *base = power->arg0();
+        euf::snode const* base = power->arg0();
         expr *exp_n = get_power_exponent(power);
         expr *zero = a.mk_int(0);
         expr *one = a.mk_int(1);
@@ -3242,9 +3312,9 @@ namespace seq {
         expr *base_expr = to_app(power_e)->get_arg(0);
         const expr_ref n_minus_1 = normalize_arith(m, a.mk_sub(exp_n, one));
         const expr_ref nested_pow(seq.str.mk_power(base_expr, n_minus_1), m);
-        euf::snode* nested_power_snode = m_sg.mk(nested_pow);
+        euf::snode const* nested_power_snode = m_sg.mk(nested_pow);
 
-        euf::snode* replacement = dir_concat(m_sg, base, nested_power_snode, fwd);
+        euf::snode const* replacement = dir_concat(m_sg, base, nested_power_snode, fwd);
         child = mk_child(node);
         e = mk_edge(node, child, "unwinding &gt;", true);
         const nielsen_subst s2(power, replacement, eq->m_dep);
@@ -3265,12 +3335,12 @@ namespace seq {
     // ite-derivative would otherwise delay SCC detection by one more level.
     // -----------------------------------------------------------------------
 
-    void nielsen_graph::precompute_partial_dfa(euf::snode* root_re, const unsigned depth) {
+    void nielsen_graph::precompute_partial_dfa(euf::snode const* root_re, const unsigned depth) {
         SASSERT(root_re);
         if (!root_re->is_ground())
             return;
 
-        struct work_item { euf::snode* re; unsigned d; };
+        struct work_item { euf::snode const* re; unsigned d; };
         svector<work_item> queue;
         queue.push_back({root_re, depth});
         uint_set visited;
@@ -3281,9 +3351,9 @@ namespace seq {
             queue.pop_back();
             euf::snode_vector mts;
             m_sg.compute_minterms(re, mts);
-            for (euf::snode* mt : mts) {
+            for (euf::snode const* mt : mts) {
                 // std::cout << "minterm: " << mk_pp(mt->get_expr(), m) << std::endl;
-                euf::snode* deriv = m_sg.brzozowski_deriv(re, mt);
+                euf::snode const* deriv = m_sg.brzozowski_deriv(re, mt);
                 if (!deriv || deriv->is_fail())
                     continue;
                 record_partial_derivative_edge(re, mt, deriv);
@@ -3306,7 +3376,7 @@ namespace seq {
     // as symbolic chars are consumed (mirroring the old concrete-char approach).
     // -----------------------------------------------------------------------
 
-    void nielsen_graph::record_dfa_edges_from_ite(euf::snode* src_re, expr* ite_deriv) {
+    void nielsen_graph::record_dfa_edges_from_ite(euf::snode const* src_re, expr* ite_deriv) {
         if (!src_re || !ite_deriv)
             return;
         expr *c, *th, *el;
@@ -3315,9 +3385,9 @@ namespace seq {
         expr *char_ex, *minterm_re;
         if (m_seq.str.is_in_re(c, char_ex, minterm_re)) {
             if (!m_seq.re.is_empty(th)) {
-                euf::snode* dst = m_sg.mk(th);
+                euf::snode const* dst = m_sg.mk(th);
                 if (dst && !dst->is_fail() && dst->is_ground()) {
-                    euf::snode* label = m_sg.mk(minterm_re);
+                    euf::snode const* label = m_sg.mk(minterm_re);
                     record_partial_derivative_edge(src_re, label, dst);
                 }
             }
@@ -3332,7 +3402,7 @@ namespace seq {
     // no SCC exists yet or no edges have been marked.
     // -----------------------------------------------------------------------
 
-    euf::snode* nielsen_graph::get_current_stabilizer(euf::snode* root_re) {
+    euf::snode const* nielsen_graph::get_current_stabilizer(euf::snode const* root_re) {
         if (!root_re || !root_re->is_ground() || m_projection_extract_idx == 0)
             return nullptr;
         uint_set scc;
@@ -3357,19 +3427,19 @@ namespace seq {
             SASSERT(mem.well_formed());
             if (mem.is_primitive())
                 continue;
-            euf::snode* first = mem.m_str->first();
+            euf::snode const* first = mem.m_str->first();
             SASSERT(first);
             if (!first->is_var())
                 continue;
 
             // Get the current stabilizer for this regex (no novelty guard).
-            euf::snode* stabilizer = get_current_stabilizer(mem.m_regex);
+            euf::snode const* stabilizer = get_current_stabilizer(mem.m_regex);
             if (!stabilizer || m_seq.re.is_epsilon(stabilizer->get_expr()))
                 continue;
 
             // Collect primitive regex constraints on `first`.
             dep_tracker x_dep = nullptr;
-            euf::snode* x_regex = m_seq_regex->collect_primitive_regex_intersection(
+            euf::snode const* x_regex = m_seq_regex->collect_primitive_regex_intersection(
                 first, *node, m_dep_mgr, x_dep);
             if (!x_regex)
                 continue;
@@ -3379,7 +3449,7 @@ namespace seq {
                 continue;
 
             // Subsume: replace x·rest ∈ r with rest ∈ r.
-            euf::snode* tail = m_sg.drop_first(mem.m_str);
+            euf::snode const* tail = m_sg.drop_first(mem.m_str);
             SASSERT(tail);
 
             nielsen_node* child = mk_child(node);
@@ -3428,13 +3498,13 @@ namespace seq {
             SASSERT(mem.well_formed());
             if (mem.is_primitive())
                 continue;
-            euf::snode* first = mem.m_str->first();
+            euf::snode const* first = mem.m_str->first();
             SASSERT(first);
             if (!first->is_var())
                 continue;
 
-            euf::snode* x = first;
-            euf::snode* stabilizer_re = nullptr;
+            euf::snode const* x = first;
+            euf::snode const* stabilizer_re = nullptr;
 
             // Eagerly precompute partial DFA edges from this regex so that
             // collect_scc_for_projection can detect cycles without waiting
@@ -3456,9 +3526,9 @@ namespace seq {
             VERIFY(m_seq.is_re(stabilizer_re->get_expr(), seq_sort));
 
             // Construct the replacement x = x' x''
-            euf::snode* xp      = m_sg.mk(m_sk.mk("cycle", x->get_expr(), stabilizer_re->get_expr(), seq_sort));
-            euf::snode* xpp     = get_tail(x, compute_length_expr(xp).get());
-            euf::snode* xp_xpp  = m_sg.mk_concat(xp, xpp);
+            euf::snode const* xp      = m_sg.mk(m_sk.mk("cycle", x->get_expr(), stabilizer_re->get_expr(), seq_sort));
+            euf::snode const* xpp     = get_tail(x, compute_length_expr(xp).get());
+            euf::snode const* xp_xpp  = m_sg.mk_concat(xp, xpp);
 
             nielsen_node* child = mk_child(node);
             SASSERT(child->m_str_mem[mi] == mem);
@@ -3488,7 +3558,7 @@ namespace seq {
             const expr_ref sigma_star(m_seq.re.mk_full_seq(re_sort), m);
             const expr_ref s_ne_sigma_star(m_seq.re.mk_concat(s_ne, sigma_star), m);
             const expr_ref xpp_re(m_seq.re.mk_complement(s_ne_sigma_star), m);
-            euf::snode* xpp_snode = m_sg.mk(xpp_re);
+            euf::snode const* xpp_snode = m_sg.mk(xpp_re);
             child->add_str_mem(str_mem(xpp, xpp_snode, mem.m_dep));
 
             TRACE(seq, tout << "cycle_decomp: x=" << mk_pp(x->get_expr(), m)
@@ -3522,8 +3592,8 @@ namespace seq {
             // Try both directions (ZIPT's ExtendDir(fwd=true/false)).
             for (unsigned od = 0; od < 2; ++od) {
                 const bool fwd = (od == 0);
-                euf::snode* lhead = dir_token(eq.m_lhs, fwd);
-                euf::snode* rhead = dir_token(eq.m_rhs, fwd);
+                euf::snode const* lhead = dir_token(eq.m_lhs, fwd);
+                euf::snode const* rhead = dir_token(eq.m_rhs, fwd);
                 if (!lhead || !rhead)
                     continue;
 
@@ -3533,7 +3603,7 @@ namespace seq {
                     euf::snode_vector toks;
                     collect_tokens_dir(eq.m_lhs, fwd, toks);
                     euf::snode_vector ground_prefix;
-                    const euf::snode* target_var = nullptr;
+                    euf::snode const* target_var = nullptr;
                     for (unsigned i = 0; i < toks.size(); ++i) {
                         if (toks[i]->is_var()) {
                             target_var = toks[i];
@@ -3552,7 +3622,7 @@ namespace seq {
                     euf::snode_vector toks;
                     collect_tokens_dir(eq.m_rhs, fwd, toks);
                     euf::snode_vector ground_prefix;
-                    const euf::snode* target_var = nullptr;
+                    euf::snode const* target_var = nullptr;
                     for (unsigned i = 0; i < toks.size(); ++i) {
                         if (toks[i]->is_var()) {
                             target_var = toks[i];
@@ -3576,37 +3646,13 @@ namespace seq {
     // Modifier: apply_regex_factorization (Boolean Closure)
     // -----------------------------------------------------------------------
 
-    // Lookahead oracle for the split engine: is the split's right component
-    // `n_regex` prefix-compatible with the constant character sequence `c`?
-    // The factorization picks a boundary so the tail starts with c, hence the
-    // tail-regex ∇ must be able to match c as a prefix.  We use a *prefix* test
-    // (not strict "starts-with"): we accept as soon as N accepts a prefix of c
-    // (a suffix appended downstream can complete it).  This is sound to apply
-    // during split generation — it never drops a viable split.
-    bool nielsen_graph::split_lookahead_viable(expr* n_regex, zstring const& c) {
-        euf::snode* cur = m_sg.mk(n_regex);
-        if (!cur)
-            return true;   // conservative: keep
-        for (unsigned i = 0; i < c.length(); ++i) {
-            if (m_sg.re_nullable(cur) == l_true)
-                return true;            // N accepts the prefix c[0..i) → a suffix completes it
-            cur = m_sg.brzozowski_deriv(cur, m_sg.mk_char(c[i]));
-            if (!cur || cur->is_fail())
-                return false;           // N went (syntactically) dead before reaching c
-        }
-        // Consumed all of c without matching a prefix: keep iff δ_c(N) is non-empty
-        // (one BFS emptiness check rather than per-char; an empty-language state is
-        // never nullable, so the loop above can't wrongly early-accept it).
-        return !m_seq_regex->is_empty_regex(cur);
-    }
-
     bool nielsen_graph::apply_regex_factorization(nielsen_node* node) {
         if (m_regex_factorization_threshold == 0)
             return false;
 
         struct rf_split {
-            euf::snode* m_p;
-            euf::snode* m_q;
+            euf::snode const* m_p;
+            euf::snode const* m_q;
             dep_tracker m_dep;
         };
 
@@ -3625,67 +3671,27 @@ namespace seq {
             if (mem.m_regex->has_projection())
                 continue;
 
-            euf::snode* first = mem.m_str->first();
-            SASSERT(first);
-            SASSERT(!first->is_char());     // constants are consumed earlier
-
-            // Choose the factorization boundary so the tail starts with the
-            // LONGEST run of concrete characters c — this gives the split-engine
-            // lookahead oracle the most pruning information.  head = u' (tokens
-            // before the run), tail = c · u''' (tokens from the run onward).
-            euf::snode_vector toks;
-            mem.m_str->collect_tokens(toks);
-            const unsigned total = toks.size();
-            unsigned run_start = 0, run_len = 0;
-            for (unsigned i = 0; i < total; ) {
-                if (!toks[i]->is_char()) { ++i; continue; }
-                unsigned j = i;
-                while (j < total && toks[j]->is_char()) ++j;
-                if (j - i > run_len) { run_len = j - i; run_start = i; }
-                i = j;
-            }
-            // No constant run → fall back to splitting off the first token.
-            const unsigned p = (run_len == 0) ? 1 : run_start;
-            SASSERT(p >= 1);
-            euf::snode* head = (p == 1) ? first : m_sg.drop_right(mem.m_str, total - p);
-            euf::snode* tail = m_sg.drop_left(mem.m_str, p);
-            SASSERT(head && tail);
-
-            // Build the constant lookahead c and (if non-empty) an oracle that
-            // prunes splits whose ∇ cannot match c.
-            zstring c;
-            for (unsigned i = 0; i < run_len; ++i) {
-                expr* ch; unsigned cv;
-                VERIFY(m_seq.str.is_unit(toks[run_start + i]->get_expr(), ch));
-                VERIFY(m_seq.is_const_char(ch, cv));
-                c = c + zstring(cv);
-            }
-            split_oracle oracle;
-            if (!c.empty())
-                oracle = [this, c](expr*, expr* n) { return split_lookahead_viable(n, c); };
-
-            // Decompose the regex into a split-set via the shared seq_split engine
-            // (sigma from the paper): head ∈ Δ ∧ tail ∈ ∇ for each ⟨Δ,∇⟩, with the
-            // lookahead oracle pruning non-viable ∇ during generation.
             split_set pairs;
-            seq_rewriter rw(m);
-            if (!rw.split(mem.m_regex->get_expr(), pairs, m_regex_factorization_threshold,
-                          split_mode::strong, oracle))
+            auto [head, tail] = split_membership(mem.m_str, mem.m_regex, sg(), m_regex_factorization_threshold, pairs);
+            if (!head) {
+                SASSERT(!tail);
                 continue;
+            }
+            SASSERT(tail);
 
-            rw.simplify_split(pairs);
+            euf::snode const* const first = mem.m_str->first();
 
             vector<rf_split> feasible;
             dep_tracker eliminated_dep = mem.m_dep;
 
             for (auto const &[tp, tq] : pairs) {
-                euf::snode* sn_p = m_sg.mk(tp);
-                euf::snode* sn_q = m_sg.mk(tq);
+                euf::snode const* sn_p = m_sg.mk(tp);
+                euf::snode const* sn_q = m_sg.mk(tq);
 
                 // Also check intersection with other primitive constraints on `head`.
                 // Only valid when head is the single token `first`; for a multi-token
                 // head Δ constrains the whole prefix, so we only check Δ ≠ ∅.
-                ptr_vector<euf::snode> regexes_p;
+                euf::snode_vector regexes_p;
                 regexes_p.push_back(sn_p);
                 dep_tracker first_filter_dep = nullptr;
                 if (head == first) {
@@ -3739,7 +3745,7 @@ namespace seq {
 
     bool nielsen_graph::fire_gpower_intro(
         nielsen_node* node, str_eq const& eq,
-        euf::snode* var, euf::snode_vector const& ground_prefix_orig, const bool fwd) {
+        euf::snode const* var, euf::snode_vector const& ground_prefix_orig, const bool fwd) {
 
         // Compress repeated patterns in the ground prefix (mirrors ZIPT's LcpCompressionFull).
         // E.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
@@ -3771,7 +3777,7 @@ namespace seq {
         if (ground_prefix.size() == 1 && ground_prefix[0]->is_power()) {
             expr* base_e = get_power_base_expr(ground_prefix[0], m_seq);
             if (base_e) {
-                euf::snode* base_sn = m_sg.mk(base_e);
+                euf::snode const* base_sn = m_sg.mk(base_e);
                 if (base_sn) {
                     euf::snode_vector base_toks;
                     collect_tokens_dir(base_sn, fwd, base_toks);
@@ -3802,7 +3808,7 @@ namespace seq {
         // Create fresh exponent variable and power expression: base^n
         const expr_ref fresh_n = get_or_create_gpower_n_var(var);
         const expr_ref power_expr(m_seq.str.mk_power(base_str, fresh_n), m);
-        euf::snode* power_snode = m_sg.mk(power_expr);
+        euf::snode const* power_snode = m_sg.mk(power_expr);
         if (!power_snode)
             return false;
 
@@ -3813,7 +3819,7 @@ namespace seq {
         // For char tokens P(c) = {ε}, for power tokens P(u^m) = {u^m', 0 ≤ m' ≤ m}.
         // Child at position i substitutes var → base^n · t0·...·t_{i-1} · P(t_i).
         for (unsigned i = 0; i < base_len; ++i) {
-            euf::snode* tok = ground_prefix[i];
+            euf::snode const* tok = ground_prefix[i];
 
             // Skip char position when preceding token is a power:
             // The power case at i-1 with 0 ≤ m' ≤ exp already covers m' = exp,
@@ -3823,11 +3829,11 @@ namespace seq {
                 continue;
 
             // Build full-token prefix: ground_prefix[0..i-1]
-            euf::snode* prefix_sn = nullptr;
+            euf::snode const* prefix_sn = nullptr;
             for (unsigned j = 0; j < i; ++j)
                 prefix_sn = (j == 0) ? ground_prefix[0] : dir_concat(m_sg, prefix_sn, ground_prefix[j], fwd);
 
-            euf::snode* replacement;
+            euf::snode const* replacement;
             expr_ref fresh_m(m);
 
             if (tok->is_power()) {
@@ -3837,13 +3843,13 @@ namespace seq {
                 if (inner_exp && inner_base) {
                     fresh_m = get_or_create_gpower_m_var(var);
                     expr_ref partial_pow(m_seq.str.mk_power(inner_base, fresh_m), m);
-                    euf::snode* partial_sn = m_sg.mk(partial_pow);
-                    euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
+                    euf::snode const* partial_sn = m_sg.mk(partial_pow);
+                    euf::snode const* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
                     replacement = dir_concat(m_sg, power_snode, suffix_sn, fwd);
                 }
                 else {
                     // Fallback: use full token (shouldn't normally happen)
-                    euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, tok, fwd) : tok;
+                    euf::snode const* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, tok, fwd) : tok;
                     replacement = dir_concat(m_sg, power_snode, suffix_sn, fwd);
                 }
             }
@@ -3993,16 +3999,16 @@ namespace seq {
                 continue;
 
             // Decompose u = u1·u2 and v = v1·v2 at signature indices.
-            euf::snode* u1 = m_sg.drop_right(eq.m_lhs, lhs_toks.size() - i);
-            euf::snode* u2 = m_sg.drop_left(eq.m_lhs, i);
-            euf::snode* v1 = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - j);
-            euf::snode* v2 = m_sg.drop_left(eq.m_rhs, j);
+            euf::snode const* u1 = m_sg.drop_right(eq.m_lhs, lhs_toks.size() - i);
+            euf::snode const* u2 = m_sg.drop_left(eq.m_lhs, i);
+            euf::snode const* v1 = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - j);
+            euf::snode const* v2 = m_sg.drop_left(eq.m_rhs, j);
             // NSB review: if we keep this skolem function it should include arguments
             // to not clash with other values of i, j
             // Why not use
             // x := str.substr(u2, 0, str.len(u2) - str.len(v1)),
             const auto x_e = m_sk.mk("signature-split", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(), eq.m_lhs->get_sort());
-            euf::snode *x = m_sg.mk(x_e);
+            euf::snode const* x = m_sg.mk(x_e);
 
             for (unsigned branch = 0; branch < 2; ++branch) {
                 nielsen_node* child = mk_child(node);
@@ -4056,7 +4062,7 @@ namespace seq {
                 expr_ref c2(m), th2(m), el2(m);
                 if (!bool_rewriter(m).decompose_ite(r, c2, th2, el2)) {
                     // No ite remaining: leaf → create child node with regex updated to r
-                    euf::snode *new_regex_snode = m_sg.mk(r);
+                    euf::snode const* new_regex_snode = m_sg.mk(r);
                     nielsen_node *child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "regex if", true);
                     for (const auto f : cs) {
@@ -4118,7 +4124,7 @@ namespace seq {
             SASSERT(mem.well_formed());
             if (mem.is_primitive())
                 continue;
-            euf::snode* first = mem.m_str->first();
+            euf::snode const* first = mem.m_str->first();
             SASSERT(first);
 
             // std::cout << "Considering regex: " << spp(mem.m_regex, m) << std::endl;
@@ -4140,10 +4146,10 @@ namespace seq {
             // then the suffix where the current x is located is at str.len(x) - len(x)
             // (seq.nth x (- (str.len x) len(x))
             //
-            euf::snode* fresh_char = m_sg.mk(get_or_create_char_var(first));
+            euf::snode const* fresh_char = m_sg.mk(get_or_create_char_var(first));
 
-            euf::snode* tail = get_tail(first, 1, true);
-            euf::snode* replacement = m_sg.mk_concat(fresh_char, tail);
+            euf::snode const* tail = get_tail(first, 1, true);
+            euf::snode const* replacement = m_sg.mk_concat(fresh_char, tail);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "regex var split", false);
 
@@ -4167,15 +4173,15 @@ namespace seq {
 
     bool nielsen_graph::apply_power_split(nielsen_node* node) {
 
-        euf::snode* power = nullptr;
-        euf::snode* var_head = nullptr;
+        euf::snode const* power = nullptr;
+        euf::snode const* var_head = nullptr;
         str_eq const* eq = nullptr;
         bool fwd = true;
         if (!find_power_vs_var(node, power, var_head, eq, fwd))
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode* base = power->arg0();
+        euf::snode const* base = power->arg0();
         const expr_ref zero(a.mk_int(0), m);
 
         // Branch 1: enumerate all decompositions of the base.
@@ -4191,12 +4197,12 @@ namespace seq {
 
             const expr_ref fresh_m = get_or_create_gpower_n_var(var_head);
             const expr_ref power_m_expr(m_seq.str.mk_power(base_expr, fresh_m), m);
-            euf::snode* power_m_sn = m_sg.mk(power_m_expr);
+            euf::snode const* power_m_sn = m_sg.mk(power_m_expr);
             if (!power_m_sn)
                 return false;
 
             for (unsigned i = 0; i < base_len; ++i) {
-                euf::snode* tok = base_toks[i];
+                euf::snode const* tok = base_toks[i];
 
                 // Skip char position when preceding token is a power:
                 // the power case at i-1 with 0 <= m' <= exp already covers m' = exp.
@@ -4204,11 +4210,11 @@ namespace seq {
                     continue;
 
                 // Build full-token prefix: base_toks[0..i-1]
-                euf::snode* prefix_sn = nullptr;
+                euf::snode const* prefix_sn = nullptr;
                 for (unsigned j = 0; j < i; ++j)
                     prefix_sn = (j == 0) ? base_toks[0] : dir_concat(m_sg, prefix_sn, base_toks[j], fwd);
 
-                euf::snode* replacement;
+                euf::snode const* replacement;
                 expr_ref fresh_inner_m(m);
 
                 if (tok->is_power()) {
@@ -4218,12 +4224,12 @@ namespace seq {
                     if (inner_exp && inner_base) {
                         fresh_inner_m = get_or_create_gpower_m_var(var_head);
                         expr_ref partial_pow(m_seq.str.mk_power(inner_base, fresh_inner_m), m);
-                        euf::snode* partial_sn = m_sg.mk(partial_pow);
-                        euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
+                        euf::snode const* partial_sn = m_sg.mk(partial_pow);
+                        euf::snode const* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
                         replacement = dir_concat(m_sg, power_m_sn, suffix_sn, fwd);
                     }
                     else {
-                        euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, tok, fwd) : tok;
+                        euf::snode const* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, tok, fwd) : tok;
                         replacement = dir_concat(m_sg, power_m_sn, suffix_sn, fwd);
                     }
                 }
@@ -4254,7 +4260,7 @@ namespace seq {
         // Branch 2: x = u^n · x' (variable extends past full power, non-progress)
         // so replace x -> u^n · x
         {
-            euf::snode* replacement = dir_concat(m_sg, power, var_head, fwd);
+            euf::snode const* replacement = dir_concat(m_sg, power, var_head, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "power split", false);
             const nielsen_subst s(var_head, replacement, eq->m_dep);
@@ -4276,15 +4282,15 @@ namespace seq {
 
     bool nielsen_graph::apply_var_num_unwinding_eq(nielsen_node* node) {
 
-        euf::snode* power = nullptr;
-        euf::snode* var_head = nullptr;
+        euf::snode const* power = nullptr;
+        euf::snode const* var_head = nullptr;
         str_eq const* eq = nullptr;
         bool fwd = true;
         if (!find_power_vs_var(node, power, var_head, eq, fwd))
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode* base = power->arg0();
+        euf::snode const* base = power->arg0();
         expr* exp_n = get_power_exponent(power);
         SASSERT(exp_n);
         const expr_ref zero(a.mk_int(0), m);
@@ -4306,8 +4312,8 @@ namespace seq {
         // Side constraint: n >= 1
         {
             const expr_ref power_expr(m_seq.str.mk_power(base->get_expr(), a.mk_sub(exp_n, a.mk_int(1))), m);
-            euf::snode* power_snode = m_sg.mk(power_expr);
-            euf::snode* replacement = dir_concat(m_sg, base, power_snode, fwd);
+            euf::snode const* power_snode = m_sg.mk(power_expr);
+            euf::snode const* replacement = dir_concat(m_sg, base, power_snode, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "unwinding eq &gt;", false);
             const nielsen_subst s(power, replacement, eq->m_dep); // TODO review - ensure var does not occur in replacement.
@@ -4321,14 +4327,14 @@ namespace seq {
 
     bool nielsen_graph::apply_var_num_unwinding_mem(nielsen_node* node) {
 
-        euf::snode* power = nullptr;
+        euf::snode const* power = nullptr;
         str_mem const* mem = nullptr;
         bool fwd = true;
         if (!find_power_vs_var(node, power, mem, fwd))
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode* base = power->arg0();
+        euf::snode const* base = power->arg0();
         expr* exp_n = get_power_exponent(power);
         SASSERT(exp_n);
         const expr_ref zero(a.mk_int(0), m);
@@ -4349,9 +4355,9 @@ namespace seq {
         // Side constraint: n >= 1
         {
             const expr_ref power_expr(m_seq.str.mk_power(base->get_expr(), a.mk_sub(exp_n, a.mk_int(1))), m);
-            euf::snode* power_snode = m_sg.mk(power_expr);
+            euf::snode const* power_snode = m_sg.mk(power_expr);
 
-            euf::snode* replacement = dir_concat(m_sg, base, power_snode, fwd);
+            euf::snode const* replacement = dir_concat(m_sg, base, power_snode, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "unwinding mem &gt;", false);
             const nielsen_subst s(power, replacement, mem->m_dep); // TODO review - ensure var does not occur in replacement.
@@ -4372,8 +4378,8 @@ namespace seq {
             return false;
 
         const str_deq& first = node->m_str_deq.back();
-        euf::snode* u = first.m_lhs;
-        euf::snode* v = first.m_rhs;
+        euf::snode const* u = first.m_lhs;
+        euf::snode const* v = first.m_rhs;
 
         const expr_ref u_len(compute_length_expr(u), m);
         const expr_ref v_len(compute_length_expr(v), m);
@@ -4381,15 +4387,15 @@ namespace seq {
         str_eq eq_uv(u, v, first.m_dep);
         sort *char_sort = nullptr;
         VERIFY(seq().is_seq(u->get_sort(), char_sort));
-        euf::snode* a = m_sg.mk(seq().str.mk_unit(m_sk.mk("diseq.a", u->get_expr(), v->get_expr(), char_sort).get()));
-        euf::snode* b = m_sg.mk(seq().str.mk_unit(m_sk.mk("diseq.b", u->get_expr(), v->get_expr(), char_sort).get()));
-        euf::snode* w = m_sg.mk(m_sk.mk("diseq.w", u->get_expr(), v->get_expr()).get());
-        euf::snode* up = m_sg.mk(m_sk.mk("diseq.u'", u->get_expr(), v->get_expr()).get());
-        euf::snode* vp = m_sg.mk(m_sk.mk("diseq.v'", u->get_expr(), v->get_expr()).get());
+        euf::snode const* a = m_sg.mk(seq().str.mk_unit(m_sk.mk("diseq.a", u->get_expr(), v->get_expr(), char_sort).get()));
+        euf::snode const* b = m_sg.mk(seq().str.mk_unit(m_sk.mk("diseq.b", u->get_expr(), v->get_expr(), char_sort).get()));
+        euf::snode const* w = m_sg.mk(m_sk.mk("diseq.w", u->get_expr(), v->get_expr()).get());
+        euf::snode const* up = m_sg.mk(m_sk.mk("diseq.u'", u->get_expr(), v->get_expr()).get());
+        euf::snode const* vp = m_sg.mk(m_sk.mk("diseq.v'", u->get_expr(), v->get_expr()).get());
         const expr_ref up_len(compute_length_expr(up), m);
         const expr_ref vp_len(compute_length_expr(vp), m);
-        euf::snode* wau = dir_concat(m_sg, dir_concat(m_sg, w, a, true), up, true);
-        euf::snode* wbv = dir_concat(m_sg, dir_concat(m_sg, w, b, true), vp, true);
+        euf::snode const* wau = dir_concat(m_sg, dir_concat(m_sg, w, a, true), up, true);
+        euf::snode const* wbv = dir_concat(m_sg, dir_concat(m_sg, w, b, true), vp, true);
         const str_eq u_eq(u, wau, first.m_dep);
         const str_eq v_eq(v, wbv, first.m_dep);
 
@@ -4480,7 +4486,7 @@ namespace seq {
     // nielsen_graph: length constraint generation
     // -----------------------------------------------------------------------
 
-    expr_ref nielsen_graph::compute_length_expr(euf::snode* n) {
+    expr_ref nielsen_graph::compute_length_expr(euf::snode const* n) {
         if (n->is_empty())
             return expr_ref(a.mk_int(0), m);
 
@@ -4493,7 +4499,7 @@ namespace seq {
             return expr_ref(a.mk_add(left, right), m);
         }
 
-        //euf::snode *length_term = nullptr;
+        //euf::snode const* length_term = nullptr;
         //if (m_length_info.find(n->id(), length_term) && length_term)
         //    return expr_ref(length_term->get_expr(), m);
 
@@ -4524,7 +4530,7 @@ namespace seq {
             euf::snode_vector tokens;
             eq.m_lhs->collect_tokens(tokens);
             eq.m_rhs->collect_tokens(tokens);
-            for (const euf::snode* tok : tokens) {
+            for (euf::snode const* tok : tokens) {
                 if (tok->is_var() && !seen_vars.contains(tok->id())) {
                     seen_vars.insert(tok->id());
                     expr_ref len_var(seq.str.mk_length(tok->get_expr()), m);
@@ -4561,7 +4567,7 @@ namespace seq {
         }
     }
 
-    void nielsen_graph::compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len) const {
+    void nielsen_graph::compute_regex_length_interval(euf::snode const* regex, unsigned& min_len, unsigned& max_len) const {
         const seq_util & seq = m_sg.get_seq_util();
         expr* e = regex->get_expr();
         SASSERT(e && seq.is_re(e));
@@ -4594,14 +4600,14 @@ namespace seq {
     // + NielsenNode constructor length assertion logic
     // -----------------------------------------------------------------------
 
-    expr_ref nielsen_graph::get_or_create_char_var(euf::snode* var) {
+    expr_ref nielsen_graph::get_or_create_char_var(euf::snode const* var) {
         SASSERT(var && var->is_var());
         const expr_ref idx(a.mk_sub(seq().str.mk_length(var->get_expr()), compute_length_expr(var)), m);
         const auto e = seq().str.mk_nth_u(var->get_expr(), idx);
         return expr_ref(m_seq.str.mk_unit(expr_ref(e, m)), m);
     }
 
-    expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var) {
+    expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode const* var) {
         SASSERT(var && var->is_var());
         //unsigned mc = 0;
         //m_mod_cnt.find(var->id(), mc);
@@ -4609,7 +4615,7 @@ namespace seq {
         return m_sk.mk("gpn!", var->get_expr()/*, a.mk_int(mc)*/, a.mk_int());
     }
 
-    expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode* var) {
+    expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode const* var) {
         SASSERT(var && var->is_var());
         //unsigned mc = 0;
         //m_mod_cnt.find(var->id(), mc);
@@ -4686,7 +4692,7 @@ namespace seq {
             euf::snode_vector tokens;
             eq.m_lhs->collect_tokens(tokens);
             eq.m_rhs->collect_tokens(tokens);
-            for (euf::snode* tok : tokens) {
+            for (euf::snode const* tok : tokens) {
                 if (tok->is_var() && !seen_vars.contains(tok->id())) {
                     seen_vars.insert(tok->id());
                     expr_ref len_var = compute_length_expr(tok);
@@ -4779,12 +4785,12 @@ namespace seq {
         return constraint(fml, dep, m);
     }
 
-    expr* nielsen_graph::get_power_exponent(euf::snode* power) {
+    expr* nielsen_graph::get_power_exponent(euf::snode const* power) {
         SASSERT(power);
         if (!power->is_power())
             return nullptr;
         SASSERT(power->num_args() == 2);
-        const euf::snode* exp_snode = power->arg(1);
+        euf::snode const* exp_snode = power->arg(1);
         return exp_snode ? exp_snode->get_expr() : nullptr;
     }
 
@@ -4813,9 +4819,9 @@ namespace seq {
 
         SASSERT(dep);
 
-        const euf::snode* approx = nullptr;
-        for (euf::snode* tok : tokens) {
-            euf::snode* tok_re = nullptr;
+        euf::snode const* approx = nullptr;
+        for (euf::snode const* tok : tokens) {
+            euf::snode const* tok_re = nullptr;
 
             if (tok->is_char()) {
                 // Concrete character → to_re(unit(c))
@@ -4825,7 +4831,7 @@ namespace seq {
             }
             else if (tok->is_var()) {
                 // Variable → intersection of primitive regex constraints, or Σ*
-                euf::snode* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node, m_dep_mgr, dep);
+                euf::snode const* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node, m_dep_mgr, dep);
                 if (x_range)
                     tok_re = x_range;
                 else {
@@ -4843,12 +4849,12 @@ namespace seq {
                     auto& cs = node.char_ranges()[tok->id()];
                     if (!cs.first.is_empty()) {
                         // Build union of re.range for each interval
-                        euf::snode* range_re = nullptr;
+                        euf::snode const* range_re = nullptr;
                         for (auto const& r : cs.first.ranges()) {
                             expr_ref rng(m_seq.re.mk_range(
                                 m_seq.str.mk_string(zstring(r.m_lo)),
                                 m_seq.str.mk_string(zstring(r.m_hi - 1))), m);
-                            euf::snode* rng_sn = m_sg.mk(rng);
+                            euf::snode const* rng_sn = m_sg.mk(rng);
                             if (!range_re)
                                 range_re = rng_sn;
                             else {
@@ -4895,7 +4901,7 @@ namespace seq {
         expr* re = regex->get_expr();
         SASSERT(ae && re);
         const expr_ref inter(m_seq.re.mk_inter(ae, re), m);
-        euf::snode* inter_sn = m_sg.mk(inter);
+        euf::snode const* inter_sn = m_sg.mk(inter);
         SASSERT(inter_sn);
         // TODO: Minimize the conflict here
         const lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
@@ -4914,15 +4920,15 @@ namespace seq {
         SASSERT(m_seq_regex);
 
         // Group str_mem constraints by variable (primitive constraints only)
-        u_map<std::pair<ptr_vector<euf::snode>, dep_tracker>> var_regexes;
+        u_map<std::pair<euf::snode_vector, dep_tracker>> var_regexes;
 
         for (auto const& mem : node.str_mems()) {
             SASSERT(mem.is_primitive());
-            const euf::snode* const first = mem.m_str->first();
+            euf::snode const* const first = mem.m_str->first();
             SASSERT(first && first->is_var());
-            auto& list = var_regexes.insert_if_not_there(first->id(), std::pair<ptr_vector<euf::snode>, dep_tracker>());
-            list.first.push_back(mem.m_regex);
-            list.second = dep_mgr().mk_join(list.second, mem.m_dep);
+            auto &[fst, snd] = var_regexes.insert_if_not_there(first->id(), std::pair<euf::snode_vector, dep_tracker>());
+            fst.push_back(mem.m_regex);
+            snd = dep_mgr().mk_join(snd, mem.m_dep);
         }
 
         // check intersection non-emptiness (also for single occurrences; it could be empty)

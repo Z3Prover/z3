@@ -61,14 +61,14 @@ namespace smt {
         // variable assignments extracted from the satisfying Nielsen node.
         // maps snode id -> expr* (concrete value)
         u_map<expr*> m_var_values;
-        u_map<euf::snode*> m_var_replacement;
+        u_map<euf::snode const*> m_var_replacement;
 
         // trail for GC protection of generated expressions
         expr_ref_vector m_trail;
 
         // per-variable regex constraints: maps snode id -> intersected regex snode.
         // collected during init() from the state's str_mem list.
-        u_map<euf::snode*> m_var_regex;
+        u_map<euf::snode const*> m_var_regex;
 
     public:
         seq_model(ast_manager& m, context& ctx, seq_util& seq,
@@ -101,21 +101,21 @@ namespace smt {
         // Returns a concrete Z3 expression.
         // Optionally uses pre-evaluated model values for
         // enode dependencies (provided by model_generator).
-        expr_ref snode_to_value(euf::snode *n, ptr_vector<smt::enode> const &nodes, expr_ref_vector const &values);
+        expr_ref snode_to_value(euf::snode const* n, enode_vector const &nodes, expr_ref_vector const &values);
 
         // Collect enode dependencies required to evaluate an snode value.
-        void collect_dependencies(euf::snode* n, ptr_vector<enode>& deps) const;
+        void collect_dependencies(euf::snode const* n, enode_vector& deps) const;
 
         // look up or compute the value for an snode variable.
         // If no assignment exists, delegates to mk_fresh_value.
-        expr* get_var_value(euf::snode* var);
+        expr* get_var_value(euf::snode const* var);
 
         // generate a fresh value for a variable, respecting regex
         // membership constraints. If the variable has associated
         // regex constraints (collected during init), generates a
         // witness satisfying the intersection; otherwise falls back
         // to a plain fresh value from the factory.
-        expr* mk_fresh_value(euf::snode* var);
+        expr* mk_fresh_value(euf::snode const* var);
 
         // Witness extraction for regexes that contain a projection operator
         // (re.proj), which the standard seq_rewriter::some_seq_in_re cannot
@@ -123,7 +123,7 @@ namespace smt {
         // derivative automaton (m_sg) for a nullable (accepting) state,
         // building the accepting word.  Returns l_true and sets `witness`
         // on success.
-        lbool projection_witness(euf::snode* re, expr_ref& witness);
+        lbool projection_witness(euf::snode const* re, expr_ref& witness) const;
 
         // collect per-variable regex constraints from the state.
         // For each positive str_mem, records the regex (or intersects

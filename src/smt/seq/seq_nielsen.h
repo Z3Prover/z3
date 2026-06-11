@@ -27,202 +27,6 @@ Abstract:
     -- nielsen_node: graph node with constraint set and outgoing edges
     -- nielsen_graph: the overall Nielsen transformation graph
 
-    -----------------------------------------------------------------------
-    ZIPT PORT COMPARISON SUMMARY
-    -----------------------------------------------------------------------
-
-    The ZIPT reference is organized as follows (all under ZIPT/Constraints/):
-      NielsenGraph.cs          -- the graph manager class
-      NielsenNode.cs           -- node class + BacktrackReasons enum
-      NielsenEdge.cs           -- edge class with string and character substitutions
-      ConstraintElement/
-        Constraint.cs          -- abstract base for all constraints
-        StrEqBase.cs           -- abstract base for StrEq and StrMem
-        StrEq.cs               -- string equality with full simplification/splitting
-        StrMem.cs              -- regex membership with Brzozowski derivatives
-        IntEq.cs               -- integer equality over length polynomials
-        IntLe.cs               -- integer inequality over length polynomials
-      Modifier/                -- ~15 modifier types driving graph expansion
-
-    A. PORTED FAITHFULLY
-    --------------------
-    1. backtrack_reason enum (BacktrackReasons): all eleven values (Unevaluated,
-       Extended, SymbolClash, ParikhImage, Subsumption, Arithmetic, Regex,
-       RegexWidening, CharacterRange, SMT, ChildrenFailed) are present with
-       identical semantics.
-
-    2. simplify_result enum (SimplifyResult): all five values (Proceed, Conflict,
-       Satisfied, Restart, RestartAndSatisfied) are present with identical semantics.
-       Note: RestartAndSatisfied is declared but not yet exercised in this port.
-
-    3. nielsen_node status fields and accessors: m_is_general_conflict,
-       m_is_extended, m_reason, m_eval_idx map directly to IsGeneralConflict,
-       IsExtended, CurrentReason, evalIdx. The is_currently_conflict() predicate
-       faithfully mirrors IsCurrentlyConflict (GeneralConflict || (reason !=
-       Unevaluated && IsExtended)).
-
-    4. nielsen_node::reset_counter() mirrors NielsenNode.ResetCounter() exactly.
-
-    5. nielsen_node::clone_from() mirrors the copy constructor
-       NielsenNode(graph, parent) for str_eq and str_mem constraints.
-
-    6. nielsen_edge identity (operator==) mirrors NielsenEdge.Equals(): both
-       compare by source and target node pointer identity.
-
-    7. nielsen_graph::inc_run_idx() mirrors the RunIdx increment in NielsenGraph.
-       Check(), including the UINT_MAX overflow guard that calls reset_counter()
-       on all nodes.
-
-    8. str_eq::sort() mirrors StrEqBase.SortStr(): swaps lhs/rhs when lhs > rhs.
-       (Z3 compares by snode id; ZIPT compares Str lexicographically.)
-
-    9. str_eq::is_trivial() mirrors the trivially-satisfied check when both sides
-       are empty.
-
-    10. str_mem fields (m_str, m_regex, m_history, m_id, m_dep) mirror StrMem
-        fields (Str, Regex, History, Id, Reason) faithfully, including the unique
-        identifier used for cycle tracking.
-
-    11. str_mem::is_primitive() mirrors StrMem.IsPrimitiveRegex(): single variable
-        on the left side of the membership constraint.
-
-    12. nielsen_subst::is_eliminating() mirrors the logic behind
-        NielsenEdge.BumpedModCount: a substitution is non-eliminating (bumps the
-        modification counter) when the substituted variable appears in the
-        replacement.
-
-    13. nielsen_graph::mk_edge() faithfully mirrors NielsenEdge construction: it
-        links src to tgt and registers the outgoing edge.
-
-    B. PORTED WITH ALGORITHMIC CHANGES
-    ------------------------------------
-    1. dep_tracker (DependencyTracker): ZIPT's DependencyTracker is a .NET
-       class using a BitArray-like structure for tracking constraint origins.
-       Z3 uses scoped_dependency_manager<dep_source> (an arena-based binary
-       join tree from util/dependency.h) where each leaf carries a dep_source
-       value identifying the originating eq or mem constraint by kind and index.
-
-    2. Substitution application (nielsen_node::apply_subst): ZIPT uses an
-       immutable, functional style -- Apply() returns a new constraint if
-       changed, using C# reference equality to detect no-ops. Z3 uses
-       in-place mutation via sgraph::subst(), modifying the constraint vectors
-       directly. The functional change also propagates the substitution's
-       dependency to the merged constraint.
-
-    3. Node constraint containers: ZIPT's NielsenNode stores str_eq constraints
-       in NList<StrEq> (a sorted list for O(log n) subsumption lookup) and str_mem
-       constraints in Dictionary<uint, StrMem> (keyed by id for O(1) cycle lookup).
-       Z3 uses plain vector<str_eq> and vector<str_mem>, which is simpler.
-
-    4. nielsen_edge substitution list: ZIPT's NielsenEdge carries two substitution
-       lists -- Subst (string-level, mapping string variables to strings) and
-       SubstC (character-level, mapping symbolic character variables to concrete
-       characters). Z3's nielsen_edge carries a single vector<nielsen_subst>,
-       covering only string-level substitutions; character substitutions are not
-       represented.
-
-    5. nielsen_graph node registry: ZIPT keeps nodes in a HashSet<NielsenNode> plus
-       a Dictionary<NList<StrEq>, List<NielsenNode>> for subsumption candidate
-       lookup. Z3 uses a ptr_vector<nielsen_node>, simplifying memory management.
-
-    6. nielsen_graph::display() vs NielsenGraph.ToDot(): ZIPT outputs a DOT-format
-       graph with color highlighting for the current satisfying path. Z3 outputs
-       plain human-readable text with node/edge details but no DOT syntax or path
-       highlighting.
-
-    7. str_eq::contains_var() / str_mem::contains_var(): ZIPT performs occurrence
-       checks through StrManager.Subst() (which uses hash-consing and reference
-       equality). Z3 walks the snode tree via collect_tokens(), which is correct
-       but re-traverses the DAG on every call.
-
-    C. NOT PORTED
-    -------------
-    The following ZIPT components are absent from this implementation.
-    They represent the algorithmic core of the search procedure and
-    are expected to be ported in subsequent work.
-
-    Constraint simplification and propagation:
-    - Constraint.SimplifyAndPropagate() / SimplifyAndPropagateInternal(): the
-      main constraint-driven simplification loop is not ported. str_eq and
-      str_mem have no Simplify methods.
-    - StrEq.SimplifyDir() / SimplifyFinal() / AddDefinition(): forward/backward
-      simplification passes, including Makanin-style prefix cancellation, power
-      token handling, and variable definition propagation.
-    - StrEq.GetNielsenDep() / SplitEq(): the Nielsen dependency analysis and
-      equation-splitting heuristic used to choose the best split point.
-    - StrMem.SimplifyCharRegex() / SimplifyDir(): Brzozowski derivative-based
-      simplification consuming ground prefixes/suffixes of the string.
-    - StrMem.TrySubsume(): stabilizer-based subsumption (not ported, not needed).
-    - StrMem.ExtractCycle() / StabilizerFromCycle(): cycle detection over the
-      search path and extraction of a Kleene-star stabilizer to generalize the
-      cycle. This is the key termination argument for regex membership.
-    - StrMem.Extend(): the splitting driver that produces the next modifier
-      (RegexVarSplitModifier, RegexCharSplitModifier, StarIntrModifier, etc.).
-
-    Integer constraints:
-    - IntEq / IntLe: integer equality and inequality constraints over Presburger
-      arithmetic polynomials (PDD<BigInteger>) are entirely absent. The Z3 port
-      has no ConstraintsIntEq or ConstraintsIntLe in nielsen_node.
-    - IntBounds / VarBoundWatcher: ZIPT-style cached interval maps and eager
-      watcher propagation are not stored in nielsen_node; bounds are queried
-      from the arithmetic subsolver on demand.
-    - AddLowerIntBound() / AddHigherIntBound(): incremental interval tightening
-      — PORTED as the above add_lower/upper_int_bound methods.
-
-    Character-level handling:
-    - CharSubst: character-level variable substitution (symbolic char -> concrete
-      char) is absent. ZIPT uses this to handle symbolic character tokens
-      (SymCharToken) that represent a single unknown character.
-    - SymCharToken / CharacterSet: symbolic character tokens with associated
-      character range constraints (CharRanges) are not ported.
-    - DisEqualities: per-node character disequality constraints used for conflict
-      detection during character substitution are not ported.
-
-    Modifier hierarchy (Constraints/Modifier/):
-    - 13 Modifier subclasses driving graph expansion are ported as
-      apply_* methods in generate_extensions, matching ZIPT's TypeOrder
-      priority: DetModifier(1), PowerEpsilonModifier(2), NumCmpModifier(3),
-      ConstNumUnwindingModifier(4), EqSplitModifier(5), StarIntrModifier(6),
-      GPowerIntrModifier(7), ConstNielsenModifier(8), RegexCharSplitModifier(9),
-      RegexVarSplitModifier(10), PowerSplitModifier(11), VarNielsenModifier(12),
-      VarNumUnwindingModifier(13).
-    - NOT PORTED: DirectedNielsenModifier, DecomposeModifier, CombinedModifier.
-    - NumCmp, ConstNumUnwinding, VarNumUnwinding are approximated (no PDD
-      integer polynomial infrastructure; power tokens are replaced with ε
-      or peeled with fresh variables instead of exact exponent arithmetic).
-
-    Search procedure:
-    - NielsenGraph.Check() / NielsenNode.GraphExpansion(): ported as
-      nielsen_graph::solve() (iterative deepening, starting at depth 3,
-      incrementing by 1 per failure, bounded by smt.nseq.max_depth) and
-      search_dfs() (depth-bounded DFS with eval_idx cycle detection and
-      node status tracking).
-    - NielsenNode.SimplifyAndInit(): ported as
-      nielsen_node::simplify_and_init() with prefix matching, symbol clash,
-      empty propagation, and Brzozowski derivative consumption.
-    - NielsenGraph.FindExisting() / subsumption cache lookup: not ported,
-      not needed.
-
-    Auxiliary infrastructure:
-    - LocalInfo: thread-local search bookkeeping (current path, modification
-      counts, regex occurrence cache for cycle detection, current node pointer)
-      is not ported.
-    - NielsenGraph.SubSolver / InnerStringPropagator: the auxiliary Z3 solver
-      for arithmetic lemma generation and the inner string propagator for
-      model-based refinement are not ported.
-    - PowerToken: word-repetition tokens of the form u^n (distinct from regex
-      Kleene star) are not represented in Z3's snode.
-    - GetSignature(): the constraint-pair signature used for subsumption
-      candidate matching is not ported.
-    - Constraint.Shared: the flag indicating whether a constraint should be
-      forwarded to the outer solver — PORTED as
-      nielsen_graph::assert_root_constraints_to_solver(), called at the start
-      of solve() to make all root-level length/Parikh constraints immediately
-      visible to m_solver.
-    - Interpretation: the model-extraction class mapping string and integer
-      variables to concrete values is not ported.
-    -----------------------------------------------------------------------
-
 Author:
 
     Clemens Eisenhofer 2026-03-02
@@ -316,8 +120,6 @@ namespace seq {
     using enode_pair_vector = svector<enode_pair>;
     using dep_source = std::variant<sat::literal, enode_pair>;
 
-
-
     // Arena-based dependency manager: builds an immutable tree of dep_source
     // leaves joined by binary join nodes.  Memory is managed via a region;
     // call dep_manager::reset() to release all allocations at once.
@@ -375,14 +177,26 @@ namespace seq {
     // and arithmetic <= dependencies.
     void deps_to_lits(dep_manager &dep_mgr, dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits);
 
+    // decompose a membership constraint into a set of pairs of regex splits
+    std::pair<euf::snode const*, euf::snode const*> split_membership(euf::snode const* str, euf::snode const* regex, euf::sgraph& sg, unsigned threshold, split_set& result);
+
+    // Lookahead oracle for the split engine: is the split's right component
+    // `n_regex` prefix-compatible with the constant character sequence `c`?
+    // The factorization picks a boundary so the tail starts with c, hence the
+    // tail-regex ∇ must be able to match c as a prefix.  We use a *prefix* test
+    // (not strict "starts-with"): we accept as soon as N accepts a prefix of c
+    // (a suffix appended downstream can complete it).  This is sound to apply
+    // during split generation — it never drops a viable split.
+    bool split_lookahead_viable(expr* n_regex, euf::sgraph& sg, zstring const& c);
+
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)
     struct str_eq {
-        euf::snode* m_lhs; // assumed to be non-null
-        euf::snode* m_rhs; // assumed to be non-null
+        euf::snode const* m_lhs; // assumed to be non-null
+        euf::snode const* m_rhs; // assumed to be non-null
         dep_tracker m_dep;
 
-        str_eq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep): 
+        str_eq(euf::snode const* lhs, euf::snode const* rhs, dep_tracker const& dep): 
             m_lhs(lhs), m_rhs(rhs), m_dep(dep) {
             SASSERT(well_formed());
         }
@@ -398,7 +212,7 @@ namespace seq {
         bool is_trivial() const;
 
         // check if the constraint contains a given variable
-        bool contains_var(euf::snode* var) const;
+        bool contains_var(euf::snode const* var) const;
 
         bool well_formed() const {
             // assumed to be always true
@@ -420,11 +234,11 @@ namespace seq {
 
     // string disequality constraint: lhs != rhs
     struct str_deq {
-        euf::snode* m_lhs; // assumed to be non-null
-        euf::snode* m_rhs; // assumed to be non-null
+        euf::snode const* m_lhs; // assumed to be non-null
+        euf::snode const* m_rhs; // assumed to be non-null
         dep_tracker m_dep;
 
-        str_deq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep): 
+        str_deq(euf::snode const* lhs, euf::snode const* rhs, dep_tracker const& dep): 
             m_lhs(lhs), m_rhs(rhs), m_dep(dep) {
             SASSERT(well_formed());
         }
@@ -439,7 +253,7 @@ namespace seq {
             }
         }
 
-        bool contains_var(euf::snode* var) const {
+        bool contains_var(euf::snode const* var) const {
             return m_lhs->collect_tokens().contains(var) || m_rhs->collect_tokens().contains(var);
         }
 
@@ -464,11 +278,11 @@ namespace seq {
     // regex membership constraint: str in regex
     // mirrors ZIPT's StrMem
     struct str_mem {
-        euf::snode* m_str; // assumed to be non-null
-        euf::snode* m_regex; // assumed to be non-null
+        euf::snode const* m_str; // assumed to be non-null
+        euf::snode const* m_regex; // assumed to be non-null
         dep_tracker m_dep;
 
-        str_mem(euf::snode* str, euf::snode* regex, dep_tracker const& dep):
+        str_mem(euf::snode const* str, euf::snode const* regex, dep_tracker const& dep):
             m_str(str), m_regex(regex), m_dep(dep) {}
 
         bool operator==(str_mem const& other) const {
@@ -484,7 +298,7 @@ namespace seq {
         bool is_contradiction(nielsen_node const* n) const;
 
         // check if the constraint contains a given variable
-        bool contains_var(euf::snode* var) const;
+        bool contains_var(euf::snode const* var) const;
 
         bool well_formed() const {
             // assumed to be always true
@@ -508,12 +322,12 @@ namespace seq {
     // (can be used as well to substitute arbitrary nodes - like powers)
     // mirrors ZIPT's Subst
     struct nielsen_subst {
-        euf::snode* m_var;
-        euf::snode* m_replacement;
+        euf::snode const* m_var;
+        euf::snode const* m_replacement;
         dep_tracker m_dep;
 
         nielsen_subst(): m_var(nullptr), m_replacement(nullptr), m_dep(nullptr) {}
-        nielsen_subst(euf::snode* var, euf::snode* repl, dep_tracker const& dep):
+        nielsen_subst(euf::snode const* var, euf::snode const* repl, dep_tracker const& dep):
             m_var(var), m_replacement(repl), m_dep(dep) {
             SASSERT(var != nullptr);
             SASSERT(repl != nullptr);
@@ -718,7 +532,7 @@ namespace seq {
 
         // add a character range constraint for a symbolic char.
         // intersects with existing range; sets conflict if result is empty.
-        void add_char_range(euf::snode* sym_char, char_set const& range, dep_tracker dep);
+        void add_char_range(euf::snode const* sym_char, char_set const& range, dep_tracker dep);
 
         // edge access
         ptr_vector<nielsen_edge> const& outgoing() const { return m_outgoing; }
@@ -817,7 +631,7 @@ namespace seq {
         // Collects tokens from non_empty_side; if any token causes a conflict
         // (is a concrete character or an unexpected kind), sets conflict flags
         // and returns true. Otherwise returns false.
-        bool check_empty_side_conflict(euf::sgraph& sg, euf::snode* non_empty_side,
+        bool check_empty_side_conflict(euf::sgraph& sg, euf::snode const* non_empty_side,
                                        dep_tracker const& dep);
 
         // Length bounds are queried from the arithmetic subsolver when needed.
@@ -868,7 +682,7 @@ namespace seq {
         friend class nielsen_node;
         friend class nielsen_edge;
 
-        // Edge endpoints are stored as expr* (not snode*) because the cache
+        // Edge endpoints are stored as expr* (not snode const*) because the cache
         // must survive sgraph pops.  snodes are allocated in a region that is
         // never freed, but their m_expr field is owned by the egraph trail and
         // becomes dangling on pop.  We pin the referenced expressions via
@@ -1036,14 +850,14 @@ namespace seq {
         ptr_vector<nielsen_edge> const& sat_path() const { return m_sat_path; }
 
         // add constraints to the root node from external solver
-        void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) const;
-        void add_str_deq(euf::snode* lhs, euf::snode* rhs, sat::literal l) const;
-        void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) const;
+        void add_str_eq(euf::snode const* lhs, euf::snode const* rhs, smt::enode* l, smt::enode* r) const;
+        void add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal l) const;
+        void add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal l) const;
 
         // test-friendly overloads (no external dependency tracking)
-        void add_str_eq(euf::snode* lhs, euf::snode* rhs);
-        void add_str_deq(euf::snode* lhs, euf::snode* rhs);
-        void add_str_mem(euf::snode* str, euf::snode* regex);
+        void add_str_eq(euf::snode const* lhs, euf::snode const* rhs);
+        void add_str_deq(euf::snode const* lhs, euf::snode const* rhs);
+        void add_str_mem(euf::snode const* str, euf::snode const* regex);
 
         // access all nodes
         ptr_vector<nielsen_node> const& nodes() const { return m_nodes; }
@@ -1075,9 +889,9 @@ namespace seq {
 
         std::string to_dot() const;
 
-        std::ostream& partial_dfa_to_dot(std::ostream& out, euf::snode* start_state, bool keep_names) const;
+        std::ostream& partial_dfa_to_dot(std::ostream& out, euf::snode const* start_state, bool keep_names) const;
 
-        std::string partial_dfa_to_dot(euf::snode* start_state, bool keep_names) const;
+        std::string partial_dfa_to_dot(euf::snode const* start_state, bool keep_names) const;
 
         // reset all nodes and state
         void reset();
@@ -1118,12 +932,12 @@ namespace seq {
         // build an arithmetic expression representing the length of an snode tree.
         // concatenations are expanded to sums, chars to 1, empty to 0,
         // variables to (str.len var_expr).
-        expr_ref compute_length_expr(euf::snode* n);
+        expr_ref compute_length_expr(euf::snode const* n);
 
         // compute Parikh length interval [min_len, max_len] for a regex snode.
         // uses seq_util::rex min_length/max_length on the underlying expression.
         // max_len == UINT_MAX means unbounded.
-        void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len) const;
+        void compute_regex_length_interval(euf::snode const* regex, unsigned& min_len, unsigned& max_len) const;
 
         // accessor for the seq_regex module
         seq_regex* seq_regex_module() const { return m_seq_regex; }
@@ -1175,15 +989,15 @@ namespace seq {
         // Record a discovered derivative edge in the global partial DFA.
         // The `label` may be a concrete string token (converted to to_re)
         // or an already-regular-expression minterm.
-        void record_partial_derivative_edge(euf::snode* src_re, euf::snode* label, euf::snode* dst_re);
+        void record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* label, euf::snode const* dst_re);
 
         // Convert a transition label (string token or regex minterm) into a
         // one-character regex snode used by the partial DFA.
-        euf::snode* to_partial_label_regex(euf::snode* label) const;
+        euf::snode const* to_partial_label_regex(euf::snode const* label) const;
 
         // Collect the SCC containing root_re in the current partial DFA.
         // Returns false if no cyclic SCC containing root_re exists.
-        bool collect_scc_for_projection(euf::snode* root_re, uint_set& scc) const;
+        bool collect_scc_for_projection(euf::snode const* root_re, uint_set& scc) const;
 
         // Mark SCC edges with a monotone extraction index and return the
         // currently covered edge count for this extraction.
@@ -1194,17 +1008,17 @@ namespace seq {
         // snapshot index nu. This is the stabilizer of root_re kept symbolically
         // (the projection's derivative/nullability are evaluated lazily by the
         // sgraph consulting projection_state_in_Q).
-        euf::snode* mk_projection_term(euf::snode* root_re, unsigned nu);
+        euf::snode const* mk_projection_term(euf::snode const* root_re, unsigned nu);
 
         // Try to extract a stronger projection for root_re. Returns true and
         // stores it in projection_re iff SCC coverage has grown.
-        bool try_extract_partial_projection(euf::snode* root_re, euf::snode*& projection_re);
+        bool try_extract_partial_projection(euf::snode const* root_re, euf::snode const*& projection_re);
 
-        euf::snode* get_slice(euf::snode* v, expr* left, expr* right);
+        euf::snode const* get_slice(euf::snode const* v, expr* left, expr* right);
 
-        euf::snode* get_tail(euf::snode* v, expr* cnt, bool fwd = true);
+        euf::snode const* get_tail(euf::snode const* v, expr* cnt, bool fwd = true);
 
-        euf::snode* get_tail(euf::snode* v, unsigned cnt, bool fwd = true);
+        euf::snode const* get_tail(euf::snode const* v, unsigned cnt, bool fwd = true);
 
         // Apply the Parikh image filter to a node: generate modular length
         // constraints from regex memberships and append them to the node's
@@ -1217,10 +1031,10 @@ namespace seq {
         void apply_parikh_to_node(nielsen_node& node) const;
 
         // simplify expression and create a node from simplified expression.
-        euf::snode *mk_rewrite(expr *e) const;
+        euf::snode const* mk_rewrite(expr *e) const;
 
         // create a fresh variable with a unique name and the given sequence sort
-        euf::snode* mk_fresh_var(sort* s);
+        euf::snode const* mk_fresh_var(sort* s);
 
         // deterministic modifier: var = ε, same-head cancel
         bool apply_det_modifier(nielsen_node* node);
@@ -1238,10 +1052,10 @@ namespace seq {
 
         // helper: classify whether a token has variable (symbolic) length
         // returns true for variables, powers, etc.; false for chars, units, string literals
-        bool token_has_variable_length(euf::snode* tok) const;
+        bool token_has_variable_length(euf::snode const* tok) const;
 
         // helper: get the constant length of a token (only valid when !token_has_variable_length)
-        unsigned token_const_length(euf::snode* tok) const;
+        unsigned token_const_length(euf::snode const* tok) const;
 
         // helper: find a split point in a regex-free equation.
         // ports ZIPT's StrEq.SplitEq algorithm.
@@ -1293,19 +1107,19 @@ namespace seq {
 
         // Return the current stabilizer s* for root_re from the partial DFA
         // (bypasses the novelty guard used by try_extract_partial_projection).
-        euf::snode* get_current_stabilizer(euf::snode* root_re);
+        euf::snode const* get_current_stabilizer(euf::snode const* root_re);
 
         // BFS of Brzozowski derivatives from root_re up to `depth` steps,
         // eagerly recording concrete minterm edges in the partial DFA so that
         // collect_scc_for_projection can find cycles without first waiting for
         // concrete children to record them one level at a time.
-        void precompute_partial_dfa(euf::snode* root_re, unsigned depth);
+        void precompute_partial_dfa(euf::snode const* root_re, unsigned depth);
 
         // Walk an ite-structured symbolic derivative expression and record
         // concrete DFA edges for each non-fail branch.
         // Called from simplify_and_init when a symbolic character is consumed,
         // so that cycle_decomp can detect SCCs lazily (as with concrete chars).
-        void record_dfa_edges_from_ite(euf::snode* src_re, expr* ite_deriv);
+        void record_dfa_edges_from_ite(euf::snode const* src_re, expr* ite_deriv);
 
         // generalized power introduction: for an equation where one head is
         // a variable v and the other side has ground prefix + a variable x
@@ -1316,18 +1130,11 @@ namespace seq {
         // generalized regex factorization (Boolean closure derivation rule)
         bool apply_regex_factorization(nielsen_node* node);
 
-        // Lookahead oracle for apply_regex_factorization's split() call: returns
-        // true iff the split's right component `n_regex` is prefix-compatible with
-        // the constant character sequence `c` (the tail of the factorization starts
-        // with c).  Prunes splits whose tail-regex can never match c.  Sound to
-        // apply during split generation (prefix-, not strict-, match).
-        bool split_lookahead_viable(expr* n_regex, zstring const& c);
-
         // helper for apply_gpower_intr: fires the substitution.
         // `fwd=true` uses left-to-right decomposition; `fwd=false` mirrors ZIPT's
         // backward (right-to-left) direction.
         bool fire_gpower_intro(nielsen_node* node, str_eq const& eq,
-                               euf::snode* var, euf::snode_vector const& ground_prefix_orig, bool fwd);
+                               euf::snode const* var, euf::snode_vector const& ground_prefix_orig, bool fwd);
 
         // heuristic string equation splitting. Left to right scanning for shortest prefix with matching variables.
         bool apply_signature_split(nielsen_node* node);
@@ -1353,17 +1160,17 @@ namespace seq {
         bool axiomatize_diseq(nielsen_node* node);
 
         // find the first power token in any str_eq at this node
-        static euf::snode* find_power_token(nielsen_node* node);
+        static euf::snode const* find_power_token(nielsen_node* node);
 
         // find a power token facing a constant (char/non-var) token at either end
         // of an equation; returns orientation via `fwd` (true=head, false=tail).
-        static bool find_power_vs_non_var(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out, bool& fwd);
+        static bool find_power_vs_non_var(nielsen_node* node, euf::snode const*& power, euf::snode const*& other_head, str_eq const*& eq_out, bool& fwd);
 
         // find a power token facing a variable token at either end of an
         // equation; returns orientation via `fwd` (true=head, false=tail).
-        static bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out, bool& fwd);
+        static bool find_power_vs_var(nielsen_node* node, euf::snode const*& power, euf::snode const*& var_head, str_eq const*& eq_out, bool& fwd);
 
-        static bool find_power_vs_var(nielsen_node* node, euf::snode*& power, str_mem const*& mem_out, bool& fwd);
+        static bool find_power_vs_var(nielsen_node* node, euf::snode const*& power, str_mem const*& mem_out, bool& fwd);
 
         // -----------------------------------------------
         // Integer feasibility subsolver methods
@@ -1404,7 +1211,7 @@ namespace seq {
         constraint mk_constraint(expr *fml, dep_tracker const &dep) const;
 
         // get the exponent expression from a power snode (arg(1))
-        static expr * get_power_exponent(euf::snode* power);
+        static expr * get_power_exponent(euf::snode const* power);
 
         // -----------------------------------------------
         // Modification counter methods for substitution length tracking.
@@ -1413,13 +1220,13 @@ namespace seq {
         // -----------------------------------------------
 
         // Get or create a fresh symbolic character variable for the given variable
-        expr_ref get_or_create_char_var(euf::snode* var);
+        expr_ref get_or_create_char_var(euf::snode const* var);
 
         // Get or create a fresh integer variable for gpower n (full exponent) for the given variable
-        expr_ref get_or_create_gpower_n_var(euf::snode* var);
+        expr_ref get_or_create_gpower_n_var(euf::snode const* var);
 
         // Get or create a fresh integer variable for gpower m (partial exponent) for the given variable
-        expr_ref get_or_create_gpower_m_var(euf::snode* var);
+        expr_ref get_or_create_gpower_m_var(euf::snode const* var);
 
         // Compute and add |x| = |u| length constraints to an edge for all
         // its non-eliminating substitutions. Uses current m_mod_cnt.

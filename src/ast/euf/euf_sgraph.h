@@ -115,7 +115,7 @@ namespace euf {
         expr_ref_vector  m_pin;
 
         // maps expression id to snode
-        ptr_vector<snode> m_expr2snode;
+        ptr_vector<snode const> m_expr2snode;
         
         // trail of alias entries (string constant → decomposed snode) for pop
         unsigned_vector  m_alias_trail;       // expression ids
@@ -124,11 +124,11 @@ namespace euf {
         // Oracle answering "state ∈ Q_nu" for projection derivatives. Not owned.
         projection_oracle* m_proj_oracle = nullptr;
 
-        snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args);
+        snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode const** args);
         snode_kind classify(expr* e) const;
         void compute_metadata(snode* n);
         void compute_hash_matrix(snode* n);
-        void collect_re_predicates(snode* re, expr_ref_vector& preds);
+        void collect_re_predicates(snode const* re, expr_ref_vector& preds);
 
     public:
         sgraph(ast_manager& m, egraph& eg, bool add_plugin = true);
@@ -140,10 +140,10 @@ namespace euf {
         egraph const& get_egraph() const { return m_egraph; }
 
         // register an expression and return its snode
-        snode* mk(expr* e);
+        snode const* mk(expr* e);
 
         // lookup an already-registered expression
-        snode* find(expr* e) const;
+        snode const* find(expr* e) const;
 
         // register expression in both sgraph and egraph
         enode* mk_enode(expr* e);
@@ -151,27 +151,27 @@ namespace euf {
         sort* get_str_sort() const { return m_str_sort; }
 
         // return true if a, b are of the same length and distinct
-        bool are_unit_distinct(snode *a, snode *b) const;
+        bool are_unit_distinct(snode const* a, snode const* b) const;
 
         // factory methods for creating snodes with corresponding expressions
-        snode* mk_var(symbol const& name, sort* s);
-        snode* mk_char(unsigned ch);
-        snode *mk_empty_seq(sort *s);
-        snode* mk_concat(snode* a, snode* b);
+        snode const* mk_var(symbol const& name, sort* s);
+        snode const* mk_char(unsigned ch);
+        snode const *mk_empty_seq(sort *s);
+        snode const* mk_concat(snode const* a, snode const* b);
 
         // drop operations: remove tokens from the front/back of a concat tree
-        snode* drop_first(snode* n);
-        snode* drop_last(snode* n);
-        snode* drop_left(snode* n, unsigned count);
-        snode* drop_right(snode* n, unsigned count);
+        snode const* drop_first(snode const* n);
+        snode const* drop_last(snode const* n);
+        snode const* drop_left(snode const* n, unsigned count);
+        snode const* drop_right(const snode* n, unsigned count);
 
         // substitution: replace all occurrences of var in n by replacement
-        snode* subst(snode* n, snode* var, snode* replacement);
+        snode const* subst(snode const* n, snode const* var, snode const* replacement);
 
         // Brzozowski derivative of regex re with respect to element elem.
         // allowed_range can explicitly provide a concrete character or range to use
         // for deriving symbolic variables.
-        snode* brzozowski_deriv(snode* re, snode* elem);
+        snode const* brzozowski_deriv(snode const* re, snode const* elem);
 
         // Register the oracle consulted when deriving projection operators.
         // Passing nullptr unregisters. Not owned.
@@ -190,19 +190,19 @@ namespace euf {
         expr_ref wrap_proj(expr* e, expr* root, unsigned nu);
         // Projection-aware Brzozowski derivative w.r.t. a character expr
         // (concrete or symbolic).
-        snode* deriv_proj(snode* re, expr* ch);
+        snode const* deriv_proj(snode const* re, expr* ch);
 
         // Projection-aware nullability: lifts re.get_info().nullable to regexes
         // that may contain projection operators. Returns l_true / l_false
         // (l_undef only if an underlying projection-free subterm is undef).
-        lbool re_nullable(snode* re);
+        lbool re_nullable(snode const* re);
 
         // Decode a character expression that may be represented as a const-char,
         // a unit string containing a const-char, or a one-character string literal.
         bool decode_re_char(expr* ex, unsigned& out) const;
 
         // compute minterms (character class partition) from a regex
-        void compute_minterms(snode* re, snode_vector& minterms);
+        void compute_minterms(snode const* re, snode_vector& minterms);
 
         // scope management for backtracking
         void push();

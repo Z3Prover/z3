@@ -60,23 +60,23 @@ public:
 struct str_builder {
     euf::sgraph& sg;
     seq_util& su;
-    euf::snode* vars[26] = {};      // vars['A'-'A'] .. vars['Z'-'A']
+    euf::snode const* vars[26] = {};      // vars['A'-'A'] .. vars['Z'-'A']
 
     str_builder(euf::sgraph& sg, seq_util& su) : sg(sg), su(su) {}
 
-    euf::snode* var(char c) {
-        int idx = c - 'A';
+    euf::snode const* var(const char c) {
+        const int idx = c - 'A';
         if (!vars[idx])
             vars[idx] = sg.mk_var(symbol(std::string(1, c).c_str()), su.str.mk_string_sort());
         return vars[idx];
     }
 
-    euf::snode* parse(const char* s) {
-        euf::snode* result = nullptr;
+    euf::snode const* parse(const char* s) {
+        euf::snode const* result = nullptr;
         for (const char* p = s; *p; ++p) {
-            euf::snode* tok = (*p >= 'A' && *p <= 'Z')
+            euf::snode const* tok = (*p >= 'A' && *p <= 'Z')
                 ? var(*p)
-                : sg.mk_char((unsigned)(unsigned char)*p);
+                : sg.mk_char((unsigned char)*p);
             result = result ? sg.mk_concat(result, tok) : tok;
         }
         return result ? result : sg.mk_empty_seq(su.str.mk_string_sort());
@@ -99,20 +99,20 @@ struct regex_builder {
         re_sort = su.re.mk_re(su.str.mk_string_sort());
     }
 
-    euf::snode* parse(const char* s) {
+    euf::snode const* parse(const char* s) {
         int pos = 0;
-        expr_ref e = parse_union(s, pos, (int)strlen(s));
+        const expr_ref e = parse_union(s, pos, (int)strlen(s));
         SASSERT(pos == (int)strlen(s));
         return sg.mk(e.get());
     }
 
 private:
-    expr_ref mk_char_re(char c) {
-        zstring zs(std::string(1, c).c_str());
+    expr_ref mk_char_re(const char c) const {
+        const zstring zs(std::string(1, c).c_str());
         return expr_ref(su.re.mk_to_re(su.str.mk_string(zs)), m);
     }
 
-    expr_ref parse_union(const char* s, int& pos, int len) {
+    expr_ref parse_union(const char* s, int& pos, const int len) {
         expr_ref left = parse_inter(s, pos, len);
         while (pos < len && s[pos] == '|') {
             ++pos;
@@ -122,7 +122,7 @@ private:
         return left;
     }
 
-    expr_ref parse_inter(const char* s, int& pos, int len) {
+    expr_ref parse_inter(const char* s, int& pos, const int len) {
         expr_ref left = parse_concat(s, pos, len);
         while (pos < len && s[pos] == '&') {
             ++pos;
@@ -132,7 +132,7 @@ private:
         return left;
     }
 
-    expr_ref parse_concat(const char* s, int& pos, int len) {
+    expr_ref parse_concat(const char* s, int& pos, const int len) {
         expr_ref acc(m);
         while (pos < len && s[pos] != ')' && s[pos] != '|' && s[pos] != '&') {
             expr_ref tok = parse_repeat(s, pos, len);
@@ -141,7 +141,7 @@ private:
         return acc ? acc : expr_ref(su.re.mk_to_re(su.str.mk_string(zstring(""))), m);
     }
 
-    expr_ref parse_repeat(const char* s, int& pos, int len) {
+    expr_ref parse_repeat(const char* s, int& pos, const int len) {
         // collect leading tildes (complement)
         int tildes = 0;
         while (pos < len && s[pos] == '~') { ++tildes; ++pos; }
@@ -160,10 +160,10 @@ private:
         return base;
     }
 
-    expr_ref parse_primary(const char* s, int& pos, int len) {
+    expr_ref parse_primary(const char* s, int& pos, const int len) {
         if (pos >= len)
             return expr_ref(su.re.mk_to_re(su.str.mk_string(zstring(""))), m);
-        char c = s[pos];
+        const char c = s[pos];
         if (c == '(') {
             ++pos;
             expr_ref inner = parse_union(s, pos, len);
@@ -197,8 +197,8 @@ struct nseq_fixture {
         : eg(init(m)), sg(m, eg), dummy_solver(), context_solver(), ng(sg, dummy_solver, context_solver), su(m), sb(sg, su), rb(m, su, sg)
     {}
 
-    euf::snode* S(const char* s) { return sb.parse(s); }
-    euf::snode* R(const char* s) { return rb.parse(s); }
+    euf::snode const* S(const char* s) { return sb.parse(s); }
+    euf::snode const* R(const char* s) { return rb.parse(s); }
 };
 
 static constexpr int TEST_TIMEOUT_SEC = 2;

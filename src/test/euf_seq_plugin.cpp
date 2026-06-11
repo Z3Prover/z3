@@ -19,8 +19,9 @@ static euf::enode* get_node(euf::egraph& g, seq_util& seq, expr* e) {
     if (n) return n;
     euf::enode_vector args;
     if (is_app(e))
-        for (expr* arg : *to_app(e))
+        for (expr* arg : *to_app(e)) {
             args.push_back(get_node(g, seq, arg));
+        }
     n = g.mk(e, 0, args.size(), args.data());
     if (seq.is_seq(e) || seq.is_re(e))
         g.add_th_var(n, ++s_var, seq.get_family_id());
@@ -42,20 +43,20 @@ static void test_sgraph_basic() {
     expr_ref empty(seq.str.mk_empty(str_sort), m);
     expr_ref xy(seq.str.mk_concat(x, y), m);
 
-    euf::snode* sx = sg.mk(x);
+    euf::snode const* sx = sg.mk(x);
     SASSERT(sx);
     SASSERT(sx->is_var());
     SASSERT(!sx->is_ground());
     SASSERT(sx->is_regex_free());
     SASSERT(sx->length() == 1);
 
-    euf::snode* se = sg.mk(empty);
+    euf::snode const* se = sg.mk(empty);
     SASSERT(se);
     SASSERT(se->is_empty());
     SASSERT(se->is_ground());
     SASSERT(se->length() == 0);
 
-    euf::snode* sxy = sg.mk(xy);
+    euf::snode const* sxy = sg.mk(xy);
     SASSERT(sxy);
     SASSERT(sxy->is_concat());
     SASSERT(!sxy->is_ground());
@@ -169,7 +170,7 @@ static void test_seq_plugin_star_merge() {
 
     // register in sgraph
     sg.mk(star_star);
-    euf::snode* s = sg.find(star_x);
+    euf::snode const* s = sg.find(star_x);
     SASSERT(s && s->is_star());
 
     std::cout << g << "\n";

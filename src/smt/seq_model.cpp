@@ -51,11 +51,11 @@ namespace smt {
     class seq_snode_value_proc : public model_value_proc {
         seq_model& m_owner;
         enode* m_node;
-        euf::snode* m_snode;
-        ptr_vector<enode> m_dependencies;
+        euf::snode const* m_snode;
+        enode_vector m_dependencies;
 
     public:
-        seq_snode_value_proc(seq_model& owner, enode* node, euf::snode* snode)
+        seq_snode_value_proc(seq_model& owner, enode* node, euf::snode const* snode)
             : m_owner(owner), m_node(node), m_snode(snode) {
             m_owner.collect_dependencies(m_snode, m_dependencies);
         }
@@ -84,7 +84,7 @@ namespace smt {
     // internalization and one re-created during the Nielsen search), so snode
     // ids are NOT a reliable key. Expressions are perfectly shared, so their
     // id is stable across all snodes that denote the same term.
-    static unsigned var_key(euf::snode* n) {
+    static unsigned var_key(euf::snode const* n) {
         return n->first()->get_expr()->get_id();
     }
 
@@ -159,7 +159,7 @@ namespace smt {
         }
 
         // look up snode for this expression
-        euf::snode* sn = m_sg.find(e);
+        euf::snode const* sn = m_sg.find(e);
         IF_VERBOSE(2, {
             verbose_stream() << "nseq mk_value: expr=" << mk_bounded_pp(e, m, 2);
             if (sn) verbose_stream() << " snode[" << sn->id() << "] kind=" << (int)sn->kind();
@@ -197,7 +197,7 @@ namespace smt {
         // When a new substitution (s.m_var -> s.m_replacement) is applied,
         // substitute s.m_var in all existing values, then record the new binding.
 
-        vector<std::pair<euf::snode*, euf::snode*>> bindings;
+        vector<std::pair<euf::snode const*, euf::snode const*>> bindings;
         for (seq::nielsen_edge* e : sat_path) {
             for (seq::nielsen_subst const& s : e->subst()) {
                 SASSERT(s.m_var);
@@ -226,9 +226,9 @@ namespace smt {
         }
     }
     
-    void seq_model::collect_dependencies(euf::snode *n, ptr_vector<enode> &deps) const {
+    void seq_model::collect_dependencies(euf::snode const* n, enode_vector &deps) const {
         uint_set seen;
-        buffer<euf::snode*> todo;
+        buffer<euf::snode const*> todo;
         todo.push_back(n);
         while (!todo.empty()) {
             auto curr = todo.back();
@@ -259,7 +259,7 @@ namespace smt {
                 // when using the dependencies to build a value for n we should
                 // map the values that are passed in to the sub-terms that are listed as dependencies.
                 // sub-terms are under concat, power and unit
-                euf::snode *replacement = nullptr;
+                euf::snode const* replacement = nullptr;
                 if (m_var_replacement.find(var_key(curr), replacement))
                     todo.push_back(replacement);
             }
@@ -278,7 +278,7 @@ namespace smt {
         // verbose_stream() << "collect " << mk_pp(n->get_expr(), m) << " " << deps.size() << "\n";
     }
    
-    expr_ref seq_model::snode_to_value(euf::snode *n, ptr_vector<enode> const &deps, expr_ref_vector const &values) {
+    expr_ref seq_model::snode_to_value(euf::snode const* n, enode_vector const &deps, expr_ref_vector const &values) {
         // var2value: leaf deps keyed by expression ID (populated from `deps`/`values`).
         // node2value: computed nodes keyed by (snode_id * 2 + is_recursive).
         // The recursion flag is part of the key because the SAME variable snode
@@ -288,12 +288,12 @@ namespace smt {
         u_map<expr *> var2value;
         u_map<expr *> node2value;
         // resolve: check leaf deps by expression ID, computed nodes by (snode,recursive) key.
-        auto resolve = [&](euf::snode* s, expr*& out) -> bool {
+        auto resolve = [&](euf::snode const* s, expr*& out) -> bool {
             if (var2value.find(s->get_expr()->get_id(), out))
                 return true;
             return node2value.find(s->id(), out);
         };
-        buffer<euf::snode *> todo;
+        buffer<euf::snode const* > todo;
         for (unsigned i = 0; i < deps.size(); ++i) {
             var2value.insert(deps[i]->get_expr_id(), values[i]);
         }
@@ -355,7 +355,7 @@ namespace smt {
                     continue; // not all arguments processed yet, will retry after children
             }
             else if (curr->is_var()) {
-                euf::snode *replacement = nullptr;
+                euf::snode const* replacement = nullptr;
                 if (m_var_replacement.find(var_key(curr), replacement)) {
                     // outer variable: its value is the value of its replacement.
                     expr* rv = nullptr;
@@ -386,7 +386,7 @@ namespace smt {
         return expr_ref(result, m);
     }
 
-    expr* seq_model::get_var_value(euf::snode* var) {
+    expr* seq_model::get_var_value(euf::snode const* var) {
         SASSERT(var);
         const unsigned key = var_key(var);
         expr* val = nullptr;
@@ -434,13 +434,13 @@ namespace smt {
         return val;
     }
 
-    expr* seq_model::mk_fresh_value(euf::snode* var) {
+    expr* seq_model::mk_fresh_value(euf::snode const* var) {
         SASSERT(var->get_expr());
         SASSERT(m_seq.is_seq(var->get_expr()));
         auto  srt = var->get_expr()->get_sort();
 
         // check if this variable has regex constraints
-        euf::snode* re = nullptr;
+        euf::snode const* re = nullptr;
         unsigned key = var_key(var);
         if (m_var_regex.find(key, re) && re) {
             expr* re_expr = re->get_expr();
@@ -517,9 +517,8 @@ namespace smt {
         return m_seq.str.mk_empty(srt);
     }
 
-    lbool seq_model::projection_witness(euf::snode* re0, expr_ref& witness) {
-        if (!re0 || !re0->get_expr())
-            return l_undef;
+    lbool seq_model::projection_witness(euf::snode const* re0, expr_ref& witness) const {
+        SASSERT(re0 && re0->get_expr());
         sort* seq_sort = nullptr;
         if (!m_seq.is_re(re0->get_expr(), seq_sort))
             return l_undef;
@@ -529,7 +528,7 @@ namespace smt {
         // accepting when re_nullable (projection-aware) reports nullable.
         // The regex carries the length intersection (∩ Σ^n), so an accepting
         // run has exactly the requested length and the search is finite.
-        vector<std::pair<euf::snode*, zstring>> work;
+        vector<std::pair<euf::snode const*, zstring>> work;
         work.push_back({re0, zstring()});
         uint_set visited;
         visited.insert(re0->id());
@@ -537,7 +536,7 @@ namespace smt {
         unsigned head = 0;
         const unsigned MAX_STATES = 100000;
         while (head < work.size() && head < MAX_STATES) {
-            euf::snode* st = work[head].first;
+            euf::snode const* st = work[head].first;
             zstring w = work[head].second;
             ++head;
 
@@ -550,8 +549,8 @@ namespace smt {
 
             euf::snode_vector mts;
             m_sg.compute_minterms(st, mts);
-            for (euf::snode* mt : mts) {
-                euf::snode* d = m_sg.brzozowski_deriv(st, mt);
+            for (euf::snode const* mt : mts) {
+                euf::snode const* d = m_sg.brzozowski_deriv(st, mt);
                 if (!d || d->is_fail())
                     continue;
                 if (visited.contains(d->id()))
@@ -584,7 +583,7 @@ namespace smt {
                 continue; // empty string in nullable regex: already satisfied, no variable to constrain
             VERIFY(mem.is_primitive()); // everything else should have been eliminated already
             unsigned id = var_key(mem.m_str);
-            euf::snode* existing = nullptr;
+            euf::snode const* existing = nullptr;
             if (m_var_regex.find(id, existing) && existing) {
                 // intersect with existing constraint:
                 // build re.inter(existing, new_regex)
@@ -592,7 +591,7 @@ namespace smt {
                 expr* e2 = mem.m_regex->get_expr();
                 if (e1 && e2) {
                     expr_ref inter(m_seq.re.mk_inter(e1, e2), m);
-                    euf::snode* inter_sn = m_sg.mk(inter);
+                    euf::snode const* inter_sn = m_sg.mk(inter);
                     SASSERT(inter_sn);
                     m_var_regex.insert(id, inter_sn);
                 }
@@ -623,7 +622,7 @@ namespace smt {
 #if 0
 // retained in case we want to reconstruct small power unfoldings.
 
-    expr_ref seq_model::snode_to_value(euf::snode* n, expr_ref_vector const& values) {
+    expr_ref seq_model::snode_to_value(euf::snode const* n, expr_ref_vector const& values) {
         SASSERT(n);
         if (n->is_empty()) {
             sort* srt = n->get_sort();
@@ -659,7 +658,7 @@ namespace smt {
         }
 
         if (n->is_var()) {
-            euf::snode *replacement = nullptr;
+            euf::snode const* replacement = nullptr;
             if (!m_var_replacement.find(n->id(), replacement))
                 return expr_ref(get_var_value(n), m);            
             return mk_value_with_dependencies(replacement, values);

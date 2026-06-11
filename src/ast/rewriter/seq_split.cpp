@@ -39,7 +39,7 @@ void seq_split::push(split_set& out, split_oracle const& oracle, expr* d, expr* 
 // Pairs where any component is bottom (the empty regex) are dropped.
 bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& result,
                           unsigned threshold, split_oracle const& oracle) {
-    seq_util::rex& r = re();
+    const seq_util::rex& r = re();
     for (auto const& p1 : s1) {
         for (auto const& p2 : s2) {
             if (r.is_empty(p1.m_d) || r.is_empty(p2.m_d) ||

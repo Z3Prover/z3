@@ -41,7 +41,7 @@ namespace smt {
         seq_rewriter   m_rewriter;
         arith_value    m_arith_value;
         euf::egraph    m_egraph;  // private egraph (not shared with smt context)
-        euf::sgraph    m_sgraph;  // private sgraph
+        euf::sgraph    m_sg;  // private sgraph
         // m_context_solver must be declared before m_nielsen: its address is passed
         // to the m_nielsen constructor and must remain stable for the object's lifetime.
         sub_solver m_length_solver;
@@ -147,7 +147,7 @@ namespace smt {
         }
         void set_propagate(enode_pair_vector const &eqs, literal_vector const &lits, literal p);
         bool add_nielsen_assumptions();
-        euf::snode* get_snode(expr* e);
+        euf::snode const* get_snode(expr* e);
 
         // propagation dispatch helpers
         void propagate_eq(tracked_str_eq const& eq) const;
