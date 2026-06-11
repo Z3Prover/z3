@@ -424,25 +424,24 @@ public:
         return m_solver.num_vars();
     }
 
-    unsigned get_bool_var(expr* e) const override {
+    sat::bool_var get_bool_var(expr* e) const override {
         m.is_not(e, e);
-        auto bv = m_map.to_bool_var(atom);
-        return bv == sat::null_bool_var ? UINT_MAX : bv;
+        return m_map.to_bool_var(e);
     }
 
-    expr* bool_var2expr(unsigned v) const override {
+    expr* bool_var2expr(sat::bool_var v) const override {
         return v < m_solver.num_vars() ? m_map.bool_var2expr(v) : nullptr;
     }
 
-    lbool get_assignment(unsigned v) const override {
+    lbool get_assignment(sat::bool_var v) const override {
         return v < m_solver.num_vars() ? m_solver.value(v) : l_undef;
     }
 
-    double get_activity(unsigned v) const override {
+    double get_activity(sat::bool_var v) const override {
         return v < m_solver.num_vars() ? static_cast<double>(m_solver.get_activity(v)) : 0.0;
     }
 
-    bool was_eliminated(unsigned v) const override {
+    bool was_eliminated(sat::bool_var v) const override {
         return v < m_solver.num_vars() && m_solver.was_eliminated(v);
     }
 
