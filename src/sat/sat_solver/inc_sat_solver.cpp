@@ -406,16 +406,14 @@ public:
     }
 
     unsigned get_assign_level(expr* e) const override {
-        expr* atom = e;
-        m.is_not(e, atom);
-        sat::bool_var bv = m_map.to_bool_var(atom);
+        m.is_not(e, e);
+        sat::bool_var bv = m_map.to_bool_var(e);
         return bv == sat::null_bool_var ? UINT_MAX : m_solver.lvl(bv);
     }
 
     bool is_relevant(expr* e) const override {
-        expr* atom = e;
-        m.is_not(e, atom);
-        sat::bool_var bv = m_map.to_bool_var(atom);
+        m.is_not(e, e);
+        sat::bool_var bv = m_map.to_bool_var(e);
         if (bv == sat::null_bool_var)
             return true;
         auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
@@ -427,9 +425,8 @@ public:
     }
 
     unsigned get_bool_var(expr* e) const override {
-        expr* atom = e;
-        m.is_not(e, atom);
-        sat::bool_var bv = m_map.to_bool_var(atom);
+        m.is_not(e, e);
+        auto bv = m_map.to_bool_var(atom);
         return bv == sat::null_bool_var ? UINT_MAX : bv;
     }
 
