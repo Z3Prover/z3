@@ -69,6 +69,7 @@ enum seq_op_kind {
     OP_RE_UNION,
     OP_RE_DIFF,
     OP_RE_INTERSECT,
+    OP_RE_XOR,
     OP_RE_LOOP,
     OP_RE_POWER,
     OP_RE_COMPLEMENT,
@@ -495,6 +496,7 @@ public:
             info disj(info const& rhs) const;
             info conj(info const& rhs) const; 
             info diff(info const& rhs) const;
+            info xor_(info const& rhs) const;
             info orelse(info const& rhs) const;
             info loop(unsigned lower, unsigned upper) const;
 
@@ -527,6 +529,7 @@ public:
         app* mk_union(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_UNION, r1, r2); }
         app* mk_inter(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_INTERSECT, r1, r2); }
         app* mk_diff(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_DIFF, r1, r2); }
+        app* mk_xor(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_XOR, r1, r2); }
         app* mk_complement(expr* r) { return m.mk_app(m_fid, OP_RE_COMPLEMENT, r); }
         app* mk_star(expr* r) { return m.mk_app(m_fid, OP_RE_STAR, r); }
         app* mk_plus(expr* r) { return m.mk_app(m_fid, OP_RE_PLUS, r); }
@@ -550,6 +553,7 @@ public:
         bool is_union(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_UNION); }
         bool is_intersection(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_INTERSECT); }
         bool is_diff(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_DIFF); }
+        bool is_xor(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_XOR); }
         bool is_complement(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_COMPLEMENT); }
         bool is_star(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_STAR); }
         bool is_plus(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_PLUS); }
@@ -582,6 +586,7 @@ public:
         MATCH_BINARY(is_union);
         MATCH_BINARY(is_intersection);
         MATCH_BINARY(is_diff);
+        MATCH_BINARY(is_xor);
         MATCH_BINARY(is_range);
         MATCH_UNARY(is_complement);
         MATCH_UNARY(is_star);

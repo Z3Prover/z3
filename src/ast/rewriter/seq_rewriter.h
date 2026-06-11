@@ -137,7 +137,8 @@ class seq_rewriter {
     // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
-    bool           m_coalesce_chars;    
+    bool           m_coalesce_chars;
+    bool           m_in_bisim { false };
 
     enum length_comparison {
         shorter_c, 
@@ -182,6 +183,7 @@ class seq_rewriter {
     expr_ref mk_der_concat(expr* a, expr* b);
     expr_ref mk_der_union(expr* a, expr* b);
     expr_ref mk_der_inter(expr* a, expr* b);
+    expr_ref mk_der_xor(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
     expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
     expr_ref mk_der_antimirov_union(expr* r1, expr* r2);
@@ -264,6 +266,8 @@ class seq_rewriter {
     br_status mk_re_complement(expr* a, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
+    br_status mk_re_xor(expr* a, expr* b, expr_ref& result);
+    br_status mk_re_xor0(expr* a, expr* b, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
     br_status mk_re_power(func_decl* f, expr* a, expr_ref& result);
@@ -383,6 +387,18 @@ public:
         return result;
     }
 
+    /*
+     * Construct r1 XOR r2 applying the structural rewrites in
+     * mk_re_xor (r XOR r = empty, comp/empty/full normalisation, AC
+     * ordering). Used by the bisimulation procedure.
+     */
+    expr_ref mk_re_xor_simplified(expr* r1, expr* r2) {
+        expr_ref result(m());
+        if (mk_re_xor(r1, r2, result) == BR_FAILED)
+            result = re().mk_xor(r1, r2);
+        return result;
+    }
+
     // Split decomposition (sigma) of a regex; see seq_split.h.  `oracle` (optional)
     // prunes non-viable splits during generation.
     bool split(expr* r, split_set& out, unsigned threshold,
@@ -421,6 +437,17 @@ public:
     for example mk_derivative(a+) = (if (v0 = 'a') then a* else [])
     */
     expr_ref mk_derivative(expr* r);
+
+    /*
+    Classical (non-antimirov) Brzozowski derivative wrt the canonical
+    variable v0 = (:var 0). Unlike `mk_derivative` this entry point keeps
+    the symbolic derivative as a single transition regex (TRegex): boolean
+    operators are pushed into the ITE leaves rather than lifted to the top
+    via _OP_RE_ANTIMIROV_UNION. Used by the regex_bisim equivalence
+    procedure which relies on each leaf of D(p XOR q) being a coherent
+    XOR pair (D_v p) XOR (D_v q).
+    */
+    expr_ref mk_brz_derivative(expr* r);
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.

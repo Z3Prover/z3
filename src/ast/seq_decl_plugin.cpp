@@ -231,6 +231,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_UNION]      = alloc(psig, m, "re.union",     1, 2, reAreA, reA);
     m_sigs[OP_RE_INTERSECT]  = alloc(psig, m, "re.inter",     1, 2, reAreA, reA);
     m_sigs[OP_RE_DIFF]       = alloc(psig, m, "re.diff",      1, 2, reAreA, reA);
+    m_sigs[OP_RE_XOR]        = alloc(psig, m, "re.xor",       1, 2, reAreA, reA);
     m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re.loop",    1, 1, &reA, reA);
     m_sigs[OP_RE_POWER]          = alloc(psig, m, "re.^", 1, 1, &reA, reA);
     m_sigs[OP_RE_COMPLEMENT]     = alloc(psig, m, "re.comp", 1, 1, &reA, reA);
@@ -508,6 +509,7 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_RE_CONCAT:
     case OP_RE_INTERSECT:
     case OP_RE_DIFF:
+    case OP_RE_XOR:
         m_has_re = true;
         return mk_left_assoc_fun(k, arity, domain, range, k, k);
 
@@ -1518,6 +1520,13 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         print(out, r2);
         out << ")";
     }
+    else if (re.is_xor(e, r1, r2)) {
+        out << "(";
+        print(out, r1);
+        out << ")XOR(";
+        print(out, r2);
+        out << ")";
+    }
     else if (re.m.is_ite(e, s, r1, r2)) {
         out << (html_encode ? "(&#x1D422;&#x1D41F; " : "(if ");
         print(out, s);
@@ -1707,6 +1716,10 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
             return i1.diff(i2);
+        case OP_RE_XOR:
+            i1 = get_info_rec(e->get_arg(0));
+            i2 = get_info_rec(e->get_arg(1));
+            return i1.xor_(i2);
         }
         return unknown_info;
     }
@@ -1823,6 +1836,25 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) co
             return info(interpreted & rhs.interpreted,
                 ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
                 std::max(min_length, rhs.min_length),
+                false);
+        }
+        else
+            return rhs;
+    }
+    else
+        return *this;
+}
+
+seq_util::rex::info seq_util::rex::info::xor_(seq_util::rex::info const& rhs) const {
+    if (is_known()) {
+        if (rhs.is_known()) {
+            // Null(p XOR q) = Null(p) XOR Null(q)
+            lbool xor_nullable = l_undef;
+            if (nullable != l_undef && rhs.nullable != l_undef)
+                xor_nullable = (nullable == rhs.nullable) ? l_false : l_true;
+            return info(interpreted & rhs.interpreted,
+                xor_nullable,
+                0,
                 false);
         }
         else
