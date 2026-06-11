@@ -523,6 +523,9 @@ namespace seq {
             m_br.mk_not(is_nullable(r2), result);
             m_br.mk_and(result, is_nullable(r1), result);
         }
+        else if (re().is_xor(r, r1, r2)) {
+            m_br.mk_xor(is_nullable(r1), is_nullable(r2), result);
+        }
         else if (re().is_star(r) ||
             re().is_opt(r) ||
             re().is_full_seq(r) ||
