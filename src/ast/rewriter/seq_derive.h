@@ -61,13 +61,12 @@ namespace seq {
 
         // Cache: maps (ele, regex) pair to its derivative
         obj_pair_map<expr, expr, expr*> m_cache;
-        obj_pair_map<expr, expr, expr*> m_top_cache; // post-simplify cache
+        obj_map<expr, expr*> m_top_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
 
         // Op cache for ITE-hoisting operations (union, inter, concat, complement)
         // Path-aware caches: key is (a, b, path_expr) for binary ops, (a, path_expr) for complement
-        obj_triple_map<expr, expr, expr, expr*> m_union_cache;
-        obj_triple_map<expr, expr, expr, expr*> m_inter_cache;
+        obj_triple_map<expr, expr, expr, expr *> m_union_cache, m_inter_cache, m_xor_cache;
         obj_pair_map<expr, expr, expr*> m_concat_cache;
         obj_pair_map<expr, expr, expr*> m_complement_cache;
 
@@ -140,6 +139,7 @@ namespace seq {
         expr_ref mk_complement_core(expr* a);
         expr_ref mk_xor(expr *a, expr *b);
         expr_ref mk_xor_core(expr *a, expr *b);
+        expr_ref mk_core(decl_kind k, expr* a, expr* b);
         expr_ref mk_ite(expr* c, expr* t, expr* e);
 
         // Distribute concatenation through ITE/union in derivative

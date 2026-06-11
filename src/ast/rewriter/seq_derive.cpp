@@ -23,6 +23,7 @@ Authors:
 
 #include "ast/rewriter/seq_derive.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -68,22 +69,34 @@ namespace seq {
             reset();
         else if (m_trail.size() > 100000)
             reset_op_caches();
+        sort *seq_sort = nullptr, *ele_sort = nullptr;
+        VERIFY(m_util.is_re(r, seq_sort));
+        VERIFY(m_util.is_seq(seq_sort, ele_sort));
+        expr_ref v(m.mk_var(0, ele_sort), m);
         // Check top-level cache (post-simplify result)
         expr* cached = nullptr;
-        if (m_top_cache.find(ele, r, cached))
-            return expr_ref(cached, m);
-        m_ele = ele;
-        m_depth = 0;
-        // Initialize path state for inline pruning
-        m_path.reset();
-        m_intervals.reset();
-        m_intervals.push_back(std::make_pair(0u, u().max_char()));
-        m_intervals_start = 0;
-        m_path_expr = m.mk_true();
-        expr_ref result = derive_rec(r);
+        expr_ref result(m);
+        if (m_top_cache.find(r, cached)) {
+            result = cached;
+        }
+        else {
+            m_ele = ele;
+            m_depth = 0;
+            // Initialize path state for inline pruning
+            m_path.reset();
+            m_intervals.reset();
+            m_intervals.push_back(std::make_pair(0u, u().max_char()));
+            m_intervals_start = 0;
+            m_path_expr = m.mk_true();
+            result = derive_rec(r);
+            m_top_cache.insert(r, result);
+        }
+        if (v != ele) {
+            var_subst subst(m);
+            result = subst(result, 1, &ele);
+        }
         m_ele = nullptr;
         // Cache and pin the final result
-        m_top_cache.insert(ele, r, result);
         m_trail.push_back(ele);
         m_trail.push_back(r);
         m_trail.push_back(result);
@@ -490,6 +503,14 @@ namespace seq {
         sort* seq_sort = nullptr;
         unsigned lo = 0, hi = 0;
         zstring s1;
+        if (m_util.is_re(r)) {
+            auto info = re().get_info(r);
+            switch (info.nullable) {
+            case l_true: return expr_ref(m.mk_true(), m);
+            case l_false: return expr_ref(m.mk_false(), m);
+            default: break;
+            }
+        }
         expr_ref result(m);
         if (re().is_concat(r, r1, r2) ||
             re().is_intersection(r, r1, r2)) {
@@ -628,7 +649,7 @@ namespace seq {
     }
 
     expr_ref derive::mk_xor(expr *a, expr *b) {
-        return mk_xor_core(a, b);
+        return mk_core(OP_RE_XOR, a, b);
     }
 
     expr_ref derive::mk_xor_core(expr *a, expr *b) {
@@ -644,17 +665,26 @@ namespace seq {
         return m_re.mk_xor0(a, b);
     }
 
-    expr_ref derive::mk_union(expr* a, expr* b) {
-        // Check path-aware op cache
-        expr* pe = get_path_expr();
-        expr* cached = nullptr;
-        if (m_union_cache.find(a, b, pe, cached))
+    expr_ref derive::mk_core(decl_kind k, expr* a, expr* b) {
+        expr *pe = get_path_expr();
+        expr *cached = nullptr;
+        auto& cache = k == OP_RE_UNION ? m_union_cache : k == OP_RE_INTERSECT ? m_inter_cache : m_xor_cache;
+        if (cache.find(a, b, pe, cached))
             return expr_ref(cached, m);
-
-        expr_ref result = mk_union_core(a, b);
-
+        expr_ref result(m);
+        switch (k) { 
+        case OP_RE_UNION:
+            result = mk_union_core(a, b); 
+            break;
+        case OP_RE_INTERSECT:
+            result = mk_inter_core(a, b); 
+            break;
+        default:
+            UNREACHABLE(); 
+            break;
+        }
         // Store in cache
-        m_union_cache.insert(a, b, pe, result);
+        cache.insert(a, b, pe, result);
         m_trail.push_back(a);
         m_trail.push_back(b);
         m_trail.push_back(pe);
@@ -662,14 +692,13 @@ namespace seq {
         return result;
     }
 
+    expr_ref derive::mk_union(expr* a, expr* b) {
+        return mk_core(OP_RE_UNION, a, b);
+    }
+
     // Lightweight structural subsumption: checks if L(a) ⊆ L(b)
     bool derive::is_subset(expr* a, expr* b) {
         return m_re.is_subset(a, b);
-    }
-
-    unsigned derive::union_id(expr* e) {
-        expr* c = nullptr;
-        return re().is_complement(e, c) ? c->get_id() : e->get_id();
     }
 
     bool derive::are_complements(expr* a, expr* b) {
@@ -699,26 +728,10 @@ namespace seq {
     }
 
     expr_ref derive::mk_inter(expr* a, expr* b) {
-        // Check path-aware op cache
-        expr* pe = get_path_expr();
-        expr* cached = nullptr;
-        if (m_inter_cache.find(a, b, pe, cached))
-            return expr_ref(cached, m);
-
-        expr_ref result = mk_inter_core(a, b);
-
-        // Store in cache
-        m_inter_cache.insert(a, b, pe, result);
-        m_trail.push_back(a);
-        m_trail.push_back(b);
-        m_trail.push_back(pe);
-        m_trail.push_back(result);
-        return result;
+        return mk_core(OP_RE_INTERSECT, a, b);
     }
 
     expr_ref derive::mk_inter_core(expr* a, expr* b) {
-        if (a->get_id() > b->get_id())
-            std::swap(a, b);
 
         // Subsumption covers: a==b, empty(a), empty(b), full(a), full(b), etc.
         if (is_subset(a, b)) return expr_ref(a, m);
