@@ -22,6 +22,7 @@ Notes:
 #include "solver/check_sat_result.h"
 #include "solver/progress_callback.h"
 #include "util/params.h"
+#include "util/sat_literal.h"
 
 class solver;
 class model_converter;
@@ -309,11 +310,11 @@ public:
     virtual unsigned get_assign_level(expr* e) const { return UINT_MAX; }
     virtual bool is_relevant(expr* e) const { return true; }
     virtual unsigned get_num_bool_vars() const { return UINT_MAX; }
-    virtual unsigned get_bool_var(expr* e) const { return UINT_MAX; }
-    virtual expr* bool_var2expr(unsigned) const { return nullptr; }
-    virtual lbool get_assignment(unsigned) const { return l_undef; }
-    virtual double get_activity(unsigned) const { return 0.0; }
-    virtual bool was_eliminated(unsigned) const { return false; }
+    virtual sat::bool_var get_bool_var(expr* e) const { return sat::null_bool_var; }
+    virtual expr* bool_var2expr(sat::bool_var) const { return nullptr; }
+    virtual lbool get_assignment(sat::bool_var) const { return l_undef; }
+    virtual double get_activity(sat::bool_var) const { return 0.0; }
+    virtual bool was_eliminated(sat::bool_var) const { return false; }
 
     virtual void pop_to_base_level() {}
 

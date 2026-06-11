@@ -251,11 +251,11 @@ namespace {
             return const_cast<smt::kernel&>(m_context).get_context().get_num_bool_vars();
         }
 
-        unsigned get_bool_var(expr* e) const override {
+        sat::bool_var get_bool_var(expr* e) const override {
             auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
             expr* atom = e;
             get_manager().is_not(e, atom);
-            return ctx.b_internalized(atom) ? ctx.get_bool_var(atom) : UINT_MAX;
+            return ctx.b_internalized(atom) ? ctx.get_bool_var(atom) : sat::null_bool_var;
         }
 
         void pop_to_base_level() override {
@@ -450,9 +450,9 @@ namespace {
             ast_manager& m = get_manager();
             if (!get_params().get_bool("cube.lookahead", false)) {
                 auto& ctx = m_context.get_context();
-                obj_hashtable<expr> selected_vars;
+                expr_mark selected_vars;
                 for (expr* v : vars)
-                    selected_vars.insert(v);
+                    selected_vars.mark(v);
                 expr_ref_vector candidates(m);
                 expr_ref result(m);
                 double score = 0.0;
@@ -465,7 +465,7 @@ namespace {
                     expr* e = ctx.bool_var2expr(v);
                     if (!e)
                         continue;
-                    if (!selected_vars.empty() && !selected_vars.contains(e))
+                    if (!vars.empty() && !selected_vars.is_marked(e))
                         continue;
                     candidates.push_back(e);
                     double new_score = ctx.get_activity(v);
