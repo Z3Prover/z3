@@ -19,7 +19,6 @@ Revision History:
 #pragma once
 
 #include "util/small_object_allocator.h"
-#include "util/trailing_array.h"
 #include "util/id_gen.h"
 #include "util/map.h"
 #include "sat/sat_types.h"
@@ -54,7 +53,7 @@ namespace sat {
         unsigned           m_inact_rounds:8;
         unsigned           m_glue:8;
         unsigned           m_psm:8;  // transient field used during gc
-        TRAILING_ARRAY(literal, m_lits);
+        literal            m_lits[0];
 
         static size_t get_obj_size(unsigned num_lits) { return sizeof(clause) + num_lits * sizeof(literal); }
         size_t get_size() const { return get_obj_size(m_capacity); }

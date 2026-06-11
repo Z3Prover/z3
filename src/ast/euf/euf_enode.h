@@ -16,7 +16,6 @@ Author:
 --*/
 
 #include "util/vector.h"
-#include "util/trailing_array.h"
 #include "util/id_var_list.h"
 #include "util/lbool.h"
 #include "util/approx_set.h"
@@ -67,7 +66,7 @@ namespace euf {
         signed char   m_lbl_hash = -1;  // It is different from -1, if enode is used in a pattern
         approx_set    m_lbls;
         approx_set    m_plbls;
-        TRAILING_ARRAY(enode*, m_args);
+        enode*        m_args[0];
 
         friend class enode_args;
         friend class enode_parents;

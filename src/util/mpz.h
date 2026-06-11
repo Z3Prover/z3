@@ -19,7 +19,6 @@ Revision History:
 #pragma once
 
 #include<string>
-#include "util/trailing_array.h"
 #include "util/mutex.h"
 #include "util/util.h"
 #include "util/small_object_allocator.h"
@@ -58,7 +57,7 @@ typedef unsigned int digit_t;
 class mpz_cell {
     unsigned  m_size;
     unsigned  m_capacity;
-    TRAILING_ARRAY(digit_t, m_digits);
+    digit_t   m_digits[0];
     friend class mpz_manager<true>;
     friend class mpz_manager<false>;
     friend class mpz_stack;

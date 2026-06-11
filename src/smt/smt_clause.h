@@ -19,7 +19,6 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "util/trailing_array.h"
 #include "smt/smt_literal.h"
 #include "util/tptr.h"
 #include "util/obj_hashtable.h"
@@ -63,7 +62,7 @@ namespace smt {
         unsigned m_has_del_eh:1;          //!< true if must notify event handler when deleted.
         unsigned m_has_justification:1;   //!< true if the clause has a justification attached to it.
         unsigned m_deleted:1;             //!< true if the clause is marked for deletion by was not deleted yet because it is referenced by some data-structure (e.g., m_lemmas)
-        TRAILING_ARRAY(literal, m_lits);
+        literal  m_lits[0];
 
         static unsigned get_obj_size(unsigned num_lits, clause_kind k, bool has_atoms, bool has_del_eh, bool has_justification) {
             unsigned r = sizeof(clause) + sizeof(literal) * num_lits;

@@ -17,7 +17,6 @@ Author:
 #pragma once
 
 #include "util/obj_hashtable.h"
-#include "util/trailing_array.h"
 #include "ast/ast_trail.h"
 #include "ast/rewriter/der.h"
 #include "sat/smt/sat_th.h"
@@ -36,7 +35,7 @@ namespace q {
         unsigned      m_num_bindings;
         unsigned      m_num_literals;
         sat::literal* m_literals;
-        TRAILING_ARRAY(expr*, m_bindings);
+        expr*         m_bindings[0];
         
         q_proof_hint(symbol const& method, unsigned g, unsigned b, unsigned l) {
             m_method = method;

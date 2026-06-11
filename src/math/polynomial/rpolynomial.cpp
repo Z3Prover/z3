@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include "math/polynomial/rpolynomial.h"
-#include "util/trailing_array.h"
 #include "util/tptr.h"
 #include "util/buffer.h"
 
@@ -40,7 +39,7 @@ namespace rpolynomial {
         unsigned      m_ref_count;
         var           m_var;
         unsigned      m_size;
-        TRAILING_ARRAY(poly_or_num *, m_args); 
+        poly_or_num * m_args[0]; 
 
     public:
         unsigned ref_count() const { return m_ref_count; }

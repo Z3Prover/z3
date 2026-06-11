@@ -17,7 +17,6 @@ Author:
 #pragma once
 
 #include "util/dlist.h"
-#include "util/trailing_array.h"
 #include "ast/ast.h"
 #include "ast/quantifier_stat.h"
 #include "ast/euf/euf_enode.h"
@@ -67,7 +66,7 @@ namespace q {
         unsigned           m_max_generation;
         unsigned           m_min_top_generation;
         unsigned           m_max_top_generation;
-        TRAILING_ARRAY(euf::enode*, m_nodes);
+        euf::enode*        m_nodes[0];
 
         binding(clause& c, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top):
             c(&c),
