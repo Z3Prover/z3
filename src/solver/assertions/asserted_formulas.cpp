@@ -19,6 +19,7 @@ Revision History:
 #include "util/warning.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/datatype_decl_plugin.h"
 #include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/rewriter_def.h"
@@ -281,6 +282,8 @@ void asserted_formulas::reduce() {
     IF_VERBOSE(10, verbose_stream() << "(smt.simplify-begin :num-exprs " << get_total_size() << ")\n";);
 
     set_eliminate_and(false); // do not eliminate and before nnf.
+    expand_records();
+    if (inconsistent()) return;
     if (!invoke(m_propagate_values)) return;
     if (!invoke(m_find_macros)) return;
     if (!invoke(m_nnf_cnf)) return;
@@ -533,6 +536,70 @@ void asserted_formulas::commit(unsigned new_qhead) {
         update_substitution(j.fml(), j.pr());
     }
     m_qhead = new_qhead;
+}
+
+void asserted_formulas::expand_records() {
+    if (m.proofs_enabled())
+        return;
+    if (inconsistent())
+        return;
+
+    datatype_util dt(m);
+    obj_hashtable<expr> seen;
+    ptr_vector<app> vars;
+    expr_mark visited;
+
+    auto is_expandable = [&](sort* s) {
+        if (!dt.is_datatype(s))
+            return false;
+        if (dt.is_recursive(s))
+            return false;
+        auto const* ctors = dt.get_datatype_constructors(s);
+        return ctors && ctors->size() == 1;
+    };
+
+    for (unsigned i = m_qhead; i < m_formulas.size(); ++i) {
+        for (expr* t : subterms::all(expr_ref(m_formulas[i].fml(), m), nullptr, &visited)) {
+            if (!is_uninterp_const(t))
+                continue;
+            if (seen.contains(t))
+                continue;
+            if (!is_expandable(t->get_sort()))
+                continue;
+            seen.insert(t);
+            vars.push_back(to_app(t));
+        }
+    }
+
+    if (vars.empty())
+        return;
+
+    flush_cache();
+    expr_ref_vector pinned(m);
+    expr_ref_vector defining_eqs(m);
+    for (app* v : vars) {
+        sort* s = v->get_sort();
+        func_decl* ctor = dt.get_datatype_constructors(s)->get(0);
+        auto const* accs = dt.get_constructor_accessors(ctor);
+        expr_ref_vector args(m);
+        std::string base = v->get_decl()->get_name().str();
+        for (func_decl* acc : *accs) {
+            std::string nm = base + "!" + acc->get_name().str();
+            args.push_back(m.mk_fresh_const(nm.c_str(), acc->get_range()));
+        }
+        expr_ref new_val(m.mk_app(ctor, args.size(), args.data()), m);
+        pinned.push_back(new_val);
+        TRACE(expand_records,
+              tout << mk_pp(v, m) << " -> " << mk_pp(new_val, m) << "\n";);
+        m_scoped_substitution.insert(v, new_val, nullptr);
+        defining_eqs.push_back(m.mk_eq(v, new_val));
+    }
+
+    // Apply the substitution to existing assertions.
+    if (!invoke(m_reduce_asserted_formulas))
+        return;
+    (void)defining_eqs;
+    flush_cache();
 }
 
 void asserted_formulas::propagate_values() {

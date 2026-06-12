@@ -30,6 +30,7 @@ Notes:
 #include "ast/simplifiers/bv_slice.h"
 #include "ast/simplifiers/eliminate_predicates.h"
 #include "ast/simplifiers/elim_unconstrained.h"
+#include "ast/simplifiers/expand_records.h"
 #include "ast/simplifiers/pull_nested_quantifiers.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "ast/simplifiers/refine_inj_axiom.h"
@@ -60,6 +61,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, de
     };
     smt_params smtp(p);
     s.add_simplifier(alloc(rewriter_simplifier, m, p, st));
+    s.add_simplifier(alloc(expand_records_simplifier, m, p, st));
     if (smtp.m_propagate_values) s.add_simplifier(alloc(propagate_values, m, p, st));
     if (smtp.m_solve_eqs) s.add_simplifier(alloc(euf::solve_eqs, m, st));
     if (smtp.m_elim_unconstrained) s.add_simplifier(alloc(elim_unconstrained, m, st));

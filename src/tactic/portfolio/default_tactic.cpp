@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "tactic/portfolio/default_tactic.h"
+#include "tactic/core/expand_records_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
 #include "tactic/smtlogics/qflia_tactic.h"
@@ -35,6 +36,8 @@ Notes:
 
 tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = using_params(and_then(mk_simplify_tactic(m, p),
+                                        mk_expand_records_tactic(m, p),
+                                        mk_simplify_tactic(m, p),
                                         cond(mk_and(mk_is_propositional_probe(), mk_not(mk_produce_proofs_probe())),
                                              mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_fd_tactic(m, p); }),
                                         cond(mk_is_qfbv_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qfbv_tactic(m, p); }),
