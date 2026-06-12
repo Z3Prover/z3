@@ -122,24 +122,38 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     expr* s = nullptr;
     if (rex.is_to_re(r, s)) {
         zstring str;
-        if (sq.str.is_string(s, str)) {
-            for (unsigned i = 0; i <= str.length(); ++i) {
-                const expr_ref p(rex.mk_to_re(sq.str.mk_string(str.extract(0, i))), mm);
-                const expr_ref q(rex.mk_to_re(sq.str.mk_string(str.extract(i, str.length() - i))), mm);
-                push(result, oracle, p, q);
+        vector<expr*> stack;
+        stack.push_back(s);
+
+        while (!stack.empty()) {
+            expr* cur = stack.back();
+            stack.pop_back();
+            if (seq().str.is_concat(cur, a, b)) {
+                stack.push_back(b);
+                stack.push_back(a);
             }
-            return true;
+            else {
+                expr* ch;
+                unsigned cv;
+                if (seq().str.is_unit(cur, ch) && seq().is_const_char(ch, cv)) {
+                    str += zstring(cv);
+                    continue;
+                }
+                zstring str2;
+                if (sq.str.is_string(s, str2)) {
+                    str = str2;
+                    continue;
+                }
+                // not a constant string; unsupported for now
+                return false;
+            }
         }
-        // a single symbolic unit behaves like one token: { <eps, u>, <u, eps> }
-        if (sq.str.is_unit(s)) {
-            const expr_ref ex(r, mm);
-            const expr_ref eps(rex.mk_epsilon(seq_sort), mm);
-            push(result, oracle, eps, ex);
-            push(result, oracle, ex, eps);
-            return true;
+        for (unsigned i = 0; i <= str.length(); ++i) {
+            const expr_ref p(rex.mk_to_re(sq.str.mk_string(str.extract(0, i))), mm);
+            const expr_ref q(rex.mk_to_re(sq.str.mk_string(str.extract(i, str.length() - i))), mm);
+            push(result, oracle, p, q);
         }
-        // to_re over a non-literal sequence: not handled.
-        return false;
+        return true;
     }
 
     // single-character class alpha (., [lo-hi], of_pred):
@@ -391,8 +405,8 @@ void seq_split::simplify(split_set& pairs) const {
 
 std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
     ast_manager& m = this->m();
-    expr_ref_vector tokens(m);
 
+    expr_ref_vector tokens(m);
     vector<expr*> stack;
     stack.push_back(str);
 
@@ -408,9 +422,36 @@ std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsi
             tokens.push_back(expr_ref(cur, m));
     }
 
-    SASSERT(!tokens.empty());
-    expr* first = tokens.get(0);
-    SASSERT(seq().is_char(first)); // constants are consumed earlier
+    expr* ch;
+    unsigned i = 0;
+
+    while (i < tokens.size() && (seq().str.is_string(tokens.get(i)) || (seq().str.is_unit(tokens.get(i), ch) && seq().is_const_char(ch)))) {
+        zstring s;
+        if (seq().str.is_string(tokens.get(i), s)) {
+            if (s.empty()) {
+                i++;
+                continue;
+            }
+            ch = seq().mk_char(s[0]);
+            tokens[i] = seq().str.mk_string(s.extract(1, s.length() - 1));
+        }
+        else
+            i++;
+        regex = m_rw.mk_derivative(ch, regex);
+    }
+
+    if (i > 0) {
+        unsigned j = 0;
+        for (; i < tokens.size(); i++, j++) {
+            tokens[j] = tokens.get(i);
+        }
+        tokens.shrink(j);
+    }
+
+    // TODO: Do this for the back as well (also, why did no rule before do that?)
+
+    if (tokens.empty())
+        return { nullptr, nullptr };
 
     // Choose the factorization boundary so the tail starts with the
     // longest run of concrete characters c.
@@ -418,13 +459,13 @@ std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsi
     // head = u' (tokens before the run), tail = c · u''' (tokens from the run onward).
     const unsigned total = tokens.size();
     unsigned run_start = 0, run_len = 0;
-    for (unsigned i = 0; i < total; ) {
-        if (!seq().is_char(tokens.get(i))) {
+    for (i = 1; i < total; ) {
+        if (!(seq().str.is_unit(tokens.get(i), ch) && seq().is_const_char(ch))) {
             i++;
             continue;
         }
         unsigned j = i;
-        while (j < total && seq().is_char(tokens.get(j))) {
+        while (j < total && seq().str.is_unit(tokens.get(j), ch) && seq().is_const_char(ch)) {
             j++;
         }
         if (j - i > run_len) {
@@ -436,21 +477,24 @@ std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsi
     // No constant run => fall back to splitting off the first token.
     const unsigned p = run_len == 0 ? 1 : run_start;
     SASSERT(p >= 1);
-    expr* head = first;
-    for (unsigned i = 1; i < p; i++) {
+    expr* head = tokens.get(0);
+    for (i = 1; i < p; i++) {
         head = seq().str.mk_concat(head, tokens.get(i));
     }
-    expr* tail = tokens.get(p);
-    for (unsigned i = p + run_len; i < tokens.size(); i++) {
-        tail = seq().str.mk_concat(tail, tokens.get(i));
+    expr* tail = seq().str.mk_empty(head->get_sort());
+    if (tokens.size() > p + run_len) {
+        tail = tokens.get(p + run_len);
+        for (i = p + run_len + 1; i < tokens.size(); i++) {
+            tail = seq().str.mk_concat(tail, tokens.get(i));
+        }
     }
     SASSERT(head && tail);
 
     // Build the constant lookahead c and (if non-empty) an oracle that
     // prunes splits whose postfix cannot match c.
     zstring c;
-    for (unsigned i = 0; i < run_len; ++i) {
-        expr* ch; unsigned cv;
+    for (i = 0; i < run_len; ++i) {
+        unsigned cv;
         VERIFY(seq().str.is_unit(tokens.get(run_start + i), ch));
         VERIFY(seq().is_const_char(ch, cv));
         c = c + zstring(cv);
@@ -471,7 +515,7 @@ std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsi
     // of each postfix
     if (!c.empty()) {
         unsigned w = 0;
-        for (unsigned i = 0; i < result.size(); ++i) {
+        for (i = 0; i < result.size(); ++i) {
             expr* d = result[i].m_n;
             for (unsigned k = 0; d && !seq().re.is_empty(d) && k < c.length(); ++k) {
                 d = m_rw.mk_derivative(seq().mk_char(c[k]), d);
