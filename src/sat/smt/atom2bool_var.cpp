@@ -1,4 +1,4 @@
-add a smart constructor to seq_util to create the simplified range given two characters. It would create either the empty regex, the singleton string or a range expression./*++
+/*++
 Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
@@ -50,9 +50,9 @@ sat::bool_var atom2bool_var::to_bool_var(expr * n) const {
 }
 
 expr* atom2bool_var::bool_var2expr(sat::bool_var v) const {
-    for (auto const& [key, val] : m_mapping)
-        if (val == v)
-            return key;
+    for (auto const& kv : m_mapping)
+        if (kv.m_value == v)
+            return kv.m_key;
     return nullptr;
 }
 
