@@ -27,6 +27,7 @@ tools:
     - "clang-format:*"
 
 safe-outputs:
+  report-failure-as-issue: false
   create-issue:
     title-prefix: "[zipt-review] "
     labels: [code-quality, automated, string-solver]
