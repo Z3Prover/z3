@@ -453,10 +453,11 @@ namespace {
                 expr_mark selected_vars;
                 for (expr* v : vars)
                     selected_vars.mark(v);
-                expr_ref_vector candidates(m);
-                expr_ref result(m);
-                double score = 0.0;
-                unsigned n = 0;
+                struct candidate {
+                    expr*  e;
+                    double score;
+                };
+                vector<candidate> candidates;
 
                 ctx.pop_to_search_level();
                 for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
@@ -467,22 +468,28 @@ namespace {
                         continue;
                     if (!vars.empty() && !selected_vars.is_marked(e))
                         continue;
-                    candidates.push_back(e);
-                    double new_score = ctx.get_activity(v);
-                    // Match smt_parallel: cube split tie-breaking is independent
-                    // of the per-worker SMT search seed.
-                    if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
-                        score = new_score;
-                        result = e;
-                    }
+                    candidates.push_back({ e, ctx.get_activity(v) });
+                }
+
+                std::stable_sort(candidates.begin(), candidates.end(),
+                    [](candidate const& a, candidate const& b) {
+                        return a.score > b.score;
+                    });
+                for (unsigned i = 0, j = 0; i < candidates.size(); i = j) {
+                    j = i + 1;
+                    while (j < candidates.size() && candidates[i].score == candidates[j].score)
+                        ++j;
+                    if (j > i + 1)
+                        shuffle(j - i, candidates.data() + i, m_rand);
                 }
 
                 vars.reset();
-                vars.append(candidates);
+                for (auto const& c : candidates)
+                    vars.push_back(c.e);
 
                 expr_ref_vector lits(m);
-                if (result)
-                    lits.push_back(result);
+                if (!candidates.empty())
+                    lits.push_back(candidates[0].e);
                 return lits;
             }
 
