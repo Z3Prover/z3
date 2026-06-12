@@ -184,7 +184,7 @@ private:
     std::unordered_set<uint64_t> m_seen;
 
     uint64_t compute_fingerprint(expr* term) {
-        uint64_t a = 0, b = 1, c = 2;
+        uint64_t a = 1, b = 2, c = 0;
         for (auto& mdl : m_samples) {
             expr_ref val(m);
             model_evaluator eval(*mdl);
@@ -194,7 +194,7 @@ private:
             a *= val->hash();
             mix(a, b, c);
         }
-        return a;
+        return c;
     }
 };
 
