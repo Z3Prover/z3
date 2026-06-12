@@ -15,6 +15,7 @@ tools:
     - "git diff:*"
     - "git show:*"
 safe-outputs:
+  report-failure-as-issue: false
   create-issue:
     title-prefix: "[Conventions] "
     labels: [code-quality, automated]

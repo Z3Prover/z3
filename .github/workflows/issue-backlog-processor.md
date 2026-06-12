@@ -13,6 +13,7 @@ tools:
     toolsets: [default]
 
 safe-outputs:
+  report-failure-as-issue: false
   create-discussion:
     title-prefix: "[Issue Backlog] "
     category: "Agentic Workflows"
