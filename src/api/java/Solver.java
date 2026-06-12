@@ -289,7 +289,11 @@ public class Solver extends Z3Object {
      * Remarks:  The result is
      * {@code null} if {@code Check} was not invoked before, if its
      * results was not {@code SATISFIABLE}, or if model production is not
-     * enabled. 
+     * enabled.
+     * For satisfiable formulas with multiple solutions, the returned model is
+     * not canonical: different solver runs (including runs in parallel on
+     * separate {@code Context} objects) may produce different satisfying
+     * models.
      * 
      * @throws Z3Exception
      **/
