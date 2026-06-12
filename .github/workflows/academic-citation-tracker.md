@@ -29,6 +29,7 @@ tools:
   bash: [":*"]
 
 safe-outputs:
+  report-failure-as-issue: false
   mentions: false
   allowed-github-references: []
   max-bot-mentions: 1
