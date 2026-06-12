@@ -292,6 +292,10 @@ namespace smt {
         return m_imp->m_kernel;
     }
 
+    context const& kernel::get_context() const {
+        return m_imp->m_kernel;
+    }
+
     void kernel::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
         m_imp->m_kernel.get_levels(vars, depth);
     }

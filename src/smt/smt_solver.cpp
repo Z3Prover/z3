@@ -221,7 +221,7 @@ namespace {
 
         expr_ref_vector get_assigned_literals() override {
             expr_ref_vector result(m);
-            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            auto const& ctx = m_context.get_context();
             for (auto lit : ctx.assigned_literals()) {
                 expr* atom = ctx.bool_var2expr(lit.var());
                 if (!atom)
@@ -232,7 +232,7 @@ namespace {
         }
 
         unsigned get_assign_level(expr* e) const override {
-            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            auto const& ctx = m_context.get_context();
             expr* atom = e;
             get_manager().is_not(e, atom);
             if (!ctx.b_internalized(atom))
@@ -241,18 +241,18 @@ namespace {
         }
 
         bool is_relevant(expr* e) const override {
-            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            auto const& ctx = m_context.get_context();
             expr* atom = e;
             get_manager().is_not(e, atom);
             return ctx.b_internalized(atom) && ctx.is_relevant(atom);
         }
 
         unsigned get_num_bool_vars() const override {
-            return const_cast<smt::kernel&>(m_context).get_context().get_num_bool_vars();
+            return m_context.get_context().get_num_bool_vars();
         }
 
         sat::bool_var get_bool_var(expr* e) const override {
-            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            auto const& ctx = m_context.get_context();
             expr* atom = e;
             get_manager().is_not(e, atom);
             return ctx.b_internalized(atom) ? ctx.get_bool_var(atom) : sat::null_bool_var;
@@ -263,7 +263,7 @@ namespace {
         }
 
         void setup_for_parallel() override {
-            const_cast<smt::kernel&>(m_context).get_context().setup_for_parallel();
+            m_context.get_context().setup_for_parallel();
         }
 
         void set_preprocess(bool f) override {
@@ -271,12 +271,12 @@ namespace {
         }
 
         void set_max_conflicts(unsigned max_conflicts) override {
-            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            auto& ctx = m_context.get_context();
             ctx.get_fparams().m_max_conflicts = max_conflicts;
         }
 
         unsigned get_max_conflicts() const override {
-            return const_cast<smt::kernel&>(m_context).get_context().get_fparams().m_max_conflicts;
+            return m_context.get_context().get_fparams().m_max_conflicts;
         }
 
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
@@ -676,4 +676,3 @@ public:
 solver_factory * mk_smt_solver_factory() {
     return alloc(smt_solver_factory);
 }
-

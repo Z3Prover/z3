@@ -294,6 +294,10 @@ namespace smt {
             return m_fparams;
         }
 
+        smt_params const& get_fparams() const {
+            return m_fparams;
+        }
+
         params_ref const & get_params() {
             return m_params;
         }
@@ -1921,4 +1925,3 @@ namespace smt {
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
 };
-

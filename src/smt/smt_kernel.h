@@ -344,6 +344,6 @@ namespace smt {
            \warning This method should not be used in new code.
         */
         context & get_context();
+        context const& get_context() const;
     };
 };
-
