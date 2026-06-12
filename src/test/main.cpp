@@ -193,7 +193,8 @@
     X(ho_matcher) \
     X(finite_set) \
     X(finite_set_rewriter) \
-    X(fpa)
+    X(fpa) \
+    X(lcube)
 
 #define FOR_EACH_TEST(X, X_ARGV) \
     FOR_EACH_ALL_TEST(X, X_ARGV) \
