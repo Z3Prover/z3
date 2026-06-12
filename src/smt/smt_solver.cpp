@@ -88,13 +88,13 @@ namespace {
             updt_params(p);
         }
 
-        solver * translate(ast_manager & m, params_ref const & p) override {
-            ast_translation translator(get_manager(), m);
+        solver * translate(ast_manager & target, params_ref const & p) override {
+            ast_translation translator(get_manager(), target);
             params_ref init;
             init.copy(get_params());
             init.copy(p);
 
-            smt_solver* result = alloc(smt_solver, m, init, m_logic);
+            smt_solver* result = alloc(smt_solver, target, init, m_logic);
             smt::kernel::copy(m_context, result->m_context, true);
 
             if (mc0())
@@ -481,12 +481,12 @@ namespace {
                 }
 
                 vars.reset();
-                for (auto const& c : candidates)
-                    vars.push_back(c.e);
-
                 expr_ref_vector lits(m);
-                if (!candidates.empty())
-                    lits.push_back(candidates[0].e);
+                for (auto const &c : candidates) {
+                    vars.push_back(c.e);
+                    lits.push_back(c.e);
+                }
+
                 return lits;
             }
 
