@@ -27,7 +27,10 @@ Revision History:
 --*/
 #pragma once
 
+#include "util/vector.h"
 #include "math/lp/lia_move.h"
+#include "math/lp/numeric_pair.h"
+#include "math/lp/lar_term.h"
 
 namespace lp {
     class int_solver;
