@@ -233,18 +233,16 @@ namespace {
 
         unsigned get_assign_level(expr* e) const override {
             auto const& ctx = m_context.get_context();
-            expr* atom = e;
-            get_manager().is_not(e, atom);
-            if (!ctx.b_internalized(atom))
+            get_manager().is_not(e, e);
+            if (!ctx.b_internalized(e))
                 return UINT_MAX;
-            return ctx.get_assign_level(ctx.get_bool_var(atom));
+            return ctx.get_assign_level(ctx.get_bool_var(e));
         }
 
         bool is_relevant(expr* e) const override {
             auto const& ctx = m_context.get_context();
-            expr* atom = e;
-            get_manager().is_not(e, atom);
-            return ctx.b_internalized(atom) && ctx.is_relevant(atom);
+            get_manager().is_not(e, e);
+            return ctx.b_internalized(e) && ctx.is_relevant(e);
         }
 
         unsigned get_num_bool_vars() const override {
@@ -253,9 +251,8 @@ namespace {
 
         sat::bool_var get_bool_var(expr* e) const override {
             auto const& ctx = m_context.get_context();
-            expr* atom = e;
-            get_manager().is_not(e, atom);
-            return ctx.b_internalized(atom) ? ctx.get_bool_var(atom) : sat::null_bool_var;
+            get_manager().is_not(e, e);
+            return ctx.b_internalized(e) ? ctx.get_bool_var(e) : sat::null_bool_var;
         }
 
         void pop_to_base_level() override {
