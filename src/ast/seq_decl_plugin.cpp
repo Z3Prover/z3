@@ -1208,6 +1208,15 @@ app* seq_util::rex::mk_of_pred(expr* p) {
     return m.mk_app(m_fid, OP_RE_OF_PRED, 0, nullptr, 1, &p);
 }
 
+app* seq_util::rex::mk_range(sort* re_sort, unsigned lo, unsigned hi) {
+    if (lo > hi)
+        return mk_empty(re_sort);
+    app* lo_str = u.str.mk_string(zstring(lo));
+    if (lo == hi)
+        return mk_to_re(lo_str);
+    return mk_range(lo_str, u.str.mk_string(zstring(hi)));
+}
+
 bool seq_util::rex::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const {
     if (is_loop(n)) {
         app const* a = to_app(n);

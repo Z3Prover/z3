@@ -3334,10 +3334,7 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
             lo2_v <= hi1_v + 1 && lo1_v <= hi2_v + 1) {
             unsigned new_lo = std::min(lo1_v, lo2_v);
             unsigned new_hi = std::max(hi1_v, hi2_v);
-            if (new_lo == new_hi)
-                result = re().mk_to_re(str().mk_string(zstring(new_lo)));
-            else
-                result = re().mk_range(str().mk_string(zstring(new_lo)), str().mk_string(zstring(new_hi)));
+            result = re().mk_range(r1->get_sort(), new_lo, new_hi);
         }
         else
             result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
@@ -3376,12 +3373,7 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
         if (re().is_range(r1, lo1_v, hi1_v) && re().is_range(r2, lo2_v, hi2_v)) {
             unsigned new_lo = std::max(lo1_v, lo2_v);
             unsigned new_hi = std::min(hi1_v, hi2_v);
-            if (new_lo > new_hi)
-                result = re().mk_empty(r1->get_sort());
-            else if (new_lo == new_hi)
-                result = re().mk_to_re(str().mk_string(zstring(new_lo)));
-            else
-                result = re().mk_range(str().mk_string(zstring(new_lo)), str().mk_string(zstring(new_hi)));
+            result = re().mk_range(r1->get_sort(), new_lo, new_hi);
         }
         else
             result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);
@@ -4828,17 +4820,17 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
         }
         if (!has_left) {
             // [0, b]: complement is [b+1, max]
-            result = re().mk_range(str().mk_string(zstring(hi_v + 1)), str().mk_string(zstring(max_c)));
+            result = re().mk_range(srt, hi_v + 1, max_c);
             return BR_REWRITE1;
         }
         if (!has_right) {
             // [a, max]: complement is [0, a-1]
-            result = re().mk_range(str().mk_string(zstring(0u)), str().mk_string(zstring(lo_v - 1)));
+            result = re().mk_range(srt, 0u, lo_v - 1);
             return BR_REWRITE1;
         }
         // General: [a, b] → [0, a-1] ∪ [b+1, max]
-        auto left = re().mk_range(str().mk_string(zstring(0u)), str().mk_string(zstring(lo_v - 1)));
-        auto right = re().mk_range(str().mk_string(zstring(hi_v + 1)), str().mk_string(zstring(max_c)));
+        auto left = re().mk_range(srt, 0u, lo_v - 1);
+        auto right = re().mk_range(srt, hi_v + 1, max_c);
         result = re().mk_union(left, right);
         return BR_REWRITE1;
     }
