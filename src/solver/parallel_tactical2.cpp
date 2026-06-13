@@ -480,6 +480,11 @@ class parallel_solver {
             cancel_workers_unlocked();
         }
 
+        void set_cancel() {
+            std::scoped_lock lock(mux);
+            cancel_workers_unlocked();
+        }
+
         void set_unsat(ast_translation& l2g,
                        expr_ref_vector const& core) {
             std::scoped_lock lock(mux);
@@ -1130,8 +1135,10 @@ class parallel_solver {
                 if (m_config.m_global_backbones) {
                     bb_candidates local_candidates = find_backbone_candidates(cube);
                     b.collect_backbone_candidates(m_l2g, local_candidates);
-                    if (!m.inc())
+                    if (!m.inc()) {
+                        b.set_cancel();
                         return;
+                    }
                 }
                 lbool r = check_cube(cube);
 
@@ -1142,7 +1149,10 @@ class parallel_solver {
                     continue;
                 }
 
-                if (!m.inc()) return;
+                if (!m.inc()) {
+                    b.set_cancel();
+                    return;
+                }
 
                 switch (r) {
 
