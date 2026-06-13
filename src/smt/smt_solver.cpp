@@ -27,6 +27,7 @@ Notes:
 #include "params/smt_params.h"
 #include "params/smt_params_helper.hpp"
 #include "solver/solver_na2as.h"
+#include "solver/parallel_params.hpp"
 #include "solver/mus.h"
 
 #include <algorithm>
@@ -436,7 +437,8 @@ namespace {
 
         expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) override {
             ast_manager& m = get_manager();
-            if (!get_params().get_bool("cube.lookahead", false)) {
+            parallel_params pp(get_params());
+            if (!pp.cube_lookahead()) {
                 auto& ctx = m_context.get_context();
                 expr_mark selected_vars;
                 for (expr* v : vars)

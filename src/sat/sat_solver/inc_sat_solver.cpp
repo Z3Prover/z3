@@ -492,7 +492,8 @@ public:
         }
         sat::literal_vector lits;
         expr_ref_vector fmls(m);
-        if (!m_params.get_bool("cube.lookahead", false)) {
+        parallel_params pp(m_params);
+        if (!pp.cube_lookahead()) {
             sat::bool_var_vector candidates;
             unsigned search_lvl = m_solver.search_lvl();
             for (sat::bool_var v : vars) {
