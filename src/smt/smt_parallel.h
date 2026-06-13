@@ -196,6 +196,7 @@ namespace smt {
             void set_sat(ast_translation& l2g, model& m);
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
+            void set_canceled();
             void collect_statistics(::statistics& st) const;
 
             void collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates);

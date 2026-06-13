@@ -78,8 +78,10 @@ namespace smt {
 
         lbool res = l_undef;
         try {
-            if (!m.inc())
+            if (!m.inc()) {
+                b.set_canceled();
                 return;
+            }
             res = m_sls->check();
         } catch (z3_exception &ex) {
             // Cancellation is normal in portfolio mode
@@ -180,8 +182,9 @@ namespace smt {
                 for (expr* lit : bb_candidate_lits) {
                     if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch))
                         break;
-                    if (!m.inc() || canceled())
+                    if (!m.inc() || canceled()) 
                         break;
+                    
 
                     expr* atom = lit;
                     m.is_not(lit, atom);
@@ -218,11 +221,13 @@ namespace smt {
             }
 
             if (!m.inc())
-                return;
+                break;
             if (!canceled())
                 b.cancel_current_backbone_batch();
             bb_candidates.reset();
         }
+        if (!m.inc())
+            b.set_canceled();           
     }
 
     lbool parallel::backbones_worker::probe_literal(bool_var v, expr *e, bool is_retry) {
@@ -290,6 +295,7 @@ namespace smt {
                     }
                     if (!m.inc() || canceled()) {
                         ctx->get_fparams().m_max_conflicts = old_max_conflicts;
+                        b.set_canceled();
                         return;
                     }
                     if (!bb_candidate_lits.contains(lit)) // already handled in singleton core → backbone case below
@@ -391,7 +397,7 @@ namespace smt {
                 while (true) {
 
                     if (!m.inc()) 
-                        return;
+                        break;
                     if (canceled()) 
                         break;
 
@@ -515,6 +521,8 @@ namespace smt {
 
             bb_curr_batch_candidates.reset();
         }
+        if (!m.inc())
+            b.set_canceled();
     }
 
     void parallel::backbones_worker::cancel() {
@@ -655,6 +663,7 @@ namespace smt {
                 core.reset();
                 core.append(mus);
                 core.append(unknown);
+                b.set_canceled();
                 return;
             }
 
@@ -764,7 +773,7 @@ namespace smt {
                 bb_candidates local_candidates = find_backbone_candidates();
                 b.collect_backbone_candidates(m_l2g, local_candidates);
                 if (!m.inc())
-                    return;
+                    break;
             }
 
             lbool r = check_cube(cube);
@@ -777,7 +786,7 @@ namespace smt {
             }
 
              if (!m.inc())
-                return;
+                break;
 
             switch (r) {
             case l_undef: {
@@ -836,6 +845,8 @@ namespace smt {
             if (m_config.m_share_units)
                 share_units();
         }
+        if (!m.inc())
+            b.set_canceled();
     }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
@@ -1681,6 +1692,11 @@ namespace smt {
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr *e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
+        cancel_background_threads();
+    }
+
+    void parallel::batch_manager::set_canceled() {
+        std::scoped_lock lock(mux);
         cancel_background_threads();
     }
 
