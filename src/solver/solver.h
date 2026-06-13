@@ -321,15 +321,6 @@ public:
     virtual void setup_for_parallel() {}
 
     virtual void set_preprocess(bool) {}
-
-    virtual void set_max_conflicts(unsigned max_conflicts) {
-        params_ref p;
-        p.set_uint("max_conflicts", max_conflicts);
-        updt_params(p);
-    }
-
-    virtual unsigned get_max_conflicts() const { return UINT_MAX; }
-
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 

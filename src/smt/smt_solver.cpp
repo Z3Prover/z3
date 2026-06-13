@@ -267,15 +267,6 @@ namespace {
             m_context.set_preprocess(f);
         }
 
-        void set_max_conflicts(unsigned max_conflicts) override {
-            auto& ctx = m_context.get_context();
-            ctx.get_fparams().m_max_conflicts = max_conflicts;
-        }
-
-        unsigned get_max_conflicts() const override {
-            return m_context.get_context().get_fparams().m_max_conflicts;
-        }
-
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
             ast_manager& m = get_manager();
             auto& ctx = m_context.get_context();

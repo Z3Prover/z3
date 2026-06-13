@@ -106,6 +106,12 @@ static bool is_cancellation_exception(char const* msg) {
     return msg && (strstr(msg, "canceled") != nullptr || strstr(msg, "cancelled") != nullptr);
 }
 
+static void set_max_conflicts(solver_ref& s, unsigned max_conflicts) {
+    params_ref p;
+    p.set_uint("max_conflicts", max_conflicts);
+    s->updt_params(p);
+}
+
 /* ------------------------------------------------------------------ */
 /* parallel_solver – the core portfolio engine                         */
 /* ------------------------------------------------------------------ */
@@ -950,7 +956,7 @@ class parallel_solver {
         }
 
         lbool check_cube(expr_ref_vector const& cube) {
-            s->set_max_conflicts(std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts));
+            set_max_conflicts(s, std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts));
 
             expr_ref_vector combined(m);
             combined.append(asms);
@@ -1341,16 +1347,16 @@ class parallel_solver {
                         else
                             ++m_stats.m_fallback_singleton_checks;
 
-                        unsigned old_max_conflicts = s->get_max_conflicts();
-                        s->set_max_conflicts(10);
+                        unsigned old_max_conflicts = s->get_params().get_uint("max_conflicts", UINT_MAX);
+                        set_max_conflicts(s, 10);
 
                         for (expr* lit : chunk_lits) {
                             if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
-                                s->set_max_conflicts(old_max_conflicts);
+                                set_max_conflicts(s, old_max_conflicts);
                                 return;
                             }
                             if (!m.inc() || canceled()) {
-                                s->set_max_conflicts(old_max_conflicts);
+                                set_max_conflicts(s, old_max_conflicts);
                                 return;
                             }
                             if (!bb_candidate_lits.contains(lit))
@@ -1378,7 +1384,7 @@ class parallel_solver {
                                         lbool terminal_result = probe_literal(mk_not(m, bb_ref), is_retry);
                                         LOG_BB_WORKER(1, " RESULT: " << terminal_result << " FOR CANDIDATE: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
                                         if (terminal_result != l_undef) {
-                                            s->set_max_conflicts(old_max_conflicts);
+                                            set_max_conflicts(s,old_max_conflicts);
                                             return;
                                         }
                                     }
@@ -1387,7 +1393,7 @@ class parallel_solver {
                             bb_candidate_lits.erase(lit);
                         }
 
-                        s->set_max_conflicts(old_max_conflicts);
+                        set_max_conflicts(s, old_max_conflicts);
                     };
 
                 ++m_stats.m_batches_total;
@@ -1459,7 +1465,7 @@ class parallel_solver {
                         for (expr* a : bb_asms)
                             asms.push_back(a);
 
-                        s->set_max_conflicts(m_bb_conflicts_per_chunk);
+                        set_max_conflicts(s,m_bb_conflicts_per_chunk);
                         lbool r = l_undef;
                         try {
                             r = s->check_sat(asms);
@@ -1584,7 +1590,7 @@ class parallel_solver {
             : id(id), b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             s = src.translate(m, params);
-            s->set_max_conflicts(m_bb_conflicts_per_chunk);
+            set_max_conflicts(s, m_bb_conflicts_per_chunk);
             s->pop_to_base_level();
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
@@ -1680,7 +1686,7 @@ class parallel_solver {
 
                 lbool r = l_undef;
                 try {
-                    s->set_max_conflicts(m_core_minimize_conflict_budget);
+                    set_max_conflicts(s, m_core_minimize_conflict_budget);
                     r = s->check_sat(trial);
                 }
                 catch (z3_error&) {

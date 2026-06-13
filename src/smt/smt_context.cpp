@@ -118,6 +118,12 @@ namespace smt {
         if (!m_setup.already_configured()) {
             m_fparams.updt_params(p);
         }
+        else {
+            // selected parameters are safe to update after initialization
+            params_ref new_p;
+            new_p.set_uint("max_conflicts", p.get_uint("max_conflicts", UINT_MAX));
+            m_fparams.updt_params(new_p);
+        }
         for (auto th : m_theory_set)
             if (th)
                 th->updt_params();
