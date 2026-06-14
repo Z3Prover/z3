@@ -452,7 +452,7 @@ static void project(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned
     std::cout << "\n";
 }
 
-static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned num, nlsat::literal const* lits) {
+static nlsat::scoped_literal_vector project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned num, nlsat::literal const* lits) {
     std::cout << "Project ";
     nlsat::scoped_literal_vector result(s);
     ex.compute_conflict_explanation(num, lits, result);
@@ -464,6 +464,7 @@ static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsig
         s.display(std::cout << " ", ~lits[i]);
     }
     std::cout << ")\n";
+    return result;
 }
 
 static nlsat::literal mk_gt(nlsat::solver& s, nlsat::poly* p) {
@@ -488,6 +489,15 @@ static nlsat::literal mk_eq(nlsat::solver& s, nlsat::poly* p) {
 static nlsat::literal mk_root_eq(nlsat::solver& s, nlsat::poly* p, nlsat::var x, unsigned i) {
     nlsat::bool_var b = s.mk_root_atom(nlsat::atom::ROOT_EQ, x, i, p);
     return nlsat::literal(b, false);
+}
+
+static bool clause_contains_text(nlsat::solver& s, nlsat::scoped_literal_vector const& result, unsigned num, nlsat::literal const* lits, char const* needle) {
+    std::ostringstream out;
+    for (auto l : result)
+        s.display(out << " ", l);
+    for (unsigned i = 0; i < num; ++i)
+        s.display(out << " ", ~lits[i]);
+    return out.str().find(needle) != std::string::npos;
 }
 
 static void set_assignment_value(nlsat::assignment& as, anum_manager& am, nlsat::var v, rational const& val) {
@@ -1183,8 +1193,8 @@ static void tst_15() {
     auto cell = lws.single_cell();
 }
 
-// Test case for unsound lemma lws2380 - comparing standard projection vs levelwise
-// The issue: x7 is unconstrained in levelwise output but affects the section polynomial
+// Historical lws2380 regression test: both projection paths should preserve
+// the x7-linked section/root constraints that witness the projected dependency.
 static void tst_16() {
     // enable_trace("nlsat_explain");
     
@@ -1283,8 +1293,10 @@ static void tst_16() {
         lits.push_back(mk_gt(s, p0.get()));  // x13 > 0
         lits.push_back(mk_gt(s, p1.get()));  // p1 > 0
 
-        project_fa(s, ex, x13, lits.size(), lits.data());
+        auto result = project_fa(s, ex, x13, lits.size(), lits.data());
         std::cout << "\n";
+        ENSURE(clause_contains_text(s, result, lits.size(), lits.data(), "x7"));
+        ENSURE(clause_contains_text(s, result, lits.size(), lits.data(), "x11 = root[1](x10 x11 - x11 - x7 x8)"));
     };
 
     run_test(false);  // Standard projection
@@ -2144,11 +2156,11 @@ static void tst_22() {
             }
         }
         
-        if (all_false) {
+        if (all_false)
             std::cout << "*** ALL literals FALSE at counterexample - LEMMA IS UNSOUND! ***\n";
-        } else {
+        else
             std::cout << "At least one literal is TRUE - lemma is sound at this point\n";
-        }
+        ENSURE(!all_false);
     };
     
     run_test(false);  // lws=false (buggy)
