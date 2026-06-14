@@ -127,6 +127,7 @@ add_executable(test-z3
   sat_user_scope.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_regex_bisim.cpp
   simple_parser.cpp
   simplex.cpp
   simplifier.cpp

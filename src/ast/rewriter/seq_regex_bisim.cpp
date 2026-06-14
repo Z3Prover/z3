@@ -91,7 +91,8 @@ namespace seq {
        (re.empty) leaves are dropped.
 
        Returns false if we encountered an unexpected node (e.g. a free
-       variable creeping in) — in that case the caller should bail out.
+       variable creeping in) or exhausted the step budget — in that case
+       the caller should bail out.
     */
     bool regex_bisim::collect_leaves(expr* der, expr_ref_vector& leaves) {
         ptr_vector<expr> work;
@@ -99,6 +100,8 @@ namespace seq {
         work.push_back(der);
         seen.insert(der);
         while (!work.empty()) {
+            if (++m_steps > m_step_bound)
+                return false;
             expr* e = work.back();
             work.pop_back();
             expr* c = nullptr, * t = nullptr, * f = nullptr;
@@ -221,7 +224,7 @@ namespace seq {
         m_worklist.push_back(r0);
 
         while (!m_worklist.empty()) {
-            if (++m_steps > m_step_bound)
+            if (m_steps > m_step_bound)
                 return l_undef;
 
             expr_ref r(m_worklist.back(), m);

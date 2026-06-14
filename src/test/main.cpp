@@ -189,6 +189,7 @@
     X(euf_arith_plugin) \
     X(sls_test) \
     X(scoped_vector) \
+    X(seq_regex_bisim) \
     X(sls_seq_plugin) \
     X(ho_matcher) \
     X(finite_set) \
