@@ -120,9 +120,7 @@ namespace smt {
         }
         else {
             // selected parameters are safe to update after initialization
-            params_ref new_p;
-            new_p.set_uint("max_conflicts", p.get_uint("max_conflicts", UINT_MAX));
-            m_fparams.updt_params(new_p);
+            m_fparams.m_max_conflicts = p.get_uint("max_conflicts", m_fparams.m_max_conflicts);
         }
         for (auto th : m_theory_set)
             if (th)
@@ -4685,7 +4683,6 @@ namespace smt {
             theory_id th_id     = l->get_id();
 
             for (enode * parent : enode::parents(n)) {
-                auto p = parent->get_expr();
                 family_id fid = parent->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
                     if (is_beta_redex(parent, n))

@@ -883,7 +883,7 @@ class parallel_solver {
             if (lim.is_canceled() || m_state != state::is_running)
                 return false;
 
-                if (m_bb_last_batch_processed[bb_thread_id] == m_bb_batch_id) {
+            if (m_bb_last_batch_processed[bb_thread_id] == m_bb_batch_id) {
                 unsigned n = std::min<unsigned>(m_bb_batch_size, m_bb_candidates.size());
                 m_bb_current_batch.reset();
                 for (unsigned i = 0; i < n; ++i) {
@@ -1912,14 +1912,32 @@ public:
 
         m_batch_manager.initialize(num_bb_threads);
 
+        auto safe_run = [&](std::function<void()> run_fn, reslimit& lim) {
+            try {
+                run_fn();
+            } catch (z3_error &err) {
+                if (!lim.is_canceled())
+                    m_batch_manager.set_exception(err.error_code());
+            } catch (z3_exception &ex) {
+                if (!lim.is_canceled() && !is_cancellation_exception(ex.what()))
+                    m_batch_manager.set_exception(ex.what());
+            }
+        };
         /* Launch threads. */
         vector<std::thread> threads;
-        for (auto* w : m_workers)
-            threads.push_back(std::thread([w]() { w->run(); }));
+        for (auto *w : m_workers)
+            threads.push_back(std::thread([&]() {
+                safe_run([w]() -> void { w->run(); }, w->limit());
+            }));
         if (m_core_minimizer_worker)
-            threads.push_back(std::thread([this]() { m_core_minimizer_worker->run(); }));
+            threads.push_back(std::thread([&]() {
+                safe_run([this]() -> void { m_core_minimizer_worker->run(); }, m_core_minimizer_worker->limit());
+            }));
         for (auto* w : m_global_backbones_workers)
-            threads.push_back(std::thread([w]() { w->run(); }));
+            threads.push_back(std::thread([&]() {
+                safe_run([w]() -> void {
+                    w->run(); }, w->limit());
+                    }));
 
         for (auto& t : threads)
             t.join();
