@@ -491,13 +491,37 @@ static nlsat::literal mk_root_eq(nlsat::solver& s, nlsat::poly* p, nlsat::var x,
     return nlsat::literal(b, false);
 }
 
-static bool clause_contains_text(nlsat::solver& s, nlsat::scoped_literal_vector const& result, unsigned num, nlsat::literal const* lits, char const* needle) {
-    std::ostringstream out;
-    for (auto l : result)
-        s.display(out << " ", l);
-    for (unsigned i = 0; i < num; ++i)
-        s.display(out << " ", ~lits[i]);
-    return out.str().find(needle) != std::string::npos;
+static bool contains_var(nlsat::var_vector const& vars, nlsat::var x) {
+    for (auto v : vars) {
+        if (v == x)
+            return true;
+    }
+    return false;
+}
+
+static bool clause_contains_root_dependency(
+    nlsat::solver& s,
+    nlsat::scoped_literal_vector const& result,
+    nlsat::atom::kind kind,
+    nlsat::var target,
+    unsigned root_index,
+    nlsat::var dep1,
+    nlsat::var dep2,
+    nlsat::var dep3) {
+    nlsat::pmanager& pm = s.pm();
+    nlsat::var_vector vars;
+    for (auto l : result) {
+        nlsat::atom* a = s.bool_var2atom(l.var());
+        if (!a || !a->is_root_atom() || a->get_kind() != kind)
+            continue;
+        nlsat::root_atom* ra = nlsat::to_root_atom(a);
+        if (ra->x() != target || ra->i() != root_index || pm.max_var(ra->p()) != target)
+            continue;
+        s.vars(l, vars);
+        if (contains_var(vars, dep1) && contains_var(vars, dep2) && contains_var(vars, dep3))
+            return true;
+    }
+    return false;
 }
 
 static void set_assignment_value(nlsat::assignment& as, anum_manager& am, nlsat::var v, rational const& val) {
@@ -1295,8 +1319,7 @@ static void tst_16() {
 
         auto result = project_fa(s, ex, x13, lits.size(), lits.data());
         std::cout << "\n";
-        ENSURE(clause_contains_text(s, result, lits.size(), lits.data(), "x7"));
-        ENSURE(clause_contains_text(s, result, lits.size(), lits.data(), "x11 = root[1](x10 x11 - x11 - x7 x8)"));
+        ENSURE(clause_contains_root_dependency(s, result, nlsat::atom::ROOT_EQ, x11, 1, x7, x8, x10));
     };
 
     run_test(false);  // Standard projection
