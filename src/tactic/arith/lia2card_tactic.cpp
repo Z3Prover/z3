@@ -24,6 +24,8 @@ Notes:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp_util.h"
+#include "ast/decl_collector.h"
+#include "ast/recfun_decl_plugin.h"
 #include "tactic/tactical.h"
 #include "params/tactic_params.hpp"
 #include "ast/simplifiers/bound_manager.h"
@@ -178,13 +180,29 @@ public:
         }
     }
 
+    void mark_recfun_dependent_consts(goal const& g, expr_mark& unsafe_vars) {
+        decl_collector dc(m);
+        for (unsigned i = 0; i < g.size(); ++i)
+            dc.visit(g.form(i));
+        recfun::util rec(m);
+        for (func_decl* f : dc.get_rec_decls()) {
+            expr_ref rhs(rec.get_def(f).get_rhs(), m);
+            for (expr* term : subterms::all(rhs)) {
+                if (is_uninterp_const(term))
+                    unsafe_vars.mark(term);
+            }
+        }
+    }
+
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         m_bounds.reset();
         m_mc.reset();
         expr_ref_vector axioms(m);
         expr_safe_replace rep(m);
+        expr_mark unsafe_vars;
 
         tactic_report report("lia2card", *g);
+        mark_recfun_dependent_consts(*g, unsafe_vars);
 
         bound_manager bounds(m);
         for (unsigned i = 0; i < g->size(); ++i)
@@ -197,6 +215,7 @@ public:
             rational lo, hi;
             if (a.is_int(x) &&
                 is_uninterp_const(x) &&
+                !unsafe_vars.is_marked(x) &&
                 bounds.has_lower(x, lo, s1) && !s1 && lo.is_unsigned() &&
                 bounds.has_upper(x, hi, s2) && !s2 && hi.is_unsigned() && hi.get_unsigned() - lo.get_unsigned() <= m_max_range) {
                 expr_ref b = mk_bounded(axioms, to_app(x), lo.get_unsigned(), hi.get_unsigned());

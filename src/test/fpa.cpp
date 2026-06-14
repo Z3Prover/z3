@@ -95,8 +95,22 @@ static void test_recfun_defined_function_soundness() {
         false);
 }
 
+static void test_recfun_defined_function_lia2card_soundness() {
+    run_fp_test(
+        "(set-option :model_validate true)\n"
+        "(declare-fun fixedAdd () Int)\n"
+        "(declare-fun variableAdd () Int)\n"
+        "(define-fun-rec $$add$$ ((a Int) (b Int)) Int\n"
+        "  (ite (= 0 b) 2 (- a (+ 0 (- fixedAdd b)))))\n"
+        "(assert (= fixedAdd 0))\n"
+        "(assert (= 1 ($$add$$ 1 3)))\n"
+        "(check-sat-using (then lia2card smt))\n",
+        false);
+}
+
 void tst_fpa() {
     test_fp_to_real_denormal();
     test_to_fp_from_real_interval();
     test_recfun_defined_function_soundness();
+    test_recfun_defined_function_lia2card_soundness();
 }
