@@ -13,6 +13,7 @@ concurrency:
 jobs:               
   build:
     strategy:
+      fail-fast: false
       matrix:
         arch : [x86,x64,amd64_arm64]
         include:
@@ -39,6 +40,11 @@ jobs:
           ${{ matrix.cmd3 }}
           for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSINSTALLDIR=%%i"
           call "%VSINSTALLDIR%\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }} || exit /b 1
+          echo DIAG VSINSTALLDIR=%VSINSTALLDIR%
+          echo DIAG PATH=%PATH%
+          where cl
+          where nmake
+          cmake --version
           cmake ${{ matrix.bindings }} -G "NMake Makefiles" ../ || exit /b 1
           nmake || exit /b 1
           cd ..
