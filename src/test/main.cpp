@@ -194,7 +194,8 @@
     X(finite_set) \
     X(finite_set_rewriter) \
     X(fpa) \
-    X(term_enumeration)
+    X(term_enumeration) \
+    X(lcube)
 
 #define FOR_EACH_TEST(X, X_ARGV) \
     FOR_EACH_ALL_TEST(X, X_ARGV) \
