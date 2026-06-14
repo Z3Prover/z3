@@ -1926,18 +1926,17 @@ public:
         /* Launch threads. */
         vector<std::thread> threads;
         for (auto *w : m_workers)
-            threads.push_back(std::thread([&]() {
-                safe_run([w]() -> void { w->run(); }, w->limit());
+            threads.push_back(std::thread([w, &safe_run]() {
+                 safe_run([w]() { w->run(); }, w->limit());
             }));
         if (m_core_minimizer_worker)
-            threads.push_back(std::thread([&]() {
-                safe_run([this]() -> void { m_core_minimizer_worker->run(); }, m_core_minimizer_worker->limit());
+            threads.push_back(std::thread([this, &safe_run]() {
+                safe_run([this]() { m_core_minimizer_worker->run(); }, m_core_minimizer_worker->limit());
             }));
         for (auto* w : m_global_backbones_workers)
-            threads.push_back(std::thread([&]() {
-                safe_run([w]() -> void {
-                    w->run(); }, w->limit());
-                    }));
+            threads.push_back(std::thread([w, &safe_run]() {
+                safe_run([w]() { w->run(); }, w->limit());
+            }));
 
         for (auto& t : threads)
             t.join();
