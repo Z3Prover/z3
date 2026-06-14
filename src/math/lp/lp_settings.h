@@ -264,10 +264,10 @@ private:
     bool             m_dio_ignore_big_nums = false;
     unsigned         m_dio_calls_period = 4;
     bool             m_dio_run_gcd = true;
-    unsigned         m_lcube = 1;
+    bool             m_lcube = true;
     unsigned         m_lcube_flips = 16;
 public:
-    unsigned lcube() const { return m_lcube; }
+    bool lcube() const { return m_lcube; }
     unsigned lcube_flips() const { return m_lcube_flips; }
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }

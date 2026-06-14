@@ -203,15 +203,14 @@ namespace lcube_test {
 
     // runs the flip-repair instance through int_solver::check() with the
     // lp.lcube parameter set and the cube period lowered to 1: verifies the
-    // dispatch and the parameter plumbing. When lcube_mode is 0 the largest
-    // cube test must not run at all.
-    static void test_dispatch_mode(unsigned lcube_mode) {
-        std::cout << "lcube: dispatch through int_solver::check (lcube=" << lcube_mode << ")\n";
+    // dispatch and the parameter plumbing
+    static void test_dispatch() {
+        std::cout << "lcube: dispatch through int_solver::check\n";
         lar_solver solver;
         params_ref p;
-        p.set_uint("lcube", lcube_mode);
+        p.set_bool("lcube", true);
         solver.settings().updt_params(p);
-        VERIFY(solver.settings().lcube() == lcube_mode);
+        VERIFY(solver.settings().lcube());
         solver.settings().m_int_find_cube_period = 1;
         unsigned x = solver.add_named_var(0, true, "x");
         unsigned y = solver.add_named_var(1, true, "y");
@@ -239,20 +238,10 @@ namespace lcube_test {
         lia_move m = i_s.check(&ex);
         std::cout << "check returned " << lia_move_to_string(m)
                   << ", lcube calls: " << solver.settings().stats().m_lcube_calls << "\n";
-        if (lcube_mode == 0) {
-            VERIFY(solver.settings().stats().m_lcube_calls == 0);
-        }
-        else {
-            VERIFY(m == lia_move::sat);
-            VERIFY(solver.settings().stats().m_lcube_calls >= 1);
-            verify_int_values(solver, {x, y});
-            verify_model(solver, ineqs);
-        }
-    }
-
-    static void test_dispatch() {
-        test_dispatch_mode(1);
-        test_dispatch_mode(0);
+        VERIFY(m == lia_move::sat);
+        VERIFY(solver.settings().stats().m_lcube_calls >= 1);
+        verify_int_values(solver, {x, y});
+        verify_model(solver, ineqs);
     }
 
     static void run() {

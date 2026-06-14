@@ -198,22 +198,18 @@ namespace lp {
             return m_number_of_calls % settings().m_int_find_cube_period == 0;
         }
 
-        // The largest cube test is throttled: when the polyhedron does not
-        // contain a large enough cube it is unlikely to contain one later,
-        // after more constraints are added. With lcube() == 1 each failure
-        // doubles the period (exponential throttling) and a success resets it.
-        // With lcube() == 2 the test is disabled permanently on the first
-        // failure (m_lcube_period set to 0). lcube() == 0 disables it entirely.
+        // The largest cube test is throttled exponentially: when the polyhedron
+        // does not contain a large enough cube it is unlikely to contain one
+        // later, after more constraints are added, so each failure doubles the
+        // period and a success resets it.
         bool should_find_lcube() {
-            return settings().lcube() != 0 && m_lcube_period != 0 && m_number_of_calls % m_lcube_period == 0;
+            return settings().lcube() && m_number_of_calls % m_lcube_period == 0;
         }
 
         lia_move find_lcube() {
             lia_move r = int_cube(lia).find_largest_cube();
             if (r == lia_move::undef) {
-                if (settings().lcube() == 2)
-                    m_lcube_period = 0;
-                else if (m_lcube_period < (1u << 30))
+                if (m_lcube_period < (1u << 30))
                     m_lcube_period *= 2;
             }
             else
