@@ -3314,11 +3314,20 @@ expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond)
 
 expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     expr_ref _r1(r1, m()), _r2(r2, m());
+    expr *a1, *b1, *a2, *b2;
     SASSERT(m_util.is_re(r1));
     SASSERT(m_util.is_re(r2));
     expr_ref result(m());
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_union(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return (is_subset(r1, r2) ? r2 : (is_subset(r2, r1) ? r1 : re().mk_union(r1, r2))); };
+    std::function<bool(expr *, expr *)> is_complement = [&](expr *a, expr *b) {
+        expr *s;
+        if (re().is_complement(a, s) && s == b)
+            return true;
+        if (re().is_complement(b, s) && s == a)
+            return true;
+        return false;
+    };    
     if (r1 == r2 || re().is_empty(r2) || re().is_full_seq(r1))
         result = r1;
     else if (re().is_empty(r1) || re().is_full_seq(r2))
@@ -3327,6 +3336,15 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
         result = r1;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r2;
+    // (R1 \ R2) U (R2 \ R1) = R1 xor R2
+    else if (re().is_intersection(r1, a1, a2) && re().is_intersection(r2, b1, b2) && 
+        is_complement(a1, b2) && is_complement(a2, b1)) {
+        result = re().mk_xor(a1, re().mk_complement(a2));
+    }   
+    else if (re().is_intersection(r1, a1, a2) && re().is_intersection(r2, b1, b2) && 
+        is_complement(a1, b1) && is_complement(a2, b2)) {
+        result = re().mk_xor(a1, re().mk_complement(a2));
+    } 
     else
         result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
     return result;
