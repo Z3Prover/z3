@@ -477,7 +477,8 @@ namespace {
                 expr_ref_vector lits(m);
                 for (auto const &c : candidates) {
                     vars.push_back(c.e);
-                    lits.push_back(c.e);
+                    if (lits.size() < cutoff)                       
+                        lits.push_back(c.e);
                 }
 
                 return lits;

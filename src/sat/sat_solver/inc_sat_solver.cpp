@@ -523,7 +523,8 @@ public:
             for (sat::bool_var v : candidates) {
                 expr* e = bool_var2expr(v);
                 if (e) {
-                    fmls.push_back(e);
+                    if (fmls.size() < backtrack_level)
+                       fmls.push_back(e);
                     vs.push_back(e);
                 }
             }

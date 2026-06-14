@@ -675,6 +675,19 @@ class parallel_solver {
             }
         }
 
+        bool path_contains_atom(ast_translation& l2g, node_lease const& lease, expr* atom) {
+            std::scoped_lock lock(mux);
+            if (!lease.leased_node)
+                return false;
+            if (m_state != state::is_running)
+                return false;
+            if (m_search_tree.is_lease_canceled(lease.leased_node, lease.cancel_epoch))
+                return false;
+
+            expr_ref _atom(l2g(atom), m);            
+            return lease.leased_node->path_contains_atom(_atom);
+        }
+
         void try_split(ast_translation& l2g, unsigned worker_id,
                        node_lease const& lease,
                        expr* atom, unsigned effort) {
@@ -1038,19 +1051,21 @@ class parallel_solver {
             m_shared_units_prefix = prefix_sz;
         }
 
-        expr_ref get_split_atom(expr_ref_vector const& cube) {
+        expr_ref get_split_atom(node_lease const& lease, expr_ref_vector const& cube) {
             if (cube.size() >= m_config.m_max_cube_depth)
                 return expr_ref(nullptr, m);
 
             expr_ref_vector vars(m);
             obj_hashtable<expr> rejected_atoms;
             while (true) {
-                expr_ref_vector cands = s->cube(vars, 1);
+                expr_ref_vector cands = s->cube(vars, 10);
                 bool rejected = false;
                 for (expr* lit : cands) {
                     if (!lit)
                         continue;
                     if (m.is_true(lit) || m.is_false(lit))
+                        continue;
+                    if (b.path_contains_atom(m_l2g, lease, lit))
                         continue;
                     if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit)) {
                         expr* atom = lit;
@@ -1161,7 +1176,7 @@ class parallel_solver {
                     LOG_WORKER(1, " found undef cube\n");
                     if (m_config.m_max_cube_depth <= cube.size())
                         goto check_cube_start;
-                    expr_ref atom = get_split_atom(cube);
+                    expr_ref atom = get_split_atom(lease, cube);
                     if (atom) {
                         b.try_split(m_l2g, id, lease, atom.get(),
                                     m_config.m_threads_max_conflicts);
