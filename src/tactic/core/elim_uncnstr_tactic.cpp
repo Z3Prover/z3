@@ -835,6 +835,7 @@ class elim_uncnstr_tactic : public tactic {
                 return r;
             }
             case OP_SEQ_IN_RE:
+                return nullptr;
                 if (uncnstr(args[0]) && m_seq_util.re.is_ground(args[1]) && m_seq_util.is_string(args[0]->get_sort())) {
                     zstring s1;
                     expr *re = args[1];
