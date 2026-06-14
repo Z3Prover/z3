@@ -207,7 +207,7 @@ public:
 
     // fix_int_cols: after maximizing try to move the integer columns to integer values;
     // pass false to keep the optimal (possibly fractional) vertex intact, e.g., for the largest cube test
-    lp_status maximize_term(unsigned j_or_term, impq& term_max, bool fix_int_cols = true);
+    lp_status maximize_term(unsigned j_or_term, impq& term_max, bool fix_int_cols);
 
     core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const;
     

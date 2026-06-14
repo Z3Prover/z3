@@ -1645,7 +1645,7 @@ void test_maximize_term() {
     lia_move lm = i_solver.check(&ex);
     VERIFY(lm == lia_move::sat);
     impq term_max;
-    lp_status st = solver.maximize_term(term_2x_pl_2y, term_max);
+    lp_status st = solver.maximize_term(term_2x_pl_2y, term_max, /*fix_int_cols*/ true);
 
     std::cout << "status = " << lp_status_to_string(st) << std::endl;
     std::cout << "term_max = " << term_max << std::endl;
