@@ -120,6 +120,7 @@ add_executable(test-z3
   quant_elim.cpp
   quant_solve.cpp
   random.cpp
+  range_predicate.cpp
   rational.cpp
   rcf.cpp
   region.cpp
