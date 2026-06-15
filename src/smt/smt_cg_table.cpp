@@ -232,6 +232,7 @@ namespace smt {
 
     void cg_table::erase(enode * n) {
         SASSERT(n->get_num_args() > 0);
+        SASSERT(contains_ptr(n));
         void * t = get_table(n); 
         switch (static_cast<table_kind>(GET_TAG(t))) {
         case UNARY:

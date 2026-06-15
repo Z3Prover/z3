@@ -1032,6 +1032,7 @@ namespace smt {
                 bool_var v = enode2bool_var(e);
                 assign(literal(v), mk_justification(eq_propagation_justification(e->get_arg(0), e->get_arg(1))));
                 e->m_cg    = e;
+                // TODO: cgr promotion?
                 // log_cg_update("internalizer:true_eq", e, e);
                 push_eq(e, m_true_enode, eq_justification());
             }
@@ -1101,6 +1102,7 @@ namespace smt {
             SASSERT(m_cg_table.contains_ptr(e));
             m_cg_table.erase(e);
         }
+        SASSERT(!(e->get_num_args() > 0 && m_cg_table.contains_ptr(e)));
         if (e->get_num_args() > 0 && !e->is_eq()) {
             unsigned decl_id = e->get_decl_id();
             SASSERT(decl_id < m_decl2enodes.size());

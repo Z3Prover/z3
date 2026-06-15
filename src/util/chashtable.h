@@ -483,8 +483,10 @@ public:
         unsigned h    = get_hash(d);
         unsigned idx  = h & mask;
         cell * c      = m_table + idx;
-        if (c->is_free())
+        if (c->is_free()) {
+            SASSERT(false);
             return; 
+        }
         cell * prev = nullptr;
         do { 
             if (equals(c->m_data, d)) {
