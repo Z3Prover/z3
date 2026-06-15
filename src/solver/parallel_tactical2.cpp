@@ -1171,10 +1171,6 @@ class parallel_solver {
                 if (m_config.m_global_backbones) {
                     bb_candidates local_candidates = find_backbone_candidates(cube);
                     b.collect_backbone_candidates(m_l2g, local_candidates);
-                    if (!m.inc()) {
-                        b.set_cancel();
-                        return;
-                    }
                 }
                 lbool r = check_cube(cube);
 
@@ -1185,10 +1181,13 @@ class parallel_solver {
                     continue;
                 }
 
+                // NSB - at this point it shouldn't be possible to call inc_cancel.
+                // Is this ensured? I am not sure.
                 if (!m.inc()) {
                     b.set_cancel();
                     return;
                 }
+
 
                 switch (r) {
 
