@@ -1616,7 +1616,8 @@ class parallel_solver {
 
                 curr_batch.reset();
             }
-            b.set_cancel();
+            if (!m.inc())
+                b.set_cancel();
         }
 
     public:
@@ -1816,7 +1817,8 @@ class parallel_solver {
                 if (minimized.size() < original_size)
                     b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
             }
-            b.set_cancel();
+            if (!m.inc())
+                b.set_cancel();
         }
 
         void cancel() {
