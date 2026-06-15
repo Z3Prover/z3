@@ -3089,7 +3089,10 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         // CHARCLASS = disjoint union of ranges [lo_0,hi_0] | ... | [lo_{N-1},hi_{N-1}].
         // D(e, CHARCLASS) = ite(P(e), epsilon, []) where P(e) is the disjunction
         // of (lo_i <= e <= hi_i). We build a chain of nested ITEs, one per range,
-        // so the result is in antimirov BDD normal form.
+        // so the result is in antimirov BDD normal form. A single ITE with an
+        // OR-of-ranges condition would be shallower but elim_condition only
+        // simplifies conjunctions, so constant-string evaluation (which probes
+        // nullability after each derivative) would no longer reduce.
         app const* a = to_app(r);
         func_decl* d = a->get_decl();
         unsigned np = d->get_num_parameters();
