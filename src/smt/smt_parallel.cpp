@@ -1694,6 +1694,8 @@ namespace smt {
 
     void parallel::batch_manager::set_canceled() {
         std::scoped_lock lock(mux);
+        if (m_state != state::is_running)
+            return;
         cancel_background_threads();
     }
 
