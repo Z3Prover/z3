@@ -80,7 +80,12 @@ namespace seq {
             result = cached;
         }
         else {
-            m_ele = ele;
+            // Always compute the SYMBOLIC derivative wrt the canonical
+            // variable v (so the cached result is reusable for any
+            // concrete ele via substitution below). Using the concrete
+            // `ele` here would bake it into the cached ITE-tree and
+            // poison future lookups for the same r with a different ele.
+            m_ele = v;
             m_depth = 0;
             // Initialize path state for inline pruning
             m_path.reset();
