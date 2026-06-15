@@ -1480,8 +1480,10 @@ class parallel_solver {
                     collect_shared_clauses();
 
                     while (true) {
-                        if (!m.inc())
+                        if (!m.inc()) {
+                            b.set_cancel();
                             return;
+                        }
                         if (canceled())
                             break;
 
@@ -1607,6 +1609,7 @@ class parallel_solver {
 
                 curr_batch.reset();
             }
+            b.set_cancel();
         }
 
     public:
@@ -1806,6 +1809,7 @@ class parallel_solver {
                 if (minimized.size() < original_size)
                     b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
             }
+            b.set_cancel();
         }
 
         void cancel() {
@@ -1915,12 +1919,18 @@ public:
         auto safe_run = [&](std::function<void()> run_fn, reslimit& lim) {
             try {
                 run_fn();
+                if (lim.is_canceled())
+                    m_batch_manager.set_cancel();
             } catch (z3_error &err) {
                 if (!lim.is_canceled())
                     m_batch_manager.set_exception(err.error_code());
+                else
+                    m_batch_manager.set_cancel();
             } catch (z3_exception &ex) {
                 if (!lim.is_canceled() && !is_cancellation_exception(ex.what()))
                     m_batch_manager.set_exception(ex.what());
+                else
+                    m_batch_manager.set_cancel();
             }
         };
         /* Launch threads. */

@@ -25,7 +25,6 @@ Author:
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
 #include "solver/solver_preprocess.h"
-#include "params/smt_parallel_params.hpp"
 
 #include <cmath>
 #include <mutex>
@@ -751,6 +750,7 @@ namespace smt {
             if (minimized.size() < original_size)
                 b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
         }
+        b.set_canceled();
     }
 
     void parallel::worker::run() {
@@ -865,12 +865,11 @@ namespace smt {
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
 
-        smt_parallel_params pp(p.ctx.m_params);
-        m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.num_global_bb_batch_threads() > 0 || pp.num_global_bb_fl_threads() > 0;
-        m_config.m_local_backbones = pp.local_backbones();
-        m_config.m_core_minimize = pp.core_minimize();
-        m_config.m_ablate_backtracking = pp.ablate_backtracking();
+        m_config.m_inprocessing = false;
+        m_config.m_global_backbones = true;
+        m_config.m_local_backbones = false;
+        m_config.m_core_minimize = true;
+        m_config.m_ablate_backtracking = false;
         
         // When ablating backtracking, disable core minimization since we're using the full cube path
         if (m_config.m_ablate_backtracking) {
@@ -899,9 +898,7 @@ namespace smt {
         m_shared_units_prefix = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
-
-        smt_parallel_params pp(p.ctx.m_params);
-        m_use_failed_literal_test = pp.num_global_bb_fl_threads() > 0;
+        m_use_failed_literal_test = false; // true failed literal mode, false for Janota chunking algorithm
     }
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
@@ -1796,8 +1793,7 @@ namespace smt {
         m_worker_leases.reset();
         m_worker_leases.resize(p.m_workers.size());
         
-        smt_parallel_params pp(p.ctx.m_params);
-        m_ablate_backtracking = pp.ablate_backtracking();
+        m_ablate_backtracking = false;
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
@@ -1811,18 +1807,11 @@ namespace smt {
     }
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
-        smt_parallel_params pp(ctx.m_params);
-        unsigned num_global_bb_batch_threads = pp.num_global_bb_batch_threads();
-        if (num_global_bb_batch_threads > 2)
-            throw default_exception("smt_parallel.num_global_bb_batch_threads must be 0, 1, or 2");
+        unsigned num_global_bb_batch_threads = 2;
         unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
-        unsigned num_sls_threads = (pp.sls() ? 1 : 0);
-        unsigned num_core_min_threads = (pp.core_minimize() ? 1 : 0);
-        unsigned num_global_bb_fl_threads = pp.num_global_bb_fl_threads();
-        if (num_global_bb_fl_threads > 2)
-            throw default_exception("smt_parallel.num_global_bb_fl_threads must be 0, 1, or 2");
-        if (num_global_bb_fl_threads > 0 && num_global_bb_batch_threads > 0)
-            throw default_exception("smt_parallel.num_global_bb_fl_threads and smt_parallel.num_global_bb_batch_threads cannot both be enabled");
+        unsigned num_sls_threads = 0;
+        unsigned num_core_min_threads = 1;
+        unsigned num_global_bb_fl_threads = 0;
         unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_batch_threads;
         unsigned total_threads = num_workers + num_sls_threads + num_core_min_threads + num_global_bb_threads;
 
@@ -1858,7 +1847,7 @@ namespace smt {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
-        if (pp.core_minimize()) {
+        if (num_core_min_threads == 1) {
             m_core_minimizer_worker = alloc(core_minimizer_worker, *this, asms);
             sl.push_child(&(m_core_minimizer_worker->limit()));
         }
@@ -1874,17 +1863,37 @@ namespace smt {
 
         m_batch_manager.initialize(num_global_bb_threads);
         
+        auto safe_run = [&](auto* w) {
+            try {
+                w->run();
+                if (w->limit().is_canceled())
+                    m_batch_manager.set_canceled();
+            }
+            catch (z3_error& err) {
+                if (!w->limit().is_canceled())
+                    m_batch_manager.set_exception(err.error_code());
+                else
+                    m_batch_manager.set_canceled();
+            }
+            catch (z3_exception& ex) {
+                if (!w->limit().is_canceled() && !is_cancellation_exception(ex.what()))
+                    m_batch_manager.set_exception(ex.what());
+                else
+                    m_batch_manager.set_canceled();
+            }
+        };
+
         // Launch threads
         vector<std::thread> threads(total_threads);
         unsigned thread_idx = 0;
         for (auto* w : m_workers) 
-            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                
+            threads[thread_idx++] = std::thread([&, w]() { safe_run(w); });
         if (m_sls_worker)
-            threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
+            threads[thread_idx++] = std::thread([&]() { safe_run(m_sls_worker.get()); });
         if (m_core_minimizer_worker)
-            threads[thread_idx++] = std::thread([&]() { m_core_minimizer_worker->run(); });
+            threads[thread_idx++] = std::thread([&]() { safe_run(m_core_minimizer_worker.get()); });
         for (auto* w : m_global_backbones_workers) 
-            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                   
+            threads[thread_idx++] = std::thread([&, w]() { safe_run(w); });
 
 
         // Wait for all threads to finish
