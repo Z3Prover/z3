@@ -481,6 +481,7 @@ namespace smt {
     };
 
     enode_pair context::try_cgr_promotion(enode *e, enode *cur_cgr, bool &promote_used_commutativity) {
+        SASSERT(!(e->get_num_args() == 0 || !e->is_cgc_enabled() || e->is_true_eq()));
         SASSERT(m_cg_table.contains_ptr(cur_cgr));
         SASSERT(cur_cgr->is_cgr());
         SASSERT(congruent(e, cur_cgr));
@@ -504,6 +505,7 @@ namespace smt {
     }
 
     enode_pair context::try_cgr_promotion(enode *e) {
+        SASSERT(!(e->get_num_args() == 0 || !e->is_cgc_enabled() || e->is_true_eq()));
         bool dummy_used_commutativity;
         return try_cgr_promotion(e, get_cg_root(e), dummy_used_commutativity);
     }

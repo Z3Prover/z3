@@ -104,7 +104,8 @@ namespace smt {
     void context::update_generation(enode * e) {
         if (0 < m_generation && m_generation < e->get_generation()) {
             e->set_generation(nullptr, m_generation);
-            try_cgr_promotion(e);
+            if (e->get_num_args() > 0 && e->is_cgc_enabled() && !e->is_true_eq())
+                try_cgr_promotion(e);
         }
     }
 
