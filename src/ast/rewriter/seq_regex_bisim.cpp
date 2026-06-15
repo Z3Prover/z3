@@ -86,9 +86,15 @@ namespace seq {
     }
 
     /*
-       Collect the leaves of a t-regex der (an ITE / antimirov union /
-       union-tree with regex leaves) into the output vector. Empty
-       (re.empty) leaves are dropped.
+       Collect the leaves of a t-regex der (an ITE-tree whose leaves are
+       regex expressions) into the output vector. Empty (re.empty) leaves
+       are dropped.
+
+       Each leaf is treated as a single bisimulation state regardless of
+       its top-level shape (including re.union and re.antimirov_union):
+       descending into a union at the leaf would split one state into
+       several, which is semantically unsound for the bisimulation /
+       union-find merging that follows.
 
        Returns false if we encountered an unexpected node (e.g. a free
        variable creeping in) — in that case the caller should bail out.
@@ -102,9 +108,7 @@ namespace seq {
             expr* e = work.back();
             work.pop_back();
             expr* c = nullptr, * t = nullptr, * f = nullptr;
-            if (m.is_ite(e, c, t, f) ||
-                m_util.re.is_union(e, t, f) ||
-                m_util.re.is_antimirov_union(e, t, f)) {
+            if (m.is_ite(e, c, t, f)) {
                 if (seen.insert_if_not_there(t))
                     work.push_back(t);
                 if (seen.insert_if_not_there(f))
