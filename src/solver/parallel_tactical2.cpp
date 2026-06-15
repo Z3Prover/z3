@@ -1064,23 +1064,30 @@ class parallel_solver {
             expr_ref_vector vars(m);
             obj_hashtable<expr> rejected_atoms;
             while (true) {
-                expr_ref_vector cands = s->cube(vars, 10);
                 bool rejected = false;
-                for (expr* lit : cands) {
-                    if (!lit)
-                        continue;
-                    if (m.is_true(lit) || m.is_false(lit))
-                        continue;
-                    if (b.path_contains_atom(m_l2g, lease, lit))
-                        continue;
-                    if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit)) {
-                        expr* atom = lit;
-                        m.is_not(lit, atom);
-                        rejected_atoms.insert(atom);
-                        rejected = true;
-                        continue;
+                try {
+                    expr_ref_vector cands = s->cube(vars, 10);
+                    for (expr *lit : cands) {
+                        if (!lit)
+                            continue;
+                        if (m.is_true(lit) || m.is_false(lit))
+                            continue;
+                        if (b.path_contains_atom(m_l2g, lease, lit))
+                            continue;
+                        if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit)) {
+                            expr *atom = lit;
+                            m.is_not(lit, atom);
+                            rejected_atoms.insert(atom);
+                            rejected = true;
+                            continue;
+                        }
+                        return expr_ref(lit, m);
                     }
-                    return expr_ref(lit, m);
+                }
+                catch (...) {
+                    if (!m.inc())
+                        return expr_ref(nullptr, m);
+                    throw;
                 }
 
                 if (!rejected || vars.empty())
@@ -1103,8 +1110,13 @@ class parallel_solver {
         bb_candidates find_backbone_candidates(expr_ref_vector const& cube, unsigned k = 10) {
             bb_candidates result;
             vector<solver::scored_literal> cands;
-            s->get_backbone_candidates(cands, s->get_num_bool_vars());
-
+            try {
+                s->get_backbone_candidates(cands, s->get_num_bool_vars());
+            } catch (z3_exception &ex) {
+                if (!m.inc())
+                    return result;
+                throw;
+            }
             for (auto const& cand : cands) {
                 expr* lit = cand.lit.get();
                 if (m_config.m_global_backbones &&
