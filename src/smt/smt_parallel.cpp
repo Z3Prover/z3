@@ -294,7 +294,6 @@ namespace smt {
                     }
                     if (!m.inc() || canceled()) {
                         ctx->get_fparams().m_max_conflicts = old_max_conflicts;
-                        b.set_canceled();
                         return;
                     }
                     if (!bb_candidate_lits.contains(lit)) // already handled in singleton core → backbone case below
@@ -395,8 +394,10 @@ namespace smt {
 
                 while (true) {
 
-                    if (!m.inc()) 
-                        break;
+                    if (!m.inc()) {
+                        b.set_canceled();
+                        return;
+                    }
                     if (canceled()) 
                         break;
 
@@ -662,7 +663,6 @@ namespace smt {
                 core.reset();
                 core.append(mus);
                 core.append(unknown);
-                b.set_canceled();
                 return;
             }
 
