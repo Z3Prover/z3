@@ -1246,21 +1246,18 @@ namespace seq {
     // Intersect the active suffix m_intervals[m_intervals_start..end] with [lo, hi]
     void derive::intersect_intervals(unsigned lo, unsigned hi) {
         // Copy active suffix to end, update start, then filter
-        unsigned old_start = m_intervals_start;
         unsigned old_sz = m_intervals.size();
-        for (unsigned i = old_start; i < old_sz; ++i)
+        for (unsigned i = m_intervals_start; i < old_sz; ++i)
             m_intervals.push_back(m_intervals[i]);
         m_intervals_start = old_sz;
-        // Filter in-place within new suffix
+        // Filter in-place within new suffix: drop intervals disjoint from [lo,hi],
+        // keep the intersection for overlapping ones.
         unsigned j = m_intervals_start;
         for (unsigned i = m_intervals_start; i < m_intervals.size(); ++i) {
             auto [lo1, hi1] = m_intervals[i];
-            if (hi < lo1 || lo > hi1) {
-                j = old_sz;
-                break;
-            }
-            if (hi1 >= lo)
-                m_intervals[j++] = {std::max(lo1, lo), std::min(hi1, hi)};
+            if (hi < lo1 || lo > hi1)
+                continue;  // disjoint with this interval — drop it
+            m_intervals[j++] = {std::max(lo1, lo), std::min(hi1, hi)};
         }
         m_intervals.shrink(j);
     }
