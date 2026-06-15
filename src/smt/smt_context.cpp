@@ -505,7 +505,7 @@ namespace smt {
 
     enode_pair context::try_cgr_promotion(enode *e) {
         bool dummy_used_commutativity;
-        return try_cgr_promotion(e, e->get_cg_root(), dummy_used_commutativity);
+        return try_cgr_promotion(e, get_cg_root(e), dummy_used_commutativity);
     }
 
     class add_eq_trail : public trail {

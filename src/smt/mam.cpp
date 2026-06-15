@@ -1920,7 +1920,7 @@ namespace {
             for (unsigned i = 0; i < num_enodes; ++i) {
                 enode * n = enodes[i];
                 // binding might be a constant
-                unsigned curr = n->get_num_args() == 0 ? n->get_generation() : n->get_cg_root()->get_generation();
+                unsigned curr = n->get_num_args() == 0 ? n->get_generation() : m_context.get_cg_root(n)->get_generation();
                 if (curr > max)
                     max = curr;
             }
@@ -2341,7 +2341,7 @@ namespace {
         m_max_top_generation.reset();
         m_pattern_instances.push_back(n);
 
-        m_max_generation = n->get_cg_root()->get_generation();
+        m_max_generation = m_context.get_cg_root(n)->get_generation();
 
         if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
             m_used_enodes.reset();

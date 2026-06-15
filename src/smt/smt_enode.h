@@ -314,15 +314,6 @@ namespace smt {
             return m_cg;
         }
 
-        // Follow chain to find a unique representative for the congruence class
-        enode * get_cg_root() const { 
-            enode * curr = m_cg;
-            while (curr != curr->m_cg) {
-                curr = curr->m_cg;
-            }
-            return curr;
-        }
-
         bool is_cgc_enabled() const {
             return m_cgc_enabled;
         }

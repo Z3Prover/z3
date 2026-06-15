@@ -101,7 +101,7 @@ namespace smt {
             SASSERT(cg != nullptr);
             SASSERT(cg->get_generation() <= n->get_generation());
 
-            enode * cgr = n->get_cg_root();
+            enode * cgr = get_cg_root(n);
             SASSERT(cgr->is_cgr());
             SASSERT(cgr->get_generation() <= n->get_generation());
         }
