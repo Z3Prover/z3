@@ -43,6 +43,7 @@ z3_add_component(ast
     polymorphism_util.cpp
     pp.cpp
     quantifier_stat.cpp
+    range_predicate.cpp
     recfun_decl_plugin.cpp
     reg_decl_plugins.cpp
     seq_decl_plugin.cpp

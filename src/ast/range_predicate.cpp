@@ -21,7 +21,7 @@ Authors:
 
 --*/
 
-#include "ast/rewriter/range_predicate.h"
+#include "ast/range_predicate.h"
 #include "util/debug.h"
 #include <algorithm>
 #include <ostream>

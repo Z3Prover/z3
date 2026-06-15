@@ -24,6 +24,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/char_decl_plugin.h"
+#include "ast/range_predicate.h"
 #include "util/lbool.h"
 #include "util/zstring.h"
 
@@ -78,6 +79,13 @@ enum seq_op_kind {
     OP_RE_OF_PRED,
     OP_RE_REVERSE,
     OP_RE_DERIVATIVE, // Char -> RegEx -> RegEx
+    OP_RE_CHARCLASS,  // 2N int parameters (lo_0, hi_0, ..., lo_{N-1}, hi_{N-1}) -> RegEx
+                      // Canonical char-class regex: union of disjoint, sorted, non-adjacent
+                      // ranges [lo_i, hi_i] over the character domain. N = 0 denotes the
+                      // empty regex; the predicate covering the full domain is also
+                      // representable. Equivalent in language to the union of re.range
+                      // nodes, but a single hash-consed AST node enabling O(1) boolean
+                      // combinations on regex char-classes.
 
 
     // string specific operators.
@@ -544,6 +552,13 @@ public:
         app* mk_derivative(expr* ele, expr* r) { return m.mk_app(m_fid, OP_RE_DERIVATIVE, ele, r); }
         app* mk_antimirov_union(expr* r1, expr* r2) { return m.mk_app(m_fid, _OP_RE_ANTIMIROV_UNION, r1, r2); }
 
+        // Construct a canonical char-class regex over the character domain.
+        // The seq_sort argument identifies the element sort of the regex
+        // (must be (Seq Char)). The predicate is encoded as 2*N int
+        // parameters [lo_0, hi_0, ..., lo_{N-1}, hi_{N-1}]. An empty
+        // predicate produces re.none of the same sort.
+        app* mk_charclass(seq::range_predicate const& p, sort* seq_sort);
+
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
         bool is_union(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_UNION); }
@@ -577,6 +592,16 @@ public:
         bool is_reverse(expr const* n) const { return is_app_of(n, m_fid, OP_RE_REVERSE); }
         bool is_derivative(expr const* n) const { return is_app_of(n, m_fid, OP_RE_DERIVATIVE); }
         bool is_antimirov_union(expr const* n) const { return is_app_of(n, m_fid, _OP_RE_ANTIMIROV_UNION); }
+        bool is_charclass(expr const* n) const { return is_app_of(n, m_fid, OP_RE_CHARCLASS); }
+        bool is_charclass(expr const* n, seq::range_predicate& p) const;
+
+        // True if `r` is semantically equivalent to a single char-class regex
+        // over Char. Handles OP_RE_CHARCLASS, re.full_char, re.empty (over a
+        // sequence sort whose element sort is Char), and re.range with two
+        // single-char concrete bounds. Returns the canonical predicate in `p`.
+        // This is the O(1) fast-path check used by smart constructors to
+        // collapse boolean combinations to a single CHARCLASS node.
+        bool as_charclass(expr* r, seq::range_predicate& p) const;
         MATCH_UNARY(is_to_re);
         MATCH_BINARY(is_concat);
         MATCH_BINARY(is_union);

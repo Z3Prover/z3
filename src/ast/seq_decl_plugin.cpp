@@ -240,6 +240,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re.of.pred", 1, 1, &predA, reA);
     m_sigs[OP_RE_REVERSE]        = alloc(psig, m, "re.reverse", 1, 1, &reA, reA);
     m_sigs[OP_RE_DERIVATIVE]     = alloc(psig, m, "re.derivative", 1, 2, AreA, reA);
+    m_sigs[OP_RE_CHARCLASS]      = alloc(psig, m, "re.charclass", 1, 0, nullptr, reA);
     m_sigs[_OP_RE_ANTIMIROV_UNION] = alloc(psig, m, "re.union", 1, 2, reAreA, reA);
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
@@ -497,6 +498,29 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         }
         m.raise_exception("Incorrect arguments used for re.^. Expected one non-negative integer parameter");
 
+    case OP_RE_CHARCLASS: {
+        m_has_re = true;
+        if (arity != 0)
+            m.raise_exception("re.charclass takes no arguments");
+        if ((num_parameters % 2) != 0)
+            m.raise_exception("re.charclass expects an even number of int parameters (lo, hi pairs)");
+        unsigned mx = get_char_plugin().max_char();
+        int prev_hi = -1;
+        for (unsigned i = 0; i + 1 < num_parameters; i += 2) {
+            if (!parameters[i].is_int() || !parameters[i + 1].is_int())
+                m.raise_exception("re.charclass parameters must be integers");
+            int lo = parameters[i].get_int();
+            int hi = parameters[i + 1].get_int();
+            if (lo < 0 || hi < 0 || lo > hi || static_cast<unsigned>(hi) > mx)
+                m.raise_exception("re.charclass range out of character domain");
+            if (lo <= prev_hi + 1)
+                m.raise_exception("re.charclass ranges must be sorted, disjoint, and non-adjacent");
+            prev_hi = hi;
+        }
+        if (!range) range = mk_reglan();
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range,
+                              func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
     case OP_STRING_CONST:
         if (!(num_parameters == 1 && arity == 0 && parameters[0].is_zstring())) {
             m.raise_exception("invalid string declaration");
@@ -1140,6 +1164,74 @@ bool seq_util::rex::is_range(expr const* n, unsigned& lo, unsigned& hi) const {
     return true;
 }
 
+app* seq_util::rex::mk_charclass(seq::range_predicate const& p, sort* seq_sort) {
+    sort* re_sort = mk_re(seq_sort);
+    if (p.is_empty())
+        return mk_empty(re_sort);
+    unsigned n = p.num_ranges();
+    vector<parameter> params;
+    for (unsigned i = 0; i < n; ++i) {
+        auto r = p[i];
+        params.push_back(parameter(static_cast<int>(r.first)));
+        params.push_back(parameter(static_cast<int>(r.second)));
+    }
+    return m.mk_app(m_fid, OP_RE_CHARCLASS, params.size(), params.data(), 0, nullptr, re_sort);
+}
+
+bool seq_util::rex::is_charclass(expr const* n, seq::range_predicate& p) const {
+    if (!is_charclass(n))
+        return false;
+    app const* a = to_app(n);
+    func_decl* d = a->get_decl();
+    unsigned np = d->get_num_parameters();
+    p = seq::range_predicate::empty(u.max_char());
+    unsigned mx = u.max_char();
+    for (unsigned i = 0; i + 1 < np; i += 2) {
+        unsigned lo = static_cast<unsigned>(d->get_parameter(i).get_int());
+        unsigned hi = static_cast<unsigned>(d->get_parameter(i + 1).get_int());
+        p = p | seq::range_predicate::range(lo, hi, mx);
+    }
+    return true;
+}
+
+bool seq_util::rex::as_charclass(expr* r, seq::range_predicate& p) const {
+    unsigned mx = u.max_char();
+    if (is_charclass(r, p))
+        return true;
+    if (is_full_char(r)) {
+        p = seq::range_predicate::top(mx);
+        return true;
+    }
+    if (is_empty(r)) {
+        sort* seq_sort = nullptr;
+        sort* ele_sort = nullptr;
+        if (u.is_re(r, seq_sort) && u.is_seq(seq_sort, ele_sort) && u.is_char(ele_sort)) {
+            p = seq::range_predicate::empty(mx);
+            return true;
+        }
+        return false;
+    }
+    expr* e1 = nullptr, *e2 = nullptr;
+    if (is_range(r, e1, e2)) {
+        zstring s1, s2;
+        if (u.str.is_string(e1, s1) && u.str.is_string(e2, s2)
+            && s1.length() == 1 && s2.length() == 1 && s1[0] <= s2[0]) {
+            p = seq::range_predicate::range(s1[0], s2[0], mx);
+            return true;
+        }
+        unsigned ch1 = 0, ch2 = 0;
+        expr* c1 = nullptr, *c2 = nullptr;
+        if (u.str.is_unit(e1, c1) && u.str.is_unit(e2, c2)
+            && u.is_const_char(c1, ch1) && u.is_const_char(c2, ch2)
+            && ch1 <= ch2) {
+            p = seq::range_predicate::range(ch1, ch2, mx);
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
 
 sort* seq_util::rex::to_seq(sort* re) {
     (void)u;
@@ -1347,7 +1439,7 @@ std::ostream& seq_util::rex::pp::print_range(std::ostream& out, expr* s1, expr* 
 */
 bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
     expr* s;
-    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r) || re.is_full_char(r));
+    return ((re.is_to_re(r, s) && re.u.str.is_unit(s)) || re.is_range(r) || re.is_empty(r) || re.is_epsilon(r) || re.is_full_char(r) || re.is_charclass(r));
 }
 
 /*
@@ -1442,6 +1534,26 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         out << (html_encode ? "&#x22C3;" : "|");
         print(out, r2);
         out << ")";
+    }
+    else if (re.is_charclass(e)) {
+        app const* a = to_app(e);
+        func_decl* d = a->get_decl();
+        unsigned np = d->get_num_parameters();
+        if (np == 0) {
+            out << (html_encode ? "&#x2205;" : "[]");
+        }
+        else {
+            out << "[";
+            for (unsigned i = 0; i + 1 < np; i += 2) {
+                int lo_p = d->get_parameter(i).get_int();
+                int hi_p = d->get_parameter(i + 1).get_int();
+                if (lo_p == hi_p)
+                    out << "\\x" << std::hex << lo_p << std::dec;
+                else
+                    out << "\\x" << std::hex << lo_p << "-\\x" << hi_p << std::dec;
+            }
+            out << "]";
+        }
     }
     else if (re.is_intersection(e, r1, r2)) {
         out << "(";
@@ -1674,6 +1786,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
         case OP_RE_RANGE: 
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:
+        case OP_RE_CHARCLASS:
             //TBD: check if the character predicate contains uninterpreted symbols or is nonground or is unsat
             //TBD: check if the range is unsat
             return info(true, l_false, 1, false);

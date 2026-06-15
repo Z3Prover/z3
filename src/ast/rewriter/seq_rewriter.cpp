@@ -2659,7 +2659,8 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
     else if (re().is_full_char(r) ||
         re().is_empty(r) ||
         re().is_of_pred(r) ||
-        re().is_range(r)) {
+        re().is_range(r) ||
+        re().is_charclass(r)) {
         result = m().mk_false();
     }
     else if (re().is_plus(r, r1) ||
@@ -3084,6 +3085,47 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         else
             result = re().mk_ite_simplify(c, mk_antimirov_deriv(e, r1, c1), mk_antimirov_deriv(e, r2, c2));
     }
+    else if (re().is_charclass(r)) {
+        // CHARCLASS = disjoint union of ranges [lo_0,hi_0] | ... | [lo_{N-1},hi_{N-1}].
+        // D(e, CHARCLASS) = ite(P(e), epsilon, []) where P(e) is the disjunction
+        // of (lo_i <= e <= hi_i). We build a chain of nested ITEs, one per range,
+        // so the result is in antimirov BDD normal form.
+        app const* a = to_app(r);
+        func_decl* d = a->get_decl();
+        unsigned np = d->get_num_parameters();
+        if (np == 0) {
+            result = nothing();
+        }
+        else {
+            unsigned mx = u().max_char();
+            result = nothing();
+            // Iterate ranges in reverse so the first range becomes the outermost ITE.
+            for (unsigned k = np; k >= 2; k -= 2) {
+                unsigned i = k - 2;
+                unsigned lo_p = static_cast<unsigned>(d->get_parameter(i).get_int());
+                unsigned hi_p = static_cast<unsigned>(d->get_parameter(i + 1).get_int());
+                if (lo_p == 0 && hi_p == mx) {
+                    // Range covers the entire char domain: derivative is unconditionally epsilon.
+                    result = epsilon();
+                    continue;
+                }
+                expr_ref lo_c(m_util.mk_char(lo_p), m());
+                expr_ref hi_c(m_util.mk_char(hi_p), m());
+                expr_ref cond(m());
+                if (lo_p == 0)
+                    cond = u().mk_le(e, hi_c);
+                else if (hi_p == mx)
+                    cond = u().mk_le(lo_c, e);
+                else
+                    cond = m().mk_and(u().mk_le(lo_c, e), u().mk_le(e, hi_c));
+                expr_ref range(simplify_path(e, cond), m());
+                expr_ref psi(simplify_path(e, m().mk_and(path, range)), m());
+                if (m().is_false(psi))
+                    continue;
+                result = re().mk_ite_simplify(range, epsilon(), result);
+            }
+        }
+    }
     else if (re().is_range(r, r1, r2)) {
         expr_ref range(m());
         expr_ref psi(m().mk_false(), m());
@@ -3318,6 +3360,15 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     SASSERT(m_util.is_re(r1));
     SASSERT(m_util.is_re(r2));
     expr_ref result(m());
+    // Char-class fast path: combine in O(1) via range_predicate when both
+    // operands are equivalent to a single character class.
+    seq::range_predicate pa, pb;
+    if (re().as_charclass(r1, pa) && re().as_charclass(r2, pb)) {
+        sort* seq_sort = nullptr;
+        VERIFY(u().is_re(r1, seq_sort));
+        result = re().mk_charclass(pa | pb, seq_sort);
+        return result;
+    }
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_union(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return (is_subset(r1, r2) ? r2 : (is_subset(r2, r1) ? r1 : re().mk_union(r1, r2))); };
     std::function<bool(expr *, expr *)> is_complement = [&](expr *a, expr *b) {
@@ -3355,6 +3406,13 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
     SASSERT(m_util.is_re(r1));
     SASSERT(m_util.is_re(r2));
     expr_ref result(m());
+    seq::range_predicate pa, pb;
+    if (re().as_charclass(r1, pa) && re().as_charclass(r2, pb)) {
+        sort* seq_sort = nullptr;
+        VERIFY(u().is_re(r1, seq_sort));
+        result = re().mk_charclass(pa & pb, seq_sort);
+        return result;
+    }
     if (re().is_epsilon(r2))
         std::swap(r1, r2);
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_intersection(t, a, b); };
@@ -4165,8 +4223,50 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             }
         }
     }
+    else if (re().is_charclass(r)) {
+        // Derivative of a char-class cc(P) = ite(P(ele), epsilon, []).
+        // We build it in transition-regex form: a disjunction over each
+        // range (lo, hi) of mk_der_inter(le(lo, ele), le(ele, hi)), with
+        // mk_der_cond normalization on each leaf so the result is a clean
+        // t-regex of ITE / and / or over single-character constraints.
+        app const* a = to_app(r);
+        func_decl* d = a->get_decl();
+        unsigned np = d->get_num_parameters();
+        if (np == 0)
+            return mk_empty();
+        expr_ref acc(m());
+        unsigned mx = u().max_char();
+        for (unsigned i = 0; i + 1 < np; i += 2) {
+            unsigned lo_p = static_cast<unsigned>(d->get_parameter(i).get_int());
+            unsigned hi_p = static_cast<unsigned>(d->get_parameter(i + 1).get_int());
+            expr_ref leaf(m());
+            if (lo_p == 0 && hi_p == mx) {
+                leaf = expr_ref(re().mk_to_re(str().mk_empty(seq_sort)), m());
+            }
+            else {
+                expr_ref p1(m()), p2(m());
+                if (lo_p > 0) {
+                    p1 = u().mk_le(m_util.mk_char(lo_p), ele);
+                    p1 = mk_der_cond(p1, ele, seq_sort);
+                }
+                if (hi_p < mx) {
+                    p2 = u().mk_le(ele, m_util.mk_char(hi_p));
+                    p2 = mk_der_cond(p2, ele, seq_sort);
+                }
+                if (!p1 && !p2)
+                    leaf = expr_ref(re().mk_to_re(str().mk_empty(seq_sort)), m());
+                else if (!p1)
+                    leaf = p2;
+                else if (!p2)
+                    leaf = p1;
+                else
+                    leaf = mk_der_inter(p1, p2);
+            }
+            acc = i == 0 ? leaf : mk_der_union(acc, leaf);
+        }
+        return acc;
+    }
     else if (re().is_range(r, r1, r2)) {
-        // r1, r2 are sequences.
         zstring s1, s2;
         if (str().is_string(r1, s1) && str().is_string(r2, s2)) {
             if (s1.length() == 1 && s2.length() == 1) {
@@ -4763,6 +4863,16 @@ br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
+    // O(1) char-class collapse: if both operands are equivalent to a
+    // char-class (CHARCLASS, full_char, empty-char, range with concrete
+    // bounds), return the union as a single CHARCLASS node.
+    seq::range_predicate pa, pb;
+    if (re().as_charclass(a, pa) && re().as_charclass(b, pb)) {
+        sort* seq_sort = nullptr;
+        VERIFY(u().is_re(a, seq_sort));
+        result = re().mk_charclass(pa | pb, seq_sort);
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 
@@ -4830,6 +4940,13 @@ br_status seq_rewriter::mk_re_inter0(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
+    seq::range_predicate pa, pb;
+    if (re().as_charclass(a, pa) && re().as_charclass(b, pb)) {
+        sort* seq_sort = nullptr;
+        VERIFY(u().is_re(a, seq_sort));
+        result = re().mk_charclass(pa & pb, seq_sort);
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 
@@ -4840,6 +4957,13 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {
+    seq::range_predicate pa, pb;
+    if (re().as_charclass(a, pa) && re().as_charclass(b, pb)) {
+        sort* seq_sort = nullptr;
+        VERIFY(u().is_re(a, seq_sort));
+        result = re().mk_charclass(pa - pb, seq_sort);
+        return BR_DONE;
+    }
     result = mk_regex_inter_normalize(a, re().mk_complement(b));
     return BR_REWRITE2;
 }
@@ -5100,6 +5224,19 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     if (is_empty) {
         sort* srt = re().mk_re(lo->get_sort());
         result = re().mk_empty(srt);
+        return BR_DONE;
+    }
+
+    // Lift concrete-bound ranges into a single canonical CHARCLASS node so
+    // that boolean combinations with other char-class regexes collapse in
+    // O(1) via the smart constructors below. Only fires when the element
+    // sort is Char (i.e. the standard string regex domain).
+    sort* ele_sort = nullptr;
+    if (slo.length() == 1 && shi.length() == 1 && slo[0] <= shi[0]
+        && u().is_seq(lo->get_sort(), ele_sort) && u().is_char(ele_sort)) {
+        unsigned mx = u().max_char();
+        seq::range_predicate p = seq::range_predicate::range(slo[0], shi[0], mx);
+        result = re().mk_charclass(p, lo->get_sort());
         return BR_DONE;
     }
 
