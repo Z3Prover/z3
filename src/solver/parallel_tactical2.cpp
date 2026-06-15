@@ -953,6 +953,7 @@ class parallel_solver {
                 bool     m_share_units_initial_only = true;
                 bool     m_core_minimize         = false;
                 bool     m_global_backbones      = false;
+                bool     m_ablate_backtracking   = false;
                 unsigned m_max_cube_depth        = 20;
         };
 
@@ -1117,7 +1118,10 @@ class parallel_solver {
             : id(id), b(p.m_batch_manager), asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             parallel_params pp(params);
             m_config.m_core_minimize = pp.core_minimize();
+            m_config.m_ablate_backtracking = pp.ablate_backtracking();
             m_config.m_global_backbones = pp.num_bb_threads() > 0;
+            if (m_config.m_ablate_backtracking)
+                m_config.m_core_minimize = false;
 
             s = src.translate(m, params);
             // don't share initial units
@@ -1211,7 +1215,8 @@ class parallel_solver {
 
                     LOG_WORKER(1, " found unsat cube\n");
                     auto* source = lease.leased_node;
-                    b.backtrack(m_l2g, id, unsat_core, lease);
+                    expr_ref_vector const& core_to_use = m_config.m_ablate_backtracking ? cube : unsat_core;
+                    b.backtrack(m_l2g, id, core_to_use, lease);
 
                     if (m_config.m_core_minimize)
                         b.enqueue_core_minimization(m_l2g, source, unsat_core);
@@ -1869,6 +1874,8 @@ public:
             static_cast<unsigned>(std::thread::hardware_concurrency()),
             pp.threads_max());
         bool core_minimize = pp.core_minimize();
+        if (pp.ablate_backtracking())
+            core_minimize = false;
         unsigned num_bb_threads = pp.num_bb_threads();
         if (num_bb_threads > 2)
             throw default_exception("parallel.num_bb_threads must be 0, 1, or 2");
