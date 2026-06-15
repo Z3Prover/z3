@@ -122,6 +122,7 @@ add_executable(test-z3
   random.cpp
   range_predicate.cpp
   rational.cpp
+  re_charclass.cpp
   rcf.cpp
   region.cpp
   sat_local_search.cpp

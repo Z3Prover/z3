@@ -114,6 +114,7 @@
     X(api_special_relations) \
     X(arith_rewriter) \
     X(range_predicate) \
+    X(re_charclass) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
