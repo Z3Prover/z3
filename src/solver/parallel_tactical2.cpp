@@ -928,9 +928,9 @@ class parallel_solver {
         expr_ref_vector const& get_unsat_core() const { return m_unsat_core; }
 
         void collect_statistics(statistics& st) const {
-            st.update("parallel-num_cubes", m_stats.m_num_cubes);
+            st.update("parallel-num-cubes", m_stats.m_num_cubes);
             st.update("parallel-max-cube-size", m_stats.m_max_cube_depth);
-            st.update("bb-backbones-found", m_stats.m_backbones_found);
+            st.update("parallel-backbones-found", m_stats.m_backbones_found);
             st.update("parallel-core-min-jobs-enqueued", m_stats.m_core_min_jobs_enqueued);
             st.update("parallel-core-min-jobs-published", m_stats.m_core_min_jobs_published);
             st.update("parallel-core-min-jobs-skipped", m_stats.m_core_min_jobs_skipped);
@@ -1638,19 +1638,19 @@ class parallel_solver {
         }
 
         void collect_statistics(statistics& st) const {
-            st.update("bb-batches-total", m_stats.m_batches_total);
-            st.update("bb-candidates-total", m_stats.m_candidates_total);
-            st.update("bb-backbones-detected", m_stats.m_backbones_detected);
-            st.update("bb-internal-backbones-found", m_stats.m_internal_backbones_found);
-            st.update("bb-retry-backbones-found", m_stats.m_retry_backbones_found);
-            st.update("bb-retries", m_stats.m_bb_retries);
-            st.update("bb-core-refinement-rounds", m_stats.m_core_refinement_rounds);
-            st.update("bb-singleton-backbones", m_stats.m_singleton_backbones);
-            st.update("bb-fallback-singleton-checks", m_stats.m_fallback_singleton_checks);
-            st.update("bb-fallback-chunk-exhausted", m_stats.m_fallback_reason_chunk_exhausted);
-            st.update("bb-fallback-undef", m_stats.m_fallback_reason_undef);
-            st.update("bb-literals-removed-by-core", m_stats.m_lits_removed_by_core);
-            st.update("bb-num-chunk-increases", m_stats.m_num_chunk_increases);
+            st.update("parallel-bb-batches-total", m_stats.m_batches_total);
+            st.update("parallel-bb-candidates-total", m_stats.m_candidates_total);
+            st.update("parallel-bb-backbones-detected", m_stats.m_backbones_detected);
+            st.update("parallel-bb-internal-backbones-found", m_stats.m_internal_backbones_found);
+            st.update("parallel-bb-retry-backbones-found", m_stats.m_retry_backbones_found);
+            st.update("parallel-bb-retries", m_stats.m_bb_retries);
+            st.update("parallel-bb-core-refinement-rounds", m_stats.m_core_refinement_rounds);
+            st.update("parallel-bb-singleton-backbones", m_stats.m_singleton_backbones);
+            st.update("parallel-bb-fallback-singleton-checks", m_stats.m_fallback_singleton_checks);
+            st.update("parallel-bb-fallback-chunk-exhausted", m_stats.m_fallback_reason_chunk_exhausted);
+            st.update("parallel-bb-fallback-undef", m_stats.m_fallback_reason_undef);
+            st.update("parallel-bb-literals-removed-by-core", m_stats.m_lits_removed_by_core);
+            st.update("parallel-bb-num-chunk-increases", m_stats.m_num_chunk_increases);
 
             auto safe_ratio = [](double num, double den) -> double {
                 return den > 0 ? num / den : 0.0;
