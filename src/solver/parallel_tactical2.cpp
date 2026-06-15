@@ -1656,13 +1656,13 @@ class parallel_solver {
                 return den > 0 ? num / den : 0.0;
             };
 
-            st.update("bb-backbone-yield-pct",
+            st.update("parallel-bb-backbone-yield-pct",
                 100.0 * safe_ratio(m_stats.m_internal_backbones_found, m_stats.m_candidates_total));
-            st.update("bb-avg-backbones-per-batch",
+            st.update("parallel-bb-avg-backbones-per-batch",
                 safe_ratio(m_stats.m_internal_backbones_found, m_stats.m_batches_total));
-            st.update("bb-core-refinement-rounds-per-batch",
+            st.update("parallel-bb-core-refinement-rounds-per-batch",
                 safe_ratio(m_stats.m_core_refinement_rounds, m_stats.m_batches_total));
-            st.update("bb-core-effectiveness-lit-removed-per-round",
+            st.update("parallel-bb-core-effectiveness-lit-removed-per-round",
                 safe_ratio(m_stats.m_lits_removed_by_core, m_stats.m_core_refinement_rounds));
         }
 
