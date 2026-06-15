@@ -1021,7 +1021,7 @@ namespace seq {
     }
 
     // Common ITE dispatch for binary ops (union/inter).
-    // Returns nullptr if neither a nor b is ITE (or depth limit reached).
+    // Returns nullptr if neither a nor b is ITE.
     expr_ref derive::hoist_ite(expr* a, expr* b, std::function<expr_ref(expr*, expr*)> apply_op) {
         expr *c1, *t1, *e1, *c2, *t2, *e2;
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1->get_id() > c2->get_id()) 
@@ -1035,17 +1035,18 @@ namespace seq {
             if (r) return r;
             return expr_ref(re().mk_empty(a->get_sort()), m);
         }
-        if (m_path_stack.size() < 8) {
-            if (m.is_ite(a, c1, t1, e1)) {
-                expr_ref r = apply_ite(c1, t1, e1, b, apply_op);
-                if (r) return r;
-                return expr_ref(re().mk_empty(a->get_sort()), m);
-            }
-            if (m.is_ite(b, c2, t2, e2)) {
-                expr_ref r = apply_ite(c2, t2, e2, a, apply_op);
-                if (r) return r;
-                return expr_ref(re().mk_empty(a->get_sort()), m);
-            }
+        // Single-ITE hoisting: must always recurse to maintain path-aware
+        // soundness — falling back to a non-path-aware structural rewrite
+        // here would bake unreachable branches into the result tree.
+        if (m.is_ite(a, c1, t1, e1)) {
+            expr_ref r = apply_ite(c1, t1, e1, b, apply_op);
+            if (r) return r;
+            return expr_ref(re().mk_empty(a->get_sort()), m);
+        }
+        if (m.is_ite(b, c2, t2, e2)) {
+            expr_ref r = apply_ite(c2, t2, e2, a, apply_op);
+            if (r) return r;
+            return expr_ref(re().mk_empty(a->get_sort()), m);
         }
         return expr_ref(nullptr, m);
     }
