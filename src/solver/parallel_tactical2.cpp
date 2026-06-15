@@ -482,6 +482,8 @@ class parallel_solver {
 
         void set_cancel() {
             std::scoped_lock lock(mux);
+            if (m_state != state::is_running)
+                return;
             cancel_workers_unlocked();
         }
 
