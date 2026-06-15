@@ -503,6 +503,11 @@ namespace smt {
         return enode_pair(cur_cgr, e);  
     }
 
+    enode_pair context::try_cgr_promotion(enode *e) {
+        bool dummy_used_commutativity;
+        return try_cgr_promotion(e, e->get_cg_root(), dummy_used_commutativity);
+    }
+
     class add_eq_trail : public trail {
         context& ctx;
         enode * m_r1;

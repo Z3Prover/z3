@@ -102,8 +102,10 @@ namespace smt {
     }
 
     void context::update_generation(enode * e) {
-        if (0 < m_generation && m_generation < e->get_generation())
+        if (0 < m_generation && m_generation < e->get_generation()) {
             e->set_generation(nullptr, m_generation);
+            try_cgr_promotion(e);
+        }
     }
 
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
@@ -1024,7 +1026,6 @@ namespace smt {
                 bool_var v = enode2bool_var(e);
                 assign(literal(v), mk_justification(eq_propagation_justification(e->get_arg(0), e->get_arg(1))));
                 e->m_cg    = e;
-                // TODO: cgr promotion?
                 push_eq(e, m_true_enode, eq_justification());
             }
             else {
