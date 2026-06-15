@@ -598,14 +598,13 @@ class parallel_solver {
 
             unsigned best_idx = select_best_core_min_job_unlocked();
             m_core_min_jobs.swap(best_idx, m_core_min_jobs.size() - 1);
-            core_min_job* job = m_core_min_jobs.detach_back();
+            scoped_ptr<core_min_job> job = m_core_min_jobs.detach_back();
             m_core_min_jobs.pop_back();
             SASSERT(job);
             source = job->source;
             core.reset();
             for (expr* c : job->core)
                 core.push_back(g2l(c));
-            dealloc(job);
             return source != nullptr;
         }
 
@@ -999,6 +998,10 @@ class parallel_solver {
             catch (z3_exception& ex) {
                 if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
                     b.set_exception(ex.what());
+            } 
+            catch (...) {
+                IF_VERBOSE(0, verbose_stream() << "Unknown exception in check_cube\n";);
+                throw;
             }
             LOG_WORKER(1, " DONE checking cube " << r << "\n";);
             return r;
