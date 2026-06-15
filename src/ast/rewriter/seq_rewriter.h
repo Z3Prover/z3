@@ -250,6 +250,14 @@ class seq_rewriter {
     br_status mk_re_union0(expr* a, expr* b, expr_ref& result);
     br_status mk_re_inter0(expr* a, expr* b, expr_ref& result);
     br_status mk_re_complement(expr* a, expr_ref& result);
+    // Range-set collapse helpers: if the operands form a boolean
+    // combination of character-class regexes, materialize the result as a
+    // canonical regex over a single range_predicate.  See
+    // ast/rewriter/regex_range_collapse.h for the recognized fragment.
+    // NOTE: re.complement is intentionally not in this set because it
+    // operates at the sequence level, not the character-class level.
+    bool try_collapse_re_union(expr* a, expr* b, expr_ref& result);
+    bool try_collapse_re_inter(expr* a, expr* b, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
     br_status mk_re_xor(expr* a, expr* b, expr_ref& result);

@@ -21,6 +21,7 @@ Authors:
 #include "util/uint_set.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_regex_bisim.h"
+#include "ast/rewriter/regex_range_collapse.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -3966,6 +3967,32 @@ bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
     return m_subset.is_subset(r1, r2);
 }
 
+bool seq_rewriter::try_collapse_re_union(expr* a, expr* b, expr_ref& result) {
+    sort* seq_sort = nullptr;
+    if (!u().is_re(a->get_sort(), seq_sort))
+        return false;
+    seq::range_predicate pa(u().max_char()), pb(u().max_char());
+    if (!seq::regex_to_range_predicate(u(), a, pa))
+        return false;
+    if (!seq::regex_to_range_predicate(u(), b, pb))
+        return false;
+    result = seq::range_predicate_to_regex(u(), pa | pb, seq_sort);
+    return true;
+}
+
+bool seq_rewriter::try_collapse_re_inter(expr* a, expr* b, expr_ref& result) {
+    sort* seq_sort = nullptr;
+    if (!u().is_re(a->get_sort(), seq_sort))
+        return false;
+    seq::range_predicate pa(u().max_char()), pb(u().max_char());
+    if (!seq::regex_to_range_predicate(u(), a, pa))
+        return false;
+    if (!seq::regex_to_range_predicate(u(), b, pb))
+        return false;
+    result = seq::range_predicate_to_regex(u(), pa & pb, seq_sort);
+    return true;
+}
+
 br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
     if (a == b) {
         result = a;
@@ -4010,11 +4037,15 @@ br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
         result = m().mk_ite(c, re().mk_union(a, r1), re().mk_union(a, r2));
         return BR_REWRITE3;
     }
+    if (try_collapse_re_union(a, b, result))
+        return BR_DONE;
     return BR_FAILED;
 }
 
 /* Creates a normalized union. */
 br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
+    if (try_collapse_re_union(a, b, result))
+        return BR_DONE;
     result = mk_regex_union_normalize(a, b);
     return BR_DONE;
 }
@@ -4098,16 +4129,28 @@ br_status seq_rewriter::mk_re_inter0(expr* a, expr* b, expr_ref& result) {
         result = m().mk_ite(c, re().mk_inter(a, r1), re().mk_inter(a, r2));
         return BR_REWRITE3;
     }
+    if (try_collapse_re_inter(a, b, result))
+        return BR_DONE;
     return BR_FAILED;
 }
 
 /* Creates a normalized intersection. */
 br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
+    if (try_collapse_re_inter(a, b, result))
+        return BR_DONE;
     result = mk_regex_inter_normalize(a, b);
     return BR_DONE;
 }
 
 br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {
+    seq::range_predicate pa(u().max_char()), pb(u().max_char());
+    sort* seq_sort = nullptr;
+    if (u().is_re(a->get_sort(), seq_sort)
+        && seq::regex_to_range_predicate(u(), a, pa)
+        && seq::regex_to_range_predicate(u(), b, pb)) {
+        result = seq::range_predicate_to_regex(u(), pa - pb, seq_sort);
+        return BR_DONE;
+    }
     result = mk_regex_inter_normalize(a, re().mk_complement(b));
     return BR_REWRITE2;
 }
@@ -5500,7 +5543,7 @@ void seq_rewriter::op_cache::cleanup() {
 lbool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
     sort* rs;
     (void)rs;
-    // SASSERT(re().is_re(r, rs) && m_util.is_string(rs));
+    // SASSERT(u().is_re(r, rs) && m_util.is_string(rs));
     expr_mark visited;
     unsigned_vector str;
 
