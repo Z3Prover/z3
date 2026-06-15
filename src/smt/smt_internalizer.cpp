@@ -104,7 +104,7 @@ namespace smt {
     void context::update_generation(enode * e) {
         if (0 < m_generation && m_generation < e->get_generation()) {
             e->set_generation(nullptr, m_generation);
-            if (e->get_num_args() > 0 && e->is_cgc_enabled() && !e->is_true_eq())
+            if (e->uses_cg_table())
                 try_cgr_promotion(e);
         }
     }
@@ -1089,7 +1089,7 @@ namespace smt {
         SASSERT(is_app(n));
         enode * e             = m_app2enode[n_id];
         m_app2enode[n_id]     = nullptr;
-        if (e->is_cgr() && !e->is_true_eq() && e->is_cgc_enabled()) {
+        if (e->is_cgr() && e->uses_cg_table()) {
             SASSERT(m_cg_table.contains_ptr(e));
             m_cg_table.erase(e);
         }

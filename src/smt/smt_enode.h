@@ -314,6 +314,10 @@ namespace smt {
             return m_cg;
         }
 
+        bool uses_cg_table() const {
+            return get_num_args() > 0 && is_cgc_enabled() && !is_true_eq();
+        }
+
         bool is_cgc_enabled() const {
             return m_cgc_enabled;
         }
