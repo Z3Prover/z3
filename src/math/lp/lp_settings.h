@@ -112,6 +112,9 @@ struct statistics {
     unsigned m_gcd_conflicts = 0;
     unsigned m_cube_calls = 0;
     unsigned m_cube_success = 0;
+    unsigned m_lcube_calls = 0;
+    unsigned m_lcube_success = 0;
+    unsigned m_lcube_flip_success = 0;
     unsigned m_patches = 0;
     unsigned m_patches_success = 0;
     unsigned m_hnf_cutter_calls = 0;
@@ -152,6 +155,9 @@ struct statistics {
         st.update("arith-gcd-conflict", m_gcd_conflicts);
         st.update("arith-cube-calls", m_cube_calls);
         st.update("arith-cube-success", m_cube_success);
+        st.update("arith-lcube-calls", m_lcube_calls);
+        st.update("arith-lcube-success", m_lcube_success);
+        st.update("arith-lcube-flip-success", m_lcube_flip_success);
         st.update("arith-patches", m_patches);
         st.update("arith-patches-success", m_patches_success);
         st.update("arith-hnf-calls", m_hnf_cutter_calls);
@@ -258,7 +264,11 @@ private:
     bool             m_dio_ignore_big_nums = false;
     unsigned         m_dio_calls_period = 4;
     bool             m_dio_run_gcd = true;
+    bool             m_lcube = true;
+    unsigned         m_lcube_flips = 16;
 public:
+    bool lcube() const { return m_lcube; }
+    unsigned lcube_flips() const { return m_lcube_flips; }
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }
     bool print_external_var_name() const { return m_print_external_var_name; }
