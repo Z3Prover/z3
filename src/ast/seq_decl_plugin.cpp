@@ -505,7 +505,8 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         if ((num_parameters % 2) != 0)
             m.raise_exception("re.charclass expects an even number of int parameters (lo, hi pairs)");
         unsigned mx = get_char_plugin().max_char();
-        int prev_hi = -1;
+        bool have_prev = false;
+        int prev_hi = 0;
         for (unsigned i = 0; i + 1 < num_parameters; i += 2) {
             if (!parameters[i].is_int() || !parameters[i + 1].is_int())
                 m.raise_exception("re.charclass parameters must be integers");
@@ -513,9 +514,16 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
             int hi = parameters[i + 1].get_int();
             if (lo < 0 || hi < 0 || lo > hi || static_cast<unsigned>(hi) > mx)
                 m.raise_exception("re.charclass range out of character domain");
-            if (lo <= prev_hi + 1)
-                m.raise_exception("re.charclass ranges must be sorted, disjoint, and non-adjacent");
+            if (have_prev && lo <= prev_hi + 1) {
+                std::stringstream ss;
+                ss << "re.charclass ranges must be sorted, disjoint, and non-adjacent (got";
+                for (unsigned k = 0; k + 1 < num_parameters; k += 2)
+                    ss << " [" << parameters[k].get_int() << "," << parameters[k + 1].get_int() << "]";
+                ss << ")";
+                m.raise_exception(ss.str().c_str());
+            }
             prev_hi = hi;
+            have_prev = true;
         }
         if (!range) range = mk_reglan();
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range,
@@ -1169,6 +1177,9 @@ app* seq_util::rex::mk_charclass(seq::range_predicate const& p, sort* seq_sort) 
     if (p.is_empty())
         return mk_empty(re_sort);
     unsigned n = p.num_ranges();
+    unsigned mx = u.max_char();
+    if (n == 1 && p[0].first == 0 && p[0].second == mx)
+        return mk_full_char(re_sort);
     vector<parameter> params;
     for (unsigned i = 0; i < n; ++i) {
         auto r = p[i];
