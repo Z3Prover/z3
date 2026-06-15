@@ -861,7 +861,7 @@ class parallel_solver {
 
             if (changed && !m_bb_candidates.empty()) {
                 m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
-                std::sort(
+                std::stable_sort(
                     m_bb_candidates.begin(),
                     m_bb_candidates.end(),
                     [&](bb_candidate const& a, bb_candidate const& b) {
@@ -1933,11 +1933,13 @@ public:
                 if (lim.is_canceled())
                     m_batch_manager.set_cancel();
             } catch (z3_error &err) {
+                IF_VERBOSE(0, verbose_stream() << "Exception in parallel solver: " << err.what() << "\n");
                 if (!lim.is_canceled())
                     m_batch_manager.set_exception(err.error_code());
                 else
                     m_batch_manager.set_cancel();
             } catch (z3_exception &ex) {
+                IF_VERBOSE(0, verbose_stream() << "Exception in parallel solver: " << ex.what() << "\n");
                 if (!lim.is_canceled() && !is_cancellation_exception(ex.what()))
                     m_batch_manager.set_exception(ex.what());
                 else
