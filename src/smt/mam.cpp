@@ -1881,10 +1881,8 @@ namespace {
             m_pool.recycle(v);
         }
 
-        void update_max_generation(enode * n, enode * prev, enode * min_gen_match=nullptr) {
-            unsigned new_gen = min_gen_match ? min_gen_match->get_generation() : n->get_generation();
-
-            m_max_generation = std::max(m_max_generation, new_gen);
+        void update_max_generation(enode * n, enode * prev) {
+            m_max_generation = std::max(m_max_generation, n->get_generation());
 
             if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
                 m_used_enodes.push_back(std::make_tuple(prev, n));
