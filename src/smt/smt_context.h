@@ -1134,12 +1134,6 @@ namespace smt {
         friend class add_eq_trail;
         friend class cgr_promotion_trail;
 
-        void debug_log_cg_assignment(char const * site, enode * n, enode * cg) const;
-
-        void debug_log_cg_table_erase(char const * site, enode * n) const;
-
-        void debug_check_cg_membership(char const * site, enode * n) const;
-
         void undo_cgr_promotion(enode * new_cgr, enode * old_cgr);
 
         void remove_parents_from_cg_table(enode * r1);

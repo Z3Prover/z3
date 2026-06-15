@@ -48,53 +48,6 @@ Revision History:
 
 namespace smt {
 
-    void context::debug_log_cg_assignment(char const * site, enode * n, enode * cg) const {
-#ifdef Z3DEBUG
-        std::cerr << "[CG_ASSIGN] " << site
-                  << " n_id=" << (n ? n->get_owner_id() : 0)
-                  << " old_cg_id=" << (n && n->get_cg() ? n->get_cg()->get_owner_id() : 0)
-                  << " new_cg_id=" << (cg ? cg->get_owner_id() : 0)
-                  << " in_cg_table=" << (n ? m_cg_table.contains_ptr(n) : false)
-                  << " is_cgr=" << (n ? n->is_cgr() : false)
-                  << "\n";
-#else
-        (void) site; (void) n; (void) cg;
-#endif
-    }
-
-    void context::debug_log_cg_table_erase(char const * site, enode * n) const {
-#ifdef Z3DEBUG
-        std::cerr << "[CG_ERASE] " << site
-                  << " n_id=" << (n ? n->get_owner_id() : 0)
-                  << " n_cg_id=" << (n && n->get_cg() ? n->get_cg()->get_owner_id() : 0)
-                  << " in_cg_table_before=" << (n ? m_cg_table.contains_ptr(n) : false)
-                  << " is_cgr=" << (n ? n->is_cgr() : false)
-                  << "\n";
-#else
-        (void) site; (void) n;
-#endif
-    }
-
-    void context::debug_check_cg_membership(char const * site, enode * n) const {
-#ifdef Z3DEBUG
-        if (!n || n->get_num_args() == 0 || n->is_true_eq() || !n->is_cgc_enabled())
-            return;
-        bool is_cgr = n->is_cgr();
-        bool in_cg_table = m_cg_table.contains_ptr(n);
-        if (is_cgr != in_cg_table) {
-            std::cerr << "[CG_MISMATCH] " << site
-                      << " n_id=" << n->get_owner_id()
-                      << " cg_id=" << (n->get_cg() ? n->get_cg()->get_owner_id() : 0)
-                      << " is_cgr=" << is_cgr
-                      << " in_cg_table=" << in_cg_table
-                      << "\n";
-            SASSERT(is_cgr == in_cg_table);
-        }
-#else
-        (void) site; (void) n;
-#endif
-    }
-
     context::context(ast_manager & m, smt_params & p, params_ref const & _p):
         m(m),
         m_fparams(p),
@@ -503,16 +456,11 @@ namespace smt {
     }
 
     void context::undo_cgr_promotion(enode * new_cgr, enode * old_cgr) {
-        debug_log_cg_table_erase("undo_cgr_promotion:new_cgr", new_cgr);
         m_cg_table.erase(new_cgr);
-        debug_log_cg_assignment("undo_cgr_promotion:new_cgr", new_cgr, old_cgr);
         new_cgr->m_cg = old_cgr;
-        debug_check_cg_membership("undo_cgr_promotion:after_set_new_cgr", new_cgr);
-        debug_log_cg_assignment("undo_cgr_promotion:old_cgr", old_cgr, old_cgr);
         old_cgr->m_cg = old_cgr;
         auto [cgr_after_undo, used_commutativity] = m_cg_table.insert(old_cgr);
         SASSERT(cgr_after_undo == old_cgr);
-        debug_check_cg_membership("undo_cgr_promotion:after_insert_old_cgr", old_cgr);
         (void) used_commutativity;
     }
 
@@ -533,11 +481,6 @@ namespace smt {
     };
 
     enode_pair context::try_cgr_promotion(enode *e, enode *cur_cgr, bool &promote_used_commutativity) {
-        // promote_used_commutativity = false;
-        // return enode_pair(cur_cgr, e);        
-        // -------------
-
-
         SASSERT(m_cg_table.contains_ptr(cur_cgr));
         SASSERT(cur_cgr->is_cgr());
         SASSERT(congruent(e, cur_cgr));
@@ -545,17 +488,12 @@ namespace smt {
         promote_used_commutativity = false;
 
         if (e->m_generation < cur_cgr->m_generation) {
-            debug_log_cg_table_erase("try_cgr_promotion:cur_cgr", cur_cgr);
             m_cg_table.erase(cur_cgr);
-            debug_log_cg_assignment("try_cgr_promotion:demote_old", cur_cgr, e);
             cur_cgr->m_cg = e;
-            debug_check_cg_membership("try_cgr_promotion:after_set_old", cur_cgr);
-            debug_log_cg_assignment("try_cgr_promotion:promote_new", e, e);
             e->m_cg = e;
             auto [new_cgr, used_commutativity] = m_cg_table.insert(e);
             promote_used_commutativity = used_commutativity;
             SASSERT(new_cgr == e);
-            debug_check_cg_membership("try_cgr_promotion:after_insert_new", e);
             
             push_trail(cgr_promotion_trail(*this, e, cur_cgr));
 
@@ -703,9 +641,7 @@ namespace smt {
     */
     void context::remove_parents_from_cg_table(enode * r1) {
         // Remove parents from the congruence table
-        std::cerr << "Removing parents from CG table\n";
         for (enode * parent : enode::parents(r1)) {
-            std::cerr << "Parent: " << parent->get_owner_id() << "\n";
             CTRACE(add_eq, !parent->is_marked() && parent->is_cgc_enabled() && parent->is_true_eq() && m_cg_table.contains_ptr(parent), tout << parent->get_owner_id() << "\n";);
             CTRACE(add_eq, !parent->is_marked() && parent->is_cgc_enabled() && !parent->is_true_eq() &&  parent->is_cgr() && !m_cg_table.contains_ptr(parent), 
                    tout << "cgr !contains " << parent->get_owner_id() << " " << mk_pp(parent->get_decl(), m) << "\n";
@@ -724,7 +660,6 @@ namespace smt {
                 SASSERT(!parent->is_cgc_enabled() || m_cg_table.contains_ptr(parent));
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
-                    debug_log_cg_table_erase("remove_parents_from_cg_table", parent);
                     m_cg_table.erase(parent);
                     SASSERT(!m_cg_table.contains_ptr(parent));
                 }
@@ -783,23 +718,14 @@ namespace smt {
                     r2_parents.push_back(parent);
                     continue;
                 }
-                debug_log_cg_assignment("add_eq:parent_set", parent, parent_prime);
                 parent->m_cg = parent_prime;
-                debug_check_cg_membership("add_eq:after_parent_set", parent);
                 SASSERT(!m_cg_table.contains_ptr(parent));
 
                 bool promote_used_commutativity;
                 auto [new_cgr, other] = try_cgr_promotion(parent, parent_prime, promote_used_commutativity);
 
-                // if (new_cgr == parent) {
-                //     r2_parents.push_back(parent);
-                //     // parent_prime may have been appended earlier as a cgr parent.
-                //     // Keep r2_parents aligned with current representatives.
-                //     enode_vector::iterator it2 = std::find(r2_parents.begin(), r2_parents.end(), parent_prime);
-                //     if (it2 != r2_parents.end())
-                //         *it2 = parent;
-                // }
                 if (new_cgr == parent) {
+                    // If parent was promoted, it will have to be tracked (same as parent_prime == parent condition above)
                     r2_parents.push_back(parent);
                 }
 
@@ -1087,20 +1013,11 @@ namespace smt {
                             << "\nparents: ";
                        for (enode* p : r2->m_parents) tout << "#" << p->get_owner_id() << " ";
                        display(tout << "\n"););
-                // tmp: we may have duplicate parents. fix this
-                // if (!m_cg_table.contains_ptr(parent)) {
-                //     continue;
-                // }
 
                 // Because undo_cgr_promotion happens before undo_add_eq, parent might not be the cgr anymore
                 SASSERT(parent->is_cgr() == m_cg_table.contains_ptr(parent));
-                if (!m_cg_table.contains_ptr(parent)) {
+                if (!m_cg_table.contains_ptr(parent))
                     continue;
-                }
-
-                SASSERT(parent->is_cgr());
-                SASSERT(m_cg_table.contains_ptr(parent));
-                debug_log_cg_table_erase("undo_add_eq:remove_parent", parent);
                 m_cg_table.erase(parent);
             }
         }
@@ -1126,9 +1043,7 @@ namespace smt {
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
                     auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
-                    debug_log_cg_assignment("undo_add_eq:reinsert_parent", parent, parent_cg);
                     parent->m_cg = parent_cg;
-                    debug_check_cg_membership("undo_add_eq:after_reinsert_parent", parent);
                 }
             }
         }

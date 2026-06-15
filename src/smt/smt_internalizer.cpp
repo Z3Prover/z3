@@ -28,14 +28,6 @@ Revision History:
 
 namespace smt {
 
-    // static inline void log_cg_update(char const* site, enode* n, enode* cg) {
-    //     std::cerr << "[CG_UPDATE] " << site
-    //               << " n_owner_id=" << (n ? n->get_owner_id() : 0)
-    //               << " cg_owner_id=" << (cg ? cg->get_owner_id() : 0)
-    //               << " cg_m_owner_ptr=" << static_cast<void*>(cg ? cg->get_expr() : nullptr)
-    //               << "\n";
-    // }
-
     /**
        \brief Return true if the expression is viewed as a logical gate.
     */
@@ -1031,11 +1023,8 @@ namespace smt {
             if (e->is_true_eq()) {
                 bool_var v = enode2bool_var(e);
                 assign(literal(v), mk_justification(eq_propagation_justification(e->get_arg(0), e->get_arg(1))));
-                debug_log_cg_assignment("internalize_enode:true_eq", e, e);
                 e->m_cg    = e;
-                debug_check_cg_membership("internalize_enode:after_true_eq", e);
                 // TODO: cgr promotion?
-                // log_cg_update("internalizer:true_eq", e, e);
                 push_eq(e, m_true_enode, eq_justification());
             }
             else {
@@ -1043,9 +1032,7 @@ namespace smt {
                     auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
                         SASSERT(e_prime->is_cgr());
-                        debug_log_cg_assignment("internalize_enode:set_demoted", e, e_prime);
                         e->m_cg = e_prime;
-                        debug_check_cg_membership("internalize_enode:after_set_demoted", e);
 
                         bool promote_used_commutativity;
                         auto [new_cgr, other] = try_cgr_promotion(e, e_prime, promote_used_commutativity);
@@ -1053,17 +1040,11 @@ namespace smt {
                         push_new_congruence(other, new_cgr, used_commutativity || promote_used_commutativity);
                     }
                     else {
-                        debug_log_cg_assignment("internalize_enode:set_self_cgr", e, e);
                         e->m_cg = e;
-                        debug_check_cg_membership("internalize_enode:after_set_self_cgr", e);
-                        // log_cg_update("internalizer:cgc_root", e, e);
                     }
                 }
                 else {
-                    debug_log_cg_assignment("internalize_enode:set_non_cgc", e, e);
                     e->m_cg = e;
-                    debug_check_cg_membership("internalize_enode:after_set_non_cgc", e);
-                    // log_cg_update("internalizer:non_cgc_root", e, e);
                 }
             }
             if (!e->is_eq()) {
@@ -1108,7 +1089,6 @@ namespace smt {
         m_app2enode[n_id]     = nullptr;
         if (e->is_cgr() && !e->is_true_eq() && e->is_cgc_enabled()) {
             SASSERT(m_cg_table.contains_ptr(e));
-            debug_log_cg_table_erase("undo_mk_enode", e);
             m_cg_table.erase(e);
         }
         SASSERT(!(e->get_num_args() > 0 && m_cg_table.contains_ptr(e)));

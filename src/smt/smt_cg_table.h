@@ -21,7 +21,6 @@ Revision History:
 #include "smt/smt_enode.h"
 #include "util/hashtable.h"
 #include "util/chashtable.h"
-#include <iostream>
 
 namespace smt {
 
@@ -140,30 +139,6 @@ namespace smt {
             return m_tables[tid];
         }
 
-        static unsigned get_hash(void * t, enode * n) {
-            switch (static_cast<table_kind>(GET_TAG(t))) {
-            case UNARY:
-                return cg_unary_hash()(n);
-            case BINARY:
-                return cg_binary_hash()(n);
-            case BINARY_COMM:
-                return cg_comm_hash()(n);
-            default:
-                return cg_hash()(n);
-            }
-        }
-
-        static void log_hash(char const * site, void * t, enode * n) {
-#ifdef Z3DEBUG
-            std::cerr << "[CG_HASH] " << site
-                      << " n_id=" << (n ? n->get_owner_id() : 0)
-                      << " decl_id=" << (n ? n->get_decl_id() : UINT_MAX)
-                      << " hash=" << (n ? get_hash(t, n) : 0)
-                      << "\n";
-#else
-            (void) site; (void) t; (void) n;
-#endif
-        }
 
     public:
         cg_table(ast_manager & m);
@@ -182,7 +157,6 @@ namespace smt {
         bool contains(enode * n) const {
             SASSERT(n->get_num_args() > 0);
             void * t = const_cast<cg_table*>(this)->get_table(n); 
-            log_hash("contains", t, n);
             switch (static_cast<table_kind>(GET_TAG(t))) {
             case UNARY:
                 return UNTAG(unary_table*, t)->contains(n);
@@ -199,7 +173,6 @@ namespace smt {
             SASSERT(n->get_num_args() > 0);
             enode * r = nullptr;
             void * t = const_cast<cg_table*>(this)->get_table(n); 
-            log_hash("find", t, n);
             switch (static_cast<table_kind>(GET_TAG(t))) {
             case UNARY:
                 return UNTAG(unary_table*, t)->find(n, r) ? r : nullptr;
@@ -216,7 +189,6 @@ namespace smt {
             enode * r;
             SASSERT(n->get_num_args() > 0);
             void * t = const_cast<cg_table*>(this)->get_table(n); 
-            log_hash("contains_ptr", t, n);
             switch (static_cast<table_kind>(GET_TAG(t))) {
             case UNARY:
                 return UNTAG(unary_table*, t)->find(n, r) && n == r;
