@@ -214,18 +214,22 @@ namespace smt {
         switch (static_cast<table_kind>(GET_TAG(t))) {
         case UNARY:
             n_prime = UNTAG(unary_table*, t)->insert_if_not_there(n);
+            cg_table::log_hash("insert:unary", t, n_prime);
             return enode_bool_pair(n_prime, false);
         case BINARY:
             n_prime = UNTAG(binary_table*, t)->insert_if_not_there(n);
             TRACE(cg_table, tout << "insert: " << n->get_owner_id() << " " << cg_binary_hash()(n) << " inserted: " << (n == n_prime) << " " << n_prime->get_owner_id() << "\n";
                   display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";); 
+            cg_table::log_hash("insert:binary", t, n_prime);
             return enode_bool_pair(n_prime, false);
         case BINARY_COMM:
             m_commutativity = false;
             n_prime = UNTAG(comm_table*, t)->insert_if_not_there(n);
+            cg_table::log_hash("insert:binary_comm", t, n_prime);
             return enode_bool_pair(n_prime, m_commutativity);
         default:
             n_prime = UNTAG(table*, t)->insert_if_not_there(n);
+            cg_table::log_hash("insert:nary", t, n_prime);
             return enode_bool_pair(n_prime, false);
         }
     }
