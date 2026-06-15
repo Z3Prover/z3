@@ -1223,6 +1223,23 @@ bool seq_util::rex::as_charclass(expr* r, seq::range_predicate& p) const {
         return false;
     }
     expr* e1 = nullptr, *e2 = nullptr;
+    // (str.to_re s) is a CHARCLASS only when s is a single character (length 1).
+    // For longer strings it is a concat of length-1 regexes; for length 0 it is
+    // epsilon, which is not a charclass.
+    if (is_to_re(r, e1)) {
+        zstring s;
+        if (u.str.is_string(e1, s) && s.length() == 1) {
+            p = seq::range_predicate::range(s[0], s[0], mx);
+            return true;
+        }
+        expr* c = nullptr;
+        unsigned ch = 0;
+        if (u.str.is_unit(e1, c) && u.is_const_char(c, ch)) {
+            p = seq::range_predicate::range(ch, ch, mx);
+            return true;
+        }
+        return false;
+    }
     if (is_range(r, e1, e2)) {
         zstring s1, s2;
         if (u.str.is_string(e1, s1) && u.str.is_string(e2, s2)
