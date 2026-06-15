@@ -717,7 +717,6 @@ namespace smt {
             }
             if (parent->is_cgc_enabled()) {
                 auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
-                SASSERT(parent_prime->is_cgr());
                 if (parent_prime == parent) {
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());

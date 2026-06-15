@@ -215,7 +215,6 @@ namespace {
         unsigned short m_num_args;
         unsigned       m_ireg;
         unsigned       m_oreg;
-        // unsigned       m_curr_max_generation = 0;
     };
 
     struct get_cgr : public instruction {
@@ -1887,32 +1886,6 @@ namespace {
             if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
                 m_used_enodes.push_back(std::make_tuple(prev, n));
         }
-
-        // void get_f_app(func_decl* lbl, unsigned num_expected_args, enode* curr, enode*& matching_cgr, enode*& min_gen_match) {
-        //     if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args) {
-        //         if (curr->is_cgr() && !matching_cgr)
-        //             matching_cgr = curr;
-
-        //         if (!min_gen_match || min_gen_match->get_generation() > curr->get_generation()) {
-        //             min_gen_match = curr;
-        //         }
-        //     }
-        // }
-
-        // enode * find_min_gen_cg(func_decl* lbl, unsigned num_expected_args, enode * cgr) {
-        //     SASSERT(cgr->is_cgr());
-        //     enode * min_gen_cg = cgr;
-        //     enode * curr = cgr->get_next();
-        //     while (curr != cgr) {
-        //         if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->get_cg_root() == cgr) {
-        //             if (min_gen_cg->get_generation() > curr->get_generation()) {
-        //                 min_gen_cg = curr;
-        //             }
-        //         }
-        //         curr = curr->get_next();
-        //     }
-        //     return min_gen_cg;
-        // }
 
         unsigned get_max_generation_min_cg(unsigned num_enodes, enode * const * enodes) {
             SASSERT(num_enodes > 0);
@@ -3996,10 +3969,6 @@ namespace {
                 }
                 return;
             }
-            // DEBUG_CODE(
-            //     for (unsigned i = 0; i < num_bindings; ++i) {
-            //         SASSERT(bindings[i]->get_generation() <= max_generation);
-            //     });
                 
 #endif
             unsigned min_gen = 0, max_gen = 0;

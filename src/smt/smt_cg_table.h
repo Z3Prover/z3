@@ -139,7 +139,6 @@ namespace smt {
             return m_tables[tid];
         }
 
-
     public:
         cg_table(ast_manager & m);
         ~cg_table();
