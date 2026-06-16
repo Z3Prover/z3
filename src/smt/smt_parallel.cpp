@@ -559,7 +559,7 @@ namespace smt {
             if (m_ablate_backtracking) {
                 // Ablation: for each target, pass the entire path from root to that node
                 for (auto const& target : targets) {
-                    if (m_search_tree.is_lease_canceled(target.leased_node, target.cancel_epoch))
+                    if (m_search_tree.is_lease_canceled(target.leased_node))
                         continue;
                     
                     // Reconstruct the full path from root to this target node
@@ -1135,7 +1135,7 @@ namespace smt {
             
             // only cancel workers that currently hold a lease, whose lease is canceled,
             // and haven't already been signaled (prevents multiple inc_cancel() for same lease)
-            if (lease.leased_node && !lease.cancel_signaled && m_search_tree.is_lease_canceled(lease.leased_node, lease.cancel_epoch)) {
+            if (lease.leased_node && !lease.cancel_signaled && m_search_tree.is_lease_canceled(lease.leased_node)) {
                 p.m_workers[worker_id]->cancel_lease();
                 m_worker_leases[worker_id].cancel_signaled = true;
             }
@@ -1190,14 +1190,13 @@ namespace smt {
 
         unsigned best_idx = select_best_core_min_job_unlocked();
         m_core_min_jobs.swap(best_idx, m_core_min_jobs.size() - 1);
-        core_min_job* job = m_core_min_jobs.detach_back();
+        scoped_ptr<core_min_job> job = m_core_min_jobs.detach_back();
         m_core_min_jobs.pop_back();
         SASSERT(job);
         source = job->source;
         core.reset();
         for (expr* c : job->core)
             core.push_back(g2l(c));
-        dealloc(job);
         return source != nullptr;
     }
 
@@ -1288,7 +1287,7 @@ namespace smt {
         if (!g_core.empty()) {
             collect_matching_targets_unlocked(source, g_core[0].get(), g_core, targets);
             for (auto const& target : targets) {
-                if (!m_search_tree.is_lease_canceled(target.leased_node, target.cancel_epoch))
+                if (!m_search_tree.is_lease_canceled(target.leased_node))
                     m_search_tree.backtrack(target.leased_node, g_core);
             }
         }
@@ -1342,7 +1341,7 @@ namespace smt {
         for (node* t : matches) {
             if (!t || t == source)
                 continue;
-            if (m_search_tree.is_lease_canceled(t, t->get_cancel_epoch()))
+            if (m_search_tree.is_lease_canceled(t))
                 continue;
 
             // When source is provided, keep only external matches. Nodes in the
@@ -1369,7 +1368,7 @@ namespace smt {
             if (!is_highest_ancestor)
                 continue;
 
-            targets.push_back({ t, t->get_cancel_epoch() });
+            targets.push_back({ t });
         }
     }
 
@@ -1385,7 +1384,7 @@ namespace smt {
         SASSERT(lease != nullptr || targets != nullptr);
         bool did_backtrack = false;
 
-        if (lease && !m_search_tree.is_lease_canceled(lease->leased_node, lease->cancel_epoch)) {
+        if (lease && !m_search_tree.is_lease_canceled(lease->leased_node)) {
             // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
             // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
             did_backtrack = true;
@@ -1395,7 +1394,7 @@ namespace smt {
         }
         if (targets) {
             for (auto const& target : *targets) {
-                if (m_search_tree.is_lease_canceled(target.leased_node, target.cancel_epoch))
+                if (m_search_tree.is_lease_canceled(target.leased_node))
                     continue;
 
                 did_backtrack = true;
@@ -1427,13 +1426,13 @@ namespace smt {
         if (m_state != state::is_running)
             return;
 
-        if (m_search_tree.is_lease_canceled(lease.leased_node, lease.cancel_epoch))
+        if (m_search_tree.is_lease_canceled(lease.leased_node))
             return;
 
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
         nlit = mk_not(m, lit);
-        bool did_split = m_search_tree.try_split(lease.leased_node, lease.cancel_epoch, lit, nlit, effort);
+        bool did_split = m_search_tree.try_split(lease.leased_node, lit, nlit, effort);
 
         release_lease_unlocked(worker_id, lease.leased_node);
 
@@ -1451,7 +1450,7 @@ namespace smt {
 
     bool parallel::batch_manager::lease_canceled(node_lease const &lease) {
         std::scoped_lock lock(mux);
-        return m_state == state::is_running && m_search_tree.is_lease_canceled(lease.leased_node, lease.cancel_epoch);
+        return m_state == state::is_running && m_search_tree.is_lease_canceled(lease.leased_node);
     }
 
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
@@ -1763,7 +1762,6 @@ namespace smt {
         IF_VERBOSE(2, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
         
         lease.leased_node = t;
-        lease.cancel_epoch = t->get_cancel_epoch();
         if (id >= m_worker_leases.size())
             m_worker_leases.resize(id + 1);
         m_worker_leases[id] = lease;

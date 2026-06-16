@@ -50,7 +50,6 @@ namespace search_tree {
         unsigned m_effort_spent = 0;
         unsigned m_round_max_effort = 0;
         unsigned m_active_workers = 0;
-        unsigned m_cancel_epoch = 0;
 
     public:
         node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::open) {}
@@ -155,12 +154,6 @@ namespace search_tree {
             m_effort_spent -= m_round_max_effort;
             m_round_max_effort = effort;
             m_effort_spent += m_round_max_effort;
-        }
-        unsigned get_cancel_epoch() const {
-            return m_cancel_epoch;
-        }
-        void inc_cancel_epoch() {
-            ++m_cancel_epoch;
         }
     };
 
@@ -348,7 +341,6 @@ namespace search_tree {
         void close(node<Config> *n, vector<literal> const &C) {
             if (!n || n->get_status() == status::closed)
                 return;
-            n->inc_cancel_epoch();
             n->set_status(status::closed);
             n->set_core(C);
             close(n->left(), C);
@@ -452,8 +444,8 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, unsigned cancel_epoch, literal const &a, literal const &b, unsigned effort) {
-            if (is_lease_canceled(n, cancel_epoch))
+        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort) {
+            if (is_lease_canceled(n))
                 return false;
 
             // Record at most one effort contribution per concurrent round on this node.
@@ -552,8 +544,8 @@ namespace search_tree {
             n->dec_active_workers();
         }
 
-        bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
-            return !n || n->get_status() == status::closed || n->get_cancel_epoch() != cancel_epoch;
+        bool is_lease_canceled(node<Config>* n) const {
+            return !n || n->get_status() == status::closed;
         }
 
         vector<literal> const &get_core_from_root() const {

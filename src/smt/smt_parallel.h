@@ -64,12 +64,6 @@ namespace smt {
         struct node_lease {
             node* leased_node = nullptr;
 
-            // Cancellation generation counter for this node/subtree.
-            // Incremented when the node is closed; used to signal that all
-            // workers holding leases on this node (or its descendants)
-            // must abandon work immediately.
-            unsigned cancel_epoch = 0;
-
             // Guards against multiple inc_cancel() calls for the same lease.
             // Set when cancel_lease() is signaled; cleared when a new lease is assigned.
             bool cancel_signaled = false;

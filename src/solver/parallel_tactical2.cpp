@@ -127,12 +127,6 @@ class parallel_solver {
     struct node_lease {
         search_tree::node<solver_cube_config>* leased_node = nullptr;
 
-        // Cancellation generation counter for this node/subtree.
-        // Incremented when the node is closed; used to signal that all
-        // workers holding leases on this node (or its descendants)
-        // must abandon work immediately.
-        unsigned cancel_epoch = 0;
-
         // Guards against multiple inc_cancel() calls for the same lease.
         // Set when cancel_lease() is signaled; cleared when a new lease is assigned.
         bool cancel_signaled  = false;
@@ -218,7 +212,7 @@ class parallel_solver {
         expr_ref_vector m_unsat_core;
 
         // called from batch manager to cancel other workers if we've reached a verdict
-        void cancel_workers_unlocked() {
+        void cancel_background_threads() {
             IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
             for (auto* w : p.m_workers)
                 w->cancel();
@@ -248,7 +242,7 @@ class parallel_solver {
                 if (id == source_worker_id) continue;
                 auto const& lease = m_worker_leases[id];
                 if (lease.leased_node && !lease.cancel_signaled &&
-                    m_search_tree.is_lease_canceled(lease.leased_node, lease.cancel_epoch)) {
+                    m_search_tree.is_lease_canceled(lease.leased_node)) {
                     p.m_workers[id]->cancel_lease();
                     m_worker_leases[id].cancel_signaled = true;
                 }
@@ -316,7 +310,7 @@ class parallel_solver {
             for (auto* t : matches) {
                 if (!t || t == source)
                     continue;
-                if (m_search_tree.is_lease_canceled(t, t->get_cancel_epoch()))
+                if (m_search_tree.is_lease_canceled(t))
                     continue;
 
                 // When source is provided, keep only external matches. Nodes in the
@@ -343,7 +337,7 @@ class parallel_solver {
                 if (!is_highest_ancestor)
                     continue;
 
-                targets.push_back({ t, t->get_cancel_epoch() });
+                targets.push_back({ t });
             }
         }
 
@@ -405,7 +399,7 @@ class parallel_solver {
             SASSERT(lease != nullptr || targets != nullptr);
             bool did_backtrack = false;
 
-            if (lease && !m_search_tree.is_lease_canceled(lease->leased_node, lease->cancel_epoch)) {
+            if (lease && !m_search_tree.is_lease_canceled(lease->leased_node)) {
                 // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
                 // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
                 did_backtrack = true;
@@ -414,7 +408,7 @@ class parallel_solver {
             }
             if (targets) {
                 for (auto const& target : *targets) {
-                    if (m_search_tree.is_lease_canceled(target.leased_node, target.cancel_epoch))
+                    if (m_search_tree.is_lease_canceled(target.leased_node))
                         continue;
                     did_backtrack = true;
                     m_search_tree.backtrack(target.leased_node, g_core);
@@ -438,7 +432,7 @@ class parallel_solver {
                 SASSERT(m_unsat_core.empty());
                 for (auto& e : m_search_tree.get_core_from_root())
                     m_unsat_core.push_back(e.get());
-                cancel_workers_unlocked();
+                cancel_background_threads();
             }
         }
 
@@ -477,14 +471,14 @@ class parallel_solver {
             if (m_state != state::is_running) return;
             m_state = state::is_sat;
             m_model = mdl.translate(l2g);
-            cancel_workers_unlocked();
+            cancel_background_threads();
         }
 
         void set_cancel() {
             std::scoped_lock lock(mux);
             if (m_state != state::is_running)
                 return;
-            cancel_workers_unlocked();
+            cancel_background_threads();
         }
 
         void set_unsat(ast_translation& l2g,
@@ -496,7 +490,7 @@ class parallel_solver {
             SASSERT(m_unsat_core.empty());
             for (expr* c : core)
                 m_unsat_core.push_back(l2g(c));
-            cancel_workers_unlocked();
+            cancel_background_threads();
         }
 
         void set_exception(std::string const& msg) {
@@ -505,7 +499,7 @@ class parallel_solver {
             if (m_state != state::is_running) return;
             m_state = state::is_exception_msg;
             m_exception_msg = msg;
-            cancel_workers_unlocked();
+            cancel_background_threads();
         }
 
         void set_exception(unsigned error_code) {
@@ -514,7 +508,7 @@ class parallel_solver {
             if (m_state != state::is_running) return;
             m_state = state::is_exception_code;
             m_exception_code = error_code;
-            cancel_workers_unlocked();
+            cancel_background_threads();
         }
 
         bool get_cube(ast_translation& g2l, unsigned id,
@@ -531,7 +525,6 @@ class parallel_solver {
             if (!t) return false;
 
             lease.leased_node  = t;
-            lease.cancel_epoch = t->get_cancel_epoch();
             if (id >= m_worker_leases.size())
                 m_worker_leases.resize(id + 1);
             m_worker_leases[id] = lease;
@@ -638,7 +631,7 @@ class parallel_solver {
                     m_unsat_core.push_back(l2g(e));
                 ++m_stats.m_core_min_jobs_published;
                 ++m_stats.m_core_min_global_unsat;
-                cancel_workers_unlocked();
+                cancel_background_threads();
                 return;
             }
 
@@ -651,7 +644,7 @@ class parallel_solver {
             if (!g_core.empty()) {
                 collect_matching_targets_unlocked(source, g_core[0].get(), g_core, targets);
                 for (auto const& target : targets) {
-                    if (!m_search_tree.is_lease_canceled(target.leased_node, target.cancel_epoch))
+                    if (!m_search_tree.is_lease_canceled(target.leased_node))
                         m_search_tree.backtrack(target.leased_node, g_core);
                 }
             }
@@ -672,7 +665,7 @@ class parallel_solver {
                 SASSERT(m_unsat_core.empty());
                 for (auto& e : m_search_tree.get_core_from_root())
                     m_unsat_core.push_back(e.get());
-                cancel_workers_unlocked();
+                cancel_background_threads();
             }
         }
 
@@ -682,7 +675,7 @@ class parallel_solver {
                 return false;
             if (m_state != state::is_running)
                 return false;
-            if (m_search_tree.is_lease_canceled(lease.leased_node, lease.cancel_epoch))
+            if (m_search_tree.is_lease_canceled(lease.leased_node))
                 return false;
 
             expr_ref _atom(l2g(atom), m);            
@@ -694,8 +687,7 @@ class parallel_solver {
                        expr* atom, unsigned effort) {
             std::scoped_lock lock(mux);
             if (m_state != state::is_running) return;
-            if (m_search_tree.is_lease_canceled(
-                    lease.leased_node, lease.cancel_epoch)) return;
+            if (m_search_tree.is_lease_canceled(lease.leased_node)) return;
 
             expr_ref lit(m), nlit(m);
             lit  = l2g(atom);
@@ -704,8 +696,7 @@ class parallel_solver {
             VERIFY(!lease.leased_node->path_contains_atom(nlit));
 
             bool did_split = m_search_tree.try_split(
-                lease.leased_node, lease.cancel_epoch,
-                lit, nlit, effort);
+                lease.leased_node, lit, nlit, effort);
 
             release_lease_unlocked(worker_id, lease.leased_node);
 
@@ -726,8 +717,7 @@ class parallel_solver {
         bool lease_canceled(node_lease const& lease) {
             std::scoped_lock lock(mux);
             return m_state == state::is_running &&
-                   m_search_tree.is_lease_canceled(
-                       lease.leased_node, lease.cancel_epoch);
+                   m_search_tree.is_lease_canceled(lease.leased_node);
         }
 
         void collect_clause(ast_translation& l2g,
@@ -1630,8 +1620,6 @@ class parallel_solver {
 
                 curr_batch.reset();
             }
-            if (!m.inc())
-                b.set_cancel();
         }
 
     public:
@@ -1831,8 +1819,7 @@ class parallel_solver {
                 if (minimized.size() < original_size)
                     b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
             }
-            if (!m.inc())
-                b.set_cancel();
+            b.set_cancel();
         }
 
         void cancel() {
@@ -1892,8 +1879,6 @@ public:
             static_cast<unsigned>(std::thread::hardware_concurrency()),
             pp.threads_max());
         bool core_minimize = pp.core_minimize();
-        if (pp.ablate_backtracking())
-            core_minimize = false;
         unsigned num_bb_threads = pp.num_bb_threads();
         if (num_bb_threads > 2)
             throw default_exception("parallel.num_bb_threads must be 0, 1, or 2");
@@ -1941,7 +1926,7 @@ public:
 
         m_batch_manager.initialize(num_bb_threads);
 
-        auto safe_run = [&](std::function<void()> run_fn, reslimit& lim) {
+        auto safe_run = [&](auto&& run_fn, reslimit& lim) {
             try {
                 run_fn();
                 if (lim.is_canceled())
@@ -1960,11 +1945,12 @@ public:
                     m_batch_manager.set_cancel();
             }
         };
+
         /* Launch threads. */
         vector<std::thread> threads;
         for (auto *w : m_workers)
             threads.push_back(std::thread([w, &safe_run]() {
-                 safe_run([w]() { w->run(); }, w->limit());
+                safe_run([w]() { w->run(); }, w->limit());
             }));
         if (m_core_minimizer_worker)
             threads.push_back(std::thread([this, &safe_run]() {
