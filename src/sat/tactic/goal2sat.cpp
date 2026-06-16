@@ -262,7 +262,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     void cache(app* t, sat::literal l) override {
         force_push();
         if (t->get_ref_count() <= 1)
-            return;
+            return;        
         m_cache_trail.push_back(t);
         // Only memoize nodes that can be revisited: a singly-referenced
         // node appears once in the goal, so it never produces a cache hit.
