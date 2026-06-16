@@ -1132,17 +1132,19 @@ namespace smt {
         void push_new_th_diseq(theory_id th, theory_var lhs, theory_var rhs);
 
         friend class add_eq_trail;
-        friend class cgr_promotion_trail;
-
-        void undo_cgr_promotion(enode * new_cgr, enode * old_cgr, bool update_parents);
 
         void remove_parents_from_cg_table(enode * r1);
 
-        enode_pair try_cgr_promotion(enode * e, enode * cur_cgr, bool & promote_used_commutativity, bool update_parents);
-        bool try_cgr_promotion(enode * e);
-
         void reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js);
-
+        
+        void update_cgc_generation(enode * e) {
+            SASSERT(e->uses_cg_table());
+            enode *cgr = m_cg_table.find(e);
+            SASSERT(cgr);
+            if (cgr->get_generation() > e->get_generation()) {
+                cgr->set_generation(this, e->get_generation());
+            }
+        }
         void invert_trans(enode * n);
 
         theory_var get_closest_var(enode * n, theory_id th_id);

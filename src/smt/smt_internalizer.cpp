@@ -105,7 +105,7 @@ namespace smt {
         if (0 < m_generation && m_generation < e->get_generation()) {
             e->set_generation(this, m_generation);
             if (e->uses_cg_table())
-                try_cgr_promotion(e);
+                update_cgc_generation(e);
         }
     }
 
@@ -1035,11 +1035,8 @@ namespace smt {
                     if (e != e_prime) {
                         SASSERT(e_prime->is_cgr());
                         e->m_cg = e_prime;
-
-                        bool promote_used_commutativity;
-                        auto [new_cgr, other] = try_cgr_promotion(e, e_prime, promote_used_commutativity, false);
-
-                        push_new_congruence(other, new_cgr, used_commutativity || promote_used_commutativity);
+                        update_cgc_generation(e);
+                        push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {
                         e->m_cg = e;

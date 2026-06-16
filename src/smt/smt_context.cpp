@@ -455,86 +455,6 @@ namespace smt {
         m_th_diseq_propagation_queue.push_back(new_th_eq(th, lhs, rhs));
     }
 
-    void context::undo_cgr_promotion(enode * new_cgr, enode * old_cgr, bool update_parents) {
-        // These are hard to ensure without perfect chronology
-        SASSERT(m_cg_table.contains_ptr(new_cgr));
-        SASSERT(new_cgr->is_cgr());
-        SASSERT(old_cgr->get_cg() == new_cgr);
-
-        // So instead we assume whoever messed with the chronology knew better
-        // if (!m_cg_table.contains_ptr(new_cgr) || !new_cgr->is_cgr() || !(old_cgr->get_cg() == new_cgr))
-        //     return;
-        
-        m_cg_table.erase(new_cgr);
-        new_cgr->m_cg = old_cgr;
-        old_cgr->m_cg = old_cgr;
-        auto [cgr_after_undo, used_commutativity] = m_cg_table.insert(old_cgr);
-        SASSERT(cgr_after_undo == old_cgr);
-        (void) used_commutativity;
-        if (update_parents) {
-            for (unsigned i = 0; i < new_cgr->get_num_args(); ++i) {
-                enode * arg = new_cgr->get_arg(i);
-                SASSERT(arg->get_root()->m_parents.back() == new_cgr);
-                arg->get_root()->m_parents.pop_back();
-            }
-        }
-    }
-
-    class cgr_promotion_trail : public trail {
-        context & ctx;
-        enode*   new_cgr;
-        enode*   old_cgr;
-        bool     update_parents;
-    public:
-        cgr_promotion_trail(context & ctx, enode* new_cgr, enode* old_cgr, bool update_parents):
-            ctx(ctx),
-            new_cgr(new_cgr),
-            old_cgr(old_cgr),
-            update_parents(update_parents) {
-        }
-
-        void undo() override {
-            ctx.undo_cgr_promotion(new_cgr, old_cgr, update_parents);
-        }
-    };
-
-    enode_pair context::try_cgr_promotion(enode *e, enode *cur_cgr, bool &promote_used_commutativity, bool update_parents) {
-        SASSERT(e->uses_cg_table());
-        SASSERT(m_cg_table.contains_ptr(cur_cgr));
-        SASSERT(cur_cgr->is_cgr());
-        SASSERT(congruent(e, cur_cgr));
-
-        promote_used_commutativity = false;
-
-        if (e->m_generation < cur_cgr->m_generation) {
-            m_cg_table.erase(cur_cgr);
-            cur_cgr->m_cg = e;
-            e->m_cg = e;
-            auto [new_cgr, used_commutativity] = m_cg_table.insert(e);
-            promote_used_commutativity = used_commutativity;
-            SASSERT(new_cgr == e);
-            if (update_parents) {
-                for (unsigned i = 0; i < e->get_num_args(); ++i) {            
-                    enode * arg  = m_app2enode[to_app(e->m_owner)->get_arg(i)->get_id()];
-                    arg->get_root()->m_parents.push_back(e);
-                }
-            }
-            
-            push_trail(cgr_promotion_trail(*this, e, cur_cgr, update_parents));
-
-            return enode_pair(e, cur_cgr);
-        }
-
-        return enode_pair(cur_cgr, e);  
-    }
-
-    bool context::try_cgr_promotion(enode *e) {
-        SASSERT(e->uses_cg_table());
-        bool dummy_used_commutativity;
-        auto [first, second] = try_cgr_promotion(e, get_cg_root(e), dummy_used_commutativity, true);
-        return first == e;
-    }
-
     class add_eq_trail : public trail {
         context& ctx;
         enode * m_r1;
@@ -752,20 +672,12 @@ namespace smt {
                 parent->m_cg = parent_prime;
                 SASSERT(!m_cg_table.contains_ptr(parent));
 
-                bool promote_used_commutativity;
-                auto [new_cgr, other] = try_cgr_promotion(parent, parent_prime, promote_used_commutativity, /*update_parents=*/false);
+                update_cgc_generation(parent);
 
-                if (new_cgr == parent) {
-                    // If parent was promoted, it will have to be tracked (same as parent_prime == parent condition above)
-                    r2_parents.push_back(parent);
-                }
-
-                used_commutativity = used_commutativity || promote_used_commutativity;
-
-                if (new_cgr->m_root != other->m_root) {
-                    TRACE(cg, tout << "found new congruence: #" << new_cgr->get_owner_id() << " = #" << other->get_owner_id()
+                if (parent_prime->m_root != parent->m_root) {
+                    TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
                           << " used_commutativity: " << used_commutativity << "\n";);
-                    push_new_congruence(other, new_cgr, used_commutativity);
+                    push_new_congruence(parent, parent_prime, used_commutativity);
                 }
                 
             }
@@ -1044,11 +956,8 @@ namespace smt {
                             << "\nparents: ";
                        for (enode* p : r2->m_parents) tout << "#" << p->get_owner_id() << " ";
                        display(tout << "\n"););
-
-                // Because undo_cgr_promotion happens before undo_add_eq, parent might not be the cgr anymore
-                SASSERT(parent->is_cgr() == m_cg_table.contains_ptr(parent));
-                if (!m_cg_table.contains_ptr(parent))
-                    continue;
+                SASSERT(parent->is_cgr());
+                SASSERT(m_cg_table.contains_ptr(parent));
                 m_cg_table.erase(parent);
             }
         }
@@ -1073,21 +982,8 @@ namespace smt {
                     (parent == cg ||           // parent was root of the congruence class before and after the merge
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
-                        
-                    // We have to be careful here if we want perfectly chronological backtracking.
-                    // If there are congruent nodes in enode::parents(r1), who was the root before the merge?
-                    // One way to achieve this is to ensure we pick the min-gen one, which should have been the previous root.
-                    // Except generation updates can mess with this, so we would need to put generation updates on the trail as well.
-                    // Let's just settle for a simpler approach for now, where we accept non-chronological cgr choices. 
-
                     auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
                     parent->m_cg = parent_cg;
-                    if (parent->get_generation() < parent_cg->get_generation()) {
-                        m_cg_table.erase(parent_cg);
-                        parent_cg->m_cg = parent;
-                        parent->m_cg = parent;
-                        m_cg_table.insert(parent);
-                    }
                 }
             }
         }
