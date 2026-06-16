@@ -455,32 +455,41 @@ namespace smt {
         m_th_diseq_propagation_queue.push_back(new_th_eq(th, lhs, rhs));
     }
 
-    void context::undo_cgr_promotion(enode * new_cgr, enode * old_cgr) {
+    void context::undo_cgr_promotion(enode * new_cgr, enode * old_cgr, bool update_parents) {
         m_cg_table.erase(new_cgr);
         new_cgr->m_cg = old_cgr;
         old_cgr->m_cg = old_cgr;
         auto [cgr_after_undo, used_commutativity] = m_cg_table.insert(old_cgr);
         SASSERT(cgr_after_undo == old_cgr);
         (void) used_commutativity;
+        if (update_parents) {
+            for (unsigned i = 0; i < new_cgr->get_num_args(); ++i) {
+                enode * arg = new_cgr->get_arg(i);
+                SASSERT(arg->get_root()->m_parents.back() == new_cgr);
+                arg->get_root()->m_parents.pop_back();
+            }
+        }
     }
 
     class cgr_promotion_trail : public trail {
         context & ctx;
         enode*   new_cgr;
         enode*   old_cgr;
+        bool     update_parents;
     public:
-        cgr_promotion_trail(context & ctx, enode* new_cgr, enode* old_cgr):
+        cgr_promotion_trail(context & ctx, enode* new_cgr, enode* old_cgr, bool update_parents):
             ctx(ctx),
             new_cgr(new_cgr),
-            old_cgr(old_cgr) {
+            old_cgr(old_cgr),
+            update_parents(update_parents) {
         }
 
         void undo() override {
-            ctx.undo_cgr_promotion(new_cgr, old_cgr);
+            ctx.undo_cgr_promotion(new_cgr, old_cgr, update_parents);
         }
     };
 
-    enode_pair context::try_cgr_promotion(enode *e, enode *cur_cgr, bool &promote_used_commutativity) {
+    enode_pair context::try_cgr_promotion(enode *e, enode *cur_cgr, bool &promote_used_commutativity, bool update_parents) {
         SASSERT(e->uses_cg_table());
         SASSERT(m_cg_table.contains_ptr(cur_cgr));
         SASSERT(cur_cgr->is_cgr());
@@ -495,8 +504,14 @@ namespace smt {
             auto [new_cgr, used_commutativity] = m_cg_table.insert(e);
             promote_used_commutativity = used_commutativity;
             SASSERT(new_cgr == e);
+            if (update_parents) {
+                for (unsigned i = 0; i < e->get_num_args(); ++i) {            
+                    enode * arg  = m_app2enode[to_app(e->m_owner)->get_arg(i)->get_id()];
+                    arg->get_root()->m_parents.push_back(e);
+                }
+            }
             
-            push_trail(cgr_promotion_trail(*this, e, cur_cgr));
+            push_trail(cgr_promotion_trail(*this, e, cur_cgr, update_parents));
 
             return enode_pair(e, cur_cgr);
         }
@@ -504,10 +519,11 @@ namespace smt {
         return enode_pair(cur_cgr, e);  
     }
 
-    enode_pair context::try_cgr_promotion(enode *e) {
+    bool context::try_cgr_promotion(enode *e) {
         SASSERT(e->uses_cg_table());
         bool dummy_used_commutativity;
-        return try_cgr_promotion(e, get_cg_root(e), dummy_used_commutativity);
+        auto [first, second] = try_cgr_promotion(e, get_cg_root(e), dummy_used_commutativity, true);
+        return first == e;
     }
 
     class add_eq_trail : public trail {
@@ -728,7 +744,7 @@ namespace smt {
                 SASSERT(!m_cg_table.contains_ptr(parent));
 
                 bool promote_used_commutativity;
-                auto [new_cgr, other] = try_cgr_promotion(parent, parent_prime, promote_used_commutativity);
+                auto [new_cgr, other] = try_cgr_promotion(parent, parent_prime, promote_used_commutativity, /*update_parents=*/false);
 
                 if (new_cgr == parent) {
                     // If parent was promoted, it will have to be tracked (same as parent_prime == parent condition above)

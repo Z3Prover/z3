@@ -1037,7 +1037,7 @@ namespace smt {
                         e->m_cg = e_prime;
 
                         bool promote_used_commutativity;
-                        auto [new_cgr, other] = try_cgr_promotion(e, e_prime, promote_used_commutativity);
+                        auto [new_cgr, other] = try_cgr_promotion(e, e_prime, promote_used_commutativity, false);
 
                         push_new_congruence(other, new_cgr, used_commutativity || promote_used_commutativity);
                     }
