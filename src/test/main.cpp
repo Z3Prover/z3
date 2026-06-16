@@ -113,6 +113,7 @@
     X(api_bug) \
     X(api_special_relations) \
     X(arith_rewriter) \
+    X(seq_rewriter) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \

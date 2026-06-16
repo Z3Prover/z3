@@ -24,6 +24,7 @@ add_executable(test-z3
   api_datalog.cpp
   parametric_datatype.cpp
   arith_rewriter.cpp
+  seq_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
   bdd.cpp
