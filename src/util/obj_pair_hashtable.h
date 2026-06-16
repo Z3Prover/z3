@@ -59,17 +59,13 @@ protected:
     class entry;
 public:
     class key_data {
-        Key1 *   m_key1;
-        Key2 *   m_key2;
+        Key1 *   m_key1 = nullptr;
+        Key2 *   m_key2 = nullptr;
         Value    m_value;
-        unsigned m_hash;
+        unsigned m_hash = 0;
         friend class entry;
     public:
-        key_data():
-            m_key1(nullptr),
-            m_key2(nullptr),
-            m_hash(0) {
-        }
+        key_data() = default;
         key_data(Key1 * k1, Key2 * k2):
             m_key1(k1), 
             m_key2(k2) {

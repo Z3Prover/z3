@@ -80,6 +80,7 @@ add_executable(test-z3
   "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   interval.cpp
   karr.cpp
+  lcube.cpp
   list.cpp
   main.cpp
   map.cpp

@@ -8,6 +8,7 @@ tools:
   edit:
   bash: true
 safe-outputs:
+  report-failure-as-issue: false
   create-pull-request:
     if-no-changes: ignore
   missing-tool:

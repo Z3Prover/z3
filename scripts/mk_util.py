@@ -1804,6 +1804,7 @@ class DotNetDLLComponent(Component):
     <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
     <Copyright>Copyright Microsoft Corporation. All rights reserved.</Copyright>
     <PackageTags>smt constraint solver theorem prover</PackageTags>
+    <PlatformTarget>AnyCPU</PlatformTarget>
     %s
   </PropertyGroup>
 

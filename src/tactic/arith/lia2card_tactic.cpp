@@ -185,6 +185,10 @@ public:
         expr_safe_replace rep(m);
 
         tactic_report report("lia2card", *g);
+        if (recfun::util(m()).has_rec_defs()) {
+            result.push_back(g.get());
+            return;
+        }
 
         bound_manager bounds(m);
         for (unsigned i = 0; i < g->size(); ++i)

@@ -768,9 +768,10 @@ void bit_blaster_tpl<Cfg>::mk_smod(unsigned sz, expr * const * a_bits, expr * co
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_eq(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref & out) {
     expr_ref_vector out_bits(m());
+    out_bits.resize(sz);
     for (unsigned i = 0; i < sz; ++i) {
         mk_iff(a_bits[i], b_bits[i], out);
-        out_bits.push_back(out);
+        out_bits[i] = out;
     }
     mk_and(out_bits.size(), out_bits.data(), out);
 }

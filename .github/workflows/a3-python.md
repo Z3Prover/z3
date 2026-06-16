@@ -9,6 +9,7 @@ permissions:
 network:
   allowed: [defaults, python]
 safe-outputs:
+  report-failure-as-issue: false
   create-issue:
     labels:
       - bug

@@ -4672,7 +4672,6 @@ namespace smt {
             theory_id th_id     = l->get_id();
 
             for (enode * parent : enode::parents(n)) {
-                auto p = parent->get_expr();
                 family_id fid = parent->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
                     if (is_beta_redex(parent, n))
