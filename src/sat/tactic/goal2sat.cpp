@@ -260,6 +260,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void cache(app* t, sat::literal l) override {
+        if (t->get_ref_count() <= 1)
+            return;
         force_push();
         SASSERT(!m_app2lit.contains(t));
         SASSERT(!m_lit2app.contains(l.index()));
