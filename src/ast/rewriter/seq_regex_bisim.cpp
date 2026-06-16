@@ -102,9 +102,7 @@ namespace seq {
             expr* e = work.back();
             work.pop_back();
             expr* c = nullptr, * t = nullptr, * f = nullptr;
-            if (m.is_ite(e, c, t, f) ||
-                m_util.re.is_union(e, t, f) ||
-                m_util.re.is_antimirov_union(e, t, f)) {
+            if (m.is_ite(e, c, t, f)) {
                 if (seen.insert_if_not_there(t))
                     work.push_back(t);
                 if (seen.insert_if_not_there(f))

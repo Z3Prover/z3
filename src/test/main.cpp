@@ -114,7 +114,6 @@
     X(api_special_relations) \
     X(arith_rewriter) \
     X(range_predicate) \
-    X(range_predicate_translator) \
     X(regex_range_collapse) \
     X(check_assumptions) \
     X(smt_context) \
