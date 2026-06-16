@@ -457,13 +457,13 @@ namespace smt {
 
     void context::undo_cgr_promotion(enode * new_cgr, enode * old_cgr, bool update_parents) {
         // These are hard to ensure without perfect chronology
-        // SASSERT(m_cg_table.contains_ptr(new_cgr));
-        // SASSERT(new_cgr->is_cgr());
-        // SASSERT(old_cgr->get_cg() == new_cgr);
+        SASSERT(m_cg_table.contains_ptr(new_cgr));
+        SASSERT(new_cgr->is_cgr());
+        SASSERT(old_cgr->get_cg() == new_cgr);
 
         // So instead we assume whoever messed with the chronology knew better
-        if (!m_cg_table.contains_ptr(new_cgr) || !new_cgr->is_cgr() || !old_cgr->get_cg() == new_cgr)
-            return;
+        // if (!m_cg_table.contains_ptr(new_cgr) || !new_cgr->is_cgr() || !(old_cgr->get_cg() == new_cgr))
+        //     return;
         
         m_cg_table.erase(new_cgr);
         new_cgr->m_cg = old_cgr;
@@ -1078,10 +1078,16 @@ namespace smt {
                     // If there are congruent nodes in enode::parents(r1), who was the root before the merge?
                     // One way to achieve this is to ensure we pick the min-gen one, which should have been the previous root.
                     // Except generation updates can mess with this, so we would need to put generation updates on the trail as well.
-                    // Let's just settle for a simpler approach for now, where we accept non-chronological cgr choices.
+                    // Let's just settle for a simpler approach for now, where we accept non-chronological cgr choices. 
 
                     auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
                     parent->m_cg = parent_cg;
+                    if (parent->get_generation() < parent_cg->get_generation()) {
+                        m_cg_table.erase(parent_cg);
+                        parent_cg->m_cg = parent;
+                        parent->m_cg = parent;
+                        m_cg_table.insert(parent);
+                    }
                 }
             }
         }
