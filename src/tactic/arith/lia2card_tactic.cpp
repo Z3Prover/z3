@@ -20,6 +20,7 @@ Notes:
 #include "ast/ast_ll_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_util.h"
@@ -185,7 +186,7 @@ public:
         expr_safe_replace rep(m);
 
         tactic_report report("lia2card", *g);
-        if (recfun::util(m()).has_rec_defs()) {
+        if (recfun::util(m).has_rec_defs()) {
             result.push_back(g.get());
             return;
         }
