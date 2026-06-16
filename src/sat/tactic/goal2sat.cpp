@@ -261,13 +261,13 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void cache(app* t, sat::literal l) override {
         force_push();
+        if (t->get_ref_count() <= 1)
+            return;
         m_cache_trail.push_back(t);
         // Only memoize nodes that can be revisited: a singly-referenced
         // node appears once in the goal, so it never produces a cache hit.
         // Skipping it keeps m_app2lit and m_lit2app in sync (both empty for
         // such nodes) so pop()/uncache() clean up consistently.
-        if (t->get_ref_count() <= 1)
-            return;
         SASSERT(!m_app2lit.contains(t));
         SASSERT(!m_lit2app.contains(l.index()));
         m_app2lit.insert(t, l);
