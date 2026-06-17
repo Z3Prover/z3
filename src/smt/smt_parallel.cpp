@@ -80,6 +80,7 @@ namespace smt {
         try {
             if (!m.inc()) {
                 b.set_canceled();
+                // b.notify_cv_waiters;
                 return;
             }
             res = m_sls->check();
@@ -227,7 +228,8 @@ namespace smt {
             bb_candidates.reset();
         }
         if (!m.inc())
-            b.set_canceled();           
+            b.set_canceled();
+            // b.notify_cv_waiters;
     }
 
     lbool parallel::backbones_worker::probe_literal(bool_var v, expr *e, bool is_retry) {
@@ -397,6 +399,7 @@ namespace smt {
 
                     if (!m.inc()) {
                         b.set_canceled();
+                        // b.notify_cv_waiters;
                         return;
                     }
                     if (canceled()) 
@@ -524,6 +527,7 @@ namespace smt {
         }
         if (!m.inc())
             b.set_canceled();
+        //     b.notify_cv_waiters;
     }
 
     void parallel::backbones_worker::cancel() {
@@ -752,6 +756,7 @@ namespace smt {
                 b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
         }
         b.set_canceled();
+        // b.notify_cv_waiters;
     }
 
     void parallel::worker::run() {
@@ -773,21 +778,29 @@ namespace smt {
             if (m_config.m_global_backbones) {
                 bb_candidates local_candidates = find_backbone_candidates();
                 b.collect_backbone_candidates(m_l2g, local_candidates);
-                if (!m.inc())
+                if (!m.inc()) {
+                    b.set_canceled();
+                    // b.notify_cv_waiters;
                     break;
+                }
             }
 
             lbool r = check_cube(cube);
 
-            if (b.lease_canceled(lease)) {
+            bool cancel_signaled = false;
+            if (b.release_canceled_lease(id, lease, cancel_signaled)) {
                 LOG_WORKER(1, " abandoning canceled lease\n");
                 lease = {};
-                m.limit().dec_cancel();
+                if (cancel_signaled)
+                    m.limit().dec_cancel();
                 continue;
             }
 
-             if (!m.inc())
+             if (!m.inc()) {
+                b.set_canceled();
+                // b.notify_cv_waiters;
                 break;
+             }
 
             switch (r) {
             case l_undef: {
@@ -846,8 +859,11 @@ namespace smt {
             if (m_config.m_share_units)
                 share_units();
         }
-        if (!m.inc())
+        if (!m.inc()) {
             b.set_canceled();
+            // b.notify_cv_waiters;
+            return;
+        }
     }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
@@ -1448,9 +1464,22 @@ namespace smt {
         release_lease_unlocked(worker_id, lease.leased_node);
     }
 
-    bool parallel::batch_manager::lease_canceled(node_lease const &lease) {
+    bool parallel::batch_manager::release_canceled_lease(unsigned worker_id, node_lease const &lease, bool& cancel_signaled) {
         std::scoped_lock lock(mux);
-        return m_state == state::is_running && m_search_tree.is_lease_canceled(lease.leased_node);
+        cancel_signaled = false;
+        if (m_state != state::is_running || !lease.leased_node || worker_id >= m_worker_leases.size())
+            return false;
+
+        auto& stored = m_worker_leases[worker_id];
+        if (stored.leased_node != lease.leased_node)
+            return false;
+
+        if (!m_search_tree.is_lease_canceled(stored.leased_node))
+            return false;
+
+        cancel_signaled = stored.cancel_signaled;
+        release_lease_unlocked(worker_id, stored.leased_node);
+        return true;
     }
 
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
@@ -1700,6 +1729,12 @@ namespace smt {
         cancel_background_threads();
     }
 
+    // void parallel::batch_manager::notify_cv_waiters {
+    //     std::scoped_lock lock(mux);
+    //     m_bb_cv.notify_all();
+    //     m_core_min_cv.notify_all();
+    // }
+
     void parallel::batch_manager::set_exception(unsigned error_code) {
         std::scoped_lock lock(mux);
         IF_VERBOSE(1, verbose_stream() << "Batch manager setting exception code: " << error_code << ".\n");
@@ -1876,20 +1911,14 @@ namespace smt {
         auto safe_run = [&](auto* w) {
             try {
                 w->run();
-                if (w->limit().is_canceled())
-                    m_batch_manager.set_canceled();
             }
             catch (z3_error& err) {
                 if (!w->limit().is_canceled())
                     m_batch_manager.set_exception(err.error_code());
-                else
-                    m_batch_manager.set_canceled();
             }
             catch (z3_exception& ex) {
                 if (!w->limit().is_canceled() && !is_cancellation_exception(ex.what()))
                     m_batch_manager.set_exception(ex.what());
-                else
-                    m_batch_manager.set_canceled();
             }
         };
 

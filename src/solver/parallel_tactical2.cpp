@@ -474,12 +474,19 @@ class parallel_solver {
             cancel_background_threads();
         }
 
-        void set_cancel() {
+        void set_canceled() {
             std::scoped_lock lock(mux);
             if (m_state != state::is_running)
                 return;
             cancel_background_threads();
         }
+
+        // CODE IS LOCKED WHEN WE ADD THIS FUNCTION -- NEED TO FIX
+        // void notify_cv_waiters() {
+            // std::scoped_lock lock(mux);
+            // m_bb_cv.notify_all();
+            // m_core_min_cv.notify_all();
+        // }
 
         void set_unsat(ast_translation& l2g,
                        expr_ref_vector const& core) {
@@ -714,10 +721,22 @@ class parallel_solver {
             release_lease_unlocked(worker_id, lease.leased_node);
         }
 
-        bool lease_canceled(node_lease const& lease) {
+        bool release_canceled_lease(unsigned worker_id, node_lease const& lease, bool& cancel_signaled) {
             std::scoped_lock lock(mux);
-            return m_state == state::is_running &&
-                   m_search_tree.is_lease_canceled(lease.leased_node);
+            cancel_signaled = false;
+            if (m_state != state::is_running || !lease.leased_node || worker_id >= m_worker_leases.size())
+                return false;
+
+            auto& stored = m_worker_leases[worker_id];
+            if (stored.leased_node != lease.leased_node)
+                return false;
+
+            if (!m_search_tree.is_lease_canceled(stored.leased_node))
+                return false;
+
+            cancel_signaled = stored.cancel_signaled;
+            release_lease_unlocked(worker_id, stored.leased_node);
+            return true;
         }
 
         void collect_clause(ast_translation& l2g,
@@ -1164,17 +1183,20 @@ class parallel_solver {
                 }
                 lbool r = check_cube(cube);
 
-                if (b.lease_canceled(lease)) {
+                bool cancel_signaled = false;
+                if (b.release_canceled_lease(id, lease, cancel_signaled)) {
                     LOG_WORKER(1, " abandoning canceled lease\n");
                     lease = {};
-                    m.limit().dec_cancel();
+                    if (cancel_signaled)
+                        m.limit().dec_cancel();
                     continue;
                 }
 
                 // NSB - at this point it shouldn't be possible to call inc_cancel.
                 // Is this ensured? I am not sure.
                 if (!m.inc()) {
-                    b.set_cancel();
+                    b.set_canceled();
+                    // b.notify_cv_waiters();
                     return;
                 }
 
@@ -1492,7 +1514,8 @@ class parallel_solver {
 
                     while (true) {
                         if (!m.inc()) {
-                            b.set_cancel();
+                            b.set_canceled();
+                            // b.notify_cv_waiters();
                             return;
                         }
                         if (canceled())
@@ -1819,7 +1842,8 @@ class parallel_solver {
                 if (minimized.size() < original_size)
                     b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
             }
-            b.set_cancel();
+            b.set_canceled();
+            // b.notify_cv_waiters();
         }
 
         void cancel() {
@@ -1930,19 +1954,19 @@ public:
             try {
                 run_fn();
                 if (lim.is_canceled())
-                    m_batch_manager.set_cancel();
+                    m_batch_manager.set_canceled();
             } catch (z3_error &err) {
                 IF_VERBOSE(0, verbose_stream() << "Exception in parallel solver: " << err.what() << "\n");
                 if (!lim.is_canceled())
                     m_batch_manager.set_exception(err.error_code());
                 else
-                    m_batch_manager.set_cancel();
+                    m_batch_manager.set_canceled();
             } catch (z3_exception &ex) {
                 IF_VERBOSE(0, verbose_stream() << "Exception in parallel solver: " << ex.what() << "\n");
                 if (!lim.is_canceled() && !is_cancellation_exception(ex.what()))
                     m_batch_manager.set_exception(ex.what());
                 else
-                    m_batch_manager.set_cancel();
+                    m_batch_manager.set_canceled();
             }
         };
 
