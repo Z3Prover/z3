@@ -57,6 +57,7 @@ namespace seq {
 
     // Reset only operation caches (union/inter/concat/complement)
     // while preserving derivative caches (m_cache, m_top_cache)
+    // The op cache does index on m_ele so it has to be reset if m_ele changes.
     void derive::reset_op_caches() {
         m_union_cache.reset();
         m_inter_cache.reset();
@@ -81,8 +82,9 @@ namespace seq {
             result = cached;
             return result;
         }        
-        // Cache and pin the final result
+        // Pin ele and r
         m_trail.push_back(ele);
+        m_trail.push_back(r);
 
         // Always compute the SYMBOLIC derivative wrt the canonical
         // variable v (so the cached result is reusable for any
@@ -100,7 +102,7 @@ namespace seq {
         result = derive_rec(r);
         m_top_cache.insert(ele, r, result);        
 
-        m_trail.push_back(r);
+        // pin the final result
         m_trail.push_back(result);
         return result;
     }
