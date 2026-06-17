@@ -21,6 +21,26 @@ Revision History:
 #include "smt/smt_enode.h"
 
 namespace smt {
+
+    class set_generation_trail : public trail {
+        enode *  m_node;
+        unsigned m_old_generation;
+        unsigned m_old_update_id;
+        unsigned m_new_update_id;
+    public:
+        set_generation_trail(enode * n, unsigned old_generation, unsigned old_update_id, unsigned new_update_id):
+            m_node(n),
+            m_old_generation(old_generation),
+            m_old_update_id(old_update_id),
+            m_new_update_id(new_update_id) {}
+
+        void undo() override {
+            if (m_node->m_generation_update_id == m_new_update_id) {
+                m_node->m_generation = m_old_generation;
+                m_node->m_generation_update_id = m_old_update_id;
+            }
+        }
+    };
     
     /**
        \brief Initialize an enode in the given memory position.
@@ -36,6 +56,7 @@ namespace smt {
         n->m_cg               = nullptr;
         n->m_class_size       = 1;
         n->m_generation       = generation;
+        n->m_generation_update_id = 0;
         n->m_func_decl_id     = UINT_MAX;
         n->m_mark             = false;
         n->m_mark2            = false;
@@ -137,10 +158,20 @@ namespace smt {
        and update the generation.       
     */
     void enode::set_generation(context * ctx, unsigned generation) {
+        if (!ctx) {
+            ++m_generation_update_id;
+            m_generation = generation;
+            return;
+        }
+
         if (m_generation == generation)
             return;
-        if (ctx)
-            ctx->push_trail(value_trail<unsigned>(m_generation));
+
+        unsigned old_generation = m_generation;
+        unsigned old_update_id = m_generation_update_id;
+        unsigned new_update_id = old_update_id + 1;
+        ctx->push_trail(set_generation_trail(this, old_generation, old_update_id, new_update_id));
+        m_generation_update_id = new_update_id;
         m_generation = generation;
     }
 

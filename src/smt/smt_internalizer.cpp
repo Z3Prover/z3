@@ -103,9 +103,9 @@ namespace smt {
 
     void context::update_generation(enode * e) {
         if (0 < m_generation && m_generation < e->get_generation()) {
-            e->set_generation(this, m_generation);
+            e->set_generation(nullptr, m_generation);
             if (e->uses_cg_table())
-                update_cgc_generation(e);
+                update_cgc_generation(e, false);
         }
     }
 
@@ -1035,7 +1035,7 @@ namespace smt {
                     if (e != e_prime) {
                         SASSERT(e_prime->is_cgr());
                         e->m_cg = e_prime;
-                        update_cgc_generation(e);
+                        update_cgc_generation(e, true);
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {

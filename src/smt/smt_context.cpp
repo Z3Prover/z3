@@ -672,7 +672,7 @@ namespace smt {
                 parent->m_cg = parent_prime;
                 SASSERT(!m_cg_table.contains_ptr(parent));
 
-                update_cgc_generation(parent);
+                update_cgc_generation(parent, true);
 
                 if (parent_prime->m_root != parent->m_root) {
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()

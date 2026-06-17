@@ -1137,12 +1137,12 @@ namespace smt {
 
         void reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js);
         
-        void update_cgc_generation(enode * e) {
+        void update_cgc_generation(enode * e, bool backtrack) {
             SASSERT(e->uses_cg_table());
             enode *cgr = m_cg_table.find(e);
             SASSERT(cgr);
             if (cgr->get_generation() > e->get_generation()) {
-                cgr->set_generation(this, e->get_generation());
+                cgr->set_generation(backtrack ? this : nullptr, e->get_generation());
             }
         }
         void invert_trans(enode * n);
