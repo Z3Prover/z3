@@ -3838,7 +3838,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = re().mk_to_re(str().mk_concat(a_str, b_str));
         return BR_REWRITE2;
     }
-    expr* a1 = nullptr;
+    expr *a1 = nullptr, *a2 = nullptr;
     expr* b1 = nullptr;
     if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
         result = re().mk_to_re(str().mk_concat(a1, b1));
@@ -3858,6 +3858,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     unsigned lo1, hi1, lo2, hi2;
+
 
     if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && re().is_loop(b, b1, lo2, hi2) && lo2 <= hi2 && a1 == b1) {
         result = re().mk_loop_proper(a1, lo1 + lo2, hi1 + hi2);
@@ -3899,6 +3900,10 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     if (m().is_ite(b, c, a1, b1)) {
         result = m().mk_ite(c, re().mk_concat(a, a1), re().mk_concat(a, b1));
         return BR_REWRITE3;
+    }
+    if (re().is_concat(a, a1, a2)) {
+        result = re().mk_concat(a1, re().mk_concat(a2, b));
+        return BR_DONE;
     }
     return BR_FAILED;
 }
