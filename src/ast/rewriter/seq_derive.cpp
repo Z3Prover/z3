@@ -1284,7 +1284,8 @@ namespace seq {
         for (unsigned i = old_start; i < old_sz; ++i) {
             auto [ilo, ihi] = m_intervals[i];
             if (ihi < lo || ilo > hi) {
-                m_intervals.push_back(m_intervals[i]);
+                auto e = m_intervals[i];
+                m_intervals.push_back(e);
             } else {
                 if (ilo < lo)
                     m_intervals.push_back({ilo, lo - 1});
