@@ -64,6 +64,12 @@ namespace smt {
         struct node_lease {
             node* leased_node = nullptr;
 
+            // Cancellation generation counter for this node/subtree.
+            // Incremented when the node is closed; used to signal that all
+            // workers holding leases on this node (or its descendants)
+            // must abandon work immediately.
+            unsigned cancel_epoch = 0;
+
             // Guards against multiple inc_cancel() calls for the same lease.
             // Set when cancel_lease() is signaled; cleared when a new lease is assigned.
             bool cancel_signaled = false;
@@ -190,8 +196,6 @@ namespace smt {
             void set_sat(ast_translation& l2g, model& m);
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
-            void set_canceled();
-            void notify_cv_waiters();
             void collect_statistics(::statistics& st) const;
 
             void collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates);
@@ -221,7 +225,7 @@ namespace smt {
                                         unsigned original_core_size, expr_ref_vector const& minimized_core);
             void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
             void release_lease(unsigned worker_id, node_lease const& lease);
-            bool release_canceled_lease(unsigned worker_id, node_lease const& lease, bool& cancel_signaled);
+            bool lease_canceled(node_lease const& lease);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);

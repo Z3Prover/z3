@@ -25,7 +25,7 @@ Author:
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
 #include "solver/solver_preprocess.h"
-#include "solver/parallel_params.hpp"
+#include "params/smt_parallel_params.hpp"
 
 #include <cmath>
 #include <mutex>
@@ -78,11 +78,8 @@ namespace smt {
 
         lbool res = l_undef;
         try {
-            if (!m.inc()) {
-                b.set_canceled();
-                // b.notify_cv_waiters;
+            if (!m.inc())
                 return;
-            }
             res = m_sls->check();
         } catch (z3_exception &ex) {
             // Cancellation is normal in portfolio mode
@@ -183,9 +180,8 @@ namespace smt {
                 for (expr* lit : bb_candidate_lits) {
                     if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch))
                         break;
-                    if (!m.inc() || canceled()) 
+                    if (!m.inc() || canceled())
                         break;
-                    
 
                     expr* atom = lit;
                     m.is_not(lit, atom);
@@ -222,14 +218,11 @@ namespace smt {
             }
 
             if (!m.inc())
-                break;
+                return;
             if (!canceled())
                 b.cancel_current_backbone_batch();
             bb_candidates.reset();
         }
-        if (!m.inc())
-            b.set_canceled();
-            // b.notify_cv_waiters;
     }
 
     lbool parallel::backbones_worker::probe_literal(bool_var v, expr *e, bool is_retry) {
@@ -397,11 +390,8 @@ namespace smt {
 
                 while (true) {
 
-                    if (!m.inc()) {
-                        b.set_canceled();
-                        // b.notify_cv_waiters;
+                    if (!m.inc()) 
                         return;
-                    }
                     if (canceled()) 
                         break;
 
@@ -525,9 +515,6 @@ namespace smt {
 
             bb_curr_batch_candidates.reset();
         }
-        if (!m.inc())
-            b.set_canceled();
-        //     b.notify_cv_waiters;
     }
 
     void parallel::backbones_worker::cancel() {
@@ -755,8 +742,6 @@ namespace smt {
             if (minimized.size() < original_size)
                 b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
         }
-        b.set_canceled();
-        // b.notify_cv_waiters;
     }
 
     void parallel::worker::run() {
@@ -778,29 +763,21 @@ namespace smt {
             if (m_config.m_global_backbones) {
                 bb_candidates local_candidates = find_backbone_candidates();
                 b.collect_backbone_candidates(m_l2g, local_candidates);
-                if (!m.inc()) {
-                    b.set_canceled();
-                    // b.notify_cv_waiters;
-                    break;
-                }
+                if (!m.inc())
+                    return;
             }
 
             lbool r = check_cube(cube);
 
-            bool cancel_signaled = false;
-            if (b.release_canceled_lease(id, lease, cancel_signaled)) {
+            if (b.lease_canceled(lease)) {
                 LOG_WORKER(1, " abandoning canceled lease\n");
                 lease = {};
-                if (cancel_signaled)
-                    m.limit().dec_cancel();
+                m.limit().dec_cancel();
                 continue;
             }
 
-             if (!m.inc()) {
-                b.set_canceled();
-                // b.notify_cv_waiters;
-                break;
-             }
+             if (!m.inc())
+                return;
 
             switch (r) {
             case l_undef: {
@@ -859,11 +836,6 @@ namespace smt {
             if (m_config.m_share_units)
                 share_units();
         }
-        if (!m.inc()) {
-            b.set_canceled();
-            // b.notify_cv_waiters;
-            return;
-        }
     }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
@@ -882,10 +854,10 @@ namespace smt {
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
 
-        parallel_params pp(p.ctx.get_params());
-        m_config.m_inprocessing = false;
-        m_config.m_global_backbones = pp.num_bb_threads() > 0;
-        m_config.m_local_backbones = false;
+        smt_parallel_params pp(p.ctx.m_params);
+        m_config.m_inprocessing = pp.inprocessing();
+        m_config.m_global_backbones = pp.num_global_bb_batch_threads() > 0 || pp.num_global_bb_fl_threads() > 0;
+        m_config.m_local_backbones = pp.local_backbones();
         m_config.m_core_minimize = pp.core_minimize();
         m_config.m_ablate_backtracking = pp.ablate_backtracking();
         
@@ -916,7 +888,9 @@ namespace smt {
         m_shared_units_prefix = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
-        m_use_failed_literal_test = false; // true failed literal mode, false for Janota chunking algorithm
+
+        smt_parallel_params pp(p.ctx.m_params);
+        m_use_failed_literal_test = pp.num_global_bb_fl_threads() > 0;
     }
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
@@ -1206,13 +1180,14 @@ namespace smt {
 
         unsigned best_idx = select_best_core_min_job_unlocked();
         m_core_min_jobs.swap(best_idx, m_core_min_jobs.size() - 1);
-        scoped_ptr<core_min_job> job = m_core_min_jobs.detach_back();
+        core_min_job* job = m_core_min_jobs.detach_back();
         m_core_min_jobs.pop_back();
         SASSERT(job);
         source = job->source;
         core.reset();
         for (expr* c : job->core)
             core.push_back(g2l(c));
+        dealloc(job);
         return source != nullptr;
     }
 
@@ -1384,7 +1359,7 @@ namespace smt {
             if (!is_highest_ancestor)
                 continue;
 
-            targets.push_back({ t });
+            targets.push_back({t});
         }
     }
 
@@ -1464,22 +1439,9 @@ namespace smt {
         release_lease_unlocked(worker_id, lease.leased_node);
     }
 
-    bool parallel::batch_manager::release_canceled_lease(unsigned worker_id, node_lease const &lease, bool& cancel_signaled) {
+    bool parallel::batch_manager::lease_canceled(node_lease const &lease) {
         std::scoped_lock lock(mux);
-        cancel_signaled = false;
-        if (m_state != state::is_running || !lease.leased_node || worker_id >= m_worker_leases.size())
-            return false;
-
-        auto& stored = m_worker_leases[worker_id];
-        if (stored.leased_node != lease.leased_node)
-            return false;
-
-        if (!m_search_tree.is_lease_canceled(stored.leased_node))
-            return false;
-
-        cancel_signaled = stored.cancel_signaled;
-        release_lease_unlocked(worker_id, stored.leased_node);
-        return true;
+        return m_state == state::is_running && m_search_tree.is_lease_canceled(lease.leased_node);
     }
 
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
@@ -1722,19 +1684,6 @@ namespace smt {
         cancel_background_threads();
     }
 
-    void parallel::batch_manager::set_canceled() {
-        std::scoped_lock lock(mux);
-        if (m_state != state::is_running)
-            return;
-        cancel_background_threads();
-    }
-
-    // void parallel::batch_manager::notify_cv_waiters {
-    //     std::scoped_lock lock(mux);
-    //     m_bb_cv.notify_all();
-    //     m_core_min_cv.notify_all();
-    // }
-
     void parallel::batch_manager::set_exception(unsigned error_code) {
         std::scoped_lock lock(mux);
         IF_VERBOSE(1, verbose_stream() << "Batch manager setting exception code: " << error_code << ".\n");
@@ -1830,7 +1779,7 @@ namespace smt {
         m_worker_leases.reset();
         m_worker_leases.resize(p.m_workers.size());
         
-        parallel_params pp(p.ctx.get_params());
+        smt_parallel_params pp(p.ctx.m_params);
         m_ablate_backtracking = pp.ablate_backtracking();
     }
 
@@ -1845,18 +1794,18 @@ namespace smt {
     }
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
-        params_ref const& params = ctx.get_params();
-        parallel_params pp(params);
-        unsigned num_global_bb_batch_threads = pp.num_bb_threads();
+        smt_parallel_params pp(ctx.m_params);
+        unsigned num_global_bb_batch_threads = pp.num_global_bb_batch_threads();
         if (num_global_bb_batch_threads > 2)
-            throw default_exception("parallel.num_bb_threads must be 0, 1, or 2");
+            throw default_exception("smt_parallel.num_global_bb_batch_threads must be 0, 1, or 2");
         unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
-        unsigned num_sls_threads = 0;
-        bool core_minimize = pp.core_minimize();
-        if (pp.ablate_backtracking())
-            core_minimize = false;
-        unsigned num_core_min_threads = (core_minimize ? 1 : 0);
-        unsigned num_global_bb_fl_threads = 0;
+        unsigned num_sls_threads = (pp.sls() ? 1 : 0);
+        unsigned num_core_min_threads = (pp.core_minimize() ? 1 : 0);
+        unsigned num_global_bb_fl_threads = pp.num_global_bb_fl_threads();
+        if (num_global_bb_fl_threads > 2)
+            throw default_exception("smt_parallel.num_global_bb_fl_threads must be 0, 1, or 2");
+        if (num_global_bb_fl_threads > 0 && num_global_bb_batch_threads > 0)
+            throw default_exception("smt_parallel.num_global_bb_fl_threads and smt_parallel.num_global_bb_batch_threads cannot both be enabled");
         unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_batch_threads;
         unsigned total_threads = num_workers + num_sls_threads + num_core_min_threads + num_global_bb_threads;
 
@@ -1892,7 +1841,7 @@ namespace smt {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
-        if (num_core_min_threads == 1) {
+        if (pp.core_minimize()) {
             m_core_minimizer_worker = alloc(core_minimizer_worker, *this, asms);
             sl.push_child(&(m_core_minimizer_worker->limit()));
         }
@@ -1908,31 +1857,17 @@ namespace smt {
 
         m_batch_manager.initialize(num_global_bb_threads);
         
-        auto safe_run = [&](auto* w) {
-            try {
-                w->run();
-            }
-            catch (z3_error& err) {
-                if (!w->limit().is_canceled())
-                    m_batch_manager.set_exception(err.error_code());
-            }
-            catch (z3_exception& ex) {
-                if (!w->limit().is_canceled() && !is_cancellation_exception(ex.what()))
-                    m_batch_manager.set_exception(ex.what());
-            }
-        };
-
         // Launch threads
         vector<std::thread> threads(total_threads);
         unsigned thread_idx = 0;
         for (auto* w : m_workers) 
-            threads[thread_idx++] = std::thread([&, w]() { safe_run(w); });
+            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                
         if (m_sls_worker)
-            threads[thread_idx++] = std::thread([&]() { safe_run(m_sls_worker.get()); });
+            threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
         if (m_core_minimizer_worker)
-            threads[thread_idx++] = std::thread([&]() { safe_run(m_core_minimizer_worker.get()); });
+            threads[thread_idx++] = std::thread([&]() { m_core_minimizer_worker->run(); });
         for (auto* w : m_global_backbones_workers) 
-            threads[thread_idx++] = std::thread([&, w]() { safe_run(w); });
+            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                   
 
 
         // Wait for all threads to finish
