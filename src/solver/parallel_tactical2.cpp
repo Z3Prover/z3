@@ -243,8 +243,8 @@ class parallel_solver {
                 auto const& lease = m_worker_leases[id];
                 if (lease.leased_node && !lease.cancel_signaled &&
                     m_search_tree.is_lease_canceled(lease.leased_node)) {
-                    p.m_workers[id]->cancel_lease();
                     m_worker_leases[id].cancel_signaled = true;
+                    p.m_workers[id]->cancel_lease();
                 }
             }
         }
@@ -480,14 +480,7 @@ class parallel_solver {
                 return;
             cancel_background_threads();
         }
-
-        // CODE IS LOCKED WHEN WE ADD THIS FUNCTION -- NEED TO FIX
-        // void notify_cv_waiters() {
-            // std::scoped_lock lock(mux);
-            // m_bb_cv.notify_all();
-            // m_core_min_cv.notify_all();
-        // }
-
+        
         void set_unsat(ast_translation& l2g,
                        expr_ref_vector const& core) {
             std::scoped_lock lock(mux);
@@ -727,15 +720,15 @@ class parallel_solver {
             if (m_state != state::is_running || !lease.leased_node || worker_id >= m_worker_leases.size())
                 return false;
 
-            auto& stored = m_worker_leases[worker_id];
-            if (stored.leased_node != lease.leased_node)
+            auto& stored_lease = m_worker_leases[worker_id];
+            if (stored_lease.leased_node != lease.leased_node)
                 return false;
 
-            if (!m_search_tree.is_lease_canceled(stored.leased_node))
+            if (!m_search_tree.is_lease_canceled(stored_lease.leased_node))
                 return false;
 
-            cancel_signaled = stored.cancel_signaled;
-            release_lease_unlocked(worker_id, stored.leased_node);
+            cancel_signaled = stored_lease.cancel_signaled;
+            release_lease_unlocked(worker_id, stored_lease.leased_node);
             return true;
         }
 
@@ -1196,7 +1189,6 @@ class parallel_solver {
                 // Is this ensured? I am not sure.
                 if (!m.inc()) {
                     b.set_canceled();
-                    // b.notify_cv_waiters();
                     return;
                 }
 
@@ -1515,7 +1507,6 @@ class parallel_solver {
                     while (true) {
                         if (!m.inc()) {
                             b.set_canceled();
-                            // b.notify_cv_waiters();
                             return;
                         }
                         if (canceled())
@@ -1843,7 +1834,6 @@ class parallel_solver {
                     b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
             }
             b.set_canceled();
-            // b.notify_cv_waiters();
         }
 
         void cancel() {
