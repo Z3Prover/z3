@@ -677,7 +677,7 @@ namespace seq {
         auto xor_op   = [&](expr *x, expr *y) { return mk_xor(x, y); };
         switch (k) { 
         case OP_RE_UNION:
-            result = hoist_ite(a, b, union_op);
+            //result = hoist_ite(a, b, union_op);
             if (!result)
                result = mk_union_core(a, b); 
             break;
