@@ -778,9 +778,9 @@ namespace seq {
         if (re().is_full_seq(a) && re().is_full_seq(b))
             return expr_ref(a, m);
         if (re().is_full_char(a) && re().is_full_seq(b))
-            return expr_ref(re().mk_plus(re().mk_full_char(ele_s)), m);
+            return expr_ref(re().mk_plus(re().mk_full_char(a->get_sort())), m);
         if (re().is_full_seq(a) && re().is_full_char(b))
-            return expr_ref(re().mk_plus(re().mk_full_char(ele_s)), m);
+            return expr_ref(re().mk_plus(re().mk_full_char(a->get_sort())), m);
 
         // to_re(s1) · to_re(s2) → to_re(s1 ++ s2)
         expr* s1 = nullptr, * s2 = nullptr;
@@ -898,7 +898,8 @@ namespace seq {
             return mk_ite(c, then_r, else_r);
         }
 
-        if (re().is_union(d, t, e)) {
+        // (t ∪ e) · tail → (t · tail) ∪ (e · tail)
+        if (m_antimirov_derivative && re().is_union(d, t, e)) {
             expr_ref left = mk_deriv_concat(t, tail);
             expr_ref right = mk_deriv_concat(e, tail);
             return mk_union(left, right);
@@ -1253,8 +1254,10 @@ namespace seq {
     void derive::intersect_intervals(unsigned lo, unsigned hi) {
         // Copy active suffix to end, update start, then filter
         unsigned old_sz = m_intervals.size();
-        for (unsigned i = m_intervals_start; i < old_sz; ++i)
-            m_intervals.push_back(m_intervals[i]);
+        for (unsigned i = m_intervals_start; i < old_sz; ++i) {
+            auto e = m_intervals[i];
+            m_intervals.push_back(e);
+        }
         m_intervals_start = old_sz;
         // Filter in-place within new suffix: drop intervals disjoint from [lo,hi],
         // keep the intersection for overlapping ones.

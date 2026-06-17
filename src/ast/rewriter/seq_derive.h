@@ -77,6 +77,8 @@ namespace seq {
         seq_util::rex& re() { return m_util.re; }
         seq_util& u() { return m_util; }
 
+        bool m_antimirov_derivative = true;
+
         // The element (character) for the current derivative computation
         expr_ref m_ele;
 
@@ -189,6 +191,10 @@ namespace seq {
          */
         expr_ref nullable(expr* r) { return is_nullable(r); }
 
+
+        void set_antimirov(bool flag) {
+            m_antimirov_derivative = flag;
+        }
     };
 
 }
