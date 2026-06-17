@@ -52,6 +52,7 @@ namespace seq {
         m_concat_cache.reset();
         m_complement_cache.reset();
         m_trail.reset();
+        m_ele = nullptr;
     }
 
     // Reset only operation caches (union/inter/concat/complement)
@@ -61,48 +62,44 @@ namespace seq {
         m_inter_cache.reset();
         m_concat_cache.reset();
         m_complement_cache.reset();
+        m_ele = nullptr;
     }
 
     expr_ref derive::operator()(expr* ele, expr* r) {
         SASSERT(m_util.is_re(r));
         if (m_trail.size() > 500000)
             reset();
-        else if (m_trail.size() > 100000)
+        else if (m_trail.size() > 100000 || ele != m_ele)
             reset_op_caches();
         sort *seq_sort = nullptr, *ele_sort = nullptr;
         VERIFY(m_util.is_re(r, seq_sort));
         VERIFY(m_util.is_seq(seq_sort, ele_sort));
-        expr_ref v(m.mk_var(0, ele_sort), m);
         // Check top-level cache (post-simplify result)
         expr* cached = nullptr;
         expr_ref result(m);
-        if (m_top_cache.find(r, cached)) {
+        if (m_top_cache.find(ele, r, cached)) {
             result = cached;
-        }
-        else {
-            // Always compute the SYMBOLIC derivative wrt the canonical
-            // variable v (so the cached result is reusable for any
-            // concrete ele via substitution below). Using the concrete
-            // `ele` here would bake it into the cached ITE-tree and
-            // poison future lookups for the same r with a different ele.
-            m_ele = v;
-            m_depth = 0;
-            // Initialize path state for inline pruning
-            m_path.reset();
-            m_intervals.reset();
-            m_intervals.push_back({0u, u().max_char()});
-            m_intervals_start = 0;
-            m_path_expr = m.mk_true();
-            result = derive_rec(r);
-            m_top_cache.insert(r, result);
-        }
-        if (v != ele) {
-            var_subst subst(m);
-            result = subst(result, 1, &ele);
-        }
-        m_ele = nullptr;
+            return result;
+        }        
         // Cache and pin the final result
         m_trail.push_back(ele);
+
+        // Always compute the SYMBOLIC derivative wrt the canonical
+        // variable v (so the cached result is reusable for any
+        // concrete ele via substitution below). Using the concrete
+        // `ele` here would bake it into the cached ITE-tree and
+        // poison future lookups for the same r with a different ele.
+        m_ele = ele;
+        m_depth = 0;
+        // Initialize path state for inline pruning
+        m_path.reset();
+        m_intervals.reset();
+        m_intervals.push_back({0u, u().max_char()});
+        m_intervals_start = 0;
+        m_path_expr = m.mk_true();
+        result = derive_rec(r);
+        m_top_cache.insert(ele, r, result);        
+
         m_trail.push_back(r);
         m_trail.push_back(result);
         return result;

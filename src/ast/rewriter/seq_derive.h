@@ -61,7 +61,7 @@ namespace seq {
 
         // Cache: maps (ele, regex) pair to its derivative
         obj_pair_map<expr, expr, expr*> m_cache;
-        obj_map<expr, expr*> m_top_cache; // post-simplify cache
+        obj_pair_map<expr, expr, expr*> m_top_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
 
         // Op cache for ITE-hoisting operations (union, inter, concat, complement)
