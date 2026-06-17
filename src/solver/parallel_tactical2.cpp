@@ -709,6 +709,7 @@ class parallel_solver {
             }
         }
 
+        // NSB: this function is not used
         void release_lease(unsigned worker_id, node_lease const& lease) {
             std::scoped_lock lock(mux);
             release_lease_unlocked(worker_id, lease.leased_node);
