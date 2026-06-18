@@ -2207,7 +2207,10 @@ namespace smt {
                                 process_literal(to_app(curr)->get_arg(1), pol);
                                 break;
                             case OP_XOR:
-                                process_iff(to_app(curr));
+                                for (expr *arg : *to_app(curr)) {
+                                    visit_formula(arg, pol);
+                                    visit_formula(arg, neg(pol));
+                                }
                                 break;
                             case OP_OR:
                             case OP_AND:
