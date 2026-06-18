@@ -187,14 +187,14 @@ namespace smt {
            \brief Base class used to solve model construction constraints.
         */
         class node {
-            unsigned            m_id;
-            node* m_find{ nullptr };
-            unsigned            m_eqc_size{ 1 };
+            unsigned            m_id = 0;
+            node*               m_find = nullptr;
+            unsigned            m_eqc_size = 1;
 
-            sort* m_sort; // sort of the elements in the instantiation set.
+            sort* m_sort = nullptr; // sort of the elements in the instantiation set.
 
-            bool                m_mono_proj{ false };     // relevant for integers & reals & bit-vectors
-            bool                m_signed_proj{ false };   // relevant for bit-vectors.
+            bool                m_mono_proj = false;     // relevant for integers & reals & bit-vectors
+            bool                m_signed_proj = false;   // relevant for bit-vectors.
             ptr_vector<node>    m_avoid_set;
             ptr_vector<expr>    m_exceptions;
 
@@ -1235,8 +1235,8 @@ namespace smt {
             void populate_inst_sets(quantifier* q, func_decl* mhead, ptr_vector<instantiation_set>& uvar_inst_sets, context* ctx) override {
                 if (m_f != mhead)
                     return;
-                uvar_inst_sets.reserve(m_var_j + 1, 0);
-                if (uvar_inst_sets[m_var_j] == 0)
+                uvar_inst_sets.reserve(m_var_j + 1, nullptr);
+                if (uvar_inst_sets[m_var_j] == nullptr)
                     uvar_inst_sets[m_var_j] = alloc(instantiation_set, ctx->get_manager());
                 instantiation_set* s = uvar_inst_sets[m_var_j];
                 SASSERT(s != nullptr);
