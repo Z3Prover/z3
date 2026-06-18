@@ -105,7 +105,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
                     continue;
                 }
             }
-            if (!found_fresh_arg && m_util.is_datatype(s_arg) && m_util.are_siblings(s, s_arg)) {
+            if (!found_fresh_arg && m_util.is_datatype(s_arg) && m_util.are_siblings(s, s_arg) && m_util.is_recursive(s_arg)) {
                 recursive = true;
                 expr * last_fresh = get_last_fresh_value(s_arg);
                 args.push_back(last_fresh);
