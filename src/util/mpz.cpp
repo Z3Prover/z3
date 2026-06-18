@@ -700,7 +700,7 @@ mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
     ensure_mpz_t a1(a);
     mk_big(result);
     MPZ_BEGIN_CRITICAL();
-    mpz_tdiv_r_2exp(*result.m_ptr, a1(), k);
+    mpz_fdiv_r_2exp(*result.m_ptr, a1(), k);
     MPZ_END_CRITICAL();
 #endif
     return result;
