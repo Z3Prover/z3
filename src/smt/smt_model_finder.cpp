@@ -2205,11 +2205,12 @@ namespace smt {
                     if (is_app(curr)) {
                         if (to_app(curr)->get_family_id() == m.get_basic_family_id() && m.is_bool(curr)) {
                             switch (static_cast<basic_op_kind>(to_app(curr)->get_decl_kind())) {
-                            case OP_IMPLIES:
+                            case OP_IMPLIES: 
+                                process_literal(to_app(curr)->get_arg(0), neg(pol));
+                                process_literal(to_app(curr)->get_arg(1), pol);
+                                break;
                             case OP_XOR:
-                                // Implies/XOR should be simplified away but handle gracefully
-                                // by treating as uninterpreted boolean.
-                                process_literal(curr, pol);
+                                process_iff(to_app(curr));
                                 break;
                             case OP_OR:
                             case OP_AND:
