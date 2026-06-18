@@ -2163,9 +2163,6 @@ namespace smt {
                 }
 
                 SASSERT(is_quantifier(atom));
-                // Nested quantifiers as atoms are not expected but can occur
-                // in unsimplified formulas. Skip gracefully.
-                return;
             }
 
             void process_literal(expr* atom, polarity pol) {
