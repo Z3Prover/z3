@@ -513,7 +513,7 @@ void non_auf_macro_solver::collect_candidates(ptr_vector<quantifier> const& qs, 
                 TRACE(model_finder, tout << "considering macro for: " << f->get_name() << "\n";
                 m->display(tout); tout << "\n";);
                 if (m->is_unconditional() && (!qi->is_auf() || m->get_weight() >= m_mbqi_force_template)) {
-                    full_macros.insert(f, std::make_pair(m, q));
+                    full_macros.insert(f, {m, q});
                     cond_macros.erase(f);
                 }
                 else if (!full_macros.contains(f) && !qi->is_auf())
@@ -524,10 +524,8 @@ void non_auf_macro_solver::collect_candidates(ptr_vector<quantifier> const& qs, 
 }
 
 void non_auf_macro_solver::process_full_macros(obj_map<func_decl, mq_pair> const& full_macros, obj_hashtable<quantifier>& removed) {
-    for (auto const& kv : full_macros) {
-        func_decl* f = kv.m_key;
-        cond_macro* m = kv.m_value.first;
-        quantifier* q = kv.m_value.second;
+    for (auto const &[f, v] : full_macros) {
+        auto [m, q] = v;
         SASSERT(m->is_unconditional());
         if (add_macro(f, m->get_def())) {
             get_qinfo(q)->set_the_one(f);
