@@ -60,6 +60,14 @@ std::ostream& operator<<(std::ostream& out, const row_strip<T>& r) {
     return out << "\n";
 }
 
+// Below, static_matrix has a superclass when Z3DEBUG is set, and some
+// methods are overrides in that case.
+#ifdef Z3DEBUG
+#define DEBUG_OVERRIDE override
+#else
+#define DEBUG_OVERRIDE
+#endif
+
 // each assignment for this matrix should be issued only once!!!
 template <typename T, typename X>
 class static_matrix
@@ -119,9 +127,13 @@ public:
 
     void init_empty_matrix(unsigned m, unsigned n);
 
-    unsigned row_count() const { return static_cast<unsigned>(m_rows.size()); }
+    unsigned row_count() const DEBUG_OVERRIDE {
+        return static_cast<unsigned>(m_rows.size());
+    }
 
-    unsigned column_count() const { return static_cast<unsigned>(m_columns.size()); }
+    unsigned column_count() const DEBUG_OVERRIDE {
+        return static_cast<unsigned>(m_columns.size());
+    }
 
     unsigned lowest_row_in_column(unsigned col);
 
@@ -197,7 +209,7 @@ public:
 
     void cross_out_row_from_column(unsigned col, unsigned k);
 
-    T get_elem(unsigned i, unsigned j) const;
+    T get_elem(unsigned i, unsigned j) const DEBUG_OVERRIDE;
 
 
     unsigned number_of_non_zeroes_in_column(unsigned j) const { return static_cast<unsigned>(m_columns[j].size()); }
@@ -218,8 +230,8 @@ public:
 #ifdef Z3DEBUG
     unsigned get_number_of_rows() const { return row_count(); }
     unsigned get_number_of_columns() const { return column_count(); }
-    virtual void set_number_of_rows(unsigned /*m*/) { }
-    virtual void set_number_of_columns(unsigned /*n*/) { }
+    void set_number_of_rows(unsigned /*m*/) override { }
+    void set_number_of_columns(unsigned /*n*/) override { }
 #endif
 
     T get_balance() const;
