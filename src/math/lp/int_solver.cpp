@@ -220,7 +220,12 @@ namespace lp {
         bool should_gomory_cut() {
             bool dio_allows_gomory = !settings().dio() || settings().dio_enable_gomory_cuts() ||
                                       m_dio.some_terms_are_ignored();
-            return dio_allows_gomory && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
+            // Draw the decision at random instead of using a fixed "every k-th
+            // call" modulus. A deterministic period can phase-lock with the
+            // search on some UNSAT families and drown the solver in theory
+            // conflicts while the Diophantine handler is starved; randomizing
+            // the gate (same 1/period expected rate) breaks that resonance.
+            return dio_allows_gomory && settings().random_next(settings().m_int_gomory_cut_period) == 0;
         }
 
         bool should_solve_dioph_eq() {
