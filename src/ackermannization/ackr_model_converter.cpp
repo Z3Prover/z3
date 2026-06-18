@@ -103,6 +103,8 @@ void ackr_model_converter::convert_constants(model * source, model * destination
     evaluator.set_model_completion(true);
     array_util autil(m);
 
+    obj_hashtable<func_decl> processed;
+
     for (unsigned i = 0, n = source->get_num_constants(); i < n; ++i) {
         func_decl * const c = source->get_constant(i);
         app * const term = info->find_term(c);
@@ -110,9 +112,30 @@ void ackr_model_converter::convert_constants(model * source, model * destination
         TRACE(ackermannize, tout << mk_ismt2_pp(c, m) << " " << mk_ismt2_pp(term, m) << "\n";);
         if (!term) 
             destination->register_decl(c, value);
-        else if (autil.is_select(term)) 
+        else if (autil.is_select(term)) {
             add_entry(evaluator, term, value, array_interpretations);
-        else 
+            processed.insert(c);
+        }
+        else {
+            add_entry(evaluator, term, value, interpretations);
+            processed.insert(c);
+        }
+    }
+
+    // Process any abstract constants from ackr_info that are missing from the model.
+    // This can happen when downstream tactics (e.g., solve-eqs) eliminate the constant
+    // before it reaches the solver, so it has no model value.
+    for (auto it = info->begin_c2t(); it != info->end_c2t(); ++it) {
+        func_decl * const c = it->m_key;
+        if (processed.contains(c))
+            continue;
+        app * const term = it->m_value;
+        expr_ref value(m);
+        value = evaluator(m.mk_const(c));
+        TRACE(ackermannize, tout << "missing from model: " << mk_ismt2_pp(c, m) << " " << mk_ismt2_pp(term, m) << " -> " << value << "\n";);
+        if (autil.is_select(term))
+            add_entry(evaluator, term, value, array_interpretations);
+        else
             add_entry(evaluator, term, value, interpretations);
     }
 

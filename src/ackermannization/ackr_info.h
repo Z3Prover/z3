@@ -71,6 +71,10 @@ class ackr_info {
             return rv;
         }
 
+        typedef obj_map<func_decl, app*>::iterator c2t_iterator;
+        c2t_iterator begin_c2t() const { return m_c2t.begin(); }
+        c2t_iterator end_c2t() const { return m_c2t.end(); }
+
         inline app* get_abstr(app* term)  const {
             return m_t2c.find(term);
         }

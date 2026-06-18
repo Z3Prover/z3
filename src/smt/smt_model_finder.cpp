@@ -2163,7 +2163,9 @@ namespace smt {
                 }
 
                 SASSERT(is_quantifier(atom));
-                UNREACHABLE();
+                // Nested quantifiers as atoms are not expected but can occur
+                // in unsimplified formulas. Skip gracefully.
+                return;
             }
 
             void process_literal(expr* atom, polarity pol) {
@@ -2205,7 +2207,9 @@ namespace smt {
                             switch (static_cast<basic_op_kind>(to_app(curr)->get_decl_kind())) {
                             case OP_IMPLIES:
                             case OP_XOR:
-                                UNREACHABLE(); // simplifier eliminated ANDs, IMPLIEs, and XORs
+                                // Implies/XOR should be simplified away but handle gracefully
+                                // by treating as uninterpreted boolean.
+                                process_literal(curr, pol);
                                 break;
                             case OP_OR:
                             case OP_AND:

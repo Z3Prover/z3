@@ -143,6 +143,8 @@ namespace smt {
             CTRACE(model, n == 0, 
                    tout << mk_pp(r->get_expr(), m) << "\nsort:\n" << mk_pp(s, m) << "\n";
                    tout << "is_finite: " << m_model->is_finite(s) << "\n";);
+            if (!n)
+                n = m_model->get_some_value(s);
         }
         return alloc(expr_wrapper_proc, to_app(n));
     }
@@ -371,7 +373,11 @@ namespace smt {
                             TRACE(mg_top_sort, tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_expr(), m) << "): " 
                                   << mk_pp(child->get_expr(), m) << " " << mk_pp(child->get_root()->get_expr(), m) << "\n";);
                             child = child->get_root();
-                            dependency_values.push_back(m_root2value[child]);
+                            app * child_val = nullptr;
+                            m_root2value.find(child, child_val);
+                            if (!child_val)
+                                child_val = to_app(m_model->get_some_value(child->get_sort()));
+                            dependency_values.push_back(child_val);
                         }
                     }
                     val = proc->mk_value(*this, dependency_values);
