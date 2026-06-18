@@ -2163,7 +2163,6 @@ namespace smt {
                 }
 
                 SASSERT(is_quantifier(atom));
-                UNREACHABLE();
             }
 
             void process_literal(expr* atom, polarity pol) {
