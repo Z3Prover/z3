@@ -17,45 +17,51 @@ Notes:
 --*/
 #pragma once
 
-#define ATOMIC_CMD(CLS_NAME, NAME, DESCR, ACTION)                               \
+#define ATOMIC_CMD(CLS_NAME, NAME, DESCR, ACTION)               \
+class CLS_NAME : public cmd {                                   \
+public:                                                         \
+    CLS_NAME():cmd(NAME) {}                                     \
+    char const * get_usage() const override { return 0; }       \
+    char const * get_descr(cmd_context & ctx) const override {  \
+      return DESCR;                                             \
+    }                                                           \
+    unsigned get_arity() const override { return 0; }           \
+    void execute(cmd_context & ctx) override { ACTION }         \
+}
+
+#define UNARY_CMD(CLS_NAME, NAME, USAGE, DESCR, ARG_KIND, ARG_TYPE, ACTION)     \
 class CLS_NAME : public cmd {                                                   \
 public:                                                                         \
     CLS_NAME():cmd(NAME) {}                                                     \
-    virtual char const * get_usage() const { return 0; }                        \
-    virtual char const * get_descr(cmd_context & ctx) const { return DESCR; }   \
-    virtual unsigned get_arity() const { return 0; }                            \
-    virtual void execute(cmd_context & ctx) { ACTION }                          \
-};
-
-#define UNARY_CMD(CLS_NAME, NAME, USAGE, DESCR, ARG_KIND, ARG_TYPE, ACTION)             \
-class CLS_NAME : public cmd {                                                           \
-public:                                                                                 \
-    CLS_NAME():cmd(NAME) {}                                                             \
-    virtual char const * get_usage() const { return USAGE; }                            \
-    virtual char const * get_descr(cmd_context & ctx) const { return DESCR; }           \
-    virtual unsigned get_arity() const { return 1; }                                    \
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return ARG_KIND; }    \
-    virtual void set_next_arg(cmd_context & ctx, ARG_TYPE arg) { ACTION }               \
+    char const * get_usage() const override { return USAGE; }                   \
+    char const * get_descr(cmd_context & ctx) const override {                  \
+      return DESCR;                                                             \
+    }                                                                           \
+    unsigned get_arity() const override { return 1; }                           \
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {              \
+      return ARG_KIND;                                                          \
+    }                                                                           \
+    void set_next_arg(cmd_context & ctx, ARG_TYPE arg) override { ACTION }      \
 }
 
 // Macro for creating commands where the first argument is a symbol
 // The second argument cannot be a symbol
 #define BINARY_SYM_CMD(CLS_NAME, NAME, USAGE, DESCR, ARG_KIND, ARG_TYPE, ACTION)        \
 class CLS_NAME : public cmd {                                                           \
-    symbol m_sym;                                                                       \
+     symbol m_sym;                                                                      \
 public:                                                                                 \
     CLS_NAME():cmd(NAME) {}                                                             \
-    virtual char const * get_usage() const { return USAGE; }                            \
-    virtual char const * get_descr(cmd_context & ctx) const { return DESCR; }           \
-    virtual unsigned get_arity() const { return 2; }                                    \
-    virtual void prepare(cmd_context & ctx) { m_sym = symbol::null; }                   \
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {                       \
-        return m_sym == symbol::null ? CPK_SYMBOL : ARG_KIND;                           \
+    char const * get_usage() const override { return USAGE; }                           \
+    char const * get_descr(cmd_context & ctx) const override { return DESCR; }          \
+    unsigned get_arity() const override { return 2; }                                   \
+    void prepare(cmd_context & ctx) override { m_sym = symbol::null; }                  \
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {                      \
+      return m_sym == symbol::null ? CPK_SYMBOL : ARG_KIND;                             \
     }                                                                                   \
-    virtual void set_next_arg(cmd_context & ctx, symbol const & s) { m_sym = s; }       \
-    virtual void set_next_arg(cmd_context & ctx, ARG_TYPE arg) { ACTION }               \
-};    
-   
+    void set_next_arg(cmd_context & ctx, symbol const & s) override { m_sym = s; }      \
+    void set_next_arg(cmd_context & ctx, ARG_TYPE arg) override { ACTION }              \
+}    
+
 
 class ast;
 class expr;
