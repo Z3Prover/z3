@@ -99,6 +99,7 @@ void test_bvneg() {
         Z3_solver_push(ctx, s);
         Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, sx, minus_one));
         std::string smt2 = Z3_solver_to_string(ctx, s);
+        // Bit-vector numerals must print in canonical unsigned SMT2 form.
         ENSURE(smt2.find("(_ bv-") == std::string::npos);
         Z3_solver_pop(ctx, s, 1);
     }
