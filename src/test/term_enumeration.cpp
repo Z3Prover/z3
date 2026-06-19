@@ -257,6 +257,7 @@ static void tst_nested_array_enumeration() {
 
     ENSURE(count >= 1); // At least the constant array
     std::cout << "Enumerated " << count << " terms of sort Array(A, Array(B, A))\n";
+
     te.display(std::cout);
 }
 
