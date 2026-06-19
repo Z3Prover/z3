@@ -104,6 +104,8 @@ class func_interp {
 
     void reset_interp_cache();
 
+    void init_table();
+
     expr * get_interp_core() const;
 
     expr_ref get_array_interp_core(func_decl * f) const;
