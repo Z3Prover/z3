@@ -1,0 +1,3794 @@
+[tool-version] Z3 4.17.0
+[mk-app] #1 true
+[mk-app] #2 false
+[mk-app] #1 true
+[mk-app] #2 false
+[mk-app] #3 pi
+[mk-app] #4 euler
+[mk-app] #5 bv
+[attach-meaning] #5 bv #b1
+[mk-app] #6 bv
+[attach-meaning] #6 bv #b0
+[attach-meaning] #6 bv #b0
+[mk-var] #7 0
+[mk-var] #8 1
+[mk-var] #9 2
+[mk-var] #10 3
+[mk-var] #11 4
+[mk-var] #12 5
+[mk-var] #13 6
+[mk-var] #14 7
+[mk-var] #15 8
+[mk-var] #16 9
+[mk-var] #17 10
+[mk-var] #18 11
+[mk-var] #19 12
+[mk-var] #20 13
+[mk-var] #21 14
+[mk-app] #22 + #15 #13
+[attach-enode] #1 0
+[attach-enode] #2 0
+[mk-app] #23 A
+[mk-app] #24 x
+[mk-app] #25 const #24
+[mk-app] #26 = #23 #25
+[mk-app] #27 B
+[mk-app] #28 y
+[mk-app] #29 const #28
+[mk-app] #30 = #27 #29
+[mk-app] #31 distinct #24 #28
+[mk-app] #32 = #24 #28
+[mk-app] #33 not #32
+[inst-discovered] theory-solving 0x0 basic# ; #31
+[mk-app] #34 = #31 #33
+[instance] 0x0 #34
+[attach-enode] #34 0
+[end-of-instance]
+[mk-app] #34 i0
+[mk-app] #35 e0
+[mk-app] #36 store #23 #34 #35
+[mk-app] #37 i1
+[mk-app] #38 e1
+[mk-app] #39 store #36 #37 #38
+[mk-app] #40 store #27 #34 #35
+[mk-app] #41 store #40 #37 #38
+[mk-app] #42 = #39 #41
+[inst-discovered] theory-solving 0x0 basic# ; #31
+[mk-app] #43 = #31 #33
+[instance] 0x0 #43
+[attach-enode] #43 0
+[end-of-instance]
+[mk-app] #43 = #25 #25
+[mk-app] #44 = #24 #24
+[inst-discovered] theory-solving 0x0 array# ; #43
+[mk-app] #45 = #43 #44
+[instance] 0x0 #45
+[attach-enode] #45 0
+[end-of-instance]
+[inst-discovered] theory-solving 0x0 bv# ; #44
+[mk-app] #45 = #44 #1
+[instance] 0x0 #45
+[attach-enode] #45 0
+[end-of-instance]
+[mk-app] #43 = #29 #29
+[mk-app] #45 = #28 #28
+[inst-discovered] theory-solving 0x0 array# ; #43
+[mk-app] #46 = #43 #45
+[instance] 0x0 #46
+[attach-enode] #46 0
+[end-of-instance]
+[inst-discovered] theory-solving 0x0 bv# ; #45
+[mk-app] #46 = #45 #1
+[instance] 0x0 #46
+[attach-enode] #46 0
+[end-of-instance]
+[mk-app] #43 store #25 #34 #35
+[mk-app] #46 store #43 #37 #38
+[mk-app] #47 store #29 #34 #35
+[mk-app] #48 store #47 #37 #38
+[mk-app] #49 = #46 #48
+[attach-meaning] #6 bv #b0
+[attach-enode] #1 0
+[attach-enode] #2 0
+[begin-check] 0
+[attach-enode] #24 0
+[mk-app] #45 bit2bool #24
+[mk-app] #44 bit2bool #24
+[mk-app] #50 bit2bool #24
+[mk-app] #51 bit2bool #24
+[mk-app] #52 bit2bool #24
+[mk-app] #53 bit2bool #24
+[mk-app] #54 bit2bool #24
+[mk-app] #55 bit2bool #24
+[attach-enode] #28 0
+[mk-app] #56 bit2bool #28
+[mk-app] #57 bit2bool #28
+[mk-app] #58 bit2bool #28
+[mk-app] #59 bit2bool #28
+[mk-app] #60 bit2bool #28
+[mk-app] #61 bit2bool #28
+[mk-app] #62 bit2bool #28
+[mk-app] #63 bit2bool #28
+[attach-enode] #32 0
+[assign] (not #32) justification -1: 
+[attach-enode] #25 0
+[mk-app] #64 default #25
+[attach-enode] #64 0
+[mk-app] #65 bit2bool #64
+[mk-app] #66 bit2bool #64
+[mk-app] #67 bit2bool #64
+[mk-app] #68 bit2bool #64
+[mk-app] #69 bit2bool #64
+[mk-app] #70 bit2bool #64
+[mk-app] #71 bit2bool #64
+[mk-app] #72 bit2bool #64
+[mk-app] #73 = #24 #64
+[attach-enode] #73 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #73
+[assign] #73 axiom
+[end-of-instance]
+[attach-enode] #34 0
+[mk-app] #74 bit2bool #34
+[mk-app] #75 bit2bool #34
+[attach-enode] #35 0
+[mk-app] #76 bit2bool #35
+[mk-app] #77 bit2bool #35
+[mk-app] #78 bit2bool #35
+[mk-app] #79 bit2bool #35
+[mk-app] #80 bit2bool #35
+[mk-app] #81 bit2bool #35
+[mk-app] #82 bit2bool #35
+[mk-app] #83 bit2bool #35
+[attach-enode] #43 0
+[attach-enode] #37 0
+[mk-app] #84 bit2bool #37
+[mk-app] #85 bit2bool #37
+[attach-enode] #38 0
+[mk-app] #86 bit2bool #38
+[mk-app] #87 bit2bool #38
+[mk-app] #88 bit2bool #38
+[mk-app] #89 bit2bool #38
+[mk-app] #90 bit2bool #38
+[mk-app] #91 bit2bool #38
+[mk-app] #92 bit2bool #38
+[mk-app] #93 bit2bool #38
+[attach-enode] #46 0
+[attach-enode] #29 0
+[mk-app] #94 default #29
+[attach-enode] #94 0
+[mk-app] #95 bit2bool #94
+[mk-app] #96 bit2bool #94
+[mk-app] #97 bit2bool #94
+[mk-app] #98 bit2bool #94
+[mk-app] #99 bit2bool #94
+[mk-app] #100 bit2bool #94
+[mk-app] #101 bit2bool #94
+[mk-app] #102 bit2bool #94
+[mk-app] #103 = #28 #94
+[attach-enode] #103 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #103
+[assign] #103 axiom
+[end-of-instance]
+[attach-enode] #47 0
+[attach-enode] #48 0
+[attach-enode] #49 0
+[assign] #49 justification -1: 
+[mk-app] #104 not #45
+[mk-app] #105 = #45 #56
+[mk-app] #106 not #105
+[mk-app] #106 not #44
+[mk-app] #104 = #44 #57
+[mk-app] #107 not #104
+[mk-app] #107 not #50
+[mk-app] #106 = #50 #58
+[mk-app] #108 not #106
+[mk-app] #108 not #51
+[mk-app] #107 = #51 #59
+[mk-app] #109 not #107
+[mk-app] #109 not #52
+[mk-app] #108 = #52 #60
+[mk-app] #110 not #108
+[mk-app] #110 not #53
+[mk-app] #109 = #53 #61
+[mk-app] #111 not #109
+[mk-app] #111 not #54
+[mk-app] #110 = #54 #62
+[mk-app] #112 not #110
+[mk-app] #112 not #55
+[mk-app] #111 = #55 #63
+[mk-app] #113 not #111
+[mk-app] #113 not #105
+[mk-app] #112 not #104
+[mk-app] #114 not #106
+[mk-app] #115 not #107
+[mk-app] #116 not #108
+[mk-app] #117 not #109
+[mk-app] #118 not #110
+[mk-app] #119 not #111
+[mk-app] #120 or #32 #113 #112 #114 #115 #116 #117 #118 #119
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #120
+[end-of-instance]
+[mk-app] #119 select #43 #34
+[attach-enode] #119 0
+[mk-app] #118 bit2bool #119
+[mk-app] #117 bit2bool #119
+[mk-app] #116 bit2bool #119
+[mk-app] #115 bit2bool #119
+[mk-app] #114 bit2bool #119
+[mk-app] #112 bit2bool #119
+[mk-app] #113 bit2bool #119
+[mk-app] #120 bit2bool #119
+[mk-app] #121 select #46 #37
+[attach-enode] #121 0
+[mk-app] #122 bit2bool #121
+[mk-app] #123 bit2bool #121
+[mk-app] #124 bit2bool #121
+[mk-app] #125 bit2bool #121
+[mk-app] #126 bit2bool #121
+[mk-app] #127 bit2bool #121
+[mk-app] #128 bit2bool #121
+[mk-app] #129 bit2bool #121
+[mk-app] #130 select #47 #34
+[attach-enode] #130 0
+[mk-app] #131 bit2bool #130
+[mk-app] #132 bit2bool #130
+[mk-app] #133 bit2bool #130
+[mk-app] #134 bit2bool #130
+[mk-app] #135 bit2bool #130
+[mk-app] #136 bit2bool #130
+[mk-app] #137 bit2bool #130
+[mk-app] #138 bit2bool #130
+[mk-app] #139 select #48 #37
+[attach-enode] #139 0
+[mk-app] #140 bit2bool #139
+[mk-app] #141 bit2bool #139
+[mk-app] #142 bit2bool #139
+[mk-app] #143 bit2bool #139
+[mk-app] #144 bit2bool #139
+[mk-app] #145 bit2bool #139
+[mk-app] #146 bit2bool #139
+[mk-app] #147 bit2bool #139
+[push] 0
+[assign] (not #102) decision axiom
+[assign] (not #63) justification 8: -54 55
+[mk-app] #148 not #102
+[mk-app] #149 not #103
+[mk-app] #150 or #63 #148 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #150
+[end-of-instance]
+[push] 1
+[assign] (not #101) decision axiom
+[assign] (not #62) justification 8: -53 55
+[mk-app] #149 not #101
+[mk-app] #148 not #103
+[mk-app] #150 or #62 #149 #148
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #150
+[end-of-instance]
+[push] 2
+[assign] (not #100) decision axiom
+[assign] (not #61) justification 8: -52 55
+[mk-app] #148 not #100
+[mk-app] #149 not #103
+[mk-app] #150 or #61 #148 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #150
+[end-of-instance]
+[push] 3
+[assign] (not #99) decision axiom
+[assign] (not #60) justification 8: -51 55
+[mk-app] #149 not #99
+[mk-app] #148 not #103
+[mk-app] #150 or #60 #149 #148
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #150
+[end-of-instance]
+[push] 4
+[assign] (not #98) decision axiom
+[assign] (not #59) justification 8: -50 55
+[mk-app] #148 not #98
+[mk-app] #149 not #103
+[mk-app] #150 or #59 #148 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #150
+[end-of-instance]
+[push] 5
+[assign] (not #97) decision axiom
+[assign] (not #58) justification 8: -49 55
+[mk-app] #149 not #97
+[mk-app] #148 not #103
+[mk-app] #150 or #58 #149 #148
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #150
+[end-of-instance]
+[push] 6
+[assign] (not #96) decision axiom
+[assign] (not #57) justification 8: -48 55
+[mk-app] #148 not #96
+[mk-app] #149 not #103
+[mk-app] #150 or #57 #148 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #150
+[end-of-instance]
+[push] 7
+[assign] (not #95) decision axiom
+[assign] (not #56) justification 8: -47 55
+[mk-app] #149 not #95
+[mk-app] #148 not #103
+[mk-app] #150 or #56 #149 #148
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #150
+[end-of-instance]
+[push] 8
+[assign] (not #93) decision axiom
+[assign] (not #129) justification 8: -46
+[mk-app] #148 = #38 #121
+[assign] #148 justification -1: 
+[attach-enode] #148 0
+[mk-app] #149 not #93
+[mk-app] #150 not #148
+[mk-app] #151 or #129 #149 #150
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #151
+[end-of-instance]
+[assign] (not #147) justification 8: -46 56
+[mk-app] #150 = #38 #139
+[assign] #150 justification -1: 56
+[attach-enode] #150 0
+[mk-app] #149 not #93
+[mk-app] #151 not #150
+[mk-app] #152 or #147 #149 #151
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[push] 9
+[assign] (not #92) decision axiom
+[assign] (not #128) justification 8: -45
+[mk-app] #151 not #92
+[mk-app] #149 not #148
+[mk-app] #152 or #128 #151 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[assign] (not #146) justification 8: -45 56
+[mk-app] #149 not #92
+[mk-app] #151 not #150
+[mk-app] #152 or #146 #149 #151
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[push] 10
+[assign] (not #91) decision axiom
+[assign] (not #127) justification 8: -44
+[mk-app] #151 not #91
+[mk-app] #149 not #148
+[mk-app] #152 or #127 #151 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[assign] (not #145) justification 8: -44 56
+[mk-app] #149 not #91
+[mk-app] #151 not #150
+[mk-app] #152 or #145 #149 #151
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[push] 11
+[assign] (not #90) decision axiom
+[assign] (not #126) justification 8: -43
+[mk-app] #151 not #90
+[mk-app] #149 not #148
+[mk-app] #152 or #126 #151 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[assign] (not #144) justification 8: -43 56
+[mk-app] #149 not #90
+[mk-app] #151 not #150
+[mk-app] #152 or #144 #149 #151
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[push] 12
+[assign] (not #89) decision axiom
+[assign] (not #125) justification 8: -42
+[mk-app] #151 not #89
+[mk-app] #149 not #148
+[mk-app] #152 or #125 #151 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[assign] (not #143) justification 8: -42 56
+[mk-app] #149 not #89
+[mk-app] #151 not #150
+[mk-app] #152 or #143 #149 #151
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[push] 13
+[assign] (not #88) decision axiom
+[assign] (not #124) justification 8: -41
+[mk-app] #151 not #88
+[mk-app] #149 not #148
+[mk-app] #152 or #124 #151 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[assign] (not #142) justification 8: -41 56
+[mk-app] #149 not #88
+[mk-app] #151 not #150
+[mk-app] #152 or #142 #149 #151
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[push] 14
+[assign] (not #87) decision axiom
+[assign] (not #123) justification 8: -40
+[mk-app] #151 not #87
+[mk-app] #149 not #148
+[mk-app] #152 or #123 #151 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[assign] (not #141) justification 8: -40 56
+[mk-app] #149 not #87
+[mk-app] #151 not #150
+[mk-app] #152 or #141 #149 #151
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[push] 15
+[assign] (not #86) decision axiom
+[assign] (not #122) justification 8: -39
+[mk-app] #151 not #86
+[mk-app] #149 not #148
+[mk-app] #152 or #122 #151 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[assign] (not #140) justification 8: -39 56
+[mk-app] #149 not #86
+[mk-app] #151 not #150
+[mk-app] #152 or #140 #149 #151
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #152
+[end-of-instance]
+[push] 16
+[assign] (not #85) decision axiom
+[push] 17
+[assign] (not #84) decision axiom
+[push] 18
+[assign] (not #83) decision axiom
+[assign] (not #120) justification 8: -36
+[mk-app] #151 = #35 #119
+[assign] #151 justification -1: 
+[attach-enode] #151 0
+[mk-app] #149 not #83
+[mk-app] #152 not #151
+[mk-app] #153 or #120 #149 #152
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #153
+[end-of-instance]
+[assign] (not #138) justification 8: -36
+[mk-app] #152 = #35 #130
+[assign] #152 justification -1: 
+[attach-enode] #152 0
+[mk-app] #149 not #83
+[mk-app] #153 not #152
+[mk-app] #154 or #138 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[push] 19
+[assign] (not #82) decision axiom
+[assign] (not #113) justification 8: -35
+[mk-app] #153 not #82
+[mk-app] #149 not #151
+[mk-app] #154 or #113 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] (not #137) justification 8: -35
+[mk-app] #149 not #82
+[mk-app] #153 not #152
+[mk-app] #154 or #137 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[push] 20
+[assign] (not #81) decision axiom
+[assign] (not #112) justification 8: -34
+[mk-app] #153 not #81
+[mk-app] #149 not #151
+[mk-app] #154 or #112 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] (not #136) justification 8: -34
+[mk-app] #149 not #81
+[mk-app] #153 not #152
+[mk-app] #154 or #136 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[push] 21
+[assign] (not #80) decision axiom
+[assign] (not #114) justification 8: -33
+[mk-app] #153 not #80
+[mk-app] #149 not #151
+[mk-app] #154 or #114 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] (not #135) justification 8: -33
+[mk-app] #149 not #80
+[mk-app] #153 not #152
+[mk-app] #154 or #135 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[push] 22
+[assign] (not #79) decision axiom
+[assign] (not #115) justification 8: -32
+[mk-app] #153 not #79
+[mk-app] #149 not #151
+[mk-app] #154 or #115 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] (not #134) justification 8: -32
+[mk-app] #149 not #79
+[mk-app] #153 not #152
+[mk-app] #154 or #134 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[push] 23
+[assign] (not #78) decision axiom
+[assign] (not #116) justification 8: -31
+[mk-app] #153 not #78
+[mk-app] #149 not #151
+[mk-app] #154 or #116 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] (not #133) justification 8: -31
+[mk-app] #149 not #78
+[mk-app] #153 not #152
+[mk-app] #154 or #133 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[push] 24
+[assign] (not #77) decision axiom
+[assign] (not #117) justification 8: -30
+[mk-app] #153 not #77
+[mk-app] #149 not #151
+[mk-app] #154 or #117 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] (not #132) justification 8: -30
+[mk-app] #149 not #77
+[mk-app] #153 not #152
+[mk-app] #154 or #132 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[push] 25
+[assign] (not #76) decision axiom
+[assign] (not #118) justification 8: -29
+[mk-app] #153 not #76
+[mk-app] #149 not #151
+[mk-app] #154 or #118 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] (not #131) justification 8: -29
+[mk-app] #149 not #76
+[mk-app] #153 not #152
+[mk-app] #154 or #131 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[push] 26
+[assign] (not #75) decision axiom
+[push] 27
+[assign] (not #74) decision axiom
+[push] 28
+[assign] (not #72) decision axiom
+[assign] (not #55) justification 8: -25 26
+[mk-app] #153 not #72
+[mk-app] #149 not #73
+[mk-app] #154 or #55 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] #111 clause 64 8 16
+[push] 29
+[assign] (not #71) decision axiom
+[assign] (not #54) justification 8: -24 26
+[mk-app] #149 not #71
+[mk-app] #153 not #73
+[mk-app] #154 or #54 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] #110 clause 63 7 15
+[push] 30
+[assign] (not #70) decision axiom
+[assign] (not #53) justification 8: -23 26
+[mk-app] #153 not #70
+[mk-app] #149 not #73
+[mk-app] #154 or #53 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] #109 clause 62 6 14
+[push] 31
+[assign] (not #69) decision axiom
+[assign] (not #52) justification 8: -22 26
+[mk-app] #149 not #69
+[mk-app] #153 not #73
+[mk-app] #154 or #52 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] #108 clause 61 5 13
+[push] 32
+[assign] (not #68) decision axiom
+[assign] (not #51) justification 8: -21 26
+[mk-app] #153 not #68
+[mk-app] #149 not #73
+[mk-app] #154 or #51 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] #107 clause 60 4 12
+[push] 33
+[assign] (not #67) decision axiom
+[assign] (not #50) justification 8: -20 26
+[mk-app] #149 not #67
+[mk-app] #153 not #73
+[mk-app] #154 or #50 #149 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] #106 clause 59 3 11
+[push] 34
+[assign] (not #66) decision axiom
+[assign] (not #44) justification 8: -19 26
+[mk-app] #153 not #66
+[mk-app] #149 not #73
+[mk-app] #154 or #44 #153 #149
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[assign] #104 clause 58 2 10
+[assign] (not #105) clause -57 -58 -59 -60 -61 -62 -63 -64
+[assign] #45 clause 1 57 9
+[assign] #65 justification 8: 1 26
+[mk-app] #149 not #65
+[mk-app] #153 not #73
+[mk-app] #154 or #149 #45 #153
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #154
+[end-of-instance]
+[mk-app] #153 default #43
+[mk-app] #149 epsilon!0
+[mk-app] #154 diag!1 #34
+[mk-app] #155 select #43 #149
+[mk-app] #156 select #25 #149
+[attach-enode] #153 0
+[mk-app] #157 bit2bool #153
+[mk-app] #158 bit2bool #153
+[mk-app] #159 bit2bool #153
+[mk-app] #160 bit2bool #153
+[mk-app] #161 bit2bool #153
+[mk-app] #162 bit2bool #153
+[mk-app] #163 bit2bool #153
+[mk-app] #164 bit2bool #153
+[mk-app] #165 = #153 #155
+[attach-enode] #149 0
+[mk-app] #166 bit2bool #149
+[mk-app] #167 bit2bool #149
+[attach-enode] #155 0
+[mk-app] #168 bit2bool #155
+[mk-app] #169 bit2bool #155
+[mk-app] #170 bit2bool #155
+[mk-app] #171 bit2bool #155
+[mk-app] #172 bit2bool #155
+[mk-app] #173 bit2bool #155
+[mk-app] #174 bit2bool #155
+[mk-app] #175 bit2bool #155
+[attach-enode] #165 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #165
+[assign] #165 axiom
+[end-of-instance]
+[mk-app] #176 select #43 #154
+[mk-app] #177 select #25 #154
+[mk-app] #156 = #176 #177
+[attach-enode] #154 0
+[mk-app] #178 bit2bool #154
+[mk-app] #179 bit2bool #154
+[attach-enode] #176 0
+[mk-app] #180 bit2bool #176
+[mk-app] #181 bit2bool #176
+[mk-app] #182 bit2bool #176
+[mk-app] #183 bit2bool #176
+[mk-app] #184 bit2bool #176
+[mk-app] #185 bit2bool #176
+[mk-app] #186 bit2bool #176
+[mk-app] #187 bit2bool #176
+[attach-enode] #177 0
+[mk-app] #188 = #24 #177
+[attach-enode] #188 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #188
+[assign] #188 axiom
+[end-of-instance]
+[mk-app] #189 bit2bool #177
+[mk-app] #190 bit2bool #177
+[mk-app] #191 bit2bool #177
+[mk-app] #192 bit2bool #177
+[mk-app] #193 bit2bool #177
+[mk-app] #194 bit2bool #177
+[mk-app] #195 bit2bool #177
+[mk-app] #196 bit2bool #177
+[attach-enode] #156 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #156
+[assign] #156 axiom
+[end-of-instance]
+[mk-app] #197 default #46
+[mk-app] #198 diag!1 #37
+[mk-app] #199 select #46 #149
+[attach-enode] #197 0
+[mk-app] #200 default #48
+[mk-app] #201 default #47
+[mk-app] #202 select #48 #149
+[mk-app] #203 select #47 #149
+[attach-enode] #200 0
+[mk-app] #204 bit2bool #200
+[mk-app] #205 bit2bool #200
+[mk-app] #206 bit2bool #200
+[mk-app] #207 bit2bool #200
+[mk-app] #208 bit2bool #200
+[mk-app] #209 bit2bool #200
+[mk-app] #210 bit2bool #200
+[mk-app] #211 bit2bool #200
+[attach-enode] #201 0
+[mk-app] #212 select #29 #149
+[mk-app] #213 = #201 #203
+[attach-enode] #203 0
+[mk-app] #214 bit2bool #203
+[mk-app] #215 bit2bool #203
+[mk-app] #216 bit2bool #203
+[mk-app] #217 bit2bool #203
+[mk-app] #218 bit2bool #203
+[mk-app] #219 bit2bool #203
+[mk-app] #220 bit2bool #203
+[mk-app] #221 bit2bool #203
+[attach-enode] #213 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #213
+[assign] #213 axiom
+[end-of-instance]
+[mk-app] #222 select #47 #154
+[mk-app] #223 select #29 #154
+[mk-app] #212 = #222 #223
+[attach-enode] #222 0
+[mk-app] #224 bit2bool #222
+[mk-app] #225 bit2bool #222
+[mk-app] #226 bit2bool #222
+[mk-app] #227 bit2bool #222
+[mk-app] #228 bit2bool #222
+[mk-app] #229 bit2bool #222
+[mk-app] #230 bit2bool #222
+[mk-app] #231 bit2bool #222
+[attach-enode] #223 0
+[mk-app] #232 = #28 #223
+[attach-enode] #232 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #232
+[assign] #232 axiom
+[end-of-instance]
+[mk-app] #233 bit2bool #223
+[mk-app] #234 bit2bool #223
+[mk-app] #235 bit2bool #223
+[mk-app] #236 bit2bool #223
+[mk-app] #237 bit2bool #223
+[mk-app] #238 bit2bool #223
+[mk-app] #239 bit2bool #223
+[mk-app] #240 bit2bool #223
+[attach-enode] #212 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #212
+[assign] #212 axiom
+[end-of-instance]
+[mk-app] #241 bit2bool #201
+[mk-app] #242 bit2bool #201
+[mk-app] #243 bit2bool #201
+[mk-app] #244 bit2bool #201
+[mk-app] #245 bit2bool #201
+[mk-app] #246 bit2bool #201
+[mk-app] #247 bit2bool #201
+[mk-app] #248 bit2bool #201
+[mk-app] #249 = #200 #202
+[attach-enode] #202 0
+[mk-app] #250 bit2bool #202
+[mk-app] #251 bit2bool #202
+[mk-app] #252 bit2bool #202
+[mk-app] #253 bit2bool #202
+[mk-app] #254 bit2bool #202
+[mk-app] #255 bit2bool #202
+[mk-app] #256 bit2bool #202
+[mk-app] #257 bit2bool #202
+[attach-enode] #249 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #249
+[assign] #249 axiom
+[end-of-instance]
+[mk-app] #258 select #48 #198
+[mk-app] #259 select #47 #198
+[mk-app] #260 = #258 #259
+[attach-enode] #198 0
+[mk-app] #261 bit2bool #198
+[mk-app] #262 bit2bool #198
+[attach-enode] #258 0
+[mk-app] #263 bit2bool #258
+[mk-app] #264 bit2bool #258
+[mk-app] #265 bit2bool #258
+[mk-app] #266 bit2bool #258
+[mk-app] #267 bit2bool #258
+[mk-app] #268 bit2bool #258
+[mk-app] #269 bit2bool #258
+[mk-app] #270 bit2bool #258
+[attach-enode] #259 0
+[mk-app] #271 bit2bool #259
+[mk-app] #272 bit2bool #259
+[mk-app] #273 bit2bool #259
+[mk-app] #274 bit2bool #259
+[mk-app] #275 bit2bool #259
+[mk-app] #276 bit2bool #259
+[mk-app] #277 bit2bool #259
+[mk-app] #278 bit2bool #259
+[attach-enode] #260 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #260
+[assign] #260 axiom
+[end-of-instance]
+[mk-app] #279 bit2bool #197
+[mk-app] #280 bit2bool #197
+[mk-app] #281 bit2bool #197
+[mk-app] #282 bit2bool #197
+[mk-app] #283 bit2bool #197
+[mk-app] #284 bit2bool #197
+[mk-app] #285 bit2bool #197
+[mk-app] #286 bit2bool #197
+[mk-app] #287 = #197 #199
+[attach-enode] #199 0
+[mk-app] #288 bit2bool #199
+[mk-app] #289 bit2bool #199
+[mk-app] #290 bit2bool #199
+[mk-app] #291 bit2bool #199
+[mk-app] #292 bit2bool #199
+[mk-app] #293 bit2bool #199
+[mk-app] #294 bit2bool #199
+[mk-app] #295 bit2bool #199
+[attach-enode] #287 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #287
+[assign] #287 axiom
+[end-of-instance]
+[mk-app] #296 select #46 #198
+[mk-app] #297 select #43 #198
+[mk-app] #298 = #296 #297
+[attach-enode] #296 0
+[mk-app] #299 bit2bool #296
+[mk-app] #300 bit2bool #296
+[mk-app] #301 bit2bool #296
+[mk-app] #302 bit2bool #296
+[mk-app] #303 bit2bool #296
+[mk-app] #304 bit2bool #296
+[mk-app] #305 bit2bool #296
+[mk-app] #306 bit2bool #296
+[attach-enode] #297 0
+[mk-app] #307 bit2bool #297
+[mk-app] #308 bit2bool #297
+[mk-app] #309 bit2bool #297
+[mk-app] #310 bit2bool #297
+[mk-app] #311 bit2bool #297
+[mk-app] #312 bit2bool #297
+[mk-app] #313 bit2bool #297
+[mk-app] #314 bit2bool #297
+[attach-enode] #298 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #298
+[assign] #298 axiom
+[end-of-instance]
+[resolve-process] (not #32)
+[resolve-lit] 0 (not #188)
+[resolve-lit] 0 (not #156)
+[resolve-lit] 0 (not #298)
+[resolve-lit] 0 (not #260)
+[resolve-lit] 0 (not #212)
+[resolve-lit] 0 (not #232)
+[resolve-lit] 7 #74
+[resolve-lit] 8 #75
+[resolve-lit] 17 #84
+[resolve-lit] 18 #85
+[resolve-process] (not #298)
+[resolve-process] (not #260)
+[resolve-process] (not #212)
+[resolve-process] (not #232)
+[resolve-process] (not #156)
+[conflict] (not #188) #74 #75 #84 #85
+[pop] 7 35
+[attach-enode] #154 0
+[mk-app] #149 bit2bool #154
+[mk-app] #153 bit2bool #154
+[attach-enode] #177 0
+[attach-enode] #188 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #188
+[assign] #188 axiom
+[end-of-instance]
+[mk-app] #157 bit2bool #177
+[mk-app] #158 bit2bool #177
+[mk-app] #159 bit2bool #177
+[mk-app] #160 bit2bool #177
+[mk-app] #161 bit2bool #177
+[mk-app] #162 bit2bool #177
+[mk-app] #163 bit2bool #177
+[mk-app] #164 bit2bool #177
+[resolve-process] true
+[resolve-lit] 0 (not #188)
+[resolve-lit] 0 #74
+[resolve-lit] 1 #75
+[resolve-lit] 10 #84
+[resolve-lit] 11 #85
+[resolve-process] (not #188)
+[conflict] #74 #75 #84 #85
+[pop] 1 28
+[attach-enode] #154 0
+[mk-app] #149 bit2bool #154
+[mk-app] #153 bit2bool #154
+[attach-enode] #177 0
+[attach-enode] #188 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #188
+[assign] #188 axiom
+[end-of-instance]
+[mk-app] #157 bit2bool #177
+[mk-app] #158 bit2bool #177
+[mk-app] #159 bit2bool #177
+[mk-app] #160 bit2bool #177
+[mk-app] #161 bit2bool #177
+[mk-app] #162 bit2bool #177
+[mk-app] #163 bit2bool #177
+[mk-app] #164 bit2bool #177
+[assign] #74 clause 27 -103 28 37 38
+[push] 27
+[assign] (not #69) decision axiom
+[assign] (not #52) justification 8: -22 26
+[mk-app] #166 not #69
+[mk-app] #167 not #73
+[mk-app] #155 or #52 #166 #167
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #155
+[end-of-instance]
+[assign] (not #161) justification 8: -22 103 26
+[mk-app] #167 = #64 #177
+[assign] #167 justification -1: 103 26
+[attach-enode] #167 0
+[mk-app] #166 not #69
+[mk-app] #155 not #167
+[mk-app] #168 or #161 #166 #155
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] #108 clause 61 5 13
+[push] 28
+[assign] (not #55) decision axiom
+[assign] #111 clause 64 8 16
+[assign] (not #164) justification 8: -8 103
+[mk-app] #155 not #55
+[mk-app] #166 not #188
+[mk-app] #168 or #164 #155 #166
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] (not #72) justification 8: -8 26
+[mk-app] #166 not #55
+[mk-app] #155 not #73
+[mk-app] #168 or #72 #166 #155
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[push] 29
+[assign] (not #71) decision axiom
+[assign] (not #54) justification 8: -24 26
+[mk-app] #155 not #71
+[mk-app] #166 not #73
+[mk-app] #168 or #54 #155 #166
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] (not #163) justification 8: -24 103 26
+[mk-app] #166 not #71
+[mk-app] #155 not #167
+[mk-app] #168 or #163 #166 #155
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] #110 clause 63 7 15
+[push] 30
+[assign] (not #50) decision axiom
+[assign] #106 clause 59 3 11
+[assign] (not #159) justification 8: -3 103
+[mk-app] #155 not #50
+[mk-app] #166 not #188
+[mk-app] #168 or #159 #155 #166
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] (not #67) justification 8: -3 26
+[mk-app] #166 not #50
+[mk-app] #155 not #73
+[mk-app] #168 or #67 #166 #155
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[push] 31
+[assign] (not #65) decision axiom
+[assign] (not #45) justification 8: -18 26
+[mk-app] #155 not #65
+[mk-app] #166 not #73
+[mk-app] #168 or #45 #155 #166
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] (not #157) justification 8: -18 103 26
+[mk-app] #166 not #65
+[mk-app] #155 not #167
+[mk-app] #168 or #157 #166 #155
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] #105 clause 57 1 9
+[push] 32
+[assign] (not #51) decision axiom
+[assign] #107 clause 60 4 12
+[assign] (not #160) justification 8: -4 103
+[mk-app] #155 not #51
+[mk-app] #166 not #188
+[mk-app] #168 or #160 #155 #166
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] (not #68) justification 8: -4 26
+[mk-app] #166 not #51
+[mk-app] #155 not #73
+[mk-app] #168 or #68 #166 #155
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[push] 33
+[assign] (not #53) decision axiom
+[assign] #109 clause 62 6 14
+[assign] (not #104) clause -58 -62 -59 -57 -61 -60 -63 -64
+[assign] #44 clause 2 58 10
+[assign] (not #162) justification 8: -6 103
+[mk-app] #155 not #53
+[mk-app] #166 not #188
+[mk-app] #168 or #162 #155 #166
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] (not #70) justification 8: -6 26
+[mk-app] #166 not #53
+[mk-app] #155 not #73
+[mk-app] #168 or #70 #166 #155
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] #158 justification 8: 2 103
+[mk-app] #155 not #158
+[mk-app] #166 not #188
+[mk-app] #168 or #155 #44 #166
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[assign] #66 justification 8: 2 26
+[mk-app] #166 not #66
+[mk-app] #155 not #73
+[mk-app] #168 or #166 #44 #155
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #168
+[end-of-instance]
+[push] 34
+[assign] (not #149) decision axiom
+[push] 35
+[assign] (not #153) decision axiom
+[mk-app] #155 default #43
+[mk-app] #166 epsilon!2
+[mk-app] #168 diag!3 #34
+[mk-app] #169 select #43 #166
+[mk-app] #170 select #25 #166
+[attach-enode] #155 0
+[mk-app] #171 bit2bool #155
+[mk-app] #172 bit2bool #155
+[mk-app] #173 bit2bool #155
+[mk-app] #174 bit2bool #155
+[mk-app] #175 bit2bool #155
+[mk-app] #165 bit2bool #155
+[mk-app] #178 bit2bool #155
+[mk-app] #179 bit2bool #155
+[mk-app] #180 = #155 #169
+[attach-enode] #166 0
+[mk-app] #181 bit2bool #166
+[mk-app] #182 bit2bool #166
+[attach-enode] #169 0
+[mk-app] #183 bit2bool #169
+[mk-app] #184 bit2bool #169
+[mk-app] #185 bit2bool #169
+[mk-app] #186 bit2bool #169
+[mk-app] #187 bit2bool #169
+[mk-app] #189 bit2bool #169
+[mk-app] #190 bit2bool #169
+[mk-app] #191 bit2bool #169
+[attach-enode] #180 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #180
+[assign] #180 axiom
+[end-of-instance]
+[mk-app] #192 select #43 #168
+[mk-app] #193 select #25 #168
+[mk-app] #170 = #192 #193
+[attach-enode] #168 0
+[mk-app] #194 bit2bool #168
+[mk-app] #195 bit2bool #168
+[attach-enode] #192 0
+[mk-app] #196 bit2bool #192
+[mk-app] #156 bit2bool #192
+[mk-app] #197 bit2bool #192
+[mk-app] #200 bit2bool #192
+[mk-app] #204 bit2bool #192
+[mk-app] #205 bit2bool #192
+[mk-app] #206 bit2bool #192
+[mk-app] #207 bit2bool #192
+[attach-enode] #193 0
+[mk-app] #208 = #24 #193
+[attach-enode] #208 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #208
+[assign] #208 axiom
+[end-of-instance]
+[mk-app] #209 bit2bool #193
+[mk-app] #210 bit2bool #193
+[mk-app] #211 bit2bool #193
+[mk-app] #201 bit2bool #193
+[mk-app] #203 bit2bool #193
+[mk-app] #214 bit2bool #193
+[mk-app] #215 bit2bool #193
+[mk-app] #216 bit2bool #193
+[attach-enode] #170 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #170
+[assign] #170 axiom
+[end-of-instance]
+[mk-app] #217 default #46
+[mk-app] #218 diag!3 #37
+[mk-app] #219 select #46 #166
+[attach-enode] #217 0
+[mk-app] #220 default #48
+[mk-app] #221 default #47
+[mk-app] #213 select #48 #166
+[mk-app] #222 select #47 #166
+[attach-enode] #220 0
+[mk-app] #224 bit2bool #220
+[mk-app] #225 bit2bool #220
+[mk-app] #226 bit2bool #220
+[mk-app] #227 bit2bool #220
+[mk-app] #228 bit2bool #220
+[mk-app] #229 bit2bool #220
+[mk-app] #230 bit2bool #220
+[mk-app] #231 bit2bool #220
+[attach-enode] #221 0
+[mk-app] #223 select #29 #166
+[mk-app] #232 = #221 #222
+[attach-enode] #222 0
+[mk-app] #233 bit2bool #222
+[mk-app] #234 bit2bool #222
+[mk-app] #235 bit2bool #222
+[mk-app] #236 bit2bool #222
+[mk-app] #237 bit2bool #222
+[mk-app] #238 bit2bool #222
+[mk-app] #239 bit2bool #222
+[mk-app] #240 bit2bool #222
+[attach-enode] #232 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #232
+[assign] #232 axiom
+[end-of-instance]
+[mk-app] #212 select #47 #168
+[mk-app] #241 select #29 #168
+[mk-app] #223 = #212 #241
+[attach-enode] #212 0
+[mk-app] #242 bit2bool #212
+[mk-app] #243 bit2bool #212
+[mk-app] #244 bit2bool #212
+[mk-app] #245 bit2bool #212
+[mk-app] #246 bit2bool #212
+[mk-app] #247 bit2bool #212
+[mk-app] #248 bit2bool #212
+[mk-app] #202 bit2bool #212
+[attach-enode] #241 0
+[mk-app] #250 = #28 #241
+[attach-enode] #250 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #250
+[assign] #250 axiom
+[end-of-instance]
+[mk-app] #251 bit2bool #241
+[mk-app] #252 bit2bool #241
+[mk-app] #253 bit2bool #241
+[mk-app] #254 bit2bool #241
+[mk-app] #255 bit2bool #241
+[mk-app] #256 bit2bool #241
+[mk-app] #257 bit2bool #241
+[mk-app] #249 bit2bool #241
+[attach-enode] #223 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #223
+[assign] #223 axiom
+[end-of-instance]
+[mk-app] #261 bit2bool #221
+[mk-app] #262 bit2bool #221
+[mk-app] #258 bit2bool #221
+[mk-app] #263 bit2bool #221
+[mk-app] #264 bit2bool #221
+[mk-app] #265 bit2bool #221
+[mk-app] #266 bit2bool #221
+[mk-app] #267 bit2bool #221
+[mk-app] #268 = #213 #220
+[attach-enode] #213 0
+[mk-app] #269 bit2bool #213
+[mk-app] #270 bit2bool #213
+[mk-app] #259 bit2bool #213
+[mk-app] #271 bit2bool #213
+[mk-app] #272 bit2bool #213
+[mk-app] #273 bit2bool #213
+[mk-app] #274 bit2bool #213
+[mk-app] #275 bit2bool #213
+[attach-enode] #268 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #268
+[assign] #268 axiom
+[end-of-instance]
+[mk-app] #276 select #48 #218
+[mk-app] #277 select #47 #218
+[mk-app] #278 = #276 #277
+[attach-enode] #218 0
+[mk-app] #260 bit2bool #218
+[mk-app] #279 bit2bool #218
+[attach-enode] #276 0
+[mk-app] #280 bit2bool #276
+[mk-app] #281 bit2bool #276
+[mk-app] #282 bit2bool #276
+[mk-app] #283 bit2bool #276
+[mk-app] #284 bit2bool #276
+[mk-app] #285 bit2bool #276
+[mk-app] #286 bit2bool #276
+[mk-app] #199 bit2bool #276
+[attach-enode] #277 0
+[mk-app] #288 bit2bool #277
+[mk-app] #289 bit2bool #277
+[mk-app] #290 bit2bool #277
+[mk-app] #291 bit2bool #277
+[mk-app] #292 bit2bool #277
+[mk-app] #293 bit2bool #277
+[mk-app] #294 bit2bool #277
+[mk-app] #295 bit2bool #277
+[attach-enode] #278 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #278
+[assign] #278 axiom
+[end-of-instance]
+[mk-app] #287 bit2bool #217
+[mk-app] #296 bit2bool #217
+[mk-app] #299 bit2bool #217
+[mk-app] #300 bit2bool #217
+[mk-app] #301 bit2bool #217
+[mk-app] #302 bit2bool #217
+[mk-app] #303 bit2bool #217
+[mk-app] #304 bit2bool #217
+[mk-app] #305 = #217 #219
+[attach-enode] #219 0
+[mk-app] #306 bit2bool #219
+[mk-app] #307 bit2bool #219
+[mk-app] #308 bit2bool #219
+[mk-app] #309 bit2bool #219
+[mk-app] #310 bit2bool #219
+[mk-app] #311 bit2bool #219
+[mk-app] #312 bit2bool #219
+[mk-app] #313 bit2bool #219
+[attach-enode] #305 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #305
+[assign] #305 axiom
+[end-of-instance]
+[mk-app] #314 select #46 #218
+[mk-app] #298 select #43 #218
+[mk-app] #315 = #298 #314
+[attach-enode] #298 0
+[mk-app] #316 bit2bool #298
+[mk-app] #317 bit2bool #298
+[mk-app] #318 bit2bool #298
+[mk-app] #319 bit2bool #298
+[mk-app] #320 bit2bool #298
+[mk-app] #321 bit2bool #298
+[mk-app] #322 bit2bool #298
+[mk-app] #323 bit2bool #298
+[attach-enode] #314 0
+[mk-app] #324 bit2bool #314
+[mk-app] #325 bit2bool #314
+[mk-app] #326 bit2bool #314
+[mk-app] #327 bit2bool #314
+[mk-app] #328 bit2bool #314
+[mk-app] #329 bit2bool #314
+[mk-app] #330 bit2bool #314
+[mk-app] #331 bit2bool #314
+[attach-enode] #315 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #315
+[assign] #315 axiom
+[end-of-instance]
+[assign] (not #209) justification 8: -1 142
+[mk-app] #332 not #45
+[mk-app] #333 not #208
+[mk-app] #334 or #209 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] #210 justification 8: 2 142
+[mk-app] #333 not #210
+[mk-app] #332 not #208
+[mk-app] #334 or #333 #44 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #211) justification 8: -3 142
+[mk-app] #332 not #50
+[mk-app] #333 not #208
+[mk-app] #334 or #211 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #201) justification 8: -4 142
+[mk-app] #333 not #51
+[mk-app] #332 not #208
+[mk-app] #334 or #201 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #203) justification 8: -5 142
+[mk-app] #332 not #52
+[mk-app] #333 not #208
+[mk-app] #334 or #203 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #214) justification 8: -6 142
+[mk-app] #333 not #53
+[mk-app] #332 not #208
+[mk-app] #334 or #214 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #215) justification 8: -7 142
+[mk-app] #332 not #54
+[mk-app] #333 not #208
+[mk-app] #334 or #215 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #216) justification 8: -8 142
+[mk-app] #333 not #55
+[mk-app] #332 not #208
+[mk-app] #334 or #216 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #196) justification 8: -143 151
+[mk-app] #332 not #209
+[mk-app] #333 not #170
+[mk-app] #334 or #196 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] #156 justification 8: 144 151
+[mk-app] #333 not #156
+[mk-app] #332 not #170
+[mk-app] #334 or #333 #210 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #197) justification 8: -145 151
+[mk-app] #332 not #211
+[mk-app] #333 not #170
+[mk-app] #334 or #197 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #200) justification 8: -146 151
+[mk-app] #333 not #201
+[mk-app] #332 not #170
+[mk-app] #334 or #200 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #204) justification 8: -147 151
+[mk-app] #332 not #203
+[mk-app] #333 not #170
+[mk-app] #334 or #204 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #205) justification 8: -148 151
+[mk-app] #333 not #214
+[mk-app] #332 not #170
+[mk-app] #334 or #205 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #206) justification 8: -149 151
+[mk-app] #332 not #215
+[mk-app] #333 not #170
+[mk-app] #334 or #206 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #207) justification 8: -150 151
+[mk-app] #333 not #216
+[mk-app] #332 not #170
+[mk-app] #334 or #207 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #251) justification 8: -9 177
+[mk-app] #332 not #56
+[mk-app] #333 not #250
+[mk-app] #334 or #251 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #252) justification 8: -10 177
+[mk-app] #333 not #57
+[mk-app] #332 not #250
+[mk-app] #334 or #252 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #253) justification 8: -11 177
+[mk-app] #332 not #58
+[mk-app] #333 not #250
+[mk-app] #334 or #253 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #254) justification 8: -12 177
+[mk-app] #333 not #59
+[mk-app] #332 not #250
+[mk-app] #334 or #254 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #255) justification 8: -13 177
+[mk-app] #332 not #60
+[mk-app] #333 not #250
+[mk-app] #334 or #255 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #256) justification 8: -14 177
+[mk-app] #333 not #61
+[mk-app] #332 not #250
+[mk-app] #334 or #256 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #257) justification 8: -15 177
+[mk-app] #332 not #62
+[mk-app] #333 not #250
+[mk-app] #334 or #257 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #249) justification 8: -16 177
+[mk-app] #333 not #63
+[mk-app] #332 not #250
+[mk-app] #334 or #249 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #242) justification 8: -178 186
+[mk-app] #332 not #251
+[mk-app] #333 not #223
+[mk-app] #334 or #242 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #243) justification 8: -179 186
+[mk-app] #333 not #252
+[mk-app] #332 not #223
+[mk-app] #334 or #243 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #244) justification 8: -180 186
+[mk-app] #332 not #253
+[mk-app] #333 not #223
+[mk-app] #334 or #244 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #245) justification 8: -181 186
+[mk-app] #333 not #254
+[mk-app] #332 not #223
+[mk-app] #334 or #245 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #246) justification 8: -182 186
+[mk-app] #332 not #255
+[mk-app] #333 not #223
+[mk-app] #334 or #246 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #247) justification 8: -183 186
+[mk-app] #333 not #256
+[mk-app] #332 not #223
+[mk-app] #334 or #247 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #248) justification 8: -184 186
+[mk-app] #332 not #257
+[mk-app] #333 not #223
+[mk-app] #334 or #248 #332 #333
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[assign] (not #202) justification 8: -185 186
+[mk-app] #333 not #249
+[mk-app] #332 not #223
+[mk-app] #334 or #202 #333 #332
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #334
+[end-of-instance]
+[mk-app] #332 = #176 #177
+[attach-enode] #176 0
+[mk-app] #333 bit2bool #176
+[mk-app] #334 bit2bool #176
+[mk-app] #335 bit2bool #176
+[mk-app] #336 bit2bool #176
+[mk-app] #337 bit2bool #176
+[mk-app] #338 bit2bool #176
+[mk-app] #339 bit2bool #176
+[mk-app] #340 bit2bool #176
+[attach-enode] #332 0
+[mk-app] #341 = #34 #154
+[attach-enode] #341 0
+[mk-app] #342 or #341 #332
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #342
+[end-of-instance]
+[mk-app] #342 select #46 #34
+[mk-app] #343 = #119 #342
+[attach-enode] #342 0
+[mk-app] #344 bit2bool #342
+[mk-app] #345 bit2bool #342
+[mk-app] #346 bit2bool #342
+[mk-app] #347 bit2bool #342
+[mk-app] #348 bit2bool #342
+[mk-app] #349 bit2bool #342
+[mk-app] #350 bit2bool #342
+[mk-app] #351 bit2bool #342
+[attach-enode] #343 0
+[mk-app] #352 = #34 #37
+[attach-enode] #352 0
+[mk-app] #353 or #352 #343
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #353
+[end-of-instance]
+[mk-app] #353 select #48 #34
+[mk-app] #354 = #130 #353
+[attach-enode] #353 0
+[mk-app] #355 bit2bool #353
+[mk-app] #356 bit2bool #353
+[mk-app] #357 bit2bool #353
+[mk-app] #358 bit2bool #353
+[mk-app] #359 bit2bool #353
+[mk-app] #360 bit2bool #353
+[mk-app] #361 bit2bool #353
+[mk-app] #362 bit2bool #353
+[attach-enode] #354 0
+[mk-app] #363 or #352 #354
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #363
+[end-of-instance]
+[mk-app] #363 select #25 #166
+[mk-app] #364 = #169 #363
+[attach-enode] #363 0
+[mk-app] #365 = #24 #363
+[attach-enode] #365 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #365
+[assign] #365 axiom
+[end-of-instance]
+[mk-app] #366 bit2bool #363
+[mk-app] #367 bit2bool #363
+[mk-app] #368 bit2bool #363
+[mk-app] #369 bit2bool #363
+[mk-app] #370 bit2bool #363
+[mk-app] #371 bit2bool #363
+[mk-app] #372 bit2bool #363
+[mk-app] #373 bit2bool #363
+[attach-enode] #364 0
+[mk-app] #374 = #34 #166
+[attach-enode] #374 0
+[mk-app] #375 or #374 #364
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #375
+[end-of-instance]
+[mk-app] #375 = #34 #168
+[attach-enode] #375 0
+[mk-app] #376 or #375 #170
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #376
+[end-of-instance]
+[mk-app] #376 select #29 #166
+[mk-app] #377 = #222 #376
+[attach-enode] #376 0
+[mk-app] #378 = #28 #376
+[attach-enode] #378 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #378
+[assign] #378 axiom
+[end-of-instance]
+[mk-app] #379 bit2bool #376
+[mk-app] #380 bit2bool #376
+[mk-app] #381 bit2bool #376
+[mk-app] #382 bit2bool #376
+[mk-app] #383 bit2bool #376
+[mk-app] #384 bit2bool #376
+[mk-app] #385 bit2bool #376
+[mk-app] #386 bit2bool #376
+[attach-enode] #377 0
+[mk-app] #387 or #374 #377
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #387
+[end-of-instance]
+[mk-app] #387 or #375 #223
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #387
+[end-of-instance]
+[mk-app] #387 = #169 #219
+[attach-enode] #387 0
+[mk-app] #388 = #37 #166
+[attach-enode] #388 0
+[mk-app] #389 or #388 #387
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #389
+[end-of-instance]
+[mk-app] #389 = #213 #222
+[attach-enode] #389 0
+[mk-app] #390 or #388 #389
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #390
+[end-of-instance]
+[mk-app] #390 = #37 #218
+[attach-enode] #390 0
+[mk-app] #391 or #390 #315
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #391
+[end-of-instance]
+[mk-app] #391 or #390 #278
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #391
+[end-of-instance]
+[mk-app] #391 select #29 #218
+[mk-app] #392 = #277 #391
+[attach-enode] #391 0
+[mk-app] #393 = #28 #391
+[attach-enode] #393 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #393
+[assign] #393 axiom
+[end-of-instance]
+[mk-app] #394 bit2bool #391
+[mk-app] #395 bit2bool #391
+[mk-app] #396 bit2bool #391
+[mk-app] #397 bit2bool #391
+[mk-app] #398 bit2bool #391
+[mk-app] #399 bit2bool #391
+[mk-app] #400 bit2bool #391
+[mk-app] #401 bit2bool #391
+[attach-enode] #392 0
+[mk-app] #402 = #34 #218
+[attach-enode] #402 0
+[mk-app] #403 or #402 #392
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #403
+[end-of-instance]
+[mk-app] #403 select #25 #218
+[mk-app] #404 = #298 #403
+[attach-enode] #403 0
+[mk-app] #405 = #24 #403
+[attach-enode] #405 0
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #405
+[assign] #405 axiom
+[end-of-instance]
+[mk-app] #406 bit2bool #403
+[mk-app] #407 bit2bool #403
+[mk-app] #408 bit2bool #403
+[mk-app] #409 bit2bool #403
+[mk-app] #410 bit2bool #403
+[mk-app] #411 bit2bool #403
+[mk-app] #412 bit2bool #403
+[mk-app] #413 bit2bool #403
+[attach-enode] #404 0
+[mk-app] #414 or #402 #404
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #366) justification 8: -1 286
+[mk-app] #414 not #45
+[mk-app] #415 not #365
+[mk-app] #416 or #366 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] #367 justification 8: 2 286
+[mk-app] #415 not #367
+[mk-app] #414 not #365
+[mk-app] #416 or #415 #44 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #368) justification 8: -3 286
+[mk-app] #414 not #50
+[mk-app] #415 not #365
+[mk-app] #416 or #368 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #369) justification 8: -4 286
+[mk-app] #415 not #51
+[mk-app] #414 not #365
+[mk-app] #416 or #369 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #370) justification 8: -5 286
+[mk-app] #414 not #52
+[mk-app] #415 not #365
+[mk-app] #416 or #370 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #371) justification 8: -6 286
+[mk-app] #415 not #53
+[mk-app] #414 not #365
+[mk-app] #416 or #371 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #372) justification 8: -7 286
+[mk-app] #414 not #54
+[mk-app] #415 not #365
+[mk-app] #416 or #372 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #373) justification 8: -8 286
+[mk-app] #415 not #55
+[mk-app] #414 not #365
+[mk-app] #416 or #373 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #379) justification 8: -9 298
+[mk-app] #414 not #56
+[mk-app] #415 not #378
+[mk-app] #416 or #379 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #380) justification 8: -10 298
+[mk-app] #415 not #57
+[mk-app] #414 not #378
+[mk-app] #416 or #380 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #381) justification 8: -11 298
+[mk-app] #414 not #58
+[mk-app] #415 not #378
+[mk-app] #416 or #381 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #382) justification 8: -12 298
+[mk-app] #415 not #59
+[mk-app] #414 not #378
+[mk-app] #416 or #382 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #383) justification 8: -13 298
+[mk-app] #414 not #60
+[mk-app] #415 not #378
+[mk-app] #416 or #383 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #384) justification 8: -14 298
+[mk-app] #415 not #61
+[mk-app] #414 not #378
+[mk-app] #416 or #384 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #385) justification 8: -15 298
+[mk-app] #414 not #62
+[mk-app] #415 not #378
+[mk-app] #416 or #385 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #386) justification 8: -16 298
+[mk-app] #415 not #63
+[mk-app] #414 not #378
+[mk-app] #416 or #386 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #394) justification 8: -9 312
+[mk-app] #414 not #56
+[mk-app] #415 not #393
+[mk-app] #416 or #394 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #395) justification 8: -10 312
+[mk-app] #415 not #57
+[mk-app] #414 not #393
+[mk-app] #416 or #395 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #396) justification 8: -11 312
+[mk-app] #414 not #58
+[mk-app] #415 not #393
+[mk-app] #416 or #396 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #397) justification 8: -12 312
+[mk-app] #415 not #59
+[mk-app] #414 not #393
+[mk-app] #416 or #397 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #398) justification 8: -13 312
+[mk-app] #414 not #60
+[mk-app] #415 not #393
+[mk-app] #416 or #398 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #399) justification 8: -14 312
+[mk-app] #415 not #61
+[mk-app] #414 not #393
+[mk-app] #416 or #399 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #400) justification 8: -15 312
+[mk-app] #414 not #62
+[mk-app] #415 not #393
+[mk-app] #416 or #400 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #401) justification 8: -16 312
+[mk-app] #415 not #63
+[mk-app] #414 not #393
+[mk-app] #416 or #401 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #406) justification 8: -1 323
+[mk-app] #414 not #45
+[mk-app] #415 not #405
+[mk-app] #416 or #406 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] #407 justification 8: 2 323
+[mk-app] #415 not #407
+[mk-app] #414 not #405
+[mk-app] #416 or #415 #44 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #408) justification 8: -3 323
+[mk-app] #414 not #50
+[mk-app] #415 not #405
+[mk-app] #416 or #408 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #409) justification 8: -4 323
+[mk-app] #415 not #51
+[mk-app] #414 not #405
+[mk-app] #416 or #409 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #410) justification 8: -5 323
+[mk-app] #414 not #52
+[mk-app] #415 not #405
+[mk-app] #416 or #410 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #411) justification 8: -6 323
+[mk-app] #415 not #53
+[mk-app] #414 not #405
+[mk-app] #416 or #411 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #412) justification 8: -7 323
+[mk-app] #414 not #54
+[mk-app] #415 not #405
+[mk-app] #416 or #412 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #413) justification 8: -8 323
+[mk-app] #415 not #55
+[mk-app] #414 not #405
+[mk-app] #416 or #413 #415 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[push] 36
+[assign] (not #308) decision axiom
+[assign] (not #299) justification 8: -233 239
+[mk-app] #414 not #308
+[mk-app] #415 not #305
+[mk-app] #416 or #299 #414 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #416
+[end-of-instance]
+[assign] (not #226) justification 8: -233 239 56
+[mk-app] #415 = #219 #220
+[assign] #415 justification -1: 239 56
+[attach-enode] #415 0
+[mk-app] #414 not #308
+[mk-app] #416 not #415
+[mk-app] #417 or #226 #414 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #259) justification 8: -233 203 239 56
+[mk-app] #416 = #213 #219
+[assign] #416 justification -1: 203 239 56
+[attach-enode] #416 0
+[mk-app] #414 not #308
+[mk-app] #417 not #416
+[mk-app] #418 or #259 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[push] 37
+[assign] (not #224) decision axiom
+[assign] (not #269) justification 8: -152 203
+[mk-app] #417 not #224
+[mk-app] #414 not #268
+[mk-app] #418 or #269 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #306) justification 8: -152 239 56
+[mk-app] #414 not #224
+[mk-app] #417 not #415
+[mk-app] #418 or #306 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #287) justification 8: -152 56
+[mk-app] #417 = #217 #220
+[assign] #417 justification -1: 56
+[attach-enode] #417 0
+[mk-app] #414 not #224
+[mk-app] #418 not #417
+[mk-app] #419 or #287 #414 #418
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #419
+[end-of-instance]
+[push] 38
+[assign] (not #389) decision axiom
+[assign] #388 clause 309 310
+[assign] (not #377) justification -1: -310 298 55 309 56 -39 -40 -41 -42 -43 -44 -45 -46 -47 -48 -49 -50 -51 -52 -53 -54
+[assign] (not #181) justification 8: -37 309
+[mk-app] #418 not #84
+[mk-app] #414 not #388
+[mk-app] #419 or #181 #418 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #419
+[end-of-instance]
+[assign] (not #182) justification 8: -38 309
+[mk-app] #414 not #85
+[mk-app] #418 not #388
+[mk-app] #419 or #182 #414 #418
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #419
+[end-of-instance]
+[assign] (not #270) justification 8: -74 309 56
+[mk-app] #418 = #121 #213
+[assign] #418 justification -1: 309 56
+[attach-enode] #418 0
+[mk-app] #414 not #123
+[mk-app] #419 not #418
+[mk-app] #420 or #270 #414 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #271) justification 8: -76 309 56
+[mk-app] #419 not #125
+[mk-app] #414 not #418
+[mk-app] #420 or #271 #419 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #272) justification 8: -77 309 56
+[mk-app] #414 not #126
+[mk-app] #419 not #418
+[mk-app] #420 or #272 #414 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #273) justification 8: -78 309 56
+[mk-app] #419 not #127
+[mk-app] #414 not #418
+[mk-app] #420 or #273 #419 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #274) justification 8: -79 309 56
+[mk-app] #414 not #128
+[mk-app] #419 not #418
+[mk-app] #420 or #274 #414 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #275) justification 8: -80 309 56
+[mk-app] #419 not #129
+[mk-app] #414 not #418
+[mk-app] #420 or #275 #419 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #307) justification 8: -196 239 203 56
+[mk-app] #414 not #270
+[mk-app] #419 not #416
+[mk-app] #420 or #307 #414 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #296) justification 8: -196 203 56
+[mk-app] #419 = #213 #217
+[assign] #419 justification -1: 203 56
+[attach-enode] #419 0
+[mk-app] #414 not #270
+[mk-app] #420 not #419
+[mk-app] #421 or #296 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #225) justification 8: -196 203
+[mk-app] #420 not #270
+[mk-app] #414 not #268
+[mk-app] #421 or #225 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #309) justification 8: -198 239 203 56
+[mk-app] #414 not #271
+[mk-app] #420 not #416
+[mk-app] #421 or #309 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #300) justification 8: -198 203 56
+[mk-app] #420 not #271
+[mk-app] #414 not #419
+[mk-app] #421 or #300 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #227) justification 8: -198 203
+[mk-app] #414 not #271
+[mk-app] #420 not #268
+[mk-app] #421 or #227 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #310) justification 8: -199 239 203 56
+[mk-app] #420 not #272
+[mk-app] #414 not #416
+[mk-app] #421 or #310 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #301) justification 8: -199 203 56
+[mk-app] #414 not #272
+[mk-app] #420 not #419
+[mk-app] #421 or #301 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #228) justification 8: -199 203
+[mk-app] #420 not #272
+[mk-app] #414 not #268
+[mk-app] #421 or #228 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #311) justification 8: -200 239 203 56
+[mk-app] #414 not #273
+[mk-app] #420 not #416
+[mk-app] #421 or #311 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #302) justification 8: -200 203 56
+[mk-app] #420 not #273
+[mk-app] #414 not #419
+[mk-app] #421 or #302 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #229) justification 8: -200 203
+[mk-app] #414 not #273
+[mk-app] #420 not #268
+[mk-app] #421 or #229 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #312) justification 8: -201 239 203 56
+[mk-app] #420 not #274
+[mk-app] #414 not #416
+[mk-app] #421 or #312 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #303) justification 8: -201 203 56
+[mk-app] #414 not #274
+[mk-app] #420 not #419
+[mk-app] #421 or #303 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #230) justification 8: -201 203
+[mk-app] #420 not #274
+[mk-app] #414 not #268
+[mk-app] #421 or #230 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #313) justification 8: -202 239 203 56
+[mk-app] #414 not #275
+[mk-app] #420 not #416
+[mk-app] #421 or #313 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #304) justification 8: -202 203 56
+[mk-app] #420 not #275
+[mk-app] #414 not #419
+[mk-app] #421 or #304 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #231) justification 8: -202 203
+[mk-app] #414 not #275
+[mk-app] #420 not #268
+[mk-app] #421 or #231 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[mk-app] #420 not #233
+[mk-app] #414 = #233 #269
+[mk-app] #421 not #414
+[mk-app] #421 not #234
+[mk-app] #420 = #234 #270
+[mk-app] #422 not #420
+[mk-app] #422 not #235
+[mk-app] #421 = #235 #259
+[mk-app] #423 not #421
+[mk-app] #423 not #236
+[mk-app] #422 = #236 #271
+[mk-app] #424 not #422
+[mk-app] #424 not #237
+[mk-app] #423 = #237 #272
+[mk-app] #425 not #423
+[mk-app] #425 not #238
+[mk-app] #424 = #238 #273
+[mk-app] #426 not #424
+[mk-app] #426 not #239
+[mk-app] #425 = #239 #274
+[mk-app] #427 not #425
+[mk-app] #427 not #240
+[mk-app] #426 = #240 #275
+[mk-app] #428 not #426
+[mk-app] #428 not #414
+[mk-app] #427 not #420
+[mk-app] #429 not #421
+[mk-app] #430 not #422
+[mk-app] #431 not #423
+[mk-app] #432 not #424
+[mk-app] #433 not #425
+[mk-app] #434 not #426
+[mk-app] #435 or #389 #428 #427 #429 #430 #431 #432 #433 #434
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #435
+[end-of-instance]
+[assign] #374 clause 296 307
+[assign] #352 justification -1: 296 309 -101 -102 -37 -38
+[assign] #341 justification -1: 296 309 -101 -102 -37 -38
+[assign] #387 justification -1: 239 203 309 56 296 309 309 -29 -30 -31 -32 -33 -34 -35 -36 -47 -48 -49 -50 -51 -52 -53 -54 -39 -40 -41 -42 -43 -44 -45 -46 -47 -48 -49 -50 -51 -52 -53 -54 -101 -102 -37 -38
+[resolve-lit] 0 #377
+[resolve-process] (not #377)
+[resolve-lit] 3 (not #378)
+[resolve-lit] 0 (not #374)
+[resolve-lit] 13 #76
+[resolve-lit] 14 #77
+[resolve-lit] 15 #78
+[resolve-lit] 16 #79
+[resolve-lit] 17 #80
+[resolve-lit] 18 #81
+[resolve-lit] 19 #82
+[resolve-lit] 20 #83
+[resolve-lit] 31 #95
+[resolve-lit] 32 #96
+[resolve-lit] 33 #97
+[resolve-lit] 34 #98
+[resolve-lit] 35 #99
+[resolve-lit] 36 #100
+[resolve-lit] 37 #101
+[resolve-lit] 38 #102
+[resolve-process] (not #374)
+[conflict] #377 (not #378) #76 #77 #78 #79 #80 #81 #82 #83 #95 #96 #97 #98 #99 #100 #101 #102
+[pop] 3 39
+[assign] #377 clause 307 -298 29 30 31 32 33 34 35 36 47 48 49 50 51 52 53 54
+[assign] (not #233) justification 8: -299 307
+[mk-app] #415 not #379
+[mk-app] #416 not #377
+[mk-app] #417 or #233 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #234) justification 8: -300 307
+[mk-app] #416 not #380
+[mk-app] #415 not #377
+[mk-app] #417 or #234 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #235) justification 8: -301 307
+[mk-app] #415 not #381
+[mk-app] #416 not #377
+[mk-app] #417 or #235 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #236) justification 8: -302 307
+[mk-app] #416 not #382
+[mk-app] #415 not #377
+[mk-app] #417 or #236 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #237) justification 8: -303 307
+[mk-app] #415 not #383
+[mk-app] #416 not #377
+[mk-app] #417 or #237 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #238) justification 8: -304 307
+[mk-app] #416 not #384
+[mk-app] #415 not #377
+[mk-app] #417 or #238 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #239) justification 8: -305 307
+[mk-app] #415 not #385
+[mk-app] #416 not #377
+[mk-app] #417 or #239 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #240) justification 8: -306 307
+[mk-app] #416 not #386
+[mk-app] #415 not #377
+[mk-app] #417 or #240 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #261) justification 8: -160 168
+[mk-app] #415 not #233
+[mk-app] #416 not #232
+[mk-app] #417 or #261 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #262) justification 8: -161 168
+[mk-app] #416 not #234
+[mk-app] #415 not #232
+[mk-app] #417 or #262 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #258) justification 8: -162 168
+[mk-app] #415 not #235
+[mk-app] #416 not #232
+[mk-app] #417 or #258 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #263) justification 8: -163 168
+[mk-app] #416 not #236
+[mk-app] #415 not #232
+[mk-app] #417 or #263 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #264) justification 8: -164 168
+[mk-app] #415 not #237
+[mk-app] #416 not #232
+[mk-app] #417 or #264 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #265) justification 8: -165 168
+[mk-app] #416 not #238
+[mk-app] #415 not #232
+[mk-app] #417 or #265 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #266) justification 8: -166 168
+[mk-app] #415 not #239
+[mk-app] #416 not #232
+[mk-app] #417 or #266 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #267) justification 8: -167 168
+[mk-app] #416 not #240
+[mk-app] #415 not #232
+[mk-app] #417 or #267 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[push] 36
+[assign] (not #374) decision axiom
+[assign] #364 clause 295 296
+[assign] (not #183) justification 8: -287 295
+[mk-app] #415 not #366
+[mk-app] #416 not #364
+[mk-app] #417 or #183 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] #184 justification 8: 288 295
+[mk-app] #416 not #184
+[mk-app] #415 not #364
+[mk-app] #417 or #416 #367 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #185) justification 8: -289 295
+[mk-app] #415 not #368
+[mk-app] #416 not #364
+[mk-app] #417 or #185 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #186) justification 8: -290 295
+[mk-app] #416 not #369
+[mk-app] #415 not #364
+[mk-app] #417 or #186 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #187) justification 8: -291 295
+[mk-app] #415 not #370
+[mk-app] #416 not #364
+[mk-app] #417 or #187 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #189) justification 8: -292 295
+[mk-app] #416 not #371
+[mk-app] #415 not #364
+[mk-app] #417 or #189 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #190) justification 8: -293 295
+[mk-app] #415 not #372
+[mk-app] #416 not #364
+[mk-app] #417 or #190 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #191) justification 8: -294 295
+[mk-app] #416 not #373
+[mk-app] #415 not #364
+[mk-app] #417 or #191 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #171) justification 8: -123 131
+[mk-app] #415 not #183
+[mk-app] #416 not #180
+[mk-app] #417 or #171 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] #172 justification 8: 124 131
+[mk-app] #416 not #172
+[mk-app] #415 not #180
+[mk-app] #417 or #416 #184 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #173) justification 8: -125 131
+[mk-app] #415 not #185
+[mk-app] #416 not #180
+[mk-app] #417 or #173 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #174) justification 8: -126 131
+[mk-app] #416 not #186
+[mk-app] #415 not #180
+[mk-app] #417 or #174 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #175) justification 8: -127 131
+[mk-app] #415 not #187
+[mk-app] #416 not #180
+[mk-app] #417 or #175 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #165) justification 8: -128 131
+[mk-app] #416 not #189
+[mk-app] #415 not #180
+[mk-app] #417 or #165 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #178) justification 8: -129 131
+[mk-app] #415 not #190
+[mk-app] #416 not #180
+[mk-app] #417 or #178 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #179) justification 8: -130 131
+[mk-app] #416 not #191
+[mk-app] #415 not #180
+[mk-app] #417 or #179 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[mk-app] #415 not #74
+[mk-app] #416 = #74 #181
+[mk-app] #417 not #416
+[mk-app] #417 not #75
+[mk-app] #415 = #75 #182
+[mk-app] #418 not #415
+[mk-app] #418 not #416
+[mk-app] #417 not #415
+[mk-app] #419 or #374 #418 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #419
+[end-of-instance]
+[push] 37
+[assign] (not #308) decision axiom
+[assign] (not #299) justification 8: -233 239
+[mk-app] #417 not #308
+[mk-app] #418 not #305
+[mk-app] #419 or #299 #417 #418
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #419
+[end-of-instance]
+[assign] (not #226) justification 8: -233 239 56
+[mk-app] #418 = #219 #220
+[assign] #418 justification -1: 239 56
+[attach-enode] #418 0
+[mk-app] #417 not #308
+[mk-app] #419 not #418
+[mk-app] #414 or #226 #417 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #259) justification 8: -233 203 239 56
+[mk-app] #419 = #213 #219
+[assign] #419 justification -1: 203 239 56
+[attach-enode] #419 0
+[mk-app] #417 not #308
+[mk-app] #414 not #419
+[mk-app] #420 or #259 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[push] 38
+[assign] (not #224) decision axiom
+[assign] (not #269) justification 8: -152 203
+[mk-app] #414 not #224
+[mk-app] #417 not #268
+[mk-app] #420 or #269 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #306) justification 8: -152 239 56
+[mk-app] #417 not #224
+[mk-app] #414 not #418
+[mk-app] #420 or #306 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #287) justification 8: -152 56
+[mk-app] #414 = #217 #220
+[assign] #414 justification -1: 56
+[attach-enode] #414 0
+[mk-app] #417 not #224
+[mk-app] #420 not #414
+[mk-app] #421 or #287 #417 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[push] 39
+[assign] (not #389) decision axiom
+[assign] #388 clause 309 310
+[assign] #332 justification -1: 295 286 103 309 -101 -102 -37 -38
+[resolve-lit] 0 #389
+[resolve-process] (not #389)
+[resolve-lit] 4 (not #377)
+[resolve-lit] 4 (not #378)
+[resolve-lit] 0 (not #388)
+[resolve-lit] 24 #86
+[resolve-lit] 25 #87
+[resolve-lit] 26 #88
+[resolve-lit] 27 #89
+[resolve-lit] 28 #90
+[resolve-lit] 29 #91
+[resolve-lit] 30 #92
+[resolve-lit] 31 #93
+[resolve-lit] 32 #95
+[resolve-lit] 33 #96
+[resolve-lit] 34 #97
+[resolve-lit] 35 #98
+[resolve-lit] 36 #99
+[resolve-lit] 37 #100
+[resolve-lit] 38 #101
+[resolve-lit] 39 #102
+[resolve-process] (not #388)
+[conflict] #389 (not #377) (not #378) #86 #87 #88 #89 #90 #91 #92 #93 #95 #96 #97 #98 #99 #100 #101 #102
+[pop] 4 40
+[assign] #389 clause 310 -307 -298 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54
+[assign] (not #269) justification 8: -160 310
+[mk-app] #416 not #233
+[mk-app] #415 not #389
+[mk-app] #418 or #269 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #270) justification 8: -161 310
+[mk-app] #415 not #234
+[mk-app] #416 not #389
+[mk-app] #418 or #270 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #259) justification 8: -162 310
+[mk-app] #416 not #235
+[mk-app] #415 not #389
+[mk-app] #418 or #259 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #271) justification 8: -163 310
+[mk-app] #415 not #236
+[mk-app] #416 not #389
+[mk-app] #418 or #271 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #272) justification 8: -164 310
+[mk-app] #416 not #237
+[mk-app] #415 not #389
+[mk-app] #418 or #272 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #273) justification 8: -165 310
+[mk-app] #415 not #238
+[mk-app] #416 not #389
+[mk-app] #418 or #273 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #274) justification 8: -166 310
+[mk-app] #416 not #239
+[mk-app] #415 not #389
+[mk-app] #418 or #274 #416 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #275) justification 8: -167 310
+[mk-app] #415 not #240
+[mk-app] #416 not #389
+[mk-app] #418 or #275 #415 #416
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #418
+[end-of-instance]
+[assign] (not #306) justification 8: -195 239 203 56
+[mk-app] #416 = #213 #219
+[assign] #416 justification -1: 239 203 56
+[attach-enode] #416 0
+[mk-app] #415 not #269
+[mk-app] #418 not #416
+[mk-app] #419 or #306 #415 #418
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #419
+[end-of-instance]
+[assign] (not #287) justification 8: -195 203 56
+[mk-app] #418 = #213 #217
+[assign] #418 justification -1: 203 56
+[attach-enode] #418 0
+[mk-app] #415 not #269
+[mk-app] #419 not #418
+[mk-app] #414 or #287 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #224) justification 8: -195 203
+[mk-app] #419 not #269
+[mk-app] #415 not #268
+[mk-app] #414 or #224 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #307) justification 8: -196 239 203 56
+[mk-app] #415 not #270
+[mk-app] #419 not #416
+[mk-app] #414 or #307 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #296) justification 8: -196 203 56
+[mk-app] #419 not #270
+[mk-app] #415 not #418
+[mk-app] #414 or #296 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #225) justification 8: -196 203
+[mk-app] #415 not #270
+[mk-app] #419 not #268
+[mk-app] #414 or #225 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #308) justification 8: -197 239 203 56
+[mk-app] #419 not #259
+[mk-app] #415 not #416
+[mk-app] #414 or #308 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #299) justification 8: -197 203 56
+[mk-app] #415 not #259
+[mk-app] #419 not #418
+[mk-app] #414 or #299 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #226) justification 8: -197 203
+[mk-app] #419 not #259
+[mk-app] #415 not #268
+[mk-app] #414 or #226 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #309) justification 8: -198 239 203 56
+[mk-app] #415 not #271
+[mk-app] #419 not #416
+[mk-app] #414 or #309 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #300) justification 8: -198 203 56
+[mk-app] #419 not #271
+[mk-app] #415 not #418
+[mk-app] #414 or #300 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #227) justification 8: -198 203
+[mk-app] #415 not #271
+[mk-app] #419 not #268
+[mk-app] #414 or #227 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #310) justification 8: -199 239 203 56
+[mk-app] #419 not #272
+[mk-app] #415 not #416
+[mk-app] #414 or #310 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #301) justification 8: -199 203 56
+[mk-app] #415 not #272
+[mk-app] #419 not #418
+[mk-app] #414 or #301 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #228) justification 8: -199 203
+[mk-app] #419 not #272
+[mk-app] #415 not #268
+[mk-app] #414 or #228 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #311) justification 8: -200 239 203 56
+[mk-app] #415 not #273
+[mk-app] #419 not #416
+[mk-app] #414 or #311 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #302) justification 8: -200 203 56
+[mk-app] #419 not #273
+[mk-app] #415 not #418
+[mk-app] #414 or #302 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #229) justification 8: -200 203
+[mk-app] #415 not #273
+[mk-app] #419 not #268
+[mk-app] #414 or #229 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #312) justification 8: -201 239 203 56
+[mk-app] #419 not #274
+[mk-app] #415 not #416
+[mk-app] #414 or #312 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #303) justification 8: -201 203 56
+[mk-app] #415 not #274
+[mk-app] #419 not #418
+[mk-app] #414 or #303 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #230) justification 8: -201 203
+[mk-app] #419 not #274
+[mk-app] #415 not #268
+[mk-app] #414 or #230 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #313) justification 8: -202 239 203 56
+[mk-app] #415 not #275
+[mk-app] #419 not #416
+[mk-app] #414 or #313 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #304) justification 8: -202 203 56
+[mk-app] #419 not #275
+[mk-app] #415 not #418
+[mk-app] #414 or #304 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #231) justification 8: -202 203
+[mk-app] #415 not #275
+[mk-app] #419 not #268
+[mk-app] #414 or #231 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[push] 36
+[assign] (not #374) decision axiom
+[assign] #364 clause 295 296
+[assign] (not #387) justification -1: -17 239 203 310 307 298 56 295 286
+[assign] (not #183) justification 8: -287 295
+[mk-app] #419 not #366
+[mk-app] #415 not #364
+[mk-app] #414 or #183 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] #184 justification 8: 288 295
+[mk-app] #415 not #184
+[mk-app] #419 not #364
+[mk-app] #414 or #415 #367 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #185) justification 8: -289 295
+[mk-app] #419 not #368
+[mk-app] #415 not #364
+[mk-app] #414 or #185 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #186) justification 8: -290 295
+[mk-app] #415 not #369
+[mk-app] #419 not #364
+[mk-app] #414 or #186 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #187) justification 8: -291 295
+[mk-app] #419 not #370
+[mk-app] #415 not #364
+[mk-app] #414 or #187 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #189) justification 8: -292 295
+[mk-app] #415 not #371
+[mk-app] #419 not #364
+[mk-app] #414 or #189 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #190) justification 8: -293 295
+[mk-app] #419 not #372
+[mk-app] #415 not #364
+[mk-app] #414 or #190 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #191) justification 8: -294 295
+[mk-app] #415 not #373
+[mk-app] #419 not #364
+[mk-app] #414 or #191 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #171) justification 8: -123 131
+[mk-app] #419 not #183
+[mk-app] #415 not #180
+[mk-app] #414 or #171 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] #172 justification 8: 124 131
+[mk-app] #415 not #172
+[mk-app] #419 not #180
+[mk-app] #414 or #415 #184 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #173) justification 8: -125 131
+[mk-app] #419 not #185
+[mk-app] #415 not #180
+[mk-app] #414 or #173 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #174) justification 8: -126 131
+[mk-app] #415 not #186
+[mk-app] #419 not #180
+[mk-app] #414 or #174 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #175) justification 8: -127 131
+[mk-app] #419 not #187
+[mk-app] #415 not #180
+[mk-app] #414 or #175 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #165) justification 8: -128 131
+[mk-app] #415 not #189
+[mk-app] #419 not #180
+[mk-app] #414 or #165 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #178) justification 8: -129 131
+[mk-app] #419 not #190
+[mk-app] #415 not #180
+[mk-app] #414 or #178 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #179) justification 8: -130 131
+[mk-app] #415 not #191
+[mk-app] #419 not #180
+[mk-app] #414 or #179 #415 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[mk-app] #419 not #74
+[mk-app] #415 = #74 #181
+[mk-app] #414 not #415
+[mk-app] #414 not #75
+[mk-app] #419 = #75 #182
+[mk-app] #420 not #419
+[mk-app] #420 not #415
+[mk-app] #414 not #419
+[mk-app] #417 or #374 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] #388 clause 309 308
+[assign] #332 justification -1: 295 286 103 309 -101 -102 -37 -38
+[assign] (not #341) justification -1: -296 309 -101 -102 -37 -38
+[assign] (not #352) justification -1: -296 309 -101 -102 -37 -38
+[assign] (not #181) justification 8: -37 309
+[mk-app] #414 not #84
+[mk-app] #420 not #388
+[mk-app] #417 or #181 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #182) justification 8: -38 309
+[mk-app] #420 not #85
+[mk-app] #414 not #388
+[mk-app] #417 or #182 #420 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #333) justification 8: -123 309 -101 -102 -37 -38
+[mk-app] #414 = #169 #176
+[assign] #414 justification -1: 309 -101 -102 -37 -38
+[attach-enode] #414 0
+[mk-app] #420 not #183
+[mk-app] #417 not #414
+[mk-app] #421 or #333 #420 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] #334 justification 8: 124 309 -101 -102 -37 -38
+[mk-app] #417 not #334
+[mk-app] #420 not #414
+[mk-app] #421 or #417 #184 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #335) justification 8: -125 309 -101 -102 -37 -38
+[mk-app] #420 not #185
+[mk-app] #417 not #414
+[mk-app] #421 or #335 #420 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #336) justification 8: -126 309 -101 -102 -37 -38
+[mk-app] #417 not #186
+[mk-app] #420 not #414
+[mk-app] #421 or #336 #417 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #337) justification 8: -127 309 -101 -102 -37 -38
+[mk-app] #420 not #187
+[mk-app] #417 not #414
+[mk-app] #421 or #337 #420 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #338) justification 8: -128 309 -101 -102 -37 -38
+[mk-app] #417 not #189
+[mk-app] #420 not #414
+[mk-app] #421 or #338 #417 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #339) justification 8: -129 309 -101 -102 -37 -38
+[mk-app] #420 not #190
+[mk-app] #417 not #414
+[mk-app] #421 or #339 #420 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #340) justification 8: -130 309 -101 -102 -37 -38
+[mk-app] #417 not #191
+[mk-app] #420 not #414
+[mk-app] #421 or #340 #417 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] #343 clause 275 276
+[assign] #354 clause 285 276
+[assign] (not #415) clause -335 121
+[assign] #419 clause 336 122
+[assign] (not #344) justification 8: -65 275
+[mk-app] #420 not #118
+[mk-app] #417 not #343
+[mk-app] #421 or #344 #420 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #345) justification 8: -66 275
+[mk-app] #417 not #117
+[mk-app] #420 not #343
+[mk-app] #421 or #345 #417 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #346) justification 8: -67 275
+[mk-app] #420 not #116
+[mk-app] #417 not #343
+[mk-app] #421 or #346 #420 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #347) justification 8: -68 275
+[mk-app] #417 not #115
+[mk-app] #420 not #343
+[mk-app] #421 or #347 #417 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #348) justification 8: -69 275
+[mk-app] #420 not #114
+[mk-app] #417 not #343
+[mk-app] #421 or #348 #420 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #349) justification 8: -70 275
+[mk-app] #417 not #112
+[mk-app] #420 not #343
+[mk-app] #421 or #349 #417 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #350) justification 8: -71 275
+[mk-app] #420 not #113
+[mk-app] #417 not #343
+[mk-app] #421 or #350 #420 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #351) justification 8: -72 275
+[mk-app] #417 not #120
+[mk-app] #420 not #343
+[mk-app] #421 or #351 #417 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #355) justification 8: -267 56
+[mk-app] #420 = #342 #353
+[assign] #420 justification -1: 56
+[attach-enode] #420 0
+[mk-app] #417 not #344
+[mk-app] #421 not #420
+[mk-app] #422 or #355 #417 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #356) justification 8: -268 56
+[mk-app] #421 not #345
+[mk-app] #417 not #420
+[mk-app] #422 or #356 #421 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #357) justification 8: -269 56
+[mk-app] #417 not #346
+[mk-app] #421 not #420
+[mk-app] #422 or #357 #417 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #358) justification 8: -270 56
+[mk-app] #421 not #347
+[mk-app] #417 not #420
+[mk-app] #422 or #358 #421 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #359) justification 8: -271 56
+[mk-app] #417 not #348
+[mk-app] #421 not #420
+[mk-app] #422 or #359 #417 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #360) justification 8: -272 56
+[mk-app] #421 not #349
+[mk-app] #417 not #420
+[mk-app] #422 or #360 #421 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #361) justification 8: -273 56
+[mk-app] #417 not #350
+[mk-app] #421 not #420
+[mk-app] #422 or #361 #417 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #362) justification 8: -274 56
+[mk-app] #421 not #351
+[mk-app] #417 not #420
+[mk-app] #422 or #362 #421 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[push] 37
+[assign] (not #279) decision axiom
+[push] 38
+[assign] (not #402) decision axiom
+[assign] #392 clause 321 322
+[assign] #404 clause 332 322
+[resolve-process] (not #32)
+[resolve-lit] 3 (not #405)
+[resolve-lit] 0 (not #404)
+[resolve-lit] 3 (not #315)
+[resolve-lit] 3 (not #278)
+[resolve-lit] 0 (not #392)
+[resolve-lit] 3 (not #393)
+[resolve-process] (not #404)
+[resolve-lit] 0 #402
+[resolve-process] (not #392)
+[conflict] #402 (not #405) (not #315) (not #278) (not #393)
+[pop] 3 39
+[assign] #402 clause 322 -323 -256 -222 -312
+[assign] #392 justification -1: 222 256 312 55 322 56 -29 -30 -31 -32 -33 -34 -35 -36 -47 -48 -49 -50 -51 -52 -53 -54
+[assign] #343 justification -1: 256 322 56
+[assign] (not #404) justification -1: -17 323 55 322 -29 -30 -31 -32 -33 -34 -35 -36 -47 -48 -49 -50 -51 -52 -53 -54
+[assign] #260 justification 8: 27 322
+[mk-app] #415 not #260
+[mk-app] #419 not #402
+[mk-app] #414 or #415 #74 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #279) justification 8: -28 322
+[mk-app] #419 not #75
+[mk-app] #415 not #402
+[mk-app] #414 or #279 #419 #415
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #414
+[end-of-instance]
+[assign] (not #316) justification 8: -65 322
+[mk-app] #415 = #119 #298
+[assign] #415 justification -1: 322
+[attach-enode] #415 0
+[mk-app] #419 not #118
+[mk-app] #414 not #415
+[mk-app] #420 or #316 #419 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #317) justification 8: -66 322
+[mk-app] #414 not #117
+[mk-app] #419 not #415
+[mk-app] #420 or #317 #414 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #318) justification 8: -67 322
+[mk-app] #419 not #116
+[mk-app] #414 not #415
+[mk-app] #420 or #318 #419 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #319) justification 8: -68 322
+[mk-app] #414 not #115
+[mk-app] #419 not #415
+[mk-app] #420 or #319 #414 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #320) justification 8: -69 322
+[mk-app] #419 not #114
+[mk-app] #414 not #415
+[mk-app] #420 or #320 #419 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #321) justification 8: -70 322
+[mk-app] #414 not #112
+[mk-app] #419 not #415
+[mk-app] #420 or #321 #414 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #322) justification 8: -71 322
+[mk-app] #419 not #113
+[mk-app] #414 not #415
+[mk-app] #420 or #322 #419 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #323) justification 8: -72 322
+[mk-app] #414 not #120
+[mk-app] #419 not #415
+[mk-app] #420 or #323 #414 #419
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #420
+[end-of-instance]
+[assign] (not #288) justification 8: -240 222 256 56
+[mk-app] #419 = #277 #298
+[assign] #419 justification -1: 222 256 56
+[attach-enode] #419 0
+[mk-app] #414 not #316
+[mk-app] #420 not #419
+[mk-app] #417 or #288 #414 #420
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #417
+[end-of-instance]
+[assign] (not #280) justification 8: -240 256 56
+[mk-app] #420 = #276 #298
+[assign] #420 justification -1: 256 56
+[attach-enode] #420 0
+[mk-app] #414 not #316
+[mk-app] #417 not #420
+[mk-app] #421 or #280 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #324) justification 8: -240 256
+[mk-app] #417 not #316
+[mk-app] #414 not #315
+[mk-app] #421 or #324 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #289) justification 8: -241 222 256 56
+[mk-app] #414 not #317
+[mk-app] #417 not #419
+[mk-app] #421 or #289 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #281) justification 8: -241 256 56
+[mk-app] #417 not #317
+[mk-app] #414 not #420
+[mk-app] #421 or #281 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #325) justification 8: -241 256
+[mk-app] #414 not #317
+[mk-app] #417 not #315
+[mk-app] #421 or #325 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #290) justification 8: -242 222 256 56
+[mk-app] #417 not #318
+[mk-app] #414 not #419
+[mk-app] #421 or #290 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #282) justification 8: -242 256 56
+[mk-app] #414 not #318
+[mk-app] #417 not #420
+[mk-app] #421 or #282 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #326) justification 8: -242 256
+[mk-app] #417 not #318
+[mk-app] #414 not #315
+[mk-app] #421 or #326 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #291) justification 8: -243 222 256 56
+[mk-app] #414 not #319
+[mk-app] #417 not #419
+[mk-app] #421 or #291 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #283) justification 8: -243 256 56
+[mk-app] #417 not #319
+[mk-app] #414 not #420
+[mk-app] #421 or #283 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #327) justification 8: -243 256
+[mk-app] #414 not #319
+[mk-app] #417 not #315
+[mk-app] #421 or #327 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #292) justification 8: -244 222 256 56
+[mk-app] #417 not #320
+[mk-app] #414 not #419
+[mk-app] #421 or #292 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #284) justification 8: -244 256 56
+[mk-app] #414 not #320
+[mk-app] #417 not #420
+[mk-app] #421 or #284 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #328) justification 8: -244 256
+[mk-app] #417 not #320
+[mk-app] #414 not #315
+[mk-app] #421 or #328 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #293) justification 8: -245 222 256 56
+[mk-app] #414 not #321
+[mk-app] #417 not #419
+[mk-app] #421 or #293 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #285) justification 8: -245 256 56
+[mk-app] #417 not #321
+[mk-app] #414 not #420
+[mk-app] #421 or #285 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #329) justification 8: -245 256
+[mk-app] #414 not #321
+[mk-app] #417 not #315
+[mk-app] #421 or #329 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #294) justification 8: -246 222 256 56
+[mk-app] #417 not #322
+[mk-app] #414 not #419
+[mk-app] #421 or #294 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #286) justification 8: -246 256 56
+[mk-app] #414 not #322
+[mk-app] #417 not #420
+[mk-app] #421 or #286 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #330) justification 8: -246 256
+[mk-app] #417 not #322
+[mk-app] #414 not #315
+[mk-app] #421 or #330 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #295) justification 8: -247 222 256 56
+[mk-app] #414 not #323
+[mk-app] #417 not #419
+[mk-app] #421 or #295 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #199) justification 8: -247 256 56
+[mk-app] #417 not #323
+[mk-app] #414 not #420
+[mk-app] #421 or #199 #417 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #331) justification 8: -247 256
+[mk-app] #414 not #323
+[mk-app] #417 not #315
+[mk-app] #421 or #331 #414 #417
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #421
+[end-of-instance]
+[assign] (not #344) justification 8: -206 322 56
+[mk-app] #417 = #276 #342
+[assign] #417 justification -1: 322 56
+[attach-enode] #417 0
+[mk-app] #414 not #280
+[mk-app] #421 not #417
+[mk-app] #422 or #344 #414 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #345) justification 8: -207 322 56
+[mk-app] #421 not #281
+[mk-app] #414 not #417
+[mk-app] #422 or #345 #421 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #346) justification 8: -208 322 56
+[mk-app] #414 not #282
+[mk-app] #421 not #417
+[mk-app] #422 or #346 #414 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #347) justification 8: -209 322 56
+[mk-app] #421 not #283
+[mk-app] #414 not #417
+[mk-app] #422 or #347 #421 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #348) justification 8: -210 322 56
+[mk-app] #414 not #284
+[mk-app] #421 not #417
+[mk-app] #422 or #348 #414 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #349) justification 8: -211 322 56
+[mk-app] #421 not #285
+[mk-app] #414 not #417
+[mk-app] #422 or #349 #421 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #350) justification 8: -212 322 56
+[mk-app] #414 not #286
+[mk-app] #421 not #417
+[mk-app] #422 or #350 #414 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #351) justification 8: -213 322 56
+[mk-app] #421 not #199
+[mk-app] #414 not #417
+[mk-app] #422 or #351 #421 #414
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #422
+[end-of-instance]
+[assign] (not #355) justification 8: -267 56
+[mk-app] #414 = #342 #353
+[assign] #414 justification -1: 56
+[attach-enode] #414 0
+[mk-app] #421 not #344
+[mk-app] #422 not #414
+[mk-app] #423 or #355 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #356) justification 8: -268 56
+[mk-app] #422 not #345
+[mk-app] #421 not #414
+[mk-app] #423 or #356 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #357) justification 8: -269 56
+[mk-app] #421 not #346
+[mk-app] #422 not #414
+[mk-app] #423 or #357 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #358) justification 8: -270 56
+[mk-app] #422 not #347
+[mk-app] #421 not #414
+[mk-app] #423 or #358 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #359) justification 8: -271 56
+[mk-app] #421 not #348
+[mk-app] #422 not #414
+[mk-app] #423 or #359 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #360) justification 8: -272 56
+[mk-app] #422 not #349
+[mk-app] #421 not #414
+[mk-app] #423 or #360 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #361) justification 8: -273 56
+[mk-app] #421 not #350
+[mk-app] #422 not #414
+[mk-app] #423 or #361 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #362) justification 8: -274 56
+[mk-app] #422 not #351
+[mk-app] #421 not #414
+[mk-app] #423 or #362 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] #354 justification -1: 275 56
+[push] 36
+[assign] (not #374) decision axiom
+[assign] #364 clause 295 296
+[assign] (not #387) justification -1: -17 239 203 310 307 298 56 295 286
+[assign] (not #183) justification 8: -287 295
+[mk-app] #421 not #366
+[mk-app] #422 not #364
+[mk-app] #423 or #183 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] #184 justification 8: 288 295
+[mk-app] #422 not #184
+[mk-app] #421 not #364
+[mk-app] #423 or #422 #367 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #185) justification 8: -289 295
+[mk-app] #421 not #368
+[mk-app] #422 not #364
+[mk-app] #423 or #185 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #186) justification 8: -290 295
+[mk-app] #422 not #369
+[mk-app] #421 not #364
+[mk-app] #423 or #186 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #187) justification 8: -291 295
+[mk-app] #421 not #370
+[mk-app] #422 not #364
+[mk-app] #423 or #187 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #189) justification 8: -292 295
+[mk-app] #422 not #371
+[mk-app] #421 not #364
+[mk-app] #423 or #189 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #190) justification 8: -293 295
+[mk-app] #421 not #372
+[mk-app] #422 not #364
+[mk-app] #423 or #190 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #191) justification 8: -294 295
+[mk-app] #422 not #373
+[mk-app] #421 not #364
+[mk-app] #423 or #191 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #171) justification 8: -123 131
+[mk-app] #421 not #183
+[mk-app] #422 not #180
+[mk-app] #423 or #171 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] #172 justification 8: 124 131
+[mk-app] #422 not #172
+[mk-app] #421 not #180
+[mk-app] #423 or #422 #184 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #173) justification 8: -125 131
+[mk-app] #421 not #185
+[mk-app] #422 not #180
+[mk-app] #423 or #173 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #174) justification 8: -126 131
+[mk-app] #422 not #186
+[mk-app] #421 not #180
+[mk-app] #423 or #174 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #175) justification 8: -127 131
+[mk-app] #421 not #187
+[mk-app] #422 not #180
+[mk-app] #423 or #175 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #165) justification 8: -128 131
+[mk-app] #422 not #189
+[mk-app] #421 not #180
+[mk-app] #423 or #165 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #178) justification 8: -129 131
+[mk-app] #421 not #190
+[mk-app] #422 not #180
+[mk-app] #423 or #178 #421 #422
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[assign] (not #179) justification 8: -130 131
+[mk-app] #422 not #191
+[mk-app] #421 not #180
+[mk-app] #423 or #179 #422 #421
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #423
+[end-of-instance]
+[mk-app] #421 not #74
+[mk-app] #422 = #74 #181
+[mk-app] #423 not #422
+[mk-app] #423 not #75
+[mk-app] #421 = #75 #182
+[mk-app] #424 not #421
+[mk-app] #424 not #422
+[mk-app] #423 not #421
+[mk-app] #425 or #374 #424 #423
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #425
+[end-of-instance]
+[assign] #388 clause 309 308
+[assign] #332 justification -1: 295 286 103 309 -101 -102 -37 -38
+[assign] (not #390) justification -1: -296 309 322
+[assign] (not #352) justification -1: -296 309 322 -101 -102 -37 -38
+[assign] (not #341) justification -1: -296 309 322 -101 -102 -37 -38
+[assign] (not #181) justification 8: -37 309
+[mk-app] #423 not #84
+[mk-app] #424 not #388
+[mk-app] #425 or #181 #423 #424
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #425
+[end-of-instance]
+[assign] (not #182) justification 8: -38 309
+[mk-app] #424 not #85
+[mk-app] #423 not #388
+[mk-app] #425 or #182 #424 #423
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #425
+[end-of-instance]
+[assign] (not #333) justification 8: -123 309 -101 -102 -37 -38
+[mk-app] #423 = #169 #176
+[assign] #423 justification -1: 309 -101 -102 -37 -38
+[attach-enode] #423 0
+[mk-app] #424 not #183
+[mk-app] #425 not #423
+[mk-app] #426 or #333 #424 #425
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #426
+[end-of-instance]
+[assign] #334 justification 8: 124 309 -101 -102 -37 -38
+[mk-app] #425 not #334
+[mk-app] #424 not #423
+[mk-app] #426 or #425 #184 #424
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #426
+[end-of-instance]
+[assign] (not #335) justification 8: -125 309 -101 -102 -37 -38
+[mk-app] #424 not #185
+[mk-app] #425 not #423
+[mk-app] #426 or #335 #424 #425
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #426
+[end-of-instance]
+[assign] (not #336) justification 8: -126 309 -101 -102 -37 -38
+[mk-app] #425 not #186
+[mk-app] #424 not #423
+[mk-app] #426 or #336 #425 #424
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #426
+[end-of-instance]
+[assign] (not #337) justification 8: -127 309 -101 -102 -37 -38
+[mk-app] #424 not #187
+[mk-app] #425 not #423
+[mk-app] #426 or #337 #424 #425
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #426
+[end-of-instance]
+[assign] (not #338) justification 8: -128 309 -101 -102 -37 -38
+[mk-app] #425 not #189
+[mk-app] #424 not #423
+[mk-app] #426 or #338 #425 #424
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #426
+[end-of-instance]
+[assign] (not #339) justification 8: -129 309 -101 -102 -37 -38
+[mk-app] #424 not #190
+[mk-app] #425 not #423
+[mk-app] #426 or #339 #424 #425
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #426
+[end-of-instance]
+[assign] (not #340) justification 8: -130 309 -101 -102 -37 -38
+[mk-app] #425 not #191
+[mk-app] #424 not #423
+[mk-app] #426 or #340 #425 #424
+[inst-discovered] theory-solving 0x0 bv#
+[instance] 0 #426
+[end-of-instance]
+[assign] (not #422) clause -340 121
+[assign] #421 clause 341 122
+[push] 37
+[assign] (not #195) decision axiom
+[push] 38
+[assign] (not #194) decision axiom
+[assign] (not #375) justification -1: -311 322 -132 -133 -37 -38
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #180
+[end-of-instance]
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #170
+[end-of-instance]
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #232
+[end-of-instance]
+[inst-discovered] theory-solving 0x0 array#
+[instance] 0 #223
+[end-of-instance]
+[mk-app] #424 bv
+[attach-meaning] #424 bv #x02
+[mk-app] #425 bv
+[attach-meaning] #425 bv #b00
+[mk-app] #426 bv
+[attach-meaning] #426 bv #x00
+[mk-app] #434 bv
+[attach-meaning] #434 bv #b01
+[mk-app] #433 as-array
+[mk-app] #432 as-array
+[mk-app] #431 as-array
+[mk-app] #430 as-array
+[mk-app] #429 as-array
+[mk-app] #166 const #426
+[mk-app] #213 const #424
+[eof]
