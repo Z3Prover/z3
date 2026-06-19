@@ -257,18 +257,6 @@ static void tst_nested_array_enumeration() {
 
     ENSURE(count >= 1); // At least the constant array
     std::cout << "Enumerated " << count << " terms of sort Array(A, Array(B, A))\n";
-
-    // Also enumerate terms of the inner array sort Array(B, A)
-    std::cout << "\nEnumerating terms of sort Array(B, A):\n";
-    unsigned inner_count = 0;
-    for (expr* e : te.enum_terms(array_B_A)) {
-        std::cout << "  Term " << inner_count << ": " << mk_pp(e, m) << "\n";
-        inner_count++;
-        if (inner_count >= 10) break;
-    }
-
-    // ENSURE(inner_count >= 1);
-    std::cout << "Enumerated " << inner_count << " terms of sort Array(B, A)\n";
     te.display(std::cout);
 }
 

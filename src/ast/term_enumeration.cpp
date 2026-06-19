@@ -6,29 +6,20 @@
  *
  * Key ideas:
  *   - Terms are enumerated bottom-up by "cost" (calculated by tree size).
- *   - Observational equivalence (OE): two terms that produce the same outputs
- *     on all sample inputs are considered equivalent; only one representative
- *     per equivalence class is kept.
  *   - A grammar describes which function symbols (operators) and leaves
  *     (constants, variables) are available for enumeration.
  */
 
 #include <sstream>
-#include <unordered_set>
 #include <functional>
 #include <string>
 #include "util/vector.h"
-#include "util/ref.h"
 #include "util/obj_hashtable.h"
 #include "ast/ast.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
-#include "ast/arith_decl_plugin.h"
-#include "ast/bv_decl_plugin.h"
-#include "ast/seq_decl_plugin.h"
 #include "ast/term_enumeration.h"
-#include "model/model.h"
-#include "model/model_evaluator.h"
+
 
 
 namespace term_enum {
@@ -518,8 +509,6 @@ struct term_enumeration::iterator::iter_imp {
                 m_names.back().push_back(symbol());
             }
 
-            #if 0
-            // TODO: don't enable this until we ensure only generating whnf (beta-redex free) expressions.
             expr_ref_vector args(m);
             args.push_back(m.mk_const("a", range));
             for (unsigned i = 0; i < m_decls.back().size(); ++i) {
@@ -527,7 +516,6 @@ struct term_enumeration::iterator::iter_imp {
             }
             app_ref sel(autil.mk_select(args), m);
             m_imp.m_grammar.add_func_decl(sel->get_decl());
-            #endif
             
             range = get_array_range(range);
         }
