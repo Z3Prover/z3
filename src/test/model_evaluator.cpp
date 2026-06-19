@@ -1,5 +1,6 @@
 #include "model/model.h"
 #include "model/model_evaluator.h"
+#include "model/func_interp.h"
 #include "model/model_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
@@ -64,6 +65,30 @@ void tst_model_evaluator() {
         e = m.mk_app(h, vI0p, vB1p);
         eval(e, v);
         std::cout << e << " " << v << "\n";
+    }
+
+    {
+        func_interp fi2(m, 1);
+        expr_ref zero(a.mk_int(0), m);
+        expr_ref one(a.mk_int(1), m);
+        fi2.set_else(zero);
+        for (unsigned i = 0; i < 600; ++i) {
+            expr_ref arg(a.mk_int(rational(i)), m);
+            expr* args[1] = { arg.get() };
+            fi2.insert_entry(args, i == 599 ? one.get() : zero.get());
+        }
+        fi2.compress();
+        SASSERT(fi2.num_entries() == 1);
+
+        expr_ref removed_arg(a.mk_int(0), m);
+        expr* removed_args[1] = { removed_arg.get() };
+        SASSERT(fi2.get_entry(removed_args) == nullptr);
+
+        expr_ref kept_arg(a.mk_int(599), m);
+        expr* kept_args[1] = { kept_arg.get() };
+        func_entry* kept = fi2.get_entry(kept_args);
+        SASSERT(kept != nullptr);
+        SASSERT(kept->get_result() == one.get());
     }
     
 }
