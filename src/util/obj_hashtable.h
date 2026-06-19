@@ -161,8 +161,8 @@ public:
     obj_map_entry * insert_if_not_there3(Key * k, Value const & v) {
         return m_table.insert_if_not_there2({k, v});
     }
-
-    obj_map_entry *find_core(Key * k) const {
+    
+    obj_map_entry * find_core(Key * k) const {
         return m_table.find_core({k});
     }
 
@@ -193,8 +193,8 @@ public:
     value & operator[](key * k) {
         return find(k);
     }
-
-    iterator find_iterator(Key * k) const {
+    
+    iterator find_iterator(Key * k) const { 
         return m_table.find(key_data{k});
     }
 
@@ -203,7 +203,7 @@ public:
     }
 
     void remove(Key * k) {
-        m_table.remove(key_data{k, value()});
+        m_table.remove(key_data{k, value{}});
     }
 
     void erase(Key * k) {

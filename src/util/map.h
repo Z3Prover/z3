@@ -115,7 +115,7 @@ public:
     }
         
     entry * find_core(key const & k) const {
-      return m_table.find_core(key_data{k, value{}});
+        return m_table.find_core(key_data{k, value{}});
     }
 
     bool find(key const & k, value & v) const {
@@ -164,7 +164,7 @@ public:
     void remove(key const & k) {
         m_table.remove(key_data{k, value{}});
     }
-
+    
     void erase(key const & k) {
         remove(k);
     }
@@ -184,7 +184,7 @@ public:
         }
         return true;
     }
-
+    
 #ifdef Z3DEBUG
     
     bool check_invariant() { 

@@ -121,7 +121,7 @@ public:
         return true;
     }
     
-    bool contains(symbol key) const {
+    bool contains(symbol key) const { 
         return m_sym_table.contains(key_data{key});
     }
 
