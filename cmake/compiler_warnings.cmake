@@ -23,6 +23,7 @@ set(CLANG_ONLY_WARNINGS
   "-Wc99-extensions"
   "-Wsuggest-override"
   "-Winconsistent-missing-override"
+  "-Wmissing-field-initializers"
 )
 set(MSVC_WARNINGS "/W3")
 

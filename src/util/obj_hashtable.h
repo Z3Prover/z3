@@ -62,6 +62,11 @@ public:
     struct key_data {
         Key * m_key = nullptr;
         Value m_value;
+
+        key_data() : m_key(nullptr), m_value(Value()) {}
+        key_data(Key * key) : m_key(key), m_value(Value()) {}
+        key_data(Key * key, const Value& value) : m_key(key), m_value(value) {}
+      
         Value const & get_value() const { return m_value; }
         Key & get_key () const { return *m_key; }
         unsigned hash() const { return m_key->hash(); }
@@ -156,8 +161,8 @@ public:
     obj_map_entry * insert_if_not_there3(Key * k, Value const & v) {
         return m_table.insert_if_not_there2({k, v});
     }
-    
-    obj_map_entry * find_core(Key * k) const {
+
+    obj_map_entry *find_core(Key *k) const {
         return m_table.find_core({k});
     }
 
@@ -188,8 +193,8 @@ public:
     value & operator[](key * k) {
         return find(k);
     }
-    
-    iterator find_iterator(Key * k) const { 
+
+    iterator find_iterator(Key *k) const {
         return m_table.find(key_data{k});
     }
 
@@ -197,10 +202,10 @@ public:
         return find_core(k) != nullptr;
     }
 
-    void remove(Key * k) {
-        m_table.remove(key_data{k});
+    void remove(Key *k) {
+        m_table.remove(key_data{k, value()});
     }
-    
+
     void erase(Key * k) {
         remove(k);
     }

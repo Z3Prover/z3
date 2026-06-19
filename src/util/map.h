@@ -115,7 +115,7 @@ public:
     }
         
     entry * find_core(key const & k) const {
-        return m_table.find_core(key_data{k});
+        return m_table.find_core(key_data{k, value()});
     }
 
     bool find(key const & k, value & v) const {
@@ -137,7 +137,7 @@ public:
     }
         
     iterator find_iterator(key const & k) const { 
-        return m_table.find(key_data{k});
+        return m_table.find(key_data{k, value()});
     }
     
     value const & find(key const& k) const {
@@ -161,10 +161,10 @@ public:
         return find_core(k) != nullptr;
     }
 
-    void remove(key const & k) {
-        m_table.remove(key_data{k});
+    void remove(key const &k) {
+        m_table.remove(key_data{k, value()});
     }
-    
+
     void erase(key const & k) {
         remove(k);
     }

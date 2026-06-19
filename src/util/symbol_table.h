@@ -30,6 +30,10 @@ class symbol_table {
     struct key_data {
         symbol   m_key;
         T        m_data;
+
+        key_data() {}
+        key_data(const symbol &key) : m_key(key) {}
+        key_data(const symbol &key, const T &data) : m_key(key), m_data(data) {}
     };
 
     struct key_data_hash_proc { 
@@ -116,8 +120,8 @@ public:
         result = e->get_data().m_data;
         return true;
     }
-    
-    bool contains(symbol key) const { 
+
+    bool contains(symbol key) const {
         return m_sym_table.contains(key_data{key});
     }
 
