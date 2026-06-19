@@ -2163,7 +2163,6 @@ namespace smt {
                 }
 
                 SASSERT(is_quantifier(atom));
-                UNREACHABLE();
             }
 
             void process_literal(expr* atom, polarity pol) {
@@ -2203,9 +2202,15 @@ namespace smt {
                     if (is_app(curr)) {
                         if (to_app(curr)->get_family_id() == m.get_basic_family_id() && m.is_bool(curr)) {
                             switch (static_cast<basic_op_kind>(to_app(curr)->get_decl_kind())) {
-                            case OP_IMPLIES:
+                            case OP_IMPLIES: 
+                                process_literal(to_app(curr)->get_arg(0), neg(pol));
+                                process_literal(to_app(curr)->get_arg(1), pol);
+                                break;
                             case OP_XOR:
-                                UNREACHABLE(); // simplifier eliminated ANDs, IMPLIEs, and XORs
+                                for (expr *arg : *to_app(curr)) {
+                                    visit_formula(arg, pol);
+                                    visit_formula(arg, neg(pol));
+                                }
                                 break;
                             case OP_OR:
                             case OP_AND:
