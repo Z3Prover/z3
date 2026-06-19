@@ -43,14 +43,14 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_dio_ignore_big_nums = lp_p.dio_ignore_big_nums();
     m_dio_calls_period = lp_p.dio_calls_period();
     m_dio_run_gcd = lp_p.dio_run_gcd();
-    m_random_period = lp_p.random_period();
+    m_random_hammers = lp_p.random_hammers();
     m_lcube = lp_p.lcube();
     m_lcube_flips = lp_p.lcube_flips();
-    unsigned cut_period = lp_p.cut_period();
-    if (cut_period == 0)
-        cut_period = 1;
-    m_int_find_cube_period = cut_period;
-    m_int_gomory_cut_period = cut_period;
-    m_hnf_cut_period = cut_period;
+    unsigned hammer_period = lp_p.int_hammer_period();
+    if (hammer_period == 0)
+        hammer_period = 1;
+    m_int_find_cube_period = hammer_period;
+    m_int_gomory_cut_period = hammer_period;
+    m_hnf_cut_period = hammer_period;
     m_max_conflicts = p.max_conflicts();
 }

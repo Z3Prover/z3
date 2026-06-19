@@ -11,7 +11,7 @@ def_module_params(module_name='lp',
                           ('dio_run_gcd', BOOL, False, 'Run the GCD heuristic if dio is on, if dio is disabled the option is not used'),
                           ('lcube', BOOL, True, 'use the largest cube test for integer feasibility'),
                           ('lcube_flips', UINT, 16, 'maximal number of coordinate flips when repairing the rounded largest cube center, only relevant when lcube is true'),
-                          ('cut_period', UINT, 4, 'period (in final_check calls) for the integer cut/cube heuristics (find_cube, hnf, gomory); a smaller value calls them more often'),
-                          ('random_period', BOOL, True, 'draw the periodic integer heuristic gates (find_cube, lcube, hnf, gomory, dio) at random with the same 1/period rate instead of a deterministic every-k-th-call modulus'),
+                          ('int_hammer_period', UINT, 4, 'period (in final_check calls) for the integer cut/cube heuristics (find_cube, hnf, gomory); a smaller value calls them more often'),
+                          ('random_hammers', BOOL, True, 'draw the periodic integer heuristic gates (find_cube, lcube, hnf, gomory, dio) at random with the same 1/period rate instead of a deterministic every-k-th-call modulus'),
                          ))
                          

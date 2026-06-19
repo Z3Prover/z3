@@ -195,7 +195,7 @@ namespace lp {
         lp_settings& settings() { return lra.settings(); }
         
         // Decide whether a periodic heuristic fires on this call. When
-        // random_period is enabled the gate is drawn at random with the same
+        // random_hammers is enabled the gate is drawn at random with the same
         // 1/period expected rate instead of a deterministic "every k-th call"
         // modulus: a deterministic period can phase-lock with the search on
         // some families and drown the solver in conflicts while another handler
@@ -203,7 +203,7 @@ namespace lp {
         bool hit_period(unsigned period) {
             if (period <= 1)
                 return true;
-            if (settings().random_period())
+            if (settings().random_hammers())
                 return settings().random_next(period) == 0;
             return m_number_of_calls % period == 0;
         }

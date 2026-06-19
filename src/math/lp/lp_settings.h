@@ -264,7 +264,7 @@ private:
     bool             m_dio_ignore_big_nums = false;
     unsigned         m_dio_calls_period = 4;
     bool             m_dio_run_gcd = true;
-    bool             m_random_period = true;
+    bool             m_random_hammers = true;
     bool             m_lcube = true;
     unsigned         m_lcube_flips = 16;
 public:
@@ -272,8 +272,8 @@ public:
     unsigned lcube_flips() const { return m_lcube_flips; }
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }
-    bool random_period() const { return m_random_period; }
-    bool & random_period() { return m_random_period; }
+    bool random_hammers() const { return m_random_hammers; }
+    bool & random_hammers() { return m_random_hammers; }
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
