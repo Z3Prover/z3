@@ -11,5 +11,6 @@ def_module_params(module_name='lp',
                           ('dio_run_gcd', BOOL, False, 'Run the GCD heuristic if dio is on, if dio is disabled the option is not used'),
                           ('lcube', BOOL, True, 'use the largest cube test for integer feasibility'),
                           ('lcube_flips', UINT, 16, 'maximal number of coordinate flips when repairing the rounded largest cube center, only relevant when lcube is true'),
+                          ('int_lazy_move_nb', BOOL, True, 'skip the standalone move_non_basic_columns_to_bounds call (and its find_feasible_solution re-solve) unless an HNF or Gomory cut will be attempted in this iteration; off reproduces the master behavior of always snapping'),
                          ))
                          

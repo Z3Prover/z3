@@ -45,5 +45,6 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_dio_run_gcd = lp_p.dio_run_gcd();
     m_lcube = lp_p.lcube();
     m_lcube_flips = lp_p.lcube_flips();
+    m_int_lazy_move_nb = lp_p.int_lazy_move_nb();
     m_max_conflicts = p.max_conflicts();
 }

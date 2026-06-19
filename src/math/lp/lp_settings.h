@@ -266,7 +266,9 @@ private:
     bool             m_dio_run_gcd = true;
     bool             m_lcube = true;
     unsigned         m_lcube_flips = 16;
+    bool             m_int_lazy_move_nb = true;
 public:
+    bool int_lazy_move_nb() const { return m_int_lazy_move_nb; }
     bool lcube() const { return m_lcube; }
     unsigned lcube_flips() const { return m_lcube_flips; }
     unsigned dio_calls_period() const { return m_dio_calls_period; }
