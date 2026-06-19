@@ -24,7 +24,6 @@
 #include "ast/rewriter/term_enumeration.h"
 
 
-
 namespace term_enum {
 
 // ============================================================================
