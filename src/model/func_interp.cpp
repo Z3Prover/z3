@@ -307,6 +307,16 @@ void func_interp::compress() {
     if (j < m_entries.size()) {
         reset_interp_cache();
         m_entries.shrink(j);
+        if (m_entry_table) {
+            dealloc(m_entry_table);
+            m_entry_table = nullptr;
+            if (m_entries.size() > 500) {
+                m_entry_table = alloc(entry_table, 1024,
+                    func_entry_hash(m_arity), func_entry_eq(m_arity));
+                for (func_entry* curr : m_entries)
+                    m_entry_table->insert(curr);
+            }
+        }
     }
     // other compression, if else is a default branch.
     // or function encode identity.
