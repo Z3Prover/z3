@@ -43,7 +43,7 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_dio_ignore_big_nums = lp_p.dio_ignore_big_nums();
     m_dio_calls_period = lp_p.dio_calls_period();
     m_dio_run_gcd = lp_p.dio_run_gcd();
-    m_cut_period_random = lp_p.cut_period_random();
+    m_random_period = lp_p.random_period();
     m_lcube = lp_p.lcube();
     m_lcube_flips = lp_p.lcube_flips();
     unsigned cut_period = lp_p.cut_period();
