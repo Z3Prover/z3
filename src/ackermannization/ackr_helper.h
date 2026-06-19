@@ -70,10 +70,10 @@ public:
 
     void prune_non_select(obj_map<app, app_set*> & sels, expr_mark& non_select) {
         ptr_vector<app> nons;
-        for (auto& kv : sels) {
-            if (non_select.is_marked(kv.m_key)) {
-                nons.push_back(kv.m_key);
-                dealloc(kv.m_value);
+        for (auto &[k, v] : sels) {
+            if (non_select.is_marked(k)) {
+                nons.push_back(k);
+                dealloc(v);
             }
         }
         for (app* s : nons) {
