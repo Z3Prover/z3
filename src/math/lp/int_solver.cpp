@@ -34,7 +34,6 @@ namespace lp {
         int_solver&         lia;
         lar_solver&         lra;
         lar_core_solver&    lrac;
-        unsigned            m_number_of_calls = 0;
         lar_term            m_t;  // the term to return in the cut
         bool                m_upper;           // cut is an upper bound
         explanation         *m_ex;             // the conflict explanation
@@ -195,7 +194,11 @@ namespace lp {
         lp_settings& settings() { return lra.settings(); }
         
         bool should_find_cube() {
-            return m_number_of_calls % settings().m_int_find_cube_period == 0;
+            // Draw the decision at random instead of using a fixed "every k-th
+            // call" modulus, mirroring should_gomory_cut: a deterministic period
+            // can phase-lock with the search, while randomizing the gate (same
+            // 1/period expected rate) breaks that resonance.
+            return settings().random_next(settings().m_int_find_cube_period) == 0;
         }
 
         // The largest cube test is throttled exponentially: when the polyhedron
@@ -203,7 +206,7 @@ namespace lp {
         // later, after more constraints are added, so each failure doubles the
         // period and a success resets it.
         bool should_find_lcube() {
-            return settings().lcube() && m_number_of_calls % m_lcube_period == 0;
+            return settings().lcube() && settings().random_next(m_lcube_period) == 0;
         }
 
         lia_move find_lcube() {
@@ -229,14 +232,14 @@ namespace lp {
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dio() && (m_number_of_calls % settings().dio_calls_period() == 0);
+            return lia.settings().dio() && (settings().random_next(settings().dio_calls_period()) == 0);
         }
 
         // HNF
 
         bool should_hnf_cut() {
             return (!settings().dio() || settings().dio_enable_hnf_cuts())
-                && settings().enable_hnf() && m_number_of_calls % settings().hnf_cut_period() == 0;
+                && settings().enable_hnf() && settings().random_next(settings().hnf_cut_period()) == 0;
         }
         
         lia_move hnf_cut() {
@@ -269,7 +272,6 @@ namespace lp {
             if (settings().get_cancel_flag())
                 return lia_move::undef;
 
-            ++m_number_of_calls;
             if (r == lia_move::undef) r = patch_basic_columns();
             if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
             if (r == lia_move::undef && should_find_lcube()) r = find_lcube();
