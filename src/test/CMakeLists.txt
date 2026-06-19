@@ -143,6 +143,7 @@ add_executable(test-z3
   symbol.cpp
   symbol_table.cpp
   tbv.cpp
+  term_enumeration.cpp
   theory_dl.cpp
   theory_pb.cpp
   timeout.cpp

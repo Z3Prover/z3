@@ -12,6 +12,7 @@ public:
 
     void add_production(func_decl* f);
     void add_production(expr* e);
+    // void add_production(sort *s, std::function<expr *()> g);
 
     // cost function associated with expressions.
     // terms are enumerated with increasing cost.
@@ -24,13 +25,14 @@ public:
     public:
         iterator(imp& i, sort* s);
         iterator(std::nullptr_t);
-        iterator(iterator const& other);
-        iterator& operator=(iterator const& other);
         ~iterator();
         expr* operator*();
         iterator operator++(int);
         iterator& operator++();
-        bool operator!=(iterator const& other) const;
+        bool operator!=(iterator const& other) const {
+            return !(*this == other);
+        }
+        bool operator==(iterator const &other) const;
     };
 
     class terms {
@@ -43,4 +45,6 @@ public:
     };
 
     terms enum_terms(sort* s);
+
+    std::ostream& display(std::ostream& out) const;
 };
