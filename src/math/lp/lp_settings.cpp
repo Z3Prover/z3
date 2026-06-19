@@ -47,8 +47,7 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_lcube = lp_p.lcube();
     m_lcube_flips = lp_p.lcube_flips();
     unsigned hammer_period = lp_p.int_hammer_period();
-    if (hammer_period == 0)
-        hammer_period = 1;
+    SASSERT(hammer_period != 0);
     m_int_find_cube_period = hammer_period;
     m_int_gomory_cut_period = hammer_period;
     m_hnf_cut_period = hammer_period;
