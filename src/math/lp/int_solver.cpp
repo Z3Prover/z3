@@ -34,6 +34,7 @@ namespace lp {
         int_solver&         lia;
         lar_solver&         lra;
         lar_core_solver&    lrac;
+        unsigned            m_number_of_calls = 0;
         lar_term            m_t;  // the term to return in the cut
         bool                m_upper;           // cut is an upper bound
         explanation         *m_ex;             // the conflict explanation
@@ -193,12 +194,22 @@ namespace lp {
 
         lp_settings& settings() { return lra.settings(); }
         
+        // Decide whether a periodic heuristic fires on this call. When
+        // random_cut_period is enabled the gate is drawn at random with the
+        // same 1/period expected rate instead of a deterministic "every k-th
+        // call" modulus: a deterministic period can phase-lock with the search
+        // on some families and drown the solver in conflicts while another
+        // handler is starved; randomizing the gate breaks that resonance.
+        bool hit_period(unsigned period) {
+            if (period <= 1)
+                return true;
+            if (settings().random_cut_period())
+                return settings().random_next(period) == 0;
+            return m_number_of_calls % period == 0;
+        }
+
         bool should_find_cube() {
-            // Draw the decision at random instead of using a fixed "every k-th
-            // call" modulus, mirroring should_gomory_cut: a deterministic period
-            // can phase-lock with the search, while randomizing the gate (same
-            // 1/period expected rate) breaks that resonance.
-            return settings().random_next(settings().m_int_find_cube_period) == 0;
+            return hit_period(settings().m_int_find_cube_period);
         }
 
         // The largest cube test is throttled exponentially: when the polyhedron
@@ -206,7 +217,7 @@ namespace lp {
         // later, after more constraints are added, so each failure doubles the
         // period and a success resets it.
         bool should_find_lcube() {
-            return settings().lcube() && settings().random_next(m_lcube_period) == 0;
+            return settings().lcube() && hit_period(m_lcube_period);
         }
 
         lia_move find_lcube() {
@@ -223,23 +234,18 @@ namespace lp {
         bool should_gomory_cut() {
             bool dio_allows_gomory = !settings().dio() || settings().dio_enable_gomory_cuts() ||
                                       m_dio.some_terms_are_ignored();
-            // Draw the decision at random instead of using a fixed "every k-th
-            // call" modulus. A deterministic period can phase-lock with the
-            // search on some UNSAT families and drown the solver in theory
-            // conflicts while the Diophantine handler is starved; randomizing
-            // the gate (same 1/period expected rate) breaks that resonance.
-            return dio_allows_gomory && settings().random_next(settings().m_int_gomory_cut_period) == 0;
+            return dio_allows_gomory && hit_period(settings().m_int_gomory_cut_period);
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dio() && (settings().random_next(settings().dio_calls_period()) == 0);
+            return lia.settings().dio() && hit_period(settings().dio_calls_period());
         }
 
         // HNF
 
         bool should_hnf_cut() {
             return (!settings().dio() || settings().dio_enable_hnf_cuts())
-                && settings().enable_hnf() && settings().random_next(settings().hnf_cut_period()) == 0;
+                && settings().enable_hnf() && hit_period(settings().hnf_cut_period());
         }
         
         lia_move hnf_cut() {
@@ -272,6 +278,7 @@ namespace lp {
             if (settings().get_cancel_flag())
                 return lia_move::undef;
 
+            ++m_number_of_calls;
             if (r == lia_move::undef) r = patch_basic_columns();
             if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
             if (r == lia_move::undef && should_find_lcube()) r = find_lcube();
