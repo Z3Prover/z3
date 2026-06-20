@@ -51,7 +51,7 @@ if RELEASE_DIR is None:
         _wasm_eh = " -fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
         build_env['CFLAGS'] = build_env.get('CFLAGS', '') + _wasm_eh
         build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + _wasm_eh
-        build_env['LDFLAGS'] = build_env.get('LDFLAGS', '') + _wasm_eh + " -sWASM_BIGINT"
+        build_env['LDFLAGS'] = build_env.get('LDFLAGS', '') + _wasm_eh + " -sWASM_BIGINT -sSIDE_MODULE=1"
         IS_SINGLE_THREADED = True
         ENABLE_LTO = False
         # build with pthread doesn't work. The WASM bindings are also single threaded.

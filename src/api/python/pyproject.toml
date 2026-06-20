@@ -17,7 +17,7 @@ build-backend = "setuptools.build_meta"
 [tool.pyodide.build]
 cflags = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
 cxxflags = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
-ldflags = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -sWASM_BIGINT"
+ldflags = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -sWASM_BIGINT -sSIDE_MODULE=1"
 
 # --- cibuildwheel: produce a PyPI-publishable pyemscripten wheel -------------
 [tool.cibuildwheel]
