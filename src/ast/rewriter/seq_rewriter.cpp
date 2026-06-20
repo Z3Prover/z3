@@ -4832,32 +4832,31 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
         sort* srt = a->get_sort();
         bool has_left = (lo_v > 0);
         bool has_right = (hi_v < max_c);
-        auto empty_re = [&]() { return re().mk_empty(srt); };
-        auto full_re = [&]() { return re().mk_full_seq(srt); };
         if (!has_left && !has_right) {
             // [0, max_c]: complement is empty
-            result = empty_re();
+            result = re().mk_empty(srt);
             return BR_DONE;
         }
         if (lo_v > hi_v) {
-            result = full_re();
+            // empty range: complement is full
+            result = re().mk_full_seq(srt);
             return BR_DONE;
         }
         if (!has_left) {
             // [0, b]: complement is [b+1, max]
-            result = re().mk_union(empty_re(), re().mk_concat(re().mk_range(srt, hi_v + 1, max_c), full_re()));
-            return BR_DONE;
+            result = re().mk_range(srt, hi_v + 1, max_c);
+            return BR_REWRITE1;
         }
         if (!has_right) {
             // [a, max]: complement is [0, a-1]
-            result = re().mk_union(empty_re(), re().mk_concat(re().mk_range(srt, 0u, lo_v - 1), full_re()));
-            return BR_DONE;
+            result = re().mk_range(srt, 0u, lo_v - 1);
+            return BR_REWRITE1;
         }
         // General: [a, b] → [0, a-1] ∪ [b+1, max]
         auto left = re().mk_range(srt, 0u, lo_v - 1);
         auto right = re().mk_range(srt, hi_v + 1, max_c);
-        result = re().mk_union(empty_re(), re().mk_concat(re().mk_union(left, right), full_re()));
-        return BR_DONE;
+        result = re().mk_union(left, right);
+        return BR_REWRITE1;
     }
     return BR_FAILED;
 }
