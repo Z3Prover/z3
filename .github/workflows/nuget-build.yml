@@ -20,7 +20,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -45,7 +45,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -70,7 +70,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -116,7 +116,7 @@ jobs:
     runs-on: macos-14
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -137,7 +137,7 @@ jobs:
     runs-on: macos-14
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -160,7 +160,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -215,7 +215,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
