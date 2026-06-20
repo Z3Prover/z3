@@ -166,13 +166,15 @@ public:
         return result;
     }
 
+    // Return true if there is at least one term at/above `cost` whose sort is
+    // not in `sorts` (i.e., enumeration can still produce a new requested sort).
     bool is_productive(unsigned cost, uint_set const& sorts) {
-
         for (unsigned i = cost; i < m_terms.size(); ++i) {
             if (!m_terms[i])
                 continue;
-            for (auto const &[k, v] : *m_terms[i]) {
-                if (!sorts.contains(k->get_small_id()))
+            for (auto const& entry : *m_terms[i]) {
+                sort* term_sort = entry.m_key;
+                if (!sorts.contains(term_sort->get_small_id()))
                     return true;
             }
         }
