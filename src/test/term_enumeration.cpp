@@ -85,7 +85,6 @@ static void tst_enumeration_with_operators() {
     std::cout << "Enumerated " << count << " terms with operators\n";
 }
 
-<<<<<<< HEAD
 static void tst_observational_equivalence_filter() {
     std::cout << "=== test observational equivalence filter ===\n";
     ast_manager m;
@@ -119,8 +118,6 @@ static void tst_observational_equivalence_filter() {
     ENSURE(count >= 2);
 }
 
-=======
->>>>>>> 695208505 (updated term enumerator)
 static void tst_display() {
     std::cout << "=== test display ===\n";
     ast_manager m;
