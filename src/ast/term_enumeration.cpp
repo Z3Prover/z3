@@ -165,6 +165,19 @@ public:
         return result;
     }
 
+    bool is_productive(unsigned cost, uint_set const& sorts) {
+
+        for (unsigned i = cost; i < m_terms.size(); ++i) {
+            if (!m_terms[i])
+                continue;
+            for (auto const &[k, v] : *m_terms[i]) {
+                if (!sorts.contains(k->get_small_id()))
+                    return true;
+            }
+        }
+        return false;
+    }
+
     ptr_vector<expr> null_ptr_vector;
     ptr_vector<expr> const &get_by_cost_and_sort(unsigned cost, sort *s) const {
         if (cost >= m_terms.size() || !m_terms[cost] || !m_terms[cost]->contains(s))
@@ -388,7 +401,7 @@ private:
                 m_bank_idx = 0;
                 m_bank_size = get_bank_size();
                 m_children_iter.reset();
-                if (!m_made_progress) {
+                if (!m_made_progress && !m_bank.is_productive(m_cost, m_sorts_produced)) {
                     m_state = State::Done;
                     return nullptr;
                 }
