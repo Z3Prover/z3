@@ -20,7 +20,8 @@
 #include "ast/ast.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
-#include "ast/term_enumeration.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/term_enumeration.h"
 
 
 
@@ -165,13 +166,15 @@ public:
         return result;
     }
 
+    // Return true if there is at least one term at/above `cost` whose sort is
+    // not in `sorts` (i.e., enumeration can still produce a new requested sort).
     bool is_productive(unsigned cost, uint_set const& sorts) {
-
         for (unsigned i = cost; i < m_terms.size(); ++i) {
             if (!m_terms[i])
                 continue;
-            for (auto const &[k, v] : *m_terms[i]) {
-                if (!sorts.contains(k->get_small_id()))
+            for (auto const& entry : *m_terms[i]) {
+                sort* term_sort = entry.m_key;
+                if (!sorts.contains(term_sort->get_small_id()))
                     return true;
             }
         }
@@ -309,7 +312,7 @@ class bottom_up_enumerator {
 public:
     bottom_up_enumerator(grammar& grammar)
         : m_grammar(grammar), m(grammar.mgr()), 
-          m_bank(grammar.mgr()), m_pending(grammar.mgr())
+          m_bank(grammar.mgr()), m_pending(grammar.mgr()), m_rewriter(grammar.mgr())
     {}
 
     void set_target_sort(sort *s) {
@@ -343,7 +346,19 @@ public:
         m_state = State::Leaves;
         m_bank.reset();
         m_pending = nullptr;
+        m_rewriter.reset();
+        m_seen_terms.reset();
         m_children_iter.reset();
+    }
+
+    expr* add_term(expr_ref const& term, unsigned cost) {
+        expr_ref simplified(m);
+        m_rewriter(term, simplified);
+        if (m_seen_terms.contains(simplified))
+            return nullptr;
+        m_seen_terms.insert(simplified);
+        m_bank.add(simplified, cost);
+        return simplified;
     }
 
 private:
@@ -361,6 +376,8 @@ private:
     uint_set m_sorts_produced;
     State m_state = State::Leaves;
     expr_ref m_pending;
+    th_rewriter m_rewriter;
+    obj_hashtable<expr> m_seen_terms;
     std::unique_ptr<children_iterator> m_children_iter;
     sort *m_target_sort = nullptr;
 
@@ -377,9 +394,9 @@ private:
                     m_leaf_idx++;
                     expr_ref_vector empty_args(m);
                     expr_ref term = prod.builder(empty_args);
-                    m_bank.add(term, 0);
-                    if (sort_matches(term)) 
-                        return term;                    
+                    expr* r = add_term(term, 0);
+                    if (r && sort_matches(r)) 
+                        return r;                    
                 }
                 m_state = State::Operators;
                 m_cost = 1;
@@ -442,13 +459,15 @@ private:
                 expr_ref term = prod.builder(children);
                 // IF_VERBOSE(0, verbose_stream() << term << "\n");
                 SASSERT(new_cost >= m_cost);
-                m_bank.add(term, new_cost);
-                unsigned sort_id = term->get_sort()->get_small_id();
+                expr* r = add_term(term, new_cost);
+                if (!r)
+                    continue;
+                unsigned sort_id = r->get_sort()->get_small_id();
                 if (!m_sorts_produced.contains(sort_id))
                     m_made_progress = true;
                 m_sorts_produced.insert(sort_id);
-                if (sort_matches(term) && new_cost == m_cost) {
-                    return term;
+                if (sort_matches(r) && new_cost == m_cost) {
+                    return r;
                 }                
                 continue;
             }
