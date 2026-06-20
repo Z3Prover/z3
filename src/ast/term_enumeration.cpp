@@ -563,7 +563,7 @@ term_enumeration::iterator::~iterator() {
 }
 
 expr* term_enumeration::iterator::operator*() {
-    return m_imp ? m_imp->m_current : nullptr;
+    return m_imp ? m_imp->m_current.get() : nullptr;
 }
 
 term_enumeration::iterator& term_enumeration::iterator::operator++() {
