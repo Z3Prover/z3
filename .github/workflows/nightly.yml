@@ -512,11 +512,10 @@ jobs:
         run: |
           source ~/emsdk/emsdk_env.sh
           cd src/api/python
-          CFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}" CXXFLAGS="${CXXFLAGS}" ~/env/bin/pyodide build --exports whole_archive
-        env:
-          CFLAGS: "-fexceptions -s DISABLE_EXCEPTION_CATCHING=0 -g2"
-          LDFLAGS: "-fexceptions -s WASM_BIGINT"
-          CXXFLAGS: "-fexceptions -s DISABLE_EXCEPTION_CATCHING=0"
+          # Exception/longjmp/bigint flags are declared in pyproject.toml and
+          # combined with Pyodide's -fwasm-exceptions defaults. Passing the
+          # legacy JS-EH -fexceptions flags here conflicts with the wasm-EH ABI.
+          ~/env/bin/pyodide build --exports whole_archive
 
       - name: Setup env-pyodide
         run: |
