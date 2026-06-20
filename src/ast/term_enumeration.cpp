@@ -16,6 +16,7 @@
 #include "util/vector.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/obj_hashtable.h"
+#include "util/uint_set.h"
 #include "ast/ast.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
@@ -67,7 +68,10 @@ public:
     ast_manager& mgr() const { return m; }
 
     void add_func_decl(func_decl *f) {
+        if (m_seen.contains(f))
+            return;
         m_pinned.push_back(f);
+        m_seen.insert(f);
         sort_ref range(f->get_range(), m);
         sort_ref_vector dom(m);
         for (unsigned i = 0; i < f->get_arity(); ++i)
@@ -78,7 +82,10 @@ public:
     }
 
     void add_expr(expr *e) {
+        if (m_seen.contains(e))
+            return;
         m_pinned.push_back(e);
+        m_seen.insert(e);
         sort_ref range(e->get_sort(), m);
         sort_ref_vector dom(m);
         std::stringstream ss;
@@ -110,6 +117,7 @@ private:
     ast_ref_vector m_pinned;
     scoped_ptr_vector<production> m_leaves;
     scoped_ptr_vector<production> m_operators;
+    obj_hashtable<ast> m_seen;
 };
 
 // ============================================================================
@@ -336,7 +344,8 @@ private:
     unsigned m_op_idx = 0;
     unsigned m_bank_idx = 0;
     unsigned m_bank_size = 0;
-    bool m_has_range = false;
+    bool m_made_progress = false;   
+    uint_set m_sorts_produced;
     State m_state = State::Leaves;
     expr_ref m_pending;
     std::unique_ptr<children_iterator> m_children_iter;
@@ -364,7 +373,8 @@ private:
                 m_op_idx = 0;
                 m_bank_idx = 0;
                 m_bank_size = get_bank_size();      
-                m_has_range = false;
+                m_made_progress = false;
+                m_sorts_produced.reset();
                 m_children_iter.reset();
                 break;
 
@@ -378,6 +388,13 @@ private:
                 m_bank_idx = 0;
                 m_bank_size = get_bank_size();
                 m_children_iter.reset();
+                if (!m_made_progress) {
+                    m_state = State::Done;
+                    return nullptr;
+                }
+                if (m_sorts_produced.contains(m_target_sort->get_small_id())) 
+                    m_sorts_produced.reset();                
+                m_made_progress = false;
                 break;
             }
             case State::Done:
@@ -413,22 +430,19 @@ private:
                 // IF_VERBOSE(0, verbose_stream() << term << "\n");
                 SASSERT(new_cost >= m_cost);
                 m_bank.add(term, new_cost);
+                unsigned sort_id = term->get_sort()->get_small_id();
+                if (!m_sorts_produced.contains(sort_id))
+                    m_made_progress = true;
+                m_sorts_produced.insert(sort_id);
                 if (sort_matches(term) && new_cost == m_cost) {
-                    m_has_range = true;
                     return term;
                 }                
                 continue;
             }
-            if (ops.empty()) {
-                m_state = State::Done;
-                return nullptr;
-            }
 
-            if (m_op_idx >= ops.size()) {
-                if (!m_has_range) 
-                    m_state = State::Done;                
+            if (m_op_idx >= ops.size())                 
                 return nullptr;
-            }
+            
             production const &prod = *ops[m_op_idx];
             m_op_idx++;
             m_children_iter = std::make_unique<children_iterator>(m, prod, m_bank, m_cost);
