@@ -14,6 +14,7 @@
 #include <functional>
 #include <string>
 #include "util/vector.h"
+#include "util/scoped_ptr_vector.h"
 #include "util/obj_hashtable.h"
 #include "ast/ast.h"
 #include "ast/ast_ll_pp.h"
@@ -54,15 +55,15 @@ class grammar {
 public:
     grammar(ast_manager& m) : m(m), m_pinned(m) {}
 
-    void add_production(production p) {
-        if (p.is_leaf())
-            m_leaves.push_back(std::move(p));
+    void add_production(production* p) {
+        if (p->is_leaf())
+            m_leaves.push_back(p);
         else
-            m_operators.push_back(std::move(p));
+            m_operators.push_back(p);
     }
 
-    vector<production> const& leaves() const { return m_leaves; }
-    vector<production> const& operators() const { return m_operators; }
+    scoped_ptr_vector<production> const& leaves() const { return m_leaves; }
+    scoped_ptr_vector<production> const& operators() const { return m_operators; }
     ast_manager& mgr() const { return m; }
 
     void add_func_decl(func_decl *f) {
@@ -71,9 +72,9 @@ public:
         sort_ref_vector dom(m);
         for (unsigned i = 0; i < f->get_arity(); ++i)
             dom.push_back(sort_ref(f->get_domain(i), m));
-        add_production({f->get_name().str(), range, dom, [this, f](expr_ref_vector const &args) {
+        add_production(alloc(production, {f->get_name().str(), range, dom, [this, f](expr_ref_vector const &args) {
                             return expr_ref(m.mk_app(f, args), m);
-                        }});
+                        }}));
     }
 
     void add_expr(expr *e) {
@@ -83,23 +84,23 @@ public:
         std::stringstream ss;
         ss << mk_bounded_pp(e, m);
         std::string name = ss.str();
-        add_production({name, range, dom, [this, e](expr_ref_vector const&) { return expr_ref(e, m); }});
+        add_production(alloc(production, {name, range, dom, [this, e](expr_ref_vector const&) { return expr_ref(e, m); }}));
     }
 
     std::ostream& display(std::ostream& out) const {
         out << "Leaves:\n";
-        for (auto const &p : m_leaves) {
-            out << "  " << p.name << " : " << mk_pp(p.range, m) << "\n";
+        for (auto const *p : m_leaves) {
+            out << "  " << p->name << " : " << mk_pp(p->range, m) << "\n";
         }
         out << "Operators:\n";
-        for (auto const &p : m_operators) {
-            out << "  " << p.name << " : (";
-            for (unsigned i = 0; i < p.domain.size(); ++i) {
+        for (auto const *p : m_operators) {
+            out << "  " << p->name << " : (";
+            for (unsigned i = 0; i < p->domain.size(); ++i) {
                 if (i > 0)
                     out << ", ";
-                out << mk_pp(p.domain[i], m);
+                out << mk_pp(p->domain[i], m);
             }
-            out << ") -> " << mk_pp(p.range, m) << "\n";
+            out << ") -> " << mk_pp(p->range, m) << "\n";
         }
         return out;
     }
@@ -107,8 +108,8 @@ public:
 private:
     ast_manager& m;
     ast_ref_vector m_pinned;
-    vector<production> m_leaves;
-    vector<production> m_operators;
+    scoped_ptr_vector<production> m_leaves;
+    scoped_ptr_vector<production> m_operators;
 };
 
 // ============================================================================
@@ -350,7 +351,7 @@ private:
             switch (m_state) {
             case State::Leaves:
                 while (m_leaf_idx < m_grammar.leaves().size()) {
-                    production const &prod = m_grammar.leaves()[m_leaf_idx];
+                    production const &prod = *m_grammar.leaves()[m_leaf_idx];
                     m_leaf_idx++;
                     expr_ref_vector empty_args(m);
                     expr_ref term = prod.builder(empty_args);
@@ -407,7 +408,7 @@ private:
             if (m_children_iter && m_children_iter->has_next(m_cost)) {
                 unsigned new_cost = 0;
                 expr_ref_vector children = m_children_iter->next(new_cost);
-                production const &prod = ops[m_op_idx - 1];
+                production const &prod = *ops[m_op_idx - 1];
                 expr_ref term = prod.builder(children);
                 // IF_VERBOSE(0, verbose_stream() << term << "\n");
                 SASSERT(new_cost >= m_cost);
@@ -428,7 +429,7 @@ private:
                     m_state = State::Done;                
                 return nullptr;
             }
-            production const &prod = ops[m_op_idx];
+            production const &prod = *ops[m_op_idx];
             m_op_idx++;
             m_children_iter = std::make_unique<children_iterator>(m, prod, m_bank, m_cost);
         }
