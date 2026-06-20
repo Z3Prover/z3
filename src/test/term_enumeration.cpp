@@ -11,21 +11,15 @@ Abstract:
 
 --*/
 
-<<<<<<< HEAD
+
 #include "ast/rewriter/term_enumeration.h"
-=======
-#include "ast/term_enumeration.h"
->>>>>>> 695208505 (updated term enumerator)
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
-<<<<<<< HEAD
 #include "ast/rewriter/th_rewriter.h"
 #include "util/obj_hashtable.h"
-=======
->>>>>>> 695208505 (updated term enumerator)
 #include <iostream>
 #include <sstream>
 
