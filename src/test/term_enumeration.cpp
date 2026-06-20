@@ -11,12 +11,14 @@ Abstract:
 
 --*/
 
-#include "ast/term_enumeration.h"
+#include "ast/rewriter/term_enumeration.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "util/obj_hashtable.h"
 #include <iostream>
 #include <sstream>
 
@@ -80,6 +82,39 @@ static void tst_enumeration_with_operators() {
     
     ENSURE(count >= 2); // At least the leaves
     std::cout << "Enumerated " << count << " terms with operators\n";
+}
+
+static void tst_observational_equivalence_filter() {
+    std::cout << "=== test observational equivalence filter ===\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+
+    term_enumeration te(m);
+
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref one(a.mk_int(1), m);
+    te.add_production(zero);
+    te.add_production(one);
+
+    app_ref tmp_add(a.mk_add(zero, one), m);
+    te.add_production(tmp_add->get_decl());
+
+    sort* int_sort = a.mk_int();
+    obj_hashtable<expr> seen;
+    unsigned count = 0;
+    for (expr* e : te.enum_terms(int_sort)) {
+        expr_ref r(m);
+        rw(e, r);
+        ENSURE(r == e);
+        ENSURE(!seen.contains(r));
+        seen.insert(r);
+        count++;
+        if (count >= 20) break;
+    }
+
+    ENSURE(count >= 2);
 }
 
 static void tst_display() {
@@ -264,6 +299,7 @@ static void tst_nested_array_enumeration() {
 void tst_term_enumeration() {
     tst_basic_enumeration();
     tst_enumeration_with_operators();
+    tst_observational_equivalence_filter();
     tst_display();
     tst_bitvector_enumeration();
     tst_multiple_sorts();

@@ -32,7 +32,7 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 #include "ast/well_sorted.h"
 #include "ast/ast_smt2_pp.h"
-#include "ast/term_enumeration.h"
+#include "ast/rewriter/term_enumeration.h"
 #include "model/model_pp.h"
 #include "model/model_macro_solver.h"
 #include "smt/smt_model_finder.h"
