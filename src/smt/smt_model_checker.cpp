@@ -219,7 +219,7 @@ namespace smt {
 
             if (use_inv) {
                 unsigned sk_term_gen = 0;
-                expr * sk_term = m_model_finder.get_inv(q, i, sk_value, sk_term_gen);
+                expr * sk_term = m_model_finder.get_inv(q, i, sk_value, *cex, sk_term_gen);
                 if (sk_term != nullptr) {
                     TRACE(model_checker, tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
                     SASSERT(!m.is_model_value(sk_term));
@@ -237,10 +237,6 @@ namespace smt {
                 if (sk_term != nullptr) {
                     TRACE(model_checker, tout << "sk term " << mk_pp(sk_term, m) << "\n");
                     sk_value = sk_term;
-                }
-                // last ditch: am I an array?
-                else if (false && autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_array_interp(f)) {
-                    sk_value = cex->get_func_interp(f)->get_array_interp(f);
                 }
 
             }
