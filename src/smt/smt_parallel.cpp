@@ -25,7 +25,7 @@ Author:
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
 #include "solver/solver_preprocess.h"
-#include "params/smt_parallel_params.hpp"
+#include "solver/parallel_params.hpp"
 
 #include <cmath>
 #include <mutex>
@@ -854,10 +854,10 @@ namespace smt {
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
 
-        smt_parallel_params pp(p.ctx.m_params);
-        m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.num_global_bb_batch_threads() > 0 || pp.num_global_bb_fl_threads() > 0;
-        m_config.m_local_backbones = pp.local_backbones();
+        parallel_params pp(p.ctx.m_params);
+        m_config.m_inprocessing = false;
+        m_config.m_global_backbones = pp.num_bb_threads() > 0;
+        m_config.m_local_backbones = false;
         m_config.m_core_minimize = pp.core_minimize();
         m_config.m_ablate_backtracking = pp.ablate_backtracking();
         
@@ -889,8 +889,7 @@ namespace smt {
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
 
-        smt_parallel_params pp(p.ctx.m_params);
-        m_use_failed_literal_test = pp.num_global_bb_fl_threads() > 0;
+        m_use_failed_literal_test = false;
     }
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
@@ -1779,7 +1778,7 @@ namespace smt {
         m_worker_leases.reset();
         m_worker_leases.resize(p.m_workers.size());
         
-        smt_parallel_params pp(p.ctx.m_params);
+        parallel_params pp(p.ctx.m_params);
         m_ablate_backtracking = pp.ablate_backtracking();
     }
 
@@ -1794,19 +1793,14 @@ namespace smt {
     }
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
-        smt_parallel_params pp(ctx.m_params);
-        unsigned num_global_bb_batch_threads = pp.num_global_bb_batch_threads();
+        parallel_params pp(ctx.m_params);
+        unsigned num_global_bb_batch_threads = pp.num_bb_threads();
         if (num_global_bb_batch_threads > 2)
-            throw default_exception("smt_parallel.num_global_bb_batch_threads must be 0, 1, or 2");
+            throw default_exception("parallel.num_bb_threads must be 0, 1, or 2");
         unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
-        unsigned num_sls_threads = (pp.sls() ? 1 : 0);
+        unsigned num_sls_threads = 0;
         unsigned num_core_min_threads = (pp.core_minimize() ? 1 : 0);
-        unsigned num_global_bb_fl_threads = pp.num_global_bb_fl_threads();
-        if (num_global_bb_fl_threads > 2)
-            throw default_exception("smt_parallel.num_global_bb_fl_threads must be 0, 1, or 2");
-        if (num_global_bb_fl_threads > 0 && num_global_bb_batch_threads > 0)
-            throw default_exception("smt_parallel.num_global_bb_fl_threads and smt_parallel.num_global_bb_batch_threads cannot both be enabled");
-        unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_batch_threads;
+        unsigned num_global_bb_threads = num_global_bb_batch_threads;
         unsigned total_threads = num_workers + num_sls_threads + num_core_min_threads + num_global_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);
