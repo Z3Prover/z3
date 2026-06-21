@@ -240,7 +240,7 @@ namespace lp {
         bool should_solve_dioph_eq() {
             bool ret = lia.settings().dio() && hit_period(settings().dio_calls_period());
             if (!ret && lia.settings().dio_calls_period() > m_initial_dio_calls_period)
-                lia.settings().dio_calls_period() ++;
+                lia.settings().dio_calls_period() --;
             return ret;
         }
 
