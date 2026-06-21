@@ -708,7 +708,7 @@ class parallel_solver {
             if (m_search_tree.is_lease_canceled(lease.leased_node))
                 return false;
 
-            expr_ref _atom(l2g(atom), m);            
+            expr_ref _atom(l2g(atom), m);
             return lease.leased_node->path_contains_atom(_atom);
         }
 
@@ -1117,6 +1117,13 @@ class parallel_solver {
                             continue;
                         if (m.is_true(lit) || m.is_false(lit))
                             continue;
+                        if (b.path_contains_atom(m_l2g, lease, lit)) {
+                            expr* atom = lit;
+                            m.is_not(lit, atom);
+                            rejected_atoms.insert(atom);
+                            rejected = true;
+                            continue;
+                        }
                         if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit)) {
                             expr* atom = lit;
                             m.is_not(lit, atom);
