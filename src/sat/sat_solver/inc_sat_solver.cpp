@@ -391,6 +391,15 @@ public:
         if (m_preprocess) m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
     }
+
+    void set_max_conflicts(unsigned max_conflicts) override {
+        m_solver.set_max_conflicts(max_conflicts);
+    }
+
+    unsigned get_max_conflicts() const override {
+        return m_solver.get_max_conflicts();
+    }
+
     void get_unsat_core(expr_ref_vector & r) override {
         r.reset();
         r.append(m_core.size(), m_core.data());
@@ -495,6 +504,9 @@ public:
         parallel_params pp(m_params);
         if (!pp.cube_lookahead()) {
             sat::bool_var_vector candidates;
+            sat::bool_var result = sat::null_bool_var;
+            double score = 0.0;
+            unsigned n = 0;
             unsigned search_lvl = m_solver.search_lvl();
             for (sat::bool_var v : vars) {
                 if (was_eliminated(v))
@@ -502,32 +514,21 @@ public:
                 if (get_assignment(v) != l_undef && m_solver.lvl(v) <= search_lvl)
                     continue;
                 candidates.push_back(v);
+                double new_score = get_activity(v);
+                if (new_score > score || result == sat::null_bool_var || (new_score == score && m_solver.rand()(++n) == 0)) {
+                    score = new_score;
+                    result = v;
+                }
             }
-            std::sort(candidates.begin(), candidates.end(), [&](sat::bool_var a, sat::bool_var b) {
-                return get_activity(a) > get_activity(b);
-            });
-            // shuffle sub-sequences with equal activity
-            unsigned i = 0;
-            while (i < candidates.size()) {
-                unsigned j = i + 1;
-                double act = get_activity(candidates[i]);
-                while (j < candidates.size() && get_activity(candidates[j]) == act)
-                    ++j;
-                if (j - i > 1)
-                    shuffle(j - i, candidates.data() + i, m_solver.rand());
-                i = j;
-            }
-            if (candidates.empty())
-                return expr_ref_vector(m);
             vs.reset();
             for (sat::bool_var v : candidates) {
                 expr* e = bool_var2expr(v);
-                if (e) {
-                    if (fmls.size() < backtrack_level)
-                       fmls.push_back(e);
+                if (e)
                     vs.push_back(e);
-                }
             }
+            expr* e = result == sat::null_bool_var ? nullptr : bool_var2expr(result);
+            if (e)
+                fmls.push_back(e);
             return fmls;
         }
         lbool result = m_solver.cube(vars, lits, backtrack_level);

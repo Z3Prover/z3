@@ -106,12 +106,6 @@ static bool is_cancellation_exception(char const* msg) {
     return msg && (strstr(msg, "canceled") != nullptr || strstr(msg, "cancelled") != nullptr);
 }
 
-static void set_max_conflicts(solver_ref& s, unsigned max_conflicts) {
-    params_ref p(s->get_params());
-    p.set_uint("max_conflicts", max_conflicts);
-    s->updt_params(p);
-}
-
 /* ------------------------------------------------------------------ */
 /* parallel_solver – the core portfolio engine                         */
 /* ------------------------------------------------------------------ */
@@ -1026,7 +1020,7 @@ class parallel_solver {
         }
 
         lbool check_cube(expr_ref_vector const& cube) {
-            set_max_conflicts(s, std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts));
+            s->set_max_conflicts(std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts));
 
             expr_ref_vector combined(m);
             combined.append(asms);
@@ -1112,20 +1106,42 @@ class parallel_solver {
             if (cube.size() >= m_config.m_max_cube_depth)
                 return result;
 
-            expr_ref_vector placeholder_noop(m);
+            expr_ref_vector vars(m);
+            obj_hashtable<expr> rejected_atoms;
             try {
-                expr_ref_vector cands = s->cube(placeholder_noop);
-                for (expr* lit : cands) {
-                    if (!lit)
-                        continue;
-                    if (m.is_true(lit) || m.is_false(lit))
-                        continue;
-                    if (b.path_contains_atom(m_l2g, lease, lit))
-                        continue;
-                    if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit))
-                        continue;
-                    result = lit;
-                    return result;
+                while (true) {
+                    expr_ref_vector cands = s->cube(vars, 1);
+                    bool rejected = false;
+                    for (expr* lit : cands) {
+                        if (!lit)
+                            continue;
+                        if (m.is_true(lit) || m.is_false(lit))
+                            continue;
+                        if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit)) {
+                            expr* atom = lit;
+                            m.is_not(lit, atom);
+                            rejected_atoms.insert(atom);
+                            rejected = true;
+                            continue;
+                        }
+                        result = lit;
+                        return result;
+                    }
+
+                    if (!rejected || vars.empty())
+                        return result;
+
+                    expr_ref_vector next_vars(m);
+                    for (expr* v : vars) {
+                        expr* atom = v;
+                        m.is_not(v, atom);
+                        if (!rejected_atoms.contains(atom))
+                            next_vars.push_back(v);
+                    }
+                    if (next_vars.empty() || next_vars.size() == vars.size())
+                        return result;
+                    vars.reset();
+                    vars.append(next_vars);
                 }
             }
             catch (...) {
@@ -1428,16 +1444,16 @@ class parallel_solver {
                         else
                             ++m_stats.m_fallback_singleton_checks;
 
-                        unsigned old_max_conflicts = s->get_params().get_uint("max_conflicts", UINT_MAX);
-                        set_max_conflicts(s, 10);
+                        unsigned old_max_conflicts = s->get_max_conflicts();
+                        s->set_max_conflicts(10);
 
                         for (expr* lit : chunk_lits) {
                             if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
-                                set_max_conflicts(s, old_max_conflicts);
+                                s->set_max_conflicts(old_max_conflicts);
                                 return;
                             }
                             if (!m.inc() || canceled()) {
-                                set_max_conflicts(s, old_max_conflicts);
+                                s->set_max_conflicts(old_max_conflicts);
                                 return;
                             }
                             if (!bb_candidate_lits.contains(lit))
@@ -1465,7 +1481,7 @@ class parallel_solver {
                                         lbool terminal_result = probe_literal(mk_not(m, bb_ref), is_retry);
                                         LOG_BB_WORKER(1, " RESULT: " << terminal_result << " FOR CANDIDATE: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
                                         if (terminal_result != l_undef) {
-                                            set_max_conflicts(s,old_max_conflicts);
+                                            s->set_max_conflicts(old_max_conflicts);
                                             return;
                                         }
                                     }
@@ -1474,7 +1490,7 @@ class parallel_solver {
                             bb_candidate_lits.erase(lit);
                         }
 
-                        set_max_conflicts(s, old_max_conflicts);
+                        s->set_max_conflicts(old_max_conflicts);
                     };
 
                 ++m_stats.m_batches_total;
@@ -1548,7 +1564,7 @@ class parallel_solver {
                         for (expr* a : bb_asms)
                             asms.push_back(a);
 
-                        set_max_conflicts(s,m_bb_conflicts_per_chunk);
+                        s->set_max_conflicts(m_bb_conflicts_per_chunk);
                         lbool r = l_undef;
                         try {
                             r = s->check_sat(asms);
@@ -1673,7 +1689,7 @@ class parallel_solver {
             : id(id), b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             s = src.translate(m, params);
-            set_max_conflicts(s, m_bb_conflicts_per_chunk);
+            s->set_max_conflicts(m_bb_conflicts_per_chunk);
             s->pop_to_base_level();
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
@@ -1769,7 +1785,7 @@ class parallel_solver {
 
                 lbool r = l_undef;
                 try {
-                    set_max_conflicts(s, m_core_minimize_conflict_budget);
+                    s->set_max_conflicts(m_core_minimize_conflict_budget);
                     r = s->check_sat(trial);
                 }
                 catch (z3_error&) {

@@ -449,6 +449,8 @@ namespace sat {
         void set_par(parallel* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() const { return m_config; }
+        void set_max_conflicts(unsigned n) { m_config.m_max_conflicts = n; }
+        unsigned get_max_conflicts() const { return m_config.m_max_conflicts; }
         void set_drat(bool d) { m_config.m_drat = d; }
         drat& get_drat() { return m_drat; }
         drat* get_drat_ptr() { return &m_drat;  }

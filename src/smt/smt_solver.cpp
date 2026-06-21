@@ -268,6 +268,15 @@ namespace {
             m_context.set_preprocess(f);
         }
 
+        void set_max_conflicts(unsigned max_conflicts) override {
+            auto& ctx = m_context.get_context();
+            ctx.get_fparams().m_max_conflicts = max_conflicts;
+        }
+
+        unsigned get_max_conflicts() const override {
+            return m_context.get_context().get_fparams().m_max_conflicts;
+        }
+
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
             ast_manager& m = get_manager();
             auto& ctx = m_context.get_context();
@@ -440,14 +449,13 @@ namespace {
             parallel_params pp(get_params());
             if (!pp.cube_lookahead()) {
                 auto& ctx = m_context.get_context();
-                expr_mark selected_vars;
+                obj_hashtable<expr> selected_vars;
                 for (expr* v : vars)
-                    selected_vars.mark(v);
-                struct candidate {
-                    expr*  e;
-                    double score;
-                };
-                vector<candidate> candidates;
+                    selected_vars.insert(v);
+                expr_ref_vector candidates(m);
+                expr_ref result(m);
+                double score = 0.0;
+                unsigned n = 0;
 
                 ctx.pop_to_search_level();
                 for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
@@ -456,30 +464,22 @@ namespace {
                     expr* e = ctx.bool_var2expr(v);
                     if (!e)
                         continue;
-                    if (!vars.empty() && !selected_vars.is_marked(e))
+                    if (!selected_vars.empty() && !selected_vars.contains(e))
                         continue;
-                    candidates.push_back({ e, ctx.get_activity(v) });
-                }
-
-                std::stable_sort(candidates.begin(), candidates.end(),
-                    [](candidate const& a, candidate const& b) {
-                        return a.score > b.score;
-                    });
-                for (unsigned i = 0, j = 0; i < candidates.size(); i = j) {
-                    j = i + 1;
-                    while (j < candidates.size() && candidates[i].score == candidates[j].score)
-                        ++j;
-                    if (j > i + 1)
-                        shuffle(j - i, candidates.data() + i, m_rand);
+                    candidates.push_back(e);
+                    double new_score = ctx.get_activity(v);
+                    if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
+                        score = new_score;
+                        result = e;
+                    }
                 }
 
                 vars.reset();
-                expr_ref_vector lits(m);
-                for (auto const &c : candidates) {
-                    vars.push_back(c.e);
-                    lits.push_back(c.e);
-                }
+                vars.append(candidates);
 
+                expr_ref_vector lits(m);
+                if (result)
+                    lits.push_back(result);
                 return lits;
             }
 
