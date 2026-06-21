@@ -107,7 +107,7 @@ static bool is_cancellation_exception(char const* msg) {
 }
 
 static void set_max_conflicts(solver_ref& s, unsigned max_conflicts) {
-    params_ref p;
+    params_ref p(s->get_params());
     p.set_uint("max_conflicts", max_conflicts);
     s->updt_params(p);
 }
@@ -1050,8 +1050,8 @@ class parallel_solver {
                     b.set_exception(ex.what());
             } 
             catch (...) {
-                IF_VERBOSE(0, verbose_stream() << "Unknown exception in check_cube\n";);
-                throw;
+                if (!m.limit().is_canceled())
+                    b.set_exception("unknown exception");
             }
             LOG_WORKER(1, " DONE checking cube " << r << "\n";);
             return r;
@@ -1108,53 +1108,32 @@ class parallel_solver {
         }
 
         expr_ref get_split_atom(node_lease const& lease, expr_ref_vector const& cube) {
+            expr_ref result(m);
             if (cube.size() >= m_config.m_max_cube_depth)
-                return expr_ref(nullptr, m);
+                return result;
 
-            expr_ref_vector vars(m);
-            obj_hashtable<expr> rejected_atoms;
-            while (true) {
-                bool rejected = false;
-                try {
-                    expr_ref_vector cands = s->cube(vars, 10);
-                    for (expr *lit : cands) {
-                        if (!lit)
-                            continue;
-                        if (m.is_true(lit) || m.is_false(lit))
-                            continue;
-                        if (b.path_contains_atom(m_l2g, lease, lit))
-                            continue;
-                        if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit)) {
-                            expr *atom = lit;
-                            m.is_not(lit, atom);
-                            rejected_atoms.insert(atom);
-                            rejected = true;
-                            continue;
-                        }
-                        return expr_ref(lit, m);
-                    }
+            expr_ref_vector placeholder_noop(m);
+            try {
+                expr_ref_vector cands = s->cube(placeholder_noop);
+                for (expr* lit : cands) {
+                    if (!lit)
+                        continue;
+                    if (m.is_true(lit) || m.is_false(lit))
+                        continue;
+                    if (b.path_contains_atom(m_l2g, lease, lit))
+                        continue;
+                    if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit))
+                        continue;
+                    result = lit;
+                    return result;
                 }
-                catch (...) {
-                    if (m.limit().is_canceled())
-                        return expr_ref(nullptr, m);
-                    throw;
-                }
-
-                if (!rejected || vars.empty())
-                    return expr_ref(nullptr, m);
-
-                expr_ref_vector next_vars(m);
-                for (expr* v : vars) {
-                    expr* atom = v;
-                    m.is_not(v, atom);
-                    if (!rejected_atoms.contains(atom))
-                        next_vars.push_back(v);
-                }
-                if (next_vars.empty() || next_vars.size() == vars.size())
-                    return expr_ref(nullptr, m);
-                vars.reset();
-                vars.append(next_vars);
             }
+            catch (...) {
+                if (!m.limit().is_canceled())
+                    b.set_exception("unknown exception");
+                return result;
+            }
+            return result;
         }
 
         bb_candidates find_backbone_candidates(expr_ref_vector const& cube, unsigned k = 10) {
@@ -1162,10 +1141,18 @@ class parallel_solver {
             vector<solver::scored_literal> cands;
             try {
                 s->get_backbone_candidates(cands, s->get_num_bool_vars());
+            } catch (z3_error& err) {
+                if (!m.limit().is_canceled())
+                    b.set_exception(err.error_code());
+                return result;
             } catch (z3_exception &ex) {
-                if (m.limit().is_canceled())
-                    return result;
-                throw;
+                if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
+                    b.set_exception(ex.what());
+                return result;
+            } catch (...) {
+                if (!m.limit().is_canceled())
+                    b.set_exception("unknown exception");
+                return result;
             }
             for (auto const& cand : cands) {
                 expr* lit = cand.lit.get();
@@ -1999,6 +1986,12 @@ public:
                 IF_VERBOSE(0, verbose_stream() << "Exception in parallel solver: " << ex.what() << "\n");
                 if (!lim.is_canceled() && !is_cancellation_exception(ex.what()))
                     m_batch_manager.set_exception(ex.what());
+                else
+                    m_batch_manager.set_canceled();
+            } catch (...) {
+                IF_VERBOSE(0, verbose_stream() << "Unknown exception in parallel solver\n");
+                if (!lim.is_canceled())
+                    m_batch_manager.set_exception("unknown exception");
                 else
                     m_batch_manager.set_canceled();
             }

@@ -435,7 +435,7 @@ namespace {
         void  solve_for(vector<solver::solution>& s) override { m_context.solve_for(s); }
 
 
-        expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) override {
+        expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override {
             ast_manager& m = get_manager();
             parallel_params pp(get_params());
             if (!pp.cube_lookahead()) {
@@ -477,8 +477,7 @@ namespace {
                 expr_ref_vector lits(m);
                 for (auto const &c : candidates) {
                     vars.push_back(c.e);
-                    if (lits.size() < cutoff)                       
-                        lits.push_back(c.e);
+                    lits.push_back(c.e);
                 }
 
                 return lits;

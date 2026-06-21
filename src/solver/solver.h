@@ -255,7 +255,7 @@ public:
        \brief extract a lookahead candidates for branching.
     */
 
-    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level=0) = 0;
 
     /**
        \brief retrieve congruence closure root.
@@ -353,4 +353,3 @@ typedef ref<solver> solver_ref;
 inline std::ostream& operator<<(std::ostream& out, solver const& s) {
     return s.display(out);
 }
-
