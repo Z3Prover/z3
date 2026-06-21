@@ -1249,8 +1249,7 @@ class parallel_solver {
                         goto check_cube_start;
                     expr_ref atom = get_split_atom(lease, cube);
                     if (atom) {
-                        b.try_split(m_l2g, id, lease, atom.get(),
-                                    m_config.m_threads_max_conflicts);
+                        b.try_split(m_l2g, id, lease, atom.get(), m_config.m_threads_max_conflicts);
                     }
                     else {
                         goto check_cube_start;

@@ -27,6 +27,7 @@ z3_add_component(params
     sat_params.pyg
     seq_rewriter_params.pyg
     sls_params.pyg
+    smt_parallel_params.pyg
     smt_params_helper.pyg
     solver_params.pyg
     tactic_params.pyg
