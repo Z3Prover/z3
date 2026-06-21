@@ -228,22 +228,19 @@ class parallel_solver {
             cancel_background_threads();
         }
 
-        void release_lease_unlocked(unsigned worker_id, search_tree::node<solver_cube_config>* n) {
-            if (worker_id >= m_worker_leases.size()) return;
-            auto& lease = m_worker_leases[worker_id];
-            if (!lease.leased_node || lease.leased_node != n) return;
-            m_search_tree.dec_active_workers(lease.leased_node);
-            lease = {};
-        }
-
         void release_worker_lease_unlocked(unsigned worker_id, node_lease& lease) {
             if (worker_id >= m_worker_leases.size()) {
                 lease = {};
                 return;
             }
             auto& stored_lease = m_worker_leases[worker_id];
-            bool cancel_signaled = stored_lease.leased_node == lease.leased_node && stored_lease.cancel_signaled;
-            release_lease_unlocked(worker_id, lease.leased_node);
+            if (!stored_lease.leased_node || stored_lease.leased_node != lease.leased_node) {
+                lease = {};
+                return;
+            }
+            bool cancel_signaled = stored_lease.cancel_signaled;
+            m_search_tree.dec_active_workers(stored_lease.leased_node);
+            stored_lease = {};
             lease = {};
             if (cancel_signaled)
                 p.m_workers[worker_id]->limit().dec_cancel();
@@ -739,12 +736,6 @@ class parallel_solver {
                     leased_node->depth() + 1);
                 IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
             }
-        }
-
-        // NSB: this function is not used
-        void release_lease(unsigned worker_id, node_lease const& lease) {
-            std::scoped_lock lock(mux);
-            release_lease_unlocked(worker_id, lease.leased_node);
         }
 
         bool attempt_release_canceled_lease(unsigned worker_id, node_lease& lease) {
