@@ -178,9 +178,11 @@ namespace smt {
             }
 
             void backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
-                                    node_lease const* lease = nullptr, vector<node_lease> const* targets = nullptr);
+                                    node_lease* lease = nullptr, vector<node_lease> const* targets = nullptr);
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
-            void release_lease_unlocked(unsigned worker_id, node* n);
+            void set_canceled_unlocked();
+            void release_worker_lease_unlocked(unsigned worker_id, node_lease& lease);
+            bool attempt_release_canceled_lease_unlocked(unsigned worker_id, node_lease& lease);
             void cancel_closed_leases_unlocked(unsigned source_worker_id);
             void collect_matching_targets_unlocked(node* source, expr* lit, vector<cube_config::literal> const& core,
                                                    vector<node_lease>& targets);
@@ -217,14 +219,14 @@ namespace smt {
             }
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
-            void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
+            void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease& lease);
             void enqueue_core_minimization(ast_translation& l2g, node* source, expr_ref_vector const& core);
             bool wait_for_core_min_job(ast_translation& g2l, node*& source,
                                        expr_ref_vector& core, reslimit& lim);
             void publish_minimized_core(ast_translation& l2g, expr_ref_vector const& asms, node* source,
                                         unsigned original_core_size, expr_ref_vector const& minimized_core);
-            void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
-            void release_lease(unsigned worker_id, node_lease const& lease);
+            void try_split(ast_translation& l2g, unsigned worker_id, node_lease& lease, expr* atom, unsigned effort);
+            bool checkpoint_worker(unsigned worker_id, node_lease& lease, bool& lease_canceled);
             bool lease_canceled(node_lease const& lease);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);

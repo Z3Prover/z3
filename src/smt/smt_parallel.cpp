@@ -763,21 +763,24 @@ namespace smt {
             if (m_config.m_global_backbones) {
                 bb_candidates local_candidates = find_backbone_candidates();
                 b.collect_backbone_candidates(m_l2g, local_candidates);
-                if (!m.inc())
+                bool lease_canceled = false;
+                if (!b.checkpoint_worker(id, lease, lease_canceled))
                     return;
+                if (lease_canceled) {
+                    LOG_WORKER(1, " abandoning canceled lease\n");
+                    continue;
+                }
             }
 
             lbool r = check_cube(cube);
 
-            if (b.lease_canceled(lease)) {
+            bool lease_canceled = false;
+            if (!b.checkpoint_worker(id, lease, lease_canceled))
+                return;
+            if (lease_canceled) {
                 LOG_WORKER(1, " abandoning canceled lease\n");
-                lease = {};
-                m.limit().dec_cancel();
                 continue;
             }
-
-             if (!m.inc())
-                return;
 
             switch (r) {
             case l_undef: {
@@ -790,7 +793,6 @@ namespace smt {
                 if (!atom)
                     goto check_cube_start;
                 b.try_split(m_l2g, id, lease, atom, m_config.m_threads_max_conflicts);
-                lease = {};
                 simplify();
                 break;
             }
@@ -825,7 +827,6 @@ namespace smt {
                 b.backtrack(m_l2g, id, core_to_use, lease);
                 if (m_config.m_core_minimize)
                     b.enqueue_core_minimization(m_l2g, source, unsat_core);
-                lease = {};
 
                 if (m_config.m_share_conflicts)
                     b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
@@ -1105,14 +1106,43 @@ namespace smt {
         return r;
     }
 
-    void parallel::batch_manager::release_lease_unlocked(unsigned worker_id, node* n) {
-        if (worker_id >= m_worker_leases.size())
+    void parallel::batch_manager::set_canceled_unlocked() {
+        if (m_state != state::is_running)
             return;
-        auto &lease = m_worker_leases[worker_id];
-        if (!lease.leased_node || lease.leased_node != n)
+        cancel_background_threads();
+    }
+
+    void parallel::batch_manager::release_worker_lease_unlocked(unsigned worker_id, node_lease& lease) {
+        if (worker_id >= m_worker_leases.size()) {
+            lease = {};
             return;
-        m_search_tree.dec_active_workers(lease.leased_node);
+        }
+        auto& stored_lease = m_worker_leases[worker_id];
+        if (!stored_lease.leased_node || stored_lease.leased_node != lease.leased_node) {
+            lease = {};
+            return;
+        }
+        bool cancel_signaled = stored_lease.cancel_signaled;
+        m_search_tree.dec_active_workers(stored_lease.leased_node);
+        stored_lease = {};
         lease = {};
+        if (cancel_signaled)
+            p.m_workers[worker_id]->limit().dec_cancel();
+    }
+
+    bool parallel::batch_manager::attempt_release_canceled_lease_unlocked(unsigned worker_id, node_lease& lease) {
+        if (m_state != state::is_running || !lease.leased_node || worker_id >= m_worker_leases.size())
+            return false;
+
+        auto& stored_lease = m_worker_leases[worker_id];
+        if (stored_lease.leased_node != lease.leased_node)
+            return false;
+
+        if (!m_search_tree.is_lease_canceled(stored_lease.leased_node))
+            return false;
+
+        release_worker_lease_unlocked(worker_id, lease);
+        return true;
     }
 
     void parallel::batch_manager::cancel_closed_leases_unlocked(unsigned source_worker_id) {
@@ -1132,7 +1162,7 @@ namespace smt {
     }
 
     void parallel::batch_manager::backtrack(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core,
-                                            node_lease const &lease) {
+                                            node_lease& lease) {
         std::scoped_lock lock(mux);
         vector<cube_config::literal> g_core;
         for (auto c : core)
@@ -1363,7 +1393,7 @@ namespace smt {
     }
 
     void parallel::batch_manager::backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
-                                                     node_lease const* lease, vector<node_lease> const* targets) {
+                                                     node_lease* lease, vector<node_lease> const* targets) {
         if (m_state != state::is_running)
             return;
 
@@ -1379,8 +1409,9 @@ namespace smt {
             // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
             did_backtrack = true;
             IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
-            release_lease_unlocked(worker_id, lease->leased_node);
-            m_search_tree.backtrack(lease->leased_node, g_core);
+            node* leased_node = lease->leased_node;
+            release_worker_lease_unlocked(worker_id, *lease);
+            m_search_tree.backtrack(leased_node, g_core);
         }
         if (targets) {
             for (auto const& target : *targets) {
@@ -1410,32 +1441,52 @@ namespace smt {
     }
 
     void parallel::batch_manager::try_split(ast_translation &l2g, unsigned worker_id,
-                                        node_lease const &lease, expr *atom, unsigned effort) {
+                                        node_lease& lease, expr *atom, unsigned effort) {
         std::scoped_lock lock(mux);
         
         if (m_state != state::is_running)
             return;
 
-        if (m_search_tree.is_lease_canceled(lease.leased_node))
+        if (m_search_tree.is_lease_canceled(lease.leased_node)) {
+            attempt_release_canceled_lease_unlocked(worker_id, lease);
             return;
+        }
 
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
         nlit = mk_not(m, lit);
-        bool did_split = m_search_tree.try_split(lease.leased_node, lit, nlit, effort);
+        node* leased_node = lease.leased_node;
+        bool did_split = m_search_tree.try_split(leased_node, lit, nlit, effort);
 
-        release_lease_unlocked(worker_id, lease.leased_node);
+        release_worker_lease_unlocked(worker_id, lease);
 
         if (did_split) {
             ++m_stats.m_num_cubes;
-            m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, lease.leased_node->depth() + 1);
+            m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, leased_node->depth() + 1);
             IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
         }
     }
 
-    void parallel::batch_manager::release_lease(unsigned worker_id, node_lease const &lease) {
+    bool parallel::batch_manager::checkpoint_worker(unsigned worker_id, node_lease& lease, bool& lease_canceled) {
         std::scoped_lock lock(mux);
-        release_lease_unlocked(worker_id, lease.leased_node);
+        lease_canceled = false;
+        SASSERT(worker_id < p.m_workers.size());
+
+        if (attempt_release_canceled_lease_unlocked(worker_id, lease)) {
+            lease_canceled = true;
+            return true;
+        }
+
+        if (p.m_workers[worker_id]->limit().inc())
+            return true;
+
+        if (attempt_release_canceled_lease_unlocked(worker_id, lease)) {
+            lease_canceled = true;
+            return true;
+        }
+
+        set_canceled_unlocked();
+        return false;
     }
 
     bool parallel::batch_manager::lease_canceled(node_lease const &lease) {
