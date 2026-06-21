@@ -1406,7 +1406,7 @@ namespace smt {
                 node *S = s.get_uvar(q, m_var_i);
                 sort *srt = S->get_sort();
 
-                IF_VERBOSE(0, verbose_stream() << "ho_var::populate_inst_sets: " << q->get_id() << " " << mk_pp(srt, m) << "\n";);
+                IF_VERBOSE(3, verbose_stream() << "ho_var::populate_inst_sets: " << q->get_id() << " " << mk_pp(srt, m) << "\n";);
                 term_enumeration tn(m);
                 // Add ground terms of type S.
                 // Add productions for functions in E-graph
@@ -1418,11 +1418,11 @@ namespace smt {
                         continue;
                     auto e = n->get_expr();
                     if (srt == n->get_sort()) {
-                        IF_VERBOSE(0, verbose_stream() << "inserting " << mk_pp(e, m) << " into inst set\n");
+                        TRACE(model_finder, tout << "inserting " << mk_pp(e, m) << " into inst set\n");
                         S->insert(e, n->get_generation());
                     }
                     else if (is_uninterp_const(e)) {
-                        IF_VERBOSE(0, verbose_stream() << "add production " << mk_pp(e, m) << "\n");
+                        TRACE(model_finder, tout << "add production " << mk_pp(e, m) << "\n");
                         tn.add_production(e);
                     }
                     else if (is_uninterp(e)) {
@@ -1430,7 +1430,7 @@ namespace smt {
                         if (visited.is_marked(f))
                             continue;
                         visited.mark(f, true);
-                        IF_VERBOSE(0, verbose_stream() << "add function " << mk_pp(f, m) << "\n");
+                        TRACE(model_finder, tout << "add function " << mk_pp(f, m) << "\n");
                         tn.add_production(f);
                     }
                 }
@@ -1438,7 +1438,7 @@ namespace smt {
                 unsigned max_count = 20;
                 for (auto t : tn.enum_terms(srt)) {
                     unsigned generation = 0; // todo - inherited from sub-term of t?
-                    IF_VERBOSE(0, verbose_stream() << "ho_var: adding term " << mk_ismt2_pp(t, m)
+                    TRACE(model_finder, tout << "ho_var: adding term " << mk_ismt2_pp(t, m)
                                                    << " to instantiation set of S" << std::endl;);
                     S->insert(t, generation);                
                 }
