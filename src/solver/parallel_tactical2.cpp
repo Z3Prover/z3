@@ -1097,50 +1097,28 @@ class parallel_solver {
             if (cube.size() >= m_config.m_max_cube_depth)
                 return result;
 
-            expr_ref_vector vars(m);
-            obj_hashtable<expr> rejected_atoms;
-            try {
-                while (true) {
-                    expr_ref_vector cands = s->cube(vars, 1);
-                    bool rejected = false;
-                    for (expr* lit : cands) {
-                        if (!lit)
-                            continue;
-                        if (m.is_true(lit) || m.is_false(lit))
-                            continue;
-                        if (b.path_contains_atom(m_l2g, lease, lit)) {
-                            expr* atom = lit;
-                            m.is_not(lit, atom);
-                            rejected_atoms.insert(atom);
-                            rejected = true;
-                            continue;
-                        }
-                        if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit)) {
-                            expr* atom = lit;
-                            m.is_not(lit, atom);
-                            rejected_atoms.insert(atom);
-                            rejected = true;
-                            continue;
-                        }
-                        result = lit;
-                        return result;
-                    }
-
-                    if (!rejected || vars.empty())
-                        return result;
-
-                    expr_ref_vector next_vars(m);
-                    for (expr* v : vars) {
-                        expr* atom = v;
-                        m.is_not(v, atom);
-                        if (!rejected_atoms.contains(atom))
-                            next_vars.push_back(v);
-                    }
-                    if (next_vars.empty() || next_vars.size() == vars.size())
-                        return result;
-                    vars.reset();
-                    vars.append(next_vars);
+            obj_hashtable<expr> invalid_split_atoms_set;
+            expr_ref_vector invalid_split_atoms(m);
+            auto mark_invalid_split_atom = [&](expr* lit) {
+                expr* atom = lit;
+                m.is_not(lit, atom);
+                if (!invalid_split_atoms_set.contains(atom)) {
+                    invalid_split_atoms_set.insert(atom);
+                    invalid_split_atoms.push_back(atom);
                 }
+            };
+            for (expr* lit : cube) { // don't split on atoms already in the cube
+                mark_invalid_split_atom(lit);
+            }
+            if (m_config.m_global_backbones) { // don't split on global backbones or their negations
+                expr_ref_vector global_backbones = b.get_global_backbones_snapshot(m_g2l);
+                for (expr* lit : global_backbones) {
+                    mark_invalid_split_atom(lit);
+                }
+            }
+
+            try {
+                return s->cube_vsids(invalid_split_atoms);
             }
             catch (...) {
                 if (!m.limit().is_canceled())

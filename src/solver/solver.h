@@ -257,6 +257,8 @@ public:
 
     virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level=0) = 0;
 
+    virtual expr_ref cube_vsids(expr_ref_vector const&) { return expr_ref(m); }
+
     /**
        \brief retrieve congruence closure root.
     */

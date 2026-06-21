@@ -500,38 +500,8 @@ public:
                 vars.push_back(kv.m_value);
         }
         sat::literal_vector lits;
-        expr_ref_vector fmls(m);
-        parallel_params pp(m_params);
-        if (!pp.cube_lookahead()) {
-            sat::bool_var_vector candidates;
-            sat::bool_var result = sat::null_bool_var;
-            double score = 0.0;
-            unsigned n = 0;
-            unsigned search_lvl = m_solver.search_lvl();
-            for (sat::bool_var v : vars) {
-                if (was_eliminated(v))
-                    continue;
-                if (get_assignment(v) != l_undef && m_solver.lvl(v) <= search_lvl)
-                    continue;
-                candidates.push_back(v);
-                double new_score = get_activity(v);
-                if (new_score > score || result == sat::null_bool_var || (new_score == score && m_solver.rand()(++n) == 0)) {
-                    score = new_score;
-                    result = v;
-                }
-            }
-            vs.reset();
-            for (sat::bool_var v : candidates) {
-                expr* e = bool_var2expr(v);
-                if (e)
-                    vs.push_back(e);
-            }
-            expr* e = result == sat::null_bool_var ? nullptr : bool_var2expr(result);
-            if (e)
-                fmls.push_back(e);
-            return fmls;
-        }
         lbool result = m_solver.cube(vars, lits, backtrack_level);
+        expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
@@ -559,6 +529,49 @@ public:
             set_reason_unknown(m_solver.get_reason_unknown());
         }
         return fmls;
+    }
+
+    expr_ref cube_vsids(expr_ref_vector const& invalid_split_atoms) override {
+        if (!is_internalized()) {
+            lbool r = internalize_formulas();
+            if (r != l_true)
+                return expr_ref(m);
+        }
+        convert_internalized();
+        if (m_solver.inconsistent())
+            return expr_ref(m);
+
+        obj_hashtable<expr> invalid_split_atoms_set;
+        for (expr* e : invalid_split_atoms) {
+            expr* atom = e;
+            m.is_not(e, atom);
+            invalid_split_atoms_set.insert(atom);
+        }
+
+        expr_ref result(m);
+        double score = 0.0;
+        unsigned n = 0;
+        unsigned search_lvl = m_solver.search_lvl();
+        for (auto& kv : m_map) {
+            sat::bool_var v = kv.m_value;
+            if (was_eliminated(v))
+                continue;
+            if (get_assignment(v) != l_undef && m_solver.lvl(v) <= search_lvl)
+                continue;
+            expr* e = kv.m_key;
+            if (!e)
+                continue;
+            expr* atom = e;
+            m.is_not(e, atom);
+            if (invalid_split_atoms_set.contains(atom))
+                continue;
+            double new_score = get_activity(v);
+            if (new_score > score || !result || (new_score == score && m_solver.rand()(++n) == 0)) {
+                score = new_score;
+                result = e;
+            }
+        }
+        return result;
     }
 
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {

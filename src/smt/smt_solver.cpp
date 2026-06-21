@@ -27,7 +27,6 @@ Notes:
 #include "params/smt_params.h"
 #include "params/smt_params_helper.hpp"
 #include "solver/solver_na2as.h"
-#include "solver/parallel_params.hpp"
 #include "solver/mus.h"
 
 #include <algorithm>
@@ -444,45 +443,8 @@ namespace {
         void  solve_for(vector<solver::solution>& s) override { m_context.solve_for(s); }
 
 
-        expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override {
+        expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) override {
             ast_manager& m = get_manager();
-            parallel_params pp(get_params());
-            if (!pp.cube_lookahead()) {
-                auto& ctx = m_context.get_context();
-                obj_hashtable<expr> selected_vars;
-                for (expr* v : vars)
-                    selected_vars.insert(v);
-                expr_ref_vector candidates(m);
-                expr_ref result(m);
-                double score = 0.0;
-                unsigned n = 0;
-
-                ctx.pop_to_search_level();
-                for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
-                    if (ctx.get_assignment(v) != l_undef)
-                        continue;
-                    expr* e = ctx.bool_var2expr(v);
-                    if (!e)
-                        continue;
-                    if (!selected_vars.empty() && !selected_vars.contains(e))
-                        continue;
-                    candidates.push_back(e);
-                    double new_score = ctx.get_activity(v);
-                    if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
-                        score = new_score;
-                        result = e;
-                    }
-                }
-
-                vars.reset();
-                vars.append(candidates);
-
-                expr_ref_vector lits(m);
-                if (result)
-                    lits.push_back(result);
-                return lits;
-            }
-
             if (!m_cuber) {
                 m_cuber = alloc(cuber, *this);
                 // force propagation
@@ -502,6 +464,39 @@ namespace {
             }
             lits.push_back(result);
             return lits;
+        }
+
+        expr_ref cube_vsids(expr_ref_vector const& invalid_split_atoms) override {
+            ast_manager& m = get_manager();
+            auto& ctx = m_context.get_context();
+            obj_hashtable<expr> invalid_split_atoms_set;
+            for (expr* e : invalid_split_atoms) {
+                expr* atom = e;
+                m.is_not(e, atom);
+                invalid_split_atoms_set.insert(atom);
+            }
+            expr_ref result(m);
+            double score = 0.0;
+            unsigned n = 0;
+
+            ctx.pop_to_search_level();
+            for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
+                if (ctx.get_assignment(v) != l_undef)
+                    continue;
+                expr* e = ctx.bool_var2expr(v);
+                if (!e)
+                    continue;
+                expr* atom = e;
+                m.is_not(e, atom);
+                if (invalid_split_atoms_set.contains(atom))
+                    continue;
+                double new_score = ctx.get_activity(v);
+                if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
+                    score = new_score;
+                    result = e;
+                }
+            }
+            return result;
         }
 
         struct collect_fds_proc {
