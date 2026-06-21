@@ -1112,6 +1112,11 @@ namespace smt {
         cancel_background_threads();
     }
 
+    void parallel::batch_manager::set_canceled() {
+        std::scoped_lock lock(mux);
+        set_canceled_unlocked();
+    }
+
     void parallel::batch_manager::release_worker_lease_unlocked(unsigned worker_id, node_lease& lease) {
         if (worker_id >= m_worker_leases.size()) {
             lease = {};
@@ -1901,18 +1906,52 @@ namespace smt {
                                        << m_global_backbones_workers.size() << " global backbone threads.\n";);
 
         m_batch_manager.initialize(num_global_bb_threads);
+
+        auto safe_run = [&](auto&& run_fn, reslimit& lim) {
+            try {
+                run_fn();
+                if (lim.is_canceled())
+                    m_batch_manager.set_canceled();
+            } catch (z3_error &err) {
+                IF_VERBOSE(0, verbose_stream() << "Exception in parallel solver: " << err.what() << "\n");
+                if (!lim.is_canceled())
+                    m_batch_manager.set_exception(err.error_code());
+                else
+                    m_batch_manager.set_canceled();
+            } catch (z3_exception &ex) {
+                IF_VERBOSE(0, verbose_stream() << "Exception in parallel solver: " << ex.what() << "\n");
+                if (!lim.is_canceled() && !is_cancellation_exception(ex.what()))
+                    m_batch_manager.set_exception(ex.what());
+                else
+                    m_batch_manager.set_canceled();
+            } catch (...) {
+                IF_VERBOSE(0, verbose_stream() << "Unknown exception in parallel solver\n");
+                if (!lim.is_canceled())
+                    m_batch_manager.set_exception("unknown exception");
+                else
+                    m_batch_manager.set_canceled();
+            }
+        };
         
         // Launch threads
         vector<std::thread> threads(total_threads);
         unsigned thread_idx = 0;
         for (auto* w : m_workers) 
-            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                
+            threads[thread_idx++] = std::thread([w, &safe_run]() {
+                safe_run([w]() { w->run(); }, w->limit());
+            });
         if (m_sls_worker)
-            threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
+            threads[thread_idx++] = std::thread([this, &safe_run]() {
+                safe_run([this]() { m_sls_worker->run(); }, m_sls_worker->limit());
+            });
         if (m_core_minimizer_worker)
-            threads[thread_idx++] = std::thread([&]() { m_core_minimizer_worker->run(); });
+            threads[thread_idx++] = std::thread([this, &safe_run]() {
+                safe_run([this]() { m_core_minimizer_worker->run(); }, m_core_minimizer_worker->limit());
+            });
         for (auto* w : m_global_backbones_workers) 
-            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                   
+            threads[thread_idx++] = std::thread([w, &safe_run]() {
+                safe_run([w]() { w->run(); }, w->limit());
+            });
 
 
         // Wait for all threads to finish
