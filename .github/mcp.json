@@ -5,7 +5,10 @@
       "args": [
         "aw",
         "mcp-server"
-      ]
+      ],
+      "env": {
+        "GH_AW_DISABLE_UPDATE_CHECKS": "true"
+      }
     }
   }
 }
