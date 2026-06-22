@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "util/backtrackable_set.h"
 #include "ast/ast_util.h"
+#include "ast/has_free_vars.h"
 #include "ast/macros/macro_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -31,6 +32,7 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 #include "ast/well_sorted.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/term_enumeration.h"
 #include "model/model_pp.h"
 #include "model/model_macro_solver.h"
 #include "smt/smt_model_finder.h"
@@ -107,9 +109,15 @@ namespace smt {
                 }
             }
 
-            expr* get_inv(expr* v) const {
+            expr* get_inv(expr* v, model& mdl) const {
                 expr* t = nullptr;
                 m_inv.find(v, t);
+                if (!t) {
+                    for (auto [k, term] : m_inv) {
+                        if (mdl.are_equal(k, v))
+                            return term;
+                    }
+                }
                 return t;
             }
 
@@ -120,14 +128,11 @@ namespace smt {
             }
 
             void mk_inverse(evaluator& ev) {
-                for (auto const& kv : m_elems) {
-                    expr* t = kv.m_key;
+                for (auto const &[t, gen] : m_elems) {
                     SASSERT(!contains_model_value(t));
-                    unsigned gen = kv.m_value;
                     expr* t_val = ev.eval(t, true);
                     if (!t_val) break;
                     TRACE(model_finder, tout << mk_pp(t, m) << " " << mk_pp(t_val, m) << "\n";);
-
                     expr* old_t = nullptr;
                     if (m_inv.find(t_val, old_t)) {
                         unsigned old_t_gen = 0;
@@ -187,14 +192,14 @@ namespace smt {
            \brief Base class used to solve model construction constraints.
         */
         class node {
-            unsigned            m_id;
-            node* m_find{ nullptr };
-            unsigned            m_eqc_size{ 1 };
+            unsigned            m_id = 0;
+            node*               m_find = nullptr;
+            unsigned            m_eqc_size = 1;
 
-            sort* m_sort; // sort of the elements in the instantiation set.
+            sort* m_sort = nullptr; // sort of the elements in the instantiation set.
 
-            bool                m_mono_proj{ false };     // relevant for integers & reals & bit-vectors
-            bool                m_signed_proj{ false };   // relevant for bit-vectors.
+            bool                m_mono_proj = false;     // relevant for integers & reals & bit-vectors
+            bool                m_signed_proj = false;   // relevant for bit-vectors.
             ptr_vector<node>    m_avoid_set;
             ptr_vector<expr>    m_exceptions;
 
@@ -291,7 +296,7 @@ namespace smt {
             }
 
             void insert(expr* n, unsigned generation) {
-                if (is_ground(n))
+                if (is_ground(n) || (has_quantifiers(n) && !has_free_vars(n))) // this is a closed term
                     get_root()->m_set->insert(n, generation);
             }
 
@@ -599,7 +604,10 @@ namespace smt {
                 }
                 else {
                     r = tmp;
-                    TRACE(model_finder, tout << "eval\n" << mk_pp(n, m) << "\n----->\n" << mk_pp(r, m) << "\n";);
+                    TRACE(model_finder, tout << "eval-failed\n" << mk_pp(n, m) << "\n----->\n" << mk_pp(r, m) << "\n";);
+                    if (is_lambda(tmp)) {
+                        r = m.mk_fresh_const("lambda", tmp->get_sort());
+                    }
                 }
                 m_eval_cache[model_completion].insert(n, r);
                 m_eval_cache_range.push_back(r);
@@ -1235,8 +1243,8 @@ namespace smt {
             void populate_inst_sets(quantifier* q, func_decl* mhead, ptr_vector<instantiation_set>& uvar_inst_sets, context* ctx) override {
                 if (m_f != mhead)
                     return;
-                uvar_inst_sets.reserve(m_var_j + 1, 0);
-                if (uvar_inst_sets[m_var_j] == 0)
+                uvar_inst_sets.reserve(m_var_j + 1, nullptr);
+                if (uvar_inst_sets[m_var_j] == nullptr)
                     uvar_inst_sets[m_var_j] = alloc(instantiation_set, ctx->get_manager());
                 instantiation_set* s = uvar_inst_sets[m_var_j];
                 SASSERT(s != nullptr);
@@ -1367,6 +1375,74 @@ namespace smt {
                 // ignored when in macro
             }
 
+        };
+
+        class ho_var : public qinfo {
+            unsigned m_var_i;
+        public:
+            ho_var(ast_manager& m, unsigned i) : qinfo(m), m_var_i(i) {
+            }
+
+            char const *get_kind() const override {
+                return "ho_var";
+            }
+
+            bool is_equal(qinfo const *qi) const override {
+                if (qi->get_kind() != get_kind())
+                    return false;
+                ho_var const *other = static_cast<ho_var const *>(qi);
+                return m_var_i == other->m_var_i;
+            }
+
+            void display(std::ostream &out) const override {
+                out << "(" << "ho-var: " << m_var_i << ")";
+            }
+
+            void process_auf(quantifier *q, auf_solver &s, context *ctx) override {
+                /* node * S_i = */ s.get_uvar(q, m_var_i);
+            }
+
+            void populate_inst_sets(quantifier *q, auf_solver &s, context *ctx) override {
+                node *S = s.get_uvar(q, m_var_i);
+                sort *srt = S->get_sort();
+
+                IF_VERBOSE(3, verbose_stream() << "ho_var::populate_inst_sets: " << q->get_id() << " " << mk_pp(srt, m) << "\n";);
+                term_enumeration tn(m);
+                // Add ground terms of type S.
+                // Add productions for functions in E-graph
+                // add other possible relevant functions such as equality over srt, Boolean operators
+
+                ast_mark visited;
+                for (enode *n : ctx->enodes()) {
+                    if (!ctx->is_relevant(n))
+                        continue;
+                    auto e = n->get_expr();
+                    if (srt == n->get_sort()) {
+                        TRACE(model_finder, tout << "inserting " << mk_pp(e, m) << " into inst set\n");
+                        S->insert(e, n->get_generation());
+                    }
+                    else if (is_uninterp_const(e)) {
+                        TRACE(model_finder, tout << "add production " << mk_pp(e, m) << "\n");
+                        tn.add_production(e);
+                    }
+                    else if (is_uninterp(e)) {
+                        auto f = to_app(e)->get_decl();
+                        if (visited.is_marked(f))
+                            continue;
+                        visited.mark(f, true);
+                        TRACE(model_finder, tout << "add function " << mk_pp(f, m) << "\n");
+                        tn.add_production(f);
+                    }
+                }
+                
+                unsigned max_count = 20;
+                for (auto t : tn.enum_terms(srt)) {
+                    unsigned generation = 0; // todo - inherited from sub-term of t?
+                    TRACE(model_finder, tout << "ho_var: adding term " << mk_ismt2_pp(t, m)
+                                                   << " to instantiation set of S" << std::endl;);
+                    S->insert(t, generation);                
+                }
+            }
         };
 
 
@@ -2105,7 +2181,12 @@ namespace smt {
                         process_app(to_app(curr));
                     }
                     else if (is_var(curr)) {
-                        m_info->m_is_auf = false; // unexpected occurrence of variable.
+                        if (m_array_util.is_array(curr)) {
+                            insert_qinfo(alloc(ho_var, m, to_var(curr)->get_idx()));
+                        }
+                        else {
+                            m_info->m_is_auf = false;  // unexpected occurrence of variable.
+                        }
                     }
                     else {
                         SASSERT(is_lambda(curr));
@@ -2163,7 +2244,6 @@ namespace smt {
                 }
 
                 SASSERT(is_quantifier(atom));
-                UNREACHABLE();
             }
 
             void process_literal(expr* atom, polarity pol) {
@@ -2203,9 +2283,15 @@ namespace smt {
                     if (is_app(curr)) {
                         if (to_app(curr)->get_family_id() == m.get_basic_family_id() && m.is_bool(curr)) {
                             switch (static_cast<basic_op_kind>(to_app(curr)->get_decl_kind())) {
-                            case OP_IMPLIES:
+                            case OP_IMPLIES: 
+                                process_literal(to_app(curr)->get_arg(0), neg(pol));
+                                process_literal(to_app(curr)->get_arg(1), pol);
+                                break;
                             case OP_XOR:
-                                UNREACHABLE(); // simplifier eliminated ANDs, IMPLIEs, and XORs
+                                for (expr *arg : *to_app(curr)) {
+                                    visit_formula(arg, pol);
+                                    visit_formula(arg, neg(pol));
+                                }
                                 break;
                             case OP_OR:
                             case OP_AND:
@@ -2515,11 +2601,12 @@ namespace smt {
 
        Store in generation the generation of the result
     */
-    expr* model_finder::get_inv(quantifier* q, unsigned i, expr* val, unsigned& generation) {
+    expr* model_finder::get_inv(quantifier* q, unsigned i, expr* val, model& mdl,unsigned& generation) {
         instantiation_set const* s = get_uvar_inst_set(q, i);
         if (s == nullptr)
             return nullptr;
-        expr* t = s->get_inv(val);
+        
+        expr* t = s->get_inv(val, mdl);
         if (m_auf_solver->is_default_representative(t))
             return val;
         if (t != nullptr) {
@@ -2555,16 +2642,27 @@ namespace smt {
             obj_map<expr, expr*> const& inv = s->get_inv_map();
             if (inv.empty())
                 continue; // nothing to do
-            ptr_buffer<expr> eqs;
-            for (auto const& [val, _] : inv) {
-                if (val->get_sort() == sk->get_sort())
-                    eqs.push_back(m.mk_eq(sk, val));
+            expr_ref_vector eqs(m), defs(m);
+            
+            for (auto const& [val, term] : inv) {
+                if (val->get_sort() == sk->get_sort()) {
+                    if (is_lambda(term)) {
+                        eqs.push_back(m.mk_eq(sk, val));
+                        defs.push_back(m.mk_eq(val, term));
+                    }
+                    else 
+                       eqs.push_back(m.mk_eq(sk, val));
+                }
             }
             if (!eqs.empty()) {
                 expr_ref new_cnstr(m);
                 new_cnstr = m.mk_or(eqs);
                 TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
                 aux_ctx->assert_expr(new_cnstr);
+                for (auto def : defs) {
+                    TRACE(model_finder, tout << "assert_def:\n" << mk_pp(def, m) << "\n";);
+                    aux_ctx->assert_expr(def);
+                }
                 asserted_something = true;
             }
         }

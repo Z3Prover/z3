@@ -24,6 +24,7 @@ add_executable(test-z3
   api_datalog.cpp
   parametric_datatype.cpp
   arith_rewriter.cpp
+  seq_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
   bdd.cpp
@@ -79,6 +80,7 @@ add_executable(test-z3
   "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   interval.cpp
   karr.cpp
+  lcube.cpp
   list.cpp
   main.cpp
   map.cpp
@@ -143,6 +145,7 @@ add_executable(test-z3
   symbol.cpp
   symbol_table.cpp
   tbv.cpp
+  term_enumeration.cpp
   theory_dl.cpp
   theory_pb.cpp
   timeout.cpp

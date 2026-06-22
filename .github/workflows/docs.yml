@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -34,7 +34,7 @@ jobs:
           python3 mk_go_doc.py --output-dir=api/html/go --go-api-path=../src/api/go
 
       - name: Upload Go Documentation
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: go-docs
           path: doc/api/html/go/
@@ -46,7 +46,7 @@ jobs:
     needs: build-go-docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Setup node
         uses: actions/setup-node@v6

@@ -9,9 +9,20 @@ set(GCC_ONLY_WARNINGS "")
 # Disable C++98 compatibility warnings to prevent excessive warning output
 # when building with clang-cl or when -Weverything is enabled.
 # These warnings are not useful for Z3 since it requires C++20.
+#
+# The "-Wno-zero-length-array" is for cases where Z3 is fetched by a CMake build
+# to serve as a component in another system.  Z3 has many classes whose last member
+# is a zero-length array of some type T, indicating a variable-length array of T.
+# If the including system compiles with "-Wzero-length-array", there will be
+# many warnings.  Overriding this prevents such warnings in the Z3 portion of the
+# build of the including system.
 set(CLANG_ONLY_WARNINGS
   "-Wno-c++98-compat"
   "-Wno-c++98-compat-pedantic"
+  "-Wno-zero-length-array"
+  "-Wc99-extensions"
+  "-Wsuggest-override"
+  "-Winconsistent-missing-override"
 )
 set(MSVC_WARNINGS "/W3")
 

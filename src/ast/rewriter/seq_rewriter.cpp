@@ -3314,11 +3314,20 @@ expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond)
 
 expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     expr_ref _r1(r1, m()), _r2(r2, m());
+    expr *a1, *b1, *a2, *b2;
     SASSERT(m_util.is_re(r1));
     SASSERT(m_util.is_re(r2));
     expr_ref result(m());
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_union(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return (is_subset(r1, r2) ? r2 : (is_subset(r2, r1) ? r1 : re().mk_union(r1, r2))); };
+    std::function<bool(expr *, expr *)> is_complement = [&](expr *a, expr *b) {
+        expr *s;
+        if (re().is_complement(a, s) && s == b)
+            return true;
+        if (re().is_complement(b, s) && s == a)
+            return true;
+        return false;
+    };    
     if (r1 == r2 || re().is_empty(r2) || re().is_full_seq(r1))
         result = r1;
     else if (re().is_empty(r1) || re().is_full_seq(r2))
@@ -3327,8 +3336,28 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
         result = r1;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r2;
-    else
-        result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
+    // (R1 \ R2) U (R2 \ R1) = R1 xor R2
+    else if (false && re().is_intersection(r1, a1, a2) && re().is_intersection(r2, b1, b2) && 
+        is_complement(a1, b2) && is_complement(a2, b1)) {
+        result = re().mk_xor(a1, re().mk_complement(a2));
+    }   
+    else if (false && re().is_intersection(r1, a1, a2) && re().is_intersection(r2, b1, b2) && 
+        is_complement(a1, b1) && is_complement(a2, b2)) {
+        result = re().mk_xor(a1, re().mk_complement(a2));
+    }         
+    else {
+        // Range ∪ Range: [a,b] ∪ [c,d] = [min(a,c), max(b,d)] when overlapping or adjacent
+        unsigned lo1_v = 0, hi1_v = 0, lo2_v = 0, hi2_v = 0;
+        if (re().is_range(r1, lo1_v, hi1_v) && re().is_range(r2, lo2_v, hi2_v) &&
+            lo2_v <= hi1_v + 1 && lo1_v <= hi2_v + 1) {
+            unsigned new_lo = std::min(lo1_v, lo2_v);
+            unsigned new_hi = std::max(hi1_v, hi2_v);
+            result = re().mk_range(r1->get_sort(), new_lo, new_hi);
+        }
+        else
+            result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
+    }
+
     return result;
 }
 
@@ -3357,8 +3386,17 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
         result = r2;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r1;
-    else 
-        result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);    
+    else {
+        // Range ∩ Range: [a,b] ∩ [c,d] = [max(a,c), min(b,d)] or empty
+        unsigned lo1_v = 0, hi1_v = 0, lo2_v = 0, hi2_v = 0;
+        if (re().is_range(r1, lo1_v, hi1_v) && re().is_range(r2, lo2_v, hi2_v)) {
+            unsigned new_lo = std::max(lo1_v, lo2_v);
+            unsigned new_hi = std::min(hi1_v, hi2_v);
+            result = re().mk_range(r1->get_sort(), new_lo, new_hi);
+        }
+        else
+            result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);
+    }
     return result;
 }
 
@@ -4787,6 +4825,42 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
         result = re().mk_plus(re().mk_full_char(a->get_sort()));
         return BR_DONE;
     }
+    // Range complement: comp([a,b]) → [0,a-1] ∪ [b+1,max] (or one half when a=0 or b=max)
+    unsigned lo_v = 0, hi_v = 0;
+    if (re().is_range(a, lo_v, hi_v)) {
+        unsigned max_c = u().max_char();
+        sort *srt = a->get_sort(), *seq_sort;
+        VERIFY(m_util.is_re(a, seq_sort));
+        bool has_left = (lo_v > 0);
+        bool has_right = (hi_v < max_c);
+        auto empty_re = [&]() { return re().mk_empty(srt); };
+        auto len0_re = [&]() { return re().mk_to_re(str().mk_empty(seq_sort)); };
+        auto full_re = [&]() { return re().mk_full_seq(srt); };
+        if (!has_left && !has_right) {
+            // [0, max_c]: complement is empty
+            result = empty_re();
+            return BR_DONE;
+        }
+        if (lo_v > hi_v) {
+            result = full_re();
+            return BR_DONE;
+        }
+        if (!has_left) {
+            // [0, b]: complement is [b+1, max]
+            result = re().mk_union(len0_re(), re().mk_concat(re().mk_range(srt, hi_v + 1, max_c), full_re()));
+            return BR_DONE;
+        }
+        if (!has_right) {
+            // [a, max]: complement is [0, a-1]
+            result = re().mk_union(len0_re(), re().mk_concat(re().mk_range(srt, 0u, lo_v - 1), full_re()));
+            return BR_DONE;
+        }
+        // General: [a, b] → [0, a-1] ∪ [b+1, max]
+        auto left = re().mk_range(srt, 0u, lo_v - 1);
+        auto right = re().mk_range(srt, hi_v + 1, max_c);
+        result = re().mk_union(len0_re(), re().mk_concat(re().mk_union(left, right), full_re()));
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 
@@ -5082,6 +5156,11 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     if (is_empty) {
         sort* srt = re().mk_re(lo->get_sort());
         result = re().mk_empty(srt);
+        return BR_DONE;
+    }
+    // Singleton: re.range "a" "a" → str.to_re "a"
+    if (slo.length() == 1 && shi.length() == 1 && slo[0] == shi[0]) {
+        result = re().mk_to_re(lo);
         return BR_DONE;
     }
 

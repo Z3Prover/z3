@@ -203,6 +203,8 @@ namespace array {
         ctx.push_vec(d.m_parent_lambdas, lambda);
         if (should_prop_upward(d))        
             propagate_select_axioms(d, lambda);
+        if (d.m_has_default)
+            push_axiom(default_axiom(lambda));
     }
 
     void solver::add_parent_default(theory_var v) {

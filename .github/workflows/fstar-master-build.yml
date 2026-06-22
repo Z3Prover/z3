@@ -56,7 +56,7 @@ jobs:
       DISCUSSION_CATEGORY: ${{ github.event.inputs.discussion_category || 'Agentic Workflows' }}
     steps:
       - name: Checkout Z3
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           ref: ${{ env.Z3_REF }}
           fetch-depth: 1
@@ -147,7 +147,7 @@ jobs:
       - name: Upload generated SMT2 artifact
         id: upload_smt2
         if: always() && steps.collect_smt2.outputs.has_files == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fstar-generated-smt2-${{ github.run_id }}
           path: /tmp/gh-aw/agent/smt2-artifact

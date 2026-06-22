@@ -43,6 +43,7 @@ z3_add_component(rewriter
     seq_rewriter.cpp
     seq_regex_bisim.cpp
     seq_skolem.cpp
+    term_enumeration.cpp
     th_rewriter.cpp
     value_sweep.cpp
     var_subst.cpp

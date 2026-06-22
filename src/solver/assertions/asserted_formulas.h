@@ -185,12 +185,12 @@ class asserted_formulas {
     public:                                                             \
         FUNCTOR m_functor;                                              \
         NAME(asserted_formulas& af):simplify_fmls(af, MSG), m_functor ARG {} \
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { \
-            m_functor(j.fml(), n, p);                               \
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { \
+            m_functor(j.fml(), n, p);					\
         }                                                               \
-        virtual void post_op() { if (REDUCE) af.reduce_and_solve(); }   \
-        virtual bool should_apply() const { return APP; }               \
-    };                                                                  \
+        void post_op() override { if (REDUCE) af.reduce_and_solve(); }	\
+        bool should_apply() const override { return APP; }		\
+    };
 
 #define MK_SIMPLIFIERF(NAME, FUNCTOR, MSG, APP, REDUCE) MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, (af.m), REDUCE)
 

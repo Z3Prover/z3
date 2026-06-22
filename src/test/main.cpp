@@ -113,6 +113,7 @@
     X(api_bug) \
     X(api_special_relations) \
     X(arith_rewriter) \
+    X(seq_rewriter) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
@@ -193,7 +194,9 @@
     X(ho_matcher) \
     X(finite_set) \
     X(finite_set_rewriter) \
-    X(fpa)
+    X(fpa) \
+    X(term_enumeration) \
+    X(lcube)
 
 #define FOR_EACH_TEST(X, X_ARGV) \
     FOR_EACH_ALL_TEST(X, X_ARGV) \

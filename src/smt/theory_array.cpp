@@ -396,15 +396,15 @@ namespace smt {
     }
 
     final_check_status theory_array::assert_delayed_axioms() {
-        if (!m_params.m_array_delay_exp_axiom)
-            return FC_DONE;
         final_check_status r = FC_DONE;
-        unsigned num_vars = get_num_vars();
-        for (unsigned v = 0; v < num_vars; ++v) {
-            var_data * d = m_var_data[v];
-            if (d->m_prop_upward && instantiate_axiom2b_for(v))
-                r = FC_CONTINUE;
-        }      
+        if (m_params.m_array_delay_exp_axiom) {
+            unsigned num_vars = get_num_vars();
+            for (unsigned v = 0; v < num_vars; ++v) {
+                var_data *d = m_var_data[v];
+                if (d->m_prop_upward && instantiate_axiom2b_for(v))
+                    r = FC_CONTINUE;
+            }
+        }
         return r;
     }
 

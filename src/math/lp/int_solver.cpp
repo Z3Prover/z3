@@ -44,7 +44,8 @@ namespace lp {
         dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
         unsigned            m_initial_dio_calls_period;
-        
+        unsigned            m_lcube_period;
+
         bool column_is_int_inf(unsigned j) const {
             return lra.column_is_int(j) && (!lia.value_is_int(j));
         }
@@ -52,7 +53,8 @@ namespace lp {
         imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_dio(lia), m_gcd(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
             m_initial_dio_calls_period = settings().dio_calls_period();
-        } 
+            m_lcube_period = settings().m_int_find_cube_period;
+        }
 
         bool has_lower(unsigned j) const {
             switch (lrac.m_column_types()[j]) {
@@ -196,6 +198,25 @@ namespace lp {
             return m_number_of_calls % settings().m_int_find_cube_period == 0;
         }
 
+        // The largest cube test is throttled exponentially: when the polyhedron
+        // does not contain a large enough cube it is unlikely to contain one
+        // later, after more constraints are added, so each failure doubles the
+        // period and a success resets it.
+        bool should_find_lcube() {
+            return settings().lcube() && m_number_of_calls % m_lcube_period == 0;
+        }
+
+        lia_move find_lcube() {
+            lia_move r = int_cube(lia).find_largest_cube();
+            if (r == lia_move::undef) {
+                if (m_lcube_period < (1u << 30))
+                    m_lcube_period *= 2;
+            }
+            else
+                m_lcube_period = settings().m_int_find_cube_period;
+            return r;
+        }
+
         bool should_gomory_cut() {
             bool dio_allows_gomory = !settings().dio() || settings().dio_enable_gomory_cuts() ||
                                       m_dio.some_terms_are_ignored();
@@ -246,6 +267,7 @@ namespace lp {
             ++m_number_of_calls;
             if (r == lia_move::undef) r = patch_basic_columns();
             if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
+            if (r == lia_move::undef && should_find_lcube()) r = find_lcube();
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
             if (r == lia_move::undef && should_gomory_cut()) r = gomory(lia).get_gomory_cuts(2);

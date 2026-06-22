@@ -580,7 +580,7 @@ namespace lp {
             const lar_term* m_t;
             undo_add_term(imp& s, const lar_term* t) : m_s(s), m_t(t) {}
 
-            void undo() {
+            void undo() override {
                 m_s.undo_add_term_method(m_t);
             }
         };

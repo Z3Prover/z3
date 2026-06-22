@@ -132,15 +132,15 @@ public:
     }
     
     void insert(Key * const k, Value const & v) {
-        m_table.insert(key_data(k, v));
+        m_table.insert(key_data{k, v});
     }
 
     void insert(Key * const k, Value && v) {
-        m_table.insert(key_data(k, std::move(v)));
+        m_table.insert(key_data{k, std::move(v)});
     }
     
     Value& insert_if_not_there(Key * k, Value const & v) {
-        return m_table.insert_if_not_there2(key_data(k, v))->get_data().m_value;
+        return m_table.insert_if_not_there2(key_data{k, v})->get_data().m_value;
     }
 
     Value& insert_if_not_there(Key * k, Value && v) {
@@ -190,7 +190,7 @@ public:
     }
     
     iterator find_iterator(Key * k) const { 
-        return m_table.find(key_data(k));
+        return m_table.find(key_data{k});
     }
 
     bool contains(Key * k) const { 
@@ -198,7 +198,7 @@ public:
     }
 
     void remove(Key * k) {
-        m_table.remove(key_data(k));
+        m_table.remove(key_data{k});
     }
     
     void erase(Key * k) {
@@ -209,7 +209,7 @@ public:
 
     void get_collisions(Key * k, vector<Key*>& collisions) {
         vector<key_data> cs;
-        m_table.get_collisions(key_data(k), cs);
+        m_table.get_collisions(key_data{k}, cs);
         for (key_data const& kd : cs) {
             collisions.push_back(kd.m_key);
         }
@@ -239,5 +239,3 @@ void erase_dealloc_value(obj_map<Key, Value*> & m, Key * k) {
         dealloc(v);
     }
 }
-
-

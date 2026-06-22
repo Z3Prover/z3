@@ -67,7 +67,6 @@ namespace smt {
         return mk_select(num_args, args);
     }
 
-
     app * theory_array_base::mk_store(unsigned num_args, expr * const * args) {
         return m.mk_app(get_family_id(), OP_STORE, 0, nullptr, num_args, args);
     }
@@ -279,7 +278,7 @@ namespace smt {
         SASSERT(n1->get_num_args() == n2->get_num_args());
         unsigned n = n1->get_num_args();
         // skipping first argument of the select.
-        for(unsigned i = 1; i < n; ++i) {
+        for (unsigned i = 1; i < n; ++i) {
             if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root()) {
                 return false;
             }
@@ -295,9 +294,8 @@ namespace smt {
         enode * r1    = v1->get_root();
         enode * r2    = v2->get_root();
 
-        if (r1->get_class_size() > r2->get_class_size()) {
-            std::swap(r1, r2);
-        }
+        if (r1->get_class_size() > r2->get_class_size()) 
+            std::swap(r1, r2);        
 
         m_array_value.reset();
         // populate m_array_value if the select(a, i) parent terms of r1
@@ -335,7 +333,7 @@ namespace smt {
             return false; // axiom was already instantiated
         if (already_diseq(n1, n2))
             return false;
-        m_extensionality_todo.push_back(std::make_pair(n1, n2));         
+        m_extensionality_todo.push_back({n1, n2});         
         return true;
     }
 
@@ -348,7 +346,7 @@ namespace smt {
         enode * nodes[2] = { a1, a2 };
         if (!ctx.add_fingerprint(this, 1, 2, nodes))
             return; // axiom was already instantiated
-        m_congruent_todo.push_back(std::make_pair(a1, a2));         
+        m_congruent_todo.push_back({a1, a2});         
     }
 
    
@@ -581,11 +579,11 @@ namespace smt {
                 enode *    n2 = get_enode(v2);
                 sort *     s2 = n2->get_sort();
                 if (s1 == s2 && !ctx.is_diseq(n1, n2)) {
-                    app * eq  = mk_eq_atom(n1->get_expr(), n2->get_expr());
-                    if (!ctx.b_internalized(eq) || !ctx.is_relevant(eq)) {
+                    app_ref eq  = app_ref(mk_eq_atom(n1->get_expr(), n2->get_expr()), m);
+                    if (!ctx.b_internalized(eq.get()) || !ctx.is_relevant(eq.get())) {
                         result++;
                         ctx.internalize(eq, true);
-                        ctx.mark_as_relevant(eq);
+                        ctx.mark_as_relevant(eq.get());
                     }
                 }
             }
@@ -850,7 +848,7 @@ namespace smt {
                 if (i < num_args) {
                     SASSERT(!parent_sel_set->contains(sel) || (*(parent_sel_set->find(sel)))->get_root() == sel->get_root());
                     parent_sel_set->insert(sel);
-                    todo.push_back(std::make_pair(parent_root, sel));
+                    todo.push_back({parent_root, sel});
                 }
             }
         }

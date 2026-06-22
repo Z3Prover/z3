@@ -31,7 +31,7 @@ jobs:
       ASAN_OPTIONS: "detect_leaks=1:halt_on_error=0:print_stats=1:log_path=/tmp/asan"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -104,7 +104,7 @@ jobs:
 
       - name: Upload ASan reports
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: asan-reports
           path: /tmp/asan-reports/
@@ -121,7 +121,7 @@ jobs:
       UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=0:log_path=/tmp/ubsan"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -194,7 +194,7 @@ jobs:
 
       - name: Upload UBSan reports
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: ubsan-reports
           path: /tmp/ubsan-reports/
