@@ -424,16 +424,21 @@ class parallel_solver {
             SASSERT(lease != nullptr || targets != nullptr);
             bool did_backtrack = false;
 
-            if (lease && !m_search_tree.is_lease_canceled(lease->leased_node)) {
-                // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
-                // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
-                auto* leased_node = lease->leased_node;
-                did_backtrack = true;
-                release_worker_lease_unlocked(worker_id, *lease);
-                m_search_tree.backtrack(leased_node, g_core);
-            }
-            else if (lease) {
-                attempt_release_canceled_lease_unlocked(worker_id, *lease);
+            if (lease) {
+                if (!m_search_tree.is_lease_canceled(lease->leased_node)) {
+                    // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
+                    // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
+                    did_backtrack = true;
+                    IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
+                    auto* leased_node = lease->leased_node;
+                    release_worker_lease_unlocked(worker_id, *lease);
+                    m_search_tree.backtrack(leased_node, g_core);
+                }
+                else { 
+                    // the lease was canceled by another worker. don't backtrack on this node with the new, arbitrary core we just found with this thread
+                    // however, we do proceed to external targets, since the new code may have exposed new external targets we can close/backtrack
+                    attempt_release_canceled_lease_unlocked(worker_id, *lease);
+                }
             }
             if (targets) {
                 for (auto const& target : *targets) {
