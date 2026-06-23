@@ -25,5 +25,11 @@ ldflags = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -sWASM_BIGINT"
 build = "cp314-*"
 
 [tool.cibuildwheel.pyodide]
+# Pin the Pyodide runtime so the emscripten ABI (and thus the wheel's
+# pyemscripten_YYYY_P tag) can't drift when cibuildwheel's default moves.
+# 314.0.0 == CPython 3.14 / emscripten 5.0.3 -> pyemscripten_2026_0_wasm32, and
+# is exactly what cibuildwheel 4.1.0 resolves by default for cp314. This is the
+# stable line; bump it (and load the matching Pyodide in the browser) in lockstep.
+pyodide-version = "314.0.0"
 # z3test.py is the upstream smoke test; run it inside the Pyodide test venv.
 test-command = "python {project}/z3test.py z3"
