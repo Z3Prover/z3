@@ -68,8 +68,8 @@ private:
     inline ast_manager & m() const { return m_manager; }
 
     // label for an expression
-    std::string label_of_expr(const expr * e) const {
-        expr_ref er((expr*)e, m());
+    std::string label_of_expr(const expr *e) const {
+        expr_ref er(const_cast<expr *>(e), m());
         std::ostringstream out;
         out << er << std::flush;
         return escape_dot(out.str());
