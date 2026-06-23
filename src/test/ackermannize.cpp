@@ -175,7 +175,7 @@ static void test_ackr_bound_probe() {
 // by the BV solver back to a model for the original formula (with UF).
 // The two null-pointer guards in ackr_model_converter.cpp are exercised here.
 //
-static void test_ackermannize_bv_model() {
+[[maybe_unused]] static void test_ackermannize_bv_model() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);

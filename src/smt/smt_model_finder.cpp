@@ -1435,7 +1435,6 @@ namespace smt {
                     }
                 }
                 
-                unsigned max_count = 20;
                 for (auto t : tn.enum_terms(srt)) {
                     unsigned generation = 0; // todo - inherited from sub-term of t?
                     TRACE(model_finder, tout << "ho_var: adding term " << mk_ismt2_pp(t, m)

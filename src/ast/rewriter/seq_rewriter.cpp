@@ -4829,7 +4829,7 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     unsigned lo_v = 0, hi_v = 0;
     if (re().is_range(a, lo_v, hi_v)) {
         unsigned max_c = u().max_char();
-        sort *srt = a->get_sort(), *seq_sort;
+        sort *srt = a->get_sort(), *seq_sort = nullptr;
         VERIFY(m_util.is_re(a, seq_sort));
         bool has_left = (lo_v > 0);
         bool has_right = (hi_v < max_c);

@@ -81,12 +81,12 @@ void tst_model_evaluator() {
         SASSERT(fi2.num_entries() == 1);
 
         expr_ref removed_arg(a.mk_int(0), m);
-        expr* removed_args[1] = { removed_arg.get() };
+        [[maybe_unused]] expr* removed_args[1] = { removed_arg.get() };
         SASSERT(fi2.get_entry(removed_args) == nullptr);
 
         expr_ref kept_arg(a.mk_int(599), m);
         expr* kept_args[1] = { kept_arg.get() };
-        func_entry* kept = fi2.get_entry(kept_args);
+        [[maybe_unused]] func_entry* kept = fi2.get_entry(kept_args);
         SASSERT(kept != nullptr);
         SASSERT(kept->get_result() == one.get());
     }
