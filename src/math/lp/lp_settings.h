@@ -264,6 +264,7 @@ private:
     bool             m_dio_ignore_big_nums = false;
     unsigned         m_dio_calls_period = 4;
     unsigned         m_dio_calls_period_decrease = 2;
+    bool             m_dio_calls_period_trace = false;
     bool             m_dio_run_gcd = true;
     bool             m_random_hammers = true;
     bool             m_lcube = true;
@@ -275,6 +276,8 @@ public:
     unsigned & dio_calls_period() { return m_dio_calls_period; }
     unsigned dio_calls_period_decrease() const { return m_dio_calls_period_decrease; }
     unsigned & dio_calls_period_decrease() { return m_dio_calls_period_decrease; }
+    bool dio_calls_period_trace() const { return m_dio_calls_period_trace; }
+    bool & dio_calls_period_trace() { return m_dio_calls_period_trace; }
     bool random_hammers() const { return m_random_hammers; }
     bool & random_hammers() { return m_random_hammers; }
     bool print_external_var_name() const { return m_print_external_var_name; }

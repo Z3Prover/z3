@@ -180,8 +180,9 @@ namespace lp {
                 lia.settings().dio_calls_period() = m_initial_dio_calls_period;
                 lia.settings().dio_enable_gomory_cuts() = false;
                 lia.settings().set_run_gcd_test(false);
-                IF_VERBOSE(2, verbose_stream() << "dio_period: call " << m_number_of_calls
-                           << " conflict reset period=" << lia.settings().dio_calls_period() << "\n";);
+                if (lia.settings().dio_calls_period_trace())
+                    verbose_stream() << "dio_period: call " << m_number_of_calls
+                        << " conflict reset period=" << lia.settings().dio_calls_period() << "\n";
                 return lia_move::conflict;
             }
             if (r == lia_move::undef) {
@@ -190,14 +191,29 @@ namespace lp {
                     lia.settings().dio_enable_gomory_cuts() = true;
                     lia.settings().set_run_gcd_test(true);
                 }
-                IF_VERBOSE(2, verbose_stream() << "dio_period: call " << m_number_of_calls
-                           << " undef double period=" << lia.settings().dio_calls_period()
-                           << (lia.settings().dio_enable_gomory_cuts() ? " (gomory+gcd on)" : "") << "\n";);
+                if (lia.settings().dio_calls_period_trace())
+                    verbose_stream() << "dio_period: call " << m_number_of_calls
+                        << " undef double period=" << lia.settings().dio_calls_period()
+                        << (lia.settings().dio_enable_gomory_cuts() ? " (gomory+gcd on)" : "") << "\n";
             }
             return r;
         }
 
         lp_settings& settings() { return lra.settings(); }
+
+        void trace_hammer(char const* name, lia_move r) {
+            if (r == lia_move::undef || !settings().dio_calls_period_trace())
+                return;
+            char const* res =
+                r == lia_move::sat ? "sat" :
+                r == lia_move::branch ? "branch" :
+                r == lia_move::cut ? "cut" :
+                r == lia_move::conflict ? "conflict" :
+                r == lia_move::continue_with_check ? "continue" :
+                r == lia_move::cancelled ? "cancelled" : "undef";
+            verbose_stream() << "hammer: call " << m_number_of_calls
+                << " " << name << " -> " << res << "\n";
+        }
         
         // Decide whether a periodic heuristic fires on this call. When
         // random_hammers is enabled the gate is drawn at random with the same
@@ -248,8 +264,9 @@ namespace lp {
                 unsigned dec = settings().dio_calls_period_decrease();
                 unsigned& period = lia.settings().dio_calls_period();
                 period = period > m_initial_dio_calls_period + dec ? period - dec : m_initial_dio_calls_period;
-                IF_VERBOSE(2, verbose_stream() << "dio_period: call " << m_number_of_calls
-                           << " idle decrease period=" << period << "\n";);
+                if (settings().dio_calls_period_trace())
+                    verbose_stream() << "dio_period: call " << m_number_of_calls
+                        << " idle decrease period=" << period << "\n";
             }
             return ret;
         }
@@ -285,6 +302,7 @@ namespace lp {
 
             if (m_gcd.should_apply() || (settings().dio() && m_dio.some_terms_are_ignored()))
                 r = m_gcd();
+            trace_hammer("gcd", r);
 
             check_return_helper pc(lra);
 
@@ -293,13 +311,14 @@ namespace lp {
 
             ++m_number_of_calls;
             if (r == lia_move::undef) r = patch_basic_columns();
-            if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
-            if (r == lia_move::undef && should_find_lcube()) r = find_lcube();
+            trace_hammer("patch", r);
+            if (r == lia_move::undef && should_find_cube()) { r = int_cube(lia)(); trace_hammer("cube", r); }
+            if (r == lia_move::undef && should_find_lcube()) { r = find_lcube(); trace_hammer("lcube", r); }
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
-            if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
-            if (r == lia_move::undef && should_gomory_cut()) r = gomory(lia).get_gomory_cuts(2);
+            if (r == lia_move::undef && should_hnf_cut()) { r = hnf_cut(); trace_hammer("hnf", r); }
             if (r == lia_move::undef && should_solve_dioph_eq()) r = solve_dioph_eq();
-            if (r == lia_move::undef) r = int_branch(lia)();
+            if (r == lia_move::undef && should_gomory_cut()) { r = gomory(lia).get_gomory_cuts(2); trace_hammer("gomory", r); }
+            if (r == lia_move::undef) { r = int_branch(lia)(); trace_hammer("branch", r); }
             if (settings().get_cancel_flag()) r = lia_move::undef;        
             return r;
         }
