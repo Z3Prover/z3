@@ -241,7 +241,6 @@ public:
         m_arity = prod.domain.size();
         if (m_arity == 0) {
             m_done = true;
-
             return;
         }
         for (unsigned i = 0; i < m_arity; ++i) {
