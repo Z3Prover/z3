@@ -180,6 +180,8 @@ namespace lp {
                 lia.settings().dio_calls_period() = m_initial_dio_calls_period;
                 lia.settings().dio_enable_gomory_cuts() = false;
                 lia.settings().set_run_gcd_test(false);
+                IF_VERBOSE(2, verbose_stream() << "dio_period: call " << m_number_of_calls
+                           << " conflict reset period=" << lia.settings().dio_calls_period() << "\n";);
                 return lia_move::conflict;
             }
             if (r == lia_move::undef) {
@@ -188,6 +190,9 @@ namespace lp {
                     lia.settings().dio_enable_gomory_cuts() = true;
                     lia.settings().set_run_gcd_test(true);
                 }
+                IF_VERBOSE(2, verbose_stream() << "dio_period: call " << m_number_of_calls
+                           << " undef double period=" << lia.settings().dio_calls_period()
+                           << (lia.settings().dio_enable_gomory_cuts() ? " (gomory+gcd on)" : "") << "\n";);
             }
             return r;
         }
@@ -243,6 +248,8 @@ namespace lp {
                 unsigned dec = settings().dio_calls_period_decrease();
                 unsigned& period = lia.settings().dio_calls_period();
                 period = period > m_initial_dio_calls_period + dec ? period - dec : m_initial_dio_calls_period;
+                IF_VERBOSE(2, verbose_stream() << "dio_period: call " << m_number_of_calls
+                           << " idle decrease period=" << period << "\n";);
             }
             return ret;
         }
