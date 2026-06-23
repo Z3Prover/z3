@@ -753,13 +753,22 @@ namespace seq {
 
 
 
-        // TODO: Distribution of intersection over union
-        // Disabled pending performance analysis
-        // expr *u1, *u2;
-        // if (re().is_union(a, u1, u2))
-        //     return mk_union(mk_inter(u1, b), mk_inter(u2, b));
-        // if (re().is_union(b, u1, u2))
-        //     return mk_union(mk_inter(a, u1), mk_inter(a, u2));
+        // Distribution of intersection over union:  (x ∪ y) ∩ b → (x ∩ b) ∪ (y ∩ b).
+        // This is essential for keeping the symbolic derivative a proper
+        // *transition regex*: with antimirov derivatives the operands of an
+        // intersection are unions of ITE-branches.  If the intersection is left
+        // *above* the union/ITE structure, the solver's get_derivative_targets
+        // (which only descends through top-level ITE and union, not
+        // intersection) cannot decompose the transition regex into ground
+        // target states.  The result is a handful of gigantic states still
+        // carrying the (:var 0) character conditions, on which the solver's
+        // cofactor/accept enumeration explodes.  Distributing here pushes the
+        // intersection into the ITE leaves so states stay small and ground.
+        expr *u1 = nullptr, *u2 = nullptr;
+        if (re().is_union(a, u1, u2))
+            return mk_union(mk_inter(u1, b), mk_inter(u2, b));
+        if (re().is_union(b, u1, u2))
+            return mk_union(mk_inter(a, u1), mk_inter(a, u2));
 
         // Base case: build raw intersection
         return m_re.mk_inter(a, b);
