@@ -225,7 +225,7 @@ def _copy_bins():
     os.mkdir(BINS_DIR)
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
-    if BUILD_PLATFORM not in ('emscripten',):
+    if BUILD_PLATFORM != 'emscripten':
         shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
     path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
     path2 = glob.glob(os.path.join(BUILD_DIR, "vcomp*"))
@@ -356,7 +356,7 @@ class bdist_wheel(_bdist_wheel):
 
 
 data_files = [('bin', [os.path.join('bin', EXECUTABLE_FILE)])]
-if BUILD_PLATFORM in ('emscripten',):
+if BUILD_PLATFORM == 'emscripten':
     data_files = []
 
 setup(
