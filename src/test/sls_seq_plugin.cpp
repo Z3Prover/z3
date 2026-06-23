@@ -199,7 +199,7 @@ struct test_seq {
     ptr_vector<expr> const& lhs(expr* eq) {
         auto& ev = get_eval(eq);
         if (ev.lhs.empty()) {
-            expr* x, * y;
+            expr* x = nullptr, * y = nullptr;
             VERIFY(m.is_eq(eq, x, y));
             seq.str.get_concat(x, ev.lhs);
             seq.str.get_concat(y, ev.rhs);

@@ -20,7 +20,7 @@ It traverses the same sub-terms many times.
 
 Outline of a presumably better scheme:
 
-1. maintain map FV: term -> bit-set where bitset reprsents set of free variables. Assume the number of variables is bounded.
+1. maintain map FV: term -> bit-set where bitset represents set of free variables. Assume the number of variables is bounded.
    FV is built from initial terms.
 2. maintain parent: term -> term-list of parent occurrences.
 3. repeat
