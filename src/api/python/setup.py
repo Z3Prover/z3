@@ -225,7 +225,8 @@ def _copy_bins():
     os.mkdir(BINS_DIR)
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
-    shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
+    if BUILD_PLATFORM not in ('emscripten',):
+        shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
     path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
     path2 = glob.glob(os.path.join(BUILD_DIR, "vcomp*"))
     path3 = glob.glob(os.path.join(BUILD_DIR, "vcrun*"))
@@ -354,6 +355,10 @@ class bdist_wheel(_bdist_wheel):
         return super().finalize_options()
 
 
+data_files = [('bin', [os.path.join('bin', EXECUTABLE_FILE)])]
+if BUILD_PLATFORM in ('emscripten',):
+    data_files = []
+
 setup(
     name='z3-solver',
     version=_z3_version(),
@@ -372,6 +377,6 @@ setup(
     package_data={
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
-    data_files=[('bin',[os.path.join('bin',EXECUTABLE_FILE)])],
+    data_files=data_files,
     cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_wheel': bdist_wheel},
 )
