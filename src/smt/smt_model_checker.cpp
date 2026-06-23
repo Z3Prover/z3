@@ -233,7 +233,6 @@ namespace smt {
             }
             else {
                 expr * sk_term = get_term_from_ctx(sk_value);
-                func_decl * f = nullptr;
                 if (sk_term != nullptr) {
                     TRACE(model_checker, tout << "sk term " << mk_pp(sk_term, m) << "\n");
                     sk_value = sk_term;

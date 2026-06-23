@@ -437,12 +437,11 @@ namespace smt {
                     return lit == arg;
             };
             auto lit1 = clause.get(0);
-            auto lit2 = clause.get(1);
             auto position = 0;
             if (is_complement_to(is_true, lit1, e))
                 position = 0;
             else {
-                SASSERT(is_complement_to(is_true, lit2, e));
+                SASSERT(is_complement_to(is_true, clause.get(1), e));
                 position = 1;
             }
             

@@ -236,11 +236,12 @@ private:
 class children_iterator {
 public:
     children_iterator(ast_manager& m, production const& prod, term_bank const& bank, unsigned current_cost)
-        : m(m), m_prod(prod), m_current_cost(current_cost), m_done(false)
+        : m(m), m_done(false)
     {
         m_arity = prod.domain.size();
         if (m_arity == 0) {
             m_done = true;
+
             return;
         }
         for (unsigned i = 0; i < m_arity; ++i) {
@@ -276,8 +277,6 @@ public:
 
 private:
     ast_manager& m;
-    production const& m_prod;
-    unsigned m_current_cost;
     unsigned m_arity;
     bool m_done;
     vector<cost_terms> m_candidates;
