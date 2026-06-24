@@ -758,6 +758,10 @@ namespace smt {
 
         bool model_based() const override { return m_fparams->m_mbqi; }
 
+        static bool is_unhandled_seq_replace(seq_util& seq, app* n) {
+            return seq.str.is_replace_all(n) || seq.str.is_replace_re(n) || seq.str.is_replace_re_all(n);
+        }
+
         bool has_unhandled_seq_op(quantifier* q) const {
             seq_util seq(m_context->get_manager());
             expr_fast_mark1 visited;
@@ -765,11 +769,12 @@ namespace smt {
                 seq_util& seq;
                 bool found = false;
                 void operator()(app* n) {
-                    // The sequence theory sends these regex/string replacement
-                    // operators through add_unhandled_expr during
+                    // The sequence theory sends str.replace_all,
+                    // str.replace_re, and str.replace_re_all through
+                    // add_unhandled_expr during
                     // internalization, so avoid using their quantifiers for
                     // E-matching until they are supported soundly.
-                    found |= seq.str.is_replace_all(n) || seq.str.is_replace_re(n) || seq.str.is_replace_re_all(n);
+                    found |= is_unhandled_seq_replace(seq, n);
                 }
                 void operator()(expr*) {}
             };
