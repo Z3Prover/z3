@@ -761,15 +761,18 @@ namespace smt {
         bool has_unhandled_seq_op(quantifier* q) const {
             seq_util seq(m_context->get_manager());
             expr_fast_mark1 visited;
-            struct proc {
+            struct replacement_op_detector {
                 seq_util& seq;
                 bool found = false;
                 void operator()(app* n) {
+                    // String replacement terms are treated as unhandled by the
+                    // sequence theory, so avoid using their quantifiers for
+                    // E-matching until they are supported soundly.
                     found |= seq.str.is_replace_all(n) || seq.str.is_replace_re(n) || seq.str.is_replace_re_all(n);
                 }
                 void operator()(expr*) {}
             };
-            proc p{ seq };
+            replacement_op_detector p{ seq };
             quick_for_each_expr(p, visited, q->get_expr());
             return p.found;
         }
