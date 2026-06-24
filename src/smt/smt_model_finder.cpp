@@ -2180,12 +2180,7 @@ namespace smt {
                         process_app(to_app(curr));
                     }
                     else if (is_var(curr)) {
-                        if (m_array_util.is_array(curr)) {
-                            insert_qinfo(alloc(ho_var, m, to_var(curr)->get_idx()));
-                        }
-                        else {
-                            m_info->m_is_auf = false;  // unexpected occurrence of variable.
-                        }
+                        m_info->m_is_auf = false; // unexpected occurrence of variable.
                     }
                     else {
                         SASSERT(is_lambda(curr));
