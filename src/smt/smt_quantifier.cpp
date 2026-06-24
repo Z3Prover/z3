@@ -765,10 +765,10 @@ namespace smt {
                 seq_util& seq;
                 bool found = false;
                 void operator()(app* n) {
-                    // The sequence theory currently marks these regex/string
-                    // replacement operators as unhandled, so avoid using their
-                    // quantifiers for E-matching until they are supported
-                    // soundly.
+                    // The sequence theory sends these regex/string replacement
+                    // operators through add_unhandled_expr during
+                    // internalization, so avoid using their quantifiers for
+                    // E-matching until they are supported soundly.
                     found |= seq.str.is_replace_all(n) || seq.str.is_replace_re(n) || seq.str.is_replace_re_all(n);
                 }
                 void operator()(expr*) {}
