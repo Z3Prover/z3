@@ -13,7 +13,9 @@ void tst_quant_soundness() {
 (assert (forall ((x String) (y String)) (or (= 0 (n y "")) (= 0 (str.len (str.++ (str.replace_re_all y (re.* (str.to_re y)) (str.from_int (n x y))) (str.from_code (str.to_code (str.at x (mod (abs (n y x)) (str.len x)))))))))))
 (assert (= u (str.from_int (n u "."))))
 )";
-    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
     Z3_ast_vector fmls = Z3_parse_smtlib2_string(ctx, benchmark, 0, nullptr, nullptr, 0, nullptr, nullptr);
     Z3_ast_vector_inc_ref(ctx, fmls);
     Z3_solver s = Z3_mk_solver(ctx);
