@@ -117,6 +117,7 @@ add_executable(test-z3
   prime_generator.cpp
   proof_checker.cpp
   qe_arith.cpp
+  quant_soundness.cpp
   mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp

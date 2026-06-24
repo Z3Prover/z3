@@ -247,12 +247,10 @@ static void test_quant_solve1() {
     test_quant_solver(m, "(exists ((t Tuple)) (not (= P (second t))))");
     test_quant_solver(m, "(exists ((t Tuple)) (not (= r2 (third t))))");
 }
-
-
 void tst_quant_solve() {
     disable_debug("heap");
 
-    test_quant_solve1();   
+    test_quant_solve1();
 
 #if 0
     memory::finalize();
@@ -262,5 +260,3 @@ void tst_quant_solve() {
     exit(0);
 #endif
 }
-
-

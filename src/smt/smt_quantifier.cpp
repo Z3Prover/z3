@@ -18,7 +18,9 @@ Revision History:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/for_each_expr.h"
 #include "ast/quantifier_stat.h"
+#include "ast/seq_decl_plugin.h"
 #include "ast/euf/ho_matcher.h"
 #include "ast/rewriter/var_subst.h"
 #include "smt/smt_quantifier.h"
@@ -756,6 +758,27 @@ namespace smt {
 
         bool model_based() const override { return m_fparams->m_mbqi; }
 
+        bool has_unhandled_seq_op(quantifier* q) const {
+            seq_util seq(m());
+            expr_fast_mark1 visited;
+            struct proc {
+                seq_util& seq;
+                bool found = false;
+                void operator()(app* n) {
+                    auto* f = n->get_decl();
+                    found |= seq.str.is_replace_all(f) || seq.str.is_replace_re(f) || seq.str.is_replace_re_all(f);
+                }
+                void operator()(expr*) {}
+            };
+            proc p{ seq };
+            quick_for_each_expr(p, visited, q->get_expr());
+            return p.found;
+        }
+
+        bool ematching_enabled(quantifier* q) const {
+            return m_fparams->m_ematching && !has_unhandled_seq_op(q);
+        }
+
         bool mbqi_enabled(quantifier *q) const override {
             if (!m_fparams->m_mbqi_id) return true;
             const symbol &s = q->get_qid();
@@ -800,7 +823,7 @@ namespace smt {
             m_active = true;
             ast_manager& m = m_context->get_manager();
             (void)m;
-            if (!m_fparams->m_ematching) {
+            if (!ematching_enabled(q)) {
                 return;
             }
             bool has_unary_pattern = false;

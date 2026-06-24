@@ -160,6 +160,7 @@
     X(datalog_parser) \
     X_ARGV(datalog_parser_file) \
     X(dl_query) \
+    X(quant_soundness) \
     X(quant_solve) \
     X(rcf) \
     X(polynorm) \
