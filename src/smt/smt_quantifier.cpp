@@ -759,14 +759,13 @@ namespace smt {
         bool model_based() const override { return m_fparams->m_mbqi; }
 
         bool has_unhandled_seq_op(quantifier* q) const {
-            seq_util seq(m());
+            seq_util seq(m_context->get_manager());
             expr_fast_mark1 visited;
             struct proc {
                 seq_util& seq;
                 bool found = false;
                 void operator()(app* n) {
-                    auto* f = n->get_decl();
-                    found |= seq.str.is_replace_all(f) || seq.str.is_replace_re(f) || seq.str.is_replace_re_all(f);
+                    found |= seq.str.is_replace_all(n) || seq.str.is_replace_re(n) || seq.str.is_replace_re_all(n);
                 }
                 void operator()(expr*) {}
             };

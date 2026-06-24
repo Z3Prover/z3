@@ -4,18 +4,15 @@ Copyright (c) 2026 Microsoft Corporation
 --*/
 
 #include "api/z3.h"
+#include "util/debug.h"
 
 void tst_quant_soundness() {
-    char const* benchmark =
-        "(declare-fun n (String String) Int)\n"
-        "(declare-const u String)\n"
-        "(assert (forall ((x String) (y String))"
-        " (or (= 0 (n y \"\"))"
-        "     (= 0 (str.len"
-        "           (str.++"
-        "             (str.replace_re_all y (re.* (str.to_re y)) (str.from_int (n x y)))"
-        "             (str.from_code (str.to_code (str.at x (mod (abs (n y x)) (str.len x))))))))))\n"
-        "(assert (= u (str.from_int (n u \".\"))))\n";
+    char const* benchmark = R"(
+(declare-fun n (String String) Int)
+(declare-const u String)
+(assert (forall ((x String) (y String)) (or (= 0 (n y "")) (= 0 (str.len (str.++ (str.replace_re_all y (re.* (str.to_re y)) (str.from_int (n x y))) (str.from_code (str.to_code (str.at x (mod (abs (n y x)) (str.len x)))))))))))
+(assert (= u (str.from_int (n u "."))))
+)";
     Z3_context ctx = Z3_mk_context(nullptr);
     Z3_ast_vector fmls = Z3_parse_smtlib2_string(ctx, benchmark, 0, nullptr, nullptr, 0, nullptr, nullptr);
     Z3_ast_vector_inc_ref(ctx, fmls);
