@@ -1435,7 +1435,19 @@ namespace smt {
                     }
                 }
                 
+                // Bound the number of enumerated terms inserted into the
+                // instantiation set.  enum_terms performs a bottom-up
+                // enumeration that, for recursive sorts (e.g. arrays,
+                // datatypes, uninterpreted functions ranging over the target
+                // sort), keeps making progress indefinitely.  Without a bound
+                // this loop seeds the instantiation set with an unbounded
+                // number of terms, blowing up the MBQI search and timing out.
+                unsigned const max_terms = 20;
+                unsigned count = 0;
                 for (auto t : tn.enum_terms(srt)) {
+                    if (count >= max_terms)
+                        break;
+                    ++count;
                     unsigned generation = 0; // todo - inherited from sub-term of t?
                     TRACE(model_finder, tout << "ho_var: adding term " << mk_ismt2_pp(t, m)
                                                    << " to instantiation set of S" << std::endl;);
