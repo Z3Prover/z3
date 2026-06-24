@@ -22,7 +22,8 @@ void tst_quant_soundness() {
     Z3_solver_inc_ref(ctx, s);
     for (unsigned i = 0; i < Z3_ast_vector_size(ctx, fmls); ++i)
         Z3_solver_assert(ctx, s, Z3_ast_vector_get(ctx, fmls, i));
-    ENSURE(Z3_solver_check(ctx, s) != Z3_L_FALSE);
+    Z3_lbool r = Z3_solver_check(ctx, s);
+    ENSURE(r == Z3_L_TRUE || r == Z3_L_UNDEF);
     Z3_solver_dec_ref(ctx, s);
     Z3_ast_vector_dec_ref(ctx, fmls);
     Z3_del_context(ctx);
