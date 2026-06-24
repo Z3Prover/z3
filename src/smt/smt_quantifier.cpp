@@ -771,10 +771,9 @@ namespace smt {
                 void operator()(app* n) {
                     // The sequence theory sends str.replace_all,
                     // str.replace_re, and str.replace_re_all through
-                    // add_unhandled_expr during
-                    // internalization, so avoid using quantifiers containing
-                    // them for
-                    // E-matching until they are supported soundly.
+                    // add_unhandled_expr during internalization, so avoid
+                    // using quantifiers containing them for E-matching until
+                    // they are supported soundly.
                     found |= is_unhandled_seq_replace(seq, n);
                 }
                 void operator()(expr*) {}
