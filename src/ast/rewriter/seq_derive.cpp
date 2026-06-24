@@ -1304,4 +1304,50 @@ namespace seq {
         m_intervals_start = old_sz;
     }
 
+    // -------------------------------------------------------
+    // Cofactor enumeration over a transition regex
+    // -------------------------------------------------------
+
+    void derive::get_cofactors_rec(expr* r, expr_ref_pair_vector& result) {
+        // Hoist the (first) if-then-else condition to the top of r, splitting it
+        // into the equivalent ite(c, th, el); when r contains no ite it is a
+        // leaf of the transition regex.
+        expr_ref c(m), th(m), el(m);
+        if (!m_br.decompose_ite(r, c, th, el)) {
+            if (!re().is_empty(r))
+                result.push_back(get_path_expr(), r);
+            return;
+        }
+        // Positive branch: c holds.
+        switch (push(c, false)) {
+        case l_true:  get_cofactors_rec(th, result); break;
+        case l_undef: get_cofactors_rec(th, result); pop(); break;
+        case l_false: break;
+        }
+        // Negative branch: c does not hold.
+        switch (push(c, true)) {
+        case l_true:  get_cofactors_rec(el, result); break;
+        case l_undef: get_cofactors_rec(el, result); pop(); break;
+        case l_false: break;
+        }
+    }
+
+    void derive::get_cofactors(expr* ele, expr* r, expr_ref_pair_vector& result) {
+        SASSERT(m_util.is_re(r));
+        if (ele != m_ele)
+            reset_op_caches();
+        m_ele = ele;
+        m_trail.push_back(ele);
+        m_trail.push_back(r);
+        // Initialize a fresh path/interval context for this traversal.
+        m_path.reset();
+        m_path_stack.reset();
+        m_intervals.reset();
+        m_intervals.push_back({0u, u().max_char()});
+        m_intervals_start = 0;
+        m_path_expr = m.mk_true();
+        get_cofactors_rec(r, result);
+    }
+
 }
+

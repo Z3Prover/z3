@@ -455,6 +455,17 @@ public:
         return mk_derivative(r);
     }
 
+    /*
+    Enumerate the cofactors (min-terms) of a transition regex r taken with
+    respect to ele. Produces (path_condition, leaf_regex) pairs for every
+    feasible path through the ITE-tree, pruning infeasible character ranges.
+    Delegates to the derivative engine so the same path/interval context used
+    while hoisting ITEs is reused for the leaf simplification.
+    */
+    void get_cofactors(expr* ele, expr* r, expr_ref_pair_vector& result) {
+        m_derive.get_cofactors(ele, r, result);
+    }
+
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);

@@ -164,6 +164,9 @@ namespace seq {
         void intersect_intervals(unsigned lo, unsigned hi);
         void exclude_interval(unsigned lo, unsigned hi);
 
+        // Cofactor enumeration over a transition regex (ITE-tree).
+        void get_cofactors_rec(expr* r, expr_ref_pair_vector& result);
+
         sort* re_sort(expr* r) { return r->get_sort(); }
         sort* seq_sort(expr* r) { sort* s = nullptr; m_util.is_re(r, s); return s; }
         sort* ele_sort(expr* r) { sort* s = seq_sort(r); sort* e = nullptr; m_util.is_seq(s, e); return e; }
@@ -190,6 +193,16 @@ namespace seq {
          * Nullable check: returns a Boolean expression that is true iff r accepts the empty string.
          */
         expr_ref nullable(expr* r) { return is_nullable(r); }
+
+        /**
+         * Enumerate the cofactors (min-terms) of a transition regex r taken with
+         * respect to element ele. r is an ITE-tree over character predicates on
+         * ele; for every feasible path through the tree this produces a pair
+         * (path_condition, leaf_regex). Infeasible character-interval
+         * combinations are pruned using the same path/interval context that the
+         * derivative engine uses while hoisting ITEs.
+         */
+        void get_cofactors(expr* ele, expr* r, expr_ref_pair_vector& result);
 
 
         void set_antimirov(bool flag) {
