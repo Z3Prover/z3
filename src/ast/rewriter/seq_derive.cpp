@@ -1349,5 +1349,15 @@ namespace seq {
         get_cofactors_rec(r, result);
     }
 
+    void derive::derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+        // Compute the symbolic derivative wrt the canonical variable
+        // (:var 0); operator() sets m_ele to that variable.
+        expr_ref d = (*this)(r);
+        // Enumerate the reachable, fully ITE-hoisted leaves of the
+        // transition regex. get_cofactors uses the SAME m_ele set above,
+        // so the (:var 0) conditions in d are matched and pruned.
+        get_cofactors(m_ele, d, result);
+    }
+
 }
 

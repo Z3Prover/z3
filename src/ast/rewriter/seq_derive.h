@@ -204,6 +204,25 @@ namespace seq {
          */
         void get_cofactors(expr* ele, expr* r, expr_ref_pair_vector& result);
 
+        /**
+         * Compute the symbolic derivative of r and enumerate its reachable
+         * leaves in fully ITE-hoisted normal form.
+         *
+         * Concretely this returns, for every feasible minterm (character
+         * class) of δ(r), a pair (path_condition, target_regex). Every
+         * if-then-else over the input character (including ones that would
+         * otherwise be buried under a concat/union) is hoisted to the top
+         * via the same path/interval pruning used by the derivative engine,
+         * so each target_regex is free of (:var 0) and its nullability is
+         * always decidable. Unions are kept intact as single leaves (a
+         * union leaf denotes a single bisimulation state). Infeasible
+         * minterms are pruned, so all returned leaves are reachable.
+         *
+         * This is the entry point the regex_bisim equivalence procedure
+         * uses: it consumes the target_regex of each pair and ignores the
+         * (redundant) path condition.
+         */
+        void derivative_cofactors(expr* r, expr_ref_pair_vector& result);
 
         void set_antimirov(bool flag) {
             m_antimirov_derivative = flag;

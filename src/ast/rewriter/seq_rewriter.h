@@ -474,6 +474,17 @@ public:
         m_derive.get_cofactors(ele, r, result);
     }
 
+    /*
+    Compute the symbolic derivative of r and enumerate its reachable leaves
+    in fully ITE-hoisted normal form: a list of (path_condition, target)
+    pairs where every target is free of (:var 0) (so nullability is always
+    decidable) and unions are kept intact as single states. Used by
+    regex_bisim, which consumes the targets and ignores the path conditions.
+    */
+    void brz_derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+        m_derive.derivative_cofactors(r, result);
+    }
+
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);
