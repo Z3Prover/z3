@@ -45,6 +45,9 @@ namespace lp {
         int_gcd_test        m_gcd;
         unsigned            m_initial_dio_calls_period;
         unsigned            m_lcube_period;
+        // The number of consecutive genuine dio calls that returned undef, reset on a dio
+        // conflict. Drives the decision to start running Gomory with dio.
+        unsigned            m_dio_undef_in_a_row = 0;
 
         bool column_is_int_inf(unsigned j) const {
             return lra.column_is_int(j) && (!lia.value_is_int(j));
@@ -178,14 +181,16 @@ namespace lp {
             if (r == lia_move::conflict) {
                 m_dio.explain(*this->m_ex);
                 lia.settings().dio_calls_period() = m_initial_dio_calls_period;
-                lia.settings().dio_enable_gomory_cuts() = false;
+                m_dio_undef_in_a_row = 0;
+                lia.settings().stop_running_gomory_with_dio(); // dio was productive: stop running Gomory
                 lia.settings().set_run_gcd_test(false);
                 return lia_move::conflict;
             }
             if (r == lia_move::undef) {
-                lia.settings().dio_calls_period() *= 2;
-                if (lra.settings().dio_calls_period() >= 16) {
-                    lia.settings().dio_enable_gomory_cuts() = true;
+                lia.settings().dio_calls_period() *= 2; // throttle dio scheduling on failure
+                ++m_dio_undef_in_a_row;
+                if (m_dio_undef_in_a_row >= lra.settings().dio_gomory_enable_period()) {
+                    lia.settings().start_running_gomory_with_dio(); // dio persistently unproductive: start running Gomory
                     lia.settings().set_run_gcd_test(true);
                 }
             }
@@ -193,9 +198,24 @@ namespace lp {
         }
 
         lp_settings& settings() { return lra.settings(); }
+
         
+        // Decide whether a periodic heuristic fires on this call. When
+        // random_hammers is enabled the gate is drawn at random with the same
+        // 1/period expected rate instead of a deterministic "every k-th call"
+        // modulus: a deterministic period can phase-lock with the search on
+        // some families and drown the solver in conflicts while another handler
+        // is starved; randomizing the gate breaks that resonance.
+        bool hit_period(unsigned period) {
+            if (period <= 1)
+                return true;
+            if (settings().random_hammers())
+                return settings().random_next(period) == 0;
+            return m_number_of_calls % period == 0;
+        }
+
         bool should_find_cube() {
-            return m_number_of_calls % settings().m_int_find_cube_period == 0;
+            return hit_period(settings().m_int_find_cube_period);
         }
 
         // The largest cube test is throttled exponentially: when the polyhedron
@@ -203,7 +223,7 @@ namespace lp {
         // later, after more constraints are added, so each failure doubles the
         // period and a success resets it.
         bool should_find_lcube() {
-            return settings().lcube() && m_number_of_calls % m_lcube_period == 0;
+            return settings().lcube() && hit_period(m_lcube_period);
         }
 
         lia_move find_lcube() {
@@ -220,18 +240,24 @@ namespace lp {
         bool should_gomory_cut() {
             bool dio_allows_gomory = !settings().dio() || settings().dio_enable_gomory_cuts() ||
                                       m_dio.some_terms_are_ignored();
-            return dio_allows_gomory && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
+            return dio_allows_gomory && hit_period(settings().m_int_gomory_cut_period);
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dio() && (m_number_of_calls % settings().dio_calls_period() == 0);
+            bool ret = lia.settings().dio() && hit_period(settings().dio_calls_period());
+            if (!ret && lia.settings().dio_calls_period() > m_initial_dio_calls_period) {
+                unsigned dec = settings().dio_calls_period_decrease();
+                unsigned& period = lia.settings().dio_calls_period();
+                period = period > m_initial_dio_calls_period + dec ? period - dec : m_initial_dio_calls_period;
+            }
+            return ret;
         }
 
         // HNF
 
         bool should_hnf_cut() {
             return (!settings().dio() || settings().dio_enable_hnf_cuts())
-                && settings().enable_hnf() && m_number_of_calls % settings().hnf_cut_period() == 0;
+                && settings().enable_hnf() && hit_period(settings().hnf_cut_period());
         }
         
         lia_move hnf_cut() {
@@ -266,12 +292,12 @@ namespace lp {
 
             ++m_number_of_calls;
             if (r == lia_move::undef) r = patch_basic_columns();
-            if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
+            if (r == lia_move::undef && should_find_cube())  r = int_cube(lia)();
             if (r == lia_move::undef && should_find_lcube()) r = find_lcube();
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
-            if (r == lia_move::undef && should_gomory_cut()) r = gomory(lia).get_gomory_cuts(2);
             if (r == lia_move::undef && should_solve_dioph_eq()) r = solve_dioph_eq();
+            if (r == lia_move::undef && should_gomory_cut()) r = gomory(lia).get_gomory_cuts(2);
             if (r == lia_move::undef) r = int_branch(lia)();
             if (settings().get_cancel_flag()) r = lia_move::undef;        
             return r;

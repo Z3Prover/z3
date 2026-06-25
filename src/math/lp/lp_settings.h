@@ -258,12 +258,16 @@ private:
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
     bool             m_dio = false;
-    bool             m_dio_enable_gomory_cuts = false;
+    bool             m_dio_cuts_enable_gomory = false;
+    bool             m_run_gomory_with_dio = false;
+    unsigned         m_dio_gomory_enable_period = 16;
     bool             m_dio_enable_hnf_cuts = true;
     bool             m_dump_bound_lemmas = false;
     bool             m_dio_ignore_big_nums = false;
     unsigned         m_dio_calls_period = 4;
+    unsigned         m_dio_calls_period_decrease = 2;
     bool             m_dio_run_gcd = true;
+    bool             m_random_hammers = true;
     bool             m_lcube = true;
     unsigned         m_lcube_flips = 16;
 public:
@@ -271,6 +275,10 @@ public:
     unsigned lcube_flips() const { return m_lcube_flips; }
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }
+    unsigned dio_calls_period_decrease() const { return m_dio_calls_period_decrease; }
+    unsigned & dio_calls_period_decrease() { return m_dio_calls_period_decrease; }
+    bool random_hammers() const { return m_random_hammers; }
+    bool & random_hammers() { return m_random_hammers; }
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
@@ -278,8 +286,19 @@ public:
     unsigned random_next() { return m_rand(); }
     unsigned random_next(unsigned u ) { return m_rand(u); }
     bool dio() { return m_dio; }
-    bool & dio_enable_gomory_cuts() { return m_dio_enable_gomory_cuts; }
-    bool dio_enable_gomory_cuts() const { return m_dio && m_dio_enable_gomory_cuts; }
+    // Static config: did the user request Gomory cuts up front? (lp.dio_cuts_enable_gomory)
+    bool dio_cuts_enable_gomory() const { return m_dio_cuts_enable_gomory; }
+    // dio_calls_period at which the Diophantine back-off starts running Gomory (lp.dio_gomory_enable_period)
+    unsigned dio_gomory_enable_period() const { return m_dio_gomory_enable_period; }
+    // Runtime flag owned by the Diophantine controller, kept separate from the static
+    // config above so toggling it never clobbers the user's parameter: once dio has
+    // backed off enough it starts running Gomory cuts alongside dio, and a productive
+    // dio conflict stops them again.
+    void start_running_gomory_with_dio() { m_run_gomory_with_dio = true; }
+    void stop_running_gomory_with_dio()  { m_run_gomory_with_dio = false; }
+    // Effective state read by should_gomory_cut(): allowed if either the user enabled it
+    // statically or the dio controller started running it, guarded by dio being active.
+    bool dio_enable_gomory_cuts() const { return m_dio && (m_dio_cuts_enable_gomory || m_run_gomory_with_dio); }
     bool dio_run_gcd() const { return m_dio && m_dio_run_gcd; }
     bool dio_enable_hnf_cuts() const { return m_dio && m_dio_enable_hnf_cuts; }
     bool dio_ignore_big_nums() const { return m_dio_ignore_big_nums; }
