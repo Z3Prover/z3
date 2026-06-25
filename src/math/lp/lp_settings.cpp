@@ -37,13 +37,13 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     auto eps = p.arith_epsilon();
     m_epsilon = rational(std::max(1, (int)(100000*eps)), 100000); 
     m_dio = lp_p.dio();
-    m_dio_enable_gomory_cuts = lp_p.dio_cuts_enable_gomory();
+    m_dio_cuts_enable_gomory = lp_p.dio_cuts_enable_gomory();
+    m_dio_gomory_enable_period = lp_p.dio_gomory_enable_period();
     m_dio_enable_hnf_cuts = lp_p.dio_cuts_enable_hnf();
     m_dump_bound_lemmas = p.arith_dump_bound_lemmas();
     m_dio_ignore_big_nums = lp_p.dio_ignore_big_nums();
     m_dio_calls_period = lp_p.dio_calls_period();
     m_dio_calls_period_decrease = lp_p.dio_calls_period_decrease();
-    m_dio_calls_period_trace = lp_p.dio_calls_period_trace();
     m_dio_run_gcd = lp_p.dio_run_gcd();
     m_random_hammers = lp_p.random_hammers();
     m_lcube = lp_p.lcube();
