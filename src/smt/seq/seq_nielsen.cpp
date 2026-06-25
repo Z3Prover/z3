@@ -684,6 +684,9 @@ namespace seq {
         m_partial_dfa_edge_index.clear();
         m_partial_dfa_pin.reset();
         m_projection_extract_idx = 0;
+        m_explored_automaton.reset();
+        m_unsat_node_cache.clear();
+        m_num_cache_hits = 0;
         // m_length_trail.reset();
         // m_length_info.reset();
         m_dep_mgr.reset();
@@ -2003,6 +2006,87 @@ namespace seq {
         }
     }
 
+    // ---- Transposition-table helpers (node memoization) ----------------------
+
+    static bool reason_is_string_only(backtrack_reason r) {
+        switch (r) {
+        case backtrack_reason::regex:
+        case backtrack_reason::regex_widening:
+        case backtrack_reason::symbol_clash:
+        case backtrack_reason::character_range:
+            return true;
+        default:
+            // arithmetic, parikh_image, external, children_failed, unevaluated
+            return false;
+        }
+    }
+
+    bool nielsen_graph::node_unsat_string_only(nielsen_node const* n) const {
+        if (n->m_reason == backtrack_reason::children_failed)
+            return n->m_unsat_cacheable; // set when the children_failed result was formed
+        return reason_is_string_only(n->m_reason);
+    }
+
+    std::vector<unsigned> nielsen_graph::compute_node_signature(nielsen_node const* n) const {
+        std::vector<unsigned> sig;
+        // string equalities (order-independent)
+        {
+            std::vector<std::pair<unsigned,unsigned>> v;
+            for (auto const& e : n->str_eqs())
+                v.emplace_back(e.m_lhs->id(), e.m_rhs->id());
+            std::sort(v.begin(), v.end());
+            sig.push_back(static_cast<unsigned>(v.size()));
+            for (auto const& [a,b] : v) { sig.push_back(a); sig.push_back(b); }
+        }
+        sig.push_back(UINT_MAX); // section separator
+        // string disequalities
+        {
+            std::vector<std::pair<unsigned,unsigned>> v;
+            for (auto const& d : n->str_deqs())
+                v.emplace_back(d.m_lhs->id(), d.m_rhs->id());
+            std::sort(v.begin(), v.end());
+            sig.push_back(static_cast<unsigned>(v.size()));
+            for (auto const& [a,b] : v) { sig.push_back(a); sig.push_back(b); }
+        }
+        sig.push_back(UINT_MAX);
+        // regex memberships incl. view/guard metadata
+        {
+            std::vector<std::vector<unsigned>> v;
+            for (auto const& mm : n->str_mems())
+                v.push_back({ mm.m_str->id(), mm.m_regex->id(),
+                              static_cast<unsigned>(mm.m_kind),
+                              mm.m_root ? mm.m_root->id() : UINT_MAX,
+                              mm.m_nu, mm.m_discharged ? 1u : 0u });
+            std::sort(v.begin(), v.end());
+            sig.push_back(static_cast<unsigned>(v.size()));
+            for (auto const& a : v) for (unsigned x : a) sig.push_back(x);
+        }
+        sig.push_back(UINT_MAX);
+        // character-range constraints (per symbolic unit)
+        {
+            std::vector<std::vector<unsigned>> v;
+            for (auto const& [uid, cr] : n->char_ranges()) {
+                std::vector<unsigned> entry;
+                entry.push_back(uid);
+                for (auto const& rg : cr.first.ranges()) { entry.push_back(rg.m_lo); entry.push_back(rg.m_hi); }
+                v.push_back(std::move(entry));
+            }
+            std::sort(v.begin(), v.end());
+            sig.push_back(static_cast<unsigned>(v.size()));
+            for (auto const& e : v) { sig.push_back(static_cast<unsigned>(e.size())); for (unsigned x : e) sig.push_back(x); }
+        }
+        return sig;
+    }
+
+    dep_tracker nielsen_graph::node_all_deps(nielsen_node const* n) {
+        dep_tracker d = nullptr;
+        for (auto const& e : n->str_eqs())  d = m_dep_mgr.mk_join(d, e.m_dep);
+        for (auto const& q : n->str_deqs()) d = m_dep_mgr.mk_join(d, q.m_dep);
+        for (auto const& mm : n->str_mems()) d = m_dep_mgr.mk_join(d, mm.m_dep);
+        for (auto const& [uid, cr] : n->char_ranges()) d = m_dep_mgr.mk_join(d, cr.second);
+        return d;
+    }
+
     nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node,
         ptr_vector<nielsen_edge>& cur_path, const unsigned depth) {
 
@@ -2051,6 +2135,23 @@ namespace seq {
             ++m_stats.m_num_simplify_conflict;
             node->set_general_conflict();
             return search_result::unsat;
+        }
+
+        // Transposition-table lookup.  The node is now canonical (post-simplify).
+        // If an equivalent node was already proven UNSAT for string/regex-only
+        // reasons, this node is unsat too — independently of its (integer) side
+        // constraints — so we prune without re-exploring its subtree.  We derive
+        // the conflict from this node's own constraint deps (a sound over-approx).
+        {
+            const std::vector<unsigned> sig = compute_node_signature(node);
+            if (m_unsat_node_cache.contains(sig)) {
+                node->set_conflict(backtrack_reason::regex, node_all_deps(node));
+                node->set_general_conflict();
+                node->m_unsat_cacheable = true;
+                ++m_stats.m_num_simplify_conflict;
+                ++m_num_cache_hits;
+                return search_result::unsat;
+            }
         }
 
         // Apply Parikh image filter: generate modular length constraints and
@@ -2102,6 +2203,9 @@ namespace seq {
             if (!check_leaf_regex(*node, dep)) {
                 node->set_general_conflict();
                 node->set_conflict(backtrack_reason::regex, dep);
+                // string-only conflict (empty intersection) → memoize.
+                node->m_unsat_cacheable = true;
+                m_unsat_node_cache.insert(compute_node_signature(node));
                 return search_result::unsat;
             }
             assert_node_side_constraints(node);
@@ -2189,6 +2293,20 @@ namespace seq {
         }
         if (!any_unknown) {
             node->set_child_conflict();
+            // Memoize this internal UNSAT iff its whole subtree closed for
+            // string/regex-only reasons (no child relied on arithmetic / Parikh /
+            // external context).  Then a same-signature node found via any other
+            // path is pruned by the lookup above.
+            bool all_string_only = true;
+            for (nielsen_edge* e : node->outgoing()) {
+                if (!node_unsat_string_only(e->tgt())) {
+                    all_string_only = false;
+                    break;
+                }
+            }
+            node->m_unsat_cacheable = all_string_only;
+            if (all_string_only)
+                m_unsat_node_cache.insert(compute_node_signature(node));
             return search_result::unsat;
         }
         return search_result::unknown;
@@ -3368,43 +3486,55 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Helper: precompute_partial_dfa
-    // BFS of Brzozowski derivatives from root_re up to `depth` steps, recording
-    // all concrete minterm edges in the partial DFA.  Called eagerly from
-    // apply_cycle_decomposition (priority 6) so that SCC detection can fire
-    // before apply_regex_var_split (priority 10) creates a symbolic child whose
-    // ite-derivative would otherwise delay SCC detection by one more level.
+    // Helper: ensure_automaton_explored  (lazy, on-demand, cached)
+    // Records the *complete* reachable Brzozowski automaton of root_re into the
+    // partial DFA — but only once per regex component.  This is the lazy
+    // Q-completion: instead of re-running a fixed-depth BFS on every cycle
+    // decomposition (the old precompute_partial_dfa(R, depth), which re-explored
+    // R's automaton on each of the ~hundreds of decompositions and, with a
+    // shallow depth, left Q incomplete so guards discharged prematurely and laps
+    // never closed), we explore each component once to saturation and remember
+    // every state we visited.  A later decomposition whose head was reached by an
+    // earlier exploration finds it already covered and does no work.
+    //
+    // Completeness matters: the cycle guard / stabilizer view gate on whether the
+    // current state lies in Q (projection_state_in_Q), and that is only sound as
+    // a *bound* when Q contains the whole SCC of the head.  The BFS is bounded by
+    // the finite reachable automaton (Brzozowski states modulo ACI), so it
+    // terminates; m.inc() keeps it responsive to the resource limit.
     // -----------------------------------------------------------------------
 
-    void nielsen_graph::precompute_partial_dfa(euf::snode const* root_re, const unsigned depth) {
+    void nielsen_graph::ensure_automaton_explored(euf::snode const* root_re) {
         SASSERT(root_re);
         if (!root_re->is_ground())
             return;
+        if (m_explored_automaton.contains(root_re->get_expr()->get_id()))
+            return;
 
-        struct work_item { euf::snode const* re; unsigned d; };
-        svector<work_item> queue;
-        queue.push_back({root_re, depth});
-        uint_set visited;
-        visited.insert(root_re->id());
+        svector<euf::snode const*> queue;
+        queue.push_back(root_re);
 
         while (!queue.empty()) {
-            auto [re, d] = queue.back();
+            if (!m.inc())
+                return; // resource limit: leave Q partial (sound under-approx)
+            euf::snode const* re = queue.back();
             queue.pop_back();
+            const unsigned re_eid = re->get_expr()->get_id();
+            if (m_explored_automaton.contains(re_eid))
+                continue; // already explored (here or in a previous component)
+            m_explored_automaton.insert(re_eid);
+
             euf::snode_vector mts;
             m_sg.compute_minterms(re, mts);
             for (euf::snode const* mt : mts) {
-                // std::cout << "minterm: " << mk_pp(mt->get_expr(), m) << std::endl;
                 euf::snode const* deriv = m_sg.brzozowski_deriv(re, mt);
                 if (!deriv || deriv->is_fail())
                     continue;
                 record_partial_derivative_edge(re, mt, deriv);
-                if (d > 0 && deriv->is_ground() && !visited.contains(deriv->id())) {
-                    visited.insert(deriv->id());
-                    queue.push_back({deriv, d - 1});
-                }
+                if (deriv->is_ground() && !m_explored_automaton.contains(deriv->get_expr()->get_id()))
+                    queue.push_back(deriv);
             }
         }
-        //std::string s = partial_dfa_to_dot(root_re, true);
     }
 
     // -----------------------------------------------------------------------
@@ -3500,10 +3630,10 @@ namespace seq {
             euf::snode const* x = first;
             euf::snode const* R = mem.m_regex;
 
-            // Eagerly precompute partial DFA edges from this regex so that
-            // collect_scc_for_projection can detect cycles without waiting
-            // for apply_regex_var_split to create per-minterm children.
-            precompute_partial_dfa(R, 64);
+            // Lazily explore R's full automaton (once, cached) so that
+            // collect_scc_for_projection sees the complete SCC of R and the
+            // stabilizer view / cycle guard gate on a complete Q.
+            ensure_automaton_explored(R);
 
             // R must sit on a cycle (an SCC of the partial DFA).
             uint_set scc;
@@ -3515,7 +3645,6 @@ namespace seq {
             const unsigned nu = m_projection_extract_idx;
             if (nu == 0)
                 continue;
-            fprintf(stderr, "DEC R=%u nu=%u sccsz=%u x=%u nedges=%u\n", R->id(), nu, scc.num_elems(), x->id(), (unsigned)m_partial_dfa_edges.size()); fflush(stderr);
 
             // Trigger condition: x must not already carry a cycle guard for the
             // current SCC snapshot ν.  All states of one SCC share a single ν, so
@@ -5139,6 +5268,8 @@ namespace seq {
         st.update("nseq mod var num unwind (eq)",   m_stats.m_mod_var_num_unwinding_eq);
         st.update("nseq mod var num unwind (mem)",   m_stats.m_mod_var_num_unwinding_mem);
         st.update("nseq mod axiomatized disequalities",   m_stats.m_ax_diseq);
+        st.update("nseq unsat-cache size",                (unsigned) m_unsat_node_cache.size());
+        st.update("nseq unsat-cache hits",                m_num_cache_hits);
     }
 
 }

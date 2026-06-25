@@ -49,6 +49,8 @@ Author:
 #include "util/uint_set.h"
 #include "util/vector.h"
 #include <map>
+#include <set>
+#include <vector>
 
 namespace smt { class enode; }
 
@@ -512,6 +514,11 @@ namespace seq {
         backtrack_reason        m_reason = backtrack_reason::unevaluated;
         bool                    m_is_progress = false;
         bool                    m_node_len_constraints_generated = false; // true after generate_node_length_constraints runs
+        // true once this node has been proven UNSAT for reasons that depend only
+        // on its string/regex constraints (not on arithmetic / Parikh / external
+        // context).  Such an unsat is a property of the node's string signature
+        // and is safe to memoize in the transposition table (m_unsat_node_cache).
+        bool                    m_unsat_cacheable = false;
 
         // Parikh filter: set to true once apply_parikh_to_node has been applied
         // to this node. Prevents duplicate constraint generation across DFS runs.
@@ -829,6 +836,18 @@ namespace seq {
         // when the explored SCC's edge set actually grows; identifies which
         // partial-DFA edges (m_projection_idx ≤ ν) belong to a projection's Q.
         unsigned                      m_projection_extract_idx = 0;
+        // Expr ids of regex states whose full reachable automaton has already
+        // been recorded into the partial DFA (lazy, once-per-component Q growth;
+        // see ensure_automaton_explored).
+        uint_set                      m_explored_automaton;
+
+        // Transposition table: structural signatures of nodes already proven
+        // UNSAT for string/regex-only reasons.  A node whose signature is present
+        // is unsatisfiable regardless of how it was reached, so the DFS can prune
+        // it without re-exploring its subtree (turns the search tree into the
+        // finite DAG the termination proof bounds).  See compute_node_signature.
+        std::set<std::vector<unsigned>> m_unsat_node_cache;
+        unsigned m_num_cache_hits = 0;
 
 
     public:
@@ -1010,6 +1029,16 @@ namespace seq {
 
         search_result search_dfs(nielsen_node *node, ptr_vector<nielsen_edge>& path, unsigned depth = 0);
 
+        // Transposition table helpers (node memoization of string-only UNSAT).
+        // Canonical structural signature of a node (string equalities,
+        // disequalities, memberships incl. view/guard metadata, char ranges).
+        // Two nodes with equal signatures have identical string constraints.
+        std::vector<unsigned> compute_node_signature(nielsen_node const* n) const;
+        // Union of all constraint deps of a node (sound over-approx conflict).
+        dep_tracker node_all_deps(nielsen_node const* n);
+        // True iff the node's UNSAT depends only on string/regex constraints.
+        bool node_unsat_string_only(nielsen_node const* n) const;
+
         // Regex widening: overapproximate `str` by replacing variables with
         // the intersection of their primitive regex constraints (or Σ* if
         // unconstrained), replacing symbolic chars with their char ranges,
@@ -1180,7 +1209,9 @@ namespace seq {
         // eagerly recording concrete minterm edges in the partial DFA so that
         // collect_scc_for_projection can find cycles without first waiting for
         // concrete children to record them one level at a time.
-        void precompute_partial_dfa(euf::snode const* root_re, unsigned depth);
+        // Lazily record the complete reachable automaton of root_re into the
+        // partial DFA, once per regex component (cached in m_explored_automaton).
+        void ensure_automaton_explored(euf::snode const* root_re);
 
         // generalized power introduction: for an equation where one head is
         // a variable v and the other side has ground prefix + a variable x
