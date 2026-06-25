@@ -461,6 +461,24 @@ namespace smt {
         if (re().is_empty(r))
             //trivially true
             return;
+        // When one side is re.none the equation is a pure emptiness check on
+        // the other regex (symmetric_diff already returned it as r).  Decide
+        // it directly by antimirov NFA reachability instead of running the
+        // bisimulation/XOR closure, which would build large un-canonicalized
+        // product states for intersections of contains-patterns.
+        if ((re().is_empty(r1) || re().is_empty(r2)) && is_ground(r)) {
+            switch (re_is_empty(r)) {
+            case l_true:
+                STRACE(seq_regex_brief, tout << "empty:eq ";);
+                return; // languages equal (both empty): trivially true
+            case l_false:
+                STRACE(seq_regex_brief, tout << "empty:neq ";);
+                th.add_axiom(~th.mk_eq(r1, r2, false), false_literal);
+                return;
+            case l_undef:
+                break;
+            }
+        }
         // Try the bisimulation procedure on ground regexes first.  If it
         // returns a definite answer, dispatch the corresponding axiom and
         // bypass the symbolic emptiness/derivative closure.
@@ -670,6 +688,67 @@ namespace smt {
         rewrite(result);
         return result;
     }
+
+    /*
+        Decide emptiness of a ground regex r via antimirov-mode NFA
+        reachability.
+
+        The symbolic derivative engine runs in antimirov mode, so the
+        derivative of an intersection distributes into a *set* of individual
+        product states inter(A_i, B_j) (each a small, ground regex) rather
+        than one giant union-of-intersections term.  get_derivative_targets
+        enumerates these NFA successor states.
+
+        We short-circuit to l_false (non-empty) as soon as a reachable state
+        is nullable (accepts the empty word) or classical (a regex built only
+        from to_re/all/union/concat/star/plus/opt/loop, hence non-empty).  An
+        intersection itself is never classical, but once one operand reduces
+        to Σ* the intersection collapses (via the derivative's subset
+        simplification) to the other, classical, operand.
+
+        If the worklist is exhausted with no such state, r is empty (l_true).
+        Returns l_undef if a step bound is hit, so callers can fall back to
+        the general procedure.
+    */
+    lbool seq_regex::re_is_empty(expr* r) {
+        if (re().is_empty(r))
+            return l_true;
+        expr_ref_vector pinned(m);
+        obj_hashtable<expr> visited;
+        ptr_vector<expr> work;
+        work.push_back(r);
+        visited.insert(r);
+        pinned.push_back(r);
+        unsigned const bound = 100000;
+        unsigned steps = 0;
+        while (!work.empty()) {
+            if (++steps > bound)
+                return l_undef;
+            expr* s = work.back();
+            work.pop_back();
+            auto info = re().get_info(s);
+            if (!info.is_known())
+                return l_undef;
+            // ε ∈ L(s) or s is a non-empty classical regex ⇒ L(r) non-empty.
+            if (info.nullable == l_true || info.classical)
+                return l_false;
+            // Dead state: prune (min_length == UINT_MAX means no word is
+            // accepted from here).
+            if (info.min_length == UINT_MAX)
+                continue;
+            expr_ref_vector targets(m);
+            get_derivative_targets(s, targets);
+            for (expr* t : targets) {
+                if (visited.contains(t))
+                    continue;
+                visited.insert(t);
+                pinned.push_back(t);
+                work.push_back(t);
+            }
+        }
+        return l_true;
+    }
+
 
     /*
         Return a list of all target regexes in the derivative of a regex r,

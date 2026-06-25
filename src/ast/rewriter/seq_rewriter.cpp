@@ -3063,6 +3063,10 @@ bool seq_rewriter::le_char(expr* ch1, expr* ch2) {
 
     Current cases handled:
     - a and b are char <= constraints, or negations of char <= constraints
+    - a and b are equalities (element = constant char), or their negations.
+      These arise from derivatives of single characters and must be pruned
+      when combining BDDs so that no unreachable branch such as
+      ite(x = 'a', ite(x = 'b', ...), ...) (with 'a' != 'b') is created.
 */
 bool seq_rewriter::pred_implies(expr* a, expr* b) {
     STRACE(seq_verbose, tout << "pred_implies: "
@@ -3070,6 +3074,26 @@ bool seq_rewriter::pred_implies(expr* a, expr* b) {
                                << "," << mk_pp(b, m()) << std::endl;);
     expr *cha1 = nullptr, *cha2 = nullptr, *nota = nullptr,
          *chb1 = nullptr, *chb2 = nullptr, *notb = nullptr;
+    // (element = constant char), returning the element and char code.
+    auto is_char_eq = [&](expr* e, expr*& x, unsigned& v) {
+        expr* t1 = nullptr, *t2 = nullptr;
+        if (!m().is_eq(e, t1, t2))
+            return false;
+        if (u().is_const_char(t2, v)) { x = t1; return true; }
+        if (u().is_const_char(t1, v)) { x = t2; return true; }
+        return false;
+    };
+    expr *xa = nullptr, *xb = nullptr;
+    unsigned va = 0, vb = 0;
+    if (is_char_eq(a, xa, va)) {
+        // a is (xa = va)
+        if (is_char_eq(b, xb, vb) && xa == xb)
+            // (x = va) => (x = vb) iff va == vb
+            return va == vb;
+        if (m().is_not(b, notb) && is_char_eq(notb, xb, vb) && xa == xb)
+            // (x = va) => not (x = vb) iff va != vb
+            return va != vb;
+    }
     if (m().is_not(a, nota) &&
         m().is_not(b, notb)) {
         return pred_implies(notb, nota);
@@ -3267,26 +3291,33 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
     // transformations hide ite sub-terms, 
     // Rewriting that changes associativity of
     // operators may hide ite sub-terms.
-
-    switch (k) {
-    case OP_RE_INTERSECT:
-        if (BR_FAILED != mk_re_inter0(a, b, result))
-            return result;
-        break;
-    case OP_RE_UNION:
-        if (BR_FAILED != mk_re_union0(a, b, result))
-            return result;
-        break;
-    case OP_RE_CONCAT:
-        if (BR_FAILED != mk_re_concat(a, b, result))
-            return result;
-        break;
-    case OP_RE_XOR:
-        if (BR_FAILED != mk_re_xor0(a, b, result))
-            return result;
-        break;
-    default:
-        break;
+    //
+    // When either operand is an ite (a derivative BDD), skip the
+    // pre-simplification: its blind ite-hoisting would bypass the
+    // pred_implies-based pruning in mk_der_op_rec and create unreachable
+    // branches such as ite(x = 'a', ite(x = 'b', ...), ...) with 'a' != 'b'.
+    bool has_ite = m().is_ite(a) || m().is_ite(b);
+    if (!has_ite) {
+        switch (k) {
+        case OP_RE_INTERSECT:
+            if (BR_FAILED != mk_re_inter0(a, b, result))
+                return result;
+            break;
+        case OP_RE_UNION:
+            if (BR_FAILED != mk_re_union0(a, b, result))
+                return result;
+            break;
+        case OP_RE_CONCAT:
+            if (BR_FAILED != mk_re_concat(a, b, result))
+                return result;
+            break;
+        case OP_RE_XOR:
+            if (BR_FAILED != mk_re_xor0(a, b, result))
+                return result;
+            break;
+        default:
+            break;
+        }
     }
     result = m_op_cache.find(k, a, b, nullptr);
     if (!result) {
@@ -3914,6 +3945,9 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE3;
     }
     if (re().is_concat(a, a1, a2)) {
+        // Maintain right-associative normal form: re().mk_concat is a raw
+        // constructor, so re-simplify the result to recursively reassociate
+        // any concat nested in a2 (and re-apply concat simplifications).
         result = re().mk_concat(a1, re().mk_concat(a2, b));
         return BR_DONE;
     }

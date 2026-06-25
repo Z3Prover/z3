@@ -722,6 +722,20 @@ namespace seq {
 
     expr_ref derive::mk_union_core(expr* a, expr* b) {
 
+        // Identity:    none ∪ R = R          (none is the unit of union)
+        // Idempotence: R ∪ R = R
+        // Absorption:  Σ* ∪ R = Σ*
+        // Without these the derivative of an intersection accumulates
+        // un-simplified unions such as union(inter, union(none, none)),
+        // producing many syntactically distinct but semantically equal
+        // states.  That defeats state dedup in the emptiness/bisim closure
+        // and makes contains-pattern intersections blow up.
+        if (re().is_empty(a)) return expr_ref(b, m);
+        if (re().is_empty(b)) return expr_ref(a, m);
+        if (a == b) return expr_ref(a, m);
+        if (re().is_full_seq(a) || re().is_full_seq(b))
+            return expr_ref(re().mk_full_seq(a->get_sort()), m);
+
         // Prefix factoring: a·x ∪ a·y = a·(x ∪ y)
         expr *a1, *a2, *b1, *b2;
         if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && a1 == b1) {
@@ -1308,14 +1322,29 @@ namespace seq {
     // Cofactor enumeration over a transition regex
     // -------------------------------------------------------
 
+    expr_ref derive::clean_leaf(expr* r) {
+        expr* a = nullptr, * b = nullptr;
+        if (re().is_union(r, a, b))
+            return mk_union(clean_leaf(a), clean_leaf(b));
+        if (re().is_intersection(r, a, b))
+            return mk_inter(clean_leaf(a), clean_leaf(b));
+        return expr_ref(r, m);
+    }
+
     void derive::get_cofactors_rec(expr* r, expr_ref_pair_vector& result) {
         // Hoist the (first) if-then-else condition to the top of r, splitting it
         // into the equivalent ite(c, th, el); when r contains no ite it is a
         // leaf of the transition regex.
         expr_ref c(m), th(m), el(m);
         if (!m_br.decompose_ite(r, c, th, el)) {
-            if (!re().is_empty(r))
-                result.push_back(get_path_expr(), r);
+            // Re-normalize the leaf: decompose_ite substitutes ITE branches
+            // structurally so the leaf may carry un-simplified union(_, none)
+            // / inter(_, none) nodes.  Cleaning them keeps semantically equal
+            // states syntactically identical, which is essential for state
+            // dedup in the emptiness/bisim closure.
+            expr_ref cr = clean_leaf(r);
+            if (!re().is_empty(cr))
+                result.push_back(get_path_expr(), cr);
             return;
         }
         // Positive branch: c holds.

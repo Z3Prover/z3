@@ -108,6 +108,12 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
         if (m_re.is_concat(b, b1, b2) && m_re.is_full_seq(b1) && is_subset_rec(a, b2, depth))
             return true;
 
+        // prefix absorption: P·R' ⊆ Σ*·R' for any prefix P (since P ⊆ Σ*).
+        // Detect that a has R' (= b2) as a concatenation suffix, where b = Σ*·R'.
+        // Covers contains-patterns, e.g. Σ*·a·Σ*·b·Σ* ⊆ Σ*·b·Σ*.
+        if (m_re.is_concat(b, b1, b2) && m_re.is_full_seq(b1) && ends_with(a, b2))
+            return true;
+
         // R ⊆ R'·Σ* if R ⊆ R'
         if (m_re.is_concat(b, b1, b2) && m_re.is_full_seq(b2) && is_subset_rec(a, b1, depth))
             return true;
@@ -139,4 +145,31 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
 
 bool seq_subset::is_subset(expr* a, expr* b) const {
     return is_subset_rec(a, b, 0);
+}
+
+bool seq_subset::ends_with(expr* a, expr* suf) const {
+    if (a == suf)
+        return true;
+    // Flatten both regexes into their sequence of concatenation factors
+    // (independent of left/right associativity) and test list-suffix equality.
+    ptr_vector<expr> af, sf;
+    flatten_concat(a, af);
+    flatten_concat(suf, sf);
+    if (sf.size() > af.size())
+        return false;
+    unsigned off = af.size() - sf.size();
+    for (unsigned i = 0; i < sf.size(); ++i)
+        if (af[off + i] != sf[i])
+            return false;
+    return true;
+}
+
+void seq_subset::flatten_concat(expr* a, ptr_vector<expr>& out) const {
+    expr* a1 = nullptr, * a2 = nullptr;
+    if (m_re.is_concat(a, a1, a2)) {
+        flatten_concat(a1, out);
+        flatten_concat(a2, out);
+    }
+    else
+        out.push_back(a);
 }

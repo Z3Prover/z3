@@ -167,6 +167,13 @@ namespace seq {
         // Cofactor enumeration over a transition regex (ITE-tree).
         void get_cofactors_rec(expr* r, expr_ref_pair_vector& result);
 
+        // Re-apply union/intersection simplifications bottom-up to a cofactor
+        // leaf.  decompose_ite substitutes ITE branch values structurally
+        // (no simplification), so leaves can contain un-normalized nodes such
+        // as union(R, none) or inter(R, none); this rebuilds them through
+        // mk_union/mk_inter so equal states share a canonical form.
+        expr_ref clean_leaf(expr* r);
+
         sort* re_sort(expr* r) { return r->get_sort(); }
         sort* seq_sort(expr* r) { sort* s = nullptr; m_util.is_re(r, s); return s; }
         sort* ele_sort(expr* r) { sort* s = seq_sort(r); sort* e = nullptr; m_util.is_seq(s, e); return e; }
