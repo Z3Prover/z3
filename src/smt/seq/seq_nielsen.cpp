@@ -4272,21 +4272,56 @@ namespace seq {
                 child->apply_subst(m_sg, s);
             }
 
-            // Branch 2: x → ?c · x, where ?c is a fresh symbolic char.
-            // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
-            // NSB review:
-            // it really is seq.nth (length-of-prefix that was chopped of for first)
-            // assume len(x) contains the expression for the current length of x,
-            // then the suffix where the current x is located is at str.len(x) - len(x)
-            // (seq.nth x (- (str.len x) len(x))
-            //
-            euf::snode const* fresh_char = m_sg.mk(get_or_create_char_var(first));
-
             euf::snode const* tail = get_tail(first, 1, true);
+
+            // Branch 2..k: x → c · x' per JOINT minterm of every constraint on x.
+            // Option (b) — synchronize at var-split time.  Instead of unwinding to
+            // a single symbolic char ?c and letting each of x's constraints (the
+            // primary membership, the stabilizer view, the cycle guard) derive ?c
+            // into its own ite — which apply_regex_if_split then resolves
+            // independently, materializing a cross-product of their states — we
+            // branch directly on the joint minterm partition of all of x's
+            // constraint regexes, using one CONCRETE representative character per
+            // minterm.  The derivative is constant over a minterm, so a
+            // representative is sound and (for the singleton/∅-complement minterms
+            // of these small concrete alphabets) complete; the Z3DEBUG conflict
+            // cross-check catches any missed model.  Every constraint on x then
+            // consumes the same concrete char synchronously — no ites, no
+            // cross-product.
+            euf::snode_vector states;
+            for (auto const& m2 : node->str_mems())
+                if (m2.m_str->first() == first)
+                    states.push_back(m2.m_regex);
+
+            euf::snode const* combined = states[0];
+            for (unsigned i = 1; i < states.size(); ++i)
+                combined = m_sg.mk(m_seq.re.mk_inter(combined->get_expr(), states[i]->get_expr()));
+
+            euf::snode_vector minterms;
+            if (combined->is_ground())
+                m_sg.compute_minterms(combined, minterms);
+
+            if (!minterms.empty()) {
+                for (euf::snode const* mt : minterms) {
+                    char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
+                    if (cs.is_empty())
+                        continue;
+                    euf::snode const* cunit = m_sg.mk(m_seq.str.mk_unit(m_seq.mk_char(cs.first_char())));
+                    euf::snode const* replacement = m_sg.mk_concat(cunit, tail);
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, "regex var split", false);
+                    const nielsen_subst s(first, replacement, mem.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                return true;
+            }
+
+            // Fallback (non-ground / no minterms): a single symbolic char child.
+            euf::snode const* fresh_char = m_sg.mk(get_or_create_char_var(first));
             euf::snode const* replacement = m_sg.mk_concat(fresh_char, tail);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "regex var split", false);
-
             const nielsen_subst s(first, replacement, mem.m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);

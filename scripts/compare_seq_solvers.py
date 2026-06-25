@@ -101,7 +101,7 @@ def run_z3(z3_bin: str, smt_file: Path, solver_args: list[str], timeout_s: int =
     cmd = [z3_bin, f"-t:{timeout_ms}"] + solver_args + COMMON_ARGS + [str(smt_file)]
     start = time.monotonic()
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True,
+        proc = subprocess.run(cmd, capture_output=True, shell=True, text=True,
                               timeout=timeout_s + 5)
         elapsed = time.monotonic() - start
         return _parse_result(proc.stdout.strip()), elapsed
