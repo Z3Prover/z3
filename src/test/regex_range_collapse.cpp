@@ -10,6 +10,7 @@ Module Name:
 #include "ast/rewriter/regex_range_collapse.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
 #include "util/util.h"
 
 #include <iostream>
@@ -149,6 +150,20 @@ namespace {
             expr_ref star(u.re.mk_star(r1), m);
             check(!regex_to_range_predicate(u, star, p),
                   "re.* of range not translatable");
+        }
+
+        // Negative: a regex whose element type is NOT a sequence of
+        // characters (here (Seq Int)) must be rejected outright, even for
+        // shapes that structurally resemble char-class operators.
+        {
+            range_predicate p(M);
+            arith_util a(m);
+            sort* int_seq = u.str.mk_seq(a.mk_int());
+            sort* int_re  = u.re.mk_re(int_seq);
+            check(!regex_to_range_predicate(u, u.re.mk_empty(int_re), p),
+                  "re.empty over (Seq Int) is NOT a char class");
+            check(!regex_to_range_predicate(u, u.re.mk_full_char(int_re), p),
+                  "re.full_char over (Seq Int) is NOT a char class");
         }
 
         // ---- materialization round-trip ----

@@ -22,6 +22,17 @@ Authors:
 namespace seq {
 
     bool regex_to_range_predicate(seq_util& u, expr* r, range_predicate& out) {
+        // The range algebra only models sets of single characters over the
+        // unsigned character domain [0, max_char].  Guard against any regex
+        // whose element type is not a sequence of characters (e.g. a regex
+        // over (Seq Int) or (Seq (Seq Char))): for such regexes the
+        // re.range/re.union/... matchers below would silently fabricate a
+        // character-class predicate and change semantics.  Reject them up
+        // front so callers fall back to the generic regex path.
+        sort* seq_sort = nullptr;
+        if (!u.is_re(r, seq_sort) || !u.is_string(seq_sort))
+            return false;
+
         unsigned const max_char = u.max_char();
         auto& re = u.re;
 
