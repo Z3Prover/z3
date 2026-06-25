@@ -255,6 +255,8 @@ public:
 
     bool has_next(unsigned cost) {
         while (!m_done) {
+            if (m.limit().is_canceled())
+                return false;
             if (has_child_at_cost(cost)) 
                 return true;
             advance();
@@ -384,6 +386,10 @@ private:
 
     expr* find_next() {
         while (true) {
+            if (m.limit().is_canceled()) {
+                m_state = State::Done;
+                return nullptr;
+            }
             switch (m_state) {
             case State::Leaves:
                 while (m_leaf_idx < m_grammar.leaves().size()) {
@@ -438,6 +444,8 @@ private:
     expr *enumerate_operators() {
         auto const &ops = m_grammar.operators();
         while (true) {
+            if (m.limit().is_canceled())
+                return nullptr;
 
             // first find terms at m_cost that were already created
             if (m_bank_idx < m_bank_size) {
