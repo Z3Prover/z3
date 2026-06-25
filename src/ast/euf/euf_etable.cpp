@@ -276,5 +276,5 @@ namespace euf {
         return find(n) == n;
     }
 
-};
+}
 

@@ -43,6 +43,6 @@ namespace datalog {
         rule_set * revert(rule_set const& source);
     };
 
-};
+}
 
 

@@ -117,5 +117,5 @@ namespace smt {
         void propagate() override;
     };
 
-};
+}
 

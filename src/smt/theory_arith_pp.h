@@ -528,6 +528,6 @@ namespace smt {
         id++;
     }
 
-};
+}
 
 

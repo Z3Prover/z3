@@ -100,6 +100,6 @@ namespace smt {
         void init_model(model_generator & mg) override { }
     };
 
-};
+}
 
 

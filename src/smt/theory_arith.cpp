@@ -27,4 +27,4 @@ namespace smt {
     // template class theory_arith<smi_ext>;
 
     template class smt::theory_arith<inf_ext>;    
-};
+}

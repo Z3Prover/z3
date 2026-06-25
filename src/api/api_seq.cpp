@@ -287,35 +287,35 @@ extern "C" {
     Z3_CATCH_RETURN(0);                                         \
     }
 
-    MK_SORTED(Z3_mk_seq_empty, mk_c(c)->sutil().str.mk_empty);
+    MK_SORTED(Z3_mk_seq_empty, mk_c(c)->sutil().str.mk_empty)
 
-    MK_UNARY(Z3_mk_seq_unit, mk_c(c)->get_seq_fid(), OP_SEQ_UNIT, SKIP);
-    MK_NARY(Z3_mk_seq_concat, mk_c(c)->get_seq_fid(), OP_SEQ_CONCAT, SKIP);
-    MK_BINARY(Z3_mk_seq_prefix, mk_c(c)->get_seq_fid(), OP_SEQ_PREFIX, SKIP);
-    MK_BINARY(Z3_mk_seq_suffix, mk_c(c)->get_seq_fid(), OP_SEQ_SUFFIX, SKIP);
-    MK_BINARY(Z3_mk_seq_contains, mk_c(c)->get_seq_fid(), OP_SEQ_CONTAINS, SKIP);
-    MK_BINARY(Z3_mk_str_lt, mk_c(c)->get_seq_fid(), OP_STRING_LT, SKIP);
-    MK_BINARY(Z3_mk_str_le, mk_c(c)->get_seq_fid(), OP_STRING_LE, SKIP);
-    MK_UNARY(Z3_mk_string_to_code, mk_c(c)->get_seq_fid(), OP_STRING_TO_CODE, SKIP);
-    MK_UNARY(Z3_mk_string_from_code, mk_c(c)->get_seq_fid(), OP_STRING_FROM_CODE, SKIP);
+    MK_UNARY(Z3_mk_seq_unit, mk_c(c)->get_seq_fid(), OP_SEQ_UNIT, SKIP)
+    MK_NARY(Z3_mk_seq_concat, mk_c(c)->get_seq_fid(), OP_SEQ_CONCAT, SKIP)
+    MK_BINARY(Z3_mk_seq_prefix, mk_c(c)->get_seq_fid(), OP_SEQ_PREFIX, SKIP)
+    MK_BINARY(Z3_mk_seq_suffix, mk_c(c)->get_seq_fid(), OP_SEQ_SUFFIX, SKIP)
+    MK_BINARY(Z3_mk_seq_contains, mk_c(c)->get_seq_fid(), OP_SEQ_CONTAINS, SKIP)
+    MK_BINARY(Z3_mk_str_lt, mk_c(c)->get_seq_fid(), OP_STRING_LT, SKIP)
+    MK_BINARY(Z3_mk_str_le, mk_c(c)->get_seq_fid(), OP_STRING_LE, SKIP)
+    MK_UNARY(Z3_mk_string_to_code, mk_c(c)->get_seq_fid(), OP_STRING_TO_CODE, SKIP)
+    MK_UNARY(Z3_mk_string_from_code, mk_c(c)->get_seq_fid(), OP_STRING_FROM_CODE, SKIP)
 
-    MK_TERNARY(Z3_mk_seq_extract, mk_c(c)->get_seq_fid(), OP_SEQ_EXTRACT, SKIP);
-    MK_TERNARY(Z3_mk_seq_replace, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE, SKIP);
-    MK_TERNARY(Z3_mk_seq_replace_all, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_ALL, SKIP);
-    MK_TERNARY(Z3_mk_seq_replace_re, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_RE, SKIP);
-    MK_TERNARY(Z3_mk_seq_replace_re_all, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_RE_ALL, SKIP);
-    MK_BINARY(Z3_mk_seq_at, mk_c(c)->get_seq_fid(), OP_SEQ_AT, SKIP);
-    MK_BINARY(Z3_mk_seq_nth, mk_c(c)->get_seq_fid(), OP_SEQ_NTH, SKIP);
-    MK_UNARY(Z3_mk_seq_length, mk_c(c)->get_seq_fid(), OP_SEQ_LENGTH, SKIP);
-    MK_TERNARY(Z3_mk_seq_index, mk_c(c)->get_seq_fid(), OP_SEQ_INDEX, SKIP);
-    MK_BINARY(Z3_mk_seq_last_index, mk_c(c)->get_seq_fid(), OP_SEQ_LAST_INDEX, SKIP);
-    MK_UNARY(Z3_mk_seq_to_re, mk_c(c)->get_seq_fid(), OP_SEQ_TO_RE, SKIP);
-    MK_BINARY(Z3_mk_seq_in_re, mk_c(c)->get_seq_fid(), OP_SEQ_IN_RE, SKIP);
+    MK_TERNARY(Z3_mk_seq_extract, mk_c(c)->get_seq_fid(), OP_SEQ_EXTRACT, SKIP)
+    MK_TERNARY(Z3_mk_seq_replace, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE, SKIP)
+    MK_TERNARY(Z3_mk_seq_replace_all, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_ALL, SKIP)
+    MK_TERNARY(Z3_mk_seq_replace_re, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_RE, SKIP)
+    MK_TERNARY(Z3_mk_seq_replace_re_all, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE_RE_ALL, SKIP)
+    MK_BINARY(Z3_mk_seq_at, mk_c(c)->get_seq_fid(), OP_SEQ_AT, SKIP)
+    MK_BINARY(Z3_mk_seq_nth, mk_c(c)->get_seq_fid(), OP_SEQ_NTH, SKIP)
+    MK_UNARY(Z3_mk_seq_length, mk_c(c)->get_seq_fid(), OP_SEQ_LENGTH, SKIP)
+    MK_TERNARY(Z3_mk_seq_index, mk_c(c)->get_seq_fid(), OP_SEQ_INDEX, SKIP)
+    MK_BINARY(Z3_mk_seq_last_index, mk_c(c)->get_seq_fid(), OP_SEQ_LAST_INDEX, SKIP)
+    MK_UNARY(Z3_mk_seq_to_re, mk_c(c)->get_seq_fid(), OP_SEQ_TO_RE, SKIP)
+    MK_BINARY(Z3_mk_seq_in_re, mk_c(c)->get_seq_fid(), OP_SEQ_IN_RE, SKIP)
 
-    MK_UNARY(Z3_mk_int_to_str, mk_c(c)->get_seq_fid(), OP_STRING_ITOS, SKIP);
-    MK_UNARY(Z3_mk_str_to_int, mk_c(c)->get_seq_fid(), OP_STRING_STOI, SKIP);
-    MK_UNARY(Z3_mk_ubv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_UBVTOS, SKIP);
-    MK_UNARY(Z3_mk_sbv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_SBVTOS, SKIP);
+    MK_UNARY(Z3_mk_int_to_str, mk_c(c)->get_seq_fid(), OP_STRING_ITOS, SKIP)
+    MK_UNARY(Z3_mk_str_to_int, mk_c(c)->get_seq_fid(), OP_STRING_STOI, SKIP)
+    MK_UNARY(Z3_mk_ubv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_UBVTOS, SKIP)
+    MK_UNARY(Z3_mk_sbv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_SBVTOS, SKIP)
 
 
     Z3_ast Z3_API Z3_mk_re_loop(Z3_context c, Z3_ast r, unsigned lo, unsigned hi) {
@@ -343,30 +343,30 @@ extern "C" {
     }
 
 
-    MK_UNARY(Z3_mk_re_plus, mk_c(c)->get_seq_fid(), OP_RE_PLUS, SKIP);
-    MK_UNARY(Z3_mk_re_star, mk_c(c)->get_seq_fid(), OP_RE_STAR, SKIP);
-    MK_UNARY(Z3_mk_re_option, mk_c(c)->get_seq_fid(), OP_RE_OPTION, SKIP);
-    MK_UNARY(Z3_mk_re_complement, mk_c(c)->get_seq_fid(), OP_RE_COMPLEMENT, SKIP);
-    MK_BINARY(Z3_mk_re_diff, mk_c(c)->get_seq_fid(), OP_RE_DIFF, SKIP);
-    MK_NARY(Z3_mk_re_union, mk_c(c)->get_seq_fid(), OP_RE_UNION, SKIP);
-    MK_NARY(Z3_mk_re_intersect, mk_c(c)->get_seq_fid(), OP_RE_INTERSECT, SKIP);
-    MK_NARY(Z3_mk_re_concat, mk_c(c)->get_seq_fid(), OP_RE_CONCAT, SKIP);
-    MK_BINARY(Z3_mk_re_range, mk_c(c)->get_seq_fid(), OP_RE_RANGE, SKIP);
+    MK_UNARY(Z3_mk_re_plus, mk_c(c)->get_seq_fid(), OP_RE_PLUS, SKIP)
+    MK_UNARY(Z3_mk_re_star, mk_c(c)->get_seq_fid(), OP_RE_STAR, SKIP)
+    MK_UNARY(Z3_mk_re_option, mk_c(c)->get_seq_fid(), OP_RE_OPTION, SKIP)
+    MK_UNARY(Z3_mk_re_complement, mk_c(c)->get_seq_fid(), OP_RE_COMPLEMENT, SKIP)
+    MK_BINARY(Z3_mk_re_diff, mk_c(c)->get_seq_fid(), OP_RE_DIFF, SKIP)
+    MK_NARY(Z3_mk_re_union, mk_c(c)->get_seq_fid(), OP_RE_UNION, SKIP)
+    MK_NARY(Z3_mk_re_intersect, mk_c(c)->get_seq_fid(), OP_RE_INTERSECT, SKIP)
+    MK_NARY(Z3_mk_re_concat, mk_c(c)->get_seq_fid(), OP_RE_CONCAT, SKIP)
+    MK_BINARY(Z3_mk_re_range, mk_c(c)->get_seq_fid(), OP_RE_RANGE, SKIP)
   
-    MK_SORTED(Z3_mk_re_allchar, mk_c(c)->sutil().re.mk_full_char);
-    MK_SORTED(Z3_mk_re_empty, mk_c(c)->sutil().re.mk_empty);
-    MK_SORTED(Z3_mk_re_full, mk_c(c)->sutil().re.mk_full_seq);
+    MK_SORTED(Z3_mk_re_allchar, mk_c(c)->sutil().re.mk_full_char)
+    MK_SORTED(Z3_mk_re_empty, mk_c(c)->sutil().re.mk_empty)
+    MK_SORTED(Z3_mk_re_full, mk_c(c)->sutil().re.mk_full_seq)
 
-    MK_BINARY(Z3_mk_char_le, mk_c(c)->get_char_fid(), OP_CHAR_LE, SKIP);
-    MK_UNARY(Z3_mk_char_to_int, mk_c(c)->get_char_fid(), OP_CHAR_TO_INT, SKIP);
-    MK_UNARY(Z3_mk_char_to_bv, mk_c(c)->get_char_fid(), OP_CHAR_TO_BV, SKIP);
-    MK_UNARY(Z3_mk_char_from_bv, mk_c(c)->get_char_fid(), OP_CHAR_FROM_BV, SKIP);
-    MK_UNARY(Z3_mk_char_is_digit, mk_c(c)->get_char_fid(), OP_CHAR_IS_DIGIT, SKIP);
+    MK_BINARY(Z3_mk_char_le, mk_c(c)->get_char_fid(), OP_CHAR_LE, SKIP)
+    MK_UNARY(Z3_mk_char_to_int, mk_c(c)->get_char_fid(), OP_CHAR_TO_INT, SKIP)
+    MK_UNARY(Z3_mk_char_to_bv, mk_c(c)->get_char_fid(), OP_CHAR_TO_BV, SKIP)
+    MK_UNARY(Z3_mk_char_from_bv, mk_c(c)->get_char_fid(), OP_CHAR_FROM_BV, SKIP)
+    MK_UNARY(Z3_mk_char_is_digit, mk_c(c)->get_char_fid(), OP_CHAR_IS_DIGIT, SKIP)
 
-    MK_BINARY(Z3_mk_seq_map, mk_c(c)->get_seq_fid(), OP_SEQ_MAP, SKIP); 
-    MK_TERNARY(Z3_mk_seq_mapi, mk_c(c)->get_seq_fid(), OP_SEQ_MAPI, SKIP);
-    MK_TERNARY(Z3_mk_seq_foldl, mk_c(c)->get_seq_fid(), OP_SEQ_FOLDL, SKIP);
-    MK_FOURARY(Z3_mk_seq_foldli, mk_c(c)->get_seq_fid(), OP_SEQ_FOLDLI, SKIP);
+    MK_BINARY(Z3_mk_seq_map, mk_c(c)->get_seq_fid(), OP_SEQ_MAP, SKIP) 
+    MK_TERNARY(Z3_mk_seq_mapi, mk_c(c)->get_seq_fid(), OP_SEQ_MAPI, SKIP)
+    MK_TERNARY(Z3_mk_seq_foldl, mk_c(c)->get_seq_fid(), OP_SEQ_FOLDL, SKIP)
+    MK_FOURARY(Z3_mk_seq_foldli, mk_c(c)->get_seq_fid(), OP_SEQ_FOLDLI, SKIP)
 
 
-};
+}

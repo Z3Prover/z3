@@ -69,5 +69,5 @@ namespace smt {
     };
 
     mam * mk_mam(context & ctx);
-};
+}
 

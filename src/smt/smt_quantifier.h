@@ -187,4 +187,4 @@ namespace smt {
                                      vector<std::tuple<enode*, enode*>>& used_enodes) { return false; }
 
     };
-};
+}

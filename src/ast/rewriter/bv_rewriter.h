@@ -237,12 +237,12 @@ public:
         return result;                          
     }                                           
 
-    MK_BV_BINARY(mk_bv_urem);
-    MK_BV_BINARY(mk_ule);
-    MK_BV_BINARY(mk_sle);
-    MK_BV_BINARY(mk_bv_add);
-    MK_BV_BINARY(mk_bv_mul);
-    MK_BV_BINARY(mk_bv_sub);
+    MK_BV_BINARY(mk_bv_urem)
+    MK_BV_BINARY(mk_ule)
+    MK_BV_BINARY(mk_sle)
+    MK_BV_BINARY(mk_bv_add)
+    MK_BV_BINARY(mk_bv_mul)
+    MK_BV_BINARY(mk_bv_sub)
 
 
     expr_ref mk_ubv2int(expr* a) {

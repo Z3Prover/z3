@@ -58,7 +58,7 @@ namespace polymorphism {
             void undo() override {
                 i.m_in_decl_queue.mark(i.m_decl_queue.back(), false);
                 i.m_decl_queue.pop_back();
-            };
+            }
         };
 
         struct remove_back : public trail {

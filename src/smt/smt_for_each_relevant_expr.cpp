@@ -295,4 +295,4 @@ namespace smt {
         m_manager.is_label(n, pos, m_buffer); // copy symbols to buffer
     }
 
-};
+}

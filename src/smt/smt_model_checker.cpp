@@ -582,4 +582,4 @@ namespace smt {
         }
     }
 
-};
+}

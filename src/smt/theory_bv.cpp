@@ -819,30 +819,30 @@ namespace smt {
         init_bits(e, bits);                                                                
     }
 
-    MK_UNARY(internalize_neg,       mk_neg);
-    MK_UNARY(internalize_not,       mk_not);
-    MK_UNARY(internalize_redand,    mk_redand);
-    MK_UNARY(internalize_redor,     mk_redor);
+    MK_UNARY(internalize_neg,       mk_neg)
+    MK_UNARY(internalize_not,       mk_not)
+    MK_UNARY(internalize_redand,    mk_redand)
+    MK_UNARY(internalize_redor,     mk_redor)
 
-    MK_AC_BINARY(internalize_add,      mk_adder);
-    MK_AC_BINARY(internalize_mul,      mk_multiplier);
-    MK_BINARY(internalize_udiv,     mk_udiv);
-    MK_BINARY(internalize_sdiv,     mk_sdiv);
-    MK_BINARY(internalize_urem,     mk_urem);
-    MK_BINARY(internalize_srem,     mk_srem);
-    MK_BINARY(internalize_smod,     mk_smod);
-    MK_BINARY(internalize_shl,      mk_shl);
-    MK_BINARY(internalize_lshr,     mk_lshr);
-    MK_BINARY(internalize_ashr,     mk_ashr);
-    MK_BINARY(internalize_ext_rotate_left,  mk_ext_rotate_left);
-    MK_BINARY(internalize_ext_rotate_right, mk_ext_rotate_right);
-    MK_AC_BINARY(internalize_and,      mk_and);
-    MK_AC_BINARY(internalize_or,       mk_or);
-    MK_AC_BINARY(internalize_xor,      mk_xor);
-    MK_AC_BINARY(internalize_nand,     mk_nand);
-    MK_AC_BINARY(internalize_nor,      mk_nor);
-    MK_AC_BINARY(internalize_xnor,     mk_xnor);
-    MK_BINARY(internalize_comp,     mk_comp);
+    MK_AC_BINARY(internalize_add,      mk_adder)
+    MK_AC_BINARY(internalize_mul,      mk_multiplier)
+    MK_BINARY(internalize_udiv,     mk_udiv)
+    MK_BINARY(internalize_sdiv,     mk_sdiv)
+    MK_BINARY(internalize_urem,     mk_urem)
+    MK_BINARY(internalize_srem,     mk_srem)
+    MK_BINARY(internalize_smod,     mk_smod)
+    MK_BINARY(internalize_shl,      mk_shl)
+    MK_BINARY(internalize_lshr,     mk_lshr)
+    MK_BINARY(internalize_ashr,     mk_ashr)
+    MK_BINARY(internalize_ext_rotate_left,  mk_ext_rotate_left)
+    MK_BINARY(internalize_ext_rotate_right, mk_ext_rotate_right)
+    MK_AC_BINARY(internalize_and,      mk_and)
+    MK_AC_BINARY(internalize_or,       mk_or)
+    MK_AC_BINARY(internalize_xor,      mk_xor)
+    MK_AC_BINARY(internalize_nand,     mk_nand)
+    MK_AC_BINARY(internalize_nor,      mk_nor)
+    MK_AC_BINARY(internalize_xnor,     mk_xnor)
+    MK_BINARY(internalize_comp,     mk_comp)
 
 #define MK_PARAMETRIC_UNARY(NAME, BLAST_OP)                                     \
     void theory_bv::NAME(app * n) {                                             \
@@ -857,10 +857,10 @@ namespace smt {
         init_bits(e, bits);                                                     \
     }
     
-    MK_PARAMETRIC_UNARY(internalize_sign_extend, mk_sign_extend);
-    MK_PARAMETRIC_UNARY(internalize_zero_extend, mk_zero_extend);
-    MK_PARAMETRIC_UNARY(internalize_rotate_left, mk_rotate_left);
-    MK_PARAMETRIC_UNARY(internalize_rotate_right, mk_rotate_right);
+    MK_PARAMETRIC_UNARY(internalize_sign_extend, mk_sign_extend)
+    MK_PARAMETRIC_UNARY(internalize_zero_extend, mk_zero_extend)
+    MK_PARAMETRIC_UNARY(internalize_rotate_left, mk_rotate_left)
+    MK_PARAMETRIC_UNARY(internalize_rotate_right, mk_rotate_right)
 
     void theory_bv::internalize_concat(app * n) {
         process_args(n);        
@@ -1006,9 +1006,9 @@ namespace smt {
         }                                                                                                       \
     }
 
-    MK_NO_OVFL(internalize_umul_no_overflow, mk_umul_no_overflow);
-    MK_NO_OVFL(internalize_smul_no_overflow, mk_smul_no_overflow);
-    MK_NO_OVFL(internalize_smul_no_underflow, mk_smul_no_underflow);
+    MK_NO_OVFL(internalize_umul_no_overflow, mk_umul_no_overflow)
+    MK_NO_OVFL(internalize_smul_no_overflow, mk_smul_no_overflow)
+    MK_NO_OVFL(internalize_smul_no_underflow, mk_smul_no_underflow)
 
     template<bool Signed>
     void theory_bv::internalize_le(app * n) {
@@ -2071,4 +2071,4 @@ namespace smt {
 #endif
 
 
-};
+}

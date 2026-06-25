@@ -1689,5 +1689,5 @@ namespace datalog {
         return res;
     }
 
-};
+}
 

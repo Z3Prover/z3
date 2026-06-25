@@ -1566,6 +1566,6 @@ namespace datalog {
         return nl.compile_query(query_pred, level);
     }
 
-};
+}
 
 template class rewriter_tpl<datalog::bmc::nonlinear::level_replacer_cfg>;

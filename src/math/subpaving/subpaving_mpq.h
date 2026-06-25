@@ -37,5 +37,5 @@ struct config_mpq {
 
 typedef context_t<config_mpq> context_mpq;
 
-};
+}
 

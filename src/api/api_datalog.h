@@ -30,7 +30,7 @@ typedef void (*reduce_assign_callback_fptr)(void*, func_decl*, unsigned, expr*co
 namespace api {
     class fixedpoint_context;
     class context;
-};
+}
 
 
 struct Z3_fixedpoint_ref : public api::object {

@@ -410,7 +410,7 @@ namespace algebraic_numbers {
         anum& operator=(basic_cell* cell) { SASSERT(is_null());  m_cell = TAG(void*, cell, BASIC); return *this; }
         anum& operator=(algebraic_cell* cell) { SASSERT(is_null());  m_cell = TAG(void*, cell, ROOT); return *this; }
     };
-};
+}
 
 typedef algebraic_numbers::manager anum_manager;
 typedef algebraic_numbers::manager::numeral anum;
@@ -431,12 +431,12 @@ AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, int)     \
 AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpz)     \
 AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpq)
 
-AN_MK_COMPARISON(operator==, eq);
-AN_MK_COMPARISON(operator!=, neq);
-AN_MK_COMPARISON(operator<,  lt);
-AN_MK_COMPARISON(operator<=, le);
-AN_MK_COMPARISON(operator>,  gt);
-AN_MK_COMPARISON(operator>=, ge);
+AN_MK_COMPARISON(operator==, eq)
+AN_MK_COMPARISON(operator!=, neq)
+AN_MK_COMPARISON(operator<,  lt)
+AN_MK_COMPARISON(operator<=, le)
+AN_MK_COMPARISON(operator>,  gt)
+AN_MK_COMPARISON(operator>=, ge)
 
 #undef AN_MK_COMPARISON
 #undef AN_MK_COMPARISON_CORE

@@ -98,6 +98,6 @@ namespace smt {
         bool instantiate_not_sat(quantifier * q);
         bool instantiate_not_sat(quantifier * q, unsigned num_candidates, expr * const * candidates);
     };
-};
+}
 
 

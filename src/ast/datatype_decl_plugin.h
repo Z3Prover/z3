@@ -171,7 +171,7 @@ namespace datatype {
             size* subst(obj_map<sort, size*>& S) override;
             sort_size eval(obj_map<sort, sort_size> const& S) override { return S[m_param]; }
         };
-    };
+    }
 
     class def {
         ast_manager&            m;
@@ -424,9 +424,9 @@ namespace datatype {
         bool is_recognizer(expr const * f) const { return is_app(f) && (is_recognizer0(to_app(f)) || is_is(to_app(f))); }
         bool is_considered_uninterpreted(func_decl * f, unsigned n, expr* const* args);
 
-        MATCH_UNARY(is_recognizer);
+        MATCH_UNARY(is_recognizer)
         bool is_accessor(expr const* e) const { return is_app(e) && is_app_of(to_app(e), fid(), OP_DT_ACCESSOR); }
-        MATCH_UNARY(is_accessor);
+        MATCH_UNARY(is_accessor)
         bool is_update_field(expr * f) const { return is_app(f) && is_app_of(to_app(f), fid(), OP_DT_UPDATE_FIELD); }
         app* mk_is(func_decl * c, expr *f);
         ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
@@ -465,7 +465,7 @@ namespace datatype {
         sort_ref mk_tuple_datatype(svector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs);
     };
 
-};
+}
 
 typedef datatype::accessor accessor_decl;
 typedef datatype::constructor constructor_decl;

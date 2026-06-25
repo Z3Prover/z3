@@ -1128,7 +1128,7 @@ namespace datalog {
         }
     }
 
-};
+}
 
 
 

@@ -106,5 +106,5 @@ namespace sat {
         inline void dec(unsigned c) { m_counter -= c; }
     };
 
-};
+}
 

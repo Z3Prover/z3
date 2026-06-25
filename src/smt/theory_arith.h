@@ -1277,6 +1277,6 @@ namespace smt {
     // typedef theory_arith<smi_ext> theory_smi_arith;
 
     
-};
+}
 
 

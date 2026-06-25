@@ -48,7 +48,7 @@ Revision History:
 
 namespace pb {
     class solver;
-};
+}
 
 namespace sat {
 
@@ -885,4 +885,4 @@ namespace sat {
 
 
     std::ostream & operator<<(std::ostream & out, mk_stat const & stat);
-};
+}

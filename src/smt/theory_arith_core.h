@@ -3570,5 +3570,5 @@ namespace smt {
     }
 
 
-};
+}
 

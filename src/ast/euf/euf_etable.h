@@ -179,7 +179,7 @@ namespace euf {
 
     };
 
-};
+}
 
 
 

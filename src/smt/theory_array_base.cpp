@@ -1051,4 +1051,4 @@ namespace smt {
         return result;
     }
 
-};
+}

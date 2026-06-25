@@ -207,7 +207,7 @@ public:
     }
 
 
-    MATCH_BINARY(is_subset);
+    MATCH_BINARY(is_subset)
 };
 
 class array_util : public array_recognizers {

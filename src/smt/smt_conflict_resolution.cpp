@@ -1485,5 +1485,5 @@ namespace smt {
         return alloc(conflict_resolution, m, ctx, dack_manager, params, assigned_literals, watches);
     }
 
-};
+}
 

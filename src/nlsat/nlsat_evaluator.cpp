@@ -699,4 +699,4 @@ namespace nlsat {
     void evaluator::pop(unsigned num_scopes) {
         // do nothing
     }
-};
+}

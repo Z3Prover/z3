@@ -440,5 +440,5 @@ namespace smt {
             return m.mk_th_lemma(m_th_id, m.mk_or(lits), 0, nullptr, m_params.size(), m_params.data());
     }
 
-};
+}
 

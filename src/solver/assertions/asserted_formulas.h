@@ -190,7 +190,7 @@ class asserted_formulas {
         }                                                               \
         void post_op() override { if (REDUCE) af.reduce_and_solve(); }	\
         bool should_apply() const override { return APP; }		\
-    };
+    }
 
 #define MK_SIMPLIFIERF(NAME, FUNCTOR, MSG, APP, REDUCE) MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, (af.m), REDUCE)
 

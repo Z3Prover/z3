@@ -1912,6 +1912,6 @@ namespace smt {
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
-};
+}
 
 

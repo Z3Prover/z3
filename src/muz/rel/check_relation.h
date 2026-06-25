@@ -164,6 +164,6 @@ namespace datalog {
             unsigned_vector const& dst_eq,
             unsigned_vector const& neg_eq);
     };
-};
+}
        
 

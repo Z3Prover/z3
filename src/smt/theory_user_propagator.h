@@ -167,4 +167,4 @@ namespace smt {
         void propagate() override; 
         void display(std::ostream& out) const override {}
 };
-};
+}

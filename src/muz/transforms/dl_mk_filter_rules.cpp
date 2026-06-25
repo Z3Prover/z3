@@ -166,4 +166,4 @@ namespace datalog {
         return m_result;
     }
 
-};
+}

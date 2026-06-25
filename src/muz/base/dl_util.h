@@ -630,6 +630,6 @@ namespace datalog {
        returned.
      */
     bool read_uint64(const char * & s, uint64_t & res);
-};
+}
 
 

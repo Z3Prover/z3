@@ -794,4 +794,4 @@ namespace nlsat {
             out << "*";
         return out;
     }
-};
+}

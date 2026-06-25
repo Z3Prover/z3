@@ -67,7 +67,7 @@ namespace datalog {
         void compile(rule_set const& rules, expr_ref_vector& fmls, unsigned level);
         expr_ref compile_query(func_decl* query_pred, unsigned level);
     };
-};
+}
 
 
 

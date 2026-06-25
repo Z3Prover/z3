@@ -3142,4 +3142,4 @@ namespace upolynomial {
         }
         return out;
     }
-};
+}

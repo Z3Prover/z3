@@ -100,7 +100,7 @@ namespace pb {
 
         virtual bool validate_unit_propagation(solver_interface const& s, literal alit) const = 0;
         
-        virtual bool is_watching(literal l) const { UNREACHABLE(); return false; };
+        virtual bool is_watching(literal l) const { UNREACHABLE(); return false; }
         virtual literal_vector literals() const { UNREACHABLE(); return literal_vector(); }
         virtual void swap(unsigned i, unsigned j) noexcept { UNREACHABLE(); }
         virtual literal get_lit(unsigned i) const { UNREACHABLE(); return sat::null_literal; }

@@ -494,5 +494,5 @@ namespace datalog {
         bool knows_exact_size() const override { return true; }
     };
 
- };
+ }
 

@@ -101,6 +101,6 @@ namespace smt {
             m_on_binding = on_binding;
         }
     };
-};
+}
 
 

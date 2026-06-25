@@ -346,6 +346,6 @@ namespace smt {
               tout << enode_pp(_x, ctx) << " = " << enode_pp(_y, ctx) << "\n";);
         ctx.assign_eq(_x, _y, eq_justification(js));
     }
-};
+}
 
 

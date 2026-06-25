@@ -375,5 +375,5 @@ namespace datalog {
         result->add_rule(back_to_goal_rule);
         return result.detach();
     }
-};
+}
 

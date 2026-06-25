@@ -317,7 +317,7 @@ namespace realclosure {
         void * data() { return m_value; }
         static num mk(void * ptr) { num r; r.m_value = reinterpret_cast<value*>(ptr); return r; }
     };
-};
+}
 
 typedef realclosure::manager             rcmanager;
 typedef rcmanager::numeral               rcnumeral;
@@ -339,12 +339,12 @@ RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, int)     \
 RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpz)     \
 RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpq)
 
-RCF_MK_COMPARISON(operator==, eq);
-RCF_MK_COMPARISON(operator!=, neq);
-RCF_MK_COMPARISON(operator<,  lt);
-RCF_MK_COMPARISON(operator<=, le);
-RCF_MK_COMPARISON(operator>,  gt);
-RCF_MK_COMPARISON(operator>=, ge);
+RCF_MK_COMPARISON(operator==, eq)
+RCF_MK_COMPARISON(operator!=, neq)
+RCF_MK_COMPARISON(operator<,  lt)
+RCF_MK_COMPARISON(operator<=, le)
+RCF_MK_COMPARISON(operator>,  gt)
+RCF_MK_COMPARISON(operator>=, ge)
 
 #undef RCF_MK_COMPARISON
 #undef RCF_MK_COMPARISON_CORE

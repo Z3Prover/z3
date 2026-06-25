@@ -50,6 +50,6 @@ namespace smt {
         bool is_unsat(expr * n, unsigned num_bindings = 0, enode * const * bindings = nullptr);
     };
 
-};
+}
 
 

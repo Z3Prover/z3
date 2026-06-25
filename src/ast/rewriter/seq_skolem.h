@@ -147,7 +147,7 @@ namespace seq {
         bool is_align(expr const* e) const { return is_skolem(symbol("seq.align.m"), e); }
         bool is_align_l(expr const* e) const { return is_skolem(symbol("seq.align.l"), e); }
         bool is_align_r(expr const* e) const { return is_skolem(symbol("seq.align.r"), e); }
-        MATCH_BINARY(is_align);
+        MATCH_BINARY(is_align)
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_eq(expr* e, expr*& a, expr*& b) const;
@@ -171,5 +171,5 @@ namespace seq {
 
     };
 
-};
+}
 

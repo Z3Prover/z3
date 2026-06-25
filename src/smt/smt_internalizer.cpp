@@ -1866,4 +1866,4 @@ namespace smt {
         }
         SASSERT(th->is_attached_to_var(n));
     }
-};
+}

@@ -390,55 +390,55 @@ public:
         return is_int2bv(e) && (n = to_app(e)->get_parameter(0).get_int(), x = to_app(e)->get_arg(0), true);
     }
 
-    MATCH_UNARY(is_bv_not);
-    MATCH_UNARY(is_redand);
-    MATCH_UNARY(is_redor);
+    MATCH_UNARY(is_bv_not)
+    MATCH_UNARY(is_redand)
+    MATCH_UNARY(is_redor)
 
-    MATCH_BINARY(is_ext_rotate_left);
-    MATCH_BINARY(is_ext_rotate_right);
-    MATCH_BINARY(is_comp);
-    MATCH_BINARY(is_bv_add);
-    MATCH_BINARY(is_bv_sub);
-    MATCH_BINARY(is_bv_mul);
-    MATCH_BINARY(is_bv_sle);
-    MATCH_BINARY(is_bv_ule);
-    MATCH_BINARY(is_ule);
-    MATCH_BINARY(is_sle);
-    MATCH_BINARY(is_ult);
-    MATCH_BINARY(is_slt);
-    MATCH_BINARY(is_uge);
-    MATCH_BINARY(is_sge);
-    MATCH_BINARY(is_ugt);
-    MATCH_BINARY(is_sgt);
-    MATCH_BINARY(is_bv_umul_no_ovfl);
-    MATCH_BINARY(is_bv_ashr);
-    MATCH_BINARY(is_bv_lshr);
-    MATCH_BINARY(is_bv_shl);
-    MATCH_BINARY(is_bv_urem);
-    MATCH_BINARY(is_bv_srem);
-    MATCH_BINARY(is_bv_sdiv);
-    MATCH_BINARY(is_bv_udiv);
-    MATCH_BINARY(is_bv_smod);
-    MATCH_BINARY(is_bv_and);
-    MATCH_BINARY(is_bv_or);
-    MATCH_BINARY(is_bv_xor);
-    MATCH_BINARY(is_bv_nand);
-    MATCH_BINARY(is_bv_nor);
-    MATCH_BINARY(is_concat);
+    MATCH_BINARY(is_ext_rotate_left)
+    MATCH_BINARY(is_ext_rotate_right)
+    MATCH_BINARY(is_comp)
+    MATCH_BINARY(is_bv_add)
+    MATCH_BINARY(is_bv_sub)
+    MATCH_BINARY(is_bv_mul)
+    MATCH_BINARY(is_bv_sle)
+    MATCH_BINARY(is_bv_ule)
+    MATCH_BINARY(is_ule)
+    MATCH_BINARY(is_sle)
+    MATCH_BINARY(is_ult)
+    MATCH_BINARY(is_slt)
+    MATCH_BINARY(is_uge)
+    MATCH_BINARY(is_sge)
+    MATCH_BINARY(is_ugt)
+    MATCH_BINARY(is_sgt)
+    MATCH_BINARY(is_bv_umul_no_ovfl)
+    MATCH_BINARY(is_bv_ashr)
+    MATCH_BINARY(is_bv_lshr)
+    MATCH_BINARY(is_bv_shl)
+    MATCH_BINARY(is_bv_urem)
+    MATCH_BINARY(is_bv_srem)
+    MATCH_BINARY(is_bv_sdiv)
+    MATCH_BINARY(is_bv_udiv)
+    MATCH_BINARY(is_bv_smod)
+    MATCH_BINARY(is_bv_and)
+    MATCH_BINARY(is_bv_or)
+    MATCH_BINARY(is_bv_xor)
+    MATCH_BINARY(is_bv_nand)
+    MATCH_BINARY(is_bv_nor)
+    MATCH_BINARY(is_concat)
 
 
-    MATCH_BINARY(is_bv_uremi);
-    MATCH_BINARY(is_bv_sremi);
-    MATCH_BINARY(is_bv_sdivi);
-    MATCH_BINARY(is_bv_udivi);
-    MATCH_BINARY(is_bv_smodi);
-    MATCH_BINARY(is_bv_urem0);
-    MATCH_BINARY(is_bv_srem0);
-    MATCH_BINARY(is_bv_sdiv0);
-    MATCH_BINARY(is_bv_udiv0);
-    MATCH_BINARY(is_bv_smod0);
-    MATCH_UNARY(is_bit2bool);
-    MATCH_UNARY(is_int2bv);
+    MATCH_BINARY(is_bv_uremi)
+    MATCH_BINARY(is_bv_sremi)
+    MATCH_BINARY(is_bv_sdivi)
+    MATCH_BINARY(is_bv_udivi)
+    MATCH_BINARY(is_bv_smodi)
+    MATCH_BINARY(is_bv_urem0)
+    MATCH_BINARY(is_bv_srem0)
+    MATCH_BINARY(is_bv_sdiv0)
+    MATCH_BINARY(is_bv_udiv0)
+    MATCH_BINARY(is_bv_smod0)
+    MATCH_UNARY(is_bit2bool)
+    MATCH_UNARY(is_int2bv)
     bool is_bit2bool(expr* e, expr*& bv, unsigned& idx) const;
 
     rational norm(rational const & val, unsigned bv_size, bool is_signed = false) const ;

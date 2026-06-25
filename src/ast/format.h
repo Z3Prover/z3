@@ -198,6 +198,6 @@ namespace format_ns {
         return mk_seq4(m, begin, end, proc, static_cast<unsigned>(strlen(lp)), lp, rp);
     }
   
-};
+}
 
 

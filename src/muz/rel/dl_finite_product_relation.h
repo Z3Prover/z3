@@ -359,6 +359,6 @@ namespace datalog {
         void to_formula(expr_ref& fml) const override;
     };
 
-};
+}
 
 

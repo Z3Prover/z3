@@ -65,5 +65,5 @@ namespace datalog {
         void display(std::ostream& out) const;
         void display_statistics(std::ostream& out) const;
     };
-};
+}
 

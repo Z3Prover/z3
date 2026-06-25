@@ -246,9 +246,9 @@ void OP(expr * arg, expr_ref & result) {                        \
     result = mk_mkbv(m_out);                                    \
 }
 
-    MK_UNARY_REDUCE(reduce_not, mk_not);
-    MK_UNARY_REDUCE(reduce_redor, mk_redor);
-    MK_UNARY_REDUCE(reduce_redand, mk_redand);
+    MK_UNARY_REDUCE(reduce_not, mk_not)
+    MK_UNARY_REDUCE(reduce_redor, mk_redor)
+    MK_UNARY_REDUCE(reduce_redand, mk_redand)
 
 #define MK_BIN_REDUCE(OP, BB_OP)                                        \
 void OP(expr * arg1, expr * arg2, expr_ref & result) {                  \
@@ -260,19 +260,19 @@ void OP(expr * arg1, expr * arg2, expr_ref & result) {                  \
     result = mk_mkbv(m_out);                                            \
 }
 
-    MK_BIN_REDUCE(reduce_shl, mk_shl);
-    MK_BIN_REDUCE(reduce_ashr, mk_ashr);
-    MK_BIN_REDUCE(reduce_lshr, mk_lshr);
-    MK_BIN_REDUCE(reduce_udiv, mk_udiv);
-    MK_BIN_REDUCE(reduce_urem, mk_urem);
-    MK_BIN_REDUCE(reduce_sdiv, mk_sdiv);
-    MK_BIN_REDUCE(reduce_srem, mk_srem);
-    MK_BIN_REDUCE(reduce_smod, mk_smod);
-    MK_BIN_REDUCE(reduce_ext_rotate_left, mk_ext_rotate_left);
-    MK_BIN_REDUCE(reduce_ext_rotate_right, mk_ext_rotate_right);
+    MK_BIN_REDUCE(reduce_shl, mk_shl)
+    MK_BIN_REDUCE(reduce_ashr, mk_ashr)
+    MK_BIN_REDUCE(reduce_lshr, mk_lshr)
+    MK_BIN_REDUCE(reduce_udiv, mk_udiv)
+    MK_BIN_REDUCE(reduce_urem, mk_urem)
+    MK_BIN_REDUCE(reduce_sdiv, mk_sdiv)
+    MK_BIN_REDUCE(reduce_srem, mk_srem)
+    MK_BIN_REDUCE(reduce_smod, mk_smod)
+    MK_BIN_REDUCE(reduce_ext_rotate_left, mk_ext_rotate_left)
+    MK_BIN_REDUCE(reduce_ext_rotate_right, mk_ext_rotate_right)
 
 #define MK_BIN_AC_REDUCE(OP, BIN_OP, BB_OP)                             \
-MK_BIN_REDUCE(BIN_OP, BB_OP);                                           \
+MK_BIN_REDUCE(BIN_OP, BB_OP)                                            \
 void OP(unsigned num_args, expr * const * args, expr_ref & result) {    \
     SASSERT(num_args > 0);                                              \
     result = args[0];                                                   \
@@ -283,12 +283,12 @@ void OP(unsigned num_args, expr * const * args, expr_ref & result) {    \
     }                                                                   \
 }
 
-    MK_BIN_AC_REDUCE(reduce_add, reduce_bin_add, mk_adder);
-    MK_BIN_AC_REDUCE(reduce_mul, reduce_bin_mul, mk_multiplier);
+    MK_BIN_AC_REDUCE(reduce_add, reduce_bin_add, mk_adder)
+    MK_BIN_AC_REDUCE(reduce_mul, reduce_bin_mul, mk_multiplier)
 
-    MK_BIN_AC_REDUCE(reduce_and, reduce_bin_and, mk_and);
-    MK_BIN_AC_REDUCE(reduce_or, reduce_bin_or, mk_or);
-    MK_BIN_AC_REDUCE(reduce_xor, reduce_bin_xor, mk_xor);
+    MK_BIN_AC_REDUCE(reduce_and, reduce_bin_and, mk_and)
+    MK_BIN_AC_REDUCE(reduce_or, reduce_bin_or, mk_or)
+    MK_BIN_AC_REDUCE(reduce_xor, reduce_bin_xor, mk_xor)
 
 
 #define MK_BIN_PRED_REDUCE(OP, BB_OP)                                           \
@@ -299,12 +299,12 @@ void OP(expr * arg1, expr * arg2, expr_ref & result) {                          
     m_blaster.BB_OP(m_in1.size(), m_in1.data(), m_in2.data(), result);        \
 }
 
-    MK_BIN_PRED_REDUCE(reduce_eq,  mk_eq);
-    MK_BIN_PRED_REDUCE(reduce_sle, mk_sle);
-    MK_BIN_PRED_REDUCE(reduce_ule, mk_ule);
-    MK_BIN_PRED_REDUCE(reduce_umul_no_overflow, mk_umul_no_overflow);
-    MK_BIN_PRED_REDUCE(reduce_smul_no_overflow, mk_smul_no_overflow);
-    MK_BIN_PRED_REDUCE(reduce_smul_no_underflow, mk_smul_no_underflow);
+    MK_BIN_PRED_REDUCE(reduce_eq,  mk_eq)
+    MK_BIN_PRED_REDUCE(reduce_sle, mk_sle)
+    MK_BIN_PRED_REDUCE(reduce_ule, mk_ule)
+    MK_BIN_PRED_REDUCE(reduce_umul_no_overflow, mk_umul_no_overflow)
+    MK_BIN_PRED_REDUCE(reduce_smul_no_overflow, mk_smul_no_overflow)
+    MK_BIN_PRED_REDUCE(reduce_smul_no_underflow, mk_smul_no_underflow)
 
 #define MK_PARAMETRIC_UNARY_REDUCE(OP, BB_OP)                   \
 void OP(expr * arg, unsigned n, expr_ref & result) {            \
@@ -315,7 +315,7 @@ void OP(expr * arg, unsigned n, expr_ref & result) {            \
     result = mk_mkbv(m_out);                                    \
 }
 
-MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
+MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend)
 
     void reduce_ite(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
         m_in1.reset();

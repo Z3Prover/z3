@@ -2168,14 +2168,14 @@ public:
 
 public:
 
-    MATCH_UNARY(is_not);
-    MATCH_BINARY(is_eq);
-    MATCH_BINARY(is_implies);
-    MATCH_BINARY(is_and);
-    MATCH_BINARY(is_or);
-    MATCH_BINARY(is_xor);
-    MATCH_TERNARY(is_and);
-    MATCH_TERNARY(is_or);
+    MATCH_UNARY(is_not)
+    MATCH_BINARY(is_eq)
+    MATCH_BINARY(is_implies)
+    MATCH_BINARY(is_and)
+    MATCH_BINARY(is_or)
+    MATCH_BINARY(is_xor)
+    MATCH_TERNARY(is_and)
+    MATCH_TERNARY(is_or)
 
     bool is_iff(expr const* n, expr*& lhs, expr*& rhs) const { return is_eq(n, lhs, rhs) && is_bool(lhs); } 
 
@@ -2311,9 +2311,9 @@ public:
     bool is_apply_def(expr const * e) const { return is_app_of(e, basic_family_id, PR_APPLY_DEF); }
     bool is_skolemize(expr const * e) const { return is_app_of(e, basic_family_id, PR_SKOLEMIZE); }
 
-    MATCH_UNARY(is_asserted);
-    MATCH_UNARY(is_hypothesis);
-    MATCH_UNARY(is_lemma);
+    MATCH_UNARY(is_asserted)
+    MATCH_UNARY(is_hypothesis)
+    MATCH_UNARY(is_lemma)
 
     bool has_fact(proof const * p) const {
         SASSERT(is_proof(p));

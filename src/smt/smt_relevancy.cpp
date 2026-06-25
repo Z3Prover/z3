@@ -720,6 +720,6 @@ namespace smt {
     }
 
     relevancy_propagator * mk_relevancy_propagator(context & ctx) { return alloc(relevancy_propagator_imp, ctx); }
-};
+}
 
 

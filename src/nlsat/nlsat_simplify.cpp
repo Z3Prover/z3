@@ -826,4 +826,4 @@ namespace nlsat {
         (*m_imp)();
     }
 
-};
+}

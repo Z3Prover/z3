@@ -142,7 +142,7 @@ namespace api {
         void collect_param_descrs(param_descrs & p) { m_context.collect_params(p); }
         void updt_params(params_ref const& p) { m_context.updt_params(p); }
     };         
-};
+}
 
 extern "C" {
     
@@ -705,4 +705,4 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-};
+}

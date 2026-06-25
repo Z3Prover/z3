@@ -374,5 +374,5 @@ namespace smt {
         get_enode()->m_func_decl_id = UINT_MAX;
     }
 
-};
+}
 

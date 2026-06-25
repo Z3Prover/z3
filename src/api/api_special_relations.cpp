@@ -39,10 +39,10 @@ extern "C" {
     Z3_CATCH_RETURN(nullptr);                                           \
 }
 
-    MK_SPECIAL_R(Z3_mk_linear_order, OP_SPECIAL_RELATION_LO);
-    MK_SPECIAL_R(Z3_mk_partial_order, OP_SPECIAL_RELATION_PO);
-    MK_SPECIAL_R(Z3_mk_piecewise_linear_order, OP_SPECIAL_RELATION_PLO);
-    MK_SPECIAL_R(Z3_mk_tree_order, OP_SPECIAL_RELATION_TO);
+    MK_SPECIAL_R(Z3_mk_linear_order, OP_SPECIAL_RELATION_LO)
+    MK_SPECIAL_R(Z3_mk_partial_order, OP_SPECIAL_RELATION_PO)
+    MK_SPECIAL_R(Z3_mk_piecewise_linear_order, OP_SPECIAL_RELATION_PLO)
+    MK_SPECIAL_R(Z3_mk_tree_order, OP_SPECIAL_RELATION_TO)
 
 
 #define MK_DECL(NAME, FID)                                      \
@@ -60,5 +60,5 @@ extern "C" {
     Z3_CATCH_RETURN(nullptr);                                           \
 }
 
-    MK_DECL(Z3_mk_transitive_closure, OP_SPECIAL_RELATION_TC);
-};
+    MK_DECL(Z3_mk_transitive_closure, OP_SPECIAL_RELATION_TC)
+}

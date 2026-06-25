@@ -24,7 +24,7 @@ class sexpr;
 namespace algebraic_numbers {
     class anum;
     class manager;
-};
+}
 
 enum arith_sort_kind {
     REAL_SORT,
@@ -346,38 +346,38 @@ public:
             is_pi(n);
     }
 
-    MATCH_UNARY(is_uminus);
-    MATCH_UNARY(is_to_real);
-    MATCH_UNARY(is_to_int);
-    MATCH_UNARY(is_is_int);
-    MATCH_UNARY(is_abs);
-    MATCH_BINARY(is_sub);
-    MATCH_BINARY(is_add);
-    MATCH_BINARY(is_mul);
-    MATCH_BINARY(is_le);
-    MATCH_BINARY(is_ge);
-    MATCH_BINARY(is_lt);
-    MATCH_BINARY(is_gt);
-    MATCH_BINARY(is_mod);
-    MATCH_BINARY(is_rem);
-    MATCH_BINARY(is_div);
-    MATCH_BINARY(is_idiv);
-    MATCH_BINARY(is_mod0);
-    // MATCH_BINARY(is_rem0);
-    MATCH_BINARY(is_div0);
-    MATCH_BINARY(is_idiv0);
-    MATCH_BINARY(is_power);
-    MATCH_BINARY(is_power0);
+    MATCH_UNARY(is_uminus)
+    MATCH_UNARY(is_to_real)
+    MATCH_UNARY(is_to_int)
+    MATCH_UNARY(is_is_int)
+    MATCH_UNARY(is_abs)
+    MATCH_BINARY(is_sub)
+    MATCH_BINARY(is_add)
+    MATCH_BINARY(is_mul)
+    MATCH_BINARY(is_le)
+    MATCH_BINARY(is_ge)
+    MATCH_BINARY(is_lt)
+    MATCH_BINARY(is_gt)
+    MATCH_BINARY(is_mod)
+    MATCH_BINARY(is_rem)
+    MATCH_BINARY(is_div)
+    MATCH_BINARY(is_idiv)
+    MATCH_BINARY(is_mod0)
+    // MATCH_BINARY(is_rem0)
+    MATCH_BINARY(is_div0)
+    MATCH_BINARY(is_idiv0)
+    MATCH_BINARY(is_power)
+    MATCH_BINARY(is_power0)
 
-    MATCH_UNARY(is_sin);
-    MATCH_UNARY(is_asin);
-    MATCH_UNARY(is_asinh);
-    MATCH_UNARY(is_cos);
-    MATCH_UNARY(is_acos);
-    MATCH_UNARY(is_acosh);
-    MATCH_UNARY(is_tan);
-    MATCH_UNARY(is_atan);
-    MATCH_UNARY(is_atanh);
+    MATCH_UNARY(is_sin)
+    MATCH_UNARY(is_asin)
+    MATCH_UNARY(is_asinh)
+    MATCH_UNARY(is_cos)
+    MATCH_UNARY(is_acos)
+    MATCH_UNARY(is_acosh)
+    MATCH_UNARY(is_tan)
+    MATCH_UNARY(is_atan)
+    MATCH_UNARY(is_atanh)
 
 };
 

@@ -46,7 +46,7 @@ namespace api {
         void inc_ref();
         void dec_ref();
     };
-};
+}
 
 inline ast * to_ast(Z3_ast a) { return reinterpret_cast<ast *>(a); }
 inline Z3_ast of_ast(ast* a) { return reinterpret_cast<Z3_ast>(a); }

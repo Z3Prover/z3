@@ -44,15 +44,15 @@ namespace sls {
         virtual expr_ref get_value(expr* e) = 0;
         virtual bool is_fixed(expr* e, expr_ref& value) { return false; }
         virtual void initialize() = 0;
-        virtual void start_propagation() {};
+        virtual void start_propagation() {}
         virtual bool propagate() = 0;
         virtual void propagate_literal(sat::literal lit) = 0;
         virtual void repair_literal(sat::literal lit) = 0;
         virtual bool repair_down(app* e) = 0;
         virtual void repair_up(app* e) = 0;
         virtual bool is_sat() = 0;
-        virtual void on_rescale() {};
-        virtual void on_restart() {};
+        virtual void on_rescale() {}
+        virtual void on_restart() {}
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual bool set_value(expr* e, expr* v) = 0;
         virtual void collect_statistics(statistics& st) const = 0;

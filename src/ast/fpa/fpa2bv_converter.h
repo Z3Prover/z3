@@ -162,10 +162,10 @@ public:
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector m_extra_assertions;
 
-    special_t const & get_min_max_specials() const { return m_min_max_ufs; };
-    const2bv_t const & get_const2bv() const { return m_const2bv; };
-    const2bv_t const & get_rm_const2bv() const { return m_rm_const2bv; };
-    uf2bvuf_t const & get_uf2bvuf() const { return m_uf2bvuf; };
+    special_t const & get_min_max_specials() const { return m_min_max_ufs; }
+    const2bv_t const & get_const2bv() const { return m_const2bv; }
+    const2bv_t const & get_rm_const2bv() const { return m_rm_const2bv; }
+    uf2bvuf_t const & get_uf2bvuf() const { return m_uf2bvuf; }
 
 protected:
     void mk_one(func_decl *f, expr_ref & sign, expr_ref & result);

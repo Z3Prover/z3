@@ -1952,4 +1952,4 @@ bool context_t<C>::check_invariant() const {
 }
 
 
-};
+}

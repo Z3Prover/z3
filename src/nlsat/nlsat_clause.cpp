@@ -49,4 +49,4 @@ namespace nlsat {
         return false;
     }
 
-};
+}

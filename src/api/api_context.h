@@ -45,16 +45,16 @@ Revision History:
 
 namespace smtlib {
     class parser;
-};
+}
 
 namespace realclosure {
     class manager;
-};
+}
 
 namespace smt2 {
     class parser;
     void free_parser(parser*);
-};
+}
 
 namespace api {
        
@@ -267,7 +267,7 @@ namespace api {
         
     };
     
-};
+}
 
 inline api::context * mk_c(Z3_context c) { return reinterpret_cast<api::context*>(c); }
 #define RESET_ERROR_CODE() { mk_c(c)->reset_error_code(); }

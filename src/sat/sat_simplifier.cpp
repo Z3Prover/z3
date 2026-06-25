@@ -2148,4 +2148,4 @@ namespace sat {
         m_num_bca = 0;
         m_num_ate = 0;
     }
-};
+}

@@ -273,14 +273,14 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    MK_UNARY(Z3_mk_not, mk_c(c)->get_basic_fid(), OP_NOT, SKIP);
-    MK_BINARY(Z3_mk_eq, mk_c(c)->get_basic_fid(), OP_EQ, SKIP);
-    MK_NARY(Z3_mk_distinct, mk_c(c)->get_basic_fid(), OP_DISTINCT, SKIP);
-    MK_BINARY(Z3_mk_iff, mk_c(c)->get_basic_fid(), OP_EQ, SKIP);
-    MK_BINARY(Z3_mk_implies, mk_c(c)->get_basic_fid(), OP_IMPLIES, SKIP);
-    MK_BINARY(Z3_mk_xor, mk_c(c)->get_basic_fid(), OP_XOR, SKIP);
-    MK_NARY(Z3_mk_and, mk_c(c)->get_basic_fid(), OP_AND, SKIP);
-    MK_NARY(Z3_mk_or, mk_c(c)->get_basic_fid(), OP_OR, SKIP);
+    MK_UNARY(Z3_mk_not, mk_c(c)->get_basic_fid(), OP_NOT, SKIP)
+    MK_BINARY(Z3_mk_eq, mk_c(c)->get_basic_fid(), OP_EQ, SKIP)
+    MK_NARY(Z3_mk_distinct, mk_c(c)->get_basic_fid(), OP_DISTINCT, SKIP)
+    MK_BINARY(Z3_mk_iff, mk_c(c)->get_basic_fid(), OP_EQ, SKIP)
+    MK_BINARY(Z3_mk_implies, mk_c(c)->get_basic_fid(), OP_IMPLIES, SKIP)
+    MK_BINARY(Z3_mk_xor, mk_c(c)->get_basic_fid(), OP_XOR, SKIP)
+    MK_NARY(Z3_mk_and, mk_c(c)->get_basic_fid(), OP_AND, SKIP)
+    MK_NARY(Z3_mk_or, mk_c(c)->get_basic_fid(), OP_OR, SKIP)
 
     Z3_ast mk_ite_core(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_ast t3) {
         expr * result = mk_c(c)->m().mk_ite(to_expr(t1), to_expr(t2), to_expr(t3));
@@ -1547,4 +1547,4 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-};
+}

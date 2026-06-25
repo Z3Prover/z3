@@ -53,5 +53,5 @@ namespace smt {
         void pop_scope_eh(unsigned num_scopes);
     };
 
-};
+}
 
