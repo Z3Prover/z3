@@ -3798,6 +3798,17 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
+    // Collapse adjacent full_seq factors regardless of concat grouping:
+    //   (R ++ Σ*) ++ Σ* → R ++ Σ*    (a ends with Σ*, b is Σ*)
+    //   Σ* ++ (Σ* ++ R) → Σ* ++ R    (a is Σ*, b starts with Σ*)
+    if (re().is_full_seq(b) && ends_with_full_seq(a)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (re().is_full_seq(a) && starts_with_full_seq(b)) {
+        result = b;
+        return BR_DONE;
+    }
     expr* u1 = nullptr, *u2 = nullptr;
     if (re().is_full_seq(a) && re().is_union(b, u1, u2) &&
         (starts_with_full_seq(u1) || starts_with_full_seq(u2))) {
