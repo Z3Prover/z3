@@ -1413,6 +1413,8 @@ namespace smt {
                 // add other possible relevant functions such as equality over srt, Boolean operators
 
                 ast_mark visited;
+                tn.add_production(m.mk_true());
+                tn.add_production(m.mk_false());
                 for (enode *n : ctx->enodes()) {
                     if (!ctx->is_relevant(n))
                         continue;
@@ -2187,9 +2189,7 @@ namespace smt {
                         if (m_array_util.is_array(curr)) {
                             insert_qinfo(alloc(ho_var, m, to_var(curr)->get_idx()));
                         }
-                        else {
-                            m_info->m_is_auf = false;  // unexpected occurrence of variable.
-                        }
+                        m_info->m_is_auf = false;                       
                     }
                     else {
                         SASSERT(is_lambda(curr));
