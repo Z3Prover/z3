@@ -16,6 +16,7 @@ tools:
     toolsets: [default]
 
 safe-outputs:
+  report-failure-as-issue: false
   create-discussion:
     title-prefix: "[QF_S Benchmark] "
     category: "Agentic Workflows"

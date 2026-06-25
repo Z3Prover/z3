@@ -62,6 +62,10 @@ public:
     struct key_data {
         Key * m_key = nullptr;
         Value m_value;
+        key_data() = default;
+        key_data(Key* k): m_key(k) {}
+        key_data(Key* k, Value const& v): m_key(k), m_value(v) {}
+        key_data(Key* k, Value&& v): m_key(k), m_value(std::move(v)) {}
         Value const & get_value() const { return m_value; }
         Key & get_key () const { return *m_key; }
         unsigned hash() const { return m_key->hash(); }
@@ -240,5 +244,3 @@ void erase_dealloc_value(obj_map<Key, Value*> & m, Key * k) {
         dealloc(v);
     }
 }
-
-

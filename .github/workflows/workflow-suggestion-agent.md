@@ -17,6 +17,7 @@ tools:
   bash: [":*"]
 
 safe-outputs:
+  report-failure-as-issue: false
   create-discussion:
     title-prefix: "[Workflow Suggestions] "
     category: "Agentic Workflows"
