@@ -526,13 +526,28 @@ public:
 
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
         struct cut_result {lar_term t; mpq k; u_dependency *dep;};
-        struct scored_cut {lar_term t; mpq k; u_dependency *dep; double eff;};
+        struct scored_cut {lar_term t; mpq k; u_dependency *dep; double eff; bool is_frac;};
         vector<cut_result> big_cuts;
-        vector<scored_cut> scored_cuts; // candidates for best-of-N efficacy selection
+        vector<scored_cut> scored_cuts; // candidates for efficacy-based selection
         const bool eff_select = lia.settings().gomory_efficacy_select();
-        unsigned_vector columns_for_cuts = eff_select
-            ? gomory_select_random_rows(lia.settings().gomory_candidate_rows())
-            : gomory_select_int_infeasible_vars(num_cuts);
+        const bool eff_augment = lia.settings().gomory_efficacy_augment();
+        const bool eff_mode = eff_select || eff_augment;
+
+        // In augment mode we keep one fractionality-selected cut (priority) and reserve the
+        // remaining slots for the most efficacious cuts built from random candidate rows.
+        unsigned_vector frac_cols;
+        unsigned_vector columns_for_cuts;
+        if (eff_augment) {
+            frac_cols = gomory_select_int_infeasible_vars(1);
+            columns_for_cuts = frac_cols;
+            for (unsigned j : gomory_select_random_rows(lia.settings().gomory_candidate_rows()))
+                if (!frac_cols.contains(j))
+                    columns_for_cuts.push_back(j);
+        }
+        else if (eff_select)
+            columns_for_cuts = gomory_select_random_rows(lia.settings().gomory_candidate_rows());
+        else
+            columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
         bool has_small_cut = false;
 
         // define inline helper functions
@@ -570,14 +585,12 @@ public:
             else if (cc.m_polarity == row_polarity::MIN)
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
 
-            // Best-of-N selection: collect every candidate cut that clears the efficacy
-            // threshold, then (after the loop) add the most efficacious ones. The row was
-            // picked at random rather than by the basic variable's fractionality, so the
-            // cut's efficacy is what decides whether and how strongly it is preferred.
-            if (eff_select) {
+            // Efficacy-based selection (select or augment): collect every candidate cut with
+            // its efficacy, then add the chosen ones after the loop. In augment mode the
+            // fractionality-selected row keeps priority; the rest compete on efficacy.
+            if (eff_mode) {
                 double e = cut_efficacy(cc.m_t, cc.m_k);
-                if (e >= lia.settings().gomory_cut_efficacy_threshold())
-                    scored_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep, e});
+                scored_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep, e, eff_augment && frac_cols.contains(j)});
                 continue;
             }
 
@@ -598,14 +611,22 @@ public:
                 return lia_move::cancelled;
         }
 
-        // best-of-N: add up to num_cuts of the most efficacious collected candidates
-        if (eff_select) {
+        // Add the selected efficacy-mode cuts: fractionality-priority cuts first (always
+        // kept, like the baseline), then the most efficacious remaining cuts that clear the
+        // threshold, up to num_cuts in total.
+        if (eff_mode) {
             std::stable_sort(scored_cuts.begin(), scored_cuts.end(),
-                             [](scored_cut const& a, scored_cut const& b) { return a.eff > b.eff; });
+                             [](scored_cut const& a, scored_cut const& b) {
+                                 if (a.is_frac != b.is_frac) return a.is_frac;
+                                 return a.eff > b.eff;
+                             });
+            double thr = lia.settings().gomory_cut_efficacy_threshold();
             unsigned added = 0;
             for (auto const& c : scored_cuts) {
                 if (added >= num_cuts)
                     break;
+                if (!c.is_frac && c.eff < thr)
+                    continue;
                 ++added;
                 if (!is_small_cut(c.t)) {
                     big_cuts.push_back({c.t, c.k, c.dep});

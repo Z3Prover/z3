@@ -52,6 +52,7 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_gomory_cut_efficacy_threshold = lp_p.gomory_cut_efficacy_threshold();
     m_gomory_efficacy_select = lp_p.gomory_efficacy_select();
     m_gomory_candidate_rows = lp_p.gomory_candidate_rows();
+    m_gomory_efficacy_augment = lp_p.gomory_efficacy_augment();
     unsigned hammer_period = lp_p.int_hammer_period();
     SASSERT(hammer_period != 0);
     m_int_find_cube_period = hammer_period;

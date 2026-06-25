@@ -274,6 +274,7 @@ private:
     double           m_gomory_cut_efficacy_threshold = 0.01;
     bool             m_gomory_efficacy_select = false;
     unsigned         m_gomory_candidate_rows = 3;
+    bool             m_gomory_efficacy_augment = false;
 public:
     bool lcube() const { return m_lcube; }
     unsigned lcube_flips() const { return m_lcube_flips; }
@@ -281,6 +282,7 @@ public:
     double gomory_cut_efficacy_threshold() const { return m_gomory_cut_efficacy_threshold; }
     bool gomory_efficacy_select() const { return m_gomory_efficacy_select; }
     unsigned gomory_candidate_rows() const { return m_gomory_candidate_rows; }
+    bool gomory_efficacy_augment() const { return m_gomory_efficacy_augment; }
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }
     unsigned dio_calls_period_decrease() const { return m_dio_calls_period_decrease; }
