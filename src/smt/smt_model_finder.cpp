@@ -1413,6 +1413,8 @@ namespace smt {
                 // add other possible relevant functions such as equality over srt, Boolean operators
 
                 ast_mark visited;
+                tn.add_production(m.mk_true());
+                tn.add_production(m.mk_false());
                 for (enode *n : ctx->enodes()) {
                     if (!ctx->is_relevant(n))
                         continue;
@@ -1435,7 +1437,11 @@ namespace smt {
                     }
                 }
                 
+                unsigned max_count = 20;
                 for (auto t : tn.enum_terms(srt)) {
+                    if (max_count == 0)
+                        break;
+                    --max_count;
                     unsigned generation = 0; // todo - inherited from sub-term of t?
                     TRACE(model_finder, tout << "ho_var: adding term " << mk_ismt2_pp(t, m)
                                                    << " to instantiation set of S" << std::endl;);
@@ -2183,9 +2189,7 @@ namespace smt {
                         if (m_array_util.is_array(curr)) {
                             insert_qinfo(alloc(ho_var, m, to_var(curr)->get_idx()));
                         }
-                        else {
-                            m_info->m_is_auf = false;  // unexpected occurrence of variable.
-                        }
+                        m_info->m_is_auf = false;                       
                     }
                     else {
                         SASSERT(is_lambda(curr));

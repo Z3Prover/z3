@@ -157,9 +157,30 @@ Present a structured summary and ask for approval before generation.
 | User says... | Maps to |
 |---|---|
 | "calls an external API" | ask for exact FQDN/wildcard, then add to `network.allowed` |
+| "reads GitHub data / clones repos" | include `github` in `network.allowed` |
+| "uses GitHub Actions artifacts or cache" | include `github-actions` in `network.allowed` |
 | "installs npm packages" | include `node` in `network.allowed` |
 | "runs pip install" | include `python` in `network.allowed` |
 | "builds Go code" | include `go` in `network.allowed` |
+| "installs gems / uses Bundler" | include `ruby` in `network.allowed` |
+| "runs cargo build" | include `rust` in `network.allowed` |
+| "uses NuGet / .NET restore" | include `dotnet` in `network.allowed` |
+| "builds with Maven / Gradle" | include `java` in `network.allowed` |
+| "uses Docker / pulls container images / pushes to GHCR" | include `containers` in `network.allowed` |
+| "runs Playwright browser tests" | include `playwright` in `network.allowed` |
+| "runs apt install / yum / apk" | include `linux-distros` in `network.allowed` |
+| "uses Terraform / HashiCorp registry" | include `terraform` in `network.allowed` |
+| "connects to localhost / loopback / local services" | include `local` in `network.allowed` |
+| "uses Swift Package Manager" | include `swift` in `network.allowed` |
+| "uses Composer / PHP packages" | include `php` in `network.allowed` |
+| "uses pub.dev / Dart packages" | include `dart` in `network.allowed` |
+| "uses Hackage / Haskell packages" | include `haskell` in `network.allowed` |
+| "uses CPAN / Perl packages" | include `perl` in `network.allowed` |
+| "serves or loads web fonts" | include `fonts` in `network.allowed` |
+| "uses Deno or JSR packages" | include `deno` in `network.allowed` |
+| "uses Elixir / Hex packages" | include `elixir` in `network.allowed` |
+| "uses Bazel build" | include `bazel` in `network.allowed` |
+| "uses R / CRAN packages" | include `r` in `network.allowed` |
 | "no external access" | `network.allowed: [defaults]` (or `[]` if explicitly zero network) |
 
 ### Tool Mapping
@@ -184,6 +205,19 @@ Present a structured summary and ask for approval before generation.
 | "monitor workflow failures and trends" | `MonitorOps` |
 | "process a big backlog in chunks" | `BatchOps` |
 | "run manually with input parameters" | `DispatchOps` |
+| "apply a label-based workflow" | `LabelOps` |
+| "operate across multiple repositories" | `MultiRepoOps` |
+| "coordinate multiple sub-agents" | `Orchestration` |
+| "manage project board items" | `ProjectOps` |
+| "research, plan, and assign issues" | `ResearchPlanAssignOps` |
+| "self-correcting / retry on failure" | `CorrectionOps` |
+| "run in a side/fork repo" | `SideRepoOps` |
+| "write a spec before implementing" | `SpecOps` |
+| "A/B test workflow variants" | `TrialOps` |
+| "process items from a queue" | `WorkQueueOps` |
+| "deterministic, no LLM needed" | `DeterministicOps` |
+| "manage from a central repo" | `CentralRepoOps` |
+| "track work via GitHub Projects" | `Monitoring with Projects` |
 
 ### Integration Auth Mapping
 
