@@ -1413,8 +1413,6 @@ namespace smt {
                 // add other possible relevant functions such as equality over srt, Boolean operators
 
                 ast_mark visited;
-                tn.add_production(m.mk_true());
-                tn.add_production(m.mk_false());
                 for (enode *n : ctx->enodes()) {
                     if (!ctx->is_relevant(n))
                         continue;
