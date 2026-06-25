@@ -466,7 +466,7 @@ namespace smt {
                 // but also some plain Boolean-closure / large length-intersected
                 // shapes.  Fall back to a derivative-automaton BFS that builds an
                 // accepting word of the requested length directly.
-                wr = projection_witness(m_sg.mk(re_expr), witness);
+                wr = derivative_witness(m_sg.mk(re_expr), witness);
             }
             if (wr == l_true) {
                 SASSERT(witness);
@@ -517,15 +517,15 @@ namespace smt {
         return m_seq.str.mk_empty(srt);
     }
 
-    lbool seq_model::projection_witness(euf::snode const* re0, expr_ref& witness) const {
+    lbool seq_model::derivative_witness(euf::snode const* re0, expr_ref& witness) const {
         SASSERT(re0 && re0->get_expr());
         sort* seq_sort = nullptr;
         if (!m_seq.is_re(re0->get_expr(), seq_sort))
             return l_undef;
 
-        // Shortest-path BFS over the projection-aware derivative automaton.
+        // Shortest-path BFS over the derivative automaton.
         // Each frontier item is (state, accepting-word-so-far).  A state is
-        // accepting when re_nullable (projection-aware) reports nullable.
+        // accepting when re_nullable reports nullable.
         // The regex carries the length intersection (∩ Σ^n), so an accepting
         // run has exactly the requested length and the search is finite.
         vector<std::pair<euf::snode const*, zstring>> work;
@@ -582,6 +582,11 @@ namespace smt {
             if (mem.is_trivial(sat_node))
                 continue; // empty string in nullable regex: already satisfied, no variable to constrain
             VERIFY(mem.is_primitive()); // everything else should have been eliminated already
+            // TODO(view/guard witness): a stabilizer view / cycle guard does not
+            // denote a plain regex on the variable; for now skip it during model
+            // construction (handled by the dedicated view/guard witness below).
+            if (!mem.is_plain())
+                continue;
             unsigned id = var_key(mem.m_str);
             euf::snode const* existing = nullptr;
             if (m_var_regex.find(id, existing) && existing) {

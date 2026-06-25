@@ -119,11 +119,11 @@ namespace smt {
 
         // Witness extraction for regexes that contain a projection operator
         // (re.proj), which the standard seq_rewriter::some_seq_in_re cannot
-        // handle.  Runs a shortest-path BFS over the projection-aware
+        // handle.  Runs a shortest-path BFS over the 
         // derivative automaton (m_sg) for a nullable (accepting) state,
         // building the accepting word.  Returns l_true and sets `witness`
         // on success.
-        lbool projection_witness(euf::snode const* re, expr_ref& witness) const;
+        lbool derivative_witness(euf::snode const* re, expr_ref& witness) const;
 
         // collect per-variable regex constraints from the state.
         // For each positive str_mem, records the regex (or intersects

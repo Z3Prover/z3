@@ -57,15 +57,8 @@ namespace euf {
         s_range,       // character range [lo,hi] (OP_RE_RANGE)
         s_ite,         // ite (OP_ITE)
         s_to_re,       // string to regex (OP_SEQ_TO_RE)
-        s_in_re,       // regex membership (OP_SEQ_IN_RE)
-        s_projection   // projection operator π_{Q,F}(state) (re.proj skolem)
+        s_in_re        // regex membership (OP_SEQ_IN_RE)
     };
-
-    // Skolem decl-name marking a regex projection operator π_{Q,F}(state).
-    // The skolem has signature re.proj(state : RegLan, root : RegLan, nu : Int)
-    // where F = {root} (singleton accepting state) and nu identifies the
-    // explored subautomaton snapshot Q (see seq_nielsen partial DFA).
-    inline symbol re_proj_name() { return symbol("re.proj"); }
 
     class snode {
         expr *m_expr = nullptr; // assumed to be non-null
@@ -77,7 +70,6 @@ namespace euf {
         bool m_ground = true;        // no uninterpreted string variables
         bool m_regex_free = true;    // no regex constructs
         bool m_is_classical = true;  // classical regular expression
-        bool m_has_projection = false; // contains a projection operator (re.proj)
         unsigned m_level = 0;        // tree depth/level (0 for empty, 1 for singletons)
         unsigned m_length = 0;       // token count, number of leaf tokens in the tree
 
@@ -193,10 +185,6 @@ namespace euf {
         bool is_classical() const {
             return m_is_classical;
         }
-        // true iff this regex (sub)tree contains a projection operator (re.proj).
-        bool has_projection() const {
-            return m_has_projection;
-        }
         unsigned level() const {
             return m_level;
         }
@@ -296,10 +284,6 @@ namespace euf {
             }
             return true;
         }
-        bool is_projection() const {
-            return m_kind == snode_kind::s_projection;
-        }
-
         // is this a leaf token (analogous to ZIPT's StrToken as opposed to Str)
         bool is_token() const {
             switch (m_kind) {

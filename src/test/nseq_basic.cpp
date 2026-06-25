@@ -73,7 +73,7 @@ static void test_nseq_param_validation() {
 static void test_nseq_param_validation_rejects_invalid() {
     std::cout << "test_nseq_param_validation_rejects_invalid\n";
     const smt_params p;
-    static const char* invalid_variants[] = { "nseq2", "NSEQ", "nseqq", "nse", "Nseq", "nseq ", "" };
+    static const char* invalid_variants[] = { "nseq3", "NSEQ", "nseqq", "nse", "Nseq", "nseq ", "" };
     for (const auto s : invalid_variants) {
         bool threw = false;
         try {

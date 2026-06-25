@@ -39,8 +39,10 @@ NSB review:
 #include <algorithm>
 #include <complex>
 #include <cstdlib>
+#include <set>
 #include <stack>
 #include <unordered_map>
+#include <vector>
 
 namespace seq {
 
@@ -261,19 +263,33 @@ namespace seq {
     // -----------------------------------------------
 
     bool str_mem::is_primitive() const {
-        return m_str && m_str->length() == 1 && m_str->is_var() && m_regex->is_ground();
+        // A still-unresolved symbolic-derivative residual (ite) is not a settled
+        // primitive — apply_regex_if_split must resolve it first.
+        return m_str && m_str->length() == 1 && m_str->is_var() && m_regex->is_ground()
+            && m_regex->kind() != euf::snode_kind::s_ite;
     }
 
     bool str_mem::is_trivial(nielsen_node const* n) const {
-        if (!(m_str && m_regex && m_str->is_empty()))
+        if (!(m_str && m_regex))
             return false;
-        // Projection-aware nullability (handles re.proj operators in m_regex).
+        if (m_kind == mem_kind::no_loop)
+            // guard: discharged ⇒ Σ* (accepts all); ε has no non-empty lap-prefix.
+            return m_discharged || m_str->is_empty();
+        if (!m_str->is_empty())
+            return false;
+        if (m_kind == mem_kind::stab_view)
+            // ε ∈ stab(root,Q) iff current state ≡ root (i.e. root ∈ F={root}).
+            return m_regex == m_root;
         return n->graph().sg().re_nullable(m_regex) == l_true;
     }
 
     bool str_mem::is_contradiction(nielsen_node const* n) const {
         if (!(m_str && m_regex && m_str->is_empty()))
             return false;
+        if (m_kind == mem_kind::no_loop)
+            return false; // guard acceptance is always true on the empty word
+        if (m_kind == mem_kind::stab_view)
+            return m_regex != m_root; // ε ∉ stab(root,Q) when state ≢ root
         return n->graph().sg().re_nullable(m_regex) == l_false;
     }
 
@@ -538,13 +554,9 @@ namespace seq {
         : m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_sk(m, m_rw),
           m_length_solver(solver), m_context_solver(ctx_solver), m_partial_dfa_pin(sg.get_manager()),
           m_parikh(alloc(seq_parikh, sg)), m_seq_regex(alloc(seq::seq_regex, sg)) {
-        // Answer projection-state membership queries during projection-aware
-        // derivatives (the sgraph cannot reach the partial DFA otherwise).
-        m_sg.set_projection_oracle(this);
     }
 
     nielsen_graph::~nielsen_graph() {
-        m_sg.set_projection_oracle(nullptr);
         dealloc(m_parikh);
         dealloc(m_seq_regex);
         reset();
@@ -690,13 +702,6 @@ namespace seq {
         // Just add the constraint - we do not have to recompute it
         // [also it is on the set of side-conditions if we assert a satisfied node]
         n->add_constraint(constraint(le, dep, m));
-    }
-
-    euf::snode const* nielsen_graph::mk_projection_term(euf::snode const* root_re, unsigned nu) {
-        SASSERT(root_re && root_re->get_expr());
-        // π_{Q_nu, {root}}(root): current state == accepting state == root.
-        expr_ref proj = m_sg.mk_re_proj(root_re->get_expr(), root_re->get_expr(), nu);
-        return m_sg.mk(proj);
     }
 
     // -----------------------------------------------------------------------
@@ -1023,16 +1028,6 @@ namespace seq {
             return;
         if (src_re->is_fail() || dst_re->is_fail())
             return;
-        // The partial DFA must track ONLY the concrete Brzozowski automaton of
-        // the original ground regexes.  Projection operators (re.proj) are
-        // synthetic stabilizers minted by cycle decomposition; every fresh
-        // snapshot index ν is a new expression, so recording projection-derived
-        // states as DFA nodes makes the SCC grow without bound (a newly-marked
-        // edge on every extraction) and re-triggers cycle decomposition forever
-        // (e.g. a cycle variable x'∈π(R) being decomposed again and again
-        // against its own / a sibling regex's cycle).  Reject such edges.
-        if (src_re->has_projection() || dst_re->has_projection())
-            return;
 
         //euf::snode const* label_re = to_partial_label_regex(label);
         //SASSERT(label_re);
@@ -1199,34 +1194,6 @@ namespace seq {
             }
         }
         return newly_marked;
-    }
-
-    bool nielsen_graph::try_extract_partial_projection(euf::snode const* root_re, euf::snode const*& projection_re) {
-        SASSERT(root_re && root_re->get_expr());
-        projection_re = nullptr;
-        if (!root_re->is_ground())
-            return false;
-
-        uint_set scc;
-        if (!collect_scc_for_projection(root_re, scc))
-            return false;
-
-        // Novelty = the SCC's edge set grew (some edge was previously unmarked).
-        // mark_scc_projection_edges advances the snapshot index only in that
-        // case, so a re-visit of an already-fully-marked SCC (from any of its
-        // states) marks nothing new and does not re-trigger a decomposition.
-        const unsigned newly_marked = mark_scc_projection_edges(scc);
-        if (newly_marked == 0)
-            return false;
-
-        // Keep the stabilizer symbolic as a projection operator over the
-        // (just-marked) explored subautomaton snapshot. Its language is
-        // refined lazily through projection-aware derivatives.
-        projection_re = mk_projection_term(root_re, m_projection_extract_idx);
-        if (!projection_re)
-            return false;
-
-        return true;
     }
 
     euf::snode const* nielsen_graph::get_slice(euf::snode const* v, expr* left, expr* right) {
@@ -1669,7 +1636,7 @@ namespace seq {
         // in both directions (left-to-right, then right-to-left), mirroring ZIPT.
         for (str_mem& mem : m_str_mem) {
             SASSERT(mem.well_formed());
-            if (mem.is_primitive())
+            if (mem.is_primitive() || !mem.is_plain())
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = od == 0;
@@ -1715,7 +1682,7 @@ namespace seq {
         // consume symbolic characters via uniform derivatives
         for (str_mem& mem : m_str_mem) {
             SASSERT(mem.well_formed());
-            if (mem.is_primitive())
+            if (mem.is_primitive() || !mem.is_plain())
                 continue;
             while (mem.m_str && !mem.m_str->is_empty()) {
 
@@ -1727,13 +1694,7 @@ namespace seq {
                 euf::snode const* src_re = mem.m_regex;
 
                 euf::snode const* next = nullptr;
-                if (src_re->has_projection()) {
-                    // The generic symbolic derivative cannot see the projection
-                    // operator; route through the projection-aware derivative,
-                    // which yields the ite-residual with π propagated to leaves.
-                    next = sg.brzozowski_deriv(src_re, tok);
-                }
-                else {
+                {
                     seq_rewriter rw(m);
                     expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
 
@@ -1774,33 +1735,22 @@ namespace seq {
             }
         }
 
+        // consume leading characters of view / guard memberships (Section 3.3).
+        // m_regex is the current (plain) derivative state; we gate on whether it
+        // lies in Q_ν (projection_state_in_Q) and step with the ordinary
+        // derivative, keeping the view/guard annotation.
+        for (str_mem& mem : m_str_mem) {
+            SASSERT(mem.well_formed());
+            if (mem.is_plain())
+                continue;
+            if (consume_view_guard(mem))
+                return simplify_result::conflict;
+        }
+
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
             if (mem.is_contradiction(this)) {
                 TRACE(seq, tout << "contradiction " << mem_pp(mem, m) << "\n");
-                set_general_conflict();
-                set_conflict(backtrack_reason::regex, mem.m_dep);
-                return simplify_result::conflict;
-            }
-        }
-
-        // Empty-language check for *primitive* memberships whose regex contains a
-        // projection operator.  The regex widening pass below skips primitives,
-        // and is_contradiction only fires once the string side is empty.  But a
-        // cycle decomposition constrains the remainder x'' by ~((π(r)∩~ε)·Σ*),
-        // and deriving this through the cycle can collapse it to the empty
-        // language: e.g. ~(π(r)·Σ*) ≡ ∅ because π(r) is nullable (r ∈ F), so
-        // π(r)·Σ* ≡ Σ*.  Such a constraint is unsatisfiable, but without this
-        // eager check the variable would be unwound depth-deep before the
-        // conflict surfaces — the source of the multi-cycle-SCC blow-up.  The
-        // check is cheap: is_empty_bfs on these projection regexes settles in a
-        // couple of states (a nullable projection short-circuits to non-empty).
-        SASSERT(m_graph.m_seq_regex);
-        for (str_mem const& mem : m_str_mem) {
-            if (!mem.is_primitive() || !mem.m_regex->has_projection())
-                continue;
-            if (m_graph.m_seq_regex->is_empty_bfs(mem.m_regex) == l_true) {
-                TRACE(seq, tout << "empty primitive projection regex " << mem_pp(mem, m) << "\n");
                 set_general_conflict();
                 set_conflict(backtrack_reason::regex, mem.m_dep);
                 return simplify_result::conflict;
@@ -1843,6 +1793,75 @@ namespace seq {
             return simplify_result::satisfied;
         }
         return simplify_result::proceed;
+    }
+
+    bool nielsen_node::consume_view_guard(str_mem& mem) {
+        SASSERT(!mem.is_plain());
+        euf::sgraph& sg = m_graph.sg();
+        ast_manager& m = sg.get_manager();
+        seq_util& seq = m_graph.seq();
+
+        auto set_regex_conflict = [&]() {
+            set_general_conflict();
+            set_conflict(backtrack_reason::regex, mem.m_dep);
+        };
+
+        while (mem.m_str && !mem.m_str->is_empty()) {
+            euf::snode const* tok = mem.m_str->first();
+            if (!tok || !tok->is_char_or_unit())
+                break; // leading token is a variable/power — nothing to consume yet
+            euf::snode const* c = mem.m_regex;
+            // The gate tests the CURRENT (plain) state c against Q_ν.  An ite
+            // state means a previous symbolic step has not been resolved yet;
+            // leave it for apply_regex_if_split.
+            if (!c->is_ground() || c->kind() == euf::snode_kind::s_ite)
+                break;
+            const bool in_Q = m_graph.projection_state_in_Q(c->get_expr(), mem.m_nu);
+            if (!in_Q) {
+                if (mem.is_guard()) {
+                    // The run left Q: no lap from the start can complete within Q
+                    // anymore, so the guard is discharged (accepts every suffix).
+                    mem.m_discharged = true;
+                    return false;
+                }
+                // view: a^{-1} L_{Q,F}(c) = ∅ when c ∉ Q.
+                set_regex_conflict();
+                return true;
+            }
+            // Step with brzozowski_deriv for BOTH concrete and symbolic tokens.
+            // This is essential: the partial-DFA states (and m_root) are produced
+            // by brzozowski_deriv, so its canonicalization must be used here too —
+            // otherwise the guard's resolved state never equals m_root by snode
+            // identity and laps never close.  For a symbolic unit it yields a
+            // canonical ite residual that apply_regex_if_split later resolves.
+            euf::snode const* next = sg.brzozowski_deriv(c, tok);
+            if (!next)
+                break;
+            mem.m_str = sg.drop_left(mem.m_str, 1);
+            mem.m_regex = next;
+            if (next->is_fail()) {
+                // view: derivative collapsed to ∅ — unsatisfiable.
+                // guard: the lap can never close through ∅; treat as discharged.
+                if (mem.is_guard()) { mem.m_discharged = true; return false; }
+                set_regex_conflict();
+                return true;
+            }
+            if (next->is_ground() && next->kind() != euf::snode_kind::s_ite) {
+                // concrete next state resolved immediately
+                if (mem.is_guard() && next == mem.m_root) {
+                    // a non-empty prefix completed a lap r→…→r within Q.
+                    set_regex_conflict();
+                    return true;
+                }
+            }
+            else {
+                // symbolic ite residual: defer to apply_regex_if_split, which
+                // resolves the character and (for guards) detects a lap landing
+                // back on the root.
+                break;
+            }
+        }
+        return false;
     }
 
     bool nielsen_node::is_satisfied() const {
@@ -3389,128 +3408,81 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Helper: record_dfa_edges_from_ite
-    // Walk an ite-structured symbolic derivative and record a concrete DFA edge
-    // for each non-fail branch.  The ite has the form:
-    //   ite(in_re(char_var, minterm_re), branch_re, rest_ite)
-    // Each (minterm_re, branch_re) pair gives one DFA edge src_re→branch_re.
-    // Called from simplify_and_init so that cycle_decomp can detect SCCs lazily
-    // as symbolic chars are consumed (mirroring the old concrete-char approach).
-    // -----------------------------------------------------------------------
-
-    void nielsen_graph::record_dfa_edges_from_ite(euf::snode const* src_re, expr* ite_deriv) {
-        if (!src_re || !ite_deriv)
-            return;
-        expr *c, *th, *el;
-        if (!m.is_ite(ite_deriv, c, th, el))
-            return;
-        expr *char_ex, *minterm_re;
-        if (m_seq.str.is_in_re(c, char_ex, minterm_re)) {
-            if (!m_seq.re.is_empty(th)) {
-                euf::snode const* dst = m_sg.mk(th);
-                if (dst && !dst->is_fail() && dst->is_ground()) {
-                    euf::snode const* label = m_sg.mk(minterm_re);
-                    record_partial_derivative_edge(src_re, label, dst);
-                }
-            }
-        }
-        record_dfa_edges_from_ite(src_re, el);
-    }
-
-    // -----------------------------------------------------------------------
-    // Helper: get_current_stabilizer
-    // Returns the current partial DFA stabilizer s* for root_re without the
-    // novelty guard from try_extract_partial_projection.  Returns nullptr if
-    // no SCC exists yet or no edges have been marked.
-    // -----------------------------------------------------------------------
-
-    euf::snode const* nielsen_graph::get_current_stabilizer(euf::snode const* root_re) {
-        if (!root_re || !root_re->is_ground() || m_projection_extract_idx == 0)
-            return nullptr;
-        uint_set scc;
-        if (!collect_scc_for_projection(root_re, scc))
-            return nullptr;
-        // Symbolic projection over the edges marked by earlier extractions
-        // (index ≤ current snapshot). No new marking here, mirroring the old
-        // behaviour of reusing the current extraction index.
-        return mk_projection_term(root_re, m_projection_extract_idx);
-    }
-
-    // -----------------------------------------------------------------------
-    // Modifier: apply_cycle_subsumption
-    // For str_mem x·rest ∈ r where L(∩ Reg_x) ⊆ L(stabilizer(r)), remove x:
-    // replace x·rest ∈ r with rest ∈ r.
-    // Mirrors ZIPT StrMem.TrySubsume / paper Section 3.2.3 (Cycle Subsumption).
+    // Modifier: apply_cycle_subsumption  (paper Section "Cycle Subsumption")
+    // For a membership x·u ∈ R (u≠ε) with L(⊓Reg_x) ⊆ stab(R,Q_ν), drop the
+    // leading x: replace x·u ∈ R by u ∈ R.  The inclusion is decided as the
+    // product-emptiness test  L(⊓Reg_x) ∩ ~stab(R,Q_ν) = ∅  (Section 3.3),
+    // adding one co-view component for ~stab.
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_subsumption(nielsen_node* node) {
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
             SASSERT(mem.well_formed());
-            if (mem.is_primitive())
+            if (!mem.is_plain() || mem.is_primitive())
                 continue;
             euf::snode const* first = mem.m_str->first();
             SASSERT(first);
             if (!first->is_var())
                 continue;
+            euf::snode const* R = mem.m_regex;
 
-            // Get the current stabilizer for this regex (no novelty guard).
-            euf::snode const* stabilizer = get_current_stabilizer(mem.m_regex);
-            if (!stabilizer || m_seq.re.is_epsilon(stabilizer->get_expr()))
+            // R must lie on a detected cycle with a marked SCC snapshot.
+            uint_set scc;
+            if (!collect_scc_for_projection(R, scc))
+                continue;
+            const unsigned nu = m_projection_extract_idx;
+            if (nu == 0)
                 continue;
 
-            // Collect primitive regex constraints on `first`.
+            // Decide  L(⊓Reg_x) ⊆ stab(R,Q_ν)  as  ⊓Reg_x ∩ ~stab = ∅.
+            vector<prod_comp> comps;
             dep_tracker x_dep = nullptr;
-            euf::snode const* x_regex = m_seq_regex->collect_primitive_regex_intersection(
-                first, *node, m_dep_mgr, x_dep);
-            if (!x_regex)
+            collect_var_components(first, *node, comps, x_dep);
+            comps.push_back(prod_comp::mk_view(R, R, nu, /*complemented*/ true));
+            if (check_product_emptiness(comps, 5000) != l_true)
                 continue;
 
-            // Check L(x_regex) ⊆ L(stabilizer).
-            if (m_seq_regex->is_language_subset(x_regex, stabilizer) != l_true)
-                continue;
-
-            // Subsume: replace x·rest ∈ r with rest ∈ r.
+            // Subsume: replace x·u ∈ R with u ∈ R.
             euf::snode const* tail = m_sg.drop_first(mem.m_str);
             SASSERT(tail);
 
             nielsen_node* child = mk_child(node);
             mk_edge(node, child, "cycle subs", true);
 
-            auto& child_mems = child->str_mems();
-            for (unsigned k = 0; k < child_mems.size(); ++k) {
-                if (child_mems[k] == mem) {
-                    child_mems[k] = child_mems.back();
-                    child_mems.pop_back();
+            for (auto& cm : child->str_mems()) {
+                if (cm == mem) {
+                    cm.m_str = tail;
+                    cm.m_dep = m_dep_mgr.mk_join(cm.m_dep, x_dep);
                     break;
                 }
             }
 
-            const dep_tracker combined_dep = m_dep_mgr.mk_join(mem.m_dep, x_dep);
-            child->add_str_mem(str_mem(tail, mem.m_regex, combined_dep));
-
             TRACE(seq, tout << "cycle_subsumption: dropped x=" << mk_pp(first->get_expr(), m)
                             << " from " << mk_pp(mem.m_str->get_expr(), m)
-                            << " ∈ " << mk_pp(mem.m_regex->get_expr(), m) << "\n");
+                            << " ∈ " << mk_pp(R->get_expr(), m) << " nu=" << nu << "\n");
             return true;
         }
         return false;
     }
 
     // -----------------------------------------------------------------------
-    // Modifier: apply_cycle_decomposition
-    // Cycle decomposition: for a str_mem x·s ∈ R where a partial DFA
-    // cycle is detected, project SCC onto stabilizer constraint b.
-    // Rewrites x into x'·x'' with x' ∈ b*, x'' ∈ complement((b ∩ complement(eps)) · Sigma*).
+    // Modifier: apply_cycle_decomposition  (paper Section "Cycle Decomposition")
     //
-    // Here stabilizer_re = π_{Q_SCC,{R}}(R) is the projection operator denoting
-    // the language of all paths from R back to R that stay within the explored
-    // subautomaton Q_SCC (including ε), i.e. s* for the non-empty cycle language
-    // s. It is kept symbolic; its derivative/nullability are evaluated lazily by
-    // the projection-aware sgraph (paper §3.3) rather than materialized.
+    // For a membership x·u ∈ R whose leading variable x sits on a detected cycle
+    // (R lies in an SCC of the partial DFA) and that does not already carry a
+    // matching cycle guard for the current SCC snapshot, split
+    //   x → x'·x''
+    // and attach the two *view*/*guard* primitive constraints (Section 3.3):
+    //   x' ∈ stab(R, Q_ν)            -- stabilizer view  (F = {R})
+    //   noloop(x'', R, Q_ν)          -- cycle guard      (two-mode monitor)
+    // The leading x' is immediately subsumed (its only constraint is the view,
+    // and stab ⊆ stab trivially), so it is dropped from the primary constraint.
     //
-    // The constraint on x'' prevents divergence: x'' may not begin with any
-    // non-empty word from L(stabilizer_re), so it cannot re-enter the cycle.
+    // Unlike the old projection-operator encoding, the view and guard are kept
+    // as *constraint metadata* over the plain state R and the ν-indexed explored
+    // subautomaton Q_ν — nothing is materialized as a regex, which keeps the
+    // reachable state space finite (termination).
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_decomposition(nielsen_node* node) {
@@ -3518,7 +3490,7 @@ namespace seq {
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
             SASSERT(mem.well_formed());
-            if (mem.is_primitive())
+            if (!mem.is_plain() || mem.is_primitive())
                 continue;
             euf::snode const* first = mem.m_str->first();
             SASSERT(first);
@@ -3526,29 +3498,47 @@ namespace seq {
                 continue;
 
             euf::snode const* x = first;
-            euf::snode const* stabilizer_re = nullptr;
+            euf::snode const* R = mem.m_regex;
 
             // Eagerly precompute partial DFA edges from this regex so that
             // collect_scc_for_projection can detect cycles without waiting
             // for apply_regex_var_split to create per-minterm children.
-            precompute_partial_dfa(mem.m_regex, 2);
+            precompute_partial_dfa(R, 64);
 
-            if (!try_extract_partial_projection(mem.m_regex, stabilizer_re))
+            // R must sit on a cycle (an SCC of the partial DFA).
+            uint_set scc;
+            if (!collect_scc_for_projection(R, scc))
+                continue;
+            // Mark the SCC edges; this gives a ν identifying the current Q_SCC.
+            // (We trigger on absence of a matching guard, NOT on novelty.)
+            mark_scc_projection_edges(scc);
+            const unsigned nu = m_projection_extract_idx;
+            if (nu == 0)
+                continue;
+            fprintf(stderr, "DEC R=%u nu=%u sccsz=%u x=%u nedges=%u\n", R->id(), nu, scc.num_elems(), x->id(), (unsigned)m_partial_dfa_edges.size()); fflush(stderr);
+
+            // Trigger condition: x must not already carry a cycle guard for the
+            // current SCC snapshot ν.  All states of one SCC share a single ν, so
+            // the guard is keyed on ν rather than on the (changing) head R: as the
+            // derivation walks the SCC the head moves, but the lineage is already
+            // guarded against re-traversing the cycle.  An already-decomposed
+            // variable whose guard refers to a strictly smaller, stale ν is
+            // re-decomposed to adopt the enlarged SCC.
+            bool already_guarded = false;
+            for (str_mem const& g : node->str_mems()) {
+                if (g.is_guard() && g.m_nu >= nu
+                    && g.m_str && g.m_str->first() == x) {
+                    already_guarded = true;
+                    break;
+                }
+            }
+            if (already_guarded)
                 continue;
 
-            SASSERT(stabilizer_re && stabilizer_re->get_expr());
-
-            // stabilizer_re is epsilon if the SCC has no non-trivial cycles — skip.
-            if (m_seq.re.is_epsilon(stabilizer_re->get_expr()))
-                continue;
-
-            // Get sorts needed to build the xpp regex.
-            sort* re_sort  = stabilizer_re->get_expr()->get_sort();
-            sort* seq_sort = nullptr;
-            VERIFY(m_seq.is_re(stabilizer_re->get_expr(), seq_sort));
+            sort* seq_sort = x->get_expr()->get_sort();
 
             // Construct the replacement x = x' x''
-            euf::snode const* xp      = m_sg.mk(m_sk.mk("cycle", x->get_expr(), stabilizer_re->get_expr(), seq_sort));
+            euf::snode const* xp      = m_sg.mk(m_sk.mk("cycle", x->get_expr(), R->get_expr(), seq_sort));
             euf::snode const* xpp     = get_tail(x, compute_length_expr(xp).get());
             euf::snode const* xp_xpp  = m_sg.mk_concat(xp, xpp);
 
@@ -3563,32 +3553,17 @@ namespace seq {
             SASSERT(child->m_str_mem[mi].m_str->first() == xp);
             child->m_str_mem[mi].m_str = dir_drop(m_sg, child->m_str_mem[mi].m_str, 1, true);
 
-            // x' ∈ stabilizer_re   (= s*, all repetitions of the detected cycle)
-            child->add_str_mem(str_mem(xp, stabilizer_re, mem.m_dep));
+            // x' ∈ stab(R, Q_ν)   (stabilizer view, F = {R}, current state = R)
+            child->add_str_mem(str_mem::mk_view(xp, R, R, nu, mem.m_dep));
 
-            // x'' ∈ complement((stabilizer_re ∩ complement(ε)) · Σ*)
-            //
-            // stabilizer_re ∩ complement(ε)  = non-empty words in the cycle language
-            // (s_ne) · Σ*                     = all words whose prefix is a full non-empty cycle
-            // complement(...)                  = words that do NOT start with a full non-empty cycle
-            //
-            // This ensures x'' cannot begin another complete cycle from the same
-            // SCC entry point, which is what prevents infinite unfolding.
-            const expr_ref eps_re(m_seq.re.mk_epsilon(seq_sort), m);
-            const expr_ref compl_eps(m_seq.re.mk_complement(eps_re), m);
-            const expr_ref s_ne(m_seq.re.mk_inter(stabilizer_re->get_expr(), compl_eps), m);
-            const expr_ref sigma_star(m_seq.re.mk_full_seq(re_sort), m);
-            const expr_ref s_ne_sigma_star(m_seq.re.mk_concat(s_ne, sigma_star), m);
-            const expr_ref xpp_re(m_seq.re.mk_complement(s_ne_sigma_star), m);
-            euf::snode const* xpp_snode = m_sg.mk(xpp_re);
-            child->add_str_mem(str_mem(xpp, xpp_snode, mem.m_dep));
+            // noloop(x'', R, Q_ν)  (cycle guard, two-mode monitor, state = R)
+            child->add_str_mem(str_mem::mk_guard(xpp, R, R, nu, mem.m_dep));
 
             TRACE(seq, tout << "cycle_decomp: x=" << mk_pp(x->get_expr(), m)
-                            << " stabilizer=" << mk_pp(stabilizer_re->get_expr(), m)
-                            << " xpp_re=" << xpp_re << "\n");
+                            << " R=" << mk_pp(R->get_expr(), m) << " nu=" << nu << "\n");
 
 #ifdef Z3DEBUG
-            std::string dot = partial_dfa_to_dot(mem.m_regex, false);
+            std::string dot = partial_dfa_to_dot(R, false);
 #endif
             return true;
         }
@@ -3686,11 +3661,9 @@ namespace seq {
             if (mem.m_str->is_empty() || mem.is_primitive())
                 continue;
 
-            // The split engine works on plain regex AST and does not understand the
-            // projection operator (re.proj) — it would give up on it anyway.
-            // Projection-constrained memberships are handled by the
-            // cycle-decomposition path, so skip them here.
-            if (mem.m_regex->has_projection())
+            // View / guard memberships (Section 3.3) are handled by the
+            // cycle machinery and the synchronous product, not by factorization.
+            if (!mem.is_plain())
                 continue;
 
             split_set pairs;
@@ -4083,8 +4056,12 @@ namespace seq {
 
                 expr_ref c2(m), th2(m), el2(m);
                 if (!bool_rewriter(m).decompose_ite(r, c2, th2, el2)) {
-                    // No ite remaining: leaf → create child node with regex updated to r
-                    euf::snode const* new_regex_snode = m_sg.mk(r);
+                    // No ite remaining: leaf → create child node with regex updated to r.
+                    // Canonicalize with th_rewriter so that the resolved leaf shares
+                    // its snode id with the corresponding partial-DFA state (which is
+                    // built by brzozowski_deriv); otherwise un-simplified residuals
+                    // like (a|∅)·R≠a·R break view/guard Q-membership and lap checks.
+                    euf::snode const* new_regex_snode = mk_rewrite(r);
                     nielsen_node *child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "regex if", true);
                     for (const auto f : cs) {
@@ -4093,6 +4070,12 @@ namespace seq {
                     for (str_mem &cm : child->str_mems()) {
                         if (cm == mem) {
                             cm.m_regex = new_regex_snode;
+                            // A guard whose symbolic step lands back on the cycle
+                            // head closed a lap within Q → this branch is dead.
+                            if (cm.is_guard() && new_regex_snode == cm.m_root) {
+                                child->set_general_conflict();
+                                child->set_conflict(backtrack_reason::regex, cm.m_dep);
+                            }
                             break;
                         }
                     }
@@ -4938,28 +4921,184 @@ namespace seq {
     // Mirrors ZIPT NielsenNode.CheckRegex (NielsenNode.cs:1311-1329)
     // -----------------------------------------------------------------------
 
+    // -----------------------------------------------------------------------
+    // Synchronous product over plain / view / guard / co-view components.
+    // -----------------------------------------------------------------------
+
+    lbool nielsen_graph::comp_accepting(prod_comp const& c) const {
+        if (c.m_dead)
+            return l_false;
+        switch (c.m_kind) {
+        case mem_kind::plain:
+            return m_sg.re_nullable(c.m_state);
+        case mem_kind::stab_view:
+            if (c.m_complemented)
+                return (c.m_sink || c.m_state != c.m_root) ? l_true : l_false;
+            return (c.m_state == c.m_root) ? l_true : l_false;
+        case mem_kind::no_loop:
+            return l_true; // guard accepts on every prefix it has not failed on
+        }
+        return l_undef;
+    }
+
+    nielsen_graph::prod_comp nielsen_graph::comp_step(prod_comp const& c, euf::snode const* mt) {
+        prod_comp r = c;
+        if (c.m_dead)
+            return r;
+        switch (c.m_kind) {
+        case mem_kind::plain: {
+            euf::snode const* d = m_sg.brzozowski_deriv(c.m_state, mt);
+            if (!d || d->is_fail()) r.m_dead = true; else r.m_state = d;
+            return r;
+        }
+        case mem_kind::stab_view: {
+            if (c.m_complemented) {
+                if (c.m_sink) return r;                    // Σ*
+                if (!projection_state_in_Q(c.m_state->get_expr(), c.m_nu)) { r.m_sink = true; return r; }
+                euf::snode const* d = m_sg.brzozowski_deriv(c.m_state, mt);
+                if (!d || d->is_fail()) { r.m_sink = true; return r; } // ~∅ = Σ*
+                r.m_state = d;
+                return r;
+            }
+            if (!projection_state_in_Q(c.m_state->get_expr(), c.m_nu)) { r.m_dead = true; return r; }
+            euf::snode const* d = m_sg.brzozowski_deriv(c.m_state, mt);
+            if (!d || d->is_fail()) { r.m_dead = true; return r; }
+            r.m_state = d;
+            return r;
+        }
+        case mem_kind::no_loop: {
+            if (c.m_sink) return r;                        // discharged: Σ*
+            if (!projection_state_in_Q(c.m_state->get_expr(), c.m_nu)) { r.m_sink = true; return r; }
+            euf::snode const* d = m_sg.brzozowski_deriv(c.m_state, mt);
+            if (!d || d->is_fail()) { r.m_sink = true; return r; } // lap cannot close through ∅
+            if (d == c.m_root) { r.m_dead = true; return r; }      // lap completed → forbidden
+            r.m_state = d;
+            return r;
+        }
+        }
+        return r;
+    }
+
+    lbool nielsen_graph::check_product_emptiness(vector<prod_comp> const& comps0, unsigned max_states) {
+        if (comps0.empty())
+            return l_false; // empty intersection = Σ* (non-empty)
+
+        auto encode = [](vector<prod_comp> const& cs) {
+            std::vector<unsigned> key;
+            key.reserve(cs.size() * 5);
+            for (auto const& c : cs) {
+                key.push_back(static_cast<unsigned>(c.m_kind));
+                key.push_back((c.m_complemented ? 1u : 0u) | (c.m_sink ? 2u : 0u) | (c.m_dead ? 4u : 0u));
+                key.push_back(c.m_state ? c.m_state->id() : UINT_MAX);
+            }
+            return key;
+        };
+
+        std::set<std::vector<unsigned>> visited;
+        vector<vector<prod_comp>> work;
+        work.push_back(comps0);
+        visited.insert(encode(comps0));
+        unsigned explored = 0;
+
+        while (!work.empty()) {
+            if (!m.inc())
+                return l_undef;
+            if (explored >= max_states)
+                return l_undef;
+            vector<prod_comp> cur = work.back();
+            work.pop_back();
+            ++explored;
+
+            bool any_dead = false;
+            for (auto const& c : cur) if (c.m_dead) { any_dead = true; break; }
+            if (any_dead)
+                continue;
+
+            // simultaneously accepting?
+            bool all_acc = true, any_undef = false;
+            for (auto const& c : cur) {
+                const lbool a = comp_accepting(c);
+                if (a == l_false) { all_acc = false; break; }
+                if (a == l_undef) any_undef = true;
+            }
+            if (all_acc && !any_undef)
+                return l_false; // found a common word
+
+            // joint first-character partition = minterms of the intersection of
+            // all still-discriminating component states.
+            expr* combined = nullptr;
+            for (auto const& c : cur) {
+                if (c.m_sink || c.m_dead) continue;
+                combined = combined ? m_seq.re.mk_inter(combined, c.m_state->get_expr())
+                                    : c.m_state->get_expr();
+            }
+            if (!combined)
+                continue; // no discriminating state and not accepting: dead end
+            euf::snode_vector mts;
+            m_sg.compute_minterms(m_sg.mk(combined), mts);
+
+            for (euf::snode const* mt : mts) {
+                vector<prod_comp> nxt;
+                bool dead = false;
+                for (auto const& c : cur) {
+                    prod_comp d = comp_step(c, mt);
+                    if (d.m_dead) { dead = true; break; }
+                    nxt.push_back(d);
+                }
+                if (dead)
+                    continue;
+                if (visited.insert(encode(nxt)).second)
+                    work.push_back(nxt);
+            }
+        }
+        return l_true; // exhausted with no accepting tuple → empty
+    }
+
+    bool nielsen_graph::collect_var_components(euf::snode const* var, nielsen_node const& node,
+                                               vector<prod_comp>& out, dep_tracker& dep) {
+        bool found = false;
+        for (auto const& mem : node.str_mems()) {
+            if (!mem.is_primitive())
+                continue;
+            if (mem.m_str->first() != var)
+                continue;
+            switch (mem.m_kind) {
+            case mem_kind::plain:
+                out.push_back(prod_comp::mk_plain(mem.m_regex));
+                break;
+            case mem_kind::stab_view:
+                out.push_back(prod_comp::mk_view(mem.m_regex, mem.m_root, mem.m_nu, false));
+                break;
+            case mem_kind::no_loop:
+                out.push_back(prod_comp::mk_guard(mem.m_regex, mem.m_root, mem.m_nu, mem.m_discharged));
+                break;
+            }
+            dep = m_dep_mgr.mk_join(dep, mem.m_dep);
+            found = true;
+        }
+        return found;
+    }
+
     bool nielsen_graph::check_leaf_regex(nielsen_node const& node, dep_tracker& dep) {
         SASSERT(m_seq_regex);
 
-        // Group str_mem constraints by variable (primitive constraints only)
-        u_map<std::pair<euf::snode_vector, dep_tracker>> var_regexes;
-
+        // distinct variables carrying a primitive constraint
+        uint_set seen;
         for (auto const& mem : node.str_mems()) {
             SASSERT(mem.is_primitive());
             euf::snode const* const first = mem.m_str->first();
             SASSERT(first && first->is_var());
-            auto &[fst, snd] = var_regexes.insert_if_not_there(first->id(), std::pair<euf::snode_vector, dep_tracker>());
-            fst.push_back(mem.m_regex);
-            snd = dep_mgr().mk_join(snd, mem.m_dep);
-        }
+            if (seen.contains(first->id()))
+                continue;
+            seen.insert(first->id());
 
-        // check intersection non-emptiness (also for single occurrences; it could be empty)
-        for (auto& [var_id, regexes] : var_regexes) {
-            const lbool result = m_seq_regex->check_intersection_emptiness(regexes.first, 5000);
+            vector<prod_comp> comps;
+            dep_tracker d = nullptr;
+            collect_var_components(first, node, comps, d);
+            const lbool result = check_product_emptiness(comps, 5000);
             if (result == l_true) {
                 TRACE(seq, tout << "empty intersection\n");
-                // Intersection is empty — infeasible
-                dep = regexes.second;
+                dep = d;
                 return false;
             }
         }

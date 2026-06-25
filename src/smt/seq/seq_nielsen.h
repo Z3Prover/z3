@@ -275,18 +275,55 @@ namespace seq {
             << snode_label_html(p.deq.m_rhs, p.m, false);
     }
 
+    // kind of a regex membership constraint (paper Section 3.3, "views"):
+    //  - plain:     ordinary u ∈ r
+    //  - stab_view: stabilizer view  u ∈_{Q,{root}} root   (acceptance set F={root})
+    //  - no_loop:   cycle guard  noloop(u, root, Q)         (two-mode monitor)
+    // For view/guard, m_regex holds the *current derivative state* (a plain
+    // regex; starts at m_root) and Q is identified by the ν-index m_nu over
+    // the partial DFA (projection_state_in_Q).  This replaces the old re.proj
+    // projection operator: m_regex is always a plain regex now.
+    enum class mem_kind : unsigned char { plain, stab_view, no_loop };
+
     // regex membership constraint: str in regex
     // mirrors ZIPT's StrMem
     struct str_mem {
         euf::snode const* m_str; // assumed to be non-null
-        euf::snode const* m_regex; // assumed to be non-null
+        euf::snode const* m_regex; // assumed to be non-null (plain regex = current run state)
         dep_tracker m_dep;
+
+        // view / guard annotation (Section 3.3)
+        mem_kind          m_kind = mem_kind::plain;
+        euf::snode const* m_root = nullptr;  // cycle head r (view F={r}; guard lap head)
+        unsigned          m_nu = 0;          // ν: snapshot index identifying Q
+        bool              m_discharged = false; // guard monitor: false=watch, true=discharged
 
         str_mem(euf::snode const* str, euf::snode const* regex, dep_tracker const& dep):
             m_str(str), m_regex(regex), m_dep(dep) {}
 
+        // factory for a stabilizer view  str ∈_{Q_ν,{root}} root  (m_regex=state)
+        static str_mem mk_view(euf::snode const* str, euf::snode const* state,
+                               euf::snode const* root, unsigned nu, dep_tracker const& dep) {
+            str_mem r(str, state, dep);
+            r.m_kind = mem_kind::stab_view; r.m_root = root; r.m_nu = nu;
+            return r;
+        }
+        // factory for a cycle guard  noloop(str, root, Q_ν)  (m_regex=state)
+        static str_mem mk_guard(euf::snode const* str, euf::snode const* state,
+                                euf::snode const* root, unsigned nu, dep_tracker const& dep) {
+            str_mem r(str, state, dep);
+            r.m_kind = mem_kind::no_loop; r.m_root = root; r.m_nu = nu;
+            return r;
+        }
+
+        bool is_plain() const { return m_kind == mem_kind::plain; }
+        bool is_view()  const { return m_kind == mem_kind::stab_view; }
+        bool is_guard() const { return m_kind == mem_kind::no_loop; }
+
         bool operator==(str_mem const& other) const {
-            return m_str == other.m_str && m_regex == other.m_regex;
+            return m_str == other.m_str && m_regex == other.m_regex
+                && m_kind == other.m_kind && m_root == other.m_root
+                && m_nu == other.m_nu && m_discharged == other.m_discharged;
         }
 
         // check if the constraint has the form x in R with x a single variable
@@ -617,6 +654,12 @@ namespace seq {
         // Returns proceed, conflict, satisfied, or restart.
         simplify_result simplify_and_init(ptr_vector<nielsen_edge> const& cur_path);
 
+        // Consume leading concrete/symbolic characters of a view/guard membership
+        // (Section 3.3): gate on Q_ν, step with the ordinary derivative, keeping
+        // the annotation.  Returns true if the constraint died (view left Q, or
+        // guard completed a lap) — the caller reports a regex conflict.
+        bool consume_view_guard(str_mem& mem);
+
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
 
@@ -678,7 +721,7 @@ namespace seq {
 
     // the overall Nielsen transformation graph
     // mirrors ZIPT's NielsenGraph
-    class nielsen_graph : public euf::projection_oracle {
+    class nielsen_graph {
         friend class nielsen_node;
         friend class nielsen_edge;
 
@@ -792,7 +835,7 @@ namespace seq {
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
         nielsen_graph(euf::sgraph& sg, sub_solver_i& solver, context_solver_i& ctx);
-        ~nielsen_graph() override;
+        ~nielsen_graph();
 
 
         ast_manager& get_manager() const {
@@ -803,10 +846,10 @@ namespace seq {
         seq_util& seq() { return m_seq; }
         seq_util const& seq() const { return m_seq; }
 
-        // euf::projection_oracle: true iff regex `state` is part of the
-        // explored subautomaton snapshot `nu` (a partial-DFA edge incident to
-        // `state` was marked with an index in [1, nu]).
-        bool projection_state_in_Q(expr* state, unsigned nu) override;
+        // true iff regex `state` is part of the explored subautomaton snapshot
+        // `nu` — i.e. state ∈ Q_ν (a partial-DFA edge incident to `state` was
+        // marked with an index in [1, nu]).  Used to gate view/guard derivation.
+        bool projection_state_in_Q(expr* state, unsigned nu);
 
         // node management
         nielsen_node* mk_node();
@@ -983,6 +1026,45 @@ namespace seq {
         bool check_leaf_regex(nielsen_node const& node, dep_tracker& dep);
 
         // -------------------------------------------------------------------
+        // Synchronous product over plain / view / guard / co-view components
+        // (paper Section 3.3, "Deciding the intersection check").  Each
+        // component carries its own acceptance + (gated) one-character law;
+        // the product is empty iff no reachable tuple is simultaneously
+        // accepting.  m_regex always being a plain regex, the derivative is
+        // the ordinary Brzozowski one and only acceptance / the Q-gate differ.
+        // -------------------------------------------------------------------
+        struct prod_comp {
+            mem_kind          m_kind = mem_kind::plain;
+            bool              m_complemented = false; // ~stab co-view (kind==stab_view)
+            euf::snode const* m_state = nullptr;      // current plain regex state
+            euf::snode const* m_root = nullptr;       // view/guard cycle head
+            unsigned          m_nu = 0;               // ν (Q snapshot)
+            bool              m_sink = false;         // co-view became Σ* / guard discharged
+            bool              m_dead = false;         // language collapsed to ∅
+
+            static prod_comp mk_plain(euf::snode const* s) { prod_comp c; c.m_state = s; return c; }
+            static prod_comp mk_view(euf::snode const* s, euf::snode const* root, unsigned nu, bool compl_) {
+                prod_comp c; c.m_kind = mem_kind::stab_view; c.m_state = s; c.m_root = root; c.m_nu = nu; c.m_complemented = compl_; return c;
+            }
+            static prod_comp mk_guard(euf::snode const* s, euf::snode const* root, unsigned nu, bool discharged) {
+                prod_comp c; c.m_kind = mem_kind::no_loop; c.m_state = s; c.m_root = root; c.m_nu = nu; c.m_sink = discharged; return c;
+            }
+        };
+
+        // l_true = empty, l_false = non-empty (a simultaneously accepting tuple
+        // was reached), l_undef = budget exhausted / inconclusive.
+        lbool check_product_emptiness(vector<prod_comp> const& comps, unsigned max_states);
+
+        // acceptance / single-character step of one product component.
+        lbool comp_accepting(prod_comp const& c) const;
+        prod_comp comp_step(prod_comp const& c, euf::snode const* mt);
+
+        // Build the product components for variable `var` from the node's
+        // primitive memberships (plain / view / guard).  Joins their deps.
+        bool collect_var_components(euf::snode const* var, nielsen_node const& node,
+                                    vector<prod_comp>& out, dep_tracker& dep);
+
+        // -------------------------------------------------------------------
         // Partial DFA projection helpers
         // -------------------------------------------------------------------
 
@@ -1002,17 +1084,6 @@ namespace seq {
         // Mark SCC edges with a monotone extraction index and return the
         // currently covered edge count for this extraction.
         unsigned mark_scc_projection_edges(uint_set const& scc);
-
-        // Build the projection operator π_{Q,{root_re}}(root_re) as a re.proj
-        // skolem snode, where Q is the explored subautomaton identified by the
-        // snapshot index nu. This is the stabilizer of root_re kept symbolically
-        // (the projection's derivative/nullability are evaluated lazily by the
-        // sgraph consulting projection_state_in_Q).
-        euf::snode const* mk_projection_term(euf::snode const* root_re, unsigned nu);
-
-        // Try to extract a stronger projection for root_re. Returns true and
-        // stores it in projection_re iff SCC coverage has grown.
-        bool try_extract_partial_projection(euf::snode const* root_re, euf::snode const*& projection_re);
 
         euf::snode const* get_slice(euf::snode const* v, expr* left, expr* right);
 
@@ -1105,21 +1176,11 @@ namespace seq {
         // Fires without the novelty guard, using the current partial DFA state.
         bool apply_cycle_subsumption(nielsen_node* node);
 
-        // Return the current stabilizer s* for root_re from the partial DFA
-        // (bypasses the novelty guard used by try_extract_partial_projection).
-        euf::snode const* get_current_stabilizer(euf::snode const* root_re);
-
         // BFS of Brzozowski derivatives from root_re up to `depth` steps,
         // eagerly recording concrete minterm edges in the partial DFA so that
         // collect_scc_for_projection can find cycles without first waiting for
         // concrete children to record them one level at a time.
         void precompute_partial_dfa(euf::snode const* root_re, unsigned depth);
-
-        // Walk an ite-structured symbolic derivative expression and record
-        // concrete DFA edges for each non-fail branch.
-        // Called from simplify_and_init when a symbolic character is consumed,
-        // so that cycle_decomp can detect SCCs lazily (as with concrete chars).
-        void record_dfa_edges_from_ite(euf::snode const* src_re, expr* ite_deriv);
 
         // generalized power introduction: for an equation where one head is
         // a variable v and the other side has ground prefix + a variable x

@@ -399,14 +399,6 @@ namespace seq {
         if (re->is_fail() || re->is_full_char() || re->is_full_seq())
             return;
 
-        // projection operator: only the regex arguments carry character
-        // structure; the third argument is the integer snapshot index.
-        if (re->is_projection()) {
-            collect_char_boundaries(re->arg(0), bounds);
-            collect_char_boundaries(re->arg(1), bounds);
-            return;
-        }
-
         // If we reached a leaf and none of the expected leaf forms matched,
         // this is a regex constructor we did not account for in boundary
         // extraction and should fail loudly in debug builds.
@@ -622,8 +614,11 @@ namespace seq {
         euf::snode const* result = nullptr;
 
         for (auto const& mem : node.str_mems()) {
-            // Primitive constraint: str is a single variable
-            if (!mem.is_primitive())
+            // Primitive constraint: str is a single variable.  View/guard
+            // memberships do not denote a plain regex on `var` (their m_regex
+            // is a derivative *state*), so skip them — yielding a coarser but
+            // sound over-approximation for the caller (regex widening).
+            if (!mem.is_primitive() || !mem.is_plain())
                 continue;
             euf::snode const* first = mem.m_str->first();
             // NSB review: why is this "first" and not mem.m_str?

@@ -69,19 +69,6 @@ namespace euf {
 
     class seq_plugin;
 
-    // Oracle queried by the projection-aware derivative of sgraph.
-    // The projection operator π_{Q,F}(state) (a re.proj skolem) has its set of
-    // explored states Q stored externally (the nielsen_graph partial DFA), keyed
-    // by a snapshot index nu.  The sgraph consults this oracle to decide whether
-    // the current state lies in Q when deriving a projection.
-    class projection_oracle {
-    public:
-        virtual ~projection_oracle() = default;
-        // true iff `state` (a regex expression) belongs to the explored
-        // subautomaton snapshot identified by `nu`.
-        virtual bool projection_state_in_Q(expr* state, unsigned nu) = 0;
-    };
-
     class sgraph {
 
         struct stats {
@@ -120,9 +107,6 @@ namespace euf {
         // trail of alias entries (string constant → decomposed snode) for pop
         unsigned_vector  m_alias_trail;       // expression ids
         unsigned_vector  m_alias_trail_lim;   // scope boundaries
-
-        // Oracle answering "state ∈ Q_nu" for projection derivatives. Not owned.
-        projection_oracle* m_proj_oracle = nullptr;
 
         snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode const** args);
         snode_kind classify(expr* e) const;
@@ -173,28 +157,7 @@ namespace euf {
         // for deriving symbolic variables.
         snode const* brzozowski_deriv(snode const* re, snode const* elem);
 
-        // Register the oracle consulted when deriving projection operators.
-        // Passing nullptr unregisters. Not owned.
-        void set_projection_oracle(projection_oracle* o) { m_proj_oracle = o; }
-
-        // Projection operator support (π_{Q,F}(state) modeled as re.proj skolem).
-        // Recognize and destructure a re.proj skolem expression.
-        bool is_re_proj(expr* e, expr*& state, expr*& root, unsigned& nu) const;
-        // Build the re.proj skolem expression for π_{{root}}(state) at snapshot nu.
-        expr_ref mk_re_proj(expr* state, expr* root, unsigned nu);
-        // True if e is a symbolic-character dispatch skeleton (ite / union of
-        // dispatch, bottoming out in ∅) rather than a concrete regex state.
-        bool is_char_dispatch(expr* e) const;
-        // Wrap a (possibly ite/union-structured) symbolic-derivative result in
-        // the projection operator, propagating π into every dispatch leaf (§4).
-        expr_ref wrap_proj(expr* e, expr* root, unsigned nu);
-        // Projection-aware Brzozowski derivative w.r.t. a character expr
-        // (concrete or symbolic).
-        snode const* deriv_proj(snode const* re, expr* ch);
-
-        // Projection-aware nullability: lifts re.get_info().nullable to regexes
-        // that may contain projection operators. Returns l_true / l_false
-        // (l_undef only if an underlying projection-free subterm is undef).
+        // Nullability of a regex snode (thin wrapper over re.get_info().nullable).
         lbool re_nullable(snode const* re);
 
         // Decode a character expression that may be represented as a const-char,

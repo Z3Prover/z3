@@ -1844,24 +1844,22 @@ namespace smt {
 
             unsigned_vector const &mem_indices = var_to_mems[var_id];
             euf::snode_vector regexes;
-            bool has_projection = false;
+            bool has_view_or_guard = false;
             for (auto i : mem_indices) {
                 SASSERT(mems[i].well_formed());
                 regexes.push_back(mems[i].m_regex);
-                if (mems[i].m_regex->has_projection())
-                    has_projection = true;
+                // Synthetic cycle variables carry a stabilizer view / cycle guard
+                // (Section 3.3) rather than a real regex; skip length coherence.
+                if (!mems[i].is_plain())
+                    has_view_or_guard = true;
             }
 
-            // Skip length coherence for synthetic variables constrained by a
-            // projection operator (the cycle variable x'∈π(R) and remainder
-            // x''∈~((π(R)∩~ε)Σ*) introduced by cycle decomposition).  The
-            // Σ^l ∩ projection gradient does not converge for them — the
-            // benchmark has no real length constraints, so the integer solver
-            // is free to pick ever-larger lengths for these *synthetic* vars
-            // and the coherence loop rejects each one (len≠l) forever.  Their
-            // length consistency is already guaranteed by the soundness of the
-            // decomposition, so leaving the integer assignment alone is safe.
-            if (has_projection)
+            // Skip length coherence for synthetic cycle variables constrained by a
+            // stabilizer view / cycle guard (x'∈stab(R), noloop(x'',R)) introduced
+            // by cycle decomposition: the Σ^l ∩ view gradient does not converge,
+            // the benchmark has no real length constraints, and their length
+            // consistency is guaranteed by the soundness of the decomposition.
+            if (has_view_or_guard)
                 continue;
 
             SASSERT(!regexes.empty());
