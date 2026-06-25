@@ -16,6 +16,8 @@ def_module_params(module_name='lp',
                           ('int_hammer_period', UINT, 4, 'period (in final_check calls) for the integer cut/cube heuristics (find_cube, hnf, gomory); a smaller value calls them more often'),
                           ('random_hammers', BOOL, True, 'draw the periodic integer heuristic gates (find_cube, lcube, hnf, gomory, dio) at random with the same 1/period rate instead of a deterministic every-k-th-call modulus'),
                           ('gomory_cut_efficacy_filter', BOOL, False, 'discard a generated Gomory cut whose efficacy (distance from the LP solution to the cut hyperplane, normalized by the cut coefficient norm) is below gomory_cut_efficacy_threshold'),
-                          ('gomory_cut_efficacy_threshold', DOUBLE, 0.01, 'minimal efficacy (normalized violation) required to keep a Gomory cut when gomory_cut_efficacy_filter is enabled'),
+                          ('gomory_cut_efficacy_threshold', DOUBLE, 0.01, 'minimal efficacy (normalized violation) required to keep a Gomory cut when gomory_cut_efficacy_filter or gomory_efficacy_select is enabled'),
+                          ('gomory_efficacy_select', BOOL, False, 'select Gomory cut rows by cut efficacy instead of by how close the basic variable is to an integer: pick gomory_candidate_rows integer-infeasible rows at random, build their cuts, and add the most efficacious ones whose efficacy is at least gomory_cut_efficacy_threshold'),
+                          ('gomory_candidate_rows', UINT, 3, 'number of integer-infeasible rows sampled at random to build candidate Gomory cuts from when gomory_efficacy_select is enabled'),
                          ))
                          

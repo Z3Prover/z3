@@ -21,6 +21,8 @@
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
+#include <algorithm>
+#include <cmath>
 
 namespace lp {
     
@@ -479,11 +481,10 @@ public:
         return ret;
     }
 
-    // Returns true if the cut t >= k has efficacy at or above the configured threshold,
-    // i.e. the cut is worth keeping. efficacy = (k - t(x*)) / ||t||_2, where x* is the
-    // current LP solution. We compare efficacy^2 against threshold^2 to avoid a sqrt and
-    // keep the arithmetic exact until the final, deterministic double comparison.
-    bool gomory::cut_has_enough_efficacy(const lar_term& t, const mpq& k) {
+    // Efficacy of the cut t >= k: the distance from the current LP solution x* to the cut
+    // hyperplane, normalized by the coefficient norm, efficacy = (k - t(x*)) / ||t||_2.
+    // Returns 0 when the cut has zero norm or is not violated by x* (so it never qualifies).
+    double gomory::cut_efficacy(const lar_term& t, const mpq& k) {
         mpq val(0);     // t(x*)
         mpq norm2(0);   // ||t||_2^2
         for (lar_term::ival p : t) {
@@ -492,19 +493,46 @@ public:
             norm2 += a * a;
         }
         if (norm2.is_zero())
-            return false;
+            return 0.0;
         mpq violation = k - val; // positive, since x* violates the cut t >= k
         if (!violation.is_pos())
-            return false;
-        double thr = lia.settings().gomory_cut_efficacy_threshold();
-        // efficacy >= thr  <=>  violation^2 >= thr^2 * norm2
-        return (violation * violation).get_double() >= thr * thr * norm2.get_double();
+            return 0.0;
+        return violation.get_double() / std::sqrt(norm2.get_double());
+    }
+
+    // Returns true if the cut t >= k has efficacy at or above the configured threshold.
+    bool gomory::cut_has_enough_efficacy(const lar_term& t, const mpq& k) {
+        return cut_efficacy(t, k) >= lia.settings().gomory_cut_efficacy_threshold();
+    }
+
+    // Uniformly sample up to num_rows integer-infeasible rows that are valid Gomory cut
+    // targets, without ranking them by how close the basic variable is to an integer.
+    // This is the selection used by gomory_efficacy_select: row quality is judged later by
+    // the efficacy of the cut each row produces, not by the variable's fractionality.
+    unsigned_vector gomory::gomory_select_random_rows(unsigned num_rows) {
+        unsigned_vector eligible;
+        for (lpvar j : lra.r_basis())
+            if (lia.column_is_int_inf(j) && is_gomory_cut_target(j))
+                eligible.push_back(j);
+        unsigned_vector ret;
+        unsigned n = static_cast<unsigned>(eligible.size());
+        while (num_rows-- && n > 0) {
+            unsigned k = lia.settings().random_next() % n;
+            ret.push_back(eligible[k]);
+            eligible[k] = eligible[--n]; // swap-remove to sample without replacement
+        }
+        return ret;
     }
 
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
         struct cut_result {lar_term t; mpq k; u_dependency *dep;};
+        struct scored_cut {lar_term t; mpq k; u_dependency *dep; double eff;};
         vector<cut_result> big_cuts;
-        unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
+        vector<scored_cut> scored_cuts; // candidates for best-of-N efficacy selection
+        const bool eff_select = lia.settings().gomory_efficacy_select();
+        unsigned_vector columns_for_cuts = eff_select
+            ? gomory_select_random_rows(lia.settings().gomory_candidate_rows())
+            : gomory_select_int_infeasible_vars(num_cuts);
         bool has_small_cut = false;
 
         // define inline helper functions
@@ -542,12 +570,21 @@ public:
             else if (cc.m_polarity == row_polarity::MIN)
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
 
+            // Best-of-N selection: collect every candidate cut that clears the efficacy
+            // threshold, then (after the loop) add the most efficacious ones. The row was
+            // picked at random rather than by the basic variable's fractionality, so the
+            // cut's efficacy is what decides whether and how strongly it is preferred.
+            if (eff_select) {
+                double e = cut_efficacy(cc.m_t, cc.m_k);
+                if (e >= lia.settings().gomory_cut_efficacy_threshold())
+                    scored_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep, e});
+                continue;
+            }
+
             // Option A: optionally discard cuts whose efficacy (the distance from the LP
             // solution to the cut hyperplane, normalized by the coefficient norm) is too small.
             // The cut is m_t >= m_k and the current LP solution violates it, so the
             // violation m_k - m_t(x*) is positive. efficacy = violation / ||m_t||_2.
-            // To stay rational and deterministic we compare efficacy^2 against threshold^2,
-            // i.e. violation^2 >= threshold^2 * ||m_t||_2^2.
             if (lia.settings().gomory_cut_efficacy_filter() && !cut_has_enough_efficacy(cc.m_t, cc.m_k))
                 continue;
 
@@ -559,6 +596,26 @@ public:
             add_cut(cc.m_t, cc.m_k, cc.m_dep);
             if (lia.settings().get_cancel_flag())
                 return lia_move::cancelled;
+        }
+
+        // best-of-N: add up to num_cuts of the most efficacious collected candidates
+        if (eff_select) {
+            std::stable_sort(scored_cuts.begin(), scored_cuts.end(),
+                             [](scored_cut const& a, scored_cut const& b) { return a.eff > b.eff; });
+            unsigned added = 0;
+            for (auto const& c : scored_cuts) {
+                if (added >= num_cuts)
+                    break;
+                ++added;
+                if (!is_small_cut(c.t)) {
+                    big_cuts.push_back({c.t, c.k, c.dep});
+                    continue;
+                }
+                has_small_cut = true;
+                add_cut(c.t, c.k, c.dep);
+                if (lia.settings().get_cancel_flag())
+                    return lia_move::cancelled;
+            }
         }
 
         if (big_cuts.size()) {
