@@ -36,6 +36,7 @@ class seq_rewriter;
 
 namespace seq {
 
+    enum class derivative_kind { antimirov_t, brzozowski_t };
     /**
      * Symbolic derivative engine for regular expressions.
      *
@@ -60,15 +61,15 @@ namespace seq {
         seq_rewriter&   m_re;
 
         // Cache: maps (ele, regex) pair to its derivative
-        obj_pair_map<expr, expr, expr*> m_cache;
-        obj_pair_map<expr, expr, expr*> m_top_cache; // post-simplify cache
+        obj_pair_map<expr, expr, expr*> m_acache, m_bcache;
+        obj_pair_map<expr, expr, expr*> m_atop_cache, m_btop_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
 
         // Op cache for ITE-hoisting operations (union, inter, concat, complement)
         // Path-aware caches: key is (a, b, path_expr) for binary ops, (a, path_expr) for complement
-        obj_triple_map<expr, expr, expr, expr *> m_union_cache, m_inter_cache, m_xor_cache;
-        obj_pair_map<expr, expr, expr*> m_concat_cache;
-        obj_pair_map<expr, expr, expr*> m_complement_cache;
+        obj_triple_map<expr, expr, expr, expr *> m_aunion_cache, m_bunion_cache, m_ainter_cache, m_binter_cache, m_axor_cache, m_bxor_cache;
+        obj_pair_map<expr, expr, expr*> m_aconcat_cache, m_bconcat_cache;
+        obj_pair_map<expr, expr, expr*> m_acomplement_cache, m_bcomplement_cache;
 
         // Depth limiting
         unsigned m_depth { 0 };
@@ -77,7 +78,7 @@ namespace seq {
         seq_util::rex& re() { return m_util.re; }
         seq_util& u() { return m_util; }
 
-        bool m_antimirov_derivative = true;
+        derivative_kind m_derivative_kind = derivative_kind::antimirov_t;
 
         // The element (character) for the current derivative computation
         expr_ref m_ele;
@@ -100,6 +101,34 @@ namespace seq {
         lbool push(expr* c, bool sign);  // l_true: implied, l_undef: pushed (must pop), l_false: contradicts
         void  pop();                      // restore state to matching push
         expr* get_path_expr() { return m_path_expr; }
+
+        obj_pair_map<expr, expr, expr *> &cache() {
+            return m_derivative_kind == derivative_kind::antimirov_t ? m_acache : m_bcache;
+        }
+
+        obj_pair_map<expr, expr, expr *> &top_cache() {
+            return m_derivative_kind == derivative_kind::antimirov_t ? m_atop_cache : m_btop_cache;
+        }
+
+        obj_triple_map<expr, expr, expr, expr *> &union_cache() {
+            return m_derivative_kind == derivative_kind::antimirov_t ? m_aunion_cache : m_bunion_cache;
+        }
+
+        obj_triple_map<expr, expr, expr, expr *> &inter_cache() {
+            return m_derivative_kind == derivative_kind::antimirov_t ? m_ainter_cache : m_binter_cache;
+        }
+
+        obj_triple_map<expr, expr, expr, expr *> &xor_cache() {
+            return m_derivative_kind == derivative_kind::antimirov_t ? m_axor_cache : m_bxor_cache;
+        }
+
+        obj_pair_map<expr, expr, expr *> &concat_cache() {
+            return m_derivative_kind == derivative_kind::antimirov_t ? m_aconcat_cache : m_bconcat_cache;
+        }
+
+        obj_pair_map<expr, expr, expr *> &complement_cache() {
+            return m_derivative_kind == derivative_kind::antimirov_t ? m_acomplement_cache : m_bcomplement_cache;
+        }
 
         // Hoist ITE: apply_op through ite(c, t, e) with path pruning
         expr_ref apply_ite(expr* c, expr* t, expr* e, expr* r, std::function<expr_ref(expr*, expr*)> apply_op);
@@ -189,12 +218,12 @@ namespace seq {
          * When ele is a de Bruijn variable, produces a symbolic ITE-tree.
          * When ele is a concrete character, produces the concrete derivative.
          */
-        expr_ref operator()(expr* ele, expr* r);
+        expr_ref operator()(derivative_kind k, expr* ele, expr* r);
 
         /**
          * Convenience: symbolic derivative using de Bruijn var 0.
          */
-        expr_ref operator()(expr* r);
+        expr_ref operator()(derivative_kind k, expr* r);
 
         /**
          * Nullable check: returns a Boolean expression that is true iff r accepts the empty string.
@@ -231,9 +260,6 @@ namespace seq {
          */
         void derivative_cofactors(expr* r, expr_ref_pair_vector& result);
 
-        void set_antimirov(bool flag) {
-            m_antimirov_derivative = flag;
-        }
     };
 
 }

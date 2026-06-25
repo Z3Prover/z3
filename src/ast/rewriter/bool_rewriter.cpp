@@ -1196,15 +1196,15 @@ bool bool_rewriter::decompose_ite(expr *r, expr_ref &c, expr_ref &th, expr_ref &
     }
     for (expr *e : subterms::ground(expr_ref(r, m()))) {
         if (m().is_ite(e, cond, r1, r2)) {
-            expr_safe_replace rep1(m());
-            expr_safe_replace rep2(m());
-            rep1.insert(e, r1);
-            rep2.insert(e, r2);
+            m_rep1.reset();
+            m_rep2.reset();
+            m_rep1.insert(e, r1);
+            m_rep2.insert(e, r2);
             c = cond;
             th = r;
             el = r;
-            rep1(th);
-            rep2(el);
+            m_rep1(th);
+            m_rep2(el);
             return true;
         }
     }
