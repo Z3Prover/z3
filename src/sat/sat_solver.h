@@ -382,7 +382,6 @@ namespace sat {
         bool get_best_phase(bool_var b) { return m_best_phase.get(b, false); }
         uint64_t get_phase_birthdate(bool_var b) const { return m_phase_birthdate.get(b, 0); }
         uint64_t get_best_phase_birthdate(bool_var b) const { return m_best_phase_birthdate.get(b, 0); }
-        uint64_t get_preferred_phase_birthdate(bool_var b) const;
         void set_has_new_best_phase(bool b) { m_new_best_phase = b; }
         bool has_new_best_phase() const { return m_new_best_phase; }
         void move_to_front(bool_var b);

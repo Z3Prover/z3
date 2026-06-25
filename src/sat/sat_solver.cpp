@@ -1744,13 +1744,6 @@ namespace sat {
         }
     }
 
-    uint64_t solver::get_preferred_phase_birthdate(bool_var v) const {
-        bool use_best =
-            m_config.m_phase == PS_FROZEN ||
-            ((m_config.m_phase == PS_SAT_CACHING || m_config.m_phase == PS_LOCAL_SEARCH) && m_search_state == s_sat);
-        return use_best ? m_best_phase_birthdate[v] : m_phase_birthdate[v];
-    }
-
     void solver::get_backbone_candidates(literal_vector& lits, unsigned max_num) {
         struct candidate {
             literal lit;
@@ -1762,7 +1755,7 @@ namespace sat {
             if (value(v) != l_undef || was_eliminated(v))
                 continue;
             bool is_pos = guess(v);
-            cands.push_back({ literal(v, !is_pos), now - get_preferred_phase_birthdate(v) });
+            cands.push_back({ literal(v, !is_pos), now - get_phase_birthdate(v) });
         }
         std::stable_sort(cands.begin(), cands.end(),
             [](candidate const& a, candidate const& b) { return a.age > b.age; });
