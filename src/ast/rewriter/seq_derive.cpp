@@ -45,12 +45,11 @@ namespace seq {
     }
 
     void derive::reset() {
-        m_cache.reset();
-        m_top_cache.reset();
-        m_union_cache.reset();
-        m_inter_cache.reset();
-        m_concat_cache.reset();
-        m_complement_cache.reset();
+        m_acache.reset();
+        m_bcache.reset();
+        m_atop_cache.reset();
+        m_btop_cache.reset();
+        reset_op_caches();
         m_trail.reset();
         m_ele = nullptr;
     }
@@ -59,14 +58,19 @@ namespace seq {
     // while preserving derivative caches (m_cache, m_top_cache)
     // The op cache does index on m_ele so it has to be reset if m_ele changes.
     void derive::reset_op_caches() {
-        m_union_cache.reset();
-        m_inter_cache.reset();
-        m_concat_cache.reset();
-        m_complement_cache.reset();
+        m_aunion_cache.reset();
+        m_ainter_cache.reset();
+        m_aconcat_cache.reset();
+        m_acomplement_cache.reset();
+        m_bunion_cache.reset();
+        m_binter_cache.reset();
+        m_bconcat_cache.reset();
+        m_bcomplement_cache.reset();
         m_ele = nullptr;
     }
 
-    expr_ref derive::operator()(expr* ele, expr* r) {
+    expr_ref derive::operator()(derivative_kind k, expr* ele, expr* r) {
+        m_derivative_kind = k;
         SASSERT(m_util.is_re(r));
         if (m_trail.size() > 500000)
             reset();
@@ -78,7 +82,7 @@ namespace seq {
         // Check top-level cache (post-simplify result)
         expr* cached = nullptr;
         expr_ref result(m);
-        if (m_top_cache.find(ele, r, cached)) {
+        if (top_cache().find(ele, r, cached)) {
             result = cached;
             return result;
         }        
@@ -100,20 +104,20 @@ namespace seq {
         m_intervals_start = 0;
         m_path_expr = m.mk_true();
         result = derive_rec(r);
-        m_top_cache.insert(ele, r, result);        
+        top_cache().insert(ele, r, result);        
 
         // pin the final result
         m_trail.push_back(result);
         return result;
     }
 
-    expr_ref derive::operator()(expr* r) {
+    expr_ref derive::operator()(derivative_kind k, expr* r) {
         SASSERT(m_util.is_re(r));
         sort* seq_sort = nullptr, * ele_sort = nullptr;
         VERIFY(m_util.is_re(r, seq_sort));
         VERIFY(m_util.is_seq(seq_sort, ele_sort));
         expr_ref v(m.mk_var(0, ele_sort), m);
-        return (*this)(v, r);
+        return (*this)(k,v, r);
     }
 
     // -------------------------------------------------------
@@ -125,7 +129,7 @@ namespace seq {
 
         // Check cache (indexed by both m_ele and r)
         expr* cached = nullptr;
-        if (m_cache.find(m_ele, r, cached))
+        if (cache().find(m_ele, r, cached))
             return expr_ref(cached, m);
 
         // Depth check
@@ -138,7 +142,7 @@ namespace seq {
         expr_ref result = derive_core(r);
 
         // Cache the result
-        m_cache.insert(m_ele, r, result);
+        cache().insert(m_ele, r, result);
         m_trail.push_back(m_ele);
         m_trail.push_back(r);
         m_trail.push_back(result);
@@ -667,7 +671,7 @@ namespace seq {
     expr_ref derive::mk_core(decl_kind k, expr* a, expr* b) {
         expr *pe = get_path_expr();
         expr *cached = nullptr;
-        auto& cache = k == OP_RE_UNION ? m_union_cache : k == OP_RE_INTERSECT ? m_inter_cache : m_xor_cache;
+        auto& cache = k == OP_RE_UNION ? union_cache() : k == OP_RE_INTERSECT ? inter_cache() : xor_cache();
         if (cache.find(a, b, pe, cached))
             return expr_ref(cached, m);
         expr_ref result(m);
@@ -677,7 +681,8 @@ namespace seq {
         auto xor_op   = [&](expr *x, expr *y) { return mk_xor(x, y); };
         switch (k) { 
         case OP_RE_UNION:
-            //result = hoist_ite(a, b, union_op);
+            if (m_derivative_kind == derivative_kind::brzozowski_t) 
+                result = hoist_ite(a, b, union_op);                        
             if (!result)
                result = mk_union_core(a, b); 
             break;
@@ -814,13 +819,13 @@ namespace seq {
         // Check path-aware op cache
         expr* pe = get_path_expr();
         expr* cached = nullptr;
-        if (m_complement_cache.find(a, pe, cached))
+        if (complement_cache().find(a, pe, cached))
             return expr_ref(cached, m);
 
         expr_ref result = mk_complement_core(a);
 
         // Store in cache
-        m_complement_cache.insert(a, pe, result);
+        complement_cache().insert(a, pe, result);
         m_trail.push_back(a);
         m_trail.push_back(pe);
         m_trail.push_back(result);
@@ -878,13 +883,13 @@ namespace seq {
     expr_ref derive::mk_deriv_concat(expr* d, expr* tail) {
         // Check op cache
         expr* cached = nullptr;
-        if (m_concat_cache.find(d, tail, cached))
+        if (concat_cache().find(d, tail, cached))
             return expr_ref(cached, m);
 
         expr_ref result = mk_deriv_concat_core(d, tail);
 
         // Store in cache
-        m_concat_cache.insert(d, tail, result);
+        concat_cache().insert(d, tail, result);
         m_trail.push_back(d);
         m_trail.push_back(tail);
         m_trail.push_back(result);
@@ -907,7 +912,7 @@ namespace seq {
         }
 
         // (t ∪ e) · tail → (t · tail) ∪ (e · tail)
-        if (m_antimirov_derivative && re().is_union(d, t, e)) {
+        if (m_derivative_kind == derivative_kind::antimirov_t && re().is_union(d, t, e)) {
             expr_ref left = mk_deriv_concat(t, tail);
             expr_ref right = mk_deriv_concat(e, tail);
             return mk_union(left, right);
@@ -1352,7 +1357,7 @@ namespace seq {
     void derive::derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
         // Compute the symbolic derivative wrt the canonical variable
         // (:var 0); operator() sets m_ele to that variable.
-        expr_ref d = (*this)(r);
+        expr_ref d = (*this)(derivative_kind::brzozowski_t, r);
         // Enumerate the reachable, fully ITE-hoisted leaves of the
         // transition regex. get_cofactors uses the SAME m_ele set above,
         // so the (:var 0) conditions in d are matched and pruned.
