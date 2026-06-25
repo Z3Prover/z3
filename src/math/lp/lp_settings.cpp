@@ -48,6 +48,8 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_random_hammers = lp_p.random_hammers();
     m_lcube = lp_p.lcube();
     m_lcube_flips = lp_p.lcube_flips();
+    m_gomory_cut_efficacy_filter = lp_p.gomory_cut_efficacy_filter();
+    m_gomory_cut_efficacy_threshold = lp_p.gomory_cut_efficacy_threshold();
     unsigned hammer_period = lp_p.int_hammer_period();
     SASSERT(hammer_period != 0);
     m_int_find_cube_period = hammer_period;

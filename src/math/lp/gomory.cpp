@@ -479,6 +479,28 @@ public:
         return ret;
     }
 
+    // Returns true if the cut t >= k has efficacy at or above the configured threshold,
+    // i.e. the cut is worth keeping. efficacy = (k - t(x*)) / ||t||_2, where x* is the
+    // current LP solution. We compare efficacy^2 against threshold^2 to avoid a sqrt and
+    // keep the arithmetic exact until the final, deterministic double comparison.
+    bool gomory::cut_has_enough_efficacy(const lar_term& t, const mpq& k) {
+        mpq val(0);     // t(x*)
+        mpq norm2(0);   // ||t||_2^2
+        for (lar_term::ival p : t) {
+            const mpq& a = p.coeff();
+            val += a * lra.get_column_value(p.j()).x;
+            norm2 += a * a;
+        }
+        if (norm2.is_zero())
+            return false;
+        mpq violation = k - val; // positive, since x* violates the cut t >= k
+        if (!violation.is_pos())
+            return false;
+        double thr = lia.settings().gomory_cut_efficacy_threshold();
+        // efficacy >= thr  <=>  violation^2 >= thr^2 * norm2
+        return (violation * violation).get_double() >= thr * thr * norm2.get_double();
+    }
+
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
         struct cut_result {lar_term t; mpq k; u_dependency *dep;};
         vector<cut_result> big_cuts;
@@ -519,7 +541,16 @@ public:
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
             else if (cc.m_polarity == row_polarity::MIN)
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
-            
+
+            // Option A: optionally discard cuts whose efficacy (the distance from the LP
+            // solution to the cut hyperplane, normalized by the coefficient norm) is too small.
+            // The cut is m_t >= m_k and the current LP solution violates it, so the
+            // violation m_k - m_t(x*) is positive. efficacy = violation / ||m_t||_2.
+            // To stay rational and deterministic we compare efficacy^2 against threshold^2,
+            // i.e. violation^2 >= threshold^2 * ||m_t||_2^2.
+            if (lia.settings().gomory_cut_efficacy_filter() && !cut_has_enough_efficacy(cc.m_t, cc.m_k))
+                continue;
+
             if (!is_small_cut(lia.get_term())) {
                 big_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep});
                 continue;

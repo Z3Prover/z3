@@ -15,5 +15,7 @@ def_module_params(module_name='lp',
                           ('lcube_flips', UINT, 16, 'maximal number of coordinate flips when repairing the rounded largest cube center, only relevant when lcube is true'),
                           ('int_hammer_period', UINT, 4, 'period (in final_check calls) for the integer cut/cube heuristics (find_cube, hnf, gomory); a smaller value calls them more often'),
                           ('random_hammers', BOOL, True, 'draw the periodic integer heuristic gates (find_cube, lcube, hnf, gomory, dio) at random with the same 1/period rate instead of a deterministic every-k-th-call modulus'),
+                          ('gomory_cut_efficacy_filter', BOOL, False, 'discard a generated Gomory cut whose efficacy (distance from the LP solution to the cut hyperplane, normalized by the cut coefficient norm) is below gomory_cut_efficacy_threshold'),
+                          ('gomory_cut_efficacy_threshold', DOUBLE, 0.01, 'minimal efficacy (normalized violation) required to keep a Gomory cut when gomory_cut_efficacy_filter is enabled'),
                          ))
                          

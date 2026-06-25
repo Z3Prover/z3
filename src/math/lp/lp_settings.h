@@ -270,9 +270,13 @@ private:
     bool             m_random_hammers = true;
     bool             m_lcube = true;
     unsigned         m_lcube_flips = 16;
+    bool             m_gomory_cut_efficacy_filter = false;
+    double           m_gomory_cut_efficacy_threshold = 0.01;
 public:
     bool lcube() const { return m_lcube; }
     unsigned lcube_flips() const { return m_lcube_flips; }
+    bool gomory_cut_efficacy_filter() const { return m_gomory_cut_efficacy_filter; }
+    double gomory_cut_efficacy_threshold() const { return m_gomory_cut_efficacy_threshold; }
     unsigned dio_calls_period() const { return m_dio_calls_period; }
     unsigned & dio_calls_period() { return m_dio_calls_period; }
     unsigned dio_calls_period_decrease() const { return m_dio_calls_period_decrease; }
