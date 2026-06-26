@@ -4132,12 +4132,8 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     if (max_length(hi) == std::make_pair(true, rational(0)))
         is_empty = true;
     if (!is_empty) {
-        if (str().is_string(lo, slo)) {
-            if (slo.length() != 1)
-                is_empty = true;
-            else
-                clo = slo[0];
-        }
+        if (str().is_string(lo, slo) && slo.length() == 1) 
+            clo = slo[0];    
         else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
             ;
         else
@@ -4159,8 +4155,9 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     if (clo > chi)
         is_empty = true;
     // Singleton: re.range "a" "a" → str.to_re "a"
+    verbose_stream() << "mk_re_range: " << clo << " " << chi << " is_empty: " << is_empty << "\n";
     if (clo == chi) {
-        result = re().mk_to_re(str().mk_string(slo));
+        result = re().mk_to_re(str().mk_string(zstring(clo)));
         return BR_DONE;
     }
             
