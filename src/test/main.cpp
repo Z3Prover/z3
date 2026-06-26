@@ -115,6 +115,7 @@
     X(arith_rewriter) \
     X(range_predicate) \
     X(regex_range_collapse) \
+    X(seq_rewriter) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
@@ -196,7 +197,9 @@
     X(finite_set) \
     X(finite_set_rewriter) \
     X(fpa) \
-    X(seq_regex_bisim)
+    X(seq_regex_bisim) \
+    X(term_enumeration) \
+    X(lcube)
 
 #define FOR_EACH_TEST(X, X_ARGV) \
     FOR_EACH_ALL_TEST(X, X_ARGV) \

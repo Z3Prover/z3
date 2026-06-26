@@ -73,7 +73,7 @@ static void tst2() {
     m.enable_concurrent(true);
 
     vector<std::pair<cell *, int> > object_coeff_pairs;
-    unsigned num_resets = 0;
+    [[maybe_unused]] unsigned num_resets = 0;
 
     for (unsigned i = 0; i < 100000; ++i) {
         unsigned idx = rand() % 6;

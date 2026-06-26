@@ -1856,6 +1856,127 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
     return BR_FAILED;
 }
 
+
+/**
+ * replace_char("ab", "a", b") = empty
+ * replace_char("bc", "a", b") = {"a", "b"}"c"
+ * replace_char(R u R', "a", "b") = replace_char(R, "a", "b") u replace_char(R', "a", "b")
+ * replace_char(R n R', "a", "b") = replace_char(R, "a", "b") n replace_char(R', "a", "b")
+ * replace_char(R*, "a", "b") = replace_char(R, "a", "b")*
+ * replace_char(R R', "a", "b") = replace_char(R, "a", "b") replace_char(R', "a", "b")
+ */
+expr_ref seq_rewriter::re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, expr *a_str, expr *b_str) {
+    expr *r1 = nullptr, *r2 = nullptr, *s = nullptr;
+    zstring str_val;
+    sort *seq_sort = nullptr;
+
+    if (re().is_to_re(r, s) && str().is_string(s, str_val)) {
+        seq_sort = s->get_sort();
+        expr_ref_vector parts(m());
+        for (unsigned i = 0; i < str_val.length(); ++i) {
+            if (str_val[i] == a_ch) {
+                // replace_all never outputs a_ch, so this position is impossible
+                return expr_ref(re().mk_empty(re().mk_re(seq_sort)), m());
+            }
+            else if (str_val[i] == b_ch) {
+                // b in output came from either a or b in x
+                auto a_re = re().mk_to_re(a_str);
+                auto b_re = re().mk_to_re(b_str);
+                parts.push_back(re().mk_union(a_re, b_re));
+            }
+            else {
+                zstring ch(str_val[i]);
+                parts.push_back(re().mk_to_re(str().mk_string(ch)));
+            }
+        }
+        if (parts.empty())
+            return expr_ref(re().mk_epsilon(seq_sort), m());
+        expr_ref result(parts.back(), m());
+        for (int i = parts.size() - 1; i-- > 0;)
+            result = re().mk_concat(parts.get(i), result);
+        return result;
+    }
+
+    if (re().is_range(r, r1, r2)) {
+        zstring lo_s, hi_s;
+        if (str().is_string(r1, lo_s) && str().is_string(r2, hi_s) && lo_s.length() == 1 && hi_s.length() == 1) {
+            unsigned lo = lo_s[0], hi = hi_s[0];
+            // Build the transformed range:
+            // - Remove a_ch from the range (impossible in output)
+            // - Replace b_ch with union(a_str, b_str)
+            expr_ref_vector parts(m());
+            // Characters in [lo, hi] excluding a_ch and b_ch
+            if (lo <= hi) {
+                // Sub-ranges excluding a_ch and b_ch
+                unsigned prev = lo;
+                for (unsigned ch = lo; ch <= hi; ++ch) {
+                    if (ch == a_ch || ch == b_ch) {
+                        if (prev < ch) {
+                            zstring prev_z(prev), pred_z(ch - 1);
+                            parts.push_back(re().mk_range(str().mk_string(prev_z), str().mk_string(pred_z)));
+                        }
+                        if (ch == b_ch) {
+                            parts.push_back(re().mk_union(re().mk_to_re(a_str), re().mk_to_re(b_str)));
+                        }
+                        // a_ch is simply excluded (not added)
+                        prev = ch + 1;
+                    }
+                }
+                if (prev <= hi) {
+                    zstring prev_z(prev), hi_z(hi);
+                    parts.push_back(re().mk_range(str().mk_string(prev_z), str().mk_string(hi_z)));
+                }
+            }
+            if (parts.empty()) {
+                sort *re_sort = r->get_sort();
+                return expr_ref(re().mk_empty(re_sort), m());
+            }
+            expr_ref result(parts[0].get(), m());
+            for (unsigned i = 1; i < parts.size(); ++i)
+                result = re().mk_union(result, parts[i].get());
+            return result;
+        }
+        return expr_ref(r, m());
+    }
+
+    if (re().is_union(r, r1, r2)) {
+        return expr_ref(
+            re().mk_union(re_replace_char(r1, a_ch, b_ch, a_str, b_str), re_replace_char(r2, a_ch, b_ch, a_str, b_str)),
+            m());
+    }
+    if (re().is_intersection(r, r1, r2)) {
+        return expr_ref(
+            re().mk_inter(re_replace_char(r1, a_ch, b_ch, a_str, b_str), re_replace_char(r2, a_ch, b_ch, a_str, b_str)),
+            m());
+    }
+    if (re().is_concat(r, r1, r2)) {
+        return expr_ref(re().mk_concat(re_replace_char(r1, a_ch, b_ch, a_str, b_str),
+                                       re_replace_char(r2, a_ch, b_ch, a_str, b_str)),
+                        m());
+    }
+    if (re().is_star(r, r1)) {
+        return expr_ref(re().mk_star(re_replace_char(r1, a_ch, b_ch, a_str, b_str)), m());
+    }
+    if (re().is_plus(r, r1)) {
+        return expr_ref(re().mk_plus(re_replace_char(r1, a_ch, b_ch, a_str, b_str)), m());
+    }
+    if (re().is_opt(r, r1)) {
+        return expr_ref(re().mk_opt(re_replace_char(r1, a_ch, b_ch, a_str, b_str)), m());
+    }
+    unsigned lo, hi;
+    if (re().is_loop(r, r1, lo, hi)) {
+        return expr_ref(re().mk_loop(re_replace_char(r1, a_ch, b_ch, a_str, b_str), lo, hi), m());
+    }
+    if (re().is_loop(r, r1, lo)) {
+        return expr_ref(re().mk_loop(re_replace_char(r1, a_ch, b_ch, a_str, b_str), lo), m());
+    }
+    if (re().is_complement(r)) {
+        UNREACHABLE();
+    }
+    // For anything else (full_seq, empty, epsilon, of_pred, etc.), return unchanged
+    return expr_ref(r, m());
+}
+
 /**
    rewrites for map(f, s):
 
@@ -2852,11 +2973,20 @@ expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
 
 expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     expr_ref _r1(r1, m()), _r2(r2, m());
+    expr *a1, *b1, *a2, *b2;
     SASSERT(m_util.is_re(r1));
     SASSERT(m_util.is_re(r2));
     expr_ref result(m());
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_union(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return (is_subset(r1, r2) ? r2 : (is_subset(r2, r1) ? r1 : re().mk_union(r1, r2))); };
+    std::function<bool(expr *, expr *)> is_complement = [&](expr *a, expr *b) {
+        expr *s;
+        if (re().is_complement(a, s) && s == b)
+            return true;
+        if (re().is_complement(b, s) && s == a)
+            return true;
+        return false;
+    };    
     if (r1 == r2 || re().is_empty(r2) || re().is_full_seq(r1))
         result = r1;
     else if (re().is_empty(r1) || re().is_full_seq(r2))
@@ -2865,8 +2995,28 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
         result = r1;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r2;
-    else
-        result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
+    // (R1 \ R2) U (R2 \ R1) = R1 xor R2
+    else if (false && re().is_intersection(r1, a1, a2) && re().is_intersection(r2, b1, b2) && 
+        is_complement(a1, b2) && is_complement(a2, b1)) {
+        result = re().mk_xor(a1, re().mk_complement(a2));
+    }   
+    else if (false && re().is_intersection(r1, a1, a2) && re().is_intersection(r2, b1, b2) && 
+        is_complement(a1, b1) && is_complement(a2, b2)) {
+        result = re().mk_xor(a1, re().mk_complement(a2));
+    }         
+    else {
+        // Range ∪ Range: [a,b] ∪ [c,d] = [min(a,c), max(b,d)] when overlapping or adjacent
+        unsigned lo1_v = 0, hi1_v = 0, lo2_v = 0, hi2_v = 0;
+        if (re().is_range(r1, lo1_v, hi1_v) && re().is_range(r2, lo2_v, hi2_v) &&
+            lo2_v <= hi1_v + 1 && lo1_v <= hi2_v + 1) {
+            unsigned new_lo = std::min(lo1_v, lo2_v);
+            unsigned new_hi = std::max(hi1_v, hi2_v);
+            result = re().mk_range(r1->get_sort(), new_lo, new_hi);
+        }
+        else
+            result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
+    }
+
     return result;
 }
 
@@ -2895,8 +3045,17 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
         result = r2;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r1;
-    else 
-        result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);    
+    else {
+        // Range ∩ Range: [a,b] ∩ [c,d] = [max(a,c), min(b,d)] or empty
+        unsigned lo1_v = 0, hi1_v = 0, lo2_v = 0, hi2_v = 0;
+        if (re().is_range(r1, lo1_v, hi1_v) && re().is_range(r2, lo2_v, hi2_v)) {
+            unsigned new_lo = std::max(lo1_v, lo2_v);
+            unsigned new_hi = std::min(hi1_v, hi2_v);
+            result = re().mk_range(r1->get_sort(), new_lo, new_hi);
+        }
+        else
+            result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);
+    }
     return result;
 }
 
@@ -3629,6 +3788,23 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         default:
             break;
         }
+    }
+
+    
+    // replace_all(x, a, b) in R where R is ground, a and b are unit-length strings
+    // ==> x in R[b -> {a, b}, a -> empty]
+    expr *ra_x = nullptr, *ra_a = nullptr, *ra_b = nullptr;
+    zstring sa_val, sb_val;
+    if (str().is_replace_all(a, ra_x, ra_a, ra_b) && ra_a == ra_b) {
+        result = ra_x;
+        return BR_DONE;
+    }
+    if (str().is_replace_all(a, ra_x, ra_a, ra_b) && str().is_string(ra_a, sa_val) && sa_val.length() == 1 &&
+        str().is_string(ra_b, sb_val) && sb_val.length() == 1 && sa_val[0] != sb_val[0] && re().is_ground(b) &&
+        re().get_info(b).classical) {
+        expr_ref new_re = re_replace_char(b, sa_val[0], sb_val[0], ra_a, ra_b);
+        result = re().mk_in_re(ra_x, new_re);
+        return BR_REWRITE_FULL;
     }
 
     expr_ref b_s(m());
@@ -4460,6 +4636,11 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
         result = re().mk_empty(srt);
         return BR_DONE;
     }
+    // Singleton: re.range "a" "a" → str.to_re "a"
+    if (slo.length() == 1 && shi.length() == 1 && slo[0] == shi[0]) {
+        result = re().mk_to_re(lo);
+        return BR_DONE;
+    }
 
     return BR_FAILED;
 }
@@ -4770,6 +4951,25 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     bool changed = false;
     if (reduce_eq_empty(l, r, result)) 
         return BR_REWRITE_FULL;
+
+    // a, b are unit-length ground strings => replace_all(x, a, b) in re.to_re(s)
+    {
+        expr *ra_x = nullptr, *ra_a = nullptr, *ra_b = nullptr;
+        zstring sa_val, sb_val, s_val;
+        expr *str_side = nullptr, *ra_side = nullptr;
+        if (str().is_replace_all(l))
+            ra_side = l, str_side = r;
+        else if (str().is_replace_all(r))
+            ra_side = r, str_side = l;
+        if (ra_side && str_side && 
+            str().is_replace_all(ra_side, ra_x, ra_a, ra_b) && str().is_string(ra_a, sa_val) &&
+            sa_val.length() == 1 && 
+            str().is_string(ra_b, sb_val) && sb_val.length() == 1 &&
+            str().is_string(str_side, s_val)) {
+            result = re().mk_in_re(ra_side, re().mk_to_re(str_side));
+            return BR_REWRITE_FULL;
+        }
+    }
 
 #if 0
     if (reduce_arith_eq(l, r, res) || reduce_arith_eq(r, l, res)) {

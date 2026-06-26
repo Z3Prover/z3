@@ -70,7 +70,7 @@ static void test_pop() {
     TestNode* list = nullptr;
     TestNode node1(1);
     TestNode::push_to_front(list, &node1);
-    TestNode* popped = TestNode::pop(list);
+    [[maybe_unused]] TestNode* popped = TestNode::pop(list);
     SASSERT(popped == &node1);
     SASSERT(list == nullptr);
     SASSERT(popped->next() == popped);

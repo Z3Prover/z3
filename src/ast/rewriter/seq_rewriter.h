@@ -179,6 +179,11 @@ class seq_rewriter {
     //replace b in a by c into result
     void replace_all_subvectors(expr_ref_vector const& as, expr_ref_vector const& bs, expr* c, expr_ref_vector& result);
 
+    // For replace_all(x, a, b) in R: transform R so that
+    // - occurrences of b_ch are replaced by union(to_re(a_str), to_re(b_str))
+    // - occurrences of a_ch are replaced by empty (replace_all never outputs a)
+    expr_ref re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, expr *a_str, expr *b_str);
+
     // Calculate derivative, memoized and enforcing a normal form
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);

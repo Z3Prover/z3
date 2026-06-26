@@ -81,6 +81,29 @@ void test_bvneg() {
         std::cout << r << "\n";
     }
 
+    {
+        Z3_sort bv1 = Z3_mk_bv_sort(ctx, 1);
+        Z3_sort bv64 = Z3_mk_bv_sort(ctx, 64);
+        Z3_ast x = Z3_mk_fresh_const(ctx, "x", bv1);
+        Z3_ast sx = Z3_mk_sign_ext(ctx, 63, x);
+        Z3_ast zero = Z3_mk_int64(ctx, 0, bv64);
+        Z3_ast minus_one = Z3_mk_int64(ctx, -1, bv64);
+        Z3_ast args[2] = { Z3_mk_eq(ctx, sx, zero), Z3_mk_eq(ctx, sx, minus_one) };
+        Z3_ast claim = Z3_mk_or(ctx, 2, args);
+
+        Z3_solver_push(ctx, s);
+        Z3_solver_assert(ctx, s, Z3_mk_not(ctx, claim));
+        ENSURE(Z3_solver_check(ctx, s) == Z3_L_FALSE);
+        Z3_solver_pop(ctx, s, 1);
+
+        Z3_solver_push(ctx, s);
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, sx, minus_one));
+        std::string smt2 = Z3_solver_to_string(ctx, s);
+        // Bit-vector numerals must print in canonical unsigned SMT2 form.
+        ENSURE(smt2.find("(_ bv-") == std::string::npos);
+        Z3_solver_pop(ctx, s, 1);
+    }
+
     Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
     Z3_del_context(ctx);    

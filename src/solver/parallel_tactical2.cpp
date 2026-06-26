@@ -460,7 +460,6 @@ class parallel_solver {
         };
 
         unsigned         id;
-        parallel_solver& p;
         batch_manager&   b;
         ast_manager      m;                 /* worker-local manager */
         ref<solver>      s;                 /* translated solver copy */
@@ -579,7 +578,7 @@ class parallel_solver {
         worker(unsigned id, parallel_solver& p,
                solver& src, params_ref const& params,
                expr_ref_vector const& src_asms)
-            : id(id), p(p), b(p.m_batch_manager),
+            : id(id), b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager())
         {
             /* create translated solver copy */
