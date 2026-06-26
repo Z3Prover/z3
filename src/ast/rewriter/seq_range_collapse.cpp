@@ -69,8 +69,7 @@ namespace seq {
             out = range_predicate::range(lo, hi, max_char);
             return true;
         }
-        expr* a = nullptr;
-        expr* b = nullptr;
+        expr *a = nullptr, *b = nullptr, *c = nullptr;
         if (re.is_union(r, a, b)) {
             range_predicate pa(max_char), pb(max_char);
             if (!regex_to_range_predicate(u, a, pa)) return false;
@@ -78,6 +77,24 @@ namespace seq {
             out = pa | pb;
             return true;
         }
+        auto mk_diff = [&](expr *a, expr *b) -> bool {
+            range_predicate pa(max_char), pb(max_char);
+            if (!regex_to_range_predicate(u, a, pa))
+                return false;
+            if (!regex_to_range_predicate(u, b, pb))
+                return false;
+            out = pa - pb;
+            return true;
+        };
+        if (re.is_diff(r, a, b))
+            return mk_diff(a, b);
+
+        if (re.is_intersection(r, a, b) && re.is_complement(b, c)) 
+            return mk_diff(a, c);
+        
+        if (re.is_intersection(r, a, b) && re.is_complement(a, c)) 
+            return mk_diff(b, c);
+        
         if (re.is_intersection(r, a, b)) {
             range_predicate pa(max_char), pb(max_char);
             if (!regex_to_range_predicate(u, a, pa)) return false;
@@ -85,13 +102,8 @@ namespace seq {
             out = pa & pb;
             return true;
         }
-        if (re.is_diff(r, a, b)) {
-            range_predicate pa(max_char), pb(max_char);
-            if (!regex_to_range_predicate(u, a, pa)) return false;
-            if (!regex_to_range_predicate(u, b, pb)) return false;
-            out = pa - pb;
-            return true;
-        }
+
+        
         // NOTE: re.complement is intentionally NOT handled here.
         //   re.complement is the SEQUENCE-level complement: its language
         //   includes the empty string, strings of length >= 2, and any
