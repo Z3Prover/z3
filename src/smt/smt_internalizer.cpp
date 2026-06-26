@@ -102,11 +102,12 @@ namespace smt {
     }
 
     void context::update_generation(enode * e) {
-        if (0 < m_generation && m_generation < e->get_generation()) {
+        enode *cgr = get_cg_root(e);
+        if (0 < m_generation && m_generation < cgr->get_generation()) {
             e->set_generation(nullptr, m_generation);
+            if (e->uses_cg_table())
+                update_cgc_generation(e, m_generation);
         }
-        if (e->uses_cg_table())
-            update_cgc_generation(e, m_generation);
     }
 
     class merge_cgc_trail : public trail {
@@ -1065,9 +1066,6 @@ namespace smt {
                 if (cgc_enabled) {
                     auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
-                        // SASSERT(e_prime->is_cgr());
-                        // e->m_cg = e_prime;
-                        // update_cgc_generation(e, true);
                         merge_cgc(e, e_prime);
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
