@@ -115,15 +115,18 @@ add_executable(test-z3
   polynomial_factorization.cpp
   polynorm.cpp
   prime_generator.cpp
+  seq_regex_bisim.cpp
   proof_checker.cpp
   qe_arith.cpp
   mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp
   random.cpp
+  range_predicate.cpp
   rational.cpp
   rcf.cpp
   region.cpp
+  regex_range_collapse.cpp
   sat_local_search.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp
