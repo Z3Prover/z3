@@ -4117,14 +4117,10 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
  */
 br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     zstring slo, shi;
+    unsigned clo, chi;
+    expr *lo1, *hi1;
     unsigned len = 0;
     bool is_empty = false;
-    if (str().is_string(lo, slo) && slo.length() != 1) 
-        is_empty = true;
-    if (str().is_string(hi, shi) && shi.length() != 1) 
-        is_empty = true;
-    if (slo.length() == 1 && shi.length() == 1 && slo[0] > shi[0])
-        is_empty = true;
     len = min_length(lo).second;
     if (len > 1)
         is_empty = true;
@@ -4135,16 +4131,45 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
         is_empty = true;
     if (max_length(hi) == std::make_pair(true, rational(0)))
         is_empty = true;
+    if (!is_empty) {
+        if (str().is_string(lo, slo)) {
+            if (slo.length() != 1)
+                is_empty = true;
+            else
+                clo = slo[0];
+        }
+        else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
+            ;
+        else
+            is_empty = true;
+    }
+    if (!is_empty) {
+        if (str().is_string(hi, shi)) {
+            if (shi.length() != 1)
+                is_empty = true;
+            else
+                chi = shi[0];
+        }
+        else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
+            ;
+        else
+            is_empty = true;
+    }
+
+    if (clo > chi)
+        is_empty = true;
+    // Singleton: re.range "a" "a" → str.to_re "a"
+    if (clo == chi) {
+        result = re().mk_to_re(str().mk_string(slo));
+        return BR_DONE;
+    }
+            
     if (is_empty) {
         sort* srt = re().mk_re(lo->get_sort());
         result = re().mk_empty(srt);
         return BR_DONE;
     }
-    // Singleton: re.range "a" "a" → str.to_re "a"
-    if (slo.length() == 1 && shi.length() == 1 && slo[0] == shi[0]) {
-        result = re().mk_to_re(lo);
-        return BR_DONE;
-    }
+
 
     return BR_FAILED;
 }
