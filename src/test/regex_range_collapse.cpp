@@ -7,7 +7,7 @@ Module Name:
 
 --*/
 
-#include "ast/rewriter/regex_range_collapse.h"
+#include "ast/rewriter/seq_range_collapse.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"

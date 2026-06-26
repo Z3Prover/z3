@@ -22,7 +22,7 @@ Author:
 
 --*/
 
-#include "ast/rewriter/range_predicate.h"
+#include "ast/rewriter/seq_range_predicate.h"
 #include "util/debug.h"
 #include <cstdint>
 #include <iostream>

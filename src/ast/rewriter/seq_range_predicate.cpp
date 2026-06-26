@@ -3,12 +3,12 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    range_predicate.cpp
+    seq_range_predicate.cpp
 
 Abstract:
 
     Implementation of the specialized range-algebra used by symbolic
-    derivative computation and regex rewriting. See range_predicate.h
+    derivative computation and regex rewriting. See seq_range_predicate.h
     for the algebraic specification.
 
     All Boolean operations are implemented as single linear sweeps over
@@ -21,7 +21,7 @@ Authors:
 
 --*/
 
-#include "ast/rewriter/range_predicate.h"
+#include "ast/rewriter/seq_range_predicate.h"
 #include "util/debug.h"
 #include <algorithm>
 #include <ostream>

@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    range_predicate.h
+    seq_range_predicate.h
 
 Abstract:
 

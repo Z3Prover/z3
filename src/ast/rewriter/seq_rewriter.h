@@ -253,7 +253,7 @@ class seq_rewriter {
     // Range-set collapse helpers: if the operands form a boolean
     // combination of character-class regexes, materialize the result as a
     // canonical regex over a single range_predicate.  See
-    // ast/rewriter/regex_range_collapse.h for the recognized fragment.
+    // ast/rewriter/seq_range_collapse.h for the recognized fragment.
     // NOTE: re.complement is intentionally not in this set because it
     // operates at the sequence level, not the character-class level.
     bool try_collapse_re_union(expr* a, expr* b, expr_ref& result);

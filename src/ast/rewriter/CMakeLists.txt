@@ -35,9 +35,9 @@ z3_add_component(rewriter
     pb2bv_rewriter.cpp
     push_app_ite.cpp
     quant_hoist.cpp
-    range_predicate.cpp
+    seq_range_predicate.cpp
     recfun_rewriter.cpp
-    regex_range_collapse.cpp
+    seq_range_collapse.cpp
     rewriter.cpp
     seq_axioms.cpp
     seq_eq_solver.cpp

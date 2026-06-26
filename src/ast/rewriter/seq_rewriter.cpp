@@ -21,7 +21,7 @@ Authors:
 #include "util/uint_set.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_regex_bisim.h"
-#include "ast/rewriter/regex_range_collapse.h"
+#include "ast/rewriter/seq_range_collapse.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"

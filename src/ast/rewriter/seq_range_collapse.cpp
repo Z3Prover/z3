@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    regex_range_collapse.cpp
+    seq_range_collapse.cpp
 
 Abstract:
 
@@ -17,7 +17,7 @@ Authors:
 
 --*/
 
-#include "ast/rewriter/regex_range_collapse.h"
+#include "ast/rewriter/seq_range_collapse.h"
 
 namespace seq {
 

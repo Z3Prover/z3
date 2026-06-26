@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    regex_range_collapse.h
+    seq_range_collapse.h
 
 Abstract:
 
@@ -25,7 +25,7 @@ Authors:
 --*/
 #pragma once
 
-#include "ast/rewriter/range_predicate.h"
+#include "ast/rewriter/seq_range_predicate.h"
 #include "ast/seq_decl_plugin.h"
 
 namespace seq {
