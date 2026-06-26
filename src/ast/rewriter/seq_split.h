@@ -57,13 +57,83 @@ enum class split_mode { weak, strong };
 // default) keeps everything, so sigma is unchanged.  See seq_split::compute.
 typedef std::function<bool(expr* D, expr* N)> split_oracle;
 
+// Callback invoked by seq_split::enumerate for each concrete split <D, N> as it
+// emerges from the lazy expansion.  Returning false stops the enumeration early
+// (a successful early stop); returning true asks for the next split.
+typedef std::function<bool(expr* D, expr* N)> split_yield;
+
 class seq_split {
     ast_manager& m;
     seq_rewriter& m_rw;       // for mk_re_append + manager / seq_util access
     seq_subset    m_subset;   // language-subset checks for subsumption
 
+    // --- Suspended split-set representation -------------------------------
+    // A split-set computation is kept as an `expr` term over a small family of
+    // locally-declared, uninterpreted function symbols (the split algebra of the
+    // paper / split-algebra.md).  Nothing here is ever asserted to the solver;
+    // the terms are only used as scratch structure to drive lazy expansion.
+    //
+    //   empty    : SplitSet                 -- {} (bottom)
+    //   single   : Re x Re -> SplitSet       -- a single split <D, N>
+    //   from_re  : Re -> SplitSet            -- the *suspended* sigma(r)
+    //   union    : SplitSet x SplitSet -> SplitSet
+    //   inter    : SplitSet x SplitSet -> SplitSet
+    //   compl    : SplitSet -> SplitSet
+    //   lcat     : Re x SplitSet -> SplitSet -- r . S (left-concat onto D)
+    //   rcat     : SplitSet x Re -> SplitSet -- S . r (right-concat onto N)
+    sort*         m_seq_sort = nullptr;   // sequence sort the decls are built for
+    sort_ref      m_set_sort;             // the uninterpreted SplitSet sort
+    func_decl_ref m_d_empty, m_d_single, m_d_fromre, m_d_union,
+                  m_d_inter, m_d_compl, m_d_lcat, m_d_rcat;
+    expr_ref      m_empty_app;            // cached nullary `empty` term
+
     seq_util&      seq() const;
     seq_util::rex& re() const;
+
+    // (Re)build the local declarations for `seq_sort` if not already current.
+    void ensure_decls(sort* seq_sort);
+
+    // Smart constructors: apply the cheap normalizations the eager engine relies
+    // on (drop-bottom, eps cancellation, union absorption of empty).
+    expr_ref mk_empty();
+    expr_ref mk_single(expr* d, expr* n);
+    expr_ref mk_fromre(expr* r);
+    expr_ref mk_union(expr* a, expr* b);
+    expr_ref mk_inter(expr* a, expr* b);
+    expr_ref mk_compl(expr* a);
+    expr_ref mk_lcat(expr* r, expr* s);
+    expr_ref mk_rcat(expr* s, expr* r);
+
+    // Recognizers over the local decls.
+    bool is_empty_ss(expr* e) const;
+    bool is_single(expr* e, expr*& d, expr*& n) const;
+    bool is_fromre(expr* e, expr*& r) const;
+    bool is_union (expr* e, expr*& a, expr*& b) const;
+    bool is_inter (expr* e, expr*& a, expr*& b) const;
+    bool is_compl (expr* e, expr*& a) const;
+    bool is_lcat  (expr* e, expr*& r, expr*& s) const;
+    bool is_rcat  (expr* e, expr*& s, expr*& r) const;
+    // A term whose head is empty | single | union (ready for the worklist loop).
+    bool is_frontier(expr* e) const;
+
+    // One level of the sigma rules: from_re(r) -> a SplitSet term built from the
+    // immediate subterms.  `ok` is set false on an unsupported shape.
+    expr_ref expand_fromre(expr* r, bool& ok);
+    // Distribute a left/right concatenation over a head-normal split-set.
+    expr_ref distribute_lcat(expr* r, expr* hs);
+    expr_ref distribute_rcat(expr* hs, expr* r);
+    // Materialized split-set -> a `union` of `single`s.
+    expr_ref from_split_set(split_set const& s);
+    // Reduce `t` until its head is empty | single | union (one outermost level
+    // for the lazy nodes; inter/compl are expanded eagerly via `materialize`,
+    // since the paper's De Morgan / cross-product cannot yield a split lazily).
+    // `ok` is set false on a give-up (unsupported shape, weak-mode Boolean, or
+    // threshold overrun).
+    expr_ref head_normalize(expr* t, split_mode mode, unsigned threshold,
+                            split_oracle const& oracle, bool& ok);
+    // Fully drain a suspended split-set into `out` (used for inter/compl bodies).
+    bool materialize(expr* node, split_mode mode, unsigned threshold,
+                     split_oracle const& oracle, split_set& out);
 
     // Push <d, n> onto `out`, unless `oracle` rejects it.
     void push(split_set& out, split_oracle const& oracle, expr* d, expr* n) const;
@@ -85,18 +155,30 @@ class seq_split {
 public:
     explicit seq_split(seq_rewriter& rw);
 
-    // Compute sigma(r), appending to `out` (does not clear it).  `threshold`
-    // bounds the number of produced splits; an overrun, an unsupported regex
-    // shape (bounded loop / ite), or a Boolean-closure case in weak mode makes
-    // it return false ("give up").
+    // Build the *suspended* sigma(r) as a split-algebra term (no expansion).
+    // Returns null on a non-regex argument.  Drive it with `enumerate`.
+    expr_ref make(expr* r);
+
+    // Lazily expand a suspended split-set, invoking `yield` for every concrete
+    // split <D, N>.  The threshold is supplied by the caller and serves only as a
+    // safety cap against space bloat (lazy expansion still has to materialize the
+    // operands of intersection / complement).  An overrun, an unsupported regex
+    // shape, or a Boolean-closure case in weak mode makes it return false ("give
+    // up").  `yield` returning false stops early and is reported as success.
     //
-    // `oracle` (optional) prunes non-viable splits *during* generation.  It must
-    // be sound to apply at every generation step: a candidate N can still gain a
-    // prefix from a factor appended to its right later (concat/star), so the
-    // oracle must use a "prefix-compatible" test (prune only when N can never
-    // match the lookahead, even partially), NOT a strict "starts-with" test.
-    // The complement body is computed WITHOUT the oracle (inverted orientation);
-    // the oracle is re-applied to the complement's output fold.
+    // `oracle` (optional) prunes non-viable splits as they are yielded.  It must
+    // be sound to apply per split: a candidate N can still gain a prefix from a
+    // factor appended to its right later (concat/star), so the oracle must use a
+    // "prefix-compatible" test (prune only when N can never match the lookahead,
+    // even partially), NOT a strict "starts-with" test.  The complement body is
+    // expanded WITHOUT the oracle (inverted orientation); the oracle is re-applied
+    // to the complement's output fold.
+    bool enumerate(expr* node, split_mode mode, unsigned threshold,
+                   split_oracle const& oracle, split_yield const& yield);
+
+    // Compute sigma(r), appending to `out` (does not clear it).  Thin eager
+    // wrapper that drains `enumerate`; semantics match the historic engine.  See
+    // `enumerate` for the meaning of `threshold`, `mode`, and `oracle`.
     bool compute(expr* r, split_set& out, unsigned threshold,
                  split_mode mode = split_mode::strong, split_oracle const& oracle = {});
 

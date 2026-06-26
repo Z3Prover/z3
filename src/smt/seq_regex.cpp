@@ -146,7 +146,6 @@ namespace smt {
                 }
                 const expr_ref cases_expr(m.mk_or(cases), m);
                 ctx.internalize(cases_expr, false);
-                std::cout << mk_pp(s, m) << " in " << mk_pp(r, m) << " =>\n" << mk_pp(cases_expr, m) << std::endl;
                 th.propagate_lit(nullptr, 1, &lit, ctx.get_literal(cases_expr));
                 return;
             }

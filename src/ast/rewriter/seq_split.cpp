@@ -22,7 +22,154 @@ Author:
 #include "util/stack.h"
 
 seq_split::seq_split(seq_rewriter& rw) :
-    m(rw.m()), m_rw(rw), m_subset(rw.u().re) {}
+    m(rw.m()), m_rw(rw), m_subset(rw.u().re),
+    m_set_sort(m),
+    m_d_empty(m), m_d_single(m), m_d_fromre(m), m_d_union(m),
+    m_d_inter(m), m_d_compl(m), m_d_lcat(m), m_d_rcat(m),
+    m_empty_app(m) {}
+
+// ---------------------------------------------------------------------------
+// Suspended split-set representation (split algebra over `expr`).
+// ---------------------------------------------------------------------------
+
+void seq_split::ensure_decls(sort* seq_sort) {
+    SASSERT(seq_sort);
+    if (m_seq_sort == seq_sort)
+        return;
+    sort* re_sort = re().mk_re(seq_sort);
+    m_set_sort  = m.mk_uninterpreted_sort(symbol("seq.split.set"));
+    sort* ss    = m_set_sort;
+    m_d_empty   = m.mk_func_decl(symbol("seq.split.empty"),   0u, nullptr, ss);
+    m_d_single  = m.mk_func_decl(symbol("seq.split.single"),  re_sort, re_sort, ss);
+    m_d_fromre  = m.mk_func_decl(symbol("seq.split.from_re"), re_sort, ss);
+    m_d_union   = m.mk_func_decl(symbol("seq.split.union"),   ss, ss, ss);
+    m_d_inter   = m.mk_func_decl(symbol("seq.split.inter"),   ss, ss, ss);
+    m_d_compl   = m.mk_func_decl(symbol("seq.split.compl"),   ss, ss);
+    m_d_lcat    = m.mk_func_decl(symbol("seq.split.lcat"),    re_sort, ss, ss);
+    m_d_rcat    = m.mk_func_decl(symbol("seq.split.rcat"),    ss, re_sort, ss);
+    m_empty_app = m.mk_const(m_d_empty);
+    m_seq_sort  = seq_sort;
+}
+
+// --- smart constructors ----------------------------------------------------
+
+expr_ref seq_split::mk_empty() {
+    SASSERT(m_empty_app);
+    return m_empty_app;
+}
+
+expr_ref seq_split::mk_single(expr* d, expr* n) {
+    SASSERT(d && n);
+    if (re().is_empty(d) || re().is_empty(n))
+        return mk_empty();
+    return expr_ref(m.mk_app(m_d_single, d, n), m);
+}
+
+expr_ref seq_split::mk_fromre(expr* r) {
+    SASSERT(r);
+    sort* seq_sort = nullptr;
+    VERIFY(seq().is_re(r, seq_sort));
+    ensure_decls(seq_sort);
+    if (re().is_empty(r))
+        return mk_empty();
+    return expr_ref(m.mk_app(m_d_fromre, r), m);
+}
+
+expr_ref seq_split::mk_union(expr* a, expr* b) {
+    SASSERT(a && b);
+    if (is_empty_ss(a))
+        return expr_ref(b, m);
+    if (is_empty_ss(b))
+        return expr_ref(a, m);
+    return expr_ref(m.mk_app(m_d_union, a, b), m);
+}
+
+expr_ref seq_split::mk_inter(expr* a, expr* b) {
+    SASSERT(a && b);
+    if (is_empty_ss(a) || is_empty_ss(b))
+        return mk_empty();
+    return expr_ref(m.mk_app(m_d_inter, a, b), m);
+}
+
+expr_ref seq_split::mk_compl(expr* a) {
+    SASSERT(a);
+    return expr_ref(m.mk_app(m_d_compl, a), m);
+}
+
+expr_ref seq_split::mk_lcat(expr* r, expr* s) {
+    SASSERT(r && s);
+    if (is_empty_ss(s))
+        return mk_empty();
+    if (re().is_epsilon(r))            // eps . S = S
+        return expr_ref(s, m);
+    return expr_ref(m.mk_app(m_d_lcat, r, s), m);
+}
+
+expr_ref seq_split::mk_rcat(expr* s, expr* r) {
+    SASSERT(r && s);
+    if (is_empty_ss(s))
+        return mk_empty();
+    if (re().is_epsilon(r))            // S . eps = S
+        return expr_ref(s, m);
+    return expr_ref(m.mk_app(m_d_rcat, s, r), m);
+}
+
+// --- recognizers -----------------------------------------------------------
+
+bool seq_split::is_empty_ss(expr* e) const {
+    return is_app(e) && to_app(e)->get_decl() == m_d_empty;
+}
+bool seq_split::is_single(expr* e, expr*& d, expr*& n) const {
+    if (!is_app(e) || to_app(e)->get_decl() != m_d_single)
+        return false;
+    d = to_app(e)->get_arg(0);
+    n = to_app(e)->get_arg(1);
+    return true;
+}
+bool seq_split::is_fromre(expr* e, expr*& r) const {
+    if (!is_app(e) || to_app(e)->get_decl() != m_d_fromre)
+        return false;
+    r = to_app(e)->get_arg(0);
+    return true;
+}
+bool seq_split::is_union(expr* e, expr*& a, expr*& b) const {
+    if (!is_app(e) || to_app(e)->get_decl() != m_d_union)
+        return false;
+    a = to_app(e)->get_arg(0);
+    b = to_app(e)->get_arg(1);
+    return true;
+}
+bool seq_split::is_inter(expr* e, expr*& a, expr*& b) const {
+    if (!is_app(e) || to_app(e)->get_decl() != m_d_inter)
+        return false;
+    a = to_app(e)->get_arg(0);
+    b = to_app(e)->get_arg(1);
+    return true;
+}
+bool seq_split::is_compl(expr* e, expr*& a) const {
+    if (!is_app(e) || to_app(e)->get_decl() != m_d_compl)
+        return false;
+    a = to_app(e)->get_arg(0);
+    return true;
+}
+bool seq_split::is_lcat(expr* e, expr*& r, expr*& s) const {
+    if (!is_app(e) || to_app(e)->get_decl() != m_d_lcat)
+        return false;
+    r = to_app(e)->get_arg(0);
+    s = to_app(e)->get_arg(1);
+    return true;
+}
+bool seq_split::is_rcat(expr* e, expr*& s, expr*& r) const {
+    if (!is_app(e) || to_app(e)->get_decl() != m_d_rcat)
+        return false;
+    s = to_app(e)->get_arg(0);
+    r = to_app(e)->get_arg(1);
+    return true;
+}
+bool seq_split::is_frontier(expr* e) const {
+    expr *a = nullptr, *b = nullptr;
+    return is_empty_ss(e) || is_single(e, a, b) || is_union(e, a, b);
+}
 
 seq_util&      seq_split::seq() const { return m_rw.u(); }
 seq_util::rex& seq_split::re()  const { return m_rw.u().re; }
@@ -92,25 +239,30 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
     return true;
 }
 
-bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mode mode,
-                        split_oracle const& oracle) {
-    SASSERT(r);
+// One level of the sigma rules.  Mirrors the historic eager `compute`, except it
+// emits *suspended* split-algebra terms (from_re / lcat / rcat / inter / compl) for
+// the subterms instead of recursing.  `mode` is irrelevant here: weak vs. strong is
+// decided when `head_normalize` reaches an inter / compl node.
+expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
+    ok = true;
     seq_util& sq = seq();
     seq_util::rex& rex = re();
 
     sort* seq_sort = nullptr;
-    if (!sq.is_re(r, seq_sort))
-        return false;
+    if (!sq.is_re(r, seq_sort)) {
+        ok = false;
+        return expr_ref(m);
+    }
+    ensure_decls(seq_sort);
 
-    // bottom: sigma(empty) = {} (the empty split-set)
+    // bottom: sigma(empty) = {}
     if (rex.is_empty(r))
-        return true;
+        return mk_empty();
 
     // epsilon: sigma(eps) = { <eps, eps> }
     if (rex.is_epsilon(r)) {
         const expr_ref eps(rex.mk_epsilon(seq_sort), m);
-        push(result, oracle, eps, eps);
-        return true;
+        return mk_single(eps, eps);
     }
 
     expr* a = nullptr, *b = nullptr;
@@ -142,15 +294,17 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
                     continue;
                 }
                 // not a constant string; unsupported for now
-                return false;
+                ok = false;
+                return expr_ref(m);
             }
         }
+        expr_ref acc = mk_empty();
         for (unsigned i = 0; i <= str.length(); ++i) {
             const expr_ref p(rex.mk_to_re(sq.str.mk_string(str.extract(0, i))), m);
             const expr_ref q(rex.mk_to_re(sq.str.mk_string(str.extract(i, str.length() - i))), m);
-            push(result, oracle, p, q);
+            acc = mk_union(acc, mk_single(p, q));
         }
-        return true;
+        return acc;
     }
 
     // single-character class alpha (., [lo-hi], of_pred):
@@ -158,41 +312,32 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     if (rex.is_full_char(r) || rex.is_range(r) || rex.is_of_pred(r)) {
         const expr_ref ex(r, m);
         const expr_ref eps(rex.mk_epsilon(seq_sort), m);
-        push(result, oracle, eps, ex);
-        push(result, oracle, ex, eps);
-        return true;
+        return mk_union(mk_single(eps, ex), mk_single(ex, eps));
     }
 
     // .* : sigma(.*) = { <.*, .*> }
     if (rex.is_full_seq(r)) {
         const expr_ref ex(r, m);
-        push(result, oracle, ex, ex);
-        return true;
+        return mk_single(ex, ex);
     }
 
-    // union: sigma(r0 | ... | r_{n-1}) = U sigma(ri)   (re.union may be n-ary)
+    // union: sigma(r0 | ... | r_{n-1}) = U from_re(ri)   (re.union may be n-ary)
     if (rex.is_union(r)) {
         app* ap = to_app(r);
-        for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-            if (!compute(ap->get_arg(i), result, threshold, mode, oracle))
-                return false;
+        expr_ref acc = mk_empty();
+        for (expr* arg : *ap) {
+            acc = mk_union(acc, mk_fromre(arg));
         }
-        return true;
+        return acc;
     }
 
     // concat: sigma(r0...r_{n-1}) = U_i  (r0...r_{i-1}) . sigma(ri) . (r_{i+1}...r_{n-1})
-    // (re.++ may be n-ary)
+    // emitted as U_i  lcat(left, rcat(from_re(ri), right))   (re.++ may be n-ary)
     if (rex.is_concat(r)) {
         app* ap = to_app(r);
         const unsigned n = ap->get_num_args();
+        expr_ref acc = mk_empty();
         for (unsigned i = 0; i < n; ++i) {
-            // Sound to pass the oracle into the sub-computation: N_inner.Sigma*
-            // over-approximates the final N_inner.right, so a prune here is a
-            // prune of the final pair too (prefix-compatible test).
-            split_set sigma_arg;
-            if (!compute(ap->get_arg(i), sigma_arg, threshold, mode, oracle))
-                return false;
-
             expr_ref left(m), right(m);
             if (i == 0)
                 left = rex.mk_epsilon(seq_sort);
@@ -211,102 +356,216 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
                     right = rex.mk_concat(right, arg);
                 }
             }
-
-            for (auto const& [d, nn] : sigma_arg) {
-                const expr_ref p = m_rw.mk_re_append(left, d);
-                const expr_ref q = m_rw.mk_re_append(nn, right);
-                push(result, oracle, p, q);
-            }
+            expr_ref term = mk_lcat(left, mk_rcat(mk_fromre(ap->get_arg(i)), right));
+            acc = mk_union(acc, term);
         }
-        return true;
+        return acc;
     }
 
     // star: sigma(a*) = { <eps, eps> } cup a*.sigma(a).a*
     if (rex.is_star(r, a)) {
         const expr_ref eps(rex.mk_epsilon(seq_sort), m);
-        push(result, oracle, eps, eps);
-        split_set sa;
-        if (!compute(a, sa, threshold, mode, oracle))
-            return false;
-        for (auto const& [d, n] : sa) {
-            const expr_ref p = m_rw.mk_re_append(r, d);   // a*.D
-            const expr_ref q = m_rw.mk_re_append(n, r);   // N.a*
-            push(result, oracle, p, q);
-        }
-        return true;
+        expr_ref body = mk_lcat(r, mk_rcat(mk_fromre(a), r));  // a*.from_re(a).a*
+        return mk_union(mk_single(eps, eps), body);
     }
 
     // plus: a+ = a.a* ; sigma(a+) = a*.sigma(a).a*  (star rule without <eps,eps>)
     if (rex.is_plus(r, a)) {
         const expr_ref star(rex.mk_star(a), m);          // a*
-        split_set sa;
-        if (!compute(a, sa, threshold, mode, oracle))
-            return false;
-        for (auto const& [d, n] : sa) {
-            const expr_ref p = m_rw.mk_re_append(star, d);
-            const expr_ref q = m_rw.mk_re_append(n, star);
-            push(result, oracle, p, q);
-        }
-        return true;
+        return mk_lcat(star, mk_rcat(mk_fromre(a), star));
     }
 
-    // intersection: sigma(r0 & ... & r_{n-1}) = cap sigma(ri)   (re.inter may be n-ary)
+    // intersection: sigma(r0 & ... & r_{n-1}) = cap from_re(ri)   (re.inter may be n-ary)
     if (rex.is_intersection(r)) {
-        if (mode == split_mode::weak)
-            return false;
         app* ap = to_app(r);
         const unsigned n = ap->get_num_args();
-        split_set current;
-        if (!compute(ap->get_arg(0), current, threshold, mode, oracle))
-            return false;
-        // A give-up on any conjunct must propagate as a give-up: silently treating
-        // it as the empty split-set would collapse the whole intersection to bottom
-        // and be misreported as an (unsound) conflict.
-        for (unsigned i = 1; i < n && !current.empty(); ++i) {
-            split_set arg_i, tmp;
-            if (!compute(ap->get_arg(i), arg_i, threshold, mode, oracle))
-                return false;
-            if (!intersect(current, arg_i, tmp, threshold, oracle))
-                return false;
-            current = std::move(tmp);
-        }
-        result.append(current);
-        return true;
+        expr_ref acc = mk_fromre(ap->get_arg(0));
+        for (unsigned i = 1; i < n; ++i)
+            acc = mk_inter(acc, mk_fromre(ap->get_arg(i)));
+        return acc;
     }
 
     // complement: sigma(~a) = ~sigma(a).
-    // The body is computed WITHOUT the oracle (the body's pairs are inverted, so
-    // their N is unrelated to the output N); the oracle is re-applied in complement().
-    if (rex.is_complement(r, a)) {
-        if (mode == split_mode::weak)
-            return false;
-        split_set sa;
-        if (!compute(a, sa, threshold, mode))
-            return false;
-        return complement(seq_sort, sa, result, threshold, oracle);
-    }
+    if (rex.is_complement(r, a))
+        return mk_compl(mk_fromre(a));
 
     // difference: a \ b = a & ~b ; sigma(a \ b) = sigma(a) cap ~sigma(b).
-    // sigma(b) (used only inside the complement) is computed WITHOUT the oracle.
-    if (rex.is_diff(r, a, b)) {
-        if (mode == split_mode::weak)
-            return false;
-        split_set sa, sb, sb_compl, tmp;
-        if (!compute(a, sa, threshold, mode, oracle))
-            return false;
-        if (!compute(b, sb, threshold, mode))
-            return false;
-        if (!complement(seq_sort, sb, sb_compl, threshold, oracle))
-            return false;
-        if (!intersect(sa, sb_compl, tmp, threshold, oracle))
-            return false;
-        result.append(tmp);
-        return true;
-    }
+    if (rex.is_diff(r, a, b))
+        return mk_inter(mk_fromre(a), mk_compl(mk_fromre(b)));
 
     // bounded loop / ite / other: not handled (paper "v1: bail").
     TRACE(seq, tout << "seq_split: unsupported regex " << mk_pp(r, m) << "\n";);
-    return false;
+    ok = false;
+    return expr_ref(m);
+}
+
+// r . hs : push the left regex onto the D component of a head-normal split-set.
+expr_ref seq_split::distribute_lcat(expr* r, expr* hs) {
+    expr *a = nullptr, *b = nullptr, *d = nullptr, *n = nullptr;
+    if (is_empty_ss(hs))
+        return mk_empty();
+    if (is_single(hs, d, n))
+        return mk_single(m_rw.mk_re_append(r, d), n);   // r.D
+    if (is_union(hs, a, b))
+        return mk_union(mk_lcat(r, a), mk_lcat(r, b));
+    UNREACHABLE();
+    return expr_ref(hs, m);
+}
+
+// hs . r : push the right regex onto the N component of a head-normal split-set.
+expr_ref seq_split::distribute_rcat(expr* hs, expr* r) {
+    expr *a = nullptr, *b = nullptr, *d = nullptr, *n = nullptr;
+    if (is_empty_ss(hs))
+        return mk_empty();
+    if (is_single(hs, d, n))
+        return mk_single(d, m_rw.mk_re_append(n, r));    // N.r
+    if (is_union(hs, a, b))
+        return mk_union(mk_rcat(a, r), mk_rcat(b, r));
+    UNREACHABLE();
+    return expr_ref(hs, m);
+}
+
+expr_ref seq_split::from_split_set(split_set const& s) {
+    expr_ref acc = mk_empty();
+    for (auto const& p : s)
+        acc = mk_union(acc, mk_single(p.m_d, p.m_n));
+    return acc;
+}
+
+expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
+                                   split_oracle const& oracle, bool& ok) {
+    ok = true;
+    expr *a = nullptr, *b = nullptr, *r = nullptr, *s = nullptr;
+
+    // already a frontier node
+    if (is_frontier(t))
+        return expr_ref(t, m);
+
+    // from_re(r): one level of sigma; recurse to settle a non-frontier head
+    // (plus / inter / compl / diff expand to lcat / inter / compl nodes).
+    if (is_fromre(t, r)) {
+        expr_ref e = expand_fromre(r, ok);
+        if (!ok)
+            return expr_ref(m);
+        if (is_frontier(e))
+            return e;
+        return head_normalize(e, mode, threshold, oracle, ok);
+    }
+
+    // r.S : head-normalize S, then distribute r over the frontier.
+    if (is_lcat(t, r, s)) {
+        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok);
+        if (!ok)
+            return expr_ref(m);
+        return distribute_lcat(r, hs);
+    }
+    if (is_rcat(t, s, r)) {
+        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok);
+        if (!ok)
+            return expr_ref(m);
+        return distribute_rcat(hs, r);
+    }
+
+    // inter / compl are eager by nature: a single split of S1 cap S2 (or ~S)
+    // cannot be produced without materializing the operand split-sets.
+    if (is_inter(t, a, b)) {
+        if (mode == split_mode::weak) {
+            ok = false;
+            return expr_ref(m);
+        }
+        split_set sa, sb, tmp;
+        if (!materialize(a, mode, threshold, oracle, sa) ||
+            !materialize(b, mode, threshold, oracle, sb) ||
+            !intersect(sa, sb, tmp, threshold, oracle)) {
+            ok = false;
+            return expr_ref(m);
+        }
+        return from_split_set(tmp);
+    }
+    if (is_compl(t, a)) {
+        if (mode == split_mode::weak) {
+            ok = false;
+            return expr_ref(m);
+        }
+        // The body is materialized WITHOUT the oracle (its pairs are inverted, so
+        // their N is unrelated to the output N); the oracle is re-applied in
+        // complement().
+        split_set sa, res;
+        if (!materialize(a, mode, threshold, split_oracle{}, sa) ||
+            !complement(m_seq_sort, sa, res, threshold, oracle)) {
+            ok = false;
+            return expr_ref(m);
+        }
+        return from_split_set(res);
+    }
+
+    UNREACHABLE();
+    ok = false;
+    return expr_ref(m);
+}
+
+bool seq_split::materialize(expr* node, split_mode mode, unsigned threshold,
+                            split_oracle const& oracle, split_set& out) {
+    return enumerate(node, mode, threshold, oracle,
+                     [&](expr* d, expr* n) { out.push_back(split_pair(d, n, m)); return true; });
+}
+
+expr_ref seq_split::make(expr* r) {
+    SASSERT(r);
+    sort* seq_sort = nullptr;
+    if (!seq().is_re(r, seq_sort))
+        return expr_ref(m);
+    return mk_fromre(r);
+}
+
+bool seq_split::enumerate(expr* node, split_mode mode, unsigned threshold,
+                          split_oracle const& oracle, split_yield const& yield) {
+    SASSERT(node);
+    expr_ref_vector work(m);            // GC-safe worklist of suspended split-sets
+    work.push_back(node);
+    unsigned count = 0;
+    while (!work.empty()) {
+        expr_ref t(work.back(), m);
+        work.pop_back();
+
+        bool ok = true;
+        expr_ref hn = head_normalize(t, mode, threshold, oracle, ok);
+        if (!ok)
+            return false;              // give up (unsupported / weak Boolean / overrun)
+
+        expr *a = nullptr, *b = nullptr, *d = nullptr, *n = nullptr;
+        if (is_empty_ss(hn))
+            continue;
+        if (is_single(hn, d, n)) {
+            if (oracle && !oracle(d, n))
+                continue;              // pruned by lookahead
+            if (++count > threshold)
+                return false;          // safety cap against space bloat
+            if (!yield(d, n))
+                return true;           // caller asked to stop early (success)
+            continue;
+        }
+        if (is_union(hn, a, b)) {
+            work.push_back(a);
+            work.push_back(b);
+            continue;
+        }
+        UNREACHABLE();
+    }
+    return true;
+}
+
+// Eager wrapper: drain the lazy enumeration into `out`.  Semantics (give-up cases,
+// oracle discipline) match the historic engine.
+bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mode mode,
+                        split_oracle const& oracle) {
+    SASSERT(r);
+    sort* seq_sort = nullptr;
+    if (!seq().is_re(r, seq_sort))
+        return false;
+    expr_ref node = mk_fromre(r);
+    return enumerate(node, mode, threshold, oracle,
+                     [&](expr* d, expr* n) { result.push_back(split_pair(d, n, m)); return true; });
 }
 
 // same-D / same-N merge (paper eqs. 1 & 2):
@@ -503,7 +762,7 @@ std::pair<expr_ref, expr_ref> seq_split::split_membership(expr* str, expr* regex
         return { expr_ref(m), expr_ref(m) };
     }
 
-    m_rw.simplify_split(result);
+    simplify(result);
 
     // Eagerly consume the constant run c from the tail by taking the c-derivative
     // of each postfix
