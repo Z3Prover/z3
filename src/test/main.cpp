@@ -113,8 +113,6 @@
     X(api_bug) \
     X(api_special_relations) \
     X(arith_rewriter) \
-    X(range_predicate) \
-    X(regex_range_collapse) \
     X(seq_rewriter) \
     X(check_assumptions) \
     X(smt_context) \
@@ -197,7 +195,6 @@
     X(finite_set) \
     X(finite_set_rewriter) \
     X(fpa) \
-    X(seq_regex_bisim) \
     X(term_enumeration) \
     X(lcube)
 

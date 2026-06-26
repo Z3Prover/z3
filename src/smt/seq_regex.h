@@ -164,12 +164,7 @@ namespace smt {
         // returned by derivative_wrapper
         expr_ref mk_deriv_accept(expr* s, unsigned i, expr* r);
         void get_derivative_targets(expr* r, expr_ref_vector& targets);
-
-        // Decide emptiness of a ground regex by antimirov-mode NFA
-        // reachability: explore derivative target states, short-circuiting to
-        // "non-empty" on the first reachable nullable or classical state.
-        // Returns l_true (empty), l_false (non-empty), l_undef (gave up).
-        lbool re_is_empty(expr* r);
+        void get_cofactors(expr* r, expr_ref_pair_vector& result);
 
         /* 
            Pretty print the regex of the state id to the out stream, 

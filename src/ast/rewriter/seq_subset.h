@@ -24,12 +24,6 @@ class seq_subset {
 
     bool is_subset_rec(expr* a, expr* b, unsigned depth) const;
 
-    // true if regex a, viewed as a flattened concatenation, has suf as a
-    // structural (concatenation) suffix.
-    bool ends_with(expr* a, expr* suf) const;
-
-    void flatten_concat(expr* a, ptr_vector<expr>& out) const;
-
 public:
     explicit seq_subset(seq_util::rex& re) : m_re(re) {}
     bool is_subset(expr* a, expr* b) const;
