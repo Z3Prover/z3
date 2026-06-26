@@ -224,6 +224,17 @@ namespace smt {
                 th.add_axiom(~lit);
                 return true;
             }
+            // Fall back to antimirov NFA reachability.  The lazy state graph
+            // keys states by AST identity and cannot close on intersections /
+            // complements whose derivative product states do not canonicalize,
+            // so it never detects their emptiness.  re_is_empty decides
+            // emptiness directly (the same procedure propagate_eq already uses
+            // for re.none equalities).
+            if (re_is_empty(r) == l_true) {
+                STRACE(seq_regex_brief, tout << "(empty:re) ";);
+                th.add_axiom(~lit);
+                return true;
+            }
         }
         return false;
     }

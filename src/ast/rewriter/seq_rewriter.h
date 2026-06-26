@@ -445,7 +445,7 @@ public:
     variable v0 = (:var 0). Unlike `mk_derivative` this entry point keeps
     the symbolic derivative as a single transition regex (TRegex): boolean
     operators are pushed into the ITE leaves rather than lifted to the top
-    via _OP_RE_ANTIMIROV_UNION. Used by the regex_bisim equivalence
+    as a union. Used by the regex_bisim equivalence
     procedure which relies on each leaf of D(p XOR q) being a coherent
     XOR pair (D_v p) XOR (D_v q).
     */

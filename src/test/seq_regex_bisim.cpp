@@ -49,7 +49,7 @@ static void test_a_star_neq_ab_star() {
     expr_ref_vector leaves(m);
     auto collect = [&](expr* e, auto&& self) -> void {
         expr* c, *t, *f;
-        if (m.is_ite(e, c, t, f) || u.re.is_union(e, t, f) || u.re.is_antimirov_union(e, t, f)) {
+        if (m.is_ite(e, c, t, f) || u.re.is_union(e, t, f)) {
             self(t, self);
             self(f, self);
             return;
