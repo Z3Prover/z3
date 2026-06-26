@@ -4117,7 +4117,7 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
  */
 br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     zstring slo, shi;
-    unsigned clo, chi;
+    unsigned clo = 0, chi = 0;
     expr *lo1, *hi1;
     unsigned len = 0;
     bool is_empty = false;
@@ -4148,20 +4148,23 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
             is_empty = true;
     }
 
-    if (clo > chi)
+    // clo/chi are only meaningful once both bounds were extracted; an early
+    // is_empty (from the length checks) leaves them at their default 0, so the
+    // is_empty return must come before the singleton/ordering checks below.
+    if (!is_empty && clo > chi)
         is_empty = true;
-    // Singleton: re.range "a" "a" → str.to_re "a"
-    if (clo == chi) {
-        result = re().mk_to_re(str().mk_string(zstring(clo)));
-        return BR_DONE;
-    }
-            
+
     if (is_empty) {
         sort* srt = re().mk_re(lo->get_sort());
         result = re().mk_empty(srt);
         return BR_DONE;
     }
 
+    // Singleton: re.range "a" "a" → str.to_re "a"
+    if (clo == chi) {
+        result = re().mk_to_re(str().mk_string(zstring(clo)));
+        return BR_DONE;
+    }
 
     return BR_FAILED;
 }

@@ -126,18 +126,6 @@ void tst_seq_rewriter() {
 
 
     // -----------------------------------------------------------------------
-    // 10. Range complement (lo = 0): single range e union [hi+1, max].*
-    // -----------------------------------------------------------------------
-    if (false) {
-        expr_ref lo_str(su.str.mk_string(zstring(0u)), m);
-        expr_ref hi_str(su.str.mk_string(zstring((unsigned)'f')), m);
-        expr_ref e(su.re.mk_complement(su.re.mk_range(lo_str, hi_str)), m);
-        rw(e);
-        std::cout << "range comp lo=min: " << mk_pp(e, m) << "\n";
-        ENSURE(!su.re.is_complement(e));
-    }
-
-    // -----------------------------------------------------------------------
     // 11. Downstream: (re.* (re.range "z" "a")) → str.to_re ""
     // -----------------------------------------------------------------------
     {
