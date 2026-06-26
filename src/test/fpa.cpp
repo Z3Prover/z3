@@ -106,9 +106,25 @@ static void test_to_fp_from_to_real_roundtrip() {
         true);
 }
 
+static void test_to_fp_from_to_real_roundtrip_with_aliases() {
+    run_fp_test(
+        "(declare-fun a () Float32)\n"
+        "(declare-fun t () Float32)\n"
+        "(declare-fun one () Float32)\n"
+        "(declare-fun c08 () Float32)\n"
+        "(assert (= one ((_ to_fp 8 24) RNE 1.0)))\n"
+        "(assert (= c08 ((_ to_fp 8 24) RNE 0.8)))\n"
+        "(assert (fp.eq a one))\n"
+        "(assert (fp.eq t c08))\n"
+        "(assert (fp.eq (fp.add RNE a t) ((_ to_fp 8 24) RNE (+ 1.0 (fp.to_real t)))))\n"
+        "(check-sat)\n",
+        true);
+}
+
 void tst_fpa() {
     test_fp_to_real_denormal();
     test_to_fp_from_real_interval();
     test_recfun_defined_function_soundness();
     test_to_fp_from_to_real_roundtrip();
+    test_to_fp_from_to_real_roundtrip_with_aliases();
 }
