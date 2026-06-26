@@ -470,6 +470,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
  */
 br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
     unsigned ch;
+    verbose_stream() << "mk_seq_unit: " << mk_ismt2_pp(e, m()) << " " << m_coalesce_chars << "\n";
     // specifically we want (_ BitVector 8)
     if (m_util.is_const_char(e, ch) && m_coalesce_chars) {
         // convert to string constant
@@ -500,6 +501,8 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     expr* c, *d;
     bool isc1 = str().is_string(a, s1) && m_coalesce_chars;
     bool isc2 = str().is_string(b, s2) && m_coalesce_chars;
+
+    verbose_stream() << "mk_seq_concat: a = " << mk_ismt2_pp(a, m()) << ", b = " << mk_ismt2_pp(b, m()) << "\n";
     if (isc1 && isc2) {
         result = str().mk_string(s1 + s2);
         return BR_DONE;

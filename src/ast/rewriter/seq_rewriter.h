@@ -139,7 +139,7 @@ class seq_rewriter {
     // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
-    bool m_coalesce_chars = false;
+    bool m_coalesce_chars = true;
     bool           m_in_bisim { false };   
     unsigned       m_re_deriv_depth { 0 };
     static const unsigned m_max_re_deriv_depth = 512;
