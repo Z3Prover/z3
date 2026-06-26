@@ -241,12 +241,6 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
             st = mk_re_concat(args[0], args[1], result); 
         }
         break;
-    case _OP_RE_ANTIMIROV_UNION:
-        SASSERT(num_args == 2);
-        // Rewrite antimirov union to real union
-        result = re().mk_union(args[0], args[1]);
-        st = BR_REWRITE1;
-        break;
     case OP_RE_UNION:
         if (num_args == 1) {
             result = args[0]; 
@@ -4424,7 +4418,7 @@ br_status seq_rewriter::reduce_re_eq(expr* l, expr* r, expr_ref& result) {
      * indirectly.  On l_undef the rewriter falls through to the existing
      * axiomatisation path.
      */
-    if (!m_in_bisim && is_ground(l) && is_ground(r)) {
+    if (!m_in_bisim && re().is_ground(l) && re().is_ground(r)) {
         flet<bool> _block(m_in_bisim, true);
         seq::regex_bisim bisim(*this);
         switch (bisim.are_equivalent(l, r)) {

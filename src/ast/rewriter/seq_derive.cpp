@@ -536,7 +536,7 @@ namespace seq {
             re().is_intersection(r, r1, r2)) {
             m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
         }
-        else if (re().is_union(r, r1, r2) || re().is_antimirov_union(r, r1, r2)) {
+        else if (re().is_union(r, r1, r2)) {
             m_br.mk_or(is_nullable(r1), is_nullable(r2), result);
         }
         else if (re().is_diff(r, r1, r2)) {
