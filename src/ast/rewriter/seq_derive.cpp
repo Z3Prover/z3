@@ -894,6 +894,20 @@ namespace seq {
             return expr_ref(re().mk_plus(re().mk_full_char(a->get_sort())), m);
         }
 
+        // De Morgan: push complement through union/intersection to the leaves
+        // so that complemented subterms stay invariant across successive
+        // derivatives and unions are exposed at the top.  This keeps the
+        // symbolic derivative in transition-regex normal form and lets the
+        // antimirov non-emptiness check decide each union alternative
+        // separately.  In particular ~(Σ*a ∪ ε) → ~(Σ*a) ∩ .+, so the ~(Σ*a)
+        // state is shared rather than growing into ~(Σ*a ∪ ε ∪ ...), which
+        // otherwise defeats dead-state detection on loop ∩ comp regexes.
+        expr* e1 = nullptr, *e2 = nullptr;
+        if (re().is_union(a, e1, e2))
+            return mk_inter(mk_complement(e1), mk_complement(e2));
+        if (re().is_intersection(a, e1, e2))
+            return mk_union(mk_complement(e1), mk_complement(e2));
+
         return expr_ref(re().mk_complement(a), m);
     }
 
