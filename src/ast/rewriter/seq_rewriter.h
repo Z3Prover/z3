@@ -409,7 +409,7 @@ public:
     void simplify_split(split_set& s) { m_split.simplify(s); }
 
     // decompose a membership constraint into a set of pairs of regex splits
-    std::pair<expr*, expr*> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
+    std::pair<expr_ref, expr_ref> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
         return m_split.split_membership(str, regex, threshold, result);
     }
 

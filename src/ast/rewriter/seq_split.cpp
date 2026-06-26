@@ -11,7 +11,6 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2026-6-10
     Clemens Eisenhofer 2026-6-10
 
 --*/
@@ -23,16 +22,15 @@ Author:
 #include "util/stack.h"
 
 seq_split::seq_split(seq_rewriter& rw) :
-    m_rw(rw), m_subset(rw.u().re) {}
+    m(rw.m()), m_rw(rw), m_subset(rw.u().re) {}
 
-ast_manager&   seq_split::m()   const { return m_rw.m(); }
 seq_util&      seq_split::seq() const { return m_rw.u(); }
 seq_util::rex& seq_split::re()  const { return m_rw.u().re; }
 
 // Add <d, n> unless the (optional) lookahead oracle prunes it.
 void seq_split::push(split_set& out, split_oracle const& oracle, expr* d, expr* n) const {
     if (!oracle || oracle(d, n))
-        out.push_back(split_pair(d, n, m()));
+        out.push_back(split_pair(d, n, m));
 }
 
 // Cross-product intersection of two split-sets (split algebra):
@@ -46,8 +44,8 @@ bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& r
             if (r.is_empty(p1.m_d) || r.is_empty(p2.m_d) ||
                 r.is_empty(p1.m_n) || r.is_empty(p2.m_n))
                 continue;
-            const expr_ref di(m_rw.mk_regex_inter_normalize(p1.m_d, p2.m_d), m());
-            const expr_ref ni(m_rw.mk_regex_inter_normalize(p1.m_n, p2.m_n), m());
+            const expr_ref di(m_rw.mk_regex_inter_normalize(p1.m_d, p2.m_d), m);
+            const expr_ref ni(m_rw.mk_regex_inter_normalize(p1.m_n, p2.m_n), m);
             push(result, oracle, di, ni);
             if (result.size() > threshold)
                 return false;
@@ -66,7 +64,7 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
 
     seq_util::rex& r = re();
     sort* re_sort = r.mk_re(seq_sort);
-    const expr_ref full(r.mk_full_seq(re_sort), m());   // .*
+    const expr_ref full(r.mk_full_seq(re_sort), m);   // .*
     if (sp.empty()) {                                   // ~{} = <.*, .*>
         push(result, oracle, full, full);
         return true;
@@ -99,7 +97,6 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     SASSERT(r);
     seq_util& sq = seq();
     seq_util::rex& rex = re();
-    ast_manager& mm = m();
 
     sort* seq_sort = nullptr;
     if (!sq.is_re(r, seq_sort))
@@ -111,7 +108,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
 
     // epsilon: sigma(eps) = { <eps, eps> }
     if (rex.is_epsilon(r)) {
-        const expr_ref eps(rex.mk_epsilon(seq_sort), mm);
+        const expr_ref eps(rex.mk_epsilon(seq_sort), m);
         push(result, oracle, eps, eps);
         return true;
     }
@@ -149,8 +146,8 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
             }
         }
         for (unsigned i = 0; i <= str.length(); ++i) {
-            const expr_ref p(rex.mk_to_re(sq.str.mk_string(str.extract(0, i))), mm);
-            const expr_ref q(rex.mk_to_re(sq.str.mk_string(str.extract(i, str.length() - i))), mm);
+            const expr_ref p(rex.mk_to_re(sq.str.mk_string(str.extract(0, i))), m);
+            const expr_ref q(rex.mk_to_re(sq.str.mk_string(str.extract(i, str.length() - i))), m);
             push(result, oracle, p, q);
         }
         return true;
@@ -159,8 +156,8 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     // single-character class alpha (., [lo-hi], of_pred):
     //   sigma(alpha) = { <eps, alpha>, <alpha, eps> }
     if (rex.is_full_char(r) || rex.is_range(r) || rex.is_of_pred(r)) {
-        const expr_ref ex(r, mm);
-        const expr_ref eps(rex.mk_epsilon(seq_sort), mm);
+        const expr_ref ex(r, m);
+        const expr_ref eps(rex.mk_epsilon(seq_sort), m);
         push(result, oracle, eps, ex);
         push(result, oracle, ex, eps);
         return true;
@@ -168,7 +165,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
 
     // .* : sigma(.*) = { <.*, .*> }
     if (rex.is_full_seq(r)) {
-        const expr_ref ex(r, mm);
+        const expr_ref ex(r, m);
         push(result, oracle, ex, ex);
         return true;
     }
@@ -196,13 +193,13 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
             if (!compute(ap->get_arg(i), sigma_arg, threshold, mode, oracle))
                 return false;
 
-            expr_ref left(mm), right(mm);
+            expr_ref left(m), right(m);
             if (i == 0)
                 left = rex.mk_epsilon(seq_sort);
             else {
                 for (unsigned j = 0; j < i; ++j) {
                     expr* arg = ap->get_arg(j);
-                    left = left ? expr_ref(rex.mk_concat(left, arg), mm) : expr_ref(arg, mm);
+                    left = left ? expr_ref(rex.mk_concat(left, arg), m) : expr_ref(arg, m);
                 }
             }
             if (i == n - 1)
@@ -226,7 +223,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
 
     // star: sigma(a*) = { <eps, eps> } cup a*.sigma(a).a*
     if (rex.is_star(r, a)) {
-        const expr_ref eps(rex.mk_epsilon(seq_sort), mm);
+        const expr_ref eps(rex.mk_epsilon(seq_sort), m);
         push(result, oracle, eps, eps);
         split_set sa;
         if (!compute(a, sa, threshold, mode, oracle))
@@ -241,7 +238,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
 
     // plus: a+ = a.a* ; sigma(a+) = a*.sigma(a).a*  (star rule without <eps,eps>)
     if (rex.is_plus(r, a)) {
-        const expr_ref star(rex.mk_star(a), mm);          // a*
+        const expr_ref star(rex.mk_star(a), m);          // a*
         split_set sa;
         if (!compute(a, sa, threshold, mode, oracle))
             return false;
@@ -308,7 +305,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     }
 
     // bounded loop / ite / other: not handled (paper "v1: bail").
-    TRACE(seq, tout << "seq_split: unsupported regex " << mk_pp(r, mm) << "\n";);
+    TRACE(seq, tout << "seq_split: unsupported regex " << mk_pp(r, m) << "\n";);
     return false;
 }
 
@@ -318,7 +315,6 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
 // Only fires on syntactically-identical (perfectly-shared) key components, so
 // it is a conservative instance of the rule.
 void seq_split::merge_by(split_set& pairs, const bool by_left) const {
-    ast_manager& mm = m();
     obj_map<expr, unsigned> idx;   // key component -> position in `out`
     split_set out;
     for (auto const& p : pairs) {
@@ -327,7 +323,7 @@ void seq_split::merge_by(split_set& pairs, const bool by_left) const {
         unsigned pos;
         if (idx.find(key, pos)) {
             expr* prev = by_left ? out[pos].m_n.get() : out[pos].m_d.get();
-            const expr_ref u(m_rw.mk_regex_union_normalize(prev, other), mm);
+            const expr_ref u(m_rw.mk_regex_union_normalize(prev, other), m);
             if (by_left)
                 out[pos].m_n = u;
             else
@@ -403,9 +399,7 @@ void seq_split::simplify(split_set& pairs) const {
     pairs.swap(result);
 }
 
-std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
-    ast_manager& m = this->m();
-
+std::pair<expr_ref, expr_ref> seq_split::split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
     expr_ref_vector tokens(m);
     vector<expr*> stack;
     stack.push_back(str);
@@ -451,7 +445,7 @@ std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsi
     // TODO: Do this for the back as well (also, why did no rule before do that?)
 
     if (tokens.empty())
-        return { nullptr, nullptr };
+        return { expr_ref(m), expr_ref(m) };
 
     // Choose the factorization boundary so the tail starts with the
     // longest run of concrete characters c.
@@ -506,7 +500,7 @@ std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsi
     // Decompose the regex into a split-set via the shared seq_split engine
     if (!m_rw.split(regex, result, threshold, split_mode::strong, oracle)) {
         result.clear();
-        return { nullptr, nullptr };
+        return { expr_ref(m), expr_ref(m) };
     }
 
     m_rw.simplify_split(result);
@@ -528,13 +522,13 @@ std::pair<expr*, expr*> seq_split::split_membership(expr* str, expr* regex, unsi
         result.shrink(w);
     }
 
-    return { head, tail };
+    return { expr_ref(head, m), expr_ref(tail, m) };
 }
 
 bool seq_split::split_lookahead_viable(expr* regex, zstring const& c) const {
     SASSERT(regex);
     for (unsigned i = 0; i < c.length(); i++) {
-        if (m().is_true(m_rw.is_nullable(regex)))
+        if (m.is_true(m_rw.is_nullable(regex)))
             return true;            // N accepts the prefix c[0..i) => a suffix completes it
         regex = m_rw.mk_derivative(seq().mk_char(c[i]), regex);
         SASSERT(regex);

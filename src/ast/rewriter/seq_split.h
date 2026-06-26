@@ -58,10 +58,10 @@ enum class split_mode { weak, strong };
 typedef std::function<bool(expr* D, expr* N)> split_oracle;
 
 class seq_split {
+    ast_manager& m;
     seq_rewriter& m_rw;       // for mk_re_append + manager / seq_util access
     seq_subset    m_subset;   // language-subset checks for subsumption
 
-    ast_manager&   m() const;
     seq_util&      seq() const;
     seq_util::rex& re() const;
 
@@ -106,7 +106,7 @@ public:
     void simplify(split_set& s) const;
 
     // decompose a membership constraint into a set of pairs of regex splits
-    std::pair<expr*, expr*> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const;
+    std::pair<expr_ref, expr_ref> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const;
 
     // Lookahead oracle for the split engine: is the split's right component
     // `n_regex` prefix-compatible with the constant character sequence `c`?
