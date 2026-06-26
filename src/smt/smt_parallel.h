@@ -32,6 +32,13 @@ namespace smt {
     struct cube_config {
         using literal = expr_ref;
         static bool literal_is_null(expr_ref const& l) { return l == nullptr; }
+        static bool same_atom(expr_ref const& a, expr_ref const& b) {
+            expr* atom_a = a.get();
+            expr* atom_b = b.get();
+            a.get_manager().is_not(atom_a, atom_a);
+            b.get_manager().is_not(atom_b, atom_b);
+            return atom_a == atom_b;
+        }
         static std::ostream& display_literal(std::ostream& out, expr_ref const& l) { return out << mk_bounded_pp(l, l.get_manager()); }
     };
 
@@ -145,7 +152,11 @@ namespace smt {
                     w->cancel();
             }
 
+            std::atomic<bool> m_canceled = false;
+
             void cancel_background_threads() {
+                if (m_canceled.exchange(true))
+                    return;  // already canceled
                 cancel_workers();
                 cancel_sls_worker();
                 if (!p.m_global_backbones_workers.empty()) {
@@ -171,9 +182,11 @@ namespace smt {
             }
 
             void backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
-                                    node_lease const* lease = nullptr, vector<node_lease> const* targets = nullptr);
+                                    node_lease* lease = nullptr, vector<node_lease> const* targets = nullptr);
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
-            void release_lease_unlocked(unsigned worker_id, node* n);
+            void set_canceled_unlocked();
+            void release_worker_lease_unlocked(unsigned worker_id, node_lease& lease);
+            bool attempt_release_canceled_lease_unlocked(unsigned worker_id, node_lease& lease);
             void cancel_closed_leases_unlocked(unsigned source_worker_id);
             void collect_matching_targets_unlocked(node* source, expr* lit, vector<cube_config::literal> const& core,
                                                    vector<node_lease>& targets);
@@ -187,6 +200,7 @@ namespace smt {
 
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
+            void set_canceled();
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
@@ -210,14 +224,14 @@ namespace smt {
             }
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
-            void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
+            void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease& lease);
             void enqueue_core_minimization(ast_translation& l2g, node* source, expr_ref_vector const& core);
             bool wait_for_core_min_job(ast_translation& g2l, node*& source,
                                        expr_ref_vector& core, reslimit& lim);
             void publish_minimized_core(ast_translation& l2g, expr_ref_vector const& asms, node* source,
                                         unsigned original_core_size, expr_ref_vector const& minimized_core);
-            void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
-            void release_lease(unsigned worker_id, node_lease const& lease);
+            void try_split(ast_translation& l2g, unsigned worker_id, node_lease& lease, expr* atom, unsigned effort);
+            bool checkpoint_worker(unsigned worker_id, node_lease& lease, bool& lease_canceled);
             bool lease_canceled(node_lease const& lease);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);

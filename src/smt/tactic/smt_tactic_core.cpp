@@ -31,7 +31,6 @@ Notes:
 #include "solver/solver.h"
 #include "solver/mus.h"
 #include "solver/parallel_tactical.h"
-#include "solver/parallel_tactical2.h"
 #include "solver/parallel_params.hpp"
 #include <mutex>
 
@@ -431,8 +430,6 @@ static tactic * mk_seq_smt_tactic(ast_manager& m, params_ref const & p) {
 
 tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
     parallel_params pp(p);
-    if (pp.enable2())
-        return mk_parallel_tactic2(mk_smt_solver(m, p, symbol::null), p);
     return mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);
 }
 
@@ -440,8 +437,6 @@ tactic * mk_smt_tactic_core(ast_manager& m, params_ref const& p, symbol const& l
     parallel_params pp(p);
     if (pp.enable())
         return mk_parallel_tactic(mk_smt_solver(m, p, logic), p);
-    if (pp.enable2())
-        return mk_parallel_tactic2(mk_smt_solver(m, p, logic), p);
     return mk_seq_smt_tactic(m, p);
 }
 
@@ -450,7 +445,7 @@ tactic * mk_smt_tactic_core_using(ast_manager& m, bool auto_config, params_ref c
     params_ref p = _p;
     p.set_bool("auto_config", auto_config);
     tactic *t = nullptr;
-    if (pp.enable() || pp.enable2())
+    if (pp.enable())
         t = mk_parallel_smt_tactic(m, p);
     else
         t = mk_seq_smt_tactic(m, p);
