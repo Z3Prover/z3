@@ -19,6 +19,7 @@ Notes:
 #pragma once
 
 #include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/seq_derive.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -128,15 +129,20 @@ class seq_rewriter {
         void insert(decl_kind op, expr* a, expr* b, expr* c, expr* r);
     };
 
+    friend class seq::derive;
+
     seq_util       m_util;
     seq_subset     m_subset;
     arith_util     m_autil;
     bool_rewriter  m_br;
+    seq::derive    m_derive;
     // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
-    bool           m_coalesce_chars;
-    bool           m_in_bisim { false };
+    bool m_coalesce_chars = true;
+    bool           m_in_bisim { false };   
+    unsigned       m_re_deriv_depth { 0 };
+    static const unsigned m_max_re_deriv_depth = 512;
 
     enum length_comparison {
         shorter_c, 
@@ -178,50 +184,17 @@ class seq_rewriter {
     // - occurrences of a_ch are replaced by empty (replace_all never outputs a)
     expr_ref re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, expr *a_str, expr *b_str);
 
-    // Calculate derivative, memoized and enforcing a normal form
-    expr_ref is_nullable_rec(expr* r);
-    expr_ref mk_derivative_rec(expr* ele, expr* r);
-    expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
-    expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
-    expr_ref mk_der_concat(expr* a, expr* b);
-    expr_ref mk_der_union(expr* a, expr* b);
-    expr_ref mk_der_inter(expr* a, expr* b);
-    expr_ref mk_der_xor(expr* a, expr* b);
-    expr_ref mk_der_compl(expr* a);
-    expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
-    expr_ref mk_der_antimirov_union(expr* r1, expr* r2);
-    bool ite_bdds_compatible(expr* a, expr* b);
-    /* if r has the form deriv(en..deriv(e1,to_re(s))..) returns 's = [e1..en]' else returns '() in r'*/
-    expr_ref is_nullable_symbolic_regex(expr* r, sort* seq_sort);
-    #ifdef Z3DEBUG
-    bool check_deriv_normal_form(expr* r, int level = 3);
-    #endif
-
-    void mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref& result);
-
-    expr_ref mk_antimirov_deriv(expr* e, expr* r, expr* path);
-    expr_ref mk_in_antimirov_rec(expr* s, expr* d);
-    expr_ref mk_in_antimirov(expr* s, expr* d);
-
-    expr_ref mk_antimirov_deriv_intersection(expr* elem, expr* d1, expr* d2, expr* path);
-    expr_ref mk_antimirov_deriv_concat(expr* d, expr* r);
-    expr_ref mk_antimirov_deriv_negate(expr* elem, expr* d);
-    expr_ref mk_antimirov_deriv_union(expr* d1, expr* d2);
-    expr_ref mk_antimirov_deriv_restrict(expr* elem, expr* d1, expr* cond);
-    expr_ref mk_regex_reverse(expr* r);
-    expr_ref mk_regex_concat(expr* r1, expr* r2);
 
     expr_ref merge_regex_sets(expr* r1, expr* r2, expr* unit, std::function<bool(expr*, expr*&, expr*&)>& decompose, std::function<expr* (expr*, expr*)>& compose);
 
     // elem is (:var 0) and path a condition that may have (:var 0) as a free variable
     // simplify path, e.g., (:var 0) = 'a' & (:var 0) = 'b' is simplified to false
-    expr_ref simplify_path(expr* elem, expr* path);
+    // expr_ref simplify_path(expr* elem, expr* path);
 
     bool lt_char(expr* ch1, expr* ch2);
     bool eq_char(expr* ch1, expr* ch2);
     bool neq_char(expr* ch1, expr* ch2);
     bool le_char(expr* ch1, expr* ch2);
-    bool pred_implies(expr* a, expr* b);
     bool are_complements(expr* r1, expr* r2) const;
     bool is_subset(expr* r1, expr* r2) const;
 
@@ -267,6 +240,14 @@ class seq_rewriter {
     br_status mk_re_union0(expr* a, expr* b, expr_ref& result);
     br_status mk_re_inter0(expr* a, expr* b, expr_ref& result);
     br_status mk_re_complement(expr* a, expr_ref& result);
+    // Range-set collapse helpers: if the operands form a boolean
+    // combination of character-class regexes, materialize the result as a
+    // canonical regex over a single range_predicate.  See
+    // ast/rewriter/seq_range_collapse.h for the recognized fragment.
+    // NOTE: re.complement is intentionally not in this set because it
+    // operates at the sequence level, not the character-class level.
+    bool try_collapse_re_union(expr* a, expr* b, expr_ref& result);
+    bool try_collapse_re_inter(expr* a, expr* b, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_diff(expr* a, expr* b, expr_ref& result);
     br_status mk_re_xor(expr* a, expr* b, expr_ref& result);
@@ -351,9 +332,9 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), // m_re2aut(m), 
+        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this),
         m_op_cache(m), m_es(m), 
-        m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
+        m_lhs(m), m_rhs(m) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
@@ -364,7 +345,7 @@ public:
     static void get_param_descrs(param_descrs & r);
 
 
-    bool coalesce_chars() const { return m_coalesce_chars; }
+    // bool coalesce_chars() const { return m_coalesce_chars; }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
@@ -377,6 +358,34 @@ public:
         if (f->get_family_id() != u().get_family_id() || 
             BR_FAILED == mk_app_core(f, n, args, result))
             result = m().mk_app(f, n, args);
+        return result;
+    }
+
+    expr_ref mk_xor0(expr *a, expr *b) {
+        expr_ref result(m());
+        if (mk_re_xor0(a, b, result) == BR_FAILED)
+            result = re().mk_xor(a, b);
+        return result;
+    }
+
+    expr_ref mk_union(expr *a, expr *b) {
+        expr_ref result(m());
+        if (mk_re_union(a, b, result) == BR_FAILED)
+            result = re().mk_union(a, b);
+        return result;
+    }
+
+    expr_ref mk_inter(expr *a, expr *b) {
+        expr_ref result(m());
+        if (mk_re_inter(a, b, result) == BR_FAILED)
+            result = re().mk_inter(a, b);
+        return result;
+    }
+
+    expr_ref mk_complement(expr *a) {
+        expr_ref result(m());
+        if (mk_re_complement(a, result) == BR_FAILED)
+            result = re().mk_complement(a);
         return result;
     }
 
@@ -436,11 +445,35 @@ public:
     variable v0 = (:var 0). Unlike `mk_derivative` this entry point keeps
     the symbolic derivative as a single transition regex (TRegex): boolean
     operators are pushed into the ITE leaves rather than lifted to the top
-    via _OP_RE_ANTIMIROV_UNION. Used by the regex_bisim equivalence
+    as a union. Used by the regex_bisim equivalence
     procedure which relies on each leaf of D(p XOR q) being a coherent
     XOR pair (D_v p) XOR (D_v q).
     */
-    expr_ref mk_brz_derivative(expr* r);
+    expr_ref mk_brz_derivative(expr *r) {
+        return mk_derivative(r);
+    }
+
+    /*
+    Enumerate the cofactors (min-terms) of a transition regex r taken with
+    respect to ele. Produces (path_condition, leaf_regex) pairs for every
+    feasible path through the ITE-tree, pruning infeasible character ranges.
+    Delegates to the derivative engine so the same path/interval context used
+    while hoisting ITEs is reused for the leaf simplification.
+    */
+    void get_cofactors(expr* ele, expr* r, expr_ref_pair_vector& result) {
+        m_derive.get_cofactors(ele, r, result);
+    }
+
+    /*
+    Compute the symbolic derivative of r and enumerate its reachable leaves
+    in fully ITE-hoisted normal form: a list of (path_condition, target)
+    pairs where every target is free of (:var 0) (so nullability is always
+    decidable) and unions are kept intact as single states. Used by
+    regex_bisim, which consumes the targets and ignores the path conditions.
+    */
+    void brz_derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+        m_derive.derivative_cofactors(r, result);
+    }
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
@@ -450,6 +483,8 @@ public:
     expr_ref mk_regex_union_normalize(expr* r1, expr* r2);
     /* Apply simplifications to the intersection to keep it normalized (r1 and r2 are not normalized)*/
     expr_ref mk_regex_inter_normalize(expr* r1, expr* r2);
+
+    expr_ref mk_regex_concat(expr *r1, expr *r2);
 
     /*
     * Extract some string that is a member of r. 

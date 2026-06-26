@@ -224,6 +224,17 @@ namespace smt {
                 th.add_axiom(~lit);
                 return true;
             }
+            // Fall back to antimirov NFA reachability.  The lazy state graph
+            // keys states by AST identity and cannot close on intersections /
+            // complements whose derivative product states do not canonicalize,
+            // so it never detects their emptiness.  re_is_empty decides
+            // emptiness directly (the same procedure propagate_eq already uses
+            // for re.none equalities).
+            if (re_is_empty(r) == l_true) {
+                STRACE(seq_regex_brief, tout << "(empty:re) ";);
+                th.add_axiom(~lit);
+                return true;
+            }
         }
         return false;
     }
@@ -461,6 +472,24 @@ namespace smt {
         if (re().is_empty(r))
             //trivially true
             return;
+        // When one side is re.none the equation is a pure emptiness check on
+        // the other regex (symmetric_diff already returned it as r).  Decide
+        // it directly by antimirov NFA reachability instead of running the
+        // bisimulation/XOR closure, which would build large un-canonicalized
+        // product states for intersections of contains-patterns.
+        if ((re().is_empty(r1) || re().is_empty(r2)) && is_ground(r)) {
+            switch (re_is_empty(r)) {
+            case l_true:
+                STRACE(seq_regex_brief, tout << "empty:eq ";);
+                return; // languages equal (both empty): trivially true
+            case l_false:
+                STRACE(seq_regex_brief, tout << "empty:neq ";);
+                th.add_axiom(~th.mk_eq(r1, r2, false), false_literal);
+                return;
+            case l_undef:
+                break;
+            }
+        }
         // Try the bisimulation procedure on ground regexes first.  If it
         // returns a definite answer, dispatch the corresponding axiom and
         // bypass the symbolic emptiness/derivative closure.
@@ -562,16 +591,16 @@ namespace smt {
             lits.push_back(null_lit);
 
         expr_ref_pair_vector cofactors(m);
-        get_cofactors(d, cofactors);
-        for (auto const& p : cofactors) {
-            if (is_member(p.second, u)) 
+        seq_rw().get_cofactors(hd, d, cofactors);
+        for (auto const& [c, r] : cofactors) {
+            if (is_member(r, u)) 
                 continue;            
-            expr_ref cond(p.first, m);
+            expr_ref cond(c, m);
             seq_rw().elim_condition(hd, cond);
             rewrite(cond);
             if (m.is_false(cond))
                 continue;            
-            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
+            expr_ref next_non_empty = sk().mk_is_non_empty(r, re().mk_union(u, r), n);
             if (!m.is_true(cond))
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
@@ -672,88 +701,113 @@ namespace smt {
     }
 
     /*
-        Return a list of all target regexes in the derivative of a regex r,
-        ignoring the conditions along each path.
+        Decide emptiness of a ground regex r via antimirov-mode NFA
+        reachability.
 
-        The derivative construction uses (:var 0) and tries 
-        to eliminate unsat condition paths but it does not perform 
-        full satisfiability checks and it is not guaranteed
-        that all targets are actually reachable
+        The symbolic derivative engine runs in antimirov mode, so the
+        derivative of an intersection distributes into a *set* of individual
+        product states inter(A_i, B_j) (each a small, ground regex) rather
+        than one giant union-of-intersections term.  get_derivative_targets
+        enumerates these NFA successor states.
+
+        We short-circuit to l_false (non-empty) as soon as a reachable state
+        is nullable (accepts the empty word) or classical (a regex built only
+        from to_re/all/union/concat/star/plus/opt/loop, hence non-empty).  An
+        intersection itself is never classical, but once one operand reduces
+        to Σ* the intersection collapses (via the derivative's subset
+        simplification) to the other, classical, operand.
+
+        If the worklist is exhausted with no such state, r is empty (l_true).
+        Returns l_undef if a step bound is hit, so callers can fall back to
+        the general procedure.
+    */
+    lbool seq_regex::re_is_empty(expr* r) {
+        if (re().is_empty(r))
+            return l_true;
+        expr_ref_vector pinned(m);
+        obj_hashtable<expr> visited;
+        ptr_vector<expr> work;
+        work.push_back(r);
+        visited.insert(r);
+        pinned.push_back(r);
+        unsigned const bound = 100000;
+        unsigned steps = 0;
+        while (!work.empty()) {
+            if (++steps > bound)
+                return l_undef;
+            expr* s = work.back();
+            work.pop_back();
+            auto info = re().get_info(s);
+            if (!info.is_known())
+                return l_undef;
+            // ε ∈ L(s) or s is a non-empty classical regex ⇒ L(r) non-empty.
+            if (info.nullable == l_true || info.classical)
+                return l_false;
+            // Dead state: prune (min_length == UINT_MAX means no word is
+            // accepted from here).
+            if (info.min_length == UINT_MAX)
+                continue;
+            expr_ref_vector targets(m);
+            get_derivative_targets(s, targets);
+            for (expr* t : targets) {
+                if (visited.contains(t))
+                    continue;
+                visited.insert(t);
+                pinned.push_back(t);
+                work.push_back(t);
+            }
+        }
+        return l_true;
+    }
+
+
+    /*
+        Return a list of all reachable target regexes in the derivative of a
+        regex r.
+
+        The derivative is taken wrt (:var 0) and its reachable leaves are
+        enumerated with the path-aware cofactor engine, which conjoins the
+        ITE-path conditions and prunes infeasible character-range combinations
+        (e.g. a nested branch requiring elem = 'a' and elem = 'B').  Each leaf
+        is re-normalized with the path-aware smart constructors so that
+        semantically equal states stay syntactically identical (essential for
+        state dedup in the emptiness closure).
+
+        Without this pruning the naive ITE-tree DFS would reach infeasible
+        leaves; an infeasible classical (intersection/complement-free) leaf
+        would then be misjudged as a non-empty residual.
     */
     void seq_regex::get_derivative_targets(expr* r, expr_ref_vector& targets) {
-        // constructs the derivative wrt (:var 0)
-        expr_ref d(seq_rw().mk_derivative(r), m);
-
-        // use DFS to collect all the targets (leaf regexes) in d.
-        expr* _1 = nullptr, * e1 = nullptr, * e2 = nullptr;
-        obj_hashtable<expr>::entry* _2 = nullptr;
-        vector<expr*> workset;
-        workset.push_back(d);
-        obj_hashtable<expr> done;
-        done.insert(d);
-        while (workset.size() > 0) {
-            expr* e = workset.back();
-            workset.pop_back();
-            if (m.is_ite(e, _1, e1, e2) || re().is_union(e, e1, e2)) {
-                if (done.insert_if_not_there_core(e1, _2))
-                    workset.push_back(e1);
-                if (done.insert_if_not_there_core(e2, _2))
-                    workset.push_back(e2);
-            }
-            else if (!re().is_empty(e))
-                targets.push_back(e);
+        expr_ref_pair_vector cofactors(m);
+        seq_rw().brz_derivative_cofactors(r, cofactors);
+        for (auto const& [c, t] : cofactors) {
+            if (!re().is_empty(t))
+                targets.push_back(t);
         }
     }
 
     /*
         Return a list of all (cond, leaf) pairs in a given derivative
-        expression r.
+        expression r, where elem is the character symbol the derivative was
+        taken with respect to.
 
-        Note: this  implementation is inefficient: it simply collects all expressions under an if and 
-        iterates over all combinations.
+        The transition regexes produced by the symbolic derivative engine are
+        ITE-trees over character predicates ci on elem (equalities such as
+        elem = 'A', and ranges such as 'a' <= elem <= 'z').  These predicates
+        are typically mutually exclusive, so the number of feasible truth
+        assignments to {c1,..,ck} ("minterms") is small.
 
-        This method is still used by:
+        The enumeration is delegated to seq::derive (via seq_rw().get_cofactors)
+        so it reuses the very same path/interval context that the derivative
+        engine uses while hoisting ITEs: each feasible path through the ITE-tree
+        yields one (path_condition, leaf) cofactor, infeasible character-range
+        combinations are pruned, and the leaf is simplified with the path-aware
+        smart constructors.
+
+        This is used by:
             propagate_is_empty
             propagate_is_non_empty
     */
-    void seq_regex::get_cofactors(expr* r, expr_ref_pair_vector& result) {
-        obj_hashtable<expr> ifs;
-        expr* cond = nullptr, * r1 = nullptr, * r2 = nullptr;
-        for (expr* e : subterms::ground(expr_ref(r, m))) 
-            if (m.is_ite(e, cond, r1, r2))
-                ifs.insert(cond);
-        
-        expr_ref_vector rs(m);
-        vector<expr_ref_vector> conds;
-        conds.push_back(expr_ref_vector(m));
-        rs.push_back(r);
-        for (expr* c : ifs) {
-            unsigned sz = conds.size();
-            expr_safe_replace rep1(m);
-            expr_safe_replace rep2(m);
-            rep1.insert(c, m.mk_true());
-            rep2.insert(c, m.mk_false());
-            expr_ref r2(m);
-            for (unsigned i = 0; i < sz; ++i) {
-                expr_ref_vector cs = conds[i];
-                cs.push_back(mk_not(m, c));
-                conds.push_back(cs);
-                conds[i].push_back(c);
-                expr_ref r1(rs.get(i), m);
-                rep1(r1, r2);
-                rs[i] = r2;
-                rep2(r1, r2);
-                rs.push_back(r2);
-            }
-        }
-        for (unsigned i = 0; i < conds.size(); ++i) {
-            expr_ref conj = mk_and(conds[i]);
-            expr_ref r(rs.get(i), m);
-            ctx.get_rewriter()(r);
-            if (!m.is_false(conj) && !re().is_empty(r))
-                result.push_back(conj, r);
-        }
-    }
 
     /*
       is_empty(r, u) => ~is_nullable(r)
@@ -781,11 +835,11 @@ namespace smt {
         d = mk_derivative_wrapper(hd, r);
         literal_vector lits;
         expr_ref_pair_vector cofactors(m);
-        get_cofactors(d, cofactors);        
-        for (auto const& p : cofactors) {
-            if (is_member(p.second, u))
+        seq_rw().get_cofactors(hd, d, cofactors);        
+        for (auto const& [c, r] : cofactors) {
+            if (is_member(r, u))
                 continue;
-            expr_ref cond(p.first, m);
+            expr_ref cond(c, m);
             seq_rw().elim_condition(hd, cond);
             rewrite(cond);
             if (m.is_false(cond))
@@ -796,7 +850,7 @@ namespace smt {
                 expr_ref ncond(mk_not(m, cond), m);
                 lits.push_back(th.mk_literal(mk_forall(m, hd, ncond)));
             }
-            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, p.second), n);    
+            expr_ref is_empty1 = sk().mk_is_empty(r, re().mk_union(u, r), n);    
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        
