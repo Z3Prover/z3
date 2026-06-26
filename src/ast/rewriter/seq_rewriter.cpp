@@ -3969,10 +3969,10 @@ expr_ref seq_rewriter::mk_regex_concat(expr *r, expr *s) {
         result = r;
     else if (re().is_full_char(r) && re().is_full_seq(s))
         // ..* = .+
-        result = re().mk_plus(re().mk_full_char(ele_sort));
+        result = re().mk_plus(re().mk_full_char(r->get_sort()));
     else if (re().is_full_seq(r) && re().is_full_char(s))
         // .*. = .+
-        result = re().mk_plus(re().mk_full_char(ele_sort));
+        result = re().mk_plus(re().mk_full_char(r->get_sort()));
     else if (re().is_concat(r, r1, r2))
         // create the resulting concatenation in right-associative form except for the following case
         // TODO: maintain the following invariant for A ++ B{m,n} + C

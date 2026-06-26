@@ -189,6 +189,18 @@ namespace seq {
 
         // δ(r1 · r2) = δ(r1) · r2 ∪ (if nullable(r1) then δ(r2) else ∅)
         if (re().is_concat(r, r1, r2)) {
+            // Ensure right-associative form first.  A left-nested concat
+            // (a·b)·r2 makes the head r1 a large sub-concat, so deriving it
+            // recurses through the whole left spine and can exceed
+            // m_max_depth, producing stuck symbolic re.derivative terms that
+            // accumulate across states and blow up.  mk_concat right-
+            // associates in a single linear pass (without touching the
+            // derivative depth counter), keeping the head atomic.
+            if (re().is_concat(r1)) {
+                expr_ref rr = mk_concat(r1, r2);
+                if (rr != r)
+                    return derive_rec(rr);
+            }
             expr_ref d1 = derive_rec(r1);
             expr_ref d1_r2 = mk_deriv_concat(d1, r2);
             expr_ref nullable_r1 = is_nullable(r1);
@@ -747,6 +759,13 @@ namespace seq {
             expr_ref tail = mk_union(a2, b2);
             return mk_deriv_concat(a1, tail);
         }
+
+        // Subsumption: L(a) ⊆ L(b) ⇒ a ∪ b = b (and symmetrically).
+        // This collapses semantically-equal union states that arise in
+        // antimirov intersection derivatives, which is essential to keep the
+        // emptiness/bisim worklist from blowing up on contains-patterns.
+        if (is_subset(a, b)) return expr_ref(b, m);
+        if (is_subset(b, a)) return expr_ref(a, m);
 
         return m_re.mk_union(a, b);
     }
