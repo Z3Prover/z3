@@ -1144,15 +1144,6 @@ namespace smt {
         void reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js);
 
         void merge_cgc(enode * e, enode * e_prime);
-        
-        // void update_cgc_generation(enode * e, bool backtrack) {
-        //     SASSERT(e->uses_cg_table());
-        //     enode *cgr = m_cg_table.find(e);
-        //     SASSERT(cgr);
-        //     if (cgr->get_generation() > e->get_generation()) {
-        //         cgr->set_generation(backtrack ? this : nullptr, e->get_generation());
-        //     }
-        // }
 
         void update_cgc_generation(enode * e, unsigned generation);
 
@@ -1952,8 +1943,6 @@ namespace smt {
 
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
-
-
 
 };
 

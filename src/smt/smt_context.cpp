@@ -687,10 +687,6 @@ namespace smt {
                     r2_parents.push_back(parent);
                     continue;
                 }
-                // parent->m_cg = parent_prime;
-                // SASSERT(!m_cg_table.contains_ptr(parent));
-
-                // update_cgc_generation(parent, true);
                 
                 merge_cgc(parent, parent_prime);
 
