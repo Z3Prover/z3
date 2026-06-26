@@ -762,36 +762,27 @@ namespace smt {
 
 
     /*
-        Return a list of all target regexes in the derivative of a regex r,
-        ignoring the conditions along each path.
+        Return a list of all reachable target regexes in the derivative of a
+        regex r.
 
-        The derivative construction uses (:var 0) and tries 
-        to eliminate unsat condition paths but it does not perform 
-        full satisfiability checks and it is not guaranteed
-        that all targets are actually reachable
+        The derivative is taken wrt (:var 0) and its reachable leaves are
+        enumerated with the path-aware cofactor engine, which conjoins the
+        ITE-path conditions and prunes infeasible character-range combinations
+        (e.g. a nested branch requiring elem = 'a' and elem = 'B').  Each leaf
+        is re-normalized with the path-aware smart constructors so that
+        semantically equal states stay syntactically identical (essential for
+        state dedup in the emptiness closure).
+
+        Without this pruning the naive ITE-tree DFS would reach infeasible
+        leaves; an infeasible classical (intersection/complement-free) leaf
+        would then be misjudged as a non-empty residual.
     */
     void seq_regex::get_derivative_targets(expr* r, expr_ref_vector& targets) {
-        // constructs the derivative wrt (:var 0)
-        expr_ref d(seq_rw().mk_derivative(r), m);
-
-        // use DFS to collect all the targets (leaf regexes) in d.
-        expr* _1 = nullptr, * e1 = nullptr, * e2 = nullptr;
-        obj_hashtable<expr>::entry* _2 = nullptr;
-        vector<expr*> workset;
-        workset.push_back(d);
-        obj_hashtable<expr> done;
-        done.insert(d);
-        while (workset.size() > 0) {
-            expr* e = workset.back();
-            workset.pop_back();
-            if (m.is_ite(e, _1, e1, e2) || re().is_union(e, e1, e2)) {
-                if (done.insert_if_not_there_core(e1, _2))
-                    workset.push_back(e1);
-                if (done.insert_if_not_there_core(e2, _2))
-                    workset.push_back(e2);
-            }
-            else if (!re().is_empty(e))
-                targets.push_back(e);
+        expr_ref_pair_vector cofactors(m);
+        seq_rw().brz_derivative_cofactors(r, cofactors);
+        for (auto const& [c, t] : cofactors) {
+            if (!re().is_empty(t))
+                targets.push_back(t);
         }
     }
 
