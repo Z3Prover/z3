@@ -825,15 +825,15 @@ namespace seq {
                     changed = true;
                     break;
                 }
-                // Prefix factoring: p·x ∪ p·y = p·(x ∪ y).
-                expr *p1, *x1, *p2, *x2;
-                if (re().is_concat(e, p1, x1) && re().is_concat(s, p2, x2) && p1 == p2) {
-                    set.set(i, set.back());
-                    set.pop_back();
-                    e = mk_deriv_concat(p1, mk_union(x1, x2));
-                    changed = true;
-                    break;
-                }
+                // NB: a `p·x ∪ p·y → p·(x ∪ y)` prefix-factoring rule used to
+                // live here.  It is semantically valid but harmful: factoring a
+                // common nullable-star prefix (e.g. (a|b)*) produces nested
+                // `S·(… ∪ …)` leaves that never stabilise to a bounded state
+                // family, so the bisimulation/emptiness closure keys ever-larger
+                // distinct expressions and fails to dedup.  Leaving the union in
+                // distributed form keeps each disjunct a "position" state, which
+                // matches the classical Brzozowski derivative and lets bisim
+                // close in a bounded number of steps on flat-vs-loop equivalence.
             }
         }
         set.push_back(e);
