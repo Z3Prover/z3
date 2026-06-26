@@ -163,6 +163,7 @@ namespace seq {
         unsigned union_id(expr* e);              // complement-aware ID for sorting
         bool is_subset(expr* a, expr* b);
         expr_ref mk_union_core(expr* a, expr* b); 
+        void add_union_elem(expr_ref_vector& set, expr* e);
         expr_ref mk_inter(expr* a, expr* b);
         expr_ref mk_inter_core(expr* a, expr* b); 
         expr_ref mk_concat(expr* a, expr* b);

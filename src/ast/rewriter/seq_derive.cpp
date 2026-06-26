@@ -753,50 +753,90 @@ namespace seq {
         if (re().is_full_seq(a) || re().is_full_seq(b))
             return expr_ref(re().mk_full_seq(a->get_sort()), m);
 
-        expr *a1, *a2, *b1, *b2;
-
-        // Flatten the left operand: insert each disjunct of `a` into `b`
-        // individually.  After this `a` is a single (non-union) disjunct.
-        if (re().is_union(a, a1, a2))
-            return mk_union(a1, mk_union(a2, b));
-
-        // Insert the single disjunct `a` into the (already reduced) union `b`,
-        // comparing it against *every* member.  The pairwise subsumption below
-        // only inspects the two direct operands, so a term subsumed by a member
-        // nested inside `b` would survive — this is the root cause of the
+        // Flatten the disjuncts of `a` and `b` into a single reduced set,
+        // applying subsumption, prefix factoring and same-condition ITE merge
+        // against *every* existing member (see add_union_elem).  Pairwise
+        // reduction on the two direct operands alone misses a term subsumed by a
+        // member nested inside an existing union — the root cause of the
         // loop ∩ comp derivative accumulating one a{0,k}·R state per k.
-        if (re().is_union(b, b1, b2)) {
-            expr_ref m1 = mk_union(a, b1);
-            if (m1.get() == b1) return expr_ref(b, m);            // a ⊆ b1
-            if (!re().is_union(m1)) return mk_union(m1, b2);      // a, b1 collapsed
-            return mk_union(b1, mk_union(a, b2));                 // a independent of b1
+        //
+        // The flattening uses an explicit worklist rather than recursion: a
+        // recursive insert-into-union recurses with depth proportional to the
+        // union width and overflows the stack on wide range-product unions.
+        expr_ref_vector set(m);
+        ptr_vector<expr> todo;
+        todo.push_back(b);
+        todo.push_back(a);
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            expr *e1, *e2;
+            if (re().is_union(e, e1, e2)) {
+                todo.push_back(e2);
+                todo.push_back(e1);
+                continue;
+            }
+            if (re().is_empty(e))
+                continue;
+            if (re().is_full_seq(e))
+                return expr_ref(re().mk_full_seq(a->get_sort()), m);
+            add_union_elem(set, e);
         }
 
-        // Same-condition ITE merge: ite(c,t1,e1) ∪ ite(c,t2,e2) → ite(c, t1∪t2, e1∪e2).
-        // The concat/loop derivative emits same-condition ITE alternatives such
-        // as a{0,k-1}·R and a{0,k}·R guarded by the same character condition.
-        // Without merging they sit in separate ITE branches and the subset rule
-        // below never sees the bodies together, so each derivative step yields a
-        // new a{0,k}·R state → O(N) states on loop ∩ comp regexes.  Merging
-        // unites the bodies in one union where the subset collapse fires.
-        expr *c1, *t1, *e1, *c2, *t2, *e2;
-        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1 == c2)
-            return mk_ite(c1, mk_union(t1, t2), mk_union(e1, e2));
+        if (set.empty())
+            return expr_ref(re().mk_empty(a->get_sort()), m);
+        expr_ref r(set.get(0), m);
+        for (unsigned i = 1; i < set.size(); ++i)
+            r = expr_ref(re().mk_union(r, set.get(i)), m);
+        return r;
+    }
 
-        // Prefix factoring: a·x ∪ a·y = a·(x ∪ y)
-        if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && a1 == b1) {
-            expr_ref tail = mk_union(a2, b2);
-            return mk_deriv_concat(a1, tail);
+    // Reduce `e` against the disjunct set `set` and insert it, maintaining the
+    // invariant that no member subsumes another.  Iterative (bounded loop) to
+    // avoid the stack overflow a recursive formulation incurs on wide unions.
+    void derive::add_union_elem(expr_ref_vector& set, expr* e0) {
+        expr_ref e(e0, m);
+        bool changed = true;
+        while (changed) {
+            changed = false;
+            for (unsigned i = 0; i < set.size(); ++i) {
+                expr* s = set.get(i);
+                if (s == e)
+                    return;                                  // duplicate
+                // Subsumption: L(e) ⊆ L(s) ⇒ drop e; L(s) ⊆ L(e) ⇒ drop s.
+                if (is_subset(e, s))
+                    return;
+                if (is_subset(s, e)) {
+                    set.set(i, set.back());
+                    set.pop_back();
+                    changed = true;
+                    break;
+                }
+                // Same-condition ITE merge:
+                //   ite(c,t1,e1) ∪ ite(c,t2,e2) → ite(c, t1∪t2, e1∪e2).
+                // Brings the bodies of same-condition ITE alternatives (e.g.
+                // a{0,k-1}·R and a{0,k}·R) into a common union where the subset
+                // rule above collapses them, preventing O(N) state blowup.
+                expr *c1, *t1, *el1, *c2, *t2, *el2;
+                if (m.is_ite(e, c1, t1, el1) && m.is_ite(s, c2, t2, el2) && c1 == c2) {
+                    set.set(i, set.back());
+                    set.pop_back();
+                    e = mk_ite(c1, mk_union(t1, t2), mk_union(el1, el2));
+                    changed = true;
+                    break;
+                }
+                // Prefix factoring: p·x ∪ p·y = p·(x ∪ y).
+                expr *p1, *x1, *p2, *x2;
+                if (re().is_concat(e, p1, x1) && re().is_concat(s, p2, x2) && p1 == p2) {
+                    set.set(i, set.back());
+                    set.pop_back();
+                    e = mk_deriv_concat(p1, mk_union(x1, x2));
+                    changed = true;
+                    break;
+                }
+            }
         }
-
-        // Subsumption: L(a) ⊆ L(b) ⇒ a ∪ b = b (and symmetrically).
-        // This collapses semantically-equal union states that arise in
-        // antimirov intersection derivatives, which is essential to keep the
-        // emptiness/bisim worklist from blowing up on contains-patterns.
-        if (is_subset(a, b)) return expr_ref(b, m);
-        if (is_subset(b, a)) return expr_ref(a, m);
-
-        return m_re.mk_union(a, b);
+        set.push_back(e);
     }
 
     expr_ref derive::mk_inter(expr* a, expr* b) {
