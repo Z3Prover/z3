@@ -567,8 +567,10 @@ public:
                 if (added >= num_cuts)
                     break;
                 // keep the first cut unconditionally; later cuts must be orthogonal
-                if (added > 0 && too_parallel(cc.m_t))
+                if (added > 0 && too_parallel(cc.m_t)) {
+                    lia.settings().stats().m_gomory_orthogonality_rejects++;
                     continue;
+                }
                 remember_cut(cc.m_t);
                 ++added;
             }

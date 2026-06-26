@@ -121,6 +121,7 @@ struct statistics {
     unsigned m_hnf_cuts = 0;
     unsigned m_nla_calls = 0;
     unsigned m_gomory_cuts = 0;
+    unsigned m_gomory_orthogonality_rejects = 0;
     unsigned m_nla_add_bounds = 0;
     unsigned m_nla_propagate_bounds = 0;
     unsigned m_nla_propagate_eq = 0;
@@ -163,6 +164,7 @@ struct statistics {
         st.update("arith-hnf-calls", m_hnf_cutter_calls);
         st.update("arith-hnf-cuts", m_hnf_cuts);
         st.update("arith-gomory-cuts", m_gomory_cuts);
+        st.update("arith-gomory-orthogonality-rejects", m_gomory_orthogonality_rejects);
         st.update("arith-horner-calls", m_horner_calls);
         st.update("arith-horner-conflicts", m_horner_conflicts);
         st.update("arith-horner-cross-nested-forms", m_cross_nested_forms);
