@@ -861,21 +861,30 @@ namespace seq {
 
 
         // Distribution of intersection over union:  (x ∪ y) ∩ b → (x ∩ b) ∪ (y ∩ b).
-        // This is essential for keeping the symbolic derivative a proper
-        // *transition regex*: with antimirov derivatives the operands of an
-        // intersection are unions of ITE-branches.  If the intersection is left
-        // *above* the union/ITE structure, the solver's get_derivative_targets
-        // (which only descends through top-level ITE and union, not
-        // intersection) cannot decompose the transition regex into ground
-        // target states.  The result is a handful of gigantic states still
-        // carrying the (:var 0) character conditions, on which the solver's
-        // cofactor/accept enumeration explodes.  Distributing here pushes the
-        // intersection into the ITE leaves so states stay small and ground.
+        //
+        // This is done only in *antimirov* mode.  Antimirov derivatives expose
+        // nondeterminism by lifting unions to the top, so the emptiness/membership
+        // solver (get_derivative_targets / mk_deriv_accept) can decompose the
+        // transition regex into a set of individual ground product states
+        // inter(A_i, B_j) and check each separately — detecting emptiness fast.
+        //
+        // In *brzozowski* mode (used by the regex_bisim equivalence procedure)
+        // we deliberately keep the intersection *above* the union, mirroring the
+        // classical product DFA.  Distributing there would lift unions above
+        // intersections and turn one inter-state into a union of inter-states at
+        // every derivative step, doubling the number of distinct bisimulation
+        // states each step (super-linear blowup on product/equiv encodings such
+        // as (R1 ∩ ~R2) = (~R1 ∩ R2)).  The cofactor enumeration handles an
+        // intersection sitting above a union fine: get_cofactors uses
+        // decompose_ite, which hoists the var-0 conditions out of arbitrarily
+        // nested inter/union leaves, so states stay ground either way.
         expr *u1 = nullptr, *u2 = nullptr;
-        if (re().is_union(a, u1, u2))
-            return mk_union(mk_inter(u1, b), mk_inter(u2, b));
-        if (re().is_union(b, u1, u2))
-            return mk_union(mk_inter(a, u1), mk_inter(a, u2));
+        if (m_derivative_kind == derivative_kind::antimirov_t) {
+            if (re().is_union(a, u1, u2))
+                return mk_union(mk_inter(u1, b), mk_inter(u2, b));
+            if (re().is_union(b, u1, u2))
+                return mk_union(mk_inter(a, u1), mk_inter(a, u2));
+        }
 
         // Base case: build raw intersection
         return m_re.mk_inter(a, b);
@@ -1028,6 +1037,15 @@ namespace seq {
         }
 
         // (t ∪ e) · tail → (t · tail) ∪ (e · tail)
+        //
+        // Right-distribution of concatenation over a union derivative head.  Done
+        // only in *antimirov* mode (the membership/accept path): exposing the union
+        // at the top splits one residual into separate ground product states, which
+        // lets the solver short-circuit witness search and keeps counting patterns
+        // such as (.*a.{n}b.*) linear (NFA-style) instead of 2^n (DFA-style).
+        // In *brzozowski* mode (bisim equivalence and the brzozowski emptiness
+        // enumeration) we keep the union below the concatenation so transition
+        // regexes stay deterministic, mirroring the classical product DFA.
         if (m_derivative_kind == derivative_kind::antimirov_t && re().is_union(d, t, e)) {
             expr_ref left = mk_deriv_concat(t, tail);
             expr_ref right = mk_deriv_concat(e, tail);
@@ -1487,7 +1505,10 @@ namespace seq {
 
     void derive::derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
         // Compute the symbolic derivative wrt the canonical variable
-        // (:var 0); operator() sets m_ele to that variable.
+        // (:var 0); operator() sets m_ele to that variable.  We use the
+        // brzozowski normal form (intersections kept above unions,
+        // deterministic transition regexes) for both the regex_bisim
+        // equivalence procedure and the emptiness solver.
         expr_ref d = (*this)(derivative_kind::brzozowski_t, r);
         // Enumerate the reachable, fully ITE-hoisted leaves of the
         // transition regex. get_cofactors uses the SAME m_ele set above,
