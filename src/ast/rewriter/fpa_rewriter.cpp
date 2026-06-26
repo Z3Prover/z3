@@ -474,6 +474,15 @@ br_status fpa_rewriter::mk_float_eq(expr * arg1, expr * arg2, expr_ref & result)
         return BR_DONE;
     }
 
+    if (m_util.is_numeral(arg1, v1) && !m_fm.is_nan(v1) && !m_fm.is_zero(v1)) {
+        result = m().mk_eq(arg2, arg1);
+        return BR_REWRITE3;
+    }
+    if (m_util.is_numeral(arg2, v2) && !m_fm.is_nan(v2) && !m_fm.is_zero(v2)) {
+        result = m().mk_eq(arg1, arg2);
+        return BR_REWRITE3;
+    }
+
     return BR_FAILED;
 }
 
