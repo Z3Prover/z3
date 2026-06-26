@@ -753,8 +753,37 @@ namespace seq {
         if (re().is_full_seq(a) || re().is_full_seq(b))
             return expr_ref(re().mk_full_seq(a->get_sort()), m);
 
-        // Prefix factoring: a·x ∪ a·y = a·(x ∪ y)
         expr *a1, *a2, *b1, *b2;
+
+        // Flatten the left operand: insert each disjunct of `a` into `b`
+        // individually.  After this `a` is a single (non-union) disjunct.
+        if (re().is_union(a, a1, a2))
+            return mk_union(a1, mk_union(a2, b));
+
+        // Insert the single disjunct `a` into the (already reduced) union `b`,
+        // comparing it against *every* member.  The pairwise subsumption below
+        // only inspects the two direct operands, so a term subsumed by a member
+        // nested inside `b` would survive — this is the root cause of the
+        // loop ∩ comp derivative accumulating one a{0,k}·R state per k.
+        if (re().is_union(b, b1, b2)) {
+            expr_ref m1 = mk_union(a, b1);
+            if (m1.get() == b1) return expr_ref(b, m);            // a ⊆ b1
+            if (!re().is_union(m1)) return mk_union(m1, b2);      // a, b1 collapsed
+            return mk_union(b1, mk_union(a, b2));                 // a independent of b1
+        }
+
+        // Same-condition ITE merge: ite(c,t1,e1) ∪ ite(c,t2,e2) → ite(c, t1∪t2, e1∪e2).
+        // The concat/loop derivative emits same-condition ITE alternatives such
+        // as a{0,k-1}·R and a{0,k}·R guarded by the same character condition.
+        // Without merging they sit in separate ITE branches and the subset rule
+        // below never sees the bodies together, so each derivative step yields a
+        // new a{0,k}·R state → O(N) states on loop ∩ comp regexes.  Merging
+        // unites the bodies in one union where the subset collapse fires.
+        expr *c1, *t1, *e1, *c2, *t2, *e2;
+        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1 == c2)
+            return mk_ite(c1, mk_union(t1, t2), mk_union(e1, e2));
+
+        // Prefix factoring: a·x ∪ a·y = a·(x ∪ y)
         if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && a1 == b1) {
             expr_ref tail = mk_union(a2, b2);
             return mk_deriv_concat(a1, tail);
