@@ -74,6 +74,7 @@ namespace seq {
 
         unsigned node_of(expr* r);
         bool merge_leaf(expr* xor_pair);
+        bool collect_leaves(expr* der, expr_ref_vector& leaves);
         lbool nullability(expr* r);
         bool is_supported(expr* r);
         // Returns true if the leaf l proves that the original pair is
