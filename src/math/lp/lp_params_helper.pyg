@@ -15,5 +15,9 @@ def_module_params(module_name='lp',
                           ('lcube_flips', UINT, 16, 'maximal number of coordinate flips when repairing the rounded largest cube center, only relevant when lcube is true'),
                           ('int_hammer_period', UINT, 4, 'period (in final_check calls) for the integer cut/cube heuristics (find_cube, hnf, gomory); a smaller value calls them more often'),
                           ('random_hammers', BOOL, True, 'draw the periodic integer heuristic gates (find_cube, lcube, hnf, gomory, dio) at random with the same 1/period rate instead of a deterministic every-k-th-call modulus'),
+                          ('gomory_cut_orthogonality', BOOL, False, 'keep the standard (minimizing-fractionality) choice of the first Gomory cut, but require each additional cut to be orthogonal to the cuts already chosen this round and to the last gomory_recent_cuts cuts added in previous rounds'),
+                          ('gomory_candidate_rows', UINT, 6, 'number of integer-infeasible rows (ordered by fractionality) considered as cut candidates when gomory_cut_orthogonality is enabled, so that orthogonal additional cuts can be found among them'),
+                          ('gomory_recent_cuts', UINT, 5, 'number of recently added Gomory cuts remembered across rounds to enforce orthogonality against when gomory_cut_orthogonality is enabled'),
+                          ('gomory_parallelism_threshold', DOUBLE, 0.9, 'an additional Gomory cut is rejected for being redundant when its parallelism |a.b|/(||a|| ||b||) with an already-chosen or recent cut exceeds this value, only relevant when gomory_cut_orthogonality is enabled'),
                          ))
                          

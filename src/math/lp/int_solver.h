@@ -46,6 +46,7 @@ class int_solver {
     lar_core_solver&    lrac;
     imp*                m_imp; 
     vector<equality>       m_equalities;
+    vector<lar_term>       m_recent_cuts; // rolling history of recently added cut LHS vectors (orthogonality)
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     bool is_boxed(unsigned j) const;
     bool is_free(unsigned j) const;

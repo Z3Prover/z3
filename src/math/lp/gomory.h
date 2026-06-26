@@ -29,6 +29,7 @@ namespace lp {
         class lar_solver& lra;
         unsigned_vector gomory_select_int_infeasible_vars(unsigned num_cuts);
         bool is_gomory_cut_target(lpvar j); 
+        double cut_parallelism(const lar_term& a, const lar_term& b);
         u_dependency* add_deps(u_dependency*, const row_strip<mpq>&, lpvar);
     public:
         lia_move get_gomory_cuts(unsigned num_cuts);

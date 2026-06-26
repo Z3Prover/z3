@@ -159,6 +159,12 @@ public:
         return it->get_data().m_value;        
     }
 
+    // returns nullptr if the column j does not occur in the term
+    const mpq * find_coeff(unsigned j) const {
+        const auto* it = m_coeffs.find_core(j);
+        return it == nullptr ? nullptr : &it->get_data().m_value;
+    }
+
     mpq & get_coeff(unsigned j){
         auto* it = m_coeffs.find_core(j);
         SASSERT(it != nullptr);

@@ -21,6 +21,7 @@
 #include "math/lp/int_solver.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
+#include <cmath>
 
 namespace lp {
     
@@ -479,11 +480,53 @@ public:
         return ret;
     }
 
+    // Parallelism (cosine similarity) of two cut left-hand sides: |a.b|/(||a||_2 ||b||_2),
+    // in [0,1]. Near 1 means the cuts are nearly parallel (redundant); near 0 means they are
+    // orthogonal. Cuts with disjoint support have dot product 0, hence parallelism 0.
+    double gomory::cut_parallelism(const lar_term& a, const lar_term& b) {
+        mpq dot(0), na(0), nb(0);
+        for (lar_term::ival p : a) {
+            na += p.coeff() * p.coeff();
+            if (const mpq* q = b.find_coeff(p.j()))
+                dot += p.coeff() * (*q);
+        }
+        for (lar_term::ival p : b)
+            nb += p.coeff() * p.coeff();
+        if (na.is_zero() || nb.is_zero())
+            return 0.0;
+        return std::abs(dot.get_double()) / std::sqrt(na.get_double() * nb.get_double());
+    }
+
     lia_move gomory::get_gomory_cuts(unsigned num_cuts) {
         struct cut_result {lar_term t; mpq k; u_dependency *dep;};
         vector<cut_result> big_cuts;
-        unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(num_cuts);
+        // With orthogonality we consider more candidate rows (still ordered by fractionality)
+        // so that, after keeping the first cut, orthogonal additional cuts can be found.
+        const bool ortho = lia.settings().gomory_cut_orthogonality();
+        const double par_thr = lia.settings().gomory_parallelism_threshold();
+        unsigned_vector columns_for_cuts = gomory_select_int_infeasible_vars(
+            ortho ? std::max(num_cuts, lia.settings().gomory_candidate_rows()) : num_cuts);
         bool has_small_cut = false;
+        unsigned added = 0;                 // cuts accepted so far (orthogonality mode)
+        vector<lar_term> selected_terms;    // cuts accepted this round, for orthogonality
+
+        // The first cut is taken by the standard (minimizing-fractionality) order; each later
+        // cut must be orthogonal to the cuts already chosen this round and to the recent cuts.
+        auto too_parallel = [&](const lar_term& t) {
+            for (auto const& s : selected_terms)
+                if (cut_parallelism(t, s) > par_thr)
+                    return true;
+            for (auto const& s : lia.m_recent_cuts)
+                if (cut_parallelism(t, s) > par_thr)
+                    return true;
+            return false;
+        };
+        auto remember_cut = [&](const lar_term& t) {
+            selected_terms.push_back(t);
+            lia.m_recent_cuts.push_back(t);
+            while (lia.m_recent_cuts.size() > lia.settings().gomory_recent_cuts())
+                lia.m_recent_cuts.erase(lia.m_recent_cuts.begin());
+        };
 
         // define inline helper functions
         auto is_small_cut = [&](lar_term const& t) {
@@ -519,7 +562,17 @@ public:
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
             else if (cc.m_polarity == row_polarity::MIN)
                 lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
-            
+
+            if (ortho) {
+                if (added >= num_cuts)
+                    break;
+                // keep the first cut unconditionally; later cuts must be orthogonal
+                if (added > 0 && too_parallel(cc.m_t))
+                    continue;
+                remember_cut(cc.m_t);
+                ++added;
+            }
+
             if (!is_small_cut(lia.get_term())) {
                 big_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep});
                 continue;
