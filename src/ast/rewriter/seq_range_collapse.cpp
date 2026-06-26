@@ -124,15 +124,7 @@ namespace seq {
 
     static expr_ref mk_single_range_regex(seq_util& u, unsigned lo, unsigned hi, sort* re_sort) {
         ast_manager& m = u.get_manager();
-        if (lo == 0 && hi == u.max_char())
-            return expr_ref(u.re.mk_full_char(re_sort), m);
-        // Use the canonical unit-character form (seq.unit (Char N)) for
-        // range bounds.  This matches the shape used elsewhere in
-        // seq_rewriter and avoids creating duplicate AST nodes with
-        // different ids for semantically identical ranges.
-        expr_ref slo(u.str.mk_string(zstring(lo)), m);
-        expr_ref shi(u.str.mk_string(zstring(hi)), m);
-        return expr_ref(u.re.mk_range(slo, shi), m);
+        return expr_ref(u.re.mk_range(re_sort, lo, hi), m);
     }
 
     expr_ref range_predicate_to_regex(seq_util& u, range_predicate const& p, sort* seq_sort) {

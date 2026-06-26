@@ -1211,6 +1211,8 @@ app* seq_util::rex::mk_of_pred(expr* p) {
 app* seq_util::rex::mk_range(sort* re_sort, unsigned lo, unsigned hi) {
     if (lo > hi)
         return mk_empty(re_sort);
+    if (lo == 0 && hi == u.max_char())
+        return mk_full_char(re_sort);
     app* lo_str = u.str.mk_string(zstring(lo));
     if (lo == hi)
         return mk_to_re(lo_str);

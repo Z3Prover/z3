@@ -4140,12 +4140,8 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
             is_empty = true;
     }
     if (!is_empty) {
-        if (str().is_string(hi, shi)) {
-            if (shi.length() != 1)
-                is_empty = true;
-            else
-                chi = shi[0];
-        }
+        if (str().is_string(hi, shi) && shi.length() == 1)
+            chi = shi[0];
         else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
             ;
         else
@@ -4155,7 +4151,6 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     if (clo > chi)
         is_empty = true;
     // Singleton: re.range "a" "a" → str.to_re "a"
-    verbose_stream() << "mk_re_range: " << clo << " " << chi << " is_empty: " << is_empty << "\n";
     if (clo == chi) {
         result = re().mk_to_re(str().mk_string(zstring(clo)));
         return BR_DONE;
