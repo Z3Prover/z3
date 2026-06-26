@@ -130,8 +130,8 @@ namespace seq {
         // range bounds.  This matches the shape used elsewhere in
         // seq_rewriter and avoids creating duplicate AST nodes with
         // different ids for semantically identical ranges.
-        expr_ref slo(u.str.mk_unit(u.str.mk_char(lo)), m);
-        expr_ref shi(u.str.mk_unit(u.str.mk_char(hi)), m);
+        expr_ref slo(u.str.mk_string(zstring(lo)), m);
+        expr_ref shi(u.str.mk_string(zstring(hi)), m);
         return expr_ref(u.re.mk_range(slo, shi), m);
     }
 

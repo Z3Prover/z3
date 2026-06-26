@@ -422,7 +422,7 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_STRING_LE:
     case OP_STRING_IS_DIGIT:
     case OP_STRING_TO_CODE:
-    case OP_STRING_FROM_CODE:
+    case OP_STRING_FROM_CODE:        
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
