@@ -32,7 +32,7 @@
 #   - GITHUB_TOKEN
 #
 # Custom actions used:
-#   - actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+#   - actions/cache/restore@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
 #   - actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
 #   - actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 #   - actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -422,7 +422,7 @@ jobs:
       - name: Create cache-memory directory
         run: bash "${RUNNER_TEMP}/gh-aw/actions/create_cache_memory_dir.sh"
       - name: Restore cache-memory file share data
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/restore@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           key: memory-none-nopolicy-${{ env.GH_AW_WORKFLOW_ID_SANITIZED }}-${{ github.run_id }}
           path: /tmp/gh-aw/cache-memory
