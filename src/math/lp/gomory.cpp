@@ -505,6 +505,23 @@ public:
         return cut_efficacy(t, k) >= lia.settings().gomory_cut_efficacy_threshold();
     }
 
+    // Parallelism (cosine similarity) of two cut left-hand sides: |a.b|/(||a||_2 ||b||_2),
+    // in [0,1]. Near 1 means the cuts are nearly parallel (redundant); near 0 means they are
+    // orthogonal (diverse). Cuts with disjoint support have dot product 0, hence parallelism 0.
+    double gomory::cut_parallelism(const lar_term& a, const lar_term& b) {
+        mpq dot(0), na(0), nb(0);
+        for (lar_term::ival p : a) {
+            na += p.coeff() * p.coeff();
+            if (const mpq* q = b.find_coeff(p.j()))
+                dot += p.coeff() * (*q);
+        }
+        for (lar_term::ival p : b)
+            nb += p.coeff() * p.coeff();
+        if (na.is_zero() || nb.is_zero())
+            return 0.0;
+        return std::abs(dot.get_double()) / std::sqrt(na.get_double() * nb.get_double());
+    }
+
     // Uniformly sample up to num_rows integer-infeasible rows that are valid Gomory cut
     // targets, without ranking them by how close the basic variable is to an integer.
     // This is the selection used by gomory_efficacy_select: row quality is judged later by
@@ -613,21 +630,46 @@ public:
 
         // Add the selected efficacy-mode cuts: fractionality-priority cuts first (always
         // kept, like the baseline), then the most efficacious remaining cuts that clear the
-        // threshold, up to num_cuts in total.
+        // threshold, up to num_cuts in total. When orthogonality is enabled, a non-priority
+        // candidate that is too parallel to an already-selected cut or to one of the recently
+        // added cuts (kept across rounds in lia.m_recent_cuts) is skipped as redundant.
         if (eff_mode) {
             std::stable_sort(scored_cuts.begin(), scored_cuts.end(),
                              [](scored_cut const& a, scored_cut const& b) {
                                  if (a.is_frac != b.is_frac) return a.is_frac;
                                  return a.eff > b.eff;
                              });
+            const bool ortho = lia.settings().gomory_cut_orthogonality();
+            const double par_thr = lia.settings().gomory_parallelism_threshold();
             double thr = lia.settings().gomory_cut_efficacy_threshold();
+            vector<lar_term> selected_terms; // cuts accepted in this round, for orthogonality
+            auto too_parallel = [&](const lar_term& t) {
+                for (auto const& s : selected_terms)
+                    if (cut_parallelism(t, s) > par_thr)
+                        return true;
+                for (auto const& s : lia.m_recent_cuts)
+                    if (cut_parallelism(t, s) > par_thr)
+                        return true;
+                return false;
+            };
+            auto remember_cut = [&](const lar_term& t) {
+                if (!ortho)
+                    return;
+                selected_terms.push_back(t);
+                lia.m_recent_cuts.push_back(t);
+                while (lia.m_recent_cuts.size() > lia.settings().gomory_recent_cuts())
+                    lia.m_recent_cuts.erase(lia.m_recent_cuts.begin());
+            };
             unsigned added = 0;
             for (auto const& c : scored_cuts) {
                 if (added >= num_cuts)
                     break;
                 if (!c.is_frac && c.eff < thr)
                     continue;
+                if (ortho && !c.is_frac && too_parallel(c.t))
+                    continue;
                 ++added;
+                remember_cut(c.t);
                 if (!is_small_cut(c.t)) {
                     big_cuts.push_back({c.t, c.k, c.dep});
                     continue;

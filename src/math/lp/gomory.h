@@ -32,6 +32,7 @@ namespace lp {
         bool is_gomory_cut_target(lpvar j); 
         bool cut_has_enough_efficacy(const lar_term& t, const mpq& k);
         double cut_efficacy(const lar_term& t, const mpq& k);
+        double cut_parallelism(const lar_term& a, const lar_term& b);
         u_dependency* add_deps(u_dependency*, const row_strip<mpq>&, lpvar);
     public:
         lia_move get_gomory_cuts(unsigned num_cuts);
