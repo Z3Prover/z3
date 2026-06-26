@@ -4,7 +4,6 @@ def_module_params('parallel',
                   export=True,
                   params=(
                           ('enable', BOOL, False, 'enable parallel solver by default on selected tactics (for QF_BV)'),
-                          ('enable2', BOOL, False, 'enable (experimental) parallel solver by default on selected tactics (for QF_BV)'),
                           ('threads.max', UINT, 10000, 'caps maximal number of threads below the number of processors'),
                           ('num_bb_threads', UINT, 2, 'run Janota-style chunking backbone worker threads; default is 2 (negative and positive mode), supported values are 0 (off), 1 (negative mode only) or 2 (negative and positive mode)'),
                           ('core_minimize', BOOL, True, 'minimize unsat cores used for parallel cube backtracking'),
