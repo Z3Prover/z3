@@ -922,6 +922,22 @@ namespace smt {
 
             SASSERT(!m_nielsen.root()->is_currently_conflict());
 
+            // nseq cannot soundly reason about defined sequence operations (str.replace,
+            // str.replace_all, str.replace_re*) inside the Nielsen graph: they are not free
+            // variables but are pinned by the recfun/axiom layer.  The modifiers (and the
+            // regex pre-check) would treat them as free (e.g. unifying two distinct
+            // replace_all applications), silently discarding their definition and yielding
+            // invalid models.  When such a rigid term participates in the constraints, defer
+            // to the axiom layer and give up.  (Concrete replace_all etc. are folded to
+            // literals by seq_rewriter before reaching the sgraph, so only genuinely
+            // symbolic occurrences are affected.)  This check precedes the regex pre-check
+            // so a rigid term as a membership subject cannot yield a bogus SAT either.
+            if (m_nielsen.root()->references_rigid()) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: rigid defined op present, FC_GIVEUP\n";);
+                TRACE(seq, tout << "nseq final_check: rigid defined op present, FC_GIVEUP\n");
+                return FC_GIVEUP;
+            }
+
             // Regex membership pre-check: before running DFS, check intersection
             // emptiness for each variable's regex constraints.  This handles
             // regex-only problems that the DFS cannot efficiently solve.

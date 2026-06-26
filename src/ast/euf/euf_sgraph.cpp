@@ -137,6 +137,15 @@ namespace euf {
             n->m_level = 1;
             n->m_length = 1;
             n->m_is_classical = false;
+            // Defined seq operations (str.replace*, str.replace_all, str.replace_re*) are
+            // classified as s_var because they have no dedicated snode kind, but they are NOT
+            // free variables: their value is fixed by the recfun/axiom layer. Mark them rigid
+            // so the Nielsen modifiers never eliminate or split them (see snode::is_rigid).
+            {
+                expr* e = n->m_expr;
+                n->m_rigid = e && (m_seq.str.is_replace(e) || m_seq.str.is_replace_all(e) ||
+                                   m_seq.str.is_replace_re(e) || m_seq.str.is_replace_re_all(e));
+            }
             break;
 
         case snode_kind::s_unit:

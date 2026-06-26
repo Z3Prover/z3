@@ -70,6 +70,7 @@ namespace euf {
         bool m_ground = true;        // no uninterpreted string variables
         bool m_regex_free = true;    // no regex constructs
         bool m_is_classical = true;  // classical regular expression
+        bool m_rigid = false;        // defined seq op (replace/replace_all/replace_re*) — opaque to Nielsen, never substitute/split
         unsigned m_level = 0;        // tree depth/level (0 for empty, 1 for singletons)
         unsigned m_length = 0;       // token count, number of leaf tokens in the tree
 
@@ -210,6 +211,19 @@ namespace euf {
         }
         bool is_var() const {
             return m_kind == snode_kind::s_var;
+        }
+        // A rigid snode is a defined sequence operation (str.replace, str.replace_all,
+        // str.replace_re, str.replace_re_all) whose semantics are supplied externally by
+        // the recfun/axiom layer. It is classified as s_var but must NOT be treated as a
+        // free, eliminable Nielsen variable: substituting/Nielsen-splitting it (e.g.
+        // unifying two distinct replace_all applications) silently discards its definition
+        // and yields invalid models. theory_nseq gives up (FC_GIVEUP) when a rigid snode
+        // participates in the constraints (see nielsen_node::references_rigid), deferring
+        // to the recfun/axiom layer instead of searching. Note: replace_all etc. on
+        // concrete arguments are folded away by seq_rewriter before reaching here, so this
+        // only affects genuinely symbolic occurrences.
+        bool is_rigid() const {
+            return m_rigid;
         }
         bool is_unit() const {
             return m_kind == snode_kind::s_unit;

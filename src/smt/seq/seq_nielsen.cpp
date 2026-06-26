@@ -1833,6 +1833,26 @@ namespace seq {
         return true;
     }
 
+    static bool snode_has_rigid(euf::snode const* s) {
+        for (euf::snode const* t : s->collect_tokens())
+            if (t->is_rigid())
+                return true;
+        return false;
+    }
+
+    bool nielsen_node::references_rigid() const {
+        for (str_eq const& eq : m_str_eq)
+            if (snode_has_rigid(eq.m_lhs) || snode_has_rigid(eq.m_rhs))
+                return true;
+        for (str_deq const& dq : m_str_deq)
+            if (snode_has_rigid(dq.m_lhs) || snode_has_rigid(dq.m_rhs))
+                return true;
+        for (str_mem const& mem : m_str_mem)
+            if (snode_has_rigid(mem.m_str) || snode_has_rigid(mem.m_regex))
+                return true;
+        return false;
+    }
+
     euf::snode const* nielsen_graph::mk_rewrite(expr* e) const {
         expr_ref er(e, m);
         th_rewriter rw(m);
@@ -1945,6 +1965,7 @@ namespace seq {
                 if (r == search_result::unsat) {
                     ++m_stats.m_num_unsat;
                     const auto deps = collect_conflict_deps();
+                    m_conflict_sources.reset();
                     m_dep_mgr.linearize(deps, m_conflict_sources);
                     TRACE(seq, display(tout, m_root));
                     return r;

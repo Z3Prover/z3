@@ -654,6 +654,14 @@ namespace seq {
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
 
+        // true if ANY equality/disequality/membership references a rigid (defined) op
+        // snode (str.replace, str.replace_all, str.replace_re*). Used to defer to the
+        // axiom layer (FC_GIVEUP) before searching: these terms are not free variables
+        // but are pinned by the recfun/axiom layer, and the Nielsen modifiers would
+        // substitute/unify them as if free, discarding their definition and producing
+        // invalid models.
+        bool references_rigid() const;
+
         // render constraint set as an HTML fragment for DOT node labels.
         // mirrors ZIPT's NielsenNode.ToHtmlString()
         std::ostream& to_html(std::ostream& out, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) const;
