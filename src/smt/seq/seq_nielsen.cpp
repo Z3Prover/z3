@@ -4239,6 +4239,13 @@ namespace seq {
                 continue;
             euf::snode const* first = mem.m_str->first();
             SASSERT(first);
+            // This modifier handles x·s ∈ R where x is a variable.  A non-var
+            // leading token (e.g. a power u^n) must NOT be substituted as if it
+            // were a free variable — that is unsound (it discards the power's
+            // semantics, producing an invalid model).  Leave it for the
+            // power-aware modifiers (apply_var_num_unwinding_mem etc.).
+            if (!first->is_var())
+                continue;
 
             // std::cout << "Considering regex: " << spp(mem.m_regex, m) << std::endl;
 
