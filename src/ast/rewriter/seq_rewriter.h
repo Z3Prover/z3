@@ -184,32 +184,17 @@ class seq_rewriter {
     // - occurrences of a_ch are replaced by empty (replace_all never outputs a)
     expr_ref re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, expr *a_str, expr *b_str);
 
-    // Calculate derivative, memoized and enforcing a normal form
-    expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
-    expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
-    expr_ref mk_der_concat(expr* a, expr* b);
-    expr_ref mk_der_union(expr* a, expr* b);
-    expr_ref mk_der_inter(expr* a, expr* b);
-    expr_ref mk_der_xor(expr* a, expr* b);
-    expr_ref mk_der_compl(expr* a);
-    expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
-    expr_ref mk_der_antimirov_union(expr* r1, expr* r2);
-    bool ite_bdds_compatible(expr* a, expr* b);
-    #ifdef Z3DEBUG
-    bool check_deriv_normal_form(expr* r, int level = 3);
-    #endif
 
     expr_ref merge_regex_sets(expr* r1, expr* r2, expr* unit, std::function<bool(expr*, expr*&, expr*&)>& decompose, std::function<expr* (expr*, expr*)>& compose);
 
     // elem is (:var 0) and path a condition that may have (:var 0) as a free variable
     // simplify path, e.g., (:var 0) = 'a' & (:var 0) = 'b' is simplified to false
-    expr_ref simplify_path(expr* elem, expr* path);
+    // expr_ref simplify_path(expr* elem, expr* path);
 
     bool lt_char(expr* ch1, expr* ch2);
     bool eq_char(expr* ch1, expr* ch2);
     bool neq_char(expr* ch1, expr* ch2);
     bool le_char(expr* ch1, expr* ch2);
-    bool pred_implies(expr* a, expr* b);
     bool are_complements(expr* r1, expr* r2) const;
     bool is_subset(expr* r1, expr* r2) const;
 

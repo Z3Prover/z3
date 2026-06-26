@@ -581,15 +581,15 @@ namespace smt {
 
         expr_ref_pair_vector cofactors(m);
         seq_rw().get_cofactors(hd, d, cofactors);
-        for (auto const& p : cofactors) {
-            if (is_member(p.second, u)) 
+        for (auto const& [c, r] : cofactors) {
+            if (is_member(r, u)) 
                 continue;            
-            expr_ref cond(p.first, m);
+            expr_ref cond(c, m);
             seq_rw().elim_condition(hd, cond);
             rewrite(cond);
             if (m.is_false(cond))
                 continue;            
-            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
+            expr_ref next_non_empty = sk().mk_is_non_empty(r, re().mk_union(u, r), n);
             if (!m.is_true(cond))
                 next_non_empty = m.mk_and(cond, next_non_empty);
             lits.push_back(th.mk_literal(next_non_empty));
@@ -834,10 +834,10 @@ namespace smt {
         literal_vector lits;
         expr_ref_pair_vector cofactors(m);
         seq_rw().get_cofactors(hd, d, cofactors);        
-        for (auto const& p : cofactors) {
-            if (is_member(p.second, u))
+        for (auto const& [c, r] : cofactors) {
+            if (is_member(r, u))
                 continue;
-            expr_ref cond(p.first, m);
+            expr_ref cond(c, m);
             seq_rw().elim_condition(hd, cond);
             rewrite(cond);
             if (m.is_false(cond))
@@ -848,7 +848,7 @@ namespace smt {
                 expr_ref ncond(mk_not(m, cond), m);
                 lits.push_back(th.mk_literal(mk_forall(m, hd, ncond)));
             }
-            expr_ref is_empty1 = sk().mk_is_empty(p.second, re().mk_union(u, p.second), n);    
+            expr_ref is_empty1 = sk().mk_is_empty(r, re().mk_union(u, r), n);    
             lits.push_back(th.mk_literal(is_empty1)); 
             th.add_axiom(lits);
         }        
