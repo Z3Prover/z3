@@ -102,7 +102,7 @@ namespace smt {
     }
 
     void context::update_generation(enode * e) {
-        enode *cgr = get_cg_root(e);
+        enode *cgr = e->get_num_args() == 0 ? e : get_cg_root(e);
         if (0 < m_generation && m_generation < cgr->get_generation()) {
             e->set_generation(nullptr, m_generation);
             if (e->uses_cg_table())

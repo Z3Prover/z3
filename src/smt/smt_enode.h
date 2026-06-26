@@ -114,7 +114,7 @@ namespace smt {
         }
 
         friend class set_merge_tf_trail;
-        friend class set_generation_trail;
+
         /**
            \brief Return true if the enode should be merged with the true (false) enodes when
            the associated boolean variable is assigned to true (false).

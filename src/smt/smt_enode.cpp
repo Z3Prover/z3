@@ -21,27 +21,6 @@ Revision History:
 #include "smt/smt_enode.h"
 
 namespace smt {
-
-    class set_generation_trail : public trail {
-        enode *  m_node;
-        unsigned m_old_generation;
-        unsigned m_old_update_id;
-        unsigned m_new_update_id;
-    public:
-        set_generation_trail(enode * n, unsigned old_generation, unsigned old_update_id, unsigned new_update_id):
-            m_node(n),
-            m_old_generation(old_generation),
-            m_old_update_id(old_update_id),
-            m_new_update_id(new_update_id) {}
-
-        void undo() override {
-            if (m_node->m_generation_update_id == m_new_update_id) {
-                m_node->m_generation = m_old_generation;
-                m_node->m_generation_update_id = m_old_update_id;
-            }
-        }
-    };
-    
     /**
        \brief Initialize an enode in the given memory position.
     */
