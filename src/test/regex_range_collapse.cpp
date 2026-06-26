@@ -34,6 +34,22 @@ namespace {
 
     static bool extract_range_chars(seq_util& u, expr* e, unsigned& lo, unsigned& hi) {
         expr* lo_e = nullptr; expr* hi_e = nullptr;
+        expr *s = nullptr;
+        zstring str;
+        if (u.re.is_to_re(e, s) && u.str.is_string(s, str) && str.length() == 1) {
+            lo = hi = str[0];
+            return true;            
+        }
+        else if (u.re.is_range(e, lo_e, hi_e) && u.str.is_string(lo_e) && u.str.is_string(hi_e)) {
+            zstring lo_str, hi_str;
+            u.str.is_string(lo_e, lo_str);
+            u.str.is_string(hi_e, hi_str);
+            if (lo_str.length() == 1 && hi_str.length() == 1) {
+                lo = lo_str[0];
+                hi = hi_str[0];
+                return true;
+            }
+        }
         if (!u.re.is_range(e, lo_e, hi_e))
             return false;
         // Accept either string-constant or (seq.unit (Char N)) bound form.
