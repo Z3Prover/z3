@@ -408,7 +408,7 @@ namespace smt {
     bool seq_model::get_arith_value(expr* e, rational& val) const {
         if (!m_ctx.e_internalized(e))
             return false;
-        arith_util a(m);
+        const arith_util a(m);
         enode* root = m_ctx.get_enode(e);
         enode* it = root;
         do {
@@ -417,18 +417,31 @@ namespace smt {
             it = it->get_next();
         } while (it != root);
         arith_value avalue(m);
-        avalue.init(const_cast<context*>(&m_ctx));
+        avalue.init(&m_ctx);
         return avalue.get_value_equiv(e, val);
     }
 
     rational seq_model::int_value(expr *_e) {
+        rational val;
+        const arith_util a(m);
+
+        // Try the original expression first. Composite exponent terms (e.g.
+        // (- (* 2 (gpn! G)) (+ 3 (gpn! G)))) are built and internalized by the
+        // Nielsen solver, so the arithmetic solver knows their value directly.
+        // Rewriting them (below) can yield a structurally different term that is
+        // NOT internalized, in which case get_arith_value bails out and we would
+        // silently return 0 -- collapsing the power to the empty string.
+        if (a.is_numeral(_e, val))
+            return val;
+        if (get_arith_value(_e, val))
+            return val;
+
+        // Fall back to the rewritten form (folds nested numerals, etc.).
         expr_ref e(_e, m);
         m_ctx.get_rewriter()(e);
-        rational val;
-        arith_util a(m);
         if (a.is_numeral(e, val))
             return val;
-       
+
         bool has_val = get_arith_value(e, val);
         CTRACE(seq, !has_val, tout << "no value associated with " << mk_pp(e, m) << "\n";);
         return val;

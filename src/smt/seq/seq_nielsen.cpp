@@ -105,7 +105,8 @@ namespace seq {
         // prunes splits whose ∇ cannot match c.
         zstring c;
         for (unsigned i = 0; i < run_len; ++i) {
-            expr* ch; unsigned cv;
+            expr* ch = nullptr;
+            unsigned cv = 0;
             VERIFY(seq.str.is_unit(toks[run_start + i]->get_expr(), ch));
             VERIFY(seq.is_const_char(ch, cv));
             c = c + zstring(cv);
@@ -355,24 +356,10 @@ namespace seq {
         for (auto const &[k, v] : parent.m_char_ranges)
             m_char_ranges.insert(k, std::make_pair(v.first.clone(), v.second));
 
-        // clone regex occurrence tracking
-        m_regex_occurrence = parent.m_regex_occurrence;
-
         SASSERT(m_str_eq.size() == parent.m_str_eq.size());
         SASSERT(m_str_deq.size() == parent.m_str_deq.size());
         SASSERT(m_str_mem.size() == parent.m_str_mem.size());
         SASSERT(m_constraints.size() == parent.m_constraints.size());
-    }
-
-    bool nielsen_node::track_regex_occurrence(unsigned regex_id, unsigned mem_id) {
-        const auto key = std::make_pair(regex_id, mem_id);
-        const auto it = m_regex_occurrence.find(key);
-        if (it != m_regex_occurrence.end()) {
-            // Already seen — cycle detected
-            return true;
-        }
-        m_regex_occurrence[key] = m_id;
-        return false;
     }
 
     void nielsen_node::add_str_eq(str_eq const& eq) {
@@ -504,8 +491,8 @@ namespace seq {
         if (sym_char->is_char()) {
             // for a concrete character just check if it matches
             const expr * val = sym_char->get_expr();
-            unsigned ch;
-            expr* ch_expr;
+            unsigned ch = 0;
+            expr* ch_expr = nullptr;
             VERIFY(graph().seq().str.is_unit(val, ch_expr));
             VERIFY(graph().seq().is_const_char(ch_expr, ch));
             for (unsigned i = 0; i < range.ranges().size(); i++) {
@@ -550,10 +537,10 @@ namespace seq {
     // nielsen_graph
     // -----------------------------------------------
 
-    nielsen_graph::nielsen_graph(euf::sgraph &sg, sub_solver_i &solver, context_solver_i &ctx_solver)
-        : m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_sk(m, m_rw),
-          m_length_solver(solver), m_context_solver(ctx_solver), m_partial_dfa_pin(sg.get_manager()),
-          m_parikh(alloc(seq_parikh, sg)), m_seq_regex(alloc(seq::seq_regex, sg)) {
+    nielsen_graph::nielsen_graph(euf::sgraph &sg, sub_solver_i &solver, context_solver_i &ctx_solver) :
+        m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_sk(m, m_rw),
+        m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
+        m_seq_regex(alloc(seq::seq_regex, sg)), m_partial_dfa_pin(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -1007,68 +994,38 @@ namespace seq {
         return {expr_ref(last_stable_sum, m), last_stable_idx};
     }
 
-    euf::snode const* nielsen_graph::to_partial_label_regex(euf::snode const* label) const {
-        SASSERT(label && label->get_expr());
-
-        expr* e = label->get_expr();
-        if (m_seq.is_re(e) || m_seq.re.is_full_char(e))
-            return label;
-        if (m_seq.is_char(e)) {
-            const expr_ref u(m_seq.str.mk_unit(e), m);
-            return m_sg.mk(m_seq.re.mk_to_re(u));
-        }
-        if (m_seq.str.is_string(e) || m_seq.str.is_unit(e))
-            return m_sg.mk(m_seq.re.mk_to_re(e));
-
-        std::cout << "Unexpected: " << mk_pp(label->get_expr(), m) << std::endl;
-        UNREACHABLE();
-        return nullptr;
-    }
-
-    void nielsen_graph::record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* label, euf::snode const* dst_re) {
+    void nielsen_graph::record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* dst_re) {
         SASSERT(src_re && dst_re);
         if (!src_re->is_ground() || !dst_re->is_ground())
             return;
         if (src_re->is_fail() || dst_re->is_fail())
             return;
 
-        //euf::snode const* label_re = to_partial_label_regex(label);
-        //SASSERT(label_re);
-        //if (!m_seq.is_re(label_re->get_expr()) || !label_re->is_ground())
-        //    return;
-
-        expr* src_e   = src_re->get_expr();
-        //expr* label_e = label_re->get_expr();
-        expr* dst_e   = dst_re->get_expr();
+        expr* src_e = src_re->get_expr();
+        expr* dst_e = dst_re->get_expr();
 
         // Deduplicate transitions by (src, dst) only — NOT by label.  The
-        // projection operator is parameterized by the explored state set Q
-        // (the Brzozowski automaton is deterministic, so the only a-transition
-        // out of a state is to δ_a(state)); edge labels are never consulted by
-        // projection_state_in_Q / collect_scc_for_projection / the projection
-        // derivative.  Keying by label would record the SAME transition twice
-        // when it is discovered once as a concrete char (to_re "a") and once as
-        // a minterm range ([a-a]), spuriously inflating the SCC edge count and
-        // re-triggering cycle decomposition as the derivation walks the cycle.
+        // Brzozowski automaton is deterministic, so the only a-transition out of
+        // a state is to δ_a(state); edge labels are never consulted by
+        // projection_state_in_Q / collect_scc_for_projection.  Keying by label
+        // would record the SAME transition twice when discovered once as a
+        // concrete char and once as a minterm range, spuriously inflating the
+        // SCC edge count and re-triggering cycle decomposition.
         partial_dfa_edge_key key{ src_e->get_id(), 0, dst_e->get_id() };
         if (m_partial_dfa_edge_index.contains(key))
             return;
 
-        // Pin each expression so the egraph cannot release it on pop while
-        // we still reference it from the cache.  Bumping the ref count of an
-        // already-pinned expression is harmless; the wasted slot is bounded
-        // by the unique-edge count.
+        // Pin each expression so the egraph cannot release it on pop while we
+        // still reference it from the cache.
         m_partial_dfa_pin.push_back(src_e);
-        //m_partial_dfa_pin.push_back(label_e);
         m_partial_dfa_pin.push_back(dst_e);
 
         unsigned edge_idx = m_partial_dfa_edges.size();
         m_partial_dfa_edge_index.emplace(key, edge_idx);
 
         partial_dfa_edge e;
-        e.m_src   = src_e;
-        //e.m_label = label_e;
-        e.m_dst   = dst_e;
+        e.m_src = src_e;
+        e.m_dst = dst_e;
         m_partial_dfa_edges.push_back(e);
 
         m_partial_dfa_out[src_e->get_id()].push_back(edge_idx);
@@ -1662,17 +1619,19 @@ namespace seq {
                     if (fwd) {
                         if (tok->is_char()) {
                             // concrete char: record single edge directly
-                            m_graph.record_partial_derivative_edge(src_re, tok, deriv);
-                        } else if (src_re->is_ground()) {
+                            m_graph.record_partial_derivative_edge(src_re, deriv);
+                        } else if (src_re->is_ground()
+                                   && !m_graph.m_explored_automaton.contains(src_re->get_expr()->get_id())) {
                             // symbolic unit: record all concrete minterm edges for src_re
-                            // so cycle_decomp can detect SCCs lazily (mirrors old concrete
-                            // per-minterm var_split behaviour).
+                            // so cycle_decomp can detect SCCs lazily.  Skip when the
+                            // component has already been fully explored
+                            // (ensure_automaton_explored) — its edges are recorded.
                             euf::snode_vector mts;
                             sg.compute_minterms(src_re, mts);
                             for (euf::snode const* mt : mts) {
                                 euf::snode const* mt_deriv = sg.brzozowski_deriv(src_re, mt);
                                 if (mt_deriv && !mt_deriv->is_fail() && mt_deriv->is_ground())
-                                    m_graph.record_partial_derivative_edge(src_re, mt, mt_deriv);
+                                    m_graph.record_partial_derivative_edge(src_re, mt_deriv);
                             }
                         }
                     }
@@ -1712,15 +1671,16 @@ namespace seq {
                     thrw(d);
 
                     // Record concrete minterm edges for src_re so cycle_decomp can
-                    // detect SCCs lazily (mirrors the incremental DFA building from
-                    // concrete char consumption in the loop above).
-                    if (src_re->is_ground()) {
+                    // detect SCCs lazily.  Skip when the component is already fully
+                    // explored (ensure_automaton_explored) — its edges are recorded.
+                    if (src_re->is_ground()
+                        && !m_graph.m_explored_automaton.contains(src_re->get_expr()->get_id())) {
                         euf::snode_vector mts;
                         sg.compute_minterms(src_re, mts);
                         for (euf::snode const* mt : mts) {
                             euf::snode const* mt_deriv = sg.brzozowski_deriv(src_re, mt);
                             if (mt_deriv && !mt_deriv->is_fail())
-                                m_graph.record_partial_derivative_edge(src_re, mt, mt_deriv);
+                                m_graph.record_partial_derivative_edge(src_re, mt_deriv);
                         }
                     }
 
@@ -1801,8 +1761,6 @@ namespace seq {
     bool nielsen_node::consume_view_guard(str_mem& mem) {
         SASSERT(!mem.is_plain());
         euf::sgraph& sg = m_graph.sg();
-        ast_manager& m = sg.get_manager();
-        seq_util& seq = m_graph.seq();
 
         auto set_regex_conflict = [&]() {
             set_general_conflict();
@@ -3343,13 +3301,13 @@ namespace seq {
 
                 // Branch 1 (explored first): n < m  (add constraint c ≥ p + 1)
                 {
-                    nielsen_edge *e = mk_edge(node, mk_child(node), "power cmp <", true);
+                    nielsen_edge *e = mk_edge(node, mk_child(node), "power cmp &lt;", true);
                     const expr_ref n_plus_1(a.mk_add(exp_n, a.mk_int(1)), m);
                     e->add_side_constraint(mk_constraint(a.mk_ge(exp_m, n_plus_1), eq.m_dep));
                 }
                 // Branch 2 (explored second): m <= n  (add constraint p ≥ c)
                 {
-                    nielsen_edge *e = mk_edge(node, mk_child(node), "power cmp >=", true);
+                    nielsen_edge *e = mk_edge(node, mk_child(node), "power cmp &ge;", true);
                     e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, exp_m), eq.m_dep));
                 }
                 return true;
@@ -3530,7 +3488,7 @@ namespace seq {
                 euf::snode const* deriv = m_sg.brzozowski_deriv(re, mt);
                 if (!deriv || deriv->is_fail())
                     continue;
-                record_partial_derivative_edge(re, mt, deriv);
+                record_partial_derivative_edge(re, deriv);
                 if (deriv->is_ground() && !m_explored_automaton.contains(deriv->get_expr()->get_id()))
                     queue.push_back(deriv);
             }
@@ -4662,6 +4620,11 @@ namespace seq {
         if (n->is_char_or_unit())
             return expr_ref(a.mk_int(1), m);
 
+        if (n->is_power()) {
+            const expr_ref base = compute_length_expr(n->arg0());
+            return expr_ref(a.mk_mul(base.get(), n->arg(1)->get_expr()), m);
+        }
+
         if (n->is_concat()) {
             const expr_ref left = compute_length_expr(n->arg0());
             const expr_ref right = compute_length_expr(n->arg(1));
@@ -4712,8 +4675,7 @@ namespace seq {
 
         // Parikh interval reasoning for regex memberships
         for (str_mem const& mem : m_root->str_mems()) {
-            expr* re_expr = mem.m_regex->get_expr();
-            SASSERT(re_expr && seq.is_re(re_expr));
+            SASSERT(seq.is_re(mem.m_regex->get_expr()));
 
             unsigned min_len = 0, max_len = UINT_MAX;
             compute_regex_length_interval(mem.m_regex, min_len, max_len);
@@ -4723,14 +4685,14 @@ namespace seq {
             // generate len(str) >= min_len when min_len > 0
             if (min_len > 0) {
                 expr_ref bound(a.mk_ge(len_str, a.mk_int(min_len)), m);
-                TRACE(seq, tout << "Parikh " << mk_pp(re_expr, m) << " bound: " << bound << "\n");
+                TRACE(seq, tout << "Parikh " << mk_pp(mem.m_regex->get_expr(), m) << " bound: " << bound << "\n");
                 constraints.push_back(length_constraint(bound, mem.m_dep, length_kind::bound, false, m));
             }
 
             // generate len(str) <= max_len when bounded
             if (max_len < UINT_MAX) {
                 expr_ref bound(a.mk_le(len_str, a.mk_int(max_len)), m);
-                TRACE(seq, tout << "Parikh " << mk_pp(re_expr, m) << " bound: " << bound << "\n");
+                TRACE(seq, tout << "Parikh " << mk_pp(mem.m_regex->get_expr(), m) << " bound: " << bound << "\n");
                 constraints.push_back(length_constraint(bound, mem.m_dep, length_kind::bound, false, m));
             }
         }
@@ -4872,8 +4834,7 @@ namespace seq {
 
         // Parikh interval bounds for regex memberships at this node
         for (str_mem const& mem : node->str_mems()) {
-            expr* re_expr = mem.m_regex->get_expr();
-            SASSERT(re_expr && m_seq.is_re(re_expr));
+            SASSERT(m_seq.is_re(mem.m_regex->get_expr()));
 
             unsigned min_len = 0, max_len = UINT_MAX;
             compute_regex_length_interval(mem.m_regex, min_len, max_len);

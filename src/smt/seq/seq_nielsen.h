@@ -529,13 +529,6 @@ namespace seq {
         // asserted when this node's solver scope is entered.
         unsigned                m_parent_ic_count = 0;
 
-        // RegexOccurrence: maps (regex snode id, str_mem id) → node id where
-        // this regex was last seen on the current DFS path.
-        // Used for precise cycle detection with history-length-based progress.
-        // Mirrors ZIPT LocalInfo.RegexOccurrence (LocalInfo.cs:34)
-        std::map<std::pair<unsigned, unsigned>, unsigned> m_regex_occurrence;
-        
-
     public:
         nielsen_node(nielsen_graph& graph, unsigned id);
 
@@ -643,15 +636,6 @@ namespace seq {
 
         // clone constraints from a parent node
         void clone_from(nielsen_node const& parent);
-
-        // Regex occurrence tracking: record current regex state for cycle detection.
-        // Returns true if a cycle is detected (same regex seen before on this path).
-        bool track_regex_occurrence(unsigned regex_id, unsigned mem_id);
-
-        // Get the regex occurrence map (for undo on backtrack).
-        std::map<std::pair<unsigned, unsigned>, unsigned> const& regex_occurrence() const {
-            return m_regex_occurrence;
-        }
 
         // apply a substitution to all constraints
         void apply_subst(euf::sgraph& sg, nielsen_subst const& s);
@@ -1097,14 +1081,9 @@ namespace seq {
         // Partial DFA projection helpers
         // -------------------------------------------------------------------
 
-        // Record a discovered derivative edge in the global partial DFA.
-        // The `label` may be a concrete string token (converted to to_re)
-        // or an already-regular-expression minterm.
-        void record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* label, euf::snode const* dst_re);
-
-        // Convert a transition label (string token or regex minterm) into a
-        // one-character regex snode used by the partial DFA.
-        euf::snode const* to_partial_label_regex(euf::snode const* label) const;
+        // Record a discovered derivative edge src→dst in the global partial DFA
+        // (edges are deduplicated by (src,dst); transition labels are unused).
+        void record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* dst_re);
 
         // Collect the SCC containing root_re in the current partial DFA.
         // Returns false if no cyclic SCC containing root_re exists.

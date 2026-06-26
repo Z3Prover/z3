@@ -32,7 +32,6 @@ Revision History:
 #include "smt/theory_recfun.h"
 #include "smt/theory_dummy.h"
 #include "smt/theory_dl.h"
-#include "smt/theory_seq_empty.h"
 #include "smt/theory_seq.h"
 #include "smt/theory_char.h"
 #include "smt/theory_nseq.h"
