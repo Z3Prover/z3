@@ -204,10 +204,13 @@ class parallel_solver {
         std::string  m_exception_msg;
         model_ref    m_model;
         expr_ref_vector m_unsat_core;
+        std::atomic<bool> m_canceled = false;
 
         // called from batch manager to cancel other workers if we've reached a verdict
         void cancel_background_threads() {
-            IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
+            if (m_canceled.exchange(true))
+                return; 
+            IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");           
             for (auto* w : p.m_workers)
                 w->cancel();
             if (p.m_core_minimizer_worker) {
@@ -497,6 +500,7 @@ class parallel_solver {
             m_core_min_jobs.reset();
             m_model = nullptr;
             m_unsat_core.reset();
+            m_canceled = false;
         }
 
         void set_sat(ast_translation& l2g, model& mdl) {

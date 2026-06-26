@@ -1845,6 +1845,7 @@ namespace smt {
         
         parallel_params pp(p.ctx.m_params);
         m_ablate_backtracking = pp.ablate_backtracking();
+        m_canceled = false;
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {

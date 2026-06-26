@@ -152,7 +152,11 @@ namespace smt {
                     w->cancel();
             }
 
+            std::atomic<bool> m_canceled = false;
+
             void cancel_background_threads() {
+                if (m_canceled.exchange(true))
+                    return;  // already canceled
                 cancel_workers();
                 cancel_sls_worker();
                 if (!p.m_global_backbones_workers.empty()) {
