@@ -3,7 +3,7 @@ Copyright (c) 2024 Microsoft Corporation
 
 Module Name:
 
-    parallel_tactical2.h
+    parallel_tactical.h
 
 Abstract:
 
@@ -22,4 +22,4 @@ class tactic;
 class solver;
 class params_ref;
 
-tactic * mk_parallel_tactic2(solver* s, params_ref const& p);
+tactic * mk_parallel_tactic(solver* s, params_ref const& p);

@@ -4,7 +4,7 @@ z3_add_component(solver
     check_logic.cpp
     combined_solver.cpp
     mus.cpp
-    parallel_tactical2.cpp
+    parallel_tactical.cpp
     simplifier_solver.cpp
     slice_solver.cpp
     smt_logics.cpp

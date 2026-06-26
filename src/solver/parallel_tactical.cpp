@@ -23,7 +23,7 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/ast_translation.h"
 #include "solver/solver.h"
-#include "solver/parallel_tactical2.h"
+#include "solver/parallel_tactical.h"
 #include "solver/parallel_params.hpp"
 #include "util/search_tree.h"
 #include "tactic/tactic.h"
@@ -2063,10 +2063,10 @@ public:
 };
 
 /* ------------------------------------------------------------------ */
-/* parallel_tactic2 – wraps parallel_solver as a tactic               */
+/* parallel_tactic – wraps parallel_solver as a tactic               */
 /* ------------------------------------------------------------------ */
 
-class parallel_tactic2 : public tactic {
+class parallel_tactic : public tactic {
 
     solver_ref  m_solver;
     ast_manager& m_manager;
@@ -2075,18 +2075,18 @@ class parallel_tactic2 : public tactic {
 
 public:
 
-    parallel_tactic2(solver* s, params_ref const& p)
+    parallel_tactic(solver* s, params_ref const& p)
         : m_solver(s), m_manager(s->get_manager()), m_params(p) {}
 
-    char const* name() const override { return "parallel_tactic2"; }
+    char const* name() const override { return "parallel_tactic"; }
 
     void operator()(const goal_ref& g, goal_ref_buffer& result) override {
-        fail_if_proof_generation("parallel_tactic2", g);
+        fail_if_proof_generation("parallel_tactic", g);
         ast_manager& m = g->m();
 
         if (m.has_trace_stream())
             throw default_exception(
-                "parallel_tactic2 does not work with trace streams");
+                "parallel_tactic does not work with trace streams");
 
         /* Translate goal into a set of clauses + assumptions. */
         solver* s = m_solver->translate(m, m_params);
@@ -2149,7 +2149,7 @@ public:
 
     tactic* translate(ast_manager& m) override {
         solver* s = m_solver->translate(m, m_params);
-        return alloc(parallel_tactic2, s, m_params);
+        return alloc(parallel_tactic, s, m_params);
     }
 
     void updt_params(params_ref const& p) override {
@@ -2165,8 +2165,8 @@ public:
     }
 };
 
-tactic* mk_parallel_tactic2(solver* s, params_ref const& p) {
-    return alloc(parallel_tactic2, s, p);
+tactic* mk_parallel_tactic(solver* s, params_ref const& p) {
+    return alloc(parallel_tactic, s, p);
 }
 
 #endif

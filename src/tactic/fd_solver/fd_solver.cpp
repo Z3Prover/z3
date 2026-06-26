@@ -24,7 +24,7 @@ Notes:
 #include "tactic/fd_solver/pb2bv_solver.h"
 #include "tactic/fd_solver/bounded_int2bv_solver.h"
 #include "solver/solver2tactic.h"
-#include "solver/parallel_tactical2.h"
+#include "solver/parallel_tactical.h"
 #include "solver/parallel_params.hpp"
 
 solver * mk_fd_solver(ast_manager & m, params_ref const & p, bool incremental_mode) {
@@ -40,7 +40,7 @@ static tactic * mk_seq_fd_tactic(ast_manager & m, params_ref const& p) {
 }
 
 tactic * mk_parallel_qffd_tactic(ast_manager& m, params_ref const& p) {
-    return mk_parallel_tactic2(mk_fd_solver(m, p), p);
+    return mk_parallel_tactic(mk_fd_solver(m, p), p);
 }
 
 
