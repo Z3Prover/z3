@@ -463,14 +463,23 @@ namespace smt {
             ctx.push_trail(value_trail(m_prop_qhead));
             while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
                 auto const& item = m_prop_queue[m_prop_qhead++];
-                if (std::holds_alternative<eq_item>(item))
-                    propagate_eq(std::get<eq_item>(item));
-                else if (std::holds_alternative<deq_item>(item))
-                    propagate_deq(std::get<deq_item>(item));
-                else if (std::holds_alternative<mem_item>(item))
-                    propagate_pos_mem(std::get<mem_item>(item));
-                else if (std::holds_alternative<axiom_item>(item))
+                // don't pass arguments via reference. They might tigger internalization
+                // and so the references from the propagation queue might change
+                if (std::holds_alternative<eq_item>(item)) {
+                    const auto eq = std::get<eq_item>(item);
+                    propagate_eq(eq);
+                }
+                else if (std::holds_alternative<deq_item>(item)) {
+                    const auto deq = std::get<deq_item>(item);
+                    propagate_deq(deq);
+                }
+                else if (std::holds_alternative<mem_item>(item)) {
+                    const auto mem = std::get<mem_item>(item);
+                    propagate_pos_mem(mem);
+                }
+                else if (std::holds_alternative<axiom_item>(item)) {
                     dequeue_axiom(std::get<axiom_item>(item).e);
+                }
                 else {
                     UNREACHABLE();
                 }

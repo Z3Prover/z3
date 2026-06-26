@@ -153,6 +153,7 @@ namespace smt {
         void propagate_eq(tracked_str_eq const& eq) const;
         void propagate_deq(tracked_str_deq const& deq) const;
         void propagate_pos_mem(tracked_str_mem const& mem);
+
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);
         void ensure_length_var(expr* e) const;
