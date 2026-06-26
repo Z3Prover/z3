@@ -535,7 +535,8 @@ namespace smt {
                 mark_as_relevant(r1);
             }
 
-            push_trail(add_eq_trail(*this, r1, n1, r2->get_num_parents()));
+            
+            unsigned r2_num_parents = r2->get_num_parents();
 
             m_qmanager->add_eq_eh(r1, r2);
 
@@ -565,6 +566,8 @@ namespace smt {
 
             SASSERT(r1->get_root() == r2);
             reinsert_parents_into_cg_table(r1, r2, n1, n2, js);
+
+            push_trail(add_eq_trail(*this, r1, n1, r2_num_parents));
 
             if (n2->is_bool())
                 propagate_bool_enode_assignment(r1, r2, n1, n2);
@@ -619,6 +622,21 @@ namespace smt {
         }
     }
 
+    // Sticky update to the generation number of the congruence class
+    // Goes out of scope when n is garbage collected.
+    void context::update_cgc_generation(enode * n, unsigned generation) {
+        SASSERT(n->uses_cg_table());
+        enode * cgr = m_cg_table.find(n);
+        SASSERT(cgr);
+
+        if (cgr->get_generation() < generation)
+            return;
+            
+        cgr->set_generation(nullptr, generation);
+        m_sticky_generation_updates.insert(n, generation);
+    }
+
+
     /**
        \brief Reinsert the parents of r1 that were removed from the
        cg_table at remove_parents_from_cg_table. Some of these parents will
@@ -669,10 +687,12 @@ namespace smt {
                     r2_parents.push_back(parent);
                     continue;
                 }
-                parent->m_cg = parent_prime;
-                SASSERT(!m_cg_table.contains_ptr(parent));
+                // parent->m_cg = parent_prime;
+                // SASSERT(!m_cg_table.contains_ptr(parent));
 
-                update_cgc_generation(parent, true);
+                // update_cgc_generation(parent, true);
+                
+                merge_cgc(parent, parent_prime);
 
                 if (parent_prime->m_root != parent->m_root) {
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
@@ -1020,6 +1040,28 @@ namespace smt {
         SASSERT(r1->m_trans.m_target == 0);
 
         CASSERT("add_eq", check_invariant());
+    }
+
+    void context::undo_merge_cgc(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {
+        e1->set_generation(nullptr, e1_generation);
+        e2->set_generation(nullptr, e2_generation);
+
+        // do not set e1->cg for now. Undoers of callers of undo_merge_cgc take care of this.
+        apply_sticky_updates(e1, e2);
+    }
+
+    void context::apply_sticky_updates(enode * e1, enode * e2) {
+        (void)e1;
+        (void)e2;
+        for (auto const& kv : m_sticky_generation_updates) {
+            enode * cgr = kv.m_key;
+            unsigned generation = kv.m_value;
+            if (!cgr || !cgr->uses_cg_table())
+                continue;
+            if (cgr->get_generation() > generation) {
+                cgr->set_generation(nullptr, generation);
+            }
+        }
     }
 
     /**

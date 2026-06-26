@@ -104,9 +104,41 @@ namespace smt {
     void context::update_generation(enode * e) {
         if (0 < m_generation && m_generation < e->get_generation()) {
             e->set_generation(nullptr, m_generation);
-            if (e->uses_cg_table())
-                update_cgc_generation(e, false);
         }
+        if (e->uses_cg_table())
+            update_cgc_generation(e, m_generation);
+    }
+
+    class merge_cgc_trail : public trail {
+        context& ctx;
+        enode* m_e1;
+        unsigned m_e1_generation;
+        enode* m_e2;
+        unsigned m_e2_generation;
+    public:
+        merge_cgc_trail(context& ctx, enode* e1, unsigned e1_generation, enode* e2, unsigned e2_generation):
+            ctx(ctx),
+            m_e1(e1),
+            m_e1_generation(e1_generation),
+            m_e2(e2),
+            m_e2_generation(e2_generation) {
+        }
+
+        void undo() override {
+            ctx.undo_merge_cgc(m_e1, m_e1_generation, m_e2, m_e2_generation);
+        }
+    };
+
+    void context::merge_cgc(enode * e1, enode * e2) {
+        // We assume the congruence has already been updated. We might want to move that here, too.
+        SASSERT(e2->is_cgr());
+        SASSERT(!m_cg_table.contains_ptr(e1));
+        SASSERT(m_cg_table.contains_ptr(e2));
+
+        push_trail(merge_cgc_trail(*this, e1, e1->get_generation(), e2, e2->get_generation()));
+
+        e1->m_cg = e2;  // we keep these for now
+        e2->m_generation = std::min(e1->m_generation, e2->m_generation);
     }
 
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
@@ -1033,9 +1065,10 @@ namespace smt {
                 if (cgc_enabled) {
                     auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
-                        SASSERT(e_prime->is_cgr());
-                        e->m_cg = e_prime;
-                        update_cgc_generation(e, true);
+                        // SASSERT(e_prime->is_cgr());
+                        // e->m_cg = e_prime;
+                        // update_cgc_generation(e, true);
+                        merge_cgc(e, e_prime);
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {
@@ -1101,6 +1134,7 @@ namespace smt {
         SASSERT(m_e_internalized_stack.size() == m_enodes.size());
         m_enodes.pop_back();
         m_e_internalized_stack.pop_back();
+        m_sticky_generation_updates.erase(e);
     }
 
     /**

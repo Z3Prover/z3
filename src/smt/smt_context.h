@@ -46,6 +46,7 @@ Revision History:
 #include "util/ref.h"
 #include "util/timer.h"
 #include "util/statistics.h"
+#include "util/map.h"
 #include "smt/fingerprints.h"
 #include "smt/proto_model/proto_model.h"
 #include "smt/theory_user_propagator.h"
@@ -64,6 +65,9 @@ namespace smt {
 
     class model_generator;
     class context;
+
+    // Hash table for storing enode -> generation mappings
+    typedef ptr_addr_map<enode, unsigned> enode_generation_table;
 
     struct oom_exception : public z3_error {
         oom_exception() : z3_error(ERR_MEMOUT) {}
@@ -155,6 +159,7 @@ namespace smt {
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
+    enode_generation_table      m_sticky_generation_updates;
 
         struct new_eq {
             enode *                 m_lhs;
@@ -1132,19 +1137,25 @@ namespace smt {
         void push_new_th_diseq(theory_id th, theory_var lhs, theory_var rhs);
 
         friend class add_eq_trail;
+        friend class merge_cgc_trail;
 
         void remove_parents_from_cg_table(enode * r1);
 
         void reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js);
+
+        void merge_cgc(enode * e, enode * e_prime);
         
-        void update_cgc_generation(enode * e, bool backtrack) {
-            SASSERT(e->uses_cg_table());
-            enode *cgr = m_cg_table.find(e);
-            SASSERT(cgr);
-            if (cgr->get_generation() > e->get_generation()) {
-                cgr->set_generation(backtrack ? this : nullptr, e->get_generation());
-            }
-        }
+        // void update_cgc_generation(enode * e, bool backtrack) {
+        //     SASSERT(e->uses_cg_table());
+        //     enode *cgr = m_cg_table.find(e);
+        //     SASSERT(cgr);
+        //     if (cgr->get_generation() > e->get_generation()) {
+        //         cgr->set_generation(backtrack ? this : nullptr, e->get_generation());
+        //     }
+        // }
+
+        void update_cgc_generation(enode * e, unsigned generation);
+
         void invert_trans(enode * n);
 
         theory_var get_closest_var(enode * n, theory_id th_id);
@@ -1154,6 +1165,10 @@ namespace smt {
         void propagate_bool_enode_assignment(enode * r1, enode * r2, enode * n1, enode * n2);
 
         void propagate_bool_enode_assignment_core(enode * source, enode * target);
+
+        void undo_merge_cgc(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation);
+
+        void apply_sticky_updates(enode * e1, enode * e2);
 
         void undo_add_eq(enode * r1, enode * n1, unsigned r2_num_parents);
 
@@ -1937,6 +1952,8 @@ namespace smt {
 
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
+
+
 
 };
 

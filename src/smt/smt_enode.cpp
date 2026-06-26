@@ -158,20 +158,13 @@ namespace smt {
        and update the generation.       
     */
     void enode::set_generation(context * ctx, unsigned generation) {
-        if (!ctx) {
-            ++m_generation_update_id;
-            m_generation = generation;
-            return;
-        }
-
         if (m_generation == generation)
             return;
 
-        unsigned old_generation = m_generation;
-        unsigned old_update_id = m_generation_update_id;
-        unsigned new_update_id = old_update_id + 1;
-        ctx->push_trail(set_generation_trail(this, old_generation, old_update_id, new_update_id));
-        m_generation_update_id = new_update_id;
+        // Only used by the case split queue.
+        if (ctx)
+            ctx->push_trail(value_trail<unsigned>(m_generation));
+
         m_generation = generation;
     }
 
