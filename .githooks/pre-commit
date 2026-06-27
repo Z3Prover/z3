@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook: build Z3 and run the z3test regression suite locally as a
+# precondition for every commit. The commit is aborted if the build or any
+# regression test fails.
+#
+# It builds the `z3` binary, then runs:
+#     python z3test/scripts/test_benchmarks.py <z3> z3test/regressions/smt2
+#
+# Enable for this clone with:
+#     git config core.hooksPath .githooks
+#
+# Configuration (environment variables):
+#   Z3_BUILD_DIR   Build directory to use/create. Default: build/release
+#   Z3TEST_DIR     Existing z3test checkout. If unset, z3test is cloned into
+#                  a cache dir next to the repo (../z3test-precommit).
+#
+# Skip the hook for a one-off commit with:
+#     git commit --no-verify
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+BUILD_DIR="${Z3_BUILD_DIR:-build/release}"
+Z3TEST_DIR="${Z3TEST_DIR:-$REPO_ROOT/../z3test-precommit}"
+
+# --- Build the z3 binary -----------------------------------------------------
+echo "[pre-commit] Building z3 in '$BUILD_DIR'..."
+if [ ! -f "$BUILD_DIR/build.ninja" ] && [ ! -f "$BUILD_DIR/Makefile" ]; then
+    echo "[pre-commit] Configuring CMake build in '$BUILD_DIR'..."
+    cmake -G Ninja -S . -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release
+fi
+cmake --build "$BUILD_DIR" --target z3
+
+Z3_BIN="$BUILD_DIR/z3"
+if [ ! -x "$Z3_BIN" ]; then
+    echo "[pre-commit] ERROR: z3 binary not found at '$Z3_BIN'." >&2
+    exit 1
+fi
+
+# --- Ensure a z3test checkout is available -----------------------------------
+if [ ! -d "$Z3TEST_DIR/regressions/smt2" ]; then
+    if [ -d "$Z3TEST_DIR/.git" ]; then
+        echo "[pre-commit] Updating z3test checkout in '$Z3TEST_DIR'..."
+        git -C "$Z3TEST_DIR" pull --ff-only || true
+    else
+        echo "[pre-commit] Cloning z3test into '$Z3TEST_DIR'..."
+        git clone --depth 1 https://github.com/Z3Prover/z3test "$Z3TEST_DIR"
+    fi
+fi
+
+# --- Run the regression suite ------------------------------------------------
+echo "[pre-commit] Running regressions on z3test/regressions/smt2..."
+python "$Z3TEST_DIR/scripts/test_benchmarks.py" "$Z3_BIN" "$Z3TEST_DIR/regressions/smt2"
+
+echo "[pre-commit] Regressions passed."
