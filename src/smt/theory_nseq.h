@@ -77,8 +77,19 @@ namespace smt {
         unsigned                m_last_constraint_added = 0;
         bool                    m_can_hot_restart = false;
 
+        // Eager structural pre-check (see eager_structural_check): m_eager_dirty is
+        // a monotone counter bumped whenever a Nielsen-relevant constraint (word eq,
+        // diseq, or membership) is enqueued; m_eager_seen records the value at the
+        // last eager run, so the cheap closure is re-run only when the set changed.
+        // m_eager_processed = how many m_prop_queue items are already folded into the
+        // incremental eager chain (`m_nielsen`'s deterministic leaf).
+        unsigned                m_eager_dirty = 0;
+        unsigned                m_eager_seen = 0;
+        unsigned                m_eager_processed = 0;
+
         // statistics
         unsigned m_num_conflicts        = 0;
+        unsigned m_num_eager_conflicts  = 0;   // conflicts found by the eager structural closure
         unsigned m_num_final_checks     = 0;
         unsigned m_num_sat_revalidations = 0;   // times the cached SAT path was reused instead of rebuilding
         unsigned m_num_length_axioms    = 0;
@@ -135,6 +146,7 @@ namespace smt {
 
         // private helpers
         void populate_nielsen_graph();
+        void eager_structural_check();
         void explain_nielsen_conflict();
         void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) const;
         void set_conflict(literal_vector const& lits) {

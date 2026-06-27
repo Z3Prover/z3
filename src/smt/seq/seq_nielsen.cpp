@@ -674,6 +674,9 @@ namespace seq {
         m_explored_automaton.reset();
         m_unsat_node_cache.clear();
         m_num_cache_hits = 0;
+        m_eager_active = false;
+        m_eager_leaf = nullptr;
+        m_eager_substs.reset();
         // m_length_trail.reset();
         // m_length_info.reset();
         m_dep_mgr.reset();
@@ -1982,6 +1985,115 @@ namespace seq {
             std::string dot = to_dot();
 #endif
             throw;
+        }
+    }
+
+    void nielsen_graph::eager_begin() {
+        reset();
+        create_root();
+        m_eager_leaf = m_root;
+        m_eager_substs.reset();
+        m_eager_active = true;
+    }
+
+    euf::snode const* nielsen_graph::eager_rewrite(euf::snode const* s, dep_tracker& dep) {
+        for (auto const& sub : m_eager_substs) {
+            s = m_sg.subst(s, sub.m_var, sub.m_replacement);
+            dep = m_dep_mgr.mk_join(dep, sub.m_dep);
+        }
+        return s;
+    }
+
+    void nielsen_graph::eager_add_str_eq(euf::snode const* lhs, euf::snode const* rhs, smt::enode* l, smt::enode* r) {
+        SASSERT(m_eager_active && m_eager_leaf);
+        dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
+        lhs = eager_rewrite(lhs, dep);
+        rhs = eager_rewrite(rhs, dep);
+        str_eq eq(lhs, rhs, dep);
+        eq.sort();
+        m_eager_leaf->add_str_eq(eq);
+    }
+
+    void nielsen_graph::eager_add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal lit) {
+        SASSERT(m_eager_active && m_eager_leaf);
+        dep_tracker dep = m_dep_mgr.mk_leaf(lit);
+        lhs = eager_rewrite(lhs, dep);
+        rhs = eager_rewrite(rhs, dep);
+        m_eager_leaf->add_str_deq(str_deq(lhs, rhs, dep));
+    }
+
+    void nielsen_graph::eager_add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal lit) {
+        SASSERT(m_eager_active && m_eager_leaf);
+        dep_tracker dep = m_dep_mgr.mk_leaf(lit);
+        str = eager_rewrite(str, dep);
+        regex = eager_rewrite(regex, dep); // no-op for ground regexes, mirrors apply_subst
+        m_eager_leaf->add_str_mem(str_mem(str, regex, dep));
+    }
+
+    // Drive the deterministic chain from the current leaf to a fixpoint.  Each step
+    // is a single-child apply_det_modifier (progress, strictly token-reducing), so
+    // this terminates without a budget.  An EMPTY path makes simplify_and_init take
+    // only its assignment-independent branches (LP/arith passes 3c-else/3e are gated
+    // on !cur_path.empty()); no arithmetic/length solver is touched.
+    nielsen_graph::search_result nielsen_graph::eager_close() {
+        SASSERT(m_eager_active && m_eager_leaf);
+        ++m_stats.m_num_eager_calls;
+        ptr_vector<nielsen_edge> empty_path;
+
+        // Rigid defined ops (str.replace_all, …) must never be Nielsen-substituted;
+        // a rigid term is inherited down the whole chain, so a single check on the
+        // leaf (which holds all current constraints) suffices — bail before any det
+        // step (mirrors final_check's guard).
+        if (m_eager_leaf->references_rigid())
+            return search_result::unknown;
+
+        auto report_conflict = [&](nielsen_node* n) {
+            // The conflict node's deps already transitively include the source deps
+            // of every constraint that fed it (apply_subst + eager_rewrite join the
+            // substitution deps).  We must NOT use collect_conflict_deps() — it walks
+            // from the root and asserts every visited node is a conflict, but only
+            // the chain's last node is.
+            dep_tracker deps = nullptr;
+            if (n->m_conflict_external_literal != sat::null_literal)
+                deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
+            if (n->m_conflict_internal)
+                deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
+            m_conflict_sources.reset();
+            m_dep_mgr.linearize(deps, m_conflict_sources);
+        };
+
+        while (true) {
+            if (!m.inc())
+                return search_result::unknown;
+            nielsen_node* node = m_eager_leaf;
+
+            // a substitution applied in the previous step may have produced a
+            // conflict directly (e.g. an empty character-range intersection)
+            if (node->is_currently_conflict()) {
+                report_conflict(node);
+                return search_result::unsat;
+            }
+
+            const simplify_result sr = node->simplify_and_init(empty_path);
+            if (sr == simplify_result::conflict || node->is_currently_conflict()) {
+                report_conflict(node);
+                return search_result::unsat;
+            }
+            if (sr == simplify_result::satisfied || node->is_satisfied())
+                return search_result::unknown; // no eager conflict; defer to solve()
+
+            // deterministic, single-child substitution closure.  apply_det_modifier
+            // only acts on word equations; membership-only structural conflicts are
+            // already caught by simplify_and_init's post-passes above.
+            if (!apply_det_modifier(node))
+                return search_result::unknown; // would need branching; stop here
+
+            // record the det substitution(s) and advance the leaf
+            SASSERT(!node->outgoing().empty());
+            nielsen_edge* e = node->outgoing().back();
+            for (auto const& s : e->subst())
+                m_eager_substs.push_back(s);
+            m_eager_leaf = e->tgt();
         }
     }
 
@@ -5264,6 +5376,7 @@ namespace seq {
 
     void nielsen_graph::collect_statistics(::statistics& st) const {
         st.update("nseq solve calls",     m_stats.m_num_solve_calls);
+        st.update("nseq eager calls",     m_stats.m_num_eager_calls);
         st.update("nseq dfs nodes",       m_stats.m_num_dfs_nodes);
         st.update("nseq sat",             m_stats.m_num_sat);
         st.update("nseq unsat",           m_stats.m_num_unsat);

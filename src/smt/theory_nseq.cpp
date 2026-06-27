@@ -227,6 +227,7 @@ namespace smt {
             m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
             m_last_constraint_added = ctx.get_scope_level();
             m_can_hot_restart = false;
+            ++m_eager_dirty;
         }
         catch(const std::exception&) {
 #ifdef Z3DEBUG
@@ -274,6 +275,7 @@ namespace smt {
                 m_prop_queue.push_back(deq_item(s1, s2, ~ctx.get_literal(eq_expr), dep));
                 m_last_constraint_added = ctx.get_scope_level();
                 m_can_hot_restart = false;
+                ++m_eager_dirty;
             }
         }
         else
@@ -300,6 +302,7 @@ namespace smt {
                     m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, dep));
                     m_last_constraint_added = ctx.get_scope_level();
                     m_can_hot_restart = false;
+                    ++m_eager_dirty;
                 }
                 else {
                     // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
@@ -311,6 +314,7 @@ namespace smt {
                     m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, dep));
                     m_last_constraint_added = ctx.get_scope_level();
                     m_can_hot_restart = false;
+                    ++m_eager_dirty;
                 }
             }
             else if (m_seq.str.is_prefix(e)) {
@@ -429,6 +433,11 @@ namespace smt {
         try {
             theory::pop_scope_eh(num_scopes);
             m_sg.pop(num_scopes);
+            // The sgraph pop released snodes the incremental eager chain references;
+            // discard it so the next eager run rebuilds rather than extending a
+            // dangling chain (see eager_structural_check).
+            m_nielsen.eager_invalidate();
+            m_eager_processed = 0;
             // A pop may remove constraints and/or unassign forced Nielsen
             // literals; conservatively invalidate the cached SAT path.
             if (m_can_hot_restart && ctx.get_scope_level() - num_scopes < m_last_constraint_added)
@@ -484,6 +493,13 @@ namespace smt {
                     UNREACHABLE();
                 }
             }
+
+            // Eager structural pruning: once the queue is drained, run a cheap
+            // branch-free Nielsen closure over the currently-asserted constraints to
+            // surface structural conflicts long before final_check.  Sound because
+            // the current set is a subset of any completion (see eager_structural_check).
+            if (!ctx.inconsistent())
+                eager_structural_check();
         }
         catch(const std::exception&) {
 #ifdef Z3DEBUG
@@ -491,6 +507,78 @@ namespace smt {
 #endif
             throw;
         }
+    }
+
+    // Rebuild-don't-undo, INCREMENTALLY: rather than maintaining the full Nielsen
+    // graph along the DPLL(T) trail (the error-prone undo bookkeeping that sank the
+    // earlier manual engine), we grow a single deterministic chain in `m_nielsen` as
+    // constraints arrive — each new constraint is folded into the current leaf with
+    // the chain's accumulated substitution applied (`eager_add_*`), then the chain is
+    // extended (`eager_close`).  No per-propagation rebuild.  Any structural UNSAT is
+    // a real conflict (subset-monotonicity); we never declare SAT or short-circuit
+    // final_check.  The chain is discarded on pop (`eager_invalidate`) and whenever
+    // `m_nielsen.reset()` runs (e.g. final_check's `populate_nielsen_graph`), after
+    // which it is rebuilt from scratch on the next call.
+    void theory_nseq::eager_structural_check() {
+        if (!get_fparams().m_nseq_eager)
+            return;
+        // Only re-run when the Nielsen-relevant constraint set actually grew.
+        if (m_eager_dirty == m_eager_seen)
+            return;
+        m_eager_seen = m_eager_dirty;
+
+        // (Re)start the chain if it was discarded (first call, after a pop, or after
+        // final_check reset m_nielsen).
+        if (!m_nielsen.eager_active()) {
+            m_nielsen.eager_begin();
+            m_eager_processed = 0;
+            m_can_hot_restart = false; // m_nielsen now holds the eager chain
+        }
+
+        // Fold newly-arrived prop-queue items into the current leaf.  Membership
+        // handling mirrors populate_nielsen_graph (trivial check, ignored skip,
+        // ground-prefix consumption via process_str_mem).
+        for (; m_eager_processed < m_prop_queue.size(); ++m_eager_processed) {
+            auto const& item = m_prop_queue[m_eager_processed];
+            if (std::holds_alternative<eq_item>(item)) {
+                auto const& eq = std::get<eq_item>(item);
+                m_nielsen.eager_add_str_eq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
+            }
+            else if (std::holds_alternative<deq_item>(item)) {
+                auto const& dq = std::get<deq_item>(item);
+                m_nielsen.eager_add_str_deq(dq.m_lhs, dq.m_rhs, dq.lit);
+            }
+            else if (std::holds_alternative<mem_item>(item)) {
+                auto const& mem = std::get<mem_item>(item);
+                int triv = m_regex.check_trivial(mem);
+                if (triv > 0)
+                    continue; // trivially satisfied
+                if (triv < 0) {
+                    m_nielsen.eager_add_str_mem(mem.m_str, mem.m_regex, mem.lit);
+                    continue;
+                }
+                if (m_ignored_mem.contains(mem.lit))
+                    continue; // already handled via Boolean closure
+                vector<seq::str_mem> processed;
+                if (!m_regex.process_str_mem(mem, processed)) {
+                    m_nielsen.eager_add_str_mem(mem.m_str, mem.m_regex, mem.lit);
+                    continue;
+                }
+                for (auto const& pm : processed)
+                    m_nielsen.eager_add_str_mem(pm.m_str, pm.m_regex, mem.lit);
+            }
+            // axiom_item: not Nielsen-relevant, skip
+        }
+
+        const auto r = m_nielsen.eager_close();
+        if (r == seq::nielsen_graph::search_result::unsat) {
+            IF_VERBOSE(1, verbose_stream() << "nseq eager: structural conflict\n";);
+            TRACE(seq, tout << "nseq eager: structural conflict\n");
+            ++m_num_eager_conflicts;
+            explain_nielsen_conflict(); // reads conflict_sources() + root, then sets the conflict
+        }
+        // Keep the chain for the next propagation (incremental).  It is discarded by
+        // pop_scope_eh / final_check's reset, never here.
     }
 
     void theory_nseq::propagate_eq(tracked_str_eq const &eq) const {
@@ -1289,6 +1377,7 @@ namespace smt {
 
     void theory_nseq::collect_statistics(::statistics& st) const {
         st.update("nseq conflicts",         m_num_conflicts);
+        st.update("nseq eager conflicts",   m_num_eager_conflicts);
         st.update("nseq final checks",      m_num_final_checks);
         st.update("nseq sat revalidations", m_num_sat_revalidations);
         st.update("nseq length axioms",     m_num_length_axioms);

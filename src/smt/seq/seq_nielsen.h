@@ -682,6 +682,7 @@ namespace seq {
     // search statistics collected during Nielsen graph solving
     struct nielsen_stats {
         unsigned m_num_solve_calls     = 0;
+        unsigned m_num_eager_calls     = 0;
         unsigned m_num_dfs_nodes       = 0;
         unsigned m_num_sat             = 0;
         unsigned m_num_unsat           = 0;
@@ -841,6 +842,18 @@ namespace seq {
         std::set<std::vector<unsigned>> m_unsat_node_cache;
         unsigned m_num_cache_hits = 0;
 
+        // Incremental eager-closure chain state (see eager_begin / eager_close).
+        // The chain is a single deterministic path root → … → m_eager_leaf;
+        // m_eager_substs is its composed substitution (root→leaf order), applied to
+        // late-arriving constraints so they land in leaf coordinates.
+        bool                  m_eager_active = false;
+        nielsen_node*         m_eager_leaf = nullptr;
+        vector<nielsen_subst> m_eager_substs;
+
+        // apply the accumulated chain substitution to a single snode, joining the
+        // substitutions' deps into `dep`.
+        euf::snode const* eager_rewrite(euf::snode const* s, dep_tracker& dep);
+
 
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
@@ -955,6 +968,32 @@ namespace seq {
 
         // main search entry point: iterative deepening DFS
         search_result solve();
+
+        // ---- Incremental eager structural closure -----------------------------
+        // The deterministic Nielsen chain is grown incrementally as constraints
+        // arrive (driven by theory_nseq::eager_structural_check), so we do NOT
+        // rebuild from scratch on every propagation.  Lifecycle:
+        //   eager_begin()      — start a fresh chain (reset + root + empty subst);
+        //   eager_add_str_*()  — fold one new constraint into the current LEAF,
+        //                        rewriting it through the chain's accumulated
+        //                        substitution so it lands in leaf coordinates;
+        //   eager_close()      — drive simplify_and_init (EMPTY path ⇒ no LP/arith
+        //                        passes) + single-child apply_det_modifier from the
+        //                        leaf to a fixpoint, extending the chain.
+        // Returns unsat (conflict_sources() = the conflict node's own deps) on a
+        // purely structural contradiction (symbol clash / empty-side / regex fail /
+        // widening); unknown otherwise.  Sound for early-conflict detection because
+        // the current set is a SUBSET of any completion.  Bails on
+        // references_rigid() (det substitution of a rigid defined op is unsound).
+        // reset()/pop (eager_invalidate) discard the chain; never declares SAT.
+        bool eager_active() const { return m_eager_active && m_root != nullptr; }
+        void eager_begin();
+        void eager_invalidate() { m_eager_active = false; m_eager_leaf = nullptr; m_eager_substs.reset(); }
+        nielsen_node* eager_leaf() const { return m_eager_leaf; }
+        void eager_add_str_eq(euf::snode const* lhs, euf::snode const* rhs, smt::enode* l, smt::enode* r);
+        void eager_add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal lit);
+        void eager_add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal lit);
+        search_result eager_close();
 
         // generate child nodes by applying modifier rules
         // returns true if at least one child was generated

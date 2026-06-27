@@ -62,6 +62,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_regex_factorization_eager = p.nseq_regex_factorization_eager();
     m_nseq_signature = p.nseq_signature();
     m_nseq_axiomatize_diseq = p.nseq_axiomatize_diseq();
+    m_nseq_eager = p.nseq_eager();
     m_up_persist_clauses = p.up_persist_clauses();
     validate_string_solver(m_string_solver);
     if (_p.get_bool("arith.greatest_error_pivot", false))

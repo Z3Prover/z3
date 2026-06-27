@@ -257,6 +257,7 @@ struct smt_params : public preprocessor_params,
     bool m_nseq_regex_factorization_eager = false;
     bool m_nseq_signature = false;
     bool m_nseq_axiomatize_diseq = false;
+    bool m_nseq_eager = true;
 
     smt_params(params_ref const & p = params_ref()):
         m_string_solver(symbol("auto")){
