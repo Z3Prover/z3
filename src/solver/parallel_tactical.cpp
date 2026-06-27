@@ -56,6 +56,10 @@ tactic* mk_parallel_tactic2(solver* s, params_ref const& p) {
     return alloc(non_parallel_tactic2, s, p);
 }
 
+tactic* mk_parallel_tactic(solver* s, params_ref const& /* p */) {
+    return mk_solver2tactic(s);
+}
+
 #else
 
 #include <atomic>
