@@ -159,7 +159,7 @@ namespace smt {
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
-    enode_generation_table      m_sticky_generation_updates;
+        enode_generation_table      m_sticky_generation_updates;
 
         struct new_eq {
             enode *                 m_lhs;
@@ -1211,7 +1211,7 @@ namespace smt {
             SASSERT(n->get_num_args() > 0);
             if (!n->uses_cg_table())
                 return n->get_cg();
-            enode * r = m_cg_table.find(n);
+            auto [r, gen_ptr] = m_cg_table.find(n);
             SASSERT(r != nullptr);
             return r;
         }

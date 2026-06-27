@@ -21,10 +21,13 @@ Revision History:
 #include "smt/smt_enode.h"
 #include "util/hashtable.h"
 #include "util/chashtable.h"
+#include "util/map.h"
 
 namespace smt {
 
     typedef std::pair<enode *, bool> enode_bool_pair;
+    typedef std::tuple<enode*, bool, unsigned*> enode_bool_gen_ptr;
+    typedef std::pair<enode*, unsigned*> enode_gen_ptr;
     typedef std::pair<enode *, enode *> enode_pair;
     
     // one table per function symbol
@@ -49,7 +52,7 @@ namespace smt {
             }
         };
 
-        typedef chashtable<enode *, cg_unary_hash, cg_unary_eq> unary_table;
+        typedef map<enode*, unsigned, cg_unary_hash, cg_unary_eq> unary_table;
         
         struct cg_binary_hash {
             unsigned operator()(enode * n) const {
@@ -69,7 +72,7 @@ namespace smt {
             }
         };
 
-        typedef chashtable<enode*, cg_binary_hash, cg_binary_eq> binary_table;
+        typedef map<enode*, unsigned, cg_binary_hash, cg_binary_eq> binary_table;
         
         struct cg_comm_hash {
             unsigned operator()(enode * n) const {
@@ -104,7 +107,7 @@ namespace smt {
             }
         };
 
-        typedef chashtable<enode*, cg_comm_hash, cg_comm_eq> comm_table;
+        typedef map<enode*, unsigned, cg_comm_hash, cg_comm_eq> comm_table;
 
         struct cg_hash {
             unsigned operator()(enode * n) const;
@@ -114,7 +117,7 @@ namespace smt {
             bool operator()(enode * n1, enode * n2) const;
         };
 
-        typedef chashtable<enode*, cg_hash, cg_eq> table;
+        typedef map<enode*, unsigned, cg_hash, cg_eq> table;
 
         ast_manager &                 m_manager;
         bool                          m_commutativity; //!< true if the last found congruence used commutativity
@@ -149,7 +152,7 @@ namespace smt {
            return n' and a boolean indicating whether n and n' are congruence
            modulo commutativity, otherwise insert n and return (n,false).
         */
-        enode_bool_pair insert(enode * n);
+        enode_bool_gen_ptr insert(enode * n);
 
         void erase(enode * n);
 
@@ -168,35 +171,43 @@ namespace smt {
             }
         }
 
-        enode * find(enode * n) const {
+        enode_gen_ptr find(enode * n) const {
             SASSERT(n->get_num_args() > 0);
-            enode * r = nullptr;
             void * t = const_cast<cg_table*>(this)->get_table(n); 
+            unary_table::entry* e = nullptr;
             switch (static_cast<table_kind>(GET_TAG(t))) {
             case UNARY:
-                return UNTAG(unary_table*, t)->find(n, r) ? r : nullptr;
+                e = UNTAG(unary_table*, t)->find_core(n);
+                return e ? enode_gen_ptr(e->get_data().m_key, &e->get_data().m_value) : enode_gen_ptr(nullptr, nullptr);
             case BINARY:
-                return UNTAG(binary_table*, t)->find(n, r) ? r : nullptr;
+                e = UNTAG(binary_table*, t)->find_core(n);
+                return e ? enode_gen_ptr(e->get_data().m_key, &e->get_data().m_value) : enode_gen_ptr(nullptr, nullptr);
             case BINARY_COMM:
-                return UNTAG(comm_table*, t)->find(n, r) ? r : nullptr;
+                e = UNTAG(comm_table*, t)->find_core(n);
+                return e ? enode_gen_ptr(e->get_data().m_key, &e->get_data().m_value) : enode_gen_ptr(nullptr, nullptr);
             default:
-                return UNTAG(table*, t)->find(n, r) ? r : nullptr;
+                e = UNTAG(table*, t)->find_core(n);
+                return e ? enode_gen_ptr(e->get_data().m_key, &e->get_data().m_value) : enode_gen_ptr(nullptr, nullptr);
             }
         }
 
         bool contains_ptr(enode * n) const {
-            enode * r;
             SASSERT(n->get_num_args() > 0);
             void * t = const_cast<cg_table*>(this)->get_table(n); 
+            unary_table::entry* e = nullptr;
             switch (static_cast<table_kind>(GET_TAG(t))) {
             case UNARY:
-                return UNTAG(unary_table*, t)->find(n, r) && n == r;
+                e = UNTAG(unary_table*, t)->find_core(n);
+                return e && n == e->get_data().m_key;
             case BINARY:
-                return UNTAG(binary_table*, t)->find(n, r) && n == r;
+                e = UNTAG(binary_table*, t)->find_core(n);
+                return e && n == e->get_data().m_key;
             case BINARY_COMM:
-                return UNTAG(comm_table*, t)->find(n, r) && n == r;
+                e = UNTAG(comm_table*, t)->find_core(n);
+                return e && n == e->get_data().m_key;
             default:
-                return UNTAG(table*, t)->find(n, r) && n == r;
+                e = UNTAG(table*, t)->find_core(n);
+                return e && n == e->get_data().m_key;
             }
         }
 

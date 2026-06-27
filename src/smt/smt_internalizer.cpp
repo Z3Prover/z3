@@ -103,7 +103,7 @@ namespace smt {
 
     void context::update_generation(enode * e) {
         enode *cgr = e->get_num_args() == 0 ? e : get_cg_root(e);
-        if (0 < m_generation && m_generation < cgr->get_generation()) {
+        if (0 < m_generation && m_generation < get_generation(cgr)) {
             e->set_generation(nullptr, m_generation);
             if (e->uses_cg_table())
                 update_cgc_generation(e, m_generation);
@@ -139,7 +139,7 @@ namespace smt {
         push_trail(merge_cgc_trail(*this, e1, e1->get_generation(), e2, e2->get_generation()));
 
         e1->m_cg = e2;  // we keep these for now
-        e2->m_generation = std::min(e1->m_generation, e2->m_generation);
+        // e2->m_generation = std::min(e1->m_generation, e2->m_generation);
     }
 
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
@@ -1064,7 +1064,8 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    auto [e_prime, used_commutativity] = m_cg_table.insert(e);
+                    auto [e_prime, used_commutativity, payload] = m_cg_table.insert(e);
+                    (void)payload;
                     if (e != e_prime) {
                         merge_cgc(e, e_prime);
                         push_new_congruence(e, e_prime, used_commutativity);

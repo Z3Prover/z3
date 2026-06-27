@@ -25,7 +25,7 @@ namespace smt {
        \brief Initialize an enode in the given memory position.
     */
     enode * enode::init(ast_manager & m, void * mem, app2enode_t const & app2enode, app * owner, 
-                        unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
+                        bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                         bool cgc_enabled, bool update_children_parent) {
         SASSERT(m.is_bool(owner) || !merge_tf);
         enode * n             = new (mem) enode();
@@ -34,8 +34,6 @@ namespace smt {
         n->m_next             = n;
         n->m_cg               = nullptr;
         n->m_class_size       = 1;
-        n->m_generation       = generation;
-        n->m_generation_update_id = 0;
         n->m_func_decl_id     = UINT_MAX;
         n->m_mark             = false;
         n->m_mark2            = false;
@@ -132,20 +130,20 @@ namespace smt {
     }
 
     
-    /**
-       \brief Push old value of generation on the context trail stack
-       and update the generation.       
-    */
-    void enode::set_generation(context * ctx, unsigned generation) {
-        if (m_generation == generation)
-            return;
+    // /**
+    //    \brief Push old value of generation on the context trail stack
+    //    and update the generation.       
+    // */
+    // void enode::set_generation(context * ctx, unsigned generation) {
+    //     if (m_generation == generation)
+    //         return;
 
-        // Only used by the case split queue.
-        if (ctx)
-            ctx->push_trail(value_trail<unsigned>(m_generation));
+    //     // Only used by the case split queue.
+    //     if (ctx)
+    //         ctx->push_trail(value_trail<unsigned>(m_generation));
 
-        m_generation = generation;
-    }
+    //     m_generation = generation;
+    // }
 
 
     void enode::set_lbl_hash(context & ctx) {

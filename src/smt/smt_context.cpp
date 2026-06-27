@@ -604,7 +604,8 @@ namespace smt {
                    tout << "\n";
                    tout << "contains: " << m_cg_table.contains(parent) << "\n";
                    if (m_cg_table.contains(parent)) {
-                       tout << "owner: " << m_cg_table.find(parent)->get_owner_id() << "\n";
+                       auto [owner, generation] = m_cg_table.find(parent);
+                       tout << "owner: " << owner->get_owner_id() << "\n";
                    }
                    m_cg_table.display(tout);
                    );
@@ -626,13 +627,15 @@ namespace smt {
     // Goes out of scope when n is garbage collected.
     void context::update_cgc_generation(enode * n, unsigned generation) {
         SASSERT(n->uses_cg_table());
-        enode * cgr = m_cg_table.find(n);
+        auto [cgr, cgc_gen] = m_cg_table.find(n);
         SASSERT(cgr);
+        SASSERT(cgc_gen);
 
-        if (cgr->get_generation() < generation)
+        if (*cgc_gen < generation)
             return;
             
-        cgr->set_generation(nullptr, generation);
+        // cgr->set_generation(nullptr, generation);
+        *cgc_gen = generation;
         m_sticky_generation_updates.insert(n, generation);
     }
 
@@ -679,7 +682,7 @@ namespace smt {
                 }
             }
             if (parent->is_cgc_enabled()) {
-                auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
+                auto [parent_prime, used_commutativity, gen_ptr] = m_cg_table.insert(parent);
                 if (parent_prime == parent) {
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());
@@ -688,7 +691,7 @@ namespace smt {
                     continue;
                 }
                 
-                merge_cgc(parent, parent_prime);
+                merge_cgc(parent, parent_prime, gen_ptr);
 
                 if (parent_prime->m_root != parent->m_root) {
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
@@ -998,7 +1001,9 @@ namespace smt {
                     (parent == cg ||           // parent was root of the congruence class before and after the merge
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
-                    auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
+                    auto [parent_cg, used_commutativity, generation] = m_cg_table.insert(parent);
+                    (void)used_commutativity;
+                    (void)generation;
                     parent->m_cg = parent_cg;
                 }
             }
@@ -1189,7 +1194,8 @@ namespace smt {
         m_is_diseq_tmp->m_args[0] = n1;
         m_is_diseq_tmp->m_args[1] = n2;
         SASSERT(m_is_diseq_tmp->get_num_args() == 2);
-        enode * r = m_cg_table.find(m_is_diseq_tmp);
+        auto [r, generation] = m_cg_table.find(m_is_diseq_tmp);
+        (void)generation;
         SASSERT((r != 0) == m_cg_table.contains(m_is_diseq_tmp));
         TRACE(is_diseq, tout << "r: " << r << "\n";);
         if (r) {
@@ -1323,7 +1329,8 @@ namespace smt {
      */
     enode * context::get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args) {
         enode * tmp = m_tmp_enode.set(f, num_args, args);
-        enode * r   = m_cg_table.find(tmp);
+        auto [r, generation] = m_cg_table.find(tmp);
+        (void)generation;
 #ifdef Z3DEBUG
         if (r != nullptr) {
             SASSERT(r->get_decl() == f);
