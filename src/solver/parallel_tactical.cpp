@@ -35,26 +35,7 @@ Author:
 #include <mutex>
 #include <utility>
 
-/* ------------------------------------------------------------------ */
-/* Single-threaded stub                                                 */
-/* ------------------------------------------------------------------ */
-
-class non_parallel_tactic2 : public tactic {
-public:
-    non_parallel_tactic2(solver*, params_ref const&) {}
-    char const* name() const override { return "parallel_tactic2"; }
-    void operator()(const goal_ref&, goal_ref_buffer&) override {
-        throw default_exception("parallel_tactic2 is disabled in single-threaded mode");
-    }
-    tactic* translate(ast_manager&) override { return nullptr; }
-    void cleanup() override {}
-};
-
 #ifdef SINGLE_THREAD
-
-tactic* mk_parallel_tactic(solver* s, params_ref const& p) {
-    return alloc(non_parallel_tactic2, s, p);
-}
 
 tactic* mk_parallel_tactic(solver* s, params_ref const& /* p */) {
     return mk_solver2tactic(s);
