@@ -4,6 +4,9 @@ Copyright (c) 2025 Microsoft Corporation
 
 #include "api/z3.h"
 #include "util/util.h"
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 
 // x mod 7 = 0 & (x*y) mod 7 != 0 should be unsat
@@ -84,8 +87,52 @@ static void test_const_array_store_chain_unsat() {
     Z3_del_context(ctx);
 }
 
+static std::string read_sibling_file(char const* current_file, char const* sibling) {
+    std::string path = current_file;
+    size_t pos = path.find_last_of("/\\");
+    ENSURE(pos != std::string::npos);
+    path.resize(pos + 1);
+    path += sibling;
+    std::ifstream in(path);
+    if (!in.good())
+        throw std::runtime_error("failed to open test file: " + path);
+    std::ostringstream out;
+    out << in.rdbuf();
+    return out.str();
+}
+
+static void test_abv_model_roundtrip_issue_7132() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+
+    std::string benchmark = read_sibling_file(__FILE__, "issue_7132.smt2");
+    size_t tail = benchmark.rfind("(check-sat)");
+    ENSURE(tail != std::string::npos);
+    benchmark.resize(tail);
+    benchmark += R"(
+(check-sat)
+(get-value ((select id.ma (bvadd r1 (bvmul #x00000004 r0)))))
+(get-value ((select id.ma (bvadd r1 (bvmul #x00000004 r0) #x00000001))))
+(get-value ((select id.ma (bvadd r1 (bvmul #x00000004 r0) #x00000002))))
+(get-value ((select id.ma (bvadd r1 (bvmul #x00000004 r0) #x00000003))))
+)";
+
+    std::string resp = Z3_eval_smtlib2_string(ctx, benchmark.c_str());
+    std::istringstream in(resp);
+    std::string line;
+    ENSURE(static_cast<bool>(std::getline(in, line)));
+    ENSURE(line == "sat");
+    for (unsigned i = 0; i < 4; ++i) {
+        ENSURE(static_cast<bool>(std::getline(in, line)));
+        ENSURE(line.find("#x06") != std::string::npos || line.find("#x08") != std::string::npos);
+    }
+    Z3_del_config(cfg);
+    Z3_del_context(ctx);
+}
+
 void tst_mod_factor() {
     test_mod_factor_mod_path();
     test_mod_factor_idiv_path();
     test_const_array_store_chain_unsat();
+    test_abv_model_roundtrip_issue_7132();
 }
