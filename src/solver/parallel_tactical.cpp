@@ -133,6 +133,7 @@ class parallel_solver {
             is_running,
             is_sat,
             is_unsat,
+            is_unknown,
             is_exception_msg,
             is_exception_code
         };
@@ -187,6 +188,7 @@ class parallel_solver {
 
         unsigned     m_exception_code = 0;
         std::string  m_exception_msg;
+        std::string  m_reason_unknown;
         model_ref    m_model;
         expr_ref_vector m_unsat_core;
         std::atomic<bool> m_canceled = false;
@@ -485,13 +487,14 @@ class parallel_solver {
             m_core_min_jobs.reset();
             m_model = nullptr;
             m_unsat_core.reset();
+            m_reason_unknown.clear();
             m_canceled = false;
         }
 
         void set_sat(ast_translation& l2g, model& mdl) {
             std::scoped_lock lock(mux);
             IF_VERBOSE(1, verbose_stream() << "Batch manager setting SAT.\n");
-            if (m_state != state::is_running) return;
+            if (m_state != state::is_running && m_state != state::is_unknown) return;
             m_state = state::is_sat;
             m_model = mdl.translate(l2g);
             cancel_background_threads();
@@ -506,12 +509,25 @@ class parallel_solver {
                        expr_ref_vector const& core) {
             std::scoped_lock lock(mux);
             IF_VERBOSE(1, verbose_stream() << "Batch manager setting UNSAT.\n");
-            if (m_state != state::is_running) return;
+            if (m_state != state::is_running && m_state != state::is_unknown) return;
             m_state = state::is_unsat;
-            SASSERT(m_unsat_core.empty());
+            m_unsat_core.reset();
             for (expr* c : core)
                 m_unsat_core.push_back(l2g(c));
             cancel_background_threads();
+        }
+
+        // A worker found a cube whose result is genuinely undetermined (e.g. the
+        // theory solver is incomplete) and that cannot be refined any further.
+        // Record a sound 'unknown' verdict. This is a soft result: it does not
+        // cancel the remaining workers, so a definitive sat/unsat verdict from
+        // another branch may still arrive and override it.
+        void set_unknown(std::string const& reason) {
+            std::scoped_lock lock(mux);
+            IF_VERBOSE(1, verbose_stream() << "Batch manager setting UNKNOWN: " << reason << ".\n");
+            if (m_state != state::is_running) return;
+            m_state = state::is_unknown;
+            m_reason_unknown = reason;
         }
 
         void set_exception(std::string const& msg) {
@@ -941,6 +957,7 @@ class parallel_solver {
                 throw default_exception("par2: inconsistent end state");
             case state::is_sat:             return l_true;
             case state::is_unsat:           return l_false;
+            case state::is_unknown:         return l_undef;
             case state::is_exception_msg:
                 throw default_exception(m_exception_msg.c_str());
             case state::is_exception_code:
@@ -950,6 +967,8 @@ class parallel_solver {
                 return l_undef;
             }
         }
+
+        std::string const& get_reason_unknown() const { return m_reason_unknown; }
 
         model_ref& get_model() { return m_model; }
 
@@ -1215,8 +1234,21 @@ class parallel_solver {
                 switch (r) {
 
                 case l_undef: {
-                    update_max_thread_conflicts();
                     LOG_WORKER(1, " found undef cube\n");
+                    // Escalating the conflict budget (update_max_thread_conflicts)
+                    // or splitting the cube only helps when the cube was abandoned
+                    // because the per-cube conflict limit was reached. For any other
+                    // source of incompleteness (an incomplete theory, quantifiers,
+                    // lambdas, resource limits, ...) the verdict will not change, so
+                    // re-checking the same cube would spin forever. Record a sound
+                    // 'unknown' verdict and stop working this branch instead.
+                    std::string reason = s->reason_unknown();
+                    if (reason != "max-conflicts-reached") {
+                        LOG_WORKER(1, " undef cube is not conflict-limited (" << reason << "); reporting unknown\n");
+                        b.set_unknown(reason);
+                        return;
+                    }
+                    update_max_thread_conflicts();
                     if (m_config.m_max_cube_depth <= cube.size())
                         goto check_cube_start;
                     expr_ref atom = get_split_atom(lease, cube);
@@ -2046,6 +2078,10 @@ public:
         st.copy(m_stats);
     }
 
+    std::string reason_unknown() const {
+        return m_batch_manager.get_reason_unknown();
+    }
+
     void reset_statistics() {
         m_stats.reset();
     }
@@ -2128,6 +2164,13 @@ public:
         case l_undef:
             if (!m.inc())
                 throw tactic_exception(Z3_CANCELED_MSG);
+            {
+                std::string reason = ps.reason_unknown();
+                if (!reason.empty()) {
+                    g->set_reason_unknown(reason);
+                    IF_VERBOSE(0, verbose_stream() << reason << "\n");
+                }
+            }
             break;
         }
 
