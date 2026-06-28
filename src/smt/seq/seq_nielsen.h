@@ -543,8 +543,8 @@ namespace seq {
         vector<str_mem> const& str_mems() const { return m_str_mem; }
         vector<str_mem>& str_mems() { return m_str_mem; }
 
-        void add_str_eq(str_eq const& eq);
-        void add_str_deq(str_deq const& deq);
+        void add_str_eq(str_eq& eq);
+        void add_str_deq(str_deq& deq);
         void add_str_mem(str_mem const& mem);
         void add_constraint(constraint const &ic);
 
@@ -775,6 +775,7 @@ namespace seq {
         bool                          m_signature_split = false;
         unsigned                      m_regex_factorization_threshold = 1;
         bool                          m_regex_factorization_eager = false;
+        bool                          m_regex_dynamic_decomposition = true;
         unsigned                      m_fresh_cnt = 0;
         nielsen_stats                 m_stats;
 
@@ -922,9 +923,9 @@ namespace seq {
         void add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal l) const;
 
         // test-friendly overloads (no external dependency tracking)
-        void add_str_eq(euf::snode const* lhs, euf::snode const* rhs);
-        void add_str_deq(euf::snode const* lhs, euf::snode const* rhs);
-        void add_str_mem(euf::snode const* str, euf::snode const* regex);
+        void add_str_eq(euf::snode const* lhs, euf::snode const* rhs) const;
+        void add_str_deq(euf::snode const* lhs, euf::snode const* rhs) const;
+        void add_str_mem(euf::snode const* str, euf::snode const* regex) const;
 
         // access all nodes
         ptr_vector<nielsen_node> const& nodes() const { return m_nodes; }
@@ -943,6 +944,7 @@ namespace seq {
         
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
         void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
+        void set_regex_dynamic_decomposition(bool e) { m_regex_dynamic_decomposition = e; }
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;

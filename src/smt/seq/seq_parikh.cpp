@@ -25,12 +25,13 @@ Author:
 
 #include "smt/seq/seq_parikh.h"
 #include "util/mpz.h"
+#include "util/zstring.h"
 #include <string>
 
 namespace seq {
 
     seq_parikh::seq_parikh(euf::sgraph& sg)
-        : m(sg.get_manager()), seq(m), a(m), m_fresh_cnt(0) {}
+        : m(sg.get_manager()), seq(m), a(m), m_rw(m), m_sk(m, m_rw), m_fresh_cnt(0) {}
 
     expr_ref seq_parikh::mk_fresh_int_var() {
         std::string name = "pk!" + std::to_string(m_fresh_cnt++);
@@ -169,6 +170,150 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
+    // Exact semi-linear length encoding (visit-count Parikh)
+    // -----------------------------------------------------------------------
+
+    expr_ref seq_parikh::mk_count_var(vector<constraint>& out, dep_tracker dep,
+                                      expr* str_key, expr* root_re, unsigned& idx) {
+        // Deterministic Skolem term keyed on the membership + a per-encoding DFS
+        // index: re-encoding the same membership reuses the same counters.
+        expr_ref c = m_sk.mk("seq.rc", str_key, root_re, a.mk_int(idx++), a.mk_int());
+        out.push_back(constraint(a.mk_ge(c, a.mk_int(0)), dep, m));
+        return c;
+    }
+
+    void seq_parikh::push_zero_guard(vector<constraint>& out, dep_tracker dep, expr* count, expr* c1) {
+        // count = 0  ->  c1 = 0   (an unentered subterm produces nothing)
+        expr_ref guard(m.mk_implies(m.mk_eq(count, a.mk_int(0)),
+                                    m.mk_eq(c1, a.mk_int(0))), m);
+        m_rw(guard);
+        if (m.is_false(guard))
+            return;
+        out.push_back(constraint(guard, dep, m));
+    }
+
+    bool seq_parikh::rec(expr* re, expr* count, expr* str_key, expr* root_re, unsigned& idx,
+                         dep_tracker dep, vector<constraint>& out, expr_ref& contrib) {
+        SASSERT(re);
+        contrib = expr_ref(a.mk_int(0), m);
+
+        expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
+        unsigned lo = 0, hi = 0;
+
+        // ∅: this subterm can never be visited.
+        if (seq.re.is_empty(re)) {
+            out.push_back(constraint(m.mk_eq(count, a.mk_int(0)), dep, m));
+            return true;
+        }
+
+        // ε: contributes no length.
+        if (seq.re.is_epsilon(re))
+            return true;
+
+        // single character (range / allchar): one char per visit.
+        if (seq.re.is_range(re) || seq.re.is_full_char(re)) {
+            contrib = expr_ref(count, m);
+            return true;
+        }
+
+        // to_re("w"): fixed-length literal → n chars per visit.
+        if (seq.re.is_to_re(re, s)) {
+            zstring zs;
+            if (!seq.str.is_string(s, zs))
+                return false; // symbolic to_re: not a classical length leaf
+            unsigned n = zs.length();
+            if (n != 0)
+                contrib = expr_ref(a.mk_mul(a.mk_int(n), count), m);
+            return true;
+        }
+
+        // Σ* (full_seq, incl. allchar*): any number of chars; gated by reachability.
+        // NB: checked before is_star so star(allchar) is treated as Σ*.
+        if (seq.re.is_full_seq(re)) {
+            expr_ref c1 = mk_count_var(out, dep, str_key, root_re, idx);
+            push_zero_guard(out, dep, count, c1);
+            contrib = c1;
+            return true;
+        }
+
+        // concat(r1, r2): both children visited exactly `count` times; lengths add.
+        if (seq.re.is_concat(re, r1, r2)) {
+            expr_ref l1(m), l2(m);
+            if (!rec(r1, count, str_key, root_re, idx, dep, out, l1)) return false;
+            if (!rec(r2, count, str_key, root_re, idx, dep, out, l2)) return false;
+            contrib = expr_ref(a.mk_add(l1, l2), m);
+            return true;
+        }
+
+        // union(r1, r2): each visit goes to exactly one branch: count = c1 + c2.
+        if (seq.re.is_union(re, r1, r2)) {
+            expr_ref c1 = mk_count_var(out, dep, str_key, root_re, idx);
+            expr_ref c2 = mk_count_var(out, dep, str_key, root_re, idx);
+            out.push_back(constraint(m.mk_eq(count, a.mk_add(c1, c2)), dep, m));
+            expr_ref l1(m), l2(m);
+            if (!rec(r1, c1, str_key, root_re, idx, dep, out, l1)) return false;
+            if (!rec(r2, c2, str_key, root_re, idx, dep, out, l2)) return false;
+            contrib = expr_ref(a.mk_add(l1, l2), m);
+            return true;
+        }
+
+        // star(r1): body visited c1 >= 0 times total; reachability guard.
+        if (seq.re.is_star(re, r1)) {
+            expr_ref c1 = mk_count_var(out, dep, str_key, root_re, idx);
+            push_zero_guard(out, dep, count, c1);
+            return rec(r1, c1, str_key, root_re, idx, dep, out, contrib);
+        }
+
+        // plus(r1): >= 1 iteration per visit → c1 >= count; plus reachability guard.
+        if (seq.re.is_plus(re, r1)) {
+            expr_ref c1 = mk_count_var(out, dep, str_key, root_re, idx);
+            out.push_back(constraint(a.mk_ge(c1, count), dep, m));
+            push_zero_guard(out, dep, count, c1);
+            return rec(r1, c1, str_key, root_re, idx, dep, out, contrib);
+        }
+
+        // opt(r1): 0 or 1 iteration per visit → c1 <= count (and c1 >= 0).
+        if (seq.re.is_opt(re, r1)) {
+            expr_ref c1 = mk_count_var(out, dep, str_key, root_re, idx);
+            out.push_back(constraint(a.mk_le(c1, count), dep, m));
+            return rec(r1, c1, str_key, root_re, idx, dep, out, contrib);
+        }
+
+        // loop(r1, lo, hi): between lo and hi iterations per visit.
+        if (seq.re.is_loop(re, r1, lo, hi)) {
+            expr_ref c1 = mk_count_var(out, dep, str_key, root_re, idx);
+            out.push_back(constraint(a.mk_ge(c1, a.mk_mul(a.mk_int(lo), count)), dep, m));
+            out.push_back(constraint(a.mk_le(c1, a.mk_mul(a.mk_int(hi), count)), dep, m));
+            return rec(r1, c1, str_key, root_re, idx, dep, out, contrib);
+        }
+        // loop(r1, lo): at least lo iterations per visit, unbounded above.
+        if (seq.re.is_loop(re, r1, lo)) {
+            expr_ref c1 = mk_count_var(out, dep, str_key, root_re, idx);
+            out.push_back(constraint(a.mk_ge(c1, a.mk_mul(a.mk_int(lo), count)), dep, m));
+            push_zero_guard(out, dep, count, c1);
+            return rec(r1, c1, str_key, root_re, idx, dep, out, contrib);
+        }
+
+        // intersection / complement / diff / xor / of_pred / reverse / derivative /
+        // antimirov-union / anything else: the visit-count flow does not capture
+        // these exactly — bail so the caller keeps the coarse fallback.
+        return false;
+    }
+
+    bool seq_parikh::encode_length_set(expr* str_key, expr* re, expr* len_target, dep_tracker dep, vector<constraint>& out) {
+        SASSERT(str_key && re && len_target && seq.is_re(re));
+        unsigned before = out.size();
+        unsigned idx = 0;
+        expr_ref contrib(m);
+        if (!rec(re, a.mk_int(1), str_key, re, idx, dep, out, contrib)) {
+            out.shrink(before); // discard any partial constraints on bail
+            return false;
+        }
+        out.push_back(constraint(m.mk_eq(len_target, contrib), dep, m));
+        return true;
+    }
+
+    // -----------------------------------------------------------------------
     // Constraint generation
     // -----------------------------------------------------------------------
 
@@ -232,8 +377,20 @@ namespace seq {
 
     void seq_parikh::apply_to_node(nielsen_node& node) {
         vector<constraint> constraints;
-        for (str_mem const& mem : node.str_mems())
+        for (str_mem const& mem : node.str_mems()) {
             generate_parikh_constraints(mem, constraints);
+
+            // Exact semi-linear length encoding for classical regex states.
+            // Only plain memberships: view/guard kinds carry projection run
+            // states, not plain regexes.  is_classical() pre-filters extended
+            // ops (∩, complement, …); encode_length_set self-bails on anything
+            // else (e.g. symbolic to_re) it cannot encode exactly.
+            if (mem.is_plain() && mem.m_str && mem.m_regex && mem.m_regex->is_classical()
+                && seq.is_re(mem.m_regex->get_expr())) {
+                expr_ref len_str(seq.str.mk_length(mem.m_str->get_expr()), m);
+                encode_length_set(mem.m_str->get_expr(), mem.m_regex->get_expr(), len_str, mem.m_dep, constraints);
+            }
+        }
         for (auto& ic : constraints)
             node.add_constraint(ic);
     }

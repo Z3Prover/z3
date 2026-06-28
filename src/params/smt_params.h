@@ -255,6 +255,7 @@ struct smt_params : public preprocessor_params,
     bool m_nseq_regex_precheck = true;
     unsigned m_nseq_regex_factorization_threshold = 1;
     bool m_nseq_regex_factorization_eager = false;
+    bool m_nseq_regex_dynamic_decomposition = true;
     bool m_nseq_signature = false;
     bool m_nseq_axiomatize_diseq = false;
     bool m_nseq_eager = true;

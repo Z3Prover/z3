@@ -496,8 +496,7 @@ namespace smt {
 
             // Eager structural pruning: once the queue is drained, run a cheap
             // branch-free Nielsen closure over the currently-asserted constraints to
-            // surface structural conflicts long before final_check.  Sound because
-            // the current set is a subset of any completion (see eager_structural_check).
+            // surface structural conflicts long before final_check
             if (!ctx.inconsistent())
                 eager_structural_check();
         }
@@ -552,13 +551,13 @@ namespace smt {
                 auto const& mem = std::get<mem_item>(item);
                 int triv = m_regex.check_trivial(mem);
                 if (triv > 0)
-                    continue; // trivially satisfied
+                    continue;
                 if (triv < 0) {
                     m_nielsen.eager_add_str_mem(mem.m_str, mem.m_regex, mem.lit);
                     continue;
                 }
                 if (m_ignored_mem.contains(mem.lit))
-                    continue; // already handled via Boolean closure
+                    continue;
                 vector<seq::str_mem> processed;
                 if (!m_regex.process_str_mem(mem, processed)) {
                     m_nielsen.eager_add_str_mem(mem.m_str, mem.m_regex, mem.lit);
@@ -567,7 +566,6 @@ namespace smt {
                 for (auto const& pm : processed)
                     m_nielsen.eager_add_str_mem(pm.m_str, pm.m_regex, mem.lit);
             }
-            // axiom_item: not Nielsen-relevant, skip
         }
 
         const auto r = m_nielsen.eager_close();

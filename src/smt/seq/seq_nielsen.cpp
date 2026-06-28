@@ -271,11 +271,12 @@ namespace seq {
     }
 
     bool str_mem::is_trivial(nielsen_node const* n) const {
-        if (!(m_str && m_regex))
-            return false;
+        SASSERT(m_str && m_regex);
         if (m_kind == mem_kind::no_loop)
             // guard: discharged ⇒ Σ* (accepts all); ε has no non-empty lap-prefix.
             return m_discharged || m_str->is_empty();
+        if (m_regex->is_full_seq())
+            return true;
         if (!m_str->is_empty())
             return false;
         if (m_kind == mem_kind::stab_view)
@@ -362,17 +363,29 @@ namespace seq {
         SASSERT(m_constraints.size() == parent.m_constraints.size());
     }
 
-    void nielsen_node::add_str_eq(str_eq const& eq) {
+    void nielsen_node::add_str_eq(str_eq& eq) {
         SASSERT(eq.m_lhs != nullptr);
         SASSERT(eq.m_rhs != nullptr);
         if (eq.is_trivial())
             return;
+        eq.sort();
+        // check if root node contains this equation already
+        if (std::ranges::any_of(str_eqs(),
+            [&](const str_eq &e) { return e.m_lhs == eq.m_lhs && e.m_rhs == eq.m_rhs; }))
+            // already present, no need to add again
+            return;
         m_str_eq.push_back(eq);
     }
 
-    void nielsen_node::add_str_deq(str_deq const& deq) {
+    void nielsen_node::add_str_deq(str_deq& deq) {
         SASSERT(deq.m_lhs != nullptr);
         SASSERT(deq.m_rhs != nullptr);
+        deq.sort();
+        // check if root node contains this equation already
+        if (std::ranges::any_of(str_deqs(),
+        [&](const str_deq &e) { return e.m_lhs == deq.m_lhs && e.m_rhs == deq.m_rhs; }))
+            // already present, no need to add again
+            return;
         m_str_deq.push_back(deq);
     }
 
@@ -380,6 +393,11 @@ namespace seq {
         SASSERT(mem.m_str != nullptr);
         SASSERT(mem.m_regex != nullptr);
         if (mem.is_trivial(this))
+            return;
+        // check if root node contains this membership constraint already
+        if (std::ranges::any_of(str_mems(),
+                                [&](const str_mem &e) { return e.m_regex == mem.m_regex && e.m_str == mem.m_str; }))
+            // already present, no need to add again
             return;
         m_str_mem.push_back(mem);
     }
@@ -391,10 +409,12 @@ namespace seq {
             return true;
         if (!m_graph.m_context_solver.lower_bound(e, lo, lits, eqs))
             return false;
-        for (auto lit : lits)
+        for (auto lit : lits) {
             dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(lit));
-        for (auto eq : eqs)
+        }
+        for (auto eq : eqs) {
             dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(eq));
+        }
 
         const expr_ref lo_expr(m_graph.a.mk_int(lo), m_graph.m);
         m_graph.add_le_dependency(dep, this, lo_expr, e);
@@ -549,7 +569,7 @@ namespace seq {
         reset();
     }
 
-    bool nielsen_graph::projection_state_in_Q(expr *state, unsigned nu) {
+    bool nielsen_graph::projection_state_in_Q(expr* state, unsigned nu) {
         if (!state || nu == 0)
             return false;
         const unsigned sid = state->get_id();
@@ -572,26 +592,26 @@ namespace seq {
         return incident(m_partial_dfa_out) || incident(m_partial_dfa_in);
     }
 
-    nielsen_node *nielsen_graph::mk_node() {
+    nielsen_node* nielsen_graph::mk_node() {
         const unsigned id = m_nodes.size();
-        nielsen_node *n = alloc(nielsen_node, *this, id);
+        nielsen_node* n = alloc(nielsen_node, *this, id);
         m_nodes.push_back(n);
         SASSERT(n->id() == m_nodes.size() - 1);
         return n;
     }
 
-    nielsen_node *nielsen_graph::mk_child(nielsen_node *parent) {
+    nielsen_node* nielsen_graph::mk_child(nielsen_node* parent) {
         nielsen_node *child = mk_node();
         child->clone_from(*parent);
         child->m_parent_ic_count = parent->constraints().size();
         return child;
     }
 
-    nielsen_edge *nielsen_graph::mk_edge(nielsen_node *src, nielsen_node *tgt, const char *rule,
+    nielsen_edge *nielsen_graph::mk_edge(nielsen_node* src, nielsen_node* tgt, const char* rule,
                                          const bool is_progress) {
         SASSERT(src != nullptr);
         SASSERT(tgt != nullptr);
-        nielsen_edge *e = alloc(nielsen_edge, src, tgt, rule, is_progress);
+        nielsen_edge* e = alloc(nielsen_edge, src, tgt, rule, is_progress);
         m_edges.push_back(e);
         src->add_outgoing(e);
         return e;
@@ -600,53 +620,38 @@ namespace seq {
     void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs, smt::enode *l, smt::enode *r) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         str_eq eq(lhs, rhs, dep);
-        eq.sort();
-        // check if root node contains this equation already
-        if (std::ranges::any_of(m_root->str_eqs(),
-                                [&](const str_eq &e) { return e.m_lhs == eq.m_lhs && e.m_rhs == eq.m_rhs; }))
-            // already present, no need to add again
-            return;
         m_root->add_str_eq(eq);
     }
 
     void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal l) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(l);
         str_deq deq(lhs, rhs, dep);
-        // check if root node contains this equation already
-        if (std::ranges::any_of(m_root->str_deqs(),
-                                [&](const str_deq &e) { return e.m_lhs == deq.m_lhs && e.m_rhs == deq.m_rhs; }))
-            // already present, no need to add again
-            return;
         m_root->add_str_deq(deq);
     }
 
     void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal l) const {
-        // check if root node contains this membership constraint already
-        if (std::ranges::any_of(m_root->str_mems(),
-                                [&](const str_mem &e) { return e.m_regex == regex && e.m_str == str; }))
-            // already present, no need to add again
-            return;
         const dep_tracker dep = m_dep_mgr.mk_leaf(l);
         m_root->add_str_mem(str_mem(str, regex, dep));
     }
 
     // test-friendly overloads (no external dependency tracking)
-    void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs) {
+    void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
     }
 
-    void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs) {
+    void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_deq deq(lhs, rhs, dep);
         m_root->add_str_deq(deq);
     }
 
-    void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex) {
+    void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex) const {
         const dep_tracker dep = nullptr;
-        m_root->add_str_mem(str_mem(str, regex, dep));
+        str_mem mem(str, regex, dep);
+        m_root->add_str_mem(mem);
     }
 
     void nielsen_graph::reset() {
@@ -2019,14 +2024,15 @@ namespace seq {
         dep_tracker dep = m_dep_mgr.mk_leaf(lit);
         lhs = eager_rewrite(lhs, dep);
         rhs = eager_rewrite(rhs, dep);
-        m_eager_leaf->add_str_deq(str_deq(lhs, rhs, dep));
+        str_deq deq(lhs, rhs, dep);
+        m_eager_leaf->add_str_deq(deq);
     }
 
     void nielsen_graph::eager_add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal lit) {
         SASSERT(m_eager_active && m_eager_leaf);
         dep_tracker dep = m_dep_mgr.mk_leaf(lit);
         str = eager_rewrite(str, dep);
-        regex = eager_rewrite(regex, dep); // no-op for ground regexes, mirrors apply_subst
+        regex = eager_rewrite(regex, dep);
         m_eager_leaf->add_str_mem(str_mem(str, regex, dep));
     }
 
@@ -2199,7 +2205,7 @@ namespace seq {
             return search_result::unknown;
 
 #ifdef Z3DEBUG
-        if (m_stats.m_num_dfs_nodes % 50 == 0) {
+        if (m_stats.m_num_dfs_nodes % 20 == 0) {
             std::string dot = to_dot();
             std::cout << "";
         }
@@ -3637,6 +3643,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_subsumption(nielsen_node* node) {
+        if (!m_regex_dynamic_decomposition)
+            return false;
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
             SASSERT(mem.well_formed());
@@ -3707,6 +3715,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_decomposition(nielsen_node* node) {
+        if (!m_regex_dynamic_decomposition)
+            return false;
         // Look for a str_mem with a variable-headed string
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
@@ -4663,8 +4673,8 @@ namespace seq {
         const expr_ref vp_len(compute_length_expr(vp), m);
         euf::snode const* wau = dir_concat(m_sg, dir_concat(m_sg, w, a, true), up, true);
         euf::snode const* wbv = dir_concat(m_sg, dir_concat(m_sg, w, b, true), vp, true);
-        const str_eq u_eq(u, wau, first.m_dep);
-        const str_eq v_eq(v, wbv, first.m_dep);
+        str_eq u_eq(u, wau, first.m_dep);
+        str_eq v_eq(v, wbv, first.m_dep);
 
         // Branch 1: |u| < |v|
         {
@@ -4834,6 +4844,19 @@ namespace seq {
                 expr_ref bound(a.mk_le(len_str, a.mk_int(max_len)), m);
                 TRACE(seq, tout << "Parikh " << mk_pp(mem.m_regex->get_expr(), m) << " bound: " << bound << "\n");
                 constraints.push_back(length_constraint(bound, mem.m_dep, length_kind::bound, false, m));
+            }
+
+            // Exact semi-linear length set (visit-count Parikh) for classical
+            // regexes; captures unions/strides precisely, unlike the coarse
+            // interval above (which we keep alongside - we might want to delete it eventually)
+            if (mem.is_plain() && mem.m_regex->is_classical()) {
+                vector<constraint> exact;
+                if (m_parikh->encode_length_set(mem.m_str->get_expr(), mem.m_regex->get_expr(), len_str, mem.m_dep, exact)) {
+                    for (auto const& c : exact) {
+                        TRACE(seq, tout << "semilinear " << mk_pp(mem.m_regex->get_expr(), m) << ": " << c.fml << "\n");
+                        constraints.push_back(length_constraint(c.fml, c.dep, length_kind::bound, false, m));
+                    }
+                }
             }
         }
     }

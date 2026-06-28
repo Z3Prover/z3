@@ -43,6 +43,8 @@ Author:
 
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_skolem.h"
 #include "smt/seq/seq_nielsen.h"
 
 namespace seq {
@@ -63,6 +65,8 @@ namespace seq {
         ast_manager& m;
         seq_util     seq;
         arith_util   a;
+        th_rewriter  m_rw;
+        skolem       m_sk;         // for deterministic, reusable visit-count vars
         unsigned     m_fresh_cnt;  // counter for fresh variable names
 
         // Compute the stride (period) of the length language of a regex.
@@ -85,6 +89,34 @@ namespace seq {
         // Create a fresh integer variable (name "pk!N") for use as the
         // Parikh multiplier variable k in len(str) = min_len + stride·k.
         expr_ref mk_fresh_int_var();
+
+        // --- exact semi-linear length encoding (visit-count Parikh) ---------
+        // Recursively encode the length set of a NON-EXTENDED (classical) regex
+        // by introducing, per subterm, an integer "visit-count" variable and
+        // Presburger flow constraints (paper "On the Complexity of Equational
+        // Horn Clauses", Verma/Seidl/Schwentick).  `count` is the count expr of
+        // the current subterm; on success pushes the subterm's structural
+        // constraints into `out` and returns its linear length contribution in
+        // `contrib`.  Returns false (caller discards) for any operator the flow
+        // cannot capture exactly (intersection, complement, diff, xor, of_pred,
+        // reverse, derivative, …).
+        //
+        // Count variables are NOT fresh constants — they are Skolem terms
+        //   seq.rc(str_key, root_re, idx)
+        // keyed on the membership (str + root regex) and a per-encoding DFS index
+        // `idx`.  Re-encoding the same membership therefore reuses the exact same
+        // counters instead of leaking new constants on every final_check / node.
+        bool rec(expr* re, expr* count, expr* str_key, expr* root_re, unsigned& idx,
+                 dep_tracker dep, vector<constraint>& out, expr_ref& contrib);
+
+        // Deterministic non-negative integer count variable
+        //   seq.rc(str_key, root_re, idx++)
+        // emits c >= 0 into out and bumps idx.
+        expr_ref mk_count_var(vector<constraint>& out, dep_tracker dep,
+                              expr* str_key, expr* root_re, unsigned& idx);
+
+        // Emit the reachability guard  count = 0 -> c1 = 0.
+        void push_zero_guard(vector<constraint>& out, dep_tracker dep, expr* count, expr* c1);
 
     public:
         explicit seq_parikh(euf::sgraph& sg);
@@ -126,6 +158,29 @@ namespace seq {
         // Compute the length stride of a regex expression.
         // Exposed for testing and external callers.
         unsigned get_length_stride(expr* re) { return compute_length_stride(re); }
+
+        // Exact semi-linear length encoding for a regex membership.
+        //
+        // For a NON-EXTENDED (classical) regex R, encodes the *exact* set
+        //   { |w| : w ∈ L(R) }
+        // as an existential Presburger formula over fresh visit-count variables,
+        // asserting  len_target = Σ (char-leaf counts)  together with the
+        // per-subterm flow constraints (concat: equal child counts; union:
+        // count = c1 + c2; star/plus/loop: bounded body count with the
+        // reachability guard count=0 → body=0).  This is linear in |R| and,
+        // unlike the single gcd `stride`, does not collapse on unions — e.g.
+        // (aa)*|(aaa)* yields len = 2·c1 + 3·c2 with c1+c2 the active branch,
+        // i.e. exactly {2k} ∪ {3k}.
+        //
+        // Returns true and appends the encoding (all carrying `dep`) to `out`
+        // when R is classical; returns false (leaving `out` unchanged) for
+        // extended regexes (intersection / complement / diff / of_pred / …),
+        // in which case the caller keeps the coarse interval/stride fallback.
+        //
+        // `str_key` identifies the membership's string term (mem.m_str): together
+        // with `re` it keys the reusable Skolem count variables, so re-encoding
+        // the same membership does not allocate new counters.
+        bool encode_length_set(expr* str_key, expr* re, expr* len_target, dep_tracker dep, vector<constraint>& out);
 
         // Convert a regex minterm expression to a char_set.
         //
