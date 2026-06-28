@@ -1912,7 +1912,7 @@ namespace smt {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
-        if (pp.core_minimize()) {
+        if (num_core_min_threads == 1) {
             m_core_minimizer_worker = alloc(core_minimizer_worker, *this, asms);
             sl.push_child(&(m_core_minimizer_worker->limit()));
         }
