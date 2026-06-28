@@ -1423,6 +1423,8 @@ namespace smt {
                         TRACE(model_finder, tout << "inserting " << mk_pp(e, m) << " into inst set\n");
                         S->insert(e, n->get_generation());
                     }
+                    else if (is_app(e) && to_app(e)->get_decl()->is_skolem())
+                        ;
                     else if (is_uninterp_const(e)) {
                         TRACE(model_finder, tout << "add production " << mk_pp(e, m) << "\n");
                         tn.add_production(e);

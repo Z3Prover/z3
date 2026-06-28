@@ -355,6 +355,7 @@ public:
         m_rewriter(term, simplified);
         if (m_seen_terms.contains(simplified))
             return nullptr;
+        IF_VERBOSE(0, verbose_stream() << "add " << simplified << "\n");
         m_seen_terms.insert(simplified);
         m_bank.add(simplified, cost);
         return simplified;
