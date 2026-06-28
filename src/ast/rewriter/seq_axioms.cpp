@@ -443,6 +443,8 @@ namespace seq {
         expr_ref s_eq_empty = mk_eq(s, seq.str.mk_empty(s->get_sort()));
         expr_ref t_eq_empty = mk_eq_empty(t);
 
+        add_clause(mk_ge(i, -1));
+
         // |t| = 0 => |s| = 0 or indexof(t,s,offset) = -1
         // ~contains(t,s) => indexof(t,s,offset) = -1
 

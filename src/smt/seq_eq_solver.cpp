@@ -189,7 +189,9 @@ bool theory_seq::len_based_split(depeq const& e) {
     expr_ref_vector const& rs = e.rs;
     
     int offset = 0;
-    if (!has_len_offset(ls, rs, offset))
+    // Splitting on equal-length heads (offset = 0) can cause large amounts
+    // of redundant branching on indexof-heavy problems.
+    if (!has_len_offset(ls, rs, offset) || offset == 0)
         return false;
         
     TRACE(seq, tout << "split based on length\n";);

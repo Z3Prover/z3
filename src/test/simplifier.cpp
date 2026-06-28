@@ -232,6 +232,41 @@ static void test_sat_smt_ufbv_predicate_model_validation() {
     Z3_del_context(ctx);
 }
 
+static void test_issue_5763() {
+    Z3_context ctx = Z3_mk_context(nullptr);
+    const char* s_result =
+        Z3_eval_smtlib2_string(ctx,
+            "(set-logic QF_SLIA)\n"
+            "(declare-const db_select_s_str_1 String)\n"
+            "(assert (let ((a!1 (not (<= (str.indexof (str.substr db_select_s_str_1 7 19)\n"
+            "                                 \" where \"\n"
+            "                                 0)\n"
+            "                    0))))\n"
+            "(let ((a!2 (or a!1\n"
+            "               (= 0\n"
+            "                  (str.indexof (str.substr db_select_s_str_1 7 19) \" where \" 0)))))\n"
+            "  (and (= 0 (str.indexof db_select_s_str_1 \"select \" 0))\n"
+            "       (<= 0 (str.indexof (str.substr db_select_s_str_1 7 19) \" from \" 0))\n"
+            "       (not a!2)\n"
+            "       (= (str.substr (str.substr db_select_s_str_1 7 19) 10 9) \"inventory\")))))\n"
+            "(check-sat)\n");
+    ENSURE(std::strstr(s_result, "sat") != nullptr);
+
+    const char* bv_result =
+        Z3_eval_smtlib2_string(ctx,
+            "(declare-const my_fn_a_int_1 Int)\n"
+            "(declare-const my_fn_b_int_2 Int)\n"
+            "(assert (let ((a!1 (bvnot (bvor (bvnot ((_ int2bv 64) my_fn_a_int_1))\n"
+            "                        (bvnot ((_ int2bv 64) my_fn_b_int_2))))))\n"
+            "(let ((a!2 (bvor (bvnot (bvor ((_ int2bv 64) my_fn_a_int_1)\n"
+            "                              ((_ int2bv 64) my_fn_b_int_2)))\n"
+            "                 a!1)))\n"
+            "  (not (= 0 (bv2int (bvnot a!2)))))))\n"
+            "(check-sat)\n");
+    ENSURE(std::strstr(bv_result, "sat") != nullptr);
+    Z3_del_context(ctx);
+}
+
 void tst_simplifier() {
 
     test_array();
@@ -240,4 +275,5 @@ void tst_simplifier() {
     test_bool();
     test_skolemize_bug();
     test_sat_smt_ufbv_predicate_model_validation();
+    test_issue_5763();
 }
