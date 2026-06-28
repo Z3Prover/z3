@@ -522,12 +522,18 @@ class parallel_solver {
         // Record a sound 'unknown' verdict. This is a soft result: it does not
         // cancel the remaining workers, so a definitive sat/unsat verdict from
         // another branch may still arrive and override it.
+        // Backbone workers and the core minimizer block on their own condition
+        // variables waiting for work that will never arrive once the state
+        // transitions away from is_running, so we must notify them here to
+        // prevent a deadlock.
         void set_unknown(std::string const& reason) {
             std::scoped_lock lock(mux);
             IF_VERBOSE(1, verbose_stream() << "Batch manager setting UNKNOWN: " << reason << ".\n");
             if (m_state != state::is_running) return;
             m_state = state::is_unknown;
             m_reason_unknown = reason;
+            m_bb_cv.notify_all();
+            m_core_min_cv.notify_all();
         }
 
         void set_exception(std::string const& msg) {

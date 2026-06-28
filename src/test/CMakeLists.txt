@@ -115,6 +115,7 @@ add_executable(test-z3
   polynomial_factorization.cpp
   polynorm.cpp
   prime_generator.cpp
+  psmt.cpp
   seq_regex_bisim.cpp
   proof_checker.cpp
   qe_arith.cpp
