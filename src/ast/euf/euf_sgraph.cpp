@@ -28,6 +28,8 @@ namespace euf {
         m(m),
         m_seq(m),
         m_rewriter(m),
+        m_th_rewriter(m),
+        m_sk(m, m_th_rewriter),
         m_egraph(eg),
         m_str_sort(m_seq.str.mk_string_sort(), m),
         m_pin(m) {
@@ -305,7 +307,7 @@ namespace euf {
         }
     }
 
-    static const unsigned HASH_BASE = 31;
+    static constexpr unsigned HASH_BASE = 31;
 
     // Compute a 2x2 polynomial hash matrix for associativity-respecting hashing.
     // Unsigned overflow is intentional and well-defined (mod 2^32).
@@ -333,7 +335,20 @@ namespace euf {
         else {
             // leaf/token: [[HASH_BASE, value], [0, 1]]
             // +1 avoids zero hash values; wraps safely on unsigned overflow
-            unsigned v = n->get_expr() ? n->get_expr()->get_id() + 1 : n->id() + 1;
+            // for slices it is the same as its parent
+            expr* e = n->get_expr();
+            SASSERT(e);
+            unsigned v;
+            if (m_sk.is_slice(e)) {
+                do {
+                    // get root variable
+                    e = to_app(e)->get_arg(0);
+                } while (m_sk.is_slice(e));
+                v = e->get_id();
+            }
+            else
+                v = e->get_id() + 1;
+
             n->m_hash_matrix[0][0] = HASH_BASE;
             n->m_hash_matrix[0][1] = v;
             n->m_hash_matrix[1][0] = 0;

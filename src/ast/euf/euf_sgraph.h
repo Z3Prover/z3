@@ -83,6 +83,8 @@ namespace euf {
         ast_manager&     m;
         seq_util         m_seq;
         seq_rewriter     m_rewriter;
+        th_rewriter      m_th_rewriter;
+        seq::skolem      m_sk;
         egraph&          m_egraph;
         region           m_region;
         snode_vector     m_nodes;

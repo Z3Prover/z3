@@ -1066,9 +1066,9 @@ namespace seq {
         // Canonical structural signature of a node (string equalities,
         // disequalities, memberships incl. view/guard metadata, char ranges).
         // Two nodes with equal signatures have identical string constraints.
-        std::vector<unsigned> compute_node_signature(nielsen_node const* n) const;
+        static std::vector<unsigned> compute_node_signature(nielsen_node const* n);
         // Union of all constraint deps of a node (sound over-approx conflict).
-        dep_tracker node_all_deps(nielsen_node const* n);
+        dep_tracker node_all_deps(nielsen_node const* n) const;
         // True iff the node's UNSAT depends only on string/regex constraints.
         bool node_unsat_string_only(nielsen_node const* n) const;
 

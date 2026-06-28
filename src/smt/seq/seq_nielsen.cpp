@@ -2124,13 +2124,14 @@ namespace seq {
         return reason_is_string_only(n->m_reason);
     }
 
-    std::vector<unsigned> nielsen_graph::compute_node_signature(nielsen_node const* n) const {
+    std::vector<unsigned> nielsen_graph::compute_node_signature(nielsen_node const* n) {
         std::vector<unsigned> sig;
         // string equalities (order-independent)
         {
             std::vector<std::pair<unsigned,unsigned>> v;
-            for (auto const& e : n->str_eqs())
+            for (auto const& e : n->str_eqs()) {
                 v.emplace_back(e.m_lhs->id(), e.m_rhs->id());
+            }
             std::sort(v.begin(), v.end());
             sig.push_back(static_cast<unsigned>(v.size()));
             for (auto const& [a,b] : v) { sig.push_back(a); sig.push_back(b); }
@@ -2139,9 +2140,10 @@ namespace seq {
         // string disequalities
         {
             std::vector<std::pair<unsigned,unsigned>> v;
-            for (auto const& d : n->str_deqs())
+            for (auto const& d : n->str_deqs()) {
                 v.emplace_back(d.m_lhs->id(), d.m_rhs->id());
-            std::sort(v.begin(), v.end());
+            }
+            std::ranges::sort(v);
             sig.push_back(static_cast<unsigned>(v.size()));
             for (auto const& [a,b] : v) { sig.push_back(a); sig.push_back(b); }
         }
@@ -2154,9 +2156,13 @@ namespace seq {
                               static_cast<unsigned>(mm.m_kind),
                               mm.m_root ? mm.m_root->id() : UINT_MAX,
                               mm.m_nu, mm.m_discharged ? 1u : 0u });
-            std::sort(v.begin(), v.end());
+            std::ranges::sort(v);
             sig.push_back(static_cast<unsigned>(v.size()));
-            for (auto const& a : v) for (unsigned x : a) sig.push_back(x);
+            for (auto const& a : v) {
+                for (unsigned x : a) {
+                    sig.push_back(x);
+                }
+            }
         }
         sig.push_back(UINT_MAX);
         // character-range constraints (per symbolic unit)
@@ -2165,22 +2171,38 @@ namespace seq {
             for (auto const& [uid, cr] : n->char_ranges()) {
                 std::vector<unsigned> entry;
                 entry.push_back(uid);
-                for (auto const& rg : cr.first.ranges()) { entry.push_back(rg.m_lo); entry.push_back(rg.m_hi); }
+                for (auto const& rg : cr.first.ranges()) {
+                    entry.push_back(rg.m_lo);
+                    entry.push_back(rg.m_hi);
+                }
                 v.push_back(std::move(entry));
             }
             std::sort(v.begin(), v.end());
             sig.push_back(static_cast<unsigned>(v.size()));
-            for (auto const& e : v) { sig.push_back(static_cast<unsigned>(e.size())); for (unsigned x : e) sig.push_back(x); }
+            for (auto const& e : v) {
+                sig.push_back(static_cast<unsigned>(e.size()));
+                for (unsigned x : e) {
+                    sig.push_back(x);
+                }
+            }
         }
         return sig;
     }
 
-    dep_tracker nielsen_graph::node_all_deps(nielsen_node const* n) {
+    dep_tracker nielsen_graph::node_all_deps(nielsen_node const* n) const {
         dep_tracker d = nullptr;
-        for (auto const& e : n->str_eqs())  d = m_dep_mgr.mk_join(d, e.m_dep);
-        for (auto const& q : n->str_deqs()) d = m_dep_mgr.mk_join(d, q.m_dep);
-        for (auto const& mm : n->str_mems()) d = m_dep_mgr.mk_join(d, mm.m_dep);
-        for (auto const& [uid, cr] : n->char_ranges()) d = m_dep_mgr.mk_join(d, cr.second);
+        for (auto const& e : n->str_eqs()) {
+            d = m_dep_mgr.mk_join(d, e.m_dep);
+        }
+        for (auto const& q : n->str_deqs()) {
+            d = m_dep_mgr.mk_join(d, q.m_dep);
+        }
+        for (auto const& mm : n->str_mems()) {
+            d = m_dep_mgr.mk_join(d, mm.m_dep);
+        }
+        for (auto const& [uid, cr] : n->char_ranges()) {
+            d = m_dep_mgr.mk_join(d, cr.second);
+        }
         return d;
     }
 
