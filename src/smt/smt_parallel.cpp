@@ -1860,14 +1860,25 @@ namespace smt {
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
         parallel_params pp(ctx.m_params);
-        unsigned num_global_bb_batch_threads = pp.num_bb_threads();
-        if (num_global_bb_batch_threads > 2)
+        unsigned num_global_bb_threads = pp.num_bb_threads();
+        if (num_global_bb_threads > 2)
             throw default_exception("parallel.num_bb_threads must be 0, 1, or 2");
-        unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
+        unsigned total_threads = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
+        unsigned num_workers = total_threads;
         unsigned num_sls_threads = 0;
         unsigned num_core_min_threads = (pp.core_minimize() ? 1 : 0);
-        unsigned num_global_bb_threads = num_global_bb_batch_threads;
-        unsigned total_threads = num_workers + num_sls_threads + num_core_min_threads + num_global_bb_threads;
+        if (num_workers > 2 + num_core_min_threads)
+            num_workers -= num_core_min_threads;
+        else
+            num_core_min_threads = 0;
+        if (num_workers > 2 + num_global_bb_threads)
+            num_workers -= num_global_bb_threads;
+        else
+            num_global_bb_threads = 0;
+        if (num_workers > 2 + num_sls_threads)
+            num_workers -= num_sls_threads;
+        else
+            num_sls_threads = 0;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);
         ast_manager &m = ctx.m;

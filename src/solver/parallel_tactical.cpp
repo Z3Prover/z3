@@ -1950,6 +1950,14 @@ public:
         unsigned num_bb_threads = pp.num_bb_threads();
         if (num_bb_threads > 2)
             throw default_exception("parallel.num_bb_threads must be 0, 1, or 2");
+        if (num_threads > num_bb_threads + 2)
+            num_threads -= num_bb_threads;
+        else
+            num_bb_threads = 0;
+        if (core_minimize && num_threads > 2)
+            num_threads -= 1;
+        else
+            core_minimize = false;
         unsigned total_threads = num_threads + (core_minimize ? 1 : 0) + num_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel tactical2 with " << total_threads << " threads\n";);
