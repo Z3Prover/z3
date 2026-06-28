@@ -91,6 +91,20 @@ static bool is_cancellation_exception(char const* msg) {
     return msg && (strstr(msg, "canceled") != nullptr || strstr(msg, "cancelled") != nullptr);
 }
 
+// A solver may return l_undef for a fundamental reason ("giveup") rather than
+// because it exhausted its resource budget. For example, the finite-domain
+// solver gives up when it is handed interpreted functions it cannot bit-blast.
+// In that case neither splitting the search space into more cubes nor raising
+// the per-thread conflict budget can ever change the answer, so the whole
+// portfolio must stop and report unknown instead of spinning until the
+// wall-clock timeout. These reasons are reported by inc_sat_solver with a
+// distinctive prefix.
+static bool is_giveup_reason(std::string const& reason) {
+    static const std::string giveup("(sat.giveup"), incomplete("(incomplete");
+    return reason.compare(0, giveup.size(), giveup) == 0
+        || reason.compare(0, incomplete.size(), incomplete) == 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* parallel_solver – the core portfolio engine                         */
 /* ------------------------------------------------------------------ */
@@ -133,6 +147,7 @@ class parallel_solver {
             is_running,
             is_sat,
             is_unsat,
+            is_giveup,
             is_exception_msg,
             is_exception_code
         };
@@ -187,6 +202,7 @@ class parallel_solver {
 
         unsigned     m_exception_code = 0;
         std::string  m_exception_msg;
+        std::string  m_unknown_reason;
         model_ref    m_model;
         expr_ref_vector m_unsat_core;
         std::atomic<bool> m_canceled = false;
@@ -486,6 +502,7 @@ class parallel_solver {
             m_model = nullptr;
             m_unsat_core.reset();
             m_canceled = false;
+            m_unknown_reason.clear();
         }
 
         void set_sat(ast_translation& l2g, model& mdl) {
@@ -511,6 +528,19 @@ class parallel_solver {
             SASSERT(m_unsat_core.empty());
             for (expr* c : core)
                 m_unsat_core.push_back(l2g(c));
+            cancel_background_threads();
+        }
+
+        void set_giveup(std::string const& reason) {
+            std::scoped_lock lock(mux);
+            if (m_state != state::is_running) return;
+            IF_VERBOSE(1, verbose_stream() << "Batch manager setting GIVEUP.\n");
+            m_state = state::is_giveup;
+            m_unknown_reason = reason;
+            // Surface the reason the solver gave up on, matching the behavior of
+            // the prior parallel tactic so that the user still sees why the
+            // result is unknown (the snapshot oracle captures this line).
+            IF_VERBOSE(0, verbose_stream() << reason << "\n");
             cancel_background_threads();
         }
 
@@ -941,6 +971,7 @@ class parallel_solver {
                 throw default_exception("par2: inconsistent end state");
             case state::is_sat:             return l_true;
             case state::is_unsat:           return l_false;
+            case state::is_giveup:          return l_undef;
             case state::is_exception_msg:
                 throw default_exception(m_exception_msg.c_str());
             case state::is_exception_code:
@@ -954,6 +985,8 @@ class parallel_solver {
         model_ref& get_model() { return m_model; }
 
         expr_ref_vector const& get_unsat_core() const { return m_unsat_core; }
+
+        std::string const& get_unknown_reason() const { return m_unknown_reason; }
 
         void collect_statistics(statistics& st) const {
             st.update("parallel-num-cubes", m_stats.m_num_cubes);
@@ -1215,6 +1248,18 @@ class parallel_solver {
                 switch (r) {
 
                 case l_undef: {
+                    // A fundamental "giveup" (e.g. the finite-domain solver was
+                    // handed interpreted functions it cannot bit-blast) cannot be
+                    // resolved by splitting into more cubes or raising the conflict
+                    // budget: every cube hits the same wall and the portfolio would
+                    // spin until the wall-clock timeout. Detect it and report
+                    // unknown for the whole search instead.
+                    std::string reason = s->reason_unknown();
+                    if (is_giveup_reason(reason)) {
+                        LOG_WORKER(1, " giveup: " << reason << "\n");
+                        b.set_giveup(reason);
+                        return;
+                    }
                     update_max_thread_conflicts();
                     LOG_WORKER(1, " found undef cube\n");
                     if (m_config.m_max_cube_depth <= cube.size())
@@ -2046,6 +2091,10 @@ public:
         st.copy(m_stats);
     }
 
+    std::string const& get_reason_unknown() const {
+        return m_batch_manager.get_unknown_reason();
+    }
+
     void reset_statistics() {
         m_stats.reset();
     }
@@ -2128,6 +2177,7 @@ public:
         case l_undef:
             if (!m.inc())
                 throw tactic_exception(Z3_CANCELED_MSG);
+            g->set_reason_unknown(ps.get_reason_unknown());
             break;
         }
 
