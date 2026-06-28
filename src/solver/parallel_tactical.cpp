@@ -52,7 +52,7 @@ public:
 
 #ifdef SINGLE_THREAD
 
-tactic* mk_parallel_tactic2(solver* s, params_ref const& p) {
+tactic* mk_parallel_tactic(solver* s, params_ref const& p) {
     return alloc(non_parallel_tactic2, s, p);
 }
 
