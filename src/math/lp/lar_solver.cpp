@@ -1125,8 +1125,10 @@ namespace lp {
 
     void lar_solver::explain_fixed_column(unsigned j, explanation& ex) {
         SASSERT(column_is_fixed(j));
-        auto* deps = get_bound_constraint_witnesses_for_column(j);
-        for (auto ci : flatten(deps))
+        const column& ul = m_imp->m_columns[j];
+        m_imp->m_tmp_dependencies.reset();
+        m_imp->m_dependencies.linearize(ul.lower_bound_witness(), ul.upper_bound_witness(), m_imp->m_tmp_dependencies);
+        for (auto ci : m_imp->m_tmp_dependencies)
             ex.push_back(ci);
     }
 
