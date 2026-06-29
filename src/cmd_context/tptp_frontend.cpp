@@ -291,6 +291,7 @@ class tptp_parser {
     sort* m_univ;
     bool m_has_conjecture = false;
     bool m_last_name_quoted = false;
+    std::string m_expected_status;        // SZS status from the input annotation, if any
     std::unordered_map<std::string, sort*> m_sorts;
     sort_ref_vector m_pinned_sorts;       // prevents cached sorts from being freed
     std::unordered_map<std::string, func_decl*> m_decls;
@@ -2135,6 +2136,7 @@ public:
         std::ostringstream buf;
         buf << in.rdbuf();
         m_input = buf.str();
+        extract_expected_status(m_input);
         m_lex = std::make_unique<lexer>(m_input);
         next();
         parse_toplevel(current_file);
@@ -2161,6 +2163,61 @@ public:
     }
 
     bool has_conjecture() const { return m_has_conjecture; }
+
+    std::string const& expected_status() const { return m_expected_status; }
+
+    // Scan TPTP comments for an SZS/Status annotation, e.g.
+    //   % Status   : Unsatisfiable
+    //   % SZS status Theorem
+    // Only the first annotation found (the top-level file's) is recorded.
+    void extract_expected_status(std::string const& text) {
+        if (!m_expected_status.empty())
+            return;
+        std::istringstream in(text);
+        std::string line;
+        while (std::getline(in, line)) {
+            // TPTP comment lines start with '%'.
+            size_t i = line.find_first_not_of(" \t");
+            if (i == std::string::npos || line[i] != '%')
+                continue;
+            ++i; // skip '%'
+            // Skip leading '%' and spaces.
+            i = line.find_first_not_of("% \t", i);
+            if (i == std::string::npos)
+                continue;
+            std::string rest = line.substr(i);
+            std::string status;
+            // Form 1: "SZS status <Word>"
+            if (rest.compare(0, 4, "SZS ") == 0) {
+                size_t p = rest.find("status");
+                if (p == std::string::npos)
+                    continue;
+                p += 6; // length of "status"
+                status = next_status_word(rest, p);
+            }
+            // Form 2: "Status : <Word>" / "Status   : <Word>"
+            else if (rest.compare(0, 6, "Status") == 0) {
+                size_t p = rest.find(':', 6);
+                if (p == std::string::npos)
+                    continue;
+                status = next_status_word(rest, p + 1);
+            }
+            if (!status.empty()) {
+                m_expected_status = status;
+                return;
+            }
+        }
+    }
+
+    static std::string next_status_word(std::string const& s, size_t p) {
+        size_t a = s.find_first_not_of(" \t", p);
+        if (a == std::string::npos)
+            return "";
+        size_t b = a;
+        while (b < s.size() && (isalnum((unsigned char)s[b]) || s[b] == '_'))
+            ++b;
+        return s.substr(a, b - a);
+    }
 };
 
 expr_ref tptp_parser::parse_term() {
@@ -2190,6 +2247,35 @@ expr_ref tptp_parser::parse_formula() {
 
 }
 
+// Classify an SZS status into the coarse verdict used for cross-checking.
+//   unsat: a refutation/proof exists (Theorem, Unsatisfiable, ContradictoryAxioms, ...)
+//   sat:   a model exists (Satisfiable, CounterSatisfiable, ...)
+//   other: no comparable verdict (Open, Unknown, Timeout, GaveUp, empty, ...)
+enum class szs_verdict { unsat, sat, other };
+
+static szs_verdict classify_szs(std::string const& s) {
+    if (s == "Theorem" || s == "Unsatisfiable" || s == "ContradictoryAxioms" || s == "Unsat")
+        return szs_verdict::unsat;
+    if (s == "Satisfiable" || s == "CounterSatisfiable" || s == "CounterTheorem" || s == "Sat")
+        return szs_verdict::sat;
+    return szs_verdict::other;
+}
+
+// Emit the SZS status produced by z3. If the input carries an annotated status
+// that contradicts the produced verdict, prepend "BUG" to flag the mismatch.
+static void report_szs_status(char const* produced, std::string const& expected) {
+    szs_verdict pv = classify_szs(produced);
+    szs_verdict ev = classify_szs(expected);
+    bool is_bug = !expected.empty() &&
+                  (pv == szs_verdict::unsat || pv == szs_verdict::sat) &&
+                  (ev == szs_verdict::unsat || ev == szs_verdict::sat) &&
+                  pv != ev;
+    if (is_bug)
+        std::cout << "% SZS status BUG " << produced << " (expected " << expected << ")\n";
+    else
+        std::cout << "% SZS status " << produced << "\n";
+}
+
 static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
     try {
@@ -2206,12 +2292,12 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         ctx.check_sat(0, nullptr);
         switch (ctx.cs_state()) {
         case cmd_context::css_unsat:
-            if (p.has_conjecture()) std::cout << "% SZS status Theorem\n";
-            else std::cout << "% SZS status Unsatisfiable\n";
+            if (p.has_conjecture()) report_szs_status("Theorem", p.expected_status());
+            else report_szs_status("Unsatisfiable", p.expected_status());
             break;
         case cmd_context::css_sat:
-            if (p.has_conjecture()) std::cout << "% SZS status CounterSatisfiable\n";
-            else std::cout << "% SZS status Satisfiable\n";
+            if (p.has_conjecture()) report_szs_status("CounterSatisfiable", p.expected_status());
+            else report_szs_status("Satisfiable", p.expected_status());
             if (g_display_model) {
                 model_ref mdl;
                 if (ctx.is_model_available(mdl))

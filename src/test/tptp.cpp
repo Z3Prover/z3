@@ -123,4 +123,51 @@ R"(tff(c1,conjecture, $let(a: $int, a := 5, $let(b: $int, b := 3, $less(b,a)))).
     unsigned code = run_tptp("tff(c1,conjecture, $less(1/0,1)).", out, err);
     ENSURE(code == ERR_PARSER);
     ENSURE(err.find("denominator of rational literal cannot be zero") != std::string::npos);
+
+    // SZS status cross-checking against the annotated input status.
+
+    // Matching annotation: no BUG flag.
+    {
+        std::string o = run_tptp(
+R"(% Status   : Unsatisfiable
+cnf(c1,axiom, p(X)).
+cnf(c2,axiom, ~ p(a)).)");
+        ENSURE(o.find("% SZS status Unsatisfiable") != std::string::npos);
+        ENSURE(o.find("BUG") == std::string::npos);
+    }
+
+    // Contradicting annotation (says Satisfiable, z3 finds Unsatisfiable): BUG.
+    {
+        std::string o = run_tptp(
+R"(% SZS status Satisfiable
+cnf(c1,axiom, p(X)).
+cnf(c2,axiom, ~ p(a)).)");
+        ENSURE(o.find("BUG") != std::string::npos);
+        ENSURE(o.find("expected Satisfiable") != std::string::npos);
+    }
+
+    // Contradicting annotation (says Unsatisfiable, z3 finds Satisfiable): BUG.
+    {
+        std::string o = run_tptp(
+R"(% Status   : Unsatisfiable
+fof(a1,axiom, p(a)).)");
+        ENSURE(o.find("BUG") != std::string::npos);
+    }
+
+    // Theorem annotation matches z3's Theorem verdict for conjectures: no BUG.
+    {
+        std::string o = run_tptp(
+R"(% SZS status Theorem
+fof(a1,axiom, ! [X] : (human(X) => mortal(X))).
+fof(a2,axiom, human(socrates)).
+fof(c1,conjecture, mortal(socrates)).)");
+        ENSURE(o.find("% SZS status Theorem") != std::string::npos);
+        ENSURE(o.find("BUG") == std::string::npos);
+    }
+
+    // Unannotated input: nothing to check, no BUG.
+    {
+        std::string o = run_tptp("fof(a1,axiom, p(a)).");
+        ENSURE(o.find("BUG") == std::string::npos);
+    }
 }
