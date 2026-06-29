@@ -160,6 +160,8 @@ namespace smt {
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
         enode_generation_table      m_sticky_generation_updates;
+        enode_generation_table      m_constant_generations;  // generations for enodes with !e->uses_cg_table()
+        enode_generation_table      m_r1_parent_generations; // generations of parents removed from m_cg_table while merging r1
 
         struct new_eq {
             enode *                 m_lhs;
@@ -609,6 +611,15 @@ namespace smt {
 
         unsigned get_generation(quantifier * q) const {
             return m_qmanager->get_generation(q);
+        }
+
+        unsigned get_generation(enode * e) {
+            if (!e->uses_cg_table())
+                return m_constant_generations.find(e);
+            
+            auto [cgr, generation] = m_cg_table.find(e);
+            SASSERT(cgr);
+            return *generation;
         }
 
         /**
@@ -1143,7 +1154,7 @@ namespace smt {
 
         void reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js);
 
-        void merge_cgc(enode * e, enode * e_prime);
+        void merge_cgc(enode * e, enode * e_prime, unsigned e_generation);
 
         void update_cgc_generation(enode * e, unsigned generation);
 

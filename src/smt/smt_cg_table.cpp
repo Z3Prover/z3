@@ -208,7 +208,7 @@ namespace smt {
     }
 
 
-    enode_bool_gen_ptr cg_table::insert(enode * n) {
+    enode_bool_gen_ptr cg_table::insert(enode * n, unsigned generation) {
         // it doesn't make sense to insert a constant.
         SASSERT(n->get_num_args() > 0);
         SASSERT(!m_manager.is_and(n->get_expr()));
@@ -223,20 +223,22 @@ namespace smt {
                 payload = &e->get_data().m_value;
             }
             else {
-                auto* e = UNTAG(unary_table*, t)->insert_if_not_there3(n, 0u);
+                e = UNTAG(unary_table*, t)->insert_if_not_there3(n, generation);
                 n_prime = e->get_data().m_key;
                 payload = &e->get_data().m_value;
+                (*payload) = generation;
             }
-            return enode_bool_payload_ptr(n_prime, false, payload);
+            return enode_bool_gen_ptr(n_prime, false, payload);
         case BINARY:
             if (auto* e = UNTAG(binary_table*, t)->find_core(n)) {
                 n_prime = e->get_data().m_key;
                 payload = &e->get_data().m_value;
             }
             else {
-                auto* e = UNTAG(binary_table*, t)->insert_if_not_there3(n, 0u);
+                e = UNTAG(binary_table*, t)->insert_if_not_there3(n, generation);
                 n_prime = e->get_data().m_key;
                 payload = &e->get_data().m_value;
+                (*payload) = generation;
             }
             TRACE(cg_table, tout << "insert: " << n->get_owner_id() << " " << cg_binary_hash()(n) << " inserted: " << (n == n_prime) << " " << n_prime->get_owner_id() << "\n";
                   display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";); 
@@ -248,9 +250,10 @@ namespace smt {
                 payload = &e->get_data().m_value;
             }
             else {
-                auto* e = UNTAG(comm_table*, t)->insert_if_not_there3(n, 0u);
+                e = UNTAG(comm_table*, t)->insert_if_not_there3(n, generation);
                 n_prime = e->get_data().m_key;
                 payload = &e->get_data().m_value;
+                (*payload) = generation;
             }
             return enode_bool_gen_ptr(n_prime, m_commutativity, payload);
         default:
@@ -259,9 +262,10 @@ namespace smt {
                 payload = &e->get_data().m_value;
             }
             else {
-                auto* e = UNTAG(table*, t)->insert_if_not_there3(n, 0u);
+                e = UNTAG(table*, t)->insert_if_not_there3(n, generation);
                 n_prime = e->get_data().m_key;
                 payload = &e->get_data().m_value;
+                (*payload) = generation;
             }
             return enode_bool_gen_ptr(n_prime, false, payload);
         }

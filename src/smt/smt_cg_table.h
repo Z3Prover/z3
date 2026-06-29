@@ -152,7 +152,7 @@ namespace smt {
            return n' and a boolean indicating whether n and n' are congruence
            modulo commutativity, otherwise insert n and return (n,false).
         */
-        enode_bool_gen_ptr insert(enode * n);
+        enode_bool_gen_ptr insert(enode * n, unsigned generation);
 
         void erase(enode * n);
 
@@ -171,7 +171,7 @@ namespace smt {
             }
         }
 
-        enode_gen_ptr find(enode * n) const {
+        enode_gen_ptr find_gen(enode * n) const {
             SASSERT(n->get_num_args() > 0);
             void * t = const_cast<cg_table*>(this)->get_table(n); 
             unary_table::entry* e = nullptr;
@@ -189,6 +189,10 @@ namespace smt {
                 e = UNTAG(table*, t)->find_core(n);
                 return e ? enode_gen_ptr(e->get_data().m_key, &e->get_data().m_value) : enode_gen_ptr(nullptr, nullptr);
             }
+        }
+
+        enode_gen_ptr find(enode * n) const {
+            return find_gen(n).first;
         }
 
         bool contains_ptr(enode * n) const {

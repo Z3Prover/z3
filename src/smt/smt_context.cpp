@@ -604,7 +604,7 @@ namespace smt {
                    tout << "\n";
                    tout << "contains: " << m_cg_table.contains(parent) << "\n";
                    if (m_cg_table.contains(parent)) {
-                       auto [owner, generation] = m_cg_table.find(parent);
+                       enode* owner; unsigned generation; std::tie(owner, generation) = m_cg_table.find(parent);
                        tout << "owner: " << owner->get_owner_id() << "\n";
                    }
                    m_cg_table.display(tout);
@@ -627,7 +627,7 @@ namespace smt {
     // Goes out of scope when n is garbage collected.
     void context::update_cgc_generation(enode * n, unsigned generation) {
         SASSERT(n->uses_cg_table());
-        auto [cgr, cgc_gen] = m_cg_table.find(n);
+        auto [cgr, cgc_gen] = m_cg_table.find_gen(n);
         SASSERT(cgr);
         SASSERT(cgc_gen);
 
@@ -677,21 +677,28 @@ namespace smt {
                             m_dyn_ack_manager.cg_conflict_eh(n1->get_app(), n2->get_app());
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
+                    if (m_r1_parent_generations.contains(parent))
+                        m_r1_parent_generations.erase(parent);
                     // It is not necessary to reinsert the equality to the congruence table
                     continue;
                 }
             }
             if (parent->is_cgc_enabled()) {
-                auto [parent_prime, used_commutativity, gen_ptr] = m_cg_table.insert(parent);
+                SASSERT(m_r1_parent_generations.contains(parent));
+                unsigned parent_generation = m_r1_parent_generations.find(parent);
+                m_r1_parent_generations.erase(parent);
+                auto [parent_prime, used_commutativity, generation] = m_cg_table.insert(parent);
                 if (parent_prime == parent) {
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());
                     SASSERT(m_cg_table.contains_ptr(parent));
+                    SASSERT(*generation == parent_generation);
+                    
                     r2_parents.push_back(parent);
                     continue;
                 }
                 
-                merge_cgc(parent, parent_prime, gen_ptr);
+                merge_cgc(parent, parent_prime, parent_generation);
 
                 if (parent_prime->m_root != parent->m_root) {
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()

@@ -104,9 +104,10 @@ namespace smt {
     void context::update_generation(enode * e) {
         enode *cgr = e->get_num_args() == 0 ? e : get_cg_root(e);
         if (0 < m_generation && m_generation < get_generation(cgr)) {
-            e->set_generation(nullptr, m_generation);
             if (e->uses_cg_table())
                 update_cgc_generation(e, m_generation);
+            else
+                m_constant_generations[e] = m_generation;
         }
     }
 
@@ -130,13 +131,15 @@ namespace smt {
         }
     };
 
-    void context::merge_cgc(enode * e1, enode * e2) {
+    void context::merge_cgc(enode * e1, enode * e2, unsigned e1_generation) {
         // We assume the congruence has already been updated. We might want to move that here, too.
         SASSERT(e2->is_cgr());
         SASSERT(!m_cg_table.contains_ptr(e1));
         SASSERT(m_cg_table.contains_ptr(e2));
+   
+        unsigned e2_generation = get_generation(e2);
 
-        push_trail(merge_cgc_trail(*this, e1, e1->get_generation(), e2, e2->get_generation()));
+        push_trail(merge_cgc_trail(*this, e1, e1_generation, e2, e2_generation));
 
         e1->m_cg = e2;  // we keep these for now
         // e2->m_generation = std::min(e1->m_generation, e2->m_generation);
@@ -1044,7 +1047,7 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode *e = enode::mk(m, get_region(), m_app2enode, to_app(n), generation, suppress_args, merge_tf, m_scope_lvl,
+        enode *e = enode::mk(m, get_region(), m_app2enode, to_app(n), suppress_args, merge_tf, m_scope_lvl,
                              cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
@@ -1064,10 +1067,9 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    auto [e_prime, used_commutativity, payload] = m_cg_table.insert(e);
-                    (void)payload;
+                    auto [e_prime, used_commutativity] = m_cg_table.insert(e, generation);
                     if (e != e_prime) {
-                        merge_cgc(e, e_prime);
+                        merge_cgc(e, e_prime, generation);
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {
@@ -1075,6 +1077,8 @@ namespace smt {
                     }
                 }
                 else {
+                    SASSERT(!e->uses_cg_table());
+                    m_constant_generations[e] = e->get_generation();
                     e->m_cg = e;
                 }
             }

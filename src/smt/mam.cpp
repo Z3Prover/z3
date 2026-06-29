@@ -1881,7 +1881,7 @@ namespace {
         }
 
         void update_max_generation(enode * n, enode * prev) {
-            m_max_generation = std::max(m_max_generation, n->get_generation());
+            m_max_generation = std::max(m_max_generation, m_context.get_generation(n));
 
             if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
                 m_used_enodes.push_back(std::make_tuple(prev, n));
@@ -1893,7 +1893,7 @@ namespace {
             for (unsigned i = 0; i < num_enodes; ++i) {
                 enode * n = enodes[i];
                 // binding might be a constant
-                unsigned curr = n->get_num_args() == 0 ? n->get_generation() : m_context.get_cg_root(n)->get_generation();
+                unsigned curr = m_context.get_generation(n);
                 if (curr > max)
                     max = curr;
             }
@@ -2063,7 +2063,7 @@ namespace {
         void get_min_max_top_generation(unsigned& min, unsigned& max) {
             SASSERT(!m_pattern_instances.empty());
             if (m_min_top_generation.empty()) {
-                min = max = m_pattern_instances[0]->get_generation();
+                min = max = m_context.get_generation(m_pattern_instances[0]);
                 m_min_top_generation.push_back(min);
                 m_max_top_generation.push_back(max);
             }
@@ -2072,7 +2072,7 @@ namespace {
                 max = m_max_top_generation.back();
             }
             for (unsigned i = m_min_top_generation.size(); i < m_pattern_instances.size(); ++i) {
-                unsigned curr = m_pattern_instances[i]->get_generation();
+                unsigned curr = m_context.get_generation(m_pattern_instances[i]);
                 min = std::min(min, curr);
                 m_min_top_generation.push_back(min);
                 max = std::max(max, curr);
@@ -2314,7 +2314,7 @@ namespace {
         m_max_top_generation.reset();
         m_pattern_instances.push_back(n);
 
-        m_max_generation = m_context.get_cg_root(n)->get_generation();
+        m_max_generation = m_context.get_generation(n);
 
         if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
             m_used_enodes.reset();
