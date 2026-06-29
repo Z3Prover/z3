@@ -676,16 +676,20 @@ namespace smt {
                             m_dyn_ack_manager.cg_conflict_eh(n1->get_app(), n2->get_app());
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
-                    if (m_r1_parent_generations.contains(parent))
-                        m_r1_parent_generations.erase(parent);
+                    if (parent->is_cgc_enabled()) {
+                        SASSERT(m_r1_parent_generations.contains(parent));
+                        unsigned parent_generation = m_r1_parent_generations.find(parent);
+                        m_constant_generations.insert(parent, parent_generation);
+                    }
                     // It is not necessary to reinsert the equality to the congruence table
+                    // (because the only congruence propagations that could lead to are already handled by the assign() here).
+                    
                     continue;
                 }
             }
             if (parent->is_cgc_enabled()) {
                 SASSERT(m_r1_parent_generations.contains(parent));
                 unsigned parent_generation = m_r1_parent_generations.find(parent);
-                m_r1_parent_generations.erase(parent);
                 auto [parent_prime, used_commutativity, gen_ptr] = m_cg_table.insert(parent, parent_generation);
                 if (parent_prime == parent) {
                     SASSERT(parent);
@@ -713,6 +717,7 @@ namespace smt {
                 r2_parents.push_back(parent);
             }
         }
+        m_r1_parent_generations.reset();
     }
 
     /**
@@ -1002,14 +1007,18 @@ namespace smt {
         for (enode * parent : enode::parents(r1)) {
             TRACE(add_eq_parents, tout << "visiting: #" << parent->get_owner_id() << "\n";);
             if (parent->is_cgc_enabled()) {
+                // Insert at some dummy generation here. An undo_merge_cgr will immediately follow to set the generation.
+                unsigned dummy_generation = 100000; // NOT UINT_MAX. In case this goes badly overflows would be hell to debug.
+
+                if (parent->is_true_eq()) {
+                    m_constant_generations.insert(parent, dummy_generation);
+                    continue;
+                }
                 
                 enode * cg = parent->m_cg;
-                if (!parent->is_true_eq() &&
-                    (parent == cg ||           // parent was root of the congruence class before and after the merge
+                if (parent == cg ||           // parent was root of the congruence class before and after the merge
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
-                     )) {
-                    // Insert at some dummy generation here. An undo_merge_cgr will immediately follow to set the generation.
-                    unsigned dummy_generation = 100000; // NOT UINT_MAX. In case this goes badly overflows would be hell to debug.
+                     ) {
                     auto [parent_cg, used_commutativity, generation] = m_cg_table.insert(parent, dummy_generation);
                     (void)used_commutativity;
                     (void)generation;
@@ -1066,7 +1075,8 @@ namespace smt {
         // optimization opportunity: we actually just need to look at updates above the current decision level.
         // Then we wouldn't have to check for minimum either.
         for (auto const& [t, generation] : m_sticky_generation_updates) {
-            SASSERT(t->uses_cg_table());
+            // SASSERT(t->uses_cg_table()); // may not hold if t is an equality that became true at some point after the generation update.
+            
             if (generation < e1_generation && congruent(t, e1)) {
                 set_generation(e1, generation);
             } else if (generation < e2_generation && congruent(t, e2)) {

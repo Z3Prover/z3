@@ -1069,7 +1069,6 @@ namespace smt {
         m_e_internalized_stack.push_back(n);
         m_trail_stack.push_ptr(&m_mk_enode_trail);
         m_enodes.push_back(e);
-        e->m_uses_cg_table = false;
         if (e->get_num_args() > 0) {
             if (e->is_true_eq()) {
                 bool_var v = enode2bool_var(e);
@@ -1080,7 +1079,6 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    e->m_uses_cg_table = true;
                     auto [e_prime, used_commutativity, sibling_gen_ptr] = m_cg_table.insert(e, generation);
                     if (e != e_prime) {
                         e->m_cg = e_prime;
