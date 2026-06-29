@@ -572,6 +572,14 @@ class tptp_parser {
     expr_ref coerce_arg(expr_ref const& e, sort* target) {
         sort* actual = e->get_sort();
         if (actual == target) return e;
+        // Int <-> Real conversions must use the arithmetic semantics (to_real /
+        // to_int), never an uninterpreted boxing function: an uninterpreted box
+        // severs the numeric link between the two sides and lets the solver build
+        // spurious models (e.g. it would make floor/ceiling identities sat).
+        if (m_arith.is_int(actual) && m_arith.is_real(target))
+            return expr_ref(m_arith.mk_to_real(e), m);
+        if (m_arith.is_real(actual) && m_arith.is_int(target))
+            return expr_ref(m_arith.mk_to_int(e), m);
         // Create a boxing function from actual sort to target sort
         std::string box_name = std::string("$box_") + actual->get_name().str() + "_to_" + target->get_name().str();
         std::string key = mk_decl_key(box_name, 1, 'f');
@@ -1133,6 +1141,17 @@ class tptp_parser {
 
         if (lhs->get_sort() == rhs->get_sort()) return lhs;
 
+        // Mixed Int/Real arithmetic operands: promote the integer side to Real
+        // (lossless) via the semantic to_real conversion, so equality stays
+        // arithmetically faithful instead of going through an uninterpreted box.
+        if (m_arith.is_int_real(lhs) && m_arith.is_int_real(rhs)) {
+            if (m_arith.is_int(lhs->get_sort()))
+                lhs = expr_ref(m_arith.mk_to_real(lhs), m);
+            else
+                rhs = expr_ref(m_arith.mk_to_real(rhs), m);
+            return lhs;
+        }
+
         // Coerce 0-arity constants to match the other side's sort
         if (is_app(lhs) && to_app(lhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
             return coerce_zero_arity(to_app(lhs), rhs->get_sort());
@@ -1331,8 +1350,14 @@ class tptp_parser {
                 // but ')' didn't follow. Parse as formula with the connective already consumed.
                 expr_ref inner(m);
                 if (saved.kind == token_kind::not_tok) {
-                    expr_ref e = parse_formula();
-                    inner = expr_ref(m.mk_not(e), m);
+                    // "( ~ <formula> )": the '~' is a unary connective binding only the
+                    // next unary unit; ordinary binary connectives then apply at their
+                    // own precedence (e.g. "( ~ p | q )" is "(~p) | q", NOT "~(p | q)").
+                    // We have already consumed '(' and '~', so negate the next unit and
+                    // resume precedence-climbing parsing from that negated left operand.
+                    expr_ref operand = parse_unary_formula();
+                    expr_ref neg(m.mk_not(ensure_bool(operand)), m);
+                    inner = parse_binary_rest(neg, PREC_IFF, true);
                 } else {
                     // Binary connective at start of parens — shouldn't happen in valid TPTP
                     throw parse_error("unexpected connective after '(' at " + loc());
@@ -1653,7 +1678,13 @@ class tptp_parser {
             }
             expect(token_kind::colon, "':'");
             m_bound.push_back(scope);
-            expr_ref body = parse_formula();
+            // A TPTP quantifier body is a <unit_formula>: the quantifier binds
+            // tighter than the binary connectives & | => <= <=> <~> ~| ~&. Parse
+            // at equality precedence so the body absorbs an infix =/!= but stops
+            // at any lower-precedence connective, which stays in the enclosing
+            // expression. E.g. "! [X] : p(X) & q(X)" is "(! [X] : p(X)) & q(X)",
+            // and "! [X] : (...) => g" keeps "=> g" outside the quantifier scope.
+            expr_ref body = parse_expr(PREC_EQ);
             m_bound.pop_back();
             return mk_quantifier(is_forall, vars, body);
         }
@@ -1690,6 +1721,13 @@ class tptp_parser {
     //          Implements a Pratt-style (precedence climbing) parser for binary connectives.
     expr_ref parse_expr(unsigned min_prec, bool consume_at = true) {
         expr_ref e = parse_unary_formula();
+        return parse_binary_rest(e, min_prec, consume_at);
+    }
+
+    // Precedence-climbing loop continued from an already-parsed left operand `e`.
+    // Split out from parse_expr so callers that have consumed a leading unary unit
+    // (e.g. a '~' immediately after '(') can resume binary-connective parsing.
+    expr_ref parse_binary_rest(expr_ref e, unsigned min_prec, bool consume_at = true) {
         for (;;) {
             // Handle @ (function application) with highest precedence
             // But NOT when we're inside a lambda body that's an @ argument

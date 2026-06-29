@@ -111,6 +111,30 @@ R"(tff(c1,conjecture, $let([a: $int, b: $int], [a := 1, b := 2], $less($sum(a,b)
          "% SZS status Theorem"},
         {"tff-let-nested",
 R"(tff(c1,conjecture, $let(a: $int, a := 5, $let(b: $int, b := 3, $less(b,a)))).)",
+         "% SZS status Theorem"},
+        // Parenthesized negation binds only the next literal, not the whole
+        // disjunction: "( ~ p | q )" is "(~p) | q", not "~(p | q)". With p
+        // asserted this is satisfiable (q true); the old whole-formula negation
+        // made it spuriously unsatisfiable.
+        {"fof-paren-negation-precedence",
+R"(fof(a1,axiom, ( ~ p | q )).
+fof(a2,axiom, p).)",
+         "% SZS status Satisfiable"},
+        // A TPTP quantifier binds tighter than the binary connectives, so
+        // "! [X] : p(X) => g" is "(! [X] : p(X)) => g". With p(a), ~p(b), ~g the
+        // antecedent is false, so the implication holds (Theorem). The old parse
+        // "! [X] : (p(X) => g)" was false at X=a and reported CounterSatisfiable.
+        {"fof-quantifier-binds-tighter-than-implies",
+R"(fof(a1,axiom, p(a)).
+fof(a2,axiom, ~ p(b)).
+fof(a3,axiom, ~ g).
+fof(c1,conjecture, ! [X] : p(X) => g).)",
+         "% SZS status Theorem"},
+        // Mixed Int/Real equality must use the arithmetic to_real coercion, not
+        // an uninterpreted boxing function: $to_int(3.0) = 3.0 is valid because
+        // to_real(3) = 3.0. Boxing severed the link and reported CounterSatisfiable.
+        {"tff-int-real-equality-coercion",
+R"(tff(c1,conjecture, $to_int(3.0) = 3.0).)",
          "% SZS status Theorem"}
     };
     for (auto const& c : cases) {
