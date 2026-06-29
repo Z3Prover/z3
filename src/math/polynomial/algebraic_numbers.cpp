@@ -594,9 +594,24 @@ namespace algebraic_numbers {
         }
 
         void sort_roots(numeral_vector & r) {
-            if (m_limit.inc()) {
-                // DEBUG_CODE(check_transitivity(r););
-                std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
+            if (!m_limit.inc())
+                return;
+            // DEBUG_CODE(check_transitivity(r););
+            // Bounds-checked insertion sort. We deliberately avoid std::sort: the
+            // comparator (lt -> compare) is NOT pure -- it MUTATES the algebraic
+            // numbers it compares (refines their isolating intervals, and may collapse
+            // a root to a rational) and can hit the resource limit and throw. Because
+            // the operands change as the sort proceeds, the order it induces is not a
+            // fixed strict weak ordering over a single sort; that violates std::sort's
+            // precondition (undefined behavior) and, via libstdc++'s *unguarded*
+            // insertion pass, leads to out-of-bounds reads -> SIGSEGV. A fully guarded
+            // insertion sort can never read out of bounds regardless of how
+            // (in)consistent the comparator is, and unwinds cleanly if compare throws
+            // on cancellation. anum swap is a cheap pointer swap. See also
+            // nlsat/levelwise.cpp, which fixes the same class of bug.
+            for (unsigned i = 1; i < r.size(); ++i) {
+                for (unsigned j = i; j > 0 && lt(r[j], r[j - 1]); --j)
+                    std::swap(r[j], r[j - 1]);
             }
         }
 
