@@ -99,11 +99,11 @@ namespace smt {
         if (n->get_num_args() > 0) {
             enode * cg = n->get_cg();
             SASSERT(cg != nullptr);
-            SASSERT(cg->get_generation() <= n->get_generation());
+            SASSERT(get_generation(cg) <= get_generation(n));
 
             enode * cgr = get_cg_root(n);
             SASSERT(cgr->is_cgr());
-            SASSERT(cgr->get_generation() <= n->get_generation());
+            SASSERT(get_generation(cgr) <= get_generation(n));
         }
 
         return true;

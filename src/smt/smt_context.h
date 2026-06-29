@@ -614,7 +614,7 @@ namespace smt {
             return m_qmanager->get_generation(q);
         }
 
-        unsigned get_generation(enode * e) {
+        unsigned get_generation(enode * e) const  {
             if (!e->uses_cg_table())
                 return m_constant_generations.find(e);
             

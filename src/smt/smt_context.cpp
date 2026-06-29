@@ -604,7 +604,7 @@ namespace smt {
                    tout << "\n";
                    tout << "contains: " << m_cg_table.contains(parent) << "\n";
                    if (m_cg_table.contains(parent)) {
-                       enode* owner; unsigned generation; std::tie(owner, generation) = m_cg_table.find(parent);
+                       enode* owner = m_cg_table.find(parent);
                        tout << "owner: " << owner->get_owner_id() << "\n";
                    }
                    m_cg_table.display(tout);
@@ -616,6 +616,7 @@ namespace smt {
                 SASSERT(!parent->is_cgc_enabled() || m_cg_table.contains_ptr(parent));
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
+                    m_r1_parent_generations.insert(parent, get_generation(parent));
                     m_cg_table.erase(parent);
                     SASSERT(!m_cg_table.contains_ptr(parent));
                 }
@@ -631,7 +632,7 @@ namespace smt {
         SASSERT(cgr);
         SASSERT(cgc_gen);
         // Callers are responsible for this. Sticky updates are too expensive to accommodate no-ops.
-        SASSERT(*cgc_gen < generation);
+        SASSERT(generation < *cgc_gen);
             
         *cgc_gen = generation;
         m_sticky_generation_updates.insert(n, generation);
@@ -1052,8 +1053,6 @@ namespace smt {
     }
 
     void context::undo_merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {
-        SASSERT(e2->get_generation() == != UINT_MAX); // from undo_add_eq
-
         // TODO: optimization: don't bother unrolling e1 if e1 is an enode about to be garbage collected.
         set_generation(e1, e1_generation);
         set_generation(e2, e2_generation);
