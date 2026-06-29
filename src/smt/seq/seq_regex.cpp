@@ -625,7 +625,7 @@ namespace seq {
             SASSERT(first);
             if (first != var)
                 continue;
-            TRACE(seq, tout << spp(first, m) << " " << mem_pp(mem, m) << "\n");
+            TRACE(seq, tout << spp(first, m) << " " << mem_pp(mem) << "\n");
 
             if (!result) {
                 result = mem.m_regex;
@@ -642,14 +642,6 @@ namespace seq {
             }
         }
         return result;
-    }
-
-    // -----------------------------------------------------------------------
-    // Cycle detection
-    // -----------------------------------------------------------------------
-
-    bool seq_regex::detect_cycle(seq::str_mem const& mem) const {
-        return extract_cycle(mem) != nullptr;
     }
 
     // -----------------------------------------------------------------------
@@ -782,55 +774,6 @@ namespace seq {
         // via character-split modifiers.
         out_mems.push_back(working);
         return true;
-    }
-
-    // -----------------------------------------------------------------------
-    // History recording
-    // -----------------------------------------------------------------------
-
-    seq::str_mem seq_regex::record_history(seq::str_mem const& mem, euf::snode const* history_re) {
-
-        return str_mem(mem.m_str, mem.m_regex, mem.m_dep);
-    }
-
-    // -----------------------------------------------------------------------
-    // Cycle detection
-    // -----------------------------------------------------------------------
-
-    euf::snode const* seq_regex::extract_cycle(seq::str_mem const& mem) const {
-#if 0
-        // Walk the history chain looking for a repeated regex.
-        // A cycle exists when the current regex matches a regex in the history.
-        if (!mem.m_regex || !mem.m_history)
-            return nullptr;
-
-        euf::snode const* current = mem.m_regex;
-        euf::snode const* hist = mem.m_history;
-
-        // Walk the history chain up to a bounded depth.
-        // The history is structured as a chain of regex snapshots connected
-        // via the sgraph's regex-concat: each level's arg(0) is a snapshot
-        // and arg(1) is the tail. A leaf (non-concat) is a terminal entry.
-        unsigned bound = 1000;
-        while (hist && bound-- > 0) {
-            euf::snode const* entry = hist;
-            euf::snode const* tail = nullptr;
-
-            // If the history node is a regex concat, decompose it:
-            // arg(0) is the regex snapshot, arg(1) is the rest of the chain
-            if (hist->is_concat() && seq.re.is_concat(hist->get_expr())) {
-                entry = hist->arg(0);
-                tail = hist->arg(1);
-            }
-
-            // Check pointer equality (fast, covers normalized regexes)
-            if (entry == current)
-                return entry;
-
-            hist = tail;
-        }
-#endif
-        return nullptr;
     }
 
     // -----------------------------------------------------------------------

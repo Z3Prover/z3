@@ -222,9 +222,8 @@ namespace smt {
                 return;
             euf::snode const* s1 = get_snode(e1);
             euf::snode const* s2 = get_snode(e2);
-            seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
+            m_prop_queue.push_back(eq_item(m, s1, s2, get_enode(v1), get_enode(v2), nullptr));
             m_last_constraint_added = ctx.get_scope_level();
             m_can_hot_restart = false;
             ++m_eager_dirty;
@@ -269,10 +268,9 @@ namespace smt {
             else {
                 euf::snode const* s1 = get_snode(e1);
                 euf::snode const* s2 = get_snode(e2);
-                const seq::dep_tracker dep = nullptr;
                 ctx.push_trail(restore_vector(m_prop_queue));
                 const expr_ref eq_expr(m.mk_eq(e1, e2), m);
-                m_prop_queue.push_back(deq_item(s1, s2, ~ctx.get_literal(eq_expr), dep));
+                m_prop_queue.push_back(deq_item(m, s1, s2, ~ctx.get_literal(eq_expr), nullptr));
                 m_last_constraint_added = ctx.get_scope_level();
                 m_can_hot_restart = false;
                 ++m_eager_dirty;
@@ -296,10 +294,9 @@ namespace smt {
             if (m_seq.str.is_in_re(e, s, re)) {
                 euf::snode const* sn_str = get_snode(s);
                 euf::snode const* sn_re  = get_snode(re);
-                const seq::dep_tracker dep = nullptr;
                 if (is_true) {
                     ctx.push_trail(restore_vector(m_prop_queue));
-                    m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, dep));
+                    m_prop_queue.push_back(mem_item(m, sn_str, sn_re, lit, nullptr));
                     m_last_constraint_added = ctx.get_scope_level();
                     m_can_hot_restart = false;
                     ++m_eager_dirty;
@@ -311,7 +308,7 @@ namespace smt {
                     const expr_ref re_compl(m_seq.re.mk_complement(re), m);
                     euf::snode const* sn_re_compl = get_snode(re_compl.get());
                     ctx.push_trail(restore_vector(m_prop_queue));
-                    m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, dep));
+                    m_prop_queue.push_back(mem_item(m, sn_str, sn_re_compl, lit, nullptr));
                     m_last_constraint_added = ctx.get_scope_level();
                     m_can_hot_restart = false;
                     ++m_eager_dirty;
@@ -973,6 +970,16 @@ namespace smt {
                         SASSERT(!node->is_general_conflict());
                         node->clear_reason();
                     }
+                    else if (node->reason() == seq::backtrack_reason::sibling) {
+                        // A non-general sibling conflict (a loop cut, or a closure
+                        // that escaped to an ancestor) is valid only for the path it
+                        // was found on; the changed external context may now admit a
+                        // model.  Clear it (and its recorded deps) for re-exploration.
+                        // Self-contained sibling closures are general and were skipped
+                        // above.
+                        SASSERT(!node->is_general_conflict());
+                        node->clear_local_conflict();
+                    }
 
                     if (node->is_external_conflict())
                         node->clear_local_conflict();
@@ -1291,11 +1298,11 @@ namespace smt {
         std::cout << "The root node contained " << m_nielsen.root()->str_mems().size() << " memberships and " << m_nielsen.root()->str_eqs().size() << " equalities" << std::endl;
         unsigned idx = 0;
         for (auto& eq : m_nielsen.root()->str_eqs()) {
-            std::cout << "[" << (idx++) << "]: " << seq::eq_pp(eq, m) << "\n";
+            std::cout << "[" << (idx++) << "]: " << seq::eq_pp(eq) << "\n";
         }
         idx = 0;
         for (auto& mem : m_nielsen.root()->str_mems()) {
-            std::cout << "[" << (idx++) << "]: " << seq::mem_pp(mem, m) << "\n";
+            std::cout << "[" << (idx++) << "]: " << seq::mem_pp(mem) << "\n";
         }
         std::flush(std::cout);
 #endif
@@ -2033,7 +2040,7 @@ namespace smt {
                 literal_vector dep_lits;
 
                 for (unsigned idx : mem_indices) {
-                    std::cout << seq::mem_pp(mems[idx], m) << std::endl;
+                    std::cout << seq::mem_pp(mems[idx]) << std::endl;
                     seq::deps_to_lits(m_nielsen.dep_mgr(), mems[idx].m_dep, eqs, dep_lits);
                 }
                 

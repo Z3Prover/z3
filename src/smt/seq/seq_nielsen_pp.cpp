@@ -597,9 +597,9 @@ namespace seq {
         case backtrack_reason::extended:         return "Extended";
         case backtrack_reason::symbol_clash:     return "Symbol Clash";
         case backtrack_reason::parikh_image:     return "Parikh Image";
-        case backtrack_reason::subsumption:      return "Subsumption";
         case backtrack_reason::arithmetic:       return "Arithmetic";
         case backtrack_reason::regex:            return "Regex";
+        case backtrack_reason::sibling:          return "Sibling";
         case backtrack_reason::regex_widening:   return "RegexWidening";
         case backtrack_reason::character_range:  return "Character Range";
         case backtrack_reason::smt:              return "SMT";

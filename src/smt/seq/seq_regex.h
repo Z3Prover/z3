@@ -251,7 +251,7 @@ namespace seq {
             if (deriv)
                 propagate_self_stabilizing(parent_re, deriv);
             euf::snode const* new_str = m_sg.drop_first(mem.m_str);
-            return str_mem(new_str, deriv, mem.m_dep);
+            return str_mem(mem.m, new_str, deriv, mem.m_dep);
         }
 
         // -----------------------------------------------------------------
@@ -320,21 +320,6 @@ namespace seq {
         // -----------------------------------------------------------------
         // Cycle detection and stabilizers
         // -----------------------------------------------------------------
-
-        // record current regex in the derivation history of a str_mem.
-        // the history tracks a chain of (regex, id) pairs for cycle detection.
-        // returns the updated str_mem.
-        str_mem record_history(str_mem const& mem, euf::snode const* history_re);
-
-        // check if the derivation history of mem contains a cycle, i.e.,
-        // the same regex id appears twice in the history chain.
-        // if found, returns the cycle entry point regex; nullptr otherwise.
-        euf::snode const* extract_cycle(str_mem const& mem) const;
-
-        // check if the derivation history exhibits a cycle.
-        // returns true when the current regex matches a previously seen regex
-        // in the history chain. used to trigger stabilizer introduction.
-        bool detect_cycle(str_mem const& mem) const;
 
         // compute a Kleene star stabilizer from a cycle.
         // given the regex at the cycle point and the current regex,

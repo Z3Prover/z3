@@ -2194,72 +2194,6 @@ static void test_explain_conflict_mixed_eq_mem() {
     ng.test_aux_explain_conflict(eqs, mem_literals);
 }
 
-// test subsumption pruning during solve: a node whose constraint set
-// is a superset of a known-unsat node is pruned
-static void test_subsumption_pruning_unsat() {
-    std::cout << "test_subsumption_pruning_unsat\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-
-    dummy_simple_solver solver;
-    seq::context_solver_i context_solver;
-    seq::nielsen_graph ng(sg, solver, context_solver);
-    euf::snode const* a = sg.mk_char('A');
-    euf::snode const* b = sg.mk_char('B');
-
-    // A = B is an immediate conflict (symbol clash).
-    // Any branch that inherits this equation should be pruned.
-    ng.add_str_eq(a, b);
-    const auto result = ng.solve();
-    SASSERT(result == seq::nielsen_graph::search_result::unsat);
-
-    // root should have conflict set
-    SASSERT(ng.root()->is_general_conflict());
-}
-
-// test that subsumption sets backtrack_reason::subsumption
-static void test_subsumption_reason_set() {
-    std::cout << "test_subsumption_reason_set\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-
-    dummy_simple_solver solver;
-    seq::context_solver_i context_solver;
-    seq::nielsen_graph ng(sg, solver, context_solver);
-    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
-    euf::snode const* a = sg.mk_char('A');
-    euf::snode const* b = sg.mk_char('B');
-
-    // x·A = y·B: after Nielsen splitting, children will have A=B
-    // which is unsat. The subsumption pruning may fire on sibling
-    // branches that inherit the same conflict.
-    euf::snode const* xa = sg.mk_concat(x, a);
-    euf::snode const* yb = sg.mk_concat(y, b);
-    ng.add_str_eq(xa, yb);
-
-    const auto result = ng.solve();
-    SASSERT(result == seq::nielsen_graph::search_result::unsat);
-
-    // check that at least one node has subsumption reason
-    bool found_subsumption = false;
-    for (const seq::nielsen_node* nd : ng.nodes()) {
-        if (nd->reason() == seq::backtrack_reason::subsumption) {
-            found_subsumption = true;
-            SASSERT(nd->is_general_conflict());
-            break;
-        }
-    }
-    // subsumption may or may not fire depending on search order;
-    // the important thing is the solve result is correct.
-    // If it does fire, the reason must be subsumption.
-    (void)found_subsumption;
-}
-
 // test generate_length_constraints: basic equation x . y = A . B
 static void test_length_constraints_basic() {
     std::cout << "test_length_constraints_basic\n";
@@ -3971,8 +3905,6 @@ void tst_seq_nielsen() {
     test_var_nielsen_substitution_types();
     test_explain_conflict_mem_only();
     test_explain_conflict_mixed_eq_mem();
-    test_subsumption_pruning_unsat();
-    test_subsumption_reason_set();
     test_length_constraints_basic();
     test_length_constraints_trivial_skip();
     test_length_constraints_empty();

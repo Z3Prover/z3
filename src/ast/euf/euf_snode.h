@@ -123,6 +123,36 @@ namespace euf {
             return arg(0);
         }
 
+        // equal modulo slicing
+        bool similar(const snode* str, ast_manager& m) const {
+            if (m_length != str->m_length)
+                return false;
+            auto it1 = begin();
+            auto it2 = str->begin();
+            for (; it1 != end() && it2 != str->end(); it1++, it2++) {
+                if ((*it1)->kind() != (*it2)->kind())
+                    return false;
+                if ((*it1)->is_var()) {
+                    expr* e1 = (*it1)->get_expr();
+                    expr* e2 = (*it2)->get_expr();
+                    th_rewriter th(m);
+                    seq::skolem sk(m, th);
+                    while (sk.is_slice(e1)) {
+                        e1 = to_app(e1)->get_arg(0);
+                    }
+                    while (sk.is_slice(e2)) {
+                        e2 = to_app(e2)->get_arg(0);
+                    }
+                    if (e1 != e2)
+                        return false;
+                    continue;
+                }
+                if (*it1 != *it2)
+                    return false;
+            }
+            return true;
+        }
+
         // Iterator over the leaf tokens of this snode, modulo concatenation
         // (analogous to first()/last()/at()): an s_concat tree is flattened to
         // its leaf tokens in left-to-right order, empty nodes are skipped, and

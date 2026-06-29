@@ -39,7 +39,9 @@ Author:
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/euf/euf_mam.h"
 #include "ast/euf/euf_sgraph.h"
+#include "ast/rewriter/arith_rewriter.h"
 #include "model/model.h"
 #include "util/lbool.h"
 #include "util/dependency.h"
@@ -48,7 +50,7 @@ Author:
 #include "util/rational.h"
 #include "util/uint_set.h"
 #include "util/vector.h"
-#include <map>
+#include <unordered_set>
 #include <set>
 #include <vector>
 
@@ -85,33 +87,15 @@ namespace seq {
         extended,
         symbol_clash,
         parikh_image,
-        subsumption,  // not used; retained for enum completeness
         arithmetic,
         regex,
+        sibling,
         regex_widening,
         character_range,
         smt,
         external,
         children_failed,
     };
-
-    inline std::ostream& operator<<(std::ostream& out, backtrack_reason r) {
-        switch (r) {
-        case backtrack_reason::unevaluated: return out << "unevaluated";
-        case backtrack_reason::extended: return out << "extended";
-        case backtrack_reason::symbol_clash: return out << "symbol_clash";
-        case backtrack_reason::parikh_image: return out << "parikh_image";
-        case backtrack_reason::subsumption: return out << "subsumption";
-        case backtrack_reason::arithmetic: return out << "arithmetic";
-        case backtrack_reason::regex: return out << "regex";
-        case backtrack_reason::regex_widening: return out << "regex_widening";
-        case backtrack_reason::character_range: return out << "char range";
-        case backtrack_reason::children_failed: return out << "children_failed";
-        case backtrack_reason::external: return out << "external";
-        case backtrack_reason::smt: return out << "smt";
-        default: return out << "<tbd reason>";
-        }
-    }
 
     // source of a dependency: identifies an input constraint by kind and index.
     // kind::eq means a string equality, kind::mem means a regex membership.
@@ -194,17 +178,36 @@ namespace seq {
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)
     struct str_eq {
+        ast_manager& m;
         euf::snode const* m_lhs; // assumed to be non-null
         euf::snode const* m_rhs; // assumed to be non-null
         dep_tracker m_dep;
 
-        str_eq(euf::snode const* lhs, euf::snode const* rhs, dep_tracker const& dep): 
-            m_lhs(lhs), m_rhs(rhs), m_dep(dep) {
+        str_eq(ast_manager& m, euf::snode const* lhs, euf::snode const* rhs, dep_tracker const& dep):
+            m(m), m_lhs(lhs), m_rhs(rhs), m_dep(dep) {
             SASSERT(well_formed());
+            sort();
         }
 
-        bool operator==(str_eq const& other) const {
-            return m_lhs == other.m_lhs && m_rhs == other.m_rhs;
+        str_eq& operator=(const str_eq & other) {
+            m_lhs = other.m_lhs;
+            m_rhs = other.m_rhs;
+            m_dep = other.m_dep;
+            return *this;
+        }
+
+        bool operator==(const str_eq& other) const {
+            return m_lhs->similar(other.m_lhs, m) && m_rhs->similar(other.m_rhs, m);
+        }
+
+        bool operator<(const str_eq& other) const {
+            if (m_lhs != other.m_lhs)
+                return m_lhs < other.m_lhs;
+            return m_rhs < other.m_rhs;
+        }
+
+        unsigned hash() const {
+            return 586947209 * m_lhs->assoc_hash() + m_rhs->assoc_hash();
         }
 
         // sort so that lhs <= rhs by snode id
@@ -224,29 +227,47 @@ namespace seq {
 
     struct eq_pp {
         str_eq const &eq;
-        ast_manager &m;
-        eq_pp(str_eq const &e, ast_manager &m) : eq(e), m(m) {}
+        eq_pp(str_eq const &e) : eq(e) {}
     };
 
     inline std::ostream &operator<<(std::ostream &out, eq_pp const &p) {
-        return out << snode_label_html(p.eq.m_lhs, p.m, false)
+        return out << snode_label_html(p.eq.m_lhs, p.eq.m, false)
             << " == "
-            << snode_label_html(p.eq.m_rhs, p.m, false);
+            << snode_label_html(p.eq.m_rhs, p.eq.m, false);
     }
 
     // string disequality constraint: lhs != rhs
     struct str_deq {
+        ast_manager& m;
         euf::snode const* m_lhs; // assumed to be non-null
         euf::snode const* m_rhs; // assumed to be non-null
         dep_tracker m_dep;
 
-        str_deq(euf::snode const* lhs, euf::snode const* rhs, dep_tracker const& dep): 
-            m_lhs(lhs), m_rhs(rhs), m_dep(dep) {
+        str_deq(ast_manager& m, euf::snode const* lhs, euf::snode const* rhs, dep_tracker const& dep):
+            m(m), m_lhs(lhs), m_rhs(rhs), m_dep(dep) {
             SASSERT(well_formed());
+            sort();
         }
 
-        bool operator==(str_deq const& other) const {
-            return m_lhs == other.m_lhs && m_rhs == other.m_rhs;
+        str_deq& operator=(const str_deq & other) {
+            m_lhs = other.m_lhs;
+            m_rhs = other.m_rhs;
+            m_dep = other.m_dep;
+            return *this;
+        }
+
+        bool operator==(const str_deq& other) const {
+            return m_lhs->similar(other.m_lhs, m) && m_rhs->similar(other.m_rhs, m);
+        }
+
+        bool operator<(const str_deq& other) const {
+            if (m_lhs != other.m_lhs)
+                return m_lhs < other.m_lhs;
+            return m_rhs < other.m_rhs;
+        }
+
+        unsigned hash() const {
+            return 891170543 * m_lhs->assoc_hash() + m_rhs->assoc_hash();
         }
 
         void sort() {
@@ -267,14 +288,13 @@ namespace seq {
 
     struct deq_pp {
         str_deq const &deq;
-        ast_manager &m;
-        deq_pp(str_deq const &e, ast_manager &m) : deq(e), m(m) {}
+        deq_pp(str_deq const &e) : deq(e) {}
     };
 
     inline std::ostream &operator<<(std::ostream &out, deq_pp const &p) {
-        return out << snode_label_html(p.deq.m_lhs, p.m, false)
+        return out << snode_label_html(p.deq.m_lhs, p.deq.m, false)
             << " != "
-            << snode_label_html(p.deq.m_rhs, p.m, false);
+            << snode_label_html(p.deq.m_rhs, p.deq.m, false);
     }
 
     // kind of a regex membership constraint (paper Section 3.3, "views"):
@@ -290,6 +310,7 @@ namespace seq {
     // regex membership constraint: str in regex
     // mirrors ZIPT's StrMem
     struct str_mem {
+        ast_manager& m;
         euf::snode const* m_str; // assumed to be non-null
         euf::snode const* m_regex; // assumed to be non-null (plain regex = current run state)
         dep_tracker m_dep;
@@ -300,20 +321,31 @@ namespace seq {
         unsigned          m_nu = 0;          // ν: snapshot index identifying Q
         bool              m_discharged = false; // guard monitor: false=watch, true=discharged
 
-        str_mem(euf::snode const* str, euf::snode const* regex, dep_tracker const& dep):
-            m_str(str), m_regex(regex), m_dep(dep) {}
+        str_mem(ast_manager& m, euf::snode const* str, euf::snode const* regex, dep_tracker const& dep):
+            m(m), m_str(str), m_regex(regex), m_dep(dep) {}
+
+        str_mem& operator=(const str_mem& other) {
+            m_str = other.m_str;
+            m_regex = other.m_regex;
+            m_dep = other.m_dep;
+            m_kind = other.m_kind;
+            m_root = other.m_root;
+            m_nu = other.m_nu;
+            m_discharged = other.m_discharged;
+            return *this;
+        }
 
         // factory for a stabilizer view  str ∈_{Q_ν,{root}} root  (m_regex=state)
-        static str_mem mk_view(euf::snode const* str, euf::snode const* state,
+        static str_mem mk_view(ast_manager& m, euf::snode const* str, euf::snode const* state,
                                euf::snode const* root, unsigned nu, dep_tracker const& dep) {
-            str_mem r(str, state, dep);
+            str_mem r(m, str, state, dep);
             r.m_kind = mem_kind::stab_view; r.m_root = root; r.m_nu = nu;
             return r;
         }
         // factory for a cycle guard  noloop(str, root, Q_ν)  (m_regex=state)
-        static str_mem mk_guard(euf::snode const* str, euf::snode const* state,
+        static str_mem mk_guard(ast_manager& m, euf::snode const* str, euf::snode const* state,
                                 euf::snode const* root, unsigned nu, dep_tracker const& dep) {
-            str_mem r(str, state, dep);
+            str_mem r(m, str, state, dep);
             r.m_kind = mem_kind::no_loop; r.m_root = root; r.m_nu = nu;
             return r;
         }
@@ -322,10 +354,20 @@ namespace seq {
         bool is_view()  const { return m_kind == mem_kind::stab_view; }
         bool is_guard() const { return m_kind == mem_kind::no_loop; }
 
-        bool operator==(str_mem const& other) const {
-            return m_str == other.m_str && m_regex == other.m_regex
+        bool operator==(const str_mem& other) const {
+            return m_str->similar(other.m_str, m) && m_regex == other.m_regex
                 && m_kind == other.m_kind && m_root == other.m_root
                 && m_nu == other.m_nu && m_discharged == other.m_discharged;
+        }
+
+        bool operator<(const str_mem& other) const {
+            if (m_str != other.m_str)
+                return m_str < other.m_str;
+            return m_regex < other.m_regex;
+        }
+
+        unsigned hash() const {
+            return 381416603 * m_str->assoc_hash() + m_regex->assoc_hash();
         }
 
         // check if the constraint has the form x in R with x a single variable
@@ -347,14 +389,13 @@ namespace seq {
 
     struct mem_pp {
         str_mem const& mem;
-        ast_manager &m;
-        mem_pp(str_mem const& mem, ast_manager& m) : mem(mem), m(m) {}
+        mem_pp(str_mem const& mem) : mem(mem) {}
     };
     inline std::ostream &operator<<(std::ostream &out, mem_pp const &p) {
         return out
-            << snode_label_html(p.mem.m_str, p.m, false)
+            << snode_label_html(p.mem.m_str, p.mem.m, false)
             << " in "
-            << snode_label_html(p.mem.m_regex, p.m, false);
+            << snode_label_html(p.mem.m_regex, p.mem.m, false);
     }
 
     // string variable substitution: var -> replacement
@@ -399,6 +440,7 @@ namespace seq {
         dep_tracker dep;   // tracks which input constraints contributed
 
         static expr_ref simplify(expr* f, ast_manager& m) {
+            //arith_rewriter th(m);
             //th_rewriter th(m);
             expr_ref fml(f, m);
             //th(fml);
@@ -514,6 +556,30 @@ namespace seq {
         backtrack_reason        m_reason = backtrack_reason::unevaluated;
         bool                    m_is_progress = false;
         bool                    m_node_len_constraints_generated = false; // true after generate_node_length_constraints runs
+
+        unsigned                m_hash = 0; // 0 ... unset
+
+        nielsen_node*            m_parent = this;
+
+        // DFS bookkeeping for the subsumption (loop-cut) rule.
+        //  m_dfs_path_pos:    structural depth (= cur_path.size()) of this node while
+        //                     it is on the active DFS path; read by a descendant that
+        //                     loops back to it as a sibling.
+        //  m_subtree_lowlink: minimum structural depth that this node's UNSAT closure
+        //                     escapes to via sibling cuts below it (Tarjan-style
+        //                     lowlink).  UINT_MAX means "no cut escapes" — the unsat
+        //                     is self-contained.  Only meaningful when the node's last
+        //                     result was unsat.
+        unsigned                m_dfs_path_pos    = 0;
+        unsigned                m_subtree_lowlink = UINT_MAX;
+        //  m_subtree_has_cut: a sibling loop-cut occurred somewhere in this node's
+        //  closed subtree.  A cut defers to an ancestor whose ARITHMETIC side
+        //  constraints differ, so it is only a valid UNSAT witness inside a closure
+        //  that uses string-only reasons throughout.  When a cut coexists with a
+        //  non-string-only (arithmetic / external) conflict the subtree result is
+        //  NOT a sound UNSAT — search_dfs reports unknown instead.
+        bool                    m_subtree_has_cut = false;
+
         // true once this node has been proven UNSAT for reasons that depend only
         // on its string/regex constraints (not on arithmetic / Parikh / external
         // context).  Such an unsat is a property of the node's string signature
@@ -543,10 +609,10 @@ namespace seq {
         vector<str_mem> const& str_mems() const { return m_str_mem; }
         vector<str_mem>& str_mems() { return m_str_mem; }
 
-        void add_str_eq(str_eq& eq);
-        void add_str_deq(str_deq& deq);
-        void add_str_mem(str_mem const& mem);
-        void add_constraint(constraint const &ic);
+        void add_str_eq(const str_eq& eq);
+        void add_str_deq(const str_deq& deq);
+        void add_str_mem(const str_mem& mem);
+        void add_constraint(const constraint &ic);
 
         vector<constraint> const& constraints() const { return m_constraints; }
         vector<constraint>& constraints() { return m_constraints; }
@@ -578,6 +644,11 @@ namespace seq {
         nielsen_edge* parent_edge() const { return m_parent_edge; }
         void set_parent_edge(nielsen_edge* e) { m_parent_edge = e; }
 
+        // returns 0 if hash is unknown
+        unsigned hash() const {
+            return m_hash;
+        }
+
         // status
         bool is_general_conflict() const { return m_is_general_conflict; }
         void set_general_conflict() {
@@ -592,6 +663,9 @@ namespace seq {
         bool is_currently_conflict() const {
             return is_general_conflict() ||
                 m_conflict_external_literal != sat::null_literal ||
+                // a sibling (loop-cut / subsumption) conflict counts even when the
+                // node was never extended (a cut leaf has no children).
+                reason() == backtrack_reason::sibling ||
                 (reason() != backtrack_reason::unevaluated && m_is_extended);
         }
 
@@ -617,7 +691,7 @@ namespace seq {
             if (m_conflict_internal != nullptr && m_conflict_external_literal == sat::null_literal)
                 return;
             // We prefer internal conflicts (we need it as a justification for general conflicts)
-            TRACE(seq, tout << "internal conflict " << r << "\n");
+            TRACE(seq, tout << "internal conflict " << (unsigned)r << "\n");
             m_reason = r;
             m_conflict_internal = confl;
             m_conflict_external_literal = sat::null_literal;
@@ -639,6 +713,22 @@ namespace seq {
 
         // apply a substitution to all constraints
         void apply_subst(euf::sgraph& sg, nielsen_subst const& s);
+
+        // Transposition table helpers (node memoization of string-only UNSAT).
+        // after computing the signature we should not change the node anymore
+        // the hash disregards length constraints on purpose for subsumption checks
+        unsigned canonize_and_compute_node_hash();
+
+        unsigned canonize_and_compute_final_node_hash() {
+            if (m_hash)
+                return m_hash;
+            m_hash = canonize_and_compute_node_hash();
+            return m_hash;
+        }
+
+        // check if two nodes are equivalent modulo side-constraints
+        // (actually subset checks would be better but we currently do not track this)
+        bool is_node_sibling(nielsen_node const* n);
 
         // simplify all constraints at this node and initialize status.
         // Uses cur_path for LP solver queries during deterministic power cancellation.
@@ -679,6 +769,22 @@ namespace seq {
         // Length bounds are queried from the arithmetic subsolver when needed.
     };
 
+    struct nielsen_node_hash {
+        // outputs the hash without side-constraints
+        unsigned operator()(nielsen_node* n) const {
+            const unsigned h = n->hash();
+            if (h == 0)
+                return n->canonize_and_compute_node_hash();
+            return h;
+        }
+    };
+
+    struct nielsen_node_eq {
+        unsigned operator()(nielsen_node* n1, nielsen_node* n2) const {
+            return n1->is_node_sibling(n2);
+        }
+    };
+
     // search statistics collected during Nielsen graph solving
     struct nielsen_stats {
         unsigned m_num_solve_calls     = 0;
@@ -712,6 +818,9 @@ namespace seq {
         unsigned m_mod_var_num_unwinding_eq = 0;
         unsigned m_mod_var_num_unwinding_mem = 0;
         unsigned m_ax_diseq = 0;
+        // subsumption rule
+        unsigned m_num_sibling_cut     = 0; // loop-cut leaves (deferred to an ancestor)
+        unsigned m_num_sibling_closure = 0; // subtrees closed as string-only sibling conflicts
         void reset() { memset(this, 0, sizeof(nielsen_stats)); }
     };
 
@@ -750,7 +859,7 @@ namespace seq {
 
         struct partial_dfa_edge_key_hash {
             size_t operator()(partial_dfa_edge_key const& k) const {
-                size_t h = static_cast<size_t>(k.m_src);
+                size_t h = k.m_src;
                 h = (h * 1315423911u) ^ static_cast<size_t>(k.m_label + 0x9e3779b9u);
                 h = (h * 2654435761u) ^ static_cast<size_t>(k.m_dst + 0x85ebca6bu);
                 return h;
@@ -762,6 +871,7 @@ namespace seq {
         seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
         th_rewriter                   m_rw;
+        arith_rewriter                m_a_rw;
         skolem                        m_sk;
         ptr_vector<nielsen_node>      m_nodes;
         ptr_vector<nielsen_edge>      m_edges;
@@ -835,12 +945,19 @@ namespace seq {
         // see ensure_automaton_explored).
         uint_set                      m_explored_automaton;
 
+        // Active-path index for the subsumption rule, keyed structurally (nodes
+        // with identical string constraints share a bucket).  While a node is on
+        // the DFS path it is pushed onto its bucket and popped on leaving, so a
+        // non-empty bucket for the current node holds exactly the ancestor(s) it
+        // is a sibling of — i.e. a loop back up the Nielsen tree.
+        std::unordered_map<nielsen_node*, vector<nielsen_node*>, nielsen_node_hash, nielsen_node_eq> m_siblings;
+
         // Transposition table: structural signatures of nodes already proven
         // UNSAT for string/regex-only reasons.  A node whose signature is present
         // is unsatisfiable regardless of how it was reached, so the DFS can prune
         // it without re-exploring its subtree (turns the search tree into the
         // finite DAG the termination proof bounds).  See compute_node_signature.
-        std::set<std::vector<unsigned>> m_unsat_node_cache;
+        std::unordered_set<nielsen_node*, nielsen_node_hash, nielsen_node_eq> m_unsat_node_cache;
         unsigned m_num_cache_hits = 0;
 
         // Incremental eager-closure chain state (see eager_begin / eager_close).
@@ -1062,11 +1179,6 @@ namespace seq {
 
         search_result search_dfs(nielsen_node *node, ptr_vector<nielsen_edge>& path, unsigned depth = 0);
 
-        // Transposition table helpers (node memoization of string-only UNSAT).
-        // Canonical structural signature of a node (string equalities,
-        // disequalities, memberships incl. view/guard metadata, char ranges).
-        // Two nodes with equal signatures have identical string constraints.
-        static std::vector<unsigned> compute_node_signature(nielsen_node const* n);
         // Union of all constraint deps of a node (sound over-approx conflict).
         dep_tracker node_all_deps(nielsen_node const* n) const;
         // True iff the node's UNSAT depends only on string/regex constraints.
@@ -1356,3 +1468,21 @@ namespace seq {
     };
 
 }
+
+template <> struct std::hash<seq::str_eq> {
+    unsigned operator()(seq::str_eq& eq) const noexcept {
+        return eq.hash();
+    }
+};
+
+template <> struct std::hash<seq::str_deq> {
+    unsigned operator()(seq::str_deq& deq) const noexcept {
+        return deq.hash();
+    }
+};
+
+template <> struct std::hash<seq::str_mem> {
+    unsigned operator()(seq::str_mem& mem) const noexcept {
+        return mem.hash();
+    }
+};

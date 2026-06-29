@@ -363,12 +363,11 @@ namespace seq {
         SASSERT(m_constraints.size() == parent.m_constraints.size());
     }
 
-    void nielsen_node::add_str_eq(str_eq& eq) {
+    void nielsen_node::add_str_eq(const str_eq& eq) {
         SASSERT(eq.m_lhs != nullptr);
         SASSERT(eq.m_rhs != nullptr);
         if (eq.is_trivial())
             return;
-        eq.sort();
         // check if root node contains this equation already
         if (std::ranges::any_of(str_eqs(),
             [&](const str_eq &e) { return e.m_lhs == eq.m_lhs && e.m_rhs == eq.m_rhs; }))
@@ -377,10 +376,9 @@ namespace seq {
         m_str_eq.push_back(eq);
     }
 
-    void nielsen_node::add_str_deq(str_deq& deq) {
+    void nielsen_node::add_str_deq(const str_deq& deq) {
         SASSERT(deq.m_lhs != nullptr);
         SASSERT(deq.m_rhs != nullptr);
-        deq.sort();
         // check if root node contains this equation already
         if (std::ranges::any_of(str_deqs(),
         [&](const str_deq &e) { return e.m_lhs == deq.m_lhs && e.m_rhs == deq.m_rhs; }))
@@ -507,6 +505,59 @@ namespace seq {
         }
     }
 
+    unsigned nielsen_node::canonize_and_compute_node_hash() {
+        unsigned hash = 457260179;
+        std::sort(str_eqs().begin(), str_eqs().end());
+        for (auto const& e : str_eqs()) {
+            hash += 433867097 * e.hash();
+        }
+        std::sort(str_deqs().begin(), str_deqs().end());
+        for (auto const& e : str_deqs()) {
+            hash += 982048589 * e.hash();
+        }
+        std::sort(str_mems().begin(), str_mems().end());
+        for (auto const& e : str_mems()) {
+            hash += 736051237 * e.hash();
+        }
+
+        for (auto const& [uid, cr] : char_ranges()) {
+            // not sorted; computation needs to be commutative
+            for (auto const& rg : cr.first.ranges()) {
+                hash += 473672767 * (750753749 * rg.m_lo + rg.m_hi) + uid;
+            }
+        }
+        return hash;
+    }
+
+    bool nielsen_node::is_node_sibling(nielsen_node const* n) {
+        if (n->str_eqs().size() != str_eqs().size())
+            return false;
+        if (n->str_deqs().size() != str_deqs().size())
+            return false;
+        if (n->str_mems().size() != str_mems().size())
+            return false;
+        if (n->char_ranges().size() != char_ranges().size())
+            return false;
+        for (unsigned i = 0; i < str_eqs().size(); i++) {
+            if (str_eqs()[i] != n->str_eqs()[i])
+                return false;
+        }
+        for (unsigned i = 0; i < str_deqs().size(); i++) {
+            if (str_deqs()[i] != n->str_deqs()[i])
+                return false;
+        }
+        for (unsigned i = 0; i < str_mems().size(); i++) {
+            if (str_mems()[i] != n->str_mems()[i])
+                return false;
+        }
+        for (unsigned i = 0; i < char_ranges().size(); i++) {
+            // TODO: Check once more
+            if (char_ranges()[i] != n->char_ranges()[i])
+                return false;
+        }
+        return true;
+    }
+
     void nielsen_node::add_char_range(euf::snode const* sym_char, char_set const& range, dep_tracker dep) {
         if (sym_char->is_char()) {
             // for a concrete character just check if it matches
@@ -558,8 +609,8 @@ namespace seq {
     // -----------------------------------------------
 
     nielsen_graph::nielsen_graph(euf::sgraph &sg, sub_solver_i &solver, context_solver_i &ctx_solver) :
-        m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_sk(m, m_rw),
-        m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
+        m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_a_rw(m),
+        m_sk(m, m_rw), m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)), m_partial_dfa_pin(sg.get_manager()) {
     }
 
@@ -619,38 +670,37 @@ namespace seq {
 
     void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs, smt::enode *l, smt::enode *r) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
-        str_eq eq(lhs, rhs, dep);
+        str_eq eq(m, lhs, rhs, dep);
         m_root->add_str_eq(eq);
     }
 
     void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal l) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(l);
-        str_deq deq(lhs, rhs, dep);
+        str_deq deq(m, lhs, rhs, dep);
         m_root->add_str_deq(deq);
     }
 
     void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal l) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(l);
-        m_root->add_str_mem(str_mem(str, regex, dep));
+        m_root->add_str_mem(str_mem(m, str, regex, dep));
     }
 
     // test-friendly overloads (no external dependency tracking)
     void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
-        str_eq eq(lhs, rhs, dep);
-        eq.sort();
+        const str_eq eq(m, lhs, rhs, dep);
         m_root->add_str_eq(eq);
     }
 
     void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
-        str_deq deq(lhs, rhs, dep);
+        const str_deq deq(m, lhs, rhs, dep);
         m_root->add_str_deq(deq);
     }
 
     void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex) const {
         const dep_tracker dep = nullptr;
-        str_mem mem(str, regex, dep);
+        const str_mem mem(m, str, regex, dep);
         m_root->add_str_mem(mem);
     }
 
@@ -678,6 +728,7 @@ namespace seq {
         m_projection_extract_idx = 0;
         m_explored_automaton.reset();
         m_unsat_node_cache.clear();
+        m_siblings.clear();
         m_num_cache_hits = 0;
         m_eager_active = false;
         m_eager_leaf = nullptr;
@@ -1616,7 +1667,7 @@ namespace seq {
                     euf::snode const* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
                         : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
-                    TRACE(seq, tout << mem_pp(mem, m) << " d: " << spp(deriv, m) << "\n");
+                    TRACE(seq, tout << mem_pp(mem) << " d: " << spp(deriv, m) << "\n");
                     if (!deriv)
                         break;
                     if (deriv->is_fail()) {
@@ -1721,7 +1772,7 @@ namespace seq {
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
             if (mem.is_contradiction(this)) {
-                TRACE(seq, tout << "contradiction " << mem_pp(mem, m) << "\n");
+                TRACE(seq, tout << "contradiction " << mem_pp(mem) << "\n");
                 set_general_conflict();
                 set_conflict(backtrack_reason::regex, mem.m_dep);
                 return simplify_result::conflict;
@@ -1949,6 +2000,9 @@ namespace seq {
                 if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
                     break;
                 ptr_vector<nielsen_edge> cur_path;
+                // The active-path index is per-traversal; clear it so a sat-aborted
+                // previous iteration cannot leave stale ancestors behind.
+                m_siblings.clear();
                 // scoped_push _scoped_push(m_dep_mgr); // gc dependencies after search
                 SASSERT(!m_root->is_currently_conflict());
                 const search_result r = search_dfs(m_root, cur_path); // the main search loop
@@ -2014,7 +2068,7 @@ namespace seq {
         dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         lhs = eager_rewrite(lhs, dep);
         rhs = eager_rewrite(rhs, dep);
-        str_eq eq(lhs, rhs, dep);
+        str_eq eq(m, lhs, rhs, dep);
         eq.sort();
         m_eager_leaf->add_str_eq(eq);
     }
@@ -2024,7 +2078,7 @@ namespace seq {
         dep_tracker dep = m_dep_mgr.mk_leaf(lit);
         lhs = eager_rewrite(lhs, dep);
         rhs = eager_rewrite(rhs, dep);
-        str_deq deq(lhs, rhs, dep);
+        str_deq deq(m, lhs, rhs, dep);
         m_eager_leaf->add_str_deq(deq);
     }
 
@@ -2033,7 +2087,7 @@ namespace seq {
         dep_tracker dep = m_dep_mgr.mk_leaf(lit);
         str = eager_rewrite(str, dep);
         regex = eager_rewrite(regex, dep);
-        m_eager_leaf->add_str_mem(str_mem(str, regex, dep));
+        m_eager_leaf->add_str_mem(str_mem(m, str, regex, dep));
     }
 
     // Drive the deterministic chain from the current leaf to a fixpoint.  Each step
@@ -2044,7 +2098,7 @@ namespace seq {
     nielsen_graph::search_result nielsen_graph::eager_close() {
         SASSERT(m_eager_active && m_eager_leaf);
         ++m_stats.m_num_eager_calls;
-        ptr_vector<nielsen_edge> empty_path;
+        const ptr_vector<nielsen_edge> empty_path;
 
         // Rigid defined ops (str.replace_all, …) must never be Nielsen-substituted;
         // a rigid term is inherited down the whole chain, so a single check on the
@@ -2111,6 +2165,12 @@ namespace seq {
         case backtrack_reason::regex_widening:
         case backtrack_reason::symbol_clash:
         case backtrack_reason::character_range:
+        // a sibling (subsumption / loop-cut) conflict depends only on the node's
+        // string signature: a cut equates two nodes by their string constraints,
+        // and a sibling closure is reached only when every leaf below is itself a
+        // string-only conflict or a cut.  (Whether the closure is *cacheable* is a
+        // separate, stronger question handled via the lowlink in search_dfs.)
+        case backtrack_reason::sibling:
             return true;
         default:
             // arithmetic, parikh_image, external, children_failed, unevaluated
@@ -2122,71 +2182,6 @@ namespace seq {
         if (n->m_reason == backtrack_reason::children_failed)
             return n->m_unsat_cacheable; // set when the children_failed result was formed
         return reason_is_string_only(n->m_reason);
-    }
-
-    std::vector<unsigned> nielsen_graph::compute_node_signature(nielsen_node const* n) {
-        std::vector<unsigned> sig;
-        // string equalities (order-independent)
-        {
-            std::vector<std::pair<unsigned,unsigned>> v;
-            for (auto const& e : n->str_eqs()) {
-                v.emplace_back(e.m_lhs->id(), e.m_rhs->id());
-            }
-            std::sort(v.begin(), v.end());
-            sig.push_back(static_cast<unsigned>(v.size()));
-            for (auto const& [a,b] : v) { sig.push_back(a); sig.push_back(b); }
-        }
-        sig.push_back(UINT_MAX); // section separator
-        // string disequalities
-        {
-            std::vector<std::pair<unsigned,unsigned>> v;
-            for (auto const& d : n->str_deqs()) {
-                v.emplace_back(d.m_lhs->id(), d.m_rhs->id());
-            }
-            std::ranges::sort(v);
-            sig.push_back(static_cast<unsigned>(v.size()));
-            for (auto const& [a,b] : v) { sig.push_back(a); sig.push_back(b); }
-        }
-        sig.push_back(UINT_MAX);
-        // regex memberships incl. view/guard metadata
-        {
-            std::vector<std::vector<unsigned>> v;
-            for (auto const& mm : n->str_mems())
-                v.push_back({ mm.m_str->id(), mm.m_regex->id(),
-                              static_cast<unsigned>(mm.m_kind),
-                              mm.m_root ? mm.m_root->id() : UINT_MAX,
-                              mm.m_nu, mm.m_discharged ? 1u : 0u });
-            std::ranges::sort(v);
-            sig.push_back(static_cast<unsigned>(v.size()));
-            for (auto const& a : v) {
-                for (unsigned x : a) {
-                    sig.push_back(x);
-                }
-            }
-        }
-        sig.push_back(UINT_MAX);
-        // character-range constraints (per symbolic unit)
-        {
-            std::vector<std::vector<unsigned>> v;
-            for (auto const& [uid, cr] : n->char_ranges()) {
-                std::vector<unsigned> entry;
-                entry.push_back(uid);
-                for (auto const& rg : cr.first.ranges()) {
-                    entry.push_back(rg.m_lo);
-                    entry.push_back(rg.m_hi);
-                }
-                v.push_back(std::move(entry));
-            }
-            std::sort(v.begin(), v.end());
-            sig.push_back(static_cast<unsigned>(v.size()));
-            for (auto const& e : v) {
-                sig.push_back(static_cast<unsigned>(e.size()));
-                for (unsigned x : e) {
-                    sig.push_back(x);
-                }
-            }
-        }
-        return sig;
     }
 
     dep_tracker nielsen_graph::node_all_deps(nielsen_node const* n) const {
@@ -2216,6 +2211,11 @@ namespace seq {
         // Otw. problems with a lot of variables would barely terminate
         SASSERT(depth <= cur_path.size());
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
+
+        // structural depth of this node on the current DFS path (counts ALL edges,
+        // unlike `depth` which discounts progress edges).  Used by the subsumption
+        // rule to identify and compare ancestors.
+        node->m_dfs_path_pos = cur_path.size();
 
         if (node->is_general_conflict()) {
             ++m_stats.m_num_simplify_conflict;
@@ -2262,9 +2262,8 @@ namespace seq {
         // constraints — so we prune without re-exploring its subtree.  We derive
         // the conflict from this node's own constraint deps (a sound over-approx).
         {
-            const std::vector<unsigned> sig = compute_node_signature(node);
-            if (m_unsat_node_cache.contains(sig)) {
-                node->set_conflict(backtrack_reason::regex, node_all_deps(node));
+            if (m_unsat_node_cache.contains(node)) {
+                node->set_conflict(backtrack_reason::sibling, node_all_deps(node));
                 node->set_general_conflict();
                 node->m_unsat_cacheable = true;
                 ++m_stats.m_num_simplify_conflict;
@@ -2324,7 +2323,8 @@ namespace seq {
                 node->set_conflict(backtrack_reason::regex, dep);
                 // string-only conflict (empty intersection) → memoize.
                 node->m_unsat_cacheable = true;
-                m_unsat_node_cache.insert(compute_node_signature(node));
+                node->canonize_and_compute_final_node_hash();
+                m_unsat_node_cache.insert(node);
                 return search_result::unsat;
             }
             assert_node_side_constraints(node);
@@ -2334,6 +2334,7 @@ namespace seq {
                 ++m_stats.m_num_simplify_conflict;
                 return search_result::unsat;
             }
+            node->canonize_and_compute_final_node_hash();
             m_sat_node = node;
             m_sat_path = cur_path;
             return search_result::sat;
@@ -2341,6 +2342,34 @@ namespace seq {
 
         if (node->is_currently_conflict())
             return search_result::unsat;
+
+        // -------------------------------------------------------------------
+        // Subsumption rule (Nielsen loop-cut).
+        // If this node has the SAME string constraints as a node further up the
+        // current DFS path (an ancestor "sibling"), then every continuation from
+        // here is already being explored from that ancestor.  We must NOT report a
+        // conflict: the arithmetic side-constraints accumulated along the two paths
+        // differ, so a model may exist here that does not at the ancestor.  Instead
+        // we CUT — return unsat provisionally and remember (in m_subtree_lowlink)
+        // the structural depth of the ancestor we defer to.  A cut only hardens
+        // into a genuine conflict at an enclosing node whose entire subtree closes
+        // with string-only conflicts and self-contained cuts (see the epilogue).
+        // -------------------------------------------------------------------
+        node->canonize_and_compute_final_node_hash();
+        {
+            auto it = m_siblings.find(node);
+            if (it != m_siblings.end() && !it->second.empty()) {
+                nielsen_node* anc = it->second.back(); // deepest sibling still on the path
+                SASSERT(anc != node);
+                // deps are a sound over-approximation (the node's own constraint
+                // sources); only used if a children_failed ancestor recurses here.
+                node->set_conflict(backtrack_reason::sibling, node_all_deps(node));
+                node->m_subtree_lowlink = anc->m_dfs_path_pos; // escape level
+                node->m_subtree_has_cut = true;
+                ++m_stats.m_num_sibling_cut;
+                return search_result::unsat;
+            }
+        }
 
         // depth bound check
         if (depth >= m_depth_bound)
@@ -2370,9 +2399,18 @@ namespace seq {
             ++m_stats.m_num_extensions;
         }
 
+        // Register this node on the active path so descendants can detect a loop
+        // back to it (the subsumption cut above).  The hash/signature is already
+        // computed (cut check) so the structural key is stable.  Popped after the
+        // child loop.  A bucket holds at most one on-path node per signature
+        // (a second equal node on the path would have been cut before reaching here).
+        m_siblings[node].push_back(node);
+
         // explore children
         bool any_unknown = false;
         bool all_general_conflict = true;
+        bool subtree_has_cut = false;         // a sibling loop-cut occurred below
+        unsigned min_child_lowlink = UINT_MAX; // min depth any sibling cut below escapes to
         for (nielsen_edge *e : node->outgoing()) {
             cur_path.push_back(e);
             // Push a solver scope for this edge and assert its side integer
@@ -2397,25 +2435,39 @@ namespace seq {
 
             m_length_solver.pop(1);
             if (r == search_result::sat)
+                // m_siblings entry is left dangling; it is cleared at the start of
+                // the next iteration (and the whole search returns sat now anyway).
                 return search_result::sat;
             cur_path.pop_back();
             if (r == search_result::unknown)
                 any_unknown = true;
+            else { // unsat: fold the child's lowlink (cut escape level) into ours
+                min_child_lowlink = std::min(min_child_lowlink, e->tgt()->m_subtree_lowlink);
+                subtree_has_cut |= e->tgt()->m_subtree_has_cut;
+            }
             if (!e->tgt()->is_general_conflict())
                 all_general_conflict = false;
         }
+
+        // leave the active path (mirrors the push above)
+        SASSERT(!m_siblings[node].empty() && m_siblings[node].back() == node);
+        m_siblings[node].pop_back();
 
         if (all_general_conflict) {
             SASSERT(!any_unknown);
             // mark it such that we do not have to reconsider it even after a hot-restart
             node->set_general_conflict();
         }
+        node->m_subtree_has_cut = subtree_has_cut;
         if (!any_unknown) {
-            node->set_child_conflict();
-            // Memoize this internal UNSAT iff its whole subtree closed for
-            // string/regex-only reasons (no child relied on arithmetic / Parikh /
-            // external context).  Then a same-signature node found via any other
-            // path is pruned by the lookup above.
+            // The subtree closed.  Record our lowlink and decide how strong a
+            // conflict we may claim.  self_contained == no sibling cut below
+            // escapes above this node, i.e. every loop is internal to our subtree.
+            node->m_subtree_lowlink = min_child_lowlink;
+            const bool self_contained = (min_child_lowlink >= node->m_dfs_path_pos);
+
+            // string-only closure: every leaf below is a string-only conflict or a
+            // sibling cut (cuts count as string-only, see reason_is_string_only).
             bool all_string_only = true;
             for (nielsen_edge* e : node->outgoing()) {
                 if (!node_unsat_string_only(e->tgt())) {
@@ -2423,9 +2475,40 @@ namespace seq {
                     break;
                 }
             }
-            node->m_unsat_cacheable = all_string_only;
-            if (all_string_only)
-                m_unsat_node_cache.insert(compute_node_signature(node));
+
+            // Soundness of the subsumption rule: a loop-cut defers to an ancestor
+            // whose arithmetic side-constraints differ from this path's, so a cut is
+            // only a valid UNSAT witness when the WHOLE closure is string-only.  If a
+            // cut coexists with an arithmetic / Parikh / external conflict, the cut
+            // may be hiding a model feasible under this node's distinct side
+            // constraints — we cannot conclude UNSAT.  Report unknown (the node is
+            // left unmarked and re-explored at a larger depth bound).
+            if (subtree_has_cut && !all_string_only)
+                return search_result::unknown;
+
+            if (all_string_only) {
+                // Subsumption rule: this node is a string-only conflict.  Internal
+                // (has children) closures carry no own deps — collect_conflict_deps
+                // recurses through them to the genuine conflict / cut leaves below.
+                node->set_conflict(backtrack_reason::sibling, nullptr);
+                ++m_stats.m_num_sibling_closure;
+                if (self_contained) {
+                    // No cut escapes this subtree: the unsat is a property of the
+                    // node's string signature alone.  Make it sticky (survives
+                    // hot-restart) and memoize it in the transposition table.
+                    node->set_general_conflict();
+                    node->m_unsat_cacheable = true;
+                    m_unsat_node_cache.insert(node);
+                }
+                else
+                    // Conditional on an ancestor above us; valid for this path only.
+                    node->m_unsat_cacheable = false;
+            }
+            else {
+                // a child relied on arithmetic / Parikh / external context.
+                node->set_child_conflict();
+                node->m_unsat_cacheable = false;
+            }
             return search_result::unsat;
         }
         return search_result::unknown;
@@ -2522,7 +2605,7 @@ namespace seq {
                         child->apply_subst(m_sg, subst);
 
                         if (!lhs_rest->is_empty() || !rhs_rest->is_empty())
-                            eqs.push_back(str_eq(lhs_rest, rhs_rest, eq.m_dep));
+                            eqs.push_back(str_eq(m, lhs_rest, rhs_rest, eq.m_dep));
                         return true;
                     }
                     else
@@ -2557,7 +2640,7 @@ namespace seq {
                         child->apply_subst(m_sg, subst);
 
                         if (!lhs_rest->is_empty() || !rhs_rest->is_empty())
-                            eqs.push_back(str_eq(lhs_rest, rhs_rest, eq.m_dep));
+                            eqs.push_back(str_eq(m, lhs_rest, rhs_rest, eq.m_dep));
                         return true;
                     }
                     else
@@ -2841,30 +2924,46 @@ namespace seq {
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
-                // child 2: y → ε (progress)
+                // child 2: y → ε && |x| > 0 (progress)
                 {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "nielsen var =r", true);
                     const nielsen_subst s(rhead, m_sg.mk_empty_seq(rhead->get_sort()), eq.m_dep);
                     e->add_subst(s);
+                    e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(lhead), a.mk_int(0)), eq.m_dep));
                     child->apply_subst(m_sg, s);
                 }
-                // child 3: x → y·x (no progress)
+                // child 3: x → y && |x| > 0 (progress)
                 {
-                    euf::snode const* replacement = dir_concat(m_sg, rhead, get_tail(lhead, compute_length_expr(rhead).get(), fwd), fwd);
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, "nielsen var =", true);
+                    const nielsen_subst s(lhead, rhead, eq.m_dep);
+                    e->add_subst(s);
+                    e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(lhead), a.mk_int(0)), eq.m_dep));
+                    child->apply_subst(m_sg, s);
+                }
+                // child 4: x → y·x && |x| > 0 && |y| > 0 (no progress)
+                {
+                    auto* tail = get_tail(lhead, compute_length_expr(rhead).get(), fwd);
+                    euf::snode const* replacement = dir_concat(m_sg, rhead, tail, fwd);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "nielsen var &gt;", false);
                     const nielsen_subst s(lhead, replacement, eq.m_dep);
                     e->add_subst(s);
+                    e->add_side_constraint(mk_constraint(a.mk_gt(compute_length_expr(rhead), a.mk_int(0)), eq.m_dep));
+                    e->add_side_constraint(mk_constraint(a.mk_gt(compute_length_expr(tail), a.mk_int(0)), eq.m_dep));
                     child->apply_subst(m_sg, s);
                 }
-                // child 4: y → x·y (no progress)
+                // child 5: y → x·y && |x| > 0 && |y| > 0 (no progress)
                 {
-                    euf::snode const* replacement = dir_concat(m_sg, lhead, get_tail(rhead, compute_length_expr(lhead).get(), fwd), fwd);
+                    auto* tail = get_tail(rhead, compute_length_expr(lhead).get(), fwd);
+                    euf::snode const* replacement = dir_concat(m_sg, lhead, tail, fwd);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "nielsen var &lt;", false);
                     const nielsen_subst s(rhead, replacement, eq.m_dep);
                     e->add_subst(s);
+                    e->add_side_constraint(mk_constraint(a.mk_gt(compute_length_expr(lhead), a.mk_int(0)), eq.m_dep));
+                    e->add_side_constraint(mk_constraint(a.mk_gt(compute_length_expr(tail), a.mk_int(0)), eq.m_dep));
                     child->apply_subst(m_sg, s);
                 }
                 return true;
@@ -2939,9 +3038,9 @@ namespace seq {
         bool rhs_has_symbolic = token_has_variable_length(rhs_toks[0]);
         int const_diff = 0;
         if (!lhs_has_symbolic)
-            const_diff += (int)token_const_length(lhs_toks[0]);
+            const_diff += token_const_length(lhs_toks[0]);
         if (!rhs_has_symbolic)
-            const_diff -= (int)token_const_length(rhs_toks[0]);
+            const_diff -= token_const_length(rhs_toks[0]);
 
         bool seen_variable = lhs_has_symbolic || rhs_has_symbolic;
 
@@ -3055,17 +3154,13 @@ namespace seq {
         for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
             str_eq const& eq = node->str_eqs()[eq_idx];
             SASSERT(eq.well_formed());
-            if (eq.is_trivial())
-                continue;
-            // EqSplit only applies to regex-free equations.
-            if (!eq.m_lhs->is_regex_free() || !eq.m_rhs->is_regex_free())
-                continue;
+            SASSERT(!eq.is_trivial());
 
             euf::snode_vector lhs_toks, rhs_toks;
             eq.m_lhs->collect_tokens(lhs_toks);
             eq.m_rhs->collect_tokens(rhs_toks);
-            if (lhs_toks.empty() || rhs_toks.empty())
-                continue;
+            SASSERT(!lhs_toks.empty());
+            SASSERT(!rhs_toks.empty());
 
             unsigned split_lhs = 0, split_rhs = 0;
             int padding = 0;
@@ -3114,8 +3209,8 @@ namespace seq {
             auto& eqs = child->str_eqs();
             eqs[eq_idx] = eqs.back();
             eqs.pop_back();
-            eqs.push_back(str_eq(eq1_lhs, eq1_rhs, eq.m_dep));
-            eqs.push_back(str_eq(eq2_lhs, eq2_rhs, eq.m_dep));
+            eqs.push_back(str_eq(m, eq1_lhs, eq1_rhs, eq.m_dep));
+            eqs.push_back(str_eq(m, eq2_lhs, eq2_rhs, eq.m_dep));
 
             // Int constraints on the edge.
             // 1) len(pad) = |padding|  (if padding variable was created)
@@ -3342,7 +3437,7 @@ namespace seq {
                                           bool& fwd) {
         for (str_mem const& mem : node->str_mems()) {
             if (mem.is_trivial(node)) {
-                std::cout << "Trivial mem: " << mem_pp(mem, node->graph().get_manager()) << std::endl;
+                std::cout << "Trivial mem: " << mem_pp(mem) << std::endl;
             }
             SASSERT(mem.well_formed() && !mem.is_trivial(node));
 
@@ -3806,10 +3901,10 @@ namespace seq {
             child->m_str_mem[mi].m_str = dir_drop(m_sg, child->m_str_mem[mi].m_str, 1, true);
 
             // x' ∈ stab(R, Q_ν)   (stabilizer view, F = {R}, current state = R)
-            child->add_str_mem(str_mem::mk_view(xp, R, R, nu, mem.m_dep));
+            child->add_str_mem(str_mem::mk_view(m, xp, R, R, nu, mem.m_dep));
 
             // noloop(x'', R, Q_ν)  (cycle guard, two-mode monitor, state = R)
-            child->add_str_mem(str_mem::mk_guard(xpp, R, R, nu, mem.m_dep));
+            child->add_str_mem(str_mem::mk_guard(m, xpp, R, R, nu, mem.m_dep));
 
             TRACE(seq, tout << "cycle_decomp: x=" << mk_pp(x->get_expr(), m)
                             << " R=" << mk_pp(R->get_expr(), m) << " nu=" << nu << "\n");
@@ -3982,8 +4077,8 @@ namespace seq {
                     }
                 }
 
-                child->add_str_mem(str_mem(head, m_p, m_dep));
-                child->add_str_mem(str_mem(tail, m_q, m_dep));
+                child->add_str_mem(str_mem(m, head, m_p, m_dep));
+                child->add_str_mem(str_mem(m, tail, m_q, m_dep));
             }
             return true;
         }
@@ -4269,12 +4364,12 @@ namespace seq {
                 // (1) u1·x = v1   and   u2 = x·v2
                 // (2) u1 = v1·x   and   x·u2 = v2
                 if (branch == 0) {
-                    child_eqs.push_back(str_eq(m_sg.mk_concat(u1, x), v1, eq.m_dep));
-                    child_eqs.push_back(str_eq(u2, m_sg.mk_concat(x, v2), eq.m_dep));
+                    child_eqs.push_back(str_eq(m, m_sg.mk_concat(u1, x), v1, eq.m_dep));
+                    child_eqs.push_back(str_eq(m, u2, m_sg.mk_concat(x, v2), eq.m_dep));
                 }
                 else {
-                    child_eqs.push_back(str_eq(u1, m_sg.mk_concat(v1, x), eq.m_dep));
-                    child_eqs.push_back(str_eq(m_sg.mk_concat(x, u2), v2, eq.m_dep));
+                    child_eqs.push_back(str_eq(m, u1, m_sg.mk_concat(v1, x), eq.m_dep));
+                    child_eqs.push_back(str_eq(m, m_sg.mk_concat(x, u2), v2, eq.m_dep));
                 }
             }
             return true;
@@ -4683,7 +4778,6 @@ namespace seq {
         const expr_ref u_len(compute_length_expr(u), m);
         const expr_ref v_len(compute_length_expr(v), m);
         expr_ref len_eq(m.mk_eq(u_len, v_len), m);
-        str_eq eq_uv(u, v, first.m_dep);
         sort *char_sort = nullptr;
         VERIFY(seq().is_seq(u->get_sort(), char_sort));
         euf::snode const* a = m_sg.mk(seq().str.mk_unit(m_sk.mk("diseq.a", u->get_expr(), v->get_expr(), char_sort).get()));
@@ -4695,8 +4789,8 @@ namespace seq {
         const expr_ref vp_len(compute_length_expr(vp), m);
         euf::snode const* wau = dir_concat(m_sg, dir_concat(m_sg, w, a, true), up, true);
         euf::snode const* wbv = dir_concat(m_sg, dir_concat(m_sg, w, b, true), vp, true);
-        str_eq u_eq(u, wau, first.m_dep);
-        str_eq v_eq(v, wbv, first.m_dep);
+        str_eq u_eq(m, u, wau, first.m_dep);
+        str_eq v_eq(m, v, wbv, first.m_dep);
 
         // Branch 1: |u| < |v|
         {
@@ -4740,9 +4834,17 @@ namespace seq {
         while (!to_visit.empty()) {
             nielsen_node const* n = to_visit.back();
             to_visit.pop_back();
-            if (n->reason() == backtrack_reason::children_failed) {
-                SASSERT(n->m_conflict_external_literal == sat::null_literal);
-                SASSERT(!n->m_conflict_internal);
+            // Recurse through internal closures: children_failed nodes, and sibling
+            // (subsumption) closures that have children.  The latter carry no own
+            // deps (m_conflict_internal == null) — their justification is the union
+            // of the genuine conflict / cut leaves below them, gathered by recursing
+            // (sound: collecting from all leaves never under-approximates).  A sibling
+            // LEAF (a loop cut, or a transposition-cache hit; no children) instead
+            // contributes its own node_all_deps recorded in m_conflict_internal.
+            const bool recurse =
+                n->reason() == backtrack_reason::children_failed ||
+                (n->reason() == backtrack_reason::sibling && !n->outgoing().empty());
+            if (recurse) {
                 for (unsigned i = n->outgoing().size(); i > 0; i--) {
                     nielsen_edge const* e = n->outgoing()[i - 1];
                     to_visit.push_back(e->tgt());
@@ -4794,13 +4896,17 @@ namespace seq {
 
         if (n->is_power()) {
             const expr_ref base = compute_length_expr(n->arg0());
-            return expr_ref(a.mk_mul(base.get(), n->arg(1)->get_expr()), m);
+            expr_ref res(m);
+            m_a_rw.mk_mul(base.get(), n->arg(1)->get_expr(), res);
+            return res;
         }
 
         if (n->is_concat()) {
             const expr_ref left = compute_length_expr(n->arg0());
             const expr_ref right = compute_length_expr(n->arg(1));
-            return expr_ref(a.mk_add(left, right), m);
+            expr_ref res(m);
+            m_a_rw.mk_add(left, right, res);
+            return res;
         }
 
         //euf::snode const* length_term = nullptr;
@@ -5221,7 +5327,7 @@ namespace seq {
         // TODO: Minimize the conflict here
         const lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
         TRACE(seq, tout << "widen empty-intersect: " << result << " " << mk_pp(re, m)
-            << " <= " << mk_pp(ae, m) << "\n" << mem_pp(mem, m) << "\n";
+            << " <= " << mk_pp(ae, m) << "\n" << mem_pp(mem) << "\n";
         display(tout, &node) << "\n");
         return result == l_true;
     }
@@ -5452,6 +5558,8 @@ namespace seq {
         st.update("nseq mod axiomatized disequalities",   m_stats.m_ax_diseq);
         st.update("nseq unsat-cache size",                (unsigned) m_unsat_node_cache.size());
         st.update("nseq unsat-cache hits",                m_num_cache_hits);
+        st.update("nseq sibling cuts",                    m_stats.m_num_sibling_cut);
+        st.update("nseq sibling closures",                m_stats.m_num_sibling_closure);
     }
 
 }
