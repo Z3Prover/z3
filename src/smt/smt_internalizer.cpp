@@ -1069,20 +1069,23 @@ namespace smt {
         m_e_internalized_stack.push_back(n);
         m_trail_stack.push_ptr(&m_mk_enode_trail);
         m_enodes.push_back(e);
+        e->m_uses_cg_table = false;
         if (e->get_num_args() > 0) {
             if (e->is_true_eq()) {
                 bool_var v = enode2bool_var(e);
                 assign(literal(v), mk_justification(eq_propagation_justification(e->get_arg(0), e->get_arg(1))));
                 e->m_cg    = e;
                 push_eq(e, m_true_enode, eq_justification());
+                m_constant_generations.insert(e, generation);
             }
             else {
                 if (cgc_enabled) {
+                    e->m_uses_cg_table = true;
                     auto [e_prime, used_commutativity, sibling_gen_ptr] = m_cg_table.insert(e, generation);
                     if (e != e_prime) {
-                        push_new_congruence(e, e_prime, used_commutativity);
                         e->m_cg = e_prime;
                         merge_cgc_generations(e, generation, e_prime, sibling_gen_ptr);
+                        push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {
                         e->m_cg = e;
@@ -1090,7 +1093,7 @@ namespace smt {
                 }
                 else {
                     SASSERT(!e->uses_cg_table());
-                    m_constant_generations[e] = generation;
+                    m_constant_generations.insert(e, generation);
                     e->m_cg = e;
                 }
             }
@@ -1100,7 +1103,10 @@ namespace smt {
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
             }
+        } else {
+            m_constant_generations.insert(e, generation);
         }
+
         SASSERT(e_internalized(n));
         m_stats.m_num_mk_enode++;
         TRACE(mk_enode, tout << "created enode: #" << e->get_owner_id() << " for:\n" << mk_pp(n, m) << "\n";
@@ -1150,6 +1156,8 @@ namespace smt {
         m_enodes.pop_back();
         m_e_internalized_stack.pop_back();
         m_sticky_generation_updates.erase(e);
+        if (!e->uses_cg_table()) 
+            m_constant_generations.erase(e);
     }
 
     /**

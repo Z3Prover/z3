@@ -99,6 +99,10 @@ namespace smt {
         approx_set          m_lbls;
         approx_set          m_plbls;
         enode *             m_args[0];          //!< Cached args
+        /* If an equality was true at the time it was created, it does not use the congruence table.
+            We need to record whether this was the case at creation time. The alternative would be to do unnecessary table lookups.
+        */
+        bool                m_uses_cg_table;    //!< True if the enode uses the congruence table.
         
         friend class context;
         friend class conflict_resolution;
@@ -313,7 +317,7 @@ namespace smt {
         }
 
         bool uses_cg_table() const {
-            return get_num_args() > 0 && is_cgc_enabled() && !is_true_eq();
+            return m_uses_cg_table;
         }
 
         bool is_cgc_enabled() const {
