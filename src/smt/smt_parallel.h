@@ -81,6 +81,7 @@ namespace smt {
                 is_running,
                 is_sat,
                 is_unsat,
+                is_unknown,
                 is_exception_msg,
                 is_exception_code
             };
@@ -109,6 +110,7 @@ namespace smt {
             
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
+            std::string m_reason_unknown;
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
@@ -200,6 +202,7 @@ namespace smt {
 
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
+            void set_unknown(std::string const& reason);
             void set_canceled();
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
@@ -238,6 +241,7 @@ namespace smt {
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
 
             lbool get_result() const;
+            std::string const& get_reason_unknown() const { return m_reason_unknown; }
 
             bool is_global_backbone_or_negation(ast_translation& l2g, expr* bb_cand) {
                 std::scoped_lock lock(mux);
