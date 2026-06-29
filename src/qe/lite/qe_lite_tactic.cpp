@@ -2467,6 +2467,7 @@ private:
             cur_vals[i] = var_lbs[i];
 
         var_subst vs(m, false);
+        inv_var_shifter shift(m);
         expr_ref_vector disjuncts(m);
 
         while (true) {
@@ -2479,6 +2480,7 @@ private:
             for (expr* p : payload) {
                 expr_ref inst(m);
                 inst = vs(p, subst_map.size(), subst_map.data());
+                shift(inst, num_decls, inst);
                 inst_conjs.push_back(inst);
             }
             expr_ref inst_body(m);
