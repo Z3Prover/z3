@@ -250,8 +250,8 @@ static void test_extract_cycle_history_basic() {
     euf::snode const* empty_str = sg.mk_empty_seq(str_sort);
     const seq::dep_tracker empty_dep = nullptr;
 
-    const seq::str_mem ancestor(empty_str, full_re, empty_dep);
-    const seq::str_mem current(empty_str, full_re, empty_dep);
+    const seq::str_mem ancestor(m, empty_str, full_re, empty_dep);
+    const seq::str_mem current(m, empty_str, full_re, empty_dep);
 
     euf::snode const* cycle = nr.extract_cycle_history(current, ancestor);
     // Should return the last 2 tokens (b, c)
@@ -282,8 +282,8 @@ static void test_extract_cycle_history_null_ancestor() {
     const seq::dep_tracker empty_dep = nullptr;
 
     // Ancestor has no history (nullptr)
-    const seq::str_mem ancestor(empty_str, full_re, empty_dep);
-    const seq::str_mem current(empty_str, full_re, empty_dep);
+    const seq::str_mem ancestor(m, empty_str, full_re, empty_dep);
+    const seq::str_mem current(m, empty_str, full_re, empty_dep);
 
     euf::snode const* cycle = nr.extract_cycle_history(current, ancestor);
     // With null ancestor history, entire current history is the cycle

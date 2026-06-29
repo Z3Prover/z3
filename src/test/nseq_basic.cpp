@@ -132,7 +132,7 @@ static void test_nseq_node_satisfied() {
     // add a trivial equality
     const euf::snode *empty = sg.mk_empty_seq(su.str.mk_string_sort());
     const seq::dep_tracker dep = nullptr;
-    const seq::str_eq eq(empty, empty, dep);
+    const seq::str_eq eq(m, empty, empty, dep);
     node->add_str_eq(eq);
     SASSERT(node->str_eqs().size() == 1);
     SASSERT(!node->str_eqs()[0].is_trivial() || node->str_eqs()[0].m_lhs == node->str_eqs()[0].m_rhs);

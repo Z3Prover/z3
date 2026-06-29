@@ -83,27 +83,27 @@ static void test_str_eq() {
     const seq::dep_tracker dep = nullptr;
 
     // basic equality
-    const seq::str_eq eq1(x, y, dep);
+    const seq::str_eq eq1(m, x, y, dep);
     SASSERT(eq1.contains_var(x));
     SASSERT(eq1.contains_var(y));
     SASSERT(!eq1.contains_var(a));
 
     // trivial equality: same node
-    const seq::str_eq eq2(x, x, dep);
+    const seq::str_eq eq2(m, x, x, dep);
     SASSERT(eq2.is_trivial());
 
     // trivial equality: both empty
-    const seq::str_eq eq3(e, e, dep);
+    const seq::str_eq eq3(m, e, e, dep);
     SASSERT(eq3.is_trivial());
 
     // sorting: lower id first
-    seq::str_eq eq4(y, x, dep);
+    seq::str_eq eq4(m, y, x, dep);
     eq4.sort();
     SASSERT(eq4.m_lhs->id() <= eq4.m_rhs->id());
 
     // contains_var with concat
     euf::snode const* xa = sg.mk_concat(x, a);
-    const seq::str_eq eq5(xa, y, dep);
+    const seq::str_eq eq5(m, xa, y, dep);
     SASSERT(eq5.contains_var(x));
     SASSERT(eq5.contains_var(y));
     SASSERT(!eq5.contains_var(e));
@@ -127,7 +127,7 @@ static void test_str_mem() {
     euf::snode const* regex = sg.mk(star_fc);
 
     const seq::dep_tracker dep = nullptr;
-    const seq::str_mem mem(x, regex, dep);
+    const seq::str_mem mem(m, x, regex, dep);
 
     // x in regex is primitive (x is a single variable)
     SASSERT(mem.is_primitive());
@@ -136,7 +136,7 @@ static void test_str_mem() {
     // concatenation is not primitive
     euf::snode const* a = sg.mk_char('A');
     euf::snode const* xa = sg.mk_concat(x, a);
-    const seq::str_mem mem2(xa, regex, dep);
+    const seq::str_mem mem2(m, xa, regex, dep);
     SASSERT(!mem2.is_primitive());
     SASSERT(mem2.contains_var(x));
 }
@@ -200,15 +200,14 @@ static void test_nielsen_node() {
 
     // add constraints
     const seq::dep_tracker dep = nullptr;
-    root->add_str_eq(seq::str_eq(x, y, dep));
-    root->add_str_eq(seq::str_eq(sg.mk_concat(x, a), sg.mk_concat(a, y), dep));
+    root->add_str_eq(seq::str_eq(m, x, y, dep));
+    root->add_str_eq(seq::str_eq(m, sg.mk_concat(x, a), sg.mk_concat(a, y), dep));
     SASSERT(root->str_eqs().size() == 2);
 
     // regex membership
     const expr_ref re_all(seq.re.mk_full_seq(str_sort), m);
     euf::snode const* regex = sg.mk(re_all);
-    euf::snode const* empty = sg.mk_empty_seq(seq.str.mk_string_sort());
-    root->add_str_mem(seq::str_mem(x, regex, dep));
+    root->add_str_mem(seq::str_mem(m, x, regex, dep));
     SASSERT(root->str_mems().size() == 1);
 
     // clone from parent
@@ -238,7 +237,7 @@ static void test_nielsen_edge() {
     // create parent and child nodes
     seq::nielsen_node* parent = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    parent->add_str_eq(seq::str_eq(x, y, dep));
+    parent->add_str_eq(seq::str_eq(m, x, y, dep));
 
     seq::nielsen_node* child = ng.mk_child(parent);
 
@@ -319,7 +318,7 @@ static void test_nielsen_subst_apply() {
     const seq::dep_tracker dep = nullptr;
     euf::snode const* xa = sg.mk_concat(x, a);
     euf::snode const* by = sg.mk_concat(b, y);
-    node->add_str_eq(seq::str_eq(xa, by, dep));
+    node->add_str_eq(seq::str_eq(m, xa, by, dep));
 
     // apply substitution x -> empty
     const seq::nielsen_subst s(x, e, dep);
@@ -1667,7 +1666,7 @@ static void test_simplify_prefix_cancel() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(abx, aby, dep));
+    node->add_str_eq(seq::str_eq(m, abx, aby, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
@@ -1698,7 +1697,7 @@ static void test_simplify_suffix_cancel_rtl() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(xa, ya, dep));
+    node->add_str_eq(seq::str_eq(m, xa, ya, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
@@ -1729,7 +1728,7 @@ static void test_simplify_symbol_clash() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(ax, by, dep));
+    node->add_str_eq(seq::str_eq(m, ax, by, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
@@ -1757,7 +1756,7 @@ static void test_simplify_empty_propagation() {
     // ε = x·y → forces x=ε, y=ε → all trivial → satisfied
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(e, xy, dep));
+    node->add_str_eq(seq::str_eq(m, e, xy, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
@@ -1781,7 +1780,7 @@ static void test_simplify_empty_vs_char() {
     // ε = A → rhs has non-variable token → conflict
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(e, a, dep));
+    node->add_str_eq(seq::str_eq(m, e, a, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
@@ -1809,7 +1808,7 @@ static void test_simplify_multi_pass_clash() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(ab, ac, dep));
+    node->add_str_eq(seq::str_eq(m, ab, ac, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
@@ -1834,8 +1833,8 @@ static void test_simplify_trivial_removal() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(e, e, dep));  // trivial
-    node->add_str_eq(seq::str_eq(x, y, dep));  // non-trivial
+    node->add_str_eq(seq::str_eq(m, e, e, dep));  // trivial
+    node->add_str_eq(seq::str_eq(m, x, y, dep));  // non-trivial
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
@@ -1859,8 +1858,8 @@ static void test_simplify_all_trivial_satisfied() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(x, x, dep));  // trivial: same pointer
-    node->add_str_eq(seq::str_eq(e, e, dep));  // trivial: both empty
+    node->add_str_eq(seq::str_eq(m, x, x, dep));  // trivial: same pointer
+    node->add_str_eq(seq::str_eq(m, e, e, dep));  // trivial: both empty
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
@@ -1888,7 +1887,7 @@ static void test_simplify_regex_infeasible() {
     // ε ∈ to_re("A") → non-nullable → conflict
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_mem(seq::str_mem(e, regex, dep));
+    node->add_str_mem(seq::str_mem(m, e, regex, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
@@ -1918,7 +1917,7 @@ static void test_simplify_nullable_removal() {
     // ε ∈ star(to_re("A")) → nullable → satisfied, mem removed
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_mem(seq::str_mem(e, regex, dep));
+    node->add_str_mem(seq::str_mem(m, e, regex, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
@@ -1948,7 +1947,7 @@ static void test_simplify_brzozowski_sat() {
     // "A" ∈ to_re("A") → derivative consumes 'A' → ε ∈ ε-regex → satisfied
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_mem(seq::str_mem(a, regex, dep));
+    node->add_str_mem(seq::str_mem(m, a, regex, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
@@ -1982,7 +1981,7 @@ static void test_simplify_brzozowski_rtl_suffix() {
     // x·"A" ∈ to_re("BA") → RTL consume trailing 'A' → x ∈ to_re("B")
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_mem(seq::str_mem(xa, regex, dep));
+    node->add_str_mem(seq::str_mem(m, xa, regex, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
@@ -2016,13 +2015,13 @@ static void test_simplify_multiple_eqs() {
     const seq::dep_tracker dep = nullptr;
 
     // eq1: ε = ε (trivial → removed)
-    node->add_str_eq(seq::str_eq(e, e, dep));
+    node->add_str_eq(seq::str_eq(m, e, e, dep));
     // eq2: A·x = A·y (prefix cancel → x = y)
     euf::snode const* ax = sg.mk_concat(a, x);
     euf::snode const* ay = sg.mk_concat(a, y);
-    node->add_str_eq(seq::str_eq(ax, ay, dep));
+    node->add_str_eq(seq::str_eq(m, ax, ay, dep));
     // eq3: x = z (non-trivial, kept)
-    node->add_str_eq(seq::str_eq(x, z, dep));
+    node->add_str_eq(seq::str_eq(m, x, z, dep));
 
     SASSERT(node->str_eqs().size() == 3);
     const auto sr = node->simplify_and_init({});
@@ -3729,7 +3728,7 @@ static void test_simplify_unit_prefix_split() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(lhs, rhs, dep));
+    node->add_str_eq(seq::str_eq(m, lhs, rhs, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
@@ -3775,7 +3774,7 @@ static void test_simplify_unit_prefix_split_empty_rest() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(lhs, ub, dep));
+    node->add_str_eq(seq::str_eq(m, lhs, ub, dep));
 
     const auto sr = node->simplify_and_init({});
     // unit(a)==unit(b) and x==empty are produced; x==empty forces x->epsilon and satisfied
@@ -3816,7 +3815,7 @@ static void test_simplify_unit_suffix_split() {
 
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(lhs, rhs, dep));
+    node->add_str_eq(seq::str_eq(m, lhs, rhs, dep));
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
