@@ -1792,6 +1792,18 @@ class tptp_parser {
             std::string env = normalize_path(std::string(root) + "/" + name);
             if (file_exists(env)) return env;
         }
+        // Walk up ancestor directories of the current file. TPTP include paths are
+        // relative to the TPTP root directory (e.g. "Axioms/BOO001-0.ax"), while the
+        // problem file typically lives in a subdirectory such as "Problems/BOO/".
+        std::string dir = dirname(curr_file);
+        for (;;) {
+            size_t idx = dir.find_last_of("/\\");
+            if (idx == std::string::npos) break;
+            dir = dir.substr(0, idx);
+            if (dir.empty()) break;
+            std::string candidate = normalize_path(dir + "/" + name);
+            if (file_exists(candidate)) return candidate;
+        }
         // Try relative to current working directory (common when running from TPTP root)
         std::string cwd_relative = normalize_path(name);
         if (file_exists(cwd_relative)) return cwd_relative;
