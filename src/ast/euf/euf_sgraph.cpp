@@ -390,13 +390,15 @@ namespace euf {
         zstring s;
         if (m_seq.str.is_string(e, s) && !s.empty()) {
             snode const* result = mk_char(s[s.length() - 1]);
-            for (unsigned i = s.length() - 1; i-- > 0; )
+            for (unsigned i = s.length() - 1; i-- > 0; ) {
                 result = mk_concat(mk_char(s[i]), result);
+            }
             // register the original string expression as an alias
             unsigned eid = e->get_id();
             m_expr2snode.reserve(eid + 1, nullptr);
             m_expr2snode[eid] = result;
             m_alias_trail.push_back(eid);
+            m_pin.push_back(e);
             mk_enode(e);
             return result;
         }

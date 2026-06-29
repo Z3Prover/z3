@@ -342,6 +342,25 @@ namespace seq {
     nielsen_node::nielsen_node(nielsen_graph& graph, const unsigned id):
         m_id(id), m_graph(graph), m_is_progress(true) { }
 
+    void nielsen_node::set_conflict(const backtrack_reason r, const dep_tracker confl) {
+        if (m_conflict_internal != nullptr && m_conflict_external_literal == sat::null_literal)
+            return;
+        // We prefer internal conflicts (we need it as a justification for general conflicts)
+        TRACE(seq, tout << "internal conflict " << (unsigned)r << "\n");
+        m_reason = r;
+        m_conflict_internal = confl;
+        m_conflict_external_literal = sat::null_literal;
+    }
+
+    void nielsen_node::set_external_conflict(const sat::literal lit, dep_tracker confl) {
+        if (m_reason != backtrack_reason::unevaluated)
+            return;
+        TRACE(seq, tout << "external conflict " << lit << "\n");
+        m_reason = backtrack_reason::external;
+        m_conflict_external_literal = ~lit;
+        m_conflict_internal = confl;
+    }
+
     void nielsen_node::clone_from(nielsen_node const& parent) {
         m_str_eq.reset();
         m_str_deq.reset();
@@ -550,9 +569,15 @@ namespace seq {
             if (str_mems()[i] != n->str_mems()[i])
                 return false;
         }
-        for (unsigned i = 0; i < char_ranges().size(); i++) {
-            // TODO: Check once more
-            if (char_ranges()[i] != n->char_ranges()[i])
+        // char_ranges is a u_map keyed by the symbolic-char snode id (NOT a vector),
+        // so it must be compared by key lookup, not by position.  Sizes are equal
+        // (checked above), so a one-directional key+value match is a full match.
+        // Compare only the char_set (the constraint); deps differ between siblings,
+        // exactly as canonize_and_compute_node_hash hashes ranges+uid and ignores dep.
+        for (auto const& [uid, cr] : char_ranges()) {
+            if (!n->char_ranges().contains(uid))
+                return false;
+            if (cr.first != n->char_ranges().find(uid).first)
                 return false;
         }
         return true;
@@ -2165,11 +2190,6 @@ namespace seq {
         case backtrack_reason::regex_widening:
         case backtrack_reason::symbol_clash:
         case backtrack_reason::character_range:
-        // a sibling (subsumption / loop-cut) conflict depends only on the node's
-        // string signature: a cut equates two nodes by their string constraints,
-        // and a sibling closure is reached only when every leaf below is itself a
-        // string-only conflict or a cut.  (Whether the closure is *cacheable* is a
-        // separate, stronger question handled via the lowlink in search_dfs.)
         case backtrack_reason::sibling:
             return true;
         default:
@@ -2263,7 +2283,7 @@ namespace seq {
         // the conflict from this node's own constraint deps (a sound over-approx).
         {
             if (m_unsat_node_cache.contains(node)) {
-                node->set_conflict(backtrack_reason::sibling, node_all_deps(node));
+                node->set_conflict(backtrack_reason::sibling, nullptr /*we use the one of the sibling*/);
                 node->set_general_conflict();
                 node->m_unsat_cacheable = true;
                 ++m_stats.m_num_simplify_conflict;
@@ -2487,10 +2507,11 @@ namespace seq {
                 return search_result::unknown;
 
             if (all_string_only) {
-                // Subsumption rule: this node is a string-only conflict.  Internal
-                // (has children) closures carry no own deps — collect_conflict_deps
-                // recurses through them to the genuine conflict / cut leaves below.
-                node->set_conflict(backtrack_reason::sibling, nullptr);
+                // Subsumption rule: this node is a string-only conflict.  It is a
+                // STOP point for collect_conflict_deps, so it must carry its own
+                // justification: node_all_deps over-approximates the input
+                // constraints behind its unsatisfiable string signature.
+                node->set_conflict(backtrack_reason::sibling, node_all_deps(node));
                 ++m_stats.m_num_sibling_closure;
                 if (self_contained) {
                     // No cut escapes this subtree: the unsat is a property of the
@@ -4834,17 +4855,14 @@ namespace seq {
         while (!to_visit.empty()) {
             nielsen_node const* n = to_visit.back();
             to_visit.pop_back();
-            // Recurse through internal closures: children_failed nodes, and sibling
-            // (subsumption) closures that have children.  The latter carry no own
-            // deps (m_conflict_internal == null) — their justification is the union
-            // of the genuine conflict / cut leaves below them, gathered by recursing
-            // (sound: collecting from all leaves never under-approximates).  A sibling
-            // LEAF (a loop cut, or a transposition-cache hit; no children) instead
-            // contributes its own node_all_deps recorded in m_conflict_internal.
-            const bool recurse =
-                n->reason() == backtrack_reason::children_failed ||
-                (n->reason() == backtrack_reason::sibling && !n->outgoing().empty());
-            if (recurse) {
+            // Recurse only through children_failed nodes.  A sibling (subsumption)
+            // node — whether a loop-cut leaf, a transposition-cache hit, or an
+            // internal string-only closure — is a STOP point: it carries its own
+            // node_all_deps justification in m_conflict_internal (a sound
+            // over-approximation of the input constraints that produced its
+            // unsatisfiable string signature), so we do NOT descend into its
+            // subtree (which may contain cut leaves whose targets lie outside it).
+            if (n->reason() == backtrack_reason::children_failed) {
                 for (unsigned i = n->outgoing().size(); i > 0; i--) {
                     nielsen_edge const* e = n->outgoing()[i - 1];
                     to_visit.push_back(e->tgt());
@@ -4854,12 +4872,16 @@ namespace seq {
             // not true anymore since we might have done a hot-restart where we previously created the child:
             //SASSERT(n->outgoing().empty());
             SASSERT(n->is_currently_conflict());
-            if (n->m_conflict_external_literal != sat::null_literal)
+            if (n->m_conflict_external_literal != sat::null_literal) {
+                std::cout << "Node " << n->id() << std::endl;
                 // We know from the outer solver that this literal is assigned true and contradicts node constraint
                 deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
+            }
 
-            if (n->m_conflict_internal)
+            if (n->m_conflict_internal) {
+                std::cout << "Node " << n->id() << std::endl;
                 deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
+            }
         }
         return deps;
     }

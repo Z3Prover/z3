@@ -687,24 +687,9 @@ namespace seq {
             m_reason = backtrack_reason::children_failed;
         }
 
-        void set_conflict(const backtrack_reason r, const dep_tracker confl) {
-            if (m_conflict_internal != nullptr && m_conflict_external_literal == sat::null_literal)
-                return;
-            // We prefer internal conflicts (we need it as a justification for general conflicts)
-            TRACE(seq, tout << "internal conflict " << (unsigned)r << "\n");
-            m_reason = r;
-            m_conflict_internal = confl;
-            m_conflict_external_literal = sat::null_literal;
-        }
+        void set_conflict(backtrack_reason r, dep_tracker confl);
 
-        void set_external_conflict(const sat::literal lit, dep_tracker confl) {
-            if (m_reason != backtrack_reason::unevaluated)
-                return;
-            TRACE(seq, tout << "external conflict " << lit << "\n");
-            m_reason = backtrack_reason::external;
-            m_conflict_external_literal = ~lit;
-            m_conflict_internal = confl;
-        }
+        void set_external_conflict(sat::literal lit, dep_tracker confl);
 
         bool is_progress() const { return m_is_progress; }
 

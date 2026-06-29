@@ -97,8 +97,7 @@ namespace euf {
         // m_expr.  snodes are allocated in m_region — which is never freed —
         // but their m_expr field is owned by the egraph trail.  Without this
         // pin the egraph would release expressions on pop while clients still
-        // hold the matching snode* (e.g. inside nielsen_node str_mems, edge
-        // substitutions, or the partial-DFA cache), turning every later
+        // hold the matching snode*, turning every later
         // get_expr() into a use-after-free.  The pin grows monotonically; it
         // is dropped only when sgraph itself is destroyed.
         expr_ref_vector  m_pin;
