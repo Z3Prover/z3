@@ -956,34 +956,53 @@ namespace nlsat {
             return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
         }
 
-        // Sort an index permutation with a bounds-checked insertion sort.
+        // Sort an index permutation with a bounds-safe, mutation-aware merge sort.
         //
-        // We deliberately avoid std::sort here: the comparator (root_function_lt ->
-        // anum_manager::compare) is NOT pure -- it MUTATES the very algebraic numbers
-        // it compares. anum_manager::compare refines their isolating intervals (and may
-        // even collapse a root to a rational), and it can hit the resource limit and
-        // throw mid-comparison. Because the operands change as the sort proceeds, the
-        // order the comparator induces is not a fixed strict weak ordering over a single
-        // sort. std::sort assumes a stable strict weak ordering; violating that is
-        // undefined behavior. In practice libstdc++'s *unguarded* insertion pass then
-        // trusts the comparator to terminate the inner loop, walks past the start of the
-        // range, and dereferences a wild anum cell -> SIGSEGV (this happens via an
-        // out-of-bounds read, independent of whether an exception is thrown, so it
-        // cannot be papered over with a try/catch around the sort).
+        // We deliberately avoid std::sort here. The comparator (root_function_lt ->
+        // anum_manager::compare) is NOT pure: it MUTATES the algebraic numbers it
+        // compares by refining their isolating intervals (and may collapse a root to a
+        // rational, or hit the resource limit and throw). That refinement is monotone
+        // and converges toward the one true real order -- a *decided* sign is permanent
+        // -- but a comparison can transiently strengthen from "uncertain" to "decided"
+        // as intervals tighten. std::sort (introsort) relies on a comparator-derived
+        // sentinel and re-compares a pivot repeatedly; such a strengthening invalidates
+        // the sentinel mid-loop and its *unguarded* insertion pass then walks off the
+        // array -> SIGSEGV (an out-of-bounds read, so a try/catch around the sort would
+        // not help).
         //
-        // A fully guarded insertion sort can never read out of bounds regardless of how
-        // (in)consistent the comparator is, and unwinds cleanly if compare throws on
-        // cancellation.
+        // Merge sort is safe BECAUSE of how it meets a mutating comparator:
+        //   1. It never re-compares a pair (each unordered pair is compared at exactly
+        //      one merge level), so "the verdict for this pair changed" cannot occur
+        //      within the sort.
+        //   2. It uses no comparator-derived sentinel; every loop bound is arithmetic
+        //      (i < mid, j < hi), so an inconsistent comparator can only yield a wrong
+        //      order, never an out-of-bounds access or non-termination.
+        //   3. Refinement only helps: runs are ordered by decided signs (the true
+        //      order), which later refinement cannot un-decide, so each run stays
+        //      sorted and deeper merges inherit tighter, cheaper intervals.
+        // It runs in O(n log n) comparisons and O(n) scratch, and unwinds cleanly if
+        // compare throws on cancellation.
         template<typename Less>
-        void insertion_sort_perm(std_vector<unsigned>& perm, Less less) {
-            for (unsigned i = 1; i < perm.size(); ++i) {
-                unsigned key = perm[i];
-                unsigned j = i;
-                while (j > 0 && less(key, perm[j - 1])) {
-                    perm[j] = perm[j - 1];
-                    --j;
+        void merge_sort_perm(std_vector<unsigned>& perm, Less less) {
+            unsigned n = static_cast<unsigned>(perm.size());
+            if (n < 2)
+                return;
+            std_vector<unsigned> tmp(n);
+            for (unsigned width = 1; width < n; width <<= 1) {
+                for (unsigned lo = 0; lo < n; lo += (width << 1)) {
+                    unsigned mid = std::min(lo + width, n);
+                    unsigned hi = std::min(lo + (width << 1), n);
+                    unsigned i = lo, j = mid, k = lo;
+                    // Take from the right run only on a strict decrease, so equal/
+                    // undecided pairs keep their relative order (stable).
+                    while (i < mid && j < hi)
+                        tmp[k++] = less(perm[j], perm[i]) ? perm[j++] : perm[i++];
+                    while (i < mid)
+                        tmp[k++] = perm[i++];
+                    while (j < hi)
+                        tmp[k++] = perm[j++];
                 }
-                perm[j] = key;
+                perm.swap(tmp);
             }
         }
 
@@ -1013,7 +1032,7 @@ namespace nlsat {
             if (mid_pos > 1) {
                 std_vector<unsigned> perm(mid_pos);
                 std::iota(perm.begin(), perm.end(), 0u);
-                insertion_sort_perm(perm, [&](unsigned a, unsigned b) {
+                merge_sort_perm(perm, [&](unsigned a, unsigned b) {
                     return root_function_lt(rfs[a], rfs[b], true);
                 });
                 apply_permutation(rfs, 0, perm);
@@ -1024,7 +1043,7 @@ namespace nlsat {
             if (upper_sz > 1) {
                 std_vector<unsigned> perm(upper_sz);
                 std::iota(perm.begin(), perm.end(), 0u);
-                insertion_sort_perm(perm, [&](unsigned a, unsigned b) {
+                merge_sort_perm(perm, [&](unsigned a, unsigned b) {
                     return root_function_lt(rfs[mid_pos + a], rfs[mid_pos + b], false);
                 });
                 apply_permutation(rfs, mid_pos, perm);
@@ -1223,16 +1242,16 @@ namespace nlsat {
             if (root_vals.size() < 2)
                 return;
 
-            // Sort root values by an index permutation with the bounds-checked
-            // insertion sort. As in sort_root_function_partitions, the comparator
-            // (anum_manager::lt -> compare) MUTATES the algebraic numbers it compares
-            // (it refines their isolating intervals and may hit the resource limit and
-            // throw), so the order it induces is not a fixed strict weak ordering over
-            // a single sort. Using std::sort here is undefined behavior and crashes via
-            // an out-of-bounds read when a timeout interrupts the comparison.
+            // Sort root values by an index permutation with the bounds-safe,
+            // mutation-aware merge sort (see merge_sort_perm). As in
+            // sort_root_function_partitions, the comparator (anum_manager::lt ->
+            // compare) MUTATES the algebraic numbers it compares (it refines their
+            // isolating intervals and may hit the resource limit and throw), so it is
+            // not a fixed strict weak ordering over a single sort; std::sort here would
+            // be undefined behavior and crash via an out-of-bounds read on timeout.
             std_vector<unsigned> perm(root_vals.size());
             std::iota(perm.begin(), perm.end(), 0u);
-            insertion_sort_perm(perm, [&](unsigned a, unsigned b) {
+            merge_sort_perm(perm, [&](unsigned a, unsigned b) {
                 return m_am.lt(root_vals[a].first, root_vals[b].first);
             });
 
