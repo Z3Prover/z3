@@ -161,6 +161,7 @@ namespace smt {
         cg_table                    m_cg_table;
         enode_generation_table      m_sticky_generation_updates;
         enode_generation_table      m_constant_generations;  // generations for enodes with !e->uses_cg_table()
+        // TODO: below can be a list instead of a table.
         enode_generation_table      m_r1_parent_generations; // generations of parents removed from m_cg_table while merging r1
 
         struct new_eq {
@@ -1148,13 +1149,13 @@ namespace smt {
         void push_new_th_diseq(theory_id th, theory_var lhs, theory_var rhs);
 
         friend class add_eq_trail;
-        friend class merge_cgc_trail;
+        friend class merge_cgc_generations_trail;
 
         void remove_parents_from_cg_table(enode * r1);
 
         void reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js);
 
-        void merge_cgc(enode * e, enode * e_prime, unsigned e_generation);
+        void merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned *e2_generation_ptr);
 
         void set_generation_sticky(enode * e, unsigned generation);
 
@@ -1170,7 +1171,7 @@ namespace smt {
 
         void propagate_bool_enode_assignment_core(enode * source, enode * target);
 
-        void undo_merge_cgc(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation);
+        void undo_merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation);
 
         void apply_sticky_updates(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation);
 

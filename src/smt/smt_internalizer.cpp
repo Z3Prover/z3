@@ -121,14 +121,14 @@ namespace smt {
         }
     }
 
-    class merge_cgc_trail : public trail {
+    class merge_cgc_generations_trail : public trail {
         context& ctx;
         enode* m_e1;
         unsigned m_e1_generation;
         enode* m_e2;
         unsigned m_e2_generation;
     public:
-        merge_cgc_trail(context& ctx, enode* e1, unsigned e1_generation, enode* e2, unsigned e2_generation):
+        merge_cgc_generations_trail(context& ctx, enode* e1, unsigned e1_generation, enode* e2, unsigned e2_generation):
             ctx(ctx),
             m_e1(e1),
             m_e1_generation(e1_generation),
@@ -137,22 +137,23 @@ namespace smt {
         }
 
         void undo() override {
-            ctx.undo_merge_cgc(m_e1, m_e1_generation, m_e2, m_e2_generation);
+            ctx.undo_merge_cgc_generations(m_e1, m_e1_generation, m_e2, m_e2_generation);
         }
     };
 
-    void context::merge_cgc(enode * e1, enode * e2, unsigned e1_generation) {
+    void context::merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned *e2_generation_ptr) {
         // We assume the congruence has already been updated. We might want to move that here, too.
         SASSERT(e2->is_cgr());
         SASSERT(!m_cg_table.contains_ptr(e1));
         SASSERT(m_cg_table.contains_ptr(e2));
-   
-        unsigned e2_generation = get_generation(e2);
 
-        push_trail(merge_cgc_trail(*this, e1, e1_generation, e2, e2_generation));
+        // Push trail even if we have a no-op. Otherwise we can't restore e1's generation after unmerging.
+        push_trail(merge_cgc_generations_trail(*this, e1, e1_generation, e2, *e2_generation_ptr));
 
-        e1->m_cg = e2;  // we keep these for now
-        // e2->m_generation = std::min(e1->m_generation, e2->m_generation);
+        if (e1_generation >= *e2_generation_ptr)
+            return; // no-op
+
+        *e2_generation_ptr = e1_generation;  
     }
 
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
@@ -1077,10 +1078,11 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    auto [e_prime, used_commutativity, gen_ptr] = m_cg_table.insert(e, generation);
+                    auto [e_prime, used_commutativity, sibling_gen_ptr] = m_cg_table.insert(e, generation);
                     if (e != e_prime) {
-                        merge_cgc(e, e_prime, generation);
                         push_new_congruence(e, e_prime, used_commutativity);
+                        e->m_cg = e_prime;
+                        merge_cgc_generations(e, generation, e_prime, sibling_gen_ptr);
                     }
                     else {
                         e->m_cg = e;

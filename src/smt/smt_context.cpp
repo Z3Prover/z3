@@ -696,7 +696,8 @@ namespace smt {
                     continue;
                 }
                 
-                merge_cgc(parent, parent_prime, parent_generation);
+                parent->m_cg = parent_prime;
+                merge_cgc_generations(parent, parent_generation, parent_prime, gen_ptr);
 
                 if (parent_prime->m_root != parent->m_root) {
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
@@ -1006,8 +1007,9 @@ namespace smt {
                     (parent == cg ||           // parent was root of the congruence class before and after the merge
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
-                    // Insert at generation UINT_MAX here. An undo_merge_cgr will immediately follow to set the generation.
-                    auto [parent_cg, used_commutativity, generation] = m_cg_table.insert(parent, UINT_MAX);
+                    // Insert at some dummy generation here. An undo_merge_cgr will immediately follow to set the generation.
+                    unsigned dummy_generation = 100000; // NOT UINT_MAX. In case this goes badly overflows would be hell to debug.
+                    auto [parent_cg, used_commutativity, generation] = m_cg_table.insert(parent, dummy_generation);
                     (void)used_commutativity;
                     (void)generation;
                     parent->m_cg = parent_cg;
@@ -1049,14 +1051,12 @@ namespace smt {
         CASSERT("add_eq", check_invariant());
     }
 
-    void context::undo_merge_cgc(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {
+    void context::undo_merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {
         SASSERT(e2->get_generation() == != UINT_MAX); // from undo_add_eq
 
         // TODO: optimization: don't bother unrolling e1 if e1 is an enode about to be garbage collected.
         set_generation(e1, e1_generation);
         set_generation(e2, e2_generation);
-
-        // do not set e1->cg for now. Undoers of callers of merge_cgc take care of this.
 
         apply_sticky_updates(e1, e1_generation, e2, e2_generation);
     }
