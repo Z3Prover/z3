@@ -956,6 +956,37 @@ namespace nlsat {
             return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
         }
 
+        // Sort an index permutation with a bounds-checked insertion sort.
+        //
+        // We deliberately avoid std::sort here: the comparator (root_function_lt ->
+        // anum_manager::compare) is NOT pure -- it MUTATES the very algebraic numbers
+        // it compares. anum_manager::compare refines their isolating intervals (and may
+        // even collapse a root to a rational), and it can hit the resource limit and
+        // throw mid-comparison. Because the operands change as the sort proceeds, the
+        // order the comparator induces is not a fixed strict weak ordering over a single
+        // sort. std::sort assumes a stable strict weak ordering; violating that is
+        // undefined behavior. In practice libstdc++'s *unguarded* insertion pass then
+        // trusts the comparator to terminate the inner loop, walks past the start of the
+        // range, and dereferences a wild anum cell -> SIGSEGV (this happens via an
+        // out-of-bounds read, independent of whether an exception is thrown, so it
+        // cannot be papered over with a try/catch around the sort).
+        //
+        // A fully guarded insertion sort can never read out of bounds regardless of how
+        // (in)consistent the comparator is, and unwinds cleanly if compare throws on
+        // cancellation.
+        template<typename Less>
+        void insertion_sort_perm(std_vector<unsigned>& perm, Less less) {
+            for (unsigned i = 1; i < perm.size(); ++i) {
+                unsigned key = perm[i];
+                unsigned j = i;
+                while (j > 0 && less(key, perm[j - 1])) {
+                    perm[j] = perm[j - 1];
+                    --j;
+                }
+                perm[j] = key;
+            }
+        }
+
         // Apply a permutation to a range of root_functions using swap cycles,
         // avoiding the bulk anum allocations that std::sort's move operations cause.
         void apply_permutation(std_vector<root_function>& rfs, unsigned offset, std_vector<unsigned> const& perm) {
@@ -982,7 +1013,7 @@ namespace nlsat {
             if (mid_pos > 1) {
                 std_vector<unsigned> perm(mid_pos);
                 std::iota(perm.begin(), perm.end(), 0u);
-                std::sort(perm.begin(), perm.end(), [&](unsigned a, unsigned b) {
+                insertion_sort_perm(perm, [&](unsigned a, unsigned b) {
                     return root_function_lt(rfs[a], rfs[b], true);
                 });
                 apply_permutation(rfs, 0, perm);
@@ -993,7 +1024,7 @@ namespace nlsat {
             if (upper_sz > 1) {
                 std_vector<unsigned> perm(upper_sz);
                 std::iota(perm.begin(), perm.end(), 0u);
-                std::sort(perm.begin(), perm.end(), [&](unsigned a, unsigned b) {
+                insertion_sort_perm(perm, [&](unsigned a, unsigned b) {
                     return root_function_lt(rfs[mid_pos + a], rfs[mid_pos + b], false);
                 });
                 apply_permutation(rfs, mid_pos, perm);
@@ -1192,20 +1223,29 @@ namespace nlsat {
             if (root_vals.size() < 2)
                 return;
 
-            std::sort(root_vals.begin(), root_vals.end(), [&](auto const& a, auto const& b) {
-                return m_am.lt(a.first, b.first);
+            // Sort root values by an index permutation with the bounds-checked
+            // insertion sort. As in sort_root_function_partitions, the comparator
+            // (anum_manager::lt -> compare) MUTATES the algebraic numbers it compares
+            // (it refines their isolating intervals and may hit the resource limit and
+            // throw), so the order it induces is not a fixed strict weak ordering over
+            // a single sort. Using std::sort here is undefined behavior and crashes via
+            // an out-of-bounds read when a timeout interrupts the comparison.
+            std_vector<unsigned> perm(root_vals.size());
+            std::iota(perm.begin(), perm.end(), 0u);
+            insertion_sort_perm(perm, [&](unsigned a, unsigned b) {
+                return m_am.lt(root_vals[a].first, root_vals[b].first);
             });
-            
+
             TRACE(lws,
                   tout << "  Sorted roots:\n";
-                  for (unsigned j = 0; j < root_vals.size(); ++j)
-                      m_pm.display(m_am.display_decimal(tout << "    [" << j << "] val=", root_vals[j].first, 5) << " poly=", root_vals[j].second) << "\n";
+                  for (unsigned j = 0; j < perm.size(); ++j)
+                      m_pm.display(m_am.display_decimal(tout << "    [" << j << "] val=", root_vals[perm[j]].first, 5) << " poly=", root_vals[perm[j]].second) << "\n";
                 );
             
             std::set<std::pair<poly*, poly*>> added_pairs;
-            for (unsigned j = 0; j + 1 < root_vals.size(); ++j) {
-                poly* p1 = root_vals[j].second;
-                poly* p2 = root_vals[j + 1].second;
+            for (unsigned j = 0; j + 1 < perm.size(); ++j) {
+                poly* p1 = root_vals[perm[j]].second;
+                poly* p2 = root_vals[perm[j + 1]].second;
                 if (!p1 || !p2 || p1 == p2)
                     continue;
                 if (p1 > p2) std::swap(p1, p2);
