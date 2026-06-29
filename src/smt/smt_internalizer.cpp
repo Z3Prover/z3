@@ -105,9 +105,19 @@ namespace smt {
         enode *cgr = e->get_num_args() == 0 ? e : get_cg_root(e);
         if (0 < m_generation && m_generation < get_generation(cgr)) {
             if (e->uses_cg_table())
-                update_cgc_generation(e, m_generation);
+                set_generation_sticky(e, m_generation);
             else
-                m_constant_generations[e] = m_generation;
+                m_constant_generations[e] = m_generation; // Sticky by default. Won't unmerge
+        }
+    }
+
+    void context::set_generation(enode * e, unsigned generation) {
+        if (e->uses_cg_table()) {
+            auto [cgr, cgc_gen] = m_cg_table.find_gen(e);
+            SASSERT(cgc_gen);
+            *cgc_gen = generation;
+        } else {
+            m_constant_generations[e] = generation;
         }
     }
 
@@ -1067,7 +1077,7 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    auto [e_prime, used_commutativity] = m_cg_table.insert(e, generation);
+                    auto [e_prime, used_commutativity, gen_ptr] = m_cg_table.insert(e, generation);
                     if (e != e_prime) {
                         merge_cgc(e, e_prime, generation);
                         push_new_congruence(e, e_prime, used_commutativity);
@@ -1078,7 +1088,7 @@ namespace smt {
                 }
                 else {
                     SASSERT(!e->uses_cg_table());
-                    m_constant_generations[e] = e->get_generation();
+                    m_constant_generations[e] = generation;
                     e->m_cg = e;
                 }
             }

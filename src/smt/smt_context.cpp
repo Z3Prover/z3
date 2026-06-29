@@ -625,16 +625,14 @@ namespace smt {
 
     // Sticky update to the generation number of the congruence class
     // Goes out of scope when n is garbage collected.
-    void context::update_cgc_generation(enode * n, unsigned generation) {
+    void context::set_generation_sticky(enode * n, unsigned generation) {
         SASSERT(n->uses_cg_table());
         auto [cgr, cgc_gen] = m_cg_table.find_gen(n);
         SASSERT(cgr);
         SASSERT(cgc_gen);
-
-        if (*cgc_gen < generation)
-            return;
+        // Callers are responsible for this. Sticky updates are too expensive to accommodate no-ops.
+        SASSERT(*cgc_gen < generation);
             
-        // cgr->set_generation(nullptr, generation);
         *cgc_gen = generation;
         m_sticky_generation_updates.insert(n, generation);
     }
@@ -687,12 +685,12 @@ namespace smt {
                 SASSERT(m_r1_parent_generations.contains(parent));
                 unsigned parent_generation = m_r1_parent_generations.find(parent);
                 m_r1_parent_generations.erase(parent);
-                auto [parent_prime, used_commutativity, generation] = m_cg_table.insert(parent);
+                auto [parent_prime, used_commutativity, gen_ptr] = m_cg_table.insert(parent, parent_generation);
                 if (parent_prime == parent) {
                     SASSERT(parent);
-                    SASSERT(parent->is_cgr());
+                    SASSERT(parent->is_cgr());  
                     SASSERT(m_cg_table.contains_ptr(parent));
-                    SASSERT(*generation == parent_generation);
+                    SASSERT(*gen_ptr == parent_generation);
                     
                     r2_parents.push_back(parent);
                     continue;
@@ -1008,7 +1006,8 @@ namespace smt {
                     (parent == cg ||           // parent was root of the congruence class before and after the merge
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
-                    auto [parent_cg, used_commutativity, generation] = m_cg_table.insert(parent);
+                    // Insert at generation UINT_MAX here. An undo_merge_cgr will immediately follow to set the generation.
+                    auto [parent_cg, used_commutativity, generation] = m_cg_table.insert(parent, UINT_MAX);
                     (void)used_commutativity;
                     (void)generation;
                     parent->m_cg = parent_cg;
@@ -1051,25 +1050,30 @@ namespace smt {
     }
 
     void context::undo_merge_cgc(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {
-        e1->set_generation(nullptr, e1_generation);
-        e2->set_generation(nullptr, e2_generation);
+        SASSERT(e2->get_generation() == != UINT_MAX); // from undo_add_eq
 
-        // do not set e1->cg for now. Undoers of callers of undo_merge_cgc take care of this.
-        apply_sticky_updates(e1, e2);
+        // TODO: optimization: don't bother unrolling e1 if e1 is an enode about to be garbage collected.
+        set_generation(e1, e1_generation);
+        set_generation(e2, e2_generation);
+
+        // do not set e1->cg for now. Undoers of callers of merge_cgc take care of this.
+
+        apply_sticky_updates(e1, e1_generation, e2, e2_generation);
     }
 
-    void context::apply_sticky_updates(enode * e1, enode * e2) {
-        (void)e1;
-        (void)e2;
-        for (auto const& kv : m_sticky_generation_updates) {
-            enode * cgr = kv.m_key;
-            unsigned generation = kv.m_value;
-            if (!cgr || !cgr->uses_cg_table())
-                continue;
-            if (cgr->get_generation() > generation) {
-                cgr->set_generation(nullptr, generation);
+    void context::apply_sticky_updates(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {
+        SASSERT(e1->uses_cg_table());
+        SASSERT(e2->uses_cg_table());
+        // optimization opportunity: we actually just need to look at updates above the current decision level.
+        // Then we wouldn't have to check for minimum either.
+        for (auto const& [t, generation] : m_sticky_generation_updates) {
+            SASSERT(t->uses_cg_table());
+            if (generation < e1_generation && congruent(t, e1)) {
+                set_generation(e1, generation);
+            } else if (generation < e2_generation && congruent(t, e2)) {
+                set_generation(e2, generation);
             }
-        }
+        }  
     }
 
     /**
@@ -1201,8 +1205,7 @@ namespace smt {
         m_is_diseq_tmp->m_args[0] = n1;
         m_is_diseq_tmp->m_args[1] = n2;
         SASSERT(m_is_diseq_tmp->get_num_args() == 2);
-        auto [r, generation] = m_cg_table.find(m_is_diseq_tmp);
-        (void)generation;
+        auto r = m_cg_table.find(m_is_diseq_tmp);
         SASSERT((r != 0) == m_cg_table.contains(m_is_diseq_tmp));
         TRACE(is_diseq, tout << "r: " << r << "\n";);
         if (r) {
@@ -1336,8 +1339,7 @@ namespace smt {
      */
     enode * context::get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args) {
         enode * tmp = m_tmp_enode.set(f, num_args, args);
-        auto [r, generation] = m_cg_table.find(tmp);
-        (void)generation;
+        auto r = m_cg_table.find(tmp);
 #ifdef Z3DEBUG
         if (r != nullptr) {
             SASSERT(r->get_decl() == f);
@@ -2298,8 +2300,9 @@ namespace smt {
                     unsigned ilvl = e->get_iscope_lvl();
                     if (ilvl <= new_scope_lvl)
                         continue; // node and its children will not be recreated during backtracking
-                    TRACE(cached_generation, tout << "caching: #" << n->get_id() << " " << e->get_generation() << "\n";);
-                    m_cached_generation.insert(n, e->get_generation());
+                    unsigned generation = get_generation(e);
+                    TRACE(cached_generation, tout << "caching: #" << n->get_id() << " " << generation << "\n";);
+                    m_cached_generation.insert(n, generation);
                 }
                 for (expr * arg : *to_app(n)) {
                     if (is_app(arg) || is_quantifier(arg))

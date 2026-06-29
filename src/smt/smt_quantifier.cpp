@@ -710,8 +710,9 @@ namespace smt {
                 }
                 enode* n = m_context->get_enode(e);
                 new_bindings.push_back(n);
-                if (n->get_generation() > max_gen)
-                    max_gen = n->get_generation();
+                unsigned gen = m_context->get_generation(n);
+                if (gen > max_gen)
+                    max_gen = gen;
             }
 
             TRACE(ho_matching,

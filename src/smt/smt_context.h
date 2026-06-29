@@ -617,7 +617,7 @@ namespace smt {
             if (!e->uses_cg_table())
                 return m_constant_generations.find(e);
             
-            auto [cgr, generation] = m_cg_table.find(e);
+            auto [cgr, generation] = m_cg_table.find_gen(e);
             SASSERT(cgr);
             return *generation;
         }
@@ -1156,7 +1156,9 @@ namespace smt {
 
         void merge_cgc(enode * e, enode * e_prime, unsigned e_generation);
 
-        void update_cgc_generation(enode * e, unsigned generation);
+        void set_generation_sticky(enode * e, unsigned generation);
+
+        void set_generation(enode * e, unsigned generation);
 
         void invert_trans(enode * n);
 
@@ -1170,7 +1172,7 @@ namespace smt {
 
         void undo_merge_cgc(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation);
 
-        void apply_sticky_updates(enode * e1, enode * e2);
+        void apply_sticky_updates(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation);
 
         void undo_add_eq(enode * r1, enode * n1, unsigned r2_num_parents);
 
@@ -1222,7 +1224,7 @@ namespace smt {
             SASSERT(n->get_num_args() > 0);
             if (!n->uses_cg_table())
                 return n->get_cg();
-            auto [r, gen_ptr] = m_cg_table.find(n);
+            auto r = m_cg_table.find(n);
             SASSERT(r != nullptr);
             return r;
         }

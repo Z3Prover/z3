@@ -191,7 +191,7 @@ namespace smt {
             }
         }
 
-        enode_gen_ptr find(enode * n) const {
+        enode * find(enode * n) const {
             return find_gen(n).first;
         }
 
