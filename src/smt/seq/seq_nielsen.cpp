@@ -2058,7 +2058,8 @@ namespace seq {
                     return r;
                 }
                 // depth limit hit – double the bound and retry
-                m_depth_bound *= 2;
+                if (m_depth_bound < INT_MAX/2)
+                    m_depth_bound *= 2;
                 SASSERT(m_depth_bound < INT_MAX);
             }
             ++m_stats.m_num_unknown;
