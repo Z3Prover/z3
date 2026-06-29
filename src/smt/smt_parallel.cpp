@@ -784,8 +784,21 @@ namespace smt {
 
             switch (r) {
             case l_undef: {
-                update_max_thread_conflicts();
                 LOG_WORKER(1, " found undef cube\n");
+                // Escalating the per-thread conflict budget and re-splitting the
+                // cube only helps when the cube was abandoned because the per-cube
+                // conflict limit was reached. For any other source of incompleteness
+                // (an incomplete theory, quantifiers, lambdas, resource limits, ...)
+                // the verdict cannot change, so re-checking the same cube would spin
+                // forever and the run hangs to a wall-clock timeout. Record a sound
+                // 'unknown' verdict and stop working this branch instead.
+                std::string reason = ctx->last_failure_as_string();
+                if (reason != "max-conflicts-reached") {
+                    LOG_WORKER(1, " undef cube not conflict-limited (" << reason << "); reporting unknown\n");
+                    b.set_unknown(reason);
+                    return;
+                }
+                update_max_thread_conflicts();
                 if (m_config.m_max_cube_depth <= cube.size())
                     goto check_cube_start;
 
@@ -1727,7 +1740,7 @@ namespace smt {
     void parallel::batch_manager::set_sat(ast_translation &l2g, model &m) {
         std::scoped_lock lock(mux);
         IF_VERBOSE(1, verbose_stream() << "Batch manager setting SAT.\n");
-        if (m_state != state::is_running)
+        if (m_state != state::is_running && m_state != state::is_unknown)
             return;
         m_state = state::is_sat;
         p.ctx.set_model(m.translate(l2g));
@@ -1737,7 +1750,7 @@ namespace smt {
     void parallel::batch_manager::set_unsat(ast_translation &l2g, expr_ref_vector const &unsat_core) {
         std::scoped_lock lock(mux);
         IF_VERBOSE(1, verbose_stream() << "Batch manager setting UNSAT.\n");
-        if (m_state != state::is_running)
+        if (m_state != state::is_running && m_state != state::is_unknown)
             return;
         m_state = state::is_unsat;
 
@@ -1745,6 +1758,16 @@ namespace smt {
         SASSERT(p.ctx.m_unsat_core.empty());
         for (expr *e : unsat_core)
             p.ctx.m_unsat_core.push_back(l2g(e));
+        cancel_background_threads();
+    }
+
+    void parallel::batch_manager::set_unknown(std::string const &reason) {
+        std::scoped_lock lock(mux);
+        IF_VERBOSE(1, verbose_stream() << "Batch manager setting UNKNOWN: " << reason << ".\n");
+        if (m_state != state::is_running)
+            return;  // a definitive sat/unsat verdict or exception already won.
+        m_state = state::is_unknown;
+        m_reason_unknown = reason;
         cancel_background_threads();
     }
 
@@ -1779,6 +1802,8 @@ namespace smt {
             return l_false;
         case state::is_sat:
             return l_true;
+        case state::is_unknown:
+            return l_undef;
         case state::is_exception_msg:
             throw default_exception(m_exception_msg.c_str());
         case state::is_exception_code:
@@ -1989,7 +2014,10 @@ namespace smt {
         for (auto* bb_w : m_global_backbones_workers)
             bb_w->collect_statistics(ctx.m_aux_stats);
 
-        return m_batch_manager.get_result();
+        lbool result = m_batch_manager.get_result();
+        if (result == l_undef && !m_batch_manager.get_reason_unknown().empty())
+            ctx.set_reason_unknown(m_batch_manager.get_reason_unknown().c_str());
+        return result;
     }
 
 }  // namespace smt
