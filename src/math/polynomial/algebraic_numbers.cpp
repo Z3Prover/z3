@@ -22,6 +22,7 @@ Notes:
 #include "util/mpbqi.h"
 #include "util/timeit.h"
 #include "util/common_msgs.h"
+#include "util/index_sort_with_mutations.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/upolynomial.h"
 #include "math/polynomial/sexpr2upolynomial.h"
@@ -593,49 +594,24 @@ namespace algebraic_numbers {
             }
         }
 
-        // Bounds-safe, mutation-aware merge sort of an index permutation.
-        //
-        // We deliberately avoid std::sort: the comparator (lt -> compare) is NOT pure
-        // -- it MUTATES the algebraic numbers it compares by refining their isolating
-        // intervals (possibly collapsing a root to a rational), and can hit the
-        // resource limit and throw. That refinement is monotone toward the one true
-        // real order (a decided sign is permanent), but a comparison can transiently
-        // strengthen from "uncertain" to "decided". std::sort (introsort) relies on a
-        // comparator-derived sentinel and re-compares a pivot repeatedly; a
-        // strengthening invalidates the sentinel and its *unguarded* insertion pass
-        // walks off the array -> out-of-bounds read -> SIGSEGV (a try/catch could not
-        // help). Merge sort is safe because it never re-compares a pair and uses no
-        // comparator-derived sentinel: every loop bound is arithmetic, so an
-        // inconsistent comparator can only yield a wrong order, never an OOB access or
-        // a hang. Runs are ordered by decided signs that later refinement cannot
-        // un-decide, so deeper merges stay correct and inherit cheaper intervals.
-        // O(n log n) comparisons, O(n) scratch. See also nlsat/levelwise.cpp.
+        // Sort an index permutation with a bounds-safe, mutation-aware merge
+        // sort. The comparator (compare/lt) is NOT pure: it MUTATES the
+        // algebraic numbers it compares (refining their isolating intervals) and
+        // may throw on the resource limit, so std::sort would be undefined
+        // behavior here. See util/index_sort_with_mutations.h for the rationale.
         void merge_sort_roots_perm(numeral_vector & r, unsigned_vector & perm) {
             unsigned n = perm.size();
             if (n < 2)
                 return;
-            unsigned_vector tmp;
-            tmp.resize(n, 0);
+            unsigned_vector scratch;
+            scratch.resize(n, 0);
             // Strict, total, stable index comparator: decided sign first, then index
             // tiebreak (covers the equal/limit case so the order stays deterministic).
             auto idx_lt = [&](unsigned x, unsigned y) {
                 ::sign s = compare(r[x], r[y]);
                 return s != sign_zero ? s == sign_neg : x < y;
             };
-            for (unsigned width = 1; width < n; width <<= 1) {
-                for (unsigned lo = 0; lo < n; lo += (width << 1)) {
-                    unsigned mid = std::min(lo + width, n);
-                    unsigned hi = std::min(lo + (width << 1), n);
-                    unsigned i = lo, j = mid, k = lo;
-                    while (i < mid && j < hi)
-                        tmp[k++] = idx_lt(perm[j], perm[i]) ? perm[j++] : perm[i++];
-                    while (i < mid)
-                        tmp[k++] = perm[i++];
-                    while (j < hi)
-                        tmp[k++] = perm[j++];
-                }
-                perm.swap(tmp);
-            }
+            stable_index_merge_sort(perm.data(), scratch.data(), n, idx_lt);
         }
 
         void sort_roots(numeral_vector & r) {
