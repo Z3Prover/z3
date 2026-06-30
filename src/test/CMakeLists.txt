@@ -134,6 +134,7 @@ add_executable(test-z3
   simplifier.cpp
   sls_test.cpp
   sls_seq_plugin.cpp
+  seq_split.cpp
   seq_nielsen.cpp
   seq_parikh.cpp
   nseq_basic.cpp

@@ -402,10 +402,16 @@ public:
     // Split decomposition (sigma) of a regex; see seq_split.h.  `oracle` (optional)
     // prunes non-viable splits during generation.
     bool split(expr* r, split_set& out, unsigned threshold,
-               split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
+        const split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
         return m_split.compute(r, out, threshold, mode, oracle);
     }
+
     void simplify_split(split_set& s) { m_split.simplify(s); }
+
+    // decompose a membership constraint into a set of pairs of regex splits
+    std::pair<expr_ref, expr_ref> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
+        return m_split.split_membership(str, regex, threshold, result);
+    }
 
     expr_ref mk_symmetric_diff(expr *r1, expr *r2);
 
