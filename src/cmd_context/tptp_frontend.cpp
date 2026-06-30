@@ -935,7 +935,7 @@ class tptp_parser {
     // Grammar: (same as parse_term, primary productions)
     expr_ref parse_term_primary() {
         if (accept(token_kind::lparen)) {
-            expr_ref e = parse_formula();
+            expr_ref e = parse_formula(false);
             expect(token_kind::rparen, "')'");
             return e;
         }
@@ -981,11 +981,11 @@ class tptp_parser {
         // $ite needs special parsing: first arg is formula, rest are formulas (branches can be equalities)
         if (n == "$ite") {
             expect(token_kind::lparen, "'('");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(true));
             expect(token_kind::comma, "','");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(false));
             expect(token_kind::comma, "','");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(false));
             expect(token_kind::rparen, "')'");
         }
         else if (n == "$let") {
@@ -1005,14 +1005,14 @@ class tptp_parser {
         }
 
         func_decl* f = mk_decl_or_ho_const(n, args.size(), false);
-        if (!args.empty()) coerce_args(f, args);
+        coerce_args(f, args);
         return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
     }
 
     // Grammar: <tff_logic_formula>   ::= <tff_unitary_formula> | <tff_binary_formula>
     //          <thf_logic_formula>   ::= <thf_unitary_formula> | <thf_binary_formula>
     //          Entry point for formula parsing (wraps parse_expr with default precedence).
-    expr_ref parse_formula();
+    expr_ref parse_formula(bool is_boolean);
 
     // Grammar: <thf_apply_formula> ::= <thf_unitary_formula> @ <thf_unitary_formula>
     //                               | <thf_apply_formula> @ <thf_unitary_formula>
@@ -1052,7 +1052,7 @@ class tptp_parser {
             return parse_lambda_expr();
         }
         if (accept(token_kind::lparen)) {
-            expr_ref e = parse_formula();
+            expr_ref e = parse_formula(false);
             expect(token_kind::rparen, "')'");
             // Do NOT call apply_at here — outer apply_at owns the remaining @ tokens
             return e;
@@ -1084,7 +1084,7 @@ class tptp_parser {
             // Quantifier body in @-arg should NOT consume @ — those belong to enclosing application
             bool save_in_at_arg = m_in_at_arg;
             m_in_at_arg = true;
-            expr_ref body = parse_formula();
+            expr_ref body = parse_formula(false);
             m_in_at_arg = save_in_at_arg;
             m_bound.pop_back();
             return mk_quantifier(is_forall, vars, body);
@@ -1102,7 +1102,7 @@ class tptp_parser {
         std::string key = mk_decl_key(name_str, 0, 'c') + "\x1f" + std::to_string(range->get_id());
         auto it = m_decls.find(key);
         if (it != m_decls.end()) return it->second;
-        func_decl* f = m.mk_func_decl(name, 0, static_cast<sort**>(nullptr), range);
+        func_decl* f = m.mk_const_decl(name, range);
         m_pinned_decls.push_back(f);
         m_decls.emplace(key, f);
         return f;
@@ -1139,14 +1139,7 @@ class tptp_parser {
         // them Boolean instead of forcing one into the term universe U.
         if (lhs->get_sort() == rhs->get_sort())
             return lhs;
-        // Mixed Int/Real operands: promote the integer side to Real via the
-        // semantic to_real conversion, so equality stays arithmetically faithful
-        // instead of going through an uninterpreted box.
-        if (m_arith.is_int(lhs) && m_arith.is_real(rhs))
-            lhs = m_arith.mk_to_real(lhs);
-        if (m_arith.is_int(rhs) && m_arith.is_real(lhs))
-            rhs = m_arith.mk_to_real(rhs);
-        if (lhs->get_sort() == rhs->get_sort())
+        if (m_arith.is_int_real(lhs) && m_arith.is_int_real(rhs))
             return lhs;
         // Coerce 0-arity constants to match the other side's sort
         if (is_app(lhs) && to_app(lhs)->get_num_args() == 0) {
@@ -1157,11 +1150,10 @@ class tptp_parser {
             return lhs;
         }
         // Last resort: coerce both sides to have the same sort
-        if (lhs->get_sort() != rhs->get_sort()) {
-            // Prefer coercing to rhs sort, falling back to m_univ
-            sort* target = rhs->get_sort();
-            lhs = coerce_arg(lhs, target);
-        }
+        // Prefer coercing to rhs sort, falling back to m_univ
+        sort* target = rhs->get_sort();
+        lhs = coerce_arg(lhs, target);
+        
         return lhs;
     }
 
@@ -1192,7 +1184,7 @@ class tptp_parser {
         // Bind parameter variables for parsing the RHS
         if (!param_scope.empty())
             m_bound.push_back(param_scope);
-        expr_ref value = parse_formula();
+        expr_ref value = parse_formula(false);
         if (!param_scope.empty())
             m_bound.pop_back();
         // For function-style definitions, wrap value in lambdas
@@ -1280,7 +1272,7 @@ class tptp_parser {
 
         // --- Part 3: Parse body with let-bound names in scope ---
         m_bound.push_back(scope);
-        expr_ref body = parse_formula();
+        expr_ref body = parse_formula(false);
         m_bound.pop_back();
         expect(token_kind::rparen, "')'");
 
@@ -1304,7 +1296,7 @@ class tptp_parser {
     //          <defined_pred>     ::= $less | $lesseq | $greater | $greatereq | $is_int | $is_rat | ...
     //          <defined_infix_pred> ::= = | !=
     //          Also handles: let-bound name resolution, implicit variable creation.
-    expr_ref parse_atomic_formula() {
+    expr_ref parse_atomic_formula(bool is_boolean) {
         if (accept(token_kind::lparen)) {
             // Check for parenthesized connective used as higher-order term: (~), (&), (|), etc.
             if (is(token_kind::not_tok) || is(token_kind::and_tok) || is(token_kind::or_tok) ||
@@ -1351,9 +1343,9 @@ class tptp_parser {
                     // own precedence (e.g. "( ~ p | q )" is "(~p) | q", NOT "~(p | q)").
                     // We have already consumed '(' and '~', so negate the next unit and
                     // resume precedence-climbing parsing from that negated left operand.
-                    expr_ref operand = parse_unary_formula();
+                    expr_ref operand = parse_unary_formula(true);
                     expr_ref neg(m.mk_not(ensure_bool(operand)), m);
-                    inner = parse_binary_rest(neg, PREC_IFF, true);
+                    inner = parse_binary_rest(neg, PREC_IFF, true, true);
                 } else {
                     // Binary connective at start of parens — shouldn't happen in valid TPTP
                     throw parse_error("unexpected connective after '(' at " + loc());
@@ -1364,7 +1356,7 @@ class tptp_parser {
             // Parentheses create a new scope for @ consumption
             bool save_in_at_arg = m_in_at_arg;
             m_in_at_arg = false;
-            expr_ref e = parse_formula();
+            expr_ref e = parse_formula(is_boolean);
             expect(token_kind::rparen, "')'");
             m_in_at_arg = save_in_at_arg;
             return e;
@@ -1380,9 +1372,9 @@ class tptp_parser {
         if (accept(token_kind::lbrack)) {
             if (accept(token_kind::rbrack))
                 return expr_ref(m.mk_const(symbol("$nil"), m_univ), m);
-            expr_ref first = parse_formula();
+            expr_ref first = parse_formula(is_boolean);
             while (accept(token_kind::comma))
-                parse_formula(); // consume remaining elements
+                parse_formula(is_boolean); // consume remaining elements
             expect(token_kind::rbrack, "']'");
             return first;
         }
@@ -1439,7 +1431,7 @@ class tptp_parser {
             }
             expect(token_kind::colon, "':'");
             m_bound.push_back(scope);
-            expr_ref body = parse_formula();
+            expr_ref body = parse_formula(is_boolean);
             m_bound.pop_back();
             // Approximate choice as existential quantification
             return mk_quantifier(false, vars, body);
@@ -1449,11 +1441,11 @@ class tptp_parser {
         // $ite needs special parsing: first arg is formula, rest are formulas (branches can be equalities)
         if (n == "$ite") {
             expect(token_kind::lparen, "'('");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(true));
             expect(token_kind::comma, "','");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(is_boolean));
             expect(token_kind::comma, "','");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(is_boolean));
             expect(token_kind::rparen, "')'");
         }
         else if (n == "$let") {
@@ -1487,18 +1479,16 @@ class tptp_parser {
         auto typed = m_typed_decls.find(mk_typed_key(n, args.size()));
         if (typed != m_typed_decls.end()) {
             func_decl* f = args.empty() ? mk_decl_or_ho_const(n, 0, false) : mk_decl(n, args.size(), false);
-            if (!args.empty()) coerce_args(f, args);
-            return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
+            coerce_args(f, args);
+            return expr_ref(m.mk_app(f, args.size(), args.data()), m);
         }
 
-        if (args.empty() && (is(token_kind::equal_tok) || is(token_kind::neq_tok))) {
-            func_decl* f = mk_decl_or_ho_const(n, 0, false);
-            return expr_ref(m.mk_const(f), m);
-        }
+        is_boolean = is_boolean && !is(token_kind::equal_tok) && !is(token_kind::neq_tok);
 
-        func_decl* pred = mk_decl_or_ho_const(n, args.size(), true);
-        if (!args.empty()) coerce_args(pred, args);
-        return expr_ref(args.empty() ? m.mk_const(pred) : m.mk_app(pred, args.size(), args.data()), m);
+
+        func_decl* pred = mk_decl_or_ho_const(n, args.size(), is_boolean);
+        coerce_args(pred, args);
+        return expr_ref(m.mk_app(pred, args.size(), args.data()), m);
     }
 
     // Grammar: <thf_abstraction> ::= ^ [<thf_variable_list>] : <thf_unitary_formula>
@@ -1535,7 +1525,7 @@ class tptp_parser {
         // Lambda body does NOT consume @ — @ belongs to the enclosing application
         bool save_in_at_arg = m_in_at_arg;
         m_in_at_arg = true;
-        expr_ref body = parse_formula();
+        expr_ref body = parse_formula(false);
         m_in_at_arg = save_in_at_arg;
         m_bound.pop_back();
         if (vars.empty())
@@ -1560,9 +1550,9 @@ class tptp_parser {
     //          <thf_quantified_formula> ::= <thf_quantification> <thf_unitary_formula>
     //          <fof_quantifier>     ::= ! | ?
     //          Also handles: $ite, $let, lambda (^), parenthesized formulas, and atomic formulas.
-    expr_ref parse_unary_formula() {
+    expr_ref parse_unary_formula(bool is_boolean) {
         if (accept(token_kind::not_tok)) {
-            expr_ref e = parse_unary_formula();
+            expr_ref e = parse_unary_formula(true);
             return expr_ref(m.mk_not(ensure_bool(e)), m);
         }
 
@@ -1574,7 +1564,7 @@ class tptp_parser {
             next(); // consume '['
             if (accept(token_kind::dot)) {
                 expect(token_kind::rbrack, "']'");
-                expr_ref sub = parse_unary_formula();
+                expr_ref sub = parse_unary_formula(is_boolean);
                 func_decl* f = mk_modal_op("box");
                 return expr_ref(m.mk_app(f, sub.get()), m);
             }
@@ -1583,7 +1573,7 @@ class tptp_parser {
                 std::string first_name = m_curr.text;
                 next();
                 if (accept(token_kind::rbrack)) {
-                    expr_ref sub = parse_unary_formula();
+                    expr_ref sub = parse_unary_formula(is_boolean);
                     func_decl* f = mk_modal_op(mod_name);
                     return expr_ref(m.mk_app(f, sub.get()), m);
                 }
@@ -1597,11 +1587,11 @@ class tptp_parser {
                 else if (should_create_implicit_var(first_name))
                     first = expr_ref(get_or_create_implicit_var(first_name), m);
                 else {
-                    func_decl* f = mk_decl_or_ho_const(first_name, 0, false);
+                    func_decl* f = mk_decl_or_ho_const(first_name, 0, is_boolean);
                     first = expr_ref(m.mk_const(f), m);
                 }
                 while (accept(token_kind::comma))
-                    parse_formula(); // consume remaining elements
+                    parse_formula(is_boolean); // consume remaining elements
                 expect(token_kind::rbrack, "']'");
                 return first;
             }
@@ -1609,9 +1599,9 @@ class tptp_parser {
             // We already consumed '[', so parse as tuple inline
             if (accept(token_kind::rbrack))
                 return expr_ref(m.mk_const(symbol("$nil"), m_univ), m);
-            expr_ref first = parse_formula();
+            expr_ref first = parse_formula(is_boolean);
             while (accept(token_kind::comma))
-                parse_formula(); // consume remaining elements
+                parse_formula(is_boolean); // consume remaining elements
             expect(token_kind::rbrack, "']'");
             return first;
         }
@@ -1627,7 +1617,7 @@ class tptp_parser {
                 next();
             }
             expect(token_kind::gt_tok, "'>'");
-            expr_ref sub = parse_unary_formula();
+            expr_ref sub = parse_unary_formula(is_boolean);
             func_decl* f = mk_modal_op(mod_name);
             return expr_ref(m.mk_app(f, sub.get()), m);
         }
@@ -1680,7 +1670,7 @@ class tptp_parser {
             // at any lower-precedence connective, which stays in the enclosing
             // expression. E.g. "! [X] : p(X) & q(X)" is "(! [X] : p(X)) & q(X)",
             // and "! [X] : (...) => g" keeps "=> g" outside the quantifier scope.
-            expr_ref body = parse_expr(PREC_EQ);
+            expr_ref body = parse_expr(PREC_EQ, true, is_boolean);
             m_bound.pop_back();
             return mk_quantifier(is_forall, vars, body);
         }
@@ -1700,10 +1690,10 @@ class tptp_parser {
                 expect(token_kind::rbrack, "']'");
             }
             expect(token_kind::colon, "':'");
-            return parse_formula();
+            return parse_formula(is_boolean);
         }
 
-        return parse_atomic_formula();
+        return parse_atomic_formula(is_boolean);
     }
 
     // Grammar: <tff_binary_formula>  ::= <tff_binary_nonassoc> | <tff_binary_assoc>
@@ -1715,15 +1705,15 @@ class tptp_parser {
     //          <tff_and_formula>     ::= <tff_unit_formula> & <tff_unit_formula>
     //                                  | <tff_and_formula> & <tff_unit_formula>
     //          Implements a Pratt-style (precedence climbing) parser for binary connectives.
-    expr_ref parse_expr(unsigned min_prec, bool consume_at = true) {
-        expr_ref e = parse_unary_formula();
-        return parse_binary_rest(e, min_prec, consume_at);
+    expr_ref parse_expr(unsigned min_prec, bool consume_at, bool is_boolean) {
+        expr_ref e = parse_unary_formula(is_boolean);
+        return parse_binary_rest(e, min_prec, consume_at, m.is_bool(e));
     }
 
     // Precedence-climbing loop continued from an already-parsed left operand `e`.
     // Split out from parse_expr so callers that have consumed a leading unary unit
     // (e.g. a '~' immediately after '(') can resume binary-connective parsing.
-    expr_ref parse_binary_rest(expr_ref e, unsigned min_prec, bool consume_at = true) {
+    expr_ref parse_binary_rest(expr_ref e, unsigned min_prec, bool consume_at = true, bool is_boolean = true) {
         for (;;) {
             // Handle @ (function application) with highest precedence
             // But NOT when we're inside a lambda body that's an @ argument
@@ -1754,7 +1744,7 @@ class tptp_parser {
             if (it->second.precedence < min_prec) break;
             next(); // consume the operator token
             unsigned next_prec = it->second.right_assoc ? it->second.precedence : it->second.precedence + 1;
-            expr_ref rhs = parse_expr(next_prec, consume_at);
+            expr_ref rhs = parse_expr(next_prec, consume_at, is_boolean);
             expr_ref_vector args(m);
             args.push_back(e);
             args.push_back(rhs);
@@ -1890,7 +1880,7 @@ class tptp_parser {
             try {
                 implicit_var_scope implicit_scope;
                 scoped_implicit_vars scoped(*this, implicit_scope);
-                expr_ref f = parse_formula();
+                expr_ref f = parse_formula(true);
                 if (!implicit_scope.order.empty()) {
                     f = mk_quantifier(true, implicit_scope.order, f);
                 }
@@ -2289,8 +2279,8 @@ expr_ref tptp_parser::parse_term() {
     return e;
 }
 
-expr_ref tptp_parser::parse_formula() {
-    return parse_expr(PREC_IFF);
+expr_ref tptp_parser::parse_formula(bool is_boolean) {
+    return parse_expr(PREC_IFF, true, is_boolean);
 }
 
 }
