@@ -627,6 +627,8 @@ namespace smt {
             return *generation;
         }
 
+        void set_generation(enode * e, unsigned generation);
+
         /**
            \brief Return true if the logical context internalized universal quantifiers.
         */
@@ -1162,8 +1164,6 @@ namespace smt {
         void merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned *e2_generation_ptr);
 
         void set_generation_sticky(enode * e, unsigned generation);
-
-        void set_generation(enode * e, unsigned generation);
 
         void invert_trans(enode * n);
 

@@ -692,440 +692,441 @@ namespace {
     };
 
 
-//     /**
-//        \brief Case split queue based on relevancy propagation and generation/goal-similarity
-//     */
-//     class rel_goal_case_split_queue : public case_split_queue {
-// #if 0
-// #define GOAL_START() m_goal_time.start()
-// #define GOAL_STOP()  m_goal_time.stop()
-// #else
-// #define GOAL_START() do {} while (0)
-// #define GOAL_STOP()  do {} while (0)
-// #endif
+    /**
+       \brief Case split queue based on relevancy propagation and generation/goal-similarity
+    */
+    class rel_goal_case_split_queue : public case_split_queue {
+#if 0
+#define GOAL_START() m_goal_time.start()
+#define GOAL_STOP()  m_goal_time.stop()
+#else
+#define GOAL_START() do {} while (0)
+#define GOAL_STOP()  do {} while (0)
+#endif
 
-//         struct queue_entry {
-//             expr *    m_expr;
-//             unsigned  m_generation;
-//             int       m_last_decided;
+        struct queue_entry {
+            expr *    m_expr;
+            unsigned  m_generation;
+            int       m_last_decided;
 
-//             queue_entry(expr * e, unsigned gen):
-//                     m_expr(e),
-//                     m_generation(gen),
-//                     m_last_decided(-1) {}
-//         };
+            queue_entry(expr * e, unsigned gen):
+                    m_expr(e),
+                    m_generation(gen),
+                    m_last_decided(-1) {}
+        };
 
-//         struct generation_lt {
-//             rel_goal_case_split_queue & m_parent;
-//             generation_lt(rel_goal_case_split_queue & p):m_parent(p) {}
-//             bool operator()(int v1, int v2) const {
-//                 unsigned g1 = m_parent.m_queue2[v1].m_generation;
-//                 unsigned g2 = m_parent.m_queue2[v2].m_generation;
+        struct generation_lt {
+            rel_goal_case_split_queue & m_parent;
+            generation_lt(rel_goal_case_split_queue & p):m_parent(p) {}
+            bool operator()(int v1, int v2) const {
+                unsigned g1 = m_parent.m_queue2[v1].m_generation;
+                unsigned g2 = m_parent.m_queue2[v2].m_generation;
 
-//                 if (g1 == g2)
-//                     return v1 < v2;
-//                 else
-//                     return g1 < g2;
-//             }
-//         };
+                if (g1 == g2)
+                    return v1 < v2;
+                else
+                    return g1 < g2;
+            }
+        };
 
-//         struct scope {
-//             unsigned m_queue_trail;
-//             unsigned m_head_old;
-//             unsigned m_queue2_trail;
-//             unsigned m_generation;
-//             expr *   m_goal;
-//         };
+        struct scope {
+            unsigned m_queue_trail;
+            unsigned m_head_old;
+            unsigned m_queue2_trail;
+            unsigned m_generation;
+            expr *   m_goal;
+        };
 
-//         typedef int_hashtable<int_hash, default_eq<int> > bool_var_set;
-//         context &            m_context;
-//         smt_params &   m_params;  
-//         ast_manager &        m_manager;
-//         ptr_vector<expr>     m_queue;
-//         unsigned             m_head;
-//         bool_var             m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
-//         svector<queue_entry> m_queue2;
-//         svector<scope>       m_scopes;
-//         unsigned             m_current_generation;
+        typedef int_hashtable<int_hash, default_eq<int> > bool_var_set;
+        context &            m_context;
+        smt_params &   m_params;  
+        ast_manager &        m_manager;
+        ptr_vector<expr>     m_queue;
+        unsigned             m_head;
+        bool_var             m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
+        svector<queue_entry> m_queue2;
+        svector<scope>       m_scopes;
+        unsigned             m_current_generation;
 
-//         // The heap holds indices into m_queue2, i in m_priority_queue2 <==> m_queue2[i].m_last_assigned == -1
-//         heap<generation_lt>     m_priority_queue2;
-//         expr                  * m_current_goal;
-//         stopwatch               m_goal_time;
+        // The heap holds indices into m_queue2, i in m_priority_queue2 <==> m_queue2[i].m_last_assigned == -1
+        heap<generation_lt>     m_priority_queue2;
+        expr                  * m_current_goal;
+        stopwatch               m_goal_time;
 
-//         static const unsigned start_gen = 0;
-//         static const unsigned goal_gen_decrement = 100;
+        static const unsigned start_gen = 0;
+        static const unsigned goal_gen_decrement = 100;
 
 
-//     public:
-//         rel_goal_case_split_queue(context & ctx, smt_params & p):
-//             m_context(ctx),
-//             m_params(p),
-//             m_manager(ctx.get_manager()),
-//             m_head(0),
-//             m_bs_num_bool_vars(UINT_MAX),
-//             m_priority_queue2(0, generation_lt(*this)),
-//             m_current_goal(nullptr) {
-//             set_global_generation();
-//         }
+    public:
+        rel_goal_case_split_queue(context & ctx, smt_params & p):
+            m_context(ctx),
+            m_params(p),
+            m_manager(ctx.get_manager()),
+            m_head(0),
+            m_bs_num_bool_vars(UINT_MAX),
+            m_priority_queue2(0, generation_lt(*this)),
+            m_current_goal(nullptr) {
+            set_global_generation();
+        }
         
-//         void activity_increased_eh(bool_var v) override {}
+        void activity_increased_eh(bool_var v) override {}
 
-//         void activity_decreased_eh(bool_var v) override {}
+        void activity_decreased_eh(bool_var v) override {}
 
-//         void mk_var_eh(bool_var v) override {}
+        void mk_var_eh(bool_var v) override {}
 
-//         void del_var_eh(bool_var v) override {}
+        void del_var_eh(bool_var v) override {}
 
-//         void unassign_var_eh(bool_var v) override {}
+        void unassign_var_eh(bool_var v) override {}
 
-//         void relevant_eh(expr * n) override {
-//             if (get_generation(n) == 0 && m_current_generation != 0)
-//                 set_generation_rec(n, m_current_generation);
+        void relevant_eh(expr * n) override {
+            if (get_generation(n) == 0 && m_current_generation != 0)
+                set_generation_rec(n, m_current_generation);
 
-//             if (!m_manager.is_bool(n))
-//                 return;
-//             bool is_or     = m_manager.is_or(n);
-//             bool intern    = m_context.b_internalized(n);
-//             if (!intern && !is_or) 
-//                 return;
-//             bool_var var = null_bool_var;
-//             if (intern) {
-//                 var = m_context.get_bool_var(n);
-//                 SASSERT(var != null_bool_var);
-//                 bool is_and = m_manager.is_and(n);
-//                 lbool val   = m_context.get_assignment(var);
-//                 if (!(
-//                       val == l_undef || // n was not assigned yet
-//                       (is_or && val == l_true) || // need to justify a child
-//                       (is_and && val == l_false) // need to justify a child
-//                       ))
-//                     return;
-//             }
-//             if (!intern && m_context.is_searching()) {
-//                 SASSERT(is_or);
-//                 add_to_queue2(n);
-//                 return;
-//             }
-//             if (var < m_bs_num_bool_vars) 
-//                 m_queue.push_back(n);
-//             else
-//                 add_to_queue2(n);
-//         }
+            if (!m_manager.is_bool(n))
+                return;
+            bool is_or     = m_manager.is_or(n);
+            bool intern    = m_context.b_internalized(n);
+            if (!intern && !is_or) 
+                return;
+            bool_var var = null_bool_var;
+            if (intern) {
+                var = m_context.get_bool_var(n);
+                SASSERT(var != null_bool_var);
+                bool is_and = m_manager.is_and(n);
+                lbool val   = m_context.get_assignment(var);
+                if (!(
+                      val == l_undef || // n was not assigned yet
+                      (is_or && val == l_true) || // need to justify a child
+                      (is_and && val == l_false) // need to justify a child
+                      ))
+                    return;
+            }
+            if (!intern && m_context.is_searching()) {
+                SASSERT(is_or);
+                add_to_queue2(n);
+                return;
+            }
+            if (var < m_bs_num_bool_vars) 
+                m_queue.push_back(n);
+            else
+                add_to_queue2(n);
+        }
 
-//         void internalize_instance_eh(expr * e, unsigned gen) override
-//         {
-//             //lower_generation(e, gen);
-//         }
+        void internalize_instance_eh(expr * e, unsigned gen) override
+        {
+            //lower_generation(e, gen);
+        }
 
-//         void init_search_eh() override {
-//             m_bs_num_bool_vars = m_context.get_num_bool_vars();
-//             set_global_generation();
-//         }
+        void init_search_eh() override {
+            m_bs_num_bool_vars = m_context.get_num_bool_vars();
+            set_global_generation();
+        }
 
-//         void end_search_eh() override {
-//             m_bs_num_bool_vars = UINT_MAX;
-//         }
+        void end_search_eh() override {
+            m_bs_num_bool_vars = UINT_MAX;
+        }
 
-//         void reset() override {
-//             m_queue.reset();
-//             m_head = 0;
-//             m_queue2.reset();
-//             m_scopes.reset();
-//             m_priority_queue2.reset();
-//             set_global_generation();
-//         }
+        void reset() override {
+            m_queue.reset();
+            m_head = 0;
+            m_queue2.reset();
+            m_scopes.reset();
+            m_priority_queue2.reset();
+            set_global_generation();
+        }
 
-//         void push_scope() override {
-//             m_scopes.push_back(scope());
-//             scope & s = m_scopes.back();
-//             s.m_queue_trail  = m_queue.size();
-//             s.m_head_old     = m_head;
-//             s.m_queue2_trail = m_queue2.size();
-//             s.m_generation   = m_current_generation;
-//             s.m_goal         = m_current_goal;
-//             TRACE(case_split, tout << "head: " << m_head << "\n";);
-//         }
+        void push_scope() override {
+            m_scopes.push_back(scope());
+            scope & s = m_scopes.back();
+            s.m_queue_trail  = m_queue.size();
+            s.m_head_old     = m_head;
+            s.m_queue2_trail = m_queue2.size();
+            s.m_generation   = m_current_generation;
+            s.m_goal         = m_current_goal;
+            TRACE(case_split, tout << "head: " << m_head << "\n";);
+        }
 
-//         void pop_scope(unsigned num_scopes) override {
-//             SASSERT(num_scopes <= m_scopes.size());
-//             unsigned new_lvl     = m_scopes.size() - num_scopes;
-//             scope & s            = m_scopes[new_lvl];
-//             m_queue.shrink(s.m_queue_trail);
-//             m_head               = s.m_head_old;
-//             m_current_generation = s.m_generation;
-//             m_current_goal       = s.m_goal;
+        void pop_scope(unsigned num_scopes) override {
+            SASSERT(num_scopes <= m_scopes.size());
+            unsigned new_lvl     = m_scopes.size() - num_scopes;
+            scope & s            = m_scopes[new_lvl];
+            m_queue.shrink(s.m_queue_trail);
+            m_head               = s.m_head_old;
+            m_current_generation = s.m_generation;
+            m_current_goal       = s.m_goal;
 
-//             for (unsigned i = s.m_queue2_trail; i < m_queue2.size(); ++i) {
-//                 //TRACE(case_split, tout << "ld[" << i << "] = " << m_queue2[i].m_last_decided << " cont " << 
-//                 SASSERT((m_queue2[i].m_last_decided == -1) == m_priority_queue2.contains(i));
-//                 if (m_priority_queue2.contains(i))
-//                     m_priority_queue2.erase(i);
-//             }
+            for (unsigned i = s.m_queue2_trail; i < m_queue2.size(); ++i) {
+                //TRACE(case_split, tout << "ld[" << i << "] = " << m_queue2[i].m_last_decided << " cont " << 
+                SASSERT((m_queue2[i].m_last_decided == -1) == m_priority_queue2.contains(i));
+                if (m_priority_queue2.contains(i))
+                    m_priority_queue2.erase(i);
+            }
             
-//             for (unsigned i = 0; i < s.m_queue2_trail; ++i) {
-//                 queue_entry & e = m_queue2[i];
+            for (unsigned i = 0; i < s.m_queue2_trail; ++i) {
+                queue_entry & e = m_queue2[i];
 
-//                 if (e.m_last_decided > static_cast<int>(new_lvl)) {
-//                     SASSERT(!m_priority_queue2.contains(i));
-//                     // Note that the generation might be reset by the pop, and we keep the heap
-//                     // ordered by the old generation. It's unlikely to affect performance I think.
-//                     m_priority_queue2.insert(i);
-//                     e.m_last_decided = -1;
-//                 }
-//             }
-//             m_queue2.shrink(s.m_queue2_trail);
-//             m_scopes.shrink(new_lvl);
-//             SASSERT(m_head <= m_queue.size());
-//             TRACE(case_split, display(tout); tout << "head: " << m_head << "\n";);        
-//         }
+                if (e.m_last_decided > static_cast<int>(new_lvl)) {
+                    SASSERT(!m_priority_queue2.contains(i));
+                    // Note that the generation might be reset by the pop, and we keep the heap
+                    // ordered by the old generation. It's unlikely to affect performance I think.
+                    m_priority_queue2.insert(i);
+                    e.m_last_decided = -1;
+                }
+            }
+            m_queue2.shrink(s.m_queue2_trail);
+            m_scopes.shrink(new_lvl);
+            SASSERT(m_head <= m_queue.size());
+            TRACE(case_split, display(tout); tout << "head: " << m_head << "\n";);        
+        }
         
-//         void next_case_split_core(expr * curr, bool_var & next, lbool & phase) {
-//             bool is_or  = m_manager.is_or(curr);
-//             bool is_and = m_manager.is_and(curr);
-//             bool intern = m_context.b_internalized(curr);
-//             SASSERT(intern || is_or);
-//             lbool val   = l_undef;
-//             if (intern) {
-//                 next = m_context.get_bool_var(curr);
-//                 val  = m_context.get_assignment(next);
-//             }
-//             else {
-//                 SASSERT(is_or); // top level clause
-//                 val  = l_true;
-//             }
-//             if ((is_or && val == l_true) || (is_and && val == l_false)) {
-//                 expr * undef_child = nullptr;
-//                 if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
-//                     if (m_manager.has_trace_stream()) {
-//                         m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
-//                     }
-//                     TRACE(case_split, tout << "found AND/OR candidate: #" << curr->get_id() << " #" << undef_child->get_id() << "\n";);
-//                     literal l = m_context.get_literal(undef_child);
-//                     next  = l.var();
-//                     phase = l.sign() ? l_false : l_true;
-//                     TRACE(case_split, display(tout););
-//                     return;
-//                 }
-//             }
-//             else if (val == l_undef) {
-//                 SASSERT(intern && m_context.get_bool_var(curr) == next);
-//                 TRACE(case_split, tout << "found candidate: #" << curr->get_id() << "\n";);
-//                 phase = l_undef;
-//                 TRACE(case_split, display(tout););
-//                 return;
-//             }
-//             next = null_bool_var;
-//         }
+        void next_case_split_core(expr * curr, bool_var & next, lbool & phase) {
+            bool is_or  = m_manager.is_or(curr);
+            bool is_and = m_manager.is_and(curr);
+            bool intern = m_context.b_internalized(curr);
+            SASSERT(intern || is_or);
+            lbool val   = l_undef;
+            if (intern) {
+                next = m_context.get_bool_var(curr);
+                val  = m_context.get_assignment(next);
+            }
+            else {
+                SASSERT(is_or); // top level clause
+                val  = l_true;
+            }
+            if ((is_or && val == l_true) || (is_and && val == l_false)) {
+                expr * undef_child = nullptr;
+                if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
+                    if (m_manager.has_trace_stream()) {
+                        m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
+                    }
+                    TRACE(case_split, tout << "found AND/OR candidate: #" << curr->get_id() << " #" << undef_child->get_id() << "\n";);
+                    literal l = m_context.get_literal(undef_child);
+                    next  = l.var();
+                    phase = l.sign() ? l_false : l_true;
+                    TRACE(case_split, display(tout););
+                    return;
+                }
+            }
+            else if (val == l_undef) {
+                SASSERT(intern && m_context.get_bool_var(curr) == next);
+                TRACE(case_split, tout << "found candidate: #" << curr->get_id() << "\n";);
+                phase = l_undef;
+                TRACE(case_split, display(tout););
+                return;
+            }
+            next = null_bool_var;
+        }
 
-//         void next_case_split(bool_var & next, lbool & phase) override {
-//             phase = l_undef;
-//             next = null_bool_var;
+        void next_case_split(bool_var & next, lbool & phase) override {
+            phase = l_undef;
+            next = null_bool_var;
 
-//             unsigned sz = m_queue.size();
-//             for (; m_head < sz; ++m_head) {
-//                 expr * curr = m_queue[m_head];
-//                 next_case_split_core(curr, next, phase);
-//                 if (next != null_bool_var)
-//                     return;
-//             }
+            unsigned sz = m_queue.size();
+            for (; m_head < sz; ++m_head) {
+                expr * curr = m_queue[m_head];
+                next_case_split_core(curr, next, phase);
+                if (next != null_bool_var)
+                    return;
+            }
 
-//             while (!m_priority_queue2.empty()) {
-//                 unsigned idx = static_cast<unsigned>(m_priority_queue2.erase_min());
-//                 TRACE(case_split, tout << "q " << m_queue2.size() << " idx " << idx << "\n"; );
-//                 SASSERT(idx < m_queue2.size());
-//                 queue_entry & e = m_queue2[idx];
-//                 SASSERT(e.m_last_decided == -1);
-//                 e.m_last_decided = m_scopes.size();
+            while (!m_priority_queue2.empty()) {
+                unsigned idx = static_cast<unsigned>(m_priority_queue2.erase_min());
+                TRACE(case_split, tout << "q " << m_queue2.size() << " idx " << idx << "\n"; );
+                SASSERT(idx < m_queue2.size());
+                queue_entry & e = m_queue2[idx];
+                SASSERT(e.m_last_decided == -1);
+                e.m_last_decided = m_scopes.size();
 
-//                 next_case_split_core(e.m_expr, next, phase);
+                next_case_split_core(e.m_expr, next, phase);
                 
-//                 if (next != null_bool_var) {
-//                     // Push the last guy back in; the other queue doesn't increment
-//                     // the m_head in case of return and the code in decide() actually
-//                     // does the push after calling us
-//                     m_priority_queue2.insert(idx);
-//                     e.m_last_decided = -1;
-//                     return;
-//                 }
-//             }
-//         }
+                if (next != null_bool_var) {
+                    // Push the last guy back in; the other queue doesn't increment
+                    // the m_head in case of return and the code in decide() actually
+                    // does the push after calling us
+                    m_priority_queue2.insert(idx);
+                    e.m_last_decided = -1;
+                    return;
+                }
+            }
+        }
 
-//         void display_core(std::ostream & out, ptr_vector<expr> & queue, unsigned head, unsigned idx) {
-//             if (queue.empty())
-//                 return;
-//             unsigned sz = queue.size();
-//             for (unsigned i = 0; i < sz; ++i) {
-//                 if (i == head) 
-//                     out << "[HEAD" << idx << "]=> ";
-//                 out << "#" << queue[i]->get_id() << " ";
-//             }
-//             out << "\n";
-//         }
+        void display_core(std::ostream & out, ptr_vector<expr> & queue, unsigned head, unsigned idx) {
+            if (queue.empty())
+                return;
+            unsigned sz = queue.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                if (i == head) 
+                    out << "[HEAD" << idx << "]=> ";
+                out << "#" << queue[i]->get_id() << " ";
+            }
+            out << "\n";
+        }
 
-//         void display(std::ostream & out) override {
-//             if (m_queue.empty())
-//                 return;
-//             out << "case-splits:\n";
-//             display_core(out, m_queue, m_head, 1);
-//             //display_core(out, m_queue2, m_head2, 2);
-//         }
+        void display(std::ostream & out) override {
+            if (m_queue.empty())
+                return;
+            out << "case-splits:\n";
+            display_core(out, m_queue, m_head, 1);
+            //display_core(out, m_queue2, m_head2, 2);
+        }
 
-//         void assign_lit_eh(literal l) override {
-//             expr * e = m_context.bool_var2expr(l.var());
-//             if (e == m_current_goal)
-//                 return;
-//             bool sign = l.sign();
-//             if ( ((m_manager.is_and(e) && !sign) ||
-//                   (m_manager.is_or(e) && sign)) &&
-//                   to_app(e)->get_num_args() == 2) {
+        void assign_lit_eh(literal l) override {
+            expr * e = m_context.bool_var2expr(l.var());
+            if (e == m_current_goal)
+                return;
+            bool sign = l.sign();
+            if ( ((m_manager.is_and(e) && !sign) ||
+                  (m_manager.is_or(e) && sign)) &&
+                  to_app(e)->get_num_args() == 2) {
                 
-//                 expr * lablit = to_app(e)->get_arg(1);
-//                 if (m_manager.is_not(lablit)) {
-//                     sign = !sign;
-//                     lablit = to_app(lablit)->get_arg(0);
-//                 }
-//                 if (sign) return;
-//                 if (!m_manager.is_label_lit(lablit))
-//                     return;
+                expr * lablit = to_app(e)->get_arg(1);
+                if (m_manager.is_not(lablit)) {
+                    sign = !sign;
+                    lablit = to_app(lablit)->get_arg(0);
+                }
+                if (sign) return;
+                if (!m_manager.is_label_lit(lablit))
+                    return;
 
-//                 TRACE(case_split, tout << "Found goal\n" << mk_pp(e, m_manager) << "\n"; );
+                TRACE(case_split, tout << "Found goal\n" << mk_pp(e, m_manager) << "\n"; );
 
-//                 set_goal(e);
-//             }
-//         }
+                set_goal(e);
+            }
+        }
 
-//     private:
+    private:
 
-//         unsigned get_generation(expr * e)
-//         {
-//             unsigned maxgen = 0;
-//             unsigned mingen = (unsigned)-1;
-//             ptr_vector<expr> stack;
+        unsigned get_generation(expr * e)
+        {
+            unsigned maxgen = 0;
+            unsigned mingen = (unsigned)-1;
+            ptr_vector<expr> stack;
 
-//             stack.push_back(e);
-//             while (!stack.empty()) {
-//                 unsigned gen;
-//                 expr * curr;
+            stack.push_back(e);
+            while (!stack.empty()) {
+                unsigned gen;
+                expr * curr;
 
-//                 curr = stack.back();
-//                 stack.pop_back();
+                curr = stack.back();
+                stack.pop_back();
 
-//                 if (m_context.e_internalized(curr)) {
-//                     gen = m_context.get_generation(m_context.get_enode(curr));
-//                     if (gen > maxgen)
-//                         maxgen = gen;
-//                     if (gen < mingen)
-//                         mingen = gen;
-//                 }
-//                 else if (is_app(curr)) {
-//                     app * a = to_app(curr);
-//                     for (unsigned i = 0; i < a->get_num_args(); ++i)
-//                         stack.push_back(a->get_arg(i));
-//                 }
-//             }
+                if (m_context.e_internalized(curr)) {
+                    gen = m_context.get_generation(m_context.get_enode(curr));
+                    if (gen > maxgen)
+                        maxgen = gen;
+                    if (gen < mingen)
+                        mingen = gen;
+                }
+                else if (is_app(curr)) {
+                    app * a = to_app(curr);
+                    for (unsigned i = 0; i < a->get_num_args(); ++i)
+                        stack.push_back(a->get_arg(i));
+                }
+            }
 
-//             return maxgen;
-//         }
+            return maxgen;
+        }
 
-//         void add_to_queue2(expr * e)
-//         {
-//             int      idx = static_cast<int>(m_queue2.size());
+        void add_to_queue2(expr * e)
+        {
+            int      idx = static_cast<int>(m_queue2.size());
 
-//             GOAL_START();
-//             m_queue2.push_back(queue_entry(e, get_generation(e)));
-//             m_priority_queue2.reserve(idx+1);
-//             m_priority_queue2.insert(idx);
-//             GOAL_STOP();
-//         }
+            GOAL_START();
+            m_queue2.push_back(queue_entry(e, get_generation(e)));
+            m_priority_queue2.reserve(idx+1);
+            m_priority_queue2.insert(idx);
+            GOAL_STOP();
+        }
 
-//         struct set_generation_fn { 
-//             context & m_context;
-//             unsigned m_generation;
-//             set_generation_fn(context & ctx, unsigned gen) : m_context(ctx), m_generation(gen) { }
-//             void operator()(expr * e) {
-//                 if (m_context.e_internalized(e)) {
-//                     enode * n = m_context.get_enode(e);
-//                     n->set_generation(&m_context, m_generation);
-//                 }
-//             }
-//         };
+        struct set_generation_fn { 
+            context & m_context;
+            unsigned m_generation;
+            set_generation_fn(context & ctx, unsigned gen) : m_context(ctx), m_generation(gen) { }
+            void operator()(expr * e) {
+                if (m_context.e_internalized(e)) {
+                    enode * n = m_context.get_enode(e);
+                    m_context.set_generation(n, m_generation);
+                }
+            }
+        };
 
-//         void set_generation_rec(expr * e, unsigned gen)
-//         {
-//             set_generation_fn proc(m_context, gen);
-//             for_each_expr(proc, e);
-//         }
+        void set_generation_rec(expr * e, unsigned gen)
+        {
+            set_generation_fn proc(m_context, gen);
+            for_each_expr(proc, e);
+        }
 
-//         void lower_generation(expr * e, unsigned gen)
-//         {
-//             ptr_vector<expr> stack;
+        void lower_generation(expr * e, unsigned gen)
+        {
+            ptr_vector<expr> stack;
 
-//             stack.push_back(e);
-//             while (!stack.empty()) {
-//                 expr * curr;
+            stack.push_back(e);
+            while (!stack.empty()) {
+                expr * curr;
 
-//                 curr = stack.back();
-//                 stack.pop_back();
+                curr = stack.back();
+                stack.pop_back();
 
-//                 if (m_context.e_internalized(curr)) {
-//                     unsigned curr_gen = m_context.get_enode(curr)->get_generation();
-//                     if (curr_gen > gen) {
-//                         // Lower it.
-//                         set_generation_rec(e, gen);
-//                         continue; // Don't add children.
-//                     }
-//                     else if (curr_gen < gen) {
-//                         // All the children will be lower as well, don't add them.
-//                         continue;
-//                     }
-//                 }
+                if (m_context.e_internalized(curr)) {
+                    enode * n = m_context.get_enode(curr);
+                    unsigned curr_gen = m_context.get_generation(n);
+                    if (curr_gen > gen) {
+                        // Lower it.
+                        set_generation_rec(e, gen);
+                        continue; // Don't add children.
+                    }
+                    else if (curr_gen < gen) {
+                        // All the children will be lower as well, don't add them.
+                        continue;
+                    }
+                }
 
-//                 if (is_app(curr)) {
-//                     app * a = to_app(curr);
-//                     for (unsigned i = 0; i < a->get_num_args(); ++i)
-//                         stack.push_back(a->get_arg(i));
-//                 }
-//             }
-//         }
+                if (is_app(curr)) {
+                    app * a = to_app(curr);
+                    for (unsigned i = 0; i < a->get_num_args(); ++i)
+                        stack.push_back(a->get_arg(i));
+                }
+            }
+        }
 
-//         void set_goal(expr * e)
-//         {
-//             if (e == m_current_goal) return;
+        void set_goal(expr * e)
+        {
+            if (e == m_current_goal) return;
 
-//             GOAL_START();
+            GOAL_START();
 
-//             m_current_goal = e;
+            m_current_goal = e;
 
-// #if 1
-//             if (m_current_generation >= goal_gen_decrement) {
-//                 set_generation_rec(m_current_goal, m_current_generation - goal_gen_decrement);
+#if 1
+            if (m_current_generation >= goal_gen_decrement) {
+                set_generation_rec(m_current_goal, m_current_generation - goal_gen_decrement);
 
-//                 /*
-//                 m_priority_queue2.reset();
-//                 m_priority_queue2.reserve(m_queue2.size());
+                /*
+                m_priority_queue2.reset();
+                m_priority_queue2.reserve(m_queue2.size());
 
-//                 for (unsigned i = 0; i < m_queue2.size(); ++i) {
-//                     queue_entry & e = m_queue2[i];
-//                     e.m_generation = get_generation(e.m_expr);
-//                     if (e.m_last_decided == -1)
-//                         m_priority_queue2.insert(i);
-//                 }
-//                 */
-//             }
-// #endif
+                for (unsigned i = 0; i < m_queue2.size(); ++i) {
+                    queue_entry & e = m_queue2[i];
+                    e.m_generation = get_generation(e.m_expr);
+                    if (e.m_last_decided == -1)
+                        m_priority_queue2.insert(i);
+                }
+                */
+            }
+#endif
 
-//             GOAL_STOP();
-//         }
+            GOAL_STOP();
+        }
 
-//         void set_global_generation()
-//         {
-//             m_current_generation = start_gen;
-//             m_context.set_global_generation(start_gen);
-//             if (m_params.m_qi_eager_threshold < start_gen)
-//                 m_params.m_qi_eager_threshold += start_gen;
-//         }
-//     };
+        void set_global_generation()
+        {
+            m_current_generation = start_gen;
+            m_context.set_global_generation(start_gen);
+            if (m_params.m_qi_eager_threshold < start_gen)
+                m_params.m_qi_eager_threshold += start_gen;
+        }
+    };
 
     class theory_aware_branching_queue : public case_split_queue {
     protected:
@@ -1267,9 +1268,7 @@ namespace smt {
         case CS_RELEVANCY_ACTIVITY:
             return alloc(rel_act_case_split_queue, ctx, p);
         case CS_RELEVANCY_GOAL:
-            // return alloc(rel_goal_case_split_queue, ctx, p);
-            std::cerr << "CS_RELEVANCY_GOAL is temporarily disabled" << std::endl;
-            exit(1);
+            return alloc(rel_goal_case_split_queue, ctx, p);
         case CS_ACTIVITY_THEORY_AWARE_BRANCHING:
             return alloc(theory_aware_branching_queue, ctx, p);
         default:
