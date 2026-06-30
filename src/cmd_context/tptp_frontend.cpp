@@ -290,6 +290,7 @@ class tptp_parser {
     array_util m_array;
     sort* m_univ;
     bool m_has_conjecture = false;
+    unsigned m_dropped_formulas = 0;      // axioms/definitions skipped due to encoding errors
     bool m_last_name_quoted = false;
     std::string m_expected_status;        // SZS status from the input annotation, if any
     std::unordered_map<std::string, sort*> m_sorts;
@@ -1130,33 +1131,28 @@ class tptp_parser {
 
     // Coerce two expressions to have the same sort for equality.
     // In TPTP, = is term equality and m_univ is the default sort.
-    // If one side has Bool sort (parsed as predicate), coerce it to m_univ.
-    // If sorts already match and are not Bool, returns lhs unchanged.
+    // If sorts already match, returns lhs unchanged; otherwise applies minimal
+    // arithmetic/box coercions so both sides of an equality share a sort.
     expr_ref coerce_eq(expr_ref lhs, expr_ref& rhs) {
-        // Coerce Bool-sorted operands to m_univ since = is term equality in TPTP
-        if (m.is_bool(lhs->get_sort()) && is_app(lhs) && !m.is_true(lhs) && !m.is_false(lhs))
-            lhs = coerce_to_univ(lhs);
-        if (m.is_bool(rhs->get_sort()) && is_app(rhs) && !m.is_true(rhs) && !m.is_false(rhs))
-            rhs = coerce_to_univ(rhs);
-
-        if (lhs->get_sort() == rhs->get_sort()) return lhs;
-
-        // Mixed Int/Real arithmetic operands: promote the integer side to Real
-        // (lossless) via the semantic to_real conversion, so equality stays
-        // arithmetically faithful instead of going through an uninterpreted box.
-        if (m_arith.is_int_real(lhs) && m_arith.is_int_real(rhs)) {
-            if (m_arith.is_int(lhs->get_sort()))
-                lhs = expr_ref(m_arith.mk_to_real(lhs), m);
-            else
-                rhs = expr_ref(m_arith.mk_to_real(rhs), m);
+        // No coercion is needed when both sides already share a sort. In particular
+        // `=` between two Boolean ($o) operands is logical equivalence (iff): keep
+        // them Boolean instead of forcing one into the term universe U.
+        if (lhs->get_sort() == rhs->get_sort())
             return lhs;
-        }
-
+        // Mixed Int/Real operands: promote the integer side to Real via the
+        // semantic to_real conversion, so equality stays arithmetically faithful
+        // instead of going through an uninterpreted box.
+        if (m_arith.is_int(lhs) && m_arith.is_real(rhs))
+            lhs = m_arith.mk_to_real(lhs);
+        if (m_arith.is_int(rhs) && m_arith.is_real(lhs))
+            rhs = m_arith.mk_to_real(rhs);
+        if (lhs->get_sort() == rhs->get_sort())
+            return lhs;
         // Coerce 0-arity constants to match the other side's sort
-        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
+        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0) {
             return coerce_zero_arity(to_app(lhs), rhs->get_sort());
         }
-        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
+        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0) {
             rhs = coerce_zero_arity(to_app(rhs), lhs->get_sort());
             return lhs;
         }
@@ -1876,7 +1872,7 @@ class tptp_parser {
     //          <annotations>        ::= ,<source><optional_info> | <null>
     void parse_annotated() {
         expect(token_kind::lparen, "'('");
-        parse_name();
+        std::string formula_name = parse_name();
         expect(token_kind::comma, "','");
         std::string role = to_lower(parse_name());
         expect(token_kind::comma, "','");
@@ -1905,8 +1901,15 @@ class tptp_parser {
                 }
                 m_cmd.assert_expr(f);
             } catch (z3_exception const& ex) {
-                // Sort mismatch or other semantic error in this formula — skip it
-                IF_VERBOSE(2, verbose_stream() << "skipping formula due to: " << ex.what() << "\n");
+                // Sort mismatch or other semantic error in this formula — skip it.
+                // A dropped axiom/definition removes constraints from the problem, so a
+                // subsequent "sat" verdict is unsound: it may only hold because the
+                // dropped formula was missing. The count is used to downgrade a sat
+                // result to GaveUp rather than report a spurious CounterSatisfiable.
+                if (role != "conjecture")
+                    ++m_dropped_formulas;
+                IF_VERBOSE(0, verbose_stream() << "skipping formula '" << formula_name
+                           << "' (role " << role << ") due to: " << ex.what() << "\n");
                 // Skip to '.' to resync the parser for the next annotated formula
                 while (!is(token_kind::eof_tok) && !is(token_kind::dot))
                     next();
@@ -2202,6 +2205,12 @@ public:
 
     bool has_conjecture() const { return m_has_conjecture; }
 
+    // Number of axioms/definitions that were dropped during parsing because the
+    // higher-order encoding could not type-check them. When non-zero, a "sat"
+    // verdict cannot be trusted (the missing constraints may be exactly what
+    // makes the problem unsatisfiable).
+    unsigned dropped_formulas() const { return m_dropped_formulas; }
+
     std::string const& expected_status() const { return m_expected_status; }
 
     // Scan TPTP comments for an SZS/Status annotation, e.g.
@@ -2334,6 +2343,18 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
             else report_szs_status("Unsatisfiable", p.expected_status());
             break;
         case cmd_context::css_sat:
+            // A "sat" verdict is only sound if the whole problem was encoded. If any
+            // axiom/definition was dropped during parsing (e.g. an unsupported
+            // higher-order construct), the model may be spurious — the dropped
+            // constraints could rule it out. Report GaveUp instead of a misleading
+            // CounterSatisfiable/Satisfiable (which would otherwise be flagged BUG
+            // against an annotated Theorem/Unsatisfiable status).
+            if (p.dropped_formulas() > 0) {
+                std::cout << "% SZS status GaveUp\n";
+                std::cout << "% SZS reason " << p.dropped_formulas()
+                          << " formula(s) dropped during encoding; model is not certified\n";
+                break;
+            }
             if (p.has_conjecture()) report_szs_status("CounterSatisfiable", p.expected_status());
             else report_szs_status("Satisfiable", p.expected_status());
             if (g_display_model) {
