@@ -102,6 +102,10 @@ namespace smt {
     }
 
     void context::update_generation(enode * e) {
+        // We don't support patterns with equality so there is no need to track generations for them.
+        if (e->is_eq())
+            return;
+
         enode *cgr = e->get_num_args() == 0 ? e : get_cg_root(e);
         if (0 < m_generation && m_generation < get_generation(cgr)) {
             if (e->uses_cg_table())
@@ -112,6 +116,10 @@ namespace smt {
     }
 
     void context::set_generation(enode * e, unsigned generation) {
+        // We don't support patterns with equality so there is no need to track generations for them.
+        if (e->is_eq())
+            return;
+
         if (e->uses_cg_table()) {
             auto [cgr, cgc_gen] = m_cg_table.find_gen(e);
             SASSERT(cgc_gen);
@@ -1075,14 +1083,15 @@ namespace smt {
                 assign(literal(v), mk_justification(eq_propagation_justification(e->get_arg(0), e->get_arg(1))));
                 e->m_cg    = e;
                 push_eq(e, m_true_enode, eq_justification());
-                m_constant_generations.insert(e, generation);
             }
             else {
                 if (cgc_enabled) {
                     auto [e_prime, used_commutativity, sibling_gen_ptr] = m_cg_table.insert(e, generation);
                     if (e != e_prime) {
+                        // We don't support patterns with equality so there is no need to track generations for them.
+                        if (!e->is_eq())
+                            merge_cgc_generations(e, generation, e_prime, sibling_gen_ptr);
                         e->m_cg = e_prime;
-                        merge_cgc_generations(e, generation, e_prime, sibling_gen_ptr);
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {

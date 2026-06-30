@@ -973,6 +973,8 @@ namespace smt {
         // unmerge "equivalence" classes
         std::swap(r1->m_next, r2->m_next);
 
+        m_r1_parent_generations.reset();
+
         // remove the parents of r1 that remained as congruence roots
         enode_vector::iterator it  = r2->begin_parents();
         enode_vector::iterator end = r2->end_parents();
@@ -989,6 +991,7 @@ namespace smt {
                        display(tout << "\n"););
                 SASSERT(parent->is_cgr());
                 SASSERT(m_cg_table.contains_ptr(parent));
+                m_r1_parent_generations.insert(parent, get_generation(parent));
                 m_cg_table.erase(parent);
             }
         }
@@ -1007,21 +1010,32 @@ namespace smt {
         for (enode * parent : enode::parents(r1)) {
             TRACE(add_eq_parents, tout << "visiting: #" << parent->get_owner_id() << "\n";);
             if (parent->is_cgc_enabled()) {
-                // Insert at some dummy generation here. An undo_merge_cgr will immediately follow to set the generation.
-                unsigned dummy_generation = 100000; // NOT UINT_MAX. In case this goes badly overflows would be hell to debug.
-
-                if (parent->is_true_eq()) {
-                    m_constant_generations.insert(parent, dummy_generation);
-                    continue;
-                }
-                
                 enode * cg = parent->m_cg;
-                if (parent == cg ||           // parent was root of the congruence class before and after the merge
-                     !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
+                if (!parent->is_true_eq() &&
+                    (parent == cg ||            // parent was root of the congruence class before and after the merge
+                     !congruent(parent, cg))    // parent was root of the congruence class before but not after the merge
                      ) {
-                    auto [parent_cg, used_commutativity, generation] = m_cg_table.insert(parent, dummy_generation);
+
+                    unsigned gen;
+                    if (parent->is_eq()) {
+                        gen = 0;
+                    } else if (parent == cg) {
+                        if (m_r1_parent_generations.contains(parent)) {
+                            gen = m_r1_parent_generations.find(parent);
+                        } else {
+                            //?  When exactly does this happen? I had convinved myself but I odn't remember anymore..
+                            SASSERT(m_cg_table.contains_ptr(parent));
+                            continue;
+                        }
+                    } else {
+                        // Insert at some dummy generation here. An undo_merge_cgr will immediately follow to set the generation.
+                        unsigned dummy_generation = 100000; // NOT UINT_MAX. In case this goes badly overflows would be hell to debug.
+                        gen = dummy_generation;
+                    }
+
+                    auto [parent_cg, used_commutativity, gen_ptr] = m_cg_table.insert(parent, gen);
                     (void)used_commutativity;
-                    (void)generation;
+                    (void)gen_ptr;
                     parent->m_cg = parent_cg;
                 }
             }
@@ -1059,6 +1073,8 @@ namespace smt {
         SASSERT(r1->m_trans.m_target == 0);
 
         CASSERT("add_eq", check_invariant());
+
+        m_r1_parent_generations.reset();
     }
 
     void context::undo_merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {

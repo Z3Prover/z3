@@ -615,6 +615,10 @@ namespace smt {
         }
 
         unsigned get_generation(enode * e) const  {
+            // We don't support patterns with equality so there is no need to track generations for them.
+            if (e->is_eq())
+                return 0;
+
             if (!e->uses_cg_table())
                 return m_constant_generations.find(e);
             
