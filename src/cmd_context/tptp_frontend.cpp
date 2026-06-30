@@ -7,7 +7,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
 
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -277,10 +276,10 @@ public:
 };
 
 struct parsed_type {
-    std::vector<sort*> domain;
+    ptr_vector<sort> domain;
     sort* range = nullptr;
     parsed_type(sort* s): range(s) {}
-    parsed_type(std::vector<sort*> const& d, sort* r): domain(d), range(r) {}
+    parsed_type(ptr_vector<sort> const& d, sort* r): domain(d), range(r) {}
 };
 
 class tptp_parser {
@@ -298,7 +297,7 @@ class tptp_parser {
     std::unordered_map<std::string, func_decl*> m_decls;
     func_decl_ref_vector m_pinned_decls;  // prevents cached func_decls from being freed
     expr_ref_vector m_pinned_exprs;       // prevents bound variable apps from being freed
-    std::unordered_map<std::string, std::pair<std::vector<sort*>, sort*>> m_typed_decls;
+    std::unordered_map<std::string, std::pair<ptr_vector<sort>, sort*>> m_typed_decls;
     std::vector<std::unordered_map<std::string, app*>> m_bound;
     bool m_in_at_arg = false;  // true when parsing inside @ argument (lambda body stops consuming @)
     struct implicit_var_scope {
@@ -451,7 +450,7 @@ class tptp_parser {
     // For higher-order types like ($i > $o), create an uninterpreted sort
     // Function type A > B is represented as Array(A, B).
     // Multi-argument A * B > C is represented as Array(A, Array(B, C)) (curried).
-    sort* get_ho_sort(std::vector<sort*> const& domain, sort* range) {
+    sort* get_ho_sort(ptr_vector<sort> const& domain, sort* range) {
         sort* s = range;
         for (int i = (int)domain.size() - 1; i >= 0; --i)
             s = m_array.mk_array_sort(domain[i], s);
@@ -515,7 +514,8 @@ class tptp_parser {
         if (itt != m_typed_decls.end()) {
             std::string typed_decl_key = mk_decl_key(name, arity, 'd');
             auto itd = m_decls.find(typed_decl_key);
-            if (itd != m_decls.end()) return itd->second;
+            if (itd != m_decls.end())
+                return itd->second;
             auto const& sig = itt->second;
             func_decl* f = m.mk_func_decl(symbol(name), sig.first.size(), sig.first.data(), sig.second);
             m_pinned_decls.push_back(f);
@@ -527,7 +527,7 @@ class tptp_parser {
         auto itd = m_decls.find(key);
         if (itd != m_decls.end()) return itd->second;
 
-        std::vector<sort*> dom(arity, m_univ);
+        ptr_vector<sort> dom(arity, m_univ);
         func_decl* f = m.mk_func_decl(symbol(name), arity, dom.data(), pred ? m.mk_bool_sort() : m_univ);
         m_pinned_decls.push_back(f);
         m_decls.emplace(key, f);
@@ -707,14 +707,14 @@ class tptp_parser {
     //          <defined_type>      ::= $oType | $o | $iType | $i | $tType | $real | $rat | $int
     parsed_type parse_type_atom() {
         if (accept(token_kind::lparen)) {
-            std::vector<sort*> prod = parse_type_product_raw();
+            ptr_vector<sort> prod = parse_type_product_raw();
             if (accept(token_kind::gt_tok)) {
                 // Full function type inside parens: (A * B > C) or (A > B > C)
                 parsed_type rhs = parse_type_expr();
-                std::vector<sort*> full_domain = prod;
+                ptr_vector<sort> full_domain = prod;
                 if (!rhs.domain.empty()) {
                     // Nested higher-order: (A > B > C) → flatten
-                    full_domain.insert(full_domain.end(), rhs.domain.begin(), rhs.domain.end());
+                    full_domain.append(rhs.domain);
                 }
                 expect(token_kind::rparen, "')'");
                 // Return with domain/range preserved for proper flattening
@@ -753,15 +753,15 @@ class tptp_parser {
     // Grammar: <thf_xprod_type>    ::= <thf_unitary_type> * <thf_unitary_type>
     //                                 | <thf_xprod_type> * <thf_unitary_type>
     //          Product types form the domain in mapping types: (A * B) > C
-    std::vector<sort*> parse_type_product_raw() {
+    ptr_vector<sort> parse_type_product_raw() {
         parsed_type first = parse_type_atom();
         if (!first.domain.empty() && first.range == nullptr) {
             // Already a parenthesized product from nested parens
-            std::vector<sort*> args = first.domain;
+            ptr_vector<sort> args = first.domain;
             while (accept(token_kind::star_tok)) {
                 parsed_type t = parse_type_atom();
                 if (!t.domain.empty()) {
-                    args.insert(args.end(), t.domain.begin(), t.domain.end());
+                    args.append(t.domain);
                 } else {
                     args.push_back(t.range);
                 }
@@ -771,28 +771,28 @@ class tptp_parser {
         if (!first.domain.empty()) {
             // Function type as first element of product — use ho_sort
             sort* ho = get_ho_sort(first.domain, first.range);
-            std::vector<sort*> args;
+            ptr_vector<sort> args;
             args.push_back(ho);
             while (accept(token_kind::star_tok)) {
                 parsed_type t = parse_type_atom();
                 if (!t.domain.empty() && t.range != nullptr) {
                     args.push_back(get_ho_sort(t.domain, t.range));
                 } else if (!t.domain.empty()) {
-                    args.insert(args.end(), t.domain.begin(), t.domain.end());
+                    args.append(t.domain);
                 } else {
                     args.push_back(t.range);
                 }
             }
             return args;
         }
-        std::vector<sort*> args;
+        ptr_vector<sort> args;
         args.push_back(first.range);
         while (accept(token_kind::star_tok)) {
             parsed_type t = parse_type_atom();
             if (!t.domain.empty() && t.range != nullptr) {
                 args.push_back(get_ho_sort(t.domain, t.range));
             } else if (!t.domain.empty()) {
-                args.insert(args.end(), t.domain.begin(), t.domain.end());
+                args.append(t.domain);
             } else {
                 args.push_back(t.range);
             }
@@ -811,7 +811,7 @@ class tptp_parser {
             return first;
         }
         // Build product vector
-        std::vector<sort*> args;
+        ptr_vector<sort> args;
         if (!first.domain.empty() && first.range != nullptr) {
             // Function type used as element in a product
             args.push_back(get_ho_sort(first.domain, first.range));
@@ -826,7 +826,7 @@ class tptp_parser {
             if (!t.domain.empty() && t.range != nullptr) {
                 args.push_back(get_ho_sort(t.domain, t.range));
             } else if (!t.domain.empty()) {
-                args.insert(args.end(), t.domain.begin(), t.domain.end());
+                args.append(t.domain);
             } else {
                 args.push_back(t.range);
             }
@@ -843,7 +843,7 @@ class tptp_parser {
         if (is(token_kind::type_forall_tok) || is(token_kind::type_exists_tok)) {
             next();
             expect(token_kind::lbrack, "'['");
-            std::vector<sort*> type_params;
+            ptr_vector<sort> type_params;
             if (!accept(token_kind::rbrack)) {
                 do {
                     std::string tv = parse_name();
@@ -858,8 +858,8 @@ class tptp_parser {
             parsed_type inner = parse_type_expr();
             // Prepend type params to domain
             if (!type_params.empty()) {
-                std::vector<sort*> full_domain = type_params;
-                full_domain.insert(full_domain.end(), inner.domain.begin(), inner.domain.end());
+                ptr_vector<sort> full_domain = type_params;
+                full_domain.append(inner.domain);
                 return parsed_type(full_domain, inner.range);
             }
             return inner;
@@ -868,7 +868,7 @@ class tptp_parser {
         if (accept(token_kind::gt_tok)) {
             parsed_type rhs = parse_type_expr();
             // prod is either a product (domain non-empty, range==nullptr) or a single sort (domain empty)
-            std::vector<sort*> domain;
+            ptr_vector<sort> domain;
             if (!prod.domain.empty() && prod.range == nullptr) {
                 domain = prod.domain;
             } else if (!prod.domain.empty() && prod.range != nullptr) {
@@ -879,7 +879,7 @@ class tptp_parser {
             }
             if (!rhs.domain.empty()) {
                 // Higher-order result type: A > (B > C) flattened to (A, B) > C
-                domain.insert(domain.end(), rhs.domain.begin(), rhs.domain.end());
+                domain.append(rhs.domain);
                 return parsed_type(domain, rhs.range);
             }
             return parsed_type(domain, rhs.range);
@@ -1222,7 +1222,7 @@ class tptp_parser {
 
         // --- Part 1: Parse type declarations ---
         std::vector<std::string> let_names;
-        std::vector<sort*> let_sorts;
+        ptr_vector<sort> let_sorts;
 
         auto parse_one_typing = [&]() {
             std::string name = parse_name();
@@ -1883,6 +1883,8 @@ class tptp_parser {
         else if (role == "logic") {
             // Modal logic declarations ($modal == [...]) — skip the formula body
             skip_annotations_until_rparen();
+            warning_msg("non-classical logics are not supported");
+            ++m_dropped_formulas;
         }
         else {
             try {
@@ -1906,8 +1908,7 @@ class tptp_parser {
                 // subsequent "sat" verdict is unsound: it may only hold because the
                 // dropped formula was missing. The count is used to downgrade a sat
                 // result to GaveUp rather than report a spurious CounterSatisfiable.
-                if (role != "conjecture")
-                    ++m_dropped_formulas;
+                ++m_dropped_formulas;
                 IF_VERBOSE(0, verbose_stream() << "skipping formula '" << formula_name
                            << "' (role " << role << ") due to: " << ex.what() << "\n");
                 // Skip to '.' to resync the parser for the next annotated formula
