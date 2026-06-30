@@ -64,7 +64,8 @@ enum class token_kind {
     slash_tok,
     minus_tok,
     at_tok,
-    lambda_tok
+    lambda_tok,
+    modal_tok
 };
 
 struct parse_error : public std::exception {
@@ -251,7 +252,7 @@ public:
         case '^': t.kind = token_kind::lambda_tok; return t;
         case '{':
             // Modal operators: {$box}, {$dia}, etc. — lex as identifier including braces
-            t.kind = token_kind::id;
+            t.kind = token_kind::modal_tok;            
             t.text.push_back(c);
             while (!eof() && peek() != '}')
                 t.text.push_back(get());
@@ -1362,6 +1363,9 @@ class tptp_parser {
             return e;
         }
 
+        if (accept(token_kind::modal_tok))
+            throw parse_error("modal operators not supported in TPTP input at " + loc());
+
         // Handle negative numerals in formula position: -2 = $uminus(2)
         if (accept(token_kind::minus_tok)) {
             expr_ref t = parse_term();
@@ -1811,12 +1815,14 @@ class tptp_parser {
         // Try relative to current file's directory
         std::string local = normalize_path(dirname(curr_file) + "/" + name);
         if (file_exists(local)) return local;
+        #if 0
         // Try TPTP environment variable (standard TPTP convention)
         char const* root = std::getenv("TPTP");
         if (root) {
             std::string env = normalize_path(std::string(root) + "/" + name);
             if (file_exists(env)) return env;
         }
+        #endif
         // Walk up ancestor directories of the current file. TPTP include paths are
         // relative to the TPTP root directory (e.g. "Axioms/BOO001-0.ax"), while the
         // problem file typically lives in a subdirectory such as "Problems/BOO/".
@@ -1899,12 +1905,23 @@ class tptp_parser {
                 // dropped formula was missing. The count is used to downgrade a sat
                 // result to GaveUp rather than report a spurious CounterSatisfiable.
                 ++m_dropped_formulas;
-                IF_VERBOSE(0, verbose_stream() << "skipping formula '" << formula_name
-                           << "' (role " << role << ") due to: " << ex.what() << "\n");
+                std::ostringstream oss;
+                oss << "skipping formula '" << formula_name << "' due to: " << ex.what();
+                warning_msg(oss.str().c_str());
                 // Skip to '.' to resync the parser for the next annotated formula
                 while (!is(token_kind::eof_tok) && !is(token_kind::dot))
                     next();
                 if (is(token_kind::dot)) next();
+                return;
+            } catch (std::exception const& ex) {
+                ++m_dropped_formulas;
+                std::ostringstream oss;
+                oss << "skipping formula '" << formula_name << "' (role " << role << ") due to: " << ex.what() << "\n";
+                warning_msg(oss.str().c_str());
+                while (!is(token_kind::eof_tok) && !is(token_kind::dot))
+                    next();
+                if (is(token_kind::dot))
+                    next();
                 return;
             }
         }
