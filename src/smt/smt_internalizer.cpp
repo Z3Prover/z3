@@ -102,8 +102,66 @@ namespace smt {
     }
 
     void context::update_generation(enode * e) {
-        if (0 < m_generation && m_generation < e->get_generation())
-            e->set_generation(nullptr, m_generation);
+        // We don't support patterns with equality so there is no need to track generations for them.
+        if (e->is_eq())
+            return;
+
+        enode *cgr = e->get_num_args() == 0 ? e : get_cg_root(e);
+        if (0 < m_generation && m_generation < get_generation(cgr)) {
+            if (e->uses_cg_table())
+                set_generation_sticky(e, m_generation);
+            else
+                m_constant_generations[e] = m_generation; // Sticky by default. Won't unmerge
+        }
+    }
+
+    void context::set_generation(enode * e, unsigned generation) {
+        // We don't support patterns with equality so there is no need to track generations for them.
+        if (e->is_eq())
+            return;
+
+        if (e->uses_cg_table()) {
+            auto [cgr, cgc_gen] = m_cg_table.find_gen(e);
+            SASSERT(cgc_gen);
+            *cgc_gen = generation;
+        } else {
+            m_constant_generations[e] = generation;
+        }
+    }
+
+    class merge_cgc_generations_trail : public trail {
+        context& ctx;
+        enode* m_e1;
+        unsigned m_e1_generation;
+        enode* m_e2;
+        unsigned m_e2_generation;
+    public:
+        merge_cgc_generations_trail(context& ctx, enode* e1, unsigned e1_generation, enode* e2, unsigned e2_generation):
+            ctx(ctx),
+            m_e1(e1),
+            m_e1_generation(e1_generation),
+            m_e2(e2),
+            m_e2_generation(e2_generation) {
+        }
+
+        void undo() override {
+            ctx.undo_merge_cgc_generations(m_e1, m_e1_generation, m_e2, m_e2_generation);
+        }
+    };
+
+    void context::merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned *e2_generation_ptr) {
+        // We assume the congruence has already been updated. We might want to move that here, too.
+        SASSERT(e2->is_cgr());
+        SASSERT(!m_cg_table.contains_ptr(e1));
+        SASSERT(m_cg_table.contains_ptr(e2));
+
+        // Push trail even if we have a no-op. Otherwise we can't restore e1's generation after unmerging.
+        push_trail(merge_cgc_generations_trail(*this, e1, e1_generation, e2, *e2_generation_ptr));
+
+        if (e1_generation >= *e2_generation_ptr)
+            return; // no-op
+
+        *e2_generation_ptr = e1_generation;  
     }
 
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
@@ -1002,7 +1060,7 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode *e = enode::mk(m, get_region(), m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl,
+        enode *e = enode::mk(m, get_region(), m_app2enode, to_app(n), suppress_args, merge_tf, m_scope_lvl,
                              cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
@@ -1022,8 +1080,11 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    auto [e_prime, used_commutativity] = m_cg_table.insert(e);
+                    auto [e_prime, used_commutativity, sibling_gen_ptr] = m_cg_table.insert(e, generation);
                     if (e != e_prime) {
+                        // We don't support patterns with equality so there is no need to track generations for them.
+                        if (!e->is_eq())
+                            merge_cgc_generations(e, generation, e_prime, sibling_gen_ptr);
                         e->m_cg = e_prime;
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
@@ -1032,6 +1093,8 @@ namespace smt {
                     }
                 }
                 else {
+                    SASSERT(!e->uses_cg_table());
+                    m_constant_generations.insert(e, generation);
                     e->m_cg = e;
                 }
             }
@@ -1041,7 +1104,10 @@ namespace smt {
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
             }
+        } else {
+            m_constant_generations.insert(e, generation);
         }
+
         SASSERT(e_internalized(n));
         m_stats.m_num_mk_enode++;
         TRACE(mk_enode, tout << "created enode: #" << e->get_owner_id() << " for:\n" << mk_pp(n, m) << "\n";
@@ -1066,10 +1132,11 @@ namespace smt {
         unsigned n_id         = n->get_id();
         enode * e             = m_app2enode[n_id];
         m_app2enode[n_id]     = nullptr;
-        if (e->is_cgr() && !e->is_true_eq() && e->is_cgc_enabled()) {
+        if (e->is_cgr() && e->uses_cg_table()) {
             SASSERT(m_cg_table.contains_ptr(e));
             m_cg_table.erase(e);
         }
+        SASSERT(!(e->get_num_args() > 0 && m_cg_table.contains_ptr(e)));
         if (e->get_num_args() > 0 && !e->is_eq()) {
             unsigned decl_id = e->get_decl_id();
             SASSERT(decl_id < m_decl2enodes.size());
@@ -1080,6 +1147,9 @@ namespace smt {
         SASSERT(m_e_internalized_stack.size() == m_enodes.size());
         m_enodes.pop_back();
         m_e_internalized_stack.pop_back();
+        m_sticky_generation_updates.erase(e);
+        if (!e->uses_cg_table()) 
+            m_constant_generations.erase(e);
     }
 
     /**

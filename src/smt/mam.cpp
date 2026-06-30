@@ -215,7 +215,6 @@ namespace {
         unsigned short m_num_args;
         unsigned       m_ireg;
         unsigned       m_oreg;
-        unsigned       m_curr_max_generation = 0;
     };
 
     struct get_cgr : public instruction {
@@ -1881,47 +1880,33 @@ namespace {
             m_pool.recycle(v);
         }
 
-        void update_max_generation(enode * n, enode * prev, enode * min_gen_match=nullptr) {
-            unsigned new_gen = min_gen_match ? min_gen_match->get_generation() : n->get_generation();
-
-            m_max_generation = std::max(m_max_generation, new_gen);
+        void update_max_generation(enode * n, enode * prev) {
+            m_max_generation = std::max(m_max_generation, m_context.get_generation(n));
 
             if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
                 m_used_enodes.push_back(std::make_tuple(prev, n));
-        }
-
-        void get_f_app(func_decl* lbl, unsigned num_expected_args, enode* curr, enode*& matching_cgr, enode*& min_gen_match) {
-            if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args) {
-                if (curr->is_cgr() && !matching_cgr)
-                    matching_cgr = curr;
-
-                if (!min_gen_match || min_gen_match->get_generation() > curr->get_generation()) {
-                    min_gen_match = curr;
-                }
-            }
         }
 
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * curr) {
             enode * first = curr;
-            enode *matching_cgr = nullptr, *min_gen_match = nullptr;
             do {
-                get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
+                if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
+                    update_max_generation(curr, first);
+                    return curr;
+                }
                 curr = curr->get_next();
             }
             while (curr != first);
-            if (matching_cgr)
-                update_max_generation(matching_cgr, first, min_gen_match);  
-            return matching_cgr;
+            return nullptr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
             curr = curr->get_next();
             while (curr != first) {
-                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr()) {
-                    if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
-                        m_used_enodes.push_back(std::make_tuple(first, curr));
+                if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
+                    update_max_generation(curr, first);
                     return curr;
                 }
                 curr = curr->get_next();
@@ -2065,7 +2050,7 @@ namespace {
         void get_min_max_top_generation(unsigned& min, unsigned& max) {
             SASSERT(!m_pattern_instances.empty());
             if (m_min_top_generation.empty()) {
-                min = max = m_pattern_instances[0]->get_generation();
+                min = max = m_context.get_generation(m_pattern_instances[0]);
                 m_min_top_generation.push_back(min);
                 m_max_top_generation.push_back(max);
             }
@@ -2074,7 +2059,7 @@ namespace {
                 max = m_max_top_generation.back();
             }
             for (unsigned i = m_min_top_generation.size(); i < m_pattern_instances.size(); ++i) {
-                unsigned curr = m_pattern_instances[i]->get_generation();
+                unsigned curr = m_context.get_generation(m_pattern_instances[i]);
                 min = std::min(min, curr);
                 m_min_top_generation.push_back(min);
                 max = std::max(max, curr);
@@ -2315,7 +2300,8 @@ namespace {
         m_min_top_generation.reset();
         m_max_top_generation.reset();
         m_pattern_instances.push_back(n);
-        m_max_generation = n->get_generation();
+
+        m_max_generation = m_context.get_generation(n);
 
         if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
             m_used_enodes.reset();
@@ -2492,7 +2478,6 @@ namespace {
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_old_used_enodes_size = m_curr_used_enodes_size;                             \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
-                 const_cast<bind*>(static_cast<const bind*>(m_pc))->m_curr_max_generation = m_max_generation;                                   \
                  m_top++;
 
             BIND_COMMON();
@@ -2556,7 +2541,7 @@ namespace {
         case YIELD1:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
 #define ON_MATCH(NUM)                                                   \
-            m_max_generation = std::max(m_max_generation, get_max_generation(NUM, m_bindings.begin())); \
+            m_max_generation = std::max(m_max_generation, get_max_generation(m_context, NUM, m_bindings.begin())); \
             if (m_context.get_cancel_flag()) {                          \
                 return false;                                           \
             }                                                           \
@@ -2760,7 +2745,6 @@ namespace {
 #define BBIND_COMMON() m_b   = static_cast<const bind*>(bp.m_instr);                                                            \
                        m_n1  = m_registers[m_b->m_ireg];                                                                        \
                        m_app = get_next_f_app(m_b->m_label, m_b->m_num_args, m_n1, bp.m_curr); \
-                       m_max_generation = m_b->m_curr_max_generation;                                                            \
                        if (!m_app) {                                                                                        \
                            m_top--;                                                                                             \
                            goto backtrack;                                                                                      \
@@ -3972,10 +3956,6 @@ namespace {
                 }
                 return;
             }
-            DEBUG_CODE(
-                for (unsigned i = 0; i < num_bindings; ++i) {
-                    SASSERT(bindings[i]->get_generation() <= max_generation);
-                });
                 
 #endif
             unsigned min_gen = 0, max_gen = 0;
