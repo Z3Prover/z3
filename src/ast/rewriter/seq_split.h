@@ -57,11 +57,6 @@ enum class split_mode { weak, strong };
 // default) keeps everything, so sigma is unchanged.  See seq_split::compute.
 typedef std::function<bool(expr* D, expr* N)> split_oracle;
 
-// Callback invoked by seq_split::enumerate for each concrete split <D, N> as it
-// emerges from the lazy expansion.  Returning false stops the enumeration early
-// (a successful early stop); returning true asks for the next split.
-typedef std::function<bool(expr* D, expr* N)> split_yield;
-
 class seq_split {
     ast_manager& m;
     seq_rewriter& m_rw;       // for mk_re_append + manager / seq_util access
@@ -132,6 +127,7 @@ class seq_split {
     expr_ref head_normalize(expr* t, split_mode mode, unsigned threshold,
                             split_oracle const& oracle, bool& ok);
     // Fully drain a suspended split-set into `out` (used for inter/compl bodies).
+    // Runs an `iterator` to exhaustion; returns false on a give-up.
     bool materialize(expr* node, split_mode mode, unsigned threshold,
                      split_oracle const& oracle, split_set& out);
 
@@ -155,30 +151,59 @@ class seq_split {
 public:
     explicit seq_split(seq_rewriter& rw);
 
-    // Build the *suspended* sigma(r) as a split-algebra term (no expansion).
-    // Returns null on a non-regex argument.  Drive it with `enumerate`.
-    expr_ref make(expr* r);
-
-    // Lazily expand a suspended split-set, invoking `yield` for every concrete
-    // split <D, N>.  The threshold is supplied by the caller and serves only as a
-    // safety cap against space bloat (lazy expansion still has to materialize the
-    // operands of intersection / complement).  An overrun, an unsupported regex
-    // shape, or a Boolean-closure case in weak mode makes it return false ("give
-    // up").  `yield` returning false stops early and is reported as success.
+    // Lazy split enumerator.  Holds the suspended split-set worklist and produces
+    // the concrete splits <D, N> one at a time, on demand, instead of computing
+    // them all up front.  Obtain one from seq_split::iterate (or construct it
+    // directly) and pull splits with next() until it returns false; gave_up() then
+    // tells a normal exhaustion (false) apart from a give-up (true).
     //
-    // `oracle` (optional) prunes non-viable splits as they are yielded.  It must
+    // The threshold is supplied by the caller and serves only as a safety cap
+    // against space bloat (lazy expansion still has to materialize the operands of
+    // intersection / complement).  A threshold overrun, an unsupported regex shape,
+    // or a Boolean-closure case in weak mode aborts the enumeration: next() returns
+    // false and gave_up() returns true.  To stop early, simply stop calling next().
+    //
+    // `oracle` (optional) prunes non-viable splits as they are produced.  It must
     // be sound to apply per split: a candidate N can still gain a prefix from a
     // factor appended to its right later (concat/star), so the oracle must use a
     // "prefix-compatible" test (prune only when N can never match the lookahead,
     // even partially), NOT a strict "starts-with" test.  The complement body is
     // expanded WITHOUT the oracle (inverted orientation); the oracle is re-applied
     // to the complement's output fold.
-    bool enumerate(expr* node, split_mode mode, unsigned threshold,
-                   split_oracle const& oracle, split_yield const& yield);
+    class iterator {
+        seq_split&      m_engine;
+        ast_manager&    m;
+        split_mode      m_mode;
+        unsigned        m_threshold;
+        split_oracle    m_oracle;
+        expr_ref_vector m_work;        // GC-safe worklist of suspended split-sets
+        unsigned        m_count = 0;   // splits produced so far (vs. threshold)
+        bool            m_giveup = false;
+    public:
+        iterator(seq_split& engine, expr* node, split_mode mode,
+                 unsigned threshold, split_oracle oracle);
+        // Compute the next split.  On success returns true and sets <d, n>; on
+        // exhaustion or give-up returns false (see gave_up()).  Calling next()
+        // again after it has returned false keeps returning false.
+        bool next(expr_ref& d, expr_ref& n);
+        // Valid after next() has returned false: true iff the enumeration aborted
+        // (unsupported regex / weak-mode Boolean / threshold overrun) rather than
+        // running out of splits.
+        bool gave_up() const { return m_giveup; }
+    };
+
+    // Build the *suspended* sigma(r) as a split-algebra term (no expansion).
+    // Returns null on a non-regex argument.  Drive it with `iterate`.
+    expr_ref make(expr* r);
+
+    // Create a lazy enumerator over a suspended split-set `node` (typically the
+    // result of make()).  See `iterator` for the meaning of the arguments.
+    iterator iterate(expr* node, split_mode mode, unsigned threshold,
+                     split_oracle const& oracle = {});
 
     // Compute sigma(r), appending to `out` (does not clear it).  Thin eager
-    // wrapper that drains `enumerate`; semantics match the historic engine.  See
-    // `enumerate` for the meaning of `threshold`, `mode`, and `oracle`.
+    // wrapper that drains an `iterator` to exhaustion; semantics match the historic
+    // engine.  See `iterator` for the meaning of `threshold`, `mode`, and `oracle`.
     bool compute(expr* r, split_set& out, unsigned threshold,
                  split_mode mode = split_mode::strong, split_oracle const& oracle = {});
 

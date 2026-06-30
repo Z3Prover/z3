@@ -68,8 +68,11 @@ class seq_split_test {
               split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
         expr_ref node = m_split.make(r);
         ENSURE(node);
-        return m_split.enumerate(node, mode, threshold, oracle,
-                                 [&](expr* d, expr* n) { out.push_back(split_pair(d, n, m)); return true; });
+        seq_split::iterator it = m_split.iterate(node, mode, threshold, oracle);
+        expr_ref d(m), n(m);
+        while (it.next(d, n))
+            out.push_back(split_pair(d, n, m));
+        return !it.gave_up();
     }
 
     // assert that the eager and lazy engines agree on sigma(r) as a *set* of
@@ -154,16 +157,18 @@ public:
     }
 
     void test_lazy_early_stop() {
-        // a* has 3 splits; stop after the first one.  (Note .* is the full_seq
-        // special case with a single split, so use a proper char-class body.)
+        // a* has 3 splits; pull just the first one and then stop.  (Note .* is the
+        // full_seq special case with a single split, so use a proper char-class body.)
         expr_ref star(re().mk_star(rng('a', 'a')), m);
         expr_ref node = m_split.make(star);
         ENSURE(node);
+        seq_split::iterator it = m_split.iterate(node, split_mode::strong, UINT_MAX, {});
+        expr_ref d(m), n(m);
         unsigned seen = 0;
-        bool ok = m_split.enumerate(node, split_mode::strong, UINT_MAX, {},
-                                    [&](expr*, expr*) { ++seen; return false; /* stop now */ });
-        ENSURE(ok);              // early stop is reported as success
-        ENSURE(seen == 1);       // and nothing was produced past the stop
+        if (it.next(d, n))       // pull exactly one split, then walk away
+            ++seen;
+        ENSURE(!it.gave_up());   // stopping early is not a give-up
+        ENSURE(seen == 1);
     }
 
     void test_threshold_giveup() {
@@ -331,11 +336,53 @@ public:
         expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits
         expr_ref node = m_split.make(as);
         ENSURE(node);
+        seq_split::iterator it = m_split.iterate(node, split_mode::strong, UINT_MAX, {});
+        expr_ref d(m), n(m);
         unsigned seen = 0;
-        bool ok = m_split.enumerate(node, split_mode::strong, UINT_MAX, {},
-                                    [&](expr*, expr*) { ++seen; return seen < 2; });
-        ENSURE(ok);
+        while (seen < 2 && it.next(d, n))   // pull two splits on demand, then stop
+            ++seen;
+        ENSURE(!it.gave_up());
         ENSURE(seen == 2);
+    }
+
+    void test_iterator_exhaustion() {
+        // Pull every split on demand; gave_up() must stay false on a clean
+        // exhaustion, and next() must keep returning false once drained.
+        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits
+        expr_ref node = m_split.make(as);
+        ENSURE(node);
+        seq_split::iterator it = m_split.iterate(node, split_mode::strong, UINT_MAX, {});
+        expr_ref d(m), n(m);
+        unsigned seen = 0;
+        while (it.next(d, n))
+            ++seen;
+        ENSURE(seen == 3);
+        ENSURE(!it.gave_up());
+        // idempotent past the end
+        ENSURE(!it.next(d, n));
+        ENSURE(!it.gave_up());
+    }
+
+    void test_iterator_giveup() {
+        // A threshold overrun aborts: next() returns false and gave_up() is true.
+        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits, cap at 1
+        expr_ref node = m_split.make(as);
+        ENSURE(node);
+        seq_split::iterator it = m_split.iterate(node, split_mode::strong, /*threshold*/ 1, {});
+        expr_ref d(m), n(m);
+        unsigned seen = 0;
+        while (it.next(d, n))
+            ++seen;
+        ENSURE(it.gave_up());            // aborted, not a clean exhaustion
+        ENSURE(seen <= 1);               // produced at most the capped number
+
+        // A weak-mode Boolean closure is likewise a give-up.
+        expr_ref inter(re().mk_inter(re().mk_star(rng('a', 'a')), re().mk_star(rng('b', 'b'))), m);
+        expr_ref inode = m_split.make(inter);
+        ENSURE(inode);
+        seq_split::iterator wit = m_split.iterate(inode, split_mode::weak, UINT_MAX, {});
+        ENSURE(!wit.next(d, n));
+        ENSURE(wit.gave_up());
     }
 
     void test_simplify() {
@@ -390,6 +437,8 @@ public:
         test_determinism();
         test_threshold_boundary();
         test_early_stop_after_two();
+        test_iterator_exhaustion();
+        test_iterator_giveup();
         test_simplify();
         test_trivial_oracle();
     }

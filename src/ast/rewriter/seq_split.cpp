@@ -506,8 +506,11 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
 
 bool seq_split::materialize(expr* node, split_mode mode, unsigned threshold,
                             split_oracle const& oracle, split_set& out) {
-    return enumerate(node, mode, threshold, oracle,
-                     [&](expr* d, expr* n) { out.push_back(split_pair(d, n, m)); return true; });
+    iterator it(*this, node, mode, threshold, oracle);
+    expr_ref d(m), n(m);
+    while (it.next(d, n))
+        out.push_back(split_pair(d, n, m));
+    return !it.gave_up();
 }
 
 expr_ref seq_split::make(expr* r) {
@@ -518,41 +521,61 @@ expr_ref seq_split::make(expr* r) {
     return mk_fromre(r);
 }
 
-bool seq_split::enumerate(expr* node, split_mode mode, unsigned threshold,
-                          split_oracle const& oracle, split_yield const& yield) {
+// --- Lazy enumerator --------------------------------------------------------
+// The worklist holds suspended split-sets.  Each next() pops a node, head-
+// normalizes it to a frontier (empty | single | union), and either returns the
+// single split, pushes the two union branches back, or skips an empty.  All the
+// expansion work happens lazily, one split per next() call.
+
+seq_split::iterator::iterator(seq_split& engine, expr* node, split_mode mode,
+                              unsigned threshold, split_oracle oracle) :
+    m_engine(engine), m(engine.m), m_mode(mode), m_threshold(threshold),
+    m_oracle(std::move(oracle)), m_work(engine.m) {
     SASSERT(node);
-    expr_ref_vector work(m);            // GC-safe worklist of suspended split-sets
-    work.push_back(node);
-    unsigned count = 0;
-    while (!work.empty()) {
-        expr_ref t(work.back(), m);
-        work.pop_back();
+    m_work.push_back(node);
+}
+
+bool seq_split::iterator::next(expr_ref& out_d, expr_ref& out_n) {
+    if (m_giveup)
+        return false;                  // a prior give-up is sticky
+    while (!m_work.empty()) {
+        expr_ref t(m_work.back(), m);
+        m_work.pop_back();
 
         bool ok = true;
-        expr_ref hn = head_normalize(t, mode, threshold, oracle, ok);
-        if (!ok)
-            return false;              // give up (unsupported / weak Boolean / overrun)
+        expr_ref hn = m_engine.head_normalize(t, m_mode, m_threshold, m_oracle, ok);
+        if (!ok) {
+            m_giveup = true;           // unsupported / weak Boolean / overrun
+            return false;
+        }
 
         expr *a = nullptr, *b = nullptr, *d = nullptr, *n = nullptr;
-        if (is_empty_ss(hn))
+        if (m_engine.is_empty_ss(hn))
             continue;
-        if (is_single(hn, d, n)) {
-            if (oracle && !oracle(d, n))
+        if (m_engine.is_single(hn, d, n)) {
+            if (m_oracle && !m_oracle(d, n))
                 continue;              // pruned by lookahead
-            if (++count > threshold)
-                return false;          // safety cap against space bloat
-            if (!yield(d, n))
-                return true;           // caller asked to stop early (success)
-            continue;
+            if (++m_count > m_threshold) {
+                m_giveup = true;       // safety cap against space bloat
+                return false;
+            }
+            out_d = d;
+            out_n = n;
+            return true;
         }
-        if (is_union(hn, a, b)) {
-            work.push_back(a);
-            work.push_back(b);
+        if (m_engine.is_union(hn, a, b)) {
+            m_work.push_back(a);
+            m_work.push_back(b);
             continue;
         }
         UNREACHABLE();
     }
-    return true;
+    return false;                      // exhausted (m_giveup stays false)
+}
+
+seq_split::iterator seq_split::iterate(expr* node, split_mode mode, unsigned threshold,
+                                       split_oracle const& oracle) {
+    return iterator(*this, node, mode, threshold, oracle);
 }
 
 // Eager wrapper: drain the lazy enumeration into `out`.  Semantics (give-up cases,
@@ -564,8 +587,7 @@ bool seq_split::compute(expr* r, split_set& result, unsigned threshold, split_mo
     if (!seq().is_re(r, seq_sort))
         return false;
     expr_ref node = mk_fromre(r);
-    return enumerate(node, mode, threshold, oracle,
-                     [&](expr* d, expr* n) { result.push_back(split_pair(d, n, m)); return true; });
+    return materialize(node, mode, threshold, oracle, result);
 }
 
 // same-D / same-N merge (paper eqs. 1 & 2):
