@@ -1421,7 +1421,7 @@ namespace smt {
                     auto e = n->get_expr();
                     if (srt == n->get_sort()) {
                         TRACE(model_finder, tout << "inserting " << mk_pp(e, m) << " into inst set\n");
-                        S->insert(e, n->get_generation());
+                        S->insert(e, ctx->get_generation(n));
                     }
                     else if (is_app(e) && to_app(e)->get_decl()->is_skolem())
                         ;
