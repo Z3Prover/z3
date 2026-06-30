@@ -170,8 +170,7 @@ namespace smt {
     void cg_table::display_binary(std::ostream& out, void* t) const {
         binary_table* tb = UNTAG(binary_table*, t);
         out << "b ";
-        for (auto const& kv : *tb) {
-            enode* n = kv.m_key;
+        for (auto const& [n, v] : *tb) {
             out << n->get_owner_id() << " " << cg_binary_hash()(n) << " ";
         }
         out << "\n";
@@ -180,8 +179,7 @@ namespace smt {
     void cg_table::display_binary_comm(std::ostream& out, void* t) const {
         comm_table* tb = UNTAG(comm_table*, t);
         out << "bc ";
-        for (auto const& kv : *tb) {
-            enode* n = kv.m_key;
+        for (auto const& [n, v] : *tb) {
             out << n->get_owner_id() << " ";
         }
         out << "\n";
@@ -190,8 +188,7 @@ namespace smt {
     void cg_table::display_unary(std::ostream& out, void* t) const {
         unary_table* tb = UNTAG(unary_table*, t);
         out << "un ";
-        for (auto const& kv : *tb) {
-            enode* n = kv.m_key;
+        for (auto const& [n, v] : *tb) {
             out << n->get_owner_id() << " ";
         }
         out << "\n";
@@ -200,8 +197,7 @@ namespace smt {
     void cg_table::display_nary(std::ostream& out, void* t) const {
         table* tb = UNTAG(table*, t);
         out << "nary ";
-        for (auto const& kv : *tb) {
-            enode* n = kv.m_key;
+        for (auto const& [n, v] : *tb) {
             out << n->get_owner_id() << " ";
         }
         out << "\n";
