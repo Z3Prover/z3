@@ -5,6 +5,7 @@
 #include "math/polynomial/polynomial.h"
 #include "nlsat_common.h"
 #include "util/vector.h"
+#include "util/index_sort_with_mutations.h"
 #include "util/trace.h"
 
 #include <algorithm>
@@ -956,54 +957,20 @@ namespace nlsat {
             return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
         }
 
-        // Sort an index permutation with a bounds-safe, mutation-aware merge sort.
-        //
-        // We deliberately avoid std::sort here. The comparator (root_function_lt ->
-        // anum_manager::compare) is NOT pure: it MUTATES the algebraic numbers it
-        // compares by refining their isolating intervals (and may collapse a root to a
-        // rational, or hit the resource limit and throw). That refinement is monotone
-        // and converges toward the one true real order -- a *decided* sign is permanent
-        // -- but a comparison can transiently strengthen from "uncertain" to "decided"
-        // as intervals tighten. std::sort (introsort) relies on a comparator-derived
-        // sentinel and re-compares a pivot repeatedly; such a strengthening invalidates
-        // the sentinel mid-loop and its *unguarded* insertion pass then walks off the
-        // array -> SIGSEGV (an out-of-bounds read, so a try/catch around the sort would
-        // not help).
-        //
-        // Merge sort is safe BECAUSE of how it meets a mutating comparator:
-        //   1. It never re-compares a pair (each unordered pair is compared at exactly
-        //      one merge level), so "the verdict for this pair changed" cannot occur
-        //      within the sort.
-        //   2. It uses no comparator-derived sentinel; every loop bound is arithmetic
-        //      (i < mid, j < hi), so an inconsistent comparator can only yield a wrong
-        //      order, never an out-of-bounds access or non-termination.
-        //   3. Refinement only helps: runs are ordered by decided signs (the true
-        //      order), which later refinement cannot un-decide, so each run stays
-        //      sorted and deeper merges inherit tighter, cheaper intervals.
-        // It runs in O(n log n) comparisons and O(n) scratch, and unwinds cleanly if
-        // compare throws on cancellation.
+        // Sort an index permutation with a bounds-safe, mutation-aware merge
+        // sort. The comparator (root_function_lt / anum_manager::lt -> compare)
+        // is NOT pure: it MUTATES the algebraic numbers it compares by refining
+        // their isolating intervals, and may throw on the resource limit, so a
+        // single std::sort would be undefined behavior and can crash via an
+        // out-of-bounds read on timeout. See util/index_sort_with_mutations.h
+        // for the full rationale.
         template<typename Less>
         void merge_sort_perm(std_vector<unsigned>& perm, Less less) {
             unsigned n = static_cast<unsigned>(perm.size());
             if (n < 2)
                 return;
-            std_vector<unsigned> tmp(n);
-            for (unsigned width = 1; width < n; width <<= 1) {
-                for (unsigned lo = 0; lo < n; lo += (width << 1)) {
-                    unsigned mid = std::min(lo + width, n);
-                    unsigned hi = std::min(lo + (width << 1), n);
-                    unsigned i = lo, j = mid, k = lo;
-                    // Take from the right run only on a strict decrease, so equal/
-                    // undecided pairs keep their relative order (stable).
-                    while (i < mid && j < hi)
-                        tmp[k++] = less(perm[j], perm[i]) ? perm[j++] : perm[i++];
-                    while (i < mid)
-                        tmp[k++] = perm[i++];
-                    while (j < hi)
-                        tmp[k++] = perm[j++];
-                }
-                perm.swap(tmp);
-            }
+            std_vector<unsigned> scratch(n);
+            stable_index_merge_sort(perm.data(), scratch.data(), n, less);
         }
 
         // Apply a permutation to a range of root_functions using swap cycles,
