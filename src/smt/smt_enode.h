@@ -401,7 +401,7 @@ namespace smt {
            \brief Return the enode n that is in the eqc of *this, and has the minimal generation.
            That is, there is no other enode with smaller generation.
         */
-        enode * get_eq_enode_with_min_gen();
+        enode * get_eq_enode_with_min_gen(context * ctx);
 
         unsigned get_iscope_lvl() const {
             return m_iscope_lvl;

@@ -109,7 +109,7 @@ namespace smt {
             for (auto const& kv : *m_root2value) {
                 enode * n   = kv.m_key;
                 expr  * val = kv.m_value;
-                n = n->get_eq_enode_with_min_gen();
+                n = n->get_eq_enode_with_min_gen(m_context);
                 expr* e = n->get_expr();
                 if (!m.is_value(e))
                     m_value2expr.insert(val, e);

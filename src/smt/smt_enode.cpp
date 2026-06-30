@@ -146,28 +146,22 @@ namespace smt {
         }
     }
 
-    enode * enode::get_eq_enode_with_min_gen() {
-
-        //
-        //  CC:  This is broken for now!
-        //
-
-        return this;
-
-        // if (m_generation == 0)
-        //     return this;
-        // enode * r = this;
-        // enode * curr = this; 
-        // do {
-        //     if (curr->m_generation < r->m_generation) {
-        //         r = curr;
-        //         if (r->m_generation == 0)
-        //             return r;
-        //     }
-        //     curr = curr->m_next;
-        // }
-        // while (curr != this);
-        // return r;
+    enode * enode::get_eq_enode_with_min_gen(context * ctx) {
+        enode * r = this;
+        enode * curr = this; 
+        unsigned r_gen = ctx->get_generation(r);
+        do {
+            unsigned curr_gen = ctx->get_generation(curr);
+            if (curr_gen == 0)
+                return curr;
+            if (curr_gen < r_gen) {
+                r = curr;
+                r_gen = curr_gen;
+            }
+            curr = curr->m_next;
+        }
+        while (curr != this);
+        return r;
     }
 
 #ifdef Z3DEBUG
