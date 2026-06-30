@@ -57,7 +57,6 @@ namespace smt {
         svector<unsigned>             m_frame_bounds;  // m_deps.size() at each push()
         svector<seq::dep_tracker>     m_deps;          // id -> dep
 
-        // Scratch dep_manager for joining core deps; reset before each check().
         seq::dep_manager              m_core_dep_mgr;
         seq::dep_tracker              m_last_core = nullptr;
 
@@ -75,7 +74,8 @@ namespace smt {
         }
 
         lbool check() override {
-            m_core_dep_mgr.reset();
+            // do NOT reset m_core_dep_mgr here. Core trees
+            // returned by core() outlive this call. It is reset only in reset().
             m_last_core = m_core_dep_mgr.mk_empty();
             lbool r;
             if (m_assump_lits.empty()) {
