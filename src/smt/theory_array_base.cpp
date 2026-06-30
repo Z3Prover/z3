@@ -534,6 +534,7 @@ namespace smt {
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; ++i) {
             enode * n = get_enode(i);
+            TRACE(array, tout << enode_pp(n, ctx) << " is_relevant: " << ctx.is_relevant(n) << " is_array: " << is_array_sort(n) << "\n";);
             if (!ctx.is_relevant(n) || !is_array_sort(n)) {
                 continue;
             }
@@ -580,6 +581,7 @@ namespace smt {
                 sort *     s2 = n2->get_sort();
                 if (s1 == s2 && !ctx.is_diseq(n1, n2)) {
                     app_ref eq  = app_ref(mk_eq_atom(n1->get_expr(), n2->get_expr()), m);
+                    TRACE(array_bug, tout << "mk_interface_eqs: adding: " << eq << "\n";);
                     if (!ctx.b_internalized(eq.get()) || !ctx.is_relevant(eq.get())) {
                         result++;
                         ctx.internalize(eq, true);

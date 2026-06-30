@@ -882,6 +882,8 @@ namespace smt {
 
         void apply_sort_cnstr(app * term, enode * e);
 
+        void apply_sort_cnstr(quantifier *term, enode *e);
+
         bool simplify_aux_clause_literals(unsigned & num_lits, literal * lits, literal_buffer & simp_lits);
 
         bool simplify_aux_lemma_literals(unsigned & num_lits, literal * lits);

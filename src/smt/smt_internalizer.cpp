@@ -597,9 +597,10 @@ namespace smt {
         SASSERT(is_lambda(q));
         if (e_internalized(q)) 
             return;
-        mk_enode(q, true, /* do suppress args */
+        auto e = mk_enode(q, true, /* do suppress args */
                     false,    /* it is a term, so it should not be merged with true/false */
                     true);
+        apply_sort_cnstr(q, e);
     }
 
     bool context::has_lambda() {
@@ -1087,6 +1088,14 @@ namespace smt {
     void context::apply_sort_cnstr(app * term, enode * e) {
         sort * s    = term->get_decl()->get_range();
         theory * th = m_theories.get_plugin(s->get_family_id());
+        if (th) {
+            th->apply_sort_cnstr(e, s);
+        }
+    }
+
+    void context::apply_sort_cnstr(quantifier *lambda_term, enode *e) {
+        sort *s = lambda_term->get_sort();
+        theory *th = m_theories.get_plugin(s->get_family_id());
         if (th) {
             th->apply_sort_cnstr(e, s);
         }
