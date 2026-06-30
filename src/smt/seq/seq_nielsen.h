@@ -163,7 +163,12 @@ namespace seq {
     // and arithmetic <= dependencies.
     void deps_to_lits(dep_manager &dep_mgr, dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits);
 
-    // decompose a membership constraint into a set of pairs of regex splits
+    // suspended state of a lazy regex factorization (see apply_regex_factorization).
+    struct rf_state;
+
+    // decompose a membership constraint into a set of pairs of regex splits.
+    // Eagerly materialises the full split-set (used by the eager propagation path
+    // in theory_nseq::propagate_pos_mem); the lazy Nielsen path uses rf_state.
     std::pair<euf::snode const*, euf::snode const*> split_membership(euf::snode const* str, euf::snode const* regex, euf::sgraph& sg, unsigned threshold, split_set& result);
 
     // Lookahead oracle for the split engine: is the split's right component
@@ -589,6 +594,12 @@ namespace seq {
         // Parikh filter: set to true once apply_parikh_to_node has been applied
         // to this node. Prevents duplicate constraint generation across DFS runs.
         bool                    m_parikh_applied = false;
+
+        // Lazy regex factorization continuation.  Set only on a "remaining splits"
+        // child created by apply_regex_factorization: it carries the suspended
+        // split iterator so factorization resumes from the next split when this
+        // node is extended.  Owned by nielsen_graph::m_rf_states (raw pointer here).
+        rf_state*               m_rf_cont = nullptr;
         // number of constraints inherited from the parent node at clone time.
         // constraints[0..m_parent_ic_count) are already asserted at the
         // parent's solver scope; only [m_parent_ic_count..end) need to be
@@ -643,6 +654,10 @@ namespace seq {
 
         nielsen_edge* parent_edge() const { return m_parent_edge; }
         void set_parent_edge(nielsen_edge* e) { m_parent_edge = e; }
+
+        // lazy regex factorization continuation (see m_rf_cont).
+        rf_state* rf_cont() const { return m_rf_cont; }
+        void set_rf_cont(rf_state* s) { m_rf_cont = s; }
 
         // returns 0 if hash is unknown
         unsigned hash() const {
@@ -896,6 +911,15 @@ namespace seq {
         // Regex membership module: stabilizers, emptiness checks, language
         // inclusion, derivatives. Allocated in the constructor; owned by this graph.
         seq_regex*              m_seq_regex = nullptr;
+
+        // Persistent split engine driving the lazy regex factorization
+        // (apply_regex_factorization).  A single instance kept here so the
+        // suspended split iterators stored in m_rf_states stay valid across
+        // search_dfs recursion and iterative deepening.
+        seq_rewriter            m_split_rw;
+        // Owns the suspended factorization continuations (rf_state); nodes hold
+        // raw pointers into this pool.  Freed in reset().
+        ptr_vector<rf_state>    m_rf_states;
 
 
         // Maps each variable to its current length term
@@ -1344,8 +1368,26 @@ namespace seq {
         // mirrors ZIPT's GPowerIntrModifier
         bool apply_gpower_intr(nielsen_node* node);
 
-        // generalized regex factorization (Boolean closure derivation rule)
+        // generalized regex factorization (Boolean closure derivation rule).
+        // Lazy: instead of materialising every split ⟨Δ,∇⟩ at once and branching
+        // N-way, it pulls the splits one at a time from a suspended iterator and
+        // branches binary — child A applies the next feasible split (head∈Δ,
+        // tail∈∇, original membership dropped); child B keeps the membership and
+        // carries the SAME iterator (rf_state) so factorization resumes from the
+        // next split.  When the iterator is exhausted the membership's split
+        // disjunction is refuted → the continuation node is a regex conflict.
         bool apply_regex_factorization(nielsen_node* node);
+
+        // Build a suspended factorization (boundary head/tail + split iterator)
+        // for `mem`.  Returns null if the regex shape is unsupported (the engine
+        // cannot even start a split).  Allocated into m_rf_states.
+        rf_state* mk_rf_state(nielsen_node* node, str_mem const& mem);
+
+        enum class rf_step_result { branched, conflict, gaveup };
+        // Pull the next feasible split from `st` and, on success, create the two
+        // children of `node` (see apply_regex_factorization).  On exhaustion sets
+        // `conflict_dep` and returns conflict; on engine give-up returns gaveup.
+        rf_step_result rf_step(nielsen_node* node, rf_state* st, dep_tracker& conflict_dep);
 
         // helper for apply_gpower_intr: fires the substitution.
         // `fwd=true` uses left-to-right decomposition; `fwd=false` mirrors ZIPT's

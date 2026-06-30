@@ -408,6 +408,17 @@ public:
 
     void simplify_split(split_set& s) { m_split.simplify(s); }
 
+    // Build the *suspended* sigma(r) split-set term (no expansion); drive it with
+    // iterate_split.  Returns null on a non-regex argument.  See seq_split.h.
+    expr_ref make_split(expr* r) { return m_split.make(r); }
+
+    // Create a lazy enumerator over a suspended split-set `node` (typically the
+    // result of make_split()).  See seq_split::iterator for the arguments.
+    seq_split::iterator iterate_split(expr* node, unsigned threshold,
+        const split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
+        return m_split.iterate(node, mode, threshold, oracle);
+    }
+
     // decompose a membership constraint into a set of pairs of regex splits
     std::pair<expr_ref, expr_ref> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
         return m_split.split_membership(str, regex, threshold, result);

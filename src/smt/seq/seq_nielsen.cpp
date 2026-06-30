@@ -72,6 +72,21 @@ namespace seq {
         return result;
     }
 
+    // Suspended state of a lazy regex factorization (apply_regex_factorization).
+    // One rf_state drives the whole binary "remaining splits" chain for a single
+    // membership: it owns the lazy split iterator and remembers the chosen
+    // head/tail boundary plus the leading constant run consumed from the tail.
+    struct rf_state {
+        str_mem             m_mem;   // the membership being factorized (kept on child B)
+        euf::snode const*   m_head;  // prefix boundary  (head ∈ Δ)
+        euf::snode const*   m_tail;  // suffix boundary, const run already consumed (tail ∈ ∇)
+        zstring             m_c;     // leading constant run consumed from the tail
+        seq_split::iterator m_iter;  // lazy split enumerator, shared down the child-B chain
+        rf_state(str_mem const& mem, euf::snode const* head, euf::snode const* tail,
+                 zstring const& c, seq_split::iterator&& it) :
+            m_mem(mem), m_head(head), m_tail(tail), m_c(c), m_iter(std::move(it)) {}
+    };
+
     std::pair<euf::snode const*, euf::snode const*> split_membership(euf::snode const *str, euf::snode const *regex, euf::sgraph& sg, unsigned threshold, split_set& result) {
         seq_util& seq = sg.get_seq_util();
         ast_manager& m = sg.get_manager();
@@ -636,7 +651,7 @@ namespace seq {
     nielsen_graph::nielsen_graph(euf::sgraph &sg, sub_solver_i &solver, context_solver_i &ctx_solver) :
         m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_a_rw(m),
         m_sk(m, m_rw), m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
-        m_seq_regex(alloc(seq::seq_regex, sg)), m_partial_dfa_pin(sg.get_manager()) {
+        m_seq_regex(alloc(seq::seq_regex, sg)), m_split_rw(sg.get_manager()), m_partial_dfa_pin(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -736,6 +751,12 @@ namespace seq {
         for (nielsen_edge *e : m_edges) {
             dealloc(e);
         }
+        // suspended factorization iterators (release their pinned expressions
+        // while m_split_rw / the ast_manager are still alive)
+        for (rf_state* st : m_rf_states) {
+            dealloc(st);
+        }
+        m_rf_states.reset();
         m_nodes.reset();
         m_edges.reset();
         m_root = nullptr;
@@ -2282,8 +2303,13 @@ namespace seq {
         // reasons, this node is unsat too — independently of its (integer) side
         // constraints — so we prune without re-exploring its subtree.  We derive
         // the conflict from this node's own constraint deps (a sound over-approx).
+        //
+        // A lazy-factorization continuation node (rf_cont set) is EXEMPT: it shares
+        // its parent's string constraints (only the suspended split iterator
+        // differs), so it would alias the parent's signature, yet it still has
+        // pending splits to explore — it is not a true recurrence.
         {
-            if (m_unsat_node_cache.contains(node)) {
+            if (!node->rf_cont() && m_unsat_node_cache.contains(node)) {
                 node->set_conflict(backtrack_reason::sibling, nullptr /*we use the one of the sibling*/);
                 node->set_general_conflict();
                 node->m_unsat_cacheable = true;
@@ -2377,7 +2403,12 @@ namespace seq {
         // with string-only conflicts and self-contained cuts (see the epilogue).
         // -------------------------------------------------------------------
         node->canonize_and_compute_final_node_hash();
-        {
+        // A lazy-factorization continuation node (rf_cont set) is EXEMPT from the
+        // loop-cut: it aliases its parent's string signature (only the suspended
+        // split iterator differs) but is not a true recurrence — it still has
+        // pending splits.  The iterator is finite, so the continuation chain
+        // terminates on its own (exhaustion → regex conflict).
+        if (!node->rf_cont()) {
             auto it = m_siblings.find(node);
             if (it != m_siblings.end() && !it->second.empty()) {
                 nielsen_node* anc = it->second.back(); // deepest sibling still on the path
@@ -4012,16 +4043,185 @@ namespace seq {
     // Modifier: apply_regex_factorization (Boolean Closure)
     // -----------------------------------------------------------------------
 
+    // Safety cap handed to the lazy split iterator.  Large by design: the whole
+    // point of the lazy factorization is that the binary child-B chain walks the
+    // splits one at a time, so the count must not bound how many splits we may
+    // explore.  It still guards internal materialisation of intersection /
+    // complement bodies against runaway space blow-up.
+    static const unsigned RF_LAZY_CAP = 1u << 20;
+
+    // The cycle machinery (apply_cycle_decomposition) owns variables it has put
+    // under a noloop guard: factorizing such a variable's membership would split
+    // it in a way that violates the guard's premise (that the variable is handled
+    // by the stabilizer/guard decomposition), yielding a spurious conflict.  So
+    // factorization defers whenever the leading token is a guarded variable.
+    static bool leading_var_guarded(nielsen_node const* node, euf::snode const* lead) {
+        for (str_mem const& g : node->str_mems())
+            if (g.is_guard() && g.m_str && g.m_str->first() == lead)
+                return true;
+        return false;
+    }
+
+    rf_state* nielsen_graph::mk_rf_state(nielsen_node* /*node*/, str_mem const& mem) {
+        euf::snode const* const first = mem.m_str->first();
+        SASSERT(first);
+        SASSERT(!first->is_char());     // constants are consumed earlier
+
+        // Choose the factorization boundary so the tail starts with the LONGEST
+        // run of concrete characters c — this gives the split-engine lookahead
+        // oracle the most pruning information.  head = u' (tokens before the run),
+        // tail = c · u''' (tokens from the run onward).
+        euf::snode_vector toks;
+        mem.m_str->collect_tokens(toks);
+        const unsigned total = toks.size();
+        unsigned run_start = 0, run_len = 0;
+        for (unsigned i = 0; i < total; ) {
+            if (!toks[i]->is_char()) { ++i; continue; }
+            unsigned j = i;
+            while (j < total && toks[j]->is_char()) ++j;
+            if (j - i > run_len) { run_len = j - i; run_start = i; }
+            i = j;
+        }
+        // No constant run → fall back to splitting off the first token.
+        const unsigned p = run_len == 0 ? 1 : run_start;
+        SASSERT(p >= 1);
+        euf::snode const* head = p == 1 ? first : m_sg.drop_right(mem.m_str, total - p);
+        SASSERT(head);
+
+        // Build the constant lookahead c and (if non-empty) an oracle that prunes
+        // splits whose ∇ cannot match c.  The constant run is consumed from the
+        // tail per split (the δ_c derivative in rf_step), so the stored tail is
+        // u''' (c already removed).
+        zstring c;
+        for (unsigned i = 0; i < run_len; ++i) {
+            expr* ch = nullptr;
+            unsigned cv = 0;
+            VERIFY(m_seq.str.is_unit(toks[run_start + i]->get_expr(), ch));
+            VERIFY(m_seq.is_const_char(ch, cv));
+            c = c + zstring(cv);
+        }
+        euf::snode const* tail = c.empty() ? m_sg.drop_left(mem.m_str, p)
+                                           : m_sg.drop_left(mem.m_str, run_start + run_len);
+        SASSERT(tail);
+
+        // Suspended sigma(regex): the iterator expands it one split at a time.
+        const expr_ref suspended = m_split_rw.make_split(mem.m_regex->get_expr());
+        if (!suspended)
+            return nullptr;   // non-regex argument (should not happen for a well-formed mem)
+
+        split_oracle oracle;
+        if (!c.empty()) {
+            euf::sgraph& sg = m_sg;
+            oracle = [&sg, c](expr*, expr* n) { return split_lookahead_viable(n, sg, c); };
+        }
+
+        seq_split::iterator it =
+            m_split_rw.iterate_split(suspended, RF_LAZY_CAP, split_mode::strong, oracle);
+        rf_state* st = alloc(rf_state, mem, head, tail, c, std::move(it));
+        m_rf_states.push_back(st);
+        return st;
+    }
+
+    nielsen_graph::rf_step_result
+    nielsen_graph::rf_step(nielsen_node* node, rf_state* st, dep_tracker& conflict_dep) {
+        euf::snode const* const first = st->m_mem.m_str->first();
+        dep_tracker eliminated_dep = st->m_mem.m_dep;
+
+        expr_ref d(m), n(m);
+        while (st->m_iter.next(d, n)) {
+            // Consume the constant run c from the tail: tail = c·u''' ∈ ∇ ⟺
+            // u''' ∈ δ_c(∇)  (Brzozowski).  Drops any split whose ∇ cannot start
+            // with c (there δ_c(∇) = ∅).  Identity when c is empty.
+            euf::snode const* sn_q = m_sg.mk(n);
+            for (unsigned k = 0; sn_q && !sn_q->is_fail() && k < st->m_c.length(); ++k)
+                sn_q = m_sg.brzozowski_deriv(sn_q, m_sg.mk_char(st->m_c[k]));
+            SASSERT(sn_q);
+            if (sn_q->is_fail())
+                continue;   // ∇ can't start with c → infeasible split, skip
+
+            euf::snode const* sn_p = m_sg.mk(d);
+
+            // Feasibility: Δ must be non-empty.  When head is the single token
+            // `first`, also intersect with other primitive constraints on `first`;
+            // for a multi-token head Δ constrains the whole prefix, so we only
+            // check Δ ≠ ∅.
+            euf::snode_vector regexes_p;
+            regexes_p.push_back(sn_p);
+            dep_tracker first_filter_dep = nullptr;
+            if (st->m_head == first) {
+                for (auto const& prev_mem : node->str_mems()) {
+                    if (prev_mem.m_str == first) {
+                        regexes_p.push_back(prev_mem.m_regex);
+                        first_filter_dep = m_dep_mgr.mk_join(first_filter_dep, prev_mem.m_dep);
+                    }
+                }
+            }
+            if (m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
+                eliminated_dep = m_dep_mgr.mk_join(eliminated_dep, first_filter_dep);
+                continue;   // infeasible split → skip without branching
+            }
+
+            const dep_tracker split_dep = m_dep_mgr.mk_join(st->m_mem.m_dep, first_filter_dep);
+
+            // child A — the "first case": apply this split and drop the original
+            // membership.
+            nielsen_node* child_a = mk_child(node);
+            mk_edge(node, child_a, "regex fact", true);
+            auto& child_mems = child_a->str_mems();
+            for (unsigned k = 0; k < child_mems.size(); ++k) {
+                if (child_mems[k] == st->m_mem) {
+                    child_mems[k] = child_mems.back();
+                    child_mems.pop_back();
+                    break;
+                }
+            }
+            child_a->add_str_mem(str_mem(m, st->m_head, sn_p, split_dep));
+            child_a->add_str_mem(str_mem(m, st->m_tail, sn_q, split_dep));
+
+            // child B — the "did not use the first case" branch: keep the
+            // membership and hand down the SAME iterator so factorization resumes
+            // from the next split.  No substitution: child B is an exact clone, so
+            // st->m_mem stays valid down the whole chain.
+            nielsen_node* child_b = mk_child(node);
+            mk_edge(node, child_b, "regex fact rest", true);
+            child_b->set_rf_cont(st);
+
+            return rf_step_result::branched;
+        }
+
+        // No feasible split remained.
+        conflict_dep = eliminated_dep;
+        return st->m_iter.gave_up() ? rf_step_result::gaveup : rf_step_result::conflict;
+    }
+
     bool nielsen_graph::apply_regex_factorization(nielsen_node* node) {
         if (m_regex_factorization_threshold == 0)
             return false;
 
-        struct rf_split {
-            euf::snode const* m_p;
-            euf::snode const* m_q;
-            dep_tracker m_dep;
-        };
+        // Continuation: resume the iterator handed down to this node by its
+        // parent's "remaining splits" branch.
+        if (rf_state* st = node->rf_cont()) {
+            node->set_rf_cont(nullptr);   // the iterator migrates to child B (or is dropped)
+            // If the cycle machinery has, in the meantime, put the leading variable
+            // under a guard, stop factorizing and defer (the iterator is dropped).
+            if (leading_var_guarded(node, st->m_mem.m_str->first()))
+                return false;
+            dep_tracker conflict_dep = nullptr;
+            switch (rf_step(node, st, conflict_dep)) {
+            case rf_step_result::branched:
+                return true;
+            case rf_step_result::conflict:
+                // Every split has been tried: the membership's split disjunction
+                // is refuted on this branch.
+                node->set_general_conflict();
+                node->set_conflict(backtrack_reason::regex, conflict_dep);
+                return true;
+            case rf_step_result::gaveup:
+                return false;   // engine give-up → let other modifiers handle the membership
+            }
+        }
 
+        // Fresh: find the first factorizable membership and start an iterator.
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(mem.well_formed());
 
@@ -4035,74 +4235,25 @@ namespace seq {
             if (!mem.is_plain())
                 continue;
 
-            split_set pairs;
-            auto [head, tail] = split_membership(mem.m_str, mem.m_regex, sg(), m_regex_factorization_threshold, pairs);
-            if (!head) {
-                SASSERT(!tail);
+            // Defer to the cycle machinery when the leading variable is guarded.
+            if (leading_var_guarded(node, mem.m_str->first()))
                 continue;
-            }
-            SASSERT(tail);
 
-            euf::snode const* const first = mem.m_str->first();
+            rf_state* st = mk_rf_state(node, mem);
+            if (!st)
+                continue;   // unsupported regex shape → try the next membership
 
-            vector<rf_split> feasible;
-            dep_tracker eliminated_dep = mem.m_dep;
-
-            for (auto const &[tp, tq] : pairs) {
-                euf::snode const* sn_p = m_sg.mk(tp);
-                euf::snode const* sn_q = m_sg.mk(tq);
-
-                // Also check intersection with other primitive constraints on `head`.
-                // Only valid when head is the single token `first`; for a multi-token
-                // head Δ constrains the whole prefix, so we only check Δ ≠ ∅.
-                euf::snode_vector regexes_p;
-                regexes_p.push_back(sn_p);
-                dep_tracker first_filter_dep = nullptr;
-                if (head == first) {
-                    for (auto const& prev_mem : node->str_mems()) {
-                        if (prev_mem.m_str == first) {
-                            regexes_p.push_back(prev_mem.m_regex);
-                            first_filter_dep = m_dep_mgr.mk_join(first_filter_dep, prev_mem.m_dep);
-                        }
-                    }
-                }
-                if (m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
-                    eliminated_dep = m_dep_mgr.mk_join(eliminated_dep, first_filter_dep);
-                    continue;
-                }
-
-                feasible.push_back({ sn_p, sn_q, m_dep_mgr.mk_join(mem.m_dep, first_filter_dep) });
-                if (feasible.size() > m_regex_factorization_threshold)
-                    break;
-            }
-
-            if (feasible.empty()) {
-                node->set_general_conflict();
-                node->set_conflict(backtrack_reason::regex, eliminated_dep);
+            dep_tracker conflict_dep = nullptr;
+            switch (rf_step(node, st, conflict_dep)) {
+            case rf_step_result::branched:
                 return true;
+            case rf_step_result::conflict:
+                node->set_general_conflict();
+                node->set_conflict(backtrack_reason::regex, conflict_dep);
+                return true;
+            case rf_step_result::gaveup:
+                continue;   // engine gave up on this membership → try the next one
             }
-
-            if (feasible.size() > m_regex_factorization_threshold)
-                continue;
-
-            for (auto& [m_p, m_q, m_dep] : feasible) {
-                nielsen_node* child = mk_child(node);
-                mk_edge(node, child, "regex fact", true);
-
-                // remove the original mem from child
-                auto& child_mems = child->str_mems();
-                for (unsigned k = 0; k < child_mems.size(); ++k) {
-                    if (child_mems[k] == mem) {
-                        child_mems[k] = child_mems.back();
-                        child_mems.pop_back();
-                        break;
-                    }
-                }
-
-                child->add_str_mem(str_mem(m, head, m_p, m_dep));
-                child->add_str_mem(str_mem(m, tail, m_q, m_dep));
-            }
-            return true;
         }
         return false;
     }
