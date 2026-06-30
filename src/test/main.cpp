@@ -197,6 +197,7 @@
     X(ho_matcher) \
     X(finite_set) \
     X(finite_set_rewriter) \
+    X(seq_split) \
     X(fpa) \
     X(seq_regex_bisim) \
     X(term_enumeration) \

@@ -128,6 +128,30 @@ namespace smt {
             return;
         }
 
+        if (th.get_fparams().m_seq_regex_factorization_enabled) {
+            unsigned threshold = th.get_fparams().m_seq_regex_factorization_threshold;
+            if (threshold == 0)
+                threshold = UINT_MAX;
+            split_set result;
+            auto [head, tail] = seq_rw().split_membership(s, r, threshold, result);
+            if (head) {
+                SASSERT(tail);
+                // propagate all cases
+                expr_ref_vector cases(m);
+                expr_ref_vector branches(m);
+                for (auto [pre, post] : result) {
+                    expr_ref mem_head(re().mk_in_re(head, pre), m);
+                    expr_ref mem_tail(re().mk_in_re(tail, post), m);
+                    cases.push_back(m.mk_and(mem_head, mem_tail));
+                }
+                const expr_ref cases_expr(m.mk_or(cases), m);
+                ctx.internalize(cases_expr, false);
+                th.propagate_lit(nullptr, 1, &lit, ctx.get_literal(cases_expr));
+                return;
+            }
+            // fallthrough; decomposition failed
+        }
+
         // Convert a non-ground sequence into an additional regex and
         // strengthen the original regex constraint into an intersection
         // for example:
