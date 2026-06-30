@@ -595,6 +595,8 @@ namespace smt {
        must be removed from the congruence table since their hash code will change.
     */
     void context::remove_parents_from_cg_table(enode * r1) {
+        SASSERT(m_r1_parent_generations.empty());
+
         // Remove parents from the congruence table
         for (enode * parent : enode::parents(r1)) {
             CTRACE(add_eq, !parent->is_marked() && parent->is_cgc_enabled() && parent->is_true_eq() && m_cg_table.contains_ptr(parent), tout << parent->get_owner_id() << "\n";);
@@ -616,7 +618,7 @@ namespace smt {
                 SASSERT(!parent->is_cgc_enabled() || m_cg_table.contains_ptr(parent));
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
-                    m_r1_parent_generations.insert(parent, get_generation(parent));
+                    m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
                     m_cg_table.erase(parent);
                     SASSERT(!m_cg_table.contains_ptr(parent));
                 }
@@ -656,6 +658,7 @@ namespace smt {
         enode_vector & r2_parents  = r2->m_parents;
         enode_vector & r1_parents  = r1->m_parents;
         unsigned num_r1_parents = r1_parents.size();
+        unsigned cgc_enabled_idx = 0;
         for (unsigned i = 0; i < num_r1_parents; ++i) {
             enode* parent = r1_parents[i];
             if (!parent->is_marked())
@@ -677,8 +680,8 @@ namespace smt {
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
                     if (parent->is_cgc_enabled()) {
-                        SASSERT(m_r1_parent_generations.contains(parent));
-                        unsigned parent_generation = m_r1_parent_generations.find(parent);
+                        auto [p, parent_generation] = m_r1_parent_generations[cgc_enabled_idx++];
+                        SASSERT(p == parent);
                         m_constant_generations.insert(parent, parent_generation);
                     }
                     // It is not necessary to reinsert the equality to the congruence table
@@ -688,8 +691,8 @@ namespace smt {
                 }
             }
             if (parent->is_cgc_enabled()) {
-                SASSERT(m_r1_parent_generations.contains(parent));
-                unsigned parent_generation = m_r1_parent_generations.find(parent);
+                auto [p, parent_generation] = m_r1_parent_generations[cgc_enabled_idx++];
+                SASSERT(p == parent);
                 auto [parent_prime, used_commutativity, gen_ptr] = m_cg_table.insert(parent, parent_generation);
                 if (parent_prime == parent) {
                     SASSERT(parent);
@@ -973,7 +976,7 @@ namespace smt {
         // unmerge "equivalence" classes
         std::swap(r1->m_next, r2->m_next);
 
-        m_r1_parent_generations.reset();
+        SASSERT(m_r1_parent_generations.empty());
 
         // remove the parents of r1 that remained as congruence roots
         enode_vector::iterator it  = r2->begin_parents();
@@ -991,7 +994,7 @@ namespace smt {
                        display(tout << "\n"););
                 SASSERT(parent->is_cgr());
                 SASSERT(m_cg_table.contains_ptr(parent));
-                m_r1_parent_generations.insert(parent, get_generation(parent));
+                m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
                 m_cg_table.erase(parent);
             }
         }
@@ -1005,6 +1008,8 @@ namespace smt {
 
         // restore parents of r2
         r2->m_parents.shrink(r2_num_parents);
+
+        unsigned cgr_parent_idx = 0;
 
         // try to reinsert parents of r1 that are not cgr
         for (enode * parent : enode::parents(r1)) {
@@ -1020,10 +1025,11 @@ namespace smt {
                     if (parent->is_eq()) {
                         gen = 0;
                     } else if (parent == cg) {
-                        if (m_r1_parent_generations.contains(parent)) {
-                            gen = m_r1_parent_generations.find(parent);
+                        auto [p, parent_generation] = m_r1_parent_generations[cgr_parent_idx];
+                        if (p == parent) {
+                            cgr_parent_idx++;
+                            gen = parent_generation;
                         } else {
-                            //?  When exactly does this happen? I had convinved myself but I odn't remember anymore..
                             SASSERT(m_cg_table.contains_ptr(parent));
                             continue;
                         }
@@ -1040,6 +1046,8 @@ namespace smt {
                 }
             }
         }
+
+        m_r1_parent_generations.reset();
 
         // restore theory vars
         if (r2->m_th_var_list.get_next() == nullptr) {
@@ -1073,8 +1081,6 @@ namespace smt {
         SASSERT(r1->m_trans.m_target == 0);
 
         CASSERT("add_eq", check_invariant());
-
-        m_r1_parent_generations.reset();
     }
 
     void context::undo_merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {

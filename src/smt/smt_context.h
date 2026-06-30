@@ -161,8 +161,7 @@ namespace smt {
         cg_table                    m_cg_table;
         enode_generation_table      m_sticky_generation_updates;
         enode_generation_table      m_constant_generations;  // generations for enodes with !e->uses_cg_table()
-        // TODO: below can be a list instead of a table.
-        enode_generation_table      m_r1_parent_generations; // generations of parents removed from m_cg_table while merging r1
+        vector<std::pair<enode*, unsigned>>      m_r1_parent_generations; // generations of parents removed from m_cg_table while merging r1
 
         struct new_eq {
             enode *                 m_lhs;
