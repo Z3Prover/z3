@@ -256,7 +256,7 @@ jobs:
           # explicit -dll flag is passed, ocamlfind installs dll* files to stublibs
           # but may not update ld.conf, causing "Fatal error: exception End_of_file"
           # in ocamlc when it cannot locate the stub shared library at link time.
-          STUBLIBS="$(dirname "$(ocamlfind printconf destdir)")/stublibs"
+          STUBLIBS="$(ocamlfind printconf destdir)/stublibs"
           LDCONF="$(ocamlfind printconf ldconf)"
           if [ -d "$STUBLIBS" ] && ! grep -qF "$STUBLIBS" "$LDCONF" 2>/dev/null; then
             echo "$STUBLIBS" >> "$LDCONF"
