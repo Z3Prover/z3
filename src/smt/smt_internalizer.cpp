@@ -1085,17 +1085,9 @@ namespace smt {
     /**
        \brief Apply sort constraints on e.
     */
-    void context::apply_sort_cnstr(app * term, enode * e) {
-        sort * s    = term->get_decl()->get_range();
+    void context::apply_sort_cnstr(expr * term, enode * e) {
+        sort * s    = term->get_sort();
         theory * th = m_theories.get_plugin(s->get_family_id());
-        if (th) {
-            th->apply_sort_cnstr(e, s);
-        }
-    }
-
-    void context::apply_sort_cnstr(quantifier *lambda_term, enode *e) {
-        sort *s = lambda_term->get_sort();
-        theory *th = m_theories.get_plugin(s->get_family_id());
         if (th) {
             th->apply_sort_cnstr(e, s);
         }
