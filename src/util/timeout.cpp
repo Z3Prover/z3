@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include<iostream>
+#include<signal.h>
 #include "util/util.h"
 #include "util/timeout.h"
 #include "util/error_codes.h"
@@ -29,15 +30,28 @@ Revision History:
 static scoped_timer * g_timeout = nullptr;
 static void (* g_on_timeout)() = nullptr;
 
+static void do_timeout() {
+    std::cout << "timeout\n";
+    std::cout.flush();
+    if (g_on_timeout)
+        g_on_timeout();
+}
+
+#ifdef SIGXCPU
+// React to SIGXCPU (an external CPU limit, e.g. ulimit -t) like a -T timeout.
+static void STD_CALL on_sigxcpu(int) {
+    signal(SIGXCPU, SIG_DFL);
+    do_timeout();
+    raise(SIGXCPU);
+}
+#endif
+
 namespace {
 class g_timeout_eh : public event_handler {
 public:
     void operator()(event_handler_caller_t caller_id) override {
         m_caller_id = caller_id;
-        std::cout << "timeout\n";
-        std::cout.flush();
-        if (g_on_timeout)
-            g_on_timeout();
+        do_timeout();
         throw z3_error(ERR_TIMEOUT);
     }
 };
@@ -56,4 +70,8 @@ void disable_timeout() {
 
 void register_on_timeout_proc(void (*proc)()) {
     g_on_timeout = proc;
+#ifdef SIGXCPU
+    // Handle external CPU limits (SIGXCPU) like our own timeouts.
+    signal(SIGXCPU, on_sigxcpu);
+#endif
 }

@@ -41,7 +41,7 @@ namespace smt {
         n->m_interpreted      = false;
         n->m_suppress_args    = suppress_args;
         n->m_eq               = m.is_eq(owner);
-        n->m_commutative      = n->get_num_args() == 2 && owner->get_decl()->is_commutative();
+        n->m_commutative      = n->get_num_args() == 2 && n->get_decl()->is_commutative();
         n->m_bool             = m.is_bool(owner);
         n->m_merge_tf         = merge_tf;
         n->m_cgc_enabled      = cgc_enabled;
@@ -51,7 +51,7 @@ namespace smt {
         n->m_is_shared        = 2;
         unsigned num_args     = n->get_num_args();
         for (unsigned i = 0; i < num_args; ++i) {            
-            enode * arg  = app2enode[owner->get_arg(i)->get_id()];
+            enode * arg  = app2enode[to_app(owner)->get_arg(i)->get_id()];
             n->m_args[i] = arg;
             arg->get_root()->m_is_shared = 2;
             SASSERT(n->get_arg(i) == arg);
@@ -67,7 +67,7 @@ namespace smt {
                         bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                            bool cgc_enabled, bool update_children_parent) {
         SASSERT(m.is_bool(owner) || !merge_tf);
-        unsigned sz           = get_enode_size(suppress_args ? 0 : owner->get_num_args());
+        unsigned sz           = get_enode_size(suppress_args || !::is_app(owner) ? 0 : to_app(owner)->get_num_args());
         void * mem            = r.allocate(sz);
         return init(m, mem, app2enode, owner, suppress_args, merge_tf, iscope_lvl, cgc_enabled, update_children_parent);
     }

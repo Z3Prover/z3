@@ -290,7 +290,7 @@ public:
         return m_solver1->display(out, n, es);
     }
 
-    void collect_statistics(statistics & st) const override {
+    void collect_statistics_core(statistics & st) const override {
         m_solver2->collect_statistics(st);
         if (m_use_solver1_results)
             m_solver1->collect_statistics(st);

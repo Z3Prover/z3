@@ -42,9 +42,16 @@ if RELEASE_DIR is None:
         BUILD_PLATFORM = "emscripten"
         BUILD_ARCH = "wasm32"
         BUILD_OS_VERSION = os.environ['_PYTHON_HOST_PLATFORM'].split('_')[1:-1]
-        build_env['CFLAGS'] = build_env.get('CFLAGS', '') + " -fexceptions"
-        build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -fexceptions"
-        build_env['LDFLAGS'] = build_env.get('LDFLAGS', '') + " -fexceptions"
+        # Match Pyodide's native-wasm exception/longjmp ABI (see Makefile.envs in
+        # Pyodide). The legacy JS-based "-fexceptions" makes libz3.so import
+        # invoke_* trampolines that the modern Pyodide runtime does not export,
+        # which surfaces as "cannot resolve symbol invoke_vi" on the first Z3
+        # call. These mirror [tool.pyodide.build] in pyproject.toml so direct
+        # `pyodide build` invocations stay consistent with cibuildwheel.
+        _wasm_eh = " -fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
+        build_env['CFLAGS'] = build_env.get('CFLAGS', '') + _wasm_eh
+        build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + _wasm_eh
+        build_env['LDFLAGS'] = build_env.get('LDFLAGS', '') + _wasm_eh + " -sWASM_BIGINT -sSIDE_MODULE=1"
         IS_SINGLE_THREADED = True
         ENABLE_LTO = False
         # build with pthread doesn't work. The WASM bindings are also single threaded.
@@ -305,6 +312,21 @@ class bdist_wheel(_bdist_wheel):
             
             
     def finalize_options(self):
+        if BUILD_PLATFORM == "emscripten":
+            # Under pyodide-build / `cibuildwheel --platform pyodide`, the
+            # authoritative wheel platform tag is handed to us verbatim via
+            # _PYTHON_HOST_PLATFORM. For PEP 783 (Pyodide >= 0.28 / "314") this
+            # is e.g. "pyemscripten_2026_0_wasm32" -- a tag PyPI accepts. The
+            # reconstruction below instead produced "emscripten_<ver>_wasm32",
+            # which is locked to a Pyodide release and rejected by PyPI, so we
+            # defer to pyodide-build's tag when it is available.
+            host_platform = os.environ.get('_PYTHON_HOST_PLATFORM')
+            if host_platform:
+                self.plat_name = host_platform
+            else:
+                os_version_tag = '_'.join(BUILD_OS_VERSION) if BUILD_OS_VERSION else 'xxxxxx'
+                self.plat_name = f"emscripten_{os_version_tag}_wasm32"
+            return super().finalize_options()
         if BUILD_ARCH is not None and BUILD_PLATFORM is not None:
             os_version_tag = '_'.join(BUILD_OS_VERSION) if BUILD_OS_VERSION is not None else 'xxxxxx'
             os_version_tag = self.remove_build_machine_os_version(BUILD_PLATFORM, os_version_tag)

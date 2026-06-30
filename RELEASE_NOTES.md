@@ -130,6 +130,7 @@ Version 4.17.0
   https://github.com/Z3Prover/z3/pull/9303
 - Add fold-unfold tactic as an alternative to solve-eqs for variable elimination using
   fold-unfold transformations. Also exposed as a simplifier.
+- Handle SIGXCPU (OS timeout) like a regular `-T` timeout.  Users should make sure to set the soft limit below the hard one, as in `ulimit -S -t 30 -H -t 31` for a 30s soft limit, so SIGXCPU is delivered before SIGKILL.
 
 Version 4.16.0
 ==============

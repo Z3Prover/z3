@@ -18,6 +18,7 @@ tools:
   bash: [":*"]
 
 safe-outputs:
+  report-failure-as-issue: false
   create-discussion:
     title-prefix: "[CSA] "
     category: "Agentic Workflows"

@@ -310,7 +310,7 @@ go run basic_example.go
 
 ## Memory Management
 
-The Go bindings use `runtime.SetFinalizer` to automatically manage Z3 reference counts. You don't need to manually call inc_ref/dec_ref. However, be aware that finalizers run during garbage collection, so resources may not be freed immediately.
+The Go bindings use `runtime.SetFinalizer` to automatically manage Z3 reference counts. You don't need to manually call inc_ref/dec_ref. However, be aware that finalizers run during garbage collection, so resources may not be freed immediately. The bindings enable `Z3_enable_concurrent_dec_ref` when creating contexts so finalizer-driven decref operations are safe with concurrent GC.
 
 ## Thread Safety
 

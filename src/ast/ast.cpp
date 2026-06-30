@@ -242,21 +242,14 @@ func_decl_info::func_decl_info(family_id family_id, decl_kind k, unsigned num_pa
     m_injective(false),
     m_idempotent(false),
     m_skolem(false),
-    m_lambda(false),
     m_polymorphic(false) {
 }
 
 bool func_decl_info::operator==(func_decl_info const & info) const {
-    return decl_info::operator==(info) &&
-        m_left_assoc == info.m_left_assoc &&
-        m_right_assoc == info.m_right_assoc &&
-        m_flat_associative == info.m_flat_associative &&
-        m_commutative == info.m_commutative &&
-        m_chainable == info.m_chainable &&
-        m_pairwise == info.m_pairwise &&
-        m_injective == info.m_injective &&
-        m_skolem == info.m_skolem &&
-        m_lambda == info.m_lambda;
+    return decl_info::operator==(info) && m_left_assoc == info.m_left_assoc && m_right_assoc == info.m_right_assoc &&
+           m_flat_associative == info.m_flat_associative && m_commutative == info.m_commutative &&
+           m_chainable == info.m_chainable && m_pairwise == info.m_pairwise && m_injective == info.m_injective &&
+           m_skolem == info.m_skolem;
 }
 
 std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
@@ -270,7 +263,6 @@ std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
     if (info.is_injective()) out << " :injective ";
     if (info.is_idempotent()) out << " :idempotent ";
     if (info.is_skolem()) out << " :skolem ";
-    if (info.is_lambda()) out << " :lambda ";
     if (info.is_polymorphic()) out << " :polymorphic ";
     return out;
 }
@@ -1625,19 +1617,6 @@ bool ast_manager::are_distinct(expr* a, expr* b) const {
     return false;
 }
 
-void ast_manager::add_lambda_def(func_decl* f, quantifier* q) {
-    TRACE(model, tout << "add lambda def " << mk_pp(q, *this) << "\n");
-    m_lambda_defs.insert(f, q);
-    f->get_info()->set_lambda(true);
-    inc_ref(q);
-}
-
-quantifier* ast_manager::is_lambda_def(func_decl* f) {
-    if (f->get_info() && f->get_info()->is_lambda()) 
-        return m_lambda_defs[f];
-    return nullptr;
-}
-
 
 void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
     SASSERT(m_plugins.get(id, 0) == 0);
@@ -1832,10 +1811,6 @@ void ast_manager::delete_node(ast * n) {
                 m_poly_roots.erase(f);
             if (f->m_info != nullptr) {
                 func_decl_info * info = f->get_info();
-                if (info->is_lambda()) {
-                    push_dec_ref(m_lambda_defs[f]);
-                    m_lambda_defs.remove(f);
-                }
                 info->del_eh(*this);
                 dealloc(info);
             }
@@ -2919,7 +2894,7 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
         }
     });
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_eq(n1,n2));
     return mk_app(basic_family_id, PR_TRANSITIVITY_STAR, args.size(), args.data());
 }
@@ -2928,7 +2903,7 @@ proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned
     SASSERT(f1->get_num_args() == f2->get_num_args());
     SASSERT(f1->get_decl() == f2->get_decl());
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_app(R, f1, f2));
     proof* p = mk_app(basic_family_id, PR_MONOTONICITY, args.size(), args.data());
     return p;
@@ -2990,7 +2965,7 @@ proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, pr
     if (proofs_disabled())
         return nullptr;
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_eq(s, t));
     return mk_app(basic_family_id, PR_REWRITE_STAR, args.size(), args.data());
 }
@@ -3080,7 +3055,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
     }
 
     if (!found_complement) {
-        args.append(num_proofs, (expr**)proofs);
+        args.append(num_proofs, (expr* const *)proofs);
         CTRACE(mk_unit_resolution_bug, !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";
                for (unsigned i = 1; i < num_proofs; ++i)
                    tout << mk_pp(proofs[i], *this) << "\n";
@@ -3150,7 +3125,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
           tout << mk_pp(new_fact, *this) << "\n";);
 
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(new_fact);
 #ifdef Z3DEBUG
     expr * f1 = get_fact(proofs[0]);
@@ -3216,7 +3191,7 @@ proof * ast_manager::mk_apply_defs(expr * n, expr * def, unsigned num_proofs, pr
     if (proofs_disabled())
         return nullptr;
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_oeq(n, def));
     return mk_app(basic_family_id, PR_APPLY_DEF, args.size(), args.data());
 }
@@ -3250,7 +3225,7 @@ proof * ast_manager::mk_nnf_pos(expr * s, expr * t, unsigned num_proofs, proof *
         return nullptr;
     check_nnf_proof_parents(num_proofs, proofs);
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_oeq(s, t));
     return mk_app(basic_family_id, PR_NNF_POS, args.size(), args.data());
 }
@@ -3260,7 +3235,7 @@ proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof *
         return nullptr;
     check_nnf_proof_parents(num_proofs, proofs);
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_oeq(mk_not(s), t));
     return mk_app(basic_family_id, PR_NNF_NEG, args.size(), args.data());
 }
@@ -3330,7 +3305,7 @@ proof * ast_manager::mk_redundant_del(expr* e) {
 
 proof * ast_manager::mk_clause_trail(unsigned n, expr* const* ps) {    
     ptr_buffer<expr> args;
-    args.append(n, (expr**) ps);
+    args.append(n, (expr* const *) ps);
     return mk_app(basic_family_id, PR_CLAUSE_TRAIL, 0, nullptr, args.size(), args.data());
 }
 
@@ -3348,7 +3323,7 @@ proof * ast_manager::mk_th_lemma(
     for (unsigned i = 0; i < num_params; ++i) 
         parameters.push_back(params[i]);        
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(fact);
     return mk_app(basic_family_id, PR_TH_LEMMA, parameters.size(), parameters.data(), args.size(), args.data());
 }

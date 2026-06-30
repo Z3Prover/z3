@@ -83,7 +83,7 @@ namespace smt {
         bool instantiate_default_map_axiom(enode* map);
         bool instantiate_default_as_array_axiom(enode* arr);
         bool instantiate_default_lambda_def_axiom(enode* arr);
-        bool instantiate_select_lambda_axiom(enode *lambda);
+
         bool instantiate_choice_axiom(enode* ch);
         bool instantiate_parent_stores_default(theory_var v);
 
@@ -96,6 +96,7 @@ namespace smt {
         bool instantiate_select_const_axiom(enode* select, enode* cnst);
         bool instantiate_select_as_array_axiom(enode* select, enode* arr);
         bool instantiate_select_map_axiom(enode* select, enode* map);
+        bool instantiate_select_lambda_axiom(enode *select, enode *lambda);
 
         bool instantiate_axiom_map_for(theory_var v);
 

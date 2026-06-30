@@ -60,7 +60,7 @@ namespace sat {
         unsigned m_mk_bin_clause;
         unsigned m_mk_ter_clause;
         unsigned m_mk_clause;
-        unsigned m_conflict;
+        unsigned m_conflicts;
         unsigned m_propagate;
         unsigned m_bin_propagate;
         unsigned m_ter_propagate;
@@ -148,6 +148,8 @@ namespace sat {
         bool_vector             m_phase; 
         bool_vector             m_best_phase;
         bool_vector             m_prev_phase;
+        svector<uint64_t>       m_phase_birthdate;
+        svector<uint64_t>       m_best_phase_birthdate;
         bool                    m_new_best_phase = false;
         svector<char>           m_assigned_since_gc;
         search_state            m_search_state; 
@@ -373,12 +375,18 @@ namespace sat {
         bool was_eliminated(bool_var v) const { return m_eliminated[v]; }
         void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
-        void set_phase(literal l) override { if (l.var() < num_vars()) m_best_phase[l.var()] = m_phase[l.var()] = !l.sign(); }
+        void set_phase(literal l) override;
+        void set_phase(bool_var v, bool value);
+        void set_best_phase(bool_var v, bool value);
         bool get_phase(bool_var b) { return m_phase.get(b, false); }
         bool get_best_phase(bool_var b) { return m_best_phase.get(b, false); }
+        uint64_t get_phase_birthdate(bool_var b) const { return m_phase_birthdate.get(b, 0); }
+        uint64_t get_best_phase_birthdate(bool_var b) const { return m_best_phase_birthdate.get(b, 0); }
         void set_has_new_best_phase(bool b) { m_new_best_phase = b; }
         bool has_new_best_phase() const { return m_new_best_phase; }
         void move_to_front(bool_var b);
+        unsigned get_activity(bool_var v) const { return m_activity[v]; }
+        void get_backbone_candidates(literal_vector& lits, unsigned max_num);
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
         bool  at_search_lvl() const { return m_scope_lvl == m_search_lvl; }
@@ -440,6 +448,8 @@ namespace sat {
         void set_par(parallel* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() const { return m_config; }
+        void set_max_conflicts(unsigned n) { m_config.m_max_conflicts = n; }
+        unsigned get_max_conflicts() const { return m_config.m_max_conflicts; }
         void set_drat(bool d) { m_config.m_drat = d; }
         drat& get_drat() { return m_drat; }
         drat* get_drat_ptr() { return &m_drat;  }

@@ -234,6 +234,22 @@ public:
         m_todo.reset();
     }
 
+    // Linearize the union of two dependencies without allocating a join node.
+    void linearize(dependency * d1, dependency * d2, vector<value, false> & vs) const {
+        SASSERT(m_todo.empty());
+        if (d1) {
+            d1->mark();
+            m_todo.push_back(d1);
+        }
+        if (d2 && !d2->is_marked()) {
+            d2->mark();
+            m_todo.push_back(d2);
+        }
+        if (!m_todo.empty())
+            linearize_todo(m_todo, vs);
+        m_todo.reset();
+    }
+
     void linearize(ptr_vector<dependency>& deps, vector<value, false> & vs) const {
         if (deps.empty())
             return;
@@ -331,6 +347,10 @@ public:
 
     void linearize(dependency * d, vector<value, false> & vs) const {
         return m_dep_manager.linearize(d, vs);
+    }    
+
+    void linearize(dependency * d1, dependency * d2, vector<value, false> & vs) const {
+        return m_dep_manager.linearize(d1, d2, vs);
     }    
 
     static vector<value, false> const& s_linearize(dependency* d, vector<value, false>& vs) {

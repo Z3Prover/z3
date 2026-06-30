@@ -113,7 +113,7 @@ namespace smt {
         void fix_model(proto_model * m);
 
         quantifier * get_flat_quantifier(quantifier * q);
-        expr * get_inv(quantifier * q, unsigned i, expr * val, unsigned & generation);
+        expr * get_inv(quantifier * q, unsigned i, expr * val, model& m, unsigned & generation);
         bool restrict_sks_to_inst_set(context * aux_ctx, quantifier * q, expr_ref_vector const & sks);
 
         void restart_eh();

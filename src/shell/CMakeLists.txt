@@ -8,7 +8,7 @@ set (shell_object_files "")
 
 # We are only using these dependencies to enforce a build
 # order. We don't use this list for actual linking.
-set(shell_deps api extra_cmds opt sat)
+set(shell_deps api extra_cmds z3_opt sat)
 z3_expand_dependencies(shell_expanded_deps ${shell_deps})
 get_property(Z3_LIBZ3_COMPONENTS_LIST GLOBAL PROPERTY Z3_LIBZ3_COMPONENTS)
 foreach (component ${Z3_LIBZ3_COMPONENTS_LIST})

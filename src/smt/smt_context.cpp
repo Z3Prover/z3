@@ -69,7 +69,6 @@ namespace smt {
         m_fingerprints(m, get_region()),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
-        m_l_internalized_stack(m),
         m_final_check_idx(0),
         m_cg_table(m),
         m_conflict(null_b_justification),
@@ -81,7 +80,6 @@ namespace smt {
         m_unsat_core(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
-        m_mk_lambda_trail(*this),
         m_lemma_visitor(m) {
 
         SASSERT(m_scope_lvl == 0);
@@ -119,6 +117,10 @@ namespace smt {
         m_asserted_formulas.updt_params(p);
         if (!m_setup.already_configured()) {
             m_fparams.updt_params(p);
+        }
+        else {
+            // selected parameters are safe to update after initialization
+            m_fparams.m_max_conflicts = p.get_uint("max_conflicts", m_fparams.m_max_conflicts);
         }
         for (auto th : m_theory_set)
             if (th)
@@ -1871,9 +1873,11 @@ namespace smt {
         return m_fingerprints.contains(q, q->get_id(), num_bindings, bindings);
     }
 
-    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
+    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, //expr* def, 
+        unsigned max_generation,
                                unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
-        return m_qmanager->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_top_generation, used_enodes);
+        return m_qmanager->add_instance(q, pat, num_bindings, bindings, 
+            max_generation, min_top_generation, max_top_generation, used_enodes);
     }
 
     void context::rescale_bool_var_activity() {
@@ -3747,6 +3751,13 @@ namespace smt {
         }
     }
 
+    void context::setup_for_parallel() {
+        // Native SMT parallel configures the parent context before cloning workers.
+        // context::copy then configures/internalizes each worker copy while
+        // preprocessing is still enabled.
+        setup_context(m_fparams.m_auto_config);
+    }
+
     config_mode context::get_config_mode(bool use_static_features) const {
         if (!m_fparams.m_auto_config)
             return CFG_BASIC;
@@ -4757,7 +4768,7 @@ namespace smt {
             return false;
         }
         case 1: {
-            if (m_qmanager->is_shared(n) && !m.is_lambda_def(n->get_expr()) && !m_lambdas.contains(n)) 
+            if (m_qmanager->is_shared(n) && !m_lambdas.contains(n)) 
                 return true;
 
             // the variable is shared if the equivalence class of n
@@ -4767,7 +4778,6 @@ namespace smt {
             theory_id th_id     = l->get_id();
 
             for (enode * parent : enode::parents(n)) {
-                auto p = parent->get_expr();
                 family_id fid = parent->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
                     if (is_beta_redex(parent, n))

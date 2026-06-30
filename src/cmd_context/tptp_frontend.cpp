@@ -7,7 +7,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
 
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -65,7 +64,8 @@ enum class token_kind {
     slash_tok,
     minus_tok,
     at_tok,
-    lambda_tok
+    lambda_tok,
+    modal_tok
 };
 
 struct parse_error : public std::exception {
@@ -252,7 +252,7 @@ public:
         case '^': t.kind = token_kind::lambda_tok; return t;
         case '{':
             // Modal operators: {$box}, {$dia}, etc. — lex as identifier including braces
-            t.kind = token_kind::id;
+            t.kind = token_kind::modal_tok;            
             t.text.push_back(c);
             while (!eof() && peek() != '}')
                 t.text.push_back(get());
@@ -277,10 +277,10 @@ public:
 };
 
 struct parsed_type {
-    std::vector<sort*> domain;
+    ptr_vector<sort> domain;
     sort* range = nullptr;
     parsed_type(sort* s): range(s) {}
-    parsed_type(std::vector<sort*> const& d, sort* r): domain(d), range(r) {}
+    parsed_type(ptr_vector<sort> const& d, sort* r): domain(d), range(r) {}
 };
 
 class tptp_parser {
@@ -290,13 +290,15 @@ class tptp_parser {
     array_util m_array;
     sort* m_univ;
     bool m_has_conjecture = false;
+    unsigned m_dropped_formulas = 0;      // axioms/definitions skipped due to encoding errors
     bool m_last_name_quoted = false;
+    std::string m_expected_status;        // SZS status from the input annotation, if any
     std::unordered_map<std::string, sort*> m_sorts;
     sort_ref_vector m_pinned_sorts;       // prevents cached sorts from being freed
     std::unordered_map<std::string, func_decl*> m_decls;
     func_decl_ref_vector m_pinned_decls;  // prevents cached func_decls from being freed
     expr_ref_vector m_pinned_exprs;       // prevents bound variable apps from being freed
-    std::unordered_map<std::string, std::pair<std::vector<sort*>, sort*>> m_typed_decls;
+    std::unordered_map<std::string, std::pair<ptr_vector<sort>, sort*>> m_typed_decls;
     std::vector<std::unordered_map<std::string, app*>> m_bound;
     bool m_in_at_arg = false;  // true when parsing inside @ argument (lambda body stops consuming @)
     struct implicit_var_scope {
@@ -449,7 +451,7 @@ class tptp_parser {
     // For higher-order types like ($i > $o), create an uninterpreted sort
     // Function type A > B is represented as Array(A, B).
     // Multi-argument A * B > C is represented as Array(A, Array(B, C)) (curried).
-    sort* get_ho_sort(std::vector<sort*> const& domain, sort* range) {
+    sort* get_ho_sort(ptr_vector<sort> const& domain, sort* range) {
         sort* s = range;
         for (int i = (int)domain.size() - 1; i >= 0; --i)
             s = m_array.mk_array_sort(domain[i], s);
@@ -513,7 +515,8 @@ class tptp_parser {
         if (itt != m_typed_decls.end()) {
             std::string typed_decl_key = mk_decl_key(name, arity, 'd');
             auto itd = m_decls.find(typed_decl_key);
-            if (itd != m_decls.end()) return itd->second;
+            if (itd != m_decls.end())
+                return itd->second;
             auto const& sig = itt->second;
             func_decl* f = m.mk_func_decl(symbol(name), sig.first.size(), sig.first.data(), sig.second);
             m_pinned_decls.push_back(f);
@@ -525,7 +528,7 @@ class tptp_parser {
         auto itd = m_decls.find(key);
         if (itd != m_decls.end()) return itd->second;
 
-        std::vector<sort*> dom(arity, m_univ);
+        ptr_vector<sort> dom(arity, m_univ);
         func_decl* f = m.mk_func_decl(symbol(name), arity, dom.data(), pred ? m.mk_bool_sort() : m_univ);
         m_pinned_decls.push_back(f);
         m_decls.emplace(key, f);
@@ -571,6 +574,14 @@ class tptp_parser {
     expr_ref coerce_arg(expr_ref const& e, sort* target) {
         sort* actual = e->get_sort();
         if (actual == target) return e;
+        // Int <-> Real conversions must use the arithmetic semantics (to_real /
+        // to_int), never an uninterpreted boxing function: an uninterpreted box
+        // severs the numeric link between the two sides and lets the solver build
+        // spurious models (e.g. it would make floor/ceiling identities sat).
+        if (m_arith.is_int(actual) && m_arith.is_real(target))
+            return expr_ref(m_arith.mk_to_real(e), m);
+        if (m_arith.is_real(actual) && m_arith.is_int(target))
+            return expr_ref(m_arith.mk_to_int(e), m);
         // Create a boxing function from actual sort to target sort
         std::string box_name = std::string("$box_") + actual->get_name().str() + "_to_" + target->get_name().str();
         std::string key = mk_decl_key(box_name, 1, 'f');
@@ -697,14 +708,14 @@ class tptp_parser {
     //          <defined_type>      ::= $oType | $o | $iType | $i | $tType | $real | $rat | $int
     parsed_type parse_type_atom() {
         if (accept(token_kind::lparen)) {
-            std::vector<sort*> prod = parse_type_product_raw();
+            ptr_vector<sort> prod = parse_type_product_raw();
             if (accept(token_kind::gt_tok)) {
                 // Full function type inside parens: (A * B > C) or (A > B > C)
                 parsed_type rhs = parse_type_expr();
-                std::vector<sort*> full_domain = prod;
+                ptr_vector<sort> full_domain = prod;
                 if (!rhs.domain.empty()) {
                     // Nested higher-order: (A > B > C) → flatten
-                    full_domain.insert(full_domain.end(), rhs.domain.begin(), rhs.domain.end());
+                    full_domain.append(rhs.domain);
                 }
                 expect(token_kind::rparen, "')'");
                 // Return with domain/range preserved for proper flattening
@@ -743,15 +754,15 @@ class tptp_parser {
     // Grammar: <thf_xprod_type>    ::= <thf_unitary_type> * <thf_unitary_type>
     //                                 | <thf_xprod_type> * <thf_unitary_type>
     //          Product types form the domain in mapping types: (A * B) > C
-    std::vector<sort*> parse_type_product_raw() {
+    ptr_vector<sort> parse_type_product_raw() {
         parsed_type first = parse_type_atom();
         if (!first.domain.empty() && first.range == nullptr) {
             // Already a parenthesized product from nested parens
-            std::vector<sort*> args = first.domain;
+            ptr_vector<sort> args = first.domain;
             while (accept(token_kind::star_tok)) {
                 parsed_type t = parse_type_atom();
                 if (!t.domain.empty()) {
-                    args.insert(args.end(), t.domain.begin(), t.domain.end());
+                    args.append(t.domain);
                 } else {
                     args.push_back(t.range);
                 }
@@ -761,28 +772,28 @@ class tptp_parser {
         if (!first.domain.empty()) {
             // Function type as first element of product — use ho_sort
             sort* ho = get_ho_sort(first.domain, first.range);
-            std::vector<sort*> args;
+            ptr_vector<sort> args;
             args.push_back(ho);
             while (accept(token_kind::star_tok)) {
                 parsed_type t = parse_type_atom();
                 if (!t.domain.empty() && t.range != nullptr) {
                     args.push_back(get_ho_sort(t.domain, t.range));
                 } else if (!t.domain.empty()) {
-                    args.insert(args.end(), t.domain.begin(), t.domain.end());
+                    args.append(t.domain);
                 } else {
                     args.push_back(t.range);
                 }
             }
             return args;
         }
-        std::vector<sort*> args;
+        ptr_vector<sort> args;
         args.push_back(first.range);
         while (accept(token_kind::star_tok)) {
             parsed_type t = parse_type_atom();
             if (!t.domain.empty() && t.range != nullptr) {
                 args.push_back(get_ho_sort(t.domain, t.range));
             } else if (!t.domain.empty()) {
-                args.insert(args.end(), t.domain.begin(), t.domain.end());
+                args.append(t.domain);
             } else {
                 args.push_back(t.range);
             }
@@ -801,7 +812,7 @@ class tptp_parser {
             return first;
         }
         // Build product vector
-        std::vector<sort*> args;
+        ptr_vector<sort> args;
         if (!first.domain.empty() && first.range != nullptr) {
             // Function type used as element in a product
             args.push_back(get_ho_sort(first.domain, first.range));
@@ -816,7 +827,7 @@ class tptp_parser {
             if (!t.domain.empty() && t.range != nullptr) {
                 args.push_back(get_ho_sort(t.domain, t.range));
             } else if (!t.domain.empty()) {
-                args.insert(args.end(), t.domain.begin(), t.domain.end());
+                args.append(t.domain);
             } else {
                 args.push_back(t.range);
             }
@@ -833,7 +844,7 @@ class tptp_parser {
         if (is(token_kind::type_forall_tok) || is(token_kind::type_exists_tok)) {
             next();
             expect(token_kind::lbrack, "'['");
-            std::vector<sort*> type_params;
+            ptr_vector<sort> type_params;
             if (!accept(token_kind::rbrack)) {
                 do {
                     std::string tv = parse_name();
@@ -848,8 +859,8 @@ class tptp_parser {
             parsed_type inner = parse_type_expr();
             // Prepend type params to domain
             if (!type_params.empty()) {
-                std::vector<sort*> full_domain = type_params;
-                full_domain.insert(full_domain.end(), inner.domain.begin(), inner.domain.end());
+                ptr_vector<sort> full_domain = type_params;
+                full_domain.append(inner.domain);
                 return parsed_type(full_domain, inner.range);
             }
             return inner;
@@ -858,7 +869,7 @@ class tptp_parser {
         if (accept(token_kind::gt_tok)) {
             parsed_type rhs = parse_type_expr();
             // prod is either a product (domain non-empty, range==nullptr) or a single sort (domain empty)
-            std::vector<sort*> domain;
+            ptr_vector<sort> domain;
             if (!prod.domain.empty() && prod.range == nullptr) {
                 domain = prod.domain;
             } else if (!prod.domain.empty() && prod.range != nullptr) {
@@ -869,7 +880,7 @@ class tptp_parser {
             }
             if (!rhs.domain.empty()) {
                 // Higher-order result type: A > (B > C) flattened to (A, B) > C
-                domain.insert(domain.end(), rhs.domain.begin(), rhs.domain.end());
+                domain.append(rhs.domain);
                 return parsed_type(domain, rhs.range);
             }
             return parsed_type(domain, rhs.range);
@@ -925,7 +936,7 @@ class tptp_parser {
     // Grammar: (same as parse_term, primary productions)
     expr_ref parse_term_primary() {
         if (accept(token_kind::lparen)) {
-            expr_ref e = parse_formula();
+            expr_ref e = parse_formula(false);
             expect(token_kind::rparen, "')'");
             return e;
         }
@@ -971,11 +982,11 @@ class tptp_parser {
         // $ite needs special parsing: first arg is formula, rest are formulas (branches can be equalities)
         if (n == "$ite") {
             expect(token_kind::lparen, "'('");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(true));
             expect(token_kind::comma, "','");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(false));
             expect(token_kind::comma, "','");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(false));
             expect(token_kind::rparen, "')'");
         }
         else if (n == "$let") {
@@ -995,14 +1006,14 @@ class tptp_parser {
         }
 
         func_decl* f = mk_decl_or_ho_const(n, args.size(), false);
-        if (!args.empty()) coerce_args(f, args);
+        coerce_args(f, args);
         return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
     }
 
     // Grammar: <tff_logic_formula>   ::= <tff_unitary_formula> | <tff_binary_formula>
     //          <thf_logic_formula>   ::= <thf_unitary_formula> | <thf_binary_formula>
     //          Entry point for formula parsing (wraps parse_expr with default precedence).
-    expr_ref parse_formula();
+    expr_ref parse_formula(bool is_boolean);
 
     // Grammar: <thf_apply_formula> ::= <thf_unitary_formula> @ <thf_unitary_formula>
     //                               | <thf_apply_formula> @ <thf_unitary_formula>
@@ -1042,7 +1053,7 @@ class tptp_parser {
             return parse_lambda_expr();
         }
         if (accept(token_kind::lparen)) {
-            expr_ref e = parse_formula();
+            expr_ref e = parse_formula(false);
             expect(token_kind::rparen, "')'");
             // Do NOT call apply_at here — outer apply_at owns the remaining @ tokens
             return e;
@@ -1074,7 +1085,7 @@ class tptp_parser {
             // Quantifier body in @-arg should NOT consume @ — those belong to enclosing application
             bool save_in_at_arg = m_in_at_arg;
             m_in_at_arg = true;
-            expr_ref body = parse_formula();
+            expr_ref body = parse_formula(false);
             m_in_at_arg = save_in_at_arg;
             m_bound.pop_back();
             return mk_quantifier(is_forall, vars, body);
@@ -1092,7 +1103,7 @@ class tptp_parser {
         std::string key = mk_decl_key(name_str, 0, 'c') + "\x1f" + std::to_string(range->get_id());
         auto it = m_decls.find(key);
         if (it != m_decls.end()) return it->second;
-        func_decl* f = m.mk_func_decl(name, 0, static_cast<sort**>(nullptr), range);
+        func_decl* f = m.mk_const_decl(name, range);
         m_pinned_decls.push_back(f);
         m_decls.emplace(key, f);
         return f;
@@ -1121,31 +1132,29 @@ class tptp_parser {
 
     // Coerce two expressions to have the same sort for equality.
     // In TPTP, = is term equality and m_univ is the default sort.
-    // If one side has Bool sort (parsed as predicate), coerce it to m_univ.
-    // If sorts already match and are not Bool, returns lhs unchanged.
+    // If sorts already match, returns lhs unchanged; otherwise applies minimal
+    // arithmetic/box coercions so both sides of an equality share a sort.
     expr_ref coerce_eq(expr_ref lhs, expr_ref& rhs) {
-        // Coerce Bool-sorted operands to m_univ since = is term equality in TPTP
-        if (m.is_bool(lhs->get_sort()) && is_app(lhs) && !m.is_true(lhs) && !m.is_false(lhs))
-            lhs = coerce_to_univ(lhs);
-        if (m.is_bool(rhs->get_sort()) && is_app(rhs) && !m.is_true(rhs) && !m.is_false(rhs))
-            rhs = coerce_to_univ(rhs);
-
-        if (lhs->get_sort() == rhs->get_sort()) return lhs;
-
+        // No coercion is needed when both sides already share a sort. In particular
+        // `=` between two Boolean ($o) operands is logical equivalence (iff): keep
+        // them Boolean instead of forcing one into the term universe U.
+        if (lhs->get_sort() == rhs->get_sort())
+            return lhs;
+        if (m_arith.is_int_real(lhs) && m_arith.is_int_real(rhs))
+            return lhs;
         // Coerce 0-arity constants to match the other side's sort
-        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
+        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0) {
             return coerce_zero_arity(to_app(lhs), rhs->get_sort());
         }
-        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
+        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0) {
             rhs = coerce_zero_arity(to_app(rhs), lhs->get_sort());
             return lhs;
         }
         // Last resort: coerce both sides to have the same sort
-        if (lhs->get_sort() != rhs->get_sort()) {
-            // Prefer coercing to rhs sort, falling back to m_univ
-            sort* target = rhs->get_sort();
-            lhs = coerce_arg(lhs, target);
-        }
+        // Prefer coercing to rhs sort, falling back to m_univ
+        sort* target = rhs->get_sort();
+        lhs = coerce_arg(lhs, target);
+        
         return lhs;
     }
 
@@ -1176,7 +1185,7 @@ class tptp_parser {
         // Bind parameter variables for parsing the RHS
         if (!param_scope.empty())
             m_bound.push_back(param_scope);
-        expr_ref value = parse_formula();
+        expr_ref value = parse_formula(false);
         if (!param_scope.empty())
             m_bound.pop_back();
         // For function-style definitions, wrap value in lambdas
@@ -1206,7 +1215,7 @@ class tptp_parser {
 
         // --- Part 1: Parse type declarations ---
         std::vector<std::string> let_names;
-        std::vector<sort*> let_sorts;
+        ptr_vector<sort> let_sorts;
 
         auto parse_one_typing = [&]() {
             std::string name = parse_name();
@@ -1264,7 +1273,7 @@ class tptp_parser {
 
         // --- Part 3: Parse body with let-bound names in scope ---
         m_bound.push_back(scope);
-        expr_ref body = parse_formula();
+        expr_ref body = parse_formula(false);
         m_bound.pop_back();
         expect(token_kind::rparen, "')'");
 
@@ -1288,7 +1297,7 @@ class tptp_parser {
     //          <defined_pred>     ::= $less | $lesseq | $greater | $greatereq | $is_int | $is_rat | ...
     //          <defined_infix_pred> ::= = | !=
     //          Also handles: let-bound name resolution, implicit variable creation.
-    expr_ref parse_atomic_formula() {
+    expr_ref parse_atomic_formula(bool is_boolean) {
         if (accept(token_kind::lparen)) {
             // Check for parenthesized connective used as higher-order term: (~), (&), (|), etc.
             if (is(token_kind::not_tok) || is(token_kind::and_tok) || is(token_kind::or_tok) ||
@@ -1330,8 +1339,14 @@ class tptp_parser {
                 // but ')' didn't follow. Parse as formula with the connective already consumed.
                 expr_ref inner(m);
                 if (saved.kind == token_kind::not_tok) {
-                    expr_ref e = parse_formula();
-                    inner = expr_ref(m.mk_not(e), m);
+                    // "( ~ <formula> )": the '~' is a unary connective binding only the
+                    // next unary unit; ordinary binary connectives then apply at their
+                    // own precedence (e.g. "( ~ p | q )" is "(~p) | q", NOT "~(p | q)").
+                    // We have already consumed '(' and '~', so negate the next unit and
+                    // resume precedence-climbing parsing from that negated left operand.
+                    expr_ref operand = parse_unary_formula(true);
+                    expr_ref neg(m.mk_not(ensure_bool(operand)), m);
+                    inner = parse_binary_rest(neg, PREC_IFF, true, true);
                 } else {
                     // Binary connective at start of parens — shouldn't happen in valid TPTP
                     throw parse_error("unexpected connective after '(' at " + loc());
@@ -1342,11 +1357,14 @@ class tptp_parser {
             // Parentheses create a new scope for @ consumption
             bool save_in_at_arg = m_in_at_arg;
             m_in_at_arg = false;
-            expr_ref e = parse_formula();
+            expr_ref e = parse_formula(is_boolean);
             expect(token_kind::rparen, "')'");
             m_in_at_arg = save_in_at_arg;
             return e;
         }
+
+        if (accept(token_kind::modal_tok))
+            throw parse_error("modal operators not supported in TPTP input at " + loc());
 
         // Handle negative numerals in formula position: -2 = $uminus(2)
         if (accept(token_kind::minus_tok)) {
@@ -1358,9 +1376,9 @@ class tptp_parser {
         if (accept(token_kind::lbrack)) {
             if (accept(token_kind::rbrack))
                 return expr_ref(m.mk_const(symbol("$nil"), m_univ), m);
-            expr_ref first = parse_formula();
+            expr_ref first = parse_formula(is_boolean);
             while (accept(token_kind::comma))
-                parse_formula(); // consume remaining elements
+                parse_formula(is_boolean); // consume remaining elements
             expect(token_kind::rbrack, "']'");
             return first;
         }
@@ -1417,7 +1435,7 @@ class tptp_parser {
             }
             expect(token_kind::colon, "':'");
             m_bound.push_back(scope);
-            expr_ref body = parse_formula();
+            expr_ref body = parse_formula(is_boolean);
             m_bound.pop_back();
             // Approximate choice as existential quantification
             return mk_quantifier(false, vars, body);
@@ -1427,11 +1445,11 @@ class tptp_parser {
         // $ite needs special parsing: first arg is formula, rest are formulas (branches can be equalities)
         if (n == "$ite") {
             expect(token_kind::lparen, "'('");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(true));
             expect(token_kind::comma, "','");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(is_boolean));
             expect(token_kind::comma, "','");
-            args.push_back(parse_formula());
+            args.push_back(parse_formula(is_boolean));
             expect(token_kind::rparen, "')'");
         }
         else if (n == "$let") {
@@ -1465,18 +1483,16 @@ class tptp_parser {
         auto typed = m_typed_decls.find(mk_typed_key(n, args.size()));
         if (typed != m_typed_decls.end()) {
             func_decl* f = args.empty() ? mk_decl_or_ho_const(n, 0, false) : mk_decl(n, args.size(), false);
-            if (!args.empty()) coerce_args(f, args);
-            return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
+            coerce_args(f, args);
+            return expr_ref(m.mk_app(f, args.size(), args.data()), m);
         }
 
-        if (args.empty() && (is(token_kind::equal_tok) || is(token_kind::neq_tok))) {
-            func_decl* f = mk_decl_or_ho_const(n, 0, false);
-            return expr_ref(m.mk_const(f), m);
-        }
+        is_boolean = is_boolean && !is(token_kind::equal_tok) && !is(token_kind::neq_tok);
 
-        func_decl* pred = mk_decl_or_ho_const(n, args.size(), true);
-        if (!args.empty()) coerce_args(pred, args);
-        return expr_ref(args.empty() ? m.mk_const(pred) : m.mk_app(pred, args.size(), args.data()), m);
+
+        func_decl* pred = mk_decl_or_ho_const(n, args.size(), is_boolean);
+        coerce_args(pred, args);
+        return expr_ref(m.mk_app(pred, args.size(), args.data()), m);
     }
 
     // Grammar: <thf_abstraction> ::= ^ [<thf_variable_list>] : <thf_unitary_formula>
@@ -1513,7 +1529,7 @@ class tptp_parser {
         // Lambda body does NOT consume @ — @ belongs to the enclosing application
         bool save_in_at_arg = m_in_at_arg;
         m_in_at_arg = true;
-        expr_ref body = parse_formula();
+        expr_ref body = parse_formula(false);
         m_in_at_arg = save_in_at_arg;
         m_bound.pop_back();
         if (vars.empty())
@@ -1538,9 +1554,9 @@ class tptp_parser {
     //          <thf_quantified_formula> ::= <thf_quantification> <thf_unitary_formula>
     //          <fof_quantifier>     ::= ! | ?
     //          Also handles: $ite, $let, lambda (^), parenthesized formulas, and atomic formulas.
-    expr_ref parse_unary_formula() {
+    expr_ref parse_unary_formula(bool is_boolean) {
         if (accept(token_kind::not_tok)) {
-            expr_ref e = parse_unary_formula();
+            expr_ref e = parse_unary_formula(true);
             return expr_ref(m.mk_not(ensure_bool(e)), m);
         }
 
@@ -1552,7 +1568,7 @@ class tptp_parser {
             next(); // consume '['
             if (accept(token_kind::dot)) {
                 expect(token_kind::rbrack, "']'");
-                expr_ref sub = parse_unary_formula();
+                expr_ref sub = parse_unary_formula(is_boolean);
                 func_decl* f = mk_modal_op("box");
                 return expr_ref(m.mk_app(f, sub.get()), m);
             }
@@ -1561,7 +1577,7 @@ class tptp_parser {
                 std::string first_name = m_curr.text;
                 next();
                 if (accept(token_kind::rbrack)) {
-                    expr_ref sub = parse_unary_formula();
+                    expr_ref sub = parse_unary_formula(is_boolean);
                     func_decl* f = mk_modal_op(mod_name);
                     return expr_ref(m.mk_app(f, sub.get()), m);
                 }
@@ -1575,11 +1591,11 @@ class tptp_parser {
                 else if (should_create_implicit_var(first_name))
                     first = expr_ref(get_or_create_implicit_var(first_name), m);
                 else {
-                    func_decl* f = mk_decl_or_ho_const(first_name, 0, false);
+                    func_decl* f = mk_decl_or_ho_const(first_name, 0, is_boolean);
                     first = expr_ref(m.mk_const(f), m);
                 }
                 while (accept(token_kind::comma))
-                    parse_formula(); // consume remaining elements
+                    parse_formula(is_boolean); // consume remaining elements
                 expect(token_kind::rbrack, "']'");
                 return first;
             }
@@ -1587,9 +1603,9 @@ class tptp_parser {
             // We already consumed '[', so parse as tuple inline
             if (accept(token_kind::rbrack))
                 return expr_ref(m.mk_const(symbol("$nil"), m_univ), m);
-            expr_ref first = parse_formula();
+            expr_ref first = parse_formula(is_boolean);
             while (accept(token_kind::comma))
-                parse_formula(); // consume remaining elements
+                parse_formula(is_boolean); // consume remaining elements
             expect(token_kind::rbrack, "']'");
             return first;
         }
@@ -1605,7 +1621,7 @@ class tptp_parser {
                 next();
             }
             expect(token_kind::gt_tok, "'>'");
-            expr_ref sub = parse_unary_formula();
+            expr_ref sub = parse_unary_formula(is_boolean);
             func_decl* f = mk_modal_op(mod_name);
             return expr_ref(m.mk_app(f, sub.get()), m);
         }
@@ -1652,7 +1668,13 @@ class tptp_parser {
             }
             expect(token_kind::colon, "':'");
             m_bound.push_back(scope);
-            expr_ref body = parse_formula();
+            // A TPTP quantifier body is a <unit_formula>: the quantifier binds
+            // tighter than the binary connectives & | => <= <=> <~> ~| ~&. Parse
+            // at equality precedence so the body absorbs an infix =/!= but stops
+            // at any lower-precedence connective, which stays in the enclosing
+            // expression. E.g. "! [X] : p(X) & q(X)" is "(! [X] : p(X)) & q(X)",
+            // and "! [X] : (...) => g" keeps "=> g" outside the quantifier scope.
+            expr_ref body = parse_expr(PREC_EQ, true, is_boolean);
             m_bound.pop_back();
             return mk_quantifier(is_forall, vars, body);
         }
@@ -1672,10 +1694,10 @@ class tptp_parser {
                 expect(token_kind::rbrack, "']'");
             }
             expect(token_kind::colon, "':'");
-            return parse_formula();
+            return parse_formula(is_boolean);
         }
 
-        return parse_atomic_formula();
+        return parse_atomic_formula(is_boolean);
     }
 
     // Grammar: <tff_binary_formula>  ::= <tff_binary_nonassoc> | <tff_binary_assoc>
@@ -1687,8 +1709,15 @@ class tptp_parser {
     //          <tff_and_formula>     ::= <tff_unit_formula> & <tff_unit_formula>
     //                                  | <tff_and_formula> & <tff_unit_formula>
     //          Implements a Pratt-style (precedence climbing) parser for binary connectives.
-    expr_ref parse_expr(unsigned min_prec, bool consume_at = true) {
-        expr_ref e = parse_unary_formula();
+    expr_ref parse_expr(unsigned min_prec, bool consume_at, bool is_boolean) {
+        expr_ref e = parse_unary_formula(is_boolean);
+        return parse_binary_rest(e, min_prec, consume_at, m.is_bool(e));
+    }
+
+    // Precedence-climbing loop continued from an already-parsed left operand `e`.
+    // Split out from parse_expr so callers that have consumed a leading unary unit
+    // (e.g. a '~' immediately after '(') can resume binary-connective parsing.
+    expr_ref parse_binary_rest(expr_ref e, unsigned min_prec, bool consume_at = true, bool is_boolean = true) {
         for (;;) {
             // Handle @ (function application) with highest precedence
             // But NOT when we're inside a lambda body that's an @ argument
@@ -1719,7 +1748,7 @@ class tptp_parser {
             if (it->second.precedence < min_prec) break;
             next(); // consume the operator token
             unsigned next_prec = it->second.right_assoc ? it->second.precedence : it->second.precedence + 1;
-            expr_ref rhs = parse_expr(next_prec, consume_at);
+            expr_ref rhs = parse_expr(next_prec, consume_at, is_boolean);
             expr_ref_vector args(m);
             args.push_back(e);
             args.push_back(rhs);
@@ -1786,11 +1815,25 @@ class tptp_parser {
         // Try relative to current file's directory
         std::string local = normalize_path(dirname(curr_file) + "/" + name);
         if (file_exists(local)) return local;
+        #if 0
         // Try TPTP environment variable (standard TPTP convention)
         char const* root = std::getenv("TPTP");
         if (root) {
             std::string env = normalize_path(std::string(root) + "/" + name);
             if (file_exists(env)) return env;
+        }
+        #endif
+        // Walk up ancestor directories of the current file. TPTP include paths are
+        // relative to the TPTP root directory (e.g. "Axioms/BOO001-0.ax"), while the
+        // problem file typically lives in a subdirectory such as "Problems/BOO/".
+        std::string dir = dirname(curr_file);
+        for (;;) {
+            size_t idx = dir.find_last_of("/\\");
+            if (idx == std::string::npos) break;
+            dir = dir.substr(0, idx);
+            if (dir.empty()) break;
+            std::string candidate = normalize_path(dir + "/" + name);
+            if (file_exists(candidate)) return candidate;
         }
         // Try relative to current working directory (common when running from TPTP root)
         std::string cwd_relative = normalize_path(name);
@@ -1825,7 +1868,7 @@ class tptp_parser {
     //          <annotations>        ::= ,<source><optional_info> | <null>
     void parse_annotated() {
         expect(token_kind::lparen, "'('");
-        parse_name();
+        std::string formula_name = parse_name();
         expect(token_kind::comma, "','");
         std::string role = to_lower(parse_name());
         expect(token_kind::comma, "','");
@@ -1836,12 +1879,14 @@ class tptp_parser {
         else if (role == "logic") {
             // Modal logic declarations ($modal == [...]) — skip the formula body
             skip_annotations_until_rparen();
+            warning_msg("non-classical logics are not supported");
+            ++m_dropped_formulas;
         }
         else {
             try {
                 implicit_var_scope implicit_scope;
                 scoped_implicit_vars scoped(*this, implicit_scope);
-                expr_ref f = parse_formula();
+                expr_ref f = parse_formula(true);
                 if (!implicit_scope.order.empty()) {
                     f = mk_quantifier(true, implicit_scope.order, f);
                 }
@@ -1854,12 +1899,29 @@ class tptp_parser {
                 }
                 m_cmd.assert_expr(f);
             } catch (z3_exception const& ex) {
-                // Sort mismatch or other semantic error in this formula — skip it
-                IF_VERBOSE(2, verbose_stream() << "skipping formula due to: " << ex.what() << "\n");
+                // Sort mismatch or other semantic error in this formula — skip it.
+                // A dropped axiom/definition removes constraints from the problem, so a
+                // subsequent "sat" verdict is unsound: it may only hold because the
+                // dropped formula was missing. The count is used to downgrade a sat
+                // result to GaveUp rather than report a spurious CounterSatisfiable.
+                ++m_dropped_formulas;
+                std::ostringstream oss;
+                oss << "skipping formula '" << formula_name << "' due to: " << ex.what();
+                warning_msg(oss.str().c_str());
                 // Skip to '.' to resync the parser for the next annotated formula
                 while (!is(token_kind::eof_tok) && !is(token_kind::dot))
                     next();
                 if (is(token_kind::dot)) next();
+                return;
+            } catch (std::exception const& ex) {
+                ++m_dropped_formulas;
+                std::ostringstream oss;
+                oss << "skipping formula '" << formula_name << "' (role " << role << ") due to: " << ex.what() << "\n";
+                warning_msg(oss.str().c_str());
+                while (!is(token_kind::eof_tok) && !is(token_kind::dot))
+                    next();
+                if (is(token_kind::dot))
+                    next();
                 return;
             }
         }
@@ -2123,6 +2185,7 @@ public:
         std::ostringstream buf;
         buf << in.rdbuf();
         m_input = buf.str();
+        extract_expected_status(m_input);
         m_lex = std::make_unique<lexer>(m_input);
         next();
         parse_toplevel(current_file);
@@ -2149,6 +2212,67 @@ public:
     }
 
     bool has_conjecture() const { return m_has_conjecture; }
+
+    // Number of axioms/definitions that were dropped during parsing because the
+    // higher-order encoding could not type-check them. When non-zero, a "sat"
+    // verdict cannot be trusted (the missing constraints may be exactly what
+    // makes the problem unsatisfiable).
+    unsigned dropped_formulas() const { return m_dropped_formulas; }
+
+    std::string const& expected_status() const { return m_expected_status; }
+
+    // Scan TPTP comments for an SZS/Status annotation, e.g.
+    //   % Status   : Unsatisfiable
+    //   % SZS status Theorem
+    // Only the first annotation found (the top-level file's) is recorded.
+    void extract_expected_status(std::string const& text) {
+        if (!m_expected_status.empty())
+            return;
+        std::istringstream in(text);
+        std::string line;
+        while (std::getline(in, line)) {
+            // TPTP comment lines start with '%'.
+            size_t i = line.find_first_not_of(" \t");
+            if (i == std::string::npos || line[i] != '%')
+                continue;
+            ++i; // skip '%'
+            // Skip leading '%' and spaces.
+            i = line.find_first_not_of("% \t", i);
+            if (i == std::string::npos)
+                continue;
+            std::string rest = line.substr(i);
+            std::string status;
+            // Form 1: "SZS status <Word>"
+            if (rest.compare(0, 4, "SZS ") == 0) {
+                size_t p = rest.find("status");
+                if (p == std::string::npos)
+                    continue;
+                p += 6; // length of "status"
+                status = next_status_word(rest, p);
+            }
+            // Form 2: "Status : <Word>" / "Status   : <Word>"
+            else if (rest.compare(0, 6, "Status") == 0) {
+                size_t p = rest.find(':', 6);
+                if (p == std::string::npos)
+                    continue;
+                status = next_status_word(rest, p + 1);
+            }
+            if (!status.empty()) {
+                m_expected_status = status;
+                return;
+            }
+        }
+    }
+
+    static std::string next_status_word(std::string const& s, size_t p) {
+        size_t a = s.find_first_not_of(" \t", p);
+        if (a == std::string::npos)
+            return "";
+        size_t b = a;
+        while (b < s.size() && (isalnum((unsigned char)s[b]) || s[b] == '_'))
+            ++b;
+        return s.substr(a, b - a);
+    }
 };
 
 expr_ref tptp_parser::parse_term() {
@@ -2172,10 +2296,39 @@ expr_ref tptp_parser::parse_term() {
     return e;
 }
 
-expr_ref tptp_parser::parse_formula() {
-    return parse_expr(PREC_IFF);
+expr_ref tptp_parser::parse_formula(bool is_boolean) {
+    return parse_expr(PREC_IFF, true, is_boolean);
 }
 
+}
+
+// Classify an SZS status into the coarse verdict used for cross-checking.
+//   unsat: a refutation/proof exists (Theorem, Unsatisfiable, ContradictoryAxioms, ...)
+//   sat:   a model exists (Satisfiable, CounterSatisfiable, ...)
+//   other: no comparable verdict (Open, Unknown, Timeout, GaveUp, empty, ...)
+enum class szs_verdict { unsat, sat, other };
+
+static szs_verdict classify_szs(std::string const& s) {
+    if (s == "Theorem" || s == "Unsatisfiable" || s == "ContradictoryAxioms" || s == "Unsat")
+        return szs_verdict::unsat;
+    if (s == "Satisfiable" || s == "CounterSatisfiable" || s == "CounterTheorem" || s == "Sat")
+        return szs_verdict::sat;
+    return szs_verdict::other;
+}
+
+// Emit the SZS status produced by z3. If the input carries an annotated status
+// that contradicts the produced verdict, prepend "BUG" to flag the mismatch.
+static void report_szs_status(char const* produced, std::string const& expected) {
+    szs_verdict pv = classify_szs(produced);
+    szs_verdict ev = classify_szs(expected);
+    bool is_bug = !expected.empty() &&
+                  (pv == szs_verdict::unsat || pv == szs_verdict::sat) &&
+                  (ev == szs_verdict::unsat || ev == szs_verdict::sat) &&
+                  pv != ev;
+    if (is_bug)
+        std::cout << "% SZS status BUG " << produced << " (expected " << expected << ")\n";
+    else
+        std::cout << "% SZS status " << produced << "\n";
 }
 
 static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
@@ -2194,12 +2347,24 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         ctx.check_sat(0, nullptr);
         switch (ctx.cs_state()) {
         case cmd_context::css_unsat:
-            if (p.has_conjecture()) std::cout << "% SZS status Theorem\n";
-            else std::cout << "% SZS status Unsatisfiable\n";
+            if (p.has_conjecture()) report_szs_status("Theorem", p.expected_status());
+            else report_szs_status("Unsatisfiable", p.expected_status());
             break;
         case cmd_context::css_sat:
-            if (p.has_conjecture()) std::cout << "% SZS status CounterSatisfiable\n";
-            else std::cout << "% SZS status Satisfiable\n";
+            // A "sat" verdict is only sound if the whole problem was encoded. If any
+            // axiom/definition was dropped during parsing (e.g. an unsupported
+            // higher-order construct), the model may be spurious — the dropped
+            // constraints could rule it out. Report GaveUp instead of a misleading
+            // CounterSatisfiable/Satisfiable (which would otherwise be flagged BUG
+            // against an annotated Theorem/Unsatisfiable status).
+            if (p.dropped_formulas() > 0) {
+                std::cout << "% SZS status GaveUp\n";
+                std::cout << "% SZS reason " << p.dropped_formulas()
+                          << " formula(s) dropped during encoding; model is not certified\n";
+                break;
+            }
+            if (p.has_conjecture()) report_szs_status("CounterSatisfiable", p.expected_status());
+            else report_szs_status("Satisfiable", p.expected_status());
             if (g_display_model) {
                 model_ref mdl;
                 if (ctx.is_model_available(mdl))

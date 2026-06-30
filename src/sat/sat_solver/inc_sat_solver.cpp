@@ -27,7 +27,6 @@ Notes:
 #include "solver/tactic2solver.h"
 #include "solver/parallel_params.hpp"
 #include "solver/parallel_tactical.h"
-#include "solver/parallel_tactical2.h"
 #include "tactic/tactical.h"
 #include "tactic/aig/aig_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -387,10 +386,19 @@ public:
         if (p1.euf() && !get_euf()) 
             ensure_euf();        
     }
-    void collect_statistics(statistics & st) const override {
+    void collect_statistics_core(statistics & st) const override {
         if (m_preprocess) m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
     }
+
+    void set_max_conflicts(unsigned max_conflicts) override {
+        m_solver.set_max_conflicts(max_conflicts);
+    }
+
+    unsigned get_max_conflicts() const override {
+        return m_solver.get_max_conflicts();
+    }
+
     void get_unsat_core(expr_ref_vector & r) override {
         r.reset();
         r.append(m_core.size(), m_core.data());
@@ -403,6 +411,46 @@ public:
             auto bv = m_map.to_bool_var(vars[i]);
             depth[i] = bv == sat::null_bool_var ? UINT_MAX : m_solver.lvl(bv);
         }
+    }
+
+    unsigned get_assign_level(expr* e) const override {
+        m.is_not(e, e);
+        sat::bool_var bv = m_map.to_bool_var(e);
+        return bv == sat::null_bool_var ? UINT_MAX : m_solver.lvl(bv);
+    }
+
+    bool is_relevant(expr* e) const override {
+        m.is_not(e, e);
+        sat::bool_var bv = m_map.to_bool_var(e);
+        if (bv == sat::null_bool_var)
+            return true;
+        auto* ext = dynamic_cast<euf::solver*>(m_solver.get_extension());
+        return !ext || ext->is_relevant(bv);
+    }
+
+    unsigned get_num_bool_vars() const override {
+        return m_solver.num_vars();
+    }
+
+    sat::bool_var get_bool_var(expr* e) const override {
+        m.is_not(e, e);
+        return m_map.to_bool_var(e);
+    }
+
+    expr* bool_var2expr(sat::bool_var v) const override {
+        return v < m_solver.num_vars() ? m_map.bool_var2expr(v) : nullptr;
+    }
+
+    lbool get_assignment(sat::bool_var v) const override {
+        return v < m_solver.num_vars() ? m_solver.value(v) : l_undef;
+    }
+
+    double get_activity(sat::bool_var v) const override {
+        return v < m_solver.num_vars() ? static_cast<double>(m_solver.get_activity(v)) : 0.0;
+    }
+
+    bool was_eliminated(sat::bool_var v) const override {
+        return v < m_solver.num_vars() && m_solver.was_eliminated(v);
     }
 
     expr_ref_vector get_trail(unsigned max_level) override {
@@ -480,6 +528,70 @@ public:
             set_reason_unknown(m_solver.get_reason_unknown());
         }
         return fmls;
+    }
+
+    expr_ref cube_vsids(expr_ref_vector const& invalid_split_atoms) override {
+        if (!is_internalized()) {
+            lbool r = internalize_formulas();
+            if (r != l_true)
+                return expr_ref(m);
+        }
+        convert_internalized();
+        if (m_solver.inconsistent())
+            return expr_ref(m);
+
+        obj_hashtable<expr> invalid_split_atoms_set;
+        for (expr* e : invalid_split_atoms) {
+            expr* atom = e;
+            m.is_not(e, atom);
+            invalid_split_atoms_set.insert(atom);
+        }
+
+        expr_ref result(m);
+        double score = 0.0;
+        unsigned n = 0;
+        unsigned search_lvl = m_solver.search_lvl();
+        for (auto& kv : m_map) {
+            sat::bool_var v = kv.m_value;
+            if (was_eliminated(v))
+                continue;
+            if (get_assignment(v) != l_undef && m_solver.lvl(v) <= search_lvl)
+                continue;
+            expr* e = kv.m_key;
+            if (!e)
+                continue;
+            expr* atom = e;
+            m.is_not(e, atom);
+            if (invalid_split_atoms_set.contains(atom))
+                continue;
+            double new_score = get_activity(v);
+            if (new_score > score || !result || (new_score == score && m_solver.rand()(++n) == 0)) {
+                score = new_score;
+                result = e;
+            }
+        }
+        return result;
+    }
+
+    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        if (!is_internalized()) {
+            lbool r = internalize_formulas();
+            if (r != l_true)
+                return;
+        }
+        convert_internalized();
+        sat::literal_vector lits;
+        m_solver.get_backbone_candidates(lits, max_num);
+        expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
+        m_map.mk_inv(lit2expr);
+        uint64_t now = m_solver.get_stats().m_conflicts;
+        for (sat::literal lit : lits) {
+            expr* e = lit2expr.get(lit.index());
+            if (!e)
+                continue;
+            candidates.push_back(scored_literal(m, e, static_cast<double>(now - m_solver.get_phase_birthdate(lit.var()))));
+        }
     }
 
     expr* congruence_next(expr* e) override { return e; }
@@ -1186,7 +1298,5 @@ tactic * mk_psat_tactic(ast_manager& m, params_ref const& p) {
     parallel_params pp(p);
     if (pp.enable())
         return mk_parallel_tactic(mk_inc_sat_solver(m, p, false), p);
-    if (pp.enable2())
-        return mk_parallel_tactic2(mk_inc_sat_solver(m, p, false), p);
     return mk_sat_tactic(m);
 }

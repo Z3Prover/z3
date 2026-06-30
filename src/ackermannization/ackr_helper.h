@@ -52,14 +52,26 @@ public:
         return m_autil.is_select(a) && is_uninterp_const(a->get_arg(0));
     }
 
+    void mark_non_select_rec(expr* t, expr_mark& visited, expr_mark& non_select) {
+        if (visited.is_marked(t))
+            return;
+        visited.mark(t, true);
+        non_select.mark(t, true);
+        if (is_app(t)) {
+            for (expr *arg : *to_app(t))
+                mark_non_select_rec(arg, visited,non_select);
+        }
+    }
+
     void mark_non_select(app* a, expr_mark& non_select) {
         if (m_autil.is_select(a)) {
             bool first = true;
+            expr_mark visited;
             for (expr* arg : *a) {
                 if (first) 
                     first = false; 
                 else 
-                    non_select.mark(arg, true);
+                    mark_non_select_rec(arg, visited, non_select);
             }
         }
         else {
@@ -70,10 +82,10 @@ public:
 
     void prune_non_select(obj_map<app, app_set*> & sels, expr_mark& non_select) {
         ptr_vector<app> nons;
-        for (auto& kv : sels) {
-            if (non_select.is_marked(kv.m_key)) {
-                nons.push_back(kv.m_key);
-                dealloc(kv.m_value);
+        for (auto &[k, v] : sels) {
+            if (non_select.is_marked(k)) {
+                nons.push_back(k);
+                dealloc(v);
             }
         }
         for (app* s : nons) {

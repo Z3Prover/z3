@@ -68,6 +68,7 @@ enum seq_op_kind {
     OP_RE_UNION,
     OP_RE_DIFF,
     OP_RE_INTERSECT,
+    OP_RE_XOR,
     OP_RE_LOOP,
     OP_RE_POWER,
     OP_RE_COMPLEMENT,
@@ -107,7 +108,6 @@ enum seq_op_kind {
     _OP_REGEXP_EMPTY,
     _OP_REGEXP_FULL_CHAR,
     _OP_RE_IS_NULLABLE,
-    _OP_RE_ANTIMIROV_UNION, // Lifted union for antimirov-style derivatives
     _OP_SEQ_SKOLEM,
     LAST_SEQ_OP
 };
@@ -443,6 +443,8 @@ public:
             lbool nullable { l_undef };
             /* Lower bound  on the length of all accepted words. */
             unsigned min_length { 0 };
+            /* Classical regular expression: does not use complement, intersection, diff, or the empty language (fail). */
+            bool classical { true };
 
             /*
               Default constructor of invalid info.
@@ -459,11 +461,13 @@ public:
             */
             info(bool is_interpreted,
                 lbool is_nullable,
-                unsigned min_l) :
+                unsigned min_l,
+                bool is_classical) :
                 known(l_true), 
                 interpreted(is_interpreted),
                 nullable(is_nullable),
-                min_length(min_l) {}
+                min_length(min_l),
+                classical(is_classical) {}
 
             /*
               Appends a string representation of the info into the stream.
@@ -487,6 +491,7 @@ public:
             info disj(info const& rhs) const;
             info conj(info const& rhs) const; 
             info diff(info const& rhs) const;
+            info xor_(info const& rhs) const;
             info orelse(info const& rhs) const;
             info loop(unsigned lower, unsigned upper) const;
 
@@ -515,10 +520,13 @@ public:
         app* mk_to_re(expr* s) { return m.mk_app(m_fid, OP_SEQ_TO_RE, 1, &s); }
         app* mk_in_re(expr* s, expr* r) { return m.mk_app(m_fid, OP_SEQ_IN_RE, s, r); }
         app* mk_range(expr* s1, expr* s2) { return m.mk_app(m_fid, OP_RE_RANGE, s1, s2); }
+        // Smart constructor: returns re.empty / str.to_re / re.range based on lo vs hi.
+        app* mk_range(sort* re_sort, unsigned lo, unsigned hi);
         app* mk_concat(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_CONCAT, r1, r2); }
         app* mk_union(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_UNION, r1, r2); }
         app* mk_inter(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_INTERSECT, r1, r2); }
         app* mk_diff(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_DIFF, r1, r2); }
+        app* mk_xor(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_XOR, r1, r2); }
         app* mk_complement(expr* r) { return m.mk_app(m_fid, OP_RE_COMPLEMENT, r); }
         app* mk_star(expr* r) { return m.mk_app(m_fid, OP_RE_STAR, r); }
         app* mk_plus(expr* r) { return m.mk_app(m_fid, OP_RE_PLUS, r); }
@@ -535,13 +543,13 @@ public:
         app* mk_of_pred(expr* p);
         app* mk_reverse(expr* r) { return m.mk_app(m_fid, OP_RE_REVERSE, r); }
         app* mk_derivative(expr* ele, expr* r) { return m.mk_app(m_fid, OP_RE_DERIVATIVE, ele, r); }
-        app* mk_antimirov_union(expr* r1, expr* r2) { return m.mk_app(m_fid, _OP_RE_ANTIMIROV_UNION, r1, r2); }
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
         bool is_union(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_UNION); }
         bool is_intersection(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_INTERSECT); }
         bool is_diff(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_DIFF); }
+        bool is_xor(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_XOR); }
         bool is_complement(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_COMPLEMENT); }
         bool is_star(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_STAR); }
         bool is_plus(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_PLUS); }
@@ -568,12 +576,12 @@ public:
         bool is_of_pred(expr const* n) const { return is_app_of(n, m_fid, OP_RE_OF_PRED); }
         bool is_reverse(expr const* n) const { return is_app_of(n, m_fid, OP_RE_REVERSE); }
         bool is_derivative(expr const* n) const { return is_app_of(n, m_fid, OP_RE_DERIVATIVE); }
-        bool is_antimirov_union(expr const* n) const { return is_app_of(n, m_fid, _OP_RE_ANTIMIROV_UNION); }
         MATCH_UNARY(is_to_re);
         MATCH_BINARY(is_concat);
         MATCH_BINARY(is_union);
         MATCH_BINARY(is_intersection);
         MATCH_BINARY(is_diff);
+        MATCH_BINARY(is_xor);
         MATCH_BINARY(is_range);
         MATCH_UNARY(is_complement);
         MATCH_UNARY(is_star);
@@ -582,7 +590,6 @@ public:
         MATCH_UNARY(is_of_pred);
         MATCH_UNARY(is_reverse);
         MATCH_BINARY(is_derivative);
-        MATCH_BINARY(is_antimirov_union);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const;
         bool is_loop(expr const* n, expr*& body, unsigned& lo) const;
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const;

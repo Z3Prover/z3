@@ -51,8 +51,8 @@ namespace lp {
     template void static_matrix<mpq, numeric_pair<mpq> >::set(unsigned int, unsigned int, mpq const&);
 
 
-    template bool static_matrix<mpq, mpq>::pivot_row_to_row_given_cell(unsigned int, column_cell& , unsigned int);
-    template bool static_matrix<mpq, numeric_pair<mpq> >::pivot_row_to_row_given_cell(unsigned int, column_cell&, unsigned int);
+    template void static_matrix<mpq, mpq>::pivot_row_to_row_given_cell(unsigned int, column_cell& , unsigned int);
+    template void static_matrix<mpq, numeric_pair<mpq> >::pivot_row_to_row_given_cell(unsigned int, column_cell&, unsigned int);
     template void static_matrix<mpq, numeric_pair<mpq> >::pivot_row_to_row_given_cell_with_sign(unsigned int, column_cell&, unsigned int, int);
     template void static_matrix<mpq, mpq>::pivot_row_to_row_given_cell_with_sign(unsigned int, row_cell<empty_struct>&, unsigned int, int);
     template void static_matrix<mpq, numeric_pair<mpq> >::add_rows(mpq const&, unsigned int, unsigned int);

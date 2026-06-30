@@ -46,6 +46,8 @@ protected:
     lbool       m_status = l_undef; 
     model_converter_ref m_mc0;
     double      m_time = 0;
+    statistics m_stats;
+
 public:
     check_sat_result(ast_manager& m): m(m), m_log(m), m_proof(m) {}
     virtual ~check_sat_result() = default;
@@ -53,7 +55,18 @@ public:
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
     lbool set_status(lbool r) { return m_status = r; }
     lbool status() const { return m_status; }
-    virtual void collect_statistics(statistics & st) const = 0;
+    void collect_statistics(statistics &st) const {
+        collect_statistics_core(st);
+        st.copy(m_stats);       
+    }
+    void add_statistics(statistics const &st) {
+        m_stats.copy(st);
+    }
+    void reset_statistics() {
+        m_stats.reset();
+    }
+   
+    virtual void collect_statistics_core(statistics &st) const = 0;
     virtual void get_unsat_core(expr_ref_vector & r) = 0;
     void set_model_converter(model_converter* mc) { m_mc0 = mc; }
     model_converter* mc0() const { return m_mc0.get(); }
@@ -92,7 +105,6 @@ public:
    \brief Very simple implementation of the check_sat_result object.
 */
 struct simple_check_sat_result : public check_sat_result {
-    statistics      m_stats;
     model_ref       m_model;
     expr_ref_vector m_core;
     proof_ref       m_proof;
@@ -100,9 +112,9 @@ struct simple_check_sat_result : public check_sat_result {
     
     simple_check_sat_result(ast_manager & m);
     ast_manager& get_manager() const override { return m_proof.get_manager(); }
-    void collect_statistics(statistics & st) const override;
     void get_unsat_core(expr_ref_vector & r) override;
     void get_model_core(model_ref & m) override;
+    void collect_statistics_core(statistics &st) const override {}
     proof * get_proof_core() override;
     std::string reason_unknown() const override;
     void get_labels(svector<symbol> & r) override;

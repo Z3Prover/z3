@@ -68,12 +68,12 @@ namespace smt {
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
         TRACE(array, tout << mk_bounded_pp(n->get_expr(), m) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
-              ", is_store: " << is_store(n) << ", is_lambda: " << is_lambda(n) << "\n";);
+              ", is_store: " << is_store(n) << ", is_lambda: " << is_lambda(n->get_expr()) << "\n";);
         d->m_is_array  = is_array_sort(n);
         if (d->m_is_array) 
             register_sort(n->get_expr()->get_sort());
         d->m_is_select = is_select(n);        
-        if (is_store(n) || is_lambda(n))
+        if (is_store(n) || is_lambda(n->get_expr()))
             d->m_stores.push_back(n);
         ctx.attach_th_var(n, this, r);
         if (laziness() <= 1 && is_store(n))
@@ -95,7 +95,7 @@ namespace smt {
 
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (enode* store : d->m_parent_stores) {
-                SASSERT(is_store(store) || is_lambda(store));
+                SASSERT(is_store(store) || is_lambda(store->get_expr()));
                 if (!m_params.m_array_cg || store->is_cgr()) {
                     instantiate_axiom2b(s, store);
                 }
@@ -106,7 +106,7 @@ namespace smt {
     void theory_array::add_parent_store(theory_var v, enode * s) {
         if (m_params.m_array_cg && !s->is_cgr())
             return;
-        SASSERT(is_store(s) || is_lambda(s));
+        SASSERT(is_store(s) || is_lambda(s->get_expr()));
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_stores.push_back(s);
@@ -177,7 +177,7 @@ namespace smt {
     void theory_array::add_store(theory_var v, enode * s) {
         if (m_params.m_array_cg && !s->is_cgr())
             return;
-        SASSERT(is_store(s) || is_lambda(s));
+        SASSERT(is_store(s) || is_lambda(s->get_expr()));
         v                = find(v);
         var_data * d     = m_var_data[v];
         unsigned lambda_equiv_class_size = get_lambda_equiv_size(v, d);
@@ -204,7 +204,7 @@ namespace smt {
     void theory_array::instantiate_axiom2a(enode * select, enode * store) {
         TRACE(array, tout << "axiom 2a: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
-        SASSERT(is_store(store) || is_lambda(store));
+        SASSERT(is_store(store) || is_lambda(store->get_expr()));
         if (assert_store_axiom2(store, select))
             m_stats.m_num_axiom2a++;
     }
@@ -212,7 +212,7 @@ namespace smt {
     bool theory_array::instantiate_axiom2b(enode * select, enode * store) {
         TRACE(array_axiom2b, tout << "axiom 2b: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
-        SASSERT(is_store(store) || is_lambda(store));
+        SASSERT(is_store(store) || is_lambda(store->get_expr()));
         if (assert_store_axiom2(store, select)) {
             m_stats.m_num_axiom2b++;
             return true;
@@ -298,11 +298,6 @@ namespace smt {
 
     void theory_array::new_eq_eh(theory_var v1, theory_var v2) {
         m_find.merge(v1, v2);
-        enode* n1 = get_enode(v1), *n2 = get_enode(v2);
-        if (n1->get_decl()->is_lambda() ||
-            n2->get_decl()->is_lambda()) {
-            assert_congruent(n1, n2);
-        }
     }
 
     void theory_array::new_diseq_eh(theory_var v1, theory_var v2) {
@@ -401,15 +396,15 @@ namespace smt {
     }
 
     final_check_status theory_array::assert_delayed_axioms() {
-        if (!m_params.m_array_delay_exp_axiom)
-            return FC_DONE;
         final_check_status r = FC_DONE;
-        unsigned num_vars = get_num_vars();
-        for (unsigned v = 0; v < num_vars; ++v) {
-            var_data * d = m_var_data[v];
-            if (d->m_prop_upward && instantiate_axiom2b_for(v))
-                r = FC_CONTINUE;
-        }      
+        if (m_params.m_array_delay_exp_axiom) {
+            unsigned num_vars = get_num_vars();
+            for (unsigned v = 0; v < num_vars; ++v) {
+                var_data *d = m_var_data[v];
+                if (d->m_prop_upward && instantiate_axiom2b_for(v))
+                    r = FC_CONTINUE;
+            }
+        }
         return r;
     }
 

@@ -288,7 +288,6 @@ namespace smt {
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
-                          expr* def,
                           unsigned max_generation,
                           unsigned min_top_generation,
                           unsigned max_top_generation,
@@ -306,7 +305,7 @@ namespace smt {
             max_generation = std::max(max_generation, get_generation(q));
             
             get_stat(q)->update_max_generation(max_generation);
-            fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
+            fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings);
             if (f) {
                 if (is_trace_enabled(TraceTag::causality)) {
                     log_causality(f,pat,used_enodes);
@@ -480,17 +479,17 @@ namespace smt {
     bool quantifier_manager::add_instance(quantifier * q, app * pat,
                                           unsigned num_bindings,
                                           enode * const * bindings,
-                                          expr* def,
                                           unsigned max_generation,
                                           unsigned min_top_generation,
                                           unsigned max_top_generation,
                                           vector<std::tuple<enode *, enode *>> & used_enodes) {
-        return m_imp->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_top_generation, used_enodes);
+        return m_imp->add_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_top_generation, used_enodes);
     }
 
-    bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, expr* def, unsigned generation) {
+    bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation) {
         vector<std::tuple<enode *, enode *>> tmp;
-        return add_instance(q, nullptr, num_bindings, bindings, def, generation, generation, generation, tmp);
+        return add_instance(q, nullptr, num_bindings, bindings,
+            generation, generation, generation, tmp);
     }
 
     void quantifier_manager::init_search_eh() {
@@ -718,7 +717,7 @@ namespace smt {
 
             vector<std::tuple<enode*, enode*>> used_enodes;
             m_context->add_instance(q, nullptr, new_bindings.size(), new_bindings.data(),
-                                    nullptr, max_gen, st.m_min_top_generation, st.m_max_top_generation, used_enodes);
+                                    max_gen, st.m_min_top_generation, st.m_max_top_generation, used_enodes);
         }
 
         bool try_ho_refine(quantifier* qa, app* pat, unsigned num_bindings, enode* const* bindings,

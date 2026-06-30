@@ -67,7 +67,6 @@ namespace smt {
         return mk_select(num_args, args);
     }
 
-
     app * theory_array_base::mk_store(unsigned num_args, expr * const * args) {
         return m.mk_app(get_family_id(), OP_STORE, 0, nullptr, num_args, args);
     }
@@ -219,13 +218,14 @@ namespace smt {
     }
 
     void theory_array_base::assert_lambda_axiom_core(enode* n, enode* select) {
-        SASSERT(is_lambda(n));
+        SASSERT(is_lambda(n->get_expr()));
         SASSERT(is_select(select));
         expr *e = n->get_expr();
+        SASSERT(is_lambda(e));
         app *s = select->get_app();
-        auto q = is_quantifier(e) ? to_quantifier(e) : m.is_lambda_def(e);
+        auto q = to_quantifier(e);
         SASSERT(q);
-        SASSERT(::is_lambda(q));
+
         SASSERT(q->get_num_decls() == s->get_num_args() - 1);
         // do the same thing as in sat/smt/array_axioms:
         ptr_vector<expr> args(s->get_num_args(), s->get_args());
@@ -241,7 +241,7 @@ namespace smt {
     }
     
     bool theory_array_base::assert_store_axiom2(enode * store, enode * select) { 
-        SASSERT(is_store(store) || is_lambda(store));
+        SASSERT(is_store(store) || is_lambda(store->get_expr()));
         unsigned num_args = select->get_num_args();
         unsigned        i = 1;
         for (; i < num_args; ++i) 
@@ -278,7 +278,7 @@ namespace smt {
         SASSERT(n1->get_num_args() == n2->get_num_args());
         unsigned n = n1->get_num_args();
         // skipping first argument of the select.
-        for(unsigned i = 1; i < n; ++i) {
+        for (unsigned i = 1; i < n; ++i) {
             if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root()) {
                 return false;
             }
@@ -294,9 +294,8 @@ namespace smt {
         enode * r1    = v1->get_root();
         enode * r2    = v2->get_root();
 
-        if (r1->get_class_size() > r2->get_class_size()) {
-            std::swap(r1, r2);
-        }
+        if (r1->get_class_size() > r2->get_class_size()) 
+            std::swap(r1, r2);        
 
         m_array_value.reset();
         // populate m_array_value if the select(a, i) parent terms of r1
@@ -334,7 +333,7 @@ namespace smt {
             return false; // axiom was already instantiated
         if (already_diseq(n1, n2))
             return false;
-        m_extensionality_todo.push_back(std::make_pair(n1, n2));         
+        m_extensionality_todo.push_back({n1, n2});         
         return true;
     }
 
@@ -347,7 +346,7 @@ namespace smt {
         enode * nodes[2] = { a1, a2 };
         if (!ctx.add_fingerprint(this, 1, 2, nodes))
             return; // axiom was already instantiated
-        m_congruent_todo.push_back(std::make_pair(a1, a2));         
+        m_congruent_todo.push_back({a1, a2});         
     }
 
    
@@ -397,8 +396,8 @@ namespace smt {
         literal n1_eq_n2 = mk_eq(e1, e2, true);
         ctx.mark_as_relevant(n1_eq_n2);
         expr_ref_vector args1(m), args2(m);
-        args1.push_back(instantiate_lambda(e1));
-        args2.push_back(instantiate_lambda(e2));
+        args1.push_back(e1);
+        args2.push_back(e2);
         svector<symbol> names;
         sort_ref_vector sorts(m);
         for (unsigned i = 0; i < dimension; ++i) {
@@ -422,17 +421,6 @@ namespace smt {
         assert_axiom(~n1_eq_n2, fa_eq);
     }
 
-    expr_ref theory_array_base::instantiate_lambda(expr* e) {
-        quantifier * q = m.is_lambda_def(e);
-        expr_ref f(e, m);
-        if (q) {
-            // the variables in q are maybe not consecutive.
-            var_subst sub(m, false);
-            f = sub(q, to_app(e)->get_num_args(), to_app(e)->get_args());
-        }
-        return f;
-    }
-
     bool theory_array_base::can_propagate() {
         return 
             !m_axiom1_todo.empty() || 
@@ -443,7 +431,7 @@ namespace smt {
     }
 
     void theory_array_base::propagate() {
-        while (can_propagate()) {
+        while (theory_array_base::can_propagate()) {
             for (unsigned i = 0; i < m_axiom1_todo.size(); ++i)
                 assert_store_axiom1_core(m_axiom1_todo[i]);
             m_axiom1_todo.reset();
@@ -546,6 +534,7 @@ namespace smt {
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; ++i) {
             enode * n = get_enode(i);
+            TRACE(array, tout << enode_pp(n, ctx) << " is_relevant: " << ctx.is_relevant(n) << " is_array: " << is_array_sort(n) << "\n";);
             if (!ctx.is_relevant(n) || !is_array_sort(n)) {
                 continue;
             }
@@ -591,11 +580,12 @@ namespace smt {
                 enode *    n2 = get_enode(v2);
                 sort *     s2 = n2->get_sort();
                 if (s1 == s2 && !ctx.is_diseq(n1, n2)) {
-                    app * eq  = mk_eq_atom(n1->get_expr(), n2->get_expr());
-                    if (!ctx.b_internalized(eq) || !ctx.is_relevant(eq)) {
+                    app_ref eq  = app_ref(mk_eq_atom(n1->get_expr(), n2->get_expr()), m);
+                    TRACE(array_bug, tout << "mk_interface_eqs: adding: " << eq << "\n";);
+                    if (!ctx.b_internalized(eq.get()) || !ctx.is_relevant(eq.get())) {
                         result++;
                         ctx.internalize(eq, true);
-                        ctx.mark_as_relevant(eq);
+                        ctx.mark_as_relevant(eq.get());
                     }
                 }
             }
@@ -860,7 +850,7 @@ namespace smt {
                 if (i < num_args) {
                     SASSERT(!parent_sel_set->contains(sel) || (*(parent_sel_set->find(sel)))->get_root() == sel->get_root());
                     parent_sel_set->insert(sel);
-                    todo.push_back(std::make_pair(parent_root, sel));
+                    todo.push_back({parent_root, sel});
                 }
             }
         }

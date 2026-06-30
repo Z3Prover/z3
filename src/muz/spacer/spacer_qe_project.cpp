@@ -1148,6 +1148,7 @@ class arith_project_util {
                         expr_ref_vector const &lits) {
         app_ref_vector new_vars(m);
         expr_ref_vector result(lits);
+        model::scoped_model_completion _smc(mdl, true);
         for (unsigned i = 0; i < vars.size(); ++i) {
             app *v = vars.get(i);
             m_var = alloc(contains_app, m, v);
@@ -1182,6 +1183,12 @@ class arith_project_util {
     void operator()(model &mdl, app_ref_vector &vars, expr_ref &fml,
                     expr_map &map) {
         app_ref_vector new_vars(m);
+
+        // Variables to be projected may not be assigned in the model
+        // (e.g. grounded auxiliary variables that are don't-cares). Enable
+        // model completion so their evaluation yields concrete numerals,
+        // matching the behavior of the native MBP arith projector.
+        model::scoped_model_completion _smc(mdl, true);
 
         // factor out mod terms by introducing new variables
         TRACE(qe, tout << "before factoring out mod terms:" << "\n";

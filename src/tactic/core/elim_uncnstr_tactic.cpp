@@ -19,6 +19,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/converters/generic_model_converter.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
@@ -803,10 +804,10 @@ class elim_uncnstr_tactic : public tactic {
 
         // x ++ y -> z, x -> z, y -> eps
         app * process_seq_app(func_decl * f, unsigned num, expr * const * args) {
+            app *r = nullptr;
             switch (f->get_decl_kind()) {
             case _OP_STRING_CONCAT:
             case OP_SEQ_CONCAT: {
-                app * r = nullptr;
                 expr* x, *y;
                 if (uncnstr(args[0]) && num == 2 &&
                     args[1]->get_ref_count() == 1 && 
@@ -833,6 +834,27 @@ class elim_uncnstr_tactic : public tactic {
                 
                 return r;
             }
+            case OP_SEQ_IN_RE:
+                return nullptr;
+                if (uncnstr(args[0]) && m_seq_util.re.is_ground(args[1]) && m_seq_util.is_string(args[0]->get_sort())) {
+                    zstring s1;
+                    expr *re = args[1];
+                    seq_rewriter rw(m());
+                    if (l_true != rw.some_string_in_re(re, s1))
+                        return nullptr;
+                    zstring s2;
+                    expr_ref not_re(m_seq_util.re.mk_complement(re), m());
+                    if (l_true != rw.some_string_in_re(not_re, s2))
+                        return nullptr;
+
+                    mk_fresh_uncnstr_var_for(f, num, args, r);
+                    expr_ref witness1 = expr_ref(m_seq_util.str.mk_string(s1), m());
+                    expr_ref witness2 = expr_ref(m_seq_util.str.mk_string(s2), m());
+                    if (m_mc)
+                        add_def(args[0], m().mk_ite(r, witness1, witness2));
+                    return r;
+                }
+                return nullptr;
             default:
                 return nullptr;
             }            

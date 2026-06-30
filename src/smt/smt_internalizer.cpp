@@ -655,16 +655,10 @@ namespace smt {
         SASSERT(is_lambda(q));
         if (e_internalized(q)) 
             return;
-        app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
-        m.add_lambda_def(lam_name->get_decl(), q);
-        if (!e_internalized(lam_name)) 
-            internalize_uninterpreted(lam_name);
-        enode* lam_node = get_enode(lam_name);
-        push_trail(insert_obj_map<enode, quantifier*>(m_lambdas, lam_node));
-        m_lambdas.insert(lam_node, q);
-        m_app2enode.setx(q->get_id(), lam_node, nullptr);
-        m_l_internalized_stack.push_back(q);
-        m_trail_stack.push_ptr(&m_mk_lambda_trail);
+        auto e = mk_enode(q, true, /* do suppress args */
+                    false,    /* it is a term, so it should not be merged with true/false */
+                    true);
+        apply_sort_cnstr(q, e);
     }
 
     bool context::has_lambda() {
@@ -1129,14 +1123,6 @@ namespace smt {
         return e;
     }
 
-    void context::undo_mk_lambda() {
-        SASSERT(!m_l_internalized_stack.empty());
-        m_stats.m_num_del_enode++;
-        quantifier * n         = m_l_internalized_stack.back();
-        m_app2enode[n->get_id()] = nullptr;
-        m_l_internalized_stack.pop_back();
-    }
-
     void context::undo_mk_enode() {
         SASSERT(!m_e_internalized_stack.empty());
         m_stats.m_num_del_enode++;
@@ -1144,7 +1130,6 @@ namespace smt {
         TRACE(undo_mk_enode, tout << "undo_enode: #" << n->get_id() << "\n" << mk_pp(n, m) << "\n";);
         TRACE(mk_var_bug, tout << "undo_mk_enode: " << n->get_id() << "\n";);
         unsigned n_id         = n->get_id();
-        SASSERT(is_app(n));
         enode * e             = m_app2enode[n_id];
         m_app2enode[n_id]     = nullptr;
         if (e->is_cgr() && e->uses_cg_table()) {
@@ -1170,8 +1155,8 @@ namespace smt {
     /**
        \brief Apply sort constraints on e.
     */
-    void context::apply_sort_cnstr(app * term, enode * e) {
-        sort * s    = term->get_decl()->get_range();
+    void context::apply_sort_cnstr(expr * term, enode * e) {
+        sort * s    = term->get_sort();
         theory * th = m_theories.get_plugin(s->get_family_id());
         if (th) {
             th->apply_sort_cnstr(e, s);

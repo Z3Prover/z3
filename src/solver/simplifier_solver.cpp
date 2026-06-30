@@ -229,7 +229,7 @@ public:
         return s->check_sat_core(num_assumptions, _assumptions.data()); 
     }
 
-    void collect_statistics(statistics& st) const override { 
+    void collect_statistics_core(statistics& st) const override { 
         s->collect_statistics(st); 
         m_preprocess.collect_statistics(st);
     }

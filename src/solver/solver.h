@@ -22,6 +22,7 @@ Notes:
 #include "solver/check_sat_result.h"
 #include "solver/progress_callback.h"
 #include "util/params.h"
+#include "util/sat_literal.h"
 
 class solver;
 class model_converter;
@@ -58,6 +59,13 @@ class solver : public check_sat_result, public user_propagator::core {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
+    struct scored_literal {
+        expr_ref lit;
+        double score = 0.0;
+        scored_literal(ast_manager& m, expr* e, double s): lit(e, m), score(s) {}
+        scored_literal(expr_ref const& e, double s): lit(e), score(s) {}
+    };
+
     solver(ast_manager& m): check_sat_result(m) {}
 
     /**
@@ -247,7 +255,9 @@ public:
        \brief extract a lookahead candidates for branching.
     */
 
-    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level=0) = 0;
+
+    virtual expr_ref cube_vsids(expr_ref_vector const&) { return expr_ref(m); }
 
     /**
        \brief retrieve congruence closure root.
@@ -298,8 +308,33 @@ public:
     expr_ref_vector get_non_units();
 
     virtual expr_ref_vector get_trail(unsigned max_level) = 0; // { return expr_ref_vector(get_manager()); }
+    virtual expr_ref_vector get_assigned_literals() { return get_trail(UINT_MAX); }
+    virtual unsigned get_assign_level(expr* e) const { return UINT_MAX; }
+    virtual bool is_relevant(expr* e) const { return true; }
+    virtual unsigned get_num_bool_vars() const { return UINT_MAX; }
+    virtual sat::bool_var get_bool_var(expr* e) const { return sat::null_bool_var; }
+    virtual expr* bool_var2expr(sat::bool_var) const { return nullptr; }
+    virtual lbool get_assignment(sat::bool_var) const { return l_undef; }
+    virtual double get_activity(sat::bool_var) const { return 0.0; }
+    virtual bool was_eliminated(sat::bool_var) const { return false; }
+
+    virtual void pop_to_base_level() {}
+
+    virtual void setup_for_parallel() {}
+
+    virtual void set_preprocess(bool) {}
+
+    virtual void set_max_conflicts(unsigned max_conflicts) {
+        params_ref p;
+        p.set_uint("max_conflicts", max_conflicts);
+        updt_params(p);
+    }
+
+    virtual unsigned get_max_conflicts() const { return UINT_MAX; }
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
+
+    virtual void get_backbone_candidates(vector<scored_literal>&, unsigned) {}
 
     class scoped_push {
         solver& s;
@@ -328,4 +363,3 @@ typedef ref<solver> solver_ref;
 inline std::ostream& operator<<(std::ostream& out, solver const& s) {
     return s.display(out);
 }
-

@@ -446,6 +446,8 @@ namespace seq {
         // |t| = 0 => |s| = 0 or indexof(t,s,offset) = -1
         // ~contains(t,s) => indexof(t,s,offset) = -1
 
+        add_clause(mk_ge(i, -1));
+
         add_clause(cnt,  i_eq_m1);
         add_clause(~t_eq_empty, s_eq_empty, i_eq_m1);
 
@@ -1060,7 +1062,7 @@ namespace seq {
     void axioms::replace_re_axiom(expr* e) {
         expr* s = nullptr, *r = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_re(e, s, r, t)); 
-        NOT_IMPLEMENTED_YET();
+        throw default_exception("no support for replace-re");
     }
 
     // A basic strategy for supporting replace_all and other
@@ -1105,7 +1107,7 @@ namespace seq {
         expr_ref branch1(m.mk_eq(len_r, vj), m);
         expr_ref test2(m.mk_and(a.mk_gt(len_s, vi), m.mk_eq(vi, a.mk_int(0)), seq.str.mk_is_empty(vp)), m);
         expr_ref branch2(m.mk_eq(vr, seq.str.mk_concat(vt, vs)), m);
-        NOT_IMPLEMENTED_YET();
+        throw default_exception("no support for replace-all");
 #if 0
         expr_ref test3(, m);
         expr_ref s1(m_sk.mk_prefix_inv(vp, vs), m);
@@ -1135,7 +1137,7 @@ namespace seq {
     void axioms::replace_re_all_axiom(expr* e) {
         expr* s = nullptr, *p = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_re_all(e, s, p, t)); 
-        NOT_IMPLEMENTED_YET();
+        throw default_exception("no support for replace-re-all");
     }
 
 

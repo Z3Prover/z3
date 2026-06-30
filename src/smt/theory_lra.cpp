@@ -4029,7 +4029,7 @@ public:
         if (!lp().is_feasible() || lp().has_changed_columns())
             make_feasible();
         vi = get_lpvar(v);
-        auto st = lp().maximize_term(vi, term_max);
+        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ true);
         if (has_int() && lp().has_inf_int()) {
             st = lp::lp_status::FEASIBLE;
             lp().restore_x();

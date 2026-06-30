@@ -21,6 +21,7 @@ tools:
   bash: [":*"]
 
 safe-outputs:
+  report-failure-as-issue: false
   create-issue:
     labels:
       - enhancement
