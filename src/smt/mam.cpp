@@ -1887,19 +1887,6 @@ namespace {
                 m_used_enodes.push_back(std::make_tuple(prev, n));
         }
 
-        unsigned get_max_generation_min_cg(unsigned num_enodes, enode * const * enodes) {
-            SASSERT(num_enodes > 0);
-            unsigned max = 0;
-            for (unsigned i = 0; i < num_enodes; ++i) {
-                enode * n = enodes[i];
-                // binding might be a constant
-                unsigned curr = m_context.get_generation(n);
-                if (curr > max)
-                    max = curr;
-            }
-            return max;
-        }
-
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * curr) {
@@ -2554,7 +2541,7 @@ namespace {
         case YIELD1:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
 #define ON_MATCH(NUM)                                                   \
-            m_max_generation = std::max(m_max_generation, get_max_generation_min_cg(NUM, m_bindings.begin())); \
+            m_max_generation = std::max(m_max_generation, get_max_generation(NUM, m_bindings.begin())); \
             if (m_context.get_cancel_flag()) {                          \
                 return false;                                           \
             }                                                           \

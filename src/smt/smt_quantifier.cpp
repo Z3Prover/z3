@@ -235,46 +235,11 @@ namespace smt {
             }
         }
 
-        void log_match_generations(
-             char const* tag,
-             quantifier * q, app * pat,
-             unsigned num_bindings,
-             enode * const * bindings,
-             unsigned max_generation,
-             unsigned min_top_generation,
-             unsigned max_top_generation,
-             char const* reason = nullptr) {
-
-            if (!has_trace_stream())
-                return;
-
-            std::ostream & out = trace_stream();
-            out << "[" << tag << "] #" << q->get_id();
-            if (pat)
-                out << " #" << pat->get_id();
-            else
-                out << " MBQI";
-            out << " max_gen " << max_generation
-                << " min_top_gen " << min_top_generation
-                << " max_top_gen " << max_top_generation;
-            out << " bindings";
-            for (unsigned i = 0; i < num_bindings; ++i) {
-                enode * b = bindings[num_bindings - i - 1];
-                out << " #" << b->get_owner_id() << ":" << m_context.get_generation(b);
-            }
-            if (reason)
-                out << " reason " << reason;
-            out << "\n";
-        }
-
         void log_add_instance(
              fingerprint* f,
              quantifier * q, app * pat,
              unsigned num_bindings,
              enode * const * bindings,
-             unsigned max_generation,
-             unsigned min_top_generation,
-             unsigned max_top_generation,
              vector<std::tuple<enode *, enode *>> & used_enodes) {
 
             if (pat == nullptr) {
@@ -282,21 +247,15 @@ namespace smt {
                 for (unsigned i = 0; i < num_bindings; ++i) {
                     trace_stream() << " #" << bindings[num_bindings - i - 1]->get_owner_id();
                 }
-                trace_stream() << " ;max_gen " << max_generation
-                               << " min_top_gen " << min_top_generation
-                               << " max_top_gen " << max_top_generation;
                 trace_stream() << "\n";
             } else {
                 std::ostream & out = trace_stream();
-
                 obj_hashtable<enode> already_visited;
-
                 // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
                 // is used. We need to make sure that all of these equalities appear in the log.
                 for (unsigned i = 0; i < num_bindings; ++i) {
                     log_justification_to_root(out, bindings[i], already_visited, m_context, m());
                 }
-
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
                     enode *substituted = std::get<1>(n);
@@ -305,7 +264,6 @@ namespace smt {
                         log_justification_to_root(out, substituted, already_visited, m_context, m());
                     }
                 }
-
                 // At this point all relevant equalities for the match are logged.
                 out << "[new-match] " << f->get_data_hash() << " #" << q->get_id() << " #" << pat->get_id();
                 for (unsigned i = 0; i < num_bindings; ++i) {
@@ -323,13 +281,10 @@ namespace smt {
                         out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
                     }
                 }
-                out << " ;max_gen " << max_generation
-                    << " min_top_gen " << min_top_generation
-                    << " max_top_gen " << max_top_generation;
                 out << "\n";
             }
         }
-
+        
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
@@ -339,22 +294,12 @@ namespace smt {
                           unsigned max_top_generation,
                           vector<std::tuple<enode *, enode *>> & used_enodes) {
 
-            log_match_generations("inst-match-candidate", q, pat, num_bindings, bindings,
-                                  max_generation, min_top_generation, max_top_generation);
-
             // Try higher-order refinement first
-            if (pat && m_plugin->refine_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_top_generation, used_enodes)) {
-                log_match_generations("inst-match-filtered", q, pat, num_bindings, bindings,
-                                      max_generation, min_top_generation, max_top_generation,
-                                      "refined");
+            if (pat && m_plugin->refine_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_top_generation, used_enodes))
                 return true;
-            }
 
             if (!m_quantifier_stat.contains(q)) {
                 IF_VERBOSE(2, verbose_stream() << "add_instance: quantifier not in stat map: " << mk_pp(q, m()) << "\n");
-                log_match_generations("inst-match-filtered", q, pat, num_bindings, bindings,
-                                      max_generation, min_top_generation, max_top_generation,
-                                      "missing-stat");
                 return false;
             }
 
@@ -367,19 +312,10 @@ namespace smt {
                     log_causality(f,pat,used_enodes);
                 }
                 if (has_trace_stream()) {
-                    log_add_instance(f, q, pat, num_bindings, bindings,
-                                     max_generation, min_top_generation, max_top_generation,
-                                     used_enodes);
+                    log_add_instance(f, q, pat, num_bindings, bindings, used_enodes);
                 }
-                log_match_generations("inst-match-accepted", q, pat, num_bindings, bindings,
-                                      max_generation, min_top_generation, max_top_generation);
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;
-            }
-            else {
-                log_match_generations("inst-match-filtered", q, pat, num_bindings, bindings,
-                                      max_generation, min_top_generation, max_top_generation,
-                                      "duplicate-fingerprint");
             }
 
             CTRACE(bindings, f != nullptr, 

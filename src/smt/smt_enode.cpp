@@ -21,6 +21,7 @@ Revision History:
 #include "smt/smt_enode.h"
 
 namespace smt {
+
     /**
        \brief Initialize an enode in the given memory position.
     */
@@ -128,23 +129,6 @@ namespace smt {
     void enode::del_th_var(theory_id id) {
         m_th_var_list.del_var(id);
     }
-
-    
-    // /**
-    //    \brief Push old value of generation on the context trail stack
-    //    and update the generation.       
-    // */
-    // void enode::set_generation(context * ctx, unsigned generation) {
-    //     if (m_generation == generation)
-    //         return;
-
-    //     // Only used by the case split queue.
-    //     if (ctx)
-    //         ctx->push_trail(value_trail<unsigned>(m_generation));
-
-    //     m_generation = generation;
-    // }
-
 
     void enode::set_lbl_hash(context & ctx) {
         SASSERT(m_lbl_hash == -1);

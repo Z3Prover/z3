@@ -95,17 +95,6 @@ namespace smt {
         CTRACE(check_enode, !cg_inv,
                tout << "n: #" << n->get_expr_id() << ", m_cg: #" << n->m_cg->get_expr_id() << ", contains: " << m_cg_table.contains(n) << "\n"; display(tout););
         SASSERT(cg_inv);
-
-        if (n->get_num_args() > 0) {
-            enode * cg = n->get_cg();
-            SASSERT(cg != nullptr);
-            SASSERT(get_generation(cg) <= get_generation(n));
-
-            enode * cgr = get_cg_root(n);
-            SASSERT(cgr->is_cgr());
-            SASSERT(get_generation(cgr) <= get_generation(n));
-        }
-
         return true;
     }
 

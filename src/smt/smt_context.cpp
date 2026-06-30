@@ -1230,7 +1230,7 @@ namespace smt {
         m_is_diseq_tmp->m_args[0] = n1;
         m_is_diseq_tmp->m_args[1] = n2;
         SASSERT(m_is_diseq_tmp->get_num_args() == 2);
-        auto r = m_cg_table.find(m_is_diseq_tmp);
+        enode * r = m_cg_table.find(m_is_diseq_tmp);
         SASSERT((r != 0) == m_cg_table.contains(m_is_diseq_tmp));
         TRACE(is_diseq, tout << "r: " << r << "\n";);
         if (r) {
@@ -1364,7 +1364,7 @@ namespace smt {
      */
     enode * context::get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args) {
         enode * tmp = m_tmp_enode.set(f, num_args, args);
-        auto r = m_cg_table.find(tmp);
+        enode * r = m_cg_table.find(tmp);
 #ifdef Z3DEBUG
         if (r != nullptr) {
             SASSERT(r->get_decl() == f);
