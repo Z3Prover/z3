@@ -87,6 +87,7 @@ struct token {
     std::string text;
     unsigned line = 1;
     unsigned col = 1;
+    bool dquote = false;   // true for double-quoted strings ("..."): TPTP distinct objects
 };
 
 class lexer {
@@ -163,6 +164,7 @@ public:
         if (peek() == '\'' || peek() == '"') {
             char q = get();
             t.kind = token_kind::str;
+            t.dquote = (q == '"');
             while (!eof()) {
                 char c = get();
                 if (c == '\\' && !eof()) {
@@ -292,6 +294,11 @@ class tptp_parser {
     bool m_has_conjecture = false;
     unsigned m_dropped_formulas = 0;      // axioms/definitions skipped due to encoding errors
     bool m_last_name_quoted = false;
+    bool m_last_name_dquoted = false;     // last parsed name was a double-quoted distinct object
+    // Distinct objects: TPTP double-quoted strings ("...") denote pairwise distinct
+    // domain elements. Collected here (deduplicated by name) so a single global
+    // (distinct ...) constraint can be asserted before solving.
+    std::unordered_map<std::string, expr*> m_distinct_objects;
     std::string m_expected_status;        // SZS status from the input annotation, if any
     std::unordered_map<std::string, sort*> m_sorts;
     sort_ref_vector m_pinned_sorts;       // prevents cached sorts from being freed
@@ -426,6 +433,7 @@ class tptp_parser {
     std::string parse_name() {
         if (is(token_kind::id) || is(token_kind::str)) {
             m_last_name_quoted = is(token_kind::str);
+            m_last_name_dquoted = is(token_kind::str) && m_curr.dquote;
             std::string r = m_curr.text;
             next();
             return r;
@@ -957,6 +965,7 @@ class tptp_parser {
             return parse_numeral_from_name(n);
         }
 
+        bool dq_name = m_last_name_dquoted;
         expr_ref b(m);
         // Check bound variables: uppercase (quantifier vars) AND lowercase (let-bound names)
         if (!m_last_name_quoted && find_bound(n, b)) {
@@ -1007,7 +1016,10 @@ class tptp_parser {
 
         func_decl* f = mk_decl_or_ho_const(n, args.size(), false);
         coerce_args(f, args);
-        return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
+        expr_ref term(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
+        if (dq_name && args.empty())
+            register_distinct_object(n, term);
+        return term;
     }
 
     // Grammar: <tff_logic_formula>   ::= <tff_unitary_formula> | <tff_binary_formula>
@@ -1346,7 +1358,7 @@ class tptp_parser {
                     // resume precedence-climbing parsing from that negated left operand.
                     expr_ref operand = parse_unary_formula(true);
                     expr_ref neg(m.mk_not(ensure_bool(operand)), m);
-                    inner = parse_binary_rest(neg, PREC_IFF, true, true);
+                    inner = parse_binary_rest(neg, PREC_IFF, true);
                 } else {
                     // Binary connective at start of parens — shouldn't happen in valid TPTP
                     throw parse_error("unexpected connective after '(' at " + loc());
@@ -1391,6 +1403,7 @@ class tptp_parser {
             return parse_numeral_from_name(n);
         }
 
+        bool dq_name = m_last_name_dquoted;
         // Check if name is let-bound (works for both uppercase vars and lowercase let-bound names)
         {
             expr_ref b(m);
@@ -1492,7 +1505,10 @@ class tptp_parser {
 
         func_decl* pred = mk_decl_or_ho_const(n, args.size(), is_boolean);
         coerce_args(pred, args);
-        return expr_ref(m.mk_app(pred, args.size(), args.data()), m);
+        expr_ref atom(m.mk_app(pred, args.size(), args.data()), m);
+        if (dq_name && args.empty() && !m.is_bool(atom))
+            register_distinct_object(n, atom);
+        return atom;
     }
 
     // Grammar: <thf_abstraction> ::= ^ [<thf_variable_list>] : <thf_unitary_formula>
@@ -1711,13 +1727,13 @@ class tptp_parser {
     //          Implements a Pratt-style (precedence climbing) parser for binary connectives.
     expr_ref parse_expr(unsigned min_prec, bool consume_at, bool is_boolean) {
         expr_ref e = parse_unary_formula(is_boolean);
-        return parse_binary_rest(e, min_prec, consume_at, m.is_bool(e));
+        return parse_binary_rest(e, min_prec, consume_at);
     }
 
     // Precedence-climbing loop continued from an already-parsed left operand `e`.
     // Split out from parse_expr so callers that have consumed a leading unary unit
     // (e.g. a '~' immediately after '(') can resume binary-connective parsing.
-    expr_ref parse_binary_rest(expr_ref e, unsigned min_prec, bool consume_at = true, bool is_boolean = true) {
+    expr_ref parse_binary_rest(expr_ref e, unsigned min_prec, bool consume_at = true) {
         for (;;) {
             // Handle @ (function application) with highest precedence
             // But NOT when we're inside a lambda body that's an @ argument
@@ -1748,7 +1764,15 @@ class tptp_parser {
             if (it->second.precedence < min_prec) break;
             next(); // consume the operator token
             unsigned next_prec = it->second.right_assoc ? it->second.precedence : it->second.precedence + 1;
-            expr_ref rhs = parse_expr(next_prec, consume_at, is_boolean);
+            // Operands of every connective except '='/'!=' are Boolean; only equality
+            // takes term operands. Derive the operand context from the operator rather
+            // than inheriting is_boolean from the left operand. Otherwise, once a
+            // term-valued equality literal (e.g. 'a = b') sets is_boolean to false, a
+            // predicate atom later in the same clause ('a = b | q') would be parsed as a
+            // term and boxed into '$box_U_to_Bool(q)', severing it from the Boolean
+            // predicate 'q' used elsewhere and making refutable problems satisfiable.
+            bool rhs_is_boolean = it->second.precedence != PREC_EQ;
+            expr_ref rhs = parse_expr(next_prec, consume_at, rhs_is_boolean);
             expr_ref_vector args(m);
             args.push_back(e);
             args.push_back(rhs);
@@ -2176,6 +2200,12 @@ public:
         }};
     }
 
+    // Record a double-quoted string constant as a TPTP distinct object (deduplicated by name).
+    void register_distinct_object(std::string const& name, expr* c) {
+        if (m_distinct_objects.emplace(name, c).second)
+            m_pinned_exprs.push_back(c);
+    }
+
     void parse_input(std::istream& in, std::string const& current_file) {
         // Save parser state so that included files don't clobber the caller's lexer.
         std::string saved_input = std::move(m_input);
@@ -2212,6 +2242,17 @@ public:
     }
 
     bool has_conjecture() const { return m_has_conjecture; }
+
+    // TPTP double-quoted strings ("...") denote pairwise distinct domain elements.
+    // Assert a single global distinctness constraint over all collected distinct objects
+    // so that e.g. "Apple" != "Microsoft" is recognized as a theorem.
+    void assert_distinct_objects() {
+        if (m_distinct_objects.size() < 2) return;
+        expr_ref_vector objs(m);
+        for (auto const& kv : m_distinct_objects)
+            objs.push_back(kv.second);
+        m_cmd.assert_expr(expr_ref(m.mk_distinct(objs.size(), objs.data()), m));
+    }
 
     // Number of axioms/definitions that were dropped during parsing because the
     // higher-order encoding could not type-check them. When non-zero, a "sat"
@@ -2339,6 +2380,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
 
         tptp_parser p(ctx);
         p.parse_input(in, current_file ? current_file : ".");
+        p.assert_distinct_objects();
 
         // Suppress default check-sat output; TPTP frontend reports SZS status explicitly.
         std::ostringstream sink;
