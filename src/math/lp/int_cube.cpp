@@ -179,17 +179,13 @@ namespace lp {
             return lra.tighten_term_bounds_by_delta(i, delta);
         if (lra.column_has_upper_bound(i)) {
             impq u = lra.get_upper_bound(i); // copy: add_term invalidates bound references
-            vector<std::pair<mpq, unsigned>> coeffs;
-            coeffs.push_back(std::make_pair(mpq(1), i));
-            coeffs.push_back(std::make_pair(delta.x, x_e));
+            vector<std::pair<mpq, unsigned>> coeffs = {{mpq(1), i}, {delta.x, x_e}};
             unsigned s = lra.add_term(coeffs, UINT_MAX);
             lra.add_var_bound(s, is_zero(u.y) ? lconstraint_kind::LE : lconstraint_kind::LT, u.x);
         }
         if (lra.column_has_lower_bound(i)) {
             impq l = lra.get_lower_bound(i); // copy: add_term invalidates bound references
-            vector<std::pair<mpq, unsigned>> coeffs;
-            coeffs.push_back(std::make_pair(mpq(1), i));
-            coeffs.push_back(std::make_pair(-delta.x, x_e));
+            vector<std::pair<mpq, unsigned>> coeffs = {{mpq(1), i}, {-delta.x, x_e}};
             unsigned s = lra.add_term(coeffs, UINT_MAX);
             lra.add_var_bound(s, is_zero(l.y) ? lconstraint_kind::GE : lconstraint_kind::GT, l.x);
         }
@@ -214,10 +210,7 @@ namespace lp {
             const impq& v = lra.get_column_value(j);
             if (v.is_int())
                 continue;
-            flip_candidate f;
-            f.m_j = j;
-            f.m_lo = floor(v);
-            flips.push_back(f);
+            flips.push_back({j, floor(v), false});
         }
         lra.round_to_integer_solution();
         for (auto& f : flips)
@@ -273,14 +266,13 @@ namespace lp {
         for (unsigned fi = 0; fi < flips.size(); ++fi)
             flip_of_var[flips[fi].m_j] = fi;
         // occurrences of the flip candidates in the bounded rows
-        vector<vector<std::pair<unsigned, mpq>>> occs;
-        occs.resize(flips.size());
+        vector<vector<std::pair<unsigned, mpq>>> occs(flips.size());
         for (unsigned ri = 0; ri < rows.size(); ++ri) {
             const lar_term& t = lra.get_term(rows[ri].m_j);
             for (lar_term::ival p : t) {
                 auto it = flip_of_var.find(p.j());
                 if (it != flip_of_var.end())
-                    occs[it->second].push_back(std::make_pair(ri, p.coeff()));
+                    occs[it->second].push_back({ri, p.coeff()});
             }
         }
 
@@ -332,30 +324,24 @@ namespace lp {
 
     impq int_cube::get_cube_delta_for_term(const lar_term& t) const {
         if (t.size() == 2) {
-            bool seen_minus = false;
-            bool seen_plus = false;
-            for(lar_term::ival p : t) {
-                if (!lia.column_is_int(p.j()))
-                    goto usual_delta;
-                const mpq & c = p.coeff();
-                if (c == one_of_type<mpq>()) {
-                    seen_plus = true;
-                } else if (c == -one_of_type<mpq>()) {
-                    seen_minus = true;
-                } else {
-                    goto usual_delta;
-                }
+            bool seen_minus = false, seen_plus = false, all_ok = true;
+            for (lar_term::ival p : t) {
+                if (!lia.column_is_int(p.j())) { all_ok = false; break; }
+                const mpq& c = p.coeff();
+                if (c == one_of_type<mpq>()) seen_plus = true;
+                else if (c == -one_of_type<mpq>()) seen_minus = true;
+                else { all_ok = false; break; }
             }
-            if (seen_minus && seen_plus)
-                return zero_of_type<impq>();
-            return impq(0, 1);
+            if (all_ok) {
+                if (seen_minus && seen_plus)
+                    return zero_of_type<impq>();
+                return impq(0, 1);
+            }
         }
-    usual_delta:
         mpq delta = zero_of_type<mpq>();
         for (lar_term::ival p : t)
             if (lia.column_is_int(p.j()))
                 delta += abs(p.coeff());
-        
         delta *= mpq(1, 2);
         return impq(delta);
     }
