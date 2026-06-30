@@ -994,7 +994,8 @@ namespace smt {
                        display(tout << "\n"););
                 SASSERT(parent->is_cgr());
                 SASSERT(m_cg_table.contains_ptr(parent));
-                m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
+                if (!parent->is_eq())
+                    m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
                 m_cg_table.erase(parent);
             }
         }
@@ -1025,7 +1026,11 @@ namespace smt {
                     if (parent->is_eq()) {
                         gen = 0;
                     } else if (parent == cg) {
-                        auto [p, parent_generation] = m_r1_parent_generations[cgr_parent_idx];
+                        enode *p = nullptr;
+                        unsigned parent_generation;
+                        if (cgr_parent_idx < m_r1_parent_generations.size()) {
+                            std::tie(p, parent_generation) = m_r1_parent_generations[cgr_parent_idx];
+                        }
                         if (p == parent) {
                             cgr_parent_idx++;
                             gen = parent_generation;
