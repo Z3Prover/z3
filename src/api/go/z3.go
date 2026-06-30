@@ -89,6 +89,7 @@ type Context struct {
 // NewContext creates a new Z3 context with default configuration.
 func NewContext() *Context {
 	ctx := &Context{ptr: C.Z3_mk_context_rc(C.Z3_mk_config())}
+	C.Z3_enable_concurrent_dec_ref(ctx.ptr)
 	runtime.SetFinalizer(ctx, func(c *Context) {
 		C.Z3_del_context(c.ptr)
 	})
@@ -98,6 +99,7 @@ func NewContext() *Context {
 // NewContextWithConfig creates a new Z3 context with the given configuration.
 func NewContextWithConfig(cfg *Config) *Context {
 	ctx := &Context{ptr: C.Z3_mk_context_rc(cfg.ptr)}
+	C.Z3_enable_concurrent_dec_ref(ctx.ptr)
 	runtime.SetFinalizer(ctx, func(c *Context) {
 		C.Z3_del_context(c.ptr)
 	})

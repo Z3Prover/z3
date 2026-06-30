@@ -700,7 +700,7 @@ mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
     ensure_mpz_t a1(a);
     mk_big(result);
     MPZ_BEGIN_CRITICAL();
-    mpz_tdiv_r_2exp(*result.m_ptr, a1(), k);
+    mpz_fdiv_r_2exp(*result.m_ptr, a1(), k);
     MPZ_END_CRITICAL();
 #endif
     return result;
@@ -1904,8 +1904,11 @@ std::string mpz_manager<SYNCH>::to_string(mpz const & a) const {
 
 template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
-    if (is_small(a))
-        return ::abs(a.m_val);
+    if (is_small(a)) {
+        // compute abs in unsigned arithmetic: ::abs(INT_MIN) is undefined
+        unsigned u = static_cast<unsigned>(a.m_val);
+        return a.m_val < 0 ? 0u - u : u;
+    }
 #ifndef _MP_GMP
     unsigned sz = size(a);
     if (sz == 1)

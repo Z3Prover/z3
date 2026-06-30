@@ -1,0 +1,57 @@
+name: Pyodide Wheel (PyPI)
+
+# Builds a PEP 783 `pyemscripten_*_wasm32` wheel for z3-solver using cibuildwheel
+# and publishes it to PyPI on tag pushes. Unlike the legacy pyodide.yml (which
+# uses `pyodide build` and produces a Pyodide-version-locked emscripten_* wheel
+# uploaded only as a CI artifact), this wheel is installable at runtime with
+# micropip from PyPI. See src/api/python/pyproject.toml [tool.cibuildwheel].
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-pyodide:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - name: Build Pyodide wheel
+        uses: pypa/cibuildwheel@v4.1.0
+        with:
+          # The Python bindings live in a subdirectory of the repo.
+          package-dir: src/api/python
+        env:
+          CIBW_PLATFORM: pyodide
+          # Exception/longjmp/bigint flags are declared in
+          # src/api/python/pyproject.toml ([tool.pyodide.build]) and combined
+          # with Pyodide's -fwasm-exceptions defaults. Don't set CFLAGS/CXXFLAGS
+          # here — a JS-EH -fexceptions value conflicts with the wasm-EH ABI.
+
+      - name: Store Pyodide wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: pyodide-wheel
+          path: wheelhouse/*.whl
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-pyodide]
+    environment: release
+    permissions:
+      id-token: write  # trusted publishing (OIDC), no API token needed
+    steps:
+      - name: Download Pyodide wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: pyodide-wheel
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

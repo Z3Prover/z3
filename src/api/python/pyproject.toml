@@ -1,3 +1,29 @@
 [build-system]
 requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
+
+# --- Pyodide / WebAssembly (PEP 783) build configuration ---------------------
+# Consumed by pyodide-build (invoked directly or via `cibuildwheel --platform
+# pyodide`). These flags are forwarded to the emscripten toolchain that compiles
+# libz3 to wasm32. setup.py's IS_PYODIDE branch appends the same -fexceptions
+# flags defensively, but declaring them here is what cibuildwheel relies on.
+# Pyodide 314 / emscripten 5 builds its main module with *native wasm*
+# exception handling and wasm longjmp (see Pyodide's Makefile.envs). Side
+# modules like libz3.so MUST match that ABI: building with the legacy
+# `-fexceptions` (JS-based EH) makes libz3 import `invoke_*` trampolines that the
+# Pyodide runtime no longer provides -> "cannot resolve symbol invoke_vi" at the
+# first Z3 call. WASM_BIGINT is required because the Z3 C API passes 64-bit ints
+# across the ctypes/JS boundary.
+[tool.pyodide.build]
+cflags = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
+cxxflags = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
+ldflags = "-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -sWASM_BIGINT -sSIDE_MODULE=1"
+
+# --- cibuildwheel: produce a PyPI-publishable pyemscripten wheel -------------
+[tool.cibuildwheel]
+# Pyodide 314 ships CPython 3.14; match the single ABI it targets.
+build = "cp314-*"
+
+[tool.cibuildwheel.pyodide]
+# z3test.py is the upstream smoke test; run it inside the Pyodide test venv.
+test-command = "python {project}/z3test.py z3"

@@ -24,6 +24,7 @@ add_executable(test-z3
   api_datalog.cpp
   parametric_datatype.cpp
   arith_rewriter.cpp
+  seq_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
   bdd.cpp
@@ -79,6 +80,7 @@ add_executable(test-z3
   "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   interval.cpp
   karr.cpp
+  lcube.cpp
   list.cpp
   main.cpp
   map.cpp
@@ -113,15 +115,19 @@ add_executable(test-z3
   polynomial_factorization.cpp
   polynorm.cpp
   prime_generator.cpp
+  psmt.cpp
+  seq_regex_bisim.cpp
   proof_checker.cpp
   qe_arith.cpp
   mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp
   random.cpp
+  range_predicate.cpp
   rational.cpp
   rcf.cpp
   region.cpp
+  regex_range_collapse.cpp
   sat_local_search.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp
@@ -144,6 +150,7 @@ add_executable(test-z3
   symbol.cpp
   symbol_table.cpp
   tbv.cpp
+  term_enumeration.cpp
   theory_dl.cpp
   theory_pb.cpp
   timeout.cpp

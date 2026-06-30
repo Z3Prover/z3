@@ -5,6 +5,7 @@
 #include "math/polynomial/polynomial.h"
 #include "nlsat_common.h"
 #include "util/vector.h"
+#include "util/index_sort_with_mutations.h"
 #include "util/trace.h"
 
 #include <algorithm>
@@ -956,6 +957,22 @@ namespace nlsat {
             return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
         }
 
+        // Sort an index permutation with a bounds-safe, mutation-aware merge
+        // sort. The comparator (root_function_lt / anum_manager::lt -> compare)
+        // is NOT pure: it MUTATES the algebraic numbers it compares by refining
+        // their isolating intervals, and may throw on the resource limit, so a
+        // single std::sort would be undefined behavior and can crash via an
+        // out-of-bounds read on timeout. See util/index_sort_with_mutations.h
+        // for the full rationale.
+        template<typename Less>
+        void merge_sort_perm(std_vector<unsigned>& perm, Less less) {
+            unsigned n = static_cast<unsigned>(perm.size());
+            if (n < 2)
+                return;
+            std_vector<unsigned> scratch(n);
+            stable_index_merge_sort(perm.data(), scratch.data(), n, less);
+        }
+
         // Apply a permutation to a range of root_functions using swap cycles,
         // avoiding the bulk anum allocations that std::sort's move operations cause.
         void apply_permutation(std_vector<root_function>& rfs, unsigned offset, std_vector<unsigned> const& perm) {
@@ -982,7 +999,7 @@ namespace nlsat {
             if (mid_pos > 1) {
                 std_vector<unsigned> perm(mid_pos);
                 std::iota(perm.begin(), perm.end(), 0u);
-                std::sort(perm.begin(), perm.end(), [&](unsigned a, unsigned b) {
+                merge_sort_perm(perm, [&](unsigned a, unsigned b) {
                     return root_function_lt(rfs[a], rfs[b], true);
                 });
                 apply_permutation(rfs, 0, perm);
@@ -993,7 +1010,7 @@ namespace nlsat {
             if (upper_sz > 1) {
                 std_vector<unsigned> perm(upper_sz);
                 std::iota(perm.begin(), perm.end(), 0u);
-                std::sort(perm.begin(), perm.end(), [&](unsigned a, unsigned b) {
+                merge_sort_perm(perm, [&](unsigned a, unsigned b) {
                     return root_function_lt(rfs[mid_pos + a], rfs[mid_pos + b], false);
                 });
                 apply_permutation(rfs, mid_pos, perm);
@@ -1192,20 +1209,29 @@ namespace nlsat {
             if (root_vals.size() < 2)
                 return;
 
-            std::sort(root_vals.begin(), root_vals.end(), [&](auto const& a, auto const& b) {
-                return m_am.lt(a.first, b.first);
+            // Sort root values by an index permutation with the bounds-safe,
+            // mutation-aware merge sort (see merge_sort_perm). As in
+            // sort_root_function_partitions, the comparator (anum_manager::lt ->
+            // compare) MUTATES the algebraic numbers it compares (it refines their
+            // isolating intervals and may hit the resource limit and throw), so it is
+            // not a fixed strict weak ordering over a single sort; std::sort here would
+            // be undefined behavior and crash via an out-of-bounds read on timeout.
+            std_vector<unsigned> perm(root_vals.size());
+            std::iota(perm.begin(), perm.end(), 0u);
+            merge_sort_perm(perm, [&](unsigned a, unsigned b) {
+                return m_am.lt(root_vals[a].first, root_vals[b].first);
             });
-            
+
             TRACE(lws,
                   tout << "  Sorted roots:\n";
-                  for (unsigned j = 0; j < root_vals.size(); ++j)
-                      m_pm.display(m_am.display_decimal(tout << "    [" << j << "] val=", root_vals[j].first, 5) << " poly=", root_vals[j].second) << "\n";
+                  for (unsigned j = 0; j < perm.size(); ++j)
+                      m_pm.display(m_am.display_decimal(tout << "    [" << j << "] val=", root_vals[perm[j]].first, 5) << " poly=", root_vals[perm[j]].second) << "\n";
                 );
             
             std::set<std::pair<poly*, poly*>> added_pairs;
-            for (unsigned j = 0; j + 1 < root_vals.size(); ++j) {
-                poly* p1 = root_vals[j].second;
-                poly* p2 = root_vals[j + 1].second;
+            for (unsigned j = 0; j + 1 < perm.size(); ++j) {
+                poly* p1 = root_vals[perm[j]].second;
+                poly* p2 = root_vals[perm[j + 1]].second;
                 if (!p1 || !p2 || p1 == p2)
                     continue;
                 if (p1 > p2) std::swap(p1, p2);

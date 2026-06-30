@@ -297,7 +297,7 @@ static void test_bug_translate_null_target() {
     // Z3_translate(ctx, x, nullptr) would crash - no null check on target
     // The function checks c == target (line 1517) but doesn't check target != nullptr first
     // So mk_c(target) on line 1522 dereferences nullptr
-    Z3_error_code err = Z3_get_error_code(ctx);
+    Z3_get_error_code(ctx);
     std::cout << "  [BUG DOCUMENTED] Z3_translate(ctx, ast, nullptr) would crash\n";
     std::cout << "  No null check on target before mk_c(target) at api_ast.cpp:1522\n";
 
@@ -596,7 +596,6 @@ static void test_bug_array_sort_mismatch() {
 
     // Create Array(Int, Int)
     Z3_sort int_sort = Z3_mk_int_sort(ctx);
-    Z3_sort bool_sort = Z3_mk_bool_sort(ctx);
     Z3_sort arr_sort = Z3_mk_array_sort(ctx, int_sort, int_sort);
 
     Z3_ast arr = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a"), arr_sort);
@@ -651,7 +650,7 @@ static void test_bug_substitute_null_arrays() {
 
     // With num_exprs=0, null arrays should be fine
     Z3_ast r = Z3_substitute(ctx, x, 0, nullptr, nullptr);
-    Z3_error_code err = Z3_get_error_code(ctx);
+    Z3_get_error_code(ctx);
     if (r != nullptr) {
         std::cout << "  substitute(x, 0, null, null) OK: " << Z3_ast_to_string(ctx, r) << "\n";
     }

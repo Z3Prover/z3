@@ -16,7 +16,7 @@ Abstract:
      All variables x, y, z, .. can eventually be eliminated, but the tactic requires a global 
      analysis between each elimination. We address this by using reference counts and maintaining
      a heap of reference counts.
-   - it does not accomodate side constraints. The more general invertibility reduction methods, such 
+   - it does not accommodate side constraints. The more general invertibility reduction methods, such 
      as those introduced for bit-vectors use side constraints.
    - it is not modular: we detach the expression invertion routines to self-contained code.
 

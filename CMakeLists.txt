@@ -204,7 +204,12 @@ elseif (EMSCRIPTEN)
     "-Os"
     "-s ALLOW_MEMORY_GROWTH=1"
     "-s ASSERTIONS=0"
-    "-s DISABLE_EXCEPTION_CATCHING=0"
+    # Use native wasm exception handling + wasm longjmp to match the ABI of the
+    # Pyodide / modern-emscripten main module. The legacy JS-based EH (which the
+    # removed "-s DISABLE_EXCEPTION_CATCHING=0" selected) makes libz3 import
+    # invoke_* trampolines the Pyodide runtime no longer provides.
+    "-fwasm-exceptions"
+    "-s SUPPORT_LONGJMP=wasm"
     "-s ERROR_ON_UNDEFINED_SYMBOLS=1"
   )
 endif()

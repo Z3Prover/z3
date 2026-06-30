@@ -86,41 +86,6 @@ namespace seq {
     }
 
     /*
-       Collect the leaves of a t-regex der (an ITE / antimirov union /
-       union-tree with regex leaves) into the output vector. Empty
-       (re.empty) leaves are dropped.
-
-       Returns false if we encountered an unexpected node (e.g. a free
-       variable creeping in) — in that case the caller should bail out.
-    */
-    bool regex_bisim::collect_leaves(expr* der, expr_ref_vector& leaves) {
-        ptr_vector<expr> work;
-        obj_hashtable<expr> seen;
-        work.push_back(der);
-        seen.insert(der);
-        while (!work.empty()) {
-            expr* e = work.back();
-            work.pop_back();
-            expr* c = nullptr, * t = nullptr, * f = nullptr;
-            if (m.is_ite(e, c, t, f) ||
-                m_util.re.is_union(e, t, f) ||
-                m_util.re.is_antimirov_union(e, t, f)) {
-                if (seen.insert_if_not_there(t))
-                    work.push_back(t);
-                if (seen.insert_if_not_there(f))
-                    work.push_back(f);
-                continue;
-            }
-            if (m_util.re.is_empty(e))
-                continue;
-            if (!m_util.is_re(e))
-                return false;
-            leaves.push_back(e);
-        }
-        return true;
-    }
-
-    /*
        Fast inequivalence check based on the get_info().classical flag.
 
        Invariant: if r is well-formed and get_info(r).classical is true,
@@ -228,15 +193,19 @@ namespace seq {
             m_worklist.pop_back();
 
             // Compute the symbolic derivative wrt the canonical variable
-            // (:var 0). The result is a transition regex (ITE tree) whose
-            // leaves are regex expressions. We use the classical Brzozowski
-            // entry point so the derivative stays as a single TRegex and
-            // does not lift unions to the top via antimirov nodes — this
-            // preserves the XOR-pair invariant the bisimulation relies on.
-            expr_ref d(m_rw.mk_brz_derivative(r), m);
+            // (:var 0) and enumerate its reachable leaves in fully
+            // ITE-hoisted normal form. Every if-then-else over the input
+            // character — even one that would otherwise be buried under a
+            // concat or union — is hoisted to the top and infeasible
+            // minterms are pruned, so each leaf is a ground regex free of
+            // (:var 0) whose nullability is always decidable. Unions are
+            // kept intact as single leaves (a union leaf denotes a single
+            // bisimulation state, never a split into separate states).
+            expr_ref_pair_vector cofs(m);
+            m_rw.brz_derivative_cofactors(r, cofs);
             expr_ref_vector leaves(m);
-            if (!collect_leaves(d, leaves))
-                return l_undef;
+            for (auto const& p : cofs)
+                leaves.push_back(p.second);
 
             // First pass: check for any nullable leaf (definitive
             // distinguishing empty-continuation word) or any classically
