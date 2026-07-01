@@ -241,7 +241,6 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re.of.pred", 1, 1, &predA, reA);
     m_sigs[OP_RE_REVERSE]        = alloc(psig, m, "re.reverse", 1, 1, &reA, reA);
     m_sigs[OP_RE_DERIVATIVE]     = alloc(psig, m, "re.derivative", 1, 2, AreA, reA);
-    m_sigs[_OP_RE_ANTIMIROV_UNION] = alloc(psig, m, "re.union", 1, 2, reAreA, reA);
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
     m_sigs[OP_SEQ_REPLACE_RE_ALL] = alloc(psig, m, "str.replace_re_all", 1, 3, seqAreAseqA, seqA);
@@ -413,7 +412,6 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_RE_COMPLEMENT:
     case OP_RE_REVERSE:
     case OP_RE_DERIVATIVE:
-    case _OP_RE_ANTIMIROV_UNION:
         m_has_re = true;
         Z3_fallthrough;   
     case OP_SEQ_UNIT:
@@ -423,7 +421,7 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_STRING_LE:
     case OP_STRING_IS_DIGIT:
     case OP_STRING_TO_CODE:
-    case OP_STRING_FROM_CODE:
+    case OP_STRING_FROM_CODE:        
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
@@ -1213,6 +1211,17 @@ app* seq_util::rex::mk_of_pred(expr* p) {
     return m.mk_app(m_fid, OP_RE_OF_PRED, 0, nullptr, 1, &p);
 }
 
+app* seq_util::rex::mk_range(sort* re_sort, unsigned lo, unsigned hi) {
+    if (lo > hi)
+        return mk_empty(re_sort);
+    if (lo == 0 && hi == u.max_char())
+        return mk_full_char(re_sort);
+    app* lo_str = u.str.mk_string(zstring(lo));
+    if (lo == hi)
+        return mk_to_re(lo_str);
+    return mk_range(lo_str, u.str.mk_string(zstring(hi)));
+}
+
 bool seq_util::rex::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const {
     if (is_loop(n)) {
         app const* a = to_app(n);
@@ -1441,7 +1450,7 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         print(out, r1);
         print(out, r2);
     }
-    else if (re.is_antimirov_union(e, r1, r2) || re.is_union(e, r1, r2)) {
+    else if (re.is_union(e, r1, r2)) {
         out << "(";
         print(out, r1);
         out << (html_encode ? "&#x22C3;" : "|");
@@ -1674,11 +1683,19 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
         case OP_RE_OPTION:
             i1 = get_info_rec(e->get_arg(0));
             return i1.opt();
-        case OP_RE_RANGE: 
+        case OP_RE_RANGE: {
+            // A concrete range [lo, hi] with lo <= hi is non-empty and classical.
+            zstring slo, shi;
+            if (u.str.is_string(e->get_arg(0), slo) && slo.length() == 1 &&
+                u.str.is_string(e->get_arg(1), shi) && shi.length() == 1 &&
+                slo[0] <= shi[0])
+                return info(true, l_false, 1, true);
+            // Symbolic or unknown: not classical
+            return info(true, l_false, 1, false);
+        }
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:
             //TBD: check if the character predicate contains uninterpreted symbols or is nonground or is unsat
-            //TBD: check if the range is unsat
             return info(true, l_false, 1, false);
         case OP_RE_CONCAT:
             i1 = get_info_rec(e->get_arg(0));

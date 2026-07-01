@@ -20,7 +20,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -30,7 +30,8 @@ jobs:
       - name: Build Windows x64
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
       
       - name: Upload Windows x64 artifact
@@ -44,7 +45,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -54,7 +55,8 @@ jobs:
       - name: Build Windows x86
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+          for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x86 || exit /b 1
           python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
       
       - name: Upload Windows x86 artifact
@@ -68,7 +70,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -78,7 +80,8 @@ jobs:
       - name: Build Windows ARM64
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64
+          for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64 || exit /b 1
           python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
       
       - name: Upload Windows ARM64 artifact
@@ -92,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -113,7 +116,7 @@ jobs:
     runs-on: macos-14
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -134,7 +137,7 @@ jobs:
     runs-on: macos-14
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -157,7 +160,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -212,7 +215,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6

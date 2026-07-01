@@ -452,6 +452,8 @@ namespace seq {
         // |t| = 0 => |s| = 0 or indexof(t,s,offset) = -1
         // ~contains(t,s) => indexof(t,s,offset) = -1
 
+        add_clause(mk_ge(i, -1));
+
         add_clause(cnt,  i_eq_m1);
         add_clause(~t_eq_empty, s_eq_empty, i_eq_m1);
 
@@ -638,8 +640,8 @@ namespace seq {
             add_clause(~i_ge_0, i_ge_len_s, mk_eq(i, len_x));
         }
 
-        add_clause(i_ge_0, mk_seq_eq(e, emp));
-        add_clause(~i_ge_len_s, mk_seq_eq(e, emp));
+        add_clause(i_ge_0, mk_eq(e, emp));
+        add_clause(~i_ge_len_s, mk_eq(e, emp));
         add_clause(~i_ge_0, i_ge_len_s, mk_eq(one, len_e));
         add_clause(mk_le(len_e, 1));
     }
@@ -1066,7 +1068,7 @@ namespace seq {
     void axioms::replace_re_axiom(expr* e) {
         expr* s = nullptr, *r = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_re(e, s, r, t)); 
-        throw default_exception("replace-re is not supported");
+        throw default_exception("no support for replace-re");
     }
 
     // A basic strategy for supporting replace_all and other
@@ -1075,34 +1077,22 @@ namespace seq {
     // using iterative deepening can be re-used.
     //
     // create recursive relation 'ra' with properties:
-    // ra(i, j, s, p, t, r) = 
-    //     if len(s) = i && len(r) = j then 
-    //        true
-    //     else if len(s) > i = 0 && p = "" && r = t + s then
-    //        true
-    //     else if len(s) > i && p != "" && 
-    //             s = extract(s, 0, i) + p + extract(s, i + len(p), len(s)) && 
-    //             r = extract(r, 0, i) + t + extract(r, i + len(p), len(r)) && ra(i + len(p), j + len(t), s, p, t, r)
-    //     else if  ~prefix(p, extract(s, i, len(s)) && at(s,i) = at(r,j) then 
-    //          ra(i + 1, j + 1, s, p, t, r)
-    //     else false
+    // ra(i, j, s, p, t, r) <- len(s) = i && len(r) = j
+    // ra(i, j, s, p, t, r) <- len(s) > i = 0 && p = "" && r = t + s
+    // ra(i, j, s, p, t, r) <- len(s) > i && p != "" && s = extract(s, 0, i) + p + extract(s, i + len(p), len(s)) && r = extract(r, 0, i) + t + extract(r, i + len(p), len(r)) && ra(i + len(p), j + len(t), s, p, t, r)
+    // ra(i, s, p, t, r) <- ~prefix(p, extract(s, i, len(s)) && at(s,i) = at(r,j) && ra(i + 1, j + 1, s, p, t, r)
+    // which amounts to:
+    //
+    //
     // Then assert
     // ra(s, p, t, replace_all(s, p, t))
-    //
-    // ra(s, p, t, r) is a recursive predicate:
-    //   ra(s, p, t, r) iff replace_all(s, p, t) = r
-    //
-    // Base case, empty s or p: r = s
-    // Match case, prefix(p, s): s = p ++ s', r = t ++ r', ra(s', p, t, r')
-    // No-match case: r[0] = s[0], ra(s[1:], p, t, r[1:])
-    //
-    // Assert: ra(s, p, t, replace_all(s, p, t))
     //
     void axioms::replace_all_axiom(expr* r) {
         expr* s = nullptr, *p = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_all(r, s, p, t)); 
         recfun::util rec(m);
         recfun::decl::plugin& plugin = rec.get_plugin();
+        recfun_replace replace(m);
         sort* srt = s->get_sort();
         sort* domain[4] = { srt, srt, srt, srt };
         auto ra = rec.find_def_decl(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
@@ -1146,7 +1136,7 @@ namespace seq {
     void axioms::replace_re_all_axiom(expr* e) {
         expr* s = nullptr, *p = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_re_all(e, s, p, t)); 
-        throw default_exception("replace_re_all is not supported");
+        throw default_exception("no support for replace-re-all");
     }
 
 
@@ -1345,7 +1335,7 @@ namespace seq {
 
     /**
     * Consider the recursive definition of negated contains:
-      ~contains(a, b) = 
+      ~contains(a, b) =
         if |b| > |a| then true
         else if |b| = |a| then a != b
         else ~prefix(b, a) and ~contains(a[1:], b)
@@ -1420,9 +1410,9 @@ namespace seq {
         return bound_tracker;
     }
 
-    // |u| != |v| OR 
+    // |u| != |v| OR
     // (u = w[a]u' AND v = w[b]v' AND a != b AND |u'| = |v'|)
-    void axioms::diseq_axiom(expr *u, expr *v) {    
+    void axioms::diseq_axiom(expr *u, expr *v) {
         expr_ref u_len(mk_len(u), m);
         expr_ref v_len(mk_len(v), m);
         expr_ref len_eq(mk_eq(u_len, v_len), m);

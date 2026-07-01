@@ -470,9 +470,10 @@ namespace smt {
                 re_expr = m_seq.re.mk_inter(re_expr, loop);
             }
 
+            zstring str;
             expr_ref witness(m);
             // We checked non-emptiness during Nielsen already
-            lbool wr = m_rewriter.some_seq_in_re(re_expr, witness);
+            lbool wr = m_rewriter.some_string_in_re(re_expr, str);
             if (wr != l_true) {
                 // some_seq_in_re can fail (l_undef / l_false) on regexes it does
                 // not fully support — notably projection operators (re.proj),
@@ -482,7 +483,7 @@ namespace smt {
                 wr = derivative_witness(m_sg.mk(re_expr), witness);
             }
             if (wr == l_true) {
-                SASSERT(witness);
+                witness = m_seq.str.mk_string(str);
                 m_trail.push_back(witness);
                 m_factory->register_value(witness);
                 return witness;

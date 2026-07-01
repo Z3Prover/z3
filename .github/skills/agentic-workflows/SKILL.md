@@ -32,6 +32,7 @@ Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/memory.md`
 - `.github/aw/messages.md`
 - `.github/aw/network.md`
+- `.github/aw/optimize-agentic-workflow.md`
 - `.github/aw/patterns.md`
 - `.github/aw/pr-reviewer.md`
 - `.github/aw/report.md`

@@ -3,7 +3,7 @@ add_subdirectory(lp)
 ################################################################################
 # z3-test executable
 ################################################################################
-set(z3_test_deps api fuzzing simplex smt_seq)
+set(z3_test_deps api fuzzing simplex)
 z3_expand_dependencies(z3_test_expanded_deps ${z3_test_deps})
 set (z3_test_extra_object_files "")
 foreach (component ${z3_test_expanded_deps})
@@ -24,6 +24,7 @@ add_executable(test-z3
   api_datalog.cpp
   parametric_datatype.cpp
   arith_rewriter.cpp
+  seq_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
   bdd.cpp
@@ -52,8 +53,6 @@ add_executable(test-z3
   escaped.cpp
   euf_bv_plugin.cpp
   euf_arith_plugin.cpp
-  euf_sgraph.cpp
-  euf_seq_plugin.cpp
   ex.cpp
   expr_rand.cpp
   expr_substitution.cpp
@@ -81,6 +80,7 @@ add_executable(test-z3
   "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   interval.cpp
   karr.cpp
+  lcube.cpp
   list.cpp
   main.cpp
   map.cpp
@@ -115,15 +115,19 @@ add_executable(test-z3
   polynomial_factorization.cpp
   polynorm.cpp
   prime_generator.cpp
+  psmt.cpp
+  seq_regex_bisim.cpp
   proof_checker.cpp
   qe_arith.cpp
   mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp
   random.cpp
+  range_predicate.cpp
   rational.cpp
   rcf.cpp
   region.cpp
+  regex_range_collapse.cpp
   sat_local_search.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp
@@ -135,11 +139,6 @@ add_executable(test-z3
   sls_test.cpp
   sls_seq_plugin.cpp
   seq_split.cpp
-  seq_nielsen.cpp
-  seq_parikh.cpp
-  nseq_basic.cpp
-  seq_regex.cpp
-  nseq_zipt.cpp
   small_object_allocator.cpp
   smt2print_parse.cpp
   smt_context.cpp
@@ -151,6 +150,7 @@ add_executable(test-z3
   symbol.cpp
   symbol_table.cpp
   tbv.cpp
+  term_enumeration.cpp
   theory_dl.cpp
   theory_pb.cpp
   timeout.cpp

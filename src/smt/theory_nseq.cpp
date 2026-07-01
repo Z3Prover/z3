@@ -193,16 +193,16 @@ namespace smt {
 
     void theory_nseq::new_eq_eh(theory_var v1, theory_var v2) {
         try {
-            auto n1 = get_enode(v1);
-            auto n2 = get_enode(v2);
-            auto e1 = n1->get_expr();
-            auto e2 = n2->get_expr();
+            const auto n1 = get_enode(v1);
+            const auto n2 = get_enode(v2);
+            const auto e1 = n1->get_expr();
+            const auto e2 = n2->get_expr();
             TRACE(seq, tout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << "\n");
             //std::cout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << std::endl;
             if (m_seq.is_re(e1)) {
-                expr_ref s(m);
-                auto r = m_rewriter.mk_symmetric_diff(e1, e2);
-                switch (m_rewriter.some_seq_in_re(r, s)) {
+                zstring s;
+                const auto r = m_rewriter.mk_symmetric_diff(e1, e2);
+                switch (m_rewriter.some_string_in_re(r, s)) {
                 case l_false:
                     // regexes are equivalent: nothing to do
                     return;
@@ -237,15 +237,15 @@ namespace smt {
     }
 
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {
-        auto n1 = get_enode(v1);
-        auto n2 = get_enode(v2);
-        auto e1 = n1->get_expr();
-        auto e2 = n2->get_expr();
+        const auto n1 = get_enode(v1);
+        const auto n2 = get_enode(v2);
+        const auto e1 = n1->get_expr();
+        const auto e2 = n2->get_expr();
         TRACE(seq, tout << mk_pp(e1, m) << " != " << mk_pp(e2, m) << "\n");
         if (m_seq.is_re(e1)) {
-            expr_ref s(m);
-            auto r = m_rewriter.mk_symmetric_diff(e1, e2);            
-            switch (m_rewriter.some_seq_in_re(r, s)) {
+            zstring s;
+            auto r = m_rewriter.mk_symmetric_diff(e1, e2);
+            switch (m_rewriter.some_string_in_re(r, s)) {
             case l_false: {
                 enode_pair_vector eqs;
                 const auto lit = mk_eq(e1, e2, false);

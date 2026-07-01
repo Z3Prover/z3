@@ -20,6 +20,11 @@ set(CLANG_ONLY_WARNINGS
   "-Wno-c++98-compat"
   "-Wno-c++98-compat-pedantic"
   "-Wno-zero-length-array"
+  "-Wc99-extensions"
+  "-Wsuggest-override"
+  "-Winconsistent-missing-override"
+  "-Wno-missing-field-initializers"
+  "-Wcast-qual"  
 )
 set(MSVC_WARNINGS "/W3")
 

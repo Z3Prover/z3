@@ -113,6 +113,9 @@
     X(api_bug) \
     X(api_special_relations) \
     X(arith_rewriter) \
+    X(range_predicate) \
+    X(regex_range_collapse) \
+    X(seq_rewriter) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
@@ -137,6 +140,7 @@
     X(zstring)
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
+    X(tptp) \
     X(ext_numeral) \
     X(interval) \
     X(value_generator) \
@@ -190,18 +194,15 @@
     X(sls_test) \
     X(scoped_vector) \
     X(sls_seq_plugin) \
-    X(seq_nielsen) \
-    X(seq_parikh) \
-    X(nseq_basic) \
-    X(seq_regex) \
-    X(nseq_zipt) \
-    X(euf_sgraph) \
-    X(euf_seq_plugin) \
     X(ho_matcher) \
     X(finite_set) \
     X(finite_set_rewriter) \
     X(seq_split) \
-    X(fpa)
+    X(fpa) \
+    X(seq_regex_bisim) \
+    X(term_enumeration) \
+    X(lcube) \
+    X(psmt)
 
 #define FOR_EACH_TEST(X, X_ARGV) \
     FOR_EACH_ALL_TEST(X, X_ARGV) \

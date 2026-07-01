@@ -5097,7 +5097,7 @@ namespace seq {
         svector<sat::literal>& mem_literals) const {
         SASSERT(m_root);
         const auto deps = collect_conflict_deps();
-        vector<dep_source> vs;
+        vector<dep_source, false> vs;
         m_dep_mgr.linearize(deps, vs);
         for (dep_source const& d : vs) {
             if (std::holds_alternative<enode_pair>(d))

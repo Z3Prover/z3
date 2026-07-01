@@ -119,7 +119,7 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
         bool is_initial;
         hb.get_basis_solution(i, v, is_initial);
 
-        for (unsigned j = 0; xs.size() < v.size(); ++j) {
+        for (; xs.size() < v.size(); ) {
             xs.push_back(m.mk_fresh_const("x", a.mk_int()));
         }
 

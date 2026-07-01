@@ -239,7 +239,7 @@ namespace bv {
 }
 
 
-static void test_eval1() {
+[[maybe_unused]] static void test_eval1() {
     ast_manager m;
     reg_decl_plugins(m);
     bv_util bv(m);
@@ -262,7 +262,7 @@ static void test_eval1() {
     }
 }
 
-static void test_repair1() {
+[[maybe_unused]] static void test_repair1() {
     ast_manager m;
     reg_decl_plugins(m);
     bv_util bv(m);

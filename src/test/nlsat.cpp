@@ -452,7 +452,7 @@ static void project(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned
     std::cout << "\n";
 }
 
-static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned num, nlsat::literal const* lits) {
+static nlsat::scoped_literal_vector project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned num, nlsat::literal const* lits) {
     std::cout << "Project ";
     nlsat::scoped_literal_vector result(s);
     ex.compute_conflict_explanation(num, lits, result);
@@ -464,6 +464,7 @@ static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsig
         s.display(std::cout << " ", ~lits[i]);
     }
     std::cout << ")\n";
+    return result;
 }
 
 static nlsat::literal mk_gt(nlsat::solver& s, nlsat::poly* p) {
@@ -488,6 +489,39 @@ static nlsat::literal mk_eq(nlsat::solver& s, nlsat::poly* p) {
 static nlsat::literal mk_root_eq(nlsat::solver& s, nlsat::poly* p, nlsat::var x, unsigned i) {
     nlsat::bool_var b = s.mk_root_atom(nlsat::atom::ROOT_EQ, x, i, p);
     return nlsat::literal(b, false);
+}
+
+static bool contains_var(nlsat::var_vector const& vars, nlsat::var x) {
+    for (auto v : vars) {
+        if (v == x)
+            return true;
+    }
+    return false;
+}
+
+static bool clause_contains_root_dependency(
+    nlsat::solver& s,
+    nlsat::scoped_literal_vector const& result,
+    nlsat::atom::kind kind,
+    nlsat::var target,
+    unsigned root_index,
+    nlsat::var dep1,
+    nlsat::var dep2,
+    nlsat::var dep3) {
+    nlsat::pmanager& pm = s.pm();
+    nlsat::var_vector vars;
+    for (auto l : result) {
+        nlsat::atom* a = s.bool_var2atom(l.var());
+        if (!a || !a->is_root_atom() || a->get_kind() != kind)
+            continue;
+        nlsat::root_atom* ra = nlsat::to_root_atom(a);
+        if (ra->x() != target || ra->i() != root_index || pm.max_var(ra->p()) != target)
+            continue;
+        s.vars(l, vars);
+        if (contains_var(vars, dep1) && contains_var(vars, dep2) && contains_var(vars, dep3))
+            return true;
+    }
+    return false;
 }
 
 static void set_assignment_value(nlsat::assignment& as, anum_manager& am, nlsat::var v, rational const& val) {
@@ -1183,8 +1217,8 @@ static void tst_15() {
     auto cell = lws.single_cell();
 }
 
-// Test case for unsound lemma lws2380 - comparing standard projection vs levelwise
-// The issue: x7 is unconstrained in levelwise output but affects the section polynomial
+// Historical lws2380 regression test: both projection paths should preserve
+// the x7-linked section/root constraints that witness the projected dependency.
 static void tst_16() {
     // enable_trace("nlsat_explain");
     
@@ -1283,8 +1317,9 @@ static void tst_16() {
         lits.push_back(mk_gt(s, p0.get()));  // x13 > 0
         lits.push_back(mk_gt(s, p1.get()));  // p1 > 0
 
-        project_fa(s, ex, x13, lits.size(), lits.data());
+        auto result = project_fa(s, ex, x13, lits.size(), lits.data());
         std::cout << "\n";
+        ENSURE(clause_contains_root_dependency(s, result, nlsat::atom::ROOT_EQ, x11, 1, x7, x8, x10));
     };
 
     run_test(false);  // Standard projection
@@ -2144,11 +2179,11 @@ static void tst_22() {
             }
         }
         
-        if (all_false) {
+        if (all_false)
             std::cout << "*** ALL literals FALSE at counterexample - LEMMA IS UNSOUND! ***\n";
-        } else {
+        else
             std::cout << "At least one literal is TRUE - lemma is sound at this point\n";
-        }
+        ENSURE(!all_false);
     };
     
     run_test(false);  // lws=false (buggy)

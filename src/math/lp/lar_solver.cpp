@@ -864,7 +864,7 @@ namespace lp {
     }
 
     lp_status lar_solver::maximize_term(unsigned j,
-        impq& term_max) {
+        impq& term_max, bool fix_int_cols) {
         TRACE(lar_solver, print_values(tout););
         SASSERT(get_core_solver().m_r_solver.calc_current_x_is_feasible_include_non_basis());
         lar_term term = get_term_to_maximize(j);
@@ -877,6 +877,11 @@ namespace lp {
         if (!maximize_term_on_feasible_r_solver(term, term_max, nullptr)) {
             restore();
             return lp_status::UNBOUNDED;
+        }
+
+        if (!fix_int_cols) {
+            set_status(lp_status::OPTIMAL);
+            return lp_status::OPTIMAL;
         }
 
         impq opt_val = term_max;
@@ -1120,8 +1125,10 @@ namespace lp {
 
     void lar_solver::explain_fixed_column(unsigned j, explanation& ex) {
         SASSERT(column_is_fixed(j));
-        auto* deps = get_bound_constraint_witnesses_for_column(j);
-        for (auto ci : flatten(deps))
+        const column& ul = m_imp->m_columns[j];
+        m_imp->m_tmp_dependencies.reset();
+        m_imp->m_dependencies.linearize(ul.lower_bound_witness(), ul.upper_bound_witness(), m_imp->m_tmp_dependencies);
+        for (auto ci : m_imp->m_tmp_dependencies)
             ex.push_back(ci);
     }
 

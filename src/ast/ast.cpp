@@ -2894,7 +2894,7 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
         }
     });
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_eq(n1,n2));
     return mk_app(basic_family_id, PR_TRANSITIVITY_STAR, args.size(), args.data());
 }
@@ -2903,7 +2903,7 @@ proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned
     SASSERT(f1->get_num_args() == f2->get_num_args());
     SASSERT(f1->get_decl() == f2->get_decl());
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_app(R, f1, f2));
     proof* p = mk_app(basic_family_id, PR_MONOTONICITY, args.size(), args.data());
     return p;
@@ -2965,7 +2965,7 @@ proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, pr
     if (proofs_disabled())
         return nullptr;
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_eq(s, t));
     return mk_app(basic_family_id, PR_REWRITE_STAR, args.size(), args.data());
 }
@@ -3055,7 +3055,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
     }
 
     if (!found_complement) {
-        args.append(num_proofs, (expr**)proofs);
+        args.append(num_proofs, (expr* const *)proofs);
         CTRACE(mk_unit_resolution_bug, !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n";
                for (unsigned i = 1; i < num_proofs; ++i)
                    tout << mk_pp(proofs[i], *this) << "\n";
@@ -3125,7 +3125,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
           tout << mk_pp(new_fact, *this) << "\n";);
 
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(new_fact);
 #ifdef Z3DEBUG
     expr * f1 = get_fact(proofs[0]);
@@ -3191,7 +3191,7 @@ proof * ast_manager::mk_apply_defs(expr * n, expr * def, unsigned num_proofs, pr
     if (proofs_disabled())
         return nullptr;
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_oeq(n, def));
     return mk_app(basic_family_id, PR_APPLY_DEF, args.size(), args.data());
 }
@@ -3225,7 +3225,7 @@ proof * ast_manager::mk_nnf_pos(expr * s, expr * t, unsigned num_proofs, proof *
         return nullptr;
     check_nnf_proof_parents(num_proofs, proofs);
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_oeq(s, t));
     return mk_app(basic_family_id, PR_NNF_POS, args.size(), args.data());
 }
@@ -3235,7 +3235,7 @@ proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof *
         return nullptr;
     check_nnf_proof_parents(num_proofs, proofs);
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_oeq(mk_not(s), t));
     return mk_app(basic_family_id, PR_NNF_NEG, args.size(), args.data());
 }
@@ -3305,7 +3305,7 @@ proof * ast_manager::mk_redundant_del(expr* e) {
 
 proof * ast_manager::mk_clause_trail(unsigned n, expr* const* ps) {    
     ptr_buffer<expr> args;
-    args.append(n, (expr**) ps);
+    args.append(n, (expr* const *) ps);
     return mk_app(basic_family_id, PR_CLAUSE_TRAIL, 0, nullptr, args.size(), args.data());
 }
 
@@ -3323,7 +3323,7 @@ proof * ast_manager::mk_th_lemma(
     for (unsigned i = 0; i < num_params; ++i) 
         parameters.push_back(params[i]);        
     ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
+    args.append(num_proofs, (expr* const *) proofs);
     args.push_back(fact);
     return mk_app(basic_family_id, PR_TH_LEMMA, parameters.size(), parameters.data(), args.size(), args.data());
 }

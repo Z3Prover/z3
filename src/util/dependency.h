@@ -47,8 +47,7 @@ public:
         value const& leaf_value() const { SASSERT(is_leaf()); return static_cast<leaf const*>(this)->m_value; }
     };
 
-    template <bool T = false>
-    static void linearize_todo(ptr_vector<dependency>& todo, vector<value, T>& vs) {
+    static void linearize_todo(ptr_vector<dependency>& todo, vector<value, false>& vs) {
         unsigned qhead = 0;
         while (qhead < todo.size()) {
             dependency* d = todo[qhead];
@@ -70,8 +69,7 @@ public:
             d->unmark();
     }
 
-    template <bool T = false>
-    static void s_linearize(dependency* d, vector<value, T>& vs) {
+    static void s_linearize(dependency* d, vector<value, false>& vs) {
         if (!d)
             return;
         ptr_vector<dependency> todo;
@@ -225,8 +223,8 @@ public:
     }
 
 
-    template <bool T = false>
-    void linearize(dependency * d, vector<value, T> & vs) const {
+
+    void linearize(dependency * d, vector<value, false> & vs) const {
         if (!d) 
             return;
         SASSERT(m_todo.empty());
@@ -236,8 +234,23 @@ public:
         m_todo.reset();
     }
 
-    template <bool T = false>
-    void linearize(ptr_vector<dependency>& deps, vector<value, T> & vs) const {
+    // Linearize the union of two dependencies without allocating a join node.
+    void linearize(dependency * d1, dependency * d2, vector<value, false> & vs) const {
+        SASSERT(m_todo.empty());
+        if (d1) {
+            d1->mark();
+            m_todo.push_back(d1);
+        }
+        if (d2 && !d2->is_marked()) {
+            d2->mark();
+            m_todo.push_back(d2);
+        }
+        if (!m_todo.empty())
+            linearize_todo(m_todo, vs);
+        m_todo.reset();
+    }
+
+    void linearize(ptr_vector<dependency>& deps, vector<value, false> & vs) const {
         if (deps.empty())
             return;
         SASSERT(m_todo.empty());
@@ -332,19 +345,20 @@ public:
         return m_dep_manager.contains(d, v); 
     }
 
-    template<bool T = false>
-    void linearize(dependency * d, vector<value, T> & vs) const {
+    void linearize(dependency * d, vector<value, false> & vs) const {
         return m_dep_manager.linearize(d, vs);
-    }   
+    }    
 
-    template <bool T = false>
-    static vector<value, T> const& s_linearize(dependency* d, vector<value, T>& vs) {
+    void linearize(dependency * d1, dependency * d2, vector<value, false> & vs) const {
+        return m_dep_manager.linearize(d1, d2, vs);
+    }    
+
+    static vector<value, false> const& s_linearize(dependency* d, vector<value, false>& vs) {
         dep_manager::s_linearize(d, vs);
         return vs;
     }
 
-    template <bool T = false>
-    void linearize(ptr_vector<dependency>& d, vector<value, T> & vs) const {
+    void linearize(ptr_vector<dependency>& d, vector<value, false> & vs) const {
         return m_dep_manager.linearize(d, vs);
     }    
     

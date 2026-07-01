@@ -66,7 +66,6 @@ namespace smt {
         unsigned m_final_check_ls_steps = 30000;
         unsigned m_final_check_ls_steps_delta = 10000;
         unsigned m_final_check_ls_steps_min = 10000;
-        unsigned m_final_check_ls_steps_max = 30000;
         bool     m_has_unassigned_clause_after_resolve = false;
         unsigned m_after_resolve_decide_gap = 4;
         unsigned m_after_resolve_decide_count = 0;

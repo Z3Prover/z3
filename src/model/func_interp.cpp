@@ -231,16 +231,20 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
         m_args_are_values = false;
     m_entries.push_back(new_entry);
     if (!m_entry_table && m_entries.size() > 500) {
-        m_entry_table = alloc(entry_table, 1024, 
-            func_entry_hash(m_arity), func_entry_eq(m_arity));
-        for (func_entry* curr : m_entries) 
-            m_entry_table->insert(curr);   
+        init_table();
+ 
         ptr_vector<expr> null_args;
         null_args.resize(m_arity, nullptr);
         m_key = func_entry::mk(m(), m_arity, null_args.data(), nullptr);
     }
     else if (m_entry_table) 
         m_entry_table->insert(new_entry);    
+}
+
+void func_interp::init_table() {
+    m_entry_table = alloc(entry_table, 1024, func_entry_hash(m_arity), func_entry_eq(m_arity));
+    for (func_entry *curr : m_entries)
+        m_entry_table->insert(curr);
 }
 
 void func_interp::del_entry(unsigned idx) {
@@ -307,6 +311,12 @@ void func_interp::compress() {
     if (j < m_entries.size()) {
         reset_interp_cache();
         m_entries.shrink(j);
+        if (m_entry_table) {
+            dealloc(m_entry_table);
+            m_entry_table = nullptr;
+            if (m_entries.size() > 500) 
+                init_table();            
+        }
     }
     // other compression, if else is a default branch.
     // or function encode identity.

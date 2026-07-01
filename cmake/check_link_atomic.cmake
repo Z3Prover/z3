@@ -1,3 +1,8 @@
+if (EMSCRIPTEN OR Z3_SINGLE_THREADED)
+  # Emscripten (Pyodide/WASM) and single-threaded builds do not use
+  # libatomic; skip the check to avoid a spurious configure failure.
+  message(STATUS "Skipping std::atomic link check (EMSCRIPTEN or Z3_SINGLE_THREADED)")
+else()
 set(ATOMIC_TEST_SOURCE "
 #include <atomic>
 std::atomic<int> x;
@@ -20,4 +25,5 @@ if (NOT BUILTIN_ATOMIC)
   else()
     message(FATAL_ERROR "Host compiler must support std::atomic!")
   endif()
+endif()
 endif()
