@@ -127,20 +127,20 @@ struct split_set2::iterator::imp {
     }
 
     void next() {
+        m_qhead++;
         while (!at_end()) {
-            m_qhead++;
             if (has_split())
                 return;
             if (m_cartesian) {
                 m_cartesian->consume();
-                if (!m_splits.empty())
+                if (has_split())
                     return;
                 m_cartesian = nullptr;
             }
 
             if (m_complement) {
                 m_complement->consume();
-                if (!m_splits.empty())
+                if (has_split())
                     return;
                 m_complement = nullptr;
             }
