@@ -4126,13 +4126,20 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
         is_empty = true;
     if (max_length(hi) == std::make_pair(true, rational(0)))
         is_empty = true;
+    // Extract constant character bounds.  A bound that is neither a constant
+    // character nor a provably non-singleton string (the length checks above
+    // already handle the latter) may still denote a singleton string at
+    // solving time, e.g. a String variable such as `a` in (re.range a "u").
+    // In that case the range is symbolic and must be left for the theory
+    // solver: collapsing it to the empty regex here is unsound (it wrongly
+    // turns satisfiable membership constraints into unsat).
     if (!is_empty) {
         if (str().is_string(lo, slo) && slo.length() == 1) 
             clo = slo[0];    
         else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
             ;
         else
-            is_empty = true;
+            return BR_FAILED;
     }
     if (!is_empty) {
         if (str().is_string(hi, shi) && shi.length() == 1)
@@ -4140,7 +4147,7 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
         else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
             ;
         else
-            is_empty = true;
+            return BR_FAILED;
     }
 
     // clo/chi are only meaningful once both bounds were extracted; an early
