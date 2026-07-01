@@ -1011,6 +1011,10 @@ class tptp_parser {
         // Table-driven prefix operator dispatch
         auto op_it = m_ops.find(n);
         if (op_it != m_ops.end() && !op_it->second.is_infix) {
+            if (args.empty()) {
+                while (accept(token_kind::at_tok))
+                    args.push_back(parse_at_arg());
+            }
             return op_it->second.builder(args);
         }
 
@@ -1491,6 +1495,10 @@ class tptp_parser {
         // Table-driven prefix operator dispatch
         auto op_it = m_ops.find(n);
         if (op_it != m_ops.end() && !op_it->second.is_infix) {
+            if (args.empty()) {
+                while (accept(token_kind::at_tok))
+                    args.push_back(parse_at_arg());
+            }
             return op_it->second.builder(args);
         }
 
@@ -1808,8 +1816,19 @@ class tptp_parser {
             expect(token_kind::rparen, "')'");
 
         if (t.domain.empty() && is_ttype(t.range)) {
-            // Sort declaration: monomorphize to m_univ
-            m_sorts.insert_or_assign(name, m_univ);
+            // Sort declaration: give every declared type its own distinct uninterpreted
+            // sort. Collapsing all declared $tType sorts onto a single m_univ is unsound:
+            // a per-type constraint such as "![H:human]:H=jon" would then also constrain
+            // unrelated sorts (e.g. cats), turning satisfiable axiom sets into a spurious
+            // contradiction and reporting Theorem where the conjecture is CounterSatisfiable.
+            if (m_sorts.find(name) == m_sorts.end()) {
+                sort* s = m.mk_uninterpreted_sort(symbol(name));
+                m_pinned_sorts.push_back(s);
+                m_sorts.emplace(name, s);
+            }
+            // A prior *use* of the name (before its declaration) already created a fresh
+            // sort via parse_defined_sort; keep that same sort so uses and the declaration
+            // agree.
             return;
         }
 
