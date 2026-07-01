@@ -31,6 +31,31 @@ Author:
 
 class seq_rewriter;
 
+class split_set2 {
+    struct imp;
+    imp *m_imp;
+
+public:
+    split_set2(seq_rewriter &rw, expr *r);
+
+    ~split_set2();
+
+    class iterator {
+        struct imp;
+        imp *m_imp;
+    public:
+        iterator(split_set2& s, bool end = false);
+        ~iterator();
+        iterator &operator++();
+        std::pair<expr *, expr *> operator*() const;
+        bool operator==(iterator const &other) const;
+        bool operator!=(iterator const &other) const;
+    };
+
+    iterator begin() const;
+    iterator end() const;
+};
+
 // An individual split <D, N>: the left (prefix) regex D and right (suffix)
 // regex N.  u.v in L(r) for this split iff u in L(D) and v in L(N).
 struct split_pair {
