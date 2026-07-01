@@ -2541,7 +2541,7 @@ namespace {
         case YIELD1:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
 #define ON_MATCH(NUM)                                                   \
-            m_max_generation = std::max(m_max_generation, get_max_generation(m_context, NUM, m_bindings.begin())); \
+            m_max_generation = std::max(m_max_generation, m_context.get_max_generation(NUM, m_bindings.begin())); \
             if (m_context.get_cancel_flag()) {                          \
                 return false;                                           \
             }                                                           \

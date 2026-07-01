@@ -456,8 +456,6 @@ namespace smt {
         bool aux;
         return congruent(n1, n2, aux);
     }
-
-    unsigned get_max_generation(context & ctx, unsigned num_enodes, enode * const * enodes);
     
     void unmark_enodes(unsigned num_enodes, enode * const * enodes);
 
