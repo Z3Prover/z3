@@ -211,58 +211,27 @@ namespace smt {
         SASSERT(!m_manager.is_or(n->get_expr()));
         enode * n_prime;
         unsigned* payload = nullptr;
+        default_map_entry<enode*, unsigned>* e;
         void * t = get_table(n); 
         switch (static_cast<table_kind>(GET_TAG(t))) {
         case UNARY:
-            if (auto* e = UNTAG(unary_table*, t)->find_core(n)) {
-                n_prime = e->get_data().m_key;
-                payload = &e->get_data().m_value;
-            }
-            else {
-                e = UNTAG(unary_table*, t)->insert_if_not_there3(n, generation);
-                n_prime = e->get_data().m_key;
-                payload = &e->get_data().m_value;
-                (*payload) = generation;
-            }
+#define INSERT_COMMON(TABLE_TYPE)                                                   \
+            e = UNTAG(TABLE_TYPE*, t)->insert_if_not_there3(n, generation);  \
+            n_prime = e->get_data().m_key;                                          \
+            payload = &e->get_data().m_value;
+            INSERT_COMMON(unary_table);
             return enode_bool_gen_ptr(n_prime, false, payload);
         case BINARY:
-            if (auto* e = UNTAG(binary_table*, t)->find_core(n)) {
-                n_prime = e->get_data().m_key;
-                payload = &e->get_data().m_value;
-            }
-            else {
-                e = UNTAG(binary_table*, t)->insert_if_not_there3(n, generation);
-                n_prime = e->get_data().m_key;
-                payload = &e->get_data().m_value;
-                (*payload) = generation;
-            }
+            INSERT_COMMON(binary_table);
             TRACE(cg_table, tout << "insert: " << n->get_owner_id() << " " << cg_binary_hash()(n) << " inserted: " << (n == n_prime) << " " << n_prime->get_owner_id() << "\n";
-                  display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";); 
+                  display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";);
             return enode_bool_gen_ptr(n_prime, false, payload);
         case BINARY_COMM:
             m_commutativity = false;
-            if (auto* e = UNTAG(comm_table*, t)->find_core(n)) {
-                n_prime = e->get_data().m_key;
-                payload = &e->get_data().m_value;
-            }
-            else {
-                e = UNTAG(comm_table*, t)->insert_if_not_there3(n, generation);
-                n_prime = e->get_data().m_key;
-                payload = &e->get_data().m_value;
-                (*payload) = generation;
-            }
+            INSERT_COMMON(comm_table);
             return enode_bool_gen_ptr(n_prime, m_commutativity, payload);
         default:
-            if (auto* e = UNTAG(table*, t)->find_core(n)) {
-                n_prime = e->get_data().m_key;
-                payload = &e->get_data().m_value;
-            }
-            else {
-                e = UNTAG(table*, t)->insert_if_not_there3(n, generation);
-                n_prime = e->get_data().m_key;
-                payload = &e->get_data().m_value;
-                (*payload) = generation;
-            }
+            INSERT_COMMON(table);
             return enode_bool_gen_ptr(n_prime, false, payload);
         }
     }
