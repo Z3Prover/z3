@@ -1235,7 +1235,7 @@ namespace smt {
                         // a necessary instantiation.
                         enode* e_arg = n->get_arg(m_arg_i);
                         expr* arg = e_arg->get_expr();
-                        A_f_i->insert(arg, e_arg->get_generation());
+                        A_f_i->insert(arg, ctx->get_generation(e_arg));
                     }
                 }
             }
@@ -1253,7 +1253,7 @@ namespace smt {
                     if (ctx->is_relevant(n)) {
                         enode* e_arg = n->get_arg(m_arg_i);
                         expr* arg = e_arg->get_expr();
-                        s->insert(arg, e_arg->get_generation());
+                        s->insert(arg, ctx->get_generation(e_arg));
                     }
                 }
             }
@@ -1309,7 +1309,7 @@ namespace smt {
                                 bv_rw.mk_sub(arg, m_offset, arg_minus_k);
                             else
                                 arith_rw.mk_sub(arg, m_offset, arg_minus_k);
-                            S_j->insert(arg_minus_k, e_arg->get_generation());
+                            S_j->insert(arg_minus_k, ctx->get_generation(e_arg));
                         }
                     }
                 }
@@ -1421,7 +1421,7 @@ namespace smt {
                     auto e = n->get_expr();
                     if (srt == n->get_sort()) {
                         TRACE(model_finder, tout << "inserting " << mk_pp(e, m) << " into inst set\n");
-                        S->insert(e, n->get_generation());
+                        S->insert(e, ctx->get_generation(n));
                     }
                     else if (is_app(e) && to_app(e)->get_decl()->is_skolem())
                         ;
@@ -1557,7 +1557,7 @@ namespace smt {
                             if (ctx->is_relevant(p) && p->get_decl() == m_select->get_decl()) {
                                 SASSERT(m_arg_i < p->get_num_args());
                                 enode* e_arg = p->get_arg(m_arg_i);
-                                A_f_i->insert(e_arg->get_expr(), e_arg->get_generation());
+                                A_f_i->insert(e_arg->get_expr(), ctx->get_generation(e_arg));
                             }
                         }
                     }
@@ -1686,7 +1686,7 @@ namespace smt {
                     node* S_q_i = slv.get_uvar(q, m_var_i);
                     for (enode* n : ctx->enodes()) {
                         if (ctx->is_relevant(n) && n->get_expr()->get_sort() == s) {
-                            S_q_i->insert(n->get_expr(), n->get_generation());
+                            S_q_i->insert(n->get_expr(), ctx->get_generation(n));
                         }
                     }
                 }
