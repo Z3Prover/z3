@@ -293,16 +293,6 @@ namespace smt {
         }
     }
 
-    unsigned get_max_generation(context & ctx, unsigned num_enodes, enode * const * enodes) {
-        unsigned max = 0;
-        for (unsigned i = 0; i < num_enodes; ++i) {
-            unsigned curr = ctx.get_generation(enodes[i]);
-            if (curr > max)
-                max = curr;
-        }
-        return max;
-    }
-
     void unmark_enodes(unsigned num_enodes, enode * const * enodes) {
         for (unsigned i = 0; i < num_enodes; ++i)
             enodes[i]->unset_mark();
