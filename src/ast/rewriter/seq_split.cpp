@@ -19,7 +19,295 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/ast_pp.h"
 #include "util/obj_hashtable.h"
-#include "util/stack.h"
+
+struct split_set2::imp {
+    ast_manager &m;
+    seq_rewriter &rw;
+    seq_util &seq;
+    seq_util::rex &re;
+    expr_ref r;
+    unsigned m_threshold = UINT_MAX;
+    split_oracle m_filter;
+    sort *m_seq_sort = nullptr;  // sequence sort the decls are built for
+
+    imp(seq_rewriter &rw, expr *r, unsigned threshold, split_oracle const &filter) : m(rw.m()), rw(rw), 
+        seq(rw.u()), re(rw.u().re), r(r, m), m_threshold(threshold), m_filter(filter) {
+        VERIFY(seq.is_re(r, m_seq_sort));
+    }
+
+};
+
+struct split_set2::iterator::imp {
+    struct cartesian_product {
+        split_set2::imp &s;
+        imp &i;
+        split_set2 a_s, b_s;
+        split_set2::iterator a_it;
+        split_set2::iterator b_it;
+        cartesian_product(imp &i, expr *a, expr *b)
+            : s(i.i), i(i), a_s(s.rw, a, {}), b_s(s.rw, b, {}), a_it(a_s.begin()), b_it(b_s.begin()) {}
+        bool at_end() const {
+            return a_it == a_s.end() && b_it == b_s.end();
+        }
+        void next() {
+            SASSERT(!at_end());
+            if (b_it != b_s.end()) 
+                ++b_it;
+            
+            if (b_it == b_s.end()) {
+                ++a_it;
+                if (a_it != a_s.end())
+                    b_it.m_imp->rewind();
+            }
+        }
+        void consume() {
+            while (!at_end() && !i.has_split()) {
+                auto [a1, a2] = *a_it;
+                auto [b1, b2] = *b_it;
+                expr_ref a(s.rw.mk_regex_inter_normalize(a1, b1), s.m);
+                expr_ref b(s.rw.mk_regex_inter_normalize(a2, b2), s.m);                
+                i.push_split(a, b);
+                next();                
+            }
+            if (b_it.failed() || a_it.failed())
+                i.m_failure = true;
+        }
+    };
+
+    // Complement of a split-set via De Morgan: ~S = cap_{s in S} ~s with
+    //   ~<D,N> = { <~D, .*>, <.*, ~N> }  and  ~{} = { <.*, .*> }.
+    // May produce up to 2^|sp| pairs (bounded by the threshold).  A threshold
+    // overrun must abort entirely: a partial fold is a strictly weaker (unsound)
+    // split-set, since each ~sp[i] further constrains ~S.
+
+    struct complement {
+        split_set2::imp &s;
+        imp &i;
+        split_set2 a;
+        split_set2::iterator it;
+
+        complement(imp &i, expr *r) : s(i.i), i(i), a(s.rw, r, {}), it(a.begin()) {}
+
+        void consume() {
+            while (it != a.end() && !i.has_split()) {
+                auto [a, b] = *it;
+                NOT_IMPLEMENTED_YET();
+                // create a cascade of cross-products.
+                // empty set as a base case.
+                ++it;                
+            }
+        }
+    };
+    split_set2 &s;
+    split_set2::imp &i;
+    ast_manager &m;
+    seq_util &seq;
+    seq_util::rex &re;
+    expr_ref_vector m_cont;
+    vector<std::pair<expr_ref, expr_ref>> m_splits;
+    unsigned m_qhead = 0;
+    scoped_ptr<cartesian_product> m_cartesian;
+    scoped_ptr<complement> m_complement;
+    bool m_at_end;
+    bool m_failure = false;
+    imp(split_set2 &s, bool at_end) : s(s), i(*s.m_imp), m(i.m), seq(i.seq), re(i.re), m_cont(m), m_at_end(at_end) {
+        m_cont.push_back(i.r);
+    }
+
+    bool has_split() {
+        return m_qhead < m_splits.size();
+    }
+
+    void rewind() {
+        m_qhead = 0;
+        m_at_end = m_qhead < m_splits.size();
+        SASSERT(m_cont.empty());
+        SASSERT(!m_cartesian);
+        SASSERT(!m_complement);
+    }
+
+    void next() {
+        while (!at_end()) {
+            m_qhead++;
+            if (has_split())
+                return;
+            if (m_cartesian) {
+                m_cartesian->consume();
+                if (!m_splits.empty())
+                    return;
+                m_cartesian = nullptr;
+            }
+
+            if (m_complement) {
+                m_complement->consume();
+                if (!m_splits.empty())
+                    return;
+                m_complement = nullptr;
+            }
+
+            if (m_cont.empty()) {
+                m_at_end = true;
+                return;
+            }
+
+            // TODO: we can be strategic about choosing what to unfold, 
+            // and perform early subsumption check
+            expr_ref last(m_cont.back(), m);
+            m_cont.pop_back();
+            unfold(last);
+        }
+    }
+
+    void push_split(expr *a, expr *b) {
+        if (m_failure)
+            return;
+        if (i.m_filter && !i.m_filter(a, b))
+            return;   
+        if (re.get_info(a).min_length == UINT_MAX)
+            return;
+        if (re.get_info(b).min_length == UINT_MAX)
+            return;
+        // subsumption checking
+        m_splits.push_back({expr_ref(a, m), expr_ref(b, m)});
+        if (m_splits.size() > i.m_threshold) {
+            TRACE(seq, tout << "size of split set exceeds threshold");
+            m_failure = true;
+        }
+    }
+
+    void unfold(expr* r) {
+        SASSERT(seq.is_re(r));
+        if (re.is_empty(r))
+            return;
+
+        expr *a, *b;
+        if (re.is_union(r, a, b)) {
+            m_cont.push_back(a);
+            m_cont.push_back(b);
+            return;
+        }
+
+        if (re.is_intersection(r, a, b)) {
+            m_cartesian = alloc(cartesian_product, *this, a, b);
+            return;
+        }
+
+        if (re.is_complement(r, a)) {
+            m_complement = alloc(complement, *this, a);
+            return;
+        }
+
+        if (re.is_concat(r, a, b)) {
+            NOT_IMPLEMENTED_YET();
+        }
+
+        if (re.is_to_re(r, a)) {
+            if (seq.str.is_concat(a, a, b)) {
+                m_cont.push_back(re.mk_concat(re.mk_to_re(a), re.mk_to_re(b)));
+                return;
+            }
+            if (seq.str.is_unit(a, b)) {
+                expr_ref eps(nullptr, m); // TODO
+                push_split(eps, a);
+                push_split(a, eps);
+                return;
+            }
+            zstring zs;
+            if (seq.str.is_string(a, zs)) {
+                // TODO
+                NOT_IMPLEMENTED_YET();
+            }
+            set_failure(r);
+            return;
+        }
+
+        if (re.is_epsilon(r)) {
+            push_split(r, r);
+            return;
+        }
+
+        if (re.is_star(r, a)) {
+            NOT_IMPLEMENTED_YET();
+        }
+
+        if (re.is_plus(r, a)) {
+            NOT_IMPLEMENTED_YET();
+        }
+
+        if (re.is_diff(r, a, b)) {
+            NOT_IMPLEMENTED_YET();
+        }
+
+         if (re.is_full_char(r) || re.is_range(r) || re.is_of_pred(r)) {
+            expr_ref eps(re.mk_epsilon(i.m_seq_sort), m);
+            push_split(r, eps);
+            push_split(eps, r);
+            return;
+        }
+
+        // .* : sigma(.*) = { <.*, .*> }
+        if (re.is_full_seq(r)) {
+            push_split(r, r);
+            return;
+        }
+
+        set_failure(r);
+    }
+
+    void set_failure(expr* r) {
+        TRACE(seq, tout << "split_set2::iterator::unfold: unhandled regex: " << mk_pp(r, m) << "\n");
+        m_failure = true;
+        m_at_end = true;
+    }
+
+    bool at_end() const {
+        return m_failure || m_at_end;
+    }
+};
+
+split_set2::split_set2(seq_rewriter &rw, expr *r, unsigned threshold, split_oracle const &oracle) {
+    m_imp = alloc(imp, rw, r, threshold, oracle);
+}
+
+split_set2::~split_set2() {
+    dealloc(m_imp);
+}
+
+split_set2::iterator::iterator(split_set2 const &s, bool at_end) {
+    m_imp = alloc(imp, const_cast<split_set2&>(s), at_end);
+}
+
+split_set2::iterator::~iterator() {
+    dealloc(m_imp);
+}
+
+
+split_set2::iterator split_set2::begin() const {
+    return iterator(*this, false);
+}
+
+split_set2::iterator split_set2::end() const {
+    return iterator(*this, true);
+}
+
+split_set2::iterator& split_set2::iterator::operator++() {
+    m_imp->next();
+    return *this;
+}
+
+std::pair<expr_ref, expr_ref> split_set2::iterator::operator*() const {
+    SASSERT(m_imp->has_split());
+    return m_imp->m_splits[m_imp->m_qhead];
+}
+
+bool split_set2::iterator::operator==(split_set2::iterator const &other) const {
+    SASSERT(m_imp->at_end() || other.m_imp->at_end());
+    return m_imp->at_end() && other.m_imp->at_end();
+}
+
+bool split_set2::iterator::failed() const {
+    return m_imp->m_failure;
+}
 
 seq_split::seq_split(seq_rewriter& rw) :
     m(rw.m()), m_rw(rw), m_subset(rw.u().re),
@@ -119,53 +407,24 @@ expr_ref seq_split::mk_rcat(expr* s, expr* r) {
 bool seq_split::is_empty_ss(expr* e) const {
     return is_app(e) && to_app(e)->get_decl() == m_d_empty;
 }
-bool seq_split::is_single(expr* e, expr*& d, expr*& n) const {
-    if (!is_app(e) || to_app(e)->get_decl() != m_d_single)
-        return false;
-    d = to_app(e)->get_arg(0);
-    n = to_app(e)->get_arg(1);
-    return true;
+
+bool seq_split::is_app1(expr* e, func_decl* d, expr*& a) const {
+    if (is_app(e) && to_app(e)->get_decl() == d) {
+        a = to_app(e)->get_arg(0);
+        return true;
+    }
+    return false;
 }
-bool seq_split::is_fromre(expr* e, expr*& r) const {
-    if (!is_app(e) || to_app(e)->get_decl() != m_d_fromre)
-        return false;
-    r = to_app(e)->get_arg(0);
-    return true;
+
+bool seq_split::is_app2(expr *e, func_decl *d, expr *&a, expr *&b) const {
+    if (is_app(e) && to_app(e)->get_decl() == d) {
+        a = to_app(e)->get_arg(0);
+        b = to_app(e)->get_arg(1);
+        return true;
+    }
+    return false;
 }
-bool seq_split::is_union(expr* e, expr*& a, expr*& b) const {
-    if (!is_app(e) || to_app(e)->get_decl() != m_d_union)
-        return false;
-    a = to_app(e)->get_arg(0);
-    b = to_app(e)->get_arg(1);
-    return true;
-}
-bool seq_split::is_inter(expr* e, expr*& a, expr*& b) const {
-    if (!is_app(e) || to_app(e)->get_decl() != m_d_inter)
-        return false;
-    a = to_app(e)->get_arg(0);
-    b = to_app(e)->get_arg(1);
-    return true;
-}
-bool seq_split::is_compl(expr* e, expr*& a) const {
-    if (!is_app(e) || to_app(e)->get_decl() != m_d_compl)
-        return false;
-    a = to_app(e)->get_arg(0);
-    return true;
-}
-bool seq_split::is_lcat(expr* e, expr*& r, expr*& s) const {
-    if (!is_app(e) || to_app(e)->get_decl() != m_d_lcat)
-        return false;
-    r = to_app(e)->get_arg(0);
-    s = to_app(e)->get_arg(1);
-    return true;
-}
-bool seq_split::is_rcat(expr* e, expr*& s, expr*& r) const {
-    if (!is_app(e) || to_app(e)->get_decl() != m_d_rcat)
-        return false;
-    s = to_app(e)->get_arg(0);
-    r = to_app(e)->get_arg(1);
-    return true;
-}
+
 bool seq_split::is_frontier(expr* e) const {
     expr *a = nullptr, *b = nullptr;
     return is_empty_ss(e) || is_single(e, a, b) || is_union(e, a, b);

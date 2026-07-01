@@ -31,12 +31,17 @@ Author:
 
 class seq_rewriter;
 
+// Optional lookahead oracle.  Called for each candidate split <D, N> as it is
+// generated; returns true to keep it, false to prune it.  An empty oracle (the
+// default) keeps everything, so sigma is unchanged.  See seq_split::compute.
+typedef std::function<bool(expr *D, expr *N)> split_oracle;
+
 class split_set2 {
     struct imp;
     imp *m_imp;
 
 public:
-    split_set2(seq_rewriter &rw, expr *r);
+    split_set2(seq_rewriter &rw, expr *r, unsigned threshold, split_oracle const& oracle = split_oracle());
 
     ~split_set2();
 
@@ -44,12 +49,15 @@ public:
         struct imp;
         imp *m_imp;
     public:
-        iterator(split_set2& s, bool end = false);
+        iterator(split_set2 const& s, bool end = false);
         ~iterator();
         iterator &operator++();
-        std::pair<expr *, expr *> operator*() const;
+        std::pair<expr_ref, expr_ref> operator*() const;
+        bool failed() const;
         bool operator==(iterator const &other) const;
-        bool operator!=(iterator const &other) const;
+        bool operator!=(iterator const &other) const {
+            return !(*this == other);
+        }
     };
 
     iterator begin() const;
@@ -77,10 +85,7 @@ typedef vector<split_pair> split_set;
 //            give up (return false) on complement / intersection instead.
 enum class split_mode { weak, strong };
 
-// Optional lookahead oracle.  Called for each candidate split <D, N> as it is
-// generated; returns true to keep it, false to prune it.  An empty oracle (the
-// default) keeps everything, so sigma is unchanged.  See seq_split::compute.
-typedef std::function<bool(expr* D, expr* N)> split_oracle;
+
 
 class seq_split {
     ast_manager& m;
@@ -126,13 +131,29 @@ class seq_split {
 
     // Recognizers over the local decls.
     bool is_empty_ss(expr* e) const;
-    bool is_single(expr* e, expr*& d, expr*& n) const;
-    bool is_fromre(expr* e, expr*& r) const;
-    bool is_union (expr* e, expr*& a, expr*& b) const;
-    bool is_inter (expr* e, expr*& a, expr*& b) const;
-    bool is_compl (expr* e, expr*& a) const;
-    bool is_lcat  (expr* e, expr*& r, expr*& s) const;
-    bool is_rcat  (expr* e, expr*& s, expr*& r) const;
+    bool is_app1(expr *e, func_decl *d, expr *&a) const;
+    bool is_app2(expr *e, func_decl *d, expr*& a, expr*& b) const;
+    bool is_single(expr *e, expr *&d, expr *&n) const {
+        return is_app2(e, m_d_single, d, n);
+    }
+    bool is_fromre(expr* e, expr*& r) const {
+        return is_app1(e, m_d_fromre, r);
+    }
+    bool is_union (expr* e, expr*& a, expr*& b) const {
+        return is_app2(e, m_d_union, a, b);
+    }
+    bool is_inter (expr* e, expr*& a, expr*& b) const {
+        return is_app2(e, m_d_inter, a, b);
+    }
+    bool is_compl (expr* e, expr*& a) const {
+        return is_app1(e, m_d_compl, a);
+    }
+    bool is_lcat  (expr* e, expr*& r, expr*& s) const {
+        return is_app2(e, m_d_lcat, r, s);
+    }
+    bool is_rcat  (expr* e, expr*& s, expr*& r) const {
+        return is_app2(e, m_d_rcat, s, r);
+    }
     // A term whose head is empty | single | union (ready for the worklist loop).
     bool is_frontier(expr* e) const;
 
