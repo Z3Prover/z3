@@ -1328,24 +1328,37 @@ class tptp_parser {
                 token saved = m_curr;
                 next();
                 if (accept(token_kind::rparen)) {
-                    // Parenthesized connective: treat as HO constant with array sort
+                    // A parenthesized connective used as a higher-order term, e.g.
+                    // "(~) @ p" or "(|) @ p @ q". Encode it as a genuine lambda over Bool
+                    // carrying the real logical semantics, so that application beta-reduces
+                    // to the actual connective (e.g. "(~) @ p" ==> "not p"). Encoding it as
+                    // an uninterpreted array constant instead would sever it from Boolean
+                    // logic and make valid higher-order theorems spuriously
+                    // CounterSatisfiable (the (~)/(|) applications would be unrelated to the
+                    // truth values of their operands).
+                    (void)op_text;
                     sort* bool_sort = m.mk_bool_sort();
-                    sort* ho_sort;
-                    if (arity == 1)
-                        ho_sort = m_array.mk_array_sort(bool_sort, bool_sort);
-                    else
-                        ho_sort = m_array.mk_array_sort(bool_sort, m_array.mk_array_sort(bool_sort, bool_sort));
-                    std::string key = mk_decl_key(op_text, 0, 'h');
-                    auto it = m_decls.find(key);
-                    func_decl* f;
-                    if (it != m_decls.end()) {
-                        f = it->second;
-                    } else {
-                        f = m.mk_func_decl(symbol(op_text), 0, static_cast<sort**>(nullptr), ho_sort);
-                        m_pinned_decls.push_back(f);
-                        m_decls.emplace(key, f);
+                    symbol xn("X"), yn("Y");
+                    if (arity == 1) {
+                        // (~)  ==>  ^[X:$o] : ~X
+                        expr_ref body(m.mk_not(m.mk_var(0, bool_sort)), m);
+                        return expr_ref(m.mk_lambda(1, &bool_sort, &xn, body), m);
                     }
-                    return expr_ref(m.mk_const(f), m);
+                    // binary connective  ==>  ^[X:$o] : ^[Y:$o] : (X <op> Y)
+                    // de Bruijn: X is var(1) (outer binder), Y is var(0) (inner binder).
+                    expr* vx = m.mk_var(1, bool_sort);
+                    expr* vy = m.mk_var(0, bool_sort);
+                    expr_ref opbody(m);
+                    switch (saved.kind) {
+                    case token_kind::and_tok:     opbody = m.mk_and(vx, vy); break;
+                    case token_kind::or_tok:      opbody = m.mk_or(vx, vy); break;
+                    case token_kind::implies_tok: opbody = m.mk_implies(vx, vy); break;
+                    case token_kind::iff_tok:     opbody = m.mk_eq(vx, vy); break;
+                    case token_kind::xor_tok:     opbody = m.mk_xor(vx, vy); break;
+                    default:                      opbody = m.mk_eq(vx, vy); break;
+                    }
+                    expr_ref inner(m.mk_lambda(1, &bool_sort, &yn, opbody), m);
+                    return expr_ref(m.mk_lambda(1, &bool_sort, &xn, inner), m);
                 }
                 // Not a parenthesized connective — lparen was consumed and connective was consumed
                 // but ')' didn't follow. Parse as formula with the connective already consumed.
@@ -1839,14 +1852,15 @@ class tptp_parser {
         // Try relative to current file's directory
         std::string local = normalize_path(dirname(curr_file) + "/" + name);
         if (file_exists(local)) return local;
-        #if 0
-        // Try TPTP environment variable (standard TPTP convention)
+        // Try TPTP environment variable (standard TPTP convention): includes such as
+        // "Axioms/MAT001^0.ax" are resolved relative to the TPTP root directory named
+        // by $TPTP. This is required when a problem is run from a directory that does
+        // not contain the Axioms/ tree (e.g. an isolated benchmark harness workspace).
         char const* root = std::getenv("TPTP");
         if (root) {
             std::string env = normalize_path(std::string(root) + "/" + name);
             if (file_exists(env)) return env;
         }
-        #endif
         // Walk up ancestor directories of the current file. TPTP include paths are
         // relative to the TPTP root directory (e.g. "Axioms/BOO001-0.ax"), while the
         // problem file typically lives in a subdirectory such as "Problems/BOO/".
