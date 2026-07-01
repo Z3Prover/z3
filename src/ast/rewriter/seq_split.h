@@ -40,14 +40,19 @@ class split_set2 {
     struct imp;
     imp *m_imp;
 
+    class consumer;
+
 public:
     split_set2(seq_rewriter &rw, expr *r, unsigned threshold, split_oracle const& oracle = split_oracle());
 
     ~split_set2();
 
+    split_set2(split_set2 const& other);
+
     class iterator {
         struct imp;
         imp *m_imp;
+        friend class consumer;
     public:
         iterator(split_set2 const& s, bool end = false);
         ~iterator();

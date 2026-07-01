@@ -19,6 +19,7 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/ast_pp.h"
 #include "util/obj_hashtable.h"
+#include "util/scoped_ptr_vector.h"
 
 struct split_set2::imp {
     ast_manager &m;
@@ -28,49 +29,66 @@ struct split_set2::imp {
     expr_ref r;
     unsigned m_threshold = UINT_MAX;
     split_oracle m_filter;
+    sort *m_re_sort = nullptr;
     sort *m_seq_sort = nullptr;  // sequence sort the decls are built for
 
     imp(seq_rewriter &rw, expr *r, unsigned threshold, split_oracle const &filter) : m(rw.m()), rw(rw), 
         seq(rw.u()), re(rw.u().re), r(r, m), m_threshold(threshold), m_filter(filter) {
-        VERIFY(seq.is_re(r, m_seq_sort));
+        if (r) {
+            VERIFY(seq.is_re(r, m_seq_sort));
+            m_re_sort = r->get_sort();
+        }
     }
+};
 
+class split_set2::consumer {
+protected:
+    split_set2::iterator::imp *ip = nullptr;
+public:
+    virtual void consume() = 0;
+    void set_parent(split_set2::iterator::imp &i) {
+        ip = &i;
+    }
+    split_set2::iterator::imp &parent() {
+        return *ip;
+    }
 };
 
 struct split_set2::iterator::imp {
-    struct cartesian_product {
-        split_set2::imp &s;
-        imp &i;
+    struct intersection : public split_set2::consumer {
+
         split_set2 a_s, b_s;
-        split_set2::iterator a_it;
-        split_set2::iterator b_it;
-        cartesian_product(imp &i, expr *a, expr *b)
-            : s(i.i), i(i), a_s(s.rw, a, {}), b_s(s.rw, b, {}), a_it(a_s.begin()), b_it(b_s.begin()) {}
+        split_set2::iterator a_it, a_end;
+        split_set2::iterator b_it, b_end;
+        intersection(seq_rewriter& rw, split_set2 const& a_s, split_set2 const& b_s)
+            : a_s(a_s), b_s(b_s), 
+            a_it(a_s.begin()), a_end(a_s.end()), 
+            b_it(b_s.begin()), b_end(b_s.end()) {}
         bool at_end() const {
-            return a_it == a_s.end() && b_it == b_s.end();
+            return (a_it == a_end && b_it == b_end) || a_it.failed() || b_it.failed();
         }
         void next() {
             SASSERT(!at_end());
-            if (b_it != b_s.end()) 
+            if (b_it != b_end)
                 ++b_it;
-            
-            if (b_it == b_s.end()) {
+
+            if (b_it == b_end) {
                 ++a_it;
-                if (a_it != a_s.end())
+                if (a_it != a_end)
                     b_it.m_imp->rewind();
             }
         }
-        void consume() {
-            while (!at_end() && !i.has_split()) {
+        void consume() override {
+            while (!at_end() && !parent().has_split()) {
                 auto [a1, a2] = *a_it;
                 auto [b1, b2] = *b_it;
-                expr_ref a(s.rw.mk_regex_inter_normalize(a1, b1), s.m);
-                expr_ref b(s.rw.mk_regex_inter_normalize(a2, b2), s.m);                
-                i.push_split(a, b);
-                next();                
+                auto a = parent().i.rw.mk_regex_inter_normalize(a1, b1);
+                auto b = parent().i.rw.mk_regex_inter_normalize(a2, b2);
+                parent().push_split(a, b);
+                next();
             }
             if (b_it.failed() || a_it.failed())
-                i.m_failure = true;
+                parent().m_failure = true;
         }
     };
 
@@ -80,23 +98,147 @@ struct split_set2::iterator::imp {
     // overrun must abort entirely: a partial fold is a strictly weaker (unsound)
     // split-set, since each ~sp[i] further constrains ~S.
 
-    struct complement {
-        split_set2::imp &s;
-        imp &i;
-        split_set2 a;
-        split_set2::iterator it;
+    struct complement : public split_set2::consumer {
 
-        complement(imp &i, expr *r) : s(i.i), i(i), a(s.rw, r, {}), it(a.begin()) {}
+        split_set2 a_s;
+        split_set2::iterator it, end;
+        bool m_init = false;
+        scoped_ptr<consumer> m_intersection;
+        
 
-        void consume() {
-            while (it != a.end() && !i.has_split()) {
-                auto [a, b] = *it;
-                NOT_IMPLEMENTED_YET();
-                // create a cascade of cross-products.
-                // empty set as a base case.
-                ++it;                
-            }
+        complement(split_set2 const &a) : a_s(a), it(a_s.begin()), end(a_s.end())
+        {            
         }
+
+        void init() {
+            if (m_init)
+                return;
+            m_init = true;            
+            expr_ref full(parent().seq.re.mk_full_seq(parent().i.m_re_sort), parent().m);
+            m_intersection = nullptr;
+            auto &p = parent();
+            while (it != end && !it.failed()) {
+                auto [a, b] = *it;
+                split_set2 A(p.i.rw, nullptr, p.i.m_threshold, p.i.m_filter);                               
+                split_set2 B(p.i.rw, nullptr, p.i.m_threshold, p.i.m_filter);
+                auto inter = alloc(intersection, p.i.rw, A, B);
+                if (m_intersection) {
+                    m_intersection->set_parent(*inter->a_it.m_imp);
+                    inter->a_it.m_imp->m_consumer = m_intersection.detach();
+                }
+                else 
+                    inter->a_it.m_imp->push_split(full, full);  
+                inter->b_it.m_imp->push_split(full, p.i.re.mk_complement(b));
+                inter->b_it.m_imp->push_split(p.i.re.mk_complement(a), full);
+                inter->a_it.m_imp->init();
+                inter->b_it.m_imp->init();
+                m_intersection = inter;
+                ++it;
+            }
+            if (m_intersection)
+                m_intersection->set_parent(p);
+            else 
+                p.push_split(full, full);
+            if (it.failed())
+                p.m_failure = true;
+        }
+
+        void consume() override {
+            init();
+            if (m_intersection)
+                m_intersection->consume();
+        }
+    };
+
+    struct non_eps : public split_set2::consumer {
+        ast_manager &m;
+        split_set2 a_s;
+        split_set2::iterator a_it;
+        non_eps(ast_manager& m, split_set2 const &a_s) : m(m), a_s(a_s), a_it(a_s.begin()) {}
+
+        void consume() override {
+            while (a_it != a_s.end() && !parent().has_split()) {
+                auto [p, q] = *a_it;
+                if (parent().re.is_epsilon(q))
+                    continue;
+                parent().push_split(p, q);
+            }
+            if (a_it.failed())
+                parent().m_failure = true;
+        }
+    };
+
+    struct concat_left : public split_set2::consumer {
+        split_set2 a_s;
+        split_set2::iterator a_it;
+        split_set2::iterator a_end;
+        expr_ref b;
+        concat_left(split_set2 const &a_s, expr *b)
+            :  a_s(a_s), a_it(a_s.begin()), a_end(a_s.end()), b(b, a_s.m_imp->m) {}
+
+        void consume() override {
+            while (a_it != a_end && !parent().has_split()) {
+                auto [p, q] = *a_it;
+                parent().push_split(p, parent().re.mk_concat(q, b));
+            }
+            if (a_it.failed())
+                parent().m_failure = true;
+        }
+    };
+
+    struct concat_right : public split_set2::consumer {
+        expr_ref a;        
+        split_set2 b_s;
+        split_set2::iterator b_it;
+        split_set2::iterator b_end;
+        concat_right(expr* a, split_set2 const &b_s) : a(a, b_s.m_imp->m), b_s(b_s), b_it(b_s.begin()), b_end(b_s.end()) {}
+
+        void consume() override {
+            while (b_it != b_end && !parent().has_split()) {
+                auto [p, q] = *b_it;
+                parent().push_split(parent().re.mk_concat(a, p), q);
+            }
+            if (b_it.failed())
+                parent().m_failure = true;
+        }
+    };
+
+
+    // TODO: can be written as a.sigma(b) u sigma(a).b filtering out eps on one union.
+    struct concat : split_set2::consumer {
+        expr_ref a, b;
+        split_set2 a_s, b_s;
+        split_set2::iterator a_it, a_end;
+        split_set2::iterator b_it, b_end;
+        concat(seq_rewriter& rw, expr *a, expr *b)
+            : a(a, rw.m()), b(b, rw.m()), 
+              a_s(rw, a, {}), b_s(rw, b, {}), 
+              a_it(a_s.begin()), a_end(a_s.end()), b_it(b_s.begin()), b_end(b_s.end()) {}
+
+        bool at_end() const {            
+            return a_it == a_end && b_it == b_end;
+        }
+
+        void consume() override {
+            if (at_end())
+                return;
+            while (!parent().has_split() && !at_end() && !a_it.failed() && !b_it.failed()) {
+                if (a_it == a_end) {
+                    auto [p, q] = *b_it;
+                    parent().push_split(parent().re.mk_concat(a, p), q);
+                    ++b_it;
+                }
+                else {
+                    auto [p, q] = *a_it;
+                    if (!parent().re.is_epsilon(q))
+                        parent().push_split(p, parent().re.mk_concat(q, b));
+                    ++a_it;
+                }
+            }
+            if (a_it.failed() || b_it.failed())
+                parent().m_failure = true;
+        }
+
     };
     split_set2 &s;
     split_set2::imp &i;
@@ -105,51 +247,51 @@ struct split_set2::iterator::imp {
     seq_util::rex &re;
     expr_ref_vector m_cont;
     vector<std::pair<expr_ref, expr_ref>> m_splits;
+    bool m_init = false;
     unsigned m_qhead = 0;
-    scoped_ptr<cartesian_product> m_cartesian;
-    scoped_ptr<complement> m_complement;
+    scoped_ptr<split_set2::consumer> m_consumer;
     bool m_at_end;
     bool m_failure = false;
     imp(split_set2 &s, bool at_end) : s(s), i(*s.m_imp), m(i.m), seq(i.seq), re(i.re), m_cont(m), m_at_end(at_end) {
-        m_cont.push_back(i.r);
+        if (i.r) {
+            m_cont.push_back(i.r);
+            init();
+        }
     }
 
     bool has_split() {
+        SASSERT(m_init);     
         return m_qhead < m_splits.size();
     }
 
     void rewind() {
         m_qhead = 0;
-        m_at_end = m_qhead < m_splits.size();
+        m_at_end = m_qhead == m_splits.size();
         SASSERT(m_cont.empty());
-        SASSERT(!m_cartesian);
-        SASSERT(!m_complement);
+        SASSERT(!m_consumer);
+    }
+
+    void init() {
+        if (!m_init)
+            next();
+        m_init = true;
     }
 
     void next() {
-        m_qhead++;
+        m_init = true;
         while (!at_end()) {
             if (has_split())
                 return;
-            if (m_cartesian) {
-                m_cartesian->consume();
+            if (m_consumer) {
+                m_consumer->consume();
                 if (has_split())
                     return;
-                m_cartesian = nullptr;
+                m_consumer = nullptr;
             }
-
-            if (m_complement) {
-                m_complement->consume();
-                if (has_split())
-                    return;
-                m_complement = nullptr;
-            }
-
             if (m_cont.empty()) {
                 m_at_end = true;
                 return;
             }
-
             // TODO: we can be strategic about choosing what to unfold, 
             // and perform early subsumption check
             expr_ref last(m_cont.back(), m);
@@ -159,6 +301,7 @@ struct split_set2::iterator::imp {
     }
 
     void push_split(expr *a, expr *b) {
+        expr_ref _a(a, m), _b(b, m);
         if (m_failure)
             return;
         if (i.m_filter && !i.m_filter(a, b))
@@ -168,7 +311,28 @@ struct split_set2::iterator::imp {
         if (re.get_info(b).min_length == UINT_MAX)
             return;
         // subsumption checking
-        m_splits.push_back({expr_ref(a, m), expr_ref(b, m)});
+        for (auto const &[p, q] : m_splits) {
+            if (i.rw.is_subset(a, p) && i.rw.is_subset(b, q))
+                return;
+        }
+        for (unsigned j = m_qhead; j < m_splits.size(); ++j) {
+            auto const &[p, q] = m_splits[j];
+            if (i.rw.is_subset(p, a) && i.rw.is_subset(q, b)) {
+                m_splits[j] = {_a, _b};            
+                return;
+            }
+            if (a == p) {
+                _b = i.re.mk_union(q, _b);
+                m_splits[j] = {_a, _b};
+                return;
+            }
+            if (b == q) {
+                _a = i.re.mk_union(p, _a);
+                m_splits[j] = {_a, _b};
+                return;
+            }
+        }
+        m_splits.push_back({_a, _b});
         if (m_splits.size() > i.m_threshold) {
             TRACE(seq, tout << "size of split set exceeds threshold");
             m_failure = true;
@@ -180,6 +344,8 @@ struct split_set2::iterator::imp {
         if (re.is_empty(r))
             return;
 
+        SASSERT(!m_consumer);
+        auto mk_eps = [&]() { return expr_ref(re.mk_epsilon(i.m_seq_sort), m); };
         expr *a, *b;
         if (re.is_union(r, a, b)) {
             m_cont.push_back(a);
@@ -188,36 +354,45 @@ struct split_set2::iterator::imp {
         }
 
         if (re.is_intersection(r, a, b)) {
-            m_cartesian = alloc(cartesian_product, *this, a, b);
+            split_set2 a_s(i.rw, a, i.m_threshold, {});
+            split_set2 b_s(i.rw, b, i.m_threshold, {});
+            m_consumer = alloc(intersection, i.rw, a_s, b_s);
+            m_consumer->set_parent(*this);
             return;
         }
 
         if (re.is_complement(r, a)) {
-            m_complement = alloc(complement, *this, a);
+            split_set2 sigma_a(i.rw, a, i.m_threshold, {});
+            m_consumer = alloc(complement, sigma_a); 
+            m_consumer->set_parent(*this);
             return;
         }
 
         if (re.is_concat(r, a, b)) {
-            NOT_IMPLEMENTED_YET();
+            m_consumer = alloc(concat, i.rw, a, b);
+            m_consumer->set_parent(*this);
+            return;
         }
 
         if (re.is_to_re(r, a)) {
+            zstring str;
             if (seq.str.is_concat(a, a, b)) {
                 m_cont.push_back(re.mk_concat(re.mk_to_re(a), re.mk_to_re(b)));
-                return;
             }
-            if (seq.str.is_unit(a, b)) {
-                expr_ref eps(nullptr, m); // TODO
+            else if (seq.str.is_unit(a, b)) {
+                auto eps = mk_eps();
                 push_split(eps, a);
                 push_split(a, eps);
-                return;
             }
-            zstring zs;
-            if (seq.str.is_string(a, zs)) {
-                // TODO
-                NOT_IMPLEMENTED_YET();
+            else if (seq.str.is_string(a, str)) {
+                for (unsigned i = 0; i <= str.length(); ++i) {
+                    const expr_ref p(re.mk_to_re(seq.str.mk_string(str.extract(0, i))), m);
+                    const expr_ref q(re.mk_to_re(seq.str.mk_string(str.extract(i, str.length() - i))), m);
+                    push_split(p, q);
+                }
             }
-            set_failure(r);
+            else 
+                set_failure(r);
             return;
         }
 
@@ -226,20 +401,40 @@ struct split_set2::iterator::imp {
             return;
         }
 
+        // star: sigma(a*) = { <eps, eps> } cup a*.sigma(a).a*
+        auto add_star = [&](expr *r, expr* a) {
+            split_set2 sigma_a(i.rw, a, i.m_threshold, {});
+            auto *c_left = alloc(concat_left, sigma_a, r);
+            split_set2 sigma_aa(i.rw, nullptr, i.m_threshold, {});
+            auto *c_right = alloc(concat_right, r, sigma_aa);
+            auto &parent = *c_right->b_it.m_imp;
+            parent.m_consumer = c_left;
+            c_left->set_parent(parent);            
+            m_consumer = c_right;
+            m_consumer->set_parent(*this);
+        };
+
         if (re.is_star(r, a)) {
-            NOT_IMPLEMENTED_YET();
+            auto eps = mk_eps();
+            push_split(eps, eps);
+            add_star(r, a);
+            return;
         }
 
+        // plus: a+ = a.a* ; sigma(a+) = a*.sigma(a).a*  (star rule without <eps,eps>)
         if (re.is_plus(r, a)) {
-            NOT_IMPLEMENTED_YET();
+            const expr_ref star(re.mk_star(a), m);  // a*
+            add_star(star, a);
+            return;
         }
 
         if (re.is_diff(r, a, b)) {
-            NOT_IMPLEMENTED_YET();
+            m_cont.push_back(re.mk_inter(a, re.mk_complement(b)));
+            return;            
         }
 
          if (re.is_full_char(r) || re.is_range(r) || re.is_of_pred(r)) {
-            expr_ref eps(re.mk_epsilon(i.m_seq_sort), m);
+            auto eps = mk_eps();
             push_split(r, eps);
             push_split(eps, r);
             return;
@@ -255,7 +450,7 @@ struct split_set2::iterator::imp {
     }
 
     void set_failure(expr* r) {
-        TRACE(seq, tout << "split_set2::iterator::unfold: unhandled regex: " << mk_pp(r, m) << "\n");
+        TRACE(seq, tout << "split_set::iterator::unfold: unhandled regex: " << mk_pp(r, m) << "\n");
         m_failure = true;
         m_at_end = true;
     }
@@ -273,6 +468,10 @@ split_set2::~split_set2() {
     dealloc(m_imp);
 }
 
+split_set2::split_set2(split_set2 const& other) {
+    m_imp = alloc(imp, other.m_imp->rw, other.m_imp->r, other.m_imp->m_threshold, other.m_imp->m_filter);
+}
+
 split_set2::iterator::iterator(split_set2 const &s, bool at_end) {
     m_imp = alloc(imp, const_cast<split_set2&>(s), at_end);
 }
@@ -280,7 +479,6 @@ split_set2::iterator::iterator(split_set2 const &s, bool at_end) {
 split_set2::iterator::~iterator() {
     dealloc(m_imp);
 }
-
 
 split_set2::iterator split_set2::begin() const {
     return iterator(*this, false);
@@ -291,17 +489,18 @@ split_set2::iterator split_set2::end() const {
 }
 
 split_set2::iterator& split_set2::iterator::operator++() {
+    SASSERT(m_imp->m_init);
+    m_imp->m_qhead++;
     m_imp->next();
     return *this;
 }
 
-std::pair<expr_ref, expr_ref> split_set2::iterator::operator*() const {
-    SASSERT(m_imp->has_split());
+std::pair<expr_ref, expr_ref> split_set2::iterator::operator*() const {  
+    SASSERT(m_imp->m_init);
     return m_imp->m_splits[m_imp->m_qhead];
 }
 
 bool split_set2::iterator::operator==(split_set2::iterator const &other) const {
-    SASSERT(m_imp->at_end() || other.m_imp->at_end());
     return m_imp->at_end() && other.m_imp->at_end();
 }
 

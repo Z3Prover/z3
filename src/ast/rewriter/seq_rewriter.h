@@ -198,7 +198,7 @@ class seq_rewriter {
     bool neq_char(expr* ch1, expr* ch2);
     bool le_char(expr* ch1, expr* ch2);
     bool are_complements(expr* r1, expr* r2) const;
-    bool is_subset(expr* r1, expr* r2) const;
+
 
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
@@ -421,6 +421,8 @@ public:
     }
 
     void simplify_split(split_set& s) { m_split.simplify(s); }
+
+    bool is_subset(expr *r1, expr *r2) const;
 
     // decompose a membership constraint into a set of pairs of regex splits
     std::pair<expr_ref, expr_ref> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
