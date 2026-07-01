@@ -24,9 +24,9 @@ Revision History:
 
 #include <iostream>
 
-#define MK_ARITH_OP(NAME, OP) MK_NARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
-#define MK_BINARY_ARITH_OP(NAME, OP) MK_BINARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
-#define MK_ARITH_PRED(NAME, OP) MK_BINARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
+#define xMK_ARITH_OP(NAME, OP) xMK_NARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
+#define xMK_BINARY_ARITH_OP(NAME, OP) xMK_BINARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
+#define xMK_ARITH_PRED(NAME, OP) xMK_BINARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
 
 extern "C" {
 
@@ -76,11 +76,14 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    MK_ARITH_OP(Z3_mk_add, OP_ADD)
-    MK_ARITH_OP(Z3_mk_mul, OP_MUL)
-    MK_BINARY_ARITH_OP(Z3_mk_power, OP_POWER)
-    MK_BINARY_ARITH_OP(Z3_mk_mod, OP_MOD)
-    MK_BINARY_ARITH_OP(Z3_mk_rem, OP_REM)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wc++98-compat-extra-semi"
+    xMK_ARITH_OP(Z3_mk_add, OP_ADD);
+    xMK_ARITH_OP(Z3_mk_mul, OP_MUL);
+    xMK_BINARY_ARITH_OP(Z3_mk_power, OP_POWER);
+    xMK_BINARY_ARITH_OP(Z3_mk_mod, OP_MOD);
+    xMK_BINARY_ARITH_OP(Z3_mk_rem, OP_REM);
+#pragma clang diagnostic pop
 
     Z3_ast Z3_API Z3_mk_div(Z3_context c, Z3_ast n1, Z3_ast n2) {
         Z3_TRY;
@@ -100,10 +103,13 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    MK_ARITH_PRED(Z3_mk_lt,  OP_LT)
-    MK_ARITH_PRED(Z3_mk_gt,  OP_GT)
-    MK_ARITH_PRED(Z3_mk_le,  OP_LE)
-    MK_ARITH_PRED(Z3_mk_ge,  OP_GE)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wc++98-compat-extra-semi"
+    xMK_ARITH_PRED(Z3_mk_lt, OP_LT);
+    xMK_ARITH_PRED(Z3_mk_gt, OP_GT);
+    xMK_ARITH_PRED(Z3_mk_le, OP_LE);
+    xMK_ARITH_PRED(Z3_mk_ge, OP_GE);
+#pragma clang diagnostic pop
 
     Z3_ast Z3_API Z3_mk_divides(Z3_context c, Z3_ast n1, Z3_ast n2) {
         Z3_TRY;
@@ -123,10 +129,13 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    MK_UNARY(Z3_mk_abs, mk_c(c)->get_arith_fid(), OP_ABS, SKIP)
-    MK_UNARY(Z3_mk_int2real, mk_c(c)->get_arith_fid(), OP_TO_REAL, SKIP)
-    MK_UNARY(Z3_mk_real2int, mk_c(c)->get_arith_fid(), OP_TO_INT, SKIP)
-    MK_UNARY(Z3_mk_is_int,   mk_c(c)->get_arith_fid(), OP_IS_INT, SKIP)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wc++98-compat-extra-semi"
+    xMK_UNARY(Z3_mk_abs, mk_c(c)->get_arith_fid(), OP_ABS, SKIP);
+    xMK_UNARY(Z3_mk_int2real, mk_c(c)->get_arith_fid(), OP_TO_REAL, SKIP);
+    xMK_UNARY(Z3_mk_real2int, mk_c(c)->get_arith_fid(), OP_TO_INT, SKIP);
+    xMK_UNARY(Z3_mk_is_int, mk_c(c)->get_arith_fid(), OP_IS_INT, SKIP);
+#pragma clang diagnostic pop
 
     Z3_ast Z3_API Z3_mk_sub(Z3_context c, unsigned num_args, Z3_ast const args[]) {
         Z3_TRY;
