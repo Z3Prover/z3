@@ -2329,7 +2329,7 @@ namespace seq {
         // differs), so it would alias the parent's signature, yet it still has
         // pending splits to explore — it is not a true recurrence.
         {
-            if (!node->rf_cont() && m_unsat_node_cache.contains(node)) {
+            if (!node->is_rf_cont() && m_unsat_node_cache.contains(node)) {
                 node->set_conflict(backtrack_reason::sibling, nullptr /*we use the one of the sibling*/);
                 node->set_general_conflict();
                 node->m_unsat_cacheable = true;
@@ -2429,12 +2429,17 @@ namespace seq {
         // with string-only conflicts and self-contained cuts (see the epilogue).
         // -------------------------------------------------------------------
         node->canonize_and_compute_final_node_hash();
-        // A lazy-factorization continuation node (rf_cont set) is EXEMPT from the
+        // A lazy-factorization continuation node (is_rf_cont) is EXEMPT from the
         // loop-cut: it aliases its parent's string signature (only the suspended
         // split iterator differs) but is not a true recurrence — it still has
         // pending splits.  The iterator is finite, so the continuation chain
-        // terminates on its own (exhaustion → regex conflict).
-        if (!node->rf_cont()) {
+        // terminates on its own (exhaustion → regex conflict).  The exemption uses
+        // the STICKY is_rf_cont() marker, not the live rf_cont() pointer: the
+        // pointer is nulled once the node is extended, but on a hot-restart the
+        // node is re-traversed without re-extending, and it must stay exempt (else
+        // it is wrongly cut as a sibling of the ancestor it aliases, pruning a
+        // branch that may still lead to SAT).
+        if (!node->is_rf_cont()) {
             auto it = m_siblings.find(node);
             if (it != m_siblings.end() && !it->second.empty()) {
                 nielsen_node* anc = it->second.back(); // deepest sibling still on the path

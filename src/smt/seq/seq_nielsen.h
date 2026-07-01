@@ -600,6 +600,14 @@ namespace seq {
         // split iterator so factorization resumes from the next split when this
         // node is extended.  Owned by nielsen_graph::m_rf_states (raw pointer here).
         rf_state*               m_rf_cont = nullptr;
+        // Sticky marker: true once this node was ever created as a factorization
+        // continuation (child B), even after its iterator has been consumed
+        // (m_rf_cont reset to null when the node is extended).  The subsumption
+        // loop-cut and unsat-cache exemptions (§1.6b) are a PERMANENT structural
+        // property of a continuation node — it aliases its parent's string
+        // signature yet is not a recurrence — so they must survive the hot-restart
+        // re-traversal, where m_rf_cont is already null.  See search_dfs.
+        bool                    m_is_rf_cont = false;
         // number of constraints inherited from the parent node at clone time.
         // constraints[0..m_parent_ic_count) are already asserted at the
         // parent's solver scope; only [m_parent_ic_count..end) need to be
@@ -657,7 +665,11 @@ namespace seq {
 
         // lazy regex factorization continuation (see m_rf_cont).
         rf_state* rf_cont() const { return m_rf_cont; }
-        void set_rf_cont(rf_state* s) { m_rf_cont = s; }
+        void set_rf_cont(rf_state* s) { m_rf_cont = s; if (s) m_is_rf_cont = true; }
+        // Sticky: true if this node was ever a factorization continuation, even
+        // after its iterator has been consumed.  Drives the loop-cut / unsat-cache
+        // exemptions so they persist across the hot-restart re-traversal.
+        bool is_rf_cont() const { return m_is_rf_cont; }
 
         // returns 0 if hash is unknown
         unsigned hash() const {
