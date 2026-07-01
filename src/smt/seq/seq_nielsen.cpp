@@ -4115,6 +4115,17 @@ namespace seq {
         return false;
     }
 
+    bool nielsen_graph::mem_has_cycle_token(str_mem const& mem) const {
+        static const symbol cycle_sym("cycle");
+        SASSERT(mem.m_str);
+        for (euf::snode const* t : mem.m_str->collect_tokens()) {
+            expr* const e = t->get_expr();
+            if (e && m_sk.is_skolem(cycle_sym, e))
+                return true;
+        }
+        return false;
+    }
+
     rf_state* nielsen_graph::mk_rf_state(nielsen_node* /*node*/, str_mem const& mem) {
         euf::snode const* const first = mem.m_str->first();
         SASSERT(first);
@@ -4251,6 +4262,10 @@ namespace seq {
         if (m_regex_factorization_threshold == 0)
             return false;
 
+        for (str_mem const& mem : node->str_mems())
+            if (mem.is_view() || mem.is_guard() || mem_has_cycle_token(mem))
+                return false;
+
         // Continuation: resume the iterator handed down to this node by its
         // parent's "remaining splits" branch.
         if (rf_state* st = node->rf_cont()) {
@@ -4290,6 +4305,12 @@ namespace seq {
 
             // Defer to the cycle machinery when the leading variable is guarded.
             if (leading_var_guarded(node, mem.m_str->first()))
+                continue;
+
+            // Defer when the membership mentions a cycle stabilizer token: the
+            // cycle machinery owns it, and factorizing it re-expands the cycle
+            // structure indefinitely (see mem_has_cycle_token).
+            if (mem_has_cycle_token(mem))
                 continue;
 
             rf_state* st = mk_rf_state(node, mem);
@@ -5077,16 +5098,11 @@ namespace seq {
             // not true anymore since we might have done a hot-restart where we previously created the child:
             //SASSERT(n->outgoing().empty());
             SASSERT(n->is_currently_conflict());
-            if (n->m_conflict_external_literal != sat::null_literal) {
-                std::cout << "Node " << n->id() << std::endl;
+            if (n->m_conflict_external_literal != sat::null_literal)
                 // We know from the outer solver that this literal is assigned true and contradicts node constraint
                 deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
-            }
-
-            if (n->m_conflict_internal) {
-                std::cout << "Node " << n->id() << std::endl;
+            if (n->m_conflict_internal)
                 deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
-            }
         }
         return deps;
     }

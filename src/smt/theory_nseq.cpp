@@ -1005,6 +1005,7 @@ namespace smt {
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
                 m_nielsen.set_regex_factorization_eager(get_fparams().m_nseq_regex_factorization_eager);
+                m_nielsen.set_regex_dynamic_decomposition(get_fparams().m_nseq_regex_dynamic_decomposition);
                 m_nielsen.set_harvest(get_fparams().m_nseq_harvest);
                 m_nielsen.set_harvest_dir(get_fparams().m_nseq_harvest_dir.str());
 

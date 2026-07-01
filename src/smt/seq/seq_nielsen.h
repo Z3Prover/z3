@@ -1399,6 +1399,14 @@ namespace seq {
         // disjunction is refuted → the continuation node is a regex conflict.
         bool apply_regex_factorization(nielsen_node* node);
 
+        // True if the membership's string mentions a `cycle` stabilizer token
+        // (the (cycle x R) Skolem minted by apply_cycle_decomposition).  Such a
+        // membership is owned by the cycle machinery; factorization must defer to
+        // it — re-splitting it re-expands the very structure the cycle rule is
+        // trying to close, and the fresh slice variables each cycle step mints
+        // defeat the exact-structural loop-cut → non-termination.
+        bool mem_has_cycle_token(str_mem const& mem) const;
+
         // Build a suspended factorization (boundary head/tail + split iterator)
         // for `mem`.  Returns null if the regex shape is unsupported (the engine
         // cannot even start a split).  Allocated into m_rf_states.
