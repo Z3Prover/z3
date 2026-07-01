@@ -64,6 +64,8 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_signature = p.nseq_signature();
     m_nseq_axiomatize_diseq = p.nseq_axiomatize_diseq();
     m_nseq_eager = p.nseq_eager();
+    m_nseq_harvest = p.nseq_harvest();
+    m_nseq_harvest_dir = p.nseq_harvest_dir();
     m_up_persist_clauses = p.up_persist_clauses();
     validate_string_solver(m_string_solver);
     if (_p.get_bool("arith.greatest_error_pivot", false))
@@ -181,6 +183,7 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nseq_regex_factorization_eager);
     DISPLAY_PARAM(m_nseq_regex_dynamic_decomposition);
     DISPLAY_PARAM(m_nseq_axiomatize_diseq);
+    DISPLAY_PARAM(m_nseq_harvest);
 
     DISPLAY_PARAM(m_profile_res_sub);
     DISPLAY_PARAM(m_display_bool_var2expr);

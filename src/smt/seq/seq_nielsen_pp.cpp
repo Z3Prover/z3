@@ -19,8 +19,13 @@ Author:
 #include "smt/seq/seq_nielsen.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/decl_collector.h"
 #include "util/obj_hashtable.h"
+#include "util/trace.h"
 #include <sstream>
+#include <fstream>
+#include <iomanip>
 
 namespace seq {
 
@@ -86,6 +91,157 @@ namespace seq {
         }
 
         return out;
+    }
+
+    // Rewrite `e` into portable SMT-LIB: peel seq.slice(...) applications to their root
+    // variable (first argument, chased until non-slice — matching the sgraph hashing
+    // convention in euf_sgraph.cpp), rebuilding all other applications with cleaned args.
+    // Sets ok=false if any remaining subterm is an nseq-internal skolem we cannot
+    // represent (e.g. a power token, a Parikh counter); the node is then skipped.
+    expr_ref nielsen_graph::clean_harvest_expr(expr* e, bool& ok) {
+        if (!ok)
+            return expr_ref(m);
+        // peel slice wrappers down to the underlying root variable
+        while (m_sk.is_slice(e))
+            e = to_app(e)->get_arg(0);
+        if (!is_app(e)) { // quantifiers / vars should not appear here
+            ok = false;
+            return expr_ref(e, m);
+        }
+        app* a = to_app(e);
+        // a leaf that is still an nseq-internal skolem (e.g. a power) cannot be emitted
+        if (a->get_num_args() == 0) {
+            if (m_sk.is_skolem(e)) {
+                ok = false;
+                return expr_ref(e, m);
+            }
+            return expr_ref(e, m);
+        }
+        expr_ref_vector args(m);
+        for (expr* arg : *a) {
+            expr_ref c = clean_harvest_expr(arg, ok);
+            if (!ok)
+                return expr_ref(m);
+            args.push_back(c);
+        }
+        return expr_ref(m.mk_app(a->get_decl(), args.size(), args.data()), m);
+    }
+
+    // Benchmark-harvest: dump a snapshot of `n` (regex memberships + residual word
+    // equations) as a self-contained, portable SMT-LIB2 benchmark.  Terms are cleaned
+    // via clean_harvest_expr (slice tails -> root variables); the internal
+    // integer/length side constraints are dropped (they carry non-portable Parikh /
+    // slice-length skolems and are implied by the memberships).  Deduplicated by
+    // structural node hash.  Intended purely for benchmark generation; the surrounding
+    // harvest mode is unsound.
+    void nielsen_graph::harvest_node(nielsen_node const* n) {
+        // dedup by structural hash (computed earlier in search_dfs)
+        const unsigned h = n->hash();
+        IF_VERBOSE(2, verbose_stream() << "nseq harvest: node " << n->id()
+            << " hash=" << h << " #eq=" << n->str_eqs().size()
+            << " #mem=" << n->str_mems().size() << "\n");
+        if (!m_harvested_hashes.insert(h).second) {
+            IF_VERBOSE(2, verbose_stream() << "nseq harvest: deduped\n");
+            return;
+        }
+        // only interesting if there is at least one membership
+        if (n->str_mems().empty()) {
+            IF_VERBOSE(2, verbose_stream() << "nseq harvest: no memberships, skip\n");
+            return;
+        }
+
+        // clean every term first; skip the whole node if anything is unrepresentable
+        bool ok = true;
+        vector<std::pair<expr_ref, expr_ref>> eqs;    // cleaned word equations
+        vector<std::pair<expr_ref, expr_ref>> mems;   // cleaned memberships (str, regex)
+        for (auto const& eq : n->str_eqs()) {
+            if (eq.is_trivial())
+                continue;
+            expr_ref l = clean_harvest_expr(eq.m_lhs->get_expr(), ok);
+            expr_ref r = clean_harvest_expr(eq.m_rhs->get_expr(), ok);
+            if (!ok) break;
+            eqs.push_back({l, r});
+        }
+        for (auto const& mem : n->str_mems()) {
+            if (!ok) break;
+            expr_ref s = clean_harvest_expr(mem.m_str->get_expr(), ok);
+            expr_ref re = clean_harvest_expr(mem.m_regex->get_expr(), ok);
+            if (!ok) break;
+            mems.push_back({s, re});
+        }
+        if (!ok) {
+            IF_VERBOSE(2, verbose_stream() << "nseq harvest: unrepresentable term, skip\n");
+            return;
+        }
+
+        std::ostringstream fname;
+        fname << m_harvest_dir << "/harvest_"
+              << std::setw(6) << std::setfill('0') << m_harvest_counter << ".smt2";
+        std::ofstream out(fname.str());
+        if (!out) {
+            // fall back to the current working directory on open failure
+            std::ostringstream alt;
+            alt << "harvest_" << std::setw(6) << std::setfill('0') << m_harvest_counter << ".smt2";
+            out.open(alt.str());
+            if (!out) {
+                IF_VERBOSE(0, verbose_stream()
+                    << "nseq harvest: could not open output file " << fname.str() << "\n");
+                return;
+            }
+        }
+        ++m_harvest_counter;
+
+        // collect all uninterpreted declarations used by the cleaned snapshot
+        decl_collector coll(m);
+        for (auto const& [l, r] : eqs) {
+            coll.visit(l);
+            coll.visit(r);
+        }
+        for (auto const& [s, re] : mems) {
+            coll.visit(s);
+            coll.visit(re);
+        }
+        coll.order_deps(0);
+
+        smt2_pp_environment_dbg env(m);
+        params_ref pp;
+
+        out << "; harvested from nseq node " << n->id() << " (hash " << h << ")\n";
+        out << "(set-logic QF_S)\n";
+
+        // user-defined (uninterpreted) sorts, if any
+        for (sort* s : coll.get_sorts()) {
+            if (s->get_family_id() == null_family_id)
+                out << "(declare-sort " << s->get_name() << " 0)\n";
+        }
+        // function/constant declarations
+        for (func_decl* f : coll.get_func_decls()) {
+            if (coll.should_declare(f)) {
+                ast_smt2_pp(out, f, env, pp);
+                out << "\n";
+            }
+        }
+
+        // residual word equations
+        for (auto const& [l, r] : eqs) {
+            out << "(assert (= ";
+            ast_smt2_pp(out, l, env, pp);
+            out << " ";
+            ast_smt2_pp(out, r, env, pp);
+            out << "))\n";
+        }
+        // regex memberships (the rewritten, often non-primitive, ones we are after)
+        for (auto const& [s, re] : mems) {
+            out << "(assert (str.in_re ";
+            ast_smt2_pp(out, s, env, pp);
+            out << " ";
+            ast_smt2_pp(out, re, env, pp);
+            out << "))\n";
+        }
+
+        out << "(check-sat)\n";
+        IF_VERBOSE(1, verbose_stream() << "nseq harvest: wrote " << fname.str()
+            << " (" << mems.size() << " memberships)\n");
     }
 
     std::ostream& nielsen_graph::display(std::ostream& out) const {

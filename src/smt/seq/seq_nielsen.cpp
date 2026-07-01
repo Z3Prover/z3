@@ -134,7 +134,8 @@ namespace seq {
         // (sigma from the paper): head ∈ Δ ∧ tail ∈ ∇ for each ⟨Δ,∇⟩, with the
         // lookahead oracle pruning non-viable ∇ during generation.
         seq_rewriter rw(m);
-        if (!rw.split(regex->get_expr(), result, threshold, split_mode::strong, oracle)) {
+        // "strong" might cause explosive behavior; better do this only in the saturation
+        if (!rw.split(regex->get_expr(), result, threshold, split_mode::weak, oracle)) {
             result.clear();
             return { nullptr, nullptr };
         }
@@ -2030,6 +2031,25 @@ namespace seq {
             // solver at the base level, so they are visible during all feasibility checks.
             assert_root_constraints_to_solver();
 
+            if (harvest_mode()) {
+                // Benchmark-harvest mode: a single fixed-depth DFS pass at the harvest
+                // bound (no iterative deepening, to avoid re-harvesting / divergence).
+                // Every branch reaching the bound dumps a snapshot of the current node
+                // and returns unknown; SAT leaves also return unknown (see search_dfs),
+                // so the whole pass returns unknown.  theory_nseq turns this into a
+                // blocking clause to force the SAT solver onto a different assignment.
+                m_depth_bound = m_harvest;
+                ptr_vector<nielsen_edge> cur_path;
+                m_siblings.clear();
+                const unsigned before = m_stats.m_num_dfs_nodes;
+                search_dfs(m_root, cur_path);
+                IF_VERBOSE(2, verbose_stream() << "nseq harvest: DFS explored "
+                    << (m_stats.m_num_dfs_nodes - before) << " nodes (bound="
+                    << m_depth_bound << ")\n");
+                ++m_stats.m_num_unknown;
+                return search_result::unknown;
+            }
+
             // Iterative deepening: increment by 1 on each failure.
             // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
             m_depth_bound = 3;
@@ -2360,6 +2380,12 @@ namespace seq {
         SASSERT(!node->is_currently_conflict());
 
         if (node->is_satisfied()) {
+            // Benchmark-harvest mode: a satisfied node has only primitive memberships
+            // (uninteresting for the regex factorization benchmark) — do NOT declare SAT
+            // (that would terminate the harvest loop) and do NOT harvest; just dead-end
+            // this branch so the search keeps exploring others.
+            if (harvest_mode())
+                return search_result::unknown;
             // Before declaring SAT, check leaf-node regex feasibility:
             // for each variable with multiple regex constraints, verify
             // that the intersection of all its regexes is non-empty.
@@ -2424,14 +2450,31 @@ namespace seq {
         }
 
         // depth bound check
-        if (depth >= m_depth_bound)
+        if (depth >= m_depth_bound) {
+            // Benchmark-harvest mode: this node has reached the configured number of
+            // non-progress extension steps and is a genuine intermediate state
+            // (post-simplify, post-Parikh, not a conflict, not satisfied) whose
+            // memberships are the rewritten (often non-primitive) ones we want.
+            // Dump the snapshot, then backtrack.
+            if (harvest_mode())
+                harvest_node(node);
             return search_result::unknown;
+        }
 
         SASSERT(!node->is_currently_conflict());
 
         // generate extensions only once per node; children persist across runs
         if (!node->is_extended()) {
             const bool ext = generate_extensions(node);
+            // Benchmark-harvest mode: with all regex modifiers disabled, a node whose
+            // only remaining work is on (non-primitive) memberships has no applicable
+            // word-equation modifier, so generate_extensions yields nothing.  This is a
+            // harvest leaf: dump the snapshot and backtrack instead of failing the
+            // VERIFY(ext) below.
+            if (harvest_mode() && !ext) {
+                harvest_node(node);
+                return search_result::unknown;
+            }
             IF_VERBOSE(1, display(verbose_stream(), node));
             CTRACE(seq, !ext, display(tout, node) << to_dot() << "\n");
             if (!ext) {
@@ -3329,11 +3372,13 @@ namespace seq {
             return ++m_stats.m_mod_eq_split, true;
 
         // Priority 5b: CycleSubsumption - eliminate leading variable subsumed by stabilizer
-        if (apply_cycle_subsumption(node))
+        // (regex-related: skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_cycle_subsumption(node))
             return ++m_stats.m_mod_cycle_subsumption, true;
 
         // Priority 6: CycleDecomp - stabilizer introduction for regex cycles using partial DFA projection
-        if (apply_cycle_decomposition(node))
+        // (regex-related: skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_cycle_decomposition(node))
             return ++m_stats.m_mod_star_intr, true;
 
         // Priority 7: GPowerIntr - ground power introduction
@@ -3341,7 +3386,8 @@ namespace seq {
             return ++m_stats.m_mod_gpower_intr, true;
 
         // Priority 8: Regex Factorization
-        if (apply_regex_factorization(node))
+        // (regex-related: skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_regex_factorization(node))
             return ++m_stats.m_mod_regex_factorization, true;
 
         // Priority 8b: ConstNielsen - char vs var (2 children)
@@ -3349,7 +3395,8 @@ namespace seq {
             return ++m_stats.m_mod_const_nielsen, true;
 
         // Priority 9: RegexIfSplit - split str_mem s ∈ ite(c,th,el) by branching on c
-        if (apply_regex_if_split(node))
+        // (regex-related: skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_regex_if_split(node))
             return ++m_stats.m_mod_regex_if_split, true;
 
         // Priority 9b: SignatureSplit - heuristic string equation splitting
@@ -3357,7 +3404,8 @@ namespace seq {
             return ++m_stats.m_mod_signature_split, true;
 
         // Priority 10: RegexVarSplit - split str_mem by minterms
-        if (apply_regex_var_split(node))
+        // (regex-related: skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_regex_var_split(node))
             return ++m_stats.m_mod_regex_var_split, true;
 
         // Priority 11: PowerSplit - power unwinding with bounded prefix
@@ -3373,11 +3421,16 @@ namespace seq {
             return ++m_stats.m_mod_var_num_unwinding_eq, true;
 
         // Priority 14: variable power unwinding for membership constraints
-        if (apply_var_num_unwinding_mem(node))
+        // (regex/membership-related: skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_var_num_unwinding_mem(node))
             return ++m_stats.m_mod_var_num_unwinding_mem, true;
 
         // let's unwindind a disequality
-        if (axiomatize_diseq(node))
+        // (axiomatize_diseq requires the node to be satisfied-except-diseq; in
+        // benchmark-harvest mode a node may still carry non-primitive memberships
+        // because the regex modifiers are disabled, so skip it and let the caller
+        // treat the empty result as a harvest leaf)
+        if (!harvest_mode() && axiomatize_diseq(node))
             return ++m_stats.m_ax_diseq, true;
 
         return false;

@@ -886,6 +886,10 @@ namespace seq {
         unsigned                      m_regex_factorization_threshold = 1;
         bool                          m_regex_factorization_eager = false;
         bool                          m_regex_dynamic_decomposition = true;
+        unsigned                      m_harvest = 0;            // 0 = disabled (benchmark-harvest bound)
+        std::string                   m_harvest_dir = ".";
+        unsigned                      m_harvest_counter = 0;    // file index; spans reset()/blocking iterations
+        std::unordered_set<unsigned>  m_harvested_hashes;       // dedup by structural hash; NOT cleared in reset()
         unsigned                      m_fresh_cnt = 0;
         nielsen_stats                 m_stats;
 
@@ -1071,6 +1075,23 @@ namespace seq {
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
         void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
         void set_regex_dynamic_decomposition(bool e) { m_regex_dynamic_decomposition = e; }
+
+        // benchmark-harvest mode (intentionally unsound; for benchmark generation only).
+        // m_harvest > 0 = bound on non-progress Nielsen extension steps before dumping the
+        // current node as an .smt2 benchmark; 0 = disabled (normal sound reasoning).
+        void set_harvest(unsigned b) { m_harvest = b; }
+        void set_harvest_dir(std::string d) { m_harvest_dir = std::move(d); }
+        bool harvest_mode() const { return m_harvest > 0; }
+        // write a snapshot of `n` (regex memberships + residual word equations) to an
+        // .smt2 file, deduplicated by structural hash.  Terms are cleaned for portability
+        // (see clean_harvest_expr); the internal integer/length constraints are dropped.
+        void harvest_node(nielsen_node const* n);
+
+        // Rewrite `e` into portable SMT-LIB: peel seq.slice(...) applications to their
+        // root variable (first argument, chased until non-slice — matching the sgraph
+        // hashing convention).  Sets ok=false if the term still contains an nseq-internal
+        // skolem that cannot be represented (e.g. a power token); the node is then skipped.
+        expr_ref clean_harvest_expr(expr* e, bool& ok);
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;

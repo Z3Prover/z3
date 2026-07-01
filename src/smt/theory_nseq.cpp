@@ -518,6 +518,10 @@ namespace smt {
     void theory_nseq::eager_structural_check() {
         if (!get_fparams().m_nseq_eager)
             return;
+        // Benchmark-harvest mode must see the full constraint set in final_check; the
+        // eager closure could resolve conflicts during propagation and bypass harvesting.
+        if (get_fparams().m_nseq_harvest)
+            return;
         // Only re-run when the Nielsen-relevant constraint set actually grew.
         if (m_eager_dirty == m_eager_seen)
             return;
@@ -1001,6 +1005,8 @@ namespace smt {
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
                 m_nielsen.set_regex_factorization_eager(get_fparams().m_nseq_regex_factorization_eager);
+                m_nielsen.set_harvest(get_fparams().m_nseq_harvest);
+                m_nielsen.set_harvest_dir(get_fparams().m_nseq_harvest_dir.str());
 
                 // assert length constraints derived from string equalities
                 if (assert_length_constraints()) {
@@ -1034,7 +1040,10 @@ namespace smt {
             // Regex membership pre-check: before running DFS, check intersection
             // emptiness for each variable's regex constraints.  This handles
             // regex-only problems that the DFS cannot efficiently solve.
-            if (!m_nielsen.root()->is_currently_conflict() && get_fparams().m_nseq_regex_precheck) {
+            // In benchmark-harvest mode the pre-check would short-circuit SAT/UNSAT on
+            // the regex memberships before any word-equation rewriting happens, so skip it.
+            if (!m_nielsen.root()->is_currently_conflict() && get_fparams().m_nseq_regex_precheck
+                && !get_fparams().m_nseq_harvest) {
                 switch (check_regex_memberships_precheck()) {
                 case l_true:
                     // conflict was asserted inside check_regex_memberships_precheck
@@ -1099,6 +1108,19 @@ namespace smt {
                     return FC_DONE;
             }
 
+            // Benchmark-harvest mode: solve() returns unknown after dumping the snapshots
+            // reachable under the current assignment.  Block the current assignment so the
+            // SAT solver moves on to a different set of primitive constraints to harvest
+            // from.  This is intentionally unsound (the run only ends once the SAT solver
+            // exhausts all assignments, yielding overall unsat) — for benchmark generation.
+            if (get_fparams().m_nseq_harvest) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: harvest, blocking assignment\n";);
+                if (block_current_assignment())
+                    return FC_CONTINUE;
+                // nothing left to block → let the search conclude
+                return FC_GIVEUP;
+            }
+
             TRACE(seq, display(tout << "unknown\n"));
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNKNOWN, FC_GIVEUP\n";);
             return FC_GIVEUP;
@@ -1158,6 +1180,44 @@ namespace smt {
             // "propagate(m_assumption_lit, lit)"; // to force the phase of lit to be true or force a conflict
         }
         return all_sat;
+    }
+
+    // -----------------------------------------------------------------------
+    // Benchmark-harvest: block the current assignment
+    // -----------------------------------------------------------------------
+
+    bool theory_nseq::block_current_assignment() {
+        // Build a clause that excludes the current assignment of the constraint
+        // literals (memberships, disequalities) and equalities feeding the Nielsen
+        // graph, so the SAT solver moves on to a different combination.
+        literal_vector clause;
+        for (auto const& item : m_prop_queue) {
+            if (std::holds_alternative<eq_item>(item)) {
+                auto const& eq = std::get<eq_item>(item);
+                // the two terms are currently equal in the egraph; forbid that
+                clause.push_back(~mk_eq(eq.m_l->get_expr(), eq.m_r->get_expr(), false));
+            }
+            else if (std::holds_alternative<deq_item>(item)) {
+                auto const& deq = std::get<deq_item>(item);
+                switch (ctx.get_assignment(deq.lit)) {
+                case l_true:  clause.push_back(~deq.lit); break;
+                case l_false: clause.push_back(deq.lit);  break;
+                default: break;
+                }
+            }
+            else if (std::holds_alternative<mem_item>(item)) {
+                auto const& mem = std::get<mem_item>(item);
+                switch (ctx.get_assignment(mem.lit)) {
+                case l_true:  clause.push_back(~mem.lit); break;
+                case l_false: clause.push_back(mem.lit);  break;
+                default: break;
+                }
+            }
+        }
+        if (clause.empty())
+            return false;
+        ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
+        return true;
     }
 
     // -----------------------------------------------------------------------

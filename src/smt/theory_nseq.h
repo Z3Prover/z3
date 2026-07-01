@@ -148,6 +148,10 @@ namespace smt {
         void populate_nielsen_graph();
         void eager_structural_check();
         void explain_nielsen_conflict();
+        // benchmark-harvest: block the current assignment of membership/equation
+        // literals so the SAT solver tries a different one.  Returns false if there
+        // is nothing to block (empty clause).  Intentionally unsound.
+        bool block_current_assignment();
         void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) const;
         void set_conflict(literal_vector const& lits) {
             const enode_pair_vector eqs;
