@@ -131,7 +131,7 @@ namespace smt {
 
         friend class tmp_enode;
 
-        static enode * init(ast_manager & m, void * mem, app2enode_t const & app2enode, app * owner, 
+        static enode * init(ast_manager & m, void * mem, app2enode_t const & app2enode, expr * owner, 
                             bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                             bool cgc_enabled, bool update_children_parent);
     public:
@@ -140,7 +140,7 @@ namespace smt {
             return sizeof(enode) + num_args * sizeof(enode*);
         }
         
-        static enode * mk(ast_manager & m, region & r, app2enode_t const & app2enode, app * owner, 
+        static enode * mk(ast_manager & m, region & r, app2enode_t const & app2enode, expr * owner, 
                             bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                             bool cgc_enabled, bool update_children_parent);
 

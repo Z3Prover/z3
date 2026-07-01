@@ -1060,7 +1060,7 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode *e = enode::mk(m, get_region(), m_app2enode, to_app(n), suppress_args, merge_tf, m_scope_lvl,
+        enode *e = enode::mk(m, get_region(), m_app2enode, n, suppress_args, merge_tf, m_scope_lvl,
                              cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
