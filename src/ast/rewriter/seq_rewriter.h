@@ -134,7 +134,6 @@ class seq_rewriter {
 
     seq_util       m_util;
     seq_subset     m_subset;
-    seq_split      m_split;
     arith_util     m_autil;
     bool_rewriter  m_br;
     seq::derive    m_derive;
@@ -334,7 +333,7 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_subset(m_util.re), m_split(*this), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m),
+        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m),
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m) {
     }
@@ -413,21 +412,8 @@ public:
         return result;
     }
 
-    // Split decomposition (sigma) of a regex; see seq_split.h.  `oracle` (optional)
-    // prunes non-viable splits during generation.
-    bool split(expr* r, split_set& out, unsigned threshold,
-        const split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
-        return m_split.compute(r, out, threshold, mode, oracle);
-    }
-
-    void simplify_split(split_set& s) { m_split.simplify(s); }
 
     bool is_subset(expr *r1, expr *r2) const;
-
-    // decompose a membership constraint into a set of pairs of regex splits
-    std::pair<expr_ref, expr_ref> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
-        return m_split.split_membership(str, regex, threshold, result);
-    }
 
     /**
      * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences

@@ -7,7 +7,10 @@ Module Name:
 
 Abstract:
 
-    Unit tests for the regex split engine (the split function sigma) in ast/rewriter/seq_split.cpp.
+    Unit tests for the regex split engine (the split function sigma) in
+    ast/rewriter/seq_split.cpp.  The engine is exposed through split_set: a
+    lazily-iterated split-set constructed from a regex, a size threshold, and an
+    optional lookahead oracle.
 
 Author:
 
@@ -20,6 +23,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_split.h"
+#include "ast/rewriter/th_rewriter.h"
 #include <set>
 #include <utility>
 
@@ -29,181 +33,305 @@ struct plugin_registrar {
 };
 
 class seq_split_test {
-    ast_manager     m;
+    ast_manager      m;
     plugin_registrar m_reg;
-    seq_rewriter    m_rw;
-    seq_split       m_split;
-    seq_util        u;
-    sort_ref        m_str;   // the sequence (String) sort
-    sort_ref        m_re;    // the RegEx sort over m_str
+    seq_rewriter     m_rw;
+    seq_util         u;
+    sort_ref         m_str;   // the sequence (String) sort
+    sort_ref         m_re;    // the RegEx sort over m_str
+    expr_ref_vector  m_pin;   // keeps collected/expected AST nodes alive so that
+                              // pointer identity (hash-consing) is stable across
+                              // the lifetime of a single check.
 
     seq_util::rex& re() { return u.re; }
+
+    // pin an expr so its address stays valid for later hash-cons lookups, and
+    // return the raw pointer used as a set key.
+    expr* pin(expr* e) { m_pin.push_back(e); return e; }
 
     expr_ref eps()        { return expr_ref(re().mk_epsilon(m_str), m); }   // mk_epsilon takes the seq sort
     expr_ref dot()        { return expr_ref(re().mk_full_char(m_re), m); }  // mk_full_char takes the RegEx sort
     expr_ref dotstar()    { return expr_ref(re().mk_full_seq(m_re), m); }   // .*
     expr_ref empty_re()   { return expr_ref(re().mk_empty(m_re), m); }      // the bottom regex
-    expr_ref rappend(expr* a, expr* b) { return m_rw.mk_re_append(a, b); }  // the engine's regex concat
+    expr_ref rcat(expr* a, expr* b) { return m_rw.mk_re_append(a, b); }  // the engine's raw regex concat
     expr_ref word(char const* s) { return expr_ref(re().mk_to_re(u.str.mk_string(zstring(s))), m); }
     expr_ref rng(char lo, char hi) {
-        return expr_ref(re().mk_range(u.str.mk_string(zstring(std::string(1, lo).c_str())),
-                                      u.str.mk_string(zstring(std::string(1, hi).c_str()))), m);
+        return expr_ref(re().mk_range(m_re, static_cast<unsigned>(lo), static_cast<unsigned>(hi)), m);
     }
 
     typedef std::set<std::pair<expr*, expr*>> pair_set;
 
-    pair_set as_set(split_set const& s) {
-        pair_set out;
-        for (auto const& p : s)
-            out.insert({ p.m_d.get(), p.m_n.get() });
-        return out;
+    // Drain sigma(r) into a set of <D, N> pairs.  Returns true when the engine
+    // ran to a clean exhaustion, false when it gave up (threshold overrun or an
+    // unsupported regex).  Collected nodes are pinned so that the raw pointers
+    // used as set keys stay valid after the split_set is destroyed.
+    bool collect(expr* r, pair_set& out, unsigned threshold = UINT_MAX,
+                 split_oracle const& oracle = split_oracle()) {
+        split_set s(m_rw, r, threshold, oracle);
+        split_set::iterator it = s.begin(), end = s.end();
+        for (; it != end; ++it) {
+            auto const [d, n] = *it;
+            out.insert({ pin(d), pin(n) });
+        }
+        return !it.failed();
     }
 
-    bool eager(expr* r, split_set& out, unsigned threshold = UINT_MAX,
-               split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
-        return m_split.compute(r, out, threshold, mode, oracle);
-    }
-
-    bool lazy(expr* r, split_set& out, unsigned threshold = UINT_MAX,
-              split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
-        expr_ref node = m_split.make(r);
-        ENSURE(node);
-        seq_split::iterator it = m_split.iterate(node, mode, threshold, oracle);
-        expr_ref d(m), n(m);
-        while (it.next(d, n))
-            out.push_back(split_pair(d, n, m));
-        return !it.gave_up();
-    }
-
-    // assert that the eager and lazy engines agree on sigma(r) as a *set* of
-    // splits, and report the common cardinality.
-    unsigned check_agree(expr* r) {
-        split_set se, sl;
-        bool oke = eager(r, se);
-        bool okl = lazy(r, sl);
-        ENSURE(oke == okl);
-        if (!oke)
-            return 0;
-        ENSURE(as_set(se) == as_set(sl));
-        return (unsigned)as_set(se).size();
+    // Cardinality of sigma(r); requires a clean exhaustion.
+    unsigned count(expr* r) {
+        pair_set s;
+        ENSURE(collect(r, s));
+        return (unsigned)s.size();
     }
 
 public:
-    seq_split_test() : m_reg(m), m_rw(m), m_split(m_rw), u(m), m_str(m), m_re(m) {
+    seq_split_test() : m_reg(m), m_rw(m), u(m), m_str(m), m_re(m), m_pin(m) {
         m_str = u.str.mk_string_sort();
         m_re  = re().mk_re(m_str);
     }
 
-    void test_eager_epsilon() {
-        split_set s;
-        ENSURE(eager(eps(), s));
-        ENSURE(as_set(s) == pair_set({ { eps().get(), eps().get() } }));
+    void test_epsilon() {
+        // sigma(eps) = { <eps, eps> }
+        pair_set s;
+        ENSURE(collect(eps(), s));
+        ENSURE(s == pair_set({ { eps().get(), eps().get() } }));
     }
 
-    void test_eager_char() {
+    void test_char() {
         // sigma(.) = { <eps, .>, <., eps> }
         expr_ref a = dot();
-        split_set s;
-        ENSURE(eager(a, s));
+        pair_set s;
+        ENSURE(collect(a, s));
         pair_set expected({ { eps().get(), a.get() }, { a.get(), eps().get() } });
-        ENSURE(as_set(s) == expected);
+        ENSURE(s == expected);
     }
 
-    void test_eager_word() {
+    void test_word() {
         // sigma("ab") = { <"", "ab">, <"a","b">, <"ab",""> }
-        split_set s;
-        ENSURE(eager(word("ab"), s));
+        pair_set s;
+        ENSURE(collect(word("ab"), s));
         pair_set expected({
-            { word("").get(),  word("ab").get() },
-            { word("a").get(), word("b").get()  },
-            { word("ab").get(), word("").get()  },
+            { word("").get(),   word("ab").get() },
+            { word("a").get(),  word("b").get()  },
+            { word("ab").get(), word("").get()   },
         });
-        ENSURE(as_set(s) == expected);
+        ENSURE(s == expected);
     }
 
-    void test_eager_union() {
+    void test_empty_word() {
+        // sigma(to_re("")) = { <"", ""> }  (a single, trivial split)
+        pair_set s;
+        ENSURE(collect(word(""), s));
+        ENSURE(s == pair_set({ { word("").get(), word("").get() } }));
+    }
+
+    void test_union() {
         // sigma(a | b) = sigma(a) cup sigma(b)
         expr_ref a = rng('a', 'a'), b = rng('b', 'b');
         expr_ref u_re(re().mk_union(a, b), m);
-        split_set s;
-        ENSURE(eager(u_re, s));
+        pair_set s;
+        ENSURE(collect(u_re, s));
         pair_set expected({
             { eps().get(), a.get() }, { a.get(), eps().get() },
             { eps().get(), b.get() }, { b.get(), eps().get() },
         });
-        ENSURE(as_set(s) == expected);
+        ENSURE(s == expected);
     }
 
-    void test_agree_all() {
+    void test_full_seq() {
+        // sigma(.*) = { <.*, .*> }
+        expr_ref ds = dotstar();
+        pair_set s;
+        ENSURE(collect(ds, s));
+        ENSURE(s == pair_set({ { ds.get(), ds.get() } }));
+    }
+
+    void test_bottom() {
+        // sigma(empty) = {}
+        pair_set s;
+        ENSURE(collect(empty_re(), s));
+        ENSURE(s.empty());
+    }
+
+    void test_star_content() {
+        // sigma(a*) = { <eps,eps>, <a*.eps, a.a*>, <a*.a, eps.a*> }
+        expr_ref a = rng('a', 'a');
+        expr_ref as(re().mk_star(a), m);
+        pair_set s;
+        ENSURE(collect(as, s));
+        pair_set expected({
+            { eps().get(), eps().get() },
+            { rcat(as, eps()).get(), rcat(a, as).get() },
+            { rcat(as, a).get(),     rcat(eps(), as).get() },
+        });
+        ENSURE(s == expected);
+    }
+
+    void test_plus_content() {
+        // sigma(a+) = a*.sigma(a).a*  (the star rule without <eps,eps>)
+        expr_ref a = rng('a', 'a');
+        expr_ref as(re().mk_star(a), m);
+        expr_ref ap(re().mk_plus(a), m);
+        pair_set s;
+        ENSURE(collect(ap, s));
+        pair_set expected({
+            { rcat(as, eps()).get(), rcat(a, as).get() },
+            { rcat(as, a).get(),     rcat(eps(), as).get() },
+        });
+        ENSURE(s == expected);
+    }
+
+    void test_concat_content() {
+        // sigma(a.b): the engine drops the epsilon-suffix split from the left
+        // side (it is language-equivalent to a right-side split), giving
+        //   { <eps, a.b>, <a.eps, b>, <a.b, eps> }
         expr_ref a = rng('a', 'a'), b = rng('b', 'b');
-        expr_ref star(re().mk_star(a), m);
-        expr_ref plus(re().mk_plus(a), m);
-        expr_ref concat(re().mk_concat(a, b), m);
-        expr_ref uni(re().mk_union(a, b), m);
-        expr_ref inter(re().mk_inter(re().mk_star(a), re().mk_star(b)), m);
-        expr_ref compl_(re().mk_complement(re().mk_star(a)), m);
-        expr_ref diff(re().mk_diff(re().mk_star(a), re().mk_star(b)), m);
-
-        ENSURE(check_agree(eps())  == 1);
-        ENSURE(check_agree(a)      == 2);
-        ENSURE(check_agree(word("ab")) == 3);
-        ENSURE(check_agree(uni)    == 4);
-        ENSURE(check_agree(star)   == 3);   // { <eps,eps>, <a*, a.a*>, <a*.a, a*> }
-        (void)check_agree(plus);
-        (void)check_agree(concat);
-        (void)check_agree(inter);            // strong-mode intersection
-        (void)check_agree(compl_);           // strong-mode De Morgan complement
-        (void)check_agree(diff);
+        expr_ref ab(re().mk_concat(a, b), m);
+        pair_set s;
+        ENSURE(collect(ab, s));
+        pair_set expected({
+            { eps().get(),          rcat(a, b).get() },   // <eps, a.b>
+            { rcat(a, eps()).get(), b.get()          },   // <a.eps, b>
+            { rcat(a, b).get(),     eps().get()      },   // <a.b, eps>
+        });
+        ENSURE(s == expected);
     }
 
-    void test_lazy_early_stop() {
-        // a* has 3 splits; pull just the first one and then stop.  (Note .* is the
-        // full_seq special case with a single split, so use a proper char-class body.)
-        expr_ref star(re().mk_star(rng('a', 'a')), m);
-        expr_ref node = m_split.make(star);
-        ENSURE(node);
-        seq_split::iterator it = m_split.iterate(node, split_mode::strong, UINT_MAX, {});
-        expr_ref d(m), n(m);
-        unsigned seen = 0;
-        if (it.next(d, n))       // pull exactly one split, then walk away
-            ++seen;
-        ENSURE(!it.gave_up());   // stopping early is not a give-up
-        ENSURE(seen == 1);
+    void test_nary_union() {
+        // sigma(a|b|c) has 2 splits per char-class
+        expr_ref a = rng('a', 'a'), b = rng('b', 'b'), c = rng('c', 'c');
+        expr_ref u3(re().mk_union(a, re().mk_union(b, c)), m);
+        ENSURE(count(u3) == 6);
+    }
+
+    void test_nary_concat() {
+        // sigma(a.b.c)
+        expr_ref a = rng('a', 'a'), b = rng('b', 'b'), c = rng('c', 'c');
+        expr_ref c3(re().mk_concat(a, re().mk_concat(b, c)), m);
+        ENSURE(count(c3) >= 4);
+    }
+
+    void test_intersection() {
+        // The engine handles intersection via the split algebra (De Morgan-free
+        // product).  It must run to completion and produce a non-empty set.
+        expr_ref inter(re().mk_inter(re().mk_star(rng('a', 'a')),
+                                     re().mk_star(rng('b', 'b'))), m);
+        pair_set s;
+        ENSURE(collect(inter, s));
+        ENSURE(!s.empty());
+    }
+
+    void test_complement() {
+        // strong-mode De Morgan complement
+        expr_ref compl_(re().mk_complement(re().mk_star(rng('a', 'a'))), m);
+        pair_set s;
+        ENSURE(collect(compl_, s));
+        ENSURE(!s.empty());
+    }
+
+    void test_diff() {
+        // sigma(a* \ b*) via intersection with the complement
+        expr_ref diff(re().mk_diff(re().mk_star(rng('a', 'a')),
+                                   re().mk_star(rng('b', 'b'))), m);
+        pair_set s;
+        ENSURE(collect(diff, s));
+        ENSURE(!s.empty());
+    }
+
+    void test_nested_complement() {
+        // sigma(~~(a*)) must still terminate cleanly
+        expr_ref cc(re().mk_complement(re().mk_complement(re().mk_star(rng('a', 'a')))), m);
+        pair_set s;
+        ENSURE(collect(cc, s));
+    }
+
+    void test_determinism() {
+        // Two independent runs over the same regex yield the identical set.
+        expr_ref r(re().mk_concat(rng('a', 'a'), re().mk_star(rng('b', 'b'))), m);
+        pair_set s1, s2;
+        ENSURE(collect(r, s1));
+        ENSURE(collect(r, s2));
+        ENSURE(s1 == s2);
+    }
+
+    void test_threshold_boundary() {
+        expr_ref as(re().mk_star(rng('a', 'a')), m);   // exactly 3 splits
+        unsigned k = count(as);
+        ENSURE(k == 3);
+
+        pair_set ok;
+        ENSURE(collect(as, ok, k));                    // at threshold: fine
+
+        pair_set bad;
+        ENSURE(!collect(as, bad, k - 1));              // one below threshold: give up
     }
 
     void test_threshold_giveup() {
-        expr_ref star(re().mk_star(rng('a', 'a')), m);   // 3 splits
-        split_set s;
-        ENSURE(!lazy(star, s, /*threshold*/ 1));
-        // the eager wrapper honours the same cap
-        split_set s2;
-        ENSURE(!eager(star, s2, /*threshold*/ 1));
+        // a* has 3 splits; capping at 1 forces a give-up.
+        expr_ref as(re().mk_star(rng('a', 'a')), m);
+        pair_set s;
+        ENSURE(!collect(as, s, /*threshold*/ 1));
     }
 
-    void test_weak_vs_strong() {
-        expr_ref inter(re().mk_inter(re().mk_star(rng('a', 'a')), re().mk_star(rng('b', 'b'))), m);
-        expr_ref compl_(re().mk_complement(re().mk_star(dot())), m);
-
-        split_set s;
-        ENSURE(!eager(inter, s, UINT_MAX, split_mode::weak));
-        s.reset();
-        ENSURE(!lazy(inter, s, UINT_MAX, split_mode::weak));
-        s.reset();
-        ENSURE(!eager(compl_, s, UINT_MAX, split_mode::weak));
-        s.reset();
-        ENSURE(!lazy(compl_, s, UINT_MAX, split_mode::weak));
-
-        // strong mode succeeds for both
-        s.reset();
-        ENSURE(eager(inter, s, UINT_MAX, split_mode::strong));
-        s.reset();
-        ENSURE(eager(compl_, s, UINT_MAX, split_mode::strong));
+    void test_early_stop() {
+        // Pull exactly one split on demand, then walk away.  Stopping early is
+        // not a give-up, even when the full set is larger.
+        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits
+        split_set s(m_rw, as, UINT_MAX, {});
+        split_set::iterator it = s.begin(), end = s.end();
+        unsigned seen = 0;
+        if (it != end) {
+            (void)*it;
+            ++seen;
+        }
+        ENSURE(seen == 1);
+        ENSURE(!it.failed());   // early stop is not a failure
     }
 
-    void test_make_non_regex() {
-        expr_ref not_a_regex(u.str.mk_string(zstring("a")), m);   // String, not RegEx
-        expr_ref node = m_split.make(not_a_regex);
-        ENSURE(!node);
+    void test_early_stop_after_two() {
+        // Pull two splits on demand, then stop.
+        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits
+        split_set s(m_rw, as, UINT_MAX, {});
+        split_set::iterator it = s.begin(), end = s.end();
+        unsigned seen = 0;
+        while (seen < 2 && it != end) {
+            (void)*it;
+            ++it;
+            ++seen;
+        }
+        ENSURE(seen == 2);
+        ENSURE(!it.failed());
+    }
+
+    void test_iterator_exhaustion() {
+        // Pull every split on demand; failed() must stay false on a clean
+        // exhaustion, and end() must remain end() once drained.
+        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits
+        split_set s(m_rw, as, UINT_MAX, {});
+        split_set::iterator it = s.begin(), end = s.end();
+        unsigned seen = 0;
+        for (; it != end; ++it) {
+            (void)*it;
+            ++seen;
+        }
+        ENSURE(seen == 3);
+        ENSURE(!it.failed());
+        // idempotent past the end
+        ENSURE(it == end);
+        ENSURE(!it.failed());
+    }
+
+    void test_iterator_giveup() {
+        // A threshold overrun aborts: the iterator reaches end() with failed().
+        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits, cap at 1
+        split_set s(m_rw, as, 1, {});
+        split_set::iterator it = s.begin(), end = s.end();
+        unsigned seen = 0;
+        for (; it != end; ++it) {
+            (void)*it;
+            ++seen;
+        }
+        ENSURE(it.failed());   // aborted, not a clean exhaustion
+        ENSURE(seen <= 1);     // produced at most the capped number
     }
 
     void test_oracle_prunes() {
@@ -213,233 +341,46 @@ public:
         expr_ref e = eps();
         split_oracle keep_eps_suffix = [&](expr*, expr* n) { return n == e.get(); };
 
-        split_set se, sl;
-        ENSURE(eager(a, se, UINT_MAX, split_mode::strong, keep_eps_suffix));
-        ENSURE(lazy(a, sl, UINT_MAX, split_mode::strong, keep_eps_suffix));
-        pair_set expected({ { a.get(), e.get() } });
-        ENSURE(as_set(se) == expected);
-        ENSURE(as_set(sl) == expected);
-    }
-
-    void test_eager_full_seq() {
-        // sigma(.*) = { <.*, .*> }
-        expr_ref ds = dotstar();
-        split_set s;
-        ENSURE(eager(ds, s));
-        ENSURE(as_set(s) == pair_set({ { ds.get(), ds.get() } }));
-    }
-
-    void test_eager_bottom() {
-        // sigma(empty) = {}
-        split_set s;
-        ENSURE(eager(empty_re(), s));
-        ENSURE(s.empty());
-
-        split_set sl;
-        ENSURE(lazy(empty_re(), sl));
-        ENSURE(sl.empty());
-    }
-
-    void test_eager_empty_word() {
-        // sigma(to_re("")) = { <"", ""> }  (a single, trivial split)
-        split_set s;
-        ENSURE(eager(word(""), s));
-        ENSURE(as_set(s) == pair_set({ { word("").get(), word("").get() } }));
-    }
-
-    void test_eager_star_content() {
-        // sigma(a*) = { <eps,eps>, <a*.eps, a.a*>, <a*.a, eps.a*> }
-        expr_ref a = rng('a', 'a');
-        expr_ref as(re().mk_star(a), m);
-        split_set s;
-        ENSURE(eager(as, s));
-        pair_set expected({
-            { eps().get(), eps().get() },
-            { rappend(as, eps()).get(), rappend(a, as).get() },
-            { rappend(as, a).get(),     rappend(eps(), as).get() },
-        });
-        ENSURE(as_set(s) == expected);
-    }
-
-    void test_eager_plus_content() {
-        // sigma(a+) = a*.sigma(a).a*  (the star rule without <eps,eps>)
-        expr_ref a = rng('a', 'a');
-        expr_ref as(re().mk_star(a), m);
-        expr_ref ap(re().mk_plus(a), m);
-        split_set s;
-        ENSURE(eager(ap, s));
-        pair_set expected({
-            { rappend(as, eps()).get(), rappend(a, as).get() },
-            { rappend(as, a).get(),     rappend(eps(), as).get() },
-        });
-        ENSURE(as_set(s) == expected);
-    }
-
-    void test_eager_concat_content() {
-        // sigma(a.b) = sigma(a).b cup a.sigma(b)
-        expr_ref a = rng('a', 'a'), b = rng('b', 'b');
-        expr_ref ab(re().mk_concat(a, b), m);
-        split_set s;
-        ENSURE(eager(ab, s));
-        pair_set expected({
-            { eps().get(),           rappend(a, b).get()   },   // <eps, a.b>
-            { a.get(),               rappend(eps(), b).get() }, // <a, eps.b>
-            { rappend(a, eps()).get(), b.get()             },   // <a.eps, b>
-            { rappend(a, b).get(),   eps().get()           },   // <a.b, eps>
-        });
-        ENSURE(as_set(s) == expected);
-    }
-
-    void test_nary_union() {
-        // sigma(a|b|c) has 2 splits per char-class
-        expr_ref a = rng('a', 'a'), b = rng('b', 'b'), c = rng('c', 'c');
-        expr_ref u3(re().mk_union(a, re().mk_union(b, c)), m);
-        ENSURE(check_agree(u3) == 6);
-    }
-
-    void test_nary_concat() {
-        // sigma(a.b.c)
-        expr_ref a = rng('a', 'a'), b = rng('b', 'b'), c = rng('c', 'c');
-        expr_ref c3(re().mk_concat(a, re().mk_concat(b, c)), m);
-        ENSURE(check_agree(c3) >= 4);
-    }
-
-    void test_nested_complement() {
-        // sigma(~~(a*))
-        expr_ref cc(re().mk_complement(re().mk_complement(re().mk_star(rng('a', 'a')))), m);
-        (void)check_agree(cc);
-    }
-
-    void test_determinism() {
-        expr_ref r(re().mk_concat(rng('a', 'a'), re().mk_star(rng('b', 'b'))), m);
-        split_set s1, s2;
-        ENSURE(lazy(r, s1));
-        ENSURE(lazy(r, s2));
-        ENSURE(as_set(s1) == as_set(s2));
-    }
-
-    void test_threshold_boundary() {
-        expr_ref as(re().mk_star(rng('a', 'a')), m);   // exactly 3 splits
-        split_set s;
-        ENSURE(eager(as, s));
-        unsigned k = (unsigned)as_set(s).size();
-        ENSURE(k == 3);
-
-        split_set ok_e, ok_l, bad_e, bad_l;
-        ENSURE(eager(as, ok_e, k));
-        ENSURE(lazy(as, ok_l, k));
-        ENSURE(!eager(as, bad_e, k - 1));   // one below threshold; give up
-        ENSURE(!lazy(as, bad_l, k - 1));
-    }
-
-    void test_early_stop_after_two() {
-        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits
-        expr_ref node = m_split.make(as);
-        ENSURE(node);
-        seq_split::iterator it = m_split.iterate(node, split_mode::strong, UINT_MAX, {});
-        expr_ref d(m), n(m);
-        unsigned seen = 0;
-        while (seen < 2 && it.next(d, n))   // pull two splits on demand, then stop
-            ++seen;
-        ENSURE(!it.gave_up());
-        ENSURE(seen == 2);
-    }
-
-    void test_iterator_exhaustion() {
-        // Pull every split on demand; gave_up() must stay false on a clean
-        // exhaustion, and next() must keep returning false once drained.
-        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits
-        expr_ref node = m_split.make(as);
-        ENSURE(node);
-        seq_split::iterator it = m_split.iterate(node, split_mode::strong, UINT_MAX, {});
-        expr_ref d(m), n(m);
-        unsigned seen = 0;
-        while (it.next(d, n))
-            ++seen;
-        ENSURE(seen == 3);
-        ENSURE(!it.gave_up());
-        // idempotent past the end
-        ENSURE(!it.next(d, n));
-        ENSURE(!it.gave_up());
-    }
-
-    void test_iterator_giveup() {
-        // A threshold overrun aborts: next() returns false and gave_up() is true.
-        expr_ref as(re().mk_star(rng('a', 'a')), m);   // 3 splits, cap at 1
-        expr_ref node = m_split.make(as);
-        ENSURE(node);
-        seq_split::iterator it = m_split.iterate(node, split_mode::strong, /*threshold*/ 1, {});
-        expr_ref d(m), n(m);
-        unsigned seen = 0;
-        while (it.next(d, n))
-            ++seen;
-        ENSURE(it.gave_up());            // aborted, not a clean exhaustion
-        ENSURE(seen <= 1);               // produced at most the capped number
-
-        // A weak-mode Boolean closure is likewise a give-up.
-        expr_ref inter(re().mk_inter(re().mk_star(rng('a', 'a')), re().mk_star(rng('b', 'b'))), m);
-        expr_ref inode = m_split.make(inter);
-        ENSURE(inode);
-        seq_split::iterator wit = m_split.iterate(inode, split_mode::weak, UINT_MAX, {});
-        ENSURE(!wit.next(d, n));
-        ENSURE(wit.gave_up());
-    }
-
-    void test_simplify() {
-        expr_ref regs[] = {
-            expr_ref(re().mk_star(rng('a', 'a')), m),
-            expr_ref(re().mk_complement(re().mk_star(rng('a', 'a'))), m),
-            expr_ref(re().mk_concat(rng('a', 'a'), rng('b', 'b')), m),
-        };
-        for (auto& r : regs) {
-            split_set s;
-            ENSURE(eager(r, s));
-            unsigned before = (unsigned)s.size();
-            m_split.simplify(s);
-            ENSURE(s.size() <= before);
-            ENSURE(!s.empty());
-            // idempotent
-            split_set s2(s);
-            m_split.simplify(s2);
-            ENSURE(as_set(s) == as_set(s2));
-        }
+        pair_set s;
+        ENSURE(collect(a, s, UINT_MAX, keep_eps_suffix));
+        ENSURE(s == pair_set({ { a.get(), e.get() } }));
     }
 
     void test_trivial_oracle() {
+        // An oracle that keeps everything leaves sigma unchanged.
         expr_ref r(re().mk_star(rng('a', 'a')), m);
         split_oracle keep_all = [](expr*, expr*) { return true; };
-        split_set s_no, s_yes;
-        ENSURE(eager(r, s_no));
-        ENSURE(eager(r, s_yes, UINT_MAX, split_mode::strong, keep_all));
-        ENSURE(as_set(s_no) == as_set(s_yes));
+        pair_set s_no, s_yes;
+        ENSURE(collect(r, s_no));
+        ENSURE(collect(r, s_yes, UINT_MAX, keep_all));
+        ENSURE(s_no == s_yes);
     }
 
     void run() {
-        test_eager_epsilon();
-        test_eager_char();
-        test_eager_word();
-        test_eager_union();
-        test_agree_all();
-        test_lazy_early_stop();
-        test_threshold_giveup();
-        test_weak_vs_strong();
-        test_make_non_regex();
-        test_oracle_prunes();
-        test_eager_full_seq();
-        test_eager_bottom();
-        test_eager_empty_word();
-        test_eager_star_content();
-        test_eager_plus_content();
-        test_eager_concat_content();
+        test_epsilon();
+        test_char();
+        test_word();
+        test_empty_word();
+        test_union();
+        test_full_seq();
+        test_bottom();
+        test_star_content();
+        test_plus_content();
+        test_concat_content();
         test_nary_union();
         test_nary_concat();
+        test_intersection();
+        test_complement();
+        test_diff();
         test_nested_complement();
         test_determinism();
         test_threshold_boundary();
+        test_threshold_giveup();
+        test_early_stop();
         test_early_stop_after_two();
         test_iterator_exhaustion();
         test_iterator_giveup();
-        test_simplify();
+        test_oracle_prunes();
         test_trivial_oracle();
     }
 };

@@ -128,6 +128,8 @@ namespace smt {
             return;
         }
 
+        #if 0
+        // TODO - review
         if (th.get_fparams().m_seq_regex_factorization_enabled) {
             unsigned threshold = th.get_fparams().m_seq_regex_factorization_threshold;
             if (threshold == 0)
@@ -151,6 +153,7 @@ namespace smt {
             }
             // fallthrough; decomposition failed
         }
+        #endif
 
         // Convert a non-ground sequence into an additional regex and
         // strengthen the original regex constraint into an intersection
