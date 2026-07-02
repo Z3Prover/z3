@@ -1467,8 +1467,28 @@ class tptp_parser {
             m_bound.push_back(scope);
             expr_ref body = parse_formula(is_boolean);
             m_bound.pop_back();
-            // Approximate choice as existential quantification
-            return mk_quantifier(false, vars, body);
+            // Choice/description operator. @+ is Hilbert's choice (indefinite
+            // description) and @- is definite description. Both denote an ELEMENT of
+            // the bound sort T — a witness selected from those satisfying the predicate
+            // — NOT a Boolean. Encode as Z3's array OP_CHOICE applied to the predicate
+            // lambda (λX:T. body), which yields a term of sort T (cf. smt2parser).
+            if (vars.empty())
+                return body;
+            expr_ref pred = ensure_bool(body);
+            // OP_CHOICE is single-arity. With several binders choose over the first
+            // variable and existentially bind the remainder inside the predicate.
+            if (vars.size() > 1) {
+                ptr_vector<app> rest;
+                for (unsigned i = 1; i < vars.size(); ++i) rest.push_back(vars[i]);
+                pred = expr_ref(::mk_exists(m, rest.size(), rest.data(), pred.get()), m);
+            }
+            app* xvar = vars[0];
+            expr_ref abs_body(m);
+            expr_abstract(m, 0, 1, (expr* const*)&xvar, pred, abs_body);
+            sort* xs = xvar->get_sort();
+            symbol xnm = xvar->get_decl()->get_name();
+            expr_ref lam(m.mk_lambda(1, &xs, &xnm, abs_body), m);
+            return expr_ref(m_array.mk_choice(lam), m);
         }
 
         expr_ref_vector args(m);
