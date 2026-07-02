@@ -511,16 +511,20 @@ namespace smt {
             expr_ref witness(m);
             // We checked non-emptiness during Nielsen already
             lbool wr = m_rewriter.some_string_in_re(re_expr, str);
-            if (wr != l_true) {
+            if (wr == l_true) {
+                witness = m_seq.str.mk_string(str);
+            }
+            else {
                 // some_seq_in_re can fail (l_undef / l_false) on regexes it does
                 // not fully support — notably projection operators (re.proj),
                 // but also some plain Boolean-closure / large length-intersected
                 // shapes.  Fall back to a derivative-automaton BFS that builds an
-                // accepting word of the requested length directly.
+                // accepting word of the requested length directly. It sets
+                // `witness` itself -- do NOT overwrite it from `str`, which
+                // some_string_in_re left untouched (i.e. still empty) on failure.
                 wr = derivative_witness(m_sg.mk(re_expr), witness);
             }
             if (wr == l_true) {
-                witness = m_seq.str.mk_string(str);
                 m_trail.push_back(witness);
                 m_factory->register_value(witness);
                 return witness;
