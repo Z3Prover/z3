@@ -99,6 +99,7 @@ namespace smt {
         m_var_values.reset();
         m_var_replacement.reset();
         m_var_regex.reset();
+        m_view_vars.reset();
         m_trail.reset();
 
         m_factory = alloc(seq_factory, m, m_seq.get_family_id(), mg.get_model());
@@ -106,6 +107,8 @@ namespace smt {
 
         seq::nielsen_node* sat_node = nielsen.sat_node();
         SASSERT(sat_node); // in case we report sat, this has to point to a satisfied Nielsen node!
+        m_nielsen = &nielsen;
+        m_sat_node = sat_node;
         collect_var_regex_constraints(sat_node);
 
 
@@ -451,11 +454,45 @@ namespace smt {
         SASSERT(var->get_expr());
         SASSERT(m_seq.is_seq(var->get_expr()));
         auto  srt = var->get_expr()->get_sort();
-
-        // check if this variable has regex constraints
-        euf::snode const* re = nullptr;
         unsigned key = var_key(var);
-        if (m_var_regex.find(key, re) && re) {
+
+        // Land-state view (paper §5.3): the variable is pinned to L_{Q,{s}}(head),
+        // which is not a plain regex.  Build a witness by the product search over
+        // ALL of the variable's primitive constraints (view AND any plain regex).
+        // This is authoritative for a view variable — we must NOT fall through to
+        // the plain m_var_regex path below, which sees only the plain constraints
+        // and would emit a word that violates the view (unsound witness).
+        if (m_nielsen && m_sat_node && m_view_vars.contains(key)) {
+            expr_ref len_e(m_seq.str.mk_length(var->get_expr()), m);
+            rational len_val;
+            unsigned len = UINT_MAX;
+            if (get_arith_value(len_e, len_val) && len_val.is_unsigned())
+                len = len_val.get_unsigned();
+            zstring w;
+            // Try the arith-assigned length first (keeps the model length-consistent);
+            // if the view∩plain intersection has no word of that length (the arith
+            // length and the regex are only loosely coupled), retry unconstrained so
+            // the emitted word still satisfies every regex/view constraint.
+            bool ok = m_nielsen->product_witness(var, *m_sat_node, len, w);
+            if (!ok && len != UINT_MAX)
+                ok = m_nielsen->product_witness(var, *m_sat_node, UINT_MAX, w);
+            if (ok) {
+                expr* witness = m_seq.str.mk_string(w);
+                m_trail.push_back(witness);
+                m_factory->register_value(witness);
+                return witness;
+            }
+            IF_VERBOSE(1, verbose_stream() << "nseq view witness failed for "
+                << mk_pp(var->get_expr(), m) << "\n");
+            // product search exhausted: fall through only to the length fallback,
+            // never to the view-ignoring plain path (guarded by !m_view_vars below).
+        }
+
+        // check if this variable has regex constraints (non-view vars only; a view
+        // var is fully handled above — its plain constraints are already folded
+        // into the product search).
+        euf::snode const* re = nullptr;
+        if (!m_view_vars.contains(key) && m_var_regex.find(key, re) && re) {
             expr* re_expr = re->get_expr();
             SASSERT(re_expr);
 
@@ -596,11 +633,13 @@ namespace smt {
             if (mem.is_trivial(sat_node))
                 continue; // empty string in nullable regex: already satisfied, no variable to constrain
             VERIFY(mem.is_primitive()); // everything else should have been eliminated already
-            // TODO(view/guard witness): a stabilizer view / cycle guard does not
-            // denote a plain regex on the variable; for now skip it during model
-            // construction (handled by the dedicated view/guard witness below).
-            if (!mem.is_plain())
+            // A land-state view (paper §5.3) does not denote a plain regex on the
+            // variable; mark it so mk_fresh_value builds its witness via the
+            // product search (which respects the view AND any plain constraints).
+            if (!mem.is_plain()) {
+                m_view_vars.insert(var_key(mem.m_str));
                 continue;
+            }
             unsigned id = var_key(mem.m_str);
             euf::snode const* existing = nullptr;
             if (m_var_regex.find(id, existing) && existing) {

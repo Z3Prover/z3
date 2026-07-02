@@ -223,7 +223,7 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
     split_set acc;
     push(acc, oracle, r.mk_complement(sp[0].m_d), full);
     push(acc, oracle, full, r.mk_complement(sp[0].m_n));
-    for (unsigned i = 1; i < sp.size(); ++i) {
+    for (unsigned i = 1; i < sp.size(); i++) {
         split_set next;
         push(next, oracle, r.mk_complement(sp[i].m_d), full);
         push(next, oracle, full, r.mk_complement(sp[i].m_n));
@@ -300,7 +300,7 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
             }
         }
         expr_ref acc = mk_empty();
-        for (unsigned i = 0; i <= str.length(); ++i) {
+        for (unsigned i = 0; i <= str.length(); i++) {
             const expr_ref p(rex.mk_to_re(sq.str.mk_string(str.extract(0, i))), m);
             const expr_ref q(rex.mk_to_re(sq.str.mk_string(str.extract(i, str.length() - i))), m);
             acc = mk_union(acc, mk_single(p, q));
@@ -338,7 +338,7 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
         app* ap = to_app(r);
         const unsigned n = ap->get_num_args();
         expr_ref acc = mk_empty();
-        for (unsigned i = 0; i < n; ++i) {
+        for (unsigned i = 0; i < n; i++) {
             expr_ref left(m), right(m);
             if (i == 0)
                 left = rex.mk_epsilon(seq_sort);
@@ -381,8 +381,9 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
         app* ap = to_app(r);
         const unsigned n = ap->get_num_args();
         expr_ref acc = mk_fromre(ap->get_arg(0));
-        for (unsigned i = 1; i < n; ++i)
+        for (unsigned i = 1; i < n; i++) {
             acc = mk_inter(acc, mk_fromre(ap->get_arg(i)));
+        }
         return acc;
     }
 
@@ -390,9 +391,23 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
     if (rex.is_complement(r, a))
         return mk_compl(mk_fromre(a));
 
+    // abbreviation
     // difference: a \ b = a & ~b ; sigma(a \ b) = sigma(a) cap ~sigma(b).
     if (rex.is_diff(r, a, b))
         return mk_inter(mk_fromre(a), mk_compl(mk_fromre(b)));
+
+    // abbreviation
+    // optional: a? = eps | a ; sigma(a?) = sigma(eps | a) = eps cup sigma(a)
+    if (rex.is_opt(r, a)) {
+        const expr_ref eps(rex.mk_epsilon(seq_sort), m);
+        return mk_union(mk_single(eps, eps), mk_fromre(a));
+    }
+
+    // loop
+    unsigned l, h;
+    if (rex.is_loop(r, a, l, h)) {
+        // TODO
+    }
 
     // bounded loop / ite / other: not handled (paper "v1: bail").
     TRACE(seq, tout << "seq_split: unsupported regex " << mk_pp(r, m) << "\n";);
@@ -624,7 +639,7 @@ void seq_split::simplify(split_set& pairs) const {
 
     // 1. drop pairs with a bottom (empty-language) component.
     unsigned w = 0;
-    for (unsigned i = 0; i < pairs.size(); ++i) {
+    for (unsigned i = 0; i < pairs.size(); i++) {
         if (r.is_empty(pairs[i].m_d) || r.is_empty(pairs[i].m_n))
             continue;
         if (w != i)
@@ -650,7 +665,7 @@ void seq_split::simplify(split_set& pairs) const {
 
     struct row { expr* d; expr* n; unsigned idx; };
     vector<row> rows;
-    for (unsigned i = 0; i < pairs.size(); ++i)
+    for (unsigned i = 0; i < pairs.size(); i++)
         rows.push_back({ pairs[i].m_d.get(), pairs[i].m_n.get(), i });
 
     auto subsumes = [&](row const& a, row const& b) {
@@ -769,7 +784,7 @@ std::pair<expr_ref, expr_ref> seq_split::split_membership(expr* str, expr* regex
     // Build the constant lookahead c and (if non-empty) an oracle that
     // prunes splits whose postfix cannot match c.
     zstring c;
-    for (i = 0; i < run_len; ++i) {
+    for (i = 0; i < run_len; i++) {
         unsigned cv;
         VERIFY(seq().str.is_unit(tokens.get(run_start + i), ch));
         VERIFY(seq().is_const_char(ch, cv));
@@ -791,7 +806,7 @@ std::pair<expr_ref, expr_ref> seq_split::split_membership(expr* str, expr* regex
     // of each postfix
     if (!c.empty()) {
         unsigned w = 0;
-        for (i = 0; i < result.size(); ++i) {
+        for (i = 0; i < result.size(); i++) {
             expr* d = result[i].m_n;
             for (unsigned k = 0; d && !seq().re.is_empty(d) && k < c.length(); ++k) {
                 d = m_rw.mk_derivative(seq().mk_char(c[k]), d);

@@ -288,15 +288,12 @@ namespace seq {
 
     bool str_mem::is_trivial(nielsen_node const* n) const {
         SASSERT(m_str && m_regex);
-        if (m_kind == mem_kind::no_loop)
-            // guard: discharged ⇒ Σ* (accepts all); ε has no non-empty lap-prefix.
-            return m_discharged || m_str->is_empty();
         if (m_regex->is_full_seq())
             return true;
         if (!m_str->is_empty())
             return false;
         if (m_kind == mem_kind::stab_view)
-            // ε ∈ stab(root,Q) iff current state ≡ root (i.e. root ∈ F={root}).
+            // ε ∈ L_{Q,{s}}(state) iff current state ≡ acceptance state s (=m_root).
             return m_regex == m_root;
         return n->graph().sg().re_nullable(m_regex) == l_true;
     }
@@ -304,10 +301,8 @@ namespace seq {
     bool str_mem::is_contradiction(nielsen_node const* n) const {
         if (!(m_str && m_regex && m_str->is_empty()))
             return false;
-        if (m_kind == mem_kind::no_loop)
-            return false; // guard acceptance is always true on the empty word
         if (m_kind == mem_kind::stab_view)
-            return m_regex != m_root; // ε ∉ stab(root,Q) when state ≢ root
+            return m_regex != m_root; // ε ∉ view when current state ≢ acceptance s
         return n->graph().sg().re_nullable(m_regex) == l_false;
     }
 
@@ -427,11 +422,14 @@ namespace seq {
         SASSERT(mem.m_regex != nullptr);
         if (mem.is_trivial(this))
             return;
-        // check if root node contains this membership constraint already
-        if (std::ranges::any_of(str_mems(),
-                                [&](const str_mem &e) { return e.m_regex == mem.m_regex && e.m_str == mem.m_str; }))
-            // already present, no need to add again
-            return;
+        // Skip only a FULLY identical membership.  The dedup must compare the
+        // whole membership (kind/root/ν), not just (m_str,m_regex): a land-state
+        // view (paper §5.3) shares (m_str,m_regex) with a plain membership on the
+        // same variable+state, and two land-views on the same state differ only
+        // in their acceptance root / ν.  Deduping on (m_str,m_regex) alone would
+        // silently drop such a view and lose the constraint (→ unsound leaf).
+        if (std::ranges::any_of(str_mems(), [&](const str_mem &e) { return e == mem; }))
+            return; // already present
         m_str_mem.push_back(mem);
     }
 
@@ -1262,6 +1260,107 @@ namespace seq {
         return newly_marked;
     }
 
+    // -----------------------------------------------------------------------
+    // Landing decomposition support: Q = states forward-reachable from the head.
+    // -----------------------------------------------------------------------
+
+    void nielsen_graph::collect_reachable_from_head(euf::snode const* head_re, uint_set& Q) const {
+        Q.reset();
+        if (!head_re || !head_re->get_expr())
+            return;
+        unsigned_vector stack;
+        stack.push_back(head_re->get_expr()->get_id());
+        while (!stack.empty()) {
+            const unsigned s = stack.back();
+            stack.pop_back();
+            if (Q.contains(s))
+                continue;
+            Q.insert(s);
+            auto it = m_partial_dfa_out.find(s);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (const unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                if (e.m_dst)
+                    stack.push_back(e.m_dst->get_id());
+            }
+        }
+    }
+
+    unsigned nielsen_graph::mark_reachable_projection_edges(euf::snode const* head_re) {
+        // Generalizes mark_scc_projection_edges to the forward-reachable set:
+        // mark every edge whose source is reachable from head_re with the current
+        // extraction index ν, bumping ν iff something new was marked.  Views/co-
+        // views gate on projection_state_in_Q (edges marked ≤ ν), so the ν
+        // returned here identifies exactly this Q.
+        uint_set Q;
+        collect_reachable_from_head(head_re, Q);
+        unsigned newly_marked = 0;
+        for (const unsigned src_id : Q) {
+            auto it = m_partial_dfa_out.find(src_id);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (const unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                if (!e.m_dst || !Q.contains(e.m_dst->get_id()))
+                    continue;
+                if (e.m_projection_idx == 0)
+                    ++newly_marked;
+            }
+        }
+        if (newly_marked == 0)
+            return m_projection_extract_idx; // Q already covered by the current ν
+
+        ++m_projection_extract_idx;
+        const unsigned extract_idx = m_projection_extract_idx;
+        for (const unsigned src_id : Q) {
+            auto it = m_partial_dfa_out.find(src_id);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (const unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge& e = m_partial_dfa_edges[edge_idx];
+                if (!e.m_dst || !Q.contains(e.m_dst->get_id()))
+                    continue;
+                if (e.m_projection_idx == 0)
+                    e.m_projection_idx = extract_idx;
+            }
+        }
+        return extract_idx;
+    }
+
+    void nielsen_graph::compute_frontier(uint_set const& Q, svector<euf::snode const*> const& Qstates,
+                                         vector<frontier_edge>& out_frontier) {
+        // One lazy step from each Q state.  Derive over the minterms of every
+        // p ∈ Qstates: δ_mt(p) ∈ Q is an internal edge (recorded, closing cycles
+        // for a future land-at-R); δ_mt(p) ∉ Q (and ≠ ⊥) is a frontier/escape
+        // edge.  Snapshot Qstates was collected by the caller BEFORE this call,
+        // so recording internal edges (which appends to m_partial_dfa_edges) does
+        // not disturb the iteration.
+        for (euf::snode const* p : Qstates) {
+            if (!m.inc())
+                return;
+            if (!p || !p->is_ground())
+                continue;
+            euf::snode_vector mts;
+            m_sg.compute_minterms(p, mts);
+            for (euf::snode const* mt : mts) {
+                euf::snode const* q = m_sg.brzozowski_deriv(p, mt);
+                if (!q || q->is_fail() || !q->is_ground())
+                    continue;
+                if (Q.contains(q->get_expr()->get_id()))
+                    record_partial_derivative_edge(p, q);   // internal edge
+                else
+                    out_frontier.push_back(frontier_edge{ p, mt, q });
+            }
+        }
+    }
+
     euf::snode const* nielsen_graph::get_slice(euf::snode const* v, expr* left, expr* right) {
         SASSERT(v && v->get_expr() && left && right);
         SASSERT(v->is_var());
@@ -1804,15 +1903,15 @@ namespace seq {
             }
         }
 
-        // consume leading characters of view / guard memberships (Section 3.3).
+        // consume leading characters of land-state view memberships (paper §5.3).
         // m_regex is the current (plain) derivative state; we gate on whether it
         // lies in Q_ν (projection_state_in_Q) and step with the ordinary
-        // derivative, keeping the view/guard annotation.
+        // derivative, keeping the view annotation.
         for (str_mem& mem : m_str_mem) {
             SASSERT(mem.well_formed());
             if (mem.is_plain())
                 continue;
-            if (consume_view_guard(mem))
+            if (consume_view(mem))
                 return simplify_result::conflict;
         }
 
@@ -1864,8 +1963,8 @@ namespace seq {
         return simplify_result::proceed;
     }
 
-    bool nielsen_node::consume_view_guard(str_mem& mem) {
-        SASSERT(!mem.is_plain());
+    bool nielsen_node::consume_view(str_mem& mem) {
+        SASSERT(mem.is_view());
         euf::sgraph& sg = m_graph.sg();
 
         auto set_regex_conflict = [&]() {
@@ -1883,24 +1982,17 @@ namespace seq {
             // leave it for apply_regex_if_split.
             if (!c->is_ground() || c->kind() == euf::snode_kind::s_ite)
                 break;
-            const bool in_Q = m_graph.projection_state_in_Q(c->get_expr(), mem.m_nu);
-            if (!in_Q) {
-                if (mem.is_guard()) {
-                    // The run left Q: no lap from the start can complete within Q
-                    // anymore, so the guard is discharged (accepts every suffix).
-                    mem.m_discharged = true;
-                    return false;
-                }
-                // view: a^{-1} L_{Q,F}(c) = ∅ when c ∉ Q.
+            if (!m_graph.projection_state_in_Q(c->get_expr(), mem.m_nu)) {
+                // a^{-1} L_{Q,F}(c) = ∅ when c ∉ Q.
                 set_regex_conflict();
                 return true;
             }
             // Step with brzozowski_deriv for BOTH concrete and symbolic tokens.
             // This is essential: the partial-DFA states (and m_root) are produced
             // by brzozowski_deriv, so its canonicalization must be used here too —
-            // otherwise the guard's resolved state never equals m_root by snode
-            // identity and laps never close.  For a symbolic unit it yields a
-            // canonical ite residual that apply_regex_if_split later resolves.
+            // otherwise the resolved state never equals m_root by snode identity.
+            // For a symbolic unit it yields a canonical ite residual that
+            // apply_regex_if_split later resolves.
             euf::snode const* next = sg.brzozowski_deriv(c, tok);
             if (!next)
                 break;
@@ -1908,25 +2000,11 @@ namespace seq {
             mem.m_regex = next;
             if (next->is_fail()) {
                 // view: derivative collapsed to ∅ — unsatisfiable.
-                // guard: the lap can never close through ∅; treat as discharged.
-                if (mem.is_guard()) { mem.m_discharged = true; return false; }
                 set_regex_conflict();
                 return true;
             }
-            if (next->is_ground() && next->kind() != euf::snode_kind::s_ite) {
-                // concrete next state resolved immediately
-                if (mem.is_guard() && next == mem.m_root) {
-                    // a non-empty prefix completed a lap r→…→r within Q.
-                    set_regex_conflict();
-                    return true;
-                }
-            }
-            else {
-                // symbolic ite residual: defer to apply_regex_if_split, which
-                // resolves the character and (for guards) detects a lap landing
-                // back on the root.
-                break;
-            }
+            if (!(next->is_ground() && next->kind() != euf::snode_kind::s_ite))
+                break;   // symbolic ite residual: defer to apply_regex_if_split
         }
         return false;
     }
@@ -2106,7 +2184,7 @@ namespace seq {
             ++m_stats.m_num_unknown;
             return search_result::unknown;
         }
-        catch(const std::exception&) {
+        catch(const std::exception& e) {
 #ifdef Z3DEBUG
             std::string dot = to_dot();
 #endif
@@ -3381,9 +3459,11 @@ namespace seq {
         if (!harvest_mode() && apply_cycle_subsumption(node))
             return ++m_stats.m_mod_cycle_subsumption, true;
 
-        // Priority 6: CycleDecomp - stabilizer introduction for regex cycles using partial DFA projection
+        // Priority 6: LandingDecomp - the core branching rule (paper §5.3):
+        // split the leading variable by its landing state in the explored region
+        // (land-at-s + escape-via-frontier).  Subsumes character unwinding.
         // (regex-related: skipped in benchmark-harvest mode)
-        if (!harvest_mode() && apply_cycle_decomposition(node))
+        if (!harvest_mode() && apply_landing_decomposition(node))
             return ++m_stats.m_mod_star_intr, true;
 
         // Priority 7: GPowerIntr - ground power introduction
@@ -3883,12 +3963,17 @@ namespace seq {
             if (!first->is_var())
                 continue;
             euf::snode const* R = mem.m_regex;
+            if (!R->is_ground() || R->kind() == euf::snode_kind::s_ite)
+                continue;
 
-            // R must lie on a detected cycle with a marked SCC snapshot.
+            // R must lie on a detected cycle in the explored region.  Use the
+            // same reachable-Q snapshot as apply_landing_decomposition so the
+            // stabilizer view stab(R,Q_ν) matches the land-at-R view.
+            ensure_automaton_explored(R);
             uint_set scc;
             if (!collect_scc_for_projection(R, scc))
                 continue;
-            const unsigned nu = m_projection_extract_idx;
+            const unsigned nu = mark_reachable_projection_edges(R);
             if (nu == 0)
                 continue;
 
@@ -3924,105 +4009,156 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Modifier: apply_cycle_decomposition  (paper Section "Cycle Decomposition")
+    // Modifier: apply_landing_decomposition  (paper §5.3 "Landing Decomposition")
     //
-    // For a membership x·u ∈ R whose leading variable x sits on a detected cycle
-    // (R lies in an SCC of the partial DFA) and that does not already carry a
-    // matching cycle guard for the current SCC snapshot, split
-    //   x → x'·x''
-    // and attach the two *view*/*guard* primitive constraints (Section 3.3):
-    //   x' ∈ stab(R, Q_ν)            -- stabilizer view  (F = {R})
-    //   noloop(x'', R, Q_ν)          -- cycle guard      (two-mode monitor)
-    // The leading x' is immediately subsumed (its only constraint is the view,
-    // and stab ⊆ stab trivially), so it is dropped from the primary constraint.
+    // The core branching rule.  For a plain non-primitive membership x·u ∈ R
+    // (u ≠ ε, x a variable, R a ground regex) we split x by WHERE its value
+    // lands in the explored region Q — the states forward-reachable from R in
+    // the partial DFA G — using the frontier partition (Lemma 4.7):
     //
-    // Unlike the old projection-operator encoding, the view and guard are kept
-    // as *constraint metadata* over the plain state R and the ν-indexed explored
-    // subautomaton Q_ν — nothing is materialized as a regex, which keeps the
-    // reachable state space finite (termination).
+    //   Land-at-s  (for each s ∈ Q):
+    //       pin  x ∈_{Q_ν,{s}} R   (land-state view, acceptance F = {s},
+    //                               current state = R) and advance to  u ∈ s.
+    //       x is removed outright (no split, no guard).  s = R is stabilizer
+    //       absorption: one view swallows every lap of the R-cycle.
+    //
+    //   Escape-via-(p,a)  (for each frontier edge p ∈ Q, δ_a(p) ∉ Q):
+    //       substitute  x → x1·a·x2  (x1,x2 fresh), pin  x1 ∈_{Q_ν,{p}} R,
+    //       drop x1 from the active constraint (it lands at p) leaving
+    //       a·x2·u ∈ p; the normal char-consumption then steps p →a δ_a(p),
+    //       recording the new edge and growing Q.
+    //
+    // By Lemma 4.7 the blocks partition Σ*, so the branches are exhaustive and
+    // pairwise disjoint.  Character unwinding is the degenerate Q = {R} case
+    // (land-at-R = x→ε; escape-via-(R,a) = x→a·x2), so this rule subsumes
+    // apply_regex_var_split for ground regexes.  Views are constraint metadata
+    // over the plain state R and the ν-indexed explored subautomaton Q_ν
+    // (projection_state_in_Q) — nothing is materialized as a regex.
+    // Termination: a landing removes a variable (active term shrinks); each
+    // escape consumes a fresh state of the finite monotone G.
     // -----------------------------------------------------------------------
 
-    bool nielsen_graph::apply_cycle_decomposition(nielsen_node* node) {
+    bool nielsen_graph::apply_landing_decomposition(nielsen_node* node) {
         if (!m_regex_dynamic_decomposition)
             return false;
-        // Look for a str_mem with a variable-headed string
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
             SASSERT(mem.well_formed());
             if (!mem.is_plain() || mem.is_primitive())
                 continue;
-            euf::snode const* first = mem.m_str->first();
-            SASSERT(first);
-            if (!first->is_var())
+            euf::snode const* x = mem.m_str->first();
+            SASSERT(x);
+            if (!x->is_var())
+                continue;
+            euf::snode const* R = mem.m_regex;
+            // R must be a settled ground state; an unresolved symbolic ite is
+            // left to apply_regex_if_split, a non-ground regex to the var-split
+            // fallback.
+            if (!R->is_ground() || R->kind() == euf::snode_kind::s_ite)
                 continue;
 
-            euf::snode const* x = first;
-            euf::snode const* R = mem.m_regex;
-
-            // Lazily explore R's full automaton (once, cached) so that
-            // collect_scc_for_projection sees the complete SCC of R and the
-            // stabilizer view / cycle guard gate on a complete Q.
+            // Eagerly explore R's reachable automaton (once, cached) so the SCC
+            // gate below and the landing enumeration see the full explored region
+            // Q — this is the automaton-based landing.  Without it the cycle would
+            // not be recorded before factorization/var_split fire, so landing
+            // would never trigger.  If exploration hits the resource limit Q is
+            // left partial (a sound under-approximation) and the escape branches
+            // recover completeness.
             ensure_automaton_explored(R);
 
-            // R must sit on a cycle (an SCC of the partial DFA).
-            uint_set scc;
-            if (!collect_scc_for_projection(R, scc))
-                continue;
-            // Mark the SCC edges; this gives a ν identifying the current Q_SCC.
-            // (We trigger on absence of a matching guard, NOT on novelty.)
-            mark_scc_projection_edges(scc);
-            const unsigned nu = m_projection_extract_idx;
-            if (nu == 0)
-                continue;
+            // Trigger: R must sit on a detected cycle in the explored G.  This is
+            // the same gate the old split-and-guard apply_cycle_decomposition
+            // used; the acyclic growth/unwinding of x is left to the pre-existing
+            // flow (apply_regex_var_split / apply_regex_factorization).  Landing
+            // then replaces the split+guard on cyclic heads with land-at-s +
+            // escape, and is exhaustive on its own (frontier partition) so
+            // preempting var_split at this node loses no words.
+            {
+                uint_set scc;
+                if (!collect_scc_for_projection(R, scc))
+                    continue;
+            }
 
-            // Trigger condition: x must not already carry a cycle guard for the
-            // current SCC snapshot ν.  All states of one SCC share a single ν, so
-            // the guard is keyed on ν rather than on the (changing) head R: as the
-            // derivation walks the SCC the head moves, but the lineage is already
-            // guarded against re-traversing the cycle.  An already-decomposed
-            // variable whose guard refers to a strictly smaller, stale ν is
-            // re-decomposed to adopt the enlarged SCC.
-            bool already_guarded = false;
-            for (str_mem const& g : node->str_mems()) {
-                if (g.is_guard() && g.m_nu >= nu
-                    && g.m_str && g.m_str->first() == x) {
-                    already_guarded = true;
-                    break;
+            // Q = states forward-reachable from R (ids), and their snode handles.
+            uint_set Q;
+            collect_reachable_from_head(R, Q);
+            svector<euf::snode const*> Qstates;
+            uint_set added;
+            Qstates.push_back(R);
+            added.insert(R->get_expr()->get_id());
+            for (partial_dfa_edge const& e : m_partial_dfa_edges) {
+                for (expr* ep : { e.m_src, e.m_dst }) {
+                    if (!ep) continue;
+                    const unsigned id = ep->get_id();
+                    if (!Q.contains(id) || added.contains(id)) continue;
+                    euf::snode const* sn = m_sg.find(ep);
+                    if (sn) { added.insert(id); Qstates.push_back(sn); }
                 }
             }
-            if (already_guarded)
-                continue;
+
+            // One lazy exploration step: record internal (cycle-closing) edges
+            // and collect the frontier (escape candidates).
+            vector<frontier_edge> frontier;
+            compute_frontier(Q, Qstates, frontier);
+
+            // Mark the reachable subautomaton, fixing the ν that identifies Q_ν
+            // for every view created below.  ν may be 0 in the Q = {R} bootstrap
+            // (no in-Q edges yet); a view with ν = 0 denotes exactly {ε} at R,
+            // which is precisely what unwinding needs.
+            const unsigned nu = mark_reachable_projection_edges(R);
 
             sort* seq_sort = x->get_expr()->get_sort();
 
-            // Construct the replacement x = x' x''
-            euf::snode const* xp      = m_sg.mk(m_sk.mk("cycle", x->get_expr(), R->get_expr(), seq_sort));
-            euf::snode const* xpp     = get_tail(x, compute_length_expr(xp).get());
-            euf::snode const* xp_xpp  = m_sg.mk_concat(xp, xpp);
+            // (a) LAND-AT-s branches (progress: x removed).
+            for (euf::snode const* s : Qstates) {
+                nielsen_node* child = mk_child(node);
+                mk_edge(node, child, "land", /*progress*/ true);
+                str_mem& cm = child->m_str_mem[mi];
+                cm.m_str = m_sg.drop_first(cm.m_str);      // u
+                cm.m_regex = s;                            // active becomes  u ∈ s
+                // x ∈_{Q_ν,{s}} R : state = R (start), root = s (acceptance).
+                child->add_str_mem(str_mem::mk_view(m, x, R, s, nu, mem.m_dep));
+                TRACE(seq, tout << "landing: land x=" << mk_pp(x->get_expr(), m)
+                                << " at " << mk_pp(s->get_expr(), m)
+                                << " R=" << mk_pp(R->get_expr(), m) << " nu=" << nu << "\n");
+            }
 
-            nielsen_node* child = mk_child(node);
-            SASSERT(child->m_str_mem[mi] == mem);
-            nielsen_edge* e     = mk_edge(node, child, "cycle decomp", false);
-            const nielsen_subst s(x, xp_xpp, mem.m_dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
+            // (b) ESCAPE branches (non-progress: consumes a fresh state, grows Q).
+            for (frontier_edge const& fe : frontier) {
+                euf::snode const* p = fe.m_src;
+                char_set cs = m_seq_regex->minterm_to_char_set(fe.m_mt->get_expr());
+                if (cs.is_empty())
+                    continue;
+                euf::snode const* aunit =
+                    m_sg.mk(m_seq.str.mk_unit(m_seq.mk_char(cs.first_char())));
+                euf::snode const* x1 = mk_fresh_var(seq_sort);
+                // x2 = x[|x1|+1:]  (slice tail after the landed prefix and the char)
+                const expr_ref after =
+                    normalize_arith(m, a.mk_add(compute_length_expr(x1).get(), a.mk_int(1)));
+                euf::snode const* x2 = get_tail(x, after.get());
+                euf::snode const* repl = m_sg.mk_concat(x1, m_sg.mk_concat(aunit, x2));
 
-            // remove from mi^th element of the child the leading token, as it is immediately subsumed
-            SASSERT(child->m_str_mem[mi].m_str->first() == xp);
-            child->m_str_mem[mi].m_str = dir_drop(m_sg, child->m_str_mem[mi].m_str, 1, true);
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, "escape", /*progress*/ false);
+                const nielsen_subst sub(x, repl, mem.m_dep);
+                e->add_subst(sub);
+                child->apply_subst(m_sg, sub);
 
-            // x' ∈ stab(R, Q_ν)   (stabilizer view, F = {R}, current state = R)
-            child->add_str_mem(str_mem::mk_view(m, xp, R, R, nu, mem.m_dep));
+                // x1 lands at p: drop it from the active constraint, whose state
+                // becomes p; the leading a is then consumed by simplify_and_init
+                // (stepping p →a δ_a(p) and recording the edge).
+                str_mem& cm = child->m_str_mem[mi];
+                SASSERT(cm.m_str->first() == x1);
+                cm.m_str = dir_drop(m_sg, cm.m_str, 1, true);   // a·x2·u
+                cm.m_regex = p;
+                // x1 ∈_{Q_ν,{p}} R
+                child->add_str_mem(str_mem::mk_view(m, x1, R, p, nu, mem.m_dep));
+                TRACE(seq, tout << "landing: escape x=" << mk_pp(x->get_expr(), m)
+                                << " via (" << mk_pp(p->get_expr(), m) << ", "
+                                << cs.first_char() << ") R=" << mk_pp(R->get_expr(), m)
+                                << " nu=" << nu << "\n");
+            }
 
-            // noloop(x'', R, Q_ν)  (cycle guard, two-mode monitor, state = R)
-            child->add_str_mem(str_mem::mk_guard(m, xpp, R, R, nu, mem.m_dep));
-
-            TRACE(seq, tout << "cycle_decomp: x=" << mk_pp(x->get_expr(), m)
-                            << " R=" << mk_pp(R->get_expr(), m) << " nu=" << nu << "\n");
-
-#ifdef Z3DEBUG
-            std::string dot = partial_dfa_to_dot(R, false);
-#endif
             return true;
         }
         return false;
@@ -4107,29 +4243,6 @@ namespace seq {
     // explore.  It still guards internal materialisation of intersection /
     // complement bodies against runaway space blow-up.
     static const unsigned RF_LAZY_CAP = 1u << 20;
-
-    // The cycle machinery (apply_cycle_decomposition) owns variables it has put
-    // under a noloop guard: factorizing such a variable's membership would split
-    // it in a way that violates the guard's premise (that the variable is handled
-    // by the stabilizer/guard decomposition), yielding a spurious conflict.  So
-    // factorization defers whenever the leading token is a guarded variable.
-    static bool leading_var_guarded(nielsen_node const* node, euf::snode const* lead) {
-        for (str_mem const& g : node->str_mems())
-            if (g.is_guard() && g.m_str && g.m_str->first() == lead)
-                return true;
-        return false;
-    }
-
-    bool nielsen_graph::mem_has_cycle_token(str_mem const& mem) const {
-        static const symbol cycle_sym("cycle");
-        SASSERT(mem.m_str);
-        for (euf::snode const* t : mem.m_str->collect_tokens()) {
-            expr* const e = t->get_expr();
-            if (e && m_sk.is_skolem(cycle_sym, e))
-                return true;
-        }
-        return false;
-    }
 
     rf_state* nielsen_graph::mk_rf_state(nielsen_node* /*node*/, str_mem const& mem) {
         euf::snode const* const first = mem.m_str->first();
@@ -4267,18 +4380,18 @@ namespace seq {
         if (m_regex_factorization_threshold == 0)
             return false;
 
-        for (str_mem const& mem : node->str_mems())
-            if (mem.is_view() || mem.is_guard() || mem_has_cycle_token(mem))
+        // A node under landing control carries land-state views; the cycle
+        // machinery (apply_landing_decomposition / apply_cycle_subsumption) owns
+        // it, so factorization defers.
+        for (str_mem const& mem : node->str_mems()) {
+            if (mem.is_view())
                 return false;
+        }
 
         // Continuation: resume the iterator handed down to this node by its
         // parent's "remaining splits" branch.
         if (rf_state* st = node->rf_cont()) {
             node->set_rf_cont(nullptr);   // the iterator migrates to child B (or is dropped)
-            // If the cycle machinery has, in the meantime, put the leading variable
-            // under a guard, stop factorizing and defer (the iterator is dropped).
-            if (leading_var_guarded(node, st->m_mem.m_str->first()))
-                return false;
             dep_tracker conflict_dep = nullptr;
             switch (rf_step(node, st, conflict_dep)) {
             case rf_step_result::branched:
@@ -4297,25 +4410,16 @@ namespace seq {
         // Fresh: find the first factorizable membership and start an iterator.
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(mem.well_formed());
+            SASSERT(!mem.m_str->is_empty()); // should have been eliminated already
 
             // split() handles all regex forms (incl. complement / intersection),
             // so the classical restriction is no longer needed.
-            if (mem.m_str->is_empty() || mem.is_primitive())
+            if (mem.is_primitive())
                 continue;
 
-            // View / guard memberships (Section 3.3) are handled by the
-            // cycle machinery and the synchronous product, not by factorization.
+            // Land-state view memberships (paper §5.3) are handled by the cycle
+            // machinery and the synchronous product, not by factorization.
             if (!mem.is_plain())
-                continue;
-
-            // Defer to the cycle machinery when the leading variable is guarded.
-            if (leading_var_guarded(node, mem.m_str->first()))
-                continue;
-
-            // Defer when the membership mentions a cycle stabilizer token: the
-            // cycle machinery owns it, and factorizing it re-expands the cycle
-            // structure indefinitely (see mem_has_cycle_token).
-            if (mem_has_cycle_token(mem))
                 continue;
 
             rf_state* st = mk_rf_state(node, mem);
@@ -4659,7 +4763,7 @@ namespace seq {
                     // Canonicalize with th_rewriter so that the resolved leaf shares
                     // its snode id with the corresponding partial-DFA state (which is
                     // built by brzozowski_deriv); otherwise un-simplified residuals
-                    // like (a|∅)·R≠a·R break view/guard Q-membership and lap checks.
+                    // like (a|∅)·R≠a·R break view Q-membership checks.
                     euf::snode const* new_regex_snode = mk_rewrite(r);
                     nielsen_node *child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "regex if", true);
@@ -4669,12 +4773,6 @@ namespace seq {
                     for (str_mem &cm : child->str_mems()) {
                         if (cm == mem) {
                             cm.m_regex = new_regex_snode;
-                            // A guard whose symbolic step lands back on the cycle
-                            // head closed a lap within Q → this branch is dead.
-                            if (cm.is_guard() && new_regex_snode == cm.m_root) {
-                                child->set_general_conflict();
-                                child->set_conflict(backtrack_reason::regex, cm.m_dep);
-                            }
                             break;
                         }
                     }
@@ -5599,8 +5697,6 @@ namespace seq {
             if (c.m_complemented)
                 return (c.m_sink || c.m_state != c.m_root) ? l_true : l_false;
             return (c.m_state == c.m_root) ? l_true : l_false;
-        case mem_kind::no_loop:
-            return l_true; // guard accepts on every prefix it has not failed on
         }
         return l_undef;
     }
@@ -5627,15 +5723,6 @@ namespace seq {
             if (!projection_state_in_Q(c.m_state->get_expr(), c.m_nu)) { r.m_dead = true; return r; }
             euf::snode const* d = m_sg.brzozowski_deriv(c.m_state, mt);
             if (!d || d->is_fail()) { r.m_dead = true; return r; }
-            r.m_state = d;
-            return r;
-        }
-        case mem_kind::no_loop: {
-            if (c.m_sink) return r;                        // discharged: Σ*
-            if (!projection_state_in_Q(c.m_state->get_expr(), c.m_nu)) { r.m_sink = true; return r; }
-            euf::snode const* d = m_sg.brzozowski_deriv(c.m_state, mt);
-            if (!d || d->is_fail()) { r.m_sink = true; return r; } // lap cannot close through ∅
-            if (d == c.m_root) { r.m_dead = true; return r; }      // lap completed → forbidden
             r.m_state = d;
             return r;
         }
@@ -5733,14 +5820,116 @@ namespace seq {
             case mem_kind::stab_view:
                 out.push_back(prod_comp::mk_view(mem.m_regex, mem.m_root, mem.m_nu, false));
                 break;
-            case mem_kind::no_loop:
-                out.push_back(prod_comp::mk_guard(mem.m_regex, mem.m_root, mem.m_nu, mem.m_discharged));
-                break;
             }
             dep = m_dep_mgr.mk_join(dep, mem.m_dep);
             found = true;
         }
         return found;
+    }
+
+    bool nielsen_graph::product_witness(euf::snode const* var, nielsen_node const& node,
+                                        unsigned len, zstring& out) {
+        // Shortest-accepting-word search over the product of all of var's
+        // primitive components (plain regexes AND land-state views), optionally
+        // intersected with Σ^len.  Mirrors check_product_emptiness but records
+        // the spelled word so a SAT-leaf variable pinned to a land-state view
+        // (F={s}) gets a concrete witness (ε alone is inadmissible when s≠head).
+        vector<prod_comp> comps0;
+        dep_tracker d = nullptr;
+        collect_var_components(var, node, comps0, d);
+
+        if (len != UINT_MAX) {
+            // force exact length via a Σ^len plain component
+            sort* re_sort = nullptr;
+            if (!comps0.empty() && comps0[0].m_state)
+                re_sort = comps0[0].m_state->get_expr()->get_sort();
+            if (re_sort) {
+                const expr_ref sigma_n(
+                    m_seq.re.mk_loop(m_seq.re.mk_full_char(re_sort), len, len), m);
+                comps0.push_back(prod_comp::mk_plain(m_sg.mk(sigma_n)));
+            }
+        }
+
+        if (comps0.empty()) {
+            // no constraints: any word of the requested length (default ε)
+            out = zstring();
+            for (unsigned i = 0; i < (len == UINT_MAX ? 0u : len); ++i)
+                out = out + zstring((unsigned)'a');
+            return true;
+        }
+
+        auto encode = [](vector<prod_comp> const& cs) {
+            std::vector<unsigned> key;
+            key.reserve(cs.size() * 3);
+            for (auto const& c : cs) {
+                key.push_back(static_cast<unsigned>(c.m_kind));
+                key.push_back((c.m_complemented ? 1u : 0u) | (c.m_sink ? 2u : 0u) | (c.m_dead ? 4u : 0u));
+                key.push_back(c.m_state ? c.m_state->id() : UINT_MAX);
+            }
+            return key;
+        };
+
+        std::set<std::vector<unsigned>> visited;
+        // BFS (vector + head index) for a SHORTEST accepting word.
+        vector<std::pair<vector<prod_comp>, zstring>> work;
+        work.push_back({ comps0, zstring() });
+        visited.insert(encode(comps0));
+        unsigned head = 0;
+        const unsigned MAX_STATES = 200000;
+
+        while (head < work.size()) {
+            if (!m.inc() || head >= MAX_STATES)
+                return false;
+            vector<prod_comp> cur = work[head].first;
+            zstring w = work[head].second;
+            ++head;
+
+            bool any_dead = false;
+            for (auto const& c : cur) if (c.m_dead) { any_dead = true; break; }
+            if (any_dead)
+                continue;
+
+            bool all_acc = true, any_undef = false;
+            for (auto const& c : cur) {
+                const lbool a = comp_accepting(c);
+                if (a == l_false) { all_acc = false; break; }
+                if (a == l_undef) any_undef = true;
+            }
+            if (all_acc && !any_undef) {
+                out = w;
+                return true;
+            }
+
+            expr* combined = nullptr;
+            for (auto const& c : cur) {
+                if (c.m_sink || c.m_dead) continue;
+                combined = combined ? m_seq.re.mk_inter(combined, c.m_state->get_expr())
+                                    : c.m_state->get_expr();
+            }
+            if (!combined)
+                continue;
+            euf::snode_vector mts;
+            m_sg.compute_minterms(m_sg.mk(combined), mts);
+
+            for (euf::snode const* mt : mts) {
+                char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
+                if (cs.is_empty())
+                    continue;
+                const unsigned ch = cs.first_char();
+                vector<prod_comp> nxt;
+                bool dead = false;
+                for (auto const& c : cur) {
+                    prod_comp e = comp_step(c, mt);
+                    if (e.m_dead) { dead = true; break; }
+                    nxt.push_back(e);
+                }
+                if (dead)
+                    continue;
+                if (visited.insert(encode(nxt)).second)
+                    work.push_back({ nxt, w + zstring(ch) });
+            }
+        }
+        return false;
     }
 
     bool nielsen_graph::check_leaf_regex(nielsen_node const& node, dep_tracker& dep) {

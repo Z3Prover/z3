@@ -70,6 +70,15 @@ namespace smt {
         // collected during init() from the state's str_mem list.
         u_map<euf::snode const*> m_var_regex;
 
+        // variables carrying a land-state view (paper §5.3) at the SAT leaf; their
+        // witness is produced by the product search (m_nielsen->product_witness),
+        // not by some_string_in_re over a plain regex.
+        uint_set m_view_vars;
+
+        // the SAT leaf and its owning graph, captured in init() for view witnesses.
+        seq::nielsen_graph*      m_nielsen  = nullptr;
+        seq::nielsen_node const* m_sat_node = nullptr;
+
     public:
         seq_model(ast_manager& m, context& ctx, seq_util& seq,
                    seq_rewriter& rw, euf::sgraph& sg);
