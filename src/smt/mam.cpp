@@ -2298,7 +2298,7 @@ namespace {
         unsigned since_last_check = 0;
 
         if (m.has_trace_stream()) {
-            m.trace_stream() << "execute core: " << t->get_root_lbl()->get_name() << " " << n->get_expr_id() << ", gen: " << n->get_generation()<< ", cg: " << n->get_cg_or_const()->get_expr_id() << "\n";
+            m.trace_stream() << "execute core: " << t->get_root_lbl()->get_name() << " " << n->get_expr_id() << ", gen: " << m_context.get_generation(n) << ", cg: " << n->get_cg_or_const()->get_expr_id() << "\n";
         }
 
 #ifdef _PROFILE_MAM
