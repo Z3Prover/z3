@@ -45,7 +45,7 @@ jobs:
 
       - name: Restore or create cache
         id: cache-z3
-        uses: actions/cache@v6.0.0
+        uses: actions/cache@v6.1.0
         with:
           path: |
             build/z3
