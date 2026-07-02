@@ -78,6 +78,6 @@ namespace smt {
     };
 
     const eq_justification null_eq_justification(static_cast<justification*>(nullptr));
-};
+}
 
 

@@ -36,6 +36,6 @@ namespace smt {
         unsigned* class_ids);            
 
     
-};
+}
 
 

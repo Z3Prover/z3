@@ -104,5 +104,5 @@ namespace smt {
         void operator()(expr* e);
 
     };
-};
+}
 

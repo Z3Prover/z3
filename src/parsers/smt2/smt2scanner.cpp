@@ -403,5 +403,5 @@ namespace smt2 {
         m_bend = 0;
         next();
     }
-};
+}
 

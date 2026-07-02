@@ -424,4 +424,4 @@ namespace smt {
         void propagate() override; 
         static literal assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs);
     };
-};
+}

@@ -80,5 +80,5 @@ namespace datalog {
         return false;
     }
 
-};
+}
 

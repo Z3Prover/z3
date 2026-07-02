@@ -71,7 +71,7 @@ void quasi_macros::find_occurrences(expr * e) {
             default: UNREACHABLE();
         }
     }
-};
+}
 
 bool quasi_macros::is_non_ground_uninterp(expr const * e) const {
     return is_non_ground(e) && is_uninterp(e);

@@ -106,6 +106,6 @@ namespace datalog {
         void start(accounted_object *);
         void finish() { start(nullptr); }
     };
-};
+}
 
 

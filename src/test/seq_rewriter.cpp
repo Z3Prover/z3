@@ -10,12 +10,19 @@ Tests:
   4. Range ∪ Range → merged range for overlapping/adjacent
   5. Complement of range → one or two ranges
   6. Downstream operators absorb empty ranges correctly
+ 15. Symbolic-bound range membership rewrite (structural)
+ 16. Symbolic-bound range membership: concrete element, symbolic bounds (structural)
+ 17. Solver: (str.in_re x (re.range x x)) sat when len(x)=1
+ 18. Solver: (str.in_re x (re.range x x)) unsat when len(x)=2
+ 19. Solver: inverted symbolic bounds make membership unsatisfiable
 --*/
 
+#include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq_decl_plugin.h"
+#include "smt/smt_context.h"
 #include <iostream>
 
 // Build a single-char string literal expression.
@@ -165,6 +172,87 @@ void tst_seq_rewriter() {
         rw(e);
         std::cout << "inter absorbs empty range: " << mk_pp(e, m) << "\n";
         ENSURE(su.re.is_empty(e));
+    }
+
+    // -----------------------------------------------------------------------
+    // 15. Symbolic-bound range membership rewrite (structural).
+    //     (str.in_re x (re.range x x)) with symbolic x should be unfolded
+    //     by the rewriter into a conjunction of length and ordering
+    //     constraints, not left stuck as an uninterpreted membership term.
+    // -----------------------------------------------------------------------
+    {
+        app_ref x(m.mk_fresh_const("x", str_sort), m);
+        expr_ref rng(su.re.mk_range(x, x), m);
+        expr_ref e(su.re.mk_in_re(x, rng), m);
+        rw(e);
+        std::cout << "symbolic range (x in [x,x]): " << mk_pp(e, m) << "\n";
+        ENSURE(m.is_and(e));
+    }
+
+    // -----------------------------------------------------------------------
+    // 16. Symbolic-bound range membership: concrete element, symbolic bounds.
+    //     (str.in_re "b" (re.range lo hi)) should also be unfolded to a
+    //     conjunction when lo/hi are free variables.
+    // -----------------------------------------------------------------------
+    {
+        app_ref lo(m.mk_fresh_const("lo", str_sort), m);
+        app_ref hi(m.mk_fresh_const("hi", str_sort), m);
+        expr_ref b_str(su.str.mk_string(zstring('b')), m);
+        expr_ref rng(su.re.mk_range(lo, hi), m);
+        expr_ref e(su.re.mk_in_re(b_str, rng), m);
+        rw(e);
+        std::cout << "symbolic range (\"b\" in [lo,hi]): " << mk_pp(e, m) << "\n";
+        ENSURE(m.is_and(e));
+    }
+
+    // -----------------------------------------------------------------------
+    // Solver-level tests: the unfolded conjunction must be decidable.
+    // -----------------------------------------------------------------------
+    {
+        arith_util a_util(m);
+
+        // 17. sat: (str.in_re x (re.range x x)) ∧ len(x)=1
+        {
+            smt_params sp;
+            smt::context ctx(m, sp);
+            app_ref x(m.mk_fresh_const("x", str_sort), m);
+            ctx.assert_expr(su.re.mk_in_re(x, su.re.mk_range(x, x)));
+            ctx.assert_expr(m.mk_eq(su.str.mk_length(x), a_util.mk_int(1)));
+            lbool res = ctx.check();
+            std::cout << "symbolic range solver sat (len=1): " << res << "\n";
+            ENSURE(res == l_true);
+        }
+
+        // 18. unsat: (str.in_re x (re.range x x)) ∧ len(x)=2
+        //     The unfolded membership requires len(x)=1, which contradicts len(x)=2.
+        {
+            smt_params sp;
+            smt::context ctx(m, sp);
+            app_ref x(m.mk_fresh_const("x", str_sort), m);
+            ctx.assert_expr(su.re.mk_in_re(x, su.re.mk_range(x, x)));
+            ctx.assert_expr(m.mk_eq(su.str.mk_length(x), a_util.mk_int(2)));
+            lbool res = ctx.check();
+            std::cout << "symbolic range solver unsat (len=2): " << res << "\n";
+            ENSURE(res == l_false);
+        }
+
+        // 19. unsat: inverted symbolic bounds make membership false.
+        //     (str.in_re "b" (re.range lo hi)) ∧ lo="z" ∧ hi="a"
+        //     The unfolded conjunction requires lo <=_lex "b" <=_lex hi, but
+        //     "z" > "b" > "a" so the ordering constraints are unsatisfiable.
+        {
+            smt_params sp;
+            smt::context ctx(m, sp);
+            app_ref lo(m.mk_fresh_const("lo", str_sort), m);
+            app_ref hi(m.mk_fresh_const("hi", str_sort), m);
+            expr_ref b_str(su.str.mk_string(zstring('b')), m);
+            ctx.assert_expr(su.re.mk_in_re(b_str, su.re.mk_range(lo, hi)));
+            ctx.assert_expr(m.mk_eq(lo, su.str.mk_string(zstring('z'))));
+            ctx.assert_expr(m.mk_eq(hi, su.str.mk_string(zstring('a'))));
+            lbool res = ctx.check();
+            std::cout << "symbolic range solver inverted bounds unsat: " << res << "\n";
+            ENSURE(res == l_false);
+        }
     }
 
     std::cout << "tst_seq_rewriter: all tests passed\n";

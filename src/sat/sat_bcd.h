@@ -73,5 +73,5 @@ namespace sat {
         void operator()(union_find<>& uf);
     };
 
-};
+}
 

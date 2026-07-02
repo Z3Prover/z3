@@ -76,6 +76,6 @@ namespace smt {
         bool slow_contains(void const * data, unsigned data_hash, unsigned num_args, enode * const * args) const;
 #endif
     };
-};
+}
 
 

@@ -61,4 +61,4 @@ extern "C" {
 }
 
     MK_DECL(Z3_mk_transitive_closure, OP_SPECIAL_RELATION_TC);
-};
+}

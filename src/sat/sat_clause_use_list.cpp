@@ -54,4 +54,4 @@ namespace sat {
         m_clauses.shrink(m_j);
     }
 
-};
+}

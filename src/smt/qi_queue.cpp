@@ -518,5 +518,5 @@ namespace smt {
 #endif
     }
 
-};
+}
 

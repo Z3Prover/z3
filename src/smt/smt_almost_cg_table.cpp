@@ -124,4 +124,4 @@ namespace smt {
         return result;
     }
 
-};
+}

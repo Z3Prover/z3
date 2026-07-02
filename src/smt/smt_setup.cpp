@@ -941,6 +941,6 @@ namespace smt {
         setup_unknown();
     }
 
-};
+}
 
 

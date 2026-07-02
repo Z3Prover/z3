@@ -1404,5 +1404,5 @@ namespace datalog {
     }
 
 
-};
+}
 

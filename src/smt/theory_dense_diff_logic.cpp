@@ -23,4 +23,4 @@ namespace smt {
     template class theory_dense_diff_logic<i_ext>;
     template class theory_dense_diff_logic<smi_ext>;
     template class theory_dense_diff_logic<si_ext>;
-};
+}

@@ -112,5 +112,5 @@ namespace sat {
         bool copy_solver(solver& s);
     };
 
-};
+}
 

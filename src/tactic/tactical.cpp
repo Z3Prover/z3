@@ -1012,7 +1012,7 @@ public:
             result.reset(); // assumes in is not strenthened to one of the branches
             throw tactic_exception("failed-if-branching tactical");
         }
-    };    
+    }    
 
     tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);

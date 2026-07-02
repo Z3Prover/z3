@@ -69,6 +69,6 @@ namespace datalog {
 
     };
 
-};
+}
 
 

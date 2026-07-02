@@ -182,7 +182,7 @@ namespace smt {
         m_bindings(nullptr) {
     }
    
-};
+}
 
 
 

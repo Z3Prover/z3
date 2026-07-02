@@ -190,7 +190,7 @@ namespace sat {
         return out << mk_lits_pp(ls.size(), ls.data());
     }
 
-};
+}
 
 namespace std {
 
@@ -198,4 +198,4 @@ namespace std {
         if (l.sign()) return "-" + to_string(l.var());
         return to_string(l.var());
     }
-};
+}

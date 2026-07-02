@@ -786,5 +786,5 @@ namespace smt {
         IF_VERBOSE(2, verbose_stream() << str);
     }
 
-};
+}
 

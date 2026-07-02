@@ -316,4 +316,4 @@ namespace nlsat {
 
     };
 
-};
+}

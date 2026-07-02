@@ -35,7 +35,7 @@ Revision History:
 namespace spacer {
 
     unsat_core_plugin::unsat_core_plugin(unsat_core_learner& ctx):
-        m(ctx.get_manager()), m_ctx(ctx) {};
+        m(ctx.get_manager()), m_ctx(ctx) {}
 
     void unsat_core_plugin_lemma::compute_partial_core(proof* step) {
         SASSERT(m_ctx.is_a(step));

@@ -620,5 +620,5 @@ namespace datalog {
         void display_rel_decl(std::ostream& out, func_decl* f);
     };
 
-};
+}
 

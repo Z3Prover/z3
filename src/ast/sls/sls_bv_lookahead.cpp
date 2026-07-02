@@ -871,7 +871,7 @@ namespace sls {
         if (m_la.m_config.use_top_level_assertions)
             return m_la.ctx.input_assertions().get(idx);
         return m_la.ctx.atom(m_la.ctx.root_literals()[idx].var());
-    };
+    }
 
 
 

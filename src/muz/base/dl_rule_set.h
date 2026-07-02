@@ -281,5 +281,5 @@ namespace datalog {
 
 
 
-};
+}
 

@@ -917,4 +917,4 @@ namespace upolynomial {
         std::ostream& display(std::ostream & out, upolynomial_sequence const & seq, char const * var_name = "x") const;
     };
 
-};
+}

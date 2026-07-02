@@ -330,7 +330,7 @@ namespace intblast {
             }
         }
         return r;
-    };
+    }
 
     bool solver::is_bv(sat::literal lit) {
         expr* e = ctx.bool_var2expr(lit.var());

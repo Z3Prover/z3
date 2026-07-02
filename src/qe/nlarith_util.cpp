@@ -2022,6 +2022,6 @@ namespace nlarith {
     void util::get_sign_branches(literal_set& lits, eval& ev, ptr_vector<branch>& branches) {
         m_imp->get_sign_branches(lits, ev, branches);
     }
-};
+}
 
 

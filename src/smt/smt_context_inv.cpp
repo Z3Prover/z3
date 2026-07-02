@@ -420,5 +420,5 @@ namespace smt {
         }
     }
 
-};
+}
 

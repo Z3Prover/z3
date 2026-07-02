@@ -26,7 +26,7 @@ Author:
 
 namespace euf {
     class solver;
-};
+}
 
 namespace q {
 

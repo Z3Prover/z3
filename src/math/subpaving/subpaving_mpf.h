@@ -43,5 +43,5 @@ public:
  context_mpf(reslimit& lim, f2n<mpf_manager> & m, params_ref const & p, small_object_allocator * a):context_t<config_mpf>(lim, config_mpf(m), p, a) {}
 };
 
-};
+}
 

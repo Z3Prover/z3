@@ -455,4 +455,4 @@ namespace sat {
         }
     }
 
-};
+}

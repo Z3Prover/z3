@@ -358,7 +358,7 @@ namespace smt {
 
     typedef theory_utvpi<rdl_ext>  theory_rutvpi;
     typedef theory_utvpi<idl_ext>  theory_iutvpi;
-};
+}
 
 
 

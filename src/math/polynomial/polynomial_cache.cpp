@@ -256,4 +256,4 @@ namespace polynomial {
         dealloc(m_imp);
         m_imp = alloc(imp, _m);
     }
-};
+}

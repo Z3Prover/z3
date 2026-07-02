@@ -962,4 +962,4 @@ namespace smt {
         return alloc(default_qm_plugin);
     }
 
-};
+}

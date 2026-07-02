@@ -68,4 +68,4 @@ namespace opt {
 
         void updt_params(params_ref& p);
     };
-};
+}

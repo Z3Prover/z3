@@ -47,7 +47,7 @@ namespace euf {
         
         virtual void merge_eh(enode* n1, enode* n2) = 0;
 
-        virtual void diseq_eh(enode* eq) {};
+        virtual void diseq_eh(enode* eq) {}
 
         virtual void propagate() = 0;
 

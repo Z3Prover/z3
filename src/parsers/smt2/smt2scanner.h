@@ -104,6 +104,6 @@ namespace smt2 {
         char const * cached_str(unsigned begin, unsigned end);
     };
 
-};
+}
 
 

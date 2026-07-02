@@ -399,4 +399,4 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_CATCH_RETURN(0);
     }
 
-};
+}

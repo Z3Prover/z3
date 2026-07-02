@@ -319,14 +319,14 @@ namespace euf {
 
         struct eq_pp {
             ac_plugin const& p; eq const& e; 
-            eq_pp(ac_plugin const& p, eq const& e) : p(p), e(e) {}; 
+            eq_pp(ac_plugin const& p, eq const& e) : p(p), e(e) {} 
             eq_pp(ac_plugin const& p, unsigned eq_id): p(p), e(p.m_active[eq_id]) {}
             std::ostream& display(std::ostream& out) const { return p.display_equation(out, e); }
         };
 
         struct eq_pp_ll {
             ac_plugin const& p; eq const& e;
-            eq_pp_ll(ac_plugin const& p, eq const& e) : p(p), e(e) {};
+            eq_pp_ll(ac_plugin const& p, eq const& e) : p(p), e(e) {}
             eq_pp_ll(ac_plugin const& p, unsigned eq_id) : p(p), e(p.m_active[eq_id]) {}
             std::ostream& display(std::ostream& out) const { return p.display_equation_ll(out, e); }
         };

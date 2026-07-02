@@ -40,7 +40,7 @@ namespace spacer {
 
     class unsat_core_plugin_lemma : public unsat_core_plugin {
     public:
-        unsat_core_plugin_lemma(unsat_core_learner& learner) : unsat_core_plugin(learner){};
+        unsat_core_plugin_lemma(unsat_core_learner& learner) : unsat_core_plugin(learner){}
         void compute_partial_core(proof* step) override;
     private:
         void add_lowest_split_to_core(proof* step) const;
@@ -53,7 +53,7 @@ namespace spacer {
                                        bool use_constant_from_a=true) :
             unsat_core_plugin(learner),
             m_split_literals(split_literals),
-            m_use_constant_from_a(use_constant_from_a) {};
+            m_use_constant_from_a(use_constant_from_a) {}
         void compute_partial_core(proof* step) override;
     private:
         bool m_split_literals;
@@ -66,7 +66,7 @@ namespace spacer {
 
     class unsat_core_plugin_farkas_lemma_optimized : public unsat_core_plugin {
     public:
-        unsat_core_plugin_farkas_lemma_optimized(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner) {};
+        unsat_core_plugin_farkas_lemma_optimized(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner) {}
         void compute_partial_core(proof* step) override;
         void finalize() override;
     protected:
@@ -79,7 +79,7 @@ namespace spacer {
 
     class unsat_core_plugin_farkas_lemma_bounded : public unsat_core_plugin_farkas_lemma_optimized {
     public:
-        unsat_core_plugin_farkas_lemma_bounded(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin_farkas_lemma_optimized(learner, m) {};
+        unsat_core_plugin_farkas_lemma_bounded(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin_farkas_lemma_optimized(learner, m) {}
         void finalize() override;
     };
 

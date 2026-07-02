@@ -261,5 +261,5 @@ namespace smt {
         return get_th_var(ctx.get_enode(e));
     }
 
-};
+}
 

@@ -249,4 +249,4 @@ namespace sat {
         return out;
     }
 
-};
+}

@@ -494,7 +494,7 @@ namespace dd {
                 hash(unsigned_vector& vars):vars(vars) {}
                 bool operator()(mon const& m) const {
                     return unsigned_ptr_hash(vars.data() + m.offset, m.sz, 1);
-                };
+                }
             };
             struct eq {
                 unsigned_vector& vars;

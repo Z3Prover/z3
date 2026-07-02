@@ -52,8 +52,8 @@ namespace sls {
 
         bool is_user_sort(sort* s) { return s->get_family_id() == user_sort_family_id; }
 
-        size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); };
-        sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); };
+        size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); }
+        sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); }
 
         void validate_model();
         void log_clause(sat::literal_vector const& lits);

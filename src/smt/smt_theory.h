@@ -655,6 +655,6 @@ namespace smt {
         virtual bool is_fixed_propagated(theory_var v, expr_ref& val, literal_vector & explain) { return false; }
     };
     
-};
+}
 
 

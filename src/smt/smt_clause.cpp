@@ -126,4 +126,4 @@ namespace smt {
         return out << mk_pp(disj, m, 3);
     }
 
-};
+}

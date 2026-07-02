@@ -143,5 +143,5 @@ namespace nlarith {
 
     };
 
-};
+}
 

@@ -66,5 +66,5 @@ namespace nlsat {
 
     typedef ptr_vector<clause> clause_vector;
 
-};
+}
 
