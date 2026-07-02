@@ -4126,30 +4126,39 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
         is_empty = true;
     if (max_length(hi) == std::make_pair(true, rational(0)))
         is_empty = true;
-    if (!is_empty) {
-        if (str().is_string(lo, slo) && slo.length() == 1) 
-            clo = slo[0];    
-        else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
-            ;
-        else
-            is_empty = true;
-    }
-    if (!is_empty) {
-        if (str().is_string(hi, shi) && shi.length() == 1)
-            chi = shi[0];
-        else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
-            ;
-        else
-            is_empty = true;
-    }
-
-    // clo/chi are only meaningful once both bounds were extracted; an early
-    // is_empty (from the length checks) leaves them at their default 0, so the
-    // is_empty return must come before the singleton/ordering checks below.
-    if (!is_empty && clo > chi)
-        is_empty = true;
-
+    // A bound whose length is provably not 1 forces the whole range to denote
+    // the empty language, regardless of the other endpoint.
     if (is_empty) {
+        sort* srt = re().mk_re(lo->get_sort());
+        result = re().mk_empty(srt);
+        return BR_DONE;
+    }
+
+    // Resolve each bound to a concrete character. A bound that is not a
+    // constant single character (e.g. a symbolic term such as an ite) cannot
+    // be decided here: leave the range untouched for the theory solver rather
+    // than assuming it denotes the empty language. Collapsing a symbolic range
+    // to empty is unsound, since the bound may evaluate to a valid character.
+    bool lo_is_char = false, hi_is_char = false;
+    if (str().is_string(lo, slo) && slo.length() == 1) {
+        clo = slo[0];
+        lo_is_char = true;
+    }
+    else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
+        lo_is_char = true;
+
+    if (str().is_string(hi, shi) && shi.length() == 1) {
+        chi = shi[0];
+        hi_is_char = true;
+    }
+    else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
+        hi_is_char = true;
+
+    if (!lo_is_char || !hi_is_char)
+        return BR_FAILED;
+
+    // Both endpoints are concrete characters: apply the exact semantics.
+    if (clo > chi) {
         sort* srt = re().mk_re(lo->get_sort());
         result = re().mk_empty(srt);
         return BR_DONE;
