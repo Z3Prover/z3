@@ -403,10 +403,26 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
         return mk_union(mk_single(eps, eps), mk_fromre(a));
     }
 
-    // loop
+    // loop: r{l,h} = \bigcup_{l <= j <= h} r^j.
+    // A split either singles out the i-th copy of a (0 <= i < h) as
+    // <r^i . D, N . r{lo_i,hi_i}> for <D,N> in sigma(a),
+    // where r{lo_i,hi_i} folds the tail counts j-i-1, over every remaining
+    // j in [l,h] with j > i, into a single loop [<eps,eps> when l == 0]
     unsigned l, h;
     if (rex.is_loop(r, a, l, h)) {
-        // TODO
+        expr_ref acc = mk_empty();
+        if (l == 0) {
+            const expr_ref eps(rex.mk_epsilon(seq_sort), m);
+            acc = mk_single(eps, eps);
+        }
+        for (unsigned i = 0; i < h; i++) {
+            const expr_ref pre(rex.mk_loop_proper(a, i, i), m);
+            const unsigned lo_i = l > i + 1 ? l - i - 1 : 0;
+            const unsigned hi_i = h - i - 1;
+            const expr_ref post(rex.mk_loop_proper(a, lo_i, hi_i), m);
+            acc = mk_union(acc, mk_lcat(pre, mk_rcat(mk_fromre(a), post)));
+        }
+        return acc;
     }
 
     // bounded loop / ite / other: not handled (paper "v1: bail").

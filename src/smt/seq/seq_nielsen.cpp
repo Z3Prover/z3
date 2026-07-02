@@ -4338,6 +4338,13 @@ namespace seq {
                     }
                 }
             }
+            // Self-concatenation (e.g. x++x): the tail collapses back onto the
+            // exact same token as the head, so Δ and ∇ constrain the same
+            // variable simultaneously and must be checked jointly -- otherwise
+            // a Δ/∇ pair that is only individually non-empty (e.g. <eps, "a">)
+            // is wrongly treated as feasible.
+            if (st->m_tail == first)
+                regexes_p.push_back(sn_q);
             if (m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
                 eliminated_dep = m_dep_mgr.mk_join(eliminated_dep, first_filter_dep);
                 continue;   // infeasible split → skip without branching
