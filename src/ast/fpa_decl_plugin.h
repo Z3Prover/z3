@@ -366,6 +366,6 @@ public:
 
     bool is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args);
 
-    MATCH_TERNARY(is_fp)
+    MATCH_TERNARY(is_fp);
 };
 

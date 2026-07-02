@@ -733,14 +733,14 @@ static probe * NAME ## _probe (cmd_context & ctx, sexpr * n) {                  
     return NAME(p1.get(), p2.get());                                                                            \
 }
 
-MK_BIN_PROBE(mk_eq)
-MK_BIN_PROBE(mk_le)
-MK_BIN_PROBE(mk_lt)
-MK_BIN_PROBE(mk_ge)
-MK_BIN_PROBE(mk_gt)
-MK_BIN_PROBE(mk_implies)
-MK_BIN_PROBE(mk_div)
-MK_BIN_PROBE(mk_sub)
+MK_BIN_PROBE(mk_eq);
+MK_BIN_PROBE(mk_le);
+MK_BIN_PROBE(mk_lt);
+MK_BIN_PROBE(mk_ge);
+MK_BIN_PROBE(mk_gt);
+MK_BIN_PROBE(mk_implies);
+MK_BIN_PROBE(mk_div);
+MK_BIN_PROBE(mk_sub);
 
 #define MK_NARY_PROBE(NAME)                                                                                     \
 static probe * NAME ## _probe(cmd_context & ctx, sexpr * n) {                                                   \
@@ -762,10 +762,10 @@ static probe * NAME ## _probe(cmd_context & ctx, sexpr * n) {                   
     }                                                                                                           \
 }
 
-MK_NARY_PROBE(mk_and)
-MK_NARY_PROBE(mk_or)
-MK_NARY_PROBE(mk_add)
-MK_NARY_PROBE(mk_mul)
+MK_NARY_PROBE(mk_and);
+MK_NARY_PROBE(mk_or);
+MK_NARY_PROBE(mk_add);
+MK_NARY_PROBE(mk_mul);
 
 probe * sexpr2probe(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {

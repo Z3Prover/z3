@@ -29,6 +29,7 @@ public:
     atom2bool_var(ast_manager & m):expr2var(m) {}
     void insert(expr * n, sat::bool_var v) { expr2var::insert(n, v); }
     sat::bool_var to_bool_var(expr * n) const;
+    expr* bool_var2expr(sat::bool_var v) const;
     void mk_inv(expr_ref_vector & lit2expr) const;
     void mk_var_inv(expr_ref_vector & var2expr) const;
     // return true if the mapping contains uninterpreted atoms.

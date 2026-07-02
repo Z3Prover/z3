@@ -1290,6 +1290,15 @@ namespace qe {
             
             TRACE(qe, tout << fml << "\n";);
 
+            // qe/qe2 over a quantifier-free formula has nothing to eliminate.
+            // Under check-sat semantics the free variables are implicitly
+            // existentially quantified, so decide satisfiability directly
+            // instead of leaving an undecided residual goal (which would be
+            // reported as 'unknown').
+            flet<qsat_mode> _mode(m_mode,
+                                  (m_mode == qsat_qe || m_mode == qsat_qe_rec) && !has_quantifiers(fml)
+                                  ? qsat_sat : m_mode);
+
             if (m_mode == qsat_qe_rec) {
                 fml = elim_rec(fml);
                 in->reset();

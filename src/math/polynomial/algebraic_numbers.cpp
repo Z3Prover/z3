@@ -22,6 +22,7 @@ Notes:
 #include "util/mpbqi.h"
 #include "util/timeit.h"
 #include "util/common_msgs.h"
+#include "util/index_sort_with_mutations.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/upolynomial.h"
 #include "math/polynomial/sexpr2upolynomial.h"
@@ -593,10 +594,57 @@ namespace algebraic_numbers {
             }
         }
 
+        // Sort an index permutation with a bounds-safe, mutation-aware merge
+        // sort. The comparator (compare/lt) is NOT pure: it MUTATES the
+        // algebraic numbers it compares (refining their isolating intervals) and
+        // may throw on the resource limit, so std::sort would be undefined
+        // behavior here. See util/index_sort_with_mutations.h for the rationale.
+        void merge_sort_roots_perm(numeral_vector & r, unsigned_vector & perm) {
+            unsigned n = perm.size();
+            if (n < 2)
+                return;
+            unsigned_vector scratch;
+            scratch.resize(n, 0);
+            // Strict, total, stable index comparator: decided sign first, then index
+            // tiebreak (covers the equal/limit case so the order stays deterministic).
+            auto idx_lt = [&](unsigned x, unsigned y) {
+                ::sign s = compare(r[x], r[y]);
+                return s != sign_zero ? s == sign_neg : x < y;
+            };
+            stable_index_merge_sort(perm.data(), scratch.data(), n, idx_lt);
+        }
+
         void sort_roots(numeral_vector & r) {
-            if (m_limit.inc()) {
-                // DEBUG_CODE(check_transitivity(r););
-                std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
+            if (!m_limit.inc())
+                return;
+            // DEBUG_CODE(check_transitivity(r););
+            unsigned n = r.size();
+            if (n < 2)
+                return;
+            unsigned_vector perm;
+            perm.resize(n, 0);
+            for (unsigned i = 0; i < n; ++i)
+                perm[i] = i;
+            merge_sort_roots_perm(r, perm);
+            // Apply the permutation in place via swap cycles. anum swap is a cheap
+            // pointer swap (move nulls the source), so this is O(n) cheap moves.
+            unsigned_vector pos;       // pos[v] = current position of element v
+            pos.resize(n, 0);
+            unsigned_vector at;        // at[p]  = element currently at position p
+            at.resize(n, 0);
+            for (unsigned i = 0; i < n; ++i) {
+                pos[i] = i;
+                at[i] = i;
+            }
+            for (unsigned target = 0; target < n; ++target) {
+                unsigned want = perm[target];   // element that should end up at target
+                unsigned cur = pos[want];        // where it currently is
+                if (cur == target)
+                    continue;
+                unsigned other = at[target];     // element currently at target
+                std::swap(r[target], r[cur]);
+                at[target] = want;  at[cur] = other;
+                pos[want] = target; pos[other] = cur;
             }
         }
 

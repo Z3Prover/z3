@@ -119,7 +119,7 @@ inline param_descrs * to_param_descrs_ptr(Z3_param_descrs p) { return p == nullp
     RETURN_Z3(of_ast(a));                                       \
     Z3_CATCH_RETURN(0);
 
-#define xMK_UNARY(NAME, FID, OP, EXTRA_CODE)     \
+#define MK_UNARY(NAME, FID, OP, EXTRA_CODE)     \
 Z3_ast Z3_API NAME(Z3_context c, Z3_ast n) {    \
     LOG_ ## NAME(c, n);                         \
     MK_UNARY_BODY(NAME, FID, OP, EXTRA_CODE);   \
@@ -138,7 +138,7 @@ Z3_ast Z3_API NAME(Z3_context c, Z3_ast n) {    \
     RETURN_Z3(of_ast(a));                                       \
     Z3_CATCH_RETURN(0);
  
-#define xMK_BINARY(NAME, FID, OP, EXTRA_CODE)                    \
+#define MK_BINARY(NAME, FID, OP, EXTRA_CODE)                    \
 Z3_ast Z3_API NAME(Z3_context c, Z3_ast n1, Z3_ast n2) {        \
     LOG_ ## NAME(c, n1, n2);                                    \
     MK_BINARY_BODY(NAME, FID, OP, EXTRA_CODE);                  \
@@ -158,7 +158,7 @@ Z3_ast Z3_API NAME(Z3_context c, Z3_ast n1, Z3_ast n2) {        \
     RETURN_Z3(of_ast(a));                                       \
     Z3_CATCH_RETURN(0);
  
-#define xMK_TERNARY(NAME, FID, OP, EXTRA_CODE)                            \
+#define MK_TERNARY(NAME, FID, OP, EXTRA_CODE)                            \
     Z3_ast Z3_API NAME(Z3_context c, Z3_ast n1, Z3_ast n2, Z3_ast n3) { \
     LOG_ ## NAME(c, n1, n2, n3);                                        \
     MK_TERNARY_BODY(NAME, FID, OP, EXTRA_CODE);                          \
@@ -179,13 +179,13 @@ Z3_ast Z3_API NAME(Z3_context c, Z3_ast n1, Z3_ast n2) {        \
     RETURN_Z3(of_ast(a));                                       \
     Z3_CATCH_RETURN(0);
 
-#define xMK_FOURARY(NAME, FID, OP, EXTRA_CODE)                            \
+#define MK_FOURARY(NAME, FID, OP, EXTRA_CODE)                            \
     Z3_ast Z3_API NAME(Z3_context c, Z3_ast n1, Z3_ast n2, Z3_ast n3, Z3_ast n4) { \
     LOG_ ## NAME(c, n1, n2, n3, n4);                                        \
     MK_FOURARY_BODY(NAME, FID, OP, EXTRA_CODE);                          \
 }
 
-#define xMK_NARY(NAME, FID, OP, EXTRA_CODE)                              \
+#define MK_NARY(NAME, FID, OP, EXTRA_CODE)                              \
 Z3_ast Z3_API NAME(Z3_context c, unsigned num_args, Z3_ast const* args) { \
     Z3_TRY;                                                             \
     LOG_ ## NAME(c, num_args, args);                                    \

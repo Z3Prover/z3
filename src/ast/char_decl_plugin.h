@@ -97,11 +97,11 @@ public:
     
     bool is_bv2char(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_FROM_BV); }
 
-    MATCH_UNARY(is_is_digit)
-    MATCH_UNARY(is_to_int)
-    MATCH_UNARY(is_char2bv)
-    MATCH_UNARY(is_bv2char)
-    MATCH_BINARY(is_le)
+    MATCH_UNARY(is_is_digit);
+    MATCH_UNARY(is_to_int);
+    MATCH_UNARY(is_char2bv);
+    MATCH_UNARY(is_bv2char);
+    MATCH_BINARY(is_le);
 
     static unsigned max_char() { return zstring::max_char(); }
 

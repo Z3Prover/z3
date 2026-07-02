@@ -431,12 +431,12 @@ AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, int)     \
 AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpz)     \
 AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpq)
 
-AN_MK_COMPARISON(operator==, eq)
-AN_MK_COMPARISON(operator!=, neq)
-AN_MK_COMPARISON(operator<,  lt)
-AN_MK_COMPARISON(operator<=, le)
-AN_MK_COMPARISON(operator>,  gt)
-AN_MK_COMPARISON(operator>=, ge)
+AN_MK_COMPARISON(operator==, eq);
+AN_MK_COMPARISON(operator!=, neq);
+AN_MK_COMPARISON(operator<,  lt);
+AN_MK_COMPARISON(operator<=, le);
+AN_MK_COMPARISON(operator>,  gt);
+AN_MK_COMPARISON(operator>=, ge);
 
 #undef AN_MK_COMPARISON
 #undef AN_MK_COMPARISON_CORE
@@ -456,10 +456,10 @@ AN_MK_BINARY_CORE(EXTERNAL, INTERNAL, int)      \
 AN_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpz)      \
 AN_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpq)
 
-AN_MK_BINARY(operator+, add)
-AN_MK_BINARY(operator-, sub)
-AN_MK_BINARY(operator*, mul)
-AN_MK_BINARY(operator/, div)
+AN_MK_BINARY(operator+, add);
+AN_MK_BINARY(operator-, sub);
+AN_MK_BINARY(operator*, mul);
+AN_MK_BINARY(operator/, div);
 
 #undef AN_MK_BINARY
 #undef AN_MK_BINARY_CORE

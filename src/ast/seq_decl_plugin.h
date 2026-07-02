@@ -108,7 +108,6 @@ enum seq_op_kind {
     _OP_REGEXP_EMPTY,
     _OP_REGEXP_FULL_CHAR,
     _OP_RE_IS_NULLABLE,
-    _OP_RE_ANTIMIROV_UNION, // Lifted union for antimirov-style derivatives
     _OP_SEQ_SKOLEM,
     LAST_SEQ_OP
 };
@@ -269,10 +268,10 @@ public:
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
-    MATCH_BINARY(is_char_le)
-    MATCH_UNARY(is_char2int)
-    MATCH_UNARY(is_char2bv)
-    MATCH_UNARY(is_bv2char)
+    MATCH_BINARY(is_char_le);
+    MATCH_UNARY(is_char2int);
+    MATCH_UNARY(is_char2bv);
+    MATCH_UNARY(is_bv2char);
 
     bool has_re() const { return seq.has_re(); }
     bool has_seq() const { return seq.has_seq(); }
@@ -392,37 +391,37 @@ public:
             return (u.is_seq(s) && !u.is_string(s));
         }
 
-        MATCH_BINARY(is_concat)
-        MATCH_UNARY(is_length)
-        MATCH_TERNARY(is_extract)
-        MATCH_BINARY(is_contains)
-        MATCH_BINARY(is_at)
-        MATCH_BINARY(is_nth_i)
-        MATCH_BINARY(is_nth_u)
-        MATCH_BINARY(is_index)
-        MATCH_TERNARY(is_index)
-        MATCH_BINARY(is_map)
-        MATCH_TERNARY(is_mapi)
-        MATCH_TERNARY(is_foldl)
-        MATCH_QUATARY(is_foldli)
-        MATCH_BINARY(is_last_index)
-        MATCH_TERNARY(is_replace)
-        MATCH_TERNARY(is_replace_re)
-        MATCH_TERNARY(is_replace_re_all)
-        MATCH_TERNARY(is_replace_all)
-        MATCH_BINARY(is_prefix)
-        MATCH_BINARY(is_suffix)
-        MATCH_BINARY(is_lt)
-        MATCH_BINARY(is_le)
-        MATCH_UNARY(is_itos)
-        MATCH_UNARY(is_stoi)
-        MATCH_UNARY(is_ubv2s)
-        MATCH_UNARY(is_sbv2s)
-        MATCH_UNARY(is_is_digit)
-        MATCH_UNARY(is_from_code)
-        MATCH_UNARY(is_to_code)
-        MATCH_BINARY(is_in_re)
-        MATCH_UNARY(is_unit)
+        MATCH_BINARY(is_concat);
+        MATCH_UNARY(is_length);
+        MATCH_TERNARY(is_extract);
+        MATCH_BINARY(is_contains);
+        MATCH_BINARY(is_at);
+        MATCH_BINARY(is_nth_i);
+        MATCH_BINARY(is_nth_u);
+        MATCH_BINARY(is_index);
+        MATCH_TERNARY(is_index);
+        MATCH_BINARY(is_map);
+        MATCH_TERNARY(is_mapi);
+        MATCH_TERNARY(is_foldl);
+        MATCH_QUATARY(is_foldli);
+        MATCH_BINARY(is_last_index);
+        MATCH_TERNARY(is_replace);
+        MATCH_TERNARY(is_replace_re);
+        MATCH_TERNARY(is_replace_re_all);
+        MATCH_TERNARY(is_replace_all);
+        MATCH_BINARY(is_prefix);
+        MATCH_BINARY(is_suffix);
+        MATCH_BINARY(is_lt);
+        MATCH_BINARY(is_le);
+        MATCH_UNARY(is_itos);
+        MATCH_UNARY(is_stoi);
+        MATCH_UNARY(is_ubv2s);
+        MATCH_UNARY(is_sbv2s);
+        MATCH_UNARY(is_is_digit);
+        MATCH_UNARY(is_from_code);
+        MATCH_UNARY(is_to_code);
+        MATCH_BINARY(is_in_re);
+        MATCH_UNARY(is_unit);
 
         void get_concat(expr* e, expr_ref_vector& es) const;
         void get_concat(expr* e, ptr_vector<expr>& es) const;
@@ -544,7 +543,6 @@ public:
         app* mk_of_pred(expr* p);
         app* mk_reverse(expr* r) { return m.mk_app(m_fid, OP_RE_REVERSE, r); }
         app* mk_derivative(expr* ele, expr* r) { return m.mk_app(m_fid, OP_RE_DERIVATIVE, ele, r); }
-        app* mk_antimirov_union(expr* r1, expr* r2) { return m.mk_app(m_fid, _OP_RE_ANTIMIROV_UNION, r1, r2); }
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
@@ -578,22 +576,20 @@ public:
         bool is_of_pred(expr const* n) const { return is_app_of(n, m_fid, OP_RE_OF_PRED); }
         bool is_reverse(expr const* n) const { return is_app_of(n, m_fid, OP_RE_REVERSE); }
         bool is_derivative(expr const* n) const { return is_app_of(n, m_fid, OP_RE_DERIVATIVE); }
-        bool is_antimirov_union(expr const* n) const { return is_app_of(n, m_fid, _OP_RE_ANTIMIROV_UNION); }
-        MATCH_UNARY(is_to_re)
-        MATCH_BINARY(is_concat)
-        MATCH_BINARY(is_union)
-        MATCH_BINARY(is_intersection)
-        MATCH_BINARY(is_diff)
-        MATCH_BINARY(is_xor)
-        MATCH_BINARY(is_range)
-        MATCH_UNARY(is_complement)
-        MATCH_UNARY(is_star)
-        MATCH_UNARY(is_plus)
-        MATCH_UNARY(is_opt)
-        MATCH_UNARY(is_of_pred)
-        MATCH_UNARY(is_reverse)
-        MATCH_BINARY(is_derivative)
-        MATCH_BINARY(is_antimirov_union)
+        MATCH_UNARY(is_to_re);
+        MATCH_BINARY(is_concat);
+        MATCH_BINARY(is_union);
+        MATCH_BINARY(is_intersection);
+        MATCH_BINARY(is_diff);
+        MATCH_BINARY(is_xor);
+        MATCH_BINARY(is_range);
+        MATCH_UNARY(is_complement);
+        MATCH_UNARY(is_star);
+        MATCH_UNARY(is_plus);
+        MATCH_UNARY(is_opt);
+        MATCH_UNARY(is_of_pred);
+        MATCH_UNARY(is_reverse);
+        MATCH_BINARY(is_derivative);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const;
         bool is_loop(expr const* n, expr*& body, unsigned& lo) const;
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const;

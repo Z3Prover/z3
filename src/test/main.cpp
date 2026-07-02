@@ -113,6 +113,8 @@
     X(api_bug) \
     X(api_special_relations) \
     X(arith_rewriter) \
+    X(range_predicate) \
+    X(regex_range_collapse) \
     X(seq_rewriter) \
     X(check_assumptions) \
     X(smt_context) \
@@ -138,6 +140,7 @@
     X(zstring)
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
+    X(tptp) \
     X(ext_numeral) \
     X(interval) \
     X(value_generator) \
@@ -194,9 +197,12 @@
     X(ho_matcher) \
     X(finite_set) \
     X(finite_set_rewriter) \
+    X(seq_split) \
     X(fpa) \
+    X(seq_regex_bisim) \
     X(term_enumeration) \
-    X(lcube)
+    X(lcube) \
+    X(psmt)
 
 #define FOR_EACH_TEST(X, X_ARGV) \
     FOR_EACH_ALL_TEST(X, X_ARGV) \

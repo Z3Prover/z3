@@ -39,7 +39,12 @@ z3_add_component(rewriter
     rewriter.cpp
     seq_axioms.cpp
     seq_eq_solver.cpp
+    seq_derive.cpp
     seq_subset.cpp
+    seq_split.cpp
+    seq_derive.cpp
+    seq_range_collapse.cpp
+    seq_range_predicate.cpp
     seq_rewriter.cpp
     seq_regex_bisim.cpp
     seq_skolem.cpp

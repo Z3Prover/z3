@@ -969,7 +969,6 @@ lbool solver::check_assignment() {
     catch (z3_exception &) {
         statistics &st = m_imp->m_nla_core.lp_settings().stats().m_st;
         m_imp->m_nlsat->collect_statistics(st);
-        IF_VERBOSE(0, verbose_stream() << "check-assignment\n");
         if (m_imp->m_limit.is_canceled()) {
             return l_undef;
         }

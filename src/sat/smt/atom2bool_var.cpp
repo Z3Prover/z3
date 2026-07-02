@@ -49,6 +49,13 @@ sat::bool_var atom2bool_var::to_bool_var(expr * n) const {
         return m_mapping[idx].m_value;
 }
 
+expr* atom2bool_var::bool_var2expr(sat::bool_var v) const {
+    for (auto const& kv : m_mapping)
+        if (kv.m_value == v)
+            return kv.m_key;
+    return nullptr;
+}
+
 struct collect_boolean_interface_proc {
     struct visitor {
         obj_hashtable<expr> & m_r;

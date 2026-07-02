@@ -446,6 +446,8 @@ namespace seq {
         // |t| = 0 => |s| = 0 or indexof(t,s,offset) = -1
         // ~contains(t,s) => indexof(t,s,offset) = -1
 
+        add_clause(mk_ge(i, -1));
+
         add_clause(cnt,  i_eq_m1);
         add_clause(~t_eq_empty, s_eq_empty, i_eq_m1);
 

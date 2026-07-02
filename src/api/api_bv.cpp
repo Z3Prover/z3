@@ -33,42 +33,39 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-#define xMK_BV_UNARY(NAME, OP) xMK_UNARY(NAME, mk_c(c)->get_bv_fid(), OP, SKIP)
-#define xMK_BV_BINARY(NAME, OP) xMK_BINARY(NAME, mk_c(c)->get_bv_fid(), OP, SKIP)
+#define MK_BV_UNARY(NAME, OP) MK_UNARY(NAME, mk_c(c)->get_bv_fid(), OP, SKIP)
+#define MK_BV_BINARY(NAME, OP) MK_BINARY(NAME, mk_c(c)->get_bv_fid(), OP, SKIP)
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wc++98-compat-extra-semi"
-    xMK_BV_UNARY(Z3_mk_bvnot, OP_BNOT);
-    xMK_BV_UNARY(Z3_mk_bvredand, OP_BREDAND);
-    xMK_BV_UNARY(Z3_mk_bvredor, OP_BREDOR);
-    xMK_BV_BINARY(Z3_mk_bvand, OP_BAND);
-    xMK_BV_BINARY(Z3_mk_bvor, OP_BOR);
-    xMK_BV_BINARY(Z3_mk_bvxor, OP_BXOR);
-    xMK_BV_BINARY(Z3_mk_bvnand, OP_BNAND);
-    xMK_BV_BINARY(Z3_mk_bvnor, OP_BNOR);
-    xMK_BV_BINARY(Z3_mk_bvxnor, OP_BXNOR);
-    xMK_BV_BINARY(Z3_mk_bvadd, OP_BADD);
-    xMK_BV_BINARY(Z3_mk_bvmul, OP_BMUL);
-    xMK_BV_BINARY(Z3_mk_bvudiv, OP_BUDIV);
-    xMK_BV_BINARY(Z3_mk_bvsdiv, OP_BSDIV);
-    xMK_BV_BINARY(Z3_mk_bvurem, OP_BUREM);
-    xMK_BV_BINARY(Z3_mk_bvsrem, OP_BSREM);
-    xMK_BV_BINARY(Z3_mk_bvsmod, OP_BSMOD);
-    xMK_BV_BINARY(Z3_mk_bvule, OP_ULEQ);
-    xMK_BV_BINARY(Z3_mk_bvsle, OP_SLEQ);
-    xMK_BV_BINARY(Z3_mk_bvuge, OP_UGEQ);
-    xMK_BV_BINARY(Z3_mk_bvsge, OP_SGEQ);
-    xMK_BV_BINARY(Z3_mk_bvult, OP_ULT);
-    xMK_BV_BINARY(Z3_mk_bvslt, OP_SLT);
-    xMK_BV_BINARY(Z3_mk_bvugt, OP_UGT);
-    xMK_BV_BINARY(Z3_mk_bvsgt, OP_SGT);
-    xMK_BV_BINARY(Z3_mk_concat, OP_CONCAT);
-    xMK_BV_BINARY(Z3_mk_bvshl, OP_BSHL);
-    xMK_BV_BINARY(Z3_mk_bvlshr, OP_BLSHR);
-    xMK_BV_BINARY(Z3_mk_bvashr, OP_BASHR);
-    xMK_BV_BINARY(Z3_mk_ext_rotate_left, OP_EXT_ROTATE_LEFT);
-    xMK_BV_BINARY(Z3_mk_ext_rotate_right, OP_EXT_ROTATE_RIGHT);
-#pragma clang diagnostic pop
+    MK_BV_UNARY(Z3_mk_bvnot, OP_BNOT);
+    MK_BV_UNARY(Z3_mk_bvredand, OP_BREDAND);
+    MK_BV_UNARY(Z3_mk_bvredor, OP_BREDOR);
+    MK_BV_BINARY(Z3_mk_bvand, OP_BAND);
+    MK_BV_BINARY(Z3_mk_bvor, OP_BOR);
+    MK_BV_BINARY(Z3_mk_bvxor, OP_BXOR);
+    MK_BV_BINARY(Z3_mk_bvnand, OP_BNAND);
+    MK_BV_BINARY(Z3_mk_bvnor, OP_BNOR);
+    MK_BV_BINARY(Z3_mk_bvxnor, OP_BXNOR);
+    MK_BV_BINARY(Z3_mk_bvadd, OP_BADD);
+    MK_BV_BINARY(Z3_mk_bvmul, OP_BMUL);
+    MK_BV_BINARY(Z3_mk_bvudiv, OP_BUDIV);
+    MK_BV_BINARY(Z3_mk_bvsdiv, OP_BSDIV);
+    MK_BV_BINARY(Z3_mk_bvurem, OP_BUREM);
+    MK_BV_BINARY(Z3_mk_bvsrem, OP_BSREM);
+    MK_BV_BINARY(Z3_mk_bvsmod, OP_BSMOD);
+    MK_BV_BINARY(Z3_mk_bvule, OP_ULEQ);
+    MK_BV_BINARY(Z3_mk_bvsle, OP_SLEQ);
+    MK_BV_BINARY(Z3_mk_bvuge, OP_UGEQ);
+    MK_BV_BINARY(Z3_mk_bvsge, OP_SGEQ);
+    MK_BV_BINARY(Z3_mk_bvult, OP_ULT);
+    MK_BV_BINARY(Z3_mk_bvslt, OP_SLT);
+    MK_BV_BINARY(Z3_mk_bvugt, OP_UGT);
+    MK_BV_BINARY(Z3_mk_bvsgt, OP_SGT);
+    MK_BV_BINARY(Z3_mk_concat, OP_CONCAT);
+    MK_BV_BINARY(Z3_mk_bvshl, OP_BSHL);
+    MK_BV_BINARY(Z3_mk_bvlshr, OP_BLSHR);
+    MK_BV_BINARY(Z3_mk_bvashr, OP_BASHR);
+    MK_BV_BINARY(Z3_mk_ext_rotate_left, OP_EXT_ROTATE_LEFT);
+    MK_BV_BINARY(Z3_mk_ext_rotate_right, OP_EXT_ROTATE_RIGHT);
 
     static Z3_ast mk_extract_core(Z3_context c, unsigned high, unsigned low, Z3_ast n) {
         expr * _n = to_expr(n);
@@ -88,7 +85,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-#define xMK_BV_PUNARY(NAME, OP)                                          \
+#define MK_BV_PUNARY(NAME, OP)                                          \
 Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     Z3_TRY;                                                             \
     LOG_ ## NAME(c, i, n);                                              \
@@ -102,16 +99,13 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     Z3_CATCH_RETURN(0);                                                 \
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wc++98-compat-extra-semi"
-    xMK_BV_PUNARY(Z3_mk_sign_ext, OP_SIGN_EXT);
-    xMK_BV_PUNARY(Z3_mk_zero_ext, OP_ZERO_EXT);
-    xMK_BV_PUNARY(Z3_mk_repeat, OP_REPEAT);
-    xMK_BV_PUNARY(Z3_mk_bit2bool, OP_BIT2BOOL);
-    xMK_BV_PUNARY(Z3_mk_rotate_left, OP_ROTATE_LEFT);
-    xMK_BV_PUNARY(Z3_mk_rotate_right, OP_ROTATE_RIGHT);
-    xMK_BV_PUNARY(Z3_mk_int2bv, OP_INT2BV);
-#pragma clang diagnostic pop
+    MK_BV_PUNARY(Z3_mk_sign_ext, OP_SIGN_EXT);
+    MK_BV_PUNARY(Z3_mk_zero_ext, OP_ZERO_EXT);
+    MK_BV_PUNARY(Z3_mk_repeat, OP_REPEAT);
+    MK_BV_PUNARY(Z3_mk_bit2bool, OP_BIT2BOOL);
+    MK_BV_PUNARY(Z3_mk_rotate_left, OP_ROTATE_LEFT);
+    MK_BV_PUNARY(Z3_mk_rotate_right, OP_ROTATE_RIGHT);
+    MK_BV_PUNARY(Z3_mk_int2bv, OP_INT2BV);
 
     Z3_ast Z3_API Z3_mk_bv2int(Z3_context c, Z3_ast n, bool is_signed) {
         Z3_TRY;

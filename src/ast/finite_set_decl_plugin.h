@@ -137,17 +137,17 @@ public:
     bool is_range(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_RANGE); }
     bool is_unique_set(expr const *n) const { return is_app_of(n, m_fid, OP_FINITE_SET_UNIQUE_SET); } 
 
-    MATCH_UNARY(is_singleton)
-    MATCH_UNARY(is_size)
-    MATCH_BINARY(is_union)
-    MATCH_BINARY(is_intersect)
-    MATCH_BINARY(is_difference)
-    MATCH_BINARY(is_in)
-    MATCH_BINARY(is_subset)
-    MATCH_BINARY(is_map)
-    MATCH_BINARY(is_filter)
-    MATCH_BINARY(is_range)
-    MATCH_BINARY(is_unique_set)
+    MATCH_UNARY(is_singleton);
+    MATCH_UNARY(is_size);
+    MATCH_BINARY(is_union);
+    MATCH_BINARY(is_intersect);
+    MATCH_BINARY(is_difference);
+    MATCH_BINARY(is_in);
+    MATCH_BINARY(is_subset);
+    MATCH_BINARY(is_map);
+    MATCH_BINARY(is_filter);
+    MATCH_BINARY(is_range);
+    MATCH_BINARY(is_unique_set);
 };
 
 class finite_set_util : public finite_set_recognizers {

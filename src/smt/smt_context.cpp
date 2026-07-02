@@ -118,6 +118,10 @@ namespace smt {
         if (!m_setup.already_configured()) {
             m_fparams.updt_params(p);
         }
+        else {
+            // selected parameters are safe to update after initialization
+            m_fparams.m_max_conflicts = p.get_uint("max_conflicts", m_fparams.m_max_conflicts);
+        }
         for (auto th : m_theory_set)
             if (th)
                 th->updt_params();
@@ -3650,6 +3654,13 @@ namespace smt {
             TRACE(before_search, display(tout););
             return check_finalize(search());
         }
+    }
+
+    void context::setup_for_parallel() {
+        // Native SMT parallel configures the parent context before cloning workers.
+        // context::copy then configures/internalizes each worker copy while
+        // preprocessing is still enabled.
+        setup_context(m_fparams.m_auto_config);
     }
 
     config_mode context::get_config_mode(bool use_static_features) const {

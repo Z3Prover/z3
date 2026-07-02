@@ -100,8 +100,8 @@ public:
     bool is_pos_lef(func_decl* f) const { return f == m_pos_le; }
     bool is_pos_lt(expr const* e) const { return is_app(e) && is_pos_ltf(to_app(e)->get_decl()); }
     bool is_pos_le(expr const* e) const { return is_app(e) && is_pos_lef(to_app(e)->get_decl()); }
-    MATCH_BINARY(is_pos_lt)
-    MATCH_BINARY(is_pos_le)
+    MATCH_BINARY(is_pos_lt);
+    MATCH_BINARY(is_pos_le);
     expr* mk_pos_lt(expr* s, expr* t) { return m().mk_app(m_pos_lt, s, t); }
     expr* mk_pos_le(expr* s, expr* t) { return m().mk_app(m_pos_le, s, t); }
 
