@@ -617,6 +617,7 @@ namespace smt {
         unsigned                    m_new_enode_qhead;
         unsigned                    m_lazy_matching_idx;
         bool                        m_active;
+        bool                        m_irrelevant_rematch_done;
 
         // State for higher-order match refinement callback
         struct ho_match_state {
@@ -636,7 +637,8 @@ namespace smt {
             m_context(nullptr),
             m_new_enode_qhead(0),
             m_lazy_matching_idx(0),
-            m_active(false) {
+            m_active(false),
+            m_irrelevant_rematch_done(false) {
         }
 
         void set_manager(quantifier_manager & qm) override {
@@ -931,6 +933,14 @@ namespace smt {
                 else if (m_model_checker->has_new_instances()) {
                     return quantifier_manager::RESTART;
                 }
+            }
+            // When relevancy-guided case splitting is active, some enodes may never
+            // be marked relevant (terms in unexplored branches). Before giving up,
+            // try matching all enodes including irrelevant ones.
+            if (use_ematching() && m_context->relevancy() && !m_irrelevant_rematch_done) {
+                m_mam->rematch(true);
+                m_irrelevant_rematch_done = true;
+                return quantifier_manager::RESTART;
             }
             return quantifier_manager::UNKNOWN;
         }
