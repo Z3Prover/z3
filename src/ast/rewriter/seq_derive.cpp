@@ -398,7 +398,9 @@ namespace seq {
 
         // Extract character values from unit strings
         expr_ref c_lo(m), c_hi(m);
-        if (u().str.is_unit_string(lo, c_lo) && u().str.is_unit_string(hi, c_hi)) {
+        bool lo_unit = u().str.is_unit_string(lo, c_lo);
+        bool hi_unit = u().str.is_unit_string(hi, c_hi);
+        if (lo_unit && hi_unit) {
             // Build range condition, simplifying trivial bounds
             unsigned lo_val = 0, hi_val = 0;
             bool lo_trivial = m_util.is_const_char(c_lo, lo_val) && lo_val == 0;
@@ -415,6 +417,38 @@ namespace seq {
             else
                 in_range = m.mk_and(m_util.mk_le(c_lo, m_ele), m_util.mk_le(m_ele, c_hi));
 
+            return mk_ite(in_range, eps, empty);
+        }
+
+        // Symbolic (non-ground) bound(s): a non-literal bound denotes a single
+        // character only when its length is 1. Encode that length constraint
+        // explicitly together with the character-order comparison so the theory
+        // solver can still decide membership instead of producing a stuck
+        // derivative. (Collapsing such a range to ∅ here would be unsound: e.g.
+        // re.range("-", y) with |y| = 1 is non-empty.)
+        expr_ref one(m_autil.mk_int(1), m);
+        expr_ref zero(m_autil.mk_int(0), m);
+        if (!u().str.is_string(lo) && hi_unit) {
+            // lo non-ground, hi unit: |lo| = 1 ∧ lo[0] ≤ ele ≤ c_hi
+            expr_ref lo_len1(m.mk_eq(u().str.mk_length(lo), one), m);
+            expr_ref lo_0(u().str.mk_nth_i(lo, zero), m);
+            expr_ref in_range(m.mk_and(lo_len1, m.mk_and(m_util.mk_le(lo_0, m_ele), m_util.mk_le(m_ele, c_hi))), m);
+            return mk_ite(in_range, eps, empty);
+        }
+        if (!u().str.is_string(hi) && lo_unit) {
+            // hi non-ground, lo unit: |hi| = 1 ∧ c_lo ≤ ele ≤ hi[0]
+            expr_ref hi_len1(m.mk_eq(u().str.mk_length(hi), one), m);
+            expr_ref hi_0(u().str.mk_nth_i(hi, zero), m);
+            expr_ref in_range(m.mk_and(hi_len1, m.mk_and(m_util.mk_le(c_lo, m_ele), m_util.mk_le(m_ele, hi_0))), m);
+            return mk_ite(in_range, eps, empty);
+        }
+        if (!u().str.is_string(lo) && !u().str.is_string(hi)) {
+            // both non-ground: |lo| = 1 ∧ |hi| = 1 ∧ lo[0] ≤ ele ≤ hi[0]
+            expr_ref lo_len1(m.mk_eq(u().str.mk_length(lo), one), m);
+            expr_ref hi_len1(m.mk_eq(u().str.mk_length(hi), one), m);
+            expr_ref lo_0(u().str.mk_nth_i(lo, zero), m);
+            expr_ref hi_0(u().str.mk_nth_i(hi, zero), m);
+            expr_ref in_range(m.mk_and(lo_len1, m.mk_and(hi_len1, m.mk_and(m_util.mk_le(lo_0, m_ele), m_util.mk_le(m_ele, hi_0)))), m);
             return mk_ite(in_range, eps, empty);
         }
 

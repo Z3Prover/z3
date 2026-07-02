@@ -4132,7 +4132,7 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
         else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
             ;
         else
-            is_empty = true;
+            return BR_FAILED;
     }
     if (!is_empty) {
         if (str().is_string(hi, shi) && shi.length() == 1)
@@ -4140,7 +4140,7 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
         else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
             ;
         else
-            is_empty = true;
+            return BR_FAILED;
     }
 
     // clo/chi are only meaningful once both bounds were extracted; an early
