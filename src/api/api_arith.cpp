@@ -100,10 +100,10 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    MK_ARITH_PRED(Z3_mk_lt, OP_LT);
-    MK_ARITH_PRED(Z3_mk_gt, OP_GT);
-    MK_ARITH_PRED(Z3_mk_le, OP_LE);
-    MK_ARITH_PRED(Z3_mk_ge, OP_GE);
+    MK_ARITH_PRED(Z3_mk_lt,  OP_LT);
+    MK_ARITH_PRED(Z3_mk_gt,  OP_GT);
+    MK_ARITH_PRED(Z3_mk_le,  OP_LE);
+    MK_ARITH_PRED(Z3_mk_ge,  OP_GE);
 
     Z3_ast Z3_API Z3_mk_divides(Z3_context c, Z3_ast n1, Z3_ast n2) {
         Z3_TRY;
@@ -126,7 +126,7 @@ extern "C" {
     MK_UNARY(Z3_mk_abs, mk_c(c)->get_arith_fid(), OP_ABS, SKIP);
     MK_UNARY(Z3_mk_int2real, mk_c(c)->get_arith_fid(), OP_TO_REAL, SKIP);
     MK_UNARY(Z3_mk_real2int, mk_c(c)->get_arith_fid(), OP_TO_INT, SKIP);
-    MK_UNARY(Z3_mk_is_int, mk_c(c)->get_arith_fid(), OP_IS_INT, SKIP);
+    MK_UNARY(Z3_mk_is_int,   mk_c(c)->get_arith_fid(), OP_IS_INT, SKIP);
 
     Z3_ast Z3_API Z3_mk_sub(Z3_context c, unsigned num_args, Z3_ast const args[]) {
         Z3_TRY;

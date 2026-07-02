@@ -206,6 +206,7 @@ public:
         return is_store1(n) && (_n = to_app(n), a = _n->get_arg(0), i = _n->get_arg(1), v = _n->get_arg(2), true);
     }
 
+
     MATCH_BINARY(is_subset);
 };
 

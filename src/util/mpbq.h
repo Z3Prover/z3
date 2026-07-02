@@ -352,9 +352,9 @@ inline scoped_mpbq EXTERNAL(scoped_mpbq const & a, TYPE const & b) {    \
 MPBQ_MK_BINARY_CORE(EXTERNAL, INTERNAL, int)      \
 MPBQ_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpz)      \
 
-MPBQ_MK_BINARY(operator+, add);
-MPBQ_MK_BINARY(operator-, sub);
-MPBQ_MK_BINARY(operator*, mul);
+MPBQ_MK_BINARY(operator+, add)
+MPBQ_MK_BINARY(operator-, sub)
+MPBQ_MK_BINARY(operator*, mul)
 
 #undef MPBQ_MK_BINARY
 #undef MPBQ_MK_BINARY_CORE

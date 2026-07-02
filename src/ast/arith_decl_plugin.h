@@ -363,7 +363,7 @@ public:
     MATCH_BINARY(is_div);
     MATCH_BINARY(is_idiv);
     MATCH_BINARY(is_mod0);
-    // MATCH_BINARY(is_rem0)
+    // MATCH_BINARY(is_rem0);
     MATCH_BINARY(is_div0);
     MATCH_BINARY(is_idiv0);
     MATCH_BINARY(is_power);

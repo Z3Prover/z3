@@ -456,10 +456,10 @@ AN_MK_BINARY_CORE(EXTERNAL, INTERNAL, int)      \
 AN_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpz)      \
 AN_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpq)
 
-AN_MK_BINARY(operator+, add);
-AN_MK_BINARY(operator-, sub);
-AN_MK_BINARY(operator*, mul);
-AN_MK_BINARY(operator/, div);
+AN_MK_BINARY(operator+, add)
+AN_MK_BINARY(operator-, sub)
+AN_MK_BINARY(operator*, mul)
+AN_MK_BINARY(operator/, div)
 
 #undef AN_MK_BINARY
 #undef AN_MK_BINARY_CORE

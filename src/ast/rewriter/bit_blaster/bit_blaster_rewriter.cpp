@@ -272,7 +272,7 @@ void OP(expr * arg1, expr * arg2, expr_ref & result) {                  \
     MK_BIN_REDUCE(reduce_ext_rotate_right, mk_ext_rotate_right);
 
 #define MK_BIN_AC_REDUCE(OP, BIN_OP, BB_OP)                             \
-MK_BIN_REDUCE(BIN_OP, BB_OP)                                            \
+MK_BIN_REDUCE(BIN_OP, BB_OP);						\
 void OP(unsigned num_args, expr * const * args, expr_ref & result) {    \
     SASSERT(num_args > 0);                                              \
     result = args[0];                                                   \
@@ -315,7 +315,7 @@ void OP(expr * arg, unsigned n, expr_ref & result) {            \
     result = mk_mkbv(m_out);                                    \
 }
 
-    MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
+MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
 
     void reduce_ite(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
         m_in1.reset();

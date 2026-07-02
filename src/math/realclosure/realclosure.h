@@ -364,10 +364,10 @@ RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, int)      \
 RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpz)      \
 RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpq)
 
-RCF_MK_BINARY(operator+, add);
-RCF_MK_BINARY(operator-, sub);
-RCF_MK_BINARY(operator*, mul);
-RCF_MK_BINARY(operator/, div);
+RCF_MK_BINARY(operator+, add)
+RCF_MK_BINARY(operator-, sub)
+RCF_MK_BINARY(operator*, mul)
+RCF_MK_BINARY(operator/, div)
 
 #undef RCF_MK_BINARY
 #undef RCF_MK_BINARY_CORE
