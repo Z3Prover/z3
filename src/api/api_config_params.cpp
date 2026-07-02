@@ -121,4 +121,4 @@ extern "C" {
         Z3_CATCH;
     }
 
-};
+}

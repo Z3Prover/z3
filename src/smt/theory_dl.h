@@ -23,6 +23,6 @@ namespace smt {
 
     theory* mk_theory_dl(context& ctx);
 
-};
+}
 
 

@@ -353,4 +353,4 @@ namespace sat {
         m_R.reset();
     }
 
-};
+}

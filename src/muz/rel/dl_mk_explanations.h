@@ -79,6 +79,6 @@ namespace datalog {
 
         static expr* get_explanation(relation_base const& r);
     };
-};
+}
 
 

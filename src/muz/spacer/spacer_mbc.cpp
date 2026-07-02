@@ -66,7 +66,7 @@ public:
     }
 
 
-    void reset() {reset_partition();};
+    void reset() {reset_partition();}
     void reset_partition() {m_current_part = UINT_MAX;}
     unsigned partition() {return m_current_part;}
     bool found_partition() {return m_current_part < UINT_MAX;}

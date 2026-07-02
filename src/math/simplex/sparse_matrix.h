@@ -355,4 +355,4 @@ namespace simplex {
         typedef unsynch_mpq_inf_manager eps_manager;
     };
 
-};
+}

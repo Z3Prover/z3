@@ -40,7 +40,7 @@ class sls_tracker {
     mpz                   m_zero, m_one, m_two;
 
     struct value_score {
-        value_score() : value(unsynch_mpz_manager::mk_z(0)) {};
+        value_score() : value(unsynch_mpz_manager::mk_z(0)) {}
         value_score(value_score&&) noexcept = default;
         value_score(const value_score &other) {
             m = other.m;

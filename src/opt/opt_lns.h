@@ -77,4 +77,4 @@ namespace opt {
         void set_conflicts(unsigned c) { m_max_conflicts = c; }
         unsigned climb(model_ref& mdl);
     };
-};
+}

@@ -497,4 +497,4 @@ namespace sat {
         m_tr = 0;
     }
 
-};
+}

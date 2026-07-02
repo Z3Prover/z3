@@ -167,5 +167,5 @@ namespace seq {
         
     };
 
-};
+}
 

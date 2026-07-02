@@ -155,7 +155,7 @@ class convex_closure {
     void add_row(const vector<rational> &point) {
         SASSERT(point.size() == dims());
         m_data.add_row(point);
-    };
+    }
 
     bool operator()() { return this->compute(); }
     bool compute();

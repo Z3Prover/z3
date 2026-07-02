@@ -581,7 +581,7 @@ class mbp_qel_cmd : public cmd {
     ptr_vector<expr> m_vars;
 
   public:
-    mbp_qel_cmd() : cmd("mbp-qel"){};
+    mbp_qel_cmd() : cmd("mbp-qel"){}
     char const *get_usage() const override { return "(exprs) (vars)"; }
     char const *get_descr(cmd_context &ctx) const override {
         return "Model based projection using e-graphs";
@@ -639,7 +639,7 @@ class qel_cmd : public cmd {
     ptr_vector<func_decl> m_vars;
 
   public:
-    qel_cmd() : cmd("qel"){};
+    qel_cmd() : cmd("qel"){}
     char const *get_usage() const override { return "(lits) (vars)"; }
     char const *get_descr(cmd_context &ctx) const override {
         return "QE lite over e-graphs";
@@ -703,7 +703,7 @@ class qe_lite_cmd : public cmd {
     ptr_vector<func_decl> m_vars;
 
   public:
-    qe_lite_cmd() : cmd("qe-lite"){};
+    qe_lite_cmd() : cmd("qe-lite"){}
     char const *get_usage() const override { return "(lits) (vars)"; }
     char const *get_descr(cmd_context &ctx) const override {
         return "QE lite over e-graphs";

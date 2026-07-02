@@ -72,6 +72,6 @@ namespace smt {
 // if defined, then clauses have an extra mask field used to optimize backward subsumption, and backward/forward subsumption resolution.
 #define APPROX_LIT_SET
 
-};
+}
 
 

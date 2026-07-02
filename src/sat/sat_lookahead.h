@@ -25,7 +25,7 @@ Notes:
 
 namespace pb {
     class solver;
-};
+}
 
 namespace sat {
 

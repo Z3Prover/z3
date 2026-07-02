@@ -435,5 +435,5 @@ namespace datalog {
         return result;
     }
 
-};
+}
 

@@ -36,6 +36,6 @@ namespace sat {
     inline std::ostream& operator<<(std::ostream& out, clause_info const& ci) {
         return out << ci.m_clause << " w: " << ci.m_weight << " nt: " << ci.m_num_trues;
     }
-};
+}
 
 

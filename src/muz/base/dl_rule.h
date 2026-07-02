@@ -373,7 +373,7 @@ namespace datalog {
 
            This possibly returns a ";"-separated list of names.
         */
-        symbol const& name() const { return m_name; } ;
+        symbol const& name() const { return m_name; }
 
         unsigned hash() const;
 
@@ -386,6 +386,6 @@ namespace datalog {
         unsigned operator()(const rule * r) const;
     };
 
-};
+}
 
 

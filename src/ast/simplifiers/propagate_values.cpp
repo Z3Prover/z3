@@ -62,7 +62,7 @@ void propagate_values::add_sub(dependent_expr const& de) {
         else if (m.is_value(y) && m_shared.is_shared(x))
             m_subst.insert(x, y, dep);
     }
-};
+}
 
 void propagate_values::reduce() {
     m_shared.reset();

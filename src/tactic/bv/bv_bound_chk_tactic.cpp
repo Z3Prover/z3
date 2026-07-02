@@ -26,7 +26,7 @@ struct bv_bound_chk_stats {
     unsigned            m_unsats;
     unsigned            m_singletons;
     unsigned            m_reduces;
-    bv_bound_chk_stats() : m_unsats(0), m_singletons(0), m_reduces(0) {};
+    bv_bound_chk_stats() : m_unsats(0), m_singletons(0), m_reduces(0) {}
 };
 
 struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {

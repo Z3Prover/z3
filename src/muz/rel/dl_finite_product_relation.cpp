@@ -2372,4 +2372,4 @@ namespace datalog {
         bool_rewriter(m).mk_or(disjs.size(), disjs.data(), fml);
     }
 
-};
+}

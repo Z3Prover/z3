@@ -72,5 +72,5 @@ namespace sat {
         return out;
     }
 
-};
+}
 

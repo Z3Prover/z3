@@ -48,5 +48,5 @@ namespace sat {
         void dec() { m_cleanup_counter--; }
     };
 
-};
+}
 

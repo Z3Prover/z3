@@ -308,7 +308,7 @@ namespace bv {
             tmp = m.mk_or(literal2expr(b), tmp);
             xs.push_back(tmp);
         }
-    };
+    }
 
     /**
      * The i'th bit in xs is 1 if the least significant bit of x is i or lower.
@@ -324,7 +324,7 @@ namespace bv {
             tmp = m.mk_or(literal2expr(b), tmp);
             xs.push_back(tmp);
         }
-    };
+    }
 
     /**
     * Check non-overflow of unsigned multiplication.

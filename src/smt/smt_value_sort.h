@@ -30,6 +30,6 @@ namespace smt {
 
     bool is_value_sort(ast_manager& m, expr* e);
     
-};
+}
 
 

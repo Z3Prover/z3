@@ -70,4 +70,4 @@ namespace smt {
         return m_name; 
     }
 
-};
+}

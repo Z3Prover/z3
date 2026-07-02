@@ -221,4 +221,4 @@ namespace sat {
         VERIFY(check_disjoint_clauses());
         return true;
     }
-};
+}

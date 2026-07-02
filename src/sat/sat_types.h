@@ -106,7 +106,7 @@ namespace sat {
         int m_orig;
         const proof_hint* m_hint;
     public:
-        status(st s, int o, proof_hint const* ps = nullptr) : m_st(s), m_orig(o), m_hint(ps) {};
+        status(st s, int o, proof_hint const* ps = nullptr) : m_st(s), m_orig(o), m_hint(ps) {}
         status(status const& s) : m_st(s.m_st), m_orig(s.m_orig), m_hint(s.m_hint) {}
         status(status&& s) noexcept { m_st = st::asserted; m_orig = -1; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); std::swap(m_hint, s.m_hint); }
         status& operator=(status const& other) { m_st = other.m_st; m_orig = other.m_orig; return *this; }
@@ -170,7 +170,7 @@ namespace sat {
 
     };
 
-};
+}
 
 
 

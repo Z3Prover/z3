@@ -131,6 +131,6 @@ namespace smt {
             m_atom            = false;
         }
     };
-};
+}
 
 

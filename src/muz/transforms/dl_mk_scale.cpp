@@ -235,4 +235,4 @@ namespace datalog {
         return result;
     }
 
-};
+}

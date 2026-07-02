@@ -576,7 +576,7 @@ namespace euf {
         return p.display(out);
     }
 
-};
+}
 
 inline std::ostream& operator<<(std::ostream& out, euf::solver const& s) {
     return s.display(out);

@@ -2410,7 +2410,7 @@ final_check_status theory_arith<Ext>::process_non_linear() {
 }
 
 
-};
+}
 
 
 

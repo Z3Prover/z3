@@ -31,9 +31,9 @@ template class theory_diff_logic<rdl_ext>;
 template class theory_diff_logic<srdl_ext>;
 
 
-};
+}
 
 namespace simplex {
 template class simplex<mpq_ext>;
 template class sparse_matrix<mpq_ext>;
-};
+}

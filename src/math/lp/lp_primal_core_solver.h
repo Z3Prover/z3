@@ -267,7 +267,7 @@ namespace lp {
         unsigned j, const T &m, X &theta, bool &unlimited) {
         SASSERT(m > 0 && this->m_column_types[j] == column_type::upper_bound);
         limit_inf_on_bound_m_pos(m, this->m_x[j], this->m_upper_bounds[j], theta, unlimited);
-    };
+    }
 
     void get_bound_on_variable_and_update_leaving_precisely(
         unsigned j, vector<unsigned> &leavings, T m, X &t,

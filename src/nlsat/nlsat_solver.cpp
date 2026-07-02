@@ -4784,4 +4784,4 @@ namespace nlsat {
     unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
     bool solver::lws_witness_subs_lc() const { return m_imp->m_lws_witness_subs_lc; }
     bool solver::lws_witness_subs_disc() const { return m_imp->m_lws_witness_subs_disc; }
-};
+}

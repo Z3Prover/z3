@@ -1360,4 +1360,4 @@ namespace datalog {
     }
 
 
-};
+}

@@ -3511,4 +3511,4 @@ namespace algebraic_numbers {
     void manager::collect_statistics(statistics & st) const {
         m_imp->collect_statistics(st);
     }
-};
+}

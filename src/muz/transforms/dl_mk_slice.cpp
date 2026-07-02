@@ -854,5 +854,5 @@ namespace datalog {
         return result.detach();
     }    
 
-};
+}
 

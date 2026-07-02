@@ -86,6 +86,6 @@ namespace smt {
         void collect_statistics(::statistics & st) const;
         void display_already_processed(std::ostream & out) const;
     };
-};
+}
 
 

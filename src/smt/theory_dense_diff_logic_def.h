@@ -1123,6 +1123,6 @@ namespace smt {
         return f;
     }
 
-};
+}
 
 

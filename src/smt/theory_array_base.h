@@ -213,5 +213,5 @@ namespace smt {
         ~theory_array_base() override { restore_sorts(0); }
     };
 
-};
+}
 

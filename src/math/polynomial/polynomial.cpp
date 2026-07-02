@@ -8253,7 +8253,7 @@ namespace polynomial {
         p->display_smt2(out, m_imp->m_manager, proc);
         return out;
     }
-};
+}
 
 polynomial::polynomial * convert(polynomial::manager & sm, polynomial::polynomial * p, polynomial::manager & tm,
                                  polynomial::var x, unsigned max_d) {

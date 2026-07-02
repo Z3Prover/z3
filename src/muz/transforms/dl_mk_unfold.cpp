@@ -59,5 +59,5 @@ namespace datalog {
         return rules.detach();
     }
 
-};
+}
 
