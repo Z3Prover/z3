@@ -12,9 +12,11 @@
 #include "ast/array_decl_plugin.h"
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
+#include "ast/polymorphism_util.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
+#include "smt/smt_solver.h"
 #include "solver/solver.h"
 #include "util/error_codes.h"
 #include "util/rational.h"
@@ -293,6 +295,7 @@ class tptp_parser {
     sort* m_univ;
     bool m_has_conjecture = false;
     unsigned m_dropped_formulas = 0;      // axioms/definitions skipped due to encoding errors
+    bool m_has_dependent_type = false;    // a "T > $tType" (value-indexed type family) was declared
     bool m_last_name_quoted = false;
     bool m_last_name_dquoted = false;     // last parsed name was a double-quoted distinct object
     // Distinct objects: TPTP double-quoted strings ("...") denote pairwise distinct
@@ -306,8 +309,71 @@ class tptp_parser {
     func_decl_ref_vector m_pinned_decls;  // prevents cached func_decls from being freed
     expr_ref_vector m_pinned_exprs;       // prevents bound variable apps from being freed
     std::unordered_map<std::string, std::pair<ptr_vector<sort>, sort*>> m_typed_decls;
+    // Polymorphic (TF1/TH1) declarations: a symbol declared with !>[T:$tType] : ...
+    // keeps genuine type variables (ast_manager::mk_type_var) in its signature rather
+    // than monomorphizing them onto the universe sort U. m_decl_tvars records, per
+    // declared symbol name, the ordered list of type-variable sorts introduced by its
+    // !> binder (used to consume explicit type arguments at THF @-application sites and
+    // to instantiate the polymorphic declaration). m_poly_decl_arity records the value
+    // arity (number of non-type arguments) of such a declaration.
+    std::unordered_map<std::string, ptr_vector<sort>> m_decl_tvars;
+    std::unordered_map<std::string, unsigned> m_poly_decl_arity;
+    // Canonical polymorphic root func_decls for each polymorphic symbol. Every concrete
+    // (or type-variable) use is created as an instance of the shared root via
+    // ast_manager::instantiate_polymorphic, so that z3's polymorphism engine links the
+    // instances (e.g. FINITE@real and the axiom's FINITE@A) to one root and instantiates
+    // type-variable axioms at the concrete types used elsewhere. m_poly_root_ho holds the
+    // curried-array (THF @-application) shape; m_poly_root_fo the first-order function shape.
+    std::unordered_map<std::string, func_decl*> m_poly_root_ho;
+    std::unordered_map<std::string, func_decl*> m_poly_root_fo;
+    // Type variables introduced by the !> binder while parsing a declaration's type.
+    // An insertion-ordered list of (name, mk_type_var sort): order matters because
+    // explicit THF type arguments (f @ T1 @ T2 @ ..) are consumed positionally and
+    // matched tvars[i] := targs[i]. A std::unordered_map would scramble that order.
+    std::vector<std::pair<std::string, sort*>> m_type_vars;
     std::vector<std::unordered_map<std::string, app*>> m_bound;
     bool m_in_at_arg = false;  // true when parsing inside @ argument (lambda body stops consuming @)
+    unsigned m_tvar_counter = 0;  // generates fresh, collision-proof polymorphic type-variable names
+    unsigned m_rec_depth = 0;
+    char* m_stack_base = nullptr;  // approximate stack anchor captured at the outermost parse frame
+    // Recursive-descent stack guard. The THF fragment of TPTP admits pathologically
+    // deep nested applications (some ITP problems contain single formulas nested
+    // hundreds of levels deep). Each recursive parser frame is large (and frame size
+    // varies widely by construct), so such formulas can exhaust the process stack.
+    // A fixed recursion-depth cap is fragile: files with large frames overflow at a
+    // much smaller depth than files with small frames. Instead we measure the actual
+    // stack consumed (distance of the current frame from an anchor captured at the
+    // outermost parse frame) and bail out before the OS stack (/STACK:8MB) is
+    // exhausted. This adapts automatically to the real per-frame size. On overflow we
+    // raise a parse_error; the enclosing per-formula handler then drops that formula
+    // (and counts it, downgrading any later "sat" to GaveUp).
+    // Budget is well below the 8MB stack, leaving margin for un-guarded helper frames.
+    static const size_t STACK_BUDGET = 6 * 1024 * 1024;
+    // Hard depth cap as a backstop against genuine non-terminating recursion (parser
+    // bugs) independent of stack measurement; far higher than any real TPTP nesting.
+    static const unsigned RECURSION_LIMIT = 100000;
+    struct rec_guard {
+        tptp_parser& p;
+        rec_guard(tptp_parser& p): p(p) {
+            char local;
+            char* cur = &local;
+            if (!p.m_stack_base)
+                p.m_stack_base = cur;
+            else {
+                size_t used = (p.m_stack_base > cur)
+                    ? static_cast<size_t>(p.m_stack_base - cur)
+                    : static_cast<size_t>(cur - p.m_stack_base);
+                if (used > STACK_BUDGET)
+                    throw parse_error("nesting too deep");
+            }
+            if (++p.m_rec_depth > RECURSION_LIMIT)
+                throw parse_error("nesting too deep");
+        }
+        ~rec_guard() {
+            if (--p.m_rec_depth == 0)
+                p.m_stack_base = nullptr;  // re-anchor for the next top-level formula
+        }
+    };
     struct implicit_var_scope {
         std::unordered_map<std::string, app*> vars;
         ptr_vector<app> order;
@@ -466,8 +532,143 @@ class tptp_parser {
         return s;
     }
 
+    // Parse a single explicit type argument following @ at a THF polymorphic
+    // application site (TH1). Parses exactly one atomic type (a type name or a
+    // parenthesized mapping type) without consuming the trailing @-application chain,
+    // which belongs to the value arguments.
+    sort* parse_type_at_arg() {
+        if (accept(token_kind::lparen)) {
+            parsed_type t = parse_type_expr();
+            expect(token_kind::rparen, "')'");
+            sort* s = t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range);
+            return s ? s : m_univ;
+        }
+        std::string tn = parse_name();
+        return get_sort(tn);
+    }
+
+    // Substitute the polymorphic type variables tvars := targs throughout a template
+    // signature (domain/range), producing a concrete instance signature.
+    void instantiate_sig(ptr_vector<sort> const& tvars, ptr_vector<sort> const& targs,
+                         ptr_vector<sort> const& dom_in, sort* rng_in,
+                         ptr_vector<sort>& dom_out, sort_ref& rng_out) {
+        polymorphism::substitution sub(m);
+        for (unsigned i = 0; i < tvars.size() && i < targs.size(); ++i)
+            if (tvars[i] != targs[i]) // never insert a self-map: it makes substitution recurse forever
+                sub.insert(tvars[i], targs[i]);
+        for (sort* d : dom_in) {
+            sort_ref s = sub(d);
+            m_pinned_sorts.push_back(s);
+            dom_out.push_back(s.get());
+        }
+        rng_out = sub(rng_in);
+        m_pinned_sorts.push_back(rng_out);
+    }
+
     static bool is_ttype(sort* s) {
         return s->get_name() == symbol("$tType");
+    }
+
+    // True if the current token names a type (a builtin type keyword, a declared
+    // $tType sort, or an in-scope type variable). Used to detect TF1 explicit type
+    // arguments, which appear as type names in first-order application position.
+    bool current_is_type_name() const {
+        if (!is(token_kind::id)) return false;
+        std::string const& t = m_curr.text;
+        if (t == "$i" || t == "$o" || t == "$int" || t == "$rat" || t == "$real")
+            return true;
+        auto it = m_sorts.find(t);
+        return it != m_sorts.end() && it->second != nullptr;
+    }
+
+    // Canonical polymorphic root for the THF curried-array (@-application) shape.
+    func_decl* poly_root_ho(std::string const& n, ptr_vector<sort> const& tdom, sort* trng) {
+        auto it = m_poly_root_ho.find(n);
+        if (it != m_poly_root_ho.end()) return it->second;
+        func_decl* root = m.mk_func_decl(symbol(n), 0, static_cast<sort**>(nullptr), get_ho_sort(tdom, trng));
+        m_pinned_decls.push_back(root);
+        m_poly_root_ho[n] = root;
+        return root;
+    }
+
+    // Canonical polymorphic root for the first-order function shape.
+    func_decl* poly_root_fo(std::string const& n, ptr_vector<sort> const& tdom, sort* trng) {
+        auto it = m_poly_root_fo.find(n);
+        if (it != m_poly_root_fo.end()) return it->second;
+        func_decl* root = m.mk_func_decl(symbol(n), tdom.size(), tdom.data(), trng);
+        m_pinned_decls.push_back(root);
+        m_poly_root_fo[n] = root;
+        return root;
+    }
+
+    // Instantiate the polymorphic root `root` at a concrete (or type-variable) signature.
+    // When the root actually carries type variables it is a genuine polymorphic root and
+    // the instance is registered against it (m_poly_roots) so z3 links the instances;
+    // otherwise a plain declaration suffices.
+    func_decl* mk_poly_instance(func_decl* root, unsigned arity, sort* const* dom, sort* rng) {
+        func_decl* f = root->is_polymorphic()
+                     ? m.instantiate_polymorphic(root, arity, dom, rng)
+                     : m.mk_func_decl(root->get_name(), arity, dom, rng);
+        m_pinned_decls.push_back(f);
+        return f;
+    }
+
+    // Attempt to build an application of a polymorphic (TF1/TH1) declaration `n`.
+    // Handles three surface forms:
+    //   * TF1 first-order explicit type application  f(T.., v..)  (fo_targs non-empty)
+    //   * TH1 @-application                          f @ T.. @ v..  (args empty, @ ahead)
+    //   * first-order type inference from arguments  f(v..) with args.size()==value-arity
+    // On success sets `out` and returns true; otherwise returns false (out untouched).
+    bool try_poly_application(std::string const& n, expr_ref_vector& args,
+                              ptr_vector<sort> const& fo_targs, expr_ref& out) {
+        auto tvit = m_decl_tvars.find(n);
+        if (tvit == m_decl_tvars.end()) return false;
+        ptr_vector<sort> const& tvars = tvit->second;
+        unsigned varity = m_poly_decl_arity[n];
+        auto sigit = m_typed_decls.find(mk_typed_key(n, varity));
+        if (sigit == m_typed_decls.end()) return false;
+        ptr_vector<sort> const& tdom = sigit->second.first;
+        sort* trng = sigit->second.second;
+
+        if (!fo_targs.empty()) {
+            ptr_vector<sort> cdom; sort_ref crng(m);
+            instantiate_sig(tvars, fo_targs, tdom, trng, cdom, crng);
+            func_decl* f = mk_poly_instance(poly_root_fo(n, tdom, trng), cdom.size(), cdom.data(), crng.get());
+            coerce_args(f, args);
+            out = expr_ref(m.mk_app(f, args.size(), args.data()), m);
+            return true;
+        }
+
+        if (args.empty() && is(token_kind::at_tok)) {
+            ptr_vector<sort> targs;
+            for (unsigned j = 0; j < tvars.size() && is(token_kind::at_tok); ++j) {
+                next(); // consume @
+                targs.push_back(parse_type_at_arg());
+            }
+            ptr_vector<sort> cdom; sort_ref crng(m);
+            instantiate_sig(tvars, targs, tdom, trng, cdom, crng);
+            sort* ho = get_ho_sort(cdom, crng.get());
+            func_decl* f = mk_poly_instance(poly_root_ho(n, tdom, trng), 0, static_cast<sort**>(nullptr), ho);
+            out = expr_ref(m.mk_app(f, 0, static_cast<expr**>(nullptr)), m);
+            return true;
+        }
+
+        if (!args.empty() && args.size() == varity) {
+            polymorphism::substitution sub(m);
+            bool ok = true;
+            for (unsigned i = 0; i < varity; ++i)
+                if (!sub.match(tdom[i], args.get(i)->get_sort())) { ok = false; break; }
+            if (ok) {
+                ptr_vector<sort> cdom;
+                for (sort* d : tdom) { sort_ref s = sub(d); m_pinned_sorts.push_back(s); cdom.push_back(s.get()); }
+                sort_ref crng = sub(trng); m_pinned_sorts.push_back(crng);
+                func_decl* f = mk_poly_instance(poly_root_fo(n, tdom, trng), varity, cdom.data(), crng.get());
+                coerce_args(f, args);
+                out = expr_ref(m.mk_app(f, args.size(), args.data()), m);
+                return true;
+            }
+        }
+        return false;
     }
 
     static bool is_nonempty_digit_string(std::string const& s) {
@@ -715,6 +916,7 @@ class tptp_parser {
     //                                   <type_functor>(<tff_type_arguments>)
     //          <defined_type>      ::= $oType | $o | $iType | $i | $tType | $real | $rat | $int
     parsed_type parse_type_atom() {
+        rec_guard g(*this);
         if (accept(token_kind::lparen)) {
             ptr_vector<sort> prod = parse_type_product_raw();
             if (accept(token_kind::gt_tok)) {
@@ -763,6 +965,7 @@ class tptp_parser {
     //                                 | <thf_xprod_type> * <thf_unitary_type>
     //          Product types form the domain in mapping types: (A * B) > C
     ptr_vector<sort> parse_type_product_raw() {
+        rec_guard g(*this);
         parsed_type first = parse_type_atom();
         if (!first.domain.empty() && first.range == nullptr) {
             // Already a parenthesized product from nested parens
@@ -814,6 +1017,7 @@ class tptp_parser {
     //          <thf_binary_type>    ::= <thf_mapping_type> | <thf_xprod_type>
     //          <thf_mapping_type>   ::= <thf_unitary_type> > <thf_unitary_type>
     parsed_type parse_type_product() {
+        rec_guard g(*this);
         parsed_type first = parse_type_atom();
         // If atom returned a function type and no '*' follows, return it directly
         if (!first.domain.empty() && first.range != nullptr && !is(token_kind::star_tok)) {
@@ -848,30 +1052,40 @@ class tptp_parser {
     //          <tf1_quantified_type> ::= !> [<tff_variable_list>] : <tff_monotype>
     //          Parses: atom, atom > atom, (A * B) > C, !>[X:$tType] : T
     parsed_type parse_type_expr() {
+        rec_guard g(*this);
         // Handle type quantification at the expression level for proper domain/range preservation
         if (is(token_kind::type_forall_tok) || is(token_kind::type_exists_tok)) {
             next();
             expect(token_kind::lbrack, "'['");
-            ptr_vector<sort> type_params;
             if (!accept(token_kind::rbrack)) {
                 do {
                     std::string tv = parse_name();
                     if (accept(token_kind::colon))
                         parse_type_expr(); // consume $tType annotation
-                    m_sorts.insert_or_assign(tv, m_univ);
-                    type_params.push_back(m_univ);
+                    // Genuine polymorphic type variable (ast_manager::mk_type_var) rather
+                    // than a monomorphizing collapse onto the universe sort U. This keeps
+                    // distinct type parameters distinct and makes the declaration a proper
+                    // polymorphic root, so uses can be instantiated per concrete type.
+                    //
+                    // mk_type_var interns by name, so the name must be globally unique:
+                    // TPTP reuses generic binder names (A, B, ...) across unrelated
+                    // declarations and in formula-level type quantifiers. If a declaration
+                    // binder shared a name with a use-site type variable, they would alias
+                    // to the same sort and instantiate_sig would build a self-substitution
+                    // A := A, which makes polymorphism::substitution recurse forever. A
+                    // '!'-prefixed counter cannot collide with any TPTP identifier.
+                    std::string fresh = "!" + std::to_string(m_tvar_counter++) + "_" + tv;
+                    sort* tvs = m.mk_type_var(symbol(fresh));
+                    m_pinned_sorts.push_back(tvs);
+                    m_sorts.insert_or_assign(tv, tvs);
+                    m_type_vars.emplace_back(tv, tvs);
                 } while (accept(token_kind::comma));
                 expect(token_kind::rbrack, "']'");
             }
             expect(token_kind::colon, "':'");
-            parsed_type inner = parse_type_expr();
-            // Prepend type params to domain
-            if (!type_params.empty()) {
-                ptr_vector<sort> full_domain = type_params;
-                full_domain.append(inner.domain);
-                return parsed_type(full_domain, inner.range);
-            }
-            return inner;
+            // Type variables are type parameters, not value arguments: do NOT prepend
+            // them to the domain. The inner mapping type references them directly.
+            return parse_type_expr();
         }
         parsed_type prod = parse_type_product();
         if (accept(token_kind::gt_tok)) {
@@ -943,6 +1157,7 @@ class tptp_parser {
 
     // Grammar: (same as parse_term, primary productions)
     expr_ref parse_term_primary() {
+        rec_guard g(*this);
         if (accept(token_kind::lparen)) {
             expr_ref e = parse_formula(false);
             expect(token_kind::rparen, "')'");
@@ -988,6 +1203,7 @@ class tptp_parser {
             return expr_ref(get_or_create_implicit_var(n), m);
 
         expr_ref_vector args(m);
+        ptr_vector<sort> fo_targs; // TF1 explicit leading type arguments, if any
         // $ite needs special parsing: first arg is formula, rest are formulas (branches can be equalities)
         if (n == "$ite") {
             expect(token_kind::lparen, "'('");
@@ -1003,7 +1219,23 @@ class tptp_parser {
         }
         else if (accept(token_kind::lparen)) {
             if (!accept(token_kind::rparen)) {
-                do { args.push_back(parse_term()); } while (accept(token_kind::comma));
+                // TF1 explicit polymorphic type application: a first-order call to a
+                // polymorphic symbol supplies its k type arguments first, as type
+                // names, e.g. mixture(beverage, coffee, S). Parse those k leading
+                // arguments as sorts rather than terms; the remainder are values.
+                auto tvit = m_decl_tvars.find(n);
+                if (tvit != m_decl_tvars.end() && !tvit->second.empty() && current_is_type_name()) {
+                    unsigned ntv = tvit->second.size();
+                    for (unsigned j = 0; j < ntv; ++j) {
+                        fo_targs.push_back(parse_type_at_arg());
+                        if (j + 1 < ntv) expect(token_kind::comma, "','");
+                    }
+                    if (accept(token_kind::comma))
+                        do { args.push_back(parse_term()); } while (accept(token_kind::comma));
+                }
+                else {
+                    do { args.push_back(parse_term()); } while (accept(token_kind::comma));
+                }
                 expect(token_kind::rparen, "')'");
             }
         }
@@ -1017,6 +1249,11 @@ class tptp_parser {
             }
             return op_it->second.builder(args);
         }
+
+        // Polymorphic declaration (declared with !>[T:$tType] : ...): instantiate the
+        // declaration to the concrete type(s) at the use site rather than boxing onto U.
+        if (expr_ref pe(m); try_poly_application(n, args, fo_targs, pe))
+            return pe;
 
         func_decl* f = mk_decl_or_ho_const(n, args.size(), false);
         coerce_args(f, args);
@@ -1035,6 +1272,7 @@ class tptp_parser {
     //                               | <thf_apply_formula> @ <thf_unitary_formula>
     //          @ is THF function application, encoded via array select.
     expr_ref apply_at(expr_ref e) {
+        rec_guard g(*this);
         if (!is(token_kind::at_tok)) return e;
         
         // @ corresponds to array select (function application)
@@ -1061,6 +1299,7 @@ class tptp_parser {
     //          parenthesized formula, or lambda. Handles the right-operand of <thf_apply_formula>.
     // Parse an argument to @ — can be a term, a formula (negation, quantifier, parens with connectives), or a lambda
     expr_ref parse_at_arg() {
+        rec_guard g(*this);
         if (accept(token_kind::not_tok)) {
             expr_ref e = parse_at_arg();
             return expr_ref(m.mk_not(ensure_bool(e)), m);
@@ -1314,6 +1553,7 @@ class tptp_parser {
     //          <defined_infix_pred> ::= = | !=
     //          Also handles: let-bound name resolution, implicit variable creation.
     expr_ref parse_atomic_formula(bool is_boolean) {
+        rec_guard g(*this);
         if (accept(token_kind::lparen)) {
             // Check for parenthesized connective used as higher-order term: (~), (&), (|), etc.
             if (is(token_kind::not_tok) || is(token_kind::and_tok) || is(token_kind::or_tok) ||
@@ -1492,6 +1732,7 @@ class tptp_parser {
         }
 
         expr_ref_vector args(m);
+        ptr_vector<sort> fo_targs; // TF1 explicit leading type arguments, if any
         // $ite needs special parsing: first arg is formula, rest are formulas (branches can be equalities)
         if (n == "$ite") {
             expect(token_kind::lparen, "'('");
@@ -1507,7 +1748,23 @@ class tptp_parser {
         }
         else if (accept(token_kind::lparen)) {
             if (!accept(token_kind::rparen)) {
-                do { args.push_back(parse_term()); } while (accept(token_kind::comma));
+                // TF1 explicit polymorphic type application: a first-order call to a
+                // polymorphic symbol supplies its k type arguments first, as type
+                // names, e.g. mixture(beverage, coffee, S). Parse those k leading
+                // arguments as sorts rather than terms; the remainder are values.
+                auto tvit = m_decl_tvars.find(n);
+                if (tvit != m_decl_tvars.end() && !tvit->second.empty() && current_is_type_name()) {
+                    unsigned ntv = tvit->second.size();
+                    for (unsigned j = 0; j < ntv; ++j) {
+                        fo_targs.push_back(parse_type_at_arg());
+                        if (j + 1 < ntv) expect(token_kind::comma, "','");
+                    }
+                    if (accept(token_kind::comma))
+                        do { args.push_back(parse_term()); } while (accept(token_kind::comma));
+                }
+                else {
+                    do { args.push_back(parse_term()); } while (accept(token_kind::comma));
+                }
                 expect(token_kind::rparen, "')'");
             }
         }
@@ -1533,6 +1790,12 @@ class tptp_parser {
 
         if (has_lhs)
             return lhs;
+
+        // Polymorphic declaration (declared with !>[T:$tType] : ...). Instead of the
+        // monomorphizing box coercions that collapse every type parameter onto U, we
+        // instantiate the declaration to the concrete type(s) at each use.
+        if (expr_ref pe(m); try_poly_application(n, args, fo_targs, pe))
+            return pe;
 
         auto typed = m_typed_decls.find(mk_typed_key(n, args.size()));
         if (typed != m_typed_decls.end()) {
@@ -1612,6 +1875,7 @@ class tptp_parser {
     //          <fof_quantifier>     ::= ! | ?
     //          Also handles: $ite, $let, lambda (^), parenthesized formulas, and atomic formulas.
     expr_ref parse_unary_formula(bool is_boolean) {
+        rec_guard g(*this);
         if (accept(token_kind::not_tok)) {
             expr_ref e = parse_unary_formula(true);
             return expr_ref(m.mk_not(ensure_bool(e)), m);
@@ -1696,6 +1960,10 @@ class tptp_parser {
 
             ptr_vector<app> vars;
             std::unordered_map<std::string, app*> scope;
+            // $tType binders that we turn into genuine type variables so the body
+            // becomes a polymorphic axiom. Saved so we can restore the enclosing
+            // type-variable scope after parsing the body.
+            std::vector<std::pair<std::string, sort*>> saved_tvars;
             if (!accept(token_kind::rbrack)) {
                 do {
                     std::string v = parse_name();
@@ -1709,11 +1977,25 @@ class tptp_parser {
                             s = t.range;
                         }
                     }
-                    // Monomorphize: $tType-sorted variables become U-sorted
-                    // and register them as sorts for subsequent type references
+                    // A $tType-sorted binder is genuine type quantification (THF/TH1
+                    // "! [A: $tType] : ..." quantifies over types just like "!>").
+                    // For universal quantifiers keep the type variable (mk_type_var)
+                    // so uses of v in the body are parametric and theory_polymorphism
+                    // instantiates them on demand. Existential type quantification has
+                    // no first-class encoding, so fall back to the universe sort U.
+                    // Register v BEFORE parsing later binders so a subsequent value
+                    // binder "X:A" resolves A to this type variable.
                     if (is_ttype(s)) {
-                        s = m_univ;
-                        m_sorts.insert_or_assign(v, m_univ);
+                        auto it = m_sorts.find(v);
+                        saved_tvars.emplace_back(v, it == m_sorts.end() ? nullptr : it->second);
+                        if (is_forall) {
+                            sort* tvs = m.mk_type_var(symbol(v));
+                            m_pinned_sorts.push_back(tvs);
+                            m_sorts.insert_or_assign(v, tvs);
+                        }
+                        else
+                            m_sorts.insert_or_assign(v, m_univ);
+                        continue; // not a value-level bound variable
                     }
                     app* c = m.mk_const(symbol(v), s);
                     m_pinned_exprs.push_back(c);
@@ -1733,25 +2015,54 @@ class tptp_parser {
             // and "! [X] : (...) => g" keeps "=> g" outside the quantifier scope.
             expr_ref body = parse_expr(PREC_EQ, true, is_boolean);
             m_bound.pop_back();
+            // Restore the enclosing type-variable scope.
+            for (auto const& pr : saved_tvars) {
+                if (pr.second) m_sorts.insert_or_assign(pr.first, pr.second);
+                else m_sorts.erase(pr.first);
+            }
+            // Pure type quantification (no value binders): the body is already a
+            // polymorphic axiom, so return it directly.
+            if (vars.empty())
+                return body;
             return mk_quantifier(is_forall, vars, body);
         }
 
         // Type quantification in formula context: !>[A: $tType, ...] : body
-        // Erase type variables and parse body as formula
         if (is(token_kind::type_forall_tok) || is(token_kind::type_exists_tok)) {
+            bool is_forall = is(token_kind::type_forall_tok);
             next();
             expect(token_kind::lbrack, "'['");
+            std::vector<std::pair<std::string, sort*>> saved;
             if (!accept(token_kind::rbrack)) {
                 do {
                     std::string tv = parse_name();
                     if (accept(token_kind::colon))
                         parse_type_expr(); // consume $tType annotation
-                    m_sorts.insert_or_assign(tv, m_univ);
+                    auto it = m_sorts.find(tv);
+                    saved.emplace_back(tv, it == m_sorts.end() ? nullptr : it->second);
+                    // Universal type quantification is genuine parametric polymorphism:
+                    // keep the type variable (mk_type_var) so the body becomes a
+                    // polymorphic axiom that theory_polymorphism instantiates on demand.
+                    // Existential type quantification has no first-class encoding here, so
+                    // fall back to the universe sort U for it.
+                    if (is_forall) {
+                        sort* tvs = m.mk_type_var(symbol(tv));
+                        m_pinned_sorts.push_back(tvs);
+                        m_sorts.insert_or_assign(tv, tvs);
+                    }
+                    else
+                        m_sorts.insert_or_assign(tv, m_univ);
                 } while (accept(token_kind::comma));
                 expect(token_kind::rbrack, "']'");
             }
             expect(token_kind::colon, "':'");
-            return parse_formula(is_boolean);
+            expr_ref body = parse_formula(is_boolean);
+            // Restore the enclosing type-variable scope.
+            for (auto const& pr : saved) {
+                if (pr.second) m_sorts.insert_or_assign(pr.first, pr.second);
+                else m_sorts.erase(pr.first);
+            }
+            return body;
         }
 
         return parse_atomic_formula(is_boolean);
@@ -1767,6 +2078,7 @@ class tptp_parser {
     //                                  | <tff_and_formula> & <tff_unit_formula>
     //          Implements a Pratt-style (precedence climbing) parser for binary connectives.
     expr_ref parse_expr(unsigned min_prec, bool consume_at, bool is_boolean) {
+        rec_guard g(*this);
         expr_ref e = parse_unary_formula(is_boolean);
         return parse_binary_rest(e, min_prec, consume_at);
     }
@@ -1775,6 +2087,7 @@ class tptp_parser {
     // Split out from parse_expr so callers that have consumed a leading unary unit
     // (e.g. a '~' immediately after '(') can resume binary-connective parsing.
     expr_ref parse_binary_rest(expr_ref e, unsigned min_prec, bool consume_at = true) {
+        rec_guard g(*this);
         for (;;) {
             // Handle @ (function application) with highest precedence
             // But NOT when we're inside a lambda body that's an @ argument
@@ -1831,9 +2144,21 @@ class tptp_parser {
         while (accept(token_kind::lparen)) ++lparen_count;
         std::string name = parse_name();
         expect(token_kind::colon, "':'");
+        m_type_vars.clear();
         parsed_type t = parse_type_expr();
         while (lparen_count-- > 0)
             expect(token_kind::rparen, "')'");
+
+        // Capture and tear down the type-variable scope introduced by a !> binder.
+        // The type_var sorts live on in the stored signature; only the name->sort
+        // bindings are removed so a later declaration reusing the same variable name
+        // (e.g. Tv0) does not see this declaration's variables.
+        ptr_vector<sort> tvars;
+        for (auto const& kv : m_type_vars) {
+            tvars.push_back(kv.second);
+            m_sorts.erase(kv.first);
+        }
+        m_type_vars.clear();
 
         if (t.domain.empty() && is_ttype(t.range)) {
             // Sort declaration: give every declared type its own distinct uninterpreted
@@ -1852,13 +2177,28 @@ class tptp_parser {
             return;
         }
 
-        // Monomorphize: replace $tType in domain/range with m_univ
+        // Monomorphize: replace any stray $tType in domain/range with m_univ (genuine
+        // type variables are already mk_type_var sorts and are left intact).
         for (auto& s : t.domain) {
             if (is_ttype(s)) s = m_univ;
         }
-        if (t.range && is_ttype(t.range)) t.range = m_univ;
+        if (t.range && is_ttype(t.range)) {
+            // A declaration "f: T.. > $tType" is a value-indexed type family (a
+            // dependent type constructor, e.g. "fin: nat > $tType"). Z3's parametric
+            // polymorphism cannot faithfully encode dependent types: we approximate
+            // "fin @ N" by a universe element, which is unsound (it can prove a
+            // conjecture that is only CounterSatisfiable). Flag the problem so any
+            // sat/unsat verdict is downgraded to GaveUp rather than reported as a
+            // (possibly spurious) Theorem/CounterSatisfiable.
+            m_has_dependent_type = true;
+            t.range = m_univ;
+        }
 
         m_typed_decls.insert_or_assign(mk_typed_key(name, t.domain.size()), std::make_pair(t.domain, t.range));
+        if (!tvars.empty()) {
+            m_decl_tvars[name] = tvars;
+            m_poly_decl_arity[name] = t.domain.size();
+        }
     }
 
     static bool file_exists(std::string const& f) {
@@ -1951,7 +2291,23 @@ class tptp_parser {
         expect(token_kind::comma, "','");
 
         if (role == "type") {
-            parse_type_decl_formula();
+            try {
+                parse_type_decl_formula();
+            } catch (std::exception const& ex) {
+                // A type declaration that is too deeply nested to parse within the
+                // stack budget (recursion guard) or otherwise malformed: drop it and
+                // resync. Dropping a type declaration is counted so a later "sat"
+                // verdict is downgraded to GaveUp rather than reported as a certified
+                // model (uses of the undeclared symbol would themselves be dropped).
+                ++m_dropped_formulas;
+                std::ostringstream oss;
+                oss << "skipping type declaration '" << formula_name << "' due to: " << ex.what();
+                warning_msg(oss.str().c_str());
+                while (!is(token_kind::eof_tok) && !is(token_kind::dot))
+                    next();
+                if (is(token_kind::dot)) next();
+                return;
+            }
         }
         else if (role == "logic") {
             // Modal logic declarations ($modal == [...]) — skip the formula body
@@ -2313,6 +2669,10 @@ public:
     // makes the problem unsatisfiable).
     unsigned dropped_formulas() const { return m_dropped_formulas; }
 
+    // True if the problem declares a value-indexed type family ("T > $tType"), a
+    // dependent type that our polymorphic encoding cannot represent soundly.
+    bool has_dependent_type() const { return m_has_dependent_type; }
+
     std::string const& expected_status() const { return m_expected_status; }
 
     // Scan TPTP comments for an SZS/Status annotation, e.g.
@@ -2370,6 +2730,7 @@ public:
 };
 
 expr_ref tptp_parser::parse_term() {
+    rec_guard g(*this);
     expr_ref e = parse_term_primary();
     if (!is(token_kind::at_tok)) return e;
     // @ corresponds to array select (function application)
@@ -2391,6 +2752,7 @@ expr_ref tptp_parser::parse_term() {
 }
 
 expr_ref tptp_parser::parse_formula(bool is_boolean) {
+    rec_guard g(*this);
     return parse_expr(PREC_IFF, true, is_boolean);
 }
 
@@ -2429,17 +2791,38 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
     try {
         cmd_context ctx;
-        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
 
         tptp_parser p(ctx);
         p.parse_input(in, current_file ? current_file : ".");
         p.assert_distinct_objects();
+
+        // Polymorphic (TF1/TH1) problems are instantiated on demand by
+        // theory_polymorphism inside the smt core. The strategic solver's tactic
+        // preprocessing (e.g. unconstrained-subterm elimination) runs before the
+        // core and can discard a monomorphic instance that only occurs in the
+        // conjecture, severing it from its polymorphic axiom. Use the plain smt
+        // solver in that case so instantiation is not defeated by preprocessing.
+        if (ctx.m().has_type_vars())
+            ctx.set_solver_factory(mk_smt_solver_factory());
+        else
+            ctx.set_solver_factory(mk_smt_strategic_solver_factory());
 
         // Suppress default check-sat output; TPTP frontend reports SZS status explicitly.
         std::ostringstream sink;
         scoped_regular_stream scoped_stream(ctx, sink);
         TRACE(parser, ctx.get_solver()->display(tout));
         ctx.check_sat(0, nullptr);
+        // A value-indexed type family ("T > $tType") is a dependent type that our
+        // encoding approximates unsoundly (a universe element stands in for a type).
+        // Neither an unsat (Theorem/Unsatisfiable) nor a sat (CounterSatisfiable/
+        // Satisfiable) verdict can be trusted, so downgrade both to GaveUp.
+        if (p.has_dependent_type() &&
+            (ctx.cs_state() == cmd_context::css_unsat || ctx.cs_state() == cmd_context::css_sat)) {
+            std::cout << "% SZS status GaveUp\n";
+            std::cout << "% SZS reason problem declares a dependent type family "
+                         "(T > $tType); verdict is not certified\n";
+        }
+        else
         switch (ctx.cs_state()) {
         case cmd_context::css_unsat:
             if (p.has_conjecture()) report_szs_status("Theorem", p.expected_status());
