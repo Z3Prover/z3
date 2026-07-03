@@ -493,44 +493,57 @@ namespace smt {
         // into the product search).
         euf::snode const* re = nullptr;
         if (!m_view_vars.contains(key) && m_var_regex.find(key, re) && re) {
-            expr* re_expr = re->get_expr();
-            SASSERT(re_expr);
+            expr* const re_base = re->get_expr();   // intersection of ALL the var's plain regexes
+            SASSERT(re_base);
 
             expr_ref len_expr(m_seq.str.mk_length(var->get_expr()), m);
             rational len_val;
             bool has_len = get_arith_value(len_expr, len_val);
             CTRACE(seq, !has_len, tout << "no value associated with " << mk_pp(len_expr, m) << "\n";);
-            
+
+            // Find some word in `r`.  some_string_in_re can fail (l_undef / l_false)
+            // on regexes it does not fully support (Boolean closure, complement,
+            // large length-intersected shapes); fall back to a derivative-automaton
+            // BFS that builds an accepting word directly.
+            auto find_word = [&](expr* r, expr_ref& witness) -> bool {
+                zstring str;
+                lbool wr = m_rewriter.some_string_in_re(r, str);
+                if (wr == l_true) { witness = m_seq.str.mk_string(str); return true; }
+                // do NOT overwrite `witness` from `str`, which some_string_in_re
+                // left untouched (still empty) on failure.
+                return derivative_witness(m_sg.mk(r), witness) == l_true;
+            };
+
+            expr_ref witness(m);
+            bool ok = false;
+            // First honour the arith-assigned length so the model stays
+            // length-consistent with the outer solver.
             if (has_len && len_val.is_unsigned()) {
                 unsigned n = len_val.get_unsigned();
-                expr_ref loop(m_seq.re.mk_loop(m_seq.re.mk_full_char(re_expr->get_sort()), n, n), m);
-                re_expr = m_seq.re.mk_inter(re_expr, loop);
+                expr_ref loop(m_seq.re.mk_loop(m_seq.re.mk_full_char(re_base->get_sort()), n, n), m);
+                expr_ref re_len(m_seq.re.mk_inter(re_base, loop), m);
+                ok = find_word(re_len, witness);
             }
-
-            zstring str;
-            expr_ref witness(m);
-            // We checked non-emptiness during Nielsen already
-            lbool wr = m_rewriter.some_string_in_re(re_expr, str);
-            if (wr == l_true) {
-                witness = m_seq.str.mk_string(str);
-            }
-            else {
-                // some_seq_in_re can fail (l_undef / l_false) on regexes it does
-                // not fully support — notably projection operators (re.proj),
-                // but also some plain Boolean-closure / large length-intersected
-                // shapes.  Fall back to a derivative-automaton BFS that builds an
-                // accepting word of the requested length directly. It sets
-                // `witness` itself -- do NOT overwrite it from `str`, which
-                // some_string_in_re left untouched (i.e. still empty) on failure.
-                wr = derivative_witness(m_sg.mk(re_expr), witness);
-            }
-            if (wr == l_true) {
+            // The arith length is only loosely coupled to the (branch-specific,
+            // intersected) regex when the exact length set is not encoded (Parikh
+            // off, or a Boolean-closure shape whose interval bound is looser than
+            // its true length set).  The outer solver can then commit an
+            // UNACHIEVABLE len(var) — no word of that length exists in the
+            // intersection — and the length-constrained search above fails.  The
+            // benchmark's validity depends on the regex memberships, NOT on that
+            // (unconstrained) length, so retry ignoring the length: any word in the
+            // full intersection is a sound witness (its length becomes len(var)).
+            // Without this retry we fall through to the "n a's" filler below, which
+            // ignores the regex entirely and yields an INVALID model.
+            if (!ok)
+                ok = find_word(re_base, witness);
+            if (ok) {
                 m_trail.push_back(witness);
                 m_factory->register_value(witness);
                 return witness;
             }
             IF_VERBOSE(1, verbose_stream() << "witness extraction failed for " << mk_pp(var->get_expr(), m)
-                << " : " << wr << " with len " << (has_len ? len_val.to_string() : "unknown") << "\n" << mk_pp(re_expr, m) << "\n");
+                << " with len " << (has_len ? len_val.to_string() : "unknown") << "\n" << mk_pp(re_base, m) << "\n");
             // Last resort: do not crash model construction.  model_validate (if
             // enabled) will flag an inconsistent witness; otherwise fall through
             // to the length-respecting fallback below.
