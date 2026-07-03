@@ -96,6 +96,14 @@ namespace smt {
             theory(ctx, poly_family_id),
             m_inst(ctx.get_manager(), m_trail),
             m_assumption(ctx.get_manager()) {}
+
+        ~theory_polymorphism() override {
+            // Undo level-0 trail items (e.g. the inc_ref balancing entries that
+            // m_inst pushes for m_from_instantiation). trail_stack's destructor
+            // does not call reset(), so without this the references those items
+            // hold would leak when the theory is destroyed.
+            m_trail.reset();
+        }
         
         void init_model(model_generator & mg) override { }
     };

@@ -244,6 +244,8 @@ namespace polymorphism {
     bool util::unify(substitution const& s1, substitution const& s2,
                      substitution& sub) {
         sort* v2;
+        SASSERT(&s1 != &sub);
+        SASSERT(&s2 != &sub);
         for (auto const& [k, v] : s1) {
             // Guard against building a cyclic substitution (e.g. A |-> list(A)),
             // which would make substitution application diverge. Such a binding

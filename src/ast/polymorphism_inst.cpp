@@ -107,13 +107,14 @@ namespace polymorphism {
         auto const& [tv, fns, substs] = m_instances[e];
                 
         for (auto* f2 : fns) {
-            substitution sub1(m), new_sub(m);
+            substitution sub1(m);
             if (!u.unify(f1, f2, sub1))
                 continue;
             if (substs->contains(&sub1))
                 continue;
             substitutions new_substs;
             for (auto* sub2 : *substs) {
+                substitution new_sub(m);
                 if (!u.unify(sub1, *sub2, new_sub))
                     continue;
                 if (substs->contains(&new_sub))
@@ -128,7 +129,7 @@ namespace polymorphism {
                     new_substs.insert(new_sub1);
                     m_from_instantiation.insert(e_inst);
                     m.inc_ref(e_inst);
-                    t.push(insert_ref_map(m, m_from_instantiation, e_inst));
+                    t.push(insert_ref_map(m, m_from_instantiation, e_inst.get()));
                 }
             }
             for (auto* sub2 : new_substs) {
