@@ -244,15 +244,25 @@ namespace polymorphism {
     bool util::unify(substitution const& s1, substitution const& s2,
                      substitution& sub) {
         sort* v2;
-        for (auto const& [k, v] : s1)
+        for (auto const& [k, v] : s1) {
+            // Guard against building a cyclic substitution (e.g. A |-> list(A)),
+            // which would make substitution application diverge. Such a binding
+            // means the two substitutions are not simultaneously unifiable.
+            if (occurs(k, v))
+                return false;
             sub.insert(k, v);
+        }
         for (auto const& [k, v] : s2) {
             if (sub.find(k, v2)) {
                 if (!sub.unify(sub(v), v2))
                     return false;
             }
-            else
-                sub.insert(k, sub(v));
+            else {
+                sort_ref vr = sub(v);
+                if (occurs(k, vr))
+                    return false;
+                sub.insert(k, vr);
+            }
         }
         return true;
     }
