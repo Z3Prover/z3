@@ -225,10 +225,9 @@ namespace smt {
 
         seq_regex(theory_seq& th);
 
-        void push_scope() {}
-        void pop_scope(unsigned num_scopes) {}
-        bool can_propagate() const { return false; }
-        bool propagate() const { return false; }
+        bool final_check() {
+            return true;
+        }
 
         void propagate_in_re(literal lit);
 

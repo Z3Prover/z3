@@ -341,8 +341,8 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
         TRACEFIN("solve_nqs");
         return FC_CONTINUE;
     }
-    if (m_regex.propagate()) {
-        TRACEFIN("regex propagate");
+    if (!m_regex.final_check()) {
+        TRACEFIN("regex final check");
         return FC_CONTINUE;
     }
     if (check_fixed_length(true, false)) {
@@ -2473,7 +2473,7 @@ theory_var theory_seq::mk_var(enode* n) {
 }
 
 bool theory_seq::can_propagate() {
-    return m_axioms_head < m_axioms.size() || !m_replay.empty() || m_new_solution || m_regex.can_propagate();
+    return m_axioms_head < m_axioms.size() || !m_replay.empty() || m_new_solution;
 }
 
 bool theory_seq::canonize(expr* e, dependency*& eqs, expr_ref& result) {
@@ -2689,8 +2689,6 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
-    if (m_regex.can_propagate())
-        m_regex.propagate();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
         e = m_axioms.get(m_axioms_head);
@@ -3261,7 +3259,6 @@ void theory_seq::push_scope_eh() {
     m_ncs.push_scope();
     m_lts.push_scope();
     m_recfuns.push_scope();
-    m_regex.push_scope();
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
@@ -3275,7 +3272,6 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
     m_ncs.pop_scope(num_scopes);
     m_lts.pop_scope(num_scopes);
     m_recfuns.pop_scope(num_scopes);
-    m_regex.pop_scope(num_scopes);
     m_rewrite.reset();    
     if (ctx.get_base_level() > ctx.get_scope_level() - num_scopes) {
         m_replay.reset();
