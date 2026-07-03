@@ -148,6 +148,10 @@ namespace smt {
         // obj_map pointer-hash probe for the common unwatched-literal case at the
         // assign_eh hotspot.
         uint_set                       m_is_watched[2];
+        // When false, the m_is_watched fast-path filter is disabled and
+        // get_watches() always probes m_watches (original behavior). Toggle via
+        // the smt.relevancy.watch_filter parameter for A/B performance testing.
+        bool                           m_use_watch_filter = true;
         struct eh_trail {
             enum class kind { POS_WATCH, NEG_WATCH, HANDLER };
             kind   m_kind;
@@ -166,7 +170,9 @@ namespace smt {
         bool                           m_propagating = false;
 
         relevancy_propagator_imp(context & ctx):
-            relevancy_propagator(ctx), m_relevant_exprs(ctx.get_manager()) {}
+            relevancy_propagator(ctx), m_relevant_exprs(ctx.get_manager()) {
+            m_use_watch_filter = ctx.get_fparams().m_relevancy_watch_filter;
+        }
 
         ~relevancy_propagator_imp() override {
             ast_manager & m = get_manager();
@@ -193,7 +199,7 @@ namespace smt {
 
         relevancy_ehs * get_watches(expr * n, bool val) {
             unsigned idx = val ? 1 : 0;
-            if (!m_is_watched[idx].contains(n->get_id()))
+            if (m_use_watch_filter && !m_is_watched[idx].contains(n->get_id()))
                 return nullptr;
             relevancy_ehs * r = nullptr;
             m_watches[idx].find(n, r);
@@ -207,7 +213,8 @@ namespace smt {
                 m_watches[idx].erase(n);
             else {
                 m_watches[idx].insert(n, ehs);
-                m_is_watched[idx].insert(n->get_id());
+                if (m_use_watch_filter)
+                    m_is_watched[idx].insert(n->get_id());
             }
         }
 

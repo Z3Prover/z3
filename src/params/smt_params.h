@@ -88,6 +88,7 @@ struct smt_params : public preprocessor_params,
     bool             m_eq_propagation = true;
     bool             m_binary_clause_opt = true;
     unsigned         m_relevancy_lvl = 2;
+    bool             m_relevancy_watch_filter = true;
     bool             m_relevancy_lemma = false;
     unsigned         m_random_seed = 0;
     double           m_random_var_freq = 0.01;

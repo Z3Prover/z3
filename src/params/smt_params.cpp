@@ -26,6 +26,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_auto_config = p.auto_config() && gparams::get_value("auto_config") == "true"; // auto-config is not scoped by smt in gparams.
     m_random_seed = p.random_seed();
     m_relevancy_lvl = p.relevancy();
+    m_relevancy_watch_filter = p.relevancy_watch_filter();
     m_ematching   = p.ematching();
     m_ho_matching = p.ho_matching();
     m_induction   = p.induction();
