@@ -36,7 +36,6 @@ struct split_set::imp {
         if (r) {
             VERIFY(seq.is_re(r, m_seq_sort));
             m_re_sort = r->get_sort();
-            TRACE(seq, tout << "split_set::imp: " << this << " " << mk_pp(r, m) << " threshold: " << m_threshold << "\n");
         }
         if (m_threshold == 0)
             m_threshold = UINT_MAX;
@@ -453,7 +452,6 @@ struct split_set::iterator::imp {
     }
 
     bool at_end() const {
-        TRACE(seq, tout << "split_set::iterator::at_end: " << this << " " << m_at_end << " " << m_qhead << "/" << m_splits.size() << "\n");
         return m_failure || (m_at_end && m_qhead == m_splits.size());
     }
 };
