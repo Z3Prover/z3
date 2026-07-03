@@ -90,7 +90,7 @@ struct split_set::iterator::imp {
                 next();
             }
             if (b_it.failed() || a_it.failed())
-                parent().m_failure = true;
+                parent().set_failure();           
         }
     };
 
@@ -206,8 +206,6 @@ struct split_set::iterator::imp {
         }
 
         void consume() override {
-            if (at_end())
-                return;
             while (!parent().has_split() && !at_end() && !a_it.failed() && !b_it.failed()) {
                 if (a_it == a_end) {
                     auto [p, q] = *b_it;
@@ -335,6 +333,7 @@ struct split_set::iterator::imp {
     }
 
     void unfold(expr* r) {
+        TRACE(seq, tout << "unfold " << mk_pp(r, m) << "\n");
         SASSERT(seq.is_re(r));
         if (re.is_empty(r))
             return;

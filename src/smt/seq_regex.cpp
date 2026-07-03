@@ -523,7 +523,7 @@ namespace smt {
             if (re().is_empty(q)) {
                 enode_pair_vector eqs;
                 literal_vector lits;
-                lits.push_back(~lit);
+                lits.push_back(lit);
                 th.set_conflict(eqs, lits);
                 return true;
             }
