@@ -626,7 +626,12 @@ namespace smt {
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         ctx->pop_to_base_lvl();
-        ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
+        // Disable preprocessing so units/clauses exchanged between workers refer to a
+        // stable shared atom set, but keep it enabled for quantified formulas: MBQI
+        // relies on preprocessing (macro/quantifier simplification, trigger setup) and
+        // without it a satisfiable quantified formula can spin without ever finding a
+        // model the sequential solver dispatches immediately.
+        ctx->get_fparams().m_preprocess = ctx->has_quantifiers();
     }
 
     void parallel::core_minimizer_worker::cancel() {
@@ -866,7 +871,12 @@ namespace smt {
         ctx->pop_to_base_lvl();
         m_shared_units_prefix = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
-        ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
+        // Disable preprocessing so units/clauses exchanged between workers refer to a
+        // stable shared atom set, but keep it enabled for quantified formulas: MBQI
+        // relies on preprocessing (macro/quantifier simplification, trigger setup) and
+        // without it a satisfiable quantified formula can spin without ever finding a
+        // model the sequential solver dispatches immediately.
+        ctx->get_fparams().m_preprocess = ctx->has_quantifiers();
 
         parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = false;
@@ -901,7 +911,12 @@ namespace smt {
         ctx->pop_to_base_lvl();
         m_shared_units_prefix = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
-        ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
+        // Disable preprocessing so units/clauses exchanged between workers refer to a
+        // stable shared atom set, but keep it enabled for quantified formulas: MBQI
+        // relies on preprocessing (macro/quantifier simplification, trigger setup) and
+        // without it a satisfiable quantified formula can spin without ever finding a
+        // model the sequential solver dispatches immediately.
+        ctx->get_fparams().m_preprocess = ctx->has_quantifiers();
 
         m_use_failed_literal_test = false;
     }
