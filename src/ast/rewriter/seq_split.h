@@ -72,6 +72,7 @@ struct split_stats {
     unsigned m_giveups = 0;            // iterator give-ups (unsupported/weak/overrun)
     unsigned m_threshold_overruns = 0; // threshold hits (intersect/complement/iterator)
     unsigned m_max_split_set = 0;      // largest materialized split-set seen
+    unsigned m_dedup_drops = 0;        // duplicate <D,N> pairs skipped in intersect
     unsigned m_simplify = 0;           // simplify() calls
     void reset() { *this = split_stats(); }
 };

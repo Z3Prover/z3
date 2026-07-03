@@ -20,6 +20,7 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/ast_pp.h"
 #include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
 #include "util/stack.h"
 
 seq_split::seq_split(seq_rewriter& rw) :
@@ -191,6 +192,10 @@ bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& r
                           unsigned threshold, split_oracle const& oracle) const {
     ++m_stats.m_intersect;
     const seq_util::rex& r = re();
+    // Dedup the cross-product: a split-set denotes the UNION of its <D,N> pairs,
+    // so identical (perfectly-shared) pairs are redundant.  Skipping them keeps
+    // the De Morgan fold from accumulating exponentially many equal splits.
+    obj_pair_hashtable<expr, expr> seen;
     for (auto const& p1 : s1) {
         for (auto const& p2 : s2) {
             if (r.is_empty(p1.m_d) || r.is_empty(p2.m_d) ||
@@ -199,6 +204,12 @@ bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& r
             const expr_ref di(m_rw.mk_regex_inter_normalize(p1.m_d, p2.m_d), m);
             const expr_ref ni(m_rw.mk_regex_inter_normalize(p1.m_n, p2.m_n), m);
             ++m_stats.m_intersect_pairs;
+            std::pair<expr*, expr*> key(di.get(), ni.get());
+            if (seen.contains(key)) {
+                ++m_stats.m_dedup_drops;
+                continue;
+            }
+            seen.insert(key);
             push(result, oracle, di, ni);
             if (result.size() > threshold) {
                 ++m_stats.m_threshold_overruns;

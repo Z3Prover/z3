@@ -6019,6 +6019,7 @@ namespace seq {
         st.update("nseq split giveups",          sp.m_giveups);
         st.update("nseq split threshold-overruns", sp.m_threshold_overruns);
         st.update("nseq split max-split-set",    sp.m_max_split_set);
+        st.update("nseq split dedup-drops",      sp.m_dedup_drops);
         st.update("nseq split simplify",         sp.m_simplify);
     }
 
