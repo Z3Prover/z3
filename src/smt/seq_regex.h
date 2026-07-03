@@ -151,6 +151,8 @@ namespace smt {
 
         bool block_unfolding(literal lit, unsigned i);
 
+        bool unfold_prefix(literal lit);
+
         expr_ref mk_first(expr* r, expr* n);
 
         bool is_member(expr* r, expr* u);

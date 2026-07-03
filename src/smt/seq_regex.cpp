@@ -114,12 +114,19 @@ namespace smt {
             return;
         }
 
+        if (unfold_prefix(lit)) {
+            TRACE(seq_regex, tout << "unfolded prefix" << std::endl;);
+            STRACE(seq_regex_brief, tout << "unfold_prefix ";);
+            return;
+        }
+
         if (coallesce_in_re(lit)) {
             TRACE(seq_regex, tout
                 << "simplified conjunctions to an intersection" << std::endl;);
             STRACE(seq_regex_brief, tout << "coallesce_in_re ";);
             return;
         }
+
 
         if (is_string_equality(lit)) {
             TRACE(seq_regex, tout
@@ -128,16 +135,43 @@ namespace smt {
             return;
         }
 
-        #if 0
-        // TODO - review
+        // TODO - replace this with a propagator closure that gets invoked and removed on backtracking.
+        // it tracks <lit, split_set, in_re2 literals>
+        // an in_re2 literal is of the form in_re2(u, R1, v, R2)
+        // Assert in_re2(u, R1, v, R2) => u in R1 and v in R2
+        // forward on split_set until there is a new in_re2 literal that is not already false.
+        // If there was an already created in_re2 literal that is true, 
+        //    then check that the propagation axiom is true
+        //    if it isn't true, then assert it. 
+        //    if it is true, we are done
+        // If split_set is done and all in_re2 literals are false, there is a conflict. 
+        //   Assert the conflict clause lit => (or in_re2 literals)
+        // Final check also unfolds this axiomatization
+        // (we have to add a final check to seq_regex for this).
+
         if (th.get_fparams().m_seq_regex_factorization_enabled) {
             unsigned threshold = th.get_fparams().m_seq_regex_factorization_threshold;
-            if (threshold == 0)
-                threshold = UINT_MAX;
-            split_set result;
-            auto [head, tail] = seq_rw().split_membership(s, r, threshold, result);
-            if (head) {
-                SASSERT(tail);
+            expr_ref_vector prefix(m);
+            expr *hd, *tl, *v;
+            auto filter = [&](expr* p, expr* _q) -> bool {
+                expr_ref q(_q, m);
+                for (expr* v : prefix) {
+                    q = seq_rw().mk_derivative(v, q);
+                    if (re().is_empty(q)) 
+                        return false;                    
+                }
+                return re().is_empty(q);
+            };
+
+            split_set result(seq_rw(), r, threshold, filter);
+
+            auto [head, tail] = result.try_split_sequence(s);
+            if (head && tail) {
+                tl = tail;
+                while (str().is_concat(tl, hd, tl) && str().is_unit(hd, v) && m.is_value(v)) {
+                    prefix.push_back(v);                   
+                }
+
                 // propagate all cases
                 expr_ref_vector cases(m);
                 expr_ref_vector branches(m);
@@ -146,14 +180,15 @@ namespace smt {
                     expr_ref mem_tail(re().mk_in_re(tail, post), m);
                     cases.push_back(m.mk_and(mem_head, mem_tail));
                 }
-                const expr_ref cases_expr(m.mk_or(cases), m);
-                ctx.internalize(cases_expr, false);
-                th.propagate_lit(nullptr, 1, &lit, ctx.get_literal(cases_expr));
-                return;
+                if (!result.failed()) {
+                    const expr_ref cases_expr(m.mk_or(cases), m);
+                    ctx.internalize(cases_expr, false);
+                    th.propagate_lit(nullptr, 1, &lit, ctx.get_literal(cases_expr));
+                    return;
+                }
             }
             // fallthrough; decomposition failed
         }
-        #endif
 
         // Convert a non-ground sequence into an additional regex and
         // strengthen the original regex constraint into an intersection
@@ -382,6 +417,36 @@ namespace smt {
             !ctx.at_base_level() &&
             (th.propagate_lit(nullptr, 1, &lit, ~th.m_max_unfolding_lit), 
              true);
+    }
+
+    bool seq_regex::unfold_prefix(literal lit) {
+        expr *s = nullptr, *r = nullptr;
+        expr *e = ctx.bool_var2expr(lit.var());
+        VERIFY(str().is_in_re(e, s, r));
+        expr_ref_vector prefix(m);
+        expr *hd, *v, *tl = s;
+        while (str().is_concat(tl, hd, tl) && str().is_unit(hd, v) && m.is_value(v)) 
+            prefix.push_back(v);        
+
+        if (prefix.empty())
+            return false;
+
+        expr_ref q(r, m);
+        for (expr *v : prefix) {
+            q = seq_rw().mk_derivative(v, q);
+            if (re().is_empty(q)) {
+                enode_pair_vector eqs;
+                literal_vector lits;
+                lits.push_back(~lit);
+                th.set_conflict(eqs, lits);
+                return true;
+            }
+        }
+        expr_ref fml(re().mk_in_re(tl, q), m);
+        rewrite(fml);
+        literal nlit = th.mk_literal(fml);
+        th.propagate_lit(nullptr, 1, &lit, nlit);
+        return true;
     }
 
     /**

@@ -47,7 +47,9 @@ public:
 
     ~split_set();
 
-    split_set(split_set const& other);
+    split_set(split_set const& other) = delete;
+
+    split_set(split_set&& other) noexcept;
 
     class iterator {
         struct imp;
@@ -67,4 +69,7 @@ public:
 
     iterator begin() const;
     iterator end() const;
+    bool failed() const;
+
+    std::pair<expr_ref, expr_ref> try_split_sequence(expr *s);
 };

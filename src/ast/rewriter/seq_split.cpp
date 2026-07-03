@@ -29,6 +29,7 @@ struct split_set::imp {
     split_oracle m_filter;
     sort *m_re_sort = nullptr;
     sort *m_seq_sort = nullptr;  // sequence sort the decls are built for
+    bool m_failure = false;
 
     imp(seq_rewriter &rw, expr *r, unsigned threshold, split_oracle const &filter) : m(rw.m()), rw(rw), 
         seq(rw.u()), re(rw.u().re), r(r, m), m_threshold(threshold), m_filter(filter) {
@@ -61,8 +62,8 @@ struct split_set::iterator::imp {
         split_set a_s, b_s;
         split_set::iterator a_it, a_end;
         split_set::iterator b_it, b_end;
-        intersection(seq_rewriter& rw, split_set const& a_src, split_set const& b_src)
-            : a_s(a_src), b_s(b_src),
+        intersection(seq_rewriter& rw, split_set&& a_src, split_set&& b_src)
+            : a_s(std::move(a_src)), b_s(std::move(b_src)),
             a_it(a_s.begin()), a_end(a_s.end()), 
             b_it(b_s.begin()), b_end(b_s.end()) {}
         bool at_end() const {
@@ -107,21 +108,22 @@ struct split_set::iterator::imp {
         scoped_ptr<consumer> m_intersection;
         
 
-        complement(split_set const &a) : a_s(a), it(a_s.begin()), end(a_s.end())
+        complement(split_set&& a) : a_s(std::move(a)), it(a_s.begin()), end(a_s.end())
         { }
 
         void init() {
             if (m_init)
                 return;
-            m_init = true;            
-            expr_ref full(parent().seq.re.mk_full_seq(parent().i.m_re_sort), parent().m);
-            m_intersection = nullptr;
+            m_init = true;    
             auto &p = parent();
+            expr_ref full(p.seq.re.mk_full_seq(p.i.m_re_sort), p.m);
+            m_intersection = nullptr;
+
             while (it != end && !it.failed()) {
                 auto [a, b] = *it;
                 split_set A(p.i.rw, nullptr, p.i.m_threshold, p.i.m_filter);                               
                 split_set B(p.i.rw, nullptr, p.i.m_threshold, p.i.m_filter);
-                auto inter = alloc(intersection, p.i.rw, A, B);
+                auto inter = alloc(intersection, p.i.rw, std::move(A), std::move(B));
                 if (m_intersection) {
                     m_intersection->set_parent(*inter->a_it.m_imp);
                     inter->a_it.m_imp->m_consumer = m_intersection.detach();
@@ -140,7 +142,7 @@ struct split_set::iterator::imp {
             else 
                 p.push_split(full, full);
             if (it.failed())
-                p.m_failure = true;
+                p.set_failure();
         }
 
         void consume() override {
@@ -155,8 +157,8 @@ struct split_set::iterator::imp {
         split_set::iterator a_it;
         split_set::iterator a_end;
         expr_ref b;
-        concat_left(split_set const &a_src, expr *b)
-            :  a_s(a_src), a_it(a_s.begin()), a_end(a_s.end()), b(b, a_s.m_imp->m) {}
+        concat_left(split_set&& a_src, expr *b)
+            :  a_s(std::move(a_src)), a_it(a_s.begin()), a_end(a_s.end()), b(b, a_s.m_imp->m) {}
 
         void consume() override {
             while (a_it != a_end && !parent().has_split()) {
@@ -165,7 +167,7 @@ struct split_set::iterator::imp {
                 ++a_it;
             }
             if (a_it.failed())
-                parent().m_failure = true;
+                parent().set_failure();
         }
     };
 
@@ -174,7 +176,7 @@ struct split_set::iterator::imp {
         split_set b_s;
         split_set::iterator b_it;
         split_set::iterator b_end;
-        concat_right(expr* a, split_set const &b_src) : a(a, b_src.m_imp->m), b_s(b_src), b_it(b_s.begin()), b_end(b_s.end()) {}
+        concat_right(expr* a, split_set&& b_src) : a(a, b_src.m_imp->m), b_s(std::move(b_src)), b_it(b_s.begin()), b_end(b_s.end()) {}
 
         void consume() override {
             while (b_it != b_end && !parent().has_split()) {
@@ -183,7 +185,7 @@ struct split_set::iterator::imp {
                 ++b_it;
             }
             if (b_it.failed())
-                parent().m_failure = true;
+                parent().set_failure();
         }
     };
 
@@ -220,7 +222,7 @@ struct split_set::iterator::imp {
                 }
             }
             if (a_it.failed() || b_it.failed())
-                parent().m_failure = true;
+                parent().set_failure();
         }
 
     };
@@ -241,6 +243,11 @@ struct split_set::iterator::imp {
             m_cont.push_back(i.r);
             init();
         }
+    }
+
+    void set_failure() {
+        m_failure = true;
+        s.m_imp->m_failure = true;
     }
 
     bool has_split() {
@@ -323,7 +330,7 @@ struct split_set::iterator::imp {
         m_splits.push_back({a, b});
         if (m_splits.size() > i.m_threshold) {
             TRACE(seq, tout << "size of split set exceeds threshold");
-            m_failure = true;
+            set_failure();
         }
     }
 
@@ -344,14 +351,14 @@ struct split_set::iterator::imp {
         if (re.is_intersection(r, a, b)) {
             split_set a_s(i.rw, a, i.m_threshold, {});
             split_set b_s(i.rw, b, i.m_threshold, {});
-            m_consumer = alloc(intersection, i.rw, a_s, b_s);
+            m_consumer = alloc(intersection, i.rw, std::move(a_s), std::move(b_s));
             m_consumer->set_parent(*this);
             return;
         }
 
         if (re.is_complement(r, a)) {
             split_set sigma_a(i.rw, a, i.m_threshold, {});
-            m_consumer = alloc(complement, sigma_a); 
+            m_consumer = alloc(complement, std::move(sigma_a)); 
             m_consumer->set_parent(*this);
             return;
         }
@@ -392,9 +399,9 @@ struct split_set::iterator::imp {
         // star: sigma(a*) = { <eps, eps> } cup a*.sigma(a).a*
         auto add_star = [&](expr *r, expr* a) {
             split_set sigma_a(i.rw, a, i.m_threshold, {});
-            auto *c_left = alloc(concat_left, sigma_a, r);
+            auto *c_left = alloc(concat_left, std::move(sigma_a), r);
             split_set sigma_aa(i.rw, nullptr, i.m_threshold, {});
-            auto *c_right = alloc(concat_right, r, sigma_aa);
+            auto *c_right = alloc(concat_right, r, std::move(sigma_aa));
             auto &parent = *c_right->b_it.m_imp;
             parent.m_consumer = c_left;
             c_left->set_parent(parent);
@@ -440,7 +447,7 @@ struct split_set::iterator::imp {
 
     void set_failure(expr* r) {
         TRACE(seq, tout << "split_set::iterator::unfold: unhandled regex: " << mk_pp(r, m) << "\n");
-        m_failure = true;
+        set_failure();
         m_at_end = true;
     }
 
@@ -457,8 +464,8 @@ split_set::~split_set() {
     dealloc(m_imp);
 }
 
-split_set::split_set(split_set const& other) {
-    m_imp = alloc(imp, other.m_imp->rw, other.m_imp->r, other.m_imp->m_threshold, other.m_imp->m_filter);
+split_set::split_set(split_set&& other) noexcept : m_imp(other.m_imp) {
+    other.m_imp = nullptr;
 }
 
 split_set::iterator::iterator(split_set const &s, bool at_end) {
@@ -495,4 +502,74 @@ bool split_set::iterator::operator==(split_set::iterator const &other) const {
 
 bool split_set::iterator::failed() const {
     return m_imp->m_failure;
+}
+
+bool split_set::failed() const {
+    return m_imp->m_failure;
+}
+
+std::pair<expr_ref, expr_ref> split_set::try_split_sequence(expr *str) {
+    ast_manager &m = m_imp->m;
+    auto &seq = m_imp->seq;
+
+    expr_ref_vector tokens(m);
+    vector<expr *> stack;
+    stack.push_back(str);
+
+    while (!stack.empty()) {
+        expr *cur = stack.back();
+        stack.pop_back();
+        expr *l, *r;
+        if (seq.str.is_concat(cur, l, r)) {
+            stack.push_back(r);
+            stack.push_back(l);
+        }
+        else
+            tokens.push_back(expr_ref(cur, m));
+    }
+
+    expr *ch;
+    unsigned i = 0;
+
+    // TODO: Do this for the back as well (also, why did no rule before do that?)
+
+    if (tokens.empty())
+        return {expr_ref(m), expr_ref(m)};
+
+    // Choose the factorization boundary so the tail starts with the
+    // longest run of concrete characters c.
+    // This gives the split-engine lookahead oracle the most pruning information.
+    // head = u' (tokens before the run), tail = c � u''' (tokens from the run onward).
+    const unsigned total = tokens.size();
+    unsigned run_start = 0, run_len = 0;
+    for (i = 1; i < total;) {
+        if (!(seq.str.is_unit(tokens.get(i), ch) && seq.is_const_char(ch))) {
+            i++;
+            continue;
+        }
+        unsigned j = i;
+        while (j < total && seq.str.is_unit(tokens.get(j), ch) && seq.is_const_char(ch)) {
+            j++;
+        }
+        if (j - i > run_len) {
+            run_len = j - i;
+            run_start = i;
+        }
+        i = j;
+    }
+    // No constant run => fall back to splitting off the first token.
+    const unsigned p = run_len == 0 ? 1 : run_start;
+    SASSERT(p >= 1);
+    expr *head = tokens.get(0);
+    for (i = 1; i < p; i++) {
+        head = seq.str.mk_concat(head, tokens.get(i));
+    }
+    expr *tail = seq.str.mk_empty(head->get_sort());
+    if (tokens.size() > p + run_len) {
+        tail = tokens.get(p + run_len);
+        for (i = p + run_len + 1; i < tokens.size(); i++) {
+            tail = seq.str.mk_concat(tail, tokens.get(i));
+        }
+    }
+    return {expr_ref(head, m), expr_ref(tail, m)};
 }
