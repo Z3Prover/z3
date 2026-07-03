@@ -4155,10 +4155,6 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     len = min_length(hi).second;
     if (len > 1)
         is_empty = true;
-    if (max_length(lo) == std::make_pair(true, rational(0)))
-        is_empty = true;
-    if (max_length(hi) == std::make_pair(true, rational(0)))
-        is_empty = true;
 
     // A provable length constraint (a bound can never be a single character)
     // is the only sound way to conclude emptiness for a possibly-symbolic
