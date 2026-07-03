@@ -27,6 +27,7 @@ Author:
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_subset.h"
+#include "util/obj_hashtable.h"
 #include <functional>
 
 class seq_rewriter;
@@ -134,7 +135,10 @@ class seq_split {
 
     // One level of the sigma rules: from_re(r) -> a SplitSet term built from the
     // immediate subterms.  `ok` is set false on an unsupported shape.
-    expr_ref expand_fromre(expr* r, bool& ok);
+    expr_ref expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_memo);
+    // Build the single-character regex of_pred(lambda c. pred) from a cofactor
+    // path condition `pred` (a Boolean over the character (:var 0)).
+    expr_ref mk_charclass_re(expr* pred);
     // Distribute a left/right concatenation over a head-normal split-set.
     expr_ref distribute_lcat(expr* r, expr* hs);
     expr_ref distribute_rcat(expr* hs, expr* r);
@@ -146,7 +150,8 @@ class seq_split {
     // `ok` is set false on a give-up (unsupported shape, weak-mode Boolean, or
     // threshold overrun).
     expr_ref head_normalize(expr* t, split_mode mode, unsigned threshold,
-                            split_oracle const& oracle, bool& ok);
+                            split_oracle const& oracle, bool& ok,
+                            obj_hashtable<expr>& deriv_memo);
     // Fully drain a suspended split-set into `out` (used for inter/compl bodies).
     // Runs an `iterator` to exhaustion; returns false on a give-up.
     bool materialize(expr* node, split_mode mode, unsigned threshold,
@@ -204,6 +209,10 @@ public:
         expr_ref_vector m_work;        // GC-safe worklist of suspended split-sets
         unsigned        m_count = 0;   // splits produced so far (vs. threshold)
         bool            m_giveup = false;
+        // Complement ~-regex states already expanded via the symbolic-derivative
+        // rule; re-encountering one (a cycle) falls back to the De Morgan rule so
+        // the lazy unfolding terminates.  Per-iterator (iterators run concurrently).
+        obj_hashtable<expr> m_deriv_memo;
     public:
         iterator(seq_split& engine, expr* node, split_mode mode,
                  unsigned threshold, split_oracle oracle);

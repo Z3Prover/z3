@@ -265,7 +265,16 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
 // emits *suspended* split-algebra terms (from_re / lcat / rcat / inter / compl) for
 // the subterms instead of recursing.  `mode` is irrelevant here: weak vs. strong is
 // decided when `head_normalize` reaches an inter / compl node.
-expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
+// Single-character regex for a cofactor path condition `pred` (a Boolean over the
+// character (:var 0)): of_pred(lambda (c) . pred).
+expr_ref seq_split::mk_charclass_re(expr* pred) {
+    sort* cs = seq().mk_char_sort();
+    symbol nm("c");
+    expr_ref lam(m.mk_lambda(1, &cs, &nm, pred), m);
+    return expr_ref(re().mk_of_pred(lam), m);
+}
+
+expr_ref seq_split::expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_memo) {
     ok = true;
     ++m_stats.m_sigma_expand;
     seq_util& sq = seq();
@@ -410,8 +419,30 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
     }
 
     // complement: sigma(~a) = ~sigma(a).
-    if (rex.is_complement(r, a))
-        return mk_compl(mk_fromre(a));
+    // complement: sigma(~a).  Prefer the symbolic-derivative rule to avoid the De
+    // Morgan 2^k blow-up: r = E(~a) | RE(LF(delta(~a))), peel one character and
+    // recurse.  Fall back to the De Morgan rule sigma(~a)=~sigma(a) at a
+    // complemented star ~(R*) or on a cyclic revisit (both keep it terminating).
+    if (rex.is_complement(r, a)) {
+        expr_ref nb = m_rw.is_nullable(r);                 // nullable(~a)
+        if (!rex.is_star(a) && !rex.is_plus(a) && !deriv_memo.contains(r)
+            && (m.is_true(nb) || m.is_false(nb))) {
+            deriv_memo.insert(r);
+            sort* re_sort = rex.mk_re(seq_sort);
+            expr_ref unfolded(m);
+            if (m.is_true(nb)) unfolded = rex.mk_epsilon(seq_sort);   // E(~a) = eps
+            else               unfolded = rex.mk_empty(re_sort);      // E(~a) = bot
+            expr_ref_pair_vector cofs(m);
+            m_rw.brz_derivative_cofactors(r, cofs);        // {(alpha_i, tgt_i)} = LF(delta(~a))
+            for (auto const& [cond, tgt] : cofs) {
+                expr_ref alpha = mk_charclass_re(cond);              // single-char regex
+                expr_ref term(rex.mk_concat(alpha, tgt), m);         // alpha_i . tgt_i
+                unfolded = expr_ref(rex.mk_union(unfolded, term), m);
+            }
+            return mk_fromre(unfolded);
+        }
+        return mk_compl(mk_fromre(a));                     // De Morgan fallback
+    }
 
     // abbreviation
     // difference: a \ b = a & ~b ; sigma(a \ b) = sigma(a) cap ~sigma(b).
@@ -487,7 +518,8 @@ expr_ref seq_split::from_split_set(split_set const& s) {
 }
 
 expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
-                                   split_oracle const& oracle, bool& ok) {
+                                   split_oracle const& oracle, bool& ok,
+                                   obj_hashtable<expr>& deriv_memo) {
     ok = true;
     expr *a = nullptr, *b = nullptr, *r = nullptr, *s = nullptr;
 
@@ -498,23 +530,23 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
     // from_re(r): one level of sigma; recurse to settle a non-frontier head
     // (plus / inter / compl / diff expand to lcat / inter / compl nodes).
     if (is_fromre(t, r)) {
-        expr_ref e = expand_fromre(r, ok);
+        expr_ref e = expand_fromre(r, ok, deriv_memo);
         if (!ok)
             return expr_ref(m);
         if (is_frontier(e))
             return e;
-        return head_normalize(e, mode, threshold, oracle, ok);
+        return head_normalize(e, mode, threshold, oracle, ok, deriv_memo);
     }
 
     // r.S : head-normalize S, then distribute r over the frontier.
     if (is_lcat(t, r, s)) {
-        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok);
+        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok, deriv_memo);
         if (!ok)
             return expr_ref(m);
         return distribute_lcat(r, hs);
     }
     if (is_rcat(t, s, r)) {
-        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok);
+        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok, deriv_memo);
         if (!ok)
             return expr_ref(m);
         return distribute_rcat(hs, r);
@@ -601,7 +633,7 @@ bool seq_split::iterator::next(expr_ref& out_d, expr_ref& out_n) {
         m_work.pop_back();
 
         bool ok = true;
-        expr_ref hn = m_engine.head_normalize(t, m_mode, m_threshold, m_oracle, ok);
+        expr_ref hn = m_engine.head_normalize(t, m_mode, m_threshold, m_oracle, ok, m_deriv_memo);
         if (!ok) {
             m_giveup = true;           // unsupported / weak Boolean / overrun
             ++m_engine.m_stats.m_giveups;
