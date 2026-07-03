@@ -39,11 +39,13 @@ namespace polymorphism {
         }
         unsigned n = s->get_num_parameters();
         vector<parameter> ps;
+        sort_ref_vector pin(m); // keep substituted sub-sorts alive until mk_sort below
         for (unsigned i = 0; i < n; ++i) {
             auto &p = s->get_parameter(i);
             if (p.is_ast() && is_sort(p.get_ast())) {
-                sort_ref s = (*this)(to_sort(p.get_ast()));
-                ps.push_back(parameter(s.get()));
+                sort_ref ss = (*this)(to_sort(p.get_ast()));
+                pin.push_back(ss);
+                ps.push_back(parameter(ss.get()));
             }
             else
                 ps.push_back(p);
