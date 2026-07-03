@@ -376,8 +376,8 @@ struct split_set::iterator::imp {
             }
             else if (seq.str.is_unit(a, b)) {
                 auto eps = mk_eps();
-                push_split(eps, a);
-                push_split(a, eps);
+                push_split(eps, r);
+                push_split(r, eps);
             }
             else if (seq.str.is_string(a, str)) {
                 for (unsigned i = 0; i <= str.length(); ++i) {

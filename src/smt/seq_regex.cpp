@@ -26,6 +26,83 @@ Author:
 
 namespace smt {
 
+    seq_regex::split_cont::split_cont(seq_regex &sr, split_set &&ss, literal lit, expr *u, expr *v, expr *r)
+        : m_regex(sr), m_u(u), m_v(v), m_split(std::move(ss)), m_it(m_split.begin()), m_end(m_split.end()),
+          m_in_re2(sr.m), m_lit(lit) {}
+
+    bool seq_regex::split_cont::failed() const {
+        return m_split.failed();
+    }
+    bool seq_regex::split_cont::next_split() {
+        if (m_split.failed())
+            return false;
+        auto &ctx = m_regex.ctx;
+        auto &re = m_regex.re();
+        auto &m = m_regex.m;
+        literal lit_undef = null_literal;
+        for (auto e : m_in_re2) {
+            auto lit = m_regex.th.mk_literal(e);
+            auto rel = ctx.is_relevant(lit);
+            switch (ctx.get_assignment(lit)) {
+            case l_undef: 
+                lit_undef = lit; 
+                break;
+            case l_true:
+                if (!rel)
+                    ctx.mark_as_relevant(lit);
+                return rel;
+            case l_false: 
+                break;
+            }
+            if (lit_undef != null_literal)
+                break;
+        }
+
+        if (lit_undef == null_literal) {
+            while (m_it != m_end) {
+                auto [pre, post] = *m_it;
+                auto a = re.mk_in_re(m_u, pre);
+                auto b = re.mk_in_re(m_v, post);
+                auto e = m.mk_and(a, b);
+                m_in_re2.push_back(e);
+                auto lit = m_regex.th.mk_literal(e);
+                auto rel = ctx.is_relevant(lit);
+                switch (ctx.get_assignment(lit)) {
+                case l_undef: lit_undef = lit; break;
+                case l_true:
+                    if (!rel)
+                        ctx.mark_as_relevant(lit);
+                    return rel;
+                case l_false: break;
+                }
+                ++m_it;
+                if (lit_undef != null_literal)
+                    break;
+            }
+        }
+
+        if (m_split.failed())
+            return false;
+
+        if (lit_undef != null_literal) {
+            ctx.mark_as_relevant(lit_undef);
+            ctx.force_phase(lit_undef);
+            return true;
+        }
+        // all literals are false:
+        enode_pair_vector eqs;
+        literal_vector lits;
+        lits.push_back(m_lit);
+        for (auto e : m_in_re2) {
+            auto lit = m_regex.th.mk_literal(e);
+            SASSERT(ctx.get_assignment(lit) == l_false);
+            lits.push_back(~lit);
+        }
+        m_regex.th.set_conflict(eqs, lits);
+        return true;
+    }
+    
+
     seq_regex::seq_regex(theory_seq& th):
         th(th),
         ctx(th.get_context()),
@@ -368,6 +445,8 @@ namespace smt {
     }
 
     bool seq_regex::factor_membership(literal lit) {
+        if (!th.get_fparams().m_seq_regex_factorization_enabled)
+            return false;
         expr *s = nullptr, *r = nullptr;
         expr *e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
@@ -385,8 +464,7 @@ namespace smt {
         // Final check also unfolds this axiomatization
         // (we have to add a final check to seq_regex for this).
 
-        if (!th.get_fparams().m_seq_regex_factorization_enabled)
-            return false;
+
 
         unsigned threshold = th.get_fparams().m_seq_regex_factorization_threshold;
         expr_ref_vector prefix(m);

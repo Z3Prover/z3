@@ -94,27 +94,6 @@ namespace smt {
     class theory_seq;
     class seq_regex;
 
-    // a split continuation is a closure that contains a split set
-    // and in_re2 literals that were extracted from a partial split.
-    // there are the following outcomes:
-    // 1. it was not possible to split:failed()
-    // 2. one of the in_re2 literals is true: in_re2(u, r1, v, r2) and in_re(u, r1), in_re(v, r2) are true
-    // 3. one of in_re2(u, r1, v, r2) is true: but in_re(u, r1) or in_re(v, r2) is undef or false. 
-    // 4. all in_re2(u, r1, v, r2) are false: there is a next split from m_split -> add propagation axioms and set phase of in_re2.
-    // 5. all in_re2(u, r1, v, r2) are false: there is no next split from m_split -> conflict
-    // split continuations are assigned at scope level and map propagation literal lit to a split continuation.
-    // they are checked during propagation and during final check.
-    class split_cont {
-        split_set m_split;
-        expr_ref_vector m_in_re2;
-    public:
-        split_cont(seq_regex &r, literal lit);
-        bool failed() const;
-        bool is_sat();
-        bool is_unsat();
-        literal next_split();
-    };
-
     class seq_regex {
         // Data about a constraint of the form (str.in_re s R)
         struct s_in_re {
@@ -124,6 +103,32 @@ namespace smt {
             bool    m_active;
         s_in_re(literal l, expr* s, expr* r):
             m_lit(l), m_s(s), m_re(r), m_active(true) {}
+        };
+
+            // a split continuation is a closure that contains a split set
+        // and in_re2 literals that were extracted from a partial split.
+        // there are the following outcomes:
+        // 1. it was not possible to split:failed()
+        // 2. one of the in_re2 literals is true: in_re2(u, r1, v, r2) and in_re(u, r1), in_re(v, r2) are true
+        // 3. one of in_re2(u, r1, v, r2) is true: but in_re(u, r1) or in_re(v, r2) is undef or false.
+        // 4. all in_re2(u, r1, v, r2) are false: there is a next split from m_split -> add propagation axioms and set
+        // phase of in_re2.
+        // 5. all in_re2(u, r1, v, r2) are false: there is no next split from m_split -> conflict
+        // split continuations are assigned at scope level and map propagation literal lit to a split continuation.
+        // they are checked during propagation and during final check.
+        class split_cont {
+            seq_regex &m_regex;
+            split_set m_split;
+            expr *m_u, *m_v, *m_r;
+            split_set::iterator m_it;
+            split_set::iterator m_end;
+            expr_ref_vector m_in_re2;
+            literal m_lit;
+
+        public:
+            split_cont(seq_regex &sr, split_set&& ss, literal lit, expr* u, expr* v, expr* r);
+            bool failed() const;
+            bool next_split();
         };
 
         theory_seq&                      th;
