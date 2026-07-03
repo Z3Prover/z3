@@ -136,9 +136,12 @@ class seq_split {
     // One level of the sigma rules: from_re(r) -> a SplitSet term built from the
     // immediate subterms.  `ok` is set false on an unsupported shape.
     expr_ref expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_memo);
-    // Build the single-character regex of_pred(lambda c. pred) from a cofactor
-    // path condition `pred` (a Boolean over the character (:var 0)).
-    expr_ref mk_charclass_re(expr* pred);
+    // Build the single-character regex for a cofactor path condition `pred` (a
+    // Boolean over the character (:var 0)).  Prefer a range / union-of-ranges
+    // (which nseq's emptiness/primitive/length path fully supports); fall back to
+    // of_pred(lambda) only for predicates that are not a single (possibly negated)
+    // range.
+    expr_ref mk_charclass_re(expr* pred, sort* seq_sort);
     // Distribute a left/right concatenation over a head-normal split-set.
     expr_ref distribute_lcat(expr* r, expr* hs);
     expr_ref distribute_rcat(expr* hs, expr* r);

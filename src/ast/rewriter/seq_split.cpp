@@ -18,6 +18,7 @@ Author:
 
 #include "ast/rewriter/seq_split.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_range_collapse.h"
 #include "ast/ast_pp.h"
 #include "util/obj_hashtable.h"
 #include "util/obj_pair_hashtable.h"
@@ -265,10 +266,64 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
 // emits *suspended* split-algebra terms (from_re / lcat / rcat / inter / compl) for
 // the subterms instead of recursing.  `mode` is irrelevant here: weak vs. strong is
 // decided when `head_normalize` reaches an inter / compl node.
+namespace {
+    // Cofactor path condition `pred` (a Boolean over x = (:var 0)) -> the canonical
+    // range_predicate (union of ranges) of the characters satisfying it.  Returns
+    // false on a construct outside {true,false,and,or,not,=,char.<=} over x.
+    static bool pred_to_rp(ast_manager& m, seq_util& sq, expr* x, expr* pred,
+                           unsigned maxc, seq::range_predicate& out) {
+        expr* a = nullptr, * b = nullptr; unsigned c = 0;
+        if (m.is_true(pred))  { out = seq::range_predicate::top(maxc);   return true; }
+        if (m.is_false(pred)) { out = seq::range_predicate::empty(maxc); return true; }
+        if (m.is_eq(pred, a, b)) {
+            if (a == x && sq.is_const_char(b, c)) { out = seq::range_predicate::singleton(c, maxc); return true; }
+            if (b == x && sq.is_const_char(a, c)) { out = seq::range_predicate::singleton(c, maxc); return true; }
+            return false;
+        }
+        if (sq.is_char_le(pred, a, b)) {
+            if (b == x && sq.is_const_char(a, c)) { out = seq::range_predicate::range(c, maxc, maxc); return true; }
+            if (a == x && sq.is_const_char(b, c)) { out = seq::range_predicate::range(0, c, maxc);    return true; }
+            return false;
+        }
+        if (m.is_not(pred, a)) {
+            seq::range_predicate s(maxc);
+            if (!pred_to_rp(m, sq, x, a, maxc, s)) return false;
+            out = ~s; return true;
+        }
+        if (m.is_and(pred)) {
+            out = seq::range_predicate::top(maxc);
+            for (expr* arg : *to_app(pred)) {
+                seq::range_predicate s(maxc);
+                if (!pred_to_rp(m, sq, x, arg, maxc, s)) return false;
+                out = out & s;
+            }
+            return true;
+        }
+        if (m.is_or(pred)) {
+            out = seq::range_predicate::empty(maxc);
+            for (expr* arg : *to_app(pred)) {
+                seq::range_predicate s(maxc);
+                if (!pred_to_rp(m, sq, x, arg, maxc, s)) return false;
+                out = out | s;
+            }
+            return true;
+        }
+        return false;
+    }
+}
+
 // Single-character regex for a cofactor path condition `pred` (a Boolean over the
-// character (:var 0)): of_pred(lambda (c) . pred).
-expr_ref seq_split::mk_charclass_re(expr* pred) {
-    sort* cs = seq().mk_char_sort();
+// character (:var 0)).  Materialized via the canonical seq::range_predicate as a
+// union-of-ranges regex (fully supported by the derivative / emptiness / primitive
+// path, and canonical so equivalent classes share AST identity).  Falls back to
+// of_pred(lambda) only for predicates outside the recognized range fragment.
+expr_ref seq_split::mk_charclass_re(expr* pred, sort* seq_sort) {
+    seq_util& sq = seq();
+    sort* cs = sq.mk_char_sort();
+    expr_ref var0(m.mk_var(0, cs), m);
+    seq::range_predicate rp(sq.max_char());
+    if (pred_to_rp(m, sq, var0, pred, sq.max_char(), rp))
+        return seq::range_predicate_to_regex(sq, rp, seq_sort);
     symbol nm("c");
     expr_ref lam(m.mk_lambda(1, &cs, &nm, pred), m);
     return expr_ref(re().mk_of_pred(lam), m);
@@ -435,7 +490,7 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_
             expr_ref_pair_vector cofs(m);
             m_rw.brz_derivative_cofactors(r, cofs);        // {(alpha_i, tgt_i)} = LF(delta(~a))
             for (auto const& [cond, tgt] : cofs) {
-                expr_ref alpha = mk_charclass_re(cond);              // single-char regex
+                expr_ref alpha = mk_charclass_re(cond, seq_sort);    // single-char regex
                 expr_ref term(rex.mk_concat(alpha, tgt), m);         // alpha_i . tgt_i
                 unfolded = expr_ref(rex.mk_union(unfolded, term), m);
             }
