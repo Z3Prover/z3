@@ -2676,8 +2676,25 @@ namespace seq {
                     // node's string signature alone.  Make it sticky (survives
                     // hot-restart) and memoize it in the transposition table.
                     node->set_general_conflict();
-                    node->m_unsat_cacheable = true;
-                    m_unsat_node_cache.insert(node);
+                    // EXCEPTION: a lazy-factorization continuation (is_rf_cont)
+                    // aliases its parent's — and ultimately the original, undivided
+                    // membership's — string signature, yet its subtree only explored
+                    // the REMAINING splits of the suspended iterator (the earlier
+                    // splits' child-A branches live under ancestors, not here).  Its
+                    // "string-only unsat" is thus a property of the remaining-splits
+                    // subproblem, NOT of the full signature.  Memoizing it would let a
+                    // structurally-identical ancestor (e.g. the root, on a later
+                    // hot-restart solve) hit the cache and be pruned even though it
+                    // still has the earlier splits to try — a spurious UNSAT.  So we
+                    // keep the node itself dead but do NOT cache it, mirroring the
+                    // cache-lookup and loop-cut exemptions above (both keyed on
+                    // is_rf_cont).
+                    if (!node->is_rf_cont()) {
+                        node->m_unsat_cacheable = true;
+                        m_unsat_node_cache.insert(node);
+                    }
+                    else
+                        node->m_unsat_cacheable = false;
                 }
                 else
                     // Conditional on an ancestor above us; valid for this path only.

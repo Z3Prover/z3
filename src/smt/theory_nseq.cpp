@@ -2001,6 +2001,27 @@ namespace smt {
 
         SASSERT(!var_to_mems.empty());
 
+        // A length-coherence propagation `deps -> len(s) != l` is only SOUND when the
+        // memberships behind it hold globally.  A membership `s in R` at a SAT leaf is
+        // globally valid ONLY if it is an original input membership (present verbatim
+        // in the root).  Regex factorization/decomposition splits an input membership
+        // `s.u in R` into a *disjunct* `s in Δ` and keeps the ORIGINAL literal as the
+        // sole dependency — so `s in Δ` is branch-specific: it is one way to satisfy
+        // `s.u in R`, not a consequence of it.  Propagating a length bound derived
+        // from such a Δ (justified only by the original literal) is unsound: two
+        // different factorization branches can yield contradictory bounds (e.g.
+        // len(s) != 0 from a branch where s is non-empty and len(s) = 0 from a branch
+        // where s is empty), both "justified" by the same satisfiable input, closing a
+        // SAT instance as UNSAT.  Guard by matching the leaf membership against the
+        // root's input memberships (snode identity ⇒ same constraint).
+        auto is_original_mem = [&](seq::str_mem const& mem) {
+            for (auto const& rmem : m_nielsen.root()->str_mems())
+                if (rmem.m_str->id() == mem.m_str->id() &&
+                    rmem.m_regex->id() == mem.m_regex->id())
+                    return true;
+            return false;
+        };
+
         for (expr* len_expr : m_relevant_lengths) {
             expr* s = nullptr;
             VERIFY(m_seq.str.is_length(len_expr, s));
@@ -2025,6 +2046,7 @@ namespace smt {
             unsigned_vector const &mem_indices = var_to_mems[var_id];
             euf::snode_vector regexes;
             bool has_view_or_guard = false;
+            bool has_derived = false;
             for (auto i : mem_indices) {
                 SASSERT(mems[i].well_formed());
                 regexes.push_back(mems[i].m_regex);
@@ -2032,6 +2054,10 @@ namespace smt {
                 // (Section 3.3) rather than a real regex; skip length coherence.
                 if (!mems[i].is_plain())
                     has_view_or_guard = true;
+                // Factorization/decomposition-derived (branch-specific) membership:
+                // its length implication is not globally sound (see is_original_mem).
+                if (!is_original_mem(mems[i]))
+                    has_derived = true;
             }
 
             // Skip length coherence for synthetic cycle variables constrained by a
@@ -2040,6 +2066,12 @@ namespace smt {
             // the benchmark has no real length constraints, and their length
             // consistency is guaranteed by the soundness of the decomposition.
             if (has_view_or_guard)
+                continue;
+
+            // Skip variables whose leaf memberships are not all original input
+            // memberships: a length bound derived from a branch-specific split
+            // membership cannot be soundly propagated to the outer solver.
+            if (has_derived)
                 continue;
 
             SASSERT(!regexes.empty());
