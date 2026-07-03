@@ -6004,6 +6004,22 @@ namespace seq {
         st.update("nseq unsat-cache hits",                m_num_cache_hits);
         st.update("nseq sibling cuts",                    m_stats.m_num_sibling_cut);
         st.update("nseq sibling closures",                m_stats.m_num_sibling_closure);
+
+        // split-algebra (sigma) counters, from the shared seq_split engine.
+        split_stats const& sp = m_split_rw.get_split_stats();
+        st.update("nseq split make",             sp.m_make);
+        st.update("nseq split sigma-expand",     sp.m_sigma_expand);
+        st.update("nseq split materialize",      sp.m_materialize);
+        st.update("nseq split splits",           sp.m_splits);
+        st.update("nseq split pushes",           sp.m_pushes);
+        st.update("nseq split oracle-prunes",    sp.m_oracle_prunes);
+        st.update("nseq split intersect",        sp.m_intersect);
+        st.update("nseq split intersect-pairs",  sp.m_intersect_pairs);
+        st.update("nseq split complement",       sp.m_complement);
+        st.update("nseq split giveups",          sp.m_giveups);
+        st.update("nseq split threshold-overruns", sp.m_threshold_overruns);
+        st.update("nseq split max-split-set",    sp.m_max_split_set);
+        st.update("nseq split simplify",         sp.m_simplify);
     }
 
 }

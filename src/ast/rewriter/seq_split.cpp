@@ -177,8 +177,11 @@ seq_util::rex& seq_split::re()  const { return m_rw.u().re; }
 
 // Add <d, n> unless the (optional) lookahead oracle prunes it.
 void seq_split::push(split_set& out, split_oracle const& oracle, expr* d, expr* n) const {
+    ++m_stats.m_pushes;
     if (!oracle || oracle(d, n))
         out.push_back(split_pair(d, n, m));
+    else
+        ++m_stats.m_oracle_prunes;
 }
 
 // Cross-product intersection of two split-sets (split algebra):
@@ -186,6 +189,7 @@ void seq_split::push(split_set& out, split_oracle const& oracle, expr* d, expr* 
 // Pairs where any component is bottom (the empty regex) are dropped.
 bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& result,
                           unsigned threshold, split_oracle const& oracle) const {
+    ++m_stats.m_intersect;
     const seq_util::rex& r = re();
     for (auto const& p1 : s1) {
         for (auto const& p2 : s2) {
@@ -194,9 +198,12 @@ bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& r
                 continue;
             const expr_ref di(m_rw.mk_regex_inter_normalize(p1.m_d, p2.m_d), m);
             const expr_ref ni(m_rw.mk_regex_inter_normalize(p1.m_n, p2.m_n), m);
+            ++m_stats.m_intersect_pairs;
             push(result, oracle, di, ni);
-            if (result.size() > threshold)
+            if (result.size() > threshold) {
+                ++m_stats.m_threshold_overruns;
                 return false;
+            }
         }
     }
     return true;
@@ -210,6 +217,7 @@ bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& r
 bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& result,
     const unsigned threshold, split_oracle const& oracle) const {
 
+    ++m_stats.m_complement;
     seq_util::rex& r = re();
     sort* re_sort = r.mk_re(seq_sort);
     const expr_ref full(r.mk_full_seq(re_sort), m);   // .*
@@ -233,8 +241,10 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
         acc = std::move(tmp);
         if (acc.empty())            // intersection empty => ~S is empty
             break;
-        if (acc.size() > threshold)
+        if (acc.size() > threshold) {
+            ++m_stats.m_threshold_overruns;
             return false;
+        }
     }
     result.append(acc);
     return true;
@@ -246,6 +256,7 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
 // decided when `head_normalize` reaches an inter / compl node.
 expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
     ok = true;
+    ++m_stats.m_sigma_expand;
     seq_util& sq = seq();
     seq_util::rex& rex = re();
 
@@ -538,15 +549,19 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
 
 bool seq_split::materialize(expr* node, split_mode mode, unsigned threshold,
                             split_oracle const& oracle, split_set& out) {
+    ++m_stats.m_materialize;
     iterator it(*this, node, mode, threshold, oracle);
     expr_ref d(m), n(m);
     while (it.next(d, n))
         out.push_back(split_pair(d, n, m));
+    if (out.size() > m_stats.m_max_split_set)
+        m_stats.m_max_split_set = out.size();
     return !it.gave_up();
 }
 
 expr_ref seq_split::make(expr* r) {
     SASSERT(r);
+    ++m_stats.m_make;
     sort* seq_sort = nullptr;
     if (!seq().is_re(r, seq_sort))
         return expr_ref(m);
@@ -578,6 +593,7 @@ bool seq_split::iterator::next(expr_ref& out_d, expr_ref& out_n) {
         expr_ref hn = m_engine.head_normalize(t, m_mode, m_threshold, m_oracle, ok);
         if (!ok) {
             m_giveup = true;           // unsupported / weak Boolean / overrun
+            ++m_engine.m_stats.m_giveups;
             return false;
         }
 
@@ -585,14 +601,19 @@ bool seq_split::iterator::next(expr_ref& out_d, expr_ref& out_n) {
         if (m_engine.is_empty_ss(hn))
             continue;
         if (m_engine.is_single(hn, d, n)) {
-            if (m_oracle && !m_oracle(d, n))
+            if (m_oracle && !m_oracle(d, n)) {
+                ++m_engine.m_stats.m_oracle_prunes;
                 continue;              // pruned by lookahead
+            }
             if (++m_count > m_threshold) {
                 m_giveup = true;       // safety cap against space bloat
+                ++m_engine.m_stats.m_giveups;
+                ++m_engine.m_stats.m_threshold_overruns;
                 return false;
             }
             out_d = d;
             out_n = n;
+            ++m_engine.m_stats.m_splits;
             return true;
         }
         if (m_engine.is_union(hn, a, b)) {
@@ -651,6 +672,7 @@ void seq_split::merge_by(split_set& pairs, const bool by_left) const {
 }
 
 void seq_split::simplify(split_set& pairs) const {
+    ++m_stats.m_simplify;
     seq_util::rex& r = re();
 
     // 1. drop pairs with a bottom (empty-language) component.

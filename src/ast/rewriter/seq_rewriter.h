@@ -439,6 +439,10 @@ public:
         return m_split.split_membership(str, regex, threshold, result);
     }
 
+    // split-algebra performance counters (surfaced via nseq -st)
+    split_stats const& get_split_stats() const { return m_split.stats(); }
+    void reset_split_stats() { m_split.reset_stats(); }
+
     expr_ref mk_symmetric_diff(expr *r1, expr *r2);
 
     /**

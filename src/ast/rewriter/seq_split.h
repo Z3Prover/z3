@@ -57,6 +57,25 @@ enum class split_mode { weak, strong };
 // default) keeps everything, so sigma is unchanged.  See seq_split::compute.
 typedef std::function<bool(expr* D, expr* N)> split_oracle;
 
+// Lightweight performance counters for the split algebra (surfaced via -st in
+// the nseq solver; behaviour-neutral).  See seq_split.cpp for where each fires.
+struct split_stats {
+    unsigned m_make = 0;               // make(): suspended sigma(r) built
+    unsigned m_sigma_expand = 0;       // expand_fromre(): one sigma rule level
+    unsigned m_materialize = 0;        // materialize(): a split-set drained
+    unsigned m_splits = 0;             // splits produced by iterator::next()
+    unsigned m_pushes = 0;             // candidate <D,N> offered to push()
+    unsigned m_oracle_prunes = 0;      // candidates dropped by the lookahead oracle
+    unsigned m_intersect = 0;          // intersect() calls
+    unsigned m_intersect_pairs = 0;    // pairs formed by intersect() cross-products
+    unsigned m_complement = 0;         // complement() calls
+    unsigned m_giveups = 0;            // iterator give-ups (unsupported/weak/overrun)
+    unsigned m_threshold_overruns = 0; // threshold hits (intersect/complement/iterator)
+    unsigned m_max_split_set = 0;      // largest materialized split-set seen
+    unsigned m_simplify = 0;           // simplify() calls
+    void reset() { *this = split_stats(); }
+};
+
 class seq_split {
     ast_manager& m;
     seq_rewriter& m_rw;       // for mk_re_append + manager / seq_util access
@@ -81,6 +100,7 @@ class seq_split {
     func_decl_ref m_d_empty, m_d_single, m_d_fromre, m_d_union,
                   m_d_inter, m_d_compl, m_d_lcat, m_d_rcat;
     expr_ref      m_empty_app;            // cached nullary `empty` term
+    mutable split_stats m_stats;          // performance counters (see -st)
 
     seq_util&      seq() const;
     seq_util::rex& re() const;
@@ -150,6 +170,10 @@ class seq_split {
 
 public:
     explicit seq_split(seq_rewriter& rw);
+
+    // Performance counters (read via nseq -st).
+    split_stats const& stats() const { return m_stats; }
+    void reset_stats() { m_stats.reset(); }
 
     // Lazy split enumerator.  Holds the suspended split-set worklist and produces
     // the concrete splits <D, N> one at a time, on demand, instead of computing
