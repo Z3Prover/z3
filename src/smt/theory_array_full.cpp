@@ -854,7 +854,16 @@ namespace smt {
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
-                if (ctx.is_relevant(p) && !is_default(p) && !ctx.is_beta_redex(p, n)) {
+                // Equality and array-ext parents are not genuine non-beta-redex uses:
+                // an array (dis)equality between a lambda and another array is decided by
+                // extensionality (new_diseq_eh / instantiate_extensionality), which itself
+                // introduces the array-ext witness index and the select(lambda, ext) beta
+                // redex. Together with the select-lambda beta axiom these fully axiomatize
+                // the lambda, so they must not force the solver into "unknown" the way a
+                // real uninterpreted use (e.g. an uninterpreted function applied to the
+                // lambda) does.
+                if (ctx.is_relevant(p) && !is_default(p) && !m.is_eq(p->get_expr()) &&
+                    !is_array_ext(p->get_expr()) && !ctx.is_beta_redex(p, n)) {
                     TRACE(array, tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
