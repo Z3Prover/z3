@@ -961,7 +961,7 @@ class tptp_parser {
         if (n == "$true") return expr_ref(m.mk_true(), m);
         if (n == "$false") return expr_ref(m.mk_false(), m);
 
-        if (is_nonempty_digit_string(n)) {
+        if (!m_last_name_quoted && is_nonempty_digit_string(n)) {
             return parse_numeral_from_name(n);
         }
 
@@ -1416,7 +1416,7 @@ class tptp_parser {
         if (n == "$true") return expr_ref(m.mk_true(), m);
         if (n == "$false") return expr_ref(m.mk_false(), m);
 
-        if (is_nonempty_digit_string(n)) {
+        if (!m_last_name_quoted && is_nonempty_digit_string(n)) {
             return parse_numeral_from_name(n);
         }
 
