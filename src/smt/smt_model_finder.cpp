@@ -2188,10 +2188,16 @@ namespace smt {
                         process_app(to_app(curr));
                     }
                     else if (is_var(curr)) {
-                        if (m_array_util.is_array(curr)) {
-                            insert_qinfo(alloc(ho_var, m, to_var(curr)->get_idx()));
-                        }
-                        m_info->m_is_auf = false;                       
+                        // Note: array-valued universal variables are intentionally
+                        // not routed through the term-enumeration ho_var path here.
+                        // Doing so populates the variable's instantiation set with
+                        // synthesized array terms; restrict_sks_to_inst_set then
+                        // builds a large disjunction that can make the auxiliary
+                        // model-check in smt_model_checker return l_undef, discarding
+                        // the decisive instantiation that the ordinary instantiation
+                        // sets already provide. That regressed MBQI completeness
+                        // (e.g. inputs/issues/iss-5336/bug-5.smt2 went unsat -> unknown).
+                        m_info->m_is_auf = false;  // unexpected occurrence of variable.
                     }
                     else {
                         SASSERT(is_lambda(curr));
