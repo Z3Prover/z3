@@ -2678,8 +2678,15 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
 }
 
 bool bv_rewriter::is_concat_split_target(expr * t) const {
+    // A bare (de Bruijn) variable is deliberately excluded as a split target:
+    // splitting (= x (concat ...)) into per-slice extract equalities rewrites
+    // an eliminable (= VAR t) equality into (= (extract .. VAR) t) fragments
+    // that destructive equality resolution (der) can no longer use to eliminate
+    // the bound variable, turning solvable quantified goals into residual
+    // quantifiers. Splitting is only a bit-blasting heuristic, so skipping it
+    // here is sound and preserves der-based variable elimination.
     return
-        m_split_concat_eq ||
+        (m_split_concat_eq && !is_var(t)) ||
         m_util.is_concat(t)  ||
         m_util.is_numeral(t) ||
         m_util.is_bv_or(t);
