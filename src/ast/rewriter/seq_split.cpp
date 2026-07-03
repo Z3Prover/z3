@@ -36,6 +36,7 @@ struct split_set::imp {
         if (r) {
             VERIFY(seq.is_re(r, m_seq_sort));
             m_re_sort = r->get_sort();
+            TRACE(seq, tout << "split_set::imp: " << this << " " << mk_pp(r, m) << " threshold: " << m_threshold << "\n");
         }
         if (m_threshold == 0)
             m_threshold = UINT_MAX;
@@ -214,8 +215,7 @@ struct split_set::iterator::imp {
                 }
                 else {
                     auto [p, q] = *a_it;
-                    if (!parent().re.is_epsilon(q))
-                        parent().push_split(p, parent().i.rw.mk_re_append(q, b));
+                    parent().push_split(p, parent().i.rw.mk_re_append(q, b));
                     ++a_it;
                 }
             }
@@ -237,10 +237,12 @@ struct split_set::iterator::imp {
     bool m_at_end;
     bool m_failure = false;
     imp(split_set &s, bool at_end) : s(s), i(*s.m_imp), m(i.m), seq(i.seq), re(i.re), m_cont(m), m_at_end(at_end) {
-        if (i.r) {
+        if (at_end)
+            m_init = true;
+        else if (i.r) {
             m_cont.push_back(i.r);
             init();
-        }
+        }        
     }
 
     void set_failure() {
@@ -268,7 +270,7 @@ struct split_set::iterator::imp {
 
     void next() {
         m_init = true;
-        while (!at_end()) {
+        while (!m_failure && !m_at_end) {
             if (has_split())
                 return;
             if (m_consumer) {
@@ -451,7 +453,8 @@ struct split_set::iterator::imp {
     }
 
     bool at_end() const {
-        return m_failure || m_at_end;
+        TRACE(seq, tout << "split_set::iterator::at_end: " << this << " " << m_at_end << " " << m_qhead << "/" << m_splits.size() << "\n");
+        return m_failure || (m_at_end && m_qhead == m_splits.size());
     }
 };
 
