@@ -142,6 +142,12 @@ class seq_split {
     // of_pred(lambda) only for predicates that are not a single (possibly negated)
     // range.
     expr_ref mk_charclass_re(expr* pred, sort* seq_sort);
+    // r == E(r) | RE(LF(delta(r))): build the suspended split-set for `r` by
+    // peeling one character through the symbolic derivative (Brzozowski cofactors)
+    // and recursing.  Used for complement and intersection to avoid the De Morgan
+    // / cross-product blow-up.  Records `r` in `deriv_memo` (cycle guard).  Returns
+    // a null expr_ref when nullability of `r` is not statically decidable.
+    expr_ref try_derivative_split(expr* r, sort* seq_sort, obj_hashtable<expr>& deriv_memo);
     // Distribute a left/right concatenation over a head-normal split-set.
     expr_ref distribute_lcat(expr* r, expr* hs);
     expr_ref distribute_rcat(expr* hs, expr* r);

@@ -329,6 +329,33 @@ expr_ref seq_split::mk_charclass_re(expr* pred, sort* seq_sort) {
     return expr_ref(re().mk_of_pred(lam), m);
 }
 
+// r == E(r) | RE(LF(delta(r))): peel one character through the symbolic derivative
+// (Brzozowski cofactors) and recurse.  Shared by the complement and intersection
+// cases to avoid the De Morgan / cross-product blow-up.  delta distributes over
+// both ~ and &, so LF(delta(r)) = { (alpha_i, tgt_i) } with tgt_i the (complement /
+// intersection of) character-derivatives.  Records `r` in `deriv_memo` as a cycle
+// guard.  Returns a null expr_ref when nullability of `r` is not statically
+// decidable (the caller then falls back to its structural rule).
+expr_ref seq_split::try_derivative_split(expr* r, sort* seq_sort, obj_hashtable<expr>& deriv_memo) {
+    seq_util::rex& rex = re();
+    expr_ref nb = m_rw.is_nullable(r);
+    if (!m.is_true(nb) && !m.is_false(nb))
+        return expr_ref(m);                                // undecidable -> fall back
+    deriv_memo.insert(r);
+    sort* re_sort = rex.mk_re(seq_sort);
+    expr_ref unfolded(m);
+    if (m.is_true(nb)) unfolded = rex.mk_epsilon(seq_sort); // E(r) = eps
+    else               unfolded = rex.mk_empty(re_sort);    // E(r) = bot
+    expr_ref_pair_vector cofs(m);
+    m_rw.brz_derivative_cofactors(r, cofs);                // { (alpha_i, tgt_i) } = LF(delta(r))
+    for (auto const& [cond, tgt] : cofs) {
+        expr_ref alpha = mk_charclass_re(cond, seq_sort);  // single-char regex
+        expr_ref term(rex.mk_concat(alpha, tgt), m);       // alpha_i . tgt_i
+        unfolded = expr_ref(rex.mk_union(unfolded, term), m);
+    }
+    return mk_fromre(unfolded);
+}
+
 expr_ref seq_split::expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_memo) {
     ok = true;
     ++m_stats.m_sigma_expand;
@@ -462,8 +489,14 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_
         return mk_lcat(star, mk_rcat(mk_fromre(a), star));
     }
 
-    // intersection: sigma(r0 & ... & r_{n-1}) = cap from_re(ri)   (re.inter may be n-ary)
+    // intersection: prefer the derivative rule r = E(r) | RE(LF(delta(r))) (delta
+    // distributes over &) to avoid the Split(r0) cap ... cap Split(r_{n-1}) cross-
+    // product blow-up; fall back to the eager cross-product on a cyclic revisit.
     if (rex.is_intersection(r)) {
+        if (!deriv_memo.contains(r)) {
+            expr_ref d = try_derivative_split(r, seq_sort, deriv_memo);
+            if (d.get()) return d;
+        }
         app* ap = to_app(r);
         const unsigned n = ap->get_num_args();
         expr_ref acc = mk_fromre(ap->get_arg(0));
@@ -473,28 +506,14 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_
         return acc;
     }
 
-    // complement: sigma(~a) = ~sigma(a).
     // complement: sigma(~a).  Prefer the symbolic-derivative rule to avoid the De
     // Morgan 2^k blow-up: r = E(~a) | RE(LF(delta(~a))), peel one character and
     // recurse.  Fall back to the De Morgan rule sigma(~a)=~sigma(a) at a
     // complemented star ~(R*) or on a cyclic revisit (both keep it terminating).
     if (rex.is_complement(r, a)) {
-        expr_ref nb = m_rw.is_nullable(r);                 // nullable(~a)
-        if (!rex.is_star(a) && !rex.is_plus(a) && !deriv_memo.contains(r)
-            && (m.is_true(nb) || m.is_false(nb))) {
-            deriv_memo.insert(r);
-            sort* re_sort = rex.mk_re(seq_sort);
-            expr_ref unfolded(m);
-            if (m.is_true(nb)) unfolded = rex.mk_epsilon(seq_sort);   // E(~a) = eps
-            else               unfolded = rex.mk_empty(re_sort);      // E(~a) = bot
-            expr_ref_pair_vector cofs(m);
-            m_rw.brz_derivative_cofactors(r, cofs);        // {(alpha_i, tgt_i)} = LF(delta(~a))
-            for (auto const& [cond, tgt] : cofs) {
-                expr_ref alpha = mk_charclass_re(cond, seq_sort);    // single-char regex
-                expr_ref term(rex.mk_concat(alpha, tgt), m);         // alpha_i . tgt_i
-                unfolded = expr_ref(rex.mk_union(unfolded, term), m);
-            }
-            return mk_fromre(unfolded);
+        if (!rex.is_star(a) && !rex.is_plus(a) && !deriv_memo.contains(r)) {
+            expr_ref d = try_derivative_split(r, seq_sort, deriv_memo);
+            if (d.get()) return d;
         }
         return mk_compl(mk_fromre(a));                     // De Morgan fallback
     }
