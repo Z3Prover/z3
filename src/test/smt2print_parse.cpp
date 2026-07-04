@@ -193,6 +193,31 @@ void test_ho_choice_expression() {
     Z3_del_context(ctx);
 }
 
+void test_optimize_recfun_minimize_no_canceled_error() {
+    char const* spec =
+        "(declare-const bound Int)\n"
+        "(declare-const a Int)\n"
+        "(declare-const b Int)\n"
+        "(define-fun-rec f ((x Int) (y Int)) Bool\n"
+        "  (ite (= x 0)\n"
+        "    (>= 50 (* x y))\n"
+        "    (= (+ y (* (- x 1) y)) (* x y))))\n"
+        "(assert\n"
+        "  (and (> 50 bound)\n"
+        "    (not (f a b))\n"
+        "    (>= 50 a)\n"
+        "    (>= 50 b)\n"
+        "    (>= b 0)\n"
+        "    (>= a 0)))\n"
+        "(minimize bound)\n"
+        "(check-sat)\n";
+
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, setError);
+    test_eval(ctx, spec, false);
+    Z3_del_context(ctx);
+}
+
 void test_name(Z3_string spec, Z3_string expected_name) {
     Z3_context ctx = Z3_mk_context(nullptr);
     Z3_set_error_handler(ctx, setError);
@@ -324,6 +349,7 @@ void tst_smt2print_parse() {
     test_repeated_eval();
     test_ho_curried_application();
     test_ho_choice_expression();
+    test_optimize_recfun_minimize_no_canceled_error();
 
     test_symbol_escape();
 
