@@ -515,6 +515,8 @@ namespace smt {
             prefix.push_back(v),
             tl = tl1;
 
+        VERIFY(!(str().is_concat(tl, hd, tl1) && str().is_unit(hd)));
+
         if (prefix.empty())
             return false;
 
