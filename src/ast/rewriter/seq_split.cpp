@@ -154,38 +154,19 @@ struct split_set::iterator::imp {
         }
     };
 
-    struct concat_left : public split_set::consumer {
-        split_set a_s;
-        split_set::iterator a_it;
-        split_set::iterator a_end;
-        expr_ref b;
-        concat_left(split_set&& a_src, expr *b)
-            :  a_s(std::move(a_src)), a_it(a_s.begin()), a_end(a_s.end()), b(b, a_s.m_imp->m) {}
-
-        void consume() override {
-            TRACE(seq, tout << "concat_left consume\n");
-            while (a_it != a_end && !parent().has_split()) {
-                auto [p, q] = *a_it;
-                parent().push_split(p, parent().i.rw.mk_re_append(q, b));
-                ++a_it;
-            }
-            if (a_it.failed())
-                parent().set_failure();
-        }
-    };
-
-    struct concat_right : public split_set::consumer {
+    struct concat_sandwitch : public split_set::consumer {
         expr_ref a;        
         split_set b_s;
+        expr_ref c;
         split_set::iterator b_it;
         split_set::iterator b_end;
-        concat_right(expr* a, split_set&& b_src) : a(a, b_src.m_imp->m), b_s(std::move(b_src)), b_it(b_s.begin()), b_end(b_s.end()) {}
+        concat_sandwitch(expr* a, split_set&& b_src, expr* c) : 
+            a(a, b_src.m_imp->m), b_s(std::move(b_src)), c(c, b_s.m_imp->m), b_it(b_s.begin()), b_end(b_s.end()) {}
 
         void consume() override {
-            TRACE(seq, tout << "concat_right consume\n");
             while (b_it != b_end && !parent().has_split()) {
                 auto [p, q] = *b_it;
-                parent().push_split(parent().i.rw.mk_re_append(a, p), q);
+                parent().push_split(parent().i.rw.mk_re_append(a, p), parent().i.rw.mk_re_append(q, c));
                 ++b_it;
             }
             if (b_it.failed())
@@ -193,8 +174,6 @@ struct split_set::iterator::imp {
         }
     };
 
-
-    // TODO: can be written as a.sigma(b) u sigma(a).b filtering out eps on one union.
     struct concat : split_set::consumer {
         expr_ref a, b;
         split_set a_s, b_s;
@@ -288,8 +267,6 @@ struct split_set::iterator::imp {
                 m_at_end = true;
                 return;
             }
-            // TODO: we can be strategic about choosing what to unfold, 
-            // and perform early subsumption check
             expr_ref last(m_cont.back(), m);
             m_cont.pop_back();
             unfold(last);
@@ -338,7 +315,29 @@ struct split_set::iterator::imp {
         }
     }
 
-    void unfold(expr* r) {
+    bool is_cheap(expr* r) {
+        if (re.is_empty(r))
+            return true;
+        if (re.is_union(r))
+            return true;
+        if (re.is_to_re(r))
+            return true;
+        if (re.is_full_char(r) || re.is_range(r) || re.is_of_pred(r))
+            return true;
+        if (re.is_full_seq(r))
+            return true;
+
+        return false;
+    }
+
+    void push_cont(expr* r) {
+        if (is_cheap(r))
+            unfold(r);
+        else
+            m_cont.push_back(r);
+    }
+
+    void unfold(expr* r) {        
         TRACE(seq, tout << "unfold " << mk_pp(r, m) << "\n");
         SASSERT(seq.is_re(r));
         if (re.is_empty(r))
@@ -348,8 +347,8 @@ struct split_set::iterator::imp {
         auto mk_eps = [&]() { return expr_ref(re.mk_epsilon(i.m_seq_sort), m); };
         expr *a, *b;
         if (re.is_union(r, a, b)) {
-            m_cont.push_back(a);
-            m_cont.push_back(b);
+            push_cont(a);
+            push_cont(b);
             return;
         }
 
@@ -402,31 +401,25 @@ struct split_set::iterator::imp {
             return;
         }
 
-        // star: sigma(a*) = { <eps, eps> } cup a*.sigma(a).a*
-        auto add_star = [&](expr *r, expr* a) {
+        // left . sigma(a) . right
+        auto add_sandwitch = [&](expr *left, expr *a, expr *right) {
             split_set sigma_a(i.rw, a, i.m_threshold, {});
-            auto *c_left = alloc(concat_left, std::move(sigma_a), r);
-            split_set sigma_aa(i.rw, nullptr, i.m_threshold, {});
-            auto *c_right = alloc(concat_right, r, std::move(sigma_aa));
-            auto &parent = *c_right->b_it.m_imp;
-            parent.m_consumer = c_left;
-            c_left->set_parent(parent);
-            parent.init();
-            m_consumer = c_right;
+            m_consumer = alloc(concat_sandwitch, left, std::move(sigma_a), right);
             m_consumer->set_parent(*this);
         };
 
+        // star: sigma(a*) = { <eps, eps> } cup a*.sigma(a).a*
         if (re.is_star(r, a)) {
             auto eps = mk_eps();
             push_split(eps, eps);
-            add_star(r, a);
+            add_sandwitch(r, a, r);
             return;
         }
 
         // plus: a+ = a.a* ; sigma(a+) = a*.sigma(a).a*  (star rule without <eps,eps>)
         if (re.is_plus(r, a)) {
             const expr_ref star(re.mk_star(a), m);  // a*
-            add_star(star, a);
+            add_sandwitch(star, a, star);
             return;
         }
 
@@ -448,6 +441,36 @@ struct split_set::iterator::imp {
             return;
         }
 
+         // abbreviation
+        // optional: a? = eps | a ; sigma(a?) = sigma(eps | a) = eps cup sigma(a)
+        if (re.is_opt(r, a)) {
+            auto eps = mk_eps();
+            push_split(eps, eps);
+            push_cont(a);
+            return;
+        }
+
+        // loop: r{l,h} = \bigcup_{l <= j <= h} r^j.
+        // A split either singles out the i-th copy of a (0 <= i < h) as
+        // <r^i . D, N . r{lo_i,hi_i}> for <D,N> in sigma(a),
+        // where r{lo_i,hi_i} folds the tail counts j-i-1, over every remaining
+        // j in [l,h] with j > i, into a single loop [<eps,eps> when l == 0]
+        unsigned l, h;
+        if (re.is_loop(r, a, l, h)) {
+            if (l == 0) {
+                auto eps = mk_eps();
+                push_split(eps, eps);
+            }
+            for (unsigned i = 0; i < h; i++) {
+                const expr_ref pre(re.mk_loop_proper(a, i, i), m);
+                const unsigned lo_i = l > i + 1 ? l - i - 1 : 0;
+                const unsigned hi_i = h - i - 1;
+                const expr_ref post(re.mk_loop_proper(a, lo_i, hi_i), m);
+                add_sandwitch(pre, a, post);               
+            }
+            return;
+        }
+
         set_failure(r);
     }
 
@@ -458,7 +481,7 @@ struct split_set::iterator::imp {
     }
 
     bool at_end() const {
-        return m_failure || m_end_marker || (m_at_end && m_qhead == m_splits.size());
+        return m_end_marker || ((m_failure || m_at_end) && m_qhead == m_splits.size());
     }
 };
 
@@ -565,3 +588,128 @@ std::pair<expr_ref, expr_ref> split_set::try_split_sequence(expr *str) {
                     << tail << "\n");
     return { head, tail };
 }
+
+#if 0
+// One level of the sigma rules.  Mirrors the historic eager `compute`, except it
+// emits *suspended* split-algebra terms (from_re / lcat / rcat / inter / compl) for
+// the subterms instead of recursing.  `mode` is irrelevant here: weak vs. strong is
+// decided when `head_normalize` reaches an inter / compl node.
+namespace {
+    // Cofactor path condition `pred` (a Boolean over x = (:var 0)) -> the canonical
+    // range_predicate (union of ranges) of the characters satisfying it.  Returns
+    // false on a construct outside {true,false,and,or,not,=,char.<=} over x.
+    static bool pred_to_rp(ast_manager &m, seq_util &sq, expr *x, expr *pred, unsigned maxc,
+                           seq::range_predicate &out) {
+        expr *a = nullptr, *b = nullptr;
+        unsigned c = 0;
+        if (m.is_true(pred)) {
+            out = seq::range_predicate::top(maxc);
+            return true;
+        }
+        if (m.is_false(pred)) {
+            out = seq::range_predicate::empty(maxc);
+            return true;
+        }
+        if (m.is_eq(pred, a, b)) {
+            if (a == x && sq.is_const_char(b, c)) {
+                out = seq::range_predicate::singleton(c, maxc);
+                return true;
+            }
+            if (b == x && sq.is_const_char(a, c)) {
+                out = seq::range_predicate::singleton(c, maxc);
+                return true;
+            }
+            return false;
+        }
+        if (sq.is_char_le(pred, a, b)) {
+            if (b == x && sq.is_const_char(a, c)) {
+                out = seq::range_predicate::range(c, maxc, maxc);
+                return true;
+            }
+            if (a == x && sq.is_const_char(b, c)) {
+                out = seq::range_predicate::range(0, c, maxc);
+                return true;
+            }
+            return false;
+        }
+        if (m.is_not(pred, a)) {
+            seq::range_predicate s(maxc);
+            if (!pred_to_rp(m, sq, x, a, maxc, s))
+                return false;
+            out = ~s;
+            return true;
+        }
+        if (m.is_and(pred)) {
+            out = seq::range_predicate::top(maxc);
+            for (expr *arg : *to_app(pred)) {
+                seq::range_predicate s(maxc);
+                if (!pred_to_rp(m, sq, x, arg, maxc, s))
+                    return false;
+                out = out & s;
+            }
+            return true;
+        }
+        if (m.is_or(pred)) {
+            out = seq::range_predicate::empty(maxc);
+            for (expr *arg : *to_app(pred)) {
+                seq::range_predicate s(maxc);
+                if (!pred_to_rp(m, sq, x, arg, maxc, s))
+                    return false;
+                out = out | s;
+            }
+            return true;
+        }
+        return false;
+    }
+}  // namespace
+
+// Single-character regex for a cofactor path condition `pred` (a Boolean over the
+// character (:var 0)).  Materialized via the canonical seq::range_predicate as a
+// union-of-ranges regex (fully supported by the derivative / emptiness / primitive
+// path, and canonical so equivalent classes share AST identity).  Falls back to
+// of_pred(lambda) only for predicates outside the recognized range fragment.
+expr_ref seq_split::mk_charclass_re(expr *pred, sort *seq_sort) {
+    seq_util &sq = seq();
+    sort *cs = sq.mk_char_sort();
+    expr_ref var0(m.mk_var(0, cs), m);
+    seq::range_predicate rp(sq.max_char());
+    // NSB: can we be lazy about expanding to range predicate normal form, just use lambdas as defalt
+    // and use general purpose processing to handle of_pred?
+    if (pred_to_rp(m, sq, var0, pred, sq.max_char(), rp))
+        return seq::range_predicate_to_regex(sq, rp, seq_sort);
+    symbol nm("c");
+    expr_ref lam(m.mk_lambda(1, &cs, &nm, pred), m);
+    return expr_ref(re().mk_of_pred(lam), m);
+}
+
+// r == E(r) | RE(LF(delta(r))): peel one character through the symbolic derivative
+// (Brzozowski cofactors) and recurse.  Shared by the complement and intersection
+// cases to avoid the De Morgan / cross-product blow-up.  delta distributes over
+// both ~ and &, so LF(delta(r)) = { (alpha_i, tgt_i) } with tgt_i the (complement /
+// intersection of) character-derivatives.  Records `r` in `deriv_memo` as a cycle
+// guard.  Returns a null expr_ref when nullability of `r` is not statically
+// decidable (the caller then falls back to its structural rule).
+bool seq_split::iterator::imp::try_derivative_split(expr *r, sort *seq_sort, obj_hashtable<expr> &deriv_memo) {
+    seq_util::rex &rex = re();
+    expr_ref nb = m_rw.is_nullable(r);
+    if (!m.is_true(nb) && !m.is_false(nb))
+        return false;  // undecidable -> fall back
+    deriv_memo.insert(r);
+    // NSB: take a reference count on r here for the table?
+    sort *re_sort = rex.mk_re(seq_sort);
+    expr_ref unfolded(m);
+    if (m.is_true(nb)) {
+        auto eps = re.mk_epsilon(seq_sort);
+        push_split(eps, eps);
+    }
+    expr_ref_pair_vector cofs(m);
+    m_rw.brz_derivative_cofactors(r, cofs);  // { (alpha_i, tgt_i) } = LF(delta(r))
+    for (auto const &[cond, tgt] : cofs) {
+        expr_ref alpha = mk_charclass_re(cond, seq_sort);  // single-char regex
+        expr_ref term(rex.mk_concat(alpha, tgt), m);       // alpha_i . tgt_i
+        push_cont(term);
+    }
+    return true;
+}
+
+#endif
