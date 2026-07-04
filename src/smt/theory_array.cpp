@@ -365,8 +365,15 @@ namespace smt {
             // instantiation to do something useful during final
             // check.
             if (m_final_check_idx % m_params.m_array_lazy_ieq_delay != 0) {
-                assert_delayed_axioms();
-                r = FC_CONTINUE;
+                // Delaying interface equalities must not mask a give-up
+                // (e.g. a lambda used as an array by a non-beta-redex parent):
+                // otherwise final check keeps returning FC_CONTINUE forever
+                // without making progress. Respect a FC_GIVEUP/FC_CONTINUE
+                // reported by the delayed axioms, and only force the lazy
+                // FC_CONTINUE when there is genuinely nothing left to do.
+                r = assert_delayed_axioms();
+                if (r == FC_DONE)
+                    r = FC_CONTINUE;
             }
             else {
                 if (mk_interface_eqs_at_final_check() == FC_CONTINUE)
