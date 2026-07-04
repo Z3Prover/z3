@@ -168,20 +168,22 @@ namespace smt {
         seq::skolem& sk();
         arith_util& a();
 
-        bool is_string_equality(literal lit);
+        bool is_string_equality(literal lit, expr* s, expr* r);
 
         // Get a regex which overapproximates a given string
         expr_ref get_overapprox_regex(expr* s);
 
         void rewrite(expr_ref& e);
 
-        bool coallesce_in_re(literal lit);
-
         bool block_unfolding(literal lit, unsigned i);
 
-        bool unfold_prefix(literal lit);
+        bool unfold_prefix(literal lit, expr* s, expr* r);
 
-        bool factor_membership(literal lit);
+        bool factor_membership(literal lit, expr* s, expr* r);
+
+        bool factor_ite(literal lit, expr* s, expr* r);
+
+        void initialize_accept(literal lit, expr *s, expr *r);
 
         expr_ref mk_first(expr* r, expr* n);
 

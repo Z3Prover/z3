@@ -132,11 +132,9 @@ namespace smt {
      * s = x ++ y and x in R and y in Q
      */
 
-    bool seq_regex::is_string_equality(literal lit) {
-        expr* s = nullptr, *r = nullptr;
+    bool seq_regex::is_string_equality(literal lit, expr* s, expr* r) {
         expr* e = ctx.bool_var2expr(lit.var());
         expr_ref id(a().mk_int(e->get_id()), m);
-        VERIFY(str().is_in_re(e, s, r));
         sort* seq_sort = s->get_sort();
         vector<expr_ref_vector> patterns;
         auto mk_cont = [&](unsigned idx) { 
@@ -191,31 +189,34 @@ namespace smt {
             return;
         }
 
-        if (unfold_prefix(lit)) {
+        if (unfold_prefix(lit, s, r)) {
             TRACE(seq_regex, tout << "unfolded prefix" << std::endl;);
             STRACE(seq_regex_brief, tout << "unfold_prefix ";);
             return;
         }
 
-        if (coallesce_in_re(lit)) {
-            TRACE(seq_regex, tout
-                << "simplified conjunctions to an intersection" << std::endl;);
-            STRACE(seq_regex_brief, tout << "coallesce_in_re ";);
-            return;
-        }
-
-        if (is_string_equality(lit)) {
+        if (is_string_equality(lit, s, r)) {
             TRACE(seq_regex, tout
                 << "simplified regex using string equality" << std::endl;);
             STRACE(seq_regex_brief, tout << "string_eq ";);
             return;
         }
 
-        if (factor_membership(lit)) {
+        if (factor_ite(lit, s, r)) {
+            TRACE(seq_regex, tout << "factored ite in regex" << std::endl;);
+            STRACE(seq_regex_brief, tout << "factor_ite ";);
+            return;
+        }
+
+        if (factor_membership(lit, s, r)) {
             TRACE(seq_regex, tout << "factor membership\n");
             return;
         }      
 
+        initialize_accept(lit, s, r);
+    }
+
+    void seq_regex::initialize_accept(literal lit, expr *s, expr *r) {
         // Convert a non-ground sequence into an additional regex and
         // strengthen the original regex constraint into an intersection
         // for example:
@@ -228,11 +229,9 @@ namespace smt {
             if (!re().is_full_seq(s_approx)) {
                 r = re().mk_inter(r, s_approx);
                 _r_temp_owner = r;
-                TRACE(seq_regex, tout
-                    << "get_overapprox_regex(" << mk_pp(s, m)
-                    << ") = " << mk_pp(s_approx, m) << std::endl;);
-                STRACE(seq_regex_brief, tout
-                    << "overapprox=" << state_str(r) << " ";);
+                TRACE(seq_regex,
+                      tout << "get_overapprox_regex(" << mk_pp(s, m) << ") = " << mk_pp(s_approx, m) << std::endl;);
+                STRACE(seq_regex_brief, tout << "overapprox=" << state_str(r) << " ";);
             }
         }
 
@@ -444,12 +443,10 @@ namespace smt {
              true);
     }
 
-    bool seq_regex::factor_membership(literal lit) {
+    bool seq_regex::factor_membership(literal lit, expr* s, expr* r) {
         if (!th.get_fparams().m_seq_regex_factorization_enabled)
             return false;
-        expr *s = nullptr, *r = nullptr;
-        expr *e = ctx.bool_var2expr(lit.var());
-        VERIFY(str().is_in_re(e, s, r));
+
         // TODO - replace this with a propagator closure that gets invoked and removed on backtracking.
         // it tracks <lit, split_set, in_re2 literals>
         // an in_re2 literal is of the form in_re2(u, R1, v, R2)
@@ -505,17 +502,38 @@ namespace smt {
         return false;
     }
 
-    bool seq_regex::unfold_prefix(literal lit) {
-        expr *s = nullptr, *r = nullptr;
-        expr *e = ctx.bool_var2expr(lit.var());
-        VERIFY(str().is_in_re(e, s, r));
+    
+    bool seq_regex::factor_ite(literal lit, expr* s, expr* r) {
+        bool_rewriter br(m);
+        expr_ref c(m), t(m), e(m);
+        if (!br.decompose_ite(r, c, t, e))
+            return false;
+        auto c_lit = th.mk_literal(c);
+        switch (ctx.get_assignment(c_lit)) {
+        case l_true: {
+            literal lits[2] = {lit, c_lit};
+            th.propagate_lit(nullptr, 2, lits, th.mk_literal(re().mk_in_re(s, t)));
+            break;
+        }
+        case l_false: {
+            literal lits[2] = {lit, ~c_lit};
+            th.propagate_lit(nullptr, 2, lits, th.mk_literal(re().mk_in_re(s, e)));
+            break;
+        }
+        case l_undef: {
+            ctx.mark_as_relevant(c_lit);
+            break;
+        }
+        }
+        return true;
+    }
+
+    bool seq_regex::unfold_prefix(literal lit, expr* s, expr* r) {
         expr_ref_vector prefix(m);
         expr *hd, *v, *tl = s, *tl1;
-        while (str().is_concat(tl, hd, tl1) && str().is_unit(hd, v) && m.is_value(v))
+        while (str().is_concat(tl, hd, tl1) && str().is_unit(hd, v))
             prefix.push_back(v),
             tl = tl1;
-
-        VERIFY(!(str().is_concat(tl, hd, tl1) && str().is_unit(hd)));
 
         if (prefix.empty())
             return false;
@@ -538,58 +556,16 @@ namespace smt {
         return true;
     }
 
-    /**
-     * Combine a conjunction of membership relations for the same string
-     * within the same Regex.
-     */
-    bool seq_regex::coallesce_in_re(literal lit) {
-        return false; // disabled
-        expr* s = nullptr, *r = nullptr;
-        expr* e = ctx.bool_var2expr(lit.var());
-        VERIFY(str().is_in_re(e, s, r));
-        expr_ref regex(r, m);
-        literal_vector lits;    
-        for (unsigned i = 0; i < m_s_in_re.size(); ++i) {
-            auto const& entry = m_s_in_re[i];
-            if (!entry.m_active)
-                continue;
-            enode* n1 = th.ensure_enode(entry.m_s);
-            enode* n2 = th.ensure_enode(s);
-            if (n1->get_root() != n2->get_root())
-                continue;
-            if (entry.m_re == regex) 
-                continue;
-
-            th.m_trail_stack.push(vector_value_trail<s_in_re, true>(m_s_in_re, i));
-            m_s_in_re[i].m_active = false;
-            IF_VERBOSE(11, verbose_stream() << "Intersect " << regex << " " << 
-                       mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << std::endl;);
-            regex = re().mk_inter(entry.m_re, regex);
-            rewrite(regex);
-            lits.push_back(~entry.m_lit);
-            if (n1 != n2) 
-                lits.push_back(~th.mk_eq(n1->get_expr(), n2->get_expr(), false));
-        }
-        m_s_in_re.push_back(s_in_re(lit, s, regex));
-        th.get_trail_stack().push(push_back_vector<vector<s_in_re>>(m_s_in_re));
-        if (lits.empty())
-            return false;
-        lits.push_back(~lit);
-        lits.push_back(th.mk_literal(re().mk_in_re(s, regex)));
-        th.add_axiom(lits);
-        return true;
-    }
-
     expr_ref seq_regex::symmetric_diff(expr* r1, expr* r2) {
         expr_ref r(m);
         if (r1 == r2)
             r = re().mk_empty(r1->get_sort());
-        else if (re().is_empty(r1)) 
+        else if (re().is_empty(r1))
             r = r2;
         else if (re().is_empty(r2))
             r = r1;
-        else 
-            r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
+        else
+            r = re().mk_xor(r1, r2);
         rewrite(r);
         return r;
     }
@@ -705,7 +681,6 @@ namespace smt {
         STRACE(seq_regex_brief, tout << "PNEQ ";);
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
-        expr_ref r = symmetric_diff(r1, r2);
         if (is_ground(r1) && is_ground(r2)) {
             seq::regex_bisim bisim(seq_rw());
             switch (bisim.are_equivalent(r1, r2)) {
@@ -720,6 +695,7 @@ namespace smt {
                 break;
             }
         }
+        auto r = symmetric_diff(r1, r2);
         expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
         expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
