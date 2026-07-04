@@ -854,7 +854,12 @@ namespace smt {
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
-                if (ctx.is_relevant(p) && !is_default(p) && !ctx.is_beta_redex(p, n)) {
+                if (ctx.is_relevant(p) && !is_default(p) && !m.is_eq(p->get_expr()) && !ctx.is_beta_redex(p, n)) {
+                    // An equality parent (lambda = array) is decided by the array
+                    // theory's extensionality / interface-equality reasoning, so it
+                    // does not defeat completeness and must not force a give-up.
+                    // This mirrors context::is_shared, which likewise ignores
+                    // basic-family (equality) parents when deciding sharing.
                     TRACE(array, tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
