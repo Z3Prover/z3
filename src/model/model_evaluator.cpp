@@ -405,6 +405,15 @@ struct evaluator_cfg : public default_rewriter_cfg {
             polymorphism::util util(m);
             util.unify(f, m.poly_root(f), subst);
             expr_ref d = subst(def);
+            // The polymorphic interpretation body may carry type variables that the
+            // instance/root unification does not fully resolve (e.g. when the body was
+            // built with type variables distinct from the root signature's, as happens
+            // for reified type constructors). If the substituted definition does not
+            // have the instance's range sort, it would produce an ill-sorted rewrite;
+            // treat the function as having no usable macro instead (sound: it is then
+            // evaluated as uninterpreted / by model completion).
+            if (!d || d->get_sort() != f->get_range())
+                return false;
             m_pinned.push_back(d);
             def = d;
             SASSERT(def != nullptr);

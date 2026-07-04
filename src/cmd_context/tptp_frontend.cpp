@@ -319,6 +319,13 @@ class tptp_parser {
     // arity (number of non-type arguments) of such a declaration.
     std::unordered_map<std::string, ptr_vector<sort>> m_decl_tvars;
     std::unordered_map<std::string, unsigned> m_poly_decl_arity;
+    // Parametric type constructors declared as "c : ($tType * .. * $tType) > $tType"
+    // (e.g. list: $tType > $tType, fun: ($tType*$tType) > $tType). Maps the constructor
+    // name to its type-argument arity. A use "list(A)" / "fun(A,B)" is built as a genuine
+    // parametric uninterpreted sort (ast_manager::mk_uninterpreted_sort with sort
+    // parameters), so distinct instantiations stay distinct and can be matched and
+    // instantiated by the polymorphism substitution engine, instead of collapsing onto U.
+    std::unordered_map<std::string, unsigned> m_sort_ctors;
     // Canonical polymorphic root func_decls for each polymorphic symbol. Every concrete
     // (or type-variable) use is created as an instance of the shared root via
     // ast_manager::instantiate_polymorphic, so that z3's polymorphism engine links the
@@ -523,6 +530,22 @@ class tptp_parser {
         return s;
     }
 
+    // Factory for parametric type-constructor sorts: builds (or reuses) the sort
+    // "name(targs..)" as a genuine uninterpreted sort carrying its type arguments as
+    // sort parameters. ast_manager::mk_uninterpreted_sort registers the constructor
+    // name once (assigning it a stable, non-null user-sort family_id / decl_kind) and
+    // interns instances, so the same name used at different instantiations yields the
+    // same constructor with distinct parameters — matchable/substitutable by the
+    // polymorphism engine (polymorphism::substitution recurses through sort parameters).
+    sort* mk_type_ctor(std::string const& name, ptr_vector<sort> const& targs) {
+        vector<parameter> ps;
+        for (sort* a : targs)
+            ps.push_back(parameter(static_cast<ast*>(a ? a : m_univ)));
+        sort* s = m.mk_uninterpreted_sort(symbol(name), ps.size(), ps.data());
+        m_pinned_sorts.push_back(s);
+        return s;
+    }
+
     // For higher-order types like ($i > $o), create an uninterpreted sort
     // Function type A > B is represented as Array(A, B).
     // Multi-argument A * B > C is represented as Array(A, Array(B, C)) (curried).
@@ -545,7 +568,54 @@ class tptp_parser {
             return s ? s : m_univ;
         }
         std::string tn = parse_name();
+        // Applied type constructor in explicit type-argument position: list(A), fun(A,B).
+        // Registered parametric constructors only; others monomorphize onto U.
+        if (accept(token_kind::lparen)) {
+            ptr_vector<sort> targs;
+            if (!accept(token_kind::rparen)) {
+                do {
+                    parsed_type t = parse_type_expr();
+                    targs.push_back(t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range));
+                } while (accept(token_kind::comma));
+                expect(token_kind::rparen, "')'");
+            }
+            if (m_sort_ctors.find(tn) != m_sort_ctors.end())
+                return mk_type_ctor(tn, targs);
+            return m_univ;
+        }
         return get_sort(tn);
+    }
+
+    // Parse a single operand within a type-level @-application chain (c @ A @ B).
+    // Type application is LEFT-associative: c @ A @ B parses as (c @ A) @ B, i.e.
+    // the constructor c applied to the arguments A and B. Each operand must be
+    // parsed WITHOUT greedily consuming the trailing @-chain; a nested application
+    // used as an operand is parenthesized (e.g. list @ ( product_prod @ A @ B )).
+    // Calling the full parse_type_atom here instead would let the first operand
+    // swallow the rest of the chain (A @ B), collapsing product_prod @ A @ B into a
+    // single-argument product_prod(A@B) and desynchronizing the constructor arity.
+    sort* parse_type_app_operand() {
+        if (accept(token_kind::lparen)) {
+            parsed_type t = parse_type_expr();
+            expect(token_kind::rparen, "')'");
+            sort* s = t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range);
+            return s ? s : m_univ;
+        }
+        std::string n = parse_name();
+        if (accept(token_kind::lparen)) {
+            ptr_vector<sort> targs;
+            if (!accept(token_kind::rparen)) {
+                do {
+                    parsed_type t = parse_type_expr();
+                    targs.push_back(t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range));
+                } while (accept(token_kind::comma));
+                expect(token_kind::rparen, "')'");
+            }
+            if (m_sort_ctors.find(n) != m_sort_ctors.end())
+                return mk_type_ctor(n, targs);
+            return m_univ;
+        }
+        return get_sort(n);
     }
 
     // Substitute the polymorphic type variables tvars := targs throughout a template
@@ -579,7 +649,9 @@ class tptp_parser {
         if (t == "$i" || t == "$o" || t == "$int" || t == "$rat" || t == "$real")
             return true;
         auto it = m_sorts.find(t);
-        return it != m_sorts.end() && it->second != nullptr;
+        if (it != m_sorts.end() && it->second != nullptr)
+            return true;
+        return m_sort_ctors.find(t) != m_sort_ctors.end();
     }
 
     // Canonical polymorphic root for the THF curried-array (@-application) shape.
@@ -939,26 +1011,37 @@ class tptp_parser {
             return parsed_type(prod, nullptr);
         }
         std::string n = parse_name();
-        // Handle parameterized type constructors: fun(A, B), product_prod(A, B), etc.
+        // Parameterized type constructor applied with parentheses: fun(A, B), list(A), ...
+        // Only names registered as genuine parametric type constructors (all type
+        // arguments) are built as parametric sorts; a value-indexed family such as
+        // fin: nat > $tType is NOT a type constructor — its "argument" is a value, so it
+        // is monomorphized onto U (and already flagged as a dependent type at declaration).
         if (accept(token_kind::lparen)) {
-            // Consume type arguments — for monomorphization, we ignore them
-            // and return the base sort (or m_univ if the constructor result is $tType)
+            ptr_vector<sort> targs;
             if (!accept(token_kind::rparen)) {
-                do { parse_type_expr(); } while (accept(token_kind::comma));
+                do {
+                    parsed_type t = parse_type_expr();
+                    targs.push_back(t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range));
+                } while (accept(token_kind::comma));
                 expect(token_kind::rparen, "')'");
             }
-            // Return m_univ as the monomorphized result of any type constructor application
+            if (m_sort_ctors.find(n) != m_sort_ctors.end())
+                return parsed_type(mk_type_ctor(n, targs));
+            return parsed_type(m_univ);
+        }
+        // Type-level application with @: list @ nat, pair @ A @ B, etc. Build the same
+        // parametric sort constructor from the @-separated type arguments (registered
+        // constructors only; otherwise monomorphize onto U).
+        if (is(token_kind::at_tok)) {
+            ptr_vector<sort> targs;
+            while (accept(token_kind::at_tok)) {
+                targs.push_back(parse_type_app_operand());
+            }
+            if (m_sort_ctors.find(n) != m_sort_ctors.end())
+                return parsed_type(mk_type_ctor(n, targs));
             return parsed_type(m_univ);
         }
         sort* s = get_sort(n);
-        // Handle type-level application with @: list @ nat, pair @ A @ B, etc.
-        // Monomorphize by consuming all @ arguments and returning m_univ.
-        if (is(token_kind::at_tok)) {
-            while (accept(token_kind::at_tok)) {
-                parse_type_atom(); // consume the argument type
-            }
-            return parsed_type(m_univ);
-        }
         return parsed_type(s);
     }
 
@@ -1732,6 +1815,36 @@ class tptp_parser {
             return expr_ref(m_array.mk_choice(lam), m);
         }
 
+        // Universal (!!) and existential (??) quantifier combinators (TPTP THF):
+        //   !! : !>[A] : ((A > $o) > $o)   !! @ A @ P  ==  ! [X:A] : (P @ X)
+        //   ?? : !>[A] : ((A > $o) > $o)   ?? @ A @ P  ==  ? [X:A] : (P @ X)
+        // These are the quantifier-as-operator forms (the files typically also carry
+        // a defining axiom of exactly this shape). A TH1 use supplies the domain type
+        // A explicitly first (!! @ A @ P); a TH0 use omits it and A is recovered from
+        // the predicate's array sort. The predicate P has sort (A > $o), encoded as
+        // Array(A, $o); it is applied to the fresh bound variable by array select,
+        // and the whole term is a Boolean quantifier (no boxing coercion).
+        if ((n == "!!" || n == "??") && is(token_kind::at_tok)) {
+            bool is_forall = (n == "!!");
+            accept(token_kind::at_tok);
+            sort* dom = nullptr;
+            if (current_is_type_name()) {
+                dom = parse_type_at_arg();
+                expect(token_kind::at_tok, "'@'");
+            }
+            expr_ref pred = parse_at_arg();
+            sort* ps = pred->get_sort();
+            if (!dom)
+                dom = m_array.is_array(ps) ? get_array_domain(ps, 0) : m_univ;
+            app* c = m.mk_const(symbol(("!q" + std::to_string(m_tvar_counter++)).c_str()), dom);
+            m_pinned_exprs.push_back(c);
+            expr_ref body = ensure_bool(expr_ref(m_array.mk_select(pred.get(), c), m));
+            app* cs[1] = { c };
+            expr_ref q = is_forall ? ::mk_forall(m, 1, cs, body.get())
+                                   : ::mk_exists(m, 1, cs, body.get());
+            return q;
+        }
+
         expr_ref_vector args(m);
         ptr_vector<sort> fo_targs; // TF1 explicit leading type arguments, if any
         // $ite needs special parsing: first arg is formula, rest are formulas (branches can be equalities)
@@ -2178,17 +2291,33 @@ class tptp_parser {
             return;
         }
 
+        // A declaration whose result is $tType is a type constructor. If every argument
+        // is itself a type ($tType), it is a parametric type constructor (e.g.
+        // list: $tType > $tType, fun: ($tType*$tType) > $tType): register it so uses
+        // "list(A)" build genuine parametric sorts. Only a constructor with a *value*
+        // argument (e.g. fin: nat > $tType) is a dependent type family, which Z3 cannot
+        // encode faithfully; flag those so verdicts are downgraded to GaveUp.
+        if (t.range && is_ttype(t.range)) {
+            bool all_type_args = true;
+            for (sort* s : t.domain)
+                if (!is_ttype(s)) { all_type_args = false; break; }
+            if (all_type_args) {
+                m_sort_ctors[name] = t.domain.size();
+                return;
+            }
+        }
+
         // Monomorphize: replace any stray $tType in domain/range with m_univ (genuine
         // type variables are already mk_type_var sorts and are left intact).
         for (auto& s : t.domain) {
             if (is_ttype(s)) s = m_univ;
         }
         if (t.range && is_ttype(t.range)) {
-            // A declaration "f: T.. > $tType" is a value-indexed type family (a
-            // dependent type constructor, e.g. "fin: nat > $tType"). Z3's parametric
-            // polymorphism cannot faithfully encode dependent types: we approximate
-            // "fin @ N" by a universe element, which is unsound (it can prove a
-            // conjecture that is only CounterSatisfiable). Flag the problem so any
+            // A declaration "f: T.. > $tType" with a value argument is a value-indexed
+            // type family (a dependent type constructor, e.g. "fin: nat > $tType"). Z3's
+            // parametric polymorphism cannot faithfully encode dependent types: we
+            // approximate "fin @ N" by a universe element, which is unsound (it can prove
+            // a conjecture that is only CounterSatisfiable). Flag the problem so any
             // sat/unsat verdict is downgraded to GaveUp rather than reported as a
             // (possibly spurious) Theorem/CounterSatisfiable.
             m_has_dependent_type = true;
