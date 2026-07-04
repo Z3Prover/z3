@@ -119,7 +119,7 @@ namespace smt {
         class split_cont {
             seq_regex &m_regex;
             split_set m_split;
-            expr *m_u, *m_v, *m_r;
+            expr_ref m_u, m_v, m_r;
             split_set::iterator m_it;
             split_set::iterator m_end;
             expr_ref_vector m_in_re2;

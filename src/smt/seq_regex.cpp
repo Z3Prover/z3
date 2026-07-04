@@ -27,7 +27,7 @@ Author:
 namespace smt {
 
     seq_regex::split_cont::split_cont(seq_regex &sr, split_set &&ss, literal lit, expr *u, expr *v, expr *r)
-        : m_regex(sr), m_u(u), m_v(v), m_split(std::move(ss)), m_it(m_split.begin()), m_end(m_split.end()),
+        : m_regex(sr), m_u(u, sr.m), m_v(v, sr.m), m_r(r, sr.m), m_split(std::move(ss)), m_it(m_split.begin()), m_end(m_split.end()),
           m_in_re2(sr.m), m_lit(lit) {}
 
     bool seq_regex::split_cont::failed() const {
@@ -476,7 +476,7 @@ namespace smt {
                 if (re().is_empty(q))
                     return false;
             }
-            return re().is_empty(q);
+            return !re().is_empty(q);
         };
 
         split_set result(seq_rw(), r, threshold, filter);

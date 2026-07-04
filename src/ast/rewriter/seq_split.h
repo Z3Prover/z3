@@ -51,6 +51,8 @@ public:
 
     split_set(split_set&& other) noexcept;
 
+    split_set &operator=(split_set const &other) = delete;
+
     class iterator {
         struct imp;
         imp *m_imp;

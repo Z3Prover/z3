@@ -81,6 +81,7 @@ struct split_set::iterator::imp {
             }
         }
         void consume() override {
+            TRACE(seq, tout << "intersection consume\n");
             while (!at_end() && !parent().has_split()) {
                 auto [a1, a2] = *a_it;
                 auto [b1, b2] = *b_it;
@@ -146,6 +147,7 @@ struct split_set::iterator::imp {
         }
 
         void consume() override {
+            TRACE(seq, tout << "complement consume\n");
             init();
             if (m_intersection)
                 m_intersection->consume();
@@ -161,6 +163,7 @@ struct split_set::iterator::imp {
             :  a_s(std::move(a_src)), a_it(a_s.begin()), a_end(a_s.end()), b(b, a_s.m_imp->m) {}
 
         void consume() override {
+            TRACE(seq, tout << "concat_left consume\n");
             while (a_it != a_end && !parent().has_split()) {
                 auto [p, q] = *a_it;
                 parent().push_split(p, parent().i.rw.mk_re_append(q, b));
@@ -179,6 +182,7 @@ struct split_set::iterator::imp {
         concat_right(expr* a, split_set&& b_src) : a(a, b_src.m_imp->m), b_s(std::move(b_src)), b_it(b_s.begin()), b_end(b_s.end()) {}
 
         void consume() override {
+            TRACE(seq, tout << "concat_right consume\n");
             while (b_it != b_end && !parent().has_split()) {
                 auto [p, q] = *b_it;
                 parent().push_split(parent().i.rw.mk_re_append(a, p), q);
@@ -206,7 +210,9 @@ struct split_set::iterator::imp {
         }
 
         void consume() override {
+            TRACE(seq, tout << "concat-start: " << mk_pp(a, parent().i.m) << " " << mk_pp(b, parent().i.m) << "\n");
             while (!parent().has_split() && !at_end() && !a_it.failed() && !b_it.failed()) {
+                TRACE(seq, tout << "concat: " << mk_pp(a, parent().i.m) << " " << mk_pp(b, parent().i.m) << "\n");
                 if (a_it == a_end) {
                     auto [p, q] = *b_it;
                     parent().push_split(parent().i.rw.mk_re_append(a, p), q);
@@ -233,9 +239,10 @@ struct split_set::iterator::imp {
     bool m_init = false;
     unsigned m_qhead = 0;
     scoped_ptr<split_set::consumer> m_consumer;
-    bool m_at_end;
+    bool m_end_marker;
+    bool m_at_end = false;
     bool m_failure = false;
-    imp(split_set &s, bool at_end) : s(s), i(*s.m_imp), m(i.m), seq(i.seq), re(i.re), m_cont(m), m_at_end(at_end) {
+    imp(split_set &s, bool at_end) : s(s), i(*s.m_imp), m(i.m), seq(i.seq), re(i.re), m_cont(m), m_end_marker(at_end) {
         if (at_end)
             m_init = true;
         else if (i.r) {
@@ -255,6 +262,7 @@ struct split_set::iterator::imp {
     }
 
     void rewind() {
+        TRACE(seq, tout << "rewind: " << m_splits.size() << "\n";);
         m_qhead = 0;
         m_at_end = m_qhead == m_splits.size();
         SASSERT(m_cont.empty());
@@ -292,7 +300,6 @@ struct split_set::iterator::imp {
 
     void push_split(expr *_a, expr *_b) {
         expr_ref a(_a, m), b(_b, m);
-        
         if (m_failure)
             return;
         if (i.m_filter && !i.m_filter(a, b))
@@ -364,6 +371,7 @@ struct split_set::iterator::imp {
         }
 
         if (re.is_concat(r, a, b)) {
+            TRACE(seq, tout << "concat-start: " << mk_pp(a, i.m) << " " << mk_pp(b, i.m) << "\n");
             m_consumer = alloc(concat, i.rw, a, b, i.m_threshold);
             m_consumer->set_parent(*this);
             return;
@@ -452,7 +460,7 @@ struct split_set::iterator::imp {
     }
 
     bool at_end() const {
-        return m_failure || (m_at_end && m_qhead == m_splits.size());
+        return m_failure || m_end_marker || (m_at_end && m_qhead == m_splits.size());
     }
 };
 
@@ -512,29 +520,15 @@ std::pair<expr_ref, expr_ref> split_set::try_split_sequence(expr *str) {
     ast_manager &m = m_imp->m;
     auto &seq = m_imp->seq;
 
+    if (!seq.str.is_concat(str))
+        return {expr_ref(m), expr_ref(m)};
     expr_ref_vector tokens(m);
-    vector<expr *> stack;
-    stack.push_back(str);
-
-    while (!stack.empty()) {
-        expr *cur = stack.back();
-        stack.pop_back();
-        expr *l, *r;
-        if (seq.str.is_concat(cur, l, r)) {
-            stack.push_back(r);
-            stack.push_back(l);
-        }
-        else
-            tokens.push_back(expr_ref(cur, m));
-    }
+    seq.str.get_concat(str, tokens);
+    SASSERT(tokens.size() > 1);
 
     expr *ch;
     unsigned i = 0;
 
-    // TODO: Do this for the back as well (also, why did no rule before do that?)
-
-    if (tokens.empty())
-        return {expr_ref(m), expr_ref(m)};
 
     // Choose the factorization boundary so the tail starts with the
     // longest run of concrete characters c.
@@ -543,12 +537,12 @@ std::pair<expr_ref, expr_ref> split_set::try_split_sequence(expr *str) {
     const unsigned total = tokens.size();
     unsigned run_start = 0, run_len = 0;
     for (i = 1; i < total;) {
-        if (!(seq.str.is_unit(tokens.get(i), ch) && seq.is_const_char(ch))) {
+        if (!(seq.str.is_unit(tokens.get(i), ch) && m.is_value(ch))) {
             i++;
             continue;
         }
         unsigned j = i;
-        while (j < total && seq.str.is_unit(tokens.get(j), ch) && seq.is_const_char(ch)) {
+        while (j < total && seq.str.is_unit(tokens.get(j), ch) && m.is_value(ch)) {
             j++;
         }
         if (j - i > run_len) {
@@ -560,16 +554,16 @@ std::pair<expr_ref, expr_ref> split_set::try_split_sequence(expr *str) {
     // No constant run => fall back to splitting off the first token.
     const unsigned p = run_len == 0 ? 1 : run_start;
     SASSERT(p >= 1);
-    expr *head = tokens.get(0);
-    for (i = 1; i < p; i++) {
-        head = seq.str.mk_concat(head, tokens.get(i));
-    }
-    expr *tail = seq.str.mk_empty(head->get_sort());
-    if (tokens.size() > p + run_len) {
-        tail = tokens.get(p + run_len);
-        for (i = p + run_len + 1; i < tokens.size(); i++) {
-            tail = seq.str.mk_concat(tail, tokens.get(i));
-        }
-    }
-    return {expr_ref(head, m), expr_ref(tail, m)};
+    SASSERT(p < total);
+    expr_ref head(tokens.get(p - 1), m);
+    for (unsigned i = p - 1; i-- > 0;) 
+        head = seq.str.mk_concat(tokens.get(i), head);
+        
+    expr_ref tail(tokens.back(), m);
+    for (unsigned i = tokens.size() - 1; i-- > p;)
+        tail = seq.str.mk_concat(tokens.get(i), tail);
+    
+    TRACE(seq, tout << "split_set::try_split_sequence: " << mk_pp(str, m) << " -> " << head << " | "
+                    << tail << "\n");
+    return { head, tail };
 }
