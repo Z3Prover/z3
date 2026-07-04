@@ -2101,7 +2101,6 @@ namespace smt {
                 literal_vector dep_lits;
 
                 for (unsigned idx : mem_indices) {
-                    std::cout << seq::mem_pp(mems[idx]) << std::endl;
                     seq::deps_to_lits(m_nielsen.dep_mgr(), mems[idx].m_dep, eqs, dep_lits);
                 }
                 
