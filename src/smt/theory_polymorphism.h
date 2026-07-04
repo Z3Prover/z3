@@ -67,8 +67,18 @@ namespace smt {
         }
 
         final_check_status final_check_eh(unsigned) override {
-            if (m_inst.pending()) 
+            if (m_inst.pending()) {
+                // There are still polymorphic axioms to instantiate. Force the
+                // solver to fail under the theory assumption so that a new
+                // research round (see should_research) can assert the new
+                // instances. Assigning the negation of the (already true)
+                // assumption creates a conflict, so we must return FC_CONTINUE
+                // to let conflict resolution turn it into l_false; returning
+                // FC_DONE here would report l_true while the context is
+                // inconsistent, violating a core search invariant.
                 ctx.assign(~mk_literal(m_assumption), nullptr);
+                return FC_CONTINUE;
+            }
             return FC_DONE;
         }
 

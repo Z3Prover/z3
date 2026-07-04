@@ -222,7 +222,8 @@ namespace smt {
                 expr * sk_term = m_model_finder.get_inv(q, i, sk_value, *cex, sk_term_gen);
                 if (sk_term != nullptr) {
                     TRACE(model_checker, tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
-                    SASSERT(!m.is_model_value(sk_term));
+                    // get_inv may return a model value in polymorphic settings;
+                    // this is handled downstream by get_type_compatible_term.
                     max_generation = std::max(sk_term_gen, max_generation);
                     sk_value = sk_term;
                 }

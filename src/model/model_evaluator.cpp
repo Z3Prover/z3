@@ -404,7 +404,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
             polymorphism::substitution subst(m);
             polymorphism::util util(m);
             util.unify(f, m.poly_root(f), subst);
-            def = subst(def);
+            expr_ref d = subst(def);
+            m_pinned.push_back(d);
+            def = d;
             SASSERT(def != nullptr);
             
         }
