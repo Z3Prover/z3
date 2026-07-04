@@ -319,12 +319,28 @@ namespace opt {
             m_models.set(i, m_last_model.get());
 
         TRACE(opt, tout << "maximize " << i << " " << val << " " << m_objective_values[i] << " " << blocker << "\n";);
-        if (val > m_objective_values[i]) {
-            m_objective_values[i] = val;
-        }
+        //
+        // Do NOT commit 'val' to m_objective_values yet: 'val' is only an
+        // optimization hint from the arithmetic relaxation.  When the
+        // objective shares symbols with other theories (e.g. it occurs inside
+        // an uninterpreted function such as the auxiliary function used to
+        // encode large 'distinct' constraints) the hint can over-estimate the
+        // true optimum and may not be achievable by any model.  Committing it
+        // prematurely and then failing validation (check_bound below) would
+        // leave m_objective_values holding an unachievable bound that callers
+        // such as optsmt::geometric_lex report as the optimum, together with a
+        // model that does not attain it (issue #10028).  The value is only
+        // committed after it has been validated, or replaced by the value of
+        // an actual model in update_objective().
+        //
 
-        if (!m_last_model)
+        if (!m_last_model) {
+            // Without a model there is nothing to validate 'val' against; keep
+            // the previous behavior of adopting the (possibly infinite) hint.
+            if (val > m_objective_values[i])
+                m_objective_values[i] = val;
             return true;
+        }
 
         //
         // retrieve value of objective from current model and update 
