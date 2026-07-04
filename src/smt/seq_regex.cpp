@@ -510,9 +510,10 @@ namespace smt {
         expr *e = ctx.bool_var2expr(lit.var());
         VERIFY(str().is_in_re(e, s, r));
         expr_ref_vector prefix(m);
-        expr *hd, *v, *tl = s;
-        while (str().is_concat(tl, hd, tl) && str().is_unit(hd, v) && m.is_value(v)) 
-            prefix.push_back(v);        
+        expr *hd, *v, *tl = s, *tl1;
+        while (str().is_concat(tl, hd, tl1) && str().is_unit(hd, v) && m.is_value(v))
+            prefix.push_back(v),
+            tl = tl1;
 
         if (prefix.empty())
             return false;
