@@ -193,7 +193,7 @@ void test_ho_choice_expression() {
     Z3_del_context(ctx);
 }
 
-void test_optimize_recfun_minimize_no_canceled_error() {
+void test_minimize_recfun_regression() {
     char const* spec =
         "(declare-const bound Int)\n"
         "(declare-const a Int)\n"
@@ -349,7 +349,7 @@ void tst_smt2print_parse() {
     test_repeated_eval();
     test_ho_curried_application();
     test_ho_choice_expression();
-    test_optimize_recfun_minimize_no_canceled_error();
+    test_minimize_recfun_regression();
 
     test_symbol_escape();
 
