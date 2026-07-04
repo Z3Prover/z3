@@ -346,7 +346,8 @@ namespace smt {
             return false;
         TRACE(model_checker, tout << "skolems:\n" << sks << "\n";);
 
-        flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
+        flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
+        flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
         lbool r = m_aux_context->check();
         
         TRACE(model_checker, tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
@@ -363,7 +364,8 @@ namespace smt {
         unsigned num_new_instances = 0;
 
         while (true) {
-            flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
+            flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
+            flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
             lbool r = m_aux_context->check();
             TRACE(model_checker, tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
             if (r != l_true)
