@@ -356,6 +356,19 @@ expr_ref seq_split::try_derivative_split(expr* r, sort* seq_sort, obj_hashtable<
     return mk_fromre(unfolded);
 }
 
+// The complemented body `a` "starts with an unbounded loop" (R*.S / R+.S) when its
+// leftmost concat factor is a star or plus.  delta(~(R*.S)) regenerates R*.S (the
+// R* self-loops) and never collapses to a bare ~(R*), so the forward derivative
+// peel of such a complement does NOT terminate.  Route these through the De Morgan
+// rule instead (which sends R* to the star rule / Nielsen star-introduction).
+// Bounded loops (re.loop m m, e.g. the L15 counted-membership benchmarks) DO
+// terminate under the derivative and are intentionally NOT matched here.
+static bool complement_body_diverges(seq_util::rex& rex, expr* a) {
+    while (rex.is_concat(a) && to_app(a)->get_num_args() > 0)
+        a = to_app(a)->get_arg(0);            // descend to the leftmost factor
+    return rex.is_star(a) || rex.is_plus(a);
+}
+
 expr_ref seq_split::expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_memo) {
     ok = true;
     ++m_stats.m_sigma_expand;
@@ -508,10 +521,12 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok, obj_hashtable<expr>& deriv_
 
     // complement: sigma(~a).  Prefer the symbolic-derivative rule to avoid the De
     // Morgan 2^k blow-up: r = E(~a) | RE(LF(delta(~a))), peel one character and
-    // recurse.  Fall back to the De Morgan rule sigma(~a)=~sigma(a) at a
-    // complemented star ~(R*) or on a cyclic revisit (both keep it terminating).
+    // recurse.  Fall back to the De Morgan rule sigma(~a)=~sigma(a) when the body
+    // starts with an unbounded loop R*.S / R+.S (the derivative regenerates R*.S
+    // and diverges -- a termination flaw of the peel, see complement_body_diverges)
+    // or on a cyclic revisit (both keep it terminating).
     if (rex.is_complement(r, a)) {
-        if (!rex.is_star(a) && !rex.is_plus(a) && !deriv_memo.contains(r)) {
+        if (!complement_body_diverges(rex, a) && !deriv_memo.contains(r)) {
             expr_ref d = try_derivative_split(r, seq_sort, deriv_memo);
             if (d.get()) return d;
         }
