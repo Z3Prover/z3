@@ -67,17 +67,19 @@ struct split_set::iterator::imp {
             a_it(a_s.begin()), a_end(a_s.end()), 
             b_it(b_s.begin()), b_end(b_s.end()) {}
         bool at_end() const {
-            return (a_it == a_end && b_it == b_end) || a_it.failed() || b_it.failed();
+            return b_it == b_end || a_it == a_end || a_it.failed() || b_it.failed();
         }
         void next() {
             SASSERT(!at_end());
-            if (b_it != b_end)
-                ++b_it;
+            SASSERT(b_it != b_end);
+            ++b_it;
 
             if (b_it == b_end) {
                 ++a_it;
-                if (a_it != a_end)
+                if (a_it != a_end) {
                     b_it.m_imp->rewind();
+                    SASSERT(b_it != b_end);
+                }
             }
         }
         void consume() override {
