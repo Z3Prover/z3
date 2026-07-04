@@ -172,39 +172,22 @@ namespace smt {
         VERIFY(str().is_in_re(e, s, r));
 
         TRACE(seq_regex, tout << "propagate in RE: " << lit.sign() << " " << mk_pp(e, m) << std::endl;);
-        STRACE(seq_regex_brief, tout << "PIR(" << mk_pp(s, m) << ","
-                                       << state_str(r) << ") ";);
 
-        // convert negative negative membership literals to positive
-        // ~(s in R) => s in C(R)
-        if (lit.sign()) {
-            expr_ref fml(re().mk_in_re(s, re().mk_complement(r)), m);
-            rewrite(fml);
-            literal nlit = th.mk_literal(fml);
-            if (lit == nlit) {
-                // is-nullable doesn't simplify for regexes with uninterpreted subterms
-                th.add_unhandled_expr(fml);
-            }
-            th.propagate_lit(nullptr, 1, &lit, nlit);
+        if (unfold_complement(lit, s, r))
             return;
-        }
 
         if (unfold_prefix(lit, s, r)) {
-            TRACE(seq_regex, tout << "unfolded prefix" << std::endl;);
-            STRACE(seq_regex_brief, tout << "unfold_prefix ";);
+            TRACE(seq_regex, tout << "unfolded prefix\n");
             return;
         }
 
         if (is_string_equality(lit, s, r)) {
-            TRACE(seq_regex, tout
-                << "simplified regex using string equality" << std::endl;);
-            STRACE(seq_regex_brief, tout << "string_eq ";);
+            TRACE(seq_regex, tout << "simplified regex using string equality\n");
             return;
         }
 
         if (factor_ite(lit, s, r)) {
-            TRACE(seq_regex, tout << "factored ite in regex" << std::endl;);
-            STRACE(seq_regex_brief, tout << "factor_ite ";);
+            TRACE(seq_regex, tout << "factored ite in regex\n");
             return;
         }
 
@@ -502,6 +485,64 @@ namespace smt {
         return false;
     }
 
+    bool seq_regex::final_check() {
+
+        return true;
+
+        // sketch:
+        // 
+        // check registered seq_cont if more case splits are needed.
+        // check registered atomic regex membership for membership
+        // fallback to initialize_accept?
+
+        expr *x = nullptr, *r = nullptr;
+        bool done = true;
+        for (auto s : m_split_conts) {
+            if (s->failed())
+                ;
+            else if (s->next_split())
+                done = false;
+            else if (s->failed()) {
+                done = false;
+
+                expr *e = ctx.bool_var2expr(s->lit().var());
+                VERIFY(str().is_in_re(e, x, r));
+                initialize_accept(s->lit(), x, r);
+            }
+            else
+                ; // some split literal is true
+        }
+        obj_map<expr, ptr_vector<expr>> var2regex;
+        for (auto lit : m_atomic_memberships) {
+            expr *e = ctx.bool_var2expr(lit.var());
+            VERIFY(str().is_in_re(e, x, r));
+            var2regex.insert_if_not_there(x, ptr_vector<expr>()).push_back(r);
+        }
+        for (auto const &[x, regexes] : var2regex) {
+            // synthesize a solution within intersection of regexes.
+            // if intersection is empty, report conflict.
+            // add guardrails for solution satisfying current length assignment to x
+            // if solution does not satisfy length constraints initialize_accept instead of retaining atomic
+
+        }
+        return done;
+    }
+
+    bool seq_regex::unfold_complement(literal lit, expr *s, expr *r) {
+        if (!lit.sign())
+            return false;
+        // convert negative negative membership literals to positive
+        // ~(s in R) => s in C(R)
+        expr_ref fml(re().mk_in_re(s, re().mk_complement(r)), m);
+        rewrite(fml);
+        literal nlit = th.mk_literal(fml);
+        if (lit == nlit) {
+            // is-nullable doesn't simplify for regexes with uninterpreted subterms
+            th.add_unhandled_expr(fml);
+        }
+        th.propagate_lit(nullptr, 1, &lit, nlit);
+        return true;
+    }
     
     bool seq_regex::factor_ite(literal lit, expr* s, expr* r) {
         bool_rewriter br(m);

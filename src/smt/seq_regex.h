@@ -95,17 +95,8 @@ namespace smt {
     class seq_regex;
 
     class seq_regex {
-        // Data about a constraint of the form (str.in_re s R)
-        struct s_in_re {
-            literal m_lit;
-            expr*   m_s;
-            expr*   m_re;
-            bool    m_active;
-        s_in_re(literal l, expr* s, expr* r):
-            m_lit(l), m_s(s), m_re(r), m_active(true) {}
-        };
 
-            // a split continuation is a closure that contains a split set
+        // a split continuation is a closure that contains a split set
         // and in_re2 literals that were extracted from a partial split.
         // there are the following outcomes:
         // 1. it was not possible to split:failed()
@@ -129,13 +120,15 @@ namespace smt {
             split_cont(seq_regex &sr, split_set&& ss, literal lit, expr* u, expr* v, expr* r);
             bool failed() const;
             bool next_split();
+            literal lit() const { return m_lit; }            
         };
 
         theory_seq&                      th;
         context&                         ctx;
         ast_manager&                     m;
-        vector<s_in_re>                  m_s_in_re;
 
+        ptr_vector<split_cont> m_split_conts;  // split continuations
+        literal_vector m_atomic_memberships;   // str.in_re X r, where X is a variable
         /*
             state_graph for dead state detection, and associated methods
         */
@@ -178,6 +171,8 @@ namespace smt {
         bool block_unfolding(literal lit, unsigned i);
 
         bool unfold_prefix(literal lit, expr* s, expr* r);
+
+        bool unfold_complement(literal lit, expr *s, expr *r);
 
         bool factor_membership(literal lit, expr* s, expr* r);
 
@@ -227,9 +222,7 @@ namespace smt {
 
         seq_regex(theory_seq& th);
 
-        bool final_check() {
-            return true;
-        }
+        bool final_check();
 
         void propagate_in_re(literal lit);
 

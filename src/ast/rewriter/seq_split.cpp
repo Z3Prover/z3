@@ -210,9 +210,7 @@ struct split_set::iterator::imp {
         }
 
         void consume() override {
-            TRACE(seq, tout << "concat-start: " << mk_pp(a, parent().i.m) << " " << mk_pp(b, parent().i.m) << "\n");
             while (!parent().has_split() && !at_end() && !a_it.failed() && !b_it.failed()) {
-                TRACE(seq, tout << "concat: " << mk_pp(a, parent().i.m) << " " << mk_pp(b, parent().i.m) << "\n");
                 if (a_it == a_end) {
                     auto [p, q] = *b_it;
                     parent().push_split(parent().i.rw.mk_re_append(a, p), q);
