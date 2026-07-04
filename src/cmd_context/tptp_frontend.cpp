@@ -8,20 +8,21 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "util/error_codes.h"
+#include "util/rational.h"
+#include "util/timeout.h"
+#include "util/z3_exception.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
 #include "ast/polymorphism_util.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "solver/solver.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
-#include "smt/smt_solver.h"
-#include "solver/solver.h"
-#include "util/error_codes.h"
-#include "util/rational.h"
-#include "util/timeout.h"
-#include "util/z3_exception.h"
+
+
 
 bool g_display_statistics = false;
 bool g_display_model = false;
@@ -2796,16 +2797,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         p.parse_input(in, current_file ? current_file : ".");
         p.assert_distinct_objects();
 
-        // Polymorphic (TF1/TH1) problems are instantiated on demand by
-        // theory_polymorphism inside the smt core. The strategic solver's tactic
-        // preprocessing (e.g. unconstrained-subterm elimination) runs before the
-        // core and can discard a monomorphic instance that only occurs in the
-        // conjecture, severing it from its polymorphic axiom. Use the plain smt
-        // solver in that case so instantiation is not defeated by preprocessing.
-        if (ctx.m().has_type_vars())
-            ctx.set_solver_factory(mk_smt_solver_factory());
-        else
-            ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
 
         // Suppress default check-sat output; TPTP frontend reports SZS status explicitly.
         std::ostringstream sink;

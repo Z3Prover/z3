@@ -945,7 +945,7 @@ class elim_uncnstr_tactic : public tactic {
         collect_occs p;
         p(*g, m_vars);
         disable_quantified(g);
-        if (m_vars.empty() || recfun::util(m()).has_rec_defs()) {
+        if (m_vars.empty() || recfun::util(m()).has_rec_defs() || m().has_type_vars()) {
             result.push_back(g.get());
             // did not increase depth since it didn't do anything.
             return;

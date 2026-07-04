@@ -425,6 +425,8 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
 void elim_unconstrained::reduce() {
     if (!m_config.m_enabled)
         return;
+    if (m.has_type_vars())
+        return;
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "elim-unconstrained");
     m_inverter.set_model_converter(mc.get());
     m_created_compound = true;
