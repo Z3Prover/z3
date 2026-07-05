@@ -361,6 +361,21 @@ namespace opt {
         // 
         auto check_bound = [&]() {
             SASSERT(has_shared);
+            //
+            // A strict (open) optimum is represented with a non-zero
+            // infinitesimal, e.g. the supremum of 'x' subject to 'x < c' is
+            // 'c - epsilon'.  Such a bound cannot be re-validated here:
+            // mk_ge() drops the infinitesimal when constructing the bound
+            // literal (an infinitesimal is not expressible as an arithmetic
+            // atom), so 'x >= c - epsilon' is turned into the strictly
+            // stronger 'x >= c', which is unsatisfiable together with the
+            // original 'x < c' and makes this check spuriously fail.  The
+            // infinitesimal value is the exact optimum of the arithmetic
+            // relaxation, so trust it rather than discarding it in favour of
+            // an arbitrary interior model point.
+            //
+            if (!val.get_infinitesimal().is_zero())
+                return true;
             return bound_value(i, val) && l_true == m_context.check(0, nullptr);
         };
 
