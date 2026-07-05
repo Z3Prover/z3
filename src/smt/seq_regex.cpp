@@ -444,8 +444,6 @@ namespace smt {
         // Final check also unfolds this axiomatization
         // (we have to add a final check to seq_regex for this).
 
-
-
         unsigned threshold = th.get_fparams().m_seq_regex_factorization_threshold;
         expr_ref_vector prefix(m);
         expr *hd, *tl, *v;
@@ -477,8 +475,7 @@ namespace smt {
             }
             if (!result.failed()) {
                 const expr_ref cases_expr(m.mk_or(cases), m);
-                ctx.internalize(cases_expr, false);
-                th.propagate_lit(nullptr, 1, &lit, ctx.get_literal(cases_expr));
+                th.propagate_lit(nullptr, 1, &lit, th.mk_literal(cases_expr));
                 return true;
             }
         }

@@ -458,7 +458,7 @@ struct split_set::iterator::imp {
         // where r{lo_i,hi_i} folds the tail counts j-i-1, over every remaining
         // j in [l,h] with j > i, into a single loop [<eps,eps> when l == 0]
         unsigned l, h;
-        if (re.is_loop(r, a, l, h)) {
+        if (false && re.is_loop(r, a, l, h)) {
             if (l == 0) {
                 auto eps = mk_eps();
                 push_split(eps, eps);
