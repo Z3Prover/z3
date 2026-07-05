@@ -14,6 +14,7 @@
 #include "util/z3_exception.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/decl_collector.h"
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
 #include "ast/polymorphism_util.h"
@@ -2927,6 +2928,25 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         p.assert_distinct_objects();
 
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+
+        // Optional: dump the parsed goal as an SMT-LIB2 benchmark (env Z3_TPTP_DUMP_SMT2
+        // gives the output file path). Used to produce SMTLIB versions of TPTP instances.
+        if (char const* dump_path = getenv("Z3_TPTP_DUMP_SMT2")) {
+            std::ofstream dout(dump_path);
+            if (dout) {
+                ast_manager& m = ctx.m();
+                dout << "; Auto-generated from TPTP input: "
+                     << (current_file ? current_file : "?") << "\n";
+                dout << "(set-logic ALL)\n";
+                decl_collector decls(m);
+                for (expr* a : ctx.assertions())
+                    decls.visit(a);
+                for (sort* s : decls.get_sorts())
+                    if (m.is_uninterp(s) && s->get_num_parameters() == 0)
+                        dout << "(declare-sort " << s->get_name() << " 0)\n";
+                ctx.display_smt2_benchmark(dout, ctx.assertions().size(), ctx.assertions().data());
+            }
+        }
 
         // Suppress default check-sat output; TPTP frontend reports SZS status explicitly.
         std::ostringstream sink;
