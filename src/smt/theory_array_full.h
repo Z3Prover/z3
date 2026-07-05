@@ -92,6 +92,7 @@ namespace smt {
         enode_vector m_as_array;
         enode_vector m_lambdas;
         bool has_non_beta_as_array();
+        bool is_congruent_eq(enode* p);
 
         bool instantiate_select_const_axiom(enode* select, enode* cnst);
         bool instantiate_select_as_array_axiom(enode* select, enode* arr);
