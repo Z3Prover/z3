@@ -358,9 +358,25 @@ namespace opt {
 
         // 
         // check that "val" obtained from optimization hint is a valid bound.
+        //
+        // A hint with a non-zero infinitesimal denotes an *open* (strict)
+        // optimum: the objective approaches "val" but no concrete model attains
+        // it (e.g. minimizing a real x subject to x > 0, whose infimum is the
+        // unattained 0, reported as "epsilon").  check_bound validates a hint by
+        // asserting the objective is >= val (mk_ge) and searching for a model
+        // that reaches it, but mk_ge cannot faithfully encode the infinitesimal
+        // (a negative infinitesimal is dropped, a positive one becomes a strict
+        // bound), so this search always fails spuriously for an open optimum.
+        // In that case the arithmetic relaxation value is exact, so accept the
+        // hint rather than discarding the true optimum and falling back to an
+        // attainable - and therefore strictly worse - model value (issue #5314).
+        // Hints without an infinitesimal (such as the integer objective of
+        // #10028) are still validated normally, preserving that fix.
         // 
         auto check_bound = [&]() {
             SASSERT(has_shared);
+            if (!val.get_infinitesimal().is_zero())
+                return true;
             return bound_value(i, val) && l_true == m_context.check(0, nullptr);
         };
 
