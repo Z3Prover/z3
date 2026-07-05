@@ -256,8 +256,13 @@ namespace opt {
                 // the value of an actual model, so replace the blocker with a
                 // model-derived tightening so the search keeps making progress
                 // toward the true optimum instead of terminating prematurely
-                // (issue #10028).
-                if (!bound_valid || delta_per_step > rational::one() || (obj == last_objective && is_int)) {
+                // (issue #10028).  This only applies to integer objectives: for
+                // real objectives the optimum may be an open infimum/supremum
+                // that no model attains, so 'bound' correctly holds the LP
+                // blocker for that strict optimum and switching to coarse +1
+                // stepping (delta_per_step is pinned to 1 for reals) would fail
+                // to converge over a large range.
+                if ((!bound_valid && is_int) || delta_per_step > rational::one() || (obj == last_objective && is_int)) {
                     m_s->push();
                     ++num_scopes;
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));

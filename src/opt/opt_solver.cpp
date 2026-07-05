@@ -320,19 +320,31 @@ namespace opt {
 
         TRACE(opt, tout << "maximize " << i << " " << val << " " << m_objective_values[i] << " " << blocker << "\n";);
         //
-        // Do NOT commit 'val' to m_objective_values yet: 'val' is only an
-        // optimization hint from the arithmetic relaxation.  When the
-        // objective shares symbols with other theories (e.g. it occurs inside
-        // an uninterpreted function such as the auxiliary function used to
-        // encode large 'distinct' constraints) the hint can over-estimate the
-        // true optimum and may not be achievable by any model.  Committing it
-        // prematurely and then failing validation (check_bound below) would
+        // Do NOT commit 'val' to m_objective_values yet for INTEGER objectives:
+        // 'val' is only an optimization hint from the arithmetic relaxation.
+        // When the objective shares symbols with other theories (e.g. it occurs
+        // inside an uninterpreted function such as the auxiliary function used
+        // to encode large 'distinct' constraints) the hint can over-estimate
+        // the true optimum and may not be achievable by any model.  Committing
+        // it prematurely and then failing validation (check_bound below) would
         // leave m_objective_values holding an unachievable bound that callers
         // such as optsmt::geometric_lex report as the optimum, together with a
         // model that does not attain it (issue #10028).  The value is only
         // committed after it has been validated, or replaced by the value of
         // an actual model in update_objective().
         //
+        // Real-valued objectives are different: their optimum can be an open
+        // infimum/supremum (a strict inequality) that no model attains, so the
+        // validation below legitimately fails even though 'val' is the correct
+        // optimum.  Deferring the commit there would make saved_objective_value()
+        // report a suboptimal model value and make geometric_lex fall back to
+        // coarse +1 stepping over a possibly huge range (timeout).  Restore the
+        // pre-#10028 behavior for reals by committing the hint eagerly; only
+        // integer objectives use the deferred, validated commit.
+        //
+        bool is_int_obj = arith_util(m).is_int(m_objective_terms.get(i));
+        if (!is_int_obj && val > m_objective_values[i])
+            m_objective_values[i] = val;
 
         if (!m_model) {
             // Without a model there is nothing to validate 'val' against; keep
