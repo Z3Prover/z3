@@ -267,7 +267,7 @@ private:
     unsigned         m_dio_calls_period = 4;
     unsigned         m_dio_calls_period_decrease = 2;
     bool             m_dio_run_gcd = true;
-    bool             m_random_hammers = true;
+    bool             m_random_hammers = false;
     bool             m_lcube = true;
     unsigned         m_lcube_flips = 16;
 public:

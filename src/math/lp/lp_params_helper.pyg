@@ -14,6 +14,6 @@ def_module_params(module_name='lp',
                           ('lcube', BOOL, True, 'use the largest cube test for integer feasibility'),
                           ('lcube_flips', UINT, 16, 'maximal number of coordinate flips when repairing the rounded largest cube center, only relevant when lcube is true'),
                           ('int_hammer_period', UINT, 4, 'period (in final_check calls) for the integer cut/cube heuristics (find_cube, hnf, gomory); a smaller value calls them more often'),
-                          ('random_hammers', BOOL, True, 'draw the periodic integer heuristic gates (find_cube, lcube, hnf, gomory, dio) at random with the same 1/period rate instead of a deterministic every-k-th-call modulus'),
+                          ('random_hammers', BOOL, False, 'draw the periodic integer heuristic gates (find_cube, lcube, hnf, gomory, dio) at random with the same 1/period rate instead of a deterministic every-k-th-call modulus'),
                          ))
                          
