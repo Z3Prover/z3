@@ -21,6 +21,7 @@ Author:
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_monadic.h"
 #include "ast/rewriter/seq_axioms.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
@@ -50,6 +51,12 @@ namespace smt {
         seq::axioms m_axioms;
         seq::seq_regex     m_regex;   // regex membership pre-processing
         seq_model     m_model;   // model construction helper
+        seq_monadic   m_monadic; // whole-language monadic-decomposition solver (diagnostic)
+
+        // Diagnostic (verbosity>=1 only, log-only): run the whole-language monadic
+        // decomposition solver on the collected memberships and log its sat/unsat
+        // verdict.  Does NOT affect the solver's answer.
+        void run_monadic_diagnostic();
 
         // propagation queue items (variant over the distinct propagation cases)
         using eq_item   = tracked_str_eq;    // string equality

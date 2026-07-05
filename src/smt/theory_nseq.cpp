@@ -23,6 +23,7 @@ Author:
 #include "util/trail.h"
 
 #include <stack>
+#include <chrono>
 
 namespace smt {
 
@@ -41,6 +42,7 @@ namespace smt {
         m_axioms(m_th_rewriter),
         m_regex(m_sg),
         m_model(m, ctx, m_seq, m_rewriter, m_sg),
+        m_monadic(m_rewriter),
         m_relevant_lengths(m)
     {
         std::function<void(expr_ref_vector const&)> add_clause =
@@ -888,6 +890,68 @@ namespace smt {
             << num_eqs << " eqs, " << num_mems << " mems\n";);
     }
 
+    // Diagnostic (log-only): run the whole-language monadic decomposition on the
+    // collected memberships and log its verdict.  Invoked under verbosity>=1 only;
+    // never changes the solver's answer.
+    void theory_nseq::run_monadic_diagnostic() {
+        obj_map<expr, expr*> var_extra;
+        expr_ref_vector pin(m);
+        auto is_var = [&](expr* t) {
+            return is_app(t) && to_app(t)->get_num_args() == 0 &&
+                   to_app(t)->get_family_id() == null_family_id;
+        };
+        // pass 1: per-variable base memberships (x in R) -> extra constraint on x
+        for (auto const& item : m_prop_queue) {
+            if (!std::holds_alternative<mem_item>(item)) continue;
+            auto const& mem = std::get<mem_item>(item);
+            if (!mem.m_str || !mem.m_regex) continue;
+            expr* t = mem.m_str->get_expr();
+            expr* R = mem.m_regex->get_expr();
+            if (!t || !R || !is_var(t)) continue;
+            expr* prev = nullptr;
+            if (var_extra.find(t, prev)) {
+                expr_ref in = m_rewriter.mk_regex_inter_normalize(prev, R);
+                pin.push_back(in);
+                var_extra.insert(t, in);
+            }
+            else
+                var_extra.insert(t, R);
+        }
+        // pass 2: group compound-term memberships by term and intersect their regexes
+        // (a term may carry several memberships that must all hold), then solve once.
+        obj_map<expr, expr*> term_re;
+        ptr_vector<expr> terms;
+        for (auto const& item : m_prop_queue) {
+            if (!std::holds_alternative<mem_item>(item)) continue;
+            auto const& mem = std::get<mem_item>(item);
+            if (!mem.m_str || !mem.m_regex) continue;
+            expr* t = mem.m_str->get_expr();
+            expr* R = mem.m_regex->get_expr();
+            if (!t || !R || !m_seq.str.is_concat(t)) continue;
+            expr* prev = nullptr;
+            if (term_re.find(t, prev)) {
+                expr_ref in = m_rewriter.mk_regex_inter_normalize(prev, R);
+                pin.push_back(in);
+                term_re.insert(t, in);
+            }
+            else {
+                term_re.insert(t, R);
+                terms.push_back(t);
+            }
+        }
+        for (expr* t : terms) {
+            expr* R = nullptr;
+            term_re.find(t, R);
+            auto t0 = std::chrono::high_resolution_clock::now();
+            lbool v = m_monadic.solve(t, R, var_extra);
+            double ms = std::chrono::duration<double, std::milli>(
+                std::chrono::high_resolution_clock::now() - t0).count();
+            verbose_stream() << "MONADIC-VERDICT "
+                             << (v == l_true ? "sat" : v == l_false ? "unsat" : "undef")
+                             << " time-ms " << ms << "\n";
+        }
+    }
+
     final_check_status theory_nseq::final_check_eh(unsigned /*final_check_round*/) {
         try {
             // Always assert non-negativity for all string theory vars,
@@ -901,6 +965,11 @@ namespace smt {
             bool has_eq_or_diseq_or_mem = any_of(m_prop_queue, [](auto const &item) {
                 return std::holds_alternative<eq_item>(item) || std::holds_alternative<deq_item>(item) || std::holds_alternative<mem_item>(item);
             });
+
+            // Diagnostic (verbosity>=1, log-only): whole-language monadic verdict on the
+            // collected memberships.  Placed before the early-exit / hot-restart / rebuild
+            // branches so it is exercised on as many membership benchmarks as possible.
+            IF_VERBOSE(1, run_monadic_diagnostic(););
 
             // there is nothing to do for the string solver, as there are no string constraints
             if (!has_eq_or_diseq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
