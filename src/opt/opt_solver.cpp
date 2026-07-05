@@ -343,6 +343,24 @@ namespace opt {
         }
 
         //
+        // A finite hint with a non-zero infinitesimal is a strict
+        // supremum/infimum (e.g. maximizing r subject to r < 1 yields
+        // 1 - epsilon).  No concrete model can attain such a value, and
+        // check_bound() below cannot validate it either: opt_solver::mk_ge
+        // drops the negative infinitesimal, turning the bound r >= 1 - epsilon
+        // into the unsatisfiable r >= 1.  Commit it eagerly here so that it is
+        // neither overwritten by the strictly smaller current model value in
+        // update_objective() nor lost when validation fails and this routine
+        // returns false (callers such as optsmt::geometric_lex then report
+        // m_objective_values as the optimum).  This restores the pre-#10028
+        // behavior for strict optima while leaving the plain-rational
+        // (zero-infinitesimal) over-estimates that #10028 fixed to the
+        // deferred-commit logic below.
+        //
+        if (val.is_finite() && !val.get_infinitesimal().is_zero() && val > m_objective_values[i])
+            m_objective_values[i] = val;
+
+        //
         // retrieve value of objective from current model and update 
         // current optimal.
         // 
