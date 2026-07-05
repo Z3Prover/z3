@@ -38,8 +38,14 @@ Revision History:
 #include "smt/smt_model_finder.h"
 #include "smt/smt_context.h"
 #include "tactic/tactic_exception.h"
+#include "util/statistics.h"
 
 namespace smt {
+
+    // Instrumentation: counts terms produced by ho_var term-enumeration
+    // (mf::ho_var::populate_inst_sets). One increment per enumerated term
+    // inserted into an instantiation set. Reset per model_finder instance.
+    static unsigned g_ho_var_term_enum = 0;
 
     namespace mf {
 
@@ -1447,6 +1453,7 @@ namespace smt {
                     unsigned generation = 0; // todo - inherited from sub-term of t?
                     TRACE(model_finder, tout << "ho_var: adding term " << mk_ismt2_pp(t, m)
                                                    << " to instantiation set of S" << std::endl;);
+                    ++g_ho_var_term_enum;
                     S->insert(t, generation);                
                 }
             }
@@ -2408,10 +2415,15 @@ namespace smt {
         m_auf_solver(alloc(auf_solver, m)),
         m_dependencies(m),
         m_new_constraints(m) {
+        g_ho_var_term_enum = 0;
     }
 
     model_finder::~model_finder() {
         reset();
+    }
+
+    void model_finder::collect_statistics(::statistics & st) const {
+        st.update("ho-var term-enum", g_ho_var_term_enum);
     }
 
     void model_finder::checkpoint() {

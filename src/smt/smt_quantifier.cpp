@@ -28,6 +28,7 @@ Revision History:
 #include "smt/smt_quick_checker.h"
 #include "smt/mam.h"
 #include "smt/qi_queue.h"
+#include "util/statistics.h"
 #include "util/obj_hashtable.h"
 
 namespace smt {
@@ -580,6 +581,7 @@ namespace smt {
 
     void quantifier_manager::collect_statistics(::statistics & st) const {
         m_imp->m_qi_queue.collect_statistics(st);
+        m_imp->m_plugin->collect_statistics(st);
     }
 
     void quantifier_manager::reset_statistics() {
@@ -627,6 +629,8 @@ namespace smt {
             vector<std::tuple<enode*, enode*>>* m_used_enodes = nullptr;
         };
         ho_match_state m_ho_state;
+        unsigned       m_stat_ho_refine = 0;    // number of times ho-matching refinement is invoked
+        unsigned       m_stat_ho_instances = 0; // number of instances added via ho-matching
     public:
         default_qm_plugin():
             m_qm(nullptr),
@@ -721,6 +725,7 @@ namespace smt {
             vector<std::tuple<enode*, enode*>> used_enodes;
             m_context->add_instance(q, nullptr, new_bindings.size(), new_bindings.data(),
                                     max_gen, st.m_min_top_generation, st.m_max_top_generation, used_enodes);
+            ++m_stat_ho_instances;
         }
 
         bool try_ho_refine(quantifier* qa, app* pat, unsigned num_bindings, enode* const* bindings,
@@ -751,10 +756,20 @@ namespace smt {
                     verbose_stream() << "  s[" << i << "] = " << mk_pp(s.get(i), m) << " sort=" << mk_pp(s.get(i)->get_sort(), m) << "\n";);
 
             m_ho_matcher->refine_ho_match(pat, s);
+            ++m_stat_ho_refine;
             return true;
         }
 
         bool model_based() const override { return m_fparams->m_mbqi; }
+
+        void collect_statistics(::statistics & st) const override {
+            if (m_fparams->m_ho_matching) {
+                st.update("ho-matching refinements", m_stat_ho_refine);
+                st.update("ho-matching instances", m_stat_ho_instances);
+            }
+            if (m_model_finder)
+                m_model_finder->collect_statistics(st);
+        }
 
         bool mbqi_enabled(quantifier *q) const override {
             if (!m_fparams->m_mbqi_id) return true;
