@@ -42,9 +42,7 @@ bool smaller_pattern::process(expr * p1, expr * p2) {
     m_cache.reset();
     save(p1, p2);
     while (!m_todo.empty()) {
-        expr_pair & curr = m_todo.back();
-        p1 = curr.first;
-        p2 = curr.second;
+        auto [p1, p2] = m_todo.back();
         m_todo.pop_back();
         ast_kind k1 = p1->get_kind();
         if (k1 != AST_VAR && k1 != p2->get_kind())
@@ -126,9 +124,7 @@ void pattern_inference_cfg::collect::operator()(expr * n, unsigned num_bindings)
     m_num_bindings = num_bindings;
     m_todo.push_back(entry(n, 0));
     while (!m_todo.empty()) {
-        entry & e      = m_todo.back();
-        n              = e.m_node;
-        unsigned delta = e.m_delta;
+        entry [n, delta] = m_todo.back();
         TRACE(collect, tout << "processing: " << n->get_id() << " " << delta << " kind: " << n->get_kind() << "\n";);
         TRACE(collect_info, tout << mk_pp(n, m) << "\n";);
         if (visit_children(n, delta)) {
@@ -264,11 +260,24 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
             return;
         }
         // The lambda/quantifier itself is a valid sub-term in a pattern.
-        // Propagate the free variables from the body (they already refer
-        // to the outer quantifier's bindings) and keep the node as-is.
-        expr * new_body = body_info->m_node.get();
+        // body_info->m_node was normalized into the *outer* quantifier's de
+        // Bruijn space (the enclosing binders, including this lambda's own
+        // num_decls binders, were stripped). Re-wrapping it under the lambda
+        // therefore requires shifting the (outer) free variables back up by
+        // num_decls so they do not collide with the lambda's bound variables.
+        // The lambda's own bound variables never occur in body_info (any
+        // sub-term referring to them was rejected as a candidate), so the
+        // shift is always sound.
+        expr * body = body_info->m_node.get();
+        expr_ref new_body(m);
+        if (num_decls > 0) {
+            var_shifter shift(m);
+            shift(body, num_decls, new_body);
+        }
+        else
+            new_body = body;
         quantifier_ref new_q(m);
-        if (new_body != q->get_expr())
+        if (new_body.get() != q->get_expr())
             new_q = m.update_quantifier(q, new_body);
         else
             new_q = q;

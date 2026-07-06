@@ -50,10 +50,12 @@ struct well_sorted_proc {
         if (!is_lambda(n) && !m.is_bool(n->get_expr())) {
             warning_msg("quantifier's body must be a boolean.");
             m_error = true;
-            // UNREACHABLE();
         }
+
         unsigned sz = m_binding.size();
         m_binding.append(n->get_num_decls(), n->get_decl_sorts());
+        for (unsigned i = 0; i < n->get_num_patterns(); i++) 
+            check(n->get_pattern(i));        
         check(n->get_expr());
         m_binding.shrink(sz);
     }
