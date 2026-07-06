@@ -400,6 +400,13 @@ namespace euf {
 
         void refine_ho_match(app* p, expr_ref_vector& s);
 
+        // Returns true iff applying the substitution s to t (with the given
+        // variable ordering) is sort-safe: every free variable of t that is
+        // bound by s maps to a value of the same sort. Used to defensively
+        // skip higher-order matches whose bindings would produce ill-typed
+        // instantiation terms (which would otherwise abort the whole solve).
+        static bool subst_sorts_match(ast_manager& m, expr* t, expr_ref_vector const& s, bool std_order);
+
         bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
 
         quantifier* hoq2q(quantifier* q) const { return m_hoq2q[q]; }

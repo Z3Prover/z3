@@ -421,6 +421,16 @@ namespace euf {
                 // H (p1) (p2) = f(t1, .., tn)
                 // H -> \x1 \x2 f(H1(x1, x2), .., Hn(x1, x2))
                 // H1(p1, p2) = t1, .., Hn(p1, p2) = tn
+                //
+                // The select chain `pats` was collected from the outermost
+                // select down to the flex head, i.e. in reverse order of
+                // application. The imitating lambda must curry the arguments in
+                // application order (the first-applied select binds the
+                // outermost lambda), so process the applications inner-to-outer.
+                // Without this the constructed lambda has the argument arities
+                // in the wrong nesting order and its sort disagrees with the
+                // flex head variable (producing an ill-typed binding).
+                pats.reverse();
                 ptr_vector<sort> domain, pat_domain;
                 ptr_vector<expr> pat_args;
                 expr_ref_vector args(m), pat_vars(m), bound_args(m);
@@ -825,6 +835,16 @@ namespace euf {
 
         unsigned num_bound = 0, level = 0;
         for (auto [v, pat] : m_pat2abs[fo_pat]) {
+            // Defensive: if the abstraction-variable indices in the stored
+            // pattern do not line up (sort-wise) with the current substitution,
+            // building the refined term would be ill-typed and abort the solve.
+            // Skip the whole refinement; a missed heuristic instance is sound.
+            if (!subst_sorts_match(m, pat, s, true)) {
+                m_trail.pop_scope(1);
+                return;
+            }
+        }
+        for (auto [v, pat] : m_pat2abs[fo_pat]) {
             var_subst sub(m, true);
             auto pat_refined = sub(pat, s);
             TRACE(ho_matching, tout << mk_pp(pat, m) << " -> " << pat_refined << "\n");
@@ -833,6 +853,41 @@ namespace euf {
 
         search();
         m_trail.pop_scope(1);
+    }
+
+    bool ho_matcher::subst_sorts_match(ast_manager& m, expr* t, expr_ref_vector const& s, bool std_order) {
+        unsigned sz = s.size();
+        ptr_buffer<expr> es;
+        svector<unsigned> offs;
+        es.push_back(t);
+        offs.push_back(0);
+        while (!es.empty()) {
+            expr* e = es.back(); es.pop_back();
+            unsigned off = offs.back(); offs.pop_back();
+            if (is_var(e)) {
+                unsigned idx = to_var(e)->get_idx();
+                if (idx < off)
+                    continue;
+                unsigned k = idx - off;
+                if (k >= sz)
+                    continue;
+                expr* r = std_order ? s.get(sz - k - 1) : s.get(k);
+                if (r && r->get_sort() != e->get_sort())
+                    return false;
+            }
+            else if (is_app(e)) {
+                for (expr* arg : *to_app(e)) {
+                    es.push_back(arg);
+                    offs.push_back(off);
+                }
+            }
+            else if (is_quantifier(e)) {
+                quantifier* q = to_quantifier(e);
+                es.push_back(q->get_expr());
+                offs.push_back(off + q->get_num_decls());
+            }
+        }
+        return true;
     }
 
     std::ostream& ho_matcher::display(std::ostream& out) const {

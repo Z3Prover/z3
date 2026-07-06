@@ -668,6 +668,21 @@ namespace smt {
 
         void on_ho_match(euf::ho_subst& s) {
             ast_manager& m = m_context->get_manager();
+            try {
+                on_ho_match_core(s);
+            }
+            catch (z3_exception &) {
+                // A higher-order binding produced an ill-typed or otherwise
+                // unusable instantiation term. Adding a heuristic HO instance is
+                // optional, so we skip this match rather than aborting the solve.
+                // Re-raise only if the failure was due to cancellation/resource limits.
+                if (!m.inc())
+                    throw;
+            }
+        }
+
+        void on_ho_match_core(euf::ho_subst& s) {
+            ast_manager& m = m_context->get_manager();
             auto& st = m_ho_state;
             auto* hoq = st.m_q;
             auto* q = m_ho_matcher->hoq2q(hoq);
@@ -684,12 +699,20 @@ namespace smt {
                                     << "\n"
                                     << binding << "\n";);
             if (binding.size() > q->get_num_decls()) {
-                var_subst sub(m);
+                // binding is indexed directly (binding[k] = value for var k),
+                // so the substitution must use direct (non-standard) order to
+                // resolve chained HO variable references; the sort guard below
+                // is checked with the matching order.
+                var_subst sub(m, false);
                 bool change = true;
                 while (change) {
                     change = false;
                     for (unsigned i = 1; i < binding.size(); ++i) {
                         if (!binding.get(i)) continue;
+                        // Skip ill-typed substitutions: a misaligned higher-order
+                        // binding would build an ill-sorted term and abort the solve.
+                        if (!euf::ho_matcher::subst_sorts_match(m, binding.get(i), binding, false))
+                            return;
                         auto r = sub(binding.get(i), binding);
                         change |= r != binding.get(i);
                         binding[i] = r;
@@ -708,6 +731,11 @@ namespace smt {
             for (expr* e : binding) {
                 if (!e)
                     return; // incomplete binding
+                // A leftover free (de Bruijn) variable means the binding is
+                // incomplete/misaligned; adding such a term would raise
+                // "Formulas should not contain unbound variables". Skip it.
+                if (!is_ground(e))
+                    return;
                 if (!m_context->e_internalized(e)) {
                     m_context->internalize(e, false);
                 }
