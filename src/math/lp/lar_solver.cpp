@@ -63,6 +63,7 @@ namespace lp {
         unsigned_vector m_row_bounds_to_replay;
         u_dependency_manager m_dependencies;
         svector<constraint_index> m_tmp_dependencies;
+        ptr_vector<u_dependency>  m_tmp_witnesses;
 
         u_dependency* m_crossed_bounds_deps = nullptr;
         lpvar m_crossed_bounds_column = null_lpvar;
@@ -1128,6 +1129,32 @@ namespace lp {
         const column& ul = m_imp->m_columns[j];
         m_imp->m_tmp_dependencies.reset();
         m_imp->m_dependencies.linearize(ul.lower_bound_witness(), ul.upper_bound_witness(), m_imp->m_tmp_dependencies);
+        for (auto ci : m_imp->m_tmp_dependencies)
+            ex.push_back(ci);
+    }
+
+    // Linearize the bound witnesses of all fixed columns in the row together, so the
+    // mark bits walk each dependency sub-DAG shared between columns only once.
+    // When lp.batch_explain_fixed_in_row is disabled, fall back to explaining each
+    // fixed column independently (the pre-batching behavior).
+    void lar_solver::explain_fixed_in_row(unsigned row, explanation& ex) {
+        if (!settings().batch_explain_fixed_in_row()) {
+            for (auto const& c : get_row(row))
+                if (column_is_fixed(c.var()))
+                    explain_fixed_column(c.var(), ex);
+            return;
+        }
+        auto& witnesses = m_imp->m_tmp_witnesses;
+        witnesses.reset();
+        for (auto const& c : get_row(row)) {
+            if (!column_is_fixed(c.var()))
+                continue;
+            const column& ul = m_imp->m_columns[c.var()];
+            witnesses.push_back(ul.lower_bound_witness());
+            witnesses.push_back(ul.upper_bound_witness());
+        }
+        m_imp->m_tmp_dependencies.reset();
+        m_imp->m_dependencies.linearize(witnesses, m_imp->m_tmp_dependencies);
         for (auto ci : m_imp->m_tmp_dependencies)
             ex.push_back(ci);
     }
