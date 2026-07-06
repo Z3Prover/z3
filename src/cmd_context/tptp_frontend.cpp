@@ -18,6 +18,7 @@
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
 #include "ast/polymorphism_util.h"
+#include "ast/well_sorted.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "solver/solver.h"
 #include "cmd_context/cmd_context.h"
@@ -2461,6 +2462,7 @@ class tptp_parser {
                     m_has_conjecture = true;
                     f = m.mk_not(f);
                 }
+                SASSERT(is_well_sorted(m, f));
                 m_cmd.assert_expr(f);
             } catch (z3_exception const& ex) {
                 // Sort mismatch or other semantic error in this formula — skip it.

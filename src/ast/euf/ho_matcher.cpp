@@ -43,6 +43,7 @@ Author:
 --*/
 
 #include "ast/euf/ho_matcher.h"
+#include "ast/well_sorted.h"
 
 
 
@@ -373,6 +374,9 @@ namespace euf {
                 pats.push_back(to_app(p1));
                 p1 = to_app(p1)->get_arg(0);
             }
+            // innermost select is a meta variable, 
+            // order patterns from inner-most application to outer-most.
+            pats.reverse();
             auto v = to_var(p1);
             if (wi.is_init())
                 wi.set_project();
@@ -430,32 +434,44 @@ namespace euf {
                 // Without this the constructed lambda has the argument arities
                 // in the wrong nesting order and its sort disagrees with the
                 // flex head variable (producing an ill-typed binding).
-                pats.reverse();
+
                 ptr_vector<sort> domain, pat_domain;
                 ptr_vector<expr> pat_args;
+                svector<unsigned> pat_pos;   // forward binder position (in domain) of each distinct index
                 expr_ref_vector args(m), pat_vars(m), bound_args(m);
                 vector<symbol> names;
                 pat_args.push_back(nullptr);
                 pat_vars.push_back(nullptr);
+                pat_pos.push_back(0);        // placeholder for the flex-head slot 0
                 unsigned num_bound = 0;
                 expr_mark seen;
                 for (auto pat : pats) {
                     for (auto pi : array_select_indices(pat)) {
+                        if (!seen.is_marked(pi)) {
+                            pat_domain.push_back(pi->get_sort());
+                            pat_args.push_back(pi);
+                            pat_pos.push_back(num_bound);
+                            seen.mark(pi);
+                        }
                         ++num_bound;
                         domain.push_back(pi->get_sort());
                         names.push_back(symbol(num_bound));
-                        if (seen.is_marked(pi))
-                            continue;
-                        pat_domain.push_back(pi->get_sort());
-                        pat_args.push_back(pi); 
-                        seen.mark(pi);
                     }
                 }
 
-                for (unsigned i = pat_args.size(); i-- > 1; ) {
-                    auto pi = pat_args.get(i);
-                    pat_vars.push_back(m.mk_var(pat_args.size() - i - 1, pi->get_sort()));
-                }                        
+                // pat_vars[k] references the lambda binder for the k-th distinct
+                // index and must carry that index' sort, so the reconstructed
+                // select stays aligned with the flex head's array domain
+                // (pat_domain). The binder at forward position p has de Bruijn
+                // index num_bound-1-p (the outermost binder has the highest
+                // index). Emitting in forward slot order keeps the select
+                // arguments in the same order as pat_domain even when the
+                // indices have heterogeneous sorts (otherwise the array plugin
+                // rejects the ill-ordered select).
+                for (unsigned k = 1; k < pat_args.size(); ++k) {
+                    unsigned db = num_bound - 1 - pat_pos[k];
+                    pat_vars.push_back(m.mk_var(db, pat_args.get(k)->get_sort()));
+                }
 
                 for (auto ti : *ta) {
                     sort* v_sort = m_array.mk_array_sort(pat_domain.size(), pat_domain.data(), ti->get_sort());
@@ -463,7 +479,8 @@ namespace euf {
                     auto w = m.mk_var(m_subst.size() + wi.pat_offset() + num_bound, v_sort); // shifted by number of bound
                     m_subst.resize(m_subst.size() + 1);
                     pat_args[0] = v;
-                    auto sel = m_array.mk_select(pat_args.size(), pat_args.data());
+                    expr_ref sel(m);
+                    sel = m_array.mk_select(pat_args.size(), pat_args.data());
                     m_goals.push(wi.level + 1, wi.term_offset(), sel, ti);
                     pat_vars[0] = w;
                     sel = m_array.mk_select(pat_vars.size(), pat_vars.data());
@@ -479,6 +496,7 @@ namespace euf {
                     num_bound -= sz;
                     lam = m.mk_lambda(sz, domain.data() + num_bound, names.data() + num_bound, lam);
                 }
+
                 add_binding(v, wi.pat_offset(), lam);
                 wi.set_done();
                 return true;
@@ -591,6 +609,7 @@ namespace euf {
             }
             lam = m.mk_lambda(names.size(), sorts.data(), names.data(), lam);
         }
+        SASSERT(is_well_sorted(m, lam));
         return lam;
     }
 
@@ -632,6 +651,8 @@ namespace euf {
         SASSERT(var_sort);
         body = m.mk_var(num_binders - i - 1, var_sort);
         bind_lambdas(num_lambdas, s, body);
+        SASSERT(body->get_sort() == s);
+        SASSERT(is_well_sorted(m, body));
         return body;
     }
 
@@ -646,6 +667,8 @@ namespace euf {
             decl_names.push_back(symbol(i));
         }
         body = m.mk_lambda(sz, decl_sorts.data(), decl_names.data(), body);
+        SASSERT(s == body->get_sort());
+        SASSERT(is_well_sorted(m, body));
     }
 
     void ho_matcher::add_binding(var* v, unsigned offset, expr* t) {
@@ -665,7 +688,6 @@ namespace euf {
         }
         auto is_ho = any_of(subterms::all(expr_ref(p, m)), [&](expr* t) { 
             return m_unitary.is_flex(0, t) || 
-                   // m.is_lambda_def(t) || 
                    is_lambda(t); 
         });
         if (!is_ho)
@@ -684,8 +706,7 @@ namespace euf {
                 todo.pop_back();
                 continue;
             }
-            if ((m_unitary.is_flex(0, t) && lvl > 1) || // m.is_lambda_def(t) || 
-                is_lambda(t)) {
+            if ((m_unitary.is_flex(0, t) && lvl > 1) || is_lambda(t)) {
                 if (!contains_pat2abs)
                     m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
                 auto v = m.mk_var(nb++, t->get_sort());
@@ -817,6 +838,7 @@ namespace euf {
                    auto& abs = m_pat2abs[fo_pat];
                    verbose_stream() << "  m_pat2abs size: " << abs.size() << "\n";
                    for (auto [v, pat] : abs) verbose_stream() << "    v=" << v << " pat=" << mk_pp(pat, m) << "\n";);
+        unsigned base_scope = m_trail.get_num_scopes();
         m_trail.push_scope();
         m_subst.resize(0);
         m_subst.resize(s.size());
@@ -835,12 +857,18 @@ namespace euf {
 
         unsigned num_bound = 0, level = 0;
         for (auto [v, pat] : m_pat2abs[fo_pat]) {
-            // Defensive: if the abstraction-variable indices in the stored
-            // pattern do not line up (sort-wise) with the current substitution,
-            // building the refined term would be ill-typed and abort the solve.
-            // Skip the whole refinement; a missed heuristic instance is sound.
+            // If a binding's sort disagrees with the pattern variable it would
+            // fill, substituting it would build an ill-sorted term. This can
+            // arise for deeply nested multi-select patterns whose de Bruijn
+            // remapping does not line up, or when E-matching delivers a
+            // candidate binding whose sort is incompatible with the abstracted
+            // higher-order pattern. Discard this refinement candidate (produce
+            // no instance) instead of aborting the whole solve.
             if (!subst_sorts_match(m, pat, s, true)) {
                 m_trail.pop_scope(1);
+                IF_VERBOSE(0, verbose_stream() << "refine_ho_match: sorts do not match for " << mk_pp(pat, m) << " and "
+                                               << s << "\n";);
+                UNREACHABLE();
                 return;
             }
         }
@@ -850,8 +878,8 @@ namespace euf {
             TRACE(ho_matching, tout << mk_pp(pat, m) << " -> " << pat_refined << "\n");
             m_goals.push(level, num_bound, pat_refined, m_subst.get(v));
         }
-
         search();
+        
         m_trail.pop_scope(1);
     }
 
@@ -908,6 +936,7 @@ namespace euf {
     };
 
     void match_goals::push(unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t) {
+        SASSERT(pat->get_sort() == t->get_sort());
         match_goal* wi = new (ho.trail().get_region()) match_goal(level, offset, pat, t);
         ho.trail().push(retire_match_goal(*wi)); // reset on undo
         wi->init(wi);

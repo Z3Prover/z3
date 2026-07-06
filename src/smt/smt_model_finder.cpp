@@ -42,10 +42,6 @@ Revision History:
 
 namespace smt {
 
-    // Instrumentation: counts terms produced by ho_var term-enumeration
-    // (mf::ho_var::populate_inst_sets). One increment per enumerated term
-    // inserted into an instantiation set. Reset per model_finder instance.
-    static unsigned g_ho_var_term_enum = 0;
 
     namespace mf {
 
@@ -1173,6 +1169,7 @@ namespace smt {
             virtual char const* get_kind() const = 0;
             virtual bool is_equal(qinfo const* qi) const = 0;
             virtual void display(std::ostream& out) const { out << "[" << get_kind() << "]"; }
+            virtual void collect_statistics(::statistics &st) const {}
 
             // AUF fragment solver
             virtual void process_auf(quantifier* q, auf_solver& s, context* ctx) = 0;
@@ -1385,8 +1382,13 @@ namespace smt {
 
         class ho_var : public qinfo {
             unsigned m_var_i;
+            unsigned m_ho_var_term_enum = 0;
         public:
             ho_var(ast_manager& m, unsigned i) : qinfo(m), m_var_i(i) {
+            }
+
+            void collect_statistics(::statistics &st) const override {
+                st.update("mbqi.ho-var-term-enum", m_ho_var_term_enum);
             }
 
             char const *get_kind() const override {
@@ -1453,7 +1455,7 @@ namespace smt {
                     unsigned generation = 0; // todo - inherited from sub-term of t?
                     TRACE(model_finder, tout << "ho_var: adding term " << mk_ismt2_pp(t, m)
                                                    << " to instantiation set of S" << std::endl;);
-                    ++g_ho_var_term_enum;
+                    ++m_ho_var_term_enum;
                     S->insert(t, generation);                
                 }
             }
@@ -1778,6 +1780,11 @@ namespace smt {
 
         public:
             typedef ptr_vector<cond_macro>::const_iterator macro_iterator;
+
+            void collect_statistics(::statistics &st) const {
+                for (auto *qi : m_qinfo_vect)
+                    qi->collect_statistics(st);
+            }
 
             static quantifier_ref mk_flat(ast_manager& m, quantifier* q) {
                 if (has_quantifiers(q->get_expr())) {
@@ -2415,7 +2422,6 @@ namespace smt {
         m_auf_solver(alloc(auf_solver, m)),
         m_dependencies(m),
         m_new_constraints(m) {
-        g_ho_var_term_enum = 0;
     }
 
     model_finder::~model_finder() {
@@ -2423,7 +2429,10 @@ namespace smt {
     }
 
     void model_finder::collect_statistics(::statistics & st) const {
-        st.update("ho-var term-enum", g_ho_var_term_enum);
+        // Retrieve the ho-var term-enumeration counters from the embedded
+        // qinfo objects (mf::ho_var) held by each registered quantifier_info.
+        for (auto const &[k, v] : m_q2info)
+            v->collect_statistics(st);
     }
 
     void model_finder::checkpoint() {

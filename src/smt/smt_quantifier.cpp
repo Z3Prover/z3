@@ -657,7 +657,7 @@ namespace smt {
 
             if (m_fparams->m_ho_matching) {
                 m_ho_matcher = alloc(euf::ho_matcher, m, m_context->get_trail_stack());
-                std::function<void(euf::ho_subst&)> on_match = [&](euf::ho_subst& s) {
+                std::function<void(euf::ho_subst&)> on_match = [this](euf::ho_subst& s) {
                     on_ho_match(s);
                 };
                 m_ho_matcher->set_on_match(on_match);
@@ -667,21 +667,6 @@ namespace smt {
         quantifier_manager_plugin * mk_fresh() override { return alloc(default_qm_plugin); }
 
         void on_ho_match(euf::ho_subst& s) {
-            ast_manager& m = m_context->get_manager();
-            try {
-                on_ho_match_core(s);
-            }
-            catch (z3_exception &) {
-                // A higher-order binding produced an ill-typed or otherwise
-                // unusable instantiation term. Adding a heuristic HO instance is
-                // optional, so we skip this match rather than aborting the solve.
-                // Re-raise only if the failure was due to cancellation/resource limits.
-                if (!m.inc())
-                    throw;
-            }
-        }
-
-        void on_ho_match_core(euf::ho_subst& s) {
             ast_manager& m = m_context->get_manager();
             auto& st = m_ho_state;
             auto* hoq = st.m_q;
@@ -709,8 +694,9 @@ namespace smt {
                     change = false;
                     for (unsigned i = 1; i < binding.size(); ++i) {
                         if (!binding.get(i)) continue;
-                        // Skip ill-typed substitutions: a misaligned higher-order
-                        // binding would build an ill-sorted term and abort the solve.
+                        // A misaligned higher-order binding would build an
+                        // ill-sorted term. Abandon this refinement (no instance)
+                        // rather than aborting the whole solve.
                         if (!euf::ho_matcher::subst_sorts_match(m, binding.get(i), binding, false))
                             return;
                         auto r = sub(binding.get(i), binding);
@@ -770,6 +756,7 @@ namespace smt {
             for (unsigned i = 0; i < num_bindings; ++i)
                 s.push_back(bindings[i]->get_expr());
 
+            unsigned num_instances = m_stat_ho_instances;
             m_ho_state.m_q = qa;
             m_ho_state.m_pat = pat;
             m_ho_state.m_num_bindings = num_bindings;
