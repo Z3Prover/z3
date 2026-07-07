@@ -4089,6 +4089,11 @@ public:
             return value(v);
         case lp::lp_status::FEASIBLE:
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
+            // FEASIBLE (as opposed to OPTIMAL) means the returned value is only
+            // a hint: the exact optimum could not be proved, e.g. integrality
+            // forced a fallback to a feasible assignment.  Flag it as shared so
+            // the optimizer validates the bound instead of adopting it eagerly.
+            has_shared = true;
             blocker = mk_gt(v);
             return value(v);
         default:
@@ -4118,8 +4123,12 @@ public:
         else {
             st = max_with_lp(v, vi, term_max);
             inf_eps nl_result;
-            if (max_with_nl(v, st, level, blocker, nl_result))
+            if (max_with_nl(v, st, level, blocker, nl_result)) {
+                // NLA returned a feasible hint rather than a proved optimum;
+                // mark it as shared so the optimizer validates it.
+                has_shared = true;
                 return nl_result;
+            }
         }
         return max_result(v, vi, st, blocker, has_shared);
     }

@@ -312,6 +312,16 @@ namespace opt {
         inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
         m_context.get_model(m_model);
         inf_eps val2;
+        //
+        // 'has_shared' as returned by maximize() is false only when the
+        // arithmetic solver proved an *exact* optimum: a pure-LP optimum with
+        // no shared-symbol or integrality relaxation (theory_lra returns an
+        // exact optimum only for lp_status::OPTIMAL; theory_arith only when no
+        // shared symbols or nonlinear monomials are involved).  Capture it
+        // before it is overwritten below; it tells us whether a strict
+        // supremum hint is trustworthy enough to adopt without validation.
+        //
+        bool exact_optimum = !has_shared;
         has_shared = true;
         TRACE(opt, tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";
               if (m_model) tout << *m_model << "\n";);
@@ -341,6 +351,28 @@ namespace opt {
                 m_objective_values[i] = val;
             return true;
         }
+
+        //
+        // The arithmetic solver proved an exact optimum (exact_optimum) whose
+        // value is a strict supremum: a finite value carrying a non-zero
+        // infinitesimal, e.g. 'maximize a' subject to 'a < 0' yields -epsilon.
+        // Such a bound is genuinely achievable in the limit but cannot be
+        // re-validated by check_bound() below: mk_ge() has to drop the negative
+        // infinitesimal (the strict real bound 'a >= q - epsilon' is not
+        // expressible), so the subsequent assert+check is UNSAT and the hint
+        // would otherwise be discarded, leaving m_objective_values holding the
+        // strictly smaller current model value (regression from #10028;
+        // discussion Z3Prover/bench#3059).  Adopt it here.  This is restricted
+        // to proved-exact optima: for shared-symbol or relaxed hints
+        // (has_shared) the value may over-estimate the true optimum and is
+        // still deferred to validation below, so the soundness fix of #10028
+        // (and the revert of #10052) is preserved.  update_objective() only
+        // ever raises the stored value, so a genuine larger model value still
+        // wins.
+        //
+        if (exact_optimum && val.is_finite() && !val.get_infinitesimal().is_zero() &&
+            val > m_objective_values[i])
+            m_objective_values[i] = val;
 
         //
         // retrieve value of objective from current model and update 
