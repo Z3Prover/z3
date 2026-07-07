@@ -57,9 +57,11 @@ namespace polymorphism {
         m_assertions.push_back(e);
         t.push(push_back_vector(m_assertions));
         u.collect_type_vars(e, inst.m_tvs);
+        auto* init = alloc(substitution, m);
         inst.m_subst = alloc(substitutions);
-        inst.m_subst->insert(alloc(substitution, m));
+        inst.m_subst->insert(init);
         m_instances.insert(e, inst);            
+        t.push(new_obj_trail(init));
         t.push(new_obj_trail(inst.m_subst));
         t.push(insert_map(m_instances, e));        
     }
