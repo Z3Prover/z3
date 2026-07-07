@@ -1733,8 +1733,18 @@ namespace smt {
 
         void internalize_instance(expr * body, proof * pr, unsigned generation) {
             internalize_assertion(body, pr, generation);
-            if (relevancy())
+            if (relevancy()) {
+                if (inconsistent()) {
+                    app * a = to_app(body);
+                    SASSERT(a->get_decl_kind() == OP_OR);
+                    SASSERT(to_app(a->get_arg(0))->get_decl_kind() == OP_NOT);
+                    SASSERT(is_quantifier(to_app(a->get_arg(0))->get_arg(0)));
+                    for (unsigned i = 1; i < a->get_num_args(); ++i) {
+                        mark_as_relevant(a->get_arg(i));
+                    }
+                }
                 m_case_split_queue->internalize_instance_eh(body, generation);
+            }
         }
 
         unsigned get_unsat_core_size() const {
