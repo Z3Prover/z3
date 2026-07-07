@@ -853,6 +853,8 @@ namespace smt {
     }
 
     bool theory_array_full::has_non_beta_as_array() {
+        if (ctx.get_fparams().m_array_fake_support)
+            return false;
         for (enode* n : m_as_array) {
             for (enode* p : n->get_parents())
                 if (ctx.is_relevant(p) && !ctx.is_beta_redex(p, n)) {
@@ -862,7 +864,7 @@ namespace smt {
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
-                if (ctx.is_relevant(p) && !is_default(p) && !ctx.is_beta_redex(p, n) && !is_congruent_eq(p)) {
+                if (ctx.is_relevant(p) && !is_default(p) && !is_select(p) && !ctx.is_beta_redex(p, n) && !is_congruent_eq(p)) {
                     TRACE(array, tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
