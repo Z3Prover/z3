@@ -509,13 +509,19 @@ namespace opt {
 
         if (typeid(smt::theory_inf_arith) == typeid(opt)) {
             smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
-            return th.mk_ge(m_fm, v, val);
+            // Pass the original value (with its negative infinitesimal, if any):
+            // theory_inf_arith's bounds are inf_rational and represent a strict
+            // supremum r - delta faithfully as the lower bound (r, -1), which is
+            // required to validate a strict maximization optimum.
+            return th.mk_ge(m_fm, v, _val);
         }
 
         if (typeid(smt::theory_mi_arith) == typeid(opt)) {
             smt::theory_mi_arith& th = dynamic_cast<smt::theory_mi_arith&>(opt); 
-            SASSERT(val.is_finite());
-            return th.mk_ge(m_fm, v, val.get_numeral());
+            SASSERT(_val.is_finite());
+            // As above: theory_mi_arith's bounds are inf_rational, so pass the
+            // delta-rational value through unprojected for faithful validation.
+            return th.mk_ge(m_fm, v, _val.get_numeral());
         }
 
         if (typeid(smt::theory_i_arith) == typeid(opt)) {
@@ -549,8 +555,13 @@ namespace opt {
 
         if (typeid(smt::theory_lra) == typeid(opt)) {
             smt::theory_lra& th = dynamic_cast<smt::theory_lra&>(opt); 
-            SASSERT(val.is_finite());
-            return th.mk_ge(m_fm, v, val.get_numeral());            
+            SASSERT(_val.is_finite());
+            // Pass the ORIGINAL value (with its negative infinitesimal, if any):
+            // theory_lra faithfully encodes a lower bound v >= r - delta, which
+            // is required to validate a strict maximization supremum.  'val'
+            // above has had a negative infinitesimal projected away for the
+            // benefit of theories that cannot represent it.
+            return th.mk_ge(m_fm, v, _val.get_numeral());
         }
 
         // difference logic?

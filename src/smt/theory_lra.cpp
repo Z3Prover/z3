@@ -3304,6 +3304,16 @@ public:
     }
 
     api_bound* mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound) {
+        return mk_var_bound(bv, v, bk, bound, rational::zero());
+    }
+
+    // eps is the infinitesimal coefficient of the asserted (positive-literal)
+    // bound value: the bound means  v (>=|<=) bound + eps*delta.  Non-zero only
+    // for the delta-rational bounds that faithfully validate strict
+    // optimization optima (a maximize supremum r - delta becomes a lower bound
+    // (r, -1)).  Only the asserted direction (cT) carries eps; the negation cF
+    // is never activated on the optimization validation path.
+    api_bound* mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound, rational const& eps) {
         scoped_internalize_state st(*this);
         st.vars().push_back(v);
         st.coeffs().push_back(rational::one());
@@ -3315,7 +3325,10 @@ public:
         lp::lconstraint_kind kT = bound2constraint_kind(v_is_int, bk, true);
         lp::lconstraint_kind kF = bound2constraint_kind(v_is_int, bk, false);
         
-        cT = lp().mk_var_bound(vi, kT, bound);
+        if (eps.is_zero())
+            cT = lp().mk_var_bound(vi, kT, bound);
+        else
+            cT = lp().mk_var_bound(vi, kT, bound, eps);
         if (v_is_int) {
             rational boundF = (bk == lp_api::lower_t) ? bound - 1 : bound + 1;
             cF = lp().mk_var_bound(vi, kF, boundF);
@@ -3326,7 +3339,7 @@ public:
         add_ineq_constraint(cT, literal(bv, false));
         add_ineq_constraint(cF, literal(bv, true));
 
-        return alloc(api_bound, literal(bv, false), v, vi, v_is_int, bound, bk, cT, cF);
+        return alloc(api_bound, literal(bv, false), v, vi, v_is_int, bound, bk, cT, cF, eps);
     }
 
     //
@@ -4249,11 +4262,32 @@ public:
 
     expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val) {
         rational r = val.get_rational();
-        bool is_strict =  val.get_infinitesimal().is_pos();
+        bool is_strict = val.get_infinitesimal().is_pos();
+        // A negative infinitesimal encodes a delta-rational lower bound
+        // v >= r - delta.  It arises when validating a strict maximization
+        // optimum (supremum r reported as r - epsilon): no lconstraint_kind
+        // yields a lower bound with a -delta component, so it is threaded
+        // through as an explicit eps on the bound (see lp_api::bound,
+        // lar_solver::mk_var_bound).  Over the reals this is a genuine bound
+        // (feasible together with the problem's own strict bound v <= r - delta,
+        // fixing v = r - delta), which is exactly what makes the supremum
+        // achievable in the delta field and lets check_bound validate it.
+        bool is_lower_eps = val.get_infinitesimal().is_neg();
         app_ref b(m);
         bool is_int = a.is_int(get_expr(v));
         TRACE(arith, display(tout << "v" << v << "\n"););
-        if (is_strict) {
+        if (is_lower_eps) {
+            // Fresh, dedicated predicate for the delta-rational lower bound
+            // v >= r - delta.  A plain (a.mk_ge v r) atom would collide with an
+            // already-internalized 'v >= r' literal (e.g. from the problem's own
+            // strict bound v < r), which carries no infinitesimal and would make
+            // validation assert the over-strong v >= r.  The bound's real meaning
+            // (including the -delta) is attached via the api_bound's eps below.
+            std::ostringstream strm;
+            strm << r << " - eps <= " << mk_pp(get_expr(v), m) << " (opt)";
+            b = m.mk_const(symbol(strm.str()), m.mk_bool_sort());
+        }
+        else if (is_strict) {
             b = a.mk_le(mk_obj(v), a.mk_numeral(r, is_int));
         }
         else {
@@ -4267,7 +4301,8 @@ public:
             // ctx().set_enode_flag(bv, true);
             lp_api::bound_kind bkind = lp_api::bound_kind::lower_t;
             if (is_strict) bkind = lp_api::bound_kind::upper_t;
-            api_bound* a = mk_var_bound(bv, v, bkind, r);
+            rational eps = is_lower_eps ? rational::minus_one() : rational::zero();
+            api_bound* a = mk_var_bound(bv, v, bkind, r, eps);
             mk_bound_axioms(*a);
             updt_unassigned_bounds(v, +1);
             m_bounds[v].push_back(a);

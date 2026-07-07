@@ -88,19 +88,20 @@ class lar_solver : public column_namer {
     void add_bound_negation_to_solver(lar_solver& ls, lpvar j, lconstraint_kind kind, const mpq& right_side);
     void add_constraint_to_validate(lar_solver& ls, constraint_index ci);
     bool m_validate_blocker = false;
-    void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
-    void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
+    void update_column_type_and_bound_check_on_equal(unsigned j, const impq& right_side, constraint_index ci, unsigned&);
+    void update_column_type_and_bound(unsigned j, const impq& right_side, constraint_index ci);
  public:   
     bool validate_blocker() const { return m_validate_blocker; }
     bool & validate_blocker() { return m_validate_blocker; }   
+    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
  private:
-    void update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(lpvar j, lconstraint_kind kind, const mpq& right_side);
     void set_crossed_bounds_column_and_deps(unsigned j, bool lower_bound, u_dependency* dep);
@@ -147,7 +148,7 @@ class lar_solver : public column_namer {
     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i);
     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, lpvar>>& left_side);
     bool all_constraints_hold() const;
-    bool constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map) const;
+    bool constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map, const mpq& delta) const;
     static void register_in_map(std::unordered_map<lpvar, mpq>& coeffs, const lar_base_constraint& cn, const mpq& a);
     static void register_monoid_in_map(std::unordered_map<lpvar, mpq>& coeffs, const mpq& a, unsigned j);
     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>>& evidence) const;
@@ -271,6 +272,7 @@ public:
     bool fixed_base_removed_correctly() const;
 #endif
     constraint_index mk_var_bound(lpvar j, lconstraint_kind kind, const mpq& right_side);
+    constraint_index mk_var_bound(lpvar j, lconstraint_kind kind, const mpq& right_side, const mpq& eps);
     void activate_check_on_equal(constraint_index, lpvar&);
     void activate(constraint_index);
     void random_update(unsigned sz, lpvar const* vars);
@@ -478,6 +480,7 @@ public:
     void get_model(std::unordered_map<lpvar, mpq>& variable_values) const;
     void get_rid_of_inf_eps();
     void get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values) const;
+    void get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values, const mpq& delta) const;
     std::string get_variable_name(lpvar vi) const override;
     void set_variable_name(lpvar vi, const std::string&);
     unsigned number_of_vars() const;
