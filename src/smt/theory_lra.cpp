@@ -4068,11 +4068,22 @@ public:
                           tout << "  x[" << j << "] = " << lp().get_column_value(j) << "\n";
                   }
               });
+        // Discard the infinitesimal of the value returned from the NLA path.
+        // When NLA is involved the objective is nonlinear, so lp_val is the
+        // optimum of the LINEAR relaxation: its infinitesimal comes from the
+        // strict bounds introduced by the linearization, not from a genuine
+        // strict optimum of the nonlinear problem.  If it were kept,
+        // opt_solver::mk_ge would assert a delta-rational bound (r, -1) that the
+        // real problem cannot honor, fixing the objective column at a delta
+        // value the LP core cannot snap on the next solve (assertion
+        // non_basic_columns_are_set_correctly).  The rational part remains a
+        // sound bound for the optimizer to validate via check_bound.
+        inf_eps lp_val_no_eps(lp_val.get_infinity(), inf_rational(lp_val.get_rational()));
         switch (nla_st) {
         case FC_DONE:
             // NLA satisfied: keep the optimal assignment, return LP value
             blocker = mk_gt(v);
-            result = lp_val;
+            result = lp_val_no_eps;
             st = lp::lp_status::FEASIBLE;
             return true;
         case FC_CONTINUE:
@@ -4081,7 +4092,7 @@ public:
             // as a bound for the optimizer to validate via check_bound().
             lp().restore_x();
             blocker = mk_gt(v, lp_ival);
-            result = lp_val;
+            result = lp_val_no_eps;
             st = lp::lp_status::FEASIBLE;
             return true;
         case FC_GIVEUP:
