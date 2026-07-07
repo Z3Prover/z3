@@ -553,8 +553,10 @@ class tptp_parser {
     // Multi-argument A * B > C is represented as Array(A, Array(B, C)) (curried).
     sort* get_ho_sort(ptr_vector<sort> const& domain, sort* range) {
         sort* s = range;
-        for (int i = (int)domain.size() - 1; i >= 0; --i)
+        for (int i = (int)domain.size() - 1; i >= 0; --i) {
             s = m_array.mk_array_sort(domain[i], s);
+            m_pinned_sorts.push_back(s);
+        }
         return s;
     }
 
@@ -1369,6 +1371,7 @@ class tptp_parser {
                 sort* arg_sort = arg->get_sort();
                 sort* result_sort = m.is_bool(arg_sort) ? m.mk_bool_sort() : m_univ;
                 sort* arr_sort = m_array.mk_array_sort(arg_sort, result_sort);
+                m_pinned_sorts.push_back(arr_sort);
                 e = coerce_arg(e, arr_sort);
             } else {
                 // Array but domain may not match arg sort — coerce arg
@@ -2217,6 +2220,7 @@ class tptp_parser {
                     // If arg is Bool-sorted, result is likely Bool too (modal/connective application)
                     sort* result_sort = m.is_bool(arg_sort) ? m.mk_bool_sort() : m_univ;
                     sort* arr_sort = m_array.mk_array_sort(arg_sort, result_sort);
+                    m_pinned_sorts.push_back(arr_sort);
                     e = coerce_arg(e, arr_sort);
                 } else {
                     // Array but domain may not match arg sort — coerce arg
