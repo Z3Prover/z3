@@ -36,13 +36,27 @@ struct well_sorted_proc {
     well_sorted_proc(ast_manager & m):m(m), m_error(false) {}
 
     void check(expr* e) {
-        for (auto term : subterms::ground(expr_ref(e, m))) {
-            if (is_app(term))
+        ptr_vector<expr> todo;
+        expr_mark visited;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* term = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(term))
+                continue;
+            visited.mark(term, true);
+            if (is_app(term)) {
+                for (expr* arg : *to_app(term))
+                    if (!visited.is_marked(arg))
+                        todo.push_back(arg);
                 check_app(to_app(term));
-            else if (is_var(term))
+            }
+            else if (is_var(term)) {
                 check_var(to_var(term));
-            else if (is_quantifier(term))
+            }
+            else if (is_quantifier(term)) {
                 check_quantifier(to_quantifier(term));
+            }
         }
     }
 
@@ -118,5 +132,4 @@ bool is_well_sorted(ast_manager const & m, expr * n) {
     }
     return !p.m_error;
 }
-
 
