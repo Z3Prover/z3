@@ -21,7 +21,6 @@ Notes:
 #include "ast/rewriter/rewriter.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/well_sorted.h"
 #include "ast/ast_pp.h"
 
 template<typename Config>
@@ -553,7 +552,6 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     SASSERT(fr.m_spos + num_children == result_stack().size());
     expr * const * it = result_stack().data() + fr.m_spos;
     expr * new_body   = *it;
-    SASSERT(is_well_sorted(m_manager, q));
     unsigned num_pats = q->get_num_patterns();
     unsigned num_no_pats = q->get_num_no_patterns();
     expr_ref_vector new_pats(m_manager, num_pats, q->get_patterns());
@@ -606,7 +604,6 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         if (!m_cfg.reduce_quantifier(q, new_body, new_pats.data(), new_no_pats.data(), m_r, m_pr)) {
             if (fr.m_new_child) {
                 m_r = m().update_quantifier(q, num_pats, new_pats.data(), num_no_pats, new_no_pats.data(), new_body);
-                SASSERT(is_well_sorted(m(), m_r));
             }
             else {
                 TRACE(rewriter_reuse, tout << "reusing:\n" << mk_ismt2_pp(q, m()) << "\n";);

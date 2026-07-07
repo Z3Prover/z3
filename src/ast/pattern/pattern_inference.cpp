@@ -124,7 +124,7 @@ void pattern_inference_cfg::collect::operator()(expr * n, unsigned num_bindings)
     m_num_bindings = num_bindings;
     m_todo.push_back(entry(n, 0));
     while (!m_todo.empty()) {
-        entry [n, delta] = m_todo.back();
+        auto [n, delta] = m_todo.back();
         TRACE(collect, tout << "processing: " << n->get_id() << " " << delta << " kind: " << n->get_kind() << "\n";);
         TRACE(collect_info, tout << mk_pp(n, m) << "\n";);
         if (visit_children(n, delta)) {
