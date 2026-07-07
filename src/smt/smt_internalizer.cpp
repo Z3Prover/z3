@@ -121,9 +121,10 @@ namespace smt {
             return;
 
         if (e->uses_cg_table()) {
-            auto [cgr, cgc_gen] = m_cg_table.find_gen(e);
-            SASSERT(cgc_gen);
-            *cgc_gen = generation;
+            // The class generation is cached on the congruence root's m_generation field.
+            enode * cgr = e->is_cgr() ? e : get_cg_root(e);
+            SASSERT(cgr);
+            cgr->m_generation = generation;
         } else {
             m_constant_generations[e] = generation;
         }
@@ -149,19 +150,20 @@ namespace smt {
         }
     };
 
-    void context::merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned *e2_generation_ptr) {
+    void context::merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2) {
         // We assume the congruence has already been updated. We might want to move that here, too.
         SASSERT(e2->is_cgr());
         SASSERT(!m_cg_table.contains_ptr(e1));
         SASSERT(m_cg_table.contains_ptr(e2));
 
+        // The class generation is cached on the congruence root e2's m_generation field.
         // Push trail even if we have a no-op. Otherwise we can't restore e1's generation after unmerging.
-        push_trail(merge_cgc_generations_trail(*this, e1, e1_generation, e2, *e2_generation_ptr));
+        push_trail(merge_cgc_generations_trail(*this, e1, e1_generation, e2, e2->m_generation));
 
-        if (e1_generation >= *e2_generation_ptr)
+        if (e1_generation >= e2->m_generation)
             return; // no-op
 
-        *e2_generation_ptr = e1_generation;  
+        e2->m_generation = e1_generation;
     }
 
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
@@ -1080,16 +1082,18 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    auto [e_prime, used_commutativity, sibling_gen_ptr] = m_cg_table.insert(e, generation);
+                    auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
+                        e->m_cg = e_prime;
                         // We don't support patterns with equality so there is no need to track generations for them.
                         if (!e->is_eq())
-                            merge_cgc_generations(e, generation, e_prime, sibling_gen_ptr);
-                        e->m_cg = e_prime;
+                            merge_cgc_generations(e, generation, e_prime);
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {
                         e->m_cg = e;
+                        // e is the congruence root: cache its class generation on the enode.
+                        e->m_generation = generation;
                     }
                 }
                 else {

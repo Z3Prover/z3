@@ -632,13 +632,12 @@ namespace smt {
     // Goes out of scope when n is garbage collected.
     void context::set_generation_sticky(enode * n, unsigned generation) {
         SASSERT(n->uses_cg_table());
-        auto [cgr, cgc_gen] = m_cg_table.find_gen(n);
+        enode * cgr = get_cg_root(n);
         SASSERT(cgr);
-        SASSERT(cgc_gen);
         // Callers are responsible for this. Sticky updates are too expensive to accommodate no-ops.
-        SASSERT(generation < *cgc_gen);
-            
-        *cgc_gen = generation;
+        SASSERT(generation < cgr->m_generation);
+
+        cgr->m_generation = generation;
         m_sticky_generation_updates.insert(n, generation);
     }
 
@@ -695,19 +694,20 @@ namespace smt {
             if (parent->is_cgc_enabled()) {
                 auto [p, parent_generation] = m_r1_parent_generations[cgc_enabled_idx++];
                 SASSERT(p == parent);
-                auto [parent_prime, used_commutativity, gen_ptr] = m_cg_table.insert(parent, parent_generation);
+                auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
                 if (parent_prime == parent) {
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());  
                     SASSERT(m_cg_table.contains_ptr(parent));
-                    SASSERT(*gen_ptr == parent_generation);
-                    
+                    // parent is (again) the congruence root: cache its class generation on the enode.
+                    parent->m_generation = parent_generation;
+
                     r2_parents.push_back(parent);
                     continue;
                 }
                 
                 parent->m_cg = parent_prime;
-                merge_cgc_generations(parent, parent_generation, parent_prime, gen_ptr);
+                merge_cgc_generations(parent, parent_generation, parent_prime);
 
                 if (parent_prime->m_root != parent->m_root) {
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
@@ -1046,10 +1046,14 @@ namespace smt {
                         gen = dummy_generation;
                     }
 
-                    auto [parent_cg, used_commutativity, gen_ptr] = m_cg_table.insert(parent, gen);
+                    auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
                     (void)used_commutativity;
-                    (void)gen_ptr;
                     parent->m_cg = parent_cg;
+                    if (parent_cg == parent)
+                        // parent is (again) the congruence root: restore its cached class generation.
+                        // In the congruent case (parent_cg != parent) a subsequent
+                        // undo_merge_cgc_generations restores the generation, so the dummy is fine.
+                        parent->m_generation = gen;
                 }
             }
         }

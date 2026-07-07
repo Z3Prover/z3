@@ -170,7 +170,7 @@ namespace smt {
     void cg_table::display_binary(std::ostream& out, void* t) const {
         binary_table* tb = UNTAG(binary_table*, t);
         out << "b ";
-        for (auto const& [n, v] : *tb) {
+        for (enode* n : *tb) {
             out << n->get_owner_id() << " " << cg_binary_hash()(n) << " ";
         }
         out << "\n";
@@ -179,7 +179,7 @@ namespace smt {
     void cg_table::display_binary_comm(std::ostream& out, void* t) const {
         comm_table* tb = UNTAG(comm_table*, t);
         out << "bc ";
-        for (auto const& [n, v] : *tb) {
+        for (enode* n : *tb) {
             out << n->get_owner_id() << " ";
         }
         out << "\n";
@@ -188,7 +188,7 @@ namespace smt {
     void cg_table::display_unary(std::ostream& out, void* t) const {
         unary_table* tb = UNTAG(unary_table*, t);
         out << "un ";
-        for (auto const& [n, v] : *tb) {
+        for (enode* n : *tb) {
             out << n->get_owner_id() << " ";
         }
         out << "\n";
@@ -197,42 +197,36 @@ namespace smt {
     void cg_table::display_nary(std::ostream& out, void* t) const {
         table* tb = UNTAG(table*, t);
         out << "nary ";
-        for (auto const& [n, v] : *tb) {
+        for (enode* n : *tb) {
             out << n->get_owner_id() << " ";
         }
         out << "\n";
     }
 
 
-    enode_bool_gen_ptr cg_table::insert(enode * n, unsigned generation) {
+    enode_bool_pair cg_table::insert(enode * n) {
         // it doesn't make sense to insert a constant.
         SASSERT(n->get_num_args() > 0);
         SASSERT(!m_manager.is_and(n->get_expr()));
         SASSERT(!m_manager.is_or(n->get_expr()));
         enode * n_prime;
-        unsigned* payload = nullptr;
-        default_map_entry<enode*, unsigned>* e;
         void * t = get_table(n); 
         switch (static_cast<table_kind>(GET_TAG(t))) {
         case UNARY:
-#define INSERT_COMMON(TABLE_TYPE)                                                   \
-            e = UNTAG(TABLE_TYPE*, t)->insert_if_not_there3(n, generation);  \
-            n_prime = e->get_data().m_key;                                          \
-            payload = &e->get_data().m_value;
-            INSERT_COMMON(unary_table);
-            return enode_bool_gen_ptr(n_prime, false, payload);
+            n_prime = UNTAG(unary_table*, t)->insert_if_not_there(n);
+            return enode_bool_pair(n_prime, false);
         case BINARY:
-            INSERT_COMMON(binary_table);
+            n_prime = UNTAG(binary_table*, t)->insert_if_not_there(n);
             TRACE(cg_table, tout << "insert: " << n->get_owner_id() << " " << cg_binary_hash()(n) << " inserted: " << (n == n_prime) << " " << n_prime->get_owner_id() << "\n";
-                  display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";);
-            return enode_bool_gen_ptr(n_prime, false, payload);
+                  display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";); 
+            return enode_bool_pair(n_prime, false);
         case BINARY_COMM:
             m_commutativity = false;
-            INSERT_COMMON(comm_table);
-            return enode_bool_gen_ptr(n_prime, m_commutativity, payload);
+            n_prime = UNTAG(comm_table*, t)->insert_if_not_there(n);
+            return enode_bool_pair(n_prime, m_commutativity);
         default:
-            INSERT_COMMON(table);
-            return enode_bool_gen_ptr(n_prime, false, payload);
+            n_prime = UNTAG(table*, t)->insert_if_not_there(n);
+            return enode_bool_pair(n_prime, false);
         }
     }
 

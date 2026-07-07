@@ -629,10 +629,13 @@ namespace smt {
 
             if (!e->uses_cg_table())
                 return m_constant_generations.find(e);
-            
-            auto [cgr, generation] = m_cg_table.find_gen(e);
-            SASSERT(cgr);
-            return *generation;
+
+            // The class generation is cached on the congruence root's m_generation field.
+            // Fast path: if e is already the congruence root, read it directly. Otherwise
+            // locate the congruence root through the cg_table and read its cached value.
+            if (e->is_cgr())
+                return e->m_generation;
+            return get_cg_root(e)->m_generation;
         }
 
         unsigned get_max_generation(unsigned num_enodes, enode * const * enodes) {
@@ -1169,7 +1172,7 @@ namespace smt {
 
         void reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js);
 
-        void merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned *e2_generation_ptr);
+        void merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2);
 
         void set_generation_sticky(enode * e, unsigned generation);
 
