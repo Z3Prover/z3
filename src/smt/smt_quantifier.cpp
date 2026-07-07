@@ -867,10 +867,7 @@ namespace smt {
                                << " compiled=" << (p1 != mp) 
                                << " p1=" << mk_pp(p1, m) << "\n");
                     if (p1 != mp) {
-                        if (!unary && j >= num_eager_multi_patterns)
-                            m_lazy_mam->add_pattern(q1, p1);
-                        else
-                            m_mam->add_pattern(q1, p1);
+                        m_lazy_mam->add_pattern(q1, p1);
                     }
                 }
                 if (!unary)
