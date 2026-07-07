@@ -219,9 +219,7 @@ namespace smt {
                     STRACE(triggers,  tout <<", Pat: "<< expr_ref(pat, m()););
                     STRACE(causality, tout <<", Father:";);
                 }
-                for (auto n : used_enodes) {
-                    enode *orig = std::get<0>(n);
-                    enode *substituted = std::get<1>(n);
+                for (auto [orig, substituted] : used_enodes) {
                     (void) substituted;
                     if (orig == nullptr) {
                         STRACE(causality, tout << " #" << substituted->get_owner_id(););
@@ -260,9 +258,7 @@ namespace smt {
                     log_justification_to_root(out, bindings[i], already_visited, m_context, m());
                 }
 
-                for (auto n : used_enodes) {
-                    enode *orig = std::get<0>(n);
-                    enode *substituted = std::get<1>(n);
+                for (auto [orig, substituted] : used_enodes) {
                     if (orig != nullptr) {
                         log_justification_to_root(out, orig, already_visited, m_context, m());
                         log_justification_to_root(out, substituted, already_visited, m_context, m());
