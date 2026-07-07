@@ -1135,15 +1135,7 @@ namespace lp {
 
     // Linearize the bound witnesses of all fixed columns in the row together, so the
     // mark bits walk each dependency sub-DAG shared between columns only once.
-    // When lp.batch_explain_fixed_in_row is disabled, fall back to explaining each
-    // fixed column independently (the pre-batching behavior).
     void lar_solver::explain_fixed_in_row(unsigned row, explanation& ex) {
-        if (!settings().batch_explain_fixed_in_row()) {
-            for (auto const& c : get_row(row))
-                if (column_is_fixed(c.var()))
-                    explain_fixed_column(c.var(), ex);
-            return;
-        }
         auto& witnesses = m_imp->m_tmp_witnesses;
         witnesses.reset();
         for (auto const& c : get_row(row)) {

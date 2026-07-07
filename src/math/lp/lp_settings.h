@@ -268,7 +268,6 @@ private:
     unsigned         m_dio_calls_period_decrease = 2;
     bool             m_dio_run_gcd = true;
     bool             m_random_hammers = true;
-    bool             m_batch_explain_fixed_in_row = true;
     bool             m_lcube = true;
     unsigned         m_lcube_flips = 16;
 public:
@@ -280,8 +279,6 @@ public:
     unsigned & dio_calls_period_decrease() { return m_dio_calls_period_decrease; }
     bool random_hammers() const { return m_random_hammers; }
     bool & random_hammers() { return m_random_hammers; }
-    bool batch_explain_fixed_in_row() const { return m_batch_explain_fixed_in_row; }
-    bool & batch_explain_fixed_in_row() { return m_batch_explain_fixed_in_row; }
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
