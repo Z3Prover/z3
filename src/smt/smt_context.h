@@ -1733,8 +1733,16 @@ namespace smt {
 
         void internalize_instance(expr * body, proof * pr, unsigned generation) {
             internalize_assertion(body, pr, generation);
-            if (relevancy())
+            if (relevancy()) {
+                // if the instantiation creates a conflict, we backtrack immediately.
+                // to retain the conflict clause being relevant we mark it here.
+                // if the instantiation does not create a conflict, default relevancy propagation applies.
+                if (inconsistent() && is_app(body)) {
+                    for (auto arg : *to_app(body))
+                        mark_as_relevant(arg);
+                }
                 m_case_split_queue->internalize_instance_eh(body, generation);
+            }
         }
 
         unsigned get_unsat_core_size() const {
