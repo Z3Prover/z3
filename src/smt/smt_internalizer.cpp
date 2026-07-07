@@ -111,7 +111,7 @@ namespace smt {
             if (e->uses_cg_table())
                 set_generation_sticky(e, m_generation);
             else
-                m_constant_generations[e] = m_generation; // Sticky by default. Won't unmerge
+                e->m_generation = m_generation; // Sticky by default. Won't unmerge
         }
     }
 
@@ -126,7 +126,7 @@ namespace smt {
             SASSERT(cgr);
             cgr->m_generation = generation;
         } else {
-            m_constant_generations[e] = generation;
+            e->m_generation = generation;
         }
     }
 
@@ -1098,7 +1098,7 @@ namespace smt {
                 }
                 else {
                     SASSERT(!e->uses_cg_table());
-                    m_constant_generations.insert(e, generation);
+                    e->m_generation = generation;
                     e->m_cg = e;
                 }
             }
@@ -1109,7 +1109,7 @@ namespace smt {
                 m_decl2enodes[decl_id].push_back(e);
             }
         } else {
-            m_constant_generations.insert(e, generation);
+            e->m_generation = generation;
         }
 
         SASSERT(e_internalized(n));
@@ -1152,8 +1152,6 @@ namespace smt {
         m_enodes.pop_back();
         m_e_internalized_stack.pop_back();
         m_sticky_generation_updates.erase(e);
-        if (!e->uses_cg_table()) 
-            m_constant_generations.erase(e);
     }
 
     /**

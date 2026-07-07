@@ -683,7 +683,7 @@ namespace smt {
                     if (parent->is_cgc_enabled()) {
                         auto [p, parent_generation] = m_r1_parent_generations[cgc_enabled_idx++];
                         SASSERT(p == parent);
-                        m_constant_generations.insert(parent, parent_generation);
+                        parent->m_generation = parent_generation;
                     }
                     // It is not necessary to reinsert the equality to the congruence table
                     // (because the only congruence propagations that could lead to are already handled by the assign() here).

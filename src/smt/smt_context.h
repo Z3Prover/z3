@@ -161,7 +161,6 @@ namespace smt {
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
         enode_generation_table      m_sticky_generation_updates;
-        enode_generation_table      m_constant_generations;  // generations for enodes with !e->uses_cg_table()
         vector<std::pair<enode*, unsigned>>      m_r1_parent_generations; // generations of parents removed from m_cg_table while merging r1
 
         struct new_eq {
@@ -628,7 +627,7 @@ namespace smt {
                 return 0;
 
             if (!e->uses_cg_table())
-                return m_constant_generations.find(e);
+                return e->m_generation;
 
             // The class generation is cached on the congruence root's m_generation field.
             // Fast path: if e is already the congruence root, read it directly. Otherwise
