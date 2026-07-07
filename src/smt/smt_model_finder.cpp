@@ -1411,10 +1411,14 @@ namespace smt {
             }
 
             void populate_inst_sets(quantifier *q, auf_solver &s, context *ctx) override {
+                bool use_term_enum = ctx->get_fparams().m_term_enumeration;
+                if (!use_term_enum)
+                    return;
                 node *S = s.get_uvar(q, m_var_i);
                 sort *srt = S->get_sort();
 
                 IF_VERBOSE(3, verbose_stream() << "ho_var::populate_inst_sets: " << q->get_id() << " " << mk_pp(srt, m) << "\n";);
+
                 term_enumeration tn(m);
                 // Add ground terms of type S.
                 // Add productions for functions in E-graph
@@ -1423,6 +1427,7 @@ namespace smt {
                 ast_mark visited;
                 tn.add_production(m.mk_true());
                 tn.add_production(m.mk_false());
+                
                 for (enode *n : ctx->enodes()) {
                     if (!ctx->is_relevant(n))
                         continue;
@@ -1431,6 +1436,8 @@ namespace smt {
                         TRACE(model_finder, tout << "inserting " << mk_pp(e, m) << " into inst set\n");
                         S->insert(e, n->get_generation());
                     }
+                    else if (!use_term_enum)
+                        continue;
                     else if (is_app(e) && to_app(e)->get_decl()->is_skolem())
                         ;
                     else if (is_uninterp_const(e)) {
@@ -1446,7 +1453,7 @@ namespace smt {
                         tn.add_production(f);
                     }
                 }
-                
+
                 unsigned max_count = 20;
                 for (auto t : tn.enum_terms(srt)) {
                     if (max_count == 0)

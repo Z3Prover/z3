@@ -315,6 +315,8 @@ namespace euf {
         match_goals      m_goals;
         unitary_patterns m_unitary;
         ptr_vector<match_goal> m_backtrack;
+        unsigned         m_max_depth = 10;        // bound on imitation/projection depth (secondary safety cap)
+        unsigned         m_max_iterations = 10000; // per-search expansion-step budget to guarantee termination
         mutable array_rewriter   m_rewriter;
         array_util       m_array;
         obj_map<app, app*>     m_pat2hopat, m_hopat2pat;
@@ -385,6 +387,10 @@ namespace euf {
         }
 
         void set_on_match(std::function<void(ho_subst&)>& on_match) { m_on_match = on_match; }
+
+        void set_max_depth(unsigned d) { m_max_depth = d; }
+
+        void set_max_iterations(unsigned n) { m_max_iterations = n; }
 
         void operator()(expr *pat, expr *t, unsigned num_vars);
 

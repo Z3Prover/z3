@@ -657,6 +657,7 @@ namespace smt {
 
             if (m_fparams->m_ho_matching) {
                 m_ho_matcher = alloc(euf::ho_matcher, m, m_context->get_trail_stack());
+                m_ho_matcher->set_max_iterations(m_fparams->m_ho_matching_bound);
                 std::function<void(euf::ho_subst&)> on_match = [this](euf::ho_subst& s) {
                     on_ho_match(s);
                 };

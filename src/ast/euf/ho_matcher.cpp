@@ -67,7 +67,15 @@ namespace euf {
     void ho_matcher::search() {
         IF_VERBOSE(10, display(verbose_stream()));
 
+
+        unsigned budget = m_max_iterations;
         while (m.inc()) {
+            if (budget-- == 0) {
+                IF_VERBOSE(2, verbose_stream() << "ho_matcher: search budget exhausted\n");
+                while (!m_backtrack.empty())
+                    backtrack();
+                break;
+            }
             // Q, B -> Q', B'. Push work on the backtrack stack and new work items
             // e, Bw -> Q', B'. Consume backtrack stack
             if (!m_goals.empty())
@@ -271,6 +279,11 @@ namespace euf {
         if (wi.is_done())
             return false;
 
+        if (wi.level > m_max_depth) {
+            wi.set_done();
+            return false;
+        }
+
         reduce(wi);
 
         auto t = wi.t;
@@ -349,6 +362,7 @@ namespace euf {
                 if (qp->get_decl_sort(i) != qt->get_decl_sort(i))
                     return false;
             m_goals.push(wi.level, wi.term_offset() + td, qp->get_expr(), qt->get_expr());
+            wi.set_done();
             return true;
         }
 
