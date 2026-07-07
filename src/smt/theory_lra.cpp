@@ -2237,7 +2237,7 @@ public:
     }
     
     bool can_propagate_core() {
-        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def || lp().has_changed_columns() ||
+        return m_asserted_atoms.size() > m_asserted_qhead || lp().has_changed_columns() ||
                m_delay_ineqs_qhead < m_delay_ineqs.size();
     }
 
