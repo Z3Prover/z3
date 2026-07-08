@@ -1054,7 +1054,7 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode *e = enode::mk(m, get_region(), m_app2enode, n, suppress_args, merge_tf, m_scope_lvl,
+        enode *e = enode::mk(m, get_region(), m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl,
                              cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
@@ -1084,13 +1084,9 @@ namespace smt {
                     }
                     else {
                         e->m_cg = e;
-                        // e is the congruence root: cache its class generation on the enode.
-                        e->m_generation = generation;
                     }
                 }
                 else {
-                    SASSERT(!e->uses_cg_table());
-                    e->m_generation = generation;
                     e->m_cg = e;
                 }
             }
@@ -1100,8 +1096,6 @@ namespace smt {
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
             }
-        } else {
-            e->m_generation = generation;
         }
 
         SASSERT(e_internalized(n));
