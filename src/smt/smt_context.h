@@ -1227,8 +1227,8 @@ namespace smt {
         static bool is_eq(enode const * n1, enode const * n2) { return n1->get_root() == n2->get_root(); }
 
         enode * get_cg_root(enode * n) const {
-            SASSERT(n->get_num_args() > 0);
-            SASSERT(n->uses_cg_table() || n->is_cgr());
+            if (!n->uses_cg_table())
+                return n;
             // Fast path: if e is already the congruence root, avoid table lookup.
             // This is important for performance, since get_cg_root is called on every generation lookup.
             if (n->is_cgr())
