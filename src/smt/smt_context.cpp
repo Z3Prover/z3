@@ -620,7 +620,8 @@ namespace smt {
                 SASSERT(!parent->is_cgc_enabled() || m_cg_table.contains_ptr(parent));
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
-                    m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
+                    if (!parent->is_eq()) // we don't need to worry about generations of equalities.
+                        m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
                     m_cg_table.erase(parent);
                     SASSERT(!m_cg_table.contains_ptr(parent));
                 }
@@ -680,15 +681,18 @@ namespace smt {
                             m_dyn_ack_manager.cg_conflict_eh(n1->get_app(), n2->get_app());
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
-                    
                     // It is not necessary to reinsert the equality to the congruence table
                     // (because the only congruence propagations that could lead to are already handled by the assign() here).
                     continue;
                 }
             }
             if (parent->is_cgc_enabled()) {
-                auto [p, parent_generation] = m_r1_parent_generations[cgc_enabled_idx++];
-                SASSERT(p == parent);
+                unsigned parent_generation = 0; // Just use generation 0 for equalities
+                if (!parent->is_eq()) {
+                    auto [p, g] = m_r1_parent_generations[cgc_enabled_idx++];
+                    SASSERT(p == parent);   
+                    parent_generation = g;
+                }
                 auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
                 if (parent_prime == parent) {
                     SASSERT(parent);
