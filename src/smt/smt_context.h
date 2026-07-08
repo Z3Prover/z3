@@ -161,8 +161,7 @@ namespace smt {
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
         enode_generation_table      m_sticky_generation_updates;
-        vector<std::pair<enode*, unsigned>>      m_r1_parent_generations; // generations of parents removed from m_cg_table while merging r1
-
+        vector<std::pair<enode*, unsigned>>      m_r1_parent_generations; // temporary field used to cache generations between remove_parents_from_cg_table and reinsert_parents_into_cg_table
         struct new_eq {
             enode *                 m_lhs;
             enode *                 m_rhs;
@@ -626,14 +625,6 @@ namespace smt {
             if (e->is_eq())
                 return 0;
 
-            if (!e->uses_cg_table())
-                return e->m_generation;
-
-            // The class generation is cached on the congruence root's m_generation field.
-            // Fast path: if e is already the congruence root, read it directly. Otherwise
-            // locate the congruence root through the cg_table and read its cached value.
-            if (e->is_cgr())
-                return e->m_generation;
             return get_cg_root(e)->m_generation;
         }
 
@@ -1237,8 +1228,11 @@ namespace smt {
 
         enode * get_cg_root(enode * n) const {
             SASSERT(n->get_num_args() > 0);
-            if (!n->uses_cg_table())
-                return n->get_cg();
+            SASSERT(n->uses_cg_table() || n->is_cgr());
+            // Fast path: if e is already the congruence root, avoid table lookup.
+            // This is important for performance, since get_cg_root is called on every generation lookup.
+            if (n->is_cgr())
+                return n;
             auto r = m_cg_table.find(n);
             SASSERT(r != nullptr);
             return r;

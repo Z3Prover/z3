@@ -568,7 +568,9 @@ namespace smt {
 
             SASSERT(r1->get_root() == r2);
             reinsert_parents_into_cg_table(r1, r2, n1, n2, js);
-
+            
+            // We push the add_eq_trail after reinsert_parents_into_cg_table because the latter may push merge_cgc_generations trails, 
+            // and we want add_eq to be undone before merge_cgc_generations is undone.
             push_trail(add_eq_trail(*this, r1, n1, r2_num_parents));
 
             if (n2->is_bool())
@@ -620,7 +622,7 @@ namespace smt {
                 SASSERT(!parent->is_cgc_enabled() || m_cg_table.contains_ptr(parent));
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
-                    if (!parent->is_eq()) // we don't need to worry about generations of equalities.
+                    if (!parent->is_eq()) // we don't track generations of equalities.
                         m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
                     m_cg_table.erase(parent);
                     SASSERT(!m_cg_table.contains_ptr(parent));
@@ -633,12 +635,12 @@ namespace smt {
     // Goes out of scope when n is garbage collected.
     void context::set_generation_sticky(enode * n, unsigned generation) {
         SASSERT(n->uses_cg_table());
-        enode * cgr = get_cg_root(n);
-        SASSERT(cgr);
-        // Callers are responsible for this. Sticky updates are too expensive to accommodate no-ops.
-        SASSERT(generation < cgr->m_generation);
+        SASSERT(!n->is_eq());
 
-        cgr->m_generation = generation;
+        // Callers are responsible for this. Sticky updates are too expensive to accommodate no-ops.
+        SASSERT(generation < get_generation(n));
+
+        set_generation(n, generation);
         m_sticky_generation_updates.insert(n, generation);
     }
 
@@ -660,7 +662,7 @@ namespace smt {
         enode_vector & r2_parents  = r2->m_parents;
         enode_vector & r1_parents  = r1->m_parents;
         unsigned num_r1_parents = r1_parents.size();
-        unsigned cgc_enabled_idx = 0;
+        unsigned generation_cache_idx = 0;
         for (unsigned i = 0; i < num_r1_parents; ++i) {
             enode* parent = r1_parents[i];
             if (!parent->is_marked())
@@ -687,18 +689,19 @@ namespace smt {
                 }
             }
             if (parent->is_cgc_enabled()) {
+                // Look up the generation cache
                 unsigned parent_generation = 0; // Just use generation 0 for equalities
                 if (!parent->is_eq()) {
-                    auto [p, g] = m_r1_parent_generations[cgc_enabled_idx++];
+                    auto [p, g] = m_r1_parent_generations[generation_cache_idx++];
                     SASSERT(p == parent);   
                     parent_generation = g;
                 }
+
                 auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
                 if (parent_prime == parent) {
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());  
                     SASSERT(m_cg_table.contains_ptr(parent));
-                    // parent is (again) the congruence root: cache its class generation on the enode.
                     parent->m_generation = parent_generation;
 
                     r2_parents.push_back(parent);
@@ -1011,7 +1014,7 @@ namespace smt {
         // restore parents of r2
         r2->m_parents.shrink(r2_num_parents);
 
-        unsigned cgr_parent_idx = 0;
+        unsigned generation_cache_idx = 0;
 
         // try to reinsert parents of r1 that are not cgr
         for (enode * parent : enode::parents(r1)) {
@@ -1029,11 +1032,11 @@ namespace smt {
                     } else if (parent == cg) {
                         enode *p = nullptr;
                         unsigned parent_generation;
-                        if (cgr_parent_idx < m_r1_parent_generations.size()) {
-                            std::tie(p, parent_generation) = m_r1_parent_generations[cgr_parent_idx];
+                        if (generation_cache_idx < m_r1_parent_generations.size()) {
+                            std::tie(p, parent_generation) = m_r1_parent_generations[generation_cache_idx];
                         }
                         if (p == parent) {
-                            cgr_parent_idx++;
+                            generation_cache_idx++;
                             gen = parent_generation;
                         } else {
                             SASSERT(m_cg_table.contains_ptr(parent));
@@ -1049,9 +1052,7 @@ namespace smt {
                     (void)used_commutativity;
                     parent->m_cg = parent_cg;
                     if (parent_cg == parent)
-                        // parent is (again) the congruence root: restore its cached class generation.
-                        // In the congruent case (parent_cg != parent) a subsequent
-                        // undo_merge_cgc_generations restores the generation, so the dummy is fine.
+                        // parent is (again) the congruence root: restore its generation.
                         parent->m_generation = gen;
                 }
             }
@@ -1106,9 +1107,7 @@ namespace smt {
         SASSERT(e2->uses_cg_table());
         // optimization opportunity: we actually just need to look at updates above the current decision level.
         // Then we wouldn't have to check for minimum either.
-        for (auto const& [t, generation] : m_sticky_generation_updates) {
-            // SASSERT(t->uses_cg_table()); // may not hold if t is an equality that became true at some point after the generation update.
-            
+        for (auto const& [t, generation] : m_sticky_generation_updates) {            
             if (generation < e1_generation && congruent(t, e1)) {
                 set_generation(e1, generation);
             } else if (generation < e2_generation && congruent(t, e2)) {

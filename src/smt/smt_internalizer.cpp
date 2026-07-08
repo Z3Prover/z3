@@ -106,12 +106,11 @@ namespace smt {
         if (e->is_eq())
             return;
 
-        enode *cgr = e->get_num_args() == 0 ? e : get_cg_root(e);
-        if (0 < m_generation && m_generation < get_generation(cgr)) {
+        if (0 < m_generation && m_generation < get_generation(e)) {
             if (e->uses_cg_table())
                 set_generation_sticky(e, m_generation);
             else
-                e->m_generation = m_generation; // Sticky by default. Won't unmerge
+                set_generation(e, m_generation);
         }
     }
 
@@ -120,14 +119,9 @@ namespace smt {
         if (e->is_eq())
             return;
 
-        if (e->uses_cg_table()) {
-            // The class generation is cached on the congruence root's m_generation field.
-            enode * cgr = e->is_cgr() ? e : get_cg_root(e);
-            SASSERT(cgr);
-            cgr->m_generation = generation;
-        } else {
-            e->m_generation = generation;
-        }
+        // The class generation is stored in the congruence root's m_generation field.
+        enode * cgr = get_cg_root(e);
+        cgr->m_generation = generation;
     }
 
     class merge_cgc_generations_trail : public trail {
@@ -151,12 +145,10 @@ namespace smt {
     };
 
     void context::merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2) {
-        // We assume the congruence has already been updated. We might want to move that here, too.
         SASSERT(e2->is_cgr());
         SASSERT(!m_cg_table.contains_ptr(e1));
         SASSERT(m_cg_table.contains_ptr(e2));
 
-        // The class generation is cached on the congruence root e2's m_generation field.
         // Push trail even if we have a no-op. Otherwise we can't restore e1's generation after unmerging.
         push_trail(merge_cgc_generations_trail(*this, e1, e1_generation, e2, e2->m_generation));
 
