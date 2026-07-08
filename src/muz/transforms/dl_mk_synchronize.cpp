@@ -373,4 +373,4 @@ namespace datalog {
         return rules;
     }
 
-};
+}

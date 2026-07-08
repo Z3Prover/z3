@@ -81,5 +81,5 @@ namespace euf {
         static void ground_subterms(expr* e, ptr_vector<app>& ground);
 
     };
-};
+}
 

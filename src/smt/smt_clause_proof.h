@@ -94,6 +94,6 @@ namespace smt {
     };
 
     std::ostream& operator<<(std::ostream& out, clause_proof::status st);
-};
+}
 
 

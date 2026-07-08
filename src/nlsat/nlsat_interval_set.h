@@ -118,5 +118,5 @@ namespace nlsat {
         return out;
     }
 
-};
+}
 

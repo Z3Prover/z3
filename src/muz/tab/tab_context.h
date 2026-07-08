@@ -39,5 +39,5 @@ namespace datalog {
         void display_certificate(std::ostream& out) const override;
         expr_ref get_answer() override;
     };
-};
+}
 

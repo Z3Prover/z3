@@ -28,6 +28,7 @@ Revision History:
 #include "smt/smt_quick_checker.h"
 #include "smt/mam.h"
 #include "smt/qi_queue.h"
+#include "util/statistics.h"
 #include "util/obj_hashtable.h"
 
 namespace smt {
@@ -218,9 +219,7 @@ namespace smt {
                     STRACE(triggers,  tout <<", Pat: "<< expr_ref(pat, m()););
                     STRACE(causality, tout <<", Father:";);
                 }
-                for (auto n : used_enodes) {
-                    enode *orig = std::get<0>(n);
-                    enode *substituted = std::get<1>(n);
+                for (auto [orig, substituted] : used_enodes) {
                     (void) substituted;
                     if (orig == nullptr) {
                         STRACE(causality, tout << " #" << substituted->get_owner_id(););
@@ -256,9 +255,8 @@ namespace smt {
                 for (unsigned i = 0; i < num_bindings; ++i) {
                     log_justification_to_root(out, bindings[i], already_visited, m_context, m());
                 }
-                for (auto n : used_enodes) {
-                    enode *orig = std::get<0>(n);
-                    enode *substituted = std::get<1>(n);
+
+                for (auto [orig, substituted] : used_enodes) {
                     if (orig != nullptr) {
                         log_justification_to_root(out, orig, already_visited, m_context, m());
                         log_justification_to_root(out, substituted, already_visited, m_context, m());
@@ -576,6 +574,7 @@ namespace smt {
 
     void quantifier_manager::collect_statistics(::statistics & st) const {
         m_imp->m_qi_queue.collect_statistics(st);
+        m_imp->m_plugin->collect_statistics(st);
     }
 
     void quantifier_manager::reset_statistics() {
@@ -623,6 +622,8 @@ namespace smt {
             vector<std::tuple<enode*, enode*>>* m_used_enodes = nullptr;
         };
         ho_match_state m_ho_state;
+        unsigned       m_stat_ho_refine = 0;    // number of times ho-matching refinement is invoked
+        unsigned       m_stat_ho_instances = 0; // number of instances added via ho-matching
     public:
         default_qm_plugin():
             m_qm(nullptr),
@@ -649,7 +650,8 @@ namespace smt {
 
             if (m_fparams->m_ho_matching) {
                 m_ho_matcher = alloc(euf::ho_matcher, m, m_context->get_trail_stack());
-                std::function<void(euf::ho_subst&)> on_match = [&](euf::ho_subst& s) {
+                m_ho_matcher->set_max_iterations(m_fparams->m_ho_matching_bound);
+                std::function<void(euf::ho_subst&)> on_match = [this](euf::ho_subst& s) {
                     on_ho_match(s);
                 };
                 m_ho_matcher->set_on_match(on_match);
@@ -676,12 +678,21 @@ namespace smt {
                                     << "\n"
                                     << binding << "\n";);
             if (binding.size() > q->get_num_decls()) {
-                var_subst sub(m);
+                // binding is indexed directly (binding[k] = value for var k),
+                // so the substitution must use direct (non-standard) order to
+                // resolve chained HO variable references; the sort guard below
+                // is checked with the matching order.
+                var_subst sub(m, false);
                 bool change = true;
                 while (change) {
                     change = false;
                     for (unsigned i = 1; i < binding.size(); ++i) {
                         if (!binding.get(i)) continue;
+                        // A misaligned higher-order binding would build an
+                        // ill-sorted term. Abandon this refinement (no instance)
+                        // rather than aborting the whole solve.
+                        if (!euf::ho_matcher::subst_sorts_match(m, binding.get(i), binding, false))
+                            return;
                         auto r = sub(binding.get(i), binding);
                         change |= r != binding.get(i);
                         binding[i] = r;
@@ -700,6 +711,11 @@ namespace smt {
             for (expr* e : binding) {
                 if (!e)
                     return; // incomplete binding
+                // A leftover free (de Bruijn) variable means the binding is
+                // incomplete/misaligned; adding such a term would raise
+                // "Formulas should not contain unbound variables". Skip it.
+                if (!is_ground(e))
+                    return;
                 if (!m_context->e_internalized(e)) {
                     m_context->internalize(e, false);
                 }
@@ -718,6 +734,7 @@ namespace smt {
             vector<std::tuple<enode*, enode*>> used_enodes;
             m_context->add_instance(q, nullptr, new_bindings.size(), new_bindings.data(),
                                     max_gen, st.m_min_top_generation, st.m_max_top_generation, used_enodes);
+            ++m_stat_ho_instances;
         }
 
         bool try_ho_refine(quantifier* qa, app* pat, unsigned num_bindings, enode* const* bindings,
@@ -734,6 +751,7 @@ namespace smt {
             for (unsigned i = 0; i < num_bindings; ++i)
                 s.push_back(bindings[i]->get_expr());
 
+            unsigned num_instances = m_stat_ho_instances;
             m_ho_state.m_q = qa;
             m_ho_state.m_pat = pat;
             m_ho_state.m_num_bindings = num_bindings;
@@ -748,10 +766,20 @@ namespace smt {
                     verbose_stream() << "  s[" << i << "] = " << mk_pp(s.get(i), m) << " sort=" << mk_pp(s.get(i)->get_sort(), m) << "\n";);
 
             m_ho_matcher->refine_ho_match(pat, s);
+            ++m_stat_ho_refine;
             return true;
         }
 
         bool model_based() const override { return m_fparams->m_mbqi; }
+
+        void collect_statistics(::statistics & st) const override {
+            if (m_fparams->m_ho_matching) {
+                st.update("ho-matching refinements", m_stat_ho_refine);
+                st.update("ho-matching instances", m_stat_ho_instances);
+            }
+            if (m_model_finder)
+                m_model_finder->collect_statistics(st);
+        }
 
         bool mbqi_enabled(quantifier *q) const override {
             if (!m_fparams->m_mbqi_id) return true;
@@ -833,10 +861,7 @@ namespace smt {
                                << " compiled=" << (p1 != mp) 
                                << " p1=" << mk_pp(p1, m) << "\n");
                     if (p1 != mp) {
-                        if (!unary && j >= num_eager_multi_patterns)
-                            m_lazy_mam->add_pattern(q1, p1);
-                        else
-                            m_mam->add_pattern(q1, p1);
+                        m_lazy_mam->add_pattern(q1, p1);
                     }
                 }
                 if (!unary)
@@ -959,4 +984,4 @@ namespace smt {
         return alloc(default_qm_plugin);
     }
 
-};
+}

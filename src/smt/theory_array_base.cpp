@@ -23,6 +23,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "model/func_interp.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/pattern/pattern_inference.h"
 
 namespace smt {
 
@@ -413,6 +414,16 @@ namespace smt {
         expr * eq = m.mk_eq(sel1, sel2);
         expr_ref q(m.mk_forall(dimension, sorts.data(), names.data(), eq), m);
         ctx.get_rewriter()(q);
+        // The select terms are beta-reduced away by the rewriter, so the
+        // resulting quantifier carries no patterns. Infer patterns so that the
+        // e-matching engine can instantiate it (dynamically generated
+        // quantifiers bypass the pre-processing pattern inference pass).
+        if (is_forall(q) && to_quantifier(q)->get_num_patterns() == 0) {
+            pattern_inference_rw infer(m, ctx.get_fparams());
+            expr_ref q2(m);
+            infer(q, q2);
+            q = q2;
+        }
         if (!ctx.b_internalized(q)) {
             ctx.internalize(q, true);
         }
@@ -1053,4 +1064,4 @@ namespace smt {
         return result;
     }
 
-};
+}

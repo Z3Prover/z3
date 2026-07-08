@@ -156,4 +156,4 @@ namespace qe {
         lbool pogo(solver_factory& sf, expr* a, expr* b, expr_ref& itp);
     };
 
-};
+}

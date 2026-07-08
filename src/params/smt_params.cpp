@@ -28,6 +28,8 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_relevancy_lvl = p.relevancy();
     m_ematching   = p.ematching();
     m_ho_matching = p.ho_matching();
+    m_ho_matching_bound = p.ho_matching_bound();
+    m_term_enumeration = p.term_enumeration();
     m_induction   = p.induction();
     m_clause_proof = p.clause_proof();
     m_phase_selection = static_cast<phase_selection>(p.phase_selection());

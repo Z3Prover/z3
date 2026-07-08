@@ -727,5 +727,5 @@ namespace seq {
 
 
 
-};
+}
 

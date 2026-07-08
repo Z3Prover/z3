@@ -238,4 +238,4 @@ namespace opt {
             return false;
         return true;
     }
-};
+}

@@ -322,4 +322,4 @@ namespace sat {
     void probing::reset_statistics() {
         m_num_assigned = 0;
     }
-};
+}

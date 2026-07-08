@@ -291,4 +291,4 @@ namespace smt {
 
     theory* mk_theory_dl(context& ctx) { return alloc(theory_dl, ctx); }
 
-};
+}

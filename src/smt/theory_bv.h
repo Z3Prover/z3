@@ -296,4 +296,4 @@ namespace smt {
         bool check_invariant();
         bool check_zero_one_bits(theory_var v);
     };
-};
+}

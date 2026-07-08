@@ -42,4 +42,4 @@ namespace sat {
         bool check_disjoint_clauses() const;
         bool operator()() const;
     };
-};
+}

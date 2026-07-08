@@ -130,6 +130,6 @@ namespace smt {
 #endif
     };
 
-};
+}
 
 

@@ -721,4 +721,4 @@ namespace smt {
             out << r->get_id() << " --> " << enode_pp(n, ctx) << "\n";
         }
     }
-};
+}

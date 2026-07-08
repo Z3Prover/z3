@@ -292,6 +292,6 @@ namespace smt {
     typedef theory_dense_diff_logic<i_ext>   theory_dense_i;
     typedef theory_dense_diff_logic<smi_ext> theory_dense_smi;
     typedef theory_dense_diff_logic<si_ext>  theory_dense_si;
-};
+}
 
 

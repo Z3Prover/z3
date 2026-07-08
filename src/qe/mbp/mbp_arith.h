@@ -51,5 +51,5 @@ namespace mbp {
     bool arith_project(model& model, app* var, expr_ref_vector& lits);
 
 
-};
+}
 

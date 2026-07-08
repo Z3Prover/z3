@@ -709,4 +709,4 @@ namespace datalog {
 
     }
 
-};
+}

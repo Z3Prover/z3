@@ -505,4 +505,4 @@ namespace smt {
         st.update("array splits", m_stats.m_num_eq_splits);
     }
 
-};
+}

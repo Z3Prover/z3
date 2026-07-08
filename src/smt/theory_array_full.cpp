@@ -354,6 +354,14 @@ namespace smt {
             add_as_array(v1, n);
         for (enode* n : d2->m_lambdas)
             add_lambda(v1, n);
+        // When a lambda is equated to another array term, assert the congruence
+        // axiom  n1 = n2 => forall k . select(n1, k) = select(n2, k).
+        // This lets positive equalities between lambdas (which have no select
+        // parents of their own) produce usable consequences.
+        enode* n1 = get_enode(v1);
+        enode* n2 = get_enode(v2);
+        if (is_lambda(n1->get_expr()) || is_lambda(n2->get_expr()))
+            assert_congruent(n1, n2);
         TRACE(array, 
               tout << pp(get_enode(v1), m) << "\n";
               tout << pp(get_enode(v2), m) << "\n";
@@ -845,6 +853,8 @@ namespace smt {
     }
 
     bool theory_array_full::has_non_beta_as_array() {
+        if (ctx.get_fparams().m_array_fake_support)
+            return false;
         for (enode* n : m_as_array) {
             for (enode* p : n->get_parents())
                 if (ctx.is_relevant(p) && !ctx.is_beta_redex(p, n)) {
@@ -854,11 +864,26 @@ namespace smt {
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
-                if (ctx.is_relevant(p) && !is_default(p) && !ctx.is_beta_redex(p, n)) {
+                if (ctx.is_relevant(p) && !is_default(p) && !is_select(p) && !ctx.is_beta_redex(p, n) && !is_congruent_eq(p)) {
                     TRACE(array, tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
         return false;
+    }
+
+    /**
+       \brief A relevant equality between two array terms whose roots coincide is
+       handled by the congruence axiom asserted on merge (see merge_eh /
+       assert_congruent). Such an equality parent does not make a lambda an
+       unsupported (non beta-redex) occurrence, so it should not trigger a
+       final-check give-up.
+    */
+    bool theory_array_full::is_congruent_eq(enode* p) {
+        expr* a = nullptr, * b = nullptr;
+        if (!m.is_eq(p->get_expr(), a, b))
+            return false;
+        return is_array_sort(p->get_arg(0)) &&
+               p->get_arg(0)->get_root() == p->get_arg(1)->get_root();
     }
 
 

@@ -110,4 +110,4 @@ namespace sat {
         return out;
     }
 
-};
+}

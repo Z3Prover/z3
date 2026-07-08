@@ -4981,7 +4981,7 @@ namespace smt {
             m_model->add_rec_funs();
     }
 
-};
+}
 
 
 #ifdef Z3DEBUG

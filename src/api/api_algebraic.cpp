@@ -447,4 +447,4 @@ extern "C" {
         return _am.get_i(av);
         Z3_CATCH_RETURN(0);
     }
-};
+}

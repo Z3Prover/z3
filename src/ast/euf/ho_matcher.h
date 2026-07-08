@@ -315,6 +315,8 @@ namespace euf {
         match_goals      m_goals;
         unitary_patterns m_unitary;
         ptr_vector<match_goal> m_backtrack;
+        unsigned         m_max_depth = 10;        // bound on imitation/projection depth (secondary safety cap)
+        unsigned         m_max_iterations = 10000; // per-search expansion-step budget to guarantee termination
         mutable array_rewriter   m_rewriter;
         array_util       m_array;
         obj_map<app, app*>     m_pat2hopat, m_hopat2pat;
@@ -386,6 +388,10 @@ namespace euf {
 
         void set_on_match(std::function<void(ho_subst&)>& on_match) { m_on_match = on_match; }
 
+        void set_max_depth(unsigned d) { m_max_depth = d; }
+
+        void set_max_iterations(unsigned n) { m_max_iterations = n; }
+
         void operator()(expr *pat, expr *t, unsigned num_vars);
 
         void operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars);
@@ -399,6 +405,13 @@ namespace euf {
         void register_ho_pattern(app* alias_p, app* full_p);
 
         void refine_ho_match(app* p, expr_ref_vector& s);
+
+        // Returns true iff applying the substitution s to t (with the given
+        // variable ordering) is sort-safe: every free variable of t that is
+        // bound by s maps to a value of the same sort. Used to defensively
+        // skip higher-order matches whose bindings would produce ill-typed
+        // instantiation terms (which would otherwise abort the whole solve).
+        static bool subst_sorts_match(ast_manager& m, expr* t, expr_ref_vector const& s, bool std_order);
 
         bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
 

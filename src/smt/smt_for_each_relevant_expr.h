@@ -35,7 +35,7 @@ namespace smt {
         unsigned count_at_labels_lit(expr* n, bool polarity);
 
     public:
-        check_at_labels(ast_manager& m) : m_manager(m) {};
+        check_at_labels(ast_manager& m) : m_manager(m) {}
 
         /**
            \brief Check that 'n' as a formula contains at most one @ label within each and-or path.
@@ -105,6 +105,6 @@ namespace smt {
         void operator()(expr * n) override;
     };
 
-};
+}
 
 

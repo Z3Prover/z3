@@ -126,5 +126,5 @@ namespace smt {
         app* get_ite_value(expr* e);
     };
 
-};
+}
 

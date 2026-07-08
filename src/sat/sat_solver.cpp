@@ -4865,4 +4865,4 @@ namespace sat {
         return true;
     }
 
-};
+}

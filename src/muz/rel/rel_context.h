@@ -125,5 +125,5 @@ namespace datalog {
         lbool saturate() override;
 
     };
-};
+}
 

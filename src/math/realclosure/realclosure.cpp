@@ -6486,7 +6486,7 @@ namespace realclosure {
     {
         return m_imp->get_sign_condition_coefficient(a, i, j);
     }
-};
+}
 
 void pp(realclosure::manager::imp * imp, realclosure::polynomial const & p, realclosure::extension * ext) {
     imp->display_polynomial_expr(std::cout, p, ext, false, false);

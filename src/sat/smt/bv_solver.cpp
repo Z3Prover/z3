@@ -521,7 +521,7 @@ namespace bv {
         }
         func_decl* f = m.mk_func_decl(th, sorts.size(), sorts.data(), proof);
         return m.mk_app(f, args);
-    };
+    }
 
     void solver::asserted(literal l) {        
         atom* a = get_bv2a(l.var());

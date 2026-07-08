@@ -42,5 +42,5 @@ namespace datalog {
         virtual bool parse_directory(char const * path) = 0;
     };
 
-};
+}
 

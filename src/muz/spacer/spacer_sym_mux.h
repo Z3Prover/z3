@@ -35,7 +35,7 @@ private:
     public:
         func_decl_ref m_main;
         func_decl_ref_vector m_variants;
-        sym_mux_entry(ast_manager &m) : m_main(m), m_variants(m) {};
+        sym_mux_entry(ast_manager &m) : m_main(m), m_variants(m) {}
     };
 
     typedef obj_map<func_decl, sym_mux_entry*> decl2entry_map;

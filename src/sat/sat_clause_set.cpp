@@ -88,4 +88,4 @@ namespace sat {
         return true;
     }
 
-};
+}

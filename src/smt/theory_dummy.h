@@ -51,6 +51,6 @@ namespace smt {
 
         char const * get_name() const override;
     };
-};
+}
 
 

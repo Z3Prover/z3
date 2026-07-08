@@ -52,6 +52,7 @@ Revision History:
 #include "tactic/tactic_exception.h"
 
 class model_instantiation_set;
+class statistics;
 
 namespace smt {
     class context;
@@ -64,7 +65,7 @@ namespace smt {
         class hint_solver;
         class non_auf_macro_solver;  
         class instantiation_set;
-    };
+    }
         
     class model_finder : public quantifier2macro_infos {
         typedef mf::quantifier_analyzer        quantifier_analyzer;
@@ -122,6 +123,8 @@ namespace smt {
 
         quantifier_macro_info* operator()(quantifier* q) override;
 
+        void collect_statistics(::statistics & st) const;
+
     };
-};
+}
 

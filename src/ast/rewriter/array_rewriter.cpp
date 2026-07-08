@@ -21,6 +21,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "params/array_rewriter_params.hpp"
 #include "util/util.h"
@@ -818,6 +819,7 @@ expr_ref array_rewriter::expand_store(expr* s) {
         result = m().mk_ite(mk_and(eqs), tmp, result);
     }
     result = m().mk_lambda(sorts.size(), sorts.data(), names.data(), result);
+    SASSERT(is_well_sorted(m(), result));
     return result;
 }
 

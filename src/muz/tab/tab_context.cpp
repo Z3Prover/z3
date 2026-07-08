@@ -1306,7 +1306,7 @@ namespace tb {
         }
         return out << "unmatched instruction";
     }
-};
+}
 
 namespace datalog {
 
@@ -1655,4 +1655,4 @@ namespace datalog {
         return m_imp->get_answer();
     }
 
-};
+}

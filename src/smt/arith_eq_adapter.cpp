@@ -278,5 +278,5 @@ namespace smt {
             out << "eq_adapter: #" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";
         }
     }
-};
+}
 

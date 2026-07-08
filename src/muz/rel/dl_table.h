@@ -144,6 +144,6 @@ namespace datalog {
 
 
     
-};
+}
 
 

@@ -67,4 +67,4 @@ namespace nlsat {
         return a1->m_kind == a2->m_kind && a1->m_x == a2->m_x && a1->m_i == a2->m_i && a1->m_p == a2->m_p;
     }
 
-};
+}

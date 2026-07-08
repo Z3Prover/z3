@@ -40,4 +40,4 @@ namespace polynomial {
         void factor(polynomial const * p, polynomial_ref_vector & distinct_factors);
         void reset();
     };
-};
+}

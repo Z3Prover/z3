@@ -229,6 +229,6 @@ namespace smt {
 
 #endif
 
-};
+}
 
 

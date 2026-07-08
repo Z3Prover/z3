@@ -751,5 +751,5 @@ namespace datalog {
     }
 
 
-};
+}
 

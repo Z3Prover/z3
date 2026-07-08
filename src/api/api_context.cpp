@@ -359,7 +359,7 @@ namespace api {
         return *(m_rcf_manager.get());
     }
 
-};
+}
 
 
 // ------------------------
@@ -531,4 +531,4 @@ extern "C" {
         Z3_CATCH;
     }
     
-};
+}

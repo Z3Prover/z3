@@ -39,5 +39,5 @@ struct config_mpfx {
 
 typedef context_t<config_mpfx> context_mpfx;
 
-};
+}
 

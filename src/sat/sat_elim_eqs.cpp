@@ -306,4 +306,4 @@ namespace sat {
         }
         (*this)(roots, to_elim);
     }
-};
+}

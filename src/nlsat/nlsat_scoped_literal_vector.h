@@ -107,5 +107,5 @@ namespace nlsat {
         operator literal const &() const { return m_lit; }
         void neg() { m_lit.neg(); }
     };
-};
+}
 

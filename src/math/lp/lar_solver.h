@@ -521,6 +521,7 @@ public:
     }
 
     void explain_fixed_column(unsigned j, explanation& ex);
+    void explain_fixed_in_row(unsigned row, explanation& ex);
     u_dependency* join_deps(u_dependency* a, u_dependency *b) { return dep_manager().mk_join(a, b); }
     const constraint_set & constraints() const;
     void push();

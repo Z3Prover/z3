@@ -476,6 +476,6 @@ namespace smt {
     };
 
     inline mk_pp pp(enode* n, ast_manager& m) { return mk_pp(n->get_expr(), m); }
-};
+}
 
 

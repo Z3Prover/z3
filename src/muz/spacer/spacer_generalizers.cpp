@@ -327,4 +327,4 @@ void lemma_eq_generalizer::operator() (lemma_ref &lemma) {
 }
 
 
-};
+}

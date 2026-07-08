@@ -65,6 +65,6 @@ namespace smt {
         bool empty() const { return m_table.empty(); }
     };
 
-};
+}
 
 

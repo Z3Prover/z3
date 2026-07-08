@@ -147,5 +147,5 @@ namespace datalog {
     };
 
 
-};
+}
 

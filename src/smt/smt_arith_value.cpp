@@ -169,4 +169,4 @@ namespace smt {
             return l_undef;
         return m_thr->check_lp_feasible(ineqs, lit_core, eq_core);      
     }
-};
+}

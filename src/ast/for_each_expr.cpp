@@ -94,7 +94,7 @@ namespace has_skolem_functions_ns {
         void operator()(app const * n) const { if (n->get_decl()->is_skolem() && n->get_num_args() > 0) throw found(); }
         void operator()(quantifier * n) const {}
     };
-};
+}
 
 bool has_skolem_functions(expr * n) {
     has_skolem_functions_ns::proc p;

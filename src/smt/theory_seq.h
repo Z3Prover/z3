@@ -642,6 +642,6 @@ namespace smt {
         expr* expr2rep(expr* e) override;
         bool  get_length(expr* e, rational& r) override;
     };
-};
+}
 
 

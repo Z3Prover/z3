@@ -25,31 +25,73 @@ Revision History:
 #include "util/warning.h"
 #include "ast/ast_smt2_pp.h"
 
+
 namespace {
 
 struct well_sorted_proc {
-    ast_manager & m_manager;
-    bool          m_error;
+    ast_manager &    m;
+    bool             m_error;
+    ptr_vector<sort> m_binding;
     
-    well_sorted_proc(ast_manager & m):m_manager(m), m_error(false) {}
-    
-    void operator()(var * v) {}
+    well_sorted_proc(ast_manager & m):m(m), m_error(false) {}
 
-    void operator()(quantifier * n) {
-        expr const * e  = n->get_expr();
-        if (!is_lambda(n) && !m_manager.is_bool(e)) {
-            warning_msg("quantifier's body must be a boolean.");
-            m_error = true;
-            UNREACHABLE();
+    void check(expr* e) {
+        ptr_vector<expr> todo;
+        expr_mark visited;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* term = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(term))
+                continue;
+            visited.mark(term, true);
+            if (is_app(term)) {
+                for (expr* arg : *to_app(term))
+                    if (!visited.is_marked(arg))
+                        todo.push_back(arg);
+                check_app(to_app(term));
+            }
+            else if (is_var(term)) {
+                check_var(to_var(term));
+            }
+            else if (is_quantifier(term)) {
+                check_quantifier(to_quantifier(term));
+            }
         }
     }
 
-    void operator()(app * n) {   
+    void check_quantifier(quantifier * n) {
+        if (!is_lambda(n) && !m.is_bool(n->get_expr())) {
+            warning_msg("quantifier's body must be a boolean.");
+            m_error = true;
+        }
+
+        unsigned sz = m_binding.size();
+        m_binding.append(n->get_num_decls(), n->get_decl_sorts());
+        for (unsigned i = 0; i < n->get_num_patterns(); i++) 
+            check(n->get_pattern(i));        
+        check(n->get_expr());
+        m_binding.shrink(sz);
+    }
+
+    void check_var(var* v) {
+        if (v->get_idx() >= m_binding.size()) {
+            return;
+        }
+        sort *s = m_binding[m_binding.size() - v->get_idx() - 1];
+        if (s != v->get_sort()) {
+            warning_msg("variable sort does not match binding sort.");
+            m_error = true;
+            // UNREACHABLE();
+        }
+    }
+
+    void check_app(app * n) {   
         unsigned num_args  = n->get_num_args();
         func_decl * decl   = n->get_decl();
         if (num_args != decl->get_arity() && !decl->is_associative() && 
             !decl->is_right_associative() && !decl->is_left_associative()) {
-            TRACE(ws, tout << "unexpected number of arguments.\n" << mk_ismt2_pp(n, m_manager););
+            TRACE(ws, tout << "unexpected number of arguments.\n" << mk_ismt2_pp(n, m););
             warning_msg("unexpected number of arguments.");
             m_error = true;
             return;
@@ -59,19 +101,20 @@ struct well_sorted_proc {
             sort * actual_sort   = n->get_arg(i)->get_sort();
             sort * expected_sort = decl->is_associative() ? decl->get_domain(0) : decl->get_domain(i);
             if (expected_sort != actual_sort) {
-                TRACE(tc, tout << "sort mismatch on argument #" << i << ".\n" << mk_ismt2_pp(n, m_manager);
-                      tout << "Sort mismatch for argument " << i+1 << " of " << mk_ismt2_pp(n, m_manager, false) << "\n";
-                      tout << "Expected sort: " << mk_pp(expected_sort, m_manager) << "\n";
-                      tout << "Actual sort:   " << mk_pp(actual_sort, m_manager) << "\n";
-                      tout << "Function sort: " << mk_pp(decl, m_manager) << ".";
+                TRACE(tc, tout << "sort mismatch on argument #" << i << ".\n" << mk_ismt2_pp(n, m);
+                      tout << "Sort mismatch for argument " << i+1 << " of " << mk_ismt2_pp(n, m, false) << "\n";
+                      tout << "Expected sort: " << mk_pp(expected_sort, m) << "\n";
+                      tout << "Actual sort:   " << mk_pp(actual_sort, m) << "\n";
+                      tout << "Function sort: " << mk_pp(decl, m) << ".";
                       );
                 std::ostringstream strm;
-                strm << "Sort mismatch for argument " << i+1 << " of " << mk_ll_pp(n, m_manager, false) << "\n";
-                strm << "Expected sort: " << mk_pp(expected_sort, m_manager) << '\n';
-                strm << "Actual sort:   " << mk_pp(actual_sort, m_manager) << '\n';
-                strm << "Function sort: " << mk_pp(decl, m_manager) << '.';
+                strm << "Sort mismatch for argument " << i+1 << " of " << mk_ll_pp(n, m, false) << "\n";
+                strm << "Expected sort: " << mk_pp(expected_sort, m) << '\n';
+                strm << "Actual sort:   " << mk_pp(actual_sort, m) << '\n';
+                strm << "Function sort: " << mk_pp(decl, m) << '.';
                 warning_msg("%s", std::move(strm).str().c_str());
                 m_error = true;
+                // UNREACHABLE();
                 return;
             }
         }
@@ -82,8 +125,11 @@ struct well_sorted_proc {
 
 bool is_well_sorted(ast_manager const & m, expr * n) {
     well_sorted_proc p(const_cast<ast_manager&>(m));
-    for_each_expr(p, n);
+    p.check(n);
+    if (p.m_error) {
+        IF_VERBOSE(0, verbose_stream() << "expression is not well sorted.\n" << mk_pp(n, const_cast<ast_manager&>(m)) << "\n";);
+        IF_VERBOSE(0, verbose_stream() << mk_ll_pp(n, const_cast<ast_manager &>(m)) << "\n";);
+    }
     return !p.m_error;
 }
-
 

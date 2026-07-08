@@ -26,7 +26,7 @@ Revision History:
 namespace algebraic_numbers {
     class anum;
     class manager;
-};
+}
 
 namespace nlsat {
 #define NLSAT_VB_LVL 10
@@ -204,5 +204,5 @@ namespace nlsat {
         if (s == 0) return 0;
         return 1;
     }
-};
+}
 

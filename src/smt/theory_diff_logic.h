@@ -407,7 +407,7 @@ namespace smt {
     typedef theory_diff_logic<sidl_ext> theory_fidl;
     typedef theory_diff_logic<rdl_ext> theory_rdl;
     typedef theory_diff_logic<srdl_ext> theory_frdl;
-};
+}
 
 
 

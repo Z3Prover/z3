@@ -40,4 +40,4 @@ namespace opt {
         preprocess(solver& s);
         bool operator()(vector<soft>& soft, rational& lower);
     };
-};
+}

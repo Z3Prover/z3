@@ -1503,7 +1503,7 @@ namespace qe {
     void qmax::collect_statistics(statistics& st) const {
         m_imp->m_qsat.collect_statistics(st);
     }
-};
+}
 
 tactic * mk_qsat_tactic(ast_manager& m, params_ref const& p) {
     return alloc(qe::qsat, m, p, qe::qsat_sat);

@@ -190,6 +190,6 @@ namespace datalog {
     };
 
 
-};
+}
 
 

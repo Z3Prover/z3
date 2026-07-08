@@ -533,4 +533,4 @@ namespace smt {
         return m_model.get();
     }
     
-};
+}

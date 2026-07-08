@@ -369,4 +369,4 @@ extern "C" {
     MK_FOURARY(Z3_mk_seq_foldli, mk_c(c)->get_seq_fid(), OP_SEQ_FOLDLI, SKIP);
 
 
-};
+}

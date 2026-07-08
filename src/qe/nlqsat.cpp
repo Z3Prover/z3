@@ -955,7 +955,7 @@ namespace qe {
             return alloc(nlqsat, m, m_mode, m_params);
         }
     };
-};
+}
 
 tactic * mk_nlqsat_tactic(ast_manager & m, params_ref const& p) {
     return alloc(qe::nlqsat, m, qe::qsat_t, p);

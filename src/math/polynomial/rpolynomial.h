@@ -175,7 +175,7 @@ namespace rpolynomial {
             return out;
         }
     };
-};
+}
 
 typedef rpolynomial::polynomial_ref          rpolynomial_ref;
 typedef rpolynomial::polynomial_ref_vector   rpolynomial_ref_vector;

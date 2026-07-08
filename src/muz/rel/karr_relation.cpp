@@ -789,4 +789,4 @@ namespace datalog {
         }
         return nullptr;
     }
-};
+}

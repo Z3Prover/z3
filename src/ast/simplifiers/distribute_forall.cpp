@@ -101,5 +101,5 @@ void distribute_forall_simplifier::reduce() {
         if (r != d.fml())
             m_fmls.update(idx, dependent_expr(m, r, mp(d.pr(), pr), d.dep()));
     }
-};
+}
 

@@ -141,6 +141,13 @@ namespace smt {
         typedef list<relevancy_eh *>   relevancy_ehs;
         obj_map<expr, relevancy_ehs *> m_relevant_ehs;
         obj_map<expr, relevancy_ehs *> m_watches[2];
+        // Over-approximating membership filter for m_watches: contains a superset
+        // of the expr ids that have (or ever had) a watch list for the given phase.
+        // It is monotonic (never cleared on erase/pop), so it can only yield false
+        // positives, never false negatives. This lets get_watches() skip the
+        // obj_map pointer-hash probe for the common unwatched-literal case at the
+        // assign_eh hotspot.
+        uint_set                       m_is_watched[2];
         struct eh_trail {
             enum class kind { POS_WATCH, NEG_WATCH, HANDLER };
             kind   m_kind;
@@ -185,17 +192,23 @@ namespace smt {
         }
 
         relevancy_ehs * get_watches(expr * n, bool val) {
+            unsigned idx = val ? 1 : 0;
+            if (!m_is_watched[idx].contains(n->get_id()))
+                return nullptr;
             relevancy_ehs * r = nullptr;
-            m_watches[val ? 1 : 0].find(n, r);
-            SASSERT(m_watches[val ? 1 : 0].contains(n) || r == 0);
+            m_watches[idx].find(n, r);
+            SASSERT(m_watches[idx].contains(n) || r == 0);
             return r;
         }
 
         void set_watches(expr * n, bool val, relevancy_ehs * ehs) {
+            unsigned idx = val ? 1 : 0;
             if (ehs == nullptr)
-                m_watches[val ? 1 : 0].erase(n);
-            else
-                m_watches[val ? 1 : 0].insert(n, ehs);
+                m_watches[idx].erase(n);
+            else {
+                m_watches[idx].insert(n, ehs);
+                m_is_watched[idx].insert(n->get_id());
+            }
         }
 
         void push_trail(eh_trail const & t) {
@@ -720,6 +733,6 @@ namespace smt {
     }
 
     relevancy_propagator * mk_relevancy_propagator(context & ctx) { return alloc(relevancy_propagator_imp, ctx); }
-};
+}
 
 

@@ -26,5 +26,5 @@ namespace opt {
     maxsmt_solver_base* mk_maxlex(maxsat_context& c, unsigned id, vector<soft>& soft);
 
 
-};
+}
 

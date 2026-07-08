@@ -128,4 +128,4 @@ namespace smt {
         begin_lits_core() += sizeof(literal);
     }
     
-};
+}

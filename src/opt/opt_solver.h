@@ -73,10 +73,10 @@ namespace opt {
         generic_model_converter& m_fm;
         progress_callback * m_callback;
         symbol              m_logic;
-        model_ref           m_last_model;
+        model_ref           m_model;
         svector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
-        sref_vector<model>  m_models;
+        sref_vector<model>  m_objective_models;
         expr_ref_vector     m_objective_terms;
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
@@ -171,7 +171,7 @@ namespace opt {
         void update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
-        model* get_model_idx(unsigned obj_index) { return m_models[obj_index]; }
+        model* get_model_idx(unsigned obj_index) { return m_objective_models[obj_index]; }
 
         bool was_unknown() const { return m_was_unknown; }
 

@@ -404,5 +404,5 @@ namespace smt {
         return new_expr;
     }
 
-};
+}
 

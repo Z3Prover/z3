@@ -134,5 +134,5 @@ namespace sat {
         }
     };
 
-};
+}
 

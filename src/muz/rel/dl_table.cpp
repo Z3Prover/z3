@@ -292,5 +292,5 @@ namespace datalog {
     table_base::iterator bitvector_table::end() const {
         return mk_iterator(alloc(bv_iterator, *this, true));
     }
-};
+}
 

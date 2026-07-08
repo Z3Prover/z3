@@ -271,4 +271,4 @@ namespace subpaving {
         return alloc(context_mpfx_wrapper, lim, m, qm, p, a);
     }
 
-};
+}

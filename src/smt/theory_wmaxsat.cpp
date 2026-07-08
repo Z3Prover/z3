@@ -362,4 +362,4 @@ namespace smt {
         m_normalize = false;
     }
 
-};
+}

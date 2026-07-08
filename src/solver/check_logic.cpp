@@ -469,7 +469,7 @@ struct check_logic::imp {
         else if (m.is_builtin_family_id(fid)) {
             // nothing to check
         }
-        else if (fid == m_seq_util.get_family_id()) {
+        else if (fid == m_seq_util.get_family_id() || m_seq_util.is_char(s)) {
             // nothing to check
         }
         else if (fid == m_dt_util.get_family_id() && m_dt) {

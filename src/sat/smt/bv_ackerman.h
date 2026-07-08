@@ -78,4 +78,4 @@ namespace bv {
         void propagate();
     };
 
-};
+}

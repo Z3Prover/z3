@@ -167,7 +167,7 @@ namespace macro_manager_ns {
             }
         }
     };
-};
+}
 
 /**
    \brief Mark all func_decls used in exprs as forbidden.
