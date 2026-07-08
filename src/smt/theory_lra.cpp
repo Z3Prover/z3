@@ -3325,10 +3325,7 @@ public:
         lp::lconstraint_kind kT = bound2constraint_kind(v_is_int, bk, true);
         lp::lconstraint_kind kF = bound2constraint_kind(v_is_int, bk, false);
         
-        if (eps.is_zero())
-            cT = lp().mk_var_bound(vi, kT, bound);
-        else
-            cT = lp().mk_var_bound(vi, kT, bound, eps);
+        cT = lp().mk_var_bound(vi, kT, bound, eps);
         if (v_is_int) {
             rational boundF = (bk == lp_api::lower_t) ? bound - 1 : bound + 1;
             cF = lp().mk_var_bound(vi, kF, boundF);
