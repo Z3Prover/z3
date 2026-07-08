@@ -553,10 +553,9 @@ class tptp_parser {
     // Multi-argument A * B > C is represented as Array(A, Array(B, C)) (curried).
     sort* get_ho_sort(ptr_vector<sort> const& domain, sort* range) {
         sort* s = range;
-        for (int i = (int)domain.size() - 1; i >= 0; --i) {
-            s = m_array.mk_array_sort(domain[i], s);
-            m_pinned_sorts.push_back(s);
-        }
+        for (unsigned i = domain.size(); i-- > 0; ) 
+            s = m_array.mk_array_sort(domain[i], s);        
+        m_pinned_sorts.push_back(s);
         return s;
     }
 
@@ -1535,7 +1534,7 @@ class tptp_parser {
         // For function-style definitions, wrap value in lambdas
         if (!param_vars.empty()) {
             expr_ref result = value;
-            for (int i = (int)param_vars.size() - 1; i >= 0; --i) {
+            for (unsigned i = param_vars.size(); i-- > 0; ) {
                 expr_ref abs_body(m);
                 expr_abstract(m, 0, 1, (expr* const*)&param_vars[i], result, abs_body);
                 sort* s = param_vars[i]->get_sort();
@@ -1976,7 +1975,7 @@ class tptp_parser {
         // Create nested single-variable lambdas (curried) to match our curried array encoding.
         // ^[X:A, Y:B] : body  becomes  ^[X:A] : (^[Y:B] : body)  with sort Array(A, Array(B, body_sort))
         expr_ref result = body;
-        for (int i = (int)vars.size() - 1; i >= 0; --i) {
+        for (unsigned i = vars.size(); i-- > 0; ) {
             expr_ref abs_body(m);
             expr_abstract(m, 0, 1, (expr* const*)&vars[i], result, abs_body);
             sort* s = vars[i]->get_sort();
@@ -2877,6 +2876,7 @@ expr_ref tptp_parser::parse_term() {
         if (!m_array.is_array(e_sort)) {
             sort* arg_sort = arg->get_sort();
             sort* arr_sort = m_array.mk_array_sort(arg_sort, m_univ);
+            m_pinned_sorts.push_back(arr_sort);
             e = coerce_arg(e, arr_sort);
         } else {
             sort* dom = get_array_domain(e_sort, 0);

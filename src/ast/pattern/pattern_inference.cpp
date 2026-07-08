@@ -121,6 +121,7 @@ void pattern_inference_cfg::collect::operator()(expr * n, unsigned num_bindings)
     SASSERT(m_info.empty());
     SASSERT(m_todo.empty());
     SASSERT(m_cache.empty());
+    SASSERT(is_well_sorted(m, n));
     m_num_bindings = num_bindings;
     m_todo.push_back(entry(n, 0));
     while (!m_todo.empty()) {
@@ -173,21 +174,15 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
     switch (n->get_kind()) {
     case AST_VAR: {
         unsigned idx = to_var(n)->get_idx();
-        if (idx >= delta) {
-            idx = idx - delta;
-            uint_set free_vars;
-            if (idx < m_num_bindings)
-                free_vars.insert(idx);
-            info * i = nullptr;
-            if (delta == 0)
-                i = alloc(info, m, n, free_vars, 1);
-            else
-                i = alloc(info, m, m.mk_var(idx, to_var(n)->get_sort()), free_vars, 1);
-            save(n, delta, i);
-        }
-        else {
+        if (idx >= m_num_bindings + delta) {
             save(n, delta, nullptr);
+            return;
         }
+        uint_set free_vars;
+        if (delta <= idx)
+            free_vars.insert(idx - delta);
+        info * i = alloc(info, m, n, free_vars, 1);
+        save(n, delta, i);
         return;
     }
     case AST_APP: {
@@ -243,7 +238,8 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         // stating properties about these operators.
         family_id fid = c->get_family_id();
         decl_kind k   = c->get_decl_kind();
-        if (!free_vars.empty() &&            
+        if (!free_vars.empty() &&       
+            delta == 0 &&
             (fid != m_afid || (fid == m_afid && !m_owner.m_nested_arith_only && (k == OP_DIV || k == OP_IDIV || k == OP_MOD || k == OP_REM || k == OP_MUL)))) {
             TRACE(pattern_inference, tout << "potential candidate: \n" << mk_pp(new_node, m) << "\n";);
             m_owner.add_candidate(new_node, free_vars, size);
@@ -254,30 +250,15 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         quantifier * q = to_quantifier(n);
         unsigned num_decls = q->get_num_decls();
         info * body_info = nullptr;
-        m_cache.find(entry(q->get_expr(), delta + num_decls), body_info);
-        if (body_info == nullptr) {
+        expr *body = q->get_expr();
+        m_cache.find(entry(body, delta + num_decls), body_info);
+        if (!body_info) {
             save(n, delta, nullptr);
             return;
         }
-        // The lambda/quantifier itself is a valid sub-term in a pattern.
-        // body_info->m_node was normalized into the *outer* quantifier's de
-        // Bruijn space (the enclosing binders, including this lambda's own
-        // num_decls binders, were stripped). Re-wrapping it under the lambda
-        // therefore requires shifting the (outer) free variables back up by
-        // num_decls so they do not collide with the lambda's bound variables.
-        // The lambda's own bound variables never occur in body_info (any
-        // sub-term referring to them was rejected as a candidate), so the
-        // shift is always sound.
-        expr * body = body_info->m_node.get();
-        expr_ref new_body(m);
-        if (num_decls > 0) {
-            var_shifter shift(m);
-            shift(body, num_decls, new_body);
-        }
-        else
-            new_body = body;
+        expr *new_body = body_info->m_node.get();
         quantifier_ref new_q(m);
-        if (new_body.get() != q->get_expr())
+        if (new_body != q->get_expr())
             new_q = m.update_quantifier(q, new_body);
         else
             new_q = q;
