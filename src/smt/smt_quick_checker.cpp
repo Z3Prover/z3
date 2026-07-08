@@ -235,8 +235,8 @@ namespace smt {
                     TRACE(quick_checker, tout << "found new candidate\n";);
                     TRACE(quick_checker_sizes, tout << "found new candidate\n"; 
                           for (unsigned i = 0; i < m_num_bindings; ++i) tout << "#" << m_bindings[i]->get_owner_id() << " "; tout << "\n";);
-                    unsigned max_generation = get_max_generation(m_num_bindings, m_bindings.data());
-                    if (m_context.add_instance(q, nullptr /* no pattern was used */, m_num_bindings, m_bindings.data(), 
+                    unsigned max_generation = m_context.get_max_generation(m_num_bindings, m_bindings.data());
+                    if (m_context.add_instance(q, nullptr /* no pattern was used */, m_num_bindings, m_bindings.data(),
                                                max_generation,
                                                0,  // min_top_generation is only available for instances created by the MAM
                                                0,  // max_top_generation is only available for instances created by the MAM

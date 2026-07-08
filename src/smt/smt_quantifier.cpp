@@ -249,9 +249,7 @@ namespace smt {
                 trace_stream() << "\n";
             } else {
                 std::ostream & out = trace_stream();
-
                 obj_hashtable<enode> already_visited;
-
                 // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
                 // is used. We need to make sure that all of these equalities appear in the log.
                 for (unsigned i = 0; i < num_bindings; ++i) {
@@ -264,7 +262,6 @@ namespace smt {
                         log_justification_to_root(out, substituted, already_visited, m_context, m());
                     }
                 }
-
                 // At this point all relevant equalities for the match are logged.
                 out << "[new-match] " << f->get_data_hash() << " #" << q->get_id() << " #" << pat->get_id();
                 for (unsigned i = 0; i < num_bindings; ++i) {
@@ -285,7 +282,7 @@ namespace smt {
                 out << "\n";
             }
         }
-
+        
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
@@ -724,8 +721,9 @@ namespace smt {
                 }
                 enode* n = m_context->get_enode(e);
                 new_bindings.push_back(n);
-                if (n->get_generation() > max_gen)
-                    max_gen = n->get_generation();
+                unsigned gen = m_context->get_generation(n);
+                if (gen > max_gen)
+                    max_gen = gen;
             }
 
             TRACE(ho_matching,
