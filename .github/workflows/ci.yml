@@ -205,7 +205,7 @@ jobs:
         run: git clone https://github.com/z3prover/z3test z3test
 
       - name: Run regressions
-        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
+        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2 smt2 $(nproc) 120
 
       - name: Generate documentation
         run: |
