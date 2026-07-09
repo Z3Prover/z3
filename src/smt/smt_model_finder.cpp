@@ -1182,6 +1182,14 @@ namespace smt {
             virtual void populate_inst_sets(quantifier* q, func_decl* mhead, ptr_vector<instantiation_set>& uvar_inst_sets, context* ctx) {}
         };
 
+        static bool has_uvar(quantifier* q, unsigned i) {
+            return i < q->get_num_decls();
+        }
+
+        static node* get_uvar_if_valid(quantifier* q, unsigned i, auf_solver& s) {
+            return has_uvar(q, i) ? s.get_uvar(q, i) : nullptr;
+        }
+
         class f_var : public qinfo {
         protected:
             func_decl* m_f;
@@ -1207,7 +1215,9 @@ namespace smt {
 
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
                 node* n1 = s.get_A_f_i(m_f, m_arg_i);
-                node* n2 = s.get_uvar(q, m_var_j);
+                node* n2 = get_uvar_if_valid(q, m_var_j, s);
+                if (!n2)
+                    return;
                 CTRACE(model_finder, n1->get_sort() != n2->get_sort(),
                        tout << "sort bug:\n" << mk_ismt2_pp(q->get_expr(), m) << "\n" << mk_ismt2_pp(q, m) << "\n";
                        tout << "decl(0): " << q->get_decl_name(0) << "\n";
@@ -1289,17 +1299,22 @@ namespace smt {
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
                 // just create the nodes
                 /* node * A_f_i = */ s.get_A_f_i(m_f, m_arg_i);
-                /* node * S_j   = */ s.get_uvar(q, m_var_j);
+                /* node * S_j   = */ get_uvar_if_valid(q, m_var_j, s);
             }
 
             void populate_inst_sets(quantifier* q, auf_solver& s, context* ctx) override {
                 // S_j is not necessary equal to A_f_i.
                 node* A_f_i = s.get_A_f_i(m_f, m_arg_i)->get_root();
-                node* S_j = s.get_uvar(q, m_var_j)->get_root();
+                node* S_j = get_uvar_if_valid(q, m_var_j, s);
+                if (!S_j)
+                    return;
+                S_j = S_j->get_root();
                 if (A_f_i == S_j) {
                     // there is no finite fixpoint... we just copy the i-th arguments of A_f_i - m_offset
                     // hope for the best...
-                    node* S_j = s.get_uvar(q, m_var_j);
+                    node* S_j = get_uvar_if_valid(q, m_var_j, s);
+                    if (!S_j)
+                        return;
                     for (enode* n : ctx->enodes_of(m_f)) {
                         if (ctx->is_relevant(n)) {
                             arith_rewriter arith_rw(m);
@@ -1363,7 +1378,10 @@ namespace smt {
 
             void populate_inst_sets2(quantifier* q, auf_solver& s, context* ctx) override {
                 node* A_f_i = s.get_A_f_i(m_f, m_arg_i)->get_root();
-                node* S_j = s.get_uvar(q, m_var_j)->get_root();
+                node* S_j = get_uvar_if_valid(q, m_var_j, s);
+                if (!S_j)
+                    return;
+                S_j = S_j->get_root();
                 // If A_f_i == S_j, then there is no finite fixpoint, so we do nothing here.
                 if (A_f_i != S_j) {
                     //  enforce
@@ -1407,14 +1425,16 @@ namespace smt {
             }
 
             void process_auf(quantifier *q, auf_solver &s, context *ctx) override {
-                /* node * S_i = */ s.get_uvar(q, m_var_i);
+                /* node * S_i = */ get_uvar_if_valid(q, m_var_i, s);
             }
 
             void populate_inst_sets(quantifier *q, auf_solver &s, context *ctx) override {
                 bool use_term_enum = ctx->get_fparams().m_term_enumeration;
                 if (!use_term_enum)
                     return;
-                node *S = s.get_uvar(q, m_var_i);
+                node *S = get_uvar_if_valid(q, m_var_i, s);
+                if (!S)
+                    return;
                 sort *srt = S->get_sort();
 
                 IF_VERBOSE(3, verbose_stream() << "ho_var::populate_inst_sets: " << q->get_id() << " " << mk_pp(srt, m) << "\n";);
@@ -1546,7 +1566,9 @@ namespace smt {
                 for (enode* n : arrays) {
                     tout << "#" << n->get_expr_id() << "\n" << mk_pp(n->get_expr(), m) << "\n";
                 });
-                node* n1 = s.get_uvar(q, m_var_j);
+                node* n1 = get_uvar_if_valid(q, m_var_j, s);
+                if (!n1)
+                    return;
                 for (enode* n : arrays) {
                     auto ground_array = n->get_expr();
                     func_decl* f = get_array_func_decl(ground_array, s);
@@ -1613,8 +1635,10 @@ namespace smt {
             char const* get_kind() const override { return "x_eq_y"; }
 
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
-                node* n1 = s.get_uvar(q, m_var_i);
-                node* n2 = s.get_uvar(q, m_var_j);
+                node* n1 = get_uvar_if_valid(q, m_var_i, s);
+                node* n2 = get_uvar_if_valid(q, m_var_j, s);
+                if (!n1 || !n2)
+                    return;
                 n1->insert_avoid(n2);
                 if (n1 != n2)
                     n2->insert_avoid(n1);
@@ -1627,8 +1651,10 @@ namespace smt {
             char const* get_kind() const override { return "x_neq_y"; }
 
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
-                node* n1 = s.get_uvar(q, m_var_i);
-                node* n2 = s.get_uvar(q, m_var_j);
+                node* n1 = get_uvar_if_valid(q, m_var_i, s);
+                node* n2 = get_uvar_if_valid(q, m_var_j, s);
+                if (!n1 || !n2)
+                    return;
                 n1->merge(n2);
             }
         };
@@ -1639,8 +1665,10 @@ namespace smt {
             char const* get_kind() const override { return "x_leq_y"; }
 
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
-                node* n1 = s.get_uvar(q, m_var_i);
-                node* n2 = s.get_uvar(q, m_var_j);
+                node* n1 = get_uvar_if_valid(q, m_var_i, s);
+                node* n2 = get_uvar_if_valid(q, m_var_j, s);
+                if (!n1 || !n2)
+                    return;
                 n1->merge(n2);
                 n1->set_mono_proj();
             }
@@ -1653,8 +1681,10 @@ namespace smt {
             char const* get_kind() const override { return "x_sleq_y"; }
 
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
-                node* n1 = s.get_uvar(q, m_var_i);
-                node* n2 = s.get_uvar(q, m_var_j);
+                node* n1 = get_uvar_if_valid(q, m_var_i, s);
+                node* n2 = get_uvar_if_valid(q, m_var_j, s);
+                if (!n1 || !n2)
+                    return;
                 n1->merge(n2);
                 n1->set_mono_proj();
                 n1->set_signed_proj();
@@ -1689,11 +1719,15 @@ namespace smt {
             char const* get_kind() const override { return "x_eq_t"; }
 
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
-                node* n1 = s.get_uvar(q, m_var_i);
+                node* n1 = get_uvar_if_valid(q, m_var_i, s);
+                if (!n1)
+                    return;
                 n1->insert_exception(m_t);
             }
 
             void populate_inst_sets(quantifier* q, auf_solver& slv, context* ctx) override {
+                if (!has_uvar(q, m_var_i))
+                    return;
                 unsigned num_vars = q->get_num_decls();
                 sort* s = q->get_decl_sort(num_vars - m_var_i - 1);
                 if (m.is_uninterp(s)) {
@@ -1716,12 +1750,14 @@ namespace smt {
             char const* get_kind() const override { return "x_neq_t"; }
 
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
-                // make sure that S_q_i is create.
-                s.get_uvar(q, m_var_i);
+                // make sure that S_q_i is created.
+                get_uvar_if_valid(q, m_var_i, s);
             }
 
             void populate_inst_sets(quantifier* q, auf_solver& s, context* ctx) override {
-                node* S_q_i = s.get_uvar(q, m_var_i);
+                node* S_q_i = get_uvar_if_valid(q, m_var_i, s);
+                if (!S_q_i)
+                    return;
                 S_q_i->insert(m_t, 0);
             }
         };
@@ -1733,13 +1769,17 @@ namespace smt {
             char const* get_kind() const override { return "x_gle_t"; }
 
             void process_auf(quantifier* q, auf_solver& s, context* ctx) override {
-                // make sure that S_q_i is create.
-                node* n1 = s.get_uvar(q, m_var_i);
+                // make sure that S_q_i is created.
+                node* n1 = get_uvar_if_valid(q, m_var_i, s);
+                if (!n1)
+                    return;
                 n1->set_mono_proj();
             }
 
             void populate_inst_sets(quantifier* q, auf_solver& s, context* ctx) override {
-                node* S_q_i = s.get_uvar(q, m_var_i);
+                node* S_q_i = get_uvar_if_valid(q, m_var_i, s);
+                if (!S_q_i)
+                    return;
                 S_q_i->insert(m_t, 0);
             }
         };
