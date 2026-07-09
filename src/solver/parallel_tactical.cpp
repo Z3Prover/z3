@@ -1025,8 +1025,9 @@ class parallel_solver {
         unsigned         m_num_initial_atoms = 0;
 
         void update_max_thread_conflicts() {
-            m_config.m_threads_max_conflicts = static_cast<unsigned>(
-                m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
+            // Use saturating arithmetic to avoid unsigned overflow / undefined behaviour.
+            double next = m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts;
+            m_config.m_threads_max_conflicts = (next >= (double)UINT_MAX) ? UINT_MAX : static_cast<unsigned>(next);
         }
 
         lbool check_cube(expr_ref_vector const& cube) {

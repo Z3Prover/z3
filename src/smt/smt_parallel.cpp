@@ -879,6 +879,17 @@ namespace smt {
         if (m_config.m_ablate_backtracking) {
             m_config.m_core_minimize = false;
         }
+
+        // Honour the user-visible smt.threads_max_conflicts parameter as the initial
+        // per-cube conflict budget.  The default value of that parameter is UINT_MAX,
+        // which means "no limit": workers run without a conflict ceiling and the
+        // cube-splitting machinery stays idle, giving behaviour consistent with
+        // Z3 4.12.x (portfolio of solvers, first to finish wins).  Users who
+        // explicitly set smt.threads_max_conflicts to a finite value opt into the
+        // cube-and-conquer regime and get splitting at that budget.
+        m_config.m_threads_max_conflicts = m_smt_params.m_threads_max_conflicts;
+        IF_VERBOSE(1, verbose_stream() << "Worker " << id << " m_threads_max_conflicts=" << m_config.m_threads_max_conflicts 
+                                       << " (from smt_params=" << m_smt_params.m_threads_max_conflicts << ")\n");
     }
 
     parallel::sls_worker::sls_worker(parallel& p)

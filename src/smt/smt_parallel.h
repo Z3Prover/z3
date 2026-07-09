@@ -304,7 +304,9 @@ namespace smt {
 
             void update_max_thread_conflicts() {
                 // allow for backoff scheme of conflicts within the thread for cube timeouts.
-                m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
+                // Use saturating arithmetic to avoid unsigned overflow / undefined behaviour.
+                double next = m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts;
+                m_config.m_threads_max_conflicts = (next >= (double)UINT_MAX) ? UINT_MAX : (unsigned)next;
             }
 
             void simplify();
