@@ -28,21 +28,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ccache-
 
-      # Cache opam (compiler + packages)
-      - name: Cache opam
-        uses: actions/cache@v6.1.0
-        with:
-          path: ~/.opam
-          key: ${{ runner.os }}-opam-${{ matrix.ocaml-version }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-opam-${{ matrix.ocaml-version }}-
-
-      # Setup OCaml via action
+      # Setup OCaml via action (handles opam caching internally)
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-version }}
           opam-disable-sandboxing: true
-          
+          cache-prefix: v1
+
       # Platform-specific dependencies
       - name: Install system dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
