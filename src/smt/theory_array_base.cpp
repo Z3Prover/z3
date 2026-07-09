@@ -339,6 +339,8 @@ namespace smt {
     }
 
     void theory_array_base::assert_congruent(enode * a1, enode * a2) {
+        if (ctx.get_fparams().m_array_fake_support)
+            return;
         TRACE(array, tout << "congruent: #" << a1->get_owner_id() << " #" << a2->get_owner_id() << "\n";);
         SASSERT(is_array_sort(a1));
         SASSERT(is_array_sort(a2));

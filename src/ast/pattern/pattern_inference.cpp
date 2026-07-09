@@ -173,13 +173,9 @@ inline void pattern_inference_cfg::collect::save(expr * n, unsigned delta, info 
 void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
     switch (n->get_kind()) {
     case AST_VAR: {
-        unsigned idx = to_var(n)->get_idx();
-        if (idx >= m_num_bindings + delta) {
-            save(n, delta, nullptr);
-            return;
-        }
         uint_set free_vars;
-        if (delta <= idx)
+        unsigned idx = to_var(n)->get_idx();
+        if (delta <= idx && idx < m_num_bindings + delta) 
             free_vars.insert(idx - delta);
         info * i = alloc(info, m, n, free_vars, 1);
         save(n, delta, i);
