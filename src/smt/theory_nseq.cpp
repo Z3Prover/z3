@@ -7,7 +7,6 @@ Module Name:
 
 Abstract:
 
-    ZIPT string solver theory for Z3.
     Implementation of theory_nseq.
 
 Author:
@@ -1745,7 +1744,7 @@ namespace smt {
     // -----------------------------------------------------------------------
     // Regex membership pre-check
     // For each variable with regex membership constraints, check intersection
-    // emptiness before DFS.  Mirrors ZIPT's per-variable regex evaluation.
+    // emptiness before DFS.
     //
     // Returns:
     //   l_true  — conflict asserted (empty intersection for some variable)

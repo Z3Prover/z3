@@ -11,7 +11,7 @@ Abstract:
 
     Merges equivalence classes taking into account associativity
     of concatenation and algebraic properties of strings and
-    regular expressions. Implements features from ZIPT:
+    regular expressions.
 
     -- Concat associativity: str.++ is associative, so
        concat(a, concat(b, c)) = concat(concat(a, b), c).

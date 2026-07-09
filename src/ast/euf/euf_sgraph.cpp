@@ -172,11 +172,9 @@ namespace euf {
         }
 
         case snode_kind::s_power: {
-            // s^n: nullable follows base, consistent with ZIPT's PowerToken
+            // s^n: nullable follows base:
             // the exponent n is assumed to be a symbolic integer, may or may not be zero
-            // NSB review: SASSERT(n->num_args() == 2); and simplify code       
-            // NSB review: is this the correct definition of ground what about the exponent?
-            SASSERT(n->num_args() >= 1);
+            SASSERT(n->num_args() == 2);
             snode const* base = n->arg(0);
             n->m_ground = base->is_ground();
             n->m_regex_free = base->is_regex_free();
@@ -307,6 +305,108 @@ namespace euf {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Regex weight estimate
+    //
+    // A crude estimate of the size of the automaton for a regex, used to order
+    // membership constraints in regex factorization (smaller = factorized
+    // first, see str_mem::operator<).  All arithmetic saturates at WEIGHT_MAX
+    // rather than wrapping, so a complement/intersection blow-up produces a
+    // huge-but-finite weight instead of aliasing a small one.
+    // ---------------------------------------------------------------------
+    static const unsigned WEIGHT_MAX = UINT_MAX;
+
+    static unsigned sat_add(unsigned a, unsigned b) {
+        return a > WEIGHT_MAX - b ? WEIGHT_MAX : a + b;
+    }
+
+    static unsigned sat_mul(unsigned a, unsigned b) {
+        if (a == 0 || b == 0)
+            return 0;
+        return a > WEIGHT_MAX / b ? WEIGHT_MAX : a * b;
+    }
+
+    static unsigned sat_pow2(unsigned e) {
+        // 2^e; 1u<<31 still fits, e>=32 overflows unsigned -> saturate
+        return e >= 32 ? WEIGHT_MAX : (1u << e);
+    }
+
+    // Weight recurrence (children are already weighted -> O(1)):
+    //   w(ε)=0            w(a)=1                 w(r1·r2)=w(r1)+w(r2)
+    //   w(r*)=w(r)+1      w(r1|r2)=w(r1)+w(r2)   w(r1&r2)=w(r1)·w(r2)
+    //   w(~r)=2^{w(r)}    w(ite(c,r1,r2))=max(w(r1),w(r2))
+    void sgraph::compute_regex_weight(snode* n) {
+        unsigned w = 0;
+        switch (n->m_kind) {
+        case snode_kind::s_empty:
+            w = 0;
+            break;
+        case snode_kind::s_char:
+        case snode_kind::s_unit:
+        case snode_kind::s_range:
+        case snode_kind::s_full_char:
+            // a single (possibly symbolic) character / character class
+            w = 1;
+            break;
+        case snode_kind::s_var:
+        case snode_kind::s_power:
+            // not a regex proper; treated as an atom
+            w = 1;
+            break;
+        case snode_kind::s_fail:
+        case snode_kind::s_full_seq:
+            // trivial one-state automata (∅ and .*)
+            w = 1;
+            break;
+        case snode_kind::s_concat:
+            w = sat_add(n->arg(0)->regex_weight(), n->arg(1)->regex_weight());
+            break;
+        case snode_kind::s_union:
+            w = sat_add(n->arg(0)->regex_weight(), n->arg(1)->regex_weight());
+            break;
+        case snode_kind::s_intersect:
+            // product automaton
+            w = sat_mul(n->arg(0)->regex_weight(), n->arg(1)->regex_weight());
+            break;
+        case snode_kind::s_star:
+            w = sat_add(n->arg(0)->regex_weight(), 1u);
+            break;
+        case snode_kind::s_plus:
+            w = sat_add(sat_mul(n->arg(0)->regex_weight(), 2u), 2u);
+            break;
+        case snode_kind::s_complement:
+            // determinization blow-up
+            w = sat_pow2(n->arg(0)->regex_weight());
+            break;
+        case snode_kind::s_loop: {
+            // r{lo,hi}: ~hi unrolled copies (bounded) or r^lo·r* (unbounded)
+            const unsigned base = n->num_args() > 0 ? n->arg(0)->regex_weight() : 0;
+            unsigned lo = 1, hi = 1;
+            expr* body = nullptr;
+            if (n->get_expr() && m_seq.re.is_loop(n->get_expr(), body, lo, hi))
+                w = sat_mul(base, std::max(hi, 1u));
+            else if (n->get_expr() && m_seq.re.is_loop(n->get_expr(), body, lo))
+                w = sat_add(sat_mul(base, sat_add(lo, 1u)), 1u);
+            else
+                w = sat_add(base, 1u);
+            break;
+        }
+        case snode_kind::s_ite:
+            // ite(c, r1, r2): args 1 and 2 are the branches
+            w = std::max(n->arg(1)->regex_weight(), n->arg(2)->regex_weight());
+            break;
+        case snode_kind::s_to_re:
+            // to_re(s): one state per character of the (possibly symbolic) word
+            w = n->arg(0)->length();
+            break;
+        case snode_kind::s_in_re:
+        default:
+            w = 1;
+            break;
+        }
+        n->m_regex_weight = w;
+    }
+
     static constexpr unsigned HASH_BASE = 31;
 
     // Compute a 2x2 polynomial hash matrix for associativity-respecting hashing.
@@ -361,6 +461,7 @@ namespace euf {
         const unsigned id = m_nodes.size();
         snode *n = snode::mk(m_region, e, k, id, num_args, args);
         compute_metadata(n);
+        compute_regex_weight(n);
         compute_hash_matrix(n);
         m_nodes.push_back(n);
         SASSERT(!n->is_char_or_unit() || m_seq.str.is_unit(n->get_expr()));

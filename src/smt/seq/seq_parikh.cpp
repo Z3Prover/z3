@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Parikh image filter implementation for the ZIPT-based Nielsen string
+    Parikh image filter implementation for the Nielsen string
     solver.  See seq_parikh.h for the full design description.
 
     The key operation is compute_length_stride(re), which performs a

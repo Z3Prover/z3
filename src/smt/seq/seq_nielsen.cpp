@@ -9,9 +9,6 @@ Abstract:
 
     Nielsen graph implementation for string constraint solving.
 
-    Ports the constraint types and Nielsen graph structures from
-    ZIPT (https://github.com/CEisenhofer/ZIPT/tree/parikh/ZIPT/Constraints)
-
 Author:
 
     Clemens Eisenhofer 2026-03-02
@@ -181,7 +178,7 @@ namespace seq {
         return !cur->is_fail();
     }
 
-    // Directional helpers mirroring ZIPT's fwd flag:
+    // Directional helpers:
     // fwd=true  -> left-to-right (prefix/head)
     // fwd=false -> right-to-left (suffix/tail)
     static euf::snode const* dir_token(euf::snode const* s, const bool fwd) {
@@ -288,21 +285,35 @@ namespace seq {
 
     bool str_mem::is_trivial(nielsen_node const* n) const {
         SASSERT(m_str && m_regex);
+        if (m_kind == mem_kind::stab_view)
+            // The plain full-seq shortcut below does NOT apply to a view: its
+            // language L_{Q,{s}}(state) is about *landing* at s, not membership
+            // in L(state) — a view whose run state is Σ* with s ≠ Σ* denotes ∅
+            // (see is_contradiction), so treating it as trivial would silently
+            // drop the constraint.
+            // ε ∈ L_{Q,{s}}(state) iff current state ≡ acceptance state s (=m_root).
+            return m_str->is_empty() && m_regex == m_root;
         if (m_regex->is_full_seq())
             return true;
         if (!m_str->is_empty())
             return false;
-        if (m_kind == mem_kind::stab_view)
-            // ε ∈ L_{Q,{s}}(state) iff current state ≡ acceptance state s (=m_root).
-            return m_regex == m_root;
         return n->graph().sg().re_nullable(m_regex) == l_true;
     }
 
     bool str_mem::is_contradiction(nielsen_node const* n) const {
-        if (!(m_str && m_regex && m_str->is_empty()))
+        if (!(m_str && m_regex))
             return false;
-        if (m_kind == mem_kind::stab_view)
-            return m_regex != m_root; // ε ∉ view when current state ≢ acceptance s
+        if (m_kind == mem_kind::stab_view) {
+            // δ_a(Σ*) = Σ* for every a: once the run state is Σ*, it stays
+            // there, so no continuation can land at a different acceptance
+            // state — the view denotes ∅ regardless of the remaining string.
+            if (m_regex->is_full_seq() && m_regex != m_root)
+                return true;
+            // ε ∉ view when current state ≢ acceptance s
+            return m_str->is_empty() && m_regex != m_root;
+        }
+        if (!m_str->is_empty())
+            return false;
         return n->graph().sg().re_nullable(m_regex) == l_false;
     }
 
@@ -663,9 +674,16 @@ namespace seq {
         if (!state || nu == 0)
             return false;
         const unsigned sid = state->get_id();
-        // r ∈ Q_nu iff r is incident to a partial-DFA edge whose extraction
-        // index lies in [1, nu] (the "edges marked ≤ ν" subautomaton of the
-        // implementation-aspects section of the paper).
+        // Exact semantics: ν names the state set recorded when the view was
+        // created (paper: a view is identified by ν AND its recorded state
+        // set Q; see mark_reachable_projection_edges).
+        const auto sit = m_projection_snapshots.find(nu);
+        if (sit != m_projection_snapshots.end())
+            return sit->second.m_ids.contains(sid);
+        // Fallback for a ν minted without snapshot (none are anymore; kept for
+        // robustness): r ∈ Q_ν iff r is incident to a partial-DFA edge whose
+        // extraction index lies in [1, ν] — the historical watermark, which
+        // over-approximates the intended Q by the union of all extractions.
         auto incident = [&](std::unordered_map<unsigned, unsigned_vector> const &adj) {
             auto it = adj.find(sid);
             if (it == adj.end())
@@ -771,6 +789,8 @@ namespace seq {
         m_partial_dfa_edge_index.clear();
         m_partial_dfa_pin.reset();
         m_projection_extract_idx = 0;
+        m_projection_snapshots.clear();
+        m_projection_head_cache.clear();
         m_explored_automaton.reset();
         m_unsat_node_cache.clear();
         m_siblings.clear();
@@ -819,8 +839,7 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Power simplification helpers (mirrors ZIPT's MergePowers,
-    // SimplifyPowerElim/CommPower, SimplifyPowerSingle)
+    // Power simplification helpers
     // -----------------------------------------------------------------------
 
     // Check if exponent b equals exponent a + diff for some rational constant diff.
@@ -1032,7 +1051,7 @@ namespace seq {
 
     // CommPower: count how many times a power's base pattern appears in
     // the directional prefix of the other side (fwd=true: left prefix,
-    // fwd=false: right suffix). Mirrors ZIPT's CommPower helper.
+    // fwd=false: right suffix).
     // Returns (count_expr, num_tokens_consumed).  count_expr is nullptr
     // when no complete base-pattern match is found.
     static std::pair<expr_ref, unsigned> comm_power(
@@ -1290,33 +1309,49 @@ namespace seq {
     }
 
     unsigned nielsen_graph::mark_reachable_projection_edges(euf::snode const* head_re) {
-        // Generalizes mark_scc_projection_edges to the forward-reachable set:
-        // mark every edge whose source is reachable from head_re with the current
-        // extraction index ν, bumping ν iff something new was marked.  Views/co-
-        // views gate on projection_state_in_Q (edges marked ≤ ν), so the ν
-        // returned here identifies exactly this Q.
+        // Snapshot semantics (paper "Implementation Aspects": a view is
+        // identified by ν AND its recorded state set Q).  The returned ν names
+        // the EXACT forward-reachable set Q of head_re at this moment, stored
+        // in m_projection_snapshots; views gate on membership in that snapshot
+        // (projection_state_in_Q).  The per-edge watermark is still written —
+        // as the fallback for a ν without snapshot — but no longer defines
+        // view semantics: on its own, "edges marked ≤ ν" is the union of ALL
+        // extractions up to ν, blurring this view's Q with unrelated heads'
+        // regions once exploration is partial (lazy mode).
+        if (!head_re || !head_re->get_expr())
+            return 0;
+        const unsigned head_id = head_re->get_expr()->get_id();
+
+        // Fast path: the partial DFA is monotone, so an unchanged edge count
+        // means the head's reachable set is unchanged — reuse the previous ν.
+        auto cit = m_projection_head_cache.find(head_id);
+        if (cit != m_projection_head_cache.end()
+            && cit->second.first == m_partial_dfa_edges.size())
+            return cit->second.second;
+
         uint_set Q;
         collect_reachable_from_head(head_re, Q);
-        unsigned newly_marked = 0;
-        for (const unsigned src_id : Q) {
-            auto it = m_partial_dfa_out.find(src_id);
-            if (it == m_partial_dfa_out.end())
-                continue;
-            for (const unsigned edge_idx : it->second) {
-                if (edge_idx >= m_partial_dfa_edges.size())
-                    continue;
-                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
-                if (!e.m_dst || !Q.contains(e.m_dst->get_id()))
-                    continue;
-                if (e.m_projection_idx == 0)
-                    ++newly_marked;
+
+        // Slow path: the graph grew, but possibly only outside the head's
+        // region — reuse the previous snapshot if the set is unchanged.
+        if (cit != m_projection_head_cache.end()) {
+            const auto sit = m_projection_snapshots.find(cit->second.second);
+            if (sit != m_projection_snapshots.end()
+                && sit->second.m_ids.num_elems() == Q.num_elems()) {
+                bool same = true;
+                for (const unsigned id : Q)
+                    if (!sit->second.m_ids.contains(id)) { same = false; break; }
+                if (same) {
+                    cit->second.first = m_partial_dfa_edges.size();
+                    return cit->second.second;
+                }
             }
         }
-        if (newly_marked == 0)
-            return m_projection_extract_idx; // Q already covered by the current ν
 
-        ++m_projection_extract_idx;
-        const unsigned extract_idx = m_projection_extract_idx;
+        const unsigned nu = ++m_projection_extract_idx;
+
+        // Watermark the in-Q edges (only previously unmarked ones) — fallback
+        // data only, see above.
         for (const unsigned src_id : Q) {
             auto it = m_partial_dfa_out.find(src_id);
             if (it == m_partial_dfa_out.end())
@@ -1328,10 +1363,194 @@ namespace seq {
                 if (!e.m_dst || !Q.contains(e.m_dst->get_id()))
                     continue;
                 if (e.m_projection_idx == 0)
-                    e.m_projection_idx = extract_idx;
+                    e.m_projection_idx = nu;
             }
         }
-        return extract_idx;
+
+        // Record the snapshot: the id set plus the state exprs (head first,
+        // then in-Q edge endpoints).  Pin the head so every stored expr
+        // outlives sgraph pops (edge endpoints are already pinned by
+        // record_partial_derivative_edge).
+        projection_snapshot snap;
+        snap.m_ids = Q;
+        uint_set added;
+        m_partial_dfa_pin.push_back(head_re->get_expr());
+        snap.m_states.push_back(head_re->get_expr());
+        added.insert(head_id);
+        for (partial_dfa_edge const& e : m_partial_dfa_edges) {
+            for (expr* ep : { e.m_src, e.m_dst }) {
+                if (!ep)
+                    continue;
+                const unsigned id = ep->get_id();
+                if (!Q.contains(id) || added.contains(id))
+                    continue;
+                added.insert(id);
+                snap.m_states.push_back(ep);
+            }
+        }
+        m_projection_snapshots.emplace(nu, std::move(snap));
+        m_projection_head_cache[head_id] = { m_partial_dfa_edges.size(), nu };
+        return nu;
+    }
+
+    void nielsen_graph::collect_projection_states(unsigned nu, svector<euf::snode const*>& out) {
+        // Enumeration counterpart of projection_state_in_Q — keep in sync with
+        // it (it is the membership test the view gates use in consume_view and
+        // comp_step).  Exact semantics: the states of the ν-snapshot.
+        if (nu == 0)
+            return;
+        const auto sit = m_projection_snapshots.find(nu);
+        if (sit != m_projection_snapshots.end()) {
+            for (expr* ep : sit->second.m_states) {
+                // mk, not find: the exprs are pinned but their snodes may have
+                // been released by an sgraph pop.
+                euf::snode const* sn = m_sg.mk(ep);
+                if (sn)
+                    out.push_back(sn);
+            }
+            return;
+        }
+        // Fallback for a ν without snapshot: the states incident to an edge
+        // with extraction index in [1, ν] (historical watermark).
+        uint_set added;
+        for (partial_dfa_edge const& e : m_partial_dfa_edges) {
+            if (e.m_projection_idx == 0 || e.m_projection_idx > nu)
+                continue;
+            for (expr* ep : { e.m_src, e.m_dst }) {
+                if (!ep)
+                    continue;
+                const unsigned id = ep->get_id();
+                if (added.contains(id))
+                    continue;
+                // mk, not find: the expr is pinned (m_partial_dfa_pin) but its
+                // snode may have been released by an sgraph pop since the edge
+                // was recorded (see the analogous collection of Qstates in
+                // apply_landing_decomposition).
+                euf::snode const* sn = m_sg.mk(ep);
+                if (sn) { added.insert(id); out.push_back(sn); }
+            }
+        }
+    }
+
+    void nielsen_graph::compute_view_length_info(unsigned nu, expr* from, view_len_info& info) {
+        info.m_dist.reset();
+        info.m_stride = 0;
+        info.m_ok = false;
+        if (!from || nu == 0)
+            return;
+        const auto sit = m_projection_snapshots.find(nu);
+        if (sit == m_projection_snapshots.end())
+            return; // watermark-fallback ν without an exact snapshot: no abstraction
+        uint_set const& Q = sit->second.m_ids;
+        if (!Q.contains(from->get_id()))
+            return; // gate closed at the head: L ⊆ {ε}, handled by the degenerate cases
+
+        // BFS over the recorded in-Q edges (each edge consumes one character).
+        // At ν-minting time compute_frontier saturated these edges, so they are
+        // exactly the one-character transitions among Q_ν states; edges are only
+        // ever added, so saturation persists and the abstraction stays sound.
+        unsigned_vector queue;
+        unsigned qhead = 0;
+        info.m_dist.insert(from->get_id(), 0);
+        queue.push_back(from->get_id());
+        while (qhead < queue.size()) {
+            const unsigned u = queue[qhead++];
+            const unsigned du = info.m_dist.find(u);
+            auto it = m_partial_dfa_out.find(u);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (const unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                if (!e.m_dst)
+                    continue;
+                const unsigned v = e.m_dst->get_id();
+                if (!Q.contains(v) || info.m_dist.contains(v))
+                    continue;
+                info.m_dist.insert(v, du + 1);
+                queue.push_back(v);
+            }
+        }
+
+        // Stride g = gcd over reachable in-Q edges (u,v) of (d(u) + 1 − d(v)):
+        // by telescoping, every gated walk from the head to v has length
+        // ≡ d(v) (mod g); g = 0 means every such walk has length exactly d(v).
+        unsigned g = 0;
+        for (const unsigned u : queue) {
+            const unsigned du = info.m_dist.find(u);
+            auto it = m_partial_dfa_out.find(u);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (const unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                if (!e.m_dst)
+                    continue;
+                const unsigned v = e.m_dst->get_id();
+                if (!Q.contains(v))
+                    continue;
+                SASSERT(info.m_dist.contains(v)); // v is reachable since u is
+                const unsigned t = du + 1 - info.m_dist.find(v);
+                if (t != 0)
+                    g = g == 0 ? t : u_gcd(g, t);
+            }
+        }
+        info.m_stride = g;
+        info.m_ok = true;
+    }
+
+    void nielsen_graph::add_view_length_constraints(nielsen_edge* e, view_len_info const& info, unsigned nu,
+                                                    euf::snode const* pinned, expr* to, dep_tracker const& dep) {
+        if (!e || !info.m_ok || !pinned || !to)
+            return;
+
+        unsigned min_len = 0, stride = 0;
+        bool exact = false;
+        if (projection_state_in_Q(to, nu)) {
+            // Walk and landing state stay inside Q_ν, where the recorded edges
+            // are saturated: min = d(to), stride = g.
+            if (!info.m_dist.contains(to->get_id()))
+                return; // unreachable ⇒ empty view; the branch dies at its leaf
+            min_len = info.m_dist.find(to->get_id());
+            stride = info.m_stride;
+            exact = stride == 0;
+        }
+        else {
+            // Landing target outside Q_ν (view landing at root ∉ Q_ν): the
+            // final hop may be an UNRECORDED transition from any reachable
+            // q ∈ Q_ν, of length d(q) + 1 ≡ 1 (mod gcd(g, all reachable d(q))),
+            // so only this weakened progression is sound.
+            min_len = 1;
+            stride = info.m_stride;
+            for (auto const& [id, d] : info.m_dist) {
+                (void)id;
+                if (d != 0)
+                    stride = stride == 0 ? d : u_gcd(stride, d);
+            }
+            exact = stride == 0; // only the head is reachable: len = 1 exactly
+        }
+
+        if (!exact && min_len == 0 && stride <= 1)
+            return; // trivial
+
+        const expr_ref len = compute_length_expr(pinned);
+        if (exact) {
+            e->add_side_constraint(mk_constraint(a.mk_eq(len, a.mk_int(min_len)), dep));
+            return;
+        }
+        if (min_len > 0)
+            e->add_side_constraint(mk_constraint(a.mk_ge(len, a.mk_int(min_len)), dep));
+        if (stride > 1) {
+            // stride | (len − min).  Rewrite eagerly — the raw divisibility
+            // predicate is not internalized automatically (see the analogous
+            // gradient propagation in theory_nseq).
+            expr_ref div(a.mk_divides(a.mk_int(stride), a.mk_sub(len, a.mk_int(min_len))), m);
+            th_rewriter rw(m);
+            rw(div);
+            e->add_side_constraint(mk_constraint(div, dep));
+        }
     }
 
     void nielsen_graph::compute_frontier(uint_set const& Q, svector<euf::snode const*> const& Qstates,
@@ -1615,8 +1834,7 @@ namespace seq {
                 }
             }
 
-            // pass 3: power simplification (mirrors ZIPT's LcpCompression +
-            // SimplifyPowerElim + SimplifyPowerSingle)
+            // pass 3: power simplification
             for (str_eq& eq : m_str_eq) {
                 SASSERT(eq.well_formed());
                 if (eq.is_trivial())
@@ -1645,8 +1863,7 @@ namespace seq {
                 // 3c: CommPower-based power elimination — when one side starts
                 // with a power w^p, count base-pattern occurrences c on the
                 // other side's prefix.  If we can determine the ordering between
-                // p and c, cancel the matched portion.  Mirrors ZIPT's
-                // SimplifyPowerElim calling CommPower.
+                // p and c, cancel the matched portion.
                 // Spec: CommPower cancellation.
                 //   Given: pow_side = w^p · rest_pow  and  other_side = w^c · rest_other
                 //   where c is the number of times the base pattern w occurs in the
@@ -1798,7 +2015,7 @@ namespace seq {
         }
 
         // consume concrete characters from str_mem via Brzozowski derivatives
-        // in both directions (left-to-right, then right-to-left), mirroring ZIPT.
+        // in both directions (left-to-right, then right-to-left).
         for (str_mem& mem : m_str_mem) {
             SASSERT(mem.well_formed());
             if (mem.is_primitive() || !mem.is_plain())
@@ -1940,12 +2157,15 @@ namespace seq {
         // the string by replacing variables with their regex intersection
         // and check if the result intersected with the target regex is empty.
         // Detects infeasible constraints that would otherwise require
-        // expensive exploration. Mirrors ZIPT NielsenNode.CheckRegexWidening.
+        // expensive exploration.
         SASSERT(m_graph.m_seq_regex);
         for (str_mem const& mem : m_str_mem) {
             SASSERT(mem.well_formed());
             if (mem.is_primitive())
                 continue;
+            // Views are widened as well: check_regex_widening substitutes a
+            // sound over-approximation of the view language (see there) and
+            // returns false when none applies.
             dep_tracker dep = mem.m_dep;
             if (m_graph.check_regex_widening(*this, mem, dep)) {
                 set_general_conflict();
@@ -2467,9 +2687,9 @@ namespace seq {
             // Before declaring SAT, check leaf-node regex feasibility:
             // for each variable with multiple regex constraints, verify
             // that the intersection of all its regexes is non-empty.
-            // Mirrors ZIPT NielsenNode.CheckRegex.
             dep_tracker dep = nullptr;
-            if (!check_leaf_regex(*node, dep)) {
+            const lbool leaf_feasible = check_leaf_regex(*node, dep);
+            if (leaf_feasible == l_false) {
                 node->set_general_conflict();
                 node->set_conflict(backtrack_reason::regex, dep);
                 // string-only conflict (empty intersection) → memoize.
@@ -2478,6 +2698,12 @@ namespace seq {
                 m_unsat_node_cache.insert(node);
                 return search_result::unsat;
             }
+            if (leaf_feasible == l_undef)
+                // The product search exhausted its budget: the leaf can be
+                // neither confirmed nor refuted.  Declaring SAT here would let
+                // the model builder emit a witness that may violate the very
+                // constraints the check could not decide.
+                return search_result::unknown;
             assert_node_side_constraints(node);
             // We need to have everything asserted before reporting SAT
             // (otw. the outer solver might assume false-assigned literals to be true)
@@ -3202,7 +3428,6 @@ namespace seq {
 
     // -----------------------------------------------------------------------
     // EqSplit: find_eq_split_point
-    // Port of ZIPT's StrEq.SplitEq algorithm.
     //
     // Walks tokens from each side tracking two accumulators:
     //   - lhs_has_symbolic / rhs_has_symbolic : whether a variable-length token
@@ -3334,7 +3559,7 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // apply_eq_split — Port of ZIPT's EqSplitModifier.Apply
+    // apply_eq_split
     //
     // For a regex-free equation LHS = RHS, finds a split point and decomposes
     // into two shorter equations with optional padding variable:
@@ -3482,6 +3707,15 @@ namespace seq {
         // (regex-related: skipped in benchmark-harvest mode)
         if (!harvest_mode() && apply_landing_decomposition(node))
             return ++m_stats.m_mod_star_intr, true;
+
+        // Priority 6b: ViewLandingDecomp - land-only decomposition of a view
+        // constraint made non-primitive by a substitution on a pinned variable
+        // (paper §5.3, "Landing decomposition on view constraints").  Must
+        // preempt RegexVarSplit: character-unwinding a pinned variable would
+        // re-introduce the cycle-unrolling divergence the views prevent.
+        // (regex-related: skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_view_landing_decomposition(node))
+            return ++m_stats.m_mod_view_land, true;
 
         // Priority 7: GPowerIntr - ground power introduction
         if (apply_gpower_intr(node))
@@ -3669,16 +3903,11 @@ namespace seq {
     // starts with a power token u^n.  In that case, branch:
     //   (1) base u → ε (base is empty, so u^n = ε)
     //   (2) u^n → ε (the power is zero, replace power with empty)
-    // mirrors ZIPT's PowerEpsilonModifier (which requires LHS.IsEmpty())
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_power_epsilon(nielsen_node* node) {
         // Match only when one equation side is empty and the other starts
-        // with a power.  This mirrors ZIPT where PowerEpsilonModifier is
-        // constructed only inside the "if (LHS.IsEmpty())" branch of
-        // ExtendDir.  When both sides are non-empty and a power faces a
-        // constant, ConstNumUnwinding (priority 4) handles it with both
-        // n=0 and n≥1 branches.
+        // with a power.
         euf::snode const* power = nullptr;
         dep_tracker dep = m_dep_mgr.mk_empty();
         for (str_eq const& eq : node->str_eqs()) {
@@ -3730,7 +3959,6 @@ namespace seq {
     // For equations involving two power tokens u^m and u^n with the same base,
     // branch on the numeric relationship: m <= n vs n < m.
     // Generates proper integer side constraints for each branch.
-    // mirrors ZIPT's NumCmpModifier
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_num_cmp(nielsen_node* node) {
@@ -3789,7 +4017,6 @@ namespace seq {
     //   Branch 2: c ≤ p   (add constraint p ≥ c)
     // After branching, simplify_and_init's CommPower pass (3c) can resolve
     // the ordering deterministically and cancel the matched portion.
-    // mirrors ZIPT's SplitPowerElim + NumCmpModifier
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_split_power_elim(nielsen_node* node) {
@@ -3852,7 +4079,6 @@ namespace seq {
     // For a power token u^n facing a constant (char) head,
     // branch: (1) n = 0 → u^n = ε, (2) n >= 1 → peel one u from power.
     // Generates integer side constraints for each branch.
-    // mirrors ZIPT's ConstNumUnwindingModifier
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_const_num_unwinding(nielsen_node* node) {
@@ -3884,7 +4110,7 @@ namespace seq {
         // Side constraint: n >= 1
         // Create a proper nested power base^(n-1) instead of a fresh string variable.
         // This preserves power structure so that simplify_and_init can merge and
-        // cancel adjacent same-base powers (mirroring ZIPT's SimplifyPowerUnwind).
+        // cancel adjacent same-base powers.
         // Explored first because the n≥1 branch is typically more productive
         // for SAT instances (preserves power structure).
         const seq_util &seq = m_sg.get_seq_util();
@@ -3908,22 +4134,31 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Helper: ensure_automaton_explored  (lazy, on-demand, cached)
-    // Records the *complete* reachable Brzozowski automaton of root_re into the
-    // partial DFA — but only once per regex component.  This is the lazy
-    // Q-completion: instead of re-running a fixed-depth BFS on every cycle
-    // decomposition (the old precompute_partial_dfa(R, depth), which re-explored
-    // R's automaton on each of the ~hundreds of decompositions and, with a
-    // shallow depth, left Q incomplete so guards discharged prematurely and laps
-    // never closed), we explore each component once to saturation and remember
-    // every state we visited.  A later decomposition whose head was reached by an
-    // earlier exploration finds it already covered and does no work.
+    // Helper: ensure_automaton_explored  (budgeted, on-demand, cached)
+    // Records the reachable Brzozowski automaton of root_re into the partial
+    // DFA, once per regex component, up to a per-call STATE BUDGET.  This is
+    // the eager/lazy hybrid of the paper's two modes:
+    //   - a component smaller than the budget (the common case) is saturated
+    //     in one go: every land-at-s block of the landing decomposition is
+    //     available immediately, the frontier is empty, and no escape ever
+    //     re-walks explored structure;
+    //   - a larger component is left PARTIAL — a sound under-approximation,
+    //     exactly as at the resource limit: the frontier is then non-empty
+    //     and the ESCAPE branches grow Q on demand, one recorded edge at a
+    //     time — the paper's lazy mode.  This avoids materializing large
+    //     derivative automata (complement/intersection blowups, e.g. the
+    //     paper's Σ*bΣ^k example) up front.
+    // States dequeued before the cutoff are in m_explored_automaton; the
+    // truncated remainder is NOT, so consumption-time minterm-edge recording
+    // stays active for those sources — escapes keep making progress and the
+    // termination bound (escapes ≤ edges of the finite monotone G) holds.
     //
-    // Completeness matters: the cycle guard / stabilizer view gate on whether the
-    // current state lies in Q (projection_state_in_Q), and that is only sound as
-    // a *bound* when Q contains the whole SCC of the head.  The BFS is bounded by
-    // the finite reachable automaton (Brzozowski states modulo ACI), so it
-    // terminates; m.inc() keeps it responsive to the resource limit.
+    // Soundness never depends on completeness of Q: a land-at-s view forces
+    // δ_x(head) = s for ANY Q, and the stabilizer invariant holds for any Q
+    // (paper, Invariant 1); a partial Q only shifts work to the escapes.
+    // The BFS is bounded by the budget and the finite reachable automaton
+    // (Brzozowski states modulo ACI); m.inc() keeps it responsive to the
+    // resource limit.
     // -----------------------------------------------------------------------
 
     void nielsen_graph::ensure_automaton_explored(euf::snode const* root_re) {
@@ -3932,6 +4167,12 @@ namespace seq {
             return;
         if (m_explored_automaton.contains(root_re->get_expr()->get_id()))
             return;
+
+        // Per-call cap on eagerly explored states.  Components that overflow
+        // it fall back to the paper's lazy escape-driven exploration.
+        // TODO: expose as smt.nseq parameter if tuning proves worthwhile.
+        static constexpr unsigned exploration_budget = 512;
+        unsigned processed = 0;
 
         svector<euf::snode const*> queue;
         queue.push_back(root_re);
@@ -3944,6 +4185,8 @@ namespace seq {
             const unsigned re_eid = re->get_expr()->get_id();
             if (m_explored_automaton.contains(re_eid))
                 continue; // already explored (here or in a previous component)
+            if (processed++ >= exploration_budget)
+                return; // budget: leave the remainder to the escape branches
             m_explored_automaton.insert(re_eid);
 
             euf::snode_vector mts;
@@ -4074,13 +4317,14 @@ namespace seq {
             if (!R->is_ground() || R->kind() == euf::snode_kind::s_ite)
                 continue;
 
-            // Eagerly explore R's reachable automaton (once, cached) so the SCC
-            // gate below and the landing enumeration see the full explored region
-            // Q — this is the automaton-based landing.  Without it the cycle would
-            // not be recorded before factorization/var_split fire, so landing
-            // would never trigger.  If exploration hits the resource limit Q is
-            // left partial (a sound under-approximation) and the escape branches
-            // recover completeness.
+            // Explore R's reachable automaton (once, cached, BUDGETED) so the
+            // SCC gate below and the landing enumeration see the explored
+            // region Q.  Without it the cycle would not be recorded before
+            // factorization/var_split fire, so landing would never trigger.
+            // If exploration is cut off (state budget or resource limit) Q is
+            // left partial — a sound under-approximation, the paper's lazy
+            // mode — and the escape branches recover completeness, growing Q
+            // one recorded edge at a time.
             ensure_automaton_explored(R);
 
             // Trigger: R must sit on a detected cycle in the explored G.  This is
@@ -4108,7 +4352,12 @@ namespace seq {
                     if (!ep) continue;
                     const unsigned id = ep->get_id();
                     if (!Q.contains(id) || added.contains(id)) continue;
-                    euf::snode const* sn = m_sg.find(ep);
+                    // mk, not find: the expr is pinned (m_partial_dfa_pin) but its
+                    // snode may have been released by an sgraph pop since the edge
+                    // was recorded.  Silently skipping the state would delete its
+                    // land-at-s block from the frontier partition — the split would
+                    // no longer cover all values of x (unsound UNSAT).
+                    euf::snode const* sn = m_sg.mk(ep);
                     if (sn) { added.insert(id); Qstates.push_back(sn); }
                 }
             }
@@ -4118,23 +4367,36 @@ namespace seq {
             vector<frontier_edge> frontier;
             compute_frontier(Q, Qstates, frontier);
 
-            // Mark the reachable subautomaton, fixing the ν that identifies Q_ν
-            // for every view created below.  ν may be 0 in the Q = {R} bootstrap
-            // (no in-Q edges yet); a view with ν = 0 denotes exactly {ε} at R,
-            // which is precisely what unwinding needs.
+            // Fix the ν identifying Q for every view created below: it names
+            // the exact snapshot of R's reachable set (the internal edges just
+            // recorded by compute_frontier connect existing Q states only, so
+            // the snapshot coincides with Qstates).  The views therefore gate
+            // on precisely the enumerated region, and together with the
+            // escape blocks the branches partition Σ* exactly (Lemma 4.7).
             const unsigned nu = mark_reachable_projection_edges(R);
+            SASSERT(nu > 0);
+
+            // Length abstraction of the region (one BFS serves every land and
+            // escape pin below): every pinned view gets  len ≥ d(s)  and
+            // stride | (len − d(s))  side constraints, so the outer arith
+            // model can only assign the pinned variable a length the view can
+            // realize (otherwise seq_model's witness search fails at the
+            // assigned length and the emitted model is length-inconsistent).
+            view_len_info vli;
+            compute_view_length_info(nu, R->get_expr(), vli);
 
             sort* seq_sort = x->get_expr()->get_sort();
 
             // (a) LAND-AT-s branches (progress: x removed).
             for (euf::snode const* s : Qstates) {
                 nielsen_node* child = mk_child(node);
-                mk_edge(node, child, "land", /*progress*/ true);
+                nielsen_edge* le = mk_edge(node, child, "land", /*progress*/ true);
                 str_mem& cm = child->m_str_mem[mi];
                 cm.m_str = m_sg.drop_first(cm.m_str);      // u
                 cm.m_regex = s;                            // active becomes  u ∈ s
                 // x ∈_{Q_ν,{s}} R : state = R (start), root = s (acceptance).
                 child->add_str_mem(str_mem::mk_view(m, x, R, s, nu, mem.m_dep));
+                add_view_length_constraints(le, vli, nu, x, s->get_expr(), mem.m_dep);
                 TRACE(seq, tout << "landing: land x=" << mk_pp(x->get_expr(), m)
                                 << " at " << mk_pp(s->get_expr(), m)
                                 << " R=" << mk_pp(R->get_expr(), m) << " nu=" << nu << "\n");
@@ -4146,9 +4408,25 @@ namespace seq {
                 char_set cs = m_seq_regex->minterm_to_char_set(fe.m_mt->get_expr());
                 if (cs.is_empty())
                     continue;
-                euf::snode const* aunit =
-                    m_sg.mk(m_seq.str.mk_unit(m_seq.mk_char(cs.first_char())));
                 euf::snode const* x1 = mk_fresh_var(seq_sort);
+                // Escape char: a singleton class contributes its concrete char.
+                // A multi-char class must NOT be collapsed to a representative:
+                // the substitution x → x1·a·x2 reaches EVERY constraint on x,
+                // where the characters of p's minterm are distinguishable (other
+                // memberships, equations, later derivative steps from different
+                // states), so committing to one char would drop every model whose
+                // escape char is another member of the class.  Use the symbolic
+                // char x[|x1|] instead, range-restricted to the class; the
+                // ordinary symbolic consumption + apply_regex_if_split machinery
+                // then enumerates exactly the feasible sub-cases.
+                const bool concrete = cs.is_unit();
+                euf::snode const* aunit;
+                if (concrete)
+                    aunit = m_sg.mk(m_seq.str.mk_unit(m_seq.mk_char(cs.first_char())));
+                else {
+                    const expr_ref nth(m_seq.str.mk_nth_u(x->get_expr(), compute_length_expr(x1).get()), m);
+                    aunit = m_sg.mk(m_seq.str.mk_unit(nth.get()));
+                }
                 // x2 = x[|x1|+1:]  (slice tail after the landed prefix and the char)
                 const expr_ref after =
                     normalize_arith(m, a.mk_add(compute_length_expr(x1).get(), a.mk_int(1)));
@@ -4160,22 +4438,166 @@ namespace seq {
                 const nielsen_subst sub(x, repl, mem.m_dep);
                 e->add_subst(sub);
                 child->apply_subst(m_sg, sub);
+                if (!concrete)
+                    child->add_char_range(aunit, cs, mem.m_dep);
 
                 // x1 lands at p: drop it from the active constraint, whose state
-                // becomes p; the leading a is then consumed by simplify_and_init
-                // (stepping p →a δ_a(p) and recording the edge).
+                // becomes p; the leading char is then consumed by simplify_and_init
+                // (stepping p →a δ_a(p) — via apply_regex_if_split for a symbolic
+                // char — and recording the edge).
                 str_mem& cm = child->m_str_mem[mi];
                 SASSERT(cm.m_str->first() == x1);
                 cm.m_str = dir_drop(m_sg, cm.m_str, 1, true);   // a·x2·u
                 cm.m_regex = p;
                 // x1 ∈_{Q_ν,{p}} R
                 child->add_str_mem(str_mem::mk_view(m, x1, R, p, nu, mem.m_dep));
+                add_view_length_constraints(e, vli, nu, x1, p->get_expr(), mem.m_dep);
                 TRACE(seq, tout << "landing: escape x=" << mk_pp(x->get_expr(), m)
                                 << " via (" << mk_pp(p->get_expr(), m) << ", "
-                                << cs.first_char() << ") R=" << mk_pp(R->get_expr(), m)
+                                << (concrete ? "char " : "class first ") << cs.first_char()
+                                << ") R=" << mk_pp(R->get_expr(), m)
                                 << " nu=" << nu << "\n");
             }
 
+            return true;
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_view_landing_decomposition  (paper §5.3, "Landing
+    // decomposition on view constraints")
+    //
+    // A substitution applied throughout the node (an escape x → x1·a·x2, a
+    // Nielsen split x → y·x', a power introduction, …) can hit a variable that
+    // an earlier landing has pinned, turning its primitive view into the
+    // NON-PRIMITIVE view constraint  y·u ∈_{Q_ν,F} p  with a leading variable
+    // y.  consume_view only consumes leading characters, and letting
+    // apply_regex_var_split unwind y character-by-character would re-introduce
+    // exactly the cycle-unrolling divergence the views were built to prevent:
+    // each lap around a cycle of p's region would spawn a fresh variable that
+    // is never pinned, so the search could unroll forever.  This rule removes
+    // the leading variable in one step instead:
+    //
+    //   p ∉ Q_ν (degenerate case):  L_{Q_ν,F}(p) ⊆ {ε}, since consuming any
+    //       first character requires the gate p ∈ Q_ν.  The whole remaining
+    //       LHS must denote ε: conflict if p ∉ F (ε itself inadmissible) or a
+    //       character/unit token remains; otherwise deterministically
+    //       substitute the LHS variables to ε.  Remaining power tokens (if
+    //       any) are left to the power modifiers, whose n = 0 / peel-one split
+    //       disposes of them — a peeled character dies at the gate at once.
+    //
+    //   p ∈ Q_ν (land-only case):  branch on WHERE the value of y lands.  Any
+    //       admissible value w of the whole LHS keeps δ_{w'}(p) ∈ Q_ν for
+    //       every proper prefix w' ≺ w and lands in F = {root}.  The value of
+    //       y is a prefix of w: a proper prefix lands in Q_ν, and y = w (the
+    //       remainder u taking ε) lands at root.  So branching s over
+    //       Q_ν ∪ {root}, pinning  y ∈_{Q_ν,{s}} p  and advancing the residual
+    //       to  u ∈_{Q_ν,F} s  is exhaustive, and the blocks are pairwise
+    //       disjoint because the landing state is unique (determinism).  There
+    //       are NO escape branches: a value of y leaving Q_ν at a proper
+    //       prefix of the LHS violates the view outright.  (Unlike the paper
+    //       we cannot assume a character follows y — Nielsen splits on
+    //       equations create adjacent variables — which is why root joins the
+    //       landing set: only proper prefixes are Q-gated, the final state is
+    //       constrained to F instead.)
+    //
+    // Soundness is the view derivative law (Theorem "Soundness of views"),
+    // applied once per character of y's value: w1 ∈ L_{Q,{s}}(p) gives
+    // w1⁻¹ L_{Q,F}(p) = L_{Q,F}(s).  Termination: the leading variable is
+    // removed outright, no fresh variables are introduced, and the branching
+    // is over the finitely many states of Q_ν — so the "active work strictly
+    // decreases between escapes" bound of the paper's termination proof
+    // extends unchanged.
+    // -----------------------------------------------------------------------
+
+    bool nielsen_graph::apply_view_landing_decomposition(nielsen_node* node) {
+        for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
+            str_mem const& mem = node->str_mems()[mi];
+            SASSERT(mem.well_formed());
+            if (!mem.is_view() || mem.is_primitive())
+                continue;
+            euf::snode const* y = mem.m_str->first();
+            SASSERT(y);
+            if (!y->is_var())
+                continue; // leading char/unit: consume_view; leading power: power modifiers
+            euf::snode const* p = mem.m_regex;
+            // The current state must be settled; an unresolved symbolic ite
+            // residual is left to apply_regex_if_split.
+            if (!p->is_ground() || p->kind() == euf::snode_kind::s_ite)
+                continue;
+
+            // ---- degenerate case: p ∉ Q_ν  →  L_{Q_ν,F}(p) ⊆ {ε} ----------
+            if (!projection_state_in_Q(p->get_expr(), mem.m_nu)) {
+                if (p != mem.m_root) {
+                    // ε ∉ L_{Q_ν,{root}}(p): the view denotes ∅.
+                    node->set_general_conflict();
+                    node->set_conflict(backtrack_reason::regex, mem.m_dep);
+                    return true;
+                }
+                euf::snode_vector tokens;
+                mem.m_str->collect_tokens(tokens);
+                if (any_of(tokens, [](euf::snode const* t) { return t->is_char_or_unit(); })) {
+                    // a character remains — σ(lhs) = ε is impossible.
+                    node->set_general_conflict();
+                    node->set_conflict(backtrack_reason::regex, mem.m_dep);
+                    return true;
+                }
+                // Force every variable of the LHS to ε (single deterministic
+                // child; the substitution reaches all constraints, including
+                // this view, whose LHS thereby shrinks).
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, "view eps", /*progress*/ true);
+                uint_set done;
+                for (euf::snode const* tok : tokens) {
+                    if (!tok->is_var() || done.contains(tok->id()))
+                        continue;
+                    done.insert(tok->id());
+                    const nielsen_subst s(tok, m_sg.mk_empty_seq(tok->get_sort()), mem.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                TRACE(seq, tout << "view landing: eps-forcing " << mem_pp(mem)
+                                << " (state outside Q, nu=" << mem.m_nu << ")\n");
+                return true;
+            }
+
+            // ---- land-only branching over Q_ν ∪ {root} --------------------
+            svector<euf::snode const*> Sstates;
+            collect_projection_states(mem.m_nu, Sstates);
+            if (all_of(Sstates, [&](euf::snode const* s) { return s != mem.m_root; }))
+                Sstates.push_back(mem.m_root);
+
+            // Length abstraction from the current state p over the view's own
+            // region (see apply_landing_decomposition): keeps the arith length
+            // of the pinned y realizable in  L_{Q_ν,{s}}(p).
+            view_len_info vli;
+            compute_view_length_info(mem.m_nu, p->get_expr(), vli);
+
+            for (euf::snode const* s : Sstates) {
+                // Skip provably-empty landing blocks (L_{Q_ν,{s}}(p) = ∅): the
+                // paper's rule only branches on non-empty blocks, and this
+                // keeps the fan-out at the size of p's gated region rather
+                // than all of Q_ν.  Keep the branch on l_undef.  The block for
+                // s = p contains ε, so at least one branch always survives.
+                vector<prod_comp> block;
+                block.push_back(prod_comp::mk_view(p, s, mem.m_nu, /*complemented*/ false));
+                if (check_product_emptiness(block, 1000) == l_true)
+                    continue;
+
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* le = mk_edge(node, child, "view land", /*progress*/ true);
+                str_mem& cm = child->m_str_mem[mi];
+                cm.m_str = m_sg.drop_first(cm.m_str);   // u  (kind/root/ν stay)
+                cm.m_regex = s;                         // residual  u ∈_{Q_ν,F} s
+                // pin  y ∈_{Q_ν,{s}} p
+                child->add_str_mem(str_mem::mk_view(m, y, p, s, mem.m_nu, mem.m_dep));
+                add_view_length_constraints(le, vli, mem.m_nu, y, s->get_expr(), mem.m_dep);
+                TRACE(seq, tout << "view landing: land y=" << mk_pp(y->get_expr(), m)
+                                << " at " << mk_pp(s->get_expr(), m)
+                                << " from " << mk_pp(p->get_expr(), m)
+                                << " nu=" << mem.m_nu << "\n");
+            }
             return true;
         }
         return false;
@@ -4188,7 +4610,6 @@ namespace seq {
     // variable x that forms a dependency cycle back to v, introduce
     // v = base^n · suffix where base is the ground prefix.
     // Generates side constraints n >= 0 and 0 <= len(suffix) < len(base).
-    // mirrors ZIPT's GPowerIntrModifier (SplitGroundPower + TryGetPowerSplitBase)
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_gpower_intr(nielsen_node* node) {
@@ -4197,7 +4618,7 @@ namespace seq {
             if (eq.is_trivial())
                 continue;
 
-            // Try both directions (ZIPT's ExtendDir(fwd=true/false)).
+            // Try both directions
             for (unsigned od = 0; od < 2; ++od) {
                 const bool fwd = (od == 0);
                 euf::snode const* lhead = dir_token(eq.m_lhs, fwd);
@@ -4245,7 +4666,7 @@ namespace seq {
                 }
             }
             // TODO: Extend to transitive cycles across multiple equations
-            // (ZIPT's varDep + HasDepCycle). Currently only self-cycles are detected.
+            // Currently only self-cycles are detected.
         }
         return false;
     }
@@ -4469,11 +4890,10 @@ namespace seq {
         nielsen_node* node, str_eq const& eq,
         euf::snode const* var, euf::snode_vector const& ground_prefix_orig, const bool fwd) {
 
-        // Compress repeated patterns in the ground prefix (mirrors ZIPT's LcpCompressionFull).
-        // E.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
+        // Compress repeated patterns in the ground prefix.
+        // e.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
         // This ensures we use the minimal repeating unit: x = (ab)^n · suffix
         // instead of x = (abab)^n · suffix.
-        // (mirrors ZIPT: if b.Length == 1 && b is PowerToken pt => b = pt.Base)
         euf::snode_vector ground_prefix;
         const unsigned n = ground_prefix_orig.size();
         unsigned period = n;
@@ -4495,7 +4915,6 @@ namespace seq {
         // If the compressed prefix is a single power snode, unwrap it to use
         // its base tokens, avoiding nested powers.
         // E.g., [(ab)^3] → [a, b] so we get (ab)^n instead of ((ab)^3)^n.
-        // (mirrors ZIPT: if b.Length == 1 && b is PowerToken pt => b = pt.Base)
         if (ground_prefix.size() == 1 && ground_prefix[0]->is_power()) {
             expr* base_e = get_power_base_expr(ground_prefix[0], m_seq);
             if (base_e) {
@@ -4536,7 +4955,7 @@ namespace seq {
 
         const expr_ref zero(a.mk_int(0), m);
 
-        // Generate children mirroring ZIPT's GetDecompose:
+        // Generate children:
         // P(t0 · t1 · ... · t_{k-1}) = P(t0) | t0·P(t1) | ... | t0·...·t_{k-2}·P(t_{k-1})
         // For char tokens P(c) = {ε}, for power tokens P(u^m) = {u^m', 0 ≤ m' ≤ m}.
         // Child at position i substitutes var → base^n · t0·...·t_{i-1} · P(t_i).
@@ -4842,7 +5261,6 @@ namespace seq {
     //   (2) x → c · x' for each minterm character class c
     // More general than regex_char_split; uses minterm partitioning rather
     // than just extracting concrete characters.
-    // mirrors ZIPT's RegexVarSplitModifier
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_regex_var_split(nielsen_node* node) {
@@ -4880,13 +5298,16 @@ namespace seq {
             // into its own ite — which apply_regex_if_split then resolves
             // independently, materializing a cross-product of their states — we
             // branch directly on the joint minterm partition of all of x's
-            // constraint regexes, using one CONCRETE representative character per
-            // minterm.  The derivative is constant over a minterm, so a
-            // representative is sound and (for the singleton/∅-complement minterms
-            // of these small concrete alphabets) complete; the Z3DEBUG conflict
-            // cross-check catches any missed model.  Every constraint on x then
-            // consumes the same concrete char synchronously — no ites, no
-            // cross-product.
+            // constraint regexes.  A SINGLETON minterm contributes its concrete
+            // character, which every constraint on x then consumes synchronously —
+            // no ites, no cross-product.  A multi-char minterm must NOT be
+            // collapsed to a concrete representative: the minterms are joint only
+            // over the memberships x LEADS, while equations, disequations and
+            // non-leading occurrences of x can still distinguish characters within
+            // the class (committing to one char would drop every model whose first
+            // char is another member — unsound UNSAT).  Such classes get the
+            // symbolic char ?c range-restricted to the class instead, paying the
+            // ite resolution only where it is needed for completeness.
             euf::snode_vector states;
             for (auto const& m2 : node->str_mems())
                 if (m2.m_str->first() == first)
@@ -4905,13 +5326,18 @@ namespace seq {
                     char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
                     if (cs.is_empty())
                         continue;
-                    euf::snode const* cunit = m_sg.mk(m_seq.str.mk_unit(m_seq.mk_char(cs.first_char())));
+                    const bool concrete = cs.is_unit();
+                    euf::snode const* cunit = concrete
+                        ? m_sg.mk(m_seq.str.mk_unit(m_seq.mk_char(cs.first_char())))
+                        : m_sg.mk(get_or_create_char_var(first));
                     euf::snode const* replacement = m_sg.mk_concat(cunit, tail);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "regex var split", false);
                     const nielsen_subst s(first, replacement, mem.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
+                    if (!concrete)
+                        child->add_char_range(cunit, cs, mem.m_dep);
                 }
                 return true;
             }
@@ -4936,7 +5362,6 @@ namespace seq {
     //   (1) x = u^m · prefix(u) with m < n (bounded power prefix)
     //   (2) x = u^n · x' (the variable extends past the full power)
     // Generates integer side constraints for the fresh exponent variables.
-    // mirrors ZIPT's PowerSplitModifier
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_power_split(nielsen_node* node) {
@@ -5045,7 +5470,6 @@ namespace seq {
     //   (1) n = 0 → u^n = ε (replace power with empty)
     //   (2) n >= 1 → peel one u from the power
     // Generates integer side constraints for each branch.
-    // mirrors ZIPT's VarNumUnwindingModifier
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_var_num_unwinding_eq(nielsen_node* node) {
@@ -5388,8 +5812,6 @@ namespace seq {
 
     // -----------------------------------------------------------------------
     // Modification counter: substitution length tracking
-    // mirrors ZIPT's LocalInfo.CurrentModificationCnt + NielsenEdge.IncModCount/DecModCount
-    // + NielsenNode constructor length assertion logic
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::get_or_create_char_var(euf::snode const* var) {
@@ -5586,23 +6008,32 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Regex widening: overapproximate string and check intersection emptiness
-    // Mirrors ZIPT NielsenNode.CheckRegexWidening (NielsenNode.cs:1350-1380)
+    // Regex widening: over-approximate the string and check emptiness against
+    // the membership's language — at the CONSTRAINT level (paper, "Pruning
+    // incrementally during construction"): one product factor per token of
+    // Ω(str) and one component for the right-hand side, decided by the
+    // concatenation-aware synchronous derivative search below.  No closed-form
+    // regex for Ω(str) ⊓ rhs is ever built, and land-state views participate
+    // EXACTLY via their gated one-character law — both as the widened
+    // membership itself and as pinned constraints inside Ω.
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::check_regex_widening(nielsen_node const& node, str_mem const& mem, dep_tracker& dep) {
         const auto str = mem.m_str;
         const auto regex = mem.m_regex;
         SASSERT(m_seq_regex);
-        // Only apply to ground regexes with non-trivial strings
-        if (!regex->is_ground())
+        // The right-hand side must be a settled plain state; an unresolved
+        // symbolic ite residual is left to apply_regex_if_split.
+        if (!regex->is_ground() || regex->kind() == euf::snode_kind::s_ite)
             return false;
 
-
-        // Build the overapproximation regex for the string.
-        // Variables → intersection of their primitive regex constraints (or Σ*)
-        // Symbolic chars → re.range from char_ranges (or full_char)
-        // Concrete chars → to_re(unit(c))
+        // Build Ω(str) as one component factor per token:
+        //   concrete char c → plain component to_re(unit(c))
+        //   variable x      → the variable's primitive components — plain
+        //                     regexes AND land-state views, handled exactly;
+        //                     the empty factor denotes Σ* when unconstrained
+        //   symbolic char   → plain component from char_ranges (or Σ¹)
+        //   anything else   → empty factor (Σ*)
         euf::snode_vector tokens;
         str->collect_tokens(tokens);
         if (tokens.empty())
@@ -5610,37 +6041,30 @@ namespace seq {
 
         SASSERT(dep);
 
-        euf::snode const* approx = nullptr;
+        vector<vector<prod_comp>> factors;
         for (euf::snode const* tok : tokens) {
-            euf::snode const* tok_re = nullptr;
+            vector<prod_comp> factor;
 
             if (tok->is_char()) {
                 // Concrete character → to_re(unit(c))
                 expr* te = tok->get_expr();
                 SASSERT(te);
-                tok_re = m_sg.mk(m_seq.re.mk_to_re(te));
+                factor.push_back(prod_comp::mk_plain(m_sg.mk(m_seq.re.mk_to_re(te))));
             }
             else if (tok->is_var()) {
-                // Variable → intersection of primitive regex constraints, or Σ*
-                euf::snode const* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node, m_dep_mgr, dep);
-                if (x_range)
-                    tok_re = x_range;
-                else {
-                    // Unconstrained variable: approximate as Σ*
-                    sort* str_sort = m_seq.str.mk_string_sort();
-                    expr_ref all_re(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
-                    tok_re = m_sg.mk(all_re);
-                }
-                TRACE(seq, tout << "intersection-collection\n" << spp(tok, m)
-                                << "\n" <<  spp(tok_re, m) << "\n");
+                // Variable → ⊓Reg_x as components (views join exactly, with
+                // their own gate/acceptance); empty factor = Σ* if unconstrained.
+                collect_var_components(tok, node, factor, dep);
+                TRACE(seq, tout << "widening factor " << spp(tok, m)
+                                << ": " << factor.size() << " components\n");
             }
             else if (tok->is_unit()) {
-                // Symbolic char — try to get char_range
+                // Symbolic char — char_range if known, otherwise Σ¹.
+                euf::snode const* range_re = nullptr;
                 if (node.char_ranges().contains(tok->id())) {
                     auto& cs = node.char_ranges()[tok->id()];
                     if (!cs.first.is_empty()) {
                         // Build union of re.range for each interval
-                        euf::snode const* range_re = nullptr;
                         for (auto const& r : cs.first.ranges()) {
                             expr_ref rng(m_seq.re.mk_range(
                                 m_seq.str.mk_string(zstring(r.m_lo)),
@@ -5654,58 +6078,34 @@ namespace seq {
                             }
                         }
                         dep = dep_mgr().mk_join(dep, cs.second);
-                        tok_re = range_re;
                     }
                 }
-                if (!tok_re) {
-                    // Unconstrained symbolic char: approximate as full_char (single char, any value)
+                if (!range_re) {
+                    // Unconstrained symbolic char: full_char (single char, any value)
                     sort* str_sort = m_seq.str.mk_string_sort();
                     expr_ref fc(m_seq.re.mk_full_char(m_seq.re.mk_re(str_sort)), m);
-                    tok_re = m_sg.mk(fc);
+                    range_re = m_sg.mk(fc);
                 }
+                factor.push_back(prod_comp::mk_plain(range_re));
             }
-            else {
-                // Unknown token type — approximate as Σ*
-                sort* str_sort = m_seq.str.mk_string_sort();
-                expr_ref all_re(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
-                tok_re = m_sg.mk(all_re);
-            }
+            // else: unknown token type (e.g. power) — empty factor = Σ*.
 
-            SASSERT(tok_re);
-
-            if (!approx)
-                approx = tok_re;
-            else {
-                expr* ae = approx->get_expr();
-                expr* te = tok_re->get_expr();
-                SASSERT(ae && te);
-                approx = m_sg.mk(m_seq.re.mk_concat(ae, te));
-            }
+            factors.push_back(factor);
         }
 
-        if (!approx)
-            return false;
+        // Right-hand side component: exact for plain memberships and views alike
+        // (the view's Q-gate and land-state acceptance are the component's own
+        // one-character law, Theorem "Soundness of views").
+        const prod_comp rhs = mem.is_view()
+            ? prod_comp::mk_view(mem.m_regex, mem.m_root, mem.m_nu, /*complemented*/ false)
+            : prod_comp::mk_plain(mem.m_regex);
 
-        // Check intersection(approx, regex) for emptiness
-        // Build intersection regex
-        expr* ae = approx->get_expr();
-        expr* re = regex->get_expr();
-        SASSERT(ae && re);
-        const expr_ref inter(m_seq.re.mk_inter(ae, re), m);
-        euf::snode const* inter_sn = m_sg.mk(inter);
-        SASSERT(inter_sn);
         // TODO: Minimize the conflict here
-        const lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
-        TRACE(seq, tout << "widen empty-intersect: " << result << " " << mk_pp(re, m)
-            << " <= " << mk_pp(ae, m) << "\n" << mem_pp(mem) << "\n";
+        const lbool result = check_concat_product_emptiness(factors, rhs, 5000);
+        TRACE(seq, tout << "widen empty-product: " << result << " " << mem_pp(mem) << "\n";
         display(tout, &node) << "\n");
         return result == l_true;
     }
-
-    // -----------------------------------------------------------------------
-    // Leaf-node regex intersection emptiness check
-    // Mirrors ZIPT NielsenNode.CheckRegex (NielsenNode.cs:1311-1329)
-    // -----------------------------------------------------------------------
 
     // -----------------------------------------------------------------------
     // Synchronous product over plain / view / guard / co-view components.
@@ -5774,6 +6174,7 @@ namespace seq {
         work.push_back(comps0);
         visited.insert(encode(comps0));
         unsigned explored = 0;
+        bool undef_acceptance = false; // some tuple's acceptance was undecidable
 
         while (!work.empty()) {
             if (!m.inc())
@@ -5798,6 +6199,10 @@ namespace seq {
             }
             if (all_acc && !any_undef)
                 return l_false; // found a common word
+            if (all_acc && any_undef)
+                // possibly accepting, but undecidable: exhaustion may no longer
+                // claim emptiness (pruning/subsuming on it would be unsound)
+                undef_acceptance = true;
 
             // joint first-character partition = minterms of the intersection of
             // all still-discriminating component states.
@@ -5826,7 +6231,149 @@ namespace seq {
                     work.push_back(nxt);
             }
         }
-        return l_true; // exhausted with no accepting tuple → empty
+        // exhausted with no accepting tuple → empty, unless some tuple's
+        // acceptance could not be decided
+        return undef_acceptance ? l_undef : l_true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Concatenation-aware synchronous product (paper, "Pruning incrementally
+    // during construction"): emptiness of
+    //     ( L(F_0) · L(F_1) · … · L(F_{k-1}) )  ⊓  L(rhs)
+    // where each factor F_i is the intersection of its components (an EMPTY
+    // component list denotes Σ*) and rhs is one further component consumed
+    // synchronously with the whole concatenation.  A search state is
+    // (factor index i, component tuple of F_i, rhs component); a character
+    // step derives every live component on a joint minterm, and when all of
+    // F_i's components accept the search may ε-advance to F_{i+1}
+    // (nondeterministically — both continuations are explored).  A word is
+    // found when every factor has been consumed (i = k) and rhs accepts.
+    //
+    // l_true:  empty — pruning on this verdict is sound;
+    // l_false: a common word exists;
+    // l_undef: budget exhausted or acceptance undecidable — the caller must
+    //          NOT prune (dropping the ε-advance or the final acceptance on
+    //          an undecided component could wrongly report emptiness).
+    // -----------------------------------------------------------------------
+
+    lbool nielsen_graph::check_concat_product_emptiness(vector<vector<prod_comp>> const& factors,
+                                                        prod_comp const& rhs, unsigned max_states) {
+        const unsigned k = factors.size();
+
+        struct cstate {
+            unsigned          m_idx;   // current factor (k = all factors consumed)
+            vector<prod_comp> m_comps; // components of factor m_idx
+            prod_comp         m_rhs;   // right-hand-side component
+        };
+
+        auto encode = [](unsigned idx, vector<prod_comp> const& cs, prod_comp const& r) {
+            std::vector<unsigned> key;
+            key.reserve(4 + cs.size() * 3);
+            key.push_back(idx);
+            auto push_comp = [&key](prod_comp const& c) {
+                key.push_back(static_cast<unsigned>(c.m_kind));
+                key.push_back((c.m_complemented ? 1u : 0u) | (c.m_sink ? 2u : 0u) | (c.m_dead ? 4u : 0u));
+                key.push_back(c.m_state ? c.m_state->id() : UINT_MAX);
+            };
+            push_comp(r);
+            for (auto const& c : cs)
+                push_comp(c);
+            return key;
+        };
+
+        std::set<std::vector<unsigned>> visited;
+        vector<cstate> work;
+
+        auto push_state = [&](unsigned idx, vector<prod_comp> const& comps, prod_comp const& r) {
+            if (visited.insert(encode(idx, comps, r)).second)
+                work.push_back(cstate{ idx, comps, r });
+        };
+
+        push_state(0, k == 0 ? vector<prod_comp>() : factors[0], rhs);
+        unsigned explored = 0;
+
+        while (!work.empty()) {
+            if (!m.inc())
+                return l_undef;
+            if (explored >= max_states)
+                return l_undef;
+            const cstate cur = work.back();
+            work.pop_back();
+            ++explored;
+
+            if (cur.m_rhs.m_dead)
+                continue; // the membership side is ∅ from here
+            bool any_dead = false;
+            for (auto const& c : cur.m_comps) if (c.m_dead) { any_dead = true; break; }
+            if (any_dead)
+                continue;
+
+            // ε-advance / final acceptance: do all components of the current
+            // factor accept?  (Trivially true for the Σ* empty factor and for
+            // the terminal index k.)
+            lbool allacc = l_true;
+            for (auto const& c : cur.m_comps) {
+                const lbool a = comp_accepting(c);
+                if (a == l_false) { allacc = l_false; break; }
+                if (a == l_undef) allacc = l_undef;
+            }
+            if (allacc == l_undef)
+                return l_undef; // cannot decide the factor split — do not prune
+
+            if (allacc == l_true) {
+                if (cur.m_idx >= k) {
+                    // all factors consumed: the word ends here
+                    const lbool racc = comp_accepting(cur.m_rhs);
+                    if (racc == l_true)
+                        return l_false; // found a common word
+                    if (racc == l_undef)
+                        return l_undef;
+                }
+                else
+                    // ε-advance to the next factor (kept alongside the
+                    // character continuations below)
+                    push_state(cur.m_idx + 1,
+                               cur.m_idx + 1 < k ? factors[cur.m_idx + 1] : vector<prod_comp>(),
+                               cur.m_rhs);
+            }
+
+            if (cur.m_idx >= k)
+                continue; // terminal: no further characters may be consumed
+
+            // character step: joint first-character partition of the live
+            // component states (factor + rhs)
+            expr* combined = nullptr;
+            auto add_state = [&](prod_comp const& c) {
+                if (c.m_sink || c.m_dead)
+                    return;
+                combined = combined ? m_seq.re.mk_inter(combined, c.m_state->get_expr())
+                                    : c.m_state->get_expr();
+            };
+            add_state(cur.m_rhs);
+            for (auto const& c : cur.m_comps)
+                add_state(c);
+            if (!combined)
+                continue;
+            euf::snode_vector mts;
+            m_sg.compute_minterms(m_sg.mk(combined), mts);
+
+            for (euf::snode const* mt : mts) {
+                prod_comp r2 = comp_step(cur.m_rhs, mt);
+                if (r2.m_dead)
+                    continue;
+                vector<prod_comp> nxt;
+                bool dead = false;
+                for (auto const& c : cur.m_comps) {
+                    prod_comp d = comp_step(c, mt);
+                    if (d.m_dead) { dead = true; break; }
+                    nxt.push_back(d);
+                }
+                if (dead)
+                    continue;
+                push_state(cur.m_idx, nxt, r2);
+            }
+        }
+        return l_true; // exhausted with no accepting configuration → empty
     }
 
     bool nielsen_graph::collect_var_components(euf::snode const* var, nielsen_node const& node,
@@ -5956,7 +6503,12 @@ namespace seq {
         return false;
     }
 
-    bool nielsen_graph::check_leaf_regex(nielsen_node const& node, dep_tracker& dep) {
+    // l_true: every variable's primitive intersection is non-empty (leaf feasible)
+    // l_false: some variable's intersection is empty (dep set to its justification)
+    // l_undef: the product search ran out of budget/resources — the leaf can be
+    //          neither confirmed nor refuted and must NOT be declared SAT (the
+    //          model builder could otherwise emit an unsatisfiable witness).
+    lbool nielsen_graph::check_leaf_regex(nielsen_node const& node, dep_tracker& dep) {
         SASSERT(m_seq_regex);
 
         // distinct variables carrying a primitive constraint
@@ -5976,10 +6528,12 @@ namespace seq {
             if (result == l_true) {
                 TRACE(seq, tout << "empty intersection\n");
                 dep = d;
-                return false;
+                return l_false;
             }
+            if (result == l_undef)
+                return l_undef;
         }
-        return true;
+        return l_true;
     }
 
     // -----------------------------------------------------------------------
@@ -6006,6 +6560,7 @@ namespace seq {
         st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
         st.update("nseq mod cycle subsump",    m_stats.m_mod_cycle_subsumption);
+        st.update("nseq mod view land",        m_stats.m_mod_view_land);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
         st.update("nseq mod regex fact",       m_stats.m_mod_regex_factorization);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);

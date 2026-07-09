@@ -257,7 +257,6 @@ namespace seq {
     // -----------------------------------------------------------------------
     // nielsen_node: display_html
     // Render constraint set as an HTML fragment for DOT labels.
-    // Mirrors ZIPT's NielsenNode.ToHtmlString().
     // -----------------------------------------------------------------------
 
     // Helper: HTML-escape a string and replace literal \n with <br/>.
@@ -743,7 +742,7 @@ namespace seq {
     // -----------------------------------------------------------------------
     // nielsen_graph: to_dot
     // Output the graph in graphviz DOT format, optionally colour-highlighting
-    // the satisfying path.  Mirrors ZIPT's NielsenGraph.ToDot().
+    // the satisfying path.
     // -----------------------------------------------------------------------
 
     // Convert a backtrack_reason to a short display string.

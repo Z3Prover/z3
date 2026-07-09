@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Unit tests for seq_parikh (Parikh image filter for the ZIPT Nielsen solver).
+    Unit tests for seq_parikh.
 
     Tests cover:
     - compute_length_stride / get_length_stride for all regex forms

@@ -474,8 +474,19 @@ namespace smt {
             // length and the regex are only loosely coupled), retry unconstrained so
             // the emitted word still satisfies every regex/view constraint.
             bool ok = m_nielsen->product_witness(var, *m_sat_node, len, w);
-            if (!ok && len != UINT_MAX)
+            if (!ok && len != UINT_MAX) {
                 ok = m_nielsen->product_witness(var, *m_sat_node, UINT_MAX, w);
+                // The view-length side constraints (add_view_length_constraints)
+                // keep the arith-assigned length realizable up to a semilinear
+                // over-approximation of the view language, so this retry should
+                // be rare.  When it fires, the emitted word's length differs
+                // from the arith model's len(var): surface it instead of
+                // degrading the model silently.
+                IF_VERBOSE(1, if (ok && w.length() != len)
+                    verbose_stream() << "nseq: view witness for " << mk_pp(var->get_expr(), m)
+                                     << " has length " << w.length() << " but arith assigned " << len
+                                     << " (model may be length-inconsistent)\n";);
+            }
             if (ok) {
                 expr* witness = m_seq.str.mk_string(w);
                 m_trail.push_back(witness);

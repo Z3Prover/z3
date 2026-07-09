@@ -9,10 +9,6 @@ Abstract:
 
     Nielsen graph for string constraint solving.
 
-    Ports the constraint types and Nielsen graph structures from
-    ZIPT (https://github.com/CEisenhofer/ZIPT/tree/parikh/ZIPT/Constraints)
-    into Z3's smt/seq framework.
-
     The Nielsen graph is used for solving word equations and regex
     membership constraints via Nielsen transformations. Each node
     contains a set of constraints (string equalities, regex memberships,
@@ -71,7 +67,6 @@ namespace seq {
     std::string snode_label_html(euf::snode const* n, ast_manager& m, bool html_escape);
 
     // simplification result for constraint processing
-    // mirrors ZIPT's SimplifyResult enum
     enum class simplify_result {
         proceed,               // no change, continue
         conflict,              // constraint is unsatisfiable
@@ -81,7 +76,6 @@ namespace seq {
     };
 
     // reason for backtracking in the Nielsen graph
-    // mirrors ZIPT's BacktrackReasons enum
     enum class backtrack_reason {
         unevaluated,
         extended,
@@ -181,7 +175,6 @@ namespace seq {
     bool split_lookahead_viable(expr* n_regex, euf::sgraph& sg, zstring const& c);
 
     // string equality constraint: lhs = rhs
-    // mirrors ZIPT's StrEq (both sides are regex-free snode trees)
     struct str_eq {
         ast_manager& m;
         euf::snode const* m_lhs; // assumed to be non-null
@@ -315,7 +308,6 @@ namespace seq {
     enum class mem_kind : unsigned char { plain, stab_view };
 
     // regex membership constraint: str in regex
-    // mirrors ZIPT's StrMem
     struct str_mem {
         ast_manager& m;
         euf::snode const* m_str; // assumed to be non-null
@@ -359,6 +351,15 @@ namespace seq {
         }
 
         bool operator<(const str_mem& other) const {
+            // Regex-factorization heuristic: order primarily by the estimated
+            // automaton size of the regex so that the cheapest membership is
+            // factorized first (see snode::regex_weight / sgraph::compute_regex_weight).
+            // The remaining pointer comparisons are just deterministic tie-breakers
+            // to keep this a total order for canonicalization/sorting.
+            const unsigned w1 = m_regex->regex_weight();
+            const unsigned w2 = other.m_regex->regex_weight();
+            if (w1 != w2)
+                return w1 < w2;
             if (m_str != other.m_str)
                 return m_str < other.m_str;
             return m_regex < other.m_regex;
@@ -398,7 +399,6 @@ namespace seq {
 
     // string variable substitution: var -> replacement
     // (can be used as well to substitute arbitrary nodes - like powers)
-    // mirrors ZIPT's Subst
     struct nielsen_subst {
         euf::snode const* m_var;
         euf::snode const* m_replacement;
@@ -427,12 +427,10 @@ namespace seq {
 
     // -----------------------------------------------
     // integer constraint: equality or inequality over length expressions
-    // mirrors ZIPT's IntEq and IntLe
     // -----------------------------------------------
 
     // integer constraint stored per nielsen_node, tracking arithmetic
     // relationships between length variables and power exponents.
-    // mirrors ZIPT's IntEq / IntLe over Presburger arithmetic polynomials.
     struct constraint {
         expr_ref    fml;   // the formula (eq, le, or ge, unit-diseq expression)
         dep_tracker dep;   // tracks which input constraints contributed
@@ -477,7 +475,6 @@ namespace seq {
     };
 
     // edge in the Nielsen graph connecting two nodes
-    // mirrors ZIPT's NielsenEdge
     class nielsen_edge {
         nielsen_node*           m_src;
         nielsen_node*           m_tgt;
@@ -525,7 +522,6 @@ namespace seq {
     };
 
     // node in the Nielsen graph
-    // mirrors ZIPT's NielsenNode
     class nielsen_node {
         friend class nielsen_graph;
 
@@ -536,11 +532,11 @@ namespace seq {
         vector<str_eq>     m_str_eq;        // string equalities
         vector<str_deq>    m_str_deq;       // string disequalities
         vector<str_mem>    m_str_mem;       // regex memberships
-        vector<constraint> m_constraints;   // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
+        vector<constraint> m_constraints;   // integer equalities/inequalities
         sat::literal m_conflict_external_literal = sat::null_literal;
         dep_tracker  m_conflict_internal = nullptr;
 
-        // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
+        // character constraints
         // key: snode id of the s_unit symbolic character
         u_map<std::pair<char_set, dep_tracker>>            m_char_ranges;   // ?c in [lo, hi)
 
@@ -639,7 +635,7 @@ namespace seq {
         bool lower_bound(expr* e, rational& lo, dep_tracker& dep);
         bool upper_bound(expr* e, rational& up, dep_tracker& dep);
 
-        // character constraint access (mirrors ZIPT's CharRanges)
+        // character constraint access
         u_map<std::pair<char_set, dep_tracker>>& char_ranges() { return m_char_ranges; }
         u_map<std::pair<char_set, dep_tracker>> const &char_ranges() const {
             return m_char_ranges;
@@ -758,7 +754,6 @@ namespace seq {
         bool references_rigid() const;
 
         // render constraint set as an HTML fragment for DOT node labels.
-        // mirrors ZIPT's NielsenNode.ToHtmlString()
         std::ostream& to_html(std::ostream& out, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) const;
 
         std::ostream& to_html(std::ostream& out, ast_manager& m) const;
@@ -813,6 +808,7 @@ namespace seq {
         unsigned m_mod_eq_split        = 0;
         unsigned m_mod_star_intr       = 0;
         unsigned m_mod_cycle_subsumption = 0;
+        unsigned m_mod_view_land       = 0;
         unsigned m_mod_gpower_intr     = 0;
         unsigned m_mod_regex_factorization = 0;
         unsigned m_mod_const_nielsen   = 0;
@@ -834,7 +830,6 @@ namespace seq {
     };
 
     // the overall Nielsen transformation graph
-    // mirrors ZIPT's NielsenGraph
     class nielsen_graph {
         friend class nielsen_node;
         friend class nielsen_edge;
@@ -954,10 +949,28 @@ namespace seq {
         // egraph cannot release them on pop.  We never shrink this — the
         // cache is meant to be monotone.
         expr_ref_vector               m_partial_dfa_pin;
-        // Monotone snapshot index ν.  Bumped by mark_scc_projection_edges only
-        // when the explored SCC's edge set actually grows; identifies which
-        // partial-DFA edges (m_projection_idx ≤ ν) belong to a projection's Q.
+        // Monotone snapshot index ν, bumped whenever a new view state set is
+        // recorded (mark_reachable_projection_edges).  A view's Q is the EXACT
+        // snapshot stored under its ν in m_projection_snapshots (the paper's
+        // "recorded state set Q" of a view, Implementation Aspects); the
+        // per-edge watermark m_projection_idx ≤ ν is kept only as a fallback —
+        // on its own it would denote the union of ALL extractions up to ν,
+        // blurring a view's Q with unrelated heads' regions once exploration
+        // is partial (lazy mode).
         unsigned                      m_projection_extract_idx = 0;
+        // ν → the snapshot of Q taken when the view index was minted.  The
+        // state exprs are pinned via m_partial_dfa_pin, so the stored expr*
+        // (and their ids) stay valid across sgraph pops.
+        struct projection_snapshot {
+            uint_set         m_ids;    // expr ids of the states of Q
+            ptr_vector<expr> m_states; // the states themselves
+        };
+        std::unordered_map<unsigned, projection_snapshot> m_projection_snapshots;
+        // head expr id → (partial-DFA edge count at snapshot time, ν).  The
+        // partial DFA only grows, so an unchanged edge count means the head's
+        // reachable set — hence its snapshot — is unchanged and ν is reused
+        // instead of minting a fresh snapshot per decomposition.
+        std::unordered_map<unsigned, std::pair<unsigned, unsigned>> m_projection_head_cache;
         // Expr ids of regex states whose full reachable automaton has already
         // been recorded into the partial DFA (lazy, once-per-component Q growth;
         // see ensure_automaton_explored).
@@ -1115,7 +1128,6 @@ namespace seq {
 
         // output the graph in graphviz DOT format.
         // nodes on the sat_path are highlighted green; conflict nodes red/darkred.
-        // mirrors ZIPT's NielsenGraph.ToDot()
         std::ostream& to_dot(std::ostream& out) const;
 
         std::string to_dot() const;
@@ -1234,15 +1246,18 @@ namespace seq {
         // unconstrained), replacing symbolic chars with their char ranges,
         // then checking if the approximation intersected with `regex` is empty.
         // Returns true if widening detects infeasibility (UNSAT).
-        // Mirrors ZIPT NielsenNode.CheckRegexWidening (NielsenNode.cs:1350-1380)
+        // Decided at the constraint level by check_concat_product_emptiness
+        // (one factor per token of Ω(str), one component for the right-hand
+        // side); land-state views participate exactly, both as the widened
+        // membership and as pinned constraints inside Ω.
         bool check_regex_widening(nielsen_node const& node, str_mem const& mem, dep_tracker& dep);
 
         // Check regex feasibility at a leaf node: for each variable with
         // multiple primitive regex constraints, check that the intersection
         // of all its regexes is non-empty.
-        // Returns true if all constraints are feasible.
-        // Mirrors ZIPT NielsenNode.CheckRegex)
-        bool check_leaf_regex(nielsen_node const& node, dep_tracker& dep);
+        // l_true: feasible; l_false: some intersection empty (dep set);
+        // l_undef: product-search budget exhausted — must not be treated as SAT.
+        lbool check_leaf_regex(nielsen_node const& node, dep_tracker& dep);
 
         // -------------------------------------------------------------------
         // Synchronous product over plain / view / guard / co-view components
@@ -1276,6 +1291,18 @@ namespace seq {
         // l_true = empty, l_false = non-empty (a simultaneously accepting tuple
         // was reached), l_undef = budget exhausted / inconclusive.
         lbool check_product_emptiness(vector<prod_comp> const& comps, unsigned max_states);
+
+        // Concatenation-aware variant (paper, "Pruning incrementally during
+        // construction"): emptiness of  (L(F_0)·…·L(F_{k-1})) ⊓ L(rhs),  where
+        // each factor F_i is the intersection of its components (an empty
+        // component list denotes Σ*) and rhs is one further component consumed
+        // synchronously with the whole concatenation.  Used by regex widening;
+        // no closed-form regex for the concatenation is ever built, and view
+        // components participate exactly via their gated one-character law.
+        // l_true = empty, l_false = a common word exists, l_undef = budget
+        // exhausted / undecided acceptance (callers must NOT prune on it).
+        lbool check_concat_product_emptiness(vector<vector<prod_comp>> const& factors,
+                                             prod_comp const& rhs, unsigned max_states);
 
         // acceptance / single-character step of one product component.
         lbool comp_accepting(prod_comp const& c) const;
@@ -1315,6 +1342,45 @@ namespace seq {
         // something new was marked.  Returns the ν identifying this Q
         // (0 if there is nothing marked, i.e. no reachable edge).
         unsigned mark_reachable_projection_edges(euf::snode const* head_re);
+
+        // Collect the snode handles of every state of Q_ν — the states incident
+        // to a partial-DFA edge with extraction index in [1, ν].  This is the
+        // enumeration counterpart of the membership test projection_state_in_Q
+        // (keep the two in sync); used to enumerate the landing states of the
+        // land-only view decomposition.
+        void collect_projection_states(unsigned nu, svector<euf::snode const*>& out);
+
+        // Length abstraction of the land-state views over one gated region:
+        // BFS distances d(·) from a head state over the recorded in-Q_ν edges
+        // (each edge consumes exactly one character/minterm), plus the stride
+        //     g = gcd over reachable in-Q edges (u,v) of (d(u) + 1 − d(v)).
+        // By the telescoping/potential argument, EVERY gated walk head→v has
+        // length ≡ d(v) (mod g); g = 0 means every such walk has length exactly
+        // d(v).  Sound because at ν-minting time compute_frontier has saturated
+        // the in-Q edges (every one-character transition among Q states is
+        // recorded), and edges are only ever added.
+        struct view_len_info {
+            u_map<unsigned> m_dist;       // expr id → shortest gated distance from the head
+            unsigned        m_stride = 0; // 0 ⇒ walk lengths are exact
+            bool            m_ok = false; // snapshot found and head ∈ Q_ν
+        };
+        void compute_view_length_info(unsigned nu, expr* from, view_len_info& info);
+
+        // Emit the length side constraints for a variable pinned to the view
+        // L_{Q_ν,{to}}(head) onto the branch edge e:  len ≥ min and
+        // stride | (len − min)  (collapsed to len = min when exact).  For a
+        // landing target outside Q_ν (view landing at root ∉ Q_ν) the final
+        // hop may be an UNRECORDED transition from any reachable in-Q state,
+        // so only the conservative variant (min = 1, stride weakened by the
+        // gcd of all reachable distances) is sound.  These ride the normal
+        // side-constraint channel: branch-locally enforced by the subsolver
+        // (check_int_feasibility) and surfaced to the outer solver at a SAT
+        // leaf via add_nielsen_assumptions — keeping the outer arith model's
+        // len(x) realizable in the view, which seq_model::mk_fresh_value
+        // relies on (a non-realizable length forces a witness of a different
+        // length: an inconsistent model).
+        void add_view_length_constraints(nielsen_edge* e, view_len_info const& info, unsigned nu,
+                                         euf::snode const* pinned, expr* to, dep_tracker const& dep);
 
         // A frontier edge (p, mt, q): p ∈ Q, mt a minterm of p, q = δ_mt(p) ∉ Q
         // and q ≠ ⊥.  The escape candidates of the landing decomposition.
@@ -1365,7 +1431,6 @@ namespace seq {
 
         // eq split modifier: splits a regex-free equation at a chosen index into
         // two shorter equalities with optional padding (single progress child).
-        // Mirrors ZIPT's EqSplitModifier + StrEq.SplitEq.
         bool apply_eq_split(nielsen_node* node);
 
         // helper: classify whether a token has variable (symbolic) length
@@ -1376,7 +1441,6 @@ namespace seq {
         unsigned token_const_length(euf::snode const* tok) const;
 
         // helper: find a split point in a regex-free equation.
-        // ports ZIPT's StrEq.SplitEq algorithm.
         // returns true if a valid split point is found, with results in out params.
         bool find_eq_split_point(
             euf::snode_vector const& lhs_toks,
@@ -1387,12 +1451,10 @@ namespace seq {
 
         // power epsilon modifier: for a power token u^n in an equation,
         // branch: (1) base u = ε, (2) power is empty (n = 0 semantics).
-        // mirrors ZIPT's PowerEpsilonModifier
         bool apply_power_epsilon(nielsen_node* node);
 
         // numeric comparison modifier: for equations involving power tokens
         // u^m and u^n with the same base, branch on m < n vs n <= m.
-        // mirrors ZIPT's NumCmpModifier
         bool apply_num_cmp(nielsen_node* node);
 
         // CommPower-based power elimination split: when one side starts with
@@ -1401,12 +1463,10 @@ namespace seq {
         //   (1) p < c   (2) c ≤ p
         // After branching, simplify_and_init's CommPower pass resolves the
         // cancellation deterministically.
-        // mirrors ZIPT's SplitPowerElim + NumCmpModifier
         bool apply_split_power_elim(nielsen_node* node);
 
         // constant numeric unwinding: for a power token u^n vs a constant
         // (non-variable), branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
-        // mirrors ZIPT's ConstNumUnwindingModifier
         bool apply_const_num_unwinding(nielsen_node* node);
 
         // regex if split: for str_mem s ∈ R where R decomposes as ite(c, th, el),
@@ -1426,6 +1486,25 @@ namespace seq {
         // the old split-and-guard apply_cycle_decomposition.
         bool apply_landing_decomposition(nielsen_node* node);
 
+        // Land-only decomposition of a NON-PRIMITIVE view constraint (paper
+        // §5.3, "Landing decomposition on view constraints"): a substitution
+        // applied throughout the node (an escape, a Nielsen split, a power
+        // introduction) can hit a pinned variable and turn its primitive view
+        // into  y·u ∈_{Q_ν,F} p  with a leading variable y.  Character-
+        // unwinding y (regex_var_split) would re-introduce exactly the
+        // cycle-unrolling divergence views exist to prevent, so instead:
+        //   - p ∉ Q_ν (degenerate): L_{Q_ν,F}(p) ⊆ {ε} — conflict if p ∉ F or
+        //     a character remains, else force the LHS variables to ε;
+        //   - p ∈ Q_ν: branch on the landing state s of y over Q_ν ∪ F only
+        //     (no escapes: every admissible LHS value keeps its proper-prefix
+        //     states inside Q_ν and lands in F, so y's own landing state lies
+        //     in Q_ν ∪ F), pinning y ∈_{Q_ν,{s}} p and advancing the residual
+        //     to  u ∈_{Q_ν,F} s.
+        // Removes the leading variable, introduces no fresh variables and
+        // branches over finitely many states, so the paper's termination
+        // argument extends unchanged.
+        bool apply_view_landing_decomposition(nielsen_node* node);
+
         // cycle subsumption: for a str_mem x·rest ∈ R where x is constrained
         // to L(Reg_x) ⊆ L(stabilizer of R), simplify to rest ∈ R.
         // Fires without the novelty guard, using the current partial DFA state.
@@ -1442,7 +1521,6 @@ namespace seq {
         // generalized power introduction: for an equation where one head is
         // a variable v and the other side has ground prefix + a variable x
         // forming a cycle back to v, introduce v = base^n · suffix.
-        // mirrors ZIPT's GPowerIntrModifier
         bool apply_gpower_intr(nielsen_node* node);
 
         // generalized regex factorization (Boolean closure derivation rule).
@@ -1467,8 +1545,7 @@ namespace seq {
         rf_step_result rf_step(nielsen_node* node, rf_state* st, dep_tracker& conflict_dep);
 
         // helper for apply_gpower_intr: fires the substitution.
-        // `fwd=true` uses left-to-right decomposition; `fwd=false` mirrors ZIPT's
-        // backward (right-to-left) direction.
+        // `fwd=true` uses left-to-right decomposition; `fwd=false`
         bool fire_gpower_intro(nielsen_node* node, str_eq const& eq,
                                euf::snode const* var, euf::snode_vector const& ground_prefix_orig, bool fwd);
 
@@ -1478,17 +1555,14 @@ namespace seq {
         // regex variable split: for str_mem x·s ∈ R where x is a variable,
         // split using minterms: x → ε, or x → c·x' for each minterm c.
         // More general than regex_char_split, uses minterm partitioning.
-        // mirrors ZIPT's RegexVarSplitModifier
         bool apply_regex_var_split(nielsen_node* node);
 
         // power split: for a variable x facing a power token u^n,
         // branch: x = u^m · prefix(u) with m < n, or x = u^n · x.
-        // mirrors ZIPT's PowerSplitModifier
         bool apply_power_split(nielsen_node* node);
 
         // variable numeric unwinding: for a power token u^n vs a variable,
         // branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
-        // mirrors ZIPT's VarNumUnwindingModifier
         bool apply_var_num_unwinding_eq(nielsen_node* node);
 
         bool apply_var_num_unwinding_mem(nielsen_node* node);
@@ -1516,7 +1590,6 @@ namespace seq {
         // m_solver at the base level (outside push/pop). Called once at the start
         // of solve(). Makes derived constraints immediately visible to m_solver
         // for arithmetic pruning at every DFS node, not just the root.
-        // Mirrors ZIPT's Constraint.Shared forwarding mechanism.
         void assert_root_constraints_to_solver();
 
         // Generate |LHS| = |RHS| length constraints for a non-root node's own
@@ -1524,7 +1597,6 @@ namespace seq {
         // Called once per node (guarded by m_node_len_constraints_generated).
         // Uses compute_length_expr (mod-count-aware) so that variables with
         // non-zero modification counts get fresh length variables.
-        // Mirrors ZIPT's Constraint.Shared forwarding for per-node equations.
         void generate_node_length_constraints(nielsen_node* node);
 
         // check integer feasibility of the constraints along the current path.
@@ -1538,7 +1610,7 @@ namespace seq {
         dep_tracker get_subsolver_dependency(nielsen_node* n) const;
 
         // check whether lhs <= rhs is implied by the path constraints.
-        // mirrors ZIPT's NielsenNode.IsLe(): temporarily asserts NOT(lhs <= rhs)
+        // temporarily asserts NOT(lhs <= rhs)
         // and returns true iff the result is unsatisfiable (i.e., lhs <= rhs is
         // entailed).  Path constraints are already in the solver incrementally.
         bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* n, dep_tracker& dep);
@@ -1551,8 +1623,6 @@ namespace seq {
 
         // -----------------------------------------------
         // Modification counter methods for substitution length tracking.
-        // mirrors ZIPT's NielsenEdge.IncModCount / DecModCount and
-        // NielsenNode constructor length assertion logic.
         // -----------------------------------------------
 
         // Get or create a fresh symbolic character variable for the given variable

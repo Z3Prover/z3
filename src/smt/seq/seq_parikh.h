@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Parikh image filter for the ZIPT-based Nielsen string solver.
+    Parikh image filter for the Nielsen string solver.
 
     Implements Parikh-based arithmetic constraint generation for
     nielsen_node instances.  For a regex membership constraint str ∈ r,
@@ -28,10 +28,6 @@ Abstract:
     The generated int_constraints are added to the node's integer constraint
     set and discharged by the integer subsolver (see seq_nielsen.h,
     simple_solver).
-
-    Implements the Parikh filter described in ZIPT
-    (https://github.com/CEisenhofer/ZIPT/tree/parikh/ZIPT/Constraints)
-    replacing ZIPT's PDD-based Parikh subsolver with Z3's linear arithmetic.
 
 Author:
 

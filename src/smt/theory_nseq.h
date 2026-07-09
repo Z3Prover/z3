@@ -7,7 +7,6 @@ Module Name:
 
 Abstract:
 
-    ZIPT string solver theory for Z3.
     Implements theory_nseq, a theory plugin for string/sequence constraints
     using the Nielsen transformation graph (Nielsen graph).
 

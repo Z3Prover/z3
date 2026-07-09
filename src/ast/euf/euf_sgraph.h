@@ -10,7 +10,6 @@ Abstract:
     Sequence/string graph layer
 
     Encapsulates string and regex expressions for the string solver.
-    Implements the string graph layer from ZIPT (https://github.com/CEisenhofer/ZIPT/tree/parikh/ZIPT).
     The sgraph maps Z3 sequence/regex AST expressions to snode structures
     organized as binary concatenation trees with metadata, and owns an
     egraph with a seq_plugin for congruence closure.
@@ -28,24 +27,6 @@ Abstract:
        * str.++ identity elimination (concat(a, ε) = a),
        * re.++ identity/absorption (concat(a, epsilon) = a, concat(a, ∅) = ∅).
     -- enode registration via mk_enode(expr*).
-
-    ZIPT features not yet ported:
-
-    -- Str operations: normalisation with union-find representatives and
-       cache migration, balanced tree maintenance, drop left/right with
-       caching, substitution, indexed access, iteration, ToList caching,
-       simplification, derivative computation, structural equality with
-       associative hashing, rotation equality, expression reconstruction,
-       Graphviz export.
-
-    -- StrToken subclasses: SymCharToken, StrAtToken, SubStrToken,
-       SetToken, PostToken/PreToken.
-
-    -- StrToken features: Nielsen-style GetDecomposition with side
-       constraints, NamedStrToken extension tracking for variable
-       splitting with PowerExtension, CollectSymbols for Parikh analysis,
-       MinTerms for character class analysis, token ordering, Derivable
-       and BasicRegex flags.
 
 Author:
 
@@ -112,6 +93,7 @@ namespace euf {
         snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode const** args);
         snode_kind classify(expr* e) const;
         void compute_metadata(snode* n);
+        void compute_regex_weight(snode* n);
         void compute_hash_matrix(snode* n);
         void collect_re_predicates(snode const* re, expr_ref_vector& preds);
 

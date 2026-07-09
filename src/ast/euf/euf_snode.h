@@ -10,7 +10,7 @@ Abstract:
     snode layer for sequence/string graph
 
     Encapsulates strings in the style of euf_enode.h.
-    Maps Z3 sequence expressions to a ZIPT-style representation where
+    Maps Z3 sequence expressions to a representation where
     strings are composed of tokens (characters, variables, powers, regex, etc.)
     organized as a binary tree of concatenations.
 
@@ -66,13 +66,15 @@ namespace euf {
         unsigned m_id = UINT_MAX;
         unsigned m_num_args = 0;
 
-        // metadata flags, analogous to ZIPT's Str/StrToken properties
+        // metadata flags
         bool m_ground = true;        // no uninterpreted string variables
         bool m_regex_free = true;    // no regex constructs
         bool m_is_classical = true;  // classical regular expression
         bool m_rigid = false;        // defined seq op (replace/replace_all/replace_re*) — opaque to Nielsen, never substitute/split
         unsigned m_level = 0;        // tree depth/level (0 for empty, 1 for singletons)
         unsigned m_length = 0;       // token count, number of leaf tokens in the tree
+        unsigned m_regex_weight = 0; // estimated automaton size of this regex (saturating);
+                                     // cached at creation by sgraph::compute_regex_weight
 
         // hash matrix for associativity-respecting hashing (2x2 polynomial hash matrix)
         // all zeros means not cached, non-zero means cached
@@ -222,6 +224,15 @@ namespace euf {
         unsigned length() const {
             return m_length;
         }
+        // Estimated size ("weight") of the automaton for this regex, computed
+        // with saturating arithmetic (see sgraph::compute_regex_weight) and
+        // cached at node creation.  Used to order membership constraints in
+        // regex factorization (smaller weight = factorized first).  Meaningful
+        // for regex snodes; for pure string/word nodes it just tracks a token
+        // count and is ignored by the membership heuristic.
+        unsigned regex_weight() const {
+            return m_regex_weight;
+        }
 
         // associativity-respecting hash: cached if the 2x2 matrix is non-zero.
         // M[0][0] = HASH_BASE^(num_leaves) which is always nonzero since HASH_BASE
@@ -328,7 +339,7 @@ namespace euf {
             }
             return true;
         }
-        // is this a leaf token (analogous to ZIPT's StrToken as opposed to Str)
+        // is this a leaf token
         bool is_token() const {
             switch (m_kind) {
             case snode_kind::s_empty:
@@ -341,7 +352,6 @@ namespace euf {
             return m_expr ? m_expr->get_sort() : nullptr;
         }
 
-        // analogous to ZIPT's Str.First / Str.Last
         snode const *first() const {
             snode const* s = this;
             while (s->is_concat())

@@ -96,7 +96,6 @@ public:
 };
 
 // half-open character interval [lo, hi)
-// mirrors ZIPT's CharacterRange
 struct char_range {
     unsigned m_lo;
     unsigned m_hi; // exclusive
@@ -117,7 +116,6 @@ struct char_range {
 };
 
 // sorted list of non-overlapping character intervals
-// mirrors ZIPT's CharacterSet
 class char_set {
     svector<char_range> m_ranges;
 public:

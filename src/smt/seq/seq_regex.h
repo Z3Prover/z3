@@ -10,13 +10,12 @@ Abstract:
     Lazy regex membership processing for the Nielsen-based string solver.
 
     Provides Brzozowski derivative computation, ground prefix/suffix
-    consumption, cycle detection in derivation histories, and
-    stabilizer-based subsumption for regex membership constraints.
+    consumption, BFS emptiness/intersection checks, and minterm/char-set
+    utilities for regex membership constraints.
 
-    Ports the following ZIPT StrMem operations:
-      - SimplifyCharRegex / SimplifyDir (ground prefix/suffix consumption)
-      - ExtractCycle / StabilizerFromCycle (cycle detection and widening)
-      - TrySubsume (stabilizer-based subsumption)
+    Cycle detection and stabilizer-based subsumption live in the landing
+    decomposition and land-state views of nielsen_graph (seq_nielsen.cpp);
+    the legacy stabilizer store that used to reside here has been removed.
 
     The class wraps sgraph operations (brzozowski_deriv, compute_minterms,
     drop_first, etc.) and provides a higher-level interface for
@@ -44,22 +43,6 @@ namespace seq {
 
         // cache for emptiness check (snode id -> lbool)
         u_map<lbool> m_empty_cache;
-
-        // -----------------------------------------------------------------
-        // Stabilizer store (non-backtrackable, persists across solve() calls)
-        // Mirrors ZIPT Environment.stabilizers / selfStabilizing
-        // (Environment.cs:36-37)
-        // -----------------------------------------------------------------
-
-        // Maps regex snode id → list of stabilizer snodes.
-        // Each regex may accumulate multiple stabilizers from different
-        // cycle detections. The list is deduplicated by pointer equality.
-        u_map<euf::snode_vector> m_stabilizers;
-
-        // Set of regex snode ids that are self-stabilizing, i.e., the
-        // stabilizer for the regex is the regex itself (e.g., r*).
-        // Mirrors ZIPT Environment.selfStabilizing (Environment.cs:37)
-        uint_set                      m_self_stabilizing;
 
         // -----------------------------------------------------------------
         // BFS emptiness check helpers (private)
@@ -101,75 +84,6 @@ namespace seq {
         euf::sgraph& sg() { return m_sg; }
 
         // -----------------------------------------------------------------
-        // Stabilizer store API
-        // Mirrors ZIPT Environment stabilizer management
-        // (Environment.cs:114-146)
-        // -----------------------------------------------------------------
-
-        // Reset all stabilizer data. Called at the start of each solve()
-        // invocation if fresh stabilizer state is desired.
-        // Note: stabilizers persist across depth-bound iterations by default;
-        // only call this to clear accumulated state.
-        void reset_stabilizers();
-
-        // Add a stabilizer for a regex. De-duplicates by pointer equality.
-        // Mirrors ZIPT Environment.AddStabilizer (Environment.cs:114-123).
-        void add_stabilizer(euf::snode const* regex, euf::snode const* stabilizer);
-
-        // Get the union of all stabilizers registered for a regex.
-        // Returns a single re.union snode combining all stabilizers,
-        // or nullptr if no stabilizers exist for the regex.
-        // Mirrors ZIPT Environment.GetStabilizerUnion (Environment.cs:125-128).
-        euf::snode const* get_stabilizer_union(euf::snode const* regex);
-
-        // Check if any stabilizers have been registered for a regex.
-        bool has_stabilizers(euf::snode const* regex) const;
-
-        // Get raw stabilizer list for a regex (read-only).
-        // Returns nullptr if no stabilizers exist.
-        euf::snode_vector const* get_stabilizers(euf::snode const* regex) const;
-
-        // Mark a regex as self-stabilizing (stabilizer == regex itself).
-        // Mirrors ZIPT Environment.SetSelfStabilizing (Environment.cs:143-146).
-        void set_self_stabilizing(euf::snode const* regex);
-
-        // Check if a regex is marked as self-stabilizing.
-        // Mirrors ZIPT Environment.IsSelfStabilizing (Environment.cs:134-141).
-        bool is_self_stabilizing(euf::snode const* regex) const;
-
-        // -----------------------------------------------------------------
-        // Self-stabilizing auto-detection and propagation through derivatives
-        // -----------------------------------------------------------------
-
-        // Determine if a regex is inherently self-stabilizing based on its
-        // structure. Returns true for:
-        //   - R* (Kleene star): D(c, R*) = D(c,R)·R*, so R* is its own
-        //     stabilizer regardless of the character.
-        //   - Σ* (full_seq): D(c, Σ*) = Σ*, trivially self-stabilizing.
-        //   - ∅  (fail/empty language): no live derivatives, trivially stable.
-        //   - Complement of full_seq (~Σ* = ∅): also trivially stable.
-        // Does NOT mark the snode; call set_self_stabilizing to persist.
-        bool compute_self_stabilizing(euf::snode const* regex) const;
-
-        // After computing a derivative of parent, propagate the self-
-        // stabilizing flag to the derivative result if warranted.
-        // Applies structural rules:
-        //   - If parent is R* → derivative is always self-stabilizing
-        //     (derivative has the form D(c,R)·R* which contains the R* tail).
-        //   - If parent is R·S and S is self-stabilizing → derivative may
-        //     inherit from the self-stabilizing tail.
-        //   - If parent is R|S and both are self-stabilizing → derivative is.
-        //   - If parent is R∩S and both are self-stabilizing → derivative is.
-        //   - If parent is ~R and R is self-stabilizing → derivative is.
-        // Updates the internal self-stabilizing set for the derivative.
-        void propagate_self_stabilizing(euf::snode const* parent, euf::snode const* deriv);
-
-        // Convenience: compute derivative and propagate self-stabilizing flags.
-        // Equivalent to calling derivative() followed by
-        // propagate_self_stabilizing().
-        euf::snode const* derivative_with_propagation(euf::snode const* re, euf::snode const* elem);
-
-        // -----------------------------------------------------------------
         // Basic regex predicates
         // -----------------------------------------------------------------
 
@@ -192,20 +106,7 @@ namespace seq {
         //   l_true  — intersection is definitely empty
         //   l_false — intersection is definitely non-empty
         //   l_undef — inconclusive (hit exploration bound)
-        // Mirrors ZIPT NielsenNode.CheckEmptiness (NielsenNode.cs:1429-1469)
         lbool check_intersection_emptiness(euf::snode_vector const& regexes, unsigned max_states = UINT_MAX);
-
-        // Check if L(subset_re) ⊆ L(superset_re).
-        // Computed as: subset_re ∩ complement(superset_re) = ∅.
-        // Mirrors ZIPT NielsenNode.IsLanguageSubset (NielsenNode.cs:1382-1385)
-        lbool is_language_subset(euf::snode const* subset_re, euf::snode const* superset_re);
-
-        // Collect all primitive regex constraints on variable `var` from
-        // the node's str_mem list and return their intersection as a
-        // single regex snode (using re.inter).
-        // Returns nullptr if no primitive constraints found.
-        euf::snode const* collect_primitive_regex_intersection(
-            euf::snode const* var, nielsen_node const& node, dep_manager& dep_mgr, dep_tracker& dep) const;
 
         // check if regex is the full language (Σ* / re.all)
         static bool is_full_regex(euf::snode const* re) {
@@ -239,17 +140,12 @@ namespace seq {
         // deriv(regex, c) = result.  This enables deterministic consumption
         // of symbolic (variable) characters without branching.
         // Returns the uniform derivative if found, nullptr otherwise.
-        // Mirrors ZIPT's SimplifyCharRegex uniform-derivative fast path.
         euf::snode const* try_uniform_derivative(euf::snode const* regex) const;
 
         // compute derivative of a str_mem constraint: advance past one character.
         // the string side is shortened by drop_first and the regex is derived.
-        // Propagates self-stabilizing flags from the parent regex to the derivative.
         str_mem derive(str_mem const& mem, euf::snode const* elem) {
-            euf::snode const* parent_re = mem.m_regex;
-            euf::snode const* deriv = m_sg.brzozowski_deriv(parent_re, elem);
-            if (deriv)
-                propagate_self_stabilizing(parent_re, deriv);
+            euf::snode const* deriv = m_sg.brzozowski_deriv(mem.m_regex, elem);
             euf::snode const* new_str = m_sg.drop_first(mem.m_str);
             return str_mem(mem.m, new_str, deriv, mem.m_dep);
         }
@@ -316,54 +212,6 @@ namespace seq {
         // (empty string in non-nullable regex, or derivative yields ∅).
         bool process_str_mem(str_mem const& mem,
                              vector<str_mem>& out_mems);
-
-        // -----------------------------------------------------------------
-        // Cycle detection and stabilizers
-        // -----------------------------------------------------------------
-
-        // compute a Kleene star stabilizer from a cycle.
-        // given the regex at the cycle point and the current regex,
-        // builds r* that over-approximates any number of cycle iterations.
-        // returns nullptr if no stabilizer can be computed.
-        euf::snode const* stabilizer_from_cycle(euf::snode const* cycle_regex,
-                                          euf::snode const* current_regex);
-
-        // Strengthened stabilizer construction with sub-cycle detection.
-        // Replays the consumed character tokens from cycle_history on the
-        // cycle regex, detecting sub-cycles (where the derivative loops
-        // back to the original regex). For each sub-cycle, builds a
-        // stabilizer from the interleaved character tokens and filtered
-        // sub-stabilizers.
-        // Returns a union of all sub-cycle stabilizer bodies, or nullptr
-        // if no non-trivial stabilizer can be built.
-        // Mirrors ZIPT StrMem.StabilizerFromCycle (StrMem.cs:163-225).
-        euf::snode const* strengthened_stabilizer(euf::snode const* cycle_regex,
-                                            euf::snode const* cycle_history);
-
-        // Get filtered stabilizer star: for regex state re, retrieve
-        // existing stabilizers, filter out those whose language can
-        // start with any character in excluded_char, and wrap the
-        // remaining in star(union(...)).
-        // Returns nullptr (or empty-equivalent) if no valid stabilizers.
-        // Mirrors ZIPT StrMem.GetFilteredStabilizerStar (StrMem.cs:228-243).
-        euf::snode const* get_filtered_stabilizer_star(euf::snode const* re,
-                                                  euf::snode const* excluded_char) const;
-
-        // Extract the cycle portion of a str_mem's history by comparing
-        // the current history with an ancestor's history length.
-        // Returns the sub-sequence of tokens consumed since the ancestor,
-        // or nullptr if the history did not advance.
-        euf::snode const* extract_cycle_history(str_mem const& current,
-                                           str_mem const& ancestor);
-
-        // try to subsume a str_mem constraint using stabilizer-based
-        // reasoning. Enhanced version: checks if the leading variable's
-        // language (intersection of all its primitive regex constraints)
-        // is a subset of star(union(stabilizers)) for the current regex.
-        // Falls back to cycle-based pointer equality check.
-        // returns true if the constraint can be dropped.
-        // Mirrors ZIPT StrMem.TrySubsume (StrMem.cs:354-386).
-        bool try_subsume(str_mem const& mem, nielsen_node const& node);
     };
 
 }

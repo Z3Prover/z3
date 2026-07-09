@@ -242,7 +242,7 @@ namespace euf {
     }
 
     //
-    // Concat simplification rules from ZIPT:
+    // Concat simplification rules:
     //
     // 1. Kleene star merging: concat(u, v*, v*, w) = concat(u, v*, w)
     //    when adjacent children in a concat chain have congruent star bodies.
