@@ -857,10 +857,8 @@ namespace smt {
                 // Compile HO pattern and also register the compiled version with MAM
                 if (m_ho_matcher) {
                     auto [q1, p1] = m_ho_matcher->compile_ho_pattern(q, mp);
-                    IF_VERBOSE(10, verbose_stream() << "ho_matching: q=" << q->get_qid() 
-                               << " compiled=" << (p1 != mp) 
-                               << " p1=" << mk_pp(p1, m) << "\n");
                     if (p1 != mp) {
+                        IF_VERBOSE(10, verbose_stream() << "ho_matching: q=" << q->get_qid() << " p1= " << mk_pp(p1, m) << "\n");
                         m_lazy_mam->add_pattern(q1, p1);
                     }
                 }
