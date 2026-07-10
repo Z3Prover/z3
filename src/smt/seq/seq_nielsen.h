@@ -844,7 +844,6 @@ namespace seq {
             expr* m_src = nullptr;
             //expr* m_label = nullptr; // one-character regex label (char/minterm)
             expr* m_dst = nullptr;
-            unsigned m_projection_idx = 0; // first extraction index that included this edge
         };
 
         struct partial_dfa_edge_key {
@@ -943,7 +942,6 @@ namespace seq {
         // the expression is pinned, unlike snode->id() which is reused on pop.
         vector<partial_dfa_edge>      m_partial_dfa_edges;
         std::unordered_map<unsigned, unsigned_vector> m_partial_dfa_out;
-        std::unordered_map<unsigned, unsigned_vector> m_partial_dfa_in;
         std::unordered_map<partial_dfa_edge_key, unsigned, partial_dfa_edge_key_hash> m_partial_dfa_edge_index;
         // Pins every expression referenced by m_partial_dfa_edges so the
         // egraph cannot release them on pop.  We never shrink this — the
@@ -952,11 +950,7 @@ namespace seq {
         // Monotone snapshot index ν, bumped whenever a new view state set is
         // recorded (mark_reachable_projection_edges).  A view's Q is the EXACT
         // snapshot stored under its ν in m_projection_snapshots (the paper's
-        // "recorded state set Q" of a view, Implementation Aspects); the
-        // per-edge watermark m_projection_idx ≤ ν is kept only as a fallback —
-        // on its own it would denote the union of ALL extractions up to ν,
-        // blurring a view's Q with unrelated heads' regions once exploration
-        // is partial (lazy mode).
+        // "recorded state set Q" of a view, Implementation Aspects).
         unsigned                      m_projection_extract_idx = 0;
         // ν → the snapshot of Q taken when the view index was minted.  The
         // state exprs are pinned via m_partial_dfa_pin, so the stored expr*
@@ -1290,6 +1284,8 @@ namespace seq {
 
         // l_true = empty, l_false = non-empty (a simultaneously accepting tuple
         // was reached), l_undef = budget exhausted / inconclusive.
+        // Implemented as a thin wrapper over check_concat_product_emptiness
+        // (single factor holding the tuple, trivially accepting Σ* rhs).
         lbool check_product_emptiness(vector<prod_comp> const& comps, unsigned max_states);
 
         // Concatenation-aware variant (paper, "Pruning incrementally during
@@ -1308,6 +1304,20 @@ namespace seq {
         lbool comp_accepting(prod_comp const& c) const;
         prod_comp comp_step(prod_comp const& c, euf::snode const* mt);
 
+        // Shared pieces of the synchronous product engines (tuple-emptiness
+        // wrapper, concatenation-aware search, witness search):
+        // visited-key encoding of one component;
+        static void prod_comp_key(prod_comp const& c, std::vector<unsigned>& key);
+        // all-components-accepting test of a tuple (l_true: all accept,
+        // l_false: some component rejects, l_undef: undecided);
+        lbool tuple_accepting(vector<prod_comp> const& cs) const;
+        // step every component of a tuple by one joint minterm; false iff a
+        // component died (the successor tuple is then to be discarded);
+        bool step_tuple(vector<prod_comp> const& cur, euf::snode const* mt, vector<prod_comp>& nxt);
+        // joint first-character partition of the live (non-sink, non-dead)
+        // component states, optionally including one extra component.
+        void joint_minterms(vector<prod_comp> const& comps, prod_comp const* extra, euf::snode_vector& mts);
+
         // Build the product components for variable `var` from the node's
         // primitive memberships (plain / land-state view).  Joins their deps.
         bool collect_var_components(euf::snode const* var, nielsen_node const& node,
@@ -1321,13 +1331,9 @@ namespace seq {
         // (edges are deduplicated by (src,dst); transition labels are unused).
         void record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* dst_re);
 
-        // Collect the SCC containing root_re in the current partial DFA.
-        // Returns false if no cyclic SCC containing root_re exists.
-        bool collect_scc_for_projection(euf::snode const* root_re, uint_set& scc) const;
-
-        // Mark SCC edges with a monotone extraction index and return the
-        // currently covered edge count for this extraction.
-        unsigned mark_scc_projection_edges(uint_set const& scc);
+        // Trigger gate for the cycle machinery: does some non-empty recorded
+        // path lead from head_re back to head_re in the partial DFA?
+        bool head_on_cycle(euf::snode const* head_re) const;
 
         // Landing decomposition (paper §5.3): Q is the set of explored states
         // forward-reachable from the head r in the partial DFA G, not merely r's
@@ -1512,7 +1518,7 @@ namespace seq {
 
         // BFS of Brzozowski derivatives from root_re up to `depth` steps,
         // eagerly recording concrete minterm edges in the partial DFA so that
-        // collect_scc_for_projection can find cycles without first waiting for
+        // head_on_cycle can find cycles without first waiting for
         // concrete children to record them one level at a time.
         // Lazily record the complete reachable automaton of root_re into the
         // partial DFA, once per regex component (cached in m_explored_automaton).
