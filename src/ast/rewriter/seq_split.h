@@ -86,6 +86,9 @@ class seq_split {
     seq_util::rex& re() const;
 
     // (Re)build the local declarations for `seq_sort` if not already current.
+    // NB: rebuilding for a new sequence sort invalidates suspended split-set
+    // terms built for the previous sort (head_normalize degrades to a give-up
+    // on such stale terms); an iterator must not be used across a sort switch.
     void ensure_decls(sort* seq_sort);
 
     // Smart constructors: apply the cheap normalizations the eager engine relies
@@ -112,8 +115,10 @@ class seq_split {
     bool is_frontier(expr* e) const;
 
     // One level of the sigma rules: from_re(r) -> a SplitSet term built from the
-    // immediate subterms.  `ok` is set false on an unsupported shape.
-    expr_ref expand_fromre(expr* r, bool& ok);
+    // immediate subterms.  `ok` is set false on an unsupported shape or on a
+    // loop bound exceeding `threshold` (the loop rule unfolds eagerly into one
+    // branch per copy, so it must be capped before allocation).
+    expr_ref expand_fromre(expr* r, unsigned threshold, bool& ok);
     // Distribute a left/right concatenation over a head-normal split-set.
     expr_ref distribute_lcat(expr* r, expr* hs);
     expr_ref distribute_rcat(expr* hs, expr* r);
@@ -160,8 +165,9 @@ public:
     // The threshold is supplied by the caller and serves only as a safety cap
     // against space bloat (lazy expansion still has to materialize the operands of
     // intersection / complement).  A threshold overrun, an unsupported regex shape,
-    // or a Boolean-closure case in weak mode aborts the enumeration: next() returns
-    // false and gave_up() returns true.  To stop early, simply stop calling next().
+    // a loop bound exceeding the threshold, or a Boolean-closure case in weak mode
+    // aborts the enumeration: next() returns false and gave_up() returns true.
+    // To stop early, simply stop calling next().
     //
     // `oracle` (optional) prunes non-viable splits as they are produced.  It must
     // be sound to apply per split: a candidate N can still gain a prefix from a
@@ -212,7 +218,13 @@ public:
     // seq_subset).  Size-capped to keep the O(n^2) subsumption affordable.
     void simplify(split_set& s) const;
 
-    // decompose a membership constraint into a set of pairs of regex splits
+    // Decompose a membership constraint `str in regex` into a boundary
+    // (head, tail) with str = head . c . tail (c a constant run consumed into
+    // the splits by derivatives) and a split-set such that the membership
+    // holds iff head in D and tail in N for some <D, N> in `result`.
+    // A null head signals a give-up (threshold / unsupported shape).  An
+    // entirely-constant `str` is fully consumed by derivatives and returns
+    // ("", "") with the single split <eps, derivative-consumed regex>.
     std::pair<expr_ref, expr_ref> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const;
 
     // Lookahead oracle for the split engine: is the split's right component

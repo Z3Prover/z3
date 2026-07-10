@@ -244,7 +244,7 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
 // emits *suspended* split-algebra terms (from_re / lcat / rcat / inter / compl) for
 // the subterms instead of recursing.  `mode` is irrelevant here: weak vs. strong is
 // decided when `head_normalize` reaches an inter / compl node.
-expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
+expr_ref seq_split::expand_fromre(expr* r, unsigned threshold, bool& ok) {
     ok = true;
     seq_util& sq = seq();
     seq_util::rex& rex = re();
@@ -290,8 +290,8 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
                     continue;
                 }
                 zstring str2;
-                if (sq.str.is_string(s, str2)) {
-                    str = str2;
+                if (sq.str.is_string(cur, str2)) {
+                    str += str2;
                     continue;
                 }
                 // not a constant string; unsupported for now
@@ -410,6 +410,14 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
     // j in [l,h] with j > i, into a single loop [<eps,eps> when l == 0]
     unsigned l, h;
     if (rex.is_loop(r, a, l, h)) {
+        // The rule unfolds eagerly into h branches; cap this *before* building
+        // them (the iterator's threshold only counts emitted splits, which
+        // would be too late for a huge bound like r{0,10^8}).
+        if (h > threshold) {
+            TRACE(seq, tout << "seq_split: loop bound " << h << " exceeds threshold\n";);
+            ok = false;
+            return expr_ref(m);
+        }
         expr_ref acc = mk_empty();
         if (l == 0) {
             const expr_ref eps(rex.mk_epsilon(seq_sort), m);
@@ -425,7 +433,7 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
         return acc;
     }
 
-    // bounded loop / ite / other: not handled (paper "v1: bail").
+    // one-sided loop r{l,} / ite / other shapes: not handled (bail).
     TRACE(seq, tout << "seq_split: unsupported regex " << mk_pp(r, m) << "\n";);
     ok = false;
     return expr_ref(m);
@@ -476,7 +484,7 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
     // from_re(r): one level of sigma; recurse to settle a non-frontier head
     // (plus / inter / compl / diff expand to lcat / inter / compl nodes).
     if (is_fromre(t, r)) {
-        expr_ref e = expand_fromre(r, ok);
+        expr_ref e = expand_fromre(r, threshold, ok);
         if (!ok)
             return expr_ref(m);
         if (is_frontier(e))
@@ -531,7 +539,12 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
         return from_split_set(res);
     }
 
-    UNREACHABLE();
+    // Not a recognized split-algebra node.  This is only reachable when the
+    // suspended term was built for a different sequence sort: ensure_decls
+    // rebuilds the sort-dependent declarations (single / from_re / lcat / rcat)
+    // on a sort switch, so older terms stop matching the recognizers.  Degrade
+    // to a give-up instead of asserting.
+    TRACE(seq, tout << "seq_split: stale split-set node " << mk_pp(t, m) << "\n";);
     ok = false;
     return expr_ref(m);
 }
@@ -675,9 +688,10 @@ void seq_split::simplify(split_set& pairs) const {
     // 3. subsumption: drop <D_i,N_i> when L(D_i) subseteq L(D_j) and
     //    L(N_i) subseteq L(N_j) for some kept j.  seq_subset is conservative
     //    (returns true only for definite containment), so we never drop a
-    //    needed split.
-    //if (pairs.size() > 64)
-    //    return;
+    //    needed split.  Size-capped: each check runs two language-inclusion
+    //    tests, so the O(n^2) pass is only affordable on small sets.
+    if (pairs.size() > 64)
+        return;
 
     struct row { expr* d; expr* n; unsigned idx; };
     vector<row> rows;
@@ -757,25 +771,51 @@ std::pair<expr_ref, expr_ref> seq_split::split_membership(expr* str, expr* regex
 
     // TODO: Do this for the back as well (also, why did no rule before do that?)
 
-    if (tokens.empty())
-        return { expr_ref(m), expr_ref(m) };
+    if (tokens.empty()) {
+        // The term was entirely constant, so the derivative loop above already
+        // reduced the membership to nullability of `regex`.  Return it as the
+        // single split <eps, regex> over (head, tail) = ("", "") rather than
+        // discarding that work -- a null head is reserved for give-ups.
+        sort* srt = str->get_sort();
+        const expr_ref empty_str(seq().str.mk_empty(srt), m);
+        result.push_back(split_pair(re().mk_epsilon(srt), regex, m));
+        return { empty_str, empty_str };
+    }
 
     // Choose the factorization boundary so the tail starts with the
-    // longest run of concrete characters c.
+    // longest run of concrete characters c.  A run may mix constant-character
+    // units and string literals and is weighted by the number of characters
+    // it contributes.
     // This gives the split-engine lookahead oracle the most pruning information.
     // head = u' (tokens before the run), tail = c · u''' (tokens from the run onward).
+    auto token_chars = [&](expr* t, unsigned& chars) {
+        zstring s2;
+        expr* ch2;
+        if (seq().str.is_string(t, s2)) {
+            chars = s2.length();
+            return true;
+        }
+        if (seq().str.is_unit(t, ch2) && seq().is_const_char(ch2)) {
+            chars = 1;
+            return true;
+        }
+        return false;
+    };
     const unsigned total = tokens.size();
-    unsigned run_start = 0, run_len = 0;
+    unsigned run_start = 0, run_len = 0, run_chars = 0;
     for (i = 1; i < total; ) {
-        if (!(seq().str.is_unit(tokens.get(i), ch) && seq().is_const_char(ch))) {
+        unsigned chars = 0, block_chars = 0;
+        if (!token_chars(tokens.get(i), chars)) {
             i++;
             continue;
         }
         unsigned j = i;
-        while (j < total && seq().str.is_unit(tokens.get(j), ch) && seq().is_const_char(ch)) {
+        while (j < total && token_chars(tokens.get(j), chars)) {
+            block_chars += chars;
             j++;
         }
-        if (j - i > run_len) {
+        if (block_chars > run_chars) {
+            run_chars = block_chars;
             run_len = j - i;
             run_start = i;
         }
@@ -801,8 +841,14 @@ std::pair<expr_ref, expr_ref> seq_split::split_membership(expr* str, expr* regex
     // prunes splits whose postfix cannot match c.
     zstring c;
     for (i = 0; i < run_len; i++) {
+        expr* t = tokens.get(run_start + i);
+        zstring s2;
+        if (seq().str.is_string(t, s2)) {
+            c = c + s2;
+            continue;
+        }
         unsigned cv;
-        VERIFY(seq().str.is_unit(tokens.get(run_start + i), ch));
+        VERIFY(seq().str.is_unit(t, ch));
         VERIFY(seq().is_const_char(ch, cv));
         c = c + zstring(cv);
     }
