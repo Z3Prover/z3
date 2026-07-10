@@ -267,7 +267,7 @@ namespace smt {
             }
         }
         
-        bool is_relevant_core(expr * n) const { return m_is_relevant.contains(n->get_id()); }
+        bool is_relevant_core(expr * n) const { SASSERT(n); return m_is_relevant.contains(n->get_id()); }
         
         bool is_relevant(expr * n) const override {
             return !enabled() || is_relevant_core(n);

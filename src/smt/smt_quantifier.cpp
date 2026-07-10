@@ -21,6 +21,8 @@ Revision History:
 #include "ast/quantifier_stat.h"
 #include "ast/euf/ho_matcher.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/well_sorted.h"
+#include "ast/has_free_vars.h"
 #include "smt/smt_quantifier.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_finder.h"
@@ -620,6 +622,7 @@ namespace smt {
             unsigned     m_min_top_generation = 0;
             unsigned     m_max_top_generation = 0;
             vector<std::tuple<enode*, enode*>>* m_used_enodes = nullptr;
+            vector<std::pair<quantifier*, expr_ref_vector>> m_matches;
         };
         ho_match_state m_ho_state;
         unsigned       m_stat_ho_refine = 0;    // number of times ho-matching refinement is invoked
@@ -660,11 +663,11 @@ namespace smt {
 
         quantifier_manager_plugin * mk_fresh() override { return alloc(default_qm_plugin); }
 
-        void on_ho_match(euf::ho_subst& s) {
-            ast_manager& m = m_context->get_manager();
-            auto& st = m_ho_state;
-            auto* hoq = st.m_q;
-            auto* q = m_ho_matcher->hoq2q(hoq);
+        void on_ho_match(euf::ho_subst &s) {
+            ast_manager &m = m_context->get_manager();
+            auto &st = m_ho_state;
+            auto *hoq = st.m_q;
+            auto *q = m_ho_matcher->hoq2q(hoq);
 
             expr_ref_vector binding(m);
             for (unsigned i = 0; i < s.size(); ++i)
@@ -674,9 +677,14 @@ namespace smt {
             // The HO quantifier has extra vars at higher indices; drop them.
             // Binding is indexed by var index: binding[i] = value for var i.
             // First substitute any remaining vars, then keep only original vars.
-            TRACE(ho_matching, tout << "num bound variables " << q->get_num_decls() << " for " << mk_bounded_pp(q, m)
-                                    << "\n"
-                                    << binding << "\n";);
+            TRACE(
+                ho_matching, tout << "num bound variables " << q->get_num_decls() << " for " << mk_bounded_pp(q, m)
+                                  << "\n"
+                                  << binding << "\n";
+                for (unsigned i = 0; i < binding.size(); ++i) {
+                    tout << i << " - " << mk_pp(binding.get(i)->get_sort(), m) << ": " << mk_ll_pp(binding.get(i), m)
+                         << "\n";
+                });
             if (binding.size() > q->get_num_decls()) {
                 // binding is indexed directly (binding[k] = value for var k),
                 // so the substitution must use direct (non-standard) order to
@@ -686,16 +694,18 @@ namespace smt {
                 bool change = true;
                 while (change) {
                     change = false;
-                    for (unsigned i = 1; i < binding.size(); ++i) {
-                        if (!binding.get(i)) continue;
+                    for (unsigned i = 0; i < binding.size(); ++i) {
+                        if (!binding.get(i))
+                            continue;
                         // A misaligned higher-order binding would build an
                         // ill-sorted term. Abandon this refinement (no instance)
                         // rather than aborting the whole solve.
-                        if (!euf::ho_matcher::subst_sorts_match(m, binding.get(i), binding, false))
-                            return;
+                        SASSERT(is_well_sorted(m, binding.get(i)));
                         auto r = sub(binding.get(i), binding);
                         change |= r != binding.get(i);
                         binding[i] = r;
+                        SASSERT(is_well_sorted(m, binding.get(i)));
+                        TRACE(ho_matching, tout << "setting v" << i << " <- " << r << "\n");
                     }
                 }
                 binding.shrink(q->get_num_decls());
@@ -705,16 +715,26 @@ namespace smt {
 
             binding.reverse();
 
+            st.m_matches.push_back({ q, binding });
+        }
+
+        void consume_ho_matches() {
+            for (auto const &[q, binding] : m_ho_state.m_matches) 
+                consume_ho_match(q, binding);            
+            m_ho_state.m_matches.reset();
+        }
+
+        void consume_ho_match(quantifier * q, expr_ref_vector const& binding) {
+            ast_manager &m = m_context->get_manager();
+            auto &st = m_ho_state;
             // Create enodes for the refined bindings and add instance
             ptr_buffer<enode> new_bindings;
             unsigned max_gen = st.m_max_generation;
+            TRACE(ho_matching, tout << binding << "\n");
             for (expr* e : binding) {
                 if (!e)
                     return; // incomplete binding
-                // A leftover free (de Bruijn) variable means the binding is
-                // incomplete/misaligned; adding such a term would raise
-                // "Formulas should not contain unbound variables". Skip it.
-                if (!is_ground(e))
+                if (has_free_vars(e))
                     return;
                 if (!m_context->e_internalized(e)) {
                     m_context->internalize(e, false);
@@ -760,12 +780,14 @@ namespace smt {
             m_ho_state.m_min_top_generation = min_top_gen;
             m_ho_state.m_max_top_generation = max_top_gen;
             m_ho_state.m_used_enodes = &used_enodes;
+            m_ho_state.m_matches.reset();
 
             IF_VERBOSE(10, verbose_stream() << "try_ho_refine: q=" << mk_pp(qa, m) << "\n  pat=" << mk_pp(pat, m) << "\n";
                 for (unsigned i = 0; i < num_bindings; ++i)
                     verbose_stream() << "  s[" << i << "] = " << mk_pp(s.get(i), m) << " sort=" << mk_pp(s.get(i)->get_sort(), m) << "\n";);
 
             m_ho_matcher->refine_ho_match(pat, s);
+            consume_ho_matches();
             ++m_stat_ho_refine;
             return true;
         }

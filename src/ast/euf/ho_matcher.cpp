@@ -473,15 +473,6 @@ namespace euf {
                     }
                 }
 
-                // pat_vars[k] references the lambda binder for the k-th distinct
-                // index and must carry that index' sort, so the reconstructed
-                // select stays aligned with the flex head's array domain
-                // (pat_domain). The binder at forward position p has de Bruijn
-                // index num_bound-1-p (the outermost binder has the highest
-                // index). Emitting in forward slot order keeps the select
-                // arguments in the same order as pat_domain even when the
-                // indices have heterogeneous sorts (otherwise the array plugin
-                // rejects the ill-ordered select).
                 for (unsigned k = 1; k < pat_args.size(); ++k) {
                     unsigned db = num_bound - 1 - pat_pos[k];
                     pat_vars.push_back(m.mk_var(db, pat_args.get(k)->get_sort()));
@@ -685,11 +676,15 @@ namespace euf {
         SASSERT(is_well_sorted(m, body));
     }
 
-    void ho_matcher::add_binding(var* v, unsigned offset, expr* t) {
+    void ho_matcher::add_binding(var* v, unsigned offset, expr* _t) {
         SASSERT(v->get_idx() >= offset);
+        expr_ref t(_t, m);
+        inv_var_shifter vs(m);
+        vs(_t, offset, t);
         m_subst.set(v->get_idx() - offset, t);
+        SASSERT(is_well_sorted(m, t));
         SASSERT(v->get_sort() == t->get_sort());
-        TRACE(ho_matching, tout << "ho_matcher::add_binding: v" << v->get_idx() - offset << " -> " << mk_pp(t, m) << "\n";);
+        TRACE(ho_matching, tout << "ho_matcher::add_binding: " << offset << " v" << v->get_idx() - offset << " -> " << mk_pp(t, m) << "\n";);
         m_trail.push(undo_set(m_subst, v->get_idx() - offset));
     }
 
