@@ -310,7 +310,7 @@ func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domai
 bool array_decl_plugin::check_set_arguments(unsigned arity, sort * const * domain) {
     for (unsigned i = 0; i < arity; ++i) {
         if (domain[i] != domain[0]) {
-            m_manager->raise_exception("arguments " + std::to_string(1) + " and " + std::to_string(i+1) + " have different sorts");
+            m_manager->raise_exception("arguments 1 and " + std::to_string(i+1) + " have different sorts");
             return false;
         }
         if (domain[i]->get_family_id() != m_family_id) {
