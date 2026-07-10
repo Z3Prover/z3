@@ -2675,27 +2675,16 @@ namespace smt {
             obj_map<expr, expr*> const& inv = s->get_inv_map();
             if (inv.empty())
                 continue; // nothing to do
-            expr_ref_vector eqs(m), defs(m);
-            
-            for (auto const& [val, term] : inv) {
-                if (val->get_sort() == sk->get_sort()) {
-                    if (is_lambda(term)) {
-                        eqs.push_back(m.mk_eq(sk, val));
-                        defs.push_back(m.mk_eq(val, term));
-                    }
-                    else 
-                       eqs.push_back(m.mk_eq(sk, val));
-                }
+            ptr_buffer<expr> eqs;
+            for (auto const& [val, _] : inv) {
+                if (val->get_sort() == sk->get_sort())
+                    eqs.push_back(m.mk_eq(sk, val));
             }
             if (!eqs.empty()) {
                 expr_ref new_cnstr(m);
                 new_cnstr = m.mk_or(eqs);
                 TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
                 aux_ctx->assert_expr(new_cnstr);
-                for (auto def : defs) {
-                    TRACE(model_finder, tout << "assert_def:\n" << mk_pp(def, m) << "\n";);
-                    aux_ctx->assert_expr(def);
-                }
                 asserted_something = true;
             }
         }
