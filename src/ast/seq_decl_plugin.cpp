@@ -21,6 +21,7 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include <sstream>
+#include <format>
 
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false),
@@ -82,7 +83,8 @@ void seq_decl_plugin::match_assoc(psig& sig, unsigned dsz, sort *const* dom, sor
     ptr_vector<sort> binding;
     ast_manager& m = *m_manager;
     if (dsz == 0) {
-        m.raise_exception(std::string("Unexpected number of arguments to '") + sig.m_name.str() + "' at least one argument expected " + std::to_string(dsz) + " given");
+        m.raise_exception(std::format("Unexpected number of arguments to '{}' at least one argument expected {} given",
+                                       sig.m_name.str(), dsz));
     }
     bool is_match = true;
     for (unsigned i = 0; is_match && i < dsz; ++i) {
@@ -99,9 +101,10 @@ void seq_decl_plugin::match_assoc(psig& sig, unsigned dsz, sort *const* dom, sor
         }
         std::string range_str;
         if (range) {
-            range_str = std::string(" and range: ") + to_string(mk_pp(range, m));
+            range_str = std::format(" and range: {}", to_string(mk_pp(range, m)));
         }
-        m.raise_exception(std::string("Sort of function '") + sig.m_name.str() + "' does not match the declared type. Given domain: " + domain_str + range_str);
+        m.raise_exception(std::format("Sort of function '{}' does not match the declared type. Given domain: {}{}",
+                                       sig.m_name.str(), domain_str, range_str));
     }
     range_out = apply_binding(binding, sig.m_range);
     SASSERT(range_out);
@@ -111,7 +114,8 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
     m_binding.reset();
     ast_manager& m = *m_manager;
     if (sig.m_dom.size() != dsz) {
-        m.raise_exception(std::string("Unexpected number of arguments to '") + sig.m_name.str() + "' " + std::to_string(sig.m_dom.size()) + " arguments expected " + std::to_string(dsz) + " given");
+        m.raise_exception(std::format("Unexpected number of arguments to '{}' {} arguments expected {} given",
+                                       sig.m_name.str(), sig.m_dom.size(), dsz));
     }
     bool is_match = true;
     for (unsigned i = 0; is_match && i < dsz; ++i) {
@@ -127,17 +131,19 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
         }
         std::string range_str;
         if (range) {
-            range_str = std::string(" and range: ") + to_string(mk_pp(range, m));
+            range_str = std::format(" and range: {}", to_string(mk_pp(range, m)));
         }
         std::string expected_domain;
         for (unsigned i = 0; i < dsz; ++i) {
             expected_domain += to_string(mk_pp(sig.m_dom[i].get(), m)) + " ";
         }
 
-        m.raise_exception(std::string("Sort of polymorphic function '") + sig.m_name.str() + "' does not match the declared type. \nGiven domain: " + given_domain + range_str + "\nExpected domain: " + expected_domain);
+        m.raise_exception(std::format("Sort of polymorphic function '{}' does not match the declared type. \nGiven domain: {}{}\nExpected domain: {}",
+                                       sig.m_name.str(), given_domain, range_str, expected_domain));
     }
     if (!range && dsz == 0) {
-        m.raise_exception(std::string("Sort of polymorphic function '") + sig.m_name.str() + "' is ambiguous. Function takes no arguments and sort of range has not been constrained");
+        m.raise_exception(std::format("Sort of polymorphic function '{}' is ambiguous. Function takes no arguments and sort of range has not been constrained",
+                                       sig.m_name.str()));
     }
     range_out = apply_binding(m_binding, sig.m_range);
     SASSERT(range_out);
