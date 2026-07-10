@@ -419,6 +419,28 @@ namespace smt {
         internalize_rec(n, gate_ctx);
     }
 
+    enode *context::non_ground_internalize(expr *e) {
+        if (e_internalized(e))
+            return get_enode(e);
+        if (is_ground(e)) {
+            internalize(e, false);
+            return get_enode(e);
+        }
+        for (auto arg : subterms::ground(expr_ref(e, m))) {
+            if ((is_forall(arg) || is_exists(arg)) && !e_internalized(arg)) {
+                expr_ref fn(m.mk_fresh_const("proxy-expr", e->get_sort()), m);
+                expr_ref eq(m.mk_eq(fn, e), m);
+                assert_expr(eq);
+                internalize_assertions();
+                if (!e_internalized(fn)) 
+                    internalize(fn, false);
+                return get_enode(fn);
+            }
+        }
+        internalize(e, false);
+        return get_enode(e);
+    }
+
     void context::internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx) {
         internalize_deep(exprs, num_exprs);
         for (unsigned i = 0; i < num_exprs; ++i) 

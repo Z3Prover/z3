@@ -152,7 +152,8 @@ namespace smt {
         expr_ref e(_e, m);
         bool is_not = m.is_not(_e, _e);
         if (!ctx.e_internalized(_e)) {
-            ctx.internalize(_e, is_quantifier(_e));
+            auto n = ctx.non_ground_internalize(_e);
+            _e = n->get_expr();            
         }
         literal lit = ctx.get_literal(_e);
         ctx.mark_as_relevant(lit);

@@ -983,6 +983,8 @@ namespace smt {
 
         void internalize(expr * n, bool gate_ctx, unsigned generation);
 
+        enode *non_ground_internalize(expr *e);
+
         clause * mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k = CLS_AUX, clause_del_eh * del_eh = nullptr);
 
         void mk_clause(literal l1, literal l2, justification * j);
