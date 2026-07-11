@@ -71,8 +71,6 @@ namespace seq {
         proceed,               // no change, continue
         conflict,              // constraint is unsatisfiable
         satisfied,             // constraint is trivially satisfied
-        restart,               // constraint was simplified, restart
-        restart_and_satisfied, // simplified and satisfied
     };
 
     // reason for backtracking in the Nielsen graph
@@ -435,19 +433,11 @@ namespace seq {
         expr_ref    fml;   // the formula (eq, le, or ge, unit-diseq expression)
         dep_tracker dep;   // tracks which input constraints contributed
 
-        static expr_ref simplify(expr* f, ast_manager& m) {
-            //arith_rewriter th(m);
-            //th_rewriter th(m);
-            expr_ref fml(f, m);
-            //th(fml);
-            return fml;
-        }
-
         constraint(ast_manager& m):
             fml(m), dep(nullptr) {}
 
         constraint(expr* f, dep_tracker const& d, ast_manager& m):
-            fml(simplify(f, m)), dep(d) {}
+            fml(f, m), dep(d) {}
 
         std::ostream& display(std::ostream& out) const;
     };
@@ -466,7 +456,7 @@ namespace seq {
         length_kind m_kind;  // determines propagation strategy
 
         length_constraint(ast_manager& m): m_expr(m), m_dep(nullptr), m_kind(length_kind::nonneg) {}
-        length_constraint(expr* e, dep_tracker const& dep, length_kind kind, const bool internal, ast_manager& m):
+        length_constraint(expr* e, dep_tracker const& dep, length_kind kind, ast_manager& m):
             m_expr(e, m), m_dep(dep), m_kind(kind) {}
 
         constraint to_constraint() const {
@@ -542,7 +532,6 @@ namespace seq {
 
         // edges
         ptr_vector<nielsen_edge> m_outgoing;
-        nielsen_edge*           m_parent_edge = nullptr;
 
         // status flags
         bool                    m_is_general_conflict = false;
@@ -552,8 +541,6 @@ namespace seq {
         bool                    m_node_len_constraints_generated = false; // true after generate_node_length_constraints runs
 
         unsigned                m_hash = 0; // 0 ... unset
-
-        nielsen_node*            m_parent = this;
 
         // DFS bookkeeping for the subsumption (loop-cut) rule.
         //  m_dfs_path_pos:    structural depth (= cur_path.size()) of this node while
@@ -597,6 +584,20 @@ namespace seq {
         // signature yet is not a recurrence — so they must survive the hot-restart
         // re-traversal, where m_rf_cont is already null.  See search_dfs.
         bool                    m_is_rf_cont = false;
+        // Sticky marker: true if this node was created by a substitution-free
+        // ARITHMETIC branch rule (apply_num_cmp / apply_split_power_elim).  Such a
+        // child clones its parent's string constraints verbatim — only the edge's
+        // integer side constraint differs; it exists so simplify_and_init's LP
+        // passes (3c/3e) can resolve the power cancellation one level down.  Like
+        // an rf continuation it aliases its parent's string signature without
+        // being a recurrence, so it shares the same exemptions (is_signature_alias):
+        // cutting it as a sibling of its parent — or caching its unsat — when the
+        // LP cannot resolve the branch constraint (l_undef) would close the
+        // subtree as a "string-only" conflict without any genuine string conflict,
+        // a spurious UNSAT.  With the exemption an unresolved chain instead runs
+        // into the resource/node budget and degrades to unknown — the sound
+        // direction for an LP timeout.  Sticky so it survives hot restart.
+        bool                    m_is_arith_split = false;
         // number of constraints inherited from the parent node at clone time.
         // constraints[0..m_parent_ic_count) are already asserted at the
         // parent's solver scope; only [m_parent_ic_count..end) need to be
@@ -649,9 +650,6 @@ namespace seq {
         ptr_vector<nielsen_edge> const& outgoing() const { return m_outgoing; }
         void add_outgoing(nielsen_edge* e) { m_outgoing.push_back(e); }
 
-        nielsen_edge* parent_edge() const { return m_parent_edge; }
-        void set_parent_edge(nielsen_edge* e) { m_parent_edge = e; }
-
         // lazy regex factorization continuation (see m_rf_cont).
         rf_state* rf_cont() const { return m_rf_cont; }
         void set_rf_cont(rf_state* s) { m_rf_cont = s; if (s) m_is_rf_cont = true; }
@@ -659,6 +657,17 @@ namespace seq {
         // after its iterator has been consumed.  Drives the loop-cut / unsat-cache
         // exemptions so they persist across the hot-restart re-traversal.
         bool is_rf_cont() const { return m_is_rf_cont; }
+
+        // child of a substitution-free arithmetic branch rule (see m_is_arith_split).
+        bool is_arith_split() const { return m_is_arith_split; }
+        void set_arith_split() { m_is_arith_split = true; }
+
+        // True if this node structurally aliases its parent's string signature
+        // without being a recurrence: a factorization continuation (pending splits)
+        // or an arithmetic-split child (pending LP resolution of its branch
+        // constraint).  Such nodes are exempt from the sibling loop-cut and from
+        // the unsat transposition cache (lookup AND insertion) in search_dfs.
+        bool is_signature_alias() const { return m_is_rf_cont || m_is_arith_split; }
 
         // returns 0 if hash is unknown
         unsigned hash() const {
@@ -733,7 +742,7 @@ namespace seq {
 
         // simplify all constraints at this node and initialize status.
         // Uses cur_path for LP solver queries during deterministic power cancellation.
-        // Returns proceed, conflict, satisfied, or restart.
+        // Returns proceed, conflict, or satisfied.
         simplify_result simplify_and_init(ptr_vector<nielsen_edge> const& cur_path);
 
         // Consume leading concrete/symbolic characters of a land-state view
@@ -760,11 +769,10 @@ namespace seq {
 
     private:
         // Helper: handle one empty vs one non-empty side of a string equality.
-        // Collects tokens from non_empty_side; if any token causes a conflict
-        // (is a concrete character or an unexpected kind), sets conflict flags
-        // and returns true. Otherwise returns false.
-        bool check_empty_side_conflict(euf::sgraph& sg, euf::snode const* non_empty_side,
-                                       dep_tracker const& dep);
+        // If the non-empty side provably cannot be empty (contains a concrete
+        // character or a non-eliminable token), sets conflict flags and returns
+        // true.  Otherwise returns false.
+        bool check_empty_side_conflict(euf::snode const* non_empty_side, dep_tracker const& dep);
 
         // Length bounds are queried from the arithmetic subsolver when needed.
     };
@@ -1640,29 +1648,11 @@ namespace seq {
         // Get or create a fresh integer variable for gpower m (partial exponent) for the given variable
         expr_ref get_or_create_gpower_m_var(euf::snode const* var);
 
-        // Compute and add |x| = |u| length constraints to an edge for all
-        // its non-eliminating substitutions. Uses current m_mod_cnt.
-        // Temporarily bumps m_mod_cnt for RHS computation, then restores.
+        // Add |x| = |replacement| length constraints to an edge for all its
+        // sequence-variable substitutions.  (Substitutions are eliminating by
+        // construction, so the equation never mentions x on both sides.)
         // Called lazily on first edge traversal in search_dfs.
         void add_subst_length_constraints(nielsen_edge* e);
     };
 
 }
-
-template <> struct std::hash<seq::str_eq> {
-    unsigned operator()(seq::str_eq& eq) const noexcept {
-        return eq.hash();
-    }
-};
-
-template <> struct std::hash<seq::str_deq> {
-    unsigned operator()(seq::str_deq& deq) const noexcept {
-        return deq.hash();
-    }
-};
-
-template <> struct std::hash<seq::str_mem> {
-    unsigned operator()(seq::str_mem& mem) const noexcept {
-        return mem.hash();
-    }
-};
