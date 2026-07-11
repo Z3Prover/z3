@@ -671,10 +671,9 @@ namespace smt {
         SASSERT(is_lambda(q));
         if (e_internalized(q)) 
             return;
-        auto e = mk_enode(q, true, /* do suppress args */
+        mk_enode(q, true, /* do suppress args */
                     false,    /* it is a term, so it should not be merged with true/false */
                     true);
-        apply_sort_cnstr(q, e);
     }
 
     bool context::has_lambda() {
