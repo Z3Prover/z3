@@ -367,7 +367,7 @@ class arith_project_util {
                         cx = mk_mul(c, m_var->x());
                         cxt = mk_add(cx, t);
                         val = mdl(cxt);
-                        VERIFY(a.is_numeral(val, r));
+                        if (!a.is_numeral(val, r)) return false;
                         SASSERT(r > rational::zero() || r < rational::zero());
                         if (r > rational::zero()) {
                             c = -c;
@@ -473,7 +473,7 @@ class arith_project_util {
                 cx = mk_mul(c, m_var->x());
                 cxt = mk_add(cx, t);
                 val = mdl(cxt);
-                VERIFY(a.is_numeral(val, r));
+                if (!a.is_numeral(val, r)) return false;
 
                 if (is_eq) {
                     TRACE(qe, tout << "equality term\n";);
