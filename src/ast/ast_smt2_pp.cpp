@@ -746,19 +746,23 @@ class smt2_printer {
     format * format_transcendental_decimal(long double abs_val, bool is_neg) {
         long double int_part_ld;
         long double frac = std::modf(abs_val, &int_part_ld);
-        if (frac < 0) frac = 0;
+        // abs_val is guaranteed non-negative by the caller, so frac >= 0.
 
         std::ostringstream buffer;
+        // int_part_ld fits in unsigned long long for all mathematical constants
+        // and typical model values (e.g. pi~3, e~2, trig results in [-1,1]).
         buffer << static_cast<unsigned long long>(int_part_ld) << ".";
 
-        // Extract digits by truncation (consistent with mpq_manager::display_decimal)
+        // Extract digits by truncation (consistent with mpq_manager::display_decimal).
+        // Floating-point accumulation during digit extraction can push frac slightly
+        // below 0 or push a digit above 9; clamp both to stay well-formed.
         for (unsigned i = 0; i < m_pp_decimal_precision; i++) {
             frac *= 10.0L;
             unsigned digit = static_cast<unsigned>(frac);
-            if (digit > 9) digit = 9;
+            if (digit > 9) digit = 9; // guard against accumulated rounding error
             buffer << digit;
             frac -= static_cast<long double>(digit);
-            if (frac < 0) frac = 0;
+            frac = std::max(0.0L, frac); // guard against accumulated rounding error
         }
         buffer << "?";
         format * f = mk_string(m(), buffer.str());
@@ -795,6 +799,8 @@ class smt2_printer {
         // and irrational algebraic numerals)
         long double darg;
         if (autil.is_numeral(arg, rval, is_int)) {
+            // rational::get_double() returns double; cast to long double for
+            // trig computation (sufficient for pp.decimal_precision <= 15).
             darg = static_cast<long double>(rval.get_double());
         }
         else if (autil.is_uminus(arg) &&
@@ -806,6 +812,8 @@ class smt2_printer {
             algebraic_numbers::manager & am = autil.am();
             rational lo;
             am.get_lower(aval, lo, m_pp_decimal_precision + 2);
+            // rational::get_double() returns double; precision is adequate for
+            // typical pp.decimal_precision values.
             darg = static_cast<long double>(lo.get_double());
         }
         else {
@@ -873,6 +881,8 @@ class smt2_printer {
         rational rval;
         bool is_int;
         if (autil.is_numeral(t, rval, is_int)) {
+            // rational::get_double() → double cast; adequate for typical
+            // pp.decimal_precision values (default 10, max ~15 significant digits).
             result = static_cast<long double>(rval.get_double());
             return true;
         }
@@ -883,6 +893,8 @@ class smt2_printer {
             algebraic_numbers::manager & am = autil.am();
             rational lo;
             am.get_lower(aval, lo, m_pp_decimal_precision + 2);
+            // rational::get_double() → double cast; adequate for typical
+            // pp.decimal_precision values.
             result = static_cast<long double>(lo.get_double());
             return true;
         }
@@ -984,6 +996,8 @@ class smt2_printer {
                     bool l_trans = false, r_trans = false;
                     if (!try_eval_as_long_double(t->get_arg(0), lhs, l_trans)) return false;
                     if (!try_eval_as_long_double(t->get_arg(1), rhs, r_trans)) return false;
+                    // Exact-zero comparison is safe: rational and algebraic numerals
+                    // can only produce exactly 0.0L here if the value is exactly zero.
                     if (rhs == 0.0L) return false;
                     any_trans = l_trans || r_trans;
                     if (!any_trans) return false;
