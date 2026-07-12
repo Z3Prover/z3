@@ -503,7 +503,7 @@ public:
     // absolute value: ite(arg <s 0, -arg, arg). Note mk_abs(INT_MIN) = INT_MIN.
     // Uses ¬(0 ≤s arg) instead of (arg <s 0) so that the ITE condition is OP_NOT(OP_SLEQ)
     // (handled by theory_bv::internalize_atom) rather than OP_SLT (not handled).
-    app * mk_abs(expr * arg) { return m_manager.mk_ite(m_manager.mk_not(mk_sle(mk_zero(arg->get_sort()), arg)), mk_bv_neg(arg), arg); }
+    app * mk_abs(expr * arg) { return m_manager.mk_ite(mk_sle(mk_zero(arg->get_sort()), arg), arg, mk_bv_neg(arg)); }
     // Magnitude-bound clause for a division/remainder term t with a symbolic (non-numeral)
     // divisor. Fills clause with the disjuncts { divisor = 0, bound }, encoding
     // divisor != 0 => bound, where bound is expressed using only OP_ULEQ and OP_NOT(OP_ULEQ)
