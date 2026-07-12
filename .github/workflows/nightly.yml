@@ -833,13 +833,27 @@ jobs:
           else
             echo "No release to delete"
           fi
+
+          if git ls-remote --exit-code --tags origin refs/tags/Nightly > /dev/null 2>&1; then
+            # Tag may exist without a release (for example, if a previous run failed mid-deploy).
+            git push origin :refs/tags/Nightly
+          fi
       
       - name: Create Nightly release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git tag -f Nightly "${{ github.sha }}"
-          git push --force origin refs/tags/Nightly
+          if ! git push --force origin refs/tags/Nightly; then
+            echo "Failed to push Nightly tag"
+            exit 1
+          fi
+
+          TAG_SHA="$(git ls-remote --tags origin refs/tags/Nightly | awk '{print $1}')"
+          if [ "$TAG_SHA" != "${{ github.sha }}" ]; then
+            echo "Nightly tag points to $TAG_SHA, expected ${{ github.sha }}"
+            exit 1
+          fi
 
           ls
           find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
