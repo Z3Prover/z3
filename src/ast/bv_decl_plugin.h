@@ -502,6 +502,20 @@ public:
     app * mk_bv_neg(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNEG, arg); }
     // absolute value: ite(arg <s 0, -arg, arg). Note mk_abs(INT_MIN) = INT_MIN.
     app * mk_abs(expr * arg) { return m_manager.mk_ite(mk_slt(arg, mk_zero(arg->get_sort())), mk_bv_neg(arg), arg); }
+    // Magnitude-bound clause for a division/remainder term t with a symbolic (non-numeral)
+    // divisor. Fills clause with the disjuncts { divisor = 0, bound }, encoding
+    // divisor != 0 => bound, where bound is:
+    //   urem:      bvult t b          srem/smod: bvult |t| |b|
+    //   udiv:      bvule t a          sdiv:      bvule |t| |a|
+    // Leaves clause empty if t is not a division/remainder operator or the divisor is a
+    // numeral. The bound is a bit-vector theory axiom (implied for a non-zero divisor); the
+    // unsigned comparison on absolute values keeps it sound at INT_MIN.
+    bool is_bv_divrem(expr* t) const {
+        return is_bv_urem(t) || is_bv_uremi(t) || is_bv_srem(t) || is_bv_sremi(t) ||
+               is_bv_smod(t) || is_bv_smodi(t) || is_bv_udiv(t) || is_bv_udivi(t) ||
+               is_bv_sdiv(t) || is_bv_sdivi(t);
+    }
+    void mk_bv_divrem_bound(expr* t, expr_ref_vector& clause);
     app * mk_bv_urem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM, arg1, arg2); }
     app * mk_bv_srem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSREM, arg1, arg2); }
     app * mk_bv_smod(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSMOD, arg1, arg2); }

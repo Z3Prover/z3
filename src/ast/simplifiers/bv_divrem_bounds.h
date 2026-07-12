@@ -45,9 +45,6 @@ namespace bv {
         bv_util  m_util;
         unsigned m_num_lemmas = 0;
 
-        expr* mk_lemma(expr* t);
-        bool  is_target(expr* t) const;
-
     public:
         divrem_bounds(ast_manager& m, dependent_expr_state& fmls) :
             dependent_expr_simplifier(m, fmls), m_util(m) {}

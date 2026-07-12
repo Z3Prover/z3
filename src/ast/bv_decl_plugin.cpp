@@ -997,3 +997,27 @@ app* bv_util::mk_bv_rotate_right(expr* arg, unsigned n) {
     parameter p(n);
     return m_manager.mk_app(get_fid(), OP_ROTATE_RIGHT, 1, &p, 1, &arg);
 }
+
+void bv_util::mk_bv_divrem_bound(expr* t, expr_ref_vector& clause) {
+    clause.reset();
+    if (!is_app(t) || !is_bv_divrem(t))
+        return;
+    expr* a = to_app(t)->get_arg(0);
+    expr* b = to_app(t)->get_arg(1);
+    if (is_numeral(b))
+        return;
+    expr* bound = nullptr;
+    if (is_bv_urem(t) || is_bv_uremi(t))
+        bound = mk_ult(t, b);
+    else if (is_bv_srem(t) || is_bv_sremi(t) || is_bv_smod(t) || is_bv_smodi(t))
+        bound = mk_ult(mk_abs(t), mk_abs(b));
+    else if (is_bv_udiv(t) || is_bv_udivi(t))
+        bound = mk_ule(t, a);
+    else if (is_bv_sdiv(t) || is_bv_sdivi(t))
+        bound = mk_ule(mk_abs(t), mk_abs(a));
+    if (!bound)
+        return;
+    // clause encodes  b != 0 => bound  as the disjunction  (b = 0) \/ bound
+    clause.push_back(m_manager.mk_eq(b, mk_zero(b->get_sort())));
+    clause.push_back(bound);
+}
