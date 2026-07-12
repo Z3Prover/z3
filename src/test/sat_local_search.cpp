@@ -19,7 +19,10 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
     infile.getline(line, 16383);
     int cur_term;
     int num_vars = 0, num_constraints = 0;
-    sscanf(line, "%d %d", &num_vars, &num_constraints);
+    if (sscanf(line, "%d %d", &num_vars, &num_constraints) != 2) {
+        std::cout << "Failed to parse header (expected: num_vars num_constraints)\n";
+        return false;
+    }
 
     unsigned_vector coefficients;
     sat::literal_vector lits;
