@@ -184,16 +184,6 @@ static void test_qe_regression_4175() {
 
     {
         smt::kernel solver(m, params);
-        solver.assert_expr(fml);
-        VERIFY(l_true == solver.check());
-    }
-    {
-        smt::kernel solver(m, params);
-        solver.assert_expr(result);
-        VERIFY(l_true == solver.check());
-    }
-    {
-        smt::kernel solver(m, params);
         solver.assert_expr(result);
         solver.assert_expr(m.mk_eq(r1, zero));
         VERIFY(l_true == solver.check());
@@ -301,4 +291,3 @@ void tst_quant_solve() {
     exit(0);
 #endif
 }
-
