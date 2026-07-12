@@ -824,19 +824,23 @@ jobs:
         run: ls -R tmp
       
       - name: Delete existing Nightly release and tag
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Delete the release first (this also deletes assets)
-          gh release delete Nightly --yes || echo "No release to delete"
-          # Delete the tag explicitly
-          git push origin :refs/tags/Nightly || echo "No tag to delete"
+          if gh release view Nightly > /dev/null 2>&1; then
+            # Delete the release and associated tag if it exists.
+            gh release delete Nightly --yes --cleanup-tag
+          else
+            echo "No release to delete"
+          fi
       
       - name: Create Nightly release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git tag -f Nightly "${{ github.sha }}"
+          git push --force origin refs/tags/Nightly
+
           ls
           find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
           
@@ -862,7 +866,7 @@ jobs:
               --title "Nightly" \
               --notes "Automated nightly build from commit ${{ github.sha }}" \
               --prerelease \
-              --target ${{ github.sha }} \
+              --verify-tag \
               "${unique_files[@]}"
           else
             echo "No files to release after deduplication"
