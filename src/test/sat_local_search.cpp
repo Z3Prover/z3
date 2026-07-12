@@ -3,6 +3,7 @@
 #include "util/cancel_eh.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/scoped_timer.h"
+#include <cstdio>
 #include <iostream>
 
 static bool build_instance(char const * filename, sat::solver& s, sat::local_search& local_search)
@@ -16,13 +17,9 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
         return false;
     }
     infile.getline(line, 16383);
-#ifdef _WINDOWS
     int cur_term;
     int num_vars = 0, num_constraints = 0;
-    sscanf_s(line, "%d %d", &num_vars, &num_constraints);
-    //std::cout << "number of variables: " << num_vars << '\n';
-    //std::cout << "number of constraints: " << num_constraints << '\n';
-
+    sscanf(line, "%d %d", &num_vars, &num_constraints);
 
     unsigned_vector coefficients;
     sat::literal_vector lits;
@@ -57,15 +54,11 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
             infile >> cur_term;
         }
         infile >> k;
-        //local_search.add_cardinality(lits.size(), lits.c_ptr(), static_cast<unsigned>(lits.size() - k));
         local_search.add_cardinality(lits.size(), lits.data(), static_cast<unsigned>(k));
     }
 
     infile.close();
     return true;
-#else
-    return false;
-#endif
 }
 
 void tst_sat_local_search(char ** argv, int argc, int& i) {

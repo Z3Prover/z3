@@ -86,7 +86,7 @@ namespace bv {
                     verbose_stream() << mk_pp(e, m) << " computed value " << val << "\n";
                     verbose_stream() << "should be " << n2 << "\n";
                 }
-                SASSERT(n1 == n2);
+                ENSURE(n1 == n2);
                 VERIFY(n1 == n2);
             }
             else if (m.is_bool(e)) {
@@ -96,7 +96,7 @@ namespace bv {
                     verbose_stream() << mk_pp(e, m) << " computed value " << val1 
                         << " at odds with definition " << val2 << "\n";
                 }
-                SASSERT(val1 == val2);
+                ENSURE(val1 == val2);
                 VERIFY(val1 == val2);
             }
         }
@@ -193,7 +193,7 @@ namespace bv {
             ev.init();
 
             if (m.is_bool(e1)) {
-                SASSERT(m.is_true(r) || m.is_false(r));
+                ENSURE(m.is_true(r) || m.is_false(r));
                 auto val = m.is_true(r);
                 auto val2 = ev.bval1(to_app(e2));
                 if (val != val2) {
@@ -208,7 +208,7 @@ namespace bv {
                         ev.display(std::cout);
                         exit(0);
                     }
-                    //SASSERT(rep1);
+                    //ENSURE(rep1);
                 }
             }
             if (bv.is_bv(e1)) {
@@ -226,7 +226,7 @@ namespace bv {
                     if (!val3.eq(val1)) {
                         verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
                     }
-                    //SASSERT(rep2);
+                    //ENSURE(rep2);
                 }
             }
         }

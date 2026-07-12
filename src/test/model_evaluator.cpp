@@ -78,17 +78,17 @@ void tst_model_evaluator() {
             fi2.insert_entry(args, i == 599 ? one.get() : zero.get());
         }
         fi2.compress();
-        SASSERT(fi2.num_entries() == 1);
+        ENSURE(fi2.num_entries() == 1);
 
         expr_ref removed_arg(a.mk_int(0), m);
         [[maybe_unused]] expr* removed_args[1] = { removed_arg.get() };
-        SASSERT(fi2.get_entry(removed_args) == nullptr);
+        ENSURE(fi2.get_entry(removed_args) == nullptr);
 
         expr_ref kept_arg(a.mk_int(599), m);
         expr* kept_args[1] = { kept_arg.get() };
         [[maybe_unused]] func_entry* kept = fi2.get_entry(kept_args);
-        SASSERT(kept != nullptr);
-        SASSERT(kept->get_result() == one.get());
+        ENSURE(kept != nullptr);
+        ENSURE(kept->get_result() == one.get());
     }
     
 }

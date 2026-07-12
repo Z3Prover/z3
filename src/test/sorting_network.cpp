@@ -539,7 +539,7 @@ static void test_pb(unsigned max_w, unsigned sz, unsigned_vector& ws) {
         }        
     }
     else {
-        SASSERT(ws.size() == sz);
+        ENSURE(ws.size() == sz);
         ast_manager m;
         reg_decl_plugins(m);
         expr_ref_vector xs(m), nxs(m);
