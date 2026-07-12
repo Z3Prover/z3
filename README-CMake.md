@@ -441,6 +441,8 @@ The following useful options can be passed to CMake whilst configuring.
     fail on other compilers. This does not require link time optimization. Control Flow Guard is enabled by default for MSVC builds.
     Note: Control Flow Guard is incompatible with ``/ZI`` (Edit and Continue debug information) and ``/clr`` (Common Language Runtime compilation).
 * ``Z3_API_LOG_SYNC`` - BOOL. If set to ``TRUE`` will enable experimental API log sync feature.
+    This uses locking to allow concurrent API log access across multiple threads. This option is
+    incompatible with ``Z3_SINGLE_THREADED``.
 * ``WARNINGS_AS_ERRORS`` - STRING. If set to ``ON`` compiler warnings will be treated as errors. If set to ``OFF`` compiler warnings will not be treated as errors.
     If set to ``SERIOUS_ONLY`` a subset of compiler warnings will be treated as errors.
 * ``Z3_C_EXAMPLES_FORCE_CXX_LINKER`` - BOOL. If set to ``TRUE`` the C API examples will request that the C++ linker is used rather than the C linker.
