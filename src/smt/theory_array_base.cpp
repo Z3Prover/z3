@@ -820,11 +820,11 @@ namespace smt {
            
     std::ostream& theory_array_base::display_selects(std::ostream& out) {
         for (auto [r, s] : m_selects) {
-            tout << enode_pp(r, ctx) << ":\n";
+            out << enode_pp(r, ctx) << ":\n";
             for (auto sel : *s) 
-                tout << "   " << enode_pp(sel, ctx) << " "
+                out << "   " << enode_pp(sel, ctx) << " "
                      << enode_pp(sel->get_root(), ctx) << "\n";
-            tout << "\n";
+            out << "\n";
         }
         return out;
     }
