@@ -3,6 +3,7 @@ def_module_params('smt_parallel',
                   description='Experimental parameters for parallel solving',
                   params=(
                         ('inprocessing', BOOL, False, 'integrate in-processing as a heuristic simplification'),
+                        ('force_enable', BOOL, False, 'force the SMT parallel architecture even when smt.threads is 1'),
                         ('sls', BOOL, False, 'add sls-tactic as a separate worker thread outside the search tree parallelism'),
 	                  ('num_global_bb_fl_threads', UINT, 0, 'run failed-literal backbone worker threads; default is 0 (off), supported values are 1 (negative mode only) or 2 (negative and positive mode)'),
                         ('num_global_bb_batch_threads', UINT, 0, 'run Janota-style chunking backbone worker threads; default is 0 (off), supported values are 1 (negative mode only) or 2 (negative and positive mode)'),

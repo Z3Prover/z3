@@ -854,6 +854,7 @@ namespace smt {
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
         m_smt_params.m_random_seed += id;  // ensure different random seed for each worker
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        ctx->m_par = &p;
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         // don't share initial units
@@ -1839,7 +1840,9 @@ namespace smt {
         m_core_minimizer_worker = nullptr;
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
-        SASSERT(num_workers > 1);
+        if (num_workers == 0)
+            throw default_exception("smt.threads must be at least 1 in parallel mode");
+        SASSERT(num_workers > 1 || pp.force_enable());
         for (unsigned i = 0; i < num_workers; ++i)
             m_workers.push_back(alloc(worker, i, *this, asms));
         for (auto w : m_workers)

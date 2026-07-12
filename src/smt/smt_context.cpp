@@ -32,6 +32,7 @@ Revision History:
 #include "model/model_params.hpp"
 #include "model/model.h"
 #include "model/model_pp.h"
+#include "params/smt_parallel_params.hpp"
 #include "smt/smt_context.h"
 #include "smt/smt_quick_checker.h"
 #include "smt/uses_theory.h"
@@ -3615,6 +3616,13 @@ namespace smt {
         return m_model.get() != nullptr;
     }
 
+    bool context::use_parallel_solver() const {
+        if (m.has_trace_stream() || m_par)
+            return false;
+        smt_parallel_params pp(m_params);
+        return m_fparams.m_threads > 1 || pp.force_enable();
+    }
+
     /**
        \brief Setup the logical context based on the current set of
        asserted formulas and execute the check command.
@@ -3628,7 +3636,7 @@ namespace smt {
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
 
-        if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {
+        if (use_parallel_solver()) {
             parallel p(*this);
             expr_ref_vector asms(m);
             return p(asms);
@@ -3695,7 +3703,7 @@ namespace smt {
         SASSERT(at_base_level());
         setup_context(false);
         search_completion sc(*this);
-        if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {            
+        if (use_parallel_solver()) {            
             expr_ref_vector asms(m, num_assumptions, assumptions);
             parallel p(*this);
             return p(asms);

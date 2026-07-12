@@ -131,6 +131,7 @@ namespace smt {
         bool                        m_is_auxiliary = false; // used to prevent unwanted information from being logged.
         class parallel*             m_par = nullptr;
         unsigned                    m_par_index = 0;
+        bool                        use_parallel_solver() const;
         bool                        m_internalizing_assertions = false;
         lbool                       m_internal_completed = l_undef;
 
@@ -1917,5 +1918,4 @@ namespace smt {
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
 };
-
 
