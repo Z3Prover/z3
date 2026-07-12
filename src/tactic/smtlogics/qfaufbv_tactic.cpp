@@ -23,6 +23,7 @@ Notes:
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "tactic/bv/bv_size_reduction_tactic.h"
+#include "tactic/bv/bv_divrem_bounds_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
 #include "tactic/smtlogics/smt_tactic.h"
@@ -42,6 +43,7 @@ static tactic * mk_qfaufbv_preamble(ast_manager & m, params_ref const & p) {
                     mk_propagate_values_tactic(m),
                     mk_solve_eqs_tactic(m),
                     mk_elim_uncnstr_tactic(m),
+                    mk_bv_divrem_bounds_tactic(m),
                     // sound to use? if_no_proofs(if_no_unsat_cores(mk_reduce_args_tactic(m))),
                     if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
                     using_params(mk_simplify_tactic(m), simp2_p),
