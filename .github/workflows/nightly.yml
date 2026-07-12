@@ -833,7 +833,10 @@ jobs:
         run: |
           if gh release view Nightly > /dev/null 2>&1; then
             # Delete the release and associated tag if it exists.
-            gh release delete Nightly --yes --cleanup-tag
+            if ! gh release delete Nightly --yes --cleanup-tag; then
+              echo "Failed to delete existing Nightly release/tag"
+              exit 1
+            fi
           else
             echo "No release to delete"
           fi
@@ -848,12 +851,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           git tag -f Nightly "${{ github.sha }}"
-          if ! git push --force origin refs/tags/Nightly; then
+          if ! git push --force-with-lease origin refs/tags/Nightly; then
             echo "Failed to push Nightly tag to origin"
             exit 1
           fi
 
-          TAG_SHA="$(git ls-remote --tags origin refs/tags/Nightly | awk '{print $1}')"
+          TAG_SHA="$(git ls-remote --tags origin refs/tags/Nightly | awk '$2 == "refs/tags/Nightly" { print $1 }')"
           if [ "$TAG_SHA" != "${{ github.sha }}" ]; then
             echo "Nightly tag points to $TAG_SHA, expected ${{ github.sha }}"
             exit 1
