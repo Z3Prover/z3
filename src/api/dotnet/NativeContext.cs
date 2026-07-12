@@ -1337,6 +1337,7 @@ namespace Microsoft.Z3
         // Estimated native memory used per context, for GC memory pressure hints.
         // The value is a conservative lower bound; actual usage may exceed this.
         private const long NativeMemoryPressureEstimate = 8 * 1024 * 1024; // 8 MB
+        private bool m_memPressureAdded = false;
 
         internal void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)
         {
@@ -1349,6 +1350,7 @@ namespace Microsoft.Z3
             m_n_err_handler = new Native.Z3_error_handler(NativeErrorHandler); // keep reference so it doesn't get collected.
             Native.Z3_set_error_handler(m_ctx, m_n_err_handler);
             GC.AddMemoryPressure(NativeMemoryPressureEstimate);
+            m_memPressureAdded = true;
         }
 
         #endregion
@@ -1389,7 +1391,11 @@ namespace Microsoft.Z3
                 m_ctx = IntPtr.Zero;
                 Native.Z3_del_context(ctx);
                 GC.KeepAlive(errHandler);
-                GC.RemoveMemoryPressure(NativeMemoryPressureEstimate);
+                if (m_memPressureAdded)
+                {
+                    GC.RemoveMemoryPressure(NativeMemoryPressureEstimate);
+                    m_memPressureAdded = false;
+                }
                 GC.SuppressFinalize(this);
             }
         }
