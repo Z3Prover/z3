@@ -70,7 +70,7 @@ static void test2() {
     TRACE(plugin, tout << "before propagate\n" << g << "\n");
     g.propagate();
     TRACE(plugin, tout << "after propagate\n" << g << "\n");
-    SASSERT(nx->get_root() == ny->get_root());
+    ENSURE(nx->get_root() == ny->get_root());
     g.merge(get_node(g, a, a.mk_add(x, a.mk_add(y, y))), get_node(g, a, a.mk_add(y, x)), nullptr);
     g.propagate();
     std::cout << g << "\n";

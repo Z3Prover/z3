@@ -77,7 +77,7 @@ expr* expr_rand::choose_expr(sort* s) {
         if (!m_nodes.find(s, vals)) {
             UNREACHABLE();
         }
-        SASSERT(vals);
+        ENSURE(vals);
     }
     unsigned idx = m_random(vals->size());
     return (*vals)[idx].get();

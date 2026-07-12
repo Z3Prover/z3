@@ -103,7 +103,7 @@ static void test_dc() {
         todo.pop_back();
         bool found = false;
         tbit tvalue = eval[t];
-        SASSERT(tvalue != BIT_z);
+        ENSURE(tvalue != BIT_z);
         for (unsigned j = 0; j < 2*num_bits; ++j) {
             tbit tb = (*t)[j];
             if (tb == BIT_x)

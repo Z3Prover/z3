@@ -221,7 +221,7 @@ struct test_seq {
     }
 
     zstring& strval0(expr* e) {
-        SASSERT(seq.is_string(e->get_sort()));
+        ENSURE(seq.is_string(e->get_sort()));
         return get_eval(e).val0.svalue;
     }
 

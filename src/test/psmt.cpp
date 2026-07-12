@@ -62,7 +62,7 @@ static void tst_psmt_worker() {
         expr_dependency_ref core(m);
         std::string         reason_unknown;
         lbool r = check_sat(*t, g, md, labels, pr, core, reason_unknown);
-        SASSERT(r == l_true);
+        ENSURE(r == l_true);
         (void)r;
         std::cout << "psmt SAT: " << r << "\n";
     }
@@ -82,7 +82,7 @@ static void tst_psmt_worker() {
         expr_dependency_ref core(m);
         std::string         reason_unknown;
         lbool r = check_sat(*t, g, md, labels, pr, core, reason_unknown);
-        SASSERT(r == l_false);
+        ENSURE(r == l_false);
         (void)r;
         std::cout << "psmt UNSAT: " << r << "\n";
     }
@@ -131,7 +131,7 @@ static void tst_psmt_worker() {
         lbool r = check_sat(*t, g, md, labels, pr, core, reason_unknown);
         // The result must be l_undef (theory-incomplete).
         // If the fix is absent, this call deadlocks instead of returning.
-        SASSERT(r == l_undef);
+        ENSURE(r == l_undef);
         (void)r;
         std::cout << "psmt UNKNOWN (no deadlock): " << r << "\n";
     }
