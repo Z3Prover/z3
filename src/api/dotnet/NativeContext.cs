@@ -1383,7 +1383,8 @@ namespace Microsoft.Z3
         /// </summary>
         public void Dispose()
         {
-            if (m_ctx != IntPtr.Zero)
+            IntPtr ctx = System.Threading.Interlocked.Exchange(ref m_ctx, IntPtr.Zero);
+            if (ctx != IntPtr.Zero)
             {
                 // Suppress the finalizer before performing cleanup so that it cannot
                 // run concurrently or redundantly if cleanup raises an exception.
@@ -1394,8 +1395,6 @@ namespace Microsoft.Z3
                 // delegate before the native destructor finishes using the handler.
                 var errHandler = m_n_err_handler;
                 m_n_err_handler = null;
-                IntPtr ctx = m_ctx;
-                m_ctx = IntPtr.Zero;
                 Native.Z3_del_context(ctx);
                 GC.KeepAlive(errHandler);
                 if (m_memPressureAdded)
