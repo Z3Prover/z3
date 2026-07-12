@@ -49,6 +49,53 @@ Author:
 
 namespace euf {
 
+    expr_ref_vector const &ho_subst::get_binding(quantifier *q) {
+        ast_manager &m = m_subst.get_manager();
+        m_binding.reset();
+        m_binding.append(m_subst);
+
+        // Shrink binding to original quantifier's num_decls
+        // The HO quantifier has extra vars at higher indices; drop them.
+        // Binding is indexed by var index: binding[i] = value for var i.
+        // First substitute any remaining vars, then keep only original vars.
+        TRACE(
+            ho_matching, tout << "num bound variables " << q->get_num_decls() << " for " << mk_bounded_pp(q, m) << "\n"
+                              << m_binding << "\n";
+            for (unsigned i = 0; i < m_binding.size(); ++i) {
+                tout << i << " - " << mk_pp(m_binding.get(i)->get_sort(), m) << ": " << mk_ll_pp(m_binding.get(i), m)
+                     << "\n";
+            });
+        if (m_binding.size() > q->get_num_decls()) {
+            // binding is indexed directly (binding[k] = value for var k),
+            // so the substitution must use direct (non-standard) order to
+            // resolve chained HO variable references; the sort guard below
+            // is checked with the matching order.
+            var_subst sub(m, false);
+            bool change = true;
+            while (change) {
+                change = false;
+                for (unsigned i = 0; i < m_binding.size(); ++i) {
+                    if (!m_binding.get(i))
+                        continue;
+                    // A misaligned higher-order binding would build an
+                    // ill-sorted term. Abandon this refinement (no instance)
+                    // rather than aborting the whole solve.
+                    SASSERT(is_well_sorted(m, m_binding.get(i)));
+                    auto r = sub(m_binding.get(i), m_binding);
+                    change |= r != m_binding.get(i);
+                    m_binding[i] = r;
+                    SASSERT(is_well_sorted(m, m_binding.get(i)));
+                    TRACE(ho_matching, tout << "setting v" << i << " <- " << r << "\n");
+                }
+            }
+            m_binding.shrink(q->get_num_decls());
+        }
+        SASSERT (m_binding.size() == q->get_num_decls());
+           
+        m_binding.reverse();
+        return m_binding;
+    }
+
 
     void ho_matcher::operator()(expr* pat, expr* t, unsigned num_vars) {
         (*this)(pat, t, 0, num_vars);
@@ -414,6 +461,16 @@ namespace euf {
                             wi.set_index(i + 1);
                             return true;
                         }
+                        // pi has sort T1 -> T2 -> T, and t has sort T.
+                        // we can project \vars . x_i (H1 vars) (H2 vars) to get a term of sort T.
+                        if (start <= i && maps_to_sort(pi->get_sort(), t->get_sort())) {
+                            IF_VERBOSE(3, verbose_stream() << "maps to " << mk_pp(pi->get_sort(), m) << " "
+                                                           << mk_pp(t->get_sort(), m) << "\n");
+                            // TODO: implement this case
+                            // v->get_sort() determines vars
+                            // x := bound variable from "project" function.
+                            // add_meta_var_apps(sort *s, sort *t, expr_ref& x, expr_ref_vector const& vars, unsigned offset)
+                        }
                         ++i;
                     }
                 }
@@ -578,6 +635,49 @@ namespace euf {
         }
 
         return true;
+    }
+
+    // s is of the form T1 -> T2 -> .. -> Tn -> t
+    bool ho_matcher::maps_to_sort(sort* s, sort* t) const {
+        SASSERT(s != t);
+        while (m_array.is_array(s)) {
+            s = get_array_range(s); 
+            if (s == t)
+                return true;
+        }
+        return false;
+    }
+
+    // s := (T1*T1' -> T2 -> t)
+    // x is of type s
+    // x := (select (select x (H1 vars) (H2 vars)) (H3 vars)) of type t
+    void ho_matcher::add_meta_var_apps(sort *s, sort *t, expr_ref& x, expr_ref_vector const& vars, unsigned offset) {
+        
+        expr_ref_vector args(m), hargs(m);
+        ptr_buffer<sort> domain;
+        for (auto v : vars) 
+            domain.push_back(v->get_sort());        
+
+        SASSERT(s == x->get_sort());
+        while (s != t) {
+
+            SASSERT(m_array.is_array(s));
+            unsigned arity = get_array_arity(s);
+            args.reset();
+            args.push_back(x);
+            for (unsigned i = 0; i < arity; ++i) {
+                sort *d = get_array_domain(s, i);
+                auto r = m_array.mk_array_sort(domain.size(), domain.data(), d);
+                hargs.reset();
+                hargs.push_back(m.mk_var(++offset, r));
+                hargs.append(vars);
+                auto h = m_array.mk_select(hargs);
+                args.push_back(h);                       
+            }
+            x = m_array.mk_select(args);
+            s = get_array_range(s); 
+            SASSERT(s == x->get_sort());
+        }     
     }
 
     // create a lambda abstraction for the meta variable such that

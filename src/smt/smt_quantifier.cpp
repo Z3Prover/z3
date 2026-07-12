@@ -668,53 +668,7 @@ namespace smt {
             auto &st = m_ho_state;
             auto *hoq = st.m_q;
             auto *q = m_ho_matcher->hoq2q(hoq);
-
-            expr_ref_vector binding(m);
-            for (unsigned i = 0; i < s.size(); ++i)
-                binding.push_back(s.get(i));
-
-            // Shrink binding to original quantifier's num_decls
-            // The HO quantifier has extra vars at higher indices; drop them.
-            // Binding is indexed by var index: binding[i] = value for var i.
-            // First substitute any remaining vars, then keep only original vars.
-            TRACE(
-                ho_matching, tout << "num bound variables " << q->get_num_decls() << " for " << mk_bounded_pp(q, m)
-                                  << "\n"
-                                  << binding << "\n";
-                for (unsigned i = 0; i < binding.size(); ++i) {
-                    tout << i << " - " << mk_pp(binding.get(i)->get_sort(), m) << ": " << mk_ll_pp(binding.get(i), m)
-                         << "\n";
-                });
-            if (binding.size() > q->get_num_decls()) {
-                // binding is indexed directly (binding[k] = value for var k),
-                // so the substitution must use direct (non-standard) order to
-                // resolve chained HO variable references; the sort guard below
-                // is checked with the matching order.
-                var_subst sub(m, false);
-                bool change = true;
-                while (change) {
-                    change = false;
-                    for (unsigned i = 0; i < binding.size(); ++i) {
-                        if (!binding.get(i))
-                            continue;
-                        // A misaligned higher-order binding would build an
-                        // ill-sorted term. Abandon this refinement (no instance)
-                        // rather than aborting the whole solve.
-                        SASSERT(is_well_sorted(m, binding.get(i)));
-                        auto r = sub(binding.get(i), binding);
-                        change |= r != binding.get(i);
-                        binding[i] = r;
-                        SASSERT(is_well_sorted(m, binding.get(i)));
-                        TRACE(ho_matching, tout << "setting v" << i << " <- " << r << "\n");
-                    }
-                }
-                binding.shrink(q->get_num_decls());
-            }
-            if (binding.size() < q->get_num_decls())
-                return;
-
-            binding.reverse();
-
+            auto const &binding = s.get_binding(q);
             st.m_matches.push_back({ q, binding });
         }
 

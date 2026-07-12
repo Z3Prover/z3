@@ -123,9 +123,9 @@ namespace euf {
 
     class ho_subst {
         expr_ref_vector m_subst;
+        expr_ref_vector m_binding;
     public:
-        ho_subst(ast_manager& m) :
-            m_subst(m) {            
+        ho_subst(ast_manager &m) : m_subst(m), m_binding(m) {
         }
         void resize(unsigned n) {
             m_subst.resize(n, nullptr);
@@ -158,6 +158,9 @@ namespace euf {
             }
             return out;
         }
+
+        expr_ref_vector const &get_binding(quantifier* q);
+        
     };
 
     class unitary_patterns {
@@ -342,6 +345,10 @@ namespace euf {
         bool is_meta_var(expr* v, unsigned offset) const { return is_var(v) && to_var(v)->get_idx() >= offset; }
 
         bool is_closed(expr* v, unsigned scopes, unsigned offset) const;
+
+        bool maps_to_sort(sort *s, sort *t) const;
+
+        void add_meta_var_apps(sort *s, sort *t, expr_ref& x, expr_ref_vector const& vars, unsigned offset);
 
         void add_binding(var* v, unsigned offset, expr* t);
 

@@ -371,14 +371,14 @@ namespace smt {
             else {
                 if (mk_interface_eqs_at_final_check() == FC_CONTINUE)
                     r = FC_CONTINUE;
-                else 
+                else
                     r = assert_delayed_axioms();
             }
         }
         else {
             if (m_final_check_idx % 2 == 1) {
                 r = assert_delayed_axioms();
-                if (r == FC_DONE) 
+                if (r == FC_DONE)
                     r = mk_interface_eqs_at_final_check();
             }
             else {
@@ -389,7 +389,7 @@ namespace smt {
             }
         }
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail();
-        if (r == FC_DONE && should_giveup && !ctx.get_fparams().m_array_fake_support) 
+        if (r == FC_DONE && should_giveup && !ctx.get_fparams().m_array_fake_support)
             r = FC_GIVEUP;
         CTRACE(array, r != FC_DONE || m_found_unsupported_op, tout << r << "\n";);
         return r;

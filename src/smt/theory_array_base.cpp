@@ -712,6 +712,7 @@ namespace smt {
         collect_defaults();
         collect_selects();
         propagate_selects();
+        TRACE(array, display_selects(tout); display(tout););
     }
 
     /**
@@ -809,12 +810,28 @@ namespace smt {
         return set;
     }
 
-    void theory_array_base::collect_selects() {
-        int num_vars = get_num_vars();
-
+    void theory_array_base::reset_selects() {
+        for (auto r : m_selects_range)
+            dealloc(r);
+        m_selects_range.reset();
         m_selects.reset();
         m_selects_domain.reset();
-        m_selects_range.reset();
+    }
+           
+    std::ostream& theory_array_base::display_selects(std::ostream& out) {
+        for (auto [r, s] : m_selects) {
+            tout << enode_pp(r, ctx) << ":\n";
+            for (auto sel : *s) 
+                tout << "   " << enode_pp(sel, ctx) << " "
+                     << enode_pp(sel->get_root(), ctx) << "\n";
+            tout << "\n";
+        }
+        return out;
+    }
+
+    void theory_array_base::collect_selects() {
+        int num_vars = get_num_vars();
+        reset_selects();
 
         for (theory_var v = 0; v < num_vars; ++v) {
             enode * r = get_enode(v)->get_root();                
@@ -889,7 +906,7 @@ namespace smt {
     }
 
     void theory_array_base::finalize_model(model_generator & m) {
-        std::for_each(m_selects_range.begin(), m_selects_range.end(), delete_proc<select_set>());
+        reset_selects();
     }
 
     class array_value_proc : public model_value_proc {

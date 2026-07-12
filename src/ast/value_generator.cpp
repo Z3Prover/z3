@@ -15,6 +15,7 @@
 
 --*/
 
+#include "ast/ast_pp.h"
 #include "ast/value_generator.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -267,34 +268,37 @@ public:
     // repetitions also happen when the same set of indices are updated twice
 
     expr_ref get_value(sort* s, unsigned index) override {
+
         unsigned arity = get_array_arity(s);
         sort* r = get_array_range(s);
-        sort_size const& sz = r->get_num_elements();
-        if (sz.is_finite() && sz.size() == 1) {
+        sort_size const& asz = s->get_num_elements();
+        
+        if (asz.is_finite() && asz.size() == 1) {
             return expr_ref(a.mk_const_array(s, g.get_value(r, 0)), m);           
         }
         
         unsigned z = 0;
-        if (is_small_size(sz)) {
-            z = index % sz.size();
-            index = index / (unsigned)sz.size();
+        if (is_small_size(asz)) {            
+            if (asz.size() <= index) 
+                return expr_ref(m);            
         }
         else {
             inverse_cantor(index, z, index);
         }
         expr_ref result(a.mk_const_array(s, g.get_value(r, z)), m);
+        sort *range = get_array_range(s);
         unsigned default_index = z;
         expr_ref_vector args(m);
         unsigned_vector inf;
         args.resize(arity+2);
-        while (index > 0) {            
+        while (index > 0) {  
             args[0] = result;
             for (unsigned i = 0; i < arity; ++i) {
                 sort* d = get_array_domain(s, i);
                 sort_size const& dsz = d->get_num_elements();
                 if (is_small_size(dsz)) {
-                    args[1 + i] = g.get_value(d, index % dsz.size());
-                    index = index / ((unsigned)dsz.size());
+                    inverse_cantor(index, z, index);
+                    args[1 + i] = g.get_value(d, z % dsz.size());
                 }
                 else {
                     inf.push_back(i);
@@ -305,16 +309,19 @@ public:
                 args[1 + i] = g.get_value(get_array_domain(s, i), z);
             }
 
-            // ensure z is different from default_index.
-            if (is_small_size(sz)) {
-                z = index % (sz.size() - 1);
-                index = index / (unsigned)sz.size();
+            inverse_cantor(index, z, index);
+
+            sort_size const &rsz = range->get_num_elements();
+            
+            if (is_small_size(rsz)) {
+                args[arity + 1] = g.get_value(r, z % rsz.size());
             }
             else {
-                inverse_cantor(index, z, index);
+                // ensure z is different from default_index.
+                if (z >= default_index)
+                    z++;
+                args[arity + 1] = g.get_value(r, z);
             }
-            if (z >= default_index) z++;
-            args[arity+1] = g.get_value(r, z);
             result = a.mk_store(args);
         }
         
@@ -333,8 +340,11 @@ public:
     }
 
     expr_ref get_value(sort* s, unsigned index) override {
-        index %= bv.get_bv_size(s);
-        return expr_ref(bv.mk_numeral(rational(index), s), m);
+        auto sz = s->get_num_elements();
+        if (!sz.is_finite() || index < sz.size())
+            return expr_ref(bv.mk_numeral(rational(index), s), m);
+        else
+            return expr_ref(m);
     }
 };
 
@@ -350,9 +360,11 @@ public:
     expr_ref get_value(sort* s, unsigned index) override {
         if (!m.is_bool(s))
             return expr_ref(m.mk_fresh_const("basic", s), m);
-        if (index % 2 == 0)
-            return expr_ref(m.mk_false(), m);
-        return expr_ref(m.mk_true(), m);
+        switch (index) {
+        case 0: return expr_ref(m.mk_false(), m);
+        case 1: return expr_ref(m.mk_true(), m);
+        default: return expr_ref(m);
+        }        
     }
 };
 
