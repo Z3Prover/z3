@@ -258,6 +258,9 @@ option(Z3_SINGLE_THREADED
   OFF
 )
 if (Z3_SINGLE_THREADED)
+  if (Z3_API_LOG_SYNC)
+    message(FATAL_ERROR "Z3_API_LOG_SYNC requires threading support and cannot be combined with Z3_SINGLE_THREADED")
+  endif()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-DSINGLE_THREAD")
   message(STATUS "Non-thread-safe build")
 else()
