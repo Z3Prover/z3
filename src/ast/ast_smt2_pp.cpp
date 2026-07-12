@@ -25,6 +25,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "ast/pp_params.hpp"
+#include <cmath>
 using namespace format_ns;
 
 #define ALIAS_PREFIX "a"
@@ -732,11 +733,303 @@ class smt2_printer {
         return false;
     }
 
+    // Wraps format f in a negation: (- f).
+    // Mirrors smt2_pp_environment::mk_neg but usable inside smt2_printer.
+    format * pp_neg(format * f) {
+        format * buf[1] = {f};
+        return mk_seq1<format**, f2f>(m(), buf, buf+1, f2f(), "-");
+    }
+
+    // Format a non-negative long double as a decimal string with truncation,
+    // appending '?' to indicate the result is approximate.
+    // is_neg controls whether to wrap in (- ...).
+    format * format_transcendental_decimal(long double abs_val, bool is_neg) {
+        long double int_part_ld;
+        long double frac = std::modf(abs_val, &int_part_ld);
+        if (frac < 0) frac = 0;
+
+        std::ostringstream buffer;
+        buffer << static_cast<unsigned long long>(int_part_ld) << ".";
+
+        // Extract digits by truncation (consistent with mpq_manager::display_decimal)
+        for (unsigned i = 0; i < m_pp_decimal_precision; i++) {
+            frac *= 10.0L;
+            unsigned digit = static_cast<unsigned>(frac);
+            if (digit > 9) digit = 9;
+            buffer << digit;
+            frac -= static_cast<long double>(digit);
+            if (frac < 0) frac = 0;
+        }
+        buffer << "?";
+        format * f = mk_string(m(), buffer.str());
+        return is_neg ? pp_neg(f) : f;
+    }
+
+    // If t is a transcendental constant (pi, e) or a trig/hyperbolic function
+    // applied to a rational numeral, and pp.decimal is enabled, returns the
+    // decimal approximation format. Otherwise returns nullptr.
+    format * try_pp_transcendental_decimal(app * t) {
+        arith_util & autil = m_env.get_autil();
+
+        // Handle pi
+        if (autil.is_pi(t)) {
+            long double pi_val = std::acos(-1.0L);
+            return format_transcendental_decimal(pi_val, false);
+        }
+
+        // Handle e (Euler's number)
+        if (autil.is_e(t)) {
+            long double e_val = std::exp(1.0L);
+            return format_transcendental_decimal(e_val, false);
+        }
+
+        // Handle trig/hyperbolic functions with a rational or algebraic numeral argument
+        if (t->get_num_args() != 1)
+            return nullptr;
+
+        expr * arg = t->get_arg(0);
+        rational rval;
+        bool is_int;
+
+        // Get argument as long double (handles rational, negated rational,
+        // and irrational algebraic numerals)
+        long double darg;
+        if (autil.is_numeral(arg, rval, is_int)) {
+            darg = static_cast<long double>(rval.get_double());
+        }
+        else if (autil.is_uminus(arg) &&
+                 autil.is_numeral(to_app(arg)->get_arg(0), rval, is_int)) {
+            darg = -static_cast<long double>(rval.get_double());
+        }
+        else if (autil.is_irrational_algebraic_numeral(arg)) {
+            algebraic_numbers::anum const & aval = autil.to_irrational_algebraic_numeral(arg);
+            algebraic_numbers::manager & am = autil.am();
+            rational lo;
+            am.get_lower(aval, lo, m_pp_decimal_precision + 2);
+            darg = static_cast<long double>(lo.get_double());
+        }
+        else {
+            return nullptr;
+        }
+
+        long double result;
+        decl_kind k = t->get_decl()->get_decl_kind();
+
+        switch (k) {
+        case OP_SIN:   result = std::sin(darg); break;
+        case OP_COS:   result = std::cos(darg); break;
+        case OP_TAN:   result = std::tan(darg); break;
+        case OP_ASIN:
+            if (darg < -1.0L || darg > 1.0L) return nullptr;
+            result = std::asin(darg); break;
+        case OP_ACOS:
+            if (darg < -1.0L || darg > 1.0L) return nullptr;
+            result = std::acos(darg); break;
+        case OP_ATAN:  result = std::atan(darg); break;
+        case OP_SINH:  result = std::sinh(darg); break;
+        case OP_COSH:  result = std::cosh(darg); break;
+        case OP_TANH:  result = std::tanh(darg); break;
+        case OP_ASINH: result = std::asinh(darg); break;
+        case OP_ACOSH:
+            if (darg < 1.0L) return nullptr;
+            result = std::acosh(darg); break;
+        case OP_ATANH:
+            if (darg <= -1.0L || darg >= 1.0L) return nullptr;
+            result = std::atanh(darg); break;
+        default:       return nullptr;
+        }
+
+        bool is_neg = result < 0;
+        if (is_neg) result = -result;
+        return format_transcendental_decimal(result, is_neg);
+    }
+
+    // Recursively try to evaluate an arithmetic expression involving
+    // transcendental constants (pi, e) and trig functions applied to
+    // computable sub-expressions.
+    //
+    // Returns true if the expression is fully computable and sets result.
+    // Sets has_transcendental if the expression contains pi, e, or a trig call.
+    // Returns false if any sub-expression is not computable (e.g., free variable).
+    bool try_eval_as_long_double(expr * e, long double & result, bool & has_transcendental) {
+        if (!is_app(e)) return false;
+        app * t = to_app(e);
+        arith_util & autil = m_env.get_autil();
+
+        // pi
+        if (autil.is_pi(t)) {
+            result = std::acos(-1.0L);
+            has_transcendental = true;
+            return true;
+        }
+        // e
+        if (autil.is_e(t)) {
+            result = std::exp(1.0L);
+            has_transcendental = true;
+            return true;
+        }
+
+        // Rational numeral
+        rational rval;
+        bool is_int;
+        if (autil.is_numeral(t, rval, is_int)) {
+            result = static_cast<long double>(rval.get_double());
+            return true;
+        }
+
+        // Irrational algebraic numeral
+        if (autil.is_irrational_algebraic_numeral(t)) {
+            algebraic_numbers::anum const & aval = autil.to_irrational_algebraic_numeral(t);
+            algebraic_numbers::manager & am = autil.am();
+            rational lo;
+            am.get_lower(aval, lo, m_pp_decimal_precision + 2);
+            result = static_cast<long double>(lo.get_double());
+            return true;
+        }
+
+        unsigned nargs = t->get_num_args();
+        decl_kind k = t->get_decl()->get_decl_kind();
+
+        // Unary minus
+        if (k == OP_UMINUS && nargs == 1) {
+            bool sub_trans = false;
+            if (!try_eval_as_long_double(t->get_arg(0), result, sub_trans))
+                return false;
+            result = -result;
+            has_transcendental = sub_trans;
+            return true;
+        }
+
+        // Trig / hyperbolic functions (one argument)
+        if (nargs == 1) {
+            long double arg_result;
+            bool arg_trans = false;
+            if (!try_eval_as_long_double(t->get_arg(0), arg_result, arg_trans))
+                return false;
+            switch (k) {
+            case OP_SIN:   result = std::sin(arg_result);  break;
+            case OP_COS:   result = std::cos(arg_result);  break;
+            case OP_TAN:   result = std::tan(arg_result);  break;
+            case OP_ASIN:
+                if (arg_result < -1.0L || arg_result > 1.0L) return false;
+                result = std::asin(arg_result);  break;
+            case OP_ACOS:
+                if (arg_result < -1.0L || arg_result > 1.0L) return false;
+                result = std::acos(arg_result);  break;
+            case OP_ATAN:  result = std::atan(arg_result);  break;
+            case OP_SINH:  result = std::sinh(arg_result);  break;
+            case OP_COSH:  result = std::cosh(arg_result);  break;
+            case OP_TANH:  result = std::tanh(arg_result);  break;
+            case OP_ASINH: result = std::asinh(arg_result); break;
+            case OP_ACOSH:
+                if (arg_result < 1.0L) return false;
+                result = std::acosh(arg_result); break;
+            case OP_ATANH:
+                if (arg_result <= -1.0L || arg_result >= 1.0L) return false;
+                result = std::atanh(arg_result); break;
+            default:       return false;
+            }
+            has_transcendental = true; // trig functions always produce transcendentals
+            return true;
+        }
+
+        // N-ary arithmetic: +, *, -, /
+        // Only evaluate if at least one sub-expression is transcendental.
+        if (nargs >= 2) {
+            bool any_trans = false;
+            long double acc = 0;
+            switch (k) {
+            case OP_ADD:
+                for (unsigned i = 0; i < nargs; ++i) {
+                    long double sub;
+                    bool sub_trans = false;
+                    if (!try_eval_as_long_double(t->get_arg(i), sub, sub_trans))
+                        return false;
+                    acc = (i == 0) ? sub : acc + sub;
+                    any_trans |= sub_trans;
+                }
+                if (!any_trans) return false; // pure rational, leave to existing code
+                result = acc;
+                has_transcendental = any_trans;
+                return true;
+            case OP_MUL:
+                for (unsigned i = 0; i < nargs; ++i) {
+                    long double sub;
+                    bool sub_trans = false;
+                    if (!try_eval_as_long_double(t->get_arg(i), sub, sub_trans))
+                        return false;
+                    acc = (i == 0) ? sub : acc * sub;
+                    any_trans |= sub_trans;
+                }
+                if (!any_trans) return false;
+                result = acc;
+                has_transcendental = any_trans;
+                return true;
+            case OP_SUB:
+                if (nargs == 2) {
+                    long double lhs, rhs;
+                    bool l_trans = false, r_trans = false;
+                    if (!try_eval_as_long_double(t->get_arg(0), lhs, l_trans)) return false;
+                    if (!try_eval_as_long_double(t->get_arg(1), rhs, r_trans)) return false;
+                    any_trans = l_trans || r_trans;
+                    if (!any_trans) return false;
+                    result = lhs - rhs;
+                    has_transcendental = any_trans;
+                    return true;
+                }
+                return false;
+            case OP_DIV:
+                if (nargs == 2) {
+                    long double lhs, rhs;
+                    bool l_trans = false, r_trans = false;
+                    if (!try_eval_as_long_double(t->get_arg(0), lhs, l_trans)) return false;
+                    if (!try_eval_as_long_double(t->get_arg(1), rhs, r_trans)) return false;
+                    if (rhs == 0.0L) return false;
+                    any_trans = l_trans || r_trans;
+                    if (!any_trans) return false;
+                    result = lhs / rhs;
+                    has_transcendental = any_trans;
+                    return true;
+                }
+                return false;
+            default: return false;
+            }
+        }
+
+        return false;
+    }
+
     void process_app(app * t, frame & fr) {
         if (fr.m_idx == 0) {
             if (pp_aliased(t)) {
                 pop_frame();
                 return;
+            }
+            // When pp.decimal is enabled, evaluate pi, e, trig functions, and
+            // arithmetic expressions involving them as decimal approximations.
+            if (m_pp_decimal) {
+                format * f = try_pp_transcendental_decimal(t);
+                if (f != nullptr) {
+                    m_format_stack.push_back(f);
+                    m_info_stack.push_back(info(0, 1, 1));
+                    pop_frame();
+                    return;
+                }
+                // For compound arithmetic expressions (e.g. (* 0.5 pi), (+ pi (sin x))),
+                // try recursive evaluation.
+                if (t->get_num_args() >= 2) {
+                    long double val;
+                    bool has_trans = false;
+                    if (try_eval_as_long_double(t, val, has_trans) && has_trans) {
+                        bool is_neg = val < 0;
+                        if (is_neg) val = -val;
+                        f = format_transcendental_decimal(val, is_neg);
+                        m_format_stack.push_back(f);
+                        m_info_stack.push_back(info(0, 1, 1));
+                        pop_frame();
+                        return;
+                    }
+                }
             }
         }
         if (!process_args(t, fr))
