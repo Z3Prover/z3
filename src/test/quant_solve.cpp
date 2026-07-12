@@ -175,9 +175,11 @@ static void test_qe_regression_4175() {
     arith_util a(m);
 
     expr_ref fml = parse_fml(m, "(forall ((b Real)) (= (= r1 b) (= b 0)))");
+    VERIFY(fml);
     expr_ref result(m);
     qe::expr_quant_elim qe(m, params);
     qe(m.mk_true(), fml, result);
+    VERIFY(result);
 
     expr_ref r1(m.mk_const(symbol("r1"), a.mk_real()), m);
     expr_ref zero(a.mk_numeral(rational(0), false), m);
