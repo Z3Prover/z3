@@ -664,7 +664,6 @@ namespace smt {
         quantifier_manager_plugin * mk_fresh() override { return alloc(default_qm_plugin); }
 
         void on_ho_match(euf::ho_subst &s) {
-            ast_manager &m = m_context->get_manager();
             auto &st = m_ho_state;
             auto *hoq = st.m_q;
             auto *q = m_ho_matcher->hoq2q(hoq);
@@ -679,7 +678,6 @@ namespace smt {
         }
 
         void consume_ho_match(quantifier * q, expr_ref_vector const& binding) {
-            ast_manager &m = m_context->get_manager();
             auto &st = m_ho_state;
             // Create enodes for the refined bindings and add instance
             ptr_buffer<enode> new_bindings;
@@ -700,7 +698,8 @@ namespace smt {
                     max_gen = gen;
             }
 
-            TRACE(ho_matching,
+            TRACE(ho_matching, 
+                ast_manager &m = m_context->get_manager();
                 tout << "ho_match refined for " << mk_pp(q, m) << "\n";
                 for (unsigned i = 0; i < new_bindings.size(); ++i)
                     tout << "  binding[" << i << "] = " << mk_bounded_pp(new_bindings[i]->get_expr(), m) << "\n";);
@@ -725,7 +724,6 @@ namespace smt {
             for (unsigned i = 0; i < num_bindings; ++i)
                 s.push_back(bindings[i]->get_expr());
 
-            unsigned num_instances = m_stat_ho_instances;
             m_ho_state.m_q = qa;
             m_ho_state.m_pat = pat;
             m_ho_state.m_num_bindings = num_bindings;
