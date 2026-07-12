@@ -5256,6 +5256,10 @@ namespace Microsoft.Z3
         internal IntPtr nCtx { get { return m_ctx; } }
         private Z3_ast_print_mode m_print_mode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
 
+        // Estimated native memory used per context, for GC memory pressure hints.
+        // The value is a conservative lower bound; actual usage may exceed this.
+        private const long NativeMemoryPressureEstimate = 8 * 1024 * 1024; // 8 MB
+
         internal void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)
         {
             // Do-nothing error handler. The wrappers in Z3.Native will throw exceptions upon errors.
@@ -5266,6 +5270,8 @@ namespace Microsoft.Z3
             PrintMode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
             m_n_err_handler = new Native.Z3_error_handler(NativeErrorHandler); // keep reference so it doesn't get collected.
             Native.Z3_set_error_handler(m_ctx, m_n_err_handler);
+            if (!is_external)
+                GC.AddMemoryPressure(NativeMemoryPressureEstimate);
         }
 
         internal void CheckContextMatch(Z3Object other)
@@ -5356,13 +5362,22 @@ namespace Microsoft.Z3
             if (m_ctx != IntPtr.Zero)
             {
                 IntPtr ctx = m_ctx;
+                // Keep a local reference to the error handler delegate to ensure it stays
+                // alive throughout Z3_del_context. Setting m_n_err_handler = null releases
+                // the field reference; without the local variable the GC could collect the
+                // delegate before the native destructor finishes using the handler.
+                var errHandler = m_n_err_handler;
                 lock (this)
                 {
                     m_n_err_handler = null;
                     m_ctx = IntPtr.Zero;
                 }
                 if (!is_external)
+                {
                     Native.Z3_del_context(ctx);
+                    GC.KeepAlive(errHandler);
+                    GC.RemoveMemoryPressure(NativeMemoryPressureEstimate);
+                }
             }
 
             GC.SuppressFinalize(this);
