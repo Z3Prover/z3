@@ -501,12 +501,15 @@ public:
     app * mk_bv_not(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNOT, arg); }
     app * mk_bv_neg(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNEG, arg); }
     // absolute value: ite(arg <s 0, -arg, arg). Note mk_abs(INT_MIN) = INT_MIN.
-    app * mk_abs(expr * arg) { return m_manager.mk_ite(mk_slt(arg, mk_zero(arg->get_sort())), mk_bv_neg(arg), arg); }
+    // Uses ¬(0 ≤s arg) instead of (arg <s 0) so that the ITE condition is OP_NOT(OP_SLEQ)
+    // (handled by theory_bv::internalize_atom) rather than OP_SLT (not handled).
+    app * mk_abs(expr * arg) { return m_manager.mk_ite(m_manager.mk_not(mk_sle(mk_zero(arg->get_sort()), arg)), mk_bv_neg(arg), arg); }
     // Magnitude-bound clause for a division/remainder term t with a symbolic (non-numeral)
     // divisor. Fills clause with the disjuncts { divisor = 0, bound }, encoding
-    // divisor != 0 => bound, where bound is:
-    //   urem:      bvult t b          srem/smod: bvult |t| |b|
-    //   udiv:      bvule t a          sdiv:      bvule |t| |a|
+    // divisor != 0 => bound, where bound is expressed using only OP_ULEQ and OP_NOT(OP_ULEQ)
+    // (so it can be internalized by theory_bv::internalize_atom):
+    //   urem:      ¬(b ≤u t)          srem/smod: ¬(|b| ≤u |t|)
+    //   udiv:      t ≤u a             sdiv:      |t| ≤u |a|
     // Leaves clause empty if t is not a division/remainder operator or the divisor is a
     // numeral. The bound is a bit-vector theory axiom (implied for a non-zero divisor); the
     // unsigned comparison on absolute values keeps it sound at INT_MIN.

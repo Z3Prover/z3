@@ -1007,10 +1007,13 @@ void bv_util::mk_bv_divrem_bound(expr* t, expr_ref_vector& clause) {
     if (is_numeral(b))
         return;
     expr* bound = nullptr;
+    // Use ¬(b ≤u t) instead of (t <u b) and ¬(abs(b) ≤u abs(t)) instead of (abs(t) <u abs(b))
+    // so that all bound atoms are OP_ULEQ (handled by theory_bv::internalize_atom).
+    // OP_ULT is not handled by theory_bv::internalize_atom and would trigger UNREACHABLE.
     if (is_bv_urem(t) || is_bv_uremi(t))
-        bound = mk_ult(t, b);
+        bound = m_manager.mk_not(mk_ule(b, t));
     else if (is_bv_srem(t) || is_bv_sremi(t) || is_bv_smod(t) || is_bv_smodi(t))
-        bound = mk_ult(mk_abs(t), mk_abs(b));
+        bound = m_manager.mk_not(mk_ule(mk_abs(b), mk_abs(t)));
     else if (is_bv_udiv(t) || is_bv_udivi(t))
         bound = mk_ule(t, a);
     else if (is_bv_sdiv(t) || is_bv_sdivi(t))
