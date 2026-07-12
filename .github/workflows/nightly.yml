@@ -16,6 +16,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -845,7 +849,7 @@ jobs:
         run: |
           git tag -f Nightly "${{ github.sha }}"
           if ! git push --force origin refs/tags/Nightly; then
-            echo "Failed to push Nightly tag"
+            echo "Failed to push Nightly tag to origin"
             exit 1
           fi
 
