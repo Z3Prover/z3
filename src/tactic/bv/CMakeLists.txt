@@ -18,6 +18,7 @@ z3_add_component(bv_tactics
     bv1_blaster_tactic.h
     bv_bound_chk_tactic.h
     bv_bounds_tactic.h
+    bv_divrem_bounds_tactic.h
     bv_size_reduction_tactic.h
     bv_slice_tactic.h
     bvarray2uf_tactic.h
