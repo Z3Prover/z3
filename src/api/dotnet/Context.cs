@@ -5365,6 +5365,9 @@ namespace Microsoft.Z3
             m_charSort = null;
             if (m_ctx != IntPtr.Zero)
             {
+                // Suppress the finalizer before performing cleanup so that it cannot
+                // run concurrently or redundantly if cleanup raises an exception.
+                GC.SuppressFinalize(this);
                 IntPtr ctx = m_ctx;
                 // Keep a local reference to the error handler delegate to ensure it stays
                 // alive throughout Z3_del_context. Setting m_n_err_handler = null releases
@@ -5387,8 +5390,6 @@ namespace Microsoft.Z3
                     m_memPressureAdded = false;
                 }
             }
-
-            GC.SuppressFinalize(this);
         }
 
 
