@@ -851,12 +851,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           git tag -f Nightly "${{ github.sha }}"
-          if ! git push --force-with-lease origin refs/tags/Nightly; then
+          if ! git push --force origin refs/tags/Nightly; then
             echo "Failed to push Nightly tag to origin"
             exit 1
           fi
 
-          TAG_SHA="$(git ls-remote --tags origin refs/tags/Nightly | awk '$2 == "refs/tags/Nightly" { print $1 }')"
+          TAG_SHA="$(git ls-remote --tags origin refs/tags/Nightly refs/tags/Nightly^{} | awk '
+            $2 == "refs/tags/Nightly^{}" { sha = $1 }
+            $2 == "refs/tags/Nightly" && sha == "" { sha = $1 }
+            END { print sha }
+          ')"
           if [ "$TAG_SHA" != "${{ github.sha }}" ]; then
             echo "Nightly tag points to $TAG_SHA, expected ${{ github.sha }}"
             exit 1
