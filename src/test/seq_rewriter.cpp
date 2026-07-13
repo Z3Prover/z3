@@ -26,6 +26,8 @@ Tests:
 #include "smt/smt_context.h"
 #include <cstring>
 #include <iostream>
+#include <sstream>
+#include <string>
 
 // Build a single-char string literal expression.
 static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
@@ -89,8 +91,10 @@ static void test_seq_fold_scalar_model_validation() {
             "(pop)\n");
     ENSURE(std::strstr(result, "unknown") == nullptr);
     unsigned sat_count = 0;
-    for (char const* p = result; (p = std::strstr(p, "sat\n")) != nullptr; p += 4)
-        ++sat_count;
+    std::istringstream in{std::string(result)};
+    for (std::string line; std::getline(in, line);)
+        if (line == "sat")
+            ++sat_count;
     ENSURE(sat_count == 4);
     Z3_del_context(ctx);
 }
