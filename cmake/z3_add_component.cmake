@@ -273,7 +273,19 @@ macro(z3_add_install_tactic_rule)
   unset(_component_tactic_header_files)
 
   string(REPLACE ";" "\n" _tactic_header_files "${_tactic_header_files}")
-  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps" ${_tactic_header_files})
+  # Only write the deps file if content has changed to avoid unnecessary rebuilds
+  # (file(WRITE) always updates the timestamp even if content is unchanged)
+  set(_install_tactic_deps_file "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps")
+  if (EXISTS "${_install_tactic_deps_file}")
+    file(READ "${_install_tactic_deps_file}" _install_tactic_deps_old)
+  else()
+    set(_install_tactic_deps_old "")
+  endif()
+  if (NOT _install_tactic_deps_old STREQUAL "${_tactic_header_files}")
+    file(WRITE "${_install_tactic_deps_file}" "${_tactic_header_files}")
+  endif()
+  unset(_install_tactic_deps_old)
+  unset(_install_tactic_deps_file)
   add_custom_command(OUTPUT "install_tactic.cpp"
     COMMAND "${Python3_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
