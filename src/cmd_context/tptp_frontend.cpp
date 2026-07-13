@@ -9,6 +9,7 @@
 #include <unordered_set>
 
 #include "util/error_codes.h"
+#include "util/gparams.h"
 #include "util/rational.h"
 #include "util/timeout.h"
 #include "util/z3_exception.h"
@@ -2928,6 +2929,8 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
     try {
         cmd_context ctx;
+        gparams::set("pi.avoid_skolems", "false");
+        ctx.global_params_updated();
 
         tptp_parser p(ctx);
         p.parse_input(in, current_file ? current_file : ".");
