@@ -54,7 +54,7 @@ static void test_seq_foldl_nth_model_validation() {
     Z3_del_context(ctx);
 }
 
-static void test_seq_foldl_scalar_model_validation() {
+static void test_seq_fold_scalar_model_validation() {
     Z3_context ctx = Z3_mk_context(nullptr);
     char const* result =
         Z3_eval_smtlib2_string(ctx,
@@ -88,7 +88,10 @@ static void test_seq_foldl_scalar_model_validation() {
             "(check-sat)\n"
             "(pop)\n");
     ENSURE(std::strstr(result, "unknown") == nullptr);
-    ENSURE(std::strstr(result, "sat\nsat\nsat\nsat") != nullptr);
+    unsigned sat_count = 0;
+    for (char const* p = result; (p = std::strstr(p, "sat\n")) != nullptr; p += 4)
+        ++sat_count;
+    ENSURE(sat_count == 4);
     Z3_del_context(ctx);
 }
 
@@ -318,7 +321,7 @@ void tst_seq_rewriter() {
     }
 
     test_seq_foldl_nth_model_validation();
-    test_seq_foldl_scalar_model_validation();
+    test_seq_fold_scalar_model_validation();
 
     std::cout << "tst_seq_rewriter: all tests passed\n";
 }
