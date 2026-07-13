@@ -485,6 +485,19 @@ class theory_lra::imp {
                         theory_var rv = mk_var(n);
                         m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
                     }
+                    if (!a.is_numeral(n2) && is_app(n1) && is_app(n2)) {
+                        // register mod(x, y) with variable divisor for divisibility reasoning
+                        ensure_nla();
+                        if (m_nla) {
+                            internalize_term(to_app(n1));
+                            internalize_term(to_app(n2));
+                            internalize_term(t);
+                            theory_var x = mk_var(n1);
+                            theory_var y = mk_var(n2);
+                            theory_var rv = mk_var(n);
+                            m_nla->add_divisibility(register_theory_var_in_lar_solver(rv), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y));
+                        }
+                    }
                 }
                 else if (a.is_rem(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
