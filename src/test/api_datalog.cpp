@@ -66,6 +66,10 @@ void tst_api_datalog() {
 
     // Regression test for Spacer model construction on ADT CHCs
     {
+        Z3_config cfg2 = Z3_mk_config();
+        Z3_context ctx2 = Z3_mk_context(cfg2);
+        Z3_del_config(cfg2);
+
         char const* chc =
             "(set-logic HORN)\n"
             "(set-option :fp.engine spacer)\n"
@@ -85,13 +89,18 @@ void tst_api_datalog() {
             "      false)))\n"
             "(check-sat)\n";
 
-        Z3_string response = Z3_eval_smtlib2_string(ctx, chc);
+        Z3_string response = Z3_eval_smtlib2_string(ctx2, chc);
         ENSURE(response != nullptr);
-        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(Z3_get_error_code(ctx2) == Z3_OK);
+        Z3_del_context(ctx2);
     }
 
     // Regression test for assertion violation in Spacer QE projection (#3845)
     {
+        Z3_config cfg3 = Z3_mk_config();
+        Z3_context ctx3 = Z3_mk_context(cfg3);
+        Z3_del_config(cfg3);
+
         char const* chc = R"(
 (set-logic HORN)
 (set-option :fp.xform.inline_eager false)
@@ -224,9 +233,10 @@ void tst_api_datalog() {
 (check-sat)
 )";
 
-        Z3_string response = Z3_eval_smtlib2_string(ctx, chc);
+        Z3_string response = Z3_eval_smtlib2_string(ctx3, chc);
         ENSURE(response != nullptr);
-        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(Z3_get_error_code(ctx3) == Z3_OK);
+        Z3_del_context(ctx3);
     }
 
     Z3_del_context(ctx);
