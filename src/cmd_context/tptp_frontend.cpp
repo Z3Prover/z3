@@ -9,7 +9,6 @@
 #include <unordered_set>
 
 #include "util/error_codes.h"
-#include "util/gparams.h"
 #include "util/rational.h"
 #include "util/timeout.h"
 #include "util/z3_exception.h"
@@ -2929,14 +2928,15 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
     try {
         cmd_context ctx;
-        gparams::set("pi.avoid_skolems", "false");
-        ctx.global_params_updated();
 
         tptp_parser p(ctx);
         p.parse_input(in, current_file ? current_file : ".");
         p.assert_distinct_objects();
 
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        params_ref solver_params;
+        solver_params.set_bool("pi.avoid_skolems", false);
+        ctx.get_solver()->updt_params(solver_params);
 
         // Optional: dump the parsed goal as an SMT-LIB2 benchmark (env Z3_TPTP_DUMP_SMT2
         // gives the output file path). Used to produce SMTLIB versions of TPTP instances.
