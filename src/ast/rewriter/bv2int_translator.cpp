@@ -90,7 +90,7 @@ void bv2int_translator::translate_expr(expr* e) {
         translate_var(to_var(e));
     else {
         app* ap = to_app(e);
-        if (m_is_plugin && ap->get_family_id() == basic_family_id && m.is_bool(ap)) {
+        if (m_is_plugin && m.is_bool(ap) && ap->get_family_id() != bv.get_family_id()) {
             set_translated(e, e);
             return;
         }
