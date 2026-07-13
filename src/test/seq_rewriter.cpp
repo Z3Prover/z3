@@ -116,7 +116,6 @@ void tst_seq_rewriter() {
         rw(e);
         std::cout << "empty range lo>hi: " << mk_pp(e, m) << "\n";
         ENSURE(su.re.is_empty(e));
-        test_seq_foldl_scalar_model_validation();
     }
 
     // -----------------------------------------------------------------------
@@ -128,6 +127,7 @@ void tst_seq_rewriter() {
         std::cout << "singleton range: " << mk_pp(e, m) << "\n";
         expr* inner = nullptr;
         ENSURE(su.re.is_to_re(e, inner));
+        test_seq_foldl_scalar_model_validation();
     }
 
     // -----------------------------------------------------------------------
