@@ -562,11 +562,15 @@ public:
         arith_util ari_u(m);
         datatype_util dt_u(m);
 
+        IF_VERBOSE(2, verbose_stream() << "spacer_qel start: fml=" << fml << " vars=" << vars << "\n");
         do_qel(vars, fml);
+        IF_VERBOSE(2, verbose_stream() << "spacer_qel after do_qel: fml=" << fml << " vars=" << vars << "\n");
         qel_project(vars, mdl, fml, m_reduce_all_selects);
+        IF_VERBOSE(2, verbose_stream() << "spacer_qel after qel_project: fml=" << fml << " vars=" << vars << "\n");
         flatten_and(fml);
         m_rw(fml);
         rewrite_as_const_arr(fml, mdl, fml);
+        IF_VERBOSE(2, verbose_stream() << "spacer_qel after rewrite: fml=" << fml << " eval=" << eval(fml) << "\n");
 
         for (app* v : vars) {
             SASSERT(!arr_u.is_array(v) && !dt_u.is_datatype(v->get_sort()));
@@ -604,6 +608,7 @@ public:
             other_vars.reset();
         }
 
+        IF_VERBOSE(1, if (eval.is_false(fml)) verbose_stream() << "DEBUG spacer_qel fml=" << fml << "\n";);
         SASSERT(!eval.is_false(fml));
 
         vars.reset();
