@@ -26,6 +26,8 @@ void decl_collector::visit_sort(sort * n) {
     family_id fid = n->get_family_id();
     if (m.is_uninterp(n))
         m_sorts.push_back(n);
+    else if (fid == poly_family_id)
+        m_sorts.push_back(n);
     else if (fid == m_dt_fid) {
         m_sorts.push_back(n);
         for (func_decl * cnstr : *m_dt_util.get_datatype_constructors(n)) {
