@@ -696,6 +696,14 @@ bool theory_seq::check_lts() {
 
                 literal eq = (b == c) ? true_literal : mk_eq(b, c, false);
                 bool is_strict = is_strict1 || is_strict2; 
+                zstring sa, sd;
+                if (m_util.str.is_string(a, sa) && m_util.str.is_string(d, sd)) {
+                    bool ok = is_strict ? sa < sd : !(sd < sa);
+                    if (!ok) {
+                        add_axiom(~r1, ~r2, ~eq);
+                    }
+                    continue;
+                }
                 if (is_strict) {
                     add_axiom(~r1, ~r2, ~eq, mk_literal(m_util.str.mk_lex_lt(a, d)));
                 }
@@ -3155,6 +3163,57 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
         m_lts.push_back(e);
+        expr* a = nullptr, *b = nullptr;
+        zstring c;
+        bool is_lower = false;
+        expr* x = nullptr;
+        if (is_true && m_util.str.is_lt(e, a, b)) {
+            if (m_util.str.is_string(a, c) && !m_util.str.is_string(b)) {
+                is_lower = true;
+                x = b;
+            }
+            else if (!m_util.str.is_string(a) && m_util.str.is_string(b, c)) {
+                is_lower = false;
+                x = a;
+            }
+        }
+        if (x && ctx.get_enode(x)) {
+            enode* x_root = ctx.get_enode(x)->get_root();
+            for (expr* p : m_lts) {
+                if (p == e)
+                    continue;
+                expr* pa = nullptr, *pb = nullptr;
+                zstring pc;
+                bool p_is_lower = false;
+                expr* px = nullptr;
+                if (!m_util.str.is_lt(p, pa, pb))
+                    continue;
+                literal p_lit = ctx.get_literal(p);
+                if (p_lit == true_literal || p_lit == false_literal || ctx.get_assignment(p_lit) != l_true)
+                    continue;
+                if (m_util.str.is_string(pa, pc) && !m_util.str.is_string(pb)) {
+                    p_is_lower = true;
+                    px = pb;
+                }
+                else if (!m_util.str.is_string(pa) && m_util.str.is_string(pb, pc)) {
+                    p_is_lower = false;
+                    px = pa;
+                }
+                if (!px || p_is_lower == is_lower || !ctx.get_enode(px))
+                    continue;
+                if (ctx.get_enode(px)->get_root() != x_root)
+                    continue;
+                zstring const& lower = is_lower ? c : pc;
+                zstring const& upper = is_lower ? pc : c;
+                if (!(lower < upper)) {
+                    literal_vector lits;
+                    lits.push_back(lit);
+                    lits.push_back(p_lit);
+                    set_conflict(nullptr, lits);
+                    return;
+                }
+            }
+        }
     }
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
