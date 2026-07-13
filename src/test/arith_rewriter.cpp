@@ -83,4 +83,23 @@ void tst_arith_rewriter() {
     rw(fml);
     std::cout << "consecutive product (minus) >= 0: " << mk_pp(fml, m) << "\n";
     ENSURE(m.is_true(fml));
+
+    // Issue #7403: mod (a + b) b should simplify to mod a b for symbolic b
+    // i.e. (= (mod (+ I S) S) (mod I S)) should reduce to true
+    fml = parse_int_fml(m, "(= (mod (+ I S) S) (mod I S))");
+    rw(fml);
+    std::cout << "mod (a+b) b = mod a b: " << mk_pp(fml, m) << "\n";
+    ENSURE(m.is_true(fml));
+
+    // mod (a + 2*b) b should simplify to mod a b (multiple of modulus dropped)
+    fml = parse_int_fml(m, "(= (mod (+ I (* 2 S)) S) (mod I S))");
+    rw(fml);
+    std::cout << "mod (a+2b) b = mod a b: " << mk_pp(fml, m) << "\n";
+    ENSURE(m.is_true(fml));
+
+    // mod (mod a b) b should simplify for non-zero numeral b
+    fml = parse_int_fml(m, "(= (mod (mod I 3) 3) (mod I 3))");
+    rw(fml);
+    std::cout << "mod (mod a 3) 3 = mod a 3: " << mk_pp(fml, m) << "\n";
+    ENSURE(m.is_true(fml));
 }

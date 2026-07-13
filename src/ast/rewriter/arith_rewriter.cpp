@@ -1430,9 +1430,20 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 
     // mod is idempotent on non-zero modulus.
     expr* t1, *t2;
-    if (m_util.is_mod(arg1, t1, t2) && t2 == arg2 && is_num2 && is_int && !v2.is_zero()) {
-        result = arg1;
-        return BR_DONE;
+    if (m_util.is_mod(arg1, t1, t2) && t2 == arg2) {
+        if (is_num2 && is_int && !v2.is_zero()) {
+            result = arg1;
+            return BR_DONE;
+        }
+        // Symbolic modulus: mod (mod x y) y = ite(y = 0, mod (mod x 0) 0, mod x y).
+        // Valid for all y: for y != 0, idempotency holds; for y = 0, both sides are mod0(mod0(x,0),0).
+        if (!is_num2 && m_util.is_int(arg2)) {
+            expr_ref zero(m_util.mk_int(0), m);
+            result = m.mk_ite(m.mk_eq(arg2, zero),
+                              m_util.mk_mod(m_util.mk_mod(t1, zero), zero),
+                              arg1);
+            return BR_REWRITE2;
+        }
     }
 
     // propagate mod inside only if there is something to reduce.
@@ -1461,6 +1472,42 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         if (change) {
             result = m_util.mk_mod(m.mk_app(to_app(arg1)->get_decl(), args.size(), args.data()), arg2);
             TRACE(mod_bug, tout << "mk_mod result: " << mk_ismt2_pp(result, m) << "\n";);
+            return BR_REWRITE3;
+        }
+    }
+
+    // For symbolic modulus: remove summands that are multiples of the modulus.
+    // mod (a + k*y) y = mod a y  (valid for all y, including y=0 since k*0 = 0).
+    if (!is_num2 && m_util.is_int(arg2) && is_add(arg1)) {
+        expr_ref_buffer args(m);
+        bool change = false;
+        for (expr* arg : *to_app(arg1)) {
+            if (arg == arg2) {
+                // summand equals the modulus y: drop it (y ≡ 0 mod y for all y)
+                change = true;
+            }
+            else if (m_util.is_mul(arg, t1, t2)) {
+                rational coeff;
+                if ((m_util.is_numeral(t1, coeff) && t2 == arg2) ||
+                    (m_util.is_numeral(t2, coeff) && t1 == arg2)) {
+                    // summand is k*y for some numeral k: drop it
+                    change = true;
+                }
+                else {
+                    args.push_back(arg);
+                }
+            }
+            else {
+                args.push_back(arg);
+            }
+        }
+        if (change) {
+            expr_ref new_arg1(m);
+            if (args.empty())
+                new_arg1 = m_util.mk_int(0);
+            else
+                new_arg1 = m_util.mk_add(args.size(), args.data());
+            result = m_util.mk_mod(new_arg1, arg2);
             return BR_REWRITE3;
         }
     }
