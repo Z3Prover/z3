@@ -2934,6 +2934,9 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         p.assert_distinct_objects();
 
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        params_ref solver_params;
+        solver_params.set_bool("pi.avoid_skolems", false);
+        ctx.get_solver()->updt_params(solver_params);
 
         // Optional: dump the parsed goal as an SMT-LIB2 benchmark (env Z3_TPTP_DUMP_SMT2
         // gives the output file path). Used to produce SMTLIB versions of TPTP instances.
