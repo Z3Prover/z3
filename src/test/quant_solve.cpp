@@ -198,6 +198,30 @@ static void test_qe_regression_4175() {
     }
 }
 
+static void test_macro_finder_fallback_8052() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context ctx(false, &m);
+    ctx.set_ignore_check(true);
+    std::istringstream is(R"(
+(declare-fun f (Int) Int)
+(declare-const x Int)
+(assert (forall ((i Int)) (! (= (f i) i) :pattern ((f i)) :weight 0)))
+(assert (> x (f 0)))
+)");
+    VERIFY(parse_smt2_commands(ctx, is));
+
+    params_ref p;
+    p.set_bool("auto_config", false);
+    p.set_bool("mbqi", false);
+    p.set_uint("relevancy", 0);
+    smt_params params(p);
+    smt::kernel solver(m, params);
+    for (unsigned i = 0; i < ctx.assertions().size(); ++i)
+        solver.assert_expr(ctx.assertions().get(i));
+    VERIFY(l_true == solver.check());
+}
+
 
 static void test_quant_solve1() {
     ast_manager m;
@@ -284,6 +308,7 @@ void tst_quant_solve() {
 
     test_quant_solve1();   
     test_qe_regression_4175();
+    test_macro_finder_fallback_8052();
 
 #if 0
     memory::finalize();

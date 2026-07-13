@@ -71,6 +71,12 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_lemmas2console = sp.lemmas2console();
     m_instantiations2console = sp.instantiations2console();
     m_proof_log = sp.proof_log();
+
+    if (!m_auto_config && !m_mbqi &&
+        !_p.contains("macro_finder") && !_p.contains("smt.macro_finder") &&
+        !_p.contains("quasi_macros") && !_p.contains("smt.quasi_macros")) {
+        m_macro_finder = true;
+    }
     
 }
 
@@ -433,4 +439,3 @@ void smt_params::setup_LRA() {
     m_arith_propagate_eqs = false;
     m_eliminate_term_ite  = true;
 }
-
