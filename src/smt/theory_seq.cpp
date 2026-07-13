@@ -1013,9 +1013,9 @@ bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
           tout << "#" << n1->get_owner_id() << " ==> #" << n2->get_owner_id() << "\n";
           tout << (n1->get_root() == n2->get_root()) << "\n";);         
     propagate_eq(deps, n1, n2);
+    expr_ref len_r(m_util.str.mk_length(r), m);
+    m_rewrite(len_r);
     for (expr* len_e : len_parents) {
-        expr_ref len_r(m_util.str.mk_length(r), m);
-        m_rewrite(len_r);
         propagate_eq(deps, len_e, len_r, false);
     }
     return true;
