@@ -92,6 +92,11 @@ public class EnumSort<R> extends Sort
         return new FuncDecl<>(getContext(), Native.getDatatypeSortRecognizer(getContext().nCtx(), getNativeObject(), inx));
     }
 
+    EnumSort(Context ctx, long obj)
+    {
+        super(ctx, obj);
+    }
+
     EnumSort(Context ctx, Symbol name, Symbol[] enumNames)
     {
         super(ctx, Native.mkEnumerationSort(ctx.nCtx(),
