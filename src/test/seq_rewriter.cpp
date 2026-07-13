@@ -127,7 +127,6 @@ void tst_seq_rewriter() {
         std::cout << "singleton range: " << mk_pp(e, m) << "\n";
         expr* inner = nullptr;
         ENSURE(su.re.is_to_re(e, inner));
-        test_seq_foldl_scalar_model_validation();
     }
 
     // -----------------------------------------------------------------------
@@ -319,6 +318,7 @@ void tst_seq_rewriter() {
     }
 
     test_seq_foldl_nth_model_validation();
+    test_seq_foldl_scalar_model_validation();
 
     std::cout << "tst_seq_rewriter: all tests passed\n";
 }
