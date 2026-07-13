@@ -1000,10 +1000,24 @@ bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
     m_rep.update(l, r, deps);
     enode* n1 = ensure_enode(l);
     enode* n2 = ensure_enode(r);    
+    ptr_vector<expr> len_parents;
+    auto collect_len_parents = [&](enode* n) {
+        for (enode* p : n->get_parents()) {
+            if (m_util.str.is_length(p->get_expr()))
+                len_parents.push_back(p->get_expr());
+        }
+    };
+    collect_len_parents(n1);
+    collect_len_parents(n2);
     TRACE(seq, tout << mk_bounded_pp(l, m, 2) << " ==> " << mk_bounded_pp(r, m, 2) << "\n"; display_deps(tout, deps);
           tout << "#" << n1->get_owner_id() << " ==> #" << n2->get_owner_id() << "\n";
           tout << (n1->get_root() == n2->get_root()) << "\n";);         
     propagate_eq(deps, n1, n2);
+    for (expr* len_e : len_parents) {
+        expr_ref len_r(m_util.str.mk_length(r), m);
+        m_rewrite(len_r);
+        propagate_eq(deps, len_e, len_r, false);
+    }
     return true;
 }
 
@@ -2632,14 +2646,14 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
         result = m_util.str.mk_foldli(e1, e2, e3, arg4);
         ctx.get_rewriter()(result);
     }
-#if 0
+    #if 0
     else if (m_util.str.is_nth_i(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         if (!arg1) return true;
         result = m_util.str.mk_nth_i(arg1, e2);
         // m_rewrite(result);
     }
-#endif
+    #endif
     else if (m_util.str.is_last_index(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         arg2 = try_expand(e2, deps);

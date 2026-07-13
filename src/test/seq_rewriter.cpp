@@ -22,12 +22,36 @@ Tests:
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq_decl_plugin.h"
+#include "api/z3.h"
 #include "smt/smt_context.h"
+#include <cstring>
 #include <iostream>
 
 // Build a single-char string literal expression.
 static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
     return expr_ref(su.str.mk_string(zstring(c)), m);
+}
+
+static void test_seq_foldl_nth_model_validation() {
+    Z3_context ctx = Z3_mk_context(nullptr);
+    char const* result =
+        Z3_eval_smtlib2_string(ctx,
+            "(set-option :model_validate true)\n"
+            "(declare-const initial Int)\n"
+            "(declare-const all (Seq Int))\n"
+            "(declare-const final Int)\n"
+            "(declare-const elements (Seq Int))\n"
+            "(define-fun all_sums ((prev_sums (Seq Int)) (elem Int)) (Seq Int)\n"
+            "  (seq.++ (seq.unit (+ (seq.nth prev_sums 0) elem)) prev_sums))\n"
+            "(assert (= all (seq.foldl all_sums (seq.unit initial) elements)))\n"
+            "(assert (= final (seq.nth all 0)))\n"
+            "(assert (= initial 0))\n"
+            "(assert (= final 6))\n"
+            "(check-sat)\n"
+            "(get-model)\n");
+    ENSURE(std::strstr(result, "sat") != nullptr);
+    ENSURE(std::strstr(result, "invalid model") == nullptr);
+    Z3_del_context(ctx);
 }
 
 void tst_seq_rewriter() {
@@ -254,6 +278,8 @@ void tst_seq_rewriter() {
             ENSURE(res == l_false);
         }
     }
+
+    test_seq_foldl_nth_model_validation();
 
     std::cout << "tst_seq_rewriter: all tests passed\n";
 }
