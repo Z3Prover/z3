@@ -54,6 +54,44 @@ static void test_seq_foldl_nth_model_validation() {
     Z3_del_context(ctx);
 }
 
+static void test_seq_foldl_scalar_model_validation() {
+    Z3_context ctx = Z3_mk_context(nullptr);
+    char const* result =
+        Z3_eval_smtlib2_string(ctx,
+            "(set-option :model_validate true)\n"
+            "(push)\n"
+            "(declare-fun f (Int Int) Int)\n"
+            "(declare-const il (Seq Int))\n"
+            "(assert (= (seq.foldl f 0 il) 5))\n"
+            "(check-sat)\n"
+            "(pop)\n"
+            "(push)\n"
+            "(declare-const il (Seq Int))\n"
+            "(declare-const F (Array Bool Int Bool))\n"
+            "(assert (= (seq.foldl F true il) true))\n"
+            "(assert (> (seq.len il) 0))\n"
+            "(assert (not (= F ((as const (Array Bool Int Bool)) true))))\n"
+            "(check-sat)\n"
+            "(pop)\n"
+            "(push)\n"
+            "(declare-fun f (Int Int Int) Int)\n"
+            "(declare-const il (Seq Int))\n"
+            "(assert (= (seq.foldli f 0 0 il) 5))\n"
+            "(check-sat)\n"
+            "(pop)\n"
+            "(push)\n"
+            "(declare-const il (Seq Int))\n"
+            "(declare-const F (Array Int Bool Int Bool))\n"
+            "(assert (= (seq.foldli F 5 true il) true))\n"
+            "(assert (> (seq.len il) 0))\n"
+            "(assert (not (= F ((as const (Array Int Bool Int Bool)) true))))\n"
+            "(check-sat)\n"
+            "(pop)\n");
+    ENSURE(std::strstr(result, "unknown") == nullptr);
+    ENSURE(std::strstr(result, "sat\nsat\nsat\nsat") != nullptr);
+    Z3_del_context(ctx);
+}
+
 void tst_seq_rewriter() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -78,6 +116,7 @@ void tst_seq_rewriter() {
         rw(e);
         std::cout << "empty range lo>hi: " << mk_pp(e, m) << "\n";
         ENSURE(su.re.is_empty(e));
+        test_seq_foldl_scalar_model_validation();
     }
 
     // -----------------------------------------------------------------------
