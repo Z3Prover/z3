@@ -41,6 +41,13 @@ namespace nla {
         m_core.trail().push(push_back_vector(m_bounded_divisions));
     }
 
+    void divisions::add_divisibility(lpvar r, lpvar x, lpvar y) {
+        if (x == null_lpvar || y == null_lpvar || r == null_lpvar)
+            return;
+        m_divisibility.push_back({ r, x, y });
+        m_core.trail().push(push_back_vector(m_divisibility));
+    }
+
     typedef lp::lar_term term;
     
     // y1 >= y2 > 0 & x1 <= x2 => x1/y1 <= x2/y2
@@ -156,6 +163,7 @@ namespace nla {
         }
 
         check_mod_mult();
+        check_linear_divisibility();
     }
 
     // if p is bounded, q a value, r = eval(p):
@@ -240,6 +248,53 @@ namespace nla {
                     lemma |= ineq(r, llc::EQ, 0);
                     return;
                 }
+            }
+        }
+    }
+
+    // Linear divisibility closure:
+    //   mod(a, y) = 0  &  x = c * a   (c an integer constant)  =>  mod(x, y) = 0.
+    // The emitted clause
+    //   (x - c*a != 0)  \/  (mod(a, y) != 0)  \/  (mod(x, y) = 0)
+    // is a tautology for every integer c (under the Euclidean semantics of mod),
+    // so the choice of c/a from the current model can never be unsound. We only
+    // emit it when all three literals are false in the current model, which makes
+    // the clause a real conflict/propagation and guarantees progress.
+    void divisions::check_linear_divisibility() {
+        core& c = m_core;
+        unsigned sz = m_divisibility.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            auto const& [rx, x, y] = m_divisibility[i];
+            if (!c.is_relevant(rx))
+                continue;
+            if (c.val(rx).is_zero())   // mod(x, y) already 0 in model: nothing to refute
+                continue;
+            auto xval = c.val(x);
+            if (xval.is_zero())
+                continue;
+            for (unsigned j = 0; j < sz; ++j) {
+                if (i == j)
+                    continue;
+                auto const& [ra, a, y2] = m_divisibility[j];
+                if (y2 != y && c.val(y2) != c.val(y)) // same divisor (by column or value)
+                    continue;
+                if (!c.is_relevant(ra))
+                    continue;
+                if (!c.val(ra).is_zero())  // need mod(a, y) = 0 in model
+                    continue;
+                auto aval = c.val(a);
+                if (aval.is_zero())
+                    continue;
+                rational cc = xval / aval;
+                if (!cc.is_int() || cc.is_zero())
+                    continue;
+                if (xval != cc * aval)     // ensure x = c*a holds exactly in the model
+                    continue;
+                lemma_builder lemma(c, "mod(a,y) = 0 & x = c*a => mod(x,y) = 0");
+                lemma |= ineq(term(x, -cc, a), llc::NE, 0); // x - c*a != 0
+                lemma |= ineq(ra, llc::NE, 0);              // mod(a, y) != 0
+                lemma |= ineq(rx, llc::EQ, 0);              // mod(x, y) = 0
+                return;
             }
         }
     }
