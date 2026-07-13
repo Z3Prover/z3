@@ -4,6 +4,9 @@ export * from './high-level/types';
 export { Z3Core, Z3LowLevel } from './low-level';
 export * from './low-level/types.__GENERATED__';
 
+// Name of the global exposed by z3-built-singlethread.js when loaded as a script.
+const INIT_GLOBAL = 'initZ3SingleThread';
+
 /**
  * Browser entry point for the single-threaded Z3 build.
  *
@@ -17,10 +20,10 @@ export * from './low-level/types.__GENERATED__';
  * worker), so that `initZ3SingleThread` is available on the global object.
  * @category Global */
 export async function init(moduleOverrides: Z3ModuleOverrides = {}): Promise<Z3LowLevel & Z3HighLevel> {
-  const initZ3 = (global as any).initZ3SingleThread;
+  const initZ3 = (global as any)[INIT_GLOBAL];
   if (initZ3 === undefined) {
     throw new Error(
-      'initZ3SingleThread was not found. ' +
+      `${INIT_GLOBAL} was not found. ` +
         'Load z3-built-singlethread.js before calling init() ' +
         '(e.g. importScripts("z3-built-singlethread.js") in a Web Worker).',
     );

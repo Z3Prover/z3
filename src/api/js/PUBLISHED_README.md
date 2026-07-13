@@ -50,17 +50,37 @@ import { init } from 'z3-solver/singlethread';
 The API is identical to the default export. The key difference is that all Z3 operations run **synchronously in the calling thread** rather than in a background thread. To avoid blocking the UI, run your Z3 code inside a [Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers):
 
 ```javascript
-// my-z3-worker.js  (loaded as a Web Worker)
+// my-z3-worker.js  (loaded as a classic Web Worker)
 
-// 1. Load the single-threaded WASM artifact.
-importScripts('z3-built-singlethread.js');   // exposes initZ3SingleThread
+// 1. Load the single-threaded WASM artifact (exposes initZ3SingleThread globally).
+importScripts('z3-built-singlethread.js');
 
-// 2. Initialise Z3 (browser entry point reads initZ3SingleThread from global scope).
-const { init } = await import('z3-solver/singlethread');
+// 2. Load the single-threaded entry point as a classic script bundle.
+//    Most bundlers can produce a CJS/UMD build that can be loaded with importScripts.
+//    Alternatively, switch to a module worker (new Worker(..., { type: 'module' }))
+//    and use ES module import syntax instead.
+importScripts('z3-solver-singlethread-bundle.js'); // exposes Z3SolverSingleThread
+
+const { init } = Z3SolverSingleThread;
 const { Context } = await init();
 const { Solver, Int } = new Context('main');
 
 // 3. Use Z3 normally – calls block this worker thread, not the main thread.
+const x = Int.const('x');
+const solver = new Solver();
+solver.add(x.ge(0));
+self.postMessage(await solver.check()); // 'sat'
+```
+
+Or with a **module worker** (supported in modern browsers):
+
+```javascript
+// my-z3-worker.mjs  (loaded as new Worker('...', { type: 'module' }))
+import { init } from 'z3-solver/singlethread';
+
+const { Context } = await init();
+const { Solver, Int } = new Context('main');
+
 const x = Int.const('x');
 const solver = new Solver();
 solver.add(x.ge(0));
