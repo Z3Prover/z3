@@ -88,6 +88,13 @@ scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
         return;
     }
 #endif
+// In single-threaded Emscripten builds (without pthreads), std::thread is not
+// usable. Timeout support is provided via POLLING_TIMER for the primary use
+// case (cancel_eh<reslimit>) above. Any other event-handler type simply gets
+// no timeout rather than a crash.
+#if defined(SINGLE_THREAD) && !defined(__EMSCRIPTEN_PTHREADS__)
+    return;
+#endif
     workers.lock();
     if (available_workers.empty()) {
         // start new thead

@@ -48,7 +48,7 @@ jobs:
       - name: Build TypeScript
         run: npm run build:ts
 
-      - name: Build wasm
+      - name: Build wasm (threaded)
         run: |
           emsdk install ${EM_VERSION}
           emsdk activate ${EM_VERSION}
@@ -56,6 +56,11 @@ jobs:
           which node
           which clang++
           npm run build:wasm
+
+      - name: Build wasm (single-threaded)
+        run: |
+          source $(dirname $(which emsdk))/emsdk_env.sh
+          npm run build:wasm:singlethread
 
       - name: Test
         run: npm test

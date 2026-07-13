@@ -29,9 +29,45 @@ const api = await init({
 
 ### Limitations
 
-The package requires threads, which means you'll need to be running in an environment which supports `SharedArrayBuffer`. In browsers, in addition to ensuring the browser has implemented `SharedArrayBuffer`, you'll need to serve your page with [special headers](https://web.dev/coop-coep/). There's a [neat trick](https://github.com/gzuidhof/coi-serviceworker) for doing that client-side on e.g. Github Pages, though you shouldn't use that trick in more complex applications.
+The default package requires threads, which means you'll need to be running in an environment which supports `SharedArrayBuffer`. In browsers, in addition to ensuring the browser has implemented `SharedArrayBuffer`, you'll need to serve your page with [special headers](https://web.dev/coop-coep/). There's a [neat trick](https://github.com/gzuidhof/coi-serviceworker) for doing that client-side on e.g. Github Pages, though you shouldn't use that trick in more complex applications.
 
 The Emscripten worker model will spawn multiple instances of `z3-built.js` for long-running operations. When building for the web, you should include that file as its own script on the page - using a bundler like webpack will prevent it from loading correctly.
+
+#### Single-threaded build (no SharedArrayBuffer required)
+
+If you cannot set the COOP/COEP headers required by the default threaded build (for example because your application embeds cross-origin iframes such as YouTube), you can use the single-threaded variant instead:
+
+```javascript
+// Node.js / bundler (no SharedArrayBuffer needed)
+const { init } = require('z3-solver/singlethread');
+```
+
+```typescript
+// TypeScript
+import { init } from 'z3-solver/singlethread';
+```
+
+The API is identical to the default export. The key difference is that all Z3 operations run **synchronously in the calling thread** rather than in a background thread. To avoid blocking the UI, run your Z3 code inside a [Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers):
+
+```javascript
+// my-z3-worker.js  (loaded as a Web Worker)
+
+// 1. Load the single-threaded WASM artifact.
+importScripts('z3-built-singlethread.js');   // exposes initZ3SingleThread
+
+// 2. Initialise Z3 (browser entry point reads initZ3SingleThread from global scope).
+const { init } = await import('z3-solver/singlethread');
+const { Context } = await init();
+const { Solver, Int } = new Context('main');
+
+// 3. Use Z3 normally – calls block this worker thread, not the main thread.
+const x = Int.const('x');
+const solver = new Solver();
+solver.add(x.ge(0));
+self.postMessage(await solver.check()); // 'sat'
+```
+
+The single-threaded WASM file (`z3-built-singlethread.js` / `z3-built-singlethread.wasm`) is distributed alongside the default build in the npm package.
 
 ## High-level
 
