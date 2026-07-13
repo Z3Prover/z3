@@ -696,9 +696,9 @@ bool theory_seq::check_lts() {
 
                 literal eq = (b == c) ? true_literal : mk_eq(b, c, false);
                 bool is_strict = is_strict1 || is_strict2; 
-                zstring sa, sd;
-                if (m_util.str.is_string(a, sa) && m_util.str.is_string(d, sd)) {
-                    bool ok = is_strict ? sa < sd : !(sd < sa);
+                zstring bound_a, bound_d;
+                if (m_util.str.is_string(a, bound_a) && m_util.str.is_string(d, bound_d)) {
+                    bool ok = is_strict ? bound_a < bound_d : !(bound_d < bound_a);
                     if (!ok) {
                         add_axiom(~r1, ~r2, ~eq);
                     }
@@ -3164,15 +3164,17 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
         m_lts.push_back(e);
         expr* a = nullptr, *b = nullptr;
-        zstring c;
+        zstring bound;
         bool is_lower = false;
         expr* x = nullptr;
         if (is_true && m_util.str.is_lt(e, a, b)) {
-            if (m_util.str.is_string(a, c) && !m_util.str.is_string(b)) {
+            // is_lower=true  encodes  c < x  (c is a lower bound on x)
+            // is_lower=false encodes  x < c  (c is an upper bound on x)
+            if (m_util.str.is_string(a, bound) && !m_util.str.is_string(b)) {
                 is_lower = true;
                 x = b;
             }
-            else if (!m_util.str.is_string(a) && m_util.str.is_string(b, c)) {
+            else if (!m_util.str.is_string(a) && m_util.str.is_string(b, bound)) {
                 is_lower = false;
                 x = a;
             }
@@ -3183,30 +3185,41 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
                 if (p == e)
                     continue;
                 expr* pa = nullptr, *pb = nullptr;
-                zstring pc;
+                zstring p_bound;
                 bool p_is_lower = false;
                 expr* px = nullptr;
                 if (!m_util.str.is_lt(p, pa, pb))
                     continue;
                 literal p_lit = ctx.get_literal(p);
-                if (p_lit == true_literal || p_lit == false_literal || ctx.get_assignment(p_lit) != l_true)
+                // Skip trivial literals: they are not tracked by a bool variable and
+                // cannot participate in a conflict justification as assumptions.
+                if (p_lit == true_literal || p_lit == false_literal)
                     continue;
-                if (m_util.str.is_string(pa, pc) && !m_util.str.is_string(pb)) {
+                if (ctx.get_assignment(p_lit) != l_true)
+                    continue;
+                if (m_util.str.is_string(pa, p_bound) && !m_util.str.is_string(pb)) {
                     p_is_lower = true;
                     px = pb;
                 }
-                else if (!m_util.str.is_string(pa) && m_util.str.is_string(pb, pc)) {
+                else if (!m_util.str.is_string(pa) && m_util.str.is_string(pb, p_bound)) {
                     p_is_lower = false;
                     px = pa;
                 }
-                if (!px || p_is_lower == is_lower || !ctx.get_enode(px))
+                if (!px)
+                    continue;
+                if (p_is_lower == is_lower)
+                    continue;
+                if (!ctx.get_enode(px))
                     continue;
                 if (ctx.get_enode(px)->get_root() != x_root)
                     continue;
-                zstring const& lower = is_lower ? c : pc;
-                zstring const& upper = is_lower ? pc : c;
+                zstring const& lower = is_lower ? bound : p_bound;
+                zstring const& upper = is_lower ? p_bound : bound;
                 if (!(lower < upper)) {
                     literal_vector lits;
+                    // set_conflict expects currently true assumptions.
+                    // `lit` is true because assign_eh was invoked with is_true,
+                    // and `p_lit` is filtered above to assignment l_true.
                     lits.push_back(lit);
                     lits.push_back(p_lit);
                     set_conflict(nullptr, lits);
