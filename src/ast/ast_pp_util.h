@@ -30,6 +30,7 @@ class ast_pp_util {
     stacked_value<unsigned> m_rec_decls;
     stacked_value<unsigned> m_decls;
     stacked_value<unsigned> m_sorts;
+    stacked_value<unsigned> m_type_vars;
     expr_mark               m_is_defined;
     expr_ref_vector         m_defined;
     unsigned_vector         m_defined_lim;
@@ -38,7 +39,7 @@ class ast_pp_util {
 
     decl_collector      coll;
     
-    ast_pp_util(ast_manager& m): m(m), m_env(m), m_rec_decls(0), m_decls(0), m_sorts(0), m_defined(m), coll(m) {}
+    ast_pp_util(ast_manager& m): m(m), m_env(m), m_rec_decls(0), m_decls(0), m_sorts(0), m_type_vars(0), m_defined(m), coll(m) {}
 
     void reset();
 

@@ -26,6 +26,8 @@ void decl_collector::visit_sort(sort * n) {
     family_id fid = n->get_family_id();
     if (m.is_uninterp(n))
         m_sorts.push_back(n);
+    else if (fid == poly_family_id)
+        m_type_vars.push_back(n);
     else if (fid == m_dt_fid) {
         m_sorts.push_back(n);
         for (func_decl * cnstr : *m_dt_util.get_datatype_constructors(n)) {
@@ -188,6 +190,7 @@ void decl_collector::collect_deps(sort* s, sort_set& set) {
 void decl_collector::push() {
     m_trail_lim.push_back(m_trail.size());
     m_sorts.push_scope();
+    m_type_vars.push_scope();
     m_decls.push_scope();
     m_rec_decls.push_scope();
 }
@@ -200,6 +203,7 @@ void decl_collector::pop(unsigned n) {
     m_trail.shrink(sz);
     m_trail_lim.shrink(m_trail_lim.size() - n);
     m_sorts.pop_scope(n);
+    m_type_vars.pop_scope(n);
     m_decls.pop_scope(n);
     m_rec_decls.pop_scope(n);
 }

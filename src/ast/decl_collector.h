@@ -26,8 +26,9 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 
 class decl_collector {
-    ast_manager &         m;
+    ast_manager &           m;
     lim_svector<sort*>      m_sorts;
+    lim_svector<sort*>      m_type_vars;
     lim_svector<func_decl*> m_decls;
     lim_svector<func_decl*> m_rec_decls;
     ast_mark              m_visited;
@@ -53,7 +54,7 @@ public:
 
     bool should_declare(func_decl* f) const;
 
-    void reset() { m_sorts.reset(); m_decls.reset(); m_visited.reset(); m_trail.reset(); }
+    void reset() { m_sorts.reset(); m_type_vars.reset(); m_decls.reset(); m_visited.reset(); m_trail.reset(); }
     void visit_func(func_decl* n);
     void visit(ast * n);
     void visit(unsigned n, expr* const* es);
@@ -68,6 +69,7 @@ public:
     unsigned get_num_decls() const { return m_decls.size(); }
     
     lim_svector<sort*> const& get_sorts() const { return m_sorts; }
+    lim_svector<sort*> const& get_type_vars() const { return m_type_vars; }
     lim_svector<func_decl*> const& get_func_decls() const { return m_decls; }
     lim_svector<func_decl*> const& get_rec_decls() const { return m_rec_decls; }
 };
