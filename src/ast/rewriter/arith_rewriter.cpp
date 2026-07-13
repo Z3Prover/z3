@@ -1435,8 +1435,9 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
             result = arg1;
             return BR_DONE;
         }
-        // Symbolic modulus: mod (mod x y) y = ite(y = 0, mod (mod x 0) 0, mod x y).
-        // Valid for all y: for y != 0, idempotency holds; for y = 0, both sides are mod0(mod0(x,0),0).
+        // Symbolic modulus: mod (mod x y) y → ite(y = 0, mod (mod x 0) 0, mod x y).
+        // Valid for all y: for y != 0, idempotency holds, returning mod x y (arg1);
+        // for y = 0, both sides evaluate to mod0(mod0(x,0),0).
         if (!is_num2 && m_util.is_int(arg2)) {
             expr_ref zero(m_util.mk_int(0), m);
             result = m.mk_ite(m.mk_eq(arg2, zero),
@@ -1503,6 +1504,8 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         }
         if (change) {
             expr_ref new_arg1(m);
+            // When all summands are multiples of the modulus, the sum reduces to 0.
+            // mod(0, y) will be further simplified by subsequent rewrites.
             if (args.empty())
                 new_arg1 = m_util.mk_int(0);
             else
