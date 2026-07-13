@@ -31,6 +31,7 @@ void pattern_inference_params::updt_params(params_ref const & _p) {
     m_pi_non_nested_arith_weight = p.non_nested_arith_weight();
     m_pi_pull_quantifiers        = p.pull_quantifiers();
     m_pi_warnings                = p.warnings();
+    m_pi_avoid_skolems = p.avoid_skolems();
 }
 
 #define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
@@ -48,4 +49,5 @@ void pattern_inference_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_pi_nopat_weight);
     DISPLAY_PARAM(m_pi_avoid_skolems);
     DISPLAY_PARAM(m_pi_warnings);
+    DISPLAY_PARAM(m_pi_avoid_skolems);
 }
