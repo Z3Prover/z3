@@ -3617,7 +3617,7 @@ namespace smt {
     }
 
     bool context::use_parallel_solver() const {
-        if (m.has_trace_stream() || m_par)
+        if (m.has_trace_stream())
             return false;
         smt_parallel_params pp(m_params);
         return m_fparams.m_threads > 1 || pp.force_enable();

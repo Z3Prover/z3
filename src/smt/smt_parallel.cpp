@@ -629,7 +629,9 @@ namespace smt {
         for (expr* e : _asms)
             asms.push_back(m_g2l(e));
         IF_VERBOSE(1, verbose_stream() << "Initialized core minimizer thread\n");
-        ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        params_ref child_params(p.ctx.get_params());
+        child_params.set_bool("force_enable", false);
+        ctx = alloc(context, m, m_smt_params, child_params);
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         ctx->pop_to_base_lvl();
@@ -853,8 +855,9 @@ namespace smt {
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
         m_smt_params.m_random_seed += id;  // ensure different random seed for each worker
-        ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
-        ctx->m_par = &p;
+        params_ref child_params(p.ctx.get_params());
+        child_params.set_bool("force_enable", false);
+        ctx = alloc(context, m, m_smt_params, child_params);
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         // don't share initial units
@@ -880,6 +883,7 @@ namespace smt {
         : p(p), b(p.m_batch_manager), m(), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
         IF_VERBOSE(1, verbose_stream() << "Initialized SLS portfolio thread\n");
         m_params.append(p.ctx.m_params);
+        m_params.set_bool("force_enable", false);
         m_sls = alloc(sls::smt_solver, m, m_params);
     }
 
@@ -889,7 +893,9 @@ namespace smt {
             asms.push_back(m_g2l(e));
         IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread " << id << "\n");
         m_mode = id == 0 ? bb_mode::bb_negated : bb_mode::bb_positive;
-        ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        params_ref child_params(p.ctx.get_params());
+        child_params.set_bool("force_enable", false);
+        ctx = alloc(context, m, m_smt_params, child_params);
         ctx->set_logic(p.ctx.m_setup.get_logic());
         ctx->get_fparams().m_max_conflicts = m_bb_conflicts_per_chunk;
         context::copy(p.ctx, *ctx, true);
@@ -1060,7 +1066,9 @@ namespace smt {
         // run in-processing on the assertions
         s->reduce();
 
-        scoped_ptr<context> new_ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        params_ref child_params(p.ctx.get_params());
+        child_params.set_bool("force_enable", false);
+        scoped_ptr<context> new_ctx = alloc(context, m, m_smt_params, child_params);
         // extract simplified assertions from the simplifier
         // create a new context with the simplified assertions
         // update ctx with the new context.
