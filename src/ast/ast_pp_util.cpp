@@ -36,9 +36,14 @@ void ast_pp_util::collect(expr_ref_vector const& es) {
 }
 
 void ast_pp_util::display_decls(std::ostream& out) {
+    unsigned n = coll.get_type_vars().size();
+    for (unsigned i = m_type_vars; i < n; ++i)
+        out << "(declare-type-var " << coll.get_type_vars()[i]->get_name() << ")\n";
+    m_type_vars = n;
+
     ast_smt_pp pp(m);
     coll.order_deps(m_sorts);
-    unsigned n = coll.get_num_sorts();
+    n = coll.get_num_sorts();
     ast_mark seen;
     for (unsigned i = m_sorts; i < n; ++i) 
         pp.display_sort_decl(out, coll.get_sorts()[i], seen);
@@ -68,6 +73,7 @@ void ast_pp_util::reset() {
     coll.reset();
     m_removed.reset();
     m_sorts.clear(0u);
+    m_type_vars.clear(0u);
     m_decls.clear(0u);
     m_rec_decls.clear(0u); 
     m_is_defined.reset();
@@ -140,6 +146,7 @@ void ast_pp_util::push() {
     m_rec_decls.push();
     m_decls.push();
     m_sorts.push();
+    m_type_vars.push();
     m_defined_lim.push_back(m_defined.size());
 }
 
@@ -148,6 +155,7 @@ void ast_pp_util::pop(unsigned n) {
     m_rec_decls.pop(n);
     m_decls.pop(n);
     m_sorts.pop(n);
+    m_type_vars.pop(n);
     unsigned old_sz = m_defined_lim[m_defined_lim.size() - n];
     for (unsigned i = m_defined.size(); i-- > old_sz; ) 
         m_is_defined.mark(m_defined.get(i), false);
