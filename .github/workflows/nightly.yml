@@ -16,6 +16,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -824,19 +828,44 @@ jobs:
         run: ls -R tmp
       
       - name: Delete existing Nightly release and tag
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Delete the release first (this also deletes assets)
-          gh release delete Nightly --yes || echo "No release to delete"
-          # Delete the tag explicitly
-          git push origin :refs/tags/Nightly || echo "No tag to delete"
+          if gh release view Nightly > /dev/null 2>&1; then
+            # Delete the release and associated tag if it exists.
+            if ! gh release delete Nightly --yes --cleanup-tag; then
+              echo "Failed to delete existing Nightly release/tag"
+              exit 1
+            fi
+          else
+            echo "No release to delete"
+          fi
+
+          if git ls-remote --exit-code --tags origin refs/tags/Nightly > /dev/null 2>&1; then
+            # Tag may exist without a release (for example, if a previous run failed mid-deploy).
+            git push origin :refs/tags/Nightly
+          fi
       
       - name: Create Nightly release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git tag -f Nightly "${{ github.sha }}"
+          if ! git push --force origin refs/tags/Nightly; then
+            echo "Failed to push Nightly tag to origin"
+            exit 1
+          fi
+
+          TAG_SHA="$(git ls-remote --tags origin refs/tags/Nightly refs/tags/Nightly^{} | awk '
+            $2 == "refs/tags/Nightly^{}" { sha = $1 }
+            $2 == "refs/tags/Nightly" && sha == "" { sha = $1 }
+            END { print sha }
+          ')"
+          if [ "$TAG_SHA" != "${{ github.sha }}" ]; then
+            echo "Nightly tag points to $TAG_SHA, expected ${{ github.sha }}"
+            exit 1
+          fi
+
           ls
           find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
           
@@ -862,7 +891,7 @@ jobs:
               --title "Nightly" \
               --notes "Automated nightly build from commit ${{ github.sha }}" \
               --prerelease \
-              --target ${{ github.sha }} \
+              --verify-tag \
               "${unique_files[@]}"
           else
             echo "No files to release after deduplication"
