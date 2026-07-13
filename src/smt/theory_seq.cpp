@@ -696,6 +696,14 @@ bool theory_seq::check_lts() {
 
                 literal eq = (b == c) ? true_literal : mk_eq(b, c, false);
                 bool is_strict = is_strict1 || is_strict2; 
+                zstring bound_a, bound_d;
+                if (m_util.str.is_string(a, bound_a) && m_util.str.is_string(d, bound_d)) {
+                    bool ok = is_strict ? bound_a < bound_d : !(bound_d < bound_a);
+                    if (!ok) {
+                        add_axiom(~r1, ~r2, ~eq);
+                    }
+                    continue;
+                }
                 if (is_strict) {
                     add_axiom(~r1, ~r2, ~eq, mk_literal(m_util.str.mk_lex_lt(a, d)));
                 }
@@ -3155,6 +3163,70 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
         m_lts.push_back(e);
+        expr* a = nullptr, *b = nullptr;
+        zstring bound;
+        bool is_lower = false;
+        expr* x = nullptr;
+        if (is_true && m_util.str.is_lt(e, a, b)) {
+            // is_lower=true  encodes  c < x  (c is a lower bound on x)
+            // is_lower=false encodes  x < c  (c is an upper bound on x)
+            if (m_util.str.is_string(a, bound) && !m_util.str.is_string(b)) {
+                is_lower = true;
+                x = b;
+            }
+            else if (!m_util.str.is_string(a) && m_util.str.is_string(b, bound)) {
+                is_lower = false;
+                x = a;
+            }
+        }
+        if (x && ctx.get_enode(x)) {
+            enode* x_root = ctx.get_enode(x)->get_root();
+            for (expr* p : m_lts) {
+                if (p == e)
+                    continue;
+                expr* pa = nullptr, *pb = nullptr;
+                zstring p_bound;
+                bool p_is_lower = false;
+                expr* px = nullptr;
+                if (!m_util.str.is_lt(p, pa, pb))
+                    continue;
+                literal p_lit = ctx.get_literal(p);
+                // Skip trivial literals: they are not tracked by a bool variable and
+                // cannot participate in a conflict justification as assumptions.
+                if (p_lit == true_literal || p_lit == false_literal)
+                    continue;
+                if (ctx.get_assignment(p_lit) != l_true)
+                    continue;
+                if (m_util.str.is_string(pa, p_bound) && !m_util.str.is_string(pb)) {
+                    p_is_lower = true;
+                    px = pb;
+                }
+                else if (!m_util.str.is_string(pa) && m_util.str.is_string(pb, p_bound)) {
+                    p_is_lower = false;
+                    px = pa;
+                }
+                if (!px)
+                    continue;
+                if (p_is_lower == is_lower)
+                    continue;
+                if (!ctx.get_enode(px))
+                    continue;
+                if (ctx.get_enode(px)->get_root() != x_root)
+                    continue;
+                zstring const& lower = is_lower ? bound : p_bound;
+                zstring const& upper = is_lower ? p_bound : bound;
+                if (!(lower < upper)) {
+                    literal_vector lits;
+                    // set_conflict expects currently true assumptions.
+                    // `lit` is true because assign_eh was invoked with is_true,
+                    // and `p_lit` is filtered above to assignment l_true.
+                    lits.push_back(lit);
+                    lits.push_back(p_lit);
+                    set_conflict(nullptr, lits);
+                    return;
+                }
+            }
+        }
     }
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op

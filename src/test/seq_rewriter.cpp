@@ -15,6 +15,7 @@ Tests:
  17. Solver: (str.in_re x (re.range x x)) sat when len(x)=1
  18. Solver: (str.in_re x (re.range x x)) unsat when len(x)=2
  19. Solver: inverted symbolic bounds make membership unsatisfiable
+ 20. Solver: contradictory constant lexical bounds are unsatisfiable
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -251,6 +252,24 @@ void tst_seq_rewriter() {
             ctx.assert_expr(m.mk_eq(hi, su.str.mk_string(zstring('a'))));
             lbool res = ctx.check();
             std::cout << "symbolic range solver inverted bounds unsat: " << res << "\n";
+            ENSURE(res == l_false);
+        }
+
+        // 20. unsat: contradictory constant lexical bounds.
+        //     "2024-01-01" < x < "2024-12-31" and x < "2023-01-01".
+        //     Since "2023-01-01" < "2024-01-01", no such x exists.
+        {
+            smt_params sp;
+            smt::context ctx(m, sp);
+            app_ref x(m.mk_fresh_const("x", str_sort), m);
+            expr_ref b1(su.str.mk_string("2024-01-01"), m);
+            expr_ref b2(su.str.mk_string("2024-12-31"), m);
+            expr_ref b3(su.str.mk_string("2023-01-01"), m);
+            ctx.assert_expr(su.str.mk_lex_lt(b1, x));
+            ctx.assert_expr(su.str.mk_lex_lt(x, b2));
+            ctx.assert_expr(su.str.mk_lex_lt(x, b3));
+            lbool res = ctx.check();
+            std::cout << "constant lexical bounds unsat: " << res << "\n";
             ENSURE(res == l_false);
         }
     }
