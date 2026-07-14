@@ -915,6 +915,16 @@ jobs:
           name: PythonPackages
           path: dist
       
+      - name: Rewrite macOS wheel tags unsupported by test.PyPI
+        run: |
+          # TestPyPI rejects current macOS wheel tags such as macosx_13_3_*.
+          # Rewrite only the unsupported 13_3 tag to 13 for upload validation.
+          for whl in dist/*-macosx_13_3_*.whl; do
+            [ -e "$whl" ] || continue
+            mv "$whl" "${whl/macosx_13_3_/macosx_13_}"
+          done
+          ls -l dist
+      
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
