@@ -915,6 +915,13 @@ jobs:
           name: PythonPackages
           path: dist
       
+      - name: Exclude macOS wheels unsupported by test.PyPI
+        run: |
+          # test.PyPI rejects current macOS wheel tags (for example macosx_13_3_*).
+          # Keep publishing sdist + Linux/Windows wheels so this validation job remains useful.
+          rm -f dist/*-macosx_*.whl
+          ls -l dist
+      
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
