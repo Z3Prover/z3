@@ -338,7 +338,10 @@ namespace nla {
                 rational rhs = (c.val(x) - c.val(s)) - delta * yval;
                 if (lhs == rhs)   // residue equation already holds: nothing to propagate
                     continue;
-                lemma_builder lemma(c, "div(x,y) - div(s,y) = delta => mod(x,y) - mod(s,y) = (x - s) - delta*y");
+                lemma_builder lemma(c, "y != 0 & y = y2 & div(x,y) - div(s,y) = delta => mod(x,y) - mod(s,y) = (x - s) - delta*y");
+                lemma |= ineq(y, llc::EQ, 0);                        // y = 0 (guard: mod/div uninterpreted when divisor is 0)
+                if (y2 != y)
+                    lemma |= ineq(term(y, rational(-1), y2), llc::NE, 0); // y != y2 (guard: divisors must coincide symbolically)
                 lemma |= ineq(term(dx, rational(-1), ds), llc::NE, delta); // div(x,y) - div(s,y) != delta
                 term t;
                 t.add_monomial(rational::one(), rx);
