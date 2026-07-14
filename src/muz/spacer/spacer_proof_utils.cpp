@@ -615,13 +615,14 @@ namespace spacer {
         ptr_buffer<proof> args;
         bool dirty = false;
 
-        while (true) {
+        while (!todo.empty()) {
             proof *p, *tmp, *pp;
             unsigned todo_sz;
 
             p = todo.back();
             if (m_cache.find(p, tmp)) {
                 todo.pop_back();
+                res = tmp;
                 continue;
             }
 
@@ -703,8 +704,12 @@ namespace spacer {
             if (!m_open_mark.is_marked(res) && m.has_fact(res) && m.is_false(m.get_fact(res)))
                 return res;
         }
-        UNREACHABLE();
-        return nullptr;
+        // The loop above normally returns when it reaches a hypothesis-free
+        // sub-proof of false (the reduced root). If hypothesis reduction could
+        // not close all hypotheses on the root, todo drains without hitting
+        // that early return; return the reduced root instead of reading past
+        // the end of todo (which is a use-after-free).
+        return res;
     }
 
     proof* hypothesis_reducer::mk_lemma_core(proof* premise, expr *fact) {
