@@ -921,7 +921,7 @@ jobs:
           # Rewrite only the unsupported 13_3 tag to 13 for upload validation.
           for whl in dist/*-macosx_13_3_*.whl; do
             [ -e "$whl" ] || continue
-            mv "$whl" "${whl/macosx_13_3_/macosx_13_}"
+            mv "$whl" "${whl/macosx_13_3_/macosx_13_0_}"
           done
           ls -l dist
       
