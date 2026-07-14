@@ -131,6 +131,82 @@ Version 4.17.0
 - Add fold-unfold tactic as an alternative to solve-eqs for variable elimination using
   fold-unfold transformations. Also exposed as a simplifier.
 - Handle SIGXCPU (OS timeout) like a regular `-T` timeout.  Users should make sure to set the soft limit below the hard one, as in `ulimit -S -t 30 -H -t 31` for a 30s soft limit, so SIGXCPU is delivered before SIGKILL.
+- Add `z3regex` Python module to translate Python `re` module regex syntax into Z3 regular expression ASTs, bridging Python regex and Z3 string/regex solving.
+  https://github.com/Z3Prover/z3/pull/10095
+- Add `OP_RE_XOR` operator and union-find bisimulation algorithm for deciding ground regex equivalence. Thanks to Margus Veanes.
+  https://github.com/Z3Prover/z3/pull/9804
+- Improve regex NFA representation: treat each transition-regex leaf as a single bisimulation state for more precise equivalence checking. Thanks to Margus Veanes.
+  https://github.com/Z3Prover/z3/pull/9871
+- Port seq_split rule to master branch, improving sequence solver completeness. Thanks to Clemens Eisenhofer.
+  https://github.com/Z3Prover/z3/pull/9840
+- Add linear divisibility closure lemma for lp/nla solver: derive divisibility constraints from LP solutions to improve nonlinear arithmetic solving.
+  https://github.com/Z3Prover/z3/pull/10107
+- Add `bv_divrem_bounds_tactic`: new tactic for handling bounded bitvector division and remainder constraints (Issue 438).
+  https://github.com/Z3Prover/z3/pull/10085
+- Improve higher-order matching (ho_matching): fix imitation curry-order, instance-assembly ordering, variable shift bugs, and callback scope nesting. Defer ho-matching to lazy MAM and add throttle configurations.
+- Improve pattern inference to handle binders correctly, support patterns with variables outside of scope, and fix variable shift.
+- Improve generation accounting for quantifier instantiation.
+  https://github.com/Z3Prover/z3/pull/10009
+- Mark quantifier instances that lead to conflicts as relevant to improve solver pruning. Thanks to Can Cebeci.
+  https://github.com/Z3Prover/z3/pull/10064
+- Add constant-bound contradiction shortcut for string `<` (str.lt) constraints in `theory_seq` to quickly detect unsatisfiable string ordering constraints.
+  https://github.com/Z3Prover/z3/pull/10112
+- Add rlimit (resource limit) support in fixedpoint (Horn clause) parameters. Thanks to Eric Astor.
+  https://github.com/Z3Prover/z3/pull/9798
+- Support building a PyPI-publishable Pyodide (PEP 783) wheel for running Z3 in browser environments (WebAssembly). Thanks to Alcides Fonseca.
+  https://github.com/Z3Prover/z3/pull/9891
+- Add versioned shared object names in Bazel build rules for better ABI compatibility management. Thanks to Shantanu Gontia.
+  https://github.com/Z3Prover/z3/pull/9838
+- Go bindings: enable concurrent dec_ref for GC-driven finalizers, improving memory management in multi-goroutine use.
+  https://github.com/Z3Prover/z3/pull/10002
+- LP performance: batch fixed-column bound-witness linearization per row in `lar_solver` for improved arithmetic solving throughput.
+  https://github.com/Z3Prover/z3/pull/10029
+- LP performance: hoist loop-invariant pivot reads in HNF `pivot_column_non_fractional`.
+  https://github.com/Z3Prover/z3/pull/10073
+- Fix optimization soundness: validate strict optimization optima faithfully with delta-rational bounds.
+  https://github.com/Z3Prover/z3/pull/10059
+- Fix optimization soundness: preserve strict supremum/infimum optima with infinitesimal component.
+  https://github.com/Z3Prover/z3/pull/10052
+- Fix inconsistent optimization result with unvalidated LP bound.
+  https://github.com/Z3Prover/z3/pull/10040
+- Fix `elim_uncnstr` simplification disabled by manager-wide `has_type_vars()` flag (issue #6260).
+  https://github.com/Z3Prover/z3/pull/10063
+- Fix segfault in Horn clause solver on formulas with unused quantified variables.
+  https://github.com/Z3Prover/z3/pull/10091
+- Fix .NET API memory leak: NativeContext finalizer, delegate lifetime, and GC memory pressure registration.
+  https://github.com/Z3Prover/z3/pull/10090
+- Fix unsigned overflow in parallel solver conflict budget escalation.
+  https://github.com/Z3Prover/z3/pull/10076
+- Fix Spacer quantifier elimination: avoid assertion failure on extended arithmetic model values.
+  https://github.com/Z3Prover/z3/pull/10096
+- Fix non-termination in mod rewriter for symbolic modulus expressions.
+  https://github.com/Z3Prover/z3/pull/10105
+- Fix assertion violation in `bv2int_translator` when using `smt.bv.solver=2`.
+  https://github.com/Z3Prover/z3/pull/10109
+- Fix `seq_rewriter`: `re.range` with a provably-empty bound must produce the empty language.
+  https://github.com/Z3Prover/z3/pull/10047
+- Fix soundness regression in symbolic `re.range`: keep non-empty; fix range membership checking.
+  https://github.com/Z3Prover/z3/pull/10017
+- Fix `bv_rewriter`: keep `(= var concat)` intact so DER can eliminate the bound variable (issue #4525).
+  https://github.com/Z3Prover/z3/pull/10034
+- Fix `psmt` and `smt_parallel` infinite loops on theory-incomplete cubes; report unknown instead of hanging.
+  https://github.com/Z3Prover/z3/pull/9983, https://github.com/Z3Prover/z3/pull/9999
+- Fix `qsat`: decide quantifier-free goals so `qe2` returns `sat` instead of `unknown`.
+  https://github.com/Z3Prover/z3/pull/9970
+- Fix MBQI timeout regression: bound ho_var term enumeration and honor cancellation/timeout in bottom-up term enumeration.
+  https://github.com/Z3Prover/z3/pull/9939, https://github.com/Z3Prover/z3/pull/9956
+- Java API: `Sort.create()` now returns `EnumSort` instead of `DatatypeSort` for enumeration sorts, fixing the return type.
+  https://github.com/Z3Prover/z3/pull/10104
+- Thanks to several pull requests improving code quality and build compatibility. Thanks to David Detlefs, Nuno Lopes, Can Cebeci, and others.
+  - https://github.com/Z3Prover/z3/pull/9800
+  - https://github.com/Z3Prover/z3/pull/9879
+  - https://github.com/Z3Prover/z3/pull/9883
+  - https://github.com/Z3Prover/z3/pull/9892
+  - https://github.com/Z3Prover/z3/pull/9903
+  - https://github.com/Z3Prover/z3/pull/9906
+  - https://github.com/Z3Prover/z3/pull/9923
+  - https://github.com/Z3Prover/z3/pull/9933
+  - https://github.com/Z3Prover/z3/pull/10020
 
 Version 4.16.0
 ==============
