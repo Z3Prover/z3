@@ -1508,7 +1508,7 @@ class tptp_parser {
     // For function-style definitions, wraps value in lambdas over the parameter variables.
     std::pair<std::string, expr_ref> parse_single_let_defn() {
         std::string name = parse_name();
-        std::vector<app*> param_vars;
+        ptr_vector<app> param_vars;
         std::unordered_map<std::string, app*> param_scope;
         if (accept(token_kind::lparen)) {
             if (!accept(token_kind::rparen)) {
@@ -2947,13 +2947,9 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
                 dout << "; Auto-generated from TPTP input: "
                      << (current_file ? current_file : "?") << "\n";
                 dout << "(set-logic ALL)\n";
-                decl_collector decls(m);
-                for (expr* a : ctx.assertions())
-                    decls.visit(a);
-                for (sort* s : decls.get_sorts())
-                    if (m.is_uninterp(s) && s->get_num_parameters() == 0)
-                        dout << "(declare-sort " << s->get_name() << " 0)\n";
-                ctx.display_smt2_benchmark(dout, ctx.assertions().size(), ctx.assertions().data());
+                dout << "(set-param :pi.avoid_skolems false)\n";
+                ctx.get_solver()->display(dout);
+                dout << "(check-sat)\n";
             }
         }
 
