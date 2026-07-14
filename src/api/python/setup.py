@@ -343,10 +343,10 @@ class bdist_wheel(_bdist_wheel):
                 ("osx", "arm64"): f"macosx_{os_version_tag}_arm64",
                 ("darwin", "x86_64"): f"macosx_{os_version_tag}_x86_64",
                 ("darwin", "x64"): f"macosx_{os_version_tag}_x86_64",
-                ("darwin", "arm64"): f"macosx_{os_version_0}_arm64",
+                ("darwin", "arm64"): f"macosx_{os_version_tag}_arm64",
                 ("sequoia", "x64"): f"macosx_{os_version_tag}_x86_64",
                 ("sequoia", "x86_64"): f"macosx_{os_version_tag}_x86_64",
-                ("sequoia", "arm64"): f"macosx_{os_version_0}_arm64",
+                ("sequoia", "arm64"): f"macosx_{os_version_tag}_arm64",
                 ("emscripten", "wasm32"): f"emscripten_{os_version_tag}_wasm32",
             }  # type: dict[tuple[str, str], str]
             self.plat_name = TAGS[(BUILD_PLATFORM, BUILD_ARCH)]
