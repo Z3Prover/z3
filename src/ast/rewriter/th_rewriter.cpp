@@ -814,6 +814,14 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             }
             return true;
         }
+        else if (old_q->get_kind() == lambda_k &&
+                 BR_DONE == m_ar_rw.mk_lambda_core(old_q, new_body, result)) {
+            // array eta-reduction: (lambda (x*) (select a x*)) --> a
+            if (m().proofs_enabled()) {
+                result_pr = m().mk_rewrite(old_q, result);
+            }
+            return true;
+        }
         else {
             ptr_buffer<expr> new_patterns_buf;
             ptr_buffer<expr> new_no_patterns_buf;
