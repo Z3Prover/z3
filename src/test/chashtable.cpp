@@ -20,6 +20,7 @@ Revision History:
 #include "util/hashtable.h"
 #include "util/hash.h"
 #include "util/util.h"
+#include <array>
 #include <iostream>
 
 typedef chashtable<int, int_hash, default_eq<int> > int_table;
@@ -172,6 +173,22 @@ static void tst6() {
     });
 }
 
+static void tst_combine_hash_low_bits() {
+    constexpr unsigned num_buckets = 1 << 12;
+    constexpr unsigned mask = num_buckets - 1;
+    std::array<bool, num_buckets> seen{};
+    unsigned num_seen = 0;
+    for (unsigned i = 0; i < (1u << 16); ++i) {
+        unsigned h = combine_hash(i << 12, 0x12345678u);
+        unsigned b = h & mask;
+        if (!seen[b]) {
+            seen[b] = true;
+            ++num_seen;
+        }
+    }
+    ENSURE(num_seen > 3000);
+}
+
 void tst_chashtable() {
     tst1();
     tst2();
@@ -180,5 +197,6 @@ void tst_chashtable() {
     tst4<dint_table>(1000,10);
     tst4<dint_table>(10000,10);
     tst4<int_table>(50000,1000);
+    tst_combine_hash_low_bits();
     tst5();
 }
