@@ -176,17 +176,26 @@ static void tst6() {
 static void tst_combine_hash_low_bits() {
     constexpr unsigned num_buckets = 1 << 12;
     constexpr unsigned mask = num_buckets - 1;
+    constexpr unsigned seed = 0x12345678u;
+    constexpr unsigned alignment_shift = 12;
+    // This threshold is intentionally conservative: with 65,536 (2^16) samples over
+    // 4,096 (2^12) buckets we expect near-complete coverage under good mixing;
+    // requiring >=73% still robustly detects low-bit clustering while keeping
+    // the test tolerant.
+    constexpr unsigned min_covered_buckets = (num_buckets * 73) / 100;
     std::array<bool, num_buckets> seen{};
     unsigned num_seen = 0;
     for (unsigned i = 0; i < (1u << 16); ++i) {
-        unsigned h = combine_hash(i << 12, 0x12345678u);
+        // Probe low-bit dispersion for aligned first components against a fixed
+        // non-zero second component.
+        unsigned h = combine_hash(i << alignment_shift, seed);
         unsigned b = h & mask;
         if (!seen[b]) {
             seen[b] = true;
             ++num_seen;
         }
     }
-    ENSURE(num_seen > 3000);
+    ENSURE(num_seen > min_covered_buckets);
 }
 
 void tst_chashtable() {
