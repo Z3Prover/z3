@@ -917,7 +917,7 @@ jobs:
       
       - name: Rewrite macOS wheel tags unsupported by test.PyPI
         run: |
-          # test.PyPI rejects current macOS wheel tags such as macosx_13_3_*.
+          # TestPyPI rejects current macOS wheel tags such as macosx_13_3_*.
           # Rewrite only the unsupported 13_3 tag to 13 for upload validation.
           for whl in dist/*-macosx_13_3_*.whl; do
             [ -e "$whl" ] || continue
