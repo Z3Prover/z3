@@ -20,8 +20,9 @@ Revision History:
 #include "util/hashtable.h"
 #include "util/hash.h"
 #include "util/util.h"
-#include <array>
 #include <iostream>
+#include <cstdint>
+#include <vector>
 
 typedef chashtable<int, int_hash, default_eq<int> > int_table;
 typedef cmap<int, int, int_hash, default_eq<int> > int_map;
@@ -173,29 +174,82 @@ static void tst6() {
     });
 }
 
-static void tst_combine_hash_low_bits() {
-    constexpr unsigned num_buckets = 1 << 12;
-    constexpr unsigned mask = num_buckets - 1;
+static unsigned combine_hash_old(unsigned h1, unsigned h2) {
+    h2 -= h1; h2 ^= (h1 << 8);
+    h1 -= h2; h2 ^= (h1 << 16);
+    h2 -= h1; h2 ^= (h1 << 10);
+    return h2;
+}
+
+struct hash_projection_stats {
+    unsigned m_occupied = 0;
+    uint64_t m_uniform_error = 0;
+};
+
+template<typename CombineHash>
+static hash_projection_stats get_projection_stats(CombineHash const& combine, unsigned bits, bool low_bits) {
+    constexpr unsigned num_samples = 1u << 16;
     constexpr unsigned seed = 0x12345678u;
     constexpr unsigned alignment_shift = 12;
-    // This threshold is intentionally conservative: with 65,536 (2^16) samples over
-    // 4,096 (2^12) buckets we expect near-complete coverage under good mixing;
-    // requiring >=73% still robustly detects low-bit clustering while keeping
-    // the test tolerant.
-    constexpr unsigned min_covered_buckets = (num_buckets * 73) / 100;
-    std::array<bool, num_buckets> seen{};
-    unsigned num_seen = 0;
-    for (unsigned i = 0; i < (1u << 16); ++i) {
-        // Probe low-bit dispersion for aligned first components against a fixed
-        // non-zero second component.
-        unsigned h = combine_hash(i << alignment_shift, seed);
-        unsigned b = h & mask;
-        if (!seen[b]) {
-            seen[b] = true;
-            ++num_seen;
-        }
+    SASSERT(bits <= 16);
+    unsigned const num_buckets = 1u << bits;
+    unsigned const mask = num_buckets - 1;
+    std::vector<unsigned> counts(num_buckets, 0);
+    for (unsigned i = 0; i < num_samples; ++i) {
+        unsigned h = combine(i << alignment_shift, seed);
+        unsigned b = low_bits ? (h & mask) : (h >> (32 - bits));
+        counts[b]++;
     }
-    ENSURE(num_seen > min_covered_buckets);
+
+    hash_projection_stats st;
+    for (unsigned c : counts) {
+        if (c != 0)
+            ++st.m_occupied;
+        int64_t diff = static_cast<int64_t>(c) * num_buckets - num_samples;
+        st.m_uniform_error += static_cast<uint64_t>(diff * diff);
+    }
+    return st;
+}
+
+static void tst_combine_hash_low_bits() {
+    constexpr unsigned num_samples = 1u << 16;
+    constexpr unsigned bits8 = 8;
+    constexpr unsigned bits16 = 16;
+
+    auto old_low8 = get_projection_stats(combine_hash_old, bits8, true);
+    auto new_low8 = get_projection_stats(combine_hash, bits8, true);
+    auto old_low16 = get_projection_stats(combine_hash_old, bits16, true);
+    auto new_low16 = get_projection_stats(combine_hash, bits16, true);
+    auto old_high8 = get_projection_stats(combine_hash_old, bits8, false);
+    auto new_high8 = get_projection_stats(combine_hash, bits8, false);
+    auto old_high16 = get_projection_stats(combine_hash_old, bits16, false);
+    auto new_high16 = get_projection_stats(combine_hash, bits16, false);
+
+    unsigned old_low8_collisions = num_samples - old_low8.m_occupied;
+    unsigned new_low8_collisions = num_samples - new_low8.m_occupied;
+    unsigned old_low16_collisions = num_samples - old_low16.m_occupied;
+    unsigned new_low16_collisions = num_samples - new_low16.m_occupied;
+
+    ENSURE(new_low8_collisions < old_low8_collisions);
+    ENSURE(new_low16_collisions < old_low16_collisions);
+    ENSURE(new_low8.m_uniform_error < old_low8.m_uniform_error);
+    ENSURE(new_low16.m_uniform_error < old_low16.m_uniform_error);
+    // The high bits should remain well distributed after the update.
+    ENSURE(new_high8.m_uniform_error < old_high8.m_uniform_error * 2);
+    ENSURE(new_high16.m_uniform_error < old_high16.m_uniform_error * 2);
+
+    std::cout << "combine_hash old/new low8 collisions: "
+              << old_low8_collisions << "/" << new_low8_collisions << "\n";
+    std::cout << "combine_hash old/new low16 collisions: "
+              << old_low16_collisions << "/" << new_low16_collisions << "\n";
+    std::cout << "combine_hash old/new low8 uniform_error: "
+              << old_low8.m_uniform_error << "/" << new_low8.m_uniform_error << "\n";
+    std::cout << "combine_hash old/new low16 uniform_error: "
+              << old_low16.m_uniform_error << "/" << new_low16.m_uniform_error << "\n";
+    std::cout << "combine_hash old/new high8 uniform_error: "
+              << old_high8.m_uniform_error << "/" << new_high8.m_uniform_error << "\n";
+    std::cout << "combine_hash old/new high16 uniform_error: "
+              << old_high16.m_uniform_error << "/" << new_high16.m_uniform_error << "\n";
 }
 
 void tst_chashtable() {
