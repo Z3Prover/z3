@@ -16,10 +16,14 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+_DEFAULT_CMAKE_GENERATE_ARGS = [
+    "-G Ninja",
+    "-D CMAKE_INSTALL_LIBDIR=lib",  # Matches rules_foreign_cc's default out_lib_dir.
+]
+
 cmake(
     name = "z3_dynamic",
-    generate_args = [
-        "-G Ninja",
+    generate_args = _DEFAULT_CMAKE_GENERATE_ARGS + [
         "-D Z3_EXPORTED_TARGETS=",  # prevents installation, leaving symlinks between dylibs intact on copy
     ],
     lib_source = ":all_files",
@@ -44,8 +48,7 @@ cmake(
 
 cmake(
     name = "z3_static",
-    generate_args = [
-        "-G Ninja",
+    generate_args = _DEFAULT_CMAKE_GENERATE_ARGS + [
         "-D BUILD_SHARED_LIBS=OFF",
         "-D Z3_BUILD_LIBZ3_SHARED=OFF",
     ],
