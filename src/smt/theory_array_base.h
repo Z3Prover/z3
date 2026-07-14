@@ -193,6 +193,7 @@ namespace smt {
 
         void reset_selects();
         std::ostream &display_selects(std::ostream &out);
+        bool check_selects();
 
         theory_var mg_find(theory_var v);
         void mg_merge(theory_var n, theory_var m);

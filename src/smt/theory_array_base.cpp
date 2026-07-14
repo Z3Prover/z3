@@ -712,6 +712,7 @@ namespace smt {
         collect_defaults();
         collect_selects();
         propagate_selects();
+        // check_selects();
         TRACE(array, display_selects(tout); display(tout););
     }
 
@@ -827,6 +828,56 @@ namespace smt {
             out << "\n";
         }
         return out;
+    }
+
+    bool theory_array_base::check_selects() {
+        auto same_args = [&](unsigned num_args, enode *n1, enode *n2) {
+            for (unsigned i = 1; i < num_args; ++i) {
+                if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
+                    return false;
+            }
+            return true;
+        };
+
+        auto check_selects = [&](enode* n, select_set &s1, select_set &s2) {
+            for (auto sel1 : s1) {
+                if (same_args(sel1->get_num_args(), sel1, n))
+                    continue;
+                bool found = false;
+                for (auto sel2 : s2) {
+                    verbose_stream() << "check_selects: " << enode_pp(sel1, ctx) << " " << enode_pp(sel2, ctx) << "\n";
+                    if (!same_args(sel2->get_num_args(), sel1, sel2))
+                        continue;
+                    found = true;
+                    if (sel1->get_root() != sel2->get_root()) {
+                        verbose_stream() << "selects: " << pp(sel1, m) << " " << pp(sel2, m) << "\n";
+                        return false;
+                    }
+                    break;
+                }
+                if (!found) {
+                    verbose_stream() << "selects: " << pp(sel1, m) << " " << pp(n, m) << "\n";
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        for (auto [r, s1] : m_selects) {
+            for (auto n : *r) {
+                if (!ctx.is_relevant(n) || !is_store(n))
+                    continue;
+                auto st = n->get_arg(0)->get_root();
+                if (!ctx.is_relevant(st))
+                    continue;
+                auto & s2 = m_selects[st];
+                if (!check_selects(n, *s1, *s2))
+                    return false;
+                if (!check_selects(n, *s2, *s1))
+                    return false;
+            }
+        }
+        return true;
     }
 
     void theory_array_base::collect_selects() {
