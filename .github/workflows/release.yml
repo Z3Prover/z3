@@ -35,7 +35,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 90
     env:
-      MACOSX_DEPLOYMENT_TARGET: "13.0"
+      MACOSX_DEPLOYMENT_TARGET: "13.3"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.0
@@ -46,7 +46,7 @@ jobs:
           python-version: '3.x'
       
       - name: Build
-        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=x64 --os=osx-13.0
+        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=x64 --os=osx-13.3
       
       - name: Validate libz3.dylib and z3 architecture (must be x86_64)
         run: |
@@ -79,7 +79,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 90
     env:
-      MACOSX_DEPLOYMENT_TARGET: "13.0"
+      MACOSX_DEPLOYMENT_TARGET: "13.3"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.0
@@ -90,7 +90,7 @@ jobs:
           python-version: '3.x'
       
       - name: Build
-        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64 --os=osx-13.0
+        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64 --os=osx-13.3
       
       - name: Validate libz3.dylib and z3 architecture (must be arm64)
         run: |
