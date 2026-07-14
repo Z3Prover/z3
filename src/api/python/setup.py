@@ -336,7 +336,6 @@ class bdist_wheel(_bdist_wheel):
                 ("linux", "aarch64"): "linux_aarch64",
                 ('linux', "riscv64"): "linux_riscv64",
                 ("linux", "loongarch64"): "linux_loongarch64",
-                # windows arm64 is not supported by pypi yet
                 ("win", "x64"): "win_amd64",
                 ("win", "x86"): "win32",
                 ("win", "arm64"): "win_arm64",
@@ -344,10 +343,10 @@ class bdist_wheel(_bdist_wheel):
                 ("osx", "arm64"): f"macosx_{os_version_tag}_arm64",
                 ("darwin", "x86_64"): f"macosx_{os_version_tag}_x86_64",
                 ("darwin", "x64"): f"macosx_{os_version_tag}_x86_64",
-                ("darwin", "arm64"): f"macosx_{os_version_tag}_arm64",
+                ("darwin", "arm64"): f"macosx_{os_version_0}_arm64",
                 ("sequoia", "x64"): f"macosx_{os_version_tag}_x86_64",
                 ("sequoia", "x86_64"): f"macosx_{os_version_tag}_x86_64",
-                ("sequoia", "arm64"): f"macosx_{os_version_tag}_arm64",
+                ("sequoia", "arm64"): f"macosx_{os_version_0}_arm64",
                 ("emscripten", "wasm32"): f"emscripten_{os_version_tag}_wasm32",
             }  # type: dict[tuple[str, str], str]
             self.plat_name = TAGS[(BUILD_PLATFORM, BUILD_ARCH)]
