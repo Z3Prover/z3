@@ -489,13 +489,17 @@ class theory_lra::imp {
                         // register mod(x, y) with variable divisor for divisibility reasoning
                         ensure_nla();
                         if (m_nla) {
+                            app_ref div(a.mk_idiv(n1, n2), m);
+                            ctx().internalize(div, false);
+                            internalize_term(to_app(div));
                             internalize_term(to_app(n1));
                             internalize_term(to_app(n2));
                             internalize_term(t);
+                            theory_var d = mk_var(div);
                             theory_var x = mk_var(n1);
                             theory_var y = mk_var(n2);
                             theory_var rv = mk_var(n);
-                            m_nla->add_divisibility(register_theory_var_in_lar_solver(rv), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y));
+                            m_nla->add_divisibility(register_theory_var_in_lar_solver(rv), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(d));
                         }
                     }
                 }
