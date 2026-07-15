@@ -108,6 +108,7 @@ namespace lp_api {
         unsigned m_num_iterations_with_no_progress;
         unsigned m_need_to_solve_inf;
         unsigned m_fixed_eqs;
+        unsigned m_offset_eqs;
         unsigned m_conflicts;
         unsigned m_bound_propagations1;
         unsigned m_bound_propagations2;
@@ -129,6 +130,7 @@ namespace lp_api {
             st.update("arith-pivots", m_need_to_solve_inf);
             st.update("arith-plateau-iterations", m_num_iterations_with_no_progress);
             st.update("arith-fixed-eqs", m_fixed_eqs);
+            st.update("arith-offset-eqs", m_offset_eqs);
             st.update("arith-conflicts", m_conflicts);
             st.update("arith-bound-propagations-lp", m_bound_propagations1);
             st.update("arith-bound-propagations-cheap", m_bound_propagations2);

@@ -3532,7 +3532,55 @@ public:
         ctx().assign_eq(x, y, eq_justification(js));
     }
     
+    //
+    // Offset equality propagation.
+    // When the column t is a term  c*x - c*y (two operands with opposite unit
+    // coefficients) that is fixed at 0, then x = y. Propagate this equality to
+    // the core so congruence closure can merge terms that depend on x and y.
+    // Without this, theory_lra only detects such equalities lazily through
+    // assume_eqs() during final_check, which can be starved (e.g. by E-matching)
+    // long before it fires. theory_arith performs the analogous propagation in
+    // propagate_cheap_eq (offset rows).
+    //
+    bool propagate_offset_eq(lp::lpvar t, u_dependency* dep, rational const& bound) {
+        if (!bound.is_zero())
+            return false;
+        if (!lp().column_has_term(t))
+            return false;
+        u_map<rational> coeffs;
+        term2coeffs(lp().get_term(t), coeffs);
+        if (coeffs.size() != 2)
+            return false;
+        auto it = coeffs.begin();
+        theory_var w1 = it->m_key;
+        rational   c1 = it->m_value;
+        ++it;
+        theory_var w2 = it->m_key;
+        rational   c2 = it->m_value;
+        if (c1 + c2 != 0)
+            return false;
+        if (w1 == w2)
+            return false;
+        enode* x = get_enode(w1);
+        enode* y = get_enode(w2);
+        if (!x || !y)
+            return false;
+        if (x->get_sort() != y->get_sort())
+            return false;
+        if (x->get_root() == y->get_root())
+            return false;
+        if (is_int(w1) != is_int(w2))
+            return false;
+        reset_evidence();
+        set_evidence(dep, m_core, m_eqs);
+        ++m_stats.m_offset_eqs;
+        assign_eq(w1, w2);
+        return true;
+    }
+
     void fixed_var_eh(theory_var v, lp::lpvar t, u_dependency* dep, rational const& bound) {
+        if (propagate_offset_eq(t, dep, bound))
+            return;
         theory_var w = null_theory_var;
         enode* x = get_enode(v);
         if (m_value2var.find(bound, w)) 
