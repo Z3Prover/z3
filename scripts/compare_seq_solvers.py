@@ -101,7 +101,7 @@ def run_z3(z3_bin: str, smt_file: Path, solver_args: list[str], timeout_s: int =
     cmd = [z3_bin, f"-t:{timeout_ms}"] + solver_args + COMMON_ARGS + [str(smt_file)]
     start = time.monotonic()
     try:
-        proc = subprocess.run(cmd, capture_output=True, shell=True, text=True,
+        proc = subprocess.run(cmd, capture_output=True, text=True,
                               timeout=timeout_s + 5)
         elapsed = time.monotonic() - start
         return _parse_result(proc.stdout.strip()), elapsed
@@ -120,8 +120,7 @@ def run_external_solver(binary: str, smt_file: Path, timeout_s: int = DEFAULT_TI
     Passes -t:{timeout_ms} as the first argument, matching the Z3/ZIPT convention.
     Supply extra_args for any solver-specific flags that precede the file path.
     """
-    timeout_ms = timeout_s * 1000
-    cmd = [binary, f"-t:{timeout_ms}"] + (extra_args or []) + [str(smt_file)]
+    cmd = [binary] + (extra_args or []) + [str(smt_file)]
     start = time.monotonic()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True,
@@ -187,8 +186,8 @@ def process_file(z3_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT,
         result[name] = solver_results[name]
         result[f"t_{name}"] = solver_times[name]
 
-    for label, binary in (external_bins or {}).items():
-        res, t = run_external_solver(binary, smt_file, timeout_s)
+    for label, solver in (external_bins or {}).items():
+        res, t = run_external_solver(solver[0], smt_file, timeout_s, extra_args=solver[1])
         result[label] = res
         result[f"t_{label}"] = t
 
@@ -220,10 +219,10 @@ def main():
     timeout_s = args.timeout
 
     # Collect external solvers in declaration order so output columns are stable.
-    external_bins: dict[str, str] = {}
-    if args.zipt:    external_bins["zipt"]    = args.zipt
-    if args.ostrich: external_bins["ostrich"] = args.ostrich
-    if args.noodler: external_bins["noodler"] = args.noodler
+    external_bins: dict[str, Tuple[str, str]] = {}
+    if args.zipt:    external_bins["zipt"]    = (args.zipt, [f"-t:{timeout_s * 1000}"])
+    if args.ostrich: external_bins["ostrich"] = (args.ostrich, [f"-timeout={timeout_s * 1000}"])
+    if args.noodler: external_bins["noodler"] = (args.noodler, ["smt.string_solver=noodler", f"-t:{timeout_s * 1000}"])
     ext_names = list(external_bins.keys())
 
     root = Path(args.path)
