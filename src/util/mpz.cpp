@@ -39,11 +39,11 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
     __int64 high;
     result = _mul128(a, b, &high);
     // Overflow if high bits are not the sign extension of result
-    return high != (result < 0 ? -1 : 0);
+    return high != (result >> 63);
 #elif defined(_MSC_VER)
-    // `-(v + 1) + 1` computes |v| even for INT64_MIN, where direct negation would overflow.
-    uint64_t x = a < 0 ? static_cast<uint64_t>(-(a + 1)) + 1 : static_cast<uint64_t>(a);
-    uint64_t y = b < 0 ? static_cast<uint64_t>(-(b + 1)) + 1 : static_cast<uint64_t>(b);
+    // Unsigned negation preserves the magnitude of INT64_MIN without signed overflow.
+    uint64_t x = a < 0 ? -static_cast<uint64_t>(a) : static_cast<uint64_t>(a);
+    uint64_t y = b < 0 ? -static_cast<uint64_t>(b) : static_cast<uint64_t>(b);
     bool is_neg = (a < 0) != (b < 0);
     uint64_t limit = is_neg ? (uint64_t{1} << 63) : static_cast<uint64_t>(INT64_MAX);
     if (x != 0 && y > limit / x)
@@ -2027,7 +2027,7 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
         return;
 
     int64_t result;
-    if (is_small(a) && k < 63 && !mul_overflows(a.value(), 1ULL << k, result)) {
+    if (is_small(a) && k < 63 && !mul_overflows(a.value(), static_cast<int64_t>(1ULL << k), result)) {
         set(a, result);
         TRACE(mpz_mul2k, tout << "mul2k result:\n" << to_string(a) << '\n';);
         return;
