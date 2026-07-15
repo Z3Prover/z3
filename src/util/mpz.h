@@ -593,6 +593,9 @@ public:
     void bitwise_not(unsigned sz, mpz const & a, mpz & c);
 
     void set(mpz & target, mpz const & source) {
+        if (&target == &source) {
+            return;
+        }
         if (is_small(source)) {
             set(target, source.value());
         }
