@@ -220,16 +220,15 @@ namespace seq {
     }
 
     // true if `side` provably denotes a non-empty sequence: it contains a
-    // concrete character or a token that is neither a variable nor a power
-    // (i.e., not eliminable by a var/power → ε substitution).
+    // token that is not eliminable by a var/power → ε substitution (concrete
+    // characters, units, literals, …).  Single early-exit scan — a char is
+    // itself non-eliminable, so the former separate has_char test was subsumed.
     static bool side_cannot_be_empty(euf::snode const* side) {
         euf::snode_vector tokens;
         side->collect_tokens(tokens);
-        const bool has_char = std::ranges::any_of(tokens, [](euf::snode const* t){ return t->is_char(); });
-        const bool all_eliminable = std::ranges::all_of(tokens, [](euf::snode const* t){
-            return t->is_var() || t->is_power();
+        return std::ranges::any_of(tokens, [](euf::snode const* t) {
+            return !t->is_var() && !t->is_power();
         });
-        return has_char || !all_eliminable;
     }
 
     // Strip common leading and trailing tokens of (lhs, rhs).  Tokens equal
@@ -437,7 +436,13 @@ namespace seq {
         m_id(id), m_graph(graph), m_is_progress(true) { }
 
     void nielsen_node::set_conflict(const backtrack_reason r, const dep_tracker confl) {
-        if (m_conflict_internal != nullptr && m_conflict_external_literal == sat::null_literal)
+        // Keep the FIRST internal conflict.  Key the guard on m_reason, not on
+        // m_conflict_internal: nullptr is a legal dep tracker (the empty
+        // dependency set), so a dep-based guard would let a later, weaker
+        // conflict silently overwrite a dep-free one.  An external conflict may
+        // still be upgraded to an internal one (we prefer internal conflicts —
+        // they are needed as justification for general conflicts).
+        if (m_reason != backtrack_reason::unevaluated && m_conflict_external_literal == sat::null_literal)
             return;
         // We prefer internal conflicts (we need it as a justification for general conflicts)
         TRACE(seq, tout << "internal conflict " << (unsigned)r << "\n");
@@ -486,6 +491,7 @@ namespace seq {
             [&](const str_eq &e) { return e.m_lhs == eq.m_lhs && e.m_rhs == eq.m_rhs; }))
             // already present, no need to add again
             return;
+        m_simplify_stamp = 0;
         m_str_eq.push_back(eq);
     }
 
@@ -497,6 +503,7 @@ namespace seq {
         [&](const str_deq &e) { return e.m_lhs == deq.m_lhs && e.m_rhs == deq.m_rhs; }))
             // already present, no need to add again
             return;
+        m_simplify_stamp = 0;
         m_str_deq.push_back(deq);
     }
 
@@ -513,6 +520,7 @@ namespace seq {
         // silently drop such a view and lose the constraint (→ unsound leaf).
         if (std::ranges::any_of(str_mems(), [&](const str_mem &e) { return e == mem; }))
             return; // already present
+        m_simplify_stamp = 0;
         m_str_mem.push_back(mem);
     }
 
@@ -542,10 +550,12 @@ namespace seq {
             return true;
         if (!m_graph.m_context_solver.upper_bound(e, up, lits, eqs))
             return false;
-        for (auto lit : lits)
+        for (auto lit : lits) {
             dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(lit));
-        for (auto eq : eqs)
+        }
+        for (auto eq : eqs) {
             dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(eq));
+        }
         const expr_ref up_expr(m_graph.a.mk_int(up), m_graph.m);
         m_graph.add_le_dependency(dep, this, e, up_expr);
         return true;
@@ -564,6 +574,7 @@ namespace seq {
             }
             return;
         }
+        m_simplify_stamp = 0;
         m_constraints.push_back(c);
     }
 
@@ -571,6 +582,7 @@ namespace seq {
         SASSERT(!s.m_var->is_char_or_unit() || s.m_replacement->is_char_or_unit());
         SASSERT(s.m_var);
         SASSERT(s.m_replacement != nullptr);
+        m_simplify_stamp = 0;
         for (auto &eq : m_str_eq) {
             const auto new_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
             const auto new_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_replacement);
@@ -623,6 +635,17 @@ namespace seq {
 
     unsigned nielsen_node::canonize_and_compute_node_hash() {
         unsigned hash = 457260179;
+        // Restore the lhs/rhs orientation invariant first: the simplify passes
+        // rewrite constraint sides in place without re-sorting, and both the
+        // hash and the elementwise sibling comparison are orientation-sensitive
+        // — a stale orientation only costs missed sibling/unsat-cache hits, but
+        // this is the single choke point before hashing, so fix it here.
+        for (auto& e : str_eqs()) {
+            e.sort();
+        }
+        for (auto& e : str_deqs()) {
+            e.sort();
+        }
         std::sort(str_eqs().begin(), str_eqs().end());
         for (auto const& e : str_eqs()) {
             hash += 433867097 * e.hash();
@@ -697,6 +720,7 @@ namespace seq {
             return;
         }
         SASSERT(sym_char && sym_char->is_unit());
+        m_simplify_stamp = 0;
         const unsigned id = sym_char->id();
         if (m_char_ranges.contains(id)) {
             auto& existing = m_char_ranges.find(id);
@@ -879,8 +903,7 @@ namespace seq {
     bool nielsen_node::check_empty_side_conflict(euf::snode const* non_empty_side,
                                                  dep_tracker const& dep) {
         if (side_cannot_be_empty(non_empty_side)) {
-            set_general_conflict();
-            set_conflict(backtrack_reason::symbol_clash, dep);
+            set_simplify_conflict(backtrack_reason::symbol_clash, dep);
             return true;
         }
         return false;
@@ -949,6 +972,23 @@ namespace seq {
         arith_util arith(m);
         seq_util& seq = sg.get_seq_util();
 
+        // Directional peel guards.  Power unwinding peels one base copy to the
+        // side's directional END: u · u^(n-1) at the front (fwd) or
+        // u^(n-1) · u at the back (bwd).  Re-absorbing a char of the leading or
+        // trailing char run into an adjacent power would re-roll the peel and
+        // recreate the pre-peel node — an infinite peel/merge cycle (the child
+        // becomes string-identical to its parent, differing only in the n >= 1
+        // side constraint, so the sibling loop-cut fires on a loop that makes
+        // no progress).  Chars strictly inside the token list (bounded by a
+        // non-char token on both sides) can never be peel artifacts and merge
+        // freely.
+        unsigned lead_end = 0;
+        while (lead_end < tokens.size() && tokens[lead_end]->is_char())
+            ++lead_end;
+        unsigned trail_start = tokens.size();
+        while (trail_start > lead_end && tokens[trail_start - 1]->is_char())
+            --trail_start;
+
         bool merged = false;
         euf::snode_vector result;
 
@@ -976,7 +1016,9 @@ namespace seq {
                             local_merged = true; ++j; continue;
                         }
                     }
-                    if (next->is_char() && next->get_expr() == base_e) {
+                    // chars of the trailing run are excluded: absorbing them
+                    // would undo a backward peel (see peel guards above)
+                    if (j < trail_start && next->is_char() && next->get_expr() == base_e) {
                         exp_acc = arith.mk_add(exp_acc, arith.mk_int(1));
                         local_merged = true; ++j; continue;
                     }
@@ -995,9 +1037,11 @@ namespace seq {
             }
 
             // Case 2: current is a char — check if next is a same-base power.
-            // Skip at leading position (i == 0) to avoid undoing power unwinding:
-            // unwind produces u · u^(n-1); merging it back to u^n creates an infinite cycle.
-            if (i > 0 && tok->is_char() && tok->get_expr() && i + 1 < tokens.size()) {
+            // Skip chars of the LEADING run (not just i == 0) to avoid undoing
+            // forward power unwinding: a peel produces u · u^(n-1) and repeated
+            // peels u · u · u^(n-2) …; merging any of the run back into the
+            // power re-creates the pre-peel node (infinite cycle).
+            if (i >= lead_end && tok->is_char() && tok->get_expr() && i + 1 < tokens.size()) {
                 euf::snode const* next = tokens[i + 1];
                 if (next->is_power() && get_power_base_expr(next, seq) == tok->get_expr()) {
                     expr* base_e = tok->get_expr();
@@ -1012,7 +1056,8 @@ namespace seq {
                             exp_acc = arith.mk_add(exp_acc, get_power_exp_expr(further, seq));
                             ++j; continue;
                         }
-                        if (further->is_char() && further->get_expr() == base_e) {
+                        // trailing-run chars excluded (backward peel guard)
+                        if (j < trail_start && further->is_char() && further->get_expr() == base_e) {
                             exp_acc = arith.mk_add(exp_acc, arith.mk_int(1));
                             ++j; continue;
                         }
@@ -1102,6 +1147,32 @@ namespace seq {
         if (!rebuilt)
             rebuilt = sg.mk_empty_seq(side->get_sort());
         return rebuilt;
+    }
+
+    // Shared per-constraint side simplification, used for equalities and
+    // disequalities alike: constant-exponent power rewriting (base^0 → ε,
+    // base^1 → base) on both sides followed by common prefix/suffix
+    // cancellation.  Bound dependencies used by the power rewriting are joined
+    // into `dep`; `changed` is set when anything was rewritten.  Returns true
+    // when an aligned, provably-distinct unit pair was found — a symbol clash,
+    // which refutes an equality and discharges a disequality.
+    static bool simplify_side_pair(nielsen_node* node, euf::sgraph& sg,
+                                   euf::snode const*& lhs, euf::snode const*& rhs,
+                                   dep_tracker& dep, bool& changed) {
+        dep_manager& dm = node->graph().dep_mgr();
+        dep_tracker pow_dep = nullptr;
+        if (euf::snode const* s = simplify_const_powers(node, sg, lhs, pow_dep)) {
+            lhs = s;
+            dep = dm.mk_join(dep, pow_dep);
+            changed = true;
+        }
+        pow_dep = nullptr;
+        if (euf::snode const* s = simplify_const_powers(node, sg, rhs, pow_dep)) {
+            rhs = s;
+            dep = dm.mk_join(dep, pow_dep);
+            changed = true;
+        }
+        return cancel_common_affixes(sg, sg.get_manager(), lhs, rhs, changed);
     }
 
     // CommPower: count how many times a power's base pattern appears in
@@ -1545,15 +1616,56 @@ namespace seq {
         if (m_is_extended)
             return simplify_result::proceed;
 
+        // Memoization: the passes below are idempotent, and their outcome
+        // depends only on this node's constraints and the per-solve external
+        // context (outer arith bounds, the LP path constraints — both fixed
+        // for the node while one solve() runs).  Iterative deepening and hot
+        // paths revisit non-extended frontier nodes many times; with a valid
+        // stamp nothing can come out differently, so skip all passes
+        // (including the expensive regex-widening product searches).  Every
+        // constraint mutator clears the stamp — in particular the Parikh /
+        // node-length constraints added after the first visit's simplification
+        // trigger exactly one re-simplification under the richer LP context —
+        // and solve() bumps the epoch so a new outer assignment is re-examined.
+        if (m_simplify_stamp == m_graph.m_simplify_epoch)
+            return is_satisfied() ? simplify_result::satisfied : simplify_result::proceed;
+
         euf::sgraph& sg = m_graph.sg();
         ast_manager& m = sg.get_manager();
         seq_util& seq = this->graph().seq();
         bool changed = true;
 
-        //if (id() == 9) {
-        //    std::string dot = graph().to_dot();
-        //    std::cout << dot << std::endl;
-        //}
+        // drop memberships that have become trivially satisfied;
+        // returns true if any were removed
+        auto remove_trivial_mems = [&]() {
+            unsigned w = 0;
+            for (unsigned j = 0; j < m_str_mem.size(); ++j) {
+                if (m_str_mem[j].is_trivial(this))
+                    continue;
+                m_str_mem[w++] = m_str_mem[j];
+            }
+            if (w == m_str_mem.size())
+                return;
+            m_str_mem.shrink(w);
+        };
+
+        // Negative LP-entailment results are stable for the whole call: the
+        // subsolver context (path constraints + the constraints asserted before
+        // this call) does not change during simplification (check_lp_le's probe
+        // is push/pop-scoped and constraints added here are only asserted
+        // afterwards).  The fixpoint sweeps would nonetheless re-issue the same
+        // FAILING queries — each a full subsolver check() — on every sweep, so
+        // cache them.  Successful queries rewrite the equation and do not repeat.
+        std::unordered_set<uint64_t> lp_not_entailed;
+        auto lp_le = [&](expr* lhs, expr* rhs, dep_tracker& dep) {
+            const uint64_t key = (static_cast<uint64_t>(lhs->get_id()) << 32) | rhs->get_id();
+            if (lp_not_entailed.count(key))
+                return false;
+            if (m_graph.check_lp_le(lhs, rhs, this, dep))
+                return true;
+            lp_not_entailed.insert(key);
+            return false;
+        };
 
         // DON'T add rules here that add new constraints or apply substitutions
         // add them to apply_det_modifier instead
@@ -1574,68 +1686,41 @@ namespace seq {
                 changed = true;
             }
 
-            unsigned wj = 0;
-            for (unsigned j = 0; j < m_str_mem.size(); ++j) {
-                str_mem& mem = m_str_mem[j];
-                if (mem.is_trivial(this))
-                    continue;
-                m_str_mem[wj++] = mem;
-            }
-            if (wj < m_str_mem.size()) {
-                m_str_mem.shrink(wj);
-                changed = true;
-            }
+            remove_trivial_mems();
 
             unsigned wk = 0;
             for (unsigned k = 0; k < m_str_deq.size(); ++k) {
                 str_deq& deq = m_str_deq[k];
 
-                if (deq.m_lhs == deq.m_rhs || (deq.m_lhs && deq.m_rhs && deq.m_lhs->is_empty() && deq.m_rhs->is_empty())) {
-                    set_general_conflict();
-                    set_conflict(backtrack_reason::symbol_clash, deq.m_dep);
-                    return simplify_result::conflict;
-                }
+                // lhs == rhs (or both ε): the disequality is refuted
+                if (deq.m_lhs == deq.m_rhs || (deq.m_lhs->is_empty() && deq.m_rhs->is_empty()))
+                    return set_simplify_conflict(backtrack_reason::symbol_clash, deq.m_dep);
+
+                // single unit vs single unit: hand off as a character disequality
                 if (deq.m_lhs->length() == 1 && deq.m_rhs->length() == 1) {
                     expr* l, *r;
-                    if (graph().seq().str.is_unit(deq.m_lhs->get_expr(), l) &&
-                        graph().seq().str.is_unit(deq.m_rhs->get_expr(), r)) {
-
+                    if (seq.str.is_unit(deq.m_lhs->get_expr(), l) &&
+                        seq.str.is_unit(deq.m_rhs->get_expr(), r)) {
                         add_constraint(constraint(m.mk_not(m.mk_eq(l, r)), deq.m_dep, m));
-                        continue;
+                        continue;   // dropped from the deq list
                     }
                 }
 
-                if (deq.m_lhs->is_empty() && !deq.m_rhs->is_empty()) {
-                    if (side_cannot_be_empty(deq.m_rhs)) continue;
-                }
-                else if (deq.m_rhs->is_empty() && !deq.m_lhs->is_empty()) {
-                    if (side_cannot_be_empty(deq.m_lhs)) continue;
-                }
-
-                // simplify constant-exponent powers
-                dep_tracker lhs_pow_dep = nullptr;
-                if (euf::snode const* s = simplify_const_powers(this, sg, deq.m_lhs, lhs_pow_dep)) {
-                    deq.m_lhs = s;
-                    deq.m_dep = m_graph.dep_mgr().mk_join(deq.m_dep, lhs_pow_dep);
-                    changed = true;
-                }
-                dep_tracker rhs_pow_dep = nullptr;
-                if (euf::snode const* s = simplify_const_powers(this, sg, deq.m_rhs, rhs_pow_dep)) {
-                    deq.m_rhs = s;
-                    deq.m_dep = m_graph.dep_mgr().mk_join(deq.m_dep, rhs_pow_dep);
-                    changed = true;
-                }
-
-                // prefix/suffix cancellation; a provably-distinct unit pair at an
-                // aligned position means the disequality holds — drop it.
-                if (cancel_common_affixes(sg, m, deq.m_lhs, deq.m_rhs, changed))
+                // ε != s with s provably non-empty: discharged
+                // (both-empty was refuted above, so the other side is non-empty)
+                if (deq.m_lhs->is_empty() && side_cannot_be_empty(deq.m_rhs))
+                    continue;
+                if (deq.m_rhs->is_empty() && side_cannot_be_empty(deq.m_lhs))
                     continue;
 
-                if (deq.m_lhs == deq.m_rhs || (deq.m_lhs->is_empty() && deq.m_rhs->is_empty())) {
-                    set_general_conflict();
-                    set_conflict(backtrack_reason::symbol_clash, deq.m_dep);
-                    return simplify_result::conflict;
-                }
+                // shared power simplification + affix cancellation; an aligned
+                // provably-distinct unit pair means the disequality holds — drop it
+                if (simplify_side_pair(this, sg, deq.m_lhs, deq.m_rhs, deq.m_dep, changed))
+                    continue;
+
+                // cancellation may have made the two sides equal: refuted
+                if (deq.m_lhs == deq.m_rhs || (deq.m_lhs->is_empty() && deq.m_rhs->is_empty()))
+                    return set_simplify_conflict(backtrack_reason::symbol_clash, deq.m_dep);
 
                 m_str_deq[wk++] = deq;
             }
@@ -1644,51 +1729,40 @@ namespace seq {
                 changed = true;
             }
 
-            // pass 2: detect symbol clashes, empty-propagation, and prefix cancellation
+            // pass 2: per-equation side simplification shared with the deq pass
+            // (constant-exponent powers + prefix/suffix cancellation, see
+            // simplify_side_pair), plus empty-side conflict detection
             for (str_eq& eq : m_str_eq) {
                 SASSERT(eq.well_formed());
+                if (eq.is_trivial())
+                    continue;   // may have become trivial earlier in this pass
+
+                // power simplification (base^0 → ε, base^1 → base) and affix
+                // cancellation.  A provably-distinct unit pair at an aligned
+                // position is a symbol clash.
+                if (simplify_side_pair(this, sg, eq.m_lhs, eq.m_rhs, eq.m_dep, changed))
+                    return set_simplify_conflict(backtrack_reason::symbol_clash, eq.m_dep);
 
                 // one side empty, the other not empty => conflict check
                 // (the actual substitution is done in apply_det_modifier)
                 if (eq.m_lhs->is_empty() && !eq.m_rhs->is_empty()) {
                     if (check_empty_side_conflict(eq.m_rhs, eq.m_dep))
                         return simplify_result::conflict;
-                    continue;
                 }
-                if (eq.m_rhs->is_empty() && !eq.m_lhs->is_empty()) {
+                else if (eq.m_rhs->is_empty() && !eq.m_lhs->is_empty()) {
                     if (check_empty_side_conflict(eq.m_lhs, eq.m_dep))
                         return simplify_result::conflict;
-                    continue;
-                }
-
-                // prefix/suffix cancellation: strip common leading and trailing tokens.
-                // A provably-distinct unit pair at an aligned position is a symbol clash.
-                if (cancel_common_affixes(sg, m, eq.m_lhs, eq.m_rhs, changed)) {
-                    set_general_conflict();
-                    set_conflict(backtrack_reason::symbol_clash, eq.m_dep);
-                    return simplify_result::conflict;
                 }
             }
 
-            // pass 3: power simplification
+            // pass 3: power simplification.
+            // (What used to be pass 3a — constant-exponent power rewriting —
+            // now runs in pass 2 via simplify_side_pair; the labels 3b–3e are
+            // kept stable since other comments reference them.)
             for (str_eq& eq : m_str_eq) {
                 SASSERT(eq.well_formed());
                 if (eq.is_trivial())
                     continue;
-
-                // 3a: simplify constant-exponent powers (base^0 → ε, base^1 → base)
-                dep_tracker lhs_pow_dep = nullptr;
-                if (euf::snode const* s = simplify_const_powers(this, sg, eq.m_lhs, lhs_pow_dep)) {
-                    eq.m_lhs = s;
-                    eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, lhs_pow_dep);
-                    changed = true;
-                }
-                dep_tracker rhs_pow_dep = nullptr;
-                if (euf::snode const* s = simplify_const_powers(this, sg, eq.m_rhs, rhs_pow_dep)) {
-                    eq.m_rhs = s;
-                    eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, rhs_pow_dep);
-                    changed = true;
-                }
 
                 // 3b: merge adjacent same-base tokens into combined powers
                 if (euf::snode const* s = merge_adjacent_powers(sg, eq.m_lhs))
@@ -1738,8 +1812,8 @@ namespace seq {
                             pow_le_count = diff.is_nonneg();
                         }
                         else if (!cur_path.empty()) {
-                            pow_le_count = m_graph.check_lp_le(pow_exp, norm_count, this, pow_le_dep);
-                            count_le_pow = m_graph.check_lp_le(norm_count, pow_exp, this, count_le_dep);
+                            pow_le_count = lp_le(pow_exp, norm_count, pow_le_dep);
+                            count_le_pow = lp_le(norm_count, pow_exp, count_le_dep);
                         }
                         if (!pow_le_count && !count_le_pow)
                             continue;
@@ -1771,11 +1845,14 @@ namespace seq {
                 if (comm_changed)
                     changed = true;
 
-                // After any change in passes 3a–3c, restart the while loop
-                // before running 3d/3e.  This lets 3a simplify new constant-
-                // exponent powers (e.g. base^1 → base created by 3c) before
-                // 3e attempts LP-based elimination which would introduce a
-                // needless fresh variable.
+                // Once anything changed in this sweep (this equation or an
+                // earlier one), defer 3d/3e and let the cheap passes reach a
+                // fixpoint first: the while loop re-enters pass 2, which
+                // simplifies new constant-exponent powers (e.g. base^1 → base
+                // created by 3c) before 3e's LP-based elimination would
+                // introduce a needless fresh variable.  NB: this continues the
+                // for loop, so 3d/3e are deferred for the REMAINING equations
+                // of this sweep as well (they are revisited on the rerun).
                 if (changed)
                     continue;
 
@@ -1819,8 +1896,8 @@ namespace seq {
                     // 3e: LP-aware power directional elimination
                     else if (lp && rp && !cur_path.empty()) {
                         dep_tracker lp_le_dep = nullptr, rp_le_dep = nullptr;
-                        bool lp_le_rp = m_graph.check_lp_le(lp, rp, this, lp_le_dep);
-                        bool rp_le_lp = m_graph.check_lp_le(rp, lp, this, rp_le_dep);
+                        bool lp_le_rp = lp_le(lp, rp, lp_le_dep);
+                        bool rp_le_lp = lp_le(rp, lp, rp_le_dep);
                         if (lp_le_rp || rp_le_lp) {
                             if (lp_le_rp)
                                 eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, lp_le_dep);
@@ -1869,11 +1946,8 @@ namespace seq {
                     TRACE(seq, tout << mem_pp(mem) << " d: " << spp(deriv, m) << "\n");
                     if (!deriv)
                         break;
-                    if (deriv->is_fail()) {
-                        set_general_conflict();
-                        set_conflict(backtrack_reason::regex, mem.m_dep);
-                        return simplify_result::conflict;
-                    }
+                    if (deriv->is_fail())
+                        return set_simplify_conflict(backtrack_reason::regex, mem.m_dep);
                     if (fwd) {
                         if (tok->is_char()) {
                             // concrete char: record single edge directly
@@ -1923,22 +1997,12 @@ namespace seq {
         for (str_mem& mem : m_str_mem) {
             if (mem.is_contradiction(this)) {
                 TRACE(seq, tout << "contradiction " << mem_pp(mem) << "\n");
-                set_general_conflict();
-                set_conflict(backtrack_reason::regex, mem.m_dep);
-                return simplify_result::conflict;
+                return set_simplify_conflict(backtrack_reason::regex, mem.m_dep);
             }
         }
 
         // remove trivial membership constraints once again
-        unsigned wj = 0;
-        for (unsigned j = 0; j < m_str_mem.size(); ++j) {
-            str_mem& mem = m_str_mem[j];
-            if (mem.is_trivial(this))
-                continue;
-            m_str_mem[wj++] = mem;
-        }
-        if (wj < m_str_mem.size())
-            m_str_mem.shrink(wj);
+        remove_trivial_mems();
 
         // Regex widening: for each remaining str_mem, overapproximate
         // the string by replacing variables with their regex intersection
@@ -1954,12 +2018,15 @@ namespace seq {
             // sound over-approximation of the view language (see there) and
             // returns false when none applies.
             dep_tracker dep = mem.m_dep;
-            if (m_graph.check_regex_widening(*this, mem, dep)) {
-                set_general_conflict();
-                set_conflict(backtrack_reason::regex_widening, dep);
-                return simplify_result::conflict;
-            }
+            if (m_graph.check_regex_widening(*this, mem, dep))
+                return set_simplify_conflict(backtrack_reason::regex_widening, dep);
         }
+
+        // Simplification ran to completion: memoize.  Constraint additions made
+        // DURING the passes cleared the stamp; setting it here (last) makes the
+        // completed state authoritative.  Conflict paths return early and stay
+        // unstamped, so a cleared conflict is re-examined from scratch.
+        m_simplify_stamp = m_graph.m_simplify_epoch;
 
         if (is_satisfied()) {
             // pass 1 removed all trivial str_eq entries; is_satisfied() requires
@@ -1974,11 +2041,6 @@ namespace seq {
         SASSERT(mem.is_view());
         euf::sgraph& sg = m_graph.sg();
 
-        auto set_regex_conflict = [&]() {
-            set_general_conflict();
-            set_conflict(backtrack_reason::regex, mem.m_dep);
-        };
-
         while (mem.m_str && !mem.m_str->is_empty()) {
             euf::snode const* tok = mem.m_str->first();
             if (!tok || !tok->is_char_or_unit())
@@ -1991,7 +2053,7 @@ namespace seq {
                 break;
             if (!m_graph.projection_state_in_Q(c->get_expr(), mem.m_nu)) {
                 // a^{-1} L_{Q,F}(c) = ∅ when c ∉ Q.
-                set_regex_conflict();
+                set_simplify_conflict(backtrack_reason::regex, mem.m_dep);
                 return true;
             }
             // Step with brzozowski_deriv for BOTH concrete and symbolic tokens.
@@ -2007,7 +2069,7 @@ namespace seq {
             mem.m_regex = next;
             if (next->is_fail()) {
                 // view: derivative collapsed to ∅ — unsatisfiable.
-                set_regex_conflict();
+                set_simplify_conflict(backtrack_reason::regex, mem.m_dep);
                 return true;
             }
             if (!(next->is_ground() && next->kind() != euf::snode_kind::s_ite))
@@ -2108,6 +2170,9 @@ namespace seq {
 
         try {
             ++m_stats.m_num_solve_calls;
+            // new solve = possibly new external context (outer bounds / literal
+            // assignments): let every node re-simplify once under it
+            ++m_simplify_epoch;
             clear_sat_node();
 
             TRACE(seq, tout << "Solve call " << m_stats.m_num_solve_calls << "\n");
@@ -2387,6 +2452,11 @@ namespace seq {
         // we might need to tell the SAT solver about the new integer inequalities
         // that might have been added by an extension step
         assert_node_side_constraints(node);
+        // Constraints below this index are asserted in THIS visit's solver
+        // scope; the later calls of this visit assert only the newly added
+        // tail.  (The next visit runs in a fresh scope and starts over from
+        // m_parent_ic_count via the default argument.)
+        unsigned ic_asserted = node->constraints().size();
 
         if (node->is_currently_conflict()) {
             ++m_stats.m_num_simplify_conflict;
@@ -2452,7 +2522,8 @@ namespace seq {
         // Also generate per-node |LHS| = |RHS| length constraints for descendant
         // equations (root constraints are already at the base level).
         generate_node_length_constraints(node);
-        assert_node_side_constraints(node);
+        assert_node_side_constraints(node, ic_asserted);
+        ic_asserted = node->constraints().size();
 
         if (node->is_currently_conflict()) {
             ++m_stats.m_num_simplify_conflict;
@@ -2500,7 +2571,7 @@ namespace seq {
                 // the model builder emit a witness that may violate the very
                 // constraints the check could not decide.
                 return search_result::unknown;
-            assert_node_side_constraints(node);
+            assert_node_side_constraints(node, ic_asserted);
             // We need to have everything asserted before reporting SAT
             // (otw. the outer solver might assume false-assigned literals to be true)
             if (node->is_currently_conflict()) {
@@ -3161,7 +3232,8 @@ namespace seq {
                     nielsen_edge* e = mk_edge(node, child, "nielsen var =r", true);
                     const nielsen_subst s(rhead, m_sg.mk_empty_seq(rhead->get_sort()), eq.m_dep);
                     e->add_subst(s);
-                    e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(lhead), a.mk_int(0)), eq.m_dep));
+                    // |x| > 0: the |x| = 0 case is child 1 (keeps the branches disjoint)
+                    e->add_side_constraint(mk_constraint(a.mk_gt(compute_length_expr(lhead), a.mk_int(0)), eq.m_dep));
                     child->apply_subst(m_sg, s);
                 }
                 // child 3: x → y && |x| > 0 (progress)
@@ -3170,7 +3242,8 @@ namespace seq {
                     nielsen_edge* e = mk_edge(node, child, "nielsen var =", true);
                     const nielsen_subst s(lhead, rhead, eq.m_dep);
                     e->add_subst(s);
-                    e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(lhead), a.mk_int(0)), eq.m_dep));
+                    // |x| > 0: the |x| = 0 case is child 1 (keeps the branches disjoint)
+                    e->add_side_constraint(mk_constraint(a.mk_gt(compute_length_expr(lhead), a.mk_int(0)), eq.m_dep));
                     child->apply_subst(m_sg, s);
                 }
                 // child 4: x → y·x && |x| > 0 && |y| > 0 (no progress)
@@ -3687,9 +3760,6 @@ namespace seq {
                                           str_mem const*& mem_out,
                                           bool& fwd) {
         for (str_mem const& mem : node->str_mems()) {
-            if (mem.is_trivial(node)) {
-                std::cout << "Trivial mem: " << mem_pp(mem) << std::endl;
-            }
             SASSERT(mem.well_formed() && !mem.is_trivial(node));
 
             for (unsigned od = 0; od < 2; ++od) {
@@ -3751,6 +3821,14 @@ namespace seq {
             const nielsen_subst s1(base, m_sg.mk_empty_seq(base->get_sort()), dep);
             e->add_subst(s1);
             child->apply_subst(m_sg, s1);
+            // sgraph::subst does not descend into power nodes, so u → ε alone
+            // leaves the triggering power u^n — and hence the equation — intact:
+            // the child would be an exact string-sibling of this node and get
+            // loop-cut without progress.  Also substitute the power itself
+            // (sound: ε^n = ε for every n).
+            const nielsen_subst s1b(power, m_sg.mk_empty_seq(power->get_sort()), dep);
+            e->add_subst(s1b);
+            child->apply_subst(m_sg, s1b);
         }
 
         // Branch 2: replace the power token itself with ε.
@@ -5253,14 +5331,22 @@ namespace seq {
             }
         }
 
-        // Branch 2: x = u^n · x' (variable extends past full power, non-progress)
-        // so replace x -> u^n · x
+        // Branch 2: x = u^n · x' (variable extends past full power, non-progress).
+        // The tail x' is the slice of x after the power.  The substitution must
+        // be eliminating (x must not occur in its own replacement): reusing x as
+        // its own tail would violate the nielsen_subst invariant AND the lazy
+        // |x| = |replacement| edge constraint (add_subst_length_constraints)
+        // would degenerate to n·|u| = 0, contradicting this branch's meaning
+        // and dropping every model where x extends past a non-empty power.
         {
-            euf::snode const* replacement = dir_concat(m_sg, power, var_head, fwd);
+            euf::snode const* tail = get_tail(var_head, compute_length_expr(power).get(), fwd);
+            euf::snode const* replacement = dir_concat(m_sg, power, tail, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "power split", false);
             const nielsen_subst s(var_head, replacement, eq->m_dep);
             e->add_subst(s);
+            // |x'| >= 0, i.e. |x| >= n·|u| (the branch condition)
+            e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(tail), a.mk_int(0)), eq->m_dep));
             child->apply_subst(m_sg, s);
         }
 
@@ -5664,13 +5750,18 @@ namespace seq {
         m_length_solver.assert_expr(e);
     }
 
-    void nielsen_graph::assert_node_side_constraints(nielsen_node* node) const {
+    void nielsen_graph::assert_node_side_constraints(nielsen_node* node, unsigned from_idx) const {
         // Assert only the constraints that are new to this node (beyond those
         // inherited from its parent via clone_from).  The parent's constraints are
         // already present in the enclosing solver scope; asserting them again would
         // be redundant (though harmless).  This is called by search_dfs right after
         // simplify_and_init, which is where new constraints are produced.
-        for (unsigned i = node->m_parent_ic_count; i < node->constraints().size(); ++i) {
+        // Within one visit, `from_idx` skips the prefix already asserted by an
+        // earlier call — each re-assert would otherwise burn a kernel clause and
+        // an assumption/dep slot per constraint, on every visit.
+        if (from_idx == UINT_MAX)
+            from_idx = node->m_parent_ic_count;
+        for (unsigned i = from_idx; i < node->constraints().size(); ++i) {
             auto& c = node->constraints()[i];
             auto lit = m_context_solver.literal_if_false(c.fml);
             // std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" <<
@@ -5780,10 +5871,12 @@ namespace seq {
         if (m_context_solver.upper_bound(lhs, lhs_up, lits, eqs) &&
             m_context_solver.lower_bound(rhs, rhs_lo, lits, eqs) &&
             lhs_up <= rhs_lo) {
-            for (auto lit : lits)
+            for (auto lit : lits) {
                 dep = m_dep_mgr.mk_join(dep, m_dep_mgr.mk_leaf(lit));
-            for (enode_pair eq : eqs)
+            }
+            for (enode_pair eq : eqs) {
                 dep = m_dep_mgr.mk_join(dep, m_dep_mgr.mk_leaf(eq));
+            }
             return true;
         }
 

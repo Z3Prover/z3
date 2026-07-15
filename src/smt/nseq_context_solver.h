@@ -78,16 +78,22 @@ namespace smt {
             // returned by core() outlive this call. It is reset only in reset().
             m_last_core = m_core_dep_mgr.mk_empty();
             lbool r;
-            if (m_assump_lits.empty()) {
+            if (m_deps.empty()) {
                 r = m_kernel.check();
             } else {
-                r = m_kernel.check(m_assump_lits.size(), m_assump_lits.data());
+                // Only the first m_deps.size() literals are bound to an active
+                // (a => e) assertion; the tail of m_assump_lits holds recycled
+                // literals from popped frames.  Passing those as assumptions is
+                // pointless and, should one ever surface in a (non-minimal)
+                // unsat core, m_deps[id] below would index past m_deps.size().
+                r = m_kernel.check(m_deps.size(), m_assump_lits.data());
                 if (r == l_false) {
                     const unsigned cnt = m_kernel.get_unsat_core_size();
                     for (unsigned i = 0; i < cnt; ++i) {
                         expr_ref ce(m_kernel.get_unsat_core_expr(i), m_kernel.m());
                         SASSERT(m_assump_lit2id.contains(ce));
                         const unsigned id = m_assump_lit2id[ce];
+                        SASSERT(id < m_deps.size());
                         m_last_core = m_core_dep_mgr.mk_join(m_last_core, m_deps[id]);
                     }
                 }

@@ -1171,7 +1171,6 @@ namespace smt {
                 // this should not happen because nielsen checks for this before returning a satisfying path.
                 TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
                 all_sat = false;
-                std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 ctx.push_trail(value_trail(m_context_solver.m_should_internalize));
                 m_context_solver.m_should_internalize = true;
                 break;
@@ -2131,11 +2130,9 @@ namespace smt {
                 enode_pair_vector eqs;
                 literal_vector dep_lits;
 
-                for (unsigned idx : mem_indices) {
-                    std::cout << seq::mem_pp(mems[idx]) << std::endl;
+                for (unsigned idx : mem_indices)
                     seq::deps_to_lits(m_nielsen.dep_mgr(), mems[idx].m_dep, eqs, dep_lits);
-                }
-                
+
 
                 set_propagate(eqs, dep_lits, lit_prop);
 

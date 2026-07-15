@@ -360,7 +360,19 @@ namespace seq {
                 return w1 < w2;
             if (m_str != other.m_str)
                 return m_str < other.m_str;
-            return m_regex < other.m_regex;
+            if (m_regex != other.m_regex)
+                return m_regex < other.m_regex;
+            // View annotation tie-breakers, keeping the order consistent with
+            // operator==: two views on the same (str, state) that differ only
+            // in kind/root/ν must not compare equivalent, otherwise std::sort
+            // in canonize_and_compute_node_hash orders them arbitrarily and
+            // structurally identical nodes miss each other in the sibling /
+            // unsat-cache lookups.
+            if (m_kind != other.m_kind)
+                return m_kind < other.m_kind;
+            if (m_root != other.m_root)
+                return m_root < other.m_root;
+            return m_nu < other.m_nu;
         }
 
         unsigned hash() const {
@@ -604,6 +616,16 @@ namespace seq {
         // asserted when this node's solver scope is entered.
         unsigned                m_parent_ic_count = 0;
 
+        // Simplification memo: the value of nielsen_graph::m_simplify_epoch at
+        // the time simplify_and_init last ran to completion on this node.
+        // The passes are idempotent and their outcome depends only on the
+        // node's constraints and the per-solve external context (outer arith
+        // bounds, LP path constraints), so a matching stamp lets
+        // simplify_and_init return immediately — iterative deepening and hot
+        // restarts revisit non-extended nodes many times.  Cleared (0) by
+        // every constraint mutator; the epoch is bumped once per solve().
+        unsigned                m_simplify_stamp = 0;
+
     public:
         nielsen_node(nielsen_graph& graph, unsigned id);
 
@@ -714,6 +736,15 @@ namespace seq {
 
         void set_conflict(backtrack_reason r, dep_tracker confl);
 
+        // Mark this node as a general conflict with the given reason and
+        // dependencies and return simplify_result::conflict — the shared
+        // epilogue of the simplification passes.
+        simplify_result set_simplify_conflict(backtrack_reason r, dep_tracker confl) {
+            set_general_conflict();
+            set_conflict(r, confl);
+            return simplify_result::conflict;
+        }
+
         void set_external_conflict(sat::literal lit, dep_tracker confl);
 
         bool is_progress() const { return m_is_progress; }
@@ -778,12 +809,13 @@ namespace seq {
     };
 
     struct nielsen_node_hash {
-        // outputs the hash without side-constraints
+        // outputs the hash without side-constraints; caches it on the node —
+        // container lookups would otherwise re-sort and re-hash the whole
+        // constraint set on every probe.  Safe to freeze here: the functor is
+        // only invoked post-simplification (transposition/sibling lookups),
+        // when the node's string signature is final.
         unsigned operator()(nielsen_node* n) const {
-            const unsigned h = n->hash();
-            if (h == 0)
-                return n->canonize_and_compute_node_hash();
-            return h;
+            return n->canonize_and_compute_final_node_hash();
         }
     };
 
@@ -898,6 +930,10 @@ namespace seq {
         unsigned                      m_harvest_counter = 0;    // file index; spans reset()/blocking iterations
         std::unordered_set<unsigned>  m_harvested_hashes;       // dedup by structural hash; NOT cleared in reset()
         unsigned                      m_fresh_cnt = 0;
+        // bumped once per solve() call so every node re-simplifies at most once
+        // per solve under the then-current external context; see
+        // nielsen_node::m_simplify_stamp
+        unsigned                      m_simplify_epoch = 1;
         nielsen_stats                 m_stats;
 
 
@@ -1227,7 +1263,13 @@ namespace seq {
         // parent (indices [m_parent_ic_count..end)) into the current solver scope.
         // Called by search_dfs after simplify_and_init so that the newly derived
         // bounds become visible to subsequent check() and check_lp_le() calls.
-        void assert_node_side_constraints(nielsen_node* node) const;
+        // `from_idx` allows incremental re-invocation within ONE DFS visit:
+        // constraints below it were already asserted into the current solver
+        // scope by an earlier call of the same visit.  The default (UINT_MAX)
+        // starts at the node's inherited-constraint count — required on the
+        // first call of every visit, since the previous visit's assertions
+        // were popped with its scope.
+        void assert_node_side_constraints(nielsen_node* node, unsigned from_idx = UINT_MAX) const;
 
     private:
 
