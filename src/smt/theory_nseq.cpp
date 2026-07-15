@@ -2164,7 +2164,7 @@ namespace smt {
                     expr_ref not_divides(m.mk_not(m_autil.mk_divides(g_expr, len_minus_l)), m);
                     prop_expr = m.mk_or(len_lt_l, not_divides);
                     m_th_rewriter(prop_expr);  // the divisibility predicate needs to be rewritten as it won't happen
-                                               // automatically
+                    // automatically
 
                     m_gradient_cache[s] = 1;  // Reset gradient cache
                 }
@@ -2180,9 +2180,9 @@ namespace smt {
                 enode_pair_vector eqs;
                 literal_vector dep_lits;
 
-                for (unsigned idx : mem_indices)
+                for (unsigned idx : mem_indices) {
                     seq::deps_to_lits(m_nielsen.dep_mgr(), mems[idx].m_dep, eqs, dep_lits);
-
+                }
 
                 set_propagate(eqs, dep_lits, lit_prop);
 

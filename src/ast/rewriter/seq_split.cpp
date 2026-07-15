@@ -18,8 +18,10 @@ Author:
 
 #include "ast/rewriter/seq_split.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_range_collapse.h"
 #include "ast/ast_pp.h"
 #include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
 #include "util/stack.h"
 
 seq_split::seq_split(seq_rewriter& rw) :
@@ -177,8 +179,11 @@ seq_util::rex& seq_split::re()  const { return m_rw.u().re; }
 
 // Add <d, n> unless the (optional) lookahead oracle prunes it.
 void seq_split::push(split_set& out, split_oracle const& oracle, expr* d, expr* n) const {
+    ++m_stats.m_pushes;
     if (!oracle || oracle(d, n))
         out.push_back(split_pair(d, n, m));
+    else
+        ++m_stats.m_oracle_prunes;
 }
 
 // Cross-product intersection of two split-sets (split algebra):
@@ -186,7 +191,12 @@ void seq_split::push(split_set& out, split_oracle const& oracle, expr* d, expr* 
 // Pairs where any component is bottom (the empty regex) are dropped.
 bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& result,
                           unsigned threshold, split_oracle const& oracle) const {
+    ++m_stats.m_intersect;
     const seq_util::rex& r = re();
+    // Dedup the cross-product: a split-set denotes the UNION of its <D,N> pairs,
+    // so identical (perfectly-shared) pairs are redundant.  Skipping them keeps
+    // the De Morgan fold from accumulating exponentially many equal splits.
+    obj_pair_hashtable<expr, expr> seen;
     for (auto const& p1 : s1) {
         for (auto const& p2 : s2) {
             if (r.is_empty(p1.m_d) || r.is_empty(p2.m_d) ||
@@ -194,9 +204,18 @@ bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& r
                 continue;
             const expr_ref di(m_rw.mk_regex_inter_normalize(p1.m_d, p2.m_d), m);
             const expr_ref ni(m_rw.mk_regex_inter_normalize(p1.m_n, p2.m_n), m);
+            ++m_stats.m_intersect_pairs;
+            std::pair<expr*, expr*> key(di.get(), ni.get());
+            if (seen.contains(key)) {
+                ++m_stats.m_dedup_drops;
+                continue;
+            }
+            seen.insert(key);
             push(result, oracle, di, ni);
-            if (result.size() > threshold)
+            if (result.size() > threshold) {
+                ++m_stats.m_threshold_overruns;
                 return false;
+            }
         }
     }
     return true;
@@ -210,6 +229,7 @@ bool seq_split::intersect(split_set const& s1, split_set const& s2, split_set& r
 bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& result,
     const unsigned threshold, split_oracle const& oracle) const {
 
+    ++m_stats.m_complement;
     seq_util::rex& r = re();
     sort* re_sort = r.mk_re(seq_sort);
     const expr_ref full(r.mk_full_seq(re_sort), m);   // .*
@@ -233,8 +253,10 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
         acc = std::move(tmp);
         if (acc.empty())            // intersection empty => ~S is empty
             break;
-        if (acc.size() > threshold)
+        if (acc.size() > threshold) {
+            ++m_stats.m_threshold_overruns;
             return false;
+        }
     }
     result.append(acc);
     return true;
@@ -244,8 +266,112 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
 // emits *suspended* split-algebra terms (from_re / lcat / rcat / inter / compl) for
 // the subterms instead of recursing.  `mode` is irrelevant here: weak vs. strong is
 // decided when `head_normalize` reaches an inter / compl node.
-expr_ref seq_split::expand_fromre(expr* r, unsigned threshold, bool& ok) {
+namespace {
+    // Cofactor path condition `pred` (a Boolean over x = (:var 0)) -> the canonical
+    // range_predicate (union of ranges) of the characters satisfying it.  Returns
+    // false on a construct outside {true,false,and,or,not,=,char.<=} over x.
+    static bool pred_to_rp(ast_manager& m, seq_util& sq, expr* x, expr* pred,
+                           unsigned maxc, seq::range_predicate& out) {
+        expr* a = nullptr, * b = nullptr; unsigned c = 0;
+        if (m.is_true(pred))  { out = seq::range_predicate::top(maxc);   return true; }
+        if (m.is_false(pred)) { out = seq::range_predicate::empty(maxc); return true; }
+        if (m.is_eq(pred, a, b)) {
+            if (a == x && sq.is_const_char(b, c)) { out = seq::range_predicate::singleton(c, maxc); return true; }
+            if (b == x && sq.is_const_char(a, c)) { out = seq::range_predicate::singleton(c, maxc); return true; }
+            return false;
+        }
+        if (sq.is_char_le(pred, a, b)) {
+            if (b == x && sq.is_const_char(a, c)) { out = seq::range_predicate::range(c, maxc, maxc); return true; }
+            if (a == x && sq.is_const_char(b, c)) { out = seq::range_predicate::range(0, c, maxc);    return true; }
+            return false;
+        }
+        if (m.is_not(pred, a)) {
+            seq::range_predicate s(maxc);
+            if (!pred_to_rp(m, sq, x, a, maxc, s)) return false;
+            out = ~s; return true;
+        }
+        if (m.is_and(pred)) {
+            out = seq::range_predicate::top(maxc);
+            for (expr* arg : *to_app(pred)) {
+                seq::range_predicate s(maxc);
+                if (!pred_to_rp(m, sq, x, arg, maxc, s)) return false;
+                out = out & s;
+            }
+            return true;
+        }
+        if (m.is_or(pred)) {
+            out = seq::range_predicate::empty(maxc);
+            for (expr* arg : *to_app(pred)) {
+                seq::range_predicate s(maxc);
+                if (!pred_to_rp(m, sq, x, arg, maxc, s)) return false;
+                out = out | s;
+            }
+            return true;
+        }
+        return false;
+    }
+}
+
+// Single-character regex for a cofactor path condition `pred` (a Boolean over the
+// character (:var 0)).  Materialized via the canonical seq::range_predicate as a
+// union-of-ranges regex (fully supported by the derivative / emptiness / primitive
+// path, and canonical so equivalent classes share AST identity).  Falls back to
+// of_pred(lambda) only for predicates outside the recognized range fragment.
+expr_ref seq_split::mk_charclass_re(expr* pred, sort* seq_sort) {
+    seq_util& sq = seq();
+    sort* cs = sq.mk_char_sort();
+    expr_ref var0(m.mk_var(0, cs), m);
+    seq::range_predicate rp(sq.max_char());
+    if (pred_to_rp(m, sq, var0, pred, sq.max_char(), rp))
+        return seq::range_predicate_to_regex(sq, rp, seq_sort);
+    symbol nm("c");
+    expr_ref lam(m.mk_lambda(1, &cs, &nm, pred), m);
+    return expr_ref(re().mk_of_pred(lam), m);
+}
+
+// r == E(r) | RE(LF(delta(r))): peel one character through the symbolic derivative
+// (Brzozowski cofactors) and recurse.  Shared by the complement and intersection
+// cases to avoid the De Morgan / cross-product blow-up.  delta distributes over
+// both ~ and &, so LF(delta(r)) = { (alpha_i, tgt_i) } with tgt_i the (complement /
+// intersection of) character-derivatives.  Records `r` in `deriv_memo` as a cycle
+// guard.  Returns a null expr_ref when nullability of `r` is not statically
+// decidable (the caller then falls back to its structural rule).
+expr_ref seq_split::try_derivative_split(expr* r, sort* seq_sort, obj_hashtable<expr>& deriv_memo) {
+    seq_util::rex& rex = re();
+    expr_ref nb = m_rw.is_nullable(r);
+    if (!m.is_true(nb) && !m.is_false(nb))
+        return expr_ref(m);                                // undecidable -> fall back
+    deriv_memo.insert(r);
+    sort* re_sort = rex.mk_re(seq_sort);
+    expr_ref unfolded(m);
+    if (m.is_true(nb)) unfolded = rex.mk_epsilon(seq_sort); // E(r) = eps
+    else               unfolded = rex.mk_empty(re_sort);    // E(r) = bot
+    expr_ref_pair_vector cofs(m);
+    m_rw.brz_derivative_cofactors(r, cofs);                // { (alpha_i, tgt_i) } = LF(delta(r))
+    for (auto const& [cond, tgt] : cofs) {
+        expr_ref alpha = mk_charclass_re(cond, seq_sort);  // single-char regex
+        expr_ref term(rex.mk_concat(alpha, tgt), m);       // alpha_i . tgt_i
+        unfolded = expr_ref(rex.mk_union(unfolded, term), m);
+    }
+    return mk_fromre(unfolded);
+}
+
+// The complemented body `a` "starts with an unbounded loop" (R*.S / R+.S) when its
+// leftmost concat factor is a star or plus.  delta(~(R*.S)) regenerates R*.S (the
+// R* self-loops) and never collapses to a bare ~(R*), so the forward derivative
+// peel of such a complement does NOT terminate.  Route these through the De Morgan
+// rule instead (which sends R* to the star rule / Nielsen star-introduction).
+// Bounded loops (re.loop m m, e.g. the L15 counted-membership benchmarks) DO
+// terminate under the derivative and are intentionally NOT matched here.
+static bool complement_body_diverges(seq_util::rex& rex, expr* a) {
+    while (rex.is_concat(a) && to_app(a)->get_num_args() > 0)
+        a = to_app(a)->get_arg(0);            // descend to the leftmost factor
+    return rex.is_star(a) || rex.is_plus(a);
+}
+
+expr_ref seq_split::expand_fromre(expr* r, unsigned threshold, bool& ok, obj_hashtable<expr>& deriv_memo) {
     ok = true;
+    ++m_stats.m_sigma_expand;
     seq_util& sq = seq();
     seq_util::rex& rex = re();
 
@@ -376,8 +502,14 @@ expr_ref seq_split::expand_fromre(expr* r, unsigned threshold, bool& ok) {
         return mk_lcat(star, mk_rcat(mk_fromre(a), star));
     }
 
-    // intersection: sigma(r0 & ... & r_{n-1}) = cap from_re(ri)   (re.inter may be n-ary)
+    // intersection: prefer the derivative rule r = E(r) | RE(LF(delta(r))) (delta
+    // distributes over &) to avoid the Split(r0) cap ... cap Split(r_{n-1}) cross-
+    // product blow-up; fall back to the eager cross-product on a cyclic revisit.
     if (rex.is_intersection(r)) {
+        if (!deriv_memo.contains(r)) {
+            expr_ref d = try_derivative_split(r, seq_sort, deriv_memo);
+            if (d.get()) return d;
+        }
         app* ap = to_app(r);
         const unsigned n = ap->get_num_args();
         expr_ref acc = mk_fromre(ap->get_arg(0));
@@ -387,9 +519,19 @@ expr_ref seq_split::expand_fromre(expr* r, unsigned threshold, bool& ok) {
         return acc;
     }
 
-    // complement: sigma(~a) = ~sigma(a).
-    if (rex.is_complement(r, a))
-        return mk_compl(mk_fromre(a));
+    // complement: sigma(~a).  Prefer the symbolic-derivative rule to avoid the De
+    // Morgan 2^k blow-up: r = E(~a) | RE(LF(delta(~a))), peel one character and
+    // recurse.  Fall back to the De Morgan rule sigma(~a)=~sigma(a) when the body
+    // starts with an unbounded loop R*.S / R+.S (the derivative regenerates R*.S
+    // and diverges -- a termination flaw of the peel, see complement_body_diverges)
+    // or on a cyclic revisit (both keep it terminating).
+    if (rex.is_complement(r, a)) {
+        if (!complement_body_diverges(rex, a) && !deriv_memo.contains(r)) {
+            expr_ref d = try_derivative_split(r, seq_sort, deriv_memo);
+            if (d.get()) return d;
+        }
+        return mk_compl(mk_fromre(a));                     // De Morgan fallback
+    }
 
     // abbreviation
     // difference: a \ b = a & ~b ; sigma(a \ b) = sigma(a) cap ~sigma(b).
@@ -473,7 +615,8 @@ expr_ref seq_split::from_split_set(split_set const& s) {
 }
 
 expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
-                                   split_oracle const& oracle, bool& ok) {
+                                   split_oracle const& oracle, bool& ok,
+                                   obj_hashtable<expr>& deriv_memo) {
     ok = true;
     expr *a = nullptr, *b = nullptr, *r = nullptr, *s = nullptr;
 
@@ -484,23 +627,23 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
     // from_re(r): one level of sigma; recurse to settle a non-frontier head
     // (plus / inter / compl / diff expand to lcat / inter / compl nodes).
     if (is_fromre(t, r)) {
-        expr_ref e = expand_fromre(r, threshold, ok);
+        expr_ref e = expand_fromre(r, threshold, ok, deriv_memo);
         if (!ok)
             return expr_ref(m);
         if (is_frontier(e))
             return e;
-        return head_normalize(e, mode, threshold, oracle, ok);
+        return head_normalize(e, mode, threshold, oracle, ok, deriv_memo);
     }
 
     // r.S : head-normalize S, then distribute r over the frontier.
     if (is_lcat(t, r, s)) {
-        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok);
+        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok, deriv_memo);
         if (!ok)
             return expr_ref(m);
         return distribute_lcat(r, hs);
     }
     if (is_rcat(t, s, r)) {
-        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok);
+        expr_ref hs = head_normalize(s, mode, threshold, oracle, ok, deriv_memo);
         if (!ok)
             return expr_ref(m);
         return distribute_rcat(hs, r);
@@ -551,15 +694,19 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
 
 bool seq_split::materialize(expr* node, split_mode mode, unsigned threshold,
                             split_oracle const& oracle, split_set& out) {
+    ++m_stats.m_materialize;
     iterator it(*this, node, mode, threshold, oracle);
     expr_ref d(m), n(m);
     while (it.next(d, n))
         out.push_back(split_pair(d, n, m));
+    if (out.size() > m_stats.m_max_split_set)
+        m_stats.m_max_split_set = out.size();
     return !it.gave_up();
 }
 
 expr_ref seq_split::make(expr* r) {
     SASSERT(r);
+    ++m_stats.m_make;
     sort* seq_sort = nullptr;
     if (!seq().is_re(r, seq_sort))
         return expr_ref(m);
@@ -588,9 +735,10 @@ bool seq_split::iterator::next(expr_ref& out_d, expr_ref& out_n) {
         m_work.pop_back();
 
         bool ok = true;
-        expr_ref hn = m_engine.head_normalize(t, m_mode, m_threshold, m_oracle, ok);
+        expr_ref hn = m_engine.head_normalize(t, m_mode, m_threshold, m_oracle, ok, m_deriv_memo);
         if (!ok) {
             m_giveup = true;           // unsupported / weak Boolean / overrun
+            ++m_engine.m_stats.m_giveups;
             return false;
         }
 
@@ -598,14 +746,19 @@ bool seq_split::iterator::next(expr_ref& out_d, expr_ref& out_n) {
         if (m_engine.is_empty_ss(hn))
             continue;
         if (m_engine.is_single(hn, d, n)) {
-            if (m_oracle && !m_oracle(d, n))
+            if (m_oracle && !m_oracle(d, n)) {
+                ++m_engine.m_stats.m_oracle_prunes;
                 continue;              // pruned by lookahead
+            }
             if (++m_count > m_threshold) {
                 m_giveup = true;       // safety cap against space bloat
+                ++m_engine.m_stats.m_giveups;
+                ++m_engine.m_stats.m_threshold_overruns;
                 return false;
             }
             out_d = d;
             out_n = n;
+            ++m_engine.m_stats.m_splits;
             return true;
         }
         if (m_engine.is_union(hn, a, b)) {
@@ -664,6 +817,7 @@ void seq_split::merge_by(split_set& pairs, const bool by_left) const {
 }
 
 void seq_split::simplify(split_set& pairs) const {
+    ++m_stats.m_simplify;
     seq_util::rex& r = re();
 
     // 1. drop pairs with a bottom (empty-language) component.

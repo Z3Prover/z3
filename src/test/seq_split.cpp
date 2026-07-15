@@ -181,23 +181,30 @@ public:
     }
 
     void test_weak_vs_strong() {
-        expr_ref inter(re().mk_inter(re().mk_star(rng('a', 'a')), re().mk_star(rng('b', 'b'))), m);
+        // ~(.*) is the complemented-star (~(R*)) case: it has no terminating
+        // derivative peel, so it falls back to the eager De Morgan node ~sigma(a),
+        // which weak mode refuses (producing even one split would materialize the
+        // operand split-set).  Strong mode performs the eager De Morgan complement.
         expr_ref compl_(re().mk_complement(re().mk_star(dot())), m);
+        // An intersection is expanded lazily through the symbolic derivative
+        // r = E(r) | RE(LF(delta(r))) (delta distributes over &): one character
+        // peel, no operand materialization, so weak mode now handles it too.
+        expr_ref inter(re().mk_inter(re().mk_star(rng('a', 'a')), re().mk_star(rng('b', 'b'))), m);
 
         split_set s;
-        ENSURE(!eager(inter, s, UINT_MAX, split_mode::weak));
-        s.reset();
-        ENSURE(!lazy(inter, s, UINT_MAX, split_mode::weak));
-        s.reset();
-        ENSURE(!eager(compl_, s, UINT_MAX, split_mode::weak));
+        ENSURE(!eager(compl_, s, UINT_MAX, split_mode::weak));   // De Morgan node: weak refuses
         s.reset();
         ENSURE(!lazy(compl_, s, UINT_MAX, split_mode::weak));
+        s.reset();
+        ENSURE(eager(compl_, s, UINT_MAX, split_mode::strong));  // strong: eager De Morgan
 
-        // strong mode succeeds for both
+        // intersection is derivative-expanded (lazy): succeeds in BOTH modes
+        s.reset();
+        ENSURE(eager(inter, s, UINT_MAX, split_mode::weak));
+        s.reset();
+        ENSURE(lazy(inter, s, UINT_MAX, split_mode::weak));
         s.reset();
         ENSURE(eager(inter, s, UINT_MAX, split_mode::strong));
-        s.reset();
-        ENSURE(eager(compl_, s, UINT_MAX, split_mode::strong));
     }
 
     void test_make_non_regex() {
@@ -376,11 +383,14 @@ public:
         ENSURE(it.gave_up());            // aborted, not a clean exhaustion
         ENSURE(seen <= 1);               // produced at most the capped number
 
-        // A weak-mode Boolean closure is likewise a give-up.
-        expr_ref inter(re().mk_inter(re().mk_star(rng('a', 'a')), re().mk_star(rng('b', 'b'))), m);
-        expr_ref inode = m_split.make(inter);
-        ENSURE(inode);
-        seq_split::iterator wit = m_split.iterate(inode, split_mode::weak, UINT_MAX, {});
+        // A weak-mode eager Boolean closure is likewise a give-up: ~(.*) is the
+        // complemented-star case with no terminating derivative peel, so it needs
+        // the eager De Morgan node, which weak mode refuses.  (An intersection, by
+        // contrast, is now derivative-expanded and succeeds in weak mode.)
+        expr_ref cstar(re().mk_complement(re().mk_star(dot())), m);
+        expr_ref cnode = m_split.make(cstar);
+        ENSURE(cnode);
+        seq_split::iterator wit = m_split.iterate(cnode, split_mode::weak, UINT_MAX, {});
         ENSURE(!wit.next(d, n));
         ENSURE(wit.gave_up());
     }

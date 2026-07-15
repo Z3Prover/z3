@@ -27,6 +27,7 @@ Author:
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_subset.h"
+#include "util/obj_hashtable.h"
 #include <functional>
 
 class seq_rewriter;
@@ -57,6 +58,26 @@ enum class split_mode { weak, strong };
 // default) keeps everything, so sigma is unchanged.  See seq_split::compute.
 typedef std::function<bool(expr* D, expr* N)> split_oracle;
 
+// Lightweight performance counters for the split algebra (surfaced via -st in
+// the nseq solver; behaviour-neutral).  See seq_split.cpp for where each fires.
+struct split_stats {
+    unsigned m_make = 0;               // make(): suspended sigma(r) built
+    unsigned m_sigma_expand = 0;       // expand_fromre(): one sigma rule level
+    unsigned m_materialize = 0;        // materialize(): a split-set drained
+    unsigned m_splits = 0;             // splits produced by iterator::next()
+    unsigned m_pushes = 0;             // candidate <D,N> offered to push()
+    unsigned m_oracle_prunes = 0;      // candidates dropped by the lookahead oracle
+    unsigned m_intersect = 0;          // intersect() calls
+    unsigned m_intersect_pairs = 0;    // pairs formed by intersect() cross-products
+    unsigned m_complement = 0;         // complement() calls
+    unsigned m_giveups = 0;            // iterator give-ups (unsupported/weak/overrun)
+    unsigned m_threshold_overruns = 0; // threshold hits (intersect/complement/iterator)
+    unsigned m_max_split_set = 0;      // largest materialized split-set seen
+    unsigned m_dedup_drops = 0;        // duplicate <D,N> pairs skipped in intersect
+    unsigned m_simplify = 0;           // simplify() calls
+    void reset() { *this = split_stats(); }
+};
+
 class seq_split {
     ast_manager& m;
     seq_rewriter& m_rw;       // for mk_re_append + manager / seq_util access
@@ -81,6 +102,7 @@ class seq_split {
     func_decl_ref m_d_empty, m_d_single, m_d_fromre, m_d_union,
                   m_d_inter, m_d_compl, m_d_lcat, m_d_rcat;
     expr_ref      m_empty_app;            // cached nullary `empty` term
+    mutable split_stats m_stats;          // performance counters (see -st)
 
     seq_util&      seq() const;
     seq_util::rex& re() const;
@@ -118,19 +140,38 @@ class seq_split {
     // immediate subterms.  `ok` is set false on an unsupported shape or on a
     // loop bound exceeding `threshold` (the loop rule unfolds eagerly into one
     // branch per copy, so it must be capped before allocation).
-    expr_ref expand_fromre(expr* r, unsigned threshold, bool& ok);
+    expr_ref expand_fromre(expr* r, unsigned threshold, bool& ok, obj_hashtable<expr>& deriv_memo);
+
+    // Build the single-character regex for a cofactor path condition `pred` (a
+    // Boolean over the character (:var 0)).  Prefer a range / union-of-ranges
+    // (which nseq's emptiness/primitive/length path fully supports); fall back to
+    // of_pred(lambda) only for predicates that are not a single (possibly negated)
+    // range.
+    expr_ref mk_charclass_re(expr* pred, sort* seq_sort);
+
+    // r == E(r) | RE(LF(delta(r))): build the suspended split-set for `r` by
+    // peeling one character through the symbolic derivative (Brzozowski cofactors)
+    // and recursing.  Used for complement and intersection to avoid the De Morgan
+    // / cross-product blow-up.  Records `r` in `deriv_memo` (cycle guard).  Returns
+    // a null expr_ref when nullability of `r` is not statically decidable.
+    expr_ref try_derivative_split(expr* r, sort* seq_sort, obj_hashtable<expr>& deriv_memo);
+
     // Distribute a left/right concatenation over a head-normal split-set.
     expr_ref distribute_lcat(expr* r, expr* hs);
     expr_ref distribute_rcat(expr* hs, expr* r);
+
     // Materialized split-set -> a `union` of `single`s.
     expr_ref from_split_set(split_set const& s);
+
     // Reduce `t` until its head is empty | single | union (one outermost level
     // for the lazy nodes; inter/compl are expanded eagerly via `materialize`,
     // since the paper's De Morgan / cross-product cannot yield a split lazily).
     // `ok` is set false on a give-up (unsupported shape, weak-mode Boolean, or
     // threshold overrun).
     expr_ref head_normalize(expr* t, split_mode mode, unsigned threshold,
-                            split_oracle const& oracle, bool& ok);
+                            split_oracle const& oracle, bool& ok,
+                            obj_hashtable<expr>& deriv_memo);
+
     // Fully drain a suspended split-set into `out` (used for inter/compl bodies).
     // Runs an `iterator` to exhaustion; returns false on a give-up.
     bool materialize(expr* node, split_mode mode, unsigned threshold,
@@ -155,6 +196,10 @@ class seq_split {
 
 public:
     explicit seq_split(seq_rewriter& rw);
+
+    // Performance counters (read via nseq -st).
+    split_stats const& stats() const { return m_stats; }
+    void reset_stats() { m_stats.reset(); }
 
     // Lazy split enumerator.  Holds the suspended split-set worklist and produces
     // the concrete splits <D, N> one at a time, on demand, instead of computing
@@ -185,6 +230,10 @@ public:
         expr_ref_vector m_work;        // GC-safe worklist of suspended split-sets
         unsigned        m_count = 0;   // splits produced so far (vs. threshold)
         bool            m_giveup = false;
+        // Complement ~-regex states already expanded via the symbolic-derivative
+        // rule; re-encountering one (a cycle) falls back to the De Morgan rule so
+        // the lazy unfolding terminates.  Per-iterator (iterators run concurrently).
+        obj_hashtable<expr> m_deriv_memo;
     public:
         iterator(seq_split& engine, expr* node, split_mode mode,
                  unsigned threshold, split_oracle oracle);

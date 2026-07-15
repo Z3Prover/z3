@@ -427,10 +427,22 @@ namespace seq {
         expr_ref empty(re().mk_empty(re_sort), m);
         expr_ref eps(re().mk_to_re(u().str.mk_empty(seq_sort)), m);
 
-        // Apply predicate to the element
-        array_util autil(m);
-        expr* args[2] = { pred, m_ele };
-        expr_ref cond(autil.mk_select(2, args), m);
+        // Apply the predicate to the current element.  When `pred` is a lambda,
+        // beta-reduce select(lambda, ele) so the resulting character condition is
+        // in the range/eq form the derivative's condition analysis
+        // (is_char_const_range / eval_path_cond) understands; a raw
+        // (select (lambda ..) ele) would be opaque and mishandled downstream.
+        expr_ref cond(m);
+        if (is_lambda(pred)) {
+            var_subst subst(m);
+            expr* arg = m_ele;
+            cond = subst(to_quantifier(pred)->get_expr(), 1, &arg);
+        }
+        else {
+            array_util autil(m);
+            expr* args[2] = { pred, m_ele };
+            cond = autil.mk_select(2, args);
+        }
         return mk_ite(cond, eps, empty);
     }
 
