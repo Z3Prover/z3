@@ -475,6 +475,7 @@ sig
   val substitute : expr -> expr list -> expr list -> expr
   val substitute_one : expr -> expr -> expr -> expr
   val substitute_vars : expr -> expr list -> expr
+  val substitute_funs : expr -> FuncDecl.func_decl list -> expr list -> expr
   val translate : expr -> context -> expr
   val to_string : expr -> string
   val is_numeral : expr -> bool
@@ -537,6 +538,13 @@ end = struct
   let substitute_vars x to_ =
     Z3native.substitute_vars (gc x) x (List.length to_) to_
 
+  let substitute_funs x from to_ =
+    let len = List.length from in
+    if List.length to_ <> len then
+      raise (Error "Argument sizes do not match")
+    else
+      Z3native.substitute_funs (gc x) x len from to_
+
   let translate (x:expr) to_ctx =
     if gc x = to_ctx then
       x
@@ -586,6 +594,12 @@ struct
 
   let mk_eq = Z3native.mk_eq
   let mk_distinct ctx args = Z3native.mk_distinct ctx (List.length args) args
+
+  let mk_atmost ctx args k = Z3native.mk_atmost ctx (List.length args) args k
+  let mk_atleast ctx args k = Z3native.mk_atleast ctx (List.length args) args k
+  let mk_pble ctx args coeffs k = Z3native.mk_pble ctx (List.length args) args coeffs k
+  let mk_pbge ctx args coeffs k = Z3native.mk_pbge ctx (List.length args) args coeffs k
+  let mk_pbeq ctx args coeffs k = Z3native.mk_pbeq ctx (List.length args) args coeffs k
 
   let get_bool_value x = lbool_of_int (Z3native.get_bool_value (gc x) x)
 
@@ -769,6 +783,12 @@ struct
   let mk_select = Z3native.mk_select
   let mk_store = Z3native.mk_store
   let mk_const_array = Z3native.mk_const_array
+
+  let mk_select_n ctx a idxs =
+    Z3native.mk_select_n ctx a (List.length idxs) idxs
+
+  let mk_store_n ctx a idxs v =
+    Z3native.mk_store_n ctx a (List.length idxs) idxs v
 
   let mk_map ctx f args =
     Z3native.mk_map ctx f (List.length args) args
@@ -1277,6 +1297,9 @@ struct
   let mk_seq_contains = Z3native.mk_seq_contains
   let mk_seq_extract = Z3native.mk_seq_extract
   let mk_seq_replace = Z3native.mk_seq_replace
+  let mk_seq_replace_all = Z3native.mk_seq_replace_all
+  let mk_seq_replace_re = Z3native.mk_seq_replace_re
+  let mk_seq_replace_re_all = Z3native.mk_seq_replace_re_all
   let mk_seq_at = Z3native.mk_seq_at
   let mk_seq_length = Z3native.mk_seq_length
   let mk_seq_nth = Z3native.mk_seq_nth
@@ -1298,9 +1321,11 @@ struct
   let mk_re_union ctx args = Z3native.mk_re_union ctx (List.length args) args
   let mk_re_concat ctx args = Z3native.mk_re_concat ctx (List.length args) args
   let mk_re_range = Z3native.mk_re_range
+  let mk_re_allchar = Z3native.mk_re_allchar
   let mk_re_loop = Z3native.mk_re_loop
   let mk_re_intersect ctx args = Z3native.mk_re_intersect ctx (List.length args) args
   let mk_re_complement = Z3native.mk_re_complement
+  let mk_re_diff = Z3native.mk_re_diff
   let mk_re_empty = Z3native.mk_re_empty
   let mk_re_full = Z3native.mk_re_full
   let mk_char = Z3native.mk_char
@@ -1309,6 +1334,33 @@ struct
   let mk_char_to_bv = Z3native.mk_char_to_bv
   let mk_char_from_bv = Z3native.mk_char_from_bv
   let mk_char_is_digit = Z3native.mk_char_is_digit
+end
+
+module FiniteSet =
+struct
+  let mk_sort = Z3native.mk_finite_set_sort
+  let is_finite_set_sort = Z3native.is_finite_set_sort
+  let get_sort_basis = Z3native.get_finite_set_sort_basis
+  let mk_empty = Z3native.mk_finite_set_empty
+  let mk_singleton = Z3native.mk_finite_set_singleton
+  let mk_union = Z3native.mk_finite_set_union
+  let mk_intersect = Z3native.mk_finite_set_intersect
+  let mk_difference = Z3native.mk_finite_set_difference
+  let mk_member = Z3native.mk_finite_set_member
+  let mk_size = Z3native.mk_finite_set_size
+  let mk_subset = Z3native.mk_finite_set_subset
+  let mk_map = Z3native.mk_finite_set_map
+  let mk_filter = Z3native.mk_finite_set_filter
+  let mk_range = Z3native.mk_finite_set_range
+end
+
+module SpecialRelation =
+struct
+  let mk_linear_order = Z3native.mk_linear_order
+  let mk_partial_order = Z3native.mk_partial_order
+  let mk_piecewise_linear_order = Z3native.mk_piecewise_linear_order
+  let mk_tree_order = Z3native.mk_tree_order
+  let mk_transitive_closure = Z3native.mk_transitive_closure
 end
 
 module FloatingPoint =
@@ -1667,6 +1719,8 @@ struct
     let av = Z3native.model_get_sort_universe (gc x) x s in
     AST.ASTVector.to_expr_list av
 
+  let translate (x:model) (to_ctx:context) = Z3native.model_translate (gc x) x to_ctx
+
   let to_string (x:model) = Z3native.model_to_string (gc x) x
 end
 
@@ -1937,9 +1991,75 @@ struct
   let add_simplifier = Z3native.solver_add_simplifier
   let translate x = Z3native.solver_translate (gc x) x
   let to_string x = Z3native.solver_to_string (gc x) x
+  let to_dimacs x include_names = Z3native.solver_to_dimacs_string (gc x) x include_names
 
   let interrupt (ctx:context) (s:solver) =
     Z3native.solver_interrupt ctx s
+
+  let get_units x =
+    let av = Z3native.solver_get_units (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_non_units x =
+    let av = Z3native.solver_get_non_units (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_trail x =
+    let av = Z3native.solver_get_trail (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_levels x literals =
+    let n = List.length literals in
+    let av = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) av e) literals;
+    let level_list = Z3native.solver_get_levels (gc x) x av n in
+    Array.of_list level_list
+
+  let congruence_root x a = Z3native.solver_congruence_root (gc x) x a
+
+  let congruence_next x a = Z3native.solver_congruence_next (gc x) x a
+
+  let congruence_explain x a b = Z3native.solver_congruence_explain (gc x) x a b
+
+  let from_file x = Z3native.solver_from_file (gc x) x
+
+  let from_string x = Z3native.solver_from_string (gc x) x
+
+  let set_initial_value x var value = Z3native.solver_set_initial_value (gc x) x var value
+
+  let cube x variables cutoff =
+    let av = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) av e) variables;
+    let result = Z3native.solver_cube (gc x) x av cutoff in
+    AST.ASTVector.to_expr_list result
+
+  let get_consequences x assumptions variables =
+    let asms = Z3native.mk_ast_vector (gc x) in
+    let vars = Z3native.mk_ast_vector (gc x) in
+    let cons = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) asms e) assumptions;
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) vars e) variables;
+    let r = Z3native.solver_get_consequences (gc x) x asms vars cons in
+    let status = match lbool_of_int r with
+      | L_TRUE -> SATISFIABLE
+      | L_FALSE -> UNSATISFIABLE
+      | _ -> UNKNOWN
+    in
+    (status, AST.ASTVector.to_expr_list cons)
+
+  let solve_for x variables terms guards =
+    let var_vec = Z3native.mk_ast_vector (gc x) in
+    let term_vec = Z3native.mk_ast_vector (gc x) in
+    let guard_vec = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) var_vec e) variables;
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) term_vec e) terms;
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) guard_vec e) guards;
+    Z3native.solver_solve_for (gc x) x var_vec term_vec guard_vec
+
+  let register_on_clause (s:solver) (callback: Expr.expr option -> int list -> Expr.expr list -> unit) =
+    Z3native.solver_register_on_clause (gc s) s (fun proof_hint deps lits ->
+      let lits_list = AST.ASTVector.to_expr_list lits in
+      callback proof_hint deps lits_list)
 end
 
 
@@ -2067,6 +2187,7 @@ struct
   let from_string (x:optimize) (s:string) = Z3native.optimize_from_string (gc x) x s
   let get_assertions (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_assertions (gc x) x)
   let get_objectives (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_objectives (gc x) x)
+  let translate (x:optimize) (to_ctx:context) = Z3native.optimize_translate (gc x) x to_ctx
 end
 
 
@@ -2131,7 +2252,7 @@ struct
   let div (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_div ctx a b
 
   let neg (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
-  let inv (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
+  let inv (ctx:context) (a:rcf_num) = Z3native.rcf_inv ctx a
 
   let power (ctx:context) (a:rcf_num) (k:int) = Z3native.rcf_power ctx a k
 

@@ -259,7 +259,7 @@ namespace smt {
            \brief This method is invoked when the theory application n
            is marked as relevant.
          */
-        virtual void relevant_eh(app * n) {
+        virtual void relevant_eh(expr * n) {
         }
         
         /**
@@ -428,12 +428,14 @@ namespace smt {
 
         smt_params const& get_fparams() const;
 
+        virtual void updt_params() {}
+
         enode * get_enode(theory_var v) const {
             SASSERT(v < static_cast<int>(m_var2enode.size()));
             return m_var2enode[v];
         }
 
-        app * get_expr(theory_var v) const {
+        expr * get_expr(theory_var v) const {
             return get_enode(v)->get_expr();
         }
 
@@ -480,11 +482,11 @@ namespace smt {
 
     protected:
         void log_axiom_instantiation(app * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, 
-                                     app * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
+                                     expr * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
                                      const vector<std::tuple<enode *, enode *>> & used_enodes = vector<std::tuple<enode *, enode*>>());
 
         void log_axiom_instantiation(expr * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, 
-                                     app * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
+                                     expr * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
                                      const vector<std::tuple<enode *, enode *>> & used_enodes = vector<std::tuple<enode *, enode*>>()) { 
             log_axiom_instantiation(to_app(r), axiom_id, num_bindings, bindings, pattern_id, used_enodes); 
         }
@@ -653,6 +655,6 @@ namespace smt {
         virtual bool is_fixed_propagated(theory_var v, expr_ref& val, literal_vector & explain) { return false; }
     };
     
-};
+}
 
 

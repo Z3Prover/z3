@@ -73,10 +73,10 @@ namespace opt {
         generic_model_converter& m_fm;
         progress_callback * m_callback;
         symbol              m_logic;
-        model_ref           m_last_model;
+        model_ref           m_model;
         svector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
-        sref_vector<model>  m_models;
+        sref_vector<model>  m_objective_models;
         expr_ref_vector     m_objective_terms;
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
@@ -89,7 +89,7 @@ namespace opt {
         solver* translate(ast_manager& m, params_ref const& p) override;
         void updt_params(params_ref const& p) override;
         void collect_param_descrs(param_descrs & r) override;
-        void collect_statistics(statistics & st) const override;
+        void collect_statistics_core(statistics & st) const override;
         void assert_expr_core(expr * t) override;
         void push_core() override;
         void pop_core(unsigned n) override;
@@ -167,9 +167,11 @@ namespace opt {
         void reset_objectives();
         bool maximize_objective(unsigned i, expr_ref& blocker);
         bool maximize_objectives1(expr_ref_vector& blockers);
+        bool maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker);
+        void update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
-        model* get_model_idx(unsigned obj_index) { return m_models[obj_index]; }
+        model* get_model_idx(unsigned obj_index) { return m_objective_models[obj_index]; }
 
         bool was_unknown() const { return m_was_unknown; }
 

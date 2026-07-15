@@ -1,7 +1,6 @@
 ---
 on:
-  schedule:
-    - cron: "0 0 * * 0"  # Weekly on Sundays at midnight UTC
+  schedule: weekly on sunday
   workflow_dispatch:  # Allow manual trigger
 permissions:
   contents: read
@@ -10,23 +9,20 @@ permissions:
 network:
   allowed: [defaults, python]
 safe-outputs:
+  report-failure-as-issue: false
   create-issue:
     labels:
       - bug
       - automated-analysis
       - a3-python
     title-prefix: "[a3-python] "
+  noop:
+    report-as-issue: false
 description: Analyzes Python code using a3-python tool to identify bugs and issues
 name: A3 Python Code Analysis
 strict: true
 timeout-minutes: 45
 tracker-id: a3-python-analysis
-steps:
-  - name: Checkout Python source files
-    run: |
-      git sparse-checkout init --cone
-      git sparse-checkout set src
-      echo "Python source files checked out from src directory"
 ---
 
 # A3 Python Code Analysis Agent

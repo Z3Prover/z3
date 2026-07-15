@@ -1012,7 +1012,7 @@ public:
             result.reset(); // assumes in is not strenthened to one of the branches
             throw tactic_exception("failed-if-branching tactical");
         }
-    };    
+    }    
 
     tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
@@ -1056,7 +1056,16 @@ public:
         cancel_eh<reslimit> eh(in->m().limit());
         { 
             scoped_timer timer(m_timeout, &eh);
-            m_t->operator()(in, result);            
+            try {
+                m_t->operator()(in, result);
+            } catch (z3_error &ex) {
+                throw ex;
+            } catch (tactic_exception &) {
+                throw;
+            } catch (z3_exception &ex) {
+                // convert all Z3 exceptions into tactic exceptions.
+                throw tactic_exception(ex.what());
+            }
         }
     }
 

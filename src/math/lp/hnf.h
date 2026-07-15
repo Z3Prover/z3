@@ -29,6 +29,7 @@ Revision History:
 #pragma once
 #include "math/lp/numeric_pair.h"
 #include "util/ext_gcd.h"
+#include <functional>
 namespace lp {
 namespace hnf_calc {
 
@@ -128,16 +129,21 @@ bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
 template <typename M> 
 void pivot_column_non_fractional(M &m, unsigned r, bool & overflow, const mpq & big_number) {
     SASSERT(!is_zero(m[r][r]));
+    // rows <= r are not written below, so these pivot entries are loop-invariant
+    const auto & mrr = m[r][r];
+    const mpq * denom = r > 0 ? &m[r - 1][r - 1] : nullptr;
     for (unsigned j = r + 1; j < m.column_count(); ++j) {
-        for (unsigned i = r + 1; i  < m.row_count(); ++i) {            
-            if (
-                (m[i][j] = (r > 0) ? (m[r][r]*m[i][j] - m[i][r]*m[r][j]) / m[r-1][r-1] :
-                                     (m[r][r]*m[i][j] - m[i][r]*m[r][j]))
-                >= big_number) {
+        const auto & mrj = m[r][j];
+        for (unsigned i = r + 1; i < m.row_count(); ++i) {
+            auto & mij = m[i][j];
+            mij = mrr * mij - m[i][r] * mrj;
+            if (denom)
+                mij /= *denom;
+            if (mij >= big_number) {
                 overflow = true;
                 return;
             }
-            SASSERT(is_integer(m[i][j]));
+            SASSERT(is_integer(mij));
         }
     }
 }
@@ -221,6 +227,8 @@ class hnf {
     unsigned     m_j;
     mpq          m_R;
     mpq          m_half_R;
+    bool         m_cancelled = false;
+    std::function<bool()> m_cancel_flag;
     mpq mod_R_balanced(const mpq & a) const {
        mpq t = a % m_R;
        return t > m_half_R? t - m_R : (t < - m_half_R? t + m_R : t);
@@ -574,6 +582,10 @@ private:
     
     void calculate_by_modulo() {
         for (m_i = 0; m_i < m_m; m_i ++) {
+            if (m_cancel_flag && m_cancel_flag()) {
+                m_cancelled = true;
+                return;
+            }
             process_row_modulo();
             SASSERT(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
@@ -583,7 +595,7 @@ private:
     }
     
 public:
-    hnf(M & A, const mpq & d) :
+    hnf(M & A, const mpq & d, std::function<bool()> cancel_flag = nullptr) :
 #ifdef Z3DEBUG
         m_H(A),
         m_A_orig(A),
@@ -594,7 +606,8 @@ public:
         m_n(A.column_count()),
         m_d(d),
         m_R(m_d),
-        m_half_R(floor(m_R / 2))
+        m_half_R(floor(m_R / 2)),
+        m_cancel_flag(cancel_flag)
     {
         if (m_m == 0 || m_n == 0 || is_zero(m_d))
             return;
@@ -605,15 +618,18 @@ public:
 #endif
         calculate_by_modulo();
 #ifdef Z3DEBUG
-        CTRACE(hnf_calc, m_H != m_W,
-               tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
-               tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
-               tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
-        SASSERT (m_H == m_W);
+        if (!m_cancelled) {
+            CTRACE(hnf_calc, m_H != m_W,
+                   tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
+                   tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
+                   tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
+            SASSERT (m_H == m_W);
+        }
 #endif
     }
 
     const M & W() const { return m_W; }
+    bool is_cancelled() const { return m_cancelled; }
     
 };
 

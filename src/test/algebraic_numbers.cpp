@@ -104,6 +104,48 @@ void test_algebraic_comparison() {
     VERIFY(!am.eq(a, b));     // 2 != 3
 }
 
+void test_algebraic_comparison_edge_case() {
+    std::cout << "test_algebraic_comparison edge case\n";
+
+    // Let p1 = 1073741837 x^2 - 576460758745874510 x - 16106127555
+    // Let p2 = p1 * (1073741837 x^2 - 576460759819616347 x -16106127555)
+    //        = 1152921532524134569 x^4 - 1237940069261339757601884309 x^3
+    //           + 332307006992839334837849081482577900 x^2 + 18569101038920096364028264635 x
+    //           + 259407344817930278025
+    // Compare a = root(p1, 1) in (-8, 0) and b = root(p2, 2) in (-15/2^29, -7/2^28)
+    // The two numbers are different (a < b), but very close, and both are roots of p2
+    
+    reslimit rl;
+    unsynch_mpq_manager qm;
+    anum_manager am(rl, qm);
+    manager m(rl, qm);
+    polynomial_ref x(m);
+    x = m.mk_polynomial(m.mk_var());
+
+    rational a0, a1, a2;
+    a0 = 161061;
+    a0 = (a0 * 100000) + 27555;
+    a1 = 576460758;
+    a1 = (a1 * 1000000000) + 745874510;
+    a2 = 10737;
+    a2 = (a2 * 100000) + 41837;
+
+    rational b1;
+    b1 = 576460759;
+    b1 = (b1 * 1000000000) + 819616347;
+    
+    polynomial_ref p1(m);
+    polynomial_ref p2(m);
+    p1 = ((a2*x*x) - (a1*x)) - a0;
+    p2 = p1 * (((a2*x*x) - (b1*x))  - a0);
+    
+    scoped_anum a(am), b(am);
+    am.mk_root(p1, 1, a);
+    am.mk_root(p2, 2, b);
+
+    VERIFY(!am.eq(a, b));
+}
+
 void test_algebraic_degree() {
     std::cout << "test_algebraic_degree\n";
     
@@ -158,6 +200,7 @@ void test_algebraic_numbers() {
     test_algebraic_basic_operations();
     test_algebraic_arithmetic();
     test_algebraic_comparison();
+    test_algebraic_comparison_edge_case();
     test_algebraic_degree();
     test_algebraic_signs();
 }

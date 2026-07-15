@@ -437,4 +437,4 @@ extern "C" {
         return from_rcnumeral(rcfm(c).get_sign_condition_coefficient(to_rcnumeral(a), i, j));
         Z3_CATCH_RETURN(nullptr);
     }
-};
+}

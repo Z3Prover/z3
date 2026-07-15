@@ -158,3 +158,88 @@ func (c *Context) MkSignExt(i uint, expr *Expr) *Expr {
 func (c *Context) MkZeroExt(i uint, expr *Expr) *Expr {
 	return newExpr(c, C.Z3_mk_zero_ext(c.ptr, C.uint(i), expr.ptr))
 }
+
+// MkBVRotateLeft rotates the bits of t to the left by i positions.
+func (c *Context) MkBVRotateLeft(i uint, t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_rotate_left(c.ptr, C.uint(i), t.ptr))
+}
+
+// MkBVRotateRight rotates the bits of t to the right by i positions.
+func (c *Context) MkBVRotateRight(i uint, t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_rotate_right(c.ptr, C.uint(i), t.ptr))
+}
+
+// MkRepeat repeats the given bit-vector t a total of i times.
+func (c *Context) MkRepeat(i uint, t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_repeat(c.ptr, C.uint(i), t.ptr))
+}
+
+// MkBVAddNoOverflow creates a predicate that checks that the bit-wise addition
+// of t1 and t2 does not overflow. If isSigned is true, checks for signed overflow.
+func (c *Context) MkBVAddNoOverflow(t1, t2 *Expr, isSigned bool) *Expr {
+	return newExpr(c, C.Z3_mk_bvadd_no_overflow(c.ptr, t1.ptr, t2.ptr, C.bool(isSigned)))
+}
+
+// MkBVAddNoUnderflow creates a predicate that checks that the bit-wise signed addition
+// of t1 and t2 does not underflow.
+func (c *Context) MkBVAddNoUnderflow(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_bvadd_no_underflow(c.ptr, t1.ptr, t2.ptr))
+}
+
+// MkBVSubNoOverflow creates a predicate that checks that the bit-wise signed subtraction
+// of t1 and t2 does not overflow.
+func (c *Context) MkBVSubNoOverflow(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_bvsub_no_overflow(c.ptr, t1.ptr, t2.ptr))
+}
+
+// MkBVSubNoUnderflow creates a predicate that checks that the bit-wise subtraction
+// of t1 and t2 does not underflow. If isSigned is true, checks for signed underflow.
+func (c *Context) MkBVSubNoUnderflow(t1, t2 *Expr, isSigned bool) *Expr {
+	return newExpr(c, C.Z3_mk_bvsub_no_underflow(c.ptr, t1.ptr, t2.ptr, C.bool(isSigned)))
+}
+
+// MkBVSdivNoOverflow creates a predicate that checks that the bit-wise signed division
+// of t1 and t2 does not overflow.
+func (c *Context) MkBVSdivNoOverflow(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_bvsdiv_no_overflow(c.ptr, t1.ptr, t2.ptr))
+}
+
+// MkBVNegNoOverflow creates a predicate that checks that bit-wise negation does not overflow
+// when t1 is interpreted as a signed bit-vector.
+func (c *Context) MkBVNegNoOverflow(t1 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_bvneg_no_overflow(c.ptr, t1.ptr))
+}
+
+// MkBVMulNoOverflow creates a predicate that checks that the bit-wise multiplication
+// of t1 and t2 does not overflow. If isSigned is true, checks for signed overflow.
+func (c *Context) MkBVMulNoOverflow(t1, t2 *Expr, isSigned bool) *Expr {
+	return newExpr(c, C.Z3_mk_bvmul_no_overflow(c.ptr, t1.ptr, t2.ptr, C.bool(isSigned)))
+}
+
+// MkBVMulNoUnderflow creates a predicate that checks that the bit-wise signed multiplication
+// of t1 and t2 does not underflow.
+func (c *Context) MkBVMulNoUnderflow(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_bvmul_no_underflow(c.ptr, t1.ptr, t2.ptr))
+}
+
+// MkBVRedAnd computes the bitwise AND reduction of a bit-vector, returning a 1-bit vector.
+func (c *Context) MkBVRedAnd(t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_bvredand(c.ptr, t.ptr))
+}
+
+// MkBVRedOr computes the bitwise OR reduction of a bit-vector, returning a 1-bit vector.
+func (c *Context) MkBVRedOr(t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_bvredor(c.ptr, t.ptr))
+}
+
+// MkBVExtRotateLeft rotates the bits of t1 to the left by the number of bits given by t2.
+// Both t1 and t2 must be bit-vectors of the same width.
+func (c *Context) MkBVExtRotateLeft(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_ext_rotate_left(c.ptr, t1.ptr, t2.ptr))
+}
+
+// MkBVExtRotateRight rotates the bits of t1 to the right by the number of bits given by t2.
+// Both t1 and t2 must be bit-vectors of the same width.
+func (c *Context) MkBVExtRotateRight(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_ext_rotate_right(c.ptr, t1.ptr, t2.ptr))
+}

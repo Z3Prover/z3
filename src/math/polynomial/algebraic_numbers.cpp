@@ -22,6 +22,7 @@ Notes:
 #include "util/mpbqi.h"
 #include "util/timeit.h"
 #include "util/common_msgs.h"
+#include "util/index_sort_with_mutations.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/upolynomial.h"
 #include "math/polynomial/sexpr2upolynomial.h"
@@ -593,10 +594,57 @@ namespace algebraic_numbers {
             }
         }
 
+        // Sort an index permutation with a bounds-safe, mutation-aware merge
+        // sort. The comparator (compare/lt) is NOT pure: it MUTATES the
+        // algebraic numbers it compares (refining their isolating intervals) and
+        // may throw on the resource limit, so std::sort would be undefined
+        // behavior here. See util/index_sort_with_mutations.h for the rationale.
+        void merge_sort_roots_perm(numeral_vector & r, unsigned_vector & perm) {
+            unsigned n = perm.size();
+            if (n < 2)
+                return;
+            unsigned_vector scratch;
+            scratch.resize(n, 0);
+            // Strict, total, stable index comparator: decided sign first, then index
+            // tiebreak (covers the equal/limit case so the order stays deterministic).
+            auto idx_lt = [&](unsigned x, unsigned y) {
+                ::sign s = compare(r[x], r[y]);
+                return s != sign_zero ? s == sign_neg : x < y;
+            };
+            stable_index_merge_sort(perm.data(), scratch.data(), n, idx_lt);
+        }
+
         void sort_roots(numeral_vector & r) {
-            if (m_limit.inc()) {
-                // DEBUG_CODE(check_transitivity(r););
-                std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
+            if (!m_limit.inc())
+                return;
+            // DEBUG_CODE(check_transitivity(r););
+            unsigned n = r.size();
+            if (n < 2)
+                return;
+            unsigned_vector perm;
+            perm.resize(n, 0);
+            for (unsigned i = 0; i < n; ++i)
+                perm[i] = i;
+            merge_sort_roots_perm(r, perm);
+            // Apply the permutation in place via swap cycles. anum swap is a cheap
+            // pointer swap (move nulls the source), so this is O(n) cheap moves.
+            unsigned_vector pos;       // pos[v] = current position of element v
+            pos.resize(n, 0);
+            unsigned_vector at;        // at[p]  = element currently at position p
+            at.resize(n, 0);
+            for (unsigned i = 0; i < n; ++i) {
+                pos[i] = i;
+                at[i] = i;
+            }
+            for (unsigned target = 0; target < n; ++target) {
+                unsigned want = perm[target];   // element that should end up at target
+                unsigned cur = pos[want];        // where it currently is
+                if (cur == target)
+                    continue;
+                unsigned other = at[target];     // element currently at target
+                std::swap(r[target], r[cur]);
+                at[target] = want;  at[cur] = other;
+                pos[want] = target; pos[other] = cur;
             }
         }
 
@@ -2018,8 +2066,15 @@ namespace algebraic_numbers {
             scoped_mpbq la(bqm()), ua(bqm());
             scoped_mpbq lb(bqm()), ub(bqm());
             unsigned precision = 10;
-            if (get_interval(a, la, ua, precision) && 
-                get_interval(b, lb, ub, precision)) { 
+            // Important: both intervals must be computed. Do not short-circuit with &&:
+            // the refined bounds la, ua, lb, ub are all used below (and beyond this
+            // if statement, in the interval-separation checks that compare against
+            // the bounds of a and b), so get_interval(b, ...) has to run even when
+            // get_interval(a, ...) returns false (which happens when a is rational
+            // and its exact root is found).
+            bool a_separated = get_interval(a, la, ua, precision);
+            bool b_separated = get_interval(b, lb, ub, precision);
+            if (a_separated && b_separated) {
                 IF_VERBOSE(9, verbose_stream() << "sturm 0\n");
                 if (la > ub) 
                     return sign_pos;
@@ -2027,6 +2082,20 @@ namespace algebraic_numbers {
                     return sign_neg;
             }
             IF_VERBOSE(9, verbose_stream() << "sturm 1\n");
+
+
+            // Check whether a can be separated from b's interval and vice versa
+            // this recognizes the case where the intervals overlap,
+            // but the anums do not lie in the intersection of the intervals.
+            scoped_mpq l_a(qm()), u_a(qm()), l_b(qm()), u_b(qm());
+            to_mpq(qm(), la, l_a);
+            to_mpq(qm(), ua, u_a);
+            to_mpq(qm(), lb, l_b);
+            to_mpq(qm(), ub, u_b);
+            if (compare(cell_a, l_b) == sign_neg) return sign_neg;
+            if (compare(cell_a, u_b) == sign_pos) return sign_pos;
+            if (compare(cell_b, l_a) == sign_neg) return sign_pos;
+            if (compare(cell_b, u_a) == sign_pos) return sign_neg;
 
             // 
             // EXPENSIVE CASE
@@ -2620,7 +2689,8 @@ namespace algebraic_numbers {
                 TRACE(isolate_roots, tout << "resultant loop i: " << i << ", y: x" << y << "\np_y: " << p_y << "\n";
                       tout << "q: " << q << "\n";);
                 if (ext_pm.is_zero(q)) {
-                    SASSERT(!nested_call);
+                    if (nested_call)
+                        throw algebraic_exception("resultant vanished during nested isolate_roots call");
                     break;
                 }
             }
@@ -2632,7 +2702,8 @@ namespace algebraic_numbers {
                 // until we find one that is not zero at x2v.
                 // In the process we will copy p_prime to the local polynomial manager, since we will need to create
                 // an auxiliary variable.
-                SASSERT(!nested_call);
+                if (nested_call)
+                    throw algebraic_exception("resultant vanished during nested isolate_roots call");
                 unsigned n = ext_pm.degree(p_prime, x);
                 SASSERT(n > 0);
                 if (n == 1) {
@@ -3447,4 +3518,4 @@ namespace algebraic_numbers {
     void manager::collect_statistics(statistics & st) const {
         m_imp->collect_statistics(st);
     }
-};
+}

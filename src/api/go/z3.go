@@ -89,6 +89,7 @@ type Context struct {
 // NewContext creates a new Z3 context with default configuration.
 func NewContext() *Context {
 	ctx := &Context{ptr: C.Z3_mk_context_rc(C.Z3_mk_config())}
+	C.Z3_enable_concurrent_dec_ref(ctx.ptr)
 	runtime.SetFinalizer(ctx, func(c *Context) {
 		C.Z3_del_context(c.ptr)
 	})
@@ -98,6 +99,7 @@ func NewContext() *Context {
 // NewContextWithConfig creates a new Z3 context with the given configuration.
 func NewContextWithConfig(cfg *Config) *Context {
 	ctx := &Context{ptr: C.Z3_mk_context_rc(cfg.ptr)}
+	C.Z3_enable_concurrent_dec_ref(ctx.ptr)
 	runtime.SetFinalizer(ctx, func(c *Context) {
 		C.Z3_del_context(c.ptr)
 	})
@@ -240,6 +242,45 @@ func newExpr(ctx *Context, ptr C.Z3_ast) *Expr {
 	return expr
 }
 
+// intsToCs converts a []int slice to []C.int, returning the slice and
+// a pointer to its first element (nil if empty).
+func intsToCs(ints []int) ([]C.int, *C.int) {
+	if len(ints) == 0 {
+		return nil, nil
+	}
+	cInts := make([]C.int, len(ints))
+	for i, v := range ints {
+		cInts[i] = C.int(v)
+	}
+	return cInts, &cInts[0]
+}
+
+// exprsToASTs converts a []*Expr slice to []C.Z3_ast, returning the slice and
+// a pointer to its first element (nil if empty).
+func exprsToASTs(exprs []*Expr) ([]C.Z3_ast, *C.Z3_ast) {
+	if len(exprs) == 0 {
+		return nil, nil
+	}
+	cExprs := make([]C.Z3_ast, len(exprs))
+	for i, e := range exprs {
+		cExprs[i] = e.ptr
+	}
+	return cExprs, &cExprs[0]
+}
+
+// sortsToCSorts converts a []*Sort slice to []C.Z3_sort, returning the slice and
+// a pointer to its first element (nil if empty).
+func sortsToCSorts(sorts []*Sort) ([]C.Z3_sort, *C.Z3_sort) {
+	if len(sorts) == 0 {
+		return nil, nil
+	}
+	cSorts := make([]C.Z3_sort, len(sorts))
+	for i, s := range sorts {
+		cSorts[i] = s.ptr
+	}
+	return cSorts, &cSorts[0]
+}
+
 // String returns the string representation of the expression.
 func (e *Expr) String() string {
 	return C.GoString(C.Z3_ast_to_string(e.ctx.ptr, e.ptr))
@@ -289,6 +330,21 @@ func newASTVector(ctx *Context, ptr C.Z3_ast_vector) *ASTVector {
 		C.Z3_ast_vector_dec_ref(vec.ctx.ptr, vec.ptr)
 	})
 	return v
+}
+
+// Size returns the number of ASTs in the vector.
+func (v *ASTVector) Size() uint {
+	return uint(C.Z3_ast_vector_size(v.ctx.ptr, v.ptr))
+}
+
+// Get returns the i-th AST in the vector.
+func (v *ASTVector) Get(i uint) *Expr {
+	return newExpr(v.ctx, C.Z3_ast_vector_get(v.ctx.ptr, v.ptr, C.uint(i)))
+}
+
+// String returns the string representation of the AST vector.
+func (v *ASTVector) String() string {
+	return C.GoString(C.Z3_ast_vector_to_string(v.ctx.ptr, v.ptr))
 }
 
 // ParamDescrs represents parameter descriptions for Z3 objects.
@@ -353,11 +409,8 @@ func (c *Context) MkAnd(exprs ...*Expr) *Expr {
 	if len(exprs) == 1 {
 		return exprs[0]
 	}
-	cExprs := make([]C.Z3_ast, len(exprs))
-	for i, e := range exprs {
-		cExprs[i] = e.ptr
-	}
-	return newExpr(c, C.Z3_mk_and(c.ptr, C.uint(len(exprs)), &cExprs[0]))
+	_, cExprsPtr := exprsToASTs(exprs)
+	return newExpr(c, C.Z3_mk_and(c.ptr, C.uint(len(exprs)), cExprsPtr))
 }
 
 // MkOr creates a disjunction.
@@ -368,11 +421,8 @@ func (c *Context) MkOr(exprs ...*Expr) *Expr {
 	if len(exprs) == 1 {
 		return exprs[0]
 	}
-	cExprs := make([]C.Z3_ast, len(exprs))
-	for i, e := range exprs {
-		cExprs[i] = e.ptr
-	}
-	return newExpr(c, C.Z3_mk_or(c.ptr, C.uint(len(exprs)), &cExprs[0]))
+	_, cExprsPtr := exprsToASTs(exprs)
+	return newExpr(c, C.Z3_mk_or(c.ptr, C.uint(len(exprs)), cExprsPtr))
 }
 
 // MkNot creates a negation.
@@ -407,11 +457,52 @@ func (c *Context) MkDistinct(exprs ...*Expr) *Expr {
 	if len(exprs) <= 1 {
 		return c.MkTrue()
 	}
-	cExprs := make([]C.Z3_ast, len(exprs))
-	for i, e := range exprs {
-		cExprs[i] = e.ptr
+	_, cExprsPtr := exprsToASTs(exprs)
+	return newExpr(c, C.Z3_mk_distinct(c.ptr, C.uint(len(exprs)), cExprsPtr))
+}
+
+// Pseudo-Boolean / cardinality constraints
+
+// MkAtMost encodes p1 + p2 + ... + pn <= k.
+func (c *Context) MkAtMost(args []*Expr, k uint) *Expr {
+	_, cArgsPtr := exprsToASTs(args)
+	return newExpr(c, C.Z3_mk_atmost(c.ptr, C.uint(len(args)), cArgsPtr, C.uint(k)))
+}
+
+// MkAtLeast encodes p1 + p2 + ... + pn >= k.
+func (c *Context) MkAtLeast(args []*Expr, k uint) *Expr {
+	_, cArgsPtr := exprsToASTs(args)
+	return newExpr(c, C.Z3_mk_atleast(c.ptr, C.uint(len(args)), cArgsPtr, C.uint(k)))
+}
+
+// MkPBLe encodes k1*p1 + k2*p2 + ... + kn*pn <= k.
+func (c *Context) MkPBLe(args []*Expr, coeffs []int, k int) *Expr {
+	if len(args) != len(coeffs) {
+		panic("MkPBLe: args and coeffs must have the same length")
 	}
-	return newExpr(c, C.Z3_mk_distinct(c.ptr, C.uint(len(exprs)), &cExprs[0]))
+	_, cArgsPtr := exprsToASTs(args)
+	_, cCoeffsPtr := intsToCs(coeffs)
+	return newExpr(c, C.Z3_mk_pble(c.ptr, C.uint(len(args)), cArgsPtr, cCoeffsPtr, C.int(k)))
+}
+
+// MkPBGe encodes k1*p1 + k2*p2 + ... + kn*pn >= k.
+func (c *Context) MkPBGe(args []*Expr, coeffs []int, k int) *Expr {
+	if len(args) != len(coeffs) {
+		panic("MkPBGe: args and coeffs must have the same length")
+	}
+	_, cArgsPtr := exprsToASTs(args)
+	_, cCoeffsPtr := intsToCs(coeffs)
+	return newExpr(c, C.Z3_mk_pbge(c.ptr, C.uint(len(args)), cArgsPtr, cCoeffsPtr, C.int(k)))
+}
+
+// MkPBEq encodes k1*p1 + k2*p2 + ... + kn*pn = k.
+func (c *Context) MkPBEq(args []*Expr, coeffs []int, k int) *Expr {
+	if len(args) != len(coeffs) {
+		panic("MkPBEq: args and coeffs must have the same length")
+	}
+	_, cArgsPtr := exprsToASTs(args)
+	_, cCoeffsPtr := intsToCs(coeffs)
+	return newExpr(c, C.Z3_mk_pbeq(c.ptr, C.uint(len(args)), cArgsPtr, cCoeffsPtr, C.int(k)))
 }
 
 // FuncDecl represents a function declaration.
@@ -460,27 +551,26 @@ func (f *FuncDecl) GetRange() *Sort {
 
 // MkFuncDecl creates a function declaration.
 func (c *Context) MkFuncDecl(name *Symbol, domain []*Sort, range_ *Sort) *FuncDecl {
-	cDomain := make([]C.Z3_sort, len(domain))
-	for i, s := range domain {
-		cDomain[i] = s.ptr
-	}
-	var domainPtr *C.Z3_sort
-	if len(domain) > 0 {
-		domainPtr = &cDomain[0]
-	}
+	_, domainPtr := sortsToCSorts(domain)
 	return newFuncDecl(c, C.Z3_mk_func_decl(c.ptr, name.ptr, C.uint(len(domain)), domainPtr, range_.ptr))
+}
+
+// MkRecFuncDecl creates a recursive function declaration.
+// After creating, use AddRecDef to provide the function body.
+func (c *Context) MkRecFuncDecl(name *Symbol, domain []*Sort, range_ *Sort) *FuncDecl {
+	_, domainPtr := sortsToCSorts(domain)
+	return newFuncDecl(c, C.Z3_mk_rec_func_decl(c.ptr, name.ptr, C.uint(len(domain)), domainPtr, range_.ptr))
+}
+
+// AddRecDef adds the definition (body) for a recursive function created with MkRecFuncDecl.
+func (c *Context) AddRecDef(f *FuncDecl, args []*Expr, body *Expr) {
+	_, argsPtr := exprsToASTs(args)
+	C.Z3_add_rec_def(c.ptr, f.ptr, C.uint(len(args)), argsPtr, body.ptr)
 }
 
 // MkApp creates a function application.
 func (c *Context) MkApp(decl *FuncDecl, args ...*Expr) *Expr {
-	cArgs := make([]C.Z3_ast, len(args))
-	for i, a := range args {
-		cArgs[i] = a.ptr
-	}
-	var argsPtr *C.Z3_ast
-	if len(args) > 0 {
-		argsPtr = &cArgs[0]
-	}
+	_, argsPtr := exprsToASTs(args)
 	return newExpr(c, C.Z3_mk_app(c.ptr, decl.ptr, C.uint(len(args)), argsPtr))
 }
 
@@ -517,6 +607,66 @@ func (c *Context) MkExists(bound []*Expr, body *Expr) *Expr {
 // Simplify simplifies an expression.
 func (e *Expr) Simplify() *Expr {
 	return newExpr(e.ctx, C.Z3_simplify(e.ctx.ptr, e.ptr))
+}
+
+// GetDecl returns the function declaration of an application expression.
+func (e *Expr) GetDecl() *FuncDecl {
+	return newFuncDecl(e.ctx, C.Z3_get_app_decl(e.ctx.ptr, C.Z3_to_app(e.ctx.ptr, e.ptr)))
+}
+
+// NumArgs returns the number of arguments of an application expression.
+func (e *Expr) NumArgs() uint {
+	return uint(C.Z3_get_app_num_args(e.ctx.ptr, C.Z3_to_app(e.ctx.ptr, e.ptr)))
+}
+
+// Arg returns the i-th argument of an application expression.
+func (e *Expr) Arg(i uint) *Expr {
+	return newExpr(e.ctx, C.Z3_get_app_arg(e.ctx.ptr, C.Z3_to_app(e.ctx.ptr, e.ptr), C.uint(i)))
+}
+
+// Substitute replaces every occurrence of from[i] in the expression with to[i].
+// The from and to slices must have the same length.
+func (e *Expr) Substitute(from, to []*Expr) *Expr {
+	n := len(from)
+	cFrom := make([]C.Z3_ast, n)
+	cTo := make([]C.Z3_ast, n)
+	for i := range from {
+		cFrom[i] = from[i].ptr
+		cTo[i] = to[i].ptr
+	}
+	var fromPtr, toPtr *C.Z3_ast
+	if n > 0 {
+		fromPtr = &cFrom[0]
+		toPtr = &cTo[0]
+	}
+	return newExpr(e.ctx, C.Z3_substitute(e.ctx.ptr, e.ptr, C.uint(n), fromPtr, toPtr))
+}
+
+// SubstituteVars replaces free variables in the expression with the expressions in to.
+// Variable with de-Bruijn index i is replaced with to[i].
+func (e *Expr) SubstituteVars(to []*Expr) *Expr {
+	_, toPtr := exprsToASTs(to)
+	return newExpr(e.ctx, C.Z3_substitute_vars(e.ctx.ptr, e.ptr, C.uint(len(to)), toPtr))
+}
+
+// SubstituteFuns replaces every occurrence of from[i] applied to arguments
+// with to[i] in the expression.
+// The from and to slices must have the same length.
+func (e *Expr) SubstituteFuns(from []*FuncDecl, to []*Expr) *Expr {
+	n := len(from)
+	cFrom := make([]C.Z3_func_decl, n)
+	cTo := make([]C.Z3_ast, n)
+	for i := range from {
+		cFrom[i] = from[i].ptr
+		cTo[i] = to[i].ptr
+	}
+	var fromPtr *C.Z3_func_decl
+	var toPtr *C.Z3_ast
+	if n > 0 {
+		fromPtr = &cFrom[0]
+		toPtr = &cTo[0]
+	}
+	return newExpr(e.ctx, C.Z3_substitute_funs(e.ctx.ptr, e.ptr, C.uint(n), fromPtr, toPtr))
 }
 
 // MkTypeVariable creates a type variable sort for use in polymorphic functions and datatypes
@@ -612,12 +762,7 @@ func (q *Quantifier) String() string {
 
 // MkQuantifier creates a quantifier with patterns
 func (c *Context) MkQuantifier(isForall bool, weight int, sorts []*Sort, names []*Symbol, body *Expr, patterns []*Pattern) *Quantifier {
-	var forallInt C.bool
-	if isForall {
-		forallInt = true
-	} else {
-		forallInt = false
-	}
+	forallInt := C.bool(isForall)
 
 	numBound := len(sorts)
 	if numBound != len(names) {
@@ -660,12 +805,7 @@ func (c *Context) MkQuantifier(isForall bool, weight int, sorts []*Sort, names [
 
 // MkQuantifierConst creates a quantifier using constant bound variables
 func (c *Context) MkQuantifierConst(isForall bool, weight int, bound []*Expr, body *Expr, patterns []*Pattern) *Quantifier {
-	var forallInt C.bool
-	if isForall {
-		forallInt = true
-	} else {
-		forallInt = false
-	}
+	forallInt := C.bool(isForall)
 
 	numBound := len(bound)
 	var cBound []C.Z3_app
@@ -786,6 +926,33 @@ func (c *Context) MkLambdaConst(bound []*Expr, body *Expr) *Lambda {
 
 	ptr := C.Z3_mk_lambda_const(c.ptr, C.uint(numBound), boundPtr, body.ptr)
 	return newLambda(c, ptr)
+}
+
+// SetGlobalParam sets a global Z3 parameter.
+func SetGlobalParam(id, value string) {
+	cID := C.CString(id)
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cID))
+	defer C.free(unsafe.Pointer(cValue))
+	C.Z3_global_param_set(cID, cValue)
+}
+
+// GetGlobalParam retrieves the value of a global Z3 parameter.
+// Returns the value and true if the parameter exists, or empty string and false otherwise.
+func GetGlobalParam(id string) (string, bool) {
+	cID := C.CString(id)
+	defer C.free(unsafe.Pointer(cID))
+	var cValue C.Z3_string
+	ok := C.Z3_global_param_get(cID, &cValue)
+	if ok == C.bool(false) {
+		return "", false
+	}
+	return C.GoString(cValue), true
+}
+
+// ResetAllGlobalParams resets all global Z3 parameters to their default values.
+func ResetAllGlobalParams() {
+	C.Z3_global_param_reset_all()
 }
 
 // astVectorToExprs converts a Z3_ast_vector to a slice of Expr.

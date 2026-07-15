@@ -1,4 +1,3 @@
-
 /*++
   Copyright (c) 2025 Microsoft Corporation
 
@@ -13,6 +12,9 @@
   --*/
 
 #pragma once
+
+#include "util/uint_set.h"
+#include "util/vector.h"
 
 namespace nla {
 

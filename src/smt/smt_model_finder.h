@@ -52,6 +52,7 @@ Revision History:
 #include "tactic/tactic_exception.h"
 
 class model_instantiation_set;
+class statistics;
 
 namespace smt {
     class context;
@@ -64,7 +65,7 @@ namespace smt {
         class hint_solver;
         class non_auf_macro_solver;  
         class instantiation_set;
-    };
+    }
         
     class model_finder : public quantifier2macro_infos {
         typedef mf::quantifier_analyzer        quantifier_analyzer;
@@ -113,7 +114,7 @@ namespace smt {
         void fix_model(proto_model * m);
 
         quantifier * get_flat_quantifier(quantifier * q);
-        expr * get_inv(quantifier * q, unsigned i, expr * val, unsigned & generation);
+        expr * get_inv(quantifier * q, unsigned i, expr * val, model& m, unsigned & generation);
         bool restrict_sks_to_inst_set(context * aux_ctx, quantifier * q, expr_ref_vector const & sks);
 
         void restart_eh();
@@ -122,6 +123,8 @@ namespace smt {
 
         quantifier_macro_info* operator()(quantifier* q) override;
 
+        void collect_statistics(::statistics & st) const;
+
     };
-};
+}
 

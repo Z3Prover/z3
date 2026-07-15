@@ -31,5 +31,5 @@ namespace mbp {
 
     };
 
-};
+}
 

@@ -56,6 +56,7 @@ X(ctx_propagate_assertions, assert_eq_bug, "assert eq bug")
 X(ctx_solver_simplify_tactic, ctx_solver_simplify_tactic, "ctx solver simplify tactic")
 
 X(default_qm_plugin, default_qm_plugin, "default qm plugin")
+X(default_qm_plugin, ho_matching, "ho matching")
 X(default_qm_plugin, mam_stats, "mam stats")
 X(default_qm_plugin, quantifier, "quantifier")
 
@@ -69,6 +70,8 @@ X(eq_der, top_sort, "top sort")
 
 X(expr_substitution_simplifier, expr_substitution_simplifier, "expr substitution simplifier")
 X(expr_substitution_simplifier, propagate_values, "propagate values")
+
+X(finite_set, finite_set, "finite set")
 
 X(fm_model_converter, fm_model_converter, "fm model converter")
 X(fm_model_converter, fm_mc, "fm mc")
@@ -540,6 +543,7 @@ X(Global, isolate_roots_bug, "isolate roots bug")
 X(Global, ite_bug, "ite bug")
 X(Global, lar_solver_feas, "lar solver feas")
 X(Global, lar_solver_inf_heap, "lar solver inf heap")
+X(Global, lar_solver_restore, "lar solver restore")
 X(Global, Lazard, "Lazard")
 X(Global, lcm_bug, "lcm bug")
 X(Global, le_bug, "le bug")

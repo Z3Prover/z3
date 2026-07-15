@@ -22,11 +22,14 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 #include "ast/func_decl_dependencies.h"
+#include "smt/smt_context.h"
 #include "smt/smt_kernel.h"
 #include "params/smt_params.h"
 #include "params/smt_params_helper.hpp"
 #include "solver/solver_na2as.h"
 #include "solver/mus.h"
+
+#include <algorithm>
 
 namespace {
 
@@ -61,6 +64,7 @@ namespace {
         smt_params           m_smt_params;
         smt::kernel          m_context;
         cuber*               m_cuber;
+        random_gen           m_rand;
         symbol               m_logic;
         bool                 m_minimizing_core;
         bool                 m_core_extend_patterns;
@@ -84,16 +88,19 @@ namespace {
             updt_params(p);
         }
 
-        solver * translate(ast_manager & m, params_ref const & p) override {
-            ast_translation translator(get_manager(), m);
+        solver * translate(ast_manager & target, params_ref const & p) override {
+            ast_translation translator(get_manager(), target);
+            params_ref init;
+            init.copy(get_params());
+            init.copy(p);
 
-            smt_solver * result = alloc(smt_solver, m, p, m_logic);
+            smt_solver* result = alloc(smt_solver, target, init, m_logic);
             smt::kernel::copy(m_context, result->m_context, true);
 
-            if (mc0()) 
+            if (mc0())
                 result->set_model_converter(mc0()->translate(translator));
 
-            for (auto & [k, v] : m_name2assertion) {
+            for (auto& [k, v] : m_name2assertion) {
                 expr* val = translator(k);
                 expr* key = translator(v);
                 result->assert_expr(val, key);
@@ -142,7 +149,7 @@ namespace {
             insert_ctrl_c(r);
         }
 
-        void collect_statistics(statistics & st) const override {
+        void collect_statistics_core(statistics & st) const override {
             m_context.collect_statistics(st);
         }
 
@@ -210,6 +217,97 @@ namespace {
 
         expr_ref_vector get_trail(unsigned max_level) override {
             return m_context.get_trail(max_level);
+        }
+
+        expr_ref_vector get_assigned_literals() override {
+            expr_ref_vector result(m);
+            auto const& ctx = m_context.get_context();
+            for (auto lit : ctx.assigned_literals()) {
+                expr* atom = ctx.bool_var2expr(lit.var());
+                if (!atom)
+                    continue;
+                result.push_back(lit.sign() ? m.mk_not(atom) : atom);
+            }
+            return result;
+        }
+
+        unsigned get_assign_level(expr* e) const override {
+            auto const& ctx = m_context.get_context();
+            get_manager().is_not(e, e);
+            if (!ctx.b_internalized(e))
+                return UINT_MAX;
+            return ctx.get_assign_level(ctx.get_bool_var(e));
+        }
+
+        bool is_relevant(expr* e) const override {
+            auto const& ctx = m_context.get_context();
+            get_manager().is_not(e, e);
+            return ctx.b_internalized(e) && ctx.is_relevant(e);
+        }
+
+        unsigned get_num_bool_vars() const override {
+            return m_context.get_context().get_num_bool_vars();
+        }
+
+        sat::bool_var get_bool_var(expr* e) const override {
+            auto const& ctx = m_context.get_context();
+            get_manager().is_not(e, e);
+            return ctx.b_internalized(e) ? ctx.get_bool_var(e) : sat::null_bool_var;
+        }
+
+        void pop_to_base_level() override {
+            m_context.pop_to_base_level();
+        }
+
+        void setup_for_parallel() override {
+            m_context.get_context().setup_for_parallel();
+        }
+
+        void set_preprocess(bool f) override {
+            m_context.set_preprocess(f);
+        }
+
+        void set_max_conflicts(unsigned max_conflicts) override {
+            auto& ctx = m_context.get_context();
+            ctx.get_fparams().m_max_conflicts = max_conflicts;
+        }
+
+        unsigned get_max_conflicts() const override {
+            return m_context.get_context().get_fparams().m_max_conflicts;
+        }
+
+        void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+            ast_manager& m = get_manager();
+            auto& ctx = m_context.get_context();
+            unsigned curr_time = ctx.get_num_assignments();
+            vector<solver::scored_literal> all;
+
+            for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
+                if (ctx.get_assignment(v) != l_undef && ctx.get_assign_level(v) == ctx.get_base_level())
+                    continue;
+
+                expr* candidate = ctx.bool_var2expr(v);
+                if (!candidate)
+                    continue;
+
+                auto const& d = ctx.get_bdata(v);
+                if (d.m_phase_available && !d.m_phase)
+                    candidate = m.mk_not(candidate);
+
+                double age = static_cast<double>(curr_time - ctx.get_birthdate(v));
+                all.push_back(solver::scored_literal(m, candidate, age));
+            }
+
+            std::stable_sort(
+                all.begin(),
+                all.end(),
+                [](solver::scored_literal const& a, solver::scored_literal const& b) {
+                    return a.score > b.score;
+                });
+
+            unsigned n = std::min<unsigned>(max_num, all.size());
+            for (unsigned i = 0; i < n; ++i)
+                candidates.push_back(all[i]);
         }
 
         void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
@@ -366,6 +464,39 @@ namespace {
             }
             lits.push_back(result);
             return lits;
+        }
+
+        expr_ref cube_vsids(expr_ref_vector const& invalid_split_atoms) override {
+            ast_manager& m = get_manager();
+            auto& ctx = m_context.get_context();
+            obj_hashtable<expr> invalid_split_atoms_set;
+            for (expr* e : invalid_split_atoms) {
+                expr* atom = e;
+                m.is_not(e, atom);
+                invalid_split_atoms_set.insert(atom);
+            }
+            expr_ref result(m);
+            double score = 0.0;
+            unsigned n = 0;
+
+            ctx.pop_to_search_level();
+            for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
+                if (ctx.get_assignment(v) != l_undef)
+                    continue;
+                expr* e = ctx.bool_var2expr(v);
+                if (!e)
+                    continue;
+                expr* atom = e;
+                m.is_not(e, atom);
+                if (invalid_split_atoms_set.contains(atom))
+                    continue;
+                double new_score = ctx.get_activity(v);
+                if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
+                    score = new_score;
+                    result = e;
+                }
+            }
+            return result;
         }
 
         struct collect_fds_proc {
@@ -537,4 +668,3 @@ public:
 solver_factory * mk_smt_solver_factory() {
     return alloc(smt_solver_factory);
 }
-

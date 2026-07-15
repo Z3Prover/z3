@@ -32,7 +32,17 @@ public class FPExpr extends Expr<FPSort>
      * @throws Z3Exception 
      */
     public int getSBits() { return ((FPSort)getSort()).getSBits(); }
-    
+
+    /**
+     * Indicates whether the floating-point expression is a numeral.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isNumeral()
+    {
+        return Native.fpaIsNumeral(getContext().nCtx(), getNativeObject());
+    }
+
     public FPExpr(Context ctx, long obj)
     {
         super(ctx, obj); 

@@ -124,3 +124,33 @@ func (c *Context) MkGt(lhs, rhs *Expr) *Expr {
 func (c *Context) MkGe(lhs, rhs *Expr) *Expr {
 	return newExpr(c, C.Z3_mk_ge(c.ptr, lhs.ptr, rhs.ptr))
 }
+
+// MkPower creates an exponentiation expression (base^exp).
+func (c *Context) MkPower(base, exp *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_power(c.ptr, base.ptr, exp.ptr))
+}
+
+// MkAbs creates an absolute value expression.
+func (c *Context) MkAbs(arg *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_abs(c.ptr, arg.ptr))
+}
+
+// MkInt2Real coerces an integer expression to a real.
+func (c *Context) MkInt2Real(arg *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_int2real(c.ptr, arg.ptr))
+}
+
+// MkReal2Int converts a real expression to an integer (floor).
+func (c *Context) MkReal2Int(arg *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_real2int(c.ptr, arg.ptr))
+}
+
+// MkIsInt creates a predicate that checks whether a real expression is an integer.
+func (c *Context) MkIsInt(arg *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_is_int(c.ptr, arg.ptr))
+}
+
+// MkDivides creates an integer divisibility predicate (t1 divides t2).
+func (c *Context) MkDivides(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_divides(c.ptr, t1.ptr, t2.ptr))
+}

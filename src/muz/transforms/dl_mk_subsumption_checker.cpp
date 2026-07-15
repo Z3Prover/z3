@@ -357,4 +357,4 @@ namespace datalog {
         return res.detach();
     }
 
-};
+}

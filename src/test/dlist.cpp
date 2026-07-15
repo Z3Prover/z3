@@ -30,28 +30,28 @@ public:
 // Test the prev() method
 void test_prev() {
     TestNode node(1);
-    SASSERT(node.prev() == &node);
+    ENSURE(node.prev() == &node);
     std::cout << "test_prev passed." << std::endl;
 }
 
 // Test the next() method
 static void test_next() {
     TestNode node(1);
-    SASSERT(node.next() == &node);
+    ENSURE(node.next() == &node);
     std::cout << "test_next passed." << std::endl;
 }
 
 // Test the const prev() method
 static void test_const_prev() {
     const TestNode node(1);
-    SASSERT(node.prev() == &node);
+    ENSURE(node.prev() == &node);
     std::cout << "test_const_prev passed." << std::endl;
 }
 
 // Test the const next() method
 static void test_const_next() {
     const TestNode node(1);
-    SASSERT(node.next() == &node);
+    ENSURE(node.next() == &node);
     std::cout << "test_const_next passed." << std::endl;
 }
 
@@ -59,9 +59,9 @@ static void test_const_next() {
 static void test_init() {
     TestNode node(1);
     node.init(&node);
-    SASSERT(node.next() == &node);
-    SASSERT(node.prev() == &node);
-    SASSERT(node.invariant());
+    ENSURE(node.next() == &node);
+    ENSURE(node.prev() == &node);
+    ENSURE(node.invariant());
     std::cout << "test_init passed." << std::endl;
 }
 
@@ -70,11 +70,11 @@ static void test_pop() {
     TestNode* list = nullptr;
     TestNode node1(1);
     TestNode::push_to_front(list, &node1);
-    TestNode* popped = TestNode::pop(list);
-    SASSERT(popped == &node1);
-    SASSERT(list == nullptr);
-    SASSERT(popped->next() == popped);
-    SASSERT(popped->prev() == popped);
+    [[maybe_unused]] TestNode* popped = TestNode::pop(list);
+    ENSURE(popped == &node1);
+    ENSURE(list == nullptr);
+    ENSURE(popped->next() == popped);
+    ENSURE(popped->prev() == popped);
     std::cout << "test_pop passed." << std::endl;
 }
 
@@ -83,12 +83,12 @@ static void test_insert_after() {
     TestNode node1(1);
     TestNode node2(2);
     node1.insert_after(&node2);
-    SASSERT(node1.next() == &node2);
-    SASSERT(node2.prev() == &node1);
-    SASSERT(node1.prev() == &node2);
-    SASSERT(node2.next() == &node1);
-    SASSERT(node1.invariant());
-    SASSERT(node2.invariant());
+    ENSURE(node1.next() == &node2);
+    ENSURE(node2.prev() == &node1);
+    ENSURE(node1.prev() == &node2);
+    ENSURE(node2.next() == &node1);
+    ENSURE(node1.invariant());
+    ENSURE(node2.invariant());
     std::cout << "test_insert_after passed." << std::endl;
 }
 
@@ -97,12 +97,12 @@ static void test_insert_before() {
     TestNode node1(1);
     TestNode node2(2);
     node1.insert_before(&node2);
-    SASSERT(node1.prev() == &node2);
-    SASSERT(node2.next() == &node1);
-    SASSERT(node1.next() == &node2);
-    SASSERT(node2.prev() == &node1);
-    SASSERT(node1.invariant());
-    SASSERT(node2.invariant());
+    ENSURE(node1.prev() == &node2);
+    ENSURE(node2.next() == &node1);
+    ENSURE(node1.next() == &node2);
+    ENSURE(node2.prev() == &node1);
+    ENSURE(node1.invariant());
+    ENSURE(node2.invariant());
     std::cout << "test_insert_before passed." << std::endl;
 }
 
@@ -115,9 +115,9 @@ static void test_remove_from() {
     TestNode::push_to_front(list, &node1);
     TestNode::push_to_front(list, &node2);
     TestNode::remove_from(list, &node1);
-    SASSERT(list == &node2);
-    SASSERT(node2.next() == &node2);
-    SASSERT(node2.prev() == &node2);
+    ENSURE(list == &node2);
+    ENSURE(node2.next() == &node2);
+    ENSURE(node2.prev() == &node2);
     std::cout << "test_remove_from passed." << std::endl;
 }
 #endif
@@ -127,9 +127,9 @@ static void test_push_to_front() {
     TestNode* list = nullptr;
     TestNode node1(1);
     TestNode::push_to_front(list, &node1);
-    SASSERT(list == &node1);
-    SASSERT(node1.next() == &node1);
-    SASSERT(node1.prev() == &node1);
+    ENSURE(list == &node1);
+    ENSURE(node1.next() == &node1);
+    ENSURE(node1.prev() == &node1);
     std::cout << "test_push_to_front passed." << std::endl;
 }
 
@@ -137,20 +137,20 @@ static void test_push_to_front() {
 static void test_detach() {
     TestNode node(1);
     TestNode::detach(&node);
-    SASSERT(node.next() == &node);
-    SASSERT(node.prev() == &node);
-    SASSERT(node.invariant());
+    ENSURE(node.next() == &node);
+    ENSURE(node.prev() == &node);
+    ENSURE(node.invariant());
     std::cout << "test_detach passed." << std::endl;
 }
 
 // Test the invariant() method
 static void test_invariant() {
     TestNode node1(1);
-    SASSERT(node1.invariant());
+    ENSURE(node1.invariant());
     TestNode node2(2);
     node1.insert_after(&node2);
-    SASSERT(node1.invariant());
-    SASSERT(node2.invariant());
+    ENSURE(node1.invariant());
+    ENSURE(node2.invariant());
     std::cout << "test_invariant passed." << std::endl;
 }
 
@@ -161,10 +161,10 @@ static void test_contains() {
     TestNode node2(2);
     TestNode::push_to_front(list, &node1);
     TestNode::push_to_front(list, &node2);
-    SASSERT(TestNode::contains(list, &node1));
-    SASSERT(TestNode::contains(list, &node2));
+    ENSURE(TestNode::contains(list, &node1));
+    ENSURE(TestNode::contains(list, &node2));
     TestNode node3(3);
-    SASSERT(!TestNode::contains(list, &node3));
+    ENSURE(!TestNode::contains(list, &node3));
     std::cout << "test_contains passed." << std::endl;
 }
 

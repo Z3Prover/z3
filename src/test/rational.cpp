@@ -457,10 +457,10 @@ static void tst12() {
     std::cout << "test12\n";
     rational r;
     r = 5;
-    SASSERT(r.get_bit(0));
-    SASSERT(!r.get_bit(1));
-    SASSERT(r.get_bit(2));
-    SASSERT(!r.get_bit(3));
+    ENSURE(r.get_bit(0));
+    ENSURE(!r.get_bit(1));
+    ENSURE(r.get_bit(2));
+    ENSURE(!r.get_bit(3));
     r = rational("10000000000000000000000000000000001");
     for (unsigned i = 0; i < r.get_num_bits(); ++i)
         std::cout << i << ": " << r.get_bit(i) << "\n";

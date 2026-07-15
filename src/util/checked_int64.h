@@ -187,11 +187,15 @@ public:
     }
 
     checked_int64& operator/=(checked_int64 const& other) {
+        if (CHECK && other.m_value == 0)
+            throw overflow_exception();
         m_value /= other.m_value;
         return *this;
     }
 
     checked_int64& operator%=(checked_int64 const& other) {
+        if (CHECK && other.m_value == 0)
+            throw overflow_exception();
         m_value %= other.m_value;
         return *this;
     }

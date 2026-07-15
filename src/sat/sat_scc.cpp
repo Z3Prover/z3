@@ -282,4 +282,4 @@ namespace sat {
         sat_scc_params::collect_param_descrs(d);
     }
 
-};
+}

@@ -21,6 +21,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "params/array_rewriter_params.hpp"
 #include "util/util.h"
@@ -398,6 +399,40 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
     return BR_FAILED;
 }
 
+br_status array_rewriter::mk_lambda_core(quantifier * q, expr * body, expr_ref & result) {
+    // Array eta-reduction:
+    //   (lambda (x_0 ... x_{k-1}) (select a x_0 ... x_{k-1}))  -->  a
+    // sound by array extensionality, provided 'a' is independent of the bound
+    // variables x_0..x_{k-1}.
+    if (!m_util.is_select(body))
+        return BR_FAILED;
+    app * sel = to_app(body);
+    unsigned k = q->get_num_decls();
+    // select over a k-dimensional array takes the array plus k indices.
+    if (sel->get_num_args() != k + 1)
+        return BR_FAILED;
+    // The j-th index argument must be exactly the bound variable of the j-th
+    // declaration. With de Bruijn indexing the j-th declaration is var(k-1-j).
+    for (unsigned j = 0; j < k; ++j) {
+        expr * idx = sel->get_arg(j + 1);
+        if (!is_var(idx) || to_var(idx)->get_idx() != k - 1 - j)
+            return BR_FAILED;
+    }
+    expr * a = sel->get_arg(0);
+    // 'a' must not reference any of the bound variables 0..k-1.
+    if (!is_ground(a)) {
+        expr_free_vars fv(a);
+        for (unsigned j = 0; j < k; ++j)
+            if (fv.contains(j))
+                return BR_FAILED;
+    }
+    // Shift the remaining free variables of 'a' down by k, since they are no
+    // longer under the eliminated lambda binder.
+    inv_var_shifter sh(m());
+    sh(a, k, result);
+    return BR_DONE;
+}
+
 sort_ref array_rewriter::get_map_array_sort(func_decl* f, unsigned num_args, expr* const* args) {
     sort* s0 = args[0]->get_sort();
     unsigned sz = get_array_arity(s0);
@@ -750,7 +785,10 @@ bool array_rewriter::add_store(expr_ref_vector& args, unsigned num_idxs, expr* e
             }
             if (is_var(e1) && is_ground(e2)) {
                 unsigned idx = to_var(e1)->get_idx();
-                args[num_idxs - idx - 1] = e2;
+                unsigned nidx = num_idxs - idx - 1;
+                if (args.get(nidx) && args.get(nidx) != e2)
+                    return false;
+                args[nidx] = e2;
             }
             else {
                 return false;
@@ -815,6 +853,7 @@ expr_ref array_rewriter::expand_store(expr* s) {
         result = m().mk_ite(mk_and(eqs), tmp, result);
     }
     result = m().mk_lambda(sorts.size(), sorts.data(), names.data(), result);
+    SASSERT(is_well_sorted(m(), result));
     return result;
 }
 
@@ -858,19 +897,45 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         return false;        
     };
 
+    auto domain_is_larger_than = [&](sort* s, unsigned num_stores) {
+        unsigned sz = get_array_arity(s);
+        rational dsz(1);
+        for (unsigned i = 0; i < sz; ++i) {
+            sort* d = get_array_domain(s, i);
+            if (d->is_infinite())
+                return true;
+            if (d->is_very_big())
+                return false;
+            dsz *= rational(d->get_num_elements().size(), rational::ui64());
+            if (dsz > rational(num_stores, rational::ui64()))
+                return true;
+        }
+        return false;
+    };
+
+    expr* lhs1 = lhs;
+    expr* rhs1 = rhs;
+    unsigned num_lhs = 0, num_rhs = 0;
+    while (m_util.is_store(lhs1)) {
+        lhs1 = to_app(lhs1)->get_arg(0);
+        ++num_lhs;
+    }
+    while (m_util.is_store(rhs1)) {
+        rhs1 = to_app(rhs1)->get_arg(0);
+        ++num_rhs;
+    }
+
+    if (m_util.is_const(lhs1, v) && m_util.is_const(rhs1, w) &&
+        domain_is_larger_than(lhs->get_sort(), num_lhs + num_rhs)) {
+        mk_eq(lhs, lhs, rhs, fmls);
+        mk_eq(rhs, lhs, rhs, fmls);
+        fmls.push_back(m().mk_eq(v, w));
+        result = m().mk_and(fmls);
+        return BR_REWRITE_FULL;
+    }
+
 
     if (m_expand_store_eq) {
-        expr* lhs1 = lhs;
-        expr* rhs1 = rhs;
-        unsigned num_lhs = 0, num_rhs = 0;
-        while (m_util.is_store(lhs1)) {
-            lhs1 = to_app(lhs1)->get_arg(0);
-            ++num_lhs;
-        }
-        while (m_util.is_store(rhs1)) {
-            rhs1 = to_app(rhs1)->get_arg(0);
-            ++num_rhs;
-        }
         if (lhs1 == rhs1) {
             mk_eq(lhs, lhs, rhs, fmls);
             mk_eq(rhs, lhs, rhs, fmls);

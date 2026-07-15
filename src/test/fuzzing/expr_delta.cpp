@@ -61,13 +61,13 @@ bool expr_delta::delta_dfs(unsigned& n, expr* e, expr_ref& result) {
     }
     else if (is_app(e)) {        
         if (m.is_bool(e)) {
-            SASSERT(n >= 2);
+            ENSURE(n >= 2);
             n -= 2;
         }
         return delta_dfs(n, to_app(e), result);
     }
     else if (is_quantifier(e)) {
-        SASSERT(n >= 2);
+        ENSURE(n >= 2);
         n -= 2;
         quantifier* q = to_quantifier(e);
         if (delta_dfs(n, q->get_expr(), result)) {

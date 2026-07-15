@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -87,7 +87,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -137,12 +137,12 @@ jobs:
 
   validate-nuget-macos-x64:
     name: "Validate NuGet on macOS x64"
-    runs-on: macos-13
+    runs-on: macos-15-intel
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -165,23 +165,6 @@ jobs:
           cd test-nuget
           dotnet new console
           dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
-          # Configure project to properly load native dependencies on macOS x64
-          # Use AnyCPU without RuntimeIdentifier to avoid architecture mismatch
-          # The .NET runtime will automatically select the correct native library from runtimes/osx-x64/native/
-          cat > test-nuget.csproj << 'CSPROJ'
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <OutputType>Exe</OutputType>
-              <TargetFramework>net8.0</TargetFramework>
-              <ImplicitUsings>enable</ImplicitUsings>
-              <Nullable>enable</Nullable>
-              <PlatformTarget>AnyCPU</PlatformTarget>
-            </PropertyGroup>
-            <ItemGroup>
-              <PackageReference Include="Microsoft.Z3" Version="*" />
-            </ItemGroup>
-          </Project>
-          CSPROJ
       
       - name: Create test code
         run: |
@@ -214,7 +197,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -237,23 +220,6 @@ jobs:
           cd test-nuget
           dotnet new console
           dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
-          # Configure project to properly load native dependencies on macOS ARM64
-          # Use AnyCPU without RuntimeIdentifier to avoid architecture mismatch
-          # The .NET runtime will automatically select the correct native library from runtimes/osx-arm64/native/
-          cat > test-nuget.csproj << 'CSPROJ'
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <OutputType>Exe</OutputType>
-              <TargetFramework>net8.0</TargetFramework>
-              <ImplicitUsings>enable</ImplicitUsings>
-              <Nullable>enable</Nullable>
-              <PlatformTarget>AnyCPU</PlatformTarget>
-            </PropertyGroup>
-            <ItemGroup>
-              <PackageReference Include="Microsoft.Z3" Version="*" />
-            </ItemGroup>
-          </Project>
-          CSPROJ
       
       - name: Create test code
         run: |
@@ -290,7 +256,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Download Windows x64 build from release
         env:
@@ -326,7 +292,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Download Windows x86 build from release
         env:
@@ -362,7 +328,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Download Ubuntu x64 build from release
         env:
@@ -390,12 +356,12 @@ jobs:
 
   validate-exe-macos-x64:
     name: "Validate executable on macOS x64"
-    runs-on: macos-13
+    runs-on: macos-15-intel
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Download macOS x64 build from release
         env:
@@ -428,7 +394,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Download macOS ARM64 build from release
         env:
@@ -465,7 +431,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -504,7 +470,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -544,7 +510,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -587,7 +553,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -616,7 +582,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -640,12 +606,12 @@ jobs:
 
   validate-python-wheel-macos-x64:
     name: "Validate Python wheel on macOS x64"
-    runs-on: macos-13
+    runs-on: macos-15-intel
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -674,7 +640,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -699,18 +665,69 @@ jobs:
           pip install $wheel.FullName
           python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
 
+  validate-python-wheel-riscv64:
+    name: "Validate Python wheel for RISC-V 64"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.0
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download RISC-V 64 Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*riscv64.whl" --dir wheels
+      
+      - name: Verify wheel platform tag and contents
+        run: |
+          pip install wheel
+          WHEEL_FILE=$(ls wheels/*.whl | head -n 1)
+          echo "Wheel file: $WHEEL_FILE"
+          
+          # Check that the wheel has a riscv64 platform tag
+          WHEEL_NAME=$(basename $WHEEL_FILE)
+          echo "Wheel name: $WHEEL_NAME"
+          if echo "$WHEEL_NAME" | grep -q "riscv64"; then
+            echo "riscv64 platform tag found"
+          else
+            echo "ERROR: riscv64 platform tag not found in wheel name"
+            exit 1
+          fi
+          
+          # Inspect wheel contents
+          python -m zipfile -l $WHEEL_FILE
+          
+          # Verify wheel contains z3 library
+          if python -m zipfile -l $WHEEL_FILE | grep -q "libz3"; then
+            echo "libz3 found in wheel"
+          else
+            echo "ERROR: libz3 not found in wheel"
+            exit 1
+          fi
+
   # ============================================================================
   # MACOS DYLIB HEADERPAD VALIDATION
   # ============================================================================
 
   validate-macos-headerpad-x64:
     name: "Validate macOS x64 dylib headerpad"
-    runs-on: macos-13
+    runs-on: macos-15-intel
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Download macOS x64 build from release
         env:
@@ -762,7 +779,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
       
       - name: Download macOS ARM64 build from release
         env:
@@ -806,3 +823,118 @@ jobs:
             echo "✗ install_name_tool failed to update install name"
             exit 1
           fi
+
+  # ============================================================================
+  # BUILD SCRIPT UNIT TESTS
+  # ============================================================================
+
+  validate-build-script-tests:
+    name: "Validate build script unit tests"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Run build script unit tests
+        run: python -m unittest discover -s scripts/tests -p "test_*.py" -v
+
+  # ============================================================================
+  # DOTNET MANAGED WRAPPER ARCHITECTURE VALIDATION
+  # ============================================================================
+
+  validate-dotnet-anycpu:
+    name: "Validate Microsoft.Z3.dll is AnyCPU (issue #9863)"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.0
+
+      - name: Download NuGet package from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*.nupkg" --dir nuget-packages
+
+      - name: Extract managed DLL from NuGet package
+        run: |
+          # NuGet packages are ZIP archives; exclude the symbols package
+          NUPKG=$(ls nuget-packages/*.nupkg | grep -v '\.symbols\.' | grep -v '\.snupkg' | head -n 1)
+          echo "Checking package: $NUPKG"
+          unzip -q "$NUPKG" "lib/netstandard2.0/Microsoft.Z3.dll" -d nupkg-extracted
+
+      - name: Check PE Machine field is AnyCPU (not architecture-specific)
+        run: |
+          python3 - <<'EOF'
+          import struct
+          import sys
+
+          dll_path = "nupkg-extracted/lib/netstandard2.0/Microsoft.Z3.dll"
+
+          with open(dll_path, 'rb') as f:
+              # Verify MZ magic
+              if f.read(2) != b'MZ':
+                  print("ERROR: Not a valid PE file (missing MZ header)")
+                  sys.exit(1)
+
+              # Read PE header offset stored at 0x3C in the DOS stub
+              f.seek(0x3C)
+              pe_offset = struct.unpack('<I', f.read(4))[0]
+
+              # Verify PE signature
+              f.seek(pe_offset)
+              if f.read(4) != b'PE\x00\x00':
+                  print("ERROR: Missing PE\\0\\0 signature")
+                  sys.exit(1)
+
+              # COFF Machine field is the 2 bytes immediately after the PE signature
+              machine = struct.unpack('<H', f.read(2))[0]
+
+          machine_names = {
+              0x0000: "Unknown/AnyCPU",
+              0x014C: "i386 (AnyCPU for managed assemblies)",
+              0x8664: "AMD64/x64",
+              0xAA64: "ARM64",
+              0x01C0: "ARM",
+              0x01C4: "ARM Thumb-2",
+          }
+          machine_name = machine_names.get(machine, f"0x{machine:04X}")
+          print(f"Machine field: 0x{machine:04X} = {machine_name}")
+
+          if machine == 0x8664:
+              print()
+              print("FAIL: Machine is AMD64 (0x8664).")
+              print("This prevents loading on arm64 .NET hosts even though the assembly")
+              print("contains only pure IL (CorFlags.ILONLY=True).")
+              print("The DLL must be built as AnyCPU (Machine=0x014C) so the CLR loader")
+              print("accepts it on every host architecture.")
+              print("See issue #9863 for details.")
+              sys.exit(1)
+          elif machine == 0xAA64:
+              print()
+              print("FAIL: Machine is ARM64 (0xAA64).")
+              print("This prevents loading on x64 .NET hosts.")
+              print("The DLL must be built as AnyCPU (Machine=0x014C).")
+              sys.exit(1)
+          elif machine in (0x014C, 0x0000):
+              print()
+              print("PASS: Machine field indicates AnyCPU.")
+              print("Microsoft.Z3.dll will load on any .NET host architecture.")
+          else:
+              print()
+              print(f"FAIL: Unexpected Machine field 0x{machine:04X}.")
+              print("Expected 0x014C (i386/AnyCPU) for a managed-only assembly.")
+              sys.exit(1)
+          EOF

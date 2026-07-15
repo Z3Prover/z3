@@ -11,4 +11,5 @@ def_module_params(class_name='pattern_inference_params_helper',
                           ('arith_weight', UINT, 5, 'default weight for quantifiers where the only available pattern has nested arithmetic terms'),
                           ('non_nested_arith_weight', UINT, 10, 'default weight for quantifiers where the only available pattern has non nested arithmetic terms'),
                           ('pull_quantifiers', BOOL, True, 'pull nested quantifiers, if no pattern was found'),
+                          ('avoid_skolems', BOOL, True, 'avoid skolem functions when computing patterns'),
                           ('warnings', BOOL, False, 'enable/disable warning messages in the pattern inference module')))

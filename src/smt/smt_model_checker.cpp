@@ -109,7 +109,7 @@ namespace smt {
             for (auto const& kv : *m_root2value) {
                 enode * n   = kv.m_key;
                 expr  * val = kv.m_value;
-                n = n->get_eq_enode_with_min_gen();
+                n = n->get_eq_enode_with_min_gen(m_context);
                 expr* e = n->get_expr();
                 if (!m.is_value(e))
                     m_value2expr.insert(val, e);
@@ -203,7 +203,7 @@ namespace smt {
         unsigned num_decls = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
         SASSERT(sks.size() >= num_decls);
-        expr_ref_vector bindings(m), defs(m);
+        expr_ref_vector bindings(m);
         expr_ref def(m);
         bindings.resize(num_decls);
         unsigned max_generation = 0;
@@ -219,10 +219,11 @@ namespace smt {
 
             if (use_inv) {
                 unsigned sk_term_gen = 0;
-                expr * sk_term = m_model_finder.get_inv(q, i, sk_value, sk_term_gen);
+                expr * sk_term = m_model_finder.get_inv(q, i, sk_value, *cex, sk_term_gen);
                 if (sk_term != nullptr) {
                     TRACE(model_checker, tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
-                    SASSERT(!m.is_model_value(sk_term));
+                    // get_inv may return a model value in polymorphic settings;
+                    // this is handled downstream by get_type_compatible_term.
                     max_generation = std::max(sk_term_gen, max_generation);
                     sk_value = sk_term;
                 }
@@ -233,14 +234,9 @@ namespace smt {
             }
             else {
                 expr * sk_term = get_term_from_ctx(sk_value);
-                func_decl * f = nullptr;
                 if (sk_term != nullptr) {
                     TRACE(model_checker, tout << "sk term " << mk_pp(sk_term, m) << "\n");
                     sk_value = sk_term;
-                }
-                // last ditch: am I an array?
-                else if (false && autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_array_interp(f)) {
-                    sk_value = cex->get_func_interp(f)->get_array_interp(f);
                 }
 
             }
@@ -249,6 +245,7 @@ namespace smt {
                 sk_value = get_type_compatible_term(sk_value);
             }
             func_decl * f = nullptr;
+            expr_ref sk_term(sk_value, m);
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_interp()) {
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
                 if (contains_model_value(body))
@@ -257,30 +254,25 @@ namespace smt {
                 svector<symbol> names;
                 for (unsigned i = 0; i < f->get_arity(); ++i) 
                     names.push_back(symbol(i));
-                defined_names dn(m);
                 body = replace_value_from_ctx(body);
                 body = m.mk_lambda(sorts.size(), sorts.data(), names.data(), body);
-                // sk_value = m.mk_fresh_const(0, m.get_sort(sk_value));  // get rid of as-array
-                body = dn.mk_definition(body, to_app(sk_value));
-                defs.push_back(body);
+                sk_term = body;
             }
-            bindings.set(num_decls - i - 1, sk_value);
+            bindings.set(num_decls - i - 1, sk_term);
         }
 
-        TRACE(model_checker, tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\ndefs:\n" << defs << "\n";);
-        if (!defs.empty()) def = mk_and(defs);
+        TRACE(model_checker, tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\n");
         max_generation = std::max(m_qm->get_generation(q), max_generation);
-        add_instance(q, bindings, max_generation, def.get());
+        add_instance(q, bindings, max_generation);
         return true;
     }
 
-    void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation, expr* def) {
+    void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
         SASSERT(q->get_num_decls() == bindings.size());
         unsigned offset = m_pinned_exprs.size();
         m_pinned_exprs.append(bindings);
         m_pinned_exprs.push_back(q);
-        m_pinned_exprs.push_back(def);
-        m_new_instances.push_back(instance(q, offset, def, max_generation));
+        m_new_instances.push_back(instance(q, offset, max_generation));
     }
 
     void model_checker::operator()(expr *n) {
@@ -354,7 +346,8 @@ namespace smt {
             return false;
         TRACE(model_checker, tout << "skolems:\n" << sks << "\n";);
 
-        flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
+        flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
+        flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
         lbool r = m_aux_context->check();
         
         TRACE(model_checker, tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
@@ -371,7 +364,8 @@ namespace smt {
         unsigned num_new_instances = 0;
 
         while (true) {
-            flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
+            flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
+            flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
             lbool r = m_aux_context->check();
             TRACE(model_checker, tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
             if (r != l_true)
@@ -457,12 +451,6 @@ namespace smt {
 
         TRACE(model_checker, tout << "MODEL_CHECKER INVOKED\n";
         tout << "model:\n"; model_pp(tout, *m_curr_model););
-
-        for (quantifier* q : *m_qm)
-            if (m.is_lambda_def(q)) {
-                md->add_lambda_defs();
-                break;
-            }
 	
         md->compress();
 
@@ -518,8 +506,7 @@ namespace smt {
         for (quantifier * q : *m_qm) {
             if (!(m_qm->mbqi_enabled(q) &&
                   m_context->is_relevant(q) &&
-                  m_context->get_assignment(q) == l_true &&
-                  (!m_context->get_fparams().m_ematching || !m.is_lambda_def(q)))) {
+                  m_context->get_assignment(q) == l_true)) {
                 if (!m_qm->mbqi_enabled(q))
                     ++num_failures;
                 continue;
@@ -588,30 +575,14 @@ namespace smt {
                     bindings.push_back(m_context->get_enode(b));
                 }
 
-                if (inst.m_def) {
-                    unsigned n = 1;
-                    expr* const* args = &inst.m_def;
-                    if (m.is_and(inst.m_def)) {
-                        n = to_app(inst.m_def)->get_num_args();
-                        args = to_app(inst.m_def)->get_args();
-                    }
-                    for (unsigned i = 0; i < n; ++i) {
-                        proof* pr = nullptr;
-                        expr* arg = args[i];
-                        if (m.proofs_enabled()) 
-                            pr = m.mk_def_intro(arg);
-                        m_context->internalize_assertion(arg, pr, gen);
-                    }
-                }
-
                 TRACE(model_checker_bug_detail, tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";
                       tout << "inconsistent: " << m_context->inconsistent() << "\n";
                       tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.data() + offset) << "\n";
-                      tout << "def " << mk_pp(inst.m_def, m) << "\n";);
-                m_context->add_instance(q, nullptr, num_decls, bindings.data(), inst.m_def, gen, gen, gen, dummy);
+                          );
+                m_context->add_instance(q, nullptr, num_decls, bindings.data(), gen, gen, gen, dummy);
                 TRACE(model_checker_bug_detail, tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);
             }
         }
     }
 
-};
+}

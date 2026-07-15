@@ -789,4 +789,4 @@ namespace rpolynomial {
     }
 #endif
 
-};
+}

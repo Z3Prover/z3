@@ -196,5 +196,5 @@ namespace sat {
         static void collect_param_descrs(param_descrs & d);
 
     };
-};
+}
 

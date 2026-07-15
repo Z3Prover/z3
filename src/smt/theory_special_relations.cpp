@@ -174,8 +174,8 @@ namespace smt {
     }
 
     void theory_special_relations::new_eq_eh(theory_var v1, theory_var v2) {
-        app* t1 = get_expr(v1);
-        app* t2 = get_expr(v2);
+        expr* t1 = get_expr(v1);
+        expr* t2 = get_expr(v2);
         literal eq = mk_eq(t1, t2, false);
         for (auto const& kv : m_relations) {
             relation& r = *kv.m_value;

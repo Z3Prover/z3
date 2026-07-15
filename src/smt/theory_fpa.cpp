@@ -298,9 +298,9 @@ namespace smt {
         SASSERT(s->get_family_id() == get_family_id());
         SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
         SASSERT(m_fpa_util.is_float(n->get_expr()) || m_fpa_util.is_rm(n->get_expr()));
-        SASSERT(n->get_expr()->get_decl()->get_range() == s);
+        SASSERT(n->get_decl()->get_range() == s);
 
-        app * owner = n->get_expr();
+        expr * owner = n->get_expr();
 
         if (!is_attached_to_var(n)) {
             attach_new_th_var(n);
@@ -414,6 +414,12 @@ namespace smt {
     void theory_fpa::pop_scope_eh(unsigned num_scopes) {
         m_trail_stack.pop_scope(num_scopes);
         TRACE(t_fpa, tout << "pop " << num_scopes << "; now " << m_trail_stack.get_num_scopes() << "\n";);
+        // Reset the fpa2bv rewriter cache so that expressions re-converted after
+        // a pop regenerate their side conditions (extra_assertions). Without this,
+        // the rewriter returns cached results without invoking mk_uf/mk_const and
+        // the axioms connecting FP UFs to their BV counterparts are never re-emitted,
+        // causing a soundness issue in incremental mode.
+        m_rw.reset();
         theory::pop_scope_eh(num_scopes);
     }
 
@@ -431,7 +437,7 @@ namespace smt {
         assert_cnstr(cnstr);
     }
 
-    void theory_fpa::relevant_eh(app * n) {
+    void theory_fpa::relevant_eh(expr * n) {
         TRACE(t_fpa, tout << "relevant_eh for: " << mk_ismt2_pp(n, m) << "\n";);
 
         mpf_manager & mpfm = m_fpa_util.fm();
@@ -466,12 +472,53 @@ namespace smt {
                     wu = m.mk_eq(m_converter.unwrap(wrapped, n->get_sort()), n);
                     TRACE(t_fpa, tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
                     assert_cnstr(wu);
+
+                    // For non-FPA-family terms (e.g. datatype accessors like
+                    // get-fp), mk_uf creates a separate BV UF that is not
+                    // linked to bvwrap. Assert wrap(n) == concat(conv_components)
+                    // to close the constraint gap (same pattern as numerals above).
+                    if (!is_app(n) || to_app(n)->get_family_id() != get_family_id()) {
+                        expr_ref conv_e = convert(n);
+                        if (m_fpa_util.is_fp(conv_e) && to_app(conv_e)->get_num_args() == 3) {
+                            app_ref conv_a(m);
+                            conv_a = to_app(conv_e.get());
+                            expr_ref cc(m);
+                            cc = m_bv_util.mk_concat({conv_a->get_arg(0), conv_a->get_arg(1), conv_a->get_arg(2)});
+                            assert_cnstr(m.mk_eq(wrapped, cc));
+                            assert_cnstr(mk_side_conditions());
+                        }
+                    }
                 }
             }
         }
-        else if (n->get_family_id() == get_family_id()) {
+        else if (is_app(n) && to_app(n)->get_family_id() == get_family_id()) {
             // These are the conversion functions fp.to_* */
             SASSERT(!m_fpa_util.is_float(n) && !m_fpa_util.is_rm(n));
+
+            // The conversion equality and side conditions for fp.to_* terms are
+            // emitted in internalize_term(), which runs exactly once. Those are
+            // asserted as theory axioms at the current decision level and are
+            // undone on DPLL backtracking, while internalize_term() is not run
+            // again for the already-internalized term (e.g. when the term lives
+            // at the user push base level and its clause is not reinitialized).
+            // The side conditions include the axioms linking FP uninterpreted
+            // functions to their bit-vector counterparts; losing them leaves the
+            // BV counterpart unconstrained and causes an incremental-mode
+            // soundness bug. relevant_eh re-fires on relevancy re-propagation
+            // after a backtrack, so re-emit them here to keep them in force.
+            switch ((fpa_op_kind)to_app(n)->get_decl_kind()) {
+            case OP_FPA_TO_FP:
+            case OP_FPA_TO_UBV:
+            case OP_FPA_TO_SBV:
+            case OP_FPA_TO_REAL:
+            case OP_FPA_TO_IEEE_BV: {
+                expr_ref conv = convert(n);
+                assert_cnstr(m.mk_eq(n, conv));
+                assert_cnstr(mk_side_conditions());
+                break;
+            }
+            default: /* ignore */;
+            }
         }
         else {
             /* Theory variables can be merged when (= bv-term (bvwrap fp-term)),
@@ -674,4 +721,4 @@ namespace smt {
             out << r->get_id() << " --> " << enode_pp(n, ctx) << "\n";
         }
     }
-};
+}

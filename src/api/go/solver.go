@@ -195,6 +195,209 @@ func (s *Solver) Interrupt() {
 	C.Z3_solver_interrupt(s.ctx.ptr, s.ptr)
 }
 
+// Units returns the unit clauses (literals) learned by the solver.
+// Unit clauses are assertions that have been simplified to single literals.
+// This is useful for debugging and understanding solver behavior.
+func (s *Solver) Units() []*Expr {
+	vec := C.Z3_solver_get_units(s.ctx.ptr, s.ptr)
+	return astVectorToExprs(s.ctx, vec)
+}
+
+// NonUnits returns the non-unit clauses in the solver's current state.
+// These are clauses that have not been reduced to unit clauses.
+// This is useful for debugging and understanding solver behavior.
+func (s *Solver) NonUnits() []*Expr {
+	vec := C.Z3_solver_get_non_units(s.ctx.ptr, s.ptr)
+	return astVectorToExprs(s.ctx, vec)
+}
+
+// Trail returns the decision trail of the solver.
+// The trail contains the sequence of literals assigned during search.
+// This is useful for understanding the solver's decision history.
+// Note: This function works primarily with SimpleSolver. For solvers created
+// using tactics (e.g., NewSolver()), it may return an error.
+func (s *Solver) Trail() []*Expr {
+	vec := C.Z3_solver_get_trail(s.ctx.ptr, s.ptr)
+	return astVectorToExprs(s.ctx, vec)
+}
+
+// TrailLevels returns the decision levels for each literal in the trail.
+// The returned slice has the same length as the trail, where each element
+// indicates the decision level at which the corresponding trail literal was assigned.
+// This is useful for understanding the structure of the search tree.
+// Note: This function works primarily with SimpleSolver. For solvers created
+// using tactics (e.g., NewSolver()), it may return an error.
+func (s *Solver) TrailLevels() []uint {
+	// Get the trail vector directly from the C API
+	trailVec := C.Z3_solver_get_trail(s.ctx.ptr, s.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, trailVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, trailVec)
+
+	n := uint(C.Z3_ast_vector_size(s.ctx.ptr, trailVec))
+	if n == 0 {
+		return []uint{}
+	}
+
+	// Allocate the levels array
+	levels := make([]C.uint, n)
+
+	// Get the levels using the trail vector directly
+	// Safe to pass &levels[0] because we checked n > 0 above
+	C.Z3_solver_get_levels(s.ctx.ptr, s.ptr, trailVec, C.uint(n), &levels[0])
+
+	// Convert to Go slice
+	result := make([]uint, n)
+	for i := uint(0); i < n; i++ {
+		result[i] = uint(levels[i])
+	}
+	return result
+}
+
+// CongruenceRoot returns the congruence class representative of the given expression.
+// This returns the root element in the congruence closure for the term.
+// Note: This function works primarily with SimpleSolver. Terms and variables that
+// are eliminated during pre-processing are not visible to the congruence closure.
+func (s *Solver) CongruenceRoot(expr *Expr) *Expr {
+	ast := C.Z3_solver_congruence_root(s.ctx.ptr, s.ptr, expr.ptr)
+	return newExpr(s.ctx, ast)
+}
+
+// CongruenceNext returns the next element in the congruence class of the given expression.
+// This allows iteration through all elements in a congruence class.
+// Note: This function works primarily with SimpleSolver. Terms and variables that
+// are eliminated during pre-processing are not visible to the congruence closure.
+func (s *Solver) CongruenceNext(expr *Expr) *Expr {
+	ast := C.Z3_solver_congruence_next(s.ctx.ptr, s.ptr, expr.ptr)
+	return newExpr(s.ctx, ast)
+}
+
+// CongruenceExplain returns an explanation for why two expressions are congruent.
+// The result is an expression that justifies the congruence between a and b.
+// Note: This function works primarily with SimpleSolver. Terms and variables that
+// are eliminated during pre-processing are not visible to the congruence closure.
+func (s *Solver) CongruenceExplain(a, b *Expr) *Expr {
+	ast := C.Z3_solver_congruence_explain(s.ctx.ptr, s.ptr, a.ptr, b.ptr)
+	return newExpr(s.ctx, ast)
+}
+
+// SetInitialValue provides an initial value hint for a variable to the solver.
+// This can help guide the solver to find solutions more efficiently.
+// The variable must be a constant or function application, and the value must be
+// compatible with the variable's sort.
+func (s *Solver) SetInitialValue(variable, value *Expr) {
+	C.Z3_solver_set_initial_value(s.ctx.ptr, s.ptr, variable.ptr, value.ptr)
+}
+
+// Cube extracts a cube (conjunction of literals) from the solver state.
+// vars is an optional list of variables to use as cube variables; if nil, the solver decides.
+// cutoff specifies the backtrack level cutoff for cube generation.
+// Returns a slice of expressions representing the cube, or nil when the search space is exhausted.
+func (s *Solver) Cube(vars []*Expr, cutoff uint) []*Expr {
+	varVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, varVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, varVec)
+	for _, v := range vars {
+		C.Z3_ast_vector_push(s.ctx.ptr, varVec, v.ptr)
+	}
+	result := C.Z3_solver_cube(s.ctx.ptr, s.ptr, varVec, C.uint(cutoff))
+	return astVectorToExprs(s.ctx, result)
+}
+
+// GetConsequences retrieves fixed assignments for variables given assumptions.
+// Returns the status and the set of consequences as implications.
+func (s *Solver) GetConsequences(assumptions []*Expr, variables []*Expr) (Status, []*Expr) {
+	asmVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, asmVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, asmVec)
+	varVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, varVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, varVec)
+	consVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, consVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, consVec)
+	for _, a := range assumptions {
+		C.Z3_ast_vector_push(s.ctx.ptr, asmVec, a.ptr)
+	}
+	for _, v := range variables {
+		C.Z3_ast_vector_push(s.ctx.ptr, varVec, v.ptr)
+	}
+	r := Status(C.Z3_solver_get_consequences(s.ctx.ptr, s.ptr, asmVec, varVec, consVec))
+	return r, astVectorToExprs(s.ctx, consVec)
+}
+
+// SolveFor solves constraints treating given variables symbolically.
+// variables are the variables to solve for, terms are the substitution terms,
+// and guards are the Boolean guards for the substitutions.
+func (s *Solver) SolveFor(variables []*Expr, terms []*Expr, guards []*Expr) {
+	varVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, varVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, varVec)
+	termVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, termVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, termVec)
+	guardVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, guardVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, guardVec)
+	for _, v := range variables {
+		C.Z3_ast_vector_push(s.ctx.ptr, varVec, v.ptr)
+	}
+	for _, t := range terms {
+		C.Z3_ast_vector_push(s.ctx.ptr, termVec, t.ptr)
+	}
+	for _, g := range guards {
+		C.Z3_ast_vector_push(s.ctx.ptr, guardVec, g.ptr)
+	}
+	C.Z3_solver_solve_for(s.ctx.ptr, s.ptr, varVec, termVec, guardVec)
+}
+
+// ImportModelConverter imports the model converter from src into this solver.
+// This transfers model simplifications from one solver instance to another,
+// useful when combining results from multiple solver instances.
+func (dst *Solver) ImportModelConverter(src *Solver) {
+	C.Z3_solver_import_model_converter(dst.ctx.ptr, src.ptr, dst.ptr)
+}
+
+// Translate creates a copy of the solver in the target context.
+// This is useful when working with multiple Z3 contexts.
+func (s *Solver) Translate(target *Context) *Solver {
+	ptr := C.Z3_solver_translate(s.ctx.ptr, s.ptr, target.ptr)
+	newSolver := &Solver{ctx: target, ptr: ptr}
+	C.Z3_solver_inc_ref(target.ptr, ptr)
+	runtime.SetFinalizer(newSolver, func(solver *Solver) {
+		C.Z3_solver_dec_ref(solver.ctx.ptr, solver.ptr)
+	})
+	return newSolver
+}
+
+// GetProof returns the proof of unsatisfiability from the last check.
+// Returns nil if no proof is available (e.g. the result was not UNSAT,
+// or proof production is disabled).
+func (s *Solver) GetProof() *Expr {
+	result := C.Z3_solver_get_proof(s.ctx.ptr, s.ptr)
+	if result == nil {
+		return nil
+	}
+	return newExpr(s.ctx, result)
+}
+
+// AddSimplifier creates a new solver with the given simplifier attached for
+// pre-processing assertions before solving.
+func (s *Solver) AddSimplifier(simplifier *Simplifier) *Solver {
+	ptr := C.Z3_solver_add_simplifier(s.ctx.ptr, s.ptr, simplifier.ptr)
+	newSolver := &Solver{ctx: s.ctx, ptr: ptr}
+	C.Z3_solver_inc_ref(s.ctx.ptr, ptr)
+	runtime.SetFinalizer(newSolver, func(solver *Solver) {
+		C.Z3_solver_dec_ref(solver.ctx.ptr, solver.ptr)
+	})
+	return newSolver
+}
+
+// Dimacs converts the solver's Boolean formula to DIMACS CNF format.
+// If includeNames is true, variable names are included in the output.
+func (s *Solver) Dimacs(includeNames bool) string {
+	return C.GoString(C.Z3_solver_to_dimacs_string(s.ctx.ptr, s.ptr, C.bool(includeNames)))
+}
+
 // Model represents a Z3 model (satisfying assignment).
 type Model struct {
 	ctx *Context
@@ -296,4 +499,79 @@ func (fi *FuncInterp) GetElse() *Expr {
 // GetArity returns the arity of the function interpretation.
 func (fi *FuncInterp) GetArity() uint {
 	return uint(C.Z3_func_interp_get_arity(fi.ctx.ptr, fi.ptr))
+}
+
+// FuncEntry represents a single entry in a FuncInterp finite map.
+type FuncEntry struct {
+	ctx *Context
+	ptr C.Z3_func_entry
+}
+
+// newFuncEntry creates a new FuncEntry and manages its reference count.
+func newFuncEntry(ctx *Context, ptr C.Z3_func_entry) *FuncEntry {
+	e := &FuncEntry{ctx: ctx, ptr: ptr}
+	C.Z3_func_entry_inc_ref(ctx.ptr, ptr)
+	runtime.SetFinalizer(e, func(entry *FuncEntry) {
+		C.Z3_func_entry_dec_ref(entry.ctx.ptr, entry.ptr)
+	})
+	return e
+}
+
+// GetEntry returns the i-th entry in the function interpretation.
+func (fi *FuncInterp) GetEntry(i uint) *FuncEntry {
+	return newFuncEntry(fi.ctx, C.Z3_func_interp_get_entry(fi.ctx.ptr, fi.ptr, C.uint(i)))
+}
+
+// SetElse sets the else value of the function interpretation.
+func (fi *FuncInterp) SetElse(val *Expr) {
+	C.Z3_func_interp_set_else(fi.ctx.ptr, fi.ptr, val.ptr)
+}
+
+// AddEntry adds a new entry to the function interpretation.
+// The args slice provides the argument values and val is the return value.
+func (fi *FuncInterp) AddEntry(args []*Expr, val *Expr) {
+	vec := C.Z3_mk_ast_vector(fi.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(fi.ctx.ptr, vec)
+	defer C.Z3_ast_vector_dec_ref(fi.ctx.ptr, vec)
+	for _, a := range args {
+		C.Z3_ast_vector_push(fi.ctx.ptr, vec, a.ptr)
+	}
+	C.Z3_func_interp_add_entry(fi.ctx.ptr, fi.ptr, vec, val.ptr)
+}
+
+// GetValue returns the return value of the function entry.
+func (e *FuncEntry) GetValue() *Expr {
+	return newExpr(e.ctx, C.Z3_func_entry_get_value(e.ctx.ptr, e.ptr))
+}
+
+// GetNumArgs returns the number of arguments in the function entry.
+func (e *FuncEntry) GetNumArgs() uint {
+	return uint(C.Z3_func_entry_get_num_args(e.ctx.ptr, e.ptr))
+}
+
+// GetArg returns the i-th argument of the function entry.
+func (e *FuncEntry) GetArg(i uint) *Expr {
+	return newExpr(e.ctx, C.Z3_func_entry_get_arg(e.ctx.ptr, e.ptr, C.uint(i)))
+}
+
+// HasInterp reports whether the model contains an interpretation for the given declaration.
+func (m *Model) HasInterp(decl *FuncDecl) bool {
+	return bool(C.Z3_model_has_interp(m.ctx.ptr, m.ptr, decl.ptr))
+}
+
+// SortUniverse returns the universe of values for an uninterpreted sort in the model.
+// The universe is represented as a list of distinct expressions.
+// Returns nil if the sort is not an uninterpreted sort in this model.
+func (m *Model) SortUniverse(sort *Sort) []*Expr {
+	vec := C.Z3_model_get_sort_universe(m.ctx.ptr, m.ptr, sort.ptr)
+	if vec == nil {
+		return nil
+	}
+	return astVectorToExprs(m.ctx, vec)
+}
+
+// Translate creates a copy of the model in the target context.
+func (m *Model) Translate(target *Context) *Model {
+	ptr := C.Z3_model_translate(m.ctx.ptr, m.ptr, target.ptr)
+	return newModel(target, ptr)
 }

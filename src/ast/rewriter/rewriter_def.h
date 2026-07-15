@@ -561,9 +561,13 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         expr * const * np  = it + 1;
         expr * const * nnp = np + num_pats;
         unsigned j = 0;
-        for (unsigned i = 0; i < num_pats; ++i)
+        for (unsigned i = 0; i < num_pats; ++i) {
             if (m_manager.is_pattern(np[i]))
                 new_pats[j++] = np[i];
+            else {
+                IF_VERBOSE(10, verbose_stream() << "[rewriter] dropping pattern (is_pattern check failed) for qid=" << q->get_qid() << " pattern[" << i << "]: " << mk_ismt2_pp(np[i], m_manager, 3) << "\n";);
+            }
+        }
         new_pats.shrink(j);
         num_pats = j;
         j = 0;
@@ -664,7 +668,7 @@ template<typename Config>
 void rewriter_tpl<Config>::display_bindings(std::ostream& out) {
     for (unsigned i = 0; i < m_bindings.size(); ++i) {
         if (m_bindings[i])
-            out << i << ": " << mk_ismt2_pp(m_bindings[i], m()) << ";\n";
+            out << i << ": " << mk_ismt2_pp(m_bindings[i], m()) << " : " << mk_pp(m_bindings[i]->get_sort(), m()) << ";\n";
     }
 }
 

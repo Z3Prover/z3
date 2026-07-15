@@ -106,5 +106,5 @@ namespace nlsat {
             a.deallocate(obj_sz, ptr);
         }
     }
-};
+}
 

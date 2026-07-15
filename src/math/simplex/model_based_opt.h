@@ -85,6 +85,7 @@ namespace opt {
         enum def_t { add_t, mul_t, div_t, const_t, var_t};
         struct def {
             def() = default;
+            virtual ~def() = default;
             static def* from_row(row const& r, unsigned x);           
             def_t m_type;
             unsigned m_ref_count = 0;
@@ -116,9 +117,15 @@ namespace opt {
         class def_ref {
             def* m_def = nullptr;
         public:
-            def_ref(def* d) {
-                if (d) d->inc_ref();
-                m_def = d;
+            def_ref() = default;
+            def_ref(def* d) : m_def(d) {
+                if (m_def) m_def->inc_ref();
+            }
+            def_ref(def_ref const& other) : m_def(other.m_def) {
+                if (m_def) m_def->inc_ref();
+            }
+            def_ref(def_ref&& other) noexcept : m_def(other.m_def) {
+                other.m_def = nullptr;
             }
             def_ref& operator=(def* d) {
                 if (d) d->inc_ref();
@@ -136,25 +143,37 @@ namespace opt {
                 return *this;
             }
 
+            def_ref& operator=(def_ref&& d) noexcept {
+                if (&d == this)
+                    return *this;
+                if (m_def) m_def->dec_ref();
+                m_def = d.m_def;
+                d.m_def = nullptr;
+                return *this;
+            }
+
             def& operator*() { return *m_def; }
             def* operator->() { return m_def; }
             def const& operator*() const { return *m_def; }
-            operator bool() const { return !!m_def; }
+            operator bool() const { return m_def != nullptr; }
 
-            ~def_ref() { if (m_def) m_def->dec_ref(); };
+            ~def_ref() { if (m_def) m_def->dec_ref(); }
         };
         struct add_def : public def {
             def* x, *y;
             add_def(def* x, def* y) : x(x), y(y) { m_type = add_t;  x->inc_ref(); y->inc_ref(); }
+            ~add_def() override { x->dec_ref(); y->dec_ref(); }
         };
         struct mul_def : public def {
             def* x, *y;
             mul_def(def* x, def* y) : x(x), y(y) { m_type = mul_t;  x->inc_ref(); y->inc_ref(); }
+            ~mul_def() override { x->dec_ref(); y->dec_ref(); }
         };
         struct div_def : public def {
             def* x;
             rational m_div{ 1 };
             div_def(def* x, rational const& d) : x(x), m_div(d) { m_type = div_t; x->inc_ref(); }
+            ~div_def() override { x->dec_ref(); }
         };
         struct var_def : public def {
             var v;

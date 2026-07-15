@@ -86,6 +86,7 @@ namespace datalog {
             case forall_k: m_univ = true; break;
             case exists_k: m_exist = true; break;
             case lambda_k: m_lambda = true; break;
+            case choice_k: break;
             }
         }
         void operator()(app * n) { }
@@ -372,7 +373,7 @@ namespace datalog {
 
            This possibly returns a ";"-separated list of names.
         */
-        symbol const& name() const { return m_name; } ;
+        symbol const& name() const { return m_name; }
 
         unsigned hash() const;
 
@@ -385,6 +386,6 @@ namespace datalog {
         unsigned operator()(const rule * r) const;
     };
 
-};
+}
 
 

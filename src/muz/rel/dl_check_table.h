@@ -129,5 +129,5 @@ namespace datalog {
         unsigned get_size_estimate_bytes() const override { return m_tocheck->get_size_estimate_bytes(); }
     };
 
- };
+ }
 

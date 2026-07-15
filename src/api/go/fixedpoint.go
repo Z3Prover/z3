@@ -218,6 +218,59 @@ func (f *Fixedpoint) FromFile(filename string) {
 	C.Z3_fixedpoint_from_file(f.ctx.ptr, f.ptr, cstr)
 }
 
+// QueryFromLvl poses a query against the asserted rules at the given level.
+// This is a Spacer-specific function.
+func (f *Fixedpoint) QueryFromLvl(query *Expr, lvl uint) Status {
+	result := C.Z3_fixedpoint_query_from_lvl(f.ctx.ptr, f.ptr, query.ptr, C.uint(lvl))
+	switch result {
+	case C.Z3_L_TRUE:
+		return Satisfiable
+	case C.Z3_L_FALSE:
+		return Unsatisfiable
+	default:
+		return Unknown
+	}
+}
+
+// GetGroundSatAnswer retrieves a bottom-up sequence of ground facts.
+// The previous call to Query or QueryFromLvl must have returned Satisfiable.
+// This is a Spacer-specific function.
+func (f *Fixedpoint) GetGroundSatAnswer() *Expr {
+	ptr := C.Z3_fixedpoint_get_ground_sat_answer(f.ctx.ptr, f.ptr)
+	if ptr == nil {
+		return nil
+	}
+	return newExpr(f.ctx, ptr)
+}
+
+// GetRulesAlongTrace returns the list of rules along the counterexample trace.
+// This is a Spacer-specific function.
+func (f *Fixedpoint) GetRulesAlongTrace() *ASTVector {
+	return newASTVector(f.ctx, C.Z3_fixedpoint_get_rules_along_trace(f.ctx.ptr, f.ptr))
+}
+
+// GetRuleNamesAlongTrace returns the list of rule names along the counterexample trace.
+// This is a Spacer-specific function.
+func (f *Fixedpoint) GetRuleNamesAlongTrace() *Symbol {
+	return newSymbol(f.ctx, C.Z3_fixedpoint_get_rule_names_along_trace(f.ctx.ptr, f.ptr))
+}
+
+// AddInvariant adds an assumed invariant for the predicate pred.
+// This is a Spacer-specific function.
+func (f *Fixedpoint) AddInvariant(pred *FuncDecl, property *Expr) {
+	C.Z3_fixedpoint_add_invariant(f.ctx.ptr, f.ptr, pred.ptr, property.ptr)
+}
+
+// GetReachable retrieves the reachable states of a predicate.
+// This is a Spacer-specific function.
+func (f *Fixedpoint) GetReachable(pred *FuncDecl) *Expr {
+	ptr := C.Z3_fixedpoint_get_reachable(f.ctx.ptr, f.ptr, pred.ptr)
+	if ptr == nil {
+		return nil
+	}
+	return newExpr(f.ctx, ptr)
+}
+
 // Statistics represents statistics for Z3 solvers
 type Statistics struct {
 	ctx *Context

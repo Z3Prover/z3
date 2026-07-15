@@ -99,7 +99,7 @@ namespace smt {
      * then case-expand `n`. If it's a macro we can also immediately
      * body-expand it.
      */
-    void theory_recfun::relevant_eh(app * n) {
+    void theory_recfun::relevant_eh(expr * n) {
         SASSERT(ctx.relevancy());
         // TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
         if (u().is_defined(n) && u().has_defs()) 

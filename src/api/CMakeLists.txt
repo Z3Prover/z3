@@ -44,6 +44,7 @@ z3_add_component(api
     api_context.cpp
     api_datalog.cpp
     api_datatype.cpp
+    api_finite_set.cpp
     api_fpa.cpp
     api_goal.cpp
     api_log.cpp
@@ -65,7 +66,7 @@ z3_add_component(api
     z3_replayer.cpp
     ${full_path_generated_files}
   COMPONENT_DEPENDENCIES
-    opt
+    z3_opt
     euf
     portfolio
     realclosure

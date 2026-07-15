@@ -21,8 +21,10 @@ Revision History:
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
 #include "ast/sls/sls_smt_solver.h"
+#include <atomic>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 
 namespace smt {
@@ -30,17 +32,47 @@ namespace smt {
     struct cube_config {
         using literal = expr_ref;
         static bool literal_is_null(expr_ref const& l) { return l == nullptr; }
+        static bool same_atom(expr_ref const& a, expr_ref const& b) {
+            expr* atom_a = a.get();
+            expr* atom_b = b.get();
+            a.get_manager().is_not(atom_a, atom_a);
+            b.get_manager().is_not(atom_b, atom_b);
+            return atom_a == atom_b;
+        }
         static std::ostream& display_literal(std::ostream& out, expr_ref const& l) { return out << mk_bounded_pp(l, l.get_manager()); }
     };
 
     class parallel {
         context& ctx;
-        unsigned num_threads;
-        bool m_should_run_sls = false;
+        class core_minimizer_worker;
+        using node = search_tree::node<cube_config>;
 
         struct shared_clause {
             unsigned source_worker_id;
             expr_ref clause;
+        };
+
+        struct bb_candidate {
+            expr_ref lit;
+            double age;
+            unsigned hits;     // how many cubes reported it
+            bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
+        };
+
+        using bb_candidates = vector<bb_candidate>;
+
+        struct node_lease {
+            node* leased_node = nullptr;
+
+            // Cancellation generation counter for this node/subtree.
+            // Incremented when the node is closed; used to signal that all
+            // workers holding leases on this node (or its descendants)
+            // must abandon work immediately.
+            unsigned cancel_epoch = 0;
+
+            // Guards against multiple inc_cancel() calls for the same lease.
+            // Set when cancel_lease() is signaled; cleared when a new lease is assigned.
+            bool cancel_signaled = false;
         };
 
         class batch_manager {        
@@ -49,6 +81,7 @@ namespace smt {
                 is_running,
                 is_sat,
                 is_unsat,
+                is_unknown,
                 is_exception_msg,
                 is_exception_code
             };
@@ -56,21 +89,50 @@ namespace smt {
             struct stats {
                 unsigned m_max_cube_depth = 0;
                 unsigned m_num_cubes = 0;
+                unsigned m_backbones_found = 0;
+                unsigned m_core_min_jobs_enqueued = 0;
+                unsigned m_core_min_jobs_published = 0;
+                unsigned m_core_min_jobs_skipped = 0;
+                unsigned m_core_min_global_unsat = 0;
             };
-
-
+            struct core_min_job {
+                node* source = nullptr;
+                expr_ref_vector core;
+                core_min_job(ast_manager& m, node* source) : source(source), core(m) {}
+            };
             ast_manager& m;
             parallel& p;
             std::mutex mux;
             state m_state = state::is_running;
             stats m_stats;
-            using node = search_tree::node<cube_config>;
             search_tree::tree<cube_config> m_search_tree;
+            vector<node_lease> m_worker_leases;
             
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
+            std::string m_reason_unknown;
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
+
+            bb_candidates m_bb_candidates;
+            unsigned m_max_global_bb_candidates = 100;
+            unsigned m_bb_batch_size = 150;
+            obj_hashtable<expr> m_global_backbones;
+            std::atomic<unsigned> m_bb_candidate_epoch = 0;
+
+            // Backbone job queue
+            std::condition_variable m_bb_cv;
+            bb_candidates m_bb_current_batch;
+            unsigned m_bb_batch_id = 0;
+            unsigned m_num_global_bb_threads = 0;
+            unsigned_vector m_bb_last_batch_processed;
+            unsigned m_bb_cancel_epoch = 0; // When a backbone worker finishes early, it increments m_bb_cancel_epoch and notifies all
+
+            // Core minimization job queue
+            std::condition_variable m_core_min_cv;
+            scoped_ptr_vector<core_min_job> m_core_min_jobs;
+            
+            bool m_ablate_backtracking = false;
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -86,32 +148,118 @@ namespace smt {
                 p.m_sls_worker->cancel();
             }
 
-            void cancel_background_threads() {
-                cancel_workers();
-                cancel_sls_worker();  
+            void cancel_backbones_worker() {
+                IF_VERBOSE(1, verbose_stream() << "Canceling backbones workers\n");
+                for (auto* w : p.m_global_backbones_workers)
+                    w->cancel();
             }
 
-            void init_parameters_state();
+            std::atomic<bool> m_canceled = false;
+
+            void cancel_background_threads() {
+                if (m_canceled.exchange(true))
+                    return;  // already canceled
+                cancel_workers();
+                cancel_sls_worker();
+                if (!p.m_global_backbones_workers.empty()) {
+                    cancel_backbones_worker();
+                    m_bb_cv.notify_all();
+                }
+                if (p.m_core_minimizer_worker) {
+                    p.m_core_minimizer_worker->cancel();
+                    m_core_min_cv.notify_all();
+                }
+            }
+
+            // to avoid deadlock
+            bool is_global_backbone_unlocked(ast_translation& l2g, expr* bb_cand) {
+                expr_ref cand(l2g(bb_cand), l2g.to());
+                return m_global_backbones.contains(cand.get());
+            }
+
+            bool is_global_backbone_or_negation_unlocked(ast_translation& l2g, expr* bb_cand) {
+                expr_ref cand(l2g(bb_cand), l2g.to());
+                expr_ref neg_cand(mk_not(l2g.to(), cand), l2g.to());
+                return m_global_backbones.contains(cand.get()) || m_global_backbones.contains(neg_cand.get());
+            }
+
+            void backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
+                                    node_lease* lease = nullptr, vector<node_lease> const* targets = nullptr);
+            void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
+            void set_canceled_unlocked();
+            void release_worker_lease_unlocked(unsigned worker_id, node_lease& lease);
+            bool attempt_release_canceled_lease_unlocked(unsigned worker_id, node_lease& lease);
+            void cancel_closed_leases_unlocked(unsigned source_worker_id);
+            void collect_matching_targets_unlocked(node* source, expr* lit, vector<cube_config::literal> const& core,
+                                                   vector<node_lease>& targets);
+            node* find_core_source_unlocked(ast_translation& l2g, node* source, expr_ref_vector const& core);
+            unsigned select_best_core_min_job_unlocked() const;
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)) { }
 
-            void initialize();
+            void initialize(unsigned num_global_bb_threads, unsigned initial_max_thread_conflicts = 1000); // TODO: pass in from worker config
 
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
+            void set_unknown(std::string const& reason);
+            void set_canceled();
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
 
-            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
-            void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
-            void split(ast_translation& l2g, unsigned id, node* n, expr* atom);
+            void collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates);
+            void collect_backbone_evidence(ast_translation& l2g, expr* lit, double delta);
+            bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone, unsigned source_worker_id = UINT_MAX);
+            bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
+            bool has_new_backbone_candidates(unsigned epoch) {
+                return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
+            }
+            unsigned get_bb_candidate_epoch() const {
+                return m_bb_candidate_epoch.load(std::memory_order_acquire);
+            }
+            expr_ref_vector get_global_backbones_snapshot(ast_translation& g2l) {
+                std::scoped_lock lock(mux);
+                expr_ref_vector snapshot(g2l.to());
+                for (expr* gb : m_global_backbones)
+                    snapshot.push_back(g2l(gb));
+                return snapshot;
+            }
+
+            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
+            void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease& lease);
+            void enqueue_core_minimization(ast_translation& l2g, node* source, expr_ref_vector const& core);
+            bool wait_for_core_min_job(ast_translation& g2l, node*& source,
+                                       expr_ref_vector& core, reslimit& lim);
+            void publish_minimized_core(ast_translation& l2g, expr_ref_vector const& asms, node* source,
+                                        unsigned original_core_size, expr_ref_vector const& minimized_core);
+            void try_split(ast_translation& l2g, unsigned worker_id, node_lease& lease, expr* atom, unsigned effort);
+            bool checkpoint_worker(unsigned worker_id, node_lease& lease, bool& lease_canceled);
+            bool lease_canceled(node_lease const& lease);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
 
             lbool get_result() const;
+            std::string const& get_reason_unknown() const { return m_reason_unknown; }
+
+            bool is_global_backbone_or_negation(ast_translation& l2g, expr* bb_cand) {
+                std::scoped_lock lock(mux);
+                return is_global_backbone_or_negation_unlocked(l2g, bb_cand);
+            }
+
+            void cancel_current_backbone_batch() {
+                std::scoped_lock lock(mux);
+                m_bb_cancel_epoch++;
+                m_bb_cv.notify_all();
+            }
+
+            unsigned get_cancel_epoch() {
+                std::scoped_lock lock(mux);
+                return m_bb_cancel_epoch;
+            }
+
+            lbool check(expr_ref_vector const &asms, context &ctx);
         };
 
         class worker {
@@ -123,13 +271,15 @@ namespace smt {
                 bool m_share_units_initial_only = true;
                 double m_max_conflict_mul = 1.5;
                 bool m_inprocessing = false;
+                bool m_global_backbones = false;
+                bool m_local_backbones = false;
                 bool m_sls = false;
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
                 unsigned m_max_conflicts = UINT_MAX;
+                bool m_core_minimize = false;
+                bool m_ablate_backtracking = false;
             };
-
-            using node = search_tree::node<cube_config>;
 
             unsigned id; // unique identifier for the worker
             parallel& p;
@@ -141,8 +291,9 @@ namespace smt {
             random_gen m_rand;
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
+            uint_set m_known_units;
 
-            unsigned m_num_shared_units = 0;
+            unsigned m_shared_units_prefix = 0;
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             
@@ -152,10 +303,14 @@ namespace smt {
             void share_units();
 
             void update_max_thread_conflicts() {
-                m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
-            } // allow for backoff scheme of conflicts within the thread for cube timeouts.
+                // allow for backoff scheme of conflicts within the thread for cube timeouts.
+                // Use saturating arithmetic to avoid unsigned overflow / undefined behaviour.
+                double next = m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts;
+                m_config.m_threads_max_conflicts = (next >= (double)UINT_MAX) ? UINT_MAX : (unsigned)next;
+            }
 
             void simplify();
+            bb_candidates find_backbone_candidates(unsigned k = 10);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
@@ -164,6 +319,7 @@ namespace smt {
             void collect_shared_clauses();
 
             void cancel();
+            void cancel_lease();
             void collect_statistics(::statistics& st) const;
 
             reslimit& limit() {
@@ -191,16 +347,93 @@ namespace smt {
                 }
         };
 
+        class core_minimizer_worker {
+            batch_manager &b;
+            ast_manager m;
+            expr_ref_vector asms;
+            smt_params m_smt_params;
+            scoped_ptr<context> ctx;
+            ast_translation m_g2l, m_l2g;
+
+            unsigned m_num_core_minimize_calls = 0;
+            unsigned m_num_core_minimize_undef = 0;
+            unsigned m_num_core_minimize_refined = 0;
+            unsigned m_num_core_minimize_lits_removed = 0;
+            unsigned m_num_core_minimize_found_sat = 0;
+            unsigned m_core_minimize_conflict_budget = 5000;
+            unsigned m_shared_clause_limit = 0;
+
+            void minimize_unsat_core(expr_ref_vector& core);
+            void collect_shared_clauses();
+
+        public:
+            core_minimizer_worker(parallel& p, expr_ref_vector const& _asms);
+            void run();
+            void cancel();
+            void collect_statistics(::statistics& st) const;
+            reslimit& limit() { return m.limit(); }
+        };
+
+        class backbones_worker {
+            struct stats {
+                unsigned m_batches_total = 0;
+                unsigned m_candidates_total = 0;
+                unsigned m_singleton_backbones = 0;
+                unsigned m_backbones_detected = 0;
+                unsigned m_internal_backbones_found = 0;
+                unsigned m_retry_backbones_found = 0;
+                unsigned m_bb_retries = 0;
+                unsigned m_fallback_singleton_checks = 0;
+                unsigned m_fallback_reason_chunk_exhausted = 0;
+                unsigned m_fallback_reason_undef = 0;
+                unsigned m_core_refinement_rounds = 0;
+                unsigned m_lits_removed_by_core = 0;
+                unsigned m_num_chunk_increases = 0;
+            };
+
+            enum bb_mode {
+                bb_negated,
+                bb_positive
+            };
+
+            unsigned id; // unique identifier for the worker
+            batch_manager& b;
+            ast_manager m;
+            expr_ref_vector asms;
+            smt_params m_smt_params;
+            scoped_ptr<context> ctx;
+            ast_translation m_g2l, m_l2g;
+            unsigned m_bb_chunk_size = 20;
+            unsigned m_bb_conflicts_per_chunk = 1000;
+            uint_set m_known_units;
+            bool m_use_failed_literal_test;
+            stats m_stats;
+            bb_mode m_mode;
+            unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
+            unsigned m_shared_units_prefix = 0;
+            unsigned m_num_initial_atoms = 0;
+            bool try_get_unit_backbone(expr* candidate, expr_ref& backbone);
+            void run_batch_mode();
+            void run_failed_literal_mode();
+            lbool probe_literal(bool_var v, expr *e, bool is_retry);
+        public:
+            backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
+            void cancel();
+            void collect_statistics(::statistics& st) const;
+            void run();
+            void collect_shared_clauses();
+            reslimit &limit() { return m.limit(); }            
+        };
+
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
         scoped_ptr<sls_worker> m_sls_worker;
+        scoped_ptr<core_minimizer_worker> m_core_minimizer_worker;
+        scoped_ptr_vector<backbones_worker> m_global_backbones_workers;
 
     public:
         parallel(context& ctx) : 
             ctx(ctx),
-            num_threads(std::min(
-                (unsigned)std::thread::hardware_concurrency(),
-                ctx.get_fparams().m_threads)),
             m_batch_manager(ctx.m, *this) {}
 
         lbool operator()(expr_ref_vector const& asms);

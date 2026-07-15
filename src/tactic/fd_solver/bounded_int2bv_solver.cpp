@@ -159,7 +159,7 @@ public:
     void collect_param_descrs(param_descrs & r) override { m_solver->collect_param_descrs(r); }
     void set_produce_models(bool f) override { m_solver->set_produce_models(f); }
     void set_progress_callback(progress_callback * callback) override { m_solver->set_progress_callback(callback);  }
-    void collect_statistics(statistics & st) const override { m_solver->collect_statistics(st); }
+    void collect_statistics_core(statistics & st) const override { m_solver->collect_statistics(st); }
     void get_unsat_core(expr_ref_vector & r) override { m_solver->get_unsat_core(r); }
     void set_phase(expr* e) override { m_solver->set_phase(e); }
     phase* get_phase() override { return m_solver->get_phase(); }
@@ -178,6 +178,21 @@ public:
     expr_ref_vector get_trail(unsigned max_level) override {
         return m_solver->get_trail(max_level);
     }
+
+    void setup_for_parallel() override { m_solver->setup_for_parallel(); }
+    void set_max_conflicts(unsigned c) override { m_solver->set_max_conflicts(c); }
+    unsigned get_max_conflicts() const override { return m_solver->get_max_conflicts(); }
+    expr_ref_vector get_assigned_literals() override { return m_solver->get_assigned_literals(); }
+    unsigned get_assign_level(expr* e) const override { flush_assertions(); return m_solver->get_assign_level(e); }
+    bool is_relevant(expr* e) const override { flush_assertions(); return m_solver->is_relevant(e); }
+    unsigned get_num_bool_vars() const override { flush_assertions(); return m_solver->get_num_bool_vars(); }
+    sat::bool_var get_bool_var(expr* e) const override { flush_assertions(); return m_solver->get_bool_var(e); }
+    expr* bool_var2expr(sat::bool_var v) const override { return m_solver->bool_var2expr(v); }
+    lbool get_assignment(sat::bool_var v) const override { return m_solver->get_assignment(v); }
+    double get_activity(sat::bool_var v) const override { return m_solver->get_activity(v); }
+    bool was_eliminated(sat::bool_var v) const override { return m_solver->was_eliminated(v); }
+    expr_ref cube_vsids(expr_ref_vector const& invalid_split_atoms) override { flush_assertions(); return m_solver->cube_vsids(invalid_split_atoms); }
+    void get_backbone_candidates(vector<scored_literal>& candidates, unsigned max_num) override { flush_assertions(); m_solver->get_backbone_candidates(candidates, max_num); }
 
     model_converter* external_model_converter() const {
         return concat(mc0(), local_model_converter());

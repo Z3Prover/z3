@@ -1,16 +1,13 @@
 ---
 description: Analyzes Z3 codebase for consistent coding conventions and opportunities to use modern C++ features
 on:
-  schedule:
-    - cron: "0 0 * * *"  # Once daily at midnight UTC
+  schedule: daily
   workflow_dispatch:
 permissions: read-all
 tools:
   cache-memory: true
   github:
     toolsets: [default]
-  view: {}
-  glob: {}
   edit: {}
   bash:
     - "clang-format --version"
@@ -18,6 +15,7 @@ tools:
     - "git diff:*"
     - "git show:*"
 safe-outputs:
+  report-failure-as-issue: false
   create-issue:
     title-prefix: "[Conventions] "
     labels: [code-quality, automated]
@@ -28,6 +26,8 @@ safe-outputs:
     close-older-discussions: true
   missing-tool:
     create-issue: true
+  noop:
+    report-as-issue: false
 network: defaults
 timeout-minutes: 20
 ---

@@ -289,6 +289,25 @@ void mpq_manager<SYNCH>::power(mpq const & a, unsigned p, mpq & b) {
         set(b, 1);
         return;
     }
+    if (eq(a, 1)) {
+        set(b, 1);
+        return;
+    }
+    if (eq(a, -1)) {
+        if (p % 2 == 0)
+            set(b, 1);
+        else
+            set(b, -1);
+        return;
+    }
+    if (eq(a, 0)) {
+        set(b, 0);
+        return;
+    }
+
+    if (p > (1 << 20)) 
+        throw default_exception("power is too large to compute");    
+
     unsigned mask = 1;
     mpq power;
     set(power, a);

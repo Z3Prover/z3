@@ -37,3 +37,6 @@ type rcf_num = ptr
 
 external set_internal_error_handler : ptr -> unit
   = "n_set_internal_error_handler"
+
+external solver_register_on_clause : context -> solver -> (ast option -> int list -> ast_vector -> unit) -> unit
+  = "n_solver_register_on_clause"

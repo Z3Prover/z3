@@ -25,6 +25,7 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 
@@ -88,13 +89,15 @@ namespace euf {
         }
 
         match_goal(unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t) noexcept : 
-            base_offset(offset), pat(pat), t(t),  level(level)  {}
+            base_offset(offset), pat(pat), t(t),  level(level)  {
+            SASSERT(pat->get_sort() == t->get_sort());
+        }
 
         unsigned term_offset() const { return base_offset + delta_offset; }
         unsigned pat_offset() const { return base_offset + delta_offset; }
 
         std::ostream& display(std::ostream& out) const {
-            return out << "[" << level << ":" << base_offset + delta_offset << "] " << pat << " ~ " << t << "\n";
+            return out << "[" << level << ":" << base_offset + delta_offset << "] " << mk_bounded_pp(pat, pat.m()) << " ~ " << mk_bounded_pp(t, t.m()) << "\n";
         }
     };
 
@@ -120,9 +123,9 @@ namespace euf {
 
     class ho_subst {
         expr_ref_vector m_subst;
+        expr_ref_vector m_binding;
     public:
-        ho_subst(ast_manager& m) :
-            m_subst(m) {            
+        ho_subst(ast_manager &m) : m_subst(m), m_binding(m) {
         }
         void resize(unsigned n) {
             m_subst.resize(n, nullptr);
@@ -155,6 +158,9 @@ namespace euf {
             }
             return out;
         }
+
+        expr_ref_vector const &get_binding(quantifier* q);
+        
     };
 
     class unitary_patterns {
@@ -312,6 +318,8 @@ namespace euf {
         match_goals      m_goals;
         unitary_patterns m_unitary;
         ptr_vector<match_goal> m_backtrack;
+        unsigned         m_max_depth = 10;        // bound on imitation/projection depth (secondary safety cap)
+        unsigned         m_max_iterations = 10000; // per-search expansion-step budget to guarantee termination
         mutable array_rewriter   m_rewriter;
         array_util       m_array;
         obj_map<app, app*>     m_pat2hopat, m_hopat2pat;
@@ -329,12 +337,18 @@ namespace euf {
         bool consume_work(match_goal& wi);
 
         expr_ref whnf(expr* e, unsigned offset) const;
+
+        expr_ref whnf_star(expr *e, unsigned offset) const;
         
         bool is_bound_var(expr* v, unsigned offset) const { return is_var(v) && to_var(v)->get_idx() < offset; }
 
         bool is_meta_var(expr* v, unsigned offset) const { return is_var(v) && to_var(v)->get_idx() >= offset; }
 
         bool is_closed(expr* v, unsigned scopes, unsigned offset) const;
+
+        bool maps_to_sort(sort *s, sort *t) const;
+
+        void add_meta_var_apps(sort *s, sort *t, expr_ref& x, expr_ref_vector const& vars, unsigned offset);
 
         void add_binding(var* v, unsigned offset, expr* t);
 
@@ -381,6 +395,10 @@ namespace euf {
 
         void set_on_match(std::function<void(ho_subst&)>& on_match) { m_on_match = on_match; }
 
+        void set_max_depth(unsigned d) { m_max_depth = d; }
+
+        void set_max_iterations(unsigned n) { m_max_iterations = n; }
+
         void operator()(expr *pat, expr *t, unsigned num_vars);
 
         void operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars);
@@ -389,11 +407,30 @@ namespace euf {
 
         bool is_ho_pattern(app* p);
 
+        // Register an alias pattern (e.g., after stripping ground elements) 
+        // that maps to the same original pattern as full_p
+        void register_ho_pattern(app* alias_p, app* full_p);
+
         void refine_ho_match(app* p, expr_ref_vector& s);
+
+        // Returns true iff applying the substitution s to t (with the given
+        // variable ordering) is sort-safe: every free variable of t that is
+        // bound by s maps to a value of the same sort. Used to defensively
+        // skip higher-order matches whose bindings would produce ill-typed
+        // instantiation terms (which would otherwise abort the whole solve).
+        static bool subst_sorts_match(ast_manager& m, expr* t, expr_ref_vector const& s, bool std_order);
 
         bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
 
         quantifier* hoq2q(quantifier* q) const { return m_hoq2q[q]; }
+
+
+        svector<std::pair<unsigned, expr*>> const* get_flex_subterms(app* p) const {
+            auto orig_p = m_hopat2pat.find_core(p);
+            if (!orig_p) return nullptr;
+            auto abs = m_pat2abs.find_core(orig_p->get_data().get_value());
+            return abs ? &abs->get_data().get_value() : nullptr;
+        }
 
     };
 }

@@ -38,7 +38,7 @@ Notes:
 namespace datalog {
 class rule_set;
 class context;
-}; // namespace datalog
+} // namespace datalog
 
 namespace spacer {
 

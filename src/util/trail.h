@@ -423,4 +423,13 @@ public:
         m_scopes.shrink(new_lvl);
         m_region.pop_scope(num_scopes);
     }
+
+    unsigned size() const {
+        return m_trail_stack.size();
+    }
+
+    void shrink(unsigned new_size) {
+        SASSERT(new_size <= m_trail_stack.size());
+        m_trail_stack.shrink(new_size);
+    }
 };

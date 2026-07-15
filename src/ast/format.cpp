@@ -195,4 +195,4 @@ namespace format_ns {
         return fm(m).mk_app(fid(m), OP_NIL);
     }
 
-};
+}

@@ -238,18 +238,13 @@ namespace lp {
                 r.c() -= b.c();
                 return r;
             }
-#if Z3DEBUG
-            friend bool operator==(const term_o& a, const term_o& b) {
+            
+            friend bool eq(const term_o& a, const term_o& b) {
                 term_o t = a.clone();
                 t += mpq(-1) * b;
                 return t.c() == mpq(0) && t.size() == 0;
             }
 
-            friend bool operator!=(const term_o& a, const term_o& b) {
-                return ! (a  == b);
-            }
-
-#endif
             term_o& operator+=(const term_o& t) {
                 for (const auto& p : t) {
                     add_monomial(p.coeff(), p.j());
@@ -585,7 +580,7 @@ namespace lp {
             const lar_term* m_t;
             undo_add_term(imp& s, const lar_term* t) : m_s(s), m_t(t) {}
 
-            void undo() {
+            void undo() override {
                 m_s.undo_add_term_method(m_t);
             }
         };
@@ -714,8 +709,8 @@ namespace lp {
             while (column.size() > 1) {
                 auto& c = column.back();
                 SASSERT(c.var() != last_row_index);
-                m_l_matrix.pivot_row_to_row_given_cell(last_row_index, c, j);
                 m_changed_rows.insert(c.var());
+                m_l_matrix.pivot_row_to_row_given_cell(last_row_index, c, j);
             }
         }
 
@@ -1541,7 +1536,7 @@ namespace lp {
             term_o t1 = open_ml(t0);
             t1.add_monomial(mpq(1), j);
             term_o rs = fix_vars(t1);
-            if (ls != rs) {
+            if (!eq(ls, rs)) {
                 TRACE(dio, tout << "ls:"; print_term_o(ls, tout) << "\n";
                       tout << "rs:"; print_term_o(rs, tout) << "\n";);
                 return false;
@@ -2351,7 +2346,7 @@ namespace lp {
 
                 return false;
             }
-            bool ret = ls == fix_vars(open_ml(m_l_matrix.m_rows[ei]));
+            bool ret = eq(ls, fix_vars(open_ml(m_l_matrix.m_rows[ei])));
             if (!ret) {
                 CTRACE(dio, !ret,
                    {

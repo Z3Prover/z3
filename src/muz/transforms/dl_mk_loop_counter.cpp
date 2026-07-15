@@ -153,4 +153,4 @@ namespace datalog {
         return result;
 
     }
-};
+}

@@ -109,6 +109,9 @@ struct smt_params : public preprocessor_params,
     bool             m_display_features = false;
     bool             m_new_core2th_eq = true;
     bool             m_ematching = true;
+    bool             m_ho_matching = false;
+    unsigned         m_ho_matching_bound = 10000;
+    bool             m_term_enumeration = true;
     bool             m_induction = false;
     bool             m_clause_proof = false;
     symbol           m_proof_log;

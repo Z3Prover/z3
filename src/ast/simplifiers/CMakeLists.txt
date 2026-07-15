@@ -1,10 +1,12 @@
 z3_add_component(simplifiers
   SOURCES
     bit_blaster.cpp
+    bv1_blaster.cpp
     bound_manager.cpp
     bound_propagator.cpp
     bound_simplifier.cpp
     bv_bounds_simplifier.cpp
+    bv_divrem_bounds.cpp
     bv_slice.cpp
     card2bv.cpp
     demodulator_simplifier.cpp
@@ -15,6 +17,8 @@ z3_add_component(simplifiers
     eliminate_predicates.cpp
     euf_completion.cpp
     extract_eqs.cpp
+    factor_simplifier.cpp
+    fold_unfold.cpp
     linear_equation.cpp
     max_bv_sharing.cpp
     model_reconstruction_trail.cpp
@@ -31,7 +35,9 @@ z3_add_component(simplifiers
     substitution
   TACTIC_HEADERS
     bit_blaster.h
+    bv1_blaster.h
     bit2int.h
+    blast_term_ite_simplifier.h
     elim_bounds.h
     elim_term_ite.h
     pull_nested_quantifiers.h

@@ -423,6 +423,7 @@ namespace smt {
         st.update("minimized lits", m_stats.m_num_minimized_lits);
         st.update("num checks", m_stats.m_num_checks);
         st.update("mk bool var", m_stats.m_num_mk_bool_var ? m_stats.m_num_mk_bool_var - 1 : 0);
+        st.update("random seed", m_fparams.m_random_seed);
         m_qmanager->collect_statistics(st);
         m_asserted_formulas.collect_statistics(st);
         for (theory* th : m_theory_set) {
@@ -544,14 +545,14 @@ namespace smt {
             out << std::left << n->get_owner_id() << " #";
             out.width(5);
             out << n->get_root()->get_owner_id() << " := " << std::right;
-            unsigned num = n->get_expr()->get_num_args();
+            unsigned num = n->get_num_args();
             if (num > 0)
                 out << "(";
             out << n->get_decl()->get_name();
             if (!n->get_decl()->private_parameters())
                 display_parameters(out, n->get_decl()->get_num_parameters(), n->get_decl()->get_parameters());
             for (unsigned i = 0; i < num; ++i) {
-                expr * arg = n->get_expr()->get_arg(i);
+                expr * arg = n->get_arg(i)->get_expr();
                 if (e_internalized(arg)) {
                     enode * n = get_enode(arg)->get_root();
                     out << " #" << n->get_owner_id();
@@ -785,5 +786,5 @@ namespace smt {
         IF_VERBOSE(2, verbose_stream() << str);
     }
 
-};
+}
 

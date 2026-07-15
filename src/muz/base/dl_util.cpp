@@ -681,5 +681,5 @@ namespace datalog {
         stm<<num;
         return stm.str();
     }
-};
+}
 

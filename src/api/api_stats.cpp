@@ -133,4 +133,4 @@ extern "C" {
         return memory::get_allocation_size();
     }
 
-};
+}

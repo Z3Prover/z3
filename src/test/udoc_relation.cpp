@@ -6,7 +6,9 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "muz/rel/udoc_relation.h"
 #include "util/trace.h"
+#include "util/gparams.h"
 #include "util/vector.h"
+#include "util/gparams.h"
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
@@ -35,6 +37,7 @@ class udoc_tester {
 
     struct init {
         init(ast_manager& m) {
+            gparams::set("fp.engine", "datalog");                
             reg_decl_plugins(m);
         }
     };
@@ -44,6 +47,7 @@ class udoc_tester {
     bv_util                   bv;
     expr_ref_vector           m_vars;
     smt_params                m_smt_params;
+    params_ref                m_fp_params;
     datalog::register_engine  m_reg;
     datalog::context          m_ctx;
     datalog::rel_context      rc;
@@ -113,7 +117,7 @@ class udoc_tester {
 
 public:
     udoc_tester(): 
-        m_init(m), bv(m), m_vars(m), m_ctx(m, m_reg, m_smt_params), rc(m_ctx),
+        m_init(m), bv(m), m_vars(m), m_ctx(m, m_reg, m_smt_params, m_fp_params), rc(m_ctx),
         p(dynamic_cast<udoc_plugin&>(*rc.get_rmanager().get_relation_plugin(symbol("doc")))),
         cr(dynamic_cast<datalog::check_relation_plugin&>(*rc.get_rmanager().get_relation_plugin(symbol("check_relation"))))
     {   

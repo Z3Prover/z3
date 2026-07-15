@@ -36,7 +36,7 @@ struct proc {
         }
     }
 };
-}; // namespace pattern_var_marker_ns
+} // namespace pattern_var_marker_ns
 namespace spacer {
 void pob_concretizer::mark_pattern_vars() {
     pattern_var_marker_ns::proc proc(m_arith, m_var_marks);

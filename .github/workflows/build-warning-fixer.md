@@ -5,15 +5,16 @@ on:
   workflow_dispatch:
 permissions: read-all
 tools:
-  view: {}
-  glob: {}
   edit:
   bash: true
 safe-outputs:
+  report-failure-as-issue: false
   create-pull-request:
     if-no-changes: ignore
   missing-tool:
     create-issue: true
+  noop:
+    report-as-issue: false
 timeout-minutes: 60
 ---
 

@@ -30,6 +30,7 @@ Revision History:
 #include "ast/dl_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/finite_set_decl_plugin.h"
 #include "ast/ast_smt_pp.h"
 #include "util/smt2_util.h"
 
@@ -53,6 +54,7 @@ public:
     virtual array_util & get_arutil() = 0;
     virtual fpa_util & get_futil() = 0;
     virtual seq_util & get_sutil() = 0;
+    virtual finite_set_util &get_fsutil() = 0;
     virtual datalog::dl_decl_util& get_dlutil() = 0;
     virtual datatype_util& get_dtutil() = 0;
     virtual bool uses(symbol const & s) const = 0; 
@@ -80,9 +82,12 @@ class smt2_pp_environment_dbg : public smt2_pp_environment {
     fpa_util      m_futil;
     seq_util      m_sutil;
     datatype_util m_dtutil;
+    finite_set_util m_fsutil;
     datalog::dl_decl_util m_dlutil;
 public:
-    smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_sutil(m), m_dtutil(m), m_dlutil(m) {}
+    smt2_pp_environment_dbg(ast_manager &m)
+        : m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_sutil(m), m_dtutil(m), m_fsutil(m),
+          m_dlutil(m) {}
     ast_manager & get_manager() const override { return m_manager; }
     arith_util & get_autil() override { return m_autil; }
     bv_util & get_bvutil() override { return m_bvutil; }
@@ -91,6 +96,7 @@ public:
     fpa_util & get_futil() override { return m_futil; }
     datalog::dl_decl_util& get_dlutil() override { return m_dlutil; }
     datatype_util& get_dtutil() override { return m_dtutil; }
+    finite_set_util &get_fsutil() override { return m_fsutil; }
     bool uses(symbol const & s) const override { return false; }
 };
 

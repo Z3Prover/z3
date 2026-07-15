@@ -22,6 +22,8 @@ z3_add_component(rewriter
     expr_safe_replace.cpp
     factor_equivs.cpp
     factor_rewriter.cpp
+    finite_set_axioms.cpp
+    finite_set_rewriter.cpp
     fpa_rewriter.cpp
     func_decl_replace.cpp
     inj_axiom.cpp
@@ -37,8 +39,16 @@ z3_add_component(rewriter
     rewriter.cpp
     seq_axioms.cpp
     seq_eq_solver.cpp
+    seq_derive.cpp
+    seq_subset.cpp
+    seq_split.cpp
+    seq_derive.cpp
+    seq_range_collapse.cpp
+    seq_range_predicate.cpp
     seq_rewriter.cpp
+    seq_regex_bisim.cpp
     seq_skolem.cpp
+    term_enumeration.cpp
     th_rewriter.cpp
     value_sweep.cpp
     var_subst.cpp

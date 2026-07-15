@@ -398,6 +398,22 @@ public class Optimize extends Z3Object {
     }
 
     /**
+     * Set an initial value for a variable to guide the optimizer's search heuristics.
+     * This can improve performance when a good initial value is known for the variable.
+     *
+     * @param var The variable to set an initial value for
+     * @param value The initial value for the variable
+     * @throws Z3Exception
+     **/
+    public void setInitialValue(Expr<?> var, Expr<?> value)
+    {
+        getContext().checkContextMatch(var);
+        getContext().checkContextMatch(value);
+        Native.optimizeSetInitialValue(getContext().nCtx(), getNativeObject(),
+            var.getNativeObject(), value.getNativeObject());
+    }
+
+    /**
      *  Optimize statistics.
      **/
     public Statistics getStatistics()

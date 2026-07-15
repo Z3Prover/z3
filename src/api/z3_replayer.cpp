@@ -621,7 +621,7 @@ struct z3_replayer::imp {
 
     Z3_symbol get_symbol(unsigned pos) const {
         check_arg(pos, SYMBOL);
-        return (Z3_symbol)m_args[pos].m_sym;
+        return (Z3_symbol)const_cast<void*>(m_args[pos].m_sym);
     }
 
     void * get_obj(unsigned pos) const {

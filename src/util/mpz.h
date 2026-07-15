@@ -385,9 +385,23 @@ class mpz_manager {
                 cell->m_digits[0] = static_cast<digit_t>(abs_val);
             }
             else {
+<<<<<<< HEAD
                 cell->m_digits[0] = static_cast<unsigned>(abs_val);
                 cell->m_digits[1] = static_cast<unsigned>(abs_val >> 32);
                 cell->m_size = (abs_val >> 32) == 0 ? 1 : 2;
+=======
+                cell = reserve;
+                cell->m_size = 1;
+                digit_t* cell_digits = reinterpret_cast<digit_t*>(cell + 1);
+                if (a.value() < 0) {
+                    sign = -1;
+                    cell_digits[0] = -a.value();
+                }
+                else {
+                    sign = 1;
+                    cell_digits[0] = a.value();
+                }
+>>>>>>> origin/master
             }
         }
         else {

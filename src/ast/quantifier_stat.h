@@ -149,6 +149,6 @@ namespace q {
         quantifier_stat * operator()(quantifier * q, unsigned generation);
     };
 
-};
+}
 
 

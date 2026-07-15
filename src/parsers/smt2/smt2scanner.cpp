@@ -58,8 +58,8 @@ namespace smt2 {
             if (m_at_eof)
                 return;
             if (c == '\n') {
-                new_line();
                 next();
+                new_line();
                 return;
             }
             next();
@@ -74,8 +74,8 @@ namespace smt2 {
             if (m_at_eof)
                 return;
             if (c == '\n') {
-                new_line();
                 next();
+                new_line();
                 continue;
             }
             next();
@@ -403,5 +403,5 @@ namespace smt2 {
         m_bend = 0;
         next();
     }
-};
+}
 

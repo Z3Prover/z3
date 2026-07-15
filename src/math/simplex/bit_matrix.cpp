@@ -125,7 +125,7 @@ unsigned_vector bit_matrix::gray(unsigned n) {
         auto v = gray(n-1);
         auto w = v;
         w.reverse();
-        for (auto & u : v) u |= (1 << (n-1));
+        for (auto & u : v) u |= (1u << (n-1));
         v.append(w);
         return v;
     }

@@ -354,8 +354,8 @@ void bit2int::visit(app* n) {
         //
         // (pos1 - neg1) mod e2 = (pos1 + (e2 - (neg1 mod e2))) mod e2
         //
-        unsigned sz_p, sz_n, sz;
-        bool sign_p, sign_n;
+        unsigned sz_p = 0, sz_n = 0, sz;
+        bool sign_p = false, sign_n = false;
         expr_ref tmp_p(m), tmp_n(m);
         VERIFY(extract_bv(pos1, sz_p, sign_p, tmp_p));
         VERIFY(extract_bv(neg1, sz_n, sign_n, tmp_n));

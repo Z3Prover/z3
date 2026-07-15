@@ -145,4 +145,4 @@ namespace smt {
         if (m_fparams.m_profile_res_sub)
             display_profile_res_sub(out);
     }
-};
+}

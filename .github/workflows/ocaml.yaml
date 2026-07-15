@@ -17,32 +17,24 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
 
       # Cache ccache (shared across runs)
       - name: Cache ccache
-        uses: actions/cache@v5.0.3
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.ccache
           key: ${{ runner.os }}-ccache-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ccache-
 
-      # Cache opam (compiler + packages)
-      - name: Cache opam
-        uses: actions/cache@v5.0.3
-        with:
-          path: ~/.opam
-          key: ${{ runner.os }}-opam-${{ matrix.ocaml-version }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-opam-${{ matrix.ocaml-version }}-
-
-      # Setup OCaml via action
+      # Setup OCaml via action (handles opam caching internally)
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-version }}
           opam-disable-sandboxing: true
-          
+          cache-prefix: v1
+
       # Platform-specific dependencies
       - name: Install system dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'

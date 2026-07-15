@@ -345,11 +345,6 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
         TRACEFIN("regex propagate");
         return FC_CONTINUE;
     }
-    if (check_contains()) {
-        ++m_stats.m_propagate_contains;
-        TRACEFIN("propagate_contains");
-        return FC_CONTINUE;
-    }
     if (check_fixed_length(true, false)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("zero_length");
@@ -363,6 +358,16 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
     if (check_fixed_length(false, false)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("fixed_length");
+        return FC_CONTINUE;
+    }
+    if (check_fixed_length(false, true)) {
+        ++m_stats.m_fixed_length;
+        TRACEFIN("fixed_length");
+        return FC_CONTINUE;
+    }
+    if (check_contains()) {
+        ++m_stats.m_propagate_contains;
+        TRACEFIN("propagate_contains");
         return FC_CONTINUE;
     }
     if (check_int_string()) {
@@ -499,12 +504,6 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
         m_fixed.contains(e)) {
         return false;
     }
-    
-    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
-    m_fixed.insert(e);
-
-    expr_ref seq(e, m), head(m), tail(m);
-
 
     TRACE(seq, tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
     literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
@@ -513,6 +512,11 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
 
     if (!check_long_strings && lo > 20 && !is_zero)
         return false;
+
+    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
+    m_fixed.insert(e);
+
+    expr_ref seq(e, m), head(m), tail(m);
 
     if (lo.is_zero()) {
         seq = m_util.str.mk_empty(e->get_sort());
@@ -692,6 +696,14 @@ bool theory_seq::check_lts() {
 
                 literal eq = (b == c) ? true_literal : mk_eq(b, c, false);
                 bool is_strict = is_strict1 || is_strict2; 
+                zstring bound_a, bound_d;
+                if (m_util.str.is_string(a, bound_a) && m_util.str.is_string(d, bound_d)) {
+                    bool ok = is_strict ? bound_a < bound_d : !(bound_d < bound_a);
+                    if (!ok) {
+                        add_axiom(~r1, ~r2, ~eq);
+                    }
+                    continue;
+                }
                 if (is_strict) {
                     add_axiom(~r1, ~r2, ~eq, mk_literal(m_util.str.mk_lex_lt(a, d)));
                 }
@@ -996,10 +1008,28 @@ bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
     m_rep.update(l, r, deps);
     enode* n1 = ensure_enode(l);
     enode* n2 = ensure_enode(r);    
+    ptr_vector<expr> len_parents;
+    if (m_util.is_seq(r)) {
+        auto collect_len_parents = [&](enode* n) {
+            for (enode* p : n->get_parents()) {
+                if (m_util.str.is_length(p->get_expr()))
+                    len_parents.push_back(p->get_expr());
+            }
+        };
+        collect_len_parents(n1);
+        collect_len_parents(n2);
+    }
     TRACE(seq, tout << mk_bounded_pp(l, m, 2) << " ==> " << mk_bounded_pp(r, m, 2) << "\n"; display_deps(tout, deps);
           tout << "#" << n1->get_owner_id() << " ==> #" << n2->get_owner_id() << "\n";
           tout << (n1->get_root() == n2->get_root()) << "\n";);         
     propagate_eq(deps, n1, n2);
+    if (m_util.is_seq(r)) {
+        expr_ref len_r(m_util.str.mk_length(r), m);
+        m_rewrite(len_r);
+        for (expr* len_e : len_parents) {
+            propagate_eq(deps, len_e, len_r, false);
+        }
+    }
     return true;
 }
 
@@ -1481,8 +1511,7 @@ bool theory_seq::internalize_term(app* term) {
         return true;
     }
     
-    if (m.is_bool(term) && 
-        (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
+    if (m.is_bool(term) && (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
@@ -2100,7 +2129,7 @@ app* theory_seq::get_ite_value(expr* e) {
 }
 
 model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
-    app* e = n->get_expr();
+    expr* e = n->get_expr();
     TRACE(seq, tout << mk_pp(e, m) << "\n";);
 
     // Shortcut for well-founded values to avoid some quadratic overhead
@@ -2160,7 +2189,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
 }
 
 
-app* theory_seq::mk_value(app* e) {
+app* theory_seq::mk_value(expr* e) {
     expr_ref result(m);
     e = get_ite_value(e);
     result = m_rep.find(e);
@@ -2629,14 +2658,14 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
         result = m_util.str.mk_foldli(e1, e2, e3, arg4);
         ctx.get_rewriter()(result);
     }
-#if 0
+    #if 0
     else if (m_util.str.is_nth_i(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         if (!arg1) return true;
         result = m_util.str.mk_nth_i(arg1, e2);
         // m_rewrite(result);
     }
-#endif
+    #endif
     else if (m_util.str.is_last_index(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         arg2 = try_expand(e2, deps);
@@ -2976,7 +3005,7 @@ void theory_seq::add_axiom(literal_vector & lits) {
     TRACE(seq, ctx.display_literals_verbose(tout << "assert " << lits << " :", lits) << "\n";);
 
     for (literal lit : lits)
-        if (ctx.get_assignment(lit) == l_true) 
+        if (ctx.get_assignment(lit) == l_true && ctx.get_assign_level(lit) == 0) 
             return;
 
     for (literal lit : lits)
@@ -3152,6 +3181,70 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
         m_lts.push_back(e);
+        expr* a = nullptr, *b = nullptr;
+        zstring bound;
+        bool is_lower = false;
+        expr* x = nullptr;
+        if (is_true && m_util.str.is_lt(e, a, b)) {
+            // is_lower=true  encodes  c < x  (c is a lower bound on x)
+            // is_lower=false encodes  x < c  (c is an upper bound on x)
+            if (m_util.str.is_string(a, bound) && !m_util.str.is_string(b)) {
+                is_lower = true;
+                x = b;
+            }
+            else if (!m_util.str.is_string(a) && m_util.str.is_string(b, bound)) {
+                is_lower = false;
+                x = a;
+            }
+        }
+        if (x && ctx.get_enode(x)) {
+            enode* x_root = ctx.get_enode(x)->get_root();
+            for (expr* p : m_lts) {
+                if (p == e)
+                    continue;
+                expr* pa = nullptr, *pb = nullptr;
+                zstring p_bound;
+                bool p_is_lower = false;
+                expr* px = nullptr;
+                if (!m_util.str.is_lt(p, pa, pb))
+                    continue;
+                literal p_lit = ctx.get_literal(p);
+                // Skip trivial literals: they are not tracked by a bool variable and
+                // cannot participate in a conflict justification as assumptions.
+                if (p_lit == true_literal || p_lit == false_literal)
+                    continue;
+                if (ctx.get_assignment(p_lit) != l_true)
+                    continue;
+                if (m_util.str.is_string(pa, p_bound) && !m_util.str.is_string(pb)) {
+                    p_is_lower = true;
+                    px = pb;
+                }
+                else if (!m_util.str.is_string(pa) && m_util.str.is_string(pb, p_bound)) {
+                    p_is_lower = false;
+                    px = pa;
+                }
+                if (!px)
+                    continue;
+                if (p_is_lower == is_lower)
+                    continue;
+                if (!ctx.get_enode(px))
+                    continue;
+                if (ctx.get_enode(px)->get_root() != x_root)
+                    continue;
+                zstring const& lower = is_lower ? bound : p_bound;
+                zstring const& upper = is_lower ? p_bound : bound;
+                if (!(lower < upper)) {
+                    literal_vector lits;
+                    // set_conflict expects currently true assumptions.
+                    // `lit` is true because assign_eh was invoked with is_true,
+                    // and `p_lit` is filtered above to assignment l_true.
+                    lits.push_back(lit);
+                    lits.push_back(p_lit);
+                    set_conflict(nullptr, lits);
+                    return;
+                }
+            }
+        }
     }
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
@@ -3283,7 +3376,10 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
 void theory_seq::restart_eh() {
 }
 
-void theory_seq::relevant_eh(app* n) {
+void theory_seq::relevant_eh(expr* _n) {
+    if (!is_app(_n))
+        return;
+    app *n = to_app(_n);
     if (m_util.str.is_index(n)   ||
         m_util.str.is_replace(n) ||
         m_util.str.is_extract(n) ||

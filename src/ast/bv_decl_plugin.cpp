@@ -783,6 +783,9 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("rotate_left",OP_ROTATE_LEFT));
     op_names.push_back(builtin_name("rotate_right",OP_ROTATE_RIGHT));
     op_names.push_back(builtin_name("bit2bool", OP_BIT2BOOL));
+    op_names.push_back(builtin_name("ubv_to_int", OP_UBV2INT));
+    op_names.push_back(builtin_name("sbv_to_int", OP_SBV2INT));
+    op_names.push_back(builtin_name("int_to_bv", OP_INT2BV));
 
     if (logic == symbol::null || logic == symbol("ALL") || logic == "QF_FD" || logic == "HORN") {
         op_names.push_back(builtin_name("bvumul_noovfl",OP_BUMUL_NO_OVFL));
@@ -804,11 +807,10 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name("ext_rotate_left",OP_EXT_ROTATE_LEFT));
         op_names.push_back(builtin_name("ext_rotate_right",OP_EXT_ROTATE_RIGHT));
         op_names.push_back(builtin_name("int2bv",OP_INT2BV));
-        op_names.push_back(builtin_name("int_to_bv",OP_INT2BV));
+
         op_names.push_back(builtin_name("bv2int",OP_UBV2INT));
         op_names.push_back(builtin_name("bv2nat",OP_UBV2INT));
-        op_names.push_back(builtin_name("ubv_to_int",OP_UBV2INT));
-        op_names.push_back(builtin_name("sbv_to_int",OP_SBV2INT));
+
         op_names.push_back(builtin_name("mkbv",OP_MKBV));
     }
 }
@@ -994,4 +996,31 @@ app* bv_util::mk_bv_rotate_left(expr* arg, unsigned n) {
 app* bv_util::mk_bv_rotate_right(expr* arg, unsigned n) {
     parameter p(n);
     return m_manager.mk_app(get_fid(), OP_ROTATE_RIGHT, 1, &p, 1, &arg);
+}
+
+void bv_util::mk_bv_divrem_bound(expr* t, expr_ref_vector& clause) {
+    clause.reset();
+    if (!is_app(t) || !is_bv_divrem(t))
+        return;
+    expr* a = to_app(t)->get_arg(0);
+    expr* b = to_app(t)->get_arg(1);
+    if (is_numeral(b))
+        return;
+    expr* bound = nullptr;
+    // Use ¬(b ≤u t) instead of (t <u b) and ¬(abs(b) ≤u abs(t)) instead of (abs(t) <u abs(b))
+    // so that all bound atoms are OP_ULEQ (handled by theory_bv::internalize_atom).
+    // OP_ULT is not handled by theory_bv::internalize_atom and would trigger UNREACHABLE.
+    if (is_bv_urem(t) || is_bv_uremi(t))
+        bound = m_manager.mk_not(mk_ule(b, t));
+    else if (is_bv_srem(t) || is_bv_sremi(t) || is_bv_smod(t) || is_bv_smodi(t))
+        bound = m_manager.mk_not(mk_ule(mk_abs(b), mk_abs(t)));
+    else if (is_bv_udiv(t) || is_bv_udivi(t))
+        bound = mk_ule(t, a);
+    else if (is_bv_sdiv(t) || is_bv_sdivi(t))
+        bound = mk_ule(mk_abs(t), mk_abs(a));
+    if (!bound)
+        return;
+    // clause encodes  b != 0 => bound  as the disjunction  (b = 0) \/ bound
+    clause.push_back(m_manager.mk_eq(b, mk_zero(b->get_sort())));
+    clause.push_back(bound);
 }

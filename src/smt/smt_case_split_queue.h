@@ -52,6 +52,6 @@ namespace smt {
     };
 
     case_split_queue * mk_case_split_queue(context & ctx, smt_params & p);
-};
+}
 
 

@@ -39,11 +39,13 @@ namespace polymorphism {
         }
         unsigned n = s->get_num_parameters();
         vector<parameter> ps;
+        sort_ref_vector pin(m); // keep substituted sub-sorts alive until mk_sort below
         for (unsigned i = 0; i < n; ++i) {
             auto &p = s->get_parameter(i);
             if (p.is_ast() && is_sort(p.get_ast())) {
-                sort_ref s = (*this)(to_sort(p.get_ast()));
-                ps.push_back(parameter(s.get()));
+                sort_ref ss = (*this)(to_sort(p.get_ast()));
+                pin.push_back(ss);
+                ps.push_back(parameter(ss.get()));
             }
             else
                 ps.push_back(p);
@@ -242,15 +244,27 @@ namespace polymorphism {
     bool util::unify(substitution const& s1, substitution const& s2,
                      substitution& sub) {
         sort* v2;
-        for (auto const& [k, v] : s1)
+        SASSERT(&s1 != &sub);
+        SASSERT(&s2 != &sub);
+        for (auto const& [k, v] : s1) {
+            // Guard against building a cyclic substitution (e.g. A |-> list(A)),
+            // which would make substitution application diverge. Such a binding
+            // means the two substitutions are not simultaneously unifiable.
+            if (occurs(k, v))
+                return false;
             sub.insert(k, v);
+        }
         for (auto const& [k, v] : s2) {
             if (sub.find(k, v2)) {
                 if (!sub.unify(sub(v), v2))
                     return false;
             }
-            else
-                sub.insert(k, sub(v));
+            else {
+                sort_ref vr = sub(v);
+                if (occurs(k, vr))
+                    return false;
+                sub.insert(k, vr);
+            }
         }
         return true;
     }
@@ -349,5 +363,32 @@ namespace polymorphism {
         };
         proc proc(m, tvs);
         for_each_ast(proc, e, true);
+    }
+
+    void util::match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& range_out) {
+        if (dsz != sig.m_dom.size()) {
+            std::ostringstream strm;
+            strm << "Incorrect number of arguments to '" << sig.m_name << "' ";
+            strm << "expected " << sig.m_dom.size() << " given " << dsz;
+            m.raise_exception(strm.str());
+        }
+        
+        substitution sub(m);
+        bool is_match = true;
+        for (unsigned i = 0; is_match && i < dsz; ++i) {
+            SASSERT(dom[i]);
+            is_match = sub.match(sig.m_dom.get(i), dom[i]);
+        }
+        if (range && is_match) {
+            is_match = sub.match(sig.m_range, range);
+        }
+        if (!is_match) {
+            std::ostringstream strm;
+            strm << "Sort mismatch for function '" << sig.m_name << "'";
+            m.raise_exception(strm.str());
+        }
+        
+        // Apply substitution to get the range
+        range_out = sub(sig.m_range);
     }
 }

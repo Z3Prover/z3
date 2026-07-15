@@ -63,8 +63,8 @@ void array_factory::get_some_args_for(sort * s, ptr_buffer<expr> & args) {
 expr * array_factory::get_some_value(sort * s) {
     TRACE(array_factory, tout << mk_pp(s, m_manager) << "\n";);
     value_set * set = nullptr;
-    if (m_sort2value_set.find(s, set) && !set->empty())
-        return *(set->begin());
+    if (m_sort2value_set.find(s, set) && !set->set.empty())
+        return *(set->set.begin());
     func_interp * fi;
     expr * val = mk_array_interp(s, fi);
     fi->set_else(m_model.get_some_value(get_array_range(s)));
@@ -75,7 +75,7 @@ bool array_factory::mk_two_diff_values_for(sort * s) {
     TRACE(array_factory, tout << mk_pp(s, m_manager) << "\n";);
     DEBUG_CODE({
         value_set * set = 0;
-        SASSERT(!m_sort2value_set.find(s, set) || set->size() <= 1);
+        SASSERT(!m_sort2value_set.find(s, set) || set->set.size() <= 1);
     });
     expr_ref r1(m_manager);
     expr_ref r2(m_manager);
@@ -92,24 +92,24 @@ bool array_factory::mk_two_diff_values_for(sort * s) {
     fi2->insert_entry(args.data(), r2);
     DEBUG_CODE({
         value_set * set = 0;
-        SASSERT(m_sort2value_set.find(s, set) && set->size() >= 2);
+        SASSERT(m_sort2value_set.find(s, set) && set->set.size() >= 2);
     });
     return true;
 }
 
 bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     value_set * set = nullptr;
-    if (!m_sort2value_set.find(s, set) || set->size() < 2) {
+    if (!m_sort2value_set.find(s, set) || set->set.size() < 2) {
         if (!mk_two_diff_values_for(s)) {
             TRACE(array_factory_bug, tout << "could not create diff values: " << mk_pp(s, m_manager) << "\n";);
             return false;
         }
     }
     m_sort2value_set.find(s, set);
-    SASSERT(set != 0);
-    SASSERT(set->size() >= 2);
-    
-    value_set::iterator it = set->begin();
+    SASSERT(set);
+    SASSERT(set->set.size() >= 2);
+
+    auto it = set->set.begin();
     v1 = *it;
     ++it;
     v2 = *it;
@@ -126,8 +126,8 @@ bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
 // is set with the result of some entry.
 //
 expr * array_factory::get_fresh_value(sort * s) {
-    value_set * set = get_value_set(s);
-    if (set->empty()) {
+    auto& [set, values] = get_value_set(s);
+    if (set.empty()) {
         // easy case 
         return get_some_value(s);
     }

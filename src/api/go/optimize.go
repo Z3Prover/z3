@@ -193,3 +193,15 @@ func (o *Optimize) FromString(s string) {
 	defer C.free(unsafe.Pointer(cStr))
 	C.Z3_optimize_from_string(o.ctx.ptr, o.ptr, cStr)
 }
+
+// Translate creates a copy of the optimize context in the target context.
+// This is useful when working with multiple Z3 contexts.
+func (o *Optimize) Translate(target *Context) *Optimize {
+	ptr := C.Z3_optimize_translate(o.ctx.ptr, o.ptr, target.ptr)
+	newOpt := &Optimize{ctx: target, ptr: ptr}
+	C.Z3_optimize_inc_ref(target.ptr, ptr)
+	runtime.SetFinalizer(newOpt, func(opt *Optimize) {
+		C.Z3_optimize_dec_ref(opt.ctx.ptr, opt.ptr)
+	})
+	return newOpt
+}

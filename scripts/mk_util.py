@@ -1804,6 +1804,7 @@ class DotNetDLLComponent(Component):
     <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
     <Copyright>Copyright Microsoft Corporation. All rights reserved.</Copyright>
     <PackageTags>smt constraint solver theorem prover</PackageTags>
+    <PlatformTarget>AnyCPU</PlatformTarget>
     %s
   </PropertyGroup>
 
@@ -1919,11 +1920,11 @@ class JavaDLLComponent(Component):
             if IS_WINDOWS: # On Windows, CL creates a .lib file to link against.
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(LIB_EXT)\n' %
                           os.path.join('api', 'java', 'Native'))
-            elif IS_OSX and IS_ARCH_ARM64:
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) -arch arm64 %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
+            elif IS_OSX:
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT) -Wl,-rpath,@loader_path $(SLINK_EXTRA_FLAGS)\n' %
                           os.path.join('api', 'java', 'Native'))
             else:
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT) $(SLINK_EXTRA_FLAGS)\n' %
                           os.path.join('api', 'java', 'Native'))
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             deps = ''
@@ -2317,7 +2318,7 @@ class DotNetExampleComponent(ExampleComponent):
             dotnet_proj_str = r"""<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <PlatformTarget>%s</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
@@ -2756,6 +2757,11 @@ def mk_config():
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
+        elif IS_OSX and os.uname()[4] == 'arm64':
+            # Cross-compiling from ARM64 host to x86_64: ensure the shared library
+            # linker also targets x86_64 (LDFLAGS already contains -arch x86_64
+            # from the environment, but SLIBEXTRAFLAGS is independent)
+            SLIBEXTRAFLAGS = '%s -arch x86_64' % SLIBEXTRAFLAGS
         if IS_OSX:
             SLIBFLAGS += ' -Wl,-headerpad_max_install_names'
 
@@ -3594,10 +3600,11 @@ class MakeRuleCmd(object):
 def strip_path_prefix(path, prefix):
     if path.startswith(prefix):
         stripped_path = path[len(prefix):]
-        stripped_path.replace('//','/')
-        if stripped_path[0] == '/':
+        stripped_path = stripped_path.replace('//','/')
+        if len(stripped_path) > 0 and stripped_path[0] == '/':
             stripped_path = stripped_path[1:]
-        assert not os.path.isabs(stripped_path)
+        if os.path.isabs(stripped_path):
+            raise ValueError(f"Path '{path}' after stripping prefix '{prefix}' is still absolute: '{stripped_path}'")
         return stripped_path
     else:
         return path

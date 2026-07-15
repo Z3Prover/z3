@@ -245,6 +245,15 @@ public class Expr<R extends Sort> extends AST
     }
 
     /**
+     * Return the numeral value as a double.
+     * The expression must be a numeral or an algebraic number.
+     **/
+    public double getNumeralDouble()
+    {
+        return Native.getNumeralDouble(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
      * Indicates whether the term is well-sorted.
      * 
      * @throws Z3Exception on error
@@ -304,6 +313,26 @@ public class Expr<R extends Sort> extends AST
     public boolean isAlgebraicNumber()
     {
         return Native.isAlgebraicNumber(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Indicates whether the term is ground (contains no free variables).
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isGround()
+    {
+        return Native.isGround(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Indicates whether the term is a lambda expression.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isLambda()
+    {
+        return Native.isLambda(getContext().nCtx(), getNativeObject());
     }
 
     /**

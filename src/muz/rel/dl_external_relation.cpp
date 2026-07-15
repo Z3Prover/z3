@@ -449,4 +449,4 @@ namespace datalog {
         return alloc(negation_filter_fn, *this, t, negated_obj, joined_col_cnt, t_cols, negated_cols);
     }
 
-};
+}

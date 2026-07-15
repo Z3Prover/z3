@@ -7,7 +7,6 @@ z3_add_component(arith_tactics
     degree_shift_tactic.cpp
     diff_neq_tactic.cpp
     eq2bv_tactic.cpp
-    factor_tactic.cpp
     fix_dl_var_tactic.cpp
     fm_tactic.cpp
     lia2card_tactic.cpp

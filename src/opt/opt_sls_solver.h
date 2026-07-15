@@ -66,7 +66,7 @@ namespace opt {
         virtual void collect_param_descrs(param_descrs & r) {
             m_solver->collect_param_descrs(r);
         }
-        virtual void collect_statistics(statistics & st) const {
+        virtual void collect_statistics_core(statistics & st) const {
             m_solver->collect_statistics(st);
             if (m_bvsls) m_bvsls->collect_statistics(st);
             if (m_pbsls) m_pbsls->collect_statistics(st);

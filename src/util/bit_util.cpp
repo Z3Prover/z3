@@ -214,6 +214,15 @@ void shl(std::span<unsigned const> src, unsigned k, std::span<unsigned> dst) {
         }
     }
     else {
+        if (bit_shift == 0) {
+            if (src_sz > dst_sz)
+                src_sz = dst_sz;
+            for (size_t i = 0; i < src_sz; ++i)
+                dst[i] = src[i];
+            for (size_t i = src_sz; i < dst_sz; ++i)
+                dst[i] = 0;
+            return;
+        }
         unsigned comp_shift = (8 * sizeof(unsigned)) - bit_shift;
         unsigned prev       = 0;
         if (src_sz > dst_sz)
@@ -278,7 +287,11 @@ void shr(std::span<unsigned const> src, unsigned k, std::span<unsigned> dst) {
         }
         else {
             SASSERT(new_sz == sz);
-            SASSERT(bit_shift != 0);
+            if (bit_shift == 0) {
+                for (size_t i = 0; i < sz; ++i)
+                    dst[i] = src[i];
+                return;
+            }
             unsigned i       = 0;
             for (; i < new_sz - 1; ++i) {
                 dst[i] = src[i];
@@ -327,20 +340,26 @@ void shr(std::span<unsigned const> src, unsigned k, std::span<unsigned> dst) {
     }
     else {
         SASSERT(new_sz == src_sz);
-        SASSERT(bit_shift != 0);
-        auto sz = new_sz;
-        if (new_sz > dst_sz)
-            sz = dst_sz;
-        unsigned i       = 0;
-        for (; i < sz - 1; ++i) {
+        if (bit_shift == 0) {
+            auto sz = std::min(new_sz, dst_sz);
+            for (size_t i = 0; i < sz; ++i)
+                dst[i] = src[i];
+        }
+        else {
+            auto sz = new_sz;
+            if (new_sz > dst_sz)
+                sz = dst_sz;
+            unsigned i       = 0;
+            for (; i < sz - 1; ++i) {
+                dst[i] = src[i];
+                dst[i] >>= bit_shift;
+                dst[i] |= (src[i+1] << comp_shift);
+            }
             dst[i] = src[i];
             dst[i] >>= bit_shift;
-            dst[i] |= (src[i+1] << comp_shift);
+            if (new_sz > dst_sz)
+                dst[i] |= (src[i+1] << comp_shift);
         }
-        dst[i] = src[i];
-        dst[i] >>= bit_shift;
-        if (new_sz > dst_sz)
-            dst[i] |= (src[i+1] << comp_shift);
     }
     for (auto i = new_sz; i < dst_sz; ++i)
         dst[i] = 0;

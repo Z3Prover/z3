@@ -59,6 +59,16 @@ public class ArraySort<D extends Sort, R extends Sort> extends Sort
                 Native.getArraySortRange(getContext().nCtx(), getNativeObject()));
     }
 
+    /**
+     * The number of dimensions of the array sort.
+     * @throws Z3Exception on error
+     * @return an int
+     **/
+    public int getArity()
+    {
+        return Native.getArrayArity(getContext().nCtx(), getNativeObject());
+    }
+
     ArraySort(Context ctx, long obj)
     {
         super(ctx, obj);

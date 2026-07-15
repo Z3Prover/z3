@@ -543,4 +543,4 @@ namespace datalog {
         reset();
         return result;
     }
-};
+}

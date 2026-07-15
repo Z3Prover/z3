@@ -16,7 +16,7 @@ Abstract:
      All variables x, y, z, .. can eventually be eliminated, but the tactic requires a global 
      analysis between each elimination. We address this by using reference counts and maintaining
      a heap of reference counts.
-   - it does not accomodate side constraints. The more general invertibility reduction methods, such 
+   - it does not accommodate side constraints. The more general invertibility reduction methods, such 
      as those introduced for bit-vectors use side constraints.
    - it is not modular: we detach the expression invertion routines to self-contained code.
 
@@ -116,12 +116,13 @@ eliminate:
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/recfun_decl_plugin.h"
+#include "ast/polymorphism_util.h"
 #include "ast/simplifiers/elim_unconstrained.h"
 
 elim_unconstrained::elim_unconstrained(ast_manager& m, dependent_expr_state& fmls) :
     dependent_expr_simplifier(m, fmls), m_inverter(m), m_lt(*this), m_heap(1024, m_lt), m_trail(m), m_args(m) {
     std::function<bool(expr*)> is_var = [&](expr* e) {
-        return is_uninterp_const(e) && !m_fmls.frozen(e) && get_node(e).is_root() && get_node(e).num_parents() <= 1;
+        return is_uninterp_const(e) && !m_fmls.frozen(e) && !m_disabled.is_marked(e) && get_node(e).is_root() && get_node(e).num_parents() <= 1;
     };
     m_inverter.set_is_var(is_var);
 }
@@ -247,10 +248,12 @@ elim_unconstrained::node& elim_unconstrained::get_node(expr* t) {
                     m_heap.increased(arg->get_id());
             }
         }
-        else if (is_quantifier(t)) {            
-            node& ch = get_node(to_quantifier(t)->get_expr());
+        else if (is_quantifier(t)) {        
+            auto body = to_quantifier(t)->get_expr();
+            node& ch = get_node(body);
             SASSERT(ch.is_root());
             ch.add_parent(*n);
+            disable(body);
         }
     }
     return *n;
@@ -411,10 +414,9 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
         case generic_model_converter::instruction::HIDE:
             break;
         case generic_model_converter::instruction::ADD:
-            //            new_def = entry.m_def;
-            // (*rp)(new_def);
-            new_def = m.mk_const(entry.m_f);
-            sub->insert(new_def, new_def, nullptr, nullptr);
+            new_def = entry.m_def;
+            (*rp)(new_def);
+            sub->insert(m.mk_const(entry.m_f), new_def, nullptr, nullptr);
             break;
         }
     }
@@ -424,6 +426,18 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
 void elim_unconstrained::reduce() {
     if (!m_config.m_enabled)
         return;
+    // has_type_vars() is a manager-wide flag that is set as soon as any type variable is
+    // created, including the ones used to define polymorphic signatures of builtin plugins
+    // (e.g. finite_set) that never occur in the asserted formulas. Only bail out when the
+    // formulas actually contain type-variable typed terms, which this simplifier cannot invert.
+    if (m.has_type_vars()) {
+        polymorphism::util u(m);
+        for (unsigned i : indices()) {
+            auto [f, p, d] = m_fmls[i]();
+            if (u.has_type_vars(f))
+                return;
+        }
+    }
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "elim-unconstrained");
     m_inverter.set_model_converter(mc.get());
     m_created_compound = true;
@@ -436,10 +450,29 @@ void elim_unconstrained::reduce() {
         assert_normalized(old_fmls);
         update_model_trail(*mc, old_fmls);
         mc->reset();        
+        m_disabled.reset();
     }
 }
 
 void elim_unconstrained::updt_params(params_ref const& p) {
     smt_params_helper sp(p);
     m_config.m_enabled = sp.elim_unconstrained();
+}
+
+void elim_unconstrained::disable(expr* e) {
+    if (m_disabled.is_marked(e))
+        return;
+
+    ptr_buffer<expr> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        e = todo.back();
+        todo.pop_back();
+        if (m_disabled.is_marked(e))
+            continue;
+        m_disabled.mark(e);
+        if (is_app(e))
+            for (auto arg : *to_app(e))
+                todo.push_back(arg);
+    }
 }

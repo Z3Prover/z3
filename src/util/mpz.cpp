@@ -601,7 +601,11 @@ mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
     ensure_mpz_t a1(a);
     mk_big(result);
     MPZ_BEGIN_CRITICAL();
+<<<<<<< HEAD
     mpz_tdiv_r_2exp(*result.ptr(), a1(), k);
+=======
+    mpz_fdiv_r_2exp(*result.m_ptr, a1(), k);
+>>>>>>> origin/master
     MPZ_END_CRITICAL();
 #endif
     STRACE(mpz, tout << to_string(result) << '\n';);
@@ -1759,8 +1763,16 @@ std::string mpz_manager<SYNCH>::to_string(mpz const & a) const {
 
 template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
+<<<<<<< HEAD
     if (is_small(a))
         return ::abs(a.value());
+=======
+    if (is_small(a)) {
+        // compute abs in unsigned arithmetic: ::abs(INT_MIN) is undefined
+        unsigned u = static_cast<unsigned>(a.m_val);
+        return a.m_val < 0 ? 0u - u : u;
+    }
+>>>>>>> origin/master
 #ifndef _MP_GMP
     unsigned sz = size(a);
     if (sz == 1)

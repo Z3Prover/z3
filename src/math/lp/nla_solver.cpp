@@ -20,16 +20,20 @@ namespace nla {
         m_core->add_monic(v, sz, vs);
     }
 
-    void solver::add_idivision(lpvar q, lpvar x, lpvar y) {
-        m_core->add_idivision(q, x, y);
+    void solver::add_idivision(lpvar q, lpvar x, lpvar y, lpvar r) {
+        m_core->add_idivision(q, x, y, r);
     }
 
-    void solver::add_rdivision(lpvar q, lpvar x, lpvar y) {
-        m_core->add_rdivision(q, x, y);
+    void solver::add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r) {
+        m_core->add_rdivision(q, x, y, r);
     }
 
-    void solver::add_bounded_division(lpvar q, lpvar x, lpvar y) {
-        m_core->add_bounded_division(q, x, y);
+    void solver::add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r) {
+        m_core->add_bounded_division(q, x, y, r);
+    }
+
+    void solver::add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d) {
+        m_core->add_divisibility(r, x, y, d);
     }
 
     void solver::set_relevant(std::function<bool(lpvar)>& is_relevant) {

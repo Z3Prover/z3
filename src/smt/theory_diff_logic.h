@@ -263,7 +263,7 @@ namespace smt {
             m_arith_eq_adapter.restart_eh();
         }
 
-        void relevant_eh(app* e) override {}
+        void relevant_eh(expr* e) override {}
 
         void init_search_eh() override {
             m_arith_eq_adapter.init_search_eh();
@@ -407,7 +407,7 @@ namespace smt {
     typedef theory_diff_logic<sidl_ext> theory_fidl;
     typedef theory_diff_logic<rdl_ext> theory_rdl;
     typedef theory_diff_logic<srdl_ext> theory_frdl;
-};
+}
 
 
 

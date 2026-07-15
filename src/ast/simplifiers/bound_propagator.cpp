@@ -381,7 +381,7 @@ bool bound_propagator::relevant_bound(var x, double new_k) const {
     if (b == nullptr)
         return true; // variable did not have a bound
     
-    double interval_size;
+    double interval_size = 0.0;
     bool bounded = get_interval_size(x, interval_size);
 
     if (!is_int(x)) {
@@ -937,6 +937,5 @@ void bound_propagator::display(std::ostream & out) const {
     display_bounds(out);
     display_constraints(out);
 }
-
 
 

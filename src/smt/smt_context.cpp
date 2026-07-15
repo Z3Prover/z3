@@ -66,10 +66,9 @@ namespace smt {
         m_progress_callback(nullptr),
         m_next_progress_sample(0),
         m_clause_proof(*this),
-        m_fingerprints(m, m_region),
+        m_fingerprints(m, get_region()),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
-        m_l_internalized_stack(m),
         m_final_check_idx(0),
         m_cg_table(m),
         m_conflict(null_b_justification),
@@ -81,7 +80,6 @@ namespace smt {
         m_unsat_core(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
-        m_mk_lambda_trail(*this),
         m_lemma_visitor(m) {
 
         SASSERT(m_scope_lvl == 0);
@@ -120,6 +118,13 @@ namespace smt {
         if (!m_setup.already_configured()) {
             m_fparams.updt_params(p);
         }
+        else {
+            // selected parameters are safe to update after initialization
+            m_fparams.m_max_conflicts = p.get_uint("max_conflicts", m_fparams.m_max_conflicts);
+        }
+        for (auto th : m_theory_set)
+            if (th)
+                th->updt_params();
     }
 
     unsigned context::relevancy_lvl() const {
@@ -213,7 +218,7 @@ namespace smt {
         }
         ast_translation tr(src_ctx.m, m, false);
         for (unsigned i = 0; i < src_ctx.m_user_propagator->get_num_vars(); ++i) {
-            app* e = src_ctx.m_user_propagator->get_expr(i);
+            auto e = src_ctx.m_user_propagator->get_expr(i);
             m_user_propagator->add_expr(tr(e), true);
         }
     }
@@ -285,8 +290,13 @@ namespace smt {
             if (!decision && d.m_phase == l.sign())
                 m_agility         += (1.0 - m_fparams.m_agility_factor);
         }
+        bool new_phase = !l.sign();
+        m_stats.m_num_assignments++;
+        if (d.m_phase_available && d.m_phase != new_phase)
+            m_birthdate[l.var()] = m_stats.m_num_assignments; // reset birthdate when phase changes
         d.m_phase_available        = true;
-        d.m_phase                  = !l.sign();
+        d.m_phase = new_phase;
+
         TRACE(assign_core, tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l) << "\n";
               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
@@ -527,7 +537,8 @@ namespace smt {
                 mark_as_relevant(r1);
             }
 
-            push_trail(add_eq_trail(*this, r1, n1, r2->get_num_parents()));
+            
+            unsigned r2_num_parents = r2->get_num_parents();
 
             m_qmanager->add_eq_eh(r1, r2);
 
@@ -557,6 +568,10 @@ namespace smt {
 
             SASSERT(r1->get_root() == r2);
             reinsert_parents_into_cg_table(r1, r2, n1, n2, js);
+            
+            // We push the add_eq_trail after reinsert_parents_into_cg_table because the latter may push merge_cgc_generations trails, 
+            // and we want add_eq to be undone before merge_cgc_generations is undone.
+            push_trail(add_eq_trail(*this, r1, n1, r2_num_parents));
 
             if (n2->is_bool())
                 propagate_bool_enode_assignment(r1, r2, n1, n2);
@@ -584,6 +599,8 @@ namespace smt {
        must be removed from the congruence table since their hash code will change.
     */
     void context::remove_parents_from_cg_table(enode * r1) {
+        SASSERT(m_r1_parent_generations.empty());
+
         // Remove parents from the congruence table
         for (enode * parent : enode::parents(r1)) {
             CTRACE(add_eq, !parent->is_marked() && parent->is_cgc_enabled() && parent->is_true_eq() && m_cg_table.contains_ptr(parent), tout << parent->get_owner_id() << "\n";);
@@ -593,7 +610,8 @@ namespace smt {
                    tout << "\n";
                    tout << "contains: " << m_cg_table.contains(parent) << "\n";
                    if (m_cg_table.contains(parent)) {
-                       tout << "owner: " << m_cg_table.find(parent)->get_owner_id() << "\n";
+                       enode* owner = m_cg_table.find(parent);
+                       tout << "owner: " << owner->get_owner_id() << "\n";
                    }
                    m_cg_table.display(tout);
                    );
@@ -604,12 +622,28 @@ namespace smt {
                 SASSERT(!parent->is_cgc_enabled() || m_cg_table.contains_ptr(parent));
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
+                    if (!parent->is_eq()) // we don't track generations of equalities.
+                        m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
                     m_cg_table.erase(parent);
                     SASSERT(!m_cg_table.contains_ptr(parent));
                 }
             }
         }
     }
+
+    // Sticky update to the generation number of the congruence class
+    // Goes out of scope when n is garbage collected.
+    void context::set_generation_sticky(enode * n, unsigned generation) {
+        SASSERT(n->uses_cg_table());
+        SASSERT(!n->is_eq());
+
+        // Callers are responsible for this. Sticky updates are too expensive to accommodate no-ops.
+        SASSERT(generation < get_generation(n));
+
+        set_generation(n, generation);
+        m_sticky_generation_updates.insert(n, generation);
+    }
+
 
     /**
        \brief Reinsert the parents of r1 that were removed from the
@@ -628,6 +662,7 @@ namespace smt {
         enode_vector & r2_parents  = r2->m_parents;
         enode_vector & r1_parents  = r1->m_parents;
         unsigned num_r1_parents = r1_parents.size();
+        unsigned generation_cache_idx = 0;
         for (unsigned i = 0; i < num_r1_parents; ++i) {
             enode* parent = r1_parents[i];
             if (!parent->is_marked())
@@ -645,29 +680,43 @@ namespace smt {
                     lbool val  = get_assignment(v);
                     if (val != l_true) {
                         if (val == l_false && js.get_kind() == eq_justification::CONGRUENCE)
-                            m_dyn_ack_manager.cg_conflict_eh(n1->get_expr(), n2->get_expr());
+                            m_dyn_ack_manager.cg_conflict_eh(n1->get_app(), n2->get_app());
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
                     // It is not necessary to reinsert the equality to the congruence table
+                    // (because the only congruence propagations that could lead to are already handled by the assign() here).
                     continue;
                 }
             }
             if (parent->is_cgc_enabled()) {
+                // Look up the generation cache
+                unsigned parent_generation = 0; // Just use generation 0 for equalities
+                if (!parent->is_eq()) {
+                    auto [p, g] = m_r1_parent_generations[generation_cache_idx++];
+                    SASSERT(p == parent);   
+                    parent_generation = g;
+                }
+
                 auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
                 if (parent_prime == parent) {
                     SASSERT(parent);
-                    SASSERT(parent->is_cgr());
+                    SASSERT(parent->is_cgr());  
                     SASSERT(m_cg_table.contains_ptr(parent));
+                    parent->m_generation = parent_generation;
+
                     r2_parents.push_back(parent);
                     continue;
                 }
+                
                 parent->m_cg = parent_prime;
-                SASSERT(!m_cg_table.contains_ptr(parent));
+                merge_cgc_generations(parent, parent_generation, parent_prime);
+
                 if (parent_prime->m_root != parent->m_root) {
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
                           << " used_commutativity: " << used_commutativity << "\n";);
                     push_new_congruence(parent, parent_prime, used_commutativity);
                 }
+                
             }
             else {
                 // If congruence closure is not enabled for parent, then I just copy it
@@ -675,6 +724,7 @@ namespace smt {
                 r2_parents.push_back(parent);
             }
         }
+        m_r1_parent_generations.reset();
     }
 
     /**
@@ -797,7 +847,7 @@ namespace smt {
                 }
                 else {
                     // uncommon case: r2 will have two theory_vars attached to it.
-                    r2->add_th_var(v1, t1, m_region);
+                    r2->add_th_var(v1, t1, get_region());
                     push_new_th_diseqs(r2, v1, get_theory(t1));
                     push_new_th_diseqs(r1, v2, get_theory(t2));
                 }
@@ -848,7 +898,7 @@ namespace smt {
                 theory_var v2 = r2->get_th_var(t1);
                 TRACE(merge_theory_vars, tout << get_theory(t1)->get_name() << ": " << v2 << " == " << v1 << "\n");
                 if (v2 == null_theory_var) {
-                    r2->add_th_var(v1, t1, m_region);
+                    r2->add_th_var(v1, t1, get_region());
                     push_new_th_diseqs(r2, v1, get_theory(t1));
                 }
                 l1 = l1->get_next();
@@ -911,7 +961,7 @@ namespace smt {
             lbool val2  = get_assignment(v2);
             if (val2 != val) {
                 if (val2 != l_undef && congruent(source, target) && source->get_num_args() > 0)
-                    m_dyn_ack_manager.cg_conflict_eh(source->get_expr(), target->get_expr());
+                    m_dyn_ack_manager.cg_conflict_eh(source->get_app(), target->get_app());
                 assign(literal(v2, sign), mk_justification(mp_iff_justification(source, target)));
             }
             target = target->get_next();
@@ -930,6 +980,8 @@ namespace smt {
         // unmerge "equivalence" classes
         std::swap(r1->m_next, r2->m_next);
 
+        SASSERT(m_r1_parent_generations.empty());
+
         // remove the parents of r1 that remained as congruence roots
         enode_vector::iterator it  = r2->begin_parents();
         enode_vector::iterator end = r2->end_parents();
@@ -946,6 +998,8 @@ namespace smt {
                        display(tout << "\n"););
                 SASSERT(parent->is_cgr());
                 SASSERT(m_cg_table.contains_ptr(parent));
+                if (!parent->is_eq())
+                    m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
                 m_cg_table.erase(parent);
             }
         }
@@ -960,21 +1014,51 @@ namespace smt {
         // restore parents of r2
         r2->m_parents.shrink(r2_num_parents);
 
+        unsigned generation_cache_idx = 0;
+
         // try to reinsert parents of r1 that are not cgr
         for (enode * parent : enode::parents(r1)) {
             TRACE(add_eq_parents, tout << "visiting: #" << parent->get_owner_id() << "\n";);
             if (parent->is_cgc_enabled()) {
-                
                 enode * cg = parent->m_cg;
                 if (!parent->is_true_eq() &&
-                    (parent == cg ||           // parent was root of the congruence class before and after the merge
-                     !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
-                     )) {
+                    (parent == cg ||            // parent was root of the congruence class before and after the merge
+                     !congruent(parent, cg))    // parent was root of the congruence class before but not after the merge
+                     ) {
+
+                    unsigned gen;
+                    if (parent->is_eq()) {
+                        gen = 0;
+                    } else if (parent == cg) {
+                        enode *p = nullptr;
+                        unsigned parent_generation;
+                        if (generation_cache_idx < m_r1_parent_generations.size()) {
+                            std::tie(p, parent_generation) = m_r1_parent_generations[generation_cache_idx];
+                        }
+                        if (p == parent) {
+                            generation_cache_idx++;
+                            gen = parent_generation;
+                        } else {
+                            SASSERT(m_cg_table.contains_ptr(parent));
+                            continue;
+                        }
+                    } else {
+                        // Insert at some dummy generation here. An undo_merge_cgr will immediately follow to set the generation.
+                        unsigned dummy_generation = 100000; // NOT UINT_MAX. In case this goes badly overflows would be hell to debug.
+                        gen = dummy_generation;
+                    }
+
                     auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
+                    (void)used_commutativity;
                     parent->m_cg = parent_cg;
+                    if (parent_cg == parent)
+                        // parent is (again) the congruence root: restore its generation.
+                        parent->m_generation = gen;
                 }
             }
         }
+
+        m_r1_parent_generations.reset();
 
         // restore theory vars
         if (r2->m_th_var_list.get_next() == nullptr) {
@@ -1008,6 +1092,28 @@ namespace smt {
         SASSERT(r1->m_trans.m_target == 0);
 
         CASSERT("add_eq", check_invariant());
+    }
+
+    void context::undo_merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {
+        // TODO: optimization: don't bother unrolling e1 if e1 is an enode about to be garbage collected.
+        set_generation(e1, e1_generation);
+        set_generation(e2, e2_generation);
+
+        apply_sticky_updates(e1, e1_generation, e2, e2_generation);
+    }
+
+    void context::apply_sticky_updates(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation) {
+        SASSERT(e1->uses_cg_table());
+        SASSERT(e2->uses_cg_table());
+        // optimization opportunity: we actually just need to look at updates above the current decision level.
+        // Then we wouldn't have to check for minimum either.
+        for (auto const& [t, generation] : m_sticky_generation_updates) {            
+            if (generation < e1_generation && congruent(t, e1)) {
+                set_generation(e1, generation);
+            } else if (generation < e2_generation && congruent(t, e2)) {
+                set_generation(e2, generation);
+            }
+        }  
     }
 
     /**
@@ -1129,7 +1235,7 @@ namespace smt {
             m.inc_ref(eq);
             _this->m_is_diseq_tmp = enode::mk_dummy(m, m_app2enode, eq);
         }
-        else if (m_is_diseq_tmp->get_expr()->get_arg(0)->get_sort() != n1->get_sort()) {
+        else if (m_is_diseq_tmp->get_app()->get_arg(0)->get_sort() != n1->get_sort()) {
             m.dec_ref(m_is_diseq_tmp->get_expr());
             app * eq = m.mk_eq(n1->get_expr(), n2->get_expr());
             m.inc_ref(eq);
@@ -1273,17 +1379,17 @@ namespace smt {
      */
     enode * context::get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args) {
         enode * tmp = m_tmp_enode.set(f, num_args, args);
-        enode * r   = m_cg_table.find(tmp);
+        enode * r = m_cg_table.find(tmp);
 #ifdef Z3DEBUG
         if (r != nullptr) {
-            SASSERT(r->get_expr()->get_decl() == f);
+            SASSERT(r->get_decl() == f);
             SASSERT(r->get_num_args() == num_args);
             if (r->is_commutative()) {
                 // TODO
             }
             else {
                 for (unsigned i = 0; i < num_args; ++i) {
-                    expr * arg   = r->get_expr()->get_arg(i);
+                    expr * arg   = r->get_arg(i)->get_expr();
                     SASSERT(e_internalized(arg));
                     enode * _arg = get_enode(arg);
                     CTRACE(eq_to_bug, args[i]->get_root() != _arg->get_root(),
@@ -1523,16 +1629,24 @@ namespace smt {
     }
 
     lbool context::find_assignment(expr * n) const {
-        if (m.is_false(n))
-            return l_false;
+
         expr* arg = nullptr;
         if (m.is_not(n, arg)) {
+
             if (b_internalized(arg))
                 return ~get_assignment_core(arg);
+            if (m.is_false(arg))
+                return l_true;
+            if (m.is_true(arg))
+                return l_false;
             return l_undef;
         }
         if (b_internalized(n))
             return get_assignment(n);
+        if (m.is_false(n))
+            return l_false;
+        if (m.is_true(n))
+            return l_true;
         return l_undef;
     }
 
@@ -1761,9 +1875,11 @@ namespace smt {
         return m_fingerprints.contains(q, q->get_id(), num_bindings, bindings);
     }
 
-    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
+    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, //expr* def, 
+        unsigned max_generation,
                                unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
-        return m_qmanager->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_top_generation, used_enodes);
+        return m_qmanager->add_instance(q, pat, num_bindings, bindings, 
+            max_generation, min_top_generation, max_top_generation, used_enodes);
     }
 
     void context::rescale_bool_var_activity() {
@@ -1938,13 +2054,13 @@ namespace smt {
 
         m_scope_lvl++;
         m_region.push_scope();
+        get_trail_stack().push_scope();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
         // TRACE(context, tout << "push " << m_scope_lvl << "\n";);
 
         m_relevancy_propagator->push();
         s.m_assigned_literals_lim    = m_assigned_literals.size();
-        s.m_trail_stack_lim          = m_trail_stack.size();
         s.m_aux_clauses_lim          = m_aux_clauses.size();
         s.m_justifications_lim       = m_justifications.size();
         s.m_units_to_reassert_lim    = m_units_to_reassert.size();
@@ -1960,12 +2076,6 @@ namespace smt {
         CASSERT("context", check_invariant());
     }
 
-    /**
-       \brief Execute generic undo-objects.
-    */
-    void context::undo_trail_stack(unsigned old_size) {
-        ::undo_trail_stack(m_trail_stack, old_size);
-    }
 
     /**
        \brief Remove watch literal idx from the given clause.
@@ -2232,8 +2342,9 @@ namespace smt {
                     unsigned ilvl = e->get_iscope_lvl();
                     if (ilvl <= new_scope_lvl)
                         continue; // node and its children will not be recreated during backtracking
-                    TRACE(cached_generation, tout << "caching: #" << n->get_id() << " " << e->get_generation() << "\n";);
-                    m_cached_generation.insert(n, e->get_generation());
+                    unsigned generation = get_generation(e);
+                    TRACE(cached_generation, tout << "caching: #" << n->get_id() << " " << generation << "\n";);
+                    m_cached_generation.insert(n, generation);
                 }
                 for (expr * arg : *to_app(n)) {
                     if (is_app(arg) || is_quantifier(arg))
@@ -2452,23 +2563,25 @@ namespace smt {
             m_relevancy_propagator->pop(num_scopes);
 
             m_fingerprints.pop_scope(num_scopes);
+
+
+
             unassign_vars(s.m_assigned_literals_lim);
-            undo_trail_stack(s.m_trail_stack_lim);
+            m_trail_stack.pop_scope(num_scopes);
 
             for (theory* th : m_theory_set) 
                 th->pop_scope_eh(num_scopes);
-
             del_justifications(m_justifications, s.m_justifications_lim);
-
             m_asserted_formulas.pop_scope(num_scopes);
 
             CTRACE(propagate_atoms, !m_atom_propagation_queue.empty(), tout << m_atom_propagation_queue << "\n";);
 
+
             m_eq_propagation_queue.reset();
             m_th_eq_propagation_queue.reset();
+            m_region.pop_scope(num_scopes);
             m_th_diseq_propagation_queue.reset();
             m_atom_propagation_queue.reset();
-            m_region.pop_scope(num_scopes);
             m_scopes.shrink(new_lvl);
             m_conflict_resolution->reset();
 
@@ -3056,7 +3169,7 @@ namespace smt {
         del_clauses(m_lemmas, 0);
         del_justifications(m_justifications, 0);
         reset_tmp_clauses();
-        undo_trail_stack(0);
+        m_trail_stack.reset();
         m_qmanager = nullptr;
         if (m_is_diseq_tmp) {
             m_is_diseq_tmp->del_eh(m, false);
@@ -3640,6 +3753,13 @@ namespace smt {
         }
     }
 
+    void context::setup_for_parallel() {
+        // Native SMT parallel configures the parent context before cloning workers.
+        // context::copy then configures/internalizes each worker copy while
+        // preprocessing is still enabled.
+        setup_context(m_fparams.m_auto_config);
+    }
+
     config_mode context::get_config_mode(bool use_static_features) const {
         if (!m_fparams.m_auto_config)
             return CFG_BASIC;
@@ -4160,9 +4280,17 @@ namespace smt {
                 return FC_CONTINUE;
             }
             if (m_final_check_idx == old_idx) {
-                if (level >= max_level || result == FC_DONE || can_propagate())
+                if (level >= max_level || result == FC_DONE || result == FC_CONTINUE || can_propagate())
                     break;
                 ++level;
+                // Re-evaluate at the higher level: clear the give-up state
+                // accumulated at lower levels so a level that succeeds is
+                // not masked by a previous FC_GIVEUP. See e.g. theory_lra
+                // whose level 2 invokes the full nlsat (m_nra.check) that
+                // is skipped at level 1.
+                result = FC_DONE;
+                f      = OK;
+                m_incomplete_theories.reset();
             }
         }
 
@@ -4642,7 +4770,7 @@ namespace smt {
             return false;
         }
         case 1: {
-            if (m_qmanager->is_shared(n) && !m.is_lambda_def(n->get_expr()) && !m_lambdas.contains(n)) 
+            if (m_qmanager->is_shared(n) && !m_lambdas.contains(n)) 
                 return true;
 
             // the variable is shared if the equivalence class of n
@@ -4652,8 +4780,7 @@ namespace smt {
             theory_id th_id     = l->get_id();
 
             for (enode * parent : enode::parents(n)) {
-                app* p = parent->get_expr();
-                family_id fid = p->get_family_id();
+                family_id fid = parent->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
                     if (is_beta_redex(parent, n))
                         continue;
@@ -4701,7 +4828,7 @@ namespace smt {
     }
 
     bool context::is_beta_redex(enode* p, enode* n) const {
-        family_id th_id = p->get_expr()->get_family_id();
+        family_id th_id = p->get_family_id();
         theory * th = get_theory(th_id);
         return th && th->is_beta_redex(p, n);
     }
@@ -4854,7 +4981,7 @@ namespace smt {
             m_model->add_rec_funs();
     }
 
-};
+}
 
 
 #ifdef Z3DEBUG

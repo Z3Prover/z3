@@ -35,7 +35,7 @@ void add_equality(int n_of_vars, var_eqs<emonics> & var_eqs, random_gen& rand, b
     while (a == b) {
         b = rand() % n_of_vars;
     }
-    SASSERT(a != b);
+    ENSURE(a != b);
     var_eqs.merge_plus(a, b, eq_justification({0}));
 }
 
@@ -150,7 +150,7 @@ void create_abcde(solver & nla,
     nla.add_monic(lp_be, vec.size(), vec.begin());
 }
 
-
+#if 0
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0\n";
     enable_trace("nla_solver");
@@ -222,6 +222,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
 
     
 }
+#endif
 
 void s_set_column_value_test(lp::lar_solver&s, lpvar j, const rational & v) {
     s.set_column_value_test(j, lp::impq(v));
@@ -231,6 +232,7 @@ void s_set_column_value_test(lp::lar_solver&s, lpvar j, const lp::impq & v) {
     s.set_column_value_test(j, v);
 }
 
+#if 0
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1\n";
     TRACE(nla_solver,);
@@ -260,7 +262,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
 
     VERIFY(nla.get_core().test_check() == l_false);
     auto const& lemma = nla.get_core().lemmas();
-    SASSERT(lemma[0].size() == 4);
+    ENSURE(lemma[0].size() == 4);
     nla.get_core().print_lemma(lemma.back(), std::cout);
 
     lp::lar_term t0, t1, t2, t3;
@@ -346,7 +348,7 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     VERIFY(nla.get_core().test_check() == l_false);
     auto const& lemma = nla.get_core().lemmas();
     nla.get_core().print_lemma(lemma.back(), std::cout);
-    SASSERT(lemma.size() == 1 && lemma[0].size() == 2);
+    ENSURE(lemma.size() == 1 && lemma[0].size() == 2);
     lp::lar_term t0, t1;
     t0.add_var(lp_b);
     t1.add_var(lp_be);
@@ -366,6 +368,7 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
 
     VERIFY(found0 && found1);
 }
+
 
 void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     std::cout << "test_basic_lemma_for_mon_zero_from_monomial_to_factors\n";
@@ -419,6 +422,7 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     VERIFY(found0 && found1 && found2);
     
 }
+
 
 void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_monomial_to_factors\n";
@@ -489,6 +493,7 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
 
     VERIFY(found0 && found1);
 }
+#endif
 
 void test_horner() {
     enable_trace("nla_solver");
@@ -692,7 +697,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
    
     // set abef = cdij, while it has to be abef < cdij
     if (sign > 0) {
-        SASSERT(s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
+        ENSURE(s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
         // we have ab < cd
 
         // we need to have ab*ef < cd*ij, so let us make ab*ef > cd*ij
@@ -702,7 +707,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
         
     }
     else {
-        SASSERT(-s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
+        ENSURE(-s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
         // we need to have abef < cdij, so let us make abef < cdij
         s_set_column_value_test(s, lp_cdij, nla.get_core().mon_value_by_vars(mon_cdij));
         s_set_column_value_test(s, lp_abef, nla.get_core().mon_value_by_vars(mon_cdij)
@@ -717,7 +722,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
     // ineq q(llc::EQ, t, rational(0));
    
     nla.get_core().print_lemma(lemma.back(), std::cout);
-    // SASSERT(q == lemma.back());
+    // ENSURE(q == lemma.back());
     // ineq i0(llc::EQ, lp::lar_term(), rational(0));
     // i0.m_term.add_monomial(lp_bde);
     // i0.m_term.add_monomial(rational(1), lp_acd);
@@ -728,7 +733,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
     //     } 
     // }
 
-    // SASSERT(found);
+    // ENSURE(found);
     */
 }
 

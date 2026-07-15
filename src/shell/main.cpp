@@ -30,6 +30,7 @@ Revision History:
 #include "shell/dimacs_frontend.h"
 #include "shell/datalog_frontend.h"
 #include "shell/opt_frontend.h"
+#include "cmd_context/tptp_frontend.h"
 #include "util/timeout.h"
 #include "util/z3_exception.h"
 #include "util/error_codes.h"
@@ -43,14 +44,14 @@ Revision History:
 #include <crtdbg.h>
 #endif
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_DRAT } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_DRAT, IN_TPTP } input_kind;
 
 static char const * g_input_file          = nullptr;
 static char const * g_drat_input_file     = nullptr;
 static bool         g_standard_input      = false;
 static input_kind   g_input_kind          = IN_UNSPECIFIED;
-bool                g_display_statistics  = false;
-bool                g_display_model       = false;
+extern bool         g_display_statistics;
+extern bool         g_display_model;
 static bool         g_display_istatistics = false;
 
 static void error(const char * msg) {
@@ -84,6 +85,7 @@ void display_usage() {
     std::cout << "  -opb        use parser for PB optimization input format.\n";
     std::cout << "  -lp         use parser for a modest subset of CPLEX LP input format.\n";
     std::cout << "  -log        use parser for Z3 log input format.\n";
+    std::cout << "  -tptp       use parser for TPTP input format (fof/cnf/tff/thf fragments).\n";
     std::cout << "  -in         read formula from standard input.\n";
     std::cout << "  -model      display model for satisfiable SMT.\n";
     std::cout << "\nMiscellaneous:\n";
@@ -129,6 +131,15 @@ static bool validate_is_ulong(char const* s) {
         if (*s < '0' || *s > '9')
             return false;
     return true;
+}
+
+static bool is_tptp_extension(char const* ext) {
+    static char const* tptp_extensions[] = {"p", "tptp", "fof", "cnf", "tff", "thf"};
+    for (char const* known_ext : tptp_extensions) {
+        if (strcmp(ext, known_ext) == 0)
+            return true;
+    }
+    return false;
 }
    
 static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv) {
@@ -213,6 +224,9 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
             else if (strcmp(opt_name, "log") == 0) {
                 g_input_kind = IN_Z3_LOG;
+            }
+            else if (strcmp(opt_name, "tptp") == 0) {
+                g_input_kind = IN_TPTP;
             }
             else if (strcmp(opt_name, "st") == 0) {
                 g_display_statistics = true; 
@@ -323,10 +337,35 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
         }
         else if (argv[i][0] != '"' && (eq_pos = strchr(argv[i], '='))) {
-            char * key   = argv[i];
-            *eq_pos      = 0;
-            char * value = eq_pos+1; 
-            gparams::set(key, value);
+            // If the argument looks like a file path (contains path separators
+            // or has a file extension), treat it as a filename rather than
+            // a parameter assignment. This handles files with '=' in their names.
+            bool is_filepath = strchr(argv[i], '/') || strchr(argv[i], '\\');
+            if (!is_filepath) {
+                char const * ext = get_extension(argv[i]);
+                if (ext && (strcmp(ext, "smt2") == 0 || strcmp(ext, "smt") == 0 ||
+                            strcmp(ext, "dimacs") == 0 || strcmp(ext, "cnf") == 0 ||
+                            strcmp(ext, "wcnf") == 0 || strcmp(ext, "opb") == 0 ||
+                            strcmp(ext, "lp") == 0 || strcmp(ext, "log") == 0 ||
+                            strcmp(ext, "drat") == 0 || strcmp(ext, "p") == 0))
+                    is_filepath = true;
+            }
+            if (is_filepath) {
+                if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {
+                    g_input_kind = IN_DRAT;
+                    g_drat_input_file = arg;
+                }
+                else if (g_input_file)
+                    warning_msg("input file was already specified.");
+                else
+                    g_input_file = arg;
+            }
+            else {
+                char * key   = argv[i];
+                *eq_pos      = 0;
+                char * value = eq_pos+1; 
+                gparams::set(key, value);
+            }
         }
         else {
             if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {
@@ -387,6 +426,9 @@ int STD_CALL main(int argc, char ** argv) {
                 else if (strcmp(ext, "smt2") == 0) {
                     g_input_kind = IN_SMTLIB_2;
                 }
+                else if (is_tptp_extension(ext)) {
+                    g_input_kind = IN_TPTP;
+                }
             }
         }
         switch (g_input_kind) {
@@ -415,6 +457,9 @@ int STD_CALL main(int argc, char ** argv) {
         case IN_DRAT:
             return_value = read_drat(g_drat_input_file);
             break;
+        case IN_TPTP:
+            return_value = read_tptp(g_input_file);
+            break;
         default:
             UNREACHABLE();
         }
@@ -434,4 +479,3 @@ int STD_CALL main(int argc, char ** argv) {
             return ERR_INTERNAL_FATAL;
     }
 }
-

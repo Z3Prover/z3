@@ -1,8 +1,8 @@
 ---
-description: Daily agent that suggests which agentic workflow agents should be added to the Z3 repository
+description: Weekly agent that suggests which agentic workflow agents should be added to the Z3 repository
 
 on:
-  schedule: daily
+  schedule: weekly
 
 timeout-minutes: 30
 
@@ -12,22 +12,25 @@ network: defaults
 
 tools:
   cache-memory: true
-  serena: ["python", "java", "csharp"]
   github:
     toolsets: [default]
   bash: [":*"]
-  glob: {}
 
 safe-outputs:
+  report-failure-as-issue: false
   create-discussion:
     title-prefix: "[Workflow Suggestions] "
     category: "Agentic Workflows"
     close-older-discussions: true
+  noop:
+    report-as-issue: false
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
 steps:
   - name: Checkout repository
-    uses: actions/checkout@v5
+    uses: actions/checkout@v6.0.2
+    with:
+      persist-credentials: false
 
 ---
 
@@ -224,7 +227,7 @@ If a very recent discussion exists:
 
 Create a GitHub Discussion with:
 
-**Title:** "[Workflow Suggestions] Daily Report - [Date]"
+**Title:** "[Workflow Suggestions] Weekly Report - [Date]"
 
 **Content Structure:**
 - **Executive Summary:** Number of suggestions, priority breakdown

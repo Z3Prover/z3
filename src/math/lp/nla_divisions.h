@@ -22,16 +22,22 @@ namespace nla {
     
     class divisions {
         core& m_core;
-        vector<std::tuple<lpvar, lpvar, lpvar>> m_idivisions;
-        vector<std::tuple<lpvar, lpvar, lpvar>> m_rdivisions;
-        vector<std::tuple<lpvar, lpvar, lpvar>> m_bounded_divisions;
-        
+        vector<std::tuple<lpvar, lpvar, lpvar, lpvar>> m_idivisions;
+        vector<std::tuple<lpvar, lpvar, lpvar, lpvar>> m_rdivisions;
+        vector<std::tuple<lpvar, lpvar, lpvar, lpvar>> m_bounded_divisions;
+        // divisibility facts (r, x, y, d) meaning r = mod(x, y) and d = div(x, y)
+        vector<std::tuple<lpvar, lpvar, lpvar, lpvar>> m_divisibility;
+
     public:
         divisions(core& c):m_core(c) {}
-        void add_idivision(lpvar q, lpvar x, lpvar y);
-        void add_rdivision(lpvar q, lpvar x, lpvar y);
-        void add_bounded_division(lpvar q, lpvar x, lpvar y);
+        void add_idivision(lpvar q, lpvar x, lpvar y, lpvar r);
+        void add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r);
+        void add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r);
+        void add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d);
         void check();
         void check_bounded_divisions();
+        void check_mod_mult();
+        void check_linear_divisibility();
+        void check_mod_congruence();
     };
 }

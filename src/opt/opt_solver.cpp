@@ -76,12 +76,12 @@ namespace opt {
         m_context.collect_param_descrs(r);
     }
     
-    void opt_solver::collect_statistics(statistics & st) const {        
+    void opt_solver::collect_statistics_core(statistics & st) const {        
         m_context.collect_statistics(st);
     }
     
     void opt_solver::assert_expr_core(expr * t) {
-        m_last_model = nullptr;
+        m_model = nullptr;
         if (has_quantifiers(t)) {
             m_params.m_relevancy_lvl = 2;
         }
@@ -178,7 +178,7 @@ namespace opt {
                        verbose_stream().flush(););
         }
         lbool r;
-        m_last_model = nullptr;
+        m_model = nullptr;
         if (m_first && num_assumptions == 0 && m_context.get_scope_level() == 0) {
             r = m_context.setup_and_check();
         }
@@ -187,9 +187,9 @@ namespace opt {
         }
         r = adjust_result(r);
         if (r == l_true) {
-            m_context.get_model(m_last_model);
-            if (m_models.size() == 1)
-                m_models.set(0, m_last_model.get());
+            m_context.get_model(m_model);
+            if (m_objective_models.size() == 1)
+                m_objective_models.set(0, m_model.get());
         }
         m_first = false;
         if (dump_benchmarks()) {
@@ -200,34 +200,74 @@ namespace opt {
     }
 
     bool opt_solver::maximize_objectives1(expr_ref_vector& blockers) {
-        expr_ref blocker(m);
+        // Save the baseline model before any push/pop corrupts LP state.
+        // Push/pop isolates SMT assertions but does not restore LP column
+        // values, so maximize may return stale values for non-linear
+        // objectives like mod.  The baseline model serves as a floor.
+        model_ref baseline_model;
+        m_context.get_model(baseline_model);
+
         for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
-            // Push context to isolate each objective's optimization.
-            // This prevents bounds created during one objective's optimization
-            // from affecting subsequent objectives (fixes issue #7677).
-            m_context.push();
-
-            if (!maximize_objective(i, blocker)) {
-                m_context.pop(1);
+            expr_ref blocker(m);
+            if (!maximize_objective_isolated(i, baseline_model, blocker))
                 return false;
-            }
-
-            // Save results before popping
-            inf_eps val = m_objective_values[i];
-            model_ref mdl;
-            if (m_models[i])
-                mdl = m_models[i];
-
-            m_context.pop(1);
-
-            // Restore the computed values after pop
-            m_objective_values[i] = val;
-            if (mdl)
-                m_models.set(i, mdl.get());
-
             blockers.push_back(blocker);
         }
         return true;
+    }
+
+    // Maximize objective[i] inside a push/pop scope so that bounds from
+    // one objective do not leak into subsequent ones, fixes #7677.
+    // baseline_model is the satisfying model obtained before optimization
+    // and guards against LP state corruption for non-linear objectives
+    // like mod, fixes #9012.
+    bool opt_solver::maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker) {
+        m_context.push();
+
+        if (!maximize_objective(i, blocker)) {
+            m_context.pop(1);
+            return false;
+        }
+
+        // Save results before popping
+        inf_eps val = m_objective_values[i];
+        model_ref mdl;
+        if (m_objective_models[i])
+            mdl = m_objective_models[i];
+
+        m_context.pop(1);
+
+        // Restore the computed values after pop
+        m_objective_values[i] = val;
+        if (mdl)
+            m_objective_models.set(i, mdl.get());
+
+        // The baseline model may witness a greater value than the LP
+        // optimizer returned, e.g. for non-linear objectives like mod
+        // where the LP relaxation overshoots and restore_x falls back
+        // to a stale assignment: use the model value as the floor value.
+        if (baseline_model)
+            update_from_baseline_model(i, baseline_model, blocker);
+
+        return true;
+    }
+
+    // If baseline_model evaluates objective i to a value better than the
+    // current optimum, adopt that value and update the blocker.
+    void opt_solver::update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker) {
+        arith_util a(m);
+        rational r;
+        expr_ref obj_val = (*baseline_model)(m_objective_terms.get(i));
+        if (a.is_numeral(obj_val, r) && inf_eps(r) > m_objective_values[i]) {
+            m_objective_values[i] = inf_eps(r);
+            if (!m_objective_models[i])
+                m_objective_models.set(i, baseline_model.get());
+            expr* obj = m_objective_terms.get(i);
+            if (a.is_int(obj))
+                blocker = a.mk_ge(obj, a.mk_numeral(r + 1, true));
+            else
+                blocker = a.mk_ge(obj, a.mk_numeral(r, false));
+        }
     }
 
     lbool opt_solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
@@ -261,7 +301,7 @@ namespace opt {
     bool opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
         smt::theory_var v = m_objective_vars[i];
         bool has_shared = false;
-        m_last_model = nullptr;
+        m_model = nullptr;
         blocker = nullptr;
         //
         // compute an optimization hint.
@@ -270,21 +310,37 @@ namespace opt {
         // relative to other theories.
         // 
         inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
-        m_context.get_model(m_last_model);
+        m_context.get_model(m_model);
         inf_eps val2;
         has_shared = true;
         TRACE(opt, tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";
-              if (m_last_model) tout << *m_last_model << "\n";);
-        if (!m_models[i]) 
-            m_models.set(i, m_last_model.get());
+              if (m_model) tout << *m_model << "\n";);
+        if (!m_objective_models[i]) 
+            m_objective_models.set(i, m_model.get());
 
         TRACE(opt, tout << "maximize " << i << " " << val << " " << m_objective_values[i] << " " << blocker << "\n";);
-        if (val > m_objective_values[i]) {
-            m_objective_values[i] = val;
-        }
+        //
+        // Do NOT commit 'val' to m_objective_values yet: 'val' is only an
+        // optimization hint from the arithmetic relaxation.  When the
+        // objective shares symbols with other theories (e.g. it occurs inside
+        // an uninterpreted function such as the auxiliary function used to
+        // encode large 'distinct' constraints) the hint can over-estimate the
+        // true optimum and may not be achievable by any model.  Committing it
+        // prematurely and then failing validation (check_bound below) would
+        // leave m_objective_values holding an unachievable bound that callers
+        // such as optsmt::geometric_lex report as the optimum, together with a
+        // model that does not attain it (issue #10028).  The value is only
+        // committed after it has been validated, or replaced by the value of
+        // an actual model in update_objective().
+        //
 
-        if (!m_last_model)
+        if (!m_model) {
+            // Without a model there is nothing to validate 'val' against; keep
+            // the previous behavior of adopting the (possibly infinite) hint.
+            if (val > m_objective_values[i])
+                m_objective_values[i] = val;
             return true;
+        }
 
         //
         // retrieve value of objective from current model and update 
@@ -292,7 +348,7 @@ namespace opt {
         // 
         auto update_objective = [&]() {
             rational r;
-            expr_ref value = (*m_last_model)(m_objective_terms.get(i));
+            expr_ref value = (*m_model)(m_objective_terms.get(i));
             if (arith_util(m).is_numeral(value, r) && r > m_objective_values[i])
                 m_objective_values[i] = inf_eps(r);   
         };
@@ -313,12 +369,12 @@ namespace opt {
         }
         else if (m_context.get_context().update_model(has_shared)) {
             TRACE(opt, tout << "updated\n";);
-            m_last_model = nullptr;
-            m_context.get_model(m_last_model);
-            if (!m_last_model)
+            m_model = nullptr;
+            m_context.get_model(m_model);
+            if (!m_model)
                 return false;
             else if (!has_shared || val == current_objective_value(i))
-                m_models.set(i, m_last_model.get());
+                m_objective_models.set(i, m_model.get());
             else if (!check_bound())
                 return false;
         }
@@ -329,8 +385,8 @@ namespace opt {
                 tout << "objective:     " << mk_pp(m_objective_terms.get(i), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
                 tout << "new condition: " << blocker << "\n";
-                if (m_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); 
-                if (m_last_model) model_smt2_pp(tout << "last model:\n", m, *m_last_model, 0);
+                if (m_objective_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_objective_models[i], 0); 
+                if (m_model) model_smt2_pp(tout << "current model:\n", m, *m_model, 0);
             });
         return true;
     }
@@ -342,8 +398,8 @@ namespace opt {
         lbool is_sat = m_context.check(0, nullptr);
         is_sat = adjust_result(is_sat);
         if (is_sat == l_true) {
-            m_context.get_model(m_last_model);
-            m_models.set(i, m_last_model.get());
+            m_context.get_model(m_model);
+            m_objective_models.set(i, m_model.get());
         }
         pop_core(1);
         return is_sat == l_true;
@@ -366,13 +422,13 @@ namespace opt {
     }
 
     void opt_solver::get_model_core(model_ref & m) {  
-        if (m_last_model.get()) {
-            m = m_last_model.get();
+        if (m_model.get()) {
+            m = m_model.get();
             return;
         }
 
-        for (unsigned i = m_models.size(); i-- > 0; ) {
-            auto* mdl = m_models[i];
+        for (unsigned i = m_objective_models.size(); i-- > 0; ) {
+            auto* mdl = m_objective_models[i];
             if (mdl) {
                 TRACE(opt, tout << "get " << i << "\n" << *mdl << "\n";);
                 m = mdl;
@@ -380,7 +436,7 @@ namespace opt {
             }
         }        
         TRACE(opt, tout << "get last\n";);
-        m = m_last_model.get();
+        m = m_model.get();
     }
     
     proof * opt_solver::get_proof_core() {
@@ -422,7 +478,7 @@ namespace opt {
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational::minus_one(), inf_rational()));
         m_objective_terms.push_back(term);
-        m_models.push_back(nullptr);
+        m_objective_models.push_back(nullptr);
         return v;
     }
     
@@ -453,13 +509,19 @@ namespace opt {
 
         if (typeid(smt::theory_inf_arith) == typeid(opt)) {
             smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
-            return th.mk_ge(m_fm, v, val);
+            // Pass the original value (with its negative infinitesimal, if any):
+            // theory_inf_arith's bounds are inf_rational and represent a strict
+            // supremum r - delta faithfully as the lower bound (r, -1), which is
+            // required to validate a strict maximization optimum.
+            return th.mk_ge(m_fm, v, _val);
         }
 
         if (typeid(smt::theory_mi_arith) == typeid(opt)) {
             smt::theory_mi_arith& th = dynamic_cast<smt::theory_mi_arith&>(opt); 
-            SASSERT(val.is_finite());
-            return th.mk_ge(m_fm, v, val.get_numeral());
+            SASSERT(_val.is_finite());
+            // As above: theory_mi_arith's bounds are inf_rational, so pass the
+            // delta-rational value through unprojected for faithful validation.
+            return th.mk_ge(m_fm, v, _val.get_numeral());
         }
 
         if (typeid(smt::theory_i_arith) == typeid(opt)) {
@@ -493,8 +555,13 @@ namespace opt {
 
         if (typeid(smt::theory_lra) == typeid(opt)) {
             smt::theory_lra& th = dynamic_cast<smt::theory_lra&>(opt); 
-            SASSERT(val.is_finite());
-            return th.mk_ge(m_fm, v, val.get_numeral());            
+            SASSERT(_val.is_finite());
+            // Pass the ORIGINAL value (with its negative infinitesimal, if any):
+            // theory_lra faithfully encodes a lower bound v >= r - delta, which
+            // is required to validate a strict maximization supremum.  'val'
+            // above has had a negative infinitesimal projected away for the
+            // benefit of theories that cannot represent it.
+            return th.mk_ge(m_fm, v, _val.get_numeral());
         }
 
         // difference logic?

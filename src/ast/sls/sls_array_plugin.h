@@ -36,7 +36,7 @@ namespace sls {
                 for (unsigned i = 1; i < a.sel->num_args(); ++i)
                     h ^= a.sel->get_arg(i)->get_root()->hash();
                 return h;
-            };
+            }
         };
         struct select_args_eq {
             bool operator()(select_args const& a, select_args const& b) const {
@@ -103,13 +103,13 @@ namespace sls {
         euf::enode* mk_select(euf::egraph& g, euf::enode* b, euf::enode* sel);
 
         void resolve_conflict();
-        size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); };
+        size_t* to_ptr(sat::literal l) { return reinterpret_cast<size_t*>((size_t)(l.index() << 4)); }
         size_t* to_ptr(euf::enode* t) { return reinterpret_cast<size_t*>((reinterpret_cast<size_t>(t) << 4) + 1); }
         size_t* to_ptr(unsigned n) { return reinterpret_cast<size_t*>((size_t)(n << 4) + 3); }
         bool is_literal(size_t* p) { return (reinterpret_cast<size_t>(p) & 3) == 0; }
         bool is_index(size_t* p) { return (reinterpret_cast<size_t>(p) & 3) == 3; }
         bool is_enode(size_t* p) { return (reinterpret_cast<size_t>(p) & 3) == 1; }
-        sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); };
+        sat::literal to_literal(size_t* p) { return sat::to_literal(static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4)); }
         euf::enode* to_enode(size_t* p) { return reinterpret_cast<euf::enode*>(reinterpret_cast<size_t>(p) >> 4); }
         unsigned to_index(size_t* p) { return static_cast<unsigned>(reinterpret_cast<size_t>(p) >> 4); }
         

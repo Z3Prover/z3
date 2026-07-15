@@ -61,6 +61,34 @@ public class RatNum extends RealExpr
     }
 
     /**
+     * Retrieve the numerator and denominator as 64-bit integers.
+     * Throws if the value does not fit in 64-bit integers.
+     * @return a two-element array [numerator, denominator]
+     **/
+    public long[] getSmall()
+    {
+        Native.LongPtr num = new Native.LongPtr();
+        Native.LongPtr den = new Native.LongPtr();
+        if (!Native.getNumeralSmall(getContext().nCtx(), getNativeObject(), num, den))
+            throw new Z3Exception("Numeral does not fit in int64");
+        return new long[] { num.value, den.value };
+    }
+
+    /**
+     * Retrieve the numerator and denominator as 64-bit integers.
+     * Returns null if the value does not fit in 64-bit integers.
+     * @return a two-element array [numerator, denominator], or null
+     **/
+    public long[] getRationalInt64()
+    {
+        Native.LongPtr num = new Native.LongPtr();
+        Native.LongPtr den = new Native.LongPtr();
+        if (!Native.getNumeralRationalInt64(getContext().nCtx(), getNativeObject(), num, den))
+            return null;
+        return new long[] { num.value, den.value };
+    }
+
+    /**
      * Returns a string representation in decimal notation.
      * Remarks: The result
      * has at most {@code precision} decimal places.

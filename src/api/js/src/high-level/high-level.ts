@@ -123,6 +123,9 @@ import {
   DatatypeSort,
   DatatypeExpr,
   DatatypeCreation,
+  FiniteSet,
+  FiniteSetSort,
+  FiniteSetCreation,
 } from './types';
 import { allSatisfy, assert, assertExhaustive } from './utils';
 
@@ -149,7 +152,7 @@ function isCoercibleRational(obj: any): obj is CoercibleRational {
   return r;
 }
 
-export function createApi(Z3: Z3Core): Z3HighLevel {
+export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
   // TODO(ritave): Create a custom linting rule that checks if the provided callbacks to cleanup
   //               Don't capture `this`
   const cleanup = new FinalizationRegistry<() => void>(callback => callback());
@@ -305,6 +308,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArraySortImpl(ast);
         default:
+          if (Z3.is_finite_set_sort(contextPtr, ast)) {
+            return new FiniteSetSortImpl(ast);
+          }
           return new SortImpl(ast);
       }
     }
@@ -350,6 +356,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArrayImpl(ast);
         default:
+          if (Z3.is_finite_set_sort(contextPtr, Z3.get_sort(contextPtr, ast))) {
+            return new FiniteSetImpl(ast);
+          }
           return new ExprImpl(ast);
       }
     }
@@ -636,6 +645,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function isString(obj: unknown): obj is Seq<Name> {
       return isSeq(obj) && obj.isString();
+    }
+
+    function isFiniteSetSort(obj: unknown): obj is FiniteSetSort<Name> {
+      const r = obj instanceof FiniteSetSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFiniteSet(obj: unknown): obj is FiniteSet<Name> {
+      const r = obj instanceof FiniteSetImpl;
+      r && _assertContext(obj);
+      return r;
     }
 
     function isProbe(obj: unknown): obj is Probe<Name> {
@@ -1003,6 +1024,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       val(value: string): Seq<Name> {
         return new SeqImpl(check(Z3.mk_string(contextPtr, value)));
       },
+
+      fromCode(code: Arith<Name> | number | bigint): Seq<Name> {
+        const codeExpr = isArith(code) ? code : Int.val(code);
+        return new SeqImpl(check(Z3.mk_string_from_code(contextPtr, codeExpr.ast)));
+      },
+
+      fromInt(n: Arith<Name> | number | bigint): Seq<Name> {
+        const nExpr = isArith(n) ? n : Int.val(n);
+        return new SeqImpl(check(Z3.mk_int_to_str(contextPtr, nExpr.ast)));
+      },
     };
 
     const Seq = {
@@ -1072,6 +1103,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ): SMTArray<Name, [DomainSort], RangeSort> {
         return new ArrayImpl<[DomainSort], RangeSort>(check(Z3.mk_const_array(contextPtr, domain.ptr, value.ptr)));
       },
+      fromFunc(f: FuncDecl<Name>): SMTArray<Name> {
+        return new ArrayImpl(check(Z3.mk_as_array(contextPtr, f.ptr)));
+      },
     };
     const Set = {
       // reference: https://z3prover.github.io/api/html/namespacez3py.html#a545f894afeb24caa1b88b7f2a324ee7e
@@ -1104,6 +1138,32 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       },
     };
 
+    const FiniteSet = {
+      sort<ElemSort extends Sort<Name>>(elemSort: ElemSort): FiniteSetSort<Name, ElemSort> {
+        return new FiniteSetSortImpl<ElemSort>(check(Z3.mk_finite_set_sort(contextPtr, elemSort.ptr)));
+      },
+      const<ElemSort extends Sort<Name>>(name: string, elemSort: ElemSort): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(
+          check(Z3.mk_const(contextPtr, _toSymbol(name), FiniteSet.sort(elemSort).ptr)),
+        );
+      },
+      consts<ElemSort extends Sort<Name>>(names: string | string[], elemSort: ElemSort): FiniteSet<Name, ElemSort>[] {
+        if (typeof names === 'string') {
+          names = names.split(' ');
+        }
+        return names.map(name => FiniteSet.const(name, elemSort));
+      },
+      empty<ElemSort extends Sort<Name>>(sort: ElemSort): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_empty(contextPtr, FiniteSet.sort(sort).ptr)));
+      },
+      singleton<ElemSort extends Sort<Name>>(elem: Expr<Name>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_singleton(contextPtr, elem.ast)));
+      },
+      range(low: Expr<Name>, high: Expr<Name>): FiniteSet<Name, Sort<Name>> {
+        return new FiniteSetImpl(check(Z3.mk_finite_set_range(contextPtr, low.ast, high.ast)));
+      },
+    };
+
     const Datatype = Object.assign(
       (name: string): DatatypeImpl => {
         return new DatatypeImpl(ctx, name);
@@ -1112,8 +1172,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         createDatatypes(...datatypes: DatatypeImpl[]): DatatypeSortImpl[] {
           return createDatatypes(...datatypes);
         },
+        createPolymorphicDatatype(typeParams: Sort<Name>[], datatype: DatatypeImpl): DatatypeSortImpl {
+          return createPolymorphicDatatype(typeParams, datatype);
+        },
       },
     );
+
+    function TypeVariable(name: string): Sort<Name> {
+      return new SortImpl(check(Z3.mk_type_variable(contextPtr, Z3.mk_string_symbol(contextPtr, name))));
+    }
 
     ////////////////
     // Operations //
@@ -1890,8 +1957,44 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new FuncDeclImpl(check(Z3.mk_partial_order(contextPtr, sort.ptr, index)));
     }
 
+    function mkLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
+      return new FuncDeclImpl(check(Z3.mk_linear_order(contextPtr, sort.ptr, index)));
+    }
+
+    function mkPiecewiseLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
+      return new FuncDeclImpl(check(Z3.mk_piecewise_linear_order(contextPtr, sort.ptr, index)));
+    }
+
+    function mkTreeOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
+      return new FuncDeclImpl(check(Z3.mk_tree_order(contextPtr, sort.ptr, index)));
+    }
+
     function mkTransitiveClosure(f: FuncDecl<Name>): FuncDecl<Name> {
       return new FuncDeclImpl(check(Z3.mk_transitive_closure(contextPtr, f.ptr)));
+    }
+
+    function mkChar(ch: number): Expr<Name> {
+      return new ExprImpl(check(Z3.mk_char(contextPtr, ch)));
+    }
+
+    function mkCharLe(ch1: Expr<Name>, ch2: Expr<Name>): Bool<Name> {
+      return new BoolImpl(check(Z3.mk_char_le(contextPtr, ch1.ast, ch2.ast)));
+    }
+
+    function mkCharToInt(ch: Expr<Name>): Arith<Name> {
+      return new ArithImpl(check(Z3.mk_char_to_int(contextPtr, ch.ast)));
+    }
+
+    function mkCharToBV(ch: Expr<Name>): Expr<Name> {
+      return new ExprImpl(check(Z3.mk_char_to_bv(contextPtr, ch.ast)));
+    }
+
+    function mkCharFromBV(bv: Expr<Name>): Expr<Name> {
+      return new ExprImpl(check(Z3.mk_char_from_bv(contextPtr, bv.ast)));
+    }
+
+    function mkCharIsDigit(ch: Expr<Name>): Bool<Name> {
+      return new BoolImpl(check(Z3.mk_char_is_digit(contextPtr, ch.ast)));
     }
 
     async function polynomialSubresultants(
@@ -1951,6 +2054,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       readonly ctx: Context<Name>;
       private _ptr: Z3_solver | null;
+      // Tracks a registered on_clause WASM callback index so it can be cleaned up
+      private _onClauseCallbackIdx!: { value: number | null };
       get ptr(): Z3_solver {
         _assertPtr(this._ptr);
         return this._ptr;
@@ -1966,7 +2071,20 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
         this._ptr = myPtr;
         Z3.solver_inc_ref(contextPtr, myPtr);
-        cleanup.register(this, () => Z3.solver_dec_ref(contextPtr, myPtr), this);
+        // Shared mutable holder so registerOnClause and the cleanup closure see the same slot
+        const onClauseCallbackIdx: { value: number | null } = { value: null };
+        this._onClauseCallbackIdx = onClauseCallbackIdx;
+        cleanup.register(
+          this,
+          () => {
+            Z3.solver_dec_ref(contextPtr, myPtr);
+            if (onClauseCallbackIdx.value !== null && em) {
+              em.removeFunction(onClauseCallbackIdx.value);
+              onClauseCallbackIdx.value = null;
+            }
+          },
+          this,
+        );
       }
 
       set(key: string, value: any): void {
@@ -2083,6 +2201,24 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         ));
       }
 
+      dimacs(includeNames: boolean = true): string {
+        return check(Z3.solver_to_dimacs_string(contextPtr, this.ptr, includeNames));
+      }
+
+      translate(target: Context<Name>): Solver<Name> {
+        const ptr = check(Z3.solver_translate(contextPtr, this.ptr, target.ptr));
+        return new (target.Solver as unknown as new (ptr: Z3_solver) => Solver<Name>)(ptr);
+      }
+
+      proof(): Expr<Name> | null {
+        const result = Z3.solver_get_proof(contextPtr, this.ptr);
+        throwIfError();
+        if (!result) {
+          return null;
+        }
+        return _toExpr(result);
+      }
+
       fromString(s: string) {
         Z3.solver_from_string(contextPtr, this.ptr, s);
         throwIfError();
@@ -2098,6 +2234,79 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       trail(): AstVector<Name, Bool<Name>> {
         return new AstVectorImpl(check(Z3.solver_get_trail(contextPtr, this.ptr)));
+      }
+
+      trailLevels(): number[] {
+        const trailVec = check(Z3.solver_get_trail(contextPtr, this.ptr));
+        const n = Z3.ast_vector_size(contextPtr, trailVec);
+        return check(Z3.solver_get_levels(contextPtr, this.ptr, trailVec, n));
+      }
+
+      async cube(vars?: AstVector<Name, Bool<Name>>, cutoff: number = 0xFFFFFFFF): Promise<AstVector<Name, Bool<Name>>> {
+        const tempVars = vars ?? new AstVectorImpl();
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.solver_cube(contextPtr, this.ptr, tempVars.ptr, cutoff)),
+        );
+        return new AstVectorImpl(result);
+      }
+
+      async getConsequences(
+        assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[],
+        variables: Expr<Name>[],
+      ): Promise<[CheckSatResult, AstVector<Name, Bool<Name>>]> {
+        const asmsVec = new AstVectorImpl();
+        const varsVec = new AstVectorImpl();
+        const consVec = new AstVectorImpl<Bool<Name>>();
+        _flattenArgs(assumptions).forEach(expr => {
+          _assertContext(expr);
+          Z3.ast_vector_push(contextPtr, asmsVec.ptr, expr.ast);
+        });
+        variables.forEach(v => {
+          _assertContext(v);
+          Z3.ast_vector_push(contextPtr, varsVec.ptr, v.ast);
+        });
+        const r = await asyncMutex.runExclusive(() =>
+          check(Z3.solver_get_consequences(contextPtr, this.ptr, asmsVec.ptr, varsVec.ptr, consVec.ptr)),
+        );
+        let status: CheckSatResult;
+        switch (r) {
+          case Z3_lbool.Z3_L_FALSE:
+            status = 'unsat';
+            break;
+          case Z3_lbool.Z3_L_TRUE:
+            status = 'sat';
+            break;
+          default:
+            status = 'unknown';
+        }
+        return [status, consVec];
+      }
+
+      solveFor(variables: Expr<Name>[], terms: Expr<Name>[], guards: Bool<Name>[]): void {
+        const varsVec = new AstVectorImpl();
+        const termsVec = new AstVectorImpl();
+        const guardsVec = new AstVectorImpl();
+        variables.forEach(v => {
+          _assertContext(v);
+          Z3.ast_vector_push(contextPtr, varsVec.ptr, v.ast);
+        });
+        terms.forEach(t => {
+          _assertContext(t);
+          Z3.ast_vector_push(contextPtr, termsVec.ptr, t.ast);
+        });
+        guards.forEach(g => {
+          _assertContext(g);
+          Z3.ast_vector_push(contextPtr, guardsVec.ptr, g.ast);
+        });
+        Z3.solver_solve_for(contextPtr, this.ptr, varsVec.ptr, termsVec.ptr, guardsVec.ptr);
+        throwIfError();
+      }
+
+      setInitialValue(variable: Expr<Name>, value: Expr<Name>): void {
+        _assertContext(variable);
+        _assertContext(value);
+        Z3.solver_set_initial_value(contextPtr, this.ptr, variable.ast, value.ast);
+        throwIfError();
       }
 
       congruenceRoot(expr: Expr<Name>): Expr<Name> {
@@ -2122,10 +2331,45 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
 
       release() {
+        // Clean up any registered on_clause callback
+        if (this._onClauseCallbackIdx.value !== null && em) {
+          em.removeFunction(this._onClauseCallbackIdx.value);
+          this._onClauseCallbackIdx.value = null;
+        }
         Z3.solver_dec_ref(contextPtr, this.ptr);
         // Mark the ptr as null to prevent double free
         this._ptr = null;
         cleanup.unregister(this);
+      }
+
+      registerOnClause(
+        callback: (proofHint: Expr<Name> | null, deps: number[], clause: AstVector<Name, Bool<Name>>) => void,
+      ): void {
+        if (!em) {
+          throw new Error('registerOnClause requires the Emscripten module; pass it to createApi');
+        }
+        // Remove any previously registered callback before registering a new one
+        if (this._onClauseCallbackIdx.value !== null) {
+          em.removeFunction(this._onClauseCallbackIdx.value);
+          this._onClauseCallbackIdx.value = null;
+        }
+        // Signature: void(void* ctx, Z3_ast proof_hint, unsigned n, const unsigned* deps, Z3_ast_vector literals)
+        const cCallback = em.addFunction(
+          (_ctxPtr: number, proofHintPtr: number, n: number, depsPtr: number, literalsPtr: number) => {
+            const proofHint = proofHintPtr ? _toExpr(proofHintPtr as unknown as Z3_ast) : null;
+            const deps: number[] = [];
+            for (let i = 0; i < n; i++) {
+              deps.push(em.HEAPU32[(depsPtr >> 2) + i]);
+            }
+            const clause = new AstVectorImpl(literalsPtr as unknown as Z3_ast_vector) as AstVector<Name, Bool<Name>>;
+            callback(proofHint, deps, clause);
+          },
+          'viiiii',
+        );
+        this._onClauseCallbackIdx.value = cCallback;
+        // solver_register_on_clause is not auto-wrapped (has void* and fnptr params),
+        // so we call the raw Emscripten export directly.
+        em._Z3_solver_register_on_clause(contextPtr as unknown as number, this.ptr as unknown as number, 0, cCallback);
       }
     }
 
@@ -2186,12 +2430,42 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new AstVectorImpl(check(Z3.optimize_get_assertions(contextPtr, this.ptr)));
       }
 
-      maximize(expr: Arith<Name> | BitVec<number, Name>) {
-        check(Z3.optimize_maximize(contextPtr, this.ptr, expr.ast));
+      maximize(expr: Arith<Name> | BitVec<number, Name>): number {
+        return check(Z3.optimize_maximize(contextPtr, this.ptr, expr.ast));
       }
 
-      minimize(expr: Arith<Name> | BitVec<number, Name>) {
-        check(Z3.optimize_minimize(contextPtr, this.ptr, expr.ast));
+      minimize(expr: Arith<Name> | BitVec<number, Name>): number {
+        return check(Z3.optimize_minimize(contextPtr, this.ptr, expr.ast));
+      }
+
+      getLower(index: number): Expr<Name> {
+        return _toExpr(check(Z3.optimize_get_lower(contextPtr, this.ptr, index)));
+      }
+
+      getUpper(index: number): Expr<Name> {
+        return _toExpr(check(Z3.optimize_get_upper(contextPtr, this.ptr, index)));
+      }
+
+      unsatCore(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.optimize_get_unsat_core(contextPtr, this.ptr)));
+      }
+
+      objectives(): AstVector<Name, Expr<Name>> {
+        return new AstVectorImpl(check(Z3.optimize_get_objectives(contextPtr, this.ptr)));
+      }
+
+      reasonUnknown(): string {
+        return check(Z3.optimize_get_reason_unknown(contextPtr, this.ptr));
+      }
+
+      fromFile(filename: string): void {
+        Z3.optimize_from_file(contextPtr, this.ptr, filename);
+        throwIfError();
+      }
+
+      translate(target: Context<Name>): Optimize<Name> {
+        const ptr = check(Z3.optimize_translate(contextPtr, this.ptr, target.ptr));
+        return new (target.Optimize as unknown as new (ptr: Z3_optimize) => Optimize<Name>)(ptr);
       }
 
       async check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult> {
@@ -2218,6 +2492,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       statistics(): Statistics<Name> {
         return new StatisticsImpl(check(Z3.optimize_get_statistics(contextPtr, this.ptr)));
+      }
+
+      setInitialValue(variable: Expr<Name>, value: Expr<Name>): void {
+        _assertContext(variable);
+        _assertContext(value);
+        Z3.optimize_set_initial_value(contextPtr, this.ptr, variable.ast, value.ast);
+        throwIfError();
       }
 
       toString() {
@@ -2585,6 +2866,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>> {
         return this.getUniverse(sort) as AstVector<Name, AnyExpr<Name>>;
+      }
+
+      translate(target: Context<Name>): Model<Name> {
+        const ptr = check(Z3.model_translate(contextPtr, this.ptr, target.ptr));
+        return new (target.Model as unknown as new (ptr: Z3_model) => Model<Name>)(ptr);
       }
 
       release() {
@@ -4026,6 +4312,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isPositive(): Bool<Name> {
         return new BoolImpl(check(Z3.mk_fpa_is_positive(contextPtr, this.ast)));
       }
+
+      toIEEEBV(): BitVec<number, Name> {
+        return new BitVecImpl(check(Z3.mk_fpa_to_ieee_bv(contextPtr, this.ast)));
+      }
+
+      toReal(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_fpa_to_real(contextPtr, this.ast)));
+      }
     }
 
     class FPNumImpl extends FPImpl implements FPNum<Name> {
@@ -4142,6 +4436,52 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         const srcSeq = isSeq(src) ? src : String.val(src);
         const dstSeq = isSeq(dst) ? dst : String.val(dst);
         return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_all(contextPtr, this.ast, srcSeq.ast, dstSeq.ast)));
+      }
+
+      replaceRe(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_re(contextPtr, this.ast, re.ast, dstSeq.ast)));
+      }
+
+      replaceReAll(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_re_all(contextPtr, this.ast, re.ast, dstSeq.ast)));
+      }
+
+      toInt(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_str_to_int(contextPtr, this.ast)));
+      }
+
+      toCode(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_string_to_code(contextPtr, this.ast)));
+      }
+
+      lt(other: Seq<Name, ElemSort> | string): Bool<Name> {
+        const otherSeq = isSeq(other) ? other : String.val(other);
+        return new BoolImpl(check(Z3.mk_str_lt(contextPtr, this.ast, otherSeq.ast)));
+      }
+
+      le(other: Seq<Name, ElemSort> | string): Bool<Name> {
+        const otherSeq = isSeq(other) ? other : String.val(other);
+        return new BoolImpl(check(Z3.mk_str_le(contextPtr, this.ast, otherSeq.ast)));
+      }
+
+      map(f: Expr<Name>): Seq<Name> {
+        return new SeqImpl(check(Z3.mk_seq_map(contextPtr, f.ast, this.ast)));
+      }
+
+      mapi(f: Expr<Name>, i: Arith<Name> | number | bigint): Seq<Name> {
+        const iExpr = isArith(i) ? i : Int.val(i);
+        return new SeqImpl(check(Z3.mk_seq_mapi(contextPtr, f.ast, iExpr.ast, this.ast)));
+      }
+
+      foldl(f: Expr<Name>, a: Expr<Name>): Expr<Name> {
+        return _toExpr(check(Z3.mk_seq_foldl(contextPtr, f.ast, a.ast, this.ast)));
+      }
+
+      foldli(f: Expr<Name>, i: Arith<Name> | number | bigint, a: Expr<Name>): Expr<Name> {
+        const iExpr = isArith(i) ? i : Int.val(i);
+        return _toExpr(check(Z3.mk_seq_foldli(contextPtr, f.ast, iExpr.ast, a.ast, this.ast)));
       }
     }
 
@@ -4311,6 +4651,65 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     ////////////////////////////
+    // Finite Sets
+    ////////////////////////////
+
+    class FiniteSetSortImpl<ElemSort extends Sort<Name> = Sort<Name>>
+      extends SortImpl
+      implements FiniteSetSort<Name, ElemSort>
+    {
+      declare readonly __typename: 'FiniteSetSort';
+
+      elemSort(): ElemSort {
+        return _toSort(check(Z3.get_finite_set_sort_basis(contextPtr, this.ptr))) as ElemSort;
+      }
+
+      cast(other: Expr<Name>): Expr<Name> {
+        _assertContext(other);
+        return other;
+      }
+    }
+
+    class FiniteSetImpl<ElemSort extends Sort<Name> = Sort<Name>>
+      extends ExprImpl<Z3_ast, FiniteSetSortImpl<ElemSort>>
+      implements FiniteSet<Name, ElemSort>
+    {
+      declare readonly __typename: 'FiniteSet';
+
+      union(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_union(contextPtr, this.ast, other.ast)));
+      }
+
+      intersect(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_intersect(contextPtr, this.ast, other.ast)));
+      }
+
+      diff(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_difference(contextPtr, this.ast, other.ast)));
+      }
+
+      contains(elem: Expr<Name>): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_finite_set_member(contextPtr, elem.ast, this.ast)));
+      }
+
+      size(): Expr<Name> {
+        return new ExprImpl(check(Z3.mk_finite_set_size(contextPtr, this.ast)));
+      }
+
+      subsetOf(other: FiniteSet<Name, ElemSort>): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_finite_set_subset(contextPtr, this.ast, other.ast)));
+      }
+
+      map(f: Expr<Name>): FiniteSet<Name, Sort<Name>> {
+        return new FiniteSetImpl(check(Z3.mk_finite_set_map(contextPtr, f.ast, this.ast)));
+      }
+
+      filter(f: Expr<Name>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_filter(contextPtr, f.ast, this.ast)));
+      }
+    }
+
+    ////////////////////////////
     // Datatypes
     ////////////////////////////
 
@@ -4332,6 +4731,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       create(): DatatypeSort<Name> {
         const datatypes = createDatatypes(this);
         return datatypes[0];
+      }
+
+      createPolymorphic(typeParams: Sort<Name>[]): DatatypeSort<Name> {
+        return createPolymorphicDatatype(typeParams, this);
       }
     }
 
@@ -4485,6 +4888,84 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
         for (const constructorList of constructorLists) {
           Z3.del_constructor_list(contextPtr, constructorList);
+        }
+      }
+    }
+
+    function createPolymorphicDatatype(typeParams: Sort<Name>[], datatype: DatatypeImpl): DatatypeSortImpl {
+      if (!(datatype instanceof DatatypeImpl)) {
+        throw new Error('Datatype instance expected');
+      }
+
+      const constructors: Z3_constructor[] = [];
+
+      try {
+        for (const [constructorName, fields] of datatype.constructors) {
+          const fieldNames: string[] = [];
+          const fieldSorts: Z3_sort[] = [];
+          const fieldRefs: number[] = [];
+
+          for (const [fieldName, fieldSort] of fields) {
+            fieldNames.push(fieldName);
+
+            if (fieldSort instanceof DatatypeImpl) {
+              // Self-recursive reference
+              if (fieldSort !== datatype) {
+                throw new Error(
+                  `Referenced datatype "${fieldSort.name}" is not the polymorphic datatype being created; mutual recursion is not supported in createPolymorphicDatatype`,
+                );
+              }
+              fieldSorts.push(null as any);
+              fieldRefs.push(0);
+            } else {
+              fieldSorts.push((fieldSort as Sort<Name>).ptr);
+              fieldRefs.push(0);
+            }
+          }
+
+          const constructor = Z3.mk_constructor(
+            contextPtr,
+            Z3.mk_string_symbol(contextPtr, constructorName),
+            Z3.mk_string_symbol(contextPtr, `is_${constructorName}`),
+            fieldNames.map(name => Z3.mk_string_symbol(contextPtr, name)),
+            fieldSorts,
+            fieldRefs,
+          );
+          constructors.push(constructor);
+        }
+
+        const nameSymbol = Z3.mk_string_symbol(contextPtr, datatype.name);
+        const paramPtrs = typeParams.map(p => p.ptr);
+        const resultSort = Z3.mk_polymorphic_datatype(contextPtr, nameSymbol, paramPtrs, constructors);
+
+        const sortImpl = new DatatypeSortImpl(resultSort);
+
+        // Attach constructor, recognizer, and accessor functions dynamically
+        const numConstructors = sortImpl.numConstructors();
+        for (let j = 0; j < numConstructors; j++) {
+          const constructor = sortImpl.constructorDecl(j);
+          const recognizer = sortImpl.recognizer(j);
+          const constructorName = constructor.name().toString();
+
+          if (constructor.arity() === 0) {
+            (sortImpl as any)[constructorName] = constructor.call();
+          } else {
+            (sortImpl as any)[constructorName] = constructor;
+          }
+
+          (sortImpl as any)[`is_${constructorName}`] = recognizer;
+
+          for (let k = 0; k < constructor.arity(); k++) {
+            const accessor = sortImpl.accessor(j, k);
+            const accessorName = accessor.name().toString();
+            (sortImpl as any)[accessorName] = accessor;
+          }
+        }
+
+        return sortImpl;
+      } finally {
+        for (const constructor of constructors) {
+          Z3.del_constructor(contextPtr, constructor);
         }
       }
     }
@@ -4902,6 +5383,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isSeq,
       isStringSort,
       isString,
+      isFiniteSetSort,
+      isFiniteSet,
       isArraySort,
       isArray,
       isConstArray,
@@ -4932,7 +5415,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Re,
       Array,
       Set,
+      FiniteSet,
       Datatype,
+      TypeVariable,
 
       ////////////////
       // Operations //
@@ -5041,7 +5526,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Full,
 
       mkPartialOrder,
+      mkLinearOrder,
+      mkPiecewiseLinearOrder,
+      mkTreeOrder,
       mkTransitiveClosure,
+      mkChar,
+      mkCharLe,
+      mkCharToInt,
+      mkCharToBV,
+      mkCharFromBV,
+      mkCharIsDigit,
       polynomialSubresultants,
     };
     cleanup.register(ctx, () => Z3.del_context(contextPtr));

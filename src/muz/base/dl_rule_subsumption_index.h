@@ -56,6 +56,6 @@ namespace datalog {
         bool is_subsumed(app * query);
     };
 
-};
+}
 
 

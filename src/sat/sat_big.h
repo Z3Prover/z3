@@ -87,5 +87,5 @@ namespace sat {
         void display(std::ostream& out) const;
 
     };
-};
+}
 

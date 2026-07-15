@@ -111,6 +111,9 @@ namespace array {
         case OP_CONST_ARRAY:
             internalize_lambda_eh(n);
             break;
+        case OP_CHOICE:
+            push_axiom(choice_axiom(n));
+            break;
         case OP_ARRAY_EXT:
             SASSERT(is_array(n->get_arg(0)));
             push_axiom(extensionality_axiom(n->get_arg(0), n->get_arg(1)));
@@ -168,6 +171,8 @@ namespace array {
             break;
         case OP_ARRAY_DEFAULT:
             set_prop_upward(find(n->get_arg(0)));
+            break;
+        case OP_CHOICE:
             break;
         case OP_ARRAY_MAP:
         case OP_SET_UNION:
@@ -255,4 +260,3 @@ namespace array {
     }
 
 }
-

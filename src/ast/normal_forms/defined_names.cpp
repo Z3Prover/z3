@@ -121,9 +121,6 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
     sort * range = e->get_sort();
     func_decl * new_skolem_decl = m.mk_fresh_func_decl(m_z3name, symbol::null, domain.size(), domain.data(), range);
     app * n = m.mk_app(new_skolem_decl, new_args.size(), new_args.data());
-    if (is_lambda(e)) {
-        m.add_lambda_def(new_skolem_decl, to_quantifier(e));
-    }
     return n;
 }
 
@@ -193,43 +190,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
     else if (m.is_term_ite(e)) {
         bound_vars(var_sorts, var_names, MK_OR(MK_NOT(to_app(e)->get_arg(0)), MK_EQ(n, to_app(e)->get_arg(1))), n, defs);
         bound_vars(var_sorts, var_names, MK_OR(to_app(e)->get_arg(0),         MK_EQ(n, to_app(e)->get_arg(2))), n, defs);
-    }
-    else if (is_lambda(e)) {
-        //    n(y) = \x . M[x,y]
-        // => 
-        //    n(y)[x] = M,  forall x y
-        // 
-        // NB. The pattern is incomplete.
-        // consider store(a, i, v) == \lambda j . if i = j then v else a[j]
-        // the instantiation rules for store(a, i, v) are:
-        //     store(a, i, v)[j] = if i = j then v else a[j] with patterns {a[j], store(a, i, v)} { store(a, i, v)[j] }
-        // The first pattern is not included.
-        // TBD use a model-based scheme for extracting instantiations instead of
-        // using multi-patterns.
-        // 
-
-        quantifier* q = to_quantifier(e);
-        expr_ref_vector args(m);
-        expr_ref n2(m), n3(m);
-        var_shifter vs(m);
-        vs(n, q->get_num_decls(), n2);        
-        args.push_back(n2);
-        var_sorts.append(q->get_num_decls(), q->get_decl_sorts());
-        var_names.append(q->get_num_decls(), q->get_decl_names());
-        for (unsigned i = 0; i < q->get_num_decls(); ++i) {
-            args.push_back(m.mk_var(q->get_num_decls() - i - 1, q->get_decl_sort(i)));
-        }
-        array_util autil(m);
-        func_decl * f = nullptr;
-        if (autil.is_as_array(n2, f)) {
-            n3 = m.mk_app(f, args.size()-1, args.data() + 1);
-        }
-        else {
-            n3 = autil.mk_select(args.size(), args.data());
-        }
-        bound_vars(var_sorts, var_names, MK_EQ(q->get_expr(), n3), to_app(n3), defs, m.lambda_def_qid());
-        
-    }
+    }    
     else {
         bound_vars(var_sorts, var_names, MK_EQ(e, n), n, defs);
     }

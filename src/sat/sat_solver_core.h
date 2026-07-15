@@ -49,7 +49,7 @@ namespace sat {
         // optional support for user-scopes. Not relevant for sat_tactic integration. 
         // it is only relevant for incremental mode SAT, which isn't wrapped (yet)
         virtual void user_push() { throw default_exception("optional API not supported"); }
-        virtual void user_pop(unsigned num_scopes) {};
+        virtual void user_pop(unsigned num_scopes) {}
         virtual unsigned num_user_scopes() const { return 0;}
         virtual unsigned num_scopes() const { return 0; }
 
@@ -58,5 +58,5 @@ namespace sat {
         virtual extension* get_extension() const { return nullptr; }
         virtual void       set_extension(extension* e) { if (e) throw default_exception("optional API not supported"); }
     };
-};
+}
 

@@ -561,9 +561,7 @@ def param2java(p):
         elif param_type(p) == BOOL:
             return "BoolPtr"
         else:
-            print("ERROR: unreachable code")
-            assert(False)
-            exit(1)
+            raise ValueError(f"ERROR: unreachable code - unexpected param_type: {param_type(p)}")
     elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
         return "%s[]" % type2java(param_type(p))
     elif k == OUT_MANAGED_ARRAY:
@@ -633,7 +631,16 @@ def mk_java(java_src, java_dir, package_name):
     java_native.write('      try {\n')
     java_native.write('        System.loadLibrary("z3java");\n')
     java_native.write('      } catch (UnsatisfiedLinkError ex) {\n')
-    java_native.write('        System.loadLibrary("libz3java");\n')
+    java_native.write('        try {\n')
+    java_native.write('          System.loadLibrary("libz3java");\n')
+    java_native.write('        } catch (UnsatisfiedLinkError ex2) {\n')
+    java_native.write('          throw new UnsatisfiedLinkError(\n')
+    java_native.write('            "Failed to load z3java native library. "\n')
+    java_native.write('            + "Tried z3java: " + ex.getMessage() + "; "\n')
+    java_native.write('            + "Tried libz3java: " + ex2.getMessage() + ". "\n')
+    java_native.write('            + "Make sure both the JNI library and libz3 are in java.library.path "\n')
+    java_native.write('            + "or set DYLD_LIBRARY_PATH (macOS) / LD_LIBRARY_PATH (Linux).");\n')
+    java_native.write('        }\n')
     java_native.write('      }\n')
     java_native.write('    }\n')
     java_native.write('  }\n')
@@ -649,6 +656,8 @@ def mk_java(java_src, java_dir, package_name):
   public static native boolean propagateConsequence(Object o, long ctx, long solver, long javainfo, int num_fixed, long[] fixed, long num_eqs, long[] eq_lhs, long[] eq_rhs, long conseq);
   public static native boolean propagateNextSplit(Object o, long ctx, long solver, long javainfo, long e, long idx, int phase);
   public static native void propagateDestroy(Object o, long ctx, long solver, long javainfo);
+  public static native long onClauseInit(Object o, long ctx, long solver);
+  public static native void onClauseDestroy(long javainfo);
 
   public static abstract class UserPropagatorBase implements AutoCloseable {
     protected long ctx;
@@ -852,11 +861,17 @@ def mk_java(java_src, java_dir, package_name):
                     java_wrapper.write('  RELEASELONGAELEMS(a%s, _a%s);\n' % (i, i))
 
             elif k == OUT or k == INOUT:
-                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
+                if param_type(param) == INT or param_type(param) == UINT:
                     java_wrapper.write('  {\n')
                     java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
                     java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "I");\n')
                     java_wrapper.write('     jenv->SetIntField(a%s, fid, (jint) _a%s);\n' % (i, i))
+                    java_wrapper.write('  }\n')
+                elif param_type(param) == BOOL:
+                    java_wrapper.write('  {\n')
+                    java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
+                    java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "Z");\n')
+                    java_wrapper.write('     jenv->SetBooleanField(a%s, fid, (jboolean) _a%s);\n' % (i, i))
                     java_wrapper.write('  }\n')
                 elif param_type(param) == STRING:
                     java_wrapper.write('  {\n')
@@ -2024,7 +2039,8 @@ def generate_files(api_files,
   # existing code is designed to always emit these files.
   def mk_file_or_temp(output_dir, file_name, mode='w'):
     if output_dir != None:
-      assert os.path.exists(output_dir) and os.path.isdir(output_dir)
+      if not (os.path.exists(output_dir) and os.path.isdir(output_dir)):
+        raise ValueError(f"Output directory '{output_dir}' does not exist or is not a directory")
       return open(os.path.join(output_dir, file_name), mode)
     else:
       # Return a file that we can write to without caring

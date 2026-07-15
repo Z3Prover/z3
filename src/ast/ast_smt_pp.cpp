@@ -507,6 +507,7 @@ class smt_printer {
         case forall_k: m_out << "forall "; break;
         case exists_k: m_out << "exists "; break;
         case lambda_k: m_out << "lambda "; break;
+        case choice_k: m_out << "choice "; break;
         }
         m_out << "(";
         for (unsigned i = 0; i < q->get_num_decls(); ++i) {
@@ -733,7 +734,8 @@ public:
         m_AUFLIRA("AUFLIRA"),
         // It's much easier to read those testcases with that.
         m_no_lets(no_lets),
-        m_simplify_implies(simplify_implies)
+        m_simplify_implies(simplify_implies),
+        m_top(nullptr)
     {
         m_basic_fid = m.get_basic_family_id();
         m_label_fid = m.mk_family_id("label");

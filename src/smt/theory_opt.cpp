@@ -74,4 +74,4 @@ namespace smt {
         return a.is_numeral(term);
     }
 
-};
+}

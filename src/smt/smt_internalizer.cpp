@@ -101,6 +101,63 @@ namespace smt {
         }
     }
 
+    void context::update_generation(enode * e) {
+        // We don't support patterns with equality so there is no need to track generations for them.
+        if (e->is_eq())
+            return;
+
+        if (0 < m_generation && m_generation < get_generation(e)) {
+            if (e->uses_cg_table())
+                set_generation_sticky(e, m_generation);
+            else
+                set_generation(e, m_generation);
+        }
+    }
+
+    void context::set_generation(enode * e, unsigned generation) {
+        // We don't support patterns with equality so there is no need to track generations for them.
+        if (e->is_eq())
+            return;
+
+        // The class generation is stored in the congruence root's m_generation field.
+        enode * cgr = get_cg_root(e);
+        cgr->m_generation = generation;
+    }
+
+    class merge_cgc_generations_trail : public trail {
+        context& ctx;
+        enode* m_e1;
+        unsigned m_e1_generation;
+        enode* m_e2;
+        unsigned m_e2_generation;
+    public:
+        merge_cgc_generations_trail(context& ctx, enode* e1, unsigned e1_generation, enode* e2, unsigned e2_generation):
+            ctx(ctx),
+            m_e1(e1),
+            m_e1_generation(e1_generation),
+            m_e2(e2),
+            m_e2_generation(e2_generation) {
+        }
+
+        void undo() override {
+            ctx.undo_merge_cgc_generations(m_e1, m_e1_generation, m_e2, m_e2_generation);
+        }
+    };
+
+    void context::merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2) {
+        SASSERT(e2->is_cgr());
+        SASSERT(!m_cg_table.contains_ptr(e1));
+        SASSERT(m_cg_table.contains_ptr(e2));
+
+        // Push trail even if we have a no-op. Otherwise we can't restore e1's generation after unmerging.
+        push_trail(merge_cgc_generations_trail(*this, e1, e1_generation, e2, e2->m_generation));
+
+        if (e1_generation >= e2->m_generation)
+            return; // no-op
+
+        e2->m_generation = e1_generation;
+    }
+
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
         if (get_color(tcolors, fcolors, n, gate_ctx) == White) {
             todo.push_back(expr_bool_pair(n, gate_ctx));
@@ -115,12 +172,16 @@ namespace smt {
             return true;
         SASSERT(is_app(n));
         if (m.is_bool(n)) {
-            if (b_internalized(n))
+            if (b_internalized(n)) {
+                update_generation(n);                
                 return true;
+            }
         }
         else {
-            if (e_internalized(n))
+            update_generation(n);
+            if (e_internalized(n))                 
                 return true;
+            
         }
 
         bool visited  = true;
@@ -358,6 +419,28 @@ namespace smt {
         internalize_rec(n, gate_ctx);
     }
 
+    enode *context::non_ground_internalize(expr *e) {
+        if (e_internalized(e))
+            return get_enode(e);
+        if (is_ground(e)) {
+            internalize(e, false);
+            return get_enode(e);
+        }
+        for (auto arg : subterms::ground(expr_ref(e, m))) {
+            if ((is_forall(arg) || is_exists(arg)) && !e_internalized(arg)) {
+                expr_ref fn(m.mk_fresh_const("proxy-expr", e->get_sort()), m);
+                expr_ref eq(m.mk_eq(fn, e), m);
+                assert_expr(eq);
+                internalize_assertions();
+                if (!e_internalized(fn)) 
+                    internalize(fn, false);
+                return get_enode(fn);
+            }
+        }
+        internalize(e, false);
+        return get_enode(e);
+    }
+
     void context::internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx) {
         internalize_deep(exprs, num_exprs);
         for (unsigned i = 0; i < num_exprs; ++i) 
@@ -403,6 +486,8 @@ namespace smt {
             // n was already internalized as a boolean.
             bool_var v = get_bool_var(n);
             TRACE(internalize_bug, tout << "#" << n->get_id() << " already has bool_var v" << v << "\n";);
+            
+            update_generation(n);            
             
             // n was already internalized as boolean, but an enode was
             // not associated with it.  So, an enode is necessary, if
@@ -586,31 +671,10 @@ namespace smt {
         SASSERT(is_lambda(q));
         if (e_internalized(q)) 
             return;
-        app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
-        app_ref eq(m), lam_app(m);
-        expr_ref_vector vars(m);
-        vars.push_back(lam_name);
-        unsigned sz = q->get_num_decls();
-        for (unsigned i = 0; i < sz; ++i) 
-            vars.push_back(m.mk_var(sz - i - 1, q->get_decl_sort(i)));
-        array_util autil(m);
-        lam_app = autil.mk_select(vars.size(), vars.data());
-        eq = m.mk_eq(lam_app, q->get_expr());
-        quantifier_ref fa(m);
-        expr * patterns[1] = { m.mk_pattern(lam_app) };
-        fa = m.mk_forall(sz, q->get_decl_sorts(), q->get_decl_names(), eq, 0, m.lambda_def_qid(), symbol::null, 1, patterns);
-        internalize_quantifier(fa, true);
-        if (!e_internalized(lam_name)) 
-            internalize_uninterpreted(lam_name);
-        enode* lam_node = get_enode(lam_name);
-        push_trail(insert_obj_map<enode, quantifier*>(m_lambdas, lam_node));
-        m_lambdas.insert(lam_node, q);
-        m_app2enode.setx(q->get_id(), lam_node, nullptr);
-        m_l_internalized_stack.push_back(q);
-        m_trail_stack.push_back(&m_mk_lambda_trail);
-        bool_var bv = get_bool_var(fa);
-        assign(literal(bv, false), nullptr);
-        mark_as_relevant(bv);
+        auto e = mk_enode(q, true, /* do suppress args */
+                    false,    /* it is a term, so it should not be merged with true/false */
+                    true);
+        apply_sort_cnstr(q, e);
     }
 
     bool context::has_lambda() {
@@ -810,6 +874,8 @@ namespace smt {
     */
     void context::internalize_term(app * n) {
         if (e_internalized(n)) {
+            enode * e = get_enode(n);
+            update_generation(e);
             theory * th = m_theories.get_plugin(n->get_family_id());
             if (th != nullptr) {
                 // This code is necessary because some theories may decide
@@ -822,7 +888,6 @@ namespace smt {
                 //   Later, the core tries to internalize (f (* 2 x)).
                 //   Now, (* 2 x) is not internal to arithmetic anymore,
                 //   and a theory variable must be created for it.
-                enode * e = get_enode(n);
                 if (!th->is_attached_to_var(e))
                     th->internalize_term(n);
             }
@@ -935,6 +1000,8 @@ namespace smt {
         m_lit_scores[0].reserve(v + 1);
         m_lit_scores[1].reserve(v + 1);
         m_lit_scores[0][v] = m_lit_scores[1][v] = 0.0;
+        m_birthdate.reserve(v+1);
+        m_birthdate[v] = 0;
 
         literal l(v, false);
         literal not_l(v, true);
@@ -958,7 +1025,7 @@ namespace smt {
             m_activity[v]      = 0.0;
         m_case_split_queue->mk_var_eh(v);
         m_b_internalized_stack.push_back(n);
-        m_trail_stack.push_back(&m_mk_bool_var_trail);
+        m_trail_stack.push_ptr(&m_mk_bool_var_trail);
         m_stats.m_num_mk_bool_var++;
         SASSERT(check_bool_var_vector_sizes());
         return v;
@@ -997,7 +1064,7 @@ namespace smt {
        \remark If suppress_args is true, then the enode is viewed as a constant
        in the egraph.
     */
-    enode * context::mk_enode(app * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
+    enode * context::mk_enode(expr * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
         TRACE(mk_enode_detail, tout << mk_pp(n, m) << "\nsuppress_args: " << suppress_args << ", merge_tf: " << 
               merge_tf << ", cgc_enabled: " << cgc_enabled << "\n";);
         SASSERT(!e_internalized(n));
@@ -1009,7 +1076,8 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode * e           = enode::mk(m, m_region, m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl, cgc_enabled, true);
+        enode *e = enode::mk(m, get_region(), m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl,
+                             cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
             e->mark_as_interpreted();
@@ -1017,7 +1085,7 @@ namespace smt {
         TRACE(generation, tout << "mk_enode: " << id << " " << generation << "\n";);
         m_app2enode.setx(id, e, nullptr);
         m_e_internalized_stack.push_back(n);
-        m_trail_stack.push_back(&m_mk_enode_trail);
+        m_trail_stack.push_ptr(&m_mk_enode_trail);
         m_enodes.push_back(e);
         if (e->get_num_args() > 0) {
             if (e->is_true_eq()) {
@@ -1031,6 +1099,9 @@ namespace smt {
                     auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
                         e->m_cg = e_prime;
+                        // We don't support patterns with equality so there is no need to track generations for them.
+                        if (!e->is_eq())
+                            merge_cgc_generations(e, generation, e_prime);
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {
@@ -1042,12 +1113,13 @@ namespace smt {
                 }
             }
             if (!e->is_eq()) {
-                unsigned decl_id = n->get_decl()->get_small_id();
+                unsigned decl_id = e->get_decl_id();
                 if (decl_id >= m_decl2enodes.size())
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
             }
         }
+
         SASSERT(e_internalized(n));
         m_stats.m_num_mk_enode++;
         TRACE(mk_enode, tout << "created enode: #" << e->get_owner_id() << " for:\n" << mk_pp(n, m) << "\n";
@@ -1058,17 +1130,9 @@ namespace smt {
         SCTRACE(causality, m_coming_from_quant, tout << "EN: #" << e->get_owner_id() << "\n";);
 
         if (m.has_trace_stream())
-            m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << m_generation << "\n";        
+            m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << generation << "\n";        
 
         return e;
-    }
-
-    void context::undo_mk_lambda() {
-        SASSERT(!m_l_internalized_stack.empty());
-        m_stats.m_num_del_enode++;
-        quantifier * n         = m_l_internalized_stack.back();
-        m_app2enode[n->get_id()] = nullptr;
-        m_l_internalized_stack.pop_back();
     }
 
     void context::undo_mk_enode() {
@@ -1078,15 +1142,15 @@ namespace smt {
         TRACE(undo_mk_enode, tout << "undo_enode: #" << n->get_id() << "\n" << mk_pp(n, m) << "\n";);
         TRACE(mk_var_bug, tout << "undo_mk_enode: " << n->get_id() << "\n";);
         unsigned n_id         = n->get_id();
-        SASSERT(is_app(n));
         enode * e             = m_app2enode[n_id];
         m_app2enode[n_id]     = nullptr;
-        if (e->is_cgr() && !e->is_true_eq() && e->is_cgc_enabled()) {
+        if (e->is_cgr() && e->uses_cg_table()) {
             SASSERT(m_cg_table.contains_ptr(e));
             m_cg_table.erase(e);
         }
+        SASSERT(!(e->get_num_args() > 0 && m_cg_table.contains_ptr(e)));
         if (e->get_num_args() > 0 && !e->is_eq()) {
-            unsigned decl_id = to_app(n)->get_decl()->get_small_id();
+            unsigned decl_id = e->get_decl_id();
             SASSERT(decl_id < m_decl2enodes.size());
             SASSERT(m_decl2enodes[decl_id].back() == e);
             m_decl2enodes[decl_id].pop_back();
@@ -1095,13 +1159,14 @@ namespace smt {
         SASSERT(m_e_internalized_stack.size() == m_enodes.size());
         m_enodes.pop_back();
         m_e_internalized_stack.pop_back();
+        m_sticky_generation_updates.erase(e);
     }
 
     /**
        \brief Apply sort constraints on e.
     */
-    void context::apply_sort_cnstr(app * term, enode * e) {
-        sort * s    = term->get_decl()->get_range();
+    void context::apply_sort_cnstr(expr * term, enode * e) {
+        sort * s    = term->get_sort();
         theory * th = m_theories.get_plugin(s->get_family_id());
         if (th) {
             th->apply_sort_cnstr(e, s);
@@ -1859,11 +1924,11 @@ namespace smt {
         if (old_v == null_theory_var) {
             enode * r     = n->get_root();
             theory_var v2 = r->get_th_var(th_id);
-            n->add_th_var(v, th_id, m_region);
+            n->add_th_var(v, th_id, get_region());
             push_trail(add_th_var_trail(n, th_id));
             if (v2 == null_theory_var) {
                 if (r != n)
-                    r->add_th_var(v, th_id, m_region);
+                    r->add_th_var(v, th_id, get_region());
                 push_new_th_diseqs(r, v, th);
             }
             else if (r != n) {
@@ -1882,5 +1947,4 @@ namespace smt {
         }
         SASSERT(th->is_attached_to_var(n));
     }
-};
-
+}

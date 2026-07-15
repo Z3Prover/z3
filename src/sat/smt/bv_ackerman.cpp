@@ -155,7 +155,7 @@ namespace bv {
     void ackerman::propagate() {
         auto* n = m_queue;
         vv* k = nullptr;
-        unsigned num_prop = static_cast<unsigned>(s.s().get_stats().m_conflict * s.get_config().m_dack_factor);
+        unsigned num_prop = static_cast<unsigned>(s.s().get_stats().m_conflicts * s.get_config().m_dack_factor);
         num_prop = std::min(num_prop, m_table.size());
         for (unsigned i = 0; i < num_prop; ++i, n = k) {
             k = n->next();

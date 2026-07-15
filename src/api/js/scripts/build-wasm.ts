@@ -72,10 +72,10 @@ fs.mkdirSync(path.dirname(ccWrapperPath), { recursive: true });
 fs.writeFileSync(ccWrapperPath, makeCCWrapper());
 
 const fns = JSON.stringify(exportedFuncs());
-const methods = '["PThread","ccall","FS","UTF8ToString","intArrayFromString"]';
+const methods = '["PThread","ccall","FS","UTF8ToString","intArrayFromString","addFunction","removeFunction"]';
 const libz3a = path.normalize('../../../build/libz3.a');
 spawnSync(
-  `emcc build/async-fns.cc ${libz3a} --std=c++20 --pre-js src/low-level/async-wrapper.js -g2 -pthread -fexceptions -s WASM_BIGINT -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=0 -s PTHREAD_POOL_SIZE_STRICT=0 -s MODULARIZE=1 -s 'EXPORT_NAME="initZ3"' -s EXPORTED_RUNTIME_METHODS=${methods} -s EXPORTED_FUNCTIONS=${fns} -s DISABLE_EXCEPTION_CATCHING=0 -s SAFE_HEAP=0 -s TOTAL_MEMORY=2GB -s TOTAL_STACK=20MB -I z3/src/api/ -o build/z3-built.js`,
+  `emcc build/async-fns.cc ${libz3a} --std=c++20 --pre-js src/low-level/async-wrapper.js -g2 -pthread -fexceptions -s WASM_BIGINT -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=0 -s PTHREAD_POOL_SIZE_STRICT=0 -s MODULARIZE=1 -s 'EXPORT_NAME="initZ3"' -s EXPORTED_RUNTIME_METHODS=${methods} -s EXPORTED_FUNCTIONS=${fns} -s DISABLE_EXCEPTION_CATCHING=0 -s SAFE_HEAP=0 -s TOTAL_MEMORY=2GB -s TOTAL_STACK=20MB -s ALLOW_TABLE_GROWTH=1 -I z3/src/api/ -o build/z3-built.js`,
 );
 
 fs.rmSync(ccWrapperPath);

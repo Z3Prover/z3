@@ -149,9 +149,9 @@ void lackr::eager_enc() {
         checkpoint();
         ackr(v);
     }
-    for (auto const& kv : m_sel2terms) {
+    for (auto const &[k, v] : m_sel2terms) {
         checkpoint();
-        ackr(kv.get_value());
+        ackr(v);
     }
 }
 
@@ -190,13 +190,13 @@ void lackr::abstract_fun(fun2terms_map const& apps) {
 }
 
 void lackr::abstract_sel(sel2terms_map const& apps) {
-    for (auto const& kv : apps) {
-        func_decl * fd = kv.m_key->get_decl();
-        for (app * t : kv.m_value->const_args) {
+    for (auto const &[k, v] : apps) {
+        func_decl * fd = k->get_decl();
+        for (app * t : v->const_args) {
             app * fc = m.mk_fresh_const(fd->get_name(), t->get_sort());
             m_info->set_abstr(t, fc);
         }
-        for (app * t : kv.m_value->var_args) {
+        for (app * t : v->var_args) {
             app * fc = m.mk_fresh_const(fd->get_name(), t->get_sort());
             m_info->set_abstr(t, fc);
         }

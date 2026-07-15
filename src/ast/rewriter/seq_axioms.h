@@ -123,5 +123,5 @@ namespace seq {
 
     };
 
-};
+}
 

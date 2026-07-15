@@ -273,7 +273,7 @@ public:
     scoped_ptr& operator=(scoped_ptr&& other) noexcept {
         *this = other.detach();
         return *this;
-    };
+    }
 
     T * detach() {
         T* tmp = m_ptr;

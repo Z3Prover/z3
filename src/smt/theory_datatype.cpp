@@ -138,7 +138,7 @@ namespace smt {
        where acc_i are the accessors of constructor c.
     */
     void theory_datatype::assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent) {
-        app* e = n->get_expr();
+        app* e = n->get_app();
         TRACE(datatype_bug, tout << "creating axiom (= n (c (acc_1 n) ... (acc_m n))) for\n" 
             << mk_pp(c, m) << " " << mk_pp(e, m) << "\n";);
         m_stats.m_assert_cnstr++;
@@ -171,7 +171,7 @@ namespace smt {
         func_decl * d     = n->get_decl();
         ptr_vector<func_decl> const & accessors   = *m_util.get_constructor_accessors(d);
         SASSERT(n->get_num_args() == accessors.size());
-        app_ref_vector bindings(m);
+        expr_ref_vector bindings(m);
         vector<std::tuple<enode *, enode *>> used_enodes;
         used_enodes.push_back(std::make_tuple(nullptr, n));
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
@@ -223,7 +223,7 @@ namespace smt {
     void theory_datatype::assert_update_field_axioms(enode * n) {
         m_stats.m_assert_update_field++;
         SASSERT(is_update_field(n));
-        app*        own  = n->get_expr();
+        app*        own  = n->get_app();
         expr*       arg1 = own->get_arg(0);
         func_decl * upd  = n->get_decl();
         func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
@@ -354,12 +354,20 @@ namespace smt {
             for (unsigned i = 0; i < num_args; ++i) {
                 enode * arg = e->get_arg(i);
                 sort * s    = arg->get_sort();
+                sort *e_sort = nullptr;
                 if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                     app_ref def(m_autil.mk_default(arg->get_expr()), m);
                     if (!ctx.e_internalized(def)) {
                         ctx.internalize(def, false);
                     }
                     arg = ctx.get_enode(def);       
+                }
+                if (m_fsutil.is_finite_set(s, e_sort) && m_util.is_datatype(e_sort)) {
+                    app_ref def(m_fsutil.mk_empty(s), m);
+                    if (!ctx.e_internalized(def)) {
+                        ctx.internalize(def, false);
+                    }
+                    arg = ctx.get_enode(def);      
                 }
                 if (!m_util.is_datatype(s) && !m_sutil.is_seq(s))
                     continue;
@@ -698,7 +706,7 @@ namespace smt {
         return result;
     }
 
-    void theory_datatype::relevant_eh(app * n) {
+    void theory_datatype::relevant_eh(expr * n) {
         force_push();
         TRACE(datatype, tout << "relevant_eh: " << mk_pp(n, m) << "\n";);
         SASSERT(ctx.relevancy());
@@ -799,8 +807,9 @@ namespace smt {
                 found = true;
             }
             sort * s = arg->get_sort();
-            if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
-                for (enode* aarg : get_array_args(arg)) {
+            sort *se = nullptr;
+            auto add_args = [&](ptr_vector<enode> const &args) {
+                for (enode *aarg : args) {
                     if (aarg->get_root() == child->get_root()) {
                         if (aarg != child) {
                             m_used_eqs.push_back(enode_pair(aarg, child));
@@ -808,17 +817,16 @@ namespace smt {
                         found = true;
                     }
                 }
+            };
+            if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
+                add_args(get_array_args(arg));
             }
-            sort* se = nullptr;
+            if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
+                add_args(get_finite_set_args(arg));
+            }
             if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
-                enode* sibling;
-                for (enode* aarg : get_seq_args(arg, sibling)) {
-                    if (aarg->get_root() == child->get_root()) {
-                        if (aarg != child) 
-                            m_used_eqs.push_back(enode_pair(aarg, child));
-                        found = true;
-                    }
-                }
+                enode *sibling = nullptr;
+                add_args(get_seq_args(arg, sibling));
                 if (sibling && sibling != arg)
                     m_used_eqs.push_back(enode_pair(arg, sibling));
 
@@ -907,6 +915,11 @@ namespace smt {
                         return true;
                 }
             }
+            else if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
+                for (enode *aarg : get_finite_set_args(arg))
+                    if (process_arg(aarg))
+                        return true;
+            }
             else if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                 for (enode* aarg : get_array_args(arg)) 
                     if (process_arg(aarg))
@@ -915,6 +928,33 @@ namespace smt {
         }
         return false;
     }
+
+    ptr_vector<enode> const &theory_datatype::get_finite_set_args(enode *n) {
+        m_args.reset();
+        m_todo.reset();
+        auto add_todo = [&](enode *n) {
+            if (!n->is_marked()) {
+                n->set_mark();
+                m_todo.push_back(n);
+            }
+        };
+        add_todo(n);
+
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            enode *n = m_todo[i];
+            expr *e = n->get_expr();
+            if (m_fsutil.is_singleton(e))
+                m_args.push_back(n->get_arg(0));
+            else if (m_fsutil.is_union(e))
+                for (auto k : enode::args(n))
+                    add_todo(k);
+        }
+        for (enode *n : m_todo)
+            n->unset_mark();
+
+        return m_args;
+    }
+
 
     ptr_vector<enode> const& theory_datatype::get_seq_args(enode* n, enode*& sibling) {
         m_args.reset();
@@ -1028,6 +1068,7 @@ namespace smt {
         m_util(m),
         m_autil(m),
         m_sutil(m),
+        m_fsutil(m),
         m_find(*this) {
     }
 
@@ -1096,11 +1137,23 @@ namespace smt {
     };
 
     model_value_proc * theory_datatype::mk_value(enode * n, model_generator & mg) {
+        auto mk_fallback = [&]() -> model_value_proc * {
+            app* val = to_app(m_factory->get_some_value(n->get_sort()));
+            TRACE(datatype,
+                  tout << "fallback datatype value for " << pp(n, m)
+                       << " = " << mk_pp(val, m) << "\n";);
+            return alloc(expr_wrapper_proc, val);
+        };
         theory_var v = n->get_th_var(get_id());
+        // Guard before using union-find: null_theory_var is not a valid index for m_find.
+        if (v == null_theory_var)
+            return mk_fallback();
         v            = m_find.find(v);
-        SASSERT(v != null_theory_var);
+        if (v == null_theory_var || static_cast<unsigned>(v) >= m_var_data.size() || m_var_data[v] == nullptr)
+            return mk_fallback();
         var_data * d = m_var_data[v];
-        SASSERT(d->m_constructor);
+        if (d->m_constructor == nullptr)
+            return mk_fallback();
         func_decl * c_decl = d->m_constructor->get_decl();
         datatype_value_proc * result = alloc(datatype_value_proc, c_decl);
         for (enode* arg : enode::args(d->m_constructor)) 
@@ -1361,4 +1414,4 @@ namespace smt {
     }
 
 
-};
+}

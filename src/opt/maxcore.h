@@ -33,5 +33,5 @@ namespace opt {
 
     maxsmt_solver_base* mk_primal_dual_maxres(maxsat_context& c, unsigned id, vector<soft>& soft);
 
-};
+}
 

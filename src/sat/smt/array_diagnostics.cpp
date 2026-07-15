@@ -55,6 +55,8 @@ namespace array {
             return out << "extensionality " << ctx.bpp(r.n) << " " << ctx.bpp(r.select);
         case axiom_record::kind_t::is_congruence:
             return out << "congruence " << ctx.bpp(r.n) << " " << ctx.bpp(r.select);
+        case axiom_record::kind_t::is_choice:
+            return out << "choice " << ctx.bpp(r.n);
         default:
             UNREACHABLE();
         }
@@ -75,6 +77,7 @@ namespace array {
         st.update("array def/map",      m_stats.m_num_default_map_axiom);
         st.update("array def/const",    m_stats.m_num_default_const_axiom);
         st.update("array def/store",    m_stats.m_num_default_store_axiom);
+        st.update("array choice ax",    m_stats.m_num_choice_axiom);
         st.update("array ext ax",       m_stats.m_num_extensionality_axiom);
         st.update("array cong ax",      m_stats.m_num_congruence_axiom);        
         st.update("array exp ax2",      m_stats.m_num_select_store_axiom_delayed);

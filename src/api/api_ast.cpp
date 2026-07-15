@@ -129,7 +129,6 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_rec_func_decl(c, s, domain_size, domain, range);
         RESET_ERROR_CODE();
-        // 
         recfun::promise_def def = 
             mk_c(c)->recfun().get_plugin().mk_def(
                 to_symbol(s), domain_size, to_sorts(domain), to_sort(range), false);
@@ -898,6 +897,10 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         expr * a = to_expr(_a);
+        if (num_exprs > 0 && (!_from || !_to)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "null from/to arrays with non-zero num_exprs");
+            RETURN_Z3(of_expr(nullptr));
+        }
         expr * const * from = to_exprs(num_exprs, _from);
         expr * const * to   = to_exprs(num_exprs, _to);
         expr * r = nullptr;
@@ -1084,388 +1087,425 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
+    // Helper functions to reduce instruction cache pressure in Z3_get_decl_kind.
+    // Each theory gets its own function to avoid loading the entire switch table.
+
+    static Z3_decl_kind get_decl_kind_basic(decl_kind k) {
+        switch(k) {
+        case OP_TRUE:     return Z3_OP_TRUE;
+        case OP_FALSE:    return Z3_OP_FALSE;
+        case OP_EQ:       return Z3_OP_EQ;
+        case OP_DISTINCT: return Z3_OP_DISTINCT;
+        case OP_ITE:      return Z3_OP_ITE;
+        case OP_AND:      return Z3_OP_AND;
+        case OP_OR:       return Z3_OP_OR;
+        case OP_XOR:      return Z3_OP_XOR;
+        case OP_NOT:      return Z3_OP_NOT;
+        case OP_IMPLIES:  return Z3_OP_IMPLIES;
+        case OP_OEQ:      return Z3_OP_OEQ;
+        case PR_UNDEF:    return Z3_OP_PR_UNDEF;
+        case PR_TRUE:     return Z3_OP_PR_TRUE;
+        case PR_ASSERTED: return Z3_OP_PR_ASSERTED;
+        case PR_GOAL:     return Z3_OP_PR_GOAL;
+        case PR_MODUS_PONENS: return Z3_OP_PR_MODUS_PONENS;
+        case PR_REFLEXIVITY: return Z3_OP_PR_REFLEXIVITY;
+        case PR_SYMMETRY: return Z3_OP_PR_SYMMETRY;
+        case PR_TRANSITIVITY: return Z3_OP_PR_TRANSITIVITY;
+        case PR_TRANSITIVITY_STAR: return Z3_OP_PR_TRANSITIVITY_STAR;
+        case PR_MONOTONICITY: return Z3_OP_PR_MONOTONICITY;
+        case PR_QUANT_INTRO: return Z3_OP_PR_QUANT_INTRO;
+        case PR_BIND: return Z3_OP_PR_BIND;
+        case PR_DISTRIBUTIVITY: return Z3_OP_PR_DISTRIBUTIVITY;
+        case PR_AND_ELIM: return Z3_OP_PR_AND_ELIM;
+        case PR_NOT_OR_ELIM: return Z3_OP_PR_NOT_OR_ELIM;
+        case PR_REWRITE: return Z3_OP_PR_REWRITE;
+        case PR_REWRITE_STAR: return Z3_OP_PR_REWRITE_STAR;
+        case PR_PULL_QUANT: return Z3_OP_PR_PULL_QUANT;
+        case PR_PUSH_QUANT: return Z3_OP_PR_PUSH_QUANT;
+        case PR_ELIM_UNUSED_VARS: return Z3_OP_PR_ELIM_UNUSED_VARS;
+        case PR_DER: return Z3_OP_PR_DER;
+        case PR_QUANT_INST: return Z3_OP_PR_QUANT_INST;
+        case PR_HYPOTHESIS: return Z3_OP_PR_HYPOTHESIS;
+        case PR_LEMMA: return Z3_OP_PR_LEMMA;
+        case PR_UNIT_RESOLUTION: return Z3_OP_PR_UNIT_RESOLUTION;
+        case PR_IFF_TRUE: return Z3_OP_PR_IFF_TRUE;
+        case PR_IFF_FALSE: return Z3_OP_PR_IFF_FALSE;
+        case PR_COMMUTATIVITY: return Z3_OP_PR_COMMUTATIVITY;
+        case PR_DEF_AXIOM: return Z3_OP_PR_DEF_AXIOM;
+        case PR_ASSUMPTION_ADD: return Z3_OP_PR_ASSUMPTION_ADD;
+        case PR_LEMMA_ADD: return Z3_OP_PR_LEMMA_ADD;
+        case PR_REDUNDANT_DEL: return Z3_OP_PR_REDUNDANT_DEL;
+        case PR_CLAUSE_TRAIL: return Z3_OP_PR_CLAUSE_TRAIL;
+        case PR_DEF_INTRO: return Z3_OP_PR_DEF_INTRO;
+        case PR_APPLY_DEF: return Z3_OP_PR_APPLY_DEF;
+        case PR_IFF_OEQ: return Z3_OP_PR_IFF_OEQ;
+        case PR_NNF_POS: return Z3_OP_PR_NNF_POS;
+        case PR_NNF_NEG: return Z3_OP_PR_NNF_NEG;
+        case PR_SKOLEMIZE:  return Z3_OP_PR_SKOLEMIZE;
+        case PR_MODUS_PONENS_OEQ: return Z3_OP_PR_MODUS_PONENS_OEQ;
+        case PR_TH_LEMMA: return Z3_OP_PR_TH_LEMMA;
+        case PR_HYPER_RESOLVE: return Z3_OP_PR_HYPER_RESOLVE;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_arith(decl_kind k) {
+        switch(k) {
+        case OP_NUM: return Z3_OP_ANUM;
+        case OP_IRRATIONAL_ALGEBRAIC_NUM: return Z3_OP_AGNUM;
+        case OP_LE: return Z3_OP_LE;
+        case OP_GE: return Z3_OP_GE;
+        case OP_LT: return Z3_OP_LT;
+        case OP_GT: return Z3_OP_GT;
+        case OP_ADD: return Z3_OP_ADD;
+        case OP_SUB: return Z3_OP_SUB;
+        case OP_UMINUS: return Z3_OP_UMINUS;
+        case OP_MUL: return Z3_OP_MUL;
+        case OP_DIV: return Z3_OP_DIV;
+        case OP_IDIV: return Z3_OP_IDIV;
+        case OP_REM: return Z3_OP_REM;
+        case OP_MOD: return Z3_OP_MOD;
+        case OP_POWER: return Z3_OP_POWER;
+        case OP_ABS: return Z3_OP_ABS;
+        case OP_TO_REAL: return Z3_OP_TO_REAL;
+        case OP_TO_INT: return Z3_OP_TO_INT;
+        case OP_IS_INT: return Z3_OP_IS_INT;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_array(decl_kind k) {
+        switch(k) {
+        case OP_STORE: return Z3_OP_STORE;
+        case OP_SELECT: return Z3_OP_SELECT;
+        case OP_CONST_ARRAY: return Z3_OP_CONST_ARRAY;
+        case OP_ARRAY_DEFAULT: return Z3_OP_ARRAY_DEFAULT;
+        case OP_ARRAY_MAP: return Z3_OP_ARRAY_MAP;
+        case OP_SET_UNION: return Z3_OP_SET_UNION;
+        case OP_SET_INTERSECT: return Z3_OP_SET_INTERSECT;
+        case OP_SET_DIFFERENCE: return Z3_OP_SET_DIFFERENCE;
+        case OP_SET_COMPLEMENT: return Z3_OP_SET_COMPLEMENT;
+        case OP_SET_SUBSET: return Z3_OP_SET_SUBSET;
+        case OP_AS_ARRAY: return Z3_OP_AS_ARRAY;
+        case OP_ARRAY_EXT: return Z3_OP_ARRAY_EXT;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_special_relations(decl_kind k) {
+        switch(k) {
+        case OP_SPECIAL_RELATION_LO : return Z3_OP_SPECIAL_RELATION_LO;
+        case OP_SPECIAL_RELATION_PO : return Z3_OP_SPECIAL_RELATION_PO;
+        case OP_SPECIAL_RELATION_PLO: return Z3_OP_SPECIAL_RELATION_PLO;
+        case OP_SPECIAL_RELATION_TO : return Z3_OP_SPECIAL_RELATION_TO;
+        case OP_SPECIAL_RELATION_TC : return Z3_OP_SPECIAL_RELATION_TC;
+        default: UNREACHABLE(); return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_bv(decl_kind k) {
+        switch(k) {
+        case OP_BV_NUM: return Z3_OP_BNUM;
+        case OP_BIT1: return Z3_OP_BIT1;
+        case OP_BIT0: return Z3_OP_BIT0;
+        case OP_BNEG: return Z3_OP_BNEG;
+        case OP_BADD: return Z3_OP_BADD;
+        case OP_BSUB: return Z3_OP_BSUB;
+        case OP_BMUL: return Z3_OP_BMUL;
+        case OP_BSDIV: return Z3_OP_BSDIV;
+        case OP_BUDIV: return Z3_OP_BUDIV;
+        case OP_BSREM: return Z3_OP_BSREM;
+        case OP_BUREM: return Z3_OP_BUREM;
+        case OP_BSMOD: return Z3_OP_BSMOD;
+        case OP_BSDIV0: return Z3_OP_BSDIV0;
+        case OP_BUDIV0: return Z3_OP_BUDIV0;
+        case OP_BSREM0: return Z3_OP_BSREM0;
+        case OP_BUREM0: return Z3_OP_BUREM0;
+        case OP_BSMOD0: return Z3_OP_BSMOD0;
+        case OP_ULEQ:   return Z3_OP_ULEQ;
+        case OP_SLEQ:   return Z3_OP_SLEQ;
+        case OP_UGEQ:   return Z3_OP_UGEQ;
+        case OP_SGEQ:   return Z3_OP_SGEQ;
+        case OP_ULT:  return Z3_OP_ULT;
+        case OP_SLT:  return Z3_OP_SLT;
+        case OP_UGT:  return Z3_OP_UGT;
+        case OP_SGT:  return Z3_OP_SGT;
+        case OP_BAND:     return Z3_OP_BAND;
+        case OP_BOR:      return Z3_OP_BOR;
+        case OP_BNOT:     return Z3_OP_BNOT;
+        case OP_BXOR:     return Z3_OP_BXOR;
+        case OP_BNAND:    return Z3_OP_BNAND;
+        case OP_BNOR:     return Z3_OP_BNOR;
+        case OP_BXNOR:    return Z3_OP_BXNOR;
+        case OP_CONCAT:   return Z3_OP_CONCAT;
+        case OP_SIGN_EXT: return Z3_OP_SIGN_EXT;
+        case OP_ZERO_EXT: return Z3_OP_ZERO_EXT;
+        case OP_EXTRACT:  return Z3_OP_EXTRACT;
+        case OP_REPEAT:       return Z3_OP_REPEAT;
+        case OP_BREDOR:       return Z3_OP_BREDOR;
+        case OP_BREDAND:      return Z3_OP_BREDAND;
+        case OP_BCOMP:        return Z3_OP_BCOMP;
+        case OP_BSHL:         return Z3_OP_BSHL;
+        case OP_BLSHR:        return Z3_OP_BLSHR;
+        case OP_BASHR:        return Z3_OP_BASHR;
+        case OP_ROTATE_LEFT:  return Z3_OP_ROTATE_LEFT;
+        case OP_ROTATE_RIGHT: return Z3_OP_ROTATE_RIGHT;
+        case OP_EXT_ROTATE_LEFT:  return Z3_OP_EXT_ROTATE_LEFT;
+        case OP_EXT_ROTATE_RIGHT: return Z3_OP_EXT_ROTATE_RIGHT;
+        case OP_INT2BV:    return Z3_OP_INT2BV;
+        case OP_UBV2INT:    return Z3_OP_BV2INT;
+        case OP_SBV2INT:    return Z3_OP_SBV2INT;
+        case OP_CARRY:     return Z3_OP_CARRY;
+        case OP_XOR3:      return Z3_OP_XOR3;
+        case OP_BIT2BOOL: return Z3_OP_BIT2BOOL;
+        case OP_BSMUL_NO_OVFL: return Z3_OP_BSMUL_NO_OVFL;
+        case OP_BUMUL_NO_OVFL: return Z3_OP_BUMUL_NO_OVFL;
+        case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;
+        case OP_BSDIV_I: return Z3_OP_BSDIV_I;
+        case OP_BUDIV_I: return Z3_OP_BUDIV_I;
+        case OP_BSREM_I: return Z3_OP_BSREM_I;
+        case OP_BUREM_I: return Z3_OP_BUREM_I;
+        case OP_BSMOD_I: return Z3_OP_BSMOD_I;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_dt(decl_kind k) {
+        switch(k) {
+        case OP_DT_CONSTRUCTOR:  return Z3_OP_DT_CONSTRUCTOR;
+        case OP_DT_RECOGNISER:   return Z3_OP_DT_RECOGNISER;
+        case OP_DT_IS:           return Z3_OP_DT_IS;
+        case OP_DT_ACCESSOR:     return Z3_OP_DT_ACCESSOR;
+        case OP_DT_UPDATE_FIELD: return Z3_OP_DT_UPDATE_FIELD;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_datalog(decl_kind k) {
+        switch(k) {
+        case datalog::OP_RA_STORE: return Z3_OP_RA_STORE;
+        case datalog::OP_RA_EMPTY: return Z3_OP_RA_EMPTY;
+        case datalog::OP_RA_IS_EMPTY: return Z3_OP_RA_IS_EMPTY;
+        case datalog::OP_RA_JOIN: return Z3_OP_RA_JOIN;
+        case datalog::OP_RA_UNION: return Z3_OP_RA_UNION;
+        case datalog::OP_RA_WIDEN: return Z3_OP_RA_WIDEN;
+        case datalog::OP_RA_PROJECT: return Z3_OP_RA_PROJECT;
+        case datalog::OP_RA_FILTER: return Z3_OP_RA_FILTER;
+        case datalog::OP_RA_NEGATION_FILTER: return Z3_OP_RA_NEGATION_FILTER;
+        case datalog::OP_RA_RENAME: return Z3_OP_RA_RENAME;
+        case datalog::OP_RA_COMPLEMENT: return Z3_OP_RA_COMPLEMENT;
+        case datalog::OP_RA_SELECT: return Z3_OP_RA_SELECT;
+        case datalog::OP_RA_CLONE:  return Z3_OP_RA_CLONE;
+        case datalog::OP_DL_CONSTANT: return Z3_OP_FD_CONSTANT;
+        case datalog::OP_DL_LT: return Z3_OP_FD_LT;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_seq(decl_kind k) {
+        switch (k) {
+        case OP_SEQ_UNIT: return Z3_OP_SEQ_UNIT;
+        case OP_SEQ_EMPTY: return Z3_OP_SEQ_EMPTY;
+        case OP_SEQ_CONCAT: return Z3_OP_SEQ_CONCAT;
+        case OP_SEQ_PREFIX: return Z3_OP_SEQ_PREFIX;
+        case OP_SEQ_SUFFIX: return Z3_OP_SEQ_SUFFIX;
+        case OP_SEQ_CONTAINS: return Z3_OP_SEQ_CONTAINS;
+        case OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
+        case OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
+        case OP_SEQ_REPLACE_RE: return Z3_OP_SEQ_REPLACE_RE;
+        case OP_SEQ_REPLACE_RE_ALL: return Z3_OP_SEQ_REPLACE_RE_ALL;
+        case OP_SEQ_REPLACE_ALL: return Z3_OP_SEQ_REPLACE_ALL;
+        case OP_SEQ_AT: return Z3_OP_SEQ_AT;
+        case OP_SEQ_NTH: return Z3_OP_SEQ_NTH;
+        case OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
+        case OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
+        case OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
+        case OP_SEQ_IN_RE: return Z3_OP_SEQ_IN_RE;
+        case OP_SEQ_MAP: return Z3_OP_SEQ_MAP;
+        case OP_SEQ_MAPI: return Z3_OP_SEQ_MAPI;
+        case OP_SEQ_FOLDL: return Z3_OP_SEQ_FOLDL;
+        case OP_SEQ_FOLDLI: return Z3_OP_SEQ_FOLDLI;
+        case _OP_STRING_STRREPL: return Z3_OP_SEQ_REPLACE;
+        case _OP_STRING_CONCAT: return Z3_OP_SEQ_CONCAT;
+        case _OP_STRING_LENGTH: return Z3_OP_SEQ_LENGTH;
+        case _OP_STRING_STRCTN: return Z3_OP_SEQ_CONTAINS;
+        case _OP_STRING_PREFIX: return Z3_OP_SEQ_PREFIX;
+        case _OP_STRING_SUFFIX: return Z3_OP_SEQ_SUFFIX;
+        case _OP_STRING_IN_REGEXP: return Z3_OP_SEQ_IN_RE;
+        case _OP_STRING_TO_REGEXP: return Z3_OP_SEQ_TO_RE;
+        case _OP_STRING_CHARAT: return Z3_OP_SEQ_AT;
+        case _OP_STRING_SUBSTR: return Z3_OP_SEQ_EXTRACT;
+        case _OP_STRING_STRIDOF: return Z3_OP_SEQ_INDEX;
+        case _OP_REGEXP_EMPTY: return Z3_OP_RE_EMPTY_SET;
+        case _OP_REGEXP_FULL_CHAR: return Z3_OP_RE_FULL_SET;
+        case OP_STRING_STOI: return Z3_OP_STR_TO_INT;
+        case OP_STRING_ITOS: return Z3_OP_INT_TO_STR;
+        case OP_STRING_TO_CODE: return Z3_OP_STR_TO_CODE;
+        case OP_STRING_FROM_CODE: return Z3_OP_STR_FROM_CODE;
+        case OP_STRING_UBVTOS: return Z3_OP_UBV_TO_STR;
+        case OP_STRING_SBVTOS: return Z3_OP_SBV_TO_STR;
+        case OP_STRING_LT: return Z3_OP_STRING_LT;
+        case OP_STRING_LE: return Z3_OP_STRING_LE;
+        case OP_RE_PLUS: return Z3_OP_RE_PLUS;
+        case OP_RE_STAR: return Z3_OP_RE_STAR;
+        case OP_RE_OPTION: return Z3_OP_RE_OPTION;
+        case OP_RE_RANGE: return Z3_OP_RE_RANGE;
+        case OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
+        case OP_RE_UNION: return Z3_OP_RE_UNION;
+        case OP_RE_DIFF: return Z3_OP_RE_DIFF;
+        case OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
+        case OP_RE_LOOP: return Z3_OP_RE_LOOP;
+        case OP_RE_POWER: return Z3_OP_RE_POWER;
+        case OP_RE_COMPLEMENT: return Z3_OP_RE_COMPLEMENT;
+        case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
+        case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
+        case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_CHAR_SET;
+        case OP_RE_OF_PRED: return Z3_OP_RE_OF_PRED;
+        case OP_RE_REVERSE: return Z3_OP_RE_REVERSE;
+        case OP_RE_DERIVATIVE: return Z3_OP_RE_DERIVATIVE;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_char(decl_kind k) {
+        switch (k) {
+        case OP_CHAR_CONST: return Z3_OP_CHAR_CONST;
+        case OP_CHAR_LE: return Z3_OP_CHAR_LE;
+        case OP_CHAR_TO_INT: return Z3_OP_CHAR_TO_INT;
+        case OP_CHAR_TO_BV: return Z3_OP_CHAR_TO_BV;
+        case OP_CHAR_FROM_BV: return Z3_OP_CHAR_FROM_BV;
+        case OP_CHAR_IS_DIGIT: return Z3_OP_CHAR_IS_DIGIT;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_fpa(decl_kind k) {
+        switch (k) {
+        case OP_FPA_RM_NEAREST_TIES_TO_EVEN: return Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN;
+        case OP_FPA_RM_NEAREST_TIES_TO_AWAY: return Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY;
+        case OP_FPA_RM_TOWARD_POSITIVE: return Z3_OP_FPA_RM_TOWARD_POSITIVE;
+        case OP_FPA_RM_TOWARD_NEGATIVE: return Z3_OP_FPA_RM_TOWARD_NEGATIVE;
+        case OP_FPA_RM_TOWARD_ZERO: return Z3_OP_FPA_RM_TOWARD_ZERO;
+        case OP_FPA_NUM: return Z3_OP_FPA_NUM;
+        case OP_FPA_PLUS_INF: return Z3_OP_FPA_PLUS_INF;
+        case OP_FPA_MINUS_INF: return Z3_OP_FPA_MINUS_INF;
+        case OP_FPA_NAN: return Z3_OP_FPA_NAN;
+        case OP_FPA_MINUS_ZERO: return Z3_OP_FPA_MINUS_ZERO;
+        case OP_FPA_PLUS_ZERO: return Z3_OP_FPA_PLUS_ZERO;
+        case OP_FPA_ADD: return Z3_OP_FPA_ADD;
+        case OP_FPA_SUB: return Z3_OP_FPA_SUB;
+        case OP_FPA_NEG: return Z3_OP_FPA_NEG;
+        case OP_FPA_MUL: return Z3_OP_FPA_MUL;
+        case OP_FPA_DIV: return Z3_OP_FPA_DIV;
+        case OP_FPA_REM: return Z3_OP_FPA_REM;
+        case OP_FPA_ABS: return Z3_OP_FPA_ABS;
+        case OP_FPA_MIN: return Z3_OP_FPA_MIN;
+        case OP_FPA_MAX: return Z3_OP_FPA_MAX;
+        case OP_FPA_FMA: return Z3_OP_FPA_FMA;
+        case OP_FPA_SQRT: return Z3_OP_FPA_SQRT;
+        case OP_FPA_EQ: return Z3_OP_FPA_EQ;
+        case OP_FPA_ROUND_TO_INTEGRAL: return Z3_OP_FPA_ROUND_TO_INTEGRAL;
+        case OP_FPA_LT: return Z3_OP_FPA_LT;
+        case OP_FPA_GT: return Z3_OP_FPA_GT;
+        case OP_FPA_LE: return Z3_OP_FPA_LE;
+        case OP_FPA_GE: return Z3_OP_FPA_GE;
+        case OP_FPA_IS_NAN: return Z3_OP_FPA_IS_NAN;
+        case OP_FPA_IS_INF: return Z3_OP_FPA_IS_INF;
+        case OP_FPA_IS_ZERO: return Z3_OP_FPA_IS_ZERO;
+        case OP_FPA_IS_NORMAL: return Z3_OP_FPA_IS_NORMAL;
+        case OP_FPA_IS_SUBNORMAL: return Z3_OP_FPA_IS_SUBNORMAL;
+        case OP_FPA_IS_NEGATIVE: return Z3_OP_FPA_IS_NEGATIVE;
+        case OP_FPA_IS_POSITIVE: return Z3_OP_FPA_IS_POSITIVE;
+        case OP_FPA_FP: return Z3_OP_FPA_FP;
+        case OP_FPA_TO_FP: return Z3_OP_FPA_TO_FP;
+        case OP_FPA_TO_FP_UNSIGNED: return Z3_OP_FPA_TO_FP_UNSIGNED;
+        case OP_FPA_TO_UBV: return Z3_OP_FPA_TO_UBV;
+        case OP_FPA_TO_SBV: return Z3_OP_FPA_TO_SBV;
+        case OP_FPA_TO_REAL: return Z3_OP_FPA_TO_REAL;
+        case OP_FPA_TO_IEEE_BV: return Z3_OP_FPA_TO_IEEE_BV;
+        case OP_FPA_BVWRAP: return Z3_OP_FPA_BVWRAP;
+        case OP_FPA_BV2RM: return Z3_OP_FPA_BV2RM;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_label(decl_kind k) {
+        switch(k) {
+        case OP_LABEL: return Z3_OP_LABEL;
+        case OP_LABEL_LIT: return Z3_OP_LABEL_LIT;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_pb(decl_kind k) {
+        switch(k) {
+        case OP_PB_LE: return Z3_OP_PB_LE;
+        case OP_PB_GE: return Z3_OP_PB_GE;
+        case OP_PB_EQ: return Z3_OP_PB_EQ;
+        case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
+        case OP_AT_LEAST_K: return Z3_OP_PB_AT_LEAST;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
+    static Z3_decl_kind get_decl_kind_finite_set(decl_kind k) {
+        switch(k) {
+        case OP_FINITE_SET_EMPTY: return Z3_OP_FINITE_SET_EMPTY;
+        case OP_FINITE_SET_SINGLETON: return Z3_OP_FINITE_SET_SINGLETON;
+        case OP_FINITE_SET_UNION: return Z3_OP_FINITE_SET_UNION;
+        case OP_FINITE_SET_INTERSECT: return Z3_OP_FINITE_SET_INTERSECT;
+        case OP_FINITE_SET_DIFFERENCE: return Z3_OP_FINITE_SET_DIFFERENCE;
+        case OP_FINITE_SET_IN: return Z3_OP_FINITE_SET_IN;
+        case OP_FINITE_SET_SIZE: return Z3_OP_FINITE_SET_SIZE;
+        case OP_FINITE_SET_SUBSET: return Z3_OP_FINITE_SET_SUBSET;
+        case OP_FINITE_SET_MAP: return Z3_OP_FINITE_SET_MAP;
+        case OP_FINITE_SET_FILTER: return Z3_OP_FINITE_SET_FILTER;
+        case OP_FINITE_SET_RANGE: return Z3_OP_FINITE_SET_RANGE;
+        case OP_FINITE_SET_EXT: return Z3_OP_FINITE_SET_EXT;
+        case OP_FINITE_SET_MAP_INVERSE: return Z3_OP_FINITE_SET_MAP_INVERSE;
+        default: return Z3_OP_INTERNAL;
+        }
+    }
+
     Z3_decl_kind Z3_API Z3_get_decl_kind(Z3_context c, Z3_func_decl d) {
         Z3_TRY;
         LOG_Z3_get_decl_kind(c, d);
         RESET_ERROR_CODE();
         func_decl* _d = to_func_decl(d);
 
-        if (d == nullptr || null_family_id == _d->get_family_id()) {
+        if (d == nullptr || null_family_id == _d->get_family_id())
             return Z3_OP_UNINTERPRETED;
-        }
-        if (mk_c(c)->get_basic_fid() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case OP_TRUE:     return Z3_OP_TRUE;
-            case OP_FALSE:    return Z3_OP_FALSE;
-            case OP_EQ:       return Z3_OP_EQ;
-            case OP_DISTINCT: return Z3_OP_DISTINCT;
-            case OP_ITE:      return Z3_OP_ITE;
-            case OP_AND:      return Z3_OP_AND;
-            case OP_OR:       return Z3_OP_OR;
-            case OP_XOR:      return Z3_OP_XOR;
-            case OP_NOT:      return Z3_OP_NOT;
-            case OP_IMPLIES:  return Z3_OP_IMPLIES;
-            case OP_OEQ:      return Z3_OP_OEQ;
 
-            case PR_UNDEF:    return Z3_OP_PR_UNDEF;
-            case PR_TRUE:     return Z3_OP_PR_TRUE;
-            case PR_ASSERTED: return Z3_OP_PR_ASSERTED;
-            case PR_GOAL:     return Z3_OP_PR_GOAL;
-            case PR_MODUS_PONENS: return Z3_OP_PR_MODUS_PONENS;
-            case PR_REFLEXIVITY: return Z3_OP_PR_REFLEXIVITY;
-            case PR_SYMMETRY: return Z3_OP_PR_SYMMETRY;
-            case PR_TRANSITIVITY: return Z3_OP_PR_TRANSITIVITY;
-            case PR_TRANSITIVITY_STAR: return Z3_OP_PR_TRANSITIVITY_STAR;
-            case PR_MONOTONICITY: return Z3_OP_PR_MONOTONICITY;
-            case PR_QUANT_INTRO: return Z3_OP_PR_QUANT_INTRO;
-            case PR_BIND: return Z3_OP_PR_BIND;
-            case PR_DISTRIBUTIVITY: return Z3_OP_PR_DISTRIBUTIVITY;
-            case PR_AND_ELIM: return Z3_OP_PR_AND_ELIM;
-            case PR_NOT_OR_ELIM: return Z3_OP_PR_NOT_OR_ELIM;
-            case PR_REWRITE: return Z3_OP_PR_REWRITE;
-            case PR_REWRITE_STAR: return Z3_OP_PR_REWRITE_STAR;
-            case PR_PULL_QUANT: return Z3_OP_PR_PULL_QUANT;
-            case PR_PUSH_QUANT: return Z3_OP_PR_PUSH_QUANT;
-            case PR_ELIM_UNUSED_VARS: return Z3_OP_PR_ELIM_UNUSED_VARS;
-            case PR_DER: return Z3_OP_PR_DER;
-            case PR_QUANT_INST: return Z3_OP_PR_QUANT_INST;
-            case PR_HYPOTHESIS: return Z3_OP_PR_HYPOTHESIS;
-            case PR_LEMMA: return Z3_OP_PR_LEMMA;
-            case PR_UNIT_RESOLUTION: return Z3_OP_PR_UNIT_RESOLUTION;
-            case PR_IFF_TRUE: return Z3_OP_PR_IFF_TRUE;
-            case PR_IFF_FALSE: return Z3_OP_PR_IFF_FALSE;
-            case PR_COMMUTATIVITY: return Z3_OP_PR_COMMUTATIVITY;
-            case PR_DEF_AXIOM: return Z3_OP_PR_DEF_AXIOM;
-            case PR_ASSUMPTION_ADD: return Z3_OP_PR_ASSUMPTION_ADD;
-            case PR_LEMMA_ADD: return Z3_OP_PR_LEMMA_ADD;
-            case PR_REDUNDANT_DEL: return Z3_OP_PR_REDUNDANT_DEL;
-            case PR_CLAUSE_TRAIL: return Z3_OP_PR_CLAUSE_TRAIL;
-            case PR_DEF_INTRO: return Z3_OP_PR_DEF_INTRO;
-            case PR_APPLY_DEF: return Z3_OP_PR_APPLY_DEF;
-            case PR_IFF_OEQ: return Z3_OP_PR_IFF_OEQ;
-            case PR_NNF_POS: return Z3_OP_PR_NNF_POS;
-            case PR_NNF_NEG: return Z3_OP_PR_NNF_NEG;
-            case PR_SKOLEMIZE:  return Z3_OP_PR_SKOLEMIZE;
-            case PR_MODUS_PONENS_OEQ: return Z3_OP_PR_MODUS_PONENS_OEQ;
-            case PR_TH_LEMMA: return Z3_OP_PR_TH_LEMMA;
-            case PR_HYPER_RESOLVE: return Z3_OP_PR_HYPER_RESOLVE;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
-        if (mk_c(c)->get_arith_fid() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case OP_NUM: return Z3_OP_ANUM;
-            case OP_IRRATIONAL_ALGEBRAIC_NUM: return Z3_OP_AGNUM;
-            case OP_LE: return Z3_OP_LE;
-            case OP_GE: return Z3_OP_GE;
-            case OP_LT: return Z3_OP_LT;
-            case OP_GT: return Z3_OP_GT;
-            case OP_ADD: return Z3_OP_ADD;
-            case OP_SUB: return Z3_OP_SUB;
-            case OP_UMINUS: return Z3_OP_UMINUS;
-            case OP_MUL: return Z3_OP_MUL;
-            case OP_DIV: return Z3_OP_DIV;
-            case OP_IDIV: return Z3_OP_IDIV;
-            case OP_REM: return Z3_OP_REM;
-            case OP_MOD: return Z3_OP_MOD;
-            case OP_POWER: return Z3_OP_POWER;
-            case OP_ABS: return Z3_OP_ABS;
-            case OP_TO_REAL: return Z3_OP_TO_REAL;
-            case OP_TO_INT: return Z3_OP_TO_INT;
-            case OP_IS_INT: return Z3_OP_IS_INT;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
-        if (mk_c(c)->get_array_fid() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case OP_STORE: return Z3_OP_STORE;
-            case OP_SELECT: return Z3_OP_SELECT;
-            case OP_CONST_ARRAY: return Z3_OP_CONST_ARRAY;
-            case OP_ARRAY_DEFAULT: return Z3_OP_ARRAY_DEFAULT;
-            case OP_ARRAY_MAP: return Z3_OP_ARRAY_MAP;
-            case OP_SET_UNION: return Z3_OP_SET_UNION;
-            case OP_SET_INTERSECT: return Z3_OP_SET_INTERSECT;
-            case OP_SET_DIFFERENCE: return Z3_OP_SET_DIFFERENCE;
-            case OP_SET_COMPLEMENT: return Z3_OP_SET_COMPLEMENT;
-            case OP_SET_SUBSET: return Z3_OP_SET_SUBSET;
-            case OP_AS_ARRAY: return Z3_OP_AS_ARRAY;
-            case OP_ARRAY_EXT: return Z3_OP_ARRAY_EXT;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
+        family_id fid = _d->get_family_id();
+        decl_kind k = _d->get_decl_kind();
 
-        if (mk_c(c)->get_special_relations_fid() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case OP_SPECIAL_RELATION_LO : return Z3_OP_SPECIAL_RELATION_LO;
-            case OP_SPECIAL_RELATION_PO : return Z3_OP_SPECIAL_RELATION_PO;
-            case OP_SPECIAL_RELATION_PLO: return Z3_OP_SPECIAL_RELATION_PLO;
-            case OP_SPECIAL_RELATION_TO : return Z3_OP_SPECIAL_RELATION_TO;
-            case OP_SPECIAL_RELATION_TC : return Z3_OP_SPECIAL_RELATION_TC;
-            default: UNREACHABLE();
-            }
-        }
-
-
-        if (mk_c(c)->get_bv_fid() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case OP_BV_NUM: return Z3_OP_BNUM;
-            case OP_BIT1: return Z3_OP_BIT1;
-            case OP_BIT0: return Z3_OP_BIT0;
-            case OP_BNEG: return Z3_OP_BNEG;
-            case OP_BADD: return Z3_OP_BADD;
-            case OP_BSUB: return Z3_OP_BSUB;
-            case OP_BMUL: return Z3_OP_BMUL;
-            case OP_BSDIV: return Z3_OP_BSDIV;
-            case OP_BUDIV: return Z3_OP_BUDIV;
-            case OP_BSREM: return Z3_OP_BSREM;
-            case OP_BUREM: return Z3_OP_BUREM;
-            case OP_BSMOD: return Z3_OP_BSMOD;
-            case OP_BSDIV0: return Z3_OP_BSDIV0;
-            case OP_BUDIV0: return Z3_OP_BUDIV0;
-            case OP_BSREM0: return Z3_OP_BSREM0;
-            case OP_BUREM0: return Z3_OP_BUREM0;
-            case OP_BSMOD0: return Z3_OP_BSMOD0;
-            case OP_ULEQ:   return Z3_OP_ULEQ;
-            case OP_SLEQ:   return Z3_OP_SLEQ;
-            case OP_UGEQ:   return Z3_OP_UGEQ;
-            case OP_SGEQ:   return Z3_OP_SGEQ;
-            case OP_ULT:  return Z3_OP_ULT;
-            case OP_SLT:  return Z3_OP_SLT;
-            case OP_UGT:  return Z3_OP_UGT;
-            case OP_SGT:  return Z3_OP_SGT;
-            case OP_BAND:     return Z3_OP_BAND;
-            case OP_BOR:      return Z3_OP_BOR;
-            case OP_BNOT:     return Z3_OP_BNOT;
-            case OP_BXOR:     return Z3_OP_BXOR;
-            case OP_BNAND:    return Z3_OP_BNAND;
-            case OP_BNOR:     return Z3_OP_BNOR;
-            case OP_BXNOR:    return Z3_OP_BXNOR;
-            case OP_CONCAT:   return Z3_OP_CONCAT;
-            case OP_SIGN_EXT: return Z3_OP_SIGN_EXT;
-            case OP_ZERO_EXT: return Z3_OP_ZERO_EXT;
-            case OP_EXTRACT:  return Z3_OP_EXTRACT;
-            case OP_REPEAT:       return Z3_OP_REPEAT;
-            case OP_BREDOR:       return Z3_OP_BREDOR;
-            case OP_BREDAND:      return Z3_OP_BREDAND;
-            case OP_BCOMP:        return Z3_OP_BCOMP;
-            case OP_BSHL:         return Z3_OP_BSHL;
-            case OP_BLSHR:        return Z3_OP_BLSHR;
-            case OP_BASHR:        return Z3_OP_BASHR;
-            case OP_ROTATE_LEFT:  return Z3_OP_ROTATE_LEFT;
-            case OP_ROTATE_RIGHT: return Z3_OP_ROTATE_RIGHT;
-            case OP_EXT_ROTATE_LEFT:  return Z3_OP_EXT_ROTATE_LEFT;
-            case OP_EXT_ROTATE_RIGHT: return Z3_OP_EXT_ROTATE_RIGHT;
-            case OP_INT2BV:    return Z3_OP_INT2BV;
-            case OP_UBV2INT:    return Z3_OP_BV2INT;
-            case OP_SBV2INT:    return Z3_OP_SBV2INT;
-            case OP_CARRY:     return Z3_OP_CARRY;
-            case OP_XOR3:      return Z3_OP_XOR3;
-            case OP_BIT2BOOL: return Z3_OP_BIT2BOOL;
-            case OP_BSMUL_NO_OVFL: return Z3_OP_BSMUL_NO_OVFL;
-            case OP_BUMUL_NO_OVFL: return Z3_OP_BUMUL_NO_OVFL;
-            case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;
-            case OP_BSDIV_I: return Z3_OP_BSDIV_I;
-            case OP_BUDIV_I: return Z3_OP_BUDIV_I;
-            case OP_BSREM_I: return Z3_OP_BSREM_I;
-            case OP_BUREM_I: return Z3_OP_BUREM_I;
-            case OP_BSMOD_I: return Z3_OP_BSMOD_I;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
-        if (mk_c(c)->get_dt_fid() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case OP_DT_CONSTRUCTOR:  return Z3_OP_DT_CONSTRUCTOR;
-            case OP_DT_RECOGNISER:   return Z3_OP_DT_RECOGNISER;
-            case OP_DT_IS:           return Z3_OP_DT_IS;
-            case OP_DT_ACCESSOR:     return Z3_OP_DT_ACCESSOR;
-            case OP_DT_UPDATE_FIELD: return Z3_OP_DT_UPDATE_FIELD;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
-        if (mk_c(c)->get_datalog_fid() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case datalog::OP_RA_STORE: return Z3_OP_RA_STORE;
-            case datalog::OP_RA_EMPTY: return Z3_OP_RA_EMPTY;
-            case datalog::OP_RA_IS_EMPTY: return Z3_OP_RA_IS_EMPTY;
-            case datalog::OP_RA_JOIN: return Z3_OP_RA_JOIN;
-            case datalog::OP_RA_UNION: return Z3_OP_RA_UNION;
-            case datalog::OP_RA_WIDEN: return Z3_OP_RA_WIDEN;
-            case datalog::OP_RA_PROJECT: return Z3_OP_RA_PROJECT;
-            case datalog::OP_RA_FILTER: return Z3_OP_RA_FILTER;
-            case datalog::OP_RA_NEGATION_FILTER: return Z3_OP_RA_NEGATION_FILTER;
-            case datalog::OP_RA_RENAME: return Z3_OP_RA_RENAME;
-            case datalog::OP_RA_COMPLEMENT: return Z3_OP_RA_COMPLEMENT;
-            case datalog::OP_RA_SELECT: return Z3_OP_RA_SELECT;
-            case datalog::OP_RA_CLONE:  return Z3_OP_RA_CLONE;
-            case datalog::OP_DL_CONSTANT: return Z3_OP_FD_CONSTANT;
-            case datalog::OP_DL_LT: return Z3_OP_FD_LT;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
-
-        if (mk_c(c)->get_seq_fid() == _d->get_family_id()) {
-            switch (_d->get_decl_kind()) {
-            case OP_SEQ_UNIT: return Z3_OP_SEQ_UNIT;
-            case OP_SEQ_EMPTY: return Z3_OP_SEQ_EMPTY;
-            case OP_SEQ_CONCAT: return Z3_OP_SEQ_CONCAT;
-            case OP_SEQ_PREFIX: return Z3_OP_SEQ_PREFIX;
-            case OP_SEQ_SUFFIX: return Z3_OP_SEQ_SUFFIX;
-            case OP_SEQ_CONTAINS: return Z3_OP_SEQ_CONTAINS;
-            case OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
-            case OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
-            case OP_SEQ_REPLACE_RE: return Z3_OP_SEQ_REPLACE_RE;
-            case OP_SEQ_REPLACE_RE_ALL: return Z3_OP_SEQ_REPLACE_RE_ALL;
-            case OP_SEQ_REPLACE_ALL: return Z3_OP_SEQ_REPLACE_ALL;
-            case OP_SEQ_AT: return Z3_OP_SEQ_AT;
-            case OP_SEQ_NTH: return Z3_OP_SEQ_NTH;
-            case OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
-            case OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
-            case OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
-            case OP_SEQ_IN_RE: return Z3_OP_SEQ_IN_RE;
-            case OP_SEQ_MAP: return Z3_OP_SEQ_MAP;
-            case OP_SEQ_MAPI: return Z3_OP_SEQ_MAPI;
-            case OP_SEQ_FOLDL: return Z3_OP_SEQ_FOLDL;
-            case OP_SEQ_FOLDLI: return Z3_OP_SEQ_FOLDLI;
-
-            case _OP_STRING_STRREPL: return Z3_OP_SEQ_REPLACE;
-            case _OP_STRING_CONCAT: return Z3_OP_SEQ_CONCAT;
-            case _OP_STRING_LENGTH: return Z3_OP_SEQ_LENGTH;
-            case _OP_STRING_STRCTN: return Z3_OP_SEQ_CONTAINS;
-            case _OP_STRING_PREFIX: return Z3_OP_SEQ_PREFIX;
-            case _OP_STRING_SUFFIX: return Z3_OP_SEQ_SUFFIX;
-            case _OP_STRING_IN_REGEXP: return Z3_OP_SEQ_IN_RE;
-            case _OP_STRING_TO_REGEXP: return Z3_OP_SEQ_TO_RE;
-            case _OP_STRING_CHARAT: return Z3_OP_SEQ_AT;
-            case _OP_STRING_SUBSTR: return Z3_OP_SEQ_EXTRACT;
-            case _OP_STRING_STRIDOF: return Z3_OP_SEQ_INDEX;
-            case _OP_REGEXP_EMPTY: return Z3_OP_RE_EMPTY_SET;
-            case _OP_REGEXP_FULL_CHAR: return Z3_OP_RE_FULL_SET;
-
-            case OP_STRING_STOI: return Z3_OP_STR_TO_INT;
-            case OP_STRING_ITOS: return Z3_OP_INT_TO_STR;
-            case OP_STRING_TO_CODE: return Z3_OP_STR_TO_CODE;
-            case OP_STRING_FROM_CODE: return Z3_OP_STR_FROM_CODE;
-
-            case OP_STRING_UBVTOS: return Z3_OP_UBV_TO_STR;
-            case OP_STRING_SBVTOS: return Z3_OP_SBV_TO_STR;
-            case OP_STRING_LT: return Z3_OP_STRING_LT;
-            case OP_STRING_LE: return Z3_OP_STRING_LE;
-
-            case OP_RE_PLUS: return Z3_OP_RE_PLUS;
-            case OP_RE_STAR: return Z3_OP_RE_STAR;
-            case OP_RE_OPTION: return Z3_OP_RE_OPTION;
-            case OP_RE_RANGE: return Z3_OP_RE_RANGE;
-            case OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
-            case OP_RE_UNION: return Z3_OP_RE_UNION;
-            case OP_RE_DIFF: return Z3_OP_RE_DIFF;
-            case OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
-            case OP_RE_LOOP: return Z3_OP_RE_LOOP;
-            case OP_RE_POWER: return Z3_OP_RE_POWER;
-            case OP_RE_COMPLEMENT: return Z3_OP_RE_COMPLEMENT;
-            case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
-
-            case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
-            case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_CHAR_SET;
-            case OP_RE_OF_PRED: return Z3_OP_RE_OF_PRED;
-            case OP_RE_REVERSE: return Z3_OP_RE_REVERSE;
-            case OP_RE_DERIVATIVE: return Z3_OP_RE_DERIVATIVE;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
-
-        if (mk_c(c)->get_char_fid() == _d->get_family_id()) {
-            switch (_d->get_decl_kind()) {
-            case OP_CHAR_CONST: return Z3_OP_CHAR_CONST;
-            case OP_CHAR_LE: return Z3_OP_CHAR_LE;
-            case OP_CHAR_TO_INT: return Z3_OP_CHAR_TO_INT;
-            case OP_CHAR_TO_BV: return Z3_OP_CHAR_TO_BV;
-            case OP_CHAR_FROM_BV: return Z3_OP_CHAR_FROM_BV;
-            case OP_CHAR_IS_DIGIT: return Z3_OP_CHAR_IS_DIGIT;
-            default: 
-                return Z3_OP_INTERNAL;
-            }
-        }
-
-        if (mk_c(c)->get_fpa_fid() == _d->get_family_id()) {
-            switch (_d->get_decl_kind()) {
-            case OP_FPA_RM_NEAREST_TIES_TO_EVEN: return Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN;
-            case OP_FPA_RM_NEAREST_TIES_TO_AWAY: return Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY;
-            case OP_FPA_RM_TOWARD_POSITIVE: return Z3_OP_FPA_RM_TOWARD_POSITIVE;
-            case OP_FPA_RM_TOWARD_NEGATIVE: return Z3_OP_FPA_RM_TOWARD_NEGATIVE;
-            case OP_FPA_RM_TOWARD_ZERO: return Z3_OP_FPA_RM_TOWARD_ZERO;
-            case OP_FPA_NUM: return Z3_OP_FPA_NUM;
-            case OP_FPA_PLUS_INF: return Z3_OP_FPA_PLUS_INF;
-            case OP_FPA_MINUS_INF: return Z3_OP_FPA_MINUS_INF;
-            case OP_FPA_NAN: return Z3_OP_FPA_NAN;
-            case OP_FPA_MINUS_ZERO: return Z3_OP_FPA_MINUS_ZERO;
-            case OP_FPA_PLUS_ZERO: return Z3_OP_FPA_PLUS_ZERO;
-            case OP_FPA_ADD: return Z3_OP_FPA_ADD;
-            case OP_FPA_SUB: return Z3_OP_FPA_SUB;
-            case OP_FPA_NEG: return Z3_OP_FPA_NEG;
-            case OP_FPA_MUL: return Z3_OP_FPA_MUL;
-            case OP_FPA_DIV: return Z3_OP_FPA_DIV;
-            case OP_FPA_REM: return Z3_OP_FPA_REM;
-            case OP_FPA_ABS: return Z3_OP_FPA_ABS;
-            case OP_FPA_MIN: return Z3_OP_FPA_MIN;
-            case OP_FPA_MAX: return Z3_OP_FPA_MAX;
-            case OP_FPA_FMA: return Z3_OP_FPA_FMA;
-            case OP_FPA_SQRT: return Z3_OP_FPA_SQRT;
-            case OP_FPA_EQ: return Z3_OP_FPA_EQ;
-            case OP_FPA_ROUND_TO_INTEGRAL: return Z3_OP_FPA_ROUND_TO_INTEGRAL;
-            case OP_FPA_LT: return Z3_OP_FPA_LT;
-            case OP_FPA_GT: return Z3_OP_FPA_GT;
-            case OP_FPA_LE: return Z3_OP_FPA_LE;
-            case OP_FPA_GE: return Z3_OP_FPA_GE;
-            case OP_FPA_IS_NAN: return Z3_OP_FPA_IS_NAN;
-            case OP_FPA_IS_INF: return Z3_OP_FPA_IS_INF;
-            case OP_FPA_IS_ZERO: return Z3_OP_FPA_IS_ZERO;
-            case OP_FPA_IS_NORMAL: return Z3_OP_FPA_IS_NORMAL;
-            case OP_FPA_IS_SUBNORMAL: return Z3_OP_FPA_IS_SUBNORMAL;
-            case OP_FPA_IS_NEGATIVE: return Z3_OP_FPA_IS_NEGATIVE;
-            case OP_FPA_IS_POSITIVE: return Z3_OP_FPA_IS_POSITIVE;
-            case OP_FPA_FP: return Z3_OP_FPA_FP;
-            case OP_FPA_TO_FP: return Z3_OP_FPA_TO_FP;
-            case OP_FPA_TO_FP_UNSIGNED: return Z3_OP_FPA_TO_FP_UNSIGNED;
-            case OP_FPA_TO_UBV: return Z3_OP_FPA_TO_UBV;
-            case OP_FPA_TO_SBV: return Z3_OP_FPA_TO_SBV;
-            case OP_FPA_TO_REAL: return Z3_OP_FPA_TO_REAL;
-            case OP_FPA_TO_IEEE_BV: return Z3_OP_FPA_TO_IEEE_BV;
-            case OP_FPA_BVWRAP: return Z3_OP_FPA_BVWRAP;
-            case OP_FPA_BV2RM: return Z3_OP_FPA_BV2RM;
-                return Z3_OP_UNINTERPRETED;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
-
-        if (mk_c(c)->m().get_label_family_id() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case OP_LABEL: return Z3_OP_LABEL;
-            case OP_LABEL_LIT: return Z3_OP_LABEL_LIT;
-            default:
-                return Z3_OP_INTERNAL;
-            }
-        }
-
-        if (mk_c(c)->get_pb_fid() == _d->get_family_id()) {
-            switch(_d->get_decl_kind()) {
-            case OP_PB_LE: return Z3_OP_PB_LE;
-            case OP_PB_GE: return Z3_OP_PB_GE;
-            case OP_PB_EQ: return Z3_OP_PB_EQ;
-            case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
-            case OP_AT_LEAST_K: return Z3_OP_PB_AT_LEAST;
-            default: return Z3_OP_INTERNAL;
-            }
-        }
-
-        if (mk_c(c)->recfun().get_family_id() == _d->get_family_id())
+        if (mk_c(c)->get_basic_fid() == fid)
+            return get_decl_kind_basic(k);
+        if (mk_c(c)->get_arith_fid() == fid)
+            return get_decl_kind_arith(k);
+        if (mk_c(c)->get_bv_fid() == fid)
+            return get_decl_kind_bv(k);
+        if (mk_c(c)->get_array_fid() == fid)
+            return get_decl_kind_array(k);
+        if (mk_c(c)->get_dt_fid() == fid)
+            return get_decl_kind_dt(k);
+        if (mk_c(c)->get_seq_fid() == fid)
+            return get_decl_kind_seq(k);
+        if (mk_c(c)->get_fpa_fid() == fid)
+            return get_decl_kind_fpa(k);
+        if (mk_c(c)->get_datalog_fid() == fid)
+            return get_decl_kind_datalog(k);
+        if (mk_c(c)->get_pb_fid() == fid)
+            return get_decl_kind_pb(k);
+        if (mk_c(c)->get_special_relations_fid() == fid)
+            return get_decl_kind_special_relations(k);
+        if (mk_c(c)->get_char_fid() == fid)
+            return get_decl_kind_char(k);
+        if (mk_c(c)->m().get_label_family_id() == fid)
+            return get_decl_kind_label(k);
+        if (mk_c(c)->fsutil().get_family_id() == fid)
+            return get_decl_kind_finite_set(k);
+        if (mk_c(c)->recfun().get_family_id() == fid)
             return Z3_OP_RECURSIVE;
 
         return Z3_OP_UNINTERPRETED;
@@ -1482,11 +1522,7 @@ extern "C" {
             return 0;
         }
         var* va = to_var(_a);
-        if (va) {
-            return va->get_idx();
-        }
-        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-        return 0;
+        return va->get_idx();
         Z3_CATCH_RETURN(0);
     }
 
@@ -1495,6 +1531,10 @@ extern "C" {
         LOG_Z3_translate(c, a, target);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(a, nullptr);
+        if (!target) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "null target context");
+            RETURN_Z3(nullptr);
+        }
         if (c == target) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
@@ -1507,4 +1547,4 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-};
+}

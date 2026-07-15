@@ -116,5 +116,5 @@ namespace datalog {
 
 
 
-};
+}
 

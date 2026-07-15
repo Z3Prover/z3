@@ -133,7 +133,7 @@ namespace euf {
     // Instructions
     //
     // ------------------------------------
-    typedef enum {
+    typedef enum : uint8_t {
         INIT1=0, INIT2,  INIT3,  INIT4,  INIT5,  INIT6,  INITN, INITAC,
         BIND1,   BIND2,  BIND3,  BIND4,  BIND5,  BIND6,  BINDN,
         YIELD1,  YIELD2, YIELD3, YIELD4, YIELD5, YIELD6, YIELDN,
@@ -239,6 +239,7 @@ namespace euf {
         unsigned short m_num_args;
         unsigned       m_ireg;
         unsigned       m_oreg;
+        unsigned m_curr_generation;
     };
 
     struct get_cgr : public instruction {
@@ -1402,6 +1403,7 @@ namespace euf {
                 // to check it again.
                 get_check_mark(reg) == NOT_CHECKED &&
                 is_ground(m_registers[reg]) &&
+                instr->m_enode != nullptr &&
                 get_pat_lbl_hash(reg) == instr->m_enode->get_lbl_hash();
         }
 
@@ -1925,25 +1927,33 @@ namespace euf {
             m_max_generation = std::max(m_max_generation, n->generation());
         }
 
+        void get_f_app(func_decl* lbl, unsigned num_expected_args, enode* curr, enode*& matching_cgr, enode*& min_gen_match) {
+            if (curr->get_decl() == lbl && curr->num_args() == num_expected_args) {
+                if (curr->is_cgr() && !matching_cgr)
+                    matching_cgr = curr;
+                if (!min_gen_match || min_gen_match->generation() > curr->generation())
+                    min_gen_match = curr;
+            }
+        }
+
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * first) {
+            enode *matching_cgr = nullptr, *min_gen_match = nullptr;
             for (enode* curr : euf::enode_class(first)) {
-                if (curr->get_decl() == lbl && curr->is_cgr() && curr->num_args() == num_expected_args) {
-                    update_max_generation(curr, first);
-                    return curr;
-                }
+                get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
+                curr = curr->get_next();
             }
-            return nullptr;
+            if (matching_cgr)
+                update_max_generation(min_gen_match, first);                          
+            return matching_cgr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
             curr = curr->get_next();
             while (curr != first) {
-                if (curr->get_decl() == lbl && curr->is_cgr() && curr->num_args() == num_expected_args) {
-                    update_max_generation(curr, first);
+                if (curr->get_decl() == lbl && curr->num_args() == num_expected_args && curr->is_cgr())
                     return curr;
-                }
                 curr = curr->get_next();
             }
             return nullptr;
@@ -2562,6 +2572,7 @@ namespace euf {
                  m_backtrack_stack[m_top].m_instr              = m_pc;                                                  \
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
+                 const_cast<bind*>(static_cast<bind const*>(m_pc))->m_curr_generation = m_max_generation;                \
                  m_top++;
 
             BIND_COMMON();
@@ -2828,7 +2839,8 @@ namespace euf {
                            goto backtrack;                                                                                      \
                        }                                                                                                        \
                        bp.m_curr = m_app;                                                                                       \
-                       TRACE(mam_int, tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););      \
+                       m_max_generation = m_b->m_curr_generation;                                                               \
+                       TRACE(mam_int, tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););                     \
                        m_oreg    = m_b->m_oreg
 
             BBIND_COMMON();

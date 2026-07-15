@@ -437,7 +437,8 @@ namespace recfun {
 
         promise_def plugin::mk_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated) {
             def* d = u().decl_fun(name, n, params, range, is_generated);
-            SASSERT(!m_defs.contains(d->get_decl()));
+            if (m_defs.contains(d->get_decl()))
+                throw default_exception(std::string("recursive function ") + name.str() + " already defined");
             m_defs.insert(d->get_decl(), d);
             return promise_def(&u(), d);
         }

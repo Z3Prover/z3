@@ -129,8 +129,8 @@ public:
         add_monomial(a, v1);
         add_monomial(b, v2);
     }
-    bool operator==(const lar_term & a) const {  return false; } // take care not to create identical terms
-    bool operator!=(const lar_term & a) const {  return ! (*this == a);}
+    bool operator==(const lar_term & a) const = delete; //  take care not to create identical terms
+    bool operator!=(const lar_term & a) const = delete;  
     // some terms get used in add constraint
     // it is the same as the offset in the m_constraints
 

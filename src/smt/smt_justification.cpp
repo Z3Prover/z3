@@ -351,8 +351,9 @@ namespace smt {
 
     proof * ext_theory_propagation_justification::mk_proof(conflict_resolution & cr) {
         ptr_buffer<proof> prs;
-        if (!antecedent2proof(cr, prs))
+        if (!antecedent2proof(cr, prs)) {
             return nullptr;
+        }
         context & ctx = cr.get_context();
         ast_manager & m = cr.get_manager();
         expr_ref fact(m);
@@ -439,5 +440,5 @@ namespace smt {
             return m.mk_th_lemma(m_th_id, m.mk_or(lits), 0, nullptr, m_params.size(), m_params.data());
     }
 
-};
+}
 

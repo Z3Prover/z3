@@ -230,4 +230,4 @@ namespace sat {
         st.update("sat elim literals", m_elim_literals);
     }
 
-};
+}

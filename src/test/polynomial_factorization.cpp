@@ -337,15 +337,7 @@ void test_factorization_large_multivariate_missing_factors() {
 
     factors fs(m);
     factor(p, fs);
-    VERIFY(fs.distinct_factors() == 2); // indeed there are 3 factors, that is demonstrated by the loop  
-    for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
-        polynomial_ref f(m);
-        f = fs[i];
-        if (degree(f, x1)<= 1) continue;
-        factors fs0(m);
-        factor(f, fs0);
-        VERIFY(fs0.distinct_factors() >= 2);
-    }
+    VERIFY(fs.distinct_factors() >= 3);
 
     polynomial_ref reconstructed(m);
     fs.multiply(reconstructed);
@@ -370,17 +362,8 @@ void test_factorization_multivariate_missing_factors() {
     factors fs(m);
     factor(p, fs);
 
-    // Multivariate factorization stops after returning the whole polynomial.
-    VERIFY(fs.distinct_factors() == 1);
-    VERIFY(m.degree(fs[0], 0) == 3);
-
-    factors fs_refined(m);
-    polynomial_ref residual = fs[0];
-    factor(residual, fs_refined);
-
-    // A second attempt still fails to expose the linear factors.
-    VERIFY(fs_refined.distinct_factors() == 1); // actually we need 3 factors
-    VERIFY(m.degree(fs_refined[0], 0) == 3); // actually we need degree 1
+    // Multivariate factorization should find 3 linear factors
+    VERIFY(fs.distinct_factors() == 3);
 
     polynomial_ref reconstructed(m);
     fs.multiply(reconstructed);

@@ -401,10 +401,7 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
                     args.push_back(arg);
                 }
             }
-            else if (!m.is_bool(arg)) {
-                args.push_back(arg);
-            }
-            else if (!n2) {                
+            else if (!n2 && m.is_bool(arg)) {                
                 n2 = m.mk_app(m_fn, m_arith.mk_numeral(rational(id++), true));
                 todo.push_back(arg);
                 parent_ids.push_back(self_pos);
@@ -677,10 +674,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
                     args.push_back(arg);
                 }
             }
-            else if (!m.is_bool(arg)) {
-                args.push_back(arg);
-            }
-            else if (!n2) {                
+            else if (!n2 && m.is_bool(arg)) {                
                 n2 = m.mk_app(m_fn, m_arith.mk_numeral(rational(id++), true));
                 todo.push_back(arg);
                 parent_ids.push_back(self_pos);

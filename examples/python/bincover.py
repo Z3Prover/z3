@@ -195,7 +195,7 @@ class BinCoverSolver(UserPropagateBase):
         assert isinstance(value, BitVecNumRef)
         bin_index = value.as_long()
         if bin_index >= len(self.bins):
-            return NOne
+            return None
         return self.bins[bin_index]
 
     def _add_item2bin(self, item, bin):

@@ -531,6 +531,10 @@ sig
       For every [i] smaller than [num_exprs], the variable with de-Bruijn index [i] is replaced with term [to[i]]. *)
   val substitute_vars : Expr.expr -> Expr.expr list -> expr
 
+  (** Substitute every application of [from[i]] with [to[i]] in the expression.
+      The [from] and [to] lists must have the same length. *)
+  val substitute_funs : Expr.expr -> FuncDecl.func_decl list -> Expr.expr list -> expr
+
   (** Translates (copies) the term to another context.
       @return A copy of the term which is associated with the other context *)
   val translate : Expr.expr -> context -> expr
@@ -631,6 +635,21 @@ sig
 
   (** Creates a [distinct] term. *)
   val mk_distinct : context -> Expr.expr list -> Expr.expr
+
+  (** Encodes p1 + p2 + ... + pn <= k. *)
+  val mk_atmost : context -> Expr.expr list -> int -> Expr.expr
+
+  (** Encodes p1 + p2 + ... + pn >= k. *)
+  val mk_atleast : context -> Expr.expr list -> int -> Expr.expr
+
+  (** Encodes k1*p1 + k2*p2 + ... + kn*pn <= k. *)
+  val mk_pble : context -> Expr.expr list -> int list -> int -> Expr.expr
+
+  (** Encodes k1*p1 + k2*p2 + ... + kn*pn >= k. *)
+  val mk_pbge : context -> Expr.expr list -> int list -> int -> Expr.expr
+
+  (** Encodes k1*p1 + k2*p2 + ... + kn*pn = k. *)
+  val mk_pbeq : context -> Expr.expr list -> int list -> int -> Expr.expr
 
   (** Indicates whether the expression is the true or false expression
       or something else (L_UNDEF). *)
@@ -868,6 +887,19 @@ sig
       {!Z3Array.mk_sort}
       {!mk_select} *)
   val mk_const_array : context -> Sort.sort -> Expr.expr -> Expr.expr
+
+  (** Multi-index array read.
+
+      The node [a] must have a multi-dimensional array sort, and [idxs] is the list of indices.
+      {!mk_select} *)
+  val mk_select_n : context -> Expr.expr -> Expr.expr list -> Expr.expr
+
+  (** Multi-index array update.
+
+      The node [a] must have a multi-dimensional array sort, [idxs] is the list of indices,
+      and [v] is the value to store.
+      {!mk_store} *)
+  val mk_store_n : context -> Expr.expr -> Expr.expr list -> Expr.expr -> Expr.expr
 
   (** Maps f on the argument arrays.
 
@@ -1955,8 +1987,21 @@ sig
   (** extract sub-sequence starting at index given by second argument and of length provided by third argument *)
   val mk_seq_extract : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** replace first occurrence of second argument by third *)
+  (** [mk_seq_replace ctx seq target replacement] replaces the first occurrence
+      of [target] within [seq] with [replacement]. *)
   val mk_seq_replace : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** [mk_seq_replace_all ctx seq target replacement] replaces all occurrences
+      of [target] within [seq] with [replacement]. *)
+  val mk_seq_replace_all : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** [mk_seq_replace_re ctx seq re replacement] replaces the first occurrence
+      matching the regular expression [re] within [seq] with [replacement]. *)
+  val mk_seq_replace_re : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** [mk_seq_replace_re_all ctx seq re replacement] replaces all occurrences
+      matching the regular expression [re] within [seq] with [replacement]. *)
+  val mk_seq_replace_re_all : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** a unit sequence at index provided by second argument *)
   val mk_seq_at : context -> Expr.expr -> Expr.expr -> Expr.expr
@@ -2023,6 +2068,9 @@ sig
   (** regular expression for the range between two characters *)
   val mk_re_range : context -> Expr.expr -> Expr.expr -> Expr.expr
 
+  (** the regular expression matching any single character of the given sort *)
+  val mk_re_allchar : context -> Sort.sort -> Expr.expr
+
   (** bounded loop regular expression *)
   val mk_re_loop : context -> Expr.expr -> int -> int -> Expr.expr
 
@@ -2031,6 +2079,9 @@ sig
 
   (** the regular expression complement *)
   val mk_re_complement : context -> Expr.expr -> Expr.expr
+
+  (** the regular expression difference *)
+  val mk_re_diff : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** the regular expression that accepts no sequences *)
   val mk_re_empty : context -> Sort.sort -> Expr.expr
@@ -2055,6 +2106,78 @@ sig
 
   (** [mk_char_is_digit ctx c] checks if the character [c] is a digit *)
   val mk_char_is_digit: context -> Expr.expr -> Expr.expr
+
+end
+
+(** Finite Sets *)
+module FiniteSet :
+sig
+  (** Create a finite set sort with the given element sort. *)
+  val mk_sort : context -> Sort.sort -> Sort.sort
+
+  (** Test if a sort is a finite set sort. *)
+  val is_finite_set_sort : context -> Sort.sort -> bool
+
+  (** Get the element sort of a finite set sort. *)
+  val get_sort_basis : context -> Sort.sort -> Sort.sort
+
+  (** Create an empty finite set of the given sort. *)
+  val mk_empty : context -> Sort.sort -> Expr.expr
+
+  (** Create a singleton finite set containing the given element. *)
+  val mk_singleton : context -> Expr.expr -> Expr.expr
+
+  (** Create the union of two finite sets. *)
+  val mk_union : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create the intersection of two finite sets. *)
+  val mk_intersect : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create the set difference of two finite sets (s1 \ s2). *)
+  val mk_difference : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create a membership predicate: elem ∈ set. *)
+  val mk_member : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create an expression for the cardinality of a finite set. *)
+  val mk_size : context -> Expr.expr -> Expr.expr
+
+  (** Create a subset predicate: s1 ⊆ s2. *)
+  val mk_subset : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Apply a function to all elements of a finite set. *)
+  val mk_map : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Filter a finite set using a predicate function. *)
+  val mk_filter : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create a finite set of integers in the range [low, high]. *)
+  val mk_range : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+end
+
+(** Special relation constructors *)
+module SpecialRelation :
+sig
+  (** Create a linear (total) order relation over the given sort.
+      The [id] parameter distinguishes multiple linear orders over the same sort. *)
+  val mk_linear_order : context -> Sort.sort -> int -> FuncDecl.func_decl
+
+  (** Create a partial order relation over the given sort.
+      The [id] parameter distinguishes multiple partial orders over the same sort. *)
+  val mk_partial_order : context -> Sort.sort -> int -> FuncDecl.func_decl
+
+  (** Create a piecewise linear order relation over the given sort.
+      The [id] parameter distinguishes multiple piecewise linear orders over the same sort. *)
+  val mk_piecewise_linear_order : context -> Sort.sort -> int -> FuncDecl.func_decl
+
+  (** Create a tree order relation over the given sort.
+      The [id] parameter distinguishes multiple tree orders over the same sort. *)
+  val mk_tree_order : context -> Sort.sort -> int -> FuncDecl.func_decl
+
+  (** Create the transitive closure of a binary relation.
+      The resulting relation is recursive. *)
+  val mk_transitive_closure : context -> FuncDecl.func_decl -> FuncDecl.func_decl
 
 end
 
@@ -2994,6 +3117,10 @@ sig
       @return A list of expressions, where each is an element of the universe of the sort *)
   val sort_universe : model -> Sort.sort -> Expr.expr list
 
+  (** Translate the model to a different context.
+      @return A new model in the target context *)
+  val translate : model -> context -> model
+
   (** Conversion of models to strings.
       @return A string representation of the model. *)
   val to_string : model -> string
@@ -3381,6 +3508,10 @@ sig
   (** A string representation of the solver. *)
   val to_string : solver -> string
 
+  (** Convert the solver's Boolean formula to DIMACS CNF format.
+      @param include_names If true, include variable names in the output. *)
+  val to_dimacs : solver -> bool -> string
+
   (** Solver local interrupt.
 
       Normally you should use Z3_interrupt to cancel solvers because only
@@ -3389,6 +3520,69 @@ sig
       it is more convenient to cancel a specific solver. Solvers
       that are not selected for interrupts are left alone.*)
   val interrupt: context -> solver -> unit
+
+  (** Retrieve the set of units from the solver.
+      Units are clauses of size 1 learned by the solver during solving. *)
+  val get_units : solver -> Expr.expr list
+
+  (** Retrieve the set of non-units from the solver.
+      Non-units are clauses of size greater than 1 learned by the solver. *)
+  val get_non_units : solver -> Expr.expr list
+
+  (** Retrieve the trail (sequence of assignments) from the solver.
+      The trail shows the sequence of literal assignments made by the solver. *)
+  val get_trail : solver -> Expr.expr list
+
+  (** Retrieve the decision levels of trail literals.
+      Given a list of literals from the trail, returns an array of their decision levels.
+      @param literals List of literals from the trail
+      @return Array of decision levels corresponding to the input literals *)
+  val get_levels : solver -> Expr.expr list -> int array
+
+  (** Retrieve the congruence closure root of an expression.
+      Returns the representative of the equivalence class containing the expression. *)
+  val congruence_root : solver -> Expr.expr -> Expr.expr
+
+  (** Retrieve the next element in the congruence closure equivalence class.
+      Congruence classes form a circular list; this returns the next element. *)
+  val congruence_next : solver -> Expr.expr -> Expr.expr
+
+  (** Retrieve an explanation for why two expressions are congruent.
+      Returns an expression that justifies the congruence between a and b. *)
+  val congruence_explain : solver -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Parse SMT-LIB2 formulas from a file and assert them into the solver. *)
+  val from_file : solver -> string -> unit
+
+  (** Parse SMT-LIB2 formulas from a string and assert them into the solver. *)
+  val from_string : solver -> string -> unit
+
+  (** Provide an initial value hint for a variable to the solver.
+      This can help guide the solver to find solutions more efficiently. *)
+  val set_initial_value : solver -> Expr.expr -> Expr.expr -> unit
+
+  (** Extract cubes from the solver for cube-and-conquer parallel solving.
+      vars is a list of variables to use as cube variables; use an empty list for automatic selection.
+      cutoff is the backtrack level cutoff for cube generation.
+      Returns a list of expressions representing the cube literals. *)
+  val cube : solver -> Expr.expr list -> int -> Expr.expr list
+
+  (** Retrieve fixed assignments to variables as consequences given assumptions.
+      Returns the solver status and a list of consequence expressions.
+      Each consequence is an implication: assumptions => variable = value. *)
+  val get_consequences : solver -> Expr.expr list -> Expr.expr list -> status * Expr.expr list
+
+  (** Solve constraints treating given variables symbolically.
+      variables are the variables to solve for, terms are the substitution terms,
+      and guards are Boolean guards for the substitutions. *)
+  val solve_for : solver -> Expr.expr list -> Expr.expr list -> Expr.expr list -> unit
+
+  (** Register a callback that is invoked when clauses are inferred during solving.
+      The callback is called when a clause is asserted to the CDCL engine, inferred
+      by CDCL(T), or deleted by the CDCL(T) engine.
+      The callback receives an optional proof hint expression, a list of dependency
+      indices, and the inferred clause as a list of literal expressions. *)
+  val register_on_clause : solver -> (Expr.expr option -> int list -> Expr.expr list -> unit) -> unit
 end
 
 (** Fixedpoint solving *)
@@ -3562,6 +3756,9 @@ sig
       corresponding minimization objective. In this way the resulting
       objective function is always returned as a minimization objective. *)
   val get_objectives : optimize -> Expr.expr list
+
+  (** Translate the optimize context to a different context. *)
+  val translate : optimize -> context -> optimize
 end
 
 

@@ -30,6 +30,7 @@ Notes:
 #include "ast/rewriter/pb_rewriter.h"
 #include "ast/rewriter/recfun_rewriter.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/finite_set_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/der.h"
@@ -55,6 +56,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     seq_rewriter        m_seq_rw;
     char_rewriter       m_char_rw;
     recfun_rewriter     m_rec_rw;
+    finite_set_rewriter m_fs_rw;
     arith_util          m_a_util;
     bv_util             m_bv_util;
     der                 m_der;
@@ -230,6 +232,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             return m_char_rw.mk_app_core(f, num, args, result);
         if (fid == m_rec_rw.get_fid())
             return m_rec_rw.mk_app_core(f, num, args, result);
+        if (fid == m_fs_rw.get_fid())
+            return m_fs_rw.mk_app_core(f, num, args, result);
         return BR_FAILED;
     }
 
@@ -685,6 +689,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             st = m_ar_rw.mk_eq_core(a, b, result);
         else if (s_fid == m_seq_rw.get_fid())
             st = m_seq_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_fs_rw.get_fid())
+            st = m_fs_rw.mk_eq_core(a, b, result);
         if (st != BR_FAILED)
             return st;
         st = extended_bv_eq(a, b, result);
@@ -761,6 +767,62 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     }
 
 
+    // Distribute a quantifier over the top-level boolean connective of its body:
+    //   forall x . (A /\ B)   -->  (forall x. A) /\ (forall x. B)
+    //   forall x . ~(A \/ B)  -->  (forall x. ~A) /\ (forall x. ~B)
+    //   exists x . (A \/ B)   -->  (exists x. A) \/ (exists x. B)
+    //   exists x . ~(A /\ B)  -->  (exists x. ~A) \/ (exists x. ~B)
+    // Each rule is a validity, and the distributed sub-quantifiers give the
+    // e-matching engine finer-grained instantiation targets.
+    bool distribute_quantifier(quantifier * old_q, expr * new_body, expr_ref & result) {
+        if (old_q->get_kind() == lambda_k)
+            return false;
+        if (old_q->has_patterns())
+            return false;
+        bool is_forall = old_q->get_kind() == forall_k;
+        expr_ref_vector args(m());
+        expr * arg = nullptr;
+        if (is_forall) {
+            if (m().is_and(new_body))
+                args.append(to_app(new_body)->get_num_args(), to_app(new_body)->get_args());
+            else if (m().is_not(new_body, arg) && m().is_or(arg))
+                for (expr * e : *to_app(arg))
+                    args.push_back(m().mk_not(e));
+            else
+                return false;
+        }
+        else {
+            if (m().is_or(new_body))
+                args.append(to_app(new_body)->get_num_args(), to_app(new_body)->get_args());
+            else if (m().is_not(new_body, arg) && m().is_and(arg))
+                for (expr * e : *to_app(arg))
+                    args.push_back(m().mk_not(e));
+            else
+                return false;
+        }
+        if (args.size() < 2)
+            return false;
+        expr_ref_vector quants(m());
+        for (expr * a : args) {
+            quantifier_ref sub(m());
+            sub = m().mk_quantifier(old_q->get_kind(),
+                                    old_q->get_num_decls(),
+                                    old_q->get_decl_sorts(),
+                                    old_q->get_decl_names(),
+                                    a,
+                                    old_q->get_weight(),
+                                    old_q->get_qid(),
+                                    old_q->get_skid(),
+                                    0, nullptr, 0, nullptr);
+            quants.push_back(m_elim_unused_vars(sub));
+        }
+        if (is_forall)
+            result = m().mk_and(quants);
+        else
+            result = m().mk_or(quants);
+        return true;
+    }
+
     bool reduce_quantifier(quantifier * old_q,
                            expr * new_body,
                            expr * const * new_patterns,
@@ -803,6 +865,20 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         else if (old_q->get_kind() == lambda_k &&
                  is_ground(new_body)) {
             result = m_ar_rw.util().mk_const_array(old_q->get_sort(), new_body);
+            if (m().proofs_enabled()) {
+                result_pr = m().mk_rewrite(old_q, result);
+            }
+            return true;
+        }
+        else if (old_q->get_kind() == lambda_k &&
+                 BR_DONE == m_ar_rw.mk_lambda_core(old_q, new_body, result)) {
+            // array eta-reduction: (lambda (x*) (select a x*)) --> a
+            if (m().proofs_enabled()) {
+                result_pr = m().mk_rewrite(old_q, result);
+            }
+            return true;
+        }
+        else if (distribute_quantifier(old_q, new_body, result)) {
             if (m().proofs_enabled()) {
                 result_pr = m().mk_rewrite(old_q, result);
             }
@@ -883,7 +959,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_seq_rw(m, p),
         m_char_rw(m),
-        m_rec_rw(m),
+        m_rec_rw(m), 
+        m_fs_rw(m),
         m_a_util(m),
         m_bv_util(m),
         m_der(m),

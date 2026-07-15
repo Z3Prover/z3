@@ -286,7 +286,9 @@ namespace bv {
         void internalize_extract(app* n);
         void internalize_repeat(app* n);
         void internalize_bit2bool(app* n);
+        void internalize_overflow(app* n);
         void internalize_udiv_i(app* n);
+        void assert_bv_divrem_bound_axiom(app* n);
         template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
         void assert_bv2int_axiom(app * n);

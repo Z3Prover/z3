@@ -198,5 +198,5 @@ namespace sat {
 
     std::ostream & operator<<(std::ostream & out, clause_wrapper const & c);
 
-};
+}
 

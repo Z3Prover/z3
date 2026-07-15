@@ -97,5 +97,5 @@ namespace nlsat {
         bool contains(var x) const override { return x != m_y && m_assignment.is_assigned(x); }
         anum const & operator()(var x) const override { return m_assignment.value(x); }
     };
-};
+}
 

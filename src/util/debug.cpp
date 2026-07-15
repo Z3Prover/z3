@@ -36,11 +36,46 @@ bool assertions_enabled() {
     return g_enable_assertions;
 }
 
+#if defined(_WINDOWS)
+#include <windows.h>
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
+static void print_windows_backtrace() {
+    HANDLE process = GetCurrentProcess();
+    SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
+    SymInitialize(process, nullptr, TRUE);
+    void * stack[64];
+    USHORT frames = RtlCaptureStackBackTrace(0, 64, stack, nullptr);
+    char buf[sizeof(SYMBOL_INFO) + 256 * sizeof(char)];
+    SYMBOL_INFO * sym = reinterpret_cast<SYMBOL_INFO*>(buf);
+    sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+    sym->MaxNameLen = 255;
+    IMAGEHLP_LINE64 line64;
+    line64.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
+    std::cerr << "----- backtrace -----\n";
+    for (USHORT i = 0; i < frames; i++) {
+        DWORD64 addr = reinterpret_cast<DWORD64>(stack[i]);
+        const char * name = "?";
+        if (SymFromAddr(process, addr, nullptr, sym))
+            name = sym->Name;
+        DWORD disp = 0;
+        std::cerr << i << ": " << name;
+        if (SymGetLineFromAddr64(process, addr, &disp, &line64))
+            std::cerr << " (" << line64.FileName << ":" << line64.LineNumber << ")";
+        std::cerr << "\n";
+    }
+    std::cerr << "---------------------\n";
+}
+#endif
+
 void notify_assertion_violation(const char * fileName, int line, const char * condition) {
     std::cerr << "ASSERTION VIOLATION\n"
                  "File: " << fileName << "\n"
                  "Line: " << line << '\n'
               << condition << '\n';
+#if defined(_WINDOWS)
+    print_windows_backtrace();
+#endif
 #ifndef Z3DEBUG
     std::cerr << Z3_FULL_VERSION "\n"
                  "Please file an issue with this message and more detail about how you encountered it at https://github.com/Z3Prover/z3/issues/new\n";

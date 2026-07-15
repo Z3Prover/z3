@@ -36,7 +36,7 @@ class small_object_allocator;
 namespace algebraic_numbers {
     class anum;
     class manager;
-};
+}
 
 namespace polynomial {
     typedef unsigned var;
@@ -1065,7 +1065,7 @@ namespace polynomial {
         scoped_set_zp(manager & _m, uint64_t p):m(_m), m_modular(m.modular()), m_p(m.m()) {  m_p = m.p(); m.set_zp(p); }
         ~scoped_set_zp() {  if (m_modular) m.set_zp(m_p); else m.set_z(); }
     };
-};
+}
 
 typedef polynomial::polynomial_ref           polynomial_ref;
 typedef polynomial::polynomial_ref_vector    polynomial_ref_vector;

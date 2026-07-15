@@ -54,6 +54,7 @@ namespace datalog {
                 col = column_idx(orig[i]);
                 limit = col + column_num_bits(orig[i]);
             } else {
+                SASSERT(other);
                 unsigned idx = orig[i] - get_num_cols();
                 col = get_num_bits() + other->column_idx(idx);
                 limit = col + other->column_num_bits(idx);

@@ -22,11 +22,12 @@ class smt_logics {
 public:
     static bool supported_logic(symbol const & s);
     static bool logic_has_reals_only(symbol const& l);       
-    static bool logic_is_all(symbol const& s) { return s == "ALL"; }
+    static bool logic_is_all(symbol const& s) { return s == "ALL" || s == "HO_ALL"; }
     static bool logic_has_uf(symbol const& s);
     static bool logic_has_arith(symbol const & s);
     static bool logic_has_bv(symbol const & s);
     static bool logic_has_array(symbol const & s);
+    static bool logic_has_finite_sets(symbol const &s);
     static bool logic_has_seq(symbol const & s);
     static bool logic_has_str(symbol const & s);
     static bool logic_has_fpa(symbol const & s);

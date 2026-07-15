@@ -489,5 +489,5 @@ namespace datalog {
         }
     }
 
-};
+}
 

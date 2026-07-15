@@ -20,7 +20,7 @@ It traverses the same sub-terms many times.
 
 Outline of a presumably better scheme:
 
-1. maintain map FV: term -> bit-set where bitset reprsents set of free variables. Assume the number of variables is bounded.
+1. maintain map FV: term -> bit-set where bitset represents set of free variables. Assume the number of variables is bounded.
    FV is built from initial terms.
 2. maintain parent: term -> term-list of parent occurrences.
 3. repeat
@@ -121,7 +121,10 @@ namespace euf {
                         continue;
 
                     if (!m_config.m_enable_non_ground && has_quantifiers(t)) 
-                        continue;                        
+                        continue;   
+
+                    if (!m_config.m_enable_non_linear && !is_linear(t))
+                        continue;
 
                     bool is_safe = true;                    
                     unsigned todo_sz = todo.size();
@@ -241,10 +244,12 @@ namespace euf {
         unsigned count = 0;
         vector<dependent_expr> old_fmls;
         dep_eq_vector eqs;
+        auto _reset_unsafe = on_scope_exit([&]() { m_unsafe_vars.reset(); });
         do {
             old_fmls.reset();
             m_subst_ids.reset();
             eqs.reset();
+            filter_unsafe_vars();
             get_eqs(eqs);
             extract_dep_graph(eqs);
             extract_subst();
@@ -262,6 +267,7 @@ namespace euf {
             old_fmls.reset();
             m_subst_ids.reset();
             eqs.reset();
+            filter_unsafe_vars();
             solve_context_eqs context_solve(*this);
             context_solve.collect_nested_equalities(eqs);
             extract_dep_graph(eqs);
@@ -313,6 +319,15 @@ namespace euf {
         return num <= m_config.m_max_occs;
     }
 
+    bool solve_eqs::is_linear(expr* t) const {
+        unsigned num_values = 0;
+        if (!is_app(t))
+            return false;
+        for (auto arg : *to_app(t))
+            num_values += m.is_value(arg) ? 0 : 1;
+        return num_values <= 1;
+    }
+
     void solve_eqs::save_subst(vector<dependent_expr> const& old_fmls) {
         if (!m_subst->empty())   
             m_fmls.model_trail().push(m_subst.detach(), old_fmls, false);                
@@ -322,7 +337,7 @@ namespace euf {
         m_unsafe_vars.reset();
         recfun::util rec(m);
         for (func_decl* f : rec.get_rec_funs())
-            for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m), &m_todo, &m_visited))
+            for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m)))
                 m_unsafe_vars.mark(term);
     }
 
@@ -342,6 +357,7 @@ namespace euf {
         smt_params_helper sp(p);
         m_config.m_enabled = sp.solve_eqs();
         m_config.m_enable_non_ground = sp.solve_eqs_non_ground();
+        m_config.m_enable_non_linear = !sp.solve_eqs_linear();
     }
 
     void solve_eqs::collect_param_descrs(param_descrs& r) {

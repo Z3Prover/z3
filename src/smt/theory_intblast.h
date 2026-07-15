@@ -42,11 +42,12 @@ namespace smt {
         bv2int_translator m_translator;
         bv_util           bv;
         arith_util        a;
-        unsigned m_vars_qhead = 0, m_preds_qhead = 0;
+        unsigned m_vars_qhead = 0, m_preds_qhead = 0, m_bv2int_qhead = 0;
         bv_factory *    m_factory = nullptr;
 
         bool add_bound_axioms();
         bool add_predicate_axioms();
+        bool add_bv2int_axioms();
 
     public:
         theory_intblast(context& ctx);

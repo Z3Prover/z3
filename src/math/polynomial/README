@@ -1,3 +1,5 @@
 Polynomial manipulation package.
 It contains support for univariate (upolynomial.*) and multivariate polynomials (polynomial.*).
-Multivariate polynomial factorization does not work yet (polynomial_factorization.*), and it is disabled.
+Multivariate polynomial factorization uses evaluation and bivariate Hensel lifting: evaluate away
+extra variables, factor the univariate specialization, then lift to bivariate factors in Zp[x]
+and verify over Z. For >2 variables, trial division checks if bivariate factors divide the original.

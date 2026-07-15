@@ -222,4 +222,4 @@ namespace datalog {
         return m_imp->get_answer();
     }
 
-};
+}

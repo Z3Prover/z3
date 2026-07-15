@@ -823,6 +823,47 @@ public:
 };
 #endif
 
+class finite_set_inverter : public iexpr_inverter {
+    finite_set_util fs;
+public:
+    finite_set_inverter(ast_manager& m): iexpr_inverter(m), fs(m) {}
+
+    family_id get_fid() const override { return fs.get_family_id(); }
+
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r) override {
+        switch (f->get_decl_kind()) {
+        case OP_FINITE_SET_UNION:
+            // x union y -> x
+            // y := x
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                r = args[0];
+                if (m_mc) {
+                    add_def(args[1], r);
+                }
+                return true;
+            }
+            return false;
+        case OP_FINITE_SET_INTERSECT:
+            // x intersect y -> x
+            // y := x
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                r = args[0];
+                if (m_mc) {
+                    add_def(args[1], r);
+                }
+                return true;
+            }
+            return false;
+        default:
+            break;
+        }
+        return false;
+    }
+    
+    bool mk_diff(expr* t, expr_ref& r) override {
+        return false;
+    }
+};
 
 class seq_expr_inverter : public iexpr_inverter {
     seq_util seq;
@@ -972,6 +1013,7 @@ expr_inverter::expr_inverter(ast_manager& m): iexpr_inverter(m) {
     add(alloc(basic_expr_inverter, m, *this));
     add(alloc(seq_expr_inverter, m));
     //add(alloc(pb_expr_inverter, m));
+    add(alloc(finite_set_inverter, m));
 }
 
 

@@ -648,7 +648,7 @@ namespace datalog {
             m_fid = m.mk_family_id(symbol("datalog_relation"));
         }
         return m_fid;
-    };
+    }
 
     arith_util& dl_decl_util::arith() const {
         if (!m_arith) m_arith = alloc(arith_util, m);
@@ -788,4 +788,4 @@ namespace datalog {
         return m.mk_app(f, num_args, args);
     }
 
-};
+}

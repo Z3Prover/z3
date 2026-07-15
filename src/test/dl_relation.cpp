@@ -111,6 +111,7 @@ namespace datalog {
         i5->deallocate();
         dealloc(join1);
         dealloc(proj1);
+        dealloc(proj2);
         dealloc(ren1);
         dealloc(union1);
         dealloc(filterId1);
@@ -281,6 +282,7 @@ namespace datalog {
         i5->deallocate();
         dealloc(join1);
         dealloc(proj1);
+        dealloc(proj2);
         dealloc(ren1);
         dealloc(union1);
         dealloc(filterId1);

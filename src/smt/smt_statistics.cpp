@@ -25,5 +25,5 @@ namespace smt {
         memset(this, 0, sizeof(statistics));
     }
 
-};
+}
 

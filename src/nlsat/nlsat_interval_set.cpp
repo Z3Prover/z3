@@ -261,7 +261,7 @@ namespace nlsat {
         new_set->m_full = full;
         new_set->m_ref_count  = 0;
         new_set->m_num_intervals = sz;
-        memcpy(new_set->m_intervals, buf.data(), sizeof(interval)*sz);
+        memcpy(static_cast<void*>(new_set->m_intervals), static_cast<const void*>(buf.data()), sizeof(interval)*sz);
         return new_set;
     }
 
@@ -794,4 +794,4 @@ namespace nlsat {
             out << "*";
         return out;
     }
-};
+}

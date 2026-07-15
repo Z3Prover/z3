@@ -21,7 +21,7 @@ Revision History:
 
 namespace api {
     class context;
-};
+}
 
 struct Z3_ast_vector_ref : public api::object {
     ast_ref_vector  m_ast_vector;

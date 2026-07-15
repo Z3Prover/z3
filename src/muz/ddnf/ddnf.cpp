@@ -878,4 +878,4 @@ namespace datalog {
     expr_ref ddnf::get_answer() {
         return m_imp->get_answer();
     }
-};
+}

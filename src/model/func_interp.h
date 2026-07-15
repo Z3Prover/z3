@@ -40,7 +40,7 @@ class func_entry {
     // m_result and m_args[i] must be ground terms.
 
     expr * m_result;
-    expr * m_args[];
+    expr * m_args[0];
 
     static unsigned get_obj_size(unsigned arity) { return sizeof(func_entry) + arity * sizeof(expr*); }
     func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result);
@@ -103,6 +103,8 @@ class func_interp {
     func_entry* m_key = nullptr;
 
     void reset_interp_cache();
+
+    void init_table();
 
     expr * get_interp_core() const;
 

@@ -132,6 +132,8 @@ namespace sat {
         m_best_phase.reset();
         m_phase.reset();
         m_prev_phase.reset();
+        m_phase_birthdate.reset();
+        m_best_phase_birthdate.reset();
         m_assigned_since_gc.reset();
         m_last_conflict.reset();
         m_last_propagation.reset();
@@ -161,6 +163,8 @@ namespace sat {
             m_phase[v] = src.m_phase[v];
             m_best_phase[v] = src.m_best_phase[v];
             m_prev_phase[v] = src.m_prev_phase[v];
+            m_phase_birthdate[v] = src.m_phase_birthdate[v];
+            m_best_phase_birthdate[v] = src.m_best_phase_birthdate[v];
 
             // inherit activity:
             m_activity[v] = src.m_activity[v];
@@ -267,6 +271,8 @@ namespace sat {
         m_phase[v] = false;
         m_best_phase[v] = false;
         m_prev_phase[v] = false;
+        m_phase_birthdate[v] = 0;
+        m_best_phase_birthdate[v] = 0;
         m_assigned_since_gc[v] = false;
         m_last_conflict[v] = 0;        
         m_last_propagation[v] = 0;
@@ -308,6 +314,8 @@ namespace sat {
         m_phase.push_back(false);
         m_best_phase.push_back(false);
         m_prev_phase.push_back(false);
+        m_phase_birthdate.push_back(0);
+        m_best_phase_birthdate.push_back(0);
         m_assigned_since_gc.push_back(false);
         m_last_conflict.push_back(0);
         m_last_propagation.push_back(0);
@@ -645,6 +653,26 @@ namespace sat {
         return 3*cls_allocator().get_allocation_size()/2 + memory::get_allocation_size() > memory::get_max_memory_size();
     }
 
+    void solver::set_phase(literal l) {
+        if (l.var() >= num_vars())
+            return;
+        bool value = !l.sign();
+        set_phase(l.var(), value);
+        set_best_phase(l.var(), value);
+    }
+
+    void solver::set_phase(bool_var v, bool value) {
+        if (m_phase[v] != value)
+            m_phase_birthdate[v] = m_stats.m_conflicts;
+        m_phase[v] = value;
+    }
+
+    void solver::set_best_phase(bool_var v, bool value) {
+        if (m_best_phase[v] != value)
+            m_best_phase_birthdate[v] = m_stats.m_conflicts;
+        m_best_phase[v] = value;
+    }
+
     struct solver::cmp_activity {
         solver& s;
         cmp_activity(solver& s):s(s) {}
@@ -896,7 +924,7 @@ namespace sat {
         m_assignment[(~l).index()] = l_false;
         bool_var v = l.var();
         m_justification[v]         = j;
-        m_phase[v]                 = !l.sign();
+        set_phase(v, !l.sign());
         m_assigned_since_gc[v]     = true;
         m_trail.push_back(l);
         
@@ -904,17 +932,17 @@ namespace sat {
         case BH_VSIDS: 
             break;
         case BH_CHB:
-            m_last_propagation[v] = m_stats.m_conflict;
+            m_last_propagation[v] = m_stats.m_conflicts;
             break;
         }
 
         if (m_config.m_anti_exploration) {
-            uint64_t age = m_stats.m_conflict - m_canceled[v];
+            uint64_t age = m_stats.m_conflicts - m_canceled[v];
             if (age > 0) {
                 double decay = pow(0.95, static_cast<double>(age));
                 set_activity(v, static_cast<unsigned>(m_activity[v] * decay));
                 // NB. MapleSAT does not update canceled.
-                m_canceled[v] = m_stats.m_conflict;
+                m_canceled[v] = m_stats.m_conflicts;
             }
         }
         
@@ -1378,8 +1406,10 @@ namespace sat {
         lbool r = m_local_search->check(_lits.size(), _lits.data(), nullptr);
         auto const& mdl = m_local_search->get_model();
         if (mdl.size() == m_best_phase.size()) {
-            for (unsigned i = 0; i < m_best_phase.size(); ++i)
-                m_best_phase[i] = l_true == mdl[i];
+            for (unsigned i = 0; i < m_best_phase.size(); ++i) {
+                bool is_true = l_true == mdl[i];
+                set_best_phase(i, is_true);
+            }
 
             if (r == l_true) {
                 m_conflicts_since_restart = 0;
@@ -1671,12 +1701,12 @@ namespace sat {
         while (!m_case_split_queue.empty()) {
             if (m_config.m_anti_exploration) {
                 next = m_case_split_queue.min_var();
-                auto age = m_stats.m_conflict - m_canceled[next];
+                auto age = m_stats.m_conflicts - m_canceled[next];
                 while (age > 0) {
                     set_activity(next, static_cast<unsigned>(m_activity[next] * pow(0.95, static_cast<double>(age))));
-                    m_canceled[next] = m_stats.m_conflict;
+                    m_canceled[next] = m_stats.m_conflicts;
                     next = m_case_split_queue.min_var();
-                    age = m_stats.m_conflict - m_canceled[next];                    
+                    age = m_stats.m_conflicts - m_canceled[next];                    
                 }
             }
             next = m_case_split_queue.next_var();
@@ -1712,6 +1742,25 @@ namespace sat {
             UNREACHABLE();
             return false;
         }
+    }
+
+    void solver::get_backbone_candidates(literal_vector& lits, unsigned max_num) {
+        struct candidate {
+            literal lit;
+            uint64_t age;
+        };
+        svector<candidate> cands;
+        uint64_t now = m_stats.m_conflicts;
+        for (bool_var v = 0; v < num_vars(); ++v) {
+            if (value(v) != l_undef || was_eliminated(v))
+                continue;
+            bool is_pos = guess(v);
+            cands.push_back({ literal(v, !is_pos), now - get_phase_birthdate(v) });
+        }
+        std::stable_sort(cands.begin(), cands.end(),
+            [](candidate const& a, candidate const& b) { return a.age > b.age; });
+        for (unsigned i = 0; i < cands.size() && i < max_num; ++i)
+            lits.push_back(cands[i].lit);
     }
 
     bool solver::decide() {
@@ -2145,8 +2194,9 @@ namespace sat {
         for (bool_var v = 0; v < num; ++v) {
             if (!was_eliminated(v)) {
                 m_model[v] = value(v);
-                m_phase[v] = value(v) == l_true;
-                m_best_phase[v] = value(v) == l_true;
+                bool is_true = value(v) == l_true;
+                set_phase(v, is_true);
+                set_best_phase(v, is_true);
             }
         }
         TRACE(sat_mc_bug, m_mc.display(tout););
@@ -2274,7 +2324,7 @@ namespace sat {
         m_restart_logs++;
         
         std::stringstream strm;
-        strm << "(sat.stats " << std::setw(6) << m_stats.m_conflict << " " 
+        strm << "(sat.stats " << std::setw(6) << m_stats.m_conflicts << " " 
              << std::setw(6) << m_stats.m_decision << " "
              << std::setw(4) << m_stats.m_restart 
              << mk_stat(*this)
@@ -2432,7 +2482,7 @@ namespace sat {
         m_conflicts_since_init++;
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
-        m_stats.m_conflict++;
+        m_stats.m_conflicts++;
         if (m_step_size > m_config.m_step_size_min)
             m_step_size -= m_config.m_step_size_dec;        
 
@@ -2564,7 +2614,7 @@ namespace sat {
                                tout << "missed " << lit << "@" << lvl(lit) << "\n";);
                 CTRACE(sat, idx == 0, display(tout););
                 if (idx == 0)
-                    IF_VERBOSE(0, verbose_stream() << "num-conflicts: " << m_stats.m_conflict << "\n");
+                    IF_VERBOSE(0, verbose_stream() << "num-conflicts: " << m_stats.m_conflicts << "\n");
                 VERIFY(idx > 0);
                 idx--;
             }
@@ -2874,7 +2924,7 @@ namespace sat {
                 inc_activity(var);
                 break;
             case BH_CHB:
-                m_last_conflict[var] = m_stats.m_conflict;
+                m_last_conflict[var] = m_stats.m_conflicts;
                 break;
             default:
                 break;
@@ -2915,14 +2965,15 @@ namespace sat {
         for (unsigned i = head; i < sz; ++i) {
             bool_var v = m_trail[i].var();
             TRACE(forget_phase, tout << "forgetting phase of v" << v << "\n";);
-            m_phase[v] = m_rand() % 2 == 0;
+            bool value = m_rand() % 2 == 0;
+            set_phase(v, value);
         }
         if (is_sat_phase() && head >= m_best_phase_size) {
             m_best_phase_size = head;
             IF_VERBOSE(12, verbose_stream() << "sticky trail: " << head << "\n");
             for (unsigned i = 0; i < head; ++i) {
                 bool_var v = m_trail[i].var();
-                m_best_phase[v] = m_phase[v];
+                set_best_phase(v, m_phase[v]);
             }
             set_has_new_best_phase(true);
         }
@@ -2971,23 +3022,30 @@ namespace sat {
     void solver::do_rephase() {
         switch (m_config.m_phase) {
         case PS_ALWAYS_TRUE:
-            for (auto& p : m_phase) p = true;
+            for (unsigned i = 0; i < m_phase.size(); ++i)
+                set_phase(i, true);
             break;
         case PS_ALWAYS_FALSE:
-            for (auto& p : m_phase) p = false;
+            for (unsigned i = 0; i < m_phase.size(); ++i)
+                set_phase(i, false);
             break;
         case PS_FROZEN:
             break;
         case PS_BASIC_CACHING:
             switch (m_rephase.count % 4) {
             case 0:
-                for (auto& p : m_phase) p = (m_rand() % 2) == 0;
+                for (unsigned i = 0; i < m_phase.size(); ++i) {
+                    bool value = (m_rand() % 2) == 0;
+                    set_phase(i, value);
+                }
                 break;
             case 1:
-                for (auto& p : m_phase) p = false;
+                for (unsigned i = 0; i < m_phase.size(); ++i)
+                    set_phase(i, false);
                 break;
             case 2:
-                for (auto& p : m_phase) p = !p;
+                for (unsigned i = 0; i < m_phase.size(); ++i)
+                    set_phase(i, !m_phase[i]);
                 break;
             default:
                 break;
@@ -2995,18 +3053,21 @@ namespace sat {
             break;
         case PS_SAT_CACHING:
             if (m_search_state == s_sat) 
-                for (unsigned i = 0; i < m_phase.size(); ++i) 
-                    m_phase[i] = m_best_phase[i];  
+                for (unsigned i = 0; i < m_phase.size(); ++i)
+                    set_phase(i, m_best_phase[i]);
             break;
         case PS_RANDOM:
-            for (auto& p : m_phase) p = (m_rand() % 2) == 0;
+            for (unsigned i = 0; i < m_phase.size(); ++i) {
+                bool value = (m_rand() % 2) == 0;
+                set_phase(i, value);
+            }
             break;
         case PS_LOCAL_SEARCH:
             if (m_search_state == s_sat) {
                 if (m_rand() % 2 == 0)
                     bounded_local_search();
-                for (unsigned i = 0; i < m_phase.size(); ++i) 
-                    m_phase[i] = m_best_phase[i];              
+                for (unsigned i = 0; i < m_phase.size(); ++i)
+                    set_phase(i, m_best_phase[i]);
             }
 
             break;
@@ -3601,6 +3662,8 @@ namespace sat {
         m_phase.shrink(v);
         m_best_phase.shrink(v);
         m_prev_phase.shrink(v);
+        m_phase_birthdate.shrink(v);
+        m_best_phase_birthdate.shrink(v);
         m_assigned_since_gc.shrink(v);
         m_simplifier.reset_todos();
     }
@@ -3644,7 +3707,7 @@ namespace sat {
             SASSERT(value(v) == l_undef);
             m_case_split_queue.unassign_var_eh(v);
             if (m_config.m_anti_exploration) {
-                m_canceled[v] = m_stats.m_conflict;
+                m_canceled[v] = m_stats.m_conflicts;
             }
         }
         m_trail.shrink(old_sz);        
@@ -3812,7 +3875,7 @@ namespace sat {
         double multiplier = m_config.m_reward_offset * (is_sat ? m_config.m_reward_multiplier : 1.0);
         for (unsigned i = qhead; i < m_trail.size(); ++i) {
             auto v = m_trail[i].var();
-            auto d = m_stats.m_conflict - m_last_conflict[v] + 1;
+            auto d = m_stats.m_conflicts - m_last_conflict[v] + 1;
             if (d == 0) d = 1;
             auto reward = multiplier / d;            
             auto activity = m_activity[v];
@@ -4745,7 +4808,7 @@ namespace sat {
         st.update("sat mk var", m_mk_var);
         st.update("sat gc clause", m_gc_clause);
         st.update("sat del clause", m_del_clause);
-        st.update("sat conflicts", m_conflict);
+        st.update("sat conflicts", m_conflicts);
         st.update("sat decisions", m_decision);
         st.update("sat propagations 2ary", m_bin_propagate);
         st.update("sat propagations 3ary", m_ter_propagate);
@@ -4802,4 +4865,4 @@ namespace sat {
         return true;
     }
 
-};
+}

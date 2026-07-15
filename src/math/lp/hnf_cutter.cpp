@@ -199,7 +199,9 @@ branch y_i >= ceil(y0_i) is impossible.
             shrink_explanation(basis_rows);
         }
         
-        hnf<general_matrix> h(m_A, d);        
+        hnf<general_matrix> h(m_A, d, [this]() { return m_settings.get_cancel_flag(); });
+        if (h.is_cancelled())
+            return lia_move::undef;
         vector<mpq> b = create_b(basis_rows);
 #ifdef Z3DEBUG
         SASSERT(m_A * x0 == b);

@@ -76,9 +76,9 @@ static void test_polymorphic_datatype_api() {
     std::cout << "triple_int_bool: " << Z3_sort_to_string(ctx, triple_int_bool) << "\n";
     
     // Get constructors and accessors from the instantiated datatype
-    Z3_func_decl mk_triple_int_bool = Z3_get_datatype_sort_constructor(ctx, triple_int_bool, 0);
+    [[maybe_unused]] Z3_func_decl mk_triple_int_bool = Z3_get_datatype_sort_constructor(ctx, triple_int_bool, 0);
     Z3_func_decl first_int_bool = Z3_get_datatype_sort_constructor_accessor(ctx, triple_int_bool, 0, 0);
-    Z3_func_decl second_int_bool = Z3_get_datatype_sort_constructor_accessor(ctx, triple_int_bool, 0, 1);
+    [[maybe_unused]] Z3_func_decl second_int_bool = Z3_get_datatype_sort_constructor_accessor(ctx, triple_int_bool, 0, 1);
     Z3_func_decl third_int_bool = Z3_get_datatype_sort_constructor_accessor(ctx, triple_int_bool, 0, 2);
     
     std::cout << "Got constructors and accessors from instantiated datatype\n";

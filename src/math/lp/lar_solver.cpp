@@ -36,7 +36,12 @@ namespace lp {
 
         struct term_comparer {
             bool operator()(const lar_term& a, const lar_term& b) const {
-                return a == b;
+                if (a.size() != b.size()) return false;
+                for (const auto& p : a) {
+                    auto const* e = b.coeffs().find_core(p.j());
+                    if (!e || e->get_data().m_value != p.coeff()) return false;
+                }
+                return true;
             }
         };
 
@@ -58,6 +63,7 @@ namespace lp {
         unsigned_vector m_row_bounds_to_replay;
         u_dependency_manager m_dependencies;
         svector<constraint_index> m_tmp_dependencies;
+        ptr_vector<u_dependency>  m_tmp_witnesses;
 
         u_dependency* m_crossed_bounds_deps = nullptr;
         lpvar m_crossed_bounds_column = null_lpvar;
@@ -467,6 +473,8 @@ namespace lp {
         return ret;
     }
 
+
+
     lp_status lar_solver::solve() {
         if (m_imp->m_status == lp_status::INFEASIBLE || m_imp->m_status == lp_status::CANCELLED)
             return m_imp->m_status;
@@ -857,7 +865,7 @@ namespace lp {
     }
 
     lp_status lar_solver::maximize_term(unsigned j,
-        impq& term_max) {
+        impq& term_max, bool fix_int_cols) {
         TRACE(lar_solver, print_values(tout););
         SASSERT(get_core_solver().m_r_solver.calc_current_x_is_feasible_include_non_basis());
         lar_term term = get_term_to_maximize(j);
@@ -870,6 +878,11 @@ namespace lp {
         if (!maximize_term_on_feasible_r_solver(term, term_max, nullptr)) {
             restore();
             return lp_status::UNBOUNDED;
+        }
+
+        if (!fix_int_cols) {
+            set_status(lp_status::OPTIMAL);
+            return lp_status::OPTIMAL;
         }
 
         impq opt_val = term_max;
@@ -1113,8 +1126,28 @@ namespace lp {
 
     void lar_solver::explain_fixed_column(unsigned j, explanation& ex) {
         SASSERT(column_is_fixed(j));
-        auto* deps = get_bound_constraint_witnesses_for_column(j);
-        for (auto ci : flatten(deps))
+        const column& ul = m_imp->m_columns[j];
+        m_imp->m_tmp_dependencies.reset();
+        m_imp->m_dependencies.linearize(ul.lower_bound_witness(), ul.upper_bound_witness(), m_imp->m_tmp_dependencies);
+        for (auto ci : m_imp->m_tmp_dependencies)
+            ex.push_back(ci);
+    }
+
+    // Linearize the bound witnesses of all fixed columns in the row together, so the
+    // mark bits walk each dependency sub-DAG shared between columns only once.
+    void lar_solver::explain_fixed_in_row(unsigned row, explanation& ex) {
+        auto& witnesses = m_imp->m_tmp_witnesses;
+        witnesses.reset();
+        for (auto const& c : get_row(row)) {
+            if (!column_is_fixed(c.var()))
+                continue;
+            const column& ul = m_imp->m_columns[c.var()];
+            witnesses.push_back(ul.lower_bound_witness());
+            witnesses.push_back(ul.upper_bound_witness());
+        }
+        m_imp->m_tmp_dependencies.reset();
+        m_imp->m_dependencies.linearize(witnesses, m_imp->m_tmp_dependencies);
+        for (auto ci : m_imp->m_tmp_dependencies)
             ex.push_back(ci);
     }
 
@@ -1305,10 +1338,14 @@ namespace lp {
         if (m_imp->m_settings.get_cancel_flag())
             return true;
         std::unordered_map<lpvar, mpq> var_map;
-        get_model_do_not_care_about_diff_vars(var_map);
+        // Compute the strict-bounds delta once per model: it flattens both the
+        // model (var_map) and the eps component of any delta-rational bound in
+        // constraint_holds, so the two must use the very same value.
+        mpq delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
+        get_model_do_not_care_about_diff_vars(var_map, delta);
 
         for (auto const& c : m_imp->m_constraints.active()) {
-            if (!constraint_holds(c, var_map)) {
+            if (!constraint_holds(c, var_map, delta)) {
                 TRACE(lar_solver,
                     m_imp->m_constraints.display(tout, c) << "\n";
                 for (auto p : c.coeffs()) {
@@ -1320,14 +1357,21 @@ namespace lp {
         return true;
     }
 
-    bool lar_solver::constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map) const {
+    bool lar_solver::constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map, const mpq& delta) const {
         mpq left_side_val = get_left_side_val(constr, var_map);
+        // Account for a delta-rational bound  rhs + eps*delta  (eps != 0 only for
+        // the bounds that validate strict optimization optima).  'delta' is the
+        // same strict-bounds delta that flattened var_map, so the comparison is
+        // exact over the reals.
+        mpq rhs = constr.rhs();
+        if (!constr.bound_eps().is_zero())
+            rhs += constr.bound_eps() * delta;
         switch (constr.kind()) {
-        case LE: return left_side_val <= constr.rhs();
-        case LT: return left_side_val < constr.rhs();
-        case GE: return left_side_val >= constr.rhs();
-        case GT: return left_side_val > constr.rhs();
-        case EQ: return left_side_val == constr.rhs();
+        case LE: return left_side_val <= rhs;
+        case LT: return left_side_val < rhs;
+        case GE: return left_side_val >= rhs;
+        case GT: return left_side_val > rhs;
+        case EQ: return left_side_val == rhs;
         default:
             UNREACHABLE();
         }
@@ -1550,6 +1594,10 @@ namespace lp {
 
     void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values) const {
         mpq delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
+        get_model_do_not_care_about_diff_vars(variable_values, delta);
+    }
+
+    void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values, const mpq& delta) const {
         for (unsigned i = 0; i < get_core_solver().r_x().size(); ++i) {
             const impq& rp = get_core_solver().r_x(i);
             variable_values[i] = rp.x + delta * rp.y;
@@ -2109,12 +2157,12 @@ namespace lp {
 
     void lar_solver::activate_check_on_equal(constraint_index ci, unsigned& equal_column) {
         auto const& c = m_imp->m_constraints[ci];
-        update_column_type_and_bound_check_on_equal(c.column(), c.rhs(), ci, equal_column);
+        update_column_type_and_bound_check_on_equal(c.column(), c.rhs_impq(), ci, equal_column);
     }
 
     void lar_solver::activate(constraint_index ci) {
         auto const& c = m_imp->m_constraints[ci];
-        update_column_type_and_bound(c.column(), c.rhs(), ci);
+        update_column_type_and_bound(c.column(), c.rhs_impq(), ci);
     }
 
     mpq lar_solver::adjust_bound_for_int(lpvar j, lconstraint_kind& k, const mpq& bound) {
@@ -2158,6 +2206,24 @@ namespace lp {
         return ci;
     }
 
+    // Variant that attaches an infinitesimal coefficient 'eps' to the bound, so
+    // that activating the resulting constraint asserts the delta-rational bound
+    // (right_side, eps).  Used to faithfully validate strict optimization optima
+    // (e.g. a maximize supremum r - delta is validated as a lower bound
+    // (r, -1)).  Only supported for plain column bounds (no term column).
+    constraint_index lar_solver::mk_var_bound(lpvar j, lconstraint_kind kind, const mpq& right_side, const mpq& eps) {
+        TRACE(lar_solver, tout << "j = " << get_variable_name(j) << " " << lconstraint_kind_string(kind) << " " << right_side << " + " << eps << "*eps" << std::endl;);
+        mpq rs = adjust_bound_for_int(j, kind, right_side);
+        SASSERT(bound_is_integer_for_integer_column(j, rs));
+        constraint_index ci;
+        if (!column_has_term(j))
+            ci = m_imp->m_constraints.add_var_constraint(j, kind, rs, eps);
+        else
+            ci = m_imp->m_constraints.add_term_constraint(j, m_imp->m_columns[j].term(), kind, rs, eps);
+        SASSERT(sizes_are_correct());
+        return ci;
+    }
+
     bool lar_solver::compare_values(lpvar j, lconstraint_kind k, const mpq& rhs) {
         return compare_values(get_column_value(j), k, rhs);
     }
@@ -2176,7 +2242,7 @@ namespace lp {
     }
 
     void lar_solver::update_column_type_and_bound(unsigned j,
-        const mpq& right_side,
+        const impq& right_side,
         constraint_index constr_index) {
         TRACE(lar_solver_feas, tout << "j = " << j << " was " << (this->column_is_feasible(j)?"feas":"non-feas") << std::endl;);
         m_imp->m_constraints.activate(constr_index);
@@ -2240,7 +2306,10 @@ namespace lp {
         ls.add_var_bound(tv, c.kind(), c.rhs());
     }
     void lar_solver::update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
-        // SASSERT(validate_bound(j, kind, right_side, dep));
+        update_column_type_and_bound(j, kind, impq(right_side), dep);
+    }
+    void lar_solver::update_column_type_and_bound(unsigned j, lconstraint_kind kind, const impq& right_side, u_dependency* dep) {
+        // SASSERT(validate_bound(j, kind, right_side.x, dep));
         TRACE(
             lar_solver_feas,
             tout << "j" << j << " " << lconstraint_kind_string(kind) << " " << right_side << std::endl;   
@@ -2254,11 +2323,16 @@ namespace lp {
                 }
             });
         bool was_fixed = column_is_fixed(j);
-        mpq rs = adjust_bound_for_int(j, kind, right_side);
+        // adjust_bound_for_int operates on the rational part (and may sharpen
+        // the kind for integer columns); the infinitesimal part y is carried
+        // through unchanged.  y is non-zero only for the delta-rational bounds
+        // that validate strict optimization optima, which target real columns.
+        mpq rs = adjust_bound_for_int(j, kind, right_side.x);
+        impq bound(rs, right_side.y);
         if (column_has_upper_bound(j))
-            update_column_type_and_bound_with_ub(j, kind, rs, dep);
+            update_column_type_and_bound_with_ub(j, kind, bound, dep);
         else
-            update_column_type_and_bound_with_no_ub(j, kind, rs, dep);
+            update_column_type_and_bound_with_no_ub(j, kind, bound, dep);
 
         if (!was_fixed && column_is_fixed(j) && m_fixed_var_eh)
             m_fixed_var_eh(j);
@@ -2287,7 +2361,7 @@ namespace lp {
     }
 
     void lar_solver::update_column_type_and_bound_check_on_equal(unsigned j,
-                                                                 const mpq& right_side,
+                                                                 const impq& right_side,
                                                                  constraint_index constr_index,
                                                                  unsigned& equal_to_j) {
         update_column_type_and_bound(j, right_side, constr_index);
@@ -2303,17 +2377,7 @@ namespace lp {
         return m_imp->m_constraints.add_term_constraint(j, m_imp->m_columns[j].term(), kind, rs);
     }
 
-    struct lar_solver::scoped_backup {
-        lar_solver& m_s;
-        scoped_backup(lar_solver& s) : m_s(s) {
-            m_s.get_core_solver().backup_x();
-        }
-        ~scoped_backup() {
-            m_s.get_core_solver().restore_x();
-        }
-    };
-   
-    void lar_solver::update_column_type_and_bound_with_ub(unsigned j, lp::lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
+    void lar_solver::update_column_type_and_bound_with_ub(unsigned j, lp::lconstraint_kind kind, const impq& right_side, u_dependency* dep) {
         SASSERT(column_has_upper_bound(j));
         if (column_has_lower_bound(j)) {
             update_bound_with_ub_lb(j, kind, right_side, dep);
@@ -2323,7 +2387,7 @@ namespace lp {
         }
     }
 
-    void lar_solver::update_column_type_and_bound_with_no_ub(unsigned j, lp::lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
+    void lar_solver::update_column_type_and_bound_with_no_ub(unsigned j, lp::lconstraint_kind kind, const impq& right_side, u_dependency* dep) {
         SASSERT(!column_has_upper_bound(j));
         if (column_has_lower_bound(j)) {
             update_bound_with_no_ub_lb(j, kind, right_side, dep);
@@ -2333,18 +2397,18 @@ namespace lp {
         }
     }
 
-    void lar_solver::update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
+    void lar_solver::update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep) {
         SASSERT(column_has_lower_bound(j) && column_has_upper_bound(j));
         SASSERT(get_core_solver().m_column_types[j] == column_type::boxed ||
                   get_core_solver().m_column_types[j] == column_type::fixed);
 
-        mpq y_of_bound(0);
+        mpq y_of_bound(right_side.y);
         switch (kind) {
             case LT:
-                y_of_bound = -1;
+                y_of_bound += -1;
                 Z3_fallthrough;
             case LE: {
-                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                auto up = numeric_pair<mpq>(right_side.x, y_of_bound);
                 if (up < get_lower_bound(j)) {
                     set_crossed_bounds_column_and_deps(j, true, dep);
                 }
@@ -2356,10 +2420,10 @@ namespace lp {
                 break;
             }
             case GT:
-                y_of_bound = 1;
+                y_of_bound += 1;
                 Z3_fallthrough;
             case GE: {
-                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                auto low = numeric_pair<mpq>(right_side.x, y_of_bound);
                 if (low > get_upper_bound(j)) {
                     set_crossed_bounds_column_and_deps(j, false, dep);
                 } 
@@ -2372,7 +2436,7 @@ namespace lp {
                 break;                
             } 
             case EQ: {
-                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                auto v = numeric_pair<mpq>(right_side.x, zero_of_type<mpq>());
                 if (v > get_upper_bound(j))
                     set_crossed_bounds_column_and_deps(j, false, dep);                
                 else if (v < get_lower_bound(j)) 
@@ -2393,17 +2457,17 @@ namespace lp {
             get_core_solver().m_column_types[j] = column_type::fixed;
     }
     
-    void lar_solver::update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
+    void lar_solver::update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep) {
         SASSERT(column_has_lower_bound(j) && !column_has_upper_bound(j));
         SASSERT(get_core_solver().m_column_types[j] == column_type::lower_bound);
 
-        mpq y_of_bound(0);
+        mpq y_of_bound(right_side.y);
         switch (kind) {
             case LT:
-                y_of_bound = -1;
+                y_of_bound += -1;
                 Z3_fallthrough;
             case LE: {
-                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                auto up = numeric_pair<mpq>(right_side.x, y_of_bound);
                 if (up < get_lower_bound(j)) {
                     set_crossed_bounds_column_and_deps(j, true, dep);
                 }
@@ -2414,9 +2478,9 @@ namespace lp {
                 break;
             } 
             case GT:
-                y_of_bound = 1;
+                y_of_bound += 1;
             case GE: {
-                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                auto low = numeric_pair<mpq>(right_side.x, y_of_bound);
                 if (low < get_lower_bound(j)) {
                     return;
                 }
@@ -2424,7 +2488,7 @@ namespace lp {
                 break;
             } 
             case EQ: {
-                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                auto v = numeric_pair<mpq>(right_side.x, zero_of_type<mpq>());
                 if (v < get_lower_bound(j)) {
                     set_crossed_bounds_column_and_deps(j, true, dep);
                 } 
@@ -2441,28 +2505,28 @@ namespace lp {
         }
     }
    
-    void lar_solver::update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
+    void lar_solver::update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep) {
         SASSERT(!column_has_lower_bound(j) && column_has_upper_bound(j));
         SASSERT(get_core_solver().m_column_types[j] == column_type::upper_bound);
-        mpq y_of_bound(0);
+        mpq y_of_bound(right_side.y);
         switch (kind) {
         case LT:
-            y_of_bound = -1;
+            y_of_bound += -1;
             Z3_fallthrough;
         case LE:
         {
-            auto up = numeric_pair<mpq>(right_side, y_of_bound);
+            auto up = numeric_pair<mpq>(right_side.x, y_of_bound);
             if (up >= get_upper_bound(j)) 
                 return;
             set_upper_bound_witness(j, dep, up);
         }
         break;
         case GT:
-            y_of_bound = 1;
+            y_of_bound += 1;
             Z3_fallthrough;
         case GE:
         {
-            auto low = numeric_pair<mpq>(right_side, y_of_bound);
+            auto low = numeric_pair<mpq>(right_side.x, y_of_bound);
             if (low > get_upper_bound(j)) {
                 set_crossed_bounds_column_and_deps(j, false, dep);
             }
@@ -2474,7 +2538,7 @@ namespace lp {
         break;
         case EQ:
         {
-            auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+            auto v = numeric_pair<mpq>(right_side.x, zero_of_type<mpq>());
             if (v > get_upper_bound(j)) {
                 set_crossed_bounds_column_and_deps(j, false, dep);
             }
@@ -2491,30 +2555,30 @@ namespace lp {
         }
     }
    
-    void lar_solver::update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
+    void lar_solver::update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep) {
         SASSERT(!column_has_lower_bound(j) && !column_has_upper_bound(j));
 
-        mpq y_of_bound(0);
+        mpq y_of_bound(right_side.y);
         switch (kind) {
             case LT:
-                y_of_bound = -1;
+                y_of_bound += -1;
                 Z3_fallthrough;
             case LE: {
-                auto up = numeric_pair<mpq>(right_side, y_of_bound);
+                auto up = numeric_pair<mpq>(right_side.x, y_of_bound);
                 set_upper_bound_witness(j, dep, up);
                 get_core_solver().m_column_types[j] = column_type::upper_bound;
             } break;
             case GT:
-                y_of_bound = 1;
+                y_of_bound += 1;
                 Z3_fallthrough;
             case GE: {
-                auto low = numeric_pair<mpq>(right_side, y_of_bound);
+                auto low = numeric_pair<mpq>(right_side.x, y_of_bound);
                 set_lower_bound_witness(j, dep, low);
                 get_core_solver().m_column_types[j] = column_type::lower_bound;
 
             } break;
             case EQ: {
-                auto v = numeric_pair<mpq>(right_side, zero_of_type<mpq>());
+                auto v = numeric_pair<mpq>(right_side.x, zero_of_type<mpq>());
                 set_upper_bound_witness(j, dep, v);
                 set_lower_bound_witness(j, dep, v);
                 get_core_solver().m_column_types[j] = column_type::fixed;
@@ -3001,5 +3065,4 @@ namespace lp {
         out << "(exit)\n";
         }
 } // namespace lp
-
 

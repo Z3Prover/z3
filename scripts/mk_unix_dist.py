@@ -140,6 +140,10 @@ def mk_build_dir(path):
             opts.append('--python')
         if mk_util.IS_ARCH_ARM64:
             opts.append('--arm64=true')
+        elif HOST_IS_ARM64:
+            # Explicitly disable arm64 when cross-compiling from ARM64 host to x64;
+            # without this, mk_make.py detects the ARM64 host and adds -arch arm64 flags
+            opts.append('--arm64=false')
         if mk_util.IS_ARCH_ARM64 and LINUX_X64:
             # we are on x64 machine but build for arm64
             # so we have to do cross compiling on Linux

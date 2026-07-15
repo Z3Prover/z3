@@ -63,6 +63,7 @@ enum array_op_kind {
     OP_SET_COMPLEMENT,
     OP_SET_SUBSET,
     OP_AS_ARRAY, // used for model construction
+    OP_CHOICE,
     LAST_ARRAY_OP
 };
 
@@ -79,6 +80,7 @@ class array_decl_plugin : public decl_plugin {
     symbol m_set_subset_sym;
     symbol m_array_ext_sym;
     symbol m_as_array_sym;
+    symbol m_choice_sym;
 
     bool check_set_arguments(unsigned arity, sort * const * domain);
 
@@ -105,6 +107,8 @@ class array_decl_plugin : public decl_plugin {
     func_decl * mk_set_subset(unsigned arity, sort * const * domain);
 
     func_decl * mk_as_array(func_decl * f);
+
+    func_decl * mk_choice(unsigned arity, sort* const* domain);
 
     bool is_array_sort(sort* s) const;
  public:
@@ -164,6 +168,7 @@ public:
     bool is_difference(expr* n) const { return is_app_of(n, m_fid, OP_SET_DIFFERENCE); }
     bool is_complement(expr* n) const { return is_app_of(n, m_fid, OP_SET_COMPLEMENT); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
+    bool is_choice(expr* n) const { return is_app_of(n, m_fid, OP_CHOICE); }
     bool is_as_array(expr * n, func_decl*& f) const { return is_as_array(n) && (f = get_as_array_func_decl(n), true); }
     bool is_select(func_decl* f) const { return is_decl_of(f, m_fid, OP_SELECT); }
     bool is_store(func_decl* f) const { return is_decl_of(f, m_fid, OP_STORE); }
@@ -172,6 +177,7 @@ public:
     bool is_union(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_UNION); }
     bool is_intersect(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_INTERSECT); }
     bool is_as_array(func_decl* f) const { return is_decl_of(f, m_fid, OP_AS_ARRAY); }
+    bool is_choice(func_decl* f) const { return is_decl_of(f, m_fid, OP_CHOICE); }
     bool is_default(func_decl* f) const { return is_decl_of(f, m_fid, OP_ARRAY_DEFAULT); }
     bool is_default(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_DEFAULT); }
     bool is_subset(expr const* n) const { return is_app_of(n, m_fid, OP_SET_SUBSET); }
@@ -308,6 +314,10 @@ public:
         return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, nullptr, nullptr);
     }
 
+    app* mk_choice(expr* p) const {
+        return m_manager.mk_app(m_fid, OP_CHOICE, p);
+    }
+
     sort* get_array_range_rec(sort* s) {
         while (is_array(s)) {
             s = get_array_range(s);
@@ -316,6 +326,4 @@ public:
     }
 
 };
-
-
 

@@ -204,5 +204,5 @@ namespace simplex {
 
     void kernel(sparse_matrix<mpq_ext>& s, vector<vector<rational>>& K);
     void kernel_ffe(sparse_matrix<mpq_ext> &s, vector<vector<rational>> &K);
-};
+}
 

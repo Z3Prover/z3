@@ -99,6 +99,6 @@ namespace smt {
     }
 
     typedef std::pair<literal, b_justification> justified_literal;
-};
+}
 
 

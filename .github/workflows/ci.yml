@@ -38,7 +38,7 @@ jobs:
             runRegressions: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -52,9 +52,9 @@ jobs:
         run: |
           set -e
           cd build
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           cd ..
 
       - name: Run unit tests
@@ -81,10 +81,18 @@ jobs:
     container: "quay.io/pypa/manylinux_2_34_x86_64:latest"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
+
+      - name: Select Python
+        run: |
+          # Use the first available manylinux interpreter for deterministic selection.
+          PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
+          test -x "$PYTHON" || { echo "Error: no interpreter found under /opt/python/*/bin/python"; exit 1; }
+          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          "$PYTHON" --version
 
       - name: Setup Python virtual environment
-        run: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
+        run: "$PYTHON -m venv $PWD/env"
 
       - name: Install build dependencies
         run: |
@@ -113,7 +121,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
 
       - name: Download ARM toolchain
         run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
@@ -123,8 +131,16 @@ jobs:
           mkdir -p /tmp/arm-toolchain/
           tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
 
+      - name: Select Python
+        run: |
+          # Use the first available manylinux interpreter for deterministic selection.
+          PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
+          test -x "$PYTHON" || { echo "Error: no interpreter found under /opt/python/*/bin/python"; exit 1; }
+          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          "$PYTHON" --version
+
       - name: Setup Python virtual environment
-        run: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
+        run: "$PYTHON -m venv $PWD/env"
 
       - name: Install build dependencies
         run: |
@@ -149,7 +165,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
 
       - name: Setup OCaml
         uses: ocaml/setup-ocaml@v3
@@ -171,9 +187,9 @@ jobs:
           set -e
           cd build
           eval `opam config env`
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           cd ..
 
       - name: Install Z3 OCaml package
@@ -204,7 +220,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
 
       - name: Setup OCaml
         uses: ocaml/setup-ocaml@v3
@@ -226,21 +242,33 @@ jobs:
           set -e
           cd build
           eval `opam config env`
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           cd ..
 
       - name: Install Z3 OCaml package
-        run: eval `opam config env`; ocamlfind install z3-static build/api/ml/* build/libz3-static.a
+        run: |
+          eval `opam config env`
+          ocamlfind install z3-static build/api/ml/* build/libz3-static.a
+          # Ensure the stublibs directory where dllz3ml-static.so was installed is
+          # listed in ld.conf so the OCaml bytecode linker can find it.  When no
+          # explicit -dll flag is passed, ocamlfind installs dll* files to stublibs
+          # but may not update ld.conf, causing "Fatal error: exception End_of_file"
+          # in ocamlc when it cannot locate the stub shared library at link time.
+          STUBLIBS="$(ocamlfind printconf destdir)/stublibs"
+          LDCONF="$(ocamlfind printconf ldconf)"
+          if [ -d "$STUBLIBS" ] && ! grep -qF "$STUBLIBS" "$LDCONF" 2>/dev/null; then
+            echo "$STUBLIBS" >> "$LDCONF"
+          fi
 
       - name: Build and run OCaml examples
         run: |
           set -e
           cd build
           eval `opam config env`
-          make -j3
-          make -j3 _ex_ml_example_post_install
+          make -j$(nproc)
+          make -j$(nproc) _ex_ml_example_post_install
           ./ml_example_static.byte
           ./ml_example_static_custom.byte
           ./ml_example_static
@@ -298,7 +326,7 @@ jobs:
             runTests: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -309,13 +337,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ninja-build
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.20'
 
       - name: Setup Julia (if needed)
         if: matrix.name == 'debugClang'
-        uses: julia-actions/setup-julia@v2
+        uses: julia-actions/setup-julia@v3
         with:
           version: '1'
 
@@ -388,7 +416,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -402,9 +430,10 @@ jobs:
         run: |
           set -e
           cd build
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu || echo 1)
+          make -j"$JOBS"
+          make -j"$JOBS" examples
+          make -j"$JOBS" test-z3
           ./cpp_example
           ./c_example
           cd ..
@@ -415,6 +444,79 @@ jobs:
       - name: Run regressions
         run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
 
+      - name: Validate JNI library architecture matches host
+        run: |
+          echo "Checking libz3java.dylib architecture..."
+          ARCH=$(lipo -archs build/libz3java.dylib)
+          HOST_ARCH=$(uname -m)
+          echo "libz3java.dylib arch: $ARCH  |  host arch: $HOST_ARCH"
+          if [ "$ARCH" != "$HOST_ARCH" ]; then
+            echo "ERROR: libz3java.dylib has arch '$ARCH' but host is '$HOST_ARCH'"
+            exit 1
+          fi
+          echo "OK: libz3java.dylib correctly built for $HOST_ARCH"
+
+  # ============================================================================
+  # macOS JNI cross-compilation validation (ARM64 host -> x86_64 target)
+  # ============================================================================
+  macos-jni-cross-compile:
+    name: "MacOS JNI cross-compile (ARM64 -> x64) architecture validation"
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Configure (cross-compile ARM64 host -> x86_64 target)
+        run: |
+          CXXFLAGS="-arch x86_64" CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
+            python scripts/mk_make.py --java --arm64=false
+
+      - name: Build
+        run: |
+          set -e
+          cd build
+          NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+          make -j"$NPROC" libz3java.dylib
+          cd ..
+
+      - name: Validate libz3java.dylib is x86_64
+        run: |
+          echo "Checking libz3java.dylib architecture..."
+          ARCH=$(lipo -archs build/libz3java.dylib)
+          echo "libz3java.dylib architecture: $ARCH"
+          if [ "$ARCH" != "x86_64" ]; then
+            echo "ERROR: Expected x86_64 (cross-compiled target), got: $ARCH"
+            echo "This is the regression fixed in: JNI bindings use wrong architecture in macOS cross-compilation"
+            exit 1
+          fi
+          echo "OK: libz3java.dylib correctly built for x86_64 target on ARM64 host"
+
+  # ============================================================================
+  # Python script unit tests (build-script logic validation)
+  # ============================================================================
+  python-script-tests:
+    name: "Python build-script unit tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Run Python script unit tests
+        working-directory: ${{ github.workspace }}
+        run: python -m unittest discover -s scripts/tests -p "test_*.py" -v
+
   # ============================================================================
   # macOS CMake Builds
   # ============================================================================
@@ -424,7 +526,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.0
 
       - name: Setup Python
         uses: actions/setup-python@v6

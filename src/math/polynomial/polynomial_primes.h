@@ -66,5 +66,5 @@ namespace polynomial {
     };
 #endif
 
-};
+}
 

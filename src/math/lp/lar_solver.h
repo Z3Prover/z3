@@ -72,7 +72,6 @@ class lar_solver : public column_namer {
 
     void clear_columns_with_changed_bounds();
 
-    struct scoped_backup;
  public:
     const indexed_uint_set& columns_with_changed_bounds() const;
     void insert_to_columns_with_changed_bounds(unsigned j);
@@ -89,19 +88,20 @@ class lar_solver : public column_namer {
     void add_bound_negation_to_solver(lar_solver& ls, lpvar j, lconstraint_kind kind, const mpq& right_side);
     void add_constraint_to_validate(lar_solver& ls, constraint_index ci);
     bool m_validate_blocker = false;
-    void update_column_type_and_bound_check_on_equal(unsigned j, const mpq& right_side, constraint_index ci, unsigned&);
-    void update_column_type_and_bound(unsigned j, const mpq& right_side, constraint_index ci);
+    void update_column_type_and_bound_check_on_equal(unsigned j, const impq& right_side, constraint_index ci, unsigned&);
+    void update_column_type_and_bound(unsigned j, const impq& right_side, constraint_index ci);
  public:   
     bool validate_blocker() const { return m_validate_blocker; }
     bool & validate_blocker() { return m_validate_blocker; }   
+    void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
  private:
-    void update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
-    void update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
+    void update_column_type_and_bound_with_ub(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_column_type_and_bound_with_no_ub(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_bound_with_ub_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_bound_with_no_ub_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_bound_with_ub_no_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
+    void update_bound_with_no_ub_no_lb(lpvar j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
     void remove_non_fixed_from_fixed_var_table();
     constraint_index add_var_bound_on_constraint_for_term(lpvar j, lconstraint_kind kind, const mpq& right_side);
     void set_crossed_bounds_column_and_deps(unsigned j, bool lower_bound, u_dependency* dep);
@@ -148,7 +148,7 @@ class lar_solver : public column_namer {
     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i);
     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, lpvar>>& left_side);
     bool all_constraints_hold() const;
-    bool constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map) const;
+    bool constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map, const mpq& delta) const;
     static void register_in_map(std::unordered_map<lpvar, mpq>& coeffs, const lar_base_constraint& cn, const mpq& a);
     static void register_monoid_in_map(std::unordered_map<lpvar, mpq>& coeffs, const mpq& a, unsigned j);
     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>>& evidence) const;
@@ -206,7 +206,9 @@ public:
         set_column_value(j, v);
     }
 
-    lp_status maximize_term(unsigned j_or_term, impq& term_max);
+    // fix_int_cols: after maximizing try to move the integer columns to integer values;
+    // pass false to keep the optimal (possibly fractional) vertex intact, e.g., for the largest cube test
+    lp_status maximize_term(unsigned j_or_term, impq& term_max, bool fix_int_cols);
 
     core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const;
     
@@ -270,6 +272,7 @@ public:
     bool fixed_base_removed_correctly() const;
 #endif
     constraint_index mk_var_bound(lpvar j, lconstraint_kind kind, const mpq& right_side);
+    constraint_index mk_var_bound(lpvar j, lconstraint_kind kind, const mpq& right_side, const mpq& eps);
     void activate_check_on_equal(constraint_index, lpvar&);
     void activate(constraint_index);
     void random_update(unsigned sz, lpvar const* vars);
@@ -437,7 +440,28 @@ public:
     statistics& stats();
 
     void backup_x() { get_core_solver().backup_x(); }
-    void restore_x() { get_core_solver().restore_x(); }
+    void restore_x() {
+        auto& cs = get_core_solver();
+        unsigned backup_sz = cs.backup_x_size();
+        unsigned current_sz = cs.m_n();
+        CTRACE(lar_solver_restore, backup_sz != current_sz,
+               tout << "restore_x: backup_sz=" << backup_sz
+               << " current_sz=" << current_sz << "\n";);
+        cs.restore_x();
+        if (backup_sz < current_sz) {
+            // New columns were added after backup.
+            // Recalculate basic variable values from non-basic ones
+            // to restore the Ax=0 tableau invariant, then snap
+            // non-basic columns to their bounds and find a feasible solution.
+            for (unsigned i = 0; i < A_r().row_count(); i++)
+                set_column_value(r_basis()[i], get_basic_var_value_from_row(i));
+            move_non_basic_columns_to_bounds();
+        }
+        else {
+            SASSERT(ax_is_correct());
+            SASSERT(cs.m_r_solver.calc_current_x_is_feasible_include_non_basis());
+        }
+    }
 
     void updt_params(params_ref const& p);
     column_type get_column_type(unsigned j) const { return get_core_solver().m_column_types()[j]; }
@@ -456,6 +480,7 @@ public:
     void get_model(std::unordered_map<lpvar, mpq>& variable_values) const;
     void get_rid_of_inf_eps();
     void get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values) const;
+    void get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values, const mpq& delta) const;
     std::string get_variable_name(lpvar vi) const override;
     void set_variable_name(lpvar vi, const std::string&);
     unsigned number_of_vars() const;
@@ -499,6 +524,7 @@ public:
     }
 
     void explain_fixed_column(unsigned j, explanation& ex);
+    void explain_fixed_in_row(unsigned row, explanation& ex);
     u_dependency* join_deps(u_dependency* a, u_dependency *b) { return dep_manager().mk_join(a, b); }
     const constraint_set & constraints() const;
     void push();

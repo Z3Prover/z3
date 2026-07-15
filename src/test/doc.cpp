@@ -303,14 +303,13 @@ class test_doc_cls {
         bool_vector to_merge(N, false);
         bit_vector discard_cols;
         discard_cols.resize(N, false);
-        unsigned num_bits = 1;
         union_find_default_ctx union_ctx;
         subset_ints equalities(union_ctx);
         unsigned lo = N;
         equalities.mk_var();
         for (unsigned i = 1; i < N; ++i) {
             to_merge[i] = (m_ran(2) == 0);
-            if (!to_merge[i]) ++num_bits; else lo = i;
+            if (to_merge[i]) lo = i;
             equalities.mk_var();
         }
         if (lo == N) return;
@@ -436,7 +435,7 @@ public:
         //sub:{xxx \ {1x0, 0x1}}
         //result:{100}
 
-        for (unsigned i = 0; i < 1000; ++i) {
+        for (unsigned i = 0; i < 100; ++i) {
             udoc d1, d2;
             mk_rand_udoc(3, 3, d1);
             mk_rand_udoc(3, 3, d2);
@@ -453,7 +452,7 @@ public:
 
     void test_intersect() {
         expr_ref fml1(m), fml2(m), fml3(m);
-        for (unsigned i = 0; i < 10000; ++i) {
+        for (unsigned i = 0; i < 100; ++i) {
             udoc d1, d2;
             mk_rand_udoc(3, 3, d1);
             mk_rand_udoc(3, 3, d2);

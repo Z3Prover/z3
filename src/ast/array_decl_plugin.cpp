@@ -36,7 +36,8 @@ array_decl_plugin::array_decl_plugin():
     m_set_complement_sym("complement"),
     m_set_subset_sym("subset"),
     m_array_ext_sym("array-ext"),
-    m_as_array_sym("as-array") {
+    m_as_array_sym("as-array"),
+    m_choice_sym("choice") {
 }
 
 #define ARRAY_SORT_STR "Array"
@@ -433,6 +434,20 @@ func_decl * array_decl_plugin::mk_as_array(func_decl * f) {
     return m_manager->mk_const_decl(m_as_array_sym, s, info);
 }
 
+func_decl* array_decl_plugin::mk_choice(unsigned arity, sort* const* domain) {
+    if (arity != 1) {
+        m_manager->raise_exception("choice takes one argument");
+        return nullptr;
+    }
+    sort* s = domain[0];
+    if (!is_array_sort(s) || get_array_arity(s) != 1 || !m_manager->is_bool(get_array_range(s))) {
+        m_manager->raise_exception("choice expects an argument with sort (Array T Bool)");
+        return nullptr;
+    }
+    return m_manager->mk_func_decl(m_choice_sym, arity, domain, get_array_domain(s, 0),
+                                   func_decl_info(m_family_id, OP_CHOICE));
+}
+
 
 func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                             unsigned arity, sort * const * domain, sort * range) {
@@ -501,6 +516,8 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         func_decl * f = to_func_decl(parameters[0].get_ast());
         return mk_as_array(f);
     }
+    case OP_CHOICE:
+        return mk_choice(arity, domain);
     default: return nullptr;
     }
 }
@@ -529,6 +546,7 @@ void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("complement",OP_SET_COMPLEMENT));
         op_names.push_back(builtin_name("subset",OP_SET_SUBSET));
         op_names.push_back(builtin_name("as-array", OP_AS_ARRAY));
+        op_names.push_back(builtin_name("choice", OP_CHOICE));
         op_names.push_back(builtin_name("array-ext", OP_ARRAY_EXT));
 
 #if 0
@@ -655,4 +673,3 @@ func_decl* array_util::mk_array_ext(sort *domain, unsigned i) {
     parameter p(i);
     return m_manager.mk_func_decl(m_fid, OP_ARRAY_EXT, 1, &p, 2, domains);
 }
-

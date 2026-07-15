@@ -250,7 +250,9 @@ namespace nlsat {
         std::string m_debug_known_solution_file_name;
         bool m_apply_lws;
         bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
-        unsigned m_lws_spt_threshold = 3;
+        unsigned m_lws_spt_threshold  = 3;
+        bool m_lws_witness_subs_lc    = true;
+        bool m_lws_witness_subs_disc  = false;
         imp(solver& s, ctx& c):
             m_ctx(c),
             m_solver(s),
@@ -312,6 +314,8 @@ namespace nlsat {
             m_debug_known_solution_file_name = p.known_sat_assignment_file_name();
             m_apply_lws = p.lws();
             m_lws_spt_threshold = p.lws_spt_threshold();  // 0 disables spanning tree
+            m_lws_witness_subs_lc = p. lws_witness_subs_lc();
+            m_lws_witness_subs_disc = p.lws_witness_subs_disc();
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
   
             m_ism.set_seed(m_random_seed);
@@ -1092,7 +1096,7 @@ namespace nlsat {
         }
 
         // Helper: Display unsound lemma failure information
-        void display_unsound_lemma(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls) {
+        void display_unsound_lemma(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls, lazy_justification const* jst = nullptr) {
             verbose_stream() << "\n";
             verbose_stream() << "========== UNSOUND LEMMA DETECTED ==========\n";
             verbose_stream() << "Levelwise used for this conflict: " << (m_last_conflict_used_lws ? "YES" : "NO") << "\n";
@@ -1134,10 +1138,26 @@ namespace nlsat {
                 verbose_stream() << " = " << checker.value(tlit) << "\n";
             }
             verbose_stream() << "=============================================\n";
+            if (jst) {
+                verbose_stream() << "Initial justification (lazy_justification):\n";
+                verbose_stream() << "  Num literals: " << jst->num_lits() << "\n";
+                for (unsigned i = 0; i < jst->num_lits(); ++i) {
+                    verbose_stream() << "  jst lit[" << i << "]: ";
+                    display(verbose_stream(), jst->lit(i));
+                    verbose_stream() << "\n";
+                }
+                verbose_stream() << "  Num clauses: " << jst->num_clauses() << "\n";
+                for (unsigned i = 0; i < jst->num_clauses(); ++i) {
+                    verbose_stream() << "  jst clause[" << i << "]: ";
+                    display(verbose_stream(), jst->clause(i));
+                    verbose_stream() << "\n";
+                }
+                verbose_stream() << "=============================================\n";
+            }
             verbose_stream() << "ABORTING: Unsound lemma detected!\n";
         }
 
-        void check_lemma(unsigned n, literal const* cls, assumption_set a) {
+        void check_lemma(unsigned n, literal const* cls, assumption_set a, lazy_justification const* jst = nullptr) {
             TRACE(nlsat, display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
             
@@ -1180,7 +1200,7 @@ namespace nlsat {
                     verbose_stream() << "Dumping lemma that internal checker thinks is not a tautology:\n";
                     verbose_stream() << "Checker levelwise calls: " << checker.m_stats.m_levelwise_calls << "\n";
                     log_lemma(verbose_stream(), n, cls, true, "internal-check-fail");
-                    display_unsound_lemma(checker, tr, n, cls);
+                    display_unsound_lemma(checker, tr, n, cls, jst);
                     exit(1);
                 }
             }
@@ -2136,6 +2156,62 @@ namespace nlsat {
             m_assignment.reset();
         }
 
+        lbool check(assignment const& rvalues, literal_vector& clause) {
+            // temporarily set m_assignment to the given one
+            assignment tmp = m_assignment;
+            m_assignment.reset();
+            m_assignment.copy(rvalues);
+
+            // check whether the asserted atoms are satisfied by rvalues
+            literal best_literal = null_literal;
+            lbool satisfied = l_true;
+            for (auto cp : m_clauses) {
+                auto& c = *cp;
+                bool is_false = all_of(c, [&](literal l) { return const_cast<imp*>(this)->value(l) == l_false; });
+                bool is_true = any_of(c, [&](literal l) { return const_cast<imp*>(this)->value(l) == l_true; });
+                if (is_true)
+                    continue;                
+                
+                if (!is_false) {
+                    satisfied = l_undef;
+                    continue;
+                }
+
+                // take best literal from c
+                for (literal l : c) {
+                    if (best_literal == null_literal) {
+                        best_literal = l;
+                    } 
+                    else {
+                        bool_var b_best = best_literal.var();
+                        bool_var b_l = l.var();
+                        if (degree(m_atoms[b_l]) < degree(m_atoms[b_best])) {
+                            best_literal = l;
+                        }
+                        // TODO: there might be better criteria than just the degree in the main variable.
+                    }
+                }
+            }
+
+            if (best_literal == null_literal)
+                return satisfied;
+
+            // assignment does not satisfy the constraints -> create lemma
+            SASSERT(best_literal != null_literal);
+            clause.reset();
+            m_lazy_clause.reset();
+            m_explain.compute_linear_explanation(1, &best_literal, m_lazy_clause);
+
+            for (auto l : m_lazy_clause) {
+                clause.push_back(l);
+            }
+            clause.push_back(~best_literal);
+
+            m_assignment.reset();
+            m_assignment.copy(tmp);
+            return l_false;
+        }
+
         lbool check(literal_vector& assumptions) {
             literal_vector result;
             unsigned sz = assumptions.size();
@@ -2402,7 +2478,7 @@ namespace nlsat {
             if (m_check_lemmas) {
                 TRACE(nlsat, tout << "Checking lazy clause with " << m_lazy_clause.size() << " literals:\n";
                       display(tout, m_lazy_clause.size(), m_lazy_clause.data()) << "\n";);
-                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), nullptr);
+                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), nullptr, &jst);
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
             
@@ -4399,6 +4475,10 @@ namespace nlsat {
         return m_imp->check(assumptions);
     }
 
+    lbool solver::check(assignment const& rvalues, literal_vector& clause) {
+        return m_imp->check(rvalues, clause);
+    }
+
     void solver::get_core(vector<assumption, false>& assumptions) {
         return m_imp->get_core(assumptions);
     }
@@ -4700,9 +4780,8 @@ namespace nlsat {
     assumption solver::join(assumption a, assumption b) {
         return (m_imp->m_asm.mk_join(static_cast<imp::_assumption_set>(a), static_cast<imp::_assumption_set>(b)));
     }
-
     bool solver::apply_levelwise() const { return m_imp->m_apply_lws; }
-
     unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
-
-};
+    bool solver::lws_witness_subs_lc() const { return m_imp->m_lws_witness_subs_lc; }
+    bool solver::lws_witness_subs_disc() const { return m_imp->m_lws_witness_subs_disc; }
+}

@@ -367,7 +367,7 @@ class arith_project_util {
                         cx = mk_mul(c, m_var->x());
                         cxt = mk_add(cx, t);
                         val = mdl(cxt);
-                        VERIFY(a.is_numeral(val, r));
+                        VERIFY(a.is_extended_numeral(val, r));
                         SASSERT(r > rational::zero() || r < rational::zero());
                         if (r > rational::zero()) {
                             c = -c;
@@ -473,7 +473,7 @@ class arith_project_util {
                 cx = mk_mul(c, m_var->x());
                 cxt = mk_add(cx, t);
                 val = mdl(cxt);
-                VERIFY(a.is_numeral(val, r));
+                VERIFY(a.is_extended_numeral(val, r));
 
                 if (is_eq) {
                     TRACE(qe, tout << "equality term\n";);
@@ -711,7 +711,7 @@ class arith_project_util {
             cx = mk_mul(m_coeffs[max_t], m_var->x());
             cxt = mk_add(cx, m_terms.get(max_t));
             val = mdl(cxt);
-            VERIFY(a.is_numeral(val, r));
+            VERIFY(a.is_extended_numeral(val, r));
 
             // get the offset from the smallest/largest possible value for x
             // literal      smallest/largest val of x
@@ -771,13 +771,13 @@ class arith_project_util {
         // evaluate x in mdl
         rational r_x;
         val = mdl(m_var->x());
-        VERIFY(a.is_numeral(val, r_x));
+        VERIFY(a.is_extended_numeral(val, r_x));
 
         for (unsigned i = 0; i < m_terms.size(); ++i) {
             rational const &ac = m_coeffs[i];
             if (!m_eq[i] && ac.is_pos() == do_pos) {
                 val = mdl(m_terms.get(i));
-                VERIFY(a.is_numeral(val, r));
+                VERIFY(a.is_extended_numeral(val, r));
                 r /= abs(ac);
                 // skip the literal if false in the model
                 if (do_pos) {
@@ -1148,6 +1148,7 @@ class arith_project_util {
                         expr_ref_vector const &lits) {
         app_ref_vector new_vars(m);
         expr_ref_vector result(lits);
+        model::scoped_model_completion _smc(mdl, true);
         for (unsigned i = 0; i < vars.size(); ++i) {
             app *v = vars.get(i);
             m_var = alloc(contains_app, m, v);
@@ -1182,6 +1183,12 @@ class arith_project_util {
     void operator()(model &mdl, app_ref_vector &vars, expr_ref &fml,
                     expr_map &map) {
         app_ref_vector new_vars(m);
+
+        // Variables to be projected may not be assigned in the model
+        // (e.g. grounded auxiliary variables that are don't-cares). Enable
+        // model completion so their evaluation yields concrete numerals,
+        // matching the behavior of the native MBP arith projector.
+        model::scoped_model_completion _smc(mdl, true);
 
         // factor out mod terms by introducing new variables
         TRACE(qe, tout << "before factoring out mod terms:" << "\n";

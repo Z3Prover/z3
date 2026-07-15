@@ -38,7 +38,6 @@ int vals[N];
 
 static void tst1() {
     int_set h1;
-    int size = 0;
     for (int i = 1; i < N; i ++) {
         int v = rand() % (N / 2);
         h1.insert(v);
@@ -92,7 +91,7 @@ static void tst2() {
             ENSURE(contains(h1, elem));
             n++;
         }
-        ENSURE(n == h1.size());
+        ENSURE(n == static_cast<int>(h1.size()));
     }
     ENSURE(h1.size() == h2.size());
     // std::cout << "size: " << h1.size() << ", capacity: " << h1.capacity() << "\n"; std::cout.flush();
@@ -194,7 +193,7 @@ void test_hashtable_iterators() {
     ht.insert(3);
     
     int count = 0;
-    for (const auto& elem : ht) {
+    for ([[maybe_unused]] const auto& elem : ht) {
         ++count;
     }
     VERIFY(count == 3);

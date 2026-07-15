@@ -258,5 +258,5 @@ namespace smt {
         return true;
     }
 
-};
+}
 

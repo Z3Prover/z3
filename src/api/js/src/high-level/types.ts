@@ -52,7 +52,8 @@ export type AnyExpr<Name extends string = 'main'> =
   | FPNum<Name>
   | FPRM<Name>
   | Seq<Name>
-  | Re<Name>;
+  | Re<Name>
+  | FiniteSet<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
@@ -331,6 +332,12 @@ export interface Context<Name extends string = 'main'> {
   isString(obj: unknown): obj is Seq<Name>;
 
   /** @category Functions */
+  isFiniteSetSort(obj: unknown): obj is FiniteSetSort<Name>;
+
+  /** @category Functions */
+  isFiniteSet(obj: unknown): obj is FiniteSet<Name>;
+
+  /** @category Functions */
   isProbe(obj: unknown): obj is Probe<Name>;
 
   /** @category Functions */
@@ -468,7 +475,15 @@ export interface Context<Name extends string = 'main'> {
   /** @category Expressions */
   readonly Set: SMTSetCreation<Name>;
   /** @category Expressions */
+  readonly FiniteSet: FiniteSetCreation<Name>;
+  /** @category Expressions */
   readonly Datatype: DatatypeCreation<Name>;
+
+  /**
+   * Create a type variable sort for use as a parameter in polymorphic datatypes.
+   * @category Sorts
+   */
+  TypeVariable(name: string): Sort<Name>;
 
   ////////////////
   // Operations //
@@ -919,12 +934,79 @@ export interface Context<Name extends string = 'main'> {
   mkPartialOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
 
   /**
+   * Create a linear (total) order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
+   * Create a piecewise linear order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkPiecewiseLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
+   * Create a tree order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkTreeOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
    * Create the transitive closure of a binary relation.
    * The resulting relation is recursive.
    * @param f A binary relation represented as a function declaration
    * @category Operations
    */
   mkTransitiveClosure(f: FuncDecl<Name>): FuncDecl<Name>;
+
+  /**
+   * Create a character literal from a Unicode code point.
+   * @param ch The Unicode code point
+   * @category Characters
+   */
+  mkChar(ch: number): Expr<Name>;
+
+  /**
+   * Create a character less-than-or-equal predicate (ch1 ≤ ch2).
+   * @param ch1 First character
+   * @param ch2 Second character
+   * @category Characters
+   */
+  mkCharLe(ch1: Expr<Name>, ch2: Expr<Name>): Bool<Name>;
+
+  /**
+   * Convert a character to its integer (Unicode code point) value.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharToInt(ch: Expr<Name>): Arith<Name>;
+
+  /**
+   * Convert a character to a bit-vector.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharToBV(ch: Expr<Name>): Expr<Name>;
+
+  /**
+   * Convert a bit-vector to a character.
+   * @param bv The bit-vector expression
+   * @category Characters
+   */
+  mkCharFromBV(bv: Expr<Name>): Expr<Name>;
+
+  /**
+   * Create a predicate that is true if the character is a decimal digit.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharIsDigit(ch: Expr<Name>): Bool<Name>;
 
   /**
    * Return the nonzero subresultants of p and q with respect to the "variable" x.
@@ -987,6 +1069,29 @@ export interface Solver<Name extends string = 'main'> {
 
   add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
 
+  /**
+   * Assert a constraint and associate it with a tracking literal (Boolean constant).
+   * This is the TypeScript equivalent of `assertAndTrack` in other Z3 language bindings.
+   *
+   * When the solver returns `unsat`, the tracked literals that contributed to
+   * unsatisfiability can be retrieved via {@link unsatCore}.
+   *
+   * @param expr - The Boolean expression to assert
+   * @param constant - A Boolean constant (or its name as a string) used as the tracking literal
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const p1 = Bool.const('p1');
+   * const p2 = Bool.const('p2');
+   * solver.addAndTrack(x.gt(0), p1);
+   * solver.addAndTrack(x.lt(0), p2);
+   * if (await solver.check() === 'unsat') {
+   *   const core = solver.unsatCore(); // contains p1 and p2
+   * }
+   * ```
+   */
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
 
   /**
@@ -1159,6 +1264,105 @@ export interface Solver<Name extends string = 'main'> {
   trail(): AstVector<Name, Bool<Name>>;
 
   /**
+   * Retrieve the decision levels for each literal in the solver's trail.
+   * The returned array has one entry per trail literal, indicating at which
+   * decision level it was assigned.
+   *
+   * @returns An array of numbers where element i is the decision level of the i-th trail literal
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * solver.add(x);
+   * await solver.check();
+   * const levels = solver.trailLevels();
+   * console.log('Trail levels:', levels);
+   * ```
+   */
+  trailLevels(): number[];
+
+  /**
+   * Extract cubes from the solver for cube-and-conquer parallel solving.
+   * Each call returns the next cube (conjunction of literals) from the solver.
+   * Returns an empty AstVector when the search space is exhausted.
+   *
+   * @param vars - Optional vector of variables to use as cube variables
+   * @param cutoff - Backtrack level cutoff for cube generation (default: 0xFFFFFFFF)
+   * @returns A promise resolving to an AstVector containing the cube literals
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.or(y));
+   * const cube = await solver.cube(undefined, 1);
+   * console.log('Cube length:', cube.length());
+   * ```
+   */
+  cube(vars?: AstVector<Name, Bool<Name>>, cutoff?: number): Promise<AstVector<Name, Bool<Name>>>;
+
+  /**
+   * Retrieve fixed assignments to a set of variables as consequences given assumptions.
+   * Each consequence is an implication: assumptions => variable = value.
+   *
+   * @param assumptions - Assumptions to use during consequence finding
+   * @param variables - Variables to find consequences for
+   * @returns A promise resolving to the status and a vector of consequence expressions
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.implies(y));
+   * const [status, consequences] = await solver.getConsequences([], [x, y]);
+   * ```
+   */
+  getConsequences(
+    assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[],
+    variables: Expr<Name>[],
+  ): Promise<[CheckSatResult, AstVector<Name, Bool<Name>>]>;
+
+  /**
+   * Solve constraints treating given variables symbolically, replacing their
+   * occurrences by terms. Guards condition the substitutions.
+   *
+   * @param variables - Variables to solve for
+   * @param terms - Substitution terms for the variables
+   * @param guards - Boolean guards for the substitutions
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const y = Int.const('y');
+   * solver.add(x.eq(y.add(1)));
+   * solver.solveFor([x], [y.add(1)], []);
+   * ```
+   */
+  solveFor(variables: Expr<Name>[], terms: Expr<Name>[], guards: Bool<Name>[]): void;
+
+  /**
+   * Set an initial value hint for a variable to guide the solver's search heuristics.
+   * This can improve performance when a good initial value is known.
+   *
+   * @param variable - The variable to set an initial value for
+   * @param value - The initial value for the variable
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * solver.setInitialValue(x, Int.val(42));
+   * solver.add(x.gt(0));
+   * await solver.check();
+   * ```
+   */
+  setInitialValue(variable: Expr<Name>, value: Expr<Name>): void;
+
+  /**
    * Retrieve the root of the congruence class containing the given expression.
    * This is useful for understanding equality reasoning in the solver.
    *
@@ -1264,11 +1468,51 @@ export interface Solver<Name extends string = 'main'> {
   toSmtlib2(status?: string): string;
 
   /**
+   * Convert the solver's Boolean formula to DIMACS CNF format.
+   *
+   * @param includeNames - If true, include variable names in the output (default: true)
+   * @returns A string containing the DIMACS CNF representation
+   */
+  dimacs(includeNames?: boolean): string;
+
+  /**
+   * Translate the solver to a different context.
+   * @param target - The target context
+   * @returns A new Solver instance in the target context
+   */
+  translate(target: Context<Name>): Solver<Name>;
+
+  /**
+   * Retrieve a proof of unsatisfiability after a check that returned 'unsat'.
+   * Requires proof production to be enabled.
+   * @returns An expression representing the proof, or null if unavailable
+   */
+  proof(): Expr<Name> | null;
+
+  /**
    * Manually decrease the reference count of the solver
    * This is automatically done when the solver is garbage collected,
    * but calling this eagerly can help release memory sooner.
    */
   release(): void;
+
+  /**
+   * Register a callback that is invoked when clauses are inferred during solving.
+   * The callback is called when a clause is:
+   * - asserted to the CDCL engine (input clause after pre-processing)
+   * - inferred by CDCL(T) using a SAT or theory conflict/propagation
+   * - deleted by the CDCL(T) engine
+   *
+   * Requires the Emscripten module to be passed to `createApi`.
+   *
+   * @param callback - Function called with:
+   *   - proofHint: optional proof hint expression (may be null)
+   *   - deps: array of clause dependency indices
+   *   - clause: the clause as a vector of literals
+   */
+  registerOnClause(
+    callback: (proofHint: Expr<Name> | null, deps: number[], clause: AstVector<Name, Bool<Name>>) => void,
+  ): void;
 }
 
 export interface Optimize<Name extends string = 'main'> {
@@ -1288,21 +1532,138 @@ export interface Optimize<Name extends string = 'main'> {
 
   addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id?: number | string): void;
 
+  /**
+   * Assert a constraint and associate it with a tracking literal (Boolean constant).
+   * This is the TypeScript equivalent of `assertAndTrack` in other Z3 language bindings.
+   *
+   * When the optimizer returns `unsat`, the tracked literals that contributed to
+   * unsatisfiability can be used to identify which constraints caused the conflict.
+   *
+   * @param expr - The Boolean expression to assert
+   * @param constant - A Boolean constant (or its name as a string) used as the tracking literal
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * const p1 = Bool.const('p1');
+   * const p2 = Bool.const('p2');
+   * opt.addAndTrack(x.gt(0), p1);
+   * opt.addAndTrack(x.lt(0), p2);
+   * const result = await opt.check(); // 'unsat'
+   * ```
+   */
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
 
   assertions(): AstVector<Name, Bool<Name>>;
 
   fromString(s: string): void;
 
-  maximize(expr: Arith<Name>): void;
+  /**
+   * Load SMT-LIB2 format assertions from a file into the optimizer.
+   *
+   * @param filename - Path to the file containing SMT-LIB2 format assertions
+   */
+  fromFile(filename: string): void;
 
-  minimize(expr: Arith<Name>): void;
+  /**
+   * Add a maximization objective.
+   * @param expr - The expression to maximize
+   * @returns A zero-based numeric handle index for this objective, used to retrieve bounds
+   *          via {@link getLower}/{@link getUpper} after calling {@link check}
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * opt.add(x.ge(0), x.le(10));
+   * const h = opt.maximize(x);
+   * await opt.check();
+   * console.log('Max x:', opt.getUpper(h).toString()); // '10'
+   * ```
+   */
+  maximize(expr: Arith<Name> | BitVec<number, Name>): number;
+
+  /**
+   * Add a minimization objective.
+   * @param expr - The expression to minimize
+   * @returns A zero-based numeric handle index for this objective, used to retrieve bounds
+   *          via {@link getLower}/{@link getUpper} after calling {@link check}
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * opt.add(x.ge(0), x.le(10));
+   * const h = opt.minimize(x);
+   * await opt.check();
+   * console.log('Min x:', opt.getLower(h).toString()); // '0'
+   * ```
+   */
+  minimize(expr: Arith<Name> | BitVec<number, Name>): number;
+
+  /**
+   * Retrieve the lower bound for the objective at the given handle index.
+   * Call this after {@link check} returns 'sat'.
+   * @param index - The handle index returned by {@link maximize} or {@link minimize}
+   */
+  getLower(index: number): Expr<Name>;
+
+  /**
+   * Retrieve the upper bound for the objective at the given handle index.
+   * Call this after {@link check} returns 'sat'.
+   * @param index - The handle index returned by {@link maximize} or {@link minimize}
+   */
+  getUpper(index: number): Expr<Name>;
+
+  /**
+   * Retrieve the unsat core after a check that returned 'unsat'.
+   * @returns An AstVector containing the subset of assumptions that caused UNSAT
+   */
+  unsatCore(): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Retrieve the set of objective expressions.
+   * @returns An AstVector containing the objectives
+   */
+  objectives(): AstVector<Name, Expr<Name>>;
+
+  /**
+   * Return a string describing why the last call to {@link check} returned 'unknown'.
+   */
+  reasonUnknown(): string;
+
+  /**
+   * Translate the optimize context to a different context.
+   * @param target - The target context
+   * @returns A new Optimize instance in the target context
+   */
+  translate(target: Context<Name>): Optimize<Name>;
 
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
 
   model(): Model<Name>;
 
   statistics(): Statistics<Name>;
+
+  /**
+   * Set an initial value hint for a variable to guide the optimizer's search heuristics.
+   * This can improve performance when a good initial value is known.
+   *
+   * @param variable - The variable to set an initial value for
+   * @param value - The initial value for the variable
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * opt.setInitialValue(x, Int.val(42));
+   * opt.add(x.gt(0));
+   * opt.maximize(x);
+   * await opt.check();
+   * ```
+   */
+  setInitialValue(variable: Expr<Name>, value: Expr<Name>): void;
 
   /**
    * Manually decrease the reference count of the optimize
@@ -1596,6 +1957,14 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
   sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
 
   /**
+   * Translate the model to a different context.
+   *
+   * @param target - The target context
+   * @returns A new model in the target context
+   */
+  translate(target: Context<Name>): Model<Name>;
+
+  /**
    * Manually decrease the reference count of the model
    * This is automatically done when the model is garbage collected,
    * but calling this eagerly can help release memory sooner.
@@ -1706,7 +2075,8 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | FPSort['__typename']
     | FPRMSort['__typename']
     | SeqSort['__typename']
-    | ReSort['__typename'];
+    | ReSort['__typename']
+    | FiniteSetSort['__typename'];
 
   kind(): Z3_sort_kind;
 
@@ -1835,7 +2205,8 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
     | Seq['__typename']
     | Re['__typename']
     | SMTArray['__typename']
-    | DatatypeExpr['__typename'];
+    | DatatypeExpr['__typename']
+    | FiniteSet['__typename'];
 
   get sort(): S;
 
@@ -2625,6 +2996,12 @@ export interface SMTArrayCreation<Name extends string> {
     domain: DomainSort,
     value: SortToExprMap<RangeSort, Name>,
   ): SMTArray<Name, [DomainSort], RangeSort>;
+
+  /**
+   * Create an array from a function declaration.
+   * The resulting array maps each input to the output of the function.
+   */
+  fromFunc(f: FuncDecl<Name>): SMTArray<Name>;
 }
 
 export type NonEmptySortArray<Name extends string = 'main'> = [Sort<Name>, ...Array<Sort<Name>>];
@@ -2741,6 +3118,60 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
 }
 //////////////////////////////////////////
 //
+// Finite Sets
+//
+//////////////////////////////////////////
+
+/**
+ * Represents a finite set sort
+ *
+ * @typeParam ElemSort The sort of elements in the finite set
+ * @category Finite Sets
+ */
+export interface FiniteSetSort<Name extends string = 'main', ElemSort extends Sort<Name> = Sort<Name>>
+  extends Sort<Name> {
+  readonly __typename: 'FiniteSetSort';
+  /** Returns the element sort of this finite set sort */
+  elemSort(): ElemSort;
+}
+
+/** @category Finite Sets */
+export interface FiniteSetCreation<Name extends string> {
+  sort<ElemSort extends Sort<Name>>(elemSort: ElemSort): FiniteSetSort<Name, ElemSort>;
+
+  const<ElemSort extends Sort<Name>>(name: string, elemSort: ElemSort): FiniteSet<Name, ElemSort>;
+
+  consts<ElemSort extends Sort<Name>>(names: string | string[], elemSort: ElemSort): FiniteSet<Name, ElemSort>[];
+
+  empty<ElemSort extends Sort<Name>>(sort: ElemSort): FiniteSet<Name, ElemSort>;
+
+  singleton<ElemSort extends Sort<Name>>(elem: Expr<Name>): FiniteSet<Name, ElemSort>;
+
+  range(low: Expr<Name>, high: Expr<Name>): FiniteSet<Name, Sort<Name>>;
+}
+
+/**
+ * Represents a finite set expression
+ *
+ * @typeParam ElemSort The sort of elements in the finite set
+ * @category Finite Sets
+ */
+export interface FiniteSet<Name extends string = 'main', ElemSort extends Sort<Name> = Sort<Name>>
+  extends Expr<Name, FiniteSetSort<Name, ElemSort>, Z3_ast> {
+  readonly __typename: 'FiniteSet';
+
+  union(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  intersect(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  diff(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  contains(elem: Expr<Name>): Bool<Name>;
+  size(): Expr<Name>;
+  subsetOf(other: FiniteSet<Name, ElemSort>): Bool<Name>;
+  map(f: Expr<Name>): FiniteSet<Name, Sort<Name>>;
+  filter(f: Expr<Name>): FiniteSet<Name, ElemSort>;
+}
+
+//////////////////////////////////////////
+//
 // Datatypes
 //
 //////////////////////////////////////////
@@ -2778,6 +3209,15 @@ export interface Datatype<Name extends string = 'main'> {
    * For mutually recursive datatypes, use Context.createDatatypes instead.
    */
   create(): DatatypeSort<Name>;
+
+  /**
+   * Create a polymorphic datatype sort with explicit type parameters.
+   * Type parameters should be sorts created with Context.TypeVariable.
+   * Self-recursive fields may reference this Datatype object directly.
+   *
+   * @param typeParams Array of type variable sorts
+   */
+  createPolymorphic(typeParams: AnySort<Name>[]): DatatypeSort<Name>;
 }
 
 /**
@@ -2796,6 +3236,17 @@ export interface DatatypeCreation<Name extends string> {
    * @returns Array of created DatatypeSort instances
    */
   createDatatypes(...datatypes: Datatype<Name>[]): DatatypeSort<Name>[];
+
+  /**
+   * Create a single polymorphic datatype sort with explicit type parameters.
+   * Type parameters should be sorts created with Context.TypeVariable.
+   * Self-recursive fields in constructors may reference the Datatype object directly.
+   *
+   * @param typeParams Array of type variable sorts
+   * @param datatype Datatype declaration with constructors
+   * @returns Created DatatypeSort instance
+   */
+  createPolymorphicDatatype(typeParams: AnySort<Name>[], datatype: Datatype<Name>): DatatypeSort<Name>;
 }
 
 /**
@@ -3054,6 +3505,12 @@ export interface FP<Name extends string = 'main'> extends Expr<Name, FPSort<Name
 
   /** @category Predicates */
   isPositive(): Bool<Name>;
+
+  /** @category Conversion */
+  toIEEEBV(): BitVec<number, Name>;
+
+  /** @category Conversion */
+  toReal(): Arith<Name>;
 }
 
 /**
@@ -3119,6 +3576,16 @@ export interface StringCreation<Name extends string> {
    * Create a string value
    */
   val(value: string): Seq<Name>;
+
+  /**
+   * Create a single-character string from a Unicode code point (str.from_code).
+   */
+  fromCode(code: Arith<Name> | number | bigint): Seq<Name>;
+
+  /**
+   * Convert an integer expression to its string representation (int.to.str).
+   */
+  fromInt(n: Arith<Name> | number | bigint): Seq<Name>;
 }
 
 /** @category String/Sequence */
@@ -3193,6 +3660,60 @@ export interface Seq<Name extends string = 'main', ElemSort extends Sort<Name> =
 
   /** @category Operations */
   replaceAll(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  replaceRe(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  replaceReAll(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /**
+   * Convert a string to its integer value (str.to.int).
+   * @category Operations
+   */
+  toInt(): Arith<Name>;
+
+  /**
+   * Convert a single-character string to its Unicode code point (str.to_code).
+   * @category Operations
+   */
+  toCode(): Arith<Name>;
+
+  /**
+   * String less-than comparison (str.lt).
+   * @category Operations
+   */
+  lt(other: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /**
+   * String less-than-or-equal comparison (str.le).
+   * @category Operations
+   */
+  le(other: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /**
+   * Apply function f to each element of the sequence (seq.map).
+   * @category Operations
+   */
+  map(f: Expr<Name>): Seq<Name>;
+
+  /**
+   * Apply function f to each element and its index in the sequence (seq.mapi).
+   * @category Operations
+   */
+  mapi(f: Expr<Name>, i: Arith<Name> | number | bigint): Seq<Name>;
+
+  /**
+   * Left-fold function f over the sequence with initial accumulator a (seq.foldl).
+   * @category Operations
+   */
+  foldl(f: Expr<Name>, a: Expr<Name>): Expr<Name>;
+
+  /**
+   * Left-fold function f with index over the sequence with initial accumulator a (seq.foldli).
+   * @category Operations
+   */
+  foldli(f: Expr<Name>, i: Arith<Name> | number | bigint, a: Expr<Name>): Expr<Name>;
 }
 
 ///////////////////////

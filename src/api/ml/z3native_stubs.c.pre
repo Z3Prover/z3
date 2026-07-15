@@ -476,3 +476,71 @@ CAMLprim DLL_PUBLIC value n_mk_config() {
   /* cleanup and return */
   CAMLreturn(result);
 }
+
+/* on_clause callback infrastructure */
+
+typedef struct {
+  value callback;    /* OCaml callback closure, registered as global root */
+  Z3_context_plus cp; /* solver's context, for wrapping AST values */
+} ml_on_clause_ctx;
+
+static void caml_ml_on_clause_eh(void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals) {
+  CAMLparam0();
+  CAMLlocal5(cb, ph_opt, deps_cons, lv, cell);
+  CAMLlocal1(ast_v);
+  unsigned i;
+  ml_on_clause_ctx* oc;
+  Z3_context_plus cp;
+
+  oc = (ml_on_clause_ctx*)ctx;
+  cb = oc->callback;
+  cp = oc->cp;
+
+  /* Build proof_hint as OCaml ast option */
+  if (proof_hint == NULL) {
+    ph_opt = Val_int(0); /* None */
+  } else {
+    ast_v = caml_alloc_custom_mem(&Z3_ast_plus_custom_ops, sizeof(Z3_ast_plus), 8);
+    *(Z3_ast_plus*)Data_custom_val(ast_v) = Z3_ast_plus_mk(cp, proof_hint);
+    ph_opt = caml_alloc_small(1, 0); /* Some */
+    Field(ph_opt, 0) = ast_v;
+  }
+
+  /* Build deps as OCaml int list, constructed right-to-left */
+  deps_cons = Val_int(0); /* [] */
+  for (i = n; i-- > 0; ) {
+    cell = caml_alloc_small(2, 0);
+    Field(cell, 0) = Val_int((int)deps[i]);
+    Field(cell, 1) = deps_cons;
+    deps_cons = cell;
+  }
+
+  /* Create literals as ast_vector OCaml value */
+  lv = caml_alloc_custom_mem(&Z3_ast_vector_plus_custom_ops, sizeof(Z3_ast_vector_plus), 32);
+  *(Z3_ast_vector_plus*)Data_custom_val(lv) = Z3_ast_vector_plus_mk(cp, literals);
+
+  caml_callback3(cb, ph_opt, deps_cons, lv);
+
+  CAMLreturn0;
+}
+
+CAMLprim DLL_PUBLIC value n_solver_register_on_clause(value ctx_v, value solver_v, value cb_v) {
+  CAMLparam3(ctx_v, solver_v, cb_v);
+  Z3_context_plus cp;
+  Z3_solver_plus* sp;
+  ml_on_clause_ctx* oc;
+
+  cp = *(Z3_context_plus*)Data_custom_val(ctx_v);
+  sp = (Z3_solver_plus*)Data_custom_val(solver_v);
+
+  oc = (ml_on_clause_ctx*)malloc(sizeof(ml_on_clause_ctx));
+  if (!oc) caml_raise_out_of_memory();
+
+  oc->callback = cb_v;
+  oc->cp = cp;
+  caml_register_global_root(&oc->callback);
+
+  Z3_solver_register_on_clause(cp->ctx, sp->p, (void*)oc, caml_ml_on_clause_eh);
+
+  CAMLreturn(Val_unit);
+}

@@ -106,6 +106,6 @@ namespace datalog {
         obj_map<func_decl, func_decl*> const& get_predicates() { return m_predicates; }
     };
 
-};
+}
 
 

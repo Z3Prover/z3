@@ -26,9 +26,9 @@ class mbp_tg_plugin {
 public:
     // iterate through all terms in m_tg and apply all theory MBP rules once
     // returns true if any rules were applied
-    virtual bool apply() { return false; };
+    virtual bool apply() { return false; }
     virtual ~mbp_tg_plugin() = default;
-    virtual void use_model() { };
-    virtual void get_new_vars(app_ref_vector*&) { };
-    virtual family_id get_family_id() const { return null_family_id; };
+    virtual void use_model() { }
+    virtual void get_new_vars(app_ref_vector*&) { }
+    virtual family_id get_family_id() const { return null_family_id; }
 };
