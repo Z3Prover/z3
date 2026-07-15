@@ -6339,7 +6339,14 @@ namespace seq {
         for (auto const& mem : node.str_mems()) {
             if (!mem.is_primitive())
                 continue;
-            if (mem.m_str->first() != var)
+            // Compare by expression, not snode pointer: the sgraph may hold
+            // several distinct snode objects for the same hash-consed
+            // expression (seq_model passes a snode re-created from the
+            // substitution tree).  A pointer mismatch would silently drop the
+            // variable's view/plain components here, and product_witness's
+            // empty-tuple fast path would then fabricate an unconstrained
+            // filler word resulting in an invalid model.
+            if (mem.m_str->first()->get_expr() != var->get_expr())
                 continue;
             switch (mem.m_kind) {
             case mem_kind::plain:
