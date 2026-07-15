@@ -20,6 +20,9 @@ Revision History:
 #include <numeric>
 #include <sstream>
 #include <iomanip>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 #include "util/mpz.h"
 #include "util/buffer.h"
 #include "util/trace.h"
@@ -36,7 +39,7 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
     __int64 high;
     result = _mul128(a, b, &high);
     // Overflow if high bits are not the sign extension of result
-    return high != (result >> 63);
+    return high != (result < 0 ? -1 : 0);
 #elif defined(_MSC_VER)
     // Extract magnitudes without ever evaluating -INT64_MIN.
     uint64_t x = a < 0 ? static_cast<uint64_t>(-(a + 1)) + 1 : static_cast<uint64_t>(a);
