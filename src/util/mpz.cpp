@@ -38,25 +38,17 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
     // Overflow if high bits are not the sign extension of result
     return high != (result >> 63);
 #elif defined(_MSC_VER)
-    if (a > 0) {
-        if (b > 0) {
-            if (a > INT64_MAX / b)
-                return true;
-        }
-        else if (b < INT64_MIN / a) {
-            return true;
-        }
-    }
-    else if (a < 0) {
-        if (b > 0) {
-            if (a < INT64_MIN / b)
-                return true;
-        }
-        else if (b < 0 && b < INT64_MAX / a) {
-            return true;
-        }
-    }
-    result = a * b;
+    uint64_t x = a < 0 ? static_cast<uint64_t>(-(a + 1)) + 1 : static_cast<uint64_t>(a);
+    uint64_t y = b < 0 ? static_cast<uint64_t>(-(b + 1)) + 1 : static_cast<uint64_t>(b);
+    bool is_neg = (a < 0) != (b < 0);
+    uint64_t limit = is_neg ? (uint64_t{1} << 63) : static_cast<uint64_t>(INT64_MAX);
+    if (x != 0 && y > limit / x)
+        return true;
+    uint64_t magnitude = x * y;
+    if (is_neg)
+        result = magnitude == (uint64_t{1} << 63) ? INT64_MIN : -static_cast<int64_t>(magnitude);
+    else
+        result = static_cast<int64_t>(magnitude);
     return false;
 #else
     static_assert(false);
