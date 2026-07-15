@@ -161,7 +161,9 @@ namespace seq {
     // decompose a membership constraint into a set of pairs of regex splits.
     // Eagerly materialises the full split-set (used by the eager propagation path
     // in theory_nseq::propagate_pos_mem); the lazy Nielsen path uses rf_state.
-    std::pair<euf::snode const*, euf::snode const*> split_membership(euf::snode const* str, euf::snode const* regex, euf::sgraph& sg, unsigned threshold, split_set& result);
+    // `rw` is the caller's persistent split engine (constructing a seq_rewriter
+    // per call is expensive).
+    std::pair<euf::snode const*, euf::snode const*> split_membership(euf::snode const* str, euf::snode const* regex, euf::sgraph& sg, seq_rewriter& rw, unsigned threshold, split_set& result);
 
     // Lookahead oracle for the split engine: is the split's right component
     // `n_regex` prefix-compatible with the constant character sequence `c`?
@@ -909,7 +911,12 @@ namespace seq {
         arith_util                    a;
         seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
-        th_rewriter                   m_rw;
+        // Shared rewriter for all hot paths (arith normalization, leaf
+        // canonicalization, divisibility rewriting).  Constructing a fresh
+        // th_rewriter allocates the full rewriter core — never do that per
+        // call inside search/simplify loops; use this member (mutable so
+        // const helpers like mk_rewrite can canonicalize).
+        mutable th_rewriter           m_rw;
         arith_rewriter                m_a_rw;
         skolem                        m_sk;
         ptr_vector<nielsen_node>      m_nodes;
@@ -951,6 +958,17 @@ namespace seq {
         // Set to true after assert_root_constraints_to_solver() is first called.
         bool                          m_root_constraints_asserted = false;
 
+        // Number of root-node constraints already asserted into the sub-solver.
+        // Root assertions live at the solver's BASE level, which is never popped
+        // between deepening iterations (nor across hot restarts until the solver
+        // itself is reset), so re-asserting the prefix on every search_dfs(root)
+        // entry would permanently burn one assumption literal + kernel clause
+        // per constraint per iteration (sub_solver::assert_expr), growing every
+        // subsequent check().  Maintained by assert_node_side_constraints; reset
+        // together with the sub-solver (reset / reset_length_solver).  mutable:
+        // assert_node_side_constraints is const.
+        mutable unsigned              m_root_ic_asserted = 0;
+
         // Parikh image filter: generates modular length constraints from regex
         // memberships.  Allocated in the constructor; owned by this graph.
         seq_parikh*                   m_parikh = nullptr;
@@ -964,6 +982,13 @@ namespace seq {
         // suspended split iterators stored in m_rf_states stay valid across
         // search_dfs recursion and iterative deepening.
         seq_rewriter            m_split_rw;
+        // Dedicated seq_rewriter for reverse Brzozowski derivatives (backward
+        // character consumption in simplify_and_init).  Kept separate from
+        // m_split_rw so derivative calls are never interleaved with the
+        // suspended split iterators that reference that engine, and reused
+        // across calls (a fresh seq_rewriter per consumed character was a
+        // dominant simplification cost).
+        seq_rewriter            m_deriv_rw;
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
@@ -1158,6 +1183,17 @@ namespace seq {
         // hashing convention).  Sets ok=false if the term still contains an nseq-internal
         // skolem that cannot be represented (e.g. a power token); the node is then skipped.
         expr_ref clean_harvest_expr(expr* e, bool& ok);
+
+        // Reset the arithmetic sub-solver together with the graph-side
+        // bookkeeping that tracks what has been asserted into it (the root
+        // constraints asserted at its base level).  Callers must use this
+        // instead of resetting the sub-solver directly — otherwise the next
+        // search would skip re-asserting the root constraints into the fresh
+        // solver (see m_root_ic_asserted).
+        void reset_length_solver() {
+            m_length_solver.reset();
+            m_root_ic_asserted = 0;
+        }
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;

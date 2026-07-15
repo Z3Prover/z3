@@ -40,7 +40,9 @@ namespace smt {
         m_axioms(m_th_rewriter),
         m_regex(m_sg),
         m_model(m, ctx, m_seq, m_rewriter, m_sg),
-        m_relevant_lengths(m)
+        m_relevant_lengths(m),
+        m_gradient_pin(m),
+        m_nonneg_cache(m)
     {
         std::function<void(expr_ref_vector const&)> add_clause =
             [&](expr_ref_vector const &clause) {
@@ -84,8 +86,14 @@ namespace smt {
         m_axioms.set_ensure_digits(ensure_digit_axiom);
         m_axioms.set_mark_no_diseq(mark_no_diseq);
 
-        m_context_solver.m_should_internalize = true; // delete this if using internalize as fallback
-       
+        // m_should_internalize stays false by default: with it permanently on,
+        // literal_if_false internalized EVERY side constraint of EVERY explored
+        // DFS node into the main context (bool vars/enodes/arith atoms for
+        // branches that are immediately backtracked, never reclaimed within the
+        // search).  Internalization is instead escalated lazily by
+        // add_nielsen_assumptions when a SAT-leaf assumption turns out false —
+        // the retry loop there re-solves with internalization enabled, and
+        // literal_if_false then rejects the stale leaf via an external conflict.
     }
 
     // -----------------------------------------------------------------------
@@ -706,7 +714,7 @@ namespace smt {
             const unsigned threshold = get_fparams().m_nseq_regex_factorization_threshold;
 
             split_set pairs;
-            auto [head, tail] = seq::split_membership(mem.m_str, mem.m_regex, m_sg, threshold, pairs);
+            auto [head, tail] = seq::split_membership(mem.m_str, mem.m_regex, m_sg, m_rewriter, threshold, pairs);
 
             if (!head) {
                 // gave up
@@ -846,7 +854,7 @@ namespace smt {
                 m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
                 ++num_eqs;
             }
-            if (std::holds_alternative<deq_item>(item)) {
+            else if (std::holds_alternative<deq_item>(item)) {
                 SASSERT(!get_fparams().m_nseq_axiomatize_diseq);
                 auto const& deq = std::get<deq_item>(item);
                 m_nielsen.add_str_deq(deq.m_lhs, deq.m_rhs, deq.lit);
@@ -992,7 +1000,10 @@ namespace smt {
                     }
                 }
                 m_nielsen.clear_sat_node();
-                m_length_solver.reset();
+                // resets the sub-solver AND the graph's root-assertion watermark
+                // (the next search must re-assert the root constraints into the
+                // fresh solver)
+                m_nielsen.reset_length_solver();
             }
             else {
                 // let's rebuild the whole Nielsen graph
@@ -1367,20 +1378,44 @@ namespace smt {
 #endif
     }
 
-    void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) const {
+    void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
         TRACE(seq, tout << "nseq conflict: " << eqs.size() << " eqs, " << lits.size() << " lits\n";
               for (auto lit : lits) tout << ctx.literal2expr(lit) << "\n";
               for (auto [a, b] : eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
         );
 
-        SASSERT(std::ranges::all_of(eqs, [&](auto& eq) { return eq.first->get_root() == eq.second->get_root(); }));
+        // The premises are normally all on the trail (lits true, eqs merged).
+        // After a hot restart, however, a retained (general) conflict node may
+        // cite an OUTER arithmetic bound literal that has been retracted since
+        // it was recorded: the pop tracking (m_last_constraint_added) only
+        // covers string constraints, while bound literals enter conflict deps
+        // through the context-solver queries in simplification (upper/lower
+        // bound, check_lp_le).  The derived lemma is still valid — the cited
+        // premises entail false regardless of the current assignment — but an
+        // eager conflict justification requires every premise on the trail, so
+        // fall back to asserting the clause as a theory axiom in that case
+        // (mirrors set_propagate).
+        const bool all_on_trail =
+            all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; }) &&
+            std::ranges::all_of(eqs, [&](auto& eq) { return eq.first->get_root() == eq.second->get_root(); });
 
-        SASSERT(all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; }));
+        if (all_on_trail) {
+            ctx.set_conflict(
+                ctx.mk_justification(
+                    ext_theory_conflict_justification(
+                        get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
+            return;
+        }
 
-        ctx.set_conflict(
-            ctx.mk_justification(
-                ext_theory_conflict_justification(
-                    get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
+        TRACE(seq, tout << "nseq conflict cites retracted premises; asserting as theory axiom\n");
+        literal_vector clause;
+        for (literal lit : lits)
+            clause.push_back(~lit);
+        for (auto [a, b] : eqs)
+            clause.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+        for (auto lit : clause)
+            ctx.mark_as_relevant(lit);
+        ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
     }
 
     void theory_nseq::set_propagate(enode_pair_vector const& eqs, literal_vector const& lits, literal p) {
@@ -1702,15 +1737,26 @@ namespace smt {
     }
 
     bool theory_nseq::assert_nonneg_for_all_vars() {
-        arith_util arith(m);
         bool new_axiom = false;
         unsigned nv = get_num_vars();
+        // This runs on every final_check over ALL theory vars; cache the
+        // (>= (str.len e) 0) formula per var index.  Theory-var indices are
+        // recycled across pops, so validate the cached entry against the
+        // enode's expr: the pinned formula keeps its subterm alive, hence an
+        // equal pointer is necessarily the same (hash-consed) expr.
+        if (m_nonneg_key.size() < nv) {
+            m_nonneg_key.resize(nv, nullptr);
+            m_nonneg_cache.resize(nv);
+        }
         for (unsigned v = 0; v < nv; ++v) {
             expr* e = get_enode(v)->get_expr();
             if (!m_seq.is_seq(e))
                 continue;
-            expr_ref len_var(m_seq.str.mk_length(e), m);
-            expr_ref ge_zero(arith.mk_ge(len_var, arith.mk_int(0)), m);
+            if (m_nonneg_key[v] != e) {
+                m_nonneg_key[v] = e;
+                m_nonneg_cache.set(v, m_autil.mk_ge(m_seq.str.mk_length(e), m_autil.mk_int(0)));
+            }
+            expr* ge_zero = m_nonneg_cache.get(v);
             if (!ctx.b_internalized(ge_zero))
                 ctx.internalize(ge_zero, true);
             literal lit = ctx.get_literal(ge_zero);
@@ -2078,8 +2124,12 @@ namespace smt {
             unsigned g = 1;
             if (m_gradient_cache.contains(s))
                 g = m_gradient_cache[s];
-            else
+            else {
                 m_gradient_cache.insert(s, 1);
+                // the cache is not trailed; pin the key so it cannot dangle
+                // after a pop releases the term (see m_gradient_pin)
+                m_gradient_pin.push_back(s);
+            }
 
             expr_ref allchar(m_seq.re.mk_full_char(m_seq.re.mk_re(m_sg.get_str_sort())), m);
             expr_ref l_expr(m_autil.mk_int(l), m);

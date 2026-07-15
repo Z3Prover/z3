@@ -65,6 +65,18 @@ namespace smt {
         hashtable<literal, obj_hash<literal>, default_eq<literal>>    m_ignored_mem;     // track membership constraints that should not be passed to Nielsen
         expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant
         obj_map<expr, unsigned> m_gradient_cache;
+        // Pins the keys of m_gradient_cache: the cache is deliberately not
+        // trailed (the gradient escalation must survive backtracking), so its
+        // expr* keys would otherwise dangle once a pop releases the length
+        // argument.  Grows monotonically, bounded by the number of distinct
+        // length-relevant terms.
+        expr_ref_vector         m_gradient_pin;
+        // assert_nonneg_for_all_vars cache: per theory var v, the enode expr
+        // the entry was built for (m_nonneg_key, validated by pointer — safe
+        // because the pinned ge-expr keeps its subterm alive, so an equal
+        // pointer is the same expr) and the pinned (>= (str.len e) 0) formula.
+        ptr_vector<expr>        m_nonneg_key;
+        expr_ref_vector         m_nonneg_cache;
         sat::literal_vector     m_nielsen_literals;   // literals created by a Nilsen check
         sat::literal            m_assumption_lit;     // literal used as assumption to bound search to selected literal assignments
         unsigned                m_max_unfolding_depth = 0;
@@ -93,10 +105,6 @@ namespace smt {
         unsigned m_num_sat_revalidations = 0;   // times the cached SAT path was reused instead of rebuilding
         unsigned m_num_length_axioms    = 0;
         bool     m_digits_initialized   = false;
-
-        // map from context enode to private sgraph snode
-        obj_map<expr, euf::snode*> m_expr2snode;
-
 
         // higher-order terms (seq.map, seq.mapi, seq.foldl, seq.foldli)
         ptr_vector<app>  m_ho_terms;
@@ -151,7 +159,11 @@ namespace smt {
         // literals so the SAT solver tries a different one.  Returns false if there
         // is nothing to block (empty clause).  Intentionally unsound.
         bool block_current_assignment();
-        void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) const;
+        // Not const: when a cited premise is no longer on the trail (a hot
+        // restart can retain conflicts citing since-retracted outer bound
+        // literals), the conflict falls back to a theory-axiom clause, which
+        // internalizes equalities via mk_eq.
+        void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
         void set_conflict(literal_vector const& lits) {
             const enode_pair_vector eqs;
             set_conflict(eqs, lits);

@@ -58,12 +58,13 @@ namespace seq {
         }
     }
 
-    // Normalize an arithmetic expression using th_rewriter.
+    // Normalize an arithmetic expression using the caller's th_rewriter.
     // Simplifies e.g. (n - 1 + 1) to n, preventing unbounded growth
-    // of power exponents during unwind/merge cycles.
-    static expr_ref normalize_arith(ast_manager &m, expr *e) {
-        expr_ref result(e, m);
-        th_rewriter rw(m);
+    // of power exponents during unwind/merge cycles.  Takes the rewriter as
+    // an argument (nielsen_graph::m_rw) — constructing a th_rewriter per
+    // call is far too expensive for these hot paths.
+    static expr_ref normalize_arith(th_rewriter &rw, expr *e) {
+        expr_ref result(e, rw.m());
         rw(result);
         return result;
     }
@@ -126,7 +127,7 @@ namespace seq {
         SASSERT(head && tail);
     }
 
-    std::pair<euf::snode const*, euf::snode const*> split_membership(euf::snode const *str, euf::snode const *regex, euf::sgraph& sg, unsigned threshold, split_set& result) {
+    std::pair<euf::snode const*, euf::snode const*> split_membership(euf::snode const *str, euf::snode const *regex, euf::sgraph& sg, seq_rewriter& rw, unsigned threshold, split_set& result) {
         ast_manager& m = sg.get_manager();
         euf::snode const* head;
         euf::snode const* tail;
@@ -140,7 +141,6 @@ namespace seq {
         // Decompose the regex into a split-set via the shared seq_split engine
         // (sigma from the paper): head ∈ Δ ∧ tail ∈ ∇ for each ⟨Δ,∇⟩, with the
         // lookahead oracle pruning non-viable ∇ during generation.
-        seq_rewriter rw(m);
         // "strong" might cause explosive behavior; better do this only in the saturation
         if (!rw.split(regex->get_expr(), result, threshold, split_mode::weak, oracle)) {
             result.clear();
@@ -283,12 +283,15 @@ namespace seq {
 
     // Right-derivative helper used by backward str_mem simplification:
     // dR(re, c) = reverse( derivative(c, reverse(re)) ).
-    static euf::snode const* reverse_brzozowski_deriv(euf::sgraph &sg, euf::snode const* re, euf::snode const* elem) {
+    // Takes the caller's persistent rewriters (nielsen_graph::m_deriv_rw /
+    // m_rw): this runs once per consumed suffix character, and constructing
+    // a seq_rewriter + th_rewriter per call dominated the simplification cost.
+    static euf::snode const* reverse_brzozowski_deriv(euf::sgraph &sg, seq_rewriter &rw, th_rewriter &tr,
+                                                      euf::snode const* re, euf::snode const* elem) {
         if (!re || !elem || !re->get_expr() || !elem->get_expr())
             return nullptr;
         ast_manager &m = sg.get_manager();
         seq_util &seq = sg.get_seq_util();
-        seq_rewriter rw(m);
 
         expr *elem_expr = elem->get_expr();
         expr *ch = nullptr;
@@ -300,7 +303,6 @@ namespace seq {
         if (!d.get())
             return nullptr;
         expr_ref result(seq.re.mk_reverse(d), m);
-        th_rewriter tr(m);
         tr(result);
         return sg.mk(result);
     }
@@ -380,6 +382,13 @@ namespace seq {
             // state — the view denotes ∅ regardless of the remaining string.
             if (m_regex->is_full_seq() && m_regex != m_root)
                 return true;
+            // An unresolved symbolic residual (ite / non-ground state, produced
+            // by consume_view stepping over a symbolic unit) is not a settled
+            // state: apply_regex_if_split may still resolve it to m_root, so no
+            // ε-verdict is possible yet.  (The plain branch below is guarded
+            // the same way implicitly: re_nullable is l_undef on such states.)
+            if (!m_regex->is_ground() || m_regex->kind() == euf::snode_kind::s_ite)
+                return false;
             // ε ∉ view when current state ≢ acceptance s
             return m_str->is_empty() && m_regex != m_root;
         }
@@ -574,6 +583,16 @@ namespace seq {
             }
             return;
         }
+        // Exprs are hash-consed, so pointer equality identifies duplicates.
+        // The bound queries in simplify_and_init (upper_bound/lower_bound via
+        // add_le_dependency) re-derive the same formula on every fixpoint
+        // sweep and on every re-simplification epoch; without this check the
+        // duplicates accumulate and each copy is re-asserted to the subsolver.
+        // Keeping the FIRST dep is sound: any recorded dep set entails its
+        // constraint, independently of the current outer assignment.
+        if (std::ranges::any_of(m_constraints,
+            [&](constraint const& e) { return e.fml.get() == c.fml.get(); }))
+            return;
         m_simplify_stamp = 0;
         m_constraints.push_back(c);
     }
@@ -757,7 +776,8 @@ namespace seq {
     nielsen_graph::nielsen_graph(euf::sgraph &sg, sub_solver_i &solver, context_solver_i &ctx_solver) :
         m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_a_rw(m),
         m_sk(m, m_rw), m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
-        m_seq_regex(alloc(seq::seq_regex, sg)), m_split_rw(sg.get_manager()), m_partial_dfa_pin(sg.get_manager()) {
+        m_seq_regex(alloc(seq::seq_regex, sg)), m_split_rw(sg.get_manager()), m_deriv_rw(sg.get_manager()),
+        m_partial_dfa_pin(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -861,6 +881,7 @@ namespace seq {
         m_depth_bound = 0;
         m_fresh_cnt = 0;
         m_root_constraints_asserted = false;
+        m_root_ic_asserted = 0;    // paired with the m_length_solver.reset() below
         // m_mod_cnt.reset();
         m_partial_dfa_edges.reset();
         m_partial_dfa_out.clear();
@@ -959,7 +980,7 @@ namespace seq {
     //          power(c^e) · char(c) → power(c^(e+1)),
     //          power(c^e1) · power(c^e2) → power(c^(e1+e2)).
     // Returns new snode if merging happened, nullptr otherwise.
-    static euf::snode const* merge_adjacent_powers(euf::sgraph& sg, euf::snode const* side) {
+    static euf::snode const* merge_adjacent_powers(euf::sgraph& sg, th_rewriter& rw, euf::snode const* side) {
         if (!side || side->is_empty() || side->is_token())
             return nullptr;
 
@@ -1026,7 +1047,7 @@ namespace seq {
                 }
                 if (local_merged) {
                     merged = true;
-                    expr_ref norm_exp = normalize_arith(m, exp_acc);
+                    expr_ref norm_exp = normalize_arith(rw, exp_acc);
                     expr_ref new_pow(seq.str.mk_power(base_e, norm_exp), m);
                     result.push_back(sg.mk(new_pow));
                 }
@@ -1064,7 +1085,7 @@ namespace seq {
                         break;
                     }
                     merged = true;
-                    expr_ref norm_exp = normalize_arith(m, exp_acc);
+                    expr_ref norm_exp = normalize_arith(rw, exp_acc);
                     expr_ref new_pow(seq.str.mk_power(base_e, norm_exp), m);
                     result.push_back(sg.mk(new_pow));
                     i = j;
@@ -1549,8 +1570,7 @@ namespace seq {
             // predicate is not internalized automatically (see the analogous
             // gradient propagation in theory_nseq).
             expr_ref div(a.mk_divides(a.mk_int(stride), a.mk_sub(len, a.mk_int(min_len))), m);
-            th_rewriter rw(m);
-            rw(div);
+            m_rw(div);
             e->add_side_constraint(mk_constraint(div, dep));
         }
     }
@@ -1765,9 +1785,9 @@ namespace seq {
                     continue;
 
                 // 3b: merge adjacent same-base tokens into combined powers
-                if (euf::snode const* s = merge_adjacent_powers(sg, eq.m_lhs))
+                if (euf::snode const* s = merge_adjacent_powers(sg, m_graph.m_rw, eq.m_lhs))
                     { eq.m_lhs = s; changed = true; }
-                if (euf::snode const* s = merge_adjacent_powers(sg, eq.m_rhs))
+                if (euf::snode const* s = merge_adjacent_powers(sg, m_graph.m_rw, eq.m_rhs))
                     { eq.m_rhs = s; changed = true; }
 
                 // 3c: CommPower-based power elimination — when one side starts
@@ -1803,7 +1823,7 @@ namespace seq {
                         if (!count.get() || consumed == 0)
                             continue;
 
-                        expr_ref norm_count = normalize_arith(m, count);
+                        expr_ref norm_count = normalize_arith(m_graph.m_rw, count);
                         bool pow_le_count = false, count_le_pow = false;
                         dep_tracker pow_le_dep = nullptr, count_le_dep = nullptr;
                         rational diff;
@@ -1829,13 +1849,13 @@ namespace seq {
                         }
                         else if (pow_le_count) {
                             // pow <= count: remainder goes to other_side
-                            expr_ref rem = normalize_arith(m, m_graph.a.mk_sub(norm_count, pow_exp));
+                            expr_ref rem = normalize_arith(m_graph.m_rw, m_graph.a.mk_sub(norm_count, pow_exp));
                             expr_ref pw(seq.str.mk_power(base_e, rem), m);
                             other_side = dir_concat(sg, sg.mk(pw), other_side, fwd);
                         }
                         else {
                             // count <= pow: remainder goes to pow_side
-                            expr_ref rem = normalize_arith(m, m_graph.a.mk_sub(pow_exp, norm_count));
+                            expr_ref rem = normalize_arith(m_graph.m_rw, m_graph.a.mk_sub(pow_exp, norm_count));
                             expr_ref pw(seq.str.mk_power(base_e, rem), m);
                             pow_side = dir_concat(sg, sg.mk(pw), pow_side, fwd);
                         }
@@ -1942,7 +1962,7 @@ namespace seq {
                     euf::snode const* src_re = mem.m_regex;
                     euf::snode const* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
-                        : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
+                        : reverse_brzozowski_deriv(sg, m_graph.m_deriv_rw, m_graph.m_rw, mem.m_regex, tok);
                     TRACE(seq, tout << mem_pp(mem) << " d: " << spp(deriv, m) << "\n");
                     if (!deriv)
                         break;
@@ -2108,8 +2128,7 @@ namespace seq {
 
     euf::snode const* nielsen_graph::mk_rewrite(expr* e) const {
         expr_ref er(e, m);
-        th_rewriter rw(m);
-        rw(er);
+        m_rw(er);
         return m_sg.mk(er);
     }
 
@@ -2823,6 +2842,28 @@ namespace seq {
         return any_of(tokens, [var](auto const &t) { return t == var; });
     }
 
+#ifdef Z3DEBUG
+    // Deep occurrence check: does `var` occur anywhere in `n`, INCLUDING
+    // inside power bases?  collect_tokens treats a power token as opaque, so
+    // neither nielsen_subst's ctor assertion nor is_eliminating() can see an
+    // occurrence nested inside a base — such a substitution would silently be
+    // non-eliminating and its |x| = |replacement| edge constraint wrong.  All
+    // power bases are ground w.r.t. the substituted variable by construction
+    // today (gpower prefixes stop at the first variable); the assertions at
+    // the power-substitution sites pin that invariant down.
+    static bool deep_contains_var(euf::snode const* n, euf::snode const* var) {
+        euf::snode_vector tokens;
+        n->collect_tokens(tokens);
+        for (euf::snode const* t : tokens) {
+            if (t == var)
+                return true;
+            if (t->is_power() && t->arg0() && deep_contains_var(t->arg0(), var))
+                return true;
+        }
+        return false;
+    }
+#endif
+
     bool nielsen_graph::apply_det_modifier(nielsen_node* node) {
         // resist the temptation to add rules that "simplify" primitive membership constraints!
         // pretty much all of them could cause divergence!
@@ -3481,8 +3522,6 @@ namespace seq {
             euf::snode const* eq1_rhs = rhs_prefix;
             euf::snode const* eq2_lhs = lhs_suffix;
             euf::snode const* eq2_rhs = rhs_suffix;
-            th_rewriter rw(m);
-
 
             euf::snode const* pad = nullptr;
             if (padding != 0) {
@@ -3959,7 +3998,7 @@ namespace seq {
                     if (!count.get() || consumed == 0)
                         continue;
 
-                    expr_ref norm_count = normalize_arith(m, count);
+                    expr_ref norm_count = normalize_arith(m_rw, count);
 
                     // Skip if ordering is already deterministic — simplify_and_init
                     // pass 3c should have handled it.
@@ -4035,7 +4074,7 @@ namespace seq {
         expr *power_e = power->get_expr();
         SASSERT(power_e);
         expr *base_expr = to_app(power_e)->get_arg(0);
-        const expr_ref n_minus_1 = normalize_arith(m, a.mk_sub(exp_n, one));
+        const expr_ref n_minus_1 = normalize_arith(m_rw, a.mk_sub(exp_n, one));
         const expr_ref nested_pow(seq.str.mk_power(base_expr, n_minus_1), m);
         euf::snode const* nested_power_snode = m_sg.mk(nested_pow);
 
@@ -4343,7 +4382,7 @@ namespace seq {
                 }
                 // x2 = x[|x1|+1:]  (slice tail after the landed prefix and the char)
                 const expr_ref after =
-                    normalize_arith(m, a.mk_add(compute_length_expr(x1).get(), a.mk_int(1)));
+                    normalize_arith(m_rw, a.mk_add(compute_length_expr(x1).get(), a.mk_int(1)));
                 euf::snode const* x2 = get_tail(x, after.get());
                 euf::snode const* repl = m_sg.mk_concat(x1, m_sg.mk_concat(aunit, x2));
 
@@ -4881,7 +4920,10 @@ namespace seq {
 
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "power intr", true);
-            nielsen_subst s(var, replacement, eq.m_dep); // TODO review - ensure var does not occur in replacement.
+            // The replacement is built from power tokens whose bases must not
+            // contain `var` (deep check: collect_tokens is opaque to bases).
+            SASSERT(!deep_contains_var(replacement, var));
+            nielsen_subst s(var, replacement, eq.m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
 
@@ -5058,12 +5100,13 @@ namespace seq {
     }
 
     bool nielsen_graph::apply_regex_if_split(nielsen_node *node) {
+        bool_rewriter brw(m);
         for (str_mem const &mem : node->str_mems()) {
             SASSERT(mem.well_formed());
 
             expr *r_expr = mem.m_regex->get_expr();
             expr_ref c(m), th(m), el(m);
-            if (!bool_rewriter(m).decompose_ite(r_expr, c, th, el))
+            if (!brw.decompose_ite(r_expr, c, th, el))
                 continue;
 
             bool created = false;
@@ -5082,7 +5125,7 @@ namespace seq {
                     continue;
 
                 expr_ref c2(m), th2(m), el2(m);
-                if (!bool_rewriter(m).decompose_ite(r, c2, th2, el2)) {
+                if (!brw.decompose_ite(r, c2, th2, el2)) {
                     // No ite remaining: leaf → create child node with regex updated to r.
                     // Canonicalize with th_rewriter so that the resolved leaf shares
                     // its snode id with the corresponding partial-DFA state (which is
@@ -5104,9 +5147,8 @@ namespace seq {
                     continue;
                 }
 
-                th_rewriter tr(m);
                 expr_ref c_simp(c2, m);
-                tr(c_simp);
+                m_rw(c_simp);
 
                 if (m.is_true(c_simp)) {
                     if (!m_seq.re.is_empty(th2))
@@ -5132,6 +5174,17 @@ namespace seq {
 
             if (created)
                 return true;
+
+            // The worklist only ever prunes ∅ branches, so no created child
+            // means every valuation of the ite conditions collapses the regex
+            // to ∅ — the membership is unsatisfiable outright.  Report the
+            // definite regex conflict instead of falling through to weaker
+            // modifiers (or, for a view state, to none at all → VERIFY(ext)).
+            // Justified by the membership alone: the conditions are part of
+            // the regex itself.
+            node->set_general_conflict();
+            node->set_conflict(backtrack_reason::regex, mem.m_dep);
+            return true;
         }
         return false;
     }
@@ -5313,7 +5366,10 @@ namespace seq {
 
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, "power split", true);
-                nielsen_subst s(var_head, replacement, eq->m_dep); // TODO review - ensure var does not occur in replacement.
+                // deep check: the power bases in the replacement must not
+                // contain var_head (collect_tokens is opaque to bases)
+                SASSERT(!deep_contains_var(replacement, var_head));
+                nielsen_subst s(var_head, replacement, eq->m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
 
@@ -5343,6 +5399,7 @@ namespace seq {
             euf::snode const* replacement = dir_concat(m_sg, power, tail, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "power split", false);
+            SASSERT(!deep_contains_var(replacement, var_head));
             const nielsen_subst s(var_head, replacement, eq->m_dep);
             e->add_subst(s);
             // |x'| >= 0, i.e. |x| >= n·|u| (the branch condition)
@@ -5397,7 +5454,8 @@ namespace seq {
             euf::snode const* replacement = dir_concat(m_sg, base, power_snode, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "unwinding eq &gt;", false);
-            const nielsen_subst s(power, replacement, eq->m_dep); // TODO review - ensure var does not occur in replacement.
+            SASSERT(!deep_contains_var(replacement, power));
+            const nielsen_subst s(power, replacement, eq->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, one), eq->m_dep));
@@ -5441,7 +5499,8 @@ namespace seq {
             euf::snode const* replacement = dir_concat(m_sg, base, power_snode, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, "unwinding mem &gt;", false);
-            const nielsen_subst s(power, replacement, mem->m_dep); // TODO review - ensure var does not occur in replacement.
+            SASSERT(!deep_contains_var(replacement, power));
+            const nielsen_subst s(power, replacement, mem->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, one), mem->m_dep));
@@ -5716,7 +5775,6 @@ namespace seq {
         SASSERT(var && var->is_var());
         //unsigned mc = 0;
         //m_mod_cnt.find(var->id(), mc);
-        th_rewriter rw(m);
         return m_sk.mk("gpn!", var->get_expr()/*, a.mk_int(mc)*/, a.mk_int());
     }
 
@@ -5724,7 +5782,6 @@ namespace seq {
         SASSERT(var && var->is_var());
         //unsigned mc = 0;
         //m_mod_cnt.find(var->id(), mc);
-        th_rewriter rw(m);
         return m_sk.mk("gpm!", var->get_expr()/*, a.mk_int(mc)*/, a.mk_int());
     }
 
@@ -5761,17 +5818,29 @@ namespace seq {
         // an assumption/dep slot per constraint, on every visit.
         if (from_idx == UINT_MAX)
             from_idx = node->m_parent_ic_count;
-        for (unsigned i = from_idx; i < node->constraints().size(); ++i) {
+        // The ROOT's constraints are asserted at the sub-solver's BASE level,
+        // which is never popped between deepening iterations or across hot
+        // restarts (until the solver itself is reset).  Skip the prefix that is
+        // already in the solver: each redundant re-assertion would permanently
+        // burn one assumption literal + kernel clause per constraint
+        // (sub_solver::assert_expr) and grow every subsequent check().
+        const bool is_root = node == m_root;
+        if (is_root)
+            from_idx = std::max(from_idx, m_root_ic_asserted);
+        unsigned i = from_idx;
+        for (; i < node->constraints().size(); ++i) {
             auto& c = node->constraints()[i];
             auto lit = m_context_solver.literal_if_false(c.fml);
             // std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" <<
             // std::endl;
             if (lit != sat::null_literal) {
                 node->set_external_conflict(lit, c.dep);
-                return;
+                break;   // constraints [from_idx, i) were asserted, i was not
             }
             assert_to_subsolver(c);
         }
+        if (is_root && i > m_root_ic_asserted)
+            m_root_ic_asserted = i;
     }
 
     void nielsen_graph::generate_node_length_constraints(nielsen_node* node) {
@@ -6151,6 +6220,18 @@ namespace seq {
     //          an undecided component could wrongly report emptiness).
     // -----------------------------------------------------------------------
 
+    // FNV-style hash for the visited-key encoding of a product state.  The
+    // engines below run with budgets of several thousand states per call; an
+    // ordered std::set would pay an O(len·log n) vector comparison per probe.
+    struct prod_key_hash {
+        size_t operator()(std::vector<unsigned> const& v) const {
+            size_t h = 0xcbf29ce484222325ull;
+            for (unsigned x : v)
+                h = (h ^ x) * 0x100000001b3ull;
+            return h;
+        }
+    };
+
     lbool nielsen_graph::check_concat_product_emptiness(vector<vector<prod_comp>> const& factors,
                                                         prod_comp const& rhs, unsigned max_states) {
         const unsigned k = factors.size();
@@ -6171,7 +6252,7 @@ namespace seq {
             return key;
         };
 
-        std::set<std::vector<unsigned>> visited;
+        std::unordered_set<std::vector<unsigned>, prod_key_hash> visited;
         vector<cstate> work;
 
         auto push_state = [&](unsigned idx, vector<prod_comp> const& comps, prod_comp const& r) {
@@ -6192,7 +6273,7 @@ namespace seq {
                 return l_undef;
             if (explored >= max_states)
                 return l_undef;
-            const cstate cur = work.back();
+            const cstate cur = std::move(work.back());
             work.pop_back();
             ++explored;
 
@@ -6313,7 +6394,7 @@ namespace seq {
             return key;
         };
 
-        std::set<std::vector<unsigned>> visited;
+        std::unordered_set<std::vector<unsigned>, prod_key_hash> visited;
         // BFS (vector + head index) for a SHORTEST accepting word.
         vector<std::pair<vector<prod_comp>, zstring>> work;
         work.push_back({ comps0, zstring() });
@@ -6324,8 +6405,9 @@ namespace seq {
         while (head < work.size()) {
             if (!m.inc() || head >= MAX_STATES)
                 return false;
-            vector<prod_comp> cur = work[head].first;
-            zstring w = work[head].second;
+            // move out: the BFS never revisits an entry behind `head`
+            vector<prod_comp> cur = std::move(work[head].first);
+            zstring w = std::move(work[head].second);
             ++head;
 
             bool any_dead = false;
