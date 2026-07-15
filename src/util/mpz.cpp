@@ -34,8 +34,8 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
     return std::ckd_mul(&result, a, b);
 #elif defined(__GNUC__)
     return __builtin_mul_overflow(a, b, &result);
-#elif defined(_MSC_VER) && !defined(_M_ARM64) && !defined(_M_ARM64EC)
-    // MSVC exposes _mul128 on x64 targets, but not on ARM64/ARM64EC.
+#elif defined(_MSC_VER) && defined(_M_X64)
+    // MSVC exposes _mul128 only when targeting x64.
     __int64 high;
     result = _mul128(a, b, &high);
     // Overflow if high bits are not the sign extension of result
