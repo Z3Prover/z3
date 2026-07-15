@@ -39,11 +39,7 @@ static void hit_me(char const* wm) {
                 Z3_mk_bv_sort(ctx,i);      
                 
             }
-<<<<<<< HEAD
-            catch (std::bad_alloc&) {
-=======
             catch (const std::bad_alloc&) {
->>>>>>> origin/master
                 std::cout << "caught\n";
             }
         }
