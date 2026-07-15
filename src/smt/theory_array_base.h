@@ -191,6 +191,10 @@ namespace smt {
         ptr_vector<select_set>       m_selects_range;
         bool                         m_use_unspecified_default;  // temporary field for model construction
 
+        void reset_selects();
+        std::ostream &display_selects(std::ostream &out);
+        bool check_selects();
+
         theory_var mg_find(theory_var v);
         void mg_merge(theory_var n, theory_var m);
 
@@ -213,5 +217,5 @@ namespace smt {
         ~theory_array_base() override { restore_sorts(0); }
     };
 
-};
+}
 

@@ -24,8 +24,9 @@ set(CLANG_ONLY_WARNINGS
   "-Wsuggest-override"
   "-Winconsistent-missing-override"
   "-Wno-missing-field-initializers"
-  "-Wcast-qual"  
+  "-Wcast-qual"
 )
+
 set(MSVC_WARNINGS "/W3")
 
 ################################################################################

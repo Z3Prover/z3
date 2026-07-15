@@ -147,7 +147,7 @@ namespace smt {
                 result_map[it->m_var] = -1;
             }
         }
-    };
+    }
     
 #ifdef Z3DEBUG
     /**
@@ -2295,6 +2295,6 @@ namespace smt {
     }
 #endif
 
-};
+}
 
 

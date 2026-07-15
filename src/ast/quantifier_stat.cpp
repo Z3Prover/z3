@@ -115,5 +115,5 @@ namespace q {
         return r;
     }
 
-};
+}
 

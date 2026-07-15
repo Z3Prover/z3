@@ -676,6 +676,6 @@ namespace datalog {
     }
 
 
-};
+}
 
 

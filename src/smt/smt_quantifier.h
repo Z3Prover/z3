@@ -186,5 +186,7 @@ namespace smt {
                                      unsigned max_generation, unsigned min_top_generation, unsigned max_top_generation,
                                      vector<std::tuple<enode*, enode*>>& used_enodes) { return false; }
 
+        virtual void collect_statistics(::statistics & st) const {}
+
     };
-};
+}

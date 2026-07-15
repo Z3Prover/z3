@@ -367,7 +367,7 @@ class arith_project_util {
                         cx = mk_mul(c, m_var->x());
                         cxt = mk_add(cx, t);
                         val = mdl(cxt);
-                        VERIFY(a.is_numeral(val, r));
+                        VERIFY(a.is_extended_numeral(val, r));
                         SASSERT(r > rational::zero() || r < rational::zero());
                         if (r > rational::zero()) {
                             c = -c;
@@ -473,7 +473,7 @@ class arith_project_util {
                 cx = mk_mul(c, m_var->x());
                 cxt = mk_add(cx, t);
                 val = mdl(cxt);
-                VERIFY(a.is_numeral(val, r));
+                VERIFY(a.is_extended_numeral(val, r));
 
                 if (is_eq) {
                     TRACE(qe, tout << "equality term\n";);
@@ -711,7 +711,7 @@ class arith_project_util {
             cx = mk_mul(m_coeffs[max_t], m_var->x());
             cxt = mk_add(cx, m_terms.get(max_t));
             val = mdl(cxt);
-            VERIFY(a.is_numeral(val, r));
+            VERIFY(a.is_extended_numeral(val, r));
 
             // get the offset from the smallest/largest possible value for x
             // literal      smallest/largest val of x
@@ -771,13 +771,13 @@ class arith_project_util {
         // evaluate x in mdl
         rational r_x;
         val = mdl(m_var->x());
-        VERIFY(a.is_numeral(val, r_x));
+        VERIFY(a.is_extended_numeral(val, r_x));
 
         for (unsigned i = 0; i < m_terms.size(); ++i) {
             rational const &ac = m_coeffs[i];
             if (!m_eq[i] && ac.is_pos() == do_pos) {
                 val = mdl(m_terms.get(i));
-                VERIFY(a.is_numeral(val, r));
+                VERIFY(a.is_extended_numeral(val, r));
                 r /= abs(ac);
                 // skip the literal if false in the model
                 if (do_pos) {

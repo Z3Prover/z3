@@ -341,7 +341,7 @@ private:
     }
 
     typedef hashtable<unsigned, u_hash, u_eq> uint_set;
-    typedef obj_map<app, uint_set*> app_siblings;;
+    typedef obj_map<app, uint_set*> app_siblings;
 
     class siblings {
         app_map const& m_colors;

@@ -114,5 +114,5 @@ namespace smt {
         ptr_vector<enode> const& parent_selects(enode* n) { return m_var_data[find(n->get_root()->get_th_var(get_id()))]->m_parent_selects; }
     };
 
-};
+}
 

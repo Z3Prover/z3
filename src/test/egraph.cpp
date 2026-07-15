@@ -116,12 +116,12 @@ static void test3() {
     g.merge(nx,  nz, justifications + 2);
     g.merge(nx,  nu, justifications + 3);
     g.propagate();
-    SASSERT(!g.inconsistent());
+    ENSURE(!g.inconsistent());
     g.merge(nx, ny, justifications + 4);
     std::cout << g << "\n";
     g.propagate();
     std::cout << g << "\n";
-    SASSERT(g.inconsistent());
+    ENSURE(g.inconsistent());
     ptr_vector<int> js;
     g.begin_explain();
     g.explain<int>(js, nullptr);

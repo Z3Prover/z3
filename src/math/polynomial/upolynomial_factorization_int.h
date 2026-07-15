@@ -416,5 +416,5 @@ namespace upolynomial {
             }
         }
     };
-};
+}
 

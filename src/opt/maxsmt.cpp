@@ -380,12 +380,12 @@ namespace opt {
         params_ref& params() override { return m_params; }
         void enable_sls(bool force) override { } // no op
         symbol const& maxsat_engine() const override { return m_maxsat_engine; }
-        void get_base_model(model_ref& _m) override { _m = m_model; };  
+        void get_base_model(model_ref& _m) override { _m = m_model; }  
         smt::context& smt_context() override { 
             throw default_exception("stand-alone maxsat context does not support wmax"); 
         }
         unsigned num_objectives() override { return 1; }
-        bool verify_model(unsigned id, model* mdl, rational const& v) override { return true; };
+        bool verify_model(unsigned id, model* mdl, rational const& v) override { return true; }
         void set_model(model_ref& _m) override { m_model = _m; }
         void model_updated(model* mdl) override { } // no-op
         rational adjust(unsigned id, rational const& r) override {
@@ -419,4 +419,4 @@ namespace opt {
         }
         return r;
     }
-};
+}

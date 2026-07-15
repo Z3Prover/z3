@@ -65,5 +65,5 @@ namespace sat {
         int get_right(literal l) const { return m_big.get_right(l); }
         bool connected(literal u, literal v) const { return m_big.connected(u, v); }
     };
-};
+}
 

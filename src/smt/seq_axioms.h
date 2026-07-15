@@ -105,5 +105,5 @@ namespace smt {
 
     };
 
-};
+}
 

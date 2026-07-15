@@ -54,6 +54,6 @@ namespace smt {
 
 
     bool backward_subsumption(unsigned num_lits1, literal const * lits1, unsigned num_lits2, literal const * lits2);
-};
+}
 
 

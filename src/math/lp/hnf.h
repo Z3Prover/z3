@@ -129,16 +129,21 @@ bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
 template <typename M> 
 void pivot_column_non_fractional(M &m, unsigned r, bool & overflow, const mpq & big_number) {
     SASSERT(!is_zero(m[r][r]));
+    // rows <= r are not written below, so these pivot entries are loop-invariant
+    const auto & mrr = m[r][r];
+    const mpq * denom = r > 0 ? &m[r - 1][r - 1] : nullptr;
     for (unsigned j = r + 1; j < m.column_count(); ++j) {
-        for (unsigned i = r + 1; i  < m.row_count(); ++i) {            
-            if (
-                (m[i][j] = (r > 0) ? (m[r][r]*m[i][j] - m[i][r]*m[r][j]) / m[r-1][r-1] :
-                                     (m[r][r]*m[i][j] - m[i][r]*m[r][j]))
-                >= big_number) {
+        const auto & mrj = m[r][j];
+        for (unsigned i = r + 1; i < m.row_count(); ++i) {
+            auto & mij = m[i][j];
+            mij = mrr * mij - m[i][r] * mrj;
+            if (denom)
+                mij /= *denom;
+            if (mij >= big_number) {
                 overflow = true;
                 return;
             }
-            SASSERT(is_integer(m[i][j]));
+            SASSERT(is_integer(mij));
         }
     }
 }

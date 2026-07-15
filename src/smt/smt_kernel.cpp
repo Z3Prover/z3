@@ -356,4 +356,4 @@ namespace smt {
         m_imp->m_kernel.user_propagate_initialize_value(var, value);
     }
 
-};
+}

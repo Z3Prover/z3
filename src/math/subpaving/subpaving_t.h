@@ -845,5 +845,5 @@ public:
     void operator()();
 };
 
-};
+}
 

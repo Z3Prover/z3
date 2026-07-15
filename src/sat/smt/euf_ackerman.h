@@ -87,4 +87,4 @@ namespace euf {
         void propagate();
     };
 
-};
+}

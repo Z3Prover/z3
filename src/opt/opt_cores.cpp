@@ -394,4 +394,4 @@ namespace opt {
         }
     }
 
-};
+}

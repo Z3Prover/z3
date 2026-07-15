@@ -171,7 +171,7 @@ namespace datatype {
             size* subst(obj_map<sort, size*>& S) override;
             sort_size eval(obj_map<sort, sort_size> const& S) override { return S[m_param]; }
         };
-    };
+    }
 
     class def {
         ast_manager&            m;
@@ -465,7 +465,7 @@ namespace datatype {
         sort_ref mk_tuple_datatype(svector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs);
     };
 
-};
+}
 
 typedef datatype::accessor accessor_decl;
 typedef datatype::constructor constructor_decl;

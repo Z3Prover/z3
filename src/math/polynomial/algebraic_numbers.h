@@ -410,7 +410,7 @@ namespace algebraic_numbers {
         anum& operator=(basic_cell* cell) { SASSERT(is_null());  m_cell = TAG(void*, cell, BASIC); return *this; }
         anum& operator=(algebraic_cell* cell) { SASSERT(is_null());  m_cell = TAG(void*, cell, ROOT); return *this; }
     };
-};
+}
 
 typedef algebraic_numbers::manager anum_manager;
 typedef algebraic_numbers::manager::numeral anum;

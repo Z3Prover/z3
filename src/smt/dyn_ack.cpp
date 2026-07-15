@@ -587,4 +587,4 @@ namespace smt {
     }
 #endif
 
-};
+}

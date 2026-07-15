@@ -216,6 +216,6 @@ namespace smt {
         bool check_invariant() const;
     };
 
-};
+}
 
 

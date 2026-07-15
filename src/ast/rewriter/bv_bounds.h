@@ -34,7 +34,7 @@ public:
     typedef rational numeral;
     typedef std::pair<numeral, numeral> interval;
     typedef obj_map<app, numeral>       bound_map;
-    bv_bounds(ast_manager& m) : m_m(m), m_bv_util(m), m_okay(true) {};
+    bv_bounds(ast_manager& m) : m_m(m), m_bv_util(m), m_okay(true) {}
     ~bv_bounds();
 public: // bounds addition methods
     br_status rewrite(unsigned limit, func_decl * f, unsigned num, expr * const * args, expr_ref& result);

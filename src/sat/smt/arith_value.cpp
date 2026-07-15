@@ -142,4 +142,4 @@ namespace arith {
 
 #endif
 
-};
+}

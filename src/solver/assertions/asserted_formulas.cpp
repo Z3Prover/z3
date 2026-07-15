@@ -496,6 +496,7 @@ void asserted_formulas::simplify_fmls::operator()() {
         expr_ref result(m);
         proof_ref result_pr(m);
         simplify(j, result, result_pr);
+        SASSERT(is_well_sorted(m, j.fml()));
         if (m.proofs_enabled()) {
             if (!result_pr) result_pr = m.mk_rewrite(j.fml(), result);
             result_pr = m.mk_modus_ponens(j.pr(), result_pr);

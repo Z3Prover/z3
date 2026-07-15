@@ -6,6 +6,7 @@ z3_add_component(simplifiers
     bound_propagator.cpp
     bound_simplifier.cpp
     bv_bounds_simplifier.cpp
+    bv_divrem_bounds.cpp
     bv_slice.cpp
     card2bv.cpp
     demodulator_simplifier.cpp

@@ -583,5 +583,5 @@ extern "C" {
         return Z3_ast_to_string(c, reinterpret_cast<Z3_ast>(p));
     }
 
-};
+}
 

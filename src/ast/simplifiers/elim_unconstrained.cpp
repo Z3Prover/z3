@@ -116,6 +116,7 @@ eliminate:
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/recfun_decl_plugin.h"
+#include "ast/polymorphism_util.h"
 #include "ast/simplifiers/elim_unconstrained.h"
 
 elim_unconstrained::elim_unconstrained(ast_manager& m, dependent_expr_state& fmls) :
@@ -425,6 +426,18 @@ void elim_unconstrained::update_model_trail(generic_model_converter& mc, vector<
 void elim_unconstrained::reduce() {
     if (!m_config.m_enabled)
         return;
+    // has_type_vars() is a manager-wide flag that is set as soon as any type variable is
+    // created, including the ones used to define polymorphic signatures of builtin plugins
+    // (e.g. finite_set) that never occur in the asserted formulas. Only bail out when the
+    // formulas actually contain type-variable typed terms, which this simplifier cannot invert.
+    if (m.has_type_vars()) {
+        polymorphism::util u(m);
+        for (unsigned i : indices()) {
+            auto [f, p, d] = m_fmls[i]();
+            if (u.has_type_vars(f))
+                return;
+        }
+    }
     generic_model_converter_ref mc = alloc(generic_model_converter, m, "elim-unconstrained");
     m_inverter.set_model_converter(mc.get());
     m_created_compound = true;

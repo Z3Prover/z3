@@ -648,5 +648,5 @@ namespace datalog {
         return false;
     }
 
-};
+}
 

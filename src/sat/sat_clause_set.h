@@ -50,5 +50,5 @@ namespace sat {
         bool check_invariant() const;
     };
     
-};
+}
 

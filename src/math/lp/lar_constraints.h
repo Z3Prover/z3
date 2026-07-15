@@ -39,7 +39,17 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
 
 class lar_base_constraint {
     lconstraint_kind m_kind;
-    mpq              m_right_side;
+    // Right-hand side as a delta-rational pair (x, y) = x + y*delta.  The
+    // rational part x is the ordinary bound value returned by rhs(); the
+    // infinitesimal part y (bound_eps) is non-zero only for the delta-rational
+    // bounds that validate strict optimization suprema/infima (see
+    // opt_solver::maximize_objective).  The strict kinds already carry a
+    // matching-sign infinitesimal in update_bound_with_* (LT -> upper bound
+    // (r, -1); GT -> lower bound (r, +1)); y is needed for the OPPOSITE-sign
+    // case that no kind yields: a lower bound (r, -1), i.e. objvar >= r - delta
+    // (GE gives (r, 0), GT gives (r, +1)), which is how a maximize supremum
+    // r - delta is asserted.  y is zero for all ordinary constraints.
+    impq             m_right_side;
     bool             m_active;
     bool             m_is_auxiliary;
     unsigned         m_j;
@@ -53,9 +63,16 @@ public:
     virtual ~lar_base_constraint() = default;
 
     lconstraint_kind kind() const { return m_kind; }
-    mpq const& rhs() const { return m_right_side; }
+    // First (rational) component of the right-hand side pair.
+    mpq const& rhs() const { return m_right_side.x; }
+    // Whole right-hand side pair (rational value + infinitesimal, see below).
+    impq const& rhs_impq() const { return m_right_side; }
     unsigned column() const { return m_j; }
     u_dependency* dep() const { return m_dep; }
+
+    // Second (infinitesimal) component of the right-hand side pair.
+    mpq const& bound_eps() const { return m_right_side.y; }
+    void set_bound_eps(mpq const& e) { m_right_side.y = e; }
 
     void activate() { m_active = true; }
     void deactivate() { m_active = false; }
@@ -181,9 +198,22 @@ public:
         return add(new (m_region) lar_var_constraint(j, k, mk_dep(), rhs));
     }
 
+    constraint_index add_var_constraint(lpvar j, lconstraint_kind k, mpq const& rhs, mpq const& eps) {
+        auto* c = new (m_region) lar_var_constraint(j, k, mk_dep(), rhs);
+        c->set_bound_eps(eps);
+        return add(c);
+    }
+
     constraint_index add_term_constraint(unsigned j, const lar_term* t, lconstraint_kind k, mpq const& rhs) {
         auto* dep = mk_dep();
         return add(new (m_region) lar_term_constraint(j, t, k, dep, rhs));
+    }
+
+    constraint_index add_term_constraint(unsigned j, const lar_term* t, lconstraint_kind k, mpq const& rhs, mpq const& eps) {
+        auto* dep = mk_dep();
+        auto* c = new (m_region) lar_term_constraint(j, t, k, dep, rhs);
+        c->set_bound_eps(eps);
+        return add(c);
     }
 
     // future behavior uses activation bit.

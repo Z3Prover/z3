@@ -400,4 +400,4 @@ namespace datalog {
     }
 
 
-};
+}

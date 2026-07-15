@@ -90,5 +90,5 @@ namespace upolynomial {
        That is, the factors of f are inserted as factors of degree k into fs.
     */
     bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs, unsigned k, factor_params const & ps = factor_params());
-};
+}
 

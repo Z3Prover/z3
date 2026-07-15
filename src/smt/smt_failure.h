@@ -35,5 +35,5 @@ namespace smt {
         QUANTIFIERS    //!< Logical context contains universal quantifiers.
     };
 
-};
+}
 

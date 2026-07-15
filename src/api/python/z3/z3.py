@@ -6742,7 +6742,7 @@ class AstMap:
         >>> M[x]   = x + 1
         >>> M[x+x] = IntVal(1)
         >>> M.keys()
-        [x, x + x]
+        [x + x, x]
         """
         return AstVector(Z3_ast_map_keys(self.ctx.ref(), self.map), self.ctx)
 
@@ -7192,7 +7192,7 @@ class ModelRef(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m.get_universe(A)
-        [A!val!1, A!val!0]
+        [A!val!0, A!val!1]
         """
         if z3_debug():
             _z3_assert(isinstance(s, SortRef), "Z3 sort expected")

@@ -3333,7 +3333,7 @@ namespace smt2 {
     };
 
     void free_parser(parser * p) { dealloc(p); }
-};
+}
 
 bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps, char const * filename) {
     smt2::parser p(ctx, is, interactive, ps, filename);

@@ -276,5 +276,5 @@ namespace sat {
         return copied;
     }
     
-};
+}
 

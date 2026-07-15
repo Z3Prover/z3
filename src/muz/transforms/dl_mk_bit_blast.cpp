@@ -334,4 +334,4 @@ namespace datalog {
         return (*m_impl)(source);
     }
 
-};
+}

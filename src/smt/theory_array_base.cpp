@@ -23,6 +23,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "model/func_interp.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/pattern/pattern_inference.h"
 
 namespace smt {
 
@@ -338,6 +339,8 @@ namespace smt {
     }
 
     void theory_array_base::assert_congruent(enode * a1, enode * a2) {
+        if (ctx.get_fparams().m_array_fake_support)
+            return;
         TRACE(array, tout << "congruent: #" << a1->get_owner_id() << " #" << a2->get_owner_id() << "\n";);
         SASSERT(is_array_sort(a1));
         SASSERT(is_array_sort(a2));
@@ -413,6 +416,16 @@ namespace smt {
         expr * eq = m.mk_eq(sel1, sel2);
         expr_ref q(m.mk_forall(dimension, sorts.data(), names.data(), eq), m);
         ctx.get_rewriter()(q);
+        // The select terms are beta-reduced away by the rewriter, so the
+        // resulting quantifier carries no patterns. Infer patterns so that the
+        // e-matching engine can instantiate it (dynamically generated
+        // quantifiers bypass the pre-processing pattern inference pass).
+        if (is_forall(q) && to_quantifier(q)->get_num_patterns() == 0) {
+            pattern_inference_rw infer(m, ctx.get_fparams());
+            expr_ref q2(m);
+            infer(q, q2);
+            q = q2;
+        }
         if (!ctx.b_internalized(q)) {
             ctx.internalize(q, true);
         }
@@ -699,6 +712,8 @@ namespace smt {
         collect_defaults();
         collect_selects();
         propagate_selects();
+        // check_selects();
+        TRACE(array, display_selects(tout); display(tout););
     }
 
     /**
@@ -796,12 +811,89 @@ namespace smt {
         return set;
     }
 
-    void theory_array_base::collect_selects() {
-        int num_vars = get_num_vars();
-
+    void theory_array_base::reset_selects() {
+        for (auto r : m_selects_range)
+            dealloc(r);
+        m_selects_range.reset();
         m_selects.reset();
         m_selects_domain.reset();
-        m_selects_range.reset();
+    }
+           
+    std::ostream& theory_array_base::display_selects(std::ostream& out) {
+        for (auto [r, s] : m_selects) {
+            out << enode_pp(r, ctx) << ":\n";
+            for (auto sel : *s) 
+                out << "   " << enode_pp(sel, ctx) << " "
+                     << enode_pp(sel->get_root(), ctx) << "\n";
+            out << "\n";
+        }
+        return out;
+    }
+
+    bool theory_array_base::check_selects() {
+        auto same_args = [&](unsigned num_args, enode *n1, enode *n2) {
+            for (unsigned i = 1; i < num_args; ++i) {
+                if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
+                    return false;
+            }
+            return true;
+        };
+
+        auto check_selects = [&](enode* n, select_set &s1, select_set &s2) {
+            for (auto sel1 : s1) {
+                if (same_args(sel1->get_num_args(), sel1, n))
+                    continue;
+                bool found = false;
+                for (auto sel2 : s2) {
+                    verbose_stream() << "check_selects: " << enode_pp(sel1, ctx) << " " << enode_pp(sel2, ctx) << "\n";
+                    if (!same_args(sel2->get_num_args(), sel1, sel2))
+                        continue;
+                    found = true;
+                    if (sel1->get_root() != sel2->get_root()) {
+                        verbose_stream() << "selects: " << pp(sel1, m) << " " << pp(sel2, m) << "\n";
+                        return false;
+                    }
+                    break;
+                }
+                if (!found) {
+                    verbose_stream() << "selects: " << pp(sel1, m) << " " << pp(n, m) << "\n";
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        for (auto [r, s1] : m_selects) {
+            for (auto n : *r) {
+                if (false && !ctx.is_relevant(n))
+                    continue;
+                
+                if (is_store(n)) {
+                    auto st = n->get_arg(0)->get_root();
+                    auto &s2 = m_selects[st];
+                    if (!check_selects(n, *s1, *s2))
+                        return false;
+                    if (!check_selects(n, *s2, *s1))
+                        return false;
+                }
+                if (is_const(n)) {
+                    auto v = n->get_arg(0)->get_root();
+                    for (auto sel : *s1) {
+                        if (v != sel->get_root()) {
+                            verbose_stream() << pp(n, m) << " != " << pp(sel, m) << "\n";
+                            return false;
+                        }
+                    }
+
+                }
+            }
+        }
+        return true;
+    }
+
+    void theory_array_base::collect_selects() {
+        int num_vars = get_num_vars();
+        reset_selects();
 
         for (theory_var v = 0; v < num_vars; ++v) {
             enode * r = get_enode(v)->get_root();                
@@ -876,7 +968,7 @@ namespace smt {
     }
 
     void theory_array_base::finalize_model(model_generator & m) {
-        std::for_each(m_selects_range.begin(), m_selects_range.end(), delete_proc<select_set>());
+        reset_selects();
     }
 
     class array_value_proc : public model_value_proc {
@@ -1053,4 +1145,4 @@ namespace smt {
         return result;
     }
 
-};
+}

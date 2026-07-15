@@ -126,6 +126,6 @@ namespace smt {
         symbol const & get_logic() const { return m_logic; }
         void operator()(config_mode cm);
     };
-};
+}
 
 

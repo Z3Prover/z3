@@ -250,5 +250,5 @@ namespace sat {
         bool need_cleanup() const { return m_need_cleanup; }
 
     };
-};
+}
 

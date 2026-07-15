@@ -52,7 +52,7 @@ namespace smt {
         
         void reset();
     };
-};
+}
 
 
 

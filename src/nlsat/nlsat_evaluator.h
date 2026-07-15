@@ -57,5 +57,5 @@ namespace nlsat {
         void pop(unsigned num_scopes);
     };
     
-};
+}
 

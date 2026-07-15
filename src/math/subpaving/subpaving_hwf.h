@@ -42,5 +42,5 @@ public:
  context_hwf(reslimit& lim, f2n<hwf_manager> & m, params_ref const & p, small_object_allocator * a):context_t<config_hwf>(lim, config_hwf(m), p, a) {}
 };
 
-};
+}
 

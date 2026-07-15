@@ -168,6 +168,36 @@ static void test_quant_solver(ast_manager& m, char const* str, bool validate = t
     test_quant_solver(m, vars.size(), vars.data(), fml, validate);
 }
 
+static void test_qe_regression_4175() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    arith_util a(m);
+
+    expr_ref fml = parse_fml(m, "(forall ((b Real)) (= (= r1 b) (= b 0)))");
+    VERIFY(fml);
+    expr_ref result(m);
+    qe::expr_quant_elim qe(m, params);
+    qe(m.mk_true(), fml, result);
+    VERIFY(result);
+
+    expr_ref r1(m.mk_const(symbol("r1"), a.mk_real()), m);
+    expr_ref zero(a.mk_numeral(rational(0), false), m);
+
+    {
+        smt::kernel solver(m, params);
+        solver.assert_expr(result);
+        solver.assert_expr(m.mk_eq(r1, zero));
+        VERIFY(l_true == solver.check());
+    }
+    {
+        smt::kernel solver(m, params);
+        solver.assert_expr(result);
+        solver.assert_expr(m.mk_not(m.mk_eq(r1, zero)));
+        VERIFY(l_false == solver.check());
+    }
+}
+
 
 static void test_quant_solve1() {
     ast_manager m;
@@ -253,6 +283,7 @@ void tst_quant_solve() {
     disable_debug("heap");
 
     test_quant_solve1();   
+    test_qe_regression_4175();
 
 #if 0
     memory::finalize();
@@ -262,5 +293,3 @@ void tst_quant_solve() {
     exit(0);
 #endif
 }
-
-

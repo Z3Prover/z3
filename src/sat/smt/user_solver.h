@@ -169,4 +169,4 @@ namespace user_solver {
         euf::th_solver* clone(euf::solver& ctx) override;
 
     };
-};
+}

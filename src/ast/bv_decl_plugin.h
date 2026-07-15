@@ -473,6 +473,7 @@ public:
 
 
     app * mk_ule(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_ULEQ, arg1, arg2); }
+    app * mk_ult(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_ULT, arg1, arg2); }
     app * mk_sle(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLEQ, arg1, arg2); }
     app * mk_slt(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLT, arg1, arg2); }
     app * mk_extract(unsigned high, unsigned low, expr * n) {
@@ -499,6 +500,25 @@ public:
 
     app * mk_bv_not(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNOT, arg); }
     app * mk_bv_neg(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNEG, arg); }
+    // absolute value: ite(arg <s 0, -arg, arg). Note mk_abs(INT_MIN) = INT_MIN.
+    // Uses ¬(0 ≤s arg) instead of (arg <s 0) so that the ITE condition is OP_NOT(OP_SLEQ)
+    // (handled by theory_bv::internalize_atom) rather than OP_SLT (not handled).
+    app * mk_abs(expr * arg) { return m_manager.mk_ite(mk_sle(mk_zero(arg->get_sort()), arg), arg, mk_bv_neg(arg)); }
+    // Magnitude-bound clause for a division/remainder term t with a symbolic (non-numeral)
+    // divisor. Fills clause with the disjuncts { divisor = 0, bound }, encoding
+    // divisor != 0 => bound, where bound is expressed using only OP_ULEQ and OP_NOT(OP_ULEQ)
+    // (so it can be internalized by theory_bv::internalize_atom):
+    //   urem:      ¬(b ≤u t)          srem/smod: ¬(|b| ≤u |t|)
+    //   udiv:      t ≤u a             sdiv:      |t| ≤u |a|
+    // Leaves clause empty if t is not a division/remainder operator or the divisor is a
+    // numeral. The bound is a bit-vector theory axiom (implied for a non-zero divisor); the
+    // unsigned comparison on absolute values keeps it sound at INT_MIN.
+    bool is_bv_divrem(expr* t) const {
+        return is_bv_urem(t) || is_bv_uremi(t) || is_bv_srem(t) || is_bv_sremi(t) ||
+               is_bv_smod(t) || is_bv_smodi(t) || is_bv_udiv(t) || is_bv_udivi(t) ||
+               is_bv_sdiv(t) || is_bv_sdivi(t);
+    }
+    void mk_bv_divrem_bound(expr* t, expr_ref_vector& clause);
     app * mk_bv_urem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM, arg1, arg2); }
     app * mk_bv_srem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSREM, arg1, arg2); }
     app * mk_bv_smod(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSMOD, arg1, arg2); }

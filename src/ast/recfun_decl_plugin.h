@@ -60,7 +60,7 @@ namespace recfun {
         func_decl_ref       m_pred; //<! predicate used for this case
         expr_ref_vector     m_guards; //<! conjunction that is equivalent to this case
         expr_ref            m_rhs; //<! if guard is true, `f(t1...tn) = rhs` holds
-        def *               m_def = nullptr;; //<! definition this is a part of
+        def *               m_def = nullptr; //<! definition this is a part of
         bool                m_immediate = false; //<! does `rhs` contain no defined_fun/case_pred?
 
         case_def(ast_manager& m):
@@ -92,7 +92,7 @@ namespace recfun {
         expr * get_guard(unsigned i) const { return m_guards[i]; }
         expr * get_rhs() const { return m_rhs; }
         unsigned num_guards() const { return m_guards.size(); }
-        bool is_immediate() const { return m_immediate; };
+        bool is_immediate() const { return m_immediate; }
         void set_is_immediate(bool b) { m_immediate = b; }
     };
 

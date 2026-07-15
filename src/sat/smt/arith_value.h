@@ -49,4 +49,4 @@ namespace arith {
         expr_ref get_fixed(expr* e);
 #endif
     };
-};
+}

@@ -116,6 +116,6 @@ context * mk_hwf_context(reslimit& lim, f2n<hwf_manager> & m, unsynch_mpq_manage
 context * mk_mpff_context(reslimit& lim, mpff_manager & m, unsynch_mpq_manager & qm, params_ref const & p = params_ref(), small_object_allocator * a = nullptr);
 context * mk_mpfx_context(reslimit& lim, mpfx_manager & m, unsynch_mpq_manager & qm, params_ref const & p = params_ref(), small_object_allocator * a = nullptr);
 
-};
+}
 
 

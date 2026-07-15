@@ -72,6 +72,13 @@ public:
     void mk_select(unsigned num_args, expr * const * args, expr_ref & result);
     void mk_map(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 
+    // Array eta-reduction:
+    //   (lambda (x_0 ... x_{k-1}) (select a x_0 ... x_{k-1}))  -->  a
+    // when 'a' does not depend on the bound variables x_0..x_{k-1}.
+    // 'q' supplies the lambda binder, 'body' its (already rewritten) body.
+    // Returns BR_DONE with 'result' set to the eta-reduced array, or BR_FAILED.
+    br_status mk_lambda_core(quantifier * q, expr * body, expr_ref & result);
+
     bool has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector>& indices);
 
 

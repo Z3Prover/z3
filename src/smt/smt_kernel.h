@@ -346,4 +346,4 @@ namespace smt {
         context & get_context();
         context const& get_context() const;
     };
-};
+}

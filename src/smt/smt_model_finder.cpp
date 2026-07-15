@@ -38,8 +38,10 @@ Revision History:
 #include "smt/smt_model_finder.h"
 #include "smt/smt_context.h"
 #include "tactic/tactic_exception.h"
+#include "util/statistics.h"
 
 namespace smt {
+
 
     namespace mf {
 
@@ -1167,6 +1169,7 @@ namespace smt {
             virtual char const* get_kind() const = 0;
             virtual bool is_equal(qinfo const* qi) const = 0;
             virtual void display(std::ostream& out) const { out << "[" << get_kind() << "]"; }
+            virtual void collect_statistics(::statistics &st) const {}
 
             // AUF fragment solver
             virtual void process_auf(quantifier* q, auf_solver& s, context* ctx) = 0;
@@ -1235,7 +1238,7 @@ namespace smt {
                         // a necessary instantiation.
                         enode* e_arg = n->get_arg(m_arg_i);
                         expr* arg = e_arg->get_expr();
-                        A_f_i->insert(arg, e_arg->get_generation());
+                        A_f_i->insert(arg, ctx->get_generation(e_arg));
                     }
                 }
             }
@@ -1253,7 +1256,7 @@ namespace smt {
                     if (ctx->is_relevant(n)) {
                         enode* e_arg = n->get_arg(m_arg_i);
                         expr* arg = e_arg->get_expr();
-                        s->insert(arg, e_arg->get_generation());
+                        s->insert(arg, ctx->get_generation(e_arg));
                     }
                 }
             }
@@ -1309,7 +1312,7 @@ namespace smt {
                                 bv_rw.mk_sub(arg, m_offset, arg_minus_k);
                             else
                                 arith_rw.mk_sub(arg, m_offset, arg_minus_k);
-                            S_j->insert(arg_minus_k, e_arg->get_generation());
+                            S_j->insert(arg_minus_k, ctx->get_generation(e_arg));
                         }
                     }
                 }
@@ -1379,8 +1382,13 @@ namespace smt {
 
         class ho_var : public qinfo {
             unsigned m_var_i;
+            unsigned m_ho_var_term_enum = 0;
         public:
             ho_var(ast_manager& m, unsigned i) : qinfo(m), m_var_i(i) {
+            }
+
+            void collect_statistics(::statistics &st) const override {
+                st.update("mbqi.ho-var-term-enum", m_ho_var_term_enum);
             }
 
             char const *get_kind() const override {
@@ -1403,10 +1411,14 @@ namespace smt {
             }
 
             void populate_inst_sets(quantifier *q, auf_solver &s, context *ctx) override {
+                bool use_term_enum = ctx->get_fparams().m_term_enumeration;
+                if (!use_term_enum)
+                    return;
                 node *S = s.get_uvar(q, m_var_i);
                 sort *srt = S->get_sort();
 
                 IF_VERBOSE(3, verbose_stream() << "ho_var::populate_inst_sets: " << q->get_id() << " " << mk_pp(srt, m) << "\n";);
+
                 term_enumeration tn(m);
                 // Add ground terms of type S.
                 // Add productions for functions in E-graph
@@ -1415,14 +1427,17 @@ namespace smt {
                 ast_mark visited;
                 tn.add_production(m.mk_true());
                 tn.add_production(m.mk_false());
+                
                 for (enode *n : ctx->enodes()) {
                     if (!ctx->is_relevant(n))
                         continue;
                     auto e = n->get_expr();
                     if (srt == n->get_sort()) {
                         TRACE(model_finder, tout << "inserting " << mk_pp(e, m) << " into inst set\n");
-                        S->insert(e, n->get_generation());
+                        S->insert(e, ctx->get_generation(n));
                     }
+                    else if (!use_term_enum)
+                        continue;
                     else if (is_app(e) && to_app(e)->get_decl()->is_skolem())
                         ;
                     else if (is_uninterp_const(e)) {
@@ -1438,7 +1453,7 @@ namespace smt {
                         tn.add_production(f);
                     }
                 }
-                
+
                 unsigned max_count = 20;
                 for (auto t : tn.enum_terms(srt)) {
                     if (max_count == 0)
@@ -1447,6 +1462,7 @@ namespace smt {
                     unsigned generation = 0; // todo - inherited from sub-term of t?
                     TRACE(model_finder, tout << "ho_var: adding term " << mk_ismt2_pp(t, m)
                                                    << " to instantiation set of S" << std::endl;);
+                    ++m_ho_var_term_enum;
                     S->insert(t, generation);                
                 }
             }
@@ -1557,7 +1573,7 @@ namespace smt {
                             if (ctx->is_relevant(p) && p->get_decl() == m_select->get_decl()) {
                                 SASSERT(m_arg_i < p->get_num_args());
                                 enode* e_arg = p->get_arg(m_arg_i);
-                                A_f_i->insert(e_arg->get_expr(), e_arg->get_generation());
+                                A_f_i->insert(e_arg->get_expr(), ctx->get_generation(e_arg));
                             }
                         }
                     }
@@ -1686,7 +1702,7 @@ namespace smt {
                     node* S_q_i = slv.get_uvar(q, m_var_i);
                     for (enode* n : ctx->enodes()) {
                         if (ctx->is_relevant(n) && n->get_expr()->get_sort() == s) {
-                            S_q_i->insert(n->get_expr(), n->get_generation());
+                            S_q_i->insert(n->get_expr(), ctx->get_generation(n));
                         }
                     }
                 }
@@ -1771,6 +1787,11 @@ namespace smt {
 
         public:
             typedef ptr_vector<cond_macro>::const_iterator macro_iterator;
+
+            void collect_statistics(::statistics &st) const {
+                for (auto *qi : m_qinfo_vect)
+                    qi->collect_statistics(st);
+            }
 
             static quantifier_ref mk_flat(ast_manager& m, quantifier* q) {
                 if (has_quantifiers(q->get_expr())) {
@@ -2412,6 +2433,13 @@ namespace smt {
 
     model_finder::~model_finder() {
         reset();
+    }
+
+    void model_finder::collect_statistics(::statistics & st) const {
+        // Retrieve the ho-var term-enumeration counters from the embedded
+        // qinfo objects (mf::ho_var) held by each registered quantifier_info.
+        for (auto const &[k, v] : m_q2info)
+            v->collect_statistics(st);
     }
 
     void model_finder::checkpoint() {

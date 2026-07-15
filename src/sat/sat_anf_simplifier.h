@@ -28,7 +28,7 @@
 namespace dd {
     class pdd;
     class solver;
-};
+}
 
 namespace sat {
 

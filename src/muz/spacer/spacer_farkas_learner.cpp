@@ -99,7 +99,7 @@ bool farkas_learner::is_pure_expr(func_decl_set const& symbs, expr* e, ast_manag
         return false;
     }
     return true;
-};
+}
 
 
 /**

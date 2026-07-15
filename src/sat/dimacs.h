@@ -97,10 +97,10 @@ namespace dimacs {
             bool operator!=(iterator const& other) const { return m_eof != other.m_eof; }
         };
         
-        iterator begin() { return iterator(*this, false); };
+        iterator begin() { return iterator(*this, false); }
         iterator end() { return iterator(*this, true); }
 
         void set_read_theory(std::function<int(char const*)>& r) { m_read_theory_id = r; }
 
     };
-};
+}

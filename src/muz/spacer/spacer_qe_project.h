@@ -43,5 +43,5 @@ namespace spacer_qe {
     void array_project_selects (model& model, app_ref_vector& arr_vars, expr_ref& fml, app_ref_vector& aux_vars);
 
     void array_project (model& model, app_ref_vector& arr_vars, expr_ref& fml, app_ref_vector& aux_vars, bool reduce_all_selects = false);
-};
+}
 

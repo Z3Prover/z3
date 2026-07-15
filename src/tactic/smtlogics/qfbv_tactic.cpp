@@ -25,6 +25,7 @@ Notes:
 #include "tactic/bv/bv1_blaster_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "tactic/bv/bv_size_reduction_tactic.h"
+#include "tactic/bv/bv_divrem_bounds_tactic.h"
 #include "tactic/aig/aig_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
@@ -63,6 +64,7 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             using_params(mk_propagate_values_tactic(m), flat_and_or_p),
             using_params(mk_solve_eqs_tactic(m), solve_eq_p),
             mk_elim_uncnstr_tactic(m),
+            mk_bv_divrem_bounds_tactic(m),
             if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
             using_params(mk_simplify_tactic(m), simp2_p),
 

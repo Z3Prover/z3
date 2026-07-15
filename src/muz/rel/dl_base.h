@@ -631,12 +631,12 @@ namespace datalog {
 
         class identity_mutator_fn : public mutator_fn {
         public:
-            void operator()(base_object & t) override {};
+            void operator()(base_object & t) override {}
         };
 
         class identity_intersection_filter_fn : public intersection_filter_fn {
         public:
-            void operator()(base_object & t, const base_object & neg) override {};
+            void operator()(base_object & t, const base_object & neg) override {}
         };
 
         class default_permutation_rename_fn : public transformer_fn {
@@ -1258,5 +1258,5 @@ namespace datalog {
             expr_ref_vector & renaming_arg);
 
 
-};
+}
 

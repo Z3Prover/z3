@@ -125,6 +125,17 @@ public class Sort extends AST
         case Z3_BV_SORT:
             return new BitVecSort(ctx, obj);
         case Z3_DATATYPE_SORT:
+            int n = Native.getDatatypeSortNumConstructors(ctx.nCtx(), obj);
+            boolean isEnum = true;
+            for (int i = 0; i < n && isEnum; i++) {
+                long ctor = Native.getDatatypeSortConstructor(ctx.nCtx(), obj, i);
+                if (Native.getDomainSize(ctx.nCtx(), ctor) != 0) {
+                    isEnum = false;
+                }
+            }
+            if (isEnum) {
+                return new EnumSort<>(ctx, obj);
+            }
             return new DatatypeSort<>(ctx, obj);
         case Z3_INT_SORT:
             return new IntSort(ctx, obj);

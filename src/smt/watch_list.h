@@ -193,6 +193,6 @@ namespace smt {
         
     };
 
-};
+}
 
 

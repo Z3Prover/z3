@@ -168,6 +168,6 @@ namespace datalog {
        
     };
         
-};
+}
 
 

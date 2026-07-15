@@ -24,7 +24,7 @@ class sexpr;
 namespace algebraic_numbers {
     class anum;
     class manager;
-};
+}
 
 enum arith_sort_kind {
     REAL_SORT,

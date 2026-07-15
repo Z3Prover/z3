@@ -662,4 +662,4 @@ namespace datalog {
     }
 
     
-};
+}

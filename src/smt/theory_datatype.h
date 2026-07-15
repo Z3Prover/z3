@@ -215,6 +215,6 @@ namespace smt {
         bool include_func_interp(func_decl* f) override;
 
     };
-};
+}
 
 

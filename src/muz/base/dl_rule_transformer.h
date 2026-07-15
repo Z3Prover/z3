@@ -110,6 +110,6 @@ namespace datalog {
         static void remove_duplicate_tails(app_ref_vector& tail, bool_vector& tail_neg);
 
     };
-};
+}
 
 

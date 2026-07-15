@@ -21,6 +21,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "params/array_rewriter_params.hpp"
 #include "util/util.h"
@@ -396,6 +397,40 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
     }
     
     return BR_FAILED;
+}
+
+br_status array_rewriter::mk_lambda_core(quantifier * q, expr * body, expr_ref & result) {
+    // Array eta-reduction:
+    //   (lambda (x_0 ... x_{k-1}) (select a x_0 ... x_{k-1}))  -->  a
+    // sound by array extensionality, provided 'a' is independent of the bound
+    // variables x_0..x_{k-1}.
+    if (!m_util.is_select(body))
+        return BR_FAILED;
+    app * sel = to_app(body);
+    unsigned k = q->get_num_decls();
+    // select over a k-dimensional array takes the array plus k indices.
+    if (sel->get_num_args() != k + 1)
+        return BR_FAILED;
+    // The j-th index argument must be exactly the bound variable of the j-th
+    // declaration. With de Bruijn indexing the j-th declaration is var(k-1-j).
+    for (unsigned j = 0; j < k; ++j) {
+        expr * idx = sel->get_arg(j + 1);
+        if (!is_var(idx) || to_var(idx)->get_idx() != k - 1 - j)
+            return BR_FAILED;
+    }
+    expr * a = sel->get_arg(0);
+    // 'a' must not reference any of the bound variables 0..k-1.
+    if (!is_ground(a)) {
+        expr_free_vars fv(a);
+        for (unsigned j = 0; j < k; ++j)
+            if (fv.contains(j))
+                return BR_FAILED;
+    }
+    // Shift the remaining free variables of 'a' down by k, since they are no
+    // longer under the eliminated lambda binder.
+    inv_var_shifter sh(m());
+    sh(a, k, result);
+    return BR_DONE;
 }
 
 sort_ref array_rewriter::get_map_array_sort(func_decl* f, unsigned num_args, expr* const* args) {
@@ -818,6 +853,7 @@ expr_ref array_rewriter::expand_store(expr* s) {
         result = m().mk_ite(mk_and(eqs), tmp, result);
     }
     result = m().mk_lambda(sorts.size(), sorts.data(), names.data(), result);
+    SASSERT(is_well_sorted(m(), result));
     return result;
 }
 

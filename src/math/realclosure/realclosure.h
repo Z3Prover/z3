@@ -317,7 +317,7 @@ namespace realclosure {
         void * data() { return m_value; }
         static num mk(void * ptr) { num r; r.m_value = reinterpret_cast<value*>(ptr); return r; }
     };
-};
+}
 
 typedef realclosure::manager             rcmanager;
 typedef rcmanager::numeral               rcnumeral;

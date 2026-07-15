@@ -1110,6 +1110,6 @@ namespace smt {
         return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
     }
 
-};
+}
 
 

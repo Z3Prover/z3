@@ -46,6 +46,7 @@ Revision History:
 #include "util/ref.h"
 #include "util/timer.h"
 #include "util/statistics.h"
+#include "util/map.h"
 #include "smt/fingerprints.h"
 #include "smt/proto_model/proto_model.h"
 #include "smt/theory_user_propagator.h"
@@ -65,6 +66,9 @@ namespace smt {
     class model_generator;
     class context;
     class kernel;
+
+    // Hash table for storing enode -> generation mappings
+    typedef ptr_addr_map<enode, unsigned> enode_generation_table;
 
     struct oom_exception : public z3_error {
         oom_exception() : z3_error(ERR_MEMOUT) {}
@@ -158,7 +162,8 @@ namespace smt {
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
-
+        enode_generation_table      m_sticky_generation_updates;
+        vector<std::pair<enode*, unsigned>>      m_r1_parent_generations; // temporary field used to cache generations between remove_parents_from_cg_table and reinsert_parents_into_cg_table
         struct new_eq {
             enode *                 m_lhs;
             enode *                 m_rhs;
@@ -617,6 +622,26 @@ namespace smt {
             return m_qmanager->get_generation(q);
         }
 
+        unsigned get_generation(enode * e) const  {
+            // We don't support patterns with equality so there is no need to track generations for them.
+            if (e->is_eq())
+                return 0;
+
+            return get_cg_root(e)->m_generation;
+        }
+
+        unsigned get_max_generation(unsigned num_enodes, enode * const * enodes) {
+            unsigned max = 0;
+            for (unsigned i = 0; i < num_enodes; ++i) {
+                unsigned curr = get_generation(enodes[i]);
+                if (curr > max)
+                    max = curr;
+            }
+            return max;
+        }
+
+        void set_generation(enode * e, unsigned generation);
+
         /**
            \brief Return true if the logical context internalized universal quantifiers.
         */
@@ -960,6 +985,8 @@ namespace smt {
 
         void internalize(expr * n, bool gate_ctx, unsigned generation);
 
+        enode *non_ground_internalize(expr *e);
+
         clause * mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k = CLS_AUX, clause_del_eh * del_eh = nullptr);
 
         void mk_clause(literal l1, literal l2, justification * j);
@@ -1133,11 +1160,15 @@ namespace smt {
         void push_new_th_diseq(theory_id th, theory_var lhs, theory_var rhs);
 
         friend class add_eq_trail;
-
+        friend class merge_cgc_generations_trail;
 
         void remove_parents_from_cg_table(enode * r1);
 
         void reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js);
+
+        void merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2);
+
+        void set_generation_sticky(enode * e, unsigned generation);
 
         void invert_trans(enode * n);
 
@@ -1148,6 +1179,10 @@ namespace smt {
         void propagate_bool_enode_assignment(enode * r1, enode * r2, enode * n1, enode * n2);
 
         void propagate_bool_enode_assignment_core(enode * source, enode * target);
+
+        void undo_merge_cgc_generations(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation);
+
+        void apply_sticky_updates(enode * e1, unsigned e1_generation, enode * e2, unsigned e2_generation);
 
         void undo_add_eq(enode * r1, enode * n1, unsigned r2_num_parents);
 
@@ -1194,6 +1229,18 @@ namespace smt {
         }
 
         static bool is_eq(enode const * n1, enode const * n2) { return n1->get_root() == n2->get_root(); }
+
+        enode * get_cg_root(enode * n) const {
+            if (!n->uses_cg_table())
+                return n;
+            // Fast path: if e is already the congruence root, avoid table lookup.
+            // This is important for performance, since get_cg_root is called on every generation lookup.
+            if (n->is_cgr())
+                return n;
+            auto r = m_cg_table.find(n);
+            SASSERT(r != nullptr);
+            return r;
+        }
 
         bool is_diseq(enode * n1, enode * n2) const;
 
@@ -1735,8 +1782,16 @@ namespace smt {
 
         void internalize_instance(expr * body, proof * pr, unsigned generation) {
             internalize_assertion(body, pr, generation);
-            if (relevancy())
+            if (relevancy()) {
+                // if the instantiation creates a conflict, we backtrack immediately.
+                // to retain the conflict clause being relevant we mark it here.
+                // if the instantiation does not create a conflict, default relevancy propagation applies.
+                if (inconsistent() && is_app(body)) {
+                    for (auto arg : *to_app(body))
+                        mark_as_relevant(arg);
+                }
                 m_case_split_queue->internalize_instance_eh(body, generation);
+            }
         }
 
         unsigned get_unsat_core_size() const {
@@ -1928,4 +1983,4 @@ namespace smt {
 
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
-};
+}

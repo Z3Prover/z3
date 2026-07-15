@@ -211,5 +211,5 @@ namespace opt {
         model_ref get_model() { return m_model; }
     };
 
-};
+}
 

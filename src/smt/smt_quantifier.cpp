@@ -21,6 +21,8 @@ Revision History:
 #include "ast/quantifier_stat.h"
 #include "ast/euf/ho_matcher.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/well_sorted.h"
+#include "ast/has_free_vars.h"
 #include "smt/smt_quantifier.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_finder.h"
@@ -28,6 +30,7 @@ Revision History:
 #include "smt/smt_quick_checker.h"
 #include "smt/mam.h"
 #include "smt/qi_queue.h"
+#include "util/statistics.h"
 #include "util/obj_hashtable.h"
 
 namespace smt {
@@ -218,9 +221,7 @@ namespace smt {
                     STRACE(triggers,  tout <<", Pat: "<< expr_ref(pat, m()););
                     STRACE(causality, tout <<", Father:";);
                 }
-                for (auto n : used_enodes) {
-                    enode *orig = std::get<0>(n);
-                    enode *substituted = std::get<1>(n);
+                for (auto [orig, substituted] : used_enodes) {
                     (void) substituted;
                     if (orig == nullptr) {
                         STRACE(causality, tout << " #" << substituted->get_owner_id(););
@@ -250,24 +251,19 @@ namespace smt {
                 trace_stream() << "\n";
             } else {
                 std::ostream & out = trace_stream();
-
                 obj_hashtable<enode> already_visited;
-
                 // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
                 // is used. We need to make sure that all of these equalities appear in the log.
                 for (unsigned i = 0; i < num_bindings; ++i) {
                     log_justification_to_root(out, bindings[i], already_visited, m_context, m());
                 }
 
-                for (auto n : used_enodes) {
-                    enode *orig = std::get<0>(n);
-                    enode *substituted = std::get<1>(n);
+                for (auto [orig, substituted] : used_enodes) {
                     if (orig != nullptr) {
                         log_justification_to_root(out, orig, already_visited, m_context, m());
                         log_justification_to_root(out, substituted, already_visited, m_context, m());
                     }
                 }
-
                 // At this point all relevant equalities for the match are logged.
                 out << "[new-match] " << f->get_data_hash() << " #" << q->get_id() << " #" << pat->get_id();
                 for (unsigned i = 0; i < num_bindings; ++i) {
@@ -288,7 +284,7 @@ namespace smt {
                 out << "\n";
             }
         }
-
+        
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
@@ -580,6 +576,7 @@ namespace smt {
 
     void quantifier_manager::collect_statistics(::statistics & st) const {
         m_imp->m_qi_queue.collect_statistics(st);
+        m_imp->m_plugin->collect_statistics(st);
     }
 
     void quantifier_manager::reset_statistics() {
@@ -625,8 +622,11 @@ namespace smt {
             unsigned     m_min_top_generation = 0;
             unsigned     m_max_top_generation = 0;
             vector<std::tuple<enode*, enode*>>* m_used_enodes = nullptr;
+            vector<std::pair<quantifier*, expr_ref_vector>> m_matches;
         };
         ho_match_state m_ho_state;
+        unsigned       m_stat_ho_refine = 0;    // number of times ho-matching refinement is invoked
+        unsigned       m_stat_ho_instances = 0; // number of instances added via ho-matching
     public:
         default_qm_plugin():
             m_qm(nullptr),
@@ -653,7 +653,8 @@ namespace smt {
 
             if (m_fparams->m_ho_matching) {
                 m_ho_matcher = alloc(euf::ho_matcher, m, m_context->get_trail_stack());
-                std::function<void(euf::ho_subst&)> on_match = [&](euf::ho_subst& s) {
+                m_ho_matcher->set_max_iterations(m_fparams->m_ho_matching_bound);
+                std::function<void(euf::ho_subst&)> on_match = [this](euf::ho_subst& s) {
                     on_ho_match(s);
                 };
                 m_ho_matcher->set_on_match(on_match);
@@ -662,58 +663,43 @@ namespace smt {
 
         quantifier_manager_plugin * mk_fresh() override { return alloc(default_qm_plugin); }
 
-        void on_ho_match(euf::ho_subst& s) {
-            ast_manager& m = m_context->get_manager();
-            auto& st = m_ho_state;
-            auto* hoq = st.m_q;
-            auto* q = m_ho_matcher->hoq2q(hoq);
+        void on_ho_match(euf::ho_subst &s) {
+            auto &st = m_ho_state;
+            auto *hoq = st.m_q;
+            auto *q = m_ho_matcher->hoq2q(hoq);
+            auto const &binding = s.get_binding(q);
+            st.m_matches.push_back({ q, binding });
+        }
 
-            expr_ref_vector binding(m);
-            for (unsigned i = 0; i < s.size(); ++i)
-                binding.push_back(s.get(i));
+        void consume_ho_matches() {
+            for (auto const &[q, binding] : m_ho_state.m_matches) 
+                consume_ho_match(q, binding);            
+            m_ho_state.m_matches.reset();
+        }
 
-            // Shrink binding to original quantifier's num_decls
-            // The HO quantifier has extra vars at higher indices; drop them.
-            // Binding is indexed by var index: binding[i] = value for var i.
-            // First substitute any remaining vars, then keep only original vars.
-            TRACE(ho_matching, tout << "num bound variables " << q->get_num_decls() << " for " << mk_bounded_pp(q, m)
-                                    << "\n"
-                                    << binding << "\n";);
-            if (binding.size() > q->get_num_decls()) {
-                var_subst sub(m);
-                bool change = true;
-                while (change) {
-                    change = false;
-                    for (unsigned i = 1; i < binding.size(); ++i) {
-                        if (!binding.get(i)) continue;
-                        auto r = sub(binding.get(i), binding);
-                        change |= r != binding.get(i);
-                        binding[i] = r;
-                    }
-                }
-                binding.shrink(q->get_num_decls());
-            }
-            if (binding.size() < q->get_num_decls())
-                return;
-
-            binding.reverse();
-
+        void consume_ho_match(quantifier * q, expr_ref_vector const& binding) {
+            auto &st = m_ho_state;
             // Create enodes for the refined bindings and add instance
             ptr_buffer<enode> new_bindings;
             unsigned max_gen = st.m_max_generation;
+            TRACE(ho_matching, tout << binding << "\n");
             for (expr* e : binding) {
                 if (!e)
                     return; // incomplete binding
+                if (has_free_vars(e))
+                    return;
                 if (!m_context->e_internalized(e)) {
                     m_context->internalize(e, false);
                 }
                 enode* n = m_context->get_enode(e);
                 new_bindings.push_back(n);
-                if (n->get_generation() > max_gen)
-                    max_gen = n->get_generation();
+                unsigned gen = m_context->get_generation(n);
+                if (gen > max_gen)
+                    max_gen = gen;
             }
 
-            TRACE(ho_matching,
+            TRACE(ho_matching, 
+                ast_manager &m = m_context->get_manager();
                 tout << "ho_match refined for " << mk_pp(q, m) << "\n";
                 for (unsigned i = 0; i < new_bindings.size(); ++i)
                     tout << "  binding[" << i << "] = " << mk_bounded_pp(new_bindings[i]->get_expr(), m) << "\n";);
@@ -721,6 +707,7 @@ namespace smt {
             vector<std::tuple<enode*, enode*>> used_enodes;
             m_context->add_instance(q, nullptr, new_bindings.size(), new_bindings.data(),
                                     max_gen, st.m_min_top_generation, st.m_max_top_generation, used_enodes);
+            ++m_stat_ho_instances;
         }
 
         bool try_ho_refine(quantifier* qa, app* pat, unsigned num_bindings, enode* const* bindings,
@@ -745,16 +732,28 @@ namespace smt {
             m_ho_state.m_min_top_generation = min_top_gen;
             m_ho_state.m_max_top_generation = max_top_gen;
             m_ho_state.m_used_enodes = &used_enodes;
+            m_ho_state.m_matches.reset();
 
             IF_VERBOSE(10, verbose_stream() << "try_ho_refine: q=" << mk_pp(qa, m) << "\n  pat=" << mk_pp(pat, m) << "\n";
                 for (unsigned i = 0; i < num_bindings; ++i)
                     verbose_stream() << "  s[" << i << "] = " << mk_pp(s.get(i), m) << " sort=" << mk_pp(s.get(i)->get_sort(), m) << "\n";);
 
             m_ho_matcher->refine_ho_match(pat, s);
+            consume_ho_matches();
+            ++m_stat_ho_refine;
             return true;
         }
 
         bool model_based() const override { return m_fparams->m_mbqi; }
+
+        void collect_statistics(::statistics & st) const override {
+            if (m_fparams->m_ho_matching) {
+                st.update("ho-matching refinements", m_stat_ho_refine);
+                st.update("ho-matching instances", m_stat_ho_instances);
+            }
+            if (m_model_finder)
+                m_model_finder->collect_statistics(st);
+        }
 
         bool mbqi_enabled(quantifier *q) const override {
             if (!m_fparams->m_mbqi_id) return true;
@@ -832,14 +831,9 @@ namespace smt {
                 // Compile HO pattern and also register the compiled version with MAM
                 if (m_ho_matcher) {
                     auto [q1, p1] = m_ho_matcher->compile_ho_pattern(q, mp);
-                    IF_VERBOSE(10, verbose_stream() << "ho_matching: q=" << q->get_qid() 
-                               << " compiled=" << (p1 != mp) 
-                               << " p1=" << mk_pp(p1, m) << "\n");
                     if (p1 != mp) {
-                        if (!unary && j >= num_eager_multi_patterns)
-                            m_lazy_mam->add_pattern(q1, p1);
-                        else
-                            m_mam->add_pattern(q1, p1);
+                        IF_VERBOSE(10, verbose_stream() << "ho_matching: q=" << q->get_qid() << " p1= " << mk_pp(p1, m) << "\n");
+                        m_lazy_mam->add_pattern(q1, p1);
                     }
                 }
                 if (!unary)
@@ -897,7 +891,6 @@ namespace smt {
         void propagate() override {
             if (!m_active)
                 return;
-            IF_VERBOSE(10, verbose_stream() << "ho_matching: propagate(), mam.has_work=" << m_mam->has_work() << "\n");
             m_mam->match();
             if (!m_context->relevancy() && use_ematching()) {
                 ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
@@ -962,4 +955,4 @@ namespace smt {
         return alloc(default_qm_plugin);
     }
 
-};
+}

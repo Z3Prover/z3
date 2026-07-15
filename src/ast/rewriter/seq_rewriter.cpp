@@ -3282,6 +3282,39 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
 
+    // (str.in_re e (re.range lo hi)) where a bound is not a concrete character.
+    // By SMT-LIB semantics (re.range lo hi) is the set of single characters c
+    // with lo <= c <= hi when lo and hi are themselves single characters, and
+    // the empty language otherwise; so membership is equivalent to lo, hi and
+    // e all being single characters with lo <= e <= hi.  The derivative engine
+    // only unfolds ranges whose bounds are concrete characters, so without this
+    // reduction a range with a symbolic bound is left unsolved (and mk_re_range
+    // deliberately keeps such a range symbolic rather than unsoundly collapsing
+    // it to re.empty).  Ranges with two concrete single-character bounds keep
+    // their existing derivative-based handling.
+    {
+        expr* rlo = nullptr, *rhi = nullptr;
+        if (re().is_range(b, rlo, rhi)) {
+            auto concrete_char = [&](expr* e) {
+                zstring s;
+                expr* ch = nullptr;
+                unsigned uc = 0;
+                return (str().is_string(e, s) && s.length() == 1) ||
+                       (str().is_unit(e, ch) && m_util.is_const_char(ch, uc));
+            };
+            if (!concrete_char(rlo) || !concrete_char(rhi)) {
+                expr_ref_vector conj(m());
+                conj.push_back(m().mk_eq(str().mk_length(rlo), one()));
+                conj.push_back(m().mk_eq(str().mk_length(rhi), one()));
+                conj.push_back(m().mk_eq(str().mk_length(a), one()));
+                conj.push_back(str().mk_lex_le(rlo, a));
+                conj.push_back(str().mk_lex_le(a, rhi));
+                result = m().mk_and(conj);
+                return BR_REWRITE_FULL;
+            }
+        }
+    }
+
     zstring s;
     if (str().is_string(a, s) && re().is_ground(b)) {
         // Just check membership and replace by true/false
@@ -4141,34 +4174,50 @@ br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
     len = min_length(hi).second;
     if (len > 1)
         is_empty = true;
+    // A bound that is provably of length 0 (e.g. the empty string "") can
+    // likewise never be a single character, so the range is empty.  Unlike a
+    // symbolic bound, max_length == 0 is a provable emptiness fact, so this is
+    // sound (it is never true for a model-dependent bound such as a variable).
     if (max_length(lo) == std::make_pair(true, rational(0)))
         is_empty = true;
     if (max_length(hi) == std::make_pair(true, rational(0)))
         is_empty = true;
-    if (!is_empty) {
-        if (str().is_string(lo, slo) && slo.length() == 1) 
-            clo = slo[0];    
-        else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
-            ;
-        else
-            is_empty = true;
-    }
-    if (!is_empty) {
-        if (str().is_string(hi, shi) && shi.length() == 1)
-            chi = shi[0];
-        else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
-            ;
-        else
-            is_empty = true;
-    }
 
-    // clo/chi are only meaningful once both bounds were extracted; an early
-    // is_empty (from the length checks) leaves them at their default 0, so the
-    // is_empty return must come before the singleton/ordering checks below.
-    if (!is_empty && clo > chi)
-        is_empty = true;
-
+    // A provable length constraint (a bound can never be a single character)
+    // is the only sound way to conclude emptiness for a possibly-symbolic
+    // bound, so decide emptiness here before attempting to read concrete
+    // characters.
     if (is_empty) {
+        sort* srt = re().mk_re(lo->get_sort());
+        result = re().mk_empty(srt);
+        return BR_DONE;
+    }
+
+    // Try to read concrete single-character bounds.  A bound that is not a
+    // syntactic single-character literal is *symbolic* (its value depends on
+    // the model), NOT empty: collapsing such a range to re.empty is unsound
+    // (e.g. (re.range x x) is {x} whenever x is a single character), so we
+    // leave the range unevaluated (BR_FAILED) and let the theory solver
+    // reason about it.
+    bool has_clo = false, has_chi = false;
+    if (str().is_string(lo, slo) && slo.length() == 1) {
+        clo = slo[0];
+        has_clo = true;
+    }
+    else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
+        has_clo = true;
+    if (str().is_string(hi, shi) && shi.length() == 1) {
+        chi = shi[0];
+        has_chi = true;
+    }
+    else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
+        has_chi = true;
+
+    if (!has_clo || !has_chi)
+        return BR_FAILED;
+
+    // Both bounds are concrete characters: an inverted range is empty.
+    if (clo > chi) {
         sort* srt = re().mk_re(lo->get_sort());
         result = re().mk_empty(srt);
         return BR_DONE;

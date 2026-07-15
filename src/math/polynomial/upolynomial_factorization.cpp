@@ -1299,4 +1299,4 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
     return factor_square_free(upm, f, fs, 1, params);
 }
 
-}; // end upolynomial namespace
+} // end upolynomial namespace

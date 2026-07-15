@@ -630,4 +630,4 @@ namespace datalog {
     }
 
 
-};
+}

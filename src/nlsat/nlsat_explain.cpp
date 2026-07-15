@@ -1784,7 +1784,7 @@ namespace nlsat {
         m_imp->test_root_literal(k, y, i, p, result);
     }
 
-};
+}
 #ifdef Z3DEBUG
 #include <iostream>
 void pp(nlsat::explain::imp & ex, unsigned num, nlsat::literal const * ls) {

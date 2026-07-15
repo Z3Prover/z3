@@ -908,15 +908,15 @@ namespace smt {
         case OP_BADD:           internalize_add(term); return true;
         case OP_BSUB:           internalize_sub(term); return true;
         case OP_BMUL:           internalize_mul(term); return true;
-        case OP_BSDIV_I:        internalize_sdiv(term); return true;
+        case OP_BSDIV_I:        internalize_sdiv(term); if (!ctx.relevancy()) assert_bv_divrem_bound_axiom(term); return true;
 #if ENABLE_QUOT_REM_ENCODING
-        case OP_BUDIV_I:        internalize_udiv_quot_rem(term); return true;
+        case OP_BUDIV_I:        internalize_udiv_quot_rem(term); if (!ctx.relevancy()) assert_bv_divrem_bound_axiom(term); return true;
 #else
-        case OP_BUDIV_I:        internalize_udiv(term); return true;
+        case OP_BUDIV_I:        internalize_udiv(term); if (!ctx.relevancy()) assert_bv_divrem_bound_axiom(term); return true;
 #endif
-        case OP_BSREM_I:        internalize_srem(term); return true;
-        case OP_BUREM_I:        internalize_urem(term); return true;
-        case OP_BSMOD_I:        internalize_smod(term); return true;
+        case OP_BSREM_I:        internalize_srem(term); if (!ctx.relevancy()) assert_bv_divrem_bound_axiom(term); return true;
+        case OP_BUREM_I:        internalize_urem(term); if (!ctx.relevancy()) assert_bv_divrem_bound_axiom(term); return true;
+        case OP_BSMOD_I:        internalize_smod(term); if (!ctx.relevancy()) assert_bv_divrem_bound_axiom(term); return true;
         case OP_BAND:           internalize_and(term); return true;
         case OP_BOR:            internalize_or(term); return true;
         case OP_BNOT:           internalize_not(term); return true;
@@ -1395,6 +1395,11 @@ namespace smt {
     void theory_bv::relevant_eh(expr * n) {
         TRACE(arith, tout << "relevant: #" << n->get_id() << " " << ctx.e_internalized(n) << ": " << mk_bounded_pp(n, m) << "\n";);
         TRACE(bv, tout << "relevant: #" << n->get_id() << " " << ctx.e_internalized(n) << ": " << mk_pp(n, m) << "\n";);
+        if (ctx.relevancy() && m_util.is_bv_divrem(n)) {
+            ctx.mark_as_relevant(to_app(n)->get_arg(0));
+            ctx.mark_as_relevant(to_app(n)->get_arg(1));
+            assert_bv_divrem_bound_axiom(to_app(n));
+        }
         if (m.is_bool(n)) {
             if (!ctx.b_internalized(n))
                 return;
@@ -2070,5 +2075,19 @@ namespace smt {
     }
 #endif
 
+    // Add, on the fly, the magnitude bound axioms for division/remainder operators.
+    // Uses the shared bv_util::mk_bv_divrem_bound clause builder so the axiom matches the
+    // one produced by the bv-divrem-bounds simplifier. Only fires for a symbolic divisor.
+    void theory_bv::assert_bv_divrem_bound_axiom(app * n) {
+        expr_ref_vector clause(m);
+        m_util.mk_bv_divrem_bound(n, clause);
+        if (clause.empty())
+            return;
+        literal_vector lits;
+        for (expr* e : clause)
+            lits.push_back(mk_literal(e));
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+    }
 
-};
+
+}

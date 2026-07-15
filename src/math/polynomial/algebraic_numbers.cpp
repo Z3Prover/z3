@@ -2066,8 +2066,15 @@ namespace algebraic_numbers {
             scoped_mpbq la(bqm()), ua(bqm());
             scoped_mpbq lb(bqm()), ub(bqm());
             unsigned precision = 10;
-            if (get_interval(a, la, ua, precision) && 
-                get_interval(b, lb, ub, precision)) { 
+            // Important: both intervals must be computed. Do not short-circuit with &&:
+            // the refined bounds la, ua, lb, ub are all used below (and beyond this
+            // if statement, in the interval-separation checks that compare against
+            // the bounds of a and b), so get_interval(b, ...) has to run even when
+            // get_interval(a, ...) returns false (which happens when a is rational
+            // and its exact root is found).
+            bool a_separated = get_interval(a, la, ua, precision);
+            bool b_separated = get_interval(b, lb, ub, precision);
+            if (a_separated && b_separated) {
                 IF_VERBOSE(9, verbose_stream() << "sturm 0\n");
                 if (la > ub) 
                     return sign_pos;
@@ -3511,4 +3518,4 @@ namespace algebraic_numbers {
     void manager::collect_statistics(statistics & st) const {
         m_imp->collect_statistics(st);
     }
-};
+}

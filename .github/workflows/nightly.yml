@@ -16,13 +16,17 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 env:
   MAJOR: '4'
   MINOR: '17'
-  PATCH: '0'
+  PATCH: '1'
 
 jobs:
   # ============================================================================
@@ -33,6 +37,8 @@ jobs:
     name: "Mac Build x64"
     runs-on: macos-latest
     timeout-minutes: 90
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.3"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.0
@@ -43,7 +49,7 @@ jobs:
           python-version: '3.x'
       
       - name: Build
-        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=x64
+        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=x64 --os=osx-13.3
             
       - name: Validate libz3.dylib and z3 architecture (must be x86_64)
         run: |
@@ -69,6 +75,8 @@ jobs:
     name: "Mac ARM64 Build"
     runs-on: macos-latest
     timeout-minutes: 90
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.3"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.0
@@ -79,7 +87,7 @@ jobs:
           python-version: '3.x'
       
       - name: Build
-        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64
+        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64 --os=osx-13.3
             
       - name: Validate libz3.dylib and z3 architecture (must be arm64)
         run: |
@@ -820,19 +828,44 @@ jobs:
         run: ls -R tmp
       
       - name: Delete existing Nightly release and tag
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Delete the release first (this also deletes assets)
-          gh release delete Nightly --yes || echo "No release to delete"
-          # Delete the tag explicitly
-          git push origin :refs/tags/Nightly || echo "No tag to delete"
+          if gh release view Nightly > /dev/null 2>&1; then
+            # Delete the release and associated tag if it exists.
+            if ! gh release delete Nightly --yes --cleanup-tag; then
+              echo "Failed to delete existing Nightly release/tag"
+              exit 1
+            fi
+          else
+            echo "No release to delete"
+          fi
+
+          if git ls-remote --exit-code --tags origin refs/tags/Nightly > /dev/null 2>&1; then
+            # Tag may exist without a release (for example, if a previous run failed mid-deploy).
+            git push origin :refs/tags/Nightly
+          fi
       
       - name: Create Nightly release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git tag -f Nightly "${{ github.sha }}"
+          if ! git push --force origin refs/tags/Nightly; then
+            echo "Failed to push Nightly tag to origin"
+            exit 1
+          fi
+
+          TAG_SHA="$(git ls-remote --tags origin refs/tags/Nightly refs/tags/Nightly^{} | awk '
+            $2 == "refs/tags/Nightly^{}" { sha = $1 }
+            $2 == "refs/tags/Nightly" && sha == "" { sha = $1 }
+            END { print sha }
+          ')"
+          if [ "$TAG_SHA" != "${{ github.sha }}" ]; then
+            echo "Nightly tag points to $TAG_SHA, expected ${{ github.sha }}"
+            exit 1
+          fi
+
           ls
           find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
           
@@ -858,7 +891,7 @@ jobs:
               --title "Nightly" \
               --notes "Automated nightly build from commit ${{ github.sha }}" \
               --prerelease \
-              --target ${{ github.sha }} \
+              --verify-tag \
               "${unique_files[@]}"
           else
             echo "No files to release after deduplication"
@@ -881,6 +914,16 @@ jobs:
         with:
           name: PythonPackages
           path: dist
+      
+      - name: Rewrite macOS wheel tags unsupported by test.PyPI
+        run: |
+          # TestPyPI rejects current macOS wheel tags such as macosx_13_3_*.
+          # Rewrite only the unsupported 13_3 tag to 13 for upload validation.
+          for whl in dist/*-macosx_13_3_*.whl; do
+            [ -e "$whl" ] || continue
+            mv "$whl" "${whl/macosx_13_3_/macosx_13_0_}"
+          done
+          ls -l dist
       
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

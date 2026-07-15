@@ -147,6 +147,6 @@ namespace datalog {
 
         void disable_fast_pass() { m_disable_fast_pass = true; }
     };
-};
+}
        
 

@@ -965,6 +965,6 @@ namespace smt {
     }
 
 
-};
+}
 
 
