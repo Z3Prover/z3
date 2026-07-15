@@ -88,7 +88,6 @@ namespace algebraic_numbers {
         // configuration
         int                        m_min_magnitude;
         bool                       m_factor;
-        bool                       m_isolate_rational_roots;
         polynomial::factor_params  m_factor_params;
         int                        m_zero_accuracy;
 
@@ -153,7 +152,6 @@ namespace algebraic_numbers {
             algebraic_params p(_p);
             m_min_magnitude            = -static_cast<int>(p.min_mag());
             m_factor                   = p.factor();
-            m_isolate_rational_roots   = p.isolate_rational_roots();
             m_factor_params.m_max_p    = p.factor_max_prime();
             m_factor_params.m_p_trials = p.factor_num_primes();
             m_factor_params.m_max_search_size = p.factor_search_size();
@@ -844,7 +842,7 @@ namespace algebraic_numbers {
             // is both wasteful and, downstream, error-prone (algebraic-number comparison
             // must special-case such cells). So first try to recognize a rational root
             // and, if found, return it as a plain rational (basic numeral).
-            if (m_isolate_rational_roots && rational_root_in_interval(sz, p, a, b, r))
+            if (rational_root_in_interval(sz, p, a, b, r))
                 return;
 
             del(r);
