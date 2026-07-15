@@ -38,6 +38,7 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
     // Overflow if high bits are not the sign extension of result
     return high != (result >> 63);
 #elif defined(_MSC_VER)
+    // Extract magnitudes without ever evaluating -INT64_MIN.
     uint64_t x = a < 0 ? static_cast<uint64_t>(-(a + 1)) + 1 : static_cast<uint64_t>(a);
     uint64_t y = b < 0 ? static_cast<uint64_t>(-(b + 1)) + 1 : static_cast<uint64_t>(b);
     bool is_neg = (a < 0) != (b < 0);
