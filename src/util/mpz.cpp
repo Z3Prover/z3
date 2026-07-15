@@ -35,13 +35,13 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
 #elif defined(__GNUC__)
     return __builtin_mul_overflow(a, b, &result);
 #elif defined(_MSC_VER) && !defined(_M_ARM64) && !defined(_M_ARM64EC)
-    // MSVC _mul128 is available on the non-ARM64 targets that still use this path.
+    // MSVC exposes _mul128 on x64 targets, but not on ARM64/ARM64EC.
     __int64 high;
     result = _mul128(a, b, &high);
     // Overflow if high bits are not the sign extension of result
     return high != (result >> 63);
 #elif defined(_MSC_VER)
-    // Unsigned negation preserves the magnitude of INT64_MIN without signed overflow.
+    // Unsigned negation preserves the magnitude of every negative int64_t, including INT64_MIN.
     uint64_t x = a < 0 ? -static_cast<uint64_t>(a) : static_cast<uint64_t>(a);
     uint64_t y = b < 0 ? -static_cast<uint64_t>(b) : static_cast<uint64_t>(b);
     bool is_neg = (a < 0) != (b < 0);
