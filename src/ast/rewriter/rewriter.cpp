@@ -396,7 +396,7 @@ void var_shifter::process_var(var * v) {
 }
 
 void inv_var_shifter::operator()(expr * t, unsigned shift, expr_ref & r) {
-    if (is_ground(t)) {
+    if (is_ground(t) || shift == 0) {
         r = t;
         return;
     }

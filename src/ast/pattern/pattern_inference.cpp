@@ -15,6 +15,16 @@ Author:
 
 Revision History:
 
+Rules:
+
+- A pattern can contain a binder (lambda).
+- A pattern can occur under a binder
+- A pattern cannot contain bound variables
+
+Patterns are down-shifted by number of bound variables in scope to 
+align with quantifier where pattern is associated.
+
+
 --*/
 
 #include "util/warning.h"
@@ -173,11 +183,13 @@ inline void pattern_inference_cfg::collect::save(expr * n, unsigned delta, info 
 void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
     switch (n->get_kind()) {
     case AST_VAR: {
-        uint_set free_vars;
+        uint_set free_vars, bound_vars;
         unsigned idx = to_var(n)->get_idx();
         if (delta <= idx && idx < m_num_bindings + delta) 
             free_vars.insert(idx - delta);
-        info * i = alloc(info, m, n, free_vars, 1);
+        else if (idx < delta)
+            bound_vars.insert(idx);
+        info * i = alloc(info, free_vars, bound_vars, 1);
         save(n, delta, i);
         return;
     }
@@ -190,55 +202,38 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         }
 
         if (c->get_num_args() == 0) {
-            save(n, delta, alloc(info, m, n, uint_set(), 1));
+            save(n, delta, alloc(info, uint_set(), uint_set(), 1));
             return;
         }
 
-        ptr_buffer<expr> buffer;
-        bool changed   = false; // false if none of the children is mapped to a node different from itself.
-        uint_set free_vars;
+        uint_set free_vars, bound_vars;
         unsigned size  = 1;
-        unsigned num   = c->get_num_args();
-        for (unsigned i = 0; i < num; ++i) {
-            expr * child      = c->get_arg(i);
+        for (expr *child : *c) {
             info * child_info = nullptr;
-#ifdef Z3DEBUG
-            bool found =
-#endif
-            m_cache.find(entry(child, delta), child_info);
-            SASSERT(found);
-            if (child_info == nullptr) {
+            VERIFY(m_cache.find(entry(child, delta), child_info));
+            if (!child_info) {
                 save(n, delta, nullptr);
                 return;
             }
-            buffer.push_back(child_info->m_node.get());
-            free_vars |= child_info->m_free_vars;
-            size      += child_info->m_size;
-            if (child != child_info->m_node.get())
-                changed = true;
+            free_vars  |= child_info->m_free_vars;
+            bound_vars |= child_info->m_bound_vars;
+            size       += child_info->m_size;
         }
 
-        app * new_node = nullptr;
-        if (changed)
-            new_node = m.mk_app(decl, buffer.size(), buffer.data());
-        else
-            new_node = to_app(n);
-        save(n, delta, alloc(info, m, new_node, free_vars, size));
+        save(n, delta, alloc(info, free_vars, bound_vars, size));
         // Remark: arithmetic patterns are only used if they are nested inside other terms.
         // That is, we never consider x + 1 as pattern. On the other hand, f(x+1) can be a pattern
-        // if arithmetic is not in the forbidden list.
-        //
-        // Remark: The rule above has an exception. The operators (div, idiv, mod) are allowed to be
-        // used as patterns even when they are not nested in other terms. The motivation is that
-        // Z3 currently doesn't implement them (i.e., they are uninterpreted). So, some users add axioms
-        // stating properties about these operators.
+        // if arithmetic is not in the forbidden list.        
         family_id fid = c->get_family_id();
         decl_kind k   = c->get_decl_kind();
         if (!free_vars.empty() &&       
-            delta == 0 &&
+            bound_vars.empty() &&
             (fid != m_afid || (fid == m_afid && !m_owner.m_nested_arith_only && (k == OP_DIV || k == OP_IDIV || k == OP_MOD || k == OP_REM || k == OP_MUL)))) {
-            TRACE(pattern_inference, tout << "potential candidate: \n" << mk_pp(new_node, m) << "\n";);
-            m_owner.add_candidate(new_node, free_vars, size);
+            TRACE(pattern_inference, tout << "potential candidate: \n" << mk_pp(n, m) << "\n";);
+            inv_var_shifter sh(m);
+            expr_ref r(m);
+            sh(n, delta, r);
+            m_owner.add_candidate(to_app(r), free_vars, size);
         }
         return;
     }
@@ -252,13 +247,12 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
             save(n, delta, nullptr);
             return;
         }
-        expr *new_body = body_info->m_node.get();
-        quantifier_ref new_q(m);
-        if (new_body != q->get_expr())
-            new_q = m.update_quantifier(q, new_body);
-        else
-            new_q = q;
-        save(n, delta, alloc(info, m, new_q, body_info->m_free_vars, body_info->m_size + 1));
+        uint_set bound_vars;
+        for (auto b : body_info->m_bound_vars) 
+            if (b >= num_decls)
+                bound_vars.insert(b - num_decls);
+        
+        save(n, delta, alloc(info, body_info->m_free_vars, bound_vars, body_info->m_size + 1));
         return;
     }
     default:

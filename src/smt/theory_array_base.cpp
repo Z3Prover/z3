@@ -865,16 +865,27 @@ namespace smt {
 
         for (auto [r, s1] : m_selects) {
             for (auto n : *r) {
-                if (!ctx.is_relevant(n) || !is_store(n))
+                if (false && !ctx.is_relevant(n))
                     continue;
-                auto st = n->get_arg(0)->get_root();
-                if (!ctx.is_relevant(st))
-                    continue;
-                auto & s2 = m_selects[st];
-                if (!check_selects(n, *s1, *s2))
-                    return false;
-                if (!check_selects(n, *s2, *s1))
-                    return false;
+                
+                if (is_store(n)) {
+                    auto st = n->get_arg(0)->get_root();
+                    auto &s2 = m_selects[st];
+                    if (!check_selects(n, *s1, *s2))
+                        return false;
+                    if (!check_selects(n, *s2, *s1))
+                        return false;
+                }
+                if (is_const(n)) {
+                    auto v = n->get_arg(0)->get_root();
+                    for (auto sel : *s1) {
+                        if (v != sel->get_root()) {
+                            verbose_stream() << pp(n, m) << " != " << pp(sel, m) << "\n";
+                            return false;
+                        }
+                    }
+
+                }
             }
         }
         return true;
