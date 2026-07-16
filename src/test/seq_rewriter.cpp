@@ -35,6 +35,13 @@ static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
     return expr_ref(su.str.mk_string(zstring(c)), m);
 }
 
+static bool is_sat_output(char const* s) {
+    if (!s)
+        return false;
+    size_t n = std::strlen(s);
+    return n >= 3 && std::strncmp(s, "sat", 3) == 0 && (n == 3 || s[3] == '\n');
+}
+
 static void test_seq_foldl_nth_model_validation() {
     Z3_context ctx = Z3_mk_context(nullptr);
     char const* result =
@@ -98,6 +105,27 @@ static void test_seq_foldl_foldli_scalar_model_validation() {
         if (line == "sat")
             ++sat_count;
     ENSURE(sat_count == 4);
+    Z3_del_context(ctx);
+}
+
+static void test_regex_proof_soundness_concat_kleene_star() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_set_param_value(cfg, "proof", "true");
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* result =
+        Z3_eval_smtlib2_string(ctx,
+            "(set-option :model_validate true)\n"
+            "(declare-const pre RegLan)\n"
+            // Regression pattern from #10137:
+            //   pre = (re.* re.allchar) ++ \"@\" ++ \"a\"
+            // This must stay satisfiable with proofs enabled.
+            "(assert (= pre (re.++ (re.++ (re.* re.allchar) (str.to_re \"@\")) (str.to_re \"a\"))))\n"
+            "(assert (str.in_re \"@a\" pre))\n"
+            "(check-sat)\n"
+            "(get-model)\n");
+    ENSURE(is_sat_output(result));
+    ENSURE(std::strstr(result, "define-fun pre") != nullptr);
     Z3_del_context(ctx);
 }
 
@@ -347,6 +375,7 @@ void tst_seq_rewriter() {
 
     test_seq_foldl_nth_model_validation();
     test_seq_foldl_foldli_scalar_model_validation();
+    test_regex_proof_soundness_concat_kleene_star();
 
     std::cout << "tst_seq_rewriter: all tests passed\n";
 }

@@ -531,6 +531,11 @@ namespace smt {
                 break;
             }
         }
+        // Under proof production, avoid introducing recursive emptiness
+        // obligations from regex equalities. Ground equalities are already
+        // discharged by the direct bisimulation decision just above.
+        if (m.proofs_enabled())
+            return;
         expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref f(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_empty = sk().mk_is_empty(r, r, f);
@@ -854,6 +859,16 @@ namespace smt {
             return;
         }
         th.add_axiom(~lit, ~th.mk_literal(is_nullable));
+        // The derivative-based expansion below is currently not proof-producing
+        // for all regex states. Under proof production, keep only the sound
+        // nullable consequence above.
+        if (m.proofs_enabled())
+            return;
+        // Note (non-proof path): derivative unfolding of is_empty is only
+        // sound for ground regex states. For symbolic states (e.g. involving
+        // regex variables), keep only the nullable consequence above.
+        if (!is_ground(r))
+            return;
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);
         d = mk_derivative_wrapper(hd, r);
