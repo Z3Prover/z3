@@ -231,6 +231,18 @@ namespace seq {
         // when it has to combine our materialized output with another
         // (id-sorted) regex set.
         expr_ref_vector ranges(m);
+
+        for (unsigned i = 0; i < n; ++i) {
+            auto [lo, hi] = p[i];
+            ranges.push_back(mk_single_range_regex(u, lo, hi, re_sort));
+        }
+        std::sort(ranges.data(), ranges.data() + ranges.size(),
+                  [](expr *a, expr *b) { return a->get_id() < b->get_id(); });
+        expr_ref acc(ranges.get(n - 1), m);
+        for (unsigned i = n - 1; i-- > 0;)
+            acc = expr_ref(u.re.mk_union(ranges.get(i), acc), m);
+        return acc;
+        #if 0
         expr_ref bound(m.mk_var(0, char_sort), m);
         symbol char_sym("ch");
         auto &ch = u.get_char_plugin();
@@ -239,7 +251,9 @@ namespace seq {
             ranges.push_back(m.mk_and(ch.mk_le(ch.mk_char(lo), bound), ch.mk_le(bound, ch.mk_char(hi))));
         }
         expr_ref body(m.mk_or(ranges), m);
-        return expr_ref(m.mk_lambda(1, &char_sort, &char_sym, body), m);
+        auto lam = m.mk_lambda(1, &char_sort, &char_sym, body);
+        return expr_ref(u.re.mk_of_pred(lam), m);
+        #endif
     }
 
     expr_ref unfold_fold(seq_rewriter &rw, expr *r) {
