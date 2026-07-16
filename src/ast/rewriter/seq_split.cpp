@@ -344,8 +344,10 @@ expr_ref seq_split::try_derivative_split(expr* r, sort* seq_sort, obj_hashtable<
     deriv_memo.insert(r);
     sort* re_sort = rex.mk_re(seq_sort);
     expr_ref unfolded(m);
-    if (m.is_true(nb)) unfolded = rex.mk_epsilon(seq_sort); // E(r) = eps
-    else               unfolded = rex.mk_empty(re_sort);    // E(r) = bot
+    if (m.is_true(nb))
+        unfolded = rex.mk_epsilon(seq_sort); // E(r) = eps
+    else
+        unfolded = rex.mk_empty(re_sort);    // E(r) = bot
     expr_ref_pair_vector cofs(m);
     m_rw.brz_derivative_cofactors(r, cofs);                // { (alpha_i, tgt_i) } = LF(delta(r))
     for (auto const& [cond, tgt] : cofs) {
@@ -614,11 +616,16 @@ expr_ref seq_split::from_split_set(split_set const& s) {
     return acc;
 }
 
+static unsigned cnt = 0;
+
 expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
                                    split_oracle const& oracle, bool& ok,
                                    obj_hashtable<expr>& deriv_memo) {
     ok = true;
     expr *a = nullptr, *b = nullptr, *r = nullptr, *s = nullptr;
+
+    cnt++;
+    // std::cout << cnt << std::endl;
 
     // already a frontier node
     if (is_frontier(t))

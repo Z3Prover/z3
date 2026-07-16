@@ -25,51 +25,51 @@ namespace seq {
     // range_predicate (union of ranges) of the characters satisfying it.  Returns
     // false on a construct outside {true,false,and,or,not,=,char.<=} over x.
     static bool pred_to_rp(ast_manager &m, seq_util &sq, expr *x, expr *pred,
-                           seq::range_predicate &out) {
+                           range_predicate &out) {
         unsigned maxc = sq.max_char();
         expr *a = nullptr, *b = nullptr;
         unsigned c = 0;
         if (m.is_true(pred)) {
-            out = seq::range_predicate::top(maxc);
+            out = range_predicate::top(maxc);
             return true;
         }
         if (m.is_false(pred)) {
-            out = seq::range_predicate::empty(maxc);
+            out = range_predicate::empty(maxc);
             return true;
         }
         if (m.is_eq(pred, a, b)) {
             if (a == x && sq.is_const_char(b, c)) {
-                out = seq::range_predicate::singleton(c, maxc);
+                out = range_predicate::singleton(c, maxc);
                 return true;
             }
             if (b == x && sq.is_const_char(a, c)) {
-                out = seq::range_predicate::singleton(c, maxc);
+                out = range_predicate::singleton(c, maxc);
                 return true;
             }
             return false;
         }
         if (sq.is_char_le(pred, a, b)) {
             if (b == x && sq.is_const_char(a, c)) {
-                out = seq::range_predicate::range(c, maxc, maxc);
+                out = range_predicate::range(c, maxc, maxc);
                 return true;
             }
             if (a == x && sq.is_const_char(b, c)) {
-                out = seq::range_predicate::range(0, c, maxc);
+                out = range_predicate::range(0, c, maxc);
                 return true;
             }
             return false;
         }
         if (m.is_not(pred, a)) {
-            seq::range_predicate s(maxc);
+            range_predicate s(maxc);
             if (!pred_to_rp(m, sq, x, a, s))
                 return false;
             out = ~s;
             return true;
         }
         if (m.is_and(pred)) {
-            out = seq::range_predicate::top(maxc);
+            out = range_predicate::top(maxc);
             for (expr *arg : *to_app(pred)) {
-                seq::range_predicate s(maxc);
+                range_predicate s(maxc);
                 if (!pred_to_rp(m, sq, x, arg, s))
                     return false;
                 out = out & s;
@@ -77,9 +77,9 @@ namespace seq {
             return true;
         }
         if (m.is_or(pred)) {
-            out = seq::range_predicate::empty(maxc);
+            out = range_predicate::empty(maxc);
             for (expr *arg : *to_app(pred)) {
-                seq::range_predicate s(maxc);
+                range_predicate s(maxc);
                 if (!pred_to_rp(m, sq, x, arg, s))
                     return false;
                 out = out | s;
@@ -202,10 +202,6 @@ namespace seq {
         return false;
     }
 
-    static expr_ref mk_unit_string_from_char(seq_util& u, unsigned c) {
-        return expr_ref(u.str.mk_string(zstring(c)), u.get_manager());
-    }
-
     static expr_ref mk_single_range_regex(seq_util& u, unsigned lo, unsigned hi, sort* re_sort) {
         ast_manager& m = u.get_manager();
         return expr_ref(u.re.mk_range(re_sort, lo, hi), m);
@@ -224,12 +220,10 @@ namespace seq {
             auto [lo, hi] = p[0];
             return mk_single_range_regex(u, lo, hi, re_sort);
         }
-        // Build single-range AST nodes first, then sort by expression id
-        // so the resulting right-associated union matches the canonical
-        // id-sorted shape that seq_rewriter::merge_regex_sets expects.
-        // Without this the merge algorithm produces incorrect unions
-        // when it has to combine our materialized output with another
-        // (id-sorted) regex set.
+        // Fold a multi-range class into a single re.of_pred predicate
+        // (lambda ch. \/_i lo_i <= ch <= hi_i).  The body stays inside the
+        // fragment recognized by pred_to_rp, so regex_to_range_predicate
+        // round-trips it back to the same range_predicate.
         expr_ref_vector ranges(m);
         expr_ref bound(m.mk_var(0, char_sort), m);
         symbol char_sym("ch");
@@ -239,7 +233,7 @@ namespace seq {
             ranges.push_back(m.mk_and(ch.mk_le(ch.mk_char(lo), bound), ch.mk_le(bound, ch.mk_char(hi))));
         }
         expr_ref body(m.mk_or(ranges), m);
-        return expr_ref(m.mk_lambda(1, &char_sort, &char_sym, body), m);
+        return expr_ref(u.re.mk_of_pred(m.mk_lambda(1, &char_sort, &char_sym, body)), m);
     }
 
     expr_ref unfold_fold(seq_rewriter &rw, expr *r) {

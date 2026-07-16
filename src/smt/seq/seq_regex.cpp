@@ -16,6 +16,7 @@ Author:
 
 --*/
 #include "smt/seq/seq_regex.h"
+#include "ast/rewriter/seq_range_collapse.h"
 
 namespace seq {
 
@@ -192,6 +193,24 @@ namespace seq {
         // Leaf nodes with no character discrimination
         if (re->is_fail() || re->is_full_char() || re->is_full_seq())
             return;
+
+        // re.of_pred over a range-fragment lambda: the canonical multi-range
+        // character class (see seq::range_predicate_to_regex).  Boundaries at
+        // every interval edge.  Outside the fragment the snode is non-ground
+        // (see sgraph::compute_metadata) and is_empty_bfs's ground gate keeps
+        // it away from this partition.
+        if (seq.re.is_of_pred(e)) {
+            range_predicate rp(seq.max_char());
+            if (regex_to_range_predicate(seq, e, rp)) {
+                for (unsigned i = 0; i < rp.num_ranges(); ++i) {
+                    auto [rlo, rhi] = rp[i];
+                    bounds.push_back(rlo);
+                    if (rhi < zstring::max_char())
+                        bounds.push_back(rhi + 1);
+                }
+            }
+            return;
+        }
 
         // If we reached a leaf and none of the expected leaf forms matched,
         // this is a regex constructor we did not account for in boundary

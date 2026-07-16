@@ -20,6 +20,7 @@ Author:
 #include "ast/euf/euf_seq_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_range_collapse.h"
 #include "ast/ast_pp.h"
 
 namespace euf {
@@ -147,6 +148,23 @@ namespace euf {
                 expr* e = n->m_expr;
                 n->m_rigid = e && (m_seq.str.is_replace(e) || m_seq.str.is_replace_all(e) ||
                                    m_seq.str.is_replace_re(e) || m_seq.str.is_replace_re_all(e));
+                // re.of_pred also has no dedicated snode kind, but over a lambda in
+                // the recognized range fragment it is just the canonical multi-range
+                // character class emitted by seq::range_predicate_to_regex.  Treat it
+                // as a settled single-character regex leaf — ground and classical —
+                // so memberships over it (or regexes containing it) stay primitive
+                // and the leaf/emptiness machinery engages; collect_re_predicates
+                // contributes its interval boundaries to the minterm partition.
+                // A lambda outside the fragment keeps the conservative non-ground
+                // treatment (nothing can partition on it).
+                if (e && m_seq.re.is_of_pred(e)) {
+                    n->m_regex_free = false;
+                    seq::range_predicate rp(m_seq.max_char());
+                    if (seq::regex_to_range_predicate(m_seq, e, rp)) {
+                        n->m_ground = true;
+                        n->m_is_classical = true;
+                    }
+                }
             }
             break;
 
@@ -794,6 +812,24 @@ namespace euf {
             return;
         if (m_seq.re.is_empty(e))
             return;
+
+        // re.of_pred over a range-fragment lambda: the canonical multi-range
+        // character class (see seq::range_predicate_to_regex).  Contribute one
+        // single-range regex per interval so the minterm partition sees its
+        // boundaries.  Outside the fragment nothing can be extracted; such an
+        // snode is non-ground (see compute_metadata), so the is_ground gates in
+        // front of the minterm consumers keep it out of these paths.
+        if (m_seq.re.is_of_pred(e)) {
+            seq::range_predicate rp(m_seq.max_char());
+            if (seq::regex_to_range_predicate(m_seq, e, rp)) {
+                sort* re_sort = e->get_sort();
+                for (unsigned i = 0; i < rp.num_ranges(); ++i) {
+                    auto [rlo, rhi] = rp[i];
+                    preds.push_back(m_seq.re.mk_range(re_sort, rlo, rhi));
+                }
+            }
+            return;
+        }
 
         // Expected compound regex operators are handled by recursion below.
         // If a leaf survives to this point, it is an unhandled regex form.

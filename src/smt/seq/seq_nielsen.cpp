@@ -2448,6 +2448,14 @@ namespace seq {
         // rule to identify and compare ancestors.
         node->m_dfs_path_pos = cur_path.size();
 
+        // Cut bookkeeping is per-visit: values left over from an earlier traversal
+        // (hot-restart) describe a different path.  Reset them so the early unsat
+        // returns below (sticky general conflict, cache hit, simplify/arith
+        // conflict) report a clean, cut-free closure to the parent's fold instead
+        // of leaking a stale cut.
+        node->m_subtree_lowlink = UINT_MAX;
+        node->m_subtree_has_cut = false;
+
         if (node->is_general_conflict()) {
             ++m_stats.m_num_simplify_conflict;
             return search_result::unsat;
@@ -2797,6 +2805,17 @@ namespace seq {
                     // node's string signature alone.  Make it sticky (survives
                     // hot-restart) and memoize it in the transposition table.
                     node->set_general_conflict();
+                    // The internal cuts (if any) deferred to this node or its
+                    // descendants and are DISCHARGED by this closure — nothing
+                    // escapes, so report a clean closure to the parent's fold.
+                    // Leaking the internal cut upward lets an ancestor with a
+                    // mixed closure (this child string-only + another child
+                    // arithmetic) mark itself general_conflict (all children
+                    // are) and THEN take the "cut may hide a model" unknown
+                    // exit — the sticky mark reads as unsat on the next
+                    // traversal: a spurious UNSAT.
+                    node->m_subtree_has_cut = false;
+                    node->m_subtree_lowlink = UINT_MAX;
                     // EXCEPTION: a lazy-factorization continuation (is_rf_cont)
                     // aliases its parent's — and ultimately the original, undivided
                     // membership's — string signature, yet its subtree only explored
@@ -4697,11 +4716,16 @@ namespace seq {
                 }
             }
             // Self-concatenation (e.g. x++x): the tail collapses back onto the
-            // exact same token as the head, so Δ and ∇ constrain the same
-            // variable simultaneously and must be checked jointly -- otherwise
+            // exact same SEQUENCE as the head, so Δ and ∇ constrain the same
+            // word simultaneously and must be checked jointly -- otherwise
             // a Δ/∇ pair that is only individually non-empty (e.g. <eps, "a">)
-            // is wrongly treated as feasible.
-            if (st->m_tail == first)
+            // is wrongly treated as feasible.  The joint check is only sound
+            // when head and tail are the SAME sequence: comparing the tail
+            // against `first` alone (the first token of the whole membership
+            // string) also matches e.g. x·y·c·x, where head = x·y is a
+            // DIFFERENT word than the tail x — intersecting Δ with ∇ there
+            // over-prunes feasible splits (a spurious UNSAT).
+            if (st->m_head == st->m_tail)
                 regexes_p.push_back(sn_q);
             if (m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
                 eliminated_dep = m_dep_mgr.mk_join(eliminated_dep, first_filter_dep);

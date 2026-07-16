@@ -212,33 +212,31 @@ namespace {
             check(extract_range_chars(u, e, lo, hi) && lo == 'A' && hi == 'A',
                   "{A} -> re.range A A");
         }
-        // 2 ranges -> re.union(range_0, range_1) in canonical order
+        // 2 ranges -> re.of_pred(lambda) with a RegEx(String) sort, round-tripping
+        // back to the same range set
         {
             range_predicate p = range_predicate::range('0', '9', M)
                               | range_predicate::range('a', 'z', M);
             expr_ref e = range_predicate_to_regex(u, p, str_sort);
-            expr* a = nullptr; expr* b = nullptr;
-            check(u.re.is_union(e, a, b), "2-range -> union");
-            unsigned lo0 = 0, hi0 = 0, lo1 = 0, hi1 = 0;
-            check(extract_range_chars(u, a, lo0, hi0) && lo0 == '0' && hi0 == '9',
-                  "union arg0 = (0-9) (canonical: lower lo first)");
-            check(extract_range_chars(u, b, lo1, hi1) && lo1 == 'a' && hi1 == 'z',
-                  "union arg1 = (a-z)");
+            expr* lam = nullptr;
+            check(u.re.is_of_pred(e, lam) && is_lambda(lam), "2-range -> of_pred(lambda)");
+            sort* elem = nullptr;
+            check(u.is_re(e, elem) && u.is_string(elem), "of_pred regex is RegEx(String)");
+            range_predicate p_out(M);
+            check(regex_to_range_predicate(u, e, p_out), "2-range of_pred translatable");
+            check(p == p_out, "2-range of_pred round-trip equal");
         }
-        // 3 ranges -> right-associated union
+        // 3 ranges -> re.of_pred(lambda), round-tripping back to the same range set
         {
             range_predicate p = range_predicate::range(0, 5, M)
                               | range_predicate::range(10, 15, M)
                               | range_predicate::range(20, 25, M);
             expr_ref e = range_predicate_to_regex(u, p, str_sort);
-            expr* a = nullptr; expr* rest = nullptr;
-            check(u.re.is_union(e, a, rest), "3-range -> union(...)");
-            unsigned lo = 0, hi = 0;
-            check(extract_range_chars(u, a, lo, hi) && lo == 0 && hi == 5, "first arg = (0-5)");
-            expr* b = nullptr; expr* c = nullptr;
-            check(u.re.is_union(rest, b, c), "rest is union(...,...)");
-            check(extract_range_chars(u, b, lo, hi) && lo == 10 && hi == 15, "second range");
-            check(extract_range_chars(u, c, lo, hi) && lo == 20 && hi == 25, "third range");
+            expr* lam = nullptr;
+            check(u.re.is_of_pred(e, lam) && is_lambda(lam), "3-range -> of_pred(lambda)");
+            range_predicate p_out(M);
+            check(regex_to_range_predicate(u, e, p_out), "3-range of_pred translatable");
+            check(p == p_out, "3-range of_pred round-trip equal");
         }
         // Round-trip identity for an arbitrary range-set
         {
