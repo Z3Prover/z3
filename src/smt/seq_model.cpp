@@ -658,8 +658,7 @@ namespace smt {
         SASSERT(sat_node);
         for (auto const& mem : sat_node->str_mems()) {
             SASSERT(mem.well_formed());
-            if (mem.is_trivial(sat_node))
-                continue; // empty string in nullable regex: already satisfied, no variable to constrain
+            SASSERT(!mem.is_trivial(sat_node));
             VERIFY(mem.is_primitive()); // everything else should have been eliminated already
             // A land-state view (paper §5.3) does not denote a plain regex on the
             // variable; mark it so mk_fresh_value builds its witness via the

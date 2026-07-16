@@ -16,6 +16,7 @@ Author:
 
 --*/
 #include "smt/theory_nseq.h"
+#include "smt/seq/seq_parikh.h"
 #include "smt/smt_context.h"
 #include "smt/smt_justification.h"
 #include "util/statistics.h"
@@ -2112,11 +2113,19 @@ namespace smt {
             if (has_view_or_guard)
                 continue;
 
-            // Skip variables whose leaf memberships are not all original input
-            // memberships: a length bound derived from a branch-specific split
-            // membership cannot be soundly propagated to the outer solver.
-            if (has_derived)
-                continue;
+            // NOTE on derived (branch-specific) memberships: a length bound
+            // derived from a factorization/decomposition split membership cannot
+            // be soundly propagated GLOBALLY (justified by the input literals) —
+            // the split is one disjunct of the input, not a consequence of it.
+            // But it IS entailed by the current Nielsen branch, so it can be
+            // attached to the SAT leaf as a branch-local side constraint (exactly
+            // like the leaf's other arithmetic side constraints): the literal is
+            // force-phased; if the outer solver rejects it, the leaf dies with an
+            // external conflict on the next solve() and the search moves on.
+            // Without this, the arith solver can commit a length that no word in
+            // the leaf's regex intersection has (e.g. an even len(x) against a
+            // leaf admitting only odd lengths), yielding a bogus SAT with an
+            // invalid model (hard_len_nonprim_* benchmarks).
 
             SASSERT(!regexes.empty());
             sort *ele_sort;
@@ -2169,7 +2178,20 @@ namespace smt {
                     m_gradient_cache[s] = 1;  // Reset gradient cache
                 }
                 else {
-                    prop_expr = m.mk_not(m.mk_eq(len_expr, l_expr));
+                    // Single-value block (len != l) makes the outer solver ramp
+                    // through l+1, l+2, ... at one full final_check round each
+                    // (observed on generated_tiny sat_0004: len != 0, != 1, ...).
+                    // If the shortest word of the intersection is longer than l,
+                    // jump straight to it: len >= min_len is entailed by the same
+                    // memberships and subsumes the whole ramp below it.
+                    unsigned min_len = 0;
+                    expr_ref inter(regexes[0]->get_expr(), m);
+                    for (unsigned i = 1; i + 1 < regexes.size(); ++i)  // skip trailing sigmal_g_node
+                        inter = m_seq.re.mk_inter(inter, regexes[i]->get_expr());
+                    if (m_regex.shortest_word_length(get_snode(inter), min_len) == l_true && min_len > l)
+                        prop_expr = m_autil.mk_ge(len_expr, m_autil.mk_int(min_len));
+                    else
+                        prop_expr = m.mk_not(m.mk_eq(len_expr, l_expr));
                     m_gradient_cache[s] = g + 1;  // Increment gradient cache
                 }
 
@@ -2177,14 +2199,85 @@ namespace smt {
                     ctx.internalize(prop_expr, true);
                 literal lit_prop = ctx.get_literal(prop_expr);
 
-                enode_pair_vector eqs;
-                literal_vector dep_lits;
+                if (!has_derived) {
+                    // All memberships are original inputs: the bound is a global
+                    // consequence of their deps — propagate it.
+                    enode_pair_vector eqs;
+                    literal_vector dep_lits;
 
-                for (unsigned idx : mem_indices) {
-                    seq::deps_to_lits(m_nielsen.dep_mgr(), mems[idx].m_dep, eqs, dep_lits);
+                    for (unsigned idx : mem_indices) {
+                        seq::deps_to_lits(m_nielsen.dep_mgr(), mems[idx].m_dep, eqs, dep_lits);
+                    }
+
+                    set_propagate(eqs, dep_lits, lit_prop);
                 }
+                else {
+                    // Branch-specific membership involved: the bound only holds on
+                    // this Nielsen branch.  Attach it to the SAT leaf as a side
+                    // constraint (its dep = the memberships' deps, so a future
+                    // conflict clause cites the right sources) and force the
+                    // literal like add_nielsen_assumptions does.  If the outer
+                    // solver has already committed to the negation, kill the leaf
+                    // with an external conflict so the next solve() explores other
+                    // branches instead of re-finding this one forever.
+                    seq::nielsen_node* leaf = m_nielsen.sat_node();
+                    seq::dep_tracker dep = nullptr;
+                    for (unsigned idx : mem_indices)
+                        dep = m_nielsen.dep_mgr().mk_join(dep, mems[idx].m_dep);
 
-                set_propagate(eqs, dep_lits, lit_prop);
+                    // Alongside the value/gradient bound, hand the leaf the EXACT
+                    // semilinear length set of each classical membership (extended
+                    // regexes bail inside encode_length_set and rely on the
+                    // gradient bound alone).  One round of these replaces the whole
+                    // len≠l1, len≠l2, ... value-blocking ladder the gradient would
+                    // otherwise walk — one full final_check round per value
+                    // (observed not to converge on hard_len_nonprim_2's mod-3
+                    // language, where every new factorization leaf restarted the
+                    // ladder).  Doing this lazily HERE — only when an incompatible
+                    // length was actually committed — keeps leaves of benchmarks
+                    // without length constraints free of Parikh clutter.
+                    // Re-encoding is cheap and stable: the rc-Skolem counters are
+                    // keyed on (str, regex), so repeated encodings yield identical
+                    // formulas, deduplicated by add_constraint.
+                    vector<seq::constraint> leaf_constraints;
+                    for (unsigned idx : mem_indices) {
+                        auto const& mem = mems[idx];
+                        if (mem.is_plain() && mem.m_regex->is_classical() && m_seq.is_re(mem.m_regex->get_expr()))
+                            m_nielsen.parikh().encode_length_set(
+                                mem.m_str->get_expr(), mem.m_regex->get_expr(), len_expr, mem.m_dep, leaf_constraints);
+                    }
+                    leaf_constraints.push_back(seq::constraint(prop_expr, dep, m));
+
+                    for (auto const& c : leaf_constraints) {
+                        leaf->add_constraint(c);
+                        if (!ctx.b_internalized(c.fml))
+                            ctx.internalize(c.fml, true);
+                        literal lit = ctx.get_literal(c.fml);
+                        ctx.mark_as_relevant(lit);
+                        switch (ctx.get_assignment(lit)) {
+                        case l_undef:
+                            ctx.privileged_split(lit);
+                            break;
+                        case l_false:
+                            leaf->set_external_conflict(lit, c.dep);
+                            // Drop the cached SAT node: the revalidation fast path
+                            // in final_check_eh would otherwise keep re-entering
+                            // this coherence check with the identical outer
+                            // assignment (same l, same false literal) and never
+                            // make progress.  Clearing forces a re-solve, where the
+                            // leaf's stored side constraint kills it via
+                            // literal_if_false and the DFS moves on.
+                            m_nielsen.clear_sat_node();
+                            break;
+                        case l_true:
+                            // already true yet the arith value is l: the literal
+                            // was not relevant to arith so far; marking it relevant
+                            // above is enough — the next final_check sees a
+                            // different l.
+                            break;
+                        }
+                    }
+                }
 
                 TRACE(seq, tout << "nseq length coherence check: length " << l << " with gradient " << g
                                 << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m)

@@ -108,6 +108,15 @@ namespace seq {
         //   l_undef — inconclusive (hit exploration bound)
         lbool check_intersection_emptiness(euf::snode_vector const& regexes, unsigned max_states = UINT_MAX);
 
+        // Length of a SHORTEST word in L(re): level-order BFS over the
+        // Brzozowski derivative automaton (contrast is_empty_bfs, whose
+        // worklist is LIFO and therefore finds *some* accepting state, not
+        // the nearest one).
+        //   l_true  — found; len = length of a shortest accepting word
+        //   l_false — language is definitely empty (within budget)
+        //   l_undef — inconclusive (exploration bound / unsupported shape)
+        lbool shortest_word_length(euf::snode const* re, unsigned& len, unsigned max_states = 10000);
+
         // check if regex is the full language (Σ* / re.all)
         static bool is_full_regex(euf::snode const* re) {
             return re && re->is_full_seq();

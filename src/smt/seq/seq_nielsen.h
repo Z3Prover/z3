@@ -1161,6 +1161,10 @@ namespace seq {
         // enable/disable Parikh image verification constraints
         void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
 
+        // access to the Parikh module (e.g. for theory_nseq's length-coherence
+        // check to lazily encode a SAT leaf's exact length sets)
+        seq_parikh& parikh() const { return *m_parikh; }
+
         void set_signature_split(bool e) { m_signature_split = e; }
         
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }

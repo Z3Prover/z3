@@ -212,6 +212,8 @@ def main():
                         help="Path to Ostrich binary (optional)")
     parser.add_argument("--noodler", metavar="PATH", default=None,
                         help="Path to z3-noodler binary (optional)")
+    parser.add_argument("--cvc5", metavar="PATH", default=None,
+                        help="Path to cvc5 binary (optional)")
     parser.add_argument("--csv", metavar="FILE", help="Also write results to a CSV file")
     args = parser.parse_args()
 
@@ -223,6 +225,7 @@ def main():
     if args.zipt:    external_bins["zipt"]    = (args.zipt, [f"-t:{timeout_s * 1000}"])
     if args.ostrich: external_bins["ostrich"] = (args.ostrich, [f"-timeout={timeout_s * 1000}"])
     if args.noodler: external_bins["noodler"] = (args.noodler, ["smt.string_solver=noodler", f"-t:{timeout_s * 1000}"])
+    if args.noodler: external_bins["cvc5"] = (args.cvc5, [f"--tlimit={timeout_s * 1000}"])
     ext_names = list(external_bins.keys())
 
     root = Path(args.path)

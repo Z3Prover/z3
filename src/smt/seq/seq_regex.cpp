@@ -359,6 +359,56 @@ namespace seq {
         return cache_and_return(l_true);
     }
 
+    lbool seq_regex::shortest_word_length(euf::snode const* re, unsigned& len, unsigned max_states) {
+        SASSERT(re && re->get_expr());
+        if (re->is_fail())
+            return l_false;
+        if (is_nullable(re)) {
+            len = 0;
+            return l_true;
+        }
+        if (is_empty_regex(re))
+            return l_false;
+        if (!re->is_ground() || re->is_var())
+            return l_undef;
+
+        // Level-order BFS: queue entries carry the distance from the root, so
+        // the first nullable derivative found is at minimal word length.
+        vector<std::pair<euf::snode const*, unsigned>> queue;
+        uint_set visited;
+        queue.push_back({re, 0});
+        visited.insert(re->id());
+
+        unsigned head = 0;
+        while (head < queue.size()) {
+            if (!m.inc() || head >= max_states)
+                return l_undef;
+            auto [current, dist] = queue[head++];
+
+            euf::snode_vector reps;
+            if (!get_alphabet_representatives(current, reps))
+                return l_undef;
+
+            for (euf::snode const* ch : reps) {
+                if (!m.inc())
+                    return l_undef;
+                euf::snode const* deriv = m_sg.brzozowski_deriv(current, ch);
+                SASSERT(deriv);
+                if (deriv->is_fail() || is_empty_regex(deriv))
+                    continue;
+                if (is_nullable(deriv)) {
+                    len = dist + 1;
+                    return l_true;
+                }
+                if (!visited.contains(deriv->id())) {
+                    visited.insert(deriv->id());
+                    queue.push_back({deriv, dist + 1});
+                }
+            }
+        }
+        return l_false;
+    }
+
     // -----------------------------------------------------------------------
     // Multi-regex intersection emptiness check
     // BFS over the product of Brzozowski derivative automata.
