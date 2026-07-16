@@ -212,33 +212,31 @@ namespace {
             check(extract_range_chars(u, e, lo, hi) && lo == 'A' && hi == 'A',
                   "{A} -> re.range A A");
         }
-        // 2 ranges -> re.union(range_0, range_1) in canonical order
+        // A multi-range predicate materializes as a character-class regex
+        // (re.of_pred (lambda ...)) rather than a nested re.union.  The
+        // concrete AST shape (union nesting/order, lambda body layout) is an
+        // implementation detail that has changed over time and can differ
+        // across platforms, so these tests only assert two portable
+        // invariants: the result has regex sort, and it round-trips back to
+        // the original predicate.
         {
             range_predicate p = range_predicate::range('0', '9', M)
                               | range_predicate::range('a', 'z', M);
             expr_ref e = range_predicate_to_regex(u, p, str_sort);
-            expr* a = nullptr; expr* b = nullptr;
-            check(u.re.is_union(e, a, b), "2-range -> union");
-            unsigned lo0 = 0, hi0 = 0, lo1 = 0, hi1 = 0;
-            check(extract_range_chars(u, a, lo0, hi0) && lo0 == '0' && hi0 == '9',
-                  "union arg0 = (0-9) (canonical: lower lo first)");
-            check(extract_range_chars(u, b, lo1, hi1) && lo1 == 'a' && hi1 == 'z',
-                  "union arg1 = (a-z)");
+            check(u.is_re(e->get_sort()), "2-range -> regex-sorted");
+            range_predicate p_out(M);
+            check(regex_to_range_predicate(u, e, p_out), "2-range round-trip translatable");
+            check(p == p_out, "2-range round-trip equal");
         }
-        // 3 ranges -> right-associated union
         {
             range_predicate p = range_predicate::range(0, 5, M)
                               | range_predicate::range(10, 15, M)
                               | range_predicate::range(20, 25, M);
             expr_ref e = range_predicate_to_regex(u, p, str_sort);
-            expr* a = nullptr; expr* rest = nullptr;
-            check(u.re.is_union(e, a, rest), "3-range -> union(...)");
-            unsigned lo = 0, hi = 0;
-            check(extract_range_chars(u, a, lo, hi) && lo == 0 && hi == 5, "first arg = (0-5)");
-            expr* b = nullptr; expr* c = nullptr;
-            check(u.re.is_union(rest, b, c), "rest is union(...,...)");
-            check(extract_range_chars(u, b, lo, hi) && lo == 10 && hi == 15, "second range");
-            check(extract_range_chars(u, c, lo, hi) && lo == 20 && hi == 25, "third range");
+            check(u.is_re(e->get_sort()), "3-range -> regex-sorted");
+            range_predicate p_out(M);
+            check(regex_to_range_predicate(u, e, p_out), "3-range round-trip translatable");
+            check(p == p_out, "3-range round-trip equal");
         }
         // Round-trip identity for an arbitrary range-set
         {

@@ -224,12 +224,11 @@ namespace seq {
             auto [lo, hi] = p[0];
             return mk_single_range_regex(u, lo, hi, re_sort);
         }
-        // Build single-range AST nodes first, then sort by expression id
-        // so the resulting right-associated union matches the canonical
-        // id-sorted shape that seq_rewriter::merge_regex_sets expects.
-        // Without this the merge algorithm produces incorrect unions
-        // when it has to combine our materialized output with another
-        // (id-sorted) regex set.
+        // Materialize a multi-range predicate as a character-class regex
+        // (re.of_pred (lambda ((ch Char)) (or (and (<= lo0 ch) (<= ch hi0)) ...))).
+        // The result must have regex sort (RegEx (Seq Char)); returning the
+        // bare lambda would yield an (Array Char Bool) value and violate the
+        // sort contract of the callers (re.union/re.inter/re.diff rewriting).
         expr_ref_vector ranges(m);
         expr_ref bound(m.mk_var(0, char_sort), m);
         symbol char_sym("ch");
@@ -239,7 +238,8 @@ namespace seq {
             ranges.push_back(m.mk_and(ch.mk_le(ch.mk_char(lo), bound), ch.mk_le(bound, ch.mk_char(hi))));
         }
         expr_ref body(m.mk_or(ranges), m);
-        return expr_ref(m.mk_lambda(1, &char_sort, &char_sym, body), m);
+        expr_ref pred(m.mk_lambda(1, &char_sort, &char_sym, body), m);
+        return expr_ref(u.re.mk_of_pred(pred), m);
     }
 
     expr_ref unfold_fold(seq_rewriter &rw, expr *r) {
