@@ -423,6 +423,32 @@ namespace smt {
         return true;
     }
 
+    // A regex sub-term is "interpreted" when it is produced by the seq/re
+    // decl-plugin (re.++, re.*, str.to_re, re.allchar, re.range, ...).  An
+    // uninterpreted RegLan constant/variable (e.g. `(declare-const pre RegLan)`)
+    // is ground in the AST sense but the derivative/emptiness procedure cannot
+    // process it: mk_derivative leaves a symbolic re.derivative term and the
+    // emptiness closure diverges or derives a spurious conflict (issue #10137).
+    bool seq_regex::has_uninterp_re(expr* r) {
+        family_id fid = u().get_family_id();
+        ptr_vector<expr> todo;
+        expr_mark visited;
+        todo.push_back(r);
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(e))
+                continue;
+            visited.mark(e, true);
+            if (u().is_re(e) && (!is_app(e) || to_app(e)->get_family_id() != fid))
+                return true;
+            if (is_app(e))
+                for (expr* arg : *to_app(e))
+                    todo.push_back(arg);
+        }
+        return false;
+    }
+
     expr_ref seq_regex::symmetric_diff(expr* r1, expr* r2) {
         expr_ref r(m);
         if (r1 == r2)
@@ -531,6 +557,18 @@ namespace smt {
                 break;
             }
         }
+        // The derivative-based emptiness closure below is only sound and
+        // terminating for regexes built from interpreted regex constructors.
+        // When the symmetric difference still contains an uninterpreted regex
+        // variable there is no way to decide language equivalence:
+        // mk_derivative leaves a symbolic re.derivative term, the closure never
+        // canonicalizes, and it may loop forever or derive a spurious conflict
+        // (incorrect unsat, issue #10137).  The equation r1 = r2 is satisfiable
+        // by assigning the free regex, and congruence closure already
+        // propagates membership through the shared enode, so skip the
+        // extensional axiom in this case.
+        if (has_uninterp_re(r))
+            return;
         expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref f(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_empty = sk().mk_is_empty(r, r, f);
@@ -563,6 +601,13 @@ namespace smt {
                 break;
             }
         }
+        // See propagate_eq: the derivative closure only decides regexes built
+        // from interpreted constructors.  For a symmetric difference that
+        // contains an uninterpreted regex variable the disequality is
+        // satisfiable by assigning the free regex, so skip the extensional
+        // axiom rather than risk non-termination (issue #10137).
+        if (has_uninterp_re(r))
+            return;
         expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
         expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);

@@ -157,6 +157,12 @@ namespace smt {
 
         expr_ref symmetric_diff(expr* r1, expr* r2);
 
+        // Returns true if r contains a regex sub-term that is not built from
+        // the interpreted regex constructors (e.g. an uninterpreted RegLan
+        // constant/variable).  Such regexes are outside the decidable fragment
+        // handled by the derivative/emptiness machinery.
+        bool has_uninterp_re(expr* r);
+
         expr_ref is_nullable_wrapper(expr* r);
         expr_ref mk_derivative_wrapper(expr* hd, expr* r);
 
