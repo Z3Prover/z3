@@ -992,7 +992,7 @@ namespace euf {
         SASSERT(is_correct_ref_count(monomial(src.r), m_src_r_counts));
         SASSERT(is_correct_ref_count(monomial(dst.l), m_dst_l_counts));
         SASSERT(is_correct_ref_count(monomial(dst.r), m_dst_r_counts));
-        // add difference betwen dst.l and src.l to both src.l, src.r
+        // add difference between dst.l and src.l to both src.l, src.r
         for (auto n : monomial(dst.l)) {
             unsigned id = n->id();
             SASSERT(m_dst_l_counts[id] >= m_src_l_counts[id]);
