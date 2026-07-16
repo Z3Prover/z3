@@ -176,11 +176,14 @@ namespace seq {
             return true;
         }
 
-        if (re.is_of_pred(r, a)) {
-            sort *char_sort = nullptr;
-            VERIFY(u.is_seq(seq_sort, char_sort));
+        if (re.is_of_pred(r, a) && is_lambda(a)) {
+            auto q = to_quantifier(a);
+            if (q->get_num_decls() != 1)
+                return false;
+            auto body = q->get_expr();
+            sort *char_sort = q->get_decl_sort(0);
             expr_ref var(m.mk_var(0, char_sort), m);
-            if (pred_to_rp(m, u, var, a, out))
+            if (u.get_char_plugin().get_family_id() == char_sort->get_family_id() && pred_to_rp(m, u, var, body, out))
                 return true;
         }
 
@@ -237,6 +240,31 @@ namespace seq {
         }
         expr_ref body(m.mk_or(ranges), m);
         return expr_ref(m.mk_lambda(1, &char_sort, &char_sym, body), m);
+    }
+
+    expr_ref unfold_fold(seq_rewriter &rw, expr *r) {
+        auto &m = rw.m();
+        auto& u = rw.u();
+        expr_ref_pair_vector cofactors(m);  
+        rw.brz_derivative_cofactors(r, cofactors);
+        if (cofactors.empty()) 
+            return expr_ref(u.re.mk_empty(r->get_sort()), m);
+        
+        sort *seq_sort = nullptr, *char_sort = nullptr;
+        VERIFY(u.is_re(r, seq_sort));
+        VERIFY(u.is_seq(seq_sort, char_sort));
+        expr_ref var(m.mk_var(0, char_sort), m);
+        expr_ref result(m);
+        symbol ch("ch");
+        for (auto const &[c, cof] : cofactors) {
+            auto prefix = u.re.mk_of_pred(m.mk_lambda(1, &char_sort, &ch, c));
+            auto term = u.re.mk_concat(prefix, cof);
+            if (result) 
+                result = u.re.mk_union(term, result);            
+            else 
+                result = term;                   
+        }
+        return result;
     }
 
 }
