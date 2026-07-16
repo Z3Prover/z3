@@ -228,10 +228,12 @@ namespace seq {
         // re.union.  The ranges are already in canonical (lo-sorted) order
         // from the range_predicate invariant, so the union argument order is
         // canonical.  Right-association: union(p[0], union(p[1], ... union(p[n-2], p[n-1])...))
-        expr_ref result = mk_single_range_regex(u, p[n - 1].first, p[n - 1].second, re_sort);
+        expr_ref result(m);
+        result = mk_single_range_regex(u, p[n - 1].first, p[n - 1].second, re_sort);
         for (int i = static_cast<int>(n) - 2; i >= 0; --i) {
             auto [lo, hi] = p[static_cast<unsigned>(i)];
-            expr_ref ri = mk_single_range_regex(u, lo, hi, re_sort);
+            expr_ref ri(m);
+            ri = mk_single_range_regex(u, lo, hi, re_sort);
             result = expr_ref(u.re.mk_union(ri, result), m);
         }
         return result;
