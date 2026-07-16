@@ -268,7 +268,7 @@ namespace smt {
         }
 
         if (m_on_binding && !m_on_binding(q, instance)) {
-            verbose_stream() << "qi_queue: on_binding returned false, skipping instance.\n";
+            IF_VERBOSE(3, verbose_stream() << "qi_queue: on_binding returned false, skipping instance.\n";);
             return;
         }
         expr_ref lemma(m);
