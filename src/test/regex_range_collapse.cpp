@@ -14,6 +14,8 @@ Module Name:
 #include "util/util.h"
 
 #include <iostream>
+#include <algorithm>
+#include <utility>
 
 namespace {
 
@@ -60,6 +62,35 @@ namespace {
             u.str.is_unit(hi_e, hc) && u.is_const_char(hc, hi))
             return true;
         return false;
+    }
+
+    // Recursively flatten a (right- or left-associated) re.union of single
+    // ranges into the set of (lo, hi) pairs it denotes, sorted by lo.
+    // The materialized union nesting/order is derived from AST-id ordering,
+    // which is implementation-defined and varies across platforms, so tests
+    // must compare the flattened set rather than a fixed union shape.
+    static bool collect_union_ranges(seq_util& u, expr* e,
+                                     svector<std::pair<unsigned, unsigned>>& out) {
+        expr* a = nullptr; expr* b = nullptr;
+        if (u.re.is_union(e, a, b))
+            return collect_union_ranges(u, a, out) && collect_union_ranges(u, b, out);
+        unsigned lo = 0, hi = 0;
+        if (!extract_range_chars(u, e, lo, hi))
+            return false;
+        out.push_back({lo, hi});
+        return true;
+    }
+
+    static bool ranges_equal(svector<std::pair<unsigned, unsigned>> got,
+                             std::initializer_list<std::pair<unsigned, unsigned>> expected) {
+        std::sort(got.begin(), got.end());
+        if (got.size() != expected.size())
+            return false;
+        unsigned i = 0;
+        for (auto const& r : expected)
+            if (got[i++] != r)
+                return false;
+        return true;
     }
 
     static void run() {
@@ -212,33 +243,30 @@ namespace {
             check(extract_range_chars(u, e, lo, hi) && lo == 'A' && hi == 'A',
                   "{A} -> re.range A A");
         }
-        // 2 ranges -> re.union(range_0, range_1) in canonical order
+        // 2 ranges -> re.union of the two single ranges. The union nesting
+        // order is AST-id-derived (implementation-defined), so verify the
+        // flattened set of ranges rather than a fixed argument order.
         {
             range_predicate p = range_predicate::range('0', '9', M)
                               | range_predicate::range('a', 'z', M);
             expr_ref e = range_predicate_to_regex(u, p, str_sort);
-            expr* a = nullptr; expr* b = nullptr;
-            check(u.re.is_union(e, a, b), "2-range -> union");
-            unsigned lo0 = 0, hi0 = 0, lo1 = 0, hi1 = 0;
-            check(extract_range_chars(u, a, lo0, hi0) && lo0 == '0' && hi0 == '9',
-                  "union arg0 = (0-9) (canonical: lower lo first)");
-            check(extract_range_chars(u, b, lo1, hi1) && lo1 == 'a' && hi1 == 'z',
-                  "union arg1 = (a-z)");
+            check(u.re.is_union(e), "2-range -> union");
+            svector<std::pair<unsigned, unsigned>> got;
+            check(collect_union_ranges(u, e, got), "2-range union flattens to ranges");
+            check(ranges_equal(got, {{'0', '9'}, {'a', 'z'}}),
+                  "2-range union = {(0-9), (a-z)}");
         }
-        // 3 ranges -> right-associated union
+        // 3 ranges -> nested union of three single ranges (order-independent).
         {
             range_predicate p = range_predicate::range(0, 5, M)
                               | range_predicate::range(10, 15, M)
                               | range_predicate::range(20, 25, M);
             expr_ref e = range_predicate_to_regex(u, p, str_sort);
-            expr* a = nullptr; expr* rest = nullptr;
-            check(u.re.is_union(e, a, rest), "3-range -> union(...)");
-            unsigned lo = 0, hi = 0;
-            check(extract_range_chars(u, a, lo, hi) && lo == 0 && hi == 5, "first arg = (0-5)");
-            expr* b = nullptr; expr* c = nullptr;
-            check(u.re.is_union(rest, b, c), "rest is union(...,...)");
-            check(extract_range_chars(u, b, lo, hi) && lo == 10 && hi == 15, "second range");
-            check(extract_range_chars(u, c, lo, hi) && lo == 20 && hi == 25, "third range");
+            check(u.re.is_union(e), "3-range -> union(...)");
+            svector<std::pair<unsigned, unsigned>> got;
+            check(collect_union_ranges(u, e, got), "3-range union flattens to ranges");
+            check(ranges_equal(got, {{0, 5}, {10, 15}, {20, 25}}),
+                  "3-range union = {(0-5), (10-15), (20-25)}");
         }
         // Round-trip identity for an arbitrary range-set
         {
