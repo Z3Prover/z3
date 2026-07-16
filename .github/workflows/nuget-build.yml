@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number for the NuGet package (e.g., 4.17.1)'
+        description: 'Version number for the NuGet package (e.g., 5.0.0)'
         required: true
-        default: '4.17.1'
+        default: '5.0.0'
   push:
     tags:
       - 'z3-*'
@@ -32,7 +32,7 @@ jobs:
         run: |
           for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
-          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.1' }} --zip
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '5.0.0' }} --zip
       
       - name: Upload Windows x64 artifact
         uses: actions/upload-artifact@v7
@@ -57,7 +57,7 @@ jobs:
         run: |
           for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x86 || exit /b 1
-          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.1' }} --zip
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '5.0.0' }} --zip
       
       - name: Upload Windows x86 artifact
         uses: actions/upload-artifact@v7
@@ -82,7 +82,7 @@ jobs:
         run: |
           for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64 || exit /b 1
-          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.1' }} --zip
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '5.0.0' }} --zip
       
       - name: Upload Windows ARM64 artifact
         uses: actions/upload-artifact@v7
@@ -192,7 +192,7 @@ jobs:
         shell: cmd
         run: |
           cd package-files
-          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.17.1' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
+          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '5.0.0' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
       
       - name: Pack NuGet package
         shell: cmd
@@ -241,7 +241,7 @@ jobs:
         shell: cmd
         run: |
           cd packages
-          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.17.1' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
+          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '5.0.0' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
       
       - name: Pack NuGet package
         shell: cmd
