@@ -224,22 +224,17 @@ namespace seq {
             auto [lo, hi] = p[0];
             return mk_single_range_regex(u, lo, hi, re_sort);
         }
-        // Build single-range AST nodes first, then sort by expression id
-        // so the resulting right-associated union matches the canonical
-        // id-sorted shape that seq_rewriter::merge_regex_sets expects.
-        // Without this the merge algorithm produces incorrect unions
-        // when it has to combine our materialized output with another
-        // (id-sorted) regex set.
-        expr_ref_vector ranges(m);
-        expr_ref bound(m.mk_var(0, char_sort), m);
-        symbol char_sym("ch");
-        auto &ch = u.get_char_plugin();
-        for (unsigned i = 0; i < n; ++i) {
-            auto [lo, hi] = p[i];
-            ranges.push_back(m.mk_and(ch.mk_le(ch.mk_char(lo), bound), ch.mk_le(bound, ch.mk_char(hi))));
+        // Build each individual range regex and fold into a right-associated
+        // re.union.  The ranges are already in canonical (lo-sorted) order
+        // from the range_predicate invariant, so the union argument order is
+        // canonical.  Right-association: union(p[0], union(p[1], ... union(p[n-2], p[n-1])...))
+        expr_ref result = mk_single_range_regex(u, p[n - 1].first, p[n - 1].second, re_sort);
+        for (int i = static_cast<int>(n) - 2; i >= 0; --i) {
+            auto [lo, hi] = p[static_cast<unsigned>(i)];
+            expr_ref ri = mk_single_range_regex(u, lo, hi, re_sort);
+            result = expr_ref(u.re.mk_union(ri, result), m);
         }
-        expr_ref body(m.mk_or(ranges), m);
-        return expr_ref(m.mk_lambda(1, &char_sort, &char_sym, body), m);
+        return result;
     }
 
     expr_ref unfold_fold(seq_rewriter &rw, expr *r) {
