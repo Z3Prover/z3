@@ -81,6 +81,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool                m_rewrite_patterns = true;
     bool                m_enable_der = true;
     bool                m_nested_der = false;
+    bool                m_push_quantifiers = false;
 
 
     ast_manager & m() const { return m_b_rw.m(); }
@@ -99,6 +100,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_rewrite_patterns = p.rewrite_patterns();
         m_enable_der     = p.enable_der();
         m_nested_der     = _p.get_bool("nested_der", false);
+        m_push_quantifiers = _p.get_bool("push_quantifiers", false);
     }
 
     void updt_params(params_ref const & p) {
@@ -774,7 +776,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     //   exists x . ~(A /\ B)  -->  (exists x. ~A) \/ (exists x. ~B)
     // Each rule is a validity, and the distributed sub-quantifiers give the
     // e-matching engine finer-grained instantiation targets.
-    bool distribute_quantifier(quantifier * old_q, expr * new_body, expr_ref & result) {
+    bool push_quantifier(quantifier * old_q, expr * new_body, expr_ref & result) {
         if (old_q->get_kind() == lambda_k)
             return false;
         if (old_q->has_patterns())
@@ -800,6 +802,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             else
                 return false;
         }
+
         if (args.size() < 2)
             return false;
         expr_ref_vector quants(m());
@@ -878,7 +881,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             }
             return true;
         }
-        else if (distribute_quantifier(old_q, new_body, result)) {
+        else if (m_push_quantifiers && push_quantifier(old_q, new_body, result)) {
             if (m().proofs_enabled()) {
                 result_pr = m().mk_rewrite(old_q, result);
             }
