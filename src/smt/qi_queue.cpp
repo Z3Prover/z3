@@ -197,6 +197,9 @@ namespace smt {
     }
 
     void qi_queue::instantiate(entry & ent) {
+        if (m_context.inconsistent()) 
+            return;
+        
         // set temporary flag to enable quantifier-specific tracing in within smt_internalizer.
         flet<bool> _coming_from_quant(m_context.m_coming_from_quant, true);
 
@@ -265,7 +268,7 @@ namespace smt {
         }
 
         if (m_on_binding && !m_on_binding(q, instance)) {
-            verbose_stream() << "qi_queue: on_binding returned false, skipping instance.\n";
+            IF_VERBOSE(3, verbose_stream() << "qi_queue: on_binding returned false, skipping instance.\n";);
             return;
         }
         expr_ref lemma(m);

@@ -229,6 +229,9 @@ public:
     unsigned max_mul(unsigned x, unsigned y) const;
 
     ast_manager& get_manager() const { return m; }
+    char_decl_plugin &get_char_plugin() const {
+        return ch;
+    }
 
     sort* mk_char_sort() const { return seq.char_sort(); }
     sort* mk_string_sort() const { return seq.string_sort(); }
@@ -240,7 +243,7 @@ public:
     bool is_re(sort* s) const { return is_sort_of(s, m_fid, RE_SORT); }
     bool is_re(sort* s, sort*& seq) const { return is_sort_of(s, m_fid, RE_SORT)  && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_seq(expr* e) const  { return is_seq(e->get_sort()); }
-    bool is_seq(sort* s, sort*& seq) const { return is_seq(s) && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
+    bool is_seq(sort* s, sort*& ch) const { return is_seq(s) && (ch = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_re(expr* e) const { return is_re(e->get_sort()); }
     bool is_re(expr* e, sort*& seq) const { return is_re(e->get_sort(), seq); }
     bool is_const_char(expr* e, unsigned& c) const;

@@ -1781,15 +1781,16 @@ namespace smt {
         void internalize_proxies(expr_ref_vector const& asms, vector<std::pair<expr*,expr_ref>>& asm2proxy);
 
         void internalize_instance(expr * body, proof * pr, unsigned generation) {
+            if (inconsistent())
+                return;
             internalize_assertion(body, pr, generation);
             if (relevancy()) {
                 // if the instantiation creates a conflict, we backtrack immediately.
                 // to retain the conflict clause being relevant we mark it here.
                 // if the instantiation does not create a conflict, default relevancy propagation applies.
-                if (inconsistent() && is_app(body)) {
-                    for (auto arg : *to_app(body))
-                        mark_as_relevant(arg);
-                }
+                //if (inconsistent() && is_app(body)) 
+                //    for (auto arg: *to_app(body)) mark_as_relevant(arg);
+                
                 m_case_split_queue->internalize_instance_eh(body, generation);
             }
         }
