@@ -197,6 +197,9 @@ namespace smt {
     }
 
     void qi_queue::instantiate(entry & ent) {
+        if (m_context.inconsistent()) 
+            return;
+        
         // set temporary flag to enable quantifier-specific tracing in within smt_internalizer.
         flet<bool> _coming_from_quant(m_context.m_coming_from_quant, true);
 
