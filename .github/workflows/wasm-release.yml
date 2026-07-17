@@ -2,6 +2,11 @@ name: WebAssembly Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      npm_otp:
+        description: "One-time password for npm publish (optional)"
+        required: false
+        type: string
   release:
     types: [published]
 
@@ -62,6 +67,12 @@ jobs:
         run: npm test
 
       - name: Publish
-        run: npm publish
+        run: |
+          if [ -n "${NPM_OTP}" ]; then
+            npm publish --otp="${NPM_OTP}"
+          else
+            npm publish
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_OTP: ${{ github.event.inputs.npm_otp }}
