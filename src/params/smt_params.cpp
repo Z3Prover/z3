@@ -64,6 +64,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_regex_factorization_eager = p.nseq_regex_factorization_eager();
     m_nseq_regex_dynamic_decomposition = p.nseq_regex_dynamic_decomposition();
     m_nseq_signature = p.nseq_signature();
+    m_nseq_fine_wilf = p.nseq_fine_wilf();
     m_nseq_axiomatize_diseq = p.nseq_axiomatize_diseq();
     m_nseq_eager = p.nseq_eager();
     m_nseq_harvest = p.nseq_harvest();
@@ -184,6 +185,7 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nseq_regex_factorization_threshold);
     DISPLAY_PARAM(m_nseq_regex_factorization_eager);
     DISPLAY_PARAM(m_nseq_regex_dynamic_decomposition);
+    DISPLAY_PARAM(m_nseq_fine_wilf);
     DISPLAY_PARAM(m_nseq_axiomatize_diseq);
     DISPLAY_PARAM(m_nseq_harvest);
 

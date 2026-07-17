@@ -103,6 +103,8 @@ add_executable(test-z3
   nla_intervals.cpp
   nlsat.cpp
   no_overflow.cpp
+  nseq_basic.cpp
+  nseq_zipt.cpp
   object_allocator.cpp
   old_interval.cpp
   optional.cpp
@@ -117,6 +119,7 @@ add_executable(test-z3
   prime_generator.cpp
   psmt.cpp
   seq_regex_bisim.cpp
+  seq_nielsen.cpp
   proof_checker.cpp
   qe_arith.cpp
   mbp_qel.cpp

@@ -475,7 +475,9 @@ namespace seq {
         m_str_mem.reset();
         m_constraints.reset();
         m_char_ranges.reset();
+        m_fw_applied.reset();
         m_str_eq.append(parent.m_str_eq);
+        m_fw_applied.append(parent.m_fw_applied);
         m_str_deq.append(parent.m_str_deq);
         m_str_mem.append(parent.m_str_mem);
         m_constraints.append(parent.m_constraints);
@@ -841,21 +843,31 @@ namespace seq {
         m_root->add_str_mem(str_mem(m, str, regex, dep));
     }
 
-    // test-friendly overloads (no external dependency tracking)
-    void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs) const {
+    // test-friendly overloads (no external dependency tracking); create the
+    // root lazily — production callers use the enode/literal overloads after
+    // an explicit create_root()
+    void nielsen_graph::add_str_eq(euf::snode const* lhs, euf::snode const* rhs) {
+        if (!m_root)
+            create_root();
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         const str_eq eq(m, lhs, rhs, dep);
         m_root->add_str_eq(eq);
     }
 
-    void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs) const {
+    void nielsen_graph::add_str_deq(euf::snode const* lhs, euf::snode const* rhs) {
+        if (!m_root)
+            create_root();
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         const str_deq deq(m, lhs, rhs, dep);
         m_root->add_str_deq(deq);
     }
 
-    void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex) const {
-        const dep_tracker dep = nullptr;
+    void nielsen_graph::add_str_mem(euf::snode const* str, euf::snode const* regex) {
+        if (!m_root)
+            create_root();
+        // dummy leaf (like the eq/deq overloads): production invariants
+        // (e.g. check_regex_widening) assume memberships carry a dep
+        const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         const str_mem mem(m, str, regex, dep);
         m_root->add_str_mem(mem);
     }
@@ -3628,6 +3640,13 @@ namespace seq {
         if (apply_split_power_elim(node))
             return ++m_stats.m_mod_split_power_elim, true;
 
+        // Priority 3c: FineWilf - overlap split for a head power vs a
+        // different-base power behind a concrete-char prefix.  Preempts
+        // ConstNumUnwinding's divergent one-copy peel loop on that shape.
+        // (opt-in via smt.nseq.fine_wilf, default off)
+        if (m_fine_wilf && apply_fine_wilf(node))
+            return ++m_stats.m_mod_fine_wilf, true;
+
         // Priority 4: ConstNumUnwinding - power vs constant: n=0 or peel
         if (apply_const_num_unwinding(node))
             return ++m_stats.m_mod_const_num_unwinding, true;
@@ -4042,6 +4061,359 @@ namespace seq {
                         child->set_arith_split();
                         nielsen_edge *e = mk_edge(node, child, "power elim &le;", true);
                         e->add_side_constraint(mk_constraint(a.mk_ge(pow_exp, norm_count), eq.m_dep));
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Helper: concrete string value of a ground token run (ε, char, or a
+    // concat of chars).  Returns false on any non-concrete token.
+    // -----------------------------------------------------------------------
+
+    static bool ground_zstring(euf::snode const* s, seq_util& seq, zstring& out) {
+        out.reset();
+        if (!s)
+            return false;
+        if (s->is_empty())
+            return true;
+        euf::snode_vector toks;
+        s->collect_tokens(toks);
+        for (euf::snode const* t : toks) {
+            unsigned val;
+            if (!t->is_char())
+                return false;
+            VERIFY(seq.is_const_char(to_app(t->get_expr())->get_arg(0), val));
+            out += zstring(val);
+        }
+        return true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_fine_wilf
+    // For an equation  U^n · V = Y · W^m · Z  (up to direction / side swap)
+    // where U^n is the directional head of one side, Y a possibly-empty run
+    // of concrete chars and W^m the first power on the other side with a
+    // DIFFERENT base, split on the overlap length
+    //     O = min(n·|U| − |Y|, m·|W|)
+    // against the Fine & Wilf threshold T = |U| + |W| (exact bound is
+    // T − gcd(|U|,|W|); dropping the gcd term is a sound weakening).
+    // The overlap word has periods |U| and |W|; O ≥ T forces (F&W) the
+    // |Y|-rotated conjugate of U and W to share a primitive root, so one of
+    // the powers can be eliminated.  The three cases partition all models:
+    //   Case 1 (O < T): one exponent is bounded.
+    //   Case 2 (O ≥ T, LHS power ends first):  U^n eliminated.
+    //   Case 3 (O ≥ T, RHS power ends first):  W^m eliminated.
+    // Ground bases (fast path): the conjugate/prefix conditions are decided
+    // concretely (failure prunes cases 2/3 — they are F&W-unsat), the cut
+    // position in the other base is enumerated, and case 1 unrolls the
+    // concretely-bounded exponent — every child is a progress edge.
+    // Symbolic bases: fresh cut variables axiomatize the alignment
+    // (U^n = Y·R1, W^m = R1·R2, V = R2·Z; both directions of the
+    // equivalence hold, no commutativity lemma needed) and case 1 is an
+    // arith-split child guarded against refire via m_fw_applied.
+    // Preempts apply_const_num_unwinding's divergent one-copy peel loop on
+    // different-base power vs power heads.
+    // -----------------------------------------------------------------------
+
+    bool nielsen_graph::apply_fine_wilf(nielsen_node* node) {
+
+        // Per-modifier cap on ground enumeration fan-out; larger instances
+        // fall back to the symbolic encoding (still linear for ground bases).
+        static constexpr unsigned FW_ENUM_CAP = 64;
+
+        for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
+            str_eq const& eq = node->str_eqs()[eq_idx];
+            if (eq.is_trivial())
+                continue;
+
+            for (unsigned od = 0; od < 2; ++od) {
+                const bool fwd = od == 0;
+                for (unsigned sd = 0; sd < 2; ++sd) {
+                    euf::snode const* sideA = sd == 0 ? eq.m_lhs : eq.m_rhs;
+                    euf::snode const* sideB = sd == 0 ? eq.m_rhs : eq.m_lhs;
+
+                    euf::snode const* upow = dir_token(sideA, fwd);
+                    if (!upow || !upow->is_power() || upow->num_args() < 1)
+                        continue;
+
+                    // other side: concrete-char run Y, then a power W^m
+                    euf::snode_vector btoks;
+                    collect_tokens_dir(sideB, fwd, btoks);
+                    unsigned yi = 0;
+                    while (yi < btoks.size() && btoks[yi]->is_char())
+                        ++yi;
+                    if (yi >= btoks.size() || !btoks[yi]->is_power() || btoks[yi]->num_args() < 1)
+                        continue;
+                    euf::snode const* wpow = btoks[yi];
+                    // same base: NumCmp (priority 3) / simplify 3c–3e territory
+                    if (wpow->arg0() == upow->arg0())
+                        continue;
+
+                    expr* exp_n = get_power_exponent(upow);
+                    expr* exp_m = get_power_exponent(wpow);
+                    expr* u_base_e = get_power_base_expr(upow, m_seq);
+                    expr* w_base_e = get_power_base_expr(wpow, m_seq);
+                    if (!exp_n || !exp_m || !u_base_e || !w_base_e)
+                        continue;
+
+                    const uint64_t key = (uint64_t(eq.m_lhs->id()) << 33) |
+                                         (uint64_t(eq.m_rhs->id()) << 1) | (fwd ? 1 : 0);
+                    if (node->fw_applied(key))
+                        continue;
+
+                    // Mirror-space values (direction folded away: for fwd=false
+                    // all strings are reversed, so the overlap is again at the
+                    // "front"; real snodes are rebuilt via dir_concat + reverse).
+                    zstring u_s, w_s;
+                    const bool u_ground = ground_zstring(upow->arg0(), m_seq, u_s);
+                    const bool w_ground = ground_zstring(wpow->arg0(), m_seq, w_s);
+                    // ε-base powers are degenerate (handled by the simplify
+                    // passes / power epsilon) — not our pattern.
+                    if ((u_ground && u_s.empty()) || (w_ground && w_s.empty()))
+                        continue;
+                    zstring mu = fwd ? u_s : u_s.reverse();
+                    zstring mw = fwd ? w_s : w_s.reverse();
+                    zstring my;
+                    for (unsigned i = 0; i < yi; ++i) {
+                        unsigned val;
+                        VERIFY(m_seq.is_const_char(to_app(btoks[i]->get_expr())->get_arg(0), val));
+                        my += zstring(val);
+                    }
+                    const unsigned Ly = my.length();
+
+                    // V = sideA minus the head power; Z = sideB after W^m
+                    euf::snode const* v_sn = nullptr;
+                    {
+                        euf::snode_vector atoks;
+                        collect_tokens_dir(sideA, fwd, atoks);
+                        SASSERT(!atoks.empty() && atoks[0] == upow);
+                        for (unsigned i = 1; i < atoks.size(); ++i)
+                            v_sn = dir_concat(m_sg, v_sn, atoks[i], fwd);
+                    }
+                    if (!v_sn)
+                        v_sn = m_sg.mk_empty_seq(sideA->get_sort());
+                    euf::snode const* z_sn = nullptr;
+                    for (unsigned i = yi + 1; i < btoks.size(); ++i)
+                        z_sn = dir_concat(m_sg, z_sn, btoks[i], fwd);
+                    if (!z_sn)
+                        z_sn = m_sg.mk_empty_seq(sideB->get_sort());
+                    euf::snode const* y_sn = nullptr;
+                    for (unsigned i = 0; i < yi; ++i)
+                        y_sn = dir_concat(m_sg, y_sn, btoks[i], fwd);
+
+                    const expr_ref len_upow = compute_length_expr(upow); // n·|U|
+                    const expr_ref len_wpow = compute_length_expr(wpow); // m·|W|
+                    const expr_ref zero(a.mk_int(0), m);
+                    const dep_tracker dep = eq.m_dep;
+
+                    // Ground feasibility of cases 2/3 (both require O ≥ T, and
+                    // by F&W then Y ≺ U^ω and rot(U, Ly mod |U|)·W = W·rot(...)).
+                    // gen23=false ⟹ cases 2/3 are unsat and are not generated.
+                    bool gen23 = true;
+                    if (u_ground && w_ground) {
+                        const unsigned Lu = mu.length();
+                        for (unsigned i = 0; i < Ly && gen23; ++i)
+                            gen23 = my[i] == mu[i % Lu];
+                        if (gen23) {
+                            const unsigned r = Ly % Lu;
+                            const zstring rot = mu.extract(r, Lu - r) + mu.extract(0, r);
+                            gen23 = (rot + mw) == (mw + rot);
+                        }
+                    }
+
+                    // Refire guard: the symbolic case-1 child keeps the equation
+                    // verbatim; without the mark the identical split would be
+                    // re-emitted below it forever (arith splits escape the
+                    // loop-cut).  Set before mk_child so children inherit it.
+                    node->mark_fw_applied(key);
+
+                    const unsigned Lu = mu.length(), Lw = mw.length();
+                    const bool ground = u_ground && w_ground &&
+                        (Ly + Lu + Lw - 1) / Lu + (Lu + Lw - 1) / Lw + 2 +
+                            (gen23 ? Lu + Lw : 0) <= FW_ENUM_CAP;
+
+                    if (ground) {
+                        // ---- ground fast path: all children progress ----
+                        const unsigned N = (Ly + Lu + Lw - 1) / Lu; // max n: n·Lu < Ly+Lu+Lw
+                        const unsigned M = (Lu + Lw - 1) / Lw;      // max m: m·Lw < Lu+Lw
+                        const auto unroll = [&](euf::snode const* base, sort* srt, unsigned c) {
+                            euf::snode const* r = c == 0 ? m_sg.mk_empty_seq(srt) : base;
+                            for (unsigned i = 1; i < c; ++i)
+                                r = m_sg.mk_concat(r, base);
+                            return r;
+                        };
+
+                        // Case 1a: n = 0..N (⟺ n·Lu − Ly < T), unroll U^n.
+                        for (unsigned c = 0; c <= N; ++c) {
+                            nielsen_node* child = mk_child(node);
+                            nielsen_edge* e = mk_edge(node, child, "fine-wilf n", true);
+                            const nielsen_subst s(upow, unroll(upow->arg0(), upow->get_sort(), c), dep);
+                            e->add_subst(s);
+                            child->apply_subst(m_sg, s);
+                            e->add_side_constraint(mk_constraint(a.mk_eq(exp_n, a.mk_int(c)), dep));
+                        }
+                        // Case 1b: m = 0..M (⟺ m·Lw < T) ∧ n > N (disjoint from 1a).
+                        for (unsigned c = 0; c <= M; ++c) {
+                            nielsen_node* child = mk_child(node);
+                            nielsen_edge* e = mk_edge(node, child, "fine-wilf m", true);
+                            const nielsen_subst s(wpow, unroll(wpow->arg0(), wpow->get_sort(), c), dep);
+                            e->add_subst(s);
+                            child->apply_subst(m_sg, s);
+                            e->add_side_constraint(mk_constraint(a.mk_eq(exp_m, a.mk_int(c)), dep));
+                            e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, a.mk_int(N + 1)), dep));
+                        }
+                        if (gen23) {
+                            // Case 2: U^n ends inside W^m — cut W at mirror-phase p:
+                            // n·Lu = Ly + k·Lw + p.  Remainder: V = Q'·W^(m−k−1)·Z
+                            // (p = 0: V = W^(m−k)·Z, covering the k = m boundary).
+                            const expr_ref k_e = m_sk.mk("fw.k", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(),
+                                                         a.mk_int(fwd ? 1 : 0), a.mk_int());
+                            for (unsigned p = 0; p < Lw; ++p) {
+                                nielsen_node* child = mk_child(node);
+                                nielsen_edge* e = mk_edge(node, child, "fine-wilf elim L", true);
+                                expr_ref rem_exp(p == 0 ? a.mk_sub(exp_m, k_e)
+                                                        : a.mk_sub(exp_m, a.mk_add(k_e, a.mk_int(1))), m);
+                                rem_exp = normalize_arith(m_rw, rem_exp);
+                                euf::snode const* pow_sn = m_sg.mk(expr_ref(m_seq.str.mk_power(w_base_e, rem_exp), m));
+                                euf::snode const* rhs_new = dir_concat(m_sg, pow_sn, z_sn, fwd);
+                                if (p > 0) {
+                                    const zstring q_m = mw.extract(p, Lw - p);
+                                    euf::snode const* qp_sn = m_sg.mk(m_seq.str.mk_string(fwd ? q_m : q_m.reverse()));
+                                    rhs_new = dir_concat(m_sg, qp_sn, rhs_new, fwd);
+                                }
+                                auto& eqs = child->str_eqs();
+                                eqs[eq_idx] = eqs.back();
+                                eqs.pop_back();
+                                eqs.push_back(str_eq(m, v_sn, rhs_new, dep));
+                                // n·Lu = Ly + k·Lw + p
+                                e->add_side_constraint(mk_constraint(a.mk_eq(len_upow,
+                                    a.mk_add(a.mk_int(Ly + p), a.mk_mul(a.mk_int(Lw), k_e))), dep));
+                                // overlap ≥ T (disjoint from case 1)
+                                e->add_side_constraint(mk_constraint(
+                                    a.mk_ge(len_upow, a.mk_int(Ly + Lu + Lw)), dep));
+                                e->add_side_constraint(mk_constraint(a.mk_ge(k_e, zero), dep));
+                                e->add_side_constraint(mk_constraint(
+                                    a.mk_ge(exp_m, p == 0 ? k_e.get() : a.mk_add(k_e, a.mk_int(1))), dep));
+                            }
+                            // Case 3: W^m ends strictly inside U^n — cut U at
+                            // mirror-phase p: Ly + m·Lw = k·Lu + p.  Remainder:
+                            // Q''·U^(n−k−1)·V = Z (p = 0: U^(n−k)·V = Z).
+                            const expr_ref k2_e = m_sk.mk("fw.k2", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(),
+                                                          a.mk_int(fwd ? 1 : 0), a.mk_int());
+                            for (unsigned p = 0; p < Lu; ++p) {
+                                nielsen_node* child = mk_child(node);
+                                nielsen_edge* e = mk_edge(node, child, "fine-wilf elim R", true);
+                                expr_ref rem_exp(p == 0 ? a.mk_sub(exp_n, k2_e)
+                                                        : a.mk_sub(exp_n, a.mk_add(k2_e, a.mk_int(1))), m);
+                                rem_exp = normalize_arith(m_rw, rem_exp);
+                                euf::snode const* pow_sn = m_sg.mk(expr_ref(m_seq.str.mk_power(u_base_e, rem_exp), m));
+                                euf::snode const* lhs_new = dir_concat(m_sg, pow_sn, v_sn, fwd);
+                                if (p > 0) {
+                                    const zstring q_m = mu.extract(p, Lu - p);
+                                    euf::snode const* qq_sn = m_sg.mk(m_seq.str.mk_string(fwd ? q_m : q_m.reverse()));
+                                    lhs_new = dir_concat(m_sg, qq_sn, lhs_new, fwd);
+                                }
+                                auto& eqs = child->str_eqs();
+                                eqs[eq_idx] = eqs.back();
+                                eqs.pop_back();
+                                eqs.push_back(str_eq(m, lhs_new, z_sn, dep));
+                                // Ly + m·Lw = k·Lu + p
+                                e->add_side_constraint(mk_constraint(
+                                    a.mk_eq(a.mk_add(a.mk_int(Ly), len_wpow),
+                                            a.mk_add(a.mk_int(p), a.mk_mul(a.mk_int(Lu), k2_e))), dep));
+                                // overlap ≥ T (disjoint from case 1)
+                                e->add_side_constraint(mk_constraint(
+                                    a.mk_ge(len_wpow, a.mk_int(Lu + Lw)), dep));
+                                e->add_side_constraint(mk_constraint(a.mk_ge(k2_e, zero), dep));
+                                // strict: W^m ends before U^n does
+                                e->add_side_constraint(mk_constraint(
+                                    a.mk_ge(exp_n, a.mk_add(k2_e, a.mk_int(1))), dep));
+                            }
+                        }
+                        return true;
+                    }
+
+                    // ---- symbolic path ----
+                    const expr_ref lu_e = compute_length_expr(upow->arg0());
+                    const expr_ref lw_e = compute_length_expr(wpow->arg0());
+                    const expr_ref t_e(a.mk_add(lu_e, lw_e), m);
+                    const expr_ref ly_e(a.mk_int(Ly), m);
+
+                    // Case 1: small overlap — string constraints kept verbatim,
+                    // only the (possibly nonlinear) bound is added.
+                    {
+                        nielsen_node* child = mk_child(node);
+                        child->set_arith_split();
+                        nielsen_edge* e = mk_edge(node, child, "fine-wilf small", true);
+                        e->add_side_constraint(mk_constraint(
+                            m.mk_or(a.mk_lt(a.mk_sub(len_upow, ly_e), t_e),
+                                    a.mk_lt(len_wpow, t_e)), dep));
+                    }
+                    if (gen23) {
+                        // Case 2: U^n ends inside W^m.  Fresh cuts R1 (overlap
+                        // beyond Y) and R2 (rest of W^m):
+                        //   U^n = Y·R1,  W^m = R1·R2,  V = R2·Z.
+                        {
+                            const expr_ref r1_e = m_sk.mk("fw.r1", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(),
+                                                          a.mk_int(fwd ? 1 : 0), sideA->get_sort());
+                            const expr_ref r2_e = m_sk.mk("fw.r2", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(),
+                                                          a.mk_int(fwd ? 1 : 0), sideA->get_sort());
+                            euf::snode const* r1_sn = m_sg.mk(r1_e);
+                            euf::snode const* r2_sn = m_sg.mk(r2_e);
+                            const expr_ref len_r1(m_seq.str.mk_length(r1_e), m);
+                            const expr_ref len_r2(m_seq.str.mk_length(r2_e), m);
+
+                            nielsen_node* child = mk_child(node);
+                            nielsen_edge* e = mk_edge(node, child, "fine-wilf elim L", false);
+                            auto& eqs = child->str_eqs();
+                            eqs[eq_idx] = eqs.back();
+                            eqs.pop_back();
+                            eqs.push_back(str_eq(m, upow, dir_concat(m_sg, y_sn, r1_sn, fwd), dep));
+                            eqs.push_back(str_eq(m, wpow, dir_concat(m_sg, r1_sn, r2_sn, fwd), dep));
+                            eqs.push_back(str_eq(m, v_sn, dir_concat(m_sg, r2_sn, z_sn, fwd), dep));
+                            // |R1| = n·|U| − Ly  and the F&W threshold
+                            e->add_side_constraint(mk_constraint(
+                                a.mk_eq(a.mk_add(ly_e, len_r1), len_upow), dep));
+                            e->add_side_constraint(mk_constraint(a.mk_ge(len_r1, t_e), dep));
+                            // |R1| + |R2| = m·|W|; |R2| ≥ 0 covers the boundary
+                            e->add_side_constraint(mk_constraint(
+                                a.mk_eq(a.mk_add(len_r1, len_r2), len_wpow), dep));
+                            e->add_side_constraint(mk_constraint(a.mk_ge(len_r2, zero), dep));
+                        }
+                        // Case 3: W^m ends strictly inside U^n.  Fresh cuts
+                        // S1 = Y·W^m and S2 (rest of U^n):
+                        //   U^n = S1·S2,  S1 = Y·W^m,  Z = S2·V.
+                        {
+                            const expr_ref s1_e = m_sk.mk("fw.s1", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(),
+                                                          a.mk_int(fwd ? 1 : 0), sideA->get_sort());
+                            const expr_ref s2_e = m_sk.mk("fw.s2", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(),
+                                                          a.mk_int(fwd ? 1 : 0), sideA->get_sort());
+                            euf::snode const* s1_sn = m_sg.mk(s1_e);
+                            euf::snode const* s2_sn = m_sg.mk(s2_e);
+                            const expr_ref len_s1(m_seq.str.mk_length(s1_e), m);
+                            const expr_ref len_s2(m_seq.str.mk_length(s2_e), m);
+
+                            nielsen_node* child = mk_child(node);
+                            nielsen_edge* e = mk_edge(node, child, "fine-wilf elim R", false);
+                            auto& eqs = child->str_eqs();
+                            eqs[eq_idx] = eqs.back();
+                            eqs.pop_back();
+                            eqs.push_back(str_eq(m, upow, dir_concat(m_sg, s1_sn, s2_sn, fwd), dep));
+                            eqs.push_back(str_eq(m, s1_sn, dir_concat(m_sg, y_sn, wpow, fwd), dep));
+                            eqs.push_back(str_eq(m, z_sn, dir_concat(m_sg, s2_sn, v_sn, fwd), dep));
+                            // |S1| = Ly + m·|W|, m·|W| ≥ T, strictness |S2| ≥ 1,
+                            // |S1| + |S2| = n·|U|
+                            e->add_side_constraint(mk_constraint(
+                                a.mk_eq(len_s1, a.mk_add(ly_e, len_wpow)), dep));
+                            e->add_side_constraint(mk_constraint(a.mk_ge(len_wpow, t_e), dep));
+                            e->add_side_constraint(mk_constraint(a.mk_ge(len_s2, a.mk_int(1)), dep));
+                            e->add_side_constraint(mk_constraint(
+                                a.mk_eq(a.mk_add(len_s1, len_s2), len_upow), dep));
+                        }
                     }
                     return true;
                 }
@@ -6522,6 +6894,7 @@ namespace seq {
         st.update("nseq mod det",              m_stats.m_mod_det);
         st.update("nseq mod power epsilon",    m_stats.m_mod_power_epsilon);
         st.update("nseq mod num cmp",          m_stats.m_mod_num_cmp);
+        st.update("nseq mod fine wilf",        m_stats.m_mod_fine_wilf);
         st.update("nseq mod const num unwind", m_stats.m_mod_const_num_unwinding);
         st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);

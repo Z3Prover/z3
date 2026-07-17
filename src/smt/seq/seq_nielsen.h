@@ -612,6 +612,14 @@ namespace seq {
         // into the resource/node budget and degrades to unknown — the sound
         // direction for an LP timeout.  Sticky so it survives hot restart.
         bool                    m_is_arith_split = false;
+        // Fine & Wilf refire guard: directional keys of equations this node
+        // (or an ancestor, via clone_from) has already been F&W-split on
+        // (apply_fine_wilf).  The symbolic small-overlap child keeps the
+        // equation verbatim (arith split) — without the guard the modifier
+        // would re-match it and emit the identical split forever, since
+        // arith-split nodes are exempt from the sibling loop-cut.
+        // Key: (lhs snode id << 33) | (rhs snode id << 1) | fwd.
+        svector<uint64_t>       m_fw_applied;
         // number of constraints inherited from the parent node at clone time.
         // constraints[0..m_parent_ic_count) are already asserted at the
         // parent's solver scope; only [m_parent_ic_count..end) need to be
@@ -685,6 +693,10 @@ namespace seq {
         // child of a substitution-free arithmetic branch rule (see m_is_arith_split).
         bool is_arith_split() const { return m_is_arith_split; }
         void set_arith_split() { m_is_arith_split = true; }
+
+        // Fine & Wilf refire guard (see m_fw_applied).
+        bool fw_applied(uint64_t key) const { return m_fw_applied.contains(key); }
+        void mark_fw_applied(uint64_t key) { m_fw_applied.push_back(key); }
 
         // True if this node structurally aliases its parent's string signature
         // without being a recurrence: a factorization continuation (pending splits)
@@ -845,6 +857,7 @@ namespace seq {
         unsigned m_mod_power_epsilon   = 0;
         unsigned m_mod_num_cmp         = 0;
         unsigned m_mod_split_power_elim = 0;
+        unsigned m_mod_fine_wilf       = 0;
         unsigned m_mod_const_num_unwinding = 0;
         unsigned m_mod_regex_if_split = 0;
         unsigned m_mod_eq_split        = 0;
@@ -929,6 +942,7 @@ namespace seq {
         unsigned                      m_max_nodes = 0;          // 0 = unlimited
         bool                          m_parikh_enabled = true;
         bool                          m_signature_split = false;
+        bool                          m_fine_wilf = false;
         unsigned                      m_regex_factorization_threshold = 1;
         bool                          m_regex_factorization_eager = false;
         bool                          m_regex_dynamic_decomposition = true;
@@ -1143,10 +1157,12 @@ namespace seq {
         void add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal l) const;
         void add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal l) const;
 
-        // test-friendly overloads (no external dependency tracking)
-        void add_str_eq(euf::snode const* lhs, euf::snode const* rhs) const;
-        void add_str_deq(euf::snode const* lhs, euf::snode const* rhs) const;
-        void add_str_mem(euf::snode const* str, euf::snode const* regex) const;
+        // test-friendly overloads (no external dependency tracking); they
+        // create the root lazily — production callers (theory_nseq) use the
+        // enode/literal overloads after an explicit create_root()
+        void add_str_eq(euf::snode const* lhs, euf::snode const* rhs);
+        void add_str_deq(euf::snode const* lhs, euf::snode const* rhs);
+        void add_str_mem(euf::snode const* str, euf::snode const* regex);
 
         // access all nodes
         ptr_vector<nielsen_node> const& nodes() const { return m_nodes; }
@@ -1166,6 +1182,8 @@ namespace seq {
         seq_parikh& parikh() const { return *m_parikh; }
 
         void set_signature_split(bool e) { m_signature_split = e; }
+
+        void set_fine_wilf(bool e) { m_fine_wilf = e; }
         
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
         void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
@@ -1560,6 +1578,27 @@ namespace seq {
         // After branching, simplify_and_init's CommPower pass resolves the
         // cancellation deterministically.
         bool apply_split_power_elim(nielsen_node* node);
+
+        // Fine & Wilf overlap split: for an equation U^n·V = Y·W^m·Z (up to
+        // direction / side swap) with a directional head power U^n on one side
+        // and a concrete-char prefix Y (possibly empty) followed by a power W^m
+        // with a DIFFERENT base on the other, split on the overlap length
+        //   O = min(n·|U| − |Y|, m·|W|)
+        // against the Fine & Wilf threshold T = |U| + |W| (the exact bound is
+        // T − gcd(|U|,|W|); dropping the gcd term is a sound weakening):
+        //   Case 1 (O < T): one of the exponents is bounded.
+        //   Case 2 (O ≥ T, LHS power ends first): U^n is eliminated.
+        //   Case 3 (O ≥ T, RHS power ends first): W^m is eliminated.
+        // Ground bases: cases 2/3 are generated only if Y is a prefix of U^ω
+        // and rot(U, |Y| mod |U|) commutes with W (by F&W both are unsat
+        // otherwise), enumerating the cut position in the other base; case 1
+        // enumerates the concretely-bounded exponent (all children progress).
+        // Symbolic bases: fresh cut variables axiomatize the alignment
+        // (U^n = Y·R1, W^m = R1·R2, V = R2·Z) and case 1 becomes an
+        // arith-split child guarded against refire (m_fw_applied).
+        // Preempts apply_const_num_unwinding's divergent one-copy peel loop on
+        // different-base power vs power heads.
+        bool apply_fine_wilf(nielsen_node* node);
 
         // constant numeric unwinding: for a power token u^n vs a constant
         // (non-variable), branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).

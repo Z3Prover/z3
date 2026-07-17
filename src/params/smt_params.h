@@ -259,6 +259,7 @@ struct smt_params : public preprocessor_params,
     bool m_nseq_regex_factorization_eager = false;
     bool m_nseq_regex_dynamic_decomposition = true;
     bool m_nseq_signature = false;
+    bool m_nseq_fine_wilf = false;
     bool m_nseq_axiomatize_diseq = false;
     bool m_nseq_eager = true;
     unsigned m_nseq_harvest = 0;

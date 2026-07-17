@@ -129,17 +129,16 @@ static void test_nseq_node_satisfied() {
     // empty node has no constraints => satisfied
     SASSERT(node->is_satisfied());
 
-    // add a trivial equality
+    // a trivial equality is dropped already at insertion (add_str_eq)
     const euf::snode *empty = sg.mk_empty_seq(su.str.mk_string_sort());
     const seq::dep_tracker dep = nullptr;
     const seq::str_eq eq(m, empty, empty, dep);
     node->add_str_eq(eq);
-    SASSERT(node->str_eqs().size() == 1);
-    SASSERT(!node->str_eqs()[0].is_trivial() || node->str_eqs()[0].m_lhs == node->str_eqs()[0].m_rhs);
-    // After simplification, trivial equalities should be removed
+    SASSERT(node->str_eqs().empty());
+    SASSERT(node->is_satisfied());
     const ptr_vector<seq::nielsen_edge> cur_path;
     const seq::simplify_result sr = node->simplify_and_init(cur_path);
-    
+
     VERIFY(sr == seq::simplify_result::satisfied || sr == seq::simplify_result::proceed);
     std::cout << "  ok\n";
 }
@@ -284,6 +283,93 @@ static void test_setup_seq_str_dispatches_nseq() {
     std::cout << "  ok: setup_seq_str dispatched to setup_nseq for 'nseq'\n";
 }
 
+// -----------------------------------------------------------------------
+// Fine & Wilf end-to-end tests (full smt::context, real arithmetic).
+// The equation shape U^n·V = Y·W^m·Z with different-base powers used to
+// diverge under the const-num-unwinding peel; apply_fine_wilf (priority 3c,
+// smt.nseq.fine_wilf) closes it.  See specs/nseq-fine-wilf.md.
+// -----------------------------------------------------------------------
+
+// Shared builder: asserts  "a"·(ba)^n·mid_l·u  ==  (ab)^n·"a"·mid_r·v ∧ n ≥ 0
+// into ctx.  mid_l/mid_r are ground infixes ("" = none).
+static void assert_fine_wilf_eq(smt::context& ctx, ast_manager& m,
+                                const char* mid_l, const char* mid_r) {
+    seq_util su(m);
+    arith_util au(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref n(m.mk_const(symbol("n"), au.mk_int()), m);
+    const expr_ref u(m.mk_const(symbol("u"), str_sort), m);
+    const expr_ref v(m.mk_const(symbol("v"), str_sort), m);
+    const expr_ref pow_ba(su.str.mk_power(su.str.mk_string(zstring("ba")), n), m);
+    const expr_ref pow_ab(su.str.mk_power(su.str.mk_string(zstring("ab")), n), m);
+
+    expr_ref lhs(su.str.mk_concat(su.str.mk_string(zstring("a")), pow_ba), m);
+    if (*mid_l)
+        lhs = su.str.mk_concat(lhs, su.str.mk_string(zstring(mid_l)));
+    lhs = su.str.mk_concat(lhs, u);
+
+    expr_ref rhs(su.str.mk_concat(pow_ab, su.str.mk_string(zstring("a"))), m);
+    if (*mid_r)
+        rhs = su.str.mk_concat(rhs, su.str.mk_string(zstring(mid_r)));
+    rhs = su.str.mk_concat(rhs, v);
+
+    ctx.assert_expr(expr_ref(au.mk_ge(n, au.mk_int(0)), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+}
+
+// UNSAT: "a"·(ba)^n·"ab"·u == (ab)^n·"a"·"ba"·v has no solution (after
+// aligning the periodic parts the remainders force "ab"·u = "ba"·v with
+// equal-position clash for every n).  Diverges with fine_wilf disabled —
+// this is the regression test for the peel loop.
+static void test_nseq_fine_wilf_e2e_unsat() {
+    std::cout << "test_nseq_fine_wilf_e2e_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    SASSERT(!params.m_nseq_fine_wilf); // opt-in feature: default off
+    params.m_nseq_fine_wilf = true;
+    smt::context ctx(m, params);
+    assert_fine_wilf_eq(ctx, m, "ab", "ba");
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// SAT: the draft's test 1, "a"·(ba)^n·u == (ab)^n·"a"·v — u = v solves it
+// for every n (a·(ba)^n = (ab)^n·a is the conjugation identity).
+static void test_nseq_fine_wilf_e2e_sat() {
+    std::cout << "test_nseq_fine_wilf_e2e_sat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_fine_wilf = true; // opt-in (default off)
+    smt::context ctx(m, params);
+    assert_fine_wilf_eq(ctx, m, "", "");
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
+// Option off (the default): the SAT instance is still solved (the n = 0
+// peel branch closes it without Fine & Wilf), exercising the default
+// smt.nseq.fine_wilf=false path end-to-end.  (The UNSAT instance would
+// diverge here — by design.)
+static void test_nseq_fine_wilf_option_off() {
+    std::cout << "test_nseq_fine_wilf_option_off\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_fine_wilf = false; // explicit for clarity (= the default)
+    smt::context ctx(m, params);
+    assert_fine_wilf_eq(ctx, m, "", "");
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat with fine_wilf disabled\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -296,5 +382,8 @@ void tst_nseq_basic() {
     test_nseq_const_nielsen_solvable();
     test_nseq_length_mismatch();
     test_setup_seq_str_dispatches_nseq();
+    test_nseq_fine_wilf_e2e_unsat();
+    test_nseq_fine_wilf_e2e_sat();
+    test_nseq_fine_wilf_option_off();
     std::cout << "nseq_basic: all tests passed\n";
 }

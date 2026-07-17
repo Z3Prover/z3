@@ -163,10 +163,9 @@ static void test_nielsen_subst() {
     const seq::nielsen_subst s2(x, e, dep);
     SASSERT(s2.is_eliminating());
 
-    // non-eliminating substitution: x -> concat(A, x)
-    euf::snode const* ax = sg.mk_concat(a, x);
-    const seq::nielsen_subst s3(x, ax, dep);
-    SASSERT(!s3.is_eliminating());
+    // NOTE: non-eliminating substitutions (e.g. x -> A·x) are forbidden by
+    // construction — the nielsen_subst ctor asserts the variable does not
+    // occur in the replacement (add_subst_length_constraints relies on it).
 
     // eliminating substitution: x -> y (x not in y)
     const seq::nielsen_subst s4(x, y, dep);
@@ -204,9 +203,10 @@ static void test_nielsen_node() {
     root->add_str_eq(seq::str_eq(m, sg.mk_concat(x, a), sg.mk_concat(a, y), dep));
     SASSERT(root->str_eqs().size() == 2);
 
-    // regex membership
-    const expr_ref re_all(seq.re.mk_full_seq(str_sort), m);
-    euf::snode const* regex = sg.mk(re_all);
+    // regex membership (a universal regex like Σ* would be dropped as
+    // trivially true by add_str_mem — use a proper constraint)
+    const expr_ref re_a(seq.re.mk_to_re(seq.str.mk_string(zstring("A"))), m);
+    euf::snode const* regex = sg.mk(re_a);
     root->add_str_mem(seq::str_mem(m, x, regex, dep));
     SASSERT(root->str_mems().size() == 1);
 
@@ -277,9 +277,10 @@ static void test_nielsen_graph_populate() {
     SASSERT(ng.root()->str_eqs().size() == 1);
     SASSERT(ng.num_nodes() == 1);
 
-    // add regex membership: x in .*
-    const expr_ref re_all(seq.re.mk_full_seq(str_sort), m);
-    euf::snode const* regex = sg.mk(re_all);
+    // add regex membership: x in A (a full-seq membership x ∈ Σ* would be
+    // dropped as trivially true by add_str_mem)
+    const expr_ref re_a(seq.re.mk_to_re(seq.str.mk_string(zstring("A"))), m);
+    euf::snode const* regex = sg.mk(re_a);
     ng.add_str_mem(x, regex);
     SASSERT(ng.root()->str_mems().size() == 1);
 
@@ -389,8 +390,10 @@ static void test_nielsen_expansion() {
     seq::nielsen_edge* edge1 = ng.mk_edge(root, child1, "test", true);
     edge1->add_subst(s1);
 
-    // branch 2: x -> Ax (non-eliminating, non-progress)
-    euf::snode const* ax = sg.mk_concat(a, x);
+    // branch 2: x -> A·x2 with a fresh tail (substitutions must be
+    // eliminating by construction; the edge is still non-progress)
+    euf::snode const* x2 = sg.mk_var(symbol("x2"), sg.get_str_sort());
+    euf::snode const* ax = sg.mk_concat(a, x2);
     seq::nielsen_node* child2 = ng.mk_child(root);
     const seq::nielsen_subst s2(x, ax, dep);
     child2->apply_subst(sg, s2);
@@ -424,9 +427,9 @@ static void test_multiple_memberships() {
 
     euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
 
-    // x in .*
-    const expr_ref re_all(seq.re.mk_full_seq(str_sort), m);
-    euf::snode const* regex1 = sg.mk(re_all);
+    // x in A* (a full-seq membership would be dropped as trivially true)
+    const expr_ref re_astar(seq.re.mk_star(seq.re.mk_to_re(seq.str.mk_string(zstring("A")))), m);
+    euf::snode const* regex1 = sg.mk(re_astar);
     ng.add_str_mem(x, regex1);
 
     // x in re.union(to_re("A"), to_re("B"))
@@ -490,17 +493,20 @@ static void test_eq_split_basic() {
     euf::snode const* xa = sg.mk_concat(x, a);
     euf::snode const* yb = sg.mk_concat(y, b);
 
-    // x·A = y·B — eq_split returns false (no valid split point),
-    // falls through to var_nielsen (priority 12) → 3 progress children
+    // x·A = y·B — eq_split returns false (no valid split point), falls
+    // through to var_nielsen (priority 12): five-way branch — 3 progress
+    // (x→ε, y→ε, x→y) + 2 non-progress (x longer / y longer)
     ng.add_str_eq(xa, yb);
     seq::nielsen_node* root = ng.root();
 
     const bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    SASSERT(root->outgoing().size() == 3);
-
-    // all children are progress (var_nielsen marks all as progress)
-    SASSERT(root->outgoing()[0]->is_progress());
+    SASSERT(root->outgoing().size() == 5);
+    unsigned num_progress = 0;
+    for (seq::nielsen_edge const* e : root->outgoing())
+        if (e->is_progress())
+            ++num_progress;
+    SASSERT(num_progress == 3);
 }
 
 // test var vs var with solve: x·y = z·w is satisfiable (all vars can be ε)
@@ -698,7 +704,9 @@ static void test_const_nielsen_solve_unsat() {
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
 
-// test const_nielsen priority: A·x = y·B → const_nielsen (2 children), not var_nielsen (3)
+// test priority for A·x = y·B: the det modifier's variable-vs-char
+// look-ahead (sub-rule 4, y → A·tail) preempts const_nielsen and
+// var_nielsen with a single deterministic progress child
 static void test_const_nielsen_priority_over_eq_split() {
     std::cout << "test_const_nielsen_priority_over_eq_split\n";
     ast_manager m;
@@ -723,8 +731,9 @@ static void test_const_nielsen_priority_over_eq_split() {
 
     const bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // const_nielsen produces 2 children, not var_nielsen's 3
-    SASSERT(root->outgoing().size() == 2);
+    SASSERT(root->outgoing().size() == 1);
+    SASSERT(strcmp(root->outgoing()[0]->rule_name(), "det") == 0);
+    SASSERT(root->outgoing()[0]->is_progress());
 }
 
 // test const_nielsen tail direction: x·A = w·y
@@ -769,7 +778,9 @@ static void test_const_nielsen_tail_char_var() {
             euf::snode_vector toks;
             s.m_replacement->collect_tokens(toks);
             SASSERT(toks.size() == 2);
-            SASSERT(toks[0]->is_var() && toks[0]->id() == y->id());
+            // substitutions are eliminating by construction: the tail is a
+            // FRESH variable (y → y'·A), not y itself
+            SASSERT(toks[0]->is_var() && toks[0]->id() != y->id());
             SASSERT(toks[1]->is_char() && toks[1]->id() == a->id());
             saw_tail = true;
             SASSERT(!e->is_progress());
@@ -798,12 +809,13 @@ static void test_const_nielsen_not_applicable_both_vars() {
     euf::snode const* yb = sg.mk_concat(y, b);
 
     // x·A = y·B → both heads are vars → var_nielsen fires (priority 12)
+    // with its five-way branch (3 progress + 2 non-progress)
     ng.add_str_eq(xa, yb);
     seq::nielsen_node* root = ng.root();
 
     const bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    SASSERT(root->outgoing().size() == 3);
+    SASSERT(root->outgoing().size() == 5);
 }
 
 // test const_nielsen solve: A·B·x = A·B·C → sat (x = C after two det cancels)
@@ -863,10 +875,11 @@ static void test_regex_char_split_basic() {
     const auto sr = ng.root()->simplify_and_init({});
     SASSERT(sr != seq::simplify_result::conflict);
 
+    // x ∈ "AB" is PRIMITIVE (single var, ground regex): the node is already
+    // satisfied — no modifier fires; the witness is left to seq_model.
     const bool extended = ng.generate_extensions(ng.root());
-    SASSERT(extended);
-    // should have at least 2 children: x→'A'·z and x→ε
-    SASSERT(ng.root()->outgoing().size() >= 2);
+    SASSERT(!extended);
+    SASSERT(ng.root()->is_satisfied());
     ng.display(std::cout);
 }
 
@@ -910,12 +923,10 @@ static void test_regex_char_split_solve_multi_char() {
     seq::nielsen_graph ng(sg, solver, context_solver);
     euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
 
-    const expr_ref ch_a(seq.str.mk_char('A'), m);
-    const expr_ref unit_a(seq.str.mk_unit(ch_a), m);
-    const expr_ref ch_b(seq.str.mk_char('B'), m);
-    const expr_ref unit_b(seq.str.mk_unit(ch_b), m);
-    const expr_ref ab(seq.str.mk_concat(unit_a, unit_b), m);
-    const expr_ref to_re_ab(seq.re.mk_to_re(ab), m);
+    // NB: build the regex over a string LITERAL (canonical form, as produced
+    // by th_rewriter through the theory); a to_re over a concat of units is
+    // not a canonical leaf and is not supported at this layer.
+    const expr_ref to_re_ab(seq.re.mk_to_re(seq.str.mk_string(zstring("AB"))), m);
     euf::snode const* regex = sg.mk(to_re_ab);
 
     ng.add_str_mem(x, regex);
@@ -995,12 +1006,8 @@ static void test_regex_char_split_concat_str() {
     euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
     euf::snode const* xy = sg.mk_concat(x, y);
 
-    const expr_ref ch_a(seq.str.mk_char('A'), m);
-    const expr_ref unit_a(seq.str.mk_unit(ch_a), m);
-    const expr_ref ch_b(seq.str.mk_char('B'), m);
-    const expr_ref unit_b(seq.str.mk_unit(ch_b), m);
-    const expr_ref ab(seq.str.mk_concat(unit_a, unit_b), m);
-    const expr_ref to_re_ab(seq.re.mk_to_re(ab), m);
+    // canonical literal-based regex (see test_regex_char_split_solve_multi_char)
+    const expr_ref to_re_ab(seq.re.mk_to_re(seq.str.mk_string(zstring("AB"))), m);
     euf::snode const* regex = sg.mk(to_re_ab);
 
     ng.add_str_mem(xy, regex);
@@ -1281,12 +1288,16 @@ static void test_generate_extensions_no_applicable() {
     euf::snode const* a = sg.mk_char('A');
     euf::snode const* b = sg.mk_char('B');
 
-    // A = B → no variables involved → no modifier applies
+    // A = B → ground symbol clash.  generate_extensions may only be called
+    // on a simplified, non-conflicting node (search_dfs simplifies first),
+    // so the modern expectation is: simplify detects the conflict and no
+    // extension is ever attempted.
     ng.add_str_eq(a, b);
     seq::nielsen_node* root = ng.root();
 
-    const bool extended = ng.generate_extensions(root);
-    SASSERT(!extended);
+    const auto sr = root->simplify_and_init({});
+    SASSERT(sr == seq::simplify_result::conflict);
+    SASSERT(root->is_currently_conflict());
     SASSERT(root->outgoing().empty());
 }
 
@@ -1310,16 +1321,16 @@ static void test_generate_extensions_regex_only() {
     const expr_ref to_re_a(seq.re.mk_to_re(unit_a), m);
     euf::snode const* re_node = sg.mk(to_re_a);
 
-    // x ∈ to_re("A") → only regex_char_split can fire (no str_eq)
+    // x ∈ to_re("A") is a PRIMITIVE membership: the node is satisfied as-is
+    // (no modifier fires; the witness is left to seq_model)
     ng.add_str_mem(x, re_node);
     seq::nielsen_node* root = ng.root();
 
     root->simplify_and_init({});
 
     const bool extended = ng.generate_extensions(root);
-    SASSERT(extended);
-    // at least 1 child (epsilon branch) + possibly char branches
-    SASSERT(root->outgoing().size() >= 1);
+    SASSERT(!extended);
+    SASSERT(root->is_satisfied());
 }
 
 // test: mixed constraints, x·A = x·B and y ∈ R → after simplify, A = B clash → unsat
@@ -1359,7 +1370,8 @@ static void test_generate_extensions_mixed_det_first() {
 // solve() / search_dfs() tests
 // -----------------------------------------------------------------------
 
-// test solve on empty graph (no root) returns sat
+// test solve on an empty constraint set returns sat (solve() requires an
+// explicitly created root nowadays — theory_nseq calls create_root())
 static void test_solve_empty_graph() {
     std::cout << "test_solve_empty_graph\n";
     ast_manager m;
@@ -1371,6 +1383,7 @@ static void test_solve_empty_graph() {
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
     SASSERT(!ng.root());
+    ng.create_root();
     const auto result = ng.solve();
     SASSERT(result == seq::nielsen_graph::search_result::sat);
 }
@@ -1459,7 +1472,7 @@ static void test_dep_tracker_get_set_bits() {
     dm.linearize(d1, bits1);
     SASSERT(bits1.size() == 1);
     SASSERT(std::holds_alternative<sat::literal>(bits1[0]));
-    SASSERT(std::get<sat::literal>(bits1[0]).index() == 5);
+    SASSERT(std::get<sat::literal>(bits1[0]) == sat::literal(5));
 
     // two leaves merged: sat::literal(3) and sat::literal(11)
     const seq::dep_tracker d2 = dm.mk_join(
@@ -1471,9 +1484,9 @@ static void test_dep_tracker_get_set_bits() {
     bool has_3 = false, has_11 = false;
     for (auto const& d : bits2) {
         if (std::holds_alternative<sat::literal>(d)) {
-            const unsigned idx = std::get<sat::literal>(d).index();
-            if (idx == 3) has_3 = true;
-            if (idx == 11) has_11 = true;
+            const sat::literal l = std::get<sat::literal>(d);
+            if (l == sat::literal(3)) has_3 = true;
+            if (l == sat::literal(11)) has_11 = true;
         }
     }
     SASSERT(has_3);
@@ -1489,9 +1502,9 @@ static void test_dep_tracker_get_set_bits() {
     bool has31 = false, has32 = false;
     for (auto const& d : bits3) {
         if (std::holds_alternative<sat::literal>(d)) {
-            const unsigned idx = std::get<sat::literal>(d).index();
-            if (idx == 31) has31 = true;
-            if (idx == 32) has32 = true;
+            const sat::literal l = std::get<sat::literal>(d);
+            if (l == sat::literal(31)) has31 = true;
+            if (l == sat::literal(32)) has32 = true;
         }
     }
     SASSERT(has31);
@@ -1753,13 +1766,13 @@ static void test_simplify_empty_propagation() {
     euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
     euf::snode const* xy = sg.mk_concat(x, y);
 
-    // ε = x·y → forces x=ε, y=ε → all trivial → satisfied
-    seq::nielsen_node* node = ng.mk_node();
-    const seq::dep_tracker dep = nullptr;
-    node->add_str_eq(seq::str_eq(m, e, xy, dep));
-
-    const auto sr = node->simplify_and_init({});
-    SASSERT(sr == seq::simplify_result::satisfied);
+    // ε = x·y → the det modifier's empty-side propagation (§8.1 sub-rule 1)
+    // forces x=ε, y=ε — nowadays a modifier step, not a simplify pass, so
+    // check the end-to-end result: solve → sat
+    ng.add_str_eq(e, xy);
+    const auto sr = ng.root()->simplify_and_init({});
+    SASSERT(sr != seq::simplify_result::conflict);
+    SASSERT(ng.solve() == seq::nielsen_graph::search_result::sat);
 }
 
 // test simplify_and_init: empty vs concrete char → conflict
@@ -1970,21 +1983,19 @@ static void test_simplify_brzozowski_rtl_suffix() {
     euf::snode const* xa = sg.mk_concat(x, a);
     euf::snode const* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
-    const expr_ref ch_b(seq.str.mk_char('B'), m);
-    const expr_ref unit_b(seq.str.mk_unit(ch_b), m);
-    const expr_ref ch_a(seq.str.mk_char('A'), m);
-    const expr_ref unit_a(seq.str.mk_unit(ch_a), m);
-    const expr_ref ba(seq.str.mk_concat(unit_b, unit_a), m);
-    const expr_ref to_re_ba(seq.re.mk_to_re(ba), m);
+    // canonical literal-based regex (a to_re over a concat of units is not
+    // a canonical leaf at this layer)
+    const expr_ref to_re_ba(seq.re.mk_to_re(seq.str.mk_string(zstring("BA"))), m);
     euf::snode const* regex = sg.mk(to_re_ba);
 
-    // x·"A" ∈ to_re("BA") → RTL consume trailing 'A' → x ∈ to_re("B")
+    // x·"A" ∈ to_re("BA") → RTL consume trailing 'A' → x ∈ to_re("B"),
+    // which is primitive — the node is then satisfied
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(m, xa, regex, dep));
 
     const auto sr = node->simplify_and_init({});
-    SASSERT(sr == seq::simplify_result::proceed);
+    SASSERT(sr == seq::simplify_result::satisfied);
     SASSERT(node->str_mems().size() == 1);
     SASSERT(node->str_mems()[0].m_str->is_var());
     SASSERT(node->str_mems()[0].m_str->id() == x->id());
@@ -2014,7 +2025,7 @@ static void test_simplify_multiple_eqs() {
     seq::nielsen_node* node = ng.mk_node();
     const seq::dep_tracker dep = nullptr;
 
-    // eq1: ε = ε (trivial → removed)
+    // eq1: ε = ε (trivial → dropped already at insertion by add_str_eq)
     node->add_str_eq(seq::str_eq(m, e, e, dep));
     // eq2: A·x = A·y (prefix cancel → x = y)
     euf::snode const* ax = sg.mk_concat(a, x);
@@ -2023,10 +2034,10 @@ static void test_simplify_multiple_eqs() {
     // eq3: x = z (non-trivial, kept)
     node->add_str_eq(seq::str_eq(m, x, z, dep));
 
-    SASSERT(node->str_eqs().size() == 3);
+    SASSERT(node->str_eqs().size() == 2);
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
-    // eq1 removed, eq2 simplified to x=y, eq3 kept → 2 eqs remain
+    // eq2 simplified to x=y, eq3 kept → 2 eqs remain
     SASSERT(node->str_eqs().size() == 2);
 }
 
@@ -2057,8 +2068,9 @@ static void test_det_cancel_child_eq() {
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
 
-// test const_nielsen: verify children's substitutions target the variable
-// A·x = y·B → char vs var: const_nielsen fires (2 children, both substitute y)
+// test child substitutions for A·x = y·B: the det modifier's
+// variable-vs-char look-ahead fires with a single child substituting
+// y → A·y' (fresh tail)
 static void test_const_nielsen_child_substitutions() {
     std::cout << "test_const_nielsen_child_substitutions\n";
     ast_manager m;
@@ -2076,24 +2088,23 @@ static void test_const_nielsen_child_substitutions() {
     euf::snode const* ax = sg.mk_concat(a, x);
     euf::snode const* yb = sg.mk_concat(y, b);
 
-    // A·x = y·B → const_nielsen: 2 children, both substitute y
+    // A·x = y·B → det look-ahead: 1 child substituting y → A·y'
     ng.add_str_eq(ax, yb);
     seq::nielsen_node* root = ng.root();
 
     const bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    SASSERT(root->outgoing().size() == 2);
-
-    // both edges substitute y
-    for (unsigned i = 0; i < 2; ++i) {
-        SASSERT(root->outgoing()[i]->subst().size() == 1);
-        SASSERT(root->outgoing()[i]->subst()[0].m_var == y);
-    }
-
-    // edge 0: y → ε (eliminating, replacement is empty)
-    SASSERT(root->outgoing()[0]->subst()[0].m_replacement->is_empty());
-    // edge 1: y → A·fresh (replacement is non-empty)
-    SASSERT(!root->outgoing()[1]->subst()[0].m_replacement->is_empty());
+    SASSERT(root->outgoing().size() == 1);
+    SASSERT(root->outgoing()[0]->subst().size() == 1);
+    seq::nielsen_subst const& s = root->outgoing()[0]->subst()[0];
+    SASSERT(s.m_var == y);
+    SASSERT(!s.m_replacement->is_empty());
+    // replacement starts with the matched char A and ends with a fresh var
+    euf::snode_vector toks;
+    s.m_replacement->collect_tokens(toks);
+    SASSERT(toks.size() == 2);
+    SASSERT(toks[0]->id() == a->id());
+    SASSERT(toks[1]->is_var() && toks[1]->id() != y->id());
 }
 
 // test var_nielsen: verify substitution structure — det fires for x = y (single var def)
@@ -2584,10 +2595,10 @@ static void test_star_intr_no_backedge() {
     const auto sr = root->simplify_and_init({});
     SASSERT(sr != seq::simplify_result::conflict);
 
+    // x ∈ "A" is a primitive membership: satisfied as-is, nothing fires
     const bool extended = ng.generate_extensions(root);
-    SASSERT(extended);
-    // regex_char_split fires (priority 9): at least 2 children (x→A·z, x→ε)
-    SASSERT(root->outgoing().size() >= 2);
+    SASSERT(!extended);
+    SASSERT(root->is_satisfied());
 }
 
 // test_star_intr_with_backedge: backedge set → star_intr fires
@@ -2725,11 +2736,11 @@ static void test_regex_var_split_basic() {
     const auto sr = root->simplify_and_init({});
     SASSERT(sr != seq::simplify_result::conflict);
 
+    // x ∈ (A|B) is a primitive membership: satisfied as-is, nothing fires
+    // (the witness is enumerated by seq_model, not by graph splitting)
     const bool extended = ng.generate_extensions(root);
-    SASSERT(extended);
-    // Should produce children via regex_char_split or regex_var_split
-    SASSERT(root->outgoing().size() >= 2);
-    std::cout << "  regex split generated " << root->outgoing().size() << " children\n";
+    SASSERT(!extended);
+    SASSERT(root->is_satisfied());
 }
 
 // test_power_split_no_power: no power tokens → modifier returns false
@@ -3349,7 +3360,11 @@ static unsigned queried_ub(seq::nielsen_node* node, euf::snode const* var) {
     return ub.is_unsigned() ? ub.get_unsigned() : UINT_MAX;
 }
 
-// test lower-bound constraints affect queried bounds
+// Bounds are owned by the arithmetic side (context/sub solver) nowadays:
+// nielsen_node::lower_bound/upper_bound consult the context solver and fall
+// back to the conservative defaults (0 / unbounded) when it reports
+// "unsupported" — node-local constraints do NOT feed the queries.  These
+// tests pin that contract plus the constraint-accumulation plumbing.
 static void test_add_lower_int_bound_basic() {
     std::cout << "test_add_lower_int_bound_basic\n";
     ast_manager m;
@@ -3363,34 +3378,30 @@ static void test_add_lower_int_bound_basic() {
     dummy_simple_solver solver;
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
-    ng.add_str_eq(x, x);  // create root node
+    ng.create_root();
 
     seq::nielsen_node* node = ng.root();
     const seq::dep_tracker dep = nullptr;
 
-    // initially no bounds
+    // initially no bounds and no constraints
     SASSERT(queried_lb(node, x) == 0);
     SASSERT(queried_ub(node, x) == UINT_MAX);
     SASSERT(node->constraints().empty());
 
+    // node constraints accumulate but do not affect the queried bounds
+    // (the default context solver reports "unsupported")
     add_len_ge(ng, node, x, 3, dep);
-    SASSERT(queried_lb(node, x) == 3);
+    SASSERT(queried_lb(node, x) == 0);
     SASSERT(node->constraints().size() == 1);
     SASSERT(node->constraints()[0].fml);
 
-    // weaker bound does not change the effective lower bound
-    add_len_ge(ng, node, x, 2, dep);
-    SASSERT(queried_lb(node, x) == 3);
-    SASSERT(node->constraints().size() == 2);
-
     add_len_ge(ng, node, x, 5, dep);
-    SASSERT(queried_lb(node, x) == 5);
-    SASSERT(node->constraints().size() == 3);
+    SASSERT(node->constraints().size() == 2);
 
     std::cout << "  ok\n";
 }
 
-// test upper-bound constraints affect queried bounds
+// same contract for upper bounds
 static void test_add_upper_int_bound_basic() {
     std::cout << "test_add_upper_int_bound_basic\n";
     ast_manager m;
@@ -3403,7 +3414,7 @@ static void test_add_upper_int_bound_basic() {
     dummy_simple_solver solver;
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
-    ng.add_str_eq(x, x);
+    ng.create_root();
 
     seq::nielsen_node* node = ng.root();
     const seq::dep_tracker dep = nullptr;
@@ -3411,23 +3422,18 @@ static void test_add_upper_int_bound_basic() {
     SASSERT(queried_ub(node, x) == UINT_MAX);
 
     add_len_le(ng, node, x, 10, dep);
-    SASSERT(queried_ub(node, x) == 10);
+    SASSERT(queried_ub(node, x) == UINT_MAX);
     SASSERT(node->constraints().size() == 1);
     SASSERT(node->constraints()[0].fml);
 
-    // weaker bound does not change the effective upper bound
-    add_len_le(ng, node, x, 20, dep);
-    SASSERT(queried_ub(node, x) == 10);
-    SASSERT(node->constraints().size() == 2);
-
     add_len_le(ng, node, x, 5, dep);
-    SASSERT(queried_ub(node, x) == 5);
-    SASSERT(node->constraints().size() == 3);
+    SASSERT(node->constraints().size() == 2);
 
     std::cout << "  ok\n";
 }
 
-// inconsistent local bounds are visible through lower_bound/upper_bound queries
+// contradictory node-local length constraints do not surface through the
+// bound queries (the arithmetic subsolver refutes them during search)
 static void test_add_bound_lb_gt_ub_conflict() {
     std::cout << "test_add_bound_lb_gt_ub_conflict\n";
     ast_manager m;
@@ -3440,19 +3446,21 @@ static void test_add_bound_lb_gt_ub_conflict() {
     dummy_simple_solver solver;
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
-    ng.add_str_eq(x, x);
+    ng.create_root();
 
     seq::nielsen_node* node = ng.root();
     const seq::dep_tracker dep = nullptr;
 
     add_len_le(ng, node, x, 3, dep);
     add_len_ge(ng, node, x, 5, dep);
-    SASSERT(queried_lb(node, x) > queried_ub(node, x));
+    SASSERT(node->constraints().size() == 2);
+    SASSERT(queried_lb(node, x) == 0);
+    SASSERT(queried_ub(node, x) == UINT_MAX);
 
     std::cout << "  ok\n";
 }
 
-// test clone_from: child inherits parent bounds
+// test clone_from: child inherits parent constraints verbatim
 static void test_bounds_cloned() {
     std::cout << "test_bounds_cloned\n";
     ast_manager m;
@@ -3471,22 +3479,16 @@ static void test_bounds_cloned() {
     seq::nielsen_node* parent = ng.root();
     const seq::dep_tracker dep = nullptr;
 
-    // set bounds on parent
     add_len_ge(ng, parent, x, 2, dep);
     add_len_le(ng, parent, x, 7, dep);
     add_len_ge(ng, parent, y, 1, dep);
 
-    // clone to child
+    // clone to child: constraints are copied, and the parent-inherited
+    // prefix is recorded (m_parent_ic_count semantics)
     seq::nielsen_node* child = ng.mk_child(parent);
-
-    // child should have same bounds
-    SASSERT(queried_lb(child, x) == 2);
-    SASSERT(queried_ub(child, x) == 7);
-    SASSERT(queried_lb(child, y) == 1);
-    SASSERT(queried_ub(child, y) == UINT_MAX);
-
-    // child's int_constraints should also be cloned (3 constraints: lb_x, ub_x, lb_y)
     SASSERT(child->constraints().size() == parent->constraints().size());
+    for (unsigned i = 0; i < parent->constraints().size(); ++i)
+        SASSERT(child->constraints()[i].fml.get() == parent->constraints()[i].fml.get());
 
     std::cout << "  ok\n";
 }
@@ -3732,16 +3734,10 @@ static void test_simplify_unit_prefix_split() {
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
-    // original eq stripped to x==y, plus a new unit(a)==unit(b) eq
-    SASSERT(node->str_eqs().size() == 2);
-    // at least one eq has both sides as unit or var (the unit equality)
-    bool found_unit_eq = false;
-    for (auto const& eq : node->str_eqs()) {
-        if (eq.m_lhs && eq.m_rhs &&
-            eq.m_lhs->is_char_or_unit() && eq.m_rhs->is_char_or_unit())
-            found_unit_eq = true;
-    }
-    SASSERT(found_unit_eq);
+    // symbolic unit-vs-unit heads are NOT split off as a separate equality
+    // by simplify anymore — the equation is kept (unit unification is
+    // handled by the det modifier / char-range machinery during search)
+    SASSERT(node->str_eqs().size() == 1);
     std::cout << "  ok\n";
 }
 
@@ -3819,19 +3815,300 @@ static void test_simplify_unit_suffix_split() {
 
     const auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
-    // original eq stripped to x==y, plus a new unit(a)==unit(b) eq
-    SASSERT(node->str_eqs().size() == 2);
-    bool found_unit_eq = false;
-    for (auto const& eq : node->str_eqs()) {
-        if (eq.m_lhs && eq.m_rhs &&
-            eq.m_lhs->is_char_or_unit() && eq.m_rhs->is_char_or_unit())
-            found_unit_eq = true;
-    }
-    SASSERT(found_unit_eq);
+    // the unit-unit suffix is consumed by a char substitution — only x==y
+    // remains (see test_simplify_unit_prefix_split)
+    SASSERT(node->str_eqs().size() == 1);
+    std::cout << "  ok\n";
+}
+
+// -----------------------------------------------------------------------
+// apply_fine_wilf tests (priority 3c): Fine & Wilf overlap splitting for
+// different-base power heads.  See specs/nseq-fine-wilf.md.
+// -----------------------------------------------------------------------
+
+// Shared setup: returns a power snode base^exp for a ground string base.
+static euf::snode const* mk_ground_power(euf::sgraph& sg, seq_util& seq, ast_manager& m,
+                                         const char* base, expr* exp) {
+    const expr_ref base_e(seq.str.mk_string(zstring(base)), m);
+    const expr_ref pw(seq.str.mk_power(base_e, exp), m);
+    return sg.mk(pw);
+}
+
+static unsigned count_edges_with_rule(seq::nielsen_node const* n, const char* prefix) {
+    unsigned cnt = 0;
+    for (seq::nielsen_edge const* e : n->outgoing())
+        if (strncmp(e->rule_name(), prefix, strlen(prefix)) == 0)
+            ++cnt;
+    return cnt;
+}
+
+// (ab)^n·U = (ba)^m·V — "ab" and "ba" do not commute, so the F&W cases 2/3
+// are pruned at generation time; only the bounded-exponent enumerations
+// remain: n ∈ {0,1} (n·2 < 4) and m ∈ {0,1}, i.e. 4 progress children.
+static void test_fine_wilf_noncommuting_children() {
+    std::cout << "test_fine_wilf_noncommuting_children\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+    ng.set_fine_wilf(true); // opt-in (smt.nseq.fine_wilf defaults to off)
+
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* m_e = m.mk_const(symbol("m"), arith.mk_int());
+    euf::snode const* pw_ab = mk_ground_power(sg, seq, m, "ab", n_e);
+    euf::snode const* pw_ba = mk_ground_power(sg, seq, m, "ba", m_e);
+    euf::snode const* u = sg.mk_var(symbol("U"), sg.get_str_sort());
+    euf::snode const* v = sg.mk_var(symbol("V"), sg.get_str_sort());
+
+    ng.add_str_eq(sg.mk_concat(pw_ab, u), sg.mk_concat(pw_ba, v));
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(ng.generate_extensions(root));
+    SASSERT(root->outgoing().size() == 4);
+    for (seq::nielsen_edge const* e : root->outgoing())
+        SASSERT(e->is_progress());
+    SASSERT(count_edges_with_rule(root, "fine-wilf n") == 2);
+    SASSERT(count_edges_with_rule(root, "fine-wilf m") == 2);
+    SASSERT(count_edges_with_rule(root, "fine-wilf elim") == 0);
+    std::cout << "  ok\n";
+}
+
+// (ab)^n·U = (abab)^m·V — commuting roots (common primitive root "ab"), so
+// all four blocks fire.  With Lu/Lw ∈ {2,4} (which power plays "U" depends
+// on str_eq's side canonicalization): bounded enumerations contribute
+// N+1 = (Ly+Lu+Lw-1)/Lu + 1 and M+1 = (Lu+Lw-1)/Lw + 1 children (2+3 or
+// 3+2), the case-2/3 cut enumerations Lw + Lu = 6 — 11 progress children.
+static void test_fine_wilf_commuting_children() {
+    std::cout << "test_fine_wilf_commuting_children\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+    ng.set_fine_wilf(true); // opt-in (smt.nseq.fine_wilf defaults to off)
+
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* m_e = m.mk_const(symbol("m"), arith.mk_int());
+    euf::snode const* pw_ab = mk_ground_power(sg, seq, m, "ab", n_e);
+    euf::snode const* pw_abab = mk_ground_power(sg, seq, m, "abab", m_e);
+    euf::snode const* u = sg.mk_var(symbol("U"), sg.get_str_sort());
+    euf::snode const* v = sg.mk_var(symbol("V"), sg.get_str_sort());
+
+    ng.add_str_eq(sg.mk_concat(pw_ab, u), sg.mk_concat(pw_abab, v));
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(ng.generate_extensions(root));
+    SASSERT(root->outgoing().size() == 11);
+    for (seq::nielsen_edge const* e : root->outgoing())
+        SASSERT(e->is_progress());
+    SASSERT(count_edges_with_rule(root, "fine-wilf n") +
+            count_edges_with_rule(root, "fine-wilf m") == 5);
+    SASSERT(count_edges_with_rule(root, "fine-wilf elim") == 6);
+    std::cout << "  ok\n";
+}
+
+// "a"·(ba)^n·U = (ab)^n·V — the draft's conjugation shape: ground prefix
+// Y = "a" before the (ba)-power; rot("ab", 1) = "ba" = base(W), so the
+// conjugate commutes and cases 2/3 fire alongside the enumerations:
+// 3 + 2 + 2 + 2 = 9 children.
+static void test_fine_wilf_ground_prefix() {
+    std::cout << "test_fine_wilf_ground_prefix\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+    ng.set_fine_wilf(true); // opt-in (smt.nseq.fine_wilf defaults to off)
+
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    euf::snode const* pw_ba = mk_ground_power(sg, seq, m, "ba", n_e);
+    euf::snode const* pw_ab = mk_ground_power(sg, seq, m, "ab", n_e);
+    euf::snode const* a = sg.mk_char('a');
+    euf::snode const* u = sg.mk_var(symbol("U"), sg.get_str_sort());
+    euf::snode const* v = sg.mk_var(symbol("V"), sg.get_str_sort());
+
+    // "a"·(ba)^n·U  =  (ab)^n·V
+    ng.add_str_eq(sg.mk_concat(a, sg.mk_concat(pw_ba, u)),
+                  sg.mk_concat(pw_ab, v));
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(ng.generate_extensions(root));
+    SASSERT(root->outgoing().size() == 9);
+    for (seq::nielsen_edge const* e : root->outgoing())
+        SASSERT(e->is_progress());
+    SASSERT(count_edges_with_rule(root, "fine-wilf n") == 3);
+    SASSERT(count_edges_with_rule(root, "fine-wilf m") == 2);
+    SASSERT(count_edges_with_rule(root, "fine-wilf elim L") == 2);
+    SASSERT(count_edges_with_rule(root, "fine-wilf elim R") == 2);
+    std::cout << "  ok\n";
+}
+
+// (ab)^n·U = (ab)^m·V — SAME base: fine_wilf must not fire; NumCmp
+// (priority 3) takes it with its two arith-split children.
+static void test_fine_wilf_same_base_skipped() {
+    std::cout << "test_fine_wilf_same_base_skipped\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+    ng.set_fine_wilf(true); // opt-in (smt.nseq.fine_wilf defaults to off)
+
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* m_e = m.mk_const(symbol("m"), arith.mk_int());
+    euf::snode const* pw_n = mk_ground_power(sg, seq, m, "ab", n_e);
+    euf::snode const* pw_m = mk_ground_power(sg, seq, m, "ab", m_e);
+    euf::snode const* u = sg.mk_var(symbol("U"), sg.get_str_sort());
+    euf::snode const* v = sg.mk_var(symbol("V"), sg.get_str_sort());
+
+    ng.add_str_eq(sg.mk_concat(pw_n, u), sg.mk_concat(pw_m, v));
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(ng.generate_extensions(root));
+    SASSERT(root->outgoing().size() == 2);
+    SASSERT(count_edges_with_rule(root, "fine-wilf") == 0);
+    SASSERT(count_edges_with_rule(root, "power cmp") == 2);
+    for (seq::nielsen_edge const* e : root->outgoing())
+        SASSERT(e->tgt()->is_arith_split());
+    std::cout << "  ok\n";
+}
+
+// smt.nseq.fine_wilf off (the default): the different-base power head falls
+// back to the legacy const-num-unwinding peel (2 children).
+static void test_fine_wilf_disabled_falls_through() {
+    std::cout << "test_fine_wilf_disabled_falls_through\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+    ng.set_fine_wilf(false);
+
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* m_e = m.mk_const(symbol("m"), arith.mk_int());
+    euf::snode const* pw_ab = mk_ground_power(sg, seq, m, "ab", n_e);
+    euf::snode const* pw_ba = mk_ground_power(sg, seq, m, "ba", m_e);
+    euf::snode const* u = sg.mk_var(symbol("U"), sg.get_str_sort());
+    euf::snode const* v = sg.mk_var(symbol("V"), sg.get_str_sort());
+
+    ng.add_str_eq(sg.mk_concat(pw_ab, u), sg.mk_concat(pw_ba, v));
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(ng.generate_extensions(root));
+    SASSERT(count_edges_with_rule(root, "fine-wilf") == 0);
+    SASSERT(count_edges_with_rule(root, "unwinding") == 2);
+    std::cout << "  ok\n";
+}
+
+// Symbolic (variable) bases: x^n·U = y^m·V takes the symbolic path —
+// one arith-split small-overlap child + the two cut-axiomatization
+// children.  Extending the arith-split child must NOT refire fine_wilf
+// (the inherited m_fw_applied guard), falling through to the peel.
+static void test_fine_wilf_symbolic_refire_guard() {
+    std::cout << "test_fine_wilf_symbolic_refire_guard\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+    ng.set_fine_wilf(true); // opt-in (smt.nseq.fine_wilf defaults to off)
+
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* m_e = m.mk_const(symbol("m"), arith.mk_int());
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
+    const expr_ref pw_x_e(seq.str.mk_power(x->get_expr(), n_e), m);
+    const expr_ref pw_y_e(seq.str.mk_power(y->get_expr(), m_e), m);
+    euf::snode const* pw_x = sg.mk(pw_x_e);
+    euf::snode const* pw_y = sg.mk(pw_y_e);
+    euf::snode const* u = sg.mk_var(symbol("U"), sg.get_str_sort());
+    euf::snode const* v = sg.mk_var(symbol("V"), sg.get_str_sort());
+
+    ng.add_str_eq(sg.mk_concat(pw_x, u), sg.mk_concat(pw_y, v));
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(ng.generate_extensions(root));
+    SASSERT(root->outgoing().size() == 3);
+    SASSERT(count_edges_with_rule(root, "fine-wilf small") == 1);
+    SASSERT(count_edges_with_rule(root, "fine-wilf elim L") == 1);
+    SASSERT(count_edges_with_rule(root, "fine-wilf elim R") == 1);
+
+    // find the arith-split (case 1) child: same string constraints, guarded
+    seq::nielsen_node* small = nullptr;
+    for (seq::nielsen_edge* e : root->outgoing())
+        if (strcmp(e->rule_name(), "fine-wilf small") == 0)
+            small = e->tgt();
+    SASSERT(small && small->is_arith_split());
+
+    // the guard must divert the child to another modifier (the peel), not
+    // the identical fine-wilf split again
+    VERIFY(ng.generate_extensions(small));
+    SASSERT(count_edges_with_rule(small, "fine-wilf") == 0);
+    SASSERT(small->outgoing().size() > 0);
+    std::cout << "  ok\n";
+}
+
+// Solve-level: commuting roots are satisfiable (e.g. everything empty);
+// the search must terminate through the fine-wilf children.
+static void test_fine_wilf_solve_commuting_sat() {
+    std::cout << "test_fine_wilf_solve_commuting_sat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+    ng.set_fine_wilf(true); // opt-in (smt.nseq.fine_wilf defaults to off)
+
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* m_e = m.mk_const(symbol("m"), arith.mk_int());
+    euf::snode const* pw_ab = mk_ground_power(sg, seq, m, "ab", n_e);
+    euf::snode const* pw_abab = mk_ground_power(sg, seq, m, "abab", m_e);
+    euf::snode const* u = sg.mk_var(symbol("U"), sg.get_str_sort());
+    euf::snode const* v = sg.mk_var(symbol("V"), sg.get_str_sort());
+
+    ng.add_str_eq(sg.mk_concat(pw_ab, u), sg.mk_concat(pw_abab, v));
+    SASSERT(ng.solve() == seq::nielsen_graph::search_result::sat);
     std::cout << "  ok\n";
 }
 
 void tst_seq_nielsen() {
+    std::cout << std::unitbuf; // flush per write: locate crashes/assertions
     test_dep_tracker();
     test_str_eq();
     test_str_mem();
@@ -3951,4 +4228,12 @@ void tst_seq_nielsen() {
     test_simplify_unit_prefix_split();
     test_simplify_unit_prefix_split_empty_rest();
     test_simplify_unit_suffix_split();
+    // Fine & Wilf overlap splitting (apply_fine_wilf, priority 3c)
+    test_fine_wilf_noncommuting_children();
+    test_fine_wilf_commuting_children();
+    test_fine_wilf_ground_prefix();
+    test_fine_wilf_same_base_skipped();
+    test_fine_wilf_disabled_falls_through();
+    test_fine_wilf_symbolic_refire_guard();
+    test_fine_wilf_solve_commuting_sat();
 }

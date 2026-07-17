@@ -200,6 +200,9 @@
     X(seq_split) \
     X(fpa) \
     X(seq_regex_bisim) \
+    X(seq_nielsen) \
+    X(nseq_basic) \
+    X(nseq_zipt) \
     X(term_enumeration) \
     X(lcube) \
     X(psmt)
