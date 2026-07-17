@@ -71,12 +71,7 @@ jobs:
         run: echo "::add-mask::${{ github.event.inputs.npm_otp }}"
 
       - name: Publish
-        run: |
-          if [ -n "${NPM_OTP}" ]; then
-            npm publish --otp="${NPM_OTP}"
-          else
-            npm publish
-          fi
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_OTP: ${{ github.event.inputs.npm_otp }}
+          NPM_CONFIG_OTP: ${{ github.event.inputs.npm_otp }}
