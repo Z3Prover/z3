@@ -68,9 +68,7 @@ jobs:
 
       - name: Mask npm OTP
         if: ${{ github.event.inputs.npm_otp != '' }}
-        run: echo "::add-mask::${NPM_OTP}"
-        env:
-          NPM_OTP: ${{ github.event.inputs.npm_otp }}
+        run: echo "::add-mask::${{ github.event.inputs.npm_otp }}"
 
       - name: Publish
         run: |
