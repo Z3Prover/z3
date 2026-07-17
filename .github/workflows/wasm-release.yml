@@ -26,7 +26,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v7
         with:
-          node-version: "lts/*"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
       - name: Prepare for publish
