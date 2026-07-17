@@ -70,6 +70,8 @@ jobs:
         run: |
           if [ -n "${NPM_OTP}" ]; then
             echo "::add-mask::${NPM_OTP}"
+          fi
+          if [ -n "${NPM_OTP}" ]; then
             npm publish --otp="${NPM_OTP}"
           else
             npm publish
