@@ -19,6 +19,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.0
