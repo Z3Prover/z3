@@ -92,6 +92,8 @@ elif BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
 elif BUILD_PLATFORM in ('emscripten',):
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3.wasm"
+    # Depending on emscripten/toolchain details, the shell target can appear
+    # as z3.js.wasm or z3; package it consistently as z3.wasm.
     EXECUTABLE_FILE_FALLBACKS = ["z3.js.wasm", "z3"]
 else:
     LIBRARY_FILE = "libz3.so"
@@ -235,7 +237,7 @@ def _copy_bins():
             executable_src = executable_src_candidate
             break
     if executable_src is None:
-        raise FileNotFoundError("Could not find any executable in build directory. Tried:\n" + "\n".join(
+        raise FileNotFoundError("Could not find any executable in build directory. Tried:\n- " + "\n- ".join(
             os.path.join(BUILD_DIR, executable_name) for executable_name in executable_names))
     shutil.copy(executable_src, os.path.join(BINS_DIR, EXECUTABLE_FILE))
     path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
