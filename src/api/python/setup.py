@@ -92,9 +92,11 @@ elif BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
 elif BUILD_PLATFORM in ('emscripten',):
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3.wasm"
+    EXECUTABLE_FILE_FALLBACKS = ["z3.js.wasm", "z3"]
 else:
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3"
+    EXECUTABLE_FILE_FALLBACKS = []
 
 # check if cmake is available, and pull it in via PyPI if necessary
 SETUP_REQUIRES = []
@@ -225,7 +227,15 @@ def _copy_bins():
     os.mkdir(BINS_DIR)
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
-    shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
+    executable_src = None
+    for executable_name in [EXECUTABLE_FILE, *EXECUTABLE_FILE_FALLBACKS]:
+        executable_src_candidate = os.path.join(BUILD_DIR, executable_name)
+        if os.path.exists(executable_src_candidate):
+            executable_src = executable_src_candidate
+            break
+    if executable_src is None:
+        raise FileNotFoundError(os.path.join(BUILD_DIR, EXECUTABLE_FILE))
+    shutil.copy(executable_src, os.path.join(BINS_DIR, EXECUTABLE_FILE))
     path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
     path2 = glob.glob(os.path.join(BUILD_DIR, "vcomp*"))
     path3 = glob.glob(os.path.join(BUILD_DIR, "vcrun*"))
