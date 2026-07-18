@@ -237,8 +237,8 @@ def _copy_bins():
             executable_src = executable_src_candidate
             break
     if executable_src is None:
-        raise FileNotFoundError("Could not find any executable in build directory. Tried:\n- " + "\n- ".join(
-            os.path.join(BUILD_DIR, executable_name) for executable_name in executable_names))
+        attempted_files = "\n- ".join(os.path.join(BUILD_DIR, executable_name) for executable_name in executable_names)
+        raise FileNotFoundError(f"Could not find any executable in build directory. Tried:\n- {attempted_files}")
     shutil.copy(executable_src, os.path.join(BINS_DIR, EXECUTABLE_FILE))
     path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
     path2 = glob.glob(os.path.join(BUILD_DIR, "vcomp*"))
