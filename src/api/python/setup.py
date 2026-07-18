@@ -228,13 +228,15 @@ def _copy_bins():
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
     executable_src = None
-    for executable_name in [EXECUTABLE_FILE, *EXECUTABLE_FILE_FALLBACKS]:
+    executable_names = [EXECUTABLE_FILE, *EXECUTABLE_FILE_FALLBACKS]
+    for executable_name in executable_names:
         executable_src_candidate = os.path.join(BUILD_DIR, executable_name)
         if os.path.exists(executable_src_candidate):
             executable_src = executable_src_candidate
             break
     if executable_src is None:
-        raise FileNotFoundError(os.path.join(BUILD_DIR, EXECUTABLE_FILE))
+        raise FileNotFoundError("Could not find any executable in build directory: " + ", ".join(
+            os.path.join(BUILD_DIR, executable_name) for executable_name in executable_names))
     shutil.copy(executable_src, os.path.join(BINS_DIR, EXECUTABLE_FILE))
     path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
     path2 = glob.glob(os.path.join(BUILD_DIR, "vcomp*"))
