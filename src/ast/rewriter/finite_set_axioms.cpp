@@ -348,7 +348,7 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
         {
             auto _seq342_0 = u.mk_size(x);
             auto _seq342_1 = u.mk_size(y);
-            ineq = a.mk_le(sz, a.mk_add( _seq342_0, _seq342_1));
+            ineq = a.mk_le(sz, a.mk_add(_seq342_0, _seq342_1));
         }
         m_rewriter(ineq);
         add_unit("size", e, ineq);
@@ -381,9 +381,9 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
             auto _seq370_0 = a.mk_le(x, y);
             auto _seq376_0 = a.mk_sub(y, x);
             auto _seq376_1 = a.mk_int(1);
-            auto _seq370_1 = a.mk_add( _seq376_0, _seq376_1);
+            auto _seq370_1 = a.mk_add(_seq376_0, _seq376_1);
             auto _seq370_2 = a.mk_int(0);
-            ineq = a.mk_eq(sz, m.mk_ite( _seq370_0, _seq370_1, _seq370_2));
+            ineq = a.mk_eq(sz, m.mk_ite(_seq370_0, _seq370_1, _seq370_2));
         }
         m_rewriter(ineq);
         add_unit("size", e, ineq);

@@ -991,8 +991,7 @@ namespace euf {
                 auto _seq0 = m_rewriter.mk_eq(x, x1);
                 auto _seq1 = m_rewriter.mk_eq(y, x1);
                 r = mk_and(_seq0, _seq1);
-            }
-            else if (x == x1 && is_nullary(x))
+            } else if (x == x1 && is_nullary(x))
                 r = m_rewriter.mk_eq(y1, x1);
             else if (y == y1 && is_nullary(y))
                 r = m_rewriter.mk_eq(x1, y1);
@@ -1000,8 +999,7 @@ namespace euf {
                 auto _seq0 = m_rewriter.mk_eq(x, x1);
                 auto _seq1 = m_rewriter.mk_eq(y1, x1);
                 r = mk_and(_seq0, _seq1);
-            }
-            else if (is_nullary(y)) {
+            } else if (is_nullary(y)) {
                 auto _seq0 = m_rewriter.mk_eq(y, y1);
                 auto _seq1 = m_rewriter.mk_eq(x1, y1);
                 r = mk_and(_seq0, _seq1);
@@ -1017,7 +1015,7 @@ namespace euf {
                 else {
                     auto _seq1009_0 = m_rewriter.mk_eq(x1, c);
                     auto _seq1009_1 = m_rewriter.mk_eq(y1, c);
-                    r = mk_and( _seq1009_0, _seq1009_1);
+                    r = mk_and(_seq1009_0, _seq1009_1);
                 }
             }
 

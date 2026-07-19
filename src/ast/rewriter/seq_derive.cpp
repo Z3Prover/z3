@@ -415,7 +415,7 @@ namespace seq {
             else {
                 auto _seq416_0 = m_util.mk_le(c_lo, m_ele);
                 auto _seq416_1 = m_util.mk_le(m_ele, c_hi);
-                in_range = m.mk_and( _seq416_0, _seq416_1);
+                in_range = m.mk_and(_seq416_0, _seq416_1);
             }
 
             return mk_ite(in_range, eps, empty);
@@ -484,28 +484,23 @@ namespace seq {
             auto _seq0 = mk_regex_reverse(r2);
             auto _seq1 = mk_regex_reverse(r1);
             result = re().mk_concat(_seq0, _seq1);
-        }
-        else if (m.is_ite(r, c, r1, r2)) {
+        } else if (m.is_ite(r, c, r1, r2)) {
             auto _seq0 = mk_regex_reverse(r1);
             auto _seq1 = mk_regex_reverse(r2);
             result = m.mk_ite(c, _seq0, _seq1);
-        }
-        else if (re().is_union(r, r1, r2)) {
+        } else if (re().is_union(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
             result = re().mk_union(a1, b1);
-        }
-        else if (re().is_intersection(r, r1, r2)) {
+        } else if (re().is_intersection(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
             result = re().mk_inter(a1, b1);
-        }
-        else if (re().is_diff(r, r1, r2)) {
+        } else if (re().is_diff(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
             result = re().mk_diff(a1, b1);
-        }
-        else if (re().is_star(r, r1))
+        } else if (re().is_star(r, r1))
             result = re().mk_star(mk_regex_reverse(r1));
         else if (re().is_plus(r, r1))
             result = re().mk_plus(mk_regex_reverse(r1));

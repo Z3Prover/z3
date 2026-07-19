@@ -2106,8 +2106,7 @@ expr* ast_manager::coerce_to(expr* e, sort* s) {
             auto _seqr0 = au.mk_real(1);
             auto _seqr1 = au.mk_real(0);
             return mk_ite(e, _seqr0, _seqr1);
-        }
-        else {
+        } else {
             auto _seq2108_0 = au.mk_int(1);
             auto _seq2108_1 = au.mk_int(0);
             return mk_ite(e, _seq2108_0, _seq2108_1);

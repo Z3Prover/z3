@@ -150,7 +150,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         if (m_bv_rw.is_eq_bit(lhs, x, val)) {
             {
                 auto _seq151_0 = m_bv_rw.mk_numeral(val, 1);
-                auto _seq151_1 = m_bv_rw.mk_numeral(1-val, 1);
+                auto _seq151_1 = m_bv_rw.mk_numeral(1 - val, 1);
                 result = m().mk_eq(x, m().mk_ite(rhs, _seq151_0, _seq151_1));
             }
             return BR_REWRITE2;
@@ -158,7 +158,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         if (m_bv_rw.is_eq_bit(rhs, x, val)) {
             {
                 auto _seq155_0 = m_bv_rw.mk_numeral(val, 1);
-                auto _seq155_1 = m_bv_rw.mk_numeral(1-val, 1);
+                auto _seq155_1 = m_bv_rw.mk_numeral(1 - val, 1);
                 result = m().mk_eq(x, m().mk_ite(lhs, _seq155_0, _seq155_1));
             }
             return BR_REWRITE2;
@@ -325,11 +325,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (m().is_value(args[1]) && args[0]->get_ref_count() == 1) 
                     return pull_ite_core<false>(f, to_app(args[0]), to_app(args[1]), result);
                 if (m().is_ite(args[1]) && to_app(args[0])->get_arg(0) == to_app(args[1])->get_arg(0)) {
-                                                                                    {
-                                                                                        auto _seq315_0 = m().mk_app(f, to_app(args[0])->get_arg(1), to_app(args[1])->get_arg(1));
-                                                                                        auto _seq315_1 = m().mk_app(f, to_app(args[0])->get_arg(2), to_app(args[1])->get_arg(2));
-                                                                                        result = m().mk_ite(to_app(args[0])->get_arg(0), _seq315_0, _seq315_1);
-                                                                                    }
+                    {
+                        auto _seq315_0 = m().mk_app(f, to_app(args[0])->get_arg(1), to_app(args[1])->get_arg(1));
+                        auto _seq315_1 = m().mk_app(f, to_app(args[0])->get_arg(2), to_app(args[1])->get_arg(2));
+                        result = m().mk_ite(to_app(args[0])->get_arg(0), _seq315_0, _seq315_1);
+                    }
                     return BR_REWRITE2;
                 }
             }

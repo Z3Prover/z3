@@ -207,12 +207,12 @@ br_status finite_set_rewriter::mk_size(expr * arg, expr_ref & result) {
         {
             auto _seq207_0 = a.mk_sub(upper, lower);
             auto _seq207_1 = a.mk_int(1);
-            size_expr = a.mk_add( _seq207_0, _seq207_1);
+            size_expr = a.mk_add(_seq207_0, _seq207_1);
         }
         {
             auto _seq208_0 = a.mk_gt(lower, upper);
             auto _seq208_1 = a.mk_int(0);
-            result = m.mk_ite( _seq208_0, _seq208_1, size_expr);
+            result = m.mk_ite(_seq208_0, _seq208_1, size_expr);
         }
         return BR_REWRITE3;
     }
@@ -245,7 +245,7 @@ br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result)
         {
             auto _seq237_0 = a.mk_le(lo, elem);
             auto _seq237_1 = a.mk_le(elem, hi);
-            result = m.mk_and( _seq237_0, _seq237_1);
+            result = m.mk_and(_seq237_0, _seq237_1);
         }
         return BR_REWRITE2;
     }

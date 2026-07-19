@@ -980,7 +980,7 @@ app* bv_util::mk_sbv2int_as_ubv2int(expr* e) {
     {
         auto _seq980_0 = mk_slt(e, zero);
         auto _seq980_1 = autil.mk_sub(r, autil.mk_numeral(rational::power_of_two(sz), true));
-        r = m_manager.mk_ite( _seq980_0, _seq980_1, r);
+        r = m_manager.mk_ite(_seq980_0, _seq980_1, r);
     }
     return r;
 }
@@ -1018,8 +1018,7 @@ void bv_util::mk_bv_divrem_bound(expr* t, expr_ref_vector& clause) {
         auto _seq0 = mk_abs(b);
         auto _seq1 = mk_abs(t);
         bound = m_manager.mk_not(mk_ule(_seq0, _seq1));
-    }
-    else if (is_bv_udiv(t) || is_bv_udivi(t))
+    } else if (is_bv_udiv(t) || is_bv_udivi(t))
         bound = mk_ule(t, a);
     else if (is_bv_sdiv(t) || is_bv_sdivi(t)) {
         auto _seq0 = mk_abs(t);

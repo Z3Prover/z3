@@ -251,7 +251,7 @@ namespace seq {
             {
                 auto _seq251_0 = ch.mk_le(ch.mk_char(lo), bound);
                 auto _seq251_1 = ch.mk_le(bound, ch.mk_char(hi));
-                ranges.push_back(m.mk_and( _seq251_0, _seq251_1));
+                ranges.push_back(m.mk_and(_seq251_0, _seq251_1));
             }
         }
         expr_ref body(m.mk_or(ranges), m);

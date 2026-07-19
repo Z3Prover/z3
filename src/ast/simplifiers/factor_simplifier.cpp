@@ -62,7 +62,7 @@ struct factor_simplifier::rw_cfg : public default_rewriter_cfg {
         {
             auto _seq62_0 = mk_mul(args.size(), args.data());
             auto _seq62_1 = mk_zero_for(arg);
-            result = m.mk_eq( _seq62_0, _seq62_1);
+            result = m.mk_eq(_seq62_0, _seq62_1);
         }
     }
 
@@ -155,11 +155,9 @@ struct factor_simplifier::rw_cfg : public default_rewriter_cfg {
             }
         }
         else {
-            {
-                auto _seq154_0 = mk_mul(odd_factors.size(), odd_factors.data());
-                auto _seq154_1 = mk_zero_for(odd_factors[0]);
-                args.push_back(m.mk_app(m_util.get_family_id(), k, _seq154_0, _seq154_1));
-            }
+            auto _seq154_0 = mk_mul(odd_factors.size(), odd_factors.data());
+            auto _seq154_1 = mk_zero_for(odd_factors[0]);
+            args.push_back(m.mk_app(m_util.get_family_id(), k, _seq154_0, _seq154_1));
         }
         SASSERT(!args.empty());
         if (args.size() == 1)

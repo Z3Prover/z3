@@ -441,7 +441,7 @@ void bv2int_translator::translate_bv(app* e) {
             auto _seq434_0 = m.mk_eq(umod(bv_expr, 0), umod(bv_expr, 1));
             auto _seq434_1 = a.mk_int(1);
             auto _seq434_2 = a.mk_int(0);
-            r = m.mk_ite( _seq434_0, _seq434_1, _seq434_2);
+            r = m.mk_ite(_seq434_0, _seq434_1, _seq434_2);
         }
         break;
     case OP_BSMOD_I:
@@ -462,7 +462,7 @@ void bv2int_translator::translate_bv(app* e) {
         {
             auto _seq451_0 = m.mk_and(signx, m.mk_not(signy));
             auto _seq451_1 = a.mk_sub(y, u);
-            r = m.mk_ite( _seq451_0, _seq451_1, r);
+            r = m.mk_ite(_seq451_0, _seq451_1, r);
         }
         {
             auto _seq0 = m.mk_not(signx);
@@ -493,7 +493,7 @@ void bv2int_translator::translate_bv(app* e) {
         {
             auto _seq474_0 = m.mk_iff(signx, signy);
             auto _seq474_1 = a.mk_uminus(d);
-            r = m.mk_ite( _seq474_0, d, _seq474_1);
+            r = m.mk_ite(_seq474_0, d, _seq474_1);
         }
         {
             auto _seq0 = a.mk_int(1);
@@ -516,7 +516,7 @@ void bv2int_translator::translate_bv(app* e) {
         {
             auto _seq489_0 = m.mk_iff(signx, signy);
             auto _seq489_1 = a.mk_uminus(d);
-            d = m.mk_ite( _seq489_0, d, _seq489_1);
+            d = m.mk_ite(_seq489_0, d, _seq489_1);
         }
         r = a.mk_sub(x, mul(d, y));
         r = if_eq(y, 0, x, r);

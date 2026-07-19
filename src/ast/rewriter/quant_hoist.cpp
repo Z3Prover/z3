@@ -252,7 +252,7 @@ private:
                     {
                         auto _seq252_0 = m.mk_or(ntt1, tt2);
                         auto _seq252_1 = m.mk_or(tt1, tt3);
-                        result = m.mk_and( _seq252_0, _seq252_1);
+                        result = m.mk_and(_seq252_0, _seq252_1);
                     }
                 }
                 else {
@@ -270,7 +270,7 @@ private:
                 {
                     auto _seq266_0 = m.mk_or(ntt1, tt2);
                     auto _seq266_1 = m.mk_or(ntt2, tt1);
-                    result = m.mk_and( _seq266_0, _seq266_1);
+                    result = m.mk_and(_seq266_0, _seq266_1);
                 }
             }
             else {

@@ -1020,11 +1020,9 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (pos == 0 && as.forall(is_unit)) {
         result = str().mk_empty(a->get_sort());
         for (unsigned i = 1; i <= as.size(); ++i) {
-            {
-                auto _seq1011_0 = m_autil.mk_ge(c, m_autil.mk_int(i));
-                auto _seq1011_1 = str().mk_concat(i, as.data(), a->get_sort());
-                result = m().mk_ite( _seq1011_0, _seq1011_1, result);
-            }
+            auto _seq1011_0 = m_autil.mk_ge(c, m_autil.mk_int(i));
+            auto _seq1011_1 = str().mk_concat(i, as.data(), a->get_sort());
+            result = m().mk_ite(_seq1011_0, _seq1011_1, result);
         }
         return BR_REWRITE_FULL;
     }
@@ -1618,7 +1616,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             {
                 auto _seq1599_0 = m_autil.mk_ge(result, zero());
                 auto _seq1599_1 = m_autil.mk_add(m_autil.mk_int(i), result);
-                result = m().mk_ite( _seq1599_0, _seq1599_1, minus_one());
+                result = m().mk_ite(_seq1599_0, _seq1599_1, minus_one());
             }
             return BR_REWRITE_FULL;
         }
@@ -1639,7 +1637,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         {
             auto _seq1616_0 = m_autil.mk_ge(result, zero());
             auto _seq1616_1 = m_autil.mk_add(m_autil.mk_int(i), result);
-            result = m().mk_ite( _seq1616_0, _seq1616_1, minus_one());
+            result = m().mk_ite(_seq1616_0, _seq1616_1, minus_one());
         }
         return BR_REWRITE_FULL;
     }
@@ -1651,13 +1649,12 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             return BR_DONE;
         }
         break;
-    case same_length_c:
-        {
-            auto _seqa = m_autil.mk_le(c, minus_one());
-            auto _seqb = m().mk_eq(c, zero());
-            auto _seqc = m().mk_ite(m().mk_eq(a, b), zero(), minus_one());
-            result = m().mk_ite(_seqa, minus_one(), m().mk_ite(_seqb, _seqc, minus_one()));
-        }
+    case same_length_c: {
+        auto _seqa = m_autil.mk_le(c, minus_one());
+        auto _seqb = m().mk_eq(c, zero());
+        auto _seqc = m().mk_ite(m().mk_eq(a, b), zero(), minus_one());
+        result = m().mk_ite(_seqa, minus_one(), m().mk_ite(_seqb, _seqc, minus_one()));
+    }
         return BR_REWRITE_FULL;
     default:
         break;
@@ -1669,8 +1666,8 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             auto _seq1639_0 = str().mk_prefix(b, a);
             auto _seq1663_0 = m_autil.mk_ge(b1, zero());
             auto _seq1663_1 = m_autil.mk_add(one(), b1);
-            auto _seq1639_1 = m().mk_ite( _seq1663_0, _seq1663_1, minus_one());
-            result = m().mk_ite( _seq1639_0, zero(), _seq1639_1);
+            auto _seq1639_1 = m().mk_ite(_seq1663_0, _seq1663_1, minus_one());
+            result = m().mk_ite(_seq1639_0, zero(), _seq1639_1);
         }
         return BR_REWRITE3;
     }
@@ -1817,7 +1814,7 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
             {
                 auto _seq1783_0 = m().mk_eq(a2, b);
                 auto _seq1783_1 = str().mk_concat(a1, c);
-                result = m().mk_ite( _seq1783_0, _seq1783_1, a);
+                result = m().mk_ite(_seq1783_0, _seq1783_1, a);
             }
             return BR_REWRITE_FULL;            
         }
@@ -1852,7 +1849,7 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
         {
             auto _seq1814_0 = str().mk_is_empty(b);
             auto _seq1814_1 = str().mk_empty(a->get_sort());
-            result = m().mk_ite( _seq1814_0, _seq1814_1, c);
+            result = m().mk_ite(_seq1814_0, _seq1814_1, c);
         }
         return BR_REWRITE2;
     }
@@ -1953,15 +1950,13 @@ expr_ref seq_rewriter::re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, ex
                             {
                                 auto _seq1911_0 = str().mk_string(prev_z);
                                 auto _seq1911_1 = str().mk_string(pred_z);
-                                parts.push_back(re().mk_range( _seq1911_0, _seq1911_1));
+                                parts.push_back(re().mk_range(_seq1911_0, _seq1911_1));
                             }
                         }
                         if (ch == b_ch) {
-                            {
-                                auto _seq1914_0 = re().mk_to_re(a_str);
-                                auto _seq1914_1 = re().mk_to_re(b_str);
-                                parts.push_back(re().mk_union( _seq1914_0, _seq1914_1));
-                            }
+                            auto _seq1914_0 = re().mk_to_re(a_str);
+                            auto _seq1914_1 = re().mk_to_re(b_str);
+                            parts.push_back(re().mk_union(_seq1914_0, _seq1914_1));
                         }
                         // a_ch is simply excluded (not added)
                         prev = ch + 1;
@@ -1972,7 +1967,7 @@ expr_ref seq_rewriter::re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, ex
                     {
                         auto _seq1922_0 = str().mk_string(prev_z);
                         auto _seq1922_1 = str().mk_string(hi_z);
-                        parts.push_back(re().mk_range( _seq1922_0, _seq1922_1));
+                        parts.push_back(re().mk_range(_seq1922_0, _seq1922_1));
                     }
                 }
             }
@@ -2208,9 +2203,9 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 s2 = s2.extract(s1.length(), s2.length()-s1.length());
                 bs[0] = str().mk_string(s2);
                 {
-                    auto _seq2156_0 = str().mk_concat(as.size()-1, as.data()+1, sort_a);
+                    auto _seq2156_0 = str().mk_concat(as.size() - 1, as.data() + 1, sort_a);
                     auto _seq2156_1 = str().mk_concat(bs.size(), bs.data(), sort_a);
-                    result = str().mk_prefix( _seq2156_0, _seq2156_1);
+                    result = str().mk_prefix(_seq2156_0, _seq2156_1);
                 }
                 TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_REWRITE_FULL;
@@ -2504,12 +2499,12 @@ br_status seq_rewriter::mk_str_sbv2s(expr *a, expr_ref &result) {
     
     bv_size = bv.get_bv_size(a);
     {
-        auto _seq2449_0 = bv.mk_slt(a,bv.mk_numeral(0, bv_size));
+        auto _seq2449_0 = bv.mk_slt(a, bv.mk_numeral(0, bv_size));
         auto _seq2499_0 = str().mk_string(zstring("-"));
         auto _seq2499_1 = str().mk_ubv2s(bv.mk_bv_neg(a));
-        auto _seq2449_1 = str().mk_concat( _seq2499_0, _seq2499_1);
+        auto _seq2449_1 = str().mk_concat(_seq2499_0, _seq2499_1);
         auto _seq2449_2 = str().mk_ubv2s(a);
-        result = m().mk_ite( _seq2449_0, _seq2449_1, _seq2449_2);
+        result = m().mk_ite(_seq2449_0, _seq2449_1, _seq2449_2);
     }
     return BR_REWRITE_FULL;
 }
@@ -2617,9 +2612,9 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
         {
             auto _seq2559_0 = m_autil.mk_ge(stoi_head, zero());
             auto _seq2559_1 = m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), stoi_head), tail);
-            result = m().mk_ite( _seq2559_0, _seq2559_1, minus_one());
+            result = m().mk_ite(_seq2559_0, _seq2559_1, minus_one());
         }
-        
+
         result = m().mk_ite(m_autil.mk_ge(tail, zero()), 
                             result,
                             tail);
@@ -2633,7 +2628,7 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
         {
             auto _seq2573_0 = str().mk_is_empty(result);
             auto _seq2573_1 = str().mk_stoi(result);
-            result = m().mk_ite( _seq2573_0, zero(), _seq2573_1);
+            result = m().mk_ite(_seq2573_0, zero(), _seq2573_1);
         }
         return BR_REWRITE_FULL;
     }
@@ -3283,7 +3278,7 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
         {
             auto _seq3217_0 = re().mk_in_re(x, prefix);
             auto _seq3217_1 = re().mk_in_re(y, suffix);
-            fmls.push_back(m().mk_and( _seq3217_0, _seq3217_1));
+            fmls.push_back(m().mk_and(_seq3217_0, _seq3217_1));
         }
     }
     result = mk_or(fmls);
@@ -3625,7 +3620,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         {
             auto _seq3554_0 = mk_regex_concat(a, u1);
             auto _seq3554_1 = mk_regex_concat(a, u2);
-            result = mk_regex_union_normalize( _seq3554_0, _seq3554_1);
+            result = mk_regex_union_normalize(_seq3554_0, _seq3554_1);
         }
         return BR_REWRITE2;
     }
@@ -4236,11 +4231,11 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
             result = re().mk_full_seq(b1->get_sort());
             return BR_REWRITE2;
         }
-                                                                   {
-                                                                       auto _seq4137_0 = re().mk_star(b1);
-                                                                       auto _seq4137_1 = re().mk_star(c1);
-                                                                       result = m().mk_ite(c, _seq4137_0, _seq4137_1);
-                                                                   }
+        {
+            auto _seq4137_0 = re().mk_star(b1);
+            auto _seq4137_1 = re().mk_star(c1);
+            result = m().mk_ite(c, _seq4137_0, _seq4137_1);
+        }
         return BR_REWRITE3;
     }
     return BR_FAILED;
@@ -4946,7 +4941,7 @@ bool seq_rewriter::reduce_contains(expr* a, expr* b, expr_ref_vector& disj) {
             {
                 auto _seq4840_0 = str().mk_concat(m_lhs.size() - i, m_lhs.data() + i, sort_a);
                 auto _seq4840_1 = re().mk_concat(all, re().mk_concat(re().mk_to_re(b), all));
-                disj.push_back(re().mk_in_re( _seq4840_0, _seq4840_1));
+                disj.push_back(re().mk_in_re(_seq4840_0, _seq4840_1));
             }
             return true;
         }
@@ -5243,11 +5238,12 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
     }
     // at(s, offset) = "" <=> len(s) <= offset or offset < 0
     if (str().is_at(r, s, offset)) {
-        expr_ref len_s(str().mk_length(s), m()); {
-     auto _seq5138_0 = m_autil.mk_le(len_s, offset);
-     auto _seq5138_1 = m_autil.mk_lt(offset, zero());
-     result = m().mk_or( _seq5138_0, _seq5138_1);
- }
+        expr_ref len_s(str().mk_length(s), m());
+        {
+            auto _seq5138_0 = m_autil.mk_le(len_s, offset);
+            auto _seq5138_1 = m_autil.mk_lt(offset, zero());
+            result = m().mk_or(_seq5138_0, _seq5138_1);
+        }
         return true;
     }
     return false;

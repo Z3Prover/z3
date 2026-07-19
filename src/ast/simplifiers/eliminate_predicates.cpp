@@ -210,7 +210,7 @@ void eliminate_predicates::insert_quasi_macro(app* head, expr* body, clause& cl)
     {
         auto _seq210_0 = mk_and(eqs);
         auto _seq210_1 = m.mk_app(f1, args);
-        rhs = m.mk_ite( _seq210_0, body, _seq210_1);
+        rhs = m.mk_ite(_seq210_0, body, _seq210_1);
     }
     insert_macro(lhs, rhs, cl);
 }

@@ -386,7 +386,7 @@ br_status bv_rewriter::rw_leq_overflow(bool is_signed, expr * a, expr * b, expr_
         {
             auto _seq386_0 = m_util.mk_ule(mk_numeral(lower, sz), common);
             auto _seq386_1 = m_util.mk_ule(common, mk_numeral(upper, sz));
-            result = m.mk_and( _seq386_0, _seq386_1);
+            result = m.mk_and(_seq386_0, _seq386_1);
         }
     }
     return BR_REWRITE2;
@@ -599,7 +599,7 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         {
             auto _seq596_0 = m.mk_eq(m_mk_extract(sz2+sz1-1, sz2, a), b_1);
             auto _seq596_1 = m_util.mk_ule(m_mk_extract(sz2-1, 0, a), b_2);
-            result = m.mk_and( _seq596_0, _seq596_1);
+            result = m.mk_and(_seq596_0, _seq596_1);
         }
         return BR_REWRITE3;
     }
@@ -1093,7 +1093,7 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
         {
             auto _seq1081_0 = mk_zero(k);
             auto _seq1081_1 = m_mk_extract(bv_size - 1, k, arg1);
-            result = m_util.mk_concat( _seq1081_0, _seq1081_1);
+            result = m_util.mk_concat(_seq1081_0, _seq1081_1);
         }
         return BR_REWRITE2;
     }
@@ -1130,12 +1130,12 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
                 return BR_REWRITE1;
             }
             else {
-                                                                                                         {
-                                                                                                             auto _seq1118_0 = m.mk_app(get_fid(), OP_SLT, arg1, mk_zero(bv_size));
-                                                                                                             auto _seq1118_1 = mk_one(bv_size);
-                                                                                                             auto _seq1118_2 = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
-                                                                                                             result = m.mk_ite( _seq1118_0, _seq1118_1, _seq1118_2);
-                                                                                                         }
+                {
+                    auto _seq1118_0 = m.mk_app(get_fid(), OP_SLT, arg1, mk_zero(bv_size));
+                    auto _seq1118_1 = mk_one(bv_size);
+                    auto _seq1118_2 = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
+                    result = m.mk_ite(_seq1118_0, _seq1118_1, _seq1118_2);
+                }
                 return BR_REWRITE2;
             }
         }
@@ -1165,7 +1165,7 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
         auto _seq1146_0 = m.mk_eq(arg2, mk_zero(bv_size));
         auto _seq1146_1 = m_util.mk_bv_sdiv0(arg1);
         auto _seq1146_2 = m_util.mk_bv_sdiv_i(arg1, arg2);
-        result = m.mk_ite( _seq1146_0, _seq1146_1, _seq1146_2);
+        result = m.mk_ite(_seq1146_0, _seq1146_1, _seq1146_2);
     }
     return BR_REWRITE2;
 }
@@ -1223,7 +1223,7 @@ br_status bv_rewriter::mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, e
         auto _seq1201_0 = m.mk_eq(arg2, mk_zero(bv_size));
         auto _seq1201_1 = m_util.mk_bv_udiv0(arg1);
         auto _seq1201_2 = m_util.mk_bv_udiv_i(arg1, arg2);
-        result = m.mk_ite( _seq1201_0, _seq1201_1, _seq1201_2);
+        result = m.mk_ite(_seq1201_0, _seq1201_1, _seq1201_2);
     }
 
     TRACE(bv_udiv, tout << mk_pp(arg1, m) << "\n" << mk_pp(arg2, m) << "\n---->\n" << mk_pp(result, m) << "\n";);
@@ -1273,7 +1273,7 @@ br_status bv_rewriter::mk_bv_srem_core(expr * arg1, expr * arg2, bool hi_div0, e
         auto _seq1248_0 = m.mk_eq(arg2, mk_zero(bv_size));
         auto _seq1248_1 = m.mk_app(get_fid(), OP_BSREM0, arg1);
         auto _seq1248_2 = m.mk_app(get_fid(), OP_BSREM_I, arg1, arg2);
-        result = m.mk_ite( _seq1248_0, _seq1248_1, _seq1248_2);
+        result = m.mk_ite(_seq1248_0, _seq1248_1, _seq1248_2);
     }
     return BR_REWRITE2;
 }
@@ -1365,7 +1365,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
             {
                 auto _seq1338_0 = m.mk_eq(arg2, zero);
                 auto _seq1338_1 = m_util.mk_bv_urem0(zero);
-                result = m.mk_ite( _seq1338_0, _seq1338_1, zero);
+                result = m.mk_ite(_seq1338_0, _seq1338_1, zero);
             }
             return BR_REWRITE2;
         }
@@ -1379,7 +1379,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
             {
                 auto _seq1350_0 = m.mk_eq(x, mk_zero(bv_size));
                 auto _seq1350_1 = m_util.mk_bv_urem0(minus_one);
-                result = m.mk_ite( _seq1350_0, _seq1350_1, x_minus_1);
+                result = m.mk_ite(_seq1350_0, _seq1350_1, x_minus_1);
             }
             return BR_REWRITE2;
         }
@@ -1412,7 +1412,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
         auto _seq1380_0 = m.mk_eq(arg2, mk_zero(bv_size));
         auto _seq1380_1 = m_util.mk_bv_urem0(arg1);
         auto _seq1380_2 = m_util.mk_bv_urem_i(arg1, arg2);
-        result = m.mk_ite( _seq1380_0, _seq1380_1, _seq1380_2);
+        result = m.mk_ite(_seq1380_0, _seq1380_1, _seq1380_2);
     }
     return BR_REWRITE2;
 }
@@ -1478,12 +1478,12 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
             {
                 auto _seq1444_0 = mk_zero(bv_size - nb);
                 auto _seq1444_1 = m_mk_extract(nb-1,0,a1);
-                a1 = m_util.mk_concat( _seq1444_0, _seq1444_1);
+                a1 = m_util.mk_concat(_seq1444_0, _seq1444_1);
             }
             {
                 auto _seq1445_0 = mk_zero(bv_size - nb);
                 auto _seq1445_1 = m_mk_extract(nb-1,0,a2);
-                a2 = m_util.mk_concat( _seq1445_0, _seq1445_1);
+                a2 = m_util.mk_concat(_seq1445_0, _seq1445_1);
             }
             result = m_util.mk_bv_mul(a1, a2);
             std::cout << result << "\n";
@@ -1504,7 +1504,7 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
         auto _seq1461_0 = m.mk_eq(arg2, mk_zero(bv_size));
         auto _seq1461_1 = m.mk_app(get_fid(), OP_BSMOD0, arg1);
         auto _seq1461_2 = m.mk_app(get_fid(), OP_BSMOD_I, arg1, arg2);
-        result = m.mk_ite( _seq1461_0, _seq1461_1, _seq1461_2);
+        result = m.mk_ite(_seq1461_0, _seq1461_1, _seq1461_2);
     }
     return BR_REWRITE2;
 }
@@ -2386,7 +2386,7 @@ br_status bv_rewriter::mk_bv_comp(expr * arg1, expr * arg2, expr_ref & result) {
         auto _seq2328_0 = m.mk_eq(arg1, arg2);
         auto _seq2328_1 = mk_one(1);
         auto _seq2328_2 = mk_zero(1);
-        result = m.mk_ite( _seq2328_0, _seq2328_1, _seq2328_2);
+        result = m.mk_ite(_seq2328_0, _seq2328_1, _seq2328_2);
     }
     return BR_REWRITE2;
 }
@@ -2712,7 +2712,7 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
             {
                 auto _seq2651_0 = m_mk_extract(sz1 - 1, low1, arg1);
                 auto _seq2651_1 = m_mk_extract(sz2 - 1, low2, arg2);
-                new_eqs.push_back(m.mk_eq( _seq2651_0, _seq2651_1));
+                new_eqs.push_back(m.mk_eq(_seq2651_0, _seq2651_1));
             }
             low1 = 0;
             low2 = 0;
@@ -2724,7 +2724,7 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
             {
                 auto _seq2660_0 = m_mk_extract(sz1 - 1, low1, arg1);
                 auto _seq2660_1 = m_mk_extract(rsz1 + low2 - 1, low2, arg2);
-                new_eqs.push_back(m.mk_eq( _seq2660_0, _seq2660_1));
+                new_eqs.push_back(m.mk_eq(_seq2660_0, _seq2660_1));
             }
             low1  = 0;
             low2 += rsz1;
@@ -2734,7 +2734,7 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
             {
                 auto _seq2667_0 = m_mk_extract(rsz2 + low1 - 1, low1, arg1);
                 auto _seq2667_1 = m_mk_extract(sz2 - 1, low2, arg2);
-                new_eqs.push_back(m.mk_eq( _seq2667_0, _seq2667_1));
+                new_eqs.push_back(m.mk_eq(_seq2667_0, _seq2667_1));
             }
             low1 += rsz2;
             low2  = 0;
@@ -2881,9 +2881,9 @@ br_status bv_rewriter::mk_mul_eq(expr * lhs, expr * rhs, expr_ref & result) {
         }
         if (found) {
             {
-                auto _seq2813_0 = m_util.mk_numeral(c2_inv_val*c_val, sz);
+                auto _seq2813_0 = m_util.mk_numeral(c2_inv_val * c_val, sz);
                 auto _seq2813_1 = m_util.mk_bv_mul(m_util.mk_numeral(c2_inv_val, sz), rhs);
-                result = m.mk_eq( _seq2813_0, _seq2813_1);
+                result = m.mk_eq(_seq2813_0, _seq2813_1);
             }
             return BR_REWRITE3;
         }
@@ -3178,7 +3178,7 @@ br_status bv_rewriter::mk_bvsmul_overflow(unsigned num, expr * const * args, exp
     {
         auto _seq3105_0 = m.mk_not(m_util.mk_bvsmul_no_ovfl(args[0], args[1]));
         auto _seq3105_1 = m.mk_not(m_util.mk_bvsmul_no_udfl(args[0], args[1]));
-        result = m.mk_or( _seq3105_0, _seq3105_1);
+        result = m.mk_or(_seq3105_0, _seq3105_1);
     }
     return BR_REWRITE_FULL;
 }
@@ -3348,7 +3348,7 @@ br_status bv_rewriter::mk_bvsdiv_overflow(unsigned num, expr * const * args, exp
     {
         auto _seq3274_0 = m.mk_eq(args[0], minSigned);
         auto _seq3274_1 = m.mk_eq(args[1], minusOne);
-        result = m.mk_and( _seq3274_0, _seq3274_1);
+        result = m.mk_and(_seq3274_0, _seq3274_1);
     }
     return BR_REWRITE_FULL;
 }

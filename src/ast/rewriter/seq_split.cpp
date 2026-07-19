@@ -316,7 +316,7 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
         {
             auto _seq316_0 = mk_single(eps, ex);
             auto _seq316_1 = mk_single(ex, eps);
-            return mk_union( _seq316_0, _seq316_1);
+            return mk_union(_seq316_0, _seq316_1);
         }
     }
 

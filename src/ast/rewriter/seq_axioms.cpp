@@ -287,7 +287,7 @@ namespace seq {
         {
             auto _seq287_0 = mk_len(s);
             auto _seq287_1 = a.mk_int(1);
-            l2 = mk_sub( _seq287_0, _seq287_1);
+            l2 = mk_sub(_seq287_0, _seq287_1);
         }
         m_rewrite(l1);
         m_rewrite(l2);
@@ -316,7 +316,7 @@ namespace seq {
         {
             auto _seq312_0 = mk_len(s);
             auto _seq312_1 = a.mk_int(1);
-            l2 = mk_sub( _seq312_0, _seq312_1);
+            l2 = mk_sub(_seq312_0, _seq312_1);
         }
         m_rewrite(l1);
         m_rewrite(l2);
@@ -481,9 +481,9 @@ namespace seq {
             expr_ref mone(a.mk_int(-1), m);
             add_clause(~cnt, s_eq_empty, ~mk_literal(seq.str.mk_contains(seq.str.mk_substr(t,zero,a.mk_add(i,len_s,mone)),s)));
             {
-                auto _seq475_0 = seq.str.mk_substr(t,zero,a.mk_add(i,len_s));
-                auto _seq475_1 = seq.str.mk_concat(seq.str.mk_substr(t,zero,i), s);
-                add_clause(~cnt, s_eq_empty, mk_seq_eq( _seq475_0, _seq475_1));
+                auto _seq475_0 = seq.str.mk_substr(t, zero, a.mk_add(i, len_s));
+                auto _seq475_1 = seq.str.mk_concat(seq.str.mk_substr(t, zero, i), s);
+                add_clause(~cnt, s_eq_empty, mk_seq_eq(_seq475_0, _seq475_1));
             }
 #endif
         }
@@ -723,12 +723,13 @@ namespace seq {
         TRACE(seq, tout << mk_pp(e, m) << "\n";);
         expr_ref ge0 = mk_ge(e, 0);      
         expr* s = nullptr;
-        VERIFY (seq.str.is_stoi(e, s));    
-        add_clause(mk_ge(e, -1));                                             {
-                                                 auto _seq717_0 = seq.str.mk_stoi(seq.str.mk_empty(s->get_sort()));
-                                                 auto _seq717_1 = a.mk_int(-1);
-                                                 add_clause(mk_eq( _seq717_0, _seq717_1));
-                                             }
+        VERIFY (seq.str.is_stoi(e, s));
+        add_clause(mk_ge(e, -1));
+        {
+            auto _seq717_0 = seq.str.mk_stoi(seq.str.mk_empty(s->get_sort()));
+            auto _seq717_1 = a.mk_int(-1);
+            add_clause(mk_eq(_seq717_0, _seq717_1));
+        }
 //      add_clause(~mk_eq_empty(s), mk_eq(e, a.mk_int(-1)));  // s = "" => stoi(s) = -1
         add_clause(~ge0, is_digit(mk_nth(s, 0)));             // stoi(s) >= 0 => is_digit(nth(s,0))
         add_clause(~ge0, mk_ge(mk_len(s), 1));                // stoi(s) >= 0 => len(s) >= 1
@@ -818,7 +819,7 @@ namespace seq {
         {
             auto _seq804_0 = seq.str.mk_ubv2s(b);
             auto _seq804_1 = seq.str.mk_concat(es, seq.str.mk_string_sort());
-            eq = m.mk_eq( _seq804_0, _seq804_1);
+            eq = m.mk_eq(_seq804_0, _seq804_1);
         }
         SASSERT(pow < rational::power_of_two(sz));
         if (k == 0)
@@ -894,7 +895,7 @@ namespace seq {
             {
                 auto _seq876_0 = m_sk.mk_ubv2ch(bv.mk_numeral(i, sz));
                 auto _seq876_1 = seq.mk_char('0' + i);
-                eq = m.mk_eq( _seq876_0, _seq876_1);
+                eq = m.mk_eq(_seq876_0, _seq876_1);
             }
             add_clause(eq);
         }
@@ -1037,9 +1038,10 @@ namespace seq {
     */
     void axioms::str_to_code_axiom(expr* n) {
         expr* e = nullptr;
-        VERIFY(seq.str.is_to_code(n, e)); auto _seq1019_0 = mk_len(e);
- auto _seq1019_1 = a.mk_int(1);
- expr_ref len_is1 = mk_eq( _seq1019_0, _seq1019_1);
+        VERIFY(seq.str.is_to_code(n, e));
+        auto _seq1019_0 = mk_len(e);
+        auto _seq1019_1 = a.mk_int(1);
+        expr_ref len_is1 = mk_eq(_seq1019_0, _seq1019_1);
         add_clause(~len_is1, mk_ge(n, 0)); 
         add_clause(~len_is1, mk_le(n, seq.max_char()));
         add_clause(~len_is1, mk_eq(n, seq.mk_char2int(mk_nth(e, 0))));
@@ -1062,7 +1064,7 @@ namespace seq {
         {
             auto _seq1039_0 = mk_len(n);
             auto _seq1039_1 = a.mk_int(1);
-            add_clause(~ge, ~le, mk_eq( _seq1039_0, _seq1039_1));
+            add_clause(~ge, ~le, mk_eq(_seq1039_0, _seq1039_1));
         }
         if (!seq.str.is_to_code(e))
             add_clause(~ge, ~le, mk_eq(seq.str.mk_to_code(n), e));
@@ -1213,12 +1215,12 @@ namespace seq {
         expr_ref x = m_sk.mk_pre(t, mk_sub(mk_len(t), mk_len(s)));
         auto _seq1182_0 = mk_len(s);
         auto _seq1182_1 = a.mk_int(1);
-        expr_ref y = m_sk.mk_tail(t, mk_sub( _seq1182_0, _seq1182_1));
+        expr_ref y = m_sk.mk_tail(t, mk_sub(_seq1182_0, _seq1182_1));
         add_clause(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, y)));
         {
             auto _seq1184_0 = mk_len(y);
             auto _seq1184_1 = mk_len(s);
-            add_clause(lit, s_gt_t, mk_eq( _seq1184_0, _seq1184_1));
+            add_clause(lit, s_gt_t, mk_eq(_seq1184_0, _seq1184_1));
         }
         add_clause(lit, s_gt_t, ~mk_eq(y, s));    
 #else
@@ -1247,14 +1249,14 @@ namespace seq {
 #if 0
         expr_ref x = m_sk.mk_pre(t, mk_len(s));    auto _seq1241_0 = mk_len(t);
     auto _seq1241_1 = mk_len(s);
-    auto _seq1209_0 = mk_sub( _seq1241_0, _seq1241_1);
+    auto _seq1209_0 = mk_sub(_seq1241_0, _seq1241_1);
     auto _seq1209_1 = a.mk_int(1);
-    expr_ref y = m_sk.mk_tail(t, mk_sub( _seq1209_0, _seq1209_1));
+    expr_ref y = m_sk.mk_tail(t, mk_sub(_seq1209_0, _seq1209_1));
         add_clause(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, y)));
         {
             auto _seq1211_0 = mk_len(x);
             auto _seq1211_1 = mk_len(s);
-            add_clause(lit, s_gt_t, mk_eq( _seq1211_0, _seq1211_1));
+            add_clause(lit, s_gt_t, mk_eq(_seq1211_0, _seq1211_1));
         }
         add_clause(lit, s_gt_t, ~mk_eq(x, s));
 
