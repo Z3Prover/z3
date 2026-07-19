@@ -22,6 +22,20 @@ Author:
 
     Nikolaj Bjorner / Margus Veanes 2026
 
+Shady parts:
+
+- witness extraction is buggy. It should generally rely on a choice function that takes a
+  Boolean expression F[(:var 0)] with a single free variable and synthesize a value for the free
+  variable such that the expression is true. 
+  For character predicates we can assume that the Boolean expressions are range predicates and we can 
+  use utilities for range predicates. For other types use some best effort, say F is of the form (= (:var 0) value).
+  Expose the witness function in a self-contained module outside of this file.
+
+- checking intersections with continuation regexes is shady. The nullability check is now really about
+  whether there is an epsilon transition to the accepting state N. The copilot-generated code ignores this.
+  Generally, dealing with epsilon state is shady. There are many equivalent ways a state can be epsilon, such
+  as epsilon*, or comp(.+), etc.
+
 --*/
 
 #include "ast/rewriter/seq_monadic.h"
