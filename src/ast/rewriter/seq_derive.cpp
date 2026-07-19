@@ -480,10 +480,16 @@ namespace seq {
             result = re().mk_reverse(r);
         else if (re().is_reverse(r, r1))
             result = r1;
-        else if (re().is_concat(r, r1, r2))
-            result = re().mk_concat(mk_regex_reverse(r2), mk_regex_reverse(r1));
-        else if (m.is_ite(r, c, r1, r2))
-            result = m.mk_ite(c, mk_regex_reverse(r1), mk_regex_reverse(r2));
+        else if (re().is_concat(r, r1, r2)) {
+            auto _seq0 = mk_regex_reverse(r2);
+            auto _seq1 = mk_regex_reverse(r1);
+            result = re().mk_concat(_seq0, _seq1);
+        }
+        else if (m.is_ite(r, c, r1, r2)) {
+            auto _seq0 = mk_regex_reverse(r1);
+            auto _seq1 = mk_regex_reverse(r2);
+            result = m.mk_ite(c, _seq0, _seq1);
+        }
         else if (re().is_union(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
@@ -887,10 +893,16 @@ namespace seq {
         // nested inter/union leaves, so states stay ground either way.
         expr *u1 = nullptr, *u2 = nullptr;
         if (m_derivative_kind == derivative_kind::antimirov_t) {
-            if (re().is_union(a, u1, u2))
-                return mk_union(mk_inter(u1, b), mk_inter(u2, b));
-            if (re().is_union(b, u1, u2))
-                return mk_union(mk_inter(a, u1), mk_inter(a, u2));
+            if (re().is_union(a, u1, u2)) {
+                auto _seq0 = mk_inter(u1, b);
+                auto _seq1 = mk_inter(u2, b);
+                return mk_union(_seq0, _seq1);
+            }
+            if (re().is_union(b, u1, u2)) {
+                auto _seq0 = mk_inter(a, u1);
+                auto _seq1 = mk_inter(a, u2);
+                return mk_union(_seq0, _seq1);
+            }
         }
 
         // Base case: build raw intersection
@@ -988,10 +1000,16 @@ namespace seq {
         // state is shared rather than growing into ~(Σ*a ∪ ε ∪ ...), which
         // otherwise defeats dead-state detection on loop ∩ comp regexes.
         expr* e1 = nullptr, *e2 = nullptr;
-        if (re().is_union(a, e1, e2))
-            return mk_inter(mk_complement(e1), mk_complement(e2));
-        if (re().is_intersection(a, e1, e2))
-            return mk_union(mk_complement(e1), mk_complement(e2));
+        if (re().is_union(a, e1, e2)) {
+            auto _seq0 = mk_complement(e1);
+            auto _seq1 = mk_complement(e2);
+            return mk_inter(_seq0, _seq1);
+        }
+        if (re().is_intersection(a, e1, e2)) {
+            auto _seq0 = mk_complement(e1);
+            auto _seq1 = mk_complement(e2);
+            return mk_union(_seq0, _seq1);
+        }
 
         return expr_ref(re().mk_complement(a), m);
     }

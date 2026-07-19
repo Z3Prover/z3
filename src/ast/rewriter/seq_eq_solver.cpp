@@ -408,7 +408,9 @@ namespace seq {
             return true;
         }
 
-        expr_ref eq_length(m.mk_eq(a.mk_int(lenX), seq.str.mk_length(X)), m);
+        auto _seq0 = a.mk_int(lenX);
+        auto _seq1 = seq.str.mk_length(X);
+        expr_ref eq_length(m.mk_eq(_seq0, _seq1), m);
         expr* val = ctx.expr2rep(eq_length);
         if (!m.is_false(val)) {
             expr_ref Y(seq.str.mk_concat(lenX.get_unsigned(), units.data(), X->get_sort()), m);

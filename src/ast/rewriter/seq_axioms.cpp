@@ -1132,7 +1132,10 @@ namespace seq {
         expr_ref len_r(seq.str.mk_length(vr), m);
         expr_ref test1(m.mk_eq(len_s, vi), m);
         expr_ref branch1(m.mk_eq(len_r, vj), m);
-        expr_ref test2(m.mk_and(a.mk_gt(len_s, vi), m.mk_eq(vi, a.mk_int(0)), seq.str.mk_is_empty(vp)), m);
+        auto _seqt0 = a.mk_gt(len_s, vi);
+        auto _seqt1 = m.mk_eq(vi, a.mk_int(0));
+        auto _seqt2 = seq.str.mk_is_empty(vp);
+        expr_ref test2(m.mk_and(_seqt0, _seqt1, _seqt2), m);
         expr_ref branch2(m.mk_eq(vr, seq.str.mk_concat(vt, vs)), m);
         throw default_exception("no support for replace-all");
 #if 0
@@ -1203,7 +1206,9 @@ namespace seq {
         auto s = purify(_s);
         auto t = purify(_t);
         expr_ref lit = expr_ref(e, m);
-        expr_ref s_gt_t = mk_ge(mk_sub(mk_len(s), mk_len(t)), 1);
+        auto _seql0 = mk_len(s);
+        auto _seql1 = mk_len(t);
+        expr_ref s_gt_t = mk_ge(mk_sub(_seql0, _seql1), 1);
 #if 0
         expr_ref x = m_sk.mk_pre(t, mk_sub(mk_len(t), mk_len(s)));
         auto _seq1182_0 = mk_len(s);
@@ -1236,7 +1241,9 @@ namespace seq {
         auto s = purify(_s);
         auto t = purify(_t);
         expr_ref lit = expr_ref(e, m);
-        expr_ref s_gt_t = mk_ge(mk_sub(mk_len(s), mk_len(t)), 1);
+        auto _seql0 = mk_len(s);
+        auto _seql1 = mk_len(t);
+        expr_ref s_gt_t = mk_ge(mk_sub(_seql0, _seql1), 1);
 #if 0
         expr_ref x = m_sk.mk_pre(t, mk_len(s));    auto _seq1241_0 = mk_len(t);
     auto _seq1241_1 = mk_len(s);

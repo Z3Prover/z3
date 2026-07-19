@@ -987,16 +987,25 @@ namespace euf {
                 r = expr_ref(m.mk_true(), m);
             else if (x == x1 && y == y1)
                 r = m_rewriter.mk_eq(x, y);
-            else if (is_nullary(x) && is_nullary(y)) 
-                r = mk_and(m_rewriter.mk_eq(x, x1), m_rewriter.mk_eq(y, x1));
+            else if (is_nullary(x) && is_nullary(y)) {
+                auto _seq0 = m_rewriter.mk_eq(x, x1);
+                auto _seq1 = m_rewriter.mk_eq(y, x1);
+                r = mk_and(_seq0, _seq1);
+            }
             else if (x == x1 && is_nullary(x))
                 r = m_rewriter.mk_eq(y1, x1);
             else if (y == y1 && is_nullary(y))
                 r = m_rewriter.mk_eq(x1, y1);
-            else if (is_nullary(x))
-                r = mk_and(m_rewriter.mk_eq(x, x1), m_rewriter.mk_eq(y1, x1));
-            else if (is_nullary(y))
-                r = mk_and(m_rewriter.mk_eq(y, y1), m_rewriter.mk_eq(x1, y1));
+            else if (is_nullary(x)) {
+                auto _seq0 = m_rewriter.mk_eq(x, x1);
+                auto _seq1 = m_rewriter.mk_eq(y1, x1);
+                r = mk_and(_seq0, _seq1);
+            }
+            else if (is_nullary(y)) {
+                auto _seq0 = m_rewriter.mk_eq(y, y1);
+                auto _seq1 = m_rewriter.mk_eq(x1, y1);
+                r = mk_and(_seq0, _seq1);
+            }
             if (x1 == y1)
                 r = expr_ref(m.mk_true(), m);
             else {
@@ -1005,8 +1014,11 @@ namespace euf {
                     r = m_rewriter.mk_eq(y1, c);
                 else if (c == y1)
                     r = m_rewriter.mk_eq(x1, c);
-                else
-                    r = mk_and(m_rewriter.mk_eq(x1, c), m_rewriter.mk_eq(y1, c));
+                else {
+                    auto _seq1009_0 = m_rewriter.mk_eq(x1, c);
+                    auto _seq1009_1 = m_rewriter.mk_eq(y1, c);
+                    r = mk_and( _seq1009_0, _seq1009_1);
+                }
             }
 
             if (m.proofs_enabled()) {

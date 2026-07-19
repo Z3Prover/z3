@@ -2663,8 +2663,9 @@ br_status bv_rewriter::mk_blast_eq_value(expr * lhs, expr * rhs, expr_ref & resu
     ptr_buffer<expr> new_args;
     for (unsigned i = 0; i < sz; ++i) {
         bool bit0 = (v % two).is_zero();
-        new_args.push_back(m.mk_eq(m_mk_extract(i,i, lhs),
-                                     mk_numeral(bit0 ? 0 : 1, 1)));
+        auto _seq0 = m_mk_extract(i, i, lhs);
+        auto _seq1 = mk_numeral(bit0 ? 0 : 1, 1);
+        new_args.push_back(m.mk_eq(_seq0, _seq1));
         div(v, two, v);
     }
     result = m.mk_and(new_args);

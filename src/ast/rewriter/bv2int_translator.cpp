@@ -188,7 +188,9 @@ expr_ref bv2int_translator::mk_le(expr* x, expr* y) {
         return expr_ref(a.mk_le(x, y), m);
     if (a.is_numeral(x))
         return expr_ref(a.mk_ge(y, x), m);
-    return expr_ref(a.mk_le(a.mk_sub(x, y), a.mk_numeral(rational(0), x->get_sort())), m);
+    auto _seq0 = a.mk_sub(x, y);
+    auto _seq1 = a.mk_numeral(rational(0), x->get_sort());
+    return expr_ref(a.mk_le(_seq0, _seq1), m);
 }
 
 expr_ref bv2int_translator::mk_lt(expr* x, expr* y) {
@@ -462,7 +464,11 @@ void bv2int_translator::translate_bv(app* e) {
             auto _seq451_1 = a.mk_sub(y, u);
             r = m.mk_ite( _seq451_0, _seq451_1, r);
         }
-        r = m.mk_ite(m.mk_and(m.mk_not(signx), m.mk_not(signy)), u, r);
+        {
+            auto _seq0 = m.mk_not(signx);
+            auto _seq1 = m.mk_not(signy);
+            r = m.mk_ite(m.mk_and(_seq0, _seq1), u, r);
+        }
         r = if_eq(u, 0, a.mk_int(0), r);
         r = if_eq(y, 0, x, r);
         break;
@@ -489,7 +495,11 @@ void bv2int_translator::translate_bv(app* e) {
             auto _seq474_1 = a.mk_uminus(d);
             r = m.mk_ite( _seq474_0, d, _seq474_1);
         }
-        r = if_eq(y, 0, m.mk_ite(signx, a.mk_int(1), a.mk_int(-1)), r);
+        {
+            auto _seq0 = a.mk_int(1);
+            auto _seq1 = a.mk_int(-1);
+            r = if_eq(y, 0, m.mk_ite(signx, _seq0, _seq1), r);
+        }
         break;
     }
     case OP_BSREM_I:

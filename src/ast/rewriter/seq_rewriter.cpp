@@ -1364,7 +1364,9 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
             expr_ref case2(str().mk_nth_u(str().mk_empty(s->get_sort()), b), m());
             expr_ref case3(str().mk_nth_u(a, b), m());
             result = case3;
-            result = m().mk_ite(m_autil.mk_lt(m_autil.mk_add(k, b), str().mk_length(s)), case1, result);
+            auto _seq0 = m_autil.mk_add(k, b);
+            auto _seq1 = str().mk_length(s);
+            result = m().mk_ite(m_autil.mk_lt(_seq0, _seq1), case1, result);
             result = m().mk_ite(m_autil.mk_ge(k, str().mk_length(s)), case2, result);
             result = m().mk_ite(m_autil.mk_lt(b, zero()), case3, result);   
             return BR_REWRITE_FULL;
@@ -1503,9 +1505,12 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
             switch (is_suffix(as, bs)) {
             case l_undef:
                 return BR_FAILED;
-            case l_true:
-                result = m_autil.mk_sub(str().mk_length(a), m_autil.mk_int(bs.size() - i));
+            case l_true: {
+                auto _seq0 = str().mk_length(a);
+                auto _seq1 = m_autil.mk_int(bs.size() - i);
+                result = m_autil.mk_sub(_seq0, _seq1);
                 return BR_REWRITE3;
+            }
             case l_false:
                 as.pop_back();
                 --i;
@@ -1647,10 +1652,12 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         }
         break;
     case same_length_c:
-        result = m().mk_ite(m_autil.mk_le(c, minus_one()), minus_one(), 
-                            m().mk_ite(m().mk_eq(c, zero()), 
-                                       m().mk_ite(m().mk_eq(a, b), zero(), minus_one()),
-                                       minus_one()));
+        {
+            auto _seqa = m_autil.mk_le(c, minus_one());
+            auto _seqb = m().mk_eq(c, zero());
+            auto _seqc = m().mk_ite(m().mk_eq(a, b), zero(), minus_one());
+            result = m().mk_ite(_seqa, minus_one(), m().mk_ite(_seqb, _seqc, minus_one()));
+        }
         return BR_REWRITE_FULL;
     default:
         break;
@@ -3482,7 +3489,9 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 #if 0
     unsigned len = 0;
     if (has_fixed_length_constraint(b, len)) {
-        expr_ref len_lim(m().mk_eq(m_autil.mk_int(len), str().mk_length(a)), m());
+        auto _seq0 = m_autil.mk_int(len);
+        auto _seq1 = str().mk_length(a);
+        expr_ref len_lim(m().mk_eq(_seq0, _seq1), m());
         // this forces derivatives. Perhaps not a good thing for intersections.
         // alternative is to hoist out the smallest length constraining regex
         // and keep the result for the sequence expression that is kept without rewriting

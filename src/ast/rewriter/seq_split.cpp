@@ -395,8 +395,11 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
         return mk_compl(mk_fromre(a));
 
     // difference: a \ b = a & ~b ; sigma(a \ b) = sigma(a) cap ~sigma(b).
-    if (rex.is_diff(r, a, b))
-        return mk_inter(mk_fromre(a), mk_compl(mk_fromre(b)));
+    if (rex.is_diff(r, a, b)) {
+        auto _seq0 = mk_fromre(a);
+        auto _seq1 = mk_compl(mk_fromre(b));
+        return mk_inter(_seq0, _seq1);
+    }
 
     // bounded loop / ite / other: not handled (paper "v1: bail").
     TRACE(seq, tout << "seq_split: unsupported regex " << mk_pp(r, m) << "\n";);
@@ -411,8 +414,11 @@ expr_ref seq_split::distribute_lcat(expr* r, expr* hs) {
         return mk_empty();
     if (is_single(hs, d, n))
         return mk_single(m_rw.mk_re_append(r, d), n);   // r.D
-    if (is_union(hs, a, b))
-        return mk_union(mk_lcat(r, a), mk_lcat(r, b));
+    if (is_union(hs, a, b)) {
+        auto _seq0 = mk_lcat(r, a);
+        auto _seq1 = mk_lcat(r, b);
+        return mk_union(_seq0, _seq1);
+    }
     UNREACHABLE();
     return expr_ref(hs, m);
 }
@@ -424,8 +430,11 @@ expr_ref seq_split::distribute_rcat(expr* hs, expr* r) {
         return mk_empty();
     if (is_single(hs, d, n))
         return mk_single(d, m_rw.mk_re_append(n, r));    // N.r
-    if (is_union(hs, a, b))
-        return mk_union(mk_rcat(a, r), mk_rcat(b, r));
+    if (is_union(hs, a, b)) {
+        auto _seq0 = mk_rcat(a, r);
+        auto _seq1 = mk_rcat(b, r);
+        return mk_union(_seq0, _seq1);
+    }
     UNREACHABLE();
     return expr_ref(hs, m);
 }
