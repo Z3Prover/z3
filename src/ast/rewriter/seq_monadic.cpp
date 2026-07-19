@@ -24,7 +24,12 @@ Author:
 
 Shady parts:
 
-- witness extraction is buggy. It should generally rely on a choice function that takes a
+- epsilon transitions appear not accounted for when computing reaching states.
+  If a regex R contains N by taking a set of epsilon transitions, then it is nullable relative 
+  to N. It suggests a use for a version of nullability that is relative to N.
+  Deal also with when N itself has epsilon transitions to N1, .., Nk.
+
+- witness extraction is plain wrong. It should generally rely on a choice function that takes a
   Boolean expression F[(:var 0)] with a single free variable and synthesize a value for the free
   variable such that the expression is true. 
   For character predicates we can assume that the Boolean expressions are range predicates and we can 
@@ -35,6 +40,15 @@ Shady parts:
   whether there is an epsilon transition to the accepting state N. The copilot-generated code ignores this.
   Generally, dealing with epsilon state is shady. There are many equivalent ways a state can be epsilon, such
   as epsilon*, or comp(.+), etc.
+
+- I don't think there should be a special case for when N is epsilon and having N being nullptr
+  is uneven.
+  The code uses "live_states" and "reaching_states" for two cases.
+
+- The code in test_intersect shouldn't be relying on a rewriter. Anything that can be rewritten
+  could be done prior.
+
+- Remove hard-wired constants such as STATE_CAP.
 
 --*/
 
