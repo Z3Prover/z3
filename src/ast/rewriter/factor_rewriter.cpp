@@ -141,8 +141,16 @@ void factor_rewriter::mk_is_negative(expr_ref& result, expr_ref_vector& eqs) {
                 pos0 = pos;
             }
             else {
-                tmp = m().mk_or(m().mk_and(pos, pos0), m().mk_and(neg, neg0));
-                neg0 = m().mk_or(m().mk_and(neg, pos0), m().mk_and(pos, neg0));
+                {
+                    auto _seq144_0 = m().mk_and(pos, pos0);
+                    auto _seq144_1 = m().mk_and(neg, neg0);
+                    tmp = m().mk_or( _seq144_0, _seq144_1);
+                }
+                {
+                    auto _seq145_0 = m().mk_and(neg, pos0);
+                    auto _seq145_1 = m().mk_and(pos, neg0);
+                    neg0 = m().mk_or( _seq145_0, _seq145_1);
+                }
                 pos0 = tmp;
             }
         }

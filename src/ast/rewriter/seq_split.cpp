@@ -313,7 +313,11 @@ expr_ref seq_split::expand_fromre(expr* r, bool& ok) {
     if (rex.is_full_char(r) || rex.is_range(r) || rex.is_of_pred(r)) {
         const expr_ref ex(r, m);
         const expr_ref eps(rex.mk_epsilon(seq_sort), m);
-        return mk_union(mk_single(eps, ex), mk_single(ex, eps));
+        {
+            auto _seq316_0 = mk_single(eps, ex);
+            auto _seq316_1 = mk_single(ex, eps);
+            return mk_union( _seq316_0, _seq316_1);
+        }
     }
 
     // .* : sigma(.*) = { <.*, .*> }

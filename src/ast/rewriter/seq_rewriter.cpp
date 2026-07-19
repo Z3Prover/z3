@@ -936,7 +936,11 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     expr* a1 = nullptr, *b1 = nullptr, *c1 = nullptr;
     if (str().is_extract(a, a1, b1, c1) && 
         is_suffix(a1, b1, c1) && is_suffix(a, b, c)) {
-        result = str().mk_substr(a1, m_autil.mk_add(b1, b), m_autil.mk_sub(c1, b));
+        {
+            auto _seq939_0 = m_autil.mk_add(b1, b);
+            auto _seq939_1 = m_autil.mk_sub(c1, b);
+            result = str().mk_substr(a1, _seq939_0, _seq939_1);
+        }
         return BR_REWRITE3;
     }
     rational r1, r2;
@@ -957,7 +961,11 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         if (r1 >= 0 && pos <= r2) {
             r2 = std::min(r2 - pos, len);
             r1 += pos;
-            result = str().mk_substr(a1, m_autil.mk_numeral(r1, true), m_autil.mk_numeral(r2, true));
+            {
+                auto _seq960_0 = m_autil.mk_numeral(r1, true);
+                auto _seq960_1 = m_autil.mk_numeral(r2, true);
+                result = str().mk_substr(a1, _seq960_0, _seq960_1);
+            }
             return BR_REWRITE1;
         }
     }
@@ -990,7 +998,11 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     // extract(extract(a, 3, 6), 1, len(extract(a, 3, 6)) - 1) -> extract(a, 4, 5)
     if (str().is_extract(a, a1, b1, c1) && is_suffix(a, b, c) && 
         m_autil.is_numeral(c1) && m_autil.is_numeral(b1)) {
-        result = str().mk_substr(a1, m_autil.mk_add(b, b1), m_autil.mk_sub(c1, b));
+        {
+            auto _seq993_0 = m_autil.mk_add(b, b1);
+            auto _seq993_1 = m_autil.mk_sub(c1, b);
+            result = str().mk_substr(a1, _seq993_0, _seq993_1);
+        }
         return BR_REWRITE2;
     }
  
@@ -1008,9 +1020,11 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (pos == 0 && as.forall(is_unit)) {
         result = str().mk_empty(a->get_sort());
         for (unsigned i = 1; i <= as.size(); ++i) {
-            result = m().mk_ite(m_autil.mk_ge(c, m_autil.mk_int(i)), 
-                                str().mk_concat(i, as.data(), a->get_sort()), 
-                                result);
+            {
+                auto _seq1011_0 = m_autil.mk_ge(c, m_autil.mk_int(i));
+                auto _seq1011_1 = str().mk_concat(i, as.data(), a->get_sort());
+                result = m().mk_ite( _seq1011_0, _seq1011_1, result);
+            }
         }
         return BR_REWRITE_FULL;
     }
@@ -1596,7 +1610,11 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             expr_ref a1(m());
             a1 = str().mk_concat(as.size() - i, as.data() + i, sort_a);
             result = str().mk_index(a1, b, m_autil.mk_int(r));
-            result = m().mk_ite(m_autil.mk_ge(result, zero()), m_autil.mk_add(m_autil.mk_int(i), result), minus_one());
+            {
+                auto _seq1599_0 = m_autil.mk_ge(result, zero());
+                auto _seq1599_1 = m_autil.mk_add(m_autil.mk_int(i), result);
+                result = m().mk_ite( _seq1599_0, _seq1599_1, minus_one());
+            }
             return BR_REWRITE_FULL;
         }
     }
@@ -1613,7 +1631,11 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     if (i > 0) {
         result = str().mk_index(
             str().mk_concat(as.size() - i, as.data() + i, sort_a), b, c);
-        result = m().mk_ite(m_autil.mk_ge(result, zero()), m_autil.mk_add(m_autil.mk_int(i), result), minus_one());
+        {
+            auto _seq1616_0 = m_autil.mk_ge(result, zero());
+            auto _seq1616_1 = m_autil.mk_add(m_autil.mk_int(i), result);
+            result = m().mk_ite( _seq1616_0, _seq1616_1, minus_one());
+        }
         return BR_REWRITE_FULL;
     }
 
@@ -1636,8 +1658,13 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     if (is_zero && !as.empty() && str().is_unit(as.get(0))) {
         expr_ref a1(str().mk_concat(as.size() - 1, as.data() + 1, as[0]->get_sort()), m());
         expr_ref b1(str().mk_index(a1, b, c), m());
-        result = m().mk_ite(str().mk_prefix(b, a), zero(), 
-                            m().mk_ite(m_autil.mk_ge(b1, zero()), m_autil.mk_add(one(), b1), minus_one()));
+        {
+            auto _seq1639_0 = str().mk_prefix(b, a);
+            auto _seq1663_0 = m_autil.mk_ge(b1, zero());
+            auto _seq1663_1 = m_autil.mk_add(one(), b1);
+            auto _seq1639_1 = m().mk_ite( _seq1663_0, _seq1663_1, minus_one());
+            result = m().mk_ite( _seq1639_0, zero(), _seq1639_1);
+        }
         return BR_REWRITE3;
     }
     expr_ref ra(a, m());
@@ -1780,7 +1807,11 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         if (cmp == l_true && m_lhs.size() < i + m_rhs.size()) {
             expr_ref a1(str().mk_concat(i, m_lhs.data(), sort_a), m());
             expr_ref a2(str().mk_concat(m_lhs.size()-i, m_lhs.data()+i, sort_a), m());
-            result = m().mk_ite(m().mk_eq(a2, b), str().mk_concat(a1, c), a);
+            {
+                auto _seq1783_0 = m().mk_eq(a2, b);
+                auto _seq1783_1 = str().mk_concat(a1, c);
+                result = m().mk_ite( _seq1783_0, _seq1783_1, a);
+            }
             return BR_REWRITE_FULL;            
         }
         if (cmp == l_true) {
@@ -1811,7 +1842,11 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
         return BR_DONE;
     } 
     if (a == b) {
-        result = m().mk_ite(str().mk_is_empty(b), str().mk_empty(a->get_sort()), c);
+        {
+            auto _seq1814_0 = str().mk_is_empty(b);
+            auto _seq1814_1 = str().mk_empty(a->get_sort());
+            result = m().mk_ite( _seq1814_0, _seq1814_1, c);
+        }
         return BR_REWRITE2;
     }
     if (str().is_empty(a) && str().is_empty(c)) {
@@ -1908,10 +1943,18 @@ expr_ref seq_rewriter::re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, ex
                     if (ch == a_ch || ch == b_ch) {
                         if (prev < ch) {
                             zstring prev_z(prev), pred_z(ch - 1);
-                            parts.push_back(re().mk_range(str().mk_string(prev_z), str().mk_string(pred_z)));
+                            {
+                                auto _seq1911_0 = str().mk_string(prev_z);
+                                auto _seq1911_1 = str().mk_string(pred_z);
+                                parts.push_back(re().mk_range( _seq1911_0, _seq1911_1));
+                            }
                         }
                         if (ch == b_ch) {
-                            parts.push_back(re().mk_union(re().mk_to_re(a_str), re().mk_to_re(b_str)));
+                            {
+                                auto _seq1914_0 = re().mk_to_re(a_str);
+                                auto _seq1914_1 = re().mk_to_re(b_str);
+                                parts.push_back(re().mk_union( _seq1914_0, _seq1914_1));
+                            }
                         }
                         // a_ch is simply excluded (not added)
                         prev = ch + 1;
@@ -1919,7 +1962,11 @@ expr_ref seq_rewriter::re_replace_char(expr *r, unsigned a_ch, unsigned b_ch, ex
                 }
                 if (prev <= hi) {
                     zstring prev_z(prev), hi_z(hi);
-                    parts.push_back(re().mk_range(str().mk_string(prev_z), str().mk_string(hi_z)));
+                    {
+                        auto _seq1922_0 = str().mk_string(prev_z);
+                        auto _seq1922_1 = str().mk_string(hi_z);
+                        parts.push_back(re().mk_range( _seq1922_0, _seq1922_1));
+                    }
                 }
             }
             if (parts.empty()) {
@@ -2153,8 +2200,11 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 SASSERT(as.size() > 1);
                 s2 = s2.extract(s1.length(), s2.length()-s1.length());
                 bs[0] = str().mk_string(s2);
-                result = str().mk_prefix(str().mk_concat(as.size()-1, as.data()+1, sort_a),
-                                              str().mk_concat(bs.size(), bs.data(), sort_a));
+                {
+                    auto _seq2156_0 = str().mk_concat(as.size()-1, as.data()+1, sort_a);
+                    auto _seq2156_1 = str().mk_concat(bs.size(), bs.data(), sort_a);
+                    result = str().mk_prefix( _seq2156_0, _seq2156_1);
+                }
                 TRACE(seq, tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_REWRITE_FULL;
             }
@@ -2446,13 +2496,14 @@ br_status seq_rewriter::mk_str_sbv2s(expr *a, expr_ref &result) {
     }
     
     bv_size = bv.get_bv_size(a);
-    result = m().mk_ite(
-        bv.mk_slt(a,bv.mk_numeral(0, bv_size)),
-        str().mk_concat(
-            str().mk_string(zstring("-")),
-            str().mk_ubv2s(bv.mk_bv_neg(a))
-        ),
-        str().mk_ubv2s(a));
+    {
+        auto _seq2449_0 = bv.mk_slt(a,bv.mk_numeral(0, bv_size));
+        auto _seq2499_0 = str().mk_string(zstring("-"));
+        auto _seq2499_1 = str().mk_ubv2s(bv.mk_bv_neg(a));
+        auto _seq2449_1 = str().mk_concat( _seq2499_0, _seq2499_1);
+        auto _seq2449_2 = str().mk_ubv2s(a);
+        result = m().mk_ite( _seq2449_0, _seq2449_1, _seq2449_2);
+    }
     return BR_REWRITE_FULL;
 }
 
@@ -2556,9 +2607,11 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
         expr_ref tail(str().mk_stoi(as.back()), m());
         expr_ref head(str().mk_concat(as.size() - 1, as.data(), a->get_sort()), m());
         expr_ref stoi_head(str().mk_stoi(head), m());
-        result = m().mk_ite(m_autil.mk_ge(stoi_head, zero()), 
-                            m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), stoi_head), tail),
-                            minus_one());
+        {
+            auto _seq2559_0 = m_autil.mk_ge(stoi_head, zero());
+            auto _seq2559_1 = m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), stoi_head), tail);
+            result = m().mk_ite( _seq2559_0, _seq2559_1, minus_one());
+        }
         
         result = m().mk_ite(m_autil.mk_ge(tail, zero()), 
                             result,
@@ -2570,9 +2623,11 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     }
     if (str().is_unit(as.get(0), u) && m_util.is_const_char(u, ch) && '0' == ch) {
         result = str().mk_concat(as.size() - 1, as.data() + 1, as[0]->get_sort());
-        result = m().mk_ite(str().mk_is_empty(result),
-                            zero(),
-                            str().mk_stoi(result));
+        {
+            auto _seq2573_0 = str().mk_is_empty(result);
+            auto _seq2573_1 = str().mk_stoi(result);
+            result = m().mk_ite( _seq2573_0, zero(), _seq2573_1);
+        }
         return BR_REWRITE_FULL;
     }
 
@@ -2781,7 +2836,11 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_REWRITE2;
     }
     else if (m().is_ite(r, p, r1, r2)) {
-        result = m().mk_ite(p, re().mk_reverse(r1), re().mk_reverse(r2));
+        {
+            auto _seq2784_0 = re().mk_reverse(r1);
+            auto _seq2784_1 = re().mk_reverse(r2);
+            result = m().mk_ite(p, _seq2784_0, _seq2784_1);
+        }
         return BR_REWRITE2;
     }
     else if (re().is_opt(r, r1)) {
@@ -3214,8 +3273,11 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
                 suffix = re().mk_concat(suffix, re().mk_to_re(e));
             suffix = re().mk_concat(suffix, full);
         }
-        fmls.push_back(m().mk_and(re().mk_in_re(x, prefix),
-                                  re().mk_in_re(y, suffix)));
+        {
+            auto _seq3217_0 = re().mk_in_re(x, prefix);
+            auto _seq3217_1 = re().mk_in_re(y, suffix);
+            fmls.push_back(m().mk_and( _seq3217_0, _seq3217_1));
+        }
     }
     result = mk_or(fmls);
     return true;    
@@ -3551,7 +3613,11 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     expr* u1 = nullptr, *u2 = nullptr;
     if (re().is_full_seq(a) && re().is_union(b, u1, u2) &&
         (starts_with_full_seq(u1) || starts_with_full_seq(u2))) {
-        result = mk_regex_union_normalize(mk_regex_concat(a, u1), mk_regex_concat(a, u2));
+        {
+            auto _seq3554_0 = mk_regex_concat(a, u1);
+            auto _seq3554_1 = mk_regex_concat(a, u2);
+            result = mk_regex_union_normalize( _seq3554_0, _seq3554_1);
+        }
         return BR_REWRITE2;
     }
     if (re().is_intersection(a, u1, u2) && re().is_full_seq(b) &&
@@ -3645,11 +3711,19 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     // Hoist ite out of concat: concat(ite(c, r1, r2), b) → ite(c, concat(r1, b), concat(r2, b))
     expr* c = nullptr;
     if (m().is_ite(a, c, a1, b1)) {
-        result = m().mk_ite(c, re().mk_concat(a1, b), re().mk_concat(b1, b));
+        {
+            auto _seq3648_0 = re().mk_concat(a1, b);
+            auto _seq3648_1 = re().mk_concat(b1, b);
+            result = m().mk_ite(c, _seq3648_0, _seq3648_1);
+        }
         return BR_REWRITE3;
     }
     if (m().is_ite(b, c, a1, b1)) {
-        result = m().mk_ite(c, re().mk_concat(a, a1), re().mk_concat(a, b1));
+        {
+            auto _seq3652_0 = re().mk_concat(a, a1);
+            auto _seq3652_1 = re().mk_concat(a, b1);
+            result = m().mk_ite(c, _seq3652_0, _seq3652_1);
+        }
         return BR_REWRITE3;
     }
     if (re().is_concat(a, a1, a2)) {
@@ -3783,11 +3857,19 @@ br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
     // Hoist ite out of union: union(ite(c, r1, r2), b) → ite(c, union(r1, b), union(r2, b))
     expr *c = nullptr, *r1 = nullptr, *r2 = nullptr;
     if (m().is_ite(a, c, r1, r2)) {
-        result = m().mk_ite(c, re().mk_union(r1, b), re().mk_union(r2, b));
+        {
+            auto _seq3786_0 = re().mk_union(r1, b);
+            auto _seq3786_1 = re().mk_union(r2, b);
+            result = m().mk_ite(c, _seq3786_0, _seq3786_1);
+        }
         return BR_REWRITE3;
     }
     if (m().is_ite(b, c, r1, r2)) {
-        result = m().mk_ite(c, re().mk_union(a, r1), re().mk_union(a, r2));
+        {
+            auto _seq3790_0 = re().mk_union(a, r1);
+            auto _seq3790_1 = re().mk_union(a, r2);
+            result = m().mk_ite(c, _seq3790_0, _seq3790_1);
+        }
         return BR_REWRITE3;
     }
     if (try_collapse_re_union(a, b, result))
@@ -3839,7 +3921,11 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     // Hoist ite out of complement: ~(ite(c, r1, r2)) → ite(c, ~r1, ~r2)
     expr* c = nullptr;
     if (m().is_ite(a, c, e1, e2)) {
-        result = m().mk_ite(c, re().mk_complement(e1), re().mk_complement(e2));
+        {
+            auto _seq3842_0 = re().mk_complement(e1);
+            auto _seq3842_1 = re().mk_complement(e2);
+            result = m().mk_ite(c, _seq3842_0, _seq3842_1);
+        }
         return BR_REWRITE3;
     }
     return BR_FAILED;
@@ -3875,11 +3961,19 @@ br_status seq_rewriter::mk_re_inter0(expr* a, expr* b, expr_ref& result) {
     // Hoist ite out of intersection: inter(ite(c, r1, r2), b) → ite(c, inter(r1, b), inter(r2, b))
     expr *c = nullptr, *r1 = nullptr, *r2 = nullptr;
     if (m().is_ite(a, c, r1, r2)) {
-        result = m().mk_ite(c, re().mk_inter(r1, b), re().mk_inter(r2, b));
+        {
+            auto _seq3878_0 = re().mk_inter(r1, b);
+            auto _seq3878_1 = re().mk_inter(r2, b);
+            result = m().mk_ite(c, _seq3878_0, _seq3878_1);
+        }
         return BR_REWRITE3;
     }
     if (m().is_ite(b, c, r1, r2)) {
-        result = m().mk_ite(c, re().mk_inter(a, r1), re().mk_inter(a, r2));
+        {
+            auto _seq3882_0 = re().mk_inter(a, r1);
+            auto _seq3882_1 = re().mk_inter(a, r2);
+            result = m().mk_ite(c, _seq3882_0, _seq3882_1);
+        }
         return BR_REWRITE3;
     }
     if (try_collapse_re_inter(a, b, result))
@@ -4133,8 +4227,11 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
             result = re().mk_full_seq(b1->get_sort());
             return BR_REWRITE2;
         }
-        // Hoist ite out of star: (ite c r1 r2)* → ite(c, r1*, r2*)
-        result = m().mk_ite(c, re().mk_star(b1), re().mk_star(c1));
+                                                                   {
+                                                                       auto _seq4137_0 = re().mk_star(b1);
+                                                                       auto _seq4137_1 = re().mk_star(c1);
+                                                                       result = m().mk_ite(c, _seq4137_0, _seq4137_1);
+                                                                   }
         return BR_REWRITE3;
     }
     return BR_FAILED;
@@ -4837,8 +4934,11 @@ bool seq_rewriter::reduce_contains(expr* a, expr* b, expr_ref_vector& disj) {
 
         if (str().is_string(b, s)) {
             expr* all = re().mk_full_seq(re().mk_re(b->get_sort()));
-            disj.push_back(re().mk_in_re(str().mk_concat(m_lhs.size() - i, m_lhs.data() + i, sort_a),
-                                              re().mk_concat(all, re().mk_concat(re().mk_to_re(b), all))));
+            {
+                auto _seq4840_0 = str().mk_concat(m_lhs.size() - i, m_lhs.data() + i, sort_a);
+                auto _seq4840_1 = re().mk_concat(all, re().mk_concat(re().mk_to_re(b), all));
+                disj.push_back(re().mk_in_re( _seq4840_0, _seq4840_1));
+            }
             return true;
         }
 
@@ -5134,8 +5234,11 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
     }
     // at(s, offset) = "" <=> len(s) <= offset or offset < 0
     if (str().is_at(r, s, offset)) {
-        expr_ref len_s(str().mk_length(s), m()); 
-        result = m().mk_or(m_autil.mk_le(len_s, offset), m_autil.mk_lt(offset, zero()));
+        expr_ref len_s(str().mk_length(s), m()); {
+     auto _seq5138_0 = m_autil.mk_le(len_s, offset);
+     auto _seq5138_1 = m_autil.mk_lt(offset, zero());
+     result = m().mk_or( _seq5138_0, _seq5138_1);
+ }
         return true;
     }
     return false;

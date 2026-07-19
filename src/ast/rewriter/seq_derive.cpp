@@ -412,8 +412,11 @@ namespace seq {
                 in_range = m_util.mk_le(m_ele, c_hi);
             else if (hi_trivial)
                 in_range = m_util.mk_le(c_lo, m_ele);
-            else
-                in_range = m.mk_and(m_util.mk_le(c_lo, m_ele), m_util.mk_le(m_ele, c_hi));
+            else {
+                auto _seq416_0 = m_util.mk_le(c_lo, m_ele);
+                auto _seq416_1 = m_util.mk_le(m_ele, c_hi);
+                in_range = m.mk_and( _seq416_0, _seq416_1);
+            }
 
             return mk_ite(in_range, eps, empty);
         }
@@ -821,7 +824,11 @@ namespace seq {
                 if (m.is_ite(e, c1, t1, el1) && m.is_ite(s, c2, t2, el2) && c1 == c2) {
                     set.set(i, set.back());
                     set.pop_back();
-                    e = mk_ite(c1, mk_union(t1, t2), mk_union(el1, el2));
+                    {
+                        auto _seq824_0 = mk_union(t1, t2);
+                        auto _seq824_1 = mk_union(el1, el2);
+                        e = mk_ite(c1, _seq824_0, _seq824_1);
+                    }
                     changed = true;
                     break;
                 }

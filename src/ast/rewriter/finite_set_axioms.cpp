@@ -339,7 +339,11 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
     else if (u.is_empty(e)) 
         add_unit("size", e, m.mk_eq(sz, a.mk_int(0)));    
     else if (u.is_union(e, x, y)) {
-        ineq = a.mk_le(sz, a.mk_add(u.mk_size(x), u.mk_size(y)));
+        {
+            auto _seq342_0 = u.mk_size(x);
+            auto _seq342_1 = u.mk_size(y);
+            ineq = a.mk_le(sz, a.mk_add( _seq342_0, _seq342_1));
+        }
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }
@@ -367,7 +371,14 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
         add_unit("size", e, ineq);
     }
     else if (u.is_range(e, x, y)) {
-        ineq = a.mk_eq(sz, m.mk_ite(a.mk_le(x, y), a.mk_add(a.mk_sub(y, x), a.mk_int(1)), a.mk_int(0)));
+        {
+            auto _seq370_0 = a.mk_le(x, y);
+            auto _seq376_0 = a.mk_sub(y, x);
+            auto _seq376_1 = a.mk_int(1);
+            auto _seq370_1 = a.mk_add( _seq376_0, _seq376_1);
+            auto _seq370_2 = a.mk_int(0);
+            ineq = a.mk_eq(sz, m.mk_ite( _seq370_0, _seq370_1, _seq370_2));
+        }
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }    
