@@ -128,6 +128,10 @@ namespace seq {
         seq_util&      u() const { return m_rw.u(); }
         seq_util::rex& re() const { return m_rw.u().re; }
 
+        // Tri-state nullability of a state: l_true / l_false when the derivative
+        // engine decides it, l_undef when it cannot.
+        lbool nullable(expr* s);
+
         // Intern a state into the global graph (recycles an existing global state),
         // computing its nullability lazily.  Returns its global id.
         unsigned intern_state(expr* s);

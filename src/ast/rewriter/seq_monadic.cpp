@@ -63,6 +63,11 @@ namespace seq {
     //  global derivative-transition graph (shared / recycled across regexes)
     // ------------------------------------------------------------------
 
+    lbool split_manager::nullable(expr* s) {
+        expr_ref nb = m_rw.is_nullable(s);
+        return m.is_true(nb) ? l_true : m.is_false(nb) ? l_false : l_undef;
+    }
+
     unsigned split_manager::intern_state(expr* s) {
         unsigned id;
         if (m_state_id.find(s, id))
@@ -71,8 +76,7 @@ namespace seq {
         m_state_id.insert(s, id);
         m_gstate.push_back(s);
         m_pin.push_back(s);
-        expr_ref nb = m_rw.is_nullable(s);
-        m_gmaybe_null.push_back(!m.is_false(nb)); // unknown nullability => keep (conservative)
+        m_gmaybe_null.push_back(nullable(s) != l_false); // unknown nullability => keep (conservative)
         m_gexpanded.push_back(false);
         m_gsucc.push_back(svector<gedge>());
         return id;
@@ -142,26 +146,30 @@ namespace seq {
         }
     }
 
-    void split_manager::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
-        ptr_vector<expr> states;
-        vector<svector<unsigned>> succ;
-        bool_vector maybe_null;
-        build_graph(R, states, succ, maybe_null, ok);
-        if (!ok) return;
-        unsigned n = states.size();
-        bool_vector live;
-        live.resize(n, false);
-        for (unsigned i = 0; i < n; ++i)
-            live[i] = maybe_null[i];
+    // Backward closure of `seed` over the transition graph `succ`: mark every
+    // state that can reach an already-marked one, then collect the marked states
+    // into `out`.  `seed` is used in place as the working set.
+    static void collect_backward_closure(vector<svector<unsigned>> const& succ, bool_vector& seed,
+                                         ptr_vector<expr> const& states, ptr_vector<expr>& out) {
+        const unsigned n = states.size();
         for (bool ch = true; ch; ) {
             ch = false;
             for (unsigned i = 0; i < n; ++i)
-                if (!live[i])
+                if (!seed[i])
                     for (unsigned j : succ[i])
-                        if (live[j]) { live[i] = true; ch = true; break; }
+                        if (seed[j]) { seed[i] = true; ch = true; break; }
         }
         for (unsigned i = 0; i < n; ++i)
-            if (live[i]) out.push_back(states.get(i));
+            if (seed[i]) out.push_back(states.get(i));
+    }
+
+    void split_manager::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
+        ptr_vector<expr> states;
+        vector<svector<unsigned>> succ;
+        bool_vector maybe_null;                   // seed: states that can accept
+        build_graph(R, states, succ, maybe_null, ok);
+        if (!ok) return;
+        collect_backward_closure(succ, maybe_null, states, out);
     }
 
     void split_manager::reaching_states(expr* R, expr* N, ptr_vector<expr>& out, bool& ok) {
@@ -170,23 +178,13 @@ namespace seq {
         bool_vector maybe_null;
         build_graph(R, states, succ, maybe_null, ok);
         if (!ok) return;
-        unsigned n = states.size();
-        unsigned tgt = UINT_MAX;
-        for (unsigned i = 0; i < n; ++i)
-            if (states.get(i) == N) { tgt = i; break; }
-        if (tgt == UINT_MAX) return;              // N unreachable => no midpoints
-        bool_vector reach;
-        reach.resize(n, false);
-        reach[tgt] = true;
-        for (bool ch = true; ch; ) {
-            ch = false;
-            for (unsigned i = 0; i < n; ++i)
-                if (!reach[i])
-                    for (unsigned j : succ[i])
-                        if (reach[j]) { reach[i] = true; ch = true; break; }
-        }
-        for (unsigned i = 0; i < n; ++i)
-            if (reach[i]) out.push_back(states.get(i));
+        bool_vector reach;                        // seed: the target state N
+        reach.resize(states.size(), false);
+        bool found = false;
+        for (unsigned i = 0; i < states.size(); ++i)
+            if (states.get(i) == N) { reach[i] = true; found = true; break; }
+        if (!found) return;                       // N unreachable => no midpoints
+        collect_backward_closure(succ, reach, states, out);
     }
 
     // ------------------------------------------------------------------
@@ -209,6 +207,22 @@ namespace seq {
         }
         else
             out.push_back(e);
+    }
+
+    // Beyond `depth_cap` elements the length no longer changes acceptance, so the
+    // BFS caps the depth component of its visited key there to stay finite.
+    static unsigned depth_cap(unsigned lo, unsigned hi) { return hi == UINT_MAX ? lo : hi; }
+
+    // Reconstruct the per-position guard sequence of the accepting node `cur` by
+    // walking its parent chain and reversing.  `Node` has `.parent` (int) and
+    // `.guard` (expr*); the root (parent < 0) contributes no guard.
+    template<typename Node>
+    static void emit_witness(std::vector<Node> const& nodes, int cur, expr_ref_vector& seq) {
+        ptr_vector<expr> gs;
+        for (int j = cur; j >= 0 && nodes[j].parent >= 0; j = nodes[j].parent)
+            gs.push_back(nodes[j].guard);
+        for (unsigned k = gs.size(); k-- > 0; )
+            seq.push_back(gs[k]);
     }
 
     lbool split_manager::intersect(vector<cont_regex> const& crs, unsigned lo, unsigned hi,
@@ -251,9 +265,7 @@ namespace seq {
         struct node { unsigned st; unsigned depth; int parent; expr* guard; };
         std::vector<node> nodes;
 
-        // Beyond `cap` elements the length no longer changes acceptance, so we cap
-        // the depth in the visited key to keep the state space finite.
-        unsigned cap = (hi == UINT_MAX) ? lo : hi;
+        const unsigned cap = depth_cap(lo, hi);
         auto key = [&](unsigned st, unsigned depth) {
             return std::make_pair(st, depth < cap ? depth : cap);
         };
@@ -270,17 +282,11 @@ namespace seq {
             unsigned depth = nodes[cur].depth;
 
             if (depth >= lo && depth <= hi && m_gmaybe_null[st]) {
-                expr_ref nb = m_rw.is_nullable(m_gstate[st]);
-                if (m.is_true(nb)) {
-                    ptr_vector<expr> gs;
-                    for (int j = cur; j >= 0 && nodes[j].parent >= 0; j = nodes[j].parent)
-                        gs.push_back(nodes[j].guard);
-                    for (unsigned k = gs.size(); k-- > 0; )
-                        seq.push_back(gs[k]);
-                    return l_true;
+                switch (nullable(m_gstate[st])) {
+                case l_true:  emit_witness(nodes, cur, seq); return l_true;
+                case l_undef: undecided = true; break; // cannot claim l_false
+                case l_false: break;
                 }
-                if (!m.is_false(nb))
-                    undecided = true;             // undecidable nullability => cannot claim l_false
             }
             if (depth >= hi)
                 continue;                          // cannot extend further
@@ -315,9 +321,7 @@ namespace seq {
         struct node { svector<expr*> st; unsigned depth; int parent; expr* guard; };
         std::vector<node> nodes;
 
-        // Beyond `cap` elements the length no longer changes acceptance, so we cap the
-        // depth in the visited key to keep the state space finite.
-        unsigned cap = (hi == UINT_MAX) ? lo : hi;
+        const unsigned cap = depth_cap(lo, hi);
         auto key = [&](svector<expr*> const& st, unsigned depth) {
             std::vector<unsigned> k;
             k.reserve(st.size() + 1);
@@ -328,14 +332,16 @@ namespace seq {
 
         auto is_accept = [&](svector<expr*> const& st, bool& undecided) -> bool {
             for (unsigned i = 0; i < n; ++i) {
-                if (memb[i]) {
-                    expr_ref nb = m_rw.is_nullable(st[i]);
-                    if (m.is_true(nb)) continue;
-                    if (m.is_false(nb)) return false;
-                    undecided = true; return false;
+                if (!memb[i]) {
+                    if (st[i] != tgt[i])
+                        return false;             // reach component: structural target match
+                    continue;
                 }
-                else if (st[i] != tgt[i])
-                    return false;                 // reach component: structural target match
+                switch (nullable(st[i])) {
+                case l_true:  continue;
+                case l_false: return false;
+                case l_undef: undecided = true; return false;
+                }
             }
             return true;
         };
@@ -354,11 +360,7 @@ namespace seq {
             if (depth >= lo && depth <= hi) {
                 bool u2 = false;
                 if (is_accept(st, u2)) {
-                    ptr_vector<expr> gs;          // reconstruct the per-position guards
-                    for (int j = cur; j >= 0 && nodes[j].parent >= 0; j = nodes[j].parent)
-                        gs.push_back(nodes[j].guard);
-                    for (unsigned k = gs.size(); k-- > 0; )
-                        seq.push_back(gs[k]);
+                    emit_witness(nodes, cur, seq);
                     return l_true;
                 }
                 if (u2) undecided = true;
