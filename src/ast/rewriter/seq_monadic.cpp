@@ -133,8 +133,12 @@ namespace seq {
             svector<unsigned> tgts;               // snapshot: local_of may realloc m_gsucc
             for (gedge const& e : m_gsucc[gid])
                 tgts.push_back(e.target);
-            for (unsigned t : tgts)
-                succ[i].push_back(local_of(m_gstate[t]));
+            for (unsigned t : tgts) {
+                // hoist local_of out of the subscript: it may push_back onto succ
+                // (reallocating it), which would dangle a succ[i] taken first.
+                unsigned li = local_of(m_gstate[t]);
+                succ[i].push_back(li);
+            }
         }
     }
 

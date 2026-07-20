@@ -3,7 +3,8 @@
 Compare z3 string solver configurations, and optionally against external solvers.
 
 We always run three z3 configurations:
-    nseq_md  monadic decomposition (parikh off, eager regex factorization)
+    nseq_md  monadic decomposition (parikh off, lazy regex factorization)
+    nseq_md2  monadic decomposition via automaton (parikh off, lazy regex factorization via automaton)
     nseq_pa  parikh (parikh on, no regex factorization)
     seq      the old/baseline string solver
 
@@ -38,6 +39,8 @@ COMMON_ARGS = ["model_validate=true"]
 SOLVERS = {
     "nseq_md": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
                 "smt.nseq.regex_factorization_threshold=10000000", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=false"],
+    "nseq_md2": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
+                "smt.nseq.monadic_split=true", "smt.nseq.regex_factorization_threshold=0", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=false"],
     "nseq_pa": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
                 "smt.nseq.regex_factorization_threshold=0", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=true"],
     "seq":     ["smt.string_solver=seq"],
