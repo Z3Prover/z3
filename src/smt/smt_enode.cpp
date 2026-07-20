@@ -21,7 +21,7 @@ Revision History:
 #include "smt/smt_enode.h"
 
 namespace smt {
-    
+
     /**
        \brief Initialize an enode in the given memory position.
     */
@@ -65,8 +65,8 @@ namespace smt {
     }
 
     enode * enode::mk(ast_manager & m, region & r, app2enode_t const & app2enode, expr * owner, 
-                           unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
-                           bool cgc_enabled, bool update_children_parent) {
+                        unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
+                        bool cgc_enabled, bool update_children_parent) {
         SASSERT(m.is_bool(owner) || !merge_tf);
         unsigned sz           = get_enode_size(suppress_args || !::is_app(owner) ? 0 : to_app(owner)->get_num_args());
         void * mem            = r.allocate(sz);
@@ -131,20 +131,6 @@ namespace smt {
         m_th_var_list.del_var(id);
     }
 
-    
-    /**
-       \brief Push old value of generation on the context trail stack
-       and update the generation.       
-    */
-    void enode::set_generation(context * ctx, unsigned generation) {
-        if (m_generation == generation)
-            return;
-        if (ctx)
-            ctx->push_trail(value_trail<unsigned>(m_generation));
-        m_generation = generation;
-    }
-
-
     void enode::set_lbl_hash(context & ctx) {
         SASSERT(m_lbl_hash == -1);
         // m_lbl_hash should be different from -1, if and only if,
@@ -161,16 +147,17 @@ namespace smt {
         }
     }
 
-    enode * enode::get_eq_enode_with_min_gen() {
-        if (m_generation == 0)
-            return this;
+    enode * enode::get_eq_enode_with_min_gen(context * ctx) {
         enode * r = this;
         enode * curr = this; 
+        unsigned r_gen = ctx->get_generation(r);
         do {
-            if (curr->m_generation < r->m_generation) {
+            unsigned curr_gen = ctx->get_generation(curr);
+            if (curr_gen == 0)
+                return curr;
+            if (curr_gen < r_gen) {
                 r = curr;
-                if (r->m_generation == 0)
-                    return r;
+                r_gen = curr_gen;
             }
             curr = curr->m_next;
         }
@@ -305,16 +292,6 @@ namespace smt {
                     return false;
             return true;
         }
-    }
-
-    unsigned get_max_generation(unsigned num_enodes, enode * const * enodes) {
-        unsigned max = 0;
-        for (unsigned i = 0; i < num_enodes; ++i) {
-            unsigned curr = enodes[i]->get_generation();
-            if (curr > max)
-                max = curr;
-        }
-        return max;
     }
 
     void unmark_enodes(unsigned num_enodes, enode * const * enodes) {

@@ -879,6 +879,8 @@ namespace smt {
         if (m_config.m_ablate_backtracking) {
             m_config.m_core_minimize = false;
         }
+
+        m_config.m_threads_max_conflicts = m_smt_params.m_threads_max_conflicts;
     }
 
     parallel::sls_worker::sls_worker(parallel& p)

@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#ifdef _WINDOWS
 #include "util/rational.h"
 #include "smt/diff_logic.h"
 #include "smt/smt_literal.h"
@@ -169,7 +168,3 @@ void tst_diff_logic() {
     //tst2();
     //tst3();
 }
-#else
-void tst_diff_logic() {
-}
-#endif

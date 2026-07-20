@@ -109,7 +109,7 @@ namespace smt {
             for (auto const& kv : *m_root2value) {
                 enode * n   = kv.m_key;
                 expr  * val = kv.m_value;
-                n = n->get_eq_enode_with_min_gen();
+                n = n->get_eq_enode_with_min_gen(m_context);
                 expr* e = n->get_expr();
                 if (!m.is_value(e))
                     m_value2expr.insert(val, e);
@@ -222,7 +222,8 @@ namespace smt {
                 expr * sk_term = m_model_finder.get_inv(q, i, sk_value, *cex, sk_term_gen);
                 if (sk_term != nullptr) {
                     TRACE(model_checker, tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
-                    SASSERT(!m.is_model_value(sk_term));
+                    // get_inv may return a model value in polymorphic settings;
+                    // this is handled downstream by get_type_compatible_term.
                     max_generation = std::max(sk_term_gen, max_generation);
                     sk_value = sk_term;
                 }
@@ -345,7 +346,8 @@ namespace smt {
             return false;
         TRACE(model_checker, tout << "skolems:\n" << sks << "\n";);
 
-        flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
+        flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
+        flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
         lbool r = m_aux_context->check();
         
         TRACE(model_checker, tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
@@ -362,7 +364,8 @@ namespace smt {
         unsigned num_new_instances = 0;
 
         while (true) {
-            flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
+            flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
+            flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
             lbool r = m_aux_context->check();
             TRACE(model_checker, tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
             if (r != l_true)

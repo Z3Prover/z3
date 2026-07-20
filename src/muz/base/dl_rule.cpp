@@ -276,7 +276,11 @@ namespace datalog {
         // retrieve free variables.
         m_free_vars(q);
         vars.append(m_free_vars.size(), m_free_vars.data());
-        if (vars.contains(static_cast<sort*>(nullptr))) {
+        // Eliminate gaps in the variable indices produced by unused variables.
+        // A single substitution pass may not suffice: var_subst applies the rewriter,
+        // which can simplify away variable occurrences (e.g. collapsing ite terms),
+        // introducing new gaps. Iterate until the free variables are contiguous.
+        while (vars.contains(static_cast<sort*>(nullptr))) {
             var_subst sub(m, false);
             expr_ref_vector args(m);
             // [s0, 0, s2, ..]

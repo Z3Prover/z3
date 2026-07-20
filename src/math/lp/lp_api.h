@@ -36,15 +36,23 @@ namespace lp_api {
         rational         m_value;
         bound_kind       m_bound_kind;
         lp::constraint_index m_constraints[2];
+        // Infinitesimal coefficient of the asserted (positive-literal) bound
+        // value: the bound means  v (>=|<=) m_value + m_eps*delta.  Non-zero
+        // only for the delta-rational bounds used to validate strict
+        // optimization optima (e.g. a lower bound (r, -1) for a maximize
+        // supremum).  Kept so get_value reports the true delta value and no
+        // spurious rational fixed-variable equality is propagated to EUF.
+        rational         m_eps;
 
     public:
-        bound(Literal bv, theory_var v, lp::lpvar vi, bool is_int, rational const& val, bound_kind k, lp::constraint_index ct, lp::constraint_index cf) :
+        bound(Literal bv, theory_var v, lp::lpvar vi, bool is_int, rational const& val, bound_kind k, lp::constraint_index ct, lp::constraint_index cf, rational const& eps = rational::zero()) :
             m_bv(bv),
             m_var(v),
             m_column_index(vi),
             m_is_int(is_int),
             m_value(val),
-            m_bound_kind(k) {
+            m_bound_kind(k),
+            m_eps(eps) {
             m_constraints[0] = cf;
             m_constraints[1] = ct;
         }
@@ -67,7 +75,7 @@ namespace lp_api {
 
         inf_rational get_value(bool is_true) const {
             if (is_true != get_lit().sign()) 
-                return inf_rational(m_value);                         // v >= value or v <= value
+                return inf_rational(m_value, m_eps);                  // v >= value (+ eps*delta) or v <= value (+ eps*delta)
             if (m_is_int) {
                 SASSERT(m_value.is_int());
                 rational const& offset = (m_bound_kind == lower_t) ? rational::minus_one() : rational::one();
@@ -100,6 +108,7 @@ namespace lp_api {
         unsigned m_num_iterations_with_no_progress;
         unsigned m_need_to_solve_inf;
         unsigned m_fixed_eqs;
+        unsigned m_offset_eqs;
         unsigned m_conflicts;
         unsigned m_bound_propagations1;
         unsigned m_bound_propagations2;
@@ -121,6 +130,7 @@ namespace lp_api {
             st.update("arith-pivots", m_need_to_solve_inf);
             st.update("arith-plateau-iterations", m_num_iterations_with_no_progress);
             st.update("arith-fixed-eqs", m_fixed_eqs);
+            st.update("arith-offset-eqs", m_offset_eqs);
             st.update("arith-conflicts", m_conflicts);
             st.update("arith-bound-propagations-lp", m_bound_propagations1);
             st.update("arith-bound-propagations-cheap", m_bound_propagations2);

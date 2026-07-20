@@ -125,11 +125,10 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
         };
         
         struct info {
-            expr_ref    m_node;
-            uint_set    m_free_vars;
+            uint_set    m_free_vars, m_bound_vars;
             unsigned    m_size;
-            info(ast_manager & m, expr * n, uint_set const & vars, unsigned sz):
-                m_node(n, m), m_free_vars(vars), m_size(sz) {}
+            info(uint_set const & fvars, uint_set const& bvars, unsigned sz):
+                m_free_vars(fvars), m_bound_vars(bvars), m_size(sz) {}
         };
         
         ast_manager &            m;

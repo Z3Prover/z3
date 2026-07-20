@@ -7,9 +7,9 @@ void test_push_back_and_access() {
     
     sv.push_back(20);
 
-    SASSERT(sv.size() == 2);
-    SASSERT(sv[0] == 10);
-    SASSERT(sv[1] == 20);
+    ENSURE(sv.size() == 2);
+    ENSURE(sv[0] == 10);
+    ENSURE(sv[1] == 20);
     
     std::cout << "test_push_back_and_access passed." << std::endl;
 }
@@ -23,16 +23,16 @@ void test_scopes() {
     sv.push_back(30);
     sv.push_back(40);
 
-    SASSERT(sv.size() == 4);
-    SASSERT(sv[2] == 30);
-    SASSERT(sv[3] == 40);
+    ENSURE(sv.size() == 4);
+    ENSURE(sv[2] == 30);
+    ENSURE(sv[3] == 40);
 
     sv.pop_scope(1);
 
     std::cout << "test_scopes passed." << std::endl;
-    SASSERT(sv.size() == 2);
-    SASSERT(sv[0] == 10);
-    SASSERT(sv[1] == 20);
+    ENSURE(sv.size() == 2);
+    ENSURE(sv[0] == 10);
+    ENSURE(sv[1] == 20);
 
     std::cout << "test_scopes passed." << std::endl;
 }
@@ -45,15 +45,15 @@ void test_set() {
     sv.set(0, 30);
     sv.set(1, 40);
 
-    SASSERT(sv.size() == 2);
-    SASSERT(sv[0] == 30);
-    SASSERT(sv[1] == 40);
+    ENSURE(sv.size() == 2);
+    ENSURE(sv[0] == 30);
+    ENSURE(sv[1] == 40);
 
     sv.push_scope();
     sv.set(0, 50);
-    SASSERT(sv[0] == 50);
+    ENSURE(sv[0] == 50);
     sv.pop_scope(1);
-    SASSERT(sv[0] == 30);
+    ENSURE(sv[0] == 30);
 
     std::cout << "test_set passed." << std::endl;
 }
@@ -63,12 +63,12 @@ void test_pop_back() {
     sv.push_back(10);
     sv.push_back(20);
 
-    SASSERT(sv.size() == 2);
+    ENSURE(sv.size() == 2);
     sv.pop_back();
-    SASSERT(sv.size() == 1);
-    SASSERT(sv[0] == 10);
+    ENSURE(sv.size() == 1);
+    ENSURE(sv[0] == 10);
     sv.pop_back();
-    SASSERT(sv.size() == 0);
+    ENSURE(sv.size() == 0);
 
     std::cout << "test_pop_back passed." << std::endl;
 }
@@ -81,9 +81,9 @@ void test_erase_and_swap() {
 
     sv.erase_and_swap(1);
 
-    SASSERT(sv.size() == 2);
-    SASSERT(sv[0] == 10);
-    SASSERT(sv[1] == 30);
+    ENSURE(sv.size() == 2);
+    ENSURE(sv[0] == 10);
+    ENSURE(sv[1] == 30);
 
     std::cout << "test_erase_and_swap passed." << std::endl;
 }

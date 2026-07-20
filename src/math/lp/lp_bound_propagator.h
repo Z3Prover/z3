@@ -248,22 +248,16 @@ public:
 
     void explain_fixed_in_row(unsigned row, explanation& ex) {
         TRACE(eq, tout << lp().get_row(row) << std::endl);
-        for (const auto& c : lp().get_row(row))
-            if (lp().column_is_fixed(c.var()))
-                lp().explain_fixed_column(c.var(), ex);
+        lp().explain_fixed_in_row(row, ex);
     }
 
     unsigned explain_fixed_in_row_and_get_base(unsigned row, explanation& ex) {
-        unsigned base = UINT_MAX;
         TRACE(eq, tout << lp().get_row(row) << std::endl);
-        for (const auto& c : lp().get_row(row)) {
-            if (lp().column_is_fixed(c.var())) {
-                lp().explain_fixed_column(c.var(), ex);
-            } 
-            else if (lp().is_base(c.var())) {
+        lp().explain_fixed_in_row(row, ex);
+        unsigned base = UINT_MAX;
+        for (const auto& c : lp().get_row(row))
+            if (!lp().column_is_fixed(c.var()) && lp().is_base(c.var()))
                 base = c.var();
-            }
-        }
         return base;
     }
     

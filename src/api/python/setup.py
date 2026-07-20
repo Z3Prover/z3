@@ -92,9 +92,13 @@ elif BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
 elif BUILD_PLATFORM in ('emscripten',):
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3.wasm"
+    # Depending on emscripten/toolchain details, the shell target can appear
+    # as z3.js.wasm or z3; package it consistently as z3.wasm.
+    EXECUTABLE_FILE_FALLBACKS = ["z3.js.wasm", "z3"]
 else:
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3"
+    EXECUTABLE_FILE_FALLBACKS = []
 
 # check if cmake is available, and pull it in via PyPI if necessary
 SETUP_REQUIRES = []
@@ -225,7 +229,17 @@ def _copy_bins():
     os.mkdir(BINS_DIR)
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
-    shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
+    executable_src = None
+    executable_names = (EXECUTABLE_FILE,) + tuple(EXECUTABLE_FILE_FALLBACKS)
+    for executable_name in executable_names:
+        executable_src_candidate = os.path.join(BUILD_DIR, executable_name)
+        if os.path.exists(executable_src_candidate):
+            executable_src = executable_src_candidate
+            break
+    if executable_src is None:
+        attempted_files = "\n- ".join(os.path.join(BUILD_DIR, executable_name) for executable_name in executable_names)
+        raise FileNotFoundError(f"Could not find any executable in build directory. Tried:\n- {attempted_files}")
+    shutil.copy(executable_src, os.path.join(BINS_DIR, EXECUTABLE_FILE))
     path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
     path2 = glob.glob(os.path.join(BUILD_DIR, "vcomp*"))
     path3 = glob.glob(os.path.join(BUILD_DIR, "vcrun*"))
@@ -336,7 +350,6 @@ class bdist_wheel(_bdist_wheel):
                 ("linux", "aarch64"): "linux_aarch64",
                 ('linux', "riscv64"): "linux_riscv64",
                 ("linux", "loongarch64"): "linux_loongarch64",
-                # windows arm64 is not supported by pypi yet
                 ("win", "x64"): "win_amd64",
                 ("win", "x86"): "win32",
                 ("win", "arm64"): "win_arm64",

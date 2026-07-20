@@ -229,6 +229,7 @@ namespace smt {
         void assert_int2bv_axiom(app* n);
         void assert_bv2int_axiom(app* n);
         void assert_udiv_quot_rem_axiom(app * n);
+        void assert_bv_divrem_bound_axiom(app * n);
 
 
     protected:

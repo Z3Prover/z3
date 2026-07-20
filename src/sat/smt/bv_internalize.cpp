@@ -176,11 +176,11 @@ namespace bv {
         case OP_BNEG:             internalize_un(mk_neg); break;
         case OP_BREDAND:          internalize_un(mk_redand); break;
         case OP_BREDOR:           internalize_un(mk_redor); break;
-        case OP_BSDIV_I:          internalize_bin(mk_sdiv); break;
-        case OP_BUDIV_I:          internalize_bin(mk_udiv); break;
-        case OP_BUREM_I:          internalize_bin(mk_urem); break;
-        case OP_BSREM_I:          internalize_bin(mk_srem); break;
-        case OP_BSMOD_I:          internalize_bin(mk_smod); break;
+        case OP_BSDIV_I:          internalize_bin(mk_sdiv); assert_bv_divrem_bound_axiom(a); break;
+        case OP_BUDIV_I:          internalize_bin(mk_udiv); assert_bv_divrem_bound_axiom(a); break;
+        case OP_BUREM_I:          internalize_bin(mk_urem); assert_bv_divrem_bound_axiom(a); break;
+        case OP_BSREM_I:          internalize_bin(mk_srem); assert_bv_divrem_bound_axiom(a); break;
+        case OP_BSMOD_I:          internalize_bin(mk_smod); assert_bv_divrem_bound_axiom(a); break;
         case OP_BSHL:             internalize_bin(mk_shl); break;
         case OP_BLSHR:            internalize_bin(mk_lshr); break;
         case OP_BASHR:            internalize_bin(mk_ashr); break;
@@ -542,6 +542,20 @@ namespace bv {
         std::function<void(unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits)> bin;
         bin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits) { m_bb.mk_udiv(sz, xs, ys, bits); }; 
         internalize_binary(a, bin);
+    }
+
+    // Add, on the fly, the magnitude bound axioms for division/remainder operators.
+    // Uses the shared bv_util::mk_bv_divrem_bound clause builder so the axiom matches the one
+    // produced by the bv-divrem-bounds simplifier. Only fires for a symbolic divisor.
+    void solver::assert_bv_divrem_bound_axiom(app* a) {
+        expr_ref_vector clause(m);
+        bv.mk_bv_divrem_bound(a, clause);
+        if (clause.empty())
+            return;
+        sat::literal_vector lits;
+        for (expr* e : clause)
+            lits.push_back(mk_literal(e));
+        add_clause(lits);
     }
 
     void solver::internalize_interp(app* n, std::function<expr* (expr*, expr*)>& ibin, std::function<expr* (expr*)>& iun) {

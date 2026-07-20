@@ -52,6 +52,7 @@ Revision History:
 #include "tactic/tactic_exception.h"
 
 class model_instantiation_set;
+class statistics;
 
 namespace smt {
     class context;
@@ -121,6 +122,8 @@ namespace smt {
         void checkpoint(char const* component);
 
         quantifier_macro_info* operator()(quantifier* q) override;
+
+        void collect_statistics(::statistics & st) const;
 
     };
 }

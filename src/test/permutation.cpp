@@ -9,8 +9,8 @@
 static void test_constructor() {
     permutation p(5);
     for (unsigned i = 0; i < 5; ++i) {
-        SASSERT(p(i) == i);
-        SASSERT(p.inv(i) == i);
+        ENSURE(p(i) == i);
+        ENSURE(p.inv(i) == i);
     }
 }
 
@@ -19,28 +19,28 @@ static void test_reset() {
     p.swap(0, 2);
     p.reset(3);
     for (unsigned i = 0; i < 3; ++i) {
-        SASSERT(p(i) == i);
-        SASSERT(p.inv(i) == i);
+        ENSURE(p(i) == i);
+        ENSURE(p.inv(i) == i);
     }
 }
 
 static void test_swap() {
     permutation p(4);
     p.swap(1, 3);
-    SASSERT(p(1) == 3);
-    SASSERT(p(3) == 1);
-    SASSERT(p.inv(1) == 3);
-    SASSERT(p.inv(3) == 1);
+    ENSURE(p(1) == 3);
+    ENSURE(p(3) == 1);
+    ENSURE(p.inv(1) == 3);
+    ENSURE(p.inv(3) == 1);
 }
 
 static void test_move_after() {
     permutation p(5);
     p.move_after(1, 3);
-    SASSERT(p(0) == 0);
-    SASSERT(p(1) == 2);
-    SASSERT(p(2) == 3);
-    SASSERT(p(3) == 1);
-    SASSERT(p(4) == 4);
+    ENSURE(p(0) == 0);
+    ENSURE(p(1) == 2);
+    ENSURE(p(2) == 3);
+    ENSURE(p(3) == 1);
+    ENSURE(p(4) == 4);
 }
 
 void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
@@ -74,18 +74,18 @@ static void test_apply_permutation(unsigned sz, unsigned num_tries, unsigned max
 
 static void test_check_invariant() {
     permutation p(4);
-    SASSERT(p.check_invariant());
+    ENSURE(p.check_invariant());
     p.swap(0, 2);
-    SASSERT(p.check_invariant());
+    ENSURE(p.check_invariant());
     p.move_after(1, 3);
-    SASSERT(p.check_invariant());
+    ENSURE(p.check_invariant());
 }
 
 static void test_display() {
     permutation p(4);
     std::ostringstream out;
     p.display(out);
-    SASSERT(out.str() == "0:0 1:1 2:2 3:3");
+    ENSURE(out.str() == "0:0 1:1 2:2 3:3");
 }
 
 void tst_permutation() {

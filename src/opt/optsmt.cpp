@@ -233,7 +233,7 @@ namespace opt {
                   if (is_sat == l_true) m_s->display(tout);
                   );
             if (is_sat == l_true) {                
-                m_s->maximize_objective(obj_index, bound);
+                bool bound_valid = m_s->maximize_objective(obj_index, bound);
                 m_s->get_model(m_model);
                 SASSERT(m_model);
                 inf_eps obj = m_s->saved_objective_value(obj_index);
@@ -250,7 +250,14 @@ namespace opt {
                 else {
                     ++steps;
                 }
-                if (delta_per_step > rational::one() || (obj == last_objective && is_int)) {
+                // When maximize_objective could not validate its arithmetic
+                // hint (bound_valid == false), the blocker it produced refers to
+                // that unachievable hint and must not be used.  'obj' now holds
+                // the value of an actual model, so replace the blocker with a
+                // model-derived tightening so the search keeps making progress
+                // toward the true optimum instead of terminating prematurely
+                // (issue #10028).
+                if (!bound_valid || delta_per_step > rational::one() || (obj == last_objective && is_int)) {
                     m_s->push();
                     ++num_scopes;
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));

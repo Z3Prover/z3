@@ -1012,7 +1012,7 @@ namespace {
                 stack.pop_back();
 
                 if (m_context.e_internalized(curr)) {
-                    gen = m_context.get_enode(curr)->get_generation();
+                    gen = m_context.get_generation(m_context.get_enode(curr));
                     if (gen > maxgen)
                         maxgen = gen;
                     if (gen < mingen)
@@ -1046,7 +1046,7 @@ namespace {
             void operator()(expr * e) {
                 if (m_context.e_internalized(e)) {
                     enode * n = m_context.get_enode(e);
-                    n->set_generation(&m_context, m_generation);
+                    m_context.set_generation(n, m_generation);
                 }
             }
         };
@@ -1069,7 +1069,8 @@ namespace {
                 stack.pop_back();
 
                 if (m_context.e_internalized(curr)) {
-                    unsigned curr_gen = m_context.get_enode(curr)->get_generation();
+                    enode * n = m_context.get_enode(curr);
+                    unsigned curr_gen = m_context.get_generation(n);
                     if (curr_gen > gen) {
                         // Lower it.
                         set_generation_rec(e, gen);

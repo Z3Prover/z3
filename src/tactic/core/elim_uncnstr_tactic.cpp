@@ -27,6 +27,7 @@ Notes:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/for_each_expr.h"
+#include "ast/polymorphism_util.h"
 #include "tactic/core/collect_occs.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -936,6 +937,21 @@ class elim_uncnstr_tactic : public tactic {
         m_rw = alloc(rw, m(), produce_proofs, m_vars, m_nonvars, m_disabled, m_mc.get(), m_max_memory, m_max_steps);            
     }
 
+    // The manager-wide has_type_vars() flag is a coarse over-approximation: it becomes
+    // true as soon as any type variable is created, including the type variables used to
+    // define the polymorphic signatures of builtin plugins (e.g. finite_set). Those never
+    // occur in the actual goal, so relying on the global flag needlessly disables this
+    // tactic. Check whether the goal itself contains type-variable typed terms instead.
+    bool goal_has_type_vars(goal_ref const & g) {
+        if (!m().has_type_vars())
+            return false;
+        polymorphism::util u(m());
+        for (unsigned i = 0; i < g->size(); ++i)
+            if (u.has_type_vars(g->form(i)))
+                return true;
+        return false;
+    }
+
     void run(goal_ref const & g, goal_ref_buffer & result) {
         bool produce_proofs = g->proofs_enabled();
         TRACE(goal, g->display(tout););
@@ -945,7 +961,7 @@ class elim_uncnstr_tactic : public tactic {
         collect_occs p;
         p(*g, m_vars);
         disable_quantified(g);
-        if (m_vars.empty() || recfun::util(m()).has_rec_defs()) {
+        if (m_vars.empty() || recfun::util(m()).has_rec_defs() || goal_has_type_vars(g)) {
             result.push_back(g.get());
             // did not increase depth since it didn't do anything.
             return;

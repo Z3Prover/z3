@@ -51,7 +51,7 @@ static void test1() {
     g.propagate();
     TRACE(bv, tout << "after propagate\n" << g << "\n");
     std::cout << g << "\n";
-    SASSERT(nx->get_root() == ny->get_root());
+    ENSURE(nx->get_root() == ny->get_root());
 }
 
 // propagate values down
@@ -70,10 +70,10 @@ static void test2() {
     expr_ref xx(bv.mk_concat(x1, bv.mk_concat(x2, x3)), m);
     g.merge(get_node(g, bv, xx), get_node(g, bv, bv.mk_numeral((1 << 27) + (1 << 17) + (1 << 3), 32)), nullptr);
     g.propagate();
-    SASSERT(get_node(g, bv, x1)->get_root()->interpreted());
-    SASSERT(get_node(g, bv, x2)->get_root()->interpreted());
-    SASSERT(get_node(g, bv, x3)->get_root()->interpreted());
-    SASSERT(get_node(g, bv, x)->get_root()->interpreted());
+    ENSURE(get_node(g, bv, x1)->get_root()->interpreted());
+    ENSURE(get_node(g, bv, x2)->get_root()->interpreted());
+    ENSURE(get_node(g, bv, x3)->get_root()->interpreted());
+    ENSURE(get_node(g, bv, x)->get_root()->interpreted());
 }
 
 
@@ -96,9 +96,9 @@ static void test3() {
     g.merge(get_node(g, bv, x1), get_node(g, bv, bv.mk_numeral(2, 8)), nullptr);
     g.merge(get_node(g, bv, x2), get_node(g, bv, bv.mk_numeral(8, 8)), nullptr);
     g.propagate();
-    SASSERT(get_node(g, bv, bv.mk_concat(x1, x2))->get_root()->interpreted());
-    SASSERT(get_node(g, bv, x1)->get_root()->interpreted());
-    SASSERT(get_node(g, bv, x2)->get_root()->interpreted());
+    ENSURE(get_node(g, bv, bv.mk_concat(x1, x2))->get_root()->interpreted());
+    ENSURE(get_node(g, bv, x1)->get_root()->interpreted());
+    ENSURE(get_node(g, bv, x2)->get_root()->interpreted());
 }
 
 // propagate extract up
@@ -121,7 +121,7 @@ static void test4() {
     g.merge(get_node(g, bv, x1), get_node(g, bv, a), nullptr);
     g.propagate();
     TRACE(bv, tout << g << "\n");
-    SASSERT(get_node(g, bv, bv.mk_extract(23, 8, x))->get_root() == get_node(g, bv, y)->get_root());
+    ENSURE(get_node(g, bv, bv.mk_extract(23, 8, x))->get_root() == get_node(g, bv, y)->get_root());
 }
 
 // iterative slicing

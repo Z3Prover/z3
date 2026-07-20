@@ -67,8 +67,18 @@ namespace smt {
         }
 
         final_check_status final_check_eh(unsigned) override {
-            if (m_inst.pending()) 
+            if (m_inst.pending()) {
+                // There are still polymorphic axioms to instantiate. Force the
+                // solver to fail under the theory assumption so that a new
+                // research round (see should_research) can assert the new
+                // instances. Assigning the negation of the (already true)
+                // assumption creates a conflict, so we must return FC_CONTINUE
+                // to let conflict resolution turn it into l_false; returning
+                // FC_DONE here would report l_true while the context is
+                // inconsistent, violating a core search invariant.
                 ctx.assign(~mk_literal(m_assumption), nullptr);
+                return FC_CONTINUE;
+            }
             return FC_DONE;
         }
 
@@ -96,6 +106,14 @@ namespace smt {
             theory(ctx, poly_family_id),
             m_inst(ctx.get_manager(), m_trail),
             m_assumption(ctx.get_manager()) {}
+
+        ~theory_polymorphism() override {
+            // Undo level-0 trail items (e.g. the inc_ref balancing entries that
+            // m_inst pushes for m_from_instantiation). trail_stack's destructor
+            // does not call reset(), so without this the references those items
+            // hold would leak when the theory is destroyed.
+            m_trail.reset();
+        }
         
         void init_model(model_generator & mg) override { }
     };
