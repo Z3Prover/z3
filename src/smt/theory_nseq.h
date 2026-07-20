@@ -208,6 +208,12 @@ namespace smt {
 
         bool check_length_coherence();
 
+        // Has to be called before model construction
+        // otw. some terms required for model construction would be not initialized
+        // e.g., X = a^{2 + n}
+        // term "2 + n" would not necessarily be internalized
+        bool ensure_model_internalized() const;
+
         // stoi axiom helpers
         void add_stoi_nseq_axioms(expr* stoi_e);
         bool check_stoi_coherence();

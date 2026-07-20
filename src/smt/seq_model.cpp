@@ -134,6 +134,8 @@ namespace smt {
             return alloc(expr_wrapper_proc, to_app(e));
         }
 
+        std::cout << mk_pp(n->get_expr(), m) << std::endl;
+
         // For nth_u (underspecified nth): the Nielsen character-peel /
         // regex-if-split records the chosen character as a relevant
         // equality literal (e.g. (= (seq.nth_u x 0) (_ Char 65))), so the
@@ -239,12 +241,11 @@ namespace smt {
             if (seen.contains(curr->id()))
                 continue;
             seen.insert(curr->id());
-            if (m.is_value(curr->get_expr()))
-                ;
-            else if (curr->is_empty())
-                ;
-            else if (curr->is_char_or_unit()) {
-                expr *e = curr->arg(0)->get_expr();
+            if (m.is_value(curr->get_expr()) || curr->is_empty())
+                continue;
+
+            if (curr->is_char_or_unit()) {
+                expr* e = curr->arg(0)->get_expr();
                 if (m_ctx.e_internalized(e))
                     deps.push_back(m_ctx.get_enode(e));
             }
@@ -283,14 +284,9 @@ namespace smt {
    
     expr_ref seq_model::snode_to_value(euf::snode const* n, enode_vector const &deps, expr_ref_vector const &values) {
         // var2value: leaf deps keyed by expression ID (populated from `deps`/`values`).
-        // node2value: computed nodes keyed by (snode_id * 2 + is_recursive).
-        // The recursion flag is part of the key because the SAME variable snode
-        // appears in two distinct roles in a Nielsen substitution such as D -> "cc" D:
-        // the outer variable (is_recursive == false, value == value of its replacement)
-        // and the inner "leftover" remainder (is_recursive == true, value == "").
         u_map<expr *> var2value;
         u_map<expr *> node2value;
-        // resolve: check leaf deps by expression ID, computed nodes by (snode,recursive) key.
+        // resolve: check leaf deps by expression ID, computed nodes by snode key.
         auto resolve = [&](euf::snode const* s, expr*& out) -> bool {
             if (var2value.find(s->get_expr()->get_id(), out))
                 return true;
@@ -307,6 +303,7 @@ namespace smt {
         expr *val = nullptr;
         while (!todo.empty()) {
             auto curr = todo.back();
+            // std::cout << "processing: " << mk_pp(curr->get_expr(), m) << std::endl;
             // Early exit: already computed (as leaf dep or computed node).
             expr* cached = nullptr;
             if (resolve(curr, cached)) {
@@ -445,7 +442,8 @@ namespace smt {
         if (a.is_numeral(e, val))
             return val;
 
-        bool has_val = get_arith_value(e, val);
+
+        bool has_val = get_arith_value(_e, val);
         CTRACE(seq, !has_val, tout << "no value associated with " << mk_pp(e, m) << "\n";);
         return val;
     }

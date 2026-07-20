@@ -920,6 +920,8 @@ namespace smt {
                 m_nielsen.reset();
                 m_nielsen.create_root();
                 m_nielsen.set_sat_node(m_nielsen.root());
+                if (!ensure_model_internalized())
+                    return FC_CONTINUE;
                 TRACE(seq, display(tout << "empty nielsen\n"));
                 return FC_DONE;
             }
@@ -939,6 +941,8 @@ namespace smt {
                 m_nielsen.reset();
                 m_nielsen.create_root();
                 m_nielsen.set_sat_node(m_nielsen.root());
+                if (!ensure_model_internalized())
+                    return FC_CONTINUE;
                 TRACE(seq, display(tout << "empty nielsen\n"));
                 return FC_DONE;
             }
@@ -962,9 +966,10 @@ namespace smt {
                     all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
                     ++m_num_sat_revalidations;
                     TRACE(seq, tout << "nseq final_check: revalidated cached SAT path, skipping rebuild\n");
-                    if (!check_length_coherence()) return FC_CONTINUE;
-                    if (!check_stoi_coherence())   return FC_CONTINUE;
-                    if (!has_unhandled_preds())    return FC_DONE;
+                    if (!check_length_coherence())    return FC_CONTINUE;
+                    if (!check_stoi_coherence())      return FC_CONTINUE;
+                    if (!ensure_model_internalized()) return FC_CONTINUE;
+                    if (!has_unhandled_preds())       return FC_DONE;
                     return FC_GIVEUP;
                 }
                 // fall through - no reason to rebuild the Nielsen graph
@@ -1071,6 +1076,8 @@ namespace smt {
                     if (!check_stoi_coherence())
                         return FC_CONTINUE;
                     TRACE(seq, tout << "pre-check done\n");
+                    if (!ensure_model_internalized())
+                        return FC_CONTINUE;
                     return FC_DONE;
                 default:
                     break;
@@ -1116,6 +1123,8 @@ namespace smt {
 
                 if (!all_sat)
                     return FC_CONTINUE;
+                if (!ensure_model_internalized())
+                    return FC_CONTINUE;
 
                 if (!has_unhandled_preds())
                     return FC_DONE;
@@ -1160,7 +1169,7 @@ namespace smt {
         bool all_sat = true;
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (const auto& c : m_nielsen.sat_node()->constraints()) {
-            // std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
+            std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
             // Ensure Nielsen assumptions participate in SAT search instead of
@@ -2291,6 +2300,19 @@ namespace smt {
         }
 
         return true;
+    }
+
+    bool theory_nseq::ensure_model_internalized() const {
+        bool all_internalized = true;
+        for (const auto * n : m_nielsen.sat_path()) {
+            for (const auto& subst : n->subst()) {
+                if (ctx.e_internalized(subst.m_replacement->get_expr()))
+                    continue;
+                ctx.internalize(subst.m_replacement->get_expr(), false);
+                all_internalized = false;
+            }
+        }
+        return all_internalized;
     }
 
     // -----------------------------------------------------------------------
