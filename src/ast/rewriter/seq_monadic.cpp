@@ -63,6 +63,11 @@ namespace seq {
     //  global derivative-transition graph (shared / recycled across regexes)
     // ------------------------------------------------------------------
 
+    lbool split_manager::nullable(expr* s) {
+        expr_ref nb = m_rw.is_nullable(s);
+        return m.is_true(nb) ? l_true : m.is_false(nb) ? l_false : l_undef;
+    }
+
     unsigned split_manager::intern_state(expr* s) {
         unsigned id;
         if (m_state_id.find(s, id))
@@ -71,8 +76,7 @@ namespace seq {
         m_state_id.insert(s, id);
         m_gstate.push_back(s);
         m_pin.push_back(s);
-        expr_ref nb = m_rw.is_nullable(s);
-        m_gmaybe_null.push_back(!m.is_false(nb)); // unknown nullability => keep (conservative)
+        m_gmaybe_null.push_back(nullable(s) != l_false); // unknown nullability => keep (conservative)
         m_gexpanded.push_back(false);
         m_gsucc.push_back(svector<gedge>());
         return id;
@@ -131,58 +135,52 @@ namespace seq {
             expand_state(gid, ok);
             if (!ok) return;
             svector<unsigned> tgts;               // snapshot: local_of may realloc m_gsucc
-            for (edge const& e : m_gsucc[gid])
+            for (gedge const& e : m_gsucc[gid])
                 tgts.push_back(e.target);
-            for (unsigned t : tgts)
-                succ[i].push_back(local_of(m_gstate[t]));
+            for (unsigned t : tgts) {
+                // hoist local_of out of the subscript: it may push_back onto succ
+                // (reallocating it), which would dangle a succ[i] taken first.
+                unsigned li = local_of(m_gstate[t]);
+                succ[i].push_back(li);
+            }
         }
     }
 
-    void split_manager::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
-        ptr_vector<expr> states;
-        vector<svector<unsigned>> succ;
-        bool_vector maybe_null;
-        build_graph(R, states, succ, maybe_null, ok);
-        if (!ok) return;
-        unsigned n = states.size();
-        bool_vector live;
-        live.resize(n, false);
-        for (unsigned i = 0; i < n; ++i)
-            live[i] = maybe_null[i];
+    // Backward closure of `seed` over the transition graph `succ`: mark every
+    // state that can reach an already-marked one, then collect the marked states
+    // into `out`.  `seed` is used in place as the working set.
+    static void collect_backward_closure(vector<svector<unsigned>> const& succ, bool_vector& seed,
+                                         ptr_vector<expr> const& states, ptr_vector<expr>& out) {
+        const unsigned n = states.size();
         for (bool ch = true; ch; ) {
             ch = false;
             for (unsigned i = 0; i < n; ++i)
-                if (!live[i])
+                if (!seed[i])
                     for (unsigned j : succ[i])
-                        if (live[j]) { live[i] = true; ch = true; break; }
+                        if (seed[j]) { seed[i] = true; ch = true; break; }
         }
         for (unsigned i = 0; i < n; ++i)
-            if (live[i]) out.push_back(states.get(i));
+            if (seed[i]) out.push_back(states.get(i));
     }
 
-    void split_manager::reaching_states(expr* R, expr* N, ptr_vector<expr>& out, bool& ok) {
+    void split_manager::reachable_states(expr* R, expr* accept_target,
+                                         ptr_vector<expr>& out, bool& ok) {
         ptr_vector<expr> states;
         vector<svector<unsigned>> succ;
-        bool_vector maybe_null;
+        bool_vector maybe_null;                   // membership acceptance seed
         build_graph(R, states, succ, maybe_null, ok);
         if (!ok) return;
-        unsigned n = states.size();
-        unsigned tgt = UINT_MAX;
-        for (unsigned i = 0; i < n; ++i)
-            if (states.get(i) == N) { tgt = i; break; }
-        if (tgt == UINT_MAX) return;              // N unreachable => no midpoints
-        bool_vector reach;
-        reach.resize(n, false);
-        reach[tgt] = true;
-        for (bool ch = true; ch; ) {
-            ch = false;
-            for (unsigned i = 0; i < n; ++i)
-                if (!reach[i])
-                    for (unsigned j : succ[i])
-                        if (reach[j]) { reach[i] = true; ch = true; break; }
+        if (!accept_target) {                     // membership: seed = nullable states
+            collect_backward_closure(succ, maybe_null, states, out);
+            return;
         }
-        for (unsigned i = 0; i < n; ++i)
-            if (reach[i]) out.push_back(states.get(i));
+        bool_vector reach;                        // reach: seed = the target state N
+        reach.resize(states.size(), false);
+        bool found = false;
+        for (unsigned i = 0; i < states.size(); ++i)
+            if (states.get(i) == accept_target) { reach[i] = true; found = true; break; }
+        if (found)                                // N unreachable => no midpoints
+            collect_backward_closure(succ, reach, states, out);
     }
 
     // ------------------------------------------------------------------
@@ -205,6 +203,68 @@ namespace seq {
         }
         else
             out.push_back(e);
+    }
+
+    // Beyond `depth_cap` elements the length no longer changes acceptance, so the
+    // BFS caps the depth component of its visited key there to stay finite.
+    static unsigned depth_cap(unsigned lo, unsigned hi) { return hi == UINT_MAX ? lo : hi; }
+
+    // Reconstruct the per-position guard sequence of the accepting node `cur` by
+    // walking its parent chain and reversing.  `Node` has `.parent` (int) and
+    // `.guard` (expr*); the root (parent < 0) contributes no guard.
+    template<typename Node>
+    static void emit_witness(std::vector<Node> const& nodes, int cur, expr_ref_vector& seq) {
+        ptr_vector<expr> gs;
+        for (int j = cur; j >= 0 && nodes[j].parent >= 0; j = nodes[j].parent)
+            gs.push_back(nodes[j].guard);
+        for (unsigned k = gs.size(); k-- > 0; )
+            seq.push_back(gs[k]);
+    }
+
+    // Shared bounded BFS with witness reconstruction, used by both the membership
+    // and the product intersection search.  It explores states of type `State` up
+    // to depth `hi`, deduping on (key_of(state), min(depth, depth_cap)) so the walk
+    // stays finite even for hi == UINT_MAX.  The callbacks abstract the two engines:
+    //   key_of(state)          -- comparable dedup key for the state
+    //   accept(state) -> lbool -- l_true accepting / l_false not / l_undef unknown
+    //   expand(state, out)     -- append (successor, incoming-guard) pairs; return
+    //                             false on a resource limit
+    // Returns l_true with the per-position guard witness in `seq`, l_false, or
+    // l_undef (resource limit or an undecidable acceptance encountered en route).
+    template<typename State, typename KeyOf, typename Accept, typename Expand>
+    static lbool bounded_search(ast_manager& m, State const& start, unsigned lo, unsigned hi,
+                                KeyOf key_of, Accept accept, Expand expand, expr_ref_vector& seq) {
+        struct node { State st; unsigned depth; int parent; expr* guard; };
+        std::vector<node> nodes;
+        const unsigned cap = depth_cap(lo, hi);
+        auto vkey = [&](State const& s, unsigned d) {
+            return std::make_pair(key_of(s), d < cap ? d : cap);
+        };
+        std::set<decltype(vkey(start, 0u))> visited;
+        nodes.push_back(node{ start, 0, -1, nullptr });
+        visited.insert(vkey(start, 0));
+        bool undecided = false;
+        for (size_t head = 0; head < nodes.size(); ++head) {
+            if (!m.inc()) return l_undef;
+            int cur = (int) head;
+            State st = nodes[cur].st;             // copy: `nodes` may grow below
+            unsigned depth = nodes[cur].depth;
+            if (depth >= lo && depth <= hi) {
+                switch (accept(st)) {
+                case l_true:  emit_witness(nodes, cur, seq); return l_true;
+                case l_undef: undecided = true; break;   // cannot claim l_false
+                case l_false: break;
+                }
+            }
+            if (depth >= hi)
+                continue;                          // cannot extend further
+            std::vector<std::pair<State, expr*>> next;
+            if (!expand(st, next)) return l_undef;
+            for (auto const& [ns, g] : next)
+                if (visited.insert(vkey(ns, depth + 1)).second)
+                    nodes.push_back(node{ ns, depth + 1, cur, g });
+        }
+        return undecided ? l_undef : l_false;
     }
 
     lbool split_manager::intersect(vector<cont_regex> const& crs, unsigned lo, unsigned hi,
@@ -235,59 +295,28 @@ namespace seq {
                                               unsigned hi, expr_ref_vector& seq) {
         unsigned n = crs.size();
         // The normalized intersection regex; the derivative engine handles guard
-        // feasibility and successor computation internally.
+        // feasibility and successor computation internally.  A single (interned,
+        // globally cached) state is searched: acceptance is nullability, successors
+        // are the cached cofactor edges.
         expr_ref P(crs[0].first.get(), m);
         for (unsigned i = 1; i < n; ++i)
             P = re().mk_inter(P, crs[i].first.get());
         m_th(P);
         unsigned r0 = intern_state(P.get());
 
-        // Search node with witness reconstruction: `guard` is the derivative path
-        // condition on the incoming edge (a predicate over the element (:var 0)).
-        struct node { unsigned st; unsigned depth; int parent; expr* guard; };
-        std::vector<node> nodes;
-
-        // Beyond `cap` elements the length no longer changes acceptance, so we cap
-        // the depth in the visited key to keep the state space finite.
-        unsigned cap = (hi == UINT_MAX) ? lo : hi;
-        auto key = [&](unsigned st, unsigned depth) {
-            return std::make_pair(st, depth < cap ? depth : cap);
+        auto key_of = [](unsigned st) { return st; };
+        auto accept = [&](unsigned st) {
+            return m_gmaybe_null[st] ? nullable(m_gstate[st]) : l_false;
         };
-
-        std::set<std::pair<unsigned, unsigned>> visited;
-        nodes.push_back(node{ r0, 0, -1, nullptr });
-        visited.insert(key(r0, 0));
-
-        bool undecided = false;
-        for (size_t head = 0; head < nodes.size(); ++head) {
-            if (!m.inc()) return l_undef;
-            int cur = (int) head;
-            unsigned st = nodes[cur].st;          // note: `nodes` may grow below
-            unsigned depth = nodes[cur].depth;
-
-            if (depth >= lo && depth <= hi && m_gmaybe_null[st]) {
-                expr_ref nb = m_rw.is_nullable(m_gstate[st]);
-                if (m.is_true(nb)) {
-                    ptr_vector<expr> gs;
-                    for (int j = cur; j >= 0 && nodes[j].parent >= 0; j = nodes[j].parent)
-                        gs.push_back(nodes[j].guard);
-                    for (unsigned k = gs.size(); k-- > 0; )
-                        seq.push_back(gs[k]);
-                    return l_true;
-                }
-                if (!m.is_false(nb))
-                    undecided = true;             // undecidable nullability => cannot claim l_false
-            }
-            if (depth >= hi)
-                continue;                          // cannot extend further
+        auto expand = [&](unsigned st, std::vector<std::pair<unsigned, expr*>>& out) {
             bool ok = true;
             expand_state(st, ok);
-            if (!ok) return l_undef;
-            for (edge const& e : m_gsucc[st])     // no interning here => m_gsucc stable
-                if (visited.insert(key(e.target, depth + 1)).second)
-                    nodes.push_back(node{ e.target, depth + 1, cur, e.guard });
-        }
-        return undecided ? l_undef : l_false;
+            if (!ok) return false;
+            for (gedge const& e : m_gsucc[st])     // no interning here => m_gsucc stable
+                out.push_back({ e.target, e.guard });
+            return true;
+        };
+        return bounded_search<unsigned>(m, r0, lo, hi, key_of, accept, expand, seq);
     }
 
     lbool split_manager::intersect_product(vector<cont_regex> const& crs, unsigned lo,
@@ -306,65 +335,63 @@ namespace seq {
             if (!mb) m_pin.push_back(cr.second.get());
         }
 
-        // Search node: a product tuple, its depth, its parent, and the joint guard on
-        // the incoming edge (a predicate over the element variable (:var 0)).
-        struct node { svector<expr*> st; unsigned depth; int parent; expr* guard; };
-        std::vector<node> nodes;
-
-        // Beyond `cap` elements the length no longer changes acceptance, so we cap the
-        // depth in the visited key to keep the state space finite.
-        unsigned cap = (hi == UINT_MAX) ? lo : hi;
-        auto key = [&](svector<expr*> const& st, unsigned depth) {
+        // Search state is the product tuple; acceptance is per-component (nullable
+        // for membership, structural target match for reach); successors are the
+        // cofactors of inter(st_0,...,st_{n-1}) decomposed positionally.
+        auto key_of = [](svector<expr*> const& st) {
             std::vector<unsigned> k;
-            k.reserve(st.size() + 1);
+            k.reserve(st.size());
             for (expr* e : st) k.push_back(e->get_id());
-            k.push_back(depth < cap ? depth : cap);
             return k;
         };
-
-        auto is_accept = [&](svector<expr*> const& st, bool& undecided) -> bool {
+        auto accept = [&](svector<expr*> const& st) -> lbool {
             for (unsigned i = 0; i < n; ++i) {
-                if (memb[i]) {
-                    expr_ref nb = m_rw.is_nullable(st[i]);
-                    if (m.is_true(nb)) continue;
-                    if (m.is_false(nb)) return false;
-                    undecided = true; return false;
+                if (!memb[i]) {
+                    if (st[i] != tgt[i]) return l_false;   // reach: structural target
+                    continue;
                 }
-                else if (st[i] != tgt[i])
-                    return false;                 // reach component: structural target match
+                switch (nullable(st[i])) {
+                case l_true:  continue;
+                case l_false: return l_false;
+                case l_undef: return l_undef;
+                }
             }
-            return true;
+            return l_true;
         };
-
-        std::set<std::vector<unsigned>> visited;
-        nodes.push_back(node{ start, 0, -1, nullptr });
-        visited.insert(key(start, 0));
-
-        bool undecided = false;
-        for (size_t head = 0; head < nodes.size(); ++head) {
-            if (!m.inc()) return l_undef;
-            int cur = (int) head;
-            svector<expr*> st = nodes[cur].st;    // copy: `nodes` may grow below
-            unsigned depth = nodes[cur].depth;
-
-            if (depth >= lo && depth <= hi) {
-                bool u2 = false;
-                if (is_accept(st, u2)) {
-                    ptr_vector<expr> gs;          // reconstruct the per-position guards
-                    for (int j = cur; j >= 0 && nodes[j].parent >= 0; j = nodes[j].parent)
-                        gs.push_back(nodes[j].guard);
-                    for (unsigned k = gs.size(); k-- > 0; )
-                        seq.push_back(gs[k]);
-                    return l_true;
-                }
-                if (u2) undecided = true;
+        // The engine prunes infeasible joint guards and yields the product successor
+        // as the re.inter of the per-component derivatives -- but we must NOT assume
+        // it keeps them in source order (mk_inter subset-collapses, De-Morgan-merges,
+        // and may reorder operands).  So we recover the correspondence by IDENTITY:
+        // each operand of the joint target is matched to the component whose own
+        // derivative-target set contains it.  A cofactor whose operands cannot be
+        // assigned bijectively (a merge dropped one, or the match is ambiguous) sets
+        // `collapsed`, softening a final l_false to l_undef -- we cannot certify
+        // emptiness through an edge we could not decompose.
+        bool collapsed = false;
+        auto expand = [&](svector<expr*> const& st, std::vector<std::pair<svector<expr*>, expr*>>& out) {
+            // Per-component derivative targets (order-independent recovery dictionary).
+            std::vector<ptr_vector<expr>> comp_succ(n);
+            for (unsigned i = 0; i < n; ++i) {
+                expr_ref_pair_vector ci(m);
+                m_rw.brz_derivative_cofactors(st[i], ci);
+                for (auto const& [gi, ti] : ci)
+                    if (!re().is_empty(ti))
+                        comp_succ[i].push_back(ti);
             }
-            if (depth >= hi)
-                continue;                          // cannot extend further
+            // The unique operand of `ops` that is a derivative target of component i,
+            // or null if none / more than one (ambiguous).
+            auto derivative_of = [&](unsigned i, ptr_vector<expr> const& ops) -> expr* {
+                expr* hit = nullptr;
+                for (expr* op : ops)
+                    for (expr* ti : comp_succ[i])
+                        if (op == ti) {
+                            if (hit && hit != op) return nullptr;   // ambiguous
+                            hit = op;
+                            break;
+                        }
+                return hit;
+            };
 
-            // Joint transitions: cofactors of inter(st_0,...,st_{n-1}).  The engine
-            // prunes infeasible joint guards and yields the product successor as an
-            // re.inter in source order, which we decompose positionally.
             expr_ref P(st[0], m);
             for (unsigned i = 1; i < n; ++i)
                 P = re().mk_inter(P, st[i]);
@@ -378,19 +405,24 @@ namespace seq {
                 else {
                     ptr_vector<expr> ops;
                     flatten_inter(re(), t, ops);
-                    if (ops.size() != n) {         // engine collapsed the product: give up soundly
-                        undecided = true;
-                        continue;
-                    }
-                    for (unsigned i = 0; i < n; ++i) nst.push_back(ops[i]);
+                    nst.resize(n, nullptr);
+                    bool ok_assign = (ops.size() == n);
+                    for (unsigned i = 0; ok_assign && i < n; ++i)
+                        if (!(nst[i] = derivative_of(i, ops)))
+                            ok_assign = false;
+                    for (unsigned i = 0; ok_assign && i < n; ++i)      // require a bijection
+                        for (unsigned j = i + 1; j < n; ++j)
+                            if (nst[i] == nst[j]) ok_assign = false;
+                    if (!ok_assign) { collapsed = true; continue; }
                 }
                 for (expr* s : nst) m_pin.push_back(s);
                 m_pin.push_back(g);
-                if (visited.insert(key(nst, depth + 1)).second)
-                    nodes.push_back(node{ nst, depth + 1, cur, g });
+                out.push_back({ nst, g });
             }
-        }
-        return undecided ? l_undef : l_false;
+            return true;
+        };
+        lbool r = bounded_search<svector<expr*>>(m, start, lo, hi, key_of, accept, expand, seq);
+        return (r == l_false && collapsed) ? l_undef : r;
     }
 
     bool split_manager::test_intersect(vector<cont_regex> const& crs) {
@@ -421,10 +453,7 @@ namespace seq {
         m_N = cr.second.get();
         bool ok = true;
         bool membership = (m_N == nullptr) || sm.re().is_epsilon(m_N);
-        if (membership)
-            sm.live_states(m_R, m_mids, ok);
-        else
-            sm.reaching_states(m_R, m_N, m_mids, ok);
+        sm.reachable_states(m_R, membership ? nullptr : m_N, m_mids, ok);
         if (!ok) { m_failed = true; m_mids.reset(); }
     }
 

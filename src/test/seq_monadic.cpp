@@ -57,6 +57,9 @@ class seq_monadic_test {
         return expr_ref(re().mk_range(u.str.mk_string(zstring(sl)), u.str.mk_string(zstring(sh))), m);
     }
     expr_ref loop(expr* r, unsigned lo, unsigned hi) { return expr_ref(re().mk_loop(r, lo, hi), m); }
+    expr_ref plus(expr* a) { return cat(a, star(a)); }
+    expr_ref inter2(expr* a, expr* b) { return expr_ref(re().mk_inter(a, b), m); }
+    expr_ref eps() { return expr_ref(re().mk_epsilon(m_str), m); }
 
     static char const* s(lbool l) { return l == l_true ? "sat" : l == l_false ? "unsat" : "undef"; }
 
@@ -76,11 +79,38 @@ class seq_monadic_test {
         return m_sm.intersect(crs, lo, hi, wit);
     }
 
+    // intersection non-emptiness of two reach continuation regexes (drives the
+    // n>=2 product search / positional-independent operand recovery)
+    lbool reach2(expr* R1, expr* N1, expr* R2, expr* N2, unsigned lo, unsigned hi) {
+        vector<seq::cont_regex> crs;
+        crs.push_back(seq::cont_regex(expr_ref(R1, m), expr_ref(N1, m)));
+        crs.push_back(seq::cont_regex(expr_ref(R2, m), expr_ref(N2, m)));
+        expr_ref_vector wit(m);
+        return m_sm.intersect(crs, lo, hi, wit);
+    }
+
     void check(char const* name, lbool got, lbool expected) {
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+    }
+
+    // Enumerate the midpoints of sigma(r); report count and whether the shared
+    // midpoint of each split pair agrees (left.second == right.first).
+    unsigned split_count(expr* r, bool& failed, bool& consistent) {
+        seq::split sp = m_sm.mk_split(r);
+        seq::split_iterator it = sp.begin();
+        failed = it.failed();
+        consistent = true;
+        unsigned count = 0;
+        for (; it != sp.end(); ++it) {
+            seq::split_pair pr = *it;
+            if (pr.first.second.get() != pr.second.first.get())
+                consistent = false;
+            ++count;
+        }
+        return count;
     }
 
 public:
@@ -115,6 +145,28 @@ public:
         check("L3-03 nested complement   ",
               inter({ comp(cat(star(a), comp(cat(star(b), comp(star(ab)))))) }, 0, UINT_MAX), l_true);
 
+        // concrete words
+        check("abc & abc                 ", inter({ word("abc"), word("abc") }, 0, UINT_MAX), l_true);
+        check("abc & abd                 ", inter({ word("abc"), word("abd") }, 0, UINT_MAX), l_false);
+        check("abc & S*cS*               ", inter({ word("abc"), cat(sig, cat(word("c"), sig)) }, 0, UINT_MAX), l_true);
+        check("abc & S*zS*               ", inter({ word("abc"), cat(sig, cat(word("z"), sig)) }, 0, UINT_MAX), l_false);
+        // epsilon vs star / plus
+        check("eps & a*                  ", inter({ eps(), star(a) }, 0, UINT_MAX), l_true);
+        check("eps & a+                  ", inter({ eps(), plus(a) }, 0, UINT_MAX), l_false);
+        check("a+ & a*                   ", inter({ plus(a), star(a) }, 0, UINT_MAX), l_true);
+        // unions
+        check("(a|b) & (b|c)             ", inter({ alt(a, b), alt(b, word("c")) }, 0, UINT_MAX), l_true);
+        check("(a|b) & (c|d)             ", inter({ alt(a, b), alt(word("c"), word("d")) }, 0, UINT_MAX), l_false);
+        // complement fundamentals
+        check("~empty (= S*)             ", inter({ comp(none()) }, 0, UINT_MAX), l_true);
+        check("~(a*)                     ", inter({ comp(star(a)) }, 0, UINT_MAX), l_true);
+        check("(a|b)* & ~((a|b)*)        ", inter({ star(alt(a, b)), comp(star(alt(a, b))) }, 0, UINT_MAX), l_false);
+        check("a* & ~(a*)                ", inter({ star(a), comp(star(a)) }, 0, UINT_MAX), l_false);
+        check("~(a*) | a*  (= S*)        ", inter({ alt(comp(star(a)), star(a)) }, 0, UINT_MAX), l_true);
+        // three-way intersections
+        check("a* & (a|b)* & S*aS*       ", inter({ star(a), star(alt(a, b)), cat(sig, cat(a, sig)) }, 0, UINT_MAX), l_true);
+        check("a* & b* & S*aS*           ", inter({ star(a), star(b), cat(sig, cat(a, sig)) }, 0, UINT_MAX), l_false);
+
         std::cout << "=== split_manager::intersect (length bounds) ===\n";
         check("[0-9]+  length 0..0       ", inter({ digitp }, 0, 0), l_false);
         check("[0-9]+  length 1..1       ", inter({ digitp }, 1, 1), l_true);
@@ -122,6 +174,22 @@ public:
         check("a* & b* length 3..3       ", inter({ star(a), star(b) }, 3, 3), l_false);
         check("[0-9]{2} & [0-9]+  len 2  ", inter({ loop(rng('0','9'), 2, 2), digitp }, 2, 2), l_true);
         check("[0-9]{2}           len 3  ", inter({ loop(rng('0','9'), 2, 2) }, 3, 3), l_false);
+        check("(a|b)              len 1  ", inter({ alt(a, b) }, 1, 1), l_true);
+        check("(a|b)              len 2  ", inter({ alt(a, b) }, 2, 2), l_false);
+        check("abc                len 3  ", inter({ word("abc") }, 3, 3), l_true);
+        check("abc                len 2  ", inter({ word("abc") }, 2, 2), l_false);
+        check("a*                 len 0  ", inter({ star(a) }, 0, 0), l_true);
+        // parity / counting via periodic stars
+        check("(aa)*              len 2  ", inter({ star(cat(a, a)) }, 2, 2), l_true);
+        check("(aa)*              len 3  ", inter({ star(cat(a, a)) }, 3, 3), l_false);
+        check("(aa)*              len 4  ", inter({ star(cat(a, a)) }, 4, 4), l_true);
+        check("(aa)* & (aaa)*     len 6  ", inter({ star(cat(a, a)), star(cat(a, cat(a, a))) }, 6, 6), l_true);
+        check("(aa)* & (aaa)*     len 3  ", inter({ star(cat(a, a)), star(cat(a, cat(a, a))) }, 3, 3), l_false);
+        // length must both admit an 'a' and stay empty-word: contradiction at len 0
+        check("a* & S*aS*         len 0  ", inter({ star(a), cat(sig, cat(a, sig)) }, 0, 0), l_false);
+        check("[0-9]{2,4}         len 3  ", inter({ loop(rng('0','9'), 2, 4) }, 3, 3), l_true);
+        check("[0-9]{2,4}         len 5  ", inter({ loop(rng('0','9'), 2, 4) }, 5, 5), l_false);
+        check("[0-9]{2,4}         len 1  ", inter({ loop(rng('0','9'), 2, 4) }, 1, 1), l_false);
 
         std::cout << "=== split_manager::intersect (reach, general N) ===\n";
         {
@@ -133,6 +201,31 @@ public:
             // <a.Sigma*, Sigma*>: reached exactly after consuming one element
             check("<a.S*,S*>            len1 ", reach(aSig, sig, 1, 1), l_true);
             check("<a.S*,S*>            len0 ", reach(aSig, sig, 0, 0), l_false);
+            // <S*,S*> via a self-loop: still on target after one step
+            check("<S*,S*>              len1 ", reach(sig, sig, 1, 1), l_true);
+            // <a*,a*>: a* is its own 'a'-derivative (fixpoint state)
+            check("<a*,a*>              len0 ", reach(star(a), star(a), 0, 0), l_true);
+            check("<a*,a*>              len1 ", reach(star(a), star(a), 1, 1), l_true);
+            // <empty,empty>: the empty word already sits on the target
+            check("<empty,empty>        len0 ", reach(none(), none(), 0, 0), l_true);
+            // <a.S*, S*>: after the first 'a' the state is the S* fixpoint, so it
+            // stays on target for every further element (reachable at len2 too)
+            check("<a.S*,S*>            len2 ", reach(aSig, sig, 2, 2), l_true);
+
+            // --- n>=2 product search ---
+            expr_ref c = word("c");
+            // both <S*,S*>: on target already at depth 0 (accept before expansion)
+            check("<S*,S*>&<S*,S*>      len0 ", reach2(sig, sig, sig, sig, 0, 0), l_true);
+            // <a.S*,S*> & <b.S*,S*>: no single word reaches both targets (first
+            // element cannot be both a and b) -> empty
+            check("<a.S*,S*>&<b.S*,S*>       ", reach2(cat(a, sig), sig, cat(b, sig), sig, 0, UINT_MAX), l_false);
+            // Distinct, incomparable component derivatives (b.S* vs c.S*) force the
+            // joint target inter(b.S*, c.S*) to keep BOTH operands -> exercises the
+            // identity-based operand-to-component recovery (order independence).
+            expr_ref R1 = cat(a, cat(b, sig));    // a.b.S*  -> d_a = b.S*
+            expr_ref R2 = cat(a, cat(c, sig));    // a.c.S*  -> d_a = c.S*
+            check("<a.b.S*,b.S*>&<a.c.S*,c.S*> l1", reach2(R1, cat(b, sig), R2, cat(c, sig), 1, 1), l_true);
+            check("<a.b.S*,b.S*>&<a.c.S*,c.S*> l0", reach2(R1, cat(b, sig), R2, cat(c, sig), 0, 0), l_false);
         }
 
         std::cout << "=== split_manager::test_intersect ===\n";
@@ -142,6 +235,18 @@ public:
             bad.push_back(m_sm.embed(none()));
             check("test_intersect Sigma*     ", m_sm.test_intersect(good) ? l_true : l_false, l_true);
             check("test_intersect empty      ", m_sm.test_intersect(bad) ? l_true : l_false, l_false);
+
+            // one-sided: a+ and b+ are disjoint but neither is *syntactically*
+            // empty, so the cheap check does NOT detect it (allowed false positive)
+            vector<seq::cont_regex> disjoint;
+            disjoint.push_back(m_sm.embed(plus(a)));
+            disjoint.push_back(m_sm.embed(plus(b)));
+            check("test_intersect a+,b+      ", m_sm.test_intersect(disjoint) ? l_true : l_false, l_true);
+
+            // concat(empty, a) normalizes to the empty regex → detected
+            vector<seq::cont_regex> normempty;
+            normempty.push_back(m_sm.embed(cat(none(), a)));
+            check("test_intersect empty-concat", m_sm.test_intersect(normempty) ? l_true : l_false, l_false);
         }
 
         std::cout << "=== split midpoint iterator ===\n";
@@ -158,6 +263,28 @@ public:
             }
             check("(a|b)* split not failed   ", failed ? l_true : l_false, l_false);
             check("(a|b)* has >=1 midpoint   ", count > 0 ? l_true : l_false, l_true);
+        }
+        {
+            bool failed, consistent;
+            unsigned c;
+            // empty regex: no live states, so no midpoints (and not a failure)
+            c = split_count(none(), failed, consistent);
+            check("split(empty) not failed   ", failed ? l_true : l_false, l_false);
+            check("split(empty) 0 midpoints  ", c == 0 ? l_true : l_false, l_true);
+            // finite word: at least one live midpoint, all pairs consistent
+            c = split_count(word("a"), failed, consistent);
+            check("split(a) not failed       ", failed ? l_true : l_false, l_false);
+            check("split(a) >=1 midpoint     ", c >= 1 ? l_true : l_false, l_true);
+            check("split(a) consistent       ", consistent ? l_true : l_false, l_true);
+            // epsilon: the (single, nullable) start state is a live midpoint
+            c = split_count(eps(), failed, consistent);
+            check("split(eps) not failed     ", failed ? l_true : l_false, l_false);
+            check("split(eps) >=1 midpoint   ", c >= 1 ? l_true : l_false, l_true);
+            // ground finite word a.b.c (concat form): several live midpoints
+            c = split_count(cat(a, cat(b, word("c"))), failed, consistent);
+            check("split(a.b.c) not failed   ", failed ? l_true : l_false, l_false);
+            check("split(a.b.c) >=1 midpoint ", c >= 1 ? l_true : l_false, l_true);
+            check("split(a.b.c) consistent   ", consistent ? l_true : l_false, l_true);
         }
 
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("

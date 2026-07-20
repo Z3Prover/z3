@@ -128,6 +128,10 @@ namespace seq {
         seq_util&      u() const { return m_rw.u(); }
         seq_util::rex& re() const { return m_rw.u().re; }
 
+        // Tri-state nullability of a state: l_true / l_false when the derivative
+        // engine decides it, l_undef when it cannot.
+        lbool nullable(expr* s);
+
         // Intern a state into the global graph (recycles an existing global state),
         // computing its nullability lazily.  Returns its global id.
         unsigned intern_state(expr* s);
@@ -143,11 +147,11 @@ namespace seq {
         void build_graph(expr* R, ptr_vector<expr>& states,
                          vector<svector<unsigned>>& succ, bool_vector& maybe_null, bool& ok);
 
-        // Live reachable derivative states of R (can reach a nullable state).
-        void live_states(expr* R, ptr_vector<expr>& out, bool& ok);
-
-        // Reachable derivative states of R from which the state N is reachable.
-        void reaching_states(expr* R, expr* N, ptr_vector<expr>& out, bool& ok);
+        // Derivative states reachable from R that can still reach an accepting
+        // state.  `accept_target` == null selects membership acceptance (the seed
+        // is the nullable states); otherwise it is reach acceptance (the seed is
+        // the state structurally equal to `accept_target`, i.e. N).
+        void reachable_states(expr* R, expr* accept_target, ptr_vector<expr>& out, bool& ok);
 
         // Non-emptiness of an all-membership intersection: BFS over the normalized
         // product state inter(R_0,...,R_{n-1}) with an is_nullable acceptance test.
