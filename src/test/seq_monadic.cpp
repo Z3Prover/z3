@@ -79,6 +79,16 @@ class seq_monadic_test {
         return m_sm.intersect(crs, lo, hi, wit);
     }
 
+    // intersection non-emptiness of two reach continuation regexes (drives the
+    // n>=2 product search / positional-independent operand recovery)
+    lbool reach2(expr* R1, expr* N1, expr* R2, expr* N2, unsigned lo, unsigned hi) {
+        vector<seq::cont_regex> crs;
+        crs.push_back(seq::cont_regex(expr_ref(R1, m), expr_ref(N1, m)));
+        crs.push_back(seq::cont_regex(expr_ref(R2, m), expr_ref(N2, m)));
+        expr_ref_vector wit(m);
+        return m_sm.intersect(crs, lo, hi, wit);
+    }
+
     void check(char const* name, lbool got, lbool expected) {
         bool ok = (got == expected);
         if (!ok) ++m_fail;
@@ -201,6 +211,21 @@ public:
             // <a.S*, S*>: after the first 'a' the state is the S* fixpoint, so it
             // stays on target for every further element (reachable at len2 too)
             check("<a.S*,S*>            len2 ", reach(aSig, sig, 2, 2), l_true);
+
+            // --- n>=2 product search ---
+            expr_ref c = word("c");
+            // both <S*,S*>: on target already at depth 0 (accept before expansion)
+            check("<S*,S*>&<S*,S*>      len0 ", reach2(sig, sig, sig, sig, 0, 0), l_true);
+            // <a.S*,S*> & <b.S*,S*>: no single word reaches both targets (first
+            // element cannot be both a and b) -> empty
+            check("<a.S*,S*>&<b.S*,S*>       ", reach2(cat(a, sig), sig, cat(b, sig), sig, 0, UINT_MAX), l_false);
+            // Distinct, incomparable component derivatives (b.S* vs c.S*) force the
+            // joint target inter(b.S*, c.S*) to keep BOTH operands -> exercises the
+            // identity-based operand-to-component recovery (order independence).
+            expr_ref R1 = cat(a, cat(b, sig));    // a.b.S*  -> d_a = b.S*
+            expr_ref R2 = cat(a, cat(c, sig));    // a.c.S*  -> d_a = c.S*
+            check("<a.b.S*,b.S*>&<a.c.S*,c.S*> l1", reach2(R1, cat(b, sig), R2, cat(c, sig), 1, 1), l_true);
+            check("<a.b.S*,b.S*>&<a.c.S*,c.S*> l0", reach2(R1, cat(b, sig), R2, cat(c, sig), 0, 0), l_false);
         }
 
         std::cout << "=== split_manager::test_intersect ===\n";
