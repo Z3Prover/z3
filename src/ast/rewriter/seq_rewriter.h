@@ -336,7 +336,7 @@ class seq_rewriter {
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()) :
         m_util(m), m_subset(m_util.re), m_split(*this), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m),
-        m_op_cache(m), m_es(m), 
+        m_op_cache(m), m_es(m),
         m_lhs(m), m_rhs(m) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
