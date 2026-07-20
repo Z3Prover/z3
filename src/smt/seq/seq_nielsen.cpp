@@ -29,13 +29,12 @@ NSB review:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_monadic.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
-#include "ast/rewriter/var_subst.h"
 #include "util/statistics.h"
 #include <algorithm>
 #include <cstdlib>
-#include <set>
 #include <stack>
 #include <unordered_map>
 #include <vector>
@@ -165,7 +164,7 @@ namespace seq {
                 SASSERT(d);
                 if (d->is_fail())
                     continue;   // ∇ can't start with c → infeasible split, drop
-                result[w++] = split_pair(result[i].m_d, d->get_expr(), m);
+                result[w++] = ::split_pair(result[i].m_d, d->get_expr(), m);
             }
             result.shrink(w);
         }
@@ -779,7 +778,7 @@ namespace seq {
         m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_a_rw(m),
         m_sk(m, m_rw), m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)), m_split_rw(sg.get_manager()), m_deriv_rw(sg.get_manager()),
-        m_partial_dfa_pin(sg.get_manager()) {
+        m_monadic_rw(sg.get_manager()), m_partial_dfa_pin(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -885,6 +884,10 @@ namespace seq {
             dealloc(st);
         }
         m_rf_states.reset();
+        // continuation-regex service: release its pinned derivative graph so a
+        // fresh problem starts with a clean cache (its pins would grow forever).
+        dealloc(m_monadic);
+        m_monadic = nullptr;
         m_nodes.reset();
         m_edges.reset();
         m_root = nullptr;
@@ -1582,7 +1585,6 @@ namespace seq {
             // predicate is not internalized automatically (see the analogous
             // gradient propagation in theory_nseq).
             expr_ref div(a.mk_divides(a.mk_int(stride), a.mk_sub(len, a.mk_int(min_len))), m);
-            m_rw(div);
             e->add_side_constraint(mk_constraint(div, dep));
         }
     }
@@ -3685,6 +3687,13 @@ namespace seq {
         if (!harvest_mode() && apply_regex_factorization(node))
             return ++m_stats.m_mod_regex_factorization, true;
 
+        // Priority 8a: MonadicSplit - continuation-regex intersection (seq_monadic):
+        // close the node if several memberships on the same sequence have a
+        // provably empty language intersection.  Sound one-way (conflict only);
+        // opt-in via smt.nseq.monadic_split.  (skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_monadic_split(node))
+            return ++m_stats.m_mod_monadic_split, true;
+
         // Priority 8b: ConstNielsen - char vs var (2 children)
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
@@ -5202,6 +5211,76 @@ namespace seq {
         return false;
     }
 
+    // -----------------------------------------------------------------------
+    // Modifier: apply_monadic_split  (continuation-regex intersection, seq_monadic)
+    //
+    // Uses the continuation-regex service in ast/rewriter/seq_monadic.h.  Several
+    // plain memberships  s ∈ R_1, …, s ∈ R_k  on the SAME left-hand sequence s
+    // are jointly satisfiable only if  L(R_1) ∩ … ∩ L(R_k) ≠ ∅.  split_manager
+    // decides emptiness of that intersection over one shared, globally cached
+    // Brzozowski-derivative graph, and — unlike apply_regex_factorization, which
+    // skips primitive memberships (x ∈ R with x a bare variable) — it also fires
+    // on those, catching groups that are only *jointly* empty.
+    //
+    // Only the sound direction is used:  seq_monadic::intersect returns l_false
+    // exactly when the intersection is provably empty (note the convention is the
+    // OPPOSITE of seq_regex::check_intersection_emptiness, where l_true = empty).
+    // On l_false the node is a regex conflict.  l_true (non-empty) and l_undef
+    // (STATE_CAP / undecidable nullability) fall through so the ordinary modifiers
+    // keep driving the node.  No witness is consumed (the module's witness
+    // extraction is not sound yet) and no child is ever created, so this rule can
+    // never introduce an unsound SAT.  Opt-in via smt.nseq.monadic_split.
+    // -----------------------------------------------------------------------
+    bool nielsen_graph::apply_monadic_split(nielsen_node* node) {
+        if (!m_monadic_split)
+            return false;
+
+        auto const& mems = node->str_mems();
+        const unsigned n = mems.size();
+        if (n < 2)
+            return false;   // need at least two memberships to form an intersection
+
+        if (!m_monadic)
+            m_monadic = alloc(seq::split_manager, m_monadic_rw);
+
+        // Group plain memberships by their (slicing-equal) left-hand sequence and
+        // test the joint language intersection of each group of size >= 2.
+        bool_vector done;
+        done.resize(n, false);
+        for (unsigned i = 0; i < n; ++i) {
+            str_mem const& mi = mems[i];
+            if (done[i] || !mi.is_plain())
+                continue;
+
+            vector<seq::cont_regex> crs;
+            crs.push_back(m_monadic->embed(mi.m_regex->get_expr()));
+            dep_tracker dep = mi.m_dep;
+            done[i] = true;
+            for (unsigned j = i + 1; j < n; ++j) {
+                str_mem const& mj = mems[j];
+                if (done[j] || !mj.is_plain() || !mi.m_str->similar(mj.m_str, m))
+                    continue;
+                crs.push_back(m_monadic->embed(mj.m_regex->get_expr()));
+                dep = m_dep_mgr.mk_join(dep, mj.m_dep);
+                done[j] = true;
+            }
+            if (crs.size() < 2)
+                continue;   // no sibling membership on the same sequence
+
+            expr_ref_vector wit(m);
+            const lbool r = m_monadic->intersect(crs, 0, UINT_MAX, wit);
+            if (r != l_false)
+                continue;   // non-empty (l_true) or undecided (l_undef): no conclusion
+
+            TRACE(seq, tout << "monadic split: empty intersection of " << crs.size()
+                            << " memberships on " << mem_pp(mi) << "\n");
+            node->set_general_conflict();
+            node->set_conflict(backtrack_reason::regex, dep);
+            return true;
+        }
+        return false;
+    }
+
     bool nielsen_graph::fire_gpower_intro(
         nielsen_node* node, str_eq const& eq,
         euf::snode const* var, euf::snode_vector const& ground_prefix_orig, const bool fwd) {
@@ -6372,7 +6451,10 @@ namespace seq {
     }
 
     constraint nielsen_graph::mk_constraint(expr *fml, dep_tracker const &dep) const {
-        return constraint(fml, dep, m);
+        // we need to rewrite e.g., division or <; otw. the integer solver will cry
+        expr_ref c(fml, m);
+        c = normalize_arith(m_rw, c);
+        return constraint(c, dep, m);
     }
 
     expr* nielsen_graph::get_power_exponent(euf::snode const* power) {
@@ -6902,6 +6984,7 @@ namespace seq {
         st.update("nseq mod view land",        m_stats.m_mod_view_land);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
         st.update("nseq mod regex fact",       m_stats.m_mod_regex_factorization);
+        st.update("nseq mod monadic split",    m_stats.m_mod_monadic_split);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
         st.update("nseq mod signature split",  m_stats.m_mod_signature_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);

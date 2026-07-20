@@ -60,6 +60,7 @@ namespace seq {
     class nielsen_graph;
     class seq_parikh;
     class seq_regex;  // forward declaration (defined in smt/seq/seq_regex.h)
+    class split_manager;  // continuation-regex service (defined in ast/rewriter/seq_monadic.h)
 
     std::string snode_label_html(euf::snode const* n,
         obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m, bool html_escape);
@@ -866,6 +867,7 @@ namespace seq {
         unsigned m_mod_view_land       = 0;
         unsigned m_mod_gpower_intr     = 0;
         unsigned m_mod_regex_factorization = 0;
+        unsigned m_mod_monadic_split   = 0;
         unsigned m_mod_const_nielsen   = 0;
         unsigned m_mod_regex_var_split = 0;
         unsigned m_mod_signature_split = 0;
@@ -943,6 +945,7 @@ namespace seq {
         bool                          m_parikh_enabled = true;
         bool                          m_signature_split = false;
         bool                          m_fine_wilf = false;
+        bool                          m_monadic_split = false;
         unsigned                      m_regex_factorization_threshold = 1;
         bool                          m_regex_factorization_eager = false;
         bool                          m_regex_dynamic_decomposition = true;
@@ -1003,6 +1006,15 @@ namespace seq {
         // across calls (a fresh seq_rewriter per consumed character was a
         // dominant simplification cost).
         seq_rewriter            m_deriv_rw;
+        // Dedicated rewriter backing the continuation-regex service used by
+        // apply_monadic_split.  Kept separate from m_split_rw / m_deriv_rw so its
+        // derivative caches never interleave with the suspended factorization
+        // iterators that reference those engines.
+        seq_rewriter            m_monadic_rw;
+        // Continuation-regex split / intersection service (seq_monadic).  Grows a
+        // shared, globally cached Brzozowski-derivative graph; allocated lazily on
+        // first use and released in reset().
+        seq::split_manager*     m_monadic = nullptr;
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
@@ -1184,7 +1196,9 @@ namespace seq {
         void set_signature_split(bool e) { m_signature_split = e; }
 
         void set_fine_wilf(bool e) { m_fine_wilf = e; }
-        
+
+        void set_monadic_split(bool e) { m_monadic_split = e; }
+
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
         void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
         void set_regex_dynamic_decomposition(bool e) { m_regex_dynamic_decomposition = e; }
@@ -1667,6 +1681,12 @@ namespace seq {
         // next split.  When the iterator is exhausted the membership's split
         // disjunction is refuted → the continuation node is a regex conflict.
         bool apply_regex_factorization(nielsen_node* node);
+
+        // continuation-regex intersection modifier (seq_monadic).  Detects a
+        // provably empty intersection of several plain memberships sharing the
+        // same left-hand sequence and reports the node as a regex conflict.
+        // Sound one-way only: never creates a child, never claims SAT.
+        bool apply_monadic_split(nielsen_node* node);
 
         // Build a suspended factorization (boundary head/tail + split iterator)
         // for `mem`.  Returns null if the regex shape is unsupported (the engine

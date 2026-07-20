@@ -134,8 +134,6 @@ namespace smt {
             return alloc(expr_wrapper_proc, to_app(e));
         }
 
-        std::cout << mk_pp(n->get_expr(), m) << std::endl;
-
         // For nth_u (underspecified nth): the Nielsen character-peel /
         // regex-if-split records the chosen character as a relevant
         // equality literal (e.g. (= (seq.nth_u x 0) (_ Char 65))), so the
@@ -441,7 +439,6 @@ namespace smt {
         m_ctx.get_rewriter()(e);
         if (a.is_numeral(e, val))
             return val;
-
 
         bool has_val = get_arith_value(_e, val);
         CTRACE(seq, !has_val, tout << "no value associated with " << mk_pp(e, m) << "\n";);

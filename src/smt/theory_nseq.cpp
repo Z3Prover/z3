@@ -1020,6 +1020,7 @@ namespace smt {
                 m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_fine_wilf(get_fparams().m_nseq_fine_wilf);
+                m_nielsen.set_monadic_split(get_fparams().m_nseq_monadic_split);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
                 m_nielsen.set_regex_factorization_eager(get_fparams().m_nseq_regex_factorization_eager);
                 m_nielsen.set_regex_dynamic_decomposition(get_fparams().m_nseq_regex_dynamic_decomposition);
@@ -1169,7 +1170,7 @@ namespace smt {
         bool all_sat = true;
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (const auto& c : m_nielsen.sat_node()->constraints()) {
-            std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
+            // std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
             // Ensure Nielsen assumptions participate in SAT search instead of
@@ -2182,8 +2183,8 @@ namespace smt {
                     expr_ref len_minus_l(m_autil.mk_sub(len_expr, l_expr), m);
                     expr_ref not_divides(m.mk_not(m_autil.mk_divides(g_expr, len_minus_l)), m);
                     prop_expr = m.mk_or(len_lt_l, not_divides);
-                    m_th_rewriter(prop_expr);  // the divisibility predicate needs to be rewritten as it won't happen
-                    // automatically
+                    m_th_rewriter(prop_expr);
+                    // the divisibility predicate needs to be rewritten as it won't happen automatically
 
                     m_gradient_cache[s] = 1;  // Reset gradient cache
                 }
