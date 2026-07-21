@@ -1522,15 +1522,85 @@ void core::set_use_nra_model(bool m) {
         m_use_nra_model = m;        
     }
 }
+
     
-void core::propagate() {
-#if Z3DEBUG
-    flet f(lra.validate_blocker(), true);
-#endif
-    clear();
-    m_monomial_bounds.unit_propagate();
+bool core::propagate() {
+    clear();   
+    bool propagated = m_monomial_bounds.tighten_lp_bounds();
+    propagated |= optimize_nl_bounds();
     m_monics_with_changed_bounds.reset();
+    return propagated;
 }
+
+/**
+   \brief Tighten the bounds of variables occurring in nonlinear monomials by
+   maximizing/minimizing them over the LP tableau (analogous to theory_arith's
+   max_min_nl_vars). The tighter implied bounds, each carrying an LP explanation,
+   let the subsequent horner/cross-nested interval evaluation exclude zero and
+   detect a conflict that would otherwise be missed with only the propagated
+   bounds.
+*/
+bool core::optimize_nl_bounds() {
+    if (!params().arith_nl_optimize_bounds())
+        return false;
+    if (!lra.is_feasible())
+        return false;
+
+    // Reconcile the core solver's x/inf_heap with any pending bound changes
+    // before issuing the raw maximize solves. maximize_term_on_tableau calls
+    // solve() directly, which asserts inf_heap_is_correct() on entry; the
+    // incremental propagation path can leave x stale relative to the current
+    // bounds, so force one feasibility pass to restore the invariant.
+    if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE)
+        return false;
+
+    // Collect improved bounds first (each find_improved_bound maximizes a term
+    // over the *unchanged* constraint set, so all improvements are valid implied
+    // bounds), then apply them together and re-establish feasibility once.
+    // Interleaving update_column_type_and_bound between the maximize calls
+    // corrupts the core solver's x/inf_heap (maximize_term_on_tableau issues a
+    // raw solve() that does not reconcile pending bound changes).
+    struct improved_bound { lpvar j; lp::lconstraint_kind kind; rational bound; u_dependency* dep; };
+    vector<improved_bound> improvements;
+    auto collect = [&](lpvar j) {
+        if (active_var_set_contains(j))
+            return;
+        insert_to_active_var_set(j);
+        if (lra.column_is_fixed(j))
+            return;
+        for (bool is_lower : { true, false }) {
+            if (!lra.is_feasible())
+                return;
+            rational bound;
+            u_dependency* dep = lra.find_improved_bound(j, is_lower, bound);
+            if (!dep)
+                continue;
+            auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+            improvements.push_back({ j, kind, bound, dep });
+        }
+    };
+
+    // Optimize bounds on every leaf variable that participates in a monomial,
+    // mirroring solver=2's max_min_nl_vars(): it runs LP max/min over all
+    // nonlinear variables before the cross-nested/horner check. Restricting the
+    // set (e.g. to rows of monomials currently flagged for refinement) makes the
+    // cross-nested conflict seed-sensitive and is lost on most seeds.
+    clear_active_var_set();
+    for (auto const& m : m_emons) {
+        collect(m.var());
+        for (lpvar k : m.vars())
+            collect(k);
+    }
+
+    if (improvements.empty())
+        return false;
+
+    for (auto const& ib : improvements)
+        lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
+    lra.find_feasible_solution();
+    return true;
+}
+
 
 void core::simplify() {
     // in-processing simplifiation can go here, such as bounds improvements.

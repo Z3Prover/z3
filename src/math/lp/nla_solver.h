@@ -39,7 +39,7 @@ namespace nla {
         void pop(unsigned scopes);
         bool need_check();
         lbool check(unsigned level);
-        void propagate();
+        bool propagate();
         void simplify() { m_core->simplify(); }
         lbool check_power(lpvar r, lpvar x, lpvar y);
         bool is_monic_var(lpvar) const;

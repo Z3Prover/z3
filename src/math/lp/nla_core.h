@@ -118,6 +118,8 @@ class core {
     bool is_pseudo_linear(monic const& m) const;    
     void refine_pseudo_linear(monic const& m);
 
+    bool optimize_nl_bounds();
+
     std::ostream& display_constraint_smt(std::ostream& out, unsigned id, lp::lar_base_constraint const& c) const;
     std::ostream& display_declarations_smt(std::ostream& out) const;
 
@@ -406,7 +408,7 @@ public:
 
     bool  no_lemmas_hold() const;
 
-    void propagate();
+    bool propagate();
 
     void simplify();
     

@@ -1349,7 +1349,6 @@ public:
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
 
-            
             // q = 0 or p = (p mod q) + q * (p div q)
             // q = 0 or (p mod q) >= 0
             // q >= 0 or (p mod q) + q <= -1
@@ -1746,6 +1745,7 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
+        propagate_nla(); 
         if (!lp().is_feasible() || lp().has_changed_columns()) 
             is_sat = make_feasible();
         final_check_status st = FC_DONE;
@@ -2126,7 +2126,6 @@ public:
         default:
             UNREACHABLE();
         }
-        TRACE(arith, tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
         expr_ref atom(m);
         // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
         // then term is used instead of ineq.m_term
@@ -2135,6 +2134,7 @@ public:
         else 
             // create term >= 0 (or term <= 0)
             atom = mk_bound(ineq.term(), ineq.rs(), is_lower);
+        TRACE(arith, tout << "is_lower: " << is_lower << " pos " << pos << " " << atom << "\n";);
         return literal(ctx().get_bool_var(atom), pos);
     }    
 
@@ -2265,7 +2265,6 @@ public:
     bool propagate_core() {
         m_model_is_initialized = false;
         flush_bound_axioms();
-        propagate_nla(); 
         if (ctx().inconsistent())
             return true;
         if (!can_propagate_core()) 
@@ -2329,12 +2328,14 @@ public:
         return true;            
     }
 
-    void propagate_nla() {
+    bool propagate_nla() {
+        bool propagated = false;
         if (m_nla) {
-            m_nla->propagate();
+            propagated = m_nla->propagate() || propagated;
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();
         }
+        return propagated;
     }
 
     void add_equality(lpvar j, rational const& k, lp::explanation const& exp) {

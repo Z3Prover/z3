@@ -25,10 +25,11 @@ namespace nla {
 // uncomment to enable:
 //        c->lra.m_fixed_var_eh = fixed_eh;
     }
-
+    
+   
     void monomial_bounds::propagate() {
-        for (lpvar v : c().m_to_refine) {
-            propagate(c().emon(v));
+        for (auto v : c().m_to_refine) {
+            propagate(c().emon(v), false);
             if (add_lemma()) 
                 break;
         }
@@ -115,7 +116,8 @@ namespace nla {
             lemma |= ineq(v, cmp, upper); 
             TRACE(nla_solver, dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
             propagated = true;           
-        }
+        }    
+        
         if (should_propagate_lower(range, v, 1)) {
             auto const& lower = dep.lower(range);
             auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
@@ -151,28 +153,7 @@ namespace nla {
         if (p > 1)
             bound = power(bound, p);
         return bound > upper;
-    }
-
-    /**
-     * Ensure that bounds are integral when the variable is integer.
-     */
-    void monomial_bounds::propagate_bound(lpvar v, lp::lconstraint_kind cmp, rational const& q, u_dependency* d) {
-        SASSERT(cmp != llc::EQ && cmp != llc::NE);
-        if (!c().var_is_int(v))
-            c().lra.update_column_type_and_bound(v, cmp, q, d);
-        else if (q.is_int()) {
-            if (cmp == llc::GT)
-                c().lra.update_column_type_and_bound(v, llc::GE, q + 1, d);
-            else if(cmp == llc::LT)
-                c().lra.update_column_type_and_bound(v, llc::LE, q - 1, d);
-            else
-                c().lra.update_column_type_and_bound(v, cmp, q, d);
-        }
-        else if (cmp == llc::GE || cmp == llc::GT) 
-            c().lra.update_column_type_and_bound(v, llc::GE, ceil(q), d);
-        else
-            c().lra.update_column_type_and_bound(v, llc::LE, floor(q), d);
-    }
+    }  
 
 
     /**
@@ -284,19 +265,27 @@ namespace nla {
      * If the value of v is outside of mi / product_of_other, add a bounds lemma.
      * If the value of m.var() is outside of product_of_all_vars, add a bounds lemma.
      */
-    bool monomial_bounds::propagate(monic const& m) {
+    bool monomial_bounds::propagate(monic const& m, bool tighten_lp) {
         unsigned num_free, power;
         lpvar free_var;
         analyze_monomial(m, num_free, free_var, power);
         bool do_propagate_up   = num_free == 0;
         bool do_propagate_down = !is_free(m.var()) && num_free <= 1;
-        if (!do_propagate_up && !do_propagate_down)
+        IF_VERBOSE(10, verbose_stream() << "monomial_bounds " << do_propagate_up << " " << do_propagate_down << " " << m
+                                       << "\n";);
+        if (!do_propagate_up && !do_propagate_down)             
             return false;
+        
         scoped_dep_interval product(dep);
         scoped_dep_interval vi(dep), mi(dep);
         scoped_dep_interval other_product(dep);
         var2interval(m.var(), mi);
         dep.set_value(product, rational::one());
+        // Minimal justification for 'product >= 0': an even power v^{2k} is
+        // nonnegative regardless of the bounds on v, so it contributes no
+        // dependency. 'product_is_nonneg' stays true while every factor seen so
+        // far is >= 0 (hence the whole product is >= 0).
+        bool has_even_power = false;
         for (unsigned i = 0; i < m.size(); ) {
             lpvar v = m.vars()[i];
             ++i;
@@ -304,21 +293,45 @@ namespace nla {
             var2interval(v, vi);
             dep.power<dep_intervals::with_deps>(vi, power, vi);            
 
+            if ((power & 1) == 0) 
+                has_even_power = true;            
+
             if (do_propagate_down && (num_free == 0 || free_var == v)) {
                 dep.set<dep_intervals::with_deps>(other_product, product);
                 compute_product(i, m, other_product);
-                if (propagate_down(m, mi, v, power, other_product))
+                if (!tighten_lp && propagate_down(m, mi, v, power, other_product))
                     return true;
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
+        if (has_even_power && dep.is_ge_0(product)) {
+            scoped_dep_interval reduced_product(dep);
+            for (unsigned i = 0; i < m.size();) {
+                lpvar v = m.vars()[i];
+                ++i;
+                for (power = 1; i < m.size() && v == m.vars()[i]; ++i, ++power)
+                    ;
+                if ((power & 1) == 0)
+                    continue;
+
+                var2interval(v, vi);
+                dep.power<dep_intervals::with_deps>(vi, power, vi);
+                dep.mul<dep_intervals::with_deps>(reduced_product, vi, reduced_product);
+            }
+            dep.set_lower_dep(product, dep.get_lower_dep(reduced_product));
+        }
         if (do_propagate_down && c().params().arith_nl_monomial_sandwich() &&
+            !tighten_lp &&
             propagate_shared_factor(m))
             return true;
-        if (c().params().arith_nl_monomial_binomial_sign() &&
+        if (c().params().arith_nl_monomial_binomial_sign() && !tighten_lp &&
             propagate_binomial_sign(m))
             return true;
-        return do_propagate_up && propagate_value(product, m.var());
+        if (!do_propagate_up)
+            return false;
+        if (tighten_lp)
+            return tighten_lp_bound(product, m.var(), 1);
+        return propagate_value(product, m.var());
     }
 
     bool monomial_bounds::propagate_down(monic const& m, dep_interval& mi, lpvar v, unsigned power, dep_interval& product) {
@@ -368,17 +381,18 @@ namespace nla {
         }
     }
 
-    void monomial_bounds::unit_propagate() {        
+    bool monomial_bounds::unit_propagate() {        
+        bool propagated = false;
         for (lpvar v : c().m_monics_with_changed_bounds) {
             if (!c().is_monic_var(v))
                 continue;
             monic& m = c().emon(v);
-            unit_propagate(m);
-            if (add_lemma()) 
-                break;
-            if (c().m_conflicts > 0) 
+            if (unit_propagate(m))
+                propagated = true;
+            if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
                 break;
         }   
+        return propagated;
     }
 
     bool monomial_bounds::add_lemma() {
@@ -391,27 +405,30 @@ namespace nla {
         return true;
     }
 
-    void monomial_bounds::unit_propagate(monic & m) {
+    bool monomial_bounds::unit_propagate(monic & m) {
         if (m.is_propagated())
-            return;
+            return false;
         lpvar w, fixed_to_zero;
 
         if (!is_linear(m, w, fixed_to_zero)) 
-            return;
+            return false;
 
         c().emons().set_propagated(m);
 
+        bool propagated = false;
         if (fixed_to_zero != null_lpvar) {
-            propagate_fixed_to_zero(m, fixed_to_zero);
+            propagated = propagate_fixed_to_zero(m, fixed_to_zero);
         } 
         else {
             rational k = fixed_var_product(m, w);
             if (w == null_lpvar)
-                propagate_fixed(m, k);
+                propagated = propagate_fixed(m, k);
             else
-                propagate_nonfixed(m, k, w);
+                propagated = propagate_nonfixed(m, k, w);
         }
-        ++c().lra.settings().stats().m_nla_propagate_eq;
+        if (propagated)
+            ++c().lra.settings().stats().m_nla_propagate_eq;
+        return propagated;
     }
 
     lp::explanation monomial_bounds::get_explanation(u_dependency* dep) {
@@ -423,25 +440,31 @@ namespace nla {
         return exp;
     }
     
-    void monomial_bounds::propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero) {
+    bool monomial_bounds::propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero) {
+        if (c().var_is_fixed_to_zero(m.var()))
+            return false;
         auto* dep = c().lra.get_bound_constraint_witnesses_for_column(fixed_to_zero);
         TRACE(nla_solver, tout << "propagate fixed " << m << " =  0, fixed_to_zero = " << fixed_to_zero << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, rational(0), dep);
         
         // propagate fixed equality
         c().add_fixed_equality(m.var(), rational(0), get_explanation(dep));
+        return true;
     }
 
-    void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
+    bool monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
+        if (c().var_is_fixed(m.var()) && c().get_lower_bound(m.var()) == k)
+            return false;
         auto* dep = explain_fixed(m, k);
         TRACE(nla_solver, tout << "propagate fixed " << m << " = " << k << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
         
         // propagate fixed equality
         c().add_fixed_equality(m.var(), k, get_explanation(dep));
+        return true;
     }
 
-    void monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
+    bool monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
         coeffs.push_back({-k, w});
         coeffs.push_back({rational::one(), m.var()});
@@ -453,6 +476,7 @@ namespace nla {
         if (k == 1) {
             c().add_equality(m.var(), w, get_explanation(dep));
         }
+        return true;
     }
 
     u_dependency* monomial_bounds::explain_fixed(monic const& m, rational const& k) {
@@ -696,6 +720,84 @@ namespace nla {
         };
 
         return try_anchor(f1, f0) || try_anchor(f0, f1);
+    }
+
+      bool monomial_bounds::tighten_lp_upper_bound(dep_interval const &range, lpvar v, unsigned p) {
+        if (dep.upper_is_inf(range))
+            return false;
+        if (p > 1)
+            return false;  // power > 1 not implemented yet
+        auto const& upper = dep.upper(range);
+        if (c().has_upper_bound(v)) {
+            rational ub(c().get_upper_bound(v));
+            if (p > 1)
+                ub = power(ub, p);
+            if (upper >= ub)
+                return false;
+        }
+        auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
+        propagate_lp_bound(v, cmp, upper, dep.get_upper_dep(range));
+        return true;
+    }
+
+    bool monomial_bounds::tighten_lp_lower_bound(dep_interval const &range, lpvar v, unsigned p) {
+        if (dep.lower_is_inf(range))
+            return false;
+        if (p > 1)
+            return false;  // power > 1 not implemented yet
+        auto const& lower = dep.lower(range);
+        if (c().has_lower_bound(v)) {
+            rational lb(c().get_lower_bound(v));
+            if (p > 1)
+                lb = power(lb, p);
+            if (lower <= lb)
+                return false;
+        }
+        auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
+        propagate_lp_bound(v, cmp, lower, dep.get_lower_dep(range));
+        return true;
+    }
+
+    /**
+     * Ensure that bounds are integral when the variable is integer.
+     */
+    void monomial_bounds::propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
+        SASSERT(cmp != llc::EQ && cmp != llc::NE);
+        IF_VERBOSE(1, verbose_stream() << "propagate_lp_bound: v=" << v << " cmp=" << cmp << " q=" << q << "\n";);
+        if (!c().var_is_int(v))
+            c().lra.update_column_type_and_bound(v, cmp, q, d);
+        else if (q.is_int()) {
+            if (cmp == llc::GT)
+                c().lra.update_column_type_and_bound(v, llc::GE, q + 1, d);
+            else if (cmp == llc::LT)
+                c().lra.update_column_type_and_bound(v, llc::LE, q - 1, d);
+            else
+                c().lra.update_column_type_and_bound(v, cmp, q, d);
+        }
+        else if (cmp == llc::GE || cmp == llc::GT)
+            c().lra.update_column_type_and_bound(v, llc::GE, ceil(q), d);
+        else
+            c().lra.update_column_type_and_bound(v, llc::LE, floor(q), d);
+    }
+
+    bool monomial_bounds::tighten_lp_bound(dep_interval const &range, lpvar v, unsigned power) {
+        bool propagated = false;
+        if (tighten_lp_upper_bound(range, v, power))
+            propagated = true;
+        if (tighten_lp_lower_bound(range, v, power))
+            propagated = true;
+        return propagated;
+    }
+       
+    bool monomial_bounds::tighten_lp_bounds() {
+        bool new_bound = false;
+        for (auto &m : c().emons()) 
+            if (propagate(m, true))
+                new_bound = true;
+        if (unit_propagate())
+            new_bound = true;
+        IF_VERBOSE(1, verbose_stream() << "tighten_lp_bounds: new_bound=" << new_bound << "\n";);
+        return new_bound;
     }
 
 }
