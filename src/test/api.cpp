@@ -68,17 +68,29 @@ static void test_mk_app_polymorphic_arity() {
     ENSURE(Z3_get_arity(ctx, set_union_decl) == 2);
 
     Z3_sort int_set_sort = Z3_mk_set_sort(ctx, int_sort);
-    Z3_ast int_set = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "int_set"), int_set_sort);
-    Z3_ast int_sets[] = { int_set, int_set, int_set };
+    Z3_ast int_sets[] = {
+        Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "int_set1"), int_set_sort),
+        Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "int_set2"), int_set_sort),
+        Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "int_set3"), int_set_sort)
+    };
+    ENSURE(Z3_mk_app(ctx, set_union_decl, 1, int_sets));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
     Z3_ast set_union3 = Z3_mk_app(ctx, set_union_decl, 3, int_sets);
     ENSURE(set_union3);
     ENSURE(Z3_get_error_code(ctx) == Z3_OK);
-    Z3_func_decl set_union3_decl = Z3_get_app_decl(ctx, Z3_to_app(ctx, set_union3));
+    Z3_app set_union3_app = Z3_to_app(ctx, set_union3);
+    Z3_func_decl set_union3_decl = Z3_get_app_decl(ctx, set_union3_app);
     ENSURE(Z3_get_arity(ctx, set_union3_decl) == 2);
+    ENSURE(Z3_get_app_num_args(ctx, set_union3_app) == 2);
+    ENSURE(Z3_get_app_arg(ctx, set_union3_app, 0) == int_sets[0]);
+    Z3_app set_union3_tail = Z3_to_app(ctx, Z3_get_app_arg(ctx, set_union3_app, 1));
+    ENSURE(Z3_get_app_num_args(ctx, set_union3_tail) == 2);
+    ENSURE(Z3_get_app_arg(ctx, set_union3_tail, 0) == int_sets[1]);
+    ENSURE(Z3_get_app_arg(ctx, set_union3_tail, 1) == int_sets[2]);
 
     Z3_sort bool_set_sort = Z3_mk_set_sort(ctx, Z3_mk_bool_sort(ctx));
     Z3_ast bool_set = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "bool_set"), bool_set_sort);
-    Z3_ast incompatible_sets[] = { int_set, int_set, bool_set };
+    Z3_ast incompatible_sets[] = { int_sets[0], int_sets[1], bool_set };
     ENSURE(!Z3_mk_app(ctx, set_union_decl, 3, incompatible_sets));
     ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
 
