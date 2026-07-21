@@ -721,6 +721,14 @@ br_status fpa_rewriter::mk_to_bv(func_decl * f, expr * arg1, expr * arg2, bool i
         if (m_fm.is_nan(v) || m_fm.is_inf(v))
             return mk_to_bv_unspecified(f, result);
 
+        // A finite value whose (unbiased) binary exponent is at least bv_sz has
+        // magnitude >= 2^bv_sz and therefore does not fit into a bv_sz-bit signed
+        // or unsigned integer; the conversion is unspecified. Handle it here to
+        // avoid calling to_sbv_mpq, which rejects exponents that do not fit into
+        // an int (throwing "exponents over 31 bits are not supported").
+        if (m_fm.exp(v) >= (mpf_exp_t)bv_sz)
+            return mk_to_bv_unspecified(f, result);
+
         bv_util bu(m());
         scoped_mpq q(m_fm.mpq_manager());
         m_fm.to_sbv_mpq(rmv, v, q);
