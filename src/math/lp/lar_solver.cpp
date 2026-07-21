@@ -676,8 +676,8 @@ namespace lp {
             bound.neg();
             if (column_is_int(j))
                 bound = ceil(bound);
-         
-            if (column_has_lower_bound(j) && column_is_int(j) && bound <= column_lower_bound(j).x)
+
+            if (column_has_lower_bound(j) && bound <= column_lower_bound(j).x)
                 return nullptr;
 
             TRACE(lar_solver_improve_bounds,
