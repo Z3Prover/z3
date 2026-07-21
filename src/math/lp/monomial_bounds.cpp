@@ -298,7 +298,7 @@ namespace nla {
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
-        if (has_even_power && !dep.is_zero(product) && (dep.is_ge_0(product)) || dep.is_le_0(product)) {
+        if (has_even_power && !dep.is_zero(product) && (dep.is_ge_0(product) || dep.is_le_0(product))) {
             scoped_dep_interval reduced_product(dep);
             for (unsigned i = 0; i < m.size();) {
                 lpvar v = m.vars()[i];
@@ -833,7 +833,6 @@ namespace nla {
      */
     void monomial_bounds::propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
         SASSERT(cmp != llc::EQ && cmp != llc::NE);
-        IF_VERBOSE(1, verbose_stream() << "propagate_lp_bound: v=" << v << " cmp=" << cmp << " q=" << q << "\n";);
         if (!c().var_is_int(v))
             c().lra.update_column_type_and_bound(v, cmp, q, d);
         else if (q.is_int()) {
@@ -866,7 +865,6 @@ namespace nla {
                 new_bound = true;
         if (unit_propagate())
             new_bound = true;
-        IF_VERBOSE(1, verbose_stream() << "tighten_lp_bounds: new_bound=" << new_bound << "\n";);
         return new_bound;
     }
 
