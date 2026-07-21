@@ -1541,18 +1541,17 @@ bool core::propagate() {
    bounds.
 */
 bool core::optimize_nl_bounds() {
-    if (!params().arith_nl_optimize_bounds())
-        return false;
-    if (!lra.is_feasible())
+    if (!params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
         return false;
 
-    // Reconcile the core solver's x/inf_heap with any pending bound changes
-    // before issuing the raw maximize solves. maximize_term_on_tableau calls
-    // solve() directly, which asserts inf_heap_is_correct() on entry; the
-    // incremental propagation path can leave x stale relative to the current
-    // bounds, so force one feasibility pass to restore the invariant.
+    trail().push(value_trail(m_bounds_optimization_enabled));
+    m_bounds_optimization_enabled = false;
+
+    if (!lra.is_feasible())
+        return false;
     if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE)
         return false;
+
 
     // Collect improved bounds first (each find_improved_bound maximizes a term
     // over the *unchanged* constraint set, so all improvements are valid implied
@@ -1604,7 +1603,6 @@ bool core::optimize_nl_bounds() {
 
 void core::simplify() {
     // in-processing simplifiation can go here, such as bounds improvements.
-
 }
 
 bool core::is_pseudo_linear(monic const& m) const {

@@ -95,6 +95,9 @@ private:
         bool is_ge_0(interval const& a) const {
             return !lower_is_inf(a) && !lower_is_open(a) && unsynch_mpq_manager::is_zero(a.m_lower);
         }
+        bool is_le_0(interval const &a) const {
+            return !upper_is_inf(a) && !upper_is_open(a) && unsynch_mpq_manager::is_zero(a.m_upper);
+        }
 
         // Setters
         void set_lower(interval& a, mpq const& n) const { m_manager.set(a.m_lower, n); }
@@ -195,6 +198,11 @@ public:
     bool lower_is_open(const interval& a) const { return m_config.lower_is_open(a); }
     bool upper_is_open(const interval& a) const { return m_config.upper_is_open(a); }
     bool is_ge_0(const interval &a) const { return m_config.is_ge_0(a); }
+    bool is_le_0(const interval &a) const {
+        return m_config.is_le_0(a);
+    }
+       
+    
     template <typename T>
     void get_upper_dep(const interval& a, T& expl) { linearize(a.m_upper_dep, expl); }
     template <typename T>

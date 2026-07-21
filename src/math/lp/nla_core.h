@@ -108,6 +108,7 @@ class core {
 
     nla_throttle             m_throttle;
     bool                     m_throttle_enabled = true;
+    bool                     m_bounds_optimization_enabled = true;
 
 
 

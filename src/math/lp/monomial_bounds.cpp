@@ -14,23 +14,19 @@
 
 namespace nla {
 
-    monomial_bounds::monomial_bounds(core* c):
-        common(c), 
-        dep(c->m_intervals.get_dep_intervals()) {
-    
+    monomial_bounds::monomial_bounds(core *c) : common(c), dep(c->m_intervals.get_dep_intervals()) {
         std::function<void(lpvar v)> fixed_eh = [c, this](lpvar v) {
             c->trail().push(push_back_vector(m_fixed_var_trail));
             m_fixed_var_trail.push_back(v);
         };
-// uncomment to enable:
-//        c->lra.m_fixed_var_eh = fixed_eh;
+        // uncomment to enable:
+        //        c->lra.m_fixed_var_eh = fixed_eh;
     }
-    
-   
+
     void monomial_bounds::propagate() {
         for (auto v : c().m_to_refine) {
             propagate(c().emon(v), false);
-            if (add_lemma()) 
+            if (add_lemma())
                 break;
         }
         propagate_fixed_vars();
@@ -40,18 +36,18 @@ namespace nla {
         if (m_fixed_var_qhead == m_fixed_var_trail.size())
             return;
         c().trail().push(value_trail(m_fixed_var_qhead));
-        while (m_fixed_var_qhead < m_fixed_var_trail.size()) 
-            propagate_fixed_var(m_fixed_var_trail[m_fixed_var_qhead++]);        
+        while (m_fixed_var_qhead < m_fixed_var_trail.size())
+            propagate_fixed_var(m_fixed_var_trail[m_fixed_var_qhead++]);
     }
 
     void monomial_bounds::propagate_fixed_var(lpvar v) {
         SASSERT(c().var_is_fixed(v));
         TRACE(nla_solver, tout << "propagate fixed var: " << c().var_str(v) << "\n";);
-        for (auto const& m : c().emons().get_use_list(v)) 
+        for (auto const &m : c().emons().get_use_list(v))
             propagate_fixed_var(m, v);
     }
 
-    void monomial_bounds::propagate_fixed_var(monic const& m, lpvar v) {
+    void monomial_bounds::propagate_fixed_var(monic const &m, lpvar v) {
         unsigned num_free = 0;
         lpvar free_var = null_lpvar;
         for (auto w : m)
@@ -59,12 +55,12 @@ namespace nla {
                 ++num_free, free_var = w;
         if (num_free != 1)
             return;
-        u_dependency* d = nullptr;
-        auto& lra = c().lra;
+        u_dependency *d = nullptr;
+        auto &lra = c().lra;
         lp::mpq coeff(1);
         for (auto w : m) {
             if (c().var_is_fixed(w)) {
-                d =  lra.join_deps(d, lra.get_bound_constraint_witnesses_for_column(w));
+                d = lra.join_deps(d, lra.get_bound_constraint_witnesses_for_column(w));
                 coeff *= lra.get_lower_bound(w).x;
             }
         }
@@ -75,22 +71,23 @@ namespace nla {
         lra.update_column_type_and_bound(j, llc::EQ, mpq(0), d);
     }
 
-    bool monomial_bounds::is_too_big(mpq const& q) const {
+    bool monomial_bounds::is_too_big(mpq const &q) const {
         return rational(q).bitsize() > 256;
     }
 
     /**
      * Accumulate product of variables in monomial starting at position 'start'
      */
-    void monomial_bounds::compute_product(unsigned start, monic const& m, scoped_dep_interval& product) {
+    void monomial_bounds::compute_product(unsigned start, monic const &m, scoped_dep_interval &product) {
         scoped_dep_interval vi(dep);
         unsigned power = 1;
-        for (unsigned i = start; i < m.size(); ) {
+        for (unsigned i = start; i < m.size();) {
             lpvar v = m.vars()[i];
             var2interval(v, vi);
             ++i;
-            for (power = 1; i < m.size() && m.vars()[i] == v; ++i, ++power);
-            dep.power<dep_intervals::with_deps>(vi, power, vi);            
+            for (power = 1; i < m.size() && m.vars()[i] == v; ++i, ++power)
+                ;
+            dep.power<dep_intervals::with_deps>(vi, power, vi);
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
     }
@@ -100,11 +97,10 @@ namespace nla {
      * If the current value of v is outside of the range, we add
      * a bounds axiom.
      */
-    bool monomial_bounds::propagate_value(dep_interval& range, lpvar v) {
-        
+    bool monomial_bounds::propagate_value(dep_interval &range, lpvar v) {
         bool propagated = false;
         if (should_propagate_upper(range, v, 1)) {
-            auto const& upper = dep.upper(range);
+            auto const &upper = dep.upper(range);
             auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
             ++c().lra.settings().stats().m_nla_propagate_bounds;
             lp::explanation ex;
@@ -113,13 +109,13 @@ namespace nla {
                 return false;
             lemma_builder lemma(c(), "propagate value - upper bound of range is below value");
             lemma &= ex;
-            lemma |= ineq(v, cmp, upper); 
+            lemma |= ineq(v, cmp, upper);
             TRACE(nla_solver, dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
-            propagated = true;           
-        }    
-        
+            propagated = true;
+        }
+
         if (should_propagate_lower(range, v, 1)) {
-            auto const& lower = dep.lower(range);
+            auto const &lower = dep.lower(range);
             auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
             ++c().lra.settings().stats().m_nla_propagate_bounds;
             lp::explanation ex;
@@ -128,37 +124,36 @@ namespace nla {
                 return false;
             lemma_builder lemma(c(), "propagate value - lower bound of range is above value");
             lemma &= ex;
-            lemma |= ineq(v, cmp, lower); 
+            lemma |= ineq(v, cmp, lower);
             TRACE(nla_solver, dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
             propagated = true;
         }
         return propagated;
     }
 
-    bool monomial_bounds::should_propagate_lower(dep_interval const& range, lpvar v, unsigned p) {
+    bool monomial_bounds::should_propagate_lower(dep_interval const &range, lpvar v, unsigned p) {
         if (dep.lower_is_inf(range))
             return false;
         auto bound = c().val(v);
-        auto const& lower = dep.lower(range);
+        auto const &lower = dep.lower(range);
         if (p > 1)
             bound = power(bound, p);
         return bound < lower;
     }
 
-    bool monomial_bounds::should_propagate_upper(dep_interval const& range, lpvar v, unsigned p) {
+    bool monomial_bounds::should_propagate_upper(dep_interval const &range, lpvar v, unsigned p) {
         if (dep.upper_is_inf(range))
             return false;
         auto bound = c().val(v);
-        auto const& upper = dep.upper(range);
+        auto const &upper = dep.upper(range);
         if (p > 1)
             bound = power(bound, p);
         return bound > upper;
-    }  
-
+    }
 
     /**
      * val(v)^p should be in range.
-     * if val(v)^p > upper(range) add 
+     * if val(v)^p > upper(range) add
      *             v <= root(p, upper(range)) and v >= -root(p, upper(range)) if p is even
      *             v <= root(p, upper(range))                                 if p is odd
      * if val(v)^p < lower(range) add
@@ -166,9 +161,9 @@ namespace nla {
      *             v >= root(p, lower(range))                                if p is odd
      */
 
-    bool monomial_bounds::propagate_value(dep_interval& range, lpvar v, unsigned p) {
+    bool monomial_bounds::propagate_value(dep_interval &range, lpvar v, unsigned p) {
         SASSERT(p > 0);
-        if (p == 1) 
+        if (p == 1)
             return propagate_value(range, v);
         rational r;
         if (should_propagate_upper(range, v, p)) {  // v.upper^p > range.upper
@@ -199,7 +194,8 @@ namespace nla {
                     ++c().lra.settings().stats().m_nla_propagate_bounds;
                     SASSERT(!r.is_neg());
                     auto ge = dep.upper_is_open(range) ? llc::GT : llc::GE;
-                    lemma_builder lemma(c(), "propagate value - root case - upper bound of range is below negative value");
+                    lemma_builder lemma(c(),
+                                        "propagate value - root case - upper bound of range is below negative value");
                     lemma &= ex;
                     lemma |= ineq(v, ge, -r);
                     return true;
@@ -207,16 +203,16 @@ namespace nla {
             }
         }
 
-        if (should_propagate_lower(range, v, p)) { // v.lower^p < range.lower
+        if (should_propagate_lower(range, v, p)) {  // v.lower^p < range.lower
             //
             // range.lower < 0 -> v.lower >= root(p, range.lower)
             // range.lower >= 0, p odd -> v.lower >= root(p, range.lower)
             // range.lower >= 0, p even, v.lower >= 0 -> v.lower >= root(p, range.lower)
             // default:
             //    v.lower >= root(p, range.lower) || (p even & v.upper <= -root(p, range.lower))
-            // 
+            //
             // pre-condition: p even -> range.lower >= 0
-            //  
+            //
             if (rational(dep.lower(range)).root(p, r)) {
                 ++c().lra.settings().stats().m_nla_propagate_bounds;
                 auto ge = dep.lower_is_open(range) ? llc::GT : llc::GE;
@@ -228,14 +224,14 @@ namespace nla {
                 lemma |= ineq(v, ge, r);
                 if (p % 2 == 0)
                     lemma |= ineq(v, le, -r);
-                return true;                
+                return true;
             }
         }
         return false;
     }
 
-    void monomial_bounds::var2interval(lpvar v, scoped_dep_interval& i) {
-        u_dependency* d = nullptr;
+    void monomial_bounds::var2interval(lpvar v, scoped_dep_interval &i) {
+        u_dependency *d = nullptr;
         rational bound;
         bool is_strict;
         if (c().has_lower_bound(v, d, bound, is_strict)) {
@@ -250,7 +246,7 @@ namespace nla {
         if (c().has_upper_bound(v, d, bound, is_strict)) {
             dep.set_upper_is_open(i, is_strict);
             dep.set_upper(i, bound);
-            dep.set_upper_dep(i, d);            
+            dep.set_upper_dep(i, d);
             dep.set_upper_is_inf(i, false);
         }
         else {
@@ -265,46 +261,44 @@ namespace nla {
      * If the value of v is outside of mi / product_of_other, add a bounds lemma.
      * If the value of m.var() is outside of product_of_all_vars, add a bounds lemma.
      */
-    bool monomial_bounds::propagate(monic const& m, bool tighten_lp) {
+    bool monomial_bounds::propagate(monic const &m, bool tighten_lp) {
         unsigned num_free, power;
         lpvar free_var;
         analyze_monomial(m, num_free, free_var, power);
-        bool do_propagate_up   = num_free == 0;
+        bool do_propagate_up = num_free == 0;
         bool do_propagate_down = !is_free(m.var()) && num_free <= 1;
-        IF_VERBOSE(10, verbose_stream() << "monomial_bounds " << do_propagate_up << " " << do_propagate_down << " " << m
-                                       << "\n";);
-        if (!do_propagate_up && !do_propagate_down)             
+        if (!do_propagate_up && !do_propagate_down)
             return false;
-        
+
         scoped_dep_interval product(dep);
         scoped_dep_interval vi(dep), mi(dep);
         scoped_dep_interval other_product(dep);
         var2interval(m.var(), mi);
         dep.set_value(product, rational::one());
-        // Minimal justification for 'product >= 0': an even power v^{2k} is
-        // nonnegative regardless of the bounds on v, so it contributes no
-        // dependency. 'product_is_nonneg' stays true while every factor seen so
-        // far is >= 0 (hence the whole product is >= 0).
         bool has_even_power = false;
-        for (unsigned i = 0; i < m.size(); ) {
+        bool tightened = false;
+        for (unsigned i = 0; i < m.size();) {
             lpvar v = m.vars()[i];
             ++i;
-            for (power = 1; i < m.size() && v == m.vars()[i]; ++i, ++power); 
+            for (power = 1; i < m.size() && v == m.vars()[i]; ++i, ++power)
+                ;
             var2interval(v, vi);
-            dep.power<dep_intervals::with_deps>(vi, power, vi);            
+            dep.power<dep_intervals::with_deps>(vi, power, vi);
 
-            if ((power & 1) == 0) 
-                has_even_power = true;            
+            if ((power & 1) == 0)
+                has_even_power = true;
 
             if (do_propagate_down && (num_free == 0 || free_var == v)) {
                 dep.set<dep_intervals::with_deps>(other_product, product);
                 compute_product(i, m, other_product);
-                if (!tighten_lp && propagate_down(m, mi, v, power, other_product))
+                if (tighten_lp && tighten_lp_bound(mi, v, power, other_product)) 
+                    tightened = true;                
+                else if (!tighten_lp && propagate_down(mi, v, power, other_product))
                     return true;
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
-        if (has_even_power && dep.is_ge_0(product)) {
+        if (has_even_power && !dep.is_zero(product) && (dep.is_ge_0(product)) || dep.is_le_0(product)) {
             scoped_dep_interval reduced_product(dep);
             for (unsigned i = 0; i < m.size();) {
                 lpvar v = m.vars()[i];
@@ -318,28 +312,38 @@ namespace nla {
                 dep.power<dep_intervals::with_deps>(vi, power, vi);
                 dep.mul<dep_intervals::with_deps>(reduced_product, vi, reduced_product);
             }
-            dep.set_lower_dep(product, dep.get_lower_dep(reduced_product));
+            if (dep.is_ge_0(product))
+                dep.set_lower_dep(product, dep.get_lower_dep(reduced_product));
+            else
+                dep.set_upper_dep(product, dep.get_upper_dep(reduced_product));
         }
-        if (do_propagate_down && c().params().arith_nl_monomial_sandwich() &&
-            !tighten_lp &&
-            propagate_shared_factor(m))
+        if (do_propagate_down && c().params().arith_nl_monomial_sandwich() && !tighten_lp && propagate_shared_factor(m))
             return true;
-        if (c().params().arith_nl_monomial_binomial_sign() && !tighten_lp &&
-            propagate_binomial_sign(m))
+        if (c().params().arith_nl_monomial_binomial_sign() && !tighten_lp && propagate_binomial_sign(m))
             return true;
         if (!do_propagate_up)
-            return false;
+            return tightened;
         if (tighten_lp)
-            return tighten_lp_bound(product, m.var(), 1);
+            return tighten_lp_bound(product, m.var(), 1) || tightened;
         return propagate_value(product, m.var());
     }
 
-    bool monomial_bounds::propagate_down(monic const& m, dep_interval& mi, lpvar v, unsigned power, dep_interval& product) {
-        if (!dep.separated_from_zero(product)) 
+    bool monomial_bounds::propagate_down(dep_interval &mi, lpvar v, unsigned power,
+                                         dep_interval &product) {
+        if (!dep.separated_from_zero(product))
             return false;
         scoped_dep_interval range(dep);
         dep.div<dep_intervals::with_deps>(mi, product, range);
         return propagate_value(range, v, power);
+    }
+
+    bool monomial_bounds::tighten_lp_bound(dep_interval &mi, lpvar v, unsigned power,
+                                           dep_interval &product) {
+        if (!dep.separated_from_zero(product))
+            return false;
+        scoped_dep_interval range(dep);
+        dep.div<dep_intervals::with_deps>(mi, product, range);
+        return tighten_lp_bound(range, v, power);
     }
 
     bool monomial_bounds::is_free(lpvar v) const {
@@ -722,40 +726,106 @@ namespace nla {
         return try_anchor(f1, f0) || try_anchor(f0, f1);
     }
 
-      bool monomial_bounds::tighten_lp_upper_bound(dep_interval const &range, lpvar v, unsigned p) {
-        if (dep.upper_is_inf(range))
-            return false;
-        if (p > 1)
-            return false;  // power > 1 not implemented yet
-        auto const& upper = dep.upper(range);
-        if (c().has_upper_bound(v)) {
-            rational ub(c().get_upper_bound(v));
-            if (p > 1)
-                ub = power(ub, p);
-            if (upper >= ub)
-                return false;
+    /**
+     * range is an interval that v^p is guaranteed to lie in.
+     * Strengthen the *upper* bound of v from range, analogously to the upper
+     * branch of propagate_value(range, v, p), but only when a single bound on v
+     * follows (no lemmas). We use the existing bounds of v -- not its value --
+     * to resolve the sign for even powers.
+     *
+     * An upper bound on v is implied by:
+     *   range.upper = U:
+     *     p odd            -> v <= root(p, U)
+     *     p even, U >= 0   -> v <= root(p, U)          (|v| <= root(p, U))
+     *   range.lower = L, p even, v known <= 0:
+     *     v <= -root(p, L)                             (resolves the disjunction)
+     * Only exact rational roots are used, so bounds that are not obtained from
+     * propagation are out of scope.
+     */
+    bool monomial_bounds::tighten_lp_upper_bound(dep_interval const &range, lpvar v, unsigned p) {
+        SASSERT(p > 0);
+        auto improves_upper = [&](rational const& cand) {
+            return !c().has_upper_bound(v) || cand < c().get_upper_bound(v);
+        };
+        bool tightened = false;
+        rational r;
+        // From range.upper: v <= root(p, U).
+        if (!dep.upper_is_inf(range)) {
+            rational U(dep.upper(range));
+            if (U.root(p, r) && improves_upper(r)) {
+                auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
+                propagate_lp_bound(v, cmp, r, dep.get_upper_dep(range));
+                tightened = true;
+            }
         }
-        auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
-        propagate_lp_bound(v, cmp, upper, dep.get_upper_dep(range));
-        return true;
+        // Even power, v known non-positive: range.lower gives v <= -root(p, L).
+        if ((p & 1) == 0 && !dep.lower_is_inf(range) &&
+            c().has_upper_bound(v) && !c().get_upper_bound(v).is_pos()) {
+            rational L(dep.lower(range));
+            if (!L.is_neg() && L.root(p, r) && improves_upper(-r)) {
+                auto cmp = dep.lower_is_open(range) ? llc::LT : llc::LE;
+                u_dependency* d = c().lra.join_deps(dep.get_lower_dep(range),
+                                                    c().lra.get_column_upper_bound_witness(v));
+                propagate_lp_bound(v, cmp, -r, d);
+                tightened = true;
+            }
+        }
+        return tightened;
     }
 
+    /**
+     * range is an interval that v^p is guaranteed to lie in.
+     * Strengthen the *lower* bound of v from range (mirror of the above).
+     *
+     * A lower bound on v is implied by:
+     *   range.lower = L:
+     *     p odd            -> v >= root(p, L)
+     *   range.upper = U, p even, U >= 0:
+     *     v >= -root(p, U)                             (|v| <= root(p, U))
+     *   range.lower = L, p even, v known >= 0:
+     *     v >= root(p, L)                              (resolves the disjunction)
+     */
     bool monomial_bounds::tighten_lp_lower_bound(dep_interval const &range, lpvar v, unsigned p) {
-        if (dep.lower_is_inf(range))
-            return false;
-        if (p > 1)
-            return false;  // power > 1 not implemented yet
-        auto const& lower = dep.lower(range);
-        if (c().has_lower_bound(v)) {
-            rational lb(c().get_lower_bound(v));
-            if (p > 1)
-                lb = power(lb, p);
-            if (lower <= lb)
-                return false;
+        SASSERT(p > 0);
+        auto improves_lower = [&](rational const& cand) {
+            return !c().has_lower_bound(v) || cand > c().get_lower_bound(v);
+        };
+        bool tightened = false;
+        rational r;
+        if ((p & 1) == 1) {
+            // From range.lower: v >= root(p, L).
+            if (!dep.lower_is_inf(range)) {
+                rational L(dep.lower(range));
+                if (L.root(p, r) && improves_lower(r)) {
+                    auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
+                    propagate_lp_bound(v, cmp, r, dep.get_lower_dep(range));
+                    tightened = true;
+                }
+            }
+            return tightened;
         }
-        auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
-        propagate_lp_bound(v, cmp, lower, dep.get_lower_dep(range));
-        return true;
+        // Even power. From range.upper: v >= -root(p, U).
+        if (!dep.upper_is_inf(range)) {
+            rational U(dep.upper(range));
+            if (!U.is_neg() && U.root(p, r) && improves_lower(-r)) {
+                auto cmp = dep.upper_is_open(range) ? llc::GT : llc::GE;
+                propagate_lp_bound(v, cmp, -r, dep.get_upper_dep(range));
+                tightened = true;
+            }
+        }
+        // Even power, v known non-negative: range.lower gives v >= root(p, L).
+        if (!dep.lower_is_inf(range) &&
+            c().has_lower_bound(v) && !c().get_lower_bound(v).is_neg()) {
+            rational L(dep.lower(range));
+            if (!L.is_neg() && L.root(p, r) && improves_lower(r)) {
+                auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
+                u_dependency* d = c().lra.join_deps(dep.get_lower_dep(range),
+                                                    c().lra.get_column_lower_bound_witness(v));
+                propagate_lp_bound(v, cmp, r, d);
+                tightened = true;
+            }
+        }
+        return tightened;
     }
 
     /**

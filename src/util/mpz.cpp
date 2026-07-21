@@ -2459,8 +2459,9 @@ static unsigned div_u(unsigned k, unsigned n) {
 
 template<bool SYNCH>
 bool mpz_manager<SYNCH>::root(mpz & a, unsigned n) {
-    SASSERT(n % 2 != 0 || is_nonneg(a));
-    if (is_zero(a)) {
+    if (n % 2 == 0 && is_neg(a))
+        return false;
+    if (is_zero(a) || n == 1) {
         return true; // precise
     }
     

@@ -644,12 +644,6 @@ namespace lp {
                for (auto c : cs) 
                     m_imp->m_constraints.display(tout, c) << "\n";
             });
-            // A nonbasic column at its bound may carry a null witness when the
-            // bound is implied/unconditional (no asserted constraint to cite).
-            // Such a bound contributes nothing to the explanation, so skip it
-            // instead of asserting a witness exists.
-            if (bound_dep == nullptr)
-                continue;
             dep = dep_manager().mk_join(dep, bound_dep);
         }
         return dep;

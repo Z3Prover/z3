@@ -703,7 +703,7 @@ public:
        Otherwise return false, and update a with the smallest
        integer r such that r*r > n.
        
-       \remark This method assumes that if n is even, then a is nonegative
+       \remark This method returns false if a is negative and n is even.
     */
     bool root(mpz & a, unsigned n);
     bool root(mpz const & a, unsigned n, mpz & r) { set(r, a); return root(r, n); }
