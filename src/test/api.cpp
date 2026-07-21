@@ -40,6 +40,27 @@ void test_apps() {
     Z3_del_context(ctx);
 }
 
+static void test_mk_app_polymorphic_arity() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+
+    Z3_sort type_var = Z3_mk_type_variable(ctx, Z3_mk_string_symbol(ctx, "A"));
+    Z3_func_decl f = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, "f"), 1, &type_var, type_var);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast args[] = { Z3_mk_int(ctx, 1, int_sort), Z3_mk_int(ctx, 2, int_sort) };
+
+    ENSURE(Z3_mk_app(ctx, f, 1, args));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    ENSURE(!Z3_mk_app(ctx, f, 0, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(!Z3_mk_app(ctx, f, 2, args));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    Z3_del_context(ctx);
+}
+
 void test_bvneg() {
     Z3_config cfg = Z3_mk_config();
     Z3_set_param_value(cfg,"MODEL","true");
@@ -305,6 +326,7 @@ void test_max_reg() {
 
 void tst_api() {
     test_apps();
+    test_mk_app_polymorphic_arity();
     test_bvneg();
     test_mk_distinct();
     test_optimize_translate();

@@ -190,6 +190,10 @@ extern "C" {
         func_decl* _d = reinterpret_cast<func_decl*>(d);
         ast_manager& m = mk_c(c)->m();
         if (_d->is_polymorphic()) {
+            if (_d->get_arity() != num_args) {
+                SET_ERROR_CODE(Z3_INVALID_ARG, "invalid function application, wrong number of arguments");
+                return nullptr;
+            }
             polymorphism::util u(m);
             polymorphism::substitution sub(m);
             ptr_buffer<sort> domain;
