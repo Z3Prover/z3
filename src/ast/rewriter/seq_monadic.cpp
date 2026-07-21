@@ -53,6 +53,7 @@ Shady parts:
 --*/
 
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/ast_util.h"
 #include <set>
 #include <vector>
 #include <climits>
@@ -194,17 +195,6 @@ namespace seq {
         return N == nullptr || re.is_epsilon(N);
     }
 
-    // Flatten the operands of a (possibly nested) re.inter into `out`.
-    static void flatten_inter(seq_util::rex& re, expr* e, ptr_vector<expr>& out) {
-        expr* a = nullptr, * b = nullptr;
-        if (re.is_intersection(e, a, b)) {
-            flatten_inter(re, a, out);
-            flatten_inter(re, b, out);
-        }
-        else
-            out.push_back(e);
-    }
-
     // Beyond `depth_cap` elements the length no longer changes acceptance, so the
     // BFS caps the depth component of its visited key there to stay finite.
     static unsigned depth_cap(unsigned lo, unsigned hi) { return hi == UINT_MAX ? lo : hi; }
@@ -323,16 +313,17 @@ namespace seq {
                                            unsigned hi, expr_ref_vector& seq) {
         unsigned n = crs.size();
 
-        bool_vector memb;                         // per component: membership (nullable) vs reach
-        ptr_vector<expr> tgt;                     // per component: reach target (or null)
-        svector<expr*> start;                     // start tuple
+        bool_vector mem;
+        ptr_vector<expr> tgt;
+        svector<expr*> start;
         for (auto const& cr : crs) {
             bool mb = is_membership(re(), cr);
-            memb.push_back(mb);
+            mem.push_back(mb);
             tgt.push_back(mb ? nullptr : cr.second.get());
             start.push_back(cr.first.get());
             m_pin.push_back(cr.first.get());
-            if (!mb) m_pin.push_back(cr.second.get());
+            if (!mb)
+                m_pin.push_back(cr.second.get());
         }
 
         // Search state is the product tuple; acceptance is per-component (nullable
@@ -341,12 +332,14 @@ namespace seq {
         auto key_of = [](svector<expr*> const& st) {
             std::vector<unsigned> k;
             k.reserve(st.size());
-            for (expr* e : st) k.push_back(e->get_id());
+            for (const expr * e : st) {
+                k.push_back(e->get_id());
+            }
             return k;
         };
         auto accept = [&](svector<expr*> const& st) -> lbool {
             for (unsigned i = 0; i < n; ++i) {
-                if (!memb[i]) {
+                if (!mem[i]) {
                     if (st[i] != tgt[i]) return l_false;   // reach: structural target
                     continue;
                 }
@@ -358,71 +351,78 @@ namespace seq {
             }
             return l_true;
         };
-        // The engine prunes infeasible joint guards and yields the product successor
-        // as the re.inter of the per-component derivatives -- but we must NOT assume
-        // it keeps them in source order (mk_inter subset-collapses, De-Morgan-merges,
-        // and may reorder operands).  So we recover the correspondence by IDENTITY:
-        // each operand of the joint target is matched to the component whose own
-        // derivative-target set contains it.  A cofactor whose operands cannot be
-        // assigned bijectively (a merge dropped one, or the match is ambiguous) sets
-        // `collapsed`, softening a final l_false to l_undef -- we cannot certify
-        // emptiness through an edge we could not decompose.
-        bool collapsed = false;
+        sort* seq_sort = nullptr, * ele_sort = nullptr;
+        VERIFY(u().is_re(crs[0].first.get(), seq_sort));
+        VERIFY(u().is_seq(seq_sort, ele_sort));
+        expr_ref ele(m.mk_var(0, ele_sort), m);
+        expr_ref eps_re(re().mk_epsilon(seq_sort), m);
+        expr_ref empty_re(re().mk_empty(crs[0].first.get()->get_sort()), m);
+        
+        auto feasible = [&](expr* cond) -> bool {
+            if (m.is_true(cond))
+                return true;
+            const expr_ref tr(m.mk_ite(cond, eps_re, empty_re), m);
+            expr_ref_pair_vector res(m);
+            m_rw.get_cofactors(ele, tr, res);
+            for (auto const& [g, t] : res) {
+                if (!re().is_empty(t))
+                    return true;
+            }
+            return false;
+        };
         auto expand = [&](svector<expr*> const& st, std::vector<std::pair<svector<expr*>, expr*>>& out) {
-            // Per-component derivative targets (order-independent recovery dictionary).
             std::vector<ptr_vector<expr>> comp_succ(n);
+            vector<svector<expr*>> cg, ct;
+            cg.resize(n);
+            ct.resize(n);
             for (unsigned i = 0; i < n; ++i) {
                 expr_ref_pair_vector ci(m);
                 m_rw.brz_derivative_cofactors(st[i], ci);
-                for (auto const& [gi, ti] : ci)
-                    if (!re().is_empty(ti))
-                        comp_succ[i].push_back(ti);
-            }
-            // The unique operand of `ops` that is a derivative target of component i,
-            // or null if none / more than one (ambiguous).
-            auto derivative_of = [&](unsigned i, ptr_vector<expr> const& ops) -> expr* {
-                expr* hit = nullptr;
-                for (expr* op : ops)
-                    for (expr* ti : comp_succ[i])
-                        if (op == ti) {
-                            if (hit && hit != op) return nullptr;   // ambiguous
-                            hit = op;
-                            break;
-                        }
-                return hit;
-            };
-
-            expr_ref P(st[0], m);
-            for (unsigned i = 1; i < n; ++i)
-                P = re().mk_inter(P, st[i]);
-            expr_ref_pair_vector cof(m);
-            m_rw.brz_derivative_cofactors(P, cof);
-            for (auto const& [g, t] : cof) {
-                if (re().is_empty(t)) continue;
-                svector<expr*> nst;
-                if (n == 1)
-                    nst.push_back(t);
-                else {
-                    ptr_vector<expr> ops;
-                    flatten_inter(re(), t, ops);
-                    nst.resize(n, nullptr);
-                    bool ok_assign = (ops.size() == n);
-                    for (unsigned i = 0; ok_assign && i < n; ++i)
-                        if (!(nst[i] = derivative_of(i, ops)))
-                            ok_assign = false;
-                    for (unsigned i = 0; ok_assign && i < n; ++i)      // require a bijection
-                        for (unsigned j = i + 1; j < n; ++j)
-                            if (nst[i] == nst[j]) ok_assign = false;
-                    if (!ok_assign) { collapsed = true; continue; }
+                for (auto const& [gi, ti] : ci) {
+                    if (re().is_empty(ti))
+                        continue;
+                    cg[i].push_back(gi);
+                    ct[i].push_back(ti);
+                    m_pin.push_back(gi);
+                    m_pin.push_back(ti);
                 }
-                for (expr* s : nst) m_pin.push_back(s);
-                m_pin.push_back(g);
-                out.push_back({ nst, g });
+                if (ct[i].empty())
+                    return true;
+            }
+            
+            svector<unsigned> idx;
+            idx.resize(n, 0);
+            svector<expr*> tuple;
+            tuple.resize(n, nullptr);
+            while (true) {
+                expr_ref_vector gs(m);
+                for (unsigned i = 0; i < n; ++i) {
+                    tuple[i] = ct[i][idx[i]];
+                    gs.push_back(cg[i][idx[i]]);
+                }
+                expr_ref g = mk_and(gs);
+                if (n == 1 || feasible(g)) {
+                    for (expr* s : tuple) {
+                        m_pin.push_back(s);
+                    }
+                    m_pin.push_back(g);
+                    out.push_back({ tuple, g });
+                }
+                unsigned k = 0;
+                for (; k < n; ++k) {
+                    idx[k]++;
+                    if (idx[k] < ct[k].size())
+                        break;
+                    idx[k] = 0;
+                }
+                if (k == n)
+                    break;
+                if (!m.inc())
+                    return false;
             }
             return true;
         };
-        lbool r = bounded_search<svector<expr*>>(m, start, lo, hi, key_of, accept, expand, seq);
-        return (r == l_false && collapsed) ? l_undef : r;
+        return bounded_search<svector<expr*>>(m, start, lo, hi, key_of, accept, expand, seq);
     }
 
     bool split_manager::test_intersect(vector<cont_regex> const& crs) {

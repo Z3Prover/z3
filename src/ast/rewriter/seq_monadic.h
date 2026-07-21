@@ -33,8 +33,7 @@ Abstract:
     The module is element-sort agnostic: it does NOT hard-code any character
     reasoning.  Guard feasibility and successor computation are delegated entirely
     to the symbolic derivative engine (seq_rewriter::brz_derivative_cofactors, which
-    prunes infeasible guards internally and, on an re.inter, yields the product
-    successor in source order) and to th_rewriter for normalization.
+    prunes infeasible guards internally).
 
 Author:
 
@@ -159,7 +158,7 @@ namespace seq {
                                    expr_ref_vector& seq);
 
         // Product-reachability of a tuple of continuation regexes (handles general N,
-        // i.e. reach targets N != epsilon), decomposing the engine's product successor.
+        // i.e. reach targets N != epsilon).
         lbool intersect_product(vector<cont_regex> const& crs, unsigned lo, unsigned hi,
                                 expr_ref_vector& seq);
 
@@ -192,8 +191,7 @@ namespace seq {
         // is decided by the derivative engine (element-sort agnostic).  On l_true a
         // witness is returned in `seq`: one guard predicate over (:var 0) per position.
         //   l_false = empty, l_true = non-empty, l_undef = gave up
-        //   (cap overrun, undecidable nullability, or a product target that could not
-        //    be decomposed).
+        //   (cap overrun or undecidable nullability).
         lbool intersect(vector<cont_regex> const& crs, unsigned lo, unsigned hi, expr_ref_vector& seq);
 
         // Cheap, sound one-sided partial check: false only when the intersection is
