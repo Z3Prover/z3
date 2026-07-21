@@ -3645,9 +3645,24 @@ namespace seq {
         // Priority 3c: FineWilf - overlap split for a head power vs a
         // different-base power behind a concrete-char prefix.  Preempts
         // ConstNumUnwinding's divergent one-copy peel loop on that shape.
-        // (opt-in via smt.nseq.fine_wilf, default off)
+        // (opt-in via smt.nseq.fine_wilf, default off).  Kept BEFORE the power
+        // cursor so an explicitly-enabled Fine & Wilf still wins on ground
+        // shapes; with the default (off) the cursor below handles them.
         if (m_fine_wilf && apply_fine_wilf(node))
             return ++m_stats.m_mod_fine_wilf, true;
+
+        // Priority 3d: PowerCursor - two-symbolic-cursor acceleration for a
+        // ground power-vs-power head (character level).
+        if (apply_power_cursor(node))
+            return ++m_stats.m_mod_power_cursor, true;
+
+        // Priority 3e: PowerCursorNested - token-level generalisation of 3d for
+        // NESTED ground powers (a power whose base itself contains ground
+        // powers).  Matched-forever token-sequence ⇒ re-base both outer powers
+        // over their common token-level primitive root (a sound identity), then
+        // NumCmp / prefix cancellation finish.  Defers on any token mismatch.
+        if (apply_power_cursor_nested(node))
+            return ++m_stats.m_mod_power_cursor_nested, true;
 
         // Priority 4: ConstNumUnwinding - power vs constant: n=0 or peel
         if (apply_const_num_unwinding(node))
@@ -4427,6 +4442,416 @@ namespace seq {
                     return true;
                 }
             }
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_power_cursor
+    //
+    // Two-symbolic-cursor acceleration for a ground power-vs-power head
+    //
+    //     A · p^e · U  =  B · q^f · V      (direction folded via fwd)
+    //
+    // where A,B are concrete char runs (possibly empty), p,q are concrete
+    // non-empty base words, e,f exponent variables, and U,V arbitrary tails.
+    // We compare the two eventually-periodic streams A·p^ω and B·q^ω character
+    // by character.  There are exactly two outcomes (Fine & Wilf guarantees one
+    // occurs within max(|A|,|B|)+lcm(|p|,|q|) positions — see the loop bound):
+    //
+    //  (1) MATCHED FOREVER — no mismatch within the bound.  Then A·p^e and
+    //      B·q^f are both prefixes of z^ω, z = the length-g prefix of A·p^ω,
+    //      g = gcd(|p|,|q|) (their common primitive-root period).  Re-base BOTH
+    //      powers over z, absorbing the concrete offset of each side into a
+    //      partial trailing block:
+    //          A·p^e = z^{M1}·Z1 ,   M1 = (|A|-|A|%g)/g + (|p|/g)·e ,
+    //                                Z1 = z[0 .. |A|%g)          (an IDENTITY
+    //          B·q^f = z^{M2}·Z2      for all e,f, so a single progress child).
+    //      The result is a SAME-BASE equation z^{M1}·Z1·U = z^{M2}·Z2·V handed
+    //      to apply_num_cmp (priority 3) — no length race, no remainder, no
+    //      non-ground power.  This is precisely the user's hand rewrite
+    //      a·(ba)^n = (ab)^m·a  ⟿  (ab)^n·a = (ab)^m·a.
+    //
+    //  (2) MISMATCH at position t.  Then A·p^e and B·q^f cannot both supply
+    //      position t from their power/concrete region, i.e.
+    //          |A|+e·|p| ≤ t   ∨   |B|+f·|q| ≤ t.
+    //      The two exhaustive branches enumerate the (finitely many) bounded
+    //      exponents e ∈ {0..⌊(t−|A|)/|p|⌋} and f ∈ {0..⌊(t−|B|)/|q|⌋}, each a
+    //      concrete unroll of that one power (partial unwinding, all progress).
+    //
+    // Ground bases only; introduces no non-ground powers (unlike Fine & Wilf).
+    // Preempts the divergent one-copy peel of apply_const_num_unwinding on this
+    // shape.  Nested powers (non-ground base) are left to the fallback chain.
+    // -----------------------------------------------------------------------
+
+    // parsed directional head of one side: leading concrete run + a ground power
+    struct cursor_head {
+        zstring            run;                 // concrete leading run A (maybe ε)
+        euf::snode const*  pow  = nullptr;      // the power token snode
+        zstring            base;                // concrete base word p (|p|>0)
+        expr*              exp  = nullptr;      // exponent expr e
+        euf::snode const*  tail = nullptr;      // everything after the power (maybe null)
+    };
+
+    static unsigned uint_gcd(unsigned x, unsigned y) {
+        while (y) { const unsigned t = x % y; x = y; y = t; }
+        return x;
+    }
+
+    bool nielsen_graph::apply_power_cursor(nielsen_node* node) {
+
+        // fan-out safety cap for the mismatch enumeration
+        static constexpr unsigned PC_ENUM_CAP = 1024;
+
+        auto parse = [&](euf::snode const* side, bool fwd, cursor_head& h) -> bool {
+            euf::snode_vector toks;
+            collect_tokens_dir(side, fwd, toks);
+            unsigned i = 0;
+            h.run.reset();
+            for (; i < toks.size() && toks[i]->is_char(); ++i) {
+                unsigned val = 0;
+                VERIFY(m_seq.is_const_char(to_app(toks[i]->get_expr())->get_arg(0), val));
+                h.run += zstring(val);
+            }
+            if (i >= toks.size() || !toks[i]->is_power() || toks[i]->num_args() < 1)
+                return false;
+            euf::snode const* base = toks[i]->arg0();
+            if (!base || !base->is_ground())
+                return false;                    // nested / symbolic base: not here
+            if (!ground_zstring(base, m_seq, h.base) || h.base.length() == 0)
+                return false;                    // ε base: apply_power_epsilon
+            h.pow = toks[i];
+            h.exp = get_power_exponent(toks[i]);
+            if (!h.exp)
+                return false;
+            euf::snode const* tail = nullptr;
+            for (unsigned j = i + 1; j < toks.size(); ++j)
+                tail = dir_concat(m_sg, tail, toks[j], fwd);
+            h.tail = tail;
+            return true;
+        };
+
+        // character of "run then base^ω" at global position pos
+        auto char_at = [](cursor_head const& h, unsigned pos) -> unsigned {
+            const unsigned alen = h.run.length();
+            if (pos < alen)
+                return h.run[pos];
+            return h.base[(pos - alen) % h.base.length()];
+        };
+
+        for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
+            str_eq const& eq = node->str_eqs()[eq_idx];
+            if (eq.is_trivial())
+                continue;
+
+            // v1: forward (prefix) direction only.  A suffix power head would
+            // require reversing the internal content of each multi-char base
+            // when reading right-to-left (and reversing it back when building
+            // the rebased words) — deferred to avoid a soundness-sensitive
+            // reversal path; the motivating instances are all prefix-oriented.
+            {
+                const bool fwd = true;
+
+                cursor_head L, R;
+                if (!parse(eq.m_lhs, fwd, L) || !parse(eq.m_rhs, fwd, R))
+                    continue;                    // needs a ground power on BOTH sides
+
+                const unsigned plen = L.base.length();
+                const unsigned qlen = R.base.length();
+                const unsigned alen = L.run.length();
+                const unsigned blen = R.run.length();
+                const unsigned g    = uint_gcd(plen, qlen);
+                const unsigned lcm  = (plen / g) * qlen;
+
+                // run the two cursors: find the first mismatch, if any, within
+                // max(alen,blen)+lcm (Fine & Wilf: no mismatch there ⇒ identical).
+                const unsigned bound = alen + blen + lcm + 1;
+                bool mismatch = false;
+                unsigned tmis = 0;
+                for (unsigned t = 0; t < bound; ++t) {
+                    if (char_at(L, t) != char_at(R, t)) { mismatch = true; tmis = t; break; }
+                }
+
+                // ---------------------------------------------------------------
+                // Outcome 1: matched forever ⇒ re-base both powers over z.
+                // ---------------------------------------------------------------
+                if (!mismatch) {
+                    // z = length-g prefix of L's stream (= common g-periodic root)
+                    zstring z;
+                    for (unsigned k = 0; k < g; ++k)
+                        z += zstring(char_at(L, k));
+
+                    // Defensive soundness check: both sides must genuinely be
+                    // z^ω-periodic over their whole power period (the loop bound
+                    // proves it, but re-verify — an unsound rebase is far worse
+                    // than a missed acceleration).
+                    bool ok = true;
+                    for (unsigned t = 0; ok && t < alen + plen; ++t)
+                        ok = (char_at(L, t) == z[t % g]);
+                    for (unsigned t = 0; ok && t < blen + qlen; ++t)
+                        ok = (char_at(R, t) == z[t % g]);
+                    if (!ok)
+                        continue;
+
+                    // build z^{M}·Zpart·tail for a side
+                    expr* z_expr = m_seq.str.mk_string(z);
+                    auto rebase = [&](cursor_head const& h) -> euf::snode const* {
+                        const unsigned hlen = h.run.length();
+                        const unsigned rmod = hlen % g;
+                        const int      c0   = (int)((hlen - rmod) / g);
+                        const int      coef = (int)(h.base.length() / g);
+                        expr_ref mexp(a.mk_add(a.mk_int(c0), a.mk_mul(a.mk_int(coef), h.exp)), m);
+                        mexp = normalize_arith(m_rw, mexp);
+                        euf::snode const* ns = m_sg.mk(m_seq.str.mk_power(z_expr, mexp));
+                        if (rmod > 0)
+                            ns = dir_concat(m_sg, ns, m_sg.mk(m_seq.str.mk_string(z.extract(0, rmod))), fwd);
+                        ns = dir_concat(m_sg, ns, h.tail, fwd);
+                        return ns;
+                    };
+                    euf::snode const* new_lhs = rebase(L);
+                    euf::snode const* new_rhs = rebase(R);
+
+                    // no structural change ⇒ nothing to do here (already same
+                    // base at offset 0; apply_num_cmp owns it) — avoid a
+                    // no-progress child that would loop-cut without progress.
+                    if (new_lhs == eq.m_lhs && new_rhs == eq.m_rhs)
+                        continue;
+
+                    nielsen_node* child = mk_child(node);
+                    mk_edge(node, child, "power cursor rebase", true);
+                    for (auto& ce : child->str_eqs()) {
+                        if (ce.m_lhs == eq.m_lhs && ce.m_rhs == eq.m_rhs) {
+                            ce.m_lhs = new_lhs;
+                            ce.m_rhs = new_rhs;
+                            ce.sort();
+                            break;
+                        }
+                    }
+                    TRACE(seq, tout << "power_cursor rebase over z=" << z << " g=" << g
+                                    << " : " << mk_pp(new_lhs->get_expr(), m) << " = "
+                                    << mk_pp(new_rhs->get_expr(), m) << "\n");
+                    return true;
+                }
+
+                // ---------------------------------------------------------------
+                // Outcome 2: mismatch at tmis ⇒ bound one exponent.
+                // Feasibility needs alen+e·plen ≤ tmis  ∨  blen+f·qlen ≤ tmis.
+                // ---------------------------------------------------------------
+                const bool escL = (tmis >= alen);
+                const bool escR = (tmis >= blen);
+                if (!escL && !escR)
+                    // Both cursors are still inside their concrete leading runs and
+                    // disagree there — an unconditional clash between A and B.  This
+                    // is already caught by simplify_and_init's prefix cancellation
+                    // (which leaves min(|A|,|B|)=0), so it is unreachable here; be
+                    // defensive and simply let the clash be reported upstream.
+                    continue;
+                const unsigned maxE = escL ? (tmis - alen) / plen : 0;
+                const unsigned maxF = escR ? (tmis - blen) / qlen : 0;
+                const unsigned total = (escL ? maxE + 1 : 0) + (escR ? maxF + 1 : 0);
+                if (total == 0 || total > PC_ENUM_CAP)
+                    continue;                    // defer pathological fan-out
+
+                sort* srt = L.pow->get_sort();
+                auto emit_bound = [&](cursor_head const& h, unsigned e0) {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e_edge = mk_edge(node, child, "power cursor bound", true);
+                    euf::snode const* repl;
+                    if (e0 == 0)
+                        repl = m_sg.mk_empty_seq(srt);
+                    else {
+                        zstring w;
+                        for (unsigned k = 0; k < e0; ++k)
+                            w += h.base;
+                        repl = m_sg.mk(m_seq.str.mk_string(w));
+                    }
+                    const nielsen_subst s(h.pow, repl, eq.m_dep);
+                    e_edge->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                    e_edge->add_side_constraint(mk_constraint(a.mk_eq(h.exp, a.mk_int((int)e0)), eq.m_dep));
+                };
+                if (escL)
+                    for (unsigned e0 = 0; e0 <= maxE; ++e0)
+                        emit_bound(L, e0);
+                if (escR)
+                    for (unsigned f0 = 0; f0 <= maxF; ++f0)
+                        emit_bound(R, f0);
+                TRACE(seq, tout << "power_cursor mismatch@" << tmis << " escL=" << escL
+                                << "(≤" << maxE << ") escR=" << escR << "(≤" << maxF << ")\n");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_power_cursor_nested
+    //
+    // The NESTED generalisation of apply_power_cursor: the outer power's base
+    // may itself contain (ground) powers, e.g.  ( a·(bc)^p·d )^n .  The trick
+    // is to run the two-cursor comparison at the **token level** — over the
+    // sequence of top-level base tokens (each a char or a ground power),
+    // comparing them by **snode identity** — instead of the character level.
+    //
+    //     A · P^e · U  =  B · Q^f · V
+    //
+    // A,B = leading CHAR runs; P,Q = base TOKEN lists (each token a char or a
+    // ground power), at least one containing a power (genuinely nested — the
+    // pure-char case is owned by apply_power_cursor at 3d).  We only handle the
+    // **matched-forever** outcome:
+    //
+    //   if the token sequences A·P^ω and B·Q^ω are IDENTICAL (same snode at
+    //   every position, within one period — verified below), then both powers
+    //   are re-based over the common token-level primitive root Z (|Z|=g tokens,
+    //   g = gcd(|P|,|Q|)), absorbing each side's char-run offset into a partial
+    //   leading token block — an UNCONDITIONAL IDENTITY (identical token
+    //   sequences ⇒ identical words), yielding a SAME-OUTER-BASE equation that
+    //   apply_num_cmp / prefix cancellation finish.  One progress child.
+    //
+    // Handles arbitrary nesting DEPTH: tokens are opaque snode units, and only
+    // their identity is used.  This is the nested analog of the user's rewrite,
+    // e.g.  a·((bc)^p·a)^n = (a·(bc)^p)^k·…  ⟿  (a·(bc)^p)^n·a = (a·(bc)^p)^k·…
+    //
+    // SOUNDNESS: token-sequence equality is only a SUFFICIENT condition for word
+    // equality (e.g. [(bc)^1] and [b,c] are distinct token seqs but equal words),
+    // so the rebase (which requires and preserves token-seq equality) is sound,
+    // but a token MISMATCH does NOT imply a word mismatch — hence, unlike the
+    // char-level cursor, this modifier NEVER bounds an exponent on a mismatch; it
+    // simply defers (returns false) to the fallback chain.  Two powers with the
+    // same base term but DIFFERENT exponent exprs are distinct snodes ⇒ a token
+    // mismatch ⇒ correctly not rebased.
+    // -----------------------------------------------------------------------
+
+    struct nested_head {
+        euf::snode_vector run;    // leading char tokens A
+        euf::snode const*  pow  = nullptr;
+        euf::snode_vector base;   // base token list P (each token char or ground power)
+        expr*              exp  = nullptr;
+        euf::snode const*  tail = nullptr;
+    };
+
+    bool nielsen_graph::apply_power_cursor_nested(nielsen_node* node) {
+
+        auto concat_tokens = [&](euf::snode_vector const& toks, unsigned from, unsigned to) -> euf::snode const* {
+            euf::snode const* r = nullptr;
+            for (unsigned i = from; i < to; ++i)
+                r = r ? m_sg.mk_concat(r, toks[i]) : toks[i];
+            return r;
+        };
+
+        // parse  A·P^e·U : leading char run, then the first power whose base is
+        // a ground token list of chars / ground powers.
+        auto parse = [&](euf::snode const* side, nested_head& h) -> bool {
+            euf::snode_vector toks;
+            side->collect_tokens(toks);            // forward (prefix) order
+            unsigned i = 0;
+            h.run.reset();
+            for (; i < toks.size() && toks[i]->is_char(); ++i)
+                h.run.push_back(toks[i]);
+            if (i >= toks.size() || !toks[i]->is_power() || toks[i]->num_args() < 1)
+                return false;
+            euf::snode const* base = toks[i]->arg0();
+            if (!base || !base->is_ground())
+                return false;
+            h.base.reset();
+            base->collect_tokens(h.base);
+            if (h.base.empty())
+                return false;
+            for (euf::snode const* bt : h.base)
+                if (!bt->is_char() && !bt->is_power())
+                    return false;                  // symbolic unit / other: bail
+            h.pow = toks[i];
+            h.exp = get_power_exponent(toks[i]);
+            if (!h.exp)
+                return false;
+            euf::snode const* tail = nullptr;
+            for (unsigned j = i + 1; j < toks.size(); ++j)
+                tail = tail ? m_sg.mk_concat(tail, toks[j]) : toks[j];
+            h.tail = tail;
+            return true;
+        };
+
+        // token of "run then base^ω" at token position pos
+        auto token_at = [](nested_head const& h, unsigned pos) -> euf::snode const* {
+            if (pos < h.run.size())
+                return h.run[pos];
+            return h.base[(pos - h.run.size()) % h.base.size()];
+        };
+
+        for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
+            str_eq const& eq = node->str_eqs()[eq_idx];
+            if (eq.is_trivial())
+                continue;
+
+            nested_head L, R;
+            if (!parse(eq.m_lhs, L) || !parse(eq.m_rhs, R))
+                continue;
+
+            // genuinely nested: at least one base contains a power token
+            // (pure-char bases are owned by apply_power_cursor at priority 3d).
+            bool nested = false;
+            for (euf::snode const* t : L.base) if (t->is_power()) nested = true;
+            for (euf::snode const* t : R.base) if (t->is_power()) nested = true;
+            if (!nested)
+                continue;
+
+            const unsigned pl = L.base.size(), ql = R.base.size();
+            const unsigned al = L.run.size(),  bl = R.run.size();
+            const unsigned g  = uint_gcd(pl, ql);
+
+            // Z = first g tokens of L's token stream (common token-level root)
+            euf::snode_vector Z;
+            for (unsigned k = 0; k < g; ++k)
+                Z.push_back(token_at(L, k));
+
+            // matched-forever ⇔ A·P and B·Q token-seqs are Z^ω-consistent over
+            // one full period each (⇒ both token streams equal Z^ω ⇒ equal).
+            bool ok = true;
+            for (unsigned t = 0; ok && t < al + pl; ++t)
+                ok = (token_at(L, t) == Z[t % g]);
+            for (unsigned t = 0; ok && t < bl + ql; ++t)
+                ok = (token_at(R, t) == Z[t % g]);
+            if (!ok)
+                continue;                          // token mismatch ⇒ defer (sound)
+
+            // re-base each side's power over the token-root term Zbase = ⊙Z
+            euf::snode const* Zbase = concat_tokens(Z, 0, g);
+            SASSERT(Zbase);
+            expr* Zbase_expr = Zbase->get_expr();
+            auto rebase = [&](nested_head const& h) -> euf::snode const* {
+                const unsigned hlen = h.run.size();
+                const unsigned rmod = hlen % g;
+                const int      c0   = (int)((hlen - rmod) / g);
+                const int      coef = (int)(h.base.size() / g);
+                expr_ref mexp(a.mk_add(a.mk_int(c0), a.mk_mul(a.mk_int(coef), h.exp)), m);
+                mexp = normalize_arith(m_rw, mexp);
+                euf::snode const* ns = m_sg.mk(m_seq.str.mk_power(Zbase_expr, mexp));
+                if (rmod > 0)
+                    ns = m_sg.mk_concat(ns, concat_tokens(Z, 0, rmod));
+                if (h.tail)
+                    ns = m_sg.mk_concat(ns, h.tail);
+                return ns;
+            };
+            euf::snode const* new_lhs = rebase(L);
+            euf::snode const* new_rhs = rebase(R);
+
+            if (new_lhs == eq.m_lhs && new_rhs == eq.m_rhs)
+                continue;                          // no-op rebase (num_cmp owns it)
+
+            nielsen_node* child = mk_child(node);
+            mk_edge(node, child, "power cursor nested", true);
+            for (auto& ce : child->str_eqs()) {
+                if (ce.m_lhs == eq.m_lhs && ce.m_rhs == eq.m_rhs) {
+                    ce.m_lhs = new_lhs;
+                    ce.m_rhs = new_rhs;
+                    ce.sort();
+                    break;
+                }
+            }
+            TRACE(seq, tout << "power_cursor_nested rebase over |Z|=" << g
+                            << " : " << mk_pp(new_lhs->get_expr(), m) << " = "
+                            << mk_pp(new_rhs->get_expr(), m) << "\n");
+            return true;
         }
         return false;
     }
@@ -6977,6 +7402,8 @@ namespace seq {
         st.update("nseq mod power epsilon",    m_stats.m_mod_power_epsilon);
         st.update("nseq mod num cmp",          m_stats.m_mod_num_cmp);
         st.update("nseq mod fine wilf",        m_stats.m_mod_fine_wilf);
+        st.update("nseq mod power cursor",     m_stats.m_mod_power_cursor);
+        st.update("nseq mod power cursor nest",m_stats.m_mod_power_cursor_nested);
         st.update("nseq mod const num unwind", m_stats.m_mod_const_num_unwinding);
         st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);

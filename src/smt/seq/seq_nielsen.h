@@ -859,6 +859,8 @@ namespace seq {
         unsigned m_mod_num_cmp         = 0;
         unsigned m_mod_split_power_elim = 0;
         unsigned m_mod_fine_wilf       = 0;
+        unsigned m_mod_power_cursor    = 0;
+        unsigned m_mod_power_cursor_nested = 0;
         unsigned m_mod_const_num_unwinding = 0;
         unsigned m_mod_regex_if_split = 0;
         unsigned m_mod_eq_split        = 0;
@@ -1181,27 +1183,26 @@ namespace seq {
         unsigned num_nodes() const { return m_nodes.size(); }
 
         // maximum overall search depth (0 = unlimited)
-        void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
+        void set_max_search_depth(const unsigned d) { m_max_search_depth = d; }
 
         // maximum total DFS nodes per solve() call (0 = unlimited)
-        void set_max_nodes(unsigned n) { m_max_nodes = n; }
+        void set_max_nodes(const unsigned n) { m_max_nodes = n; }
         
         // enable/disable Parikh image verification constraints
-        void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
+        void set_parikh_enabled(const bool e) { m_parikh_enabled = e; }
 
         // access to the Parikh module (e.g. for theory_nseq's length-coherence
         // check to lazily encode a SAT leaf's exact length sets)
         seq_parikh& parikh() const { return *m_parikh; }
 
-        void set_signature_split(bool e) { m_signature_split = e; }
+        void set_signature_split(const bool e) { m_signature_split = e; }
 
-        void set_fine_wilf(bool e) { m_fine_wilf = e; }
+        void set_fine_wilf(const bool e) { m_fine_wilf = e; }
+        void set_monadic_split(const bool e) { m_monadic_split = e; }
 
-        void set_monadic_split(bool e) { m_monadic_split = e; }
-
-        void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
-        void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
-        void set_regex_dynamic_decomposition(bool e) { m_regex_dynamic_decomposition = e; }
+        void set_regex_factorization_threshold(const unsigned max) { m_regex_factorization_threshold = max; }
+        void set_regex_factorization_eager(const bool e) { m_regex_factorization_eager = e; }
+        void set_regex_dynamic_decomposition(const bool e) { m_regex_dynamic_decomposition = e; }
 
         // benchmark-harvest mode (intentionally unsound; for benchmark generation only).
         // m_harvest > 0 = bound on non-progress Nielsen extension steps before dumping the
@@ -1284,6 +1285,12 @@ namespace seq {
         // generate child nodes by applying modifier rules
         // returns true if at least one child was generated
         bool generate_extensions(nielsen_node *node);
+
+        // test-only: run apply_power_cursor in isolation (bypasses the priority
+        // chain, so a structural test can exercise the modifier without an
+        // earlier modifier — num_cmp / split_power_elim — preempting it).
+        bool test_apply_power_cursor(nielsen_node* node) { return apply_power_cursor(node); }
+        bool test_apply_power_cursor_nested(nielsen_node* node) { return apply_power_cursor_nested(node); }
 
         // conflict sources extracted after solve() returns unsat
         vector<dep_source, false> const& conflict_sources() const { return m_conflict_sources; }
@@ -1613,6 +1620,33 @@ namespace seq {
         // Preempts apply_const_num_unwinding's divergent one-copy peel loop on
         // different-base power vs power heads.
         bool apply_fine_wilf(nielsen_node* node);
+
+        // two-symbolic-cursor acceleration for a ground power-vs-power head
+        // A·p^e·U = B·q^f·V (A,B concrete char runs, p,q concrete non-empty
+        // bases, e,f exponent variables).  Compares the two eventually-periodic
+        // character streams A·p^ω and B·q^ω.  If they coincide forever (no
+        // mismatch within max(|A|,|B|)+lcm(|p|,|q|) positions) both powers are
+        // re-based over their common primitive root z (|z| = gcd(|p|,|q|)),
+        // absorbing the concrete offsets into partial leading blocks — the
+        // result is a same-base equation handed to apply_num_cmp (one progress
+        // child, an unconditional identity).  Otherwise the first mismatch
+        // position t bounds one exponent: the two exhaustive branches enumerate
+        // e ∈ {0..⌊(t−|A|)/|p|⌋} and f ∈ {0..⌊(t−|B|)/|q|⌋} (partial unrolling,
+        // all progress).  Ground bases only; introduces no non-ground powers.
+        // Preempts apply_fine_wilf / apply_const_num_unwinding on this shape.
+        bool apply_power_cursor(nielsen_node* node);
+
+        // NESTED generalisation of apply_power_cursor: the outer power's base may
+        // itself contain ground powers (e.g. (a·(bc)^p·d)^n).  Runs the cursor at
+        // the TOKEN level (base tokens compared by snode identity) and handles
+        // only the matched-forever outcome — re-basing both outer powers over
+        // their common token-level primitive root Z (an unconditional identity,
+        // since identical token sequences denote identical words) into a
+        // same-outer-base equation for apply_num_cmp.  Sound for arbitrary
+        // nesting depth; a token mismatch does NOT imply a word mismatch, so on
+        // any mismatch it defers (returns false) rather than bounding an
+        // exponent.  See specs/nseq-power-cursor.md §nested.
+        bool apply_power_cursor_nested(nielsen_node* node);
 
         // constant numeric unwinding: for a power token u^n vs a constant
         // (non-variable), branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).

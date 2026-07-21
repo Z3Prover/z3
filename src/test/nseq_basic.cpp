@@ -370,6 +370,90 @@ static void test_nseq_fine_wilf_option_off() {
     std::cout << "  ok: sat with fine_wilf disabled\n";
 }
 
+// -----------------------------------------------------------------------
+// Nested-power cursor end-to-end tests (full smt::context, real arithmetic).
+// A power whose base itself contains a ground power, e.g. (a·(bc)^p·d)^n.
+// The outer one-copy peel diverges here; apply_power_cursor_nested (priority
+// 3e) re-bases both outer powers over their common token-level root.
+// See specs/nseq-power-cursor.md §4b.
+// -----------------------------------------------------------------------
+
+// Builds, into ctx:  "a"·((bc)^p·"a")^n·trail_l  ==  (a·(bc)^p)^n·trail_r
+// with the SAME outer exponent n (≥ 0) and p (≥ p_lo).  trail_l/trail_r are
+// ground expr suffixes (nullptr = none).
+static void assert_nested_conjugate_eq(smt::context& ctx, ast_manager& m,
+                                       unsigned p_lo, expr* trail_l, expr* trail_r) {
+    seq_util su(m);
+    arith_util au(m);
+    const expr_ref n(m.mk_const(symbol("n"), au.mk_int()), m);
+    const expr_ref p(m.mk_const(symbol("p"), au.mk_int()), m);
+    const expr_ref A(su.str.mk_string(zstring("a")), m);
+    const expr_ref bcp(su.str.mk_power(su.str.mk_string(zstring("bc")), p), m);
+    const expr_ref base1(su.str.mk_concat(bcp, A), m);            // (bc)^p·a
+    const expr_ref base2(su.str.mk_concat(A, bcp), m);            // a·(bc)^p
+    const expr_ref pow1(su.str.mk_power(base1, n), m);
+    const expr_ref pow2(su.str.mk_power(base2, n), m);
+
+    expr_ref lhs(su.str.mk_concat(A, pow1), m);                   // a·((bc)^p a)^n
+    if (trail_l) lhs = su.str.mk_concat(lhs, expr_ref(trail_l, m));
+    expr_ref rhs(pow2, m);                                        // (a (bc)^p)^n
+    if (trail_r) rhs = su.str.mk_concat(rhs, expr_ref(trail_r, m));
+
+    ctx.assert_expr(expr_ref(au.mk_ge(n, au.mk_int(0)), m));
+    ctx.assert_expr(expr_ref(au.mk_ge(p, au.mk_int((int)p_lo)), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+}
+
+// UNSAT: a·((bc)^p·a)^n·"a"·(bc)^p·u == (a·(bc)^p)^n·"a"·(bc)^p·"a"·v with p ≥ 1
+// (the nested analog of the ex1 conjugate clash — after the token-level re-base
+// and cancellation it forces "a"·(bc)^p·u == (bc)^p·"a"·v, an equal-position
+// 'a' vs 'b' clash for every n,p≥1).  DIVERGES on the outer peel without
+// apply_power_cursor_nested; a node budget guards a regressed build against a
+// hang (it would then return unknown ≠ l_false and fail cleanly).
+static void test_nseq_power_cursor_nested_e2e_unsat() {
+    std::cout << "test_nseq_power_cursor_nested_e2e_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 100000; // closes in ~7 nodes with the feature
+    smt::context ctx(m, params);
+    seq_util su(m);
+    arith_util au(m);
+    const expr_ref p(m.mk_const(symbol("p"), au.mk_int()), m);
+    const expr_ref bcp(su.str.mk_power(su.str.mk_string(zstring("bc")), p), m);
+    const expr_ref u(m.mk_const(symbol("u"), su.str.mk_string_sort()), m);
+    const expr_ref v(m.mk_const(symbol("v"), su.str.mk_string_sort()), m);
+    const expr_ref tl(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                                       su.str.mk_concat(bcp, u)), m);       // "a"·(bc)^p·u
+    const expr_ref tr(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                          su.str.mk_concat(bcp,
+                              su.str.mk_concat(su.str.mk_string(zstring("a")), v))), m); // "a"·(bc)^p·"a"·v
+    assert_nested_conjugate_eq(ctx, m, /*p_lo*/1, tl, tr);
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// SAT: a·((bc)^p·a)^n == (a·(bc)^p)^n·"a" is the conjugation identity
+// a·((bc)^p a)^n = (a (bc)^p)^n·a, true for every n,p — the nested analog of
+// the fine_wilf SAT identity.  Exercises the re-base to a satisfiable leaf.
+static void test_nseq_power_cursor_nested_e2e_sat() {
+    std::cout << "test_nseq_power_cursor_nested_e2e_sat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 100000;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    assert_nested_conjugate_eq(ctx, m, /*p_lo*/0, nullptr,
+                               su.str.mk_string(zstring("a")));  // trail_r = "a"
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -385,5 +469,7 @@ void tst_nseq_basic() {
     test_nseq_fine_wilf_e2e_unsat();
     test_nseq_fine_wilf_e2e_sat();
     test_nseq_fine_wilf_option_off();
+    test_nseq_power_cursor_nested_e2e_unsat();
+    test_nseq_power_cursor_nested_e2e_sat();
     std::cout << "nseq_basic: all tests passed\n";
 }

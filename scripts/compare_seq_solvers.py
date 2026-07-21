@@ -82,8 +82,13 @@ def determine_status(solver_results: dict[str, str], smtlib_status: str) -> str:
     return "unknown"
 
 
-def _parse_result(output: str) -> str:
-    """Extract the first sat/unsat/unknown line from solver output."""
+def _parse_result(output: str, elapsed: float | None = None,
+                  timeout_s: float | None = None) -> str:
+    """Extract the first sat/unsat/unknown line from solver output.
+
+    An 'unknown' report that finished before the timeout is not a genuine
+    timeout but an incompleteness/error, so it is labelled 'error'.
+    """
     has_invalid_model = "an invalid model was generated" in output
     for line in output.splitlines():
         tok = line.strip().lower()
@@ -91,8 +96,8 @@ def _parse_result(output: str) -> str:
             if tok == "sat" and has_invalid_model:
                 return "invalid"
             return tok
-        if tok == "unknown":
-            return "timeout"
+    if elapsed is not None and timeout_s is not None and elapsed < timeout_s:
+        return "failed"
     return "timeout"
 
 
@@ -107,7 +112,7 @@ def run_z3(z3_bin: str, smt_file: Path, solver_args: list[str], timeout_s: int =
         proc = subprocess.run(cmd, capture_output=True, text=True,
                               timeout=timeout_s + 5)
         elapsed = time.monotonic() - start
-        return _parse_result(proc.stdout.strip()), elapsed
+        return _parse_result(proc.stdout.strip(), elapsed, timeout_s), elapsed
     except subprocess.TimeoutExpired:
         elapsed = time.monotonic() - start
         return "timeout", elapsed
@@ -129,7 +134,7 @@ def run_external_solver(binary: str, smt_file: Path, timeout_s: int = DEFAULT_TI
         proc = subprocess.run(cmd, capture_output=True, text=True,
                               timeout=timeout_s + 5)
         elapsed = time.monotonic() - start
-        return _parse_result(proc.stdout.strip()), elapsed
+        return _parse_result(proc.stdout.strip(), elapsed, timeout_s), elapsed
     except subprocess.TimeoutExpired:
         elapsed = time.monotonic() - start
         return "timeout", elapsed
