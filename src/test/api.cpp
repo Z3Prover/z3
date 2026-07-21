@@ -49,7 +49,9 @@ static void test_mk_app_polymorphic_arity() {
     Z3_sort type_var = Z3_mk_type_variable(ctx, Z3_mk_string_symbol(ctx, "A"));
     Z3_func_decl f = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, "f"), 1, &type_var, type_var);
     Z3_sort int_sort = Z3_mk_int_sort(ctx);
-    Z3_ast args[] = { Z3_mk_int(ctx, 1, int_sort), Z3_mk_int(ctx, 2, int_sort) };
+    Z3_ast args[] = {
+        Z3_mk_int(ctx, 1, int_sort), Z3_mk_int(ctx, 2, int_sort), Z3_mk_int(ctx, 3, int_sort)
+    };
 
     ENSURE(Z3_mk_app(ctx, f, 1, args));
     ENSURE(Z3_get_error_code(ctx) == Z3_OK);
@@ -57,6 +59,45 @@ static void test_mk_app_polymorphic_arity() {
     ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
     ENSURE(!Z3_mk_app(ctx, f, 2, args));
     ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    Z3_sort set_type_var = Z3_mk_set_sort(ctx, type_var);
+    Z3_ast poly_set = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "poly_set"), set_type_var);
+    Z3_ast poly_sets[] = { poly_set, poly_set };
+    Z3_ast set_union = Z3_mk_set_union(ctx, 2, poly_sets);
+    Z3_func_decl set_union_decl = Z3_get_app_decl(ctx, Z3_to_app(ctx, set_union));
+    ENSURE(Z3_get_arity(ctx, set_union_decl) == 2);
+
+    Z3_sort int_set_sort = Z3_mk_set_sort(ctx, int_sort);
+    Z3_ast int_set = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "int_set"), int_set_sort);
+    Z3_ast int_sets[] = { int_set, int_set, int_set };
+    Z3_ast set_union3 = Z3_mk_app(ctx, set_union_decl, 3, int_sets);
+    ENSURE(set_union3);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_func_decl set_union3_decl = Z3_get_app_decl(ctx, Z3_to_app(ctx, set_union3));
+    ENSURE(Z3_get_arity(ctx, set_union3_decl) == 2);
+
+    Z3_sort bool_set_sort = Z3_mk_set_sort(ctx, Z3_mk_bool_sort(ctx));
+    Z3_ast bool_set = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "bool_set"), bool_set_sort);
+    Z3_ast incompatible_sets[] = { int_set, int_set, bool_set };
+    ENSURE(!Z3_mk_app(ctx, set_union_decl, 3, incompatible_sets));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    Z3_ast poly_value = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "poly_value"), type_var);
+    Z3_ast poly_eq = Z3_mk_eq(ctx, poly_value, poly_value);
+    Z3_func_decl eq_decl = Z3_get_app_decl(ctx, Z3_to_app(ctx, poly_eq));
+    ENSURE(Z3_mk_app(ctx, eq_decl, 3, args));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    Z3_sort re_type_var = Z3_mk_re_sort(ctx, Z3_mk_seq_sort(ctx, type_var));
+    Z3_ast empty_re_type_var = Z3_mk_re_empty(ctx, re_type_var);
+    Z3_ast poly_res[] = { empty_re_type_var, empty_re_type_var };
+    Z3_ast re_union = Z3_mk_re_union(ctx, 2, poly_res);
+    Z3_func_decl re_union_decl = Z3_get_app_decl(ctx, Z3_to_app(ctx, re_union));
+    Z3_sort re_int = Z3_mk_re_sort(ctx, Z3_mk_seq_sort(ctx, int_sort));
+    Z3_ast empty_re_int = Z3_mk_re_empty(ctx, re_int);
+    Z3_ast int_res[] = { empty_re_int, empty_re_int, empty_re_int };
+    ENSURE(Z3_mk_app(ctx, re_union_decl, 3, int_res));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
 
     Z3_del_context(ctx);
 }
