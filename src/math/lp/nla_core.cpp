@@ -1551,6 +1551,31 @@ bool core::optimize_nl_bounds() {
     if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE)
         return false;
 
+    // Gather the candidate columns: every non-fixed leaf variable that
+    // participates in a monomial (mirrors solver=2's max_min_nl_vars).
+    svector<lpvar> cands;
+    auto add = [&](lpvar j) {
+        if (active_var_set_contains(j))
+            return;
+        insert_to_active_var_set(j);
+        if (lra.column_is_fixed(j))
+            return;
+        cands.push_back(j);
+    };
+    clear_active_var_set();
+    for (auto const& m : m_emons) {
+        add(m.var());
+        for (lpvar k : m.vars())
+            add(k);
+    }
+
+    // Throttle: the LP maximize/minimize cost scales with the number of
+    // candidate variables (two LP optimizations each). On large nonlinear
+    // problems this pass is expensive and rarely productive, so skip it when the
+    // candidate set exceeds the threshold (0 = unlimited).
+    unsigned const max_vars = params().arith_nl_optimize_bounds_lp_max_vars();
+    if (max_vars != 0 && cands.size() > max_vars)
+        return false;
 
     // Collect improved bounds first (each find_improved_bound maximizes a term
     // over the *unchanged* constraint set, so all improvements are valid implied
@@ -1560,15 +1585,10 @@ bool core::optimize_nl_bounds() {
     // raw solve() that does not reconcile pending bound changes).
     struct improved_bound { lpvar j; lp::lconstraint_kind kind; rational bound; u_dependency* dep; };
     vector<improved_bound> improvements;
-    auto collect = [&](lpvar j) {
-        if (active_var_set_contains(j))
-            return;
-        insert_to_active_var_set(j);
-        if (lra.column_is_fixed(j))
-            return;
+    for (lpvar j : cands) {
+        if (!lra.is_feasible())
+            break;
         for (bool is_lower : { true, false }) {
-            if (!lra.is_feasible())
-                return;
             rational bound;
             u_dependency* dep = lra.find_improved_bound(j, is_lower, bound);
             if (!dep)
@@ -1576,18 +1596,6 @@ bool core::optimize_nl_bounds() {
             auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
             improvements.push_back({ j, kind, bound, dep });
         }
-    };
-
-    // Optimize bounds on every leaf variable that participates in a monomial,
-    // mirroring solver=2's max_min_nl_vars(): it runs LP max/min over all
-    // nonlinear variables before the cross-nested/horner check. Restricting the
-    // set (e.g. to rows of monomials currently flagged for refinement) makes the
-    // cross-nested conflict seed-sensitive and is lost on most seeds.
-    clear_active_var_set();
-    for (auto const& m : m_emons) {
-        collect(m.var());
-        for (lpvar k : m.vars())
-            collect(k);
     }
 
     if (improvements.empty())
