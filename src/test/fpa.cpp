@@ -105,6 +105,26 @@ static void test_to_fp_unsigned_exponent_width_boundary() {
         true);
 }
 
+static void test_to_fp_unsigned_common_widths() {
+    run_fp_test(
+        "(set-logic QF_BVFP)\n"
+        "(set-option :model_validate true)\n"
+        "(declare-const high (_ BitVec 32))\n"
+        "(assert (or (= high #xfffffffe) (= high #xffffffff)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RTN high)\n"
+        "           (fp #b0 #b10011110 #b11111111111111111111111)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RTZ high)\n"
+        "           (fp #b0 #b10011110 #b11111111111111111111111)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RTP high)\n"
+        "           (fp #b0 #b10011111 #b00000000000000000000000)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RNE high)\n"
+        "           (fp #b0 #b10011111 #b00000000000000000000000)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RNA high)\n"
+        "           (fp #b0 #b10011111 #b00000000000000000000000)))\n"
+        "(check-sat)\n",
+        true);
+}
+
 static void test_recfun_defined_function_soundness() {
     run_fp_test(
         "(set-option :model_validate true)\n"
@@ -122,5 +142,6 @@ void tst_fpa() {
     test_fp_to_real_denormal();
     test_to_fp_from_real_interval();
     test_to_fp_unsigned_exponent_width_boundary();
+    test_to_fp_unsigned_common_widths();
     test_recfun_defined_function_soundness();
 }
