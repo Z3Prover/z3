@@ -860,7 +860,9 @@ namespace seq {
         unsigned m_mod_split_power_elim = 0;
         unsigned m_mod_fine_wilf       = 0;
         unsigned m_mod_power_cursor    = 0;
-        unsigned m_mod_power_cursor_nested = 0;
+        unsigned m_mod_power_normalize = 0;
+        unsigned m_mod_power_commute   = 0;
+        unsigned m_mod_ground_power_split = 0;
         unsigned m_mod_const_num_unwinding = 0;
         unsigned m_mod_regex_if_split = 0;
         unsigned m_mod_eq_split        = 0;
@@ -956,6 +958,7 @@ namespace seq {
         unsigned                      m_harvest_counter = 0;    // file index; spans reset()/blocking iterations
         std::unordered_set<unsigned>  m_harvested_hashes;       // dedup by structural hash; NOT cleared in reset()
         unsigned                      m_fresh_cnt = 0;
+        unsigned                      m_gwd_counter = 0;        // fresh-skolem disambiguator for gwd_drop_prefix
         // bumped once per solve() call so every node re-simplifies at most once
         // per solve under the then-current external context; see
         // nielsen_node::m_simplify_stamp
@@ -1290,7 +1293,12 @@ namespace seq {
         // chain, so a structural test can exercise the modifier without an
         // earlier modifier — num_cmp / split_power_elim — preempting it).
         bool test_apply_power_cursor(nielsen_node* node) { return apply_power_cursor(node); }
-        bool test_apply_power_cursor_nested(nielsen_node* node) { return apply_power_cursor_nested(node); }
+
+        // test-only: run apply_power_commute in isolation (priority 3e).
+        bool test_apply_power_commute(nielsen_node* node) { return apply_power_commute(node); }
+
+        // test-only: run apply_ground_power_split in isolation (priority 3e2).
+        bool test_apply_ground_power_split(nielsen_node* node) { return apply_ground_power_split(node); }
 
         // conflict sources extracted after solve() returns unsat
         vector<dep_source, false> const& conflict_sources() const { return m_conflict_sources; }
@@ -1621,32 +1629,48 @@ namespace seq {
         // different-base power vs power heads.
         bool apply_fine_wilf(nielsen_node* node);
 
-        // two-symbolic-cursor acceleration for a ground power-vs-power head
-        // A·p^e·U = B·q^f·V (A,B concrete char runs, p,q concrete non-empty
-        // bases, e,f exponent variables).  Compares the two eventually-periodic
-        // character streams A·p^ω and B·q^ω.  If they coincide forever (no
-        // mismatch within max(|A|,|B|)+lcm(|p|,|q|) positions) both powers are
-        // re-based over their common primitive root z (|z| = gcd(|p|,|q|)),
-        // absorbing the concrete offsets into partial leading blocks — the
-        // result is a same-base equation handed to apply_num_cmp (one progress
-        // child, an unconditional identity).  Otherwise the first mismatch
-        // position t bounds one exponent: the two exhaustive branches enumerate
-        // e ∈ {0..⌊(t−|A|)/|p|⌋} and f ∈ {0..⌊(t−|B|)/|q|⌋} (partial unrolling,
-        // all progress).  Ground bases only; introduces no non-ground powers.
-        // Preempts apply_fine_wilf / apply_const_num_unwinding on this shape.
+        // UNIFIED two-symbolic-cursor acceleration for a ground power-vs-power
+        // head A·P^e·U = B·Q^f·V (A,B leading char runs; P,Q the first power's
+        // base TOKEN lists — each token a char or a GROUND power, so P,Q may be
+        // plain char words OR contain inner powers to any nesting depth).  The
+        // two base token streams A·P^ω, B·Q^ω are compared by snode IDENTITY.
+        // Matched forever ⇒ re-base both powers over their common token-level
+        // primitive root Z (|Z| = gcd(|P|,|Q|) tokens) — an unconditional
+        // identity → same-outer-base equation for apply_num_cmp.  Token mismatch
+        // is a genuine WORD mismatch only when every token is a char (token
+        // index = char position), so: all-char ⇒ bound one exponent
+        // (e ∈ {0..⌊(t−|A|)/|p|⌋} / f ∈ {0..⌊(t−|B|)/|q|⌋}); a base with an inner
+        // power ⇒ defer (a token mismatch need not be a word mismatch).  Ground
+        // bases only; introduces no non-ground powers.  Forward direction only.
+        // See specs/nseq-power-cursor.md.
         bool apply_power_cursor(nielsen_node* node);
 
-        // NESTED generalisation of apply_power_cursor: the outer power's base may
-        // itself contain ground powers (e.g. (a·(bc)^p·d)^n).  Runs the cursor at
-        // the TOKEN level (base tokens compared by snode identity) and handles
-        // only the matched-forever outcome — re-basing both outer powers over
-        // their common token-level primitive root Z (an unconditional identity,
-        // since identical token sequences denote identical words) into a
-        // same-outer-base equation for apply_num_cmp.  Sound for arbitrary
-        // nesting depth; a token mismatch does NOT imply a word mismatch, so on
-        // any mismatch it defers (returns false) rather than bounding an
-        // exponent.  See specs/nseq-power-cursor.md §nested.
-        bool apply_power_cursor_nested(nielsen_node* node);
+        // canonicalise a top-level power token: flatten (z^a)^b → z^{a·b} and
+        // normalise a non-primitive concrete base w^e → root^{e·k}.  One progress
+        // child; closes nested power-of-power shapes the cursor declines (see cpp).
+        bool apply_power_normalize(nielsen_node* node);
+
+        // close the last ground power-vs-power gap: a pure power equation
+        // U^n = V^m with ground but different bases, via the Lyndon–Schützenberger
+        // commutation U^n = V^m ⟺ (n=0∧V^m=ε) ∨ (m=0∧U^n=ε) ∨
+        // (n≥1∧m≥1∧U·V=V·U∧n·|U|=m·|V|).  Eliminates both outer powers (see cpp).
+        bool apply_power_commute(nielsen_node* node);
+
+        // general FULLY-GROUND power head  P^e·L'' = Q^f·R''  (different ground
+        // bases, ground tails): a 3-way length race on the two leading powers
+        // (Levi's lemma, quotient computed by gwd_drop_prefix — no string vars).
+        // See cpp.  A branch of gwd_drop_prefix: the dropped-prefix result snode
+        // plus the integer side constraints that pin it.
+        struct gwd_branch {
+            euf::snode const* result = nullptr;
+            vector<expr_ref>  cs;
+        };
+        // drop(W, ell): W with its first `ell` chars removed, as a finite set of
+        // (result, constraints) branches; recurses into bases (nesting depth ↓).
+        // Returns false (caller defers) if it gives up (too deep / unsupported).
+        bool gwd_drop_prefix(euf::snode const* W, expr* ell,
+                             vector<gwd_branch>& out, unsigned depth);
+        bool apply_ground_power_split(nielsen_node* node);
 
         // constant numeric unwinding: for a power token u^n vs a constant
         // (non-variable), branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).

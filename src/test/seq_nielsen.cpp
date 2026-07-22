@@ -4416,8 +4416,8 @@ static void test_power_cursor_solve_sat() {
     std::cout << "  ok\n";
 }
 
-// ================= apply_power_cursor_nested (nested ground powers) =================
-// Run via ng.test_apply_power_cursor_nested(root) to isolate the modifier.
+// ================= apply_power_cursor: nested ground powers =================
+// Run via ng.test_apply_power_cursor(root) to isolate the modifier.
 // Convention below: BC(p) = (bc)^p is an inner power token; a base like
 // "BC(p)·a" is a token list [ (bc)^p , a ] whose tokens are compared by snode
 // identity.
@@ -4454,9 +4454,9 @@ static void test_power_cursor_nested_conjugate() {
     ng.add_str_eq(sg.mk_concat(a, sg.mk_concat(pow1, u)), sg.mk_concat(pow2, v));
     seq::nielsen_node* root = ng.root();
 
-    VERIFY(ng.test_apply_power_cursor_nested(root));
+    VERIFY(ng.test_apply_power_cursor(root));
     VERIFY(root->outgoing().size() == 1);
-    VERIFY(count_edges_with_rule(root, "power cursor nested") == 1);
+    VERIFY(count_edges_with_rule(root, "power cursor rebase") == 1);
     VERIFY(root->outgoing()[0]->is_progress());
     assert_same_base_power_fronts(root->outgoing()[0]->tgt(), m);
     std::cout << "  ok\n";
@@ -4493,9 +4493,9 @@ static void test_power_cursor_nested_common_root() {
     ng.add_str_eq(sg.mk_concat(pow1, u), sg.mk_concat(pow2, v));
     seq::nielsen_node* root = ng.root();
 
-    VERIFY(ng.test_apply_power_cursor_nested(root));
+    VERIFY(ng.test_apply_power_cursor(root));
     VERIFY(root->outgoing().size() == 1);
-    VERIFY(count_edges_with_rule(root, "power cursor nested") == 1);
+    VERIFY(count_edges_with_rule(root, "power cursor rebase") == 1);
     assert_same_base_power_fronts(root->outgoing()[0]->tgt(), m);
     std::cout << "  ok\n";
 }
@@ -4535,9 +4535,9 @@ static void test_power_cursor_nested_depth3() {
     ng.add_str_eq(sg.mk_concat(a, sg.mk_concat(pow1, u)), sg.mk_concat(pow2, v));
     seq::nielsen_node* root = ng.root();
 
-    VERIFY(ng.test_apply_power_cursor_nested(root));
+    VERIFY(ng.test_apply_power_cursor(root));
     VERIFY(root->outgoing().size() == 1);
-    VERIFY(count_edges_with_rule(root, "power cursor nested") == 1);
+    VERIFY(count_edges_with_rule(root, "power cursor rebase") == 1);
     assert_same_base_power_fronts(root->outgoing()[0]->tgt(), m);
     std::cout << "  ok\n";
 }
@@ -4573,7 +4573,7 @@ static void test_power_cursor_nested_decline_inner_exp() {
     ng.add_str_eq(sg.mk_concat(pow1, u), sg.mk_concat(pow2, v));
     seq::nielsen_node* root = ng.root();
 
-    VERIFY(!ng.test_apply_power_cursor_nested(root));
+    VERIFY(!ng.test_apply_power_cursor(root));
     VERIFY(root->outgoing().empty());
     std::cout << "  ok\n";
 }
@@ -4608,36 +4608,7 @@ static void test_power_cursor_nested_decline_char_compat() {
     ng.add_str_eq(sg.mk_concat(pow1, u), sg.mk_concat(pow2, v));
     seq::nielsen_node* root = ng.root();
 
-    VERIFY(!ng.test_apply_power_cursor_nested(root));
-    std::cout << "  ok\n";
-}
-
-// pure-char bases (no inner power): (ab)^n vs (ba)^m — owned by the un-nested
-// apply_power_cursor, so the nested modifier must DECLINE.
-static void test_power_cursor_nested_decline_purechar() {
-    std::cout << "test_power_cursor_nested_decline_purechar\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-    arith_util arith(m);
-    seq_util seq(m);
-
-    dummy_simple_solver solver;
-    seq::context_solver_i context_solver;
-    seq::nielsen_graph ng(sg, solver, context_solver);
-
-    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
-    expr* m_e = m.mk_const(symbol("m"), arith.mk_int());
-    euf::snode const* pw_ab = mk_ground_power(sg, seq, m, "ab", n_e);
-    euf::snode const* pw_ba = mk_ground_power(sg, seq, m, "ba", m_e);
-    euf::snode const* u = sg.mk_var(symbol("U"), sg.get_str_sort());
-    euf::snode const* v = sg.mk_var(symbol("V"), sg.get_str_sort());
-
-    ng.add_str_eq(sg.mk_concat(pw_ab, u), sg.mk_concat(pw_ba, v));
-    seq::nielsen_node* root = ng.root();
-
-    VERIFY(!ng.test_apply_power_cursor_nested(root));
+    VERIFY(!ng.test_apply_power_cursor(root));
     std::cout << "  ok\n";
 }
 
@@ -4669,7 +4640,7 @@ static void test_power_cursor_nested_noop_same_base() {
     ng.add_str_eq(sg.mk_concat(pow1, u), sg.mk_concat(pow2, v));
     seq::nielsen_node* root = ng.root();
 
-    VERIFY(!ng.test_apply_power_cursor_nested(root));
+    VERIFY(!ng.test_apply_power_cursor(root));
     std::cout << "  ok\n";
 }
 
@@ -4741,9 +4712,9 @@ static void test_power_cursor_nested_gcd_proper_divisor() {
     ng.add_str_eq(sg.mk_concat(pow1, u), sg.mk_concat(pow2, v));
     seq::nielsen_node* root = ng.root();
 
-    VERIFY(ng.test_apply_power_cursor_nested(root));
+    VERIFY(ng.test_apply_power_cursor(root));
     VERIFY(root->outgoing().size() == 1);
-    VERIFY(count_edges_with_rule(root, "power cursor nested") == 1);
+    VERIFY(count_edges_with_rule(root, "power cursor rebase") == 1);
     assert_same_base_power_fronts(root->outgoing()[0]->tgt(), m);
     std::cout << "  ok\n";
 }
@@ -4780,10 +4751,209 @@ static void test_power_cursor_nested_multitoken_z1() {
     ng.add_str_eq(sg.mk_concat(ab, sg.mk_concat(pow1, u)), sg.mk_concat(pow2, v));
     seq::nielsen_node* root = ng.root();
 
-    VERIFY(ng.test_apply_power_cursor_nested(root));
+    VERIFY(ng.test_apply_power_cursor(root));
     VERIFY(root->outgoing().size() == 1);
-    VERIFY(count_edges_with_rule(root, "power cursor nested") == 1);
+    VERIFY(count_edges_with_rule(root, "power cursor rebase") == 1);
     assert_same_base_power_fronts(root->outgoing()[0]->tgt(), m);
+    std::cout << "  ok\n";
+}
+
+// ================= apply_power_commute (priority 3e) =================
+// U^n = V^m with ground but structurally-different bases ⟿ Lyndon–Schützenberger
+// commutation: 3 children (commute / n=0 / m=0).  Run via test_apply_power_commute.
+
+// (a·(bc)^p)^n = (a·(bc)^q)^m — the nested conjugate residual the char cursor
+// declines.  Fires: 3 children; the commutation child is a concat=concat word
+// equation (both outer powers eliminated), the other two are the empty branches.
+static void test_power_commute_nested_fires() {
+    std::cout << "test_power_commute_nested_fires\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+
+    expr* p_e = m.mk_const(symbol("p"), arith.mk_int());
+    expr* q_e = m.mk_const(symbol("q"), arith.mk_int());
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* mm  = m.mk_const(symbol("mm"), arith.mk_int());
+    euf::snode const* a   = sg.mk_char('a');
+    euf::snode const* bcp = mk_ground_power(sg, seq, m, "bc", p_e);   // (bc)^p
+    euf::snode const* bcq = mk_ground_power(sg, seq, m, "bc", q_e);   // (bc)^q
+    euf::snode const* U   = sg.mk_concat(a, bcp);                     // a·(bc)^p
+    euf::snode const* V   = sg.mk_concat(a, bcq);                     // a·(bc)^q
+    euf::snode const* powU = mk_power_of(sg, seq, m, U, n_e);         // (a(bc)^p)^n
+    euf::snode const* powV = mk_power_of(sg, seq, m, V, mm);          // (a(bc)^q)^m
+
+    ng.add_str_eq(powU, powV);
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(ng.test_apply_power_commute(root));
+    VERIFY(root->outgoing().size() == 3);
+    VERIFY(count_edges_with_rule(root, "power commute n0") == 1);
+    VERIFY(count_edges_with_rule(root, "power commute m0") == 1);
+    // exactly one plain "power commute" (the commutation child): count total minus the two suffixed
+    VERIFY(count_edges_with_rule(root, "power commute") == 3); // prefix match: all three start with it
+    for (seq::nielsen_edge const* e : root->outgoing())
+        VERIFY(e->is_progress());
+
+    // locate the commutation child (rule exactly "power commute") and check its
+    // single equation is a concat = concat (both outer powers gone).
+    seq::nielsen_node* commute_child = nullptr;
+    for (seq::nielsen_edge const* e : root->outgoing())
+        if (strcmp(e->rule_name(), "power commute") == 0)
+            commute_child = e->tgt();
+    VERIFY(commute_child != nullptr);
+    VERIFY(commute_child->str_eqs().size() == 1);
+    VERIFY(commute_child->str_eqs()[0].m_lhs->is_concat());
+    VERIFY(commute_child->str_eqs()[0].m_rhs->is_concat());
+    VERIFY(!commute_child->str_eqs()[0].m_lhs->is_power());
+    std::cout << "  ok\n";
+}
+
+// same base U^n = U^m ⟿ owned by num_cmp (priority 3), commutation must DECLINE.
+static void test_power_commute_same_base_skipped() {
+    std::cout << "test_power_commute_same_base_skipped\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+
+    expr* p_e = m.mk_const(symbol("p"), arith.mk_int());
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* mm  = m.mk_const(symbol("mm"), arith.mk_int());
+    euf::snode const* a   = sg.mk_char('a');
+    euf::snode const* bcp = mk_ground_power(sg, seq, m, "bc", p_e);
+    euf::snode const* U   = sg.mk_concat(a, bcp);
+    euf::snode const* powU = mk_power_of(sg, seq, m, U, n_e);
+    euf::snode const* powU2 = mk_power_of(sg, seq, m, U, mm);   // same base U
+
+    ng.add_str_eq(powU, powU2);
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(!ng.test_apply_power_commute(root));
+    VERIFY(root->outgoing().empty());
+    std::cout << "  ok\n";
+}
+
+// tail present (U^n·x = V^m) ⟿ not a pure power equation, commutation DECLINES.
+static void test_power_commute_tail_skipped() {
+    std::cout << "test_power_commute_tail_skipped\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+
+    expr* p_e = m.mk_const(symbol("p"), arith.mk_int());
+    expr* q_e = m.mk_const(symbol("q"), arith.mk_int());
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* mm  = m.mk_const(symbol("mm"), arith.mk_int());
+    euf::snode const* a   = sg.mk_char('a');
+    euf::snode const* bcp = mk_ground_power(sg, seq, m, "bc", p_e);
+    euf::snode const* bcq = mk_ground_power(sg, seq, m, "bc", q_e);
+    euf::snode const* powU = mk_power_of(sg, seq, m, sg.mk_concat(a, bcp), n_e);
+    euf::snode const* powV = mk_power_of(sg, seq, m, sg.mk_concat(a, bcq), mm);
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+
+    ng.add_str_eq(sg.mk_concat(powU, x), powV);   // U^n·x = V^m
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(!ng.test_apply_power_commute(root));
+    std::cout << "  ok\n";
+}
+
+// ================= apply_ground_power_split (priority 3e2) =================
+// Fully-ground tailed power head P^e·L'' = Q^f·R'' with different nested bases:
+// a 3-way length race producing "gpsplit =", "gpsplit <", "gpsplit >" children.
+
+// (a(bc)^p)^n · "d" = (a(bc)^q)^m · "e" — fires; at least the = child plus the
+// < and > quotient children.  (Distinct tails "d"/"e" so it is not pure.)
+static void test_gpsplit_nested_tailed_fires() {
+    std::cout << "test_gpsplit_nested_tailed_fires\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+
+    expr* p_e = m.mk_const(symbol("p"), arith.mk_int());
+    expr* q_e = m.mk_const(symbol("q"), arith.mk_int());
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* mm  = m.mk_const(symbol("mm"), arith.mk_int());
+    euf::snode const* a   = sg.mk_char('a');
+    euf::snode const* bcp = mk_ground_power(sg, seq, m, "bc", p_e);
+    euf::snode const* bcq = mk_ground_power(sg, seq, m, "bc", q_e);
+    euf::snode const* powU = mk_power_of(sg, seq, m, sg.mk_concat(a, bcp), n_e);
+    euf::snode const* powV = mk_power_of(sg, seq, m, sg.mk_concat(a, bcq), mm);
+    euf::snode const* d = sg.mk_char('d');
+    euf::snode const* e = sg.mk_char('e');
+
+    ng.add_str_eq(sg.mk_concat(powU, d), sg.mk_concat(powV, e));   // U^n·d = V^m·e
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(ng.test_apply_ground_power_split(root));
+    VERIFY(count_edges_with_rule(root, "gpsplit =") == 1);
+    VERIFY(count_edges_with_rule(root, "gpsplit &lt;") >= 1);
+    VERIFY(count_edges_with_rule(root, "gpsplit &gt;") >= 1);
+    // the = child holds two equations: P^e = Q^f (pure) and L'' = R''
+    seq::nielsen_node* eqchild = nullptr;
+    for (seq::nielsen_edge const* ed : root->outgoing())
+        if (strcmp(ed->rule_name(), "gpsplit =") == 0)
+            eqchild = ed->tgt();
+    VERIFY(eqchild != nullptr);
+    VERIFY(eqchild->str_eqs().size() == 2);
+    std::cout << "  ok\n";
+}
+
+// pure P^e = Q^f (no tails) is owned by apply_power_commute → split DECLINES.
+static void test_gpsplit_pure_skipped() {
+    std::cout << "test_gpsplit_pure_skipped\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    arith_util arith(m);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+
+    expr* p_e = m.mk_const(symbol("p"), arith.mk_int());
+    expr* q_e = m.mk_const(symbol("q"), arith.mk_int());
+    expr* n_e = m.mk_const(symbol("n"), arith.mk_int());
+    expr* mm  = m.mk_const(symbol("mm"), arith.mk_int());
+    euf::snode const* a   = sg.mk_char('a');
+    euf::snode const* powU = mk_power_of(sg, seq, m, sg.mk_concat(a, mk_ground_power(sg, seq, m, "bc", p_e)), n_e);
+    euf::snode const* powV = mk_power_of(sg, seq, m, sg.mk_concat(a, mk_ground_power(sg, seq, m, "bc", q_e)), mm);
+
+    ng.add_str_eq(powU, powV);   // pure U^n = V^m
+    seq::nielsen_node* root = ng.root();
+
+    VERIFY(!ng.test_apply_ground_power_split(root));
+    VERIFY(root->outgoing().empty());
     std::cout << "  ok\n";
 }
 
@@ -4926,15 +5096,21 @@ void tst_seq_nielsen() {
     test_power_cursor_one_side_no_power();
     test_power_cursor_solve_unsat();
     test_power_cursor_solve_sat();
-    // Nested ground powers (apply_power_cursor_nested, priority 3e)
+    // Nested ground powers (unified apply_power_cursor, priority 3d)
     test_power_cursor_nested_conjugate();
     test_power_cursor_nested_common_root();
     test_power_cursor_nested_depth3();
     test_power_cursor_nested_decline_inner_exp();
     test_power_cursor_nested_decline_char_compat();
-    test_power_cursor_nested_decline_purechar();
     test_power_cursor_nested_noop_same_base();
     test_power_cursor_nested_gcd_proper_divisor();
     test_power_cursor_nested_multitoken_z1();
     test_power_cursor_nested_solve_bounded();
+    // Commutation for pure U^n = V^m ground power residual (apply_power_commute, 3e)
+    test_power_commute_nested_fires();
+    test_power_commute_same_base_skipped();
+    test_power_commute_tail_skipped();
+    // General fully-ground tailed power head (apply_ground_power_split, 3e2)
+    test_gpsplit_nested_tailed_fires();
+    test_gpsplit_pure_skipped();
 }

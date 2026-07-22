@@ -373,7 +373,7 @@ static void test_nseq_fine_wilf_option_off() {
 // -----------------------------------------------------------------------
 // Nested-power cursor end-to-end tests (full smt::context, real arithmetic).
 // A power whose base itself contains a ground power, e.g. (a·(bc)^p·d)^n.
-// The outer one-copy peel diverges here; apply_power_cursor_nested (priority
+// The outer one-copy peel diverges here; apply_power_cursor (unified) (priority
 // 3e) re-bases both outer powers over their common token-level root.
 // See specs/nseq-power-cursor.md §4b.
 // -----------------------------------------------------------------------
@@ -408,7 +408,7 @@ static void assert_nested_conjugate_eq(smt::context& ctx, ast_manager& m,
 // (the nested analog of the ex1 conjugate clash — after the token-level re-base
 // and cancellation it forces "a"·(bc)^p·u == (bc)^p·"a"·v, an equal-position
 // 'a' vs 'b' clash for every n,p≥1).  DIVERGES on the outer peel without
-// apply_power_cursor_nested; a node budget guards a regressed build against a
+// apply_power_cursor (unified); a node budget guards a regressed build against a
 // hang (it would then return unknown ≠ l_false and fail cleanly).
 static void test_nseq_power_cursor_nested_e2e_unsat() {
     std::cout << "test_nseq_power_cursor_nested_e2e_unsat\n";
@@ -454,6 +454,201 @@ static void test_nseq_power_cursor_nested_e2e_sat() {
     std::cout << "  ok: sat\n";
 }
 
+// Nested power-of-power ((bc)^p)^n = ((bcbc)^q)^m with p,q,n,m ≥ 1.
+// apply_power_normalize flattens (z^a)^b → z^{a·b} and normalises "bcbc" → "bc",
+// after which the cursor re-bases to (bc)^{p·n} = (bc)^{2·q·m} and num_cmp emits
+// the NONLINEAR constraint p·n = 2·q·m (satisfiable, e.g. p=2,n=q=m=1).  The
+// bare outer-copy peel diverges here; a node budget guards a regression.
+static void test_nseq_power_normalize_e2e_sat() {
+    std::cout << "test_nseq_power_normalize_e2e_sat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 100000;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    arith_util au(m);
+    const expr_ref p(m.mk_const(symbol("p"), au.mk_int()), m);
+    const expr_ref q(m.mk_const(symbol("q"), au.mk_int()), m);
+    const expr_ref n(m.mk_const(symbol("n"), au.mk_int()), m);
+    const expr_ref mm(m.mk_const(symbol("mm"), au.mk_int()), m);
+    const expr_ref bc_p(su.str.mk_power(su.str.mk_string(zstring("bc")), p), m);
+    const expr_ref bcbc_q(su.str.mk_power(su.str.mk_string(zstring("bcbc")), q), m);
+    const expr_ref lhs(su.str.mk_power(bc_p, n), m);      // ((bc)^p)^n
+    const expr_ref rhs(su.str.mk_power(bcbc_q, mm), m);   // ((bcbc)^q)^m
+    for (expr* e : { p.get(), q.get(), n.get(), mm.get() })
+        ctx.assert_expr(expr_ref(au.mk_ge(e, au.mk_int(1)), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
+// SAT: (a·(bc)^p)^n = (a·(bc)^{2q})^m with p,q,n,m ≥ 1.  The nested conjugate
+// residual the char cursor declines: apply_power_commute reduces it to the word
+// equation (a(bc)^p)(a(bc)^{2q}) = (a(bc)^{2q})(a(bc)^p) plus n(1+2p) = m(1+4q),
+// solved to p = 2q ∧ n = m (e.g. q=1,p=2,n=m=1).  Diverges without the rule.
+static void test_nseq_power_commute_e2e_sat() {
+    std::cout << "test_nseq_power_commute_e2e_sat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 100000;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    arith_util au(m);
+    const expr_ref p(m.mk_const(symbol("p"), au.mk_int()), m);
+    const expr_ref q(m.mk_const(symbol("q"), au.mk_int()), m);
+    const expr_ref n(m.mk_const(symbol("n"), au.mk_int()), m);
+    const expr_ref mm(m.mk_const(symbol("mm"), au.mk_int()), m);
+    const expr_ref bc_p(su.str.mk_power(su.str.mk_string(zstring("bc")), p), m);
+    const expr_ref bc_2q(su.str.mk_power(su.str.mk_string(zstring("bc")),
+                                         expr_ref(au.mk_mul(au.mk_int(2), q), m)), m);
+    const expr_ref U(su.str.mk_concat(su.str.mk_string(zstring("a")), bc_p), m);   // a·(bc)^p
+    const expr_ref V(su.str.mk_concat(su.str.mk_string(zstring("a")), bc_2q), m);  // a·(bc)^{2q}
+    const expr_ref lhs(su.str.mk_power(U, n), m);
+    const expr_ref rhs(su.str.mk_power(V, mm), m);
+    for (expr* e : { p.get(), q.get(), n.get(), mm.get() })
+        ctx.assert_expr(expr_ref(au.mk_ge(e, au.mk_int(1)), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
+// UNSAT: the same equation with the extra constraint p = 2q + 1 — the 'a'
+// positions can no longer align (p = 2q is forced by commutation), so it is
+// unsatisfiable.  Diverges without apply_power_commute.
+static void test_nseq_power_commute_e2e_unsat() {
+    std::cout << "test_nseq_power_commute_e2e_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 100000;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    arith_util au(m);
+    const expr_ref p(m.mk_const(symbol("p"), au.mk_int()), m);
+    const expr_ref q(m.mk_const(symbol("q"), au.mk_int()), m);
+    const expr_ref n(m.mk_const(symbol("n"), au.mk_int()), m);
+    const expr_ref mm(m.mk_const(symbol("mm"), au.mk_int()), m);
+    const expr_ref bc_p(su.str.mk_power(su.str.mk_string(zstring("bc")), p), m);
+    const expr_ref bc_2q(su.str.mk_power(su.str.mk_string(zstring("bc")),
+                                         expr_ref(au.mk_mul(au.mk_int(2), q), m)), m);
+    const expr_ref U(su.str.mk_concat(su.str.mk_string(zstring("a")), bc_p), m);
+    const expr_ref V(su.str.mk_concat(su.str.mk_string(zstring("a")), bc_2q), m);
+    const expr_ref lhs(su.str.mk_power(U, n), m);
+    const expr_ref rhs(su.str.mk_power(V, mm), m);
+    for (expr* e : { p.get(), q.get(), n.get(), mm.get() })
+        ctx.assert_expr(expr_ref(au.mk_ge(e, au.mk_int(1)), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(p, au.mk_add(au.mk_mul(au.mk_int(2), q), au.mk_int(1))), m)); // p = 2q+1
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// Fully-ground TAILED power head (apply_ground_power_split, priority 3e2).
+// (a·(bc)^p)^n · "d" = (a·(bc)^{2q})^m · "d" — the R1 residual with a ground tail,
+// which apply_power_commute (pure only) skips.  Equal tails force the equal-length
+// race branch → P^e=Q^f (commute) → p=2q, n=m.  SAT.
+static void test_nseq_gpsplit_e2e_sat() {
+    std::cout << "test_nseq_gpsplit_e2e_sat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 300000;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    arith_util au(m);
+    const expr_ref p(m.mk_const(symbol("p"), au.mk_int()), m);
+    const expr_ref q(m.mk_const(symbol("q"), au.mk_int()), m);
+    const expr_ref n(m.mk_const(symbol("n"), au.mk_int()), m);
+    const expr_ref mm(m.mk_const(symbol("mm"), au.mk_int()), m);
+    const expr_ref U(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                     expr_ref(su.str.mk_power(su.str.mk_string(zstring("bc")), p), m)), m);
+    const expr_ref V(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                     expr_ref(su.str.mk_power(su.str.mk_string(zstring("bc")),
+                              expr_ref(au.mk_mul(au.mk_int(2), q), m)), m)), m);
+    const expr_ref lhs(su.str.mk_concat(expr_ref(su.str.mk_power(U, n), m), su.str.mk_string(zstring("d"))), m);
+    const expr_ref rhs(su.str.mk_concat(expr_ref(su.str.mk_power(V, mm), m), su.str.mk_string(zstring("d"))), m);
+    for (expr* e : { p.get(), q.get(), n.get(), mm.get() })
+        ctx.assert_expr(expr_ref(au.mk_ge(e, au.mk_int(1)), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
+// Same, with p = 2q+1 forced → the 'a' positions cannot align → UNSAT.
+static void test_nseq_gpsplit_e2e_unsat() {
+    std::cout << "test_nseq_gpsplit_e2e_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 300000;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    arith_util au(m);
+    const expr_ref p(m.mk_const(symbol("p"), au.mk_int()), m);
+    const expr_ref q(m.mk_const(symbol("q"), au.mk_int()), m);
+    const expr_ref n(m.mk_const(symbol("n"), au.mk_int()), m);
+    const expr_ref mm(m.mk_const(symbol("mm"), au.mk_int()), m);
+    const expr_ref U(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                     expr_ref(su.str.mk_power(su.str.mk_string(zstring("bc")), p), m)), m);
+    const expr_ref V(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                     expr_ref(su.str.mk_power(su.str.mk_string(zstring("bc")),
+                              expr_ref(au.mk_mul(au.mk_int(2), q), m)), m)), m);
+    const expr_ref lhs(su.str.mk_concat(expr_ref(su.str.mk_power(U, n), m), su.str.mk_string(zstring("d"))), m);
+    const expr_ref rhs(su.str.mk_concat(expr_ref(su.str.mk_power(V, mm), m), su.str.mk_string(zstring("d"))), m);
+    for (expr* e : { p.get(), q.get(), n.get(), mm.get() })
+        ctx.assert_expr(expr_ref(au.mk_ge(e, au.mk_int(1)), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(p, au.mk_add(au.mk_mul(au.mk_int(2), q), au.mk_int(1))), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// Commutation of two DIFFERENT nested powers as a fully-ground word equation:
+// X·Y = Y·X with X=(a(bc)^p)^n, Y=(a(bc)^{2q})^m.  Exercises the split with
+// nonempty tails on BOTH sides; satisfiable (p=2q ⇒ X,Y commute).
+static void test_nseq_gpsplit_e2e_commute_tails() {
+    std::cout << "test_nseq_gpsplit_e2e_commute_tails\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 300000;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    arith_util au(m);
+    const expr_ref p(m.mk_const(symbol("p"), au.mk_int()), m);
+    const expr_ref q(m.mk_const(symbol("q"), au.mk_int()), m);
+    const expr_ref n(m.mk_const(symbol("n"), au.mk_int()), m);
+    const expr_ref mm(m.mk_const(symbol("mm"), au.mk_int()), m);
+    const expr_ref U(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                     expr_ref(su.str.mk_power(su.str.mk_string(zstring("bc")), p), m)), m);
+    const expr_ref V(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                     expr_ref(su.str.mk_power(su.str.mk_string(zstring("bc")),
+                              expr_ref(au.mk_mul(au.mk_int(2), q), m)), m)), m);
+    const expr_ref X(su.str.mk_power(U, n), m);
+    const expr_ref Y(su.str.mk_power(V, mm), m);
+    const expr_ref lhs(su.str.mk_concat(X, Y), m);
+    const expr_ref rhs(su.str.mk_concat(Y, X), m);
+    for (expr* e : { p.get(), q.get(), n.get(), mm.get() })
+        ctx.assert_expr(expr_ref(au.mk_ge(e, au.mk_int(1)), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -471,5 +666,11 @@ void tst_nseq_basic() {
     test_nseq_fine_wilf_option_off();
     test_nseq_power_cursor_nested_e2e_unsat();
     test_nseq_power_cursor_nested_e2e_sat();
+    test_nseq_power_normalize_e2e_sat();
+    test_nseq_power_commute_e2e_sat();
+    test_nseq_power_commute_e2e_unsat();
+    test_nseq_gpsplit_e2e_sat();
+    test_nseq_gpsplit_e2e_unsat();
+    test_nseq_gpsplit_e2e_commute_tails();
     std::cout << "nseq_basic: all tests passed\n";
 }
