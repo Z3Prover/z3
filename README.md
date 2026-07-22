@@ -32,9 +32,9 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 | [![MSVC Static Build](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build.yml) | [![MSVC Clang-CL Static Build](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build-clang-cl.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build-clang-cl.yml) | [![Build and Cache Z3](https://github.com/Z3Prover/z3/actions/workflows/build-z3-cache.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/build-z3-cache.yml) | [![Memory Safety Analysis](https://github.com/Z3Prover/z3/actions/workflows/memory-safety.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/memory-safety.yml) | [![Mark PRs Ready for Review](https://github.com/Z3Prover/z3/actions/workflows/mark-prs-ready-for-review.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/mark-prs-ready-for-review.yml) |
 
 ### Manual & Release Workflows
-| Documentation | Release Build | WASM Release | NuGet Build |
-|---------------|---------------|--------------|-------------|
-| [![Documentation](https://github.com/Z3Prover/z3/actions/workflows/docs.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/docs.yml) | [![Release Build](https://github.com/Z3Prover/z3/actions/workflows/release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release.yml) | [![WebAssembly Publish](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml) | [![Build NuGet Package](https://github.com/Z3Prover/z3/actions/workflows/nuget-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nuget-build.yml) |
+| Documentation | Release Build | WASM Release |
+|---------------|---------------|--------------|
+| [![Documentation](https://github.com/Z3Prover/z3/actions/workflows/docs.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/docs.yml) | [![Release Build](https://github.com/Z3Prover/z3/actions/workflows/release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release.yml) | [![WebAssembly Publish](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml) |
 
 ### Specialized Workflows
 | Nightly Validation | Copilot Setup | Agentics Maintenance |
@@ -298,4 +298,3 @@ to Z3's C API. For more information, see [MachineArithmetic/README.md](https://g
 
 ## Power Tools
 * The [Axiom Profiler](https://github.com/viperproject/axiom-profiler-2) currently developed by ETH Zurich
-
