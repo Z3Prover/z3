@@ -325,6 +325,26 @@ void tst_seq_rewriter() {
             ENSURE(res == l_false);
         }
 
+        // 21. sat: (str.in_re "a" (re.++ re.all (re.range s "c")))
+        //     Regression for nested symbolic re.range under re.++.
+        //     The string "a" satisfies the regex when s = "a":
+        //     re.all matches "" and re.range "a" "c" accepts "a".
+        //     This must not hang; it should return sat.
+        {
+            smt_params sp;
+            smt::context ctx(m, sp);
+            app_ref s(m.mk_fresh_const("s", str_sort), m);
+            expr_ref a_str(su.str.mk_string(zstring('a')), m);
+            expr_ref c_str(su.str.mk_string(zstring('c')), m);
+            expr_ref re_all(su.re.mk_full_seq(re_sort), m);
+            expr_ref re_range(su.re.mk_range(s, c_str), m);
+            expr_ref regex(su.re.mk_concat(re_all, re_range), m);
+            ctx.assert_expr(su.re.mk_in_re(a_str, regex));
+            lbool res = ctx.check();
+            std::cout << "nested symbolic re.range under re.++ sat: " << res << "\n";
+            ENSURE(res == l_true);
+        }
+
         // 20. unsat: contradictory constant lexical bounds.
         //     "2024-01-01" < x < "2024-12-31" and x < "2023-01-01".
         //     Since "2023-01-01" < "2024-01-01", no such x exists.
