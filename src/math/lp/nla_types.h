@@ -51,7 +51,10 @@ namespace nla {
     class lemma {
         vector<ineq>     m_ineqs;
         lp::explanation  m_expl;
+        char const*      m_name = "unknown";
     public:
+        void set_name(char const* n) { m_name = n; }
+        char const* name() const { return m_name; }
         void push_back(const ineq& i) { m_ineqs.push_back(i);}
         size_t size() const { return m_ineqs.size() + m_expl.size(); }
         const vector<ineq>& ineqs() const { return m_ineqs; }

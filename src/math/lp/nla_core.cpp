@@ -845,6 +845,7 @@ rational core::val(const factorization& f) const {
 
 lemma_builder::lemma_builder(core& c, const char* name):name(name), c(c) {
     c.m_lemmas.push_back(lemma());
+    c.m_lemmas.back().set_name(name);
 }
 
 lemma_builder& lemma_builder::operator|=(ineq const& ineq) {

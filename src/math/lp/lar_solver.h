@@ -90,9 +90,11 @@ class lar_solver : public column_namer {
     bool m_validate_blocker = false;
     void update_column_type_and_bound_check_on_equal(unsigned j, const impq& right_side, constraint_index ci, unsigned&);
     void update_column_type_and_bound(unsigned j, const impq& right_side, constraint_index ci);
- public:   
+ public:
     bool validate_blocker() const { return m_validate_blocker; }
-    bool & validate_blocker() { return m_validate_blocker; }   
+    bool & validate_blocker() { return m_validate_blocker; }
+    // debugging hook: observe every bound assertion with its dependency
+    std::function<void(lpvar, lconstraint_kind, const mpq&, u_dependency*)> m_bound_asserted_eh;
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const impq& right_side, u_dependency* dep);
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq& right_side, u_dependency* dep);
  private:

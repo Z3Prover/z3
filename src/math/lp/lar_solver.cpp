@@ -2252,6 +2252,8 @@ namespace lp {
 
 
     bool lar_solver::validate_bound(lpvar j, lconstraint_kind kind, const mpq& rs, u_dependency* dep) {
+        if (m_validate_blocker)
+            return true;
         return m_imp->validate_bound(j, kind, rs, dep);
     }
 
@@ -2308,6 +2310,8 @@ namespace lp {
         update_column_type_and_bound(j, kind, impq(right_side), dep);
     }
     void lar_solver::update_column_type_and_bound(unsigned j, lconstraint_kind kind, const impq& right_side, u_dependency* dep) {
+        if (m_bound_asserted_eh)
+            m_bound_asserted_eh(j, kind, right_side.x, dep);
         // SASSERT(validate_bound(j, kind, right_side.x, dep));
         TRACE(
             lar_solver_feas,

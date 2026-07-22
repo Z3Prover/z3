@@ -18,6 +18,9 @@
 
 
   --*/
+#include <fstream>
+#include <sstream>
+#include <unordered_map>
 #include "util/stopwatch.h"
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
@@ -903,13 +906,409 @@ public:
     }
         
     ~imp() {
+        if (m_has_ref_model)
+            verbose_stream() << "ref-model checker: " << m_ref_checked << " checked, "
+                             << m_ref_depfalse << " dep-false, " << m_ref_unknown << " unknown\n";
         del_bounds(0);
         std::for_each(m_internalize_states.begin(), m_internalize_states.end(), delete_proc<internalize_state>());
     }
 
     lp::lar_solver& lp(){ return *m_solver.get(); }
-    const lp::lar_solver& lp() const { return *m_solver.get(); }    
- 
+    const lp::lar_solver& lp() const { return *m_solver.get(); }
+
+    // ---- reference-model soundness checker (Z3_REF_MODEL=<file>) ----
+    // file format: one "<name> <int>" pair per line; checks every asserted
+    // bound and nla lemma against the model: dependencies satisfied while
+    // the derived fact is violated indicates an unsound derivation.
+    std::unordered_map<std::string, rational> m_ref_model;
+    bool m_has_ref_model = false;
+
+    void load_ref_model() {
+        char const* f = getenv("Z3_REF_MODEL");
+        if (!f) return;
+        std::ifstream in(f);
+        std::string name; std::string val;
+        while (in >> name >> val)
+            m_ref_model[name] = rational(val.c_str());
+        m_has_ref_model = !m_ref_model.empty();
+        if (m_has_ref_model || getenv("Z3_AUDIT"))
+            lp().m_bound_asserted_eh = [&](lp::lpvar j, lp::lconstraint_kind k, rational const& rs, u_dependency* dep) {
+                if (m_has_ref_model) {
+                    ref_check_bound(j, k, rs, dep);
+                    ref_impl_check(j, k, rs, dep);
+                }
+                audit_bound(j, k, rs, dep);
+            };
+    }
+
+    bool ref_eval_expr(expr* e, rational& out) {
+        rational r; expr* arg;
+        if (a.is_numeral(e, out))
+            return true;
+        if (a.is_uminus(e, arg)) {
+            if (!ref_eval_expr(arg, r)) return false;
+            out = -r; return true;
+        }
+        if (a.is_add(e)) {
+            out = rational(0);
+            for (expr* ch : *to_app(e)) {
+                if (!ref_eval_expr(ch, r)) return false;
+                out += r;
+            }
+            return true;
+        }
+        if (a.is_mul(e)) {
+            out = rational(1);
+            for (expr* ch : *to_app(e)) {
+                if (!ref_eval_expr(ch, r)) return false;
+                out *= r;
+            }
+            return true;
+        }
+        if (a.is_sub(e)) {
+            app* ap = to_app(e);
+            if (!ref_eval_expr(ap->get_arg(0), out)) return false;
+            for (unsigned i = 1; i < ap->get_num_args(); ++i) {
+                if (!ref_eval_expr(ap->get_arg(i), r)) return false;
+                out -= r;
+            }
+            return true;
+        }
+        if (is_app(e) && to_app(e)->get_num_args() == 0) {
+            auto it = m_ref_model.find(to_app(e)->get_decl()->get_name().str());
+            if (it == m_ref_model.end()) return false;
+            out = it->second;
+            return true;
+        }
+        return false;
+    }
+
+    bool ref_eval_column(lp::lpvar j, rational& out) {
+        if (lp().column_has_term(j)) {
+            out = rational(0);
+            for (auto const& p : lp().get_term(j)) {
+                rational r;
+                if (!ref_eval_column(p.j(), r)) return false;
+                out += p.coeff() * r;
+            }
+            return true;
+        }
+        auto ext = lp().local_to_external(j);
+        if (ext == lp::null_lpvar || ext >= th.get_num_vars()) return false;
+        enode* n = get_enode(ext);
+        if (!n) return false;
+        return ref_eval_expr(n->get_expr(), out);
+    }
+
+    bool ref_holds(rational const& lhs, lp::lconstraint_kind k, rational const& rhs) {
+        switch (k) {
+        case lp::LE: return lhs <= rhs;
+        case lp::LT: return lhs < rhs;
+        case lp::GE: return lhs >= rhs;
+        case lp::GT: return lhs > rhs;
+        case lp::EQ: return lhs == rhs;
+        case lp::NE: return lhs != rhs;
+        default: return true;
+        }
+    }
+
+    // returns true if constraint ci is *known* to hold in the model; unknown -> sets ok=false
+    bool ref_constraint_holds(lp::constraint_index ci, bool& ok) {
+        auto const& c = lp().constraints()[ci];
+        rational lhs(0);
+        for (auto const& [coeff, j] : c.coeffs()) {
+            rational r;
+            if (!ref_eval_column(j, r)) { ok = false; return true; }
+            lhs += coeff * r;
+        }
+        return ref_holds(lhs, c.kind(), c.rhs());
+    }
+
+    unsigned m_ref_checked = 0, m_ref_unknown = 0, m_ref_depfalse = 0;
+    void ref_check_bound(lp::lpvar j, lp::lconstraint_kind k, rational const& rs, u_dependency* dep) {
+        bool ok = true;
+        svector<lp::constraint_index> cs;
+        lp().dep_manager().linearize(dep, cs);
+        for (auto ci : cs)
+            if (!ref_constraint_holds(ci, ok)) {
+                if (ok) ++m_ref_depfalse; else ++m_ref_unknown;
+                return;   // some dependency is false in the model: bound not applicable
+            }
+        if (!ok) {
+            ++m_ref_unknown;
+            return;       // could not evaluate: inconclusive
+        }
+        rational v;
+        if (!ref_eval_column(j, v)) {
+            ++m_ref_unknown;
+            return;
+        }
+        ++m_ref_checked;
+        if (!ref_holds(v, k, rs)) {
+            verbose_stream() << "REF-MODEL VIOLATION (bound): j" << j << " (model value " << v << ") "
+                             << lconstraint_kind_string(k) << " " << rs << " but all "
+                             << cs.size() << " dependencies hold\n";
+            for (auto ci : cs)
+                lp().constraints().display(verbose_stream() << "  dep: ", ci) << "\n";
+            exit(1);
+        }
+    }
+
+    void ref_check_lemma(nla::lemma const& l) {
+        if (!m_has_ref_model) return;
+        bool ok = true;
+        for (auto p : l.expl())
+            if (!ref_constraint_holds(p.ci(), ok))
+                return;
+        if (!ok) return;
+        for (auto const& i : l.ineqs()) {
+            rational lhs(0);
+            for (auto const& p : i.term()) {
+                rational r;
+                if (!ref_eval_column(p.j(), r)) return;
+                lhs += p.coeff() * r;
+            }
+            if (ref_holds(lhs, i.cmp(), i.rs()))
+                return;   // some disjunct true: lemma holds in model
+        }
+        verbose_stream() << "REF-MODEL VIOLATION (lemma): all " << l.ineqs().size()
+                         << " disjuncts false, all " << l.expl().size() << " premises hold\n";
+        for (auto p : l.expl())
+            lp().constraints().display(verbose_stream() << "  premise: ", p.ci()) << "\n";
+        exit(1);
+    }
+
+    // ---- offline audit (Z3_AUDIT=<dir>): dump every nla-derived fact as a
+    // standalone implication query; verify the batch afterwards with a
+    // trusted z3.  premises /\ defs /\ !fact should be unsat. ----
+    unsigned m_audit_n = 0;
+
+    void audit_collect(svector<lp::constraint_index> const& cs,
+                       svector<lp::lpvar> const& roots,
+                       indexed_uint_set& seen, svector<lp::lpvar>& todo) {
+        auto touch = [&](lp::lpvar u) { if (!seen.contains(u)) { seen.insert(u); todo.push_back(u); } };
+        for (auto u : roots)
+            touch(u);
+        for (auto ci : cs)
+            for (auto const& [c_, u] : lp().constraints()[ci].coeffs())
+                touch(u);
+        auto const& emons = m_nla->get_core().emons();
+        for (unsigned qh = 0; qh < todo.size(); ++qh) {
+            lp::lpvar u = todo[qh];
+            if (lp().column_has_term(u))
+                for (auto const& p : lp().get_term(u))
+                    touch(p.j());
+            if (emons.is_monic_var(u))
+                for (lp::lpvar w : emons[u].vars())
+                    touch(w);
+        }
+    }
+
+    void audit_emit_kind(std::ostream& o, lp::lconstraint_kind kk) {
+        switch (kk) {
+        case lp::LE: o << "<="; break; case lp::LT: o << "<"; break;
+        case lp::GE: o << ">="; break; case lp::GT: o << ">"; break;
+        default: o << "="; break;
+        }
+    }
+    void audit_emit_num(std::ostream& o, rational const& r) {
+        if (r.is_neg()) o << "(- " << -r << ")"; else o << r;
+    }
+
+    // shared preamble: declarations, term defs, monic defs, premises
+    void audit_emit_preamble(std::ostream& q, indexed_uint_set const& seen,
+                             svector<lp::lpvar> const& todo,
+                             svector<lp::constraint_index> const& cs) {
+        auto const& emons = m_nla->get_core().emons();
+        for (auto u : todo) {
+            q << "(declare-const c" << u << " " << (lp().column_is_int(u) ? "Int" : "Real") << ")\n";
+            auto ext = lp().local_to_external(u);
+            if (ext != lp::null_lpvar) {
+                if (ext == m_zero_var || ext == m_rzero_var)
+                    q << "(assert (= c" << u << " 0))\n";
+                else if (ext == m_one_var || ext == m_rone_var)
+                    q << "(assert (= c" << u << " 1))\n";
+            }
+        }
+        for (auto u : todo) {
+            if (lp().column_has_term(u)) {
+                q << "(assert (= c" << u << " (+ 0";
+                for (auto const& p : lp().get_term(u)) {
+                    q << " (* "; audit_emit_num(q, p.coeff()); q << " c" << p.j() << ")";
+                }
+                q << ")))\n";
+            }
+            if (emons.is_monic_var(u)) {
+                q << "(assert (= c" << u << " (* 1";
+                for (lp::lpvar w : emons[u].vars())
+                    q << " c" << w;
+                q << ")))\n";
+            }
+        }
+        for (auto ci : cs) {
+            auto const& c = lp().constraints()[ci];
+            q << "(assert ("; audit_emit_kind(q, c.kind()); q << " (+ 0";
+            for (auto const& [co, u] : c.coeffs()) {
+                q << " (* "; audit_emit_num(q, co); q << " c" << u << ")";
+            }
+            q << ") "; audit_emit_num(q, c.rhs()); q << "))\n";
+        }
+    }
+
+    std::ofstream audit_open(char const* dir, char const* tag) {
+        std::string fn = std::string(dir) + "/" + std::to_string(m_audit_n++) + "_" + tag + ".smt2";
+        return std::ofstream(fn);
+    }
+
+    void audit_bound(lp::lpvar j, lp::lconstraint_kind k, rational const& rs, u_dependency* dep) {
+        char const* dir = getenv("Z3_AUDIT");
+        if (!dir) return;
+        svector<lp::constraint_index> cs;
+        lp().dep_manager().linearize(dep, cs);
+        indexed_uint_set seen; svector<lp::lpvar> todo;
+        svector<lp::lpvar> roots; roots.push_back(j);
+        audit_collect(cs, roots, seen, todo);
+        auto q = audit_open(dir, "bound");
+        audit_emit_preamble(q, seen, todo, cs);
+        q << "(assert (not ("; audit_emit_kind(q, k); q << " c" << j << " ";
+        audit_emit_num(q, rs); q << ")))\n(check-sat)\n";
+    }
+
+    void audit_eq(lpvar u, lpvar v, lp::explanation const& e) {
+        char const* dir = getenv("Z3_AUDIT");
+        if (!dir) return;
+        svector<lp::constraint_index> cs;
+        for (auto p : e) cs.push_back(p.ci());
+        indexed_uint_set seen; svector<lp::lpvar> todo;
+        svector<lp::lpvar> roots; roots.push_back(u); roots.push_back(v);
+        audit_collect(cs, roots, seen, todo);
+        auto q = audit_open(dir, "eq");
+        audit_emit_preamble(q, seen, todo, cs);
+        q << "(assert (not (= c" << u << " c" << v << ")))\n(check-sat)\n";
+    }
+
+    void audit_lemma(nla::lemma const& l) {
+        char const* dir = getenv("Z3_AUDIT");
+        if (!dir) return;
+        svector<lp::constraint_index> cs;
+        for (auto p : l.expl()) cs.push_back(p.ci());
+        indexed_uint_set seen; svector<lp::lpvar> todo;
+        svector<lp::lpvar> roots;
+        for (auto const& i : l.ineqs())
+            for (auto const& p : i.term())
+                roots.push_back(p.j());
+        audit_collect(cs, roots, seen, todo);
+        auto q = audit_open(dir, "lemma");
+        q << "; lemma: " << l.name() << "\n";
+        audit_emit_preamble(q, seen, todo, cs);
+        for (auto const& i : l.ineqs()) {
+            std::ostringstream lhs;
+            lhs << "(+ 0";
+            for (auto const& p : i.term()) {
+                lhs << " (* "; audit_emit_num(lhs, p.coeff()); lhs << " c" << p.j() << ")";
+            }
+            lhs << ")";
+            std::ostringstream rel;
+            if (i.cmp() == lp::NE) {
+                rel << "(not (= " << lhs.str() << " ";
+                audit_emit_num(rel, i.rs()); rel << "))";
+            }
+            else {
+                rel << "("; audit_emit_kind(rel, i.cmp()); rel << " " << lhs.str() << " ";
+                audit_emit_num(rel, i.rs()); rel << ")";
+            }
+            q << "(assert (not " << rel.str() << "))\n";
+        }
+        q << "(check-sat)\n";
+    }
+    // ---- end offline audit ----
+
+    // Full implication check via an external oracle z3 (Z3_IMPL_CHECK=<path-to-z3>):
+    // deps /\ term-defs /\ monic-defs /\ !bound must be unsat.
+    void ref_impl_check(lp::lpvar j, lp::lconstraint_kind k, rational const& rs, u_dependency* dep) {
+        char const* oracle = getenv("Z3_IMPL_CHECK");
+        if (!oracle) return;
+        svector<lp::constraint_index> cs;
+        lp().dep_manager().linearize(dep, cs);
+
+        // collect involved columns transitively through terms and monics
+        indexed_uint_set seen;
+        svector<lp::lpvar> todo;
+        auto touch = [&](lp::lpvar u) { if (!seen.contains(u)) { seen.insert(u); todo.push_back(u); } };
+        touch(j);
+        for (auto ci : cs)
+            for (auto const& [c_, u] : lp().constraints()[ci].coeffs())
+                touch(u);
+        auto const& emons = m_nla->get_core().emons();
+        for (unsigned qh = 0; qh < todo.size(); ++qh) {
+            lp::lpvar u = todo[qh];
+            if (lp().column_has_term(u))
+                for (auto const& p : lp().get_term(u))
+                    touch(p.j());
+            if (emons.is_monic_var(u))
+                for (lp::lpvar w : emons[u].vars())
+                    touch(w);
+        }
+
+        std::ofstream q("/tmp/z3_impl_check.smt2");
+        for (unsigned qh = 0; qh < todo.size(); ++qh) {
+            lp::lpvar u = todo[qh];
+            q << "(declare-const c" << u << " " << (lp().column_is_int(u) ? "Int" : "Real") << ")\n";
+        }
+        auto emit_kind = [&](std::ostream& o, lp::lconstraint_kind kk) {
+            switch (kk) {
+            case lp::LE: o << "<="; break; case lp::LT: o << "<"; break;
+            case lp::GE: o << ">="; break; case lp::GT: o << ">"; break;
+            default: o << "="; break;
+            }
+        };
+        auto emit_num = [&](std::ostream& o, rational const& r) {
+            if (r.is_neg()) o << "(- " << -r << ")"; else o << r;
+        };
+        // term and monic definitions
+        for (unsigned qh = 0; qh < todo.size(); ++qh) {
+            lp::lpvar u = todo[qh];
+            if (lp().column_has_term(u)) {
+                q << "(assert (= c" << u << " (+ 0";
+                for (auto const& p : lp().get_term(u)) {
+                    q << " (* "; emit_num(q, p.coeff()); q << " c" << p.j() << ")";
+                }
+                q << ")))\n";
+            }
+            if (emons.is_monic_var(u)) {
+                q << "(assert (= c" << u << " (* 1";
+                for (lp::lpvar w : emons[u].vars())
+                    q << " c" << w;
+                q << ")))\n";
+            }
+        }
+        for (auto ci : cs) {
+            auto const& c = lp().constraints()[ci];
+            q << "(assert ("; emit_kind(q, c.kind()); q << " (+ 0";
+            for (auto const& [co, u] : c.coeffs()) {
+                q << " (* "; emit_num(q, co); q << " c" << u << ")";
+            }
+            q << ") "; emit_num(q, c.rhs()); q << "))\n";
+        }
+        q << "(assert (not ("; emit_kind(q, k); q << " c" << j << " ";
+        emit_num(q, rs); q << ")))\n(check-sat)\n";
+        q.close();
+        std::string cmd = std::string(oracle) + " -T:20 /tmp/z3_impl_check.smt2 > /tmp/z3_impl_check.out 2>&1";
+        if (system(cmd.c_str()) == -1) return;
+        std::ifstream res("/tmp/z3_impl_check.out");
+        std::string line; std::getline(res, line);
+        if (line == "sat") {
+            verbose_stream() << "INVALID IMPLICATION: j" << j << " ";
+            emit_kind(verbose_stream(), k);
+            verbose_stream() << " " << rs << " not implied by:\n";
+            for (auto ci : cs)
+                lp().constraints().display(verbose_stream() << "  ", ci) << "\n";
+            verbose_stream() << "query kept in /tmp/z3_impl_check.smt2\n";
+            exit(1);
+        }
+    }
+    // ---- end reference-model checker ----
+
     void init() {
         if (m_solver) return;
 
@@ -927,6 +1326,7 @@ public:
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_lia = alloc(lp::int_solver, *m_solver.get());
+        load_ref_model();
     }
         
     void internalize_is_int(app * n) {
@@ -1106,7 +1506,31 @@ public:
         m_bv_to_propagate.reset();
         if (m_nla)
             m_nla->pop(num_scopes);
+        if (m_has_ref_model)
+            ref_check_stale_bounds();
         TRACE(arith, tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
+    }
+
+    // after a pop, every remaining column bound must be justified by
+    // constraints that are still active
+    void ref_check_stale_bounds() {
+        for (unsigned j = 0; j < lp().number_of_vars(); ++j) {
+            for (bool lower : {true, false}) {
+                u_dependency* d = lower ? lp().get_column_lower_bound_witness(j)
+                                        : lp().get_column_upper_bound_witness(j);
+                if (!d) continue;
+                svector<lp::constraint_index> cs;
+                lp().dep_manager().linearize(d, cs);
+                for (auto ci : cs) {
+                    if (!lp().constraints().is_active(ci)) {
+                        verbose_stream() << "STALE BOUND after pop: j" << j
+                                         << (lower ? " lower" : " upper")
+                                         << " depends on inactive constraint " << ci << "\n";
+                        exit(1);
+                    }
+                }
+            }
+        }
     }
 
     void restart_eh() {
@@ -2141,6 +2565,8 @@ public:
     }    
 
     void false_case_of_check_nla(const nla::lemma & l) {
+        ref_check_lemma(l);
+        audit_lemma(l);
         m_lemma = l; //todo avoid the copy
         m_explanation = l.expl();
         literal_vector core;
@@ -2270,7 +2696,7 @@ public:
         propagate_nla(false);
         if (ctx().inconsistent())
             return true;
-        if (!can_propagate_core()) 
+        if (!can_propagate_core())
             return false;
 
         for (; m_delay_ineqs_qhead < m_delay_ineqs.size() && !ctx().inconsistent() && m.inc(); ++m_delay_ineqs_qhead) {
@@ -2566,9 +2992,30 @@ public:
         assign(bound, m_core, m_eqs, m_params);              
     }
 
+    void ref_check_eq(lpvar u, lpvar v, lp::explanation const& e) {
+        if (!m_has_ref_model) return;
+        bool ok = true;
+        for (auto p : e)
+            if (!ref_constraint_holds(p.ci(), ok))
+                return;
+        if (!ok) return;
+        rational a, b;
+        if (!ref_eval_column(u, a) || !ref_eval_column(v, b))
+            return;
+        if (a != b) {
+            verbose_stream() << "REF-MODEL VIOLATION (eq): j" << u << " (=" << a << ") == j" << v
+                             << " (=" << b << ") but all " << e.size() << " premises hold\n";
+            for (auto p : e)
+                lp().constraints().display(verbose_stream() << "  premise: ", p.ci()) << "\n";
+            exit(1);
+        }
+    }
+
     bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) {
         if (ctx().inconsistent())
             return false;
+        ref_check_eq(u, v, e);
+        audit_eq(u, v, e);
         theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
         if (uv == null_theory_var)
@@ -3693,6 +4140,7 @@ public:
               display_evidence(tout << core << " ", m_explanation););
         for (auto ev : m_explanation) 
             set_evidence(ev.ci(), m_core, m_eqs);
+
 
 
         if (params().m_arith_validate)
