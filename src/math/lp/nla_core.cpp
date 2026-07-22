@@ -1526,12 +1526,14 @@ void core::set_use_nra_model(bool m) {
     
 bool core::propagate(bool at_final_check) {
     clear();
+    bool lp_bounds = at_final_check &&
+        m_final_check_propagations++ >= params().arith_nl_bounds_delay();
     bool propagated = false;
-    if (at_final_check && params().arith_nl_tighten_bounds())
+    if (lp_bounds && params().arith_nl_tighten_bounds())
         propagated = m_monomial_bounds.tighten_lp_bounds();
     else
         propagated = m_monomial_bounds.unit_propagate();
-    if (at_final_check)
+    if (lp_bounds)
         propagated |= optimize_nl_bounds();
     m_monics_with_changed_bounds.reset();
     return propagated;

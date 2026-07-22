@@ -1499,6 +1499,8 @@ public:
 
     void init_search_eh() {
         m_arith_eq_adapter.init_search_eh();
+        if (m_nla)
+            m_nla->reset_final_check_counter();
         m_num_conflicts = 0;
     }
 

@@ -109,6 +109,7 @@ class core {
     nla_throttle             m_throttle;
     bool                     m_throttle_enabled = true;
     bool                     m_bounds_optimization_enabled = true;
+    unsigned                 m_final_check_propagations = 0;
 
 
 
@@ -410,6 +411,8 @@ public:
     bool  no_lemmas_hold() const;
 
     bool propagate(bool at_final_check);
+
+    void reset_final_check_counter() { m_final_check_propagations = 0; }
 
     void simplify();
     

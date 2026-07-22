@@ -57,6 +57,10 @@ namespace nla {
     bool solver::propagate(bool at_final_check) {
         return m_core->propagate(at_final_check);
     }
+
+    void solver::reset_final_check_counter() {
+        m_core->reset_final_check_counter();
+    }
     
     void solver::push(){
         m_core->push();
