@@ -977,9 +977,11 @@ app* bv_util::mk_sbv2int_as_ubv2int(expr* e) {
     arith_util autil(m_manager);
     unsigned sz = get_bv_size(e);
     expr_ref zero(mk_numeral(rational::zero(), sz), m_manager);
-    r = m_manager.mk_ite(mk_slt(e, zero),
-        autil.mk_sub(r, autil.mk_numeral(rational::power_of_two(sz), true)),
-        r);
+    {
+        auto _seq980_0 = mk_slt(e, zero);
+        auto _seq980_1 = autil.mk_sub(r, autil.mk_numeral(rational::power_of_two(sz), true));
+        r = m_manager.mk_ite(_seq980_0, _seq980_1, r);
+    }
     return r;
 }
 
@@ -1012,12 +1014,17 @@ void bv_util::mk_bv_divrem_bound(expr* t, expr_ref_vector& clause) {
     // OP_ULT is not handled by theory_bv::internalize_atom and would trigger UNREACHABLE.
     if (is_bv_urem(t) || is_bv_uremi(t))
         bound = m_manager.mk_not(mk_ule(b, t));
-    else if (is_bv_srem(t) || is_bv_sremi(t) || is_bv_smod(t) || is_bv_smodi(t))
-        bound = m_manager.mk_not(mk_ule(mk_abs(b), mk_abs(t)));
-    else if (is_bv_udiv(t) || is_bv_udivi(t))
+    else if (is_bv_srem(t) || is_bv_sremi(t) || is_bv_smod(t) || is_bv_smodi(t)) {
+        auto _seq0 = mk_abs(b);
+        auto _seq1 = mk_abs(t);
+        bound = m_manager.mk_not(mk_ule(_seq0, _seq1));
+    } else if (is_bv_udiv(t) || is_bv_udivi(t))
         bound = mk_ule(t, a);
-    else if (is_bv_sdiv(t) || is_bv_sdivi(t))
-        bound = mk_ule(mk_abs(t), mk_abs(a));
+    else if (is_bv_sdiv(t) || is_bv_sdivi(t)) {
+        auto _seq0 = mk_abs(t);
+        auto _seq1 = mk_abs(a);
+        bound = mk_ule(_seq0, _seq1);
+    }
     if (!bound)
         return;
     // clause encodes  b != 0 => bound  as the disjunction  (b = 0) \/ bound

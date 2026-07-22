@@ -1250,7 +1250,7 @@ class parallel_solver {
                     // re-checking the same cube would spin forever. Record a sound
                     // 'unknown' verdict and stop working this branch instead.
                     std::string reason = s->reason_unknown();
-                    if (reason != "max-conflicts-reached") {
+                    if (reason != "max-conflicts-reached" && reason != "sat.max.conflicts") {
                         LOG_WORKER(1, " undef cube is not conflict-limited (" << reason << "); reporting unknown\n");
                         b.set_unknown(reason);
                         return;
@@ -2183,7 +2183,7 @@ public:
                 std::string reason = ps.reason_unknown();
                 if (!reason.empty()) {
                     g->set_reason_unknown(reason);
-                    IF_VERBOSE(0, verbose_stream() << reason << "\n");
+                    IF_VERBOSE(1, verbose_stream() << reason << "\n");
                 }
             }
             break;

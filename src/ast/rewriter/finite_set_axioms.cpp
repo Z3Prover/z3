@@ -219,8 +219,12 @@ void finite_set_axioms::in_range_axiom(expr *x, expr *a) {
     
     arith_util arith(m);
     expr_ref x_in_a(u.mk_in(x, a), m);
-    expr_ref lo_le_x(arith.mk_le(arith.mk_sub(lo, x), arith.mk_int(0)), m);
-    expr_ref x_le_hi(arith.mk_le(arith.mk_sub(x, hi), arith.mk_int(0)), m);
+    auto _seqa0 = arith.mk_sub(lo, x);
+    auto _seqa1 = arith.mk_int(0);
+    expr_ref lo_le_x(arith.mk_le(_seqa0, _seqa1), m);
+    auto _seqb0 = arith.mk_sub(x, hi);
+    auto _seqb1 = arith.mk_int(0);
+    expr_ref x_le_hi(arith.mk_le(_seqb0, _seqb1), m);
     m_rewriter(lo_le_x);
     m_rewriter(x_le_hi);
     expr_ref nx_le_hi(m.mk_not(x_le_hi), m);
@@ -247,7 +251,9 @@ void finite_set_axioms::in_range_axiom(expr* r) {
         return;
 
     arith_util a(m);
-    expr_ref lo_le_hi(a.mk_le(a.mk_sub(lo, hi), a.mk_int(0)), m);
+    auto _seq0 = a.mk_sub(lo, hi);
+    auto _seq1 = a.mk_int(0);
+    expr_ref lo_le_hi(a.mk_le(_seq0, _seq1), m);
     m_rewriter(lo_le_hi);
 
     add_binary("range-bounds", r, nullptr, m.mk_not(lo_le_hi), u.mk_in(lo, r));
@@ -339,7 +345,11 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
     else if (u.is_empty(e)) 
         add_unit("size", e, m.mk_eq(sz, a.mk_int(0)));    
     else if (u.is_union(e, x, y)) {
-        ineq = a.mk_le(sz, a.mk_add(u.mk_size(x), u.mk_size(y)));
+        {
+            auto _seq342_0 = u.mk_size(x);
+            auto _seq342_1 = u.mk_size(y);
+            ineq = a.mk_le(sz, a.mk_add(_seq342_0, _seq342_1));
+        }
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }
@@ -367,7 +377,14 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
         add_unit("size", e, ineq);
     }
     else if (u.is_range(e, x, y)) {
-        ineq = a.mk_eq(sz, m.mk_ite(a.mk_le(x, y), a.mk_add(a.mk_sub(y, x), a.mk_int(1)), a.mk_int(0)));
+        {
+            auto _seq370_0 = a.mk_le(x, y);
+            auto _seq376_0 = a.mk_sub(y, x);
+            auto _seq376_1 = a.mk_int(1);
+            auto _seq370_1 = a.mk_add(_seq376_0, _seq376_1);
+            auto _seq370_2 = a.mk_int(0);
+            ineq = a.mk_eq(sz, m.mk_ite(_seq370_0, _seq370_1, _seq370_2));
+        }
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }    

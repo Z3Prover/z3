@@ -204,8 +204,16 @@ br_status finite_set_rewriter::mk_size(expr * arg, expr_ref & result) {
     if (u.is_range(arg, lower, upper)) {
         // size(range(a, b)) -> b - a + 1
         expr_ref size_expr(m);
-        size_expr = a.mk_add(a.mk_sub(upper, lower), a.mk_int(1));
-        result = m.mk_ite(a.mk_gt(lower, upper), a.mk_int(0), size_expr);
+        {
+            auto _seq207_0 = a.mk_sub(upper, lower);
+            auto _seq207_1 = a.mk_int(1);
+            size_expr = a.mk_add(_seq207_0, _seq207_1);
+        }
+        {
+            auto _seq208_0 = a.mk_gt(lower, upper);
+            auto _seq208_1 = a.mk_int(0);
+            result = m.mk_ite(_seq208_0, _seq208_1, size_expr);
+        }
         return BR_REWRITE3;
     }
     // Size is already in normal form, no simplifications
@@ -234,7 +242,11 @@ br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result)
     expr *lo = nullptr, *hi = nullptr;
     if (u.is_range(set, lo, hi)) {
         arith_util a(m);
-        result = m.mk_and(a.mk_le(lo, elem), a.mk_le(elem, hi));
+        {
+            auto _seq237_0 = a.mk_le(lo, elem);
+            auto _seq237_1 = a.mk_le(elem, hi);
+            result = m.mk_and(_seq237_0, _seq237_1);
+        }
         return BR_REWRITE2;
     }
     // NB we don't rewrite (set.in x (set.union s t)) to (or (set.in x s) (set.in x t))

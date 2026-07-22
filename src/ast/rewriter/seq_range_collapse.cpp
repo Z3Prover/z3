@@ -248,7 +248,11 @@ namespace seq {
         auto &ch = u.get_char_plugin();
         for (unsigned i = 0; i < n; ++i) {
             auto [lo, hi] = p[i];
-            ranges.push_back(m.mk_and(ch.mk_le(ch.mk_char(lo), bound), ch.mk_le(bound, ch.mk_char(hi))));
+            {
+                auto _seq251_0 = ch.mk_le(ch.mk_char(lo), bound);
+                auto _seq251_1 = ch.mk_le(bound, ch.mk_char(hi));
+                ranges.push_back(m.mk_and(_seq251_0, _seq251_1));
+            }
         }
         expr_ref body(m.mk_or(ranges), m);
         auto lam = m.mk_lambda(1, &char_sort, &char_sym, body);

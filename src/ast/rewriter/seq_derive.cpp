@@ -412,14 +412,35 @@ namespace seq {
                 in_range = m_util.mk_le(m_ele, c_hi);
             else if (hi_trivial)
                 in_range = m_util.mk_le(c_lo, m_ele);
-            else
-                in_range = m.mk_and(m_util.mk_le(c_lo, m_ele), m_util.mk_le(m_ele, c_hi));
+            else {
+                auto _seq416_0 = m_util.mk_le(c_lo, m_ele);
+                auto _seq416_1 = m_util.mk_le(m_ele, c_hi);
+                in_range = m.mk_and(_seq416_0, _seq416_1);
+            }
 
             return mk_ite(in_range, eps, empty);
         }
 
-        // Fallback: stuck derivative
-        return expr_ref(re().mk_derivative(m_ele, re().mk_range(lo, hi)), m);
+        // One or both bounds are symbolic.  By SMT-LIB semantics re.range(lo,hi)
+        // accepts a single character c iff lo and hi are both single-character
+        // strings and lo[0] <= c <= hi[0].  Build the symbolic derivative
+        //   ite(len(lo)=1 ∧ len(hi)=1 ∧ lo[0] ≤ ele ∧ ele ≤ hi[0], ε, ∅)
+        // omitting length conditions for bounds that are already known to be
+        // concrete single-character strings.
+        expr_ref_vector conds(m);
+        expr_ref zero(m_autil.mk_int(0), m);
+        if (!u().str.is_unit_string(lo, c_lo)) {
+            conds.push_back(m.mk_eq(u().str.mk_length(lo), m_autil.mk_int(1)));
+            c_lo = u().str.mk_nth_i(lo, zero);
+        }
+        if (!u().str.is_unit_string(hi, c_hi)) {
+            conds.push_back(m.mk_eq(u().str.mk_length(hi), m_autil.mk_int(1)));
+            c_hi = u().str.mk_nth_i(hi, zero);
+        }
+        conds.push_back(m_util.mk_le(c_lo, m_ele));
+        conds.push_back(m_util.mk_le(m_ele, c_hi));
+        expr_ref in_range = m_br.mk_and(conds);
+        return mk_ite(in_range, eps, empty);
     }
 
     expr_ref derive::derive_of_pred(expr* pred, sort* seq_sort) {
@@ -477,26 +498,27 @@ namespace seq {
             result = re().mk_reverse(r);
         else if (re().is_reverse(r, r1))
             result = r1;
-        else if (re().is_concat(r, r1, r2))
-            result = re().mk_concat(mk_regex_reverse(r2), mk_regex_reverse(r1));
-        else if (m.is_ite(r, c, r1, r2))
-            result = m.mk_ite(c, mk_regex_reverse(r1), mk_regex_reverse(r2));
-        else if (re().is_union(r, r1, r2)) {
+        else if (re().is_concat(r, r1, r2)) {
+            auto _seq0 = mk_regex_reverse(r2);
+            auto _seq1 = mk_regex_reverse(r1);
+            result = re().mk_concat(_seq0, _seq1);
+        } else if (m.is_ite(r, c, r1, r2)) {
+            auto _seq0 = mk_regex_reverse(r1);
+            auto _seq1 = mk_regex_reverse(r2);
+            result = m.mk_ite(c, _seq0, _seq1);
+        } else if (re().is_union(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
             result = re().mk_union(a1, b1);
-        }
-        else if (re().is_intersection(r, r1, r2)) {
+        } else if (re().is_intersection(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
             result = re().mk_inter(a1, b1);
-        }
-        else if (re().is_diff(r, r1, r2)) {
+        } else if (re().is_diff(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
             result = re().mk_diff(a1, b1);
-        }
-        else if (re().is_star(r, r1))
+        } else if (re().is_star(r, r1))
             result = re().mk_star(mk_regex_reverse(r1));
         else if (re().is_plus(r, r1))
             result = re().mk_plus(mk_regex_reverse(r1));
@@ -821,7 +843,11 @@ namespace seq {
                 if (m.is_ite(e, c1, t1, el1) && m.is_ite(s, c2, t2, el2) && c1 == c2) {
                     set.set(i, set.back());
                     set.pop_back();
-                    e = mk_ite(c1, mk_union(t1, t2), mk_union(el1, el2));
+                    {
+                        auto _seq824_0 = mk_union(t1, t2);
+                        auto _seq824_1 = mk_union(el1, el2);
+                        e = mk_ite(c1, _seq824_0, _seq824_1);
+                    }
                     changed = true;
                     break;
                 }
@@ -880,10 +906,16 @@ namespace seq {
         // nested inter/union leaves, so states stay ground either way.
         expr *u1 = nullptr, *u2 = nullptr;
         if (m_derivative_kind == derivative_kind::antimirov_t) {
-            if (re().is_union(a, u1, u2))
-                return mk_union(mk_inter(u1, b), mk_inter(u2, b));
-            if (re().is_union(b, u1, u2))
-                return mk_union(mk_inter(a, u1), mk_inter(a, u2));
+            if (re().is_union(a, u1, u2)) {
+                auto _seq0 = mk_inter(u1, b);
+                auto _seq1 = mk_inter(u2, b);
+                return mk_union(_seq0, _seq1);
+            }
+            if (re().is_union(b, u1, u2)) {
+                auto _seq0 = mk_inter(a, u1);
+                auto _seq1 = mk_inter(a, u2);
+                return mk_union(_seq0, _seq1);
+            }
         }
 
         // Base case: build raw intersection
@@ -981,10 +1013,16 @@ namespace seq {
         // state is shared rather than growing into ~(Σ*a ∪ ε ∪ ...), which
         // otherwise defeats dead-state detection on loop ∩ comp regexes.
         expr* e1 = nullptr, *e2 = nullptr;
-        if (re().is_union(a, e1, e2))
-            return mk_inter(mk_complement(e1), mk_complement(e2));
-        if (re().is_intersection(a, e1, e2))
-            return mk_union(mk_complement(e1), mk_complement(e2));
+        if (re().is_union(a, e1, e2)) {
+            auto _seq0 = mk_complement(e1);
+            auto _seq1 = mk_complement(e2);
+            return mk_inter(_seq0, _seq1);
+        }
+        if (re().is_intersection(a, e1, e2)) {
+            auto _seq0 = mk_complement(e1);
+            auto _seq1 = mk_complement(e2);
+            return mk_union(_seq0, _seq1);
+        }
 
         return expr_ref(re().mk_complement(a), m);
     }
