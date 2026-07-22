@@ -493,8 +493,11 @@ br_status fpa_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     if (m_util.is_ninf(arg1)) {
-        // -oo < arg2 -->  not(arg2 = -oo) and not(arg2 = NaN)
-        result = m().mk_and(m().mk_not(m().mk_eq(arg2, arg1)), mk_neq_nan(arg2));
+        {
+            auto _seq497_0 = m().mk_not(m().mk_eq(arg2, arg1));
+            auto _seq497_1 = mk_neq_nan(arg2);
+            result = m().mk_and(_seq497_0, _seq497_1);
+        }
         return BR_REWRITE3;
     }
     if (m_util.is_ninf(arg2)) {
@@ -508,8 +511,11 @@ br_status fpa_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     if (m_util.is_pinf(arg2)) {
-        // arg1 < +oo --> not(arg1 = +oo) and not(arg1 = NaN)
-        result = m().mk_and(m().mk_not(m().mk_eq(arg1, arg2)), mk_neq_nan(arg1));
+        {
+            auto _seq512_0 = m().mk_not(m().mk_eq(arg1, arg2));
+            auto _seq512_1 = mk_neq_nan(arg1);
+            result = m().mk_and(_seq512_0, _seq512_1);
+        }
         return BR_REWRITE3;
     }
 
