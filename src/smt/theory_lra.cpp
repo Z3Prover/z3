@@ -2696,6 +2696,14 @@ public:
         propagate_nla(false);
         if (ctx().inconsistent())
             return true;
+        // nla propagation asserts bounds directly in the tableau; if that
+        // crossed bounds, the conflict must be extracted before the context
+        // pushes a new scope (lar_solver::push clears the crossed-bounds
+        // certificate while the INFEASIBLE status would survive).
+        if (lp().get_status() == lp::lp_status::INFEASIBLE) {
+            get_infeasibility_explanation_and_set_conflict();
+            return true;
+        }
         if (!can_propagate_core())
             return false;
 
