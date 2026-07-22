@@ -1560,7 +1560,7 @@ namespace arith {
 
     void solver::propagate_nla() {
         if (m_nla) {
-            m_nla->propagate();
+            m_nla->propagate(false);
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();
         }

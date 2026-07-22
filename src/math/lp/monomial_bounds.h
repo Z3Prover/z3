@@ -50,7 +50,6 @@ namespace nla {
 
         // monomial propagation
         bool unit_propagate(monic & m);
-        bool unit_propagate();
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
         lpvar non_fixed_var(monic const& m);
@@ -64,6 +63,7 @@ namespace nla {
     public:
         monomial_bounds(core* core);
         void propagate();
+        bool unit_propagate();
         bool tighten_lp_bounds();
-    }; 
+    };
 }

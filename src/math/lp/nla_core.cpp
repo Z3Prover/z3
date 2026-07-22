@@ -1524,12 +1524,15 @@ void core::set_use_nra_model(bool m) {
 }
 
     
-bool core::propagate() {
+bool core::propagate(bool at_final_check) {
     clear();
     bool propagated = false;
-    if (params().arith_nl_tighten_bounds())
+    if (at_final_check && params().arith_nl_tighten_bounds())
         propagated = m_monomial_bounds.tighten_lp_bounds();
-    propagated |= optimize_nl_bounds();
+    else
+        propagated = m_monomial_bounds.unit_propagate();
+    if (at_final_check)
+        propagated |= optimize_nl_bounds();
     m_monics_with_changed_bounds.reset();
     return propagated;
 }

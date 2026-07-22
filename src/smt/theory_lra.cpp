@@ -1745,8 +1745,8 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        propagate_nla(); 
-        if (!lp().is_feasible() || lp().has_changed_columns()) 
+        propagate_nla(true);
+        if (!lp().is_feasible() || lp().has_changed_columns())
             is_sat = make_feasible();
         final_check_status st = FC_DONE;
         bool int_undef = false;
@@ -2265,6 +2265,7 @@ public:
     bool propagate_core() {
         m_model_is_initialized = false;
         flush_bound_axioms();
+        propagate_nla(false);
         if (ctx().inconsistent())
             return true;
         if (!can_propagate_core()) 
@@ -2328,10 +2329,10 @@ public:
         return true;            
     }
 
-    bool propagate_nla() {
+    bool propagate_nla(bool at_final_check) {
         bool propagated = false;
         if (m_nla) {
-            propagated = m_nla->propagate() || propagated;
+            propagated = m_nla->propagate(at_final_check) || propagated;
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();
         }
