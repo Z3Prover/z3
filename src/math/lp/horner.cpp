@@ -108,8 +108,8 @@ bool horner::horner_lemmas() {
     // cross-nested/horner interval evaluation, so the tighter implied bounds can
     // exclude zero and expose conflicts. Done here (instead of core::propagate)
     // so the LP maximization only runs when horner is actually scheduled.
-    if (c().params().arith_nl_optimize_bounds_lp())
-        c().optimize_nl_bounds();
+    // optimize_nl_bounds() checks arith.nl.optimize_bounds_lp internally.
+    c().optimize_nl_bounds();
     c().lp_settings().stats().m_horner_calls++;
     const auto& matrix = c().lra.A_r();
     // choose only rows that depend on m_to_refine variables
