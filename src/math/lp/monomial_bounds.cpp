@@ -14,14 +14,7 @@
 
 namespace nla {
 
-    monomial_bounds::monomial_bounds(core *c) : common(c), dep(c->m_intervals.get_dep_intervals()) {
-        std::function<void(lpvar v)> fixed_eh = [c, this](lpvar v) {
-            c->trail().push(push_back_vector(m_fixed_var_trail));
-            m_fixed_var_trail.push_back(v);
-        };
-        // uncomment to enable:
-        //        c->lra.m_fixed_var_eh = fixed_eh;
-    }
+    monomial_bounds::monomial_bounds(core *c) : common(c), dep(c->m_intervals.get_dep_intervals()) {}
 
     void monomial_bounds::propagate() {
         for (auto v : c().m_to_refine) {
@@ -29,46 +22,6 @@ namespace nla {
             if (add_lemma())
                 break;
         }
-        propagate_fixed_vars();
-    }
-
-    void monomial_bounds::propagate_fixed_vars() {
-        if (m_fixed_var_qhead == m_fixed_var_trail.size())
-            return;
-        c().trail().push(value_trail(m_fixed_var_qhead));
-        while (m_fixed_var_qhead < m_fixed_var_trail.size())
-            propagate_fixed_var(m_fixed_var_trail[m_fixed_var_qhead++]);
-    }
-
-    void monomial_bounds::propagate_fixed_var(lpvar v) {
-        SASSERT(c().var_is_fixed(v));
-        TRACE(nla_solver, tout << "propagate fixed var: " << c().var_str(v) << "\n";);
-        for (auto const &m : c().emons().get_use_list(v))
-            propagate_fixed_var(m, v);
-    }
-
-    void monomial_bounds::propagate_fixed_var(monic const &m, lpvar v) {
-        unsigned num_free = 0;
-        lpvar free_var = null_lpvar;
-        for (auto w : m)
-            if (!c().var_is_fixed(w))
-                ++num_free, free_var = w;
-        if (num_free != 1)
-            return;
-        u_dependency *d = nullptr;
-        auto &lra = c().lra;
-        lp::mpq coeff(1);
-        for (auto w : m) {
-            if (c().var_is_fixed(w)) {
-                d = lra.join_deps(d, lra.get_bound_constraint_witnesses_for_column(w));
-                coeff *= lra.get_lower_bound(w).x;
-            }
-        }
-        vector<std::pair<lp::mpq, lpvar>> coeffs;
-        coeffs.push_back({coeff, free_var});
-        coeffs.push_back({mpq(-1), m.var()});
-        lpvar j = lra.add_term(coeffs, UINT_MAX);
-        lra.update_column_type_and_bound(j, llc::EQ, mpq(0), d);
     }
 
     bool monomial_bounds::is_too_big(mpq const &q) const {
@@ -92,44 +45,7 @@ namespace nla {
         }
     }
 
-    /**
-     * Monomial definition implies that a variable v is within 'range'
-     * If the current value of v is outside of the range, we add
-     * a bounds axiom.
-     */
-    bool monomial_bounds::propagate_value(dep_interval &range, lpvar v) {
-        bool propagated = false;
-        if (should_propagate_upper(range, v, 1)) {
-            auto const &upper = dep.upper(range);
-            auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
-            ++c().lra.settings().stats().m_nla_propagate_bounds;
-            lp::explanation ex;
-            dep.get_upper_dep(range, ex);
-            if (is_too_big(upper))
-                return false;
-            lemma_builder lemma(c(), "propagate value - upper bound of range is below value");
-            lemma &= ex;
-            lemma |= ineq(v, cmp, upper);
-            TRACE(nla_solver, dep.display(tout << c().val(v) << " > ", range) << "\n" << lemma << "\n";);
-            propagated = true;
-        }
 
-        if (should_propagate_lower(range, v, 1)) {
-            auto const &lower = dep.lower(range);
-            auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
-            ++c().lra.settings().stats().m_nla_propagate_bounds;
-            lp::explanation ex;
-            dep.get_lower_dep(range, ex);
-            if (is_too_big(lower))
-                return false;
-            lemma_builder lemma(c(), "propagate value - lower bound of range is above value");
-            lemma &= ex;
-            lemma |= ineq(v, cmp, lower);
-            TRACE(nla_solver, dep.display(tout << c().val(v) << " < ", range) << "\n" << lemma << "\n";);
-            propagated = true;
-        }
-        return propagated;
-    }
 
     bool monomial_bounds::should_propagate_lower(dep_interval const &range, lpvar v, unsigned p) {
         if (dep.lower_is_inf(range))
@@ -178,8 +94,6 @@ namespace nla {
     /**
      * Interval-lemma bounds propagation for monomial 'm'.
      * Runs the shared-factor (sandwich) and binomial-sign propagators.
-     * The per-variable up/down bound tightening is handled separately by
-     * tighten_lp(), which strengthens the LP bounds instead of emitting lemmas.
      */
     bool monomial_bounds::propagate(monic const &m) {
         unsigned num_free, power;
@@ -433,13 +347,6 @@ namespace nla {
         return r;
     }
     
-    lpvar monomial_bounds::non_fixed_var(monic const& m) {
-        for (lpvar v : m)
-            if (!c().var_is_fixed(v))
-                return v;
-        return null_lpvar;
-    }
-
     /**
      * Dual-row shared-factor sandwich. For a binary monomial m = u*v, find LP
      * term columns whose term has shape  a_m * m + a_v * v  (exactly two
@@ -519,7 +426,7 @@ namespace nla {
                       << " m=" << m.var() << " v=" << v << " u=" << u
                       << " a_m=" << a_m << " a_v=" << a_v << "\n";);
 
-                if (propagate_value(u_int, u))
+                if (tighten_lp_bound(u_int, u, 1))
                     return true;  // one lemma per call to keep the channel quiet
             }
             return false;
