@@ -20,6 +20,7 @@ Revision History:
 #include "api/api_context.h"
 #include "api/api_util.h"
 #include "ast/bv_decl_plugin.h"
+#include "util/manage_warnings.h"
 
 extern "C" {
 
@@ -36,6 +37,7 @@ extern "C" {
 #define MK_BV_UNARY(NAME, OP) MK_UNARY(NAME, mk_c(c)->get_bv_fid(), OP, SKIP)
 #define MK_BV_BINARY(NAME, OP) MK_BINARY(NAME, mk_c(c)->get_bv_fid(), OP, SKIP)
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_BV_UNARY(Z3_mk_bvnot, OP_BNOT);
     MK_BV_UNARY(Z3_mk_bvredand, OP_BREDAND);
     MK_BV_UNARY(Z3_mk_bvredor, OP_BREDOR);
@@ -66,6 +68,7 @@ extern "C" {
     MK_BV_BINARY(Z3_mk_bvashr, OP_BASHR);
     MK_BV_BINARY(Z3_mk_ext_rotate_left, OP_EXT_ROTATE_LEFT);
     MK_BV_BINARY(Z3_mk_ext_rotate_right, OP_EXT_ROTATE_RIGHT);
+    END_DISABLE_WARNING;
 
     static Z3_ast mk_extract_core(Z3_context c, unsigned high, unsigned low, Z3_ast n) {
         expr * _n = to_expr(n);
@@ -99,6 +102,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     Z3_CATCH_RETURN(0);                                                 \
 }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_BV_PUNARY(Z3_mk_sign_ext, OP_SIGN_EXT);
     MK_BV_PUNARY(Z3_mk_zero_ext, OP_ZERO_EXT);
     MK_BV_PUNARY(Z3_mk_repeat,   OP_REPEAT);
@@ -106,6 +110,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     MK_BV_PUNARY(Z3_mk_rotate_left, OP_ROTATE_LEFT);
     MK_BV_PUNARY(Z3_mk_rotate_right, OP_ROTATE_RIGHT);
     MK_BV_PUNARY(Z3_mk_int2bv, OP_INT2BV);
+    END_DISABLE_WARNING;
 
     Z3_ast Z3_API Z3_mk_bv2int(Z3_context c, Z3_ast n, bool is_signed) {
         Z3_TRY;

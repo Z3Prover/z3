@@ -23,6 +23,7 @@ Revision History:
 #include "api/api_util.h"
 #include "ast/ast_pp.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "util/manage_warnings.h"
 
 extern "C" {
 
@@ -39,10 +40,12 @@ extern "C" {
     Z3_CATCH_RETURN(nullptr);                                           \
 }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_SPECIAL_R(Z3_mk_linear_order, OP_SPECIAL_RELATION_LO);
     MK_SPECIAL_R(Z3_mk_partial_order, OP_SPECIAL_RELATION_PO);
     MK_SPECIAL_R(Z3_mk_piecewise_linear_order, OP_SPECIAL_RELATION_PLO);
     MK_SPECIAL_R(Z3_mk_tree_order, OP_SPECIAL_RELATION_TO);
+    END_DISABLE_WARNING;
 
 
 #define MK_DECL(NAME, FID)                                      \
@@ -60,5 +63,7 @@ extern "C" {
     Z3_CATCH_RETURN(nullptr);                                           \
 }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_DECL(Z3_mk_transitive_closure, OP_SPECIAL_RELATION_TC);
+    END_DISABLE_WARNING;
 }

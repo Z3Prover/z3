@@ -19,6 +19,7 @@ Notes:
 #pragma once
 
 #include "util/rational.h"
+#include "util/manage_warnings.h"
 #include "util/mpq.h"
 #include "math/polynomial/polynomial.h"
 #include "util/z3_exception.h"
@@ -431,12 +432,14 @@ AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, int)     \
 AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpz)     \
 AN_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpq)
 
+START_DISABLE_EXTRA_SEMI_WARNING;
 AN_MK_COMPARISON(operator==, eq);
 AN_MK_COMPARISON(operator!=, neq);
 AN_MK_COMPARISON(operator<,  lt);
 AN_MK_COMPARISON(operator<=, le);
 AN_MK_COMPARISON(operator>,  gt);
 AN_MK_COMPARISON(operator>=, ge);
+END_DISABLE_WARNING;
 
 #undef AN_MK_COMPARISON
 #undef AN_MK_COMPARISON_CORE

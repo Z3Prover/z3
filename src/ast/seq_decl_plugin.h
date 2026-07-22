@@ -25,6 +25,7 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/char_decl_plugin.h"
 #include "util/lbool.h"
+#include "util/manage_warnings.h"
 #include "util/zstring.h"
 
 enum seq_sort_kind {
@@ -271,10 +272,12 @@ public:
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_BINARY(is_char_le);
     MATCH_UNARY(is_char2int);
     MATCH_UNARY(is_char2bv);
     MATCH_UNARY(is_bv2char);
+    END_DISABLE_WARNING;
 
     bool has_re() const { return seq.has_re(); }
     bool has_seq() const { return seq.has_seq(); }
@@ -394,6 +397,7 @@ public:
             return (u.is_seq(s) && !u.is_string(s));
         }
 
+        START_DISABLE_EXTRA_SEMI_WARNING;
         MATCH_BINARY(is_concat);
         MATCH_UNARY(is_length);
         MATCH_TERNARY(is_extract);
@@ -425,6 +429,7 @@ public:
         MATCH_UNARY(is_to_code);
         MATCH_BINARY(is_in_re);
         MATCH_UNARY(is_unit);
+        END_DISABLE_WARNING;
 
         void get_concat(expr* e, expr_ref_vector& es) const;
         void get_concat(expr* e, ptr_vector<expr>& es) const;
@@ -579,6 +584,7 @@ public:
         bool is_of_pred(expr const* n) const { return is_app_of(n, m_fid, OP_RE_OF_PRED); }
         bool is_reverse(expr const* n) const { return is_app_of(n, m_fid, OP_RE_REVERSE); }
         bool is_derivative(expr const* n) const { return is_app_of(n, m_fid, OP_RE_DERIVATIVE); }
+        START_DISABLE_EXTRA_SEMI_WARNING;
         MATCH_UNARY(is_to_re);
         MATCH_BINARY(is_concat);
         MATCH_BINARY(is_union);
@@ -593,6 +599,7 @@ public:
         MATCH_UNARY(is_of_pred);
         MATCH_UNARY(is_reverse);
         MATCH_BINARY(is_derivative);
+        END_DISABLE_WARNING;
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi) const;
         bool is_loop(expr const* n, expr*& body, unsigned& lo) const;
         bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi) const;

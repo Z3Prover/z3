@@ -22,6 +22,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "util/manage_warnings.h"
 #include "util/zstring.h"
 #include "ast/ast.h"
 #include <string>
@@ -97,11 +98,13 @@ public:
     
     bool is_bv2char(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_FROM_BV); }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_UNARY(is_is_digit);
     MATCH_UNARY(is_to_int);
     MATCH_UNARY(is_char2bv);
     MATCH_UNARY(is_bv2char);
     MATCH_BINARY(is_le);
+    END_DISABLE_WARNING;
 
     static unsigned max_char() { return zstring::max_char(); }
 

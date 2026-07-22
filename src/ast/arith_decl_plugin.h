@@ -346,6 +346,7 @@ public:
             is_pi(n);
     }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_UNARY(is_uminus);
     MATCH_UNARY(is_to_real);
     MATCH_UNARY(is_to_int);
@@ -378,6 +379,7 @@ public:
     MATCH_UNARY(is_tan);
     MATCH_UNARY(is_atan);
     MATCH_UNARY(is_atanh);
+    END_DISABLE_WARNING;
 
 };
 

@@ -21,6 +21,7 @@ Revision History:
 #include "api/api_context.h"
 #include "api/api_util.h"
 #include "ast/ast_pp.h"
+#include "util/manage_warnings.h"
 
 extern "C" {
 
@@ -287,6 +288,7 @@ extern "C" {
     Z3_CATCH_RETURN(0);                                         \
     }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_SORTED(Z3_mk_seq_empty, mk_c(c)->sutil().str.mk_empty);
 
     MK_UNARY(Z3_mk_seq_unit, mk_c(c)->get_seq_fid(), OP_SEQ_UNIT, SKIP);
@@ -316,6 +318,7 @@ extern "C" {
     MK_UNARY(Z3_mk_str_to_int, mk_c(c)->get_seq_fid(), OP_STRING_STOI, SKIP);
     MK_UNARY(Z3_mk_ubv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_UBVTOS, SKIP);
     MK_UNARY(Z3_mk_sbv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_SBVTOS, SKIP);
+    END_DISABLE_WARNING;
 
 
     Z3_ast Z3_API Z3_mk_re_loop(Z3_context c, Z3_ast r, unsigned lo, unsigned hi) {
@@ -343,6 +346,7 @@ extern "C" {
     }
 
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_UNARY(Z3_mk_re_plus, mk_c(c)->get_seq_fid(), OP_RE_PLUS, SKIP);
     MK_UNARY(Z3_mk_re_star, mk_c(c)->get_seq_fid(), OP_RE_STAR, SKIP);
     MK_UNARY(Z3_mk_re_option, mk_c(c)->get_seq_fid(), OP_RE_OPTION, SKIP);
@@ -367,6 +371,7 @@ extern "C" {
     MK_TERNARY(Z3_mk_seq_mapi, mk_c(c)->get_seq_fid(), OP_SEQ_MAPI, SKIP);
     MK_TERNARY(Z3_mk_seq_foldl, mk_c(c)->get_seq_fid(), OP_SEQ_FOLDL, SKIP);
     MK_FOURARY(Z3_mk_seq_foldli, mk_c(c)->get_seq_fid(), OP_SEQ_FOLDLI, SKIP);
+    END_DISABLE_WARNING;
 
 
 }
