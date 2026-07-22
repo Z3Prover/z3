@@ -95,8 +95,52 @@ static void test_recfun_defined_function_soundness() {
         false);
 }
 
+// Regression tests for `unknown` on trivially valid goals over to_fp(to_real(x)).
+// Converting a real or integer to floating-point never produces NaN, so
+// fp.isNaN(to_fp(rm, to_real(x))) is always false and its negation is always true.
+// Z3 should return `sat` (not `unknown`) for these assertions.
+// See: https://github.com/Z3Prover/z3/issues/10162
+static void test_to_fp_real_is_not_nan() {
+    // Not(fpIsNaN(to_fp(to_real(x)))) should be sat (any x is a witness)
+    run_fp_test(
+        "(set-logic AUFNIRA)\n"
+        "(declare-const x Int)\n"
+        "(declare-const f Float64)\n"
+        "(assert (= f ((_ to_fp 11 53) RNE (to_real x))))\n"
+        "(assert (not (fp.isNaN f)))\n"
+        "(check-sat)\n",
+        true);
+
+    // Same with a Real variable instead of to_real(Int)
+    run_fp_test(
+        "(set-logic AUFNIRA)\n"
+        "(declare-const r Real)\n"
+        "(declare-const f Float64)\n"
+        "(assert (= f ((_ to_fp 11 53) RNE r)))\n"
+        "(assert (not (fp.isNaN f)))\n"
+        "(check-sat)\n",
+        true);
+
+    // fp.isNaN(to_fp(to_real(x))) should be unsat (it is always false)
+    run_fp_test(
+        "(set-logic AUFNIRA)\n"
+        "(declare-const x Int)\n"
+        "(assert (fp.isNaN ((_ to_fp 11 53) RNE (to_real x))))\n"
+        "(check-sat)\n",
+        false);
+
+    // Not(fp.eq(to_fp(to_real(x)), NaN)) should be sat (fp.eq with NaN is always false)
+    run_fp_test(
+        "(set-logic AUFNIRA)\n"
+        "(declare-const x Int)\n"
+        "(assert (not (fp.eq ((_ to_fp 11 53) RNE (to_real x)) (_ NaN 11 53))))\n"
+        "(check-sat)\n",
+        true);
+}
+
 void tst_fpa() {
     test_fp_to_real_denormal();
     test_to_fp_from_real_interval();
     test_recfun_defined_function_soundness();
+    test_to_fp_real_is_not_nan();
 }

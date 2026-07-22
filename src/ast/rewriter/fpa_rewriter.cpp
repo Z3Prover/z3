@@ -469,6 +469,12 @@ br_status fpa_rewriter::mk_round_to_integral(expr * arg1, expr * arg2, expr_ref 
 br_status fpa_rewriter::mk_float_eq(expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_fm), v2(m_fm);
 
+    // fp.eq(a, NaN) = false for any a (IEEE 754: NaN is not equal to anything)
+    if (m_util.is_nan(arg1) || m_util.is_nan(arg2)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
         result = (m_fm.eq(v1, v2)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
@@ -592,6 +598,20 @@ br_status fpa_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_nan(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
+    }
+
+    // to_fp(rm, x) where x has real, int, or bit-vector sort never produces NaN.
+    // Real-to-float and integer-to-float conversions always yield a finite value or
+    // infinity, but never NaN, per IEEE 754.
+    if (m_util.is_to_fp(arg1)) {
+        app * a = to_app(arg1);
+        if (a->get_num_args() == 2) {
+            expr * x = a->get_arg(1);
+            if (m_util.au().is_real(x) || m_util.au().is_int(x) || m_util.bu().is_bv(x)) {
+                result = m().mk_false();
+                return BR_DONE;
+            }
+        }
     }
 
     return BR_FAILED;
