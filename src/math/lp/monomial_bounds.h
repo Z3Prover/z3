@@ -30,17 +30,15 @@ namespace nla {
 
         void var2interval(lpvar v, scoped_dep_interval& i);
         bool is_too_big(mpq const& q) const;
-        bool propagate_down(monic const& m, lpvar u);
         bool propagate_value(dep_interval& range, lpvar v);
-        bool propagate_value(dep_interval& range, lpvar v, unsigned power);
         void compute_product(unsigned start, monic const& m, scoped_dep_interval& i);
-        bool propagate(monic const& m, bool tighten_lp);
+        bool propagate(monic const& m);
+        bool tighten_lp(monic const& m);
         bool propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero);
         bool propagate_fixed(monic const& m, rational const& k);
         bool propagate_nonfixed(monic const& m, rational const& k, lpvar w);
         u_dependency* explain_fixed(monic const& m, rational const& k);
         lp::explanation get_explanation(u_dependency* dep);
-        bool propagate_down(dep_interval& mi, lpvar v, unsigned power, dep_interval& product);
         bool propagate_shared_factor(monic const& m);
         bool propagate_binomial_sign(monic const& m);
         void analyze_monomial(monic const& m, unsigned& num_free, lpvar& free_v, unsigned& power) const;
