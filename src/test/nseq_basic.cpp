@@ -649,6 +649,137 @@ static void test_nseq_gpsplit_e2e_commute_tails() {
     std::cout << "  ok: sat\n";
 }
 
+// helper: fully-ground equation, all listed vars >= 1, check verdict
+static void gp_check(const char* label, expr* lhs, expr* rhs,
+                     std::initializer_list<expr*> pos_vars, lbool expect,
+                     ast_manager& m, arith_util& au, expr* extra = nullptr) {
+    std::cout << label << "\n";
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 300000;
+    smt::context ctx(m, params);
+    for (expr* v : pos_vars)
+        ctx.assert_expr(expr_ref(au.mk_ge(v, au.mk_int(1)), m));
+    if (extra) ctx.assert_expr(expr_ref(extra, m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == expect);
+    std::cout << (expect == l_true ? "  ok: sat\n" : "  ok: unsat\n");
+}
+
+// a^n·b^m = a^k·b^l → n=k ∧ m=l (multiple single-char power blocks).  SAT.
+static void test_nseq_gp_anbm() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* k=m.mk_const(symbol("k"),au.mk_int()), *l=m.mk_const(symbol("l"),au.mk_int());
+    expr* lhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("a")),n),
+                               su.str.mk_power(su.str.mk_string(zstring("b")),mm));
+    expr* rhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("a")),k),
+                               su.str.mk_power(su.str.mk_string(zstring("b")),l));
+    gp_check("test_nseq_gp_anbm", lhs, rhs, {n,mm,k,l}, l_true, m, au);
+}
+
+// (ab)^n·"x" = (abab)^m·"x" → n=2m (common root, tailed).  SAT.
+static void test_nseq_gp_commonroot_tail() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* lhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("ab")),n), su.str.mk_string(zstring("x")));
+    expr* rhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("abab")),mm), su.str.mk_string(zstring("x")));
+    gp_check("test_nseq_gp_commonroot_tail", lhs, rhs, {n,mm}, l_true, m, au);
+}
+
+// (abab)^n = (ab)^m → m=2n (non-primitive base).  SAT.
+static void test_nseq_gp_nonprim() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    gp_check("test_nseq_gp_nonprim", su.str.mk_power(su.str.mk_string(zstring("abab")),n),
+             su.str.mk_power(su.str.mk_string(zstring("ab")),mm), {n,mm}, l_true, m, au);
+}
+
+// two power blocks of different nested bases:
+// (a(bc)^p)^n·(a(de)^r)^k = (a(bc)^{2q})^m·(a(de)^s)^l → p=2q,n=m,r=s,k=l.  SAT.
+static void test_nseq_gp_twoblocks() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    auto B=[&](const char* w, expr* x){ return su.str.mk_concat(su.str.mk_string(zstring("a")),
+                                        su.str.mk_power(su.str.mk_string(zstring(w)), x)); };
+    expr* p=m.mk_const(symbol("p"),au.mk_int()), *q=m.mk_const(symbol("q"),au.mk_int());
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* r=m.mk_const(symbol("r"),au.mk_int()), *s=m.mk_const(symbol("s"),au.mk_int());
+    expr* k=m.mk_const(symbol("k"),au.mk_int()), *l=m.mk_const(symbol("l"),au.mk_int());
+    expr* twoq=au.mk_mul(au.mk_int(2),q);
+    expr* lhs=su.str.mk_concat(su.str.mk_power(B("bc",p),n), su.str.mk_power(B("de",r),k));
+    expr* rhs=su.str.mk_concat(su.str.mk_power(B("bc",twoq),mm), su.str.mk_power(B("de",s),l));
+    gp_check("test_nseq_gp_twoblocks", lhs, rhs, {p,q,n,mm,r,s,k,l}, l_true, m, au);
+}
+
+// ===================== 6 interesting fully-ground power benchmarks =====================
+// Curated "greatest hits" from the fully-ground corpus, each showcasing a
+// distinct behaviour that used to diverge or was previously unhandled.
+
+// (1) A genuine CONJUGATION IDENTITY, true for ALL p,n:
+//     a·((bc)^p·a)^n = (a·(bc)^p)^n·a          -> SAT (proved for symbolic p,n).
+static void test_nseq_bench_conj_identity() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* p=m.mk_const(symbol("p"),au.mk_int()), *n=m.mk_const(symbol("n"),au.mk_int());
+    expr* bcp=su.str.mk_power(su.str.mk_string(zstring("bc")),p);
+    expr* lhs=su.str.mk_concat(su.str.mk_string(zstring("a")),
+              su.str.mk_power(su.str.mk_concat(bcp, su.str.mk_string(zstring("a"))), n));
+    expr* rhs=su.str.mk_concat(
+              su.str.mk_power(su.str.mk_concat(su.str.mk_string(zstring("a")), bcp), n),
+              su.str.mk_string(zstring("a")));
+    gp_check("test_nseq_bench_conj_identity", lhs, rhs, {p,n}, l_true, m, au);
+}
+
+// (2) Char CONJUGATE that cannot commute: (ab)^n = (ba)^m, n,m>=1 -> UNSAT.
+static void test_nseq_bench_charconj_unsat() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    gp_check("test_nseq_bench_charconj_unsat", su.str.mk_power(su.str.mk_string(zstring("ab")),n),
+             su.str.mk_power(su.str.mk_string(zstring("ba")),mm), {n,mm}, l_false, m, au);
+}
+
+// (3) Different inner letters: (a·(bc)^p)^n = (a·(de)^q)^m, >=1 -> UNSAT.
+static void test_nseq_bench_diffletters_unsat() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* p=m.mk_const(symbol("p"),au.mk_int()), *q=m.mk_const(symbol("q"),au.mk_int());
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* lhs=su.str.mk_power(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                              su.str.mk_power(su.str.mk_string(zstring("bc")),p)), n);
+    expr* rhs=su.str.mk_power(su.str.mk_concat(su.str.mk_string(zstring("a")),
+                              su.str.mk_power(su.str.mk_string(zstring("de")),q)), mm);
+    gp_check("test_nseq_bench_diffletters_unsat", lhs, rhs, {p,q,n,mm}, l_false, m, au);
+}
+
+// (4) COMMON ROOT rebase: (ab)^n = (abab)^m  -> n = 2m  (SAT).
+static void test_nseq_bench_commonroot() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    gp_check("test_nseq_bench_commonroot", su.str.mk_power(su.str.mk_string(zstring("ab")),n),
+             su.str.mk_power(su.str.mk_string(zstring("abab")),mm), {n,mm}, l_true, m, au);
+}
+
+// (5) Power-sum IDENTITY: (ab)^n·(ab)^m = (ab)^{n+m}  -> SAT (all n,m).
+static void test_nseq_bench_powsum_identity() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* lhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("ab")),n),
+                               su.str.mk_power(su.str.mk_string(zstring("ab")),mm));
+    expr* rhs=su.str.mk_power(su.str.mk_string(zstring("ab")), au.mk_add(n,mm));
+    gp_check("test_nseq_bench_powsum_identity", lhs, rhs, {n,mm}, l_true, m, au);
+}
+
+// (6) Nested char-conjugate at a symbolic offset (pure):
+//     (a·(bc)^p)^n = ((bc)^p·a)^m, n,m>=1 -> UNSAT (bases are conjugate, not equal).
+static void test_nseq_bench_nestedconj_unsat() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* p=m.mk_const(symbol("p"),au.mk_int()), *n=m.mk_const(symbol("n"),au.mk_int());
+    expr* mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* bcp=su.str.mk_power(su.str.mk_string(zstring("bc")),p);
+    expr* lhs=su.str.mk_power(su.str.mk_concat(su.str.mk_string(zstring("a")), bcp), n);
+    expr* rhs=su.str.mk_power(su.str.mk_concat(bcp, su.str.mk_string(zstring("a"))), mm);
+    gp_check("test_nseq_bench_nestedconj_unsat", lhs, rhs, {p,n,mm}, l_false, m, au);
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -672,5 +803,16 @@ void tst_nseq_basic() {
     test_nseq_gpsplit_e2e_sat();
     test_nseq_gpsplit_e2e_unsat();
     test_nseq_gpsplit_e2e_commute_tails();
+    test_nseq_gp_anbm();
+    test_nseq_gp_commonroot_tail();
+    test_nseq_gp_nonprim();
+    test_nseq_gp_twoblocks();
+    // 6 curated interesting fully-ground power benchmarks
+    test_nseq_bench_conj_identity();
+    test_nseq_bench_charconj_unsat();
+    test_nseq_bench_diffletters_unsat();
+    test_nseq_bench_commonroot();
+    test_nseq_bench_powsum_identity();
+    test_nseq_bench_nestedconj_unsat();
     std::cout << "nseq_basic: all tests passed\n";
 }
