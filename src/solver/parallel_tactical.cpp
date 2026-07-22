@@ -2183,7 +2183,7 @@ public:
                 std::string reason = ps.reason_unknown();
                 if (!reason.empty()) {
                     g->set_reason_unknown(reason);
-                    IF_VERBOSE(0, verbose_stream() << reason << "\n");
+                    IF_VERBOSE(1, verbose_stream() << reason << "\n");
                 }
             }
             break;
