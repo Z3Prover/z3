@@ -190,16 +190,40 @@ extern "C" {
         func_decl* _d = reinterpret_cast<func_decl*>(d);
         ast_manager& m = mk_c(c)->m();
         if (_d->is_polymorphic()) {
-            polymorphism::util u(m);
-            polymorphism::substitution sub(m);
-            ptr_buffer<sort> domain;
-            for (unsigned i = 0; i < num_args; ++i) {
-                if (!sub.match(_d->get_domain(i), arg_list[i]->get_sort())) 
-                    SET_ERROR_CODE(Z3_INVALID_ARG, "failed to match argument of polymorphic function");
-                domain.push_back(arg_list[i]->get_sort());
+            if (_d->get_arity() != num_args &&
+                !_d->is_left_associative() && !_d->is_right_associative() && !_d->is_chainable()) {
+                SET_ERROR_CODE(Z3_INVALID_ARG, "invalid function application, wrong number of arguments");
+                return nullptr;
             }
+            polymorphism::substitution sub(m);
+            auto match = [&](unsigned domain_idx, unsigned arg_idx) {
+                if (!sub.match(_d->get_domain(domain_idx), arg_list[arg_idx]->get_sort())) {
+                    SET_ERROR_CODE(Z3_INVALID_ARG, "failed to match argument of polymorphic function");
+                    return false;
+                }
+                return true;
+            };
+            for (unsigned i = 0; i < num_args; ++i) {
+                unsigned domain_idx = i;
+                if (_d->is_associative())
+                    domain_idx = 0;
+                else if (_d->is_right_associative())
+                    domain_idx = i + 1 == num_args && num_args > 1 ? 1 : 0;
+                else if (_d->is_left_associative())
+                    domain_idx = i == 0 ? 0 : 1;
+                else if (_d->is_chainable()) {
+                    if ((i > 0 && !match(1, i)) || (i + 1 < num_args && !match(0, i)))
+                        return nullptr;
+                    continue;
+                }
+                if (!match(domain_idx, i))
+                    return nullptr;
+            }
+            sort_ref_buffer domain(m);
+            for (unsigned i = 0; i < _d->get_arity(); ++i)
+                domain.push_back(sub(_d->get_domain(i)));
             sort_ref range = sub(_d->get_range());
-            _d = m.instantiate_polymorphic(_d, num_args, domain.data(), range);
+            _d = m.instantiate_polymorphic(_d, _d->get_arity(), domain.data(), range);
         }
         app* a = m.mk_app(_d, num_args, arg_list.data());
         mk_c(c)->save_ast_trail(a);
