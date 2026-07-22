@@ -428,7 +428,10 @@ void bv2int_translator::translate_bv(app* e) {
     case OP_INT2BV:
         m_int2bv.push_back(e);
         ctx.push(push_back_vector(m_int2bv));
-        r = arg(0);
+        // Normalize the integer argument to [0, 2^N) so that bitwise operations
+        // on int_to_bv produce correct results when the argument is negative or
+        // otherwise outside the valid range.
+        r = umod(e, 0);
         break;
     case OP_UBV2INT:
         m_bv2int.push_back(e);
@@ -696,6 +699,9 @@ expr* bv2int_translator::amod(expr* bv_expr, expr* x, rational const& N) {
     else if (a.is_idiv(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N && is_non_negative(bv_expr, e))
         r = x;
     else if (a.is_mod(x, t, e) && a.is_numeral(t, v) && 0 <= v && v < N)
+        r = x;
+    else if (a.is_mod(x, t, e) && a.is_numeral(e, v) && v == N)
+        // mod(t, N) is already in [0, N); no need to wrap it again.
         r = x;
     else if (a.is_numeral(x, v))
         r = a.mk_int(mod(v, N));
