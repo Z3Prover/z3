@@ -421,8 +421,26 @@ namespace seq {
             return mk_ite(in_range, eps, empty);
         }
 
-        // Fallback: stuck derivative
-        return expr_ref(re().mk_derivative(m_ele, re().mk_range(lo, hi)), m);
+        // One or both bounds are symbolic.  By SMT-LIB semantics re.range(lo,hi)
+        // accepts a single character c iff lo and hi are both single-character
+        // strings and lo[0] <= c <= hi[0].  Build the symbolic derivative
+        //   ite(len(lo)=1 ∧ len(hi)=1 ∧ lo[0] ≤ ele ∧ ele ≤ hi[0], ε, ∅)
+        // omitting length conditions for bounds that are already known to be
+        // concrete single-character strings.
+        expr_ref_vector conds(m);
+        expr_ref zero(m_autil.mk_int(0), m);
+        if (!u().str.is_unit_string(lo, c_lo)) {
+            conds.push_back(m.mk_eq(u().str.mk_length(lo), m_autil.mk_int(1)));
+            c_lo = u().str.mk_nth_i(lo, zero);
+        }
+        if (!u().str.is_unit_string(hi, c_hi)) {
+            conds.push_back(m.mk_eq(u().str.mk_length(hi), m_autil.mk_int(1)));
+            c_hi = u().str.mk_nth_i(hi, zero);
+        }
+        conds.push_back(m_util.mk_le(c_lo, m_ele));
+        conds.push_back(m_util.mk_le(m_ele, c_hi));
+        expr_ref in_range = m_br.mk_and(conds);
+        return mk_ite(in_range, eps, empty);
     }
 
     expr_ref derive::derive_of_pred(expr* pred, sort* seq_sort) {
