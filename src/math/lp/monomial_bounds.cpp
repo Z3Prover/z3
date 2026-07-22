@@ -275,7 +275,6 @@ namespace nla {
         scoped_dep_interval other_product(dep);
         var2interval(m.var(), mi);
         dep.set_value(product, rational::one());
-        bool has_even_power = false;
         bool tightened = false;
         for (unsigned i = 0; i < m.size();) {
             lpvar v = m.vars()[i];
@@ -284,9 +283,6 @@ namespace nla {
                 ;
             var2interval(v, vi);
             dep.power<dep_intervals::with_deps>(vi, power, vi);
-
-            if ((power & 1) == 0)
-                has_even_power = true;
 
             if (do_propagate_down && (num_free == 0 || free_var == v)) {
                 dep.set<dep_intervals::with_deps>(other_product, product);
@@ -297,25 +293,6 @@ namespace nla {
                     return true;
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
-        }
-        if (has_even_power && !dep.is_zero(product) && (dep.is_ge_0(product)) || dep.is_le_0(product)) {
-            scoped_dep_interval reduced_product(dep);
-            for (unsigned i = 0; i < m.size();) {
-                lpvar v = m.vars()[i];
-                ++i;
-                for (power = 1; i < m.size() && v == m.vars()[i]; ++i, ++power)
-                    ;
-                if ((power & 1) == 0)
-                    continue;
-
-                var2interval(v, vi);
-                dep.power<dep_intervals::with_deps>(vi, power, vi);
-                dep.mul<dep_intervals::with_deps>(reduced_product, vi, reduced_product);
-            }
-            if (dep.is_ge_0(product))
-                dep.set_lower_dep(product, dep.get_lower_dep(reduced_product));
-            else
-                dep.set_upper_dep(product, dep.get_upper_dep(reduced_product));
         }
         if (do_propagate_down && c().params().arith_nl_monomial_sandwich() && !tighten_lp && propagate_shared_factor(m))
             return true;
