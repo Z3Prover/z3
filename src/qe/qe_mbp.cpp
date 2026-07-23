@@ -430,7 +430,9 @@ public:
             m_dont_sub = !force_elim;
             expr_ref fml(m);
             fml = mk_and(fmls);
+            verbose_stream() << "DEBUG mbp_operator: before spacer_qel force_elim=" << force_elim << " vars=" << vars << " fml=" << fml << "\n";
             spacer_qel(vars, model, fml);
+            verbose_stream() << "DEBUG mbp_operator: after spacer_qel vars=" << vars << " fml=" << fml << "\n";
             fmls.reset();
             flatten_and(fml, fmls);
             m_dont_sub = dsub;
@@ -562,8 +564,11 @@ public:
         arith_util ari_u(m);
         datatype_util dt_u(m);
 
+        verbose_stream() << "DEBUG spacer_qel: before do_qel vars=" << vars << " fml=" << fml << "\n";
         do_qel(vars, fml);
+        verbose_stream() << "DEBUG spacer_qel: after do_qel vars=" << vars << " fml=" << fml << "\n";
         qel_project(vars, mdl, fml, m_reduce_all_selects);
+        verbose_stream() << "DEBUG spacer_qel: after qel_project vars=" << vars << " fml=" << fml << "\n";
         flatten_and(fml);
         m_rw(fml);
         rewrite_as_const_arr(fml, mdl, fml);
@@ -580,7 +585,9 @@ public:
             expr_ref_vector fmls(m);
             flatten_and(fml, fmls);
 
+            verbose_stream() << "DEBUG spacer_qel: before inner mbp other_vars=" << other_vars << " fmls=" << fmls << "\n";
             mbp(false, other_vars, mdl, fmls, nullptr);
+            verbose_stream() << "DEBUG spacer_qel: after inner mbp other_vars=" << other_vars << " fmls=" << fmls << "\n";
             fml = mk_and(fmls);
             m_rw(fml);
 

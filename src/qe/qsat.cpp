@@ -910,13 +910,16 @@ namespace qe {
             SASSERT(validate_core(mdl, core));
             get_vars(m_level);
             SASSERT(validate_assumptions(mdl, core));
+            verbose_stream() << "DEBUG project_qe: before mbp: core=" << core << " avars=" << m_avars << "\n";
             m_mbp(force_elim(), m_avars, mdl, core);
+            verbose_stream() << "DEBUG project_qe: after mbp: core=" << core << " avars=" << m_avars << "\n";
             SASSERT(validate_defs("project_qe"));
             if (m_mode == qsat_maximize) {
                 maximize_core(core, mdl);
             }
             else {
                 fml = negate_core(core);
+                verbose_stream() << "DEBUG project_qe: fml=" << fml << " free_vars=" << m_avars << "\n";
                 add_assumption(fml);
                 m_answer.push_back(fml);
                 m_free_vars.append(m_avars);
