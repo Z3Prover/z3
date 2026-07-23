@@ -327,4 +327,51 @@ void tst_smt2print_parse() {
 
     test_symbol_escape();
 
+    // Regression test for GitHub issue #10166:
+    // With (set-option :smtlib2_compliant true), a formula involving to_real
+    // and mixed Int/Real arithmetic should return "unsat", not "unknown".
+    {
+        char const* spec =
+            "(set-option :smtlib2_compliant true)\n"
+            "(set-logic ALL)\n"
+            "(declare-datatype SBVRational ((SBV.Rational (sbv.rat.numerator Int) (sbv.rat.denominator Int))))\n"
+            "(define-fun sbv.rat.eq ((x SBVRational) (y SBVRational)) Bool\n"
+            "   (= (* (sbv.rat.numerator   x) (sbv.rat.denominator y))\n"
+            "      (* (sbv.rat.denominator x) (sbv.rat.numerator   y))))\n"
+            "(define-fun s4 () Real 0.0)\n"
+            "(declare-fun s0 () SBVRational)\n"
+            "(assert (< 0 (sbv.rat.denominator s0)))\n"
+            "(declare-fun s1 () SBVRational)\n"
+            "(assert (< 0 (sbv.rat.denominator s1)))\n"
+            "(define-fun s2 () Int (sbv.rat.denominator s1))\n"
+            "(define-fun s3 () Real (to_real s2))\n"
+            "(define-fun s5 () Bool (= s3 s4))\n"
+            "(define-fun s6 () Int (sbv.rat.numerator s1))\n"
+            "(define-fun s7 () Real (to_real s6))\n"
+            "(define-fun s8 () Real (/ s7 s3))\n"
+            "(define-fun s9 () Real (ite s5 s4 s8))\n"
+            "(define-fun s10 () Int (sbv.rat.denominator s0))\n"
+            "(define-fun s11 () Real (to_real s10))\n"
+            "(define-fun s12 () Bool (= s4 s11))\n"
+            "(define-fun s13 () Int (sbv.rat.numerator s0))\n"
+            "(define-fun s14 () Real (to_real s13))\n"
+            "(define-fun s15 () Real (/ s14 s11))\n"
+            "(define-fun s16 () Real (ite s12 s4 s15))\n"
+            "(define-fun s17 () Bool (= s9 s16))\n"
+            "(define-fun s18 () Bool (sbv.rat.eq s0 s1))\n"
+            "(assert s17)\n"
+            "(assert (not s18))\n"
+            "(check-sat)\n";
+
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        is_error = false;
+        std::string resp = Z3_eval_smtlib2_string(ctx, spec);
+        Z3_del_context(ctx);
+        std::cout << "Issue #10166 response: " << resp << "\n";
+        ENSURE(!is_error);
+        ENSURE(resp.find("unsat") != std::string::npos);
+        ENSURE(resp.find("unknown") == std::string::npos);
+    }
+
 }
