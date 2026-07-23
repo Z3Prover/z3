@@ -16,11 +16,11 @@ on:
       z3_runtime_args:
         description: "Extra Z3 runtime args (example: smt.ho_matching=true)"
         required: false
-        default: "smt.ho_matching=true"
+        default: "smt.ho_matching=false"
       fstar_ref:
         description: FStar ref to checkout and build
         required: false
-        default: _nik_higher_order_smt
+        default: master
       fstar_opam_switch:
         description: OCaml switch for FStar build
         required: false
