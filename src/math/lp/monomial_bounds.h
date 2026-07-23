@@ -31,7 +31,7 @@ namespace nla {
         void var2interval(lpvar v, scoped_dep_interval& i);
         bool is_too_big(mpq const& q) const;
         void compute_product(unsigned start, monic const& m, scoped_dep_interval& i);
-        bool propagate(monic const& m);
+        bool generate_lemma(monic const& m);
         bool tighten_lp(monic const& m);
         bool propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero);
         bool propagate_fixed(monic const& m, rational const& k);
@@ -45,14 +45,16 @@ namespace nla {
         bool is_zero(lpvar v) const;
         bool add_lemma();
 
-        // monomial propagation
-        bool unit_propagate(monic & m);
-        bool unit_propagate();
+        // linear-monomial equality propagation:
+        // when all but one variable of a monomial are fixed, the monomial is
+        // linear and its value/equality can be propagated into the LP solver.
+        bool propagate_linear_monomial(monic & m);
+        bool propagate_linear_monomials();
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
     public:
         monomial_bounds(core* core);
-        void propagate();
+        void generate_lemmas();
         bool tighten_lp_bounds();
     }; 
 }

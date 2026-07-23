@@ -1308,7 +1308,7 @@ lbool core::check(unsigned level) {
     auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
     if (no_effect())
-        m_monomial_bounds.propagate();
+        m_monomial_bounds.generate_lemmas();
 
     if (no_effect() && refine_pseudo_linear())
         return l_false;

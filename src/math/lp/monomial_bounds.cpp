@@ -16,9 +16,9 @@ namespace nla {
 
     monomial_bounds::monomial_bounds(core *c) : common(c), dep(c->m_intervals.get_dep_intervals()) {}
 
-    void monomial_bounds::propagate() {
+    void monomial_bounds::generate_lemmas() {
         for (auto v : c().m_to_refine) {
-            propagate(c().emon(v));
+            generate_lemma(c().emon(v));
             if (add_lemma())
                 break;
         }
@@ -92,10 +92,11 @@ namespace nla {
     }
 
     /**
-     * Interval-lemma bounds propagation for monomial 'm'.
+     * Interval-based lemma generation for monomial 'm'.
      * Runs the shared-factor (sandwich) and binomial-sign propagators.
+     * These emit lemmas; they do not tighten LP bounds.
      */
-    bool monomial_bounds::propagate(monic const &m) {
+    bool monomial_bounds::generate_lemma(monic const &m) {
         unsigned num_free, power;
         lpvar free_var;
         analyze_monomial(m, num_free, free_var, power);
@@ -112,7 +113,7 @@ namespace nla {
      * For each variable v in m, divide the interval of m.var() by the product of
      * the other variables and strengthen v's LP bounds (down-propagation).
      * Finally strengthen the LP bounds of m.var() from the product interval.
-     * Unlike propagate(), this emits no lemmas -- it only tightens LP bounds.
+     * Unlike generate_lemma(), this emits no lemmas -- it only tightens LP bounds.
      */
     bool monomial_bounds::tighten_lp(monic const &m) {
         unsigned num_free, power;
@@ -198,13 +199,13 @@ namespace nla {
         }
     }
 
-    bool monomial_bounds::unit_propagate() {        
+    bool monomial_bounds::propagate_linear_monomials() {        
         bool propagated = false;
         for (lpvar v : c().m_monics_with_changed_bounds) {
             if (!c().is_monic_var(v))
                 continue;
             monic& m = c().emon(v);
-            if (unit_propagate(m))
+            if (propagate_linear_monomial(m))
                 propagated = true;
             if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
                 break;
@@ -222,7 +223,7 @@ namespace nla {
         return true;
     }
 
-    bool monomial_bounds::unit_propagate(monic & m) {
+    bool monomial_bounds::propagate_linear_monomial(monic & m) {
         if (m.is_propagated())
             return false;
         lpvar w, fixed_to_zero;
@@ -670,7 +671,7 @@ namespace nla {
         for (auto &m : c().emons()) 
             if (tighten_lp(m))
                 new_bound = true;
-        if (unit_propagate())
+        if (propagate_linear_monomials())
             new_bound = true;
         IF_VERBOSE(1, verbose_stream() << "tighten_lp_bounds: new_bound=" << new_bound << "\n";);
         return new_bound;
