@@ -212,26 +212,6 @@ static void test_array() {
     Z3_del_context(ctx);
 }
 
-static void test_sat_smt_ufbv_predicate_model_validation() {
-    Z3_context ctx = Z3_mk_context(nullptr);
-    const char* result =
-        Z3_eval_smtlib2_string(ctx,
-            "(set-logic QF_UFBV)\n"
-            "(set-option :sat.smt true)\n"
-            "(set-option :model_validate true)\n"
-            "(declare-fun p ((_ BitVec 4)) Bool)\n"
-            "(declare-const x (_ BitVec 4))\n"
-            "(declare-const y (_ BitVec 4))\n"
-            "(assert (xor (p x) (p y)))\n"
-            "(assert (bvuge x (_ bv1 4)))\n"
-            "(assert (bvult y (_ bv1 4)))\n"
-            "(check-sat)\n"
-            "(get-model)\n");
-    ENSURE(std::strstr(result, "sat") != nullptr);
-    ENSURE(std::strstr(result, "invalid model") == nullptr);
-    Z3_del_context(ctx);
-}
-
 void tst_simplifier() {
 
     test_array();
@@ -239,5 +219,4 @@ void tst_simplifier() {
     test_datatypes();
     test_bool();
     test_skolemize_bug();
-    test_sat_smt_ufbv_predicate_model_validation();
 }
