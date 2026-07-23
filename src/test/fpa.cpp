@@ -82,6 +82,49 @@ static void test_to_fp_from_real_interval() {
         true);
 }
 
+// Preserve the signed value of the internal exponent when converting a symbolic
+// unsigned bit-vector. In-range values must not take the overflow path.
+static void test_to_fp_unsigned_exponent_width_boundary() {
+    run_fp_test(
+        "(set-logic QF_BVFP)\n"
+        "(set-option :model_validate true)\n"
+        "(declare-const high (_ BitVec 13))\n"
+        "(assert (or (= high #b1111111111110) (= high #b1111111111111)))\n"
+        "(assert (= ((_ to_fp_unsigned 2 11) RTN high) (fp #b0 #b10 #b1111111111)))\n"
+        "(assert (= ((_ to_fp_unsigned 2 11) RTZ high) (fp #b0 #b10 #b1111111111)))\n"
+        "(assert (= ((_ to_fp_unsigned 2 11) RTP high) (_ +oo 2 11)))\n"
+        "(assert (= ((_ to_fp_unsigned 2 11) RNE high) (_ +oo 2 11)))\n"
+        "(assert (= ((_ to_fp_unsigned 2 11) RNA high) (_ +oo 2 11)))\n"
+        "(declare-const small (_ BitVec 13))\n"
+        "(assert (or (= small #b0000000000001) (= small #b0000000000010)))\n"
+        "(assert (= ((_ to_fp_unsigned 2 11) RTN small)\n"
+        "           (ite (= small #b0000000000001)\n"
+        "                (fp #b0 #b01 #b0000000000)\n"
+        "                (fp #b0 #b10 #b0000000000))))\n"
+        "(check-sat)\n",
+        true);
+}
+
+static void test_to_fp_unsigned_common_widths() {
+    run_fp_test(
+        "(set-logic QF_BVFP)\n"
+        "(set-option :model_validate true)\n"
+        "(declare-const high (_ BitVec 32))\n"
+        "(assert (or (= high #xfffffffe) (= high #xffffffff)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RTN high)\n"
+        "           (fp #b0 #b10011110 #b11111111111111111111111)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RTZ high)\n"
+        "           (fp #b0 #b10011110 #b11111111111111111111111)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RTP high)\n"
+        "           (fp #b0 #b10011111 #b00000000000000000000000)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RNE high)\n"
+        "           (fp #b0 #b10011111 #b00000000000000000000000)))\n"
+        "(assert (= ((_ to_fp_unsigned 8 24) RNA high)\n"
+        "           (fp #b0 #b10011111 #b00000000000000000000000)))\n"
+        "(check-sat)\n",
+        true);
+}
+
 static void test_recfun_defined_function_soundness() {
     run_fp_test(
         "(set-option :model_validate true)\n"
@@ -98,5 +141,7 @@ static void test_recfun_defined_function_soundness() {
 void tst_fpa() {
     test_fp_to_real_denormal();
     test_to_fp_from_real_interval();
+    test_to_fp_unsigned_exponent_width_boundary();
+    test_to_fp_unsigned_common_widths();
     test_recfun_defined_function_soundness();
 }
