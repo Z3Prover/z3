@@ -8090,6 +8090,11 @@ class Solver(Z3PPObject):
         >>> s.add(x >= 0, y < 10, y == 2*x)
         >>> print(list(s.solutions([x, y])))
         [[0, 0], [1, 2], [2, 4], [3, 6], [4, 8]]
+        >>> s.reset()
+        >>> s.add(x >= 0, y < 10, y == 2*x)
+        >>> s.add(x >= 0, x <= 2, y >= 0, y <= 2, z >= 0, z <= 2, x + y + z == 2)
+        >>> print(sorted(map(lambda x: list(map(lambda x: x.as_long(), x)), s.solutions([x, y, z]))))
+        [[0, 0, 2], [0, 1, 1], [0, 2, 0], [1, 0, 1], [1, 1, 0], [2, 0, 0]]
         """
         s = Solver()
         s.add(self.assertions())
@@ -8098,7 +8103,7 @@ class Solver(Z3PPObject):
             while s.check() == sat:
                 result = [s.model().eval(t_, model_completion=True) for t_ in t]
                 yield result
-                s.add(*(t_ != result_ for t_, result_ in zip(t, result)))
+                s.add(Or(t_ != result_ for t_, result_ in zip(t, result)))
         else:
             while s.check() == sat:
                 result = s.model().eval(t, model_completion=True)
