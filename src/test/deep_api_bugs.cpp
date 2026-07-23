@@ -859,6 +859,65 @@ static void test_bug_get_as_array_non_array() {
 }
 
 // ---------------------------------------------------------------------------
+// BUG 21: Memory leak in undo_fixed_column with nonlinear int arithmetic + optimization
+//
+// Location: src/math/lp/dioph_eq.cpp
+// undo_fixed_column was storing an mpq (rational) m_fixed_val member, but it is
+// allocated in a trail/region allocator that never calls C++ destructors.
+// When the mpq held a big-integer allocation, the region free skipped the
+// destructor and leaked the heap block, detected by ASAN.
+// Fix: remove the unused m_fixed_val field from undo_fixed_column.
+// Repro: issue #10198
+// ---------------------------------------------------------------------------
+static void test_bug_undo_fixed_column_memory_leak() {
+    std::cout << "test_bug_undo_fixed_column_memory_leak\n";
+    // Reproduce the exact SMT2 from issue #10198:
+    //   (declare-const a Int)
+    //   (declare-const b Int)
+    //   (assert (and (< a 0) (= 1 (+ a (* b b)))))
+    //   (assert (> b 62500))
+    //   (minimize b)
+    //   (maximize b)
+    //   (check-sat)
+    Z3_context ctx = mk_ctx();
+    Z3_optimize opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast a = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a"), int_sort);
+    Z3_ast b = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "b"), int_sort);
+
+    // (< a 0)
+    Z3_ast a_lt_0 = Z3_mk_lt(ctx, a, Z3_mk_int(ctx, 0, int_sort));
+    // (* b b)
+    Z3_ast b_sq_args[2] = {b, b};
+    Z3_ast b_sq = Z3_mk_mul(ctx, 2, b_sq_args);
+    // (+ a (* b b))
+    Z3_ast sum_args[2] = {a, b_sq};
+    Z3_ast sum = Z3_mk_add(ctx, 2, sum_args);
+    // (= 1 (+ a (* b b)))
+    Z3_ast eq1 = Z3_mk_eq(ctx, Z3_mk_int(ctx, 1, int_sort), sum);
+    // (and (< a 0) (= 1 (+ a (* b b))))
+    Z3_ast and_args[2] = {a_lt_0, eq1};
+    Z3_ast conj = Z3_mk_and(ctx, 2, and_args);
+    Z3_optimize_assert(ctx, opt, conj);
+    // (> b 62500)
+    Z3_ast b_gt = Z3_mk_gt(ctx, b, Z3_mk_int(ctx, 62500, int_sort));
+    Z3_optimize_assert(ctx, opt, b_gt);
+    // (minimize b) (maximize b)
+    Z3_optimize_minimize(ctx, opt, b);
+    Z3_optimize_maximize(ctx, opt, b);
+
+    Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
+    std::cout << "  check result: " << result << "\n";
+    // Result may be sat or unknown; the important thing is no memory leak occurs.
+
+    Z3_optimize_dec_ref(ctx, opt);
+    Z3_del_context(ctx);
+    std::cout << "  PASSED (no memory leak)\n";
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 void tst_deep_api_bugs() {
@@ -889,4 +948,7 @@ void tst_deep_api_bugs() {
     // MEDIUM bugs - logic errors
     test_bug_propagator_variable_shadowing();
     test_bug_solver_from_nonexistent_file();
+
+    // Memory leak regression tests
+    test_bug_undo_fixed_column_memory_leak();
 }
