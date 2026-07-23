@@ -390,6 +390,7 @@ public:
         return is_int2bv(e) && (n = to_app(e)->get_parameter(0).get_int(), x = to_app(e)->get_arg(0), true);
     }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_UNARY(is_bv_not);
     MATCH_UNARY(is_redand);
     MATCH_UNARY(is_redor);
@@ -439,6 +440,7 @@ public:
     MATCH_BINARY(is_bv_smod0);
     MATCH_UNARY(is_bit2bool);
     MATCH_UNARY(is_int2bv);
+    END_DISABLE_WARNING;
     bool is_bit2bool(expr* e, expr*& bv, unsigned& idx) const;
 
     rational norm(rational const & val, unsigned bv_size, bool is_signed = false) const ;

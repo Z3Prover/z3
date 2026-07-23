@@ -20,6 +20,7 @@ Revision History:
 #include "api/api_context.h"
 #include "api/api_util.h"
 #include "ast/array_decl_plugin.h"
+#include "util/manage_warnings.h"
 
 extern "C" {
 
@@ -266,12 +267,14 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_NARY(Z3_mk_set_union, mk_c(c)->get_array_fid(), OP_SET_UNION, SKIP);
     MK_NARY(Z3_mk_set_intersect, mk_c(c)->get_array_fid(), OP_SET_INTERSECT, SKIP);
     MK_BINARY(Z3_mk_set_difference, mk_c(c)->get_array_fid(), OP_SET_DIFFERENCE, SKIP);
     MK_UNARY(Z3_mk_set_complement, mk_c(c)->get_array_fid(), OP_SET_COMPLEMENT, SKIP);
     MK_BINARY(Z3_mk_set_subset, mk_c(c)->get_array_fid(), OP_SET_SUBSET, SKIP);
     MK_BINARY(Z3_mk_array_ext, mk_c(c)->get_array_fid(), OP_ARRAY_EXT, SKIP);
+    END_DISABLE_WARNING;
 
     Z3_ast Z3_API Z3_mk_as_array(Z3_context c, Z3_func_decl f) {
         Z3_TRY;

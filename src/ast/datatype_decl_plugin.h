@@ -27,6 +27,7 @@ Revision History:
 #include "util/symbol_table.h"
 #include "util/obj_hashtable.h"
 #include "util/dictionary.h"
+#include "util/manage_warnings.h"
 
 
 enum sort_kind {
@@ -424,9 +425,13 @@ namespace datatype {
         bool is_recognizer(expr const * f) const { return is_app(f) && (is_recognizer0(to_app(f)) || is_is(to_app(f))); }
         bool is_considered_uninterpreted(func_decl * f, unsigned n, expr* const* args);
 
+        START_DISABLE_EXTRA_SEMI_WARNING;
         MATCH_UNARY(is_recognizer);
+        END_DISABLE_WARNING;
         bool is_accessor(expr const* e) const { return is_app(e) && is_app_of(to_app(e), fid(), OP_DT_ACCESSOR); }
+        START_DISABLE_EXTRA_SEMI_WARNING;
         MATCH_UNARY(is_accessor);
+        END_DISABLE_WARNING;
         bool is_update_field(expr * f) const { return is_app(f) && is_app_of(to_app(f), fid(), OP_DT_UPDATE_FIELD); }
         app* mk_is(func_decl * c, expr *f);
         ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);

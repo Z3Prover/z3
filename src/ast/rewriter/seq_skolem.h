@@ -21,6 +21,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "util/manage_warnings.h"
 
 namespace seq {
 
@@ -147,7 +148,9 @@ namespace seq {
         bool is_align(expr const* e) const { return is_skolem(symbol("seq.align.m"), e); }
         bool is_align_l(expr const* e) const { return is_skolem(symbol("seq.align.l"), e); }
         bool is_align_r(expr const* e) const { return is_skolem(symbol("seq.align.r"), e); }
+        START_DISABLE_EXTRA_SEMI_WARNING;
         MATCH_BINARY(is_align);
+        END_DISABLE_WARNING;
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_eq(expr* e, expr*& a, expr*& b) const;

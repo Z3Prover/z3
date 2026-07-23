@@ -3,7 +3,7 @@ Copyright (c) 2006 Microsoft Corporation
 
 Module Name:
 
-    build_warnings.h
+    manage_warnings.h
 
 Abstract:
 

@@ -26,6 +26,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "util/manage_warnings.h"
 #include "util/mpq.h"
 #include "util/rational.h"
 #include "util/vector.h"
@@ -328,12 +329,14 @@ inline bool EXTERNAL(scoped_mpbq const & a, TYPE const & b) {   \
 MPBQ_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, int)     \
 MPBQ_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpz)     \
 
+START_DISABLE_EXTRA_SEMI_WARNING;
 MPBQ_MK_COMPARISON(operator==, eq);
 MPBQ_MK_COMPARISON(operator!=, neq);
 MPBQ_MK_COMPARISON(operator<,  lt);
 MPBQ_MK_COMPARISON(operator<=, le);
 MPBQ_MK_COMPARISON(operator>,  gt);
 MPBQ_MK_COMPARISON(operator>=, ge);
+END_DISABLE_WARNING;
 
 #undef MPBQ_MK_COMPARISON
 #undef MPBQ_MK_COMPARISON_CORE

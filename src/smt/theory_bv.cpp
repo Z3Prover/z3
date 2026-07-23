@@ -23,6 +23,7 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
+#include "util/manage_warnings.h"
 
 #define ENABLE_QUOT_REM_ENCODING 0
 
@@ -819,6 +820,7 @@ namespace smt {
         init_bits(e, bits);                                                                
     }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_UNARY(internalize_neg,       mk_neg);
     MK_UNARY(internalize_not,       mk_not);
     MK_UNARY(internalize_redand,    mk_redand);
@@ -843,6 +845,7 @@ namespace smt {
     MK_AC_BINARY(internalize_nor,      mk_nor);
     MK_AC_BINARY(internalize_xnor,     mk_xnor);
     MK_BINARY(internalize_comp,     mk_comp);
+    END_DISABLE_WARNING;
 
 #define MK_PARAMETRIC_UNARY(NAME, BLAST_OP)                                     \
     void theory_bv::NAME(app * n) {                                             \
@@ -857,10 +860,12 @@ namespace smt {
         init_bits(e, bits);                                                     \
     }
     
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_PARAMETRIC_UNARY(internalize_sign_extend, mk_sign_extend);
     MK_PARAMETRIC_UNARY(internalize_zero_extend, mk_zero_extend);
     MK_PARAMETRIC_UNARY(internalize_rotate_left, mk_rotate_left);
     MK_PARAMETRIC_UNARY(internalize_rotate_right, mk_rotate_right);
+    END_DISABLE_WARNING;
 
     void theory_bv::internalize_concat(app * n) {
         process_args(n);        
@@ -1006,9 +1011,11 @@ namespace smt {
         }                                                                                                       \
     }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_NO_OVFL(internalize_umul_no_overflow, mk_umul_no_overflow);
     MK_NO_OVFL(internalize_smul_no_overflow, mk_smul_no_overflow);
     MK_NO_OVFL(internalize_smul_no_underflow, mk_smul_no_underflow);
+    END_DISABLE_WARNING;
 
     template<bool Signed>
     void theory_bv::internalize_le(app * n) {
