@@ -562,6 +562,12 @@ public:
         arith_util ari_u(m);
         datatype_util dt_u(m);
 
+        // Remember the variables we were asked to eliminate. do_qel/qel_project
+        // can report a variable as eliminated (drop it from vars) while a
+        // simplification still leaves an occurrence of it in fml. Such a
+        // variable is a fresh, undeclared constant in the result (issue #10172).
+        app_ref_vector orig_vars(vars);
+
         do_qel(vars, fml);
         qel_project(vars, mdl, fml, m_reduce_all_selects);
         flatten_and(fml);
@@ -571,6 +577,15 @@ public:
         for (app* v : vars) {
             SASSERT(!arr_u.is_array(v) && !dt_u.is_datatype(v->get_sort()));
             other_vars.push_back(v);
+        }
+
+        // Recover variables that were reported eliminated but still occur in
+        // fml. Route them through the model-based projection/substitution below
+        // so they are replaced by their model values instead of leaking out as
+        // undeclared constants.
+        for (app* v : orig_vars) {
+            if (!vars.contains(v) && !other_vars.contains(v) && occurs(v, fml))
+                other_vars.push_back(v);
         }
 
         // project reals, ints and other variables.
