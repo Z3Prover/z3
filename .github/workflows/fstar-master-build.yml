@@ -56,7 +56,7 @@ jobs:
       DISCUSSION_CATEGORY: ${{ github.event.inputs.discussion_category || 'Agentic Workflows' }}
     steps:
       - name: Checkout Z3
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ env.Z3_REF }}
           fetch-depth: 1
