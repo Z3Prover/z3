@@ -2776,13 +2776,12 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
     else {
         SASSERT(!m_arith_util.is_numeral(x));
         bv_util & bu = m_bv_util;
-        arith_util & au = m_arith_util;
 
         expr_ref bv0(m), bv1(m), zero(m), two(m);
         bv0 = bu.mk_numeral(0, 1);
         bv1 = bu.mk_numeral(1, 1);
-        zero = au.mk_numeral(rational(0), false);
-        two = au.mk_numeral(rational(2), false);
+        zero = m_arith_util.mk_numeral(rational(0), false);
+        two = m_arith_util.mk_numeral(rational(2), false);
 
         expr_ref sgn(m), sig(m), exp(m);
         sgn = mk_fresh_const("fpa2bv_to_fp_real_sgn", 1);
@@ -2791,9 +2790,6 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         expr_ref rme(bv_rm, m);
         round(s, rme, sgn, sig, exp, result);
-
-        expr * e = m.mk_eq(m_util.mk_to_real(result), x);
-        m_extra_assertions.push_back(e);
 
         expr_ref r_is_nan(m);
         mk_is_nan(result, r_is_nan);
@@ -2808,10 +2804,6 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         max_real = max_sig * rational(m_mpf_manager.m_powers2(max_exp));
         TRACE(fpa2bv_to_real, tout << "max exp: " << max_exp << " max real: " << max_real << std::endl;);
 
-        expr_ref r_is_pinf(m), r_is_ninf(m);
-        mk_is_pinf(result, r_is_pinf);
-        mk_is_ninf(result, r_is_ninf);
-
         expr_ref e_max_real(m), e_max_real_neg(m);
         e_max_real = m_arith_util.mk_numeral(max_real, false);
         e_max_real_neg = m_arith_util.mk_numeral(-max_real, false);
@@ -2822,6 +2814,124 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         mk_is_rm(bv_rm, BV_RM_TO_POSITIVE, rm_tp);
         mk_is_rm(bv_rm, BV_RM_TO_NEGATIVE, rm_tn);
         mk_is_rm(bv_rm, BV_RM_TO_ZERO, rm_tz);
+
+        expr_ref r_is_pinf(m), r_is_ninf(m), r_is_zero(m), r_is_neg(m);
+        mk_is_pinf(result, r_is_pinf);
+        mk_is_ninf(result, r_is_ninf);
+        mk_is_zero(result, r_is_zero);
+        mk_is_neg(result, r_is_neg);
+
+        expr_ref r_sgn(m), r_exp(m), r_sig(m);
+        split_fp(result, r_sgn, r_exp, r_sig);
+
+        unsigned total_bits = ebits + sbits;
+        expr_ref sign_mask(m), bv_one(m);
+        sign_mask = m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, total_bits - 1));
+        bv_one = m_bv_util.mk_numeral(1, total_bits);
+
+        expr_ref r_bv(m);
+        r_bv = m_bv_util.mk_concat({ r_sgn, r_exp, r_sig });
+
+        // Map IEEE-754 bit patterns to a monotone key for numeric ordering:
+        // - negative values: bitwise-not
+        // - non-negative values: flip sign bit
+        // This makes adjacent keys correspond to adjacent representable values.
+        auto mk_ordered_key = [&](expr* bv, expr_ref& key) {
+            expr_ref sign(m), is_neg(m), bv_not(m), bv_flip(m);
+            sign = m_bv_util.mk_extract(total_bits - 1, total_bits - 1, bv);
+            is_neg = m.mk_eq(sign, bv1);
+            bv_not = m_bv_util.mk_bv_not(bv);
+            bv_flip = m_bv_util.mk_bv_xor(bv, sign_mask);
+            key = m.mk_ite(is_neg, bv_not, bv_flip);
+        };
+
+        // Inverse of mk_ordered_key: recover IEEE-754 bits from the monotone key.
+        // Keys with top bit 1 decode as non-negative values (flip sign bit back),
+        // keys with top bit 0 decode as negative values (bitwise-not).
+        auto mk_from_ordered_key = [&](expr* key, expr_ref& bv) {
+            expr_ref sign(m), is_pos(m), bv_not(m), bv_flip(m);
+            sign = m_bv_util.mk_extract(total_bits - 1, total_bits - 1, key);
+            is_pos = m.mk_eq(sign, bv1);
+            bv_not = m_bv_util.mk_bv_not(key);
+            bv_flip = m_bv_util.mk_bv_xor(key, sign_mask);
+            bv = m.mk_ite(is_pos, bv_flip, bv_not);
+        };
+
+        expr_ref r_key(m), prev_key(m), next_key(m), prev_bv(m), next_bv(m);
+        mk_ordered_key(r_bv, r_key);
+        prev_key = m_bv_util.mk_bv_sub(r_key, bv_one);
+        next_key = m_bv_util.mk_bv_add(r_key, bv_one);
+        mk_from_ordered_key(prev_key, prev_bv);
+        mk_from_ordered_key(next_key, next_bv);
+
+        // Build an FP value from IEEE-754 layout in 'bv':
+        // [MSB]=sign, then exponent bits, then significand bits.
+        auto mk_fp_from_bv = [&](expr* bv, expr_ref& fp) {
+            fp = m_util.mk_fp(m_bv_util.mk_extract(total_bits - 1, total_bits - 1, bv),
+                              m_bv_util.mk_extract(total_bits - 2, sbits - 1, bv),
+                              m_bv_util.mk_extract(sbits - 2, 0, bv));
+        };
+
+        expr_ref prev_fp(m), next_fp(m);
+        mk_fp_from_bv(prev_bv, prev_fp);
+        mk_fp_from_bv(next_bv, next_fp);
+
+        expr_ref prev_is_inf(m), next_is_inf(m);
+        mk_is_inf(prev_fp, prev_is_inf);
+        mk_is_inf(next_fp, next_is_inf);
+
+        expr_ref r_real(m), prev_real(m), next_real(m);
+        r_real = m_util.mk_to_real(result);
+        prev_real = m_util.mk_to_real(prev_fp);
+        next_real = m_util.mk_to_real(next_fp);
+
+        expr_ref half(m), lower_mid(m), upper_mid(m);
+        half = m_arith_util.mk_numeral(rational(1, 2), false);
+        lower_mid = m_arith_util.mk_mul(half, m_arith_util.mk_add(prev_real, r_real));
+        upper_mid = m_arith_util.mk_mul(half, m_arith_util.mk_add(r_real, next_real));
+
+        expr_ref is_even(m), sig_lsb(m);
+        sig_lsb = m_bv_util.mk_extract(0, 0, r_sig);
+        is_even = m.mk_eq(sig_lsb, bv0);
+
+        expr_ref tie_away_lower(m), tie_away_upper(m);
+        // For RNA ties, pick the value farther from zero:
+        // lower tie is selected only for positive non-zero results,
+        // upper tie is selected only for negative non-zero results.
+        tie_away_lower = m.mk_and(m.mk_not(r_is_neg), m.mk_not(r_is_zero));
+        tie_away_upper = m.mk_and(r_is_neg, m.mk_not(r_is_zero));
+
+        expr_ref prev_lt_x(m), prev_lt_x_or_tie_even(m), prev_lt_x_or_tie_away(m);
+        prev_lt_x = m_arith_util.mk_lt(prev_real, x);
+        prev_lt_x_or_tie_even = m.mk_or(m_arith_util.mk_lt(lower_mid, x), m.mk_and(m.mk_eq(x, lower_mid), is_even));
+        prev_lt_x_or_tie_away = m.mk_or(m_arith_util.mk_lt(lower_mid, x), m.mk_and(m.mk_eq(x, lower_mid), tie_away_lower));
+        prev_lt_x = m.mk_ite(prev_is_inf, m.mk_true(), prev_lt_x);
+        prev_lt_x_or_tie_even = m.mk_ite(prev_is_inf, m.mk_true(), prev_lt_x_or_tie_even);
+        prev_lt_x_or_tie_away = m.mk_ite(prev_is_inf, m.mk_true(), prev_lt_x_or_tie_away);
+
+        expr_ref x_lt_next(m), x_lt_next_or_tie_even(m), x_lt_next_or_tie_away(m);
+        x_lt_next = m_arith_util.mk_lt(x, next_real);
+        x_lt_next_or_tie_even = m.mk_or(m_arith_util.mk_lt(x, upper_mid), m.mk_and(m.mk_eq(x, upper_mid), is_even));
+        x_lt_next_or_tie_away = m.mk_or(m_arith_util.mk_lt(x, upper_mid), m.mk_and(m.mk_eq(x, upper_mid), tie_away_upper));
+        x_lt_next = m.mk_ite(next_is_inf, m.mk_true(), x_lt_next);
+        x_lt_next_or_tie_even = m.mk_ite(next_is_inf, m.mk_true(), x_lt_next_or_tie_even);
+        x_lt_next_or_tie_away = m.mk_ite(next_is_inf, m.mk_true(), x_lt_next_or_tie_away);
+
+        expr_ref rtp_ok(m), rtn_ok(m), rtz_ok(m), rna_ok(m), rne_ok(m);
+        rtp_ok = m.mk_and(m_arith_util.mk_le(x, r_real), prev_lt_x);
+        rtn_ok = m.mk_and(m_arith_util.mk_le(r_real, x), x_lt_next);
+        rtz_ok = m.mk_ite(r_is_neg, m.mk_and(prev_lt_x, m_arith_util.mk_le(x, r_real)),
+                                   m.mk_and(m_arith_util.mk_le(r_real, x), x_lt_next));
+        rna_ok = m.mk_and(prev_lt_x_or_tie_away, x_lt_next_or_tie_away);
+        rne_ok = m.mk_and(prev_lt_x_or_tie_even, x_lt_next_or_tie_even);
+
+        expr_ref finite_result(m), finite_round_ok(m);
+        finite_result = m.mk_not(m.mk_or(r_is_pinf, r_is_ninf));
+        finite_round_ok = m.mk_ite(rm_tp, rtp_ok,
+                          m.mk_ite(rm_tn, rtn_ok,
+                          m.mk_ite(rm_tz, rtz_ok,
+                          m.mk_ite(rm_nta, rna_ok, rne_ok))));
+        m_extra_assertions.push_back(m.mk_implies(finite_result, finite_round_ok));
 
         // IEEE 754: RNE/RNA carry all overflows to infinity with the sign of the result.
         // RTP carries positive overflow to +inf, RTN carries negative overflow to -inf.
