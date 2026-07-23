@@ -2319,6 +2319,7 @@ public:
             get_infeasibility_explanation_and_set_conflict();
             break;
         case l_true:
+            propagate_nla();
             propagate_bounds_with_lp_solver();
             break;
         case l_undef:
