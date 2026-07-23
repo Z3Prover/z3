@@ -1540,7 +1540,7 @@ bool core::propagate() {
    bounds.
 */
 bool core::optimize_nl_bounds() {
-    if (!params().arith_nl_optimize_bounds_lp() || !m_bounds_optimization_enabled)
+    if (!params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
         return false;
 
     trail().push(value_trail(m_bounds_optimization_enabled));
