@@ -283,6 +283,8 @@ namespace nla {
     }
 
     bool monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
+        if (c().val(m.var()) == k * c().val(w))
+            return false;
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
         coeffs.push_back({-k, w});
         coeffs.push_back({rational::one(), m.var()});
