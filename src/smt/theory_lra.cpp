@@ -4277,6 +4277,11 @@ public:
         expr_ref_vector args(m);
         for (auto const& [w, coeff] : coeffs) {
             expr* o = get_expr(w);
+            // When the overall expression is Real but 'o' is Int (e.g. due to
+            // to_real(Int) equality constraints in the LP), coerce 'o' to Real
+            // to avoid sort mismatches when int/real coercions are disabled.
+            if (!is_int && a.is_int(o))
+                o = a.mk_to_real(o);
             if (coeff.is_zero()) {
                 // continue
             }
