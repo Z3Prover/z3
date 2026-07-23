@@ -102,13 +102,22 @@ namespace euf {
     }
 
     void ho_matcher::operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars) {               
+        unsigned base_scope = m_trail.get_num_scopes();
         m_trail.push_scope();
-        m_subst.resize(0);
-        m_subst.resize(num_vars);
-        m_goals.reset();
-        m_goals.push(0, num_bound, pat, t); 
-        search();
-        m_trail.pop_scope(1);
+        try {
+            m_subst.resize(0);
+            m_subst.resize(num_vars);
+            m_goals.reset();
+            m_goals.push(0, num_bound, pat, t);
+            search();
+        }
+        catch (...) {
+            // Restore the shared trail to the level we entered with, even if the
+            // search was aborted by an exception (e.g. resource/memory limit).
+            m_trail.pop_scope(m_trail.get_num_scopes() - base_scope);
+            throw;
+        }
+        m_trail.pop_scope(m_trail.get_num_scopes() - base_scope);
     }
 
     void ho_matcher::search() {
@@ -119,8 +128,6 @@ namespace euf {
         while (m.inc()) {
             if (budget-- == 0) {
                 IF_VERBOSE(2, verbose_stream() << "ho_matcher: search budget exhausted\n");
-                while (!m_backtrack.empty())
-                    backtrack();
                 break;
             }
             // Q, B -> Q', B'. Push work on the backtrack stack and new work items
@@ -132,6 +139,18 @@ namespace euf {
             else
                 break;
         }
+
+        // Drain any remaining work items so that every backtracking scope that
+        // was pushed in consume_work is popped again. The loop above can be left
+        // with items still on the backtrack stack when it terminates early - for
+        // example when the search budget is exhausted or when m.inc() reports
+        // that the resource limit has been reached. Because the matcher shares
+        // the solver's trail stack, leaking a scope here would desynchronize the
+        // trail scope count from the solver scope level and later trigger an
+        // assertion failure / unsound backtracking in
+        // smt::context::reinit_clauses.
+        while (!m_backtrack.empty())
+            backtrack();
 
         IF_VERBOSE(10, display(verbose_stream() << "ho_matcher: done\n"));
     }
@@ -949,47 +968,59 @@ namespace euf {
                    for (auto [v, pat] : abs) verbose_stream() << "    v=" << v << " pat=" << mk_pp(pat, m) << "\n";);
         unsigned base_scope = m_trail.get_num_scopes();
         m_trail.push_scope();
-        m_subst.resize(0);
-        m_subst.resize(s.size());
-        m_goals.reset();
-        // MAM bindings are reversed: s[i] = binding for var idx = s.size()-1-i
-        // m_subst is indexed by var index directly
-        for (unsigned i = 0; i < s.size(); ++i) {
-            auto idx = s.size() - i - 1;
-            if (!m_hopat2free_vars[p].contains(idx))
-                s[i] = m.mk_var(idx, s[i]->get_sort());
-            else if (s.get(i))
-                m_subst.set(idx, s.get(i));
-        }
+        try {
+            m_subst.resize(0);
+            m_subst.resize(s.size());
+            m_goals.reset();
+            // MAM bindings are reversed: s[i] = binding for var idx = s.size()-1-i
+            // m_subst is indexed by var index directly
+            for (unsigned i = 0; i < s.size(); ++i) {
+                auto idx = s.size() - i - 1;
+                if (!m_hopat2free_vars[p].contains(idx))
+                    s[i] = m.mk_var(idx, s[i]->get_sort());
+                else if (s.get(i))
+                    m_subst.set(idx, s.get(i));
+            }
 
-        TRACE(ho_matching, tout << "refine " << mk_pp(p, m) << "\n" << s << "\n");
+            TRACE(ho_matching, tout << "refine " << mk_pp(p, m) << "\n" << s << "\n");
 
-        unsigned num_bound = 0, level = 0;
-        for (auto [v, pat] : m_pat2abs[fo_pat]) {
-            // If a binding's sort disagrees with the pattern variable it would
-            // fill, substituting it would build an ill-sorted term. This can
-            // arise for deeply nested multi-select patterns whose de Bruijn
-            // remapping does not line up, or when E-matching delivers a
-            // candidate binding whose sort is incompatible with the abstracted
-            // higher-order pattern. Discard this refinement candidate (produce
-            // no instance) instead of aborting the whole solve.
-            if (!subst_sorts_match(m, pat, s, true)) {
-                m_trail.pop_scope(1);
-                IF_VERBOSE(0, verbose_stream() << "refine_ho_match: sorts do not match for " << mk_pp(pat, m) << " and "
-                                               << s << "\n";);
-                UNREACHABLE();
-                return;
+            unsigned num_bound = 0, level = 0;
+            bool sorts_match = true;
+            for (auto [v, pat] : m_pat2abs[fo_pat]) {
+                // If a binding's sort disagrees with the pattern variable it would
+                // fill, substituting it would build an ill-sorted term. This can
+                // arise for deeply nested multi-select patterns whose de Bruijn
+                // remapping does not line up, or when E-matching delivers a
+                // candidate binding whose sort is incompatible with the abstracted
+                // higher-order pattern. Discard this refinement candidate (produce
+                // no instance) instead of aborting the whole solve.
+                if (!subst_sorts_match(m, pat, s, true)) {
+                    IF_VERBOSE(0, verbose_stream() << "refine_ho_match: sorts do not match for " << mk_pp(pat, m) << " and "
+                                                   << s << "\n";);
+                    sorts_match = false;
+                    break;
+                }
+            }
+            if (sorts_match) {
+                for (auto [v, pat] : m_pat2abs[fo_pat]) {
+                    var_subst sub(m, true);
+                    auto pat_refined = sub(pat, s);
+                    TRACE(ho_matching, tout << mk_pp(pat, m) << " -> " << pat_refined << "\n");
+                    m_goals.push(level, num_bound, pat_refined, m_subst.get(v));
+                }
+                search();
             }
         }
-        for (auto [v, pat] : m_pat2abs[fo_pat]) {
-            var_subst sub(m, true);
-            auto pat_refined = sub(pat, s);
-            TRACE(ho_matching, tout << mk_pp(pat, m) << " -> " << pat_refined << "\n");
-            m_goals.push(level, num_bound, pat_refined, m_subst.get(v));
+        catch (...) {
+            // Restore the shared trail to the level we entered with, even if the
+            // refinement was aborted by an exception (e.g. resource/memory
+            // limit thrown from substitution or search). Leaking a scope on the
+            // solver's trail stack would later trigger an assertion failure /
+            // unsound backtracking in smt::context::reinit_clauses.
+            m_trail.pop_scope(m_trail.get_num_scopes() - base_scope);
+            throw;
         }
-        search();
-        
-        m_trail.pop_scope(1);
+        m_trail.pop_scope(m_trail.get_num_scopes() - base_scope);
     }
 
     bool ho_matcher::subst_sorts_match(ast_manager& m, expr* t, expr_ref_vector const& s, bool std_order) {
