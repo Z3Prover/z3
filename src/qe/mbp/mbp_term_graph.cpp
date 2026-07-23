@@ -818,6 +818,23 @@ bool term_graph::term_lt(term const &t1, term const &t2) {
         if (t1.get_num_args() == t2.get_num_args()) {
             if (m.is_value(t1.get_expr()) == m.is_value(t2.get_expr()))
                 return t1.get_id() < t2.get_id();
+            // Prefer values over non-var uninterpreted constants to avoid
+            // substituting numeric literals with free variables. This prevents
+            // non-linear terms like (x * x1) when x1=2 is added as a model
+            // constraint and 2 appears as a coefficient in (2 * x).
+            // Exception: if the non-value is a variable to eliminate, keep the
+            // old preference (non-value wins) so refine_repr can replace it.
+            auto is_elim_var = [&](term const &t) {
+                expr *e = t.get_expr();
+                return is_app(e) && m_is_var.contains(to_app(e)->get_decl());
+            };
+            bool t1_is_val = m.is_value(t1.get_expr());
+            bool t2_is_val = m.is_value(t2.get_expr());
+            // If the non-value is NOT a variable to eliminate, prefer the value
+            if (t1_is_val && !t2_is_val && !is_elim_var(t2))
+                return true;  // t1 (value) preferred
+            if (t2_is_val && !t1_is_val && !is_elim_var(t1))
+                return false; // t2 (value) preferred
             return m.is_value(t2.get_expr());
         }
         return t1.get_num_args() < t2.get_num_args();
