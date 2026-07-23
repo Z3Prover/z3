@@ -49,13 +49,6 @@ Author:
 
 namespace euf {
 
-    // RAII guard that restores the shared trail stack to the scope level
-    // captured at construction. The matcher shares the solver's trail stack, so
-    // leaking a scope on an early or exceptional exit desynchronizes the trail
-    // scope count from the solver scope level and later trips an assertion /
-    // unsound backtracking in smt::context::reinit_clauses. Using a guard
-    // restores the trail before exit on every path without wrapping large blocks
-    // of code in exception handlers that would mask underlying bugs.
     namespace {
         struct scoped_trail_level {
             trail_stack& m_trail;
@@ -130,6 +123,17 @@ namespace euf {
     void ho_matcher::search() {
         IF_VERBOSE(10, display(verbose_stream()));
 
+        struct drain_backtrack {
+            ho_matcher &m;
+            drain_backtrack(ho_matcher &m) : m(m) {}
+            ~drain_backtrack() {
+                while (!m.m_backtrack.empty()) {
+                    m.m_backtrack.pop();
+                }
+            }
+        };
+
+        drain_backtrack _drain(*this);
 
         unsigned budget = m_max_iterations;
         while (m.inc()) {
@@ -146,17 +150,6 @@ namespace euf {
             else
                 break;
         }
-
-        // Drain any remaining work items so that every backtracking scope pushed
-        // in consume_work is popped again and m_backtrack is left empty for the
-        // next call. The loop above can exit early - budget exhausted, or
-        // m.inc() reporting that the resource limit has been reached - with items
-        // still on the backtrack stack. Because the matcher shares the solver's
-        // trail stack, leaking a scope here would desynchronize the trail scope
-        // count from the solver scope level and later trigger an assertion
-        // failure / unsound backtracking in smt::context::reinit_clauses.
-        while (!m_backtrack.empty())
-            backtrack();
 
         IF_VERBOSE(10, display(verbose_stream() << "ho_matcher: done\n"));
     }
