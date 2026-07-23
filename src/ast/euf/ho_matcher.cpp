@@ -128,7 +128,7 @@ namespace euf {
             drain_backtrack(ho_matcher &m) : m(m) {}
             ~drain_backtrack() {
                 while (!m.m_backtrack.empty()) {
-                    m.m_backtrack.pop();
+                    m.backtrack();
                 }
             }
         };
