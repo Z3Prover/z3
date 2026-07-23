@@ -644,7 +644,6 @@ namespace lp {
                for (auto c : cs) 
                     m_imp->m_constraints.display(tout, c) << "\n";
             });
-            SASSERT(bound_dep != nullptr);
             dep = dep_manager().mk_join(dep, bound_dep);
         }
         return dep;
