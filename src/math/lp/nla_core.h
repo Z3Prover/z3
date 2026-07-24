@@ -410,6 +410,7 @@ public:
     bool  no_lemmas_hold() const;
 
     bool propagate();
+    bool incremental_propagate();
 
     void simplify();
     

@@ -57,6 +57,10 @@ namespace nla {
     bool solver::propagate() {
         return m_core->propagate();
     }
+
+    bool solver::incremental_propagate() {
+        return m_core->incremental_propagate();
+    }
     
     void solver::push(){
         m_core->push();

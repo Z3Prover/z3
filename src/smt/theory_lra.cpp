@@ -2319,7 +2319,7 @@ public:
             get_infeasibility_explanation_and_set_conflict();
             break;
         case l_true:
-            propagate_nla();
+            incremental_propagate_nla();         
             propagate_bounds_with_lp_solver();
             break;
         case l_undef:
@@ -2332,7 +2332,17 @@ public:
     bool propagate_nla() {
         bool propagated = false;
         if (m_nla) {
-            propagated = m_nla->propagate() || propagated;
+            propagated = m_nla->propagate();
+            add_lemmas();
+            lp().collect_more_rows_for_lp_propagation();
+        }
+        return propagated;
+    }
+
+    bool incremental_propagate_nla() {
+        bool propagated = false;
+        if (m_nla) {
+            propagated = m_nla->incremental_propagate();
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();
         }

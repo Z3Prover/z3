@@ -48,13 +48,13 @@ namespace nla {
         // linear-monomial equality propagation:
         // when all but one variable of a monomial are fixed, the monomial is
         // linear and its value/equality can be propagated into the LP solver.
-        bool propagate_linear_monomial(monic & m);
-        bool propagate_linear_monomials();
+        bool propagate_changed_bound(monic & m);
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
     public:
         monomial_bounds(core* core);
         void generate_lemmas();
         bool tighten_lp_bounds();
+        bool propagate_changed_bounds();
     }; 
 }

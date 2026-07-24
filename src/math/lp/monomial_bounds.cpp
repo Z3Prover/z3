@@ -199,13 +199,15 @@ namespace nla {
         }
     }
 
-    bool monomial_bounds::propagate_linear_monomials() {        
+    bool monomial_bounds::propagate_changed_bounds() {        
         bool propagated = false;
         for (lpvar v : c().m_monics_with_changed_bounds) {
             if (!c().is_monic_var(v))
                 continue;
             monic& m = c().emon(v);
-            if (propagate_linear_monomial(m))
+            if (propagate_changed_bound(m))
+                propagated = true;
+            if (tighten_lp(m))
                 propagated = true;
             if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
                 break;
@@ -223,7 +225,7 @@ namespace nla {
         return true;
     }
 
-    bool monomial_bounds::propagate_linear_monomial(monic & m) {
+    bool monomial_bounds::propagate_changed_bound(monic & m) {
         if (m.is_propagated())
             return false;
         lpvar w, fixed_to_zero;
@@ -642,7 +644,6 @@ namespace nla {
      */
     void monomial_bounds::propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
         SASSERT(cmp != llc::EQ && cmp != llc::NE);
-        IF_VERBOSE(1, verbose_stream() << "propagate_lp_bound: v=" << v << " cmp=" << cmp << " q=" << q << "\n";);
         if (!c().var_is_int(v))
             c().lra.update_column_type_and_bound(v, cmp, q, d);
         else if (q.is_int()) {
@@ -673,9 +674,6 @@ namespace nla {
         for (auto &m : c().emons()) 
             if (tighten_lp(m))
                 new_bound = true;
-        if (propagate_linear_monomials())
-            new_bound = true;
-        IF_VERBOSE(1, verbose_stream() << "tighten_lp_bounds: new_bound=" << new_bound << "\n";);
         return new_bound;
     }
 

@@ -40,6 +40,7 @@ namespace nla {
         bool need_check();
         lbool check(unsigned level);
         bool propagate();
+        bool incremental_propagate();
         void simplify() { m_core->simplify(); }
         lbool check_power(lpvar r, lpvar x, lpvar y);
         bool is_monic_var(lpvar) const;
