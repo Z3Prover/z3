@@ -11,6 +11,33 @@ concurrency:
   cancel-in-progress: true     
 
 jobs:               
+  mingw-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+      - name: Setup MSYS2 (UCRT64 / MinGW-w64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            python3
+      - name: Build Z3 with MinGW
+        shell: msys2 {0}
+        run: |
+          mkdir build && cd build
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+          ninja -j$(nproc) shell test-z3
+      - name: Run unit tests
+        shell: msys2 {0}
+        run: |
+          cd build
+          ./test-z3.exe /a
+
   build:
     strategy:
       matrix:
