@@ -4287,7 +4287,7 @@ public:
     app_ref coeffs2app(u_map<rational> const& coeffs, rational const& offset, bool is_int) {
         expr_ref_vector args(m);
         for (auto const& [w, coeff] : coeffs) {
-            expr* o = get_expr(w);
+            expr_ref o(get_expr(w), m);
             // When the overall expression is Real but 'o' is Int (e.g. due to
             // to_real(Int) equality constraints in the LP), coerce 'o' to Real
             // to avoid sort mismatches when int/real coercions are disabled.
