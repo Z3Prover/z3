@@ -1571,22 +1571,23 @@ namespace lp {
             return false;
 
         m_imp->m_delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
-        unsigned j;
         unsigned n = get_core_solver().r_x().size();
+        // the set of distinct column values does not depend on m_delta, so collect it once
+        // and only rescan the distinct pairs when m_delta is halved
+        m_imp->m_set_of_different_pairs.clear();
+        for (unsigned j = 0; j < n; ++j)
+            m_imp->m_set_of_different_pairs.insert(get_core_solver().r_x(j));
+        bool collision;
         do {
-            m_imp->m_set_of_different_pairs.clear();
+            collision = false;
             m_imp->m_set_of_different_singles.clear();
-            for (j = 0; j < n; ++j) {
-                const numeric_pair<mpq>& rp = get_core_solver().r_x(j);
-                mpq x = rp.x + m_imp->m_delta * rp.y;
-                m_imp->m_set_of_different_pairs.insert(rp);
-                m_imp->m_set_of_different_singles.insert(x);
-                if (m_imp->m_set_of_different_pairs.size() != m_imp->m_set_of_different_singles.size()) {
-                    m_imp->m_delta /= mpq(2);
-                    break;
-                }
+            for (const numeric_pair<mpq>& rp : m_imp->m_set_of_different_pairs)
+                m_imp->m_set_of_different_singles.insert(rp.x + m_imp->m_delta * rp.y);
+            if (m_imp->m_set_of_different_singles.size() != m_imp->m_set_of_different_pairs.size()) {
+                m_imp->m_delta /= mpq(2);
+                collision = true;
             }
-        } while (j != n);
+        } while (collision);
         TRACE(lar_solver_model, tout << "delta = " << m_imp->m_delta << "\nmodel:\n";);
         return true;
     }
