@@ -207,6 +207,9 @@ protected:
     void mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result);
 
 private:
+    void unpack_with_lz_width(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp,
+                              expr_ref & lz, bool normalize, unsigned lz_bits);
+
     void mk_nan(sort * s, expr_ref & result);
 
     void mk_nzero(sort * s, expr_ref & result);
