@@ -61,6 +61,7 @@ jobs:
         run: |
           cd build
           ./test-z3 -a
+          ./test-z3 mbp_qel
           cd ..
 
       - name: Clone z3test

@@ -17,6 +17,8 @@ Author:
 --*/
 
 #include "qe/qe_mbp.h"
+#include "qe/mbp/mbp_qel_util.h"
+#include "qe/qsat.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
@@ -244,8 +246,52 @@ static void test_dt_multiple_vars() {
     std::cout << "  PASS\n\n";
 }
 
+static void test_qe2_does_not_expose_fresh_constant() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+
+    sort_ref bool_sort(m.mk_bool_sort(), m);
+    app_ref x(m.mk_const("x", bool_sort), m);
+    app_ref x2(m.mk_const("x2", bool_sort), m);
+    expr_ref bound_var(m.mk_var(0, bool_sort), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref condition(m.mk_or(x, bound_var), m);
+    expr_ref ite(m.mk_ite(condition, zero, one), m);
+    expr* distinct_args[] = { zero, ite };
+    expr_ref body(m.mk_or(x2, m.mk_distinct(2, distinct_args)), m);
+    sort* sorts[] = { bool_sort };
+    symbol names[] = { symbol("X") };
+    expr_ref quantified(m.mk_forall(1, sorts, names, body), m);
+
+    goal_ref input = alloc(goal, m);
+    input->assert_expr(quantified);
+    tactic_ref qe2 = mk_qe2_tactic(m);
+    goal_ref_buffer result;
+    (*qe2)(input, result);
+
+    VERIFY(result.size() == 1);
+    expr_ref_vector formulas(m);
+    result[0]->get_formulas(formulas);
+    expr_ref projected(m.mk_and(formulas), m);
+    VERIFY(!has_quantifiers(projected));
+
+    obj_hashtable<app> constants;
+    collect_uninterp_consts(projected, constants);
+    for (app* constant : constants)
+        VERIFY(constant == x || constant == x2);
+
+    // X = true reduces the body to x2, while x2 = true satisfies every X.
+    smt_params sparams;
+    smt::context ctx(m, sparams);
+    ctx.assert_expr(m.mk_not(m.mk_eq(projected, x2)));
+    VERIFY(ctx.check() == l_false);
+}
+
 void tst_mbp_qel() {
     test_dt_accessor_past_end();
     test_dt_accessor_past_end_depth2();
     test_dt_multiple_vars();
+    test_qe2_does_not_expose_fresh_constant();
 }
