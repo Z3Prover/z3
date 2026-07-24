@@ -16,7 +16,7 @@ Author:
 --*/
 
 #include <cmath>
-#include "util/mpz.h"
+#include <numeric>
 #include "sat/sat_types.h"
 #include "sat/smt/pb_solver.h"
 #include "sat/smt/euf_solver.h"
@@ -1250,7 +1250,7 @@ namespace pb {
                 g = coeff;
             }
             else {
-                g = u_gcd(g, coeff);
+                g = std::gcd(g, coeff);
             }
         }
 
