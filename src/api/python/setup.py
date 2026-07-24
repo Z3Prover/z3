@@ -83,14 +83,13 @@ BINS_DIR = os.path.join(ROOT_DIR, 'bin')
 
 # determine platform-specific filenames
 
+EXECUTABLE_FILE_FALLBACKS = []
 if BUILD_PLATFORM in ('sequoia','darwin', 'osx'):
     LIBRARY_FILE = "libz3.dylib"
-    EXECUTABLE_FILE = "z3"
-    EXECUTABLE_FILE_FALLBACKS = []
+    EXECUTABLE_FILE = "z3"    
 elif BUILD_PLATFORM in ('win32', 'cygwin', 'win'):
     LIBRARY_FILE = "libz3.dll"
     EXECUTABLE_FILE = "z3.exe"
-    EXECUTABLE_FILE_FALLBACKS = []
 elif BUILD_PLATFORM in ('emscripten',):
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3.wasm"
@@ -100,7 +99,6 @@ elif BUILD_PLATFORM in ('emscripten',):
 else:
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3"
-    EXECUTABLE_FILE_FALLBACKS = []
 
 # check if cmake is available, and pull it in via PyPI if necessary
 SETUP_REQUIRES = []
