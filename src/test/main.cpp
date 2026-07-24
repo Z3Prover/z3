@@ -524,8 +524,7 @@ int main(int argc, char ** argv) {
     bool do_display_usage = false;
     bool test_all = false;
 #ifndef __EMSCRIPTEN__
-    unsigned hw = std::thread::hardware_concurrency();
-    unsigned num_jobs = hw > 0 ? hw : 4;
+    unsigned num_jobs = 0;
 #else
     unsigned num_jobs = 0;
 #endif
@@ -542,7 +541,7 @@ int main(int argc, char ** argv) {
     }
 
 #ifndef __EMSCRIPTEN__
-    if (num_jobs > 0 && (test_all || requested_tests.size() > 1))
+    if (num_jobs > 1 && (test_all || requested_tests.size() > 1))
         return run_parallel(argv[0], test_all, num_jobs, extra_args, requested_tests);
 #endif
 
