@@ -45,6 +45,8 @@ namespace euf {
         s_unit,        // generic unit (OP_SEQ_UNIT with non-literal character)
         s_concat,      // concatenation of two snodes (OP_SEQ_CONCAT)
         s_power,       // string exponentiation s^n (OP_SEQ_POWER)
+        s_replace,     // string replace (OP_SEQ_REPLACE)
+        s_replace_all, // string replace-all (OP_SEQ_REPLACE_ALL)
         s_star,        // Kleene star r* (OP_RE_STAR)
         s_plus,        // Kleene plus  r+ (OP_RE_PLUS)
         s_loop,        // bounded loop r{lo,hi} (OP_RE_LOOP)
@@ -125,6 +127,14 @@ namespace euf {
             return arg(0);
         }
 
+        snode const* arg1() const {
+            return arg(1);
+        }
+
+        snode const* arg2() const {
+            return arg(2);
+        }
+
         // equal modulo slicing
         bool similar(const snode* str, ast_manager& m) const {
             if (m_length != str->m_length)
@@ -169,8 +179,8 @@ namespace euf {
                     snode const* n = m_stack.back();
                     m_stack.pop_back();
                     if (n->is_concat()) {
-                        m_stack.push_back(n->arg(1));
-                        m_stack.push_back(n->arg(0));
+                        m_stack.push_back(n->arg1());
+                        m_stack.push_back(n->arg0());
                     }
                     else if (!n->is_empty()) {
                         m_current = n;
@@ -278,6 +288,12 @@ namespace euf {
         bool is_power() const {
             return m_kind == snode_kind::s_power;
         }
+        bool is_replace() const {
+            return m_kind == snode_kind::s_replace;
+        }
+        bool is_replace_all() const {
+            return m_kind == snode_kind::s_replace_all;
+        }
         bool is_star() const {
             return m_kind == snode_kind::s_star;
         }
@@ -354,37 +370,41 @@ namespace euf {
 
         snode const *first() const {
             snode const* s = this;
-            while (s->is_concat())
-                s = s->arg(0);
+            while (s->is_concat()) {
+                s = s->arg0();
+            }
             return s;
         }
 
         snode const *last() const {
             snode const* s = this;
-            while (s->is_concat())
-                s = s->arg(1);
+            while (s->is_concat()) {
+                s = s->arg1();
+            }
             return s;
         }
 
         snode const* first() {
             snode const* s = this;
-            while (s->is_concat())
-                s = s->arg(0);
+            while (s->is_concat()) {
+                s = s->arg0();
+            }
             return s;
         }
 
         snode const* last() {
             snode const* s = this;
-            while (s->is_concat())
-                s = s->arg(1);
+            while (s->is_concat()) {
+                s = s->arg1();
+            }
             return s;
         }
 
         // collect all leaf tokens in left-to-right order
         void collect_tokens(snode_vector &tokens) const {
             if (is_concat()) {
-                arg(0)->collect_tokens(tokens);
-                arg(1)->collect_tokens(tokens);
+                arg0()->collect_tokens(tokens);
+                arg1()->collect_tokens(tokens);
             }
             else if (!is_empty())
                 tokens.push_back(this);
@@ -400,10 +420,10 @@ namespace euf {
         // returns nullptr if i >= length()
         snode const* at(const unsigned i) const {
             if (is_concat()) {
-                unsigned left_len = arg(0)->length();
+                unsigned left_len = arg0()->length();
                 if (i < left_len)
                     return arg(0)->at(i);
-                return arg(1)->at(i - left_len);
+                return arg1()->at(i - left_len);
             }
             if (is_empty())
                 return nullptr;

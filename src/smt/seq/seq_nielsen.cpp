@@ -1646,6 +1646,47 @@ namespace seq {
         return get_tail(v, a.mk_int(cnt), fwd);
     }
 
+    euf::snode const* nielsen_graph::get_substr(euf::snode const* v, const unsigned cnt, const bool fwd) {
+        // Unlike get_slice/get_tail (which require v to be a single variable so
+        // that nested slices can be collapsed for subsumption), this works on an
+        // arbitrary sequence snode by emitting a plain str.substr term:
+        //   fwd  : drop the first cnt characters -> substr(v, cnt, |v| - cnt)
+        //   !fwd : drop the last  cnt characters -> substr(v, 0,   |v| - cnt)
+        SASSERT(v && v->get_expr());
+        expr* e = v->get_expr();
+        const expr_ref len(m_seq.str.mk_length(e), m);
+        const expr_ref rest(a.mk_sub(len, a.mk_int(cnt)), m);
+        expr_ref sub(m);
+        if (fwd)
+            sub = m_seq.str.mk_substr(e, a.mk_int(cnt), rest);
+        else
+            sub = m_seq.str.mk_substr(e, a.mk_int(0), rest);
+        return mk_rewrite(sub);
+    }
+
+    euf::snode const* nielsen_graph::get_substr(euf::snode const* v, expr* offset) {
+        SASSERT(v && v->get_expr() && offset);
+        expr* e = v->get_expr();
+        const expr_ref sz(a.mk_sub(m_seq.str.mk_length(e), offset), m);
+        return mk_rewrite(expr_ref(m_seq.str.mk_substr(e, offset, sz), m));
+    }
+
+    euf::snode const* nielsen_graph::mk_prefix_regex(euf::snode const* p) {
+        // starts_with(_, p)  <=>  _ in  to_re(p) ++ Σ*
+        const expr_ref p_re(m_seq.re.mk_to_re(p->get_expr()), m);
+        sort* re_sort = p_re->get_sort();
+        return mk_rewrite(expr_ref(m_seq.re.mk_concat(p_re, m_seq.re.mk_full_seq(re_sort)), m));
+    }
+
+    euf::snode const* nielsen_graph::mk_not_prefix_regex(euf::snode const* src) {
+        // !starts_with(_, src)  <=>  _ in ~(to_re(src) ++ Σ*)
+        // Expressed as a regex membership (owned by the nseq regex engine) rather
+        // than a str.prefixof side constraint, which the length sub-solver cannot
+        // internalize.
+        const expr_ref pref(mk_prefix_regex(src)->get_expr(), m);
+        return mk_rewrite(expr_ref(m_seq.re.mk_complement(pref), m));
+    }
+
     simplify_result nielsen_node::simplify_and_init(ptr_vector<nielsen_edge> const& cur_path) {
         if (m_is_extended)
             return simplify_result::proceed;
@@ -2121,9 +2162,10 @@ namespace seq {
     }
 
     static bool snode_has_rigid(euf::snode const* s) {
-        for (euf::snode const* t : s->collect_tokens())
+        for (euf::snode const* t : s->collect_tokens()) {
             if (t->is_rigid())
                 return true;
+        }
         return false;
     }
 
@@ -2704,6 +2746,14 @@ namespace seq {
             IF_VERBOSE(1, display(verbose_stream(), node));
             CTRACE(seq, !ext, display(tout, node) << to_dot() << "\n");
             if (!ext) {
+                // No applicable modifier.  If the node still carries a non-primitive,
+                // non-trivial membership that nseq cannot reduce — e.g. a replace-subject
+                // membership `replace(..) in R` while the regex factorization that would
+                // normally decompose it is disabled — the branch is genuinely
+                // unresolvable; return unknown (sound) instead of failing the invariant.
+                if (std::ranges::any_of(node->str_mems(),
+                        [&](str_mem const& mem){ return !mem.is_trivial(node) && !mem.is_primitive(); }))
+                    return search_result::unknown;
                 std::cout << "No extensions generated for node " << node->id() << ", but not satisfied or conflict?!"
                           << std::endl;
                 node->to_html(std::cout, m);
@@ -2905,11 +2955,10 @@ namespace seq {
 
         for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
             str_eq const& eq = node->str_eqs()[eq_idx];
-            if (eq.is_trivial())
-                continue; // We should have simplified it away before
+            SASSERT(!eq.is_trivial()); // We should have simplified it away before
             auto l = eq.m_lhs, r = eq.m_rhs;
-            if (!l || !r)
-                continue;
+            SASSERT(l);
+            SASSERT(r);
 
             // 0. empty side propagation
             if (l->is_empty() || r->is_empty()) {
@@ -3241,8 +3290,7 @@ namespace seq {
 
     bool nielsen_graph::apply_const_nielsen(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial())
-                continue;
+            SASSERT(!eq.is_trivial());
             SASSERT(eq.well_formed());
             for (unsigned od = 0; od < 2; ++od) {
                 const bool fwd = (od == 0);
@@ -3279,8 +3327,7 @@ namespace seq {
 
     bool nielsen_graph::apply_var_nielsen(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial())
-                continue;
+            SASSERT(!eq.is_trivial());
             SASSERT(eq.well_formed());
             for (unsigned od = 0; od < 2; ++od) {
                 const bool fwd = od == 0;
@@ -3346,6 +3393,405 @@ namespace seq {
                 }
                 return true;
             }
+        }
+        return false;
+    }
+
+    // replace(s, src, dst) = ""
+    bool nielsen_graph::apply_replace_epsilon(nielsen_node* node) {
+        // Match only when one equation side is empty and the other starts with a replace.
+        // TODO: replace-all [subtle problem there in the s = src case]
+        // conceptually replace-all it should be something like
+        // s = "" || (dst = "" && src != "" && s src = src s && |s| % |src| = 0)
+        // s src = src s is actually s = src^n but for now I want to avoid non-ground powers
+
+        unsigned eq_idx = 0;
+        bool left = false;
+
+        for (; eq_idx < node->str_eqs().size(); ++eq_idx) {
+            str_eq& eq = node->str_eqs()[eq_idx];
+            SASSERT(eq.sorted());
+            SASSERT(!eq.is_trivial());
+            SASSERT(eq.well_formed());
+            if (eq.m_lhs->is_empty() && eq.m_rhs->first() && eq.m_rhs->first()->is_replace()) {
+                left = false;
+                break;
+            }
+            if (eq.m_rhs->is_empty() && eq.m_lhs->first() && eq.m_lhs->first()->is_replace()) {
+                left = true;
+                break;
+            }
+        }
+        if (eq_idx == node->str_eqs().size())
+            return false;
+
+        str_eq& eq = node->str_eqs()[eq_idx];
+        euf::snode const*& replace_side = eq.get_side(left);
+        euf::snode const* replace = replace_side->first();
+
+        SASSERT(replace_side);
+        SASSERT(replace && replace->is_replace() && replace->num_args() == 3);
+
+        euf::snode const* s = replace->arg0();
+        euf::snode const* src = replace->arg1();
+        euf::snode const* dst = replace->arg2();
+        const dep_tracker dep = eq.m_dep;
+
+        nielsen_node* child;
+        nielsen_edge* e;
+
+        // Branch 1: s = "" && src != ""
+        {
+            child = mk_child(node);
+            e = mk_edge(node, child, "replace s empty", true);
+            e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(src), a.mk_int(1)), dep));
+            child->add_str_eq(str_eq(m, s, m_sg.mk_empty_seq(replace->get_sort()), dep));
+            child->str_eqs()[eq_idx].get_side(left) = m_sg.drop_first(replace_side);
+        }
+
+        // Branch 2: s = src && dst = ""
+        {
+            child = mk_child(node);
+            e = mk_edge(node, child, "replace s = src", true);
+            child->add_str_eq(str_eq(m, s, src, dep));
+            child->add_str_eq(str_eq(m, dst, m_sg.mk_empty_seq(replace->get_sort()), dep));
+            child->str_eqs()[eq_idx].get_side(left) = m_sg.drop_first(replace_side);
+        }
+        return true;
+    }
+
+    // replace(s, src, dst) u = a v   (a a concrete/symbolic character)
+    bool nielsen_graph::apply_const_nielsen_replace(nielsen_node* node) {
+        // str.replace is left-anchored (it rewrites the FIRST occurrence of src),
+        // so replace terms are only decomposed at the head (fwd == true).
+        const bool fwd = true;
+        for (unsigned eq_idx = 0; eq_idx <  node->str_eqs().size(); eq_idx++) {
+            str_eq& eq = node->str_eqs()[eq_idx];
+            SASSERT(!eq.is_trivial());
+            SASSERT(eq.sorted());
+
+            euf::snode const* lhead = dir_token(eq.m_lhs, fwd);
+            euf::snode const* rhead = dir_token(eq.m_rhs, fwd);
+            SASSERT(lhead);
+            SASSERT(rhead);
+
+            bool left;   // true: replace is on the lhs; false: replace is on the rhs
+            if (lhead->is_char_or_unit() && rhead->is_replace())
+                left = false;
+            else if (rhead->is_char_or_unit() && lhead->is_replace())
+                left = true;
+            else
+                continue;
+
+            euf::snode const* replace = eq.get_side(left)->first();
+            euf::snode const* c = eq.get_side(!left)->first();
+
+            SASSERT(replace);
+            SASSERT(c);
+            SASSERT(c->is_char_or_unit());
+            SASSERT(replace->is_replace() && replace->num_args() == 3);
+
+            const dep_tracker dep = eq.m_dep;
+
+            euf::snode const* s = replace->arg0();
+            euf::snode const* src = replace->arg1();
+            euf::snode const* dst = replace->arg2();
+            sort* str_sort = replace->get_sort();
+
+            nielsen_node* child;
+            nielsen_edge* e;
+
+            // Branch 1: s = "" && src != ""  =>  replace = ""  =>  u = a v
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace const s empty", true);
+                e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(src), a.mk_int(1)), dep));
+                child->add_str_eq(str_eq(m, s, m_sg.mk_empty_seq(str_sort), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                ceq.get_side(left) = m_sg.drop_first(ceq.get_side(left));   // drop the replace token
+                ceq.sort();
+            }
+
+            // Branch 2: s = src && dst = ""  =>  replace = ""  =>  u = a v
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace const s = src", true);
+                child->add_str_eq(str_eq(m, s, src, dep));
+                child->add_str_eq(str_eq(m, dst, m_sg.mk_empty_seq(str_sort), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                ceq.get_side(left) = m_sg.drop_first(ceq.get_side(left));
+                ceq.sort();
+            }
+
+            // Branches 3 & 4 decompose s by introducing a FRESH suffix variable s'' and
+            // the linking equation s = <prefix> s''.  This eliminates s (det substitutes
+            // it), so the model builder composes s's value from the prefix and s'' — the
+            // only sound way to keep s consistent with its suffix.  (Keeping s free and
+            // naming the suffix substr(s,k)/slice(s,k)/nth_u(s,k) does NOT link them: the
+            // search sets the suffix independently of s → invalid model.  nth_u/str.substr
+            // additionally trigger the nth/extract axioms that decompose s a second time →
+            // double substitution.)
+
+            // Branch 3: starts_with(s, src)   (progress: eliminates the replace operator)
+            //   replace(s, src, dst) = dst s''  where s = src s''  (s'' fresh).
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace const starts-with src", true);
+                euf::snode const* spp = mk_fresh_var(str_sort);
+                // s = src s''   (enforces starts_with(s, src))
+                child->add_str_eq(str_eq(m, s, m_sg.mk_concat(src, spp), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                // replace(s, src, dst) u  ->  dst s'' u
+                ceq.get_side(left) = dir_concat(m_sg, m_sg.mk_concat(dst, spp),
+                                                m_sg.drop_first(ceq.get_side(left)), fwd);
+                ceq.sort();
+            }
+
+            // Branch 4: !starts_with(s, src)   (non-progress char peel, tried last)
+            //   replace preserves the leading char: replace(a s', src, dst)=a replace(s',src,dst).
+            //   The equation s = a s' forces the leading char to be a (= c on the other side);
+            //   after cancelling a:  replace(s', src, dst) u = v.  s' fresh.
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace const not-starts-with src", false);
+                euf::snode const* sp = mk_fresh_var(str_sort);   // s'
+                // !starts_with(s, src)
+                child->add_str_mem(str_mem(m, s, mk_not_prefix_regex(src), dep));
+                // s = a s'
+                child->add_str_eq(str_eq(m, s, dir_concat(m_sg, c, sp, fwd), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                // replace(s, src, dst) u  ->  replace(s', src, dst) u   (leading a cancelled)
+                euf::snode const* new_replace = m_sg.mk(
+                    expr_ref(m_seq.str.mk_replace(sp->get_expr(), src->get_expr(), dst->get_expr()), m));
+                ceq.get_side(left) = dir_concat(m_sg, new_replace, m_sg.drop_first(ceq.get_side(left)), fwd);
+                // a v  ->  v   (drop the leading a)
+                ceq.get_side(!left) = m_sg.drop_first(ceq.get_side(!left));
+                ceq.sort();
+            }
+
+            return true;
+        }
+        return false;
+    }
+
+    // replace(s, src, dst) u = x v   (x a string variable)
+    bool nielsen_graph::apply_var_nielsen_replace(nielsen_node* node) {
+        const bool fwd = true;   // replace terms are decomposed at the head only
+        for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); eq_idx++) {
+            str_eq& eq = node->str_eqs()[eq_idx];
+            SASSERT(!eq.is_trivial());
+            SASSERT(eq.sorted());
+
+            euf::snode const* lhead = dir_token(eq.m_lhs, fwd);
+            euf::snode const* rhead = dir_token(eq.m_rhs, fwd);
+            SASSERT(lhead);
+            SASSERT(rhead);
+
+            bool left;   // true: replace is on the lhs; false: replace is on the rhs
+            if (lhead->is_replace() && rhead->is_var())
+                left = true;
+            else if (rhead->is_replace() && lhead->is_var())
+                left = false;
+            else
+                continue;
+
+            euf::snode const* replace = eq.get_side(left)->first();
+            euf::snode const* x = eq.get_side(!left)->first();
+
+            SASSERT(replace && replace->is_replace() && replace->num_args() == 3);
+            SASSERT(x && x->is_var());
+
+            const dep_tracker dep = eq.m_dep;
+
+            euf::snode const* s = replace->arg0();
+            euf::snode const* src = replace->arg1();
+            euf::snode const* dst = replace->arg2();
+            sort* str_sort = replace->get_sort();
+
+            nielsen_node* child;
+            nielsen_edge* e;
+
+            // Branch 1: s = "" && src != ""  =>  replace = ""  =>  u = x v
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace var s empty", true);
+                e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(src), a.mk_int(1)), dep));
+                child->add_str_eq(str_eq(m, s, m_sg.mk_empty_seq(str_sort), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                ceq.get_side(left) = m_sg.drop_first(ceq.get_side(left));   // drop the replace token
+                ceq.sort();
+            }
+
+            // Branch 2: s = src && dst = ""  =>  replace = ""  =>  u = x v
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace var s = src", true);
+                child->add_str_eq(str_eq(m, s, src, dep));
+                child->add_str_eq(str_eq(m, dst, m_sg.mk_empty_seq(str_sort), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                ceq.get_side(left) = m_sg.drop_first(ceq.get_side(left));
+                ceq.sort();
+            }
+
+            // Branch 3: x = ""  =>  replace(s, src, dst) u = v
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace var x empty", true);
+                const nielsen_subst sub(x, m_sg.mk_empty_seq(x->get_sort()), dep);
+                e->add_subst(sub);
+                child->apply_subst(m_sg, sub);
+            }
+
+            // Branch 4: starts_with(s, src)  =>  replace(s, src, dst) = dst s''
+            //   where s = src s''  (s'' fresh; eliminates s → sound model).  Progress.
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace var starts-with src", true);
+                euf::snode const* spp = mk_fresh_var(str_sort);
+                child->add_str_eq(str_eq(m, s, m_sg.mk_concat(src, spp), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                ceq.get_side(left) = dir_concat(m_sg, m_sg.mk_concat(dst, spp),
+                                                m_sg.drop_first(ceq.get_side(left)), fwd);
+                ceq.sort();
+            }
+
+            // Branch 5: x -> replace(s, src, dst) x'   (x absorbs the whole replace term)
+            //   where x' = x[|replace|:]  =>  u = x' v   (shared replace prefix cancelled)
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace var x = replace x'", false);
+                euf::snode const* xp = get_tail(x, compute_length_expr(replace).get(), fwd);  // x is a variable
+                const nielsen_subst sub(x, dir_concat(m_sg, replace, xp, fwd), dep);
+                e->add_subst(sub);
+                // keep this branch disjoint from branch 3 (x = "")
+                e->add_side_constraint(mk_constraint(a.mk_gt(compute_length_expr(x), a.mk_int(0)), dep));
+                child->apply_subst(m_sg, sub);
+            }
+
+            // Branch 6: !starts_with(s, src)   (non-progress char peel, tried last)
+            //   replace preserves the leading character:
+            //   replace(s, src, dst) = o replace(s', src, dst)  where s = o s'  (o a fresh
+            //   symbolic char, s' fresh; eliminates s → sound model).  The exposed leading
+            //   char o (a unit) vs x is then resolved by apply_const_nielsen.
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace var not-starts-with src", false);
+                sort* char_sort = nullptr;
+                VERIFY(seq().is_seq(str_sort, char_sort));
+                euf::snode const* o = m_sg.mk(m_seq.str.mk_unit(
+                    m_sk.mk("replace.o", s->get_expr(), x->get_expr(), char_sort).get()));
+                euf::snode const* sp = mk_fresh_var(str_sort);   // s'
+                // !starts_with(s, src)
+                child->add_str_mem(str_mem(m, s, mk_not_prefix_regex(src), dep));
+                // s = o s'
+                child->add_str_eq(str_eq(m, s, dir_concat(m_sg, o, sp, fwd), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                euf::snode const* new_replace = m_sg.mk(
+                    expr_ref(m_seq.str.mk_replace(sp->get_expr(), src->get_expr(), dst->get_expr()), m));
+                // replace(s, src, dst) u  ->  o replace(s', src, dst) u
+                ceq.get_side(left) = dir_concat(m_sg, o,
+                    dir_concat(m_sg, new_replace, m_sg.drop_first(ceq.get_side(left)), fwd), fwd);
+                ceq.sort();
+            }
+
+            return true;
+        }
+        return false;
+    }
+
+    // replace(s1, src1, dst1) u = replace(s2, src2, dst2) v
+    // Expose the leading character of the LEFT replace term (turning it into a
+    // fresh symbolic char / eliminating it), reducing the head to a shape that
+    // apply_const_nielsen_replace can consume on the next step.
+    bool nielsen_graph::apply_replace_replace(nielsen_node* node) {
+        const bool fwd = true;
+        for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); eq_idx++) {
+            str_eq& eq = node->str_eqs()[eq_idx];
+            SASSERT(!eq.is_trivial());
+            SASSERT(eq.sorted());
+
+            euf::snode const* lhead = dir_token(eq.m_lhs, fwd);
+            euf::snode const* rhead = dir_token(eq.m_rhs, fwd);
+            SASSERT(lhead);
+            SASSERT(rhead);
+            if (!lhead->is_replace() || !rhead->is_replace())
+                continue;
+
+            // Peel the replace term on the (canonical) lhs.
+            const bool left = true;
+            euf::snode const* replace = eq.get_side(left)->first();
+            SASSERT(replace && replace->is_replace() && replace->num_args() == 3);
+
+            const dep_tracker dep = eq.m_dep;
+            euf::snode const* s = replace->arg0();
+            euf::snode const* src = replace->arg1();
+            euf::snode const* dst = replace->arg2();
+            sort* str_sort = replace->get_sort();
+
+            nielsen_node* child;
+            nielsen_edge* e;
+
+            // Branch 1: s = "" && src != ""  =>  replace1 = ""  =>  u = replace2 v
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace-replace s empty", true);
+                e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(src), a.mk_int(1)), dep));
+                child->add_str_eq(str_eq(m, s, m_sg.mk_empty_seq(str_sort), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                ceq.get_side(left) = m_sg.drop_first(ceq.get_side(left));
+                ceq.sort();
+            }
+
+            // Branch 2: s = src && dst = ""  =>  replace1 = ""  =>  u = replace2 v
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace-replace s = src", true);
+                child->add_str_eq(str_eq(m, s, src, dep));
+                child->add_str_eq(str_eq(m, dst, m_sg.mk_empty_seq(str_sort), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                ceq.get_side(left) = m_sg.drop_first(ceq.get_side(left));
+                ceq.sort();
+            }
+
+            // Branch 3: starts_with(s, src)  =>  replace1 = dst s''  where s = src s''
+            //   (s'' fresh; eliminates s → sound model).  Progress: eliminates replace1.
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace-replace starts-with src", true);
+                euf::snode const* spp = mk_fresh_var(str_sort);
+                child->add_str_eq(str_eq(m, s, m_sg.mk_concat(src, spp), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                ceq.get_side(left) = dir_concat(m_sg, m_sg.mk_concat(dst, spp),
+                                                m_sg.drop_first(ceq.get_side(left)), fwd);
+                ceq.sort();
+            }
+
+            // Branch 4: !starts_with(s, src)   (non-progress char peel, tried last)
+            //   replace1 = o replace(s', src, dst)  where s = o s'  (o a fresh symbolic
+            //   char, s' fresh; eliminates s → sound model).  The exposed head o (a unit)
+            //   vs replace2 is then handled by apply_const_nielsen_replace.
+            {
+                child = mk_child(node);
+                e = mk_edge(node, child, "replace-replace not-starts-with src", false);
+                sort* char_sort = nullptr;
+                VERIFY(seq().is_seq(str_sort, char_sort));
+                euf::snode const* o = m_sg.mk(m_seq.str.mk_unit(
+                    m_sk.mk("replace.o2", s->get_expr(), src->get_expr(), char_sort).get()));
+                euf::snode const* sp = mk_fresh_var(str_sort);   // s'
+                // !starts_with(s, src)
+                child->add_str_mem(str_mem(m, s, mk_not_prefix_regex(src), dep));
+                // s = o s'
+                child->add_str_eq(str_eq(m, s, dir_concat(m_sg, o, sp, fwd), dep));
+                str_eq& ceq = child->str_eqs()[eq_idx];
+                euf::snode const* new_replace = m_sg.mk(
+                    expr_ref(m_seq.str.mk_replace(sp->get_expr(), src->get_expr(), dst->get_expr()), m));
+                // replace1 u -> o replace(s', src, dst) u   (left replace only)
+                ceq.get_side(left) = dir_concat(m_sg, o,
+                    dir_concat(m_sg, new_replace, m_sg.drop_first(ceq.get_side(left)), fwd), fwd);
+                ceq.sort();
+            }
+
+            return true;
         }
         return false;
     }
@@ -3642,7 +4088,27 @@ namespace seq {
         if (apply_split_power_elim(node))
             return ++m_stats.m_mod_split_power_elim, true;
 
-        // Priority 3c: FineWilf - overlap split for a head power vs a
+        // Priority 3c: replace vs. one empty side
+        // The replace modifiers MUST run before any generic word-equation modifier
+        // (eq_split, const/var Nielsen, ...): a replace term is a variable-length
+        // token but NOT a free variable, so a generic modifier would unify/split it
+        // as if free, silently discarding its definition and yielding unsound results.
+        if (apply_replace_epsilon(node))
+            return ++m_stats.m_mod_replace_epsilon, true;
+
+        // Priority 3c2: replace vs. a leading constant character
+        if (apply_const_nielsen_replace(node))
+            return ++m_stats.m_mod_const_nielsen_replace, true;
+
+        // Priority 3c3: replace vs. a leading string variable
+        if (apply_var_nielsen_replace(node))
+            return ++m_stats.m_mod_var_nielsen_replace, true;
+
+        // Priority 3c4: replace vs. replace (both equation heads are replace terms)
+        if (apply_replace_replace(node))
+            return ++m_stats.m_mod_replace_replace, true;
+
+        // Priority 3d: FineWilf - overlap split for a head power vs a
         // different-base power behind a concrete-char prefix.  Preempts
         // ConstNumUnwinding's divergent one-copy peel loop on that shape.
         // (opt-in via smt.nseq.fine_wilf, default off)
@@ -3728,6 +4194,9 @@ namespace seq {
         // (regex/membership-related: skipped in benchmark-harvest mode)
         if (!harvest_mode() && apply_var_num_unwinding_mem(node))
             return ++m_stats.m_mod_var_num_unwinding_mem, true;
+
+        // (replace modifiers moved to priority 3c2-3c4 — they must precede the
+        //  generic word-equation modifiers, see the comment there)
 
         // let's unwindind a disequality
         // (axiomatize_diseq requires the node to be satisfied-except-diseq; in
@@ -3876,8 +4345,7 @@ namespace seq {
         euf::snode const* power = nullptr;
         dep_tracker dep = m_dep_mgr.mk_empty();
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial())
-                continue;
+            SASSERT(!eq.is_trivial());
             SASSERT(eq.well_formed());
             if (eq.m_lhs->is_empty() && eq.m_rhs->first() && eq.m_rhs->first()->is_power()) {
                 power = eq.m_rhs->first();
@@ -3893,31 +4361,13 @@ namespace seq {
         if (!power)
             return false;
 
-        SASSERT(power->is_power() && power->num_args() >= 1);
+        SASSERT(power->is_power() && power->num_args() == 2);
         euf::snode const* base = power->arg0();
 
         nielsen_node* child;
         nielsen_edge* e;
 
-        // Branch 1: base → ε (if base is a variable, substitute it to empty)
-        // This makes u^n = ε^n = ε for any n.
-        if (base->is_var()) {
-            child = mk_child(node);
-            e = mk_edge(node, child, "power power 0", true);
-            const nielsen_subst s1(base, m_sg.mk_empty_seq(base->get_sort()), dep);
-            e->add_subst(s1);
-            child->apply_subst(m_sg, s1);
-            // sgraph::subst does not descend into power nodes, so u → ε alone
-            // leaves the triggering power u^n — and hence the equation — intact:
-            // the child would be an exact string-sibling of this node and get
-            // loop-cut without progress.  Also substitute the power itself
-            // (sound: ε^n = ε for every n).
-            const nielsen_subst s1b(power, m_sg.mk_empty_seq(power->get_sort()), dep);
-            e->add_subst(s1b);
-            child->apply_subst(m_sg, s1b);
-        }
-
-        // Branch 2: replace the power token itself with ε.
+        // replace the power token itself with ε.
         // u^n = ε  ⟺  n = 0 ∨ u = ε, so record that disjunction as a side
         // constraint.  Without it the exponent stays unconstrained while path
         // constraints mentioning it survive (e.g. |x| = n·|base| + |s| from a
@@ -5180,7 +5630,16 @@ namespace seq {
         // Fresh: find the first factorizable membership and start an iterator.
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(mem.well_formed());
-            SASSERT(!mem.m_str->is_empty()); // should have been eliminated already
+
+            // An empty-subject membership ε ∈ R is normally decided by is_trivial /
+            // is_contradiction in simplify (via re_nullable).  For some regexes
+            // re_nullable is l_undef (e.g. a complement / derivative it cannot settle —
+            // the replace guard ~(to_re(src)·Σ*) after consumption), so such a membership
+            // can survive to here.  It has no head/tail to split, so factorization does
+            // not apply — skip it (the node is not a SAT leaf while it carries a
+            // non-primitive membership, so soundness is preserved).
+            if (mem.m_str->is_empty())
+                continue;
 
             // split() handles all regex forms (incl. complement / intersection),
             // so the classical restriction is no longer needed.
@@ -5986,10 +6445,19 @@ namespace seq {
 
     // Cf. axioms::diseq_axiom
     bool nielsen_graph::axiomatize_diseq(nielsen_node* node) {
-        SASSERT(node->m_str_eq.empty() &&
-                    std::ranges::all_of(node->m_str_mem, [](str_mem const& mem){ return mem.is_primitive(); }));
-
         if (node->m_str_deq.empty())
+            return false;
+
+        // Precondition: the node is satisfied except for its disequalities.  When the
+        // regex modifiers are disabled (benchmark-harvest mode, or factorization turned
+        // off via smt.nseq.regex_factorization_threshold=0) a non-primitive membership
+        // can survive to here — most notably a replace-SUBJECT membership like
+        // replace(x,src,dst) in R, produced when a `y = replace(..)` definition is
+        // det-substituted and y feeds a membership.  We cannot axiomatize a disequality
+        // on top of an unresolved membership, so bail; search_dfs then treats the node as
+        // unknown (sound) rather than fabricating an answer.
+        if (!node->m_str_eq.empty() ||
+            !std::ranges::all_of(node->m_str_mem, [](str_mem const& mem){ return mem.is_primitive(); }))
             return false;
 
         const str_deq& first = node->m_str_deq.back();
@@ -6975,6 +7443,7 @@ namespace seq {
         // modifier breakdown
         st.update("nseq mod det",              m_stats.m_mod_det);
         st.update("nseq mod power epsilon",    m_stats.m_mod_power_epsilon);
+        st.update("nseq mod replace epsilon",  m_stats.m_mod_replace_epsilon);
         st.update("nseq mod num cmp",          m_stats.m_mod_num_cmp);
         st.update("nseq mod fine wilf",        m_stats.m_mod_fine_wilf);
         st.update("nseq mod const num unwind", m_stats.m_mod_const_num_unwinding);
@@ -6993,6 +7462,9 @@ namespace seq {
         st.update("nseq mod var nielsen",      m_stats.m_mod_var_nielsen);
         st.update("nseq mod var num unwind (eq)",   m_stats.m_mod_var_num_unwinding_eq);
         st.update("nseq mod var num unwind (mem)",   m_stats.m_mod_var_num_unwinding_mem);
+        st.update("nseq mod const nielsen replace",   m_stats.m_mod_const_nielsen_replace);
+        st.update("nseq mod var nielsen replace",     m_stats.m_mod_var_nielsen_replace);
+        st.update("nseq mod replace replace",         m_stats.m_mod_replace_replace);
         st.update("nseq mod axiomatized disequalities",   m_stats.m_ax_diseq);
         st.update("nseq unsat-cache size",                (unsigned) m_unsat_node_cache.size());
         st.update("nseq unsat-cache hits",                m_num_cache_hits);

@@ -790,7 +790,14 @@ namespace smt {
         else if (m_seq.str.is_last_index(n))
             m_axioms.last_indexof_axiom(n);
         else if (m_seq.str.is_replace(n))
-            m_axioms.replace_axiom(n);
+            // str.replace VALUE is decomposed by the Nielsen replace modifiers
+            // (apply_*_nielsen_replace) when it reaches a word-equation head; that also
+            // constrains its length.  For a replace that never reaches an equation head
+            // (only inside str.len, or an `x = replace(..)` definition with x unused) the
+            // modifiers do not fire, so its length is contributed lazily by
+            // ensure_replace_length_axioms() in final_check (contains-based, no idx value
+            // decomposition — which would otherwise conflict with the modifiers).
+            m_replace_terms.insert(n);
         else if (m_seq.str.is_replace_all(n))
             m_axioms.replace_all_axiom(n);
         else if (m_seq.str.is_extract(n))
@@ -815,6 +822,82 @@ namespace smt {
             m_axioms.str_from_code_axiom(n);
         else if (m_seq.str.is_to_code(n))
             m_axioms.str_to_code_axiom(n);
+    }
+
+    // For every ORIGINAL symbolic str.replace that the Nielsen modifiers will NOT
+    // decompose (it is not a token of any root word equation), contribute its
+    // contains-based LENGTH relationship once, so that a replace occurring only inside
+    // str.len / as an unused definition is length-constrained instead of treated as a
+    // free term (→ would give unsound sat).  Returns true if a new axiom was asserted
+    // (final_check then re-propagates).  Adding the axiom for the equation-head replaces
+    // too would make contains(u,s) decompose u a second time and blow up the search, so
+    // those are deliberately left to the modifiers.
+    bool theory_nseq::ensure_replace_length_axioms() {
+        if (m_replace_terms.empty())
+            return false;
+        obj_hashtable<expr> replace_in_eqs;
+        if (m_nielsen.root()) {
+            for (auto const& eq : m_nielsen.root()->str_eqs())
+                for (euf::snode const* side : { eq.m_lhs, eq.m_rhs }) {
+                    euf::snode_vector toks;
+                    side->collect_tokens(toks);
+                    for (euf::snode const* tk : toks)
+                        if (tk->is_replace() && tk->get_expr())
+                            replace_in_eqs.insert(tk->get_expr());
+                }
+        }
+        bool added = false;
+        for (expr* r : m_replace_terms) {
+            if (m_replace_len_axiomatized.contains(r))
+                continue;
+            // skip modifier-generated replace(s', ..) (fresh "v!…" / slice arg0)
+            expr* arg0 = to_app(r)->get_arg(0);
+            if (m_nielsen.is_slice_skolem(arg0))
+                continue;
+            if (is_uninterp_const(arg0)) {
+                const symbol& nm = to_app(arg0)->get_decl()->get_name();
+                if (!nm.is_numerical() && nm.str().rfind("v!", 0) == 0)
+                    continue;
+            }
+            // decomposed by the modifiers → they constrain its length; do not add contains.
+            if (replace_in_eqs.contains(r))
+                continue;
+            replace_length_axiom(r);
+            m_replace_len_axiomatized.insert(r);
+            ctx.push_trail(insert_obj_trail<expr>(m_replace_len_axiomatized, r));
+            added = true;
+        }
+        return added;
+    }
+
+    // Length relationship for r = str.replace(u, s, t) WITHOUT the idx-based value
+    // decomposition of the full replace_axiom (that conflicts with the Nielsen replace
+    // modifiers).  The first occurrence of s in u, if any, is rewritten to t:
+    //     contains(u, s)  ->  |r| = |u| - |s| + |t|
+    //    !contains(u, s)  ->  |r| = |u|
+    void theory_nseq::replace_length_axiom(expr* r) {
+        expr* u = nullptr, *s = nullptr, *t = nullptr;
+        VERIFY(m_seq.str.is_replace(r, u, s, t));
+        arith_util a(m);
+        const expr_ref len_r(m_seq.str.mk_length(r), m);
+        const expr_ref len_u(m_seq.str.mk_length(u), m);
+        const expr_ref len_s(m_seq.str.mk_length(s), m);
+        const expr_ref len_t(m_seq.str.mk_length(t), m);
+        const expr_ref matched(a.mk_add(a.mk_sub(len_u, len_s), len_t), m);  // |u| - |s| + |t|
+        const literal cnt = mk_literal(m_seq.str.mk_contains(u, s));
+        ctx.mark_as_relevant(cnt);
+        {   // contains -> |r| = |u| - |s| + |t|
+            const literal eq = mk_literal(m.mk_eq(len_r, matched));
+            ctx.mark_as_relevant(eq);
+            literal cl[2] = { ~cnt, eq };
+            ctx.mk_th_axiom(get_id(), 2, cl);
+        }
+        {   // !contains -> |r| = |u|
+            const literal eq = mk_literal(m.mk_eq(len_r, len_u));
+            ctx.mark_as_relevant(eq);
+            literal cl[2] = { cnt, eq };
+            ctx.mk_th_axiom(get_id(), 2, cl);
+        }
     }
 
     void theory_nseq::relevant_eh(expr * n) {
@@ -1056,6 +1139,16 @@ namespace smt {
                 return FC_GIVEUP;
             }
 
+            // A symbolic str.replace term that never appears in a string equation fed to
+            // nseq (e.g. one occurring only inside str.len / a membership) is not
+            // decomposed by the replace modifiers and would otherwise be treated as an
+            // unconstrained free term → unsound SAT.  Give up on such problems.
+            // Length-constrain any replace the modifiers won't decompose (see the method).
+            if (ensure_replace_length_axioms()) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: added replace length axiom, FC_CONTINUE\n";);
+                return FC_CONTINUE;
+            }
+
             // Regex membership pre-check: before running DFS, check intersection
             // emptiness for each variable's regex constraints.  This handles
             // regex-only problems that the DFS cannot efficiently solve.
@@ -1110,6 +1203,33 @@ namespace smt {
                     << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
                 TRACE(seq, tout << "nseq final_check: solve SAT, sat_node="
                     << (m_nielsen.sat_node() ? "set" : "null") << "\n");
+
+                // Soundness guard for str.replace: a replace input variable that is ALSO
+                // decomposed by another axiom (str.at/extract/…) can be substituted twice
+                // on the sat path — the two decompositions are not reconciled, so the
+                // model would be inconsistent (replace is opaque to substitution).  Detect
+                // the duplicate substitution and give up (sound: unknown) instead of
+                // emitting an invalid model.  UNSAT results are unaffected (a conflict is
+                // valid regardless), so this is checked only on the SAT branch.
+                if (!m_replace_terms.empty()) {
+                    obj_hashtable<expr> seen_subst_vars;
+                    bool dup = false;
+                    for (seq::nielsen_edge* e : m_nielsen.sat_path()) {
+                        for (seq::nielsen_subst const& s : e->subst()) {
+                            expr* key = s.m_var->first()->get_expr();
+                            if (!key) continue;
+                            if (seen_subst_vars.contains(key)) { dup = true; break; }
+                            seen_subst_vars.insert(key);
+                        }
+                        if (dup) break;
+                    }
+                    if (dup) {
+                        IF_VERBOSE(1, verbose_stream() << "nseq final_check: replace input doubly "
+                            "decomposed on sat path, FC_GIVEUP\n";);
+                        return FC_GIVEUP;
+                    }
+                }
+
                 // Nielsen found a consistent assignment for positive constraints.
                 SASSERT(has_eq_or_diseq_or_mem); // we should have axiomatized them
                 if (!check_length_coherence())

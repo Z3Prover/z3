@@ -370,6 +370,276 @@ static void test_nseq_fine_wilf_option_off() {
     std::cout << "  ok: sat with fine_wilf disabled\n";
 }
 
+// helper: assert a fully-ground equation with all listed vars >= 1 and check verdict
+static void gp_check(const char* label, expr* lhs, expr* rhs,
+                     std::initializer_list<expr*> pos_vars, lbool expect,
+                     ast_manager& m, arith_util& au, expr* extra = nullptr) {
+    std::cout << label << "\n";
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 300000;
+    smt::context ctx(m, params);
+    for (expr* v : pos_vars)
+        ctx.assert_expr(expr_ref(au.mk_ge(v, au.mk_int(1)), m));
+    if (extra) ctx.assert_expr(expr_ref(extra, m));
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == expect);
+    std::cout << (expect == l_true ? "  ok: sat\n" : "  ok: unsat\n");
+}
+
+// a^n·b^m = a^k·b^l  → n=k ∧ m=l (multiple single-char power blocks).  SAT.
+static void test_nseq_gp_anbm() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* k=m.mk_const(symbol("k"),au.mk_int()), *l=m.mk_const(symbol("l"),au.mk_int());
+    expr* lhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("a")),n),
+                               su.str.mk_power(su.str.mk_string(zstring("b")),mm));
+    expr* rhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("a")),k),
+                               su.str.mk_power(su.str.mk_string(zstring("b")),l));
+    gp_check("test_nseq_gp_anbm", lhs, rhs, {n,mm,k,l}, l_true, m, au);
+}
+
+// (ab)^n·"x" = (abab)^m·"x"  → n=2m (common root, tailed).  SAT.
+static void test_nseq_gp_commonroot_tail() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* lhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("ab")),n), su.str.mk_string(zstring("x")));
+    expr* rhs=su.str.mk_concat(su.str.mk_power(su.str.mk_string(zstring("abab")),mm), su.str.mk_string(zstring("x")));
+    gp_check("test_nseq_gp_commonroot_tail", lhs, rhs, {n,mm}, l_true, m, au);
+}
+
+// (abab)^n = (ab)^m  → m=2n (non-primitive base).  SAT.
+static void test_nseq_gp_nonprim() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    gp_check("test_nseq_gp_nonprim", su.str.mk_power(su.str.mk_string(zstring("abab")),n),
+             su.str.mk_power(su.str.mk_string(zstring("ab")),mm), {n,mm}, l_true, m, au);
+}
+
+// two power blocks of different nested bases:
+// (a(bc)^p)^n·(a(de)^r)^k = (a(bc)^{2q})^m·(a(de)^s)^l  → p=2q,n=m,r=s,k=l.  SAT.
+static void test_nseq_gp_twoblocks() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    auto B=[&](const char* w, expr* x){ return su.str.mk_concat(su.str.mk_string(zstring("a")),
+                                        su.str.mk_power(su.str.mk_string(zstring(w)), x)); };
+    expr* p=m.mk_const(symbol("p"),au.mk_int()), *q=m.mk_const(symbol("q"),au.mk_int());
+    expr* n=m.mk_const(symbol("n"),au.mk_int()), *mm=m.mk_const(symbol("mm"),au.mk_int());
+    expr* r=m.mk_const(symbol("r"),au.mk_int()), *s=m.mk_const(symbol("s"),au.mk_int());
+    expr* k=m.mk_const(symbol("k"),au.mk_int()), *l=m.mk_const(symbol("l"),au.mk_int());
+    expr* twoq=au.mk_mul(au.mk_int(2),q);
+    expr* lhs=su.str.mk_concat(su.str.mk_power(B("bc",p),n), su.str.mk_power(B("de",r),k));
+    expr* rhs=su.str.mk_concat(su.str.mk_power(B("bc",twoq),mm), su.str.mk_power(B("de",s),l));
+    gp_check("test_nseq_gp_twoblocks", lhs, rhs, {p,q,n,mm,r,s,k,l}, l_true, m, au);
+}
+
+// -----------------------------------------------------------------------
+// str.replace end-to-end tests (full smt::context, real arithmetic).
+//
+// The Nielsen replace modifiers (apply_replace_epsilon /
+// apply_const_nielsen_replace / apply_var_nielsen_replace /
+// apply_replace_replace, priority 3c-3c4) decompose a symbolic str.replace at
+// the head of a word equation.  These tests assert replace-based formulas into
+// a real nseq context, check the verdict, and — on sat — validate that the
+// produced model actually satisfies every assertion.  Two "give-up" cases must
+// return unknown (l_undef) rather than an unsound answer.  Mirrors the .smt2
+// suite in nseq_replace_tests/.
+// -----------------------------------------------------------------------
+
+static void replace_check(const char* label, ast_manager& m,
+                          expr_ref_vector const& assertions, lbool expect,
+                          unsigned max_nodes = 200000) {
+    std::cout << label << "\n";
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    // A bounded node budget makes solve() return unknown (rather than run unbounded) on
+    // the cases nseq cannot decide — the unit-test harness has no timeout.
+    params.m_nseq_max_nodes = max_nodes;
+    smt::context ctx(m, params);
+    for (expr* a : assertions)
+        ctx.assert_expr(a);
+    const lbool r = ctx.check();
+    SASSERT(r == expect);
+    if (r != expect) {
+        std::cerr << "  FAIL: expected " << expect << " got " << r << "\n";
+        return;
+    }
+    if (r == l_true) {
+        model_ref mdl;
+        ctx.get_model(mdl);
+        SASSERT(mdl);
+        // the model must satisfy every asserted formula (guards against an
+        // invalid model / spurious sat)
+        if (!mdl->is_true(assertions)) {
+            std::cerr << "  FAIL: model does not satisfy the assertions\n";
+            SASSERT(false && "invalid model produced by nseq for str.replace");
+        }
+        std::cout << "  ok: sat, model validated\n";
+    }
+    else if (r == l_false)
+        std::cout << "  ok: unsat\n";
+    else
+        std::cout << "  ok: unknown (sound give-up)\n";
+}
+
+// SAT: replace vanishes (s=""), the leading char of u matches.
+static void test_nseq_replace_empty_side() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss), *u = m.mk_const(symbol("u"), ss), *v = m.mk_const(symbol("v"), ss);
+    expr* lhs = su.str.mk_concat(su.str.mk_replace(s, su.str.mk_string(zstring("a")), su.str.mk_string(zstring("b"))), u);
+    expr* rhs = su.str.mk_concat(su.str.mk_string(zstring("b")), v);
+    expr_ref_vector a(m); a.push_back(m.mk_eq(lhs, rhs));
+    replace_check("test_nseq_replace_empty_side", m, a, l_true);
+}
+
+// SAT: s starts with src -> the replace rewrites the leading run (starts-with elim).
+static void test_nseq_replace_starts_with() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss), *u = m.mk_const(symbol("u"), ss);
+    expr* lhs = su.str.mk_concat(su.str.mk_replace(s, su.str.mk_string(zstring("a")), su.str.mk_string(zstring("XY"))), u);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(lhs, su.str.mk_string(zstring("XYZ"))));
+    a.push_back(su.str.mk_prefix(su.str.mk_string(zstring("a")), s));   // prefixof("a", s)
+    replace_check("test_nseq_replace_starts_with", m, a, l_true);
+}
+
+// SAT: s does not start with src -> leading char preserved (char peel).
+static void test_nseq_replace_not_starts_with() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss), *u = m.mk_const(symbol("u"), ss), *v = m.mk_const(symbol("v"), ss);
+    expr* lhs = su.str.mk_concat(su.str.mk_replace(s, su.str.mk_string(zstring("a")), su.str.mk_string(zstring("b"))), u);
+    expr* rhs = su.str.mk_concat(su.str.mk_string(zstring("z")), v);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(lhs, rhs));
+    a.push_back(su.str.mk_prefix(su.str.mk_string(zstring("z")), s));
+    a.push_back(au.mk_gt(su.str.mk_length(s), au.mk_int(2)));
+    replace_check("test_nseq_replace_not_starts_with", m, a, l_true);
+}
+
+// SAT: deletion of the first occurrence (dst = "").
+static void test_nseq_replace_delete() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(su.str.mk_replace(s, su.str.mk_string(zstring("ab")), su.str.mk_string(zstring(""))),
+                        su.str.mk_string(zstring("cd"))));
+    a.push_back(m.mk_eq(su.str.mk_length(s), au.mk_int(4)));
+    replace_check("test_nseq_replace_delete", m, a, l_true);
+}
+
+// SAT: replace head vs a string variable head.
+static void test_nseq_replace_vs_var() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss), *x = m.mk_const(symbol("x"), ss);
+    expr* u = m.mk_const(symbol("u"), ss), *v = m.mk_const(symbol("v"), ss);
+    expr* lhs = su.str.mk_concat(su.str.mk_replace(s, su.str.mk_string(zstring("ab")), su.str.mk_string(zstring("c"))), u);
+    expr* rhs = su.str.mk_concat(x, v);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(lhs, rhs));
+    a.push_back(m.mk_eq(x, su.str.mk_string(zstring("c"))));
+    a.push_back(au.mk_gt(su.str.mk_length(s), au.mk_int(1)));
+    replace_check("test_nseq_replace_vs_var", m, a, l_true);
+}
+
+// SAT: two replace heads, both inputs non-empty (apply_replace_replace).
+static void test_nseq_replace_vs_replace() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss), *t = m.mk_const(symbol("t"), ss);
+    expr* u = m.mk_const(symbol("u"), ss), *v = m.mk_const(symbol("v"), ss);
+    expr* lhs = su.str.mk_concat(su.str.mk_replace(s, su.str.mk_string(zstring("a")), su.str.mk_string(zstring("b"))), u);
+    expr* rhs = su.str.mk_concat(su.str.mk_replace(t, su.str.mk_string(zstring("c")), su.str.mk_string(zstring("d"))), v);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(lhs, rhs));
+    a.push_back(au.mk_gt(su.str.mk_length(s), au.mk_int(0)));
+    a.push_back(au.mk_gt(su.str.mk_length(t), au.mk_int(0)));
+    replace_check("test_nseq_replace_vs_replace", m, a, l_true);
+}
+
+// UNSAT: replace(s,a,b) = s but s starts with a — the first a becomes b.
+static void test_nseq_replace_fixpoint_unsat() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(su.str.mk_replace(s, su.str.mk_string(zstring("a")), su.str.mk_string(zstring("b"))), s));
+    a.push_back(su.str.mk_prefix(su.str.mk_string(zstring("a")), s));
+    replace_check("test_nseq_replace_fixpoint_unsat", m, a, l_false);
+}
+
+// A non-self-referential UNSAT clash: s starts with "a" ⇒ replace(s,"a","b") begins with
+// "b", which must equal a leading "c".
+static void test_nseq_replace_clash_unsat() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss), *u = m.mk_const(symbol("u"), ss);
+    expr* lhs = su.str.mk_concat(su.str.mk_replace(s, su.str.mk_string(zstring("a")), su.str.mk_string(zstring("b"))), u);
+    expr* rhs = su.str.mk_concat(su.str.mk_string(zstring("c")), u);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(lhs, rhs));
+    a.push_back(su.str.mk_prefix(su.str.mk_string(zstring("a")), s));
+    replace_check("test_nseq_replace_clash_unsat", m, a, l_false);
+}
+
+// UNSAT: fully determined by s = "hello", wrong target.
+static void test_nseq_replace_concrete_unsat() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(s, su.str.mk_string(zstring("hello"))));
+    a.push_back(m.mk_eq(su.str.mk_replace(s, su.str.mk_string(zstring("l")), su.str.mk_string(zstring("L"))),
+                        su.str.mk_string(zstring("xyz"))));
+    replace_check("test_nseq_replace_concrete_unsat", m, a, l_false);
+}
+
+// UNSAT via the lazy length axiom: the replace occurs only inside str.len (the
+// modifiers never decompose it), but ensure_replace_length_axioms contributes its
+// contains-based length.  s starts with "a" ⇒ the first "a"->"bb" grows the length by
+// 1, so |replace| = |s|+1 ≠ |s|.
+static void test_nseq_replace_len_only_unsat() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss);
+    expr_ref_vector a(m);
+    a.push_back(su.str.mk_prefix(su.str.mk_string(zstring("a")), s));
+    a.push_back(m.mk_eq(su.str.mk_length(su.str.mk_replace(s, su.str.mk_string(zstring("a")), su.str.mk_string(zstring("bb")))),
+                        su.str.mk_length(s)));
+    replace_check("test_nseq_replace_len_only_unsat", m, a, l_false, 20000);
+}
+
+// SAT: a replace whose defining variable is unused is a don't-care — the length
+// axiom constrains its length harmlessly and any value works (models the slog /
+// Stranger sanitizer benchmarks where x = replace(input, pattern, "") and x is dead).
+static void test_nseq_replace_dead_definition_sat() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* in = m.mk_const(symbol("in"), ss), *x = m.mk_const(symbol("x_dead"), ss), *y = m.mk_const(symbol("y"), ss);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(x, su.str.mk_replace(in, su.str.mk_string(zstring("ab")), su.str.mk_string(zstring("")))));
+    a.push_back(m.mk_eq(y, su.str.mk_string(zstring("hello"))));   // x is never used
+    replace_check("test_nseq_replace_dead_definition_sat", m, a, l_true);
+}
+
+// GIVE-UP (unknown): str.at(s,0) decomposes s via nth/tail while replace(s,..)
+// also decomposes s; the two decompositions can't be reconciled, so nseq gives
+// up rather than emit an invalid model.
+static void test_nseq_replace_at_same_var_giveup() {
+    ast_manager m; reg_decl_plugins(m); seq_util su(m); arith_util au(m);
+    sort* ss = su.str.mk_string_sort();
+    expr* s = m.mk_const(symbol("s"), ss), *u = m.mk_const(symbol("u"), ss);
+    expr* lhs = su.str.mk_concat(su.str.mk_replace(s, su.str.mk_string(zstring("a")), su.str.mk_string(zstring("XY"))), u);
+    expr_ref_vector a(m);
+    a.push_back(m.mk_eq(lhs, su.str.mk_string(zstring("XYZ"))));
+    a.push_back(m.mk_eq(su.str.mk_at(s, au.mk_int(0)), su.str.mk_string(zstring("a"))));
+    replace_check("test_nseq_replace_at_same_var_giveup", m, a, l_undef, 3000);
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -385,5 +655,18 @@ void tst_nseq_basic() {
     test_nseq_fine_wilf_e2e_unsat();
     test_nseq_fine_wilf_e2e_sat();
     test_nseq_fine_wilf_option_off();
+    // str.replace modifiers
+    test_nseq_replace_empty_side();
+    test_nseq_replace_starts_with();
+    test_nseq_replace_not_starts_with();
+    test_nseq_replace_delete();
+    test_nseq_replace_vs_var();
+    test_nseq_replace_vs_replace();
+    test_nseq_replace_fixpoint_unsat();
+    test_nseq_replace_clash_unsat();
+    test_nseq_replace_concrete_unsat();
+    test_nseq_replace_len_only_unsat();
+    test_nseq_replace_dead_definition_sat();
+    test_nseq_replace_at_same_var_giveup();
     std::cout << "nseq_basic: all tests passed\n";
 }

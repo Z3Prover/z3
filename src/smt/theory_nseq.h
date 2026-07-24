@@ -62,6 +62,12 @@ namespace smt {
         unsigned                m_prop_qhead = 0;
         obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
         obj_hashtable<expr>     m_no_diseq_set;     // track expressions that should not trigger new disequality axioms
+        // Symbolic str.replace terms seen (relevant_eh) and the subset for which the
+        // contains-based length axiom has already been asserted.  A replace that never
+        // reaches a word equation is not decomposed by the Nielsen modifiers, so its
+        // length is contributed lazily by ensure_replace_length_axioms() in final_check.
+        obj_hashtable<expr>     m_replace_terms;
+        obj_hashtable<expr>     m_replace_len_axiomatized;
         hashtable<literal, obj_hash<literal>, default_eq<literal>>    m_ignored_mem;     // track membership constraints that should not be passed to Nielsen
         expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant
         obj_map<expr, unsigned> m_gradient_cache;
@@ -183,6 +189,8 @@ namespace smt {
 
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);
+        // length-only axiom for str.replace (contains-based; no value decomposition)
+        void replace_length_axiom(expr* r);
         void ensure_length_var(expr* e) const;
 
         // higher-order term unfolding
@@ -197,6 +205,8 @@ namespace smt {
         bool propagate_length_lemma(literal lit, seq::length_constraint const& lc);
         bool assert_nonneg_for_all_vars();
         bool assert_length_constraints();
+
+        bool ensure_replace_length_axioms();
 
         // Regex membership pre-check: for each variable with regex constraints,
         // check intersection emptiness before running DFS.

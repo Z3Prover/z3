@@ -56,6 +56,8 @@ namespace euf {
             unsigned m_num_nodes;
             unsigned m_num_concat;
             unsigned m_num_power;
+            unsigned m_num_replace;
+            unsigned m_num_replace_all;
             unsigned m_num_hash_hits;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }

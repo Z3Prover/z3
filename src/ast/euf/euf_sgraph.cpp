@@ -75,6 +75,12 @@ namespace euf {
         if (m_seq.str.is_power(e))
             return snode_kind::s_power;
 
+        if (m_seq.str.is_replace(e))
+            return snode_kind::s_replace;
+
+        if (m_seq.str.is_replace_all(e))
+            return snode_kind::s_replace_all;
+
         if (m_seq.re.is_star(e))
             return snode_kind::s_star;
 
@@ -200,6 +206,21 @@ namespace euf {
             n->m_level = 1;
             n->m_length = 1;
             ++m_stats.m_num_power;
+            break;
+        }
+
+        case snode_kind::s_replace:
+        case snode_kind::s_replace_all: {
+            SASSERT(n->num_args() == 3);
+            n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground() && n->arg(2)->is_ground();
+            n->m_regex_free = true;
+            n->m_is_classical = true;
+            n->m_level = 1;
+            n->m_length = 1;
+            if (n->kind() == snode_kind::s_replace)
+                ++m_stats.m_num_replace;
+            else
+                ++m_stats.m_num_replace_all;
             break;
         }
 
@@ -368,6 +389,8 @@ namespace euf {
             break;
         case snode_kind::s_var:
         case snode_kind::s_power:
+        case snode_kind::s_replace:
+        case snode_kind::s_replace_all:
             // not a regex proper; treated as an atom
             w = 1;
             break;
@@ -945,25 +968,27 @@ namespace euf {
     std::ostream& sgraph::display(std::ostream& out) const {
         auto kind_str = [](snode_kind k) -> char const* {
             switch (k) {
-            case snode_kind::s_empty:      return "empty";
-            case snode_kind::s_char:       return "char";
-            case snode_kind::s_var:        return "var";
-            case snode_kind::s_unit:       return "unit";
-            case snode_kind::s_concat:     return "concat";
-            case snode_kind::s_power:      return "power";
-            case snode_kind::s_star:       return "star";
-            case snode_kind::s_plus:       return "plus";
-            case snode_kind::s_loop:       return "loop";
-            case snode_kind::s_union:      return "union";
-            case snode_kind::s_intersect:  return "intersect";
-            case snode_kind::s_complement: return "complement";
-            case snode_kind::s_fail:       return "fail";
-            case snode_kind::s_full_char:  return "full_char";
-            case snode_kind::s_full_seq:   return "full_seq";
-            case snode_kind::s_range:      return "range";
-            case snode_kind::s_ite:        return "ite";
-            case snode_kind::s_to_re:      return "to_re";
-            case snode_kind::s_in_re:      return "in_re";
+            case snode_kind::s_empty:       return "empty";
+            case snode_kind::s_char:        return "char";
+            case snode_kind::s_var:         return "var";
+            case snode_kind::s_unit:        return "unit";
+            case snode_kind::s_concat:      return "concat";
+            case snode_kind::s_power:       return "power";
+            case snode_kind::s_replace:     return "replace";
+            case snode_kind::s_replace_all: return "replace-all";
+            case snode_kind::s_star:        return "star";
+            case snode_kind::s_plus:        return "plus";
+            case snode_kind::s_loop:        return "loop";
+            case snode_kind::s_union:       return "union";
+            case snode_kind::s_intersect:   return "intersect";
+            case snode_kind::s_complement:  return "complement";
+            case snode_kind::s_fail:        return "fail";
+            case snode_kind::s_full_char:   return "full_char";
+            case snode_kind::s_full_seq:    return "full_seq";
+            case snode_kind::s_range:       return "range";
+            case snode_kind::s_ite:         return "ite";
+            case snode_kind::s_to_re:       return "to_re";
+            case snode_kind::s_in_re:       return "in_re";
             }
             return "?";
         };
@@ -993,6 +1018,8 @@ namespace euf {
         st.update("seq-graph-nodes", m_stats.m_num_nodes);
         st.update("seq-graph-concat", m_stats.m_num_concat);
         st.update("seq-graph-power", m_stats.m_num_power);
+        st.update("seq-graph-replace", m_stats.m_num_replace);
+        st.update("seq-graph-replace-all", m_stats.m_num_replace_all);
         st.update("seq-graph-hash-hits", m_stats.m_num_hash_hits);
         m_egraph.collect_statistics(st);
     }

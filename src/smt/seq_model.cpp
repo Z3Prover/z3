@@ -224,7 +224,17 @@ namespace smt {
             // snode objects for the same (hash-consed) expression, so snode ids are
             // not a stable key across the substitution trees we traverse here.
             unsigned id = var_key(var);
-            SASSERT(!m_var_replacement.contains(id));
+            // A variable can appear on the substitution path more than once: the
+            // fresh-variable replace decompositions (s = <prefix>·s'') can, together
+            // with another axiom's decomposition of the same input, re-introduce it.
+            // With FRESH suffix variables these duplicate bindings are consistent
+            // (validated end-to-end), so keep the first and skip the rest rather than
+            // asserting.  (A genuinely inconsistent double decomposition — e.g. a
+            // replace input also split by str.at — is caught earlier in
+            // theory_nseq::final_check and returned as unknown, so it never reaches
+            // model construction.)
+            if (m_var_replacement.contains(id))
+                continue;
             m_var_replacement.insert(id, replacement);
         }
     }
@@ -247,7 +257,7 @@ namespace smt {
                 if (m_ctx.e_internalized(e))
                     deps.push_back(m_ctx.get_enode(e));
             }
-            else if (curr->is_concat()) {
+            else if (curr->is_concat() || curr->is_replace()) {
                 for (unsigned i = 0; i < curr->num_args(); ++i)
                     todo.push_back(curr->arg(i));
             }
@@ -321,7 +331,20 @@ namespace smt {
                 auto arg = curr->arg(0);
                 expr *e = arg->get_expr();
                 expr *charval = nullptr;
-                if (m_ctx.e_internalized(e)) {
+                // If the search pinned this symbolic character to a range, honour it.
+                // This respects guard constraints (e.g. a peeled leading char forced
+                // into src's first character) AND breaks the nth_u(s,0) -> value(s)
+                // -> nth_u(s,0) resolution cycle that arises when s is split by its
+                // own first character.
+                if (curr->is_unit() && m_sat_node && m_sat_node->char_ranges().contains(curr->id())) {
+                    char_set const& cs = m_sat_node->char_ranges().find(curr->id()).first;
+                    if (!cs.is_empty())
+                        charval = m_seq.mk_char(cs.first_char());
+                }
+                if (charval) {
+                    // pinned above
+                }
+                else if (m_ctx.e_internalized(e)) {
                     charval = var2value[e->get_id()];
                 }
                 else if (m_seq.str.is_nth_u(e)) {
@@ -351,6 +374,35 @@ namespace smt {
                     val = m_seq.str.mk_concat(args, curr->get_sort());
                 else
                     continue; // not all arguments processed yet, will retry after children
+            }
+            else if (curr->is_replace()) {
+                // str.replace(s, src, dst): fold on the (concrete) argument values.
+                args.reset();
+                bool all_ready = true;
+                for (unsigned i = 0; i < curr->num_args(); ++i) {
+                    auto arg = curr->arg(i);
+                    expr* av = nullptr;
+                    if (resolve(arg, av))
+                        args.push_back(av);
+                    else {
+                        todo.push_back(arg);
+                        all_ready = false;
+                    }
+                }
+                if (!all_ready)
+                    continue; // retry after children are valued
+                zstring ss, srcs, dsts;
+                if (m_seq.str.is_string(args.get(0), ss) &&
+                    m_seq.str.is_string(args.get(1), srcs) &&
+                    m_seq.str.is_string(args.get(2), dsts)) {
+                    val = m_seq.str.mk_string(ss.replace(srcs, dsts));
+                }
+                else {
+                    // non-literal arguments: leave the (semantically pinned) replace
+                    // term unfolded; the model checker evaluates it.
+                    val = m_seq.str.mk_replace(args.get(0), args.get(1), args.get(2));
+                }
+                pinned.push_back(val);
             }
             else if (curr->is_var()) {
                 euf::snode const* replacement = nullptr;

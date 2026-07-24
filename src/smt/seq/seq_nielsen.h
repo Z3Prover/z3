@@ -188,6 +188,10 @@ namespace seq {
             sort();
         }
 
+        euf::snode const*& get_side(const bool left) {
+            return left ? m_lhs : m_rhs;
+        }
+
         str_eq& operator=(const str_eq & other) {
             m_lhs = other.m_lhs;
             m_rhs = other.m_rhs;
@@ -211,6 +215,11 @@ namespace seq {
 
         // sort so that lhs <= rhs by snode id
         void sort();
+
+        bool sorted() const {
+            SASSERT(well_formed());
+            return m_lhs->id() <= m_rhs->id();
+        }
 
         // check if both sides are empty (trivially satisfied)
         bool is_trivial() const;
@@ -856,6 +865,7 @@ namespace seq {
         // modifier application counts
         unsigned m_mod_det             = 0;
         unsigned m_mod_power_epsilon   = 0;
+        unsigned m_mod_replace_epsilon = 0;
         unsigned m_mod_num_cmp         = 0;
         unsigned m_mod_split_power_elim = 0;
         unsigned m_mod_fine_wilf       = 0;
@@ -875,6 +885,9 @@ namespace seq {
         unsigned m_mod_var_nielsen     = 0;
         unsigned m_mod_var_num_unwinding_eq = 0;
         unsigned m_mod_var_num_unwinding_mem = 0;
+        unsigned m_mod_const_nielsen_replace = 0;
+        unsigned m_mod_var_nielsen_replace = 0;
+        unsigned m_mod_replace_replace = 0;
         unsigned m_ax_diseq = 0;
         // subsumption rule
         unsigned m_num_sibling_cut     = 0; // loop-cut leaves (deferred to an ancestor)
@@ -1119,6 +1132,10 @@ namespace seq {
 
         // edge management
         nielsen_edge* mk_edge(nielsen_node *src, nielsen_node *tgt, const char *rule, bool is_progress);
+
+        // true if e is one of the internal slice skolems (get_tail/get_slice); used to
+        // tell a modifier-generated replace(slice(x,..),..) from an original input term.
+        bool is_slice_skolem(expr* e) const { return m_sk.is_slice(e); }
 
         // root node access
         nielsen_node* root() const { return m_root; }
@@ -1532,6 +1549,18 @@ namespace seq {
 
         euf::snode const* get_tail(euf::snode const* v, unsigned cnt, bool fwd = true);
 
+        // cannot be easily used for subsumption checks; however, we cannot use "slice" for non-variables
+        euf::snode const* get_substr(euf::snode const* v, unsigned cnt, bool fwd = true);
+
+        // drop the first `offset` (symbolic) characters: substr(v, offset, |v| - offset)
+        euf::snode const* get_substr(euf::snode const* v, expr* offset);
+
+        // regex for  starts_with(_, p) :  to_re(p) ++ Σ*
+        euf::snode const* mk_prefix_regex(euf::snode const* p);
+
+        // regex for  !starts_with(_, src) :  ~(to_re(src) ++ Σ*)
+        euf::snode const* mk_not_prefix_regex(euf::snode const* src);
+
         // Apply the Parikh image filter to a node: generate modular length
         // constraints from regex memberships and append them to the node's
         // constraints.  Also performs a lightweight feasibility pre-check;
@@ -1551,11 +1580,23 @@ namespace seq {
         // deterministic modifier: var = ε, same-head cancel
         bool apply_det_modifier(nielsen_node* node);
 
-        // const nielsen modifier: char vs var (2 branches per case)
+        // const Nielsen modifier: char vs var (2 branches per case)
         bool apply_const_nielsen(nielsen_node* node);
 
         // variable Nielsen modifier: var vs var, all progress (3 branches)
         bool apply_var_nielsen(nielsen_node* node);
+
+        // power epsilon modifier: for a replace(-all) in an equation
+        bool apply_replace_epsilon(nielsen_node* node);
+
+        // const Nielsen modifier involving replace(-all)
+        bool apply_const_nielsen_replace(nielsen_node* node);
+
+        // var Nielsen modifier involving replace(-all)
+        bool apply_var_nielsen_replace(nielsen_node* node);
+
+        // Nielsen modifier when both equation heads are replace terms
+        bool apply_replace_replace(nielsen_node* node);
 
         // eq split modifier: splits a regex-free equation at a chosen index into
         // two shorter equalities with optional padding (single progress child).
