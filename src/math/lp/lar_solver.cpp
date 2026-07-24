@@ -1577,17 +1577,19 @@ namespace lp {
         m_imp->m_set_of_different_pairs.clear();
         for (unsigned j = 0; j < n; ++j)
             m_imp->m_set_of_different_pairs.insert(get_core_solver().r_x(j));
-        bool collision;
-        do {
+        bool collision = true;
+        while (collision) {
             collision = false;
             m_imp->m_set_of_different_singles.clear();
-            for (const numeric_pair<mpq>& rp : m_imp->m_set_of_different_pairs)
-                m_imp->m_set_of_different_singles.insert(rp.x + m_imp->m_delta * rp.y);
-            if (m_imp->m_set_of_different_singles.size() != m_imp->m_set_of_different_pairs.size()) {
-                m_imp->m_delta /= mpq(2);
-                collision = true;
+            for (const numeric_pair<mpq>& rp : m_imp->m_set_of_different_pairs) {
+                auto value = rp.x + m_imp->m_delta * rp.y;
+                if (!m_imp->m_set_of_different_singles.insert(value).second) {
+                    collision = true;
+                    m_imp->m_delta /= mpq(2);
+                    break;
+                }
             }
-        } while (collision);
+        }
         TRACE(lar_solver_model, tout << "delta = " << m_imp->m_delta << "\nmodel:\n";);
         return true;
     }
