@@ -282,8 +282,8 @@ void test_max_reg() {
 
     // f1 = 4*x1^2 + 4*x2^2
     Z3_ast f1 = mk_add(mk_mul(mk_real(4), mk_sq(x1)), mk_mul(mk_real(4), mk_sq(x2)));
-    // f2 = (x1-5)^2 + (x2-5)^2
-    Z3_ast f2 = mk_add(mk_sq(mk_sub(x1, mk_real(5))), mk_sq(mk_sub(x2, mk_real(5))));
+    // f2 = (5-x1)^2 + (5-x2)^2
+    Z3_ast f2 = mk_add(mk_sq(mk_sub(mk_real(5), x2)), mk_sq(mk_sub(mk_real(5), x1)));
 
     // Helper: create optimize with BNH constraints and timeout
     auto mk_max_reg = [&]() -> Z3_optimize {
@@ -300,8 +300,8 @@ void test_max_reg() {
         Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, x1, mk_real(5)));
         Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, x2, mk_real(0)));
         Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, x2, mk_real(3)));
-        Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, mk_add(mk_sq(mk_sub(x1, mk_real(5))), mk_sq(x2)), mk_real(25)));
-        Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, mk_add(mk_sq(mk_sub(x1, mk_real(8))), mk_sq(mk_add(x2, mk_real(3)))), mk_real(77, 10)));
+        Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, mk_add(mk_sq(mk_sub(mk_real(5), x1)), mk_sq(x2)), mk_real(25)));
+        Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, mk_add(mk_sq(mk_sub(mk_real(8), x1)), mk_sq(mk_add(mk_real(3), x2))), mk_real(77, 10)));
         return opt;
     };
 
