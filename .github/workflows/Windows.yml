@@ -31,12 +31,12 @@ jobs:
         run: |
           mkdir build && cd build
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
-          ninja -j$(nproc)
+          ninja -j$(nproc) z3 test-z3
       - name: Run unit tests
         shell: msys2 {0}
         run: |
           cd build
-          ./test-z3 /a
+          ./test-z3.exe /a
 
   build:
     strategy:
