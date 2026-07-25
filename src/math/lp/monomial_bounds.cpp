@@ -11,6 +11,7 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_intervals.h"
 #include "math/lp/numeric_pair.h"
+#include "math/lp/bound_analyzer_on_row.h"
 
 namespace nla {
 
@@ -146,9 +147,7 @@ namespace nla {
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
-        if (!do_propagate_up)
-            return tightened;
-        return tighten_lp_bound(product, m.var(), 1) || tightened;
+        return (do_propagate_up && tighten_lp_bound(product, m.var(), 1)) || tightened;
     }
 
     bool monomial_bounds::tighten_lp_bound(dep_interval &mi, lpvar v, unsigned power,
@@ -644,6 +643,21 @@ namespace nla {
      */
     void monomial_bounds::propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
         SASSERT(cmp != llc::EQ && cmp != llc::NE);
+        if (m_collect_changes) {
+            if (m_block_retighten) {
+                if (cmp == llc::LE || cmp == llc::LT) {
+                    if (m_blocked_upper.contains(v))
+                        return;
+                    m_blocked_upper.insert(v);
+                }
+                else {
+                    if (m_blocked_lower.contains(v))
+                        return;
+                    m_blocked_lower.insert(v);
+                }
+            }
+            m_bound_changes.insert(v);
+        }
         if (!c().var_is_int(v))
             c().lra.update_column_type_and_bound(v, cmp, q, d);
         else if (q.is_int()) {
@@ -662,20 +676,100 @@ namespace nla {
 
     bool monomial_bounds::tighten_lp_bound(dep_interval const &range, lpvar v, unsigned power) {
         bool propagated = false;
-        if (tighten_lp_upper_bound(range, v, power))
-            propagated = true;
+        if (tighten_lp_upper_bound(range, v, power)) 
+            propagated = true;        
         if (tighten_lp_lower_bound(range, v, power))
             propagated = true;
         return propagated;
     }
        
     bool monomial_bounds::tighten_lp_bounds() {
-        bool new_bound = false;
-        for (auto &m : c().emons()) 
-            if (tighten_lp(m))
-                new_bound = true;
-        return new_bound;
+        m_blocked_upper.reset();
+        m_blocked_lower.reset();
+        flet<bool> _collect(m_collect_changes, true);
+        flet<bool> _block(m_block_retighten, true);
+
+        bool scan_all = true;
+        bool found_bound = false;
+        while (c().lra.get_status() != lp::lp_status::INFEASIBLE) {
+            bool new_bound = false;
+            m_bound_changes.reset();
+            for (auto &m : c().emons())
+                if (tighten_lp(m))
+                    new_bound = true;
+            
+            //verbose_stream() << "tighten_lp_bounds: new_bound=" << new_bound 
+            //    << ", changes=" << m_bound_changes.num_elems() << "\n";
+
+            if (!scan_all && (!new_bound || m_bound_changes.empty())) 
+                break;
+            if (new_bound)
+                found_bound = true;
+            m_frontier_vars.swap(m_bound_changes);
+            m_frontier_rows.reset();
+            if (scan_all) {
+                scan_all = false;
+                for (unsigned r = 0; r < c().lra.row_count(); ++r)
+                    m_frontier_rows.insert(r);               
+            }
+            else {
+                for (auto v : m_frontier_vars) {
+                    if (v >= c().lra.column_count())
+                        continue;
+                    for (auto const& cell : c().lra.get_column(v)) {
+                        unsigned r = cell.var();
+                        m_frontier_rows.insert(r);                        
+                    }
+                }
+            }
+            propagate_bounds_on_rows();
+
+            if (m_bound_changes.empty())
+                break;
+            found_bound = true;
+        }
+        return found_bound;
     }
 
+    /**
+     * Iterate over the LP rows in the current frontier. Each tableau row encodes
+     * the equality sum_j a_j * x_j = 0. For every non-fixed column k of the row
+     * we isolate x_k = -(1/a_k) * sum_{j != k} a_j * x_j, evaluate the right-hand
+     * side as an interval built from the current bounds of the other columns, and
+     * strengthen the LP bounds of x_k from that interval. Dependencies are tracked
+     * so the tightened bounds can be explained.
+     */
+    void monomial_bounds::propagate_bounds_on_rows() {
+        m_bound_changes.reset();
+
+        struct bound_prop {
+            monomial_bounds &m;
+            bound_prop(monomial_bounds &m) : m(m) {}
+            lp::lar_solver& lp() { return m.c().lra; }
+            lp::lar_solver const &lp() const { return m.c().lra; }
+            void add_bound(lp::mpq const& u, unsigned v,
+                bool is_lower_bound, bool strict, std::function<u_dependency *()> const& explain) {
+
+                if (is_lower_bound  && m.c().has_lower_bound(v) && u <= m.c().get_lower_bound(v))
+                    return;
+                if (!is_lower_bound && m.c().has_upper_bound(v) && m.c().get_upper_bound(v) <= u)
+                    return;
+                
+                auto dep = explain();
+                rational r(u);
+                auto cmp = is_lower_bound ? (strict ? llc::GT : llc::GE) : (strict ? llc::LT : llc::LE);
+                m.propagate_lp_bound(v, cmp, r, dep);
+            }
+
+        };
+        bound_prop bp(*this);
+        for (auto r : m_frontier_rows) {
+            if (r >= c().lra.row_count())
+                continue;
+            auto const &row = c().lra.get_row(r);
+            auto const &z = lp::zero_of_type<lp::numeric_pair<lp::mpq>>();
+            lp::bound_analyzer_on_row<lp::row_strip<lp::mpq>, bound_prop>::analyze_row(row, z, bp);
+        }
+    }
 }
 

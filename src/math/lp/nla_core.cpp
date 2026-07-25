@@ -1619,6 +1619,7 @@ bool core::optimize_nl_bounds() {
     for (auto const& ib : improvements)
         lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
     lra.find_feasible_solution();
+    TRACE(arith, lra.display(tout););
     return true;
 }
 

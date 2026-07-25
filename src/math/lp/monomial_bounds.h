@@ -17,6 +17,14 @@ namespace nla {
     class monomial_bounds : common {
         dep_intervals& dep;
 
+        uint_set m_bound_changes;
+        uint_set m_blocked_upper, m_blocked_lower;
+        uint_set m_frontier_vars, m_frontier_rows;
+        bool m_collect_changes = false;
+        bool m_block_retighten = false;
+
+        void propagate_bounds_on_rows();
+
         bool tighten_lp_bound(dep_interval const &range, lpvar v, unsigned p);
         bool tighten_lp_upper_bound(dep_interval const& range, lpvar v, unsigned p);
         bool tighten_lp_lower_bound(dep_interval const& range, lpvar v, unsigned p);
