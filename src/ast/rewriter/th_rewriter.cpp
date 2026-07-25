@@ -81,7 +81,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool                m_rewrite_patterns = true;
     bool                m_enable_der = true;
     bool                m_nested_der = false;
-    bool                m_push_quantifiers = false;
+    bool                m_push_quantifiers = true;
 
 
     ast_manager & m() const { return m_b_rw.m(); }
@@ -100,7 +100,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_rewrite_patterns = p.rewrite_patterns();
         m_enable_der     = p.enable_der();
         m_nested_der     = _p.get_bool("nested_der", false);
-        m_push_quantifiers = _p.get_bool("push_quantifiers", false);
+        m_push_quantifiers = _p.get_bool("push_quantifiers", true);
     }
 
     void updt_params(params_ref const & p) {
