@@ -333,6 +333,14 @@ public:
         
     bool find_canonical_monic_of_vars(const svector<lpvar>& vars, lpvar & i) const;
     bool is_canonical_monic(lpvar) const;
+
+    // Symbolic product-bound lemma: for a refined monomial m = v1*v2 with
+    // 0 <= v1 <= u1 and 0 <= v2 <= u2 (u1,u2 columns), if the product monic
+    // u1*u2 exists, derive m <= u1*u2 (strictly when both upper bounds are strict).
+    bool propagate_bound_products();
+    // Find a column u such that v <= u (strictly if 'strict') currently holds,
+    // encoded as a term column (v - u) with a non-positive upper bound.
+    bool find_symbolic_upper_bound(lpvar v, lpvar& u, bool& strict) const;
     bool elists_are_consistent(bool check_in_model) const;
     bool elist_is_consistent(const std::unordered_set<lpvar>&) const;
     bool var_has_positive_lower_bound(lpvar j) const;

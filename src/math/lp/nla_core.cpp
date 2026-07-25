@@ -463,6 +463,90 @@ bool core::is_canonical_monic(lpvar j) const {
     return m_emons.is_canonical_monic(j);
 }
 
+// Look for an active 2-variable constraint that certifies v <= u (v < u when
+// 'strict') for some column u.  A constraint  cv*v + cu*u {<=,<,>=,>} rhs
+// implies v <= u exactly when, after normalizing the relation to <=/<, we have
+// cu == -cv, cv > 0 and rhs <= 0 (then v <= u + rhs/cv <= u).
+bool core::find_symbolic_upper_bound(lpvar v, lpvar& u, bool& strict) const {
+    for (auto const& con : lra.constraints().active()) {
+        auto coeffs = con.coeffs();
+        if (coeffs.size() != 2)
+            continue;
+        lp::lconstraint_kind k = con.kind();
+        rational rhs = con.rhs();
+        rational cv, cu;
+        lpvar cand_u = null_lpvar;
+        if (coeffs[0].second == v) { cv = coeffs[0].first; cu = coeffs[1].first; cand_u = coeffs[1].second; }
+        else if (coeffs[1].second == v) { cv = coeffs[1].first; cu = coeffs[0].first; cand_u = coeffs[0].second; }
+        else
+            continue;
+        if (cand_u == v)
+            continue;
+        bool is_strict = (k == lp::LT || k == lp::GT);
+        // normalize relation to <=/<  (flip sign for >=/>)
+        if (k == lp::GE || k == lp::GT) { cv = -cv; cu = -cu; rhs = -rhs; }
+        else if (k != lp::LE && k != lp::LT)
+            continue; // skip EQ/NE
+        // now  cv*v + cu*u <(=) rhs ; want v <(=) u  <=>  cu == -cv, cv>0, rhs<=0
+        if (!cv.is_pos() || cu != -cv)
+            continue;
+        if (rhs.is_pos())
+            continue;
+        u = cand_u;
+        strict = is_strict || rhs.is_neg();
+        return true;
+    }
+    return false;
+}
+
+// For a refined monomial m = v1*v2 with 0 <= v1 and 0 <= v2, if we can find
+// current upper bounds v1 <= u1, v2 <= u2 with u1,u2 >= 0 and the product monic
+// u1*u2 exists as a column M, then the tautology
+//     0<=v1<u1 & 0<=v2<u2  ==>  v1*v2 < u1*u2
+// closes goals where m >= M is asserted.  This mirrors theory_arith's
+// bound-multiplication (Positivstellensatz) reasoning that solver=6 otherwise
+// only reaches via speculative grobner/nlsat escalation.
+bool core::propagate_bound_products() {
+    if (!params().arith_nl_bound_products())
+        return false;
+    auto nonneg_lower = [&](lpvar j) {
+        return lra.column_has_lower_bound(j) && lra.get_lower_bound(j) >= lp::zero_of_type<lp::impq>();
+    };
+    for (lpvar mv : m_to_refine) {
+        monic const& m = m_emons[mv];
+        if (m.size() != 2)
+            continue;
+        lpvar v1 = m.vars()[0], v2 = m.vars()[1];
+        if (!nonneg_lower(v1) || !nonneg_lower(v2))
+            continue;
+        lpvar u1, u2;
+        bool s1 = false, s2 = false;
+        if (!find_symbolic_upper_bound(v1, u1, s1) || !s1)
+            continue;
+        if (!find_symbolic_upper_bound(v2, u2, s2) || !s2)
+            continue;
+        if (!nonneg_lower(u1) || !nonneg_lower(u2))
+            continue;
+        svector<lpvar> roots;
+        roots.push_back(map_to_root(u1));
+        roots.push_back(map_to_root(u2));
+        lpvar mprod;
+        if (!find_canonical_monic_of_vars(roots, mprod))
+            continue;
+        // only useful when the current value violates m < u1*u2
+        if (val(m.var()) < val(mprod))
+            continue;
+        lemma_builder lemma(*this, "bound-product");
+        lemma |= ineq(v1, llc::LT, rational::zero());   // ~(v1 >= 0)
+        lemma |= ineq(v2, llc::LT, rational::zero());   // ~(v2 >= 0)
+        lemma |= ineq(lp::lar_term(rational(1), v1, rational(-1), u1), llc::GE, rational::zero()); // ~(v1 < u1)
+        lemma |= ineq(lp::lar_term(rational(1), v2, rational(-1), u2), llc::GE, rational::zero()); // ~(v2 < u2)
+        lemma |= ineq(lp::lar_term(rational(1), m.var(), rational(-1), mprod), llc::LT, rational::zero()); // m < u1*u2
+        return true;
+    }
+    return false;
+}
+
 bool core::var_has_positive_lower_bound(lpvar j) const {
     return lra.column_has_lower_bound(j) && lra.get_lower_bound(j) > lp::zero_of_type<lp::impq>();
 }
@@ -1311,6 +1395,9 @@ lbool core::check(unsigned level) {
         m_monomial_bounds.generate_lemmas();
 
     if (no_effect() && refine_pseudo_linear())
+        return l_false;
+
+    if (no_effect() && propagate_bound_products())
         return l_false;
        
     
