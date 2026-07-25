@@ -704,8 +704,7 @@ namespace nla {
             if (!scan_all && (!new_bound || m_bound_changes.empty())) 
                 break;
             if (new_bound)
-                found_bound = true;
-            m_frontier_vars.swap(m_bound_changes);
+                found_bound = !m_bound_changes.empty();
             m_frontier_rows.reset();
             if (scan_all) {
                 scan_all = false;
@@ -713,13 +712,11 @@ namespace nla {
                     m_frontier_rows.insert(r);               
             }
             else {
-                for (auto v : m_frontier_vars) {
+                for (auto v : m_bound_changes) {
                     if (v >= c().lra.column_count())
                         continue;
-                    for (auto const& cell : c().lra.get_column(v)) {
-                        unsigned r = cell.var();
-                        m_frontier_rows.insert(r);                        
-                    }
+                    for (auto const& cell : c().lra.get_column(v)) 
+                        m_frontier_rows.insert(cell.var());                                            
                 }
             }
             propagate_bounds_on_rows();
@@ -760,14 +757,13 @@ namespace nla {
                 auto cmp = is_lower_bound ? (strict ? llc::GT : llc::GE) : (strict ? llc::LT : llc::LE);
                 m.propagate_lp_bound(v, cmp, r, dep);
             }
-
         };
         bound_prop bp(*this);
+        auto const &z = lp::zero_of_type<lp::numeric_pair<lp::mpq>>();
         for (auto r : m_frontier_rows) {
             if (r >= c().lra.row_count())
                 continue;
             auto const &row = c().lra.get_row(r);
-            auto const &z = lp::zero_of_type<lp::numeric_pair<lp::mpq>>();
             lp::bound_analyzer_on_row<lp::row_strip<lp::mpq>, bound_prop>::analyze_row(row, z, bp);
         }
     }

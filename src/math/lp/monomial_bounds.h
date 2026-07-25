@@ -19,7 +19,7 @@ namespace nla {
 
         uint_set m_bound_changes;
         uint_set m_blocked_upper, m_blocked_lower;
-        uint_set m_frontier_vars, m_frontier_rows;
+        uint_set m_frontier_rows;
         bool m_collect_changes = false;
         bool m_block_retighten = false;
 

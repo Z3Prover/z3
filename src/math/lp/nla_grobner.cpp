@@ -637,6 +637,7 @@ namespace nla {
         }
         catch (dd::pdd_manager::mem_out) {
             IF_VERBOSE(2, verbose_stream() << "pdd throw\n");
+            TRACE(grobner, tout << "pdd throw\n");
             return false;
         }
         TRACE(grobner, m_solver.display(tout));
@@ -858,13 +859,12 @@ namespace nla {
 
     dd::pdd grobner::pdd_expr(const rational& coeff, lpvar j, u_dependency*& dep) {
         dd::pdd r = m_pdd_manager.mk_val(coeff);
+        u_dependency *zero_dep = dep;
         sbuffer<lpvar> vars;
         vars.push_back(j);
-        u_dependency* zero_dep = dep;
         while (!vars.empty()) {
             j = vars.back();
             vars.pop_back();
-
             if (c().params().arith_nl_grobner_subs_fixed() > 0 && c().var_is_fixed_to_zero(j)) {
                 r = m_pdd_manager.mk_val(val_of_fixed_var_with_deps(j, zero_dep));
                 dep = zero_dep;
@@ -872,7 +872,7 @@ namespace nla {
             }
             if (c().params().arith_nl_grobner_subs_fixed() == 1 && c().var_is_fixed(j))
                 r *= val_of_fixed_var_with_deps(j, dep);
-            else if (m_config.m_expand_terms && c().lra.column_has_term(j))
+            else if (!c().has_lower_bound(j) && !c().has_upper_bound(j) && m_config.m_expand_terms && c().lra.column_has_term(j))
                 r *= pdd_expr(c().lra.get_term(j), dep);
             else if (!c().is_monic_var(j))
                 r *= m_pdd_manager.mk_var(j);
