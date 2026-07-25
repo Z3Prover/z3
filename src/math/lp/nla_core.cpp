@@ -1525,6 +1525,7 @@ void core::set_use_nra_model(bool m) {
 
     
 bool core::propagate() {
+    clear();
     bool propagated = m_monomial_bounds.tighten_lp_bounds();
     if (m_monomial_bounds.propagate_changed_bounds())
         propagated = true;
