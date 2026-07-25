@@ -1555,6 +1555,7 @@ bool core::incremental_propagate() {
    bounds.
 */
 bool core::optimize_nl_bounds() {
+    return false;
     if (!params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
         return false;
 
