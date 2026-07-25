@@ -240,16 +240,16 @@ struct solver::imp {
             lra.init_model();
             for (lp::constraint_index ci : lra.constraints().indices())
                 if (!check_constraint(ci)) {
-                    IF_VERBOSE(0, verbose_stream() << "constraint " << ci << " violated\n";
+                    VERIFY(!m_coi.constraints().contains(ci));
+                    IF_VERBOSE(5, verbose_stream() << "constraint " << ci << " violated\n";
                                lra.constraints().display(verbose_stream()));
-                    UNREACHABLE();
                     return l_undef;
                 }
             for (auto const &m : m_nla_core.emons()) {
                 if (!check_monic(m)) {
-                    IF_VERBOSE(0, verbose_stream() << "monic " << m << " violated\n";
+                    VERIFY(!m_coi.mons().contains(m.var()));
+                    IF_VERBOSE(5, verbose_stream() << "monic " << m << " violated\n";
                                lra.constraints().display(verbose_stream()));
-                    UNREACHABLE();
                     return l_undef;
                 }
             }
