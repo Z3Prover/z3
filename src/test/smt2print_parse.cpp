@@ -374,4 +374,47 @@ void tst_smt2print_parse() {
         ENSURE(resp.find("unknown") == std::string::npos);
     }
 
+    // Regression test for GitHub issue #10241:
+    // A datatype/NLA script related to #10220 should terminate and return
+    // "unsat", not loop during arithmetic propagation.
+    {
+        char const* spec =
+            "(set-logic ALL)\n"
+            "(declare-datatype SBVRational ((SBV.Rational (sbv.rat.numerator Int) (sbv.rat.denominator Int))))\n"
+            "(define-fun sbv.rat.eq ((x SBVRational) (y SBVRational)) Bool\n"
+            "   (= (* (sbv.rat.numerator   x) (sbv.rat.denominator y))\n"
+            "      (* (sbv.rat.denominator x) (sbv.rat.numerator   y))))\n"
+            "(define-fun sbv.rat.notEq ((x SBVRational) (y SBVRational)) Bool\n"
+            "   (not (sbv.rat.eq x y)))\n"
+            "(define-fun s2 () SBVRational (SBV.Rational 1 5))\n"
+            "(define-fun s4 () SBVRational (SBV.Rational 1000001 5))\n"
+            "(declare-fun s0 () SBVRational)\n"
+            "(assert (< 0 (sbv.rat.denominator s0)))\n"
+            "(declare-fun s1 () SBVRational)\n"
+            "(assert (< 0 (sbv.rat.denominator s1)))\n"
+            "(define-fun s3 () Bool (sbv.rat.eq s0 s2))\n"
+            "(define-fun s5 () Bool (sbv.rat.eq s1 s4))\n"
+            "(define-fun s6 () Int (sbv.rat.numerator s0))\n"
+            "(define-fun s7 () Int (sbv.rat.denominator s1))\n"
+            "(define-fun s8 () Int (* s6 s7))\n"
+            "(define-fun s9 () Int (sbv.rat.denominator s0))\n"
+            "(define-fun s10 () Int (sbv.rat.numerator s1))\n"
+            "(define-fun s11 () Int (* s9 s10))\n"
+            "(define-fun s12 () Bool (< s8 s11))\n"
+            "(assert s3)\n"
+            "(assert s5)\n"
+            "(assert (not s12))\n"
+            "(check-sat)\n";
+
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        is_error = false;
+        std::string resp = Z3_eval_smtlib2_string(ctx, spec);
+        Z3_del_context(ctx);
+        std::cout << "Issue #10241 response: " << resp << "\n";
+        ENSURE(!is_error);
+        ENSURE(resp.find("unsat") != std::string::npos);
+        ENSURE(resp.find("unknown") == std::string::npos);
+    }
+
 }
