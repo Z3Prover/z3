@@ -74,7 +74,6 @@
     X(var_subst) \
     X(simple_parser) \
     X(api) \
-    X(max_rev) \
     X(scaled_min) \
     X(box_mod_opt) \
     X(box_independent) \
