@@ -238,30 +238,25 @@ struct solver::imp {
             m_nlsat->restore_order();
             m_nla_core.set_use_nra_model(true);
             lra.init_model();
-            for (lp::constraint_index ci : lra.constraints().indices())
-                if (!check_constraint(ci)) {
-                    // nlsat only solves over the cone-of-influence (COI) subset
-                    // of constraints, so constraints outside the COI may be
-                    // legitimately violated by the nlsat model. Only a violation
-                    // of a COI constraint indicates a genuine nlsat bug; a
-                    // non-COI violation is benign, so fall back to l_undef
-                    // quietly without emitting diagnostics.
-                    if (m_coi.constraints().contains(ci)) {
-                        IF_VERBOSE(0, verbose_stream() << "constraint " << ci << " violated\n";
-                                   lra.constraints().display(verbose_stream()));
-                        UNREACHABLE();
-                    }
-                    return l_undef;
+            // nlsat solves only over the COI subset; non-COI violations are benign.
+            // Only COI violations indicate a genuine nlsat bug.
+            for (lp::constraint_index ci : lra.constraints().indices()) {
+                if (check_constraint(ci)) continue;
+                if (m_coi.constraints().contains(ci)) {
+                    IF_VERBOSE(0, verbose_stream() << "constraint " << ci << " violated\n";
+                               lra.constraints().display(verbose_stream()));
+                    UNREACHABLE();
                 }
-            for (auto const &m : m_nla_core.emons()) {
-                if (!check_monic(m)) {
-                    if (m_coi.mons().contains(m.var())) {
-                        IF_VERBOSE(0, verbose_stream() << "monic " << m << " violated\n";
-                                   lra.constraints().display(verbose_stream()));
-                        UNREACHABLE();
-                    }
-                    return l_undef;
+                return l_undef;
+            }
+            for (auto const& m : m_nla_core.emons()) {
+                if (check_monic(m)) continue;
+                if (m_coi.mons().contains(m.var())) {
+                    IF_VERBOSE(0, verbose_stream() << "monic " << m << " violated\n";
+                               lra.constraints().display(verbose_stream()));
+                    UNREACHABLE();
                 }
+                return l_undef;
             }
             break;
         case l_false: {
