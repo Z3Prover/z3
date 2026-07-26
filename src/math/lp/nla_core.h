@@ -108,7 +108,8 @@ class core {
 
     nla_throttle             m_throttle;
     bool                     m_throttle_enabled = true;
-    bool                     m_bounds_optimization_enabled = true;
+    unsigned                 m_check_index = 0;
+    
 
 
 
@@ -118,8 +119,6 @@ class core {
     bool refine_pseudo_linear();
     bool is_pseudo_linear(monic const& m) const;    
     void refine_pseudo_linear(monic const& m);
-
-    bool optimize_nl_bounds();
 
     std::ostream& display_constraint_smt(std::ostream& out, unsigned id, lp::lar_base_constraint const& c) const;
     std::ostream& display_declarations_smt(std::ostream& out) const;
@@ -409,7 +408,6 @@ public:
 
     bool  no_lemmas_hold() const;
 
-    bool propagate();
     bool incremental_propagate();
 
     void simplify();

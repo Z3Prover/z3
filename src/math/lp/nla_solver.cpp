@@ -54,10 +54,6 @@ namespace nla {
         return m_core->check(level);
     }
 
-    bool solver::propagate() {
-        return m_core->propagate();
-    }
-
     bool solver::incremental_propagate() {
         return m_core->incremental_propagate();
     }

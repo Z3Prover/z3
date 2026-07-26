@@ -17,13 +17,10 @@ namespace nla {
     class monomial_bounds : common {
         dep_intervals& dep;
 
-        uint_set m_bound_changes;
-        uint_set m_blocked_upper, m_blocked_lower;
-        uint_set m_frontier_rows;
-        bool m_collect_changes = false;
-        bool m_block_retighten = false;
+        svector<lpvar> m_nl_vars;
+        uint_set m_nl_rows;
 
-        void propagate_bounds_on_rows();
+        bool propagate_bounds_on_rows(uint_set const& rows);
 
         bool tighten_lp_bound(dep_interval const &range, lpvar v, unsigned p);
         bool tighten_lp_upper_bound(dep_interval const& range, lpvar v, unsigned p);
@@ -59,10 +56,25 @@ namespace nla {
         bool propagate_changed_bound(monic & m);
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
+
+        svector<lpvar> const& collect_nl_vars();
+
     public:
         monomial_bounds(core* core);
-        void generate_lemmas();
-        bool tighten_lp_bounds();
+
+        // propagate bounds for all monomials
+        bool propagate_nl_bounds();
+
+        // optimize linear bounds for rows that contain monomials.
+        bool optimize_lp_bounds();
+
+        // propagate linear bounds for rows that contain monomials (incomplete, faster optimization).
+        bool propagate_lp_bounds();
+
+        // propagate bounds for monomials that have changed since the last call
         bool propagate_changed_bounds();
+
+        // extract lemmas based on bounds
+        void generate_lemmas();
     }; 
 }

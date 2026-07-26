@@ -643,21 +643,6 @@ namespace nla {
      */
     void monomial_bounds::propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
         SASSERT(cmp != llc::EQ && cmp != llc::NE);
-        if (m_collect_changes) {
-            if (m_block_retighten) {
-                if (cmp == llc::LE || cmp == llc::LT) {
-                    if (m_blocked_upper.contains(v))
-                        return;
-                    m_blocked_upper.insert(v);
-                }
-                else {
-                    if (m_blocked_lower.contains(v))
-                        return;
-                    m_blocked_lower.insert(v);
-                }
-            }
-            m_bound_changes.insert(v);
-        }
         if (!c().var_is_int(v))
             c().lra.update_column_type_and_bound(v, cmp, q, d);
         else if (q.is_int()) {
@@ -683,49 +668,24 @@ namespace nla {
         return propagated;
     }
        
-    bool monomial_bounds::tighten_lp_bounds() {
-        m_blocked_upper.reset();
-        m_blocked_lower.reset();
-        flet<bool> _collect(m_collect_changes, true);
-        flet<bool> _block(m_block_retighten, true);
-
-        bool scan_all = true;
-        bool found_bound = false;
-        while (c().lra.get_status() != lp::lp_status::INFEASIBLE) {
-            bool new_bound = false;
-            m_bound_changes.reset();
-            for (auto &m : c().emons())
-                if (tighten_lp(m))
-                    new_bound = true;
-            
-            //verbose_stream() << "tighten_lp_bounds: new_bound=" << new_bound 
-            //    << ", changes=" << m_bound_changes.num_elems() << "\n";
-
-            if (!scan_all && (!new_bound || m_bound_changes.empty())) 
-                break;
-            if (new_bound)
-                found_bound = !m_bound_changes.empty();
-            m_frontier_rows.reset();
-            if (scan_all) {
-                scan_all = false;
-                for (unsigned r = 0; r < c().lra.row_count(); ++r)
-                    m_frontier_rows.insert(r);               
-            }
-            else {
-                for (auto v : m_bound_changes) {
-                    if (v >= c().lra.column_count())
-                        continue;
-                    for (auto const& cell : c().lra.get_column(v)) 
-                        m_frontier_rows.insert(cell.var());                                            
-                }
-            }
-            propagate_bounds_on_rows();
-
-            if (m_bound_changes.empty())
-                break;
-            found_bound = true;
+    bool monomial_bounds::propagate_lp_bounds() {
+        auto const& nlvars = collect_nl_vars();
+        m_nl_rows.reset();
+        for (auto v : nlvars) {
+            if (v >= c().lra.column_count())
+                continue;
+            for (auto const &cell : c().lra.get_column(v))
+                m_nl_rows.insert(cell.var());
         }
-        return found_bound;
+        return propagate_bounds_on_rows(m_nl_rows);
+    }
+
+    bool monomial_bounds::propagate_nl_bounds() {
+        bool new_bound = false;
+        for (auto &m : c().emons())
+            if (tighten_lp(m))
+                new_bound = true;
+        return new_bound;
     }
 
     /**
@@ -736,11 +696,11 @@ namespace nla {
      * strengthen the LP bounds of x_k from that interval. Dependencies are tracked
      * so the tightened bounds can be explained.
      */
-    void monomial_bounds::propagate_bounds_on_rows() {
-        m_bound_changes.reset();
+    bool monomial_bounds::propagate_bounds_on_rows(uint_set const& rows) {
 
         struct bound_prop {
             monomial_bounds &m;
+            bool m_propagated = false;
             bound_prop(monomial_bounds &m) : m(m) {}
             lp::lar_solver& lp() { return m.c().lra; }
             lp::lar_solver const &lp() const { return m.c().lra; }
@@ -756,16 +716,98 @@ namespace nla {
                 rational r(u);
                 auto cmp = is_lower_bound ? (strict ? llc::GT : llc::GE) : (strict ? llc::LT : llc::LE);
                 m.propagate_lp_bound(v, cmp, r, dep);
+                m_propagated = true;
             }
         };
         bound_prop bp(*this);
         auto const &z = lp::zero_of_type<lp::numeric_pair<lp::mpq>>();
-        for (auto r : m_frontier_rows) {
+
+        for (auto r : rows) {
             if (r >= c().lra.row_count())
                 continue;
             auto const &row = c().lra.get_row(r);
             lp::bound_analyzer_on_row<lp::row_strip<lp::mpq>, bound_prop>::analyze_row(row, z, bp);
         }
+        return bp.m_propagated;
+    }
+
+    svector<lpvar> const& monomial_bounds::collect_nl_vars() {
+        m_nl_vars.reset();
+        auto add = [&](lpvar j) {
+            if (c().active_var_set_contains(j))
+                return;
+            c().insert_to_active_var_set(j);
+            m_nl_vars.push_back(j);
+        };
+        c().clear_active_var_set();
+        for (auto const &m : c().emons()) {
+            add(m.var());
+            for (lpvar k : m.vars())
+                add(k);
+        }
+        return m_nl_vars;
+    }
+
+    bool monomial_bounds::optimize_lp_bounds() {
+        if (!c().params().arith_nl_optimize_bounds())
+            return false;
+
+        IF_VERBOSE(2, verbose_stream() << "Optimizing bounds of nonlinear variables\n");
+
+        if (!c().lra.is_feasible())
+            return true;
+        if (c().lra.find_feasible_solution() == lp::lp_status::INFEASIBLE)
+            return true;
+
+        // Gather the candidate columns: every non-fixed leaf variable that
+        // participates in a monomial (mirrors solver=2's max_min_nl_vars).
+        auto const& cands = collect_nl_vars();
+
+        // Throttle: the LP maximize/minimize cost scales with the number of
+        // candidate variables (two LP optimizations each). On large nonlinear
+        // problems this pass is expensive and rarely productive, so skip it when the
+        // candidate set exceeds the threshold (0 = unlimited).
+        unsigned const max_vars = c().params().arith_nl_optimize_bounds_lp_max_vars();
+        if (max_vars > 0 && cands.size() > max_vars) {
+            IF_VERBOSE(2, verbose_stream() << "Skipping bounds optimization: " << cands.size()
+                                           << " candidate variables exceeds threshold " << max_vars << "\n");
+            return true;
+        }
+
+        IF_VERBOSE(2, verbose_stream() << "Candidate variables for bounds optimization: " << cands.size() << "\n");
+        // Collect improved bounds first (each find_improved_bound maximizes a term
+        // over the *unchanged* constraint set, so all improvements are valid implied
+        // bounds), then apply them together and re-establish feasibility once.
+        // Interleaving update_column_type_and_bound between the maximize calls
+        // corrupts the core solver's x/inf_heap (maximize_term_on_tableau issues a
+        // raw solve() that does not reconcile pending bound changes).
+        struct improved_bound {
+            lpvar j;
+            lp::lconstraint_kind kind;
+            rational bound;
+            u_dependency *dep;
+        };
+        vector<improved_bound> improvements;
+        for (lpvar j : cands) {
+            if (!c().lra.is_feasible())
+                break;
+            for (bool is_lower : {true, false}) {
+                rational bound;
+                u_dependency *dep = c().lra.find_improved_bound(j, is_lower, bound);
+                if (!dep)
+                    continue;
+                auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+                improvements.push_back({j, kind, bound, dep});
+            }
+        }
+
+        IF_VERBOSE(2, verbose_stream() << "Found " << improvements.size() << " improved bounds\n");
+        if (improvements.empty())
+            return false;
+
+        for (auto const &ib : improvements)
+            c().lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
+        return true;
     }
 }
 

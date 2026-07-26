@@ -1745,7 +1745,6 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        propagate_nla(); 
         if (!lp().is_feasible() || lp().has_changed_columns()) 
             is_sat = make_feasible();
         final_check_status st = FC_DONE;
@@ -2327,16 +2326,6 @@ public:
             break;
         }
         return true;            
-    }
-
-    bool propagate_nla() {
-        bool propagated = false;
-        if (m_nla) {
-            propagated = m_nla->propagate();
-            add_lemmas();
-            lp().collect_more_rows_for_lp_propagation();
-        }
-        return propagated;
     }
 
     bool incremental_propagate_nla() {

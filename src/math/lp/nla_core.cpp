@@ -1301,47 +1301,82 @@ lbool core::check(unsigned level) {
     init_search();
 
     lbool ret = l_undef;
-    bool run_grobner = need_run_grobner();
-    bool run_horner = need_run_horner();
-    bool run_bounds = params().arith_nl_branching();
+    bool new_lp_bounds = false;
 
-    auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
+    if (m_monomial_bounds.propagate_lp_bounds())
+        new_lp_bounds = true;    
     
-    if (no_effect())
-        m_monomial_bounds.generate_lemmas();
-
-    if (no_effect() && refine_pseudo_linear())
-        return l_false;
-       
-    
-    {
-        std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
-        std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
-        std::function<void(void)> check3 = [&]() { if (no_effect() && run_bounds) add_bounds(); };
-
-        std::pair<unsigned, std::function<void(void)>> checks[] =
-            { {1, check1},
-              {1, check2},
-              {1, check3} };
-        check_weighted(3, checks);
-
+    unsigned old_index = m_check_index;
+    trail().push(value_trail(m_check_index));
+    unsigned num_hammers = 8;
+    do {
+        switch (m_check_index) {
+        case 0: {
+            bool propagated = m_monomial_bounds.propagate_nl_bounds();
+            if (m_monomial_bounds.propagate_changed_bounds())
+                propagated = true;
+            m_monics_with_changed_bounds.reset();
+            if (propagated)
+                m_check_feasible = true;
+            break;
+        }
+        case 1: 
+            m_monomial_bounds.generate_lemmas(); 
+            break;
+        case 2:
+            if (refine_pseudo_linear())
+                ret = l_false;
+            break;
+        case 3: 
+            if (need_run_horner())
+                m_horner.horner_lemmas(); 
+            break;
+        case 4:
+            if (need_run_grobner())
+                m_grobner();
+            break;
+        case 5:
+            if (params().arith_nl_branching())
+                add_bounds();
+            break;
+        case 6:
+            if (params().arith_nl_nra_check_assignment() && !new_lp_bound &&
+                m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {
+                scoped_limits sl(m_reslim);
+                sl.push_child(&m_nra_lim);
+                ret = m_nra.check_assignment();
+                if (ret != l_true)
+                    ++m_check_assignment_fail_cnt;
+            }
+            break;
+        case 7:
+            if (should_run_bounded_nlsat())
+                ret = bounded_nlsat();
+            break;
+        default: 
+            UNREACHABLE();
+        }
+        m_check_index = (m_check_index + 1) % num_hammers;
         if (lp_settings().get_cancel_flag())
             return l_undef;
+        if (ret == l_false)
+            return ret;
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
-            return l_false;
+            return l_false; 
+        if (ret == l_true && !new_lp_bounds)
+            return l_true;
+    } 
+    while (m_check_index != old_index);
+
+    if (new_lp_bounds) {    
+        m_check_feasible = true;
+        return l_false;
     }
 
-    if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {
-        scoped_limits sl(m_reslim);
-        sl.push_child(&m_nra_lim);
-        ret = m_nra.check_assignment();
-        if (ret != l_true)
-            ++m_check_assignment_fail_cnt;
-    }
-
-    if (no_effect() && should_run_bounded_nlsat()) 
-        ret = bounded_nlsat();
-                
+    auto no_effect = [&]() {
+        return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible;
+    };
+                    
     if (no_effect()) 
         m_basics.basic_lemma(true); 
 
@@ -1350,7 +1385,6 @@ lbool core::check(unsigned level) {
 
     if (no_effect()) 
         m_divisions.check();
-
 
     if (no_effect()) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma();
@@ -1523,22 +1557,6 @@ void core::set_use_nra_model(bool m) {
     }
 }
 
-    
-bool core::propagate() {
-    clear();
-    if (!optimize_nl_bounds()) {
-        m_check_feasible = true;
-        return true;
-    }
-    bool propagated = m_monomial_bounds.tighten_lp_bounds();
-    if (m_monomial_bounds.propagate_changed_bounds())
-        propagated = true;
-    m_monics_with_changed_bounds.reset();
-    if (propagated)
-        m_check_feasible = true;
-    return propagated;
-}
-
 bool core::incremental_propagate() {
     bool propagated = false;
     clear();
@@ -1549,95 +1567,6 @@ bool core::incremental_propagate() {
         m_check_feasible = true;
     return propagated;    
 }
-
-/**
-   \brief Tighten the bounds of variables occurring in nonlinear monomials by
-   maximizing/minimizing them over the LP tableau (analogous to theory_arith's
-   max_min_nl_vars). The tighter implied bounds, each carrying an LP explanation,
-   let the subsequent horner/cross-nested interval evaluation exclude zero and
-   detect a conflict that would otherwise be missed with only the propagated
-   bounds.
-*/
-bool core::optimize_nl_bounds() {
-    if (!params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled) 
-        return true;
-    
-    IF_VERBOSE(2, verbose_stream() << "Optimizing bounds of nonlinear variables\n");
-    trail().push(value_trail(m_bounds_optimization_enabled));
-    m_bounds_optimization_enabled = false;
-
-    if (!lra.is_feasible())
-        return false;
-    if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE)
-        return false;
-
-    // Gather the candidate columns: every non-fixed leaf variable that
-    // participates in a monomial (mirrors solver=2's max_min_nl_vars).
-    svector<lpvar> cands;
-    auto add = [&](lpvar j) {
-        if (active_var_set_contains(j))
-            return;
-        insert_to_active_var_set(j);
-        cands.push_back(j);
-    };
-    clear_active_var_set();
-    for (auto const& m : m_emons) {
-        add(m.var());
-        for (lpvar k : m.vars())
-            add(k);
-    }
-
-    // Throttle: the LP maximize/minimize cost scales with the number of
-    // candidate variables (two LP optimizations each). On large nonlinear
-    // problems this pass is expensive and rarely productive, so skip it when the
-    // candidate set exceeds the threshold (0 = unlimited).
-    unsigned const max_vars = params().arith_nl_optimize_bounds_lp_max_vars();
-    if (max_vars > 0 && cands.size() > max_vars) {
-        IF_VERBOSE(2, verbose_stream() << "Skipping bounds optimization: " << cands.size()
-                                       << " candidate variables exceeds threshold " << max_vars << "\n");
-        return true;
-    }
-    if (max_vars != 0 && cands.size() > max_vars)
-        return true;
-
-    IF_VERBOSE(2, verbose_stream() << "Candidate variables for bounds optimization: " << cands.size() << "\n");
-    // Collect improved bounds first (each find_improved_bound maximizes a term
-    // over the *unchanged* constraint set, so all improvements are valid implied
-    // bounds), then apply them together and re-establish feasibility once.
-    // Interleaving update_column_type_and_bound between the maximize calls
-    // corrupts the core solver's x/inf_heap (maximize_term_on_tableau issues a
-    // raw solve() that does not reconcile pending bound changes).
-    struct improved_bound { lpvar j; lp::lconstraint_kind kind; rational bound; u_dependency* dep; };
-    vector<improved_bound> improvements;
-    for (lpvar j : cands) {
-        if (!lra.is_feasible())
-            break;
-        for (bool is_lower : { true, false }) {
-            rational bound;
-            u_dependency* dep = lra.find_improved_bound(j, is_lower, bound);
-            if (!dep)
-                continue;
-            auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
-            improvements.push_back({ j, kind, bound, dep });
-        }
-    }
-
-    IF_VERBOSE(2, verbose_stream() << "Found " << improvements.size() << " improved bounds\n");
-    if (improvements.empty())
-        return false;
-
-    for (auto const& ib : improvements)
-        lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
-    lra.find_feasible_solution();
-    TRACE(arith, lra.display(tout););
-    if (lra.is_feasible()) {
-        propagate();
-        lra.find_feasible_solution();
-    }
-    IF_VERBOSE(2, verbose_stream() << "feasible " << lra.is_feasible() << " nonlinear variables\n";);
-    return lra.is_feasible();
-}
-
 
 void core::simplify() {
     // in-processing simplifiation can go here, such as bounds improvements.
