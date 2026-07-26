@@ -1843,19 +1843,22 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::max_min(svector<theory_var> const & vars) { 
-        bool succ = false;
+        unsigned succ = 0;
         bool has_shared = false;
+        IF_VERBOSE(2, verbose_stream() << "(arith.max_min " << vars.size() << ")\n");
+        
         svector<theory_var>::const_iterator it  = vars.begin();
         svector<theory_var>::const_iterator end = vars.end();
         for (; it != end; ++it) {
             if (max_min(*it, true, false, has_shared) == OPTIMIZED && !has_shared)
-                succ = true;
+                succ++;
             if (max_min(*it, false, false, has_shared) == OPTIMIZED && !has_shared)
-                succ = true;
+                succ++;
         }
-        if (succ) {
+        if (succ > 0) {
             // process new bounds
             bool r = propagate_core();
+            IF_VERBOSE(2, verbose_stream() << "(arith.max_min.propagate " << succ << " feasible " << r << ")\n");
             TRACE(opt, tout << "after max/min round:\n"; display(tout););
             return r;
         }

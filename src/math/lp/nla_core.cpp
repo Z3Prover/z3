@@ -1526,6 +1526,10 @@ void core::set_use_nra_model(bool m) {
     
 bool core::propagate() {
     clear();
+    if (!optimize_nl_bounds()) {
+        m_check_feasible = true;
+        return true;
+    }
     bool propagated = m_monomial_bounds.tighten_lp_bounds();
     if (m_monomial_bounds.propagate_changed_bounds())
         propagated = true;
@@ -1555,10 +1559,10 @@ bool core::incremental_propagate() {
    bounds.
 */
 bool core::optimize_nl_bounds() {
-    return false;
-    if (!params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
-        return false;
-
+    if (!params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled) 
+        return true;
+    
+    IF_VERBOSE(2, verbose_stream() << "Optimizing bounds of nonlinear variables\n");
     trail().push(value_trail(m_bounds_optimization_enabled));
     m_bounds_optimization_enabled = false;
 
@@ -1574,8 +1578,6 @@ bool core::optimize_nl_bounds() {
         if (active_var_set_contains(j))
             return;
         insert_to_active_var_set(j);
-        if (lra.column_is_fixed(j))
-            return;
         cands.push_back(j);
     };
     clear_active_var_set();
@@ -1590,9 +1592,15 @@ bool core::optimize_nl_bounds() {
     // problems this pass is expensive and rarely productive, so skip it when the
     // candidate set exceeds the threshold (0 = unlimited).
     unsigned const max_vars = params().arith_nl_optimize_bounds_lp_max_vars();
+    if (max_vars > 0 && cands.size() > max_vars) {
+        IF_VERBOSE(2, verbose_stream() << "Skipping bounds optimization: " << cands.size()
+                                       << " candidate variables exceeds threshold " << max_vars << "\n");
+        return true;
+    }
     if (max_vars != 0 && cands.size() > max_vars)
-        return false;
+        return true;
 
+    IF_VERBOSE(2, verbose_stream() << "Candidate variables for bounds optimization: " << cands.size() << "\n");
     // Collect improved bounds first (each find_improved_bound maximizes a term
     // over the *unchanged* constraint set, so all improvements are valid implied
     // bounds), then apply them together and re-establish feasibility once.
@@ -1614,6 +1622,7 @@ bool core::optimize_nl_bounds() {
         }
     }
 
+    IF_VERBOSE(2, verbose_stream() << "Found " << improvements.size() << " improved bounds\n");
     if (improvements.empty())
         return false;
 
@@ -1621,7 +1630,12 @@ bool core::optimize_nl_bounds() {
         lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
     lra.find_feasible_solution();
     TRACE(arith, lra.display(tout););
-    return true;
+    if (lra.is_feasible()) {
+        propagate();
+        lra.find_feasible_solution();
+    }
+    IF_VERBOSE(2, verbose_stream() << "feasible " << lra.is_feasible() << " nonlinear variables\n";);
+    return lra.is_feasible();
 }
 
 

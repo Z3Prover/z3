@@ -605,6 +605,7 @@ bool theory_arith<Ext>::check_monomial_assignment(theory_var v, bool & computed_
         TRACE(non_linear, tout << mk_pp(arg, get_manager()) << " = " << v_val << "\n";);
         val *= v_val;
     }
+
     v_val = get_value(v, computed_epsilon);
     TRACE(non_linear, tout << "v" << v << " := " << v_val << " == " << val << "\n";);
     return v_val == val;
@@ -2360,18 +2361,21 @@ final_check_status theory_arith<Ext>::process_non_linear() {
     do {
         progress = false;
         switch (m_nl_strategy_idx) {
-        case 0:
+        case 0:            
             if (propagate_nl_bounds()) {
                 propagate_core();
+                IF_VERBOSE(2, verbose_stream() << "propagate-nl-bounds unsat:" << ctx.inconsistent() << "\n");
                 progress = true;
             }
             break;
         case 1:
+            IF_VERBOSE(2, verbose_stream() << "propagate-cross-nested\n");
             if (m_params.m_nl_arith_cross_nested && !is_cross_nested_consistent(vars))
                 progress = true;
             break;
         case 2:
             if (m_params.m_nl_arith_gb) {
+                IF_VERBOSE(2, verbose_stream() << "propagate-grobner\n");
                 switch(compute_grobner(vars)) {
                 case GB_PROGRESS:
                     progress = true;
@@ -2388,8 +2392,10 @@ final_check_status theory_arith<Ext>::process_non_linear() {
         case 3:
             if (m_params.m_nl_arith_branching) {
                 theory_var target = find_nl_var_for_branching();
-                if (target != null_theory_var && branch_nl_int_var(target))
+                if (target != null_theory_var && branch_nl_int_var(target)) {
                     progress = true;
+                    IF_VERBOSE(2, verbose_stream() << "propagate-arith-branching\n");
+                }
             }
             break;
         }
