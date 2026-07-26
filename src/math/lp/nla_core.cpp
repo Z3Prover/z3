@@ -1340,7 +1340,7 @@ lbool core::check(unsigned level) {
                 add_bounds();
             break;
         case 6:
-            if (params().arith_nl_nra_check_assignment() && !new_lp_bound &&
+            if (params().arith_nl_nra_check_assignment() && !new_lp_bounds &&
                 m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {
                 scoped_limits sl(m_reslim);
                 sl.push_child(&m_nra_lim);
