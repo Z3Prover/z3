@@ -334,6 +334,7 @@ namespace lp {
             mpq range;
             mpq new_range;
             mpq small_value(1024);
+            mpq min_any_value;
             unsigned prev_usage = 0;
 
             auto add_column = [&](bool improved, int& result, unsigned& n, unsigned j) {
@@ -369,9 +370,21 @@ namespace lp {
                     continue;
                 }
                 TRACE(int_solver, tout << "any j" << j << "\n");
-                add_column(usage >= prev_usage, r_any_value, n_any_value, j);
-                if (usage > prev_usage) 
+                // Among columns with a large value, prefer the one whose
+                // absolute value is smallest to avoid branching on ever
+                // larger integers when better (smaller) options are available.
+                mpq const abs_value = abs(value.x);
+                if (r_any_value == -1 || abs_value < min_any_value) {
+                    r_any_value = j;
+                    min_any_value = abs_value;
+                    n_any_value = 1;
                     prev_usage = usage;
+                }
+                else if (abs_value == min_any_value) {
+                    add_column(usage >= prev_usage, r_any_value, n_any_value, j);
+                    if (usage > prev_usage)
+                        prev_usage = usage;
+                }
             }
 
             if (r_small_box != -1 && (random() % 3 != 0))
