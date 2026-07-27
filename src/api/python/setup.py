@@ -163,7 +163,13 @@ def _configure_z3():
         'Z3_BUILD_PYTHON_BINDINGS' : True,
         # Build Options
         'CMAKE_BUILD_TYPE' : 'Release',
-        'Z3_BUILD_EXECUTABLE' : True,
+        # For Pyodide/emscripten builds, skip the z3 shell executable.  The
+        # pyodide ldflags include -sSIDE_MODULE=1 which cmake propagates to
+        # CMAKE_EXE_LINKER_FLAGS, causing the shell to be linked as a WASM
+        # side-module whose output name cannot be predicted reliably.  Python
+        # users only need libz3.so (loaded via ctypes); the CLI is not usable
+        # inside a Pyodide environment anyway.
+        'Z3_BUILD_EXECUTABLE' : not IS_PYODIDE,
         'Z3_BUILD_LIBZ3_SHARED' : True,
         'Z3_LINK_TIME_OPTIMIZATION' : ENABLE_LTO,
         'WARNINGS_AS_ERRORS' : 'SERIOUS_ONLY',
@@ -226,20 +232,22 @@ def _copy_bins():
     # STEP 2: Copy the shared library, the executable and the headers
 
     os.mkdir(LIBS_DIR)
-    os.mkdir(BINS_DIR)
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
-    executable_src = None
-    executable_names = (EXECUTABLE_FILE,) + tuple(EXECUTABLE_FILE_FALLBACKS)
-    for executable_name in executable_names:
-        executable_src_candidate = os.path.join(BUILD_DIR, executable_name)
-        if os.path.exists(executable_src_candidate):
-            executable_src = executable_src_candidate
-            break
-    if executable_src is None:
-        attempted_files = "\n- ".join(os.path.join(BUILD_DIR, executable_name) for executable_name in executable_names)
-        raise FileNotFoundError(f"Could not find any executable in build directory. Tried:\n- {attempted_files}")
-    shutil.copy(executable_src, os.path.join(BINS_DIR, EXECUTABLE_FILE))
+    if not IS_PYODIDE:
+        # The shell executable is not built for Pyodide (see _configure_z3).
+        os.mkdir(BINS_DIR)
+        executable_src = None
+        executable_names = (EXECUTABLE_FILE,) + tuple(EXECUTABLE_FILE_FALLBACKS)
+        for executable_name in executable_names:
+            executable_src_candidate = os.path.join(BUILD_DIR, executable_name)
+            if os.path.exists(executable_src_candidate):
+                executable_src = executable_src_candidate
+                break
+        if executable_src is None:
+            attempted_files = "\n- ".join(os.path.join(BUILD_DIR, executable_name) for executable_name in executable_names)
+            raise FileNotFoundError(f"Could not find any executable in build directory. Tried:\n- {attempted_files}")
+        shutil.copy(executable_src, os.path.join(BINS_DIR, EXECUTABLE_FILE))
     path1 = glob.glob(os.path.join(BUILD_DIR, "msvcp*"))
     path2 = glob.glob(os.path.join(BUILD_DIR, "vcomp*"))
     path3 = glob.glob(os.path.join(BUILD_DIR, "vcrun*"))
@@ -385,6 +393,6 @@ setup(
     package_data={
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
-    data_files=[('bin',[os.path.join('bin',EXECUTABLE_FILE)])],
+    data_files=[('bin',[os.path.join('bin',EXECUTABLE_FILE)])] if not IS_PYODIDE else [],
     cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_wheel': bdist_wheel},
 )
