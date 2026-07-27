@@ -386,10 +386,12 @@ namespace smt {
             enode *active_elem_root = nullptr;
             bool multiple_singleton_classes = false;
             for (auto& [en, b] : n2b) {
-                if (!u.is_singleton(en->get_expr())) continue;
-                if (!mdl->is_true(b)) continue;
+                if (!u.is_singleton(en->get_expr())) 
+                    continue;
+                if (!mdl->is_true(b)) 
+                    continue;
                 auto elem_root = en->get_arg(0)->get_root();
-                if (active_elem_root == nullptr) {
+                if (!active_elem_root) {
                     active_elem_root = elem_root;
                 } else if (active_elem_root != elem_root) {
                     multiple_singleton_classes = true;
@@ -398,15 +400,20 @@ namespace smt {
             }
 
             bool has_definite_member = false;
-            if (!multiple_singleton_classes && active_elem_root != nullptr) {
+            if (!multiple_singleton_classes && active_elem_root) {
                 for (auto& [k, v] : m_assumptions) {
-                    if (!std::holds_alternative<in>(v)) continue;
+                    if (!std::holds_alternative<in>(v)) 
+                        continue;
                     auto& in_val = std::get<in>(v);
-                    if (!in_val.is_pos) continue;
-                    if (in_val.n->get_arg(0)->get_root() != active_elem_root) continue;
+                    if (!in_val.is_pos) 
+                        continue;
+                    if (in_val.n->get_arg(0)->get_root() != active_elem_root) 
+                        continue;
                     auto set_en = in_val.n->get_arg(1);
-                    if (!n2b.contains(set_en)) continue;
-                    if (!mdl->is_true(n2b[set_en])) continue;
+                    if (!n2b.contains(set_en)) 
+                        continue;
+                    if (!mdl->is_true(n2b[set_en])) 
+                        continue;
                     has_definite_member = true;
                     break;
                 }
