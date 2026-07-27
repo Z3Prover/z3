@@ -49,10 +49,10 @@ jobs:
     env:
       Z3_REF: ${{ github.event.inputs.z3_ref || 'master' }}
       Z3_CMAKE_ARGS: ${{ github.event.inputs.z3_cmake_args || '' }}
-      Z3_RUNTIME_ARGS: ${{ github.event.inputs.z3_runtime_args || 'smt.ho_matching=true' }}
+      Z3_RUNTIME_ARGS: ${{ github.event.inputs.z3_runtime_args || 'smt.ho_matching=false' }}
       FSTAR_REF: ${{ github.event.inputs.fstar_ref || 'master' }}
       FSTAR_OPAM_SWITCH: ${{ github.event.inputs.fstar_opam_switch || '4.14.2' }}
-      FSTAR_OTHERFLAGS: ${{ github.event.inputs.fstar_otherflags || '' }}
+      FSTAR_OTHERFLAGS: ${{ github.event.inputs.fstar_otherflags || '--split_queries on_failure --log_failing_queries --ext higher_order_smt --proof_recovery' }}
       DISCUSSION_CATEGORY: ${{ github.event.inputs.discussion_category || 'Agentic Workflows' }}
     steps:
       - name: Checkout Z3
