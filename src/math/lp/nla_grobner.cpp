@@ -719,6 +719,10 @@ namespace nla {
                 TRACE(grobner, m_solver.display(tout << "horner conflict ", e) << "\n");
                 return true;
             }
+            if (c().params().arith_nl_grobner_perfect_squares() && add_perfect_square_conflict(e)) {
+                TRACE(grobner, m_solver.display(tout << "perfect-square conflict ", e) << "\n");
+                return true;
+            }
             return false;
         }
         evali.get_interval<dd::w_dep::with_deps>(e.poly(), i_wd);  
@@ -734,6 +738,156 @@ namespace nla {
             TRACE(grobner, m_solver.display(tout << "no conflict ", e) << "\n");
             return false;
         }
+    }
+
+    // Helpers for perfect-square conflict detection (port of theory_arith_nl's
+    // is_inconsistent2). Variable lists are assumed sorted ascending.
+
+    // Return true and set root=sqrt(coeff) if (coeff, vars) is a perfect square
+    // a^2 * M^2 (coeff a perfect square and every variable of even multiplicity).
+    static bool ps_root(rational const& coeff, unsigned_vector const& vars, rational& root) {
+        if (vars.size() % 2 == 1)
+            return false;
+        if (!coeff.is_perfect_square(root))
+            return false;
+        unsigned i = 0, n = vars.size();
+        while (i < n) {
+            unsigned v = vars[i];
+            unsigned power = 1;
+            ++i;
+            for (; i < n && vars[i] == v; ++i)
+                ++power;
+            if (power % 2 == 1)
+                return false;
+        }
+        return true;
+    }
+
+    // Return true if v12/c12 is the cross term (-2ab)*M1*M2, given that
+    // (v1,a^2) and (v2,b^2) are perfect squares a^2*M1^2 and b^2*M2^2.
+    static bool ps_cross(rational const& a, unsigned_vector const& v1,
+                         rational const& b, unsigned_vector const& v2,
+                         rational const& c12, unsigned_vector const& v12) {
+        if (!c12.is_neg())
+            return false;
+        rational c(-2);
+        c *= a;
+        c *= b;
+        if (c12 != c)
+            return false;
+        unsigned n1 = v1.size(), n2 = v2.size(), n12 = v12.size();
+        if (n1 + n2 != n12 * 2)
+            return false;
+        unsigned i1 = 0, i2 = 0, i12 = 0;
+        while (true) {
+            bool e1 = i1 < n1, e2 = i2 < n2, e12 = i12 < n12;
+            if (!e1 && !e2 && !e12)
+                return true;
+            if (!e12)
+                return false;
+            unsigned x12 = v12[i12];
+            if (e1 && v1[i1] == x12) { i1 += 2; ++i12; }
+            else if (e2 && v2[i2] == x12) { i2 += 2; ++i12; }
+            else return false;
+        }
+    }
+
+    // r <- coeff * prod(var^power) over the (sorted) variable list.
+    template <dep_intervals::with_deps_t wd>
+    void grobner::monomial_interval(rational const& coeff, unsigned_vector const& vars, scoped_dep_interval& r) {
+        auto& di = c().m_intervals.get_dep_intervals();
+        di.set_value(r, coeff);
+        unsigned i = 0, n = vars.size();
+        while (i < n) {
+            lpvar v = vars[i];
+            unsigned power = 1;
+            ++i;
+            for (; i < n && vars[i] == v; ++i)
+                ++power;
+            scoped_dep_interval vi(di), vp(di), tmp(di);
+            c().m_intervals.set_var_interval<wd>(v, vi);
+            di.power<wd>(vi, power, vp);
+            di.mul<wd>(r, vp, tmp);
+            di.set<wd>(r, tmp);
+        }
+    }
+
+    // Perfect-square conflict detection: within a grobner equation e = 0, find a
+    // triple of monomials a^2*M1^2, b^2*M2^2, -2ab*M1*M2 forming (a*M1 - b*M2)^2.
+    // Replace such a triple by [0, oo) when that improves the lower bound, then
+    // check whether the resulting interval of e separates from zero.
+    bool grobner::add_perfect_square_conflict(const dd::solver::equation& e) {
+        vector<rational> coeffs;
+        vector<unsigned_vector> varss;
+        for (auto const& [coeff, vars] : e.poly()) {
+            unsigned_vector vs(vars);
+            std::sort(vs.begin(), vs.end());
+            coeffs.push_back(coeff);
+            varss.push_back(vs);
+        }
+        unsigned num = coeffs.size();
+        if (num < 3)
+            return false;
+        auto& di = c().m_intervals.get_dep_intervals();
+        svector<bool> deleted;
+        deleted.resize(num, false);
+        bool found = false;
+        for (unsigned i = 0; i < num; ++i) {
+            if (deleted[i])
+                continue;
+            rational a;
+            if (!ps_root(coeffs[i], varss[i], a))
+                continue;
+            for (unsigned j = i + 1; j < num && !deleted[i]; ++j) {
+                if (deleted[j])
+                    continue;
+                rational b;
+                if (!ps_root(coeffs[j], varss[j], b))
+                    continue;
+                for (unsigned k = i + 1; k < num; ++k) {
+                    if (k == j || deleted[k])
+                        continue;
+                    if (!ps_cross(a, varss[i], b, varss[j], coeffs[k], varss[k]))
+                        continue;
+                    // does [0,oo) improve on the summed interval of the triple?
+                    scoped_dep_interval Ii(di), Ij(di), Ik(di), s1(di), s2(di);
+                    monomial_interval<dd::w_dep::without_deps>(coeffs[i], varss[i], Ii);
+                    monomial_interval<dd::w_dep::without_deps>(coeffs[j], varss[j], Ij);
+                    monomial_interval<dd::w_dep::without_deps>(coeffs[k], varss[k], Ik);
+                    di.add<dd::w_dep::without_deps>(Ii, Ij, s1);
+                    di.add<dd::w_dep::without_deps>(s1, Ik, s2);
+                    if (di.lower_is_inf(s2) || rational(di.lower(s2)).is_neg()) {
+                        deleted[i] = deleted[j] = deleted[k] = true;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!found)
+            return false;
+        // Rebuild the interval of e with the perfect squares replaced by [0, oo)
+        // (an unconditional lower bound, hence no dependency), tracking deps of
+        // the remaining monomials, and check whether it separates from zero.
+        scoped_dep_interval sum(di);
+        di.reset(sum);
+        di.set_lower_is_inf(sum, false);
+        di.set_lower(sum, rational::zero());
+        di.set_lower_is_open(sum, false);
+        di.set_upper_is_inf(sum, true);
+        for (unsigned i = 0; i < num; ++i) {
+            if (deleted[i])
+                continue;
+            scoped_dep_interval Ii(di), tmp(di);
+            monomial_interval<dd::w_dep::with_deps>(coeffs[i], varss[i], Ii);
+            di.add<dd::w_dep::with_deps>(sum, Ii, tmp);
+            di.set<dd::w_dep::with_deps>(sum, tmp);
+        }
+        std::function<void (const lp::explanation&)> f = [this](const lp::explanation& expl) {
+            lemma_builder lemma(m_core, "pdd-perfect-square");
+            lemma &= expl;
+        };
+        return di.check_interval_for_conflict_on_zero(sum, e.dep(), f);
     }
 
     bool grobner::propagate_linear_equations() {
