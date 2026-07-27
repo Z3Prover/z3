@@ -2796,7 +2796,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
           for (let i = 0; i < a.numEntries(); i++) {
             const e = a.entry(i);
             const n = e.numArgs();
-            const args = globalThis.Array(n).map((_, i) => e.argValue(i));
+            const args = globalThis.Array.from({ length: n }, (_, i) => e.argValue(i));
             funcInterp.addEntry(args, e.value());
           }
           return;
