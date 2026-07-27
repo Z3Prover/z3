@@ -200,7 +200,8 @@
     X(seq_regex_bisim) \
     X(term_enumeration) \
     X(lcube) \
-    X(psmt)
+    X(psmt) \
+    X(fpa_div)
 
 #define FOR_EACH_TEST(X, X_ARGV) \
     FOR_EACH_ALL_TEST(X, X_ARGV) \
