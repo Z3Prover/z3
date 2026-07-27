@@ -22,6 +22,7 @@ Revision History:
 #include "util/file_path.h"
 #include "util/scoped_timer.h"
 #include "util/file_path.h"
+#include "util/memory_manager.h"
 #include "ast/ast_pp.h"
 #include "api/z3.h"
 #include "api/api_log_macros.h"
@@ -514,6 +515,15 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_reset(c, s);
         RESET_ERROR_CODE();
+        struct scoped_memory_limit_reset {
+            size_t m_prev_max;
+            scoped_memory_limit_reset(): m_prev_max(memory::get_max_size()) {
+                memory::set_max_size(0);
+            }
+            ~scoped_memory_limit_reset() {
+                memory::set_max_size(m_prev_max);
+            }
+        } scoped_max_memory;
         to_solver(s)->m_solver = nullptr;
         to_solver(s)->m_cmd_context = nullptr;
         if (to_solver(s)->m_pp) to_solver(s)->m_pp->reset();

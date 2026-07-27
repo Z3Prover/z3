@@ -55,6 +55,7 @@ public:
     static void set_high_watermark(size_t watermak);
     static bool above_high_watermark();
     static void set_max_size(size_t max_size);
+    static size_t get_max_size();
     static void set_max_alloc_count(size_t max_count);
     static void finalize(bool shutdown = true);
     static void display_max_usage(std::ostream& os);
@@ -155,6 +156,5 @@ inline std::ostream & operator<<(std::ostream & out, mem_stat const & m) {
     double mem = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
     return out << std::fixed << std::setprecision(2) << mem;
 }
-
 
 
