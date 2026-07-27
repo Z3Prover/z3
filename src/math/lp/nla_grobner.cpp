@@ -872,7 +872,7 @@ namespace nla {
             }
             if (c().params().arith_nl_grobner_subs_fixed() == 1 && c().var_is_fixed(j))
                 r *= val_of_fixed_var_with_deps(j, dep);
-            else if (m_config.m_expand_terms && c().lra.column_has_term(j))
+            else if (c().var_is_free(j) && m_config.m_expand_terms && c().lra.column_has_term(j))
                 r *= pdd_expr(c().lra.get_term(j), dep);
             else if (!c().is_monic_var(j))
                 r *= m_pdd_manager.mk_var(j);
