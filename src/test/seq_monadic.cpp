@@ -20,8 +20,10 @@ Author:
 #include "ast/ast.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include <iostream>
 
 namespace {
@@ -84,6 +86,52 @@ class seq_monadic_test {
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+    }
+
+    // flatten a ground sequence term into its element values.
+    void flatten_seq(expr* seqv, ptr_vector<expr>& elems) {
+        zstring zs;
+        if (u.str.is_concat(seqv)) {
+            for (expr* arg : *to_app(seqv)) flatten_seq(arg, elems);
+            return;
+        }
+        if (u.str.is_empty(seqv))
+            return;
+        if (u.str.is_string(seqv, zs)) {
+            for (unsigned i = 0; i < zs.length(); ++i) elems.push_back(u.str.mk_char(zs, i));
+            return;
+        }
+        if (u.str.is_unit(seqv))
+            elems.push_back(to_app(seqv)->get_arg(0));
+    }
+
+    // decide membership of a concrete word (list of element values) in R by folding
+    // derivatives and testing nullability of the residual.
+    bool word_in_re(ptr_vector<expr> const& elems, expr* R) {
+        expr_ref cur(R, m);
+        for (expr* e : elems) cur = m_rw.mk_derivative(e, cur);
+        return m.is_true(m_rw.is_nullable(cur));
+    }
+
+    // solve for a model, then check the returned witness assignment actually makes
+    // term a member of R (substitute var -> witness and re-decide by derivatives).
+    void check_witness(char const* name, expr* term, expr* R,
+                       obj_map<expr, expr*> const& ve) {
+        obj_map<expr, expr*> model;
+        lbool got = m_mon.solve(term, R, ve, &model);
+        bool ok = (got == l_true) && !model.empty();
+        if (ok) {
+            expr_safe_replace rep(m);
+            for (auto const& kv : model) rep.insert(kv.m_key, kv.m_value);
+            expr_ref g(m);
+            rep(term, g);
+            ptr_vector<expr> elems;
+            flatten_seq(g, elems);
+            ok = word_in_re(elems, R);
+        }
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  solve=" << s(got) << " witness-verified=" << (ok ? "yes" : "no") << "\n";
     }
 
 public:
@@ -162,6 +210,51 @@ public:
         obj_map<expr, expr*> ve4; ve4.insert(x, digitp);
         // x.y.x in [0-9]{3}, x in [0-9]+ -> sat (x=1 digit, y=1 digit)
         check_extra("[0-9]{3} & x[0-9]+       x.y.x", xyx(x, y), loop(clsr, 3, 3), ve4, l_true);
+
+        // ---- witness extraction: a produced witness must be a concrete SEQUENCE of
+        // ---- elements that actually satisfies the membership (not a predicate).
+        std::cout << "=== seq_monadic: witness extraction (char) ===\n";
+        obj_map<expr, expr*> nove;
+        check_witness("(a|b)*        x.a.x", xwx(x, "a"), star(alt(a, b)), nove);
+        check_witness("Sig*aaSig*    x.a.x", xwx(x, "a"), saas, nove);      // forces nonempty x
+        check_witness("~(a*.b)       x.a.x", xwx(x, "a"), comp(cat(star(a), b)), nove);
+        check_witness("L3-03         x.a.x", xwx(x, "a"),
+                      comp(cat(star(a), comp(cat(star(b), comp(star(ab)))))), nove);
+        check_witness("(a|b)*        x.a.y", xay(x, y), star(alt(a, b)), nove);
+        check_witness("Sig*          x.y.x", xyx(x, y), dotstar(), nove);
+        check_witness("Sig* & y[0-9]+ x.a.y", xay(x, y), dotstar(), ve);    // ve: y in [0-9]+
+        check_witness("[0-9]{2}&x[0-9]+ y[0-9]* x.y.x", xyx(x, y), loop22, ve2);
+
+        // ---- generic element sort: sequences of Int exercise the non-character guard
+        // ---- algebra (candidate-basis emptiness + witness), not seq::range_predicate.
+        std::cout << "=== seq_monadic: generic element sort (Seq Int) ===\n";
+        arith_util ar(m);
+        sort_ref intS(ar.mk_int(), m);
+        sort_ref seqI(u.str.mk_seq(intS), m);
+        sort_ref reI(u.re.mk_re(seqI), m);
+        expr_ref i1(ar.mk_numeral(rational(1), true), m);
+        expr_ref i2(ar.mk_numeral(rational(2), true), m);
+        expr_ref one_seq(u.str.mk_unit(i1), m);                 // [1] : (Seq Int)
+        expr_ref re1(re().mk_to_re(u.str.mk_unit(i1)), m);      // matches [1]
+        expr_ref re2(re().mk_to_re(u.str.mk_unit(i2)), m);      // matches [2]
+        expr_ref re12s(star(alt(re1, re2)), m);                 // ([1]|[2])*
+        expr_ref re2s(star(re2), m);                            // [2]*
+        expr_ref xi(m.mk_const("xi", seqI), m);
+        expr_ref yi(m.mk_const("yi", seqI), m);
+        expr_ref xi1xi(sconcat(xi, sconcat(one_seq, xi)), m);   // xi.[1].xi
+        expr_ref xiyi(sconcat(xi, sconcat(one_seq, yi)), m);    // xi.[1].yi
+        obj_map<expr, expr*> nove2;
+        check("([1]|[2])*   xi.[1].xi", xi1xi, re12s, l_true);
+        check("[2]*         xi.[1].xi", xi1xi, re2s,  l_false); // the middle [1] is not in [2]*
+        check("([1]|[2])*   xi        ", xi, re12s, l_true);
+        check("([1]|[2])*   xi.[1].yi", xiyi, re12s, l_true);
+        check_witness("([1]|[2])* xi.[1].xi", xi1xi, re12s, nove2);
+        check_witness("([1]|[2])* xi       ", xi, re12s, nove2);
+        check_witness("([1]|[2])* xi.[1].yi", xiyi, re12s, nove2);
+        // per-variable extra constraint over (Seq Int): yi must also be in [2]*
+        obj_map<expr, expr*> veI; veI.insert(yi, re2s.get());
+        check_extra("([1]|[2])* & yi[2]* xi.[1].yi", xiyi, re12s, veI, l_true);
+        check_witness("([1]|[2])* & yi[2]* xi.[1].yi", xiyi, re12s, veI);
 
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("
                   << m_fail << " fail) ===\n";

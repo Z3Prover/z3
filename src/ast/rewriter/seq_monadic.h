@@ -8,7 +8,11 @@ Module Name:
 Abstract:
 
     Whole-language monadic decomposition for regex membership of a term that is a
-    concatenation of string variables and constant characters, e.g.  x.a.x in R.
+    concatenation of sequence variables and constant elements, e.g.  x.a.x in R.
+    Generic in the element sort: characters are one instance, but the procedure works
+    for any sequence element sort (the guard algebra falls back from the exact character
+    range_predicate to a candidate-basis over the element values mentioned by the
+    derivatives).
 
     Self-contained decision procedure: NO Nielsen splitting (seq_split), NO minterms,
     and NO materialization of reach(q) as a regex.  It relies only on the symbolic
@@ -49,22 +53,26 @@ Author:
 
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_range_predicate.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "util/lbool.h"
 #include "util/obj_hashtable.h"
 
 class seq_monadic {
     ast_manager&    m;
     seq_rewriter&   m_rw;
+    th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
+                                             // ground guards so dead states become re.empty)
     sort*           m_seq_sort = nullptr;   // sequence sort of the regex under analysis
-    expr_ref_vector m_pin;                  // pins derivative states referenced by components
+    sort*           m_elem_sort = nullptr;  // element sort of that sequence sort
+    expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
 
-    // A term atom: a string variable or a constant character.
-    struct atom { bool is_var; expr* var; unsigned ch; };
+    // A term atom: a sequence variable or a constant element (a value of the element sort).
+    struct atom { bool is_var; expr* var; expr* elem; };
 
     // A component of one variable's constraint.  As the variable's value w is read,
     // the current state is derived from `state`; the component accepts when
@@ -74,8 +82,8 @@ class seq_monadic {
 
     typedef svector<component> disjunct;    // a conjunction of components (a DNF disjunct)
 
-    // Brzozowski derivative of regex `r` by the concrete character `ch`.
-    expr_ref der_char(expr* r, unsigned ch);
+    // Brzozowski derivative of regex `r` by the concrete element `elem`.
+    expr_ref der_elem(expr* r, expr* elem);
 
     // Live reachable derivative states of R (BFS over cofactor targets + liveness
     // least-fixpoint).  These are the split states q.  Sets `ok` false on a cap overrun.
@@ -84,7 +92,10 @@ class seq_monadic {
     // Product-reachability emptiness of a conjunction of components (all on one
     // variable).  l_false = empty (unsat), l_true = non-empty (sat), l_undef = gave up
     // (cap overrun, non-range guard, or undecidable nullability).
-    lbool product_nonempty(svector<component> const& comps);
+    // On l_true, if `witness_word` is non-null it is set to a concrete sequence term
+    // (over the element sort) whose value drives every component to acceptance
+    // simultaneously -- i.e. a witness value for the variable the components constrain.
+    lbool product_nonempty(svector<component> const& comps, expr_ref* witness_word = nullptr);
 
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
     bool parse_term(expr* term, svector<atom>& atoms, expr*& the_var);
@@ -98,7 +109,7 @@ class seq_monadic {
     void simplify_dnf(vector<disjunct>& dnf);
 
 public:
-    seq_monadic(seq_rewriter& rw) : m(rw.m()), m_rw(rw), m_pin(rw.m()) {}
+    seq_monadic(seq_rewriter& rw) : m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_pin(rw.m()) {}
 
     // Decide  (str.in_re term R)  for a term that is a concatenation of string variables
     // (possibly repeated / several distinct) and constant characters.
@@ -108,4 +119,11 @@ public:
     // As above, with extra per-variable constraints (e.g. a base membership intersected
     // with a length-regex): `var_extra` maps a variable to a regex it must also satisfy.
     lbool solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra);
+
+    // As above; on l_true, if `model` is non-null it is populated with  var -> witness,
+    // where each witness is a concrete sequence term (over the element sort) giving one
+    // satisfying assignment.  Witness terms are pinned by the solver and remain valid
+    // until the next call to solve().
+    lbool solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
+                obj_map<expr, expr*>* model);
 };
