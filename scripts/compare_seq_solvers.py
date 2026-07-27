@@ -226,11 +226,11 @@ def main():
     timeout_s = args.timeout
 
     # Collect external solvers in declaration order so output columns are stable.
-    external_bins: dict[str, Tuple[str, str]] = {}
+    external_bins: dict[str, tuple[str, list[str]]] = {}
     if args.zipt:    external_bins["zipt"]    = (args.zipt, [f"-t:{timeout_s * 1000}"])
     if args.ostrich: external_bins["ostrich"] = (args.ostrich, [f"-timeout={timeout_s * 1000}"])
     if args.noodler: external_bins["noodler"] = (args.noodler, ["smt.string_solver=noodler", f"-t:{timeout_s * 1000}"])
-    if args.noodler: external_bins["cvc5"] = (args.cvc5, [f"--tlimit={timeout_s * 1000}"])
+    if args.cvc5:    external_bins["cvc5"]    = (args.cvc5, [f"--tlimit={timeout_s * 1000}"])
     ext_names = list(external_bins.keys())
 
     root = Path(args.path)
@@ -363,9 +363,8 @@ def main():
     if args.csv:
         import csv
         csv_path = Path(args.csv)
-        fieldnames = ["file"] + SOLVER_NAMES + [f"t_{name}" for name in SOLVER_NAMES]
-        fieldnames.extend(["category", "smtlib_status", "status"])
-        for label in ext_names:
+        fieldnames = ["file", "category", "smtlib_status", "status"]
+        for label in all_solver_labels:
             fieldnames.extend([label, f"t_{label}"])
         with csv_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
@@ -373,6 +372,42 @@ def main():
             for r in sorted(results, key=lambda x: x["file"]):
                 writer.writerow({**r, "file": str(r["file"])})
         print(f"Results written to: {csv_path}")
+
+        stats_path = csv_path.with_suffix(csv_path.suffix + ".stats.txt")
+        write_stats(stats_path, results, all_solver_labels)
+        print(f"Stats written to: {stats_path}")
+
+
+def write_stats(stats_path: Path, results: list[dict], all_solver_labels: list[str]) -> None:
+    """Write a plain-text .stats file listing solver divergences and per-solver
+    solved counts (SAT/UNSAT/total), given the same results used for the CSV.
+    """
+    definite = {"sat", "unsat"}
+
+    with stats_path.open("w", encoding="utf-8") as f:
+        f.write("DIVERGENCES (solvers disagree on sat/unsat, ignoring timeouts)\n")
+        f.write("=" * 70 + "\n")
+        n_diverge = 0
+        for r in sorted(results, key=lambda x: x["file"]):
+            found = {r[name] for name in all_solver_labels if r[name] in definite}
+            if len(found) > 1:
+                n_diverge += 1
+                f.write(f"\n{r['file']}\n")
+                for name in all_solver_labels:
+                    if r[name] != "timeout":
+                        f.write(f"    {name:12s}: {r[name]}\n")
+        if n_diverge == 0:
+            f.write("\n  (none)\n")
+        f.write(f"\nTotal divergent files: {n_diverge}\n")
+
+        f.write("\n" + "=" * 70 + "\n")
+        f.write("PER-SOLVER SOLVED COUNTS\n")
+        f.write("=" * 70 + "\n")
+        f.write(f"  {'solver':12s} {'sat':>8s} {'unsat':>8s} {'total':>8s}\n")
+        for name in all_solver_labels:
+            n_sat = sum(1 for r in results if r[name] == "sat")
+            n_unsat = sum(1 for r in results if r[name] == "unsat")
+            f.write(f"  {name:12s} {n_sat:8d} {n_unsat:8d} {n_sat + n_unsat:8d}\n")
 
 
 if __name__ == "__main__":
