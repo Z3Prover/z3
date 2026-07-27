@@ -1605,7 +1605,7 @@ bool core::optimize_nl_bounds() {
             break;
         for (bool is_lower : { true, false }) {
             rational bound;
-            u_dependency* dep = lra.find_improved_bound(j, is_lower, bound);
+            u_dependency* dep = m_monomial_bounds.improve_bound(j, is_lower, bound);
             if (!dep)
                 continue;
             auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
