@@ -90,15 +90,18 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
 }
 
 template <typename T, typename X>
-unsigned lp_primal_core_solver<T, X>::solve() {
+unsigned lp_primal_core_solver<T, X>::solve(unsigned max_iterations) {
     TRACE(lar_solver, tout << "solve " << this->get_status() << "\n";);
     init_run_tableau();
+
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only) {
         this->set_status(lp_status::FEASIBLE);
         return 0;
     }
-        
+    
+    unsigned iters = 0;
     do {
+        ++iters;
         if (this->m_settings.get_cancel_flag()) {
             this->set_status(lp_status::CANCELLED);
             return this->total_iterations();
@@ -126,7 +129,10 @@ unsigned lp_primal_core_solver<T, X>::solve() {
         default:
             break; // do nothing
         }
+
         if (this->m_settings.get_cancel_flag()
+            ||
+            iters >= max_iterations
             ||
             this->iters_with_no_cost_growing() > this->m_settings.max_number_of_iterations_with_no_improvements
             ) {         

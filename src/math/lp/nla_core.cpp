@@ -1293,6 +1293,11 @@ lbool core::check(unsigned level) {
         return l_undef;
     }
 
+    bool new_lp_bounds = false;
+    clear();
+    if (m_monomial_bounds.optimize_lp_bounds())
+        new_lp_bounds = true;   
+
     init_to_refine();
     patch_monomials();
     set_use_nra_model(false);    
@@ -1301,10 +1306,6 @@ lbool core::check(unsigned level) {
     init_search();
 
     lbool ret = l_undef;
-    bool new_lp_bounds = false;
-
-    if (m_monomial_bounds.propagate_lp_bounds())
-        new_lp_bounds = true;    
     
     unsigned old_index = m_check_index;
     trail().push(value_trail(m_check_index));
@@ -1312,7 +1313,7 @@ lbool core::check(unsigned level) {
     do {
         switch (m_check_index) {
         case 0: {
-            bool propagated = m_monomial_bounds.propagate_nl_bounds();
+            bool propagated = false;
             if (m_monomial_bounds.propagate_changed_bounds())
                 propagated = true;
             m_monics_with_changed_bounds.reset();
@@ -1350,8 +1351,8 @@ lbool core::check(unsigned level) {
             }
             break;
         case 7:
-            if (should_run_bounded_nlsat())
-                ret = bounded_nlsat();
+            //if (should_run_bounded_nlsat())
+            //    ret = bounded_nlsat();
             break;
         default: 
             UNREACHABLE();
@@ -1376,6 +1377,9 @@ lbool core::check(unsigned level) {
     auto no_effect = [&]() {
         return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible;
     };
+
+    if (no_effect() && should_run_bounded_nlsat())
+        ret = bounded_nlsat();
                     
     if (no_effect()) 
         m_basics.basic_lemma(true); 

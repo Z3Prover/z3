@@ -29,8 +29,8 @@ namespace lp {
 
 template void lp::lp_primal_core_solver<lp::mpq, lp::numeric_pair<lp::mpq> >::find_feasible_solution();
 
-template unsigned lp_primal_core_solver<mpq, mpq>::solve();
-template unsigned lp_primal_core_solver<mpq, numeric_pair<mpq> >::solve();
+template unsigned lp_primal_core_solver<mpq, mpq>::solve(unsigned max_iterations);
+template unsigned lp_primal_core_solver<mpq, numeric_pair<mpq> >::solve(unsigned max_iterations);
 template bool lp::lp_primal_core_solver<lp::mpq, lp::mpq>::update_basis_and_x_tableau(int, int, lp::mpq const&);
 template bool lp::lp_primal_core_solver<lp::mpq, lp::numeric_pair<lp::mpq> >::update_basis_and_x_tableau(int, int, lp::numeric_pair<lp::mpq> const&);
 

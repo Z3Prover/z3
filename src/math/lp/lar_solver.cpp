@@ -604,10 +604,10 @@ namespace lp {
 
 
     bool lar_solver::maximize_term_on_tableau(const lar_term& term,
-        impq& term_max) {
+        impq& term_max, unsigned max_iterations) {
         flet f(get_core_solver().m_r_solver.m_look_for_feasible_solution_only, false);    
         get_core_solver().m_r_solver.set_status(lp_status::FEASIBLE);
-        get_core_solver().solve();
+        get_core_solver().solve(max_iterations);
         lp_status st = get_core_solver().m_r_solver.get_status();
         TRACE(lar_solver, tout << st << "\n";);
         SASSERT(get_core_solver().m_r_solver.calc_current_x_is_feasible_include_non_basis());
@@ -657,14 +657,14 @@ namespace lp {
         if (!lower_bound && column_has_upper_bound(j) && get_column_value(j) == column_upper_bound(j))
             return nullptr;  // cannot do better
         
-
+        unsigned max_iterations = 20;
         lar_term term = get_term_to_maximize(j);
         if (lower_bound)
             term.negate();
         vector<std::pair<mpq, unsigned>> max_coeffs;
         TRACE(lar_solver_improve_bounds, tout << "j = " << j << ", "; print_term(term, tout << "term to maximize\n"););
         impq term_max;
-        if (!maximize_term_on_feasible_r_solver(term, term_max, &max_coeffs))
+        if (!maximize_term_on_feasible_r_solver(term, term_max, &max_coeffs, max_iterations))
             return nullptr;
         // term_max is equal to the sum of m_d[j]*x[j] over all non basic j.
         // For the sum to be at the maximum all non basic variables should be at their bounds: if (m_d[j] > 0) x[j] = u[j], otherwise x[j] = l[j]. At upper bounds we have u[j].y <= 0, and at lower bounds we have l[j].y >= 0, therefore for the sum term_max.y <= 0.   
@@ -817,7 +817,8 @@ namespace lp {
     }
 
     bool lar_solver::maximize_term_on_feasible_r_solver(lar_term& term,
-                                                        impq& term_max, vector<std::pair<mpq, lpvar>>* max_coeffs = nullptr) {
+                                                        impq& term_max, 
+        vector<std::pair<mpq, lpvar>>* max_coeffs, unsigned max_iterations) {
         settings().backup_costs = false;
         bool ret = false;
         TRACE(lar_solver, print_term(term, tout << "maximize: ") << "\n"
@@ -826,7 +827,7 @@ namespace lp {
             m_imp->require_nbasis_sort();
         flet f(settings().simplex_strategy(), simplex_strategy_enum::tableau_costs);
         prepare_costs_for_r_solver(term);
-        ret = maximize_term_on_tableau(term, term_max);
+        ret = maximize_term_on_tableau(term, term_max, max_iterations);
         if (ret && max_coeffs != nullptr) {
             for (unsigned j = 0; j < column_count(); ++j) {
                 const mpq& d_j = get_core_solver().m_r_solver.m_d[j];
@@ -871,10 +872,11 @@ namespace lp {
         if (term.is_empty()) return lp_status::UNBOUNDED;
         get_core_solver().backup_x();
         impq prev_value = term.apply(get_core_solver().r_x());
+        unsigned max_iterations = UINT_MAX;
         auto restore = [&]() {
             get_core_solver().restore_x();
         };
-        if (!maximize_term_on_feasible_r_solver(term, term_max, nullptr)) {
+        if (!maximize_term_on_feasible_r_solver(term, term_max, nullptr, max_iterations)) {
             restore();
             return lp_status::UNBOUNDED;
         }
@@ -1288,7 +1290,7 @@ namespace lp {
     void lar_solver::solve_with_core_solver() {
         get_core_solver().prefix_r();
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
-        get_core_solver().solve();
+        get_core_solver().solve(UINT_MAX);
         set_status(get_core_solver().m_r_solver.get_status());
         SASSERT(((stats().m_make_feasible% 100) != 0) || m_imp->m_status != lp_status::OPTIMAL || all_constraints_hold());
     }

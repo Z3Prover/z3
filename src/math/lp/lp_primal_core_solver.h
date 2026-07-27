@@ -306,7 +306,7 @@ namespace lp {
     unsigned get_number_of_non_basic_column_to_try_for_enter();
 
     // returns the number of iterations
-    unsigned solve();
+    unsigned solve(unsigned max_iterations);
 
     void find_feasible_solution();
 

@@ -108,7 +108,7 @@ public:
 
     unsigned get_number_of_non_ints() const;
 
-    void solve();
+    void solve(unsigned max_iterations);
 
     void pivot(int entering, int leaving) { m_r_solver.pivot(entering, leaving); }
     

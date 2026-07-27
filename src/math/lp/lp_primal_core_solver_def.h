@@ -233,7 +233,8 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feas
     this->m_look_for_feasible_solution_only = true;
     SASSERT(this->non_basic_columns_are_set_correctly());
     this->set_status(lp_status::UNKNOWN);
-    solve();
+    unsigned max_iterations = UINT_MAX;
+    solve(max_iterations);
 }
 
 

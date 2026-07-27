@@ -122,12 +122,12 @@ class lar_solver : public column_namer {
 
     static void clean_popped_elements_for_heap(unsigned n, lpvar_heap& set);
     static void clean_popped_elements(unsigned n, indexed_uint_set& set);
-    bool maximize_term_on_tableau(const lar_term& term, impq& term_max);
+    bool maximize_term_on_tableau(const lar_term& term, impq& term_max, unsigned max_iterations);
     bool costs_are_zeros_for_r_solver() const;
     bool reduced_costs_are_zeroes_for_r_solver() const;
     void set_costs_to_zero(const lar_term& term);
     void prepare_costs_for_r_solver(const lar_term& term);
-    bool maximize_term_on_feasible_r_solver(lar_term& term, impq& term_max, vector<std::pair<mpq,lpvar>>* max_coeffs);
+    bool maximize_term_on_feasible_r_solver(lar_term& term, impq& term_max, vector<std::pair<mpq,lpvar>>* max_coeffs, unsigned max_iterations);
     u_dependency* get_dependencies_of_maximum(const vector<std::pair<mpq,lpvar>>& max_coeffs);
     void set_upper_bound_witness(lpvar j, u_dependency* ci, impq const& high);
     void set_lower_bound_witness(lpvar j, u_dependency* ci, impq const& low);

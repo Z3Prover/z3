@@ -117,6 +117,8 @@ namespace nla {
      * Unlike generate_lemma(), this emits no lemmas -- it only tightens LP bounds.
      */
     bool monomial_bounds::tighten_lp(monic const &m) {
+        if (propagate_linear_equation(m))
+            return true;
         unsigned num_free, power;
         lpvar free_var;
         analyze_monomial(m, num_free, free_var, power);
@@ -204,8 +206,6 @@ namespace nla {
             if (!c().is_monic_var(v))
                 continue;
             monic& m = c().emon(v);
-            if (propagate_changed_bound(m))
-                propagated = true;
             if (tighten_lp(m))
                 propagated = true;
             if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
@@ -224,15 +224,11 @@ namespace nla {
         return true;
     }
 
-    bool monomial_bounds::propagate_changed_bound(monic & m) {
-        if (m.is_propagated())
-            return false;
+    bool monomial_bounds::propagate_linear_equation(monic const &m) {
         lpvar w, fixed_to_zero;
 
         if (!is_linear(m, w, fixed_to_zero)) 
             return false;
-
-        c().emons().set_propagated(m);
 
         bool propagated = false;
         if (fixed_to_zero != null_lpvar) {
@@ -682,9 +678,12 @@ namespace nla {
 
     bool monomial_bounds::propagate_nl_bounds() {
         bool new_bound = false;
-        for (auto &m : c().emons())
+        for (auto &m : c().emons()) {
             if (tighten_lp(m))
                 new_bound = true;
+            if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
+                break;
+        }
         return new_bound;
     }
 

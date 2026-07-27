@@ -82,7 +82,7 @@ unsigned lar_core_solver::get_number_of_non_ints() const {
     return n;
 }
 
-void lar_core_solver::solve() {
+void lar_core_solver::solve(unsigned max_iterations) {
     TRACE(lar_solver, tout << m_r_solver.get_status() << "\n";);
     SASSERT(m_r_solver.non_basic_columns_are_set_correctly());
     SASSERT(m_r_solver.inf_heap_is_correct());
@@ -98,7 +98,7 @@ void lar_core_solver::solve() {
     if (m_r_solver.m_look_for_feasible_solution_only) //todo : should it be set?
          m_r_solver.find_feasible_solution();
     else 
-        m_r_solver.solve();
+        m_r_solver.solve(max_iterations);
     
     SASSERT(r_basis_is_OK());
     
