@@ -689,10 +689,10 @@ namespace nla {
     // implied bound is then read off 'v's tableau row and rounded to respect
     // the integrality of integer columns.
     //
-    // We do not maintain integrality of the intermediate assignment (the
-    // 'maintain_integrality == false' configuration of theory_arith, used for
-    // bound derivation): the emitted bound is a sound linear consequence of
-    // 'v's final row regardless of the vertex reached, and is floored/ceiled
+    // Integrality is maintained during the walk (the 'maintain_integrality ==
+    // true' configuration of theory_arith): every move of a column is a multiple
+    // of the integrality quantum 'min_gain', so integer columns keep integral
+    // values throughout.  The final implied bound is additionally floored/ceiled
     // for integer 'v'.
     // ================================================================
 
@@ -700,35 +700,55 @@ namespace nla {
         return v.is_neg() ? -v : v;
     }
 
+    // Round 'val' down to the nearest multiple of the (integral) 'divisor'.
+    // Mirrors theory_arith::normalize_gain.  'divisor == -1' means "no quantum".
+    static void mm_round_down(lp::impq& val, rational const& divisor) {
+        if (!divisor.is_minus_one())
+            val = lp::impq(lp::floor(val / divisor) * divisor);
+    }
+
     lpvar monomial_bounds::mm_basic_in_row(unsigned row) const {
         return c().lra.get_base_column_in_row(row);
     }
 
-    // Initialize the maximal gain for moving 'x' in direction 'inc' (increase
-    // when inc, decrease otherwise) from its own bound.  'unbounded' is set
-    // when 'x' has no bound in that direction.  Mirrors theory_arith::init_gains
-    // with maintain_integrality == false (no minimal integral step).
-    void monomial_bounds::mm_init_gains(lpvar x, bool inc, bool& unbounded, lp::impq& max_gain) {
-        auto& s = c().lra;
-        unbounded = true;
-        max_gain = lp::impq(0);
-        if (inc && s.column_has_upper_bound(x)) {
-            unbounded = false;
-            max_gain = s.column_upper_bound(x) - s.get_column_value(x);
-        }
-        else if (!inc && s.column_has_lower_bound(x)) {
-            unbounded = false;
-            max_gain = s.get_column_value(x) - s.column_lower_bound(x);
-        }
+    // A gain is safe when the column is unbounded in the chosen direction, or
+    // the required integral quantum still fits within the maximal feasible move.
+    // Mirrors theory_arith::safe_gain.
+    bool monomial_bounds::mm_safe_gain(mm_gain const& g) const {
+        return g.unbounded || lp::impq(g.min_gain) <= g.max_gain;
     }
 
-    // Tighten 'max_gain' by the room that basic variable 'x_i' (with
-    // coefficient 'a_ij' on the moving column) has before hitting a bound.
-    // Returns true when 'max_gain' was strengthened.  Mirrors
-    // theory_arith::update_gains (integer-step logic omitted).
-    bool monomial_bounds::mm_update_gains(bool inc, lpvar x_i, rational const& a_ij, bool& unbounded, lp::impq& max_gain) {
+    // Initialize the gain for moving 'x' in direction 'inc' (increase when inc,
+    // decrease otherwise) from its own bound.  For integer columns the quantum
+    // 'min_gain' starts at 1.  Mirrors theory_arith::init_gains.
+    monomial_bounds::mm_gain monomial_bounds::mm_init_gains(lpvar x, bool inc) const {
+        auto& s = c().lra;
+        mm_gain g;
+        if (inc && s.column_has_upper_bound(x)) {
+            g.unbounded = false;
+            g.max_gain = s.column_upper_bound(x) - s.get_column_value(x);
+        }
+        else if (!inc && s.column_has_lower_bound(x)) {
+            g.unbounded = false;
+            g.max_gain = s.get_column_value(x) - s.column_lower_bound(x);
+        }
+        if (s.column_is_int(x))
+            g.min_gain = rational::one();
+        return g;
+    }
+
+    // Tighten 'g' by the room that basic variable 'x_i' (with coefficient 'a_ij'
+    // on the moving column) has before hitting a bound.  When 'x_i' is an integer
+    // column, the quantum 'min_gain' is raised to the lcm of the denominators of
+    // the involved coefficients and both gains are rounded down to that quantum,
+    // so the move keeps 'x_i' integral.  Returns true when 'max_gain' was
+    // strengthened.  Mirrors theory_arith::update_gains.
+    bool monomial_bounds::mm_update_gains(bool inc, lpvar x_i, rational const& a_ij, mm_gain& g) const {
         auto& s = c().lra;
         SASSERT(!a_ij.is_zero());
+        if (!mm_safe_gain(g))
+            return false;
+
         bool decrement_x_i = (inc && a_ij.is_pos()) || (!inc && a_ij.is_neg());
         bool bounded_i = false;
         lp::impq max_inc;
@@ -740,33 +760,69 @@ namespace nla {
             max_inc = mm_abs((s.column_upper_bound(x_i) - s.get_column_value(x_i)) / a_ij);
             bounded_i = true;
         }
-        if (!bounded_i)
-            return false;
-        if (unbounded || max_gain > max_inc) {
-            unbounded = false;
-            max_gain = max_inc;
-            return true;
+
+        bool xi_int = s.column_is_int(x_i);
+        rational den_aij(1);
+        if (xi_int)
+            den_aij = denominator(a_ij);
+        SASSERT(den_aij.is_pos() && den_aij.is_int());
+
+        // Moving 'x_i' by k requires moving the entering column by k/a_ij; to keep
+        // an integer 'x_i' integral the entering column must step in multiples of
+        // denominator(a_ij).  Accumulate that into the quantum and re-round.
+        if (xi_int && !den_aij.is_one()) {
+            if (g.min_gain.is_neg())
+                g.min_gain = den_aij;
+            else
+                g.min_gain = lcm(g.min_gain, den_aij);
+            if (!g.unbounded)
+                mm_round_down(g.max_gain, g.min_gain);
+        }
+        if (xi_int && !g.unbounded && !g.max_gain.is_int()) {
+            g.max_gain = lp::impq(lp::floor(g.max_gain));
+            mm_round_down(g.max_gain, g.min_gain);
+        }
+
+        if (bounded_i) {
+            if (xi_int) {
+                max_inc = lp::impq(lp::floor(max_inc));
+                mm_round_down(max_inc, g.min_gain);
+            }
+            if (g.unbounded) {
+                g.unbounded = false;
+                g.max_gain = max_inc;
+                return true;
+            }
+            if (g.max_gain > max_inc) {
+                g.max_gain = max_inc;
+                return true;
+            }
         }
         return false;
     }
 
     // Ratio test: for entering column 'x_j' moving in direction 'inc', find the
     // basic variable 'x_i' that first blocks the move and the maximal gain.
-    // Mirrors theory_arith::pick_var_to_leave.
-    bool monomial_bounds::mm_pick_var_to_leave(lpvar x_j, bool inc, rational& a_ij, bool& unbounded, lp::impq& max_gain, lpvar& x_i) {
+    // Returns false (unsafe) when the integrality quantum cannot be satisfied, so
+    // the caller treats 'x_j' as unusable.  Mirrors theory_arith::pick_var_to_leave.
+    bool monomial_bounds::mm_pick_var_to_leave(lpvar x_j, bool inc, rational& a_ij, mm_gain& g, lpvar& x_i) const {
         auto& s = c().lra;
         x_i = null_lpvar;
-        mm_init_gains(x_j, inc, unbounded, max_gain);
+        g = mm_init_gains(x_j, inc);
+        // an integer entering column must sit at an integral value to move in
+        // integral steps.
+        if (s.column_is_int(x_j) && !s.get_column_value(x_j).is_int())
+            return false;
         for (auto const& cell : s.A_r().m_columns[x_j]) {
             lpvar si = mm_basic_in_row(cell.var());
             rational const& coeff_ij = s.A_r().get_val(cell);
-            if (mm_update_gains(inc, si, coeff_ij, unbounded, max_gain) ||
-                (x_i == null_lpvar && !unbounded)) {
+            if (mm_update_gains(inc, si, coeff_ij, g) ||
+                (x_i == null_lpvar && !g.unbounded)) {
                 x_i = si;
                 a_ij = coeff_ij;
             }
         }
-        return true;
+        return mm_safe_gain(g);
     }
 
     // Apply 'delta' to non-basic column 'j', propagating to dependent basic
@@ -780,24 +836,27 @@ namespace nla {
     }
 
     // Move (now non-basic) 'x_i' maximally towards its bound in direction 'inc'
-    // without violating other columns' bounds (theory_arith::move_to_bound).
+    // without violating other columns' bounds, in integral steps when 'x_i' is an
+    // integer column (theory_arith::move_to_bound).
     bool monomial_bounds::mm_move_to_bound(lpvar x_i, bool inc, unsigned& best_efforts) {
         auto& s = c().lra;
-        bool unbounded;
-        lp::impq max_gain;
-        mm_init_gains(x_i, inc, unbounded, max_gain);
+        if (s.column_is_int(x_i) && !s.get_column_value(x_i).is_int()) {
+            ++best_efforts;
+            return false;
+        }
+        mm_gain g = mm_init_gains(x_i, inc);
         for (auto const& cell : s.A_r().m_columns[x_i]) {
             lpvar si = mm_basic_in_row(cell.var());
             rational const& coeff = s.A_r().get_val(cell);
-            mm_update_gains(inc, si, coeff, unbounded, max_gain);
+            mm_update_gains(inc, si, coeff, g);
         }
         bool result = false;
-        if (!unbounded) {
-            lp::impq g = max_gain;
+        if (mm_safe_gain(g) && !g.unbounded) {
+            lp::impq step = g.max_gain;
             if (!inc)
-                g = -g;
-            mm_update_value(x_i, g);
-            result = !max_gain.is_zero();
+                step = -step;
+            mm_update_value(x_i, step);
+            result = !g.max_gain.is_zero();
         }
         if (!result)
             ++best_efforts;
@@ -816,8 +875,7 @@ namespace nla {
             ++rounds;
             lpvar x_j = null_lpvar, x_i = null_lpvar;
             rational a_ij(0);
-            bool gain_unbounded = false;
-            lp::impq max_gain(0);
+            mm_gain best;          // gain of the selected move
             bool inc = false;
             bool has_bound = false;
 
@@ -837,23 +895,25 @@ namespace nla {
                     s.get_column_value(cand) == s.column_lower_bound(cand))
                     return false;
                 rational curr_a(0);
-                bool curr_unbounded = false;
-                lp::impq curr_gain(0);
+                mm_gain cur;
                 lpvar curr_xi = null_lpvar;
-                mm_pick_var_to_leave(cand, curr_inc, curr_a, curr_unbounded, curr_gain, curr_xi);
+                bool safe = mm_pick_var_to_leave(cand, curr_inc, curr_a, cur, curr_xi);
+                if (!safe) {
+                    // the integrality quantum cannot be met on this column
+                    has_bound = true;
+                    ++best_efforts;
+                    return false;
+                }
                 if (curr_xi == null_lpvar) {
                     // limited only by its own bound (or fully unbounded)
-                    x_j = cand; x_i = null_lpvar; inc = curr_inc;
-                    max_gain = curr_gain; gain_unbounded = curr_unbounded; a_ij = curr_a;
+                    x_j = cand; x_i = null_lpvar; inc = curr_inc; best = cur; a_ij = curr_a;
                     return true;
                 }
-                if (curr_gain > max_gain) {
-                    x_i = curr_xi; x_j = cand; a_ij = curr_a;
-                    max_gain = curr_gain; inc = curr_inc; gain_unbounded = curr_unbounded;
+                if (cur.max_gain > best.max_gain) {
+                    x_i = curr_xi; x_j = cand; a_ij = curr_a; best = cur; inc = curr_inc;
                 }
-                else if (curr_gain.is_zero() && (x_i == null_lpvar || curr_xi < x_i)) {
-                    x_i = curr_xi; x_j = cand; a_ij = curr_a;
-                    max_gain = curr_gain; inc = curr_inc; gain_unbounded = curr_unbounded;
+                else if (cur.max_gain.is_zero() && (x_i == null_lpvar || curr_xi < x_i)) {
+                    x_i = curr_xi; x_j = cand; a_ij = curr_a; best = cur; inc = curr_inc;
                 }
                 return false;
             };
@@ -863,11 +923,18 @@ namespace nla {
             }
             else {
                 unsigned ri = s.r_heading()[v];
+                rational a_v(0);
+                for (auto const& e : s.A_r().m_rows[ri])
+                    if (e.var() == v) { a_v = e.coeff(); break; }
                 for (auto const& e : s.A_r().m_rows[ri]) {
                     if (e.var() == v)
                         continue;
-                    // objective coefficient of e.var() is -a_e (v = -sum a_e x_e)
-                    if (consider(e.var(), -e.coeff()))
+                    // v = -(1/a_v) * sum a_e x_e, so d(v)/d(x_e) has the sign of
+                    // -a_e/a_v; only the sign steers the search direction.
+                    rational objc = -e.coeff();
+                    if (a_v.is_neg())
+                        objc.neg();
+                    if (consider(e.var(), objc))
                         break;
                 }
             }
@@ -877,14 +944,23 @@ namespace nla {
             if (x_j == null_lpvar)
                 return; // optimized: no improving move remains
 
+            // a non-unit integral quantum means the exact optimum may not be
+            // reachable in integral steps: count it as best-effort progress.
+            if (best.min_gain.is_pos() && !best.min_gain.is_one())
+                ++best_efforts;
+
             if (x_i == null_lpvar) {
                 // move x_j directly to its own bound
                 if (inc && s.column_has_upper_bound(x_j)) {
-                    mm_update_value(x_j, max_gain);
+                    if (best.max_gain.is_zero())
+                        return;
+                    mm_update_value(x_j, best.max_gain);
                     continue;
                 }
                 if (!inc && s.column_has_lower_bound(x_j)) {
-                    mm_update_value(x_j, -max_gain);
+                    if (best.max_gain.is_zero())
+                        return;
+                    mm_update_value(x_j, -best.max_gain);
                     continue;
                 }
                 return; // unbounded
@@ -893,11 +969,11 @@ namespace nla {
             // x_j can move exactly across to its opposite bound without pivoting
             if (s.column_has_lower_bound(x_j) && s.column_has_upper_bound(x_j) &&
                 s.column_lower_bound(x_j) != s.column_upper_bound(x_j) &&
-                (s.column_upper_bound(x_j) - s.column_lower_bound(x_j) == max_gain)) {
-                lp::impq g = max_gain;
+                (s.column_upper_bound(x_j) - s.column_lower_bound(x_j) == best.max_gain)) {
+                lp::impq step = best.max_gain;
                 if (!inc)
-                    g = -g;
-                mm_update_value(x_j, g);
+                    step = -step;
+                mm_update_value(x_j, step);
                 continue;
             }
 
