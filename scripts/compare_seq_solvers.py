@@ -37,6 +37,8 @@ COMMON_ARGS = ["model_validate=true"]
 
 # All three configurations are always run.
 SOLVERS = {
+    "nseq": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
+             "smt.nseq.regex_factorization_threshold=0", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=false"],
     "nseq_md": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
                 "smt.nseq.regex_factorization_threshold=10000000", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=false"],
     "nseq_md2": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",

@@ -6172,6 +6172,11 @@ namespace seq {
         for (str_mem const& mem : m_root->str_mems()) {
             SASSERT(seq.is_re(mem.m_regex->get_expr()));
 
+            // Views never denote L(m_regex) — see generate_node_length_constraints.
+            // (The root only ever carries plain memberships; kept for safety.)
+            if (!mem.is_plain())
+                continue;
+
             unsigned min_len = 0, max_len = UINT_MAX;
             compute_regex_length_interval(mem.m_regex, min_len, max_len);
 
@@ -6356,6 +6361,19 @@ namespace seq {
         // Parikh interval bounds for regex memberships at this node
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(m_seq.is_re(mem.m_regex->get_expr()));
+
+            // A land-state view  s ∈_{Q_ν,{root}} state  does NOT denote the
+            // plain language of `state`: it collects the words that *walk*
+            // from `state` to `root` inside Q_ν, which is neither a sub- nor a
+            // superset of L(state).  Its plain min/max length interval is
+            // therefore unsound in BOTH directions — e.g. the stabilizer view
+            // (state == root) always admits ε even when L(state) has min
+            // length > 0, which would kill exactly the landing branch that
+            // absorbs a cycle lap (spurious UNSAT).  The correct length
+            // abstraction for views is emitted on the pinning edge by
+            // add_view_length_constraints (compute_view_length_info).
+            if (!mem.is_plain())
+                continue;
 
             unsigned min_len = 0, max_len = UINT_MAX;
             compute_regex_length_interval(mem.m_regex, min_len, max_len);
