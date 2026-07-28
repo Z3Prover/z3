@@ -56,6 +56,7 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "util/lbool.h"
 #include "util/obj_hashtable.h"
+#include <utility>
 
 class seq_monadic {
     ast_manager&    m;
@@ -108,6 +109,15 @@ class seq_monadic {
     // Drop disjuncts with a syntactically-empty component and dedup identical disjuncts.
     void simplify_dnf(vector<disjunct>& dnf);
 
+    // Build the DNF over primitive per-variable components for one membership term in R.
+    // Sets m_seq_sort/m_elem_sort; false on an unsupported shape or give-up.
+    bool build_membership_dnf(expr* term, expr* R, vector<disjunct>& dnf);
+
+    // Decide a DNF (over primitive components): sat iff some disjunct has every variable
+    // group non-empty.  On l_true, fills `model` (var -> witness) if non-null.
+    lbool decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> const& var_extra,
+                     obj_map<expr, expr*>* model);
+
 public:
     seq_monadic(seq_rewriter& rw) : m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_pin(rw.m()) {}
 
@@ -126,4 +136,13 @@ public:
     // until the next call to solve().
     lbool solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
                 obj_map<expr, expr*>* model);
+
+    // Decide a CONJUNCTION of memberships  AND_i (term_i in R_i)  jointly: a variable
+    // shared across memberships is constrained consistently (the DNFs are multiplied and
+    // each variable's constraints intersected).  This is the natural extension of single-
+    // membership solving to a Boolean combination of memberships (a disjunction is the
+    // union of DNFs; a negated membership  ~(t in R)  is just  t in complement(R)).
+    // var_extra / model as above.  l_true = sat, l_false = unsat, l_undef = gave up.
+    lbool solve_and(vector<std::pair<expr*, expr*>> const& mems,
+                    obj_map<expr, expr*> const& var_extra, obj_map<expr, expr*>* model = nullptr);
 };

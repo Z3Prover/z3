@@ -546,28 +546,25 @@ lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_ex
     return solve(term, R, var_extra, nullptr);
 }
 
-lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
-                         obj_map<expr, expr*>* model) {
+bool seq_monadic::build_membership_dnf(expr* term, expr* R, vector<disjunct>& dnf) {
     if (!u().is_re(R, m_seq_sort))
-        return l_undef;
+        return false;
     if (!u().is_seq(m_seq_sort, m_elem_sort))
-        return l_undef;
+        return false;
     svector<atom> atoms;
     expr* the_var = nullptr;
     if (!parse_term(term, atoms, the_var))
-        return l_undef;
+        return false;
     if (!the_var)
-        return l_undef;                           // no variable: ground membership, not our case
-    m_pin.reset();
+        return false;                             // no variable: ground membership, not our case
     m_pin.push_back(R);
-    m_budget = 200000;                            // global work budget: bail fast on DNF explosion
-    m_giveup = false;
     bool ok = true;
-    vector<disjunct> dnf;
     decompose(atoms, 0, R, dnf, ok);
-    if (!ok)
-        return l_undef;
+    return ok;
+}
 
+lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> const& var_extra,
+                              obj_map<expr, expr*>* model) {
     bool any_undef = false;
     for (disjunct const& D : dnf) {
         // group components by variable, add the extra per-variable constraints
@@ -604,4 +601,52 @@ lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_ex
         return l_true;                            // all variables satisfiable => sat
     }
     return any_undef ? l_undef : l_false;
+}
+
+lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
+                         obj_map<expr, expr*>* model) {
+    m_pin.reset();
+    m_budget = 200000;                            // global work budget: bail fast on DNF explosion
+    m_giveup = false;
+    vector<disjunct> dnf;
+    if (!build_membership_dnf(term, R, dnf))
+        return l_undef;
+    return decide_dnf(dnf, var_extra, model);
+}
+
+lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems,
+                             obj_map<expr, expr*> const& var_extra, obj_map<expr, expr*>* model) {
+    if (mems.empty())
+        return l_undef;
+    m_pin.reset();
+    m_budget = 200000;
+    m_giveup = false;
+    // Multiply the per-membership DNFs:  combined = { d ++ e : d in combined, e in dnf_i }.
+    // A variable shared by several memberships thus gets several components in the same
+    // disjunct, which decide_dnf/product_nonempty intersect -- enforcing one consistent
+    // value across all memberships (the joint solve the harness could not do per-term).
+    vector<disjunct> combined;
+    combined.push_back(disjunct());               // { true }
+    const unsigned DNF_CAP = 1u << 14;
+    for (auto const& tr : mems) {
+        vector<disjunct> dnf_i;
+        if (!build_membership_dnf(tr.first, tr.second, dnf_i))
+            return l_undef;
+        vector<disjunct> next;
+        for (disjunct const& d : combined) {
+            for (disjunct const& e : dnf_i) {
+                if (next.size() > DNF_CAP || m_budget == 0) { m_giveup = true; return l_undef; }
+                --m_budget;
+                disjunct D(d);
+                for (auto const& c : e)
+                    D.push_back(c);
+                next.push_back(D);
+            }
+        }
+        combined.swap(next);
+        simplify_dnf(combined);
+        if (combined.empty())
+            return l_false;                       // no viable disjunct left => unsat
+    }
+    return decide_dnf(combined, var_extra, model);
 }

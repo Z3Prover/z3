@@ -49,12 +49,6 @@ namespace {
     char const* verdict_str(lbool l) { return l == l_true ? "sat" : l == l_false ? "unsat" : "undef"; }
 
     // conjunction of per-term verdicts: unsat dominates, then undef, else sat.
-    lbool combine(lbool acc, lbool v) {
-        if (acc == l_false || v == l_false) return l_false;
-        if (acc == l_undef || v == l_undef) return l_undef;
-        return l_true;
-    }
-
     bool is_seq_var(ast_manager& m, expr* t) {
         return is_app(t) && to_app(t)->get_num_args() == 0 &&
                to_app(t)->get_family_id() == null_family_id;
@@ -66,10 +60,8 @@ namespace {
         std::string txt = ss.str();
         std::smatch mm;
         std::regex re("set-info\\s*:status\\s+(sat|unsat|unknown)");
-        if (std::regex_search(txt, mm, re) && mm[1].str() != "unknown") return mm[1].str();
-        if (path.find("unsat") != std::string::npos) return "unsat";
-        if (path.find("sat") != std::string::npos) return "sat";
-        return "?";
+        if (std::regex_search(txt, mm, re)) return mm[1].str();
+        return "?";   // no authoritative status (do NOT guess from the filename)
     }
 
     // Parse one file, extract memberships, run seq_monadic; returns verdict, sets solve_ms.
@@ -117,19 +109,16 @@ namespace {
         };
         for (expr* a : ctx.assertions()) collect(a);
 
-        lbool verdict = l_true;
+        // The whole file is a CONJUNCTION of its memberships; solve them jointly (bare-
+        // variable base memberships included) so a variable shared across memberships is
+        // constrained consistently -- independent per-term solving is unsound there.
+        vector<std::pair<expr*, expr*>> mems;
+        for (expr* t : terms) { expr* R = nullptr; term_re.find(t, R); mems.push_back(std::make_pair(t, R)); }
+        for (auto const& kv : var_extra) mems.push_back(std::make_pair(kv.m_key, kv.m_value));
+
+        obj_map<expr, expr*> empty_extra;
         auto t0 = std::chrono::high_resolution_clock::now();
-        if (!terms.empty()) {
-            for (expr* t : terms) {
-                expr* R = nullptr; term_re.find(t, R);
-                verdict = combine(verdict, mon.solve(t, R, var_extra));
-            }
-        }
-        else if (!var_extra.empty()) {
-            for (auto const& kv : var_extra)          // pure single-variable membership file(s)
-                verdict = combine(verdict, mon.solve(kv.m_key, kv.m_value, var_extra));
-        }
-        else verdict = l_undef;                       // no membership found: outside the fragment
+        lbool verdict = mems.empty() ? l_undef : mon.solve_and(mems, empty_extra);
         solve_ms = std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - t0).count();
         return verdict;
@@ -138,13 +127,24 @@ namespace {
 }
 
 void tst_seq_monadic_bench() {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+
+    // Single-file mode (for crash-isolated batch driving): process exactly one file and
+    // print one CSV line  file,status,verdict,solve_ms  (no header, no summary).  A crash
+    // on a pathological file then only kills this one child process.
+    if (const char* one = getenv("Z3_SEQ_BENCH_FILE")) {
+        double ms = 0; bool parsed = false;
+        lbool v = run_file(one, ms, parsed);
+        std::cout << one << "," << read_status(one) << "," << verdict_str(v) << "," << ms << "\n" << std::flush;
+        return;
+    }
+
     const char* dir = getenv("Z3_SEQ_BENCH_DIR");
     if (!dir) {
         std::cout << "seq_monadic_bench: set Z3_SEQ_BENCH_DIR to a directory of .smt2 files to run.\n";
         return;
     }
-    namespace fs = std::filesystem;
-    std::error_code ec;
     if (!fs::exists(dir, ec)) { std::cout << "seq_monadic_bench: dir not found: " << dir << "\n"; return; }
 
     std::vector<std::string> files;

@@ -134,6 +134,16 @@ class seq_monadic_test {
                   << "  solve=" << s(got) << " witness-verified=" << (ok ? "yes" : "no") << "\n";
     }
 
+    // decide a conjunction of memberships jointly (shared variables constrained together).
+    void check_and(char const* name, vector<std::pair<expr*, expr*>> const& mems, lbool expected) {
+        obj_map<expr, expr*> nove;
+        lbool got = m_mon.solve_and(mems, nove, nullptr);
+        bool ok = (got == expected);
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+    }
+
 public:
     seq_monadic_test() : m_reg(m), m_rw(m), m_mon(m_rw), u(m), m_str(m), m_re(m) {
         m_str = u.str.mk_string_sort();
@@ -255,6 +265,40 @@ public:
         obj_map<expr, expr*> veI; veI.insert(yi, re2s.get());
         check_extra("([1]|[2])* & yi[2]* xi.[1].yi", xiyi, re12s, veI, l_true);
         check_witness("([1]|[2])* & yi[2]* xi.[1].yi", xiyi, re12s, veI);
+
+        // ---- conjunction of memberships (solve_and): a variable shared across memberships
+        // ---- is constrained jointly.  These are cases that are individually SAT but
+        // ---- jointly UNSAT -- exactly what independent per-membership solving gets wrong.
+        std::cout << "=== seq_monadic: conjunction of memberships (solve_and) ===\n";
+        expr_ref aaS(star(cat(a, a)), m);           // (aa)*     : even number of a's
+        expr_ref a_aaS(cat(a, star(cat(a, a))), m); // a(aa)*    : odd number of a's
+        expr_ref abS(star(ab), m);                  // (ab)*
+        expr_ref sig2(dotstar(), m);                // Sigma*
+        // x in (aa)* /\ x in a(aa)*  : even-and-odd length of a's -> unsat (each alone sat)
+        vector<std::pair<expr*, expr*>> mUnsat1;
+        mUnsat1.push_back(std::make_pair((expr*)x.get(), (expr*)aaS.get()));
+        mUnsat1.push_back(std::make_pair((expr*)x.get(), (expr*)a_aaS.get()));
+        check_and("x in (aa)* & x in a(aa)*", mUnsat1, l_false);
+        // compound terms sharing x: x.a in (aa)* (x odd) /\ x.aa in (aa)* (x even) -> unsat
+        expr_ref tXa(sconcat(x, sword("a")), m);
+        expr_ref tXaa(sconcat(x, sword("aa")), m);
+        vector<std::pair<expr*, expr*>> mUnsat2;
+        mUnsat2.push_back(std::make_pair((expr*)tXa.get(),  (expr*)aaS.get()));
+        mUnsat2.push_back(std::make_pair((expr*)tXaa.get(), (expr*)aaS.get()));
+        check_and("x.a in (aa)* & x.aa in (aa)*", mUnsat2, l_false);
+        // consistent conjunction: x in (ab)* /\ x in Sigma*  -> sat (x=eps or ab)
+        vector<std::pair<expr*, expr*>> mSat;
+        mSat.push_back(std::make_pair((expr*)x.get(), (expr*)abS.get()));
+        mSat.push_back(std::make_pair((expr*)x.get(), (expr*)sig2.get()));
+        check_and("x in (ab)* & x in Sigma*", mSat, l_true);
+        // two variables, two memberships: x.a.y in (a|b)* /\ y.b.x in (a|b)* -> sat
+        expr_ref tXaY(xay(x, y), m);
+        expr_ref tYbX(sconcat(y, sconcat(sword("b"), x)), m);
+        expr_ref abStar(star(alt(a, b)), m);
+        vector<std::pair<expr*, expr*>> mSat2;
+        mSat2.push_back(std::make_pair((expr*)tXaY.get(), (expr*)abStar.get()));
+        mSat2.push_back(std::make_pair((expr*)tYbX.get(), (expr*)abStar.get()));
+        check_and("x.a.y & y.b.x in (a|b)*", mSat2, l_true);
 
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("
                   << m_fail << " fail) ===\n";
