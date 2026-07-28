@@ -977,29 +977,31 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     unsigned lz_bits = needs_wide_lz ? exp_bits : ebits;
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), a_lz(m), b_sgn(m), b_sig(m), b_exp(m), b_lz(m);
-    unpack(x, a_sgn, a_sig, a_exp, a_lz, false);
-    unpack(y, b_sgn, b_sig, b_exp, b_lz, false);
+    unpack(x, a_sgn, a_sig, a_exp, a_lz, !needs_wide_lz);
+    unpack(y, b_sgn, b_sig, b_exp, b_lz, !needs_wide_lz);
 
-    // Division needs the exact leading-zero count in its exponent arithmetic.
-    // Keep this local: unpack's ebits-wide count can wrap when sbits > 2^ebits.
-    expr_ref zero_sig(m), a_sig_is_zero(m), b_sig_is_zero(m);
-    zero_sig = m_bv_util.mk_numeral(0, sbits);
-    m_simp.mk_eq(zero_sig, a_sig, a_sig_is_zero);
-    m_simp.mk_eq(zero_sig, b_sig, b_sig_is_zero);
+    if (needs_wide_lz) {
+        // Division needs the exact leading-zero count in its exponent arithmetic.
+        // Keep this local: unpack's ebits-wide count can wrap when sbits > 2^ebits.
+        expr_ref zero_sig(m), a_sig_is_zero(m), b_sig_is_zero(m);
+        zero_sig = m_bv_util.mk_numeral(0, sbits);
+        m_simp.mk_eq(zero_sig, a_sig, a_sig_is_zero);
+        m_simp.mk_eq(zero_sig, b_sig, b_sig_is_zero);
 
-    expr_ref zero_lz(m), a_lz_raw(m), b_lz_raw(m);
-    zero_lz = m_bv_util.mk_numeral(0, lz_bits);
-    mk_leading_zeros(a_sig, lz_bits, a_lz_raw);
-    mk_leading_zeros(b_sig, lz_bits, b_lz_raw);
-    m_simp.mk_ite(a_sig_is_zero, zero_lz, a_lz_raw, a_lz);
-    m_simp.mk_ite(b_sig_is_zero, zero_lz, b_lz_raw, b_lz);
+        expr_ref zero_lz(m), a_lz_raw(m), b_lz_raw(m);
+        zero_lz = m_bv_util.mk_numeral(0, lz_bits);
+        mk_leading_zeros(a_sig, lz_bits, a_lz_raw);
+        mk_leading_zeros(b_sig, lz_bits, b_lz_raw);
+        m_simp.mk_ite(a_sig_is_zero, zero_lz, a_lz_raw, a_lz);
+        m_simp.mk_ite(b_sig_is_zero, zero_lz, b_lz_raw, b_lz);
 
-    SASSERT(lz_bits <= sbits);
-    expr_ref a_shift(m), b_shift(m);
-    a_shift = m_bv_util.mk_zero_extend(sbits - lz_bits, a_lz);
-    b_shift = m_bv_util.mk_zero_extend(sbits - lz_bits, b_lz);
-    a_sig = m_bv_util.mk_bv_shl(a_sig, a_shift);
-    b_sig = m_bv_util.mk_bv_shl(b_sig, b_shift);
+        SASSERT(lz_bits <= sbits);
+        expr_ref a_shift(m), b_shift(m);
+        a_shift = m_bv_util.mk_zero_extend(sbits - lz_bits, a_lz);
+        b_shift = m_bv_util.mk_zero_extend(sbits - lz_bits, b_lz);
+        a_sig = m_bv_util.mk_bv_shl(a_sig, a_shift);
+        b_sig = m_bv_util.mk_bv_shl(b_sig, b_shift);
+    }
 
     unsigned extra_bits = sbits+2;
     expr_ref a_sig_ext(m), b_sig_ext(m);
