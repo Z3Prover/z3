@@ -523,11 +523,7 @@ int main(int argc, char ** argv) {
 
     bool do_display_usage = false;
     bool test_all = false;
-#ifndef __EMSCRIPTEN__
     unsigned num_jobs = 0;
-#else
-    unsigned num_jobs = 0;
-#endif
     std::vector<std::string> extra_args;
     parse_cmd_line_args(argc, argv, do_display_usage, test_all, num_jobs, extra_args);
 
