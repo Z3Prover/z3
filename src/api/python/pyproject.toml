@@ -26,4 +26,4 @@ build = "cp314-*"
 
 [tool.cibuildwheel.pyodide]
 # z3test.py is the upstream smoke test; run it inside the Pyodide test venv.
-test-command = "python {project}/z3test.py z3"
+test-command = "python {project}/src/api/python/z3test.py z3"
