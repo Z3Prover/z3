@@ -67,7 +67,7 @@ int int_branch::find_inf_int_base_column() {
     auto add_column = [&](bool improved, int &result, unsigned &n, unsigned j) {
         if (result == -1)
             result = j;
-        else if (improved && ((random() % (++n)) == 0))
+        else if (improved && (lra.settings().random_next() % (++n)) == 0)
             result = j;
     };
 
