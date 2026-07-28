@@ -29,6 +29,10 @@ on:
         description: "Extra FStar OTHERFLAGS"
         required: false
         default: "--split_queries on_failure --log_failing_queries --ext higher_order_smt --proof_recovery"
+      fstar_run_tests:
+        description: "Run the FStar test suite (make test) after the build"
+        required: false
+        default: "true"
       discussion_category:
         description: Discussion category name
         required: false
@@ -53,6 +57,7 @@ jobs:
       FSTAR_REF: ${{ github.event.inputs.fstar_ref || 'master' }}
       FSTAR_OPAM_SWITCH: ${{ github.event.inputs.fstar_opam_switch || '4.14.2' }}
       FSTAR_OTHERFLAGS: ${{ github.event.inputs.fstar_otherflags || '--split_queries on_failure --log_failing_queries --ext higher_order_smt --proof_recovery' }}
+      FSTAR_RUN_TESTS: ${{ github.event.inputs.fstar_run_tests || 'true' }}
       DISCUSSION_CATEGORY: ${{ github.event.inputs.discussion_category || 'Agentic Workflows' }}
     steps:
       - name: Checkout Z3
@@ -107,6 +112,20 @@ jobs:
           test -x /tmp/gh-aw/agent/FStar/out/bin/fstar.exe || { echo "Error: FStar binary not found or not executable at /tmp/gh-aw/agent/FStar/out/bin/fstar.exe"; exit 1; }
           /tmp/gh-aw/agent/FStar/out/bin/fstar.exe --version | tee /tmp/gh-aw/agent/fstar-version.txt
 
+      - name: Run FStar test suite
+        id: test_fstar
+        if: env.FSTAR_RUN_TESTS == 'true' && steps.build_fstar.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cd /tmp/gh-aw/agent/FStar
+          eval "$(opam env --switch="$FSTAR_OPAM_SWITCH")"
+
+          Z3_VERSION="$(sed -E -n 's/^Z3 version ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' /tmp/gh-aw/agent/z3-version.txt | head -1)"
+          test -n "$Z3_VERSION" || { echo "Error: Failed to extract Z3 version from /tmp/gh-aw/agent/z3-version.txt (expected: 'Z3 version X.Y.Z')"; exit 1; }
+
+          PATH="/tmp/gh-aw/agent/z3-bin:$PATH" OTHERFLAGS="--z3version $Z3_VERSION $FSTAR_OTHERFLAGS" make -j"$(nproc)" -k test 2>&1 | tee /tmp/gh-aw/agent/fstar-test.log
+
       - name: Collect generated SMT2 files
         id: collect_smt2
         if: always()
@@ -160,6 +179,7 @@ jobs:
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           FSTAR_BUILD_OUTCOME: ${{ steps.build_fstar.outcome }}
+          FSTAR_TEST_OUTCOME: ${{ steps.test_fstar.outcome }}
           SMT2_ARTIFACT_ID: ${{ steps.upload_smt2.outputs.artifact-id }}
         with:
           script: |
@@ -176,10 +196,31 @@ jobs:
             const fstarStatus = fstarBuildSucceeded
               ? '✅ FStar build completed'
               : `⚠️ FStar build ${fstarBuildOutcome} (pipeline continued)`;
+            const fstarTestOutcome = process.env.FSTAR_TEST_OUTCOME || 'skipped';
+            const fstarTestStatus = fstarTestOutcome === 'success'
+              ? '✅ FStar test suite (`make test`) passed'
+              : fstarTestOutcome === 'skipped'
+                ? 'ℹ️ FStar test suite (`make test`) skipped'
+                : `⚠️ FStar test suite (\`make test\`) ${fstarTestOutcome} (pipeline continued)`;
+            const testLog = readIfExists('/tmp/gh-aw/agent/fstar-test.log') ?? '';
+            const maxTestLogChars = 8000;
+            let testLogTail = testLog ? testLog.split('\n').slice(-200).join('\n') : '';
+            if (testLogTail.length > maxTestLogChars) {
+              testLogTail = `... (truncated)\n${testLogTail.slice(-maxTestLogChars)}`;
+            }
+            const testSection = testLog
+              ? [
+                  `### FStar test suite (last 200 log lines)`,
+                  ``,
+                  '```',
+                  testLogTail,
+                  '```'
+                ].join('\n')
+              : '';
             const smt2ArtifactId = (process.env.SMT2_ARTIFACT_ID || '').trim();
             const smt2ArtifactUrl = smt2ArtifactId ? `${process.env.RUN_URL}/artifacts/${smt2ArtifactId}` : '';
             const smt2PreviewFile = '/tmp/gh-aw/agent/smt2-preview.md';
-            const maxPreviewChars = 55000; // Keep below GitHub's 65536-character discussion body limit, leaving room for non-preview sections.
+            const maxPreviewChars = 45000; // Keep below GitHub's 65536-character discussion body limit, leaving room for the test log tail and other sections.
             let smt2Preview = readIfExists(smt2PreviewFile) ?? '';
             const smt2PreviewChars = Array.from(smt2Preview);
             if (smt2PreviewChars.length > maxPreviewChars) {
@@ -227,6 +268,7 @@ jobs:
               `### Build status`,
               `- ✅ Z3 build completed`,
               `- ${fstarStatus}`,
+              `- ${fstarTestStatus}`,
               ``,
               `### Inputs used`,
               `- z3_ref: \`${process.env.Z3_REF}\``,
@@ -235,6 +277,7 @@ jobs:
               `- fstar_ref: \`${process.env.FSTAR_REF}\``,
               `- fstar_opam_switch: \`${process.env.FSTAR_OPAM_SWITCH}\``,
               `- fstar_otherflags: \`${process.env.FSTAR_OTHERFLAGS}\``,
+              `- fstar_run_tests: \`${process.env.FSTAR_RUN_TESTS}\``,
               ``,
               `### Produced versions`,
               `- Z3: \`${z3VersionText}\``,
@@ -242,6 +285,8 @@ jobs:
               `- FStar commit: \`${fstarCommit}\``,
               ``,
               smt2Section,
+              ``,
+              testSection,
               ``,
               `### Run`,
               `- Workflow run: ${process.env.RUN_URL}`
