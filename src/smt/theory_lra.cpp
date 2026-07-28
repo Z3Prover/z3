@@ -4178,17 +4178,17 @@ public:
         return false;
     }
 
-    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::lp_status st, expr_ref& blocker, bool& has_shared) {
+    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::impq const& term_max, lp::lp_status st, expr_ref& blocker, bool& has_shared) {
         switch (st) {
         case lp::lp_status::OPTIMAL:
             init_variable_values();
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            blocker = mk_gt(v);
-            return value(v);
+            blocker = mk_gt(v, term_max);
+            return inf_eps(rational(0), inf_rational(term_max.x, term_max.y));
         case lp::lp_status::FEASIBLE:
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            blocker = mk_gt(v);
-            return value(v);
+            blocker = mk_gt(v, term_max);
+            return inf_eps(rational(0), inf_rational(term_max.x, term_max.y));
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
@@ -4219,7 +4219,7 @@ public:
             if (max_with_nl(v, st, level, blocker, nl_result))
                 return nl_result;
         }
-        return max_result(v, vi, st, blocker, has_shared);
+        return max_result(v, vi, term_max, st, blocker, has_shared);
     }
 
     expr_ref mk_gt(theory_var v) {
@@ -4374,7 +4374,10 @@ public:
             // validation assert the over-strong v >= r.  The bound's real meaning
             // (including the -delta) is attached via the api_bound's eps below.
             std::ostringstream strm;
-            strm << r << " - eps <= " << mk_pp(get_expr(v), m) << " (opt)";
+            strm << r;
+            if (!val.get_infinitesimal().is_zero())
+                strm << " + " << val.get_infinitesimal() << "*eps";
+            strm << " <= " << mk_pp(get_expr(v), m) << " (opt)";
             b = m.mk_const(symbol(strm.str()), m.mk_bool_sort());
         }
         else if (is_strict) {
@@ -4391,7 +4394,7 @@ public:
             // ctx().set_enode_flag(bv, true);
             lp_api::bound_kind bkind = lp_api::bound_kind::lower_t;
             if (is_strict) bkind = lp_api::bound_kind::upper_t;
-            rational eps = is_lower_eps ? rational::minus_one() : rational::zero();
+            rational eps = is_lower_eps ? val.get_infinitesimal() : rational::zero();
             api_bound* a = mk_var_bound(bv, v, bkind, r, eps);
             mk_bound_axioms(*a);
             updt_unassigned_bounds(v, +1);
