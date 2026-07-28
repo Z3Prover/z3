@@ -1299,13 +1299,14 @@ lbool core::check(unsigned level) {
     if (m_to_refine.empty())
         return l_true;    
     init_search();
+    m_nla_satisfied = false;
 
     lbool ret = l_undef;
     bool run_grobner = need_run_grobner();
     bool run_horner = need_run_horner();
     bool run_bounds = params().arith_nl_branching();
 
-    auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
+    auto no_effect = [&]() { return ret == l_undef && !done() && !m_nla_satisfied && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
     if (no_effect())
         m_monomial_bounds.generate_lemmas();
@@ -1329,6 +1330,9 @@ lbool core::check(unsigned level) {
             return l_undef;
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;
+        // bound optimization proved all monomials consistent: goal satisfied.
+        if (m_nla_satisfied)
+            return l_true;
     }
 
     if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {
@@ -1563,8 +1567,11 @@ bool core::optimize_nl_bounds() {
 
     if (!lra.is_feasible())
         return false;
-    if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE)
+    if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE) {
+        // find_feasible_solution moved the model; keep m_to_refine in sync.
+        init_to_refine();
         return false;
+    }
 
     // Gather the candidate columns: every non-fixed leaf variable that
     // participates in a monomial (mirrors solver=2's max_min_nl_vars).
@@ -1613,12 +1620,21 @@ bool core::optimize_nl_bounds() {
         }
     }
 
-    if (improvements.empty())
+    if (improvements.empty()) {
+        // The exploratory simplex walk in improve_bound/mm_optimize mutated the
+        // LP model even though no bound was tightened.  Restore a clean feasible
+        // model and re-calibrate m_to_refine so downstream lemma passes (grobner,
+        // basic_lemma) never see a stale monomial that is now consistent.
+        lra.find_feasible_solution();
+        init_to_refine();
         return false;
+    }
 
     for (auto const& ib : improvements)
         lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
     lra.find_feasible_solution();
+    // The model changed: re-calibrate m_to_refine against the new assignment.
+    init_to_refine();
     return true;
 }
 
