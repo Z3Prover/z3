@@ -26,6 +26,7 @@ add_executable(test-z3
   arith_rewriter.cpp
   seq_rewriter.cpp
   seq_monadic.cpp
+  seq_monadic_bench.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
   bdd.cpp
