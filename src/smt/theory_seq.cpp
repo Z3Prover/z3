@@ -2205,6 +2205,16 @@ app* theory_seq::mk_value(expr* e) {
     else {
         m_rewrite(result);
     }
+    // Avoid leaking internal terms into the model. An unresolved sequence
+    // value (e.g. (seq.nth_i k!0 0) over an internal sequence constant k!0)
+    // is not a proper value and must not be exposed to the user. Since such a
+    // term is unconstrained at this point, replace it by a concrete fresh
+    // value from the factory. See issue #9063.
+    if (m_util.is_seq(result) && !m.is_value(result)) {
+        expr_ref fresh(m_factory->get_fresh_value(result->get_sort()), m);
+        if (fresh)
+            result = fresh;
+    }
     m_factory->add_trail(result);
     TRACE(seq, tout << mk_pp(e, m) << " -> " << result << "\n";);
     m_rep.update(e, result, nullptr);

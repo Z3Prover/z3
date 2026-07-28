@@ -60,7 +60,6 @@ add_executable(test-z3
   f2n.cpp
   finite_set.cpp
   finite_set_rewriter.cpp
-  fpa.cpp
   factor_rewriter.cpp
   finder.cpp
   fixed_bit_vector.cpp

@@ -49,6 +49,15 @@ Author:
 
 namespace euf {
 
+    namespace {
+        struct scoped_trail_level {
+            trail_stack& m_trail;
+            unsigned     m_base;
+            scoped_trail_level(trail_stack& t) : m_trail(t), m_base(t.get_num_scopes()) {}
+            ~scoped_trail_level() { m_trail.pop_scope(m_trail.get_num_scopes() - m_base); }
+        };
+    }
+
     expr_ref_vector const &ho_subst::get_binding(quantifier *q) {
         ast_manager &m = m_subst.get_manager();
         m_binding.reset();
@@ -102,25 +111,34 @@ namespace euf {
     }
 
     void ho_matcher::operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars) {               
+        scoped_trail_level _restore(m_trail);
         m_trail.push_scope();
         m_subst.resize(0);
         m_subst.resize(num_vars);
         m_goals.reset();
         m_goals.push(0, num_bound, pat, t); 
         search();
-        m_trail.pop_scope(1);
     }
 
     void ho_matcher::search() {
         IF_VERBOSE(10, display(verbose_stream()));
 
+        struct drain_backtrack {
+            ho_matcher &m;
+            drain_backtrack(ho_matcher &m) : m(m) {}
+            ~drain_backtrack() {
+                while (!m.m_backtrack.empty()) {
+                    m.backtrack();
+                }
+            }
+        };
+
+        drain_backtrack _drain(*this);
 
         unsigned budget = m_max_iterations;
         while (m.inc()) {
             if (budget-- == 0) {
                 IF_VERBOSE(2, verbose_stream() << "ho_matcher: search budget exhausted\n");
-                while (!m_backtrack.empty())
-                    backtrack();
                 break;
             }
             // Q, B -> Q', B'. Push work on the backtrack stack and new work items
@@ -947,7 +965,7 @@ namespace euf {
                    auto& abs = m_pat2abs[fo_pat];
                    verbose_stream() << "  m_pat2abs size: " << abs.size() << "\n";
                    for (auto [v, pat] : abs) verbose_stream() << "    v=" << v << " pat=" << mk_pp(pat, m) << "\n";);
-        unsigned base_scope = m_trail.get_num_scopes();
+        scoped_trail_level _restore(m_trail);
         m_trail.push_scope();
         m_subst.resize(0);
         m_subst.resize(s.size());
@@ -974,7 +992,6 @@ namespace euf {
             // higher-order pattern. Discard this refinement candidate (produce
             // no instance) instead of aborting the whole solve.
             if (!subst_sorts_match(m, pat, s, true)) {
-                m_trail.pop_scope(1);
                 IF_VERBOSE(0, verbose_stream() << "refine_ho_match: sorts do not match for " << mk_pp(pat, m) << " and "
                                                << s << "\n";);
                 UNREACHABLE();
@@ -988,8 +1005,6 @@ namespace euf {
             m_goals.push(level, num_bound, pat_refined, m_subst.get(v));
         }
         search();
-        
-        m_trail.pop_scope(1);
     }
 
     bool ho_matcher::subst_sorts_match(ast_manager& m, expr* t, expr_ref_vector const& s, bool std_order) {

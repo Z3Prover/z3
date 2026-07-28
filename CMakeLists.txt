@@ -197,7 +197,11 @@ elseif (WIN32)
   message(STATUS "Platform: Windows")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_WINDOWS")
   # workaround for #7420
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")  
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
+  # dbghelp is used in debug.cpp for stack backtraces on Windows.
+  # With MSVC this is handled by #pragma comment(lib, "dbghelp.lib") in debug.cpp,
+  # but MinGW does not support that pragma, so we add it explicitly here.
+  list(APPEND Z3_DEPENDENT_LIBS dbghelp)
 elseif (EMSCRIPTEN)
   message(STATUS "Platform: Emscripten")
   list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS

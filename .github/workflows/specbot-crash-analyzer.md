@@ -8,7 +8,12 @@ on:
 
 timeout-minutes: 120
 
-permissions: read-all
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  discussions: read
+  copilot-requests: write
 
 network: defaults
 

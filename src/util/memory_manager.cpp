@@ -143,6 +143,11 @@ void memory::set_max_size(size_t max_size) {
     g_memory_max_size = max_size;
 }
 
+size_t memory::get_max_size() {
+    lock_guard lock(*g_memory_mux);
+    return g_memory_max_size <= 0 ? 0 : static_cast<size_t>(g_memory_max_size);
+}
+
 void memory::set_max_alloc_count(size_t max_count) {
     g_memory_max_alloc_count = max_count;
 }

@@ -2,8 +2,7 @@
 description: Reviews Z3 string/sequence graph implementation (euf_sgraph, euf_seq_plugin, src/smt/seq) by comparing with the ZIPT reference implementation and reporting improvements as git diffs in GitHub issues
 
 on:
-  schedule:
-    - cron: "0 0,6,12,18 * * *"
+  schedule: daily
   workflow_dispatch:
 
 permissions: read-all

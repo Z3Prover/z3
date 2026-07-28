@@ -98,9 +98,30 @@ static void test3() {
     std::cout << g << "\n";
 }
 
+static void test4() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph g(m);
+    g.add_plugin(alloc(euf::arith_plugin, g));
+    arith_util a(m);
+    sort_ref R(a.mk_real(), m);
+
+    // Test that -(a*a) = a does not crash (issue #10240)
+    // uminus of a nonlinear product should not trigger NOT_IMPLEMENTED_YET
+    expr_ref x(m.mk_const("a", R), m);
+    expr_ref aa(a.mk_mul(x, x), m);
+    expr_ref neg_aa(a.mk_uminus(aa), m);
+    auto* n_neg_aa = get_node(g, a, neg_aa);
+    auto* n_x = get_node(g, a, x);
+    g.merge(n_neg_aa, n_x, nullptr);
+    g.propagate();
+    std::cout << "test4 passed\n";
+}
+
 void tst_euf_arith_plugin() {
     // enable_trace("plugin");
     test1();
     test2();
     test3();
+    test4();
 }
