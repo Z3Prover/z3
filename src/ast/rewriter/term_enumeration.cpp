@@ -488,6 +488,106 @@ private:
     }
 };
 
+// ============================================================================
+// sort_stream - self-contained enumeration of terms of a single sort
+// ============================================================================
+
+/**
+ * A sort_stream owns a private grammar and bottom_up_enumerator so that
+ * several streams can be advanced independently and concurrently (as needed
+ * by the tuple iterator). It is seeded from the user-configured productions
+ * and, for array sorts, augments the grammar with fresh select operators and
+ * bound variables, wrapping enumerated bodies into lambdas.
+ */
+class sort_stream {
+public:
+    sort_stream(ast_manager& m, func_decl_ref_vector const& funcs, expr_ref_vector const& exprs, sort* s)
+        : m(m), m_grammar(m), m_enum(m_grammar), autil(m), m_sort(s), m_current(m), m_pinned(m) {
+        for (func_decl* f : funcs)
+            m_grammar.add_func_decl(f);
+        for (expr* e : exprs)
+            m_grammar.add_expr(e);
+        m_enum.reset();
+        init_sort();
+        advance();
+    }
+
+    // Return the current term (already lambda-wrapped) and advance to the next
+    // one. Returns nullptr once the stream is exhausted. Returned terms remain
+    // pinned for the lifetime of the stream.
+    expr* next() {
+        if (m_end)
+            return nullptr;
+        expr* r = m_current.get();
+        advance();
+        return r;
+    }
+
+private:
+    ast_manager&             m;
+    grammar                  m_grammar;
+    bottom_up_enumerator     m_enum;
+    array_util               autil;
+    sort*                    m_sort;
+    expr_ref                 m_current;
+    expr_ref_vector          m_pinned;
+    bool                     m_end = false;
+    vector<expr_ref_vector>  m_vars;
+    vector<ptr_vector<sort>> m_decls;
+    vector<vector<symbol>>   m_names;
+
+    void init_sort() {
+        sort* range = m_sort;
+        while (autil.is_array(range)) {
+            m_vars.push_back(expr_ref_vector(m));
+            m_decls.push_back(ptr_vector<sort>());
+            m_names.push_back(vector<symbol>());
+            for (unsigned i = 0; i < get_array_arity(range); ++i) {
+                m_decls.back().push_back(get_array_domain(range, i));
+                m_vars.back().push_back(nullptr);
+                m_names.back().push_back(symbol());
+            }
+            expr_ref_vector args(m);
+            args.push_back(m.mk_const("a", range));
+            for (unsigned i = 0; i < m_decls.back().size(); ++i)
+                args.push_back(m.mk_var(i, m_decls.back().get(i)));
+            app_ref sel(autil.mk_select(args), m);
+            m_grammar.add_func_decl(sel->get_decl());
+            range = get_array_range(range);
+        }
+        unsigned n = 0;
+        for (unsigned i = m_decls.size(); i-- > 0;) {
+            for (unsigned j = m_decls[i].size(); j-- > 0;) {
+                m_vars[i][j] = m.mk_var(n, m_decls[i][j]);
+                m_names[i][j] = symbol(n);
+                m_grammar.add_expr(m_vars[i].get(j));
+                n++;
+            }
+        }
+        m_sort = range;
+        m_enum.set_target_sort(range);
+    }
+
+    void mk_lambda() {
+        if (!m_current)
+            return;
+        for (unsigned i = m_decls.size(); i-- > 0;)
+            m_current = m.mk_lambda(m_decls[i].size(), m_decls[i].data(), m_names[i].data(), m_current);
+    }
+
+    void advance() {
+        if (m_end)
+            return;
+        m_current = m_enum.next();
+        SASSERT(!m_current || m_current->get_sort() == m_sort);
+        mk_lambda();
+        if (!m_current)
+            m_end = true;
+        else
+            m_pinned.push_back(m_current);
+    }
+};
+
 } // namespace term_enum
 
 // ============================================================================
@@ -499,16 +599,21 @@ struct term_enumeration::imp {
     term_enum::grammar            m_grammar;
     term_enum::bottom_up_enumerator         m_bottom_up_enumerator;
     std::function<unsigned(expr*)> m_cost;
+    func_decl_ref_vector          m_user_funcs;
+    expr_ref_vector               m_user_exprs;
 
     imp(ast_manager& m) :
-        m(m), m_grammar(m), m_bottom_up_enumerator(m_grammar) {}
+        m(m), m_grammar(m), m_bottom_up_enumerator(m_grammar),
+        m_user_funcs(m), m_user_exprs(m) {}
 
     void add_production(func_decl* f) {
         m_grammar.add_func_decl(f);
+        m_user_funcs.push_back(f);
     }
 
     void add_production(expr* e) {
         m_grammar.add_expr(e);
+        m_user_exprs.push_back(e);
     }
 
     void set_cost(std::function<unsigned(expr*)> const& cost) {
@@ -650,6 +755,157 @@ term_enumeration::iterator term_enumeration::terms::end() {
     return iterator(nullptr);
 }
 
+// -- tuple iterator implementation --
+
+struct term_enumeration::tuple_iterator::timp {
+    imp&                                     m_imp;
+    ast_manager&                             m;
+    unsigned                                 m_n;
+    scoped_ptr_vector<term_enum::sort_stream> m_streams;
+    vector<expr_ref_vector>                  m_terms;   // materialized terms per dimension
+    svector<bool>                            m_done;    // per-dimension exhausted flag
+    unsigned                                 m_rr = 0;  // round-robin cursor
+    vector<expr_ref_vector>                  m_buffer;  // pending tuples
+    unsigned                                 m_buf_idx = 0;
+    expr_ref_vector                          m_current;
+    bool                                     m_end = false;
+    bool                                     m_dead = false;
+
+    timp(imp& i, unsigned n, sort* const* sorts) :
+        m_imp(i), m(i.m), m_n(n), m_current(i.m) {
+        for (unsigned k = 0; k < n; ++k) {
+            m_streams.push_back(alloc(term_enum::sort_stream, m, i.m_user_funcs, i.m_user_exprs, sorts[k]));
+            m_terms.push_back(expr_ref_vector(m));
+            m_done.push_back(false);
+        }
+        if (n == 0) {
+            m_end = true;
+            return;
+        }
+        advance();
+    }
+
+    // Emit all tuples where dimension d is the fresh term t and every other
+    // dimension ranges over its currently materialized terms.
+    void emit(unsigned d, expr* t) {
+        for (unsigned j = 0; j < m_n; ++j)
+            if (j != d && m_terms[j].empty())
+                return;
+        svector<unsigned> idx;
+        idx.resize(m_n, 0);
+        while (true) {
+            expr_ref_vector tup(m);
+            for (unsigned j = 0; j < m_n; ++j)
+                tup.push_back(j == d ? t : m_terms[j].get(idx[j]));
+            m_buffer.push_back(tup);
+            bool carried = false;
+            for (unsigned j = m_n; j-- > 0;) {
+                if (j == d)
+                    continue;
+                idx[j]++;
+                if (idx[j] < m_terms[j].size()) {
+                    carried = true;
+                    break;
+                }
+                idx[j] = 0;
+            }
+            if (!carried)
+                break;
+        }
+    }
+
+    // Advance one dimension. Returns false if every dimension is exhausted.
+    bool step() {
+        for (unsigned tries = 0; tries < m_n; ++tries) {
+            unsigned d = m_rr;
+            m_rr = (m_rr + 1) % m_n;
+            if (m_done[d])
+                continue;
+            expr* t = m_streams[d]->next();
+            if (!t) {
+                m_done[d] = true;
+                if (m_terms[d].empty())
+                    m_dead = true;   // this dimension yields no terms at all
+                return true;
+            }
+            emit(d, t);
+            m_terms[d].push_back(t);
+            return true;
+        }
+        return false;
+    }
+
+    bool fill() {
+        while (m_buf_idx >= m_buffer.size()) {
+            if (m_dead)
+                return false;
+            if (!step())
+                return false;
+        }
+        return true;
+    }
+
+    void advance() {
+        if (m_end)
+            return;
+        if (m_buf_idx >= m_buffer.size()) {
+            m_buffer.reset();
+            m_buf_idx = 0;
+            if (!fill()) {
+                m_end = true;
+                m_current.reset();
+                return;
+            }
+        }
+        m_current.reset();
+        m_current.append(m_buffer[m_buf_idx]);
+        m_buf_idx++;
+    }
+};
+
+term_enumeration::tuple_iterator::tuple_iterator(imp& i, unsigned n, sort* const* sorts) {
+    m_imp = alloc(timp, i, n, sorts);
+}
+
+term_enumeration::tuple_iterator::tuple_iterator(std::nullptr_t) {
+    m_imp = nullptr;
+}
+
+term_enumeration::tuple_iterator::~tuple_iterator() {
+    dealloc(m_imp);
+}
+
+expr_ref_vector term_enumeration::tuple_iterator::operator*() {
+    SASSERT(m_imp);
+    return m_imp->m_current;
+}
+
+term_enumeration::tuple_iterator& term_enumeration::tuple_iterator::operator++() {
+    if (m_imp)
+        m_imp->advance();
+    return *this;
+}
+
+bool term_enumeration::tuple_iterator::operator==(tuple_iterator const& other) const {
+    if (!m_imp && !other.m_imp) return true;
+    if (!m_imp) return other.m_imp->m_end;
+    if (!other.m_imp) return m_imp->m_end;
+    return m_imp->m_end == other.m_imp->m_end;
+}
+
+// -- tuples implementation --
+
+term_enumeration::tuples::tuples(imp* i, unsigned n, sort* const* sorts) :
+    m_imp(i), m_sorts(n, sorts) {}
+
+term_enumeration::tuple_iterator term_enumeration::tuples::begin() {
+    return tuple_iterator(*m_imp, m_sorts.size(), m_sorts.data());
+}
+
+term_enumeration::tuple_iterator term_enumeration::tuples::end() {
+    return tuple_iterator(nullptr);
+}
+
 // -- term_enumeration implementation --
 
 term_enumeration::term_enumeration(ast_manager& m) {
@@ -674,6 +930,14 @@ void term_enumeration::set_cost(std::function<unsigned(expr*)> const& cost) {
 
 term_enumeration::terms term_enumeration::enum_terms(sort* s) {
     return terms(m_imp, s);
+}
+
+term_enumeration::tuples term_enumeration::enum_tuples(unsigned n, sort* const* sorts) {
+    return tuples(m_imp, n, sorts);
+}
+
+term_enumeration::tuples term_enumeration::enum_tuples(sort_ref_vector const& sorts) {
+    return tuples(m_imp, sorts.size(), sorts.data());
 }
 
 std::ostream& term_enumeration::display(std::ostream& out) const {
