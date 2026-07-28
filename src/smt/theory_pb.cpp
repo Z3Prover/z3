@@ -2116,6 +2116,7 @@ namespace smt {
             switch(ctx.get_assignment(c.lit(i))) {
             case l_true:
                 ++sum;
+                Z3_fallthrough;
             case l_undef:
                 ++maxsum;
                 break;
@@ -2147,6 +2148,7 @@ namespace smt {
             switch(ctx.get_assignment(c.lit(i))) {
             case l_true:
                 sum += c.coeff(i);
+                Z3_fallthrough;
             case l_undef:
                 maxsum += c.coeff(i);
                 break;

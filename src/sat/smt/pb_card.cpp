@@ -51,7 +51,9 @@ namespace pb {
         double to_add = do_add ? 0 : 1;
         for (literal l : *this) {
             switch (s.value(l)) {
-            case l_true:  --k; if (k == 0) return 0;
+            case l_true:
+	      --k; if (k == 0) return 0;
+	      Z3_fallthrough;
             case l_undef:
                 if (do_add) to_add += literal_occs(l);
                 ++slack; break;

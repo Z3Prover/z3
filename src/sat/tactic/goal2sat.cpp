@@ -96,7 +96,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_euf = sp.euf() || sp.smt();
     }
 
-    void throw_op_not_handled(std::string const& s) {
+    [[noreturn]] void throw_op_not_handled(std::string const& s) {
         std::string s0 = "operator " + s + " not supported, apply simplifier before invoking translator";
         throw tactic_exception(std::move(s0));
     }
