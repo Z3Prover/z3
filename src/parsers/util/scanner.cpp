@@ -144,7 +144,7 @@ scanner::token scanner::read_id(char first_char) {
                 return m_state;
             }
         default:
-            goto bail_out;
+            goto bail_out;  
         }
         ch = read_char();
     }

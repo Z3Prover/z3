@@ -25,7 +25,6 @@ set(CLANG_ONLY_WARNINGS
   "-Winconsistent-missing-override"
   "-Wno-missing-field-initializers"
   "-Wcast-qual"
-  "-Wextra-semi"
   "-Wimplicit-fallthrough"
 )
 

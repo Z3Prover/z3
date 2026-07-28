@@ -2460,7 +2460,7 @@ namespace smt {
         case QUASI_BASE:
             quasi_base_row2base_row(get_var_row(v));
             SASSERT(get_var_kind(v) == BASE);
-	    Z3_fallthrough;
+            Z3_fallthrough;
         case BASE:
             if (!m_to_patch.contains(v) && get_value(v) < k) {
                 TRACE(to_patch_bug, tout << "need to be patched (assert_lower): "; display_var(tout, v););

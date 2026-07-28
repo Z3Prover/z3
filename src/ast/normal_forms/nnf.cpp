@@ -512,12 +512,13 @@ struct nnf::imp {
             fr.m_i = 1;
             if (!visit(t->get_arg(0), !fr.m_pol, fr.m_in_q))
                 return false;
-	    break;
+            Z3_fallthrough;
         case 1:
             fr.m_i = 2;
             if (!visit(t->get_arg(1), fr.m_pol, fr.m_in_q))
                 return false;
 	    break;
+            Z3_fallthrough;
         default:
             break;
         }
@@ -546,22 +547,22 @@ struct nnf::imp {
             fr.m_i = 1;
             if (!visit(t->get_arg(0), true, fr.m_in_q))
                 return false;
-	    Z3_fallthrough;
+            Z3_fallthrough;
         case 1:
             fr.m_i = 2;
             if (!visit(t->get_arg(0), false, fr.m_in_q))
                 return false;
-	    Z3_fallthrough;
+            Z3_fallthrough;
         case 2:
             fr.m_i = 3;
             if (!visit(t->get_arg(1), fr.m_pol, fr.m_in_q))
                 return false;
-	    Z3_fallthrough;
+            Z3_fallthrough;
         case 3:
             fr.m_i = 4;
             if (!visit(t->get_arg(2), fr.m_pol, fr.m_in_q))
                 return false;
-	    Z3_fallthrough;
+            Z3_fallthrough;
         default:
             break;
         }
@@ -595,22 +596,22 @@ struct nnf::imp {
             fr.m_i = 1;
             if (!visit(t->get_arg(0), true, fr.m_in_q))
                 return false;
-	    Z3_fallthrough;
+            Z3_fallthrough;
         case 1:
             fr.m_i = 2;
             if (!visit(t->get_arg(0), false, fr.m_in_q))
                 return false;
-	    Z3_fallthrough;
+            Z3_fallthrough;
         case 2:
             fr.m_i = 3;
             if (!visit(t->get_arg(1), true, fr.m_in_q))
                 return false;
-	    Z3_fallthrough;
+            Z3_fallthrough;
         case 3:
             fr.m_i = 4;
             if (!visit(t->get_arg(1), false, fr.m_in_q))
                 return false;
-	    Z3_fallthrough;
+            Z3_fallthrough;
         default:
             break;
         }

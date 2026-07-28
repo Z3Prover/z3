@@ -103,7 +103,7 @@ br_status seq_rewriter::mk_bool_app(func_decl* f, unsigned n, expr* const* args,
     case OP_EQ:
         SASSERT(n == 2);
         // return mk_eq_helper(args[0], args[1], result);
-	Z3_fallthrough;
+        Z3_fallthrough;
     default:
         return BR_FAILED;
     }
