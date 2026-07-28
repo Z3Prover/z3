@@ -297,6 +297,63 @@ static void tst_nested_array_enumeration() {
     te.display(std::cout);
 }
 
+static void tst_tuple_enumeration() {
+    std::cout << "=== test tuple enumeration ===\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    array_util arr(m);
+
+    term_enumeration te(m);
+
+    // Leaves: a boolean constant, integer constants, and an integer array.
+    expr_ref bt(m.mk_true(), m);
+    expr_ref bf(m.mk_false(), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref one(a.mk_int(1), m);
+    te.add_production(bt);
+    te.add_production(bf);
+    te.add_production(zero);
+    te.add_production(one);
+
+    sort* int_sort = a.mk_int();
+    sort_ref arr_sort(arr.mk_array_sort(int_sort, int_sort), m);
+    app_ref ca(arr.mk_const_array(arr_sort, zero), m);
+    te.add_production(ca.get());
+
+    // Operators over integers so that streams are non-trivial.
+    app_ref tmp_add(a.mk_add(zero, one), m);
+    te.add_production(tmp_add->get_decl());
+
+    sort_ref_vector sorts(m);
+    sorts.push_back(m.mk_bool_sort());
+    sorts.push_back(int_sort);
+    sorts.push_back(arr_sort);
+
+    unsigned count = 0;
+    obj_hashtable<expr> bools, ints, arrays;
+    for (expr_ref_vector const& tup : te.enum_tuples(sorts)) {
+        ENSURE(tup.size() == 3);
+        ENSURE(tup[0]->get_sort() == m.mk_bool_sort());
+        ENSURE(tup[1]->get_sort() == int_sort);
+        ENSURE(tup[2]->get_sort() == arr_sort.get());
+        bools.insert(tup[0]);
+        ints.insert(tup[1]);
+        arrays.insert(tup[2]);
+        if (count < 10)
+            std::cout << "  (" << mk_pp(tup[0], m) << ", " << mk_pp(tup[1], m)
+                      << ", " << mk_pp(tup[2], m) << ")\n";
+        count++;
+        if (count >= 30) break;
+    }
+
+    ENSURE(count >= 4);
+    // Verify combinations mix distinct terms from each component stream.
+    ENSURE(bools.size() >= 2);
+    ENSURE(ints.size() >= 2);
+    std::cout << "Enumerated " << count << " tuples\n";
+}
+
 void tst_term_enumeration() {
     tst_basic_enumeration();
     tst_enumeration_with_operators();
@@ -305,5 +362,6 @@ void tst_term_enumeration() {
     tst_bitvector_enumeration();
     tst_multiple_sorts();
     tst_nested_array_enumeration();
+    tst_tuple_enumeration();
     std::cout << "All term_enumeration tests passed!\n";
 }

@@ -345,11 +345,17 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
     else if (u.is_empty(e)) 
         add_unit("size", e, m.mk_eq(sz, a.mk_int(0)));    
     else if (u.is_union(e, x, y)) {
-        {
-            auto _seq342_0 = u.mk_size(x);
-            auto _seq342_1 = u.mk_size(y);
-            ineq = a.mk_le(sz, a.mk_add(_seq342_0, _seq342_1));
-        }
+        // upper bound: |A ∪ B| ≤ |A| + |B|
+        auto szx = u.mk_size(x);
+        auto szy = u.mk_size(y);       
+        ineq = a.mk_le(sz, a.mk_add(szx, szy));        
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+        // lower bounds: |A ∪ B| ≥ |A|  and  |A ∪ B| ≥ |B|
+        ineq = a.mk_le(szx, sz);
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+        ineq = a.mk_le(szy, sz);
         m_rewriter(ineq);
         add_unit("size", e, ineq);
     }

@@ -365,10 +365,63 @@ namespace smt {
             if (r != l_true)
                 return r;
 
-            expr_ref slack(m.mk_fresh_const(symbol("slack"), a.mk_int()), m);
-            ctx.mk_th_axiom(th.get_id(), th.mk_literal(a.mk_ge(slack, a.mk_int(0))));  // slack is non-negative
             model_ref mdl;
             m_solver->get_model(mdl);
+
+            // Determine whether this propositional model has a "definite member":
+            // an element known to be in some active set, whose singleton is the
+            // only active singleton.  When true, at least one concrete element
+            // witnesses the pattern, so the slack lower-bound is 1 instead of 0.
+            //
+            // Conditions for a definite member:
+            //   (a) Exactly one equivalence class of singletons is active in the model.
+            //   (b) There is a positive membership assertion  (set.in e s)  where
+            //       - e belongs to that singleton class, and
+            //       - the set s is active in the model.
+            //
+            // When multiple distinct singleton classes are simultaneously active the
+            // pattern requires an element to be in several disjoint singletons at once
+            // (impossible for distinct concrete values), so we conservatively use lb=0.
+
+            enode *active_elem_root = nullptr;
+            bool multiple_singleton_classes = false;
+            for (auto& [en, b] : n2b) {
+                if (!u.is_singleton(en->get_expr())) 
+                    continue;
+                if (!mdl->is_true(b)) 
+                    continue;
+                auto elem_root = en->get_arg(0)->get_root();
+                if (!active_elem_root) {
+                    active_elem_root = elem_root;
+                } else if (active_elem_root != elem_root) {
+                    multiple_singleton_classes = true;
+                    break;
+                }
+            }
+
+            bool has_definite_member = false;
+            if (!multiple_singleton_classes && active_elem_root) {
+                for (auto& [k, v] : m_assumptions) {
+                    if (!std::holds_alternative<in>(v)) 
+                        continue;
+                    auto& in_val = std::get<in>(v);
+                    if (!in_val.is_pos) 
+                        continue;
+                    if (in_val.n->get_arg(0)->get_root() != active_elem_root) 
+                        continue;
+                    auto set_en = in_val.n->get_arg(1);
+                    if (!n2b.contains(set_en)) 
+                        continue;
+                    if (!mdl->is_true(n2b[set_en])) 
+                        continue;
+                    has_definite_member = true;
+                    break;
+                }
+            }
+
+            expr_ref slack(m.mk_fresh_const(symbol("slack"), a.mk_int()), m);
+            int slack_lb = has_definite_member ? 1 : 0;
+            ctx.mk_th_axiom(th.get_id(), th.mk_literal(a.mk_ge(slack, a.mk_int(slack_lb))));
 
 
             expr_ref_vector props(m);

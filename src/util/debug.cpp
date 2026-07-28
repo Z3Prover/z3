@@ -39,7 +39,9 @@ bool assertions_enabled() {
 #if defined(_WINDOWS)
 #include <windows.h>
 #include <dbghelp.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "dbghelp.lib")
+#endif
 static void print_windows_backtrace() {
     HANDLE process = GetCurrentProcess();
     SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);

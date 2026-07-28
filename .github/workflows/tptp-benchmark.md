@@ -10,7 +10,11 @@ on:
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
-permissions: read-all
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  copilot-requests: write
 
 network:
   allowed:

@@ -3237,8 +3237,9 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
                                   // exp < bv_sz (+sign bit which is [0])
     unsigned exp_worst_case_sz = (unsigned)((log((double)bv_sz) / log((double)2)) + 1.0);
 
-    if (exp_sz < exp_worst_case_sz) {
-        // exp_sz < exp_worst_case_sz and exp >= 0.
+    if (exp_sz <= exp_worst_case_sz) {
+        // round() interprets exp as signed, so replace positive values that
+        // cannot be represented before it consumes the narrowed exponent.
         // Take the maximum legal exponent; this
         // allows us to keep the most precision.
         expr_ref max_exp(m), max_exp_bvsz(m), zero_sig_sz(m);

@@ -19,6 +19,7 @@ Revision History:
 #include "util/hwf.h"
 #include "util/f2n.h"
 #include "util/rational.h"
+#include <cfloat>
 #include <iostream>
 
 static void bug_set_double() {
