@@ -52,62 +52,76 @@ lia_move int_branch::create_branch_on_column(int j) {
 
 
 int int_branch::find_inf_int_base_column() {
-
-#if 1
-    return lia.select_int_infeasible_var();
-#endif
-
-    int result = -1;
+    int r_small_box = -1;
+    int r_small_value = -1;
+    int r_any_value = -1;
+    unsigned n_small_box = 1;
+    unsigned n_small_value = 1;
+    unsigned n_any_value = 1;
     mpq range;
     mpq new_range;
     mpq small_value(1024);
-    unsigned n = 0;
-    lar_core_solver & lcs = lra.get_core_solver();
-    unsigned prev_usage = 0; // to quiet down the compiler
-    unsigned k = 0;
-    unsigned usage;
-    unsigned j;
+    mpq min_any_value;
+    unsigned prev_usage = 0;
 
-    // this loop looks for a column with the most usages, but breaks when
-    // a column with a small span of bounds is found
-    for (; k < lra.r_basis().size(); ++k) {
-        j = lra.r_basis()[k];
+    auto add_column = [&](bool improved, int &result, unsigned &n, unsigned j) {
+        if (result == -1)
+            result = j;
+        else if (improved && ((random() % (++n)) == 0))
+            result = j;
+    };
+
+    for (unsigned j : lra.r_basis()) {
         if (!lia.column_is_int_inf(j))
             continue;
-        usage = lra.usage_in_terms(j);
-        if (lia.is_boxed(j) &&  (range = lcs.m_r_upper_bounds[j].x - lcs.m_r_lower_bounds[j].x - rational(2*usage)) <= small_value) {
-            result = j;
-            k++;            
-            n = 1;
-            break;
+        if (lia.settings().get_cancel_flag()) {
+            return -1;
         }
-
-        if (n == 0 || usage > prev_usage) {
-            result = j;
-            prev_usage = usage;
-            n = 1;
-        } else if (usage == prev_usage && (lia.settings().random_next() % (++n) == 0)) {
-            result = j;
-        }
-    }
-    SASSERT(k == lra.r_basis().size() || n == 1);
-    // this loop looks for boxed columns with a small span
-    for (; k < lra.r_basis().size(); ++k) {
-        j = lra.r_basis()[k];
-        if (!lia.column_is_int_inf(j) || !lia.is_boxed(j))
-            continue;
         SASSERT(!lia.is_fixed(j));
-        usage = lra.usage_in_terms(j);
-        new_range  = lcs.m_r_upper_bounds[j].x - lcs.m_r_lower_bounds[j].x - rational(2*usage);
-        if (new_range < range) {
-            n = 1;
-            result = j;
-            range = new_range;
-        } else if (new_range == range && (lia.settings().random_next() % (++n) == 0)) {
-            result = j;                    
+
+        unsigned usage = lra.usage_in_terms(j);
+        if (lia.is_boxed(j) && (new_range = lra.bound_span_x(j) - rational(2 * usage)) <= small_value) {
+            bool improved = new_range <= range || r_small_box == -1;
+            if (improved)
+                range = new_range;
+            add_column(improved, r_small_box, n_small_box, j);
+            continue;
+        }
+        impq const &value = lia.get_value(j);
+        if (abs(value.x) < small_value || (lra.column_has_upper_bound(j) && small_value > lia.upper_bound(j).x - value.x) ||
+            (lia.has_lower(j) && small_value > value.x - lia.lower_bound(j).x)) {
+            TRACE(int_solver, tout << "small j" << j << "\n");
+            add_column(true, r_small_value, n_small_value, j);
+            continue;
+        }
+        TRACE(int_solver, tout << "any j" << j << "\n");
+        // Among columns with a large value, prefer the one whose
+        // absolute value is smallest to avoid branching on ever
+        // larger integers when better (smaller) options are available.
+        mpq const abs_value = abs(value.x);
+        if (r_any_value == -1 || abs_value < min_any_value) {
+            r_any_value = j;
+            min_any_value = abs_value;
+            n_any_value = 1;
+            prev_usage = usage;
+        }
+        else if (abs_value == min_any_value) {
+            add_column(usage >= prev_usage, r_any_value, n_any_value, j);
+            if (usage > prev_usage)
+                prev_usage = usage;
         }
     }
-    return result;    
+
+    if (r_small_box != -1 && (lra.settings().random_next() % 3 != 0))
+        return r_small_box;
+    if (r_small_value != -1 && (lra.settings().random_next() % 3) != 0)
+        return r_small_value;
+    if (r_any_value != -1)
+        return r_any_value;
+    if (r_small_box != -1)
+        return r_small_box;
+    return r_small_value;
+
 }
    
 }

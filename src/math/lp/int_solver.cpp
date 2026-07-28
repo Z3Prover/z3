@@ -322,81 +322,7 @@ namespace lp {
                    tout << "term:";lra.print_term(m_t, tout) << "\n";
                 );
             return v * sign > impq(m_k) * sign;
-        }
-        
-        int select_int_infeasible_var() {
-            int r_small_box = -1;
-            int r_small_value = -1;
-            int r_any_value = -1;
-            unsigned n_small_box = 1;
-            unsigned n_small_value = 1;
-            unsigned n_any_value = 1;
-            mpq range;
-            mpq new_range;
-            mpq small_value(1024);
-            mpq min_any_value;
-            unsigned prev_usage = 0;
-
-            auto add_column = [&](bool improved, int& result, unsigned& n, unsigned j) {
-                if (result == -1)
-                    result = j;
-                else if (improved && ((random() % (++n)) == 0))
-                    result = j;            
-            };
-        
-            for (unsigned j : lra.r_basis()) {
-                if (!column_is_int_inf(j))
-                    continue;
-                if (settings().get_cancel_flag()){
-                    return -1;
-                }
-                SASSERT(!lia.is_fixed(j));
-
-                unsigned usage = lra.usage_in_terms(j);
-                if (lia.is_boxed(j) && (new_range = lra.bound_span_x(j) - rational(2*usage)) <= small_value) {
-
-                    bool improved = new_range <= range || r_small_box == -1;
-                    if (improved)
-                        range = new_range;
-                    add_column(improved, r_small_box, n_small_box, j);
-                    continue;
-                }
-                impq const& value = lia.get_value(j);
-                if (abs(value.x) < small_value ||
-                    (lra.column_has_upper_bound(j) && small_value > upper_bound(j).x - value.x) ||
-                    (has_lower(j) && small_value > value.x - lower_bound(j).x)) {
-                    TRACE(int_solver, tout << "small j" << j << "\n");
-                    add_column(true, r_small_value, n_small_value, j);
-                    continue;
-                }
-                TRACE(int_solver, tout << "any j" << j << "\n");
-                // Among columns with a large value, prefer the one whose
-                // absolute value is smallest to avoid branching on ever
-                // larger integers when better (smaller) options are available.
-                mpq const abs_value = abs(value.x);
-                if (r_any_value == -1 || abs_value < min_any_value) {
-                    r_any_value = j;
-                    min_any_value = abs_value;
-                    n_any_value = 1;
-                    prev_usage = usage;
-                }
-                else if (abs_value == min_any_value) {
-                    add_column(usage >= prev_usage, r_any_value, n_any_value, j);
-                    if (usage > prev_usage)
-                        prev_usage = usage;
-                }
-            }
-
-            if (r_small_box != -1 && (random() % 3 != 0))
-                return r_small_box;
-            if (r_small_value != -1 && (random() % 3) != 0)
-                return r_small_value;
-            if (r_any_value != -1)
-                return r_any_value;
-            if (r_small_box != -1)
-                return r_small_box;
-            return r_small_value;
-        }
+        }                
 
         std::ostream & display_row(std::ostream & out, lp::row_strip<rational> const & row) const {
             bool first = true;
@@ -969,8 +895,6 @@ namespace lp {
         return m_imp->has_upper(j);
     }
 
-    int int_solver::select_int_infeasible_var() { return m_imp->select_int_infeasible_var(); }
-    bool int_solver::current_solution_is_inf_on_cut() const { return m_imp->current_solution_is_inf_on_cut(); }
     const impq & int_solver::lower_bound(unsigned j) const { return m_imp->lower_bound(j);}
     const impq & int_solver::upper_bound(unsigned j) const { return m_imp->upper_bound(j);}
     #if Z3DEBUG
