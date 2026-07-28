@@ -735,7 +735,9 @@ namespace lp {
         return true;
     }
 
-
+    bool int_solver::current_solution_is_inf_on_cut() const {
+        return m_imp->current_solution_is_inf_on_cut();
+    }
 
     void int_solver::simplify(std::function<bool(unsigned)>& is_root) {
         return;
