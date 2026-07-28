@@ -122,7 +122,7 @@ scanner::token scanner::read_id(char first_char) {
             }
             // strings can have hyphens.
             if (!is_alpha || ch != '-') {
-                goto bail_out;
+                goto bail_out;  
             }
             Z3_fallthrough;
         case 'a':
@@ -144,7 +144,7 @@ scanner::token scanner::read_id(char first_char) {
                 return m_state;
             }
         default:
-            goto bail_out;  
+            goto bail_out;
         }
         ch = read_char();
     }

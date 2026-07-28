@@ -517,7 +517,6 @@ struct nnf::imp {
             fr.m_i = 2;
             if (!visit(t->get_arg(1), fr.m_pol, fr.m_in_q))
                 return false;
-	    break;
             Z3_fallthrough;
         default:
             break;
