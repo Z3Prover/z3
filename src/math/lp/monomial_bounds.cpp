@@ -704,7 +704,7 @@ namespace nla {
     // Mirrors theory_arith::normalize_gain.  'divisor == -1' means "no quantum".
     static void mm_round_down(lp::impq& val, rational const& divisor) {
         if (divisor.is_one())
-            val = lp::impq(lp:floor(val));
+            val = lp::impq(lp:Lfloor(val));
         else if (!divisor.is_minus_one())
             val = lp::impq(lp::floor(val / divisor) * divisor);
     }
