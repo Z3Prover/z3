@@ -15,7 +15,6 @@ if _SCRIPTS_DIR not in sys.path:
 
 import update_api
 
-
 class TestZ3PyLibraryLoading(unittest.TestCase):
     def _render_preamble(self, soversion):
         buf = io.StringIO()
