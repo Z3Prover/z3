@@ -82,24 +82,6 @@ ExternalProject_Add(cpp_example
 set_target_properties(cpp_example PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 ################################################################################
-# Build example tptp5 project using libz3's C++ API as an external project
-################################################################################
-ExternalProject_Add(z3_tptp5
-  DEPENDS libz3
-  # Configure step
-  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tptp"
-  CMAKE_ARGS
-    "-DZ3_DIR=${PROJECT_BINARY_DIR}"
-    "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
-  # Build step
-  BUILD_ALWAYS ON
-  BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/tptp_build_dir"
-  # Install Step
-  INSTALL_COMMAND "${CMAKE_COMMAND}" -E echo "" # Dummy command
-)
-set_target_properties(z3_tptp5 PROPERTIES EXCLUDE_FROM_ALL TRUE)
-
-################################################################################
 # Build example user-propagator project using libz3's C++ API as an external project
 ################################################################################
 ExternalProject_Add(userPropagator
