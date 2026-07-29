@@ -75,6 +75,12 @@ namespace nla {
         bool add_nla_conflict(dd::solver::equation const& eq);
         void check_missing_propagation(dd::solver::equation const& eq);
 
+        // perfect-square conflict detection (arith.nl.grobner_perfect_squares),
+        // a port of theory_arith_nl's is_inconsistent2.
+        bool add_perfect_square_conflict(dd::solver::equation const& eq);
+        template <dep_intervals::with_deps_t wd>
+        void monomial_interval(rational const& coeff, unsigned_vector const& vars, scoped_dep_interval& r);
+
         bool equation_is_true(dd::solver::equation const& eq);
 
         // adaptive growth (gated by arith.nl.grobner_adaptive)
