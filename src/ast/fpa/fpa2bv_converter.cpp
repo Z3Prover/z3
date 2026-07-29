@@ -957,10 +957,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     // else comes the actual division.
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
-    if (ebits > sbits)
-        throw default_exception("division with ebits > sbits not supported");
     const mpz & lz_modulus = m_mpf_manager.m_powers2(ebits);
-    SASSERT(ebits <= sbits);
 
     bool needs_wide_lz = m_mpz_manager.lt(lz_modulus, mpz(sbits));
     unsigned exp_bits = ebits + 2;
@@ -1033,16 +1030,23 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
 
     SASSERT(m_bv_util.get_bv_size(quotient) == (sbits + sbits + extra_bits));
 
-    expr_ref sticky(m), upper(m), upper_reduced(m), too_large(m);
+    expr_ref sticky(m), too_large(m);
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(extra_bits-2, 0, quotient));
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(extra_bits+sbits+1, extra_bits-1, quotient), sticky);
-    upper = m_bv_util.mk_extract(sbits + sbits + extra_bits-1, extra_bits+sbits+2, quotient);
-    upper_reduced = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, upper.get());
-    too_large = m.mk_eq(upper_reduced, m_bv_util.mk_numeral(1, 1));
+    if (sbits == 2) {
+        // There are no quotient bits above the retained slice.
+        too_large = m.mk_false();
+    }
+    else {
+        expr_ref upper(m), upper_reduced(m);
+        upper = m_bv_util.mk_extract(sbits + sbits + extra_bits-1, extra_bits+sbits+2, quotient);
+        upper_reduced = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, upper.get());
+        too_large = m.mk_eq(upper_reduced, m_bv_util.mk_numeral(1, 1));
+        dbg_decouple("fpa2bv_div_upper", upper);
+    }
     c8 = too_large;
     mk_ite(signs_xor, ninf, pinf, v8);
     dbg_decouple("fpa2bv_div_res_sig_p4", res_sig);
-    dbg_decouple("fpa2bv_div_upper", upper);
     dbg_decouple("fpa2bv_div_too_large", too_large);
 
     SASSERT(m_bv_util.get_bv_size(res_sig) == (sbits + 4));
@@ -1057,9 +1061,12 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     shift_cond = m_bv_util.mk_ule(res_sig_lz, m_bv_util.mk_numeral(1, sbits + 4));
     expr_ref res_sig_shifted(m), res_exp_shifted(m);
     res_sig_shifted = m_bv_util.mk_bv_shl(res_sig, res_sig_shift_amount);
-    SASSERT(exp_bits <= sbits + 4);
     expr_ref exp_shift_amount(m);
-    exp_shift_amount = m_bv_util.mk_extract(exp_bits - 1, 0, res_sig_shift_amount);
+    // The selected unsigned correction is at most sbits + 3.
+    if (exp_bits <= sbits + 4)
+        exp_shift_amount = m_bv_util.mk_extract(exp_bits - 1, 0, res_sig_shift_amount);
+    else
+        exp_shift_amount = m_bv_util.mk_zero_extend(exp_bits - (sbits + 4), res_sig_shift_amount);
     res_exp_shifted = m_bv_util.mk_bv_sub(res_exp, exp_shift_amount);
     m_simp.mk_ite(shift_cond, res_sig, res_sig_shifted, res_sig);
     m_simp.mk_ite(shift_cond, res_exp, res_exp_shifted, res_exp);
@@ -4167,7 +4174,6 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(sig_size == sbits + 4);
     SASSERT(m_bv_util.get_bv_size(sigma) == exp_bits);
     unsigned sigma_size = exp_bits;
-    SASSERT(sigma_size <= 2 * sig_size);
 
     expr_ref sigma_neg(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
         rs_sig(m), ls_sig(m), big_sh_sig(m), sigma_le_cap(m);
@@ -4182,8 +4188,19 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     dbg_decouple("fpa2bv_rnd_sigma_lt_zero", sigma_lt_zero);
 
     sig_ext = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, sig_size));
-    rs_sig = m_bv_util.mk_bv_lshr(sig_ext, m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma_neg_capped));
-    ls_sig = m_bv_util.mk_bv_shl(sig_ext, m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma));
+    expr_ref rs_shift(m), ls_shift(m);
+    if (sigma_size <= 2 * sig_size) {
+        rs_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma_neg_capped);
+        ls_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma);
+    }
+    else {
+        // The selected right count is capped at sbits + 2; the selected
+        // nonnegative left count is at most the significand's leading zeros.
+        rs_shift = m_bv_util.mk_extract(2*sig_size - 1, 0, sigma_neg_capped);
+        ls_shift = m_bv_util.mk_extract(2*sig_size - 1, 0, sigma);
+    }
+    rs_sig = m_bv_util.mk_bv_lshr(sig_ext, rs_shift);
+    ls_sig = m_bv_util.mk_bv_shl(sig_ext, ls_shift);
     m_simp.mk_ite(sigma_lt_zero, rs_sig, ls_sig, big_sh_sig);
     SASSERT(m_bv_util.get_bv_size(big_sh_sig) == 2*sig_size);
 
