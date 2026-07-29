@@ -42,7 +42,7 @@ enum class exit_action {
 };
 exit_action get_default_exit_action();
 void set_default_exit_action(exit_action a);
-void invoke_exit_action(unsigned int code);
+[[noreturn]] void invoke_exit_action(unsigned int code);
 
 #include "util/error_codes.h"
 #include "util/warning.h"
@@ -92,16 +92,10 @@ bool is_debug_enabled(const char * tag);
         INVOKE_DEBUGGER();                                                       \
     })
 
-#ifdef __clang__
-#define __compiler_unreachable __builtin_unreachable()
-#else
-#define __compiler_unreachable
-#endif
-
 #ifdef Z3DEBUG
-# define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); INVOKE_DEBUGGER(); __compiler_unreachable;)
+# define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); INVOKE_DEBUGGER();)
 #else
-# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); invoke_exit_action(ERR_UNREACHABLE); }; __compiler_unreachable
+# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); invoke_exit_action(ERR_UNREACHABLE); } ((void) 0)
 #endif
 
 #ifdef Z3DEBUG
