@@ -133,6 +133,7 @@ add_executable(test-z3
   scoped_timer.cpp
   scoped_vector.cpp
   simple_parser.cpp
+  scanner_io.cpp
   simplex.cpp
   simplifier.cpp
   sls_test.cpp

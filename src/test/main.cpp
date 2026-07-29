@@ -73,6 +73,7 @@
     X(bit_blaster) \
     X(var_subst) \
     X(simple_parser) \
+    X(scanner_io) \
     X(api) \
     X(max_rev) \
     X(scaled_min) \
