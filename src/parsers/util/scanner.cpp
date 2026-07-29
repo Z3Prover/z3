@@ -483,7 +483,12 @@ scanner::token scanner::scan() {
         case '#':
             return read_bv_literal();
         case static_cast<char>(-1):
-            m_state = EOF_TOKEN;
+            if (m_stream.bad()) {
+                m_err << "ERROR: I/O failure while reading input stream.\n";
+                m_state = ERROR_TOKEN;
+            } else {
+                m_state = EOF_TOKEN;
+            }
             break;
         default:
             // TODO: use error reporting 
