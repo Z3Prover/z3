@@ -124,6 +124,7 @@ scanner::token scanner::read_id(char first_char) {
             if (!is_alpha || ch != '-') {
                 goto bail_out;  
             }
+            Z3_fallthrough;
         case 'a':
         case ':':
         case '.':

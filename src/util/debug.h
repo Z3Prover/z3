@@ -92,10 +92,16 @@ bool is_debug_enabled(const char * tag);
         INVOKE_DEBUGGER();                                                       \
     })
 
-#ifdef Z3DEBUG
-# define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); INVOKE_DEBUGGER();)
+#ifdef __clang__
+#define __compiler_unreachable __builtin_unreachable()
 #else
-# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); invoke_exit_action(ERR_UNREACHABLE); } ((void) 0)
+#define __compiler_unreachable
+#endif
+
+#ifdef Z3DEBUG
+# define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); INVOKE_DEBUGGER(); __compiler_unreachable;)
+#else
+# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); invoke_exit_action(ERR_UNREACHABLE); }; __compiler_unreachable
 #endif
 
 #ifdef Z3DEBUG

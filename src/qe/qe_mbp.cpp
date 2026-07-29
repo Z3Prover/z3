@@ -457,14 +457,14 @@ public:
             unsigned n = a->get_num_args();
             unsigned last = is_st ? n - 1 : n;
             for (unsigned i = 1; i < last; ++i) {
-                expr* idx = a->get_arg(i);
-                for (app* v : arr_vars)
-                    if (v != idx && occurs(v, idx))
-                        return true;
+                auto idx = a->get_arg(i);
+                if (any_of(arr_vars, [&](app* v) { return idx != v && occurs(v, idx); }))
+                    return true;
             }
         }
         return false;
     }
+
     void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls, vector<mbp::def>* defs = nullptr) {
         //don't use mbp_qel on some theories where model evaluation is
         //incomplete This is not a limitation of qel. Fix this either by
