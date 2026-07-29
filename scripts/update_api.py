@@ -1850,6 +1850,7 @@ def write_core_py_post(core_py):
 # Clean up
 del _lib
 del _lib_name
+del _lib_names
 del _default_dirs
 del _all_dirs
 del _ext
@@ -1879,6 +1880,8 @@ atexit.register(_file_manager.close)
 """
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
 _lib_name = 'libz3.%s.%s' % (_ext, _sover) if sys.platform.startswith('linux') and _sover else 'libz3.%s' % _ext
+# On Linux with a soversion, also try the unversioned name as a fallback (e.g. build directories)
+_lib_names = ['libz3.%s.%s' % (_ext, _sover), 'libz3.%s' % _ext] if sys.platform.startswith('linux') and _sover else ['libz3.%s' % _ext]
 _lib = None
 _z3_lib_resource = importlib_resources.files('z3').joinpath('lib')
 _z3_lib_resource_path = _file_manager.enter_context(
@@ -1909,25 +1912,30 @@ for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
     _all_dirs.extend(lds)
 
 _failures = []
-for d in _all_dirs:
-  try:
-    d = os.path.realpath(d)
-    if os.path.isdir(d):
-      d = os.path.join(d, _lib_name)
-      if os.path.isfile(d):
-        _lib = ctypes.CDLL(d)
-        break
-  except Exception as e:
-    _failures += [e]
-    pass
+for _name in _lib_names:
+  for d in _all_dirs:
+    try:
+      d = os.path.realpath(d)
+      if os.path.isdir(d):
+        d = os.path.join(d, _name)
+        if os.path.isfile(d):
+          _lib = ctypes.CDLL(d)
+          break
+    except Exception as e:
+      _failures += [e]
+      pass
+  if _lib is not None:
+    break
 
 if _lib is None:
   # If all else failed, ask the system to find it.
-  try:
-    _lib = ctypes.CDLL(_lib_name)
-  except Exception as e:
-    _failures += [e]
-    pass
+  for _name in _lib_names:
+    try:
+      _lib = ctypes.CDLL(_name)
+      break
+    except Exception as e:
+      _failures += [e]
+      pass
 
 if _lib is None:
   print("Could not find %s; consider adding the directory containing it to" % _lib_name)
