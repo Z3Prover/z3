@@ -706,6 +706,13 @@ namespace euf {
         expr* elem_expr = elem->get_expr();
         SASSERT(re_expr);
         SASSERT(elem_expr);
+
+        // Pure function of (re, elem) -- see m_deriv_cache.
+        snode const* cached = nullptr;
+        if (m_deriv_cache.find(re_expr, elem_expr, cached))
+            return cached;
+        expr* const key_re = re_expr;
+        expr* const key_elem = elem_expr;
         // std::cout << "Derivative of " << seq::snode_label_html(re, m) << "\nwith respect to " << seq::snode_label_html(elem, m) << std::endl;
         // if (allowed_range)
         //     std::cout << "using " << seq::snode_label_html(allowed_range, m) << std::endl;
@@ -758,9 +765,10 @@ namespace euf {
         // — notably intersections like (A∩B) vs (B∩A) or (a|∅)·R vs a·R — get
         // distinct ids, breaking partial-DFA Q-membership and view/guard lap
         // detection (the multi-cycle / intersection divergence).
-        th_rewriter trw(m);
-        trw(result);
-        return mk(result);
+        m_th_rewriter(result);
+        snode const* res = mk(result);
+        m_deriv_cache.insert(key_re, key_elem, res);
+        return res;
     }
 
     bool sgraph::are_unit_distinct(snode const* a, snode const* b) const {

@@ -40,6 +40,7 @@ Author:
 #include "util/region.h"
 #include "util/statistics.h"
 #include "util/lbool.h"
+#include "util/obj_pair_hashtable.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -85,6 +86,13 @@ namespace euf {
 
         // maps expression id to snode
         ptr_vector<snode const> m_expr2snode;
+
+        // Memo for brzozowski_deriv, keyed on the (regex, element) snode
+        // expressions.  The derivative is a pure function of that pair, and both
+        // keys as well as the resulting snode are stable for the lifetime of the
+        // sgraph (snodes live in m_region, which is never freed, and their
+        // expressions are pinned in m_pin)
+        obj_pair_map<expr, expr, snode const*> m_deriv_cache;
         
         // trail of alias entries (string constant → decomposed snode) for pop
         unsigned_vector  m_alias_trail;       // expression ids

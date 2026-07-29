@@ -194,6 +194,19 @@ class seq_split {
     // left (resp. right) component and unions the other component.
     void merge_by(split_set& pairs, bool by_left) const;
 
+    // Cap on the split-sets materialized for the *Boolean-closure* cases
+    // (intersection / complement), which cannot be produced lazily and are
+    // therefore drained in full inside head_normalize.  This is a different
+    // quantity from the caller's `threshold`, which bounds how many splits the
+    // lazy enumeration may EMIT and is deliberately huge (nseq passes 2^20, so
+    // that the binary child-B chain may walk arbitrarily many splits).  Reusing
+    // that value here let the De Morgan fold -- whose `acc` is intersected with a
+    // 2-element set per element, hence doubles -- run to 2^20 pairs before
+    // aborting, which is several seconds of pure waste.  Overrunning this cap is
+    // a give-up, so the caller falls through to its other rules; that is sound
+    // and strictly better than the hang.
+    static const unsigned BOOL_CLOSURE_CAP = 256;
+
 public:
     explicit seq_split(seq_rewriter& rw);
 

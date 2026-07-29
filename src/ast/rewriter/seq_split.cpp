@@ -253,6 +253,12 @@ bool seq_split::complement(sort* seq_sort, split_set const& sp, split_set& resul
         acc = std::move(tmp);
         if (acc.empty())            // intersection empty => ~S is empty
             break;
+        // Do not simplify(acc) here.  It does bound |acc| (each round
+        // intersects acc with a 2-element set, so the fold is 2^|sp| without it),
+        // but merge_by collapses pairs by unioning their other component, so
+        // re-merging every round nests unions ~rounds*|acc| deep and the
+        // recursive is_subset / mk_regex_union_normalize then overflow the stack.
+        // |acc| is bounded by the caller's cap instead; see BOOL_CLOSURE_CAP.
         if (acc.size() > threshold) {
             ++m_stats.m_threshold_overruns;
             return false;
@@ -663,10 +669,21 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
             ok = false;
             return expr_ref(m);
         }
+        // The operand split-sets are materialized eagerly, so they are capped  
+        // rather than by the (deliberately huge) cap that bounds
+        // how many splits the lazy enumeration may emit
+        const unsigned cap = std::min(threshold, BOOL_CLOSURE_CAP);
         split_set sa, sb, tmp;
-        if (!materialize(a, mode, threshold, oracle, sa) ||
-            !materialize(b, mode, threshold, oracle, sb) ||
-            !intersect(sa, sb, tmp, threshold, oracle)) {
+        if (!materialize(a, mode, cap, oracle, sa) ||
+            !materialize(b, mode, cap, oracle, sb)) {
+            ok = false;
+            return expr_ref(m);
+        }
+        // simplify(sa)/simplify(sb) before the cross product would cut the
+        // |sa|*|sb| pairs considerably, but merge_by builds unions of unbounded
+        // depth and the recursive seq_subset::is_subset then overflows the stack.
+        // Needs a depth-guarded is_subset first.
+        if (!intersect(sa, sb, tmp, cap, oracle)) {
             ok = false;
             return expr_ref(m);
         }
@@ -680,9 +697,15 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
         // The body is materialized WITHOUT the oracle (its pairs are inverted, so
         // their N is unrelated to the output N); the oracle is re-applied in
         // complement().
+        const unsigned cap = std::min(threshold, BOOL_CLOSURE_CAP);
         split_set sa, res;
-        if (!materialize(a, mode, threshold, split_oracle{}, sa) ||
-            !complement(m_seq_sort, sa, res, threshold, oracle)) {
+        if (!materialize(a, mode, cap, split_oracle{}, sa)) {
+            ok = false;
+            return expr_ref(m);
+        }
+        // As in the inter case, simplify(sa) here would cut the number of fold
+        // rounds but currently risks a stack overflow; see the note above.
+        if (!complement(m_seq_sort, sa, res, cap, oracle)) {
             ok = false;
             return expr_ref(m);
         }
@@ -904,7 +927,7 @@ std::pair<expr_ref, expr_ref> seq_split::split_membership(expr* str, expr* regex
             tokens.push_back(expr_ref(cur, m));
     }
 
-    expr* ch;
+    expr* ch = nullptr;
     unsigned i = 0;
 
     while (i < tokens.size() && (seq().str.is_string(tokens.get(i)) || (seq().str.is_unit(tokens.get(i), ch) && seq().is_const_char(ch)))) {
