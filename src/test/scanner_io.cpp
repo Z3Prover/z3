@@ -49,27 +49,6 @@ Abstract:
 
 namespace {
 
-    // A streambuf that delivers `good_bytes` and then fails, the way a real
-    // stream does on EIO. underflow() returning eof() with badbit set is the
-    // portable stand-in for a device error -- no signals, no filesystem tricks,
-    // identical on every platform.
-    class failing_buf : public std::streambuf {
-        std::string m_data;
-        size_t      m_pos = 0;
-        char        m_ch  = 0;
-    public:
-        explicit failing_buf(std::string d) : m_data(std::move(d)) {}
-    protected:
-        int_type underflow() override {
-            if (m_pos < m_data.size()) {
-                m_ch = m_data[m_pos];
-                setg(&m_ch, &m_ch, &m_ch + 1);
-                return traits_type::to_int_type(m_ch);
-            }
-            return traits_type::eof();   // caller sets badbit; see below
-        }
-    };
-
     unsigned drain(scanner & s) {
         unsigned n = 0;
         while (s.scan() != scanner::EOF_TOKEN && n < 10000) ++n;
