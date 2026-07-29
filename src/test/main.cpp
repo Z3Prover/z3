@@ -73,6 +73,7 @@
     X(bit_blaster) \
     X(var_subst) \
     X(simple_parser) \
+    X(scanner_io) \
     X(api) \
     X(max_rev) \
     X(scaled_min) \
@@ -115,6 +116,7 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_monadic) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
@@ -196,7 +198,6 @@
     X(ho_matcher) \
     X(finite_set) \
     X(finite_set_rewriter) \
-    X(seq_split) \
     X(seq_regex_bisim) \
     X(term_enumeration) \
     X(lcube) \

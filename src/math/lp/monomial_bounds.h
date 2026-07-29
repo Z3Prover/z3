@@ -51,10 +51,48 @@ namespace nla {
         bool propagate_changed_bound(monic & m);
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
+
+        // ----------------------------------------------------------------
+        // max_min: incremental LP bound optimization.
+        //
+        // Adapted from smt::theory_arith::max_min (theory_arith_aux.h): a
+        // bounded-variable primal-simplex walk that maximizes/minimizes a
+        // single column over the current LP tableau by pivoting, leaving the
+        // tableau at an optimal feasible vertex.  Replaces the expensive
+        // lar_solver::find_improved_bound (which rebuilds the objective and
+        // re-solves from scratch on every call) and rounds the resulting
+        // bound to respect the integrality of integer columns.
+        // ----------------------------------------------------------------
+        //
+        // Gain of a candidate move: how far a non-basic column may travel in the
+        // chosen direction.  'min_gain' is the integrality quantum -- the
+        // smallest integral step that keeps every dependent integer column at an
+        // integral value (-1 means "no quantum", i.e. a rational column);
+        // 'max_gain' is the largest feasible step (valid only when !unbounded).
+        //
+        struct mm_gain {
+            bool      unbounded = true;              // no bound blocks the move
+            rational  min_gain  = rational::minus_one();
+            lp::impq  max_gain;
+        };
+        lpvar mm_basic_in_row(unsigned row) const;
+        bool mm_safe_gain(mm_gain const& g) const;
+        mm_gain mm_init_gains(lpvar x, bool inc) const;
+        bool mm_update_gains(bool inc, lpvar x_i, rational const& a_ij, mm_gain& g) const;
+        bool mm_pick_var_to_leave(lpvar x_j, bool inc, rational& a_ij, mm_gain& g, lpvar& x_i) const;
+        bool mm_move_to_bound(lpvar x_i, bool inc, unsigned& best_efforts);
+        void mm_update_value(lpvar j, lp::impq const& delta);
+        void mm_optimize(lpvar v, bool maximize);
+        u_dependency* mm_bound_from_row(lpvar v, bool maximize, rational& bound);
     public:
         monomial_bounds(core* core);
         void generate_lemmas();
         bool tighten_lp_bounds();
         bool propagate_changed_bounds();
+
+        // Maximize (is_lower == false) or minimize (is_lower == true) column j
+        // over the LP tableau and, if the resulting bound improves j's current
+        // bound, return its explanation and set 'bound'; otherwise return nullptr.
+        u_dependency* improve_bound(lpvar j, bool is_lower, rational& bound);
     }; 
 }

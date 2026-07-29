@@ -122,7 +122,7 @@ void set_default_exit_action(exit_action a) {
     g_default_exit_action = a;
 }
 
-void invoke_exit_action(unsigned int code) {
+[[noreturn]] void invoke_exit_action(unsigned int code) {
     exit_action a = get_default_exit_action();
     switch (a) {
     case exit_action::exit:

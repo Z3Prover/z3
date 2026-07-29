@@ -117,7 +117,6 @@ def init_project_def():
     add_js()
     # Examples
     add_cpp_example('cpp_example', 'c++') 
-    add_cpp_example('z3_tptp', 'tptp') 
     add_c_example('c_example', 'c')
     add_c_example('maxsat')
     add_dotnet_example('dotnet_example', 'dotnet')

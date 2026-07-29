@@ -708,8 +708,18 @@ expr *term_graph::mk_app_core(expr *e) {
         return e;
     expr_ref_buffer kids(m);
     app *a = ::to_app(e);
-    for (expr *arg : *a)
-        kids.push_back(mk_app(arg)); 
+    for (expr *arg : *a) {
+        // Keep literal values (e.g. the coefficient 2 in (* 2 x)) as-is.
+        // Replacing a value with its non-value class representative (e.g. x1
+        // when (= x1 2) was added to the graph) can turn a linear coefficient
+        // into a free variable, producing a nonlinear term such as (* x1 x).
+        // Values are canonical and never need to be expressed through a
+        // symbolic representative.
+        if (m.is_value(arg))
+            kids.push_back(arg);
+        else
+            kids.push_back(mk_app(arg));
+    }
     app *res = m.mk_app(a->get_decl(), a->get_num_args(), kids.data());
     m_pinned.push_back(res);
     return res;
@@ -813,28 +823,23 @@ bool term_graph::term_lt(term const &t1, term const &t2) {
     // prefer applications over variables (for non-ground)
     // prefer uninterpreted constants over values
     // prefer smaller expressions over larger ones
+    //
+    // Keeping uninterpreted constants as representatives is required by
+    // model-based projection clients such as Spacer: substituting a
+    // non-eliminated state constant with its concrete model value over-grounds
+    // the projected lemma (see Z3Prover/bench discussion #3420, benchmark
+    // iss-5561/bug-2.smt2).
+    //
+    // The complementary concern — that a literal value used as a coefficient
+    // (e.g. the 2 in (* 2 x)) could be displaced by a free variable x1 when
+    // (= x1 2) is in scope, yielding a nonlinear term (* x1 x) — is addressed
+    // separately in mk_app_core, which keeps literal values as-is and never
+    // replaces them with a non-value representative.
 
     if (t1.get_num_args() == 0 || t2.get_num_args() == 0) {
         if (t1.get_num_args() == t2.get_num_args()) {
             if (m.is_value(t1.get_expr()) == m.is_value(t2.get_expr()))
                 return t1.get_id() < t2.get_id();
-            // Prefer values over non-var uninterpreted constants to avoid
-            // substituting numeric literals with free variables. This prevents
-            // non-linear terms like (x * x1) when x1=2 is added as a model
-            // constraint and 2 appears as a coefficient in (2 * x).
-            // Exception: if the non-value is a variable to eliminate, keep the
-            // old preference (non-value wins) so refine_repr can replace it.
-            auto is_elim_var = [&](term const &t) {
-                expr *e = t.get_expr();
-                return is_app(e) && m_is_var.contains(to_app(e)->get_decl());
-            };
-            bool t1_is_val = m.is_value(t1.get_expr());
-            bool t2_is_val = m.is_value(t2.get_expr());
-            // If the non-value is NOT a variable to eliminate, prefer the value
-            if (t1_is_val && !t2_is_val && !is_elim_var(t2))
-                return true;  // t1 (value) preferred
-            if (t2_is_val && !t1_is_val && !is_elim_var(t1))
-                return false; // t2 (value) preferred
             return m.is_value(t2.get_expr());
         }
         return t1.get_num_args() < t2.get_num_args();

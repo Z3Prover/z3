@@ -42,7 +42,7 @@ enum class exit_action {
 };
 exit_action get_default_exit_action();
 void set_default_exit_action(exit_action a);
-void invoke_exit_action(unsigned int code);
+[[noreturn]] void invoke_exit_action(unsigned int code);
 
 #include "util/error_codes.h"
 #include "util/warning.h"
