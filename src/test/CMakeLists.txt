@@ -24,7 +24,6 @@ add_executable(test-z3
   api_datalog.cpp
   parametric_datatype.cpp
   arith_rewriter.cpp
-  seq_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
   bdd.cpp
@@ -132,6 +131,8 @@ add_executable(test-z3
   sat_user_scope.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_rewriter.cpp
+  seq_monadic.cpp
   simple_parser.cpp
   scanner_io.cpp
   simplex.cpp
