@@ -424,10 +424,18 @@ public:
     // The array term-graph projection (mbp_qel) treats an array equality
     // (= a b) as an implicit partial array equality and eliminates it via
     // class-merging. That rewrite is unsound when such an equality (or an
-    // array variable being eliminated) occurs inside a select/store *index*
-    // position, because the index is a first-class term whose value must be
-    // preserved. Detect that situation so we can fall back to the classic,
-    // model-based projection which handles it correctly (issues #7259, #7036).
+    // array variable being eliminated) occurs *nested inside* a select/store
+    // *index* position, because the index is a first-class term whose value
+    // must be preserved and the merge can silently change it (for example
+    // (select va (= v va)) becomes (select v true), issues #7259, #7036).
+    //
+    // An array variable that appears *directly* as an index (e.g. the store
+    // index r in (store base r val)) is not affected by this rewrite: the
+    // index is exactly that variable and mbp_qel substitutes its model value
+    // soundly. Only flag the dangerous case where the variable occurs as a
+    // proper subterm of a compound index term, so we do not needlessly fall
+    // back (and lose completeness) on benchmarks that use an array variable as
+    // a plain index.
     bool has_array_var_in_index(app_ref_vector const& vars, expr* fml) {
         array_util au(m);
         ptr_vector<app> arr_vars;
@@ -448,10 +456,12 @@ public:
             // value; everything in between is an index argument.
             unsigned n = a->get_num_args();
             unsigned last = is_st ? n - 1 : n;
-            for (unsigned i = 1; i < last; ++i)
+            for (unsigned i = 1; i < last; ++i) {
+                expr* idx = a->get_arg(i);
                 for (app* v : arr_vars)
-                    if (occurs(v, a->get_arg(i)))
+                    if (v != idx && occurs(v, idx))
                         return true;
+            }
         }
         return false;
     }
