@@ -25,6 +25,7 @@ Author:
 --*/
 
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/rewriter/seq_range_collapse.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include <set>
@@ -33,50 +34,6 @@ Author:
 #include <tuple>
 #include <functional>
 #include <algorithm>
-
-// Cofactor guard `pred` (a Boolean over the character x = (:var 0)) -> the canonical
-// range_predicate of the characters satisfying it.  Returns false on a construct outside
-// {true,false,and,or,not,=,char.<=} over x (then the caller bails to l_undef).
-static bool guard_to_rp(ast_manager& m, seq_util& sq, expr* x, expr* pred,
-                        unsigned maxc, seq::range_predicate& out) {
-    expr* a = nullptr, * b = nullptr; unsigned c = 0;
-    if (m.is_true(pred))  { out = seq::range_predicate::top(maxc);   return true; }
-    if (m.is_false(pred)) { out = seq::range_predicate::empty(maxc); return true; }
-    if (m.is_eq(pred, a, b)) {
-        if (a == x && sq.is_const_char(b, c)) { out = seq::range_predicate::singleton(c, maxc); return true; }
-        if (b == x && sq.is_const_char(a, c)) { out = seq::range_predicate::singleton(c, maxc); return true; }
-        return false;
-    }
-    if (sq.is_char_le(pred, a, b)) {
-        if (b == x && sq.is_const_char(a, c)) { out = seq::range_predicate::range(c, maxc, maxc); return true; }
-        if (a == x && sq.is_const_char(b, c)) { out = seq::range_predicate::range(0, c, maxc);    return true; }
-        return false;
-    }
-    if (m.is_not(pred, a)) {
-        seq::range_predicate s(maxc);
-        if (!guard_to_rp(m, sq, x, a, maxc, s)) return false;
-        out = ~s; return true;
-    }
-    if (m.is_and(pred)) {
-        out = seq::range_predicate::top(maxc);
-        for (expr* arg : *to_app(pred)) {
-            seq::range_predicate s(maxc);
-            if (!guard_to_rp(m, sq, x, arg, maxc, s)) return false;
-            out = out & s;
-        }
-        return true;
-    }
-    if (m.is_or(pred)) {
-        out = seq::range_predicate::empty(maxc);
-        for (expr* arg : *to_app(pred)) {
-            seq::range_predicate s(maxc);
-            if (!guard_to_rp(m, sq, x, arg, maxc, s)) return false;
-            out = out | s;
-        }
-        return true;
-    }
-    return false;
-}
 
 namespace {
 
@@ -222,7 +179,7 @@ public:
         if (!m_ok) return;
         if (m_is_char) {
             seq::range_predicate s(u.max_char());
-            if (!guard_to_rp(m, u, m_v0, g, u.max_char(), s)) { m_ok = false; return; }
+            if (!seq::guard_to_range_predicate(u, m_v0, g, s)) { m_ok = false; return; }
             m_rp = m_rp & s;
         }
         else

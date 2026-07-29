@@ -32,6 +32,14 @@ Authors:
 namespace seq {
 
     /**
+     * Convert a Boolean guard over the single character variable v0 = (:var 0) -- a
+     * derivative cofactor path condition -- into the range_predicate of the characters
+     * satisfying it.  Recognizes {true, false, =, char.<=, and, or, not} over v0 and
+     * concrete characters; returns false (out untouched) on anything else.
+     */
+    bool guard_to_range_predicate(seq_util& u, expr* v0, expr* guard, range_predicate& out);
+
+    /**
      * If r is a boolean combination of character-class regex primitives
      * over the unsigned character domain [0, max_char], compute the
      * equivalent range_predicate and return true. Otherwise return false
