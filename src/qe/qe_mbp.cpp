@@ -433,9 +433,7 @@ public:
     // index r in (store base r val)) is not affected by this rewrite: the
     // index is exactly that variable and mbp_qel substitutes its model value
     // soundly. Only flag the dangerous case where the variable occurs as a
-    // proper subterm of a compound index term, so we do not needlessly fall
-    // back (and lose completeness) on benchmarks that use an array variable as
-    // a plain index.
+    // proper subterm of a compound index term.
     bool has_array_var_in_index(app_ref_vector const& vars, expr* fml) {
         array_util au(m);
         ptr_vector<app> arr_vars;
