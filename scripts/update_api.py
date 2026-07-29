@@ -1938,7 +1938,7 @@ if _lib is None:
       pass
 
 if _lib is None:
-  print("Could not find %s; consider adding the directory containing it to" % _lib_name)
+  print("Could not find %s; consider adding the directory containing it to" % ' or '.join(_lib_names))
   print("  - your system's PATH environment variable,")
   print("  - the Z3_LIBRARY_PATH environment variable, or ")
   print("  - to the custom Z3_LIB_DIRS Python-builtin before importing the z3 module, e.g. via")
