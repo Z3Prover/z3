@@ -192,8 +192,12 @@ namespace euf {
         if (o1 == o2 && p == t)
             return l_true;
 
-        if (is_ground(p) && is_ground(t)) 
-            return to_lbool(p == t);
+        if (is_ground(p) && is_ground(t)) {
+            if (use_cgr())
+                return to_lbool(m_are_equal(p, t));
+            else
+                return to_lbool(p == t);
+        }
         
         if (is_lambda(p) && is_lambda(t)) {
             auto q1 = to_quantifier(p);
@@ -447,147 +451,78 @@ namespace euf {
         // Flex head general case
 
         if (m_array.is_select(p) && m_unitary.is_flex(wi.pat_offset(), p)) {
+
+            // innermost select is a meta variable,
+            // order patterns from inner-most application to outer-most.
             ptr_vector<app> pats;
             auto p1 = p;
             while (m_array.is_select(p1)) {
                 pats.push_back(to_app(p1));
                 p1 = to_app(p1)->get_arg(0);
             }
-            // innermost select is a meta variable, 
-            // order patterns from inner-most application to outer-most.
             pats.reverse();
             auto v = to_var(p1);
+
+
             if (wi.is_init())
                 wi.set_project();
-
-            if (wi.is_project()) {
-                // v -> \x\y . x_i
-                unsigned start = wi.index();
-                unsigned i = 0;
-                for (auto pa : pats) {
-                    for (auto pi : array_select_indices(pa)) {
-                        if (start <= i && pi->get_sort() == t->get_sort()) {                            
-                            auto eq = are_equal(wi.pat_offset(), pi, wi.term_offset(), t);
-                            if (eq == l_false) {
-                                ++i;
-                                continue;
-                            }
-                            auto e = mk_project(pats.size(), i, v->get_sort());
-                            add_binding(v, wi.pat_offset(), e);
-                            if (eq == l_undef)
-                                m_goals.push(wi.level + 1, wi.pat_offset(), pi, t);
-                            wi.set_index(i + 1);
-                            return true;
-                        }
-                        // pi has sort T1 -> T2 -> T, and t has sort T.
-                        // we can project \vars . x_i (H1 vars) (H2 vars) to get a term of sort T.
-                        if (start <= i && maps_to_sort(pi->get_sort(), t->get_sort())) {
-                            IF_VERBOSE(3, verbose_stream() << "maps to " << mk_pp(pi->get_sort(), m) << " "
-                                                           << mk_pp(t->get_sort(), m) << "\n");
-                            // TODO: implement this case
-                            // v->get_sort() determines vars
-                            // x := bound variable from "project" function.
-                            // add_meta_var_apps(sort *s, sort *t, expr_ref& x, expr_ref_vector const& vars, unsigned offset)
-                        }
-                        ++i;
-                    }
-                }
-            }
+            
+            if (process_project(wi, v, pats, t))
+                return true;
 
             SASSERT(!is_lambda(t));            
 
-            if (!is_app(t))
-                return false;
-
-            auto ta = to_app(t);
-
             if (wi.is_project())
-                wi.set_app();           
+                wi.set_app(); 
+  
+            // - go over congruence class of t.
+            // - go over term_enumeration grammar for t->get_sort()
+            // - ite, equality, not
 
-            if (wi.is_app()) {
-                unsigned sz = ta->get_num_args();
-                if (sz > 0) {
-                    wi.inc_index();
-                    m_trail.push(undo_resize(m_subst));
-                }
-
-                // H (p1) (p2) = f(t1, .., tn)
-                // H -> \x1 \x2 f(H1(x1, x2), .., Hn(x1, x2))
-                // H1(p1, p2) = t1, .., Hn(p1, p2) = tn
-                //
-                // The select chain `pats` was collected from the outermost
-                // select down to the flex head, i.e. in reverse order of
-                // application. The imitating lambda must curry the arguments in
-                // application order (the first-applied select binds the
-                // outermost lambda), so process the applications inner-to-outer.
-                // Without this the constructed lambda has the argument arities
-                // in the wrong nesting order and its sort disagrees with the
-                // flex head variable (producing an ill-typed binding).
-
-                ptr_vector<sort> domain, pat_domain;
-                ptr_vector<expr> pat_args;
-                svector<unsigned> pat_pos;   // forward binder position (in domain) of each distinct index
-                expr_ref_vector args(m), pat_vars(m), bound_args(m);
-                vector<symbol> names;
-                pat_args.push_back(nullptr);
-                pat_vars.push_back(nullptr);
-                pat_pos.push_back(0);        // placeholder for the flex-head slot 0
-                unsigned num_bound = 0;
-                expr_mark seen;
-                for (auto pat : pats) {
-                    for (auto pi : array_select_indices(pat)) {
-                        if (!seen.is_marked(pi)) {
-                            pat_domain.push_back(pi->get_sort());
-                            pat_args.push_back(pi);
-                            pat_pos.push_back(num_bound);
-                            seen.mark(pi);
-                        }
-                        ++num_bound;
-                        domain.push_back(pi->get_sort());
-                        names.push_back(symbol(num_bound));
-                    }
-                }
-
-                for (unsigned k = 1; k < pat_args.size(); ++k) {
-                    unsigned db = num_bound - 1 - pat_pos[k];
-                    pat_vars.push_back(m.mk_var(db, pat_args.get(k)->get_sort()));
-                }
-
-                for (auto ti : *ta) {
-                    sort* v_sort = m_array.mk_array_sort(pat_domain.size(), pat_domain.data(), ti->get_sort());
-                    auto v = m.mk_var(m_subst.size() + wi.pat_offset(), v_sort);
-                    auto w = m.mk_var(m_subst.size() + wi.pat_offset() + num_bound, v_sort); // shifted by number of bound
-                    m_subst.resize(m_subst.size() + 1);
-                    pat_args[0] = v;
-                    expr_ref sel(m);
-                    sel = m_array.mk_select(pat_args.size(), pat_args.data());
-                    m_goals.push(wi.level + 1, wi.term_offset(), sel, ti);
-                    pat_vars[0] = w;
-                    sel = m_array.mk_select(pat_vars.size(), pat_vars.data());
-                    bound_args.push_back(sel);
-                }
-
-                expr_ref lam(m);
-                lam = m.mk_app(ta->get_decl(), bound_args.size(), bound_args.data());
-
-                for (unsigned i = pats.size(); i-- > 0; ) {
-                    auto pa = pats[i];
-                    auto sz = pa->get_num_args() - 1;
-                    num_bound -= sz;
-                    lam = m.mk_lambda(sz, domain.data() + num_bound, names.data() + num_bound, lam);
-                }
-
-                add_binding(v, wi.pat_offset(), lam);
+            if (process_imitation(wi, v, pats, t)) {
                 wi.set_done();
                 return true;
             }
             return false;
         }
 
+
+        // p ~ t, walk the equivalence class of t to find
+        // terms that match the head function symbol of p.
+        if (use_cgr() && is_app(p) && is_app(t)) {
+            // we need to store in wi
+            // - current s, if it is set.
+            // 
+            expr *s = wi.get_term();
+            if (s == t) {
+                wi.set_done();
+                return false;
+            }
+            if (!s) // we are just starting.
+                s = t;
+            auto tp = to_app(p);
+            do {
+                if (is_app(s) && m_is_cgr_root(s)) {
+                    auto ta = to_app(s);
+                    if (ta->get_decl() == tp->get_decl() && ta->get_num_args() == tp->get_num_args()) {
+                        for (unsigned i = 0; i < ta->get_num_args(); ++i)
+                            m_goals.push(wi.level, wi.term_offset(), tp->get_arg(i), ta->get_arg(i));
+                        s = m_next(s);
+                        wi.set_term(s);
+                        return true;
+                    }
+                }
+                s = m_next(s);            
+            } 
+            while (s != t);
+            wi.set_done();
+            return false;                
+        }
+
         wi.set_done();
 
         // first order match
-        if (is_app(t) && is_app(p)) {
+        if (is_app(p) && is_app(t)) {
             auto ta = to_app(t);
             auto tp = to_app(p);
             if (ta->get_decl() != tp->get_decl())
@@ -601,6 +536,126 @@ namespace euf {
                        
 
         return false;		       
+    }
+
+    bool ho_matcher::process_imitation(match_goal& wi, var* v, ptr_vector<app> const& pats, expr* t) {
+        if (!is_app(t))
+            return false;
+        if (!wi.is_app())
+            return false;
+        app *ta = to_app(t);       
+        unsigned sz = ta->get_num_args();
+        if (sz > 0) {
+            wi.inc_index();
+            m_trail.push(undo_resize(m_subst));
+        }
+
+        // H (p1) (p2) = f(t1, .., tn)
+        // H -> \x1 \x2 f(H1(x1, x2), .., Hn(x1, x2))
+        // H1(p1, p2) = t1, .., Hn(p1, p2) = tn
+        //
+        // The select chain `pats` was collected from the outermost
+        // select down to the flex head, i.e. in reverse order of
+        // application. The imitating lambda must curry the arguments in
+        // application order (the first-applied select binds the
+        // outermost lambda), so process the applications inner-to-outer.
+        // Without this the constructed lambda has the argument arities
+        // in the wrong nesting order and its sort disagrees with the
+        // flex head variable (producing an ill-typed binding).
+
+        ptr_vector<sort> domain, pat_domain;
+        ptr_vector<expr> pat_args;
+        svector<unsigned> pat_pos;  // forward binder position (in domain) of each distinct index
+        expr_ref_vector args(m), pat_vars(m), bound_args(m);
+        vector<symbol> names;
+        pat_args.push_back(nullptr);
+        pat_vars.push_back(nullptr);
+        pat_pos.push_back(0);  // placeholder for the flex-head slot 0
+        unsigned num_bound = 0;
+        expr_mark seen;
+        for (auto pat : pats) {
+            for (auto pi : array_select_indices(pat)) {
+                if (!seen.is_marked(pi)) {
+                    pat_domain.push_back(pi->get_sort());
+                    pat_args.push_back(pi);
+                    pat_pos.push_back(num_bound);
+                    seen.mark(pi);
+                }
+                ++num_bound;
+                domain.push_back(pi->get_sort());
+                names.push_back(symbol(num_bound));
+            }
+        }
+
+        for (unsigned k = 1; k < pat_args.size(); ++k) {
+            unsigned db = num_bound - 1 - pat_pos[k];
+            pat_vars.push_back(m.mk_var(db, pat_args.get(k)->get_sort()));
+        }
+
+        for (auto ti : *ta) {
+            sort *v_sort = m_array.mk_array_sort(pat_domain.size(), pat_domain.data(), ti->get_sort());
+            auto v = m.mk_var(m_subst.size() + wi.pat_offset(), v_sort);
+            auto w = m.mk_var(m_subst.size() + wi.pat_offset() + num_bound, v_sort);  // shifted by number of bound
+            m_subst.resize(m_subst.size() + 1);
+            pat_args[0] = v;
+            expr_ref sel(m);
+            sel = m_array.mk_select(pat_args.size(), pat_args.data());
+            m_goals.push(wi.level + 1, wi.term_offset(), sel, ti);
+            pat_vars[0] = w;
+            sel = m_array.mk_select(pat_vars.size(), pat_vars.data());
+            bound_args.push_back(sel);
+        }
+
+        expr_ref lam(m);
+        lam = m.mk_app(ta->get_decl(), bound_args.size(), bound_args.data());
+
+        for (unsigned i = pats.size(); i-- > 0;) {
+            auto pa = pats[i];
+            auto sz = pa->get_num_args() - 1;
+            num_bound -= sz;
+            lam = m.mk_lambda(sz, domain.data() + num_bound, names.data() + num_bound, lam);
+        }
+
+        add_binding(v, wi.pat_offset(), lam);
+        return true;
+    }
+
+    bool ho_matcher::process_project(match_goal &wi, var* v, ptr_vector<app> const& pats, expr* t) {
+        if (!wi.is_project())
+            return false;
+        // v -> \x\y . x_i
+        unsigned start = wi.index();
+        unsigned i = 0;
+        for (auto pa : pats) {
+            for (auto pi : array_select_indices(pa)) {
+                if (start <= i && pi->get_sort() == t->get_sort()) {
+                    auto eq = are_equal(wi.pat_offset(), pi, wi.term_offset(), t);
+                    if (eq == l_false) {
+                        ++i;
+                        continue;
+                    }
+                    auto e = mk_project(pats.size(), i, v->get_sort());
+                    add_binding(v, wi.pat_offset(), e);
+                    if (eq == l_undef)
+                        m_goals.push(wi.level + 1, wi.pat_offset(), pi, t);
+                    wi.set_index(i + 1);
+                    return true;
+                }
+                // pi has sort T1 -> T2 -> T, and t has sort T.
+                // we can project \vars . x_i (H1 vars) (H2 vars) to get a term of sort T.
+                if (start <= i && maps_to_sort(pi->get_sort(), t->get_sort())) {
+                    IF_VERBOSE(3, verbose_stream() << "maps to " << mk_pp(pi->get_sort(), m) << " "
+                                                   << mk_pp(t->get_sort(), m) << "\n");
+                    // TODO: implement this case
+                    // v->get_sort() determines vars
+                    // x := bound variable from "project" function.
+                    // add_meta_var_apps(sort *s, sort *t, expr_ref& x, expr_ref_vector const& vars, unsigned
+                    // offset)
+                }
+                ++i;
+            }
+        }
+        return false;
     }
 
     // M p1 p2 ... pk

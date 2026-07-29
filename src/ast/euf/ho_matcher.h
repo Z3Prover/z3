@@ -44,12 +44,14 @@ namespace euf {
         state m_state = state::init_s;
         unsigned m_index = 0;
         bool m_in_scope = false;
+        expr *m_t = nullptr;
 
     public:
         void set_init() {
             m_state = state::init_s;
             m_index = 0;
             m_in_scope = false;
+            m_t = nullptr;
         }
         bool is_init() const { return m_state == state::init_s; }
         bool is_project() const { return m_state == state::project_s; }
@@ -57,6 +59,10 @@ namespace euf {
         bool is_done() const { return m_state == state::done_s; }
         void set_project() { m_state = state::project_s; m_index = 0; }
         void set_app() { m_state = state::app_s; m_index = 0; }
+        void set_term(expr *t) {
+            m_t = t;
+        }                        
+        expr* get_term() const { return m_t; }
         void set_done() { m_state = state::done_s; }
         void inc_index() { ++m_index; }
         void set_index(unsigned i) { m_index = i; }
@@ -336,6 +342,13 @@ namespace euf {
 
         bool consume_work(match_goal& wi);
 
+        bool process_project(match_goal &wi, var* v, ptr_vector<app> const& pats, expr* t);
+
+        // solve 
+        // v pats == f(ts)
+        // using imitation: v -> lambda xs . f(X1 pats, X2, pats...), X_i pats == t_i
+        bool process_imitation(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t);
+
         expr_ref whnf(expr* e, unsigned offset) const;
 
         expr_ref whnf_star(expr *e, unsigned offset) const;
@@ -378,6 +391,19 @@ namespace euf {
 
         std::function<void(ho_subst&)> m_on_match;
 
+        // Support for matching modulo constraints
+        std::function<bool(expr *, expr *)> m_are_equal;        // are expressions equal modulo assertions
+        std::function<bool(expr *, expr *)> m_are_distinct;     // are expressions forced distinct modulo assertions
+        std::function<expr *(expr *)> m_root;                   // root of equivalence class
+        std::function<expr *(expr *)> m_next;                   // next element in equivalence class
+        std::function<bool(expr *)> m_is_cgr_root;              // is root of congruence class
+
+        bool use_cgr() const {
+            SASSERT(!m_are_equal || (m_are_distinct && m_root && m_next && m_is_cgr_root));
+            return !!m_are_equal;
+        }
+
+
     public:
 
         ho_matcher(ast_manager& m, trail_stack &trail) : 
@@ -394,6 +420,22 @@ namespace euf {
         }
 
         void set_on_match(std::function<void(ho_subst&)>& on_match) { m_on_match = on_match; }
+
+        void set_are_equal(std::function<bool(expr *, expr *)> &are_equal) {
+            m_are_equal = are_equal;
+        }
+        void set_are_distinct(std::function<bool(expr *, expr *)> &are_distinct) {
+            m_are_distinct = are_distinct;
+        }
+        void set_root(std::function<expr *(expr *)> &root) {
+            m_root = root;
+        }
+        void set_next(std::function<expr *(expr *)> &next) {
+            m_next = next;
+        }
+        void set_is_cgr_root(std::function<bool(expr *)> &is_cgr_root) {
+            m_is_cgr_root = is_cgr_root;
+        }
 
         void set_max_depth(unsigned d) { m_max_depth = d; }
 
