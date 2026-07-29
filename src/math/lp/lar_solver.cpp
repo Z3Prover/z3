@@ -2479,6 +2479,7 @@ namespace lp {
             } 
             case GT:
                 y_of_bound += 1;
+                Z3_fallthrough;
             case GE: {
                 auto low = numeric_pair<mpq>(right_side.x, y_of_bound);
                 if (low < get_lower_bound(j)) {

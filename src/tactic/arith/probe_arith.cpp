@@ -135,7 +135,7 @@ struct has_nlmul {
     arith_util   a;
     has_nlmul(ast_manager& m):m(m), a(m) {}
     
-    void throw_found(expr* e) {
+    [[noreturn]] void throw_found(expr* e) {
         TRACE(probe, tout << expr_ref(e, m) << ": " << sort_ref(e->get_sort(), m) << "\n";);
         throw found();
     }
