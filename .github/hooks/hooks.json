@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": ".github/hooks/scripts/shadow-frog-check-init.sh",
+        "timeoutSec": 5
+      }
+    ],
+    "preToolUse": [
+      {
+        "matcher": "^(edit|create|str_replace|write|multiedit|notebookedit|Edit|Write|MultiEdit|NotebookEdit)$",
+        "type": "command",
+        "bash": ".github/hooks/scripts/shadow-frog-pre-tool.sh",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}
