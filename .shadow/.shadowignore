@@ -1,0 +1,38 @@
+# Directories
+node_modules/
+vendor/
+venv/
+.venv/
+__pycache__/
+dist/
+build/
+target/
+out/
+
+# Generated / minified
+*.min.js
+*.min.css
+*.map
+*.lock
+
+# Binary
+*.png
+*.jpg
+*.gif
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.eot
+*.pdf
+*.zip
+*.tar.gz
+
+# The shadow itself
+.shadow/
+
+# ShadowFrog's own install artifacts (project install copies these here)
+.github/skills/shadow-frog*/
+.github/hooks/scripts/shadow-frog-*
+.claude/skills/shadow-frog*/
+.claude/hooks/scripts/shadow-frog-*

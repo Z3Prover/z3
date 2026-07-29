@@ -1,0 +1,11 @@
+# Shadow: src/nlsat/nlsat_types.cpp
+
+**Language**: C++ | **Lines**: 70 | **Last modified**: 2026-07-02
+
+## File-Level
+
+_No discoveries yet._
+
+## Cross-References
+
+_No cross-cutting discoveries yet._

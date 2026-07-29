@@ -1,0 +1,11 @@
+# Shadow: src/api/js/tsconfig.build.json
+
+**Language**: JSON | **Lines**: 4 | **Last modified**: 2022-06-14
+
+## File-Level
+
+_No discoveries yet._
+
+## Cross-References
+
+_No cross-cutting discoveries yet._
