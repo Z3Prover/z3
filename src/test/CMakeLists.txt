@@ -127,6 +127,7 @@ add_executable(test-z3
   rcf.cpp
   region.cpp
   regex_range_collapse.cpp
+  scanner_io.cpp
   sat_local_search.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp
