@@ -25,11 +25,11 @@ namespace sat {
 
     cleaner::cleaner(solver & _s):
         s(_s),
-        m_last_num_units(0), 
+        m_last_num_units(0),
         m_cleanup_counter(0) {
         reset_statistics();
     }
-    
+
     /**
        - Delete watch lists of assigned literals.
        - Delete satisfied binary watched binary clauses
@@ -53,7 +53,7 @@ namespace sat {
             for (; it2 != end2; ++it2) {
                 switch (it2->get_kind()) {
                 case watched::BINARY:
-                    TRACE(cleanup_bug, 
+                    TRACE(cleanup_bug,
                           tout << ~to_literal(l_idx) << " " << it2->get_literal() << "\n";
                           tout << s.value(~to_literal(l_idx)) << " " << s.value(it2->get_literal()) << "\n";
                           tout << s.was_eliminated(it2->get_literal()) << " " << s.inconsistent() << "\n";);
@@ -139,7 +139,7 @@ namespace sat {
                     s.shrink(c, sz, new_sz);
                     *it2 = *it;
                     it2++;
-                    if (!c.frozen()) {                            
+                    if (!c.frozen()) {
                         s.attach_clause(c);
                     }
                     break;
@@ -166,7 +166,11 @@ namespace sat {
                        verbose_stream() << " (sat-cleaner";
                        verbose_stream() << " :elim-literals " << (m_cleaner.m_elim_literals - m_elim_literals);
                        verbose_stream() << " :elim-clauses " << (m_cleaner.m_elim_clauses - m_elim_clauses);
-                       verbose_stream() << " :cost " << m_cleaner.m_cleanup_counter << m_watch << ")\n";);
+                       verbose_stream() << " :cost " << m_cleaner.m_cleanup_counter;
+                       if (!get_verbosity_plain()) {
+                           verbose_stream() << m_watch;
+                       }
+                       verbose_stream() << ")\n";);
         }
     };
 
@@ -219,12 +223,12 @@ namespace sat {
         CASSERT("cleaner_bug", s.check_invariant());
         return true;
     }
-    
+
     void cleaner::reset_statistics() {
         m_elim_clauses = 0;
         m_elim_literals = 0;
     }
-    
+
     void cleaner::collect_statistics(statistics & st) const {
         st.update("sat elim clauses", m_elim_clauses);
         st.update("sat elim literals", m_elim_literals);

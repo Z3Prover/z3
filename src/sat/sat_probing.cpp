@@ -160,7 +160,7 @@ namespace sat {
 #endif
         }
         cache_bins(l, old_tr_sz);
-        
+
         s.pop(1);
 
         if (!try_lit(~l, true))
@@ -170,7 +170,7 @@ namespace sat {
             unsigned sz = s.get_wlist(~l).size();
             for (unsigned i = 0; i < sz; ++i) {
                 watch_list& wlist = s.get_wlist(~l);
-                watched & w = wlist[i];                
+                watched & w = wlist[i];
                 if (!w.is_binary_clause())
                     continue;
                 literal l2 = w.get_literal();
@@ -203,7 +203,7 @@ namespace sat {
     struct probing::report {
         probing    & p;
         stopwatch    m_watch;
-        unsigned     m_num_assigned;        
+        unsigned     m_num_assigned;
         report(probing & p):
             p(p),
             m_num_assigned(p.m_num_assigned) {
@@ -219,7 +219,10 @@ namespace sat {
                        if (!p.m_equivs.empty()) verbose_stream() << " :equivs " << p.m_equivs.size();
                        verbose_stream() << " :cost " << p.m_counter;
                        if (p.m_stopped_at != 0) verbose_stream() << " :stopped-at " << p.m_stopped_at;
-                       verbose_stream() << mem_stat() << m_watch << ")\n";);
+                       if (!get_verbosity_plain()) {
+                           verbose_stream() << mem_stat() << m_watch;
+                       }
+                       verbose_stream() << ")\n";);
         }
     };
 
@@ -288,7 +291,7 @@ namespace sat {
             elim_eqs elim(s);
             elim(uf);
         }
-        
+
         return r;
     }
 

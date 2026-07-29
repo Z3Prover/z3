@@ -22,6 +22,8 @@ Revision History:
 
 static unsigned g_verbosity_level = 0;
 
+static bool g_verbosity_plain = false;
+
 void set_verbosity_level(unsigned lvl) {
     g_verbosity_level = lvl;
 }
@@ -29,6 +31,17 @@ void set_verbosity_level(unsigned lvl) {
 unsigned get_verbosity_level() {
     return g_verbosity_level;
 }
+
+void set_verbosity_plain(bool p)
+{
+    g_verbosity_plain = p;
+}
+
+bool get_verbosity_plain()
+{
+    return g_verbosity_plain;
+}
+
 
 static std::ostream* g_verbose_stream = &std::cerr;
 
@@ -152,4 +165,3 @@ void escaped::display(std::ostream & out) const {
         }
     }
 }
-

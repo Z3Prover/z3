@@ -34,28 +34,28 @@ namespace sat {
     }
 
     void use_list::insert(clause & c) {
-        for (literal l : c) 
+        for (literal l : c)
             m_use_list[l.index()].insert(c);
     }
 
     void use_list::erase(clause & c) {
-        for (literal l : c) 
+        for (literal l : c)
             m_use_list[l.index()].erase(c);
     }
 
     void use_list::erase(clause & c, literal l) {
-        for (literal l2 : c) 
+        for (literal l2 : c)
             if (l2 != l)
                 m_use_list[l2.index()].erase(c);
     }
 
     void use_list::block(clause& c) {
-        for (literal l : c) 
+        for (literal l : c)
             m_use_list[l.index()].block(c);
     }
 
     void use_list::unblock(clause& c) {
-        for (literal l : c) 
+        for (literal l : c)
             m_use_list[l.index()].unblock(c);
     }
 
@@ -74,7 +74,7 @@ namespace sat {
 
     watch_list const & simplifier::get_wlist(literal l) const { return s.get_wlist(l); }
 
-    bool simplifier::is_external(bool_var v) const { 
+    bool simplifier::is_external(bool_var v) const {
         if (!s.is_external(v))
             return s.is_assumption(v);
         if (s.is_incremental())
@@ -99,8 +99,8 @@ namespace sat {
     bool simplifier::single_threaded() const { return s.m_config.m_num_threads == 1; }
 
     bool simplifier::bce_enabled_base() const {
-        return 
-            !m_incremental_mode && !s.tracking_assumptions() && 
+        return
+            !m_incremental_mode && !s.tracking_assumptions() &&
             !m_learned_in_use_lists && m_num_calls >= m_bce_delay && single_threaded();
     }
 
@@ -110,9 +110,9 @@ namespace sat {
     bool simplifier::cce_enabled()  const { return bce_enabled_base() && (m_cce || m_acce); }
     bool simplifier::abce_enabled() const { return bce_enabled_base() && m_abce; }
     bool simplifier::bca_enabled()  const { return bce_enabled_base() && m_bca; }
-    bool simplifier::elim_vars_enabled() const { 
-        return !m_incremental_mode && !s.tracking_assumptions() && m_elim_vars && single_threaded(); 
-    }    
+    bool simplifier::elim_vars_enabled() const {
+        return !m_incremental_mode && !s.tracking_assumptions() && m_elim_vars && single_threaded();
+    }
 
     void simplifier::register_clauses(clause_vector & cs) {
         std::stable_sort(cs.begin(), cs.end(), size_lt());
@@ -190,7 +190,7 @@ namespace sat {
             return;
         if (!m_subsumption && !bce_enabled() && !bca_enabled() && !elim_vars_enabled())
             return;
-       
+
         initialize();
 
         CASSERT("sat_solver", s.check_invariant());
@@ -232,7 +232,7 @@ namespace sat {
             if (s.inconsistent())
                 return;
             if (!learned && elim_vars_enabled())
-                elim_vars();            
+                elim_vars();
             if (s.inconsistent())
                 return;
             if (!m_subsumption || m_sub_counter < 0)
@@ -276,7 +276,7 @@ namespace sat {
                     break;
                 }
             }
-            wlist.set_end(itprev);            
+            wlist.set_end(itprev);
         }
     }
 
@@ -336,10 +336,10 @@ namespace sat {
             case 0:
                 s.set_conflict();
                 for (; it != end; ++it, ++it2) {
-                    *it2 = *it;                  
+                    *it2 = *it;
                 }
                 cs.set_end(it2);
-                return;                
+                return;
             case 1:
                 s.assign_unit(c[0]);
                 c.restore(sz0);
@@ -364,7 +364,7 @@ namespace sat {
     }
 
     void simplifier::mark_all_but(clause const & c, literal l1) {
-        for (literal l2 : c) 
+        for (literal l2 : c)
             if (l2 != l1)
                 mark_visited(l2);
     }
@@ -396,7 +396,7 @@ namespace sat {
        Otherwise return false
     */
     bool simplifier::subsumes1(clause const & c1, clause const & c2, literal & l) {
-        for (literal lit : c2) 
+        for (literal lit : c2)
             mark_visited(lit);
 
         bool r = true;
@@ -414,7 +414,7 @@ namespace sat {
             }
         }
 
-        for (literal lit : c2) 
+        for (literal lit : c2)
             unmark_visited(lit);
         return r;
     }
@@ -513,7 +513,7 @@ namespace sat {
        Otherwise return false
     */
     bool simplifier::subsumes0(clause const & c1, clause const & c2) {
-        for (literal l : c2) 
+        for (literal l : c2)
             mark_visited(l);
 
         bool r = true;
@@ -640,7 +640,7 @@ namespace sat {
                 return true;
             }
         }
-        c.shrink(j);            
+        c.shrink(j);
         return false;
     }
 
@@ -665,9 +665,9 @@ namespace sat {
                 it.next();
                 remove_clause(c, true);
             }
-            cs.reset();            
+            cs.reset();
         }
-        for (unsigned i = num_clauses; i < s.m_clauses.size(); ++i) 
+        for (unsigned i = num_clauses; i < s.m_clauses.size(); ++i)
             m_use_list.insert(*s.m_clauses[i]);
     }
 
@@ -714,7 +714,7 @@ namespace sat {
             TRACE(elim_lit, tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
             c.restore(sz0);
             s.mk_bin_clause(c[0], c[1], c.is_learned());
-            m_sub_bin_todo.push_back(bin_clause(c[0], c[1], c.is_learned()));            
+            m_sub_bin_todo.push_back(bin_clause(c[0], c[1], c.is_learned()));
             remove_clause(c, sz0 != sz);
             break;
         default:
@@ -839,10 +839,17 @@ namespace sat {
             IF_VERBOSE(SAT_VB_LVL,
                        verbose_stream() << " (sat-subsumer :subsumed "
                        << (m_simplifier.m_num_subsumed - m_num_subsumed)
-                       << " :subsumption-resolution " << (m_simplifier.m_num_sub_res - m_num_sub_res)
-                       << " :threshold " << m_simplifier.m_sub_counter
-                       << mem_stat()
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       << " :subsumption-resolution " << (m_simplifier.m_num_sub_res - m_num_sub_res););
+
+            if (!get_verbosity_plain()) {
+                IF_VERBOSE(SAT_VB_LVL,
+                           verbose_stream() << " :threshold " << m_simplifier.m_sub_counter
+                           << mem_stat() << " :time "
+                           << std::fixed << std::setprecision(2) << m_watch.get_seconds(););
+            }
+
+            IF_VERBOSE(SAT_VB_LVL,
+                       verbose_stream() << ")\n";);
         }
     };
 
@@ -945,7 +952,7 @@ namespace sat {
             clause_ante(literal l1, literal l2):
                 m_from_ri(false), m_lit1(l1), m_lit2(l2), m_clause(nullptr) {}
             clause_ante(clause& c):
-                m_from_ri(false), m_lit1(null_literal), m_lit2(null_literal), m_clause(&c) {}            
+                m_from_ri(false), m_lit1(null_literal), m_lit2(null_literal), m_clause(&c) {}
             literal lit1() const { return m_lit1; }
             literal lit2() const { return m_lit2; }
             clause* cls() const { return m_clause; }
@@ -987,7 +994,7 @@ namespace sat {
                 unsigned idx = l.index();
                 if (m_queue.contains(idx))
                     m_queue.decreased(idx);
-                else 
+                else
                     m_queue.insert(idx);
             }
             literal next() { SASSERT(!empty()); return to_literal(m_queue.erase_min()); }
@@ -1088,8 +1095,8 @@ namespace sat {
         void add_intersection(literal lit) {
             m_intersection.push_back(lit);
             m_in_intersection[lit.index()] = true;
-        }        
-        
+        }
+
         //
         // Resolve intersection
         // Find literals that are in the intersection of all resolvents with l.
@@ -1135,18 +1142,18 @@ namespace sat {
                 }
                 if (!tautology) {
                     if (first) {
-                        for (literal lit : c) 
-                            if (lit != ~l && !s.is_marked(lit)) 
+                        for (literal lit : c)
+                            if (lit != ~l && !s.is_marked(lit))
                                 add_intersection(lit);
                         first = false;
                     }
                     else {
                         m_new_intersection.reset();
-                        for (literal lit : c) 
-                            if (m_in_intersection[lit.index()]) 
+                        for (literal lit : c)
+                            if (m_in_intersection[lit.index()])
                                 m_new_intersection.push_back(lit);
                         reset_intersection();
-                        for (literal lit : m_new_intersection) 
+                        for (literal lit : m_new_intersection)
                             add_intersection(lit);
                     }
                     if (m_intersection.empty()) {
@@ -1197,7 +1204,7 @@ namespace sat {
         }
 
         bool revisit_binary(literal l1, literal l2) const {
-            return m_clause.is_binary() && 
+            return m_clause.is_binary() &&
                 ((m_clause[0] == l1 && m_clause[1] == l2) ||
                  (m_clause[0] == l2 && m_clause[1] == l1));
         }
@@ -1223,7 +1230,7 @@ namespace sat {
             for (unsigned i = 0; i < m_covered_clause.size(); ++i) {
                 literal lit = m_covered_clause[i];
                 if (m_covered_antecedent[i] == clause_ante()) s.mark_visited(lit);
-                if (s.is_marked(lit)) idx = i; 
+                if (s.is_marked(lit)) idx = i;
             }
             for (unsigned i = idx; i > 0; --i) {
                 literal lit = m_covered_clause[i];
@@ -1246,10 +1253,10 @@ namespace sat {
             for (unsigned i = 0; i <= idx; ++i) {
                 literal lit = m_covered_clause[i];
                 if (s.is_marked(lit)) {
-                    // 
-                    // Record that the resolving literal for 
+                    //
+                    // Record that the resolving literal for
                     // resolution intersection can be flipped.
-                    // 
+                    //
                     clause_ante const& ante = m_covered_antecedent[i];
                     if (ante.from_ri() && blocked != ante.lit1()) {
                         blocked = ante.lit1();
@@ -1260,7 +1267,7 @@ namespace sat {
                     s.unmark_visited(lit);
                 }
             }
-            for (literal l : m_covered_clause) VERIFY(!s.is_marked(l)); 
+            for (literal l : m_covered_clause) VERIFY(!s.is_marked(l));
             for (bool_var v = 0; v < s.s.num_vars(); ++v) VERIFY(!s.is_marked(literal(v, true)) && !s.is_marked(literal(v, false)));
 
             // unsigned sz0 = m_covered_clause.size();
@@ -1286,7 +1293,7 @@ namespace sat {
             unsigned init_size = m_covered_clause.size();
             for (; m_ala_qhead < m_covered_clause.size() && m_ala_qhead < 5*init_size && !reached_max_cost(); ++m_ala_qhead) {
                 ++m_ala_cost;
-                literal l = m_covered_clause[m_ala_qhead];                
+                literal l = m_covered_clause[m_ala_qhead];
                 for (watched & w : s.get_wlist(~l)) {
                     if (w.is_binary_non_learned_clause()) {
                         literal lit = w.get_literal();
@@ -1346,7 +1353,7 @@ namespace sat {
             for (unsigned i = 0; i < m_covered_clause.size(); ++i) {
                 literal lit = m_covered_clause[i];
                 if (resolution_intersection(lit, false)) {
-                    blocked = m_covered_clause[i];                    
+                    blocked = m_covered_clause[i];
                     minimize_covered_clause(i);
                     return true;
                 }
@@ -1372,7 +1379,7 @@ namespace sat {
         template<elim_type et>
         elim_type cce(literal& blocked, model_converter::kind& k) {
             bool first = true;
-            unsigned sz = 0, sz0 = m_covered_clause.size();     
+            unsigned sz = 0, sz0 = m_covered_clause.size();
             for (literal l : m_covered_clause) s.mark_visited(l);
             shuffle<literal>(m_covered_clause.size(), m_covered_clause.data(), s.s.m_rand);
             m_tautology.reset();
@@ -1392,10 +1399,10 @@ namespace sat {
             }
 
             /*
-             * For blocked clause elimination with asymmetric literal addition (ABCE) 
+             * For blocked clause elimination with asymmetric literal addition (ABCE)
              * it suffices to check if one of the original
              * literals in the clause is blocked modulo the additional literals added to the clause.
-             * So we record sz0, the original set of literals in the clause, mark additional literals, 
+             * So we record sz0, the original set of literals in the clause, mark additional literals,
              * and then check if any of the first sz0 literals are blocked.
              */
 
@@ -1415,7 +1422,7 @@ namespace sat {
                     }
                     else {
                         /*
-                         * tautology depends on resolution intersection. 
+                         * tautology depends on resolution intersection.
                          * literals used for resolution intersection may have to be flipped.
                          */
                         for (literal l : m_covered_clause) {
@@ -1424,7 +1431,7 @@ namespace sat {
                         }
                         minimize_covered_clause(m_covered_clause.size()-1);
                     }
-                    return ate_t;                               
+                    return ate_t;
                 }
 
                 if (first) {
@@ -1440,11 +1447,11 @@ namespace sat {
                     }
                 }
                 first = false;
-                
+
                 if (et == abce_t || et == bce_t) {
                     break;
                 }
-                
+
                 /*
                  * Add resolution intersection while checking if the clause becomes a tautology.
                  */
@@ -1466,7 +1473,7 @@ namespace sat {
             m_clause = clause_wrapper(c);
             m_covered_clause.reset();
             m_covered_antecedent.reset();
-            for (literal l : c) { 
+            for (literal l : c) {
                 m_covered_clause.push_back(l);
                 m_covered_antecedent.push_back(clause_ante());
             }
@@ -1482,9 +1489,9 @@ namespace sat {
             m_covered_clause.push_back(l2);
             m_covered_antecedent.push_back(clause_ante());
             m_covered_antecedent.push_back(clause_ante());
-            return cce<et>(blocked, k);            
+            return cce<et>(blocked, k);
         }
-        
+
         template<elim_type et>
         void cce() {
             insert_queue();
@@ -1512,7 +1519,7 @@ namespace sat {
                 if (!w.is_binary_non_learned_clause()) continue;
                 if (!select_clause<et>(2)) continue;
                 literal l2 = w.get_literal();
-                elim_type r = cce<et>(l, l2, blocked, k); 
+                elim_type r = cce<et>(l, l2, blocked, k);
                 inc_bc(r);
                 switch (r) {
                 case ate_t:
@@ -1538,7 +1545,7 @@ namespace sat {
             m_ala_cost = 0;
             m_ala_benefit = 0;
             model_converter::kind k;
-            unsigned start = s.s.m_rand(); 
+            unsigned start = s.s.m_rand();
             unsigned sz = s.s.m_clauses.size();
             for (unsigned i = 0; i < sz; ++i) {
                 clause& c = *s.s.m_clauses[(i + start) % sz];
@@ -1549,7 +1556,7 @@ namespace sat {
                 switch (r) {
                 case ate_t:
                     m_mc.add_ate(m_covered_clause);
-                    s.set_learned(c);                    
+                    s.set_learned(c);
                     break;
                 case no_t:
                     break;
@@ -1562,7 +1569,7 @@ namespace sat {
                 if (reached_max_cost()) {
                     break;
                 }
-            }            
+            }
         }
 
         void inc_bc(elim_type et) {
@@ -1588,13 +1595,13 @@ namespace sat {
             SASSERT(!s.is_external(l));
             model_converter::entry& new_entry = m_mc.mk(k, l.var());
             for (literal lit : c) {
-                if (lit != l && process_var(lit.var())) 
-                    m_queue.decreased(~lit);                
+                if (lit != l && process_var(lit.var()))
+                    m_queue.decreased(~lit);
             }
             m_mc.insert(new_entry, m_covered_clause);
             m_mc.set_clause(new_entry, c);
         }
-        
+
         void block_covered_binary(watched const& w, literal l1, literal blocked, model_converter::kind k) {
             SASSERT(!s.is_external(blocked));
             model_converter::entry& new_entry = m_mc.mk(k, blocked.var());
@@ -1626,7 +1633,7 @@ namespace sat {
         void bca(literal l) {
             m_tautology.reset();
             if (resolution_intersection(l, true)) {
-                // this literal is pure. 
+                // this literal is pure.
                 return;
             }
             for (literal l2 : m_intersection) {
@@ -1642,7 +1649,7 @@ namespace sat {
             watch_list & wlist = s.get_wlist(l);
             m_counter -= wlist.size();
             for (auto const& w : wlist) {
-                if (w.is_binary_non_learned_clause() && 
+                if (w.is_binary_non_learned_clause() &&
                     !s.is_marked(~w.get_literal()))
                     return false;
             }
@@ -1706,8 +1713,11 @@ namespace sat {
                        report(m_simplifier.m_num_cce,  m_num_cce,  " :cce ");
                        report(m_simplifier.m_num_bca,  m_num_bca,  " :bca ");
                        report(m_simplifier.m_num_acce, m_num_acce, " :acce ");
-                       verbose_stream() << mem_stat()
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       if (!get_verbosity_plain()) {
+                           verbose_stream() << mem_stat()
+                               << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds();
+                       }
+                       verbose_stream() << ")\n";);
         }
 
         void report(unsigned n, unsigned m, char const* s) {
@@ -1768,7 +1778,7 @@ namespace sat {
         TRACE(sat_simplifier,
               for (auto& [v, c] : tmp) tout << "(" << v << ", " << c << ") ";
               tout << "\n";);
-        for (auto& [v, c] : tmp) 
+        for (auto& [v, c] : tmp)
             r.push_back(v);
     }
 
@@ -1974,10 +1984,10 @@ namespace sat {
         }
         TRACE(sat_simplifier, tout << "eliminate " << v << ", before: " << before_clauses << " after: " << after_clauses << "\n";
               tout << "pos\n";
-              for (auto & c : m_pos_cls) 
+              for (auto & c : m_pos_cls)
                   tout << c << "\n";
               tout << "neg\n";
-              for (auto & c : m_neg_cls) 
+              for (auto & c : m_neg_cls)
                   tout << c << "\n";
               );
         m_elim_counter -= num_pos * num_neg + before_lits;
@@ -1999,7 +2009,7 @@ namespace sat {
             for (auto & c2 : m_neg_cls) {
                 m_new_cls.reset();
                 if (!resolve(c1, c2, pos_l, m_new_cls))
-                    continue;                
+                    continue;
                 TRACE(sat_simplifier, tout << c1 << "\n" << c2 << "\n-->\n" << m_new_cls << "\n";);
                 if (cleanup_clause(m_new_cls)) {
                     continue; // clause is already satisfied.
@@ -2063,28 +2073,37 @@ namespace sat {
         ~elim_var_report() {
             m_watch.stop();
             IF_VERBOSE(SAT_VB_LVL,
-                       verbose_stream() << " (sat-resolution :elim-vars "
-                       << (m_simplifier.m_num_elim_vars - m_num_elim_vars)
-                       << " :threshold " << m_simplifier.m_elim_counter
-                       << mem_stat()
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       verbose_stream()
+                       << " (sat-resolution :elim-vars "
+                       << (m_simplifier.m_num_elim_vars - m_num_elim_vars););
+
+            if (!get_verbosity_plain()) {
+                IF_VERBOSE(SAT_VB_LVL,
+                           verbose_stream()
+                           << " :threshold " << m_simplifier.m_elim_counter
+                           << mem_stat()
+                           << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds(););
+            }
+
+            IF_VERBOSE(SAT_VB_LVL,
+                       verbose_stream() << ")\n";);
         }
     };
 
     void simplifier::elim_vars() {
-        if (!elim_vars_enabled()) 
+        if (!elim_vars_enabled())
             return;
         elim_var_report rpt(*this);
         bool_var_vector vars;
         order_vars_for_elim(vars);
         for (bool_var v : vars) {
             checkpoint();
-            if (m_elim_counter < 0) 
+            if (m_elim_counter < 0)
                 break;
             if (is_external(v))
-                ; // skip            
-            else if (try_eliminate(v)) 
-                m_num_elim_vars++;            
+                ; // skip
+            else if (try_eliminate(v))
+                m_num_elim_vars++;
         }
 
         m_pos_cls.finalize();

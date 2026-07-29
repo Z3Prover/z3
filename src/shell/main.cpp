@@ -12,7 +12,7 @@ Abstract:
 Author:
 
     Leonardo de Moura (leonardo) 2006-10-10.
-    Nikolaj Bjorner   (nbjorner) 
+    Nikolaj Bjorner   (nbjorner)
 
 Revision History:
 
@@ -92,6 +92,7 @@ void display_usage() {
     std::cout << "  -h, -?      prints this message.\n";
     std::cout << "  -version    prints version number of Z3.\n";
     std::cout << "  -v:level    be verbose, where <level> is the verbosity level.\n";
+    std::cout << "  -V:level    like -v:level, but suppress timing and memory data.\n";
     std::cout << "  -nw         disable warning messages.\n";
     std::cout << "  -p          display Z3 global (and module) parameters.\n";
     std::cout << "  -pd         display Z3 global (and module) parameter descriptions.\n";
@@ -107,7 +108,7 @@ void display_usage() {
     std::cout << "  -T:timeout  set the timeout (in seconds).\n";
     std::cout << "  -t:timeout  set the soft timeout (in milli seconds). It only kills the current query.\n";
     std::cout << "  -memory:Megabytes  set a limit for virtual memory consumption.\n";
-    // 
+    //
     std::cout << "\nOutput:\n";
     std::cout << "  -st         display statistics.\n";
 #if defined(Z3DEBUG) || defined(_TRACE)
@@ -141,13 +142,13 @@ static bool is_tptp_extension(char const* ext) {
     }
     return false;
 }
-   
+
 static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv) {
     long timeout = 0;
     int i = 1;
     char * eq_pos = nullptr;
     while (i < argc) {
-        char * arg = argv[i];    
+        char * arg = argv[i];
 
         if (arg[0] == '-' && arg[1] == '-' && arg[2] == 0) {
             // Little hack used to read files with strange names such as -foo.smt2
@@ -166,8 +167,8 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             g_input_file = input_file.c_str();
             break;
         }
-        
-        if (arg[0] == '-' 
+
+        if (arg[0] == '-'
 #ifdef _WINDOWS
             || arg[0] == '/'
 #endif
@@ -229,14 +230,14 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                 g_input_kind = IN_TPTP;
             }
             else if (strcmp(opt_name, "st") == 0) {
-                g_display_statistics = true; 
+                g_display_statistics = true;
                 gparams::set("stats", "true");
             }
             else if (strcmp(opt_name, "model") == 0) {
                 g_display_model = true;
             }
             else if (strcmp(opt_name, "ist") == 0) {
-                g_display_istatistics = true; 
+                g_display_istatistics = true;
             }
             else if (strcmp(opt_name, "v") == 0) {
                 if (!opt_arg)
@@ -245,6 +246,15 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                     error("invalid argument for -v option, it must be a non-negative integer.");
                 long lvl = strtol(opt_arg, nullptr, 10);
                 set_verbosity_level(lvl);
+            }
+            else if (strcmp(opt_name, "V") == 0) {
+                if (!opt_arg)
+                    error("option argument (-V:level) is missing.");
+                if (!validate_is_ulong(opt_arg))
+                    error("invalid argument for -V option, it must be a non-negative integer.");
+                long lvl = strtol(opt_arg, nullptr, 10);
+                set_verbosity_level(lvl);
+                set_verbosity_plain(true);
             }
             else if (strcmp(opt_name, "file") == 0) {
                 g_input_file = opt_arg;
@@ -273,7 +283,7 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                 exit(0);
             }
             else if (strcmp(opt_name, "pmmd") == 0) {
-                if (opt_arg) 
+                if (opt_arg)
                     gparams::display_module_markdown(std::cout, opt_arg);
                 else {
                     gparams::display_modules(std::cout);
@@ -326,9 +336,9 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                 else
                     help_simplifier(opt_arg, false);
             }
-            else if (strcmp(opt_name, "tacticsmd") == 0 && opt_arg) 
+            else if (strcmp(opt_name, "tacticsmd") == 0 && opt_arg)
                 help_tactic(opt_arg, true);
-            else if (strcmp(opt_name, "probes") == 0) 
+            else if (strcmp(opt_name, "probes") == 0)
                 help_probes();
             else {
                 std::cerr << "Error: invalid command line option: " << arg << "\n";
@@ -363,7 +373,7 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             else {
                 char * key   = argv[i];
                 *eq_pos      = 0;
-                char * value = eq_pos+1; 
+                char * value = eq_pos+1;
                 gparams::set(key, value);
             }
         }
@@ -372,9 +382,9 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                 g_input_kind = IN_DRAT;
                 g_drat_input_file = arg;
             }
-            else if (g_input_file) 
+            else if (g_input_file)
                 warning_msg("input file was already specified.");
-            else 
+            else
                 g_input_file = arg;
         }
         i++;
@@ -400,7 +410,7 @@ int STD_CALL main(int argc, char ** argv) {
         if (!g_input_file && !g_standard_input) {
             error("input file was not specified.");
         }
-        
+
         if (g_input_kind == IN_UNSPECIFIED) {
             g_input_kind = IN_SMTLIB_2;
             char const * ext = get_extension(g_input_file);

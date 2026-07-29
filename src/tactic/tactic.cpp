@@ -37,21 +37,28 @@ struct tactic_report::imp {
         TRACE(tactic, g.display_with_proofs(tout << id << "\n"););
         SASSERT(g.is_well_formed());
     }
-        
+
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
         TRACE(tactic, m_goal.display(tout << m_id << "\n");
               if (m_goal.mc()) m_goal.mc()->display(tout);
               );
-        IF_VERBOSE(0, 
+
+        IF_VERBOSE(0,
                    verbose_stream() << "(" << m_id
                    << " :num-exprs " << m_goal.num_exprs()
-                   << " :num-asts " << m_goal.m().get_num_asts()
-                   << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
-                   << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
-                   << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
-                   << ")\n");
+                   << " :num-asts " << m_goal.m().get_num_asts());
+        if (!get_verbosity_plain()) {
+            IF_VERBOSE(0,
+                       verbose_stream()
+                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
+                       << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
+                       << " :after-memory " << std::fixed << std::setprecision(2) << end_memory);
+        }
+        IF_VERBOSE(0,
+                   verbose_stream() << ")\n");
+
         IF_VERBOSE(20, m_goal.display(verbose_stream() << m_id << "\n"));
         SASSERT(m_goal.is_well_formed());
     }
@@ -71,7 +78,7 @@ tactic_report::~tactic_report() {
 
 void report_tactic_progress(char const * id, unsigned val) {
     if (val > 0) {
-        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << id << " " << val << ")\n");        
+        IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << id << " " << val << ")\n");
     }
 }
 statistics_report::~statistics_report() {
@@ -112,7 +119,7 @@ public:
         ensure_tactic();
         (*m_tactic)(in, result);
     }
-    void updt_params(params_ref const& p) override { 
+    void updt_params(params_ref const& p) override {
         this->p.append(p);
         if (m_tactic) m_tactic->updt_params(p);
     }
@@ -171,7 +178,7 @@ class trace_tactic : public skip_tactic {
     char const * m_tag;
 public:
     trace_tactic(char const * tag): m_tag(tag) {}
-    
+
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         TRACE(m_tag, in->display(tout););
         (void)m_tag;
@@ -186,7 +193,7 @@ tactic * mk_trace_tactic(char const * tag) {
 class fail_if_undecided_tactic : public skip_tactic {
 public:
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
-        if (!in->is_decided()) 
+        if (!in->is_decided())
             throw tactic_exception("undecided");
         skip_tactic::operator()(in, result);
     }
@@ -234,10 +241,10 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     if (r.size() > 0) {
         pr = r[0]->pr(0);
         CTRACE(tactic, pr, tout << pr << "\n";);
-    }    
+    }
 
     if (is_decided_sat(r)) {
-        model_converter_ref mc = r[0]->mc();            
+        model_converter_ref mc = r[0]->mc();
         if (mc.get()) {
             (*mc)(labels);
             model_converter2model(m, mc.get(), md);
@@ -261,7 +268,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     }
     else {
         if (models_enabled && !r.empty()) {
-            model_converter_ref mc = r[0]->mc();            
+            model_converter_ref mc = r[0]->mc();
             model_converter2model(m, mc.get(), md);
             if (mc)
                 (*mc)(labels);

@@ -59,11 +59,12 @@ namespace sat {
             m_watch.stop();
             unsigned elim_bin = m_scc.m_num_elim_bin - m_num_elim_bin;
             unsigned num_units = m_scc.m_solver.init_trail_size() - m_trail_size;
-            IF_VERBOSE(2, 
+            IF_VERBOSE(2,
                        verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim);
                        if (elim_bin > 0) verbose_stream() << " :elim-bin " << elim_bin;
                        if (num_units > 0) verbose_stream() << " :units " << num_units;
-                       verbose_stream() << m_watch << ")\n";);
+                       if (!get_verbosity_plain()) verbose_stream() << m_watch;
+                       verbose_stream() << ")\n";);
         }
     };
 
@@ -80,13 +81,13 @@ namespace sat {
         roots.resize(m_solver.num_vars(), null_literal);
         unsigned next_index = 0;
         svector<frame>   frames;
-        
+
         for (unsigned l_idx = 0; l_idx < num_lits; ++l_idx) {
             if (index[l_idx] != UINT_MAX)
                 continue;
             if (m_solver.was_eliminated(to_literal(l_idx).var()))
                 continue;
-            
+
             m_solver.checkpoint();
 
 #define NEW_NODE(LIDX) {                                                        \
@@ -147,7 +148,7 @@ namespace sat {
                             } while (l2_idx != l_idx);
                             tout << "\n";
                         });
-                    
+
                     SASSERT(!s.empty());
                     literal l = to_literal(l_idx);
                     bool_var v = l.var();
@@ -242,13 +243,13 @@ namespace sat {
         TRACE(scc_detail, m_solver.display(tout););
         CASSERT("scc_bug", m_solver.check_invariant());
 
-        if (m_scc_tr) 
+        if (m_scc_tr)
             reduce_tr();
         TRACE(scc_detail, m_solver.display(tout););
         return to_elim.size();
     }
 
-    unsigned scc::reduce_tr(bool learned) {        
+    unsigned scc::reduce_tr(bool learned) {
         init_big(learned);
         unsigned num_elim = m_big.reduce_tr(m_solver);
         m_num_elim_bin += num_elim;
@@ -266,7 +267,7 @@ namespace sat {
         st.update("sat scc elim vars", m_num_elim);
         st.update("sat scc elim binary", m_num_elim_bin);
     }
-    
+
     void scc::reset_statistics() {
         m_num_elim = 0;
         m_num_elim_bin = 0;

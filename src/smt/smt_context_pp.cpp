@@ -124,7 +124,7 @@ namespace smt {
         expr_ref c = mk_or(fmls);
         out << c << "\n";
 #else
-        for (unsigned i = 0; i < num_lits; ++i) 
+        for (unsigned i = 0; i < num_lits; ++i)
             display_literal_smt2(out, lits[i]) << "\n";
 #endif
         return out;
@@ -195,7 +195,7 @@ namespace smt {
             out << "(";
             bool first = true;
             for (auto lit : *cp) {
-                if (!first) out << " "; 
+                if (!first) out << " ";
                 first = false;
                 out << lit;
             }
@@ -245,7 +245,7 @@ namespace smt {
                     auto j = get_justification(lit.var());
                     display(out << " ", j);
                 }
-                else 
+                else
                     out << "\n";
             }
         }
@@ -268,11 +268,11 @@ namespace smt {
         if (m_enodes.empty())
             return;
         unsigned count = 0;
-        for (enode * r : m_enodes) 
+        for (enode * r : m_enodes)
             if (r->is_root())
                 ++count;
-            
-        out << "equivalence classes: " << count << "\n";        
+
+        out << "equivalence classes: " << count << "\n";
         for (enode * r : m_enodes) {
             if (!r->is_root())
                 continue;
@@ -288,7 +288,7 @@ namespace smt {
 
     void context::display_app_enode_map(std::ostream & out) const {
         return;
-        // mainly useless 
+        // mainly useless
         if (!m_e_internalized_stack.empty()) {
             out << "expression -> enode:\n";
             unsigned sz = m_e_internalized_stack.size();
@@ -415,7 +415,7 @@ namespace smt {
         st.update("final checks", m_stats.m_num_final_checks);
         st.update("added eqs", m_stats.m_num_add_eq);
         st.update("mk clause", m_stats.m_num_mk_clause);
-        st.update("mk clause binary", m_stats.m_num_mk_bin_clause);        
+        st.update("mk clause binary", m_stats.m_num_mk_bin_clause);
         st.update("del clause", m_stats.m_num_del_clause);
         st.update("dyn ack", m_stats.m_num_dyn_ack);
         st.update("interface eqs", m_stats.m_num_interface_eqs);
@@ -627,7 +627,7 @@ namespace smt {
         case b_justification::AXIOM:
             out << "axiom";
             break;
-        case b_justification::BIN_CLAUSE: 
+        case b_justification::BIN_CLAUSE:
             out << "bin " << j.get_literal();
             break;
         case b_justification::CLAUSE: {
@@ -656,7 +656,7 @@ namespace smt {
         case b_justification::AXIOM:
             out << "axiom";
             break;
-        case b_justification::BIN_CLAUSE: 
+        case b_justification::BIN_CLAUSE:
             out << "bin " << j.get_literal();
             break;
         case b_justification::CLAUSE: {
@@ -718,7 +718,7 @@ namespace smt {
                 return m_scopes[0].m_assigned_literals_lim;
         };
         std::stringstream strm;
-        strm << "(smt.stats " 
+        strm << "(smt.stats "
              << std::setw(4) << m_stats.m_num_restarts << ' '
              << std::setw(6) << m_stats.m_num_conflicts << ' '
              << std::setw(6) << m_stats.m_num_decisions << ' '
@@ -726,8 +726,11 @@ namespace smt {
              << std::setw(5) << (m_aux_clauses.size() + bin_clauses) << '/' << bin_clauses << '/' << num_units() << ' '
              << std::setw(7) << m_lemmas.size() << '/' << bin_lemmas << ' '
              << std::setw(5) << m_stats.m_num_simplifications << ' '
-             << std::setw(4) << m_stats.m_num_del_clauses << ' '
-             << std::setw(7) << mem_stat() << ")\n";
+             << std::setw(4) << m_stats.m_num_del_clauses;
+        if (!get_verbosity_plain()) {
+            strm << ' ' << std::setw(7) << mem_stat();
+        }
+        strm << ")\n";
 
         std::string str = std::move(strm).str();
         svector<size_t> offsets;
@@ -738,7 +741,7 @@ namespace smt {
             if (i < str.size()) {
                 offsets.push_back(i);
             }
-        }   
+        }
         bool same = m_last_positions.size() == offsets.size();
         size_t diff = 0;
         for (unsigned i = 0; i < offsets.size() && same; ++i) {
@@ -746,7 +749,7 @@ namespace smt {
             if (m_last_positions[i] < offsets[i]) diff += offsets[i] - m_last_positions[i];
         }
 
-        if (m_last_positions.empty() || 
+        if (m_last_positions.empty() ||
             m_stats.m_num_restarts >= 20 + m_last_position_log ||
             (m_stats.m_num_restarts >= 6 + m_last_position_log && (!same || diff > 3))) {
             m_last_position_log = m_stats.m_num_restarts;
@@ -773,10 +776,10 @@ namespace smt {
                     for (; p1 < p + adjust[i]; ++p1) l1 << " ";
                     p1 += strlen(tag[i]);
                     l1 << tag[i];
-                }                               
+                }
             }
-            for (; p1 + 2 < str.size(); ++p1) l1 << " ";            
-            for (; p2 + 2 < str.size(); ++p2) l2 << " ";            
+            for (; p1 + 2 < str.size(); ++p1) l1 << " ";
+            for (; p2 + 2 < str.size(); ++p2) l2 << " ";
             l1 << ")\n";
             l2 << ")\n";
             IF_VERBOSE(2, verbose_stream() << l1.str() << l2.str());
@@ -787,4 +790,3 @@ namespace smt {
     }
 
 }
-
