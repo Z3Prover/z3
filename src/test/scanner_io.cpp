@@ -1,6 +1,4 @@
 /*++
-Copyright (c) 2026 Chad Brewbaker
-
 Module Name:
 
     scanner_io.cpp
