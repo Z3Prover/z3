@@ -1299,14 +1299,13 @@ lbool core::check(unsigned level) {
     if (m_to_refine.empty())
         return l_true;    
     init_search();
-    m_nla_satisfied = false;
 
     lbool ret = l_undef;
     bool run_grobner = need_run_grobner();
     bool run_horner = need_run_horner();
     bool run_bounds = params().arith_nl_branching();
 
-    auto no_effect = [&]() { return ret == l_undef && !done() && !m_nla_satisfied && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
+    auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
     if (no_effect())
         m_monomial_bounds.generate_lemmas();
@@ -1330,9 +1329,6 @@ lbool core::check(unsigned level) {
             return l_undef;
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;
-        // bound optimization proved all monomials consistent: goal satisfied.
-        if (m_nla_satisfied)
-            return l_true;
     }
 
     if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {

@@ -110,13 +110,14 @@ bool horner::horner_lemmas() {
     // so the LP maximization only runs when horner is actually scheduled.
     // optimize_nl_bounds() checks arith.nl.optimize_bounds internally.
     c().optimize_nl_bounds();
-    // optimize_nl_bounds re-calibrated m_to_refine against the model it produced.
-    // If nothing remains to refine, every monomial is consistent under a feasible
-    // LP model: the nonlinear goal is satisfied. Declare it and stop.
-    if (c().to_refine().empty()) {
-        c().set_nla_satisfied();
-        return false;
-    }
+    // Note: optimize_nl_bounds() only tightens LP bounds to expose conflicts in
+    // the interval evaluation below. An empty m_to_refine after it means every
+    // product monomial is consistent under the *exploratory* LP model it mutated,
+    // which is NOT a sound proof of satisfiability: the exploratory simplex walk
+    // ignores constraints outside the monomial view (e.g. division side
+    // constraints) and bypasses grobner and the exact NRA assignment check.
+    // Declaring SAT here produced unsound models (Z3Prover/bench iss-4167/bug-2),
+    // so we never short-circuit to l_true from this path.
     c().lp_settings().stats().m_horner_calls++;
     const auto& matrix = c().lra.A_r();
     // choose only rows that depend on m_to_refine variables

@@ -90,9 +90,6 @@ class core {
     monomial_bounds          m_monomial_bounds;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
-    // set when bound optimization re-calibrates m_to_refine to empty: every
-    // monomial is consistent under the optimized model, so the goal is satisfied.
-    bool                     m_nla_satisfied = false;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
@@ -468,9 +465,6 @@ public:
     indexed_uint_set const& to_refine() const {
         return m_to_refine;
     }
-
-    void set_nla_satisfied() { m_nla_satisfied = true; }
-    bool nla_satisfied() const { return m_nla_satisfied; }
 
 };  // end of core
 
