@@ -202,10 +202,6 @@ namespace seq {
         return false;
     }
 
-    static expr_ref mk_unit_string_from_char(seq_util& u, unsigned c) {
-        return expr_ref(u.str.mk_string(zstring(c)), u.get_manager());
-    }
-
     static expr_ref mk_single_range_regex(seq_util& u, unsigned lo, unsigned hi, sort* re_sort) {
         ast_manager& m = u.get_manager();
         return expr_ref(u.re.mk_range(re_sort, lo, hi), m);
