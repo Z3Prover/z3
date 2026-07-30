@@ -1,0 +1,28 @@
+diff --git a/dream_experiments/c2-t01-model-universe-precedence.py b/dream_experiments/c2-t01-model-universe-precedence.py
+new file mode 100644
+index 000000000..20fdf65e0
+--- /dev/null
++++ b/dream_experiments/c2-t01-model-universe-precedence.py
+@@ -0,0 +1,10 @@
++from pathlib import Path
++import re, json
++text = Path('src/model/model.cpp').read_text(encoding='utf-8')
++body = re.search(r'expr \* model::get_some_value\(sort \* s\) \{(.+?)\n\}', text, re.S).group(1)
++assert 'm_usort2universe.find(s, u)' in body
++assert 'if (!u->empty())' in body and 'return u->get(0);' in body
++assert 'return m.get_some_value(s);' in body
++reg = re.search(r'void model::register_usort\(sort \* s, unsigned usize, expr \* const \* universe\) \{(.+?)\n\}', text, re.S).group(1)
++assert 'm.inc_array_ref(usize, universe)' in reg and 'm.dec_array_ref(u->size(), u->data())' in reg
++print(json.dumps({'universe_precedes_manager_fallback': True, 'register_usort_replaces_old_universe': True}))
+diff --git a/dream_experiments/c2-t01-model-universe-precedence.result.json b/dream_experiments/c2-t01-model-universe-precedence.result.json
+new file mode 100644
+index 000000000..0c6695b8b
+--- /dev/null
++++ b/dream_experiments/c2-t01-model-universe-precedence.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c2-t01-model-universe-precedence.py",
++  "exit_code": 0,
++  "output": "{\"universe_precedes_manager_fallback\": true, \"register_usort_replaces_old_universe\": true}\n"
++}
+\ No newline at end of file

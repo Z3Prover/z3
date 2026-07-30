@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-014854Z-c2-t02-nlsat-clause-hash-probe",
+  "branch": "dream/z3shadow/20260730-014854Z-c2-t02-nlsat-clause-hash-probe",
+  "parent_branch": "master",
+  "category": "bug hunting",
+  "verdict": "useful",
+  "title": "NLSAT clause hash probe",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/nlsat/nlsat_clause.cpp::clause.contains",
+      "text": "Both nlsat::clause::contains overloads linearly scan m_lits and never consult m_var_hash; var_hash is an external prefilter/metadata field, not part of contains() correctness.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-014854Z-c2-t02-nlsat-clause-hash-probe/"
+    }
+  ],
+  "cross_cutting": []
+}

@@ -360,6 +360,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `evaluator_cfg.expand_as_array`
+
+- model_evaluator caches expanded as-array definitions in m_def_cache only within one evaluator reset cycle; imp::reset clears the cache, so repeated top-level eval calls recompute those expansions.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260730-015431Z-c2-t05-model-evaluator-cache-scope/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

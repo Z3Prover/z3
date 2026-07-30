@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-015147Z-c2-t03-sexpr-has-location-helper",
+  "branch": "dream/z3shadow/20260730-015147Z-c2-t03-sexpr-has-location-helper",
+  "parent_branch": "dream/z3shadow/20260729-223759Z-t03-sexpr-location-sentinel",
+  "category": "feature design",
+  "verdict": "useful",
+  "title": "Sexpr has_location helper",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/util/sexpr.h::sexpr.has_location",
+      "text": "A sexpr::has_location() helper can be implemented header-only by checking both m_line and m_pos against UINT_MAX, preserving the existing factory default sentinel contract.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "feature-gap"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-015147Z-c2-t03-sexpr-has-location-helper/"
+    }
+  ],
+  "cross_cutting": []
+}

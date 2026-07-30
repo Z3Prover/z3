@@ -1,0 +1,27 @@
+diff --git a/dream_experiments/c2-t05-model-evaluator-cache-scope.py b/dream_experiments/c2-t05-model-evaluator-cache-scope.py
+new file mode 100644
+index 000000000..00e99b112
+--- /dev/null
++++ b/dream_experiments/c2-t05-model-evaluator-cache-scope.py
+@@ -0,0 +1,9 @@
++from pathlib import Path
++import re, json
++text = Path('src/model/model_evaluator.cpp').read_text(encoding='utf-8')
++expand = re.search(r'bool expand_as_array\(func_decl\* f, expr_ref& result\) \{(.+?)\n    \}', text, re.S).group(1)
++assert 'm_def_cache.find(g, def)' in expand and 'm_def_cache.insert(g, result)' in expand
++reset = re.search(r'void reset\(\) \{(.+?)\n    \}', text, re.S).group(1)
++assert 'm_cfg.m_def_cache.reset();' in reset
++assert 'm_pinned.push_back(result);' in expand
++print(json.dumps({'as_array_cache_lookup_and_insert': True, 'cache_cleared_by_imp_reset': True}))
+diff --git a/dream_experiments/c2-t05-model-evaluator-cache-scope.result.json b/dream_experiments/c2-t05-model-evaluator-cache-scope.result.json
+new file mode 100644
+index 000000000..0da68861d
+--- /dev/null
++++ b/dream_experiments/c2-t05-model-evaluator-cache-scope.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c2-t05-model-evaluator-cache-scope.py",
++  "exit_code": 0,
++  "output": "{\"as_array_cache_lookup_and_insert\": true, \"cache_cleared_by_imp_reset\": true}\n"
++}
+\ No newline at end of file

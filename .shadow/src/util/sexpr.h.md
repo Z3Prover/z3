@@ -128,6 +128,12 @@ _No discoveries yet._
 - Every sexpr_manager mk_* factory defaults line and pos to UINT_MAX and sexpr only exposes raw get_line/get_pos accessors, so clients need to compare against UINT_MAX themselves to detect missing locations.
   _(verified, source: exploration, labels: [feature-gap])_
   Dream report: `_dreams/20260729-223759Z-t03-sexpr-location-sentinel/`
+
+## `sexpr.has_location`
+
+- A sexpr::has_location() helper can be implemented header-only by checking both m_line and m_pos against UINT_MAX, preserving the existing factory default sentinel contract.
+  _(verified, source: exploration, labels: [feature-gap])_
+  Dream report: `_dreams/20260730-015147Z-c2-t03-sexpr-has-location-helper/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

@@ -1,0 +1,38 @@
+diff --git a/dream_experiments/c2-t03-sexpr-has-location-helper.py b/dream_experiments/c2-t03-sexpr-has-location-helper.py
+new file mode 100644
+index 000000000..7ea61313e
+--- /dev/null
++++ b/dream_experiments/c2-t03-sexpr-has-location-helper.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++text = Path('src/util/sexpr.h').read_text(encoding='utf-8')
++assert 'bool has_location() const' in text
++assert 'm_line != UINT_MAX && m_pos != UINT_MAX' in text
++mk_lines = [ln.strip() for ln in text.splitlines() if 'sexpr * mk_' in ln]
++assert len(mk_lines) == 7 and all('line = UINT_MAX' in ln and 'pos = UINT_MAX' in ln for ln in mk_lines)
++print(json.dumps({'has_location_header_only': True, 'factory_defaults_preserved': len(mk_lines)}))
+diff --git a/dream_experiments/c2-t03-sexpr-has-location-helper.result.json b/dream_experiments/c2-t03-sexpr-has-location-helper.result.json
+new file mode 100644
+index 000000000..77cec1048
+--- /dev/null
++++ b/dream_experiments/c2-t03-sexpr-has-location-helper.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c2-t03-sexpr-has-location-helper.py",
++  "exit_code": 0,
++  "output": "{\"has_location_header_only\": true, \"factory_defaults_preserved\": 7}\n"
++}
+\ No newline at end of file
+diff --git a/src/util/sexpr.h b/src/util/sexpr.h
+index 1df57288e..d508d3d93 100644
+--- a/src/util/sexpr.h
++++ b/src/util/sexpr.h
+@@ -43,6 +43,7 @@ public:
+     unsigned get_ref_count() const { return m_ref_count; }
+     unsigned get_line() const { return m_line; }
+     unsigned get_pos() const { return m_pos; }
++    bool has_location() const { return m_line != UINT_MAX && m_pos != UINT_MAX; }
+     kind_t get_kind() const { return m_kind; }
+     bool is_composite() const { return get_kind() == kind_t::COMPOSITE; }
+     bool is_numeral() const { return get_kind() == kind_t::NUMERAL; }

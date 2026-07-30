@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-015703Z-c2-t06-smt2-string-quote-audit",
+  "branch": "dream/z3shadow/20260730-015703Z-c2-t06-smt2-string-quote-audit",
+  "parent_branch": "master",
+  "category": "security audit",
+  "verdict": "useful",
+  "title": "SMT2 string quote audit",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/ast/ast_smt2_pp.cpp::smt2_pp_environment.pp_string_literal",
+      "text": "pp_string_literal wraps zstring::encode() output in double quotes and doubles every embedded quote character, so SMT-LIB string delimiters are not emitted raw inside the literal body.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-015703Z-c2-t06-smt2-string-quote-audit/"
+    }
+  ],
+  "cross_cutting": []
+}

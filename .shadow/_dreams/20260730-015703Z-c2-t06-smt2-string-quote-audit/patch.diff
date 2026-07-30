@@ -1,0 +1,28 @@
+diff --git a/dream_experiments/c2-t06-smt2-string-quote-audit.py b/dream_experiments/c2-t06-smt2-string-quote-audit.py
+new file mode 100644
+index 000000000..a508c8fc3
+--- /dev/null
++++ b/dream_experiments/c2-t06-smt2-string-quote-audit.py
+@@ -0,0 +1,15 @@
++from pathlib import Path
++import json
++text = Path('src/ast/ast_smt2_pp.cpp').read_text(encoding='utf-8')
++start = text.index('format * smt2_pp_environment::pp_string_literal')
++end = text.index('format * smt2_pp_environment::pp_datalog_literal', start)
++body = text[start:end]
++assert 'encs = s.encode();' in body
++assert "if (encs[i] == '\\\"')" in body
++assert 'buffer << "\\\"\\\"";' in body
++assert 'buffer << encs[i];' in body
++assert "buffer << '\"';" in body
++sample = 'a' + chr(34) + 'b' + chr(34)
++emitted = chr(34) + sample.replace(chr(34), chr(34)*2) + chr(34)
++assert emitted == chr(34)+'a'+chr(34)*2+'b'+chr(34)*3
++print(json.dumps({'quote_doubling_verified': emitted, 'uses_zstring_encode_first': True}))
+diff --git a/dream_experiments/c2-t06-smt2-string-quote-audit.result.json b/dream_experiments/c2-t06-smt2-string-quote-audit.result.json
+new file mode 100644
+index 000000000..73a9f8913
+--- /dev/null
++++ b/dream_experiments/c2-t06-smt2-string-quote-audit.result.json
+@@ -0,0 +1 @@
++{"quote_doubling_verified": "\"a\"\"b\"\"\"", "uses_zstring_encode_first": true}

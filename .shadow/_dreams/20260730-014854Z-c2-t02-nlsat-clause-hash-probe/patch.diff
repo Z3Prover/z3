@@ -1,0 +1,29 @@
+diff --git a/dream_experiments/c2-t02-nlsat-clause-hash-probe.py b/dream_experiments/c2-t02-nlsat-clause-hash-probe.py
+new file mode 100644
+index 000000000..8ecc3ed04
+--- /dev/null
++++ b/dream_experiments/c2-t02-nlsat-clause-hash-probe.py
+@@ -0,0 +1,11 @@
++from pathlib import Path
++import re, json
++cpp = Path('src/nlsat/nlsat_clause.cpp').read_text(encoding='utf-8')
++hdr = Path('src/nlsat/nlsat_clause.h').read_text(encoding='utf-8')
++assert 'unsigned         m_var_hash;' in hdr and 'set_var_hash' in hdr
++bodies = re.findall(r'bool clause::contains\([^)]*\) const \{(.+?)\n    \}', cpp, re.S)
++assert len(bodies) == 2
++for b in bodies:
++    assert 'for (unsigned i = 0; i < m_size; ++i)' in b
++    assert 'm_var_hash' not in b and 'var_hash' not in b
++print(json.dumps({'contains_overloads': len(bodies), 'contains_uses_var_hash': False}))
+diff --git a/dream_experiments/c2-t02-nlsat-clause-hash-probe.result.json b/dream_experiments/c2-t02-nlsat-clause-hash-probe.result.json
+new file mode 100644
+index 000000000..1441182ce
+--- /dev/null
++++ b/dream_experiments/c2-t02-nlsat-clause-hash-probe.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c2-t02-nlsat-clause-hash-probe.py",
++  "exit_code": 0,
++  "output": "{\"contains_overloads\": 2, \"contains_uses_var_hash\": false}\n"
++}
+\ No newline at end of file

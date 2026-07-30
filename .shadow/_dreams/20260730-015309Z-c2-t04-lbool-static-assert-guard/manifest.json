@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-015309Z-c2-t04-lbool-static-assert-guard",
+  "branch": "dream/z3shadow/20260730-015309Z-c2-t04-lbool-static-assert-guard",
+  "parent_branch": "dream/z3shadow/20260729-223918Z-t04-lbool-ordinal-contract",
+  "category": "refactoring",
+  "verdict": "useful",
+  "title": "lbool static assert guard",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/util/lbool.h::lbool",
+      "text": "lbool ordinal static_asserts can guard the arithmetic negation/conversion contract at compile time without changing operator~ or to_lbool runtime code.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "tech-debt"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-015309Z-c2-t04-lbool-static-assert-guard/"
+    }
+  ],
+  "cross_cutting": []
+}

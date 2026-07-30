@@ -168,8 +168,11 @@ _No discoveries yet._
 
 ### `smt2_pp_environment.pp_string_literal`
 
-_No discoveries yet._
 
+
+- pp_string_literal wraps zstring::encode() output in double quotes and doubles every embedded quote character, so SMT-LIB string delimiters are not emitted raw inside the literal body.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-015703Z-c2-t06-smt2-string-quote-audit/`
 ## `mk_string`
 
 _No discoveries yet._

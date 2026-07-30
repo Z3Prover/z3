@@ -52,8 +52,11 @@ _No discoveries yet._
 
 ### `model.get_some_value`
 
-_No discoveries yet._
 
+
+- model::get_some_value prefers the first registered uninterpreted-sort universe element over ast_manager::get_some_value; empty or missing universes are the only path to the manager fallback.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-014333Z-c2-t01-model-universe-precedence/`
 ### `model.get_fresh_value`
 
 _No discoveries yet._

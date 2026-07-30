@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-014333Z-c2-t01-model-universe-precedence",
+  "branch": "dream/z3shadow/20260730-014333Z-c2-t01-model-universe-precedence",
+  "parent_branch": "master",
+  "category": "investigation",
+  "verdict": "useful",
+  "title": "Model universe precedence",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/model/model.cpp::model.get_some_value",
+      "text": "model::get_some_value prefers the first registered uninterpreted-sort universe element over ast_manager::get_some_value; empty or missing universes are the only path to the manager fallback.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-014333Z-c2-t01-model-universe-precedence/"
+    }
+  ],
+  "cross_cutting": []
+}

@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-015431Z-c2-t05-model-evaluator-cache-scope",
+  "branch": "dream/z3shadow/20260730-015431Z-c2-t05-model-evaluator-cache-scope",
+  "parent_branch": "master",
+  "category": "optimization",
+  "verdict": "useful",
+  "title": "Model evaluator cache scope",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/model/model_evaluator.cpp::evaluator_cfg.expand_as_array",
+      "text": "model_evaluator caches expanded as-array definitions in m_def_cache only within one evaluator reset cycle; imp::reset clears the cache, so repeated top-level eval calls recompute those expansions.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-015431Z-c2-t05-model-evaluator-cache-scope/"
+    }
+  ],
+  "cross_cutting": []
+}
