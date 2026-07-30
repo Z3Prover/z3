@@ -1216,13 +1216,6 @@ public:
         literal eq  = th.mk_eq(a.mk_mul(q, a.mk_div(p, q)), p, false);
         scoped_trace_stream ts(th, eqz, eq);
         mk_axiom(eqz, eq);
-        // Ensure the multiplicative relationship q*(p/q) = p is tracked by the
-        // nonlinear solver. Otherwise, when the disjunct q = 0 is never decided,
-        // the enode for the monomial q*(p/q) is never marked relevant, nla skips
-        // it, and the value of (p/q) stays unconstrained - producing an invalid
-        // model that assigns a nonzero q together with an arbitrary (p/q).
-        if (ctx().relevancy())
-            ctx().mark_as_relevant(eq);
     }
 
     // to_int (to_real x) = x
