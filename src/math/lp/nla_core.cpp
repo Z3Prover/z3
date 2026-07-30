@@ -1556,8 +1556,11 @@ void core::set_use_nra_model(bool m) {
    literal never reaches the column. Fixing them takes that file's linear monics
    from 6/19 to 14/19.
 
-   Iterate to a fixpoint, bounded, because fixing one column can leave another
-   row with a single non-fixed column.
+   Only one pass over the rows is made. Fixing a column can leave another row
+   with a single non-fixed column, so a fixpoint loop would find strictly more,
+   but the extra rounds cost more than they return: the pass runs on every
+   nonlinear propagation, so a later round usually only finds what the next call
+   would have found anyway.
 */
 bool core::propagate_fixed_rows() {
     if (!params().arith_nl_propagate_fixed_rows())
@@ -1570,45 +1573,41 @@ bool core::propagate_fixed_rows() {
             nl_vars.insert(k);
     }
 
-    bool propagated = false, again = true;
-    unsigned rounds = 0;
-    while (again && rounds++ < 10) {
-        again = false;
-        for (unsigned i = 0; i < lra.row_count(); ++i) {
-            auto const& row = lra.get_row(i);
-            if (row.size() > 32)
+    bool propagated = false;
+    for (unsigned i = 0; i < lra.row_count(); ++i) {
+        auto const& row = lra.get_row(i);
+        if (row.size() > 32)
+            continue;
+        lpvar free_j = lp::null_lpvar;
+        rational free_coeff, sum(0);
+        bool single = true;
+        for (auto const& e : row) {
+            if (lra.column_is_fixed(e.var())) {
+                sum += e.coeff() * lra.get_lower_bound(e.var()).x;
                 continue;
-            lpvar free_j = lp::null_lpvar;
-            rational free_coeff, sum(0);
-            bool single = true;
-            for (auto const& e : row) {
-                if (lra.column_is_fixed(e.var())) {
-                    sum += e.coeff() * lra.get_lower_bound(e.var()).x;
-                    continue;
-                }
-                if (free_j != lp::null_lpvar) {
-                    single = false;
-                    break;
-                }
-                free_j = e.var();
-                free_coeff = e.coeff();
             }
-            if (!single || free_j == lp::null_lpvar || free_coeff.is_zero())
-                continue;
-            if (!nl_vars.contains(free_j))
-                continue;
-            rational val = -sum / free_coeff;
-            if (lra.column_has_lower_bound(free_j) && lra.column_has_upper_bound(free_j) &&
-                lra.get_lower_bound(free_j).x == val && lra.get_upper_bound(free_j).x == val)
-                continue;
-            u_dependency* dep = nullptr;
-            for (auto const& e : row)
-                if (lra.column_is_fixed(e.var()))
-                    dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(e.var()));
-            lra.update_column_type_and_bound(free_j, lp::lconstraint_kind::GE, val, dep);
-            lra.update_column_type_and_bound(free_j, lp::lconstraint_kind::LE, val, dep);
-            propagated = again = true;
+            if (free_j != lp::null_lpvar) {
+                single = false;
+                break;
+            }
+            free_j = e.var();
+            free_coeff = e.coeff();
         }
+        if (!single || free_j == lp::null_lpvar || free_coeff.is_zero())
+            continue;
+        if (!nl_vars.contains(free_j))
+            continue;
+        rational val = -sum / free_coeff;
+        if (lra.column_has_lower_bound(free_j) && lra.column_has_upper_bound(free_j) &&
+            lra.get_lower_bound(free_j).x == val && lra.get_upper_bound(free_j).x == val)
+            continue;
+        u_dependency* dep = nullptr;
+        for (auto const& e : row)
+            if (lra.column_is_fixed(e.var()))
+                dep = lra.join_deps(dep, lra.get_bound_constraint_witnesses_for_column(e.var()));
+        lra.update_column_type_and_bound(free_j, lp::lconstraint_kind::GE, val, dep);
+        lra.update_column_type_and_bound(free_j, lp::lconstraint_kind::LE, val, dep);
+        propagated = true;
     }
     if (propagated)
         lra.find_feasible_solution();
