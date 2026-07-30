@@ -1562,6 +1562,33 @@ void core::set_use_nra_model(bool m) {
    nonlinear propagation, so a later round usually only finds what the next call
    would have found anyway.
 
+   Fixing only some of the determined columns rather than all of them was also
+   tried, on the theory that fixing everything is too aggressive. The variant
+   collects the candidates as this function does, then keeps a uniformly random
+   subset of at most N of them per call and discards the rest, so N caps how
+   many columns one call may fix, not how many are fixed overall. It does not
+   help. Over 60 random seeds on z3test/regressions/fstar, counting a run solved
+   only when every check-sat in the file is definite, and summing rlimit over
+   all 1140 runs of each arm:
+
+     arm                             solved / 1140    total rlimit
+       pass off                           934            baseline
+       fix every candidate (current)      945             -19.8%
+       fix at most 5 per call             939             -13.4%
+
+   Capping costs 6 points of rlimit and loses 6 runs, all of them on
+   queries-FStar.UInt128-10, which goes from 52 solved to 46.
+
+   How many seeds are used decides the answer here, so do not shorten this
+   measurement. At the single seed the files pin, a cap of 2 looks like the best
+   arm at -9.4% against master while fixing every candidate is -6.9%. At 20
+   seeds a cap of 5 still looks marginally ahead on solved count, 319 against
+   318 of 380. Only at 60 does the sign settle: the cap is 6 behind, and a
+   paired comparison over the seeds gives t = -1.4, i.e. the two are not
+   distinguishable on solved count at all, while the rlimit gap is steady and
+   real. Small caps are separately erratic: a cap of 1 costs +75% at the pinned
+   seed.
+
    Two files on z3test/regressions/fstar cost more with the pass on,
    queries-Pulse.Lib.HashTable.Spec-1 and FStar.Matrix-2. Neither is a defect in
    the derivation above; both are second-order interactions with the bounded
@@ -1581,15 +1608,18 @@ void core::set_use_nra_model(bool m) {
    goes from 765543 rlimit to unknown.
 
    Both global levers were measured and both fail the same way, fixing
-   HashTable.Spec and turning Matrix-2 from unsat into unknown:
+   HashTable.Spec and turning Matrix-2 from unsat into unknown. Cells are the
+   resulting rlimit-count for the file, against 223336 and 1024551 on master:
 
-     initial m_nlsat_delay   0 (now)      5        10       50    exponential
-       HashTable.Spec         472374   557081   189730   189730   429941
-       Matrix-2              1603093  unknown  unknown  unknown   unknown
+     initial value of m_nlsat_delay
+                              0 (now)        5        10       50   exponential
+       HashTable.Spec          472374   557081   189730   189730       429941
+       Matrix-2               1603093  unknown  unknown  unknown      unknown
 
-     bounded nlsat rlimit   100000 (now)   25000     5000
-       HashTable.Spec             472374   382601   194730
-       Matrix-2                  1603213  2307249  unknown
+     rlimit budget given to one bounded nlsat run
+                         100000 (now)    25000     5000
+       HashTable.Spec          472374   382601   194730
+       Matrix-2               1603213  2307249  unknown
 
    There is also no local signal to separate the two cases: at the escalation
    point the bounded runs are equally productive, 6 conflicts and 5 inconclusive
