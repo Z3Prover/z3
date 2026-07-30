@@ -250,6 +250,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `egraph::force_push`
+
+- euf::egraph defers scope materialization in m_num_scopes until force_push(), which records the update limit, pushes the region scope, records the theory-equality qhead, and notifies plugins in one batch.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-202703Z-c5-t04-euf-force-push-deferred-scopes/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

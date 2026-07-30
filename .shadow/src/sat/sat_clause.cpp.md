@@ -86,6 +86,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `clause::get_new_offset`
+
+- sat::clause relocation on 64-bit stores a synthetic offset in the first two literal slots, so callers must only use get_new_offset/set_new_offset on clauses whose storage has at least two literal slots available.
+  _(verified, source: exploration, labels: [tech-debt])_
+  Dream report: `_dreams/20260730-202106Z-c5-t02-sat-clause-offset-packing/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

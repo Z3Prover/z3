@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-202106Z-c5-t02-sat-clause-offset-packing",
+  "branch": "dream/z3shadow/20260730-202106Z-c5-t02-sat-clause-offset-packing",
+  "parent_branch": "master",
+  "category": "bug hunting",
+  "verdict": "useful",
+  "title": "SAT clause relocation offset packing",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/sat/sat_clause.cpp::clause::get_new_offset",
+      "text": "sat::clause relocation on 64-bit stores a synthetic offset in the first two literal slots, so callers must only use get_new_offset/set_new_offset on clauses whose storage has at least two literal slots available.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "tech-debt"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-202106Z-c5-t02-sat-clause-offset-packing/"
+    }
+  ],
+  "cross_cutting": []
+}

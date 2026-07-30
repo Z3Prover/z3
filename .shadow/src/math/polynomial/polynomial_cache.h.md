@@ -46,6 +46,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `polynomial::cache`
+
+- polynomial::cache exposes cache hits for psc_chain via contains_chain but not for factorization; callers can probe chain cache membership but factor cache reuse is only observable by calling factor().
+  _(verified, source: exploration, labels: [feature-gap])_
+  Dream report: `_dreams/20260730-201835Z-c5-t01-polynomial-cache-api-surface/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

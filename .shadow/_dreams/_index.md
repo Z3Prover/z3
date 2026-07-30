@@ -26,3 +26,9 @@
 | 20260730-200046Z-c4-t04-grobner-pop-scope-assertion | refactoring | useful | Grobner pop-scope assertion audit | dream/z3shadow/20260730-200046Z-c4-t04-grobner-pop-scope-assertion | master | 0dfc5293f |
 | 20260730-200330Z-c4-t05-dd-bdd-memout-reorder | optimization | useful | BDD mem_out reorder retry | dream/z3shadow/20260730-200330Z-c4-t05-dd-bdd-memout-reorder | master | d04f37304 |
 | 20260730-200606Z-c4-t06-func-decls-signature-coercion | security audit | useful | Command context signature coercion guard | dream/z3shadow/20260730-200606Z-c4-t06-func-decls-signature-coercion | master | 8829189c8 |
+| 20260730-201835Z-c5-t01-polynomial-cache-api-surface | investigation | useful | Polynomial cache API surface follow-up | dream/z3shadow/20260730-201835Z-c5-t01-polynomial-cache-api-surface | dream/z3shadow/20260730-195514Z-c4-t02-polynomial-cache-factor | 1b8da989d |
+| 20260730-202106Z-c5-t02-sat-clause-offset-packing | bug hunting | useful | SAT clause relocation offset packing | dream/z3shadow/20260730-202106Z-c5-t02-sat-clause-offset-packing | master | 28d4b63e2 |
+| 20260730-202410Z-c5-t03-bit-blaster-quant-proof-gap | feature design | useful | Bit-blaster quantified proof gap | dream/z3shadow/20260730-202410Z-c5-t03-bit-blaster-quant-proof-gap | master | 8e7c29e6f |
+| 20260730-202703Z-c5-t04-euf-force-push-deferred-scopes | refactoring | useful | EUF egraph deferred scope materialization | dream/z3shadow/20260730-202703Z-c5-t04-euf-force-push-deferred-scopes | master | 18b91eb43 |
+| 20260730-202940Z-c5-t05-sat-simplifier-bce-gates | optimization | useful | SAT simplifier BCE gating | dream/z3shadow/20260730-202940Z-c5-t05-sat-simplifier-bce-gates | master | 151ac9927 |
+| 20260730-203218Z-c5-t06-subpaving-ineq-input-guards | security audit | useful | Subpaving tactic inequality guards | dream/z3shadow/20260730-203218Z-c5-t06-subpaving-ineq-input-guards | master | 80dc1ad99 |

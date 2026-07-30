@@ -134,6 +134,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `subpaving_tactic::imp.mk_ineq`
+
+- subpaving_tactic::mk_ineq accepts only <=/>= atoms with a numeral right-hand side after arith-lhs simplification; unsupported atoms or symbolic bounds throw tactic_exception before reaching the subpaving context.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-203218Z-c5-t06-subpaving-ineq-input-guards/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

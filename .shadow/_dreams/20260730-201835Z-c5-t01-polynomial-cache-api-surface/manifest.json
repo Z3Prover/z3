@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-201835Z-c5-t01-polynomial-cache-api-surface",
+  "branch": "dream/z3shadow/20260730-201835Z-c5-t01-polynomial-cache-api-surface",
+  "parent_branch": "dream/z3shadow/20260730-195514Z-c4-t02-polynomial-cache-factor",
+  "category": "investigation",
+  "verdict": "useful",
+  "title": "Polynomial cache API surface follow-up",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/polynomial/polynomial_cache.h::polynomial::cache",
+      "text": "polynomial::cache exposes cache hits for psc_chain via contains_chain but not for factorization; callers can probe chain cache membership but factor cache reuse is only observable by calling factor().",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "feature-gap"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-201835Z-c5-t01-polynomial-cache-api-surface/"
+    }
+  ],
+  "cross_cutting": []
+}

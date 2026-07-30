@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-203218Z-c5-t06-subpaving-ineq-input-guards",
+  "branch": "dream/z3shadow/20260730-203218Z-c5-t06-subpaving-ineq-input-guards",
+  "parent_branch": "master",
+  "category": "security audit",
+  "verdict": "useful",
+  "title": "Subpaving tactic inequality guards",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/subpaving/tactic/subpaving_tactic.cpp::subpaving_tactic::imp.mk_ineq",
+      "text": "subpaving_tactic::mk_ineq accepts only <=/>= atoms with a numeral right-hand side after arith-lhs simplification; unsupported atoms or symbolic bounds throw tactic_exception before reaching the subpaving context.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-203218Z-c5-t06-subpaving-ineq-input-guards/"
+    }
+  ],
+  "cross_cutting": []
+}

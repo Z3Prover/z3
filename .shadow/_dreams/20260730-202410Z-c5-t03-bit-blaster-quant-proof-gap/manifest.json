@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-202410Z-c5-t03-bit-blaster-quant-proof-gap",
+  "branch": "dream/z3shadow/20260730-202410Z-c5-t03-bit-blaster-quant-proof-gap",
+  "parent_branch": "master",
+  "category": "feature design",
+  "verdict": "useful",
+  "title": "Bit-blaster quantified proof gap",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/tactic/bv/bit_blaster_tactic.cpp::bit_blaster_tactic::imp.operator()",
+      "text": "bit_blaster_tactic refuses blast_quant when proofs are enabled before rewriting the goal, but still installs a model converter after successful rewrites when models are enabled.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "feature-gap"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-202410Z-c5-t03-bit-blaster-quant-proof-gap/"
+    }
+  ],
+  "cross_cutting": []
+}

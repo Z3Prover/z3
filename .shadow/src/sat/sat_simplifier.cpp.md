@@ -530,6 +530,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `simplifier::bce_enabled_base`
+
+- sat::simplifier enables blocked-clause elimination only after the delay and only when not incremental, not tracking assumptions, not using learned clauses in use-lists, and single-threaded.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260730-202940Z-c5-t05-sat-simplifier-bce-gates/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

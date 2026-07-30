@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c5-t05-sat-simplifier-bce-gates.py b/dream_experiments/c5-t05-sat-simplifier-bce-gates.py
+new file mode 100644
+index 000000000..ee20d095e
+--- /dev/null
++++ b/dream_experiments/c5-t05-sat-simplifier-bce-gates.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/sat/sat_simplifier.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['bce_enabled_base', '!m_incremental_mode && !s.tracking_assumptions()', '!m_learned_in_use_lists', 'm_num_calls >= m_bce_delay', 'single_threaded()', 'elim_vars_enabled']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c5-t05-sat-simplifier-bce-gates.result.json b/dream_experiments/c5-t05-sat-simplifier-bce-gates.result.json
+new file mode 100644
+index 000000000..6cc036711
+--- /dev/null
++++ b/dream_experiments/c5-t05-sat-simplifier-bce-gates.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c5-t05-sat-simplifier-bce-gates.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/sat/sat_simplifier.cpp\", \"checks\": 6, \"bytes\": 78317}\n"
++}
+\ No newline at end of file

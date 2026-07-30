@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c5-t04-euf-force-push-deferred-scopes.py b/dream_experiments/c5-t04-euf-force-push-deferred-scopes.py
+new file mode 100644
+index 000000000..ee8f8421c
+--- /dev/null
++++ b/dream_experiments/c5-t04-euf-force-push-deferred-scopes.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/ast/euf/euf_egraph.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['void egraph::force_push()', 'for (; m_num_scopes > 0; --m_num_scopes)', 'm_region.push_scope()', 'p->push_scope_eh()', 'm_scopes.push_back(m_updates.size())']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c5-t04-euf-force-push-deferred-scopes.result.json b/dream_experiments/c5-t04-euf-force-push-deferred-scopes.result.json
+new file mode 100644
+index 000000000..a617aa0a7
+--- /dev/null
++++ b/dream_experiments/c5-t04-euf-force-push-deferred-scopes.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c5-t04-euf-force-push-deferred-scopes.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/ast/euf/euf_egraph.cpp\", \"checks\": 5, \"bytes\": 42429}\n"
++}
+\ No newline at end of file

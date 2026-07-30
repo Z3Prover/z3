@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-202703Z-c5-t04-euf-force-push-deferred-scopes",
+  "branch": "dream/z3shadow/20260730-202703Z-c5-t04-euf-force-push-deferred-scopes",
+  "parent_branch": "master",
+  "category": "refactoring",
+  "verdict": "useful",
+  "title": "EUF egraph deferred scope materialization",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/ast/euf/euf_egraph.cpp::egraph::force_push",
+      "text": "euf::egraph defers scope materialization in m_num_scopes until force_push(), which records the update limit, pushes the region scope, records the theory-equality qhead, and notifies plugins in one batch.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-202703Z-c5-t04-euf-force-push-deferred-scopes/"
+    }
+  ],
+  "cross_cutting": []
+}

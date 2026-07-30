@@ -1,0 +1,36 @@
+diff --git a/dream_experiments/c4-t02-polynomial-cache-factor.py b/dream_experiments/c4-t02-polynomial-cache-factor.py
+index 5c061affb..a8f60feaa 100644
+--- a/dream_experiments/c4-t02-polynomial-cache-factor.py
++++ b/dream_experiments/c4-t02-polynomial-cache-factor.py
+@@ -6,3 +6,5 @@ checks = ['m_factor_cache.insert_if_not_there', 'm.factor(p, fs);', 'mk_unique(f
+ missing = [s for s in checks if s not in text]
+ assert not missing, missing
+ print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
++
++# cycle 5 follow-up touched parent probe for c5-t01-polynomial-cache-api-surface
+diff --git a/dream_experiments/c5-t01-polynomial-cache-api-surface.py b/dream_experiments/c5-t01-polynomial-cache-api-surface.py
+new file mode 100644
+index 000000000..dadb706d1
+--- /dev/null
++++ b/dream_experiments/c5-t01-polynomial-cache-api-surface.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/math/polynomial/polynomial_cache.h'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['bool contains_chain', 'void psc_chain', 'void factor', 'void reset();', 'polynomial * mk_unique']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c5-t01-polynomial-cache-api-surface.result.json b/dream_experiments/c5-t01-polynomial-cache-api-surface.result.json
+new file mode 100644
+index 000000000..d2b38f3b2
+--- /dev/null
++++ b/dream_experiments/c5-t01-polynomial-cache-api-surface.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c5-t01-polynomial-cache-api-surface.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/math/polynomial/polynomial_cache.h\", \"checks\": 5, \"bytes\": 966}\n"
++}
+\ No newline at end of file

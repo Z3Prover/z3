@@ -96,6 +96,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `bit_blaster_tactic::imp.operator()`
+
+- bit_blaster_tactic refuses blast_quant when proofs are enabled before rewriting the goal, but still installs a model converter after successful rewrites when models are enabled.
+  _(verified, source: exploration, labels: [feature-gap])_
+  Dream report: `_dreams/20260730-202410Z-c5-t03-bit-blaster-quant-proof-gap/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

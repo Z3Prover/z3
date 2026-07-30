@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-202940Z-c5-t05-sat-simplifier-bce-gates",
+  "branch": "dream/z3shadow/20260730-202940Z-c5-t05-sat-simplifier-bce-gates",
+  "parent_branch": "master",
+  "category": "optimization",
+  "verdict": "useful",
+  "title": "SAT simplifier BCE gating",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/sat/sat_simplifier.cpp::simplifier::bce_enabled_base",
+      "text": "sat::simplifier enables blocked-clause elimination only after the delay and only when not incremental, not tracking assumptions, not using learned clauses in use-lists, and single-threaded.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-202940Z-c5-t05-sat-simplifier-bce-gates/"
+    }
+  ],
+  "cross_cutting": []
+}
