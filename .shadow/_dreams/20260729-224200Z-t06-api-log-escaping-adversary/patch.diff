@@ -1,0 +1,29 @@
+diff --git a/dream_experiments/t06-api-log-escaping-adversary.py b/dream_experiments/t06-api-log-escaping-adversary.py
+new file mode 100644
+index 000000000..e102616b9
+--- /dev/null
++++ b/dream_experiments/t06-api-log-escaping-adversary.py
+@@ -0,0 +1,11 @@
++from pathlib import Path
++import re, json
++text = Path('src/api/api_log.cpp').read_text(encoding='utf-8')
++body = re.search(r'std::ostream & operator<<\(std::ostream & out, ll_escaped const & d\) \{(.+?)\n\}', text, re.S).group(1)
++assert "out << '\\\\' << str;" in body
++assert "c == '<' || c == '>'" in body
++assert "c == '\"'" not in body and "c == '\\\\'" not in body
++allowed_space = "c == ' '" in body
++encoded = ''.join(ch if ch.isalnum() or ch in '~!@#$%^&*-_+.?/ <> ' else '\\' + f'{ord(ch):03d}' for ch in 'a"\\\n b')
++assert encoded == 'a\\034\\092\\010 b'
++print(json.dumps({'quote_backslash_newline_encoding': encoded, 'space_allowed_raw': allowed_space}))
+diff --git a/dream_experiments/t06-api-log-escaping-adversary.result.json b/dream_experiments/t06-api-log-escaping-adversary.result.json
+new file mode 100644
+index 000000000..bc9ba371f
+--- /dev/null
++++ b/dream_experiments/t06-api-log-escaping-adversary.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/t06-api-log-escaping-adversary.py",
++  "exit_code": 0,
++  "output": "{\"quote_backslash_newline_encoding\": \"a\\\\034\\\\092\\\\010 b\", \"space_allowed_raw\": true}\n"
++}
+\ No newline at end of file

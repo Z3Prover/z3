@@ -20,8 +20,11 @@ _No discoveries yet._
 
 ### `drat.dump`
 
-_No discoveries yet._
 
+
+- Text DRAT dumping batches into a 10000-byte stack buffer and flushes before each next literal when len + 50 would exceed the buffer, while binary dumping waits for an exactly full buffer.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260729-224040Z-t05-drat-buffer-threshold/`
 ### `drat.dump_activity`
 
 _No discoveries yet._

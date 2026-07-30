@@ -82,6 +82,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `ll_escaped`
+
+- api_log ll_escaped leaves alphanumerics, spaces, and selected punctuation raw but encodes quotes, backslashes, and control bytes as backslash plus three decimal digits, preventing raw string-delimiter injection in log strings.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260729-224200Z-t06-api-log-escaping-adversary/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

@@ -1,0 +1,27 @@
+diff --git a/dream_experiments/t05-drat-buffer-threshold.py b/dream_experiments/t05-drat-buffer-threshold.py
+new file mode 100644
+index 000000000..46973efe9
+--- /dev/null
++++ b/dream_experiments/t05-drat-buffer-threshold.py
+@@ -0,0 +1,9 @@
++from pathlib import Path
++import json
++text = Path('src/sat/sat_drat.cpp').read_text(encoding='utf-8')
++assert 'char buffer[10000];' in text
++assert 'static_cast<size_t>(len) + 50 > sizeof(buffer)' in text
++assert 'm_out->write(buffer, len);' in text
++assert 'if (len == sizeof(buffer))' in text and 'm_bout->write(buffer, len);' in text
++capacity, margin = 10000, 50
++print(json.dumps({'text_flush_when_len_exceeds': capacity-margin, 'binary_flush_when_full': capacity}))
+diff --git a/dream_experiments/t05-drat-buffer-threshold.result.json b/dream_experiments/t05-drat-buffer-threshold.result.json
+new file mode 100644
+index 000000000..922cda942
+--- /dev/null
++++ b/dream_experiments/t05-drat-buffer-threshold.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/t05-drat-buffer-threshold.py",
++  "exit_code": 0,
++  "output": "{\"text_flush_when_len_exceeds\": 9950, \"binary_flush_when_full\": 10000}\n"
++}
+\ No newline at end of file

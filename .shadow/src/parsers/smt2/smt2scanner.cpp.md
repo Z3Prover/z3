@@ -20,8 +20,11 @@ _No discoveries yet._
 
 ### `scanner.read_multiline_comment`
 
-_No discoveries yet._
 
+
+- read_multiline_comment treats the first |# as the terminator and keeps no nesting depth, while still calling new_line() for embedded newlines; malformed nested-looking comments resume scanning after the inner close.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260729-223630Z-t02-smt2-comment-boundary/`
 ### `scanner.read_quoted_symbol`
 
 _No discoveries yet._

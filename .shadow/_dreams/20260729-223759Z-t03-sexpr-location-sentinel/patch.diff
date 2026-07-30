@@ -1,0 +1,27 @@
+diff --git a/dream_experiments/t03-sexpr-location-sentinel.py b/dream_experiments/t03-sexpr-location-sentinel.py
+new file mode 100644
+index 000000000..11bbe1950
+--- /dev/null
++++ b/dream_experiments/t03-sexpr-location-sentinel.py
+@@ -0,0 +1,9 @@
++from pathlib import Path
++import re, json
++text = Path('src/util/sexpr.h').read_text(encoding='utf-8')
++mk_lines = [ln.strip() for ln in text.splitlines() if 'sexpr * mk_' in ln]
++assert mk_lines and all('line = UINT_MAX' in ln and 'pos = UINT_MAX' in ln for ln in mk_lines)
++assert 'has_line' not in text and 'has_pos' not in text and 'has_location' not in text
++accessors = re.findall(r'unsigned get_(line|pos)\(\) const', text)
++assert set(accessors) == {'line','pos'}
++print(json.dumps({'constructors_with_sentinel_defaults': len(mk_lines), 'raw_accessors': sorted(accessors)}))
+diff --git a/dream_experiments/t03-sexpr-location-sentinel.result.json b/dream_experiments/t03-sexpr-location-sentinel.result.json
+new file mode 100644
+index 000000000..dd78df65c
+--- /dev/null
++++ b/dream_experiments/t03-sexpr-location-sentinel.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/t03-sexpr-location-sentinel.py",
++  "exit_code": 0,
++  "output": "{\"constructors_with_sentinel_defaults\": 7, \"raw_accessors\": [\"line\", \"pos\"]}\n"
++}
+\ No newline at end of file

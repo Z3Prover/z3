@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260729-222539Z-t01-params-fallback-probe",
+  "branch": "dream/z3shadow/20260729-222539Z-t01-params-fallback-probe",
+  "parent_branch": "master",
+  "category": "investigation",
+  "verdict": "useful",
+  "title": "Params fallback probe",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/util/params.cpp::params::get_bool",
+      "text": "Fallback getters in params.cpp scan the primary set for both matching key and matching kind before consulting the fallback params_ref, so a key present with the wrong parameter kind does not block fallback lookup.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260729-222539Z-t01-params-fallback-probe/"
+    }
+  ],
+  "cross_cutting": []
+}

@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260729-224040Z-t05-drat-buffer-threshold",
+  "branch": "dream/z3shadow/20260729-224040Z-t05-drat-buffer-threshold",
+  "parent_branch": "master",
+  "category": "optimization",
+  "verdict": "useful",
+  "title": "DRAT buffer threshold",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/sat/sat_drat.cpp::drat.dump",
+      "text": "Text DRAT dumping batches into a 10000-byte stack buffer and flushes before each next literal when len + 50 would exceed the buffer, while binary dumping waits for an exactly full buffer.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260729-224040Z-t05-drat-buffer-threshold/"
+    }
+  ],
+  "cross_cutting": []
+}

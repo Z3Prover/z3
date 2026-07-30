@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260729-223630Z-t02-smt2-comment-boundary",
+  "branch": "dream/z3shadow/20260729-223630Z-t02-smt2-comment-boundary",
+  "parent_branch": "master",
+  "category": "bug hunting",
+  "verdict": "useful",
+  "title": "SMT2 multiline comment boundary",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/parsers/smt2/smt2scanner.cpp::scanner.read_multiline_comment",
+      "text": "read_multiline_comment treats the first |# as the terminator and keeps no nesting depth, while still calling new_line() for embedded newlines; malformed nested-looking comments resume scanning after the inner close.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260729-223630Z-t02-smt2-comment-boundary/"
+    }
+  ],
+  "cross_cutting": []
+}

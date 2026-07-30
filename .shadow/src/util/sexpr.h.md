@@ -122,6 +122,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `sexpr_manager`
+
+- Every sexpr_manager mk_* factory defaults line and pos to UINT_MAX and sexpr only exposes raw get_line/get_pos accessors, so clients need to compare against UINT_MAX themselves to detect missing locations.
+  _(verified, source: exploration, labels: [feature-gap])_
+  Dream report: `_dreams/20260729-223759Z-t03-sexpr-location-sentinel/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

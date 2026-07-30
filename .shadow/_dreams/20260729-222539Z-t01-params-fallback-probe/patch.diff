@@ -1,0 +1,28 @@
+diff --git a/dream_experiments/t01-params-fallback-probe.py b/dream_experiments/t01-params-fallback-probe.py
+new file mode 100644
+index 000000000..99a715c9e
+--- /dev/null
++++ b/dream_experiments/t01-params-fallback-probe.py
+@@ -0,0 +1,10 @@
++from pathlib import Path
++import re, json
++text = Path('src/util/params.cpp').read_text(encoding='utf-8')
++for typ in ['bool','unsigned','double','char const *','symbol']:
++    assert 'params_ref const & fallback' in text
++assert text.count('params_ref const & fallback') >= 10
++macro = re.search(r'#define GET_VALUE2\(MATCH_CODE, KIND\) \{(.+?)#define GET_SIMPLE_VALUE2', text, re.S).group(1)
++assert 'it->first == k && it->second.m_kind == KIND' in macro
++assert 'return fallback.get_bool(k, _default);' in text
++print(json.dumps({'fallback_overloads': text.count('params_ref const & fallback'), 'macro_kind_guard': True}))
+diff --git a/dream_experiments/t01-params-fallback-probe.result.json b/dream_experiments/t01-params-fallback-probe.result.json
+new file mode 100644
+index 000000000..77b32339a
+--- /dev/null
++++ b/dream_experiments/t01-params-fallback-probe.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/t01-params-fallback-probe.py",
++  "exit_code": 0,
++  "output": "{\"fallback_overloads\": 15, \"macro_kind_guard\": true}\n"
++}
+\ No newline at end of file

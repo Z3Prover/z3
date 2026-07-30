@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260729-224200Z-t06-api-log-escaping-adversary",
+  "branch": "dream/z3shadow/20260729-224200Z-t06-api-log-escaping-adversary",
+  "parent_branch": "master",
+  "category": "security audit",
+  "verdict": "useful",
+  "title": "API log escaping adversary",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/api/api_log.cpp::ll_escaped",
+      "text": "api_log ll_escaped leaves alphanumerics, spaces, and selected punctuation raw but encodes quotes, backslashes, and control bytes as backslash plus three decimal digits, preventing raw string-delimiter injection in log strings.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260729-224200Z-t06-api-log-escaping-adversary/"
+    }
+  ],
+  "cross_cutting": []
+}

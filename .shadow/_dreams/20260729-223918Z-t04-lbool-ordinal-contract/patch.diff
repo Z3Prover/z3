@@ -1,0 +1,27 @@
+diff --git a/dream_experiments/t04-lbool-ordinal-contract.py b/dream_experiments/t04-lbool-ordinal-contract.py
+new file mode 100644
+index 000000000..e3a95e96c
+--- /dev/null
++++ b/dream_experiments/t04-lbool-ordinal-contract.py
+@@ -0,0 +1,9 @@
++from pathlib import Path
++import json
++text = Path('src/util/lbool.h').read_text(encoding='utf-8')
++assert 'typedef enum { l_false = -1, l_undef, l_true } lbool;' in text
++assert 'static_cast<lbool>(-static_cast<int>(lb))' in text
++assert 'static_cast<int>(b)*2-1' in text
++truth = {False: -1, True: 1}; neg = {-1: 1, 0: 0, 1: -1}
++assert truth[False] == -1 and truth[True] == 1 and neg[0] == 0
++print(json.dumps({'ordinals': {'l_false':-1,'l_undef':0,'l_true':1}, 'negation_table': neg}))
+diff --git a/dream_experiments/t04-lbool-ordinal-contract.result.json b/dream_experiments/t04-lbool-ordinal-contract.result.json
+new file mode 100644
+index 000000000..e20ac191b
+--- /dev/null
++++ b/dream_experiments/t04-lbool-ordinal-contract.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/t04-lbool-ordinal-contract.py",
++  "exit_code": 0,
++  "output": "{\"ordinals\": {\"l_false\": -1, \"l_undef\": 0, \"l_true\": 1}, \"negation_table\": {\"-1\": 1, \"0\": 0, \"1\": -1}}\n"
++}
+\ No newline at end of file

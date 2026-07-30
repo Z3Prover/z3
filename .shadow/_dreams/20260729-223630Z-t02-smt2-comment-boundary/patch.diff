@@ -1,0 +1,27 @@
+diff --git a/dream_experiments/t02-smt2-comment-boundary.py b/dream_experiments/t02-smt2-comment-boundary.py
+new file mode 100644
+index 000000000..1d5792c37
+--- /dev/null
++++ b/dream_experiments/t02-smt2-comment-boundary.py
+@@ -0,0 +1,9 @@
++from pathlib import Path
++import re, json
++text = Path('src/parsers/smt2/smt2scanner.cpp').read_text(encoding='utf-8')
++body = re.search(r'void scanner::read_multiline_comment\(\) \{(.+?)\n    \}', text, re.S).group(1)
++assert "if (c == '|' && curr() == '#')" in body
++assert 'depth' not in body and 'nest' not in body.lower()
++assert "if (c == '\\n')" in body and 'new_line();' in body
++sample = '#| outer #| inner |# tail |#'
++print(json.dumps({'first_close_index': sample.find('|#'), 'tracks_nesting': False, 'updates_newlines': True}))
+diff --git a/dream_experiments/t02-smt2-comment-boundary.result.json b/dream_experiments/t02-smt2-comment-boundary.result.json
+new file mode 100644
+index 000000000..2f2855ff0
+--- /dev/null
++++ b/dream_experiments/t02-smt2-comment-boundary.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/t02-smt2-comment-boundary.py",
++  "exit_code": 0,
++  "output": "{\"first_close_index\": 18, \"tracks_nesting\": false, \"updates_newlines\": true}\n"
++}
+\ No newline at end of file

@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260729-223918Z-t04-lbool-ordinal-contract",
+  "branch": "dream/z3shadow/20260729-223918Z-t04-lbool-ordinal-contract",
+  "parent_branch": "master",
+  "category": "refactoring",
+  "verdict": "useful",
+  "title": "lbool ordinal contract",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/util/lbool.h::to_lbool",
+      "text": "lbool negation and bool conversion are arithmetic over the enum ordinals -1/0/1; refactors that make lbool a scoped enum or reorder values must preserve those exact numeric assignments.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "tech-debt"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260729-223918Z-t04-lbool-ordinal-contract/"
+    }
+  ],
+  "cross_cutting": []
+}

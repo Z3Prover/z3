@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260729-223759Z-t03-sexpr-location-sentinel",
+  "branch": "dream/z3shadow/20260729-223759Z-t03-sexpr-location-sentinel",
+  "parent_branch": "master",
+  "category": "feature design",
+  "verdict": "useful",
+  "title": "Sexpr location sentinel helper",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/util/sexpr.h::sexpr_manager",
+      "text": "Every sexpr_manager mk_* factory defaults line and pos to UINT_MAX and sexpr only exposes raw get_line/get_pos accessors, so clients need to compare against UINT_MAX themselves to detect missing locations.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "feature-gap"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260729-223759Z-t03-sexpr-location-sentinel/"
+    }
+  ],
+  "cross_cutting": []
+}

@@ -672,6 +672,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `params::get_bool`
+
+- Fallback getters in params.cpp scan the primary set for both matching key and matching kind before consulting the fallback params_ref, so a key present with the wrong parameter kind does not block fallback lookup.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260729-222539Z-t01-params-fallback-probe/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._
