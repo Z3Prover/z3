@@ -634,6 +634,16 @@ void core::erase_from_to_refine(lpvar j) {
 
 void core::init_to_refine() {
     TRACE(nla_solver_details, tout << "emons:" << pp_emons(*this, m_emons););
+    // check_monic() compares only the rational parts of the column values, so
+    // m_to_refine has to be calibrated against a model without infinitesimal
+    // (delta) components. Otherwise a monomial whose factors still carry
+    // non-zero delta parts looks consistent here, while the model handed to the
+    // theory solver - where delta is instantiated by a positive rational -
+    // violates it. optimize_nl_bounds() re-solves the LP and re-introduces
+    // delta components, so they are dropped here rather than only on entry to
+    // check().
+    if (lra.is_feasible())
+        lra.get_rid_of_inf_eps();
     m_to_refine.reset();
     unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; ++k) {
