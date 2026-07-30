@@ -51,10 +51,12 @@ namespace euf {
 
     namespace {
         struct scoped_trail_level {
-            trail_stack& m_trail;
-            unsigned     m_base;
-            scoped_trail_level(trail_stack& t) : m_trail(t), m_base(t.get_num_scopes()) {}
-            ~scoped_trail_level() { m_trail.pop_scope(m_trail.get_num_scopes() - m_base); }
+            trail_stack &m_trail;
+            unsigned m_base;
+            scoped_trail_level(trail_stack &t) : m_trail(t), m_base(t.get_num_scopes()) {}
+            ~scoped_trail_level() {
+                m_trail.pop_scope(m_trail.get_num_scopes() - m_base);
+            }
         };
     }
 
@@ -99,24 +101,23 @@ namespace euf {
             }
             m_binding.shrink(q->get_num_decls());
         }
-        SASSERT (m_binding.size() == q->get_num_decls());
-           
+        SASSERT(m_binding.size() == q->get_num_decls());
+
         m_binding.reverse();
         return m_binding;
     }
 
-
-    void ho_matcher::operator()(expr* pat, expr* t, unsigned num_vars) {
+    void ho_matcher::operator()(expr *pat, expr *t, unsigned num_vars) {
         (*this)(pat, t, 0, num_vars);
     }
 
-    void ho_matcher::operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars) {               
+    void ho_matcher::operator()(expr *pat, expr *t, unsigned num_bound, unsigned num_vars) {
         scoped_trail_level _restore(m_trail);
         m_trail.push_scope();
         m_subst.resize(0);
         m_subst.resize(num_vars);
         m_goals.reset();
-        m_goals.push(0, num_bound, pat, t); 
+        m_goals.push(nullptr, 0, num_bound, pat, t);
         search();
     }
 
@@ -157,36 +158,37 @@ namespace euf {
     void ho_matcher::backtrack() {
         SASSERT(!m_backtrack.empty());
         auto wi = m_backtrack.back();
-        if (wi->in_scope()) 
-            m_trail.pop_scope(1);        
+        if (wi->in_scope())
+            m_trail.pop_scope(1);
         m_backtrack.pop_back();
     }
 
     void ho_matcher::resume() {
         while (!m_backtrack.empty()) {
-            auto& wi = *m_backtrack.back();
+            auto &wi = *m_backtrack.back();
             bool st = consume_work(wi);
-            TRACE(ho_matching, display(tout << "ho_matcher::consume_work: " << mk_bounded_pp(wi.pat, m) << " =?= " << mk_bounded_pp(wi.t, m) << " -> " << (st?"true":"false") << "\n"););
+            TRACE(ho_matching, display(tout << "ho_matcher::consume_work: " << mk_bounded_pp(wi.pat, m) << " =?= "
+                                            << mk_bounded_pp(wi.t, m) << " -> " << (st ? "true" : "false") << "\n"););
             if (st) {
-                if (m_goals.empty())                     
-                    m_on_match(m_subst);                
+                if (m_goals.empty())
+                    m_on_match(m_subst);
                 break;
             }
-            else 
-                backtrack();            
+            else
+                backtrack();
         }
     }
 
     void ho_matcher::push_backtrack() {
-        SASSERT(!m_goals.empty());      
+        SASSERT(!m_goals.empty());
         m_backtrack.push_back(m_goals.pop());
         resume();
     }
 
-    lbool ho_matcher::are_equal(unsigned o1, expr* p, unsigned o2, expr* t) const {
+    lbool ho_matcher::are_equal(unsigned o1, expr *p, unsigned o2, expr *t) const {
         if (p->get_sort() != t->get_sort()) {
-            TRACE(ho_matching, tout << "sort mismatch: " << mk_pp(p, m) << " : " << mk_pp(p->get_sort(), m) 
-                       << " vs " << mk_pp(t, m) << " : " << mk_pp(t->get_sort(), m) << "\n";);
+            TRACE(ho_matching, tout << "sort mismatch: " << mk_pp(p, m) << " : " << mk_pp(p->get_sort(), m) << " vs "
+                                    << mk_pp(t, m) << " : " << mk_pp(t->get_sort(), m) << "\n";);
             return l_false;
         }
         if (o1 == o2 && p == t)
@@ -198,7 +200,7 @@ namespace euf {
             else
                 return to_lbool(p == t);
         }
-        
+
         if (is_lambda(p) && is_lambda(t)) {
             auto q1 = to_quantifier(p);
             auto q2 = to_quantifier(t);
@@ -208,18 +210,17 @@ namespace euf {
 
         if (is_meta_var(p, o1)) {
             auto p1 = m_subst.get(to_var(p)->get_idx() - o1);
-            if (p1) 
+            if (p1)
                 return are_equal(0, p1, o2, t);
             return l_undef;
         }
 
         if (is_meta_var(t, o2)) {
             auto t1 = m_subst.get(to_var(t)->get_idx() - o2);
-            if (t1) 
+            if (t1)
                 return are_equal(o1, p, 0, t1);
             return l_undef;
-        }       
-
+        }
 
         if (m_unitary.is_flex(o1, p)) {
             expr_ref h = whnf(p, o1);
@@ -234,9 +235,9 @@ namespace euf {
             return l_undef;
         }
         if (m_array.is_select(p))
-            return l_undef; // TODO: interleave check with whnf expansion
-        
-        if (is_app(p) && is_app(t)) {          
+            return l_undef;  // TODO: interleave check with whnf expansion
+
+        if (is_app(p) && is_app(t)) {
             auto a1 = to_app(p);
             auto a2 = to_app(t);
             if (a1->get_decl() != a2->get_decl())
@@ -261,9 +262,9 @@ namespace euf {
     // and recurisvely ((M N) K)
     // such that M is not a lambda
     //
-    expr_ref ho_matcher::whnf(expr* e, unsigned offset) const {
+    expr_ref ho_matcher::whnf(expr *e, unsigned offset) const {
         expr_ref r(e, m), t(m);
-//        verbose_stream() << "ho_matcher::whnf: " << r << "\n";
+        //        verbose_stream() << "ho_matcher::whnf: " << r << "\n";
         if (is_meta_var(r, offset)) {
             auto v = to_var(e);
             auto idx = v->get_idx();
@@ -278,7 +279,7 @@ namespace euf {
             }
         }
         while (m_array.is_select(r)) {
-            app* a = to_app(r);
+            app *a = to_app(r);
             auto arg0 = a->get_arg(0);
             //  apply substitution:
             if (is_meta_var(arg0, offset)) {
@@ -293,11 +294,11 @@ namespace euf {
                     }
                     expr_ref_vector args(m);
                     args.push_back(e);
-                    for (unsigned i = 1; i < a->get_num_args(); ++i) 
+                    for (unsigned i = 1; i < a->get_num_args(); ++i)
                         args.push_back(a->get_arg(i));
-                    
+
                     r = m.mk_app(a->get_decl(), args.size(), args.data());
-  //                  verbose_stream() << "ho_matcher::whnf: " << r << "\n";
+                    //                  verbose_stream() << "ho_matcher::whnf: " << r << "\n";
                     continue;
                 }
             }
@@ -307,7 +308,7 @@ namespace euf {
                     ptr_vector<expr> args(a->get_num_args(), a->get_args());
                     args[0] = t;
                     r = m_array.mk_select(args.size(), args.data());
-   //                 verbose_stream() << "ho_matcher::whnf-rec: " << r << "\n";
+                    //                 verbose_stream() << "ho_matcher::whnf-rec: " << r << "\n";
                     continue;
                 }
             }
@@ -318,7 +319,7 @@ namespace euf {
             else
                 break;
         }
-        return r;    
+        return r;
     }
 
     expr_ref ho_matcher::whnf_star(expr *e, unsigned offset) const {
@@ -331,20 +332,21 @@ namespace euf {
         }
     }
 
-    void ho_matcher::reduce(match_goal& wi) {
+    void ho_matcher::reduce(match_goal &wi) {
         wi.pat = whnf_star(wi.pat, wi.pat_offset());
         wi.t = whnf_star(wi.t, wi.term_offset());
     }
 
     bool ho_matcher::consume_work(match_goal &wi) {
-//        IF_VERBOSE(1, display(verbose_stream() << "ho_matcher::consume_work: " << wi.pat << " =?= " << wi.t << "\n"););
+        //        IF_VERBOSE(1, display(verbose_stream() << "ho_matcher::consume_work: " << wi.pat << " =?= " << wi.t <<
+        //        "\n"););
 
-        if (wi.in_scope()) 
+        if (wi.in_scope())
             m_trail.pop_scope(1);
-        
+
         wi.set_in_scope();
         m_trail.push_scope();
-        
+
         if (wi.is_done())
             return false;
 
@@ -359,21 +361,17 @@ namespace euf {
         auto p = wi.pat;
 
         switch (are_equal(wi.pat_offset(), p, wi.term_offset(), t)) {
-        case l_false:
-            wi.set_done();
-            return false;
-        case l_true:
-            wi.set_done();
-            return true;
-        case l_undef:
-            break;
+        case l_false: wi.set_done(); return false;
+        case l_true: wi.set_done(); return true;
+        case l_undef: break;
         }
-        
+
         // v >= offset
         // v - offset |-> t
         if (is_meta_var(p, wi.pat_offset()) && is_closed(t, 0, wi.term_offset())) {
             auto v = to_var(p);
-            SASSERT(!m_subst.get(v->get_idx() - wi.pat_offset()));  // reduce ensures meta variables are not in substitutions
+            SASSERT(!m_subst.get(v->get_idx() -
+                                 wi.pat_offset()));  // reduce ensures meta variables are not in substitutions
             add_binding(v, wi.pat_offset(), t);
             wi.set_done();
             return true;
@@ -392,12 +390,12 @@ namespace euf {
             for (unsigned i = 0; i < nd; ++i)
                 args.push_back(m.mk_var(nd - 1 - i, q->get_decl_sort(i)));
             r = m_array.mk_select(args);
-            m_goals.push(wi.level, wi.term_offset() + nd, r, t_body);
+            m_goals.push(&wi, wi.level, wi.term_offset() + nd, r, t_body);
             wi.set_done();
             return true;
         }
 
-        // \x . N = T => N = ((shift1 T) x) 
+        // \x . N = T => N = ((shift1 T) x)
         if (is_lambda(p) && !is_lambda(t)) {
             auto q = to_quantifier(p);
             auto p_body = q->get_expr();
@@ -410,14 +408,14 @@ namespace euf {
             for (unsigned i = 0; i < nd; ++i)
                 args.push_back(m.mk_var(nd - 1 - i, q->get_decl_sort(i)));
             r = m_array.mk_select(args);
-            m_goals.push(wi.level, wi.term_offset() + nd, p_body, r);
+            m_goals.push(&wi, wi.level, wi.term_offset() + nd, p_body, r);
             wi.set_done();
             return true;
         }
 
         //
         // lambda x . p == lambda x . t
-        // 
+        //
         if (is_quantifier(p) && is_quantifier(t)) {
             auto qp = to_quantifier(p);
             auto qt = to_quantifier(t);
@@ -430,9 +428,68 @@ namespace euf {
             for (unsigned i = 0; i < pd; ++i)
                 if (qp->get_decl_sort(i) != qt->get_decl_sort(i))
                     return false;
-            m_goals.push(wi.level, wi.term_offset() + td, qp->get_expr(), qt->get_expr());
+            m_goals.push(&wi, wi.level, wi.term_offset() + td, qp->get_expr(), qt->get_expr());
             wi.set_done();
             return true;
+        }
+
+        if (m.is_not(p) && m.is_true(t)) {
+            m_goals.push(&wi, wi.level, wi.term_offset(), to_app(p)->get_arg(0), m.mk_false());
+            wi.set_done();
+            return true;
+        }
+
+        if (m.is_not(p) && m.is_false(t)) {
+            m_goals.push(&wi, wi.level, wi.term_offset(), to_app(p)->get_arg(0), m.mk_true());
+            wi.set_done();
+            return true;
+        }
+
+        expr *cond, *th, *el;
+        if (m.is_ite(p, cond, th, el) && use_cgr()) {
+            if (wi.is_init())
+                wi.set_project();
+            SASSERT(wi.is_project());
+            auto lvl = wi.level;
+            auto off = wi.term_offset();
+            if (wi.index() == 0) {
+                m_goals.push(&wi, lvl, off, cond, m.mk_true());
+                m_goals.push(&wi, lvl, off, th, t);
+                wi.set_index(1);
+            }
+            else {
+                m_goals.push(&wi, lvl, off, cond, m.mk_false());
+                m_goals.push(&wi, lvl, off, el, t);
+                wi.set_done();
+            }
+            return true;
+        }
+
+        if (m.is_ite(t, cond, th, el) && use_cgr()) {
+            if (m_are_equal(cond, m.mk_true())) {
+                m_goals.push(&wi, wi.level, wi.term_offset(), p, th);
+                wi.set_done();
+                return true;
+            }
+            if (m_are_equal(cond, m.mk_false())) {
+                m_goals.push(&wi, wi.level, wi.term_offset(), p, el);
+                wi.set_done();
+                return true;
+            }
+        }
+
+        expr *p1, *p2;
+        if (m.is_eq(p, p1, p2) && use_cgr() && m.is_true(t)) {
+            if (is_ground(p1)) {
+                m_goals.push(&wi, wi.level, wi.term_offset(), p2, p1);
+                wi.set_done();
+                return true;
+            }
+            if (is_ground(p2)) {
+                m_goals.push(&wi, wi.level, wi.term_offset(), p1, p2);
+                wi.set_done();
+                return true;
+            }
         }
 
         // Flex head unitary
@@ -446,12 +503,17 @@ namespace euf {
             add_binding(to_var(p), wi.pat_offset(), lam);
             wi.set_done();
             return true;
-        }       
+        }
 
         // Flex head general case
+        // X p = t = f(ts)
+        // - project : X -> \lambda x . x_i | p_i = t
+        // - imitate : X -> \lambda x . f (X1 p) (X2 p) | (Xi p) = ts_i
+        // - eq for t = T: X -> \lambda x . x = t
+        // - eq for t = F: X -> \lambda x . x = t' for t in diff(t)
+        // - ite: X -> \lambda x . if (X1 p) then (X2 p) else (X3 p)
 
         if (m_array.is_select(p) && m_unitary.is_flex(wi.pat_offset(), p)) {
-
             // innermost select is a meta variable,
             // order patterns from inner-most application to outer-most.
             ptr_vector<app> pats;
@@ -463,85 +525,246 @@ namespace euf {
             pats.reverse();
             auto v = to_var(p1);
 
-
             if (wi.is_init())
                 wi.set_project();
-            
-            if (process_project(wi, v, pats, t))
+
+            if (wi.is_project() && process_project(wi, v, pats, t))
                 return true;
 
-            SASSERT(!is_lambda(t));            
+            SASSERT(!is_lambda(t));
 
             if (wi.is_project())
-                wi.set_app(); 
-  
-            // - go over congruence class of t.
-            // - go over term_enumeration grammar for t->get_sort()
-            // - ite, equality, not
+                wi.set_imitate();
 
-            if (process_imitation(wi, v, pats, t)) {
-                wi.set_done();
+            if (wi.is_imitate() && !block_inference(wi)) {
+                auto f = [&wi, v, &pats, this](expr *s) { return process_imitation(wi, v, pats, s); };
+                if (process_equiv_class(wi, t, f))
+                    return true;
+            }
+
+            if (wi.is_imitate())
+                wi.set_eq();
+
+            if (process_eq(wi, v, pats, t))
                 return true;
+
+            if (wi.is_eq())
+                wi.set_ite();
+
+            if (process_ite(wi, v, pats, t))
+                return true;
+
+            return false;
+        }
+
+        // f(p) ~ f(ts)
+        auto f = [&wi, &p, this](expr *s) { return process_app(wi, p, s); };
+        if (is_app(p) && process_equiv_class(wi, t, f))
+            return true;
+
+        return false;
+    }
+
+    // v -> lambda xs . x_i = p
+    bool ho_matcher::process_eq(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t) {
+        if (!wi.is_eq())
+            return false;
+
+        if (m.is_true(t)) {
+            unsigned start = wi.index();
+            unsigned i = 0;
+            unsigned num_bound = 0;
+            for (auto pa : pats)
+                for (auto pi : array_select_indices(pa))
+                    ++num_bound;
+            for (auto pa : pats) {
+                for (auto pi : array_select_indices(pa)) {
+                    if (start == i) {
+                        // create binding into pi:
+                        auto mk_eq = [&](expr *x) {
+                            var_shifter vs(m);
+                            expr_ref shifted_pi(m);
+                            vs(pi, num_bound, shifted_pi);
+                            return m.mk_eq(shifted_pi, x);
+                        };
+                        auto e = mk_project(pats.size(), i, v->get_sort(), mk_eq);
+                        add_binding(v, wi.pat_offset(), e);
+                        wi.set_index(i + 1);
+                        return true;
+                    }
+                    ++i;
+                }
+            }
+            return false;
+        }
+        if (m.is_false(t)) {
+        }
+        return false;
+    }
+
+    // v -> lambda xs . ite(C xs, Tr xs, El xs)
+    // create subgoal ite(C ps, Tr ps, El ps) = t
+    bool ho_matcher::process_ite(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t) {
+        if (!wi.is_ite())
+            return false;
+        if (block_inference(wi))
+            return false;
+        if (wi.index() > 1)
+            return false;
+
+        // Introduce three fresh meta-variables C, Tr, El and bind
+        //   v -> \xs . ite(C xs, Tr xs, El xs)
+        // with the single residual subgoal
+        //   ite(C ps, Tr ps, El ps) ~ t
+        // The condition/branch split is performed later when the ite subgoal
+        // is consumed (see the is_ite(p, ...) case in consume_work).
+
+        wi.inc_index();
+        m_trail.push(undo_resize(m_subst));
+
+        flex_frame fr(m);
+        init_flex_frame(pats, fr);
+
+        // ranges of the three fresh meta-variables: condition is boolean,
+        // both branches have the sort of the matched term t.
+        sort *ranges[3] = { m.mk_bool_sort(), t->get_sort(), t->get_sort() };
+        expr_ref_vector sub_args(m), body_args(m);
+        for (auto range : ranges) {
+            expr_ref subgoal_app(m), body_app(m);
+            mk_flex_app(fr, wi.pat_offset(), range, subgoal_app, body_app);
+            sub_args.push_back(subgoal_app);
+            body_args.push_back(body_app);
+        }
+
+        expr_ref sub(m);
+        sub = m.mk_ite(sub_args.get(0), sub_args.get(1), sub_args.get(2));
+        m_goals.push(&wi, wi.level + 1, wi.term_offset(), sub, t);
+
+        expr_ref body(m);
+        body = m.mk_ite(body_args.get(0), body_args.get(1), body_args.get(2));
+        add_binding(v, wi.pat_offset(), mk_flex_lambda(fr, pats, body));
+        return true;
+    }
+
+    bool ho_matcher::block_inference(match_goal const &wi) {
+        // block imitation on the same term
+        if (wi.is_imitate() && use_cgr()) {
+            auto p = wi.parent();
+            while (p) {
+                if (m_are_equal(p->t, wi.t))
+                    return true;
+                p = p->parent();
             }
             return false;
         }
 
-
-        // p ~ t, walk the equivalence class of t to find
-        // terms that match the head function symbol of p.
-        if (use_cgr() && is_app(p) && is_app(t)) {
-            // we need to store in wi
-            // - current s, if it is set.
-            // 
-            expr *s = wi.get_term();
-            if (s == t) {
-                wi.set_done();
-                return false;
+        // disallow nested ite
+        if (wi.is_ite()) {
+            auto p = wi.parent();
+            while (p) {
+                if (p->is_ite())
+                    return true;
+                p = p->parent();
             }
-            if (!s) // we are just starting.
-                s = t;
-            auto tp = to_app(p);
-            do {
-                if (is_app(s) && m_is_cgr_root(s)) {
-                    auto ta = to_app(s);
-                    if (ta->get_decl() == tp->get_decl() && ta->get_num_args() == tp->get_num_args()) {
-                        for (unsigned i = 0; i < ta->get_num_args(); ++i)
-                            m_goals.push(wi.level, wi.term_offset(), tp->get_arg(i), ta->get_arg(i));
-                        s = m_next(s);
-                        wi.set_term(s);
-                        return true;
-                    }
-                }
-                s = m_next(s);            
-            } 
-            while (s != t);
-            wi.set_done();
-            return false;                
+            return false;
         }
 
-        wi.set_done();
+        return false;
+    }
 
-        // first order match
-        if (is_app(p) && is_app(t)) {
-            auto ta = to_app(t);
-            auto tp = to_app(p);
-            if (ta->get_decl() != tp->get_decl())
-                return false;
-            if (ta->get_num_args() != tp->get_num_args())
-                return false;
-            for (unsigned i = 0; i < ta->get_num_args(); ++i)
-                m_goals.push(wi.level, wi.term_offset(), tp->get_arg(i), ta->get_arg(i));
-            return true;
-        }               
-                       
+    bool ho_matcher::process_equiv_class(match_goal &wi, expr *t, std::function<bool(expr *)> const &f) {
+        expr *s = wi.get_term();
+        if (s == t) 
+            return false;
+        if (!use_cgr()) {
+            wi.set_term(t);
+            return f(t);
+        }        
+        if (!s)  // we are just starting.
+            s = t;
 
-        return false;		       
+        do {
+            if (is_app(s) && m_is_cgr_root(s) && f(s)) {
+                s = m_next(s);
+                wi.set_term(s);
+                return true;
+            }
+            s = m_next(s);
+        } while (s != t);
+        return false;
+    }
+
+    bool ho_matcher::process_app(match_goal &wi, expr *p, expr *t) {
+        if (!is_app(p) || !is_app(t))
+            return false;
+        auto ta = to_app(t);
+        auto tp = to_app(p);
+        if (ta->get_decl() != tp->get_decl())
+            return false;
+        if (ta->get_num_args() != tp->get_num_args())
+            return false;
+        for (unsigned i = 0; i < ta->get_num_args(); ++i)
+            m_goals.push(&wi, wi.level, wi.term_offset(), tp->get_arg(i), ta->get_arg(i));
+        return true;
+    }
+
+
+    void ho_matcher::init_flex_frame(ptr_vector<app> const &pats, flex_frame &fr) {
+        // The select chain `pats` is ordered from the inner-most application
+        // (which binds the outer-most lambda) to the outer-most. Distinct
+        // pattern indices are collected once into pat_domain/pat_args, while
+        // domain/names track every binder in application order.
+        svector<unsigned> pat_pos;  // forward binder position (in domain) of each distinct index
+        fr.pat_args.push_back(nullptr);
+        fr.pat_vars.push_back(nullptr);
+        pat_pos.push_back(0);  // placeholder for the flex-head slot 0
+        expr_mark seen;
+        for (auto pat : pats) {
+            for (auto pi : array_select_indices(pat)) {
+                if (!seen.is_marked(pi)) {
+                    fr.pat_domain.push_back(pi->get_sort());
+                    fr.pat_args.push_back(pi);
+                    pat_pos.push_back(fr.num_bound);
+                    seen.mark(pi);
+                }
+                ++fr.num_bound;
+                fr.domain.push_back(pi->get_sort());
+                fr.names.push_back(symbol(fr.num_bound));
+            }
+        }
+        for (unsigned k = 1; k < fr.pat_args.size(); ++k) {
+            unsigned db = fr.num_bound - 1 - pat_pos[k];
+            fr.pat_vars.push_back(m.mk_var(db, fr.pat_args.get(k)->get_sort()));
+        }
+    }
+
+    void ho_matcher::mk_flex_app(flex_frame &fr, unsigned pat_offset, sort *range, expr_ref &subgoal_app,
+                                 expr_ref &body_app) {
+        sort *v_sort = m_array.mk_array_sort(fr.pat_domain.size(), fr.pat_domain.data(), range);
+        auto mv = m.mk_var(m_subst.size() + pat_offset, v_sort);
+        auto mw = m.mk_var(m_subst.size() + pat_offset + fr.num_bound, v_sort);  // shifted by number of bound
+        m_subst.resize(m_subst.size() + 1);
+        fr.pat_args[0] = mv;
+        subgoal_app = m_array.mk_select(fr.pat_args.size(), fr.pat_args.data());
+        fr.pat_vars[0] = mw;
+        body_app = m_array.mk_select(fr.pat_vars.size(), fr.pat_vars.data());
+    }
+
+    expr_ref ho_matcher::mk_flex_lambda(flex_frame const &fr, ptr_vector<app> const &pats, expr *body) {
+        expr_ref lam(body, m);
+        unsigned num_bound = fr.num_bound;
+        for (unsigned i = pats.size(); i-- > 0;) {
+            auto sz = pats[i]->get_num_args() - 1;
+            num_bound -= sz;
+            lam = m.mk_lambda(sz, fr.domain.data() + num_bound, fr.names.data() + num_bound, lam);
+        }
+        return lam;
     }
 
     bool ho_matcher::process_imitation(match_goal& wi, var* v, ptr_vector<app> const& pats, expr* t) {
         if (!is_app(t))
             return false;
-        if (!wi.is_app())
+        if (!wi.is_imitate())
             return false;
         app *ta = to_app(t);       
         unsigned sz = ta->get_num_args();
@@ -553,70 +776,21 @@ namespace euf {
         // H (p1) (p2) = f(t1, .., tn)
         // H -> \x1 \x2 f(H1(x1, x2), .., Hn(x1, x2))
         // H1(p1, p2) = t1, .., Hn(p1, p2) = tn
-        //
-        // The select chain `pats` was collected from the outermost
-        // select down to the flex head, i.e. in reverse order of
-        // application. The imitating lambda must curry the arguments in
-        // application order (the first-applied select binds the
-        // outermost lambda), so process the applications inner-to-outer.
-        // Without this the constructed lambda has the argument arities
-        // in the wrong nesting order and its sort disagrees with the
-        // flex head variable (producing an ill-typed binding).
 
-        ptr_vector<sort> domain, pat_domain;
-        ptr_vector<expr> pat_args;
-        svector<unsigned> pat_pos;  // forward binder position (in domain) of each distinct index
-        expr_ref_vector args(m), pat_vars(m), bound_args(m);
-        vector<symbol> names;
-        pat_args.push_back(nullptr);
-        pat_vars.push_back(nullptr);
-        pat_pos.push_back(0);  // placeholder for the flex-head slot 0
-        unsigned num_bound = 0;
-        expr_mark seen;
-        for (auto pat : pats) {
-            for (auto pi : array_select_indices(pat)) {
-                if (!seen.is_marked(pi)) {
-                    pat_domain.push_back(pi->get_sort());
-                    pat_args.push_back(pi);
-                    pat_pos.push_back(num_bound);
-                    seen.mark(pi);
-                }
-                ++num_bound;
-                domain.push_back(pi->get_sort());
-                names.push_back(symbol(num_bound));
-            }
-        }
+        flex_frame fr(m);
+        init_flex_frame(pats, fr);
 
-        for (unsigned k = 1; k < pat_args.size(); ++k) {
-            unsigned db = num_bound - 1 - pat_pos[k];
-            pat_vars.push_back(m.mk_var(db, pat_args.get(k)->get_sort()));
-        }
-
+        expr_ref_vector bound_args(m);
         for (auto ti : *ta) {
-            sort *v_sort = m_array.mk_array_sort(pat_domain.size(), pat_domain.data(), ti->get_sort());
-            auto v = m.mk_var(m_subst.size() + wi.pat_offset(), v_sort);
-            auto w = m.mk_var(m_subst.size() + wi.pat_offset() + num_bound, v_sort);  // shifted by number of bound
-            m_subst.resize(m_subst.size() + 1);
-            pat_args[0] = v;
-            expr_ref sel(m);
-            sel = m_array.mk_select(pat_args.size(), pat_args.data());
-            m_goals.push(wi.level + 1, wi.term_offset(), sel, ti);
-            pat_vars[0] = w;
-            sel = m_array.mk_select(pat_vars.size(), pat_vars.data());
-            bound_args.push_back(sel);
+            expr_ref subgoal_app(m), body_app(m);
+            mk_flex_app(fr, wi.pat_offset(), ti->get_sort(), subgoal_app, body_app);
+            m_goals.push(&wi, wi.level + 1, wi.term_offset(), subgoal_app, ti);
+            bound_args.push_back(body_app);
         }
 
-        expr_ref lam(m);
-        lam = m.mk_app(ta->get_decl(), bound_args.size(), bound_args.data());
-
-        for (unsigned i = pats.size(); i-- > 0;) {
-            auto pa = pats[i];
-            auto sz = pa->get_num_args() - 1;
-            num_bound -= sz;
-            lam = m.mk_lambda(sz, domain.data() + num_bound, names.data() + num_bound, lam);
-        }
-
-        add_binding(v, wi.pat_offset(), lam);
+        expr_ref body(m);
+        body = m.mk_app(ta->get_decl(), bound_args.size(), bound_args.data());
+        add_binding(v, wi.pat_offset(), mk_flex_lambda(fr, pats, body));
         return true;
     }
 
@@ -634,10 +808,10 @@ namespace euf {
                         ++i;
                         continue;
                     }
-                    auto e = mk_project(pats.size(), i, v->get_sort());
+                    auto e = mk_project(pats.size(), i, v->get_sort(), [](expr * e) { return e; });
                     add_binding(v, wi.pat_offset(), e);
                     if (eq == l_undef)
-                        m_goals.push(wi.level + 1, wi.pat_offset(), pi, t);
+                        m_goals.push(&wi, wi.level + 1, wi.pat_offset(), pi, t);
                     wi.set_index(i + 1);
                     return true;
                 }
@@ -810,7 +984,7 @@ namespace euf {
     }
 
     // (T1, T2,.., Tn) -> (Tn+1,.., Ti,.., Tm) -> Ti => lambda x1...xn . lambda x_n+1,..x_m . x_i
-    expr_ref ho_matcher::mk_project(unsigned num_lambdas, unsigned i, sort* s) {
+    expr_ref ho_matcher::mk_project(unsigned num_lambdas, unsigned i, sort* s, std::function<expr*(expr*)> const& mk_body) {
         SASSERT(num_lambdas > 0);
         SASSERT(m_array.is_array(s));
         unsigned num_binders = 0;
@@ -1057,7 +1231,7 @@ namespace euf {
             var_subst sub(m, true);
             auto pat_refined = sub(pat, s);
             TRACE(ho_matching, tout << mk_pp(pat, m) << " -> " << pat_refined << "\n");
-            m_goals.push(level, num_bound, pat_refined, m_subst.get(v));
+            m_goals.push(nullptr, level, num_bound, pat_refined, m_subst.get(v));
         }
         search();
     }
@@ -1114,9 +1288,9 @@ namespace euf {
         }
     };
 
-    void match_goals::push(unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t) {
+    void match_goals::push(match_goal* parent, unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t) {
         SASSERT(pat->get_sort() == t->get_sort());
-        match_goal* wi = new (ho.trail().get_region()) match_goal(level, offset, pat, t);
+        match_goal* wi = new (ho.trail().get_region()) match_goal(parent, level, offset, pat, t);
         ho.trail().push(retire_match_goal(*wi)); // reset on undo
         wi->init(wi);
         if (ho.is_cheap(*wi)) {
