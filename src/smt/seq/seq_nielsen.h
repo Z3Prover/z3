@@ -201,8 +201,8 @@ namespace seq {
 
         bool operator<(const str_eq& other) const {
             if (m_lhs != other.m_lhs)
-                return m_lhs < other.m_lhs;
-            return m_rhs < other.m_rhs;
+                return m_lhs->id() < other.m_lhs->id();
+            return m_rhs->id() < other.m_rhs->id();
         }
 
         unsigned hash() const {
@@ -260,9 +260,10 @@ namespace seq {
         }
 
         bool operator<(const str_deq& other) const {
+            // by snode ID, not address
             if (m_lhs != other.m_lhs)
-                return m_lhs < other.m_lhs;
-            return m_rhs < other.m_rhs;
+                return m_lhs->id() < other.m_lhs->id();
+            return m_rhs->id() < other.m_rhs->id();
         }
 
         unsigned hash() const {
@@ -355,16 +356,18 @@ namespace seq {
             // Regex-factorization heuristic: order primarily by the estimated
             // automaton size of the regex so that the cheapest membership is
             // factorized first (see snode::regex_weight / sgraph::compute_regex_weight).
-            // The remaining pointer comparisons are just deterministic tie-breakers
-            // to keep this a total order for canonicalization/sorting.
+            // The remaining comparisons are tie-breakers keeping this a total
+            // order for canonicalization/sorting.  They compare snode IDs, NOT
+            // snode addresses: addresses vary between runs, which would make the
+            // canonical order (and hence every node hash) run-dependent.
             const unsigned w1 = m_regex->regex_weight();
             const unsigned w2 = other.m_regex->regex_weight();
             if (w1 != w2)
                 return w1 < w2;
             if (m_str != other.m_str)
-                return m_str < other.m_str;
+                return m_str->id() < other.m_str->id();
             if (m_regex != other.m_regex)
-                return m_regex < other.m_regex;
+                return m_regex->id() < other.m_regex->id();
             // View annotation tie-breakers, keeping the order consistent with
             // operator==: two views on the same (str, state) that differ only
             // in kind/root/ν must not compare equivalent, otherwise std::sort
@@ -869,6 +872,9 @@ namespace seq {
         unsigned m_mod_regex_factorization = 0;
         unsigned m_mod_monadic_split   = 0;
         unsigned m_mod_const_nielsen   = 0;
+        unsigned m_mod_block_compression = 0;
+        unsigned m_block_chars_consumed  = 0;
+        unsigned m_block_children_pruned = 0;
         unsigned m_mod_regex_var_split = 0;
         unsigned m_mod_signature_split = 0;
         unsigned m_mod_power_split     = 0;
@@ -944,6 +950,7 @@ namespace seq {
         unsigned                      m_max_nodes = 0;          // 0 = unlimited
         bool                          m_parikh_enabled = true;
         bool                          m_signature_split = false;
+        unsigned                      m_block_compression = 4;
         bool                          m_fine_wilf = false;
         bool                          m_monadic_split = false;
         unsigned                      m_regex_factorization_threshold = 1;
@@ -1194,6 +1201,8 @@ namespace seq {
         seq_parikh& parikh() const { return *m_parikh; }
 
         void set_signature_split(bool e) { m_signature_split = e; }
+
+        void set_block_compression(unsigned cap) { m_block_compression = cap; }
 
         void set_fine_wilf(bool e) { m_fine_wilf = e; }
 
@@ -1551,8 +1560,18 @@ namespace seq {
         // deterministic modifier: var = ε, same-head cancel
         bool apply_det_modifier(nielsen_node* node);
 
-        // const nielsen modifier: char vs var (2 branches per case)
+        // const nielsen modifier: char vs var (usually 2 branches)
         bool apply_const_nielsen(nielsen_node* node);
+
+        // maximal prefix of single-character tokens at the directional head of
+        // `side`, truncated to `cap`.
+        static void leading_char_block(euf::snode const* side, bool fwd, unsigned cap,
+                                       euf::snode_vector& out);
+
+        // the word formed by the first `k` tokens of `block` in direction order
+        // (ε for k = 0); `s` supplies the sequence sort
+        euf::snode const* mk_block_word(euf::snode_vector const& block, unsigned k,
+                                        bool fwd, sort* s);
 
         // variable Nielsen modifier: var vs var, all progress (3 branches)
         bool apply_var_nielsen(nielsen_node* node);

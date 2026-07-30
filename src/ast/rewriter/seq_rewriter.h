@@ -330,7 +330,7 @@ class seq_rewriter {
 
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
-    bool get_bounds(expr* e, unsigned& low, unsigned& high);
+    bool char_set_of_condition(expr* e, char_set& result);
     lbool some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str);
 
 public:

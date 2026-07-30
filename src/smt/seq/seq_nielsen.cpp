@@ -3239,6 +3239,31 @@ namespace seq {
         return false;
     }
 
+    void nielsen_graph::leading_char_block(euf::snode const* side, const bool fwd,
+                                           const unsigned cap, euf::snode_vector& out) {
+        euf::snode_vector toks;
+        collect_tokens_dir(side, fwd, toks);
+        out.reset();
+        for (unsigned i = 0; i < toks.size() && out.size() < cap; i++) {
+            // Single-character tokens only.  Symbolic units qualify: the case
+            // split below needs each token's LENGTH (1), not its value.
+            if (!toks[i]->is_char_or_unit())
+                break;
+            out.push_back(toks[i]);
+        }
+    }
+
+    euf::snode const* nielsen_graph::mk_block_word(euf::snode_vector const& block, const unsigned k,
+                                                   const bool fwd, sort* s) {
+        if (k == 0)
+            return m_sg.mk_empty_seq(s);
+        euf::snode const* w = nullptr;
+        for (unsigned i = 0; i < k; i++) {
+            w = dir_concat(m_sg, w, block[i], fwd);   // grows in DIRECTION order
+        }
+        return w;
+    }
+
     bool nielsen_graph::apply_const_nielsen(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
@@ -3254,24 +3279,72 @@ namespace seq {
                 // char vs var: branch 1: var -> ε, branch 2: var -> char·var   (depending on direction)
                 euf::snode const* char_head = lhead->is_char_or_unit() ? lhead : (rhead->is_char_or_unit() ? rhead : nullptr);
                 euf::snode const* var_head = lhead->is_var() ? lhead : (rhead->is_var() ? rhead : nullptr);
-                if (char_head && var_head) {
+                if (!char_head || !var_head)
+                    continue;
+
+                const euf::snode* const_side = (lhead == char_head) ? eq.m_lhs : eq.m_rhs;
+                const euf::snode* var_side   = (lhead == char_head) ? eq.m_rhs : eq.m_lhs;
+                euf::snode_vector block;
+                if (m_block_compression > 1)
+                    leading_char_block(const_side, fwd, m_block_compression, block);
+                else
+                    block.push_back(char_head);
+                const unsigned m_len = block.size();
+                SASSERT(m_len >= 1);
+                if (m_len > 1) {
+                    ++m_stats.m_mod_block_compression;
+                    m_stats.m_block_chars_consumed += m_len;
+                }
+
+                // Token following x on the variable side (null if x is the whole side)
+                euf::snode_vector var_toks;
+                collect_tokens_dir(var_side, fwd, var_toks);
+                SASSERT(var_toks.empty() || var_toks[0] == var_head);
+                euf::snode const* const next_tok = var_toks.size() > 1 ? var_toks[1] : nullptr;
+
+                sort* const seq_sort = var_head->get_sort();
+
+                
+                // x = ε  (the classic "var → ε" branch; a ground, eliminating
+                // substitution, so it keeps its progress flag)
+                {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, "nielsen const 0", true);
-                    const nielsen_subst s1(var_head, m_sg.mk_empty_seq(var_head->get_sort()), eq.m_dep);
-                    e->add_subst(s1);
-                    child->apply_subst(m_sg, s1);
-
-
-                    euf::snode const* tail = get_tail(var_head, a.mk_int(1), fwd);
-                    euf::snode const* replacement = dir_concat(m_sg, char_head, tail, fwd);
-                    child = mk_child(node);
-                    e = mk_edge(node, child, "nielsen const &gt;", false);
-                    e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(tail), a.mk_int(0)), eq.m_dep));
-                    const nielsen_subst s2(var_head, replacement, eq.m_dep);
-                    e->add_subst(s2);
-                    child->apply_subst(m_sg, s2);
-                    return true;
+                    const nielsen_subst s(var_head, m_sg.mk_empty_seq(seq_sort), eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
                 }
+
+                // x = w · x'  —  the whole block is consumed in one step and
+                // cancels against the other side during simplification.  For
+                // m_len = 1 this is exactly the classic one-character peel.
+                {
+                    euf::snode const* tail = get_tail(var_head, a.mk_int(m_len), fwd);
+                    euf::snode const* replacement =
+                        dir_concat(m_sg, mk_block_word(block, m_len, fwd, seq_sort), tail, fwd);
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, "nielsen const &gt;", false);
+                    e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(tail), a.mk_int(0)), eq.m_dep));
+                    const nielsen_subst s(var_head, replacement, eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+
+                // x = w[0..k) for 0 < k < m_len: x ends strictly inside the block.
+                for (unsigned k = 1; k < m_len; ++k) {
+                    // Clash lookahead [maybe drop it at the other position]
+                    if (!next_tok ||
+                        (next_tok->is_char() && block[k]->is_char() && next_tok->id() != block[k]->id())) {
+                        ++m_stats.m_block_children_pruned;
+                        continue;
+                    }
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, "nielsen block =", false);
+                    const nielsen_subst s(var_head, mk_block_word(block, k, fwd, seq_sort), eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                return true;
             }
         }
         return false;
@@ -7004,6 +7077,9 @@ namespace seq {
         st.update("nseq mod regex fact",       m_stats.m_mod_regex_factorization);
         st.update("nseq mod monadic split",    m_stats.m_mod_monadic_split);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
+        st.update("nseq mod block compr",      m_stats.m_mod_block_compression);
+        st.update("nseq block chars",          m_stats.m_block_chars_consumed);
+        st.update("nseq block pruned",         m_stats.m_block_children_pruned);
         st.update("nseq mod signature split",  m_stats.m_mod_signature_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
         st.update("nseq mod regex if",         m_stats.m_mod_regex_if_split);

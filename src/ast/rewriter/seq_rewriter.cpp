@@ -5388,21 +5388,91 @@ lbool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
 struct re_eval_pos {
     expr_ref e; // use reference to avoid gc
     unsigned str_len;
-    buffer<std::pair<unsigned, unsigned>> exclude;
+    char_set allowed;      // characters still possible for the position under decision
     bool needs_derivation;
 };
 
+/**
+   Set of characters satisfying the condition of a symbolic derivative's ite.
+   The condition constrains the single derivative variable; returns false for
+   conditions outside the supported (boolean combination of bounds) fragment.
+*/
+bool seq_rewriter::char_set_of_condition(expr* e, char_set& result) {
+    const unsigned max_c = u().max_char();
+    auto is_deriv_var = [](expr* v) { return is_var(v) && to_var(v)->get_idx() == 0; };
+    expr* x = nullptr, * y = nullptr, * a = nullptr;
+    unsigned ch = 0;
+    if (m().is_true(e)) {
+        result = char_set::full(max_c);
+        return true;
+    }
+    if (m().is_false(e)) {
+        result = char_set();
+        return true;
+    }
+    if (m().is_not(e, a)) {
+        char_set s;
+        if (!char_set_of_condition(a, s))
+            return false;
+        result = s.complement(max_c);
+        return true;
+    }
+    if (m().is_and(e)) {
+        result = char_set::full(max_c);
+        for (expr* arg : *to_app(e)) {
+            char_set s;
+            if (!char_set_of_condition(arg, s))
+                return false;
+            result = result.intersect_with(s);
+        }
+        return true;
+    }
+    if (m().is_or(e)) {
+        result = char_set();
+        for (expr* arg : *to_app(e)) {
+            char_set s;
+            if (!char_set_of_condition(arg, s))
+                return false;
+            result.add(s);
+        }
+        return true;
+    }
+    if (m_util.is_char_le(e, x, y)) {
+        if (m_util.is_const_char(x, ch) && is_deriv_var(y)) {
+            result = ch > max_c ? char_set() : char_set(char_range(ch, max_c + 1));
+            return true;
+        }
+        if (m_util.is_const_char(y, ch) && is_deriv_var(x)) {
+            result = char_set(char_range(0, std::min(ch, max_c) + 1));
+            return true;
+        }
+        return false;
+    }
+    if (m().is_eq(e, x, y)) {
+        if (is_deriv_var(x))
+            std::swap(x, y);
+        if (m_util.is_const_char(x, ch) && is_deriv_var(y)) {
+            result = char_set();
+            if (ch <= max_c)
+                result.add(ch);
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
 lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str) {
     SASSERT(str.empty());
+    const unsigned max_c = u().max_char();
     vector<re_eval_pos> todo;
-    todo.push_back({ expr_ref(r, m()), 0, {}, true });
+    todo.push_back({ expr_ref(r, m()), 0, char_set::full(max_c), true });
     while (!todo.empty()) {
         re_eval_pos current = todo.back();
         todo.pop_back();
         r = current.e;
         str.resize(current.str_len);
         if (current.needs_derivation) {
-            SASSERT(current.exclude.empty());
             // We are looking for the next character => generate derivation
             if (visited.is_marked(r))
                 continue;
@@ -5414,72 +5484,52 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
             visited.mark(r);
             if (re().is_union(r)) {
                 for (expr* arg : *to_app(r)) {
-                    todo.push_back({ expr_ref(arg, m()), str.size(), {}, true });
+                    todo.push_back({ expr_ref(arg, m()), str.size(), char_set::full(max_c), true });
                 }
                 continue;
             }
 
             r = mk_derivative(r);
         }
-        // otw. we are still in the process of deciding case of the derivation to take
-
-        buffer<std::pair<unsigned, unsigned>> exclude = std::move(current.exclude);
+        // otw. we are still in the process of deciding case of the derivation to
+        // take.  All ite conditions of a derivative constrain the SAME (not yet
+        // committed) character, so they are collected in `allowed` and the
+        // character is only chosen once a plain regex state is reached.  Deriving
+        // a branch that is itself an ite would (re-)interpret its conditions as
+        // constraints on the *next* character.
+        char_set allowed = std::move(current.allowed);
 
         expr* c, * th, * el;
         if (re().is_empty(r))
             continue;
         if (re().is_union(r)) {
             for (expr* arg : *to_app(r)) {
-                todo.push_back({ expr_ref(arg, m()), str.size(), exclude, false });
+                todo.push_back({ expr_ref(arg, m()), str.size(), allowed.clone(), false });
             }
             continue;
         }
         if (m().is_ite(r, c, th, el)) {
-            unsigned low = 0, high = zstring::unicode_max_char();
-            bool has_bounds = get_bounds(c, low, high);
-            if (!re().is_empty(el)) {
-                if (has_bounds)
-                    exclude.push_back({ low, high });
-                todo.push_back({ expr_ref(el, m()), str.size(), std::move(exclude), false });
-            }
-            if (has_bounds) {
-                // I want this case to be processed first => push it last
-                // reason: current string is only pruned
-                SASSERT(low <= high);
-                str.push_back(low);           // ASSERT: low .. high does not intersect with exclude
-                todo.push_back({ expr_ref(th, m()), str.size(), {}, true });
-            }
+            char_set cond;
+            if (!char_set_of_condition(c, cond))
+                return l_undef;
+            char_set else_allowed = allowed.intersect_with(cond.complement(max_c));
+            char_set then_allowed = allowed.intersect_with(cond);
+            if (!re().is_empty(el) && !else_allowed.is_empty())
+                todo.push_back({ expr_ref(el, m()), str.size(), std::move(else_allowed), false });
+            // I want the then-case to be processed first => push it last
+            if (!re().is_empty(th) && !then_allowed.is_empty())
+                todo.push_back({ expr_ref(th, m()), str.size(), std::move(then_allowed), false });
             continue;
         }
 
         if (is_ground(r)) {
-            // ensure selected character is not in exclude
-            unsigned ch = 'a';
-            bool wrapped = false;
-            bool failed = false;
-            while (true) {
-                bool found = false;
-                for (auto [l, h] : exclude) {
-                    if (l <= ch && ch <= h) {
-                        found = true;
-                        ch = h + 1;
-                    }
-                }
-                if (!found)
-                    break;
-                if (ch != zstring::unicode_max_char() + 1)
-                    continue;
-                if (wrapped) {
-                    failed = true;
-                    break;
-                }
-                ch = 0;
-                wrapped = true;
-            }
-            if (failed)
+            // the ite tree is resolved: commit a character consistent with every
+            // condition along the path
+            if (allowed.is_empty())
                 continue;
+            unsigned ch = allowed.contains('a') ? 'a' : allowed.first_char();
             str.push_back(ch);
-            todo.push_back({ expr_ref(r, m()), str.size(), {}, true });
+            todo.push_back({ expr_ref(r, m()), str.size(), char_set::full(max_c), true });
             continue;
         }
 
@@ -5488,32 +5538,3 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
     return l_false;
 }
 
-bool seq_rewriter::get_bounds(expr* e, unsigned& low, unsigned& high) {
-    low = 0; 
-    high = zstring::unicode_max_char();
-    ptr_buffer<expr> todo;
-    todo.push_back(e);
-    expr* x, * y;
-    unsigned ch = 0;
-    while (!todo.empty()) {
-        e = todo.back();
-        todo.pop_back();
-        if (m().is_and(e)) 
-            todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());  
-        else if (m_util.is_char_le(e, x, y) && m_util.is_const_char(x, ch) && is_var(y))
-            low = std::max(ch, low);
-        else if (m_util.is_char_le(e, x, y) && m_util.is_const_char(y, ch) && is_var(x))
-            high = std::min(ch, high);
-        else if (m().is_eq(e, x, y) && is_var(x) && m_util.is_const_char(y, ch)) {
-            low = std::max(ch, low);
-            high = std::min(ch, high);
-        }
-        else if (m().is_eq(e, x, y) && is_var(y) && m_util.is_const_char(x, ch)) {
-            low = std::max(ch, low);
-            high = std::min(ch, high);
-        }
-        else
-            return false;
-    }
-    return low <= high;
-}

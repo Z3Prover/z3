@@ -632,11 +632,17 @@ namespace smt {
                 visited.insert(d->id());
 
                 // Representative character of the minterm (must lie in mt so
-                // that δ_ch(st) = d).  Minterms over the cycle alphabet are
-                // ranges / to_re singletons / full_char.
+                // that δ_ch(st) = d).  Minterms are ranges / to_re singletons /
+                // full_char, or a UNION of ranges when the partition class has
+                // several intervals — pick the same representative as
+                // brzozowski_deriv (which descends into arg(0) of a union),
+                // otherwise the emitted character does not take the transition
+                // whose derivative `d` we just followed.
                 unsigned ch = 0;
                 expr* me = mt->get_expr();
                 expr* lo = nullptr, *hi = nullptr, *s = nullptr;
+                while (m_seq.re.is_union(me))
+                    me = to_app(me)->get_arg(0);
                 if (m_seq.re.is_range(me, lo, hi))
                     m_sg.decode_re_char(lo, ch);
                 else if (m_seq.re.is_to_re(me, s))

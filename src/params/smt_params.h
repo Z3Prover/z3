@@ -258,6 +258,7 @@ struct smt_params : public preprocessor_params,
     unsigned m_nseq_regex_factorization_threshold = 1;
     bool m_nseq_regex_factorization_eager = false;
     bool m_nseq_regex_dynamic_decomposition = true;
+    unsigned m_nseq_block_compression = 4;
     bool m_nseq_signature = false;
     bool m_nseq_fine_wilf = false;
     bool m_nseq_monadic_split = false;
