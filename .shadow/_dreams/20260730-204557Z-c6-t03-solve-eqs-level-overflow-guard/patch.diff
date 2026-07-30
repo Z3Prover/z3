@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.py b/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.py
+new file mode 100644
+index 000000000..81f3fa70a
+--- /dev/null
++++ b/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/ast/simplifiers/solve_eqs.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['if (init_level < m_id2var.size() + 1)', 'return;', 'm_id2level[var2id(e)] < curr_level', 'SASSERT(!occurs(v, t));', 'std::sort(m_subst_ids.begin()']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.result.json b/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.result.json
+new file mode 100644
+index 000000000..3f012f2d5
+--- /dev/null
++++ b/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c6-t03-solve-eqs-level-overflow-guard.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/ast/simplifiers/solve_eqs.cpp\", \"checks\": 5, \"bytes\": 13129}\n"
++}
+\ No newline at end of file

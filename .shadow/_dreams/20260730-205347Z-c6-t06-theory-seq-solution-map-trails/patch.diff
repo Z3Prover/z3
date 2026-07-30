@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c6-t06-theory-seq-solution-map-trails.py b/dream_experiments/c6-t06-theory-seq-solution-map-trails.py
+new file mode 100644
+index 000000000..597950ab7
+--- /dev/null
++++ b/dream_experiments/c6-t06-theory-seq-solution-map-trails.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/smt/theory_seq.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['void theory_seq::solution_map::update', 'm_cache.reset();', 'add_trail(DEL', 'add_trail(INS', 'void theory_seq::solution_map::pop_scope', 'if (m_updates[i] == INS)']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c6-t06-theory-seq-solution-map-trails.result.json b/dream_experiments/c6-t06-theory-seq-solution-map-trails.result.json
+new file mode 100644
+index 000000000..01e7e8dd4
+--- /dev/null
++++ b/dream_experiments/c6-t06-theory-seq-solution-map-trails.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c6-t06-theory-seq-solution-map-trails.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/smt/theory_seq.cpp\", \"checks\": 6, \"bytes\": 113319}\n"
++}
+\ No newline at end of file

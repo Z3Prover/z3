@@ -356,6 +356,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `get_prime_as_uint`
+
+- upolynomial factorization rejects primes that cannot round-trip from the numeral manager to uint64_t and then to unsigned, throwing before modular factorization uses a truncated prime.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-205111Z-c6-t05-upolynomial-prime-conversion-guards/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

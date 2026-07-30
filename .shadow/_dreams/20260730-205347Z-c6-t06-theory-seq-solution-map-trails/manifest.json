@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-205347Z-c6-t06-theory-seq-solution-map-trails",
+  "branch": "dream/z3shadow/20260730-205347Z-c6-t06-theory-seq-solution-map-trails",
+  "parent_branch": "master",
+  "category": "security audit",
+  "verdict": "useful",
+  "title": "Sequence solution map trail rollback",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/smt/theory_seq.cpp::theory_seq::solution_map",
+      "text": "theory_seq::solution_map invalidates its lookup cache on every update and on pop_scope; rollback deletes inserted mappings and restores overwritten mappings from the trail in reverse order.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-205347Z-c6-t06-theory-seq-solution-map-trails/"
+    }
+  ],
+  "cross_cutting": []
+}

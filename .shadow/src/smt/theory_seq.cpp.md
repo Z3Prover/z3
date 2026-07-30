@@ -996,6 +996,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `theory_seq::solution_map`
+
+- theory_seq::solution_map invalidates its lookup cache on every update and on pop_scope; rollback deletes inserted mappings and restores overwritten mappings from the trail in reverse order.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-205347Z-c6-t06-theory-seq-solution-map-trails/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

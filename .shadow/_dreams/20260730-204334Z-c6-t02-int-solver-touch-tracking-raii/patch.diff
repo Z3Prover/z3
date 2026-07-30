@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c6-t02-int-solver-touch-tracking-raii.py b/dream_experiments/c6-t02-int-solver-touch-tracking-raii.py
+new file mode 100644
+index 000000000..b88146d56
+--- /dev/null
++++ b/dream_experiments/c6-t02-int-solver-touch-tracking-raii.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/math/lp/int_solver.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['struct check_return_helper', 'm_track_touched_rows', 'track_touched_rows(false)', '~check_return_helper()', 'track_touched_rows(m_track_touched_rows)']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c6-t02-int-solver-touch-tracking-raii.result.json b/dream_experiments/c6-t02-int-solver-touch-tracking-raii.result.json
+new file mode 100644
+index 000000000..bceaf534e
+--- /dev/null
++++ b/dream_experiments/c6-t02-int-solver-touch-tracking-raii.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c6-t02-int-solver-touch-tracking-raii.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/math/lp/int_solver.cpp\", \"checks\": 5, \"bytes\": 33068}\n"
++}
+\ No newline at end of file

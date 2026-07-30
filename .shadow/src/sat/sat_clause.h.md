@@ -296,6 +296,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `clause metrics`
+
+- sat::clause stores glue and psm in 8-bit fields and saturates setter inputs above 255, while inact_rounds is also an 8-bit field incremented without an explicit saturation guard in the header.
+  _(verified, source: exploration, labels: [tech-debt])_
+  Dream report: `_dreams/20260730-204036Z-c6-t01-sat-clause-metric-saturation/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

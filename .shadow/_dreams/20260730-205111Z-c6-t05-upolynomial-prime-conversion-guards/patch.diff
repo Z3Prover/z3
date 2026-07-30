@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c6-t05-upolynomial-prime-conversion-guards.py b/dream_experiments/c6-t05-upolynomial-prime-conversion-guards.py
+new file mode 100644
+index 000000000..e7bbef2fa
+--- /dev/null
++++ b/dream_experiments/c6-t05-upolynomial-prime-conversion-guards.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/math/polynomial/upolynomial_factorization.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['nm.is_uint64(p)', 'throw upolynomial_exception("The prime number attempted in factorization is too big!")', 'if (((uint64_t)p_uint) != p_uint64)', 'return p_uint;']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c6-t05-upolynomial-prime-conversion-guards.result.json b/dream_experiments/c6-t05-upolynomial-prime-conversion-guards.result.json
+new file mode 100644
+index 000000000..38efe11f6
+--- /dev/null
++++ b/dream_experiments/c6-t05-upolynomial-prime-conversion-guards.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c6-t05-upolynomial-prime-conversion-guards.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/math/polynomial/upolynomial_factorization.cpp\", \"checks\": 4, \"bytes\": 51664}\n"
++}
+\ No newline at end of file

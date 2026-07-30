@@ -666,6 +666,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `theory_bv::mk_bit2bool`
+
+- theory_bv::mk_bit2bool only emits the equivalence axioms to the backing bit vector when the requested bit index is within m_bits[v_arg].size(); numeral bit2bool terms are separately axiomatized from the concrete numeral value.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-204833Z-c6-t04-theory-bv-bit2bool-index-guard/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

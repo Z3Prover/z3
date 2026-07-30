@@ -1,0 +1,36 @@
+diff --git a/dream_experiments/c5-t02-sat-clause-offset-packing.py b/dream_experiments/c5-t02-sat-clause-offset-packing.py
+index d9a710394..5120f3303 100644
+--- a/dream_experiments/c5-t02-sat-clause-offset-packing.py
++++ b/dream_experiments/c5-t02-sat-clause-offset-packing.py
+@@ -6,3 +6,5 @@ checks = ['clause::get_new_offset', '#if defined(__LP64__) || defined(_WIN64)',
+ missing = [s for s in checks if s not in text]
+ assert not missing, missing
+ print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
++
++# cycle 6 follow-up touched parent probe for c6-t01-sat-clause-metric-saturation
+diff --git a/dream_experiments/c6-t01-sat-clause-metric-saturation.py b/dream_experiments/c6-t01-sat-clause-metric-saturation.py
+new file mode 100644
+index 000000000..f80dbb91e
+--- /dev/null
++++ b/dream_experiments/c6-t01-sat-clause-metric-saturation.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/sat/sat_clause.h'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['m_glue:8', 'm_psm:8', 'set_glue(unsigned glue) { m_glue = glue > 255 ? 255 : glue; }', 'set_psm(unsigned psm) { m_psm = psm > 255 ? 255 : psm; }', 'inc_inact_rounds()']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c6-t01-sat-clause-metric-saturation.result.json b/dream_experiments/c6-t01-sat-clause-metric-saturation.result.json
+new file mode 100644
+index 000000000..db8b54033
+--- /dev/null
++++ b/dream_experiments/c6-t01-sat-clause-metric-saturation.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c6-t01-sat-clause-metric-saturation.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/sat/sat_clause.h\", \"checks\": 5, \"bytes\": 8048}\n"
++}
+\ No newline at end of file

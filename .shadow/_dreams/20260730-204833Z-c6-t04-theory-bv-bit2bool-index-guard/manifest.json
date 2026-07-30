@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-204833Z-c6-t04-theory-bv-bit2bool-index-guard",
+  "branch": "dream/z3shadow/20260730-204833Z-c6-t04-theory-bv-bit2bool-index-guard",
+  "parent_branch": "master",
+  "category": "refactoring",
+  "verdict": "useful",
+  "title": "Theory BV bit2bool index guard",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/smt/theory_bv.cpp::theory_bv::mk_bit2bool",
+      "text": "theory_bv::mk_bit2bool only emits the equivalence axioms to the backing bit vector when the requested bit index is within m_bits[v_arg].size(); numeral bit2bool terms are separately axiomatized from the concrete numeral value.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-204833Z-c6-t04-theory-bv-bit2bool-index-guard/"
+    }
+  ],
+  "cross_cutting": []
+}

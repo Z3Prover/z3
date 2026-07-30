@@ -320,6 +320,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `check_return_helper`
+
+- lp::check_return_helper disables touched-row tracking on construction and restores the exact previous tracking flag in its destructor, so early returns during integer checks should not permanently change LRA row tracking.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-204334Z-c6-t02-int-solver-touch-tracking-raii/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

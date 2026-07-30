@@ -94,6 +94,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `solve_eqs::extract_subst`
+
+- solve_eqs::extract_subst silently abandons substitution extraction if the unsigned level budget would underflow, before inserting any remaining substitutions for that connected component.
+  _(verified, source: exploration, labels: [feature-gap])_
+  Dream report: `_dreams/20260730-204557Z-c6-t03-solve-eqs-level-overflow-guard/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

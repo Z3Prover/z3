@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c6-t04-theory-bv-bit2bool-index-guard.py b/dream_experiments/c6-t04-theory-bv-bit2bool-index-guard.py
+new file mode 100644
+index 000000000..a72602d67
+--- /dev/null
++++ b/dream_experiments/c6-t04-theory-bv-bit2bool-index-guard.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/smt/theory_bv.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['if (idx < m_bits[v_arg].size())', 'ctx.mk_th_axiom(get_id(), m_bits[v_arg][idx], literal(bv, true));', 'ctx.mk_th_axiom(get_id(), ~m_bits[v_arg][idx], literal(bv, false));', 'm_util.is_numeral(first_arg']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c6-t04-theory-bv-bit2bool-index-guard.result.json b/dream_experiments/c6-t04-theory-bv-bit2bool-index-guard.result.json
+new file mode 100644
+index 000000000..c8bbd2c3e
+--- /dev/null
++++ b/dream_experiments/c6-t04-theory-bv-bit2bool-index-guard.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c6-t04-theory-bv-bit2bool-index-guard.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/smt/theory_bv.cpp\", \"checks\": 4, \"bytes\": 87482}\n"
++}
+\ No newline at end of file

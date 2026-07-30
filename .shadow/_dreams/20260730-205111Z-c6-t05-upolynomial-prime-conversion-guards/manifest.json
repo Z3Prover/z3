@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-205111Z-c6-t05-upolynomial-prime-conversion-guards",
+  "branch": "dream/z3shadow/20260730-205111Z-c6-t05-upolynomial-prime-conversion-guards",
+  "parent_branch": "master",
+  "category": "optimization",
+  "verdict": "useful",
+  "title": "Univariate factorization prime guards",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/polynomial/upolynomial_factorization.cpp::get_prime_as_uint",
+      "text": "upolynomial factorization rejects primes that cannot round-trip from the numeral manager to uint64_t and then to unsigned, throwing before modular factorization uses a truncated prime.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-205111Z-c6-t05-upolynomial-prime-conversion-guards/"
+    }
+  ],
+  "cross_cutting": []
+}

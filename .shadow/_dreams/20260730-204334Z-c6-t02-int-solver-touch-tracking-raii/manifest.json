@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-204334Z-c6-t02-int-solver-touch-tracking-raii",
+  "branch": "dream/z3shadow/20260730-204334Z-c6-t02-int-solver-touch-tracking-raii",
+  "parent_branch": "master",
+  "category": "bug hunting",
+  "verdict": "useful",
+  "title": "LIA touched-row RAII restoration",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/lp/int_solver.cpp::check_return_helper",
+      "text": "lp::check_return_helper disables touched-row tracking on construction and restores the exact previous tracking flag in its destructor, so early returns during integer checks should not permanently change LRA row tracking.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-204334Z-c6-t02-int-solver-touch-tracking-raii/"
+    }
+  ],
+  "cross_cutting": []
+}

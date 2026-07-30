@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-204557Z-c6-t03-solve-eqs-level-overflow-guard",
+  "branch": "dream/z3shadow/20260730-204557Z-c6-t03-solve-eqs-level-overflow-guard",
+  "parent_branch": "master",
+  "category": "feature design",
+  "verdict": "useful",
+  "title": "Solve-eqs substitution level overflow guard",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/ast/simplifiers/solve_eqs.cpp::solve_eqs::extract_subst",
+      "text": "solve_eqs::extract_subst silently abandons substitution extraction if the unsigned level budget would underflow, before inserting any remaining substitutions for that connected component.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "feature-gap"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-204557Z-c6-t03-solve-eqs-level-overflow-guard/"
+    }
+  ],
+  "cross_cutting": []
+}

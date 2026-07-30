@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-204036Z-c6-t01-sat-clause-metric-saturation",
+  "branch": "dream/z3shadow/20260730-204036Z-c6-t01-sat-clause-metric-saturation",
+  "parent_branch": "dream/z3shadow/20260730-202106Z-c5-t02-sat-clause-offset-packing",
+  "category": "investigation",
+  "verdict": "useful",
+  "title": "SAT clause metric saturation follow-up",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/sat/sat_clause.h::clause metrics",
+      "text": "sat::clause stores glue and psm in 8-bit fields and saturates setter inputs above 255, while inact_rounds is also an 8-bit field incremented without an explicit saturation guard in the header.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "tech-debt"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-204036Z-c6-t01-sat-clause-metric-saturation/"
+    }
+  ],
+  "cross_cutting": []
+}
