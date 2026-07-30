@@ -162,6 +162,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `solver::try_simplify_using`
+
+- math::grobner::pdd_solver increments the simplified-attempt statistic before knowing whether reduction changes the target, and a too-complex reduction sets m_too_complex then returns false without updating the equation.
+  _(verified, source: exploration, labels: [tech-debt])_
+  Dream report: `_dreams/20260730-213035Z-c8-t03-pdd-solver-too-complex-bailout/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

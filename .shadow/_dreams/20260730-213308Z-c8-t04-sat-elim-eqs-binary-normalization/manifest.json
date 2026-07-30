@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-213308Z-c8-t04-sat-elim-eqs-binary-normalization",
+  "branch": "dream/z3shadow/20260730-213308Z-c8-t04-sat-elim-eqs-binary-normalization",
+  "parent_branch": "master",
+  "category": "refactoring",
+  "verdict": "useful",
+  "title": "SAT elim-eqs binary normalization",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/sat/sat_elim_eqs.cpp::elim_eqs::operator()",
+      "text": "sat_elim_eqs normalizes binary clauses through representative literals, detects unit/inconsistent cases when representatives collapse, and orders surviving binary pairs by literal index before reinsertion.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-213308Z-c8-t04-sat-elim-eqs-binary-normalization/"
+    }
+  ],
+  "cross_cutting": []
+}

@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c8-t05-arith-core-underspecified-zero-ops.py b/dream_experiments/c8-t05-arith-core-underspecified-zero-ops.py
+new file mode 100644
+index 000000000..914026124
+--- /dev/null
++++ b/dream_experiments/c8-t05-arith-core-underspecified-zero-ops.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/smt/theory_arith_core.h'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['m_util.is_div(n)', 'm_util.mk_div0', 'm_util.is_idiv(n)', 'm_util.mk_idiv0', 'm_util.is_rem(n)', 'm_util.mk_rem0']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c8-t05-arith-core-underspecified-zero-ops.result.json b/dream_experiments/c8-t05-arith-core-underspecified-zero-ops.result.json
+new file mode 100644
+index 000000000..874d9282e
+--- /dev/null
++++ b/dream_experiments/c8-t05-arith-core-underspecified-zero-ops.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c8-t05-arith-core-underspecified-zero-ops.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/smt/theory_arith_core.h\", \"checks\": 6, \"bytes\": 139934}\n"
++}
+\ No newline at end of file

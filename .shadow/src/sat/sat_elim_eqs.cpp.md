@@ -54,6 +54,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `elim_eqs::operator()`
+
+- sat_elim_eqs normalizes binary clauses through representative literals, detects unit/inconsistent cases when representatives collapse, and orders surviving binary pairs by literal index before reinsertion.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-213308Z-c8-t04-sat-elim-eqs-binary-normalization/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

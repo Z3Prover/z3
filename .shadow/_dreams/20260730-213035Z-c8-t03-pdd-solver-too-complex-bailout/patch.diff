@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c8-t03-pdd-solver-too-complex-bailout.py b/dream_experiments/c8-t03-pdd-solver-too-complex-bailout.py
+new file mode 100644
+index 000000000..b9798b465
+--- /dev/null
++++ b/dream_experiments/c8-t03-pdd-solver-too-complex-bailout.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/math/grobner/pdd_solver.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['return true if the target was simplified', 'if (&src == &dst)', 'm_stats.incr_simplified();', 'if (r == dst.poly())', 'if (is_too_complex(r))', 'm_too_complex = true;', 'return true;']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c8-t03-pdd-solver-too-complex-bailout.result.json b/dream_experiments/c8-t03-pdd-solver-too-complex-bailout.result.json
+new file mode 100644
+index 000000000..d780e6080
+--- /dev/null
++++ b/dream_experiments/c8-t03-pdd-solver-too-complex-bailout.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c8-t03-pdd-solver-too-complex-bailout.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/math/grobner/pdd_solver.cpp\", \"checks\": 7, \"bytes\": 19119}\n"
++}
+\ No newline at end of file

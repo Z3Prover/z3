@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-212801Z-c8-t02-theory-lra-internalize-state-stack",
+  "branch": "dream/z3shadow/20260730-212801Z-c8-t02-theory-lra-internalize-state-stack",
+  "parent_branch": "master",
+  "category": "bug hunting",
+  "verdict": "useful",
+  "title": "Theory LRA internalize state stack",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/smt/theory_lra.cpp::scoped_internalize_state",
+      "text": "theory_lra reuses internalize_state objects through m_internalize_head: scoped_internalize_state allocates only when the stack grows, resets the reused state, and decrements the head on destruction.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-212801Z-c8-t02-theory-lra-internalize-state-stack/"
+    }
+  ],
+  "cross_cutting": []
+}

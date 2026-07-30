@@ -1860,6 +1860,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `scoped_internalize_state`
+
+- theory_lra reuses internalize_state objects through m_internalize_head: scoped_internalize_state allocates only when the stack grows, resets the reused state, and decrements the head on destruction.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-212801Z-c8-t02-theory-lra-internalize-state-stack/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

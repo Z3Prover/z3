@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-213540Z-c8-t05-arith-core-underspecified-zero-ops",
+  "branch": "dream/z3shadow/20260730-213540Z-c8-t05-arith-core-underspecified-zero-ops",
+  "parent_branch": "master",
+  "category": "optimization",
+  "verdict": "useful",
+  "title": "Arithmetic core underspecified zero ops",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/smt/theory_arith_core.h::theory_arith::internalize_atom",
+      "text": "theory_arith_core maps division, integer division, and remainder by zero into dedicated underspecified div0/idiv0/rem0 terms instead of rejecting the expression during internalization.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "feature-gap"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-213540Z-c8-t05-arith-core-underspecified-zero-ops/"
+    }
+  ],
+  "cross_cutting": []
+}

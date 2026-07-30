@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-212534Z-c8-t01-solver-header-scope-contract",
+  "branch": "dream/z3shadow/20260730-212534Z-c8-t01-solver-header-scope-contract",
+  "parent_branch": "dream/z3shadow/20260730-211723Z-c7-t06-solver-consequences-recheck-loop",
+  "category": "investigation",
+  "verdict": "useful",
+  "title": "Solver header scope contract follow-up",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/solver/solver.h::solver interface",
+      "text": "solver exposes push/pop/get_scope_level as mandatory implementation hooks, while convenience check_sat overloads forward assumption vectors to the core pointer/count API.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-212534Z-c8-t01-solver-header-scope-contract/"
+    }
+  ],
+  "cross_cutting": []
+}

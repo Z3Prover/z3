@@ -1,0 +1,36 @@
+diff --git a/dream_experiments/c7-t06-solver-consequences-recheck-loop.py b/dream_experiments/c7-t06-solver-consequences-recheck-loop.py
+index 369cd3419..61d21b6e8 100644
+--- a/dream_experiments/c7-t06-solver-consequences-recheck-loop.py
++++ b/dream_experiments/c7-t06-solver-consequences-recheck-loop.py
+@@ -6,3 +6,5 @@ checks = ['lbool is_sat = check_sat(asms);', 'for (unsigned i = 0; i < vars.size
+ missing = [s for s in checks if s not in text]
+ assert not missing, missing
+ print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
++
++# cycle 8 follow-up touched parent probe for c8-t01-solver-header-scope-contract
+diff --git a/dream_experiments/c8-t01-solver-header-scope-contract.py b/dream_experiments/c8-t01-solver-header-scope-contract.py
+new file mode 100644
+index 000000000..9fa9123c7
+--- /dev/null
++++ b/dream_experiments/c8-t01-solver-header-scope-contract.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/solver/solver.h'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['virtual void push() = 0;', 'virtual void pop(unsigned n) = 0;', 'virtual unsigned get_scope_level() const = 0;', 'lbool check_sat(expr_ref_vector const& asms)', 'virtual lbool check_sat_cc']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c8-t01-solver-header-scope-contract.result.json b/dream_experiments/c8-t01-solver-header-scope-contract.result.json
+new file mode 100644
+index 000000000..8c79a9cc0
+--- /dev/null
++++ b/dream_experiments/c8-t01-solver-header-scope-contract.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c8-t01-solver-header-scope-contract.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/solver/solver.h\", \"checks\": 5, \"bytes\": 11066}\n"
++}
+\ No newline at end of file

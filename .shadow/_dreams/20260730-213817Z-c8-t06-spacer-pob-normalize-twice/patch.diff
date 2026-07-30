@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c8-t06-spacer-pob-normalize-twice.py b/dream_experiments/c8-t06-spacer-pob-normalize-twice.py
+new file mode 100644
+index 000000000..7c464cee0
+--- /dev/null
++++ b/dream_experiments/c8-t06-spacer-pob-normalize-twice.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/muz/spacer/spacer_context.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['void pob::inherit(pob const &p)', 'normalize(m_post, m_post, false, false);', 'th_rewriter is not idempotent', 'm_binding.reset();', 'm_binding.append(p.m_binding);']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c8-t06-spacer-pob-normalize-twice.result.json b/dream_experiments/c8-t06-spacer-pob-normalize-twice.result.json
+new file mode 100644
+index 000000000..7fcc900cb
+--- /dev/null
++++ b/dream_experiments/c8-t06-spacer-pob-normalize-twice.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c8-t06-spacer-pob-normalize-twice.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/muz/spacer/spacer_context.cpp\", \"checks\": 5, \"bytes\": 148833}\n"
++}
+\ No newline at end of file

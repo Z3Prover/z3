@@ -310,6 +310,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `theory_arith::internalize_atom`
+
+- theory_arith_core maps division, integer division, and remainder by zero into dedicated underspecified div0/idiv0/rem0 terms instead of rejecting the expression during internalization.
+  _(verified, source: exploration, labels: [feature-gap])_
+  Dream report: `_dreams/20260730-213540Z-c8-t05-arith-core-underspecified-zero-ops/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

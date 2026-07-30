@@ -1270,6 +1270,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `pob::inherit`
+
+- spacer::pob::inherit normalizes m_post a second time when it differs from the parent because th_rewriter is not idempotent, then copies binding and level/depth state from the parent.
+  _(verified, source: exploration, labels: [tech-debt])_
+  Dream report: `_dreams/20260730-213817Z-c8-t06-spacer-pob-normalize-twice/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-213035Z-c8-t03-pdd-solver-too-complex-bailout",
+  "branch": "dream/z3shadow/20260730-213035Z-c8-t03-pdd-solver-too-complex-bailout",
+  "parent_branch": "master",
+  "category": "feature design",
+  "verdict": "useful",
+  "title": "PDD solver too-complex bailout",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/grobner/pdd_solver.cpp::solver::try_simplify_using",
+      "text": "math::grobner::pdd_solver increments the simplified-attempt statistic before knowing whether reduction changes the target, and a too-complex reduction sets m_too_complex then returns false without updating the equation.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "tech-debt"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-213035Z-c8-t03-pdd-solver-too-complex-bailout/"
+    }
+  ],
+  "cross_cutting": []
+}

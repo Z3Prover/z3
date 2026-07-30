@@ -330,6 +330,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `solver interface`
+
+- solver exposes push/pop/get_scope_level as mandatory implementation hooks, while convenience check_sat overloads forward assumption vectors to the core pointer/count API.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-212534Z-c8-t01-solver-header-scope-contract/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

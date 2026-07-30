@@ -44,3 +44,9 @@
 | 20260730-211200Z-c7-t04-muz-domain-size-guard | refactoring | useful | Muz finite-domain size guard | dream/z3shadow/20260730-211200Z-c7-t04-muz-domain-size-guard | master | c3e2d8370 |
 | 20260730-211443Z-c7-t05-sat-scc-eliminated-skip | optimization | useful | SAT SCC eliminated literal skip | dream/z3shadow/20260730-211443Z-c7-t05-sat-scc-eliminated-skip | master | 857687021 |
 | 20260730-211723Z-c7-t06-solver-consequences-recheck-loop | security audit | useful | Solver consequences recheck loop | dream/z3shadow/20260730-211723Z-c7-t06-solver-consequences-recheck-loop | master | 0aae5507d |
+| 20260730-212534Z-c8-t01-solver-header-scope-contract | investigation | useful | Solver header scope contract follow-up | dream/z3shadow/20260730-212534Z-c8-t01-solver-header-scope-contract | dream/z3shadow/20260730-211723Z-c7-t06-solver-consequences-recheck-loop | 1f87b0be5 |
+| 20260730-212801Z-c8-t02-theory-lra-internalize-state-stack | bug hunting | useful | Theory LRA internalize state stack | dream/z3shadow/20260730-212801Z-c8-t02-theory-lra-internalize-state-stack | master | ac0a5c7bf |
+| 20260730-213035Z-c8-t03-pdd-solver-too-complex-bailout | feature design | useful | PDD solver too-complex bailout | dream/z3shadow/20260730-213035Z-c8-t03-pdd-solver-too-complex-bailout | master | 494ac07ed |
+| 20260730-213308Z-c8-t04-sat-elim-eqs-binary-normalization | refactoring | useful | SAT elim-eqs binary normalization | dream/z3shadow/20260730-213308Z-c8-t04-sat-elim-eqs-binary-normalization | master | b0a897b47 |
+| 20260730-213540Z-c8-t05-arith-core-underspecified-zero-ops | optimization | useful | Arithmetic core underspecified zero ops | dream/z3shadow/20260730-213540Z-c8-t05-arith-core-underspecified-zero-ops | master | 1fc1ead1c |
+| 20260730-213817Z-c8-t06-spacer-pob-normalize-twice | security audit | useful | Spacer POB double normalization | dream/z3shadow/20260730-213817Z-c8-t06-spacer-pob-normalize-twice | master | 13a34f499 |

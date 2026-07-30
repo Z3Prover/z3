@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c8-t04-sat-elim-eqs-binary-normalization.py b/dream_experiments/c8-t04-sat-elim-eqs-binary-normalization.py
+new file mode 100644
+index 000000000..3e6021b46
+--- /dev/null
++++ b/dream_experiments/c8-t04-sat-elim-eqs-binary-normalization.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/sat/sat_elim_eqs.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['m_new_bin.reset();', 'if (it->is_binary_clause())', 'if (r1 == r2)', 'if (m_solver.inconsistent())', 'if (r1 == ~r2)', 'r1.index() < r2.index()']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c8-t04-sat-elim-eqs-binary-normalization.result.json b/dream_experiments/c8-t04-sat-elim-eqs-binary-normalization.result.json
+new file mode 100644
+index 000000000..be3a72a45
+--- /dev/null
++++ b/dream_experiments/c8-t04-sat-elim-eqs-binary-normalization.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c8-t04-sat-elim-eqs-binary-normalization.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/sat/sat_elim_eqs.cpp\", \"checks\": 6, \"bytes\": 10667}\n"
++}
+\ No newline at end of file
