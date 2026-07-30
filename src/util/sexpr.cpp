@@ -123,7 +123,7 @@ sexpr * const * sexpr::get_children() const {
 void sexpr::display_atom(std::ostream & out) const {
     switch (get_kind()) {
     case sexpr::kind_t::COMPOSITE:
-        UNREACHABLE();
+        Z3_unreachable_case();
     case sexpr::kind_t::NUMERAL:
         out << static_cast<sexpr_numeral const *>(this)->m_val;
         break;

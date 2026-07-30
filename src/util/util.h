@@ -80,6 +80,12 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 # define Z3_fallthrough
 #endif
 
+// UNREACHABLE is not defined in a way that makes it clear to the compiler
+// that it does not return (because it calls INVOKE_DEBUGGER() in debug builds,
+// and that *may* return).  Using this for unreachable switch cases avoids
+// any fall-through warnings.
+#define Z3_unreachable_case() UNREACHABLE(); Z3_fallthrough
+
 static inline bool is_power_of_two(unsigned v) { return !(v & (v - 1)) && v; }
 
 /**
