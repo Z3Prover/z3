@@ -712,7 +712,7 @@ namespace smt {
     }
 
     void setup::setup_arrays() {
-		array_solver_id_mode = m_params.m_array_mode;
+		array_solver_id mode = m_params.m_array_mode;
 		if (m_params.m_array_solver == symbol("simple")) {
 			mode = AR_SIMPLE;
 		} else if (m_params.m_array_solver == symbol("full")) {
