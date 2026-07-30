@@ -1606,8 +1606,12 @@ bool core::optimize_nl_bounds() {
     // problems this pass is expensive and rarely productive, so skip it when the
     // candidate set exceeds the threshold (0 = unlimited).
     unsigned const max_vars = params().arith_nl_optimize_bounds_lp_max_vars();
-    if (max_vars != 0 && cands.size() > max_vars)
+    if (max_vars != 0 && cands.size() > max_vars) {
+        // find_feasible_solution() above already moved the model, so m_to_refine
+        // is stale on this path too and has to be re-calibrated before returning.
+        init_to_refine();
         return false;
+    }
 
     // Collect improved bounds first (each find_improved_bound maximizes a term
     // over the *unchanged* constraint set, so all improvements are valid implied
