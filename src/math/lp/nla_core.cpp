@@ -634,6 +634,16 @@ void core::erase_from_to_refine(lpvar j) {
 
 void core::init_to_refine() {
     TRACE(nla_solver_details, tout << "emons:" << pp_emons(*this, m_emons););
+    // check_monic() compares only the rational parts of the column values, so
+    // m_to_refine has to be calibrated against a model without infinitesimal
+    // (delta) components. Otherwise a monomial whose factors still carry
+    // non-zero delta parts looks consistent here, while the model handed to the
+    // theory solver - where delta is instantiated by a positive rational -
+    // violates it. optimize_nl_bounds() re-solves the LP and re-introduces
+    // delta components, so they are dropped here rather than only on entry to
+    // check().
+    if (lra.is_feasible())
+        lra.get_rid_of_inf_eps();
     m_to_refine.reset();
     unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; ++k) {
@@ -1596,8 +1606,12 @@ bool core::optimize_nl_bounds() {
     // problems this pass is expensive and rarely productive, so skip it when the
     // candidate set exceeds the threshold (0 = unlimited).
     unsigned const max_vars = params().arith_nl_optimize_bounds_lp_max_vars();
-    if (max_vars != 0 && cands.size() > max_vars)
+    if (max_vars != 0 && cands.size() > max_vars) {
+        // find_feasible_solution() above already moved the model, so m_to_refine
+        // is stale on this path too and has to be re-calibrated before returning.
+        init_to_refine();
         return false;
+    }
 
     // Collect improved bounds first (each find_improved_bound maximizes a term
     // over the *unchanged* constraint set, so all improvements are valid implied
