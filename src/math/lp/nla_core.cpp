@@ -1534,7 +1534,7 @@ bool core::propagate() {
     if (m_monomial_bounds.propagate_fixed_rows())
         propagated = true;
     if (m_monomial_bounds.tighten_lp_bounds())
-		propgated = true;
+		propagated = true;
     if (m_monomial_bounds.propagate_changed_bounds()) 
         propagated = true;
     m_monics_with_changed_bounds.reset();
