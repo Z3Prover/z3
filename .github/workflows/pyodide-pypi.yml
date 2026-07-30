@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
 
       - name: Build Pyodide wheel
-        uses: pypa/cibuildwheel@v4.1.0
+        uses: pypa/cibuildwheel@v4.1.1
         with:
           # The Python bindings live in a subdirectory of the repo.
           package-dir: src/api/python
