@@ -2952,7 +2952,6 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         if (char const* dump_path = getenv("Z3_TPTP_DUMP_SMT2")) {
             std::ofstream dout(dump_path);
             if (dout) {
-                ast_manager& m = ctx.m();
                 dout << "; Auto-generated from TPTP input: "
                      << (current_file ? current_file : "?") << "\n";
                 dout << "(set-logic ALL)\n";
