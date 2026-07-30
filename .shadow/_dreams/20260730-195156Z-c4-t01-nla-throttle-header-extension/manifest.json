@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-195156Z-c4-t01-nla-throttle-header-extension",
+  "branch": "dream/z3shadow/20260730-195156Z-c4-t01-nla-throttle-header-extension",
+  "parent_branch": "dream/z3shadow/20260730-042331Z-c3-t01-nla-throttle-signature",
+  "category": "investigation",
+  "verdict": "useful",
+  "title": "NLA throttle header signature width",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/lp/nla_throttle.h::nla_throttle.signature",
+      "text": "nla_throttle signatures are fixed-width eight-slot records: construction zero-fills all slots, equality compares all eight slots, and hashing combines all eight slots, so every insert_new overload relies on unused slots remaining zero.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-195156Z-c4-t01-nla-throttle-header-extension/"
+    }
+  ],
+  "cross_cutting": []
+}

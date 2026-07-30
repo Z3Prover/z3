@@ -30,8 +30,11 @@ _No discoveries yet._
 
 ### `conjunctions.partition_vars`
 
-_No discoveries yet._
 
+
+- qe::conjunctions::partition_vars treats a quantified variable that occurs in more than half of the conjuncts as shared and places it in a catch-all partition instead of unioning it through the sparse occurrence graph.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-195756Z-c4-t03-qe-partition-majority/`
 ### `conjunctions.is_var`
 
 _No discoveries yet._

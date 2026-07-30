@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-200606Z-c4-t06-func-decls-signature-coercion",
+  "branch": "dream/z3shadow/20260730-200606Z-c4-t06-func-decls-signature-coercion",
+  "parent_branch": "master",
+  "category": "security audit",
+  "verdict": "useful",
+  "title": "Command context signature coercion guard",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/cmd_context/cmd_context.cpp::func_decls::check_signature",
+      "text": "func_decls::check_signature only permits an Int actual where a Real domain is expected as a coercion; every other domain mismatch returns false before the declaration is accepted.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-200606Z-c4-t06-func-decls-signature-coercion/"
+    }
+  ],
+  "cross_cutting": []
+}

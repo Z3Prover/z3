@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c4-t03-qe-partition-majority.py b/dream_experiments/c4-t03-qe-partition-majority.py
+new file mode 100644
+index 000000000..f538dc6c6
+--- /dev/null
++++ b/dream_experiments/c4-t03-qe-partition-majority.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/qe/qe.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['2*contains_index.size() > num_args', 'partition.push_back(unsigned_vector())', 'uf.merge(var_x, var_y)', 'non_shared[idx] = var_x']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c4-t03-qe-partition-majority.result.json b/dream_experiments/c4-t03-qe-partition-majority.result.json
+new file mode 100644
+index 000000000..11f577fd6
+--- /dev/null
++++ b/dream_experiments/c4-t03-qe-partition-majority.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c4-t03-qe-partition-majority.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/qe/qe.cpp\", \"checks\": 4, \"bytes\": 92472}\n"
++}
+\ No newline at end of file

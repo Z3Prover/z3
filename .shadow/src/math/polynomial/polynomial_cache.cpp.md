@@ -124,6 +124,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `cache::imp.factor`
+
+- polynomial::cache::factor caches factorization results by the canonical polynomial pointer, stores canonicalized factor pointers in a manually allocated result array, and replays cached results without recomputing factorization.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260730-195514Z-c4-t02-polynomial-cache-factor/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

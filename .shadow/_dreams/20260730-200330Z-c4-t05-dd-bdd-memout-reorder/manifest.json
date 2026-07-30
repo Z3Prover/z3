@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-200330Z-c4-t05-dd-bdd-memout-reorder",
+  "branch": "dream/z3shadow/20260730-200330Z-c4-t05-dd-bdd-memout-reorder",
+  "parent_branch": "master",
+  "category": "optimization",
+  "verdict": "useful",
+  "title": "BDD mem_out reorder retry",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/dd/dd_bdd.cpp::bdd_manager::apply",
+      "text": "dd::bdd_manager::apply retries a mem_out failure exactly once after try_reorder(); a second mem_out is rethrown, so reordering is a single recovery attempt rather than an unbounded retry loop.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-200330Z-c4-t05-dd-bdd-memout-reorder/"
+    }
+  ],
+  "cross_cutting": []
+}

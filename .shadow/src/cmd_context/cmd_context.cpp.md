@@ -1152,6 +1152,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `func_decls::check_signature`
+
+- func_decls::check_signature only permits an Int actual where a Real domain is expected as a coercion; every other domain mismatch returns false before the declaration is accepted.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-200606Z-c4-t06-func-decls-signature-coercion/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

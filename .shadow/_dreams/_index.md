@@ -20,3 +20,9 @@
 | 20260730-043224Z-c3-t04-rewriter-cache-scope-stack | refactoring | useful | Rewriter cache scope stack | dream/z3shadow/20260730-043224Z-c3-t04-rewriter-cache-scope-stack | master | 8e8148bc5 |
 | 20260730-043515Z-c3-t05-model-evaluator-else-mutation | optimization | useful | Model evaluator as-array else mutation | dream/z3shadow/20260730-043515Z-c3-t05-model-evaluator-else-mutation | dream/z3shadow/20260730-015431Z-c2-t05-model-evaluator-cache-scope | af6facb73 |
 | 20260730-044130Z-c3-t06-opt-objective-type-guards | security audit | useful | Optimize objective type guards | dream/z3shadow/20260730-044130Z-c3-t06-opt-objective-type-guards | master | e47c857d0 |
+| 20260730-195156Z-c4-t01-nla-throttle-header-extension | investigation | useful | NLA throttle header signature width | dream/z3shadow/20260730-195156Z-c4-t01-nla-throttle-header-extension | dream/z3shadow/20260730-042331Z-c3-t01-nla-throttle-signature | aeb5ee7f3 |
+| 20260730-195514Z-c4-t02-polynomial-cache-factor | bug hunting | useful | Polynomial factor cache replay | dream/z3shadow/20260730-195514Z-c4-t02-polynomial-cache-factor | master | 73d582a5c |
+| 20260730-195756Z-c4-t03-qe-partition-majority | feature design | useful | QE partition majority rule | dream/z3shadow/20260730-195756Z-c4-t03-qe-partition-majority | master | ff87a2e96 |
+| 20260730-200046Z-c4-t04-grobner-pop-scope-assertion | refactoring | useful | Grobner pop-scope assertion audit | dream/z3shadow/20260730-200046Z-c4-t04-grobner-pop-scope-assertion | master | 0dfc5293f |
+| 20260730-200330Z-c4-t05-dd-bdd-memout-reorder | optimization | useful | BDD mem_out reorder retry | dream/z3shadow/20260730-200330Z-c4-t05-dd-bdd-memout-reorder | master | d04f37304 |
+| 20260730-200606Z-c4-t06-func-decls-signature-coercion | security audit | useful | Command context signature coercion guard | dream/z3shadow/20260730-200606Z-c4-t06-func-decls-signature-coercion | master | 8829189c8 |

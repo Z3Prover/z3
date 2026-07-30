@@ -234,6 +234,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `grobner::pop_scope`
+
+- grobner::pop_scope computes new_lvl as get_scope_level() - num_scopes but asserts num_scopes >= get_scope_level(), which is the reverse of the usual pop contract and would reject ordinary partial pops in debug builds.
+  _(verified, source: exploration, labels: [bug])_
+  Dream report: `_dreams/20260730-200046Z-c4-t04-grobner-pop-scope-assertion/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

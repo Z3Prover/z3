@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c4-t05-dd-bdd-memout-reorder.py b/dream_experiments/c4-t05-dd-bdd-memout-reorder.py
+new file mode 100644
+index 000000000..2a53eb0d9
+--- /dev/null
++++ b/dream_experiments/c4-t05-dd-bdd-memout-reorder.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/math/dd/dd_bdd.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['catch (const mem_out &)', 'if (!first) throw;', 'try_reorder();', 'first = false;', 'return apply_rec(arg1, arg2, op);']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c4-t05-dd-bdd-memout-reorder.result.json b/dream_experiments/c4-t05-dd-bdd-memout-reorder.result.json
+new file mode 100644
+index 000000000..2f2b522c1
+--- /dev/null
++++ b/dream_experiments/c4-t05-dd-bdd-memout-reorder.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c4-t05-dd-bdd-memout-reorder.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/math/dd/dd_bdd.cpp\", \"checks\": 5, \"bytes\": 40306}\n"
++}
+\ No newline at end of file

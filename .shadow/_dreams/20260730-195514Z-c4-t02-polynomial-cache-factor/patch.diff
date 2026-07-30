@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c4-t02-polynomial-cache-factor.py b/dream_experiments/c4-t02-polynomial-cache-factor.py
+new file mode 100644
+index 000000000..5c061affb
+--- /dev/null
++++ b/dream_experiments/c4-t02-polynomial-cache-factor.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/math/polynomial/polynomial_cache.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['m_factor_cache.insert_if_not_there', 'm.factor(p, fs);', 'mk_unique(fs[i])', 'entry->m_result[i] = h', 'reset_factor_cache()', 'dealloc(m_imp)']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c4-t02-polynomial-cache-factor.result.json b/dream_experiments/c4-t02-polynomial-cache-factor.result.json
+new file mode 100644
+index 000000000..7c133c604
+--- /dev/null
++++ b/dream_experiments/c4-t02-polynomial-cache-factor.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c4-t02-polynomial-cache-factor.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/math/polynomial/polynomial_cache.cpp\", \"checks\": 6, \"bytes\": 8890}\n"
++}
+\ No newline at end of file

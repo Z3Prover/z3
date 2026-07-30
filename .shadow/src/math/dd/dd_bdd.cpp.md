@@ -458,6 +458,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `bdd_manager::apply`
+
+- dd::bdd_manager::apply retries a mem_out failure exactly once after try_reorder(); a second mem_out is rethrown, so reordering is a single recovery attempt rather than an unbounded retry loop.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260730-200330Z-c4-t05-dd-bdd-memout-reorder/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

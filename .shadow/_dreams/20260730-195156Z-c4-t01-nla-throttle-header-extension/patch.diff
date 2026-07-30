@@ -1,0 +1,36 @@
+diff --git a/dream_experiments/c3-t01-nla-throttle-signature.py b/dream_experiments/c3-t01-nla-throttle-signature.py
+index f91ebcd22..f92c2802c 100644
+--- a/dream_experiments/c3-t01-nla-throttle-signature.py
++++ b/dream_experiments/c3-t01-nla-throttle-signature.py
+@@ -8,3 +8,5 @@ assert 'm_seen.contains(sig)' in impl
+ assert 'm_stats.m_nla_throttled_lemmas++' in impl
+ assert 'return true;' in impl and 'm_seen.insert(sig)' in impl and 'm_trail.push(insert_map(m_seen, sig))' in impl and 'return false;' in impl
+ print(json.dumps({'overloads_call_insert_new_impl': text.count('return insert_new_impl(sig);'), 'seen_returns_throttle_true': True}))
++
++# cycle 4 follow-up touched parent probe for c4-t01-nla-throttle-header-extension
+diff --git a/dream_experiments/c4-t01-nla-throttle-header-extension.py b/dream_experiments/c4-t01-nla-throttle-header-extension.py
+new file mode 100644
+index 000000000..6ceb0fba5
+--- /dev/null
++++ b/dream_experiments/c4-t01-nla-throttle-header-extension.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/math/lp/nla_throttle.h'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['unsigned m_values[8];', 'std::memset(m_values, 0', 'std::memcmp(m_values', 'for (int i = 0; i < 8; ++i)', 'static unsigned pack_rational_sign', 'static unsigned normalize_sign']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c4-t01-nla-throttle-header-extension.result.json b/dream_experiments/c4-t01-nla-throttle-header-extension.result.json
+new file mode 100644
+index 000000000..0c3e635b4
+--- /dev/null
++++ b/dream_experiments/c4-t01-nla-throttle-header-extension.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c4-t01-nla-throttle-header-extension.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/math/lp/nla_throttle.h\", \"checks\": 6, \"bytes\": 2766}\n"
++}
+\ No newline at end of file

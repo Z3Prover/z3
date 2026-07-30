@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-200046Z-c4-t04-grobner-pop-scope-assertion",
+  "branch": "dream/z3shadow/20260730-200046Z-c4-t04-grobner-pop-scope-assertion",
+  "parent_branch": "master",
+  "category": "refactoring",
+  "verdict": "useful",
+  "title": "Grobner pop-scope assertion audit",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/grobner/grobner.cpp::grobner::pop_scope",
+      "text": "grobner::pop_scope computes new_lvl as get_scope_level() - num_scopes but asserts num_scopes >= get_scope_level(), which is the reverse of the usual pop contract and would reject ordinary partial pops in debug builds.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "bug"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-200046Z-c4-t04-grobner-pop-scope-assertion/"
+    }
+  ],
+  "cross_cutting": []
+}

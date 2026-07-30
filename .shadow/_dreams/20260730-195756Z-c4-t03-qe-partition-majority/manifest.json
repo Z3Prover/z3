@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-195756Z-c4-t03-qe-partition-majority",
+  "branch": "dream/z3shadow/20260730-195756Z-c4-t03-qe-partition-majority",
+  "parent_branch": "master",
+  "category": "feature design",
+  "verdict": "useful",
+  "title": "QE partition majority rule",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/qe/qe.cpp::conjunctions.partition_vars",
+      "text": "qe::conjunctions::partition_vars treats a quantified variable that occurs in more than half of the conjuncts as shared and places it in a catch-all partition instead of unioning it through the sparse occurrence graph.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-195756Z-c4-t03-qe-partition-majority/"
+    }
+  ],
+  "cross_cutting": []
+}

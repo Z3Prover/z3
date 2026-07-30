@@ -60,6 +60,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `nla_throttle.signature`
+
+- nla_throttle signatures are fixed-width eight-slot records: construction zero-fills all slots, equality compares all eight slots, and hashing combines all eight slots, so every insert_new overload relies on unused slots remaining zero.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-195156Z-c4-t01-nla-throttle-header-extension/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

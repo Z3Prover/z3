@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-195514Z-c4-t02-polynomial-cache-factor",
+  "branch": "dream/z3shadow/20260730-195514Z-c4-t02-polynomial-cache-factor",
+  "parent_branch": "master",
+  "category": "bug hunting",
+  "verdict": "useful",
+  "title": "Polynomial factor cache replay",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/polynomial/polynomial_cache.cpp::cache::imp.factor",
+      "text": "polynomial::cache::factor caches factorization results by the canonical polynomial pointer, stores canonicalized factor pointers in a manually allocated result array, and replays cached results without recomputing factorization.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-195514Z-c4-t02-polynomial-cache-factor/"
+    }
+  ],
+  "cross_cutting": []
+}
