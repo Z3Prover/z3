@@ -94,6 +94,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `fdd::contains`
+
+- dd::fdd::contains asserts that every traversed BDD variable maps back to an FDD position; an unexpected BDD variable is a debug-only contract violation rather than a recoverable false result.
+  _(verified, source: exploration, labels: [bug])_
+  Dream report: `_dreams/20260730-210621Z-c7-t02-dd-fdd-unexpected-variable-assert/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

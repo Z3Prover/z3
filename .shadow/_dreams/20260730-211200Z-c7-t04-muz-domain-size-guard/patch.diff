@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c7-t04-muz-domain-size-guard.py b/dream_experiments/c7-t04-muz-domain-size-guard.py
+new file mode 100644
+index 000000000..ac0482b6b
+--- /dev/null
++++ b/dream_experiments/c7-t04-muz-domain-size-guard.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/muz/base/dl_context.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['unsigned newIdx = m_el_numbers.size();', 'insert_if_not_there(sym, newIdx)', 'if (m_limited_size && idx>=m_size)', 'contains more constants than its declared size', 'throw default_exception']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c7-t04-muz-domain-size-guard.result.json b/dream_experiments/c7-t04-muz-domain-size-guard.result.json
+new file mode 100644
+index 000000000..c2a176108
+--- /dev/null
++++ b/dream_experiments/c7-t04-muz-domain-size-guard.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c7-t04-muz-domain-size-guard.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/muz/base/dl_context.cpp\", \"checks\": 5, \"bytes\": 46635}\n"
++}
+\ No newline at end of file

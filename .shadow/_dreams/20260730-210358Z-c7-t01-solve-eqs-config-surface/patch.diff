@@ -1,0 +1,36 @@
+diff --git a/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.py b/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.py
+index 81f3fa70a..4d34d7972 100644
+--- a/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.py
++++ b/dream_experiments/c6-t03-solve-eqs-level-overflow-guard.py
+@@ -6,3 +6,5 @@ checks = ['if (init_level < m_id2var.size() + 1)', 'return;', 'm_id2level[var2id
+ missing = [s for s in checks if s not in text]
+ assert not missing, missing
+ print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
++
++# cycle 7 follow-up touched parent probe for c7-t01-solve-eqs-config-surface
+diff --git a/dream_experiments/c7-t01-solve-eqs-config-surface.py b/dream_experiments/c7-t01-solve-eqs-config-surface.py
+new file mode 100644
+index 000000000..e9399d40d
+--- /dev/null
++++ b/dream_experiments/c7-t01-solve-eqs-config-surface.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/ast/simplifiers/solve_eqs.h'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['bool m_context_solve = true', 'unsigned m_max_occs = UINT_MAX', 'bool m_enable_non_ground = true', 'bool m_enable_non_linear = true', 'scoped_ptr<expr_substitution> m_subst']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c7-t01-solve-eqs-config-surface.result.json b/dream_experiments/c7-t01-solve-eqs-config-surface.result.json
+new file mode 100644
+index 000000000..bf461e0fb
+--- /dev/null
++++ b/dream_experiments/c7-t01-solve-eqs-config-surface.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c7-t01-solve-eqs-config-surface.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/ast/simplifiers/solve_eqs.h\", \"checks\": 5, \"bytes\": 3167}\n"
++}
+\ No newline at end of file

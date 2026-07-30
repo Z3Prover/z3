@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-211443Z-c7-t05-sat-scc-eliminated-skip",
+  "branch": "dream/z3shadow/20260730-211443Z-c7-t05-sat-scc-eliminated-skip",
+  "parent_branch": "master",
+  "category": "optimization",
+  "verdict": "useful",
+  "title": "SAT SCC eliminated literal skip",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/sat/sat_scc.cpp::scc::operator()",
+      "text": "sat_scc skips literals whose variables were eliminated before Tarjan-style binary implication traversal, avoiding SCC work on removed SAT variables.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-211443Z-c7-t05-sat-scc-eliminated-skip/"
+    }
+  ],
+  "cross_cutting": []
+}

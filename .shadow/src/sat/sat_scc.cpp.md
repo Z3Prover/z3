@@ -56,6 +56,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `scc::operator()`
+
+- sat_scc skips literals whose variables were eliminated before Tarjan-style binary implication traversal, avoiding SCC work on removed SAT variables.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260730-211443Z-c7-t05-sat-scc-eliminated-skip/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

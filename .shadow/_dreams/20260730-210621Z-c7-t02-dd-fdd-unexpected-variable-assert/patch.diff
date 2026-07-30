@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c7-t02-dd-fdd-unexpected-variable-assert.py b/dream_experiments/c7-t02-dd-fdd-unexpected-variable-assert.py
+new file mode 100644
+index 000000000..e3fb58852
+--- /dev/null
++++ b/dream_experiments/c7-t02-dd-fdd-unexpected-variable-assert.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/math/dd/dd_fdd.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['bool fdd::contains(bdd b, rational const& val) const', 'SASSERT(pos != UINT_MAX && "Unexpected BDD variable")', 'return b.is_true();', 'return true;', 'bool fdd::contains(bdd const& x, bool_vector const& value) const']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c7-t02-dd-fdd-unexpected-variable-assert.result.json b/dream_experiments/c7-t02-dd-fdd-unexpected-variable-assert.result.json
+new file mode 100644
+index 000000000..8dc5fb31a
+--- /dev/null
++++ b/dream_experiments/c7-t02-dd-fdd-unexpected-variable-assert.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c7-t02-dd-fdd-unexpected-variable-assert.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/math/dd/dd_fdd.cpp\", \"checks\": 5, \"bytes\": 10323}\n"
++}
+\ No newline at end of file

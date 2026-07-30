@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-211200Z-c7-t04-muz-domain-size-guard",
+  "branch": "dream/z3shadow/20260730-211200Z-c7-t04-muz-domain-size-guard",
+  "parent_branch": "master",
+  "category": "refactoring",
+  "verdict": "useful",
+  "title": "Muz finite-domain size guard",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/muz/base/dl_context.cpp::context::symbol_sort_domain.get_number",
+      "text": "muz::context finite sort domains assign dense element numbers with insert_if_not_there and throw default_exception when a limited-size sort receives more distinct constants than declared.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-211200Z-c7-t04-muz-domain-size-guard/"
+    }
+  ],
+  "cross_cutting": []
+}

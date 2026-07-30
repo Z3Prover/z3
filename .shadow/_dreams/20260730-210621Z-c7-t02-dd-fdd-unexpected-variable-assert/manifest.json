@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-210621Z-c7-t02-dd-fdd-unexpected-variable-assert",
+  "branch": "dream/z3shadow/20260730-210621Z-c7-t02-dd-fdd-unexpected-variable-assert",
+  "parent_branch": "master",
+  "category": "bug hunting",
+  "verdict": "useful",
+  "title": "FDD unexpected variable assertion",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/dd/dd_fdd.cpp::fdd::contains",
+      "text": "dd::fdd::contains asserts that every traversed BDD variable maps back to an FDD position; an unexpected BDD variable is a debug-only contract violation rather than a recoverable false result.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "bug"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-210621Z-c7-t02-dd-fdd-unexpected-variable-assert/"
+    }
+  ],
+  "cross_cutting": []
+}

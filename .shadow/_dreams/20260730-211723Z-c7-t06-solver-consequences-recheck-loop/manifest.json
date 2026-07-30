@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-211723Z-c7-t06-solver-consequences-recheck-loop",
+  "branch": "dream/z3shadow/20260730-211723Z-c7-t06-solver-consequences-recheck-loop",
+  "parent_branch": "master",
+  "category": "security audit",
+  "verdict": "useful",
+  "title": "Solver consequences recheck loop",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/solver/solver.cpp::solver::get_consequences_core",
+      "text": "solver::get_consequences_core performs an initial satisfiability check and then may issue one additional check_sat per candidate fixed variable, using temporary assumptions for Boolean constants and a scoped assertion for non-Boolean equalities.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-211723Z-c7-t06-solver-consequences-recheck-loop/"
+    }
+  ],
+  "cross_cutting": []
+}

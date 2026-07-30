@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c7-t05-sat-scc-eliminated-skip.py b/dream_experiments/c7-t05-sat-scc-eliminated-skip.py
+new file mode 100644
+index 000000000..82510852d
+--- /dev/null
++++ b/dream_experiments/c7-t05-sat-scc-eliminated-skip.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/sat/sat_scc.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['if (m_solver.was_eliminated(to_literal(l_idx).var()))', 'index[l_idx] != UINT_MAX', 'SASSERT(fr.m_it->is_binary_clause())', 'lowlink[l2_idx]', 'elim_bin']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c7-t05-sat-scc-eliminated-skip.result.json b/dream_experiments/c7-t05-sat-scc-eliminated-skip.result.json
+new file mode 100644
+index 000000000..207d88c09
+--- /dev/null
++++ b/dream_experiments/c7-t05-sat-scc-eliminated-skip.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c7-t05-sat-scc-eliminated-skip.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/sat/sat_scc.cpp\", \"checks\": 5, \"bytes\": 10503}\n"
++}
+\ No newline at end of file

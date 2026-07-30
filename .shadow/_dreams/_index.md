@@ -38,3 +38,9 @@
 | 20260730-204833Z-c6-t04-theory-bv-bit2bool-index-guard | refactoring | useful | Theory BV bit2bool index guard | dream/z3shadow/20260730-204833Z-c6-t04-theory-bv-bit2bool-index-guard | master | ab86cc03a |
 | 20260730-205111Z-c6-t05-upolynomial-prime-conversion-guards | optimization | useful | Univariate factorization prime guards | dream/z3shadow/20260730-205111Z-c6-t05-upolynomial-prime-conversion-guards | master | d5b740716 |
 | 20260730-205347Z-c6-t06-theory-seq-solution-map-trails | security audit | useful | Sequence solution map trail rollback | dream/z3shadow/20260730-205347Z-c6-t06-theory-seq-solution-map-trails | master | 61b582725 |
+| 20260730-210358Z-c7-t01-solve-eqs-config-surface | investigation | useful | Solve-eqs configuration surface follow-up | dream/z3shadow/20260730-210358Z-c7-t01-solve-eqs-config-surface | dream/z3shadow/20260730-204557Z-c6-t03-solve-eqs-level-overflow-guard | 42883f2e2 |
+| 20260730-210621Z-c7-t02-dd-fdd-unexpected-variable-assert | bug hunting | useful | FDD unexpected variable assertion | dream/z3shadow/20260730-210621Z-c7-t02-dd-fdd-unexpected-variable-assert | master | e2c1a14f4 |
+| 20260730-210906Z-c7-t03-lia2pb-target-guards | feature design | useful | LIA2PB bounded target guards | dream/z3shadow/20260730-210906Z-c7-t03-lia2pb-target-guards | master | 6e7aafa04 |
+| 20260730-211200Z-c7-t04-muz-domain-size-guard | refactoring | useful | Muz finite-domain size guard | dream/z3shadow/20260730-211200Z-c7-t04-muz-domain-size-guard | master | c3e2d8370 |
+| 20260730-211443Z-c7-t05-sat-scc-eliminated-skip | optimization | useful | SAT SCC eliminated literal skip | dream/z3shadow/20260730-211443Z-c7-t05-sat-scc-eliminated-skip | master | 857687021 |
+| 20260730-211723Z-c7-t06-solver-consequences-recheck-loop | security audit | useful | Solver consequences recheck loop | dream/z3shadow/20260730-211723Z-c7-t06-solver-consequences-recheck-loop | master | 0aae5507d |

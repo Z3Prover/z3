@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-210358Z-c7-t01-solve-eqs-config-surface",
+  "branch": "dream/z3shadow/20260730-210358Z-c7-t01-solve-eqs-config-surface",
+  "parent_branch": "dream/z3shadow/20260730-204557Z-c6-t03-solve-eqs-level-overflow-guard",
+  "category": "investigation",
+  "verdict": "useful",
+  "title": "Solve-eqs configuration surface follow-up",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/ast/simplifiers/solve_eqs.h::solve_eqs::config",
+      "text": "solve_eqs exposes separate configuration switches for context solving, occurrence caps, non-ground substitutions, and non-linear substitutions; these switches gate extraction before the substitution object is applied.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-210358Z-c7-t01-solve-eqs-config-surface/"
+    }
+  ],
+  "cross_cutting": []
+}

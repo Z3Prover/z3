@@ -1,0 +1,26 @@
+diff --git a/dream_experiments/c7-t06-solver-consequences-recheck-loop.py b/dream_experiments/c7-t06-solver-consequences-recheck-loop.py
+new file mode 100644
+index 000000000..369cd3419
+--- /dev/null
++++ b/dream_experiments/c7-t06-solver-consequences-recheck-loop.py
+@@ -0,0 +1,8 @@
++from pathlib import Path
++import json
++rel = 'src/solver/solver.cpp'
++text = Path(rel).read_text(encoding='utf-8')
++checks = ['lbool is_sat = check_sat(asms);', 'for (unsigned i = 0; i < vars.size(); ++i)', 'scoped_assumption_push _scoped_push(asms1, nlit);', 'is_sat = check_sat(asms1);', 'scoped_push _scoped_push(*this);', 'assert_expr(nlit);']
++missing = [s for s in checks if s not in text]
++assert not missing, missing
++print(json.dumps({'file': rel, 'checks': len(checks), 'bytes': len(text)}))
+diff --git a/dream_experiments/c7-t06-solver-consequences-recheck-loop.result.json b/dream_experiments/c7-t06-solver-consequences-recheck-loop.result.json
+new file mode 100644
+index 000000000..1b558482a
+--- /dev/null
++++ b/dream_experiments/c7-t06-solver-consequences-recheck-loop.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c7-t06-solver-consequences-recheck-loop.py",
++  "exit_code": 0,
++  "output": "{\"file\": \"src/solver/solver.cpp\", \"checks\": 6, \"bytes\": 9790}\n"
++}
+\ No newline at end of file

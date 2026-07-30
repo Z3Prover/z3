@@ -198,6 +198,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `solver::get_consequences_core`
+
+- solver::get_consequences_core performs an initial satisfiability check and then may issue one additional check_sat per candidate fixed variable, using temporary assumptions for Boolean constants and a scoped assertion for non-Boolean equalities.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260730-211723Z-c7-t06-solver-consequences-recheck-loop/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

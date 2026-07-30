@@ -158,6 +158,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `lia2pb_tactic::imp.is_target_core`
+
+- lia2pb_tactic only targets uninterpreted constants with lower bound 0, nonnegative integer upper bound, and upper-bound bit width within lia2pb_max_bits; partial mode controls whether other arithmetic variables cause failure.
+  _(verified, source: exploration, labels: [feature-gap])_
+  Dream report: `_dreams/20260730-210906Z-c7-t03-lia2pb-target-guards/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

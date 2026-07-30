@@ -706,6 +706,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `context::symbol_sort_domain.get_number`
+
+- muz::context finite sort domains assign dense element numbers with insert_if_not_there and throw default_exception when a limited-size sort receives more distinct constants than declared.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-211200Z-c7-t04-muz-domain-size-guard/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

@@ -100,6 +100,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `solve_eqs::config`
+
+- solve_eqs exposes separate configuration switches for context solving, occurrence caps, non-ground substitutions, and non-linear substitutions; these switches gate extraction before the substitution object is applied.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-210358Z-c7-t01-solve-eqs-config-surface/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._
