@@ -38,6 +38,7 @@ Author:
 #include "ast/euf/euf_mam.h"
 #include "ast/euf/euf_sgraph.h"
 #include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/seq_monadic.h"
 #include "model/model.h"
 #include "util/lbool.h"
 #include "util/dependency.h"
@@ -59,8 +60,7 @@ namespace seq {
     class nielsen_edge;
     class nielsen_graph;
     class seq_parikh;
-    class seq_regex;  // forward declaration (defined in smt/seq/seq_regex.h)
-    class split_manager;  // continuation-regex service (defined in ast/rewriter/seq_monadic.h)
+    class seq_regex;
 
     std::string snode_label_html(euf::snode const* n,
         obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m, bool html_escape);
@@ -1013,15 +1013,16 @@ namespace seq {
         // across calls (a fresh seq_rewriter per consumed character was a
         // dominant simplification cost).
         seq_rewriter            m_deriv_rw;
-        // Dedicated rewriter backing the continuation-regex service used by
+        // Dedicated rewriter backing the membership decision procedure used by
         // apply_monadic_split.  Kept separate from m_split_rw / m_deriv_rw so its
         // derivative caches never interleave with the suspended factorization
-        // iterators that reference those engines.
+        // iterators that reference those engines.  It is also what carries the
+        // derivative cache across seq_monadic calls (the module itself keeps no
+        // state between them).
         seq_rewriter            m_monadic_rw;
-        // Continuation-regex split / intersection service (seq_monadic).  Grows a
-        // shared, globally cached Brzozowski-derivative graph; allocated lazily on
-        // first use and released in reset().
-        seq::split_manager*     m_monadic = nullptr;
+        // Monadic-decomposition membership solver (seq_monadic); allocated lazily
+        // on first use and released in reset().
+        seq_monadic*     m_monadic = nullptr;
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
@@ -1701,11 +1702,21 @@ namespace seq {
         // disjunction is refuted → the continuation node is a regex conflict.
         bool apply_regex_factorization(nielsen_node* node);
 
-        // continuation-regex intersection modifier (seq_monadic).  Detects a
-        // provably empty intersection of several plain memberships sharing the
-        // same left-hand sequence and reports the node as a regex conflict.
+        // whole-language monadic decomposition modifier (seq_monadic).  Decides
+        // emptiness of a non-primitive membership, of a group of memberships on
+        // the same left-hand sequence, and of the node's plain memberships taken
+        // jointly; reports a provably empty one as a regex conflict.
         // Sound one-way only: never creates a child, never claims SAT.
         bool apply_monadic_split(nielsen_node* node);
+
+#if false
+        // Abstract a membership subject into the term shape seq_monadic parses
+        // (a concatenation of constant characters and 0-ary constants), pinning
+        // the constructed terms in `pin` and collecting per-constant
+        // over-approximating regexes in `extra`.  false: the subject is ground.
+        bool monadic_abstract_subject(euf::snode const* str, expr_ref_vector& pin,
+                                      obj_map<expr, expr*>& extra, expr_ref& out);
+#endif
 
         // Build a suspended factorization (boundary head/tail + split iterator)
         // for `mem`.  Returns null if the regex shape is unsupported (the engine

@@ -497,10 +497,9 @@ void tst_quant_elim() {
    
 
     memory::finalize();
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
     _CrtDumpMemoryLeaks();
 #endif
     exit(0);
 }
-
 

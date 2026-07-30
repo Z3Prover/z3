@@ -23,6 +23,7 @@ Notes:
 #include "util/scoped_timer.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
+#include "util/manage_warnings.h"
 #include "model/model_smt2_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "tactic/tactic.h"
@@ -733,6 +734,7 @@ static probe * NAME ## _probe (cmd_context & ctx, sexpr * n) {                  
     return NAME(p1.get(), p2.get());                                                                            \
 }
 
+START_DISABLE_EXTRA_SEMI_WARNING;
 MK_BIN_PROBE(mk_eq);
 MK_BIN_PROBE(mk_le);
 MK_BIN_PROBE(mk_lt);
@@ -741,6 +743,7 @@ MK_BIN_PROBE(mk_gt);
 MK_BIN_PROBE(mk_implies);
 MK_BIN_PROBE(mk_div);
 MK_BIN_PROBE(mk_sub);
+END_DISABLE_WARNING;
 
 #define MK_NARY_PROBE(NAME)                                                                                     \
 static probe * NAME ## _probe(cmd_context & ctx, sexpr * n) {                                                   \
@@ -762,10 +765,12 @@ static probe * NAME ## _probe(cmd_context & ctx, sexpr * n) {                   
     }                                                                                                           \
 }
 
+START_DISABLE_EXTRA_SEMI_WARNING;
 MK_NARY_PROBE(mk_and);
 MK_NARY_PROBE(mk_or);
 MK_NARY_PROBE(mk_add);
 MK_NARY_PROBE(mk_mul);
+END_DISABLE_WARNING;
 
 probe * sexpr2probe(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {

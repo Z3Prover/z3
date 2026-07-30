@@ -39,6 +39,7 @@ Revision History:
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
+#include "util/manage_warnings.h"
 #include "ast/pp_params.hpp"
 #include "ast/expr_abstract.h"
 
@@ -190,16 +191,40 @@ extern "C" {
         func_decl* _d = reinterpret_cast<func_decl*>(d);
         ast_manager& m = mk_c(c)->m();
         if (_d->is_polymorphic()) {
-            polymorphism::util u(m);
-            polymorphism::substitution sub(m);
-            ptr_buffer<sort> domain;
-            for (unsigned i = 0; i < num_args; ++i) {
-                if (!sub.match(_d->get_domain(i), arg_list[i]->get_sort())) 
-                    SET_ERROR_CODE(Z3_INVALID_ARG, "failed to match argument of polymorphic function");
-                domain.push_back(arg_list[i]->get_sort());
+            if (_d->get_arity() != num_args &&
+                !_d->is_left_associative() && !_d->is_right_associative() && !_d->is_chainable()) {
+                SET_ERROR_CODE(Z3_INVALID_ARG, "invalid function application, wrong number of arguments");
+                return nullptr;
             }
+            polymorphism::substitution sub(m);
+            auto match = [&](unsigned domain_idx, unsigned arg_idx) {
+                if (!sub.match(_d->get_domain(domain_idx), arg_list[arg_idx]->get_sort())) {
+                    SET_ERROR_CODE(Z3_INVALID_ARG, "failed to match argument of polymorphic function");
+                    return false;
+                }
+                return true;
+            };
+            for (unsigned i = 0; i < num_args; ++i) {
+                unsigned domain_idx = i;
+                if (_d->is_associative())
+                    domain_idx = 0;
+                else if (_d->is_right_associative())
+                    domain_idx = i + 1 == num_args && num_args > 1 ? 1 : 0;
+                else if (_d->is_left_associative())
+                    domain_idx = i == 0 ? 0 : 1;
+                else if (_d->is_chainable()) {
+                    if ((i > 0 && !match(1, i)) || (i + 1 < num_args && !match(0, i)))
+                        return nullptr;
+                    continue;
+                }
+                if (!match(domain_idx, i))
+                    return nullptr;
+            }
+            sort_ref_buffer domain(m);
+            for (unsigned i = 0; i < _d->get_arity(); ++i)
+                domain.push_back(sub(_d->get_domain(i)));
             sort_ref range = sub(_d->get_range());
-            _d = m.instantiate_polymorphic(_d, num_args, domain.data(), range);
+            _d = m.instantiate_polymorphic(_d, _d->get_arity(), domain.data(), range);
         }
         app* a = m.mk_app(_d, num_args, arg_list.data());
         mk_c(c)->save_ast_trail(a);
@@ -273,6 +298,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MK_UNARY(Z3_mk_not, mk_c(c)->get_basic_fid(), OP_NOT, SKIP);
     MK_BINARY(Z3_mk_eq, mk_c(c)->get_basic_fid(), OP_EQ, SKIP);
     MK_NARY(Z3_mk_distinct, mk_c(c)->get_basic_fid(), OP_DISTINCT, SKIP);
@@ -281,6 +307,7 @@ extern "C" {
     MK_BINARY(Z3_mk_xor, mk_c(c)->get_basic_fid(), OP_XOR, SKIP);
     MK_NARY(Z3_mk_and, mk_c(c)->get_basic_fid(), OP_AND, SKIP);
     MK_NARY(Z3_mk_or, mk_c(c)->get_basic_fid(), OP_OR, SKIP);
+    END_DISABLE_WARNING;
 
     Z3_ast mk_ite_core(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_ast t3) {
         expr * result = mk_c(c)->m().mk_ite(to_expr(t1), to_expr(t2), to_expr(t3));

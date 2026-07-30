@@ -831,9 +831,102 @@ namespace algebraic_numbers {
                 return;
             }
 
+            // At this point [a, b] is an *isolating* and *refinable* interval for p:
+            // it contains exactly one real root of the square-free polynomial p, and
+            // neither endpoint is itself that root. That root could still be a
+            // *rational* number: unlike the general isolate_roots(), this closest-root
+            // path does NOT factor p, so a reducible polynomial (e.g. a product of
+            // linear factors) is handled whole and keeps its rational roots instead of
+            // exposing them as degree-1 factors. If we blindly built an algebraic_cell
+            // here we would create a "root object" that is really just a rational, which
+            // is both wasteful and, downstream, error-prone (algebraic-number comparison
+            // must special-case such cells). So first try to recognize a rational root
+            // and, if found, return it as a plain rational (basic numeral).
+            if (rational_root_in_interval(sz, p, a, b, r))
+                return;
+
             del(r);
             r = mk_algebraic_cell(sz, p, a, b, false /* minimal */);
             SASSERT(acell_inv(*r.to_algebraic()));
+        }
+
+        // Decide whether the unique real root of the square-free integer polynomial p
+        // that lies in the isolating interval [l, u] is a rational number and, if so,
+        // store it in r as a basic (rational) numeral and return true. Otherwise return
+        // false (the root is irrational and must be represented as a root object).
+        //
+        // Notation: p(x) = a_n*x^n + ... + a_1*x + a_0 with a_i integers (mpz), a_n != 0.
+        //           mpbq = dyadic rational (denominator is a power of two);
+        //           mpq  = arbitrary rational; mpz = integer.
+        //
+        // Preconditions (guaranteed by the caller, isolate_kth_root):
+        //   * p is square-free, so all its roots are simple (no repeated roots).
+        //   * [l, u] is an isolating interval: it contains EXACTLY ONE real root of p.
+        //     This is why we may speak of "the root" in the interval.
+        //
+        // The mathematics used:
+        //
+        //   1. Rational Root Theorem. If a polynomial with integer coefficients has a
+        //      rational root num/den, where den > 0 does not divide num, 
+        //      then den divides the leading coefficient a_n. In
+        //      particular every rational root can be written with denominator |a_n|,
+        //      i.e. as m/|a_n| for some integer m. We can represent the root as that m/|a_n|
+        //      for some integer m.
+        //
+        //   2. Two distinct rationals m1/|a_n| and m2/|a_n| differ by at least 1/|a_n|. Hence if we
+        //      first shrink [l, u] to have width < 1/|a_n|, the interval can contain at
+        //      most one rational of the form m/|a_n| => if the
+        //      root is rational it must equal that single candidate.
+        bool rational_root_in_interval(unsigned sz, mpz const * p, mpbq & l, mpbq & u, numeral & r) {
+            // a_n is the leading coefficient; work with its absolute value |a_n|.
+            mpz const & a_n = p[sz - 1];
+            scoped_mpz abs_a_n(qm());
+            qm().set(abs_a_n, a_n);
+            qm().abs(abs_a_n);
+
+            // We need the interval width to be strictly less than 1/|a_n|
+            // refine() shrinks by halving, i.e. it reaches width <= 1/2^k. Choosing
+            //   k = floor(log2(|a_n|)) + 1
+            // gives 2^k > |a_n|, hence 1/2^k < 1/|a_n|, which is what we want.
+            unsigned k = qm().log2(abs_a_n);
+            k++;
+
+            // Refine [l, u] to precision k. refine() returns false in the lucky case
+            // where the bisection lands *exactly* on a dyadic rational that is a root
+            // of p; in that case the exact root has been stored in the lower endpoint l,
+            // so we can return it directly as a basic rational.
+            if (!upm().refine(sz, p, bqm(), l, u, k)) {
+                scoped_mpq q(qm());
+                to_mpq(qm(), l, q);
+                set(r, q);
+                return true;
+            }
+            // Otherwise refine() succeeded and [l, u] now has width < 1/|a_n|.
+
+            // Build the unique candidate rational m/|a_n| that could lie in [l, u].
+            // Scale the interval by |a_n|: [l*|a_n|, u*|a_n|] has width < 1, so it
+            // contains at most one integer. That integer, if any, is m = floor(u*|a_n|),
+            // and the candidate rational is m/|a_n|.
+            scoped_mpbq a_n_upper(bqm());
+            bqm().mul(u, abs_a_n, a_n_upper);        // a_n_upper = u * |a_n|
+            scoped_mpz zcandidate(qm());
+            bqm().floor(qm(), a_n_upper, zcandidate); // m = floor(u * |a_n|)
+            scoped_mpq candidate(qm());
+            qm().set(candidate, zcandidate, abs_a_n); // candidate = m / |a_n|
+
+            // By construction candidate <= u. We still must confirm two things:
+            //   (a) candidate is actually inside the interval, i.e. l < candidate
+            //       (if candidate <= l then there is no rational m/|a_n| inside [l,u]);
+            //   (b) candidate is genuinely a root, i.e. p(candidate) == 0.
+            // If both hold, then since the interval isolates exactly one root, that
+            // root equals candidate and is rational. If p(candidate) != 0, then by the
+            // Rational Root Theorem no rational (which would have to be m/|a_n|) is a
+            // root here, so the single root in the interval is irrational.
+            if (bqm().lt(l, candidate) && upm().eval_sign_at(sz, p, candidate) == sign_zero) {
+                set(r, candidate);
+                return true;
+            }
+            return false;
         }
 
         // Closest-root isolation for an (integer) univariate polynomial.

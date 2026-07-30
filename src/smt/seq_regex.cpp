@@ -128,30 +128,6 @@ namespace smt {
             return;
         }
 
-        if (th.get_fparams().m_seq_regex_factorization_enabled) {
-            unsigned threshold = th.get_fparams().m_seq_regex_factorization_threshold;
-            if (threshold == 0)
-                threshold = UINT_MAX;
-            split_set result;
-            auto [head, tail] = seq_rw().split_membership(s, r, threshold, result);
-            if (head) {
-                SASSERT(tail);
-                // propagate all cases
-                expr_ref_vector cases(m);
-                expr_ref_vector branches(m);
-                for (auto [pre, post] : result) {
-                    expr_ref mem_head(re().mk_in_re(head, pre), m);
-                    expr_ref mem_tail(re().mk_in_re(tail, post), m);
-                    cases.push_back(m.mk_and(mem_head, mem_tail));
-                }
-                const expr_ref cases_expr(m.mk_or(cases), m);
-                ctx.internalize(cases_expr, false);
-                th.propagate_lit(nullptr, 1, &lit, ctx.get_literal(cases_expr));
-                return;
-            }
-            // fallthrough; decomposition failed
-        }
-
         // Convert a non-ground sequence into an additional regex and
         // strengthen the original regex constraint into an intersection
         // for example:
@@ -501,7 +477,7 @@ namespace smt {
         // it directly by antimirov NFA reachability instead of running the
         // bisimulation/XOR closure, which would build large un-canonicalized
         // product states for intersections of contains-patterns.
-        if ((re().is_empty(r1) || re().is_empty(r2)) && is_ground(r)) {
+        if ((re().is_empty(r1) || re().is_empty(r2)) && re().is_ground(r)) {
             switch (re_is_empty(r)) {
             case l_true:
                 STRACE(seq_regex_brief, tout << "empty:eq ";);
@@ -517,7 +493,7 @@ namespace smt {
         // Try the bisimulation procedure on ground regexes first.  If it
         // returns a definite answer, dispatch the corresponding axiom and
         // bypass the symbolic emptiness/derivative closure.
-        if (is_ground(r1) && is_ground(r2)) {
+        if (re().is_ground(r1) && re().is_ground(r2)) {
             seq::regex_bisim bisim(seq_rw());
             switch (bisim.are_equivalent(r1, r2)) {
             case l_true:
@@ -531,16 +507,8 @@ namespace smt {
                 break;
             }
         }
-        expr_ref emp(re().mk_empty(r->get_sort()), m);
-        expr_ref f(m.mk_fresh_const("re.char", seq_sort), m); 
-        expr_ref is_empty = sk().mk_is_empty(r, r, f);
-        // is_empty : (re,re,seq) -> Bool is a Skolem function 
-        // f is a fresh internal Skolem constant of sort seq
-        // the literal is satisfiable when emptiness check succeeds
-        // meaning that r is not nullable and 
-        // that all derivatives of r (if any) are also empty
-        // TBD: rewrite to use state_graph
-        th.add_axiom(~th.mk_eq(r1, r2, false), th.mk_literal(is_empty));
+        th.add_unhandled_expr(r1);
+        th.add_unhandled_expr(r2);
     }
     
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
@@ -549,7 +517,7 @@ namespace smt {
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
-        if (is_ground(r1) && is_ground(r2)) {
+        if (re().is_ground(r1) && re().is_ground(r2)) {
             seq::regex_bisim bisim(seq_rw());
             switch (bisim.are_equivalent(r1, r2)) {
             case l_true:
@@ -563,10 +531,8 @@ namespace smt {
                 break;
             }
         }
-        expr_ref emp(re().mk_empty(r->get_sort()), m);
-        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
-        expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
-        th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));
+        th.add_unhandled_expr(r1);
+        th.add_unhandled_expr(r2);
     }
 
     bool seq_regex::is_member(expr* r, expr* u) {

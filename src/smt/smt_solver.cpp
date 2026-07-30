@@ -101,9 +101,9 @@ namespace {
                 result->set_model_converter(mc0()->translate(translator));
 
             for (auto& [k, v] : m_name2assertion) {
-                expr* val = translator(k);
-                expr* key = translator(v);
-                result->assert_expr(val, key);
+                expr* fml = translator(v);
+                expr* ind = translator(k);
+                result->assert_expr(fml, ind);
             }
 
             return result;

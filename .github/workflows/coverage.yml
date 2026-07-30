@@ -19,7 +19,7 @@ jobs:
       COV_DETAILS_PATH: ${{github.workspace}}/cov-details
 
     steps:
-    - uses: actions/checkout@v7.0.0
+    - uses: actions/checkout@v7.0.1
 
     - name: Setup
       run: |
@@ -41,7 +41,6 @@ jobs:
       run: |
         cmake --build ${{github.workspace}}/build --target c_example
         cmake --build ${{github.workspace}}/build --target cpp_example
-        cmake --build ${{github.workspace}}/build --target z3_tptp5
         cmake --build ${{github.workspace}}/build --target c_maxsat_example
 
     - name: Clone z3test
@@ -59,7 +58,6 @@ jobs:
     - name: Run examples
       run: |
         ${{github.workspace}}/build/examples/cpp_example_build_dir/cpp_example
-        ${{github.workspace}}/build/examples/tptp_build_dir/z3_tptp5 --help
         ${{github.workspace}}/build/examples/c_maxsat_example_build_dir/c_maxsat_example ${{github.workspace}}/examples/maxsat/ex.smt
 
     - name: Run regressions

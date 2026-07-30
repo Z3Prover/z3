@@ -7,16 +7,16 @@ Module Name:
 
 Abstract:
 
-    Continuation-regex split service and intersection non-emptiness.  See
-    seq_monadic.h.
+    Whole-language monadic decomposition for regex membership.  See seq_monadic.h.
+    Automaton-based (product-reachability); reach(q) is never materialized as a regex.
 
-    Automaton-based (product/derivative reachability) and element-sort agnostic:
-    guard feasibility and successor states are computed entirely by the symbolic
-    derivative engine (seq_rewriter::brz_derivative_cofactors, which prunes
-    infeasible guards internally), so there is no character-specific reasoning in
-    this module.  A single global derivative-transition graph is grown lazily and
-    recycled across every regex, so no derivative is computed twice.  th_rewriter is
-    used to normalize the intersection regex.
+    Generic in the element sort.  The decomposition, liveness and product-reachability
+    are element-agnostic; only the *guard algebra* over the derivative cofactor guards
+    depends on the element sort.  For the character sort it is the exact, compact
+    seq::range_predicate; for any other element sort it is a candidate-basis over the
+    element values mentioned by the guards (sound and complete for the
+    {true,false,=,<=,and,or,not} grammar the derivatives emit).  The same guard algebra
+    yields the concrete element used to build a witness sequence.
 
 Author:
 
@@ -25,14 +25,14 @@ Author:
 Shady parts:
 
 - epsilon transitions appear not accounted for when computing reaching states.
-  If a regex R contains N by taking a set of epsilon transitions, then it is nullable relative 
+  If a regex R contains N by taking a set of epsilon transitions, then it is nullable relative
   to N. It suggests a use for a version of nullability that is relative to N.
   Deal also with when N itself has epsilon transitions to N1, .., Nk.
 
 - witness extraction is plain wrong. It should generally rely on a choice function that takes a
   Boolean expression F[(:var 0)] with a single free variable and synthesize a value for the free
-  variable such that the expression is true. 
-  For character predicates we can assume that the Boolean expressions are range predicates and we can 
+  variable such that the expression is true.
+  For character predicates we can assume that the Boolean expressions are range predicates and we can
   use utilities for range predicates. For other types use some best effort, say F is of the form (= (:var 0) value).
   Expose the witness function in a self-contained module outside of this file.
 
@@ -53,430 +53,585 @@ Shady parts:
 --*/
 
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/rewriter/seq_range_collapse.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 #include <set>
 #include <vector>
-#include <climits>
+#include <map>
+#include <tuple>
+#include <functional>
+#include <algorithm>
 
-namespace seq {
+namespace {
 
-    // ------------------------------------------------------------------
-    //  global derivative-transition graph (shared / recycled across regexes)
-    // ------------------------------------------------------------------
+// A conjunction of derivative cofactor guards over the element variable v0 = (:var 0),
+// interpreted as the set of element values satisfying it.  Two representations by
+// element sort:
+//   * character sort:  the exact, compact seq::range_predicate.
+//   * any other sort:  the guard predicate kept symbolically and decided by a candidate
+//     basis -- the element values mentioned in the guards, plus one fresh value.  This
+//     is sound and complete for the {true,false,=,<=,and,or,not} grammar the derivatives
+//     emit (over a general element sort only equalities appear).
+class guard_set {
+    ast_manager&         m;
+    seq_util&            u;
+    sort*                m_sort;
+    expr*                m_v0;
+    bool                 m_is_char;
+    bool                 m_ok = true;      // false: an unsupported guard was conjoined
+    seq::range_predicate m_rp;             // char representation
+    expr_ref             m_guard;          // generic representation (conjunction over v0)
 
-    lbool split_manager::nullable(expr* s) {
-        expr_ref nb = m_rw.is_nullable(s);
-        return m.is_true(nb) ? l_true : m.is_false(nb) ? l_false : l_undef;
-    }
+    // ---- generic path: candidate basis ----
 
-    unsigned split_manager::intern_state(expr* s) {
-        unsigned id;
-        if (m_state_id.find(s, id))
-            return id;                            // recycle the global state
-        id = m_gstate.size();
-        m_state_id.insert(s, id);
-        m_gstate.push_back(s);
-        m_pin.push_back(s);
-        m_gmaybe_null.push_back(nullable(s) != l_false); // unknown nullability => keep (conservative)
-        m_gexpanded.push_back(false);
-        m_gsucc.push_back(svector<gedge>());
-        return id;
-    }
-
-    void split_manager::expand_state(unsigned i, bool& ok) {
-        ok = true;
-        if (m_gexpanded[i])
-            return;                               // successors already computed once
-        if (!m.inc()) { ok = false; return; }
-        expr* s = m_gstate[i];                    // captured before any interning realloc
-        expr_ref_pair_vector cof(m);
-        m_rw.brz_derivative_cofactors(s, cof);
-        svector<gedge> edges;
-        for (auto const& [g, t] : cof) {
-            if (re().is_empty(t)) continue;       // engine already pruned infeasible guards
-            unsigned k = intern_state(t);         // may realloc m_gsucc: collect edges first
-            m_pin.push_back(g);
-            edges.push_back(gedge{ g, k });
-        }
-        for (gedge const& e : edges)              // m_gsucc stable now (no more interning)
-            m_gsucc[i].push_back(e);
-        m_gexpanded[i] = true;
-    }
-
-    // ------------------------------------------------------------------
-    //  live-state / reachability machinery (projected out of the global graph)
-    // ------------------------------------------------------------------
-
-    void split_manager::build_graph(expr* R, ptr_vector<expr>& states,
-                                    vector<svector<unsigned>>& succ,
-                                    bool_vector& maybe_null, bool& ok) {
-        ok = true;
-        states.reset();
-        succ.reset();
-        maybe_null.reset();
-        obj_map<expr, unsigned> local;            // state expr -> local index
-        svector<unsigned> l2g;                    // local index -> global id
-        auto local_of = [&](expr* s) -> unsigned {
-            unsigned li;
-            if (local.find(s, li)) return li;
-            unsigned gid = intern_state(s);
-            li = states.size();
-            local.insert(s, li);
-            l2g.push_back(gid);
-            states.push_back(s);
-            maybe_null.push_back(m_gmaybe_null[gid]);
-            succ.push_back(svector<unsigned>());
-            return li;
-        };
-        local_of(R);
-        const unsigned STATE_CAP = 1u << 12;
-        for (unsigned i = 0; i < states.size(); ++i) {
-            if (states.size() > STATE_CAP || !m.inc()) { ok = false; return; }
-            unsigned gid = l2g[i];
-            expand_state(gid, ok);
-            if (!ok) return;
-            svector<unsigned> tgts;               // snapshot: local_of may realloc m_gsucc
-            for (gedge const& e : m_gsucc[gid])
-                tgts.push_back(e.target);
-            for (unsigned t : tgts) {
-                // hoist local_of out of the subscript: it may push_back onto succ
-                // (reallocating it), which would dangle a succ[i] taken first.
-                unsigned li = local_of(m_gstate[t]);
-                succ[i].push_back(li);
-            }
-        }
-    }
-
-    // Backward closure of `seed` over the transition graph `succ`: mark every
-    // state that can reach an already-marked one, then collect the marked states
-    // into `out`.  `seed` is used in place as the working set.
-    static void collect_backward_closure(vector<svector<unsigned>> const& succ, bool_vector& seed,
-                                         ptr_vector<expr> const& states, ptr_vector<expr>& out) {
-        const unsigned n = states.size();
-        for (bool ch = true; ch; ) {
-            ch = false;
-            for (unsigned i = 0; i < n; ++i)
-                if (!seed[i])
-                    for (unsigned j : succ[i])
-                        if (seed[j]) { seed[i] = true; ch = true; break; }
-        }
-        for (unsigned i = 0; i < n; ++i)
-            if (seed[i]) out.push_back(states.get(i));
-    }
-
-    void split_manager::reachable_states(expr* R, expr* accept_target,
-                                         ptr_vector<expr>& out, bool& ok) {
-        ptr_vector<expr> states;
-        vector<svector<unsigned>> succ;
-        bool_vector maybe_null;                   // membership acceptance seed
-        build_graph(R, states, succ, maybe_null, ok);
-        if (!ok) return;
-        if (!accept_target) {                     // membership: seed = nullable states
-            collect_backward_closure(succ, maybe_null, states, out);
+    // element values compared to v0 by the equalities in `g`.
+    void collect_consts(expr* g, ptr_vector<expr>& out) const {
+        expr* a = nullptr, * b = nullptr;
+        if (m.is_and(g) || m.is_or(g)) {
+            for (expr* arg : *to_app(g)) collect_consts(arg, out);
             return;
         }
-        bool_vector reach;                        // reach: seed = the target state N
-        reach.resize(states.size(), false);
-        bool found = false;
-        for (unsigned i = 0; i < states.size(); ++i)
-            if (states.get(i) == accept_target) { reach[i] = true; found = true; break; }
-        if (found)                                // N unreachable => no midpoints
-            collect_backward_closure(succ, reach, states, out);
+        if (m.is_not(g, a)) { collect_consts(a, out); return; }
+        if (m.is_eq(g, a, b)) {
+            if (a == m_v0 && b != m_v0) out.push_back(b);
+            else if (b == m_v0 && a != m_v0) out.push_back(a);
+        }
     }
 
-    // ------------------------------------------------------------------
-    //  intersection non-emptiness
-    // ------------------------------------------------------------------
-
-    // A component <R_i, N_i> is a membership (nullable) component when N_i is null or
-    // the epsilon regex; otherwise it is a reach component with structural target N_i.
-    static bool is_membership(seq_util::rex& re, cont_regex const& cr) {
-        expr* N = cr.second.get();
-        return N == nullptr || re.is_epsilon(N);
-    }
-
-    // Flatten the operands of a (possibly nested) re.inter into `out`.
-    static void flatten_inter(seq_util::rex& re, expr* e, ptr_vector<expr>& out) {
+    // evaluate `g` at v0 := cand ; l_undef on a construct outside the grammar.
+    lbool eval_at(expr* g, expr* cand) const {
         expr* a = nullptr, * b = nullptr;
-        if (re.is_intersection(e, a, b)) {
-            flatten_inter(re, a, out);
-            flatten_inter(re, b, out);
+        if (m.is_true(g))  return l_true;
+        if (m.is_false(g)) return l_false;
+        if (m.is_not(g, a)) {
+            lbool r = eval_at(a, cand);
+            return r == l_undef ? l_undef : (r == l_true ? l_false : l_true);
+        }
+        if (m.is_and(g)) {
+            lbool r = l_true;
+            for (expr* arg : *to_app(g)) {
+                lbool e = eval_at(arg, cand);
+                if (e == l_false) return l_false;
+                if (e == l_undef) r = l_undef;
+            }
+            return r;
+        }
+        if (m.is_or(g)) {
+            lbool r = l_false;
+            for (expr* arg : *to_app(g)) {
+                lbool e = eval_at(arg, cand);
+                if (e == l_true) return l_true;
+                if (e == l_undef) r = l_undef;
+            }
+            return r;
+        }
+        if (m.is_eq(g, a, b)) {
+            expr* other = (a == m_v0) ? b : (b == m_v0 ? a : nullptr);
+            if (!other) return l_undef;
+            if (other == m_v0) return l_true;
+            return (cand == other) ? l_true : l_false;   // canonical values: identity == equality
+        }
+        return l_undef;
+    }
+
+    // a value of m_sort distinct from every element of `consts`, if one can be built.
+    bool mk_fresh(ptr_vector<expr> const& consts, expr_ref& out) const {
+        if (m.is_bool(m_sort)) {
+            bool hasT = false, hasF = false;
+            for (expr* c : consts) { if (m.is_true(c)) hasT = true; else if (m.is_false(c)) hasF = true; }
+            if (!hasT) { out = m.mk_true();  return true; }
+            if (!hasF) { out = m.mk_false(); return true; }
+            return false;
+        }
+        arith_util a(m);
+        if (a.is_int_real(m_sort)) {
+            rational mx(0); bool any = false;
+            for (expr* c : consts) {
+                rational v;
+                if (a.is_numeral(c, v)) { if (!any || v > mx) mx = v; any = true; }
+            }
+            out = a.mk_numeral(any ? mx + rational(1) : rational(0), a.is_int(m_sort));
+            return true;
+        }
+        bv_util bv(m);
+        if (bv.is_bv_sort(m_sort)) {
+            unsigned sz = bv.get_bv_size(m_sort);
+            for (unsigned k = 0; k <= consts.size(); ++k) {
+                rational kv(k);
+                bool clash = false;
+                for (expr* c : consts) {
+                    rational v; unsigned bsz = 0;
+                    if (bv.is_numeral(c, v, bsz) && v == kv) { clash = true; break; }
+                }
+                if (!clash) { out = bv.mk_numeral(kv, sz); return true; }
+            }
+            return false;
+        }
+        return false;
+    }
+
+    lbool generic_eval(expr_ref* witness) const {
+        ptr_vector<expr> consts;
+        collect_consts(m_guard, consts);
+        bool saw_undef = false;
+        for (expr* c : consts) {
+            lbool r = eval_at(m_guard, c);
+            if (r == l_true) { if (witness) *witness = expr_ref(c, m); return l_true; }
+            if (r == l_undef) saw_undef = true;
+        }
+        expr_ref fresh(m);
+        if (mk_fresh(consts, fresh)) {
+            lbool r = eval_at(m_guard, fresh);
+            if (r == l_true) { if (witness) *witness = fresh; return l_true; }
+            if (r == l_undef) saw_undef = true;
         }
         else
-            out.push_back(e);
+            saw_undef = true;   // the "distinct from all mentioned values" region is untested
+        return saw_undef ? l_undef : l_false;
     }
 
-    // Beyond `depth_cap` elements the length no longer changes acceptance, so the
-    // BFS caps the depth component of its visited key there to stay finite.
-    static unsigned depth_cap(unsigned lo, unsigned hi) { return hi == UINT_MAX ? lo : hi; }
-
-    // Reconstruct the per-position guard sequence of the accepting node `cur` by
-    // walking its parent chain and reversing.  `Node` has `.parent` (int) and
-    // `.guard` (expr*); the root (parent < 0) contributes no guard.
-    template<typename Node>
-    static void emit_witness(std::vector<Node> const& nodes, int cur, expr_ref_vector& seq) {
-        ptr_vector<expr> gs;
-        for (int j = cur; j >= 0 && nodes[j].parent >= 0; j = nodes[j].parent)
-            gs.push_back(nodes[j].guard);
-        for (unsigned k = gs.size(); k-- > 0; )
-            seq.push_back(gs[k]);
+public:
+    guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0)
+        : m(_m), u(_u), m_sort(elem_sort), m_v0(v0),
+          m_is_char(_u.is_char(elem_sort)),
+          m_rp(_u.max_char()), m_guard(_m) {
+        if (m_is_char) m_rp = seq::range_predicate::top(u.max_char());
+        else           m_guard = m.mk_true();
     }
 
-    // Shared bounded BFS with witness reconstruction, used by both the membership
-    // and the product intersection search.  It explores states of type `State` up
-    // to depth `hi`, deduping on (key_of(state), min(depth, depth_cap)) so the walk
-    // stays finite even for hi == UINT_MAX.  The callbacks abstract the two engines:
-    //   key_of(state)          -- comparable dedup key for the state
-    //   accept(state) -> lbool -- l_true accepting / l_false not / l_undef unknown
-    //   expand(state, out)     -- append (successor, incoming-guard) pairs; return
-    //                             false on a resource limit
-    // Returns l_true with the per-position guard witness in `seq`, l_false, or
-    // l_undef (resource limit or an undecidable acceptance encountered en route).
-    template<typename State, typename KeyOf, typename Accept, typename Expand>
-    static lbool bounded_search(ast_manager& m, State const& start, unsigned lo, unsigned hi,
-                                KeyOf key_of, Accept accept, Expand expand, expr_ref_vector& seq) {
-        struct node { State st; unsigned depth; int parent; expr* guard; };
-        std::vector<node> nodes;
-        const unsigned cap = depth_cap(lo, hi);
-        auto vkey = [&](State const& s, unsigned d) {
-            return std::make_pair(key_of(s), d < cap ? d : cap);
-        };
-        std::set<decltype(vkey(start, 0u))> visited;
-        nodes.push_back(node{ start, 0, -1, nullptr });
-        visited.insert(vkey(start, 0));
-        bool undecided = false;
-        for (size_t head = 0; head < nodes.size(); ++head) {
-            if (!m.inc()) return l_undef;
-            int cur = (int) head;
-            State st = nodes[cur].st;             // copy: `nodes` may grow below
-            unsigned depth = nodes[cur].depth;
-            if (depth >= lo && depth <= hi) {
-                switch (accept(st)) {
-                case l_true:  emit_witness(nodes, cur, seq); return l_true;
-                case l_undef: undecided = true; break;   // cannot claim l_false
-                case l_false: break;
-                }
-            }
-            if (depth >= hi)
-                continue;                          // cannot extend further
-            std::vector<std::pair<State, expr*>> next;
-            if (!expand(st, next)) return l_undef;
-            for (auto const& [ns, g] : next)
-                if (visited.insert(vkey(ns, depth + 1)).second)
-                    nodes.push_back(node{ ns, depth + 1, cur, g });
+    bool ok() const { return m_ok; }
+
+    // AND in a cofactor guard g (a Boolean over v0).
+    void conjoin(expr* g) {
+        if (!m_ok) return;
+        if (m_is_char) {
+            seq::range_predicate s(u.max_char());
+            if (!seq::guard_to_range_predicate(u, m_v0, g, s)) { m_ok = false; return; }
+            m_rp = m_rp & s;
         }
-        return undecided ? l_undef : l_false;
+        else
+            m_guard = m.mk_and(m_guard, g);
     }
 
-    lbool split_manager::intersect(vector<cont_regex> const& crs, unsigned lo, unsigned hi,
-                                   expr_ref_vector& seq) {
-        seq.reset();
-        unsigned n = crs.size();
-        if (n == 0) {
-            // universal language: contains a word of every length; non-empty iff lo <= hi
-            if (lo > hi) return l_false;
-            for (unsigned k = 0; k < lo; ++k)
-                seq.push_back(m.mk_true());       // trivial guard: any element admissible
+    // l_false = empty, l_true = non-empty (sets *witness if non-null to a concrete
+    // element of the set), l_undef = unknown / unsupported guard.
+    lbool eval(expr_ref* witness) const {
+        if (!m_ok) return l_undef;
+        if (m_is_char) {
+            if (m_rp.is_empty()) return l_false;
+            if (witness) *witness = expr_ref(u.mk_char(m_rp[0].first), m);
             return l_true;
         }
-        // Fast, robust path when every component is a membership (nullable) component:
-        // the intersection is non-empty iff some reachable product state is nullable.
-        bool all_memb = true;
-        for (auto const& cr : crs)
-            if (!is_membership(re(), cr)) { all_memb = false; break; }
-        if (all_memb)
-            return intersect_membership(crs, lo, hi, seq);
-
-        // General case: a tuple product search that also handles reach targets
-        // N != epsilon via structural target matching.
-        return intersect_product(crs, lo, hi, seq);
+        return generic_eval(witness);
     }
+};
 
-    lbool split_manager::intersect_membership(vector<cont_regex> const& crs, unsigned lo,
-                                              unsigned hi, expr_ref_vector& seq) {
-        unsigned n = crs.size();
-        // The normalized intersection regex; the derivative engine handles guard
-        // feasibility and successor computation internally.  A single (interned,
-        // globally cached) state is searched: acceptance is nullability, successors
-        // are the cached cofactor edges.
-        expr_ref P(crs[0].first.get(), m);
-        for (unsigned i = 1; i < n; ++i)
-            P = re().mk_inter(P, crs[i].first.get());
-        m_th(P);
-        unsigned r0 = intern_state(P.get());
+}
 
-        auto key_of = [](unsigned st) { return st; };
-        auto accept = [&](unsigned st) {
-            return m_gmaybe_null[st] ? nullable(m_gstate[st]) : l_false;
-        };
-        auto expand = [&](unsigned st, std::vector<std::pair<unsigned, expr*>>& out) {
-            bool ok = true;
-            expand_state(st, ok);
-            if (!ok) return false;
-            for (gedge const& e : m_gsucc[st])     // no interning here => m_gsucc stable
-                out.push_back({ e.target, e.guard });
-            return true;
-        };
-        return bounded_search<unsigned>(m, r0, lo, hi, key_of, accept, expand, seq);
-    }
+expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
+    expr_ref d = m_rw.mk_derivative(elem, r);   // mk_derivative(element, regex)
+    // Normalize: for a general element sort the derivative by a non-matching constant can
+    // leave a ground guard (e.g. (= 1 2)) unfolded; simplifying collapses such dead
+    // branches to re.empty so nullability/emptiness stay decidable.
+    expr_ref d2(m);
+    m_thrw(d, d2);
+    return d2;
+}
 
-    lbool split_manager::intersect_product(vector<cont_regex> const& crs, unsigned lo,
-                                           unsigned hi, expr_ref_vector& seq) {
-        unsigned n = crs.size();
-
-        bool_vector memb;                         // per component: membership (nullable) vs reach
-        ptr_vector<expr> tgt;                     // per component: reach target (or null)
-        svector<expr*> start;                     // start tuple
-        for (auto const& cr : crs) {
-            bool mb = is_membership(re(), cr);
-            memb.push_back(mb);
-            tgt.push_back(mb ? nullptr : cr.second.get());
-            start.push_back(cr.first.get());
-            m_pin.push_back(cr.first.get());
-            if (!mb) m_pin.push_back(cr.second.get());
+void seq_monadic::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
+    ok = true;
+    obj_map<expr, unsigned> id;
+    expr_ref_vector states(m);
+    vector<svector<unsigned>> succ;
+    bool_vector maybe_null;
+    auto intern = [&](expr* s) -> unsigned {
+        unsigned k;
+        if (id.find(s, k)) return k;
+        k = states.size();
+        id.insert(s, k);
+        states.push_back(s);
+        succ.push_back(svector<unsigned>());
+        expr_ref nb = m_rw.is_nullable(s);
+        maybe_null.push_back(!m.is_false(nb));   // unknown nullability => keep (conservative)
+        return k;
+    };
+    intern(R);
+    const unsigned STATE_CAP = 1u << 12;
+    for (unsigned i = 0; i < states.size(); ++i) {
+        if (states.size() > STATE_CAP || !m.inc()) { ok = false; return; }
+        expr_ref_pair_vector cof(m);
+        m_rw.brz_derivative_cofactors(states.get(i), cof);
+        for (auto const& [g, t] : cof) {
+            if (re().is_empty(t)) continue;
+            unsigned k = intern(t);           // MUST precede succ[i] indexing: intern may
+            succ[i].push_back(k);             // grow (realloc) succ, invalidating succ[i]&
         }
-
-        // Search state is the product tuple; acceptance is per-component (nullable
-        // for membership, structural target match for reach); successors are the
-        // cofactors of inter(st_0,...,st_{n-1}) decomposed positionally.
-        auto key_of = [](svector<expr*> const& st) {
-            std::vector<unsigned> k;
-            k.reserve(st.size());
-            for (expr* e : st) k.push_back(e->get_id());
-            return k;
-        };
-        auto accept = [&](svector<expr*> const& st) -> lbool {
-            for (unsigned i = 0; i < n; ++i) {
-                if (!memb[i]) {
-                    if (st[i] != tgt[i]) return l_false;   // reach: structural target
-                    continue;
-                }
-                switch (nullable(st[i])) {
-                case l_true:  continue;
-                case l_false: return l_false;
-                case l_undef: return l_undef;
-                }
-            }
-            return l_true;
-        };
-        // The engine prunes infeasible joint guards and yields the product successor
-        // as the re.inter of the per-component derivatives -- but we must NOT assume
-        // it keeps them in source order (mk_inter subset-collapses, De-Morgan-merges,
-        // and may reorder operands).  So we recover the correspondence by IDENTITY:
-        // each operand of the joint target is matched to the component whose own
-        // derivative-target set contains it.  A cofactor whose operands cannot be
-        // assigned bijectively (a merge dropped one, or the match is ambiguous) sets
-        // `collapsed`, softening a final l_false to l_undef -- we cannot certify
-        // emptiness through an edge we could not decompose.
-        bool collapsed = false;
-        auto expand = [&](svector<expr*> const& st, std::vector<std::pair<svector<expr*>, expr*>>& out) {
-            // Per-component derivative targets (order-independent recovery dictionary).
-            std::vector<ptr_vector<expr>> comp_succ(n);
-            for (unsigned i = 0; i < n; ++i) {
-                expr_ref_pair_vector ci(m);
-                m_rw.brz_derivative_cofactors(st[i], ci);
-                for (auto const& [gi, ti] : ci)
-                    if (!re().is_empty(ti))
-                        comp_succ[i].push_back(ti);
-            }
-            // The unique operand of `ops` that is a derivative target of component i,
-            // or null if none / more than one (ambiguous).
-            auto derivative_of = [&](unsigned i, ptr_vector<expr> const& ops) -> expr* {
-                expr* hit = nullptr;
-                for (expr* op : ops)
-                    for (expr* ti : comp_succ[i])
-                        if (op == ti) {
-                            if (hit && hit != op) return nullptr;   // ambiguous
-                            hit = op;
-                            break;
-                        }
-                return hit;
-            };
-
-            expr_ref P(st[0], m);
-            for (unsigned i = 1; i < n; ++i)
-                P = re().mk_inter(P, st[i]);
-            expr_ref_pair_vector cof(m);
-            m_rw.brz_derivative_cofactors(P, cof);
-            for (auto const& [g, t] : cof) {
-                if (re().is_empty(t)) continue;
-                svector<expr*> nst;
-                if (n == 1)
-                    nst.push_back(t);
-                else {
-                    ptr_vector<expr> ops;
-                    flatten_inter(re(), t, ops);
-                    nst.resize(n, nullptr);
-                    bool ok_assign = (ops.size() == n);
-                    for (unsigned i = 0; ok_assign && i < n; ++i)
-                        if (!(nst[i] = derivative_of(i, ops)))
-                            ok_assign = false;
-                    for (unsigned i = 0; ok_assign && i < n; ++i)      // require a bijection
-                        for (unsigned j = i + 1; j < n; ++j)
-                            if (nst[i] == nst[j]) ok_assign = false;
-                    if (!ok_assign) { collapsed = true; continue; }
-                }
-                for (expr* s : nst) m_pin.push_back(s);
-                m_pin.push_back(g);
-                out.push_back({ nst, g });
-            }
-            return true;
-        };
-        lbool r = bounded_search<svector<expr*>>(m, start, lo, hi, key_of, accept, expand, seq);
-        return (r == l_false && collapsed) ? l_undef : r;
     }
+    unsigned n = states.size();
+    bool_vector live;
+    live.resize(n, false);
+    for (unsigned i = 0; i < n; ++i)
+        live[i] = maybe_null[i];
+    for (bool ch = true; ch; ) {
+        ch = false;
+        for (unsigned i = 0; i < n; ++i)
+            if (!live[i])
+                for (unsigned j : succ[i])
+                    if (live[j]) { live[i] = true; ch = true; break; }
+    }
+    for (unsigned i = 0; i < n; ++i)
+        if (live[i]) { out.push_back(states.get(i)); m_pin.push_back(states.get(i)); }
+}
 
-    bool split_manager::test_intersect(vector<cont_regex> const& crs) {
-        // one-sided cheap check: an obviously-empty start (or reach target) state
-        // certainly makes the intersection empty.  Normalize via th_rewriter first so
-        // that e.g. concat(empty, epsilon) collapses to the empty regex.
-        expr_ref tmp(m);
-        for (auto const& cr : crs) {
-            m_th(cr.first, tmp);
-            if (re().is_empty(tmp))
-                return false;
-            if (cr.second.get()) {
-                m_th(cr.second, tmp);
-                if (re().is_empty(tmp))
-                    return false;
+lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* witness_word) {
+    unsigned n = comps.size();
+    if (n == 0) {
+        if (witness_word)
+            *witness_word = expr_ref(u().str.mk_empty(m_seq_sort), m);
+        return l_true;
+    }
+    expr_ref var0(m.mk_var(0, m_elem_sort), m);   // the element variable the guards range over
+
+    svector<expr*> start;
+    for (auto const& c : comps)
+        start.push_back(c.state);
+
+    auto id_key = [&](svector<expr*> const& st) {
+        std::vector<unsigned> k;
+        k.reserve(st.size());
+        for (expr* e : st) k.push_back(e->get_id());
+        return k;
+    };
+    typedef std::vector<unsigned> key;
+
+    bool undecided = false;
+    auto is_accept = [&](svector<expr*> const& st) -> bool {
+        for (unsigned i = 0; i < n; ++i) {
+            if (comps[i].target) {
+                if (st[i] != comps[i].target) return false;
+            }
+            else {
+                expr_ref nb = m_rw.is_nullable(st[i]);
+                if (m.is_true(nb)) continue;
+                if (m.is_false(nb)) return false;
+                undecided = true; return false;
             }
         }
         return true;
+    };
+
+    std::set<key> visited;
+    std::vector<svector<expr*>> work;
+    // tree of first-discovery edges for witness reconstruction (only built when a
+    // witness is requested): child-key -> (parent-key, element read on the edge).
+    std::map<key, std::pair<key, expr*>> parent;
+    key start_key = id_key(start);
+
+    auto reconstruct = [&](key end_key) -> expr_ref {
+        ptr_vector<expr> elems;              // collected in accept..start order
+        key k = end_key;
+        while (k != start_key) {
+            auto it = parent.find(k);
+            if (it == parent.end()) break;   // safety (should not happen)
+            elems.push_back(it->second.second);
+            k = it->second.first;
+        }
+        expr_ref_vector es(m);               // start..accept order
+        for (unsigned idx = elems.size(); idx-- > 0; )
+            es.push_back(u().str.mk_unit(elems[idx]));
+        if (es.empty())
+            return expr_ref(u().str.mk_empty(m_seq_sort), m);
+        return expr_ref(u().str.mk_concat(es.size(), es.data(), m_seq_sort), m);
+    };
+
+    work.push_back(start);
+    visited.insert(start_key);
+
+    while (!work.empty()) {
+        if (m_budget == 0) { m_giveup = true; return l_undef; }
+        --m_budget;
+        if (!m.inc())
+            return l_undef;
+        svector<expr*> st = work.back();
+        work.pop_back();
+        if (is_accept(st)) {
+            if (witness_word)
+                *witness_word = reconstruct(id_key(st));
+            return l_true;
+        }
+        if (undecided)
+            return l_undef;
+
+        // per-component cofactor branches (target, guard); pin both, they outlive `cof`.
+        std::vector<std::vector<std::pair<expr*, expr*>>> branches(n);
+        for (unsigned i = 0; i < n; ++i) {
+            expr_ref_pair_vector cof(m);
+            m_rw.brz_derivative_cofactors(st[i], cof);
+            for (auto const& [g, t] : cof) {
+                if (re().is_empty(t)) continue;
+                m_pin.push_back(t);
+                m_pin.push_back(g);
+                branches[i].push_back(std::make_pair((expr*) t, (expr*) g));
+            }
+        }
+
+        // joint transitions = cartesian product of the branches with the guards
+        // conjoined; prune as soon as the accumulated guard is empty, bail on unknown.
+        svector<expr*> cur;
+        cur.resize(n);
+        key st_key = id_key(st);
+        bool bail = false;
+        std::function<void(unsigned, guard_set const&)> rec =
+            [&](unsigned i, guard_set const& acc) {
+                if (bail) return;
+                if (i == n) {
+                    key ck = id_key(cur);
+                    if (visited.find(ck) == visited.end()) {
+                        visited.insert(ck);
+                        if (witness_word) {
+                            expr_ref e(m);
+                            if (acc.eval(&e) == l_true) {
+                                m_pin.push_back(e);
+                                parent[ck] = std::make_pair(st_key, e.get());
+                            }
+                        }
+                        work.push_back(cur);
+                    }
+                    return;
+                }
+                for (auto const& pr : branches[i]) {
+                    guard_set nacc = acc;
+                    nacc.conjoin(pr.second);
+                    lbool ne = nacc.eval(nullptr);
+                    if (ne == l_undef) { bail = true; return; }   // non-range / unknown guard
+                    if (ne == l_false) continue;                  // empty joint guard: prune
+                    cur[i] = pr.first;
+                    rec(i + 1, nacc);
+                    if (bail) return;
+                }
+            };
+        guard_set top(m, u(), m_elem_sort, var0);
+        rec(0, top);
+        if (bail)
+            return l_undef;
     }
+    return l_false;
+}
 
-    // ------------------------------------------------------------------
-    //  seq::split / seq::split_iterator
-    // ------------------------------------------------------------------
-
-    split_iterator::split_iterator(split_manager& sm, cont_regex const& cr) {
-        m_sm = &sm;
-        m_R = cr.first.get();
-        m_N = cr.second.get();
-        bool ok = true;
-        bool membership = (m_N == nullptr) || sm.re().is_epsilon(m_N);
-        sm.reachable_states(m_R, membership ? nullptr : m_N, m_mids, ok);
-        if (!ok) { m_failed = true; m_mids.reset(); }
+bool seq_monadic::parse_term(expr* t, svector<atom>& atoms, expr*& the_var) {
+    if (u().str.is_concat(t)) {
+        app* a = to_app(t);
+        for (unsigned i = 0; i < a->get_num_args(); ++i)
+            if (!parse_term(a->get_arg(i), atoms, the_var))
+                return false;
+        return true;
     }
-
-    split_pair split_iterator::operator*() const {
-        ast_manager& m = m_sm->mgr();
-        expr* mid = m_mids[m_pos];
-        cont_regex left(expr_ref(m_R, m), expr_ref(mid, m));
-        cont_regex right(expr_ref(mid, m), m_N ? expr_ref(m_N, m) : expr_ref(m));
-        return split_pair(left, right);
+    if (u().str.is_empty(t))
+        return true;                              // epsilon: contributes nothing
+    zstring s;
+    if (u().str.is_string(t, s)) {
+        for (unsigned i = 0; i < s.length(); ++i)
+            atoms.push_back(atom{ false, nullptr, u().str.mk_char(s, i) });
+        return true;
     }
-
-    split_iterator& split_iterator::operator++() {
-        if (m_pos < m_mids.size()) ++m_pos;
-        return *this;
+    if (u().str.is_unit(t)) {                     // seq.unit of a constant element
+        expr* elem = to_app(t)->get_arg(0);
+        if (m.is_value(elem)) {
+            atoms.push_back(atom{ false, nullptr, elem });
+            return true;
+        }
+        return false;                             // symbolic (non-constant) unit: unsupported
     }
-
-    split::split(split_manager& sm, expr* r)
-        : m_sm(sm), m_R(r, sm.mgr()), m_N(sm.mgr()) {}
-
-    split::split(split_manager& sm, cont_regex const& cr)
-        : m_sm(sm), m_R(cr.first), m_N(cr.second) {}
-
-    split_iterator split::begin() {
-        return split_iterator(m_sm, cont_regex(m_R, m_N));
+    // uninterpreted 0-ary constant of sequence sort => a sequence variable
+    if (is_app(t) && to_app(t)->get_num_args() == 0 &&
+        to_app(t)->get_family_id() == null_family_id) {
+        the_var = t;                              // mark that at least one variable occurs
+        atoms.push_back(atom{ true, t, nullptr });
+        return true;
     }
+    return false;
+}
+
+void seq_monadic::decompose(svector<atom> const& atoms, unsigned i, expr* R,
+                            vector<disjunct>& out, bool& ok) {
+    if (!ok)
+        return;
+    if (m_giveup) { ok = false; return; }
+    m_pin.push_back(R);
+    if (i == atoms.size()) {
+        expr_ref nb = m_rw.is_nullable(R);
+        if (m.is_true(nb))
+            out.push_back(disjunct());            // empty conjunction = true
+        else if (!m.is_false(nb))
+            ok = false;                           // undecidable nullability => bail
+        return;
+    }
+    atom const& a = atoms[i];
+    if (!a.is_var) {
+        expr_ref d = der_elem(R, a.elem);
+        decompose(atoms, i + 1, d, out, ok);
+        return;
+    }
+    if (i + 1 == atoms.size()) {                  // last atom: membership component  a.var in R
+        disjunct D;
+        D.push_back(component{ a.var, R, nullptr });
+        out.push_back(D);
+        return;
+    }
+    // a variable with a non-empty rest: split over the live states q of R (midpoints)
+    ptr_vector<expr> Q;
+    live_states(R, Q, ok);
+    if (!ok)
+        return;
+    const unsigned DISJUNCT_CAP = 1u << 13;
+    for (expr* q : Q) {
+        vector<disjunct> sub;
+        decompose(atoms, i + 1, q, sub, ok);
+        if (!ok)
+            return;
+        for (disjunct const& sd : sub) {
+            if (out.size() > DISJUNCT_CAP || m_budget == 0) { m_giveup = true; ok = false; return; }
+            --m_budget;
+            disjunct D(sd);
+            D.push_back(component{ a.var, R, q });   // reach component: a.var drives R -> q
+            out.push_back(D);
+        }
+    }
+    simplify_dnf(out);
+}
+
+void seq_monadic::simplify_dnf(vector<disjunct>& dnf) {
+    std::set<std::vector<std::tuple<unsigned, unsigned, unsigned>>> seen;
+    vector<disjunct> result;
+    for (disjunct const& D : dnf) {
+        bool dead = false;
+        for (auto const& c : D)
+            if (re().is_empty(c.state)) { dead = true; break; }
+        if (dead)
+            continue;
+        std::vector<std::tuple<unsigned, unsigned, unsigned>> sig;
+        sig.reserve(D.size());
+        for (auto const& c : D)
+            sig.push_back(std::make_tuple(c.var->get_id(), c.state->get_id(),
+                                          c.target ? c.target->get_id() : UINT_MAX));
+        std::sort(sig.begin(), sig.end());
+        if (seen.insert(sig).second)
+            result.push_back(D);
+    }
+    dnf.swap(result);
+}
+
+lbool seq_monadic::solve(expr* term, expr* R) {
+    obj_map<expr, expr*> none;
+    return solve(term, R, none, nullptr);
+}
+
+lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra) {
+    return solve(term, R, var_extra, nullptr);
+}
+
+bool seq_monadic::build_membership_dnf(expr* term, expr* R, vector<disjunct>& dnf) {
+    if (!u().is_re(R, m_seq_sort))
+        return false;
+    if (!u().is_seq(m_seq_sort, m_elem_sort))
+        return false;
+    svector<atom> atoms;
+    expr* the_var = nullptr;
+    if (!parse_term(term, atoms, the_var))
+        return false;
+    if (!the_var)
+        return false;                             // no variable: ground membership, not our case
+    m_pin.push_back(R);
+    bool ok = true;
+    decompose(atoms, 0, R, dnf, ok);
+    return ok;
+}
+
+lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> const& var_extra,
+                              obj_map<expr, expr*>* model) {
+    bool any_undef = false;
+    for (disjunct const& D : dnf) {
+        // group components by variable, add the extra per-variable constraints
+        obj_map<expr, unsigned> idx;
+        vector<svector<component>> groups;
+        ptr_vector<expr> group_var;
+        auto bucket = [&](expr* v) -> unsigned {
+            unsigned gi;
+            if (idx.find(v, gi)) return gi;
+            gi = groups.size(); idx.insert(v, gi);
+            groups.push_back(svector<component>());
+            group_var.push_back(v);
+            return gi;
+        };
+        for (auto const& c : D)
+            groups[bucket(c.var)].push_back(c);
+        for (auto const& kv : var_extra)
+            groups[bucket(kv.m_key)].push_back(component{ kv.m_key, kv.m_value, nullptr });
+
+        bool has_empty = false, has_undef = false;
+        obj_map<expr, expr*> local;               // var -> witness for this disjunct
+        for (unsigned gi = 0; gi < groups.size(); ++gi) {
+            expr_ref w(m);
+            lbool ne = product_nonempty(groups[gi], model ? &w : nullptr);
+            if (ne == l_false) { has_empty = true; break; }   // this variable has no value
+            if (ne == l_undef) { has_undef = true; continue; }
+            if (model) { m_pin.push_back(w); local.insert(group_var[gi], w.get()); }
+        }
+        if (has_empty) continue;
+        if (has_undef) { any_undef = true; continue; }
+        if (model)
+            for (auto const& kv : local)
+                model->insert(kv.m_key, kv.m_value);
+        return l_true;                            // all variables satisfiable => sat
+    }
+    return any_undef ? l_undef : l_false;
+}
+
+lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
+                         obj_map<expr, expr*>* model) {
+    m_pin.reset();
+    m_budget = 200000;                            // global work budget: bail fast on DNF explosion
+    m_giveup = false;
+    vector<disjunct> dnf;
+    if (!build_membership_dnf(term, R, dnf))
+        return l_undef;
+    return decide_dnf(dnf, var_extra, model);
+}
+
+lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems,
+                             obj_map<expr, expr*> const& var_extra, obj_map<expr, expr*>* model) {
+    if (mems.empty())
+        return l_undef;
+    m_pin.reset();
+    m_budget = 200000;
+    m_giveup = false;
+    // Multiply the per-membership DNFs:  combined = { d ++ e : d in combined, e in dnf_i }.
+    // A variable shared by several memberships thus gets several components in the same
+    // disjunct, which decide_dnf/product_nonempty intersect -- enforcing one consistent
+    // value across all memberships (the joint solve the harness could not do per-term).
+    vector<disjunct> combined;
+    combined.push_back(disjunct());               // { true }
+    const unsigned DNF_CAP = 1u << 14;
+    for (auto const& tr : mems) {
+        vector<disjunct> dnf_i;
+        if (!build_membership_dnf(tr.first, tr.second, dnf_i))
+            return l_undef;
+        vector<disjunct> next;
+        for (disjunct const& d : combined) {
+            for (disjunct const& e : dnf_i) {
+                if (next.size() > DNF_CAP || m_budget == 0) { m_giveup = true; return l_undef; }
+                --m_budget;
+                disjunct D(d);
+                for (auto const& c : e)
+                    D.push_back(c);
+                next.push_back(D);
+            }
+        }
+        combined.swap(next);
+        simplify_dnf(combined);
+        if (combined.empty())
+            return l_false;                       // no viable disjunct left => unsat
+    }
+    return decide_dnf(combined, var_extra, model);
 }

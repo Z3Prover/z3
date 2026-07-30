@@ -3697,6 +3697,10 @@ namespace seq {
         SASSERT(!node->is_currently_conflict());
         // The first modifier that produces edges is used and returned immediately.
 
+        // TEMPORARY-COVERAGE-HOIST
+        if (!harvest_mode() && apply_monadic_split(node))
+            return ++m_stats.m_mod_monadic_split, true;
+
         // Priority 1: deterministic modifiers (single child, always progress)
         if (apply_det_modifier(node))
             return ++m_stats.m_mod_det, true;
@@ -3760,9 +3764,9 @@ namespace seq {
         if (!harvest_mode() && apply_regex_factorization(node))
             return ++m_stats.m_mod_regex_factorization, true;
 
-        // Priority 8a: MonadicSplit - continuation-regex intersection (seq_monadic):
-        // close the node if several memberships on the same sequence have a
-        // provably empty language intersection.  Sound one-way (conflict only);
+        // Priority 8a: MonadicSplit - monadic decomposition (seq_monadic): close
+        // the node if a membership, a same-subject group, or all of them jointly
+        // have a provably empty language.  Sound one-way (conflict only);
         // opt-in via smt.nseq.monadic_split.  (skipped in benchmark-harvest mode)
         if (!harvest_mode() && apply_monadic_split(node))
             return ++m_stats.m_mod_monadic_split, true;
@@ -5284,73 +5288,135 @@ namespace seq {
         return false;
     }
 
+#if false
     // -----------------------------------------------------------------------
-    // Modifier: apply_monadic_split  (continuation-regex intersection, seq_monadic)
-    //
-    // Uses the continuation-regex service in ast/rewriter/seq_monadic.h.  Several
-    // plain memberships  s ∈ R_1, …, s ∈ R_k  on the SAME left-hand sequence s
-    // are jointly satisfiable only if  L(R_1) ∩ … ∩ L(R_k) ≠ ∅.  split_manager
-    // decides emptiness of that intersection over one shared, globally cached
-    // Brzozowski-derivative graph, and — unlike apply_regex_factorization, which
-    // skips primitive memberships (x ∈ R with x a bare variable) — it also fires
-    // on those, catching groups that are only *jointly* empty.
-    //
-    // Only the sound direction is used:  seq_monadic::intersect returns l_false
-    // exactly when the intersection is provably empty (note the convention is the
-    // OPPOSITE of seq_regex::check_intersection_emptiness, where l_true = empty).
-    // On l_false the node is a regex conflict.  l_true (non-empty) and l_undef
-    // (STATE_CAP / undecidable nullability) fall through so the ordinary modifiers
-    // keep driving the node.  No witness is consumed (the module's witness
-    // extraction is not sound yet) and no child is ever created, so this rule can
-    // never introduce an unsound SAT.  Opt-in via smt.nseq.monadic_split.
-    // -----------------------------------------------------------------------
+    // Modifier: apply_monadic_split  (whole-language monadic decomposition)
+    bool nielsen_graph::monadic_abstract_subject(euf::snode const* str, expr_ref_vector& pin,
+                                                 obj_map<expr, expr*>& extra, expr_ref& out) {
+        expr_ref_vector args(m);
+        bool has_var = false;
+        for (euf::snode const* t : *str) {
+            if (t->is_char()) {
+                args.push_back(t->get_expr());
+                continue;
+            }
+            sort* s = t->get_expr()->get_sort();
+            const std::string name = "nseq.mon!" + std::to_string(t->id());
+            expr_ref v(m.mk_const(symbol(name.c_str()), s), m);
+            pin.push_back(v);
+            if (t->is_unit()) {
+                // symbolic character: value unknown, length exactly 1.
+                expr_ref sigma(m_seq.re.mk_full_char(m_seq.re.mk_re(s)), m);
+                pin.push_back(sigma);
+                extra.insert(v, sigma);
+            }
+            args.push_back(v);
+            has_var = true;
+        }
+        if (!has_var)
+            return false;
+        out = m_seq.str.mk_concat(args, str->get_expr()->get_sort());
+        pin.push_back(out);
+        return true;
+    }
+#endif
+
     bool nielsen_graph::apply_monadic_split(nielsen_node* node) {
         if (!m_monadic_split)
             return false;
-
+#if false
         auto const& mems = node->str_mems();
-        const unsigned n = mems.size();
-        if (n < 2)
-            return false;   // need at least two memberships to form an intersection
+        if (mems.empty())
+            return false;
 
         if (!m_monadic)
-            m_monadic = alloc(seq::split_manager, m_monadic_rw);
+            m_monadic = alloc(seq_monadic, m_monadic_rw);
 
-        // Group plain memberships by their (slicing-equal) left-hand sequence and
-        // test the joint language intersection of each group of size >= 2.
-        bool_vector done;
-        done.resize(n, false);
-        for (unsigned i = 0; i < n; ++i) {
+        // Abstract the plain memberships once; `src` maps back to the mems index.
+        expr_ref_vector pin(m);
+        obj_map<expr, expr*> extra;
+        vector<std::pair<expr*, expr*>> abstracted;
+        unsigned_vector src;
+        for (unsigned i = 0; i < mems.size(); ++i) {
             str_mem const& mi = mems[i];
-            if (done[i] || !mi.is_plain())
+            // A view has no plain-regex counterpart; an unresolved symbolic-derivative
+            // residual (ite) belongs to apply_regex_if_split.
+            if (!mi.is_plain() || mi.m_regex->is_ite())
                 continue;
+            expr_ref term(m);
+            if (!monadic_abstract_subject(mi.m_str, pin, extra, term))
+                continue;
+            abstracted.push_back(std::make_pair(term.get(), mi.m_regex->get_expr()));
+            src.push_back(i);
+        }
+        const unsigned n = abstracted.size();
+        if (n == 0)
+            return false;
 
-            vector<seq::cont_regex> crs;
-            crs.push_back(m_monadic->embed(mi.m_regex->get_expr()));
-            dep_tracker dep = mi.m_dep;
-            done[i] = true;
-            for (unsigned j = i + 1; j < n; ++j) {
-                str_mem const& mj = mems[j];
-                if (done[j] || !mj.is_plain() || !mi.m_str->similar(mj.m_str, m))
-                    continue;
-                crs.push_back(m_monadic->embed(mj.m_regex->get_expr()));
-                dep = m_dep_mgr.mk_join(dep, mj.m_dep);
-                done[j] = true;
+        // Decide the memberships selected by `sel` jointly; close the node if empty.
+        auto close = [&](unsigned_vector const& sel) {
+            vector<std::pair<expr*, expr*>> ms;
+            dep_tracker dep = mems[src[sel[0]]].m_dep;
+            for (unsigned k : sel) {
+                ms.push_back(abstracted[k]);
+                if (ms.size() > 1)
+                    dep = m_dep_mgr.mk_join(dep, mems[src[k]].m_dep);
             }
-            if (crs.size() < 2)
-                continue;   // no sibling membership on the same sequence
-
-            expr_ref_vector wit(m);
-            const lbool r = m_monadic->intersect(crs, 0, UINT_MAX, wit);
+            const lbool r = ms.size() == 1 ? m_monadic->solve(ms[0].first, ms[0].second, extra)
+                                           : m_monadic->solve_and(ms, extra);
+            TRACE(seq, tout << "MONPROBE n=" << ms.size() << " r=" << r
+                            << " subj=" << mk_pp(ms[0].first, m) << "\n");
             if (r != l_false)
-                continue;   // non-empty (l_true) or undecided (l_undef): no conclusion
-
-            TRACE(seq, tout << "monadic split: empty intersection of " << crs.size()
-                            << " memberships on " << mem_pp(mi) << "\n");
+                return false;   // non-empty (l_true) or undecided (l_undef): no conclusion
+            TRACE(seq, tout << "monadic split: " << ms.size() << " membership(s) jointly empty, at "
+                            << mem_pp(mems[src[sel[0]]]) << "\n");
             node->set_general_conflict();
             node->set_conflict(backtrack_reason::regex, dep);
             return true;
+        };
+
+        // 1. each non-primitive membership on its own.
+        for (unsigned k = 0; k < n; ++k) {
+            if (mems[src[k]].m_str->length() < 2)
+                continue;   // single token: plain emptiness of L(R), checked elsewhere
+            unsigned_vector sel;
+            sel.push_back(k);
+            if (close(sel))
+                return true;
         }
+        if (n < 2)
+            return false;
+
+        // 2. memberships grouped by their (slicing-equal) subject.
+        bool_vector done;
+        done.resize(n, false);
+        unsigned num_groups = 0;
+        for (unsigned k = 0; k < n; ++k) {
+            if (done[k])
+                continue;
+            unsigned_vector sel;
+            sel.push_back(k);
+            done[k] = true;
+            for (unsigned j = k + 1; j < n; ++j) {
+                if (done[j] || !mems[src[k]].m_str->similar(mems[src[j]].m_str, m))
+                    continue;
+                sel.push_back(j);
+                done[j] = true;
+            }
+            ++num_groups;
+            if (sel.size() >= 2 && close(sel))
+                return true;
+        }
+
+        // 3. all of them: catches subjects that are only jointly empty through a
+        //    shared variable.  Skipped when phase 2 already made this exact call.
+        if (num_groups < 2)
+            return false;
+        unsigned_vector all;
+        for (unsigned k = 0; k < n; ++k)
+            all.push_back(k);
+        return close(all);
+#endif
         return false;
     }
 
@@ -5487,7 +5553,6 @@ namespace seq {
                 e->add_side_constraint(mk_constraint(a.mk_ge(inner_exp, fresh_m), eq.m_dep));
             }
         }
-
         return true;
     }
 

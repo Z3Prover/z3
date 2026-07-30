@@ -18,7 +18,6 @@ Notes:
 --*/
 #pragma once
 
-#include "seq_split.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_derive.h"
 #include "ast/ast_pp.h"

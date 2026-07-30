@@ -100,10 +100,17 @@ public:
         m_unknown("no reason given"),
         m_internalized_converted(false), 
         m_internalized_fmls(m) {
+        // Establish the incremental flag on the SAT core *before* updt_params
+        // propagates parameters to the simplifier. The simplifier caches
+        // m_incremental_mode from the SAT config during its own updt_params, so
+        // the incremental flag must already be set; otherwise the simplifier
+        // keeps a stale non-incremental mode and applies variable/blocked-clause
+        // elimination even when the solver is meant to be reused incrementally
+        // (unsound model reconstruction, issue #10133).
+        m_solver.set_incremental(incremental_mode && !override_incremental());
         updt_params(p);
         m_mcs.push_back(nullptr);
         init_preprocess();
-        m_solver.set_incremental(incremental_mode && !override_incremental());
     }
 
     bool override_incremental() const {
@@ -1297,6 +1304,12 @@ void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* sof
 tactic * mk_psat_tactic(ast_manager& m, params_ref const& p) {
     parallel_params pp(p);
     if (pp.enable())
-        return mk_parallel_tactic(mk_inc_sat_solver(m, p, false), p);
+        // The parallel (cube-and-conquer) tactic reuses this solver across many
+        // check_sat calls with different cube assumptions. Create it in incremental
+        // mode so the SAT simplifier does not apply variable/blocked-clause
+        // elimination: those in-processing steps are only model-sound for a single
+        // one-shot solve, and reusing an eliminated solver under new cube
+        // assumptions produces models that violate the original clauses (issue #10133).
+        return mk_parallel_tactic(mk_inc_sat_solver(m, p, true), p);
     return mk_sat_tactic(m);
 }

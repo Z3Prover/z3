@@ -480,6 +480,7 @@ struct aig_manager::imp {
                     case OP_EQ:
                         if (!m.m().is_bool(tapp->get_arg(0)))
                             break;
+                        Z3_fallthrough;
                     case OP_NOT:
                     case OP_OR:      
                     case OP_AND:
@@ -1272,10 +1273,12 @@ struct aig_manager::imp {
                     fr.m_idx++;
                     if (!visit(left(n)))
                         goto start;
+                    Z3_fallthrough;
                 case 1:
                     fr.m_idx++;
                     if (!visit(right(n)))
                         goto start;
+                    Z3_fallthrough;
                 default:
                     if (!is_cached(n))
                         improve_sharing(n);

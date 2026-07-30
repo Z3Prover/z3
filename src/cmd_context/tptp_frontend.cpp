@@ -960,11 +960,20 @@ class tptp_parser {
         }
     };
 
+    // TPTP quantifiers are created with weight 1 (rather than the default 0)
+    // so that E-matching / ho_matching treats them uniformly.
+    expr_ref with_weight1(expr_ref q) {
+        if (is_quantifier(q) && !is_lambda(q))
+            q = expr_ref(m.update_quantifier_weight(to_quantifier(q), 1), m);
+        return q;
+    }
+
     expr_ref mk_quantifier(bool is_forall, ptr_vector<app> const& bound, expr_ref const& body) {
         SASSERT(body);
         if (bound.empty()) return body;
         expr_ref b = ensure_bool(body);
-        return is_forall ? ::mk_forall(m, bound.size(), bound.data(), b.get()) : ::mk_exists(m, bound.size(), bound.data(), b.get());
+        expr_ref q = is_forall ? ::mk_forall(m, bound.size(), bound.data(), b.get()) : ::mk_exists(m, bound.size(), bound.data(), b.get());
+        return with_weight1(q);
     }
 
     // $is_rat(x) ≡ exists a:Int, b:Int. b != 0 && x = a/b
@@ -983,7 +992,7 @@ class tptp_parser {
         ptr_vector<app> bound;
         bound.push_back(a);
         bound.push_back(b);
-        return expr_ref(::mk_exists(m, bound.size(), bound.data(), body.get()), m);
+        return with_weight1(expr_ref(::mk_exists(m, bound.size(), bound.data(), body.get()), m));
     }
 
     // Grammar: <thf_atomic_type>   ::= <type_constant> | <defined_type> | <variable> |
@@ -1808,7 +1817,7 @@ class tptp_parser {
             if (vars.size() > 1) {
                 ptr_vector<app> rest;
                 for (unsigned i = 1; i < vars.size(); ++i) rest.push_back(vars[i]);
-                pred = expr_ref(::mk_exists(m, rest.size(), rest.data(), pred.get()), m);
+                pred = with_weight1(expr_ref(::mk_exists(m, rest.size(), rest.data(), pred.get()), m));
             }
             app* xvar = vars[0];
             expr_ref abs_body(m);
@@ -1846,7 +1855,7 @@ class tptp_parser {
             app* cs[1] = { c };
             expr_ref q = is_forall ? ::mk_forall(m, 1, cs, body.get())
                                    : ::mk_exists(m, 1, cs, body.get());
-            return q;
+            return with_weight1(q);
         }
 
         expr_ref_vector args(m);

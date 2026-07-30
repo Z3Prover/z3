@@ -28,6 +28,7 @@ Notes:
 #include "math/interval/interval.h"
 #include "util/z3_exception.h"
 #include "util/rlimit.h"
+#include "util/manage_warnings.h"
 
 namespace realclosure {
     class num;
@@ -339,12 +340,14 @@ RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, int)     \
 RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpz)     \
 RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpq)
 
+START_DISABLE_EXTRA_SEMI_WARNING;
 RCF_MK_COMPARISON(operator==, eq);
 RCF_MK_COMPARISON(operator!=, neq);
 RCF_MK_COMPARISON(operator<,  lt);
 RCF_MK_COMPARISON(operator<=, le);
 RCF_MK_COMPARISON(operator>,  gt);
 RCF_MK_COMPARISON(operator>=, ge);
+END_DISABLE_WARNING;
 
 #undef RCF_MK_COMPARISON
 #undef RCF_MK_COMPARISON_CORE
@@ -364,10 +367,12 @@ RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, int)      \
 RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpz)      \
 RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpq)
 
-RCF_MK_BINARY(operator+, add)
-RCF_MK_BINARY(operator-, sub)
-RCF_MK_BINARY(operator*, mul)
-RCF_MK_BINARY(operator/, div)
+START_DISABLE_EXTRA_SEMI_WARNING;
+RCF_MK_BINARY(operator+, add);
+RCF_MK_BINARY(operator-, sub);
+RCF_MK_BINARY(operator*, mul);
+RCF_MK_BINARY(operator/, div);
+END_DISABLE_WARNING;
 
 #undef RCF_MK_BINARY
 #undef RCF_MK_BINARY_CORE

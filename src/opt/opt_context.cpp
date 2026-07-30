@@ -650,6 +650,7 @@ namespace opt {
         switch (obj.m_type) {
         case O_MINIMIZE:
             is_ge = !is_ge;
+            Z3_fallthrough;
         case O_MAXIMIZE:
             val = (*mdl)(obj.m_term);
             if (is_numeral(val, k)) {

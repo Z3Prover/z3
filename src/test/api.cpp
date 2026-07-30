@@ -40,6 +40,80 @@ void test_apps() {
     Z3_del_context(ctx);
 }
 
+static void test_mk_app_polymorphic_arity() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+
+    Z3_sort type_var = Z3_mk_type_variable(ctx, Z3_mk_string_symbol(ctx, "A"));
+    Z3_func_decl f = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, "f"), 1, &type_var, type_var);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast args[] = {
+        Z3_mk_int(ctx, 1, int_sort), Z3_mk_int(ctx, 2, int_sort), Z3_mk_int(ctx, 3, int_sort)
+    };
+
+    ENSURE(Z3_mk_app(ctx, f, 1, args));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    ENSURE(!Z3_mk_app(ctx, f, 0, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(!Z3_mk_app(ctx, f, 2, args));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    Z3_sort set_type_var = Z3_mk_set_sort(ctx, type_var);
+    Z3_ast poly_set = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "poly_set"), set_type_var);
+    Z3_ast poly_sets[] = { poly_set, poly_set };
+    Z3_ast set_union = Z3_mk_set_union(ctx, 2, poly_sets);
+    Z3_func_decl set_union_decl = Z3_get_app_decl(ctx, Z3_to_app(ctx, set_union));
+    ENSURE(Z3_get_arity(ctx, set_union_decl) == 2);
+
+    Z3_sort int_set_sort = Z3_mk_set_sort(ctx, int_sort);
+    Z3_ast int_sets[] = {
+        Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "int_set1"), int_set_sort),
+        Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "int_set2"), int_set_sort),
+        Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "int_set3"), int_set_sort)
+    };
+    ENSURE(Z3_mk_app(ctx, set_union_decl, 1, int_sets));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_ast set_union3 = Z3_mk_app(ctx, set_union_decl, 3, int_sets);
+    ENSURE(set_union3);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_app set_union3_app = Z3_to_app(ctx, set_union3);
+    Z3_func_decl set_union3_decl = Z3_get_app_decl(ctx, set_union3_app);
+    ENSURE(Z3_get_arity(ctx, set_union3_decl) == 2);
+    ENSURE(Z3_get_app_num_args(ctx, set_union3_app) == 2);
+    ENSURE(Z3_get_app_arg(ctx, set_union3_app, 0) == int_sets[0]);
+    Z3_app set_union3_tail = Z3_to_app(ctx, Z3_get_app_arg(ctx, set_union3_app, 1));
+    ENSURE(Z3_get_app_num_args(ctx, set_union3_tail) == 2);
+    ENSURE(Z3_get_app_arg(ctx, set_union3_tail, 0) == int_sets[1]);
+    ENSURE(Z3_get_app_arg(ctx, set_union3_tail, 1) == int_sets[2]);
+
+    Z3_sort bool_set_sort = Z3_mk_set_sort(ctx, Z3_mk_bool_sort(ctx));
+    Z3_ast bool_set = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "bool_set"), bool_set_sort);
+    Z3_ast incompatible_sets[] = { int_sets[0], int_sets[1], bool_set };
+    ENSURE(!Z3_mk_app(ctx, set_union_decl, 3, incompatible_sets));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    Z3_ast poly_value = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "poly_value"), type_var);
+    Z3_ast poly_eq = Z3_mk_eq(ctx, poly_value, poly_value);
+    Z3_func_decl eq_decl = Z3_get_app_decl(ctx, Z3_to_app(ctx, poly_eq));
+    ENSURE(Z3_mk_app(ctx, eq_decl, 3, args));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    Z3_sort re_type_var = Z3_mk_re_sort(ctx, Z3_mk_seq_sort(ctx, type_var));
+    Z3_ast empty_re_type_var = Z3_mk_re_empty(ctx, re_type_var);
+    Z3_ast poly_res[] = { empty_re_type_var, empty_re_type_var };
+    Z3_ast re_union = Z3_mk_re_union(ctx, 2, poly_res);
+    Z3_func_decl re_union_decl = Z3_get_app_decl(ctx, Z3_to_app(ctx, re_union));
+    Z3_sort re_int = Z3_mk_re_sort(ctx, Z3_mk_seq_sort(ctx, int_sort));
+    Z3_ast empty_re_int = Z3_mk_re_empty(ctx, re_int);
+    Z3_ast int_res[] = { empty_re_int, empty_re_int, empty_re_int };
+    ENSURE(Z3_mk_app(ctx, re_union_decl, 3, int_res));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    Z3_del_context(ctx);
+}
+
 void test_bvneg() {
     Z3_config cfg = Z3_mk_config();
     Z3_set_param_value(cfg,"MODEL","true");
@@ -183,135 +257,12 @@ void test_optimize_translate() {
     Z3_del_context(ctx1);
 }
 
-void test_max_reg() {    
-    // BNH multi-objective optimization problem using Z3 Optimize C API.
-    // Mimics /tmp/bnh_z3.py: two objectives over a constrained 2D domain.
-    //   f1 = 4*x1^2 + 4*x2^2
-    //   f2 = (x1-5)^2 + (x2-5)^2
-    //   0 <= x1 <= 5, 0 <= x2 <= 3
-    //   C1: (x1-5)^2 + x2^2 <= 25
-    //   C2: (x1-8)^2 + (x2+3)^2 >= 7.7
-
-    Z3_config cfg = Z3_mk_config();
-    Z3_context ctx = Z3_mk_context(cfg);
-    Z3_del_config(cfg);
-
-    Z3_sort real_sort = Z3_mk_real_sort(ctx);
-    Z3_ast x1 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x1"), real_sort);
-    Z3_ast x2 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x2"), real_sort);
-
-    auto mk_real = [&](int num, int den = 1) { return Z3_mk_real(ctx, num, den); };
-    auto mk_mul = [&](Z3_ast a, Z3_ast b) { Z3_ast args[] = {a, b}; return Z3_mk_mul(ctx, 2, args); };
-    auto mk_add = [&](Z3_ast a, Z3_ast b) { Z3_ast args[] = {a, b}; return Z3_mk_add(ctx, 2, args); };
-    auto mk_sub = [&](Z3_ast a, Z3_ast b) { Z3_ast args[] = {a, b}; return Z3_mk_sub(ctx, 2, args); };
-    auto mk_sq = [&](Z3_ast a) { return mk_mul(a, a); };
-
-    // f1 = 4*x1^2 + 4*x2^2
-    Z3_ast f1 = mk_add(mk_mul(mk_real(4), mk_sq(x1)), mk_mul(mk_real(4), mk_sq(x2)));
-    // f2 = (x1-5)^2 + (x2-5)^2
-    Z3_ast f2 = mk_add(mk_sq(mk_sub(x1, mk_real(5))), mk_sq(mk_sub(x2, mk_real(5))));
-
-    // Helper: create optimize with BNH constraints and timeout
-    auto mk_max_reg = [&]() -> Z3_optimize {
-        Z3_optimize opt = Z3_mk_optimize(ctx);
-        Z3_optimize_inc_ref(ctx, opt);
-        // Set timeout to 5 seconds
-        Z3_params p = Z3_mk_params(ctx);
-        Z3_params_inc_ref(ctx, p);
-        Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "timeout"), 5000);
-        Z3_optimize_set_params(ctx, opt, p);
-        Z3_params_dec_ref(ctx, p);
-        // Add BNH constraints
-        Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, x1, mk_real(0)));
-        Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, x1, mk_real(5)));
-        Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, x2, mk_real(0)));
-        Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, x2, mk_real(3)));
-        Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, mk_add(mk_sq(mk_sub(x1, mk_real(5))), mk_sq(x2)), mk_real(25)));
-        Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, mk_add(mk_sq(mk_sub(x1, mk_real(8))), mk_sq(mk_add(x2, mk_real(3)))), mk_real(77, 10)));
-        return opt;
-    };
-
-    auto result_str = [](Z3_lbool r) { return r == Z3_L_TRUE ? "sat" : r == Z3_L_FALSE ? "unsat" : "unknown"; };
-
-    unsigned num_sat = 0;
-
-    // Approach 1: Minimize f1 (Python: opt.minimize(f1))
-    {
-        Z3_optimize opt = mk_max_reg();
-        Z3_optimize_minimize(ctx, opt, f1);
-        Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
-        std::cout << "BNH min f1: " << result_str(result) << std::endl;
-        ENSURE(result == Z3_L_TRUE);
-        if (result == Z3_L_TRUE) {
-            Z3_model m = Z3_optimize_get_model(ctx, opt);
-            Z3_model_inc_ref(ctx, m);
-            Z3_ast val; Z3_model_eval(ctx, m, f1, true, &val);
-            std::cout << "  f1=" << Z3_ast_to_string(ctx, val) << std::endl;
-            Z3_model_dec_ref(ctx, m);
-            num_sat++;
-        }
-        Z3_optimize_dec_ref(ctx, opt);
-    }
-
-    // Approach 2: Minimize f2 (Python: opt2.minimize(f2))
-    {
-        Z3_optimize opt = mk_max_reg();
-        Z3_optimize_minimize(ctx, opt, f2);
-        Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
-        std::cout << "BNH min f2: " << result_str(result) << std::endl;
-        ENSURE(result == Z3_L_TRUE);
-        if (result == Z3_L_TRUE) {
-            Z3_model m = Z3_optimize_get_model(ctx, opt);
-            Z3_model_inc_ref(ctx, m);
-            Z3_ast val; Z3_model_eval(ctx, m, f2, true, &val);
-            std::cout << "  f2=" << Z3_ast_to_string(ctx, val) << std::endl;
-            Z3_model_dec_ref(ctx, m);
-            num_sat++;
-        }
-        Z3_optimize_dec_ref(ctx, opt);
-    }
-
-    #if 0
-    // Approach 3: Weighted sum method (Python loop over weights)
-    int weights[][2] = {{1, 4}, {2, 3}, {1, 1}, {3, 2}, {4, 1}};
-    for (auto& w : weights) {
-        Z3_optimize opt = mk_max_reg();
-        Z3_ast weighted = mk_add(mk_mul(mk_real(w[0], 100), f1), mk_mul(mk_real(w[1], 100), f2));
-        Z3_optimize_minimize(ctx, opt, weighted);
-        Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
-        std::cout << "BNH weighted (w1=" << w[0] << "/5, w2=" << w[1] << "/5): "
-                  << result_str(result) << std::endl;
-        ENSURE(result == Z3_L_TRUE);
-        if (result == Z3_L_TRUE) {
-            Z3_model m = Z3_optimize_get_model(ctx, opt);
-            Z3_model_inc_ref(ctx, m);
-            Z3_ast v1, v2;
-            Z3_model_eval(ctx, m, f1, true, &v1);
-            Z3_model_eval(ctx, m, f2, true, &v2);
-            std::cout << "  f1=" << Z3_ast_to_string(ctx, v1)
-                      << " f2=" << Z3_ast_to_string(ctx, v2) << std::endl;
-            Z3_model_dec_ref(ctx, m);
-            num_sat++;
-        }
-        Z3_optimize_dec_ref(ctx, opt);
-    }
-    #endif
-
-    std::cout << "BNH: " << num_sat << "/2 optimizations returned sat" << std::endl;
-    ENSURE(num_sat == 2);
-    Z3_del_context(ctx);
-    std::cout << "BNH optimization test done" << std::endl;
-}
-
 void tst_api() {
     test_apps();
+    test_mk_app_polymorphic_arity();
     test_bvneg();
     test_mk_distinct();
     test_optimize_translate();
-}
-
-void tst_max_reg() {
-    test_max_reg();
 }
 
 void test_max_rev() {

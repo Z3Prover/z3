@@ -53,38 +53,38 @@ unsigned string_hash(std::string_view str, unsigned init_value) {
     c += length;
     switch(len) {        /* all the case statements fall through */
     case 11: 
-        c+=((unsigned)data[10]<<24);
+        c+=((unsigned)(unsigned char)data[10]<<24);
         Z3_fallthrough;
     case 10: 
-        c+=((unsigned)data[9]<<16);
+        c+=((unsigned)(unsigned char)data[9]<<16);
         Z3_fallthrough;
     case 9 : 
-        c+=((unsigned)data[8]<<8);
+        c+=((unsigned)(unsigned char)data[8]<<8);
         Z3_fallthrough;
         /* the first byte of c is reserved for the length */
     case 8 : 
-        b+=((unsigned)data[7]<<24);
+        b+=((unsigned)(unsigned char)data[7]<<24);
         Z3_fallthrough;
     case 7 : 
-        b+=((unsigned)data[6]<<16);
+        b+=((unsigned)(unsigned char)data[6]<<16);
         Z3_fallthrough;
     case 6 : 
-        b+=((unsigned)data[5]<<8);
+        b+=((unsigned)(unsigned char)data[5]<<8);
         Z3_fallthrough;
     case 5 : 
-        b+=data[4];
+        b+=(unsigned char)data[4];
         Z3_fallthrough;
     case 4 : 
-        a+=((unsigned)data[3]<<24);
+        a+=((unsigned)(unsigned char)data[3]<<24);
         Z3_fallthrough;
     case 3 : 
-        a+=((unsigned)data[2]<<16);
+        a+=((unsigned)(unsigned char)data[2]<<16);
         Z3_fallthrough;
     case 2 : 
-        a+=((unsigned)data[1]<<8);
+        a+=((unsigned)(unsigned char)data[1]<<8);
         Z3_fallthrough;
     case 1 : 
-        a+=data[0];
+        a+=(unsigned char)data[0];
         /* case 0: nothing left to add */
         break;
     }

@@ -3160,6 +3160,7 @@ def mk_bindings(api_files):
         update_api.generate_files(api_files=new_api_files,
           api_output_dir=get_component('api').src_dir,
           z3py_output_dir=get_z3py_dir(),
+          z3py_soversion=f"{VER_MAJOR}.{VER_MINOR}" if is_linux() else None,
           dotnet_output_dir=dotnet_output_dir,
           java_input_dir=java_input_dir,
           java_output_dir=java_output_dir,

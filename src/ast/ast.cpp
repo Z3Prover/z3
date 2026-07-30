@@ -2102,10 +2102,15 @@ expr* ast_manager::coerce_to(expr* e, sort* s) {
     }
     if (s != se && s->get_family_id() == arith_family_id && is_bool(e)) {
         arith_util au(*this);
-        if (s->get_decl_kind() == REAL_SORT) 
-            return mk_ite(e, au.mk_real(1), au.mk_real(0));
-        else 
-            return mk_ite(e, au.mk_int(1), au.mk_int(0));
+        if (s->get_decl_kind() == REAL_SORT) {
+            auto _seqr0 = au.mk_real(1);
+            auto _seqr1 = au.mk_real(0);
+            return mk_ite(e, _seqr0, _seqr1);
+        } else {
+            auto _seq2108_0 = au.mk_int(1);
+            auto _seq2108_1 = au.mk_int(0);
+            return mk_ite(e, _seq2108_0, _seq2108_1);
+        }
     }
     else {
         return e;

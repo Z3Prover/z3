@@ -8098,7 +8098,7 @@ class Solver(Z3PPObject):
             while s.check() == sat:
                 result = [s.model().eval(t_, model_completion=True) for t_ in t]
                 yield result
-                s.add(*(t_ != result_ for t_, result_ in zip(t, result)))
+                s.add(Or(t_ != result_ for t_, result_ in zip(t, result)))
         else:
             while s.check() == sat:
                 result = s.model().eval(t, model_completion=True)

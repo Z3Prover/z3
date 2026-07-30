@@ -41,9 +41,10 @@ z3_add_component(rewriter
     seq_eq_solver.cpp
     seq_derive.cpp
     seq_monadic.cpp
-    seq_subset.cpp
     seq_split.cpp
+    seq_subset.cpp
     seq_derive.cpp
+    seq_monadic.cpp
     seq_range_collapse.cpp
     seq_range_predicate.cpp
     seq_rewriter.cpp

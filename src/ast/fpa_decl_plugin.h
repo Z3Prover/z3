@@ -22,6 +22,7 @@ Revision History:
 #include "util/id_gen.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "util/manage_warnings.h"
 #include "util/mpf.h"
 
 enum fpa_sort_kind {
@@ -366,6 +367,8 @@ public:
 
     bool is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args);
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_TERNARY(is_fp);
+    END_DISABLE_WARNING;
 };
 

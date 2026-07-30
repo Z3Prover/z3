@@ -78,7 +78,13 @@ namespace euf {
             push_merge(n, n1);
         }
         if (a.is_uminus(e, x)) {
-            NOT_IMPLEMENTED_YET();
+            // -x = -1 * x
+            auto e1 = a.mk_numeral(rational(-1), a.is_int(x));
+            auto n1 = g.find(e1) ? g.find(e1) : g.mk(e1, 0, 0, nullptr);
+            auto e2 = a.mk_mul(e1, x);
+            enode* es1[2] = { n1, g.find(x) };
+            auto mul = g.find(e2) ? g.find(e2) : g.mk(e2, 0, 2, es1);
+            push_merge(n, mul);
         }
 
     }

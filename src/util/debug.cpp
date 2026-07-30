@@ -39,7 +39,9 @@ bool assertions_enabled() {
 #if defined(_WINDOWS)
 #include <windows.h>
 #include <dbghelp.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "dbghelp.lib")
+#endif
 static void print_windows_backtrace() {
     HANDLE process = GetCurrentProcess();
     SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
@@ -120,7 +122,7 @@ void set_default_exit_action(exit_action a) {
     g_default_exit_action = a;
 }
 
-void invoke_exit_action(unsigned int code) {
+[[noreturn]] void invoke_exit_action(unsigned int code) {
     exit_action a = get_default_exit_action();
     switch (a) {
     case exit_action::exit:

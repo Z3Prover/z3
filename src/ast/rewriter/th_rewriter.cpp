@@ -81,6 +81,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool                m_rewrite_patterns = true;
     bool                m_enable_der = true;
     bool                m_nested_der = false;
+    bool                m_push_quantifiers = false;
 
 
     ast_manager & m() const { return m_b_rw.m(); }
@@ -99,6 +100,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_rewrite_patterns = p.rewrite_patterns();
         m_enable_der     = p.enable_der();
         m_nested_der     = _p.get_bool("nested_der", false);
+        m_push_quantifiers = _p.get_bool("push_quantifiers", false);
     }
 
     void updt_params(params_ref const & p) {
@@ -146,11 +148,19 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         expr * x;
         unsigned val;
         if (m_bv_rw.is_eq_bit(lhs, x, val)) {
-            result = m().mk_eq(x, m().mk_ite(rhs, m_bv_rw.mk_numeral(val, 1), m_bv_rw.mk_numeral(1-val, 1)));
+            {
+                auto _seq151_0 = m_bv_rw.mk_numeral(val, 1);
+                auto _seq151_1 = m_bv_rw.mk_numeral(1 - val, 1);
+                result = m().mk_eq(x, m().mk_ite(rhs, _seq151_0, _seq151_1));
+            }
             return BR_REWRITE2;
         }
         if (m_bv_rw.is_eq_bit(rhs, x, val)) {
-            result = m().mk_eq(x, m().mk_ite(lhs, m_bv_rw.mk_numeral(val, 1), m_bv_rw.mk_numeral(1-val, 1)));
+            {
+                auto _seq155_0 = m_bv_rw.mk_numeral(val, 1);
+                auto _seq155_1 = m_bv_rw.mk_numeral(1 - val, 1);
+                result = m().mk_eq(x, m().mk_ite(lhs, _seq155_0, _seq155_1));
+            }
             return BR_REWRITE2;
         }
         return BR_FAILED;
@@ -251,22 +261,28 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     template<bool SWAP>
     br_status pull_ite_core(func_decl * p, app * ite, app * value, expr_ref & result) {
         if (m().is_eq(p)) {
-            result = m().mk_ite(ite->get_arg(0),
-                                mk_eq_value(ite->get_arg(1), value),
-                                mk_eq_value(ite->get_arg(2), value));
+            {
+                auto _seq256_0 = mk_eq_value(ite->get_arg(1), value);
+                auto _seq256_1 = mk_eq_value(ite->get_arg(2), value);
+                result = m().mk_ite(ite->get_arg(0), _seq256_0, _seq256_1);
+            }
             return BR_REWRITE2;
         }
         else {
             if (SWAP) {
-                result = m().mk_ite(ite->get_arg(0),
-                                    m().mk_app(p, value, ite->get_arg(1)),
-                                    m().mk_app(p, value, ite->get_arg(2)));
+                {
+                    auto _seq263_0 = m().mk_app(p, value, ite->get_arg(1));
+                    auto _seq263_1 = m().mk_app(p, value, ite->get_arg(2));
+                    result = m().mk_ite(ite->get_arg(0), _seq263_0, _seq263_1);
+                }
                 return BR_REWRITE2;
             }
             else {
-                result = m().mk_ite(ite->get_arg(0),
-                                    m().mk_app(p, ite->get_arg(1), value),
-                                    m().mk_app(p, ite->get_arg(2), value));
+                {
+                    auto _seq269_0 = m().mk_app(p, ite->get_arg(1), value);
+                    auto _seq269_1 = m().mk_app(p, ite->get_arg(2), value);
+                    result = m().mk_ite(ite->get_arg(0), _seq269_0, _seq269_1);
+                }
                 return BR_REWRITE2;
             }
         }
@@ -309,10 +325,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (m().is_value(args[1]) && args[0]->get_ref_count() == 1) 
                     return pull_ite_core<false>(f, to_app(args[0]), to_app(args[1]), result);
                 if (m().is_ite(args[1]) && to_app(args[0])->get_arg(0) == to_app(args[1])->get_arg(0)) {
-                    // (p (ite C A1 B1) (ite C A2 B2)) --> (ite (p A1 A2) (p B1 B2))
-                    result = m().mk_ite(to_app(args[0])->get_arg(0),
-                                        m().mk_app(f, to_app(args[0])->get_arg(1), to_app(args[1])->get_arg(1)),
-                                        m().mk_app(f, to_app(args[0])->get_arg(2), to_app(args[1])->get_arg(2)));
+                    {
+                        auto _seq315_0 = m().mk_app(f, to_app(args[0])->get_arg(1), to_app(args[1])->get_arg(1));
+                        auto _seq315_1 = m().mk_app(f, to_app(args[0])->get_arg(2), to_app(args[1])->get_arg(2));
+                        result = m().mk_ite(to_app(args[0])->get_arg(0), _seq315_0, _seq315_1);
+                    }
                     return BR_REWRITE2;
                 }
             }
@@ -774,7 +791,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     //   exists x . ~(A /\ B)  -->  (exists x. ~A) \/ (exists x. ~B)
     // Each rule is a validity, and the distributed sub-quantifiers give the
     // e-matching engine finer-grained instantiation targets.
-    bool distribute_quantifier(quantifier * old_q, expr * new_body, expr_ref & result) {
+    bool push_quantifier(quantifier * old_q, expr * new_body, expr_ref & result) {
         if (old_q->get_kind() == lambda_k)
             return false;
         if (old_q->has_patterns())
@@ -800,6 +817,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             else
                 return false;
         }
+
         if (args.size() < 2)
             return false;
         expr_ref_vector quants(m());
@@ -878,7 +896,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             }
             return true;
         }
-        else if (distribute_quantifier(old_q, new_body, result)) {
+        else if (m_push_quantifiers && push_quantifier(old_q, new_body, result)) {
             if (m().proofs_enabled()) {
                 result_pr = m().mk_rewrite(old_q, result);
             }

@@ -20,6 +20,7 @@ Revision History:
 
 #include "util/rational.h"
 #include "util/common_msgs.h"
+#include "util/manage_warnings.h"
 #include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -1075,12 +1076,14 @@ void bit_blaster_tpl<Cfg>::NAME(unsigned sz, expr * const * a_bits, expr * const
     }                                                                                                                           \
 }
 
+START_DISABLE_EXTRA_SEMI_WARNING;
 MK_BINARY(mk_and, mk_and);
 MK_BINARY(mk_or, mk_or);
 MK_BINARY(mk_xor, mk_xor);
 MK_BINARY(mk_xnor, mk_iff);
 MK_BINARY(mk_nand, mk_nand);
 MK_BINARY(mk_nor, mk_nor);
+END_DISABLE_WARNING;
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_redand(unsigned sz, expr * const * a_bits, expr_ref_vector & out_bits) {

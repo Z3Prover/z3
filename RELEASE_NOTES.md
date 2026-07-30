@@ -1,7 +1,7 @@
 RELEASE NOTES
 
 
-Version 4.17.0
+Version 5.0.0
 ==============
 - A FiniteSets theory solver
   FiniteSets is a theory with a sort (FiniteSet S) for base sort S.

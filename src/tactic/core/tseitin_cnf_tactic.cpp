@@ -95,7 +95,7 @@ class tseitin_cnf_tactic : public tactic {
         
         void push_frame(app * n) { m_frame_stack.push_back(frame(n)); }
         
-        void throw_op_not_handled() {
+        [[noreturn]] void throw_op_not_handled() {
             throw tactic_exception("operator not supported, apply simplifier before invoking this strategy");
         }
         

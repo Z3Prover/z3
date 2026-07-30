@@ -20,6 +20,13 @@ set(z3py_bindings_build_dest "${PROJECT_BINARY_DIR}/python")
 file(MAKE_DIRECTORY "${z3py_bindings_build_dest}")
 file(MAKE_DIRECTORY "${z3py_bindings_build_dest}/z3")
 
+set(z3py_soversion_args "")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(z3py_soversion_args
+    "--z3py-soversion"
+    "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}")
+endif()
+
 set(build_z3_python_bindings_target_depends "")
 foreach (z3py_file ${z3py_files})
   add_custom_command(OUTPUT "${z3py_bindings_build_dest}/${z3py_file}"
@@ -37,6 +44,7 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3/z3core.py"
   COMMAND "${Python3_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
+    ${z3py_soversion_args}
     "--z3py-output-dir"
     "${z3py_bindings_build_dest}"
   DEPENDS
@@ -93,6 +101,17 @@ if (TARGET libz3)
     DEPENDS ${LIBZ3_DEPENDS}
     COMMENT "Linking libz3 into python directory"
   )
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_custom_command(OUTPUT "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}"
+      COMMAND "${CMAKE_COMMAND}" "-E" "${LINK_COMMAND}"
+        "${LIBZ3_SOURCE_PATH}"
+        "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}"
+      DEPENDS ${LIBZ3_DEPENDS}
+      COMMENT "Linking versioned libz3 into python directory"
+    )
+    list(APPEND build_z3_python_bindings_target_depends
+      "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}")
+  endif()
 else()
   message(FATAL_ERROR "libz3 target not found. Cannot build Python bindings.")
 endif()

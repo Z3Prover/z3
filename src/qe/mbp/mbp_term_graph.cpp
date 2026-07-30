@@ -708,8 +708,18 @@ expr *term_graph::mk_app_core(expr *e) {
         return e;
     expr_ref_buffer kids(m);
     app *a = ::to_app(e);
-    for (expr *arg : *a)
-        kids.push_back(mk_app(arg)); 
+    for (expr *arg : *a) {
+        // Keep literal values (e.g. the coefficient 2 in (* 2 x)) as-is.
+        // Replacing a value with its non-value class representative (e.g. x1
+        // when (= x1 2) was added to the graph) can turn a linear coefficient
+        // into a free variable, producing a nonlinear term such as (* x1 x).
+        // Values are canonical and never need to be expressed through a
+        // symbolic representative.
+        if (m.is_value(arg))
+            kids.push_back(arg);
+        else
+            kids.push_back(mk_app(arg));
+    }
     app *res = m.mk_app(a->get_decl(), a->get_num_args(), kids.data());
     m_pinned.push_back(res);
     return res;
@@ -813,6 +823,18 @@ bool term_graph::term_lt(term const &t1, term const &t2) {
     // prefer applications over variables (for non-ground)
     // prefer uninterpreted constants over values
     // prefer smaller expressions over larger ones
+    //
+    // Keeping uninterpreted constants as representatives is required by
+    // model-based projection clients such as Spacer: substituting a
+    // non-eliminated state constant with its concrete model value over-grounds
+    // the projected lemma (see Z3Prover/bench discussion #3420, benchmark
+    // iss-5561/bug-2.smt2).
+    //
+    // The complementary concern — that a literal value used as a coefficient
+    // (e.g. the 2 in (* 2 x)) could be displaced by a free variable x1 when
+    // (= x1 2) is in scope, yielding a nonlinear term (* x1 x) — is addressed
+    // separately in mk_app_core, which keeps literal values as-is and never
+    // replaces them with a non-value representative.
 
     if (t1.get_num_args() == 0 || t2.get_num_args() == 0) {
         if (t1.get_num_args() == t2.get_num_args()) {

@@ -392,7 +392,11 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         args1.append(num_args-1, args + 1);
         args2.push_back(el);
         args2.append(num_args-1, args + 1);
-        result = m().mk_ite(c, m_util.mk_select(num_args, args1.data()), m_util.mk_select(num_args, args2.data()));
+        {
+            auto _seq395_0 = m_util.mk_select(num_args, args1.data());
+            auto _seq395_1 = m_util.mk_select(num_args, args2.data());
+            result = m().mk_ite(c, _seq395_0, _seq395_1);
+        }
         return BR_REWRITE2;
     }
     

@@ -21,66 +21,66 @@ Authors:
 
 namespace seq {
 
-    // Cofactor path condition `pred` (a Boolean over x = (:var 0)) -> the canonical
-    // range_predicate (union of ranges) of the characters satisfying it.  Returns
-    // false on a construct outside {true,false,and,or,not,=,char.<=} over x.
-    static bool pred_to_rp(ast_manager &m, seq_util &sq, expr *x, expr *pred,
-                           range_predicate &out) {
-        unsigned maxc = sq.max_char();
-        expr *a = nullptr, *b = nullptr;
+    // Cofactor guard `guard` (a Boolean over the character variable v0 = (:var 0)) ->
+    // the canonical range_predicate (union of ranges) of the characters satisfying it.
+    // Returns false on a construct outside {true,false,and,or,not,=,char.<=} over v0.
+    bool guard_to_range_predicate(seq_util& u, expr* v0, expr* guard, range_predicate& out) {
+        ast_manager& m = u.get_manager();
+        unsigned maxc = u.max_char();
+        expr* a = nullptr, * b = nullptr;
         unsigned c = 0;
-        if (m.is_true(pred)) {
+        if (m.is_true(guard)) {
             out = range_predicate::top(maxc);
             return true;
         }
-        if (m.is_false(pred)) {
+        if (m.is_false(guard)) {
             out = range_predicate::empty(maxc);
             return true;
         }
-        if (m.is_eq(pred, a, b)) {
-            if (a == x && sq.is_const_char(b, c)) {
+        if (m.is_eq(guard, a, b)) {
+            if (a == v0 && u.is_const_char(b, c)) {
                 out = range_predicate::singleton(c, maxc);
                 return true;
             }
-            if (b == x && sq.is_const_char(a, c)) {
+            if (b == v0 && u.is_const_char(a, c)) {
                 out = range_predicate::singleton(c, maxc);
                 return true;
             }
             return false;
         }
-        if (sq.is_char_le(pred, a, b)) {
-            if (b == x && sq.is_const_char(a, c)) {
+        if (u.is_char_le(guard, a, b)) {
+            if (b == v0 && u.is_const_char(a, c)) {
                 out = range_predicate::range(c, maxc, maxc);
                 return true;
             }
-            if (a == x && sq.is_const_char(b, c)) {
+            if (a == v0 && u.is_const_char(b, c)) {
                 out = range_predicate::range(0, c, maxc);
                 return true;
             }
             return false;
         }
-        if (m.is_not(pred, a)) {
+        if (m.is_not(guard, a)) {
             range_predicate s(maxc);
-            if (!pred_to_rp(m, sq, x, a, s))
+            if (!guard_to_range_predicate(u, v0, a, s))
                 return false;
             out = ~s;
             return true;
         }
-        if (m.is_and(pred)) {
+        if (m.is_and(guard)) {
             out = range_predicate::top(maxc);
-            for (expr *arg : *to_app(pred)) {
+            for (expr *arg : *to_app(guard)) {
                 range_predicate s(maxc);
-                if (!pred_to_rp(m, sq, x, arg, s))
+                if (!guard_to_range_predicate(u, v0, arg, s))
                     return false;
                 out = out & s;
             }
             return true;
         }
-        if (m.is_or(pred)) {
+        if (m.is_or(guard)) {
             out = range_predicate::empty(maxc);
-            for (expr *arg : *to_app(pred)) {
+            for (expr *arg : *to_app(guard)) {
                 range_predicate s(maxc);
-                if (!pred_to_rp(m, sq, x, arg, s))
+                if (!guard_to_range_predicate(u, v0, arg, s))
                     return false;
                 out = out | s;
             }
@@ -183,7 +183,7 @@ namespace seq {
             auto body = q->get_expr();
             sort *char_sort = q->get_decl_sort(0);
             expr_ref var(m.mk_var(0, char_sort), m);
-            if (u.get_char_plugin().get_family_id() == char_sort->get_family_id() && pred_to_rp(m, u, var, body, out))
+            if (u.get_char_plugin().get_family_id() == char_sort->get_family_id() && guard_to_range_predicate(u, var, body, out))
                 return true;
         }
 
@@ -225,15 +225,33 @@ namespace seq {
         // fragment recognized by pred_to_rp, so regex_to_range_predicate
         // round-trips it back to the same range_predicate.
         expr_ref_vector ranges(m);
+
+        for (unsigned i = 0; i < n; ++i) {
+            auto [lo, hi] = p[i];
+            ranges.push_back(mk_single_range_regex(u, lo, hi, re_sort));
+        }
+        std::sort(ranges.data(), ranges.data() + ranges.size(),
+                  [](expr *a, expr *b) { return a->get_id() < b->get_id(); });
+        expr_ref acc(ranges.get(n - 1), m);
+        for (unsigned i = n - 1; i-- > 0;)
+            acc = expr_ref(u.re.mk_union(ranges.get(i), acc), m);
+        return acc;
+        #if 0
         expr_ref bound(m.mk_var(0, char_sort), m);
         symbol char_sym("ch");
         auto &ch = u.get_char_plugin();
         for (unsigned i = 0; i < n; ++i) {
             auto [lo, hi] = p[i];
-            ranges.push_back(m.mk_and(ch.mk_le(ch.mk_char(lo), bound), ch.mk_le(bound, ch.mk_char(hi))));
+            {
+                auto _seq251_0 = ch.mk_le(ch.mk_char(lo), bound);
+                auto _seq251_1 = ch.mk_le(bound, ch.mk_char(hi));
+                ranges.push_back(m.mk_and(_seq251_0, _seq251_1));
+            }
         }
         expr_ref body(m.mk_or(ranges), m);
-        return expr_ref(u.re.mk_of_pred(m.mk_lambda(1, &char_sort, &char_sym, body)), m);
+        auto lam = m.mk_lambda(1, &char_sort, &char_sym, body);
+        return expr_ref(u.re.mk_of_pred(lam), m);
+        #endif
     }
 
     expr_ref unfold_fold(seq_rewriter &rw, expr *r) {

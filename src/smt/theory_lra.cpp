@@ -1349,7 +1349,6 @@ public:
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
 
-            
             // q = 0 or p = (p mod q) + q * (p div q)
             // q = 0 or (p mod q) >= 0
             // q >= 0 or (p mod q) + q <= -1
@@ -1746,6 +1745,7 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
+        propagate_nla(); 
         if (!lp().is_feasible() || lp().has_changed_columns()) 
             is_sat = make_feasible();
         final_check_status st = FC_DONE;
@@ -2126,7 +2126,6 @@ public:
         default:
             UNREACHABLE();
         }
-        TRACE(arith, tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
         expr_ref atom(m);
         // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
         // then term is used instead of ineq.m_term
@@ -2135,6 +2134,7 @@ public:
         else 
             // create term >= 0 (or term <= 0)
             atom = mk_bound(ineq.term(), ineq.rs(), is_lower);
+        TRACE(arith, tout << "is_lower: " << is_lower << " pos " << pos << " " << atom << "\n";);
         return literal(ctx().get_bool_var(atom), pos);
     }    
 
@@ -2265,7 +2265,6 @@ public:
     bool propagate_core() {
         m_model_is_initialized = false;
         flush_bound_axioms();
-        propagate_nla(); 
         if (ctx().inconsistent())
             return true;
         if (!can_propagate_core()) 
@@ -2320,6 +2319,7 @@ public:
             get_infeasibility_explanation_and_set_conflict();
             break;
         case l_true:
+            incremental_propagate_nla();         
             propagate_bounds_with_lp_solver();
             break;
         case l_undef:
@@ -2329,12 +2329,24 @@ public:
         return true;            
     }
 
-    void propagate_nla() {
+    bool propagate_nla() {
+        bool propagated = false;
         if (m_nla) {
-            m_nla->propagate();
+            propagated = m_nla->propagate();
             add_lemmas();
             lp().collect_more_rows_for_lp_propagation();
         }
+        return propagated;
+    }
+
+    bool incremental_propagate_nla() {
+        bool propagated = false;
+        if (m_nla) {
+            propagated = m_nla->incremental_propagate();
+            add_lemmas();
+            lp().collect_more_rows_for_lp_propagation();
+        }
+        return propagated;
     }
 
     void add_equality(lpvar j, rational const& k, lp::explanation const& exp) {
@@ -4290,7 +4302,12 @@ public:
     app_ref coeffs2app(u_map<rational> const& coeffs, rational const& offset, bool is_int) {
         expr_ref_vector args(m);
         for (auto const& [w, coeff] : coeffs) {
-            expr* o = get_expr(w);
+            expr_ref o(get_expr(w), m);
+            // When the overall expression is Real but 'o' is Int (e.g. due to
+            // to_real(Int) equality constraints in the LP), coerce 'o' to Real
+            // to avoid sort mismatches when int/real coercions are disabled.
+            if (!is_int && a.is_int(o))
+                o = a.mk_to_real(o);
             if (coeff.is_zero()) {
                 // continue
             }

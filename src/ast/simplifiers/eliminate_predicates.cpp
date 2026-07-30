@@ -207,7 +207,11 @@ void eliminate_predicates::insert_quasi_macro(app* head, expr* body, clause& cl)
     f1 = m.mk_fresh_func_decl(f->get_name(), symbol::null, sorts.size(), sorts.data(), f->get_range());
 
     lhs = m.mk_app(f, args);
-    rhs = m.mk_ite(mk_and(eqs), body, m.mk_app(f1, args));
+    {
+        auto _seq210_0 = mk_and(eqs);
+        auto _seq210_1 = m.mk_app(f1, args);
+        rhs = m.mk_ite(_seq210_0, body, _seq210_1);
+    }
     insert_macro(lhs, rhs, cl);
 }
 

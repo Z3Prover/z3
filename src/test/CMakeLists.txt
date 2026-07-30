@@ -61,7 +61,6 @@ add_executable(test-z3
   f2n.cpp
   finite_set.cpp
   finite_set_rewriter.cpp
-  fpa.cpp
   factor_rewriter.cpp
   finder.cpp
   fixed_bit_vector.cpp
@@ -137,12 +136,14 @@ add_executable(test-z3
   sat_user_scope.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_rewriter.cpp
+  seq_monadic.cpp
   simple_parser.cpp
+  scanner_io.cpp
   simplex.cpp
   simplifier.cpp
   sls_test.cpp
   sls_seq_plugin.cpp
-  seq_split.cpp
   small_object_allocator.cpp
   smt2print_parse.cpp
   smt_context.cpp

@@ -1091,6 +1091,13 @@ bool fpa_util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* cons
         scoped_mpf sv(fm());
         if (!is_rm_numeral(rm, rmv) || !is_numeral(x, sv)) return false;
         if (is_nan(x) || is_inf(x)) return true;
+        // A finite value whose (unbiased) binary exponent is at least bv_sz has
+        // magnitude >= 2^bv_sz, so it cannot fit into a bv_sz-bit signed or
+        // unsigned integer and the conversion is unspecified. Detect this here to
+        // avoid calling to_sbv_mpq, which rejects exponents that do not fit into
+        // an int (throwing "exponents over 31 bits are not supported").
+        if (plugin().fm().exp(sv) >= (mpf_exp_t)bv_sz)
+            return true;
         unsynch_mpq_manager& mpqm = plugin().fm().mpq_manager();
         scoped_mpq r(mpqm);
         plugin().fm().to_sbv_mpq(rmv, sv, r);

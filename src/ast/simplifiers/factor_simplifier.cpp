@@ -59,7 +59,11 @@ struct factor_simplifier::rw_cfg : public default_rewriter_cfg {
             m_expr2poly.to_expr(fs[i], true, arg);
             args.push_back(arg);
         }
-        result = m.mk_eq(mk_mul(args.size(), args.data()), mk_zero_for(arg));
+        {
+            auto _seq62_0 = mk_mul(args.size(), args.data());
+            auto _seq62_1 = mk_zero_for(arg);
+            result = m.mk_eq(_seq62_0, _seq62_1);
+        }
     }
 
     // p1^k1 * p2^k2 = 0 --> p1 = 0 or p2 = 0
@@ -151,7 +155,9 @@ struct factor_simplifier::rw_cfg : public default_rewriter_cfg {
             }
         }
         else {
-            args.push_back(m.mk_app(m_util.get_family_id(), k, mk_mul(odd_factors.size(), odd_factors.data()), mk_zero_for(odd_factors[0])));
+            auto _seq154_0 = mk_mul(odd_factors.size(), odd_factors.data());
+            auto _seq154_1 = mk_zero_for(odd_factors[0]);
+            args.push_back(m.mk_app(m_util.get_family_id(), k, _seq154_0, _seq154_1));
         }
         SASSERT(!args.empty());
         if (args.size() == 1)

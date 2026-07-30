@@ -30,6 +30,7 @@ Operators:
 
 #include "ast/ast.h"
 #include "ast/polymorphism_util.h"
+#include "util/manage_warnings.h"
 
 enum finite_set_sort_kind {
     FINITE_SET_SORT
@@ -137,6 +138,7 @@ public:
     bool is_range(expr const* n) const { return is_app_of(n, m_fid, OP_FINITE_SET_RANGE); }
     bool is_unique_set(expr const *n) const { return is_app_of(n, m_fid, OP_FINITE_SET_UNIQUE_SET); } 
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_UNARY(is_singleton);
     MATCH_UNARY(is_size);
     MATCH_BINARY(is_union);
@@ -148,6 +150,7 @@ public:
     MATCH_BINARY(is_filter);
     MATCH_BINARY(is_range);
     MATCH_BINARY(is_unique_set);
+    END_DISABLE_WARNING;
 };
 
 class finite_set_util : public finite_set_recognizers {

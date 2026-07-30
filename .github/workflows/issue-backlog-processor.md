@@ -5,7 +5,12 @@ on:
   schedule: every 2 days
   workflow_dispatch:
 
-permissions: read-all
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  discussions: read
+  copilot-requests: write
 
 tools:
   cache-memory: true

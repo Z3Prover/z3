@@ -22,6 +22,7 @@ Notes:
 #include "ast/rewriter/rewriter.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "util/manage_warnings.h"
 
 //
 // bv2real[d,r](n,m) has interpretation: 
@@ -100,8 +101,10 @@ public:
     bool is_pos_lef(func_decl* f) const { return f == m_pos_le; }
     bool is_pos_lt(expr const* e) const { return is_app(e) && is_pos_ltf(to_app(e)->get_decl()); }
     bool is_pos_le(expr const* e) const { return is_app(e) && is_pos_lef(to_app(e)->get_decl()); }
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_BINARY(is_pos_lt);
     MATCH_BINARY(is_pos_le);
+    END_DISABLE_WARNING;
     expr* mk_pos_lt(expr* s, expr* t) { return m().mk_app(m_pos_lt, s, t); }
     expr* mk_pos_le(expr* s, expr* t) { return m().mk_app(m_pos_le, s, t); }
 

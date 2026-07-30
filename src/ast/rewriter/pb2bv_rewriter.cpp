@@ -618,7 +618,11 @@ struct pb2bv_rewriter::imp {
                 return expr_ref(m.mk_true(), m);
             }
             expr_ref_vector fmls(m);
-            fmls.push_back(m.mk_implies(m.mk_not(out[0]), mk_seg_le_rec(outs, coeffs, i + 1, k)));
+            {
+                auto _seq621_0 = m.mk_not(out[0]);
+                auto _seq621_1 = mk_seg_le_rec(outs, coeffs, i + 1, k);
+                fmls.push_back(m.mk_implies(_seq621_0, _seq621_1));
+            }
             rational k1;
             for (unsigned j = 0; j + 1 < out.size(); ++j) {
                 k1 = k - rational(j+1)*c;
@@ -626,7 +630,11 @@ struct pb2bv_rewriter::imp {
                     fmls.push_back(m.mk_not(out[j]));
                     break;
                 }
-                fmls.push_back(m.mk_implies(m.mk_and(out[j], m.mk_not(out[j+1])), mk_seg_le_rec(outs, coeffs, i + 1, k1)));
+                {
+                    auto _seq629_0 = m.mk_and(out[j], m.mk_not(out[j + 1]));
+                    auto _seq629_1 = mk_seg_le_rec(outs, coeffs, i + 1, k1);
+                    fmls.push_back(m.mk_implies(_seq629_0, _seq629_1));
+                }
             }
             return ::mk_and(fmls);
         }

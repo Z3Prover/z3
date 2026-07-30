@@ -90,6 +90,9 @@ class core {
     monomial_bounds          m_monomial_bounds;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
+    // set when bound optimization re-calibrates m_to_refine to empty: every
+    // monomial is consistent under the optimized model, so the goal is satisfied.
+    bool                     m_nla_satisfied = false;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
@@ -108,6 +111,7 @@ class core {
 
     nla_throttle             m_throttle;
     bool                     m_throttle_enabled = true;
+    bool                     m_bounds_optimization_enabled = true;
 
 
 
@@ -117,6 +121,8 @@ class core {
     bool refine_pseudo_linear();
     bool is_pseudo_linear(monic const& m) const;    
     void refine_pseudo_linear(monic const& m);
+
+    bool optimize_nl_bounds();
 
     std::ostream& display_constraint_smt(std::ostream& out, unsigned id, lp::lar_base_constraint const& c) const;
     std::ostream& display_declarations_smt(std::ostream& out) const;
@@ -406,7 +412,8 @@ public:
 
     bool  no_lemmas_hold() const;
 
-    void propagate();
+    bool propagate();
+    bool incremental_propagate();
 
     void simplify();
     
@@ -461,6 +468,9 @@ public:
     indexed_uint_set const& to_refine() const {
         return m_to_refine;
     }
+
+    void set_nla_satisfied() { m_nla_satisfied = true; }
+    bool nla_satisfied() const { return m_nla_satisfied; }
 
 };  // end of core
 

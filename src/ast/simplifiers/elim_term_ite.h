@@ -34,11 +34,17 @@ public:
     void reduce() override {
         expr_ref r(m);
         proof_ref pr(m);
+        unsigned prev_defs_sz = m_rewriter.new_defs().size();
         for (unsigned idx : indices()) {
             auto const& d = m_fmls[idx];
             m_rewriter(d.fml(), r, pr);
             if (d.fml() != r)
                 m_fmls.update(idx, dependent_expr(m, r, mp(d.pr(), pr), d.dep()));
+            for (unsigned i = prev_defs_sz; i < m_rewriter.new_defs().size(); ++i) {
+                auto const& def = m_rewriter.new_defs()[i];
+                m_fmls.add(dependent_expr(m, def.fml(), def.pr(), nullptr));
+            }
+            prev_defs_sz = m_rewriter.new_defs().size();
         }
     }
 

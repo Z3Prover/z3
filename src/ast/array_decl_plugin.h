@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
+#include "util/manage_warnings.h"
 
 
 inline sort* get_array_range(sort const * s) {
@@ -207,7 +208,9 @@ public:
     }
 
 
+    START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_BINARY(is_subset);
+    END_DISABLE_WARNING;
 };
 
 class array_util : public array_recognizers {

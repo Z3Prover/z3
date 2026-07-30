@@ -73,8 +73,8 @@
     X(bit_blaster) \
     X(var_subst) \
     X(simple_parser) \
+    X(scanner_io) \
     X(api) \
-    X(max_reg) \
     X(max_rev) \
     X(scaled_min) \
     X(box_mod_opt) \
@@ -198,8 +198,6 @@
     X(ho_matcher) \
     X(finite_set) \
     X(finite_set_rewriter) \
-    X(seq_split) \
-    X(fpa) \
     X(seq_regex_bisim) \
     X(seq_nielsen) \
     X(nseq_basic) \

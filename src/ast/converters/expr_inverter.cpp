@@ -337,8 +337,11 @@ class bv_expr_inverter : public iexpr_inverter {
                 ++sh;
             }
             mk_fresh_uncnstr_var_for(f, r);
-            if (sh > 0)
-                r = bv.mk_concat(bv.mk_extract(sz - sh - 1, 0, r), bv.mk_zero(sh));
+            if (sh > 0) {
+                auto _seq0 = bv.mk_extract(sz - sh - 1, 0, r);
+                auto _seq1 = bv.mk_zero(sh);
+                r = bv.mk_concat(_seq0, _seq1);
+            }
 
             if (m_mc) {
                 rational inv_r;
@@ -427,7 +430,11 @@ class bv_expr_inverter : public iexpr_inverter {
         if (uncnstr(arg1) && uncnstr(arg2)) {
             mk_fresh_uncnstr_var_for(f, r);
             if (m_mc) {
-                add_def(arg1, m.mk_ite(r, bv.mk_zero(bv_sz), bv.mk_one(bv_sz)));
+                {
+                    auto _seq430_0 = bv.mk_zero(bv_sz);
+                    auto _seq430_1 = bv.mk_one(bv_sz);
+                    add_def(arg1, m.mk_ite(r, _seq430_0, _seq430_1));
+                }
                 add_def(arg2, bv.mk_zero(bv_sz));
             }
             return true;
