@@ -1561,6 +1561,43 @@ void core::set_use_nra_model(bool m) {
    but the extra rounds cost more than they return: the pass runs on every
    nonlinear propagation, so a later round usually only finds what the next call
    would have found anyway.
+
+   Two files on z3test/regressions/fstar cost more with the pass on,
+   queries-Pulse.Lib.HashTable.Spec-1 and FStar.Matrix-2. Neither is a defect in
+   the derivation above; both are second-order interactions with the bounded
+   nlsat escalation in check(), and they pull in opposite directions, so do not
+   try to tune them away together.
+
+   On HashTable.Spec the escalation is pure waste. All 11 nra calls come from
+   the should_run_bounded_nlsat() site, and with arith.nl.nra=false the file is
+   still unsat and the pass is a 15% *win*: 223336 rlimit on master, 472374 with
+   the pass, 189730 with the pass and no nra. What changed is only when the
+   cheaper methods come up empty: this pass has already derived what
+   monomial_bounds and add_bounds would have, so no_effect() holds while
+   monomials still need refining, and m_nlsat_delay starts at 0, so nlsat runs
+   at the first opportunity.
+
+   On Matrix-2 the escalation is load-bearing: with arith.nl.nra=false the file
+   goes from 765543 rlimit to unknown.
+
+   Both global levers were measured and both fail the same way, fixing
+   HashTable.Spec and turning Matrix-2 from unsat into unknown:
+
+     initial m_nlsat_delay   0 (now)      5        10       50    exponential
+       HashTable.Spec         472374   557081   189730   189730   429941
+       Matrix-2              1603093  unknown  unknown  unknown   unknown
+
+     bounded nlsat rlimit   100000 (now)   25000     5000
+       HashTable.Spec             472374   382601   194730
+       Matrix-2                  1603213  2307249  unknown
+
+   There is also no local signal to separate the two cases: at the escalation
+   point the bounded runs are equally productive, 6 conflicts and 5 inconclusive
+   on HashTable.Spec against 6 and 9 on Matrix-2. What differs is whether the
+   rest of the search would have closed the goal anyway, which is not knowable
+   there. So this is the familiar situation where partially applying a global
+   heuristic is worse than either extreme, and the two files are best left alone
+   unless the escalation itself is reworked.
 */
 bool core::propagate_fixed_rows() {
     if (!params().arith_nl_propagate_fixed_rows())
