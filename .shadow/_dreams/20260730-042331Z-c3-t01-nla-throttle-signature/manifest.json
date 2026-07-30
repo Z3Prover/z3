@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-042331Z-c3-t01-nla-throttle-signature",
+  "branch": "dream/z3shadow/20260730-042331Z-c3-t01-nla-throttle-signature",
+  "parent_branch": "master",
+  "category": "investigation",
+  "verdict": "useful",
+  "title": "NLA throttle signature contract",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/math/lp/nla_throttle.cpp::nla_throttle.insert_new_impl",
+      "text": "nla_throttle::insert_new_impl returns true to mean a signature was already seen and the caller should throttle; new signatures are inserted, trailed with insert_map, and return false.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-042331Z-c3-t01-nla-throttle-signature/"
+    }
+  ],
+  "cross_cutting": []
+}

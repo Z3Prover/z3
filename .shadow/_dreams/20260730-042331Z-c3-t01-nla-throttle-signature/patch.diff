@@ -1,0 +1,28 @@
+diff --git a/dream_experiments/c3-t01-nla-throttle-signature.py b/dream_experiments/c3-t01-nla-throttle-signature.py
+new file mode 100644
+index 000000000..f91ebcd22
+--- /dev/null
++++ b/dream_experiments/c3-t01-nla-throttle-signature.py
+@@ -0,0 +1,10 @@
++from pathlib import Path
++import re, json
++text = Path('src/math/lp/nla_throttle.cpp').read_text(encoding='utf-8')
++assert text.count('return insert_new_impl(sig);') >= 5
++assert 'normalize_sign(sign)' in text and 'pack_rational_sign(d_sign) << 24' in text
++impl = re.search(r'bool nla_throttle::insert_new_impl\(const signature& sig\) \{(.+?)\n\}', text, re.S).group(1)
++assert 'm_seen.contains(sig)' in impl
++assert 'm_stats.m_nla_throttled_lemmas++' in impl
++assert 'return true;' in impl and 'm_seen.insert(sig)' in impl and 'm_trail.push(insert_map(m_seen, sig))' in impl and 'return false;' in impl
++print(json.dumps({'overloads_call_insert_new_impl': text.count('return insert_new_impl(sig);'), 'seen_returns_throttle_true': True}))
+diff --git a/dream_experiments/c3-t01-nla-throttle-signature.result.json b/dream_experiments/c3-t01-nla-throttle-signature.result.json
+new file mode 100644
+index 000000000..f49efc142
+--- /dev/null
++++ b/dream_experiments/c3-t01-nla-throttle-signature.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c3-t01-nla-throttle-signature.py",
++  "exit_code": 0,
++  "output": "{\"overloads_call_insert_new_impl\": 5, \"seen_returns_throttle_true\": true}\n"
++}
+\ No newline at end of file

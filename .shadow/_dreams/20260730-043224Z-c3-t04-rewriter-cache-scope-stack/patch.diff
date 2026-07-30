@@ -1,0 +1,29 @@
+diff --git a/dream_experiments/c3-t04-rewriter-cache-scope-stack.py b/dream_experiments/c3-t04-rewriter-cache-scope-stack.py
+new file mode 100644
+index 000000000..b178bfd7d
+--- /dev/null
++++ b/dream_experiments/c3-t04-rewriter-cache-scope-stack.py
+@@ -0,0 +1,11 @@
++from pathlib import Path
++import re, json
++text = Path('src/ast/rewriter/rewriter.cpp').read_text(encoding='utf-8')
++begin = re.search(r'void rewriter_core::begin_scope\(\) \{(.+?)\n\}', text, re.S).group(1)
++end = re.search(r'void rewriter_core::end_scope\(\) \{(.+?)\n\}', text, re.S).group(1)
++reset = re.search(r'void rewriter_core::reset_cache\(\) \{(.+?)\n\}', text, re.S).group(1)
++assert 'if (lvl == m_cache_stack.size())' in begin and 'm_cache_stack.push_back(alloc(cache, m()))' in begin
++assert 'm_cache->reset();' in begin and 'SASSERT(m_cache->empty());' in begin
++assert 'm_cache->reset();' in end and 'm_cache          = m_cache_stack[new_lvl];' in end
++assert 'm_cache = m_cache_stack[0];' in reset and 'm_cache->reset();' in reset
++print(json.dumps({'cache_reused_by_scope_depth': True, 'end_scope_restores_previous_level': True}))
+diff --git a/dream_experiments/c3-t04-rewriter-cache-scope-stack.result.json b/dream_experiments/c3-t04-rewriter-cache-scope-stack.result.json
+new file mode 100644
+index 000000000..c867c7934
+--- /dev/null
++++ b/dream_experiments/c3-t04-rewriter-cache-scope-stack.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c3-t04-rewriter-cache-scope-stack.py",
++  "exit_code": 0,
++  "output": "{\"cache_reused_by_scope_depth\": true, \"end_scope_restores_previous_level\": true}\n"
++}
+\ No newline at end of file

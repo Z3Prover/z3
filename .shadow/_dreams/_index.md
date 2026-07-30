@@ -14,3 +14,9 @@
 | 20260730-015309Z-c2-t04-lbool-static-assert-guard | refactoring | useful | lbool static assert guard | dream/z3shadow/20260730-015309Z-c2-t04-lbool-static-assert-guard | dream/z3shadow/20260729-223918Z-t04-lbool-ordinal-contract | b138d350d |
 | 20260730-015431Z-c2-t05-model-evaluator-cache-scope | optimization | useful | Model evaluator cache scope | dream/z3shadow/20260730-015431Z-c2-t05-model-evaluator-cache-scope | master | 87567253c |
 | 20260730-015703Z-c2-t06-smt2-string-quote-audit | security audit | useful | SMT2 string quote audit | dream/z3shadow/20260730-015703Z-c2-t06-smt2-string-quote-audit | master | f6e989bc5 |
+| 20260730-042331Z-c3-t01-nla-throttle-signature | investigation | useful | NLA throttle signature contract | dream/z3shadow/20260730-042331Z-c3-t01-nla-throttle-signature | master | 86db932e2 |
+| 20260730-042647Z-c3-t02-nlsat-var-hash-prefilter | bug hunting | useful | NLSAT var-hash prefilter follow-up | dream/z3shadow/20260730-042647Z-c3-t02-nlsat-var-hash-prefilter | dream/z3shadow/20260730-014854Z-c2-t02-nlsat-clause-hash-probe | a2ae29761 |
+| 20260730-042945Z-c3-t03-simplify-tactic-preset-variant | feature design | useful | Simplify tactic preset variant | dream/z3shadow/20260730-042945Z-c3-t03-simplify-tactic-preset-variant | master | 4b5948fb9 |
+| 20260730-043224Z-c3-t04-rewriter-cache-scope-stack | refactoring | useful | Rewriter cache scope stack | dream/z3shadow/20260730-043224Z-c3-t04-rewriter-cache-scope-stack | master | 8e8148bc5 |
+| 20260730-043515Z-c3-t05-model-evaluator-else-mutation | optimization | useful | Model evaluator as-array else mutation | dream/z3shadow/20260730-043515Z-c3-t05-model-evaluator-else-mutation | dream/z3shadow/20260730-015431Z-c2-t05-model-evaluator-cache-scope | af6facb73 |
+| 20260730-044130Z-c3-t06-opt-objective-type-guards | security audit | useful | Optimize objective type guards | dream/z3shadow/20260730-044130Z-c3-t06-opt-objective-type-guards | master | e47c857d0 |

@@ -1,0 +1,27 @@
+diff --git a/dream_experiments/c3-t03-simplify-tactic-preset-variant.py b/dream_experiments/c3-t03-simplify-tactic-preset-variant.py
+new file mode 100644
+index 000000000..c515b1ec8
+--- /dev/null
++++ b/dream_experiments/c3-t03-simplify-tactic-preset-variant.py
+@@ -0,0 +1,9 @@
++from pathlib import Path
++import re, json
++text = Path('src/tactic/core/simplify_tactic.cpp').read_text(encoding='utf-8')
++body = re.search(r'tactic \* mk_elim_and_tactic\(ast_manager & m, params_ref const & p\) \{(.+?)\n\}', text, re.S).group(1)
++assert 'params_ref xp = p;' in body and 'xp.set_bool("elim_and", true);' in body
++assert 'return using_params(mk_simplify_tactic(m, xp), xp);' in body
++assert 'void simplify_tactic::get_param_descrs' in text and 'th_rewriter::get_param_descrs(r);' in text
++assert 'm_params.append(p);' in text
++print(json.dumps({'elim_and_is_param_preset': True, 'param_descrs_delegate_to_th_rewriter': True}))
+diff --git a/dream_experiments/c3-t03-simplify-tactic-preset-variant.result.json b/dream_experiments/c3-t03-simplify-tactic-preset-variant.result.json
+new file mode 100644
+index 000000000..18dbcbca8
+--- /dev/null
++++ b/dream_experiments/c3-t03-simplify-tactic-preset-variant.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c3-t03-simplify-tactic-preset-variant.py",
++  "exit_code": 0,
++  "output": "{\"elim_and_is_param_preset\": true, \"param_descrs_delegate_to_th_rewriter\": true}\n"
++}
+\ No newline at end of file

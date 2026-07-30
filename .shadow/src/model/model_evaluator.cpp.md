@@ -366,6 +366,10 @@ _No discoveries yet._
 - model_evaluator caches expanded as-array definitions in m_def_cache only within one evaluator reset cycle; imp::reset clears the cache, so repeated top-level eval calls recompute those expansions.
   _(verified, source: exploration, labels: [performance])_
   Dream report: `_dreams/20260730-015431Z-c2-t05-model-evaluator-cache-scope/`
+
+- expand_as_array fills a missing function interpretation else branch with model.get_some_value before extracting the array interpretation, then evaluates it with model completion disabled and pins the cached result.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260730-043515Z-c3-t05-model-evaluator-else-mutation/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

@@ -1,0 +1,39 @@
+diff --git a/dream_experiments/c2-t02-nlsat-clause-hash-probe.py b/dream_experiments/c2-t02-nlsat-clause-hash-probe.py
+index 8ecc3ed04..a4d34d734 100644
+--- a/dream_experiments/c2-t02-nlsat-clause-hash-probe.py
++++ b/dream_experiments/c2-t02-nlsat-clause-hash-probe.py
+@@ -9,3 +9,6 @@ for b in bodies:
+     assert 'for (unsigned i = 0; i < m_size; ++i)' in b
+     assert 'm_var_hash' not in b and 'var_hash' not in b
+ print(json.dumps({'contains_overloads': len(bodies), 'contains_uses_var_hash': False}))
++
++# Extended by cycle 3 dream_experiments/c2-t02-nlsat-clause-hash-probe.py
++print('cycle3 extension active')
+diff --git a/dream_experiments/c3-t02-nlsat-var-hash-prefilter.py b/dream_experiments/c3-t02-nlsat-var-hash-prefilter.py
+new file mode 100644
+index 000000000..b287b48ad
+--- /dev/null
++++ b/dream_experiments/c3-t02-nlsat-var-hash-prefilter.py
+@@ -0,0 +1,10 @@
++from pathlib import Path
++import re, json
++simp = Path('src/nlsat/nlsat_simplify.cpp').read_text(encoding='utf-8')
++clause_cpp = Path('src/nlsat/nlsat_clause.cpp').read_text(encoding='utf-8')
++assert 'h |= (1ul << (v % 32ul));' in simp and 'c.set_var_hash(h);' in simp
++assert 'if ((c1.var_hash() & c2.var_hash()) != c1.var_hash())' in simp
++assert 'return false;' in simp[simp.index('if ((c1.var_hash()'):simp.index('for (auto lit1')]
++for b in re.findall(r'bool clause::contains\([^)]*\) const \{(.+?)\n    \}', clause_cpp, re.S):
++    assert 'var_hash' not in b and 'm_var_hash' not in b
++print(json.dumps({'hash_bits_modulo': 32, 'subsumption_uses_subset_prefilter': True, 'contains_still_hash_independent': True}))
+diff --git a/dream_experiments/c3-t02-nlsat-var-hash-prefilter.result.json b/dream_experiments/c3-t02-nlsat-var-hash-prefilter.result.json
+new file mode 100644
+index 000000000..ab6c1d3d7
+--- /dev/null
++++ b/dream_experiments/c3-t02-nlsat-var-hash-prefilter.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c3-t02-nlsat-var-hash-prefilter.py",
++  "exit_code": 0,
++  "output": "{\"hash_bits_modulo\": 32, \"subsumption_uses_subset_prefilter\": true, \"contains_still_hash_independent\": true}\n"
++}
+\ No newline at end of file

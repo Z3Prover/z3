@@ -1,0 +1,29 @@
+diff --git a/dream_experiments/c3-t06-opt-objective-type-guards.py b/dream_experiments/c3-t06-opt-objective-type-guards.py
+new file mode 100644
+index 000000000..214a62b57
+--- /dev/null
++++ b/dream_experiments/c3-t06-opt-objective-type-guards.py
+@@ -0,0 +1,11 @@
++from pathlib import Path
++import re, json
++text = Path('src/opt/opt_context.cpp').read_text(encoding='utf-8')
++soft = re.search(r'unsigned context::scoped_state::add\(expr\* f, rational const& w, symbol const& id\) \{(.+?)\n    \}', text, re.S).group(1)
++obj = re.search(r'unsigned context::scoped_state::add\(app\* t, bool is_max\) \{(.+?)\n    \}', text, re.S).group(1)
++assert 'if (!m.is_bool(f))' in soft and 'throw default_exception("Soft constraint should be Boolean")' in soft
++assert 'if (!m_bv.is_bv(t) && !m_arith.is_int_real(t))' in obj
++assert 'throw default_exception("Objective must be bit-vector, integer or real")' in obj
++assert soft.index('if (!m.is_bool(f))') < soft.index('m_objectives.push_back')
++assert obj.index('if (!m_bv.is_bv') < obj.index('m_objectives.push_back')
++print(json.dumps({'soft_constraint_boolean_guard': True, 'objective_sort_guard': True}))
+diff --git a/dream_experiments/c3-t06-opt-objective-type-guards.result.json b/dream_experiments/c3-t06-opt-objective-type-guards.result.json
+new file mode 100644
+index 000000000..f569c2d9f
+--- /dev/null
++++ b/dream_experiments/c3-t06-opt-objective-type-guards.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c3-t06-opt-objective-type-guards.py",
++  "exit_code": 0,
++  "output": "{\"soft_constraint_boolean_guard\": true, \"objective_sort_guard\": true}\n"
++}
+\ No newline at end of file

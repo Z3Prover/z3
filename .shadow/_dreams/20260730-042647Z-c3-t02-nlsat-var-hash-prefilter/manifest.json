@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-042647Z-c3-t02-nlsat-var-hash-prefilter",
+  "branch": "dream/z3shadow/20260730-042647Z-c3-t02-nlsat-var-hash-prefilter",
+  "parent_branch": "dream/z3shadow/20260730-014854Z-c2-t02-nlsat-clause-hash-probe",
+  "category": "bug hunting",
+  "verdict": "useful",
+  "title": "NLSAT var-hash prefilter follow-up",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/nlsat/nlsat_simplify.cpp::simplifier.subsumes",
+      "text": "nlsat_simplify uses clause::var_hash as a 32-bit modulo prefilter for subsumption before literal scans; collisions can cause extra subsumption work but cannot make clause::contains depend on the hash.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-042647Z-c3-t02-nlsat-var-hash-prefilter/"
+    }
+  ],
+  "cross_cutting": []
+}

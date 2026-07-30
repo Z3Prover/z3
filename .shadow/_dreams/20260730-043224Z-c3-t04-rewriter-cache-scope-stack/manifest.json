@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-043224Z-c3-t04-rewriter-cache-scope-stack",
+  "branch": "dream/z3shadow/20260730-043224Z-c3-t04-rewriter-cache-scope-stack",
+  "parent_branch": "master",
+  "category": "refactoring",
+  "verdict": "useful",
+  "title": "Rewriter cache scope stack",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/ast/rewriter/rewriter.cpp::rewriter_core.begin_scope",
+      "text": "rewriter_core caches are indexed by scope depth: begin_scope reuses or allocates one cache per level, end_scope resets the current level and restores the previous cache, and reset_cache only resets the base cache.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "tech-debt"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-043224Z-c3-t04-rewriter-cache-scope-stack/"
+    }
+  ],
+  "cross_cutting": []
+}

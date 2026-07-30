@@ -1,0 +1,38 @@
+diff --git a/dream_experiments/c2-t05-model-evaluator-cache-scope.py b/dream_experiments/c2-t05-model-evaluator-cache-scope.py
+index 00e99b112..c7ba59bc5 100644
+--- a/dream_experiments/c2-t05-model-evaluator-cache-scope.py
++++ b/dream_experiments/c2-t05-model-evaluator-cache-scope.py
+@@ -7,3 +7,6 @@ reset = re.search(r'void reset\(\) \{(.+?)\n    \}', text, re.S).group(1)
+ assert 'm_cfg.m_def_cache.reset();' in reset
+ assert 'm_pinned.push_back(result);' in expand
+ print(json.dumps({'as_array_cache_lookup_and_insert': True, 'cache_cleared_by_imp_reset': True}))
++
++# Extended by cycle 3 dream_experiments/c2-t05-model-evaluator-cache-scope.py
++print('cycle3 extension active')
+diff --git a/dream_experiments/c3-t05-model-evaluator-else-mutation.py b/dream_experiments/c3-t05-model-evaluator-else-mutation.py
+new file mode 100644
+index 000000000..e8eabb708
+--- /dev/null
++++ b/dream_experiments/c3-t05-model-evaluator-else-mutation.py
+@@ -0,0 +1,9 @@
++from pathlib import Path
++import re, json
++text = Path('src/model/model_evaluator.cpp').read_text(encoding='utf-8')
++expand = re.search(r'bool expand_as_array\(func_decl\* f, expr_ref& result\) \{(.+?)\n    \}', text, re.S).group(1)
++assert 'if (fi && !fi->get_else())' in expand and 'fi->set_else(m_model.get_some_value(g->get_range()));' in expand
++assert 'model_evaluator ev(m_model, m_params);' in expand and 'ev.set_model_completion(false);' in expand
++assert 'm_pinned.push_back(result);' in expand and 'm_def_cache.insert(g, result);' in expand
++assert expand.index('fi->set_else') < expand.index('fi->get_array_interp') < expand.index('m_def_cache.insert')
++print(json.dumps({'fills_missing_else_before_array_interp': True, 'nested_eval_completion_false': True, 'result_pinned_and_cached': True}))
+diff --git a/dream_experiments/c3-t05-model-evaluator-else-mutation.result.json b/dream_experiments/c3-t05-model-evaluator-else-mutation.result.json
+new file mode 100644
+index 000000000..f9c31da73
+--- /dev/null
++++ b/dream_experiments/c3-t05-model-evaluator-else-mutation.result.json
+@@ -0,0 +1,5 @@
++{
++  "command": "python dream_experiments/c3-t05-model-evaluator-else-mutation.py",
++  "exit_code": 0,
++  "output": "{\"fills_missing_else_before_array_interp\": true, \"nested_eval_completion_false\": true, \"result_pinned_and_cached\": true}\n"
++}
+\ No newline at end of file

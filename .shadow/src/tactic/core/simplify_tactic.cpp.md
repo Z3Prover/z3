@@ -78,8 +78,11 @@ _No discoveries yet._
 
 ## `mk_elim_and_tactic`
 
-_No discoveries yet._
 
+
+- mk_elim_and_tactic implements the elim-and feature as a params_ref preset over mk_simplify_tactic via using_params, while get_param_descrs delegates to th_rewriter; new simplify variants can follow this wrapper pattern instead of duplicating the tactic implementation.
+  _(verified, source: exploration, labels: [feature-gap])_
+  Dream report: `_dreams/20260730-042945Z-c3-t03-simplify-tactic-preset-variant/`
 ## `using_params`
 
 _No discoveries yet._

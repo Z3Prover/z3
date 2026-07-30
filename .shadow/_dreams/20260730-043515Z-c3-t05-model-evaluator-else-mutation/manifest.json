@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-043515Z-c3-t05-model-evaluator-else-mutation",
+  "branch": "dream/z3shadow/20260730-043515Z-c3-t05-model-evaluator-else-mutation",
+  "parent_branch": "dream/z3shadow/20260730-015431Z-c2-t05-model-evaluator-cache-scope",
+  "category": "optimization",
+  "verdict": "useful",
+  "title": "Model evaluator as-array else mutation",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/model/model_evaluator.cpp::evaluator_cfg.expand_as_array",
+      "text": "expand_as_array fills a missing function interpretation else branch with model.get_some_value before extracting the array interpretation, then evaluates it with model completion disabled and pins the cached result.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "performance"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-043515Z-c3-t05-model-evaluator-else-mutation/"
+    }
+  ],
+  "cross_cutting": []
+}

@@ -1,0 +1,21 @@
+{
+  "dream_id": "20260730-044130Z-c3-t06-opt-objective-type-guards",
+  "branch": "dream/z3shadow/20260730-044130Z-c3-t06-opt-objective-type-guards",
+  "parent_branch": "master",
+  "category": "security audit",
+  "verdict": "useful",
+  "title": "Optimize objective type guards",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/opt/opt_context.cpp::context::scoped_state.add",
+      "text": "opt::context::scoped_state::add rejects non-Boolean soft constraints and rejects objectives that are not bit-vector, integer, or real before appending them to optimization state.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-044130Z-c3-t06-opt-objective-type-guards/"
+    }
+  ],
+  "cross_cutting": []
+}

@@ -44,8 +44,11 @@ _No discoveries yet._
 
 ### `rewriter_core.begin_scope`
 
-_No discoveries yet._
 
+
+- rewriter_core caches are indexed by scope depth: begin_scope reuses or allocates one cache per level, end_scope resets the current level and restores the previous cache, and reset_cache only resets the base cache.
+  _(verified, source: exploration, labels: [tech-debt])_
+  Dream report: `_dreams/20260730-043224Z-c3-t04-rewriter-cache-scope-stack/`
 ### `rewriter_core.end_scope`
 
 _No discoveries yet._

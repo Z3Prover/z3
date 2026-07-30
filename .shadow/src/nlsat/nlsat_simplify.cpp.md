@@ -148,6 +148,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `simplifier.subsumes`
+
+- nlsat_simplify uses clause::var_hash as a 32-bit modulo prefilter for subsumption before literal scans; collisions can cause extra subsumption work but cannot make clause::contains depend on the hash.
+  _(verified, source: exploration, labels: [performance])_
+  Dream report: `_dreams/20260730-042647Z-c3-t02-nlsat-var-hash-prefilter/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

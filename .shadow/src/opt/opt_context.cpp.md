@@ -810,6 +810,12 @@ _No discoveries yet._
 
 _No discoveries yet._
 
+
+## `context::scoped_state.add`
+
+- opt::context::scoped_state::add rejects non-Boolean soft constraints and rejects objectives that are not bit-vector, integer, or real before appending them to optimization state.
+  _(verified, source: exploration)_
+  Dream report: `_dreams/20260730-044130Z-c3-t06-opt-objective-type-guards/`
 ## Cross-References
 
 _No cross-cutting discoveries yet._

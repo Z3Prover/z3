@@ -1,0 +1,23 @@
+{
+  "dream_id": "20260730-042945Z-c3-t03-simplify-tactic-preset-variant",
+  "branch": "dream/z3shadow/20260730-042945Z-c3-t03-simplify-tactic-preset-variant",
+  "parent_branch": "master",
+  "category": "feature design",
+  "verdict": "useful",
+  "title": "Simplify tactic preset variant",
+  "discoveries": [
+    {
+      "op": "add",
+      "anchor": "src/tactic/core/simplify_tactic.cpp::mk_elim_and_tactic",
+      "text": "mk_elim_and_tactic implements the elim-and feature as a params_ref preset over mk_simplify_tactic via using_params, while get_param_descrs delegates to th_rewriter; new simplify variants can follow this wrapper pattern instead of duplicating the tactic implementation.",
+      "status": "verified",
+      "source": "exploration",
+      "labels": [
+        "feature-gap"
+      ],
+      "also_involves": [],
+      "dream_report": "_dreams/20260730-042945Z-c3-t03-simplify-tactic-preset-variant/"
+    }
+  ],
+  "cross_cutting": []
+}
