@@ -413,7 +413,6 @@ public:
     bool  no_lemmas_hold() const;
 
     bool propagate();
-    bool propagate_fixed_rows();
     bool incremental_propagate();
 
     void simplify();

@@ -89,6 +89,7 @@ namespace nla {
         void generate_lemmas();
         bool tighten_lp_bounds();
         bool propagate_changed_bounds();
+        bool propagate_fixed_rows();
 
         // Maximize (is_lower == false) or minimize (is_lower == true) column j
         // over the LP tableau and, if the resulting bound improves j's current

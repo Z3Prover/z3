@@ -516,6 +516,9 @@ public:
         return dep;
     }
 
+    u_dependency* get_bound_constraint_witnesses_for_fixed_in_row(unsigned row_index);
+    bool row_determines_column(unsigned row_index, lpvar& j, mpq& value) const;
+
     std::ostream& print_expl(std::ostream& out, const explanation& exp) const {
         for (auto p : exp)
             constraints().display(

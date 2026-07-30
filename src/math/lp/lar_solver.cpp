@@ -1150,6 +1150,38 @@ namespace lp {
             ex.push_back(ci);
     }
 
+    u_dependency* lar_solver::get_bound_constraint_witnesses_for_fixed_in_row(unsigned row_index) {
+        u_dependency* dep = nullptr;
+        for (auto const& e : get_row(row_index))
+            if (column_is_fixed(e.var()))
+                dep = join_deps(dep, get_bound_constraint_witnesses_for_column(e.var()));
+        return dep;
+    }
+
+    /**
+       \brief A row is an equality sum_j a_j x_j = 0. If every column in it is fixed
+       except one, that row determines the remaining column: a_k x_k = - sum_{j != k} a_j v_j.
+       Set j to that column and value to -(sum a_j v_j) / a_k, and return true.
+    */
+    bool lar_solver::row_determines_column(unsigned row_index, lpvar& j, mpq& value) const {
+        j = null_lpvar;
+        mpq coeff, sum(0);
+        for (auto const& e : get_row(row_index)) {
+            if (column_is_fixed(e.var())) {
+                sum += e.coeff() * get_lower_bound(e.var()).x;
+                continue;
+            }
+            if (j != null_lpvar)
+                return false;
+            j = e.var();
+            coeff = e.coeff();
+        }
+        if (j == null_lpvar || coeff.is_zero())
+            return false;
+        value = -sum / coeff;
+        return true;
+    }
+
     void lar_solver::remove_fixed_vars_from_base() {
         // this will allow to disable and restore the tracking of the touched rows
         flet<indexed_uint_set*> f(get_core_solver().m_r_solver.m_touched_rows, nullptr);
