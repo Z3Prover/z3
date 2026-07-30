@@ -23,6 +23,11 @@ void theory_array_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_array_weak = p.array_weak();
     m_array_extensional = p.array_extensional();
+    m_array_solver = p.array_solver();
+
+    if (m_array_solver != symbol("auto") && m_array_solver != symbol("simple") && m_array_solver != symbol("full")) {
+		throw default_exception("invalid value for smt.array.solver, expected 'auto', 'simple' or 'full'");
+	}
 }
 
 #define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
@@ -31,6 +36,7 @@ void theory_array_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_array_mode);
     DISPLAY_PARAM(m_array_weak);
     DISPLAY_PARAM(m_array_extensional);
+    DISPLAY_PARAM(m_array_solver);
     DISPLAY_PARAM(m_array_laziness);
     DISPLAY_PARAM(m_array_delay_exp_axiom);
     DISPLAY_PARAM(m_array_cg);

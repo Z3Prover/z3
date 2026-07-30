@@ -33,6 +33,7 @@ struct theory_array_params {
     array_solver_id m_array_mode = array_solver_id::AR_FULL;
     bool            m_array_weak = false;
     bool            m_array_extensional = true;
+    symbol          m_array_solver = symbol("auto");
     unsigned        m_array_laziness = 1;
     bool            m_array_delay_exp_axiom = true;
     bool            m_array_cg = false;

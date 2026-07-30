@@ -712,7 +712,16 @@ namespace smt {
     }
 
     void setup::setup_arrays() {
-        switch(m_params.m_array_mode) {
+		array_solver_id_mode = m_params.m_array_mode;
+		if (m_params.m_array_solver == symbol("simple")) {
+			mode = AR_SIMPLE;
+		} else if (m_params.m_array_solver == symbol("full")) {
+			mode = AR_FULL;
+		} else if (m_params.m_array_solver != symbol("auto")) {
+			UNREACHABLE();
+		}
+
+        switch(mode) {
         case AR_NO_ARRAY:
             m_context.register_plugin(alloc(smt::theory_dummy, m_context, m_manager.mk_family_id("array"), "no array"));
             break;
