@@ -26,7 +26,6 @@ set(CLANG_ONLY_WARNINGS
   "-Wno-missing-field-initializers"
   "-Wcast-qual"
   "-Wimplicit-fallthrough"
-  "-Wextra-semi"
 )
 
 set(MSVC_WARNINGS "/W3")
