@@ -508,8 +508,15 @@ class theory_lra::imp {
                     if (!ctx().relevancy()) mk_rem_axiom(n1, n2);                    
                 }
                 else if (a.is_div(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
-                    if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
+                    bool underspecified = !a.is_numeral(n2, r) || r.is_zero();
+                    if (underspecified) found_underspecified(n);
+                    // The division axiom (q = 0 or q*(p/q) = p) is required for a
+                    // sound model whenever the divisor may be zero or is symbolic.
+                    // Under relevancy propagation the division term is not always
+                    // marked relevant, so relevant_eh may never fire mk_div_axiom,
+                    // leaving the value of (p/q) unconstrained and letting nla build
+                    // an invalid model. Assert the axiom eagerly in that case.
+                    if (!ctx().relevancy() || underspecified) mk_div_axiom(n1, n2);
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
                 }
@@ -1209,6 +1216,13 @@ public:
         literal eq  = th.mk_eq(a.mk_mul(q, a.mk_div(p, q)), p, false);
         scoped_trace_stream ts(th, eqz, eq);
         mk_axiom(eqz, eq);
+        // Ensure the multiplicative relationship q*(p/q) = p is tracked by the
+        // nonlinear solver. Otherwise, when the disjunct q = 0 is never decided,
+        // the enode for the monomial q*(p/q) is never marked relevant, nla skips
+        // it, and the value of (p/q) stays unconstrained - producing an invalid
+        // model that assigns a nonzero q together with an arbitrary (p/q).
+        if (ctx().relevancy())
+            ctx().mark_as_relevant(eq);
     }
 
     // to_int (to_real x) = x
