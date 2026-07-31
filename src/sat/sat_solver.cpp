@@ -2327,8 +2327,11 @@ namespace sat {
         strm << "(sat.stats " << std::setw(6) << m_stats.m_conflicts << " " 
              << std::setw(6) << m_stats.m_decision << " "
              << std::setw(4) << m_stats.m_restart 
-             << mk_stat(*this)
-             << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";
+             << mk_stat(*this);
+        if (!get_suppress_platform_verbose()) {
+            strm << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds();
+        }
+        strm << ")\n";
         std::string str = std::move(strm).str();
         svector<size_t> nums;
         for (size_t i = 0; i < str.size(); ++i) {
@@ -4797,8 +4800,12 @@ namespace sat {
         out << "  :ternary-clauses " << num_ter << "\n";
         out << "  :clauses         " << num_cls << "\n";
         out << "  :del-clause      " << m_stats.m_del_clause << "\n";
-        out << "  :avg-clause-size " << (total_cls == 0 ? 0.0 : static_cast<double>(num_lits) / static_cast<double>(total_cls)) << "\n";
-        out << "  :memory          " << std::fixed << std::setprecision(2) << mem << ")" << std::endl;
+        out << "  :avg-clause-size " << (total_cls == 0 ? 0.0 : static_cast<double>(num_lits) / static_cast<double>(total_cls));
+        if (!get_suppress_platform_verbose()) {
+            out << "\n";
+            out << "  :memory          " << std::fixed << std::setprecision(2) << mem;
+        }
+        out << ")" << std::endl;
     }
 
     void stats::collect_statistics(statistics & st) const {
@@ -4835,7 +4842,9 @@ namespace sat {
         out << " " << std::setw(5) << (m_solver.m_learned.size() + redundant - m_solver.m_num_frozen) << "/" << redundant;
         out << " " << std::setw(3)  << m_solver.init_trail_size();
         out << " " << std::setw(7)  << m_solver.m_stats.m_gc_clause << " ";
-        out << " " << std::setw(7)  << mem_stat();
+        if (!get_suppress_platform_verbose()) {
+            out << " " << std::setw(7)  << mem_stat();
+        }
     }
 
     std::ostream & operator<<(std::ostream & out, mk_stat const & stat) {
