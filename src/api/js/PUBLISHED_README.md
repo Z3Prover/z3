@@ -27,7 +27,17 @@ const api = await init({
 });
 ```
 
-### Limitations
+### Thread cleanup (Node.js)
+
+Long-running Z3 operations run on background worker threads. In Node.js, these workers keep the process alive even after Z3 has finished. Once you are done using Z3, call `killThreads` to terminate them and allow the process to exit cleanly.
+
+```typescript
+import { init, killThreads } from 'z3-solver';
+
+const api = await init();
+// ... use Z3 ...
+await killThreads(api.em);
+```
 
 The package requires threads, which means you'll need to be running in an environment which supports `SharedArrayBuffer`. In browsers, in addition to ensuring the browser has implemented `SharedArrayBuffer`, you'll need to serve your page with [special headers](https://web.dev/coop-coep/). There's a [neat trick](https://github.com/gzuidhof/coi-serviceworker) for doing that client-side on e.g. Github Pages, though you shouldn't use that trick in more complex applications.
 

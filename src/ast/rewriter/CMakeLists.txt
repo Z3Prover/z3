@@ -26,6 +26,7 @@ z3_add_component(rewriter
     finite_set_rewriter.cpp
     fpa_rewriter.cpp
     func_decl_replace.cpp
+    guard_set.cpp
     inj_axiom.cpp
     label_rewriter.cpp
     macro_replacer.cpp

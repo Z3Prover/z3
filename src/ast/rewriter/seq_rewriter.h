@@ -475,6 +475,13 @@ public:
         m_derive.derivative_cofactors(r, result);
     }
 
+    /*
+    Compute Brzozowski cofactors, then expose nondeterminism in targets of the
+    form (s1 | ... | sn) or (s1 | ... | sn) . tail. Cofactors with the same
+    resulting target are merged by disjoining their guards.
+    */
+    void light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result);
+
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);

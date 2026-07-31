@@ -1,146 +1,166 @@
 ---
-description: Automatically builds Z3 directly and fixes detected build warnings
+name: Clang-Tidy Warning Fixer
+description: Compiles Z3 with clang-tidy, analyzes build warnings and errors, and creates PRs with safe fixes
 on:
   schedule: daily
   workflow_dispatch:
-permissions: read-all
-tools:
-  edit:
-  bash: true
+  skip-if-match: 'is:pr is:open in:title "[clang-tidy]"'
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  copilot-requests: write
+tracker-id: clang-tidy-warning-fixer
 safe-outputs:
   report-failure-as-issue: false
   create-pull-request:
+    title-prefix: "[clang-tidy] "
+    labels: [code-quality, clang-tidy, automation]
+    reviewers: [copilot]
+    expires: 1d
     if-no-changes: ignore
   missing-tool:
     create-issue: true
   noop:
     report-as-issue: false
-timeout-minutes: 60
+network: defaults
+tools:
+  github:
+    toolsets: [default]
+  bash: [":*"]
+timeout-minutes: 90
+strict: true
 ---
 
-# Build Warning Fixer
+# Clang-Tidy Warning Fixer
 
-You are an AI agent that automatically detects and fixes build warnings in the Z3 theorem prover codebase.
+You are an AI agent that compiles Z3 with clang-tidy, reviews the resulting warnings and errors, and creates a pull request with conservative fixes when you can do so safely.
+
+## Current Context
+
+- **Repository**: ${{ github.repository }}
+- **Workflow**: ${{ github.workflow }}
+- **Workspace**: ${{ github.workspace }}
 
 ## Your Task
 
-1. **Pick a random build workflow and build Z3 directly**
-   
-   Available build workflows that you can randomly choose from:
-   - `wip.yml` - Ubuntu CMake Debug build (simple, good default choice)
-   - `cross-build.yml` - Cross-compilation builds (aarch64, riscv64, powerpc64)
-   - `coverage.yml` - Code coverage build with Clang
-   
-   **Steps to build Z3 directly:**
-   
-   a. **Pick ONE workflow randomly** from the list above. Use bash to generate a random choice if needed.
-   
-   b. **Read the workflow file** to understand its build configuration:
-      - Use `view` to read the `.github/workflows/<workflow-name>.yml` file
-      - Identify the build steps, cmake flags, compiler settings, and environment variables
-      - Note the runner type (ubuntu-latest, windows-latest, etc.)
-   
-   c. **Execute the build directly** using bash:
-      - Run the same cmake configuration commands from the workflow
-      - Capture the full build output including warnings
-      - Use `2>&1` to capture both stdout and stderr
-      - Save output to a log file for analysis
-   
-   Example for wip.yml workflow:
-   ```bash
-   # Configure
-   cmake -B build -DCMAKE_BUILD_TYPE=Debug 2>&1 | tee build-config.log
-   
-   # Build and capture output
-   cmake --build build --config Debug 2>&1 | tee build-output.log
-   ```
-   
-   Example for cross-build.yml workflow (pick one arch):
-   ```bash
-   # Pick one architecture randomly
-   ARCH=aarch64  # or riscv64, or powerpc64
-   
-   # Configure
-   mkdir build && cd build
-   cmake -DCMAKE_CXX_COMPILER=${ARCH}-linux-gnu-g++-11 ../ 2>&1 | tee ../build-config.log
-   
-   # Build and capture output
-   make -j$(nproc) 2>&1 | tee ../build-output.log
-   ```
-   
-   d. **Install any necessary dependencies** before building:
-      - For cross-build: `apt update && apt install -y ninja-build cmake python3 g++-11-aarch64-linux-gnu` (or other arch)
-      - For coverage: `apt-get install -y gcovr ninja-build llvm clang`
+### 1. Build Z3 with clang-tidy enabled
 
-2. **Extract compiler warnings** from the direct build output:
-   - Analyze the build-output.log file you created
-   - Use `grep` or `bash` to search for warning patterns
-   - Look for C++ compiler warnings (gcc, clang, MSVC patterns)
-   - Common warning patterns:
-     - `-Wunused-variable`, `-Wunused-parameter`
-     - `-Wsign-compare`, `-Wparentheses`
-     - `-Wdeprecated-declarations`
-     - `-Wformat`, `-Wformat-security`
-     - MSVC warnings like `C4244`, `C4267`, `C4100`
-   - Focus on warnings that appear frequently or are straightforward to fix
+Use the repository's CMake + Ninja workflow and build Z3 directly with Clang.
 
-3. **Analyze the warnings**:
-   - Identify the source files and line numbers
-   - Determine the root cause of each warning
-   - Prioritize warnings that:
-     - Are easy to fix automatically (unused variables, sign mismatches, etc.)
-     - Appear in multiple build configurations
-     - Don't require deep semantic understanding
+1. Install the required tools:
 
-4. **Create fixes**:
-   - Use `view`, `grep`, and `glob` to locate the problematic code
-   - Use `edit` to apply minimal, surgical fixes
-   - Common fix patterns:
-     - Remove or comment out unused variables
-     - Add explicit casts for sign/type mismatches (with care)
-     - Add `[[maybe_unused]]` attributes for intentionally unused parameters
-     - Fix deprecated API usage
-   - **NEVER** make changes that could alter program behavior
-   - **ONLY** fix warnings you're confident about
+```bash
+sudo apt-get update -y
+sudo apt-get install -y clang clang-tidy cmake ninja-build python3
+clang --version
+clang-tidy --version
+ninja --version
+```
 
-5. **Validate the fixes** (if possible):
-   - Use `bash` to run quick compilation checks on modified files
-   - Use `git diff` to review changes before committing
+2. Start from a clean build directory and configure with clang/clang++:
 
-6. **Create a pull request** with your fixes:
-   - Use the `create-pull-request` safe output
-   - Title: "Fix build warnings detected in direct build"
-   - Body should include:
-     - Which workflow configuration was used for the build
-     - List of warnings fixed
-     - Explanation of each change
-     - Note that this is an automated fix requiring human review
+```bash
+rm -rf build
+CC=clang CXX=clang++ cmake -GNinja -S . -B build \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DCMAKE_CXX_CLANG_TIDY=clang-tidy \
+  2>&1 | tee /tmp/gh-aw/agent/clang-tidy-configure.log
+```
+
+3. Build the main Z3 shell and unit test binary while capturing logs:
+
+```bash
+cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build.log
+```
+
+4. If configuration fails, inspect `/tmp/gh-aw/agent/clang-tidy-configure.log` and call `noop` with a clear summary unless you can make an obvious, local, semantics-preserving fix.
+
+### 2. Extract actionable diagnostics
+
+Analyze `/tmp/gh-aw/agent/clang-tidy-build.log` and focus on diagnostics that clang-tidy or clang emitted during this workflow run.
+
+Use commands like:
+
+```bash
+grep -nE 'warning:|error:|clang-tidy' /tmp/gh-aw/agent/clang-tidy-build.log | head -200
+```
+
+Classify findings into:
+- **clang-tidy warnings**
+- **compiler warnings**
+- **compiler or build errors**
+
+Prioritize findings that are:
+- localized to one file
+- straightforward to fix safely
+- unlikely to change behavior
+- validated by rebuilding
+
+Skip findings that require design changes, broad refactors, or uncertain semantic changes.
+
+### 3. Investigate the affected code
+
+For each high-confidence finding:
+
+1. Locate the file and exact lines.
+2. Read the surrounding code.
+3. Confirm the warning is real and not already fixed.
+4. Prefer the smallest possible change.
+
+Examples of usually safe fixes:
+- removing dead or unused locals
+- adding `override` where the class already overrides a virtual method
+- adding `[[maybe_unused]]` for intentionally unused parameters or variables
+- replacing obvious null literal usage with `nullptr`
+- applying other trivial clang-tidy modernizations that do not alter behavior
+
+Do **not** change behavior, APIs, ownership, solver logic, or performance-sensitive code unless the fix is obviously semantics-preserving.
+
+### 4. Apply fixes conservatively
+
+When you are confident, edit the relevant files and keep the patch minimal.
+
+Rules:
+- fix only warnings you fully understand
+- do not batch unrelated cleanups
+- preserve formatting and local style
+- if a finding is uncertain, skip it instead of guessing
+
+### 5. Rebuild and confirm the fixes
+
+After making changes, rerun the same configure/build sequence if needed and always rerun at least:
+
+```bash
+cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build-after.log
+./build/test-z3 /a
+```
+
+If the rebuilt logs still contain actionable warnings, you may fix another small set if you remain confident. Otherwise stop.
+
+### 6. Create the pull request
+
+If you made safe fixes, create a pull request using `create-pull-request`.
+
+Use a title describing the warnings fixed, for example:
+- `Fix clang-tidy warnings in parser code`
+- `Fix clang-tidy override and unused warnings`
+
+The PR body should include:
+- that the workflow compiled Z3 with clang-tidy
+- the build command that was used
+- the files changed
+- the warnings or errors fixed
+- confirmation that you rebuilt and ran `./build/test-z3 /a`
+- a brief note for any remaining warnings you intentionally skipped
+
+If there are no safe fixes to make, call `noop` with a short summary of what you built and what you found.
 
 ## Guidelines
 
-- **Be conservative**: Only fix warnings you're 100% certain about
-- **Minimal changes**: Don't refactor or improve code beyond fixing the warning
-- **Preserve semantics**: Never change program behavior
-- **Document clearly**: Explain each fix in the PR description
-- **Skip if uncertain**: If a warning requires deep analysis, note it in the PR but don't attempt to fix it
-- **Focus on low-hanging fruit**: Unused variables, sign mismatches, simple deprecations
-- **Check multiple builds**: Cross-reference warnings across different platforms if possible
-- **Respect existing style**: Match the coding conventions in each file
-
-## Examples of Safe Fixes
-
-✅ **Safe**:
-- Removing truly unused local variables
-- Adding `(void)param;` or `[[maybe_unused]]` for intentionally unused parameters
-- Adding explicit casts like `static_cast<unsigned>(value)` for sign conversions (when safe)
-- Fixing obvious typos in format strings
-
-❌ **Unsafe** (skip these):
-- Warnings about potential null pointer dereferences (needs careful analysis)
-- Complex type conversion warnings (might hide bugs)
-- Warnings in performance-critical code (might affect benchmarks)
-- Warnings that might indicate actual bugs (file an issue instead)
-
-## Output
-
-If you find and fix warnings, create a PR. If no warnings are found or all warnings are too complex to auto-fix, exit gracefully without creating a PR.
+- Be conservative and high-confidence only.
+- Prefer no PR over a risky PR.
+- Keep fixes surgical and easy to review.
+- Validate every change by rebuilding.
+- Focus on diagnostics produced by this workflow run, not on unrelated code quality ideas.
