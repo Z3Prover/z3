@@ -47,11 +47,13 @@ struct tactic_report::imp {
         IF_VERBOSE(0, 
                    verbose_stream() << "(" << m_id
                    << " :num-exprs " << m_goal.num_exprs()
-                   << " :num-asts " << m_goal.m().get_num_asts()
-                   << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
-                   << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
-                   << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
-                   << ")\n");
+                   << " :num-asts " << m_goal.m().get_num_asts();
+                   if (!get_suppress_platform_verbose())
+                       verbose_stream()
+                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
+                       << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
+                       << " :after-memory " << std::fixed << std::setprecision(2) << end_memory;
+                   verbose_stream() << ")\n");
         IF_VERBOSE(20, m_goal.display(verbose_stream() << m_id << "\n"));
         SASSERT(m_goal.is_well_formed());
     }
