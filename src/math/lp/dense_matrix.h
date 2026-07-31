@@ -45,7 +45,7 @@ public:
     unsigned m_n; // number of const
     vector<T> m_values;
     dense_matrix(unsigned m, unsigned n);
-    dense_matrix(const dense_matrix&) = default;
+    dense_matrix(const dense_matrix &) = default;
 
     dense_matrix operator*=(matrix<T, X> const & a) {
         SASSERT(column_count() == a.row_count());
