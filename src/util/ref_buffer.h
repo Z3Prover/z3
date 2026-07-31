@@ -174,7 +174,9 @@ public:
         super(ref_manager_wrapper<T, TManager>(other.m_manager)) {
         SASSERT(this->m_buffer.size() == 0);
         append(other);
-    }        
+    }
+
+    ref_buffer &operator=(const ref_buffer &) = default;
 };
 
 /**

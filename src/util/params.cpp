@@ -361,7 +361,8 @@ class params {
             rational *    m_rat_value;
         };
         value() : m_kind(CPK_BOOL), m_bool_value(false) {}
-        value& operator=(value const& other) {
+        value(const value &) = default;
+        value &operator=(value const &other) {
             m_kind = other.m_kind;
             switch (m_kind) {
             case CPK_BOOL: m_bool_value = other.m_bool_value; break;

@@ -120,7 +120,9 @@ public:
         justification(justification const & source) { m_data = source.m_data; }
         explicit justification(clause * c) { m_data = TAG(void*, c, CLAUSE); }
         explicit justification(var x) { m_data = BOXTAGINT(void*, x, VAR_DEF);  }
-        
+
+        justification &operator=(justification const &source) = default;
+
         kind get_kind() const { return static_cast<kind>(GET_TAG(m_data)); }
         bool is_clause() const { return get_kind() == CLAUSE; }
         bool is_axiom() const { return get_kind() == AXIOM; }
