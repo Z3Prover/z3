@@ -27,6 +27,7 @@ set(CLANG_ONLY_WARNINGS
   "-Wcast-qual"
   "-Wimplicit-fallthrough"
   "-Wextra-semi"
+  "-Wignored-qualifiers"
 )
 
 set(MSVC_WARNINGS "/W3")
