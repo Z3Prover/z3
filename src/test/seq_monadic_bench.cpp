@@ -137,11 +137,10 @@ lbool run_file(
     for (auto const& entry : var_re)
         memberships.push_back(std::make_pair(entry.m_key, entry.m_value));
 
-    obj_map<expr, expr*> no_extra;
     auto start = std::chrono::high_resolution_clock::now();
     lbool verdict = memberships.empty()
         ? l_undef
-        : mon.solve_and(memberships, no_extra, nullptr);
+        : mon.solve_and(memberships, nullptr);
     solve_ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - start).count();
     return verdict;

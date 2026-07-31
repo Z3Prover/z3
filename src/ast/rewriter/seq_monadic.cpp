@@ -356,12 +356,7 @@ void seq_monadic::simplify_dnf(vector<disjunct>& dnf) {
 }
 
 lbool seq_monadic::solve(expr* term, expr* R) {
-    obj_map<expr, expr*> none;
-    return solve(term, R, none, nullptr);
-}
-
-lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra) {
-    return solve(term, R, var_extra, nullptr);
+    return solve(term, R, nullptr);
 }
 
 bool seq_monadic::build_membership_dnf(expr* term, expr* R, vector<disjunct>& dnf) {
@@ -381,11 +376,10 @@ bool seq_monadic::build_membership_dnf(expr* term, expr* R, vector<disjunct>& dn
     return ok;
 }
 
-lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> const& var_extra,
-                              obj_map<expr, expr*>* model) {
+lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*>* model) {
     bool any_undef = false;
     for (disjunct const& D : dnf) {
-        // group components by variable, add the extra per-variable constraints
+        // group components by variable
         obj_map<expr, unsigned> idx;
         vector<svector<component>> groups;
         ptr_vector<expr> group_var;
@@ -399,8 +393,6 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> 
         };
         for (auto const& c : D)
             groups[bucket(c.var)].push_back(c);
-        for (auto const& kv : var_extra)
-            groups[bucket(kv.m_key)].push_back(component{ kv.m_key, kv.m_value, nullptr });
 
         bool has_empty = false, has_undef = false;
         obj_map<expr, expr*> local;               // var -> witness for this disjunct
@@ -421,19 +413,18 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> 
     return any_undef ? l_undef : l_false;
 }
 
-lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
-                         obj_map<expr, expr*>* model) {
+lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*>* model) {
     m_pin.reset();
     m_budget = 200000;                            // global work budget: bail fast on DNF explosion
     m_giveup = false;
     vector<disjunct> dnf;
     if (!build_membership_dnf(term, R, dnf))
         return l_undef;
-    return decide_dnf(dnf, var_extra, model);
+    return decide_dnf(dnf, model);
 }
 
 lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems,
-                             obj_map<expr, expr*> const& var_extra, obj_map<expr, expr*>* model) {
+                             obj_map<expr, expr*>* model) {
     if (mems.empty())
         return l_undef;
     m_pin.reset();
@@ -466,5 +457,5 @@ lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems,
         if (combined.empty())
             return l_false;                       // no viable disjunct left => unsat
     }
-    return decide_dnf(combined, var_extra, model);
+    return decide_dnf(combined, model);
 }

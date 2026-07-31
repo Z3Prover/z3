@@ -128,9 +128,20 @@ class seq_monadic_test {
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
     }
 
+    // build the membership list: the primary (term in R) plus one (var in R') per extra
+    // constraint, decided jointly by solve_and.
+    void add_extra(vector<std::pair<expr*, expr*>>& mems, expr* term, expr* R,
+                   obj_map<expr, expr*> const& ve) {
+        mems.push_back(std::make_pair(term, R));
+        for (auto const& kv : ve)
+            mems.push_back(std::make_pair(kv.m_key, kv.m_value));
+    }
+
     void check_extra(char const* name, expr* term, expr* R,
                      obj_map<expr, expr*> const& ve, lbool expected) {
-        lbool got = m_mon.solve(term, R, ve);
+        vector<std::pair<expr*, expr*>> mems;
+        add_extra(mems, term, R, ve);
+        lbool got = m_mon.solve_and(mems, nullptr);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
@@ -167,7 +178,9 @@ class seq_monadic_test {
     void check_witness(char const* name, expr* term, expr* R,
                        obj_map<expr, expr*> const& ve) {
         obj_map<expr, expr*> model;
-        lbool got = m_mon.solve(term, R, ve, &model);
+        vector<std::pair<expr*, expr*>> mems;
+        add_extra(mems, term, R, ve);
+        lbool got = m_mon.solve_and(mems, &model);
         bool ok = (got == l_true) && !model.empty();
         if (ok) {
             expr_safe_replace rep(m);
@@ -185,8 +198,7 @@ class seq_monadic_test {
 
     // decide a conjunction of memberships jointly (shared variables constrained together).
     void check_and(char const* name, vector<std::pair<expr*, expr*>> const& mems, lbool expected) {
-        obj_map<expr, expr*> nove;
-        lbool got = m_mon.solve_and(mems, nove, nullptr);
+        lbool got = m_mon.solve_and(mems, nullptr);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name

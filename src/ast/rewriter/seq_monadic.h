@@ -41,8 +41,9 @@ Abstract:
     This stays in the product-of-state-counts regime, never the path-enumeration (k!)
     regime of regex state-elimination.
 
-    Supports single / multiple / repeated variables, and per-variable extra constraints
-    (base membership + length-regex) via `var_extra`.
+    Supports single / multiple / repeated variables.  Per-variable extra constraints
+    (e.g. a base membership intersected with a length-regex) are expressed as an extra
+    membership passed to `solve_and`.
 
 Author:
 
@@ -126,8 +127,7 @@ private:
 
     // Decide a DNF (over primitive components): sat iff some disjunct has every variable
     // group non-empty.  On l_true, fills `model` (var -> witness) if non-null.
-    lbool decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> const& var_extra,
-                     obj_map<expr, expr*>* model);
+    lbool decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*>* model);
 
 public:
     seq_monadic(seq_rewriter& rw, transition_mode mode = transition_mode::light_antimirov) :
@@ -140,23 +140,19 @@ public:
     //   l_true = sat, l_false = unsat, l_undef = unsupported shape / gave up.
     lbool solve(expr* term, expr* R);
 
-    // As above, with extra per-variable constraints (e.g. a base membership intersected
-    // with a length-regex): `var_extra` maps a variable to a regex it must also satisfy.
-    lbool solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra);
-
     // As above; on l_true, if `model` is non-null it is populated with  var -> witness,
     // where each witness is a concrete sequence term (over the element sort) giving one
     // satisfying assignment.  Witness terms are pinned by the solver and remain valid
     // until the next call to solve().
-    lbool solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
-                obj_map<expr, expr*>* model);
+    lbool solve(expr* term, expr* R, obj_map<expr, expr*>* model);
 
     // Decide a CONJUNCTION of memberships  AND_i (term_i in R_i)  jointly: a variable
     // shared across memberships is constrained consistently (the DNFs are multiplied and
     // each variable's constraints intersected).  This is the natural extension of single-
     // membership solving to a Boolean combination of memberships (a disjunction is the
     // union of DNFs; a negated membership  ~(t in R)  is just  t in complement(R)).
-    // var_extra / model as above.  l_true = sat, l_false = unsat, l_undef = gave up.
+    // Per-variable extra constraints are expressed here as extra memberships (v in R').
+    // model as above.  l_true = sat, l_false = unsat, l_undef = gave up.
     lbool solve_and(vector<std::pair<expr*, expr*>> const& mems,
-                    obj_map<expr, expr*> const& var_extra, obj_map<expr, expr*>* model = nullptr);
+                    obj_map<expr, expr*>* model = nullptr);
 };
