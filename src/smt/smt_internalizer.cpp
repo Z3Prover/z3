@@ -780,7 +780,7 @@ namespace smt {
             case OP_DISTINCT:
                 throw default_exception(std::string("formula has not been simplified") + " : " + mk_pp(n, m));
             case OP_OEQ:
-                UNREACHABLE();
+                Z3_unreachable_case();
             default:
                 break;
             }
