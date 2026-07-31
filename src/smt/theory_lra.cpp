@@ -1767,6 +1767,23 @@ public:
                 break;
             }
 
+            // Model-based theory combination is far cheaper than the nonlinear
+            // solver, so with arith.assume_eqs_before_nla it is given priority:
+            // while it still has equalities to propose, the nonlinear check is
+            // deferred. Beyond saving
+            // grobner/horner rounds, the equalities installed here constrain the
+            // model enough that a later check_nla() can succeed where it would
+            // otherwise return FC_GIVEUP.
+            //
+            // Caveat: before check_nla() the model may still violate monomial
+            // definitions, so an equality read off it can be spurious - it costs
+            // a decision plus a conflict and is re-proposed every round. On
+            // families where that happens this trades a cheap nonlinear check
+            // for an expensive case split, which is why the option defaults to
+            // false.
+            if (ctx().get_fparams().m_arith_assume_eqs_before_nla && assume_eqs())
+                return FC_CONTINUE;
+
             switch (check_nla(level)) {
             case FC_DONE:
                 break;
@@ -1777,11 +1794,14 @@ public:
                 st = FC_GIVEUP;
                 break;
             }                        
-                        
-            if (assume_eqs()) {
-                ++m_stats.m_assume_eqs;
+
+            // check_nla may have moved the model (patching, propagated bounds,
+            // nra model), so retry theory combination: new interface equalities
+            // can turn a nonlinear giveup into progress. This also covers the
+            // case where check_nla switched to the nra model, in which case the
+            // equalities proposed above were read off the stale LP model.
+            if (assume_eqs())
                 return FC_CONTINUE;
-            }
 
             if (!int_undef && !check_bv_terms())
                 return FC_CONTINUE;
