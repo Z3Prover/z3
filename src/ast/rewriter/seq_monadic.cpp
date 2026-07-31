@@ -23,6 +23,8 @@ TODOs:
 - if perf suffers: use DFS backtracking search instead of DNF expansion (space overhead)
 - create a validation harness: expose certificates for correctness that can be checked.
 - extend with lower and upper bound constraints
+- cache calls to cofactors so they are only computed once per regex.
+- consider using expr_ref as alternative to pinned expressions
 - encapsulate within general interface:
 create: undo_trail x dependency_manager x ast_manager -> regex_membership
 add_constraint : expr* x expr* x dependency* -> void
