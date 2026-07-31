@@ -63,27 +63,28 @@ ninja --version
 ```bash
 rm -rf build
 CC=clang CXX=clang++ cmake -GNinja -S . -B build \
-  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-  -DCMAKE_CXX_CLANG_TIDY=clang-tidy
+  -DCMAKE_CXX_CLANG_TIDY=clang-tidy \
+  2>&1 | tee /tmp/gh-aw/agent/clang-tidy-configure.log
 ```
 
 3. Build the main Z3 shell and unit test binary while capturing logs:
 
 ```bash
-cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/clang-tidy-build.log
+cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build.log
 ```
 
-4. If configuration fails, inspect the configure output and stop with a clear summary.
+4. If configuration fails, inspect `/tmp/gh-aw/agent/clang-tidy-configure.log` and call `noop` with a clear summary unless you can make an obvious, local, semantics-preserving fix.
 
 ### 2. Extract actionable diagnostics
 
-Analyze `/tmp/clang-tidy-build.log` and focus on diagnostics that clang-tidy or clang emitted during this workflow run.
+Analyze `/tmp/gh-aw/agent/clang-tidy-build.log` and focus on diagnostics that clang-tidy or clang emitted during this workflow run.
 
 Use commands like:
 
 ```bash
-grep -nE 'warning:|error:|clang-tidy' /tmp/clang-tidy-build.log | head -200
+grep -nE 'warning:|error:|clang-tidy' /tmp/gh-aw/agent/clang-tidy-build.log | head -200
 ```
 
 Classify findings into:
@@ -132,7 +133,7 @@ Rules:
 After making changes, rerun the same configure/build sequence if needed and always rerun at least:
 
 ```bash
-cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/clang-tidy-build-after.log
+cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build-after.log
 ./build/test-z3 /a
 ```
 
