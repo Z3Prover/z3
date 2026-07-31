@@ -22,8 +22,6 @@ TODOs:
 - track unsat cores and expose them as explain functionality
 - if perf suffers: use DFS backtracking search instead of DNF expansion (space overhead)
 - create a validation harness: expose certificates for correctness that can be checked.
-- handle transitions into unions and concatenations over unions
-- establish a perf harness
 - extend with lower and upper bound constraints
 - encapsulate within general interface:
 create: undo_trail x dependency_manager x ast_manager -> regex_membership
@@ -229,6 +227,13 @@ expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
     return d2;
 }
 
+void seq_monadic::derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+    if (m_mode == transition_mode::light_antimirov)
+        m_rw.light_ant_derivative_cofactors(r, result);
+    else
+        m_rw.brz_derivative_cofactors(r, result);
+}
+
 void seq_monadic::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
     ok = true;
     obj_map<expr, unsigned> id;
@@ -251,7 +256,7 @@ void seq_monadic::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
     for (unsigned i = 0; i < states.size(); ++i) {
         if (states.size() > STATE_CAP || !m.inc()) { ok = false; return; }
         expr_ref_pair_vector cof(m);
-        m_rw.brz_derivative_cofactors(states.get(i), cof);
+        derivative_cofactors(states.get(i), cof);
         for (auto const& [g, t] : cof) {
             if (re().is_empty(t)) continue;
             unsigned k = intern(t);           // MUST precede succ[i] indexing: intern may
@@ -357,7 +362,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
         std::vector<std::vector<std::pair<expr*, expr*>>> branches(n);
         for (unsigned i = 0; i < n; ++i) {
             expr_ref_pair_vector cof(m);
-            m_rw.brz_derivative_cofactors(st[i], cof);
+            derivative_cofactors(st[i], cof);
             for (auto const& [g, t] : cof) {
                 if (re().is_empty(t)) continue;
                 m_pin.push_back(t);

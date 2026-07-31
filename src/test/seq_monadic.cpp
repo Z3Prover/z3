@@ -40,6 +40,7 @@ class seq_monadic_test {
     seq_util         u;
     sort_ref         m_str;   // String sort
     sort_ref         m_re;    // RegEx sort over m_str
+    seq_monadic::transition_mode m_mode;
     unsigned         m_fail = 0;
 
     seq_util::rex& re() { return u.re; }
@@ -51,6 +52,7 @@ class seq_monadic_test {
     expr_ref star(expr* a) { return expr_ref(re().mk_star(a), m); }
     expr_ref inter(expr* a, expr* b) { return expr_ref(re().mk_inter(a, b), m); }
     expr_ref comp(expr* a) { return expr_ref(re().mk_complement(a), m); }
+    expr_ref dot() { return expr_ref(re().mk_full_char(m_re), m); }
     expr_ref dotstar() { return expr_ref(re().mk_full_seq(m_re), m); }
     expr_ref rng(char lo, char hi) {
         char sl[2] = { lo, 0 }, sh[2] = { hi, 0 };
@@ -70,6 +72,53 @@ class seq_monadic_test {
     expr_ref xyx(expr* x, expr* y) { return sconcat(x, sconcat(y, x)); }
 
     static char const* s(lbool l) { return l == l_true ? "sat" : l == l_false ? "unsat" : "undef"; }
+    char const* mode_name() const {
+        switch (m_mode) {
+        case seq_monadic::transition_mode::brzozowski: return "brz";
+        case seq_monadic::transition_mode::light_antimirov: return "light-ant";
+        }
+        UNREACHABLE();
+        return "";
+    }
+
+    bool eval_guard(expr* guard, unsigned ch) {
+        sort* elem_sort = nullptr;
+        VERIFY(u.is_seq(m_str, elem_sort));
+        expr_ref v0(m.mk_var(0, elem_sort), m);
+        expr_safe_replace rep(m);
+        rep.insert(v0, u.str.mk_char(ch));
+        expr_ref instantiated(m), simplified(m);
+        rep(guard, instantiated);
+        th_rewriter rw(m);
+        rw(instantiated, simplified);
+        return m.is_true(simplified);
+    }
+
+    void check_ant_cofactors() {
+        expr_ref a = word("a");
+        expr_ref any = dotstar();
+        expr_ref dot3 = loop(dot(), 3, 3);
+        expr_ref R = cat(any, cat(a, dot3));
+        expr_ref_pair_vector cof(m);
+        m_rw.light_ant_derivative_cofactors(R, cof);
+
+        bool found_R = false, found_dot3 = false, ok = cof.size() == 2;
+        for (auto const& [guard, target] : cof) {
+            if (target == R) {
+                found_R = eval_guard(guard, 'a') && eval_guard(guard, 'b');
+            }
+            else if (target == dot3) {
+                found_dot3 = eval_guard(guard, 'a') && !eval_guard(guard, 'b');
+            }
+            else {
+                ok = false;
+            }
+        }
+        ok = ok && found_R && found_dot3;
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ")
+                  << mode_name() << " cofactor construction\n";
+    }
 
     void check(char const* name, expr* term, expr* R, lbool expected) {
         lbool got = m_mon.solve(term, R);
@@ -145,12 +194,16 @@ class seq_monadic_test {
     }
 
 public:
-    seq_monadic_test() : m_reg(m), m_rw(m), m_mon(m_rw), u(m), m_str(m), m_re(m) {
+    seq_monadic_test(seq_monadic::transition_mode mode) :
+        m_reg(m), m_rw(m), m_mon(m_rw, mode), u(m), m_str(m), m_re(m), m_mode(mode) {
         m_str = u.str.mk_string_sort();
         m_re  = re().mk_re(m_str);
     }
 
     void run() {
+        std::cout << "=== seq_monadic mode: " << mode_name() << " ===\n";
+        if (m_mode == seq_monadic::transition_mode::light_antimirov)
+            check_ant_cofactors();
         expr_ref x  = var("x");
         expr_ref a  = word("a");
         expr_ref b  = word("b");
@@ -309,6 +362,8 @@ public:
 }
 
 void tst_seq_monadic() {
-    seq_monadic_test t;
-    t.run();
+    seq_monadic_test brz(seq_monadic::transition_mode::brzozowski);
+    brz.run();
+    seq_monadic_test light_ant(seq_monadic::transition_mode::light_antimirov);
+    light_ant.run();
 }
