@@ -726,8 +726,11 @@ namespace smt {
              << std::setw(5) << (m_aux_clauses.size() + bin_clauses) << '/' << bin_clauses << '/' << num_units() << ' '
              << std::setw(7) << m_lemmas.size() << '/' << bin_lemmas << ' '
              << std::setw(5) << m_stats.m_num_simplifications << ' '
-             << std::setw(4) << m_stats.m_num_del_clauses << ' '
-             << std::setw(7) << mem_stat() << ")\n";
+             << std::setw(4) << m_stats.m_num_del_clauses;
+        if (!get_suppress_platform_verbose()) {
+            strm << ' ' << std::setw(7) << mem_stat();
+        }
+        strm << ")\n";
 
         std::string str = std::move(strm).str();
         svector<size_t> offsets;

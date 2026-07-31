@@ -18,6 +18,24 @@ Abstract:
     {true,false,=,<=,and,or,not} grammar the derivatives emit).  The same guard algebra
     yields the concrete element used to build a witness sequence.
 
+TODOs:
+- track unsat cores and expose them as explain functionality
+- if perf suffers: use DFS backtracking search instead of DNF expansion (space overhead)
+- create a validation harness: expose certificates for correctness that can be checked.
+- handle transitions into unions and concatenations over unions
+- establish a perf harness
+- extend with lower and upper bound constraints
+- encapsulate within general interface:
+create: undo_trail x dependency_manager x ast_manager -> regex_membership
+add_constraint : expr* x expr* x dependency* -> void
+add_lo: expr* x unsigned * dependency* -> void
+add_hi: expr* x unsigned * dependency* ->void
+check: void -> lbool
+explain: void -> dependency*
+model: void -> (expr* x expr*) vector or value: expr* -> expr* 
+perhaps:
+substitute: expr* x expr* x dependency* -> void
+
 Author:
 
     Nikolaj Bjorner / Margus Veanes 2026

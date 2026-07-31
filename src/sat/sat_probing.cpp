@@ -219,7 +219,10 @@ namespace sat {
                        if (!p.m_equivs.empty()) verbose_stream() << " :equivs " << p.m_equivs.size();
                        verbose_stream() << " :cost " << p.m_counter;
                        if (p.m_stopped_at != 0) verbose_stream() << " :stopped-at " << p.m_stopped_at;
-                       verbose_stream() << mem_stat() << m_watch << ")\n";);
+                       if (!get_suppress_platform_verbose()) {
+                           verbose_stream() << mem_stat() << m_watch;
+                       }
+                       verbose_stream() << ")\n";);
         }
     };
 

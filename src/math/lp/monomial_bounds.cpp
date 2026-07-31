@@ -205,13 +205,27 @@ namespace nla {
             if (!c().is_monic_var(v))
                 continue;
             monic& m = c().emon(v);
-            if (propagate_changed_bound(m))
+            if (propagate_linear_bound(m))
                 propagated = true;
             if (tighten_lp(m))
                 propagated = true;
             if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
                 break;
         }   
+        return propagated;
+    }
+
+    bool monomial_bounds::propagate_linear_bounds() {
+        bool propagated = false;
+        for (auto& mm : c().emons()) {
+            //if (!c().is_monic_var(v))
+            //    continue;
+            monic &m = c().emon(mm.var());
+            if (propagate_linear_bound(m))
+                propagated = true;
+            if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
+                break;
+        }
         return propagated;
     }
 
@@ -225,7 +239,7 @@ namespace nla {
         return true;
     }
 
-    bool monomial_bounds::propagate_changed_bound(monic & m) {
+    bool monomial_bounds::propagate_linear_bound(monic & m) {
         if (m.is_propagated())
             return false;
         lpvar w, fixed_to_zero;
@@ -285,8 +299,10 @@ namespace nla {
     }
 
     bool monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
-        if (c().val(m.var()) == k * c().val(w))
-            return false;
+        if (c().val(m.var()) == k * c().val(w)) {
+            verbose_stream() << "non-fixed\n";
+            //return false;
+        }
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
         coeffs.push_back({-k, w});
         coeffs.push_back({rational::one(), m.var()});
@@ -671,7 +687,7 @@ namespace nla {
        
     bool monomial_bounds::tighten_lp_bounds() {
         bool new_bound = false;
-        for (auto &m : c().emons()) 
+        for (auto &m : c().emons())
             if (tighten_lp(m))
                 new_bound = true;
         return new_bound;
