@@ -4,7 +4,7 @@ description: Compiles Z3 with clang-tidy, analyzes build warnings and errors, an
 on:
   schedule: daily
   workflow_dispatch:
-skip-if-match: 'is:pr is:open in:title "[clang-tidy]"'
+  skip-if-match: 'is:pr is:open in:title "[clang-tidy]"'
 permissions:
   contents: read
   issues: read
