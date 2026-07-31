@@ -98,7 +98,7 @@ void grobner::push_scope() {
 }
 
 void grobner::pop_scope(unsigned num_scopes) {
-    SASSERT(num_scopes >= get_scope_level());
+    SASSERT(num_scopes <= get_scope_level());
     unsigned new_lvl = get_scope_level() - num_scopes;
     scope & s        = m_scopes[new_lvl];
     unfreeze_equations(s.m_equations_to_unfreeze_lim);
