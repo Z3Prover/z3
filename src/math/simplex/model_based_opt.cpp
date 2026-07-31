@@ -73,7 +73,6 @@ namespace opt {
         }
 
         if (div < 0) {
-            sign = true;
             div.neg();
             lc.neg();
             coeff.neg();
