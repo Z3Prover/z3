@@ -609,8 +609,6 @@ namespace euf {
             return false;
         if (block_inference(wi))
             return false;
-        if (wi.index() > 1)
-            return false;
 
         // Introduce three fresh meta-variables C, Tr, El and bind
         //   v -> \xs . ite(C xs, Tr xs, El xs)
@@ -619,7 +617,6 @@ namespace euf {
         // The condition/branch split is performed later when the ite subgoal
         // is consumed (see the is_ite(p, ...) case in consume_work).
 
-        wi.inc_index();
         m_trail.push(undo_resize(m_subst));
 
         flex_frame fr(m);
