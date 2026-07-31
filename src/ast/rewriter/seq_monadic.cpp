@@ -426,13 +426,17 @@ bool seq_monadic::parse_term(expr* t, svector<atom>& atoms, expr*& the_var) {
         return true;                              // epsilon: contributes nothing
     zstring s;
     if (u().str.is_string(t, s)) {
-        for (unsigned i = 0; i < s.length(); ++i)
-            atoms.push_back(atom{ false, nullptr, u().str.mk_char(s, i) });
+        for (unsigned i = 0; i < s.length(); ++i) {
+            expr* elem = u().str.mk_char(s, i);
+            m_pin.push_back(elem);
+            atoms.push_back(atom{ false, nullptr, elem });
+        }
         return true;
     }
     if (u().str.is_unit(t)) {                     // seq.unit of a constant element
         expr* elem = to_app(t)->get_arg(0);
         if (m.is_value(elem)) {
+            m_pin.push_back(elem);
             atoms.push_back(atom{ false, nullptr, elem });
             return true;
         }
