@@ -72,7 +72,6 @@ namespace user_solver {
         force_push();
         ctx.internalize(e);
         sat::bool_var var = enode_to_bool(ctx.get_enode(e), idx);
-        m_next_split_phase = phase;
         if (var == sat::null_bool_var || s().value(var) != l_undef)
             return false;
         m_next_split_var = var;
