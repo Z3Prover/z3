@@ -68,9 +68,7 @@ namespace sat {
                        if (num_learned > 0) verbose_stream() << " :elim-learned-literals " << num_learned;
                        if (num_units > 0)   verbose_stream() << " :units " << num_units;
                        if (tr > 0)          verbose_stream() << " :hte " << tr;
-                       verbose_stream() << " :cost " << m_asymm_branch.m_counter;
-                       verbose_stream() << mem_stat();
-                       verbose_stream() << m_watch << ")\n";);
+                       verbose_stream() << " :cost " << m_asymm_branch.m_counter << ")\n";);
         }
     };
 
