@@ -302,6 +302,17 @@ jobs:
           cat << 'GH_AW_PROMPT_a12b000ae128b391_EOF'
           </system>
           {{#runtime-import .github/workflows/build-warning-fixer.md}}
+
+          ## Runtime guardrail
+
+          The full `clang-tidy` build of both `shell` and `test-z3` is too large for this workflow's practical runtime budget.
+          This guardrail overrides the broader rebuild instructions above when they would keep you waiting on a long build.
+
+          - Use `cmake --build build --target shell -- -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build.log` for initial diagnostic collection.
+          - Do **not** wait for the full `shell` build to finish before deciding what to do.
+          - Monitor `/tmp/gh-aw/agent/clang-tidy-build.log` and stop once you have enough diagnostics for one small, high-confidence fix, or after 15 minutes, whichever comes first.
+          - If you still do not have a safe, validated fix inside that budget, call `noop` with the diagnostics you found instead of continuing to wait.
+          - After a localized fix, rebuild `shell` and run a quick manual check such as `./build/z3 --version`; only build and run `test-z3` when the test binary is already available or can be built quickly within the remaining time budget.
           GH_AW_PROMPT_a12b000ae128b391_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
