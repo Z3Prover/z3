@@ -15,9 +15,9 @@ Abstract:
     derivatives).
 
     Self-contained decision procedure: NO Nielsen splitting (seq_split), NO minterms,
-    and NO materialization of reach(q) as a regex.  It relies only on the symbolic
-    Brzozowski derivative (brz_derivative_cofactors as a transition regex) and on
-    automaton product-reachability for emptiness.
+    and NO materialization of reach(q) as a regex. It uses symbolic derivative
+    cofactors as Brzozowski states or Brzozowski states post-processed into
+    light-weight Antimirov states, and automaton product-reachability for emptiness.
 
     Method.  For a term  x.u in R  and the whole-language split, x drives the derivative
     automaton of R from R to some live state q, and the rest u must be accepted from q:
@@ -59,10 +59,18 @@ Author:
 #include <utility>
 
 class seq_monadic {
+public:
+    enum class transition_mode {
+        brzozowski,
+        light_antimirov
+    };
+
+private:
     ast_manager&    m;
     seq_rewriter&   m_rw;
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
                                              // ground guards so dead states become re.empty)
+    transition_mode m_mode;
     sort*           m_seq_sort = nullptr;   // sequence sort of the regex under analysis
     sort*           m_elem_sort = nullptr;  // element sort of that sequence sort
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
@@ -85,6 +93,9 @@ class seq_monadic {
 
     // Brzozowski derivative of regex `r` by the concrete element `elem`.
     expr_ref der_elem(expr* r, expr* elem);
+
+    // Symbolic transition cofactors in the selected mode.
+    void derivative_cofactors(expr* r, expr_ref_pair_vector& result);
 
     // Live reachable derivative states of R (BFS over cofactor targets + liveness
     // least-fixpoint).  These are the split states q.  Sets `ok` false on a cap overrun.
@@ -119,7 +130,10 @@ class seq_monadic {
                      obj_map<expr, expr*>* model);
 
 public:
-    seq_monadic(seq_rewriter& rw) : m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_pin(rw.m()) {}
+    seq_monadic(seq_rewriter& rw, transition_mode mode = transition_mode::light_antimirov) :
+        m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_mode(mode), m_pin(rw.m()) {}
+
+    transition_mode mode() const { return m_mode; }
 
     // Decide  (str.in_re term R)  for a term that is a concatenation of string variables
     // (possibly repeated / several distinct) and constant characters.

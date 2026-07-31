@@ -30,6 +30,7 @@ z3_add_component(params
     smt_params_helper.pyg
     solver_params.pyg
     tactic_params.pyg
+    tptp.pyg
   EXTRA_REGISTER_MODULE_HEADERS
     context_params.h
 )
