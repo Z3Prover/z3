@@ -6,6 +6,7 @@ import { init as initWrapper, Z3LowLevel, Z3ModuleOverrides } from './low-level'
 export * from './high-level/types';
 export { Z3Core, Z3LowLevel } from './low-level';
 export * from './low-level/types.__GENERATED__';
+export { killThreads } from './kill-threads';
 
 /**
  * The main entry point to the Z3 API
