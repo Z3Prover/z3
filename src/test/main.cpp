@@ -117,6 +117,7 @@
     X(regex_range_collapse) \
     X(seq_rewriter) \
     X(seq_monadic) \
+    X(seq_monadic_bench) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
