@@ -1281,8 +1281,8 @@ namespace smt {
 
             switch (elem.m_kind) {
             case tp_elem::EQUALITY: {
-                enode * lhs        = elem.m_lhs;
-                enode * rhs        = elem.m_rhs;
+                enode * lhs        = elem.m_pair.m_lhs;
+                enode * rhs        = elem.m_pair.m_rhs;
                 if (m_eq2proof.contains(lhs, rhs))
                     m_todo_pr.pop_back();
                 else if (visit_eq_justications(lhs, rhs)) {

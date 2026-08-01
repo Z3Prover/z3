@@ -137,7 +137,7 @@ namespace euf {
                 struct {
                     unsigned   m_th_id : 8;
                     unsigned   m_old_th_var : 24;
-                };
+                } m_th;
                 unsigned qhead;
                 bool     m_inconsistent;
                 signed char m_lbl_hash;
@@ -154,7 +154,7 @@ namespace euf {
             update_record(enode* n, unsigned id, add_th_var) :
                 tag(tag_t::is_add_th_var), r1(n), n1(nullptr), r2_num_parents(id) {}
             update_record(enode* n, theory_id id, theory_var v, replace_th_var) :
-                tag(tag_t::is_replace_th_var), r1(n), n1(nullptr), m_th_id(id), m_old_th_var(v) {}
+	        tag(tag_t::is_replace_th_var), r1(n), n1(nullptr), m_th(id, v) {}
             update_record(new_th_eq) :
                 tag(tag_t::is_new_th_eq), r1(nullptr), n1(nullptr), r2_num_parents(0) {}
             update_record(unsigned qh, new_th_eq_qhead):
@@ -174,7 +174,7 @@ namespace euf {
             update_record(enode* n, set_relevant) :
                 tag(tag_t::is_set_relevant), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
             update_record(unsigned th_id, plugin_undo) :
-                tag(tag_t::is_plugin_undo), r1(nullptr), n1(nullptr), m_th_id(th_id) {}
+                tag(tag_t::is_plugin_undo), r1(nullptr), n1(nullptr), m_th(th_id) {}
         };
         ast_manager&           m;
         svector<to_merge>      m_to_merge;
