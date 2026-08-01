@@ -2210,6 +2210,9 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
     if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {
         r = mk_true();
     }
+    // riskier fix:
+//    else if (num_args == 1 && decl->is_left_associative() && is_app(args[0]))
+//        r = to_app(args[0]);
     else if (num_args > 2 && !decl->is_flat_associative()) {
         if (decl->is_right_associative()) {
             unsigned j = num_args - 1;
