@@ -21,19 +21,21 @@ Abstract:
 TODOs:
 - if perf suffers: use DFS backtracking search instead of DNF expansion (space overhead)
 - create a validation harness: expose certificates for correctness that can be checked.
-- extend with lower and upper bound constraints
 - consider using expr_ref as alternative to pinned expressions
-- revisit parse_term and "the_var" condition. A sequence of units should be allowed.
+- revisit parse_term and "the_var" condition. A sequence of units should be allowed 
+  even though a good solver will apply derivatives directly.
+- optimize for cases where the same term is member of multiple regex constraints.
+  - coallesce the membership constraints into a single regex membership constraint of the intersection of regexes.
+- take into account shape of terms to prune the search space (e.g., if the term is xax, then retain the effect of 
+  intersecting with .*a.*).
+- use expr_ref in component and replace svector<component> by vector<component>, save on m_pin.
+- don't tear down cofactor cache between calls, but use a self-contained set of pinned regexes that don't get reset
+  between calls.  This will allow for a more efficient caching of cofactor computations. Reset the cache upon bloat.
 - support units of non-values (element variables).
   Model construction would assign values to the elements.
-- encapsulate within general interface:
-create: undo_trail x dependency_manager x ast_manager -> regex_membership
-add_constraint : expr* x expr* x dependency* -> void
-check: void -> lbool
-explain: void -> dependency*
-model: void -> (expr* x expr*) vector or value: expr* -> expr* 
-perhaps:
-substitute: expr* x expr* x dependency* -> void
+- make unsat core tracking less naive by tracking dependencies at a finer grain.
+
+
 
 Author:
 
