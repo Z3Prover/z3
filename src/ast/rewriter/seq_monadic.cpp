@@ -23,7 +23,6 @@ TODOs:
 - if perf suffers: use DFS backtracking search instead of DNF expansion (space overhead)
 - create a validation harness: expose certificates for correctness that can be checked.
 - extend with lower and upper bound constraints
-- cache calls to cofactors so they are only computed once per regex.
 - consider using expr_ref as alternative to pinned expressions
 - encapsulate within general interface:
 create: undo_trail x dependency_manager x ast_manager -> regex_membership
@@ -61,15 +60,27 @@ expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
     return d2;
 }
 
-void seq_monadic::derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
+    expr_ref_pair_vector* v = nullptr;
+    if (m_cofactor_cache.find(r, v))
+        return *v;
+    v = alloc(expr_ref_pair_vector, m);
     if (m_mode == transition_mode::light_antimirov)
-        m_rw.light_ant_derivative_cofactors(r, result);
+        m_rw.light_ant_derivative_cofactors(r, *v);
     else
-        m_rw.brz_derivative_cofactors(r, result);
+        m_rw.brz_derivative_cofactors(r, *v);
+    m_pin.push_back(r);                    // keep the key alive for the cache's lifetime
+    m_cofactor_cache.insert(r, v);
+    return *v;
 }
 
-void seq_monadic::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
-    ok = true;
+void seq_monadic::reset_cofactor_cache() {
+    for (auto const& [k, v] : m_cofactor_cache)
+        dealloc(v);
+    m_cofactor_cache.reset();
+}
+
+bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {
     obj_map<expr, unsigned> id;
     expr_ref_vector states(m);
     vector<svector<unsigned>> succ;
@@ -88,9 +99,8 @@ void seq_monadic::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
     intern(R);
     const unsigned STATE_CAP = 1u << 12;
     for (unsigned i = 0; i < states.size(); ++i) {
-        if (states.size() > STATE_CAP || !m.inc()) { ok = false; return; }
-        expr_ref_pair_vector cof(m);
-        derivative_cofactors(states.get(i), cof);
+        if (states.size() > STATE_CAP || !m.inc()) return false;
+        expr_ref_pair_vector const& cof = derivative_cofactors(states.get(i));
         for (auto const& [g, t] : cof) {
             if (re().is_empty(t)) continue;
             unsigned k = intern(t);           // MUST precede succ[i] indexing: intern may
@@ -111,6 +121,7 @@ void seq_monadic::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
     }
     for (unsigned i = 0; i < n; ++i)
         if (live[i]) { out.push_back(states.get(i)); m_pin.push_back(states.get(i)); }
+    return true;
 }
 
 lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* witness_word) {
@@ -122,11 +133,11 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     }
     expr_ref var0(m.mk_var(0, m_elem_sort), m);   // the element variable the guards range over
 
-    svector<expr*> start;
+    ptr_vector<expr> start;
     for (auto const& c : comps)
         start.push_back(c.state);
 
-    auto id_key = [&](svector<expr*> const& st) {
+    auto id_key = [&](ptr_vector<expr> const& st) {
         std::vector<unsigned> k;
         k.reserve(st.size());
         for (expr* e : st) k.push_back(e->get_id());
@@ -135,7 +146,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     typedef std::vector<unsigned> key;
 
     bool undecided = false;
-    auto is_accept = [&](svector<expr*> const& st) -> bool {
+    auto is_accept = [&](ptr_vector<expr> const& st) -> bool {
         for (unsigned i = 0; i < n; ++i) {
             if (comps[i].target) {
                 if (st[i] != comps[i].target) return false;
@@ -151,7 +162,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     };
 
     std::set<key> visited;
-    std::vector<svector<expr*>> work;
+    vector<ptr_vector<expr>> work;
     // tree of first-discovery edges for witness reconstruction (only built when a
     // witness is requested): child-key -> (parent-key, element read on the edge).
     std::map<key, std::pair<key, expr*>> parent;
@@ -182,7 +193,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
         --m_budget;
         if (!m.inc())
             return l_undef;
-        svector<expr*> st = work.back();
+        ptr_vector<expr> st = work.back();
         work.pop_back();
         if (is_accept(st)) {
             if (witness_word)
@@ -192,22 +203,21 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
         if (undecided)
             return l_undef;
 
-        // per-component cofactor branches (target, guard); pin both, they outlive `cof`.
-        std::vector<std::vector<std::pair<expr*, expr*>>> branches(n);
+        // per-component cofactor branches (target, guard); expr_ref keeps both alive
+        // beyond the cached `cof` reference.
+        vector<vector<std::pair<expr_ref, expr_ref>>> branches;
+        branches.resize(n);
         for (unsigned i = 0; i < n; ++i) {
-            expr_ref_pair_vector cof(m);
-            derivative_cofactors(st[i], cof);
+            expr_ref_pair_vector const& cof = derivative_cofactors(st[i]);
             for (auto const& [g, t] : cof) {
                 if (re().is_empty(t)) continue;
-                m_pin.push_back(t);
-                m_pin.push_back(g);
-                branches[i].push_back(std::make_pair((expr*) t, (expr*) g));
+                branches[i].push_back({ expr_ref(t, m), expr_ref(g, m) });
             }
         }
 
         // joint transitions = cartesian product of the branches with the guards
         // conjoined; prune as soon as the accumulated guard is empty, bail on unknown.
-        svector<expr*> cur;
+        ptr_vector<expr> cur;
         cur.resize(n);
         key st_key = id_key(st);
         bool bail = false;
@@ -222,7 +232,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                             expr_ref e(m);
                             if (acc.eval(&e) == l_true) {
                                 m_pin.push_back(e);
-                                parent[ck] = std::make_pair(st_key, e.get());
+                                parent[ck] = { st_key, e.get() };
                             }
                         }
                         work.push_back(cur);
@@ -249,13 +259,8 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
 }
 
 bool seq_monadic::parse_term(expr* t, svector<atom>& atoms, expr*& the_var) {
-    if (u().str.is_concat(t)) {
-        app* a = to_app(t);
-        for (unsigned i = 0; i < a->get_num_args(); ++i)
-            if (!parse_term(a->get_arg(i), atoms, the_var))
-                return false;
-        return true;
-    }
+    if (u().str.is_concat(t))
+        return all_of(*to_app(t), [&](expr* arg) { return parse_term(arg, atoms, the_var); });
     if (u().str.is_empty(t))
         return true;                              // epsilon: contributes nothing
     zstring s;
@@ -277,8 +282,7 @@ bool seq_monadic::parse_term(expr* t, svector<atom>& atoms, expr*& the_var) {
         return false;                             // symbolic (non-constant) unit: unsupported
     }
     // uninterpreted 0-ary constant of sequence sort => a sequence variable
-    if (is_app(t) && to_app(t)->get_num_args() == 0 &&
-        to_app(t)->get_family_id() == null_family_id) {
+    if (is_uninterp_const(t)) {
         the_var = t;                              // mark that at least one variable occurs
         atoms.push_back(atom{ true, t, nullptr });
         return true;
@@ -286,45 +290,41 @@ bool seq_monadic::parse_term(expr* t, svector<atom>& atoms, expr*& the_var) {
     return false;
 }
 
-void seq_monadic::decompose(svector<atom> const& atoms, unsigned i, expr* R,
-                            vector<disjunct>& out, bool& ok) {
-    if (!ok)
-        return;
-    if (m_giveup) { ok = false; return; }
+bool seq_monadic::decompose(svector<atom> const& atoms, unsigned i, expr* R,
+                            vector<disjunct>& out) {
+    if (m_giveup)
+        return false;
     m_pin.push_back(R);
     if (i == atoms.size()) {
         expr_ref nb = m_rw.is_nullable(R);
         if (m.is_true(nb))
             out.push_back(disjunct());            // empty conjunction = true
         else if (!m.is_false(nb))
-            ok = false;                           // undecidable nullability => bail
-        return;
+            return false;                         // undecidable nullability => bail
+        return true;
     }
     atom const& a = atoms[i];
     if (!a.is_var) {
         expr_ref d = der_elem(R, a.elem);
-        decompose(atoms, i + 1, d, out, ok);
-        return;
+        return decompose(atoms, i + 1, d, out);
     }
     if (i + 1 == atoms.size()) {                  // last atom: membership component  a.var in R
         disjunct D;
         D.push_back(component{ a.var, R, nullptr });
         out.push_back(D);
-        return;
+        return true;
     }
     // a variable with a non-empty rest: split over the live states q of R (midpoints)
-    ptr_vector<expr> Q;
-    live_states(R, Q, ok);
-    if (!ok)
-        return;
+    expr_ref_vector Q(m);
+    if (!live_states(R, Q))
+        return false;
     const unsigned DISJUNCT_CAP = 1u << 13;
     for (expr* q : Q) {
         vector<disjunct> sub;
-        decompose(atoms, i + 1, q, sub, ok);
-        if (!ok)
-            return;
+        if (!decompose(atoms, i + 1, q, sub))
+            return false;
         for (disjunct const& sd : sub) {
-            if (out.size() > DISJUNCT_CAP || m_budget == 0) { m_giveup = true; ok = false; return; }
+            if (out.size() > DISJUNCT_CAP || m_budget == 0) { m_giveup = true; return false; }
             --m_budget;
             disjunct D(sd);
             D.push_back(component{ a.var, R, q });   // reach component: a.var drives R -> q
@@ -332,6 +332,7 @@ void seq_monadic::decompose(svector<atom> const& atoms, unsigned i, expr* R,
         }
     }
     simplify_dnf(out);
+    return true;
 }
 
 void seq_monadic::simplify_dnf(vector<disjunct>& dnf) {
@@ -356,12 +357,14 @@ void seq_monadic::simplify_dnf(vector<disjunct>& dnf) {
 }
 
 lbool seq_monadic::solve(expr* term, expr* R) {
-    obj_map<expr, expr*> none;
-    return solve(term, R, none, nullptr);
-}
-
-lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra) {
-    return solve(term, R, var_extra, nullptr);
+    m_pin.reset();
+    reset_cofactor_cache();
+    m_budget = 200000;                            // global work budget: bail fast on DNF explosion
+    m_giveup = false;
+    vector<disjunct> dnf;
+    if (!build_membership_dnf(term, R, dnf))
+        return l_undef;
+    return decide_dnf(dnf);
 }
 
 bool seq_monadic::build_membership_dnf(expr* term, expr* R, vector<disjunct>& dnf) {
@@ -376,16 +379,14 @@ bool seq_monadic::build_membership_dnf(expr* term, expr* R, vector<disjunct>& dn
     if (!the_var)
         return false;                             // no variable: ground membership, not our case
     m_pin.push_back(R);
-    bool ok = true;
-    decompose(atoms, 0, R, dnf, ok);
-    return ok;
+    return decompose(atoms, 0, R, dnf);
 }
 
-lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> const& var_extra,
-                              obj_map<expr, expr*>* model) {
+lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf) {
+    m_model.reset();
     bool any_undef = false;
     for (disjunct const& D : dnf) {
-        // group components by variable, add the extra per-variable constraints
+        // group components by variable
         obj_map<expr, unsigned> idx;
         vector<svector<component>> groups;
         ptr_vector<expr> group_var;
@@ -399,44 +400,36 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> 
         };
         for (auto const& c : D)
             groups[bucket(c.var)].push_back(c);
-        for (auto const& kv : var_extra)
-            groups[bucket(kv.m_key)].push_back(component{ kv.m_key, kv.m_value, nullptr });
 
         bool has_empty = false, has_undef = false;
         obj_map<expr, expr*> local;               // var -> witness for this disjunct
         for (unsigned gi = 0; gi < groups.size(); ++gi) {
             expr_ref w(m);
-            lbool ne = product_nonempty(groups[gi], model ? &w : nullptr);
+            lbool ne = product_nonempty(groups[gi], m_gen_model ? &w : nullptr);
             if (ne == l_false) { has_empty = true; break; }   // this variable has no value
             if (ne == l_undef) { has_undef = true; continue; }
-            if (model) { m_pin.push_back(w); local.insert(group_var[gi], w.get()); }
+            if (m_gen_model) { m_pin.push_back(w); local.insert(group_var[gi], w.get()); }
         }
         if (has_empty) continue;
         if (has_undef) { any_undef = true; continue; }
-        if (model)
-            for (auto const& kv : local)
-                model->insert(kv.m_key, kv.m_value);
+        if (m_gen_model)
+            for (auto const& [k, v] : local)
+                m_model.insert(k, v);
         return l_true;                            // all variables satisfiable => sat
     }
     return any_undef ? l_undef : l_false;
 }
 
-lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
-                         obj_map<expr, expr*>* model) {
-    m_pin.reset();
-    m_budget = 200000;                            // global work budget: bail fast on DNF explosion
-    m_giveup = false;
-    vector<disjunct> dnf;
-    if (!build_membership_dnf(term, R, dnf))
-        return l_undef;
-    return decide_dnf(dnf, var_extra, model);
+void seq_monadic::add(expr* term, expr* regex, u_dependency* d) {
+    m_memberships.push_back({ expr_ref(term, m), expr_ref(regex, m), d });
 }
 
-lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems,
-                             obj_map<expr, expr*> const& var_extra, obj_map<expr, expr*>* model) {
-    if (mems.empty())
-        return l_undef;
+lbool seq_monadic::decide(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships) {
+    m_model.reset();
+    if (memberships.empty())
+        return l_true;                            // empty conjunction is vacuously true
     m_pin.reset();
+    reset_cofactor_cache();
     m_budget = 200000;
     m_giveup = false;
     // Multiply the per-membership DNFs:  combined = { d ++ e : d in combined, e in dnf_i }.
@@ -446,16 +439,16 @@ lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems,
     vector<disjunct> combined;
     combined.push_back(disjunct());               // { true }
     const unsigned DNF_CAP = 1u << 14;
-    for (auto const& tr : mems) {
+    for (auto const& [term, regex, d] : memberships) {
         vector<disjunct> dnf_i;
-        if (!build_membership_dnf(tr.first, tr.second, dnf_i))
+        if (!build_membership_dnf(term, regex, dnf_i))
             return l_undef;
         vector<disjunct> next;
-        for (disjunct const& d : combined) {
+        for (disjunct const& cd : combined) {
             for (disjunct const& e : dnf_i) {
                 if (next.size() > DNF_CAP || m_budget == 0) { m_giveup = true; return l_undef; }
                 --m_budget;
-                disjunct D(d);
+                disjunct D(cd);
                 for (auto const& c : e)
                     D.push_back(c);
                 next.push_back(D);
@@ -466,5 +459,44 @@ lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems,
         if (combined.empty())
             return l_false;                       // no viable disjunct left => unsat
     }
-    return decide_dnf(combined, var_extra, model);
+    return decide_dnf(combined);
+}
+
+void seq_monadic::minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships) {
+    m_core.reset();
+    if (!m_min_core) {
+        // No minimization: the core is simply every asserted membership's dependency.
+        for (auto const& [term, regex, d] : memberships)
+            if (d)
+                m_core.push_back(d);
+        return;
+    }
+    // Deletion-based minimization: start from the full unsat set and try to drop each
+    // membership; a membership is kept only if removing it makes the set no longer
+    // provably unsat.  The result is a minimal unsat subset (relevant constraints only).
+    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> keep(memberships);
+    unsigned i = 0;
+    while (i < keep.size()) {
+        vector<std::tuple<expr_ref, expr_ref, u_dependency*>> trial;
+        for (unsigned j = 0; j < keep.size(); ++j)
+            if (j != i)
+                trial.push_back(keep[j]);
+        if (decide(trial) == l_false)
+            keep.swap(trial);                     // membership i is not needed for unsat
+        else
+            ++i;                                  // membership i is needed; keep it
+    }
+    for (auto const& [term, regex, d] : keep)
+        if (d)
+            m_core.push_back(d);
+}
+
+lbool seq_monadic::check() {
+    m_core.reset();
+    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> memberships;
+    memberships.swap(m_memberships);              // consume the asserted memberships
+    lbool r = decide(memberships);
+    if (r == l_false)
+        minimize_core(memberships);
+    return r;
 }

@@ -25,6 +25,7 @@ Author:
 #include "ast/rewriter/seq_monadic.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include <iostream>
+#include <set>
 
 namespace {
 
@@ -41,6 +42,7 @@ class seq_monadic_test {
     sort_ref         m_str;   // String sort
     sort_ref         m_re;    // RegEx sort over m_str
     seq_monadic::transition_mode m_mode;
+    u_dependency_manager m_dm;   // owns the leaf dependencies used in unsat-core tests
     unsigned         m_fail = 0;
 
     seq_util::rex& re() { return u.re; }
@@ -121,6 +123,7 @@ class seq_monadic_test {
     }
 
     void check(char const* name, expr* term, expr* R, lbool expected) {
+        m_mon.set_gen_model(false);               // this check does not use the model
         lbool got = m_mon.solve(term, R);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
@@ -128,9 +131,19 @@ class seq_monadic_test {
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
     }
 
+    // assert the membership list: the primary (term in R) plus one (var in R') per extra
+    // constraint, decided jointly by check().
+    void add_extra(expr* term, expr* R, obj_map<expr, expr*> const& ve) {
+        m_mon.add(term, R, nullptr);
+        for (auto const& [k, v] : ve)
+            m_mon.add(k, v, nullptr);
+    }
+
     void check_extra(char const* name, expr* term, expr* R,
                      obj_map<expr, expr*> const& ve, lbool expected) {
-        lbool got = m_mon.solve(term, R, ve);
+        add_extra(term, R, ve);
+        m_mon.set_gen_model(false);               // this check does not use the model
+        lbool got = m_mon.check();
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
@@ -166,8 +179,10 @@ class seq_monadic_test {
     // term a member of R (substitute var -> witness and re-decide by derivatives).
     void check_witness(char const* name, expr* term, expr* R,
                        obj_map<expr, expr*> const& ve) {
-        obj_map<expr, expr*> model;
-        lbool got = m_mon.solve(term, R, ve, &model);
+        add_extra(term, R, ve);
+        m_mon.set_gen_model(true);                // this check verifies the extracted model
+        lbool got = m_mon.check();
+        obj_map<expr, expr*> const& model = m_mon.get_model();
         bool ok = (got == l_true) && !model.empty();
         if (ok) {
             expr_safe_replace rep(m);
@@ -185,12 +200,58 @@ class seq_monadic_test {
 
     // decide a conjunction of memberships jointly (shared variables constrained together).
     void check_and(char const* name, vector<std::pair<expr*, expr*>> const& mems, lbool expected) {
-        obj_map<expr, expr*> nove;
-        lbool got = m_mon.solve_and(mems, nove, nullptr);
+        for (auto const& [t, r] : mems)
+            m_mon.add(t, r, nullptr);
+        m_mon.set_gen_model(false);               // this check does not use the model
+        lbool got = m_mon.check();
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+    }
+
+    // collect the core ids after a check() into `ids`.
+    void core_ids(std::set<unsigned>& ids) {
+        ids.clear();
+        for (u_dependency* d : m_mon.core())
+            ids.insert(d->leaf_value());
+    }
+
+    // Assert each membership with a distinct leaf dependency (id = its index) and expect
+    // the conjunction to be UNSAT.  With minimization ON, core() must be exactly
+    // `expected_core` (irrelevant constraints omitted); with minimization OFF, core()
+    // must be all membership dependencies.
+    void check_core(char const* name, vector<std::pair<expr*, expr*>> const& mems,
+                    std::set<unsigned> const& expected_core) {
+        m_mon.set_gen_model(false);
+        std::set<unsigned> all_ids, got_ids;
+        for (unsigned i = 0; i < mems.size(); ++i)
+            all_ids.insert(i);
+
+        // minimization disabled: the core is every asserted membership's dependency.
+        m_mon.set_min_core(false);
+        for (unsigned i = 0; i < mems.size(); ++i)
+            m_mon.add(mems[i].first, mems[i].second, m_dm.mk_leaf(i));
+        lbool got0 = m_mon.check();
+        core_ids(got_ids);
+        bool ok0 = (got0 == l_false) && (got_ids == all_ids);
+
+        // minimization enabled: the core drops constraints irrelevant to the conflict.
+        m_mon.set_min_core(true);
+        for (unsigned i = 0; i < mems.size(); ++i)
+            m_mon.add(mems[i].first, mems[i].second, m_dm.mk_leaf(i));
+        lbool got1 = m_mon.check();
+        std::set<unsigned> min_ids;
+        core_ids(min_ids);
+        bool ok1 = (got1 == l_false) && (min_ids == expected_core);
+        m_mon.set_min_core(false);                // restore the harness default
+
+        bool ok = ok0 && ok1;
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name << "  got=" << s(got1) << " core={";
+        bool first = true;
+        for (unsigned id : min_ids) { std::cout << (first ? "" : ",") << id; first = false; }
+        std::cout << "} full=" << (ok0 ? "yes" : "no") << "\n";
     }
 
 public:
@@ -198,6 +259,7 @@ public:
         m_reg(m), m_rw(m), m_mon(m_rw, mode), u(m), m_str(m), m_re(m), m_mode(mode) {
         m_str = u.str.mk_string_sort();
         m_re  = re().mk_re(m_str);
+        m_mon.set_min_core(false);   // tests use unminimized cores by default
     }
 
     void run() {
@@ -319,10 +381,10 @@ public:
         check_extra("([1]|[2])* & yi[2]* xi.[1].yi", xiyi, re12s, veI, l_true);
         check_witness("([1]|[2])* & yi[2]* xi.[1].yi", xiyi, re12s, veI);
 
-        // ---- conjunction of memberships (solve_and): a variable shared across memberships
+        // ---- conjunction of memberships (add + check): a variable shared across memberships
         // ---- is constrained jointly.  These are cases that are individually SAT but
         // ---- jointly UNSAT -- exactly what independent per-membership solving gets wrong.
-        std::cout << "=== seq_monadic: conjunction of memberships (solve_and) ===\n";
+        std::cout << "=== seq_monadic: conjunction of memberships (add + check) ===\n";
         expr_ref aaS(star(cat(a, a)), m);           // (aa)*     : even number of a's
         expr_ref a_aaS(cat(a, star(cat(a, a))), m); // a(aa)*    : odd number of a's
         expr_ref abS(star(ab), m);                  // (ab)*
@@ -352,6 +414,39 @@ public:
         mSat2.push_back(std::make_pair((expr*)tXaY.get(), (expr*)abStar.get()));
         mSat2.push_back(std::make_pair((expr*)tYbX.get(), (expr*)abStar.get()));
         check_and("x.a.y & y.b.x in (a|b)*", mSat2, l_true);
+
+        // ---- unsat cores: the extracted core must contain only constraints that
+        // ---- participate in the contradiction, not independent ones.
+        std::cout << "=== seq_monadic: unsat cores ===\n";
+        // x in a* /\ x in ~(a*) /\ y in b*  -> unsat over x; core = {0,1}, not the y-constraint.
+        {
+            expr_ref aStar(star(a), m), naStar(comp(star(a)), m), bStar(star(b), m);
+            vector<std::pair<expr*, expr*>> ms;
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)aStar.get()));
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)naStar.get()));
+            ms.push_back(std::make_pair((expr*)y.get(), (expr*)bStar.get()));
+            check_core("x in a* & x in ~a* (& y in b*)", ms, std::set<unsigned>{0, 1});
+        }
+        // x in (aa)* /\ x in a(aa)* /\ y in Sigma*  -> unsat over x; core = {0,1}.
+        {
+            expr_ref aaS(star(cat(a, a)), m), a_aaS(cat(a, star(cat(a, a))), m), sigStar(dotstar(), m);
+            vector<std::pair<expr*, expr*>> ms;
+            ms.push_back(std::make_pair((expr*)x.get(),  (expr*)aaS.get()));
+            ms.push_back(std::make_pair((expr*)x.get(),  (expr*)a_aaS.get()));
+            ms.push_back(std::make_pair((expr*)y.get(),  (expr*)sigStar.get()));
+            check_core("x in (aa)* & x in a(aa)* (& y in Sig*)", ms, std::set<unsigned>{0, 1});
+        }
+        // Three independent constraints, contradiction only between the middle two:
+        // z in a* (indep) /\ x in b* /\ x in a+ (x=empty allowed by b*, a+ forbids empty)
+        {
+            expr_ref z = var("z");
+            expr_ref aStarZ(star(a), m), bStarX(star(b), m), aP(cat(a, star(a)), m);   // a+ = at least one a
+            vector<std::pair<expr*, expr*>> ms;
+            ms.push_back(std::make_pair((expr*)z.get(), (expr*)aStarZ.get()));    // 0: irrelevant
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)bStarX.get()));    // 1: x in b*
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)aP.get()));        // 2: x in a+
+            check_core("z in a* (& x in b* & x in a+)", ms, std::set<unsigned>{1, 2});
+        }
 
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("
                   << m_fail << " fail) ===\n";
