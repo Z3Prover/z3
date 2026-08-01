@@ -24,6 +24,8 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_monadic.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "params/smt_params.h"
+#include "smt/smt_kernel.h"
 #include <iostream>
 #include <set>
 
@@ -220,8 +222,10 @@ class seq_monadic_test {
     // collect the core ids after a check() into `ids`.
     void core_ids(std::set<unsigned>& ids) {
         ids.clear();
-        for (u_dependency* d : m_mon.core())
+        for (void* dep : m_mon.core()) {
+            u_dependency* d = static_cast<u_dependency*>(dep);
             ids.insert(d->leaf_value());
+        }
     }
 
     // Assert each membership with a distinct leaf dependency (id = its index) and expect
@@ -263,6 +267,24 @@ class seq_monadic_test {
         bool first = true;
         for (unsigned id : min_ids) { std::cout << (first ? "" : ",") << id; first = false; }
         std::cout << "} full=" << (ok0 ? "yes" : "no") << "\n";
+    }
+
+    lbool smt_check(expr_ref_vector const& assertions, bool enable_monadic = true) {
+        smt_params params;
+        params.m_seq_regex_monadic = enable_monadic;
+        smt::kernel solver(m, params);
+        for (expr* assertion : assertions)
+            solver.assert_expr(assertion);
+        return solver.check();
+    }
+
+    void check_smt(char const* name, expr_ref_vector const& assertions, lbool expected,
+                   bool enable_monadic = true) {
+        lbool got = smt_check(assertions, enable_monadic);
+        bool ok = got == expected;
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  got=" << s(got) << " expected=" << s(expected) << "\n";
     }
 
 public:
@@ -488,6 +510,70 @@ public:
         if (!zero_lo_ok) ++m_fail;
         std::cout << (zero_lo_ok ? "  OK   " : "  FAIL ")
                   << "|x| >= 0 is a no-op\n";
+
+        std::cout << "=== seq_monadic: SMT regex end-game ===\n";
+        {
+            expr_ref_vector assertions(m);
+            assertions.push_back(re().mk_in_re(x, star(alt(a, b))));
+            check_smt("enabled SAT membership", assertions, l_true);
+            check_smt("disabled legacy membership", assertions, l_true, false);
+        }
+        {
+            expr_ref_vector assertions(m);
+            expr_ref a_star(star(a), m);
+            assertions.push_back(re().mk_in_re(x, a_star));
+            assertions.push_back(re().mk_in_re(x, comp(a_star)));
+            check_smt("enabled joint UNSAT memberships", assertions, l_false);
+        }
+        {
+            expr_ref_vector assertions(m);
+            assertions.push_back(m.mk_not(re().mk_in_re(x, star(a))));
+            assertions.push_back(re().mk_in_re(x, star(a)));
+            check_smt("enabled negative membership", assertions, l_false);
+        }
+        {
+            expr_ref_vector assertions(m);
+            assertions.push_back(m.mk_eq(x, sword("aa")));
+            assertions.push_back(re().mk_in_re(x, expr_ref(re().mk_plus(a), m)));
+            check_smt("rejected witness uses legacy fallback", assertions, l_true);
+        }
+        {
+            expr_ref_vector assertions(m);
+            assertions.push_back(m.mk_eq(x, y));
+            assertions.push_back(re().mk_in_re(x, star(a)));
+            assertions.push_back(re().mk_in_re(y, expr_ref(re().mk_plus(b), m)));
+            check_smt("aliased variables use legacy fallback", assertions, l_false);
+        }
+        {
+            arith_util ar2(m);
+            sort_ref int_sort(ar2.mk_int(), m);
+            sort_ref seq_sort(u.str.mk_seq(int_sort), m);
+            sort_ref regex_sort(re().mk_re(seq_sort), m);
+            expr_ref seq_var(m.mk_const("seq_var", seq_sort), m);
+            expr_ref elem_var(m.mk_const("elem_var", int_sort), m);
+            expr_ref symbolic_unit(u.str.mk_unit(elem_var), m);
+            expr_ref term(u.str.mk_concat(seq_var, symbolic_unit), m);
+            expr_ref_vector assertions(m);
+            assertions.push_back(re().mk_in_re(term, re().mk_full_seq(regex_sort)));
+            check_smt("unsupported symbolic unit uses fallback", assertions, l_true);
+        }
+        {
+            smt_params params;
+            params.m_seq_regex_monadic = true;
+            smt::kernel solver(m, params);
+            expr_ref a_star(star(a), m);
+            solver.assert_expr(re().mk_in_re(x, a_star));
+            lbool before_push = solver.check();
+            solver.push();
+            solver.assert_expr(re().mk_in_re(x, comp(a_star)));
+            lbool in_push = solver.check();
+            solver.pop(1);
+            lbool after_pop = solver.check();
+            bool ok = before_push == l_true && in_push == l_false && after_pop == l_true;
+            if (!ok) ++m_fail;
+            std::cout << (ok ? "  OK   " : "  FAIL ")
+                      << "SMT membership trail push/pop\n";
+        }
 
         // ---- unsat cores: the extracted core must contain only constraints that
         // ---- participate in the contradiction, not independent ones.

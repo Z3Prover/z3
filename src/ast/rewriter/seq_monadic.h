@@ -85,8 +85,9 @@ private:
     bool            m_min_core = true;      // whether check() minimizes the unsat core (else: all deps)
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     obj_map<expr, expr_ref_pair_vector*> m_cofactor_cache;  // memoizes derivative_cofactors per regex
-    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> m_memberships;  // asserted (term in regex, dep) for check()
-    ptr_vector<u_dependency> m_core;        // dependencies of an unsat subset, filled by check() on l_false
+    using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
+    membership_vec m_memberships;           // asserted (term in regex, dep) for check()
+    ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -155,11 +156,11 @@ private:
     // Decide a CONJUNCTION of memberships jointly (the core algorithm behind check()):
     // multiplies the per-membership DNFs and decides emptiness.  Does not touch
     // m_memberships or m_core; fills m_model on l_true when model generation is enabled.
-    lbool decide(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships);
+    lbool decide(membership_vec const& memberships);
 
     // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
     // deletion and collect the (non-null) dependencies of its members into m_core.
-    void minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships);
+    void minimize_core(membership_vec const& memberships);
 
 public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
@@ -193,16 +194,16 @@ public:
     // Assert a membership  (term in regex)  to be decided jointly by the next check().
     // `d` carries the dependency used for unsat-core tracking and may be nullptr.
     // Memberships remain asserted until the constructor-provided trail is popped.
-    void add(expr* term, expr* regex, u_dependency* d);
+    void add(expr* term, expr* regex, void* d);
 
     // Assert that `term` has at least `lo` elements.  A zero lower bound is a no-op.
-    void add_lo(expr* term, unsigned lo, u_dependency* d);
+    void add_lo(expr* term, unsigned lo, void* d);
 
     // Assert that `term` has at most `hi` elements.
-    void add_hi(expr* term, unsigned hi, u_dependency* d);
+    void add_hi(expr* term, unsigned hi, void* d);
 
     // Assert that `term` has exactly `len` elements.
-    void add_len(expr* term, unsigned len, u_dependency* d);
+    void add_len(expr* term, unsigned len, void* d);
 
     // Decide the CONJUNCTION of all memberships asserted via add() jointly: a variable
     // shared across memberships is constrained consistently (the DNFs are multiplied and
@@ -217,5 +218,5 @@ public:
 
     // Dependencies of a minimal unsatisfiable subset from the last check() that returned
     // l_false (nullptr dependencies are omitted).  Empty otherwise.
-    ptr_vector<u_dependency> const& core() const { return m_core; }
+    ptr_vector<void> const& core() const { return m_core; }
 };

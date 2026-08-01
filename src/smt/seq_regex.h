@@ -19,6 +19,7 @@ Author:
 #include "util/scoped_vector.h"
 #include "util/state_graph.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/seq_monadic.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "smt/smt_context.h"
@@ -108,6 +109,28 @@ namespace smt {
         ast_manager&                     m;
         vector<s_in_re>                  m_s_in_re;
 
+        struct monadic_membership {
+            literal  m_lit;
+            expr_ref m_s;
+            expr_ref m_re;
+
+            monadic_membership(ast_manager& m, literal lit, expr* s, expr* re) :
+                m_lit(lit), m_s(s, m), m_re(re, m) {}
+        };
+
+        struct monadic_assumption {
+            unsigned m_generation;
+            enode*   m_var;
+            enode*   m_witness;
+        };
+
+        seq_monadic                       m_monadic;
+        vector<monadic_membership>         m_monadic_memberships;
+        svector<monadic_assumption>        m_monadic_assumptions;
+        unsigned                          m_monadic_generation = 0;
+        unsigned                          m_monadic_assumption_generation = UINT_MAX;
+        unsigned                          m_monadic_fallback_generation = UINT_MAX;
+
         /*
             state_graph for dead state detection, and associated methods
         */
@@ -188,6 +211,9 @@ namespace smt {
         }
 
         bool block_if_empty(expr* r, literal lit);
+        void add_monadic_membership(literal lit, expr* s, expr* r);
+        void propagate_accept_legacy(literal lit, expr* s, expr* r);
+        void enable_legacy_fallback();
 
     public:
 
@@ -197,6 +223,7 @@ namespace smt {
         void pop_scope(unsigned num_scopes) {}
         bool can_propagate() const { return false; }
         bool propagate() const { return false; }
+        final_check_status final_check();
 
         void propagate_in_re(literal lit);
 

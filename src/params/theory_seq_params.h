@@ -24,6 +24,7 @@ struct theory_seq_params {
      */
     bool m_split_w_len = false;
     bool m_seq_validate = false;
+    bool m_seq_regex_monadic = false;
     unsigned m_seq_max_unfolding = UINT_MAX/4;
     unsigned m_seq_min_unfolding = 1;
 
@@ -33,4 +34,3 @@ struct theory_seq_params {
 
     void updt_params(params_ref const & p);
 };
-

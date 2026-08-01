@@ -428,6 +428,16 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
         TRACEFIN("solve_recfun");
         return FC_CONTINUE;
     }
+    switch (m_regex.final_check()) {
+    case FC_CONTINUE:
+        TRACEFIN("regex monadic");
+        return FC_CONTINUE;
+    case FC_GIVEUP:
+        TRACEFIN("regex monadic giveup");
+        return FC_GIVEUP;
+    case FC_DONE:
+        break;
+    }
     if (m_unhandled_expr) {
         TRACEFIN("give_up");
         TRACE(seq, tout << "unhandled: " << mk_pp(m_unhandled_expr, m) << "\n";);
@@ -1956,6 +1966,12 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq fixed length", m_stats.m_fixed_length);
     st.update("seq int.to.str", m_stats.m_int_string);
     st.update("seq str.from_ubv", m_stats.m_ubv_string);
+    st.update("seq regex monadic checks", m_stats.m_regex_monadic_checks);
+    st.update("seq regex monadic sat", m_stats.m_regex_monadic_sat);
+    st.update("seq regex monadic unsat", m_stats.m_regex_monadic_unsat);
+    st.update("seq regex monadic undef", m_stats.m_regex_monadic_undef);
+    st.update("seq regex monadic assumptions", m_stats.m_regex_monadic_assumptions);
+    st.update("seq regex monadic fallbacks", m_stats.m_regex_monadic_fallbacks);
 }
 
 void theory_seq::init_search_eh() {

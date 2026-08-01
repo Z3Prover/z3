@@ -30,6 +30,7 @@ namespace smt {
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
+        m_monadic(seq_rw(), ctx.get_trail_stack()),
         m_state_to_expr(m),
         m_state_graph(state_graph::state_pp(this, pp_state)) { }
 
@@ -40,6 +41,104 @@ namespace smt {
     seq::skolem& seq_regex::sk() { return th.m_sk; }
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
+
+    void seq_regex::add_monadic_membership(literal lit, expr* s, expr* r) {
+        for (auto const& membership : m_monadic_memberships)
+            if (membership.m_lit == lit)
+                return;
+        m_monadic_memberships.push_back(monadic_membership(m, lit, s, r));
+        ctx.push_trail(push_back_vector(m_monadic_memberships));
+        theory_seq::dependency* dep = th.m_dm.mk_leaf(theory_seq::assumption(lit));
+        m_monadic.add(s, r, dep);
+        ctx.push_trail(value_trail<unsigned>(m_monadic_generation));
+        ++m_monadic_generation;
+        TRACE(seq_regex, tout << "monadic add " << lit << ": "
+                             << mk_pp(s, m) << " in " << mk_pp(r, m) << "\n";);
+    }
+
+    void seq_regex::propagate_accept_legacy(literal lit, expr* s, expr* r) {
+        expr_ref regex(r, m);
+        if (!m.is_value(s)) {
+            expr_ref s_approx = get_overapprox_regex(s);
+            if (!re().is_full_seq(s_approx)) {
+                regex = re().mk_inter(regex, s_approx);
+                TRACE(seq_regex, tout
+                    << "get_overapprox_regex(" << mk_pp(s, m)
+                    << ") = " << mk_pp(s_approx, m) << std::endl;);
+                STRACE(seq_regex_brief, tout
+                    << "overapprox=" << state_str(regex) << " ";);
+            }
+        }
+
+        expr_ref zero(a().mk_int(0), m);
+        expr_ref acc(sk().mk_accept(s, zero, regex), m);
+        literal acc_lit = th.mk_literal(acc);
+
+        TRACE(seq, tout << "propagate " << acc << "\n";);
+        th.add_axiom(~lit, acc_lit);
+    }
+
+    void seq_regex::enable_legacy_fallback() {
+        if (m_monadic_fallback_generation == m_monadic_generation)
+            return;
+        for (auto const& membership : m_monadic_memberships)
+            propagate_accept_legacy(membership.m_lit, membership.m_s, membership.m_re);
+        ctx.push_trail(value_trail<unsigned>(m_monadic_fallback_generation));
+        m_monadic_fallback_generation = m_monadic_generation;
+        ++th.m_stats.m_regex_monadic_fallbacks;
+    }
+
+    final_check_status seq_regex::final_check() {
+        if (!th.use_monadic_regex() || m_monadic_memberships.empty())
+            return FC_DONE;
+        if (m_monadic_fallback_generation == m_monadic_generation)
+            return FC_DONE;
+
+        if (m_monadic_assumption_generation == m_monadic_generation) {
+            for (auto const& assumption : m_monadic_assumptions) {
+                if (assumption.m_generation != m_monadic_generation)
+                    continue;
+                if (assumption.m_var->get_root() != assumption.m_witness->get_root()) {
+                    enable_legacy_fallback();
+                    return FC_CONTINUE;
+                }
+            }
+            return FC_DONE;
+        }
+
+        ++th.m_stats.m_regex_monadic_checks;
+        lbool result = m_monadic.check();
+        if (result == l_false) {
+            ++th.m_stats.m_regex_monadic_unsat;
+            theory_seq::dependency* dep = nullptr;
+            for (void* core_dep : m_monadic.core())
+                dep = th.m_dm.mk_join(dep, static_cast<theory_seq::dependency*>(core_dep));
+            th.set_conflict(dep);
+            return FC_CONTINUE;
+        }
+        if (result == l_undef) {
+            ++th.m_stats.m_regex_monadic_undef;
+            enable_legacy_fallback();
+            return FC_CONTINUE;
+        }
+
+        ++th.m_stats.m_regex_monadic_sat;
+        ctx.push_trail(value_trail<unsigned>(m_monadic_assumption_generation));
+        m_monadic_assumption_generation = m_monadic_generation;
+        for (auto const& [var, witness] : m_monadic.get_model()) {
+            enode* var_node = th.ensure_enode(var);
+            enode* witness_node = th.ensure_enode(witness);
+            if (var_node->get_root() == witness_node->get_root())
+                continue;
+            ctx.assume_eq(var_node, witness_node);
+            m_monadic_assumptions.push_back({ m_monadic_generation, var_node, witness_node });
+            ctx.push_trail(push_back_vector(m_monadic_assumptions));
+            ++th.m_stats.m_regex_monadic_assumptions;
+            TRACE(seq_regex, tout << "monadic assume "
+                                  << mk_pp(var, m) << " = " << mk_pp(witness, m) << "\n";);
+        }
+        return FC_CONTINUE;
+    }
 
     /**
      * is_string_equality holds of str.in_re s R, 
@@ -128,34 +227,10 @@ namespace smt {
             return;
         }
 
-        // Convert a non-ground sequence into an additional regex and
-        // strengthen the original regex constraint into an intersection
-        // for example:
-        //     (x ++ "a" ++ y) in b*
-        // is coverted to
-        //     (x ++ "a" ++ y) in intersect((.* ++ "a" ++ .*), b*)
-        expr_ref _r_temp_owner(m);
-        if (!m.is_value(s)) {
-            expr_ref s_approx = get_overapprox_regex(s);
-            if (!re().is_full_seq(s_approx)) {
-                r = re().mk_inter(r, s_approx);
-                _r_temp_owner = r;
-                TRACE(seq_regex, tout
-                    << "get_overapprox_regex(" << mk_pp(s, m)
-                    << ") = " << mk_pp(s_approx, m) << std::endl;);
-                STRACE(seq_regex_brief, tout
-                    << "overapprox=" << state_str(r) << " ";);
-            }
-        }
-
-        expr_ref zero(a().mk_int(0), m);
-        expr_ref acc(sk().mk_accept(s, zero, r), m);
-        literal acc_lit = th.mk_literal(acc);
-
-        TRACE(seq, tout << "propagate " << acc << "\n";);
-
-        //th.propagate_lit(nullptr, 1, &lit, acc_lit);
-        th.add_axiom(~lit, acc_lit);
+        if (th.use_monadic_regex())
+            add_monadic_membership(lit, s, r);
+        else
+            propagate_accept_legacy(lit, s, r);
     }
 
     /**
