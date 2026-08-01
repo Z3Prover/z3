@@ -375,6 +375,9 @@ func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* cons
     if (arity == 0) {
         m.raise_exception("Invalid function application. At least one argument expected");
     }
+    if (arity == 1 && (k == OP_RE_CONCAT || k == OP_RE_UNION || k == OP_RE_INTERSECT)) {
+        m.raise_exception("Invalid function application. Regex associative operator expects at least two arguments");
+    }
     match_assoc(*m_sigs[k], arity, domain, range, rng);
     func_decl_info info(m_family_id, k_seq);
     if (is_right)
@@ -1931,5 +1934,4 @@ seq_util::rex::info& seq_util::rex::info::operator=(info const& other) {
     classical = other.classical;
     return *this;
 }
-
 

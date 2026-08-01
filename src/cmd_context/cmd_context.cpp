@@ -1218,6 +1218,13 @@ bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr *
         fid = d2.m_fid;
         k   = d2.m_decl;
     }
+    bool is_re_assoc = k == OP_RE_CONCAT || k == OP_RE_UNION || k == OP_RE_INTERSECT;
+    if (num_args == 1 && num_indices == 0 && is_re_assoc &&
+        fid == m().get_family_id(symbol("seq")) &&
+        seq_util(m()).is_re(args[0]) && (!range || range == args[0]->get_sort())) {
+        result = args[0];
+        return true;
+    }
     if (num_indices == 0) 
         result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);    
     else 
@@ -2570,4 +2577,3 @@ std::ostream & operator<<(std::ostream & out, cmd_context::status st) {
     }
     return out;
 }
-

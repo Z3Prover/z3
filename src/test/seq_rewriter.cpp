@@ -23,8 +23,11 @@ Tests:
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq_decl_plugin.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include "smt/smt_context.h"
 #include <iostream>
+#include <sstream>
 #include <string>
 
 // Build a single-char string literal expression.
@@ -33,6 +36,24 @@ static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
 }
 
 void tst_seq_rewriter() {
+    {
+        cmd_context ctx(false);
+        ctx.set_ignore_check(true);
+        std::istringstream in(
+            "(declare-const x String)\n"
+            "(assert (str.in_re x (re.++ re.allchar)))\n"
+            "(assert (str.in_re x (re.union re.allchar)))\n"
+            "(assert (str.in_re x (re.inter re.allchar)))\n");
+        VERIFY(parse_smt2_commands(ctx, in));
+        ENSURE(ctx.assertions().size() == 3);
+        seq_util u(ctx.m());
+        for (expr* assertion : ctx.assertions()) {
+            expr* s = nullptr, * r = nullptr;
+            ENSURE(u.str.is_in_re(assertion, s, r));
+            ENSURE(u.re.is_full_char(r));
+        }
+    }
+
     ast_manager m;
     reg_decl_plugins(m);
     th_rewriter rw(m);
@@ -40,6 +61,22 @@ void tst_seq_rewriter() {
 
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort  = su.re.mk_re(str_sort);
+
+    {
+        expr_ref dot(su.re.mk_full_char(re_sort), m);
+        expr* arg = dot;
+        for (decl_kind k : { OP_RE_CONCAT, OP_RE_UNION, OP_RE_INTERSECT }) {
+            bool rejected = false;
+            try {
+                app* unary = m.mk_app(su.get_family_id(), k, 0, nullptr, 1, &arg);
+                (void)unary;
+            }
+            catch (ast_exception const&) {
+                rejected = true;
+            }
+            ENSURE(rejected);
+        }
+    }
 
     auto range = [&](unsigned lo, unsigned hi) -> expr_ref {
         return expr_ref(su.re.mk_range(mk_str(m, su, lo), mk_str(m, su, hi)), m);
