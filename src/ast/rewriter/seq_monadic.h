@@ -80,9 +80,11 @@ private:
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
     bool            m_gen_model = true;     // whether solve()/check() extract a feasible model
+    bool            m_min_core = true;      // whether check() minimizes the unsat core (else: all deps)
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     obj_map<expr, expr_ref_pair_vector*> m_cofactor_cache;  // memoizes derivative_cofactors per regex
     vector<std::tuple<expr_ref, expr_ref, u_dependency*>> m_memberships;  // asserted (term in regex, dep) for check()
+    ptr_vector<u_dependency> m_core;        // dependencies of an unsat subset, filled by check() on l_false
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -141,6 +143,15 @@ private:
     // (var -> witness).
     lbool decide_dnf(vector<disjunct> const& dnf);
 
+    // Decide a CONJUNCTION of memberships jointly (the core algorithm behind check()):
+    // multiplies the per-membership DNFs and decides emptiness.  Does not touch
+    // m_memberships or m_core; fills m_model on l_true when model generation is enabled.
+    lbool decide(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships);
+
+    // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
+    // deletion and collect the (non-null) dependencies of its members into m_core.
+    void minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships);
+
 public:
     seq_monadic(seq_rewriter& rw, transition_mode mode = transition_mode::light_antimirov) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_mode(mode), m_pin(rw.m()) {}
@@ -164,6 +175,10 @@ public:
     //   l_true = sat, l_false = unsat, l_undef = unsupported shape / gave up.
     lbool solve(expr* term, expr* R);
 
+    // Enable/disable unsat-core minimization (default: enabled).  When disabled, core()
+    // returns the dependencies of all asserted memberships (no deletion-based shrinking).
+    void set_min_core(bool b) { m_min_core = b; }
+
     // Assert a membership  (term in regex)  to be decided jointly by the next check().
     // `d` carries the dependency used for unsat-core tracking and may be nullptr.
     // Memberships accumulate until check() consumes them.
@@ -176,6 +191,11 @@ public:
     // union of DNFs; a negated membership  ~(t in R)  is just  t in complement(R)).
     // Per-variable extra constraints are expressed as extra memberships (v in R').
     // Consumes the asserted memberships.  l_true = sat (empty conjunction is sat),
-    // l_false = unsat, l_undef = gave up.
+    // l_false = unsat, l_undef = gave up.  On l_false, core() holds the dependencies
+    // of a minimal unsatisfiable subset.
     lbool check();
+
+    // Dependencies of a minimal unsatisfiable subset from the last check() that returned
+    // l_false (nullptr dependencies are omitted).  Empty otherwise.
+    ptr_vector<u_dependency> const& core() const { return m_core; }
 };
