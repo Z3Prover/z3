@@ -105,8 +105,8 @@ private:
     void reset_cofactor_cache();
 
     // Live reachable derivative states of R (BFS over cofactor targets + liveness
-    // least-fixpoint).  These are the split states q.  Sets `ok` false on a cap overrun.
-    void live_states(expr* R, ptr_vector<expr>& out, bool& ok);
+    // least-fixpoint).  These are the split states q.  Returns false on a cap overrun.
+    bool live_states(expr* R, ptr_vector<expr>& out);
 
     // Product-reachability emptiness of a conjunction of components (all on one
     // variable).  l_false = empty (unsat), l_true = non-empty (sat), l_undef = gave up
@@ -120,9 +120,9 @@ private:
     bool parse_term(expr* term, svector<atom>& atoms, expr*& the_var);
 
     // Monadic decomposition: append to `out` the DNF disjuncts for  atoms[i..] in R,
-    // threading the current derivative state R.  `ok` false on give-up.
-    void decompose(svector<atom> const& atoms, unsigned i, expr* R,
-                   vector<disjunct>& out, bool& ok);
+    // threading the current derivative state R.  Returns false on give-up.
+    bool decompose(svector<atom> const& atoms, unsigned i, expr* R,
+                   vector<disjunct>& out);
 
     // Drop disjuncts with a syntactically-empty component and dedup identical disjuncts.
     void simplify_dnf(vector<disjunct>& dnf);
