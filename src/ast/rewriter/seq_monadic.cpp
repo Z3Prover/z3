@@ -273,16 +273,13 @@ bool seq_monadic::parse_term(expr* t, vector<atom>& atoms, expr*& the_var) {
         }
         return true;
     }
-    if (u().str.is_unit(t)) {                     // seq.unit of a constant element
-        expr* elem = to_app(t)->get_arg(0);
-        if (m.is_value(elem)) {
-            atoms.push_back(atom(m, false, nullptr, elem));
-            return true;
-        }
-        return false;                             // symbolic (non-constant) unit: unsupported
+    expr *elem = nullptr;
+    if (u().str.is_unit(t, elem) && m.is_value(elem)) {                     // seq.unit of a constant element
+        atoms.push_back(atom(m, false, nullptr, elem));
+        return true;
     }
-    // uninterpreted 0-ary constant of sequence sort => a sequence variable
-    if (is_uninterp_const(t)) {
+    // uninterpreted constant of sequence sort => a sequence variable
+    if (is_var(t)) {
         the_var = t;                              // mark that at least one variable occurs
         atoms.push_back(atom(m, true, t, nullptr));
         return true;

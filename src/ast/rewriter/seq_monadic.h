@@ -88,6 +88,7 @@ private:
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
+    std::function<bool(expr *)> m_is_var;   // predicate for whether a term is a sequence variable
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -162,6 +163,10 @@ private:
     // deletion and collect the (non-null) dependencies of its members into m_core.
     void minimize_core(membership_vec const& memberships);
 
+    bool is_var(expr *term) const {
+        return m_is_var ? m_is_var(term) : is_uninterp(term);        
+    }
+
 public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 transition_mode mode = transition_mode::light_antimirov) :
@@ -190,6 +195,10 @@ public:
     // Enable/disable unsat-core minimization (default: enabled).  When disabled, core()
     // returns the dependencies of all asserted memberships (no deletion-based shrinking).
     void set_min_core(bool b) { m_min_core = b; }
+
+    void set_is_var(std::function<bool(expr *)> const &is_var) {
+        m_is_var = is_var;
+    }
 
     // Assert a membership  (term in regex)  to be decided jointly by the next check().
     // `d` carries the dependency used for unsat-core tracking and may be nullptr.

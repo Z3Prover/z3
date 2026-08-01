@@ -32,7 +32,9 @@ namespace smt {
         m(th.get_manager()),
         m_monadic(seq_rw(), ctx.get_trail_stack()),
         m_state_to_expr(m),
-        m_state_graph(state_graph::state_pp(this, pp_state)) { }
+        m_state_graph(state_graph::state_pp(this, pp_state)) { 
+        m_monadic.set_is_var([&th](expr *e) { return th.is_var(e); });
+    }
 
     seq_util& seq_regex::u() { return th.m_util; }
     class seq_util::rex& seq_regex::re() { return th.m_util.re; }
