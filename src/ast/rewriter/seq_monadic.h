@@ -41,8 +41,9 @@ Abstract:
     This stays in the product-of-state-counts regime, never the path-enumeration (k!)
     regime of regex state-elimination.
 
-    Supports single / multiple / repeated variables, and per-variable extra constraints
-    (base membership + length-regex) via `var_extra`.
+    Supports single / multiple / repeated variables.  Per-variable extra constraints
+    (e.g. a base membership intersected with a length-regex) are expressed as an extra
+    membership passed to `add` and decided by `check`.
 
 Author:
 
@@ -56,7 +57,9 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "util/lbool.h"
 #include "util/obj_hashtable.h"
+#include "util/dependency.h"
 #include <utility>
+#include <tuple>
 
 class seq_monadic {
 public:
@@ -76,6 +79,12 @@ private:
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
+    bool            m_gen_model = true;     // whether solve()/check() extract a feasible model
+    bool            m_min_core = true;      // whether check() minimizes the unsat core (else: all deps)
+    obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
+    obj_map<expr, expr_ref_pair_vector*> m_cofactor_cache;  // memoizes derivative_cofactors per regex
+    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> m_memberships;  // asserted (term in regex, dep) for check()
+    ptr_vector<u_dependency> m_core;        // dependencies of an unsat subset, filled by check() on l_false
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -94,12 +103,17 @@ private:
     // Brzozowski derivative of regex `r` by the concrete element `elem`.
     expr_ref der_elem(expr* r, expr* elem);
 
-    // Symbolic transition cofactors in the selected mode.
-    void derivative_cofactors(expr* r, expr_ref_pair_vector& result);
+    // Symbolic transition cofactors in the selected mode.  Memoized per regex `r`: the
+    // returned vector is owned by the cofactor cache and stays valid until the next
+    // top-level solve()/check() (which resets the cache).
+    expr_ref_pair_vector const& derivative_cofactors(expr* r);
+
+    // Drop all memoized cofactors and free their owned vectors.
+    void reset_cofactor_cache();
 
     // Live reachable derivative states of R (BFS over cofactor targets + liveness
-    // least-fixpoint).  These are the split states q.  Sets `ok` false on a cap overrun.
-    void live_states(expr* R, ptr_vector<expr>& out, bool& ok);
+    // least-fixpoint).  These are the split states q.  Returns false on a cap overrun.
+    bool live_states(expr* R, expr_ref_vector& out);
 
     // Product-reachability emptiness of a conjunction of components (all on one
     // variable).  l_false = empty (unsat), l_true = non-empty (sat), l_undef = gave up
@@ -113,9 +127,9 @@ private:
     bool parse_term(expr* term, svector<atom>& atoms, expr*& the_var);
 
     // Monadic decomposition: append to `out` the DNF disjuncts for  atoms[i..] in R,
-    // threading the current derivative state R.  `ok` false on give-up.
-    void decompose(svector<atom> const& atoms, unsigned i, expr* R,
-                   vector<disjunct>& out, bool& ok);
+    // threading the current derivative state R.  Returns false on give-up.
+    bool decompose(svector<atom> const& atoms, unsigned i, expr* R,
+                   vector<disjunct>& out);
 
     // Drop disjuncts with a syntactically-empty component and dedup identical disjuncts.
     void simplify_dnf(vector<disjunct>& dnf);
@@ -125,38 +139,63 @@ private:
     bool build_membership_dnf(expr* term, expr* R, vector<disjunct>& dnf);
 
     // Decide a DNF (over primitive components): sat iff some disjunct has every variable
-    // group non-empty.  On l_true, fills `model` (var -> witness) if non-null.
-    lbool decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*> const& var_extra,
-                     obj_map<expr, expr*>* model);
+    // group non-empty.  On l_true, when model generation is enabled, fills m_model
+    // (var -> witness).
+    lbool decide_dnf(vector<disjunct> const& dnf);
+
+    // Decide a CONJUNCTION of memberships jointly (the core algorithm behind check()):
+    // multiplies the per-membership DNFs and decides emptiness.  Does not touch
+    // m_memberships or m_core; fills m_model on l_true when model generation is enabled.
+    lbool decide(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships);
+
+    // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
+    // deletion and collect the (non-null) dependencies of its members into m_core.
+    void minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships);
 
 public:
     seq_monadic(seq_rewriter& rw, transition_mode mode = transition_mode::light_antimirov) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_mode(mode), m_pin(rw.m()) {}
 
+    ~seq_monadic() { reset_cofactor_cache(); }
+
     transition_mode mode() const { return m_mode; }
+
+    // Enable/disable model generation (default: enabled).  When enabled, a successful
+    // solve()/check() extracts a feasible model retrievable via get_model().
+    void set_gen_model(bool b) { m_gen_model = b; }
+
+    // The model extracted by the last successful solve()/check(): var -> witness,
+    // where each witness is a concrete sequence term (over the element sort) giving one
+    // satisfying assignment.  Witness terms are pinned by the solver and remain valid
+    // until the next solve()/check().  Only valid when model generation is enabled.
+    obj_map<expr, expr*> const& get_model() const { return m_model; }
 
     // Decide  (str.in_re term R)  for a term that is a concatenation of string variables
     // (possibly repeated / several distinct) and constant characters.
     //   l_true = sat, l_false = unsat, l_undef = unsupported shape / gave up.
     lbool solve(expr* term, expr* R);
 
-    // As above, with extra per-variable constraints (e.g. a base membership intersected
-    // with a length-regex): `var_extra` maps a variable to a regex it must also satisfy.
-    lbool solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra);
+    // Enable/disable unsat-core minimization (default: enabled).  When disabled, core()
+    // returns the dependencies of all asserted memberships (no deletion-based shrinking).
+    void set_min_core(bool b) { m_min_core = b; }
 
-    // As above; on l_true, if `model` is non-null it is populated with  var -> witness,
-    // where each witness is a concrete sequence term (over the element sort) giving one
-    // satisfying assignment.  Witness terms are pinned by the solver and remain valid
-    // until the next call to solve().
-    lbool solve(expr* term, expr* R, obj_map<expr, expr*> const& var_extra,
-                obj_map<expr, expr*>* model);
+    // Assert a membership  (term in regex)  to be decided jointly by the next check().
+    // `d` carries the dependency used for unsat-core tracking and may be nullptr.
+    // Memberships accumulate until check() consumes them.
+    void add(expr* term, expr* regex, u_dependency* d);
 
-    // Decide a CONJUNCTION of memberships  AND_i (term_i in R_i)  jointly: a variable
+    // Decide the CONJUNCTION of all memberships asserted via add() jointly: a variable
     // shared across memberships is constrained consistently (the DNFs are multiplied and
     // each variable's constraints intersected).  This is the natural extension of single-
     // membership solving to a Boolean combination of memberships (a disjunction is the
     // union of DNFs; a negated membership  ~(t in R)  is just  t in complement(R)).
-    // var_extra / model as above.  l_true = sat, l_false = unsat, l_undef = gave up.
-    lbool solve_and(vector<std::pair<expr*, expr*>> const& mems,
-                    obj_map<expr, expr*> const& var_extra, obj_map<expr, expr*>* model = nullptr);
+    // Per-variable extra constraints are expressed as extra memberships (v in R').
+    // Consumes the asserted memberships.  l_true = sat (empty conjunction is sat),
+    // l_false = unsat, l_undef = gave up.  On l_false, core() holds the dependencies
+    // of a minimal unsatisfiable subset.
+    lbool check();
+
+    // Dependencies of a minimal unsatisfiable subset from the last check() that returned
+    // l_false (nullptr dependencies are omitted).  Empty otherwise.
+    ptr_vector<u_dependency> const& core() const { return m_core; }
 };

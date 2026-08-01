@@ -30,56 +30,79 @@ tools:
   bash: [":*"]
 timeout-minutes: 90
 strict: true
+
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v7.0.1
+    with:
+      persist-credentials: false
+
+  - name: Prebuild and collect clang diagnostics
+    shell: bash
+    run: |
+      set -o pipefail
+      mkdir -p /tmp/gh-aw/agent
+
+      sudo apt-get update -y
+      sudo apt-get install -y clang clang-tidy cmake ninja-build python3
+
+      rm -rf build
+
+      configure_status=0
+      build_status=0
+
+      CC=clang CXX=clang++ cmake -GNinja -S . -B build \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+        -DCMAKE_CXX_CLANG_TIDY=clang-tidy \
+        2>&1 | tee /tmp/gh-aw/agent/clang-tidy-configure.log || configure_status=$?
+
+      if [ "$configure_status" -eq 0 ]; then
+        cmake --build build --target shell test-z3 -k 0 \
+          2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build.log || build_status=$?
+      else
+        printf 'configure failed; build skipped\n' | tee /tmp/gh-aw/agent/clang-tidy-build.log
+        build_status=125
+      fi
+
+      grep -nE 'warning:|error:|clang-tidy' /tmp/gh-aw/agent/clang-tidy-build.log \
+        > /tmp/gh-aw/agent/clang-tidy-diagnostics.txt || true
+
+      {
+        echo "configure_status=$configure_status"
+        echo "build_status=$build_status"
+      } > /tmp/gh-aw/agent/prebuild-status.txt
 ---
 
 # Clang-Tidy Warning Fixer
 
-You are an AI agent that compiles Z3 with clang-tidy, reviews the resulting warnings and errors, and creates a pull request with conservative fixes when you can do so safely.
+You are an AI agent that uses pre-collected clang-tidy diagnostics, reviews warnings and errors, and creates a pull request with conservative fixes when you can do so safely.
 
 ## Current Context
 
 - **Repository**: ${{ github.repository }}
 - **Workflow**: ${{ github.workflow }}
 - **Workspace**: ${{ github.workspace }}
+- **Prebuild status file**: `/tmp/gh-aw/agent/prebuild-status.txt`
+- **Prebuild configure log**: `/tmp/gh-aw/agent/clang-tidy-configure.log`
+- **Prebuild build log**: `/tmp/gh-aw/agent/clang-tidy-build.log`
+- **Prebuild diagnostics list**: `/tmp/gh-aw/agent/clang-tidy-diagnostics.txt`
 
 ## Your Task
 
-### 1. Build Z3 with clang-tidy enabled
+### 1. Review prebuild results before taking action
 
-Use the repository's CMake + Ninja workflow and build Z3 directly with Clang.
+This workflow already ran a prebuild with clang-tidy before agent mode. Start by inspecting:
+- `/tmp/gh-aw/agent/prebuild-status.txt`
+- `/tmp/gh-aw/agent/clang-tidy-configure.log`
+- `/tmp/gh-aw/agent/clang-tidy-build.log`
+- `/tmp/gh-aw/agent/clang-tidy-diagnostics.txt`
 
-1. Install the required tools:
-
-```bash
-sudo apt-get update -y
-sudo apt-get install -y clang clang-tidy cmake ninja-build python3
-clang --version
-clang-tidy --version
-ninja --version
-```
-
-2. Start from a clean build directory and configure with clang/clang++:
-
-```bash
-rm -rf build
-CC=clang CXX=clang++ cmake -GNinja -S . -B build \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-  -DCMAKE_CXX_CLANG_TIDY=clang-tidy \
-  2>&1 | tee /tmp/gh-aw/agent/clang-tidy-configure.log
-```
-
-3. Build the main Z3 shell and unit test binary while capturing logs:
-
-```bash
-cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build.log
-```
-
-4. If configuration fails, inspect `/tmp/gh-aw/agent/clang-tidy-configure.log` and call `noop` with a clear summary unless you can make an obvious, local, semantics-preserving fix.
+If prebuild configuration failed, inspect the configure log and call `noop` with a clear summary unless you can make an obvious, local, semantics-preserving fix.
 
 ### 2. Extract actionable diagnostics
 
-Analyze `/tmp/gh-aw/agent/clang-tidy-build.log` and focus on diagnostics that clang-tidy or clang emitted during this workflow run.
+Analyze `/tmp/gh-aw/agent/clang-tidy-diagnostics.txt` and `/tmp/gh-aw/agent/clang-tidy-build.log`, focusing on diagnostics emitted during this workflow run.
 
 Use commands like:
 
@@ -139,7 +162,18 @@ cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/gh-aw/agent/clan
 
 If the rebuilt logs still contain actionable warnings, you may fix another small set if you remain confident. Otherwise stop.
 
-### 6. Create the pull request
+### 6. Provide git diff details for GitHub issue contexts
+
+When this workflow is dispatched from a GitHub issue context (for example via `aw_context` with `item_type == "issue"`), always include patch details to make PR creation easy:
+
+```bash
+git diff --stat
+git diff
+```
+
+If changes were made, include the full unified diff in your final response in a fenced `diff` block.
+
+### 7. Create the pull request
 
 If you made safe fixes, create a pull request using `create-pull-request`.
 
