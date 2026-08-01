@@ -1695,18 +1695,24 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             //TBD: check if the character predicate contains uninterpreted symbols or is nonground or is unsat
             return info(true, l_false, 1, false);
         case OP_RE_CONCAT:
+            if (e->get_num_args() == 1)
+                return get_info_rec(e->get_arg(0));            
             if (e->get_num_args() != 2)
                 return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
             return i1.concat(i2, u.re.is_concat(e->get_arg(0)));
         case OP_RE_UNION:
+            if (e->get_num_args() == 1)
+                return get_info_rec(e->get_arg(0));    
             if (e->get_num_args() != 2)
                 return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
             return i1.disj(i2);
         case OP_RE_INTERSECT:
+            if (e->get_num_args() == 1)
+                return get_info_rec(e->get_arg(0));    
             if (e->get_num_args() != 2)
                 return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
@@ -1739,6 +1745,8 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             i2 = get_info_rec(e->get_arg(1));
             return i1.diff(i2);
         case OP_RE_XOR:
+            if (e->get_num_args() == 1)
+                return get_info_rec(e->get_arg(0));
             if (e->get_num_args() != 2)
                 return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
