@@ -160,6 +160,7 @@ uint64_t mpff_manager::get_uint64(mpff const & a) const {
     if (is_zero(a)) return 0;
     int exp = -a.m_exponent - sizeof(unsigned) * 8 * (m_precision - 2);
     SASSERT(exp >= 0);
+    if (exp >= 64) return 0;
     uint64_t * s = reinterpret_cast<uint64_t*>(sig(a) + (m_precision - 2));
     return *s >> static_cast<unsigned>(exp);
 }
@@ -175,6 +176,7 @@ int64_t mpff_manager::get_int64(mpff const & a) const {
         return INT64_MIN;
     }
     else {
+        if (exp >= 64) return 0;
         int64_t r = *s >> static_cast<unsigned>(exp);
         if (is_neg(a))
             r = -r;

@@ -223,7 +223,16 @@ namespace realclosure {
         extension(kind k, unsigned idx):m_ref_count(0), m_kind(k), m_idx(idx), m_old_interval(nullptr) {}
 
         unsigned idx() const { return m_idx; }
-        kind knd() const { return static_cast<kind>(m_kind); }
+        kind knd() const {
+            switch (m_kind) {
+            case TRANSCENDENTAL:
+            case INFINITESIMAL:
+            case ALGEBRAIC:
+                return static_cast<kind>(m_kind);
+            default:
+                return TRANSCENDENTAL;
+            }
+        }
 
         bool is_algebraic() const { return knd() == ALGEBRAIC; }
         bool is_infinitesimal() const { return knd() == INFINITESIMAL; }
@@ -1116,6 +1125,10 @@ namespace realclosure {
         void set_p(polynomial & p, unsigned n, value * const * as) {
             SASSERT(n > 0);
             SASSERT(!is_zero(as[n - 1]));
+            if (n == 0 || as == nullptr) {
+                reset_p(p);
+                return;
+            }
             reset_p(p);
             p.set(allocator(), n, as);
             inc_ref(n, as);
@@ -4102,14 +4115,13 @@ namespace realclosure {
             if (sz <= 1)
                 return 0;
             unsigned r = 0;
-            int sign, prev_sign;
-            sign = 0;
-            prev_sign = 0;
+            int prev_sign = 0;
             unsigned i = 0;
             for (; i < sz; ++i) {
                 // find next nonzero
                 unsigned psz      = seq.size(i);
                 value * const * p = seq.coeffs(i);
+                int sign = 0;
                 switch (loc) {
                 case PLUS_INF:
                     sign = eval_sign_at_plus_inf(psz, p);

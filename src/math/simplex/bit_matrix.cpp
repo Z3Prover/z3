@@ -111,7 +111,9 @@ std::ostream& bit_matrix::display(std::ostream& out) {
   - The Hamming distance between two entries it one.
  */
 unsigned_vector bit_matrix::gray(unsigned n) {
-    SASSERT(n < 32);
+    SASSERT(n < sizeof(unsigned) * 8);
+    if (n >= sizeof(unsigned) * 8)
+        return unsigned_vector();
     if (n == 0) {
         return unsigned_vector();
     }
