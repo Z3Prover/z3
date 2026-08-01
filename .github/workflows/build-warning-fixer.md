@@ -43,8 +43,16 @@ steps:
       set -o pipefail
       mkdir -p /tmp/gh-aw/agent
 
-      sudo apt-get update -y
-      sudo apt-get install -y clang clang-tidy cmake ninja-build python3
+      missing_tools=0
+      command -v clang >/dev/null 2>&1 || missing_tools=1
+      command -v clang-tidy >/dev/null 2>&1 || missing_tools=1
+      command -v cmake >/dev/null 2>&1 || missing_tools=1
+      command -v ninja >/dev/null 2>&1 || missing_tools=1
+      command -v python3 >/dev/null 2>&1 || missing_tools=1
+      if [ "$missing_tools" -eq 1 ]; then
+        sudo apt-get update -y
+        sudo apt-get install -y clang clang-tidy cmake ninja-build python3
+      fi
 
       rm -rf build
 
@@ -89,6 +97,12 @@ You are an AI agent that uses pre-collected clang-tidy diagnostics, reviews warn
 - **Prebuild diagnostics list**: `/tmp/gh-aw/agent/clang-tidy-diagnostics.txt`
 
 ## Your Task
+
+### 0. Verify repository target
+
+This workflow is only for `Z3Prover/z3`.
+
+If `${{ github.repository }}` is not `Z3Prover/z3`, call `noop` immediately with a short explanation.
 
 ### 1. Review prebuild results before taking action
 
@@ -167,11 +181,12 @@ If the rebuilt logs still contain actionable warnings, you may fix another small
 When this workflow is dispatched from a GitHub issue context (for example via `aw_context` with `item_type == "issue"`), always include patch details to make PR creation easy:
 
 ```bash
+git status --short
 git diff --stat
 git diff
 ```
 
-If changes were made, include the full unified diff in your final response in a fenced `diff` block.
+If changes were made, include the full unified diff in your final response in a fenced `diff` block and summarize changed files explicitly.
 
 ### 7. Create the pull request
 
