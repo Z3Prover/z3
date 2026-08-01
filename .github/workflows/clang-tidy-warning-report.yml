@@ -46,7 +46,7 @@ jobs:
             2>&1 | tee /tmp/clang-tidy-warning-report/configure.log || configure_status=$?
 
           if [ "$configure_status" -eq 0 ]; then
-            cmake --build build --target shell test-z3 -- -k 0 \
+            cmake --build build --target shell test-z3 --parallel $(nproc) -- -k 0 \
               2>&1 | tee /tmp/clang-tidy-warning-report/build.log || build_status=$?
           else
             printf 'configure failed; build skipped\n' | tee /tmp/clang-tidy-warning-report/build.log
