@@ -30,8 +30,6 @@ TODOs:
 - encapsulate within general interface:
 create: undo_trail x dependency_manager x ast_manager -> regex_membership
 add_constraint : expr* x expr* x dependency* -> void
-add_lo: expr* x unsigned * dependency* -> void
-add_hi: expr* x unsigned * dependency* ->void
 check: void -> lbool
 explain: void -> dependency*
 model: void -> (expr* x expr*) vector or value: expr* -> expr* 
@@ -424,6 +422,31 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf) {
 void seq_monadic::add(expr* term, expr* regex, u_dependency* d) {
     m_memberships.push_back({ expr_ref(term, m), expr_ref(regex, m), d });
     m_undo_trail.push(push_back_vector(m_memberships));
+}
+
+void seq_monadic::add_lo(expr* term, unsigned lo, u_dependency* d) {
+    if (lo == 0)
+        return;
+    sort* re_sort = re().mk_re(term->get_sort());
+    expr_ref all_char(re().mk_full_char(re_sort), m);
+    expr_ref prefix(re().mk_loop_proper(all_char, lo, lo), m);
+    expr_ref all(re().mk_full_seq(re_sort), m);
+    expr_ref regex(re().mk_concat(prefix, all), m);
+    add(term, regex, d);
+}
+
+void seq_monadic::add_hi(expr* term, unsigned hi, u_dependency* d) {
+    sort* re_sort = re().mk_re(term->get_sort());
+    expr_ref all_char(re().mk_full_char(re_sort), m);
+    expr_ref regex(re().mk_loop_proper(all_char, 0, hi), m);
+    add(term, regex, d);
+}
+
+void seq_monadic::add_len(expr* term, unsigned len, u_dependency* d) {
+    sort* re_sort = re().mk_re(term->get_sort());
+    expr_ref all_char(re().mk_full_char(re_sort), m);
+    expr_ref regex(re().mk_loop_proper(all_char, len, len), m);
+    add(term, regex, d);
 }
 
 lbool seq_monadic::decide(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships) {

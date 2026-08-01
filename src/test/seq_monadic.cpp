@@ -445,6 +445,50 @@ public:
         std::cout << (trail_ok ? "  OK   " : "  FAIL ")
                   << "check preserves assertions and pop removes them\n";
 
+        std::cout << "=== seq_monadic: length bounds ===\n";
+        auto check_bound = [&](char const* name, expr* regex, unsigned bound, bool is_lo,
+                               lbool expected) {
+            m_trail.push_scope();
+            m_mon.add(x, regex, nullptr);
+            if (is_lo)
+                m_mon.add_lo(x, bound, nullptr);
+            else
+                m_mon.add_hi(x, bound, nullptr);
+            lbool got = m_mon.check();
+            m_trail.pop_scope(1);
+            bool ok = got == expected;
+            if (!ok) ++m_fail;
+            std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                      << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+        };
+        check_bound("x in a, |x| >= 1", word("a"), 1, true, l_true);
+        check_bound("x in a, |x| >= 2", word("a"), 2, true, l_false);
+        check_bound("x in aa, |x| <= 2", word("aa"), 2, false, l_true);
+        check_bound("x in aa, |x| <= 1", word("aa"), 1, false, l_false);
+        check_bound("x in epsilon, |x| <= 0", word(""), 0, false, l_true);
+        auto check_len = [&](char const* name, expr* regex, unsigned len, lbool expected) {
+            m_trail.push_scope();
+            m_mon.add(x, regex, nullptr);
+            m_mon.add_len(x, len, nullptr);
+            lbool got = m_mon.check();
+            m_trail.pop_scope(1);
+            bool ok = got == expected;
+            if (!ok) ++m_fail;
+            std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                      << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+        };
+        check_len("x in aa, |x| = 2", word("aa"), 2, l_true);
+        check_len("x in aa, |x| = 1", word("aa"), 1, l_false);
+        check_len("x in epsilon, |x| = 0", word(""), 0, l_true);
+        m_trail.push_scope();
+        unsigned trail_size = m_trail.size();
+        m_mon.add_lo(x, 0, m_dm.mk_leaf(0));
+        bool zero_lo_ok = m_trail.size() == trail_size && m_mon.check() == l_true;
+        m_trail.pop_scope(1);
+        if (!zero_lo_ok) ++m_fail;
+        std::cout << (zero_lo_ok ? "  OK   " : "  FAIL ")
+                  << "|x| >= 0 is a no-op\n";
+
         // ---- unsat cores: the extracted core must contain only constraints that
         // ---- participate in the contradiction, not independent ones.
         std::cout << "=== seq_monadic: unsat cores ===\n";

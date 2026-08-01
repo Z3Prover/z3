@@ -195,6 +195,15 @@ public:
     // Memberships remain asserted until the constructor-provided trail is popped.
     void add(expr* term, expr* regex, u_dependency* d);
 
+    // Assert that `term` has at least `lo` elements.  A zero lower bound is a no-op.
+    void add_lo(expr* term, unsigned lo, u_dependency* d);
+
+    // Assert that `term` has at most `hi` elements.
+    void add_hi(expr* term, unsigned hi, u_dependency* d);
+
+    // Assert that `term` has exactly `len` elements.
+    void add_len(expr* term, unsigned len, u_dependency* d);
+
     // Decide the CONJUNCTION of all memberships asserted via add() jointly: a variable
     // shared across memberships is constrained consistently (the DNFs are multiplied and
     // each variable's constraints intersected).  This is the natural extension of single-
