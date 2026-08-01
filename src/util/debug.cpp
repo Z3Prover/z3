@@ -187,7 +187,7 @@ debug_action ask_debug_action(std::istream& in) {
 }
 
 #if !defined(_WINDOWS) && !defined(NO_Z3_DEBUGGER)
-static [[noreturn]] void force_segfault() {
+[[noreturn]] static void force_segfault() {
     std::raise(SIGSEGV);
     std::abort();
 }
