@@ -224,7 +224,7 @@ Notes:
             }
         };
 
-        psort_nw(psort_expr& c): ctx(c) {}
+        psort_nw(psort_expr& c): ctx(c), m_t(GE) {}
 
         sorting_network_config& cfg() { return m_cfg; }
 
@@ -1497,4 +1497,3 @@ Notes:
             }
         }
     };
-
