@@ -32,8 +32,8 @@ namespace find_q {
         void operator()(var * n) {}
         void operator()(app * n) {}
         void operator()(quantifier * n) { m_q = n; }
-    }
-};
+    };
+}
 
 quantifier * find_quantifier(expr * n) {
     find_q::proc p;
