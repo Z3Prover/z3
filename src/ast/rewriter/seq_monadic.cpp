@@ -19,7 +19,6 @@ Abstract:
     yields the concrete element used to build a witness sequence.
 
 TODOs:
-- track unsat cores and expose them as explain functionality
 - if perf suffers: use DFS backtracking search instead of DNF expansion (space overhead)
 - create a validation harness: expose certificates for correctness that can be checked.
 - extend with lower and upper bound constraints
@@ -424,7 +423,7 @@ void seq_monadic::add(expr* term, expr* regex, u_dependency* d) {
     m_memberships.push_back({ expr_ref(term, m), expr_ref(regex, m), d });
 }
 
-lbool seq_monadic::decide(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships) {
+lbool seq_monadic::decide(membership_vec const& memberships) {
     m_model.reset();
     if (memberships.empty())
         return l_true;                            // empty conjunction is vacuously true
@@ -462,7 +461,7 @@ lbool seq_monadic::decide(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> 
     return decide_dnf(combined);
 }
 
-void seq_monadic::minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships) {
+void seq_monadic::minimize_core(membership_vec const& memberships) {
     m_core.reset();
     if (!m_min_core) {
         // No minimization: the core is simply every asserted membership's dependency.
@@ -474,13 +473,10 @@ void seq_monadic::minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependen
     // Deletion-based minimization: start from the full unsat set and try to drop each
     // membership; a membership is kept only if removing it makes the set no longer
     // provably unsat.  The result is a minimal unsat subset (relevant constraints only).
-    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> keep(memberships);
-    unsigned i = 0;
-    while (i < keep.size()) {
-        vector<std::tuple<expr_ref, expr_ref, u_dependency*>> trial;
-        for (unsigned j = 0; j < keep.size(); ++j)
-            if (j != i)
-                trial.push_back(keep[j]);
+    membership_vec keep(memberships);
+    for (unsigned i = 0; i < keep.size(); ) {
+        membership_vec trial(keep);
+        trial.erase(trial.begin() + i);
         if (decide(trial) == l_false)
             keep.swap(trial);                     // membership i is not needed for unsat
         else
@@ -493,7 +489,7 @@ void seq_monadic::minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependen
 
 lbool seq_monadic::check() {
     m_core.reset();
-    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> memberships;
+    membership_vec memberships;
     memberships.swap(m_memberships);              // consume the asserted memberships
     lbool r = decide(memberships);
     if (r == l_false)
