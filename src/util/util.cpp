@@ -86,7 +86,6 @@ unsigned log2(unsigned v) {
         r |=  2;
     }
     if (v & 0x2) {
-        v >>= 1;
         r |=  1;
     }
     return r;
@@ -115,7 +114,6 @@ unsigned uint64_log2(uint64_t v) {
         r |=  2;
     }
     if (v & 0x2) {
-        v >>= 1;
         r |=  1;
     }
     return r;
