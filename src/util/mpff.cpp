@@ -158,24 +158,26 @@ bool mpff_manager::is_uint64(mpff const & n) const {
 uint64_t mpff_manager::get_uint64(mpff const & a) const {
     SASSERT(is_uint64(a));
     if (is_zero(a)) return 0;
-    int exp = -a.m_exponent - sizeof(unsigned) * 8 * (m_precision - 2);
+    int64_t exp = -static_cast<int64_t>(a.m_exponent) - sizeof(unsigned) * 8 * (m_precision - 2);
     SASSERT(exp >= 0);
+    SASSERT(exp < 64);
     uint64_t * s = reinterpret_cast<uint64_t*>(sig(a) + (m_precision - 2));
-    return *s >> static_cast<unsigned>(exp);
+    return exp < 64 ? *s >> static_cast<unsigned>(exp) : 0;
 }
 
 int64_t mpff_manager::get_int64(mpff const & a) const {
     SASSERT(is_int64(a));
     if (is_zero(a)) return 0;
-    int exp = -a.m_exponent - sizeof(unsigned) * 8 * (m_precision - 2);
+    int64_t exp = -static_cast<int64_t>(a.m_exponent) - sizeof(unsigned) * 8 * (m_precision - 2);
     SASSERT(exp >= 0);
+    SASSERT(exp < 64);
     uint64_t * s = reinterpret_cast<uint64_t*>(sig(a) + (m_precision - 2));
     // INT64_MIN case
     if (exp == 0 && *s == 0x8000000000000000ull && is_neg(a)) {
         return INT64_MIN;
     }
     else {
-        int64_t r = *s >> static_cast<unsigned>(exp);
+        int64_t r = exp < 64 ? *s >> static_cast<unsigned>(exp) : 0;
         if (is_neg(a))
             r = -r;
         return r;
