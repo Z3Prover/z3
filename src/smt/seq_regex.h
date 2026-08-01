@@ -174,6 +174,14 @@ namespace smt {
 
         bool block_unfolding(literal lit, unsigned i);
 
+        bool unfold_prefix(literal lit, expr *s, expr *r);
+
+        bool unfold_complement(literal lit, expr *s, expr *r);
+
+        bool factor_membership(literal lit, expr *s, expr *r);
+
+        bool factor_ite(literal lit, expr *s, expr *r);
+
         expr_ref mk_first(expr* r, expr* n);
 
         bool is_member(expr* r, expr* u);

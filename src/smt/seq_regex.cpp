@@ -201,38 +201,94 @@ namespace smt {
         STRACE(seq_regex_brief, tout << "PIR(" << mk_pp(s, m) << ","
                                        << state_str(r) << ") ";);
 
-        // convert negative negative membership literals to positive
-        // ~(s in R) => s in C(R)
-        if (lit.sign()) {
-            expr_ref fml(re().mk_in_re(s, re().mk_complement(r)), m);
-            rewrite(fml);
-            literal nlit = th.mk_literal(fml);
-            if (lit == nlit) {
-                // is-nullable doesn't simplify for regexes with uninterpreted subterms
-                th.add_unhandled_expr(fml);
-            }
-            th.propagate_lit(nullptr, 1, &lit, nlit);
+        if (unfold_complement(lit, s, r))
             return;
-        }
 
-        if (coallesce_in_re(lit)) {
-            TRACE(seq_regex, tout
-                << "simplified conjunctions to an intersection" << std::endl;);
-            STRACE(seq_regex_brief, tout << "coallesce_in_re ";);
+        if (unfold_prefix(lit, s, r)) 
+            return;        
+
+        if (factor_ite(lit, s, r))
             return;
-        }
 
-        if (is_string_equality(lit)) {
-            TRACE(seq_regex, tout
-                << "simplified regex using string equality" << std::endl;);
-            STRACE(seq_regex_brief, tout << "string_eq ";);
+        if (coallesce_in_re(lit)) 
             return;
-        }
-
+        
+        if (is_string_equality(lit)) 
+            return;
+        
         if (th.use_monadic_regex())
             add_monadic_membership(lit, s, r);
         else
             propagate_accept_legacy(lit, s, r);
+    }
+
+    bool seq_regex::unfold_complement(literal lit, expr *s, expr *r) {
+        if (!lit.sign())
+            return false;
+        // convert negative negative membership literals to positive
+        // ~(s in R) => s in C(R)
+        expr_ref fml(re().mk_in_re(s, re().mk_complement(r)), m);
+        rewrite(fml);
+        literal nlit = th.mk_literal(fml);
+        if (lit == nlit) {
+            // is-nullable doesn't simplify for regexes with uninterpreted subterms
+            th.add_unhandled_expr(fml);
+        }
+        th.propagate_lit(nullptr, 1, &lit, nlit);
+        return true;
+    }
+    
+    bool seq_regex::unfold_prefix(literal lit, expr *s, expr *r) {
+        expr_ref_vector prefix(m);
+        expr *hd, *v, *tl = s, *tl1;
+        while (str().is_concat(tl, hd, tl1) && str().is_unit(hd, v))
+            prefix.push_back(v), tl = tl1;
+
+        if (prefix.empty())
+            return false;
+
+        expr_ref q(r, m);
+        for (expr *v : prefix) {
+            q = seq_rw().mk_derivative(v, q);
+            if (re().is_empty(q)) {
+                enode_pair_vector eqs;
+                literal_vector lits;
+                lits.push_back(lit);
+                th.set_conflict(eqs, lits);
+                return true;
+            }
+        }
+        expr_ref fml(re().mk_in_re(tl, q), m);
+        rewrite(fml);
+        literal nlit = th.mk_literal(fml);
+        th.propagate_lit(nullptr, 1, &lit, nlit);
+        TRACE(seq_regex, tout << "unfolded prefix\n");
+        return true;
+    }
+
+    bool seq_regex::factor_ite(literal lit, expr *s, expr *r) {
+        bool_rewriter br(m);
+        expr_ref c(m), t(m), e(m);
+        if (!br.decompose_ite(r, c, t, e))
+            return false;
+        auto c_lit = th.mk_literal(c);
+        switch (ctx.get_assignment(c_lit)) {
+        case l_true: {
+            literal lits[2] = {lit, c_lit};
+            th.propagate_lit(nullptr, 2, lits, th.mk_literal(re().mk_in_re(s, t)));
+            break;
+        }
+        case l_false: {
+            literal lits[2] = {lit, ~c_lit};
+            th.propagate_lit(nullptr, 2, lits, th.mk_literal(re().mk_in_re(s, e)));
+            break;
+        }
+        case l_undef: {
+            ctx.mark_as_relevant(c_lit);
+            break;
+        }
+        }
+        return true;
     }
 
     /**
