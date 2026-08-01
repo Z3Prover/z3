@@ -66,7 +66,7 @@ steps:
         2>&1 | tee /tmp/gh-aw/agent/clang-tidy-configure.log || configure_status=$?
 
       if [ "$configure_status" -eq 0 ]; then
-        cmake --build build --target shell test-z3 -k 0 \
+        cmake --build build --target shell test-z3 -- -k 0 \
           2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build.log || build_status=$?
       else
         printf 'configure failed; build skipped\n' | tee /tmp/gh-aw/agent/clang-tidy-build.log
@@ -170,7 +170,7 @@ Rules:
 After making changes, rerun the same configure/build sequence if needed and always rerun at least:
 
 ```bash
-cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build-after.log
+cmake --build build --target shell test-z3 -- -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build-after.log
 ./build/test-z3 /a
 ```
 
