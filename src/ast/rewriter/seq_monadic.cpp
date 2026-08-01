@@ -420,9 +420,16 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf) {
     return any_undef ? l_undef : l_false;
 }
 
-lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems) {
-    if (mems.empty())
-        return l_undef;
+void seq_monadic::add(expr* term, expr* regex, u_dependency* d) {
+    m_memberships.push_back({ expr_ref(term, m), expr_ref(regex, m), d });
+}
+
+lbool seq_monadic::check() {
+    m_model.reset();
+    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> memberships;
+    memberships.swap(m_memberships);              // consume the asserted memberships
+    if (memberships.empty())
+        return l_true;                            // empty conjunction is vacuously true
     m_pin.reset();
     reset_cofactor_cache();
     m_budget = 200000;
@@ -434,16 +441,16 @@ lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems) {
     vector<disjunct> combined;
     combined.push_back(disjunct());               // { true }
     const unsigned DNF_CAP = 1u << 14;
-    for (auto const& tr : mems) {
+    for (auto const& [term, regex, d] : memberships) {
         vector<disjunct> dnf_i;
-        if (!build_membership_dnf(tr.first, tr.second, dnf_i))
+        if (!build_membership_dnf(term, regex, dnf_i))
             return l_undef;
         vector<disjunct> next;
-        for (disjunct const& d : combined) {
+        for (disjunct const& cd : combined) {
             for (disjunct const& e : dnf_i) {
                 if (next.size() > DNF_CAP || m_budget == 0) { m_giveup = true; return l_undef; }
                 --m_budget;
-                disjunct D(d);
+                disjunct D(cd);
                 for (auto const& c : e)
                     D.push_back(c);
                 next.push_back(D);

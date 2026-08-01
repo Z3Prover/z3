@@ -43,7 +43,7 @@ Abstract:
 
     Supports single / multiple / repeated variables.  Per-variable extra constraints
     (e.g. a base membership intersected with a length-regex) are expressed as an extra
-    membership passed to `solve_and`.
+    membership passed to `add` and decided by `check`.
 
 Author:
 
@@ -57,7 +57,9 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "util/lbool.h"
 #include "util/obj_hashtable.h"
+#include "util/dependency.h"
 #include <utility>
+#include <tuple>
 
 class seq_monadic {
 public:
@@ -77,9 +79,10 @@ private:
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
-    bool            m_gen_model = true;     // whether solve()/solve_and() extract a feasible model
+    bool            m_gen_model = true;     // whether solve()/check() extract a feasible model
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     obj_map<expr, expr_ref_pair_vector*> m_cofactor_cache;  // memoizes derivative_cofactors per regex
+    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> m_memberships;  // asserted (term in regex, dep) for check()
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -100,7 +103,7 @@ private:
 
     // Symbolic transition cofactors in the selected mode.  Memoized per regex `r`: the
     // returned vector is owned by the cofactor cache and stays valid until the next
-    // top-level solve()/solve_and() (which resets the cache).
+    // top-level solve()/check() (which resets the cache).
     expr_ref_pair_vector const& derivative_cofactors(expr* r);
 
     // Drop all memoized cofactors and free their owned vectors.
@@ -147,13 +150,13 @@ public:
     transition_mode mode() const { return m_mode; }
 
     // Enable/disable model generation (default: enabled).  When enabled, a successful
-    // solve()/solve_and() extracts a feasible model retrievable via get_model().
+    // solve()/check() extracts a feasible model retrievable via get_model().
     void set_gen_model(bool b) { m_gen_model = b; }
 
-    // The model extracted by the last successful solve()/solve_and(): var -> witness,
+    // The model extracted by the last successful solve()/check(): var -> witness,
     // where each witness is a concrete sequence term (over the element sort) giving one
     // satisfying assignment.  Witness terms are pinned by the solver and remain valid
-    // until the next solve()/solve_and().  Only valid when model generation is enabled.
+    // until the next solve()/check().  Only valid when model generation is enabled.
     obj_map<expr, expr*> const& get_model() const { return m_model; }
 
     // Decide  (str.in_re term R)  for a term that is a concatenation of string variables
@@ -161,12 +164,18 @@ public:
     //   l_true = sat, l_false = unsat, l_undef = unsupported shape / gave up.
     lbool solve(expr* term, expr* R);
 
-    // Decide a CONJUNCTION of memberships  AND_i (term_i in R_i)  jointly: a variable
+    // Assert a membership  (term in regex)  to be decided jointly by the next check().
+    // `d` carries the dependency used for unsat-core tracking and may be nullptr.
+    // Memberships accumulate until check() consumes them.
+    void add(expr* term, expr* regex, u_dependency* d);
+
+    // Decide the CONJUNCTION of all memberships asserted via add() jointly: a variable
     // shared across memberships is constrained consistently (the DNFs are multiplied and
     // each variable's constraints intersected).  This is the natural extension of single-
     // membership solving to a Boolean combination of memberships (a disjunction is the
     // union of DNFs; a negated membership  ~(t in R)  is just  t in complement(R)).
-    // Per-variable extra constraints are expressed here as extra memberships (v in R').
-    // l_true = sat, l_false = unsat, l_undef = gave up.
-    lbool solve_and(vector<std::pair<expr*, expr*>> const& mems);
+    // Per-variable extra constraints are expressed as extra memberships (v in R').
+    // Consumes the asserted memberships.  l_true = sat (empty conjunction is sat),
+    // l_false = unsat, l_undef = gave up.
+    lbool check();
 };

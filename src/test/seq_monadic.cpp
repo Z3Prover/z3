@@ -129,21 +129,19 @@ class seq_monadic_test {
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
     }
 
-    // build the membership list: the primary (term in R) plus one (var in R') per extra
-    // constraint, decided jointly by solve_and.
-    void add_extra(vector<std::pair<expr*, expr*>>& mems, expr* term, expr* R,
-                   obj_map<expr, expr*> const& ve) {
-        mems.push_back(std::make_pair(term, R));
-        for (auto const& kv : ve)
-            mems.push_back(std::make_pair(kv.m_key, kv.m_value));
+    // assert the membership list: the primary (term in R) plus one (var in R') per extra
+    // constraint, decided jointly by check().
+    void add_extra(expr* term, expr* R, obj_map<expr, expr*> const& ve) {
+        m_mon.add(term, R, nullptr);
+        for (auto const& [k, v] : ve)
+            m_mon.add(k, v, nullptr);
     }
 
     void check_extra(char const* name, expr* term, expr* R,
                      obj_map<expr, expr*> const& ve, lbool expected) {
-        vector<std::pair<expr*, expr*>> mems;
-        add_extra(mems, term, R, ve);
+        add_extra(term, R, ve);
         m_mon.set_gen_model(false);               // this check does not use the model
-        lbool got = m_mon.solve_and(mems);
+        lbool got = m_mon.check();
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
@@ -179,10 +177,9 @@ class seq_monadic_test {
     // term a member of R (substitute var -> witness and re-decide by derivatives).
     void check_witness(char const* name, expr* term, expr* R,
                        obj_map<expr, expr*> const& ve) {
-        vector<std::pair<expr*, expr*>> mems;
-        add_extra(mems, term, R, ve);
+        add_extra(term, R, ve);
         m_mon.set_gen_model(true);                // this check verifies the extracted model
-        lbool got = m_mon.solve_and(mems);
+        lbool got = m_mon.check();
         obj_map<expr, expr*> const& model = m_mon.get_model();
         bool ok = (got == l_true) && !model.empty();
         if (ok) {
@@ -201,8 +198,10 @@ class seq_monadic_test {
 
     // decide a conjunction of memberships jointly (shared variables constrained together).
     void check_and(char const* name, vector<std::pair<expr*, expr*>> const& mems, lbool expected) {
+        for (auto const& [t, r] : mems)
+            m_mon.add(t, r, nullptr);
         m_mon.set_gen_model(false);               // this check does not use the model
-        lbool got = m_mon.solve_and(mems);
+        lbool got = m_mon.check();
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
@@ -335,10 +334,10 @@ public:
         check_extra("([1]|[2])* & yi[2]* xi.[1].yi", xiyi, re12s, veI, l_true);
         check_witness("([1]|[2])* & yi[2]* xi.[1].yi", xiyi, re12s, veI);
 
-        // ---- conjunction of memberships (solve_and): a variable shared across memberships
+        // ---- conjunction of memberships (add + check): a variable shared across memberships
         // ---- is constrained jointly.  These are cases that are individually SAT but
         // ---- jointly UNSAT -- exactly what independent per-membership solving gets wrong.
-        std::cout << "=== seq_monadic: conjunction of memberships (solve_and) ===\n";
+        std::cout << "=== seq_monadic: conjunction of memberships (add + check) ===\n";
         expr_ref aaS(star(cat(a, a)), m);           // (aa)*     : even number of a's
         expr_ref a_aaS(cat(a, star(cat(a, a))), m); // a(aa)*    : odd number of a's
         expr_ref abS(star(ab), m);                  // (ab)*

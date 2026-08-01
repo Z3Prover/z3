@@ -128,20 +128,23 @@ lbool run_file(
     for (expr* assertion : ctx.assertions())
         complete = collect(assertion) && complete;
 
-    vector<std::pair<expr*, expr*>> memberships;
+    unsigned n_added = 0;
     for (expr* term : terms) {
         expr* r = nullptr;
         term_re.find(term, r);
-        memberships.push_back(std::make_pair(term, r));
+        mon.add(term, r, nullptr);
+        ++n_added;
     }
-    for (auto const& entry : var_re)
-        memberships.push_back(std::make_pair(entry.m_key, entry.m_value));
+    for (auto const& [k, v] : var_re) {
+        mon.add(k, v, nullptr);
+        ++n_added;
+    }
 
     auto start = std::chrono::high_resolution_clock::now();
     mon.set_gen_model(false);                     // benchmark only needs the verdict
-    lbool verdict = memberships.empty()
+    lbool verdict = n_added == 0
         ? l_undef
-        : mon.solve_and(memberships);
+        : mon.check();
     solve_ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - start).count();
     return verdict;
