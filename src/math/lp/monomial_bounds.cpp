@@ -298,10 +298,27 @@ namespace nla {
         return true;
     }
 
+    /**
+       A monic with all factors but 'w' fixed is linear; record m = k*w as a row
+       of the LP, which retires the monic from nonlinear reasoning for good.
+
+       With arith.nl.propagate_linear_monomials_eagerly (the default) the row is
+       added even when the current model already satisfies it. Leaving it out
+       then looks free - it is redundant for that model - but
+       propagate_linear_bound above has already marked the monic propagated and
+       never comes back to it, so the relation ends up recorded nowhere. As soon
+       as the model moves the monic is in m_to_refine again, and the only handle
+       left on it is refine_pseudo_linear, which turns the same fact into a case
+       split and re-derives it on every final check.
+
+       Setting the option to false restores the older behaviour of skipping the
+       row while the model agrees, which keeps the tableau smaller at the price
+       of losing the relation.
+    */
     bool monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
-        if (c().val(m.var()) == k * c().val(w)) {
+        if (!c().params().arith_nl_propagate_linear_monomials_eagerly() &&
+            c().val(m.var()) == k * c().val(w))
             return false;
-        }
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
         coeffs.push_back({-k, w});
         coeffs.push_back({rational::one(), m.var()});
