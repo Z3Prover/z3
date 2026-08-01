@@ -75,6 +75,23 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Emit warning summary to job log
+        if: always()
+        shell: bash
+        run: |
+          echo "CLANG_TIDY_WARNING_REPORT_BEGIN"
+          echo "CLANG_TIDY_STATUS_BEGIN"
+          cat /tmp/clang-tidy-warning-report/status.txt
+          echo "CLANG_TIDY_STATUS_END"
+          echo "CLANG_TIDY_WARNINGS_BEGIN"
+          if [ -s /tmp/clang-tidy-warning-report/warnings.txt ]; then
+            cat /tmp/clang-tidy-warning-report/warnings.txt
+          else
+            echo "no warnings captured"
+          fi
+          echo "CLANG_TIDY_WARNINGS_END"
+          echo "CLANG_TIDY_WARNING_REPORT_END"
+
       - name: Fail on configure or build errors
         if: always()
         shell: bash
