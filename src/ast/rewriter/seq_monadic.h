@@ -92,7 +92,14 @@ private:
     seq_util::rex& re() const { return m_rw.u().re; }
 
     // A term atom: a sequence variable or a constant element (a value of the element sort).
-    struct atom { bool is_var; expr* var; expr* elem; };
+    struct atom {
+        bool     is_var;
+        expr_ref var;
+        expr_ref elem;
+
+        atom(ast_manager& m, bool is_var, expr* var, expr* elem) :
+            is_var(is_var), var(var, m), elem(elem, m) {}
+    };
 
     // A component of one variable's constraint.  As the variable's value w is read,
     // the current state is derived from `state`; the component accepts when
@@ -126,11 +133,11 @@ private:
     lbool product_nonempty(svector<component> const& comps, expr_ref* witness_word = nullptr);
 
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
-    bool parse_term(expr* term, svector<atom>& atoms, expr*& the_var);
+    bool parse_term(expr* term, vector<atom>& atoms, expr*& the_var);
 
     // Monadic decomposition: append to `out` the DNF disjuncts for  atoms[i..] in R,
     // threading the current derivative state R.  Returns false on give-up.
-    bool decompose(svector<atom> const& atoms, unsigned i, expr* R,
+    bool decompose(vector<atom> const& atoms, unsigned i, expr* R,
                    vector<disjunct>& out);
 
     // Drop disjuncts with a syntactically-empty component and dedup identical disjuncts.

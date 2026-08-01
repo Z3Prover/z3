@@ -24,7 +24,6 @@ TODOs:
 - create a validation harness: expose certificates for correctness that can be checked.
 - extend with lower and upper bound constraints
 - consider using expr_ref as alternative to pinned expressions
-  - change type of atom to use expr_ref and avoid pin. svector<atom> -> vector<atom>.
 - revisit parse_term and "the_var" condition. A sequence of units should be allowed.
 - support units of non-values (element variables).
   Model construction would assign values to the elements.
@@ -262,7 +261,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     return l_false;
 }
 
-bool seq_monadic::parse_term(expr* t, svector<atom>& atoms, expr*& the_var) {
+bool seq_monadic::parse_term(expr* t, vector<atom>& atoms, expr*& the_var) {
     if (u().str.is_concat(t))
         return all_of(*to_app(t), [&](expr* arg) { return parse_term(arg, atoms, the_var); });
     if (u().str.is_empty(t))
@@ -271,16 +270,14 @@ bool seq_monadic::parse_term(expr* t, svector<atom>& atoms, expr*& the_var) {
     if (u().str.is_string(t, s)) {
         for (unsigned i = 0; i < s.length(); ++i) {
             expr* elem = u().str.mk_char(s, i);
-            m_pin.push_back(elem);
-            atoms.push_back(atom{ false, nullptr, elem });
+            atoms.push_back(atom(m, false, nullptr, elem));
         }
         return true;
     }
     if (u().str.is_unit(t)) {                     // seq.unit of a constant element
         expr* elem = to_app(t)->get_arg(0);
         if (m.is_value(elem)) {
-            m_pin.push_back(elem);
-            atoms.push_back(atom{ false, nullptr, elem });
+            atoms.push_back(atom(m, false, nullptr, elem));
             return true;
         }
         return false;                             // symbolic (non-constant) unit: unsupported
@@ -288,13 +285,13 @@ bool seq_monadic::parse_term(expr* t, svector<atom>& atoms, expr*& the_var) {
     // uninterpreted 0-ary constant of sequence sort => a sequence variable
     if (is_uninterp_const(t)) {
         the_var = t;                              // mark that at least one variable occurs
-        atoms.push_back(atom{ true, t, nullptr });
+        atoms.push_back(atom(m, true, t, nullptr));
         return true;
     }
     return false;
 }
 
-bool seq_monadic::decompose(svector<atom> const& atoms, unsigned i, expr* R,
+bool seq_monadic::decompose(vector<atom> const& atoms, unsigned i, expr* R,
                             vector<disjunct>& out) {
     if (m_giveup)
         return false;
@@ -309,12 +306,12 @@ bool seq_monadic::decompose(svector<atom> const& atoms, unsigned i, expr* R,
     }
     atom const& a = atoms[i];
     if (!a.is_var) {
-        expr_ref d = der_elem(R, a.elem);
+        expr_ref d = der_elem(R, a.elem.get());
         return decompose(atoms, i + 1, d, out);
     }
     if (i + 1 == atoms.size()) {                  // last atom: membership component  a.var in R
         disjunct D;
-        D.push_back(component{ a.var, R, nullptr });
+        D.push_back(component{ a.var.get(), R, nullptr });
         out.push_back(D);
         return true;
     }
@@ -331,7 +328,7 @@ bool seq_monadic::decompose(svector<atom> const& atoms, unsigned i, expr* R,
             if (out.size() > DISJUNCT_CAP || m_budget == 0) { m_giveup = true; return false; }
             --m_budget;
             disjunct D(sd);
-            D.push_back(component{ a.var, R, q });   // reach component: a.var drives R -> q
+            D.push_back(component{ a.var.get(), R, q });   // reach component: a.var drives R -> q
             out.push_back(D);
         }
     }
@@ -376,7 +373,7 @@ bool seq_monadic::build_membership_dnf(expr* term, expr* R, vector<disjunct>& dn
         return false;
     if (!u().is_seq(m_seq_sort, m_elem_sort))
         return false;
-    svector<atom> atoms;
+    vector<atom> atoms;
     expr* the_var = nullptr;
     if (!parse_term(term, atoms, the_var))
         return false;
