@@ -58,6 +58,7 @@ Author:
 #include "util/lbool.h"
 #include "util/obj_hashtable.h"
 #include "util/dependency.h"
+#include "util/trail.h"
 #include <utility>
 #include <tuple>
 
@@ -73,6 +74,7 @@ private:
     seq_rewriter&   m_rw;
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
                                              // ground guards so dead states become re.empty)
+    trail_stack&    m_undo_trail;
     transition_mode m_mode;
     sort*           m_seq_sort = nullptr;   // sequence sort of the regex under analysis
     sort*           m_elem_sort = nullptr;  // element sort of that sequence sort
@@ -153,8 +155,10 @@ private:
     void minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships);
 
 public:
-    seq_monadic(seq_rewriter& rw, transition_mode mode = transition_mode::light_antimirov) :
-        m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_mode(mode), m_pin(rw.m()) {}
+    seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
+                transition_mode mode = transition_mode::light_antimirov) :
+        m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
+        m_mode(mode), m_pin(rw.m()) {}
 
     ~seq_monadic() { reset_cofactor_cache(); }
 
@@ -181,7 +185,7 @@ public:
 
     // Assert a membership  (term in regex)  to be decided jointly by the next check().
     // `d` carries the dependency used for unsat-core tracking and may be nullptr.
-    // Memberships accumulate until check() consumes them.
+    // Memberships remain asserted until the constructor-provided trail is popped.
     void add(expr* term, expr* regex, u_dependency* d);
 
     // Decide the CONJUNCTION of all memberships asserted via add() jointly: a variable
@@ -190,7 +194,7 @@ public:
     // membership solving to a Boolean combination of memberships (a disjunction is the
     // union of DNFs; a negated membership  ~(t in R)  is just  t in complement(R)).
     // Per-variable extra constraints are expressed as extra memberships (v in R').
-    // Consumes the asserted memberships.  l_true = sat (empty conjunction is sat),
+    // Leaves the asserted memberships unchanged.  l_true = sat (empty conjunction is sat),
     // l_false = unsat, l_undef = gave up.  On l_false, core() holds the dependencies
     // of a minimal unsatisfiable subset.
     lbool check();

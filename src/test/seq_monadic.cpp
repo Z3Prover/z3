@@ -37,6 +37,7 @@ class seq_monadic_test {
     ast_manager      m;
     plugin_registrar m_reg;
     seq_rewriter     m_rw;
+    trail_stack      m_trail;
     seq_monadic      m_mon;
     seq_util         u;
     sort_ref         m_str;   // String sort
@@ -141,9 +142,11 @@ class seq_monadic_test {
 
     void check_extra(char const* name, expr* term, expr* R,
                      obj_map<expr, expr*> const& ve, lbool expected) {
+        m_trail.push_scope();
         add_extra(term, R, ve);
         m_mon.set_gen_model(false);               // this check does not use the model
         lbool got = m_mon.check();
+        m_trail.pop_scope(1);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
@@ -179,6 +182,7 @@ class seq_monadic_test {
     // term a member of R (substitute var -> witness and re-decide by derivatives).
     void check_witness(char const* name, expr* term, expr* R,
                        obj_map<expr, expr*> const& ve) {
+        m_trail.push_scope();
         add_extra(term, R, ve);
         m_mon.set_gen_model(true);                // this check verifies the extracted model
         lbool got = m_mon.check();
@@ -193,6 +197,7 @@ class seq_monadic_test {
             flatten_seq(g, elems);
             ok = word_in_re(elems, R);
         }
+        m_trail.pop_scope(1);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
                   << "  solve=" << s(got) << " witness-verified=" << (ok ? "yes" : "no") << "\n";
@@ -200,10 +205,12 @@ class seq_monadic_test {
 
     // decide a conjunction of memberships jointly (shared variables constrained together).
     void check_and(char const* name, vector<std::pair<expr*, expr*>> const& mems, lbool expected) {
+        m_trail.push_scope();
         for (auto const& [t, r] : mems)
             m_mon.add(t, r, nullptr);
         m_mon.set_gen_model(false);               // this check does not use the model
         lbool got = m_mon.check();
+        m_trail.pop_scope(1);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
@@ -230,20 +237,24 @@ class seq_monadic_test {
 
         // minimization disabled: the core is every asserted membership's dependency.
         m_mon.set_min_core(false);
+        m_trail.push_scope();
         for (unsigned i = 0; i < mems.size(); ++i)
             m_mon.add(mems[i].first, mems[i].second, m_dm.mk_leaf(i));
         lbool got0 = m_mon.check();
         core_ids(got_ids);
         bool ok0 = (got0 == l_false) && (got_ids == all_ids);
+        m_trail.pop_scope(1);
 
         // minimization enabled: the core drops constraints irrelevant to the conflict.
         m_mon.set_min_core(true);
+        m_trail.push_scope();
         for (unsigned i = 0; i < mems.size(); ++i)
             m_mon.add(mems[i].first, mems[i].second, m_dm.mk_leaf(i));
         lbool got1 = m_mon.check();
         std::set<unsigned> min_ids;
         core_ids(min_ids);
         bool ok1 = (got1 == l_false) && (min_ids == expected_core);
+        m_trail.pop_scope(1);
         m_mon.set_min_core(false);                // restore the harness default
 
         bool ok = ok0 && ok1;
@@ -256,7 +267,7 @@ class seq_monadic_test {
 
 public:
     seq_monadic_test(seq_monadic::transition_mode mode) :
-        m_reg(m), m_rw(m), m_mon(m_rw, mode), u(m), m_str(m), m_re(m), m_mode(mode) {
+        m_reg(m), m_rw(m), m_mon(m_rw, m_trail, mode), u(m), m_str(m), m_re(m), m_mode(mode) {
         m_str = u.str.mk_string_sort();
         m_re  = re().mk_re(m_str);
         m_mon.set_min_core(false);   // tests use unminimized cores by default
@@ -414,6 +425,25 @@ public:
         mSat2.push_back(std::make_pair((expr*)tXaY.get(), (expr*)abStar.get()));
         mSat2.push_back(std::make_pair((expr*)tYbX.get(), (expr*)abStar.get()));
         check_and("x.a.y & y.b.x in (a|b)*", mSat2, l_true);
+
+        std::cout << "=== seq_monadic: assertion trail ===\n";
+        m_mon.set_gen_model(false);
+        m_trail.push_scope();
+        m_mon.add(x, aaS, nullptr);
+        lbool before = m_mon.check();
+        m_trail.push_scope();
+        m_mon.add(x, a_aaS, nullptr);
+        lbool with_conflict = m_mon.check();
+        lbool repeated = m_mon.check();
+        m_trail.pop_scope(1);
+        lbool after_pop = m_mon.check();
+        m_trail.pop_scope(1);
+        lbool empty = m_mon.check();
+        bool trail_ok = before == l_true && with_conflict == l_false &&
+                        repeated == l_false && after_pop == l_true && empty == l_true;
+        if (!trail_ok) ++m_fail;
+        std::cout << (trail_ok ? "  OK   " : "  FAIL ")
+                  << "check preserves assertions and pop removes them\n";
 
         // ---- unsat cores: the extracted core must contain only constraints that
         // ---- participate in the contradiction, not independent ones.

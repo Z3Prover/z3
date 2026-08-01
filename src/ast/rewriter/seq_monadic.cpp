@@ -24,6 +24,10 @@ TODOs:
 - create a validation harness: expose certificates for correctness that can be checked.
 - extend with lower and upper bound constraints
 - consider using expr_ref as alternative to pinned expressions
+  - change type of atom to use expr_ref and avoid pin. svector<atom> -> vector<atom>.
+- revisit parse_term and "the_var" condition. A sequence of units should be allowed.
+- support units of non-values (element variables).
+  Model construction would assign values to the elements.
 - encapsulate within general interface:
 create: undo_trail x dependency_manager x ast_manager -> regex_membership
 add_constraint : expr* x expr* x dependency* -> void
@@ -422,6 +426,7 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf) {
 
 void seq_monadic::add(expr* term, expr* regex, u_dependency* d) {
     m_memberships.push_back({ expr_ref(term, m), expr_ref(regex, m), d });
+    m_undo_trail.push(push_back_vector(m_memberships));
 }
 
 lbool seq_monadic::decide(vector<std::tuple<expr_ref, expr_ref, u_dependency*>> const& memberships) {
@@ -493,10 +498,8 @@ void seq_monadic::minimize_core(vector<std::tuple<expr_ref, expr_ref, u_dependen
 
 lbool seq_monadic::check() {
     m_core.reset();
-    vector<std::tuple<expr_ref, expr_ref, u_dependency*>> memberships;
-    memberships.swap(m_memberships);              // consume the asserted memberships
-    lbool r = decide(memberships);
+    lbool r = decide(m_memberships);
     if (r == l_false)
-        minimize_core(memberships);
+        minimize_core(m_memberships);
     return r;
 }

@@ -90,7 +90,8 @@ lbool run_file(
     ast_manager& m = ctx.m();
     seq_util u(m);
     seq_rewriter rw(m);
-    seq_monadic mon(rw, mode);
+    trail_stack undo_trail;
+    seq_monadic mon(rw, undo_trail, mode);
 
     obj_map<expr, expr*> var_re;
     obj_map<expr, expr*> term_re;
