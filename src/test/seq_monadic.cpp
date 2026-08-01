@@ -121,6 +121,7 @@ class seq_monadic_test {
     }
 
     void check(char const* name, expr* term, expr* R, lbool expected) {
+        m_mon.set_gen_model(false);               // this check does not use the model
         lbool got = m_mon.solve(term, R);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
@@ -141,7 +142,8 @@ class seq_monadic_test {
                      obj_map<expr, expr*> const& ve, lbool expected) {
         vector<std::pair<expr*, expr*>> mems;
         add_extra(mems, term, R, ve);
-        lbool got = m_mon.solve_and(mems, nullptr);
+        m_mon.set_gen_model(false);               // this check does not use the model
+        lbool got = m_mon.solve_and(mems);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
@@ -177,10 +179,11 @@ class seq_monadic_test {
     // term a member of R (substitute var -> witness and re-decide by derivatives).
     void check_witness(char const* name, expr* term, expr* R,
                        obj_map<expr, expr*> const& ve) {
-        obj_map<expr, expr*> model;
         vector<std::pair<expr*, expr*>> mems;
         add_extra(mems, term, R, ve);
-        lbool got = m_mon.solve_and(mems, &model);
+        m_mon.set_gen_model(true);                // this check verifies the extracted model
+        lbool got = m_mon.solve_and(mems);
+        obj_map<expr, expr*> const& model = m_mon.get_model();
         bool ok = (got == l_true) && !model.empty();
         if (ok) {
             expr_safe_replace rep(m);
@@ -198,7 +201,8 @@ class seq_monadic_test {
 
     // decide a conjunction of memberships jointly (shared variables constrained together).
     void check_and(char const* name, vector<std::pair<expr*, expr*>> const& mems, lbool expected) {
-        lbool got = m_mon.solve_and(mems, nullptr);
+        m_mon.set_gen_model(false);               // this check does not use the model
+        lbool got = m_mon.solve_and(mems);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name

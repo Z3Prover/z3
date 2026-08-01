@@ -138,9 +138,10 @@ lbool run_file(
         memberships.push_back(std::make_pair(entry.m_key, entry.m_value));
 
     auto start = std::chrono::high_resolution_clock::now();
+    mon.set_gen_model(false);                     // benchmark only needs the verdict
     lbool verdict = memberships.empty()
         ? l_undef
-        : mon.solve_and(memberships, nullptr);
+        : mon.solve_and(memberships);
     solve_ms = std::chrono::duration<double, std::milli>(
         std::chrono::high_resolution_clock::now() - start).count();
     return verdict;

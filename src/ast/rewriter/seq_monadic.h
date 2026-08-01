@@ -77,6 +77,8 @@ private:
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
+    bool            m_gen_model = true;     // whether solve()/solve_and() extract a feasible model
+    obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     obj_map<expr, expr_ref_pair_vector*> m_cofactor_cache;  // memoizes derivative_cofactors per regex
 
     seq_util&      u() const { return m_rw.u(); }
@@ -106,7 +108,7 @@ private:
 
     // Live reachable derivative states of R (BFS over cofactor targets + liveness
     // least-fixpoint).  These are the split states q.  Returns false on a cap overrun.
-    bool live_states(expr* R, ptr_vector<expr>& out);
+    bool live_states(expr* R, expr_ref_vector& out);
 
     // Product-reachability emptiness of a conjunction of components (all on one
     // variable).  l_false = empty (unsat), l_true = non-empty (sat), l_undef = gave up
@@ -132,8 +134,9 @@ private:
     bool build_membership_dnf(expr* term, expr* R, vector<disjunct>& dnf);
 
     // Decide a DNF (over primitive components): sat iff some disjunct has every variable
-    // group non-empty.  On l_true, fills `model` (var -> witness) if non-null.
-    lbool decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*>* model);
+    // group non-empty.  On l_true, when model generation is enabled, fills m_model
+    // (var -> witness).
+    lbool decide_dnf(vector<disjunct> const& dnf);
 
 public:
     seq_monadic(seq_rewriter& rw, transition_mode mode = transition_mode::light_antimirov) :
@@ -143,16 +146,20 @@ public:
 
     transition_mode mode() const { return m_mode; }
 
+    // Enable/disable model generation (default: enabled).  When enabled, a successful
+    // solve()/solve_and() extracts a feasible model retrievable via get_model().
+    void set_gen_model(bool b) { m_gen_model = b; }
+
+    // The model extracted by the last successful solve()/solve_and(): var -> witness,
+    // where each witness is a concrete sequence term (over the element sort) giving one
+    // satisfying assignment.  Witness terms are pinned by the solver and remain valid
+    // until the next solve()/solve_and().  Only valid when model generation is enabled.
+    obj_map<expr, expr*> const& get_model() const { return m_model; }
+
     // Decide  (str.in_re term R)  for a term that is a concatenation of string variables
     // (possibly repeated / several distinct) and constant characters.
     //   l_true = sat, l_false = unsat, l_undef = unsupported shape / gave up.
     lbool solve(expr* term, expr* R);
-
-    // As above; on l_true, if `model` is non-null it is populated with  var -> witness,
-    // where each witness is a concrete sequence term (over the element sort) giving one
-    // satisfying assignment.  Witness terms are pinned by the solver and remain valid
-    // until the next call to solve().
-    lbool solve(expr* term, expr* R, obj_map<expr, expr*>* model);
 
     // Decide a CONJUNCTION of memberships  AND_i (term_i in R_i)  jointly: a variable
     // shared across memberships is constrained consistently (the DNFs are multiplied and
@@ -160,7 +167,6 @@ public:
     // membership solving to a Boolean combination of memberships (a disjunction is the
     // union of DNFs; a negated membership  ~(t in R)  is just  t in complement(R)).
     // Per-variable extra constraints are expressed here as extra memberships (v in R').
-    // model as above.  l_true = sat, l_false = unsat, l_undef = gave up.
-    lbool solve_and(vector<std::pair<expr*, expr*>> const& mems,
-                    obj_map<expr, expr*>* model = nullptr);
+    // l_true = sat, l_false = unsat, l_undef = gave up.
+    lbool solve_and(vector<std::pair<expr*, expr*>> const& mems);
 };
