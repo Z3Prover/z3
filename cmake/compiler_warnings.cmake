@@ -28,6 +28,8 @@ set(CLANG_ONLY_WARNINGS
   "-Wimplicit-fallthrough"
   "-Wextra-semi"
   "-Wignored-qualifiers"
+  "-Wnoctad-maybe-unsupported"
+  "-Wdeprecated-copy-with-user-provided-copy"
 )
 
 set(MSVC_WARNINGS "/W3")

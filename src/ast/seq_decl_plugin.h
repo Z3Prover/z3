@@ -458,6 +458,7 @@ public:
               Default constructor of invalid info.
             */
             info() = default;
+            info(const info&) = default;
 
             /*
               Used for constructing either an invalid info that is only used to indicate uninitialized entry, or valid but unknown info value.
