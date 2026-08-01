@@ -77,6 +77,7 @@ private:
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
+    obj_map<expr, expr_ref_pair_vector*> m_cofactor_cache;  // memoizes derivative_cofactors per regex
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -95,8 +96,13 @@ private:
     // Brzozowski derivative of regex `r` by the concrete element `elem`.
     expr_ref der_elem(expr* r, expr* elem);
 
-    // Symbolic transition cofactors in the selected mode.
-    void derivative_cofactors(expr* r, expr_ref_pair_vector& result);
+    // Symbolic transition cofactors in the selected mode.  Memoized per regex `r`: the
+    // returned vector is owned by the cofactor cache and stays valid until the next
+    // top-level solve()/solve_and() (which resets the cache).
+    expr_ref_pair_vector const& derivative_cofactors(expr* r);
+
+    // Drop all memoized cofactors and free their owned vectors.
+    void reset_cofactor_cache();
 
     // Live reachable derivative states of R (BFS over cofactor targets + liveness
     // least-fixpoint).  These are the split states q.  Sets `ok` false on a cap overrun.
@@ -132,6 +138,8 @@ private:
 public:
     seq_monadic(seq_rewriter& rw, transition_mode mode = transition_mode::light_antimirov) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_mode(mode), m_pin(rw.m()) {}
+
+    ~seq_monadic() { reset_cofactor_cache(); }
 
     transition_mode mode() const { return m_mode; }
 

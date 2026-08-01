@@ -23,7 +23,6 @@ TODOs:
 - if perf suffers: use DFS backtracking search instead of DNF expansion (space overhead)
 - create a validation harness: expose certificates for correctness that can be checked.
 - extend with lower and upper bound constraints
-- cache calls to cofactors so they are only computed once per regex.
 - consider using expr_ref as alternative to pinned expressions
 - encapsulate within general interface:
 create: undo_trail x dependency_manager x ast_manager -> regex_membership
@@ -61,11 +60,24 @@ expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
     return d2;
 }
 
-void seq_monadic::derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
+    expr_ref_pair_vector* v = nullptr;
+    if (m_cofactor_cache.find(r, v))
+        return *v;
+    v = alloc(expr_ref_pair_vector, m);
     if (m_mode == transition_mode::light_antimirov)
-        m_rw.light_ant_derivative_cofactors(r, result);
+        m_rw.light_ant_derivative_cofactors(r, *v);
     else
-        m_rw.brz_derivative_cofactors(r, result);
+        m_rw.brz_derivative_cofactors(r, *v);
+    m_pin.push_back(r);                    // keep the key alive for the cache's lifetime
+    m_cofactor_cache.insert(r, v);
+    return *v;
+}
+
+void seq_monadic::reset_cofactor_cache() {
+    for (auto& kv : m_cofactor_cache)
+        dealloc(kv.m_value);
+    m_cofactor_cache.reset();
 }
 
 void seq_monadic::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
@@ -89,8 +101,7 @@ void seq_monadic::live_states(expr* R, ptr_vector<expr>& out, bool& ok) {
     const unsigned STATE_CAP = 1u << 12;
     for (unsigned i = 0; i < states.size(); ++i) {
         if (states.size() > STATE_CAP || !m.inc()) { ok = false; return; }
-        expr_ref_pair_vector cof(m);
-        derivative_cofactors(states.get(i), cof);
+        expr_ref_pair_vector const& cof = derivative_cofactors(states.get(i));
         for (auto const& [g, t] : cof) {
             if (re().is_empty(t)) continue;
             unsigned k = intern(t);           // MUST precede succ[i] indexing: intern may
@@ -195,8 +206,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
         // per-component cofactor branches (target, guard); pin both, they outlive `cof`.
         std::vector<std::vector<std::pair<expr*, expr*>>> branches(n);
         for (unsigned i = 0; i < n; ++i) {
-            expr_ref_pair_vector cof(m);
-            derivative_cofactors(st[i], cof);
+            expr_ref_pair_vector const& cof = derivative_cofactors(st[i]);
             for (auto const& [g, t] : cof) {
                 if (re().is_empty(t)) continue;
                 m_pin.push_back(t);
@@ -415,6 +425,7 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf, obj_map<expr, expr*>*
 
 lbool seq_monadic::solve(expr* term, expr* R, obj_map<expr, expr*>* model) {
     m_pin.reset();
+    reset_cofactor_cache();
     m_budget = 200000;                            // global work budget: bail fast on DNF explosion
     m_giveup = false;
     vector<disjunct> dnf;
@@ -428,6 +439,7 @@ lbool seq_monadic::solve_and(vector<std::pair<expr*, expr*>> const& mems,
     if (mems.empty())
         return l_undef;
     m_pin.reset();
+    reset_cofactor_cache();
     m_budget = 200000;
     m_giveup = false;
     // Multiply the per-membership DNFs:  combined = { d ++ e : d in combined, e in dnf_i }.
