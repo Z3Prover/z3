@@ -124,9 +124,22 @@ namespace smt {
             enode*   m_witness;
         };
 
+        // A length-bound constraint fed to the monadic solver as an extra length regex.
+        // Recorded so the justifying arithmetic literal(s) can be materialized if the
+        // bound participates in an unsat core.  m_len is the length term (str.len s).
+        struct bound_constraint {
+            enum kind_t { LO, HI, LEN };
+            expr_ref m_len;
+            kind_t   m_kind;
+            unsigned m_value;
+            bound_constraint(ast_manager& m, kind_t k, expr* len, unsigned v):
+                m_len(len, m), m_kind(k), m_value(v) {}
+        };
+
         seq_monadic                       m_monadic;
         vector<monadic_membership>         m_monadic_memberships;
         svector<monadic_assumption>        m_monadic_assumptions;
+        vector<bound_constraint>           m_monadic_bounds;
         unsigned                          m_monadic_generation = 0;
         unsigned                          m_monadic_assumption_generation = UINT_MAX;
         unsigned                          m_monadic_fallback_generation = UINT_MAX;
@@ -220,6 +233,22 @@ namespace smt {
 
         bool block_if_empty(expr* r, literal lit);
         void add_monadic_membership(literal lit, expr* s, expr* r);
+        // Query current arithmetic length bounds of each monadic membership term and feed
+        // them to the monadic solver (via add_lo/add_hi/add_len) as extra length regexes,
+        // so proposed witnesses respect length constraints.  Recorded in m_monadic_bounds.
+        void add_monadic_bounds();
+        void record_bound(expr* s, expr* len, bound_constraint::kind_t k, unsigned v);
+        // Encode a monadic membership literal / bounds-constraint index as the void*
+        // dependency handed to the monadic solver: 2*lit.index() for literals (even),
+        // 2*bounds_index + 1 for bounds constraints (odd).  add_core_literal decodes a
+        // dependency returned by m_monadic.core() into conflict literal(s).
+        static void* dep_of_literal(literal lit) {
+            return reinterpret_cast<void*>(static_cast<size_t>(2 * lit.index()));
+        }
+        static void* dep_of_bound(unsigned idx) {
+            return reinterpret_cast<void*>(static_cast<size_t>(2 * idx + 1));
+        }
+        void add_core_literal(void* dep, literal_vector& lits);
         void propagate_accept_legacy(literal lit, expr* s, expr* r);
         void enable_legacy_fallback();
 

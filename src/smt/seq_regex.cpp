@@ -50,12 +50,74 @@ namespace smt {
                 return;
         m_monadic_memberships.push_back(monadic_membership(m, lit, s, r));
         ctx.push_trail(push_back_vector(m_monadic_memberships));
-        theory_seq::dependency* dep = th.m_dm.mk_leaf(theory_seq::assumption(lit));
-        m_monadic.add(s, r, dep);
+        m_monadic.add(s, r, dep_of_literal(lit));
         ctx.push_trail(value_trail<unsigned>(m_monadic_generation));
         ++m_monadic_generation;
         TRACE(seq_regex, tout << "monadic add " << lit << ": "
                              << mk_pp(s, m) << " in " << mk_pp(r, m) << "\n";);
+    }
+
+    void seq_regex::add_monadic_bounds() {
+        // add_lo/add_hi/add_len build a length regex .{lo}.* / .{0,hi} / .{len}; keep the
+        // bound small so the extra membership never itself blows past the monadic solver's
+        // state cap (a too-large bound would only turn a solvable case into a give-up).
+        const unsigned MAX_BOUND = 1000;
+        for (auto const& mem : m_monadic_memberships) {
+            expr* s = mem.m_s;
+            expr_ref len = th.mk_len(s);
+            rational lo, hi;
+            bool has_lo = th.lower_bound(len, lo) && lo.is_unsigned() && lo.get_unsigned() > 0;
+            bool has_hi = th.upper_bound(len, hi) && hi.is_unsigned();
+            if (has_lo && has_hi && lo == hi) {
+                if (lo.get_unsigned() <= MAX_BOUND)
+                    record_bound(s, len, bound_constraint::LEN, lo.get_unsigned());
+                continue;
+            }
+            if (has_lo && lo.get_unsigned() <= MAX_BOUND)
+                record_bound(s, len, bound_constraint::LO, lo.get_unsigned());
+            if (has_hi && hi.get_unsigned() <= MAX_BOUND)
+                record_bound(s, len, bound_constraint::HI, hi.get_unsigned());
+        }
+    }
+
+    void seq_regex::record_bound(expr* s, expr* len, bound_constraint::kind_t k, unsigned v) {
+        for (auto const& b : m_monadic_bounds)
+            if (b.m_len.get() == len && b.m_kind == k && b.m_value == v)
+                return;                           // already asserted at this scope
+        unsigned idx = m_monadic_bounds.size();
+        m_monadic_bounds.push_back(bound_constraint(m, k, len, v));
+        ctx.push_trail(push_back_vector(m_monadic_bounds));
+        void* dep = dep_of_bound(idx);
+        switch (k) {
+        case bound_constraint::LO:  m_monadic.add_lo(s, v, dep); break;
+        case bound_constraint::HI:  m_monadic.add_hi(s, v, dep); break;
+        case bound_constraint::LEN: m_monadic.add_len(s, v, dep); break;
+        }
+        TRACE(seq_regex, tout << "monadic bound " << mk_pp(len, m)
+                             << (k == bound_constraint::LO ? " >= " :
+                                 k == bound_constraint::HI ? " <= " : " = ") << v << "\n";);
+    }
+
+    void seq_regex::add_core_literal(void* dep, literal_vector& lits) {
+        size_t enc = reinterpret_cast<size_t>(dep);
+        if ((enc & 1) == 0) {                     // even: monadic membership literal
+            lits.push_back(to_literal(static_cast<int>(enc >> 1)));
+            return;
+        }
+        // odd: a length bound; materialize its justifying arithmetic literal(s) now.
+        bound_constraint const& b = m_monadic_bounds[static_cast<unsigned>((enc - 1) >> 1)];
+        switch (b.m_kind) {
+        case bound_constraint::LO:
+            lits.push_back(th.m_ax.mk_ge(b.m_len, b.m_value));
+            break;
+        case bound_constraint::HI:
+            lits.push_back(th.m_ax.mk_le(b.m_len, b.m_value));
+            break;
+        case bound_constraint::LEN:
+            lits.push_back(th.m_ax.mk_ge(b.m_len, b.m_value));
+            lits.push_back(th.m_ax.mk_le(b.m_len, b.m_value));
+            break;
+        }
     }
 
     void seq_regex::propagate_accept_legacy(literal lit, expr* s, expr* r) {
@@ -109,13 +171,14 @@ namespace smt {
         }
 
         ++th.m_stats.m_regex_monadic_checks;
+        add_monadic_bounds();
         lbool result = m_monadic.check();
         if (result == l_false) {
             ++th.m_stats.m_regex_monadic_unsat;
-            theory_seq::dependency* dep = nullptr;
+            literal_vector lits;
             for (void* core_dep : m_monadic.core())
-                dep = th.m_dm.mk_join(dep, static_cast<theory_seq::dependency*>(core_dep));
-            th.set_conflict(dep);
+                add_core_literal(core_dep, lits);
+            th.set_conflict(nullptr, lits);
             return FC_CONTINUE;
         }
         if (result == l_undef) {
