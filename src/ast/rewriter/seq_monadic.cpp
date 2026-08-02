@@ -80,6 +80,7 @@ void seq_monadic::reset_cofactor_cache() {
     for (auto const& [k, v] : m_cofactor_cache)
         dealloc(v);
     m_cofactor_cache.reset();
+    guard_set::dealloc_cache(m_rp_cache);   // the guards live in the cofactor vectors
 }
 
 bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {
@@ -252,7 +253,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                     if (bail) return;
                 }
             };
-        guard_set top(m, u(), m_elem_sort, var0);
+        guard_set top(m, u(), m_elem_sort, var0, &m_rp_cache);
         rec(0, top);
         if (bail)
             return l_undef;

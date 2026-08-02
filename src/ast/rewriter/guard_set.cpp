@@ -19,12 +19,19 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 
-guard_set::guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0)
+guard_set::guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0,
+                     rp_cache* cache)
     : m(_m), u(_u), m_sort(elem_sort), m_v0(v0),
-      m_is_char(_u.is_char(elem_sort)),
+      m_is_char(_u.is_char(elem_sort)), m_rp_cache(cache),
       m_rp(_u.max_char()), m_guard(_m) {
     if (m_is_char) m_rp = seq::range_predicate::top(u.max_char());
     else           m_guard = m.mk_true();
+}
+
+void guard_set::dealloc_cache(rp_cache& c) {
+    for (auto const& [k, v] : c)
+        dealloc(v);
+    c.reset();
 }
 
 void guard_set::collect_consts(expr* g, ptr_vector<expr>& out) const {
@@ -132,13 +139,30 @@ lbool guard_set::generic_eval(expr_ref* witness) const {
 
 void guard_set::conjoin(expr* g) {
     if (!m_ok) return;
-    if (m_is_char) {
-        seq::range_predicate s(u.max_char());
-        if (!seq::guard_to_range_predicate(u, m_v0, g, s)) { m_ok = false; return; }
-        m_rp = m_rp & s;
-    }
-    else
+    if (!m_is_char) {
         m_guard = m.mk_and(m_guard, g);
+        return;
+    }
+    if (m_rp_cache) {
+        // Translating a guard expression into a range predicate is the inner loop of the
+        // product-transition enumeration; the same handful of guards recurs on every
+        // branch, so translate each one once.
+        seq::range_predicate* s = nullptr;
+        if (!m_rp_cache->find(g, s)) {
+            s = alloc(seq::range_predicate, u.max_char());
+            if (!seq::guard_to_range_predicate(u, m_v0, g, *s)) {
+                dealloc(s);
+                s = nullptr;
+            }
+            m_rp_cache->insert(g, s);
+        }
+        if (!s) { m_ok = false; return; }
+        m_rp = m_rp & *s;
+        return;
+    }
+    seq::range_predicate s(u.max_char());
+    if (!seq::guard_to_range_predicate(u, m_v0, g, s)) { m_ok = false; return; }
+    m_rp = m_rp & s;
 }
 
 lbool guard_set::eval(expr_ref* witness) const {
