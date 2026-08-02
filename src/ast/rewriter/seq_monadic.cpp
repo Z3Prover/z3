@@ -245,7 +245,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                     if (bail) return;
                 }
             };
-        guard_set top(m, u(), m_elem_sort, var0, &m_cofactors.rp_cache());
+        guard_set top(m, u(), m_elem_sort, var0, &m_rp_cache);
         rec(0, top);
         if (bail)
             return l_undef;
@@ -349,6 +349,7 @@ void seq_monadic::simplify_dnf(vector<disjunct>& dnf) {
 lbool seq_monadic::solve(expr* term, expr* R) {
     m_pin.reset();
     m_cofactors.maybe_reset(1u << 16);
+    m_rp_cache.maybe_reset(1u << 16);
     m_budget = 200000;                            // global work budget: bail fast on DNF explosion
     m_giveup = false;
     vector<disjunct> dnf;
@@ -446,6 +447,7 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
         return l_true;                            // empty conjunction is vacuously true
     m_pin.reset();
     m_cofactors.maybe_reset(1u << 16);
+    m_rp_cache.maybe_reset(1u << 16);
     m_budget = 200000;
     m_giveup = false;
     // Multiply the per-membership DNFs:  combined = { d ++ e : d in combined, e in dnf_i }.

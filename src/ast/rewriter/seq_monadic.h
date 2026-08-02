@@ -79,22 +79,17 @@ private:
     class cofactor_cache {
         obj_map<expr, expr_ref_pair_vector*>  m_cache;
         expr_ref_vector                       m_pin;      // trail of pinned keys
-        guard_set_cache                       m_rp_cache; // cofactor guard -> range predicate; the
-                                                          // guards are owned by the cofactor vectors,
-                                                          // so it is reset together with the cache
     public:
-        cofactor_cache(ast_manager& m) : m_pin(m), m_rp_cache(m) {}
+        cofactor_cache(ast_manager& m) : m_pin(m) {}
         ~cofactor_cache() { reset(); }
         bool find(expr* r, expr_ref_pair_vector*& v) const { return m_cache.find(r, v); }
         void insert(expr* r, expr_ref_pair_vector* v) { m_pin.push_back(r); m_cache.insert(r, v); }
         unsigned size() const { return m_cache.size(); }
-        guard_set_cache& rp_cache() { return m_rp_cache; }
         void reset() {
             for (auto const& [k, v] : m_cache)
                 dealloc(v);
             m_cache.reset();
             m_pin.reset();
-            m_rp_cache.reset();
         }
         void maybe_reset(unsigned cap) { if (m_cache.size() > cap) reset(); }
     };
@@ -114,6 +109,7 @@ private:
     bool            m_min_core = true;      // whether check() minimizes the unsat core (else: all deps)
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     cofactor_cache  m_cofactors;            // memoizes derivative_cofactors per regex (see class above)
+    guard_set_cache m_rp_cache;             // cofactor guard -> range predicate
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
@@ -197,7 +193,7 @@ public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 transition_mode mode = transition_mode::light_antimirov) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_mode(mode), m_pin(rw.m()), m_cofactors(rw.m()) {}
+        m_mode(mode), m_pin(rw.m()), m_cofactors(rw.m()), m_rp_cache(rw.m()) {}
 
     ~seq_monadic() = default;
 

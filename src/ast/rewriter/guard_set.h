@@ -46,6 +46,10 @@ public:
     guard_set_cache(ast_manager& m): m(m), m_trail(m) {}
     ~guard_set_cache() { reset(); }
     void reset();
+    void maybe_reset(unsigned cap) {
+        if (m_cache.size() > cap)
+            reset();
+    }
     // Returns true if g is in the cache; val is set to the cached entry
     // (val may be null = unsupported guard).
     bool find(expr* g, seq::range_predicate*& val) const { return m_cache.find(g, val); }
