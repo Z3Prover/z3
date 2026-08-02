@@ -175,7 +175,7 @@ public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 transition_mode mode = transition_mode::light_antimirov) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_mode(mode), m_pin(rw.m()) {}
+        m_mode(mode), m_pin(rw.m()), m_rp_cache(m) {}
 
     ~seq_monadic() { reset_cofactor_cache(); }
 
