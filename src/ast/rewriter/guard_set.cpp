@@ -32,6 +32,7 @@ void guard_set_cache::reset() {
     for (auto const& [k, v] : m_cache) dealloc(v);
     m_cache.reset();
     dealloc(m_fresh);
+    m_trail.reset();
     m_fresh = nullptr;
 }
 
@@ -42,6 +43,7 @@ seq::range_predicate* guard_set_cache::fresh(unsigned max_char) {
 
 void guard_set_cache::insert(expr* g, seq::range_predicate* p) {
     if (p) m_fresh = nullptr;  // ownership transferred to map
+    m_trail.push_back(g);
     m_cache.insert(g, p);
 }
 
