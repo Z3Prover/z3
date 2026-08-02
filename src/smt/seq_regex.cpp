@@ -22,7 +22,7 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/seq_regex_bisim.h"
-#include <ast/rewriter/expr_safe_replace.h>
+#include "ast/rewriter/expr_safe_replace.h"
 
 namespace smt {
 
@@ -544,13 +544,16 @@ namespace smt {
      * Put a limit to the unfolding of s. 
      */
     bool seq_regex::block_unfolding(literal lit, unsigned i) {
-        return 
-            i > th.m_max_unfolding_depth &&
-            th.m_max_unfolding_lit != null_literal && 
-            ctx.get_assignment(th.m_max_unfolding_lit) == l_true && 
-            !ctx.at_base_level() &&
-            (th.propagate_lit(nullptr, 1, &lit, ~th.m_max_unfolding_lit), 
-             true);
+        if (i <= th.m_max_unfolding_depth)
+            return false;
+        if (th.m_max_unfolding_lit == null_literal)
+            return false;
+        if (ctx.get_assignment(th.m_max_unfolding_lit) != l_true)
+            return false;
+        if (ctx.at_base_level())
+            return false;
+        th.propagate_lit(nullptr, 1, &lit, ~th.m_max_unfolding_lit);
+        return true;
     }
 
     /**
@@ -819,7 +822,7 @@ namespace smt {
         _temp_bool_owner.push_back(i_int);
 
         // DFS, avoids duplicating derivative construction that has already been done
-        while (to_visit.size() > 0) {
+        while (!to_visit.empty()) {
             expr* e = to_visit.back();
             expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
             if (!re_to_accept.contains(e)) {
@@ -840,7 +843,13 @@ namespace smt {
                 if (m.is_ite(e, econd, e1, e2)) {
                     expr* b1 = re_to_accept.find(e1);
                     expr* b2 = re_to_accept.find(e2);
-                    expr* b = m.is_true(econd) || b1 == b2 ? b1 : m.is_false(econd) ? b2 : m.mk_ite(econd, b1, b2);
+                    expr* b;
+                    if (m.is_true(econd) || b1 == b2)
+                        b = b1;
+                    else if (m.is_false(econd))
+                        b = b2;
+                    else
+                        b = m.mk_ite(econd, b1, b2);
                     _temp_bool_owner.push_back(b);
                     re_to_accept.find(e) = b;
                 }
@@ -857,7 +866,13 @@ namespace smt {
                 else if (re().is_union(e, e1, e2)) {
                     expr* b1 = re_to_accept.find(e1);
                     expr* b2 = re_to_accept.find(e2);
-                    expr* b = m.is_false(b1) || b1 == b2 ? b2 : m.is_false(b2) ? b1 : m.mk_or(b1, b2);
+                    expr* b;
+                    if (m.is_false(b1) || b1 == b2)
+                        b = b2;
+                    else if (m.is_false(b2))
+                        b = b1;
+                    else
+                        b = m.mk_or(b1, b2);
                     _temp_bool_owner.push_back(b);
                     re_to_accept.find(e) = b;
                 }
