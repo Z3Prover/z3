@@ -95,18 +95,25 @@ private:
     };
 
     struct config {
+        transition_mode m_mode;
+        bool m_model = true;  // whether solve()/check() extract a feasible model
+        bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
+
+        config(transition_mode mode) : m_mode(mode) {}
+    };
+
     ast_manager&    m;
     seq_rewriter&   m_rw;
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
                                              // ground guards so dead states become re.empty)
     trail_stack&    m_undo_trail;
-    transition_mode m_mode;
     sort*           m_seq_sort = nullptr;   // sequence sort of the regex under analysis
     sort*           m_elem_sort = nullptr;  // element sort of that sequence sort
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
-    bool            m_min_core = true;      // whether check() minimizes the unsat core (else: all deps)
+    config          m_config;
+    statistics      m_stats;
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     cofactor_cache  m_cofactors;            // memoizes derivative_cofactors per regex (see class above)
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
@@ -193,15 +200,17 @@ public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 transition_mode mode = transition_mode::light_antimirov) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_mode(mode), m_pin(rw.m()), m_cofactors(rw.m()), m_rp_cache(rw.m()) {}
+        m_pin(rw.m()), m_config(mode), m_cofactors(rw.m()), m_rp_cache(rw.m()) {}
 
     ~seq_monadic() = default;
 
-    transition_mode mode() const { return m_mode; }
+    transition_mode mode() const { return m_config.m_mode; }
+
+    void collect_statistics(::statistics& st) const;
 
     // Enable/disable model generation (default: enabled).  When enabled, a successful
     // solve()/check() extracts a feasible model retrievable via get_model().
-    void set_gen_model(bool b) { m_gen_model = b; }
+    void set_gen_model(bool b) { m_config.m_model = b; }
 
     // The model extracted by the last successful solve()/check(): var -> witness,
     // where each witness is a concrete sequence term (over the element sort) giving one
@@ -216,7 +225,7 @@ public:
 
     // Enable/disable unsat-core minimization (default: enabled).  When disabled, core()
     // returns the dependencies of all asserted memberships (no deletion-based shrinking).
-    void set_min_core(bool b) { m_min_core = b; }
+    void set_min_core(bool b) { m_config.m_min_core = b; }
 
     void set_is_var(std::function<bool(expr *)> const &is_var) {
         m_is_var = is_var;

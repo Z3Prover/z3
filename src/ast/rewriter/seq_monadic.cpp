@@ -67,7 +67,7 @@ expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
     if (m_cofactors.find(r, v))
         return *v;
     v = alloc(expr_ref_pair_vector, m);
-    if (m_mode == transition_mode::light_antimirov)
+    if (m_config.m_mode == transition_mode::light_antimirov)
         m_rw.light_ant_derivative_cofactors(r, *v);
     else
         m_rw.brz_derivative_cofactors(r, *v);
@@ -399,11 +399,11 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf) {
             lbool ne = product_nonempty(groups[gi], m_config.m_model ? &w : nullptr);
             if (ne == l_false) { has_empty = true; break; }   // this variable has no value
             if (ne == l_undef) { has_undef = true; continue; }
-            if (m_gen_model) { m_pin.push_back(w); local.insert(group_var[gi], w.get()); }
+            if (m_config.m_model) { m_pin.push_back(w); local.insert(group_var[gi], w.get()); }
         }
         if (has_empty) continue;
         if (has_undef) { any_undef = true; continue; }
-        if (m_gen_model)
+        if (m_config.m_model)
             for (auto const& [k, v] : local)
                 m_model.insert(k, v);
         return l_true;                            // all variables satisfiable => sat
