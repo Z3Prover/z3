@@ -32,6 +32,8 @@ TODOs:
 - support units of non-values (element variables).
   Model construction would assign values to the elements.
 - make unsat core tracking less naive by tracking dependencies at a finer grain.
+- add statistics and use it from src/smt/seq_regex.cpp when extracting statistics from theory_seq.
+- add selective tracing TRACE(seq, ..).
 
 
 
