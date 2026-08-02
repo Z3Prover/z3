@@ -511,6 +511,99 @@ public:
         std::cout << (zero_lo_ok ? "  OK   " : "  FAIL ")
                   << "|x| >= 0 is a no-op\n";
 
+        // Length bounds on COMPOUND terms and on several variables at once: the shape the
+        // SMT-LIB regex benchmarks use (e.g. `x.y.x in R /\ |x|>0 /\ |y|>0`).  A bound on
+        // a concatenation constrains the term as a whole; bounds on the individual
+        // variables have to be intersected with the split induced by the membership.
+        std::cout << "=== seq_monadic: length bounds on compound terms ===\n";
+        auto check_bounded = [&](char const* name,
+                                 auto&& assert_all, lbool expected) {
+            m_trail.push_scope();
+            assert_all();
+            lbool got = m_mon.check();
+            m_trail.pop_scope(1);
+            bool ok = got == expected;
+            if (!ok) ++m_fail;
+            std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                      << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+        };
+        expr_ref t_xyx(xyx(x, y), m);
+        expr_ref t_xax(xwx(x, "a"), m);
+        // |x.y.x| is odd-free: x.y.x in (ab)* with |x.y.x| = 2 forces x.y.x = "ab"
+        check_bounded("x.y.x in (ab)*, |x.y.x| = 2", [&] {
+            m_mon.add(t_xyx, abS, nullptr);
+            m_mon.add_len(t_xyx, 2, nullptr);
+        }, l_true);
+        check_bounded("x.y.x in (ab)*, |x.y.x| = 3", [&] {
+            m_mon.add(t_xyx, abS, nullptr);
+            m_mon.add_len(t_xyx, 3, nullptr);      // (ab)* has only even lengths
+        }, l_false);
+        // bounds on the individual variables of a compound membership
+        check_bounded("x.a.x in Sigma*, |x| >= 2, |x.a.x| <= 5", [&] {
+            m_mon.add(t_xax, sig2, nullptr);
+            m_mon.add_lo(x, 2, nullptr);
+            m_mon.add_hi(t_xax, 5, nullptr);
+        }, l_true);
+        check_bounded("x.a.x in Sigma*, |x| >= 3, |x.a.x| <= 5", [&] {
+            m_mon.add(t_xax, sig2, nullptr);
+            m_mon.add_lo(x, 3, nullptr);           // |x.a.x| = 2|x|+1 >= 7 > 5
+            m_mon.add_hi(t_xax, 5, nullptr);
+        }, l_false);
+        // two variables bounded independently under one membership
+        check_bounded("x.y.x in (a|b)*, |x| = 1, |y| = 2", [&] {
+            m_mon.add(t_xyx, abStar, nullptr);
+            m_mon.add_len(x, 1, nullptr);
+            m_mon.add_len(y, 2, nullptr);
+        }, l_true);
+        check_bounded("x.y.x in a*, |x| >= 1, y in b*", [&] {
+            m_mon.add(t_xyx, star(a), nullptr);
+            m_mon.add(y, star(b), nullptr);        // y must be both a* and b* -> y = eps
+            m_mon.add_lo(x, 1, nullptr);
+            m_mon.add_lo(y, 1, nullptr);           // ... but |y| >= 1
+        }, l_false);
+        // the bound is the ONLY reason for unsat: without it the membership is satisfiable
+        check_bounded("x in a(aa)* (no bound)", [&] {
+            m_mon.add(x, a_aaS, nullptr);
+        }, l_true);
+        check_bounded("x in a(aa)*, |x| = 2", [&] {
+            m_mon.add(x, a_aaS, nullptr);          // only odd lengths
+            m_mon.add_len(x, 2, nullptr);
+        }, l_false);
+        // upper and lower bounds that cross
+        check_bounded("x in Sigma*, |x| >= 3, |x| <= 2", [&] {
+            m_mon.add(x, sig2, nullptr);
+            m_mon.add_lo(x, 3, nullptr);
+            m_mon.add_hi(x, 2, nullptr);
+        }, l_false);
+
+        // The IPv6 abbreviation benchmark shape: an intersection of a positive "contains"
+        // and a complement, restricted to a character range, over  x.y.x  with both
+        // variables non-empty.  Without the length bounds the answer is trivially sat via
+        // x = y = epsilon, so the bounds are what make the test meaningful.
+        {
+            expr_ref cc(word("::"), m);
+            expr_ref sig_plus(cat(dot(), dotstar()), m);
+            expr_ref has_cc(cat(dotstar(), cat(cc, dotstar())), m);
+            expr_ref two_cc(cat(dotstar(), cat(cc, cat(sig_plus, cat(cc, dotstar())))), m);
+            expr_ref hexcol(star(alt(rng('0', '9'),
+                                 alt(rng('A', 'F'),
+                                 alt(rng('a', 'f'), word(":"))))), m);
+            expr_ref R6(inter(has_cc, inter(comp(two_cc), hexcol)), m);
+            check_bounded("ipv6: x.y.x in R, |x|>=1, |y|>=1", [&] {
+                m_mon.add(t_xyx, R6, nullptr);
+                m_mon.add_lo(x, 1, nullptr);
+                m_mon.add_lo(y, 1, nullptr);
+            }, l_true);
+            // "::" cannot be split across a repeated x without creating a second group,
+            // and hexcol forbids everything outside [0-9A-Fa-f:], so a long x is hopeless
+            check_bounded("ipv6: x.y.x in R, |x|>=1, |y|>=1, |x.y.x|<=2", [&] {
+                m_mon.add(t_xyx, R6, nullptr);
+                m_mon.add_lo(x, 1, nullptr);
+                m_mon.add_lo(y, 1, nullptr);
+                m_mon.add_hi(t_xyx, 2, nullptr);   // needs >= 3 chars to hold "::" plus x twice
+            }, l_false);
+        }
+
         std::cout << "=== seq_monadic: SMT regex end-game ===\n";
         {
             expr_ref_vector assertions(m);
