@@ -121,6 +121,8 @@ namespace smt {
     }
 
     void seq_regex::propagate_accept_legacy(literal lit, expr* s, expr* r) {
+        if (is_string_equality(lit))
+            return;
         expr_ref regex(r, m);
         if (!m.is_value(s)) {
             expr_ref s_approx = get_overapprox_regex(s);
@@ -274,13 +276,6 @@ namespace smt {
             return;
 
         if (coallesce_in_re(lit)) 
-            return;
-
-        // With the monadic end-game enabled, keep contains-style memberships (s in .*P.*)
-        // as regex memberships routed to the monadic solver instead of rewriting them into
-        // a word equation s = f1 ++ P ++ f2, whose word-equation solving blows up on long
-        // concatenations before final_check is ever reached.
-        if (!th.use_monadic_regex() && is_string_equality(lit))
             return;
         
         if (th.use_monadic_regex())
