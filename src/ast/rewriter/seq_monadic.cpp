@@ -396,7 +396,7 @@ lbool seq_monadic::decide_dnf(vector<disjunct> const& dnf) {
         obj_map<expr, expr*> local;               // var -> witness for this disjunct
         for (unsigned gi = 0; gi < groups.size(); ++gi) {
             expr_ref w(m);
-            lbool ne = product_nonempty(groups[gi], m_gen_model ? &w : nullptr);
+            lbool ne = product_nonempty(groups[gi], m_config.m_model ? &w : nullptr);
             if (ne == l_false) { has_empty = true; break; }   // this variable has no value
             if (ne == l_undef) { has_undef = true; continue; }
             if (m_gen_model) { m_pin.push_back(w); local.insert(group_var[gi], w.get()); }
@@ -482,7 +482,7 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
 
 void seq_monadic::minimize_core(membership_vec const& memberships) {
     m_core.reset();
-    if (!m_min_core) {
+    if (!m_config.m_min_core) {
         // No minimization: the core is simply every asserted membership's dependency.
         for (auto const& [term, regex, d] : memberships)
             if (d)

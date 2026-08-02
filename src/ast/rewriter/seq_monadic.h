@@ -94,6 +94,7 @@ private:
         void maybe_reset(unsigned cap) { if (m_cache.size() > cap) reset(); }
     };
 
+    struct config {
     ast_manager&    m;
     seq_rewriter&   m_rw;
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
@@ -105,7 +106,6 @@ private:
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
-    bool            m_gen_model = true;     // whether solve()/check() extract a feasible model
     bool            m_min_core = true;      // whether check() minimizes the unsat core (else: all deps)
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     cofactor_cache  m_cofactors;            // memoizes derivative_cofactors per regex (see class above)
