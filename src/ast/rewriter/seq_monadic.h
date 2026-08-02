@@ -71,6 +71,34 @@ public:
     };
 
 private:
+    // Self-contained memo for derivative_cofactors: maps a regex to its (owned) cofactor
+    // vector and keeps a trail of pinned keys so they stay live for the cache's lifetime.
+    // The memoized cofactors depend only on the regex (and the fixed transition mode), so
+    // the cache is valid across solve()/decide()/check() calls; callers reset it only when
+    // it grows past a size cap (maybe_reset).
+    class cofactor_cache {
+        obj_map<expr, expr_ref_pair_vector*>  m_cache;
+        expr_ref_vector                       m_pin;      // trail of pinned keys
+        guard_set_cache                       m_rp_cache; // cofactor guard -> range predicate; the
+                                                          // guards are owned by the cofactor vectors,
+                                                          // so it is reset together with the cache
+    public:
+        cofactor_cache(ast_manager& m) : m_pin(m), m_rp_cache(m) {}
+        ~cofactor_cache() { reset(); }
+        bool find(expr* r, expr_ref_pair_vector*& v) const { return m_cache.find(r, v); }
+        void insert(expr* r, expr_ref_pair_vector* v) { m_pin.push_back(r); m_cache.insert(r, v); }
+        unsigned size() const { return m_cache.size(); }
+        guard_set_cache& rp_cache() { return m_rp_cache; }
+        void reset() {
+            for (auto const& [k, v] : m_cache)
+                dealloc(v);
+            m_cache.reset();
+            m_pin.reset();
+            m_rp_cache.reset();
+        }
+        void maybe_reset(unsigned cap) { if (m_cache.size() > cap) reset(); }
+    };
+
     ast_manager&    m;
     seq_rewriter&   m_rw;
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
@@ -85,10 +113,7 @@ private:
     bool            m_gen_model = true;     // whether solve()/check() extract a feasible model
     bool            m_min_core = true;      // whether check() minimizes the unsat core (else: all deps)
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
-    obj_map<expr, expr_ref_pair_vector*> m_cofactor_cache;  // memoizes derivative_cofactors per regex
-    guard_set_cache m_rp_cache;         // cofactor guard -> range predicate; the guards
-                                        // are owned by m_cofactor_cache, so both are
-                                        // reset together
+    cofactor_cache  m_cofactors;            // memoizes derivative_cofactors per regex (see class above)
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
@@ -118,13 +143,10 @@ private:
     // Brzozowski derivative of regex `r` by the concrete element `elem`.
     expr_ref der_elem(expr* r, expr* elem);
 
-    // Symbolic transition cofactors in the selected mode.  Memoized per regex `r`: the
-    // returned vector is owned by the cofactor cache and stays valid until the next
-    // top-level solve()/check() (which resets the cache).
+    // Symbolic transition cofactors in the selected mode.  Memoized per regex `r` in
+    // m_cofactors: the returned vector is owned by that cache (see the cofactor_cache
+    // class above for the persistence/reset policy).
     expr_ref_pair_vector const& derivative_cofactors(expr* r);
-
-    // Drop all memoized cofactors and free their owned vectors.
-    void reset_cofactor_cache();
 
     // Live reachable derivative states of R (BFS over cofactor targets + liveness
     // least-fixpoint).  These are the split states q.  Returns false on a cap overrun.
@@ -175,9 +197,9 @@ public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 transition_mode mode = transition_mode::light_antimirov) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_mode(mode), m_pin(rw.m()), m_rp_cache(m) {}
+        m_mode(mode), m_pin(rw.m()), m_cofactors(rw.m()) {}
 
-    ~seq_monadic() { reset_cofactor_cache(); }
+    ~seq_monadic() = default;
 
     transition_mode mode() const { return m_mode; }
 

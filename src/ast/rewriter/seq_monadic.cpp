@@ -29,8 +29,6 @@ TODOs:
 - take into account shape of terms to prune the search space (e.g., if the term is xax, then retain the effect of 
   intersecting with .*a.*).
 - use expr_ref in component and replace svector<component> by vector<component>, save on m_pin.
-- don't tear down cofactor cache between calls, but use a self-contained set of pinned regexes that don't get reset
-  between calls.  This will allow for a more efficient caching of cofactor computations. Reset the cache upon bloat.
 - support units of non-values (element variables).
   Model construction would assign values to the elements.
 - make unsat core tracking less naive by tracking dependencies at a finer grain.
@@ -64,23 +62,15 @@ expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
 
 expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
     expr_ref_pair_vector* v = nullptr;
-    if (m_cofactor_cache.find(r, v))
+    if (m_cofactors.find(r, v))
         return *v;
     v = alloc(expr_ref_pair_vector, m);
     if (m_mode == transition_mode::light_antimirov)
         m_rw.light_ant_derivative_cofactors(r, *v);
     else
         m_rw.brz_derivative_cofactors(r, *v);
-    m_pin.push_back(r);                    // keep the key alive for the cache's lifetime
-    m_cofactor_cache.insert(r, v);
+    m_cofactors.insert(r, v);              // takes ownership of v and pins the key r
     return *v;
-}
-
-void seq_monadic::reset_cofactor_cache() {
-    for (auto const& [k, v] : m_cofactor_cache)
-        dealloc(v);
-    m_cofactor_cache.reset();
-    m_rp_cache.reset();                      // the guards live in the cofactor vectors
 }
 
 bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {
@@ -253,7 +243,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                     if (bail) return;
                 }
             };
-        guard_set top(m, u(), m_elem_sort, var0, &m_rp_cache);
+        guard_set top(m, u(), m_elem_sort, var0, &m_cofactors.rp_cache());
         rec(0, top);
         if (bail)
             return l_undef;
@@ -356,7 +346,7 @@ void seq_monadic::simplify_dnf(vector<disjunct>& dnf) {
 
 lbool seq_monadic::solve(expr* term, expr* R) {
     m_pin.reset();
-    reset_cofactor_cache();
+    m_cofactors.maybe_reset(1u << 16);
     m_budget = 200000;                            // global work budget: bail fast on DNF explosion
     m_giveup = false;
     vector<disjunct> dnf;
@@ -453,7 +443,7 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     if (memberships.empty())
         return l_true;                            // empty conjunction is vacuously true
     m_pin.reset();
-    reset_cofactor_cache();
+    m_cofactors.maybe_reset(1u << 16);
     m_budget = 200000;
     m_giveup = false;
     // Multiply the per-membership DNFs:  combined = { d ++ e : d in combined, e in dnf_i }.
