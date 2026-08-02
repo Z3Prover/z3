@@ -20,7 +20,7 @@ Author:
 #include "ast/bv_decl_plugin.h"
 
 guard_set::guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0,
-                     guard_set_cache* cache)
+                     guard_set::cache* cache)
     : m(_m), u(_u), m_sort(elem_sort), m_v0(v0),
       m_is_char(_u.is_char(elem_sort)), m_rp_cache(cache),
       m_rp(_u.max_char()), m_guard(_m) {
@@ -28,7 +28,7 @@ guard_set::guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0,
     else           m_guard = m.mk_true();
 }
 
-void guard_set_cache::reset() {
+void guard_set::cache::reset() {
     for (auto const& [k, v] : m_cache) dealloc(v);
     m_cache.reset();
     dealloc(m_fresh);
@@ -36,12 +36,12 @@ void guard_set_cache::reset() {
     m_fresh = nullptr;
 }
 
-seq::range_predicate* guard_set_cache::fresh(unsigned max_char) {
+seq::range_predicate* guard_set::cache::fresh(unsigned max_char) {
     if (!m_fresh) m_fresh = alloc(seq::range_predicate, max_char);
     return m_fresh;
 }
 
-void guard_set_cache::insert(expr* g, seq::range_predicate* p) {
+void guard_set::cache::insert(expr* g, seq::range_predicate* p) {
     if (p) m_fresh = nullptr;  // ownership transferred to map
     m_trail.push_back(g);
     m_cache.insert(g, p);
