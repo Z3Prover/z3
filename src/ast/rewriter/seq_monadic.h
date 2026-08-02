@@ -113,7 +113,6 @@ private:
     unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
     config          m_config;
-    statistics      m_stats;
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     cofactor_cache  m_cofactors;            // memoizes derivative_cofactors per regex (see class above)
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
@@ -205,8 +204,6 @@ public:
     ~seq_monadic() = default;
 
     transition_mode mode() const { return m_config.m_mode; }
-
-    void collect_statistics(::statistics& st) const;
 
     // Enable/disable model generation (default: enabled).  When enabled, a successful
     // solve()/check() extracts a feasible model retrievable via get_model().
