@@ -149,7 +149,8 @@ lbool guard_set::generic_eval(expr_ref* witness) const {
 }
 
 void guard_set::conjoin(expr* g) {
-    if (!m_ok) return;
+    if (!m_ok) 
+        return;
     if (!m_is_char) {
         m_guard = m.mk_and(m_guard, g);
         return;
@@ -161,20 +162,19 @@ void guard_set::conjoin(expr* g) {
         seq::range_predicate* s = nullptr;
         if (!m_rp_cache->find(g, s)) {
             s = m_rp_cache->fresh(u.max_char());
-            if (!seq::guard_to_range_predicate(u, m_v0, g, *s)) {
-                m_rp_cache->insert(g, nullptr);   // recycles s into m_fresh
-                s = nullptr;
-            } else {
-                m_rp_cache->insert(g, s);         // cache takes ownership
-            }
+            if (!seq::guard_to_range_predicate(u, m_v0, g, *s)) 
+                s = nullptr; // recycles s into m_fresh
+            m_rp_cache->insert(g, s);   
         }
         if (!s) { m_ok = false; return; }
         m_rp = m_rp & *s;
         return;
     }
     seq::range_predicate s(u.max_char());
-    if (!seq::guard_to_range_predicate(u, m_v0, g, s)) { m_ok = false; return; }
-    m_rp = m_rp & s;
+    if (seq::guard_to_range_predicate(u, m_v0, g, s)) 
+        m_rp = m_rp & s;
+    else 
+        m_ok = false;     
 }
 
 lbool guard_set::eval(expr_ref* witness) const {
