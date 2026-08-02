@@ -38,10 +38,12 @@ Author:
 // Lifetime contract: expr* keys are assumed to outlive the cache (their lifetime is
 // managed by the caller -- e.g. by the cofactor_cache that owns the guard expressions).
 class guard_set_cache {
+    ast_manager& m;
+    expr_ref_vector m_trail;
     obj_map<expr, seq::range_predicate*> m_cache;
     seq::range_predicate*                m_fresh = nullptr;
 public:
-    guard_set_cache()  = default;
+    guard_set_cache(ast_manager& m): m(m), m_trail(m) {}
     ~guard_set_cache() { reset(); }
     void reset();
     // Returns true if g is in the cache; val is set to the cached entry
