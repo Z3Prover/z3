@@ -80,7 +80,7 @@ void seq_monadic::reset_cofactor_cache() {
     for (auto const& [k, v] : m_cofactor_cache)
         dealloc(v);
     m_cofactor_cache.reset();
-    guard_set::dealloc_cache(m_rp_cache);   // the guards live in the cofactor vectors
+    m_rp_cache.reset();                      // the guards live in the cofactor vectors
 }
 
 bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {

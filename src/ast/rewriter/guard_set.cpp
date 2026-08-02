@@ -20,7 +20,7 @@ Author:
 #include "ast/bv_decl_plugin.h"
 
 guard_set::guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0,
-                     rp_cache* cache)
+                     guard_set_cache* cache)
     : m(_m), u(_u), m_sort(elem_sort), m_v0(v0),
       m_is_char(_u.is_char(elem_sort)), m_rp_cache(cache),
       m_rp(_u.max_char()), m_guard(_m) {
@@ -28,10 +28,21 @@ guard_set::guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0,
     else           m_guard = m.mk_true();
 }
 
-void guard_set::dealloc_cache(rp_cache& c) {
-    for (auto const& [k, v] : c)
-        dealloc(v);
-    c.reset();
+void guard_set_cache::reset() {
+    for (auto const& [k, v] : m_cache) dealloc(v);
+    m_cache.reset();
+    dealloc(m_fresh);
+    m_fresh = nullptr;
+}
+
+seq::range_predicate* guard_set_cache::fresh(unsigned max_char) {
+    if (!m_fresh) m_fresh = alloc(seq::range_predicate, max_char);
+    return m_fresh;
+}
+
+void guard_set_cache::insert(expr* g, seq::range_predicate* p) {
+    if (p) m_fresh = nullptr;  // ownership transferred to map
+    m_cache.insert(g, p);
 }
 
 void guard_set::collect_consts(expr* g, ptr_vector<expr>& out) const {
@@ -149,12 +160,13 @@ void guard_set::conjoin(expr* g) {
         // branch, so translate each one once.
         seq::range_predicate* s = nullptr;
         if (!m_rp_cache->find(g, s)) {
-            s = alloc(seq::range_predicate, u.max_char());
+            s = m_rp_cache->fresh(u.max_char());
             if (!seq::guard_to_range_predicate(u, m_v0, g, *s)) {
-                dealloc(s);
+                m_rp_cache->insert(g, nullptr);   // recycles s into m_fresh
                 s = nullptr;
+            } else {
+                m_rp_cache->insert(g, s);         // cache takes ownership
             }
-            m_rp_cache->insert(g, s);
         }
         if (!s) { m_ok = false; return; }
         m_rp = m_rp & *s;

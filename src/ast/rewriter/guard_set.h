@@ -30,22 +30,40 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_range_collapse.h"
 
-class guard_set {
+// Cache mapping guard expressions to their range predicates.
+// A null value in the map records that the guard is unsupported (avoiding retranslation).
+// m_fresh recycles the last allocated range_predicate so failed translations do not
+// incur an alloc/dealloc cycle on every miss.
+//
+// Lifetime contract: expr* keys are assumed to outlive the cache (their lifetime is
+// managed by the caller -- e.g. by the cofactor_cache that owns the guard expressions).
+class guard_set_cache {
+    obj_map<expr, seq::range_predicate*> m_cache;
+    seq::range_predicate*                m_fresh = nullptr;
 public:
-    // Cache of guard expression -> its range predicate (null value: unsupported guard).
-    // Only meaningful for the character sort, and only valid while every guard_set sharing
-    // it uses the same element variable v0 (v0 is hash-consed per element sort).
-    typedef obj_map<expr, seq::range_predicate*> rp_cache;
-    static void dealloc_cache(rp_cache& c);
+    guard_set_cache()  = default;
+    ~guard_set_cache() { reset(); }
+    void reset();
+    // Returns true if g is in the cache; val is set to the cached entry
+    // (val may be null = unsupported guard).
+    bool find(expr* g, seq::range_predicate*& val) const { return m_cache.find(g, val); }
+    // Returns a range_predicate* ready for guard_to_range_predicate to write into.
+    // Reuses the previously recycled object when available; otherwise allocates one.
+    seq::range_predicate* fresh(unsigned max_char);
+    // Records g -> p.  If p is non-null (translation succeeded), ownership is transferred
+    // to the cache and m_fresh is cleared.  If p is null (unsupported), the object
+    // previously returned by fresh() is retained in m_fresh for the next translation.
+    void insert(expr* g, seq::range_predicate* p);
+};
 
-private:
+class guard_set {
     ast_manager&         m;
     seq_util&            u;
     sort*                m_sort;
     expr*                m_v0;
     bool                 m_is_char;
     bool                 m_ok = true;      // false: an unsupported guard was conjoined
-    rp_cache*            m_rp_cache = nullptr;
+    guard_set_cache*     m_rp_cache = nullptr;
     seq::range_predicate m_rp;             // char representation
     expr_ref             m_guard;          // generic representation (conjunction over v0)
 
@@ -64,7 +82,7 @@ private:
 
 public:
     guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0,
-              rp_cache* cache = nullptr);
+              guard_set_cache* cache = nullptr);
 
     bool ok() const { return m_ok; }
 

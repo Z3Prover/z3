@@ -86,9 +86,9 @@ private:
     bool            m_min_core = true;      // whether check() minimizes the unsat core (else: all deps)
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     obj_map<expr, expr_ref_pair_vector*> m_cofactor_cache;  // memoizes derivative_cofactors per regex
-    guard_set::rp_cache m_rp_cache;         // cofactor guard -> range predicate; the guards
-                                            // are owned by m_cofactor_cache, so both are
-                                            // reset together
+    guard_set_cache m_rp_cache;         // cofactor guard -> range predicate; the guards
+                                        // are owned by m_cofactor_cache, so both are
+                                        // reset together
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
