@@ -275,8 +275,12 @@ namespace smt {
 
         if (coallesce_in_re(lit)) 
             return;
-        
-        if (is_string_equality(lit)) 
+
+        // With the monadic end-game enabled, keep contains-style memberships (s in .*P.*)
+        // as regex memberships routed to the monadic solver instead of rewriting them into
+        // a word equation s = f1 ++ P ++ f2, whose word-equation solving blows up on long
+        // concatenations before final_check is ever reached.
+        if (!th.use_monadic_regex() && is_string_equality(lit))
             return;
         
         if (th.use_monadic_regex())
