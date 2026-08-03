@@ -131,76 +131,6 @@ expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
     return m_rw.get_derive().get_cached_cofactors(m_config.m_mode, r);
 }
 
-bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {
-    obj_map<expr, unsigned> id;
-    expr_ref_vector states(m);
-    vector<svector<unsigned>> succ;
-    bool_vector maybe_null;
-    auto intern = [&](expr* s) -> unsigned {
-        unsigned k;
-        if (id.find(s, k)) return k;
-        k = states.size();
-        id.insert(s, k);
-        states.push_back(s);
-        succ.push_back(svector<unsigned>());
-        maybe_null.push_back(nullable(s) != l_false);   // unknown nullability => keep (conservative)
-        return k;
-    };
-    intern(R);
-    const unsigned STATE_CAP = 1u << 12;
-    for (unsigned i = 0; i < states.size(); ++i) {
-        if (states.size() > STATE_CAP) {
-            m_stats.inc_bail(bail_reason::state_cap);
-            return false;
-        }
-        if (!m.inc()) {
-            m_stats.inc_bail(bail_reason::resource);
-            return false;
-        }
-        expr_ref_pair_vector const& cof = derivative_cofactors(states.get(i));
-        for (auto const& [g, t] : cof) {
-            if (re().is_empty(t)) continue;
-            unsigned k = intern(t);           // MUST precede succ[i] indexing: intern may
-            succ[i].push_back(k);             // grow (realloc) succ, invalidating succ[i]&
-        }
-    }
-    unsigned n = states.size();
-    bool_vector live;
-    live.resize(n, false);
-    for (unsigned i = 0; i < n; ++i)
-        live[i] = maybe_null[i];
-    for (bool ch = true; ch; ) {
-        ch = false;
-        for (unsigned i = 0; i < n; ++i)
-            if (!live[i])
-                for (unsigned j : succ[i])
-                    if (live[j]) { live[i] = true; ch = true; break; }
-    }
-    for (unsigned i = 0; i < n; ++i)
-        if (live[i]) { out.push_back(states.get(i)); m_pin.push_back(states.get(i)); }
-    return true;
-}
-
-expr_ref_vector const* seq_monadic::live_states_cached(expr* R) {
-    expr_ref_vector* v = nullptr;
-    if (m_live_cache.find(R, v))
-        return v;                          // may be null: previously gave up on R
-    v = alloc(expr_ref_vector, m);
-    if (!live_states(R, *v)) {
-        dealloc(v);
-        v = nullptr;
-    }
-    m_pin.push_back(R);                    // keep the key alive for the cache's lifetime
-    m_live_cache.insert(R, v);
-    return v;
-}
-
-void seq_monadic::reset_live_cache() {
-    for (auto const& [k, v] : m_live_cache)
-        dealloc(v);
-    m_live_cache.reset();
-}
-
 lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* witness_word) {
     unsigned n = comps.size();
     if (n == 0) {
@@ -417,7 +347,7 @@ void seq_monadic::reset_search() {
     m_der_cache.reset();
     m_nullable_cache.reset();
     m_undef_vars = 0;
-    reset_live_cache();
+    m_live_states.reset();
 }
 
 bool seq_monadic::prepare(membership_vec const& memberships) {
@@ -550,11 +480,15 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
     if (last_atom)
         targets.push_back(nullptr);
     else {
-        expr_ref_vector const* Q = live_states_cached(R);
-        if (!Q)
-            return l_undef;
-        for (expr* q : *Q)
+        auto live = m_live_states.reachable_live(R);
+        for (expr* q : live)
             targets.push_back(q);
+        if (live.failed()) {
+            m_stats.inc_bail(
+                live.failure_reason() == seq::live_states::failure::state_cap ?
+                bail_reason::state_cap : bail_reason::resource);
+            return l_undef;
+        }
     }
 
     unsigned vi = var_index(a.var.get());
