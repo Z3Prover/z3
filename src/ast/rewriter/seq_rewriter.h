@@ -37,6 +37,7 @@ inline std::ostream& operator<<(std::ostream& out, expr_ref_pair_vector const& e
     return out;
 }
 
+#if 0
 class sym_expr {
     enum ty {
         t_char,
@@ -80,6 +81,7 @@ public:
     void inc_ref(sym_expr* s) { if (s) s->inc_ref(); }
     void dec_ref(sym_expr* s) { if (s) s->dec_ref(); }
 };
+#endif
 
 /**
    \brief Cheap rewrite rules for seq constraints
