@@ -1733,11 +1733,30 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             return i1.complement();
         case OP_RE_LOOP:
             i1 = get_info_rec(e->get_arg(0));
-            if (e->get_decl()->get_num_parameters() >= 1)
-                lower_bound = e->get_decl()->get_parameter(0).get_int();
-            if (e->get_decl()->get_num_parameters() == 2)
-                upper_bound = e->get_decl()->get_parameter(1).get_int();
-            return i1.loop(lower_bound, upper_bound);
+            if (e->get_num_args() == 1) {
+                if (e->get_decl()->get_num_parameters() >= 1)
+                    lower_bound = e->get_decl()->get_parameter(0).get_int();
+                if (e->get_decl()->get_num_parameters() == 2)
+                    upper_bound = e->get_decl()->get_parameter(1).get_int();
+                return i1.loop(lower_bound, upper_bound);
+            }
+            else {
+                // legacy form carrying the bounds as arguments:
+                // (re.loop r lo) and (re.loop r lo hi)
+                arith_util autil(m);
+                rational n;
+                if (e->get_num_args() != 2 && e->get_num_args() != 3)
+                    return unknown_info;
+                if (!autil.is_numeral(e->get_arg(1), n) || !n.is_unsigned())
+                    return unknown_info;
+                lower_bound = n.get_unsigned();
+                if (e->get_num_args() == 3) {
+                    if (!autil.is_numeral(e->get_arg(2), n) || !n.is_unsigned())
+                        return unknown_info;
+                    upper_bound = n.get_unsigned();
+                }
+                return i1.loop(lower_bound, upper_bound);
+            }
         case OP_RE_DIFF:
             if (e->get_num_args() != 2)
                 return unknown_info;

@@ -16,6 +16,7 @@ Tests:
  18. Solver: (str.in_re x (re.range x x)) unsat when len(x)=2
  19. Solver: inverted symbolic bounds make membership unsatisfiable
  20. Solver: contradictory constant lexical bounds are unsatisfiable
+ 22. re.loop with bounds as arguments agrees with the indexed form
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -294,6 +295,31 @@ void tst_seq_rewriter() {
             std::cout << "constant lexical bounds unsat: " << res << "\n";
             ENSURE(res == l_false);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // 22. re.loop with the bounds given as arguments must be interpreted the
+    //     same as the indexed form.  get_info used to read the bounds only
+    //     from the decl parameters, which the argument form does not carry,
+    //     so it silently fell back to lo = 0 and reported (ab){1,3} as
+    //     nullable with min_length 0.  seq_rewriter normalizes the argument
+    //     form, so this is only observable on paths that bypass it.
+    // -----------------------------------------------------------------------
+    {
+        arith_util a_util(m);
+        expr_ref ab(su.re.mk_to_re(su.str.mk_string("ab")), m);
+        expr_ref indexed(su.re.mk_loop_proper(ab, 1, 3), m);
+        expr* args[3] = { ab.get(), a_util.mk_int(1), a_util.mk_int(3) };
+        expr_ref as_args(m.mk_app(su.get_family_id(), OP_RE_LOOP, 0, nullptr, 3, args), m);
+
+        auto i1 = su.re.get_info(indexed);
+        auto i2 = su.re.get_info(as_args);
+        std::cout << "re.loop indexed:   " << mk_pp(indexed, m)
+                  << " nullable=" << i1.nullable << " min_length=" << i1.min_length << "\n";
+        std::cout << "re.loop arguments: " << mk_pp(as_args, m)
+                  << " nullable=" << i2.nullable << " min_length=" << i2.min_length << "\n";
+        ENSURE(i1.nullable == l_false && i1.min_length == 2);
+        ENSURE(i2.nullable == l_false && i2.min_length == 2);
     }
 
     std::cout << "tst_seq_rewriter: all tests passed\n";
