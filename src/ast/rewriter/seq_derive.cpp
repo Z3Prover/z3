@@ -288,6 +288,22 @@ namespace seq {
             return mk_deriv_concat(d1, tail);
         }
 
+        // Legacy form where the loop bounds are arguments rather than
+        // decl parameters: (re.loop r lo hi) and (re.loop r lo).  The parser
+        // accepts these and seq_rewriter normalizes them, but unrewritten
+        // terms reach here directly.  Rewrite to the parameterized form.
+        if (re().is_loop(r)) {
+            expr* lo_e = nullptr, * hi_e = nullptr;
+            rational nlo, nhi;
+            if (re().is_loop(r, r1, lo_e, hi_e) &&
+                m_autil.is_numeral(lo_e, nlo) && nlo.is_unsigned() &&
+                m_autil.is_numeral(hi_e, nhi) && nhi.is_unsigned())
+                return derive_rec(re().mk_loop_proper(r1, nlo.get_unsigned(), nhi.get_unsigned()));
+            if (re().is_loop(r, r1, lo_e) &&
+                m_autil.is_numeral(lo_e, nlo) && nlo.is_unsigned())
+                return derive_rec(re().mk_loop(r1, nlo.get_unsigned()));
+        }
+
         // δ(r1 \ r2) = δ(r1) ∩ ~δ(r2)
         if (re().is_diff(r, r1, r2)) {
             expr_ref d1 = derive_rec(r1);
@@ -1565,6 +1581,67 @@ namespace seq {
         // transition regex. get_cofactors uses the SAME m_ele set above,
         // so the (:var 0) conditions in d are matched and pruned.
         get_cofactors(m_ele, d, result);
+    }
+
+    void derive::light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+        expr_ref_pair_vector brz(m);
+        derivative_cofactors(r, brz);
+
+        obj_map<expr, unsigned> target_index;
+        expr_ref_vector guards(m);
+        expr_ref_vector targets(m);
+
+        auto add = [&](expr* guard, expr* target) {
+            unsigned index = 0;
+            if (target_index.find(target, index)) {
+                expr_ref merged(m);
+                m_br.mk_or(guards.get(index), guard, merged);
+                guards.set(index, merged);
+            }
+            else {
+                target_index.insert(target, targets.size());
+                targets.push_back(target);
+                guards.push_back(guard);
+            }
+        };
+
+        for (auto const& [guard, target] : brz) {
+            ptr_vector<expr> pending;
+            pending.push_back(target);
+            while (!pending.empty()) {
+                expr* t = pending.back();
+                pending.pop_back();
+                expr* left = nullptr, * right = nullptr;
+                if (re().is_union(t, left, right)) {
+                    pending.push_back(right);
+                    pending.push_back(left);
+                }
+                else if (re().is_concat(t, left, right) && re().is_union(left)) {
+                    ptr_vector<expr> heads;
+                    heads.push_back(left);
+                    while (!heads.empty()) {
+                        expr* head = heads.back();
+                        heads.pop_back();
+                        expr* a = nullptr, * b = nullptr;
+                        if (re().is_union(head, a, b)) {
+                            heads.push_back(b);
+                            heads.push_back(a);
+                        }
+                        else {
+                            expr_ref split = m_re.mk_regex_concat(head, right);
+                            add(guard, split);
+                        }
+                    }
+                }
+                else {
+                    add(guard, t);
+                }
+            }
+        }
+
+        result.reset();
+        for (unsigned i = 0; i < targets.size(); ++i)
+            result.push_back(guards.get(i), targets.get(i));
     }
 
 }

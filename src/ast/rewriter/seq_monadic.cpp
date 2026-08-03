@@ -40,6 +40,11 @@ TODOs:
   explored and we can check the variable intersection membership constraints if the new
   expansion is feasible. Constant characters are consumed at the same time to also prune
   the choice.
+- separate out "live-state" and enumerator over reachable live states:
+  - make it share live states between callers.
+  - make it expose an iterator instead of using vectors of live states to allow on-demand expansion of live states.
+  - make use of DFS exploration of derivatives to extract live states without visiting all states up front.
+  - use it in seq_regex legacy mode that also has this notion.
 
 
 
