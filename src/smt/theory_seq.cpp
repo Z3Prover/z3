@@ -1954,6 +1954,7 @@ std::ostream& theory_seq::display_deps(std::ostream& out, dependency* dep) const
 }
 
 void theory_seq::collect_statistics(::statistics & st) const {
+    m_regex.collect_statistics(st);
     st.update("seq num splits", m_stats.m_num_splits);
     st.update("seq num reductions", m_stats.m_num_reductions);
     st.update("seq length coherence", m_stats.m_check_length_coherence);

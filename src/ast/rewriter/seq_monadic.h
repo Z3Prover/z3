@@ -70,6 +70,7 @@ Author:
 #include "util/obj_pair_hashtable.h"
 #include "util/dependency.h"
 #include "util/trail.h"
+#include "util/statistics.h"
 #include <utility>
 #include <tuple>
 #include <map>
@@ -115,6 +116,18 @@ private:
         config(transition_mode mode) : m_mode(mode) {}
     };
 
+    enum class bail_reason { unsupported, state_cap, dnf_cap, budget, resource, nullability, guard, num_reasons };
+
+    struct statistics {
+        unsigned m_cofactor_calls = 0;
+        unsigned m_states = 0;
+        unsigned m_bails[static_cast<unsigned>(bail_reason::num_reasons)] = {};
+
+        void inc_bail(bail_reason reason) {
+            ++m_bails[static_cast<unsigned>(reason)];
+        }
+    };
+
     ast_manager&    m;
     seq_rewriter&   m_rw;
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
@@ -126,6 +139,7 @@ private:
     unsigned        m_budget = 0;           // global work budget (search nodes + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
     config          m_config;
+    statistics      m_stats;
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     cofactor_cache  m_cofactors;            // memoizes derivative_cofactors per regex (see class above)
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
@@ -265,6 +279,8 @@ public:
         m_regexes(rw.m()) {}
 
     ~seq_monadic() { reset_live_cache(); }
+
+    void collect_statistics(::statistics &st) const;
 
     transition_mode mode() const { return m_config.m_mode; }
 

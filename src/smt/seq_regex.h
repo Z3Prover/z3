@@ -261,6 +261,7 @@ namespace smt {
         bool can_propagate() const { return false; }
         bool propagate() const { return false; }
         final_check_status final_check();
+        void collect_statistics(::statistics& st) const { m_monadic.collect_statistics(st); }
 
         void propagate_in_re(literal lit);
 

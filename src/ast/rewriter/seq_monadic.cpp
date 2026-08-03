@@ -92,9 +92,11 @@ lbool seq_monadic::nullable(expr* r) {
 }
 
 expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
+    ++m_stats.m_cofactor_calls;
     expr_ref_pair_vector* v = nullptr;
     if (m_cofactors.find(r, v))
         return *v;
+    ++m_stats.m_states;
     v = alloc(expr_ref_pair_vector, m);
     if (m_config.m_mode == transition_mode::light_antimirov)
         m_rw.light_ant_derivative_cofactors(r, *v);
@@ -122,7 +124,14 @@ bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {
     intern(R);
     const unsigned STATE_CAP = 1u << 12;
     for (unsigned i = 0; i < states.size(); ++i) {
-        if (states.size() > STATE_CAP || !m.inc()) return false;
+        if (states.size() > STATE_CAP) {
+            m_stats.inc_bail(bail_reason::state_cap);
+            return false;
+        }
+        if (!m.inc()) {
+            m_stats.inc_bail(bail_reason::resource);
+            return false;
+        }
         expr_ref_pair_vector const& cof = derivative_cofactors(states.get(i));
         for (auto const& [g, t] : cof) {
             if (re().is_empty(t)) continue;
@@ -280,7 +289,11 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                 guard_set nacc = acc;
                 nacc.conjoin(g);
                 lbool ne = nacc.eval(nullptr);
-                if (ne == l_undef) { bail = true; return; }   // non-range / unknown guard
+                if (ne == l_undef) {
+                    m_stats.inc_bail(bail_reason::guard);
+                    bail = true;
+                    return;
+                }
                 if (ne == l_false) continue;                  // empty joint guard: prune
                 cur[i] = t;
                 rec(i + 1, nacc);
@@ -289,7 +302,16 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
         };
 
     while (!work.empty()) {
-        if (m_budget == 0 || !m.inc()) { m_giveup = true; return l_undef; }
+        if (m_budget == 0) {
+            m_stats.inc_bail(bail_reason::budget);
+            m_giveup = true;
+            return l_undef;
+        }
+        if (!m.inc()) {
+            m_stats.inc_bail(bail_reason::resource);
+            m_giveup = true;
+            return l_undef;
+        }
         --m_budget;
         for (unsigned i = n; i-- > 0; ) {
             st[i] = work.back();
@@ -300,8 +322,10 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                 *witness_word = reconstruct(fill_key(st));
             return l_true;
         }
-        if (undecided)
+        if (undecided) {
+            m_stats.inc_bail(bail_reason::nullability);
             return l_undef;
+        }
 
         for (unsigned i = 0; i < n; ++i)
             branches[i] = &derivative_cofactors(st[i]);
@@ -373,16 +397,24 @@ void seq_monadic::reset_search() {
 bool seq_monadic::prepare(membership_vec const& memberships) {
     reset_search();
     for (auto const& [term, regex, d] : memberships) {
-        if (!u().is_re(regex, m_seq_sort))
+        if (!u().is_re(regex, m_seq_sort)) {
+            m_stats.inc_bail(bail_reason::unsupported);
             return false;
-        if (!u().is_seq(m_seq_sort, m_elem_sort))
+        }
+        if (!u().is_seq(m_seq_sort, m_elem_sort)) {
+            m_stats.inc_bail(bail_reason::unsupported);
             return false;
+        }
         vector<atom> atoms;
         expr* the_var = nullptr;
-        if (!parse_term(term, atoms, the_var))
+        if (!parse_term(term, atoms, the_var)) {
+            m_stats.inc_bail(bail_reason::unsupported);
             return false;
-        if (!the_var)
+        }
+        if (!the_var) {
+            m_stats.inc_bail(bail_reason::unsupported);
             return false;                         // no variable: ground membership, not our case
+        }
         m_regexes.push_back(regex);
         m_atoms.push_back(atoms);
         m_pin.push_back(regex);
@@ -460,7 +492,13 @@ lbool seq_monadic::dfs_membership(unsigned mi) {
 lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
     if (m_giveup)
         return l_undef;                           // unwind the whole search, don't keep branching
-    if (m_budget == 0 || !m.inc()) {
+    if (m_budget == 0) {
+        m_stats.inc_bail(bail_reason::budget);
+        m_giveup = true;
+        return l_undef;
+    }
+    if (!m.inc()) {
+        m_stats.inc_bail(bail_reason::resource);
         m_giveup = true;
         return l_undef;
     }
@@ -472,6 +510,7 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
             return dfs_membership(mi + 1);
         if (nb == l_false)
             return l_false;
+        m_stats.inc_bail(bail_reason::nullability);
         return l_undef;                           // undecidable nullability
     }
     atom const& a = atoms[i];
@@ -621,4 +660,20 @@ lbool seq_monadic::check() {
     if (r == l_false)
         minimize_core(m_memberships);
     return r;
+}
+
+void seq_monadic::collect_statistics(::statistics& st) const {
+    static char const* const bail_names[] = {
+        "seq monadic bail unsupported",
+        "seq monadic bail state cap",
+        "seq monadic bail dnf cap",
+        "seq monadic bail budget",
+        "seq monadic bail resource",
+        "seq monadic bail nullability",
+        "seq monadic bail guard"
+    };
+    st.update("seq monadic cofactor calls", m_stats.m_cofactor_calls);
+    st.update("seq monadic states", m_stats.m_states);
+    for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i)
+        st.update(bail_names[i], m_stats.m_bails[i]);
 }
