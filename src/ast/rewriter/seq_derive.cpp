@@ -1570,6 +1570,21 @@ namespace seq {
         get_cofactors_rec(r, result);
     }
 
+    #if 0
+    expr_ref_pair_vector const &derive::get_cached_cofactors(transition_mode mode, expr *ele, expr *r) {
+        expr_ref_pair_vector *v = nullptr;
+        if (m_cofactor_cache.find(r, v))
+            return *v;
+        v = alloc(expr_ref_pair_vector, m);
+        if (mode == transition_mode::light_antimirov)
+            light_ant_derivative_cofactors(r, *v);
+        else
+            brz_derivative_cofactors(r, *v);
+        m_cofactor_cache.insert(r, v);  // takes ownership of v and pins the key r
+        return *v;
+    }
+    #endif
+
     void derive::derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
         // Compute the symbolic derivative wrt the canonical variable
         // (:var 0); operator() sets m_ele to that variable.  We use the

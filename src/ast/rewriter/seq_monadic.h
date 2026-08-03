@@ -225,7 +225,7 @@ private:
     lbool product_nonempty(svector<component> const& comps, expr_ref* witness_word = nullptr);
 
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
-    bool parse_term(expr* term, vector<atom>& atoms, expr*& the_var);
+    bool parse_term(expr* term, vector<atom>& atoms);
 
     // Drop all search state accumulated by the previous decide()/solve().
     void reset_search();

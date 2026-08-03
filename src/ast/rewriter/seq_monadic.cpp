@@ -22,11 +22,6 @@ Abstract:
 
 TODOs:
 - create a validation harness: expose certificates for correctness that can be checked.
-- consider using expr_ref as alternative to pinned expressions
-- revisit parse_term and "the_var" condition. A sequence of units should be allowed 
-  even though a good solver will apply derivatives directly.
-- optimize for cases where the same term is member of multiple regex constraints.
-  - coallesce the membership constraints into a single regex membership constraint of the intersection of regexes.
 - take into account shape of terms to prune the search space (e.g., if the term is xax, then retain the effect of 
   intersecting with .*a.*).
 - connect to semi-linear pruning, such as xx in (ab)*a is unsat due to parity 
@@ -352,9 +347,9 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     return l_false;
 }
 
-bool seq_monadic::parse_term(expr* t, vector<atom>& atoms, expr*& the_var) {
+bool seq_monadic::parse_term(expr* t, vector<atom>& atoms) {
     if (u().str.is_concat(t))
-        return all_of(*to_app(t), [&](expr* arg) { return parse_term(arg, atoms, the_var); });
+        return all_of(*to_app(t), [&](expr* arg) { return parse_term(arg, atoms); });
     if (u().str.is_empty(t))
         return true;                              // epsilon: contributes nothing
     zstring s;
@@ -372,7 +367,6 @@ bool seq_monadic::parse_term(expr* t, vector<atom>& atoms, expr*& the_var) {
     }
     // uninterpreted constant of sequence sort => a sequence variable
     if (is_var(t)) {
-        the_var = t;                              // mark that at least one variable occurs
         atoms.push_back(atom(m, true, t, nullptr));
         return true;
     }
@@ -416,14 +410,9 @@ bool seq_monadic::prepare(membership_vec const& memberships) {
             return false;
         }
         vector<atom> atoms;
-        expr* the_var = nullptr;
-        if (!parse_term(term, atoms, the_var)) {
+        if (!parse_term(term, atoms)) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
-        }
-        if (!the_var) {
-            m_stats.inc_bail(bail_reason::unsupported);
-            return false;                         // no variable: ground membership, not our case
         }
         m_regexes.push_back(regex);
         m_atoms.push_back(atoms);
