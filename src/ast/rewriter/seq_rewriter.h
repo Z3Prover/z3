@@ -480,7 +480,9 @@ public:
     form (s1 | ... | sn) or (s1 | ... | sn) . tail. Cofactors with the same
     resulting target are merged by disjoining their guards.
     */
-    void light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result);
+    void light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+        m_derive.light_ant_derivative_cofactors(r, result);
+    }
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
