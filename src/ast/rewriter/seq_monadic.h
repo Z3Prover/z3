@@ -112,6 +112,9 @@ private:
         transition_mode m_mode;
         bool m_model = true;  // whether solve()/check() extract a feasible model
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
+        bool m_state_search = true;  // use the state-based search driver (select next
+                                     // membership by the last-expanded / most-frequent
+                                     // head variable) instead of the positional DFS
 
         config(transition_mode mode) : m_mode(mode) {}
     };
@@ -195,6 +198,18 @@ private:
     std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
     obj_map<expr, expr_ref_vector*> m_live_cache;  // regex -> live split states (null = gave up)
 
+    // ---- state-based search driver (see the "search state" note in the .cpp) ----
+    // A membership cursor: how far membership `mi` has been consumed on the current
+    // branch.  `i` is the next unconsumed atom, `R` the derivative state of the regex
+    // after the consumed prefix, `complete` once every atom is consumed (and the tail is
+    // known nullable / covered by a membership component).  The set of non-complete
+    // cursors is the "set of active membership constraints"; each non-complete cursor has
+    // a *variable* head (leading constants are eagerly consumed).  The per-variable
+    // component groups (m_groups) are the "variable intersection membership constraints".
+    struct cursor { unsigned i; expr* R; bool complete; };
+    svector<cursor> m_cursors;              // one cursor per membership (parallel to m_atoms)
+    unsigned        m_last_var = UINT_MAX;  // index (in m_vars) of the last expanded variable
+
     // Brzozowski derivative of regex `r` by the concrete element `elem`.  Memoized on
     // (r, elem): the search revisits the same constant step on many branches.
     expr_ref der_elem(expr* r, expr* elem);
@@ -245,6 +260,34 @@ private:
     // enabled), l_false = every branch below is empty, l_undef = gave up.
     lbool dfs_membership(unsigned mi);
     lbool dfs_atoms(unsigned mi, unsigned i, expr* R);
+
+    // ---- state-based search driver ----------------------------------------------------
+    // Consume the leading constant atoms of every cursor so that each non-complete cursor
+    // has a variable head.  l_false if some membership is already empty (unsat).
+    lbool initial_normalize();
+
+    // One search step: pick the next variable to expand (preferring the last-expanded
+    // variable, else the one occurring most often as a head atom of the active cursors),
+    // and expand it.  Returns l_true (sat leaf found), l_false (this branch is empty), or
+    // l_undef (gave up on a sub-branch).
+    lbool search();
+
+    // Expand variable `vi`, which is the head of the cursors in `S`.  Assign a continuation
+    // (a reach target q, or the epsilon/membership encoding for a last atom) to each cursor
+    // in turn (k indexes S), pushing the component on m_groups[vi] and pruning as soon as
+    // the accumulated intersection for vi is empty.  When every cursor in S is assigned,
+    // recurse into search().
+    lbool choose_cont(unsigned vi, svector<unsigned> const& S, unsigned k);
+
+    // Advance cursor `mi` past its head variable to continuation `target` (null = the
+    // variable is a last atom, i.e. a plain membership component), then eagerly consume
+    // the following constant atoms.  l_false = the continuation is empty (prune),
+    // l_undef = feasible but the tail nullability is unknown, l_true = feasible.
+    lbool advance_cursor(cursor& c, unsigned mi, expr* target);
+
+    // Every cursor is complete: the state is accepting iff every variable intersection is
+    // non-empty.  Extracts witnesses into m_model when model generation is enabled.
+    lbool accept_state();
 
     // Emptiness of the components accumulated for variable `vi` on the current branch,
     // memoized on their signature.  Duplicated components are collapsed before the
