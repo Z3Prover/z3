@@ -25,6 +25,7 @@ Abstract:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_monadic.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
@@ -100,6 +101,7 @@ lbool run_file(
     seq_util u(m);
     arith_util a(m);
     seq_rewriter rw(m);
+    th_rewriter trw(m);
     trail_stack undo_trail;
     seq_monadic mon(rw, undo_trail, mode);
 
@@ -197,6 +199,13 @@ lbool run_file(
             return;
         }
         obj_map<expr, expr*>& map = is_var ? var_re : term_re;
+        // Normalize the regex the way asserted_formulas normalizes assertions
+        // before seq_regex hands them to seq_monadic. Without this the bench
+        // measures raw parsed regexes, which no production path ever sees.
+        expr_ref normalized(r, m);
+        trw(normalized);
+        pin.push_back(normalized);
+        r = normalized;
         expr* previous = nullptr;
         if (map.find(s, previous)) {
             expr_ref intersection = rw.mk_regex_inter_normalize(previous, r);
