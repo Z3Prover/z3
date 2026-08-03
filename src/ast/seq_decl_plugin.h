@@ -593,6 +593,10 @@ public:
         MATCH_BINARY(is_diff);
         MATCH_BINARY(is_xor);
         MATCH_BINARY(is_range);
+        MATCH_UNARY(is_concat);
+        MATCH_UNARY(is_union);
+        MATCH_UNARY(is_intersection);
+        MATCH_UNARY(is_xor);
         MATCH_UNARY(is_complement);
         MATCH_UNARY(is_star);
         MATCH_UNARY(is_plus);

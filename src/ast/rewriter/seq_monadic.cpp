@@ -29,12 +29,17 @@ TODOs:
   - coallesce the membership constraints into a single regex membership constraint of the intersection of regexes.
 - take into account shape of terms to prune the search space (e.g., if the term is xax, then retain the effect of 
   intersecting with .*a.*).
-- use expr_ref in component and replace svector<component> by vector<component>, save on m_pin.
+- connect to semi-linear pruning, such as xx in (ab)*a is unsat due to parity 
 - support units of non-values (element variables).
   Model construction would assign values to the elements.
 - make unsat core tracking less naive by tracking dependencies at a finer grain.
-- add statistics and use it from src/smt/seq_regex.cpp when extracting statistics from theory_seq.
 - add selective tracing TRACE(seq, ..).
+- revisit DFS to select next membership constraint to explore base on the current state.
+  In the current state include current set of variable intersection membership constraints.
+  The next membership constraint to explore is preferrably for a variable that was just
+  explored and we can check the variable intersection membership constraints if the new
+  expansion is feasible. Constant characters are consumed at the same time to also prune
+  the choice.
 
 
 

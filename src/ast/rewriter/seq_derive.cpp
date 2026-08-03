@@ -235,6 +235,19 @@ namespace seq {
             return mk_inter(d1, d2);
         }
 
+        // handle unary unsimplified cases of operators
+        if (re().is_union(r, r1)) 
+            return derive_rec(r1);
+
+        if (re().is_intersection(r, r1))
+            return derive_rec(r1);
+
+        if (re().is_concat(r, r1))
+            return derive_rec(r1);
+
+        if (re().is_xor(r, r1))
+            return derive_rec(r1);
+
         // δ(~r1) = ~δ(r1)
         if (re().is_complement(r, r1)) {
             expr_ref d1 = derive_rec(r1);
