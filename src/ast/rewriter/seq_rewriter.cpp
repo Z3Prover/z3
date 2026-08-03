@@ -2931,67 +2931,6 @@ expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     return result;
 }
 
-void seq_rewriter::light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
-    expr_ref_pair_vector brz(m());
-    m_derive.derivative_cofactors(r, brz);
-
-    obj_map<expr, unsigned> target_index;
-    expr_ref_vector guards(m());
-    expr_ref_vector targets(m());
-
-    auto add = [&](expr* guard, expr* target) {
-        unsigned index = 0;
-        if (target_index.find(target, index)) {
-            expr_ref merged(m());
-            m_br.mk_or(guards.get(index), guard, merged);
-            guards.set(index, merged);
-        }
-        else {
-            target_index.insert(target, targets.size());
-            targets.push_back(target);
-            guards.push_back(guard);
-        }
-    };
-
-    for (auto const& [guard, target] : brz) {
-        ptr_vector<expr> pending;
-        pending.push_back(target);
-        while (!pending.empty()) {
-            expr* t = pending.back();
-            pending.pop_back();
-            expr* left = nullptr, * right = nullptr;
-            if (re().is_union(t, left, right)) {
-                pending.push_back(right);
-                pending.push_back(left);
-            }
-            else if (re().is_concat(t, left, right) && re().is_union(left)) {
-                ptr_vector<expr> heads;
-                heads.push_back(left);
-                while (!heads.empty()) {
-                    expr* head = heads.back();
-                    heads.pop_back();
-                    expr* a = nullptr, * b = nullptr;
-                    if (re().is_union(head, a, b)) {
-                        heads.push_back(b);
-                        heads.push_back(a);
-                    }
-                    else {
-                        expr_ref split = mk_regex_concat(head, right);
-                        add(guard, split);
-                    }
-                }
-            }
-            else {
-                add(guard, t);
-            }
-        }
-    }
-
-    result.reset();
-    for (unsigned i = 0; i < targets.size(); ++i)
-        result.push_back(guards.get(i), targets.get(i));
-}
-
 expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     expr_ref _r1(r1, m()), _r2(r2, m());
     expr *a1, *b1, *a2, *b2;
@@ -4285,6 +4224,16 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         re().is_star(b, b1) && re().is_star(c, c1)) {
         result = re().mk_star(re().mk_union(b1, c1));
         return BR_REWRITE2;
+    }
+    // (Σ*·S)* = () | Σ*·S.
+    // Σ*·S is idempotent under concatenation: Σ*·S·Σ*·S = (Σ*·S·Σ*)·S ⊆ Σ*·S,
+    // since any prefix is absorbed by Σ*. Hence L·L ⊆ L and L* = () | L.
+    // Keeping the flat form avoids a large blowup in the derivative automaton.
+    if (re().is_concat(a, b, c) && re().is_full_seq(b)) {
+        sort* seq_sort = nullptr;
+        VERIFY(m_util.is_re(a, seq_sort));
+        result = re().mk_union(re().mk_epsilon(seq_sort), a);
+        return BR_REWRITE1;
     }
     if (m().is_ite(a, c, b1, c1)) {
         if ((re().is_full_char(b1) || re().is_full_seq(b1)) &&

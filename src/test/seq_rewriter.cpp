@@ -17,6 +17,7 @@ Tests:
  19. Solver: inverted symbolic bounds make membership unsatisfiable
  20. Solver: contradictory constant lexical bounds are unsatisfiable
  22. re.loop with bounds as arguments agrees with the indexed form
+ 23. (Σ*·S)* is flattened to () | Σ*·S
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -277,7 +278,33 @@ void tst_seq_rewriter() {
             ENSURE(res == l_true);
         }
 
-        // 20. unsat: contradictory constant lexical bounds.
+        // 22. (Σ*·S)* is rewritten to the flat form () | Σ*·S.
+        //     Σ*·S is idempotent under concatenation — Σ*·S·Σ*·S = (Σ*·S·Σ*)·S
+        //     is again of the form Σ*·S — so its Kleene star contributes
+        //     nothing beyond the empty word. The star form is exponentially
+        //     more expensive to determinize, so the flat form is kept.
+        {
+            expr_ref sigma_star(su.re.mk_full_seq(re_sort), m);
+            expr_ref b_re(su.re.mk_to_re(su.str.mk_string(zstring('b'))), m);
+            expr_ref star(su.re.mk_star(su.re.mk_concat(sigma_star, b_re)), m);
+            expr_ref e(star);
+            rw(e);
+            std::cout << "(sigma* b)* flattened: " << mk_pp(e, m) << "\n";
+            ENSURE(!su.re.is_star(e));
+
+            // Semantics: L* = words ending in "b", plus the empty word.
+            auto member = [&](char const* w) {
+                smt_params sp;
+                smt::context ctx(m, sp);
+                ctx.assert_expr(su.re.mk_in_re(su.str.mk_string(w), star));
+                return ctx.check();
+            };
+            ENSURE(member("ab") == l_true);
+            ENSURE(member("") == l_true);
+            ENSURE(member("ba") == l_false);
+        }
+
+
         //     "2024-01-01" < x < "2024-12-31" and x < "2023-01-01".
         //     Since "2023-01-01" < "2024-01-01", no such x exists.
         if (false)

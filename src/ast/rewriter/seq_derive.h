@@ -261,6 +261,25 @@ namespace seq {
          */
         void derivative_cofactors(expr* r, expr_ref_pair_vector& result);
 
+        /**
+         * Compute the Brzozowski cofactors of r (derivative_cofactors above),
+         * then expose the nondeterminism that a union leaf hides: a target of
+         * the form (s1 | ... | sn), or (s1 | ... | sn) . tail, is split into
+         * one cofactor per alternative si (resp. si . tail). Splitting is
+         * applied recursively, so nested unions are flattened as well.
+         *
+         * Splitting can make two originally distinct cofactors reach the same
+         * target; such cofactors are merged back into a single pair whose
+         * guard is the disjunction of the original guards. The result is
+         * therefore still a list of distinct targets, but each one is a
+         * single Antimirov-style alternative rather than a union state.
+         *
+         * The guards are not required to be mutually exclusive after merging,
+         * and the transition relation is genuinely nondeterministic: a
+         * character may be accepted by several of the returned guards.
+         */
+        void light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result);
+
     };
 
 }
