@@ -288,6 +288,22 @@ namespace seq {
             return mk_deriv_concat(d1, tail);
         }
 
+        // Legacy form where the loop bounds are arguments rather than
+        // decl parameters: (re.loop r lo hi) and (re.loop r lo).  The parser
+        // accepts these and seq_rewriter normalizes them, but unrewritten
+        // terms reach here directly.  Rewrite to the parameterized form.
+        if (re().is_loop(r)) {
+            expr* lo_e = nullptr, * hi_e = nullptr;
+            rational nlo, nhi;
+            if (re().is_loop(r, r1, lo_e, hi_e) &&
+                m_autil.is_numeral(lo_e, nlo) && nlo.is_unsigned() &&
+                m_autil.is_numeral(hi_e, nhi) && nhi.is_unsigned())
+                return derive_rec(re().mk_loop_proper(r1, nlo.get_unsigned(), nhi.get_unsigned()));
+            if (re().is_loop(r, r1, lo_e) &&
+                m_autil.is_numeral(lo_e, nlo) && nlo.is_unsigned())
+                return derive_rec(re().mk_loop(r1, nlo.get_unsigned()));
+        }
+
         // δ(r1 \ r2) = δ(r1) ∩ ~δ(r2)
         if (re().is_diff(r, r1, r2)) {
             expr_ref d1 = derive_rec(r1);
