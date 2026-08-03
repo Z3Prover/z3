@@ -37,6 +37,7 @@ class seq_rewriter;
 namespace seq {
 
     enum class derivative_kind { antimirov_t, brzozowski_t };
+    enum class transition_mode { brzozowski_tm, light_antimirov_tm };
     /**
      * Symbolic derivative engine for regular expressions.
      *
@@ -94,7 +95,7 @@ namespace seq {
         obj_pair_map<expr, expr, expr*> m_atop_cache, m_btop_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
        
-        // cofactor_cache       m_cofactor_cache;
+        cofactor_cache       m_cofactor_cache;
 
         // Op cache for ITE-hoisting operations (union, inter, concat, complement)
         // Path-aware caches: key is (a, b, path_expr) for binary ops, (a, path_expr) for complement
@@ -272,8 +273,11 @@ namespace seq {
          */
         void get_cofactors(expr* ele, expr* r, expr_ref_pair_vector& result);
 
+        expr_ref_pair_vector const &get_cached_cofactors(transition_mode mode, expr *r);
 
-       // expr_ref_pair_vector const &get_cached_cofactors(transition_mode mode, expr *ele, expr *r);
+        void maybe_reset_cached_cofactors(unsigned cap) {
+            m_cofactor_cache.maybe_reset(cap);
+        }
 
         /**
          * Compute the symbolic derivative of r and enumerate its reachable

@@ -81,16 +81,6 @@ public:
     void dec_ref(sym_expr* s) { if (s) s->dec_ref(); }
 };
 
-#if 0
-
-class expr_solver {
-public:
-    virtual ~expr_solver() = default;
-    virtual lbool check_sat(expr* e) = 0;
-};
-#endif
-
-
 /**
    \brief Cheap rewrite rules for seq constraints
 */
@@ -462,6 +452,10 @@ public:
     */
     void get_cofactors(expr* ele, expr* r, expr_ref_pair_vector& result) {
         m_derive.get_cofactors(ele, r, result);
+    }
+
+    seq::derive &get_derive() {
+        return m_derive;
     }
 
     /*

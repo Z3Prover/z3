@@ -98,17 +98,7 @@ lbool seq_monadic::nullable(expr* r) {
 
 expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
     ++m_stats.m_cofactor_calls;
-    expr_ref_pair_vector* v = nullptr;
-    if (m_cofactors.find(r, v))
-        return *v;
-    ++m_stats.m_states;
-    v = alloc(expr_ref_pair_vector, m);
-    if (m_config.m_mode == transition_mode::light_antimirov)
-        m_rw.light_ant_derivative_cofactors(r, *v);
-    else
-        m_rw.brz_derivative_cofactors(r, *v);
-    m_cofactors.insert(r, v);              // takes ownership of v and pins the key r
-    return *v;
+    return m_rw.get_derive().get_cached_cofactors(m_config.m_mode, r);
 }
 
 bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {
@@ -578,8 +568,8 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
         return l_true;                            // empty conjunction is vacuously true
     reset_search();                               // clear the caches before dropping the
     m_pin.reset();                                // pins that keep their keys alive
-    m_cofactors.maybe_reset(1u << 16);            // cofactors persist across calls (own their pins)
     m_rp_cache.maybe_reset(1u << 16);
+    m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
     m_budget = 200000;
     m_giveup = false;
     if (!prepare(memberships))

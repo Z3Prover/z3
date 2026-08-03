@@ -78,42 +78,13 @@ Author:
 #include <unordered_map>
 
 class seq_monadic {
-public:
-    enum class transition_mode {
-        brzozowski,
-        light_antimirov
-    };
-
-private:
-    // Self-contained memo for derivative_cofactors: maps a regex to its (owned) cofactor
-    // vector and keeps a trail of pinned keys so they stay live for the cache's lifetime.
-    // The memoized cofactors depend only on the regex (and the fixed transition mode), so
-    // the cache is valid across solve()/decide()/check() calls; callers reset it only when
-    // it grows past a size cap (maybe_reset).
-    class cofactor_cache {
-        obj_map<expr, expr_ref_pair_vector*>  m_cache;
-        expr_ref_vector                       m_pin;      // trail of pinned keys
-    public:
-        cofactor_cache(ast_manager& m) : m_pin(m) {}
-        ~cofactor_cache() { reset(); }
-        bool find(expr* r, expr_ref_pair_vector*& v) const { return m_cache.find(r, v); }
-        void insert(expr* r, expr_ref_pair_vector* v) { m_pin.push_back(r); m_cache.insert(r, v); }
-        unsigned size() const { return m_cache.size(); }
-        void reset() {
-            for (auto const& [k, v] : m_cache)
-                dealloc(v);
-            m_cache.reset();
-            m_pin.reset();
-        }
-        void maybe_reset(unsigned cap) { if (m_cache.size() > cap) reset(); }
-    };
 
     struct config {
-        transition_mode m_mode;
+        seq::transition_mode m_mode;
         bool m_model = true;  // whether solve()/check() extract a feasible model
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
 
-        config(transition_mode mode) : m_mode(mode) {}
+        config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
     enum class bail_reason { unsupported, state_cap, dnf_cap, budget, resource, nullability, guard, num_reasons };
@@ -141,7 +112,6 @@ private:
     config          m_config;
     statistics      m_stats;
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
-    cofactor_cache  m_cofactors;            // memoizes derivative_cofactors per regex (see class above)
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
     obj_pair_map<expr, expr, expr*> m_der_cache;  // memoizes der_elem per (regex, element)
     obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
@@ -273,16 +243,16 @@ private:
 
 public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
-                transition_mode mode = transition_mode::light_antimirov) :
+                seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_pin(rw.m()), m_config(mode), m_cofactors(rw.m()), m_rp_cache(rw.m()),
+        m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()),
         m_regexes(rw.m()) {}
 
     ~seq_monadic() { reset_live_cache(); }
 
     void collect_statistics(::statistics &st) const;
 
-    transition_mode mode() const { return m_config.m_mode; }
+    seq::transition_mode mode() const { return m_config.m_mode; }
 
     // Enable/disable model generation (default: enabled).  When enabled, a successful
     // solve()/check() extracts a feasible model retrievable via get_model().
