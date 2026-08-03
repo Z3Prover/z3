@@ -73,6 +73,14 @@ expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
 }
 
 lbool seq_monadic::nullable(expr* r) {
+    // Nullability is a structural property, and the seq plugin already computes it as
+    // part of the regex info -- cached by expr id and, unlike seq_rewriter's op_cache
+    // (capped at 10000 and flushed whole), never evicted.  Use it whenever it is
+    // determined; only fall back to building the symbolic nullability formula for the
+    // regexes whose info leaves it undetermined.
+    lbool i = re().get_info(r).nullable;
+    if (i != l_undef)
+        return i;
     char v = 0;
     if (m_nullable_cache.find(r, v))
         return v == 1 ? l_true : v == 0 ? l_false : l_undef;
