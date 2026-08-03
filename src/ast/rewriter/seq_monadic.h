@@ -25,12 +25,21 @@ Abstract:
         x.u in R  <=>  OR_{q live} ( x reaches q in A_R  /\  u in q ).
 
     Decomposing u recursively (a leading constant is consumed by a derivative, a leading
-    variable splits again, the last variable is a plain membership) yields a DNF whose
-    disjuncts are conjunctions of per-variable *components*:
+    variable splits again, the last variable is a plain membership) yields a disjunction
+    of conjunctions of per-variable *components*:
 
       - reach component    <var, state0, q>       : the variable's value drives the
                                                      derivative automaton from state0 to q
       - membership component<var, state0, null>    : the variable's value is in L(state0)
+
+    That disjunction is NEVER materialized as a DNF.  Materializing it costs the product
+    of the per-position split degrees (and, for a conjunction of memberships, the product
+    over memberships), which is the dominant cost in practice.  Instead the decomposition
+    is explored as a depth-first search tree: one branch at a time, components pushed on
+    entry and popped on backtracking.  A variable's accumulated components are tested for
+    emptiness as soon as the search passes the variable's LAST occurrence -- the test has
+    to be done anyway, and doing it there prunes the whole remaining subtree.  The search
+    stops at the first satisfying leaf.
 
     reach(q) is therefore NEVER built as a regex (which state-elimination would blow up
     super-polynomially for lattice-shaped automata).  Instead the constraints on a
@@ -58,10 +67,14 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "util/lbool.h"
 #include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
 #include "util/dependency.h"
 #include "util/trail.h"
 #include <utility>
 #include <tuple>
+#include <map>
+#include <vector>
+#include <unordered_map>
 
 class seq_monadic {
 public:
@@ -110,12 +123,15 @@ private:
     sort*           m_seq_sort = nullptr;   // sequence sort of the regex under analysis
     sort*           m_elem_sort = nullptr;  // element sort of that sequence sort
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
-    unsigned        m_budget = 0;           // global work budget (decompose disjuncts + product pops)
+    unsigned        m_budget = 0;           // global work budget (search nodes + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
     config          m_config;
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     cofactor_cache  m_cofactors;            // memoizes derivative_cofactors per regex (see class above)
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
+    obj_pair_map<expr, expr, expr*> m_der_cache;  // memoizes der_elem per (regex, element)
+    obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
+                                            // seq_rewriter's own cache is capped and flushed whole
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
@@ -140,10 +156,37 @@ private:
     //           : nullable(current)        -- membership component (w in L(state))
     struct component { expr* var; expr* state; expr* target; };
 
-    typedef svector<component> disjunct;    // a conjunction of components (a DNF disjunct)
+    // ---- depth-first search state; valid for the duration of one decide()/solve() ----
+    vector<vector<atom>>   m_atoms;         // parsed atoms, one entry per membership
+    expr_ref_vector        m_regexes;       // regex of each membership (parallel to m_atoms)
+    ptr_vector<expr>       m_vars;          // variables occurring in the memberships
+    obj_map<expr, unsigned> m_var_idx;      // variable -> index into m_vars / m_groups
+    vector<svector<component>> m_groups;    // components accumulated on the current branch
+    obj_map<expr, uint64_t> m_last_occ;     // variable -> last (membership, atom) position
+    unsigned               m_undef_vars = 0;  // depth of groups whose emptiness test gave up
+    // memo for the per-variable emptiness test, keyed by the sorted, deduplicated
+    // (state, target) signature of the variable's component group
+    typedef std::vector<std::pair<unsigned, unsigned>> group_sig;
+    struct group_sig_hash {
+        size_t operator()(group_sig const& s) const {
+            size_t h = 1469598103934665603ull;
+            for (auto const& p : s) {
+                h = (h ^ p.first) * 1099511628211ull;
+                h = (h ^ p.second) * 1099511628211ull;
+            }
+            return h;
+        }
+    };
+    group_sig m_sig_buf;                    // reused by group_nonempty (avoids allocating per lookup)
+    std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
+    obj_map<expr, expr_ref_vector*> m_live_cache;  // regex -> live split states (null = gave up)
 
-    // Brzozowski derivative of regex `r` by the concrete element `elem`.
+    // Brzozowski derivative of regex `r` by the concrete element `elem`.  Memoized on
+    // (r, elem): the search revisits the same constant step on many branches.
     expr_ref der_elem(expr* r, expr* elem);
+
+    // Memoized nullability of a derivative state: l_true / l_false / l_undef (unknown).
+    lbool nullable(expr* r);
 
     // Symbolic transition cofactors in the selected mode.  Memoized per regex `r` in
     // m_cofactors: the returned vector is owned by that cache (see the cofactor_cache
@@ -153,6 +196,11 @@ private:
     // Live reachable derivative states of R (BFS over cofactor targets + liveness
     // least-fixpoint).  These are the split states q.  Returns false on a cap overrun.
     bool live_states(expr* R, expr_ref_vector& out);
+
+    // Memoized live_states.  Returns null if the computation gave up for this regex.
+    expr_ref_vector const* live_states_cached(expr* R);
+
+    void reset_live_cache();
 
     // Product-reachability emptiness of a conjunction of components (all on one
     // variable).  l_false = empty (unsat), l_true = non-empty (sat), l_undef = gave up
@@ -165,26 +213,40 @@ private:
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
     bool parse_term(expr* term, vector<atom>& atoms, expr*& the_var);
 
-    // Monadic decomposition: append to `out` the DNF disjuncts for  atoms[i..] in R,
-    // threading the current derivative state R.  Returns false on give-up.
-    bool decompose(vector<atom> const& atoms, unsigned i, expr* R,
-                   vector<disjunct>& out);
+    // Drop all search state accumulated by the previous decide()/solve().
+    void reset_search();
 
-    // Drop disjuncts with a syntactically-empty component and dedup identical disjuncts.
-    void simplify_dnf(vector<disjunct>& dnf);
+    // Parse every membership into atoms, register its variables and record each
+    // variable's last occurrence.  Sets m_seq_sort/m_elem_sort.  False on an
+    // unsupported shape.
+    bool prepare(membership_vec const& memberships);
 
-    // Build the DNF over primitive per-variable components for one membership term in R.
-    // Sets m_seq_sort/m_elem_sort; false on an unsupported shape or give-up.
-    bool build_membership_dnf(expr* term, expr* R, vector<disjunct>& dnf);
+    // Index of `v` in m_vars / m_groups, registering it on first sight.
+    unsigned var_index(expr* v);
 
-    // Decide a DNF (over primitive components): sat iff some disjunct has every variable
-    // group non-empty.  On l_true, when model generation is enabled, fills m_model
-    // (var -> witness).
-    lbool decide_dnf(vector<disjunct> const& dnf);
+    // Depth-first search over the monadic decomposition.  dfs_membership(mi) starts
+    // membership `mi` (or reaches a leaf when every membership is consumed);
+    // dfs_atoms(mi, i, R) continues membership `mi` at atom `i` with derivative state R.
+    // l_true = a satisfying branch was found (m_model is filled when model generation is
+    // enabled), l_false = every branch below is empty, l_undef = gave up.
+    lbool dfs_membership(unsigned mi);
+    lbool dfs_atoms(unsigned mi, unsigned i, expr* R);
+
+    // Emptiness of the components accumulated for variable `vi` on the current branch,
+    // memoized on their signature.  Duplicated components are collapsed before the
+    // product search (they constrain the variable identically).
+    lbool group_nonempty(unsigned vi);
+
+    // All memberships consumed: every variable group has already been shown non-empty,
+    // so this only extracts witnesses when model generation is enabled.
+    lbool leaf();
 
     // Decide a CONJUNCTION of memberships jointly (the core algorithm behind check()):
-    // multiplies the per-membership DNFs and decides emptiness.  Does not touch
-    // m_memberships or m_core; fills m_model on l_true when model generation is enabled.
+    // explores the joint decomposition of all memberships depth-first.  A variable shared
+    // by several memberships accumulates several components in the same branch, which are
+    // intersected -- enforcing one consistent value across all memberships.  Does not
+    // touch m_memberships or m_core; fills m_model on l_true when model generation is
+    // enabled.
     lbool decide(membership_vec const& memberships);
 
     // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
@@ -199,9 +261,10 @@ public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 transition_mode mode = transition_mode::light_antimirov) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_pin(rw.m()), m_config(mode), m_cofactors(rw.m()), m_rp_cache(rw.m()) {}
+        m_pin(rw.m()), m_config(mode), m_cofactors(rw.m()), m_rp_cache(rw.m()),
+        m_regexes(rw.m()) {}
 
-    ~seq_monadic() = default;
+    ~seq_monadic() { reset_live_cache(); }
 
     transition_mode mode() const { return m_config.m_mode; }
 
