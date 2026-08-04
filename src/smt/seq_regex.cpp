@@ -44,23 +44,72 @@ namespace smt {
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
 
+    expr_ref seq_regex::expand_shallow(expr* e, void*& deps, unsigned depth) {
+        expr* elem = nullptr;
+        if (depth > 40)
+            return expr_ref(e, m);                // guard against pathological chains
+        if (str().is_concat(e)) {
+            expr_ref_vector args(m);
+            for (expr* arg : *to_app(e))
+                args.push_back(expand_shallow(arg, deps, depth + 1));
+            return expr_ref(str().mk_concat(args, e->get_sort()), m);
+        }
+        if (str().is_empty(e) || str().is_string(e))
+            return expr_ref(e, m);                // parseable constant leaf
+        if (str().is_unit(e, elem) && m.is_value(elem))
+            return expr_ref(e, m);                // seq.unit of a constant element
+        // A variable or a defined term: substitute through the solution map, but only keep
+        // the substitution if it stays monadic-decidable.  A free variable whose only
+        // definition is its seq.unit(nth ..) length representation is thus kept atomic.
+        theory_seq::dependency* d = nullptr;
+        expr* r = th.m_rep.find(e, d);
+        if (r == e)
+            return expr_ref(e, m);                // no defining equation: atomic leaf
+        void* sub = d;
+        expr_ref er = expand_shallow(r, sub, depth + 1);
+        if (m_monadic.can_decide_term(er)) {
+            deps = th.m_dm.mk_join(static_cast<theory_seq::dependency*>(deps),
+                                   static_cast<theory_seq::dependency*>(sub));
+            return er;
+        }
+        return expr_ref(e, m);                     // keep atomic; drop the polluted expansion
+    }
+
+    expr_ref seq_regex::compute_expansion(expr* s, void*& dep) {
+        dep = nullptr;
+        // Prefer full canonization: it collapses a variable defined by a word equation
+        // (and any variable pinned to a constant) down to constants/variables, which is
+        // what lets the monadic solver decide the real structure.  If that yields a form
+        // the solver cannot decide -- typically because theory_seq has replaced a free
+        // variable by its seq.unit(nth ..) length representation -- fall back to a shallow
+        // expansion that keeps such variables atomic, and finally to the atomic term.
+        theory_seq::dependency* cdep = nullptr;
+        expr_ref full(m);
+        if (th.canonize(s, cdep, full) && full && m_monadic.can_decide_term(full)) {
+            dep = cdep;
+            return full;
+        }
+        void* sdep = nullptr;
+        expr_ref shallow = expand_shallow(s, sdep, 0);
+        if (shallow && m_monadic.can_decide_term(shallow)) {
+            dep = sdep;
+            return shallow;
+        }
+        dep = nullptr;
+        return expr_ref(s, m);
+    }
+
     void seq_regex::add_monadic_membership(literal lit, expr* s, expr* r) {
         for (auto const& membership : m_monadic_memberships)
             if (membership.m_lit == lit)
                 return;
-        // Expand s through theory_seq's equalities (its solution map) so the monadic solver
-        // decides the membership over the concatenation of the variables/constants that
-        // actually define s, rather than over the atomic term s.  Deciding s atomically
+        // Decide the membership over the concatenation of variables/constants that define s
+        // (see compute_expansion) rather than over the atomic term s.  Deciding s atomically
         // yields witnesses that ignore s's defining word equation (e.g. x = x8 ++ "/" ++ s9),
         // which then conflict on assume_eq and livelock.  The equalities used are captured in
         // `dep` and folded into any unsat core for soundness.
-        expr_ref s_expanded(m);
-        theory_seq::dependency* dep = nullptr;
-        if (!th.canonize(s, dep, s_expanded) || !s_expanded
-            || !m_monadic.can_decide_term(s_expanded)) {
-            s_expanded = s;
-            dep = nullptr;
-        }
+        void* dep = nullptr;
+        expr_ref s_expanded = compute_expansion(s, dep);
         unsigned idx = m_monadic_memberships.size();
         m_monadic_memberships.push_back(monadic_membership(m, lit, s, r, s_expanded, dep));
         ctx.push_trail(push_back_vector(m_monadic_memberships));
@@ -74,26 +123,14 @@ namespace smt {
     void seq_regex::refresh_expansions() {
         for (unsigned idx = 0; idx < m_monadic_memberships.size(); ++idx) {
             monadic_membership& mem = m_monadic_memberships[idx];
-            expr_ref s_expanded(m);
-            theory_seq::dependency* dep = nullptr;
-            if (!th.canonize(mem.m_s, dep, s_expanded) || !s_expanded
-                || !m_monadic.can_decide_term(s_expanded)) {
-                // Either canonization failed, or it expanded the term into a form the
-                // monadic solver cannot decide -- e.g. once theory_seq fixes a variable's
-                // length it represents the variable as a concatenation of seq.unit(nth ..)
-                // skolems, which parse_term rejects.  Feeding that would only make check()
-                // bail and thrash the legacy fallback, so fall back to the atomic term.
-                s_expanded = mem.m_s;
-                dep = nullptr;
-            }
+            void* dep = nullptr;
+            expr_ref s_expanded = compute_expansion(mem.m_s, dep);
             // Always resync: m_s_expanded/m_dep are not trailed, so after a backtrack they
             // may be stale while the monadic term (which IS trailed) was restored.
             // set_term itself no-ops when the monadic term already matches.
             mem.m_s_expanded = s_expanded;
             mem.m_dep = dep;
             m_monadic.set_term(dep_of_membership(idx), s_expanded);
-            TRACE(seq_regex, tout << "monadic expand " << mk_pp(mem.m_s, m)
-                                 << " -> " << mk_pp(s_expanded, m) << "\n";);
             TRACE(seq_regex, tout << "monadic expand " << mk_pp(mem.m_s, m)
                                  << " -> " << mk_pp(s_expanded, m) << "\n";);
         }

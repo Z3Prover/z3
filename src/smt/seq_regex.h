@@ -252,6 +252,19 @@ namespace smt {
 
         bool block_if_empty(expr* r, literal lit);
         void add_monadic_membership(literal lit, expr* s, expr* r);
+        // Expand a term through theory_seq's solution map, but substitute a sub-term only
+        // when the substitution stays monadic-decidable.  In particular a free variable is
+        // kept atomic even after theory_seq fixes its length and represents it as a
+        // concatenation of seq.unit(nth v i) skolems (which the monadic solver cannot
+        // decide).  This exposes a term's defining word-equation structure (x = a ++ v ++ b)
+        // without the length representation that would otherwise force a bail.  Equalities
+        // used are accumulated into `deps` (a theory_seq::dependency*).
+        expr_ref expand_shallow(expr* e, void*& deps, unsigned depth);
+        // Choose the term the monadic solver decides for membership term s: full
+        // canonization when decidable, else a shallow expansion (see expand_shallow) that
+        // keeps length-only variables atomic, else s itself.  `dep` receives the equalities
+        // used (a theory_seq::dependency* held as void*).
+        expr_ref compute_expansion(expr* s, void*& dep);
         // Re-canonize each monadic membership term through theory_seq's current equalities
         // and, when the expansion changed, re-point the monadic solver at the expanded term.
         // Called at final_check time because the solution map is only populated during
