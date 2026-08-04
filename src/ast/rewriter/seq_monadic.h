@@ -128,6 +128,42 @@ class seq_monadic {
     expr_ref_vector          m_ivl_pin;      // pins the states and targets the cache refers to
     ivl_list const* interval_cofactors(expr* r, expr* v0);
     void reset_ivl_cache();
+
+    // Goal-directed reachability filter.  Certain syntactic features of a regex can be
+    // inherited by a derivative but never created by one: the characters of a string
+    // literal (d(to_re("bc")) = to_re("c")) and the body of a star or bounded loop
+    // (d(r*) = d(r)r* and d(r{k,l}) = d(r)r{k-1,l-1} both keep r verbatim).  Hashing
+    // those features into a Bloom filter gives, for every regex t, a set atoms(t) with
+    //     atoms(d_a(t)) subset-of atoms(t)      for every character a,
+    // hence atoms(d_w(t)) subset-of atoms(t) for every word w.  So if the atoms of a goal
+    // state are not contained in those of the current state, no sequence of derivatives
+    // can turn one into the other and the goal is unreachable.
+    //
+    // The abstraction must be directional, because constructs it does not model have to
+    // be approximated in opposite directions on the two sides: the test is
+    // under(goal) subset-of over(source), so an unmodelled construct contributes
+    // everything to `over` and nothing to `under`.  Saturating both would make an
+    // unmodelled goal look unreachable and prune a live state.
+    struct atom_sig {
+        uint64_t w[4] = { 0, 0, 0, 0 };
+        void operator|=(atom_sig const& o) { for (unsigned i = 0; i < 4; ++i) w[i] |= o.w[i]; }
+        void add(uint64_t h) {
+            h *= 1099511628211ull;
+            w[(h >> 58) & 3] |= 1ull << ((h >> 6) & 63);
+        }
+        void saturate() { for (unsigned i = 0; i < 4; ++i) w[i] = ~0ull; }
+        bool subset_of(atom_sig const& o) const {
+            for (unsigned i = 0; i < 4; ++i)
+                if (w[i] & ~o.w[i]) return false;
+            return true;
+        }
+    };
+    struct atom_sigs { atom_sig under, over; };
+    obj_map<expr, atom_sigs> m_atom_cache;
+    expr_ref_vector          m_atom_pin;     // pins the keys of m_atom_cache
+    void compute_atoms(expr* t, atom_sigs& out, unsigned depth);
+    atom_sigs atoms_of(expr* t);
+    void reset_atom_cache();
     obj_pair_map<expr, expr, expr*> m_der_cache;  // memoizes der_elem per (regex, element)
     obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
                                             // seq_rewriter's own cache is capped and flushed whole
@@ -251,6 +287,7 @@ public:
                 seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
         m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()), m_ivl_pin(rw.m()),
+        m_atom_pin(rw.m()),
         m_regexes(rw.m()), m_live_states(rw, mode, 1u << 12) {}
 
     ~seq_monadic() { reset_ivl_cache(); }

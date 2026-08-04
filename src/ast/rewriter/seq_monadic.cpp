@@ -189,6 +189,82 @@ seq_monadic::ivl_list const* seq_monadic::interval_cofactors(expr* r, expr* v0) 
     return res;
 }
 
+void seq_monadic::reset_atom_cache() {
+    m_atom_cache.reset();
+    m_atom_pin.reset();
+}
+
+// See atom_sig in the header for what the abstraction computes and why it is sound.
+void seq_monadic::compute_atoms(expr* t, atom_sigs& out, unsigned depth) {
+    auto const& re = u().re;
+    // An unmodelled construct may hide anything, so it saturates the over-approximation
+    // and leaves the under-approximation empty.
+    auto unknown = [&]() { out.over.saturate(); };
+    if (depth > 200) { unknown(); return; }
+    expr* a = nullptr, *b = nullptr, *c = nullptr;
+    unsigned lo = 0, hi = 0;
+    auto rec = [&](expr* e) {
+        atom_sigs s;
+        compute_atoms(e, s, depth + 1);
+        out.under |= s.under;
+        out.over |= s.over;
+    };
+    auto chr = [&](unsigned ch) { out.under.add(ch); out.over.add(ch); };
+    // Some nodes are synthesized by normalization rather than inherited: the rewriter
+    // turns comp(eps) into (re.+ re.allchar), so re.allchar can appear in a derivative of
+    // a term that never mentioned it.  Such nodes must not gate the under-approximation.
+    auto is_free = [&](expr* e) {
+        return re.is_full_char(e) || re.is_full_seq(e) || re.is_epsilon(e) || re.is_empty(e);
+    };
+    auto node = [&](expr* e) {
+        uint64_t h = 0x9E3779B9ull ^ e->get_id();
+        out.over.add(h);
+        if (!is_free(e))
+            out.under.add(h);
+    };
+
+    if (m.is_ite(t, c, a, b)) { rec(a); rec(b); return; }   // guards are freshly built predicates
+    if (re.is_concat(t, a, b) || re.is_union(t, a, b) ||
+        re.is_intersection(t, a, b) || re.is_diff(t, a, b)) { rec(a); rec(b); return; }
+    if (re.is_complement(t, a) || re.is_opt(t, a) || re.is_reverse(t, a)) { rec(a); return; }
+    if (re.is_star(t, a) || re.is_plus(t, a) ||
+        re.is_loop(t, a, lo, hi) || re.is_loop(t, a, lo)) {
+        node(a);                                            // the body survives derivation
+        rec(a);
+        return;
+    }
+    if (re.is_empty(t) || re.is_epsilon(t) || re.is_full_seq(t))
+        return;
+    if (re.is_full_char(t)) { node(t); return; }
+    if (re.is_range(t, a, b)) {
+        unsigned cl = 0, ch = 0;
+        if (!u().is_const_char(a, cl) || !u().is_const_char(b, ch)) { unknown(); return; }
+        node(t);
+        return;
+    }
+    // A string literal is not itself an atom: d(to_re("bc")) = to_re("c") is a fresh node.
+    // Its characters are, and they can only be dropped by a derivative, never added.
+    if (re.is_to_re(t, a)) {
+        zstring s;
+        if (!u().str.is_string(a, s)) { unknown(); return; }
+        for (unsigned i = 0; i < s.length(); ++i)
+            chr(s[i]);
+        return;
+    }
+    if (re.is_of_pred(t, a)) { node(t); return; }
+    unknown();
+}
+
+seq_monadic::atom_sigs seq_monadic::atoms_of(expr* t) {
+    atom_sigs s;
+    if (m_atom_cache.find(t, s))
+        return s;
+    compute_atoms(t, s, 0);
+    m_atom_pin.push_back(t);                  // keep the key alive for the cache's lifetime
+    m_atom_cache.insert(t, s);
+    return s;
+}
+
 lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* witness_word) {
     unsigned n = comps.size();
     if (n == 0) {
@@ -228,6 +304,29 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     };
 
     bool undecided = false;
+    // Goal signatures are fixed for the whole search, so they are computed once here.
+    // A component without a goal accepts by nullability and cannot be filtered this way.
+    svector<atom_sig> goal_atoms;
+    bool has_goal = false;
+    goal_atoms.resize(n);
+    for (unsigned i = 0; i < n; ++i)
+        if (comps[i].target) {
+            goal_atoms[i] = atoms_of(comps[i].target).under;
+            has_goal = true;
+        }
+    // A state from which some component can no longer reach its goal is not on any path
+    // to acceptance.  Filtering these is what keeps the search from expanding, on this
+    // corpus, roughly half of the product states it otherwise visits.
+    auto cannot_reach_goal = [&]() -> bool {
+        if (!has_goal)
+            return false;
+        for (unsigned i = 0; i < n; ++i)
+            if (comps[i].target && st[i] != comps[i].target &&
+                !goal_atoms[i].subset_of(atoms_of(st[i]).over))
+                return true;
+        return false;
+    };
+
     auto is_accept = [&]() -> bool {
         for (unsigned i = 0; i < n; ++i) {
             if (comps[i].target) {
@@ -421,6 +520,13 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                 *witness_word = reconstruct(fill_key(st));
             return l_true;
         }
+        // Checked before the nullability bail on purpose: a state that cannot reach its
+        // goal is irrelevant, so an undecidable nullability in it must not abort the
+        // whole search.  `undecided` is reset because it only concerned this state.
+        if (cannot_reach_goal()) {
+            undecided = false;
+            continue;
+        }
         if (undecided) {
             m_stats.inc_bail(bail_reason::nullability);
             return l_undef;
@@ -494,6 +600,7 @@ void seq_monadic::reset_search() {
     m_nullable_cache.reset();
     m_undef_vars = 0;
     m_live_states.reset();
+    reset_atom_cache();
 }
 
 bool seq_monadic::prepare(membership_vec const& memberships) {
