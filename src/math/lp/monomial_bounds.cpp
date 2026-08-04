@@ -293,6 +293,8 @@ namespace nla {
        the pass to violated monomials keeps the wins without that regression.
     */
     bool monomial_bounds::propagate_violated_linear_monomials() {
+        if (!c().params().arith_nl_linearize_violated_monomials())
+            return false;
         if (!c().lra.is_feasible())
             return false;
         bool propagated = false;
