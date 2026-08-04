@@ -12,7 +12,7 @@ jobs:
   build:
     name: Build Z3 with clang-tidy warnings
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 160
     env:
       DETLEFS_WARNING_FLAGS: -Wgnu-anonymous-struct
     steps:
