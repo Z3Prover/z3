@@ -48,13 +48,55 @@ namespace smt {
         for (auto const& membership : m_monadic_memberships)
             if (membership.m_lit == lit)
                 return;
-        m_monadic_memberships.push_back(monadic_membership(m, lit, s, r));
+        // Expand s through theory_seq's equalities (its solution map) so the monadic solver
+        // decides the membership over the concatenation of the variables/constants that
+        // actually define s, rather than over the atomic term s.  Deciding s atomically
+        // yields witnesses that ignore s's defining word equation (e.g. x = x8 ++ "/" ++ s9),
+        // which then conflict on assume_eq and livelock.  The equalities used are captured in
+        // `dep` and folded into any unsat core for soundness.
+        expr_ref s_expanded(m);
+        theory_seq::dependency* dep = nullptr;
+        if (!th.canonize(s, dep, s_expanded) || !s_expanded
+            || !m_monadic.can_decide_term(s_expanded)) {
+            s_expanded = s;
+            dep = nullptr;
+        }
+        unsigned idx = m_monadic_memberships.size();
+        m_monadic_memberships.push_back(monadic_membership(m, lit, s, r, s_expanded, dep));
         ctx.push_trail(push_back_vector(m_monadic_memberships));
-        m_monadic.add(s, r, dep_of_literal(lit));
+        m_monadic.add(s_expanded, r, dep_of_membership(idx));
         ctx.push_trail(value_trail<unsigned>(m_monadic_generation));
         ++m_monadic_generation;
         TRACE(seq_regex, tout << "monadic add " << lit << ": "
-                             << mk_pp(s, m) << " in " << mk_pp(r, m) << "\n";);
+                             << mk_pp(s_expanded, m) << " in " << mk_pp(r, m) << "\n";);
+    }
+
+    void seq_regex::refresh_expansions() {
+        for (unsigned idx = 0; idx < m_monadic_memberships.size(); ++idx) {
+            monadic_membership& mem = m_monadic_memberships[idx];
+            expr_ref s_expanded(m);
+            theory_seq::dependency* dep = nullptr;
+            if (!th.canonize(mem.m_s, dep, s_expanded) || !s_expanded
+                || !m_monadic.can_decide_term(s_expanded)) {
+                // Either canonization failed, or it expanded the term into a form the
+                // monadic solver cannot decide -- e.g. once theory_seq fixes a variable's
+                // length it represents the variable as a concatenation of seq.unit(nth ..)
+                // skolems, which parse_term rejects.  Feeding that would only make check()
+                // bail and thrash the legacy fallback, so fall back to the atomic term.
+                s_expanded = mem.m_s;
+                dep = nullptr;
+            }
+            // Always resync: m_s_expanded/m_dep are not trailed, so after a backtrack they
+            // may be stale while the monadic term (which IS trailed) was restored.
+            // set_term itself no-ops when the monadic term already matches.
+            mem.m_s_expanded = s_expanded;
+            mem.m_dep = dep;
+            m_monadic.set_term(dep_of_membership(idx), s_expanded);
+            TRACE(seq_regex, tout << "monadic expand " << mk_pp(mem.m_s, m)
+                                 << " -> " << mk_pp(s_expanded, m) << "\n";);
+            TRACE(seq_regex, tout << "monadic expand " << mk_pp(mem.m_s, m)
+                                 << " -> " << mk_pp(s_expanded, m) << "\n";);
+        }
     }
 
     void seq_regex::collect_vars(expr* s, ptr_vector<expr>& vars) {
@@ -99,7 +141,10 @@ namespace smt {
         };
         ptr_vector<expr> vars;
         for (auto const& mem : m_monadic_memberships) {
-            expr* s = mem.m_s;
+            // Use the expanded term: it is what the monadic solver actually decides, so its
+            // variables (and their lengths) are the ones a witness must respect.  Bounding
+            // the original atomic term would reintroduce it as a fresh monadic variable.
+            expr* s = mem.m_s_expanded;
             // The whole-term bound constrains the sum of the atom lengths.
             add_term(s);
             // Decompose s into constants and variables and bound each variable directly:
@@ -177,10 +222,14 @@ namespace smt {
                                  k == bound_constraint::HI ? " <= " : " = ") << v << "\n";);
     }
 
-    void seq_regex::add_core_literal(void* dep, literal_vector& lits) {
+    void seq_regex::add_core_literal(void* dep, literal_vector& lits, void*& deps) {
         size_t enc = reinterpret_cast<size_t>(dep);
-        if ((enc & 1) == 0) {                     // even: monadic membership literal
-            lits.push_back(to_literal(static_cast<int>(enc >> 1)));
+        if ((enc & 1) == 0) {                     // even: a monadic membership (by index)
+            monadic_membership const& mem = m_monadic_memberships[static_cast<unsigned>((enc >> 1) - 1)];
+            lits.push_back(mem.m_lit);
+            if (mem.m_dep)                         // include the equalities used to expand its term
+                deps = th.m_dm.mk_join(static_cast<theory_seq::dependency*>(deps),
+                                       static_cast<theory_seq::dependency*>(mem.m_dep));
             return;
         }
         // odd: a length bound; materialize its justifying arithmetic literal(s) now.
@@ -251,6 +300,12 @@ namespace smt {
             return FC_DONE;
         }
 
+        // Re-canonize membership terms now that theory_seq's solution map is populated:
+        // a variable defined by a word equation (x = x8 ++ "/" ++ s9) is decided over its
+        // expanded concatenation, so the monadic witness assigns the real subvariables
+        // consistently instead of inventing a value for the atomic term.
+        refresh_expansions();
+
         // Lazy length-constraint enforcement: first decide the memberships WITHOUT any
         // length regexes.  If the resulting model already respects every candidate length
         // bound, keep it; otherwise add exactly the violated bounds and re-solve.  Each
@@ -278,9 +333,10 @@ namespace smt {
         if (result == l_false) {
             ++th.m_stats.m_regex_monadic_unsat;
             literal_vector lits;
+            void* deps = nullptr;
             for (void* core_dep : m_monadic.core())
-                add_core_literal(core_dep, lits);
-            th.set_conflict(nullptr, lits);
+                add_core_literal(core_dep, lits, deps);
+            th.set_conflict(static_cast<theory_seq::dependency*>(deps), lits);
             return FC_CONTINUE;
         }
         if (result == l_undef) {

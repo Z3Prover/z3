@@ -591,6 +591,42 @@ void seq_monadic::add(expr* term, expr* regex, void* d) {
     m_undo_trail.push(push_back_vector(m_memberships));
 }
 
+namespace {
+    // Restores a membership term on backtrack.  The previous term is pinned by this trail
+    // object's own expr_ref and released in undo() (the trail region does not run
+    // destructors, mirroring obj_ref_trail).
+    class set_term_trail : public trail {
+        vector<std::tuple<expr_ref, expr_ref, void*>>& m_v;
+        unsigned m_idx;
+        expr_ref m_old;
+    public:
+        set_term_trail(vector<std::tuple<expr_ref, expr_ref, void*>>& v, unsigned idx, expr* old, ast_manager& m):
+            m_v(v), m_idx(idx), m_old(old, m) {}
+        void undo() override {
+            std::get<0>(m_v[m_idx]) = m_old;
+            m_old.reset();
+        }
+    };
+}
+
+void seq_monadic::set_term(void* d, expr* term) {
+    for (unsigned i = 0; i < m_memberships.size(); ++i) {
+        if (std::get<2>(m_memberships[i]) != d)
+            continue;
+        expr_ref& t = std::get<0>(m_memberships[i]);
+        if (t.get() == term)
+            return;
+        m_undo_trail.push(set_term_trail(m_memberships, i, t, m));
+        t = term;
+        return;
+    }
+}
+
+bool seq_monadic::can_decide_term(expr* term) {
+    vector<atom> atoms;
+    return parse_term(term, atoms);
+}
+
 void seq_monadic::add_lo(expr* term, unsigned lo, void* d) {
     if (lo == 0)
         return;

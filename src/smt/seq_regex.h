@@ -111,11 +111,16 @@ namespace smt {
 
         struct monadic_membership {
             literal  m_lit;
-            expr_ref m_s;
+            expr_ref m_s;            // original membership term (used for the legacy fallback)
             expr_ref m_re;
+            expr_ref m_s_expanded;   // term canonized through theory_seq's equalities; this is
+                                     // what the monadic solver decides so that a variable defined
+                                     // as a concatenation is seen with its structure, not atomically
+            void*    m_dep;          // theory_seq::dependency* (as void*) for the equalities used to
+                                     // expand m_s -> m_s_expanded; folded into an unsat core
 
-            monadic_membership(ast_manager& m, literal lit, expr* s, expr* re) :
-                m_lit(lit), m_s(s, m), m_re(re, m) {}
+            monadic_membership(ast_manager& m, literal lit, expr* s, expr* re, expr* s_expanded, void* dep) :
+                m_lit(lit), m_s(s, m), m_re(re, m), m_s_expanded(s_expanded, m), m_dep(dep) {}
         };
 
         struct monadic_assumption {
@@ -247,6 +252,11 @@ namespace smt {
 
         bool block_if_empty(expr* r, literal lit);
         void add_monadic_membership(literal lit, expr* s, expr* r);
+        // Re-canonize each monadic membership term through theory_seq's current equalities
+        // and, when the expansion changed, re-point the monadic solver at the expanded term.
+        // Called at final_check time because the solution map is only populated during
+        // solving (it is empty when propagate_in_re first registers the membership).
+        void refresh_expansions();
         // Compute the candidate arithmetic length bounds of each monadic membership term
         // -- and, by decomposing the term into a concatenation of string constants and
         // variables, of each variable occurring in it.  These are NOT added to the monadic
@@ -265,17 +275,24 @@ namespace smt {
         // string constants and variables (mirrors seq_monadic's own term decomposition).
         void collect_vars(expr* s, ptr_vector<expr>& vars);
         void record_bound(expr* s, expr* len, bound_constraint::kind_t k, unsigned v);
-        // Encode a monadic membership literal / bounds-constraint index as the void*
-        // dependency handed to the monadic solver: 2*lit.index() for literals (even),
-        // 2*bounds_index + 1 for bounds constraints (odd).  add_core_literal decodes a
-        // dependency returned by m_monadic.core() into conflict literal(s).
-        static void* dep_of_literal(literal lit) {
-            return reinterpret_cast<void*>(static_cast<size_t>(2 * lit.index()));
+        // Encode a monadic membership index / bounds-constraint index as the void*
+        // dependency handed to the monadic solver.  seq_monadic OMITS null dependencies
+        // from its unsat core, so the encoding must never produce a null pointer (in
+        // particular 2*idx would map membership index 0 to null and silently drop it,
+        // yielding an empty -- i.e. spurious global -- conflict).  We therefore use
+        // 2*(idx+1) for memberships (even, >= 2) -- from which add_core_literal recovers
+        // both the in_re literal and the canonization dependency -- and 2*idx+1 for bounds
+        // constraints (odd, >= 1).
+        static void* dep_of_membership(unsigned idx) {
+            return reinterpret_cast<void*>(static_cast<size_t>(2 * (idx + 1)));
         }
         static void* dep_of_bound(unsigned idx) {
             return reinterpret_cast<void*>(static_cast<size_t>(2 * idx + 1));
         }
-        void add_core_literal(void* dep, literal_vector& lits);
+        // Decode a dependency returned by m_monadic.core() into conflict literal(s), also
+        // accumulating (into deps, a theory_seq::dependency* held as void*) the equalities
+        // used to canonize any participating membership term.
+        void add_core_literal(void* dep, literal_vector& lits, void*& deps);
         void propagate_accept_legacy(literal lit, expr* s, expr* r);
         void enable_legacy_fallback();
 
