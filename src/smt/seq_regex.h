@@ -118,15 +118,11 @@ namespace smt {
                                      // as a concatenation is seen with its structure, not atomically
             void*    m_dep;          // theory_seq::dependency* (as void*) for the equalities used to
                                      // expand m_s -> m_s_expanded; folded into an unsat core
+            bool     m_legacy_posted = false;  // whether the legacy accept-axiom has been posted for
+                                     // this membership (done once, lazily, when monadic cannot prune)
 
             monadic_membership(ast_manager& m, literal lit, expr* s, expr* re, expr* s_expanded, void* dep) :
                 m_lit(lit), m_s(s, m), m_re(re, m), m_s_expanded(s_expanded, m), m_dep(dep) {}
-        };
-
-        struct monadic_assumption {
-            unsigned m_generation;
-            enode*   m_var;
-            enode*   m_witness;
         };
 
         // A length-bound constraint fed to the monadic solver as an extra length regex.
@@ -157,11 +153,8 @@ namespace smt {
 
         seq_monadic                       m_monadic;
         vector<monadic_membership>         m_monadic_memberships;
-        svector<monadic_assumption>        m_monadic_assumptions;
         vector<bound_constraint>           m_monadic_bounds;
         unsigned                          m_monadic_generation = 0;
-        unsigned                          m_monadic_assumption_generation = UINT_MAX;
-        unsigned                          m_monadic_fallback_generation = UINT_MAX;
 
         /*
             state_graph for dead state detection, and associated methods
@@ -205,6 +198,22 @@ namespace smt {
         bool coallesce_in_re(literal lit);
 
         bool block_unfolding(literal lit, unsigned i);
+
+        // True if r contains a complement / intersection / difference sub-expression: the
+        // constructs the legacy accept/derivative machinery blows up on and that the monadic
+        // solver is used to decide instead.  Everything else (concat / union / star / plus /
+        // loop / range / ...) is handled soundly and finitely by eager legacy accept.
+        bool regex_needs_monadic(expr* r);
+
+        // True if r contains a Kleene closure (star / plus / loop) anywhere.  Used to decide
+        // whether a complemented / intersected argument is genuinely unbounded (comp(a*)) rather
+        // than merely a complemented bounded set (comp(charclass)), which legacy handles fine.
+        bool regex_has_closure(expr* r);
+
+        // True if a complement / intersection / difference occurs underneath a star / plus / loop
+        // in r.  Such a membership cannot get a validated model from a lazily posted accept-axiom
+        // (see regex_complement_under_star in the .cpp), so on monadic sat we answer `unknown`.
+        bool regex_complement_under_star(expr* r);
 
         bool unfold_prefix(literal lit, expr *s, expr *r);
 
@@ -307,7 +316,6 @@ namespace smt {
         // used to canonize any participating membership term.
         void add_core_literal(void* dep, literal_vector& lits, void*& deps);
         void propagate_accept_legacy(literal lit, expr* s, expr* r);
-        void enable_legacy_fallback();
 
     public:
 

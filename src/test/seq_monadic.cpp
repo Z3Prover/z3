@@ -275,7 +275,14 @@ class seq_monadic_test {
         smt::kernel solver(m, params);
         for (expr* assertion : assertions)
             solver.assert_expr(assertion);
-        return solver.check();
+        // Bound the search: the legacy accept/derivative unfolding can blow up on
+        // complement/intersection regexes, and this bare kernel has no external timeout.
+        // A resource-limit budget guarantees the test terminates (returning l_undef) instead
+        // of hanging; every intended case here is decided well within the budget.
+        m.limit().push(20000000);
+        lbool r = solver.check();
+        m.limit().pop();
+        return r;
     }
 
     void check_smt(char const* name, expr_ref_vector const& assertions, lbool expected,

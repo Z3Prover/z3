@@ -237,6 +237,19 @@ class seq_monadic {
     // deletion and collect the (non-null) dependencies of its members into m_core.
     void minimize_core(membership_vec const& memberships);
 
+    // Recognize a "pure length" regex as produced by add_lo/add_hi/add_len: one that
+    // constrains only the length of the term.  On success sets the length interval
+    // [lo, hi] it enforces (hi == UINT_MAX means unbounded above) and returns true.
+    bool length_interval(expr* R, unsigned& lo, unsigned& hi) const;
+
+    // Cheap, sound length-infeasibility test over a membership conjunction: if some
+    // term's minimum length (the sum of its atoms' lower bounds, constants counting 1)
+    // exceeds an asserted upper bound on that same term, the conjunction is
+    // unsatisfiable.  On success fills m_core with the participating dependencies and
+    // returns true.  Layout-independent, so it decides such cases in linear time instead
+    // of leaving them to the (potentially expensive) derivative search.
+    bool length_infeasible(membership_vec const& memberships);
+
     bool is_var(expr *term) const {
         return m_is_var ? m_is_var(term) : is_uninterp(term);        
     }

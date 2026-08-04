@@ -309,38 +309,14 @@ namespace smt {
         th.add_axiom(~lit, acc_lit);
     }
 
-    void seq_regex::enable_legacy_fallback() {
-        if (m_monadic_fallback_generation == m_monadic_generation)
-            return;
-        for (auto const& membership : m_monadic_memberships)
-            propagate_accept_legacy(membership.m_lit, membership.m_s, membership.m_re);
-        ctx.push_trail(value_trail<unsigned>(m_monadic_fallback_generation));
-        m_monadic_fallback_generation = m_monadic_generation;
-        ++th.m_stats.m_regex_monadic_fallbacks;
-    }
-
     final_check_status seq_regex::final_check() {
         if (!th.use_monadic_regex() || m_monadic_memberships.empty())
             return FC_DONE;
-        if (m_monadic_fallback_generation == m_monadic_generation)
-            return FC_DONE;
-
-        if (m_monadic_assumption_generation == m_monadic_generation) {
-            for (auto const& assumption : m_monadic_assumptions) {
-                if (assumption.m_generation != m_monadic_generation)
-                    continue;
-                if (assumption.m_var->get_root() != assumption.m_witness->get_root()) {
-                    enable_legacy_fallback();
-                    return FC_CONTINUE;
-                }
-            }
-            return FC_DONE;
-        }
 
         // Re-canonize membership terms now that theory_seq's solution map is populated:
         // a variable defined by a word equation (x = x8 ++ "/" ++ s9) is decided over its
-        // expanded concatenation, so the monadic witness assigns the real subvariables
-        // consistently instead of inventing a value for the atomic term.
+        // expanded concatenation, so the monadic solver prunes over the real subvariables
+        // instead of the atomic term.
         refresh_expansions();
 
         // Lazy length-constraint enforcement: first decide the memberships WITHOUT any
@@ -368,6 +344,8 @@ namespace smt {
         }
 
         if (result == l_false) {
+            // Sound conflict: the memberships (and any length bounds) are jointly infeasible
+            // over the expanded terms.  The deps track the equalities/bounds used.
             ++th.m_stats.m_regex_monadic_unsat;
             literal_vector lits;
             void* deps = nullptr;
@@ -376,28 +354,38 @@ namespace smt {
             th.set_conflict(static_cast<theory_seq::dependency*>(deps), lits);
             return FC_CONTINUE;
         }
-        if (result == l_undef) {
-            ++th.m_stats.m_regex_monadic_undef;
-            enable_legacy_fallback();
-            return FC_CONTINUE;
-        }
 
+        // result is l_true or l_undef.  Every *legacy-safe* membership (no complement /
+        // intersection / difference) was already handed to the eager legacy accept-axioms in
+        // propagate_in_re (m_legacy_posted == true); those build a validated model through
+        // theory_seq's max_unfolding research loop, exactly as in the non-monadic path.
+        //
+        // A membership that still has m_legacy_posted == false contains complement /
+        // intersection / difference.  The monadic solver is a sound UNSAT pruner for it but
+        // cannot certify sat.  We build the model with the legacy accept-axioms instead, posting
+        // them lazily here (they must not be posted eagerly: eagerly they blow up on the
+        // complement/intersection and route conflicts through max_unfolding, causing livelock).
+        //
+        // Lazy posting is sound as long as the accept-chain can still be driven to the string's
+        // length.  For a *top-level* complement (e.g. a negated membership rewritten to
+        // s in comp(R)) it can.  But when the complement/intersection sits underneath a star /
+        // plus / loop the number of repetitions is unfixed, and an accept-axiom introduced here
+        // at a search leaf cannot re-drive the character decisions inside the closure: it stalls
+        // and yields an under-constrained *invalid* model.  We cannot prune (monadic said sat)
+        // and cannot soundly build a model, so give up on that branch -- returning FC_GIVEUP
+        // makes the solver answer `unknown`, which is always sound.
         ++th.m_stats.m_regex_monadic_sat;
-        ctx.push_trail(value_trail<unsigned>(m_monadic_assumption_generation));
-        m_monadic_assumption_generation = m_monadic_generation;
-        for (auto const& [var, witness] : m_monadic.get_model()) {
-            enode* var_node = th.ensure_enode(var);
-            enode* witness_node = th.ensure_enode(witness);
-            if (var_node->get_root() == witness_node->get_root())
+        bool progressed = false;
+        for (auto& mem : m_monadic_memberships) {
+            if (mem.m_legacy_posted)
                 continue;
-            ctx.assume_eq(var_node, witness_node);
-            m_monadic_assumptions.push_back({ m_monadic_generation, var_node, witness_node });
-            ctx.push_trail(push_back_vector(m_monadic_assumptions));
-            ++th.m_stats.m_regex_monadic_assumptions;
-            TRACE(seq_regex, tout << "monadic assume "
-                                  << mk_pp(var, m) << " = " << mk_pp(witness, m) << "\n";);
+            if (regex_complement_under_star(mem.m_re))
+                return FC_GIVEUP;
+            propagate_accept_legacy(mem.m_lit, mem.m_s, mem.m_re);
+            mem.m_legacy_posted = true;
+            progressed = true;
         }
-        return FC_CONTINUE;
+        return progressed ? FC_CONTINUE : FC_DONE;
     }
 
     /**
@@ -471,10 +459,33 @@ namespace smt {
         if (coallesce_in_re(lit)) 
             return;
         
-        if (th.use_monadic_regex())
+        // Register the membership with the monadic solver, which acts as a sound UNSAT pruner
+        // in final_check.
+        //
+        // Legacy-safe vs monadic-only split for the legacy accept-axiom:
+        //  * If r does NOT contain complement / intersection / difference, the legacy
+        //    accept/derivative unfolding is sound and does not blow up (star / plus are handled
+        //    by theory_seq's iterative deepening).  Posting it lazily from final_check does not
+        //    work: the search is already at a leaf, so the derivative cascade (which branches on
+        //    character-class conditions) cannot re-drive the character decisions and the model is
+        //    left under-constrained (invalid).  So post it *eagerly* here, exactly as in the
+        //    non-monadic path, and mark the membership handled so final_check does not re-post it.
+        //  * If r DOES contain complement / intersection / difference, eager accept can blow up
+        //    during propagation and route the conflict through the max_unfolding assumption,
+        //    making theory_seq deepen forever instead of letting monadic prune.  Leave those to
+        //    the monadic pruner and post accept only lazily in final_check if monadic cannot
+        //    decide them.
+        if (th.use_monadic_regex()) {
+            unsigned before = m_monadic_memberships.size();
             add_monadic_membership(lit, s, r);
-        else
-            propagate_accept_legacy(lit, s, r);
+            bool added = m_monadic_memberships.size() > before;
+            if (added && !regex_needs_monadic(r)) {
+                propagate_accept_legacy(lit, s, r);
+                m_monadic_memberships.back().m_legacy_posted = true;
+            }
+            return;
+        }
+        propagate_accept_legacy(lit, s, r);
     }
 
     bool seq_regex::unfold_complement(literal lit, expr *s, expr *r) {
@@ -723,13 +734,104 @@ namespace smt {
             << "mk_derivative_wrapper: " << re().to_str(deriv) << std::endl;);
         expr_ref accept_deriv(m);
         accept_deriv = mk_deriv_accept(s, idx + 1, deriv);
+        literal deriv_lit = th.mk_literal(accept_deriv);
         accept_next.push_back(~lit);
         accept_next.push_back(len_s_le_i);
-        accept_next.push_back(th.mk_literal(accept_deriv));
+        accept_next.push_back(deriv_lit);
         // Acc(s, i, r) => (|s|<=i or Acc(s, i+1, D(s_i,r)))
         // where Acc(s, i+1, ite(c, t, f)) = ite(c, Acc(s, i+1, t), Acc(s, i+1, t))
         // and Acc(s, i+1, r U s) = Acc(s, i+1, r) or Acc(s, i+1, s)
         th.add_axiom(accept_next);
+    }
+
+    bool seq_regex::regex_has_closure(expr* r) {
+        // True if r contains a Kleene closure (star / plus / unbounded loop) anywhere.
+        ptr_vector<expr> todo;
+        todo.push_back(r);
+        expr* body = nullptr;
+        unsigned lo = 0, hi = 0;
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            todo.pop_back();
+            if (!u().is_re(t) || !is_app(t))
+                continue;
+            if (re().is_star(t, body) || re().is_plus(t, body) || re().is_loop(t, body, lo))
+                return true;
+            if (re().is_loop(t, body, lo, hi))
+                return true;
+            for (expr* arg : *to_app(t))
+                todo.push_back(arg);
+        }
+        return false;
+    }
+
+    bool seq_regex::regex_needs_monadic(expr* r) {
+        // True if r contains a complement / intersection / difference whose argument itself
+        // contains a Kleene closure (e.g. comp(a*)).  These are the constructs the legacy
+        // accept/derivative machinery blows up on: complementing an unbounded (starred) language
+        // makes eager accept never terminate the derivative and routes conflicts through
+        // max_unfolding, so theory_seq livelocks instead of letting the monadic solver prune.
+        //
+        // Complement / intersection of a closure-free argument (e.g. comp of a character class,
+        // or a negated bounded membership) is handled fine by the legacy accept-axioms -- even
+        // though such a complement has max_length == UINT_MAX (it matches arbitrarily long
+        // strings) its derivative unfolding is finite -- so it stays on the eager path and keeps
+        // behaviour identical to the non-monadic solver.  max_length alone is *not* a usable
+        // metric: after De Morgan rewriting comp(charclass) becomes an intersection of
+        // complements, each of which reports max_length == UINT_MAX, which would wrongly route
+        // easy instances (e.g. automatark instance00021) to the monadic-only path.
+        expr* r1 = nullptr, *r2 = nullptr;
+        ptr_vector<expr> todo;
+        todo.push_back(r);
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            todo.pop_back();
+            if (!u().is_re(t) || !is_app(t))
+                continue;
+            if (re().is_complement(t, r1)) {
+                if (regex_has_closure(r1))
+                    return true;
+            }
+            else if (re().is_intersection(t, r1, r2) || re().is_diff(t, r1, r2)) {
+                if (regex_has_closure(r1) || regex_has_closure(r2))
+                    return true;
+            }
+            for (expr* arg : *to_app(t))
+                todo.push_back(arg);
+        }
+        return false;
+    }
+
+    bool seq_regex::regex_complement_under_star(expr* r) {
+        // True if a complement / intersection / difference occurs *underneath* a Kleene closure
+        // (star / plus / loop).  A top-level complement (e.g. a negated membership ~(s in R)
+        // rewritten to s in comp(R)) is handled soundly by the legacy accept-axioms even when
+        // posted lazily.  But when the complement sits inside a closure the number of repetitions
+        // -- and hence the characters to constrain -- is not fixed, and a lazily posted accept
+        // (introduced at a search leaf) cannot re-drive those character decisions, so it would
+        // stall and yield an invalid model.  Those branches are given up on (answer `unknown`).
+        ptr_vector<expr> todo;
+        todo.push_back(r);
+        ptr_vector<expr> under_closure;
+        expr* r1 = nullptr, *r2 = nullptr;
+        unsigned lo = 0, hi = 0;
+        // Collect the sub-regexes that are arguments of a star/plus/loop.
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            todo.pop_back();
+            if (!u().is_re(t) || !is_app(t))
+                continue;
+            expr* body = nullptr;
+            if (re().is_star(t, body) || re().is_plus(t, body) || re().is_loop(t, body, lo) ||
+                re().is_loop(t, body, lo, hi))
+                under_closure.push_back(body);
+            for (expr* arg : *to_app(t))
+                todo.push_back(arg);
+        }
+        for (expr* body : under_closure)
+            if (regex_needs_monadic(body))
+                return true;
+        return false;
     }
 
     /**
