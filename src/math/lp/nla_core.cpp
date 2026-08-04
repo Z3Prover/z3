@@ -1547,8 +1547,7 @@ bool core::propagate() {
 		propagated = true;
     if (m_monomial_bounds.propagate_changed_bounds())
         propagated = true;
-    if (params().arith_nl_linearize_violated_monomials() &&
-        m_monomial_bounds.propagate_violated_linear_monomials())
+    if (m_monomial_bounds.propagate_violated_linear_monomials())
         propagated = true;
     m_monics_with_changed_bounds.reset();
     if (propagated)
