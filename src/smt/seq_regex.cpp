@@ -57,27 +57,106 @@ namespace smt {
                              << mk_pp(s, m) << " in " << mk_pp(r, m) << "\n";);
     }
 
-    void seq_regex::add_monadic_bounds() {
+    void seq_regex::collect_vars(expr* s, ptr_vector<expr>& vars) {
+        // View s as a concatenation of string constants and variables (the same shape the
+        // monadic solver decomposes internally) and gather the distinct variables.
+        ptr_vector<expr> todo;
+        todo.push_back(s);
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            todo.pop_back();
+            if (str().is_concat(t)) {
+                for (expr* arg : *to_app(t))
+                    todo.push_back(arg);
+                continue;
+            }
+            if (th.is_var(t) && !vars.contains(t))
+                vars.push_back(t);
+        }
+    }
+
+    void seq_regex::collect_candidate_bounds(vector<candidate_bound>& out) {
         // add_lo/add_hi/add_len build a length regex .{lo}.* / .{0,hi} / .{len}; keep the
         // bound small so the extra membership never itself blows past the monadic solver's
         // state cap (a too-large bound would only turn a solvable case into a give-up).
         const unsigned MAX_BOUND = 1000;
-        for (auto const& mem : m_monadic_memberships) {
-            expr* s = mem.m_s;
-            expr_ref len = th.mk_len(s);
+        // Record whatever arithmetic length bounds currently hold for term t as candidate
+        // length regexes for the monadic solver.
+        auto add_term = [&](expr* t) {
+            expr_ref len = th.mk_len(t);
             rational lo, hi;
             bool has_lo = th.lower_bound(len, lo) && lo.is_unsigned() && lo.get_unsigned() > 0;
             bool has_hi = th.upper_bound(len, hi) && hi.is_unsigned();
             if (has_lo && has_hi && lo == hi) {
                 if (lo.get_unsigned() <= MAX_BOUND)
-                    record_bound(s, len, bound_constraint::LEN, lo.get_unsigned());
-                continue;
+                    out.push_back(candidate_bound(m, t, len, bound_constraint::LEN, lo.get_unsigned()));
+                return;
             }
             if (has_lo && lo.get_unsigned() <= MAX_BOUND)
-                record_bound(s, len, bound_constraint::LO, lo.get_unsigned());
+                out.push_back(candidate_bound(m, t, len, bound_constraint::LO, lo.get_unsigned()));
             if (has_hi && hi.get_unsigned() <= MAX_BOUND)
-                record_bound(s, len, bound_constraint::HI, hi.get_unsigned());
+                out.push_back(candidate_bound(m, t, len, bound_constraint::HI, hi.get_unsigned()));
+        };
+        ptr_vector<expr> vars;
+        for (auto const& mem : m_monadic_memberships) {
+            expr* s = mem.m_s;
+            // The whole-term bound constrains the sum of the atom lengths.
+            add_term(s);
+            // Decompose s into constants and variables and bound each variable directly:
+            // per-variable bounds prune the monadic search for that variable's value,
+            // whereas the whole-term bound only constrains the total length.
+            vars.reset();
+            collect_vars(s, vars);
+            for (expr* v : vars)
+                add_term(v);
         }
+    }
+
+    bool seq_regex::model_len(expr* t, unsigned& len) {
+        obj_map<expr, expr*> const& model = m_monadic.get_model();
+        ptr_vector<expr> todo;
+        todo.push_back(t);
+        len = 0;
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            expr* a = nullptr, *b = nullptr;
+            zstring s;
+            if (str().is_concat(e, a, b)) {
+                todo.push_back(a);
+                todo.push_back(b);
+                continue;
+            }
+            if (str().is_empty(e))
+                continue;
+            if (str().is_unit(e)) {
+                ++len;
+                continue;
+            }
+            if (str().is_string(e, s)) {
+                len += s.length();
+                continue;
+            }
+            expr* w = nullptr;
+            if (model.find(e, w) && w != e) {     // variable: replace by its witness
+                todo.push_back(w);
+                continue;
+            }
+            return false;                         // unassigned variable / unsupported shape
+        }
+        return true;
+    }
+
+    bool seq_regex::model_satisfies_bound(candidate_bound const& cb) {
+        unsigned len = 0;
+        if (!model_len(cb.m_term, len))
+            return true;                          // cannot evaluate -> leave to arithmetic
+        switch (cb.m_kind) {
+        case bound_constraint::LO:  return len >= cb.m_value;
+        case bound_constraint::HI:  return len <= cb.m_value;
+        case bound_constraint::LEN: return len == cb.m_value;
+        }
+        return true;
     }
 
     void seq_regex::record_bound(expr* s, expr* len, bound_constraint::kind_t k, unsigned v) {
@@ -172,9 +251,30 @@ namespace smt {
             return FC_DONE;
         }
 
-        ++th.m_stats.m_regex_monadic_checks;
-        add_monadic_bounds();
-        lbool result = m_monadic.check();
+        // Lazy length-constraint enforcement: first decide the memberships WITHOUT any
+        // length regexes.  If the resulting model already respects every candidate length
+        // bound, keep it; otherwise add exactly the violated bounds and re-solve.  Each
+        // round enforces at least one new bound (finite set), so the loop terminates.
+        vector<candidate_bound> candidates;
+        collect_candidate_bounds(candidates);
+        lbool result = l_undef;
+        unsigned guard = candidates.size() + 1;
+        while (true) {
+            ++th.m_stats.m_regex_monadic_checks;
+            result = m_monadic.check();
+            if (result != l_true)
+                break;
+            bool progressed = false;
+            for (auto const& cb : candidates) {
+                if (model_satisfies_bound(cb))
+                    continue;
+                record_bound(cb.m_term, cb.m_len, cb.m_kind, cb.m_value);
+                progressed = true;
+            }
+            if (!progressed || guard-- == 0)
+                break;
+        }
+
         if (result == l_false) {
             ++th.m_stats.m_regex_monadic_unsat;
             literal_vector lits;

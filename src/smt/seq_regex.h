@@ -136,6 +136,20 @@ namespace smt {
                 m_len(len, m), m_kind(k), m_value(v) {}
         };
 
+        // A candidate length bound (for term m_term, with length term m_len) that MAY be
+        // enforced on the monadic solver.  final_check adds these lazily: only bounds that
+        // the current monadic model actually violates are turned into length regexes via
+        // record_bound.  This avoids eagerly loading loop regexes that the model already
+        // respects.
+        struct candidate_bound {
+            expr_ref m_term;
+            expr_ref m_len;
+            bound_constraint::kind_t m_kind;
+            unsigned m_value;
+            candidate_bound(ast_manager& m, expr* term, expr* len, bound_constraint::kind_t k, unsigned v):
+                m_term(term, m), m_len(len, m), m_kind(k), m_value(v) {}
+        };
+
         seq_monadic                       m_monadic;
         vector<monadic_membership>         m_monadic_memberships;
         svector<monadic_assumption>        m_monadic_assumptions;
@@ -233,10 +247,23 @@ namespace smt {
 
         bool block_if_empty(expr* r, literal lit);
         void add_monadic_membership(literal lit, expr* s, expr* r);
-        // Query current arithmetic length bounds of each monadic membership term and feed
-        // them to the monadic solver (via add_lo/add_hi/add_len) as extra length regexes,
-        // so proposed witnesses respect length constraints.  Recorded in m_monadic_bounds.
-        void add_monadic_bounds();
+        // Compute the candidate arithmetic length bounds of each monadic membership term
+        // -- and, by decomposing the term into a concatenation of string constants and
+        // variables, of each variable occurring in it.  These are NOT added to the monadic
+        // solver; final_check enforces (via record_bound) only the ones a proposed model
+        // violates.
+        void collect_candidate_bounds(vector<candidate_bound>& out);
+        // Length of term t under the monadic solver's current model (variables replaced by
+        // their witnesses).  Returns false if some variable/atom is unassigned or the shape
+        // is unsupported, in which case the length cannot be evaluated.
+        bool model_len(expr* t, unsigned& len);
+        // True if the current monadic model satisfies candidate bound cb (or the bound
+        // cannot be evaluated against the model -- length regexes only prune, so an
+        // unevaluable bound is left to the arithmetic solver).
+        bool model_satisfies_bound(candidate_bound const& cb);
+        // Collect the distinct sequence variables of a term viewed as a concatenation of
+        // string constants and variables (mirrors seq_monadic's own term decomposition).
+        void collect_vars(expr* s, ptr_vector<expr>& vars);
         void record_bound(expr* s, expr* len, bound_constraint::kind_t k, unsigned v);
         // Encode a monadic membership literal / bounds-constraint index as the void*
         // dependency handed to the monadic solver: 2*lit.index() for literals (even),

@@ -47,20 +47,20 @@ char const* verdict_str(lbool l) {
     return l == l_true ? "sat" : l == l_false ? "unsat" : "undef";
 }
 
-char const* mode_str(seq_monadic::transition_mode mode) {
+char const* mode_str(seq::transition_mode mode) {
     switch (mode) {
-    case seq_monadic::transition_mode::brzozowski: return "brz";
-    case seq_monadic::transition_mode::light_antimirov: return "light-ant";
+    case seq::transition_mode::brzozowski_tm: return "brz";
+    case seq::transition_mode::light_antimirov_tm: return "light-ant";
     }
     UNREACHABLE();
     return "";
 }
 
-seq_monadic::transition_mode get_mode() {
+seq::transition_mode get_mode() {
     char const* mode = getenv("Z3_SEQ_MONADIC_MODE");
     if (mode && std::string(mode) == "brz")
-        return seq_monadic::transition_mode::brzozowski;
-    return seq_monadic::transition_mode::light_antimirov;
+        return seq::transition_mode::brzozowski_tm;
+    return seq::transition_mode::light_antimirov_tm;
 }
 
 bool is_seq_var(expr* t) {
@@ -80,7 +80,7 @@ std::string read_status(std::string const& path) {
 
 lbool run_file(
     std::string const& path,
-    seq_monadic::transition_mode mode,
+    seq::transition_mode mode,
     double& solve_ms,
     bool& parsed,
     bool& complete,
@@ -263,7 +263,7 @@ void display_row(
     std::string const& tier,
     std::string const& status,
     bool complete,
-    seq_monadic::transition_mode mode,
+    seq::transition_mode mode,
     lbool verdict,
     double solve_ms,
     unsigned dropped) {
@@ -279,7 +279,7 @@ void display_row(
 void tst_seq_monadic_bench() {
     namespace fs = std::filesystem;
     std::error_code ec;
-    seq_monadic::transition_mode mode = get_mode();
+    seq::transition_mode mode = get_mode();
 
     if (char const* file = getenv("Z3_SEQ_BENCH_FILE")) {
         double ms = 0;

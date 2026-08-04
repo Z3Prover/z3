@@ -44,7 +44,7 @@ class seq_monadic_test {
     seq_util         u;
     sort_ref         m_str;   // String sort
     sort_ref         m_re;    // RegEx sort over m_str
-    seq_monadic::transition_mode m_mode;
+    seq::transition_mode m_mode;
     u_dependency_manager m_dm;   // owns the leaf dependencies used in unsat-core tests
     unsigned         m_fail = 0;
 
@@ -79,8 +79,8 @@ class seq_monadic_test {
     static char const* s(lbool l) { return l == l_true ? "sat" : l == l_false ? "unsat" : "undef"; }
     char const* mode_name() const {
         switch (m_mode) {
-        case seq_monadic::transition_mode::brzozowski: return "brz";
-        case seq_monadic::transition_mode::light_antimirov: return "light-ant";
+        case seq::transition_mode::brzozowski_tm: return "brz";
+        case seq::transition_mode::light_antimirov_tm: return "light-ant";
         }
         UNREACHABLE();
         return "";
@@ -288,7 +288,7 @@ class seq_monadic_test {
     }
 
 public:
-    seq_monadic_test(seq_monadic::transition_mode mode) :
+    seq_monadic_test(seq::transition_mode mode) :
         m_reg(m), m_rw(m), m_mon(m_rw, m_trail, mode), u(m), m_str(m), m_re(m), m_mode(mode) {
         m_str = u.str.mk_string_sort();
         m_re  = re().mk_re(m_str);
@@ -297,7 +297,7 @@ public:
 
     void run() {
         std::cout << "=== seq_monadic mode: " << mode_name() << " ===\n";
-        if (m_mode == seq_monadic::transition_mode::light_antimirov)
+        if (m_mode == seq::transition_mode::light_antimirov_tm)
             check_ant_cofactors();
         expr_ref x  = var("x");
         expr_ref a  = word("a");
@@ -710,8 +710,8 @@ public:
 }
 
 void tst_seq_monadic() {
-    seq_monadic_test brz(seq_monadic::transition_mode::brzozowski);
+    seq_monadic_test brz(seq::transition_mode::brzozowski_tm);
     brz.run();
-    seq_monadic_test light_ant(seq_monadic::transition_mode::light_antimirov);
+    seq_monadic_test light_ant(seq::transition_mode::light_antimirov_tm);
     light_ant.run();
 }
