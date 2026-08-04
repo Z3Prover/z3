@@ -476,27 +476,13 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
     // A variable: the last atom is a plain membership in R, otherwise the variable drives
     // the derivative automaton from R to some live state q, which splits the search.
     bool last_atom = (i + 1 == atoms.size());
-    ptr_vector<expr> targets;
-    if (last_atom)
-        targets.push_back(nullptr);
-    else {
-        auto live = m_live_states.reachable_live(R);
-        for (expr* q : live)
-            targets.push_back(q);
-        if (live.failed()) {
-            m_stats.inc_bail(
-                live.failure_reason() == seq::live_states::failure::state_cap ?
-                bail_reason::state_cap : bail_reason::resource);
-            return l_undef;
-        }
-    }
-
     unsigned vi = var_index(a.var.get());
     uint64_t pos = (static_cast<uint64_t>(mi) << 32) | i;
     uint64_t last = 0;
     bool finalize = m_last_occ.find(a.var.get(), last) && last == pos;
-    bool any_undef = false;
-    for (expr* target : targets) {
+
+    // Explores one split target; the caller stops at the first l_true.
+    auto explore = [&](expr* target) -> lbool {
         m_groups[vi].push_back(component{ a.var.get(), R, target });
         // The group's emptiness test has to be run at some point anyway; running it as
         // soon as the group is complete (or as soon as it holds several components, where
@@ -517,6 +503,19 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
                 --m_undef_vars;
         }
         m_groups[vi].pop_back();
+        return r;
+    };
+
+    if (last_atom)
+        return explore(nullptr);
+
+    // The live states are consumed as they are produced, so a satisfying branch under an
+    // early state means the rest of the reachable set is never expanded.  That is what
+    // makes a root with an exponential live set tractable when a witness is found early.
+    bool any_undef = false;
+    auto live = m_live_states.reachable_live(R);
+    for (expr* q : live) {
+        lbool r = explore(q);
         if (r == l_true)
             return l_true;
         if (r == l_undef) {
@@ -524,6 +523,14 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
                 return l_undef;
             any_undef = true;
         }
+    }
+    // Short of the full reachable set the unexplored split states could still hold a
+    // solution, so the l_false the loop would otherwise report is not justified.
+    if (live.failed()) {
+        m_stats.inc_bail(
+            live.failure_reason() == seq::live_states::failure::state_cap ?
+            bail_reason::state_cap : bail_reason::resource);
+        return l_undef;
     }
     return any_undef ? l_undef : l_false;
 }
