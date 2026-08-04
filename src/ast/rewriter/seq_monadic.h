@@ -114,6 +114,20 @@ class seq_monadic {
     statistics      m_stats;
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
+    // Interval ("t-regex") form of a state's derivative cofactors over the character sort:
+    // a canonical list of disjoint ranges in increasing order, each carrying the targets
+    // reachable on that range.  Built once per state and merged by the product, so the
+    // product enumerates only the cells of the common refinement.
+    struct ivl_range { unsigned lo, hi, first, count; };
+    struct ivl_list {
+        svector<ivl_range> ranges;
+        ptr_vector<expr>   targets;   // ranges[i] owns targets[first .. first+count)
+        bool               ok = true; // false: some guard is outside the range algebra
+    };
+    obj_map<expr, ivl_list*> m_ivl_cache;
+    expr_ref_vector          m_ivl_pin;      // pins the states and targets the cache refers to
+    ivl_list const* interval_cofactors(expr* r, expr* v0);
+    void reset_ivl_cache();
     obj_pair_map<expr, expr, expr*> m_der_cache;  // memoizes der_elem per (regex, element)
     obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
                                             // seq_rewriter's own cache is capped and flushed whole
@@ -236,10 +250,10 @@ public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()),
+        m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()), m_ivl_pin(rw.m()),
         m_regexes(rw.m()), m_live_states(rw, mode, 1u << 12) {}
 
-    ~seq_monadic() = default;
+    ~seq_monadic() { reset_ivl_cache(); }
 
     void collect_statistics(::statistics &st) const;
 
