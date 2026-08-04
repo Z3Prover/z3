@@ -818,6 +818,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
+        with:
+          token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
       
       - name: Download all artifacts
         uses: actions/download-artifact@v8.0.1
@@ -829,7 +831,7 @@ jobs:
       
       - name: Delete existing Nightly release and tag
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
           if gh release view Nightly > /dev/null 2>&1; then
             # Delete the release and associated tag if it exists.
@@ -848,7 +850,7 @@ jobs:
       
       - name: Create Nightly release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         run: |
           git tag -f Nightly "${{ github.sha }}"
           if ! git push --force origin refs/tags/Nightly; then
