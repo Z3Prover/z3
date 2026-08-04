@@ -98,6 +98,13 @@ namespace smt {
                                  k == bound_constraint::HI ? " <= " : " = ") << v << "\n";);
     }
 
+    bool seq_regex::all_true(literal_vector const& lits) const {
+        for (literal lit : lits)
+            if (ctx.get_assignment(lit) != l_true)
+                return false;
+        return true;
+    }
+
     void seq_regex::add_core_literal(void* dep, literal_vector& lits) {
         size_t enc = reinterpret_cast<size_t>(dep);
         if ((enc & 1) == 0) {                     // even: monadic membership literal
@@ -180,6 +187,21 @@ namespace smt {
             literal_vector lits;
             for (void* core_dep : m_monadic.core())
                 add_core_literal(core_dep, lits);
+            // A length bound in the core is materialized here as an arithmetic literal
+            // from the bound the arithmetic solver currently derives for str.len.  That
+            // derived bound is in general justified by other literals, so the literal we
+            // build for it need not itself be assigned true.  A theory conflict requires
+            // every antecedent to be true: conflict resolution silently drops one that is
+            // not, which turns the valid clause into a strictly stronger -- and unsound --
+            // one.  Assert the clause as an axiom instead, and hand the memberships to the
+            // legacy solver so that the search still makes progress.
+            if (!all_true(lits)) {
+                for (unsigned i = 0; i < lits.size(); ++i)
+                    lits[i] = ~lits[i];
+                th.add_axiom(lits);
+                enable_legacy_fallback();
+                return FC_CONTINUE;
+            }
             th.set_conflict(nullptr, lits);
             return FC_CONTINUE;
         }
