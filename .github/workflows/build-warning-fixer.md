@@ -44,7 +44,7 @@ steps:
 
 # Clang-Tidy Warning Fixer
 
-You are an AI agent that uses clang-tidy warning output captured in GitHub Actions logs, proposes conservative fixes, and creates a GitHub issue with ready-to-apply git diffs.
+You are an AI agent that uses clang-tidy warning output captured in a GitHub Actions artifact, proposes conservative fixes, and creates a GitHub issue with ready-to-apply git diffs.
 
 ## Current Context
 
@@ -63,58 +63,31 @@ This workflow is only for `Z3Prover/z3`.
 
 If `${{ github.repository }}` is not `Z3Prover/z3`, call `noop` immediately with a short explanation.
 
-### 1. Retrieve logs from `clang-tidy-warning-report.yml`
+### 1. Retrieve the artifact from `clang-tidy-warning-report.yml`
 
-Use GitHub MCP tools (not `gh`) to retrieve job logs from the triggering run. Do not use `download_workflow_run_artifact`: it may be unavailable, and this workflow must operate entirely from Actions logs.
+Use GitHub MCP tools (not `gh`) to retrieve the warning artifact from the triggering run.
 
 1. Determine source run ID:
    - If `${{ github.event.workflow_run.id }}` is present, use it.
    - For manual dispatch, call `github-mcp-server-actions_list` (`list_workflow_runs`) for workflow `clang-tidy-warning-report.yml` and select the latest `completed` run.
-2. List jobs for that run with `github-mcp-server-actions_list` (`list_workflow_jobs`).
-3. Identify the job named `Build Z3 with clang-tidy warnings`.
-4. Retrieve its logs with `github-mcp-server-get_job_logs` using `return_content: true` and a large `tail_lines` value so the appended summary block is included.
-5. Save the returned log content locally for repeatable analysis:
+2. List artifacts for that run with `github-mcp-server-actions_list` (`list_workflow_run_artifacts`).
+3. Find the artifact named `clang-tidy-warning-report-<run ID>`.
+4. Call `github-mcp-server-actions_get` (`download_workflow_run_artifact`) with its artifact ID to obtain a temporary download URL.
+5. Download and extract the artifact:
 
 ```bash
+rm -rf /tmp/gh-aw/clang-tidy-warning-report
 mkdir -p /tmp/gh-aw/clang-tidy-warning-report
-cat <<'EOF' > /tmp/gh-aw/clang-tidy-warning-report/build.log
-$JOB_LOG_CONTENT
-EOF
-cp /tmp/gh-aw/clang-tidy-warning-report/build.log /tmp/gh-aw/clang-tidy-warning-report/combined.log
+curl --fail --location "$ARTIFACT_URL" --output /tmp/clang-tidy-warning-report.zip
+unzip -q /tmp/clang-tidy-warning-report.zip -d /tmp/gh-aw/clang-tidy-warning-report
 ls -la /tmp/gh-aw/clang-tidy-warning-report
 ```
 
-The source workflow emits a marker-delimited summary near the end of the job log:
-
-- `CLANG_TIDY_WARNING_REPORT_BEGIN`
-- `CLANG_TIDY_STATUS_BEGIN` / `CLANG_TIDY_STATUS_END`
-- `CLANG_TIDY_WARNINGS_BEGIN` / `CLANG_TIDY_WARNINGS_END`
-- `CLANG_TIDY_WARNING_REPORT_END`
-
-Extract the summary into local files:
-
-```bash
-sed -n '/^CLANG_TIDY_STATUS_BEGIN$/,/^CLANG_TIDY_STATUS_END$/p' \
-  /tmp/gh-aw/clang-tidy-warning-report/combined.log | sed '1d;$d' \
-  > /tmp/gh-aw/clang-tidy-warning-report/status.txt
-
-sed -n '/^CLANG_TIDY_WARNINGS_BEGIN$/,/^CLANG_TIDY_WARNINGS_END$/p' \
-  /tmp/gh-aw/clang-tidy-warning-report/combined.log | sed '1d;$d' \
-  > /tmp/gh-aw/clang-tidy-warning-report/warnings.txt
-```
-
-If the marker block is missing, fall back to grepping the full log:
-
-```bash
-grep -nE 'warning:|error:|clang-tidy' /tmp/gh-aw/clang-tidy-warning-report/combined.log \
-  > /tmp/gh-aw/clang-tidy-warning-report/warnings.txt || true
-```
-
-Expect at minimum `build.log`, `combined.log`, and `warnings.txt`. Prefer using `status.txt` when extracted successfully. If the job log is unavailable or empty, call `noop` with a concise explanation.
+Expect `configure.log`, `build.log`, `combined.log`, `warnings.txt`, and `status.txt`. If the artifact is unavailable, expired, or empty, call `noop` with a concise explanation.
 
 ### 2. Extract actionable diagnostics
 
-Analyze log-derived files from this run:
+Analyze artifact files from this run:
 - `/tmp/gh-aw/clang-tidy-warning-report/warnings.txt`
 - `/tmp/gh-aw/clang-tidy-warning-report/build.log`
 - `/tmp/gh-aw/clang-tidy-warning-report/combined.log`
@@ -196,7 +169,7 @@ Issue content must include:
 - proposed fixes as unified diffs (full diff text, not prose only)
 - short assignment-ready checklist for Copilot (one checkbox per proposed fix)
 
-If no actionable warnings are found, or the source job logs are missing/corrupt, call `noop` with a concise explanation.
+If no actionable warnings are found, or the source artifact is missing/corrupt, call `noop` with a concise explanation.
 
 ## Guidelines
 
@@ -204,4 +177,4 @@ If no actionable warnings are found, or the source job logs are missing/corrupt,
 - Prefer no issue over risky or speculative patch suggestions.
 - Keep fixes surgical and easy to review.
 - Focus only on diagnostics produced by the referenced `clang-tidy-warning-report.yml` run.
-- Prefer workflow job logs over cross-run artifact downloads, even if artifact metadata is visible.
+- Use only the warning artifact from the selected workflow run.
