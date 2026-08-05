@@ -99,7 +99,7 @@ namespace smt {
     }
 
     bool seq_regex::all_true(literal_vector const& lits) const {
-        return all_of(lits, [&ctx](literal lit) { return l_true == ctx.get_assignment(lit); });
+        return all_of(lits, [this](literal lit) { return l_true == ctx.get_assignment(lit); });
     }
 
     void seq_regex::add_core_literal(void* dep, literal_vector& lits) {
