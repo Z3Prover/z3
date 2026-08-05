@@ -27,6 +27,7 @@ Author:
 #include "params/smt_params.h"
 #include "smt/smt_kernel.h"
 #include <iostream>
+#include <sstream>
 #include <set>
 
 namespace {
@@ -466,6 +467,68 @@ public:
         if (!trail_ok) ++m_fail;
         std::cout << (trail_ok ? "  OK   " : "  FAIL ")
                   << "check preserves assertions and pop removes them\n";
+
+        std::cout << "=== seq_monadic: display ===\n";
+        m_trail.push_scope();
+        unsigned display_dep = 0;
+        m_mon.set_gen_model(true);
+        m_mon.add(x, aaS, &display_dep);
+        lbool display_result = m_mon.check();
+        std::ostringstream display_out;
+        m_mon.display(display_out);
+        std::string display_text = display_out.str();
+        bool display_ok =
+            display_result == l_true &&
+            display_text.find("(seq-monadic") != std::string::npos &&
+            display_text.find(":memberships") != std::string::npos &&
+            display_text.find(":model") != std::string::npos &&
+            display_text.find(":last-result sat") != std::string::npos &&
+            display_text.find(":last-internal-search") != std::string::npos &&
+            display_text.find(":parsed-memberships") != std::string::npos &&
+            display_text.find(":statistics") != std::string::npos &&
+            display_text.find("x") != std::string::npos;
+        m_trail.pop_scope(1);
+        if (!display_ok) ++m_fail;
+        std::cout << (display_ok ? "  OK   " : "  FAIL ")
+                  << "display exposes readable solver state\n";
+
+        m_trail.push_scope();
+        unsigned display_dep1 = 1, display_dep2 = 2;
+        m_mon.set_min_core(true);
+        m_mon.add(x, aaS, &display_dep1);
+        m_mon.add(x, a_aaS, &display_dep2);
+        lbool unsat_display_result = m_mon.check();
+        std::ostringstream unsat_display_out;
+        m_mon.display(unsat_display_out);
+        std::string unsat_display_text = unsat_display_out.str();
+        bool unsat_display_ok =
+            unsat_display_result == l_false &&
+            unsat_display_text.find(":last-result unsat") != std::string::npos &&
+            unsat_display_text.find(":model ()") != std::string::npos &&
+            unsat_display_text.find(":last-internal-search") != std::string::npos;
+        m_trail.pop_scope(1);
+        m_mon.set_min_core(false);
+        if (!unsat_display_ok) ++m_fail;
+        std::cout << (unsat_display_ok ? "  OK   " : "  FAIL ")
+                  << "display distinguishes unsat result from core-search state\n";
+
+        lbool solve_display_result = m_mon.solve(x, aaS);
+        std::ostringstream solve_display_out;
+        m_mon.display(solve_display_out);
+        bool solve_display_ok =
+            solve_display_result == l_true &&
+            solve_display_out.str().find(":core ( )") != std::string::npos;
+        lbool empty_display_result = m_mon.check();
+        std::ostringstream empty_display_out;
+        m_mon.display(empty_display_out);
+        std::string empty_display_text = empty_display_out.str();
+        bool empty_display_ok =
+            empty_display_result == l_true &&
+            empty_display_text.find(":sequence-sort null") != std::string::npos &&
+            empty_display_text.find(":element-sort null") != std::string::npos;
+        if (!solve_display_ok || !empty_display_ok) ++m_fail;
+        std::cout << (solve_display_ok && empty_display_ok ? "  OK   " : "  FAIL ")
+                  << "display clears artifacts across solve and empty check\n";
 
         std::cout << "=== seq_monadic: length bounds ===\n";
         auto check_bound = [&](char const* name, expr* regex, unsigned bound, bool is_lo,

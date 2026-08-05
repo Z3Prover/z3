@@ -59,6 +59,36 @@ Author:
 #include <algorithm>
 #include <unordered_set>
 
+namespace {
+    char const* mode_name(seq::transition_mode mode) {
+        switch (mode) {
+        case seq::transition_mode::brzozowski_tm:
+            return "brzozowski";
+        case seq::transition_mode::light_antimirov_tm:
+            return "light-antimirov";
+        default:
+            return "unknown";
+        }
+    }
+
+    char const* bail_name(unsigned i) {
+        static char const* const names[] = {
+            "unsupported",
+            "state-cap",
+            "dnf-cap",
+            "budget",
+            "resource",
+            "nullability",
+            "guard"
+        };
+        return i < std::size(names) ? names[i] : "unknown";
+    }
+
+    char const* result_name(lbool r) {
+        return r == l_true ? "sat" : r == l_false ? "unsat" : "unknown";
+    }
+}
+
 
 expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
     expr* cached = nullptr;
@@ -375,6 +405,8 @@ unsigned seq_monadic::var_index(expr* v) {
 }
 
 void seq_monadic::reset_search() {
+    m_seq_sort = nullptr;
+    m_elem_sort = nullptr;
     m_atoms.reset();
     m_regexes.reset();
     m_vars.reset();
@@ -563,27 +595,31 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
 }
 
 lbool seq_monadic::decide(membership_vec const& memberships) {
+    m_last_search_memberships = memberships;
     m_model.reset();
-    if (memberships.empty())
-        return l_true;                            // empty conjunction is vacuously true
     reset_search();                               // clear the caches before dropping the
     m_pin.reset();                                // pins that keep their keys alive
     m_rp_cache.maybe_reset(1u << 16);
     m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
     m_budget = 200000;
     m_giveup = false;
-    if (!prepare(memberships))
-        return l_undef;
-    lbool r = dfs_membership(0);
+    lbool r = l_true;                             // empty conjunction is vacuously true
+    if (!memberships.empty() && !prepare(memberships))
+        r = l_undef;
+    else if (!memberships.empty())
+        r = dfs_membership(0);
     if (r != l_true)
         m_model.reset();
+    m_last_search_result = r;
     return r;
 }
 
 lbool seq_monadic::solve(expr* term, expr* R) {
+    m_core.reset();
     membership_vec mv;
     mv.push_back({ expr_ref(term, m), expr_ref(R, m), nullptr });
-    return decide(mv);
+    m_last_result = decide(mv);
+    return m_last_result;
 }
 
 void seq_monadic::add(expr* term, expr* regex, void* d) {
@@ -682,9 +718,132 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
 lbool seq_monadic::check() {
     m_core.reset();
     lbool r = decide(m_memberships);
-    if (r == l_false)
+    if (r == l_false) {
         minimize_core(m_memberships);
-    return r;
+        m_model.reset();
+    }
+    m_last_result = r;
+    return m_last_result;
+}
+
+std::ostream& seq_monadic::display(std::ostream& out) const {
+    auto display_expr = [&](expr* e) {
+        if (e)
+            out << mk_pp(e, m);
+        else
+            out << "null";
+    };
+
+    out << "(seq-monadic\n"
+        << "  :mode " << mode_name(m_config.m_mode) << "\n"
+        << "  :generate-model " << (m_config.m_model ? "true" : "false") << "\n"
+        << "  :minimize-core " << (m_config.m_min_core ? "true" : "false") << "\n"
+        << "  :last-result " << result_name(m_last_result) << "\n"
+        << "  :budget " << m_budget << "\n"
+        << "  :giveup " << (m_giveup ? "true" : "false") << "\n"
+        << "  :sequence-sort ";
+    if (m_seq_sort)
+        out << mk_pp(m_seq_sort, m);
+    else
+        out << "null";
+    out << "\n  :element-sort ";
+    if (m_elem_sort)
+        out << mk_pp(m_elem_sort, m);
+    else
+        out << "null";
+
+    out << "\n  :memberships (";
+    for (unsigned i = 0; i < m_memberships.size(); ++i) {
+        auto const& [term, regex, dep] = m_memberships[i];
+        out << "\n    [" << i << "] ";
+        display_expr(term);
+        out << " in ";
+        display_expr(regex);
+        out << " :dependency " << dep;
+    }
+    if (!m_memberships.empty())
+        out << "\n  ";
+    out << ")\n  :model (";
+    for (auto const& [var, value] : m_model) {
+        out << "\n    ";
+        display_expr(var);
+        out << " -> ";
+        display_expr(value);
+    }
+    if (!m_model.empty())
+        out << "\n  ";
+    out << ")\n  :core (";
+    for (void* dep : m_core)
+        out << " " << dep;
+    out << " )";
+
+    out << "\n  :last-internal-search\n"
+        << "    (:result " << result_name(m_last_search_result)
+        << "\n     :memberships (";
+    for (unsigned i = 0; i < m_last_search_memberships.size(); ++i) {
+        auto const& [term, regex, dep] = m_last_search_memberships[i];
+        out << "\n       [" << i << "] ";
+        display_expr(term);
+        out << " in ";
+        display_expr(regex);
+        out << " :dependency " << dep;
+    }
+    if (!m_last_search_memberships.empty())
+        out << "\n     ";
+    out << ")\n     :variables (";
+    for (expr* var : m_vars) {
+        out << " ";
+        display_expr(var);
+    }
+    out << " )\n     :parsed-memberships (";
+    for (unsigned mi = 0; mi < m_atoms.size(); ++mi) {
+        out << "\n       [" << mi << "] :regex ";
+        display_expr(m_regexes.get(mi));
+        out << " :atoms (";
+        for (atom const& a : m_atoms[mi]) {
+            out << " " << (a.is_var ? "var:" : "elem:");
+            display_expr(a.is_var ? a.var.get() : a.elem.get());
+        }
+        out << " )";
+    }
+    if (!m_atoms.empty())
+        out << "\n     ";
+    out << ")\n     :groups (";
+    for (unsigned vi = 0; vi < m_groups.size(); ++vi) {
+        out << "\n       ";
+        display_expr(m_vars[vi]);
+        out << " (";
+        for (component const& c : m_groups[vi]) {
+            out << "\n         ";
+            display_expr(c.state);
+            if (c.target) {
+                out << " -> ";
+                display_expr(c.target);
+            }
+            else {
+                out << " nullable";
+            }
+        }
+        if (!m_groups[vi].empty())
+            out << "\n       ";
+        out << ")";
+    }
+    if (!m_groups.empty())
+        out << "\n     ";
+    out << ")\n"
+        << "     :undefined-variables " << m_undef_vars << "\n"
+        << "     :group-cache-size " << m_group_cache.size() << "\n"
+        << "     :derivative-cache-size " << m_der_cache.size() << "\n"
+        << "     :nullable-cache-size " << m_nullable_cache.size() << "\n"
+        << "     :live-cache-size " << m_live_cache.size() << "\n"
+        << "     :pinned-expressions " << m_pin.size() << ")\n";
+
+    out << "  :statistics\n"
+        << "    (:cofactor-calls " << m_stats.m_cofactor_calls << "\n"
+        << "     :states " << m_stats.m_states;
+    for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i)
+        out << "\n     :bail-" << bail_name(i) << " " << m_stats.m_bails[i];
+    return out << "))\n";
 }
 
 void seq_monadic::collect_statistics(::statistics& st) const {
