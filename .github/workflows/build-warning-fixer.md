@@ -29,6 +29,7 @@ safe-outputs:
 network: defaults
 tools:
   github:
+    mode: gh-proxy
     toolsets: [default, actions]
   bash: [":*"]
 timeout-minutes: 90
@@ -65,21 +66,26 @@ If `${{ github.repository }}` is not `Z3Prover/z3`, call `noop` immediately with
 
 ### 1. Retrieve the artifact from `clang-tidy-warning-report.yml`
 
-Use GitHub MCP tools (not `gh`) to retrieve the warning artifact from the triggering run.
+Use the authenticated `gh` CLI proxy to retrieve the warning artifact from the triggering run.
 
 1. Determine source run ID:
    - If `${{ github.event.workflow_run.id }}` is present, use it.
-   - For manual dispatch, call `github-mcp-server-actions_list` (`list_workflow_runs`) for workflow `clang-tidy-warning-report.yml` and select the latest `completed` run.
-2. List artifacts for that run with `github-mcp-server-actions_list` (`list_workflow_run_artifacts`).
-3. Find the artifact named `clang-tidy-warning-report-<run ID>`.
-4. Call `github-mcp-server-actions_get` (`download_workflow_run_artifact`) with its artifact ID to obtain a temporary download URL.
-5. Download and extract the artifact:
+   - For manual dispatch, use `gh run list` for workflow `clang-tidy-warning-report.yml` and select the latest completed run.
+2. Download and extract the artifact:
 
 ```bash
+RUN_ID="${{ github.event.workflow_run.id }}"
+if [ -z "$RUN_ID" ]; then
+  RUN_ID="$(gh run list --repo "${{ github.repository }}" \
+    --workflow clang-tidy-warning-report.yml --status completed --limit 1 \
+    --json databaseId --jq '.[0].databaseId')"
+fi
+
 rm -rf /tmp/gh-aw/clang-tidy-warning-report
 mkdir -p /tmp/gh-aw/clang-tidy-warning-report
-curl --fail --location "$ARTIFACT_URL" --output /tmp/clang-tidy-warning-report.zip
-unzip -q /tmp/clang-tidy-warning-report.zip -d /tmp/gh-aw/clang-tidy-warning-report
+gh run download "$RUN_ID" --repo "${{ github.repository }}" \
+  --name "clang-tidy-warning-report-$RUN_ID" \
+  --dir /tmp/gh-aw/clang-tidy-warning-report
 ls -la /tmp/gh-aw/clang-tidy-warning-report
 ```
 
