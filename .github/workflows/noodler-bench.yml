@@ -1,0 +1,121 @@
+name: noodler-bench
+
+# Compare VeriFIT/z3-noodler against this branch's z3 (stock seq solver, and the
+# monadic regex end-game solver) on the regex corpus in the private z3prover/bench
+# repository. Measurement only: the job stays green even if a solver disagrees,
+# but any sat/unsat disagreement is reported prominently in the run summary.
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        description: "per-benchmark timeout in seconds"
+        default: "10"
+      corpus:
+        description: "subdirectory of bench/inputs/regexes to run (empty = all)"
+        default: ""
+      limit:
+        description: "sample only N benchmarks, spread evenly (0 = all)"
+        default: "0"
+      noodler_tag:
+        description: "z3-noodler release tag"
+        default: "v1.6.1"
+  # Kept so the workflow can still be exercised from a topic branch: a workflow
+  # is only dispatchable once it is on the default branch.
+  push:
+    branches: [noodler-bench-ci]
+    paths:
+      - .github/workflows/noodler-bench.yml
+      - scripts/noodler_bench.py
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      NOODLER_TAG: ${{ github.event.inputs.noodler_tag || 'v1.6.1' }}
+      NOODLER_ASSET: z3-noodler-ubuntu-24.04-x86_64-static-libz3
+      BENCH_TIMEOUT: ${{ github.event.inputs.timeout || '10' }}
+      BENCH_LIMIT: ${{ github.event.inputs.limit || '0' }}
+      BENCH_SUBDIR: ${{ github.event.inputs.corpus || '' }}
+
+    steps:
+      - name: Check out z3
+        uses: actions/checkout@v4
+
+      # The benchmark corpus lives in a private sibling repository, so the default
+      # GITHUB_TOKEN (scoped to this repository only) cannot read it. Mint an
+      # installation token for the z3prover CI app instead, as nightly.yml does.
+      - name: Mint z3prover-ci-bot token for the bench repository
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.Z3_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.Z3_CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: bench
+
+      # Only inputs/regexes is needed (about 2 MB); the full repository is ~1 GB.
+      - name: Check out the regex corpus
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/bench
+          token: ${{ steps.app-token.outputs.token }}
+          path: bench
+          fetch-depth: 1
+          sparse-checkout: inputs/regexes
+          sparse-checkout-cone-mode: true
+
+      - name: Verify the corpus is present
+        run: |
+          CORPUS="bench/inputs/regexes${BENCH_SUBDIR:+/$BENCH_SUBDIR}"
+          echo "CORPUS=$CORPUS" >> "$GITHUB_ENV"
+          test -d "$CORPUS" || { echo "::error::corpus directory $CORPUS not found"; exit 1; }
+          n=$(find "$CORPUS" -name '*.smt2' | wc -l)
+          echo "found $n benchmarks under $CORPUS"
+          test "$n" -gt 0 || { echo "::error::no .smt2 files under $CORPUS"; exit 1; }
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ python3
+
+      - name: Build z3 (Release)
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ninja -C build shell
+          ./build/z3 --version
+
+      - name: Download z3-noodler
+        run: |
+          url="https://github.com/VeriFIT/z3-noodler/releases/download/${NOODLER_TAG}/${NOODLER_ASSET}"
+          echo "fetching $url"
+          curl -fL --retry 3 -o z3-noodler "$url"
+          chmod +x z3-noodler
+          ./z3-noodler --version
+
+      - name: Run the comparison
+        env:
+          Z3_BIN: ./build/z3
+          NOODLER_BIN: ./z3-noodler
+        run: |
+          mkdir -p results
+          python3 scripts/noodler_bench.py \
+            --corpus "$CORPUS" \
+            --out results/noodler-bench.csv \
+            --timeout "$BENCH_TIMEOUT" \
+            --limit "$BENCH_LIMIT" \
+            --jobs "$(nproc)" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            2>&1 | tee results/run.log
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: noodler-bench-results
+          path: results/
+          if-no-files-found: warn
