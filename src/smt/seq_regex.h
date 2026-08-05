@@ -249,6 +249,9 @@ namespace smt {
             return reinterpret_cast<void*>(static_cast<size_t>(2 * idx + 1));
         }
         void add_core_literal(void* dep, literal_vector& lits);
+        // Whether every literal is currently assigned true, i.e. whether the negated
+        // clause is a legitimate theory conflict.
+        bool all_true(literal_vector const& lits) const;
         void propagate_accept_legacy(literal lit, expr* s, expr* r);
         void enable_legacy_fallback();
 

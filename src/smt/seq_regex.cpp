@@ -98,6 +98,10 @@ namespace smt {
                                  k == bound_constraint::HI ? " <= " : " = ") << v << "\n";);
     }
 
+    bool seq_regex::all_true(literal_vector const& lits) const {
+        return all_of(lits, [&ctx](literal lit) { return l_true == ctx.get_assignment(lit); });
+    }
+
     void seq_regex::add_core_literal(void* dep, literal_vector& lits) {
         size_t enc = reinterpret_cast<size_t>(dep);
         if ((enc & 1) == 0) {                     // even: monadic membership literal
@@ -180,7 +184,13 @@ namespace smt {
             literal_vector lits;
             for (void* core_dep : m_monadic.core())
                 add_core_literal(core_dep, lits);
-            th.set_conflict(nullptr, lits);
+            if (all_true(lits)) 
+                th.set_conflict(nullptr, lits);
+            else {
+                for (unsigned i = 0; i < lits.size(); ++i)
+                    lits[i] = ~lits[i];
+                th.add_axiom(lits);
+            }
             return FC_CONTINUE;
         }
         if (result == l_undef) {
