@@ -282,6 +282,18 @@ public:
     // Memberships remain asserted until the constructor-provided trail is popped.
     void add(expr* term, expr* regex, void* d);
 
+    // Replace the decided term of the membership carrying dependency `d` with `term`
+    // (trailed, so the previous term is restored on pop).  Used to re-decide a membership
+    // over the current expansion of its term once theory_seq's equalities define it as a
+    // concatenation.  No-op if no membership carries `d`.
+    void set_term(void* d, expr* term);
+
+    // True if `term` is in the shape the solver can decide: a concatenation of string
+    // constants, epsilon, seq.unit of constant elements, and sequence variables.  Callers
+    // that rewrite a term before add()/set_term() (e.g. by expanding it through equalities)
+    // can use this to avoid feeding a form that would only make check() bail.
+    bool can_decide_term(expr* term);
+
     // Assert that `term` has at least `lo` elements.  A zero lower bound is a no-op.
     void add_lo(expr* term, unsigned lo, void* d);
 
