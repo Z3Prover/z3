@@ -260,10 +260,12 @@ lbool run_file(
             else if (a.is_gt(e, rhs, lhs)) strict = true;
             else return false;
             rational v;
-            if (is_int_var(lhs) && a.is_numeral(rhs, v))
-                return k = lhs, is_lower = false, bound = strict ? v - 1 : v, true;
-            if (a.is_numeral(lhs, v) && is_int_var(rhs))
-                return k = rhs, is_lower = true, bound = strict ? v + 1 : v, true;
+            if (is_int_var(lhs) && a.is_numeral(rhs, v)) {
+                k = lhs; is_lower = false; bound = strict ? v - 1 : v; return true;
+            }
+            if (a.is_numeral(lhs, v) && is_int_var(rhs)) {
+                k = rhs; is_lower = true; bound = strict ? v + 1 : v; return true;
+            }
             return false;
         };
 
@@ -302,10 +304,13 @@ lbool run_file(
                     ok = false;
                     break;
                 }
-                if (is_lower)
-                    lo = has_lo ? std::max(lo, bound) : bound, has_lo = true;
-                else
-                    hi = has_hi ? std::min(hi, bound) : bound, has_hi = true;
+                if (is_lower) {
+                    lo = has_lo ? std::max(lo, bound) : bound;
+                    has_lo = true;
+                } else {
+                    hi = has_hi ? std::min(hi, bound) : bound;
+                    has_hi = true;
+                }
                 guards.push_back(other);
             }
             if (!ok)
@@ -374,13 +379,16 @@ lbool run_file(
         else if (m.is_not(e, arg) && u.str.is_in_re(arg, s, r))
             negated = true;
         else if (!u.str.is_in_re(e, s, r)) {
-            if (!collect_len(e, false))
-                complete = false, ++dropped;
+            if (!collect_len(e, false)) {
+                complete = false;
+                ++dropped;
+            }
             return;
         }
         bool is_var = is_seq_var(s);
         if (!is_var && !u.str.is_concat(s)) {
-            complete = false, ++dropped;
+            complete = false;
+            ++dropped;
             return;
         }
         obj_map<expr, expr*>& map = is_var ? var_re : term_re;
