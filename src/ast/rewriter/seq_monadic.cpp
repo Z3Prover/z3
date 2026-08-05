@@ -22,11 +22,6 @@ Abstract:
 
 TODOs:
 - create a validation harness: expose certificates for correctness that can be checked.
-- consider using expr_ref as alternative to pinned expressions
-- revisit parse_term and "the_var" condition. A sequence of units should be allowed 
-  even though a good solver will apply derivatives directly.
-- optimize for cases where the same term is member of multiple regex constraints.
-  - coallesce the membership constraints into a single regex membership constraint of the intersection of regexes.
 - take into account shape of terms to prune the search space (e.g., if the term is xax, then retain the effect of 
   intersecting with .*a.*).
 - connect to semi-linear pruning, such as xx in (ab)*a is unsat due to parity 
@@ -103,17 +98,7 @@ lbool seq_monadic::nullable(expr* r) {
 
 expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
     ++m_stats.m_cofactor_calls;
-    expr_ref_pair_vector* v = nullptr;
-    if (m_cofactors.find(r, v))
-        return *v;
-    ++m_stats.m_states;
-    v = alloc(expr_ref_pair_vector, m);
-    if (m_config.m_mode == transition_mode::light_antimirov)
-        m_rw.light_ant_derivative_cofactors(r, *v);
-    else
-        m_rw.brz_derivative_cofactors(r, *v);
-    m_cofactors.insert(r, v);              // takes ownership of v and pins the key r
-    return *v;
+    return m_rw.get_derive().get_cached_cofactors(m_config.m_mode, r);
 }
 
 bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {
@@ -352,9 +337,9 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     return l_false;
 }
 
-bool seq_monadic::parse_term(expr* t, vector<atom>& atoms, expr*& the_var) {
+bool seq_monadic::parse_term(expr* t, vector<atom>& atoms) {
     if (u().str.is_concat(t))
-        return all_of(*to_app(t), [&](expr* arg) { return parse_term(arg, atoms, the_var); });
+        return all_of(*to_app(t), [&](expr* arg) { return parse_term(arg, atoms); });
     if (u().str.is_empty(t))
         return true;                              // epsilon: contributes nothing
     zstring s;
@@ -372,7 +357,6 @@ bool seq_monadic::parse_term(expr* t, vector<atom>& atoms, expr*& the_var) {
     }
     // uninterpreted constant of sequence sort => a sequence variable
     if (is_var(t)) {
-        the_var = t;                              // mark that at least one variable occurs
         atoms.push_back(atom(m, true, t, nullptr));
         return true;
     }
@@ -418,14 +402,9 @@ bool seq_monadic::prepare(membership_vec const& memberships) {
             return false;
         }
         vector<atom> atoms;
-        expr* the_var = nullptr;
-        if (!parse_term(term, atoms, the_var)) {
+        if (!parse_term(term, atoms)) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
-        }
-        if (!the_var) {
-            m_stats.inc_bail(bail_reason::unsupported);
-            return false;                         // no variable: ground membership, not our case
         }
         m_regexes.push_back(regex);
         m_atoms.push_back(atoms);
@@ -825,8 +804,8 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
         return l_true;                            // empty conjunction is vacuously true
     reset_search();                               // clear the caches before dropping the
     m_pin.reset();                                // pins that keep their keys alive
-    m_cofactors.maybe_reset(1u << 16);            // cofactors persist across calls (own their pins)
     m_rp_cache.maybe_reset(1u << 16);
+    m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
     m_budget = 200000;
     m_giveup = false;
     if (!prepare(memberships))
@@ -858,6 +837,42 @@ lbool seq_monadic::solve(expr* term, expr* R) {
 void seq_monadic::add(expr* term, expr* regex, void* d) {
     m_memberships.push_back({ expr_ref(term, m), expr_ref(regex, m), d });
     m_undo_trail.push(push_back_vector(m_memberships));
+}
+
+namespace {
+    // Restores a membership term on backtrack.  The previous term is pinned by this trail
+    // object's own expr_ref and released in undo() (the trail region does not run
+    // destructors, mirroring obj_ref_trail).
+    class set_term_trail : public trail {
+        vector<std::tuple<expr_ref, expr_ref, void*>>& m_v;
+        unsigned m_idx;
+        expr_ref m_old;
+    public:
+        set_term_trail(vector<std::tuple<expr_ref, expr_ref, void*>>& v, unsigned idx, expr* old, ast_manager& m):
+            m_v(v), m_idx(idx), m_old(old, m) {}
+        void undo() override {
+            std::get<0>(m_v[m_idx]) = m_old;
+            m_old.reset();
+        }
+    };
+}
+
+void seq_monadic::set_term(void* d, expr* term) {
+    for (unsigned i = 0; i < m_memberships.size(); ++i) {
+        if (std::get<2>(m_memberships[i]) != d)
+            continue;
+        expr_ref& t = std::get<0>(m_memberships[i]);
+        if (t.get() == term)
+            return;
+        m_undo_trail.push(set_term_trail(m_memberships, i, t, m));
+        t = term;
+        return;
+    }
+}
+
+bool seq_monadic::can_decide_term(expr* term) {
+    vector<atom> atoms;
+    return parse_term(term, atoms);
 }
 
 void seq_monadic::add_lo(expr* term, unsigned lo, void* d) {

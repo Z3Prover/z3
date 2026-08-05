@@ -816,8 +816,21 @@ jobs:
     ]
     runs-on: ubuntu-latest
     steps:
+      - name: Mint z3prover-ci-bot token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.Z3_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.Z3_CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: z3
+          permission-contents: write
+          permission-workflows: write
+
       - name: Checkout code
         uses: actions/checkout@v7.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
       
       - name: Download all artifacts
         uses: actions/download-artifact@v8.0.1
@@ -829,7 +842,7 @@ jobs:
       
       - name: Delete existing Nightly release and tag
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           if gh release view Nightly > /dev/null 2>&1; then
             # Delete the release and associated tag if it exists.
@@ -848,7 +861,7 @@ jobs:
       
       - name: Create Nightly release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git tag -f Nightly "${{ github.sha }}"
           if ! git push --force origin refs/tags/Nightly; then

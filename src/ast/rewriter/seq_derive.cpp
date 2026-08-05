@@ -38,7 +38,8 @@ namespace seq {
         m_autil(m),
         m_br(m),
         m_re(re),
-        m_trail(m),
+        m_trail(m), 
+        m_cofactor_cache(m),
         m_ele(m),
         m_path_expr(m) {
         m_br.set_flat_and_or(false);
@@ -1568,6 +1569,19 @@ namespace seq {
         m_intervals_start = 0;
         m_path_expr = m.mk_true();
         get_cofactors_rec(r, result);
+    }
+
+    expr_ref_pair_vector const &derive::get_cached_cofactors(transition_mode mode, expr *r) {
+        expr_ref_pair_vector *v = nullptr;
+        if (m_cofactor_cache.find(r, v))
+            return *v;
+        v = alloc(expr_ref_pair_vector, m);
+        if (mode == transition_mode::light_antimirov_tm)
+            light_ant_derivative_cofactors(r, *v);
+        else
+            derivative_cofactors(r, *v);
+        m_cofactor_cache.insert(r, v);  // takes ownership of v and pins the key r
+        return *v;
     }
 
     void derive::derivative_cofactors(expr* r, expr_ref_pair_vector& result) {

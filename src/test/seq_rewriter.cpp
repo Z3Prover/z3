@@ -18,6 +18,7 @@ Tests:
  20. Solver: contradictory constant lexical bounds are unsatisfiable
  22. re.loop with bounds as arguments agrees with the indexed form
  23. (Σ*·S)* is flattened to () | Σ*·S
+ 24. Regex info tracks inferred maximal lengths
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -347,6 +348,33 @@ void tst_seq_rewriter() {
                   << " nullable=" << i2.nullable << " min_length=" << i2.min_length << "\n";
         ENSURE(i1.nullable == l_false && i1.min_length == 2);
         ENSURE(i2.nullable == l_false && i2.min_length == 2);
+    }
+
+    // -----------------------------------------------------------------------
+    // 24. Regex info tracks inferred maximal lengths.
+    // -----------------------------------------------------------------------
+    {
+        expr_ref empty(su.re.mk_empty(re_sort), m);
+        expr_ref epsilon(su.re.mk_to_re(su.str.mk_empty(str_sort)), m);
+        expr_ref ab(su.re.mk_to_re(su.str.mk_string("ab")), m);
+        expr_ref abc(su.re.mk_to_re(su.str.mk_string("abc")), m);
+        expr_ref intersection(su.re.mk_inter(ab, abc), m);
+        expr_ref union_(su.re.mk_union(ab, abc), m);
+        expr_ref complement(su.re.mk_complement(ab), m);
+        expr_ref loop(su.re.mk_loop_proper(abc, 2, 4), m);
+
+        ENSURE(su.re.get_info(empty).max_length == 0);
+        ENSURE(su.re.get_info(epsilon).max_length == 0);
+        ENSURE(su.re.get_info(intersection).max_length == 2);
+        ENSURE(su.re.get_info(union_).max_length == 3);
+        ENSURE(su.re.get_info(complement).max_length == UINT_MAX);
+        ENSURE(su.re.get_info(loop).max_length == 12);
+
+        seq_util::rex::info large(true, l_false, 1, UINT_MAX / 2 + 1, true);
+        ENSURE(large.loop(1, 2).max_length == UINT_MAX);
+        seq_util::rex::info almost_max(true, l_false, 1, UINT_MAX - 1, true);
+        seq_util::rex::info two(true, l_false, 1, 2, true);
+        ENSURE(almost_max.concat(two, false).max_length == UINT_MAX);
     }
 
     std::cout << "tst_seq_rewriter: all tests passed\n";
