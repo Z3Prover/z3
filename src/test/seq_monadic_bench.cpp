@@ -188,7 +188,15 @@ lbool run_file(
                 collect(arg);
             return;
         }
-        if (!u.str.is_in_re(e, s, r)) {
+        // A negated membership is a membership in the complement.  seq_monadic handles
+        // re.comp natively and seq_regex::unfold_complement performs the same rewrite on
+        // the production path, so modelling it here rather than dropping it keeps the
+        // benchmark faithful to what the solver actually sees.
+        bool negated = false;
+        expr* arg = nullptr;
+        if (m.is_not(e, arg) && u.str.is_in_re(arg, s, r))
+            negated = true;
+        else if (!u.str.is_in_re(e, s, r)) {
             if (!collect_len(e, false))
                 complete = false, ++dropped;
             return;
@@ -202,7 +210,7 @@ lbool run_file(
         // Normalize the regex the way asserted_formulas normalizes assertions
         // before seq_regex hands them to seq_monadic. Without this the bench
         // measures raw parsed regexes, which no production path ever sees.
-        expr_ref normalized(r, m);
+        expr_ref normalized(negated ? u.re.mk_complement(r) : r, m);
         trw(normalized);
         pin.push_back(normalized);
         r = normalized;
