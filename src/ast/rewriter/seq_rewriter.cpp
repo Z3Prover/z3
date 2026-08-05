@@ -33,58 +33,6 @@ Authors:
 #include "params/seq_rewriter_params.hpp"
 
 
-expr_ref sym_expr::accept(expr* e) {
-    ast_manager& m = m_t.get_manager();
-    expr_ref result(m);
-    var_subst subst(m);
-    seq_util u(m);
-    unsigned r1, r2, r3;
-    switch (m_ty) {
-    case t_pred:         
-        result = subst(m_t, 1, &e);
-        break;    
-    case t_not:
-        result = m_expr->accept(e);
-        result = m.mk_not(result);
-        break;
-    case t_char:
-        SASSERT(e->get_sort() == m_t->get_sort());
-        SASSERT(e->get_sort() == m_sort);
-        result = m.mk_eq(e, m_t);
-        break;
-    case t_range: 
-        if (u.is_const_char(m_t, r1) && u.is_const_char(e, r2) && u.is_const_char(m_s, r3)) {
-            result = m.mk_bool_val((r1 <= r2) && (r2 <= r3));            
-        }
-        else {
-            auto a = u.mk_le(m_t, e);
-            result = m.mk_and(a, u.mk_le(e, m_s));
-        }
-        break;
-    }
-    
-    return result;
-}
-
-std::ostream& sym_expr::display(std::ostream& out) const {
-    switch (m_ty) {
-    case t_char: return out << m_t;
-    case t_range: return out << m_t << ":" << m_s;
-    case t_pred: return out << m_t;
-    case t_not: return m_expr->display(out << "not ");
-    }
-    return out << "expression type not recognized";
-}
-
-struct display_expr1 {
-    ast_manager& m;
-    display_expr1(ast_manager& m): m(m) {}
-    std::ostream& display(std::ostream& out, sym_expr* e) const {
-        return e->display(out);
-    }
-};
-
-
 void seq_rewriter::updt_params(params_ref const & p) {
     seq_rewriter_params sp(p);
     m_coalesce_chars = sp.coalesce_chars();

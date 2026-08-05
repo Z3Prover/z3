@@ -177,6 +177,179 @@ lbool run_file(
                     : tighten(t, n + s, INT64_MAX);          //   k <= |t|
     };
 
+    // A length equation |t| = c*k + d, where k is an integer variable occurring in no
+    // other assertion than its own bounds, describes exactly the lengths congruent to d
+    // modulo c that those bounds allow -- that is, t in .{base}(.{c})*.  seq_monadic has
+    // no integer reasoning, so without this rewrite both the equation and its guard are
+    // dropped and the benchmark measures a strictly weaker problem.
+    obj_map<expr, expr*> modular_re;         // the equation  -> regex encoding it
+    obj_map<expr, expr*> modular_term;       // the equation  -> the string term
+    obj_hashtable<expr> consumed;            // guards fully accounted for by the encoding
+    {
+        ptr_vector<expr> conjuncts;
+        std::function<void(expr*)> flatten = [&](expr* e) {
+            if (m.is_and(e))
+                for (expr* arg : *to_app(e))
+                    flatten(arg);
+            else
+                conjuncts.push_back(e);
+        };
+        for (expr* assertion : ctx.assertions())
+            flatten(assertion);
+
+        auto is_int_var = [&](expr* e) { return is_uninterp_const(e) && a.is_int(e); };
+
+        auto occurs = [&](expr* e, expr* k) {
+            obj_hashtable<expr> seen;
+            ptr_vector<expr> todo;
+            todo.push_back(e);
+            while (!todo.empty()) {
+                expr* t = todo.back();
+                todo.pop_back();
+                if (t == k)
+                    return true;
+                if (!is_app(t) || seen.contains(t))
+                    continue;
+                seen.insert(t);
+                for (expr* arg : *to_app(t))
+                    todo.push_back(arg);
+            }
+            return false;
+        };
+
+        // c*k + d, with a single integer variable k and c > 0
+        auto parse_linear = [&](expr* e, expr*& k, rational& c, rational& d) {
+            k = nullptr;
+            c.reset();
+            d.reset();
+            ptr_vector<expr> todo;
+            todo.push_back(e);
+            rational v;
+            while (!todo.empty()) {
+                expr* t = todo.back();
+                todo.pop_back();
+                expr* x = nullptr, * y = nullptr;
+                if (a.is_add(t))
+                    for (expr* arg : *to_app(t))
+                        todo.push_back(arg);
+                else if (a.is_numeral(t, v))
+                    d += v;
+                else if (a.is_mul(t, x, y) && a.is_numeral(x, v) && is_int_var(y)) {
+                    if (k && k != y)
+                        return false;
+                    k = y, c += v;
+                }
+                else if (is_int_var(t)) {
+                    if (k && k != t)
+                        return false;
+                    k = t, c += rational(1);
+                }
+                else
+                    return false;
+            }
+            return k != nullptr && c.is_pos();
+        };
+
+        // k <= v / v <= k, including the strict and reversed spellings
+        auto parse_guard = [&](expr* e, expr*& k, bool& is_lower, rational& bound) {
+            expr* lhs = nullptr, * rhs = nullptr;
+            bool strict = false;
+            if (a.is_le(e, lhs, rhs)) {}
+            else if (a.is_lt(e, lhs, rhs)) strict = true;
+            else if (a.is_ge(e, rhs, lhs)) {}
+            else if (a.is_gt(e, rhs, lhs)) strict = true;
+            else return false;
+            rational v;
+            if (is_int_var(lhs) && a.is_numeral(rhs, v))
+                return k = lhs, is_lower = false, bound = strict ? v - 1 : v, true;
+            if (a.is_numeral(lhs, v) && is_int_var(rhs))
+                return k = rhs, is_lower = true, bound = strict ? v + 1 : v, true;
+            return false;
+        };
+
+        auto fits = [&](rational const& r) {
+            if (!r.is_int() || !r.is_int64())
+                return false;
+            int64_t v = r.get_int64();
+            return -(int64_t)MAX_LEN_BOUND <= v && v <= (int64_t)MAX_LEN_BOUND;
+        };
+
+        for (expr* eq : conjuncts) {
+            expr* lhs = nullptr, * rhs = nullptr, * t = nullptr, * k = nullptr;
+            rational c, d;
+            if (!m.is_eq(eq, lhs, rhs) || !a.is_int(lhs))
+                continue;
+            if (!(u.str.is_length(lhs, t) && parse_linear(rhs, k, c, d)) &&
+                !(u.str.is_length(rhs, t) && parse_linear(lhs, k, c, d)))
+                continue;
+            if (!is_seq_var(t) && !u.str.is_concat(t))
+                continue;
+            if (!fits(c) || !fits(d))
+                continue;
+
+            // Every other assertion mentioning k has to be a bound on k alone, otherwise
+            // eliminating k would lose information.
+            ptr_vector<expr> guards;
+            bool has_lo = false, has_hi = false, ok = true;
+            rational lo, hi;
+            for (expr* other : conjuncts) {
+                if (other == eq || !occurs(other, k))
+                    continue;
+                expr* gk = nullptr;
+                bool is_lower = false;
+                rational bound;
+                if (!parse_guard(other, gk, is_lower, bound) || gk != k || !fits(bound)) {
+                    ok = false;
+                    break;
+                }
+                if (is_lower)
+                    lo = has_lo ? std::max(lo, bound) : bound, has_lo = true;
+                else
+                    hi = has_hi ? std::min(hi, bound) : bound, has_hi = true;
+                guards.push_back(other);
+            }
+            if (!ok)
+                continue;
+
+            int64_t ci = c.get_int64(), di = d.get_int64();
+            int64_t base = ((di % ci) + ci) % ci;        // least non-negative length = d (mod c)
+            if (has_lo) {
+                // c*lo + d is congruent to base modulo c, so it is reached exactly.
+                int64_t lowest = ci * lo.get_int64() + di;
+                if (lowest > base)
+                    base = lowest;
+            }
+            int64_t periods = -1;                        // -1: unbounded, i.e. a star
+            if (has_hi) {
+                int64_t highest = ci * hi.get_int64() + di;
+                if (highest < base)
+                    continue;                            // empty; not worth encoding
+                periods = (highest - base) / ci;
+            }
+            if (base > MAX_LEN_BOUND || periods > MAX_LEN_BOUND)
+                continue;
+
+            sort* re_sort = u.re.mk_re(t->get_sort());
+            expr_ref all_char(u.re.mk_full_char(re_sort), m);
+            expr_ref period(u.re.mk_loop_proper(all_char, (unsigned)ci, (unsigned)ci), m);
+            expr_ref rep(m);
+            if (periods < 0)
+                rep = u.re.mk_star(period);
+            else
+                rep = u.re.mk_loop_proper(period, 0, (unsigned)periods);
+            expr_ref regex(rep, m);
+            if (base > 0) {
+                expr_ref prefix(u.re.mk_loop_proper(all_char, (unsigned)base, (unsigned)base), m);
+                regex = u.re.mk_concat(prefix, rep);
+            }
+            pin.push_back(regex);
+            modular_re.insert(eq, regex);
+            modular_term.insert(eq, t);
+            for (expr* g : guards)
+                consumed.insert(g);
+        }
+    }
+
     // Collect what seq_monadic can model.  Conjunctions are traversed so that an
     // unsupported conjunct does not discard its siblings; every conjunct that cannot be
     // modelled is counted in `dropped`.  Dropping conjuncts only weakens the problem, so
@@ -188,7 +361,19 @@ lbool run_file(
                 collect(arg);
             return;
         }
-        if (!u.str.is_in_re(e, s, r)) {
+        // A negated membership is a membership in the complement.  seq_monadic handles
+        // re.comp natively and seq_regex::unfold_complement performs the same rewrite on
+        // the production path, so modelling it here rather than dropping it keeps the
+        // benchmark faithful to what the solver actually sees.
+        bool negated = false;
+        expr* arg = nullptr;
+        if (consumed.contains(e))
+            return;                          // a guard the modular encoding folded in
+        if (modular_re.find(e, r))
+            modular_term.find(e, s);
+        else if (m.is_not(e, arg) && u.str.is_in_re(arg, s, r))
+            negated = true;
+        else if (!u.str.is_in_re(e, s, r)) {
             if (!collect_len(e, false))
                 complete = false, ++dropped;
             return;
@@ -202,7 +387,7 @@ lbool run_file(
         // Normalize the regex the way asserted_formulas normalizes assertions
         // before seq_regex hands them to seq_monadic. Without this the bench
         // measures raw parsed regexes, which no production path ever sees.
-        expr_ref normalized(r, m);
+        expr_ref normalized(negated ? u.re.mk_complement(r) : r, m);
         trw(normalized);
         pin.push_back(normalized);
         r = normalized;

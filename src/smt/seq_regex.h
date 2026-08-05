@@ -306,6 +306,9 @@ namespace smt {
         // accumulating (into deps, a theory_seq::dependency* held as void*) the equalities
         // used to canonize any participating membership term.
         void add_core_literal(void* dep, literal_vector& lits, void*& deps);
+        // Whether every literal is currently assigned true, i.e. whether the negated
+        // clause is a legitimate theory conflict.
+        bool all_true(literal_vector const& lits) const;
         void propagate_accept_legacy(literal lit, expr* s, expr* r);
         void enable_legacy_fallback();
 

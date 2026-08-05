@@ -259,6 +259,10 @@ namespace smt {
                                  k == bound_constraint::HI ? " <= " : " = ") << v << "\n";);
     }
 
+    bool seq_regex::all_true(literal_vector const& lits) const {
+        return all_of(lits, [this](literal lit) { return l_true == ctx.get_assignment(lit); });
+    }
+
     void seq_regex::add_core_literal(void* dep, literal_vector& lits, void*& deps) {
         size_t enc = reinterpret_cast<size_t>(dep);
         if ((enc & 1) == 0) {                     // even: a monadic membership (by index)
@@ -373,7 +377,28 @@ namespace smt {
             void* deps = nullptr;
             for (void* core_dep : m_monadic.core())
                 add_core_literal(core_dep, lits, deps);
-            th.set_conflict(static_cast<theory_seq::dependency*>(deps), lits);
+            if (all_true(lits)) {
+                // Every core literal is assigned true, so the negated core (together with the
+                // equalities collected while canonizing membership terms, carried in deps) is a
+                // legitimate theory conflict.
+                th.set_conflict(static_cast<theory_seq::dependency*>(deps), lits);
+            }
+            else {
+                // Some core literal is not currently assigned true, so this is not a legitimate
+                // theory conflict (see #10398): raising one would justify it with non-true
+                // literals. Assert the blocking clause instead -- the negation of the literals
+                // and canonization equalities that the monadic solver refuted.
+                for (unsigned i = 0; i < lits.size(); ++i)
+                    lits[i] = ~lits[i];
+                enode_pair_vector eqs;
+                literal_vector dep_lits;
+                th.linearize(static_cast<theory_seq::dependency*>(deps), eqs, dep_lits);
+                for (literal l : dep_lits)
+                    lits.push_back(~l);
+                for (auto const& [a, b] : eqs)
+                    lits.push_back(~th.mk_eq(a->get_expr(), b->get_expr(), false));
+                th.add_axiom(lits);
+            }
             return FC_CONTINUE;
         }
         if (result == l_undef) {
