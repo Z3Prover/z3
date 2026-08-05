@@ -3850,6 +3850,7 @@ namespace smt {
             for (auto const& clause : clauses) init_clause(clause);
             r = search();   
             r = mk_unsat_core(r);
+            reset_tmp_clauses();
         }
         while (should_research(r));
         r = check_finalize(r);
