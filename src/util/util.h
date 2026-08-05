@@ -109,6 +109,8 @@ static inline unsigned next_power_of_two(unsigned v) {
 */
 unsigned log2(unsigned v);
 unsigned uint64_log2(uint64_t v);
+unsigned mul_truncate(unsigned a, unsigned b);
+unsigned add_truncate(unsigned a, unsigned b);
 
 static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 

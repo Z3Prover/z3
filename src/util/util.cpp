@@ -119,6 +119,16 @@ unsigned uint64_log2(uint64_t v) {
     return r;
 }
 
+unsigned mul_truncate(unsigned a, unsigned b) {
+    auto r = (uint64_t)a * (uint64_t)b;
+    return r > UINT_MAX ? UINT_MAX : (unsigned)r;
+}
+
+unsigned add_truncate(unsigned a, unsigned b) {
+    auto r = (uint64_t)a + (uint64_t)b;
+    return r > UINT_MAX ? UINT_MAX : (unsigned)r;
+}
+
 bool product_iterator_next(unsigned n, unsigned const * sz, unsigned * it) {
     for (unsigned i = 0; i < n; ++i) {
         it[i]++;
@@ -160,4 +170,3 @@ void escaped::display(std::ostream & out) const {
         }
     }
 }
-

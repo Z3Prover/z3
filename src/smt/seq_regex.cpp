@@ -493,7 +493,7 @@ namespace smt {
 
         // Rule 1: use min_length to prune search
         unsigned min_len = re().min_length(r);
-        unsigned min_len_plus_i = u().max_plus(min_len, idx);
+        unsigned min_len_plus_i = add_truncate(min_len, idx);
         literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len_plus_i);
         // Acc(s,i,r) ==> |s| >= i + minlength(r)
         th.propagate_lit(nullptr, 1, &lit, len_s_ge_min);
