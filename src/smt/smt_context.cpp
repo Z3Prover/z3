@@ -3849,7 +3849,7 @@ namespace smt {
             }
             for (auto const& clause : clauses) init_clause(clause);
             r = search();   
-            r = mk_unsat_core(r);             
+            r = mk_unsat_core(r);
         }
         while (should_research(r));
         r = check_finalize(r);
