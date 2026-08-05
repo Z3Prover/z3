@@ -679,83 +679,8 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
             m_core.push_back(d);
 }
 
-bool seq_monadic::length_interval(expr* R, unsigned& lo, unsigned& hi) const {
-    const unsigned INF = UINT_MAX;
-    expr* body = nullptr, *a = nullptr, *b = nullptr;
-    unsigned l = 0, h = 0;
-    if (re().is_full_char(R)) { lo = 1; hi = 1; return true; }          // add_len(., 1)
-    if (re().is_epsilon(R))   { lo = 0; hi = 0; return true; }          // add_hi(., 0)
-    if (re().is_loop(R, body, l, h) && re().is_full_char(body)) {       // add_hi / add_len(., k>=2)
-        lo = l; hi = h; return true;
-    }
-    // lower-bound form: concat(fixed-length prefix over full_char, full_seq)
-    if (re().is_concat(R, a, b) && re().is_full_seq(b)) {
-        if (re().is_full_char(a)) { lo = 1; hi = INF; return true; }    // add_lo(., 1)
-        if (re().is_loop(a, body, l, h) && re().is_full_char(body) && l == h) {
-            lo = l; hi = INF; return true;                              // add_lo(., k>=2)
-        }
-    }
-    return false;
-}
-
-bool seq_monadic::length_infeasible(membership_vec const& memberships) {
-    // Collect the strongest per-term lower and upper length bounds, with a witness
-    // dependency for each, from the memberships that are pure length constraints.
-    obj_map<expr, unsigned> lo_bound, hi_bound;
-    obj_map<expr, void*> lo_dep, hi_dep;
-    for (auto const& [term, regex, d] : memberships) {
-        unsigned lo = 0, hi = 0;
-        if (!length_interval(regex, lo, hi))
-            continue;
-        unsigned cur;
-        if (lo > 0 && (!lo_bound.find(term.get(), cur) || lo > cur)) {
-            lo_bound.insert(term.get(), lo);
-            lo_dep.insert(term.get(), d);
-        }
-        if (hi != UINT_MAX && (!hi_bound.find(term.get(), cur) || hi < cur)) {
-            hi_bound.insert(term.get(), hi);
-            hi_dep.insert(term.get(), d);
-        }
-    }
-    if (hi_bound.empty())
-        return false;
-    // A term whose atoms' minimum lengths already exceed its upper bound is unsat.
-    for (auto const& [term, regex, d] : memberships) {
-        unsigned hi;
-        if (!hi_bound.find(term.get(), hi))
-            continue;
-        vector<atom> atoms;
-        if (!parse_term(term, atoms))
-            continue;
-        unsigned minlen = 0;
-        ptr_vector<void> used;
-        for (auto const& a : atoms) {
-            if (!a.is_var) { ++minlen; continue; }
-            unsigned vlo = 0;
-            if (lo_bound.find(a.var.get(), vlo) && vlo > 0) {
-                minlen += vlo;
-                void* vd = nullptr;
-                if (lo_dep.find(a.var.get(), vd) && vd)
-                    used.push_back(vd);
-            }
-        }
-        if (minlen > hi) {
-            m_core.reset();
-            void* hd = nullptr;
-            if (hi_dep.find(term.get(), hd) && hd)
-                m_core.push_back(hd);
-            for (void* vd : used)
-                m_core.push_back(vd);
-            return true;
-        }
-    }
-    return false;
-}
-
 lbool seq_monadic::check() {
     m_core.reset();
-    if (length_infeasible(m_memberships))
-        return l_false;
     lbool r = decide(m_memberships);
     if (r == l_false)
         minimize_core(m_memberships);
