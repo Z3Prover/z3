@@ -375,6 +375,16 @@ namespace nla {
         eval.var2val() = [&](unsigned j) { return val(j); };
         if (eval(p) == 0)
             return false;
+        // Divisibility and quotient branching is effective for small moduli but
+        // hopeless for huge ones: a residue lemma modulo 2^32 (coefficients of
+        // that scale typically enter the polynomial by substitution of fixed
+        // power-of-two constants) refutes just the current model out of billions
+        // and only churns the search. Skip when any coefficient is that large.
+        unsigned const max_bits = c().params().arith_nl_grobner_quotient_max_bits();
+        if (max_bits > 0)
+            for (auto const& mn : p)
+                if (mn.coeff.bitsize() > max_bits)
+                    return false;
         TRACE(grobner, tout << "propagate_quotients " << p << "\n");
         tracked_uint_set nl_vars;
         rational d(1);
@@ -996,6 +1006,16 @@ namespace nla {
         }
     }
 
+    // A fixed variable is substituted by its value only when the value is small.
+    // Substituting huge constants (e.g. 2^32 from pow2 tables) drives the basis
+    // computation into large-coefficient arithmetic; such variables stay symbolic.
+    bool grobner::fixed_value_is_small(lpvar j) const {
+        unsigned max_bits = c().params().arith_nl_grobner_subs_fixed_max_bits();
+        if (max_bits == 0)
+            return true;
+        return lra.column_lower_bound(j).x.bitsize() <= max_bits;
+    }
+
     const rational& grobner::val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep) {
         auto* d = lra.get_bound_constraint_witnesses_for_column(j);
         if (d)
@@ -1024,7 +1044,7 @@ namespace nla {
                 dep = zero_dep;
                 return r;
             }
-            if (c().params().arith_nl_grobner_subs_fixed() == 1 && c().var_is_fixed(j))
+            if (c().params().arith_nl_grobner_subs_fixed() == 1 && c().var_is_fixed(j) && fixed_value_is_small(j))
                 r *= val_of_fixed_var_with_deps(j, dep);
             else if (m_config.m_expand_terms && c().lra.column_has_term(j))
                 r *= pdd_expr(c().lra.get_term(j), dep);

@@ -28,6 +28,8 @@ Notes:
 #include "params/smt_params_helper.hpp"
 #include "solver/solver_na2as.h"
 #include "solver/mus.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 
 #include <algorithm>
 
@@ -71,12 +73,17 @@ namespace {
         unsigned             m_core_extend_patterns_max_distance;
         bool                 m_core_extend_nonlocal_patterns;
         obj_map<expr, expr*> m_name2assertion;
+        // bounds-only linear probe (arith.nl.linear_probe)
+        expr_ref_vector         m_probe_core;
+        model_ref               m_probe_model;
+        bool                    m_result_from_probe = false;
 
     public:
         smt_solver(ast_manager & m, params_ref const & p, symbol const & l) :
             solver_na2as(m),
             m_smt_params(p),
             m_context(m, m_smt_params),
+            m_probe_core(m),
             m_cuber(nullptr),
             m_minimizing_core(false),
             m_core_extend_patterns(false),
@@ -163,6 +170,7 @@ namespace {
         }
 
         void assert_expr_core(expr * t) override {
+            reset_probe();
             m_context.assert_expr(t);
         }
         void set_phase(expr* e) override { m_context.set_phase(e); }
@@ -181,10 +189,12 @@ namespace {
         }
 
         void push_core() override {
+            reset_probe();
             m_context.push();
         }
 
         void pop_core(unsigned n) override {
+            reset_probe();
             unsigned cur_sz = m_assumptions.size();
             if (n > 0 && cur_sz > 0) {
                 unsigned lvl = m_scopes.size();
@@ -202,8 +212,85 @@ namespace {
             m_context.pop(n);
         }
 
+        void reset_probe() {
+            m_probe_core.reset();
+            m_probe_model = nullptr;
+            m_result_from_probe = false;
+        }
+
+        // A short bounds-only probe on a throwaway kernel: solver 6 with the
+        // nonlinear lemma machinery (Grobner, Horner, nlsat) disabled, so only
+        // linear reasoning, linearization of fixed-factor monomials and
+        // row-implied bound tightening act. Effectively-linear queries are
+        // decided here at a fraction of the cost of the main search and with
+        // none of its seed variance; anything else fails fast (there is
+        // nothing expensive left to run) and the main search starts unchanged.
+        lbool try_nl_linear_probe(unsigned num_assumptions, expr * const * assumptions) {
+            reset_probe();
+            smt_params_helper ph(get_params());
+            if (!ph.arith_nl_linear_probe())
+                return l_undef;
+            if (m.proofs_enabled())
+                return l_undef;
+            params_ref pp;
+            pp.copy(get_params());
+            pp.set_bool("arith.nl.linear_probe", false);
+            pp.set_uint("arith.solver", 6);
+            pp.set_bool("arith.nl.grobner", false);
+            pp.set_bool("arith.nl.horner", false);
+            pp.set_bool("arith.nl.nra", false);
+            pp.set_bool("arith.nl.nra_check_assignment", false);
+            pp.set_bool("arith.nl.propagate_row_bounds_improve", true);
+
+            // The probe lives in its own ast_manager: preprocessing inside a
+            // shared manager would allocate nodes and shift ast identifiers,
+            // silently changing the tie-breaking of the main search that runs
+            // after a failed probe. With a separate manager the main search is
+            // bit-identical to a run without the probe.
+            // ast_translation's constructor copies the plugin families with
+            // aligned family ids; the target manager must start bare.
+            ast_manager pm(PGM_DISABLED);
+            ast_translation to_probe(m, pm);
+            scoped_ptr<smt_params> fp = alloc(smt_params, pp);
+            smt::kernel probe(pm, *fp, pp);
+            if (m_logic != symbol::null)
+                probe.set_logic(m_logic);
+            ptr_vector<expr> fmls;
+            m_context.get_context().get_asserted_formulas(fmls);
+            for (expr* f : fmls)
+                probe.assert_expr(to_probe(f));
+            expr_ref_vector pas(pm);
+            for (unsigned i = 0; i < num_assumptions; ++i)
+                pas.push_back(to_probe(assumptions[i]));
+            lbool r;
+            {
+                cancel_eh<reslimit> eh(pm.limit());
+                scoped_timer timer(ph.arith_nl_linear_probe_timeout(), &eh);
+                r = probe.check(pas.size(), pas.data());
+            }
+            if (r == l_undef)
+                return l_undef;
+            ast_translation from_probe(pm, m);
+            if (r == l_false) {
+                unsigned sz = probe.get_unsat_core_size();
+                for (unsigned i = 0; i < sz; ++i)
+                    m_probe_core.push_back(from_probe(probe.get_unsat_core_expr(i)));
+            }
+            else {
+                model_ref pmdl;
+                probe.get_model(pmdl);
+                if (pmdl)
+                    m_probe_model = pmdl->translate(from_probe);
+            }
+            m_result_from_probe = true;
+            return r;
+        }
+
         lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
             TRACE(solver_na2as, tout << "smt_solver::check_sat_core:\n"; for (unsigned i = 0; i < num_assumptions; ++i) tout << mk_pp(assumptions[i], m) << "\n";);
+            lbool r = try_nl_linear_probe(num_assumptions, assumptions);
+            if (r != l_undef)
+                return r;
             return m_context.check(num_assumptions, assumptions);
         }
 
@@ -373,6 +460,10 @@ namespace {
         };
 
         void get_unsat_core(expr_ref_vector & r) override {
+            if (m_result_from_probe) {
+                r.append(m_probe_core);
+                return;
+            }
 
             unsigned sz = m_context.get_unsat_core_size();
             for (unsigned i = 0; i < sz; ++i) {
@@ -397,7 +488,10 @@ namespace {
         }
 
         void get_model_core(model_ref & m) override {
-            m_context.get_model(m);
+            if (m_result_from_probe)
+                m = m_probe_model;
+            else
+                m_context.get_model(m);
         }
 
         proof * get_proof_core() override {

@@ -45,9 +45,10 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
      m_nlsat_delay_bound = lp_settings().nlsat_delay();
      lra.m_find_monics_with_changed_bounds_func = [&](const indexed_uint_set& columns_with_changed_bounds) {
         for (lpvar j : columns_with_changed_bounds) {
+            m_columns_with_changed_bounds.insert(j);
             if (is_monic_var(j))
                 m_monics_with_changed_bounds.insert(j);
-            for (const auto & m: m_emons.get_use_list(j)) 
+            for (const auto & m: m_emons.get_use_list(j))
                 m_monics_with_changed_bounds.insert(m.var());
         }
     };
@@ -648,7 +649,7 @@ void core::init_to_refine() {
     unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; ++k) {
         auto const & m = *(m_emons.begin() + (k + r)% sz);
-        if (!check_monic(m)) 
+        if (!check_monic(m))
             insert_to_refine(m.var());
     }
     
@@ -1185,9 +1186,11 @@ void core::patch_monomial(lpvar j) {
     // We could not patch j, now we try patching the factor variables.
     TRACE(nla_solver, tout << " trying squares\n";);
     // handle perfect squares
-    if ((*m_patched_monic).vars().size() == 2 && (*m_patched_monic).vars()[0] == (*m_patched_monic).vars()[1]) {        
+    if ((*m_patched_monic).vars().size() == 2 && (*m_patched_monic).vars()[0] == (*m_patched_monic).vars()[1]) {
         rational root;
-        if (v.is_perfect_square(root)) {
+        // is_perfect_square multiplies numbers of v's magnitude; on the huge
+        // values that bound propagation can produce it dominates the run time.
+        if (v.bitsize() <= 256 && v.is_perfect_square(root)) {
             m_patched_var = (*m_patched_monic).vars()[0];
             if (!var_breaks_correct_monic(m_patched_var) && (try_to_patch(root) || try_to_patch(-root))) { 
                 TRACE(nla_solver, tout << "patched square\n";);
@@ -1305,14 +1308,24 @@ lbool core::check(unsigned level) {
 
     init_to_refine();
     patch_monomials();
-    set_use_nra_model(false);    
+    set_use_nra_model(false);
     if (m_to_refine.empty())
-        return l_true;    
+        return l_true;
     init_search();
     m_nla_satisfied = false;
 
     lbool ret = l_undef;
-    bool run_grobner = need_run_grobner();
+    // Optionally defer the Grobner basis while bound propagation is still
+    // delivering: solver 2 never reaches its Grobner strategy on
+    // effectively-linear problems because interval propagation reports
+    // progress at every call. The deferral cuts Grobner invocations ~7x and
+    // the seed-tail ~40% on the F* UInt128 family, but it also starves the
+    // Grobner lemmas that alone close Pulse.Lib.ForEvery-1 (a query solver 2
+    // cannot solve at all), so it is opt-in rather than default.
+    bool bounds_active = m_bounds_progress_since_check > 0 &&
+                         params().arith_nl_grobner_defer_on_bounds_progress();
+    m_bounds_progress_since_check = 0;
+    bool run_grobner = need_run_grobner() && !bounds_active;
     bool run_horner = need_run_horner();
     bool run_bounds = params().arith_nl_branching();
 
@@ -1323,8 +1336,21 @@ lbool core::check(unsigned level) {
 
     if (no_effect() && refine_pseudo_linear())
         return l_false;
-       
-    
+
+    // Pre-empt the lemma machinery when the violated monomials carry the
+    // effectively-linear signature. The pass itself is the detector: at its
+    // default level it only asserts bounds for sides a column lacks entirely,
+    // implied by rows anchored on a fixed column (a pow2 constant, a
+    // determined length). When such bounds exist - the situation solver 2
+    // handles by pure bound propagation - asserting them and letting the
+    // simplex continue beats deriving Grobner/Horner lemmas over the same
+    // fixed constants. When the pass asserts nothing, the machinery below
+    // runs exactly as before.
+    if (no_effect() && m_monomial_bounds.propagate_row_implied_bounds(false)) {
+        m_check_feasible = true;
+        return l_false;
+    }
+
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
         std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
@@ -1430,10 +1456,15 @@ lbool core::bounded_nlsat() {
     p.set_uint("max_conflicts", lp_settings().m_max_conflicts);            
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
-    if (ret == l_undef) 
-        ++m_nlsat_delay_bound;
+    if (ret == l_undef) {
+        // Exponential backoff: a query that bounded nlsat cannot decide within
+        // its conflict budget tends to stay undecidable on the next model as
+        // well; a linear delay lets the search sink seconds into repeated
+        // fruitless nlsat calls (each one costs up to 100 conflicts).
+        m_nlsat_delay_bound = m_nlsat_delay_bound == 0 ? 4 : std::min(2 * m_nlsat_delay_bound, 1u << 20);
+    }
     else if (m_nlsat_delay_bound > 0)
-        m_nlsat_delay_bound /= 2;        
+        m_nlsat_delay_bound /= 2;
     
     m_nlsat_delay = m_nlsat_delay_bound;
 
@@ -1545,9 +1576,10 @@ bool core::propagate() {
         propagated = true;
     if (m_monomial_bounds.tighten_lp_bounds())
 		propagated = true;
-    if (m_monomial_bounds.propagate_changed_bounds()) 
+    if (m_monomial_bounds.propagate_changed_bounds())
         propagated = true;
     m_monics_with_changed_bounds.reset();
+    m_columns_with_changed_bounds.reset();
     if (propagated)
         m_check_feasible = true;
     return propagated;
@@ -1556,12 +1588,17 @@ bool core::propagate() {
 bool core::incremental_propagate() {
     bool propagated = false;
     clear();
+    if (m_monomial_bounds.propagate_row_implied_bounds(true)) {
+        propagated = true;
+        ++m_bounds_progress_since_check;
+    }
     if (m_monomial_bounds.propagate_changed_bounds())
         propagated = true;
     m_monics_with_changed_bounds.reset();
+    m_columns_with_changed_bounds.reset();
     if (propagated)
         m_check_feasible = true;
-    return propagated;    
+    return propagated;
 }
 
 /**

@@ -22,7 +22,7 @@ namespace nla {
         bool tighten_lp_lower_bound(dep_interval const& range, lpvar v, unsigned p);
         bool tighten_lp_bound(dep_interval &mi, lpvar v, unsigned power, dep_interval &product);
  
-        void propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d);
+        bool propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d);
 
 
         bool should_propagate_lower(dep_interval const& range, lpvar v, unsigned p);
@@ -91,6 +91,7 @@ namespace nla {
         bool propagate_linear_bounds();
         bool propagate_changed_bounds();
         bool propagate_fixed_rows();
+        bool propagate_row_implied_bounds(bool incremental);
 
         // Maximize (is_lower == false) or minimize (is_lower == true) column j
         // over the LP tableau and, if the resulting bound improves j's current

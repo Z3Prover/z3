@@ -11,6 +11,7 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/nla_intervals.h"
 #include "math/lp/numeric_pair.h"
+#include "math/lp/lp_bound_propagator.h"
 
 namespace nla {
 
@@ -580,8 +581,8 @@ namespace nla {
             rational U(dep.upper(range));
             if (U.root(p, r) && improves_upper(r)) {
                 auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
-                propagate_lp_bound(v, cmp, r, dep.get_upper_dep(range));
-                tightened = true;
+                if (propagate_lp_bound(v, cmp, r, dep.get_upper_dep(range)))
+                    tightened = true;
             }
         }
         // Even power, v known non-positive: range.lower gives v <= -root(p, L).
@@ -592,8 +593,8 @@ namespace nla {
                 auto cmp = dep.lower_is_open(range) ? llc::LT : llc::LE;
                 u_dependency* d = c().lra.join_deps(dep.get_lower_dep(range),
                                                     c().lra.get_column_upper_bound_witness(v));
-                propagate_lp_bound(v, cmp, -r, d);
-                tightened = true;
+                if (propagate_lp_bound(v, cmp, -r, d))
+                    tightened = true;
             }
         }
         return tightened;
@@ -624,8 +625,8 @@ namespace nla {
                 rational L(dep.lower(range));
                 if (L.root(p, r) && improves_lower(r)) {
                     auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
-                    propagate_lp_bound(v, cmp, r, dep.get_lower_dep(range));
-                    tightened = true;
+                    if (propagate_lp_bound(v, cmp, r, dep.get_lower_dep(range)))
+                        tightened = true;
                 }
             }
             return tightened;
@@ -635,8 +636,8 @@ namespace nla {
             rational U(dep.upper(range));
             if (!U.is_neg() && U.root(p, r) && improves_lower(-r)) {
                 auto cmp = dep.upper_is_open(range) ? llc::GT : llc::GE;
-                propagate_lp_bound(v, cmp, -r, dep.get_upper_dep(range));
-                tightened = true;
+                if (propagate_lp_bound(v, cmp, -r, dep.get_upper_dep(range)))
+                    tightened = true;
             }
         }
         // Even power, v known non-negative: range.lower gives v >= root(p, L).
@@ -647,8 +648,8 @@ namespace nla {
                 auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
                 u_dependency* d = c().lra.join_deps(dep.get_lower_dep(range),
                                                     c().lra.get_column_lower_bound_witness(v));
-                propagate_lp_bound(v, cmp, r, d);
-                tightened = true;
+                if (propagate_lp_bound(v, cmp, r, d))
+                    tightened = true;
             }
         }
         return tightened;
@@ -657,8 +658,16 @@ namespace nla {
     /**
      * Ensure that bounds are integral when the variable is integer.
      */
-    void monomial_bounds::propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
+    bool monomial_bounds::propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
         SASSERT(cmp != llc::EQ && cmp != llc::NE);
+        // Global cap on derived-bound magnitude. Interval up-propagation can
+        // double the bit-width of bounds at every propagation round (a product
+        // bound is the product of factor bounds, which may themselves be
+        // derived); unchecked this ends in single mpn multiplications so large
+        // that even the -T watchdog cannot preempt them.
+        unsigned const max_bits = c().params().arith_nl_propagate_row_bounds_max_bits();
+        if (max_bits > 0 && q.bitsize() > max_bits)
+            return false;
         if (!c().var_is_int(v))
             c().lra.update_column_type_and_bound(v, cmp, q, d);
         else if (q.is_int()) {
@@ -673,6 +682,7 @@ namespace nla {
             c().lra.update_column_type_and_bound(v, llc::GE, ceil(q), d);
         else
             c().lra.update_column_type_and_bound(v, llc::LE, floor(q), d);
+        return true;
     }
 
     bool monomial_bounds::tighten_lp_bound(dep_interval const &range, lpvar v, unsigned power) {
@@ -745,6 +755,156 @@ namespace nla {
         }
         if (propagated)
             lra.find_feasible_solution();
+        return propagated;
+    }
+
+    namespace {
+        // Minimal consumer for lar_solver::calculate_implied_bounds_for_row:
+        // accepts only bounds that improve a column of interest.
+        struct nl_row_bound_imp {
+            lp::lar_solver&         m_lp;
+            indexed_uint_set const& m_relevant;
+            // When false, only bounds for sides the column lacks entirely are
+            // accepted; when true, improvements of existing bounds also pass.
+            bool                    m_allow_improvements = false;
+            nl_row_bound_imp(lp::lar_solver& l, indexed_uint_set const& r) : m_lp(l), m_relevant(r) {}
+            lp::lar_solver& lp() { return m_lp; }
+            const lp::lar_solver& lp() const { return m_lp; }
+            bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const lp::mpq& v) const {
+                if (!m_relevant.contains(j))
+                    return false;
+                switch (kind) {
+                case lp::lconstraint_kind::GE:
+                case lp::lconstraint_kind::GT:
+                    if (!m_lp.column_has_lower_bound(j))
+                        return true;
+                    return m_allow_improvements && v > m_lp.get_lower_bound(j).x;
+                case lp::lconstraint_kind::LE:
+                case lp::lconstraint_kind::LT:
+                    if (!m_lp.column_has_upper_bound(j))
+                        return true;
+                    return m_allow_improvements && v < m_lp.get_upper_bound(j).x;
+                default:
+                    return false;
+                }
+            }
+        };
+    }
+
+    /**
+       \brief Assert row-implied bounds of nonlinear-relevant columns as LP
+       column bounds.
+
+       This is the one-sided generalization of propagate_fixed_rows, and the
+       nla counterpart of theory_arith's implied-bound propagation: solver 2
+       asserts a bound derived from a row (say, x <= 2^32 - 1 out of the row
+       of (< (mod a p) p) once p is fixed at 2^32) directly into its tableau,
+       where it feeds the interval engine, bounds the monomials containing x,
+       and lets a plain farkas conflict refute the query without Grobner,
+       Horner or nlsat. theory_lra only turns implied bounds into literals
+       when a matching atom exists, so without this pass such bounds never
+       reach the LP columns and interval propagation of products starves.
+
+       Only columns occurring in a monomial are touched, mirroring
+       propagate_fixed_rows: the point is enabling nonlinear reasoning, not
+       general bound strengthening.
+    */
+    bool monomial_bounds::propagate_row_implied_bounds(bool incremental) {
+        if (!c().params().arith_nl_propagate_row_bounds())
+            return false;
+        auto& lra = c().lra;
+
+        // At a final check, restrict attention to the monomials that are
+        // violated in the current model: their variables and factors are the
+        // columns whose missing bounds starve interval propagation, and the
+        // rows adjacent to those columns are where the bounds are implied
+        // (e.g. the row of (< (mod a p) p) implies mod <= 2^32 - 1 once p is
+        // fixed at 2^32). During search (incremental) the trigger is instead
+        // a column whose bounds changed since the last propagation - the same
+        // trigger theory_arith uses - and the candidate columns are all
+        // monomial variables and factors.
+        indexed_uint_set nl_vars;
+        indexed_uint_set rows;
+        if (incremental) {
+            for (auto const& m : c().emons()) {
+                nl_vars.insert(m.var());
+                for (lpvar k : m.vars())
+                    nl_vars.insert(k);
+            }
+            for (lpvar j : c().m_columns_with_changed_bounds) {
+                if (j >= lra.column_count())
+                    continue;
+                for (auto const& cell : lra.A_r().m_columns[j])
+                    rows.insert(cell.var());
+            }
+        }
+        else {
+            for (lpvar v : c().m_to_refine) {
+                auto const& m = c().emons()[v];
+                nl_vars.insert(m.var());
+                for (lpvar k : m.vars())
+                    nl_vars.insert(k);
+            }
+            for (lpvar j : nl_vars)
+                for (auto const& cell : lra.A_r().m_columns[j])
+                    rows.insert(cell.var());
+        }
+        if (rows.empty())
+            return false;
+
+        // Two escalation levels. Level 1 only fills in sides the columns lack
+        // altogether - the least invasive repair of starved interval
+        // propagation, and usually all that effectively-linear problems need.
+        // Only when that yields nothing does level 2 also assert improvements
+        // of existing bounds, which drives the full cascade (factor bounds ->
+        // product bounds -> farkas) at the price of perturbing the search.
+        nl_row_bound_imp imp(lra, nl_vars);
+        std_vector<lp::implied_bound> ibounds;
+        bool propagated = false;
+        for (bool allow_improvements : { false, true }) {
+            // The incremental variant never escalates: during search only the
+            // level-1 repairs (missing-side bounds out of fixed-anchored rows)
+            // are quiet enough to assert on every propagation round.
+            if (allow_improvements && (incremental || !c().params().arith_nl_propagate_row_bounds_improve()))
+                break;
+            imp.m_allow_improvements = allow_improvements;
+            ibounds.clear();
+            lp::lp_bound_propagator<nl_row_bound_imp> bp(imp, ibounds);
+            bp.init();
+            for (unsigned i : rows) {
+                // At the default level only rows anchored by a fixed column are
+                // analyzed: a fixed factor (a pow2 constant, a determined
+                // length) is what turns the row into a bound on the remaining
+                // nonlinear column - the linearization signature this pass is
+                // after. Rows without a fixed column mostly contribute noise.
+                if (!allow_improvements) {
+                    bool has_fixed = false;
+                    for (auto const& cell : lra.get_row(i))
+                        if (lra.column_is_fixed(cell.var())) {
+                            has_fixed = true;
+                            break;
+                        }
+                    if (!has_fixed)
+                        continue;
+                }
+                lra.calculate_implied_bounds_for_row(i, bp);
+            }
+
+            for (auto const& ib : ibounds) {
+                lpvar j = ib.m_j;
+                // For term slack columns m_j is a term index, not a column;
+                // those never pass the nl_vars filter, but be defensive anyway.
+                if (j >= lra.column_count() || !nl_vars.contains(j))
+                    continue;
+                u_dependency* d = ib.explain_implied();
+                if (!propagate_lp_bound(j, ib.kind(), ib.m_bound, d))
+                    continue;
+                ++c().lra.settings().stats().m_nla_propagate_row_bounds;
+                propagated = true;
+            }
+            if (propagated)
+                break;
+        }
         return propagated;
     }
 

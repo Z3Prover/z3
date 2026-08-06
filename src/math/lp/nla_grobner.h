@@ -97,6 +97,7 @@ namespace nla {
         bool is_solved(dd::pdd const& p, unsigned& v, dd::pdd& r);
         void add_eq(dd::pdd& p, u_dependency* dep);        
         bool is_pseudo_linear(monic const& m) const;
+        bool fixed_value_is_small(lpvar j) const;
         const rational& val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep);
         dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*& dep);  
         dd::pdd pdd_expr(lp::lar_term const& t, u_dependency*& dep);

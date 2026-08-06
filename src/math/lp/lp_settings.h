@@ -124,6 +124,7 @@ struct statistics {
     unsigned m_nla_add_bounds = 0;
     unsigned m_nla_propagate_bounds = 0;
     unsigned m_nla_propagate_eq = 0;
+    unsigned m_nla_propagate_row_bounds = 0;
     unsigned m_nla_lemmas = 0;
     unsigned m_nra_calls = 0;
     unsigned m_nla_bounds_improvements = 0;
@@ -173,6 +174,7 @@ struct statistics {
         st.update("arith-nla-add-bounds", m_nla_add_bounds);
         st.update("arith-nla-propagate-bounds", m_nla_propagate_bounds);
         st.update("arith-nla-propagate-eq", m_nla_propagate_eq);
+        st.update("arith-nla-propagate-row-bounds", m_nla_propagate_row_bounds);
         st.update("arith-nla-lemmas", m_nla_lemmas);
         st.update("arith-nra-calls", m_nra_calls);   
         st.update("arith-bounds-improvements", m_nla_bounds_improvements);

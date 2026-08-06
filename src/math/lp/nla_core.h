@@ -80,6 +80,12 @@ class core {
     vector<lp::fixed_equality> m_fixed_equalities;
     indexed_uint_set         m_to_refine;
     indexed_uint_set         m_monics_with_changed_bounds;
+    indexed_uint_set         m_columns_with_changed_bounds;
+    // Bound-propagation progress (incremental or pre-check) accumulated since
+    // the last final check; while non-zero, the Grobner basis is deferred,
+    // mirroring solver 2, whose strategy ladder never advances past interval
+    // propagation as long as it keeps deriving bounds.
+    unsigned                 m_bounds_progress_since_check = 0;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;

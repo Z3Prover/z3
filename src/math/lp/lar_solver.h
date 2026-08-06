@@ -109,6 +109,7 @@ class lar_solver : public column_namer {
     bool sizes_are_correct() const;
     bool implied_bound_is_correctly_explained(implied_bound const& be, const vector<std::pair<mpq, unsigned>>& explanation) const;
 
+public:
     template <typename T>
     unsigned calculate_implied_bounds_for_row(unsigned row_index, lp_bound_propagator<T>& bp) {
         if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation || row_has_a_big_num(row_index))
@@ -119,6 +120,7 @@ class lar_solver : public column_namer {
             zero_of_type<numeric_pair<mpq>>(),
             bp);
     }
+private:
 
     static void clean_popped_elements_for_heap(unsigned n, lpvar_heap& set);
     static void clean_popped_elements(unsigned n, indexed_uint_set& set);
