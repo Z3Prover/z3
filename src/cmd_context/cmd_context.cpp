@@ -379,11 +379,22 @@ bool cmd_context::builtin_signature_collides(symbol const& s, unsigned arity, so
         args.push_back(m().mk_var(i, domain[i]));
     expr_ref result(m());
     try {
-        return try_mk_builtin_app(s, arity, args.data(), 0, nullptr, nullptr, result);
+        if (!try_mk_builtin_app(s, arity, args.data(), 0, nullptr, nullptr, result))
+            return false;
     }
     catch (ast_exception&) {
         return false;
     }
+    // A function/overload collision (arity > 0) is always rejected: the user
+    // declaration would clash with a built-in of the same argument sorts.
+    if (arity > 0)
+        return true;
+    // For nullary symbols there are no argument sorts to distinguish an
+    // overload. Only genuine reserved core constants (e.g. true/false in the
+    // basic theory) block a user declaration. Z3-specific extension constants
+    // such as 'pi' and 'euler' are not SMT-LIB reserved symbols and may be
+    // shadowed by user declarations, as was historically permitted.
+    return is_app(result) && to_app(result)->get_family_id() == m().get_basic_family_id();
 }
 
 bool cmd_context::contains_macro(symbol const& s) const {
