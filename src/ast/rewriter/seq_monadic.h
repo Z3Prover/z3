@@ -118,8 +118,11 @@ class seq_monadic {
                                             // seq_rewriter's own cache is capped and flushed whole
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
+    membership_vec m_last_search_memberships; // inputs used by the last internal decide()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
     std::function<bool(expr *)> m_is_var;   // predicate for whether a term is a sequence variable
+    lbool m_last_result = l_undef;           // result of the last public solve()/check()
+    lbool m_last_search_result = l_undef;    // result of the last internal decide()
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -251,6 +254,9 @@ public:
     ~seq_monadic() { reset_live_cache(); }
 
     void collect_statistics(::statistics &st) const;
+
+    // Display asserted constraints, result artifacts, search state, caches, and counters.
+    std::ostream& display(std::ostream& out) const;
 
     seq::transition_mode mode() const { return m_config.m_mode; }
 
