@@ -379,11 +379,18 @@ bool cmd_context::builtin_signature_collides(symbol const& s, unsigned arity, so
         args.push_back(m().mk_var(i, domain[i]));
     expr_ref result(m());
     try {
-        return try_mk_builtin_app(s, arity, args.data(), 0, nullptr, nullptr, result);
+        if (!try_mk_builtin_app(s, arity, args.data(), 0, nullptr, nullptr, result))
+            return false;
     }
     catch (ast_exception&) {
         return false;
     }
+    // Internal auxiliary functions (e.g. division/mod/power by zero: '/0', 'div0',
+    // 'mod0', '^0') are emitted by the model printer and must be re-parseable, so
+    // they are not treated as colliding with a user declaration/definition.
+    if (is_app(result) && m().is_considered_uninterpreted(to_app(result)->get_decl()))
+        return false;
+    return true;
 }
 
 bool cmd_context::contains_macro(symbol const& s) const {
