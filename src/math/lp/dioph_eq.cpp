@@ -91,7 +91,7 @@ namespace lp {
 
         unsigned size() const { return static_cast<unsigned>(m_map.size()); }
 
-        void clear() {
+        void clear() {          
             m_map.clear();
             m_rev_map.clear();
         }
