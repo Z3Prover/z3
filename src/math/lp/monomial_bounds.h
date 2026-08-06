@@ -82,8 +82,8 @@ namespace nla {
         bool mm_pick_var_to_leave(lpvar x_j, bool inc, rational& a_ij, mm_gain& g, lpvar& x_i) const;
         bool mm_move_to_bound(lpvar x_i, bool inc, unsigned& best_efforts);
         void mm_update_value(lpvar j, lp::impq const& delta);
-        void mm_optimize(lpvar v, bool maximize);
-        u_dependency* mm_bound_from_row(lpvar v, bool maximize, rational& bound);
+        bool mm_optimize(lpvar v, bool maximize, rational& opt_value);
+        u_dependency* mm_dep_from_row(lpvar v, bool maximize);
     public:
         monomial_bounds(core* core);
         void generate_lemmas();
