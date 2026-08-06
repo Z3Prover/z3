@@ -265,11 +265,14 @@ namespace smt {
         // keeps length-only variables atomic, else s itself.  `dep` receives the equalities
         // used (a theory_seq::dependency* held as void*).
         expr_ref compute_expansion(expr* s, void*& dep);
-        // Re-canonize each monadic membership term through theory_seq's current equalities
-        // and, when the expansion changed, re-point the monadic solver at the expanded term.
-        // Called at final_check time because the solution map is only populated during
-        // solving (it is empty when propagate_in_re first registers the membership).
-        void refresh_expansions();
+        // Lazily canonize monadic membership idx: compute the expansion of its term through
+        // theory_seq's current equalities and, only when that changed the term the monadic
+        // solver is currently deciding, re-point the solver at the expanded term (recording
+        // the canonization dependency for the unsat core).  Returns true when it installed a
+        // new expansion.  Called from final_check's refinement loop -- only when a proposed
+        // atomic model needs canonizing -- so that unsat cores refuted over the atomic term
+        // stay free of canonization dependencies (strong conflicts).
+        bool refine_expansion(unsigned idx);
         // Compute the candidate arithmetic length bounds of each monadic membership term
         // -- and, by decomposing the term into a concatenation of string constants and
         // variables, of each variable occurring in it.  These are NOT added to the monadic

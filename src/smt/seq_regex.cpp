@@ -103,37 +103,40 @@ namespace smt {
         for (auto const& membership : m_monadic_memberships)
             if (membership.m_lit == lit)
                 return;
-        // Decide the membership over the concatenation of variables/constants that define s
-        // (see compute_expansion) rather than over the atomic term s.  Deciding s atomically
-        // yields witnesses that ignore s's defining word equation (e.g. x = x8 ++ "/" ++ s9),
-        // which then conflict on assume_eq and livelock.  The equalities used are captured in
-        // `dep` and folded into any unsat core for soundness.
-        void* dep = nullptr;
-        expr_ref s_expanded = compute_expansion(s, dep);
+        // Decide the membership over the ATOMIC term s.  Canonizing s through theory_seq's
+        // word equations (x = x8 ++ "/" ++ s9) is deferred to final_check's refinement loop
+        // and applied only when a proposed atomic model actually violates s's definition --
+        // mirroring how length bounds are enforced lazily.  Adding the canonized term
+        // eagerly bakes every word equation into every unsat core, producing conflicts that
+        // are too weak (they are tied to the current node's expansion and do not generalize).
         unsigned idx = m_monadic_memberships.size();
-        m_monadic_memberships.push_back(monadic_membership(m, lit, s, r, s_expanded, dep));
+        m_monadic_memberships.push_back(monadic_membership(m, lit, s, r, s, nullptr));
         ctx.push_trail(push_back_vector(m_monadic_memberships));
-        m_monadic.add(s_expanded, r, dep_of_membership(idx));
+        m_monadic.add(s, r, dep_of_membership(idx));
         ctx.push_trail(value_trail<unsigned>(m_monadic_generation));
         ++m_monadic_generation;
         TRACE(seq_regex, tout << "monadic add " << lit << ": "
-                             << mk_pp(s_expanded, m) << " in " << mk_pp(r, m) << "\n";);
+                             << mk_pp(s, m) << " in " << mk_pp(r, m) << "\n";);
     }
 
-    void seq_regex::refresh_expansions() {
-        for (unsigned idx = 0; idx < m_monadic_memberships.size(); ++idx) {
-            monadic_membership& mem = m_monadic_memberships[idx];
-            void* dep = nullptr;
-            expr_ref s_expanded = compute_expansion(mem.m_s, dep);
-            // Always resync: m_s_expanded/m_dep are not trailed, so after a backtrack they
-            // may be stale while the monadic term (which IS trailed) was restored.
-            // set_term itself no-ops when the monadic term already matches.
-            mem.m_s_expanded = s_expanded;
-            mem.m_dep = dep;
-            m_monadic.set_term(dep_of_membership(idx), s_expanded);
-            TRACE(seq_regex, tout << "monadic expand " << mk_pp(mem.m_s, m)
-                                 << " -> " << mk_pp(s_expanded, m) << "\n";);
-        }
+    bool seq_regex::refine_expansion(unsigned idx) {
+        monadic_membership& mem = m_monadic_memberships[idx];
+        void* dep = nullptr;
+        expr_ref s_expanded = compute_expansion(mem.m_s, dep);
+        // Nothing to canonize: the atomic term already is the real structure.
+        if (s_expanded.get() == mem.m_s.get())
+            return false;
+        // The expansion is already the term being decided (m_s_expanded/m_dep are not
+        // trailed, so also resync them here in case a backtrack reverted the monadic term).
+        bool changed = (mem.m_s_expanded.get() != s_expanded.get()) || (mem.m_dep != dep);
+        mem.m_s_expanded = s_expanded;
+        mem.m_dep = dep;
+        if (!changed)
+            return false;
+        m_monadic.set_term(dep_of_membership(idx), s_expanded);
+        TRACE(seq_regex, tout << "monadic expand " << mk_pp(mem.m_s, m)
+                             << " -> " << mk_pp(s_expanded, m) << "\n";);
+        return true;
     }
 
     void seq_regex::collect_vars(expr* s, ptr_vector<expr>& vars) {
@@ -341,20 +344,26 @@ namespace smt {
             return FC_DONE;
         }
 
-        // Re-canonize membership terms now that theory_seq's solution map is populated:
-        // a variable defined by a word equation (x = x8 ++ "/" ++ s9) is decided over its
-        // expanded concatenation, so the monadic witness assigns the real subvariables
-        // consistently instead of inventing a value for the atomic term.
-        refresh_expansions();
-
-        // Lazy length-constraint enforcement: first decide the memberships WITHOUT any
-        // length regexes.  If the resulting model already respects every candidate length
-        // bound, keep it; otherwise add exactly the violated bounds and re-solve.  Each
-        // round enforces at least one new bound (finite set), so the loop terminates.
+        // Lazy refinement loop.  Decide the memberships over their ATOMIC terms first,
+        // WITHOUT length regexes and WITHOUT canonizing terms through theory_seq's word
+        // equations.  Then, while the proposed model violates a constraint we have so far
+        // withheld, add exactly that constraint and re-solve:
+        //   * a candidate length bound the model's witness lengths violate, or
+        //   * a term whose canonized definition (x = a ++ v ++ b) the atomic model ignores,
+        //     which is re-decided over its expansion.
+        // Adding these lazily (only in reaction to a violating model) keeps unsat cores
+        // strong: an unsatisfiable regex is refuted over the atomic term with no length or
+        // canonization dependency attached, instead of eagerly baking every word equation
+        // into the conflict (weak, non-generalizing conflicts).  Each round installs at
+        // least one new bound or expansion (both finite), so the loop terminates.
+        lbool result = l_undef;
         vector<candidate_bound> candidates;
         collect_candidate_bounds(candidates);
-        lbool result = l_undef;
-        unsigned guard = candidates.size() + 1;
+        // Safety net only: termination is guaranteed by the no-progress break below (each
+        // bound is violated at most once since record_bound forces the solver to respect it,
+        // and each membership is expanded at most once).  Sized generously to absorb the
+        // extra candidate bounds that expansion introduces.
+        unsigned guard = 8 * (m_monadic_memberships.size() + candidates.size()) + 64;
         while (true) {
             ++th.m_stats.m_regex_monadic_checks;
             result = m_monadic.check();
@@ -366,6 +375,18 @@ namespace smt {
                     continue;
                 record_bound(cb.m_term, cb.m_len, cb.m_kind, cb.m_value);
                 progressed = true;
+            }
+            // Canonization refinement: re-decide any membership whose atomic model does not
+            // respect its defining word equation.  Recompute candidate bounds afterwards
+            // because expansion introduces the defining sub-variables the bounds range over.
+            for (unsigned idx = 0; idx < m_monadic_memberships.size(); ++idx) {
+                if (!refine_expansion(idx))
+                    continue;
+                progressed = true;
+            }
+            if (progressed) {
+                candidates.reset();
+                collect_candidate_bounds(candidates);
             }
             if (!progressed || guard-- == 0)
                 break;
