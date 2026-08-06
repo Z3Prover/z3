@@ -379,7 +379,16 @@ bool cmd_context::builtin_signature_collides(symbol const& s, unsigned arity, so
         args.push_back(m().mk_var(i, domain[i]));
     expr_ref result(m());
     try {
-        return try_mk_builtin_app(s, arity, args.data(), 0, nullptr, nullptr, result);
+        if (!try_mk_builtin_app(s, arity, args.data(), 0, nullptr, nullptr, result))
+            return false;
+        // Z3's under-specified division/modulo/power-by-zero functions ('/0',
+        // 'div0', 'mod0', '^0') are internal artifacts that Z3 itself emits as
+        // 'define-fun' declarations when printing models. Allow user
+        // definitions of these so that Z3 can parse back its own output.
+        arith_util au(m());
+        if (au.is_div0(result) || au.is_idiv0(result) || au.is_mod0(result) || au.is_power0(result))
+            return false;
+        return true;
     }
     catch (ast_exception&) {
         return false;
