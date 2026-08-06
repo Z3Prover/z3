@@ -371,6 +371,8 @@ namespace smt {
                 break;
         }
 
+        TRACE(seq, tout << "monadic solver returned " << result << "\n";);
+
         if (result == l_false) {
             ++th.m_stats.m_regex_monadic_unsat;
             literal_vector lits;
