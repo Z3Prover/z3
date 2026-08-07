@@ -717,6 +717,13 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
 
 lbool seq_monadic::check() {
     m_core.reset();
+    lbool length_result = m_length_constraints.check(m_memberships);
+    if (length_result == l_false) {
+        m_core.append(m_length_constraints.core());
+        m_model.reset();
+        m_last_result = l_false;
+        return m_last_result;
+    }
     lbool r = decide(m_memberships);
     if (r == l_false) {
         minimize_core(m_memberships);
