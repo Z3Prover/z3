@@ -260,6 +260,10 @@ namespace seq {
         return m_imp->intern(r) + 1;
     }
 
+    unsigned live_states::num_states() const {
+        return m_imp->m_states.size();
+    }
+
     void live_states::reset() {
         m_imp->reset();
     }

@@ -76,6 +76,8 @@ namespace seq {
         reachable reachable_live(expr* r);
         bool contains(expr* r) const;
         unsigned state_id(expr* r);
+        // Number of interned derivative states, i.e. the size of the shared state table.
+        unsigned num_states() const;
         void reset();
     };
 }

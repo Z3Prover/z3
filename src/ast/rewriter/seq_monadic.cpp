@@ -955,7 +955,7 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         << "     :group-cache-size " << m_group_cache.size() << "\n"
         << "     :derivative-cache-size " << m_der_cache.size() << "\n"
         << "     :nullable-cache-size " << m_nullable_cache.size() << "\n"
-        << "     :live-cache-size " << m_live_cache.size() << "\n"
+        << "     :live-cache-size " << m_live_states.num_states() << "\n"
         << "     :pinned-expressions " << m_pin.size() << ")\n";
 
     out << "  :statistics\n"
