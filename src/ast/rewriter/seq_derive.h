@@ -37,6 +37,7 @@ class seq_rewriter;
 namespace seq {
 
     enum class derivative_kind { antimirov_t, brzozowski_t };
+    enum class transition_mode { brzozowski_tm, light_antimirov_tm };
     /**
      * Symbolic derivative engine for regular expressions.
      *
@@ -54,6 +55,35 @@ namespace seq {
      * - Depth-bounded to prevent stack overflow
      */
     class derive {
+        class cofactor_cache {
+            obj_map<expr, expr_ref_pair_vector *> m_cache;
+            expr_ref_vector m_pin;  // trail of pinned keys
+        public:
+            cofactor_cache(ast_manager &m) : m_pin(m) {}
+            ~cofactor_cache() {
+                reset();
+            }
+            bool find(expr *r, expr_ref_pair_vector *&v) const {
+                return m_cache.find(r, v);
+            }
+            void insert(expr *r, expr_ref_pair_vector *v) {
+                m_pin.push_back(r);
+                m_cache.insert(r, v);
+            }
+            unsigned size() const {
+                return m_cache.size();
+            }
+            void reset() {
+                for (auto const &[k, v] : m_cache)
+                    dealloc(v);
+                m_cache.reset();
+                m_pin.reset();
+            }
+            void maybe_reset(unsigned cap) {
+                if (m_cache.size() > cap)
+                    reset();
+            }
+        };
         ast_manager&    m;
         seq_util        m_util;
         arith_util      m_autil;
@@ -64,6 +94,8 @@ namespace seq {
         obj_pair_map<expr, expr, expr*> m_acache, m_bcache;
         obj_pair_map<expr, expr, expr*> m_atop_cache, m_btop_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
+       
+        cofactor_cache       m_cofactor_cache;
 
         // Op cache for ITE-hoisting operations (union, inter, concat, complement)
         // Path-aware caches: key is (a, b, path_expr) for binary ops, (a, path_expr) for complement
@@ -241,6 +273,12 @@ namespace seq {
          */
         void get_cofactors(expr* ele, expr* r, expr_ref_pair_vector& result);
 
+        expr_ref_pair_vector const &get_cached_cofactors(transition_mode mode, expr *r);
+
+        void maybe_reset_cached_cofactors(unsigned cap) {
+            m_cofactor_cache.maybe_reset(cap);
+        }
+
         /**
          * Compute the symbolic derivative of r and enumerate its reachable
          * leaves in fully ITE-hoisted normal form.
@@ -260,6 +298,25 @@ namespace seq {
          * (redundant) path condition.
          */
         void derivative_cofactors(expr* r, expr_ref_pair_vector& result);
+
+        /**
+         * Compute the Brzozowski cofactors of r (derivative_cofactors above),
+         * then expose the nondeterminism that a union leaf hides: a target of
+         * the form (s1 | ... | sn), or (s1 | ... | sn) . tail, is split into
+         * one cofactor per alternative si (resp. si . tail). Splitting is
+         * applied recursively, so nested unions are flattened as well.
+         *
+         * Splitting can make two originally distinct cofactors reach the same
+         * target; such cofactors are merged back into a single pair whose
+         * guard is the disjunction of the original guards. The result is
+         * therefore still a list of distinct targets, but each one is a
+         * single Antimirov-style alternative rather than a union state.
+         *
+         * The guards are not required to be mutually exclusive after merging,
+         * and the transition relation is genuinely nondeterministic: a
+         * character may be accepted by several of the returned guards.
+         */
+        void light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result);
 
     };
 

@@ -937,7 +937,7 @@ namespace nla {
     }
 
     // Primal-simplex walk maximizing/minimizing 'v' (theory_arith::max_min).
-    void monomial_bounds::mm_optimize(lpvar v, bool maximize) {
+    bool monomial_bounds::mm_optimize(lpvar v, bool maximize, rational& opt_value) {
         auto& s = c().lra;
         unsigned best_efforts = 0;
         unsigned const max_efforts = 20;
@@ -1013,9 +1013,17 @@ namespace nla {
             }
 
             if (!has_bound && x_i == null_lpvar && x_j == null_lpvar)
-                return; // objective is unbounded in the chosen direction
-            if (x_j == null_lpvar)
-                return; // optimized: no improving move remains
+                return false; // objective is unbounded in the chosen direction
+            if (x_j == null_lpvar) {
+                if (best_efforts == 0) {
+                    if (s.get_column_value(v).y != 0)
+                        return false;
+                    opt_value = s.get_column_value(v).x;
+                    return true;
+                }
+
+                return false;  // optimized: no improving move remains
+            }
 
             // a non-unit integral quantum means the exact optimum may not be
             // reachable in integral steps: count it as best-effort progress.
@@ -1026,17 +1034,17 @@ namespace nla {
                 // move x_j directly to its own bound
                 if (inc && s.column_has_upper_bound(x_j)) {
                     if (best.max_gain.is_zero())
-                        return;
+                        return false;
                     mm_update_value(x_j, best.max_gain);
                     continue;
                 }
                 if (!inc && s.column_has_lower_bound(x_j)) {
                     if (best.max_gain.is_zero())
-                        return;
+                        return false;
                     mm_update_value(x_j, -best.max_gain);
                     continue;
                 }
-                return; // unbounded
+                return false; // unbounded
             }
 
             // x_j can move exactly across to its opposite bound without pivoting
@@ -1056,13 +1064,11 @@ namespace nla {
             bool inc_xi = inc ? a_ij.is_neg() : a_ij.is_pos();
             mm_move_to_bound(x_i, inc_xi, best_efforts);
         }
+        return false;
     }
 
-    // Read the implied bound on 'v' off its final tableau row and round it to
-    // respect the integrality of integer columns (theory_arith::mk_bound_from_row
-    // + normalize_bound).  Returns the joined explanation, or nullptr if no bound
-    // is implied (e.g. a required bound on a row variable is missing).
-    u_dependency* monomial_bounds::mm_bound_from_row(lpvar v, bool maximize, rational& bound) {
+    // Read the dependencies for the bounds on v.
+    u_dependency* monomial_bounds::mm_dep_from_row(lpvar v, bool maximize) {
         auto& s = c().lra;
         if (!s.is_base(v))
             return nullptr;
@@ -1073,7 +1079,6 @@ namespace nla {
             if (e.var() == v) { a_v = e.coeff(); break; }
         if (a_v.is_zero())
             return nullptr;
-        lp::impq acc(0);
         u_dependency* dep = nullptr;
         for (auto const& e : row) {
             if (e.var() == v)
@@ -1086,20 +1091,14 @@ namespace nla {
             if (use_upper) {
                 if (!s.column_has_upper_bound(k))
                     return nullptr;
-                acc += s.column_upper_bound(k) * ck;
                 dep = s.join_deps(dep, s.get_column_upper_bound_witness(k));
             }
             else {
                 if (!s.column_has_lower_bound(k))
                     return nullptr;
-                acc += s.column_lower_bound(k) * ck;
                 dep = s.join_deps(dep, s.get_column_lower_bound_witness(k));
             }
         }
-        if (s.column_is_int(v))
-            bound = maximize ? lp::floor(acc) : lp::ceil(acc);
-        else
-            bound = acc.x;
         return dep;
     }
 
@@ -1108,22 +1107,113 @@ namespace nla {
         if (!s.is_feasible())
             return nullptr;
         bool maximize = !is_lower;
-        mm_optimize(j, maximize);
-        rational b(0);
-        u_dependency* dep = mm_bound_from_row(j, maximize, b);
+        if (!mm_optimize(j, maximize, bound))
+            return nullptr;
+        u_dependency* dep = mm_dep_from_row(j, maximize);
         if (!dep)
             return nullptr;
         if (is_lower) {
-            if (s.column_has_lower_bound(j) && b <= s.column_lower_bound(j).x)
+            if (s.column_has_lower_bound(j) && bound <= s.column_lower_bound(j).x)
                 return nullptr;
         }
         else {
-            if (s.column_has_upper_bound(j) && b >= s.column_upper_bound(j).x)
+            if (s.column_has_upper_bound(j) && bound >= s.column_upper_bound(j).x)
                 return nullptr;
         }
-        bound = b;
         return dep;
     }
 
-}
+    /**
+       \brief Tighten the bounds of variables occurring in nonlinear monomials by
+       maximizing/minimizing them over the LP tableau (analogous to theory_arith's
+       max_min_nl_vars). The tighter implied bounds, each carrying an LP explanation,
+       let the subsequent horner/cross-nested interval evaluation exclude zero and
+       detect a conflict that would otherwise be missed with only the propagated
+       bounds.
+    */
+    bool monomial_bounds::optimize_nl_bounds() {
+        if (!c().params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
+            return false;
 
+        c().trail().push(value_trail(m_bounds_optimization_enabled));
+        m_bounds_optimization_enabled = false;
+
+        auto& lra = c().lra;
+        if (!lra.is_feasible())
+            return false;
+        if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE) {
+            // find_feasible_solution moved the model; keep m_to_refine in sync.
+            c().init_to_refine();
+            return false;
+        }
+
+        // Gather the candidate columns: every non-fixed leaf variable that
+        // participates in a monomial (mirrors solver=2's max_min_nl_vars).
+        svector<lpvar> cands;
+        auto add = [&](lpvar j) {
+            if (c().active_var_set_contains(j))
+                return;
+            c().insert_to_active_var_set(j);
+            if (lra.column_is_fixed(j))
+                return;
+            cands.push_back(j);
+        };
+        c().clear_active_var_set();
+        for (auto const& m : c().emons()) {
+            add(m.var());
+            for (lpvar k : m.vars())
+                add(k);
+        }
+
+        // Throttle: the LP maximize/minimize cost scales with the number of
+        // candidate variables (two LP optimizations each). On large nonlinear
+        // problems this pass is expensive and rarely productive, so skip it when the
+        // candidate set exceeds the threshold (0 = unlimited).
+        unsigned const max_vars = c().params().arith_nl_optimize_bounds_lp_max_vars();
+        if (max_vars != 0 && cands.size() > max_vars) {
+            // find_feasible_solution() above already moved the model, so m_to_refine
+            // is stale on this path too and has to be re-calibrated before returning.
+            c().init_to_refine();
+            return false;
+        }
+
+        // Collect improved bounds first (each improve_bound maximizes a term
+        // over the *unchanged* constraint set, so all improvements are valid implied
+        // bounds), then apply them together and re-establish feasibility once.
+        // Interleaving update_column_type_and_bound between the maximize calls
+        // corrupts the core solver's x/inf_heap (maximize_term_on_tableau issues a
+        // raw solve() that does not reconcile pending bound changes).
+        struct improved_bound { lpvar j; lp::lconstraint_kind kind; rational bound; u_dependency* dep; };
+        vector<improved_bound> improvements;
+        for (lpvar j : cands) {
+            if (!lra.is_feasible())
+                break;
+            for (bool is_lower : { true, false }) {
+                rational bound;
+                u_dependency* dep = improve_bound(j, is_lower, bound);
+                if (!dep)
+                    continue;
+                auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+                improvements.push_back({ j, kind, bound, dep });
+            }
+        }
+
+        if (improvements.empty()) {
+            // The exploratory simplex walk in improve_bound/mm_optimize mutated the
+            // LP model even though no bound was tightened.  Restore a clean feasible
+            // model and re-calibrate m_to_refine so downstream lemma passes (grobner,
+            // basic_lemma) never see a stale monomial that is now consistent.
+            lra.find_feasible_solution();
+            c().init_to_refine();
+            return false;
+        }
+
+        for (auto const& ib : improvements)
+            lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
+        lra.find_feasible_solution();
+        // The model changed: re-calibrate m_to_refine against the new assignment.
+        c().init_to_refine();
+        return true;
+    }
+
+}

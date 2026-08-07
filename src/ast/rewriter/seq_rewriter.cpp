@@ -33,58 +33,6 @@ Authors:
 #include "params/seq_rewriter_params.hpp"
 
 
-expr_ref sym_expr::accept(expr* e) {
-    ast_manager& m = m_t.get_manager();
-    expr_ref result(m);
-    var_subst subst(m);
-    seq_util u(m);
-    unsigned r1, r2, r3;
-    switch (m_ty) {
-    case t_pred:         
-        result = subst(m_t, 1, &e);
-        break;    
-    case t_not:
-        result = m_expr->accept(e);
-        result = m.mk_not(result);
-        break;
-    case t_char:
-        SASSERT(e->get_sort() == m_t->get_sort());
-        SASSERT(e->get_sort() == m_sort);
-        result = m.mk_eq(e, m_t);
-        break;
-    case t_range: 
-        if (u.is_const_char(m_t, r1) && u.is_const_char(e, r2) && u.is_const_char(m_s, r3)) {
-            result = m.mk_bool_val((r1 <= r2) && (r2 <= r3));            
-        }
-        else {
-            auto a = u.mk_le(m_t, e);
-            result = m.mk_and(a, u.mk_le(e, m_s));
-        }
-        break;
-    }
-    
-    return result;
-}
-
-std::ostream& sym_expr::display(std::ostream& out) const {
-    switch (m_ty) {
-    case t_char: return out << m_t;
-    case t_range: return out << m_t << ":" << m_s;
-    case t_pred: return out << m_t;
-    case t_not: return m_expr->display(out << "not ");
-    }
-    return out << "expression type not recognized";
-}
-
-struct display_expr1 {
-    ast_manager& m;
-    display_expr1(ast_manager& m): m(m) {}
-    std::ostream& display(std::ostream& out, sym_expr* e) const {
-        return e->display(out);
-    }
-};
-
-
 void seq_rewriter::updt_params(params_ref const & p) {
     seq_rewriter_params sp(p);
     m_coalesce_chars = sp.coalesce_chars();
@@ -2931,67 +2879,6 @@ expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
     return result;
 }
 
-void seq_rewriter::light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
-    expr_ref_pair_vector brz(m());
-    m_derive.derivative_cofactors(r, brz);
-
-    obj_map<expr, unsigned> target_index;
-    expr_ref_vector guards(m());
-    expr_ref_vector targets(m());
-
-    auto add = [&](expr* guard, expr* target) {
-        unsigned index = 0;
-        if (target_index.find(target, index)) {
-            expr_ref merged(m());
-            m_br.mk_or(guards.get(index), guard, merged);
-            guards.set(index, merged);
-        }
-        else {
-            target_index.insert(target, targets.size());
-            targets.push_back(target);
-            guards.push_back(guard);
-        }
-    };
-
-    for (auto const& [guard, target] : brz) {
-        ptr_vector<expr> pending;
-        pending.push_back(target);
-        while (!pending.empty()) {
-            expr* t = pending.back();
-            pending.pop_back();
-            expr* left = nullptr, * right = nullptr;
-            if (re().is_union(t, left, right)) {
-                pending.push_back(right);
-                pending.push_back(left);
-            }
-            else if (re().is_concat(t, left, right) && re().is_union(left)) {
-                ptr_vector<expr> heads;
-                heads.push_back(left);
-                while (!heads.empty()) {
-                    expr* head = heads.back();
-                    heads.pop_back();
-                    expr* a = nullptr, * b = nullptr;
-                    if (re().is_union(head, a, b)) {
-                        heads.push_back(b);
-                        heads.push_back(a);
-                    }
-                    else {
-                        expr_ref split = mk_regex_concat(head, right);
-                        add(guard, split);
-                    }
-                }
-            }
-            else {
-                add(guard, t);
-            }
-        }
-    }
-
-    result.reset();
-    for (unsigned i = 0; i < targets.size(); ++i)
-        result.push_back(guards.get(i), targets.get(i));
-}
-
 expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     expr_ref _r1(r1, m()), _r2(r2, m());
     expr *a1, *b1, *a2, *b2;
@@ -4285,6 +4172,16 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         re().is_star(b, b1) && re().is_star(c, c1)) {
         result = re().mk_star(re().mk_union(b1, c1));
         return BR_REWRITE2;
+    }
+    // (Σ*·S)* = () | Σ*·S.
+    // Σ*·S is idempotent under concatenation: Σ*·S·Σ*·S = (Σ*·S·Σ*)·S ⊆ Σ*·S,
+    // since any prefix is absorbed by Σ*. Hence L·L ⊆ L and L* = () | L.
+    // Keeping the flat form avoids a large blowup in the derivative automaton.
+    if (re().is_concat(a, b, c) && re().is_full_seq(b)) {
+        sort* seq_sort = nullptr;
+        VERIFY(m_util.is_re(a, seq_sort));
+        result = re().mk_union(re().mk_epsilon(seq_sort), a);
+        return BR_REWRITE1;
     }
     if (m().is_ite(a, c, b1, c1)) {
         if ((re().is_full_char(b1) || re().is_full_seq(b1)) &&

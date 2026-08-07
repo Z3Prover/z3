@@ -22,7 +22,7 @@ Author:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/seq_regex_bisim.h"
-#include <ast/rewriter/expr_safe_replace.h>
+#include "ast/rewriter/expr_safe_replace.h"
 
 namespace smt {
 
@@ -30,8 +30,11 @@ namespace smt {
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
+        m_monadic(seq_rw(), ctx.get_trail_stack()),
         m_state_to_expr(m),
-        m_state_graph(state_graph::state_pp(this, pp_state)) { }
+        m_state_graph(state_graph::state_pp(this, pp_state)) { 
+        m_monadic.set_is_var([&th](expr *e) { return th.is_var(e); });
+    }
 
     seq_util& seq_regex::u() { return th.m_util; }
     class seq_util::rex& seq_regex::re() { return th.m_util.re; }
@@ -40,6 +43,390 @@ namespace smt {
     seq::skolem& seq_regex::sk() { return th.m_sk; }
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
+
+    expr_ref seq_regex::expand_shallow(expr* e, void*& deps, unsigned depth) {
+        expr* elem = nullptr;
+        if (depth > 40)
+            return expr_ref(e, m);                // guard against pathological chains
+        if (str().is_concat(e)) {
+            expr_ref_vector args(m);
+            for (expr* arg : *to_app(e))
+                args.push_back(expand_shallow(arg, deps, depth + 1));
+            return expr_ref(str().mk_concat(args, e->get_sort()), m);
+        }
+        if (str().is_empty(e) || str().is_string(e))
+            return expr_ref(e, m);                // parseable constant leaf
+        if (str().is_unit(e, elem) && m.is_value(elem))
+            return expr_ref(e, m);                // seq.unit of a constant element
+        // A variable or a defined term: substitute through the solution map, but only keep
+        // the substitution if it stays monadic-decidable.  A free variable whose only
+        // definition is its seq.unit(nth ..) length representation is thus kept atomic.
+        theory_seq::dependency* d = nullptr;
+        expr* r = th.m_rep.find(e, d);
+        if (r == e)
+            return expr_ref(e, m);                // no defining equation: atomic leaf
+        void* sub = d;
+        expr_ref er = expand_shallow(r, sub, depth + 1);
+        if (m_monadic.can_decide_term(er)) {
+            deps = th.m_dm.mk_join(static_cast<theory_seq::dependency*>(deps),
+                                   static_cast<theory_seq::dependency*>(sub));
+            return er;
+        }
+        return expr_ref(e, m);                     // keep atomic; drop the polluted expansion
+    }
+
+    expr_ref seq_regex::compute_expansion(expr* s, void*& dep) {
+        dep = nullptr;
+        // Prefer full canonization: it collapses a variable defined by a word equation
+        // (and any variable pinned to a constant) down to constants/variables, which is
+        // what lets the monadic solver decide the real structure.  If that yields a form
+        // the solver cannot decide -- typically because theory_seq has replaced a free
+        // variable by its seq.unit(nth ..) length representation -- fall back to a shallow
+        // expansion that keeps such variables atomic, and finally to the atomic term.
+        theory_seq::dependency* cdep = nullptr;
+        expr_ref full(m);
+        if (th.canonize(s, cdep, full) && full && m_monadic.can_decide_term(full)) {
+            dep = cdep;
+            return full;
+        }
+        void* sdep = nullptr;
+        expr_ref shallow = expand_shallow(s, sdep, 0);
+        if (shallow && m_monadic.can_decide_term(shallow)) {
+            dep = sdep;
+            return shallow;
+        }
+        dep = nullptr;
+        return expr_ref(s, m);
+    }
+
+    void seq_regex::add_monadic_membership(literal lit, expr* s, expr* r) {
+        for (auto const& membership : m_monadic_memberships)
+            if (membership.m_lit == lit)
+                return;
+        // Decide the membership over the concatenation of variables/constants that define s
+        // (see compute_expansion) rather than over the atomic term s.  Deciding s atomically
+        // yields witnesses that ignore s's defining word equation (e.g. x = x8 ++ "/" ++ s9),
+        // which then conflict on assume_eq and livelock.  The equalities used are captured in
+        // `dep` and folded into any unsat core for soundness.
+        void* dep = nullptr;
+        expr_ref s_expanded = compute_expansion(s, dep);
+        unsigned idx = m_monadic_memberships.size();
+        m_monadic_memberships.push_back(monadic_membership(m, lit, s, r, s_expanded, dep));
+        ctx.push_trail(push_back_vector(m_monadic_memberships));
+        m_monadic.add(s_expanded, r, dep_of_membership(idx));
+        ctx.push_trail(value_trail<unsigned>(m_monadic_generation));
+        ++m_monadic_generation;
+        TRACE(seq_regex, tout << "monadic add " << lit << ": "
+                             << mk_pp(s_expanded, m) << " in " << mk_pp(r, m) << "\n";);
+    }
+
+    void seq_regex::refresh_expansions() {
+        for (unsigned idx = 0; idx < m_monadic_memberships.size(); ++idx) {
+            monadic_membership& mem = m_monadic_memberships[idx];
+            void* dep = nullptr;
+            expr_ref s_expanded = compute_expansion(mem.m_s, dep);
+            // Always resync: m_s_expanded/m_dep are not trailed, so after a backtrack they
+            // may be stale while the monadic term (which IS trailed) was restored.
+            // set_term itself no-ops when the monadic term already matches.
+            mem.m_s_expanded = s_expanded;
+            mem.m_dep = dep;
+            m_monadic.set_term(dep_of_membership(idx), s_expanded);
+            TRACE(seq_regex, tout << "monadic expand " << mk_pp(mem.m_s, m)
+                                 << " -> " << mk_pp(s_expanded, m) << "\n";);
+        }
+    }
+
+    void seq_regex::collect_vars(expr* s, ptr_vector<expr>& vars) {
+        // View s as a concatenation of string constants and variables (the same shape the
+        // monadic solver decomposes internally) and gather the distinct variables.
+        ptr_vector<expr> todo;
+        todo.push_back(s);
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            todo.pop_back();
+            if (str().is_concat(t)) {
+                for (expr* arg : *to_app(t))
+                    todo.push_back(arg);
+                continue;
+            }
+            if (th.is_var(t) && !vars.contains(t))
+                vars.push_back(t);
+        }
+    }
+
+    void seq_regex::collect_candidate_bounds(vector<candidate_bound>& out) {
+        // add_lo/add_hi/add_len build a length regex .{lo}.* / .{0,hi} / .{len}; keep the
+        // bound small so the extra membership never itself blows past the monadic solver's
+        // state cap (a too-large bound would only turn a solvable case into a give-up).
+        const unsigned MAX_BOUND = 1000;
+        // Record whatever arithmetic length bounds currently hold for term t as candidate
+        // length regexes for the monadic solver.
+        auto add_term = [&](expr* t) {
+            expr_ref len = th.mk_len(t);
+            rational lo, hi;
+            bool has_lo = th.lower_bound(len, lo) && lo.is_unsigned() && lo.get_unsigned() > 0;
+            bool has_hi = th.upper_bound(len, hi) && hi.is_unsigned();
+            if (has_lo && has_hi && lo == hi) {
+                if (lo.get_unsigned() <= MAX_BOUND)
+                    out.push_back(candidate_bound(m, t, len, bound_constraint::LEN, lo.get_unsigned()));
+                return;
+            }
+            if (has_lo && lo.get_unsigned() <= MAX_BOUND)
+                out.push_back(candidate_bound(m, t, len, bound_constraint::LO, lo.get_unsigned()));
+            if (has_hi && hi.get_unsigned() <= MAX_BOUND)
+                out.push_back(candidate_bound(m, t, len, bound_constraint::HI, hi.get_unsigned()));
+        };
+        ptr_vector<expr> vars;
+        for (auto const& mem : m_monadic_memberships) {
+            // Use the expanded term: it is what the monadic solver actually decides, so its
+            // variables (and their lengths) are the ones a witness must respect.  Bounding
+            // the original atomic term would reintroduce it as a fresh monadic variable.
+            expr* s = mem.m_s_expanded;
+            // The whole-term bound constrains the sum of the atom lengths.
+            add_term(s);
+            // Decompose s into constants and variables and bound each variable directly:
+            // per-variable bounds prune the monadic search for that variable's value,
+            // whereas the whole-term bound only constrains the total length.
+            vars.reset();
+            collect_vars(s, vars);
+            for (expr* v : vars)
+                add_term(v);
+        }
+    }
+
+    bool seq_regex::model_len(expr* t, unsigned& len) {
+        obj_map<expr, expr*> const& model = m_monadic.get_model();
+        ptr_vector<expr> todo;
+        todo.push_back(t);
+        len = 0;
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            expr* a = nullptr, *b = nullptr;
+            zstring s;
+            if (str().is_concat(e, a, b)) {
+                todo.push_back(a);
+                todo.push_back(b);
+                continue;
+            }
+            if (str().is_empty(e))
+                continue;
+            if (str().is_unit(e)) {
+                ++len;
+                continue;
+            }
+            if (str().is_string(e, s)) {
+                len += s.length();
+                continue;
+            }
+            expr* w = nullptr;
+            if (model.find(e, w) && w != e) {     // variable: replace by its witness
+                todo.push_back(w);
+                continue;
+            }
+            return false;                         // unassigned variable / unsupported shape
+        }
+        return true;
+    }
+
+    bool seq_regex::model_satisfies_bound(candidate_bound const& cb) {
+        unsigned len = 0;
+        if (!model_len(cb.m_term, len))
+            return true;                          // cannot evaluate -> leave to arithmetic
+        switch (cb.m_kind) {
+        case bound_constraint::LO:  return len >= cb.m_value;
+        case bound_constraint::HI:  return len <= cb.m_value;
+        case bound_constraint::LEN: return len == cb.m_value;
+        }
+        return true;
+    }
+
+    void seq_regex::record_bound(expr* s, expr* len, bound_constraint::kind_t k, unsigned v) {
+        for (auto const& b : m_monadic_bounds)
+            if (b.m_len.get() == len && b.m_kind == k && b.m_value == v)
+                return;                           // already asserted at this scope
+        unsigned idx = m_monadic_bounds.size();
+        m_monadic_bounds.push_back(bound_constraint(m, k, len, v));
+        ctx.push_trail(push_back_vector(m_monadic_bounds));
+        void* dep = dep_of_bound(idx);
+        switch (k) {
+        case bound_constraint::LO:  m_monadic.add_lo(s, v, dep); break;
+        case bound_constraint::HI:  m_monadic.add_hi(s, v, dep); break;
+        case bound_constraint::LEN: m_monadic.add_len(s, v, dep); break;
+        }
+        TRACE(seq_regex, tout << "monadic bound " << mk_pp(len, m)
+                             << (k == bound_constraint::LO ? " >= " :
+                                 k == bound_constraint::HI ? " <= " : " = ") << v << "\n";);
+    }
+
+    bool seq_regex::all_true(literal_vector const& lits) const {
+        return all_of(lits, [this](literal lit) { return l_true == ctx.get_assignment(lit); });
+    }
+
+    void seq_regex::add_core_literal(void* dep, literal_vector& lits, void*& deps) {
+        size_t enc = reinterpret_cast<size_t>(dep);
+        if ((enc & 1) == 0) {                     // even: a monadic membership (by index)
+            monadic_membership const& mem = m_monadic_memberships[static_cast<unsigned>((enc >> 1) - 1)];
+            lits.push_back(mem.m_lit);
+            if (mem.m_dep)                         // include the equalities used to expand its term
+                deps = th.m_dm.mk_join(static_cast<theory_seq::dependency*>(deps),
+                                       static_cast<theory_seq::dependency*>(mem.m_dep));
+            return;
+        }
+        // odd: a length bound; materialize its justifying arithmetic literal(s) now.
+        bound_constraint const& b = m_monadic_bounds[static_cast<unsigned>((enc - 1) >> 1)];
+        switch (b.m_kind) {
+        case bound_constraint::LO:
+            lits.push_back(th.m_ax.mk_ge(b.m_len, b.m_value));
+            break;
+        case bound_constraint::HI:
+            lits.push_back(th.m_ax.mk_le(b.m_len, b.m_value));
+            break;
+        case bound_constraint::LEN:
+            lits.push_back(th.m_ax.mk_ge(b.m_len, b.m_value));
+            lits.push_back(th.m_ax.mk_le(b.m_len, b.m_value));
+            break;
+        }
+    }
+
+    void seq_regex::propagate_accept_legacy(literal lit, expr* s, expr* r) {
+        if (is_string_equality(lit))
+            return;
+        expr_ref regex(r, m);
+        if (!m.is_value(s)) {
+            expr_ref s_approx = get_overapprox_regex(s);
+            if (!re().is_full_seq(s_approx)) {
+                regex = re().mk_inter(regex, s_approx);
+                TRACE(seq_regex, tout
+                    << "get_overapprox_regex(" << mk_pp(s, m)
+                    << ") = " << mk_pp(s_approx, m) << std::endl;);
+                STRACE(seq_regex_brief, tout
+                    << "overapprox=" << state_str(regex) << " ";);
+            }
+        }
+
+        expr_ref zero(a().mk_int(0), m);
+        expr_ref acc(sk().mk_accept(s, zero, regex), m);
+        literal acc_lit = th.mk_literal(acc);
+
+        TRACE(seq, tout << "propagate " << acc << "\n";);
+        th.add_axiom(~lit, acc_lit);
+    }
+
+    void seq_regex::enable_legacy_fallback() {
+        if (m_monadic_fallback_generation == m_monadic_generation)
+            return;
+        for (auto const& membership : m_monadic_memberships)
+            propagate_accept_legacy(membership.m_lit, membership.m_s, membership.m_re);
+        ctx.push_trail(value_trail<unsigned>(m_monadic_fallback_generation));
+        m_monadic_fallback_generation = m_monadic_generation;
+        ++th.m_stats.m_regex_monadic_fallbacks;
+    }
+
+    final_check_status seq_regex::final_check() {
+        if (!th.use_monadic_regex() || m_monadic_memberships.empty())
+            return FC_DONE;
+        if (m_monadic_fallback_generation == m_monadic_generation)
+            return FC_DONE;
+
+        if (m_monadic_assumption_generation == m_monadic_generation) {
+            for (auto const& assumption : m_monadic_assumptions) {
+                if (assumption.m_generation != m_monadic_generation)
+                    continue;
+                if (assumption.m_var->get_root() != assumption.m_witness->get_root()) {
+                    enable_legacy_fallback();
+                    return FC_CONTINUE;
+                }
+            }
+            return FC_DONE;
+        }
+
+        // Re-canonize membership terms now that theory_seq's solution map is populated:
+        // a variable defined by a word equation (x = x8 ++ "/" ++ s9) is decided over its
+        // expanded concatenation, so the monadic witness assigns the real subvariables
+        // consistently instead of inventing a value for the atomic term.
+        refresh_expansions();
+
+        // Lazy length-constraint enforcement: first decide the memberships WITHOUT any
+        // length regexes.  If the resulting model already respects every candidate length
+        // bound, keep it; otherwise add exactly the violated bounds and re-solve.  Each
+        // round enforces at least one new bound (finite set), so the loop terminates.
+        vector<candidate_bound> candidates;
+        collect_candidate_bounds(candidates);
+        lbool result = l_undef;
+        unsigned guard = candidates.size() + 1;
+        while (true) {
+            ++th.m_stats.m_regex_monadic_checks;
+            result = m_monadic.check();
+            if (result != l_true)
+                break;
+            bool progressed = false;
+            for (auto const& cb : candidates) {
+                if (model_satisfies_bound(cb))
+                    continue;
+                record_bound(cb.m_term, cb.m_len, cb.m_kind, cb.m_value);
+                progressed = true;
+            }
+            if (!progressed || guard-- == 0)
+                break;
+        }
+
+        TRACE(seq, tout << "monadic solver returned " << result << "\n";
+        m_monadic.display(tout););
+
+        if (result == l_false) {
+            ++th.m_stats.m_regex_monadic_unsat;
+            literal_vector lits;
+            void* deps = nullptr;
+            for (void* core_dep : m_monadic.core())
+                add_core_literal(core_dep, lits, deps);
+            if (all_true(lits)) {
+                // Every core literal is assigned true, so the negated core (together with the
+                // equalities collected while canonizing membership terms, carried in deps) is a
+                // legitimate theory conflict.
+                th.set_conflict(static_cast<theory_seq::dependency*>(deps), lits);
+            }
+            else {
+                // Some core literal is not currently assigned true, so this is not a legitimate
+                // theory conflict (see #10398): raising one would justify it with non-true
+                // literals. Assert the blocking clause instead -- the negation of the literals
+                // and canonization equalities that the monadic solver refuted.
+                for (unsigned i = 0; i < lits.size(); ++i)
+                    lits[i] = ~lits[i];
+                enode_pair_vector eqs;
+                literal_vector dep_lits;
+                th.linearize(static_cast<theory_seq::dependency*>(deps), eqs, dep_lits);
+                for (literal l : dep_lits)
+                    lits.push_back(~l);
+                for (auto const& [a, b] : eqs)
+                    lits.push_back(~th.mk_eq(a->get_expr(), b->get_expr(), false));
+                th.add_axiom(lits);
+            }
+            return FC_CONTINUE;
+        }
+        if (result == l_undef) {
+            ++th.m_stats.m_regex_monadic_undef;
+            enable_legacy_fallback();
+            return FC_CONTINUE;
+        }
+
+        ++th.m_stats.m_regex_monadic_sat;
+        ctx.push_trail(value_trail<unsigned>(m_monadic_assumption_generation));
+        m_monadic_assumption_generation = m_monadic_generation;
+        for (auto const& [var, witness] : m_monadic.get_model()) {
+            enode* var_node = th.ensure_enode(var);
+            enode* witness_node = th.ensure_enode(witness);
+            if (var_node->get_root() == witness_node->get_root())
+                continue;
+            ctx.assume_eq(var_node, witness_node);
+            m_monadic_assumptions.push_back({ m_monadic_generation, var_node, witness_node });
+            ctx.push_trail(push_back_vector(m_monadic_assumptions));
+            ++th.m_stats.m_regex_monadic_assumptions;
+            TRACE(seq_regex, tout << "monadic assume "
+                                  << mk_pp(var, m) << " = " << mk_pp(witness, m) << "\n";);
+        }
+        return FC_CONTINUE;
+    }
 
     /**
      * is_string_equality holds of str.in_re s R, 
@@ -100,62 +487,97 @@ namespace smt {
         STRACE(seq_regex_brief, tout << "PIR(" << mk_pp(s, m) << ","
                                        << state_str(r) << ") ";);
 
+        if (unfold_complement(lit, s, r))
+            return;
+
+        if (unfold_prefix(lit, s, r)) 
+            return;        
+
+        if (factor_ite(lit, s, r))
+            return;
+
+        if (coallesce_in_re(lit)) 
+            return;
+        
+        if (th.use_monadic_regex())
+            add_monadic_membership(lit, s, r);
+        else
+            propagate_accept_legacy(lit, s, r);
+    }
+
+    bool seq_regex::unfold_complement(literal lit, expr *s, expr *r) {
+        if (!lit.sign())
+            return false;
         // convert negative negative membership literals to positive
         // ~(s in R) => s in C(R)
-        if (lit.sign()) {
-            expr_ref fml(re().mk_in_re(s, re().mk_complement(r)), m);
-            rewrite(fml);
-            literal nlit = th.mk_literal(fml);
-            if (lit == nlit) {
-                // is-nullable doesn't simplify for regexes with uninterpreted subterms
-                th.add_unhandled_expr(fml);
-            }
-            th.propagate_lit(nullptr, 1, &lit, nlit);
-            return;
+        expr_ref fml(re().mk_in_re(s, re().mk_complement(r)), m);
+        rewrite(fml);
+        literal nlit = th.mk_literal(fml);
+        if (lit == nlit) {
+            // is-nullable doesn't simplify for regexes with uninterpreted subterms
+            th.add_unhandled_expr(fml);
         }
+        th.propagate_lit(nullptr, 1, &lit, nlit);
+        return true;
+    }
+    
+    bool seq_regex::unfold_prefix(literal lit, expr *s, expr *r) {
+        expr_ref_vector prefix(m);
+        expr *hd, *v, *tl = s, *tl1;
+        while (str().is_concat(tl, hd, tl1) && str().is_unit(hd, v))
+            prefix.push_back(v), tl = tl1;
 
-        if (coallesce_in_re(lit)) {
-            TRACE(seq_regex, tout
-                << "simplified conjunctions to an intersection" << std::endl;);
-            STRACE(seq_regex_brief, tout << "coallesce_in_re ";);
-            return;
-        }
+        if (prefix.empty())
+            return false;
 
-        if (is_string_equality(lit)) {
-            TRACE(seq_regex, tout
-                << "simplified regex using string equality" << std::endl;);
-            STRACE(seq_regex_brief, tout << "string_eq ";);
-            return;
-        }
-
-        // Convert a non-ground sequence into an additional regex and
-        // strengthen the original regex constraint into an intersection
-        // for example:
-        //     (x ++ "a" ++ y) in b*
-        // is coverted to
-        //     (x ++ "a" ++ y) in intersect((.* ++ "a" ++ .*), b*)
-        expr_ref _r_temp_owner(m);
-        if (!m.is_value(s)) {
-            expr_ref s_approx = get_overapprox_regex(s);
-            if (!re().is_full_seq(s_approx)) {
-                r = re().mk_inter(r, s_approx);
-                _r_temp_owner = r;
-                TRACE(seq_regex, tout
-                    << "get_overapprox_regex(" << mk_pp(s, m)
-                    << ") = " << mk_pp(s_approx, m) << std::endl;);
-                STRACE(seq_regex_brief, tout
-                    << "overapprox=" << state_str(r) << " ";);
+        expr_ref q(r, m);
+        for (expr *v : prefix) {
+            q = seq_rw().mk_derivative(v, q);
+            if (re().is_empty(q)) {
+                enode_pair_vector eqs;
+                literal_vector lits;
+                lits.push_back(lit);
+                th.set_conflict(eqs, lits);
+                return true;
             }
         }
+        expr_ref fml(re().mk_in_re(tl, q), m);
+        rewrite(fml);
+        literal nlit = th.mk_literal(fml);
+        th.propagate_lit(nullptr, 1, &lit, nlit);
+        TRACE(seq_regex, tout << "unfolded prefix\n");
+        return true;
+    }
 
-        expr_ref zero(a().mk_int(0), m);
-        expr_ref acc(sk().mk_accept(s, zero, r), m);
-        literal acc_lit = th.mk_literal(acc);
-
-        TRACE(seq, tout << "propagate " << acc << "\n";);
-
-        //th.propagate_lit(nullptr, 1, &lit, acc_lit);
-        th.add_axiom(~lit, acc_lit);
+    bool seq_regex::factor_ite(literal lit, expr *s, expr *r) {
+        bool_rewriter br(m);
+        expr_ref c(m), t(m), e(m);
+        if (!br.decompose_ite(r, c, t, e))
+            return false;
+        auto c_lit = th.mk_literal(c);
+        switch (ctx.get_assignment(c_lit)) {
+        case l_true: {
+            literal lits[2] = {lit, c_lit};
+            th.propagate_lit(nullptr, 2, lits, th.mk_literal(re().mk_in_re(s, t)));
+            break;
+        }
+        case l_false: {
+            literal lits[2] = {lit, ~c_lit};
+            th.propagate_lit(nullptr, 2, lits, th.mk_literal(re().mk_in_re(s, e)));
+            break;
+        }
+        case l_undef: {
+            ctx.mark_as_relevant(c_lit);
+            // The membership literal is asserted only once, so preserve both
+            // branches until the condition receives an assignment.
+            literal in_t = th.mk_literal(re().mk_in_re(s, t));
+            literal in_e = th.mk_literal(re().mk_in_re(s, e));
+            th.add_axiom(~lit, ~c_lit, in_t);
+            th.add_axiom(~lit, c_lit, in_e);
+            break;
+        }
+        }
+        return true;
     }
 
     /**
@@ -288,7 +710,7 @@ namespace smt {
 
         // Rule 1: use min_length to prune search
         unsigned min_len = re().min_length(r);
-        unsigned min_len_plus_i = u().max_plus(min_len, idx);
+        unsigned min_len_plus_i = add_truncate(min_len, idx);
         literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len_plus_i);
         // Acc(s,i,r) ==> |s| >= i + minlength(r)
         th.propagate_lit(nullptr, 1, &lit, len_s_ge_min);
@@ -348,13 +770,16 @@ namespace smt {
      * Put a limit to the unfolding of s. 
      */
     bool seq_regex::block_unfolding(literal lit, unsigned i) {
-        return 
-            i > th.m_max_unfolding_depth &&
-            th.m_max_unfolding_lit != null_literal && 
-            ctx.get_assignment(th.m_max_unfolding_lit) == l_true && 
-            !ctx.at_base_level() &&
-            (th.propagate_lit(nullptr, 1, &lit, ~th.m_max_unfolding_lit), 
-             true);
+        if (i <= th.m_max_unfolding_depth)
+            return false;
+        if (th.m_max_unfolding_lit == null_literal)
+            return false;
+        if (ctx.get_assignment(th.m_max_unfolding_lit) != l_true)
+            return false;
+        if (ctx.at_base_level())
+            return false;
+        th.propagate_lit(nullptr, 1, &lit, ~th.m_max_unfolding_lit);
+        return true;
     }
 
     /**
@@ -623,7 +1048,7 @@ namespace smt {
         _temp_bool_owner.push_back(i_int);
 
         // DFS, avoids duplicating derivative construction that has already been done
-        while (to_visit.size() > 0) {
+        while (!to_visit.empty()) {
             expr* e = to_visit.back();
             expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
             if (!re_to_accept.contains(e)) {
@@ -644,7 +1069,13 @@ namespace smt {
                 if (m.is_ite(e, econd, e1, e2)) {
                     expr* b1 = re_to_accept.find(e1);
                     expr* b2 = re_to_accept.find(e2);
-                    expr* b = m.is_true(econd) || b1 == b2 ? b1 : m.is_false(econd) ? b2 : m.mk_ite(econd, b1, b2);
+                    expr* b;
+                    if (m.is_true(econd) || b1 == b2)
+                        b = b1;
+                    else if (m.is_false(econd))
+                        b = b2;
+                    else
+                        b = m.mk_ite(econd, b1, b2);
                     _temp_bool_owner.push_back(b);
                     re_to_accept.find(e) = b;
                 }
@@ -661,7 +1092,13 @@ namespace smt {
                 else if (re().is_union(e, e1, e2)) {
                     expr* b1 = re_to_accept.find(e1);
                     expr* b2 = re_to_accept.find(e2);
-                    expr* b = m.is_false(b1) || b1 == b2 ? b2 : m.is_false(b2) ? b1 : m.mk_or(b1, b2);
+                    expr* b;
+                    if (m.is_false(b1) || b1 == b2)
+                        b = b2;
+                    else if (m.is_false(b2))
+                        b = b1;
+                    else
+                        b = m.mk_or(b1, b2);
                     _temp_bool_owner.push_back(b);
                     re_to_accept.find(e) = b;
                 }

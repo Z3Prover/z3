@@ -225,9 +225,6 @@ class seq_util {
 
 public:
 
-    unsigned max_plus(unsigned x, unsigned y) const;
-    unsigned max_mul(unsigned x, unsigned y) const;
-
     ast_manager& get_manager() const { return m; }
     char_decl_plugin &get_char_plugin() const {
         return ch;
@@ -451,6 +448,8 @@ public:
             lbool nullable { l_undef };
             /* Lower bound  on the length of all accepted words. */
             unsigned min_length { 0 };
+            /* Upper bound on the length of all accepted words, or UINT_MAX if unknown. */
+            unsigned max_length { UINT_MAX };
             /* Classical regular expression: does not use complement, intersection, diff, or the empty language (fail). */
             bool classical { true };
 
@@ -471,11 +470,13 @@ public:
             info(bool is_interpreted,
                 lbool is_nullable,
                 unsigned min_l,
+                unsigned max_l,
                 bool is_classical) :
                 known(l_true), 
                 interpreted(is_interpreted),
                 nullable(is_nullable),
                 min_length(min_l),
+                max_length(max_l),
                 classical(is_classical) {}
 
             /*
@@ -593,6 +594,10 @@ public:
         MATCH_BINARY(is_diff);
         MATCH_BINARY(is_xor);
         MATCH_BINARY(is_range);
+        MATCH_UNARY(is_concat);
+        MATCH_UNARY(is_union);
+        MATCH_UNARY(is_intersection);
+        MATCH_UNARY(is_xor);
         MATCH_UNARY(is_complement);
         MATCH_UNARY(is_star);
         MATCH_UNARY(is_plus);
@@ -660,4 +665,3 @@ public:
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::pp const & p) { return p.display(out); }
 
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::info const& p) { return p.display(out); }
-

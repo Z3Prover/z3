@@ -364,6 +364,7 @@ protected:
     void mk_solver();
 
     bool contains_func_decl(symbol const& s, unsigned n, sort* const* domain, sort* range) const;
+    bool builtin_signature_collides(symbol const& s, unsigned arity, sort* const* domain) const;
 
     bool contains_macro(symbol const& s) const;
     bool contains_macro(symbol const& s, func_decl* f) const;
@@ -580,5 +581,4 @@ public:
 };
 
 std::ostream & operator<<(std::ostream & out, cmd_context::status st);
-
 

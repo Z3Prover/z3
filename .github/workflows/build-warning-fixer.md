@@ -1,11 +1,16 @@
 ---
 name: Clang-Tidy Warning Fixer
-description: Compiles Z3 with clang-tidy, analyzes build warnings and errors, and creates PRs with safe fixes
+description: Analyzes clang-tidy warning artifacts and files GitHub issues with proposed fixes as git diffs
 on:
-  schedule: daily
+  workflow_run:
+    workflows: ["Clang-Tidy Warning Report"]
+    types: [completed]
+    branches:
+      - master
   workflow_dispatch:
   skip-if-match: 'is:pr is:open in:title "[clang-tidy]"'
 permissions:
+  actions: read
   contents: read
   issues: read
   pull-requests: read
@@ -13,12 +18,10 @@ permissions:
 tracker-id: clang-tidy-warning-fixer
 safe-outputs:
   report-failure-as-issue: false
-  create-pull-request:
+  create-issue:
     title-prefix: "[clang-tidy] "
     labels: [code-quality, clang-tidy, automation]
-    reviewers: [copilot]
-    expires: 1d
-    if-no-changes: ignore
+    max: 1
   missing-tool:
     create-issue: true
   noop:
@@ -26,7 +29,8 @@ safe-outputs:
 network: defaults
 tools:
   github:
-    toolsets: [default]
+    mode: gh-proxy
+    toolsets: [default, actions]
   bash: [":*"]
 timeout-minutes: 90
 strict: true
@@ -37,77 +41,68 @@ steps:
     with:
       persist-credentials: false
 
-  - name: Prebuild and collect clang diagnostics
-    shell: bash
-    run: |
-      set -o pipefail
-      mkdir -p /tmp/gh-aw/agent
-
-      sudo apt-get update -y
-      sudo apt-get install -y clang clang-tidy cmake ninja-build python3
-
-      rm -rf build
-
-      configure_status=0
-      build_status=0
-
-      CC=clang CXX=clang++ cmake -GNinja -S . -B build \
-        -DCMAKE_BUILD_TYPE=Debug \
-        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-        -DCMAKE_CXX_CLANG_TIDY=clang-tidy \
-        2>&1 | tee /tmp/gh-aw/agent/clang-tidy-configure.log || configure_status=$?
-
-      if [ "$configure_status" -eq 0 ]; then
-        cmake --build build --target shell test-z3 -k 0 \
-          2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build.log || build_status=$?
-      else
-        printf 'configure failed; build skipped\n' | tee /tmp/gh-aw/agent/clang-tidy-build.log
-        build_status=125
-      fi
-
-      grep -nE 'warning:|error:|clang-tidy' /tmp/gh-aw/agent/clang-tidy-build.log \
-        > /tmp/gh-aw/agent/clang-tidy-diagnostics.txt || true
-
-      {
-        echo "configure_status=$configure_status"
-        echo "build_status=$build_status"
-      } > /tmp/gh-aw/agent/prebuild-status.txt
 ---
 
 # Clang-Tidy Warning Fixer
 
-You are an AI agent that uses pre-collected clang-tidy diagnostics, reviews warnings and errors, and creates a pull request with conservative fixes when you can do so safely.
+You are an AI agent that uses clang-tidy warning output captured in a GitHub Actions artifact, proposes conservative fixes, and creates a GitHub issue with ready-to-apply git diffs.
 
 ## Current Context
 
 - **Repository**: ${{ github.repository }}
 - **Workflow**: ${{ github.workflow }}
 - **Workspace**: ${{ github.workspace }}
-- **Prebuild status file**: `/tmp/gh-aw/agent/prebuild-status.txt`
-- **Prebuild configure log**: `/tmp/gh-aw/agent/clang-tidy-configure.log`
-- **Prebuild build log**: `/tmp/gh-aw/agent/clang-tidy-build.log`
-- **Prebuild diagnostics list**: `/tmp/gh-aw/agent/clang-tidy-diagnostics.txt`
+- **Trigger run ID**: `${{ github.event.workflow_run.id }}`
+- **Expected source workflow**: `clang-tidy-warning-report.yml` (`Clang-Tidy Warning Report`)
+- **Local log analysis path**: `/tmp/gh-aw/clang-tidy-warning-report`
 
 ## Your Task
 
-### 1. Review prebuild results before taking action
+### 0. Verify repository target
 
-This workflow already ran a prebuild with clang-tidy before agent mode. Start by inspecting:
-- `/tmp/gh-aw/agent/prebuild-status.txt`
-- `/tmp/gh-aw/agent/clang-tidy-configure.log`
-- `/tmp/gh-aw/agent/clang-tidy-build.log`
-- `/tmp/gh-aw/agent/clang-tidy-diagnostics.txt`
+This workflow is only for `Z3Prover/z3`.
 
-If prebuild configuration failed, inspect the configure log and call `noop` with a clear summary unless you can make an obvious, local, semantics-preserving fix.
+If `${{ github.repository }}` is not `Z3Prover/z3`, call `noop` immediately with a short explanation.
+
+### 1. Retrieve the artifact from `clang-tidy-warning-report.yml`
+
+Use the authenticated `gh` CLI proxy to retrieve the warning artifact from the triggering run.
+
+1. Determine source run ID:
+   - If `${{ github.event.workflow_run.id }}` is present, use it.
+   - For manual dispatch, use `gh run list` for workflow `clang-tidy-warning-report.yml` and select the latest completed run.
+2. Download and extract the artifact:
+
+```bash
+RUN_ID="${{ github.event.workflow_run.id }}"
+if [ -z "$RUN_ID" ]; then
+  RUN_ID="$(gh run list --repo "${{ github.repository }}" \
+    --workflow clang-tidy-warning-report.yml --status completed --limit 1 \
+    --json databaseId --jq '.[0].databaseId')"
+fi
+
+rm -rf /tmp/gh-aw/clang-tidy-warning-report
+mkdir -p /tmp/gh-aw/clang-tidy-warning-report
+gh run download "$RUN_ID" --repo "${{ github.repository }}" \
+  --name "clang-tidy-warning-report-$RUN_ID" \
+  --dir /tmp/gh-aw/clang-tidy-warning-report
+ls -la /tmp/gh-aw/clang-tidy-warning-report
+```
+
+Expect `configure.log`, `build.log`, `combined.log`, `warnings.txt`, and `status.txt`. If the artifact is unavailable, expired, or empty, call `noop` with a concise explanation.
 
 ### 2. Extract actionable diagnostics
 
-Analyze `/tmp/gh-aw/agent/clang-tidy-diagnostics.txt` and `/tmp/gh-aw/agent/clang-tidy-build.log`, focusing on diagnostics emitted during this workflow run.
+Analyze artifact files from this run:
+- `/tmp/gh-aw/clang-tidy-warning-report/warnings.txt`
+- `/tmp/gh-aw/clang-tidy-warning-report/build.log`
+- `/tmp/gh-aw/clang-tidy-warning-report/combined.log`
+- `/tmp/gh-aw/clang-tidy-warning-report/status.txt` (when available)
 
 Use commands like:
 
 ```bash
-grep -nE 'warning:|error:|clang-tidy' /tmp/gh-aw/agent/clang-tidy-build.log | head -200
+grep -nE 'warning:|error:|clang-tidy' /tmp/gh-aw/clang-tidy-warning-report/combined.log | head -300
 ```
 
 Classify findings into:
@@ -141,60 +136,51 @@ Examples of usually safe fixes:
 
 Do **not** change behavior, APIs, ownership, solver logic, or performance-sensitive code unless the fix is obviously semantics-preserving.
 
-### 4. Apply fixes conservatively
+### 4. Draft fixes conservatively as patch proposals
 
-When you are confident, edit the relevant files and keep the patch minimal.
+For each high-confidence warning, draft the smallest safe change as a unified diff proposal.
 
 Rules:
 - fix only warnings you fully understand
 - do not batch unrelated cleanups
 - preserve formatting and local style
 - if a finding is uncertain, skip it instead of guessing
+- prefer one focused diff hunk per warning
+- do not propose broad refactors or behavioral changes
 
-### 5. Rebuild and confirm the fixes
+### 5. Document proposed fixes as git diffs
 
-After making changes, rerun the same configure/build sequence if needed and always rerun at least:
+For each proposed fix, include:
+- file path
+- warning being fixed
+- rationale
+- a fenced unified diff block (` ```diff ... ``` `)
 
-```bash
-cmake --build build --target shell test-z3 -k 0 2>&1 | tee /tmp/gh-aw/agent/clang-tidy-build-after.log
-./build/test-z3 /a
-```
-
-If the rebuilt logs still contain actionable warnings, you may fix another small set if you remain confident. Otherwise stop.
-
-### 6. Provide git diff details for GitHub issue contexts
-
-When this workflow is dispatched from a GitHub issue context (for example via `aw_context` with `item_type == "issue"`), always include patch details to make PR creation easy:
+Also include one consolidated patch section that can be directly applied:
 
 ```bash
-git diff --stat
-git diff
+git apply - << 'EOF'
+[all diff hunks]
+EOF
 ```
 
-If changes were made, include the full unified diff in your final response in a fenced `diff` block.
+### 6. Create a GitHub issue with fixes
 
-### 7. Create the pull request
+Create exactly one issue using `create-issue` when there are actionable warnings.
 
-If you made safe fixes, create a pull request using `create-pull-request`.
+Issue content must include:
+- source workflow run link (`clang-tidy-warning-report.yml` run ID)
+- summary counts by warning type
+- list of skipped warnings with reasons
+- proposed fixes as unified diffs (full diff text, not prose only)
+- short assignment-ready checklist for Copilot (one checkbox per proposed fix)
 
-Use a title describing the warnings fixed, for example:
-- `Fix clang-tidy warnings in parser code`
-- `Fix clang-tidy override and unused warnings`
-
-The PR body should include:
-- that the workflow compiled Z3 with clang-tidy
-- the build command that was used
-- the files changed
-- the warnings or errors fixed
-- confirmation that you rebuilt and ran `./build/test-z3 /a`
-- a brief note for any remaining warnings you intentionally skipped
-
-If there are no safe fixes to make, call `noop` with a short summary of what you built and what you found.
+If no actionable warnings are found, or the source artifact is missing/corrupt, call `noop` with a concise explanation.
 
 ## Guidelines
 
 - Be conservative and high-confidence only.
-- Prefer no PR over a risky PR.
+- Prefer no issue over risky or speculative patch suggestions.
 - Keep fixes surgical and easy to review.
-- Validate every change by rebuilding.
-- Focus on diagnostics produced by this workflow run, not on unrelated code quality ideas.
+- Focus only on diagnostics produced by the referenced `clang-tidy-warning-report.yml` run.
+- Use only the warning artifact from the selected workflow run.

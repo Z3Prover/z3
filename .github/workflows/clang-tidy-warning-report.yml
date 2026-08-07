@@ -1,0 +1,100 @@
+name: Clang-Tidy Warning Report
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Z3 with clang-tidy warnings
+    runs-on: ubuntu-latest
+    timeout-minutes: 160
+    env:
+      DETLEFS_WARNING_FLAGS: -Wgnu-anonymous-struct
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang clang-tidy ninja-build
+
+      - name: Configure and build with clang-tidy
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -rf build /tmp/clang-tidy-warning-report
+          mkdir -p /tmp/clang-tidy-warning-report
+
+          configure_status=0
+          build_status=0
+
+          CC=clang CXX=clang++ cmake -GNinja -S . -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_CXX_CLANG_TIDY=clang-tidy \
+            -DCMAKE_CXX_FLAGS="${DETLEFS_WARNING_FLAGS}" \
+            2>&1 | tee /tmp/clang-tidy-warning-report/configure.log || configure_status=$?
+
+          if [ "$configure_status" -eq 0 ]; then
+            cmake --build build --target shell --parallel $(nproc) -- -k 0 \
+              2>&1 | tee /tmp/clang-tidy-warning-report/build.log || build_status=$?
+          else
+            printf 'configure failed; build skipped\n' | tee /tmp/clang-tidy-warning-report/build.log
+            build_status=125
+          fi
+
+          cat /tmp/clang-tidy-warning-report/configure.log /tmp/clang-tidy-warning-report/build.log \
+            > /tmp/clang-tidy-warning-report/combined.log
+          grep -nE 'warning:|error:|clang-tidy' /tmp/clang-tidy-warning-report/combined.log \
+            > /tmp/clang-tidy-warning-report/warnings.txt || true
+          {
+            echo "detlefs_warning_flags=${DETLEFS_WARNING_FLAGS}"
+            echo "configure_status=${configure_status}"
+            echo "build_status=${build_status}"
+          } > /tmp/clang-tidy-warning-report/status.txt
+
+          echo "configure_status=${configure_status}" >> "$GITHUB_OUTPUT"
+          echo "build_status=${build_status}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload warning artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: clang-tidy-warning-report-${{ github.run_id }}
+          path: /tmp/clang-tidy-warning-report
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Emit warning summary to job log
+        if: always()
+        shell: bash
+        run: |
+          echo "CLANG_TIDY_WARNING_REPORT_BEGIN"
+          echo "CLANG_TIDY_STATUS_BEGIN"
+          cat /tmp/clang-tidy-warning-report/status.txt
+          echo "CLANG_TIDY_STATUS_END"
+          echo "CLANG_TIDY_WARNINGS_BEGIN"
+          if [ -s /tmp/clang-tidy-warning-report/warnings.txt ]; then
+            cat /tmp/clang-tidy-warning-report/warnings.txt
+          else
+            echo "no warnings captured"
+          fi
+          echo "CLANG_TIDY_WARNINGS_END"
+          echo "CLANG_TIDY_WARNING_REPORT_END"
+
+      - name: Fail on configure or build errors
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.build.outputs.configure_status }}" = "0"
+          test "${{ steps.build.outputs.build_status }}" = "0"

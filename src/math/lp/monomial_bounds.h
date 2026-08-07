@@ -16,6 +16,7 @@ namespace nla {
     class core;
     class monomial_bounds : common {
         dep_intervals& dep;
+        bool m_bounds_optimization_enabled = true;
 
         bool tighten_lp_bound(dep_interval const &range, lpvar v, unsigned p);
         bool tighten_lp_upper_bound(dep_interval const& range, lpvar v, unsigned p);
@@ -82,8 +83,8 @@ namespace nla {
         bool mm_pick_var_to_leave(lpvar x_j, bool inc, rational& a_ij, mm_gain& g, lpvar& x_i) const;
         bool mm_move_to_bound(lpvar x_i, bool inc, unsigned& best_efforts);
         void mm_update_value(lpvar j, lp::impq const& delta);
-        void mm_optimize(lpvar v, bool maximize);
-        u_dependency* mm_bound_from_row(lpvar v, bool maximize, rational& bound);
+        bool mm_optimize(lpvar v, bool maximize, rational& opt_value);
+        u_dependency* mm_dep_from_row(lpvar v, bool maximize);
     public:
         monomial_bounds(core* core);
         void generate_lemmas();
@@ -91,6 +92,7 @@ namespace nla {
         bool propagate_linear_bounds();
         bool propagate_changed_bounds();
         bool propagate_fixed_rows();
+        bool optimize_nl_bounds();
 
         // Maximize (is_lower == false) or minimize (is_lower == true) column j
         // over the LP tableau and, if the resulting bound improves j's current

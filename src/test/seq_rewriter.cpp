@@ -16,6 +16,9 @@ Tests:
  18. Solver: (str.in_re x (re.range x x)) unsat when len(x)=2
  19. Solver: inverted symbolic bounds make membership unsatisfiable
  20. Solver: contradictory constant lexical bounds are unsatisfiable
+ 22. re.loop with bounds as arguments agrees with the indexed form
+ 23. (Σ*·S)* is flattened to () | Σ*·S
+ 24. Regex info tracks inferred maximal lengths
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -276,7 +279,33 @@ void tst_seq_rewriter() {
             ENSURE(res == l_true);
         }
 
-        // 20. unsat: contradictory constant lexical bounds.
+        // 22. (Σ*·S)* is rewritten to the flat form () | Σ*·S.
+        //     Σ*·S is idempotent under concatenation — Σ*·S·Σ*·S = (Σ*·S·Σ*)·S
+        //     is again of the form Σ*·S — so its Kleene star contributes
+        //     nothing beyond the empty word. The star form is exponentially
+        //     more expensive to determinize, so the flat form is kept.
+        {
+            expr_ref sigma_star(su.re.mk_full_seq(re_sort), m);
+            expr_ref b_re(su.re.mk_to_re(su.str.mk_string(zstring('b'))), m);
+            expr_ref star(su.re.mk_star(su.re.mk_concat(sigma_star, b_re)), m);
+            expr_ref e(star);
+            rw(e);
+            std::cout << "(sigma* b)* flattened: " << mk_pp(e, m) << "\n";
+            ENSURE(!su.re.is_star(e));
+
+            // Semantics: L* = words ending in "b", plus the empty word.
+            auto member = [&](char const* w) {
+                smt_params sp;
+                smt::context ctx(m, sp);
+                ctx.assert_expr(su.re.mk_in_re(su.str.mk_string(w), star));
+                return ctx.check();
+            };
+            ENSURE(member("ab") == l_true);
+            ENSURE(member("") == l_true);
+            ENSURE(member("ba") == l_false);
+        }
+
+
         //     "2024-01-01" < x < "2024-12-31" and x < "2023-01-01".
         //     Since "2023-01-01" < "2024-01-01", no such x exists.
         if (false)
@@ -294,6 +323,58 @@ void tst_seq_rewriter() {
             std::cout << "constant lexical bounds unsat: " << res << "\n";
             ENSURE(res == l_false);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // 22. re.loop with the bounds given as arguments must be interpreted the
+    //     same as the indexed form.  get_info used to read the bounds only
+    //     from the decl parameters, which the argument form does not carry,
+    //     so it silently fell back to lo = 0 and reported (ab){1,3} as
+    //     nullable with min_length 0.  seq_rewriter normalizes the argument
+    //     form, so this is only observable on paths that bypass it.
+    // -----------------------------------------------------------------------
+    {
+        arith_util a_util(m);
+        expr_ref ab(su.re.mk_to_re(su.str.mk_string("ab")), m);
+        expr_ref indexed(su.re.mk_loop_proper(ab, 1, 3), m);
+        expr* args[3] = { ab.get(), a_util.mk_int(1), a_util.mk_int(3) };
+        expr_ref as_args(m.mk_app(su.get_family_id(), OP_RE_LOOP, 0, nullptr, 3, args), m);
+
+        auto i1 = su.re.get_info(indexed);
+        auto i2 = su.re.get_info(as_args);
+        std::cout << "re.loop indexed:   " << mk_pp(indexed, m)
+                  << " nullable=" << i1.nullable << " min_length=" << i1.min_length << "\n";
+        std::cout << "re.loop arguments: " << mk_pp(as_args, m)
+                  << " nullable=" << i2.nullable << " min_length=" << i2.min_length << "\n";
+        ENSURE(i1.nullable == l_false && i1.min_length == 2);
+        ENSURE(i2.nullable == l_false && i2.min_length == 2);
+    }
+
+    // -----------------------------------------------------------------------
+    // 24. Regex info tracks inferred maximal lengths.
+    // -----------------------------------------------------------------------
+    {
+        expr_ref empty(su.re.mk_empty(re_sort), m);
+        expr_ref epsilon(su.re.mk_to_re(su.str.mk_empty(str_sort)), m);
+        expr_ref ab(su.re.mk_to_re(su.str.mk_string("ab")), m);
+        expr_ref abc(su.re.mk_to_re(su.str.mk_string("abc")), m);
+        expr_ref intersection(su.re.mk_inter(ab, abc), m);
+        expr_ref union_(su.re.mk_union(ab, abc), m);
+        expr_ref complement(su.re.mk_complement(ab), m);
+        expr_ref loop(su.re.mk_loop_proper(abc, 2, 4), m);
+
+        ENSURE(su.re.get_info(empty).max_length == 0);
+        ENSURE(su.re.get_info(epsilon).max_length == 0);
+        ENSURE(su.re.get_info(intersection).max_length == 2);
+        ENSURE(su.re.get_info(union_).max_length == 3);
+        ENSURE(su.re.get_info(complement).max_length == UINT_MAX);
+        ENSURE(su.re.get_info(loop).max_length == 12);
+
+        seq_util::rex::info large(true, l_false, 1, UINT_MAX / 2 + 1, true);
+        ENSURE(large.loop(1, 2).max_length == UINT_MAX);
+        seq_util::rex::info almost_max(true, l_false, 1, UINT_MAX - 1, true);
+        seq_util::rex::info two(true, l_false, 1, 2, true);
+        ENSURE(almost_max.concat(two, false).max_length == UINT_MAX);
     }
 
     std::cout << "tst_seq_rewriter: all tests passed\n";
