@@ -1044,6 +1044,8 @@ namespace smt {
                        tout << l.index() << " " << true_literal.index() << " " << false_literal.index() << " ";
                        m_ctx.display_literal(tout, l); tout << " --->\n";
                        tout << mk_ll_pp(l_exr, m););
+                if (prs.size() > 2 && !m.is_or(m.get_fact(prs[0])))
+                    throw default_exception("malformed clause proof in conflict resolution");
                 pr = m.mk_unit_resolution(prs.size(), prs.data(), l_exr);
                 m_new_proofs.push_back(pr);
                 return pr;
@@ -1281,8 +1283,8 @@ namespace smt {
 
             switch (elem.m_kind) {
             case tp_elem::EQUALITY: {
-                enode * lhs        = elem.m_lhs;
-                enode * rhs        = elem.m_rhs;
+                enode * lhs        = elem.m_pair.m_lhs;
+                enode * rhs        = elem.m_pair.m_rhs;
                 if (m_eq2proof.contains(lhs, rhs))
                     m_todo_pr.pop_back();
                 else if (visit_eq_justications(lhs, rhs)) {
@@ -1486,4 +1488,3 @@ namespace smt {
     }
 
 }
-

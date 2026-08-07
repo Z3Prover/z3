@@ -50,6 +50,8 @@ static void tst2() {
 }
 
 static void tst3(unsigned sz, unsigned num_rounds) {
+    if (sz == 0)
+        return;
     uint_total_order to;
     to.insert(0);
     for (unsigned i = 0; i < sz; ++i) {
@@ -100,6 +102,8 @@ void move_after(unsigned_vector & v, unsigned_vector & inv_v, unsigned a, unsign
 }
 
 static void tst4(unsigned sz, unsigned num_rounds) {
+    if (sz == 0)
+        return;
     uint_total_order to;
     unsigned_vector  v;
     unsigned_vector  inv_v;

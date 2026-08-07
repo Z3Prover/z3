@@ -48,7 +48,7 @@ namespace nla {
         // linear-monomial equality propagation:
         // when all but one variable of a monomial are fixed, the monomial is
         // linear and its value/equality can be propagated into the LP solver.
-        bool propagate_changed_bound(monic & m);
+        bool propagate_linear_bound(monic & m);
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
 
@@ -82,13 +82,15 @@ namespace nla {
         bool mm_pick_var_to_leave(lpvar x_j, bool inc, rational& a_ij, mm_gain& g, lpvar& x_i) const;
         bool mm_move_to_bound(lpvar x_i, bool inc, unsigned& best_efforts);
         void mm_update_value(lpvar j, lp::impq const& delta);
-        void mm_optimize(lpvar v, bool maximize);
-        u_dependency* mm_bound_from_row(lpvar v, bool maximize, rational& bound);
+        bool mm_optimize(lpvar v, bool maximize, rational& opt_value);
+        u_dependency* mm_dep_from_row(lpvar v, bool maximize);
     public:
         monomial_bounds(core* core);
         void generate_lemmas();
         bool tighten_lp_bounds();
+        bool propagate_linear_bounds();
         bool propagate_changed_bounds();
+        bool propagate_fixed_rows();
 
         // Maximize (is_lower == false) or minimize (is_lower == true) column j
         // over the LP tableau and, if the resulting bound improves j's current

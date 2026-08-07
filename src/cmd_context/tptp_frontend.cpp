@@ -23,6 +23,7 @@
 #include "solver/solver.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
+#include "params/tptp.hpp"
 
 
 
@@ -2375,13 +2376,13 @@ class tptp_parser {
         // Try relative to current file's directory
         std::string local = normalize_path(dirname(curr_file) + "/" + name);
         if (file_exists(local)) return local;
-        // Try TPTP environment variable (standard TPTP convention): includes such as
+        // Try the tptp.root parameter (standard TPTP convention): includes such as
         // "Axioms/MAT001^0.ax" are resolved relative to the TPTP root directory named
-        // by $TPTP. This is required when a problem is run from a directory that does
-        // not contain the Axioms/ tree (e.g. an isolated benchmark harness workspace).
-        char const* root = std::getenv("TPTP");
-        if (root) {
-            std::string env = normalize_path(std::string(root) + "/" + name);
+        // by the parameter. This is required when a problem is run from a directory that
+        // does not contain the Axioms/ tree (e.g. an isolated benchmark harness workspace).
+        std::string root = tptp().root().str();
+        if (!root.empty()) {
+            std::string env = normalize_path(root + "/" + name);
             if (file_exists(env)) return env;
         }
         // Walk up ancestor directories of the current file. TPTP include paths are
@@ -2947,12 +2948,12 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         solver_params.set_bool("pi.avoid_skolems", false);
         ctx.get_solver()->updt_params(solver_params);
 
-        // Optional: dump the parsed goal as an SMT-LIB2 benchmark (env Z3_TPTP_DUMP_SMT2
+        // Optional: dump the parsed goal as an SMT-LIB2 benchmark (parameter tptp.dump_smt2
         // gives the output file path). Used to produce SMTLIB versions of TPTP instances.
-        if (char const* dump_path = getenv("Z3_TPTP_DUMP_SMT2")) {
+        std::string dump_path = tptp().dump_smt2().str();
+        if (!dump_path.empty()) {
             std::ofstream dout(dump_path);
             if (dout) {
-                ast_manager& m = ctx.m();
                 dout << "; Auto-generated from TPTP input: "
                      << (current_file ? current_file : "?") << "\n";
                 dout << "(set-logic ALL)\n";

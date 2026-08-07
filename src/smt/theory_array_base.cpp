@@ -414,7 +414,7 @@ namespace smt {
         expr * sel1 = mk_select(dimension+1, args1.data());
         expr * sel2 = mk_select(dimension+1, args2.data());
         expr * eq = m.mk_eq(sel1, sel2);
-        expr_ref q(m.mk_forall(dimension, sorts.data(), names.data(), eq), m);
+        expr_ref q(m.mk_forall(dimension, sorts.data(), names.data(), eq, 2), m);
         ctx.get_rewriter()(q);
         // The select terms are beta-reduced away by the rewriter, so the
         // resulting quantifier carries no patterns. Infer patterns so that the

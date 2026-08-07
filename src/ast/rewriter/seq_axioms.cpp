@@ -1305,7 +1305,7 @@ namespace seq {
             add_clause(offs_ge_0, mk_eq(n, z));
             add_clause(l_ge_0, mk_eq(n, z));
             add_clause(y_ge_o, mk_eq(n, z));
-            add_clause(~y_ge_o, y_ge_l, mk_eq(n, a.mk_sub(len_y, offs))); 
+            add_clause(~offs_ge_0, ~y_ge_o, y_ge_l, mk_eq(n, a.mk_sub(len_y, offs)));
         }
         else if (seq.str.is_unit(x) ||
             seq.str.is_empty(x) ||

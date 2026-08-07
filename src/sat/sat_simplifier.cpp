@@ -840,9 +840,11 @@ namespace sat {
                        verbose_stream() << " (sat-subsumer :subsumed "
                        << (m_simplifier.m_num_subsumed - m_num_subsumed)
                        << " :subsumption-resolution " << (m_simplifier.m_num_sub_res - m_num_sub_res)
-                       << " :threshold " << m_simplifier.m_sub_counter
-                       << mem_stat()
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       << " :threshold " << m_simplifier.m_sub_counter;
+                       if (!get_suppress_platform_verbose())
+                           verbose_stream() << mem_stat() << " :time "
+                           << std::fixed << std::setprecision(2) << m_watch.get_seconds();
+                       verbose_stream() << ")\n";);
         }
     };
 
@@ -1706,8 +1708,11 @@ namespace sat {
                        report(m_simplifier.m_num_cce,  m_num_cce,  " :cce ");
                        report(m_simplifier.m_num_bca,  m_num_bca,  " :bca ");
                        report(m_simplifier.m_num_acce, m_num_acce, " :acce ");
-                       verbose_stream() << mem_stat()
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       if (!get_suppress_platform_verbose()) {
+                           verbose_stream() << mem_stat()
+                               << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds();
+                       }
+                       verbose_stream() << ")\n";);
         }
 
         void report(unsigned n, unsigned m, char const* s) {
@@ -2063,11 +2068,15 @@ namespace sat {
         ~elim_var_report() {
             m_watch.stop();
             IF_VERBOSE(SAT_VB_LVL,
-                       verbose_stream() << " (sat-resolution :elim-vars "
+                       verbose_stream()
+                       << " (sat-resolution :elim-vars "
                        << (m_simplifier.m_num_elim_vars - m_num_elim_vars)
-                       << " :threshold " << m_simplifier.m_elim_counter
-                       << mem_stat()
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       << " :threshold " << m_simplifier.m_elim_counter;
+                       if (!get_suppress_platform_verbose())
+                           verbose_stream()
+                           << mem_stat()
+                           << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds();
+                       verbose_stream() << ")\n";);
         }
     };
 

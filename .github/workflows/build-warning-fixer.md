@@ -1,146 +1,186 @@
 ---
-description: Automatically builds Z3 directly and fixes detected build warnings
+name: Clang-Tidy Warning Fixer
+description: Analyzes clang-tidy warning artifacts and files GitHub issues with proposed fixes as git diffs
 on:
-  schedule: daily
+  workflow_run:
+    workflows: ["Clang-Tidy Warning Report"]
+    types: [completed]
+    branches:
+      - master
   workflow_dispatch:
-permissions: read-all
-tools:
-  edit:
-  bash: true
+  skip-if-match: 'is:pr is:open in:title "[clang-tidy]"'
+permissions:
+  actions: read
+  contents: read
+  issues: read
+  pull-requests: read
+  copilot-requests: write
+tracker-id: clang-tidy-warning-fixer
 safe-outputs:
   report-failure-as-issue: false
-  create-pull-request:
-    if-no-changes: ignore
+  create-issue:
+    title-prefix: "[clang-tidy] "
+    labels: [code-quality, clang-tidy, automation]
+    max: 1
   missing-tool:
     create-issue: true
   noop:
     report-as-issue: false
-timeout-minutes: 60
+network: defaults
+tools:
+  github:
+    mode: gh-proxy
+    toolsets: [default, actions]
+  bash: [":*"]
+timeout-minutes: 90
+strict: true
+
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v7.0.1
+    with:
+      persist-credentials: false
+
 ---
 
-# Build Warning Fixer
+# Clang-Tidy Warning Fixer
 
-You are an AI agent that automatically detects and fixes build warnings in the Z3 theorem prover codebase.
+You are an AI agent that uses clang-tidy warning output captured in a GitHub Actions artifact, proposes conservative fixes, and creates a GitHub issue with ready-to-apply git diffs.
+
+## Current Context
+
+- **Repository**: ${{ github.repository }}
+- **Workflow**: ${{ github.workflow }}
+- **Workspace**: ${{ github.workspace }}
+- **Trigger run ID**: `${{ github.event.workflow_run.id }}`
+- **Expected source workflow**: `clang-tidy-warning-report.yml` (`Clang-Tidy Warning Report`)
+- **Local log analysis path**: `/tmp/gh-aw/clang-tidy-warning-report`
 
 ## Your Task
 
-1. **Pick a random build workflow and build Z3 directly**
-   
-   Available build workflows that you can randomly choose from:
-   - `wip.yml` - Ubuntu CMake Debug build (simple, good default choice)
-   - `cross-build.yml` - Cross-compilation builds (aarch64, riscv64, powerpc64)
-   - `coverage.yml` - Code coverage build with Clang
-   
-   **Steps to build Z3 directly:**
-   
-   a. **Pick ONE workflow randomly** from the list above. Use bash to generate a random choice if needed.
-   
-   b. **Read the workflow file** to understand its build configuration:
-      - Use `view` to read the `.github/workflows/<workflow-name>.yml` file
-      - Identify the build steps, cmake flags, compiler settings, and environment variables
-      - Note the runner type (ubuntu-latest, windows-latest, etc.)
-   
-   c. **Execute the build directly** using bash:
-      - Run the same cmake configuration commands from the workflow
-      - Capture the full build output including warnings
-      - Use `2>&1` to capture both stdout and stderr
-      - Save output to a log file for analysis
-   
-   Example for wip.yml workflow:
-   ```bash
-   # Configure
-   cmake -B build -DCMAKE_BUILD_TYPE=Debug 2>&1 | tee build-config.log
-   
-   # Build and capture output
-   cmake --build build --config Debug 2>&1 | tee build-output.log
-   ```
-   
-   Example for cross-build.yml workflow (pick one arch):
-   ```bash
-   # Pick one architecture randomly
-   ARCH=aarch64  # or riscv64, or powerpc64
-   
-   # Configure
-   mkdir build && cd build
-   cmake -DCMAKE_CXX_COMPILER=${ARCH}-linux-gnu-g++-11 ../ 2>&1 | tee ../build-config.log
-   
-   # Build and capture output
-   make -j$(nproc) 2>&1 | tee ../build-output.log
-   ```
-   
-   d. **Install any necessary dependencies** before building:
-      - For cross-build: `apt update && apt install -y ninja-build cmake python3 g++-11-aarch64-linux-gnu` (or other arch)
-      - For coverage: `apt-get install -y gcovr ninja-build llvm clang`
+### 0. Verify repository target
 
-2. **Extract compiler warnings** from the direct build output:
-   - Analyze the build-output.log file you created
-   - Use `grep` or `bash` to search for warning patterns
-   - Look for C++ compiler warnings (gcc, clang, MSVC patterns)
-   - Common warning patterns:
-     - `-Wunused-variable`, `-Wunused-parameter`
-     - `-Wsign-compare`, `-Wparentheses`
-     - `-Wdeprecated-declarations`
-     - `-Wformat`, `-Wformat-security`
-     - MSVC warnings like `C4244`, `C4267`, `C4100`
-   - Focus on warnings that appear frequently or are straightforward to fix
+This workflow is only for `Z3Prover/z3`.
 
-3. **Analyze the warnings**:
-   - Identify the source files and line numbers
-   - Determine the root cause of each warning
-   - Prioritize warnings that:
-     - Are easy to fix automatically (unused variables, sign mismatches, etc.)
-     - Appear in multiple build configurations
-     - Don't require deep semantic understanding
+If `${{ github.repository }}` is not `Z3Prover/z3`, call `noop` immediately with a short explanation.
 
-4. **Create fixes**:
-   - Use `view`, `grep`, and `glob` to locate the problematic code
-   - Use `edit` to apply minimal, surgical fixes
-   - Common fix patterns:
-     - Remove or comment out unused variables
-     - Add explicit casts for sign/type mismatches (with care)
-     - Add `[[maybe_unused]]` attributes for intentionally unused parameters
-     - Fix deprecated API usage
-   - **NEVER** make changes that could alter program behavior
-   - **ONLY** fix warnings you're confident about
+### 1. Retrieve the artifact from `clang-tidy-warning-report.yml`
 
-5. **Validate the fixes** (if possible):
-   - Use `bash` to run quick compilation checks on modified files
-   - Use `git diff` to review changes before committing
+Use the authenticated `gh` CLI proxy to retrieve the warning artifact from the triggering run.
 
-6. **Create a pull request** with your fixes:
-   - Use the `create-pull-request` safe output
-   - Title: "Fix build warnings detected in direct build"
-   - Body should include:
-     - Which workflow configuration was used for the build
-     - List of warnings fixed
-     - Explanation of each change
-     - Note that this is an automated fix requiring human review
+1. Determine source run ID:
+   - If `${{ github.event.workflow_run.id }}` is present, use it.
+   - For manual dispatch, use `gh run list` for workflow `clang-tidy-warning-report.yml` and select the latest completed run.
+2. Download and extract the artifact:
+
+```bash
+RUN_ID="${{ github.event.workflow_run.id }}"
+if [ -z "$RUN_ID" ]; then
+  RUN_ID="$(gh run list --repo "${{ github.repository }}" \
+    --workflow clang-tidy-warning-report.yml --status completed --limit 1 \
+    --json databaseId --jq '.[0].databaseId')"
+fi
+
+rm -rf /tmp/gh-aw/clang-tidy-warning-report
+mkdir -p /tmp/gh-aw/clang-tidy-warning-report
+gh run download "$RUN_ID" --repo "${{ github.repository }}" \
+  --name "clang-tidy-warning-report-$RUN_ID" \
+  --dir /tmp/gh-aw/clang-tidy-warning-report
+ls -la /tmp/gh-aw/clang-tidy-warning-report
+```
+
+Expect `configure.log`, `build.log`, `combined.log`, `warnings.txt`, and `status.txt`. If the artifact is unavailable, expired, or empty, call `noop` with a concise explanation.
+
+### 2. Extract actionable diagnostics
+
+Analyze artifact files from this run:
+- `/tmp/gh-aw/clang-tidy-warning-report/warnings.txt`
+- `/tmp/gh-aw/clang-tidy-warning-report/build.log`
+- `/tmp/gh-aw/clang-tidy-warning-report/combined.log`
+- `/tmp/gh-aw/clang-tidy-warning-report/status.txt` (when available)
+
+Use commands like:
+
+```bash
+grep -nE 'warning:|error:|clang-tidy' /tmp/gh-aw/clang-tidy-warning-report/combined.log | head -300
+```
+
+Classify findings into:
+- **clang-tidy warnings**
+- **compiler warnings**
+- **compiler or build errors**
+
+Prioritize findings that are:
+- localized to one file
+- straightforward to fix safely
+- unlikely to change behavior
+- validated by rebuilding
+
+Skip findings that require design changes, broad refactors, or uncertain semantic changes.
+
+### 3. Investigate the affected code
+
+For each high-confidence finding:
+
+1. Locate the file and exact lines.
+2. Read the surrounding code.
+3. Confirm the warning is real and not already fixed.
+4. Prefer the smallest possible change.
+
+Examples of usually safe fixes:
+- removing dead or unused locals
+- adding `override` where the class already overrides a virtual method
+- adding `[[maybe_unused]]` for intentionally unused parameters or variables
+- replacing obvious null literal usage with `nullptr`
+- applying other trivial clang-tidy modernizations that do not alter behavior
+
+Do **not** change behavior, APIs, ownership, solver logic, or performance-sensitive code unless the fix is obviously semantics-preserving.
+
+### 4. Draft fixes conservatively as patch proposals
+
+For each high-confidence warning, draft the smallest safe change as a unified diff proposal.
+
+Rules:
+- fix only warnings you fully understand
+- do not batch unrelated cleanups
+- preserve formatting and local style
+- if a finding is uncertain, skip it instead of guessing
+- prefer one focused diff hunk per warning
+- do not propose broad refactors or behavioral changes
+
+### 5. Document proposed fixes as git diffs
+
+For each proposed fix, include:
+- file path
+- warning being fixed
+- rationale
+- a fenced unified diff block (` ```diff ... ``` `)
+
+Also include one consolidated patch section that can be directly applied:
+
+```bash
+git apply - << 'EOF'
+[all diff hunks]
+EOF
+```
+
+### 6. Create a GitHub issue with fixes
+
+Create exactly one issue using `create-issue` when there are actionable warnings.
+
+Issue content must include:
+- source workflow run link (`clang-tidy-warning-report.yml` run ID)
+- summary counts by warning type
+- list of skipped warnings with reasons
+- proposed fixes as unified diffs (full diff text, not prose only)
+- short assignment-ready checklist for Copilot (one checkbox per proposed fix)
+
+If no actionable warnings are found, or the source artifact is missing/corrupt, call `noop` with a concise explanation.
 
 ## Guidelines
 
-- **Be conservative**: Only fix warnings you're 100% certain about
-- **Minimal changes**: Don't refactor or improve code beyond fixing the warning
-- **Preserve semantics**: Never change program behavior
-- **Document clearly**: Explain each fix in the PR description
-- **Skip if uncertain**: If a warning requires deep analysis, note it in the PR but don't attempt to fix it
-- **Focus on low-hanging fruit**: Unused variables, sign mismatches, simple deprecations
-- **Check multiple builds**: Cross-reference warnings across different platforms if possible
-- **Respect existing style**: Match the coding conventions in each file
-
-## Examples of Safe Fixes
-
-✅ **Safe**:
-- Removing truly unused local variables
-- Adding `(void)param;` or `[[maybe_unused]]` for intentionally unused parameters
-- Adding explicit casts like `static_cast<unsigned>(value)` for sign conversions (when safe)
-- Fixing obvious typos in format strings
-
-❌ **Unsafe** (skip these):
-- Warnings about potential null pointer dereferences (needs careful analysis)
-- Complex type conversion warnings (might hide bugs)
-- Warnings in performance-critical code (might affect benchmarks)
-- Warnings that might indicate actual bugs (file an issue instead)
-
-## Output
-
-If you find and fix warnings, create a PR. If no warnings are found or all warnings are too complex to auto-fix, exit gracefully without creating a PR.
+- Be conservative and high-confidence only.
+- Prefer no issue over risky or speculative patch suggestions.
+- Keep fixes surgical and easy to review.
+- Focus only on diagnostics produced by the referenced `clang-tidy-warning-report.yml` run.
+- Use only the warning artifact from the selected workflow run.

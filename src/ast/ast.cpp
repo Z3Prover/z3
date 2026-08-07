@@ -774,7 +774,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_TRANSITIVITY_STAR:            return mk_proof_decl("trans*", k, num_parents, m_transitivity_star_decls);
     case PR_MONOTONICITY:                 return mk_proof_decl("monotonicity", k, num_parents, m_monotonicity_decls);
     case PR_QUANT_INTRO:                  return mk_proof_decl("quant-intro", k, 1, m_quant_intro_decl);
-    case PR_BIND:                         UNREACHABLE();
+    case PR_BIND:                         Z3_unreachable_case();
     case PR_DISTRIBUTIVITY:               return mk_proof_decl("distributivity", k, num_parents, m_distributivity_decls);
     case PR_AND_ELIM:                     return mk_proof_decl("and-elim", k, 1, m_and_elim_decl);
     case PR_NOT_OR_ELIM:                  return mk_proof_decl("not-or-elim", k, 1, m_not_or_elim_decl);
@@ -2210,6 +2210,9 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
     if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {
         r = mk_true();
     }
+    // riskier fix:
+//    else if (num_args == 1 && decl->is_left_associative() && is_app(args[0]))
+//        r = to_app(args[0]);
     else if (num_args > 2 && !decl->is_flat_associative()) {
         if (decl->is_right_associative()) {
             unsigned j = num_args - 1;

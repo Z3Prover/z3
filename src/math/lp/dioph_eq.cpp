@@ -1515,7 +1515,7 @@ namespace lp {
             return ret;
         }
 
-        const unsigned sub_index(unsigned k) const {
+        unsigned sub_index(unsigned k) const {
             return m_k2s[k];
         }
 

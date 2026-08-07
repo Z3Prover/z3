@@ -205,13 +205,27 @@ namespace nla {
             if (!c().is_monic_var(v))
                 continue;
             monic& m = c().emon(v);
-            if (propagate_changed_bound(m))
+            if (propagate_linear_bound(m))
                 propagated = true;
             if (tighten_lp(m))
                 propagated = true;
             if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
                 break;
         }   
+        return propagated;
+    }
+
+    bool monomial_bounds::propagate_linear_bounds() {
+        bool propagated = false;
+        for (auto& mm : c().emons()) {
+            //if (!c().is_monic_var(v))
+            //    continue;
+            monic &m = c().emon(mm.var());
+            if (propagate_linear_bound(m))
+                propagated = true;
+            if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
+                break;
+        }
         return propagated;
     }
 
@@ -225,7 +239,7 @@ namespace nla {
         return true;
     }
 
-    bool monomial_bounds::propagate_changed_bound(monic & m) {
+    bool monomial_bounds::propagate_linear_bound(monic & m) {
         if (m.is_propagated())
             return false;
         lpvar w, fixed_to_zero;
@@ -285,8 +299,9 @@ namespace nla {
     }
 
     bool monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
-        if (c().val(m.var()) == k * c().val(w))
+        if (c().val(m.var()) == k * c().val(w)) {
             return false;
+        }
         vector<std::pair<lp::mpq, unsigned>> coeffs;        
         coeffs.push_back({-k, w});
         coeffs.push_back({rational::one(), m.var()});
@@ -671,10 +686,66 @@ namespace nla {
        
     bool monomial_bounds::tighten_lp_bounds() {
         bool new_bound = false;
-        for (auto &m : c().emons()) 
+        for (auto &m : c().emons())
             if (tighten_lp(m))
                 new_bound = true;
         return new_bound;
+    }
+
+    /**
+       \brief Fix the columns determined by rows that are already all but fixed.
+
+       lar_solver::row_determines_column finds a row in which every column but one
+       is fixed together with the value that row forces on the remaining column;
+       both bounds of that column are then set to it. This is constant folding
+       over the row, with no simplex involved.
+
+       Only columns occurring in a monomial are considered: the point is the
+       effect on nonlinear reasoning, not tighter arithmetic in general.
+       is_linear takes a monic with at most one non-fixed factor out of nonlinear
+       reasoning altogether, so fixing one column can linearize every monomial it
+       occurs in at once. lar_solver does not derive these values on its own,
+       since it only analyzes rows touched by a pivot and theory_lra drops an
+       implied bound with no matching atom.
+
+       Only one pass is made. A fixpoint loop would find strictly more, but this
+       runs on every nonlinear propagation, so a later round mostly finds what the
+       next call would have found anyway. Fixing every determined column measured
+       better than capping how many one call may fix.
+    */
+    bool monomial_bounds::propagate_fixed_rows() {
+        auto& lra = c().lra;
+        if (!c().params().arith_nl_propagate_fixed_rows())
+            return false;
+
+        indexed_uint_set nl_vars;
+        for (auto const& m : c().emons()) {
+            nl_vars.insert(m.var());
+            for (lpvar k : m.vars())
+                nl_vars.insert(k);
+        }
+
+        bool propagated = false;
+        for (unsigned i = 0; i < lra.row_count(); ++i) {
+            if (lra.get_row(i).size() > 32)
+                continue;
+            lpvar free_j;
+            rational value;
+            if (!lra.row_determines_column(i, free_j, value))
+                continue;
+            if (!nl_vars.contains(free_j))
+                continue;
+            if (lra.column_has_lower_bound(free_j) && lra.column_has_upper_bound(free_j) &&
+                lra.get_lower_bound(free_j).x == value && lra.get_upper_bound(free_j).x == value)
+                continue;
+            u_dependency* dep = lra.get_bound_constraint_witnesses_for_fixed_in_row(i);
+            lra.update_column_type_and_bound(free_j, lp::lconstraint_kind::GE, value, dep);
+            lra.update_column_type_and_bound(free_j, lp::lconstraint_kind::LE, value, dep);
+            propagated = true;
+        }
+        if (propagated)
+            lra.find_feasible_solution();
+        return propagated;
     }
 
     // ================================================================
@@ -866,7 +937,7 @@ namespace nla {
     }
 
     // Primal-simplex walk maximizing/minimizing 'v' (theory_arith::max_min).
-    void monomial_bounds::mm_optimize(lpvar v, bool maximize) {
+    bool monomial_bounds::mm_optimize(lpvar v, bool maximize, rational& opt_value) {
         auto& s = c().lra;
         unsigned best_efforts = 0;
         unsigned const max_efforts = 20;
@@ -942,9 +1013,17 @@ namespace nla {
             }
 
             if (!has_bound && x_i == null_lpvar && x_j == null_lpvar)
-                return; // objective is unbounded in the chosen direction
-            if (x_j == null_lpvar)
-                return; // optimized: no improving move remains
+                return false; // objective is unbounded in the chosen direction
+            if (x_j == null_lpvar) {
+                if (best_efforts == 0) {
+                    if (s.get_column_value(v).y != 0)
+                        return false;
+                    opt_value = s.get_column_value(v).x;
+                    return true;
+                }
+
+                return false;  // optimized: no improving move remains
+            }
 
             // a non-unit integral quantum means the exact optimum may not be
             // reachable in integral steps: count it as best-effort progress.
@@ -955,17 +1034,17 @@ namespace nla {
                 // move x_j directly to its own bound
                 if (inc && s.column_has_upper_bound(x_j)) {
                     if (best.max_gain.is_zero())
-                        return;
+                        return false;
                     mm_update_value(x_j, best.max_gain);
                     continue;
                 }
                 if (!inc && s.column_has_lower_bound(x_j)) {
                     if (best.max_gain.is_zero())
-                        return;
+                        return false;
                     mm_update_value(x_j, -best.max_gain);
                     continue;
                 }
-                return; // unbounded
+                return false; // unbounded
             }
 
             // x_j can move exactly across to its opposite bound without pivoting
@@ -985,13 +1064,11 @@ namespace nla {
             bool inc_xi = inc ? a_ij.is_neg() : a_ij.is_pos();
             mm_move_to_bound(x_i, inc_xi, best_efforts);
         }
+        return false;
     }
 
-    // Read the implied bound on 'v' off its final tableau row and round it to
-    // respect the integrality of integer columns (theory_arith::mk_bound_from_row
-    // + normalize_bound).  Returns the joined explanation, or nullptr if no bound
-    // is implied (e.g. a required bound on a row variable is missing).
-    u_dependency* monomial_bounds::mm_bound_from_row(lpvar v, bool maximize, rational& bound) {
+    // Read the dependencies for the bounds on v.
+    u_dependency* monomial_bounds::mm_dep_from_row(lpvar v, bool maximize) {
         auto& s = c().lra;
         if (!s.is_base(v))
             return nullptr;
@@ -1002,7 +1079,6 @@ namespace nla {
             if (e.var() == v) { a_v = e.coeff(); break; }
         if (a_v.is_zero())
             return nullptr;
-        lp::impq acc(0);
         u_dependency* dep = nullptr;
         for (auto const& e : row) {
             if (e.var() == v)
@@ -1015,20 +1091,14 @@ namespace nla {
             if (use_upper) {
                 if (!s.column_has_upper_bound(k))
                     return nullptr;
-                acc += s.column_upper_bound(k) * ck;
                 dep = s.join_deps(dep, s.get_column_upper_bound_witness(k));
             }
             else {
                 if (!s.column_has_lower_bound(k))
                     return nullptr;
-                acc += s.column_lower_bound(k) * ck;
                 dep = s.join_deps(dep, s.get_column_lower_bound_witness(k));
             }
         }
-        if (s.column_is_int(v))
-            bound = maximize ? lp::floor(acc) : lp::ceil(acc);
-        else
-            bound = acc.x;
         return dep;
     }
 
@@ -1037,22 +1107,20 @@ namespace nla {
         if (!s.is_feasible())
             return nullptr;
         bool maximize = !is_lower;
-        mm_optimize(j, maximize);
-        rational b(0);
-        u_dependency* dep = mm_bound_from_row(j, maximize, b);
+        if (!mm_optimize(j, maximize, bound))
+            return nullptr;
+        u_dependency* dep = mm_dep_from_row(j, maximize);
         if (!dep)
             return nullptr;
         if (is_lower) {
-            if (s.column_has_lower_bound(j) && b <= s.column_lower_bound(j).x)
+            if (s.column_has_lower_bound(j) && bound <= s.column_lower_bound(j).x)
                 return nullptr;
         }
         else {
-            if (s.column_has_upper_bound(j) && b >= s.column_upper_bound(j).x)
+            if (s.column_has_upper_bound(j) && bound >= s.column_upper_bound(j).x)
                 return nullptr;
         }
-        bound = b;
         return dep;
     }
 
 }
-

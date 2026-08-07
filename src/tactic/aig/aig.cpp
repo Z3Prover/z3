@@ -32,6 +32,7 @@ class aig_lit {
 public:
     aig_lit(aig * n = nullptr):m_ref(n) {}
     aig_lit(aig_ref const & r):m_ref(static_cast<aig*>(r.m_ref)) {}
+    aig_lit(const aig_lit &) = default;
     bool is_inverted() const { return (reinterpret_cast<size_t>(m_ref) & static_cast<size_t>(1)) == static_cast<size_t>(1); }
     void invert() { m_ref = reinterpret_cast<aig*>(reinterpret_cast<size_t>(m_ref) ^ static_cast<size_t>(1)); }
     aig * ptr() const { return reinterpret_cast<aig*>(reinterpret_cast<size_t>(m_ref) & ~static_cast<size_t>(1)); }

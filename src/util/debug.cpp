@@ -17,6 +17,8 @@ Revision History:
 
 --*/
 #include<cstdio>
+#include<cstdlib>
+#include<csignal>
 #ifndef _WINDOWS
 #include<unistd.h>
 #endif
@@ -185,9 +187,13 @@ debug_action ask_debug_action(std::istream& in) {
 }
 
 #if !defined(_WINDOWS) && !defined(NO_Z3_DEBUGGER)
+[[noreturn]] static void force_segfault() {
+    std::raise(SIGSEGV);
+    std::abort();
+}
+
 void invoke_debugger() {
     std::string buffer;
-    int *x = nullptr;
     debug_action a = get_default_debug_action();
     for (;;) {
         switch (a) {
@@ -197,8 +203,7 @@ void invoke_debugger() {
             exit(1);
         case debug_action::stop:
             // force seg fault...
-            *x = 0;
-            return;
+            force_segfault();
         case debug_action::throw_exception:
             throw default_exception("assertion violation");
         case debug_action::invoke_gdb:
@@ -210,8 +215,7 @@ void invoke_debugger() {
             else {
                 std::cerr << "error starting GDB...\n";
                 // forcing seg fault.
-                int *x = nullptr;
-                *x = 0;
+                force_segfault();
             }
             return;
         case debug_action::invoke_lldb:
@@ -223,8 +227,7 @@ void invoke_debugger() {
             else {
                 std::cerr << "error starting LLDB...\n";
                 // forcing seg fault.
-                int *x = nullptr;
-                *x = 0;
+                force_segfault();
             }
             return;
         case debug_action::ask:

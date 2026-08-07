@@ -26,6 +26,11 @@ set(CLANG_ONLY_WARNINGS
   "-Wno-missing-field-initializers"
   "-Wcast-qual"
   "-Wimplicit-fallthrough"
+  "-Wextra-semi"
+  "-Wignored-qualifiers"
+  "-Wnoctad-maybe-unsupported"
+  "-Wdeprecated-copy-with-user-provided-copy"
+  "-Wgnu-anonymous-struct"
 )
 
 set(MSVC_WARNINGS "/W3")

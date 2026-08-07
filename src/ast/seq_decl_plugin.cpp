@@ -831,18 +831,6 @@ app* seq_util::mk_char_bit(expr* e, unsigned i) {
     return m.mk_app(f, 1, &e);
 }
 
-unsigned seq_util::max_plus(unsigned x, unsigned y) const {
-    if (x + y < x || x + y < y)
-        return UINT_MAX;
-    return x + y;
-}
-
-unsigned seq_util::max_mul(unsigned x, unsigned y) const {
-    uint64_t r = ((uint64_t)x)*((uint64_t)y);
-    return (r > UINT_MAX) ? UINT_MAX : (unsigned)r;
-}
-
-
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
     return ch.is_const_char(e, c);
 }
@@ -1081,12 +1069,12 @@ unsigned seq_util::str::max_length(expr* s) const {
     };
     while (is_concat(s, s1, s2)) {
         if (is_concat(s1))
-            result = u.max_plus(max_length(s1), result);
+            result = add_truncate(max_length(s1), result);
         else
-            result = u.max_plus(get_length(s1), result);
+            result = add_truncate(get_length(s1), result);
         s = s2;
     }
-    result = u.max_plus(get_length(s), result);
+    result = add_truncate(get_length(s), result);
     return result;
 }
 
@@ -1097,26 +1085,7 @@ unsigned seq_util::rex::min_length(expr* r) const {
 
 unsigned seq_util::rex::max_length(expr* r) const {
     SASSERT(u.is_re(r));
-    expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
-    unsigned lo = 0, hi = 0;
-    if (is_empty(r))
-        return 0;
-    if (is_concat(r, r1, r2))
-        return u.max_plus(max_length(r1), max_length(r2));
-    if (is_union(r, r1, r2) || m.is_ite(r, s, r1, r2))
-        return std::max(max_length(r1), max_length(r2));
-    if (is_intersection(r, r1, r2))
-        return std::min(max_length(r1), max_length(r2));
-    if (is_diff(r, r1, r2) || is_reverse(r, r1) || is_opt(r, r1))
-        return max_length(r1);
-    if (is_loop(r, r1, lo, hi))
-        return u.max_mul(hi, max_length(r1));
-    if (is_to_re(r, s))
-        return u.str.max_length(s);
-    if (is_range(r) || is_of_pred(r) || is_full_char(r))
-        return 1;
-    // Else: star, plus, complement, full_seq, loop(r,r1,lo), derivative
-    return UINT_MAX;
+    return get_info(r).max_length;
 }
 
 /**
@@ -1674,9 +1643,9 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     if (e->get_family_id() == u.get_family_id()) {
         switch (e->get_decl()->get_decl_kind()) {
         case OP_RE_EMPTY_SET:
-            return info(true, l_false, UINT_MAX, false);
+            return info(true, l_false, UINT_MAX, 0, false);
         case OP_RE_FULL_SEQ_SET:
-            return info(true, l_true, 0, true);
+            return info(true, l_true, 0, UINT_MAX, true);
         case OP_RE_STAR:
             i1 = get_info_rec(e->get_arg(0));
             return i1.star();
@@ -1689,23 +1658,35 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             if (u.str.is_string(e->get_arg(0), slo) && slo.length() == 1 &&
                 u.str.is_string(e->get_arg(1), shi) && shi.length() == 1 &&
                 slo[0] <= shi[0])
-                return info(true, l_false, 1, true);
+                return info(true, l_false, 1, 1, true);
             // Symbolic or unknown: not classical
-            return info(true, l_false, 1, false);
+            return info(true, l_false, 1, 1, false);
         }
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:
             //TBD: check if the character predicate contains uninterpreted symbols or is nonground or is unsat
-            return info(true, l_false, 1, false);
+            return info(true, l_false, 1, 1, false);
         case OP_RE_CONCAT:
+            if (e->get_num_args() == 1)
+                return get_info_rec(e->get_arg(0));            
+            if (e->get_num_args() != 2)
+                return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
             return i1.concat(i2, u.re.is_concat(e->get_arg(0)));
         case OP_RE_UNION:
+            if (e->get_num_args() == 1)
+                return get_info_rec(e->get_arg(0));    
+            if (e->get_num_args() != 2)
+                return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
             return i1.disj(i2);
         case OP_RE_INTERSECT:
+            if (e->get_num_args() == 1)
+                return get_info_rec(e->get_arg(0));    
+            if (e->get_num_args() != 2)
+                return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
             return i1.conj(i2);
@@ -1713,7 +1694,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             min_length = u.str.min_length(e->get_arg(0));
             is_value = m.is_value(e->get_arg(0));
             nullable = (is_value && min_length == 0 ? l_true : (min_length > 0 ? l_false : l_undef));
-            return info(is_value, nullable, min_length, true);
+            return info(is_value, nullable, min_length, u.str.max_length(e->get_arg(0)), true);
         case OP_RE_REVERSE:
             return get_info_rec(e->get_arg(0));
         case OP_RE_PLUS:
@@ -1724,16 +1705,41 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             return i1.complement();
         case OP_RE_LOOP:
             i1 = get_info_rec(e->get_arg(0));
-            if (e->get_decl()->get_num_parameters() >= 1)
-                lower_bound = e->get_decl()->get_parameter(0).get_int();
-            if (e->get_decl()->get_num_parameters() == 2)
-                upper_bound = e->get_decl()->get_parameter(1).get_int();
-            return i1.loop(lower_bound, upper_bound);
+            if (e->get_num_args() == 1) {
+                if (e->get_decl()->get_num_parameters() >= 1)
+                    lower_bound = e->get_decl()->get_parameter(0).get_int();
+                if (e->get_decl()->get_num_parameters() == 2)
+                    upper_bound = e->get_decl()->get_parameter(1).get_int();
+                return i1.loop(lower_bound, upper_bound);
+            }
+            else {
+                // legacy form carrying the bounds as arguments:
+                // (re.loop r lo) and (re.loop r lo hi)
+                arith_util autil(m);
+                rational n;
+                if (e->get_num_args() != 2 && e->get_num_args() != 3)
+                    return unknown_info;
+                if (!autil.is_numeral(e->get_arg(1), n) || !n.is_unsigned())
+                    return unknown_info;
+                lower_bound = n.get_unsigned();
+                if (e->get_num_args() == 3) {
+                    if (!autil.is_numeral(e->get_arg(2), n) || !n.is_unsigned())
+                        return unknown_info;
+                    upper_bound = n.get_unsigned();
+                }
+                return i1.loop(lower_bound, upper_bound);
+            }
         case OP_RE_DIFF:
+            if (e->get_num_args() != 2)
+                return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
             return i1.diff(i2);
         case OP_RE_XOR:
+            if (e->get_num_args() == 1)
+                return get_info_rec(e->get_arg(0));
+            if (e->get_num_args() != 2)
+                return unknown_info;
             i1 = get_info_rec(e->get_arg(0));
             i2 = get_info_rec(e->get_arg(1));
             return i1.xor_(i2);
@@ -1754,6 +1760,7 @@ std::ostream& seq_util::rex::info::display(std::ostream& out) const {
         out << "info("
             << "nullable=" << (nullable == l_true ? "T" : (nullable == l_false ? "F" : "U")) << ", "
             << "min_length=" << min_length << ", "
+            << "max_length=" << max_length << ", "
             << "classical=" << (classical ? "T" : "F") << ")";
     }
     else if (is_valid())
@@ -1774,13 +1781,13 @@ std::string seq_util::rex::info::str() const {
 
 seq_util::rex::info seq_util::rex::info::star() const {
     //if is_known() is false then all mentioned properties will remain false
-    return seq_util::rex::info(interpreted, l_true, 0, classical);
+    return seq_util::rex::info(interpreted, l_true, 0, max_length == 0 ? 0 : UINT_MAX, classical);
 }
 
 seq_util::rex::info seq_util::rex::info::plus() const {
     if (is_known()) {
         //plus never occurs in a normalized regex
-        return info(interpreted, nullable, min_length, classical);
+        return info(interpreted, nullable, min_length, max_length == 0 ? 0 : UINT_MAX, classical);
     }
     else
         return *this;
@@ -1789,14 +1796,14 @@ seq_util::rex::info seq_util::rex::info::plus() const {
 seq_util::rex::info seq_util::rex::info::opt() const {
     // if is_known() is false then all mentioned properties will remain false
     // optional construct never occurs in a normalized regex
-    return seq_util::rex::info(interpreted, l_true, 0, classical);
+    return seq_util::rex::info(interpreted, l_true, 0, max_length, classical);
 }
 
 seq_util::rex::info seq_util::rex::info::complement() const {
     if (is_known()) {
         lbool compl_nullable = (nullable == l_true ? l_false : (nullable == l_false ? l_true : l_undef));
         unsigned compl_min_length = (compl_nullable == l_false ? 1 : 0);
-        return info(interpreted, compl_nullable, compl_min_length, false);
+        return info(interpreted, compl_nullable, compl_min_length, UINT_MAX, false);
     }
     else
         return *this;
@@ -1805,12 +1812,15 @@ seq_util::rex::info seq_util::rex::info::complement() const {
 seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info const& rhs, bool lhs_is_concat) const {
     if (is_known()) {
         if (rhs.is_known()) {
-            unsigned m = min_length + rhs.min_length;
-            if (m < min_length || m < rhs.min_length)
-                m = UINT_MAX;
+            lbool is_nullable = l_undef;
+            if (nullable == l_true && rhs.nullable == l_true)
+                is_nullable = l_true;
+            if (nullable == l_false || rhs.nullable == l_false)
+                is_nullable = l_false;
             return info(interpreted && rhs.interpreted,
-                ((nullable == l_false || rhs.nullable == l_false) ? l_false : ((nullable == l_true && rhs.nullable == l_true) ? l_true : l_undef)),
-                m,
+                is_nullable,
+                add_truncate(min_length, rhs.min_length),
+                add_truncate(max_length, rhs.max_length),
                 classical && rhs.classical);
         }
         else
@@ -1826,6 +1836,7 @@ seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info const& rhs) co
         return info(interpreted && rhs.interpreted,
             ((nullable == l_true || rhs.nullable == l_true) ? l_true : ((nullable == l_false && rhs.nullable == l_false) ? l_false : l_undef)),
             std::min(min_length, rhs.min_length),
+            std::max(max_length, rhs.max_length),
             classical && rhs.classical);
     }
     else
@@ -1838,6 +1849,7 @@ seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info const& rhs) co
             return info(interpreted && rhs.interpreted,
                 ((nullable == l_true && rhs.nullable == l_true) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
                 std::max(min_length, rhs.min_length),
+                std::min(max_length, rhs.max_length),
                 false);
         }
         else
@@ -1852,7 +1864,8 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) co
         if (rhs.is_known()) {
             return info(interpreted & rhs.interpreted,
                 ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
-                std::max(min_length, rhs.min_length),
+                min_length,
+                max_length,
                 false);
         }
         else
@@ -1872,6 +1885,7 @@ seq_util::rex::info seq_util::rex::info::xor_(seq_util::rex::info const& rhs) co
             return info(interpreted & rhs.interpreted,
                 xor_nullable,
                 0,
+                UINT_MAX,
                 false);
         }
         else
@@ -1890,6 +1904,7 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) co
             return info(false,
                 ((nullable == l_true && i.nullable == l_true) ? l_true : ((nullable == l_false && i.nullable == l_false) ? l_false : l_undef)),
                 std::min(min_length, i.min_length),
+                std::max(max_length, i.max_length),
                 classical && i.classical);
         }
         else
@@ -1901,12 +1916,10 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) co
 
 seq_util::rex::info seq_util::rex::info::loop(unsigned lower, unsigned upper) const {
     if (is_known()) {
-        unsigned m = min_length * lower;
-        // Code review: this is not a complete overflow check. 
-        if (m > 0 && (m < min_length || m < lower))
-            m = UINT_MAX;
+        unsigned m = mul_truncate(min_length, lower);
+        unsigned max_l = mul_truncate(max_length, upper);
         lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);
-        return info(interpreted, loop_nullable, m, classical);
+        return info(interpreted, loop_nullable, m, max_l, classical);
     }
     else
         return *this;
@@ -1921,8 +1934,7 @@ seq_util::rex::info& seq_util::rex::info::operator=(info const& other) {
     interpreted = other.interpreted;
     nullable = other.nullable;
     min_length = other.min_length;
+    max_length = other.max_length;
     classical = other.classical;
     return *this;
 }
-
-

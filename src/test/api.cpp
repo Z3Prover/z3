@@ -10,6 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/util.h"
 #include "util/trace.h"
 #include <map>
+#include <string>
 #include "util/trace.h"
 
 void test_apps() {
@@ -423,8 +424,39 @@ void test_scaled_minimize_unbounded() {
     std::cout << "scaled minimize unbounded test done" << std::endl;
 }
 
+// Sets a global parameter for the duration of the scope and restores the
+// previous value on exit.
+class scoped_global_param {
+    std::string m_id;
+    std::string m_old;
+    bool m_had = false;
+public:
+    scoped_global_param(char const* id, char const* value) : m_id(id) {
+        Z3_string v = nullptr;
+        m_had = Z3_global_param_get(id, &v);
+        if (m_had && v)
+            m_old = v;
+        Z3_global_param_set(id, value);
+    }
+    ~scoped_global_param() {
+        if (m_had)
+            Z3_global_param_set(m_id.c_str(), m_old.c_str());
+    }
+};
+
 void tst_scaled_min() {
     test_scaled_minimize_unbounded();
+
+    // The same objectives must stay unbounded when the integer cut/cube
+    // heuristics run less often.  At these periods the LRA optimizer stalls at
+    // a delta-rational value r + k*delta, whose blocker degenerates to the same
+    // 'objective > r' literal in consecutive rounds; the search used to stop
+    // there and report a finite value for an unbounded objective.
+    for (unsigned period : {16u, 32u, 64u, 128u}) {
+        std::cout << "lp.int_hammer_period=" << period << std::endl;
+        scoped_global_param _period("lp.int_hammer_period", std::to_string(period).c_str());
+        test_scaled_minimize_unbounded();
+    }
 }
 
 void tst_max_rev() {
