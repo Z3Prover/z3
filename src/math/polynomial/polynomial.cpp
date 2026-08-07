@@ -1737,10 +1737,9 @@ namespace polynomial {
         unsigned sz = p->size();
         if (is_const(p))
             return true;
-        monomial * m = p->m(0);
         var x = max_var(p);
         for (unsigned i = 0; i < sz; ++i) {
-            m = p->m(i);
+            monomial * m = p->m(i);
             if (m->size() == 1 && m->get_var(0) == x)
                 continue;
             if (m->size() == 0)

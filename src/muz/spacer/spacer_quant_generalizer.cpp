@@ -532,7 +532,6 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
     }
     if (!ub) {
         abs_cube.push_back (m_arith.mk_le(var, term));
-        ub = abs_cube.back();
     }
 
     rational init;

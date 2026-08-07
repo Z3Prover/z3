@@ -184,7 +184,6 @@ namespace datalog {
                     }
                     break;
                 case l_undef:
-                    status = l_undef;
                     throw default_exception("undef");
                 }
                 m_solver.pop(1);
