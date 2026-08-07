@@ -1178,7 +1178,7 @@ void core::patch_monomial(lpvar j) {
         return;
     }
     if (!var_breaks_correct_monic(j) && try_to_patch(v)) {
-        SASSERT(to_refine_is_correct());        
+        SASSERT(to_refine_is_correct());
         return;
     }
   
@@ -1279,7 +1279,7 @@ void core::add_bounds() {
         lpvar i = m_to_refine[(k + r) % sz];
         auto const& m = m_emons[i];
         for (lpvar j : m.vars()) {
-            if (!var_is_free(j))
+            if (!var_is_free(j) || lra.var_is_int(j))
                 continue;
 	    if (m.is_bound_propagated())
                 continue;
@@ -1303,16 +1303,18 @@ lbool core::check(unsigned level) {
         return l_undef;
     }
 
+    set_use_nra_model(false);
     init_to_refine();
-    patch_monomials();
-    set_use_nra_model(false);    
     if (m_to_refine.empty())
-        return l_true;    
+        return l_true;
+    patch_monomials();
+    if (m_to_refine.empty())
+        return l_false;
     init_search();
 
     m_monomial_bounds.optimize_nl_bounds();
     if (m_to_refine.empty())
-        return l_true;
+        return l_false;
 
     lbool ret = l_undef;
     bool run_grobner = need_run_grobner();

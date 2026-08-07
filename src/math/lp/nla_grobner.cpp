@@ -469,9 +469,8 @@ namespace nla {
                                 << "lc: " << lc << " " << lc_value << "\n"
                                 << "r: " << r << " " << r_value << "\n";
             );
-            SASSERT(v_value.is_int());
-            SASSERT(r_value.is_int());
-            SASSERT(lc_value.is_int());
+            if (!v_value.is_int() || !r_value.is_int() || !lc_value.is_int())
+                continue;
             if (r_value == 0) {
                 if (v_value == 0)
                     continue;
