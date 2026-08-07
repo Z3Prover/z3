@@ -74,7 +74,7 @@ private:
             m_val2fixed_row.insert(val(v1), r1);
             return;
         }
-        if (!only_one_nfixed(r2, v2) || val(v1) != val(v2) || is_int(v1) != is_int(v2)) {
+        if (!only_one_nfixed(r2, v2) || ival(v1) != ival(v2) || is_int(v1) != is_int(v2)) {
             m_val2fixed_row.insert(val(v1), r1);
             return;
         }
@@ -329,6 +329,12 @@ public:
         SASSERT(lp().get_base_column_in_row(row_index) == v_j);
         SASSERT(num_of_non_fixed_in_row(row_index) == 1 || column_is_fixed(v_j));
         if (column_is_fixed(v_j)) {
+            return;
+        }
+        // the columns registered in the fixed tables have a zero infinitesimal part,
+        // so v_j cannot be equal to any of them when its delta part is not zero
+        if (!ival(v_j).y.is_zero()) {
+            try_add_equation_with_internal_fixed_tables(row_index);
             return;
         }
         unsigned j = null_lpvar;
