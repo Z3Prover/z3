@@ -566,7 +566,6 @@ namespace sat {
         bool_var v = null_bool_var;
         unsigned num_unsat = m_unsat_stack.size();
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % num_unsat]];
-        bool is_core = m_unsat_stack.size() <= 10;
         if (m_rand() % 10000 <= m_noise) {
             // take this branch with 98% probability.
             // find the first one, to fast break the rest    
@@ -668,9 +667,6 @@ namespace sat {
             goto reflip;
         }
 
-        if (false && is_core && c.m_k < constraint_value(c)) {
-            goto reflip;
-        }
     }
 
     void local_search::flip_walksat(bool_var flipvar) {

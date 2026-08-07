@@ -1273,12 +1273,12 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             domain.push_back(args[i]->get_sort());
         }
-        char const* name = "";
+        char const* name;
         switch(ty) {
         case O_MAXIMIZE: name = "maximize"; break;
         case O_MINIMIZE: name = "minimize"; break;
         case O_MAXSMT: name = "maxsat"; break;
-        default: break;
+        default: name = ""; break;
         }
         func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.data(), m.mk_bool_sort());
         m_objective_fns.insert(f, index);
