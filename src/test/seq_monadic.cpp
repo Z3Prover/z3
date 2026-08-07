@@ -675,6 +675,26 @@ public:
             check_smt("disabled legacy membership", assertions, l_true, false);
         }
         {
+            arith_util ar2(m);
+            expr_ref zero(ar2.mk_int(0), m);
+            expr_ref one(ar2.mk_int(1), m);
+            expr_ref k = var("issue_10379_k");
+            expr_ref k0(u.str.mk_at(k, zero), m);
+            expr_ref mod00(ar2.mk_mod(zero, zero), m);
+            expr_ref inner_cond(re().mk_in_re(sword("1"), re().mk_to_re(k)), m);
+            expr_ref inner(m.mk_ite(
+                inner_cond,
+                sconcat(sword("n"), k0),
+                u.str.mk_substr(k, zero, mod00)), m);
+            expr_ref outer_regex(cat(re().mk_to_re(k0), rng('a', 'z')), m);
+            expr_ref outer_cond(re().mk_in_re(inner, outer_regex), m);
+            expr_ref rhs(m.mk_ite(outer_cond, k0, u.str.mk_substr(k, zero, zero)), m);
+            expr_ref_vector assertions(m);
+            assertions.push_back(m.mk_eq(k, rhs));
+            assertions.push_back(ar2.mk_ge(u.str.mk_length(k), one));
+            check_smt("legacy nested regex ITE issue 10379", assertions, l_false, false);
+        }
+        {
             expr_ref_vector assertions(m);
             expr_ref a_star(star(a), m);
             assertions.push_back(re().mk_in_re(x, a_star));
