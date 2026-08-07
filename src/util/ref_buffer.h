@@ -106,7 +106,8 @@ public:
     }
 
     void reset() {
-        dec_range_ref(m_buffer.begin(), m_buffer.end());
+        if (!m_buffer.empty())
+            dec_range_ref(m_buffer.begin(), m_buffer.end());
         m_buffer.reset();
     }
 
