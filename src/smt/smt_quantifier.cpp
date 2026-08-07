@@ -246,7 +246,7 @@ namespace smt {
             if (pat == nullptr) {
                 trace_stream() << "[inst-discovered] MBQI " << f->get_data_hash() << " #" << q->get_id();
                 for (unsigned i = 0; i < num_bindings; ++i) {
-                    trace_stream() << " #" << bindings[num_bindings - i - 1]->get_owner_id();
+                    trace_stream() << " #" << f->get_arg(num_bindings - i - 1)->get_owner_id();
                 }
                 trace_stream() << "\n";
             } else {
@@ -269,7 +269,7 @@ namespace smt {
                 for (unsigned i = 0; i < num_bindings; ++i) {
                     // I don't want to use mk_pp because it creates expressions for pretty printing.
                     // This nasty side-effect may change the behavior of Z3.
-                    out << " #" << bindings[num_bindings - i - 1]->get_owner_id();
+                    out << " #" << f->get_arg(num_bindings - i - 1)->get_owner_id();
                 }
                 out << " ;";
                 for (auto n : used_enodes) {
