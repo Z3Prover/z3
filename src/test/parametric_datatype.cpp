@@ -18,6 +18,7 @@ Author:
 #include "api/z3.h"
 #include "util/util.h"
 #include <iostream>
+#include <string>
 
 
 /**
@@ -117,6 +118,57 @@ static void test_polymorphic_datatype_api() {
     Z3_del_context(ctx);
 }
 
+static void test_nested_datatype_declaration_printing() {
+    std::cout << "test_nested_datatype_declaration_printing\n";
+
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_symbol v_name = Z3_mk_string_symbol(ctx, "V");
+    Z3_sort v_ref = Z3_mk_datatype_sort(ctx, v_name, 0, nullptr);
+    Z3_sort string_sort = Z3_mk_string_sort(ctx);
+    Z3_sort array_sort = Z3_mk_array_sort(ctx, string_sort, v_ref);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+
+    Z3_symbol num_fields[1] = { Z3_mk_string_symbol(ctx, "n") };
+    Z3_sort num_sorts[1] = { int_sort };
+    unsigned num_refs[1] = { 0 };
+    Z3_constructor num = Z3_mk_constructor(
+        ctx, Z3_mk_string_symbol(ctx, "num"), Z3_mk_string_symbol(ctx, "is_num"),
+        1, num_fields, num_sorts, num_refs);
+
+    Z3_symbol obj_fields[1] = { Z3_mk_string_symbol(ctx, "o") };
+    Z3_sort obj_sorts[1] = { array_sort };
+    unsigned obj_refs[1] = { 0 };
+    Z3_constructor obj = Z3_mk_constructor(
+        ctx, Z3_mk_string_symbol(ctx, "obj"), Z3_mk_string_symbol(ctx, "is_obj"),
+        1, obj_fields, obj_sorts, obj_refs);
+
+    Z3_constructor constructors[2] = { num, obj };
+    Z3_sort v = Z3_mk_datatype(ctx, v_name, 2, constructors);
+    Z3_del_constructor(ctx, num);
+    Z3_del_constructor(ctx, obj);
+
+    Z3_ast c = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "c"), v);
+    Z3_ast formula = Z3_mk_eq(ctx, c, c);
+    std::string benchmark = Z3_benchmark_to_smtlib_string(
+        ctx, "nested-datatype", "ALL", "unknown", "", 0, nullptr, formula);
+    ENSURE(benchmark.find("(declare-datatypes ((V 0))") != std::string::npos);
+    ENSURE(benchmark.find("(Array String V)") != std::string::npos);
+
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_solver_assert(ctx, solver, formula);
+    std::string solver_text = Z3_solver_to_string(ctx, solver);
+    ENSURE(solver_text.find("(declare-datatypes ((V 0))") != std::string::npos);
+    ENSURE(solver_text.find("(Array String V)") != std::string::npos);
+    Z3_solver_dec_ref(ctx, solver);
+
+    Z3_del_context(ctx);
+}
+
 void tst_parametric_datatype() {
     test_polymorphic_datatype_api();
+    test_nested_datatype_declaration_printing();
 }

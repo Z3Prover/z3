@@ -1373,24 +1373,27 @@ namespace datatype {
         return get_constructor_idx(get_recognizer_constructor(f));
     }
 
+    static sort* get_nested_sort(ast_manager& m, sort* s) {
+        array_util autil(m);
+        seq_util sutil(m);
+        sort* elem = nullptr;
+        while (true) {
+            if (autil.is_array(s))
+                s = get_array_range(s);
+            else if (sutil.is_seq(s, elem))
+                s = elem;
+            else
+                return s;
+        }
+    }
+
     /**
        \brief Two datatype sorts s1 and s2 are siblings if they were
        defined together in the same mutually recursive definition.
     */
     bool util::are_siblings(sort * s1, sort * s2) {
-        array_util autil(m);
-        seq_util sutil(m);
-        auto get_nested = [&](sort* s) {
-            while (true) {
-                if (autil.is_array(s))
-                    s = get_array_range(s);
-                else if (!sutil.is_seq(s, s))
-                    break;
-            }
-            return s;
-        };
-        s1 = get_nested(s1);
-        s2 = get_nested(s2);
+        s1 = get_nested_sort(m, s1);
+        s2 = get_nested_sort(m, s2);
         if (!is_datatype(s1) || !is_datatype(s2)) 
             return s1 == s2;
         else 
@@ -1415,7 +1418,7 @@ namespace datatype {
             def const& d = get_def(s);
             for (constructor* c : d) {
                 for (accessor* a : *c) {
-                    sort* s = a->range();
+                    sort* s = get_nested_sort(m, a->range());
                     if (are_siblings(s0, s) && !mark.contains(s->get_name())) {
                         mark.push_back(s->get_name());
                         todo.push_back(s);
