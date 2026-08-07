@@ -448,6 +448,126 @@ tactic * or_else(tactic * t1, tactic * t2, tactic * t3, tactic * t4, tactic * t5
     return or_else(10, ts);
 }
 
+class or_else_no_user_propagate_tactical : public binary_tactical {
+    params_ref                             m_params;
+    std::function<bool(params_ref const&)> m_use_t1;
+    bool                                   m_has_callbacks = false;
+
+    bool use_t1() const {
+        return !m_has_callbacks && (!m_use_t1 || m_use_t1(m_params));
+    }
+
+public:
+    or_else_no_user_propagate_tactical(tactic * t1, tactic * t2, params_ref const & p,
+                                       std::function<bool(params_ref const&)> const & use_t1):
+        binary_tactical(t1, t2),
+        m_params(p),
+        m_use_t1(use_t1) {
+    }
+
+    char const* name() const override { return "or_else_no_user_propagate"; }
+
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override {
+        m_clean = false;
+        if (!use_t1()) {
+            m_t2->operator()(in, result);
+            return;
+        }
+        goal orig(*(in.get()));
+        try {
+            m_t1->operator()(in, result);
+            return;
+        }
+        catch (tactic_exception &) {
+            result.reset();
+        }
+        catch (rewriter_exception &) {
+            result.reset();
+        }
+        in->reset_all();
+        in->copy_from(orig);
+        m_t2->operator()(in, result);
+    }
+
+    void updt_params(params_ref const & p) override {
+        m_params.copy(p);
+        binary_tactical::updt_params(p);
+    }
+
+    tactic * translate(ast_manager & m) override {
+        return alloc(or_else_no_user_propagate_tactical, m_t1->translate(m), m_t2->translate(m), m_params, m_use_t1);
+    }
+
+    void register_on_clause(void * ctx, user_propagator::on_clause_eh_t & on_clause) override {
+        m_has_callbacks = true;
+        m_t2->register_on_clause(ctx, on_clause);
+    }
+
+    void user_propagate_init(
+        void * ctx,
+        user_propagator::push_eh_t & push_eh,
+        user_propagator::pop_eh_t & pop_eh,
+        user_propagator::fresh_eh_t & fresh_eh) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
+    }
+
+    void user_propagate_register_fixed(user_propagator::fixed_eh_t & fixed_eh) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_register_fixed(fixed_eh);
+    }
+
+    void user_propagate_register_final(user_propagator::final_eh_t & final_eh) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_register_final(final_eh);
+    }
+
+    void user_propagate_register_eq(user_propagator::eq_eh_t & eq_eh) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_register_eq(eq_eh);
+    }
+
+    void user_propagate_register_diseq(user_propagator::eq_eh_t & diseq_eh) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_register_diseq(diseq_eh);
+    }
+
+    void user_propagate_register_on_binding(user_propagator::binding_eh_t & binding_eh) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_register_on_binding(binding_eh);
+    }
+
+    void user_propagate_register_expr(expr * e) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_register_expr(e);
+    }
+
+    void user_propagate_register_created(user_propagator::created_eh_t & created_eh) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_register_created(created_eh);
+    }
+
+    void user_propagate_register_decide(user_propagator::decide_eh_t & decide_eh) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_register_decide(decide_eh);
+    }
+
+    void user_propagate_clear() override {
+        m_has_callbacks = false;
+        m_t2->user_propagate_clear();
+    }
+
+    void user_propagate_initialize_value(expr * var, expr * value) override {
+        m_has_callbacks = true;
+        m_t2->user_propagate_initialize_value(var, value);
+    }
+};
+
+tactic * or_else_no_user_propagate(tactic * t1, tactic * t2, params_ref const & p,
+                                   std::function<bool(params_ref const&)> use_t1) {
+    return alloc(or_else_no_user_propagate_tactical, t1, t2, p, use_t1);
+}
+
 #ifdef SINGLE_THREAD
 
 tactic* par(unsigned num, tactic* const* ts) {
@@ -883,6 +1003,19 @@ public:
     void reset() override { m_t->reset(); }
     void set_logic(symbol const& l) override { m_t->set_logic(l); }    
     void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
+    void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override { m_t->register_on_clause(ctx, on_clause); }
+    void user_propagate_init(
+        void* ctx,
+        user_propagator::push_eh_t& push_eh,
+        user_propagator::pop_eh_t& pop_eh,
+        user_propagator::fresh_eh_t& fresh_eh) override { m_t->user_propagate_init(ctx, push_eh, pop_eh, fresh_eh); }
+    void user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) override { m_t->user_propagate_register_fixed(fixed_eh); }
+    void user_propagate_register_final(user_propagator::final_eh_t& final_eh) override { m_t->user_propagate_register_final(final_eh); }
+    void user_propagate_register_eq(user_propagator::eq_eh_t& eq_eh) override { m_t->user_propagate_register_eq(eq_eh); }
+    void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override { m_t->user_propagate_register_diseq(diseq_eh); }
+    void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override { m_t->user_propagate_register_on_binding(binding_eh); }
+    void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override { m_t->user_propagate_register_created(created_eh); }
+    void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override { m_t->user_propagate_register_decide(decide_eh); }
     void user_propagate_register_expr(expr* e) override { m_t->user_propagate_register_expr(e); }
     void user_propagate_clear() override { m_t->user_propagate_clear(); }
     void user_propagate_initialize_value(expr* var, expr* value) override { m_t->user_propagate_initialize_value(var, value); }

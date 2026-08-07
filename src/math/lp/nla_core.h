@@ -73,7 +73,6 @@ class core {
     lp::lar_solver&          lra;
     reslimit&                m_reslim;
     smt_params_helper        m_params;
-    bool                     m_linprobe;
     std::function<bool(lpvar)> m_relevant;
     vector<lemma>            m_lemmas;
     vector<ineq>             m_literals;
@@ -186,6 +185,9 @@ public:
     lpvar var(const factor& f) const { return f.var(); }
 
     smt_params_helper const & params() const { return m_params; }
+
+    // true when nla is restricted to the monomial linearization used by the linprobe pass
+    bool linprobe_mode() const { return params().arith_nl_linprobe_mode(); }
 
     // returns true if the combination of the Horner's schema and Grobner Basis should be called
     bool need_run_horner() const { 

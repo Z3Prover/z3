@@ -56,6 +56,7 @@ namespace nla {
         vector<lp::fixed_equality> const& fixed_equalities() const;
         vector<lp::equality> const& equalities() const;
         bool should_check_feasible() const { return m_core->should_check_feasible(); }
+        bool linprobe_mode() const { return m_core->linprobe_mode(); }
         
         const vector<nla::lemma>&  lemmas() const;
         

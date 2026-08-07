@@ -1750,7 +1750,7 @@ public:
             is_sat = make_feasible();
         if (ctx().inconsistent())
             return FC_CONTINUE;
-        if (nla_progress && is_sat == l_true && ctx().get_params().get_bool("arith.nl.linprobe_mode", false))
+        if (nla_progress && is_sat == l_true && m_nla && m_nla->linprobe_mode())
             return FC_CONTINUE;
         final_check_status st = FC_DONE;
         bool int_undef = false;

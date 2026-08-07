@@ -22,7 +22,6 @@ namespace nla {
             if (add_lemma())
                 break;
         }
-
     }
 
     bool monomial_bounds::is_too_big(mpq const &q) const {
@@ -1131,3 +1130,4 @@ namespace nla {
     }
 
 }
+

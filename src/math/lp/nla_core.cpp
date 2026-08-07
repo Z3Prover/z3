@@ -27,7 +27,6 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     lra(s),
     m_reslim(lim),
     m_params(p),
-    m_linprobe(p.get_bool("arith.nl.linprobe_mode", false)),
     m_tangents(this),
     m_basics(this),
     m_order(this),
@@ -55,7 +54,8 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
 }
 
 void core::updt_params(params_ref const& p) {
-    m_linprobe = p.get_bool("arith.nl.linprobe_mode", false);
+    // m_params is a view on the params_ref owned by the caller, so nla parameters
+    // (including arith.nl.linprobe_mode) are always read back through params().
     m_grobner.updt_params(p);
 }
     
@@ -1547,7 +1547,7 @@ bool core::propagate() {
         propagated = true;
     if (m_monomial_bounds.tighten_lp_bounds())
 		propagated = true;
-    if (m_linprobe) {
+    if (linprobe_mode()) {
         if (m_monomial_bounds.propagate_linear_bounds())
             propagated = true;
     }

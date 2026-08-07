@@ -21,13 +21,10 @@ Notes:
 #include "util/scoped_timer.h"
 #include "util/common_msgs.h"
 #include "ast/ast_pp.h"
-#include "params/smt_params_helper.hpp"
 #include "solver/solver.h"
 #include "solver/combined_solver_params.hpp"
 #include <atomic>
 #define PS_VB_LVL 15
-
-static constexpr unsigned linprobe_timeout_ms = 100;
 
 /**
    \brief Implementation of the solver API that combines two given solvers.
@@ -59,7 +56,6 @@ private:
     bool                 m_inc_mode;
     bool                 m_check_sat_executed;
     bool                 m_use_solver1_results;
-    bool                 m_has_callbacks;
     ref<solver>          m_solver1;
     ref<solver>          m_solver2;
     // We delay sending assertions to solver 2
@@ -118,28 +114,6 @@ private:
         }
     }
 
-    lbool try_linprobe(unsigned num_assumptions, expr* const* assumptions) {
-        if (m_has_callbacks || !smt_params_helper(get_params()).arith_nl_linprobe())
-            return l_undef;
-
-        IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using linprobe\")\n";);
-        m_use_solver1_results = true;
-        aux_timeout_eh eh(m_solver1.get());
-        lbool r = l_undef;
-        try {
-            scoped_timer timer(linprobe_timeout_ms, &eh);
-            r = m_solver1->check_sat_core(num_assumptions, assumptions);
-        }
-        catch (z3_exception&) {
-            if (!eh.m_canceled)
-                throw;
-        }
-        if (r != l_undef && !eh.m_canceled)
-            return r;
-        m_use_solver1_results = false;
-        return l_undef;
-    }
-
 public:
     combined_solver(solver * s1, solver * s2, params_ref const & p):
         solver(s1->get_manager()) {
@@ -149,7 +123,6 @@ public:
         m_inc_mode            = false;
         m_check_sat_executed  = false;
         m_use_solver1_results = true;
-        m_has_callbacks       = false;
     }
 
     solver* translate(ast_manager& m, params_ref const& p) override {
@@ -160,7 +133,6 @@ public:
         r->m_inc_mode = m_inc_mode;
         r->m_check_sat_executed = m_check_sat_executed;
         r->m_use_solver1_results = m_use_solver1_results;
-        r->m_has_callbacks = m_has_callbacks;
         return r;
     }
 
@@ -239,12 +211,6 @@ public:
     lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
         m_check_sat_executed  = true;        
         m_use_solver1_results = false;
-
-        if (m_inc_mode || get_num_assumptions() != 0 || num_assumptions > 0 || m_ignore_solver1) {
-            lbool const r = try_linprobe(num_assumptions, assumptions);
-            if (r != l_undef)
-                return r;
-        }
 
         if (get_num_assumptions() != 0 ||            
             num_assumptions > 0 ||  // assumptions were provided            
@@ -386,7 +352,6 @@ public:
 
     void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
         switch_inc_mode();
-        m_has_callbacks = true;
         m_solver2->register_on_clause(ctx, on_clause);
     }    
 
@@ -396,57 +361,46 @@ public:
         user_propagator::pop_eh_t&                                    pop_eh,
         user_propagator::fresh_eh_t&                                  fresh_eh) override {
         switch_inc_mode();
-        m_has_callbacks = true;
         m_solver2->user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
     }        
     
     void user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) override {
-        m_has_callbacks = true;
         m_solver2->user_propagate_register_fixed(fixed_eh);
     }
     
     void user_propagate_register_final(user_propagator::final_eh_t& final_eh) override {
-        m_has_callbacks = true;
         m_solver2->user_propagate_register_final(final_eh);
     }
     
     void user_propagate_register_eq(user_propagator::eq_eh_t& eq_eh) override {
-        m_has_callbacks = true;
         m_solver2->user_propagate_register_eq(eq_eh);
     }
     
     void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override {
-        m_has_callbacks = true;
         m_solver2->user_propagate_register_diseq(diseq_eh);
     }
 
     void user_propagate_register_on_binding(user_propagator::binding_eh_t& binding_eh) override {
-        m_has_callbacks = true;
         m_solver2->user_propagate_register_on_binding(binding_eh);
     }
     
     void user_propagate_register_expr(expr* e) override {
-        m_has_callbacks = true;
         m_solver2->user_propagate_register_expr(e);
     }
     
     void user_propagate_register_created(user_propagator::created_eh_t& r) override {
-        m_has_callbacks = true;
         m_solver2->user_propagate_register_created(r);
     }
     
     void user_propagate_register_decide(user_propagator::decide_eh_t& r) override {
-        m_has_callbacks = true;
         m_solver2->user_propagate_register_decide(r);
     }
     
     void user_propagate_clear() override {
-        m_has_callbacks = false;
         m_solver2->user_propagate_clear();
     }
 
     void user_propagate_initialize_value(expr* var, expr* value) override {
-        m_has_callbacks = true;
         m_solver1->user_propagate_initialize_value(var, value);
         m_solver2->user_propagate_initialize_value(var, value);
     }
