@@ -405,4 +405,20 @@ void tst_smt2print_parse() {
         ENSURE(resp.find("unknown") == std::string::npos);
     }
 
+    // Regression test for GitHub issue #10436:
+    // Do not crash with crossed bounds where one side has no bound witness.
+    {
+        char const* spec =
+            "(assert (or (forall ((x Int)) (and (= 1 x) (= 0 (+ 1 (* x x)))))))\n"
+            "(check-sat)\n";
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        is_error = false;
+        std::string resp = Z3_eval_smtlib2_string(ctx, spec);
+        Z3_del_context(ctx);
+        std::cout << "Issue #10436 response: " << resp << "\n";
+        ENSURE(!is_error);
+        ENSURE(resp.find("unsat") != std::string::npos);
+    }
+
 }
