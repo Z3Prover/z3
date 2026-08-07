@@ -1696,24 +1696,34 @@ void test_dio() {
     for (auto & p: term_ls) {
         p.first = -p.first;
     }
-    unsigned t1 = solver.add_term(term_ls, 11);
-
     solver.add_var_bound(fx_7, LE, mpq(-7));
     solver.add_var_bound(fx_7, GE, mpq(-7));
-    solver.add_var_bound(fx_17, LE, mpq(-17));
-    solver.add_var_bound(fx_17, GE, mpq(-17));
     solver.add_var_bound(t0, LE, mpq(0));
     solver.add_var_bound(t0, GE, mpq(0));
+    solver.find_feasible_solution();
+    ENSURE(solver.get_status() == lp_status::OPTIMAL);
+#ifdef Z3DEBUG
+    i_solver.dio_test();
+#endif
+
+    solver.push();
+    unsigned t1 = solver.add_term(term_ls, 11);
+    solver.add_var_bound(fx_17, LE, mpq(-17));
+    solver.add_var_bound(fx_17, GE, mpq(-17));
     solver.add_var_bound(t1, LE, mpq(0));
     solver.add_var_bound(t1, GE, mpq(0));
-//    solver.find_feasible_solution();
-    //ENSURE(solver.get_status() == lp_status::OPTIMAL);
-    enable_trace("dioph_eq");
-    enable_trace("dioph_eq_fresh");
-#ifdef Z3DEBUG     
+    solver.find_feasible_solution();
+    ENSURE(solver.get_status() == lp_status::OPTIMAL);
+#ifdef Z3DEBUG
     i_solver.dio_test();
-#endif    
-    
+#endif
+
+    solver.pop();
+    solver.find_feasible_solution();
+    ENSURE(solver.get_status() == lp_status::OPTIMAL);
+#ifdef Z3DEBUG
+    i_solver.dio_test();
+#endif
 }
 #ifdef Z3DEBUG
 void test_hnf() {
@@ -2023,6 +2033,9 @@ void test_lp_local(int argn, char **argv) {
 }  // namespace lp
 void tst_lp(char **argv, int argc, int &i) {
     lp::test_lp_local(argc - 2, argv + 2);
+}
+void tst_lp_dio() {
+    lp::test_dio();
 }
 // clang-format on
 bool coprime(int a, int b) {

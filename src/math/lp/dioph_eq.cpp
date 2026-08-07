@@ -91,6 +91,11 @@ namespace lp {
 
         unsigned size() const { return static_cast<unsigned>(m_map.size()); }
 
+        void clear() {          
+            m_map.clear();
+            m_rev_map.clear();
+        }
+
         void erase_val(unsigned b) {
             VERIFY(contains(m_rev_map, b) && contains(m_map, m_rev_map[b]));
             auto it = m_rev_map.find(b);
@@ -174,6 +179,10 @@ namespace lp {
 
         bool has_key(unsigned j) const { return m_bij.has_key(j); }
         bool has_second_key(unsigned j) const { return m_bij.has_val(j); }
+        void clear() {
+            m_bij.clear();
+            m_data.clear();
+        }
         // Get the data by 'a', look up b in m_bij, then read from m_data
         const T& get_by_key(unsigned a) const {
             unsigned b = m_bij[a];  // relies on operator[](unsigned) from bijection
@@ -348,6 +357,7 @@ namespace lp {
         // if the size of the term is large than the chances are that the GCD of the coefficients is one
         unsigned m_tighten_size_max = 10;
         bool m_some_terms_are_ignored = false;
+        bool m_rebuild_required = false;
         std_vector<mpq> m_sum_of_fixed;
         // we have to use m_var_register because of the fresh variables: otherwise they clash with the existing lar_solver column indices
         var_register m_var_register;
@@ -558,21 +568,10 @@ namespace lp {
                 }
                 return;
             }
-            // deregister the term that has been activated
-            for (const auto& p : t->ext_coeffs()) {
-                TRACE(dio_reg, tout << "derigister p.var():" << p.var() << "->" << t->j() << std::endl;);
-                auto it = m_columns_to_terms.find(p.var());
-                SASSERT(it != m_columns_to_terms.end());
-                it->second.erase(t->j());
-                if (it->second.size() == 0) {
-                    m_columns_to_terms.erase(it);
-                }
-            }
             SASSERT(std::find(m_added_terms.begin(), m_added_terms.end(), t) == m_added_terms.end());
             SASSERT(contains(m_active_terms, t));
             m_active_terms.erase(t);
-            TRACE(dio, tout << "the deleted term column in m_l_matrix" << std::endl; for (auto p : m_l_matrix.column(t->j())) { tout << "p.coeff():" << p.coeff() << ", row " << p.var() << std::endl; } tout << "m_l_matrix has " << m_l_matrix.column_count() << " columns" << std::endl; tout << "and " << m_l_matrix.row_count() << " rows" << std::endl; print_lar_term_L(*t, tout); tout << "; t->j()=" << t->j() << std::endl;);
-            shrink_matrices();
+            m_rebuild_required = true;
         }
 
         struct undo_add_term : public trail {
@@ -1233,6 +1232,8 @@ namespace lp {
         }
 
         void init(std_vector<unsigned> & f_vector) {
+            if (m_rebuild_required)
+                rebuild();
             m_infeas_explanation.clear();
             lia.get_term().clear();
             reset_conflict();
@@ -1248,6 +1249,40 @@ namespace lp {
             SASSERT(is_in_sync());
             m_added_terms.clear();
             SASSERT(entries_are_ok());
+        }
+
+        void rebuild() {
+            std::unordered_set<const lar_term*> tracked_terms = m_active_terms;
+            tracked_terms.insert(m_added_terms.begin(), m_added_terms.end());
+
+            m_sum_of_fixed.clear();
+            m_var_register.clear();
+            m_e_matrix.clear();
+            m_l_matrix.clear();
+            m_infeas_explanation.clear();
+            m_c = mpq(0);
+            m_lspace.clear();
+            m_espace.clear();
+            m_k2s.clear();
+            m_fresh_k2xt_terms.clear();
+            m_row2fresh_defs.clear();
+            m_changed_rows.reset();
+            m_changed_f_columns.reset();
+            m_changed_terms.reset();
+            m_terms_to_tighten.reset();
+            m_columns_to_terms.clear();
+            m_q.reset();
+            reset_conflict();
+
+            m_added_terms.clear();
+            m_active_terms.clear();
+            for (const lar_term* t : lra.terms()) {
+                if (contains(tracked_terms, t)) {
+                    m_added_terms.push_back(t);
+                    mark_term_change(t->j());
+                }
+            }
+            m_rebuild_required = false;
         }
 
         template <typename K>

@@ -134,6 +134,7 @@
     X(ackermannize) \
     X(monomial_bounds) \
     X(nla_intervals) \
+    X(lp_dio) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \
