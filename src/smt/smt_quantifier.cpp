@@ -327,7 +327,7 @@ namespace smt {
                     log_causality(f, pat, trace_used_enodes);
                 }
                 if (has_trace_stream()) {
-                    log_add_instance(f, q, pat, num_bindings, bindings, max_generation, trace_used_enodes);
+                    log_add_instance(f, q, pat, num_bindings, bindings, trace_used_enodes);
                 }
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;
