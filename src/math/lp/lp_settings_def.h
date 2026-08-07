@@ -31,7 +31,6 @@ std::string column_type_to_string(column_type t) {
     case column_type::lower_bound:   return "lower_bound";
     case column_type::upper_bound: return "upper_bound";
     case column_type::free_column: return "free_column";
-    default:  UNREACHABLE();
     }
     return "unknown"; // it is unreachable
 }

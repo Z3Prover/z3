@@ -60,9 +60,6 @@ namespace euf {
             case update::set_qhead:
                 m_qhead = idx;
                 break;
-            default:
-                UNREACHABLE();
-                break;
             }
         }
         m_trail.shrink(sz);

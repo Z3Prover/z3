@@ -968,9 +968,6 @@ class parallel_solver {
                 throw default_exception(m_exception_msg.c_str());
             case state::is_exception_code:
                 throw z3_error(m_exception_code);
-            default:
-                UNREACHABLE();
-                return l_undef;
             }
         }
 
@@ -1838,8 +1835,6 @@ class parallel_solver {
                     }
                     break;
                 }
-                default:
-                    UNREACHABLE();
                 }
             }
 

@@ -161,8 +161,6 @@ namespace sat {
             case l_true:
                 update_model();
                 break;
-            default:
-                break;
             }
         }
         if (assignment.size() == 1) {

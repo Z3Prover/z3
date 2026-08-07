@@ -238,11 +238,7 @@ public:
                     stack.pop_back();
                 }
                 break;
-            }
-                
-            default:
-                UNREACHABLE();
-                break;
+	    }
             }
         }        
         

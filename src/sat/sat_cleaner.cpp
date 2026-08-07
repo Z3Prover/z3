@@ -71,9 +71,6 @@ namespace sat {
                     *it_prev = *it2;
                     ++it_prev;
                     break;
-                default:
-                    UNREACHABLE();
-                    break;
                 }
             }
             wlist.set_end(it_prev);

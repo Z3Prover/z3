@@ -338,9 +338,6 @@ ast * ast_translation::process(ast const * _n) {
                 mk_func_decl(to_func_decl(n), fr);
                 break;
             }
-            default:
-                UNREACHABLE();
-                break;
             }
         }
     }

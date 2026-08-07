@@ -1856,7 +1856,6 @@ namespace sat {
         case heule_unit_reward: return l * r;
         case march_cu_reward: return 1024 * (1024 * l * r + l + r);
         case unit_literal_reward: return l * r;
-        default: UNREACHABLE(); return l * r;
         }
     }
 

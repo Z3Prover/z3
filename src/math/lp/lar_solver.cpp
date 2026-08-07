@@ -800,8 +800,6 @@ namespace lp {
                 return true;
             }
             return false;
-        default:
-            SASSERT(false);
         }
         return false;
     }

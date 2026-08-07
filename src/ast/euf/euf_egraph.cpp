@@ -492,9 +492,6 @@ namespace euf {
             case update_record::tag_t::is_plugin_undo:
                 m_plugins[p.m_th.m_th_id]->undo();
                 break;
-            default:
-                UNREACHABLE();
-                break;
             }                    
         }        
         SASSERT(m_updates.size() == sz);
