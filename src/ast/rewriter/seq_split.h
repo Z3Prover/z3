@@ -203,7 +203,7 @@ class seq_split {
     // aborting, which is several seconds of pure waste.  Overrunning this cap is
     // a give-up, so the caller falls through to its other rules; that is sound
     // and strictly better than the hang.
-    static const unsigned BOOL_CLOSURE_CAP = 256;
+    static constexpr unsigned BOOL_CLOSURE_CAP = 256;
 
 public:
     explicit seq_split(seq_rewriter& rw);
