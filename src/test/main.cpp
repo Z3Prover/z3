@@ -123,6 +123,7 @@
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
+    X(mbp_qel) \
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
@@ -169,7 +170,6 @@
     X(rcf) \
     X(polynorm) \
     X(qe_arith) \
-    X(mbp_qel) \
     X(expr_substitution) \
     X(sorting_network) \
     X(theory_pb) \
