@@ -568,6 +568,12 @@ namespace smt {
         }
         case l_undef: {
             ctx.mark_as_relevant(c_lit);
+            // The membership literal is asserted only once, so preserve both
+            // branches until the condition receives an assignment.
+            literal in_t = th.mk_literal(re().mk_in_re(s, t));
+            literal in_e = th.mk_literal(re().mk_in_re(s, e));
+            th.add_axiom(~lit, ~c_lit, in_t);
+            th.add_axiom(~lit, c_lit, in_e);
             break;
         }
         }
