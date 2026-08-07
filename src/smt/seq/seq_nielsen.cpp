@@ -5288,11 +5288,10 @@ namespace seq {
         return false;
     }
 
-#if false
     // -----------------------------------------------------------------------
     // Modifier: apply_monadic_split  (whole-language monadic decomposition)
     bool nielsen_graph::monadic_abstract_subject(euf::snode const* str, expr_ref_vector& pin,
-                                                 obj_map<expr, expr*>& extra, expr_ref& out) {
+                                                 ptr_vector<expr>& unit_vars, expr_ref& out) {
         expr_ref_vector args(m);
         bool has_var = false;
         for (euf::snode const* t : *str) {
@@ -5304,12 +5303,9 @@ namespace seq {
             const std::string name = "nseq.mon!" + std::to_string(t->id());
             expr_ref v(m.mk_const(symbol(name.c_str()), s), m);
             pin.push_back(v);
-            if (t->is_unit()) {
-                // symbolic character: value unknown, length exactly 1.
-                expr_ref sigma(m_seq.re.mk_full_char(m_seq.re.mk_re(s)), m);
-                pin.push_back(sigma);
-                extra.insert(v, sigma);
-            }
+            // A symbolic character has unknown value but length exactly 1.
+            if (t->is_unit())
+                unit_vars.push_back(v);
             args.push_back(v);
             has_var = true;
         }
@@ -5319,23 +5315,24 @@ namespace seq {
         pin.push_back(out);
         return true;
     }
-#endif
 
     bool nielsen_graph::apply_monadic_split(nielsen_node* node) {
         if (!m_monadic_split)
             return false;
-#if false
         auto const& mems = node->str_mems();
         if (mems.empty())
             return false;
 
-        if (!m_monadic)
-            m_monadic = alloc(seq_monadic, m_monadic_rw);
+        if (!m_monadic) {
+            m_monadic = alloc(seq_monadic, m_monadic_rw, m_monadic_trail);
+            // Conflict-only use: no witness is ever consumed, so skip model extraction.
+            m_monadic->set_gen_model(false);
+        }
 
         // Abstract the plain memberships once; `src` maps back to the mems index.
         expr_ref_vector pin(m);
-        obj_map<expr, expr*> extra;
         vector<std::pair<expr*, expr*>> abstracted;
+        vector<ptr_vector<expr>> unit_vars;
         unsigned_vector src;
         for (unsigned i = 0; i < mems.size(); ++i) {
             str_mem const& mi = mems[i];
@@ -5344,9 +5341,13 @@ namespace seq {
             if (!mi.is_plain() || mi.m_regex->is_ite())
                 continue;
             expr_ref term(m);
-            if (!monadic_abstract_subject(mi.m_str, pin, extra, term))
+            ptr_vector<expr> uvars;
+            if (!monadic_abstract_subject(mi.m_str, pin, uvars, term))
+                continue;
+            if (!m_monadic->can_decide_term(term))
                 continue;
             abstracted.push_back(std::make_pair(term.get(), mi.m_regex->get_expr()));
+            unit_vars.push_back(uvars);
             src.push_back(i);
         }
         const unsigned n = abstracted.size();
@@ -5354,28 +5355,42 @@ namespace seq {
             return false;
 
         // Decide the memberships selected by `sel` jointly; close the node if empty.
+        // The conflict dependency joins only the memberships seq_monadic's core kept.
         auto close = [&](unsigned_vector const& sel) {
-            vector<std::pair<expr*, expr*>> ms;
-            dep_tracker dep = mems[src[sel[0]]].m_dep;
+            m_monadic_trail.push_scope();
+            obj_hashtable<expr> seen;
             for (unsigned k : sel) {
-                ms.push_back(abstracted[k]);
-                if (ms.size() > 1)
-                    dep = m_dep_mgr.mk_join(dep, mems[src[k]].m_dep);
+                m_monadic->add(abstracted[k].first, abstracted[k].second, mems[src[k]].m_dep);
+                for (expr* v : unit_vars[k]) {
+                    if (seen.contains(v))
+                        continue;
+                    seen.insert(v);
+                    // Length-1 is unconditionally true of a symbolic character, so it
+                    // carries no dependency; whenever it matters, the membership that
+                    // introduced v is itself in the core.
+                    expr_ref sigma(m_seq.re.mk_full_char(m_seq.re.mk_re(v->get_sort())), m);
+                    pin.push_back(sigma);
+                    m_monadic->add(v, sigma, nullptr);
+                }
             }
-            const lbool r = ms.size() == 1 ? m_monadic->solve(ms[0].first, ms[0].second, extra)
-                                           : m_monadic->solve_and(ms, extra);
-            TRACE(seq, tout << "MONPROBE n=" << ms.size() << " r=" << r
-                            << " subj=" << mk_pp(ms[0].first, m) << "\n");
+            const lbool r = m_monadic->check();
+            dep_tracker dep = nullptr;
+            if (r == l_false)
+                for (void* d : m_monadic->core())
+                    dep = m_dep_mgr.mk_join(dep, static_cast<dep_tracker>(d));
+            m_monadic_trail.pop_scope(1);
+            TRACE(seq, tout << "MONPROBE n=" << sel.size() << " r=" << r
+                            << " subj=" << mk_pp(abstracted[sel[0]].first, m) << "\n");
             if (r != l_false)
                 return false;   // non-empty (l_true) or undecided (l_undef): no conclusion
-            TRACE(seq, tout << "monadic split: " << ms.size() << " membership(s) jointly empty, at "
+            TRACE(seq, tout << "monadic split: " << sel.size() << " membership(s) jointly empty, at "
                             << mem_pp(mems[src[sel[0]]]) << "\n");
             node->set_general_conflict();
             node->set_conflict(backtrack_reason::regex, dep);
             return true;
         };
 
-        // 1. each non-primitive membership on its own.
+        // 1. each non-primitive membership on its own (cheap, and conclusive most often).
         for (unsigned k = 0; k < n; ++k) {
             if (mems[src[k]].m_str->length() < 2)
                 continue;   // single token: plain emptiness of L(R), checked elsewhere
@@ -5384,40 +5399,15 @@ namespace seq {
             if (close(sel))
                 return true;
         }
+
+        // 2. all of them jointly: catches subjects that are only jointly empty through a
+        //    shared variable.  check() minimizes the core, so no pre-grouping is needed.
         if (n < 2)
-            return false;
-
-        // 2. memberships grouped by their (slicing-equal) subject.
-        bool_vector done;
-        done.resize(n, false);
-        unsigned num_groups = 0;
-        for (unsigned k = 0; k < n; ++k) {
-            if (done[k])
-                continue;
-            unsigned_vector sel;
-            sel.push_back(k);
-            done[k] = true;
-            for (unsigned j = k + 1; j < n; ++j) {
-                if (done[j] || !mems[src[k]].m_str->similar(mems[src[j]].m_str, m))
-                    continue;
-                sel.push_back(j);
-                done[j] = true;
-            }
-            ++num_groups;
-            if (sel.size() >= 2 && close(sel))
-                return true;
-        }
-
-        // 3. all of them: catches subjects that are only jointly empty through a
-        //    shared variable.  Skipped when phase 2 already made this exact call.
-        if (num_groups < 2)
             return false;
         unsigned_vector all;
         for (unsigned k = 0; k < n; ++k)
             all.push_back(k);
         return close(all);
-#endif
-        return false;
     }
 
     bool nielsen_graph::fire_gpower_intro(

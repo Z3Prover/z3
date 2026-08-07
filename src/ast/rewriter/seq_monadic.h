@@ -84,7 +84,7 @@ class seq_monadic {
         seq::transition_mode m_mode;
         bool m_model = true;  // whether solve()/check() extract a feasible model
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
-
+solve
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 

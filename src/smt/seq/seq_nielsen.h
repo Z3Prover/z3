@@ -1020,6 +1020,10 @@ namespace seq {
         // derivative cache across seq_monadic calls (the module itself keeps no
         // state between them).
         seq_rewriter            m_monadic_rw;
+        // Backtracking scope for the memberships asserted into m_monadic: they stay
+        // asserted until this trail is popped, so each probe runs in its own scope.
+        // Declared before m_monadic so it outlives it.
+        trail_stack             m_monadic_trail;
         // Monadic-decomposition membership solver (seq_monadic); allocated lazily
         // on first use and released in reset().
         seq_monadic*     m_monadic = nullptr;
@@ -1709,14 +1713,12 @@ namespace seq {
         // Sound one-way only: never creates a child, never claims SAT.
         bool apply_monadic_split(nielsen_node* node);
 
-#if false
         // Abstract a membership subject into the term shape seq_monadic parses
-        // (a concatenation of constant characters and 0-ary constants), pinning
-        // the constructed terms in `pin` and collecting per-constant
-        // over-approximating regexes in `extra`.  false: the subject is ground.
+        // (a concatenation of constant characters and 0-ary constants), pinning the
+        // constructed terms in `pin` and reporting in `unit_vars` the constants that
+        // stand for symbolic characters (length exactly 1).  false: the subject is ground.
         bool monadic_abstract_subject(euf::snode const* str, expr_ref_vector& pin,
-                                      obj_map<expr, expr*>& extra, expr_ref& out);
-#endif
+                                      ptr_vector<expr>& unit_vars, expr_ref& out);
 
         // Build a suspended factorization (boundary head/tail + split iterator)
         // for `mem`.  Returns null if the regex shape is unsupported (the engine
