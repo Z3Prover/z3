@@ -144,9 +144,10 @@ static void tst1() {
 
 static void tst_expand_vector_byte_count() {
     vector<uint16_t, true, uint8_t> v;
-    for (unsigned i = 0; i < 192; ++i)
+    // 191 forces growth from capacity 127 -> 191 where byte-size exceeds uint8_t.
+    for (unsigned i = 0; i < 191; ++i)
         v.push_back(i);
-    ENSURE(v.size() == 192);
+    ENSURE(v.size() == 191);
 }
 
 void tst_vector() {

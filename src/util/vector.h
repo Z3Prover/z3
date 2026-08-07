@@ -28,6 +28,7 @@ Revision History:
 #include "util/debug.h"
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -81,7 +82,10 @@ class vector {
             SASSERT(capacity() > 0);
             SZ old_capacity = reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX];
             size_t old_capacity_T = sizeof(T) * static_cast<size_t>(old_capacity) + sizeof(SZ) * 2;
-            SZ new_capacity = (3 * old_capacity + 1) >> 1;
+            size_t grown_capacity = (3 * static_cast<size_t>(old_capacity) + 1) >> 1;
+            if (grown_capacity > std::numeric_limits<SZ>::max()) 
+                throw default_exception("Overflow encountered when expanding vector");
+            SZ new_capacity = static_cast<SZ>(grown_capacity);
             size_t new_capacity_T = sizeof(T) * static_cast<size_t>(new_capacity) + sizeof(SZ) * 2;
             if (new_capacity <= old_capacity || new_capacity_T <= old_capacity_T) {
                 throw default_exception("Overflow encountered when expanding vector");
