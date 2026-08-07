@@ -575,8 +575,10 @@ namespace euf {
             unsigned i = 0;
             unsigned num_bound = 0;
             for (auto pa : pats)
-                for (auto pi : array_select_indices(pa))
+                for (auto pi : array_select_indices(pa)) {
+                    (void)pi;
                     ++num_bound;
+                }
             for (auto pa : pats) {
                 for (auto pi : array_select_indices(pa)) {
                     if (start == i) {

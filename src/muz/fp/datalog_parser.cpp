@@ -1325,8 +1325,7 @@ private:
         dlexer lexer;
         m_lexer = &lexer;
         m_lexer->set_stream(&stm, nullptr);
-        dtoken tok = m_lexer->next_token();
-        tok = parse_decls(tok);
+        parse_decls(m_lexer->next_token());
         m_lexer = nullptr;
     }
 
@@ -1554,4 +1553,3 @@ parser* parser::create(context& ctx, ast_manager& m) {
 wpa_parser * wpa_parser::create(context& ctx, ast_manager & ast_manager) {
     return alloc(wpa_parser_impl, ctx);
 }
-
