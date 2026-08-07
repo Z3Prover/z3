@@ -43,6 +43,7 @@ z3_add_component(rewriter
     seq_derive.cpp
     seq_subset.cpp
     seq_derive.cpp
+    seq_membership_length_constraints.cpp
     seq_monadic.cpp
     seq_range_collapse.cpp
     seq_range_predicate.cpp

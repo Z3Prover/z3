@@ -62,6 +62,7 @@ Author:
 #pragma once
 
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_membership_length_constraints.h"
 #include "ast/rewriter/seq_range_predicate.h"
 #include "ast/rewriter/guard_set.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -101,6 +102,7 @@ class seq_monadic {
 
     ast_manager&    m;
     seq_rewriter&   m_rw;
+    seq::membership_length_constraints m_length_constraints;
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
                                              // ground guards so dead states become re.empty)
     trail_stack&    m_undo_trail;
@@ -116,7 +118,7 @@ class seq_monadic {
     obj_pair_map<expr, expr, expr*> m_der_cache;  // memoizes der_elem per (regex, element)
     obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
                                             // seq_rewriter's own cache is capped and flushed whole
-    using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
+    using membership_vec = seq::membership_length_constraints::constraint_vector;
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     membership_vec m_last_search_memberships; // inputs used by the last internal decide()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
@@ -247,7 +249,7 @@ class seq_monadic {
 public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
-        m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
+        m(rw.m()), m_rw(rw), m_length_constraints(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
         m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()),
         m_regexes(rw.m()) {}
 
