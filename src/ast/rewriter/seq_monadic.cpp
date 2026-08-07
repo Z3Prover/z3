@@ -236,12 +236,16 @@ void seq_monadic::compute_atoms(expr* t, atom_sigs& out, unsigned depth) {
     if (re.is_empty(t) || re.is_epsilon(t) || re.is_full_seq(t))
         return;
     if (re.is_full_char(t)) { node(t); return; }
-    if (re.is_range(t, a, b)) {
-        unsigned cl = 0, ch = 0;
-        if (!u().is_const_char(a, cl) || !u().is_const_char(b, ch)) { unknown(); return; }
-        node(t);
-        return;
-    }
+    // A range is NOT an atom.  Intersection narrows [a,b] & [c,d] to a freshly built
+    // sub-range (mk_regex_inter_normalize, seq_rewriter.cpp), so a derivative can contain
+    // a range that no ancestor did:
+    //     d(inter([a-f][a-f], [d-z][d-z])) = inter([a-f], [d-z]) = [d-f]
+    // Hashing it by node id would put a fresh id into `under` and break
+    // under(d_w(t)) subset-of over(t), whose failure mode is a silent wrong `unsat`.
+    // Saturating `over` and contributing nothing to `under` is the only sound treatment.
+    // Do not "optimize" this into node(t): an audit over 2676 benchmarks is clean only
+    // because this branch never treats a range as an atom.
+    if (re.is_range(t)) { unknown(); return; }
     // A string literal is not itself an atom: d(to_re("bc")) = to_re("c") is a fresh node.
     // Its characters are, and they can only be dropped by a derivative, never added.
     if (re.is_to_re(t, a)) {
@@ -325,6 +329,28 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                 !goal_atoms[i].subset_of(atoms_of(st[i]).over))
                 return true;
         return false;
+    };
+
+    // Debug-only guard on the property `cannot_reach_goal` above depends on.
+    //
+    // The prune is sound because the atoms an `under` signature can contain are
+    // *inherited* by derivatives and never *created* by them, giving
+    //     under(delta_a(t)) subset-of over(t)
+    // on every edge and hence under(goal) subset-of over(source) for any reachable
+    // goal.  A rewrite that synthesizes a fresh non-free node in a derivative breaks
+    // this, and the failure mode is a silent wrong `unsat` -- no crash, no warning.
+    // Character classes are the live risk here: seq_range_collapse materializes a
+    // collapsed class as a *freshly built* node (see the range comment in
+    // compute_atoms), so it must keep materializing into a kind that compute_atoms
+    // does not treat as an atom.  Switching it to emit re.of_pred, for instance,
+    // would put a fresh id into `under` and make this assertion fail.
+    //
+    // Checked on every transition, in both the sweep and the product paths, so that a
+    // future rewriter change trips a debug test rather than a user's benchmark.
+    [[maybe_unused]] auto check_atom_monotone = [&](ptr_vector<expr> const& succ) {
+        for (unsigned i = 0; i < n; ++i)
+            SASSERT(succ[i] == st[i] || re().is_empty(succ[i]) ||
+                    atoms_of(succ[i]).under.subset_of(atoms_of(st[i]).over));
     };
 
     auto is_accept = [&]() -> bool {
@@ -438,6 +464,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
                         cur[i] = sw_lists[i]->targets[r.first + sw_odo[i]];
                     }
                     key const& ck = fill_key(cur);
+                    DEBUG_CODE(check_atom_monotone(cur););
                     if (visited.find(ck) == visited.end()) {
                         visited.insert(ck);
                         if (witness_word) {
@@ -468,6 +495,7 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
             if (bail) return;
             if (i == n) {
                 key const& ck = fill_key(cur);
+                DEBUG_CODE(check_atom_monotone(cur););
                 if (visited.find(ck) == visited.end()) {
                     visited.insert(ck);
                     if (witness_word) {
