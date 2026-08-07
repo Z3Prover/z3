@@ -64,6 +64,7 @@ class core {
     unsigned m_nlsat_delay = 0;
     unsigned m_nlsat_delay_bound = 0;
     unsigned m_check_assignment_fail_cnt = 0;
+    unsigned m_strategy_idx = 0;
 
     bool should_run_bounded_nlsat();
     lbool bounded_nlsat();
@@ -90,9 +91,6 @@ class core {
     monomial_bounds          m_monomial_bounds;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
-    // set when bound optimization re-calibrates m_to_refine to empty: every
-    // monomial is consistent under the optimized model, so the goal is satisfied.
-    bool                     m_nla_satisfied = false;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
@@ -230,6 +228,7 @@ public:
 
     void push();     
     void pop(unsigned n);
+    void reset_strategy() { m_strategy_idx = 0; }
 
     trail_stack& trail() { return m_emons.get_trail_stack(); }
 
@@ -465,9 +464,6 @@ public:
     indexed_uint_set const& to_refine() const {
         return m_to_refine;
     }
-
-    void set_nla_satisfied() { m_nla_satisfied = true; }
-    bool nla_satisfied() const { return m_nla_satisfied; }
 
 };  // end of core
 

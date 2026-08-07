@@ -37,6 +37,7 @@ namespace nla {
         void updt_params(params_ref const& p);
         void push();
         void pop(unsigned scopes);
+        void reset_strategy();
         bool need_check();
         lbool check(unsigned level);
         bool propagate();

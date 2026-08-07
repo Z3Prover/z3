@@ -1127,9 +1127,8 @@ namespace nla {
        \brief Tighten the bounds of variables occurring in nonlinear monomials by
        maximizing/minimizing them over the LP tableau (analogous to theory_arith's
        max_min_nl_vars). The tighter implied bounds, each carrying an LP explanation,
-       let the subsequent horner/cross-nested interval evaluation exclude zero and
-       detect a conflict that would otherwise be missed with only the propagated
-       bounds.
+       let subsequent nonlinear checks exclude zero and detect conflicts that would
+       otherwise be missed with only the propagated bounds.
     */
     bool monomial_bounds::optimize_nl_bounds() {
         if (!c().params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)

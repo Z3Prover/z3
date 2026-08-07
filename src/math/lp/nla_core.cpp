@@ -1309,14 +1309,17 @@ lbool core::check(unsigned level) {
     if (m_to_refine.empty())
         return l_true;    
     init_search();
-    m_nla_satisfied = false;
+
+    m_monomial_bounds.optimize_nl_bounds();
+    if (m_to_refine.empty())
+        return l_true;
 
     lbool ret = l_undef;
     bool run_grobner = need_run_grobner();
     bool run_horner = need_run_horner();
     bool run_bounds = params().arith_nl_branching();
 
-    auto no_effect = [&]() { return ret == l_undef && !done() && !m_nla_satisfied && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
+    auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
     if (no_effect())
         m_monomial_bounds.generate_lemmas();
@@ -1325,24 +1328,34 @@ lbool core::check(unsigned level) {
         return l_false;
        
     
-    {
-        std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
-        std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
-        std::function<void(void)> check3 = [&]() { if (no_effect() && run_bounds) add_bounds(); };
-
-        std::pair<unsigned, std::function<void(void)>> checks[] =
-            { {1, check1},
-              {1, check2},
-              {1, check3} };
-        check_weighted(3, checks);
-
-        if (lp_settings().get_cancel_flag())
-            return l_undef;
-        if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
-            return l_false;
-        // bound optimization proved all monomials consistent: goal satisfied.
-        if (m_nla_satisfied)
-            return l_true;
+    if (no_effect()) {
+        unsigned old_idx = m_strategy_idx;
+        trail().push(value_trail(m_strategy_idx));
+        do {
+            switch (m_strategy_idx) {
+            case 0:
+                propagate();
+                break;
+            case 1:
+                if (run_horner)
+                    m_horner.horner_lemmas();
+                break;
+            case 2:
+                if (run_grobner)
+                    m_grobner();
+                break;
+            case 3:
+                if (run_bounds)
+                    add_bounds();
+                break;
+            }
+            m_strategy_idx = (m_strategy_idx + 1) % 4;
+            if (lp_settings().get_cancel_flag())
+                return l_undef;
+            if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
+                return l_false;
+        }
+        while (m_strategy_idx != old_idx);
     }
 
     if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {

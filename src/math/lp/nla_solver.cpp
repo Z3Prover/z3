@@ -69,6 +69,10 @@ namespace nla {
     void solver::pop(unsigned n) {
         m_core->pop(n);
     }
+
+    void solver::reset_strategy() {
+        m_core->reset_strategy();
+    }
     
     solver::solver(lp::lar_solver& s, params_ref const& p, reslimit& limit): 
         m_core(alloc(core, s, p, limit)) {
