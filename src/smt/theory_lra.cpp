@@ -1745,9 +1745,13 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        propagate_nla(); 
+        bool const nla_progress = propagate_nla();
         if (!lp().is_feasible() || lp().has_changed_columns()) 
             is_sat = make_feasible();
+        if (ctx().inconsistent())
+            return FC_CONTINUE;
+        if (nla_progress && is_sat == l_true && ctx().get_params().get_bool("arith.nl.linprobe_mode", false))
+            return FC_CONTINUE;
         final_check_status st = FC_DONE;
         bool int_undef = false;
         switch (is_sat) {

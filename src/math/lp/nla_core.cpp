@@ -27,6 +27,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     lra(s),
     m_reslim(lim),
     m_params(p),
+    m_linprobe(p.get_bool("arith.nl.linprobe_mode", false)),
     m_tangents(this),
     m_basics(this),
     m_order(this),
@@ -54,6 +55,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
 }
 
 void core::updt_params(params_ref const& p) {
+    m_linprobe = p.get_bool("arith.nl.linprobe_mode", false);
     m_grobner.updt_params(p);
 }
     
@@ -1545,8 +1547,13 @@ bool core::propagate() {
         propagated = true;
     if (m_monomial_bounds.tighten_lp_bounds())
 		propagated = true;
-    if (m_monomial_bounds.propagate_changed_bounds()) 
+    if (m_linprobe) {
+        if (m_monomial_bounds.propagate_linear_bounds())
+            propagated = true;
+    }
+    else if (m_monomial_bounds.propagate_changed_bounds()) {
         propagated = true;
+    }
     m_monics_with_changed_bounds.reset();
     if (propagated)
         m_check_feasible = true;

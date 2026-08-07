@@ -22,6 +22,7 @@ namespace nla {
             if (add_lemma())
                 break;
         }
+
     }
 
     bool monomial_bounds::is_too_big(mpq const &q) const {
@@ -218,6 +219,8 @@ namespace nla {
     bool monomial_bounds::propagate_linear_bounds() {
         bool propagated = false;
         for (auto& mm : c().emons()) {
+            if (!c().reslim().inc())
+                break;
             //if (!c().is_monic_var(v))
             //    continue;
             monic &m = c().emon(mm.var());
@@ -727,6 +730,8 @@ namespace nla {
 
         bool propagated = false;
         for (unsigned i = 0; i < lra.row_count(); ++i) {
+            if (!c().reslim().inc())
+                break;
             if (lra.get_row(i).size() > 32)
                 continue;
             lpvar free_j;
@@ -1126,4 +1131,3 @@ namespace nla {
     }
 
 }
-

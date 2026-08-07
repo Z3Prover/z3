@@ -73,6 +73,7 @@ class core {
     lp::lar_solver&          lra;
     reslimit&                m_reslim;
     smt_params_helper        m_params;
+    bool                     m_linprobe;
     std::function<bool(lpvar)> m_relevant;
     vector<lemma>            m_lemmas;
     vector<ineq>             m_literals;

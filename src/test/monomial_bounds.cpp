@@ -167,12 +167,44 @@ void test_monomial_bounds_linear_case() {
     VERIFY(result != l_false); // Should be consistent
 }
 
+bool propagate_new_linear_monomial(bool linprobe) {
+    lp::lar_solver s;
+    reslimit rl;
+    params_ref p;
+    p.set_bool("arith.nl.linprobe_mode", linprobe);
+
+    lpvar x = s.add_var(0, true);
+    lpvar y = s.add_var(1, true);
+    lpvar xy = s.add_var(2, true);
+
+    nla::core nla_solver(s, p, rl);
+    lpvar vars[] = { x, y };
+    nla_solver.add_monic(xy, 2, vars);
+
+    VERIFY(!nla_solver.propagate());
+
+    s.add_var_bound(x, lp::lconstraint_kind::GE, rational(2));
+    s.add_var_bound(x, lp::lconstraint_kind::LE, rational(2));
+    s.set_column_value_test(x, lp::impq(rational(2)));
+    s.set_column_value_test(y, lp::impq(rational(3)));
+    s.set_column_value_test(xy, lp::impq(rational(0)));
+
+    return nla_solver.propagate();
+}
+
+void test_monomial_bounds_linprobe() {
+    std::cout << "test_monomial_bounds_linprobe\n";
+    VERIFY(!propagate_new_linear_monomial(false));
+    VERIFY(propagate_new_linear_monomial(true));
+}
+
 void test_monomial_bounds() {
     test_monomial_bounds_basic();
     test_monomial_bounds_propagation();
     test_monomial_bounds_intervals();
     test_monomial_bounds_power();
     test_monomial_bounds_linear_case();
+    test_monomial_bounds_linprobe();
 }
 
 } // namespace nla
