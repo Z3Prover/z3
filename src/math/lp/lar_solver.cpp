@@ -2868,6 +2868,11 @@ namespace lp {
         m_imp->m_crossed_bounds_column = j;
         const auto& ul = m_imp->m_columns[j];
         u_dependency* bdep = lower_bound? ul.lower_bound_witness() : ul.upper_bound_witness();
+        if (!bdep) {
+            m_imp->m_crossed_bounds_column = null_lpvar;
+            set_status(lp_status::UNKNOWN);
+            return;
+        }
         m_imp->m_crossed_bounds_deps = dep_manager().mk_join(bdep, dep);
         SASSERT(m_imp->m_crossed_bounds_deps != nullptr);
         set_status(lp_status::INFEASIBLE);
