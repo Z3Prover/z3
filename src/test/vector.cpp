@@ -19,6 +19,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/rational.h"
 #include <iostream>
+#include <cstdint>
 
 static void tst_resize_rational() {
     // grow from empty using default initialization (zero)
@@ -141,8 +142,16 @@ static void tst1() {
     }
 }
 
+static void tst_expand_vector_byte_count() {
+    vector<uint16_t, true, uint8_t> v;
+    for (unsigned i = 0; i < 192; ++i)
+        v.push_back(i);
+    ENSURE(v.size() == 192);
+}
+
 void tst_vector() {
     tst_resize_rational();
     tst_resize();
     tst1();
+    tst_expand_vector_byte_count();
 }
