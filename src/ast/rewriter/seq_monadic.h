@@ -63,6 +63,7 @@ Author:
 
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_range_predicate.h"
+#include "ast/rewriter/seq_regex_live.h"
 #include "ast/rewriter/guard_set.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "util/lbool.h"
@@ -116,6 +117,20 @@ class seq_monadic {
     statistics      m_stats;
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
+    // Interval ("t-regex") form of a state's derivative cofactors over the character sort:
+    // a canonical list of disjoint ranges in increasing order, each carrying the targets
+    // reachable on that range.  Built once per state and merged by the product, so the
+    // product enumerates only the cells of the common refinement.
+    struct ivl_range { unsigned lo, hi, first, count; };
+    struct ivl_list {
+        svector<ivl_range> ranges;
+        ptr_vector<expr>   targets;   // ranges[i] owns targets[first .. first+count)
+        bool               ok = true; // false: some guard is outside the range algebra
+    };
+    obj_map<expr, ivl_list*> m_ivl_cache;
+    expr_ref_vector          m_ivl_pin;      // pins the states and targets the cache refers to
+    ivl_list const* interval_cofactors(expr* r, expr* v0);
+    void reset_ivl_cache();
     obj_pair_map<expr, expr, expr*> m_der_cache;  // memoizes der_elem per (regex, element)
     obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
                                             // seq_rewriter's own cache is capped and flushed whole
@@ -169,7 +184,7 @@ class seq_monadic {
     };
     group_sig m_sig_buf;                    // reused by group_nonempty (avoids allocating per lookup)
     std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
-    obj_map<expr, expr_ref_vector*> m_live_cache;  // regex -> live split states (null = gave up)
+    seq::live_states m_live_states;
 
     // ---- state-based search driver (see the "search state" note in the .cpp) ----
     // A membership cursor: how far membership `mi` has been consumed on the current
@@ -190,19 +205,9 @@ class seq_monadic {
     // Memoized nullability of a derivative state: l_true / l_false / l_undef (unknown).
     lbool nullable(expr* r);
 
-    // Symbolic transition cofactors in the selected mode.  Memoized per regex `r` in
-    // m_cofactors: the returned vector is owned by that cache (see the cofactor_cache
-    // class above for the persistence/reset policy).
+    // Symbolic transition cofactors in the selected mode.  The returned vector is owned
+    // by seq_rewriter's mode-specific cofactor cache.
     expr_ref_pair_vector const& derivative_cofactors(expr* r);
-
-    // Live reachable derivative states of R (BFS over cofactor targets + liveness
-    // least-fixpoint).  These are the split states q.  Returns false on a cap overrun.
-    bool live_states(expr* R, expr_ref_vector& out);
-
-    // Memoized live_states.  Returns null if the computation gave up for this regex.
-    expr_ref_vector const* live_states_cached(expr* R);
-
-    void reset_live_cache();
 
     // Product-reachability emptiness of a conjunction of components (all on one
     // variable).  l_false = empty (unsat), l_true = non-empty (sat), l_undef = gave up
@@ -291,10 +296,10 @@ public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()),
-        m_regexes(rw.m()) {}
+        m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()), m_ivl_pin(rw.m()),
+        m_regexes(rw.m()), m_live_states(rw, mode, 1u << 12) {}
 
-    ~seq_monadic() { reset_live_cache(); }
+    ~seq_monadic() { reset_ivl_cache(); }
 
     void collect_statistics(::statistics &st) const;
 

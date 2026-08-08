@@ -246,7 +246,7 @@ namespace smt {
             if (pat == nullptr) {
                 trace_stream() << "[inst-discovered] MBQI " << f->get_data_hash() << " #" << q->get_id();
                 for (unsigned i = 0; i < num_bindings; ++i) {
-                    trace_stream() << " #" << bindings[num_bindings - i - 1]->get_owner_id();
+                    trace_stream() << " #" << f->get_arg(num_bindings - i - 1)->get_owner_id();
                 }
                 trace_stream() << "\n";
             } else {
@@ -269,7 +269,7 @@ namespace smt {
                 for (unsigned i = 0; i < num_bindings; ++i) {
                     // I don't want to use mk_pp because it creates expressions for pretty printing.
                     // This nasty side-effect may change the behavior of Z3.
-                    out << " #" << bindings[num_bindings - i - 1]->get_owner_id();
+                    out << " #" << f->get_arg(num_bindings - i - 1)->get_owner_id();
                 }
                 out << " ;";
                 for (auto n : used_enodes) {
@@ -307,11 +307,27 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings);
             if (f) {
+                vector<std::tuple<enode *, enode *>> trace_used_enodes(used_enodes);
+                for (unsigned i = 0; i < num_bindings; ++i) {
+                    enode * orig = bindings[i];
+                    enode * root = f->get_arg(i);
+                    if (orig == root)
+                        continue;
+                    bool found = false;
+                    for (auto [used_orig, used_substituted] : trace_used_enodes) {
+                        if (used_orig == orig && used_substituted == root) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        trace_used_enodes.push_back(std::make_tuple(orig, root));
+                }
                 if (is_trace_enabled(TraceTag::causality)) {
-                    log_causality(f,pat,used_enodes);
+                    log_causality(f, pat, trace_used_enodes);
                 }
                 if (has_trace_stream()) {
-                    log_add_instance(f, q, pat, num_bindings, bindings, used_enodes);
+                    log_add_instance(f, q, pat, num_bindings, bindings, trace_used_enodes);
                 }
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;

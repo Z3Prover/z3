@@ -51,6 +51,7 @@ Author:
 
 #include "ast/rewriter/seq_monadic.h"
 #include "ast/rewriter/guard_set.h"
+#include "ast/rewriter/seq_range_collapse.h"
 #include <set>
 #include <vector>
 #include <map>
@@ -131,74 +132,91 @@ expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
     return m_rw.get_derive().get_cached_cofactors(m_config.m_mode, r);
 }
 
-bool seq_monadic::live_states(expr* R, expr_ref_vector& out) {
-    obj_map<expr, unsigned> id;
-    expr_ref_vector states(m);
-    vector<svector<unsigned>> succ;
-    bool_vector maybe_null;
-    auto intern = [&](expr* s) -> unsigned {
-        unsigned k;
-        if (id.find(s, k)) return k;
-        k = states.size();
-        id.insert(s, k);
-        states.push_back(s);
-        succ.push_back(svector<unsigned>());
-        maybe_null.push_back(nullable(s) != l_false);   // unknown nullability => keep (conservative)
-        return k;
-    };
-    intern(R);
-    const unsigned STATE_CAP = 1u << 12;
-    for (unsigned i = 0; i < states.size(); ++i) {
-        if (states.size() > STATE_CAP) {
-            m_stats.inc_bail(bail_reason::state_cap);
-            return false;
-        }
-        if (!m.inc()) {
-            m_stats.inc_bail(bail_reason::resource);
-            return false;
-        }
-        expr_ref_pair_vector const& cof = derivative_cofactors(states.get(i));
-        for (auto const& [g, t] : cof) {
-            if (re().is_empty(t)) continue;
-            unsigned k = intern(t);           // MUST precede succ[i] indexing: intern may
-            succ[i].push_back(k);             // grow (realloc) succ, invalidating succ[i]&
-        }
-    }
-    unsigned n = states.size();
-    bool_vector live;
-    live.resize(n, false);
-    for (unsigned i = 0; i < n; ++i)
-        live[i] = maybe_null[i];
-    for (bool ch = true; ch; ) {
-        ch = false;
-        for (unsigned i = 0; i < n; ++i)
-            if (!live[i])
-                for (unsigned j : succ[i])
-                    if (live[j]) { live[i] = true; ch = true; break; }
-    }
-    for (unsigned i = 0; i < n; ++i)
-        if (live[i]) { out.push_back(states.get(i)); m_pin.push_back(states.get(i)); }
-    return true;
+void seq_monadic::reset_ivl_cache() {
+    for (auto& kv : m_ivl_cache)
+        dealloc(kv.m_value);
+    m_ivl_cache.reset();
+    m_ivl_pin.reset();
 }
 
-expr_ref_vector const* seq_monadic::live_states_cached(expr* R) {
-    expr_ref_vector* v = nullptr;
-    if (m_live_cache.find(R, v))
-        return v;                          // may be null: previously gave up on R
-    v = alloc(expr_ref_vector, m);
-    if (!live_states(R, *v)) {
-        dealloc(v);
-        v = nullptr;
-    }
-    m_pin.push_back(R);                    // keep the key alive for the cache's lifetime
-    m_live_cache.insert(R, v);
-    return v;
-}
+// Canonical interval form of r's derivative: the cofactor guards, translated into the
+// range algebra, refined into a sorted list of disjoint ranges, each labelled with the
+// targets reachable on it.  Adjacent ranges with identical target sets are merged, so the
+// result is the minimal ordered-ITE ("t-regex") representation of the transition relation.
+// Returns null when some guard falls outside the range algebra.
+seq_monadic::ivl_list const* seq_monadic::interval_cofactors(expr* r, expr* v0) {
+    ivl_list* res = nullptr;
+    if (m_ivl_cache.find(r, res))
+        return res && res->ok ? res : nullptr;
 
-void seq_monadic::reset_live_cache() {
-    for (auto const& [k, v] : m_live_cache)
-        dealloc(v);
-    m_live_cache.reset();
+    unsigned max_char = u().max_char();
+    res = alloc(ivl_list);
+    m_ivl_cache.insert(r, res);
+    m_ivl_pin.push_back(r);
+
+    // (lo, hi, target) triples, plus the boundary set of this state's own partition.
+    struct tr_t { unsigned lo, hi; expr* t; };
+    svector<tr_t> tr;
+    svector<unsigned> bounds;
+    bounds.push_back(0);
+    for (auto const& [g, t] : derivative_cofactors(r)) {
+        if (re().is_empty(t))
+            continue;
+        seq::range_predicate* p = nullptr;
+        if (!m_rp_cache.find(g, p)) {
+            p = m_rp_cache.fresh(max_char);
+            if (!seq::guard_to_range_predicate(u(), v0, g, *p)) {
+                m_rp_cache.insert(g, nullptr);
+                res->ok = false;
+                return nullptr;
+            }
+            m_rp_cache.insert(g, p);
+        }
+        else if (!p) {
+            res->ok = false;
+            return nullptr;
+        }
+        m_ivl_pin.push_back(t);
+        for (auto const& rg : p->ranges()) {
+            tr.push_back({ rg.first, rg.second, t });
+            bounds.push_back(rg.first);
+            if (rg.second < max_char)
+                bounds.push_back(rg.second + 1);
+        }
+    }
+    if (tr.empty())
+        return res;                            // dead state: no outgoing transition
+
+    std::sort(bounds.begin(), bounds.end());
+    bounds.shrink((unsigned)(std::unique(bounds.begin(), bounds.end()) - bounds.begin()));
+
+    ptr_vector<expr> hits;
+    for (unsigned bi = 0; bi < bounds.size(); ++bi) {
+        unsigned lo = bounds[bi];
+        unsigned hi = bi + 1 < bounds.size() ? bounds[bi + 1] - 1 : max_char;
+        hits.reset();
+        for (auto const& e : tr)
+            if (e.lo <= lo && lo <= e.hi)
+                hits.push_back(e.t);
+        if (hits.empty())
+            continue;                          // gap: no transition on this range
+        // extend the previous range when it carries exactly the same target set
+        if (!res->ranges.empty()) {
+            ivl_range& prev = res->ranges.back();
+            if (prev.hi + 1 == lo && prev.count == hits.size()) {
+                bool same = true;
+                for (unsigned k = 0; k < hits.size() && same; ++k)
+                    same = res->targets[prev.first + k] == hits[k];
+                if (same) {
+                    prev.hi = hi;
+                    continue;
+                }
+            }
+        }
+        res->ranges.push_back({ lo, hi, res->targets.size(), hits.size() });
+        res->targets.append(hits.size(), hits.data());
+    }
+    return res;
 }
 
 lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* witness_word) {
@@ -290,6 +308,92 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     branches.resize(n);
     key st_key;
     bool bail = false;
+
+    // ---- interval-refinement ("t-regex merge") product --------------------------
+    // Over the character sort every cofactor guard denotes a union of ranges, so each
+    // component's derivative has a canonical ordered-interval ("t-regex") form, cached
+    // per state by interval_cofactors.  The joint transitions are then exactly the cells
+    // of the common refinement of those n interval lists, obtained by a cursor merge in
+    // O(sum_i intervals_i) -- whereas the cartesian enumeration below tries
+    // prod_i(k_i) combinations, almost all of which are pruned as empty.
+    bool const sweep_ok = u().is_char(m_elem_sort);
+    unsigned const max_char = sweep_ok ? u().max_char() : 0;
+    svector<ivl_list const*> sw_lists;
+    svector<unsigned> sw_cur, sw_odo;
+    sw_lists.resize(n);
+    sw_cur.resize(n);
+    sw_odo.resize(n);
+
+    // Returns false when some guard falls outside the range algebra, in which case the
+    // caller falls back to the cartesian enumeration for this product state.
+    auto sweep = [&]() -> bool {
+        for (unsigned i = 0; i < n; ++i) {
+            sw_lists[i] = interval_cofactors(st[i], var0);
+            if (!sw_lists[i])
+                return false;
+            if (sw_lists[i]->ranges.empty())
+                return true;                  // component is stuck: no joint transition
+            sw_cur[i] = 0;
+        }
+        uint64_t b = 0;
+        while (b <= max_char) {
+            uint64_t next = (uint64_t)max_char + 1;
+            bool covered = true, done = false;
+            for (unsigned i = 0; i < n; ++i) {
+                auto const& rs = sw_lists[i]->ranges;
+                unsigned& c = sw_cur[i];
+                while (c < rs.size() && rs[c].hi < b)
+                    ++c;
+                if (c == rs.size()) {         // this component has no transition left
+                    done = true;
+                    break;
+                }
+                if (rs[c].lo > b) {           // gap in this component: skip ahead
+                    covered = false;
+                    next = std::min(next, (uint64_t)rs[c].lo);
+                }
+                else
+                    next = std::min(next, (uint64_t)rs[c].hi + 1);
+            }
+            if (done)
+                break;
+            if (covered) {
+                // Emit every combination of the targets active on this cell.  The modes
+                // whose cofactors partition the domain give exactly one target per
+                // component; the antimirov-style modes may give several.
+                for (unsigned i = 0; i < n; ++i)
+                    sw_odo[i] = 0;
+                while (true) {
+                    for (unsigned i = 0; i < n; ++i) {
+                        auto const& r = sw_lists[i]->ranges[sw_cur[i]];
+                        cur[i] = sw_lists[i]->targets[r.first + sw_odo[i]];
+                    }
+                    key const& ck = fill_key(cur);
+                    if (visited.find(ck) == visited.end()) {
+                        visited.insert(ck);
+                        if (witness_word) {
+                            expr* e = u().mk_char((unsigned)b);
+                            m_pin.push_back(e);
+                            parent[ck] = { st_key, e };
+                        }
+                        for (unsigned j = 0; j < n; ++j)
+                            work.push_back(cur[j]);
+                    }
+                    unsigned i = n;
+                    while (i-- > 0) {
+                        if (++sw_odo[i] < sw_lists[i]->ranges[sw_cur[i]].count)
+                            break;
+                        sw_odo[i] = 0;
+                    }
+                    if (i == UINT_MAX)
+                        break;                // odometer wrapped: cell exhausted
+                }
+            }
+            b = next;
+        }
+        return true;
+    };
+
     std::function<void(unsigned, guard_set const&)> rec =
         [&](unsigned i, guard_set const& acc) {
             if (bail) return;
@@ -352,13 +456,17 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
             return l_undef;
         }
 
+        if (witness_word)
+            st_key = fill_key(st);
+
+        if (sweep_ok && sweep())
+            continue;
+
         for (unsigned i = 0; i < n; ++i)
             branches[i] = &derivative_cofactors(st[i]);
 
         // joint transitions = cartesian product of the branches with the guards
         // conjoined; prune as soon as the accumulated guard is empty, bail on unknown.
-        if (witness_word)
-            st_key = fill_key(st);
         guard_set top(m, u(), m_elem_sort, var0, &m_rp_cache);
         rec(0, top);
         if (bail)
@@ -419,7 +527,7 @@ void seq_monadic::reset_search() {
     m_undef_vars = 0;
     m_cursors.reset();
     m_last_var = UINT_MAX;
-    reset_live_cache();
+    m_live_states.reset();
 }
 
 bool seq_monadic::prepare(membership_vec const& memberships) {
@@ -548,23 +656,13 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
     // A variable: the last atom is a plain membership in R, otherwise the variable drives
     // the derivative automaton from R to some live state q, which splits the search.
     bool last_atom = (i + 1 == atoms.size());
-    ptr_vector<expr> targets;
-    if (last_atom)
-        targets.push_back(nullptr);
-    else {
-        expr_ref_vector const* Q = live_states_cached(R);
-        if (!Q)
-            return l_undef;
-        for (expr* q : *Q)
-            targets.push_back(q);
-    }
-
     unsigned vi = var_index(a.var.get());
     uint64_t pos = (static_cast<uint64_t>(mi) << 32) | i;
     uint64_t last = 0;
     bool finalize = m_last_occ.find(a.var.get(), last) && last == pos;
-    bool any_undef = false;
-    for (expr* target : targets) {
+
+    // Explores one split target; the caller stops at the first l_true.
+    auto explore = [&](expr* target) -> lbool {
         m_groups[vi].push_back(component{ a.var.get(), R, target });
         // The group's emptiness test has to be run at some point anyway; running it as
         // soon as the group is complete (or as soon as it holds several components, where
@@ -585,6 +683,19 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
                 --m_undef_vars;
         }
         m_groups[vi].pop_back();
+        return r;
+    };
+
+    if (last_atom)
+        return explore(nullptr);
+
+    // The live states are consumed as they are produced, so a satisfying branch under an
+    // early state means the rest of the reachable set is never expanded.  That is what
+    // makes a root with an exponential live set tractable when a witness is found early.
+    bool any_undef = false;
+    auto live = m_live_states.reachable_live(R);
+    for (expr* q : live) {
+        lbool r = explore(q);
         if (r == l_true)
             return l_true;
         if (r == l_undef) {
@@ -592,6 +703,14 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
                 return l_undef;
             any_undef = true;
         }
+    }
+    // Short of the full reachable set the unexplored split states could still hold a
+    // solution, so the l_false the loop would otherwise report is not justified.
+    if (live.failed()) {
+        m_stats.inc_bail(
+            live.failure_reason() == seq::live_states::failure::state_cap ?
+            bail_reason::state_cap : bail_reason::resource);
+        return l_undef;
     }
     return any_undef ? l_undef : l_false;
 }
@@ -776,21 +895,7 @@ lbool seq_monadic::choose_cont(unsigned vi, svector<unsigned> const& S, unsigned
     bool finalize = m_last_occ.find(atoms[c.i].var.get(), last) && last == pos;
     bool last_atom = (c.i + 1 == atoms.size());
 
-    // Enumerate this cursor's continuations for variable vi: a plain membership (null) when
-    // the variable is the last atom, otherwise every live reach target of R.
-    ptr_vector<expr> targets;
-    if (last_atom)
-        targets.push_back(nullptr);
-    else {
-        expr_ref_vector const* Q = live_states_cached(R);
-        if (!Q)
-            return l_undef;                        // gave up enumerating targets
-        for (expr* q : *Q)
-            targets.push_back(q);
-    }
-
-    bool any_undef = false;
-    for (expr* target : targets) {
+    auto explore = [&](expr* target) {
         m_groups[vi].push_back(component{ atoms[c.i].var.get(), R, target });
         // Intersect immediately: prune as soon as vi's accumulated components are empty.
         // The test is forced once the group is complete (past vi's last occurrence) so the
@@ -804,14 +909,14 @@ lbool seq_monadic::choose_cont(unsigned vi, svector<unsigned> const& S, unsigned
             ne = l_true;
         if (ne == l_false) {
             m_groups[vi].pop_back();
-            continue;                              // infeasible continuation for vi: prune
+            return l_false;                        // infeasible continuation for vi: prune
         }
         cursor saved = c;                          // save/restore cursor across the branch
         lbool adv = advance_cursor(c, mi, target);
         if (adv == l_false) {
             c = saved;
             m_groups[vi].pop_back();
-            continue;
+            return l_false;
         }
         unsigned undef_here = (ne == l_undef ? 1u : 0u) + (adv == l_undef ? 1u : 0u);
         m_undef_vars += undef_here;
@@ -819,6 +924,18 @@ lbool seq_monadic::choose_cont(unsigned vi, svector<unsigned> const& S, unsigned
         m_undef_vars -= undef_here;
         c = saved;
         m_groups[vi].pop_back();
+        return r;
+    };
+
+    // A last variable contributes a plain membership component. Otherwise consume live
+    // split states lazily so an early satisfying continuation avoids expanding the rest.
+    if (last_atom)
+        return explore(nullptr);
+
+    bool any_undef = false;
+    auto live = m_live_states.reachable_live(R);
+    for (expr* target : live) {
+        lbool r = explore(target);
         if (r == l_true)
             return l_true;
         if (r == l_undef) {
@@ -826,6 +943,12 @@ lbool seq_monadic::choose_cont(unsigned vi, svector<unsigned> const& S, unsigned
                 return l_undef;
             any_undef = true;
         }
+    }
+    if (live.failed()) {
+        m_stats.inc_bail(
+            live.failure_reason() == seq::live_states::failure::state_cap ?
+            bail_reason::state_cap : bail_reason::resource);
+        return l_undef;
     }
     return any_undef ? l_undef : l_false;
 }
@@ -836,6 +959,7 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     reset_search();                               // clear the caches before dropping the
     m_pin.reset();                                // pins that keep their keys alive
     m_rp_cache.maybe_reset(1u << 16);
+    reset_ivl_cache();
     m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
     m_budget = 200000;
     m_giveup = false;
@@ -1083,7 +1207,7 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         << "     :group-cache-size " << m_group_cache.size() << "\n"
         << "     :derivative-cache-size " << m_der_cache.size() << "\n"
         << "     :nullable-cache-size " << m_nullable_cache.size() << "\n"
-        << "     :live-cache-size " << m_live_cache.size() << "\n"
+        << "     :live-cache-size " << m_live_states.num_states() << "\n"
         << "     :pinned-expressions " << m_pin.size() << ")\n";
 
     out << "  :statistics\n"

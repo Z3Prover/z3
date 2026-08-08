@@ -195,8 +195,8 @@ namespace opt {
         cores& c;
         char const* par;
         bool     is_uint = true;
-        unsigned old_uval;
-        bool     old_bval;
+        unsigned old_uval = 0;
+        bool     old_bval = false;
     public:
         scoped_update(cores& c, char const* par, unsigned old_val, unsigned new_val):
             c(c), par(par), old_uval(old_val) {

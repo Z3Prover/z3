@@ -2223,7 +2223,6 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
         expr *s(nullptr), *t(nullptr);
         if (m_util.is_bv_mul(arg, s, t)) {
             // ~(-1 * x) --> (x - 1)
-            bv_size = m_util.get_bv_size(s);
             if (m_util.is_allone(s) || m_util.is_allone(t)) {
                 result = m_util.mk_bv_add(s, t);
                 return BR_REWRITE1;

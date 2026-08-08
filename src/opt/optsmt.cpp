@@ -181,7 +181,6 @@ namespace opt {
             else {
                 if (num_scopes > 0)
                     m_s->pop(num_scopes);        
-                num_scopes = 0;
                 break;
             }
         }
@@ -643,4 +642,3 @@ namespace opt {
         m_s = nullptr;
     }
 }
-

@@ -648,7 +648,6 @@ namespace smt {
                 // <=>
                 // a(1-x) + b(1-y) >= -k + a + b + 1
                 sz = to_app(f2)->get_num_args();
-                args = to_app(f2)->get_args();
                 k = pb.get_k(f2);
                 SASSERT(k.is_int());
                 k.neg();
