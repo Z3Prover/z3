@@ -30,7 +30,7 @@ bool for_each_ast_args(ptr_vector<ast> & stack, ast_mark & visited, unsigned num
         if (!visited.is_marked(arg)) {
             stack.push_back(arg);
             result = false;
-            }
+        }
     }
     return result;
 }
@@ -264,4 +264,3 @@ private:
         }
     }        
 };
-

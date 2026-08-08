@@ -289,8 +289,8 @@ bool lt(numeral_manager & m,
             START_DISABLE_COVERED_SWITCH_DEFAULT;
         default:
             UNREACHABLE();
-            return false;
             END_DISABLE_WARNING_STMT;
+            return false;
         }
     case EN_PLUS_INFINITY:
         return false;
