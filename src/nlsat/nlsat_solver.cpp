@@ -1375,8 +1375,6 @@ namespace nlsat {
                 case trail::UPDT_EQ:
                     undo_updt_eq(t.m_old_eq);
                     break;
-                default:
-                    break;
                 }
                 m_trail.pop_back();
             }
@@ -3314,10 +3312,9 @@ namespace nlsat {
             case atom::ROOT_GT: return !l.sign();
             case atom::ROOT_LE: return l.sign();
             case atom::ROOT_GE: return l.sign();
-            default:
-                UNREACHABLE();
-                return false;
             }
+            UNREACHABLE();
+            return false;
         }
 
         bool is_full_dimensional(clause const & c) const {

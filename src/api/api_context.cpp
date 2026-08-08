@@ -514,8 +514,8 @@ extern "C" {
         case Z3_INVALID_USAGE:     return "invalid usage";
         case Z3_DEC_REF_ERROR:     return "invalid dec_ref command";
         case Z3_EXCEPTION:         return "Z3 exception";
-        default:                   return "unknown";
         }
+        return "unknown";
     }
 
     Z3_string Z3_API Z3_get_error_msg(Z3_context c, Z3_error_code err) {

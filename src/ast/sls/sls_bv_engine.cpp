@@ -264,8 +264,6 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
         case MV_INV:
             mk_inv(m_bv_util.get_bv_size(fd->get_range()), m_tracker.get_value(fd), new_value);
             break;
-        default:
-            NOT_IMPLEMENTED_YET();
         }
 
         TRACE(sls, tout << "Randomization candidates: ";
@@ -451,7 +449,7 @@ lbool sls_engine::search() {
             if (q)
             {
                 ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(q);
-                score = find_best_move(to_evaluate2, score, new_const, new_value, new_bit, move);
+                find_best_move(to_evaluate2, score, new_const, new_value, new_bit, move);
 
                 if (new_const != static_cast<unsigned>(-1)) {
                     func_decl * fd = to_evaluate2[new_const];

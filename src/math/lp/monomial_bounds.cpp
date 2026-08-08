@@ -244,15 +244,19 @@ namespace nla {
             return false;
         lpvar w, fixed_to_zero;
 
-        if (!is_linear(m, w, fixed_to_zero)) 
+        if (!is_linear(m, w, fixed_to_zero))
             return false;
 
         c().emons().set_propagated(m);
 
+        return linearize(m, w, fixed_to_zero);
+    }
+
+    bool monomial_bounds::linearize(monic const& m, lpvar w, lpvar fixed_to_zero) {
         bool propagated = false;
         if (fixed_to_zero != null_lpvar) {
             propagated = propagate_fixed_to_zero(m, fixed_to_zero);
-        } 
+        }
         else {
             rational k = fixed_var_product(m, w);
             if (w == null_lpvar)
@@ -262,6 +266,69 @@ namespace nla {
         }
         if (propagated)
             ++c().lra.settings().stats().m_nla_propagate_eq;
+        return propagated;
+    }
+
+    /**
+       \brief Linearize the violated monomials that have at most one non-fixed
+       factor, ignoring the is_propagated latch.
+
+       propagate_linear_bound sees a linear monomial once: it records the
+       defining relation and retires the monomial via set_propagated. When that
+       relation happens to be satisfied by the model of the moment,
+       propagate_nonfixed skips adding the defining row, so the relation is
+       recorded nowhere; as soon as the model moves, the monomial is violated
+       again and the only handles left are a case split (refine_pseudo_linear)
+       or a horner/grobner round per final check.
+
+       This pass runs from core::propagate(), which theory_lra invokes on entry
+       to every final check, so the repaired LP is re-solved and the surviving
+       violations still get their regular horner/grobner round. Only monomials
+       the current model violates are linearized: the guards of propagate_fixed
+       / propagate_nonfixed cannot dismiss such a row as redundant, and every
+       row added repairs an actual violation. Recording the row unconditionally
+       instead (even when the model satisfies it) was measured to lose over 500
+       QF_NIA instances: there factors are fixed by branching, and the rows,
+       re-added on every branch, grow the tableau for no benefit. Restricting
+       the pass to violated monomials keeps the wins without that regression.
+    */
+    bool monomial_bounds::propagate_violated_linear_monomials() {
+        if (!c().params().arith_nl_linearize_violated_monomials())
+            return false;
+        if (!c().lra.is_feasible())
+            return false;
+        bool propagated = false;
+        for (auto const& m : c().emons()) {
+            if (c().check_monic(m))
+                continue;
+            lpvar w, fixed_to_zero;
+            if (!is_linear(m, w, fixed_to_zero))
+                continue;
+            // The pass pays off when the factors are fixed for good (bound
+            // propagation from structural facts, e.g. pow2 constants in F*
+            // queries): the same defining row then repairs the violation for
+            // the rest of the search. When the factors are fixed by branching
+            // instead, each branch re-fixes them to another small value, and
+            // the rows, popped by the next backjump, only perturb the search
+            // (installing m = 3*w rows at deep decision levels was measured to
+            // turn a 0.1s F* query into a timeout). A small fixed-factor
+            // product is the signature of enumeration, so the row-installing
+            // path is reserved for products too wide to be branch-enumerated.
+            // The row-free paths (m fixed to a constant) are plain bound
+            // updates and stay ungated.
+            if (fixed_to_zero == null_lpvar && w != null_lpvar) {
+                rational k = fixed_var_product(m, w);
+                if (k.is_int() && k.bitsize() <= 16)
+                    continue;
+            }
+            if (linearize(m, w, fixed_to_zero)) {
+                propagated = true;
+                TRACE(nla_solver, tout << "linearized violated monomial " << m
+                      << ", scope " << c().lra.get_scope_level() << "\n";);
+            }
+            if (c().lra.get_status() == lp::lp_status::INFEASIBLE)
+                break;
+        }
         return propagated;
     }
 

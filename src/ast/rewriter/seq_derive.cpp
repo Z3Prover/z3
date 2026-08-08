@@ -39,7 +39,8 @@ namespace seq {
         m_br(m),
         m_re(re),
         m_trail(m), 
-        m_cofactor_cache(m),
+        m_brz_cofactor_cache(m),
+        m_ant_cofactor_cache(m),
         m_ele(m),
         m_path_expr(m) {
         m_br.set_flat_and_or(false);
@@ -1572,15 +1573,18 @@ namespace seq {
     }
 
     expr_ref_pair_vector const &derive::get_cached_cofactors(transition_mode mode, expr *r) {
+        cofactor_cache& cache =
+            mode == transition_mode::light_antimirov_tm ?
+            m_ant_cofactor_cache : m_brz_cofactor_cache;
         expr_ref_pair_vector *v = nullptr;
-        if (m_cofactor_cache.find(r, v))
+        if (cache.find(r, v))
             return *v;
         v = alloc(expr_ref_pair_vector, m);
         if (mode == transition_mode::light_antimirov_tm)
             light_ant_derivative_cofactors(r, *v);
         else
             derivative_cofactors(r, *v);
-        m_cofactor_cache.insert(r, v);  // takes ownership of v and pins the key r
+        cache.insert(r, v);  // takes ownership of v and pins the key r
         return *v;
     }
 
@@ -1659,4 +1663,3 @@ namespace seq {
     }
 
 }
-

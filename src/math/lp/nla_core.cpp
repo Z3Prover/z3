@@ -65,7 +65,6 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
     case llc::GT: return ls > rs;
     case llc::EQ: return ls == rs;
     case llc::NE: return ls != rs;
-    default: SASSERT(false);
     };
         
     return false;
@@ -284,9 +283,6 @@ bool core::explain_ineq(lemma_builder& lemma, const lp::lar_term& t, llc cmp, co
         // TBD - NB: does this work for Reals?
         r = explain_lower_bound(t, rs + rational(1), exp) || explain_upper_bound(t, rs - rational(1), exp);           
         break;
-    default:
-        UNREACHABLE();
-        return false;
     }
     if (r) {
         lemma &= exp;
@@ -1500,9 +1496,6 @@ unsigned core::get_var_weight(lpvar j) const {
     case lp::column_type::free_column:
         k = 9;
         break;
-    default:
-        UNREACHABLE();
-        break;
     }
     if (is_monic_var(j)) {
         k++;
@@ -1545,7 +1538,9 @@ bool core::propagate() {
         propagated = true;
     if (m_monomial_bounds.tighten_lp_bounds())
 		propagated = true;
-    if (m_monomial_bounds.propagate_changed_bounds()) 
+    if (m_monomial_bounds.propagate_changed_bounds())
+        propagated = true;
+    if (m_monomial_bounds.propagate_violated_linear_monomials())
         propagated = true;
     m_monics_with_changed_bounds.reset();
     if (propagated)

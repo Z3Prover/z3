@@ -418,9 +418,6 @@ namespace euf {
             }
             break;
         }
-        default:
-            IF_VERBOSE(0, verbose_stream() << (unsigned)j.kind() << "\n");
-            UNREACHABLE();
         }
     }
 
@@ -1090,9 +1087,6 @@ namespace euf {
                 euf::enode* n = c.node();
                 return out << "euf literal propagation " << (sat::literal(n->bool_var(), n->value() == l_false)) << " " << m_egraph.bpp(n);
             } 
-            default:
-                UNREACHABLE();
-                return out;
             }                
         }
         else 

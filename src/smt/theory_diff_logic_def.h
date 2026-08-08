@@ -545,9 +545,6 @@ void theory_diff_logic<Ext>::propagate() {
             }
             break;
         }
-        default:
-            SASSERT(false);
-            propagate_core();
         }
     }
     else {
