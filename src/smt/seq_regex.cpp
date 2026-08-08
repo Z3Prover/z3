@@ -31,8 +31,7 @@ namespace smt {
         ctx(th.get_context()),
         m(th.get_manager()),
         m_monadic(seq_rw(), ctx.get_trail_stack()),
-        m_state_to_expr(m),
-        m_state_graph(state_graph::state_pp(this, pp_state)) { 
+        m_live_states(seq_rw(), seq::transition_mode::brzozowski_tm, 10000) {
         m_monadic.set_is_var([&th](expr *e) { return th.is_var(e); });
     }
 
@@ -640,8 +639,8 @@ namespace smt {
         }
 
         if (info.interpreted) {
-            update_state_graph(r);            
-            if (m_state_graph.is_dead(get_state_id(r))) {
+            auto live = m_live_states.reachable_live(r);
+            if (live.is_dead()) {
                 STRACE(seq_regex_brief, tout << "(dead) ";);
                 th.add_axiom(~lit);
                 return true;
@@ -665,8 +664,7 @@ namespace smt {
     /**
      * Propagate the atom (accept s i r)
      *
-     * Propagation triggers updating the state graph for dead state detection:
-     * (accept s i r) => update_state_graph(r)
+     * Propagation triggers derivative reachability for dead state detection:
      * (accept s i r) & dead(r) => false
      *
      * Propagation is also blocked under certain conditions to throttle
@@ -1292,101 +1290,10 @@ namespace smt {
         return sk().mk("re.first", n, a().mk_int(r->get_id()), elem_sort);
     }
 
-    /**
-     * Dead state elimination using the state_graph class
-     */
-
-    unsigned seq_regex::get_state_id(expr* e) {
-        // Assign increasing IDs starting from 1
-        if (!m_expr_to_state.contains(e)) {
-            m_state_to_expr.push_back(e);
-            unsigned new_id = m_state_to_expr.size();
-            m_expr_to_state.insert(e, new_id);
-            STRACE(seq_regex_brief, tout << "new(" << expr_id_str(e)
-                                           << ")=" << state_str(e) << " ";);
-            STRACE(seq_regex, tout
-                << "New state ID: " << new_id
-                << " = " << mk_pp(e, m) << std::endl;);
-            SASSERT(get_expr_from_id(new_id) == e);
-        }
-        return m_expr_to_state.find(e);
-    }
-    expr* seq_regex::get_expr_from_id(unsigned id) {
-        SASSERT(id >= 1);
-        SASSERT(id <= m_state_to_expr.size());
-        return m_state_to_expr.get(id - 1);
-    }
-
-    bool seq_regex::can_be_in_cycle(expr *r1, expr *r2) {
-        // TBD: This can be used to optimize the state graph:
-        // return false here if it is known that r1 -> r2 can never be
-        // in a cycle. There are various easy syntactic checks on r1 and r2
-        // that can be used to infer this (e.g. star height, or length if
-        // both are star-free).
-        // This check need not be sound, but if it is not, some dead states
-        // will be missed.
-        return true;
-    }
-
-    /*
-        Update the state graph with expression r and all its derivatives.
-    */
-    bool seq_regex::update_state_graph(expr* r) {
-        unsigned r_id = get_state_id(r);
-        if (m_state_graph.is_done(r_id)) return false;
-        if (m_state_graph.get_size() >= m_max_state_graph_size) {
-            STRACE(seq_regex, tout << "Warning: ignored state graph update -- max size of seen states reached!" << std::endl;);
-            STRACE(seq_regex_brief, tout << "(MAX SIZE REACHED) ";);
-            return false;
-        }
-        STRACE(seq_regex, tout << "Updating state graph for regex "
-                                 << mk_pp(r, m) << ") ";);
-        
-        STRACE(state_graph,
-            if (!m_state_graph.is_seen(r_id))
-                tout << std::endl << "state(" << r_id << ") = " << re().to_str(r) << std::endl << "info(" << r_id << ") = " << re().get_info(r) << std::endl;);
-        // Add state
-        m_state_graph.add_state(r_id);
-        STRACE(seq_regex, tout << "Updating state graph for regex "
-                                 << mk_pp(r, m) << ") " << std::endl;);
-        STRACE(seq_regex_brief, tout << std::endl << "USG("
-                                       << state_str(r) << ") ";);
-        expr_ref r_nullable = is_nullable_wrapper(r);
-        if (m.is_true(r_nullable)) {
-            m_state_graph.mark_live(r_id);
-        }
-        else {
-            // Add edges to all derivatives
-            expr_ref_vector derivatives(m);
-            STRACE(seq_regex_verbose, tout
-                << "getting all derivs: " << r_id << " " << std::endl;);
-            get_derivative_targets(r, derivatives);
-            for (auto const& dr: derivatives) {
-                unsigned dr_id = get_state_id(dr);
-                STRACE(seq_regex_verbose, tout
-                    << std::endl << "  traversing deriv: " << dr_id << " ";);              
-                STRACE(state_graph,
-                    if (!m_state_graph.is_seen(dr_id))
-                        tout << "state(" << dr_id << ") = " << re().to_str(dr) << std::endl << "info(" << dr_id << ") = " << re().get_info(dr) << std::endl;);
-                // Add state
-                m_state_graph.add_state(dr_id);
-                bool maybecycle = can_be_in_cycle(r, dr);
-                m_state_graph.add_edge(r_id, dr_id, maybecycle);
-            }
-            m_state_graph.mark_done(r_id);
-        }
-
-        STRACE(seq_regex, m_state_graph.display(tout););
-        STRACE(seq_regex_brief, tout << std::endl;);
-        STRACE(seq_regex_brief, m_state_graph.display(tout););
-        return true;
-    }
-
     std::string seq_regex::state_str(expr* e) {
-        if (m_expr_to_state.contains(e))
-            return std::to_string(get_state_id(e));
-        else
-            return expr_id_str(e);
+        if (m_live_states.contains(e))
+            return std::to_string(m_live_states.state_id(e));
+        return expr_id_str(e);
     }
     std::string seq_regex::expr_id_str(expr* e) {
         return std::string("id") + std::to_string(e->get_id());

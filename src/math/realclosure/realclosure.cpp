@@ -4097,7 +4097,6 @@ namespace realclosure {
                 return 0;
             unsigned r = 0;
             int sign, prev_sign;
-            sign = 0;
             prev_sign = 0;
             unsigned i = 0;
             for (; i < sz; ++i) {

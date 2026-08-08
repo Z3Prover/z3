@@ -16,6 +16,7 @@ Notes:
 #include "math/simplex/bit_matrix.h"
 #include "util/stopwatch.h"
 #include "util/trace.h"
+#include "util/z3_exception.h"
 #include <cstring>
 
 
@@ -112,6 +113,8 @@ std::ostream& bit_matrix::display(std::ostream& out) {
  */
 unsigned_vector bit_matrix::gray(unsigned n) {
     SASSERT(n < 32);
+    if (n >= 32)
+        throw default_exception("Gray code bit width must be less than 32");
     if (n == 0) {
         return unsigned_vector();
     }

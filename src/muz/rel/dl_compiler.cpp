@@ -387,7 +387,6 @@ namespace datalog {
 
             make_rename(curr, permutation.size(), permutation.data(), curr, dealloc, acc);
             dealloc = true;
-            curr_sig = & m_reg_signatures[curr];
         }
 
         if(curr==execution_context::void_register) {
@@ -1330,4 +1329,3 @@ namespace datalog {
 
 
 }
-
