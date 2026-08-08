@@ -46,13 +46,9 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 | -------------|-----------------|---------------|---------------------|-------------------|
 | [![API Coherence Checker](https://github.com/Z3Prover/z3/actions/workflows/api-coherence-checker.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/api-coherence-checker.lock.yml) | [![Code Simplifier](https://github.com/Z3Prover/z3/actions/workflows/code-simplifier.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/code-simplifier.lock.yml) | [![Release Notes Updater](https://github.com/Z3Prover/z3/actions/workflows/release-notes-updater.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release-notes-updater.lock.yml) | [![Workflow Suggestion Agent](https://github.com/Z3Prover/z3/actions/workflows/workflow-suggestion-agent.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/workflow-suggestion-agent.lock.yml) | [![Academic Citation Tracker](https://github.com/Z3Prover/z3/actions/workflows/academic-citation-tracker.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/academic-citation-tracker.lock.yml) |
 
-| Issue Backlog | Memory Safety Report | Specbot Crash Analyzer | SMTLIB Benchmark Finder |
-| --------------|----------------------|------------------------|-------------------------|
-| [![Issue Backlog Processor](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml) | [![Memory Safety Report](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml) | [![Specbot Crash Analyzer](https://github.com/Z3Prover/z3/actions/workflows/specbot-crash-analyzer.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/specbot-crash-analyzer.lock.yml) | [![SMTLIB Benchmark Finder](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml) |
-
-| TPTP Benchmark |
-|----------------|
-| [![TPTP Front-End Benchmark](https://github.com/Z3Prover/z3/actions/workflows/tptp-benchmark.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/tptp-benchmark.lock.yml) |
+| Issue Backlog | Memory Safety Report | SMTLIB Benchmark Finder |
+| --------------|----------------------|-------------------------|
+| [![Issue Backlog Processor](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml) | [![Memory Safety Report](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml) | [![SMTLIB Benchmark Finder](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml) |
 
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
