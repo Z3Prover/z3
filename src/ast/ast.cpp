@@ -105,6 +105,8 @@ std::ostream& parameter::display(std::ostream& out) const {
     case PARAM_EXTERNAL: return out << '@' << get_ext_id();
     case PARAM_ZSTRING:  return out << get_zstring();
     }
+    UNREACHABLE();
+    return out;
 }
 
 void display_parameters(std::ostream & out, unsigned n, parameter const * p) {

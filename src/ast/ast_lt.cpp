@@ -130,6 +130,8 @@ bool lt(ast * n1, ast * n2) {
         n2 = to_var(n2)->get_sort();
         goto start;
     }
+    UNREACHABLE();
+    return false;
 }
 
 bool is_sorted(unsigned num, expr * const * ns) {

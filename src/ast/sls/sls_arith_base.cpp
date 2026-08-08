@@ -138,6 +138,8 @@ namespace sls {
                 return num_t(0);
             return args + ineq.m_coeff + 1;
         }
+        UNREACHABLE();
+        return num_t(0);
     }
 
     //

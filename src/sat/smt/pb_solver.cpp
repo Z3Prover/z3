@@ -3338,6 +3338,8 @@ namespace pb {
         case sat::PB_LEMMA_PB:
             return active2constraint();
         }
+        UNREACHABLE();
+        return nullptr;
     }
 
     constraint* solver::active2constraint() {
@@ -3772,5 +3774,4 @@ namespace pb {
     }
     
 }
-
 

@@ -548,6 +548,8 @@ namespace opt {
         case O_MINIMIZE: return execute_min_max(obj.m_index, committed, scoped, false);
         case O_MAXSMT: return execute_maxsat(obj.m_id, committed, scoped);
         }
+        UNREACHABLE();
+        return l_undef;
     }
     
     /**
@@ -1272,7 +1274,7 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             domain.push_back(args[i]->get_sort());
         }
-        char const* name;
+        char const* name = "";
         switch(ty) {
         case O_MAXIMIZE: name = "maximize"; break;
         case O_MINIMIZE: name = "minimize"; break;
@@ -1650,6 +1652,8 @@ namespace opt {
         case O_MAXIMIZE: 
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         }        
+        UNREACHABLE();
+        return inf_eps();
     }
 
     inf_eps context::get_upper_as_num(unsigned idx) {
@@ -1665,6 +1669,8 @@ namespace opt {
         case O_MAXIMIZE: 
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         }
+        UNREACHABLE();
+        return inf_eps();
     }
 
     expr_ref context::get_lower(unsigned idx) {

@@ -3313,6 +3313,8 @@ namespace nlsat {
             case atom::ROOT_LE: return l.sign();
             case atom::ROOT_GE: return l.sign();
             }
+            UNREACHABLE();
+            return false;
         }
 
         bool is_full_dimensional(clause const & c) const {

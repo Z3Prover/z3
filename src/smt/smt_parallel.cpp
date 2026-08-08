@@ -1809,6 +1809,8 @@ namespace smt {
         case state::is_exception_code:
             throw z3_error(m_exception_code);
         }
+        UNREACHABLE();
+        return l_undef;
     }
 
     bool parallel::batch_manager::get_cube(ast_translation &g2l, unsigned id, expr_ref_vector &cube, bool is_first_run, node_lease &lease) {

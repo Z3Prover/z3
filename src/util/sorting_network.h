@@ -259,6 +259,8 @@ Notes:
                 case sorting_network_encoding::circuit_at_most:
                     return circuit_ge(full, k, n, xs); 
                 }
+                UNREACHABLE();
+                return xs[0];
             }
         }
         
@@ -285,6 +287,8 @@ Notes:
                 case sorting_network_encoding::ordered_at_most:
                     return mk_ordered_atmost_1(full, n, xs);
                 }
+                UNREACHABLE();
+                return xs[0];
             }
             else {
                 switch (m_cfg.m_encoding) {
@@ -302,6 +306,8 @@ Notes:
                 case sorting_network_encoding::circuit_at_most:
                     return circuit_le(full, k, n, xs); 
                 }
+                UNREACHABLE();
+                return xs[0];
             }
         }
 
@@ -340,6 +346,8 @@ Notes:
                 case sorting_network_encoding::circuit_at_most:
                     return circuit_eq(k, n, xs);        
                 }
+                UNREACHABLE();
+                return xs[0];
             }
         }
 
@@ -479,6 +487,8 @@ Notes:
             case EQ:
                 return mk_and(mk_not(carry[k]), carry[k-1]);
             }
+            UNREACHABLE();
+            return xs[0];
         }
 
         literal unate_ge(bool full, unsigned k, unsigned n, literal const* xs) {
@@ -569,6 +579,8 @@ Notes:
                 return mk_and(eqs);
             }                
             }            
+            UNREACHABLE();
+            return xs[0];
         }
 
         literal mk_ge(literal_vector const& x, literal_vector const& y) {

@@ -232,6 +232,7 @@ extern "C" {
                     return "roundTowardZero";
                     break;
                 }
+                return "roundTowardZero";
             }
             else if (mk_c(c)->fpautil().is_numeral(to_expr(a), tmp)) {
                 return mk_c(c)->mk_external_string(fu.fm().to_rational_string(tmp));

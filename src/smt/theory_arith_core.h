@@ -2207,6 +2207,7 @@ namespace smt {
         case B_UPPER:
             return get_value(v) <= k ? l_true : l_false;
         }
+        return l_undef;
     }
 
     /**
@@ -3571,4 +3572,3 @@ namespace smt {
 
 
 }
-

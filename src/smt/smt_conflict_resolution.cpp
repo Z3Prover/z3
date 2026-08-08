@@ -908,6 +908,8 @@ namespace smt {
                 return pr;
             }
         }
+        UNREACHABLE();
+        return nullptr;
     }
 
     /**

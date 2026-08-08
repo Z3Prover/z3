@@ -776,6 +776,7 @@ namespace tb {
             case VAR_USE_SELECT:
                 return andrei_select(g);
             }
+            return weight_select(g);
         }
 
         void reset() {

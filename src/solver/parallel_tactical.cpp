@@ -969,6 +969,8 @@ class parallel_solver {
             case state::is_exception_code:
                 throw z3_error(m_exception_code);
             }
+            UNREACHABLE();
+            return l_undef;
         }
 
         std::string const& get_reason_unknown() const { return m_reason_unknown; }

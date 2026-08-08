@@ -1736,6 +1736,8 @@ namespace sat {
         case PS_RANDOM:
             return (m_rand() % 2) == 0;
         }
+        UNREACHABLE();
+        return false;
     }
 
     void solver::get_backbone_candidates(literal_vector& lits, unsigned max_num) {

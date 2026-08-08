@@ -66,6 +66,8 @@ struct z3_replayer::imp {
         case OBJECT_ARRAY: return "object_array";
         case FLOAT: return "float";
         }
+        UNREACHABLE();
+        return "unknown";
     }
 
 

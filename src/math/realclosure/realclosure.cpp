@@ -1088,6 +1088,8 @@ namespace realclosure {
             case extension::INFINITESIMAL:  return true;
             case extension::ALGEBRAIC:      return to_algebraic(ext)->depends_on_infinitesimals();
             }
+            UNREACHABLE();
+            return false;
         }
 
         /**
@@ -2487,6 +2489,8 @@ namespace realclosure {
                 case extension::INFINITESIMAL:  return false;
                 case extension::ALGEBRAIC: return is_algebraic_int(a);
                 }
+                UNREACHABLE();
+                return false;
             }
         }
 

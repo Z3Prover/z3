@@ -432,6 +432,7 @@ extern "C" {
         case AST_SORT:       return Z3_SORT_AST;
         case AST_FUNC_DECL:  return Z3_FUNC_DECL_AST;
         }
+        return Z3_UNKNOWN_AST;
         Z3_CATCH_RETURN(Z3_UNKNOWN_AST);
     }
 

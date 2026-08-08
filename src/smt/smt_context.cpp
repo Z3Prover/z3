@@ -1950,6 +1950,8 @@ namespace smt {
             return m_lit_occs[l.index()] > m_lit_occs[(~l).index()];
         }
         }
+        UNREACHABLE();
+        return false;
     }
 
     /**

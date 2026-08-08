@@ -295,6 +295,8 @@ bool lt(numeral_manager & m,
     case EN_PLUS_INFINITY:
         return false;
     }
+    UNREACHABLE();
+    return false;
 }
 
 template<typename numeral_manager>
