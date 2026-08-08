@@ -64,9 +64,6 @@ namespace sat {
                 return;
             gc_dyn_psm();
             break;
-        default:
-            UNREACHABLE();
-            break;
         }
         if (m_ext) m_ext->gc();
         if (gc > 0 && should_defrag()) {

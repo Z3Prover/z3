@@ -104,8 +104,6 @@ namespace lp {
                 if (is_pos(rc.coeff())) 
                     return this->x_above_lower_bound(j);
                 return this->x_below_upper_bound(j);
-            default:
-                return false;
             }
             UNREACHABLE(); // unreachable
             return false;
@@ -131,8 +129,6 @@ namespace lp {
                 if (is_neg(rc.coeff())) 
                     return this->x_above_lower_bound(j);
                 return this->x_below_upper_bound(j);
-            default:
-                return false;
             }
             UNREACHABLE(); // unreachable
             return false;
@@ -585,8 +581,6 @@ namespace lp {
                 }
 
                 break;
-            default:
-                UNREACHABLE();
         }
         if (!unlimited && theta < zero_of_type<X>()) {
             theta = zero_of_type<X>();

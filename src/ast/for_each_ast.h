@@ -239,10 +239,6 @@ public:
                 }
                 break;
             }
-                
-            default:
-                UNREACHABLE();
-                break;
             }
         }        
         
@@ -268,5 +264,3 @@ private:
         }
     }        
 };
-
-

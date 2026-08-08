@@ -67,9 +67,8 @@ namespace {
             return "brzozowski";
         case seq::transition_mode::light_antimirov_tm:
             return "light-antimirov";
-        default:
-            return "unknown";
         }
+        return "unknown";
     }
 
     char const* bail_name(unsigned i) {

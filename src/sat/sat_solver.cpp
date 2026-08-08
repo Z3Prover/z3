@@ -1186,9 +1186,6 @@ namespace sat {
                     it2++;
                 }
                 break;
-            default:
-                UNREACHABLE();
-                break;
             }
         }
         wlist.set_end(it2);
@@ -1738,10 +1735,9 @@ namespace sat {
             return m_best_phase[next];
         case PS_RANDOM:
             return (m_rand() % 2) == 0;
-        default:
-            UNREACHABLE();
-            return false;
         }
+        UNREACHABLE();
+        return false;
     }
 
     void solver::get_backbone_candidates(literal_vector& lits, unsigned max_num) {
@@ -2454,9 +2450,6 @@ namespace sat {
             break;
         case RS_STATIC:
             break;
-        default:
-            UNREACHABLE();
-            break;
         }
         CASSERT("sat_restart", check_invariant());
     }
@@ -2595,9 +2588,6 @@ namespace sat {
                     process_antecedent(l, num_marks);                
                 break;
             }
-            default:
-                UNREACHABLE();
-                break;
             }
             
             bool_var c_var;
@@ -2765,9 +2755,6 @@ namespace sat {
             }
             break;
         }
-        default:
-            UNREACHABLE();
-            break;
         }
     }
 
@@ -2888,9 +2875,6 @@ namespace sat {
             for (literal l : m_ext_antecedents) 
                 level = update_max_level(l, level, unique_max);
             break;
-        default:
-            UNREACHABLE();
-            break;
         }
         TRACE(sat, tout << "max-level " << level << " " << unique_max << "\n");
         return level;
@@ -2928,8 +2912,6 @@ namespace sat {
                 break;
             case BH_CHB:
                 m_last_conflict[var] = m_stats.m_conflicts;
-                break;
-            default:
                 break;
             }
             if (var_lvl == m_conflict_lvl)
@@ -3073,9 +3055,6 @@ namespace sat {
                     set_phase(i, m_best_phase[i]);
             }
 
-            break;
-        default:
-            UNREACHABLE();
             break;
         }
         m_rephase_inc += m_config.m_rephase_base;
@@ -3286,9 +3265,6 @@ namespace sat {
                 }
                 break;
             }
-            default:
-                UNREACHABLE();
-                break;
             }
             TRACE(sat_conflict, 
                   display_justification(tout << var << " ",js) << "\n";);
@@ -4023,8 +3999,6 @@ namespace sat {
             if (m_ext) 
                 m_ext->display_justification(out << "ext ", js.get_ext_justification_idx());            
             break;
-        default:
-            break;
         }
         return out;
     }
@@ -4687,9 +4661,6 @@ namespace sat {
             }
             break;
         }
-        default:
-            UNREACHABLE();
-            break;
         }
         TRACE(sat, display_index_set(tout << lit << ": " , s) << "\n";);
         return all_found;

@@ -168,8 +168,6 @@ class func_decl_dependencies::top_sort {
                     return true;
                 }
                 break;
-            default:
-                UNREACHABLE();
             }
         }
         return false;

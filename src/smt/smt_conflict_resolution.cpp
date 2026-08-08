@@ -112,7 +112,6 @@ namespace smt {
                   break;
               case eq_justification::JUSTIFICATION: tout << " justification\n";  break;
               case eq_justification::CONGRUENCE: tout << " congruence\n"; break;
-              default:  break;
               });
 
         switch(js.get_kind()) {
@@ -140,8 +139,6 @@ namespace smt {
             }
             break;
         }
-        default:
-            UNREACHABLE();
         }
     }
 
@@ -303,8 +300,6 @@ namespace smt {
         case b_justification::JUSTIFICATION:
             r = std::max(r, get_justification_max_lvl(js.get_justification()));
             break;
-        default:
-            UNREACHABLE();
         }
         return r;
     }
@@ -554,8 +549,6 @@ namespace smt {
             case b_justification::JUSTIFICATION:
                 process_justification(consequent, js.get_justification(), num_marks);
                 break;
-            default:
-                UNREACHABLE();
             }
 
             while (true) {
@@ -914,10 +907,9 @@ namespace smt {
                 m_new_proofs.push_back(pr);
                 return pr;
             }
-        default:
-            UNREACHABLE();
-            return nullptr;
         }
+        UNREACHABLE();
+        return nullptr;
     }
 
     /**
@@ -1181,8 +1173,6 @@ namespace smt {
                 }
                 break;
             }
-            default:
-                UNREACHABLE();
             }
             lhs = lhs->m_trans.m_target;
         }
@@ -1322,8 +1312,6 @@ namespace smt {
                 }
                 break;
             }
-            default:
-                UNREACHABLE();
             }
         }
 
@@ -1445,8 +1433,6 @@ namespace smt {
             case b_justification::JUSTIFICATION:
                 process_justification_for_unsat_core(js.get_justification());
                 break;
-            default:
-                UNREACHABLE();
             }
 
             if (m_ctx.is_assumption(consequent.var())) {

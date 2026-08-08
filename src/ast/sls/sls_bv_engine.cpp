@@ -264,8 +264,6 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
         case MV_INV:
             mk_inv(m_bv_util.get_bv_size(fd->get_range()), m_tracker.get_value(fd), new_value);
             break;
-        default:
-            NOT_IMPLEMENTED_YET();
         }
 
         TRACE(sls, tout << "Randomization candidates: ";

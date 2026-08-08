@@ -645,9 +645,8 @@ namespace sls {
         case bv_lookahead::move_type::random_t: return out << "random";
         case bv_lookahead::move_type::move_t:   return out << "move";
         case bv_lookahead::move_type::reset_t:  return out << "reset";
-        default:
-            return out;
         }
+        return out;
     }
 
     bool bv_lookahead::apply_update(expr* p, expr* t, bvect const& new_value, move_type mt) {

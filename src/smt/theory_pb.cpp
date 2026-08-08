@@ -1644,8 +1644,6 @@ namespace smt {
             }            
             break;
         }
-        default:
-            break;
         }
         return result;
     }
@@ -1941,8 +1939,6 @@ namespace smt {
                 
                 break;
             }
-            default:
-                UNREACHABLE();
             }            
             m_bound += offset * bound;
 

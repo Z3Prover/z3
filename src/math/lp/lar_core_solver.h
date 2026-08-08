@@ -169,8 +169,6 @@ public:
         case column_type::boxed:
         case column_type::fixed:
             return true;
-        default:
-            UNREACHABLE();
         }
         return false;
     }
@@ -184,8 +182,6 @@ public:
         case column_type::boxed:
         case column_type::fixed:
             return true;
-        default:
-            UNREACHABLE();
         }
         return false;
     }

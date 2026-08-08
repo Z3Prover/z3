@@ -31,6 +31,7 @@ set(CLANG_ONLY_WARNINGS
   "-Wnoctad-maybe-unsupported"
   "-Wdeprecated-copy-with-user-provided-copy"
   "-Wgnu-anonymous-struct"
+  "-Wcovered-switch-default"
 )
 
 set(MSVC_WARNINGS "/W3")
