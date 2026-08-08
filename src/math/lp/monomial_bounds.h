@@ -50,8 +50,10 @@ namespace nla {
         // when all but one variable of a monomial are fixed, the monomial is
         // linear and its value/equality can be propagated into the LP solver.
         bool propagate_linear_bound(monic & m);
+        bool linearize(monic const& m, lpvar w, lpvar fixed_to_zero);
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
+
 
         // ----------------------------------------------------------------
         // max_min: incremental LP bound optimization.
@@ -91,6 +93,7 @@ namespace nla {
         bool tighten_lp_bounds();
         bool propagate_linear_bounds();
         bool propagate_changed_bounds();
+        bool propagate_violated_linear_monomials();
         bool propagate_fixed_rows();
         bool optimize_nl_bounds();
 
