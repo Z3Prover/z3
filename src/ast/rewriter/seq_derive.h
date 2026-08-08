@@ -95,7 +95,8 @@ namespace seq {
         obj_pair_map<expr, expr, expr*> m_atop_cache, m_btop_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
        
-        cofactor_cache       m_cofactor_cache;
+        cofactor_cache       m_brz_cofactor_cache;
+        cofactor_cache       m_ant_cofactor_cache;
 
         // Op cache for ITE-hoisting operations (union, inter, concat, complement)
         // Path-aware caches: key is (a, b, path_expr) for binary ops, (a, path_expr) for complement
@@ -276,7 +277,8 @@ namespace seq {
         expr_ref_pair_vector const &get_cached_cofactors(transition_mode mode, expr *r);
 
         void maybe_reset_cached_cofactors(unsigned cap) {
-            m_cofactor_cache.maybe_reset(cap);
+            m_brz_cofactor_cache.maybe_reset(cap);
+            m_ant_cofactor_cache.maybe_reset(cap);
         }
 
         /**
