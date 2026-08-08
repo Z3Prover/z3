@@ -721,7 +721,12 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     m_rp_cache.maybe_reset(1u << 16);
     reset_ivl_cache();
     m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
-    m_budget = 200000;
+    // Work budget for one decide() call, counted in search-node and product-pop
+    // units.  Recalibrated from 200000 once the interval-refinement product
+    // replaced the cartesian one: a pop now costs roughly an order of magnitude
+    // less, so the old value bailed to the legacy fallback on goals the monadic
+    // path can finish outright.
+    m_budget = 1000000;
     m_giveup = false;
     lbool r = l_true;                             // empty conjunction is vacuously true
     if (!memberships.empty() && !prepare(memberships))
