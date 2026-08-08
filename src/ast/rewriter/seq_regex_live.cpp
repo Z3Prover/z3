@@ -26,6 +26,7 @@ namespace seq {
         bool_vector m_live;
         bool_vector m_closed;
         svector<unsigned> m_live_frontier;
+        unsigned m_root_id = 0;
         failure m_failure = failure::none;
         bool m_complete = false;
     };
@@ -185,6 +186,7 @@ namespace seq {
                 return s;
             s = alloc(search);
             unsigned root_id = intern(root);
+            s->m_root_id = root_id;
             add_state(*s, root_id);
             m_searches.insert(root, s);
             return s;
@@ -272,7 +274,34 @@ namespace seq {
         return m_imp->ensure(*s, index);
     }
 
+    /*
+      Yield the root before the rest of the frontier.
+
+      States enter m_live_frontier in the order their liveness is *discovered*, which is
+      bottom-up: a nullable state is marked first and liveness then propagates backwards to
+      its predecessors, so the root -- reachable to every state, and rarely nullable itself
+      -- is typically marked last.  Callers use this order as a search order, and the
+      eager traversal this replaced emitted states in interning order with the root at
+      index 0.  Dropping the root to the back therefore reordered the consumer's search and
+      cost several benchmarks their witness-first branch.
+
+      The remap is well defined because every state in the search is reachable from the
+      root, so liveness of any state propagates to the root within the same expand() step:
+      whenever the frontier is non-empty at an ensure() boundary the root is already live
+      and present in it, and the element count is unchanged.
+    */
     expr* live_states::get_live(search* s, unsigned index) const {
+        unsigned root = s->m_root_id;
+        if (!s->m_live.get(root, false))
+            return m_imp->m_states.get(s->m_live_frontier[index]);
+        if (index == 0)
+            return m_imp->m_states.get(root);
+        for (unsigned i = 0, seen = 0; i < s->m_live_frontier.size(); ++i) {
+            if (s->m_live_frontier[i] == root)
+                continue;
+            if (++seen == index)
+                return m_imp->m_states.get(s->m_live_frontier[i]);
+        }
         return m_imp->m_states.get(s->m_live_frontier[index]);
     }
 
