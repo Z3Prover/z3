@@ -166,8 +166,6 @@ class lar_solver : public column_namer {
     void remove_last_column_from_tableau();
     void clean_inf_heap_of_r_solver_after_pop();
     inline bool column_value_is_integer(unsigned j) const { return get_column_value(j).is_int(); }
-    bool model_is_int_feasible() const;
-
     bool bound_is_integer_for_integer_column(unsigned j, const mpq& right_side) const;
     const lar_core_solver& get_core_solver() const;
     lar_core_solver& get_core_solver();
@@ -600,6 +598,7 @@ public:
     const vector<impq>& r_x() const { return get_core_solver().r_x(); }
     bool column_is_int(unsigned j) const;
     inline bool column_value_is_int(unsigned j) const { return get_core_solver().r_x(j).is_int(); }
+    bool model_is_int_feasible() const;
     inline static_matrix<mpq, impq>& A_r() { return get_core_solver().m_r_A; }
     inline const static_matrix<mpq, impq>& A_r() const { return get_core_solver().m_r_A; }
     // columns

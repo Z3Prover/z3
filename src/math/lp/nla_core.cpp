@@ -1168,18 +1168,18 @@ bool core::to_refine_is_correct() const {
     return true;
 }
 
-void core::patch_monomial(lpvar j) {    
+bool core::patch_monomial(lpvar j) {
     m_patched_monic =& (emon(j));
     m_patched_var = j;
     TRACE(nla_solver, tout << "m = "; print_monic(*m_patched_monic, tout) << "\n";);
     rational v = mul_val(*m_patched_monic);
     if (val(j) == v) {
         erase_from_to_refine(j);
-        return;
+        return false;
     }
     if (!var_breaks_correct_monic(j) && try_to_patch(v)) {
-        SASSERT(to_refine_is_correct());        
-        return;
+        SASSERT(to_refine_is_correct());
+        return true;
     }
   
     // We could not patch j, now we try patching the factor variables.
@@ -1191,11 +1191,11 @@ void core::patch_monomial(lpvar j) {
             m_patched_var = (*m_patched_monic).vars()[0];
             if (!var_breaks_correct_monic(m_patched_var) && (try_to_patch(root) || try_to_patch(-root))) { 
                 TRACE(nla_solver, tout << "patched square\n";);
-                return;
+                return true;
             }
         }
         TRACE(nla_solver, tout << " cannot patch\n";);
-        return;
+        return false;
     }
 
     // We have v != abc, but we need to have v = abc.
@@ -1212,13 +1212,14 @@ void core::patch_monomial(lpvar j) {
                 TRACE(nla_solver, tout << "patched  " << m_patched_var << "\n";);
                 SASSERT(mul_val((*m_patched_monic)) == val(j));
                 erase_from_to_refine(j);
-                break;
+                return true;
             }
         }
     }
+    return false;
 }
 
-void core::patch_monomials_on_to_refine() {
+bool core::patch_monomials_on_to_refine() {
     // the rest of the function might change m_to_refine, so have to copy
     unsigned_vector to_refine;
     for (unsigned j : m_to_refine) 
@@ -1227,16 +1228,18 @@ void core::patch_monomials_on_to_refine() {
     unsigned sz = to_refine.size();
 
     unsigned start = random();
+    bool patched = false;
     for (unsigned i = 0; i < sz && !m_to_refine.empty(); ++i) 
-        patch_monomial(to_refine[(start + i) % sz]);
+        patched |= patch_monomial(to_refine[(start + i) % sz]);
 
     TRACE(nla_solver, tout << "sz = " << sz << ", m_to_refine = " << m_to_refine.size() <<
           (sz > m_to_refine.size()? " less" : " same" ) << "\n";);
+    return patched;
 }
 
-void core::patch_monomials() {
+bool core::patch_monomials() {
     m_cautious_patching = true;
-    patch_monomials_on_to_refine();
+    return patch_monomials_on_to_refine();
 }
 
 /**
@@ -1303,20 +1306,29 @@ lbool core::check(unsigned level) {
         return l_undef;
     }
 
+    set_use_nra_model(false);
     init_to_refine();
-    patch_monomials();
-    set_use_nra_model(false);    
     if (m_to_refine.empty())
-        return l_true;    
+        return l_true;
+    bool patched = patch_monomials();
+    if (m_to_refine.empty()) {
+        SASSERT(patched);
+        return l_false;
+    }
     init_search();
-    m_nla_satisfied = false;
+
+    if (m_monomial_bounds.optimize_nl_bounds()) {
+        init_to_refine();
+        if (m_to_refine.empty())
+            return l_false;
+    }
 
     lbool ret = l_undef;
     bool run_grobner = need_run_grobner();
     bool run_horner = need_run_horner();
     bool run_bounds = params().arith_nl_branching();
 
-    auto no_effect = [&]() { return ret == l_undef && !done() && !m_nla_satisfied && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
+    auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
     if (no_effect())
         m_monomial_bounds.generate_lemmas();
@@ -1325,24 +1337,34 @@ lbool core::check(unsigned level) {
         return l_false;
        
     
-    {
-        std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
-        std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
-        std::function<void(void)> check3 = [&]() { if (no_effect() && run_bounds) add_bounds(); };
-
-        std::pair<unsigned, std::function<void(void)>> checks[] =
-            { {1, check1},
-              {1, check2},
-              {1, check3} };
-        check_weighted(3, checks);
-
-        if (lp_settings().get_cancel_flag())
-            return l_undef;
-        if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
-            return l_false;
-        // bound optimization proved all monomials consistent: goal satisfied.
-        if (m_nla_satisfied)
-            return l_true;
+    if (no_effect()) {
+        unsigned old_idx = m_strategy_idx;
+        trail().push(value_trail(m_strategy_idx));
+        do {
+            switch (m_strategy_idx) {
+            case 0:
+                propagate();
+                break;
+            case 1:
+                if (run_horner)
+                    m_horner.horner_lemmas();
+                break;
+            case 2:
+                if (run_grobner)
+                    m_grobner();
+                break;
+            case 3:
+                if (run_bounds)
+                    add_bounds();
+                break;
+            }
+            m_strategy_idx = (m_strategy_idx + 1) % 4;
+            if (lp_settings().get_cancel_flag())
+                return l_undef;
+            if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
+                return l_false;
+        }
+        while (m_strategy_idx != old_idx);
     }
 
     if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {

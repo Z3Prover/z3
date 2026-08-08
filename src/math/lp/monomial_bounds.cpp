@@ -1127,9 +1127,8 @@ namespace nla {
        \brief Tighten the bounds of variables occurring in nonlinear monomials by
        maximizing/minimizing them over the LP tableau (analogous to theory_arith's
        max_min_nl_vars). The tighter implied bounds, each carrying an LP explanation,
-       let the subsequent horner/cross-nested interval evaluation exclude zero and
-       detect a conflict that would otherwise be missed with only the propagated
-       bounds.
+       let subsequent nonlinear checks exclude zero and detect conflicts that would
+       otherwise be missed with only the propagated bounds.
     */
     bool monomial_bounds::optimize_nl_bounds() {
         if (!c().params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
@@ -1141,11 +1140,16 @@ namespace nla {
         auto& lra = c().lra;
         if (!lra.is_feasible())
             return false;
-        if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE) {
-            // find_feasible_solution moved the model; keep m_to_refine in sync.
-            c().init_to_refine();
+        SASSERT(lra.model_is_int_feasible());
+        auto check_model = [&]() {
+            SASSERT(lra.is_feasible());
+            SASSERT(lra.model_is_int_feasible());
+        };
+        auto status = lra.find_feasible_solution();
+        SASSERT(status != lp::lp_status::INFEASIBLE);
+        if (status == lp::lp_status::INFEASIBLE)
             return false;
-        }
+        check_model();
 
         // Gather the candidate columns: every non-fixed leaf variable that
         // participates in a monomial (mirrors solver=2's max_min_nl_vars).
@@ -1170,12 +1174,8 @@ namespace nla {
         // problems this pass is expensive and rarely productive, so skip it when the
         // candidate set exceeds the threshold (0 = unlimited).
         unsigned const max_vars = c().params().arith_nl_optimize_bounds_lp_max_vars();
-        if (max_vars != 0 && cands.size() > max_vars) {
-            // find_feasible_solution() above already moved the model, so m_to_refine
-            // is stale on this path too and has to be re-calibrated before returning.
-            c().init_to_refine();
-            return false;
-        }
+        if (max_vars != 0 && cands.size() > max_vars)
+            return true;
 
         // Collect improved bounds first (each improve_bound maximizes a term
         // over the *unchanged* constraint set, so all improvements are valid implied
@@ -1191,6 +1191,7 @@ namespace nla {
             for (bool is_lower : { true, false }) {
                 rational bound;
                 u_dependency* dep = improve_bound(j, is_lower, bound);
+                check_model();
                 if (!dep)
                     continue;
                 auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
@@ -1201,18 +1202,16 @@ namespace nla {
         if (improvements.empty()) {
             // The exploratory simplex walk in improve_bound/mm_optimize mutated the
             // LP model even though no bound was tightened.  Restore a clean feasible
-            // model and re-calibrate m_to_refine so downstream lemma passes (grobner,
-            // basic_lemma) never see a stale monomial that is now consistent.
+            // model so downstream lemma passes see a feasible integral assignment.
             lra.find_feasible_solution();
-            c().init_to_refine();
-            return false;
+            check_model();
+            return true;
         }
 
         for (auto const& ib : improvements)
             lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
         lra.find_feasible_solution();
-        // The model changed: re-calibrate m_to_refine against the new assignment.
-        c().init_to_refine();
+        check_model();
         return true;
     }
 

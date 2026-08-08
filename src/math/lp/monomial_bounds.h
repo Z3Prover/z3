@@ -92,6 +92,7 @@ namespace nla {
         bool propagate_linear_bounds();
         bool propagate_changed_bounds();
         bool propagate_fixed_rows();
+        // Return true when optimization ran and may have changed the LP model.
         bool optimize_nl_bounds();
 
         // Maximize (is_lower == false) or minimize (is_lower == true) column j

@@ -113,7 +113,8 @@ void test_monomial_bounds_intervals() {
     s.set_column_value_test(ab, lp::impq(rational(3), rational(4))); // 0.5 * 1.5 = 0.75
     
     lbool result = nla_solver.test_check();
-    VERIFY(result != l_false); // Should be consistent
+    VERIFY(result == l_false); // Patching requests another final-check round.
+    VERIFY(nla_solver.test_check() != l_false); // The repaired assignment is then consistent.
 }
 
 void test_monomial_bounds_power() {

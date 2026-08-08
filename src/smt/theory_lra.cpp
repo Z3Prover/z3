@@ -172,6 +172,7 @@ class theory_lra::imp {
     indexed_uint_set                                         m_tmp_var_set;
     
     unsigned                                          m_num_conflicts;
+    unsigned                                          m_final_check_idx = 0;
 
     // non-linear arithmetic
     scoped_ptr<nla::solver>  m_nla;
@@ -1500,6 +1501,9 @@ public:
     void init_search_eh() {
         m_arith_eq_adapter.init_search_eh();
         m_num_conflicts = 0;
+        m_final_check_idx = 0;
+        if (m_nla)
+            m_nla->reset_strategy();
     }
 
     bool can_get_value(theory_var v) const {
@@ -1745,42 +1749,76 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        propagate_nla(); 
         if (!lp().is_feasible() || lp().has_changed_columns()) 
             is_sat = make_feasible();
         final_check_status st = FC_DONE;
         bool int_undef = false;
         switch (is_sat) {
         case l_true:
-            TRACE(arith, display(tout));            
-                
-            switch (check_lia()) {
-            case FC_DONE:
-                break;
-            case FC_CONTINUE:
-                return FC_CONTINUE;
-            case FC_GIVEUP:
-                int_undef = true;
-                TRACE(arith, tout << "check-lia giveup\n";);
-                if (ctx().get_fparams().m_arith_ignore_int)
-                    st = FC_CONTINUE;
-                break;
-            }
+            TRACE(arith, display(tout));
+            {
+                unsigned old_idx = m_final_check_idx;
+                bool nla_checked = false;
+                bool lia_after_nla = false;
+                final_check_status current = FC_DONE;
+                ctx().push_trail(value_trail(m_final_check_idx));
+                do {
+                    if (ctx().get_cancel_flag())
+                        return FC_GIVEUP;
+                    current = FC_DONE;
+                    switch (m_final_check_idx) {
+                    case 0:
+                        current = check_lia();
+                        lia_after_nla |= nla_checked;
+                        if (current == FC_GIVEUP) {
+                            int_undef = true;
+                            TRACE(arith, tout << "check-lia giveup\n";);
+                            if (st != FC_GIVEUP)
+                                st = FC_CONTINUE;
+                            current = FC_DONE;
+                        }
+                        break;
+                    case 1:
+                        if (assume_eqs()) {
+                            ++m_stats.m_assume_eqs;
+                            current = FC_CONTINUE;
+                        }
+                        break;
+                    case 2:
+                        if (!lp().model_is_int_feasible()) {
+                            current = check_lia();
+                            if (current == FC_GIVEUP) {
+                                int_undef = true;
+                                current = FC_DONE;
+                            }
+                            if (current != FC_DONE)
+                                break;
+                        }
+                        current = check_nla(level);
+                        nla_checked = current == FC_DONE;
+                        if (current == FC_GIVEUP) {
+                            TRACE(arith, tout << "check-nra giveup\n";);
+                            st = FC_GIVEUP;
+                            current = FC_DONE;
+                        }
+                        break;
+                    }
+                    m_final_check_idx = (m_final_check_idx + 1) % 3;
+                    if (current == FC_CONTINUE)
+                        return FC_CONTINUE;
+                }
+                while (m_final_check_idx != old_idx);
 
-            switch (check_nla(level)) {
-            case FC_DONE:
-                break;
-            case FC_CONTINUE:
-                return FC_CONTINUE;
-            case FC_GIVEUP:
-                TRACE(arith, tout << "check-nra giveup\n";);
-                st = FC_GIVEUP;
-                break;
-            }                        
-                        
-            if (assume_eqs()) {
-                ++m_stats.m_assume_eqs;
-                return FC_CONTINUE;
+                // LIA may repair the integer assignment while reporting FC_DONE.
+                // If NLA ran earlier in this round-robin cycle, validate the
+                // repaired assignment before accepting it.
+                if (lia_after_nla) {
+                    current = check_nla(level);
+                    if (current == FC_CONTINUE)
+                        return FC_CONTINUE;
+                    if (current == FC_GIVEUP)
+                        st = FC_GIVEUP;
+                }
             }
 
             if (!int_undef && !check_bv_terms())
@@ -2327,16 +2365,6 @@ public:
             break;
         }
         return true;            
-    }
-
-    bool propagate_nla() {
-        bool propagated = false;
-        if (m_nla) {
-            propagated = m_nla->propagate();
-            add_lemmas();
-            lp().collect_more_rows_for_lp_propagation();
-        }
-        return propagated;
     }
 
     bool incremental_propagate_nla() {
