@@ -41,13 +41,12 @@ public:
     // Lifetime contract: expr* keys are assumed to outlive the cache (their lifetime is
     // managed by the caller -- e.g. by the cofactor_cache that owns the guard expressions).
     class cache {
-        ast_manager &m;
         expr_ref_vector m_trail;
         obj_map<expr, seq::range_predicate *> m_cache;
         seq::range_predicate *m_fresh = nullptr;
 
     public:
-        cache(ast_manager &m) : m(m), m_trail(m) {}
+        cache(ast_manager &m) : m_trail(m) {}
         ~cache() {
             reset();
         }

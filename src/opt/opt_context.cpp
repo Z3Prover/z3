@@ -1272,7 +1272,7 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             domain.push_back(args[i]->get_sort());
         }
-        char const* name = "";
+        char const* name;
         switch(ty) {
         case O_MAXIMIZE: name = "maximize"; break;
         case O_MINIMIZE: name = "minimize"; break;
