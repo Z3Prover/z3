@@ -1758,14 +1758,18 @@ public:
             TRACE(arith, display(tout));
             {
                 unsigned old_idx = m_final_check_idx;
+                bool nla_checked = false;
+                bool lia_after_nla = false;
+                final_check_status current = FC_DONE;
                 ctx().push_trail(value_trail(m_final_check_idx));
                 do {
                     if (ctx().get_cancel_flag())
                         return FC_GIVEUP;
-                    final_check_status current = FC_DONE;
+                    current = FC_DONE;
                     switch (m_final_check_idx) {
                     case 0:
                         current = check_lia();
+                        lia_after_nla |= nla_checked;
                         if (current == FC_GIVEUP) {
                             int_undef = true;
                             TRACE(arith, tout << "check-lia giveup\n";);
@@ -1781,7 +1785,17 @@ public:
                         }
                         break;
                     case 2:
+                        if (!lp().model_is_int_feasible()) {
+                            current = check_lia();
+                            if (current == FC_GIVEUP) {
+                                int_undef = true;
+                                current = FC_DONE;
+                            }
+                            if (current != FC_DONE)
+                                break;
+                        }
                         current = check_nla(level);
+                        nla_checked = current == FC_DONE;
                         if (current == FC_GIVEUP) {
                             TRACE(arith, tout << "check-nra giveup\n";);
                             st = FC_GIVEUP;
@@ -1794,6 +1808,17 @@ public:
                         return FC_CONTINUE;
                 }
                 while (m_final_check_idx != old_idx);
+
+                // LIA may repair the integer assignment while reporting FC_DONE.
+                // If NLA ran earlier in this round-robin cycle, validate the
+                // repaired assignment before accepting it.
+                if (lia_after_nla) {
+                    current = check_nla(level);
+                    if (current == FC_CONTINUE)
+                        return FC_CONTINUE;
+                    if (current == FC_GIVEUP)
+                        st = FC_GIVEUP;
+                }
             }
 
             if (!int_undef && !check_bv_terms())

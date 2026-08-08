@@ -1168,18 +1168,18 @@ bool core::to_refine_is_correct() const {
     return true;
 }
 
-void core::patch_monomial(lpvar j) {    
+bool core::patch_monomial(lpvar j) {
     m_patched_monic =& (emon(j));
     m_patched_var = j;
     TRACE(nla_solver, tout << "m = "; print_monic(*m_patched_monic, tout) << "\n";);
     rational v = mul_val(*m_patched_monic);
     if (val(j) == v) {
         erase_from_to_refine(j);
-        return;
+        return false;
     }
     if (!var_breaks_correct_monic(j) && try_to_patch(v)) {
         SASSERT(to_refine_is_correct());
-        return;
+        return true;
     }
   
     // We could not patch j, now we try patching the factor variables.
@@ -1191,11 +1191,11 @@ void core::patch_monomial(lpvar j) {
             m_patched_var = (*m_patched_monic).vars()[0];
             if (!var_breaks_correct_monic(m_patched_var) && (try_to_patch(root) || try_to_patch(-root))) { 
                 TRACE(nla_solver, tout << "patched square\n";);
-                return;
+                return true;
             }
         }
         TRACE(nla_solver, tout << " cannot patch\n";);
-        return;
+        return false;
     }
 
     // We have v != abc, but we need to have v = abc.
@@ -1212,13 +1212,14 @@ void core::patch_monomial(lpvar j) {
                 TRACE(nla_solver, tout << "patched  " << m_patched_var << "\n";);
                 SASSERT(mul_val((*m_patched_monic)) == val(j));
                 erase_from_to_refine(j);
-                break;
+                return true;
             }
         }
     }
+    return false;
 }
 
-void core::patch_monomials_on_to_refine() {
+bool core::patch_monomials_on_to_refine() {
     // the rest of the function might change m_to_refine, so have to copy
     unsigned_vector to_refine;
     for (unsigned j : m_to_refine) 
@@ -1227,16 +1228,18 @@ void core::patch_monomials_on_to_refine() {
     unsigned sz = to_refine.size();
 
     unsigned start = random();
+    bool patched = false;
     for (unsigned i = 0; i < sz && !m_to_refine.empty(); ++i) 
-        patch_monomial(to_refine[(start + i) % sz]);
+        patched |= patch_monomial(to_refine[(start + i) % sz]);
 
     TRACE(nla_solver, tout << "sz = " << sz << ", m_to_refine = " << m_to_refine.size() <<
           (sz > m_to_refine.size()? " less" : " same" ) << "\n";);
+    return patched;
 }
 
-void core::patch_monomials() {
+bool core::patch_monomials() {
     m_cautious_patching = true;
-    patch_monomials_on_to_refine();
+    return patch_monomials_on_to_refine();
 }
 
 /**
@@ -1279,7 +1282,7 @@ void core::add_bounds() {
         lpvar i = m_to_refine[(k + r) % sz];
         auto const& m = m_emons[i];
         for (lpvar j : m.vars()) {
-            if (!var_is_free(j) || lra.var_is_int(j))
+            if (!var_is_free(j))
                 continue;
 	    if (m.is_bound_propagated())
                 continue;
@@ -1307,14 +1310,18 @@ lbool core::check(unsigned level) {
     init_to_refine();
     if (m_to_refine.empty())
         return l_true;
-    patch_monomials();
-    if (m_to_refine.empty())
+    bool patched = patch_monomials();
+    if (m_to_refine.empty()) {
+        SASSERT(patched);
         return l_false;
+    }
     init_search();
 
-    m_monomial_bounds.optimize_nl_bounds();
-    if (m_to_refine.empty())
-        return l_false;
+    if (m_monomial_bounds.optimize_nl_bounds()) {
+        init_to_refine();
+        if (m_to_refine.empty())
+            return l_false;
+    }
 
     lbool ret = l_undef;
     bool run_grobner = need_run_grobner();
