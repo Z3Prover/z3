@@ -765,9 +765,6 @@ namespace bv {
             return out << "bv <- " << m_bits[v1] << " != " << m_bits[v2] << " @" << cidx;
         case bv_justification::kind_t::bv2int:
             return out << "bv <- v" << v1 << " == v" << v2 << " <== " << ctx.bpp(c.a) << " == " << ctx.bpp(c.b) << " == " << ctx.bpp(c.c);
-        default:
-            UNREACHABLE();
-            break;
         }
         return out;
     }

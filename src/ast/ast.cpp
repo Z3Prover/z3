@@ -104,9 +104,6 @@ std::ostream& parameter::display(std::ostream& out) const {
     case PARAM_DOUBLE:   return out << get_double();
     case PARAM_EXTERNAL: return out << '@' << get_ext_id();
     case PARAM_ZSTRING:  return out << get_zstring();
-    default:
-        UNREACHABLE();
-        return out;
     }
 }
 
@@ -391,7 +388,6 @@ unsigned get_node_size(ast const * n) {
     case AST_APP:        return to_app(n)->get_size();
     case AST_VAR:        return to_var(n)->get_size();
     case AST_QUANTIFIER: return to_quantifier(n)->get_size();
-    default: UNREACHABLE();
     }
     return 0;
 }
@@ -457,8 +453,6 @@ bool compare_nodes(ast const * n1, ast const * n2) {
                            q2->get_no_patterns(),
                            q1->get_num_no_patterns());
     }
-    default:
-        UNREACHABLE();
     }
     return false;
 }
@@ -529,8 +523,6 @@ unsigned get_node_hash(ast const * n) {
         c = to_quantifier(n)->get_expr()->hash();
         mix(a,b,c);
         return c;
-    default:
-        UNREACHABLE();
     }
     return 0;
 }
@@ -1768,8 +1760,6 @@ ast * ast_manager::register_node_core(ast * n) {
         inc_array_ref(to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
         inc_array_ref(to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
         break;
-    default:
-        break;
     }
     return n;
 }
@@ -1836,8 +1826,6 @@ void ast_manager::delete_node(ast * n) {
             push_dec_array_ref(q->get_num_no_patterns(), q->get_no_patterns());
             break;
         }
-        default:
-            break;
         }
         if (m_debug_ref_count) {
             m_debug_free_indices.insert(n->m_id,0);

@@ -124,7 +124,6 @@ namespace nlsat {
         case atom::ROOT_LE: return out << "<= root";
         case atom::ROOT_GT: return out << "> root";
         case atom::ROOT_GE: return out << ">= root";
-        default: return out << (int)k;
         }
         return out;
     }

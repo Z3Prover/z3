@@ -21,6 +21,7 @@ Revision History:
 
 #include<ostream>
 #include "util/debug.h"
+#include "util/manage_warnings.h"
     
 enum ext_numeral_kind { EN_MINUS_INFINITY, EN_NUMERAL, EN_PLUS_INFINITY };
 
@@ -280,14 +281,18 @@ bool lt(numeral_manager & m,
             return m.lt(a, b);
         case EN_PLUS_INFINITY:
             return true;
+
+            // The default case below is not necessary: the cases above cover all the
+            // elements of the ext_numeral_kind enum.  But gcc complains with a warning
+            // if this default case is absent.  So we leave it in, but disable Clang's
+            // (correct) warning that the default is unnecessary.
+            START_DISABLE_COVERED_SWITCH_DEFAULT;
         default:
             UNREACHABLE();
+            END_DISABLE_WARNING_STMT;
             return false;
         }
     case EN_PLUS_INFINITY:
-        return false;
-    default:
-        UNREACHABLE();
         return false;
     }
 }
@@ -342,4 +347,3 @@ void display_pp(std::ostream & out,
     case EN_PLUS_INFINITY: out << "+&infin;"; break;
     }
 }
-

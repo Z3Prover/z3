@@ -137,9 +137,6 @@ namespace sls {
             if (args + ineq.m_coeff < 0)
                 return num_t(0);
             return args + ineq.m_coeff + 1;
-        default:
-            UNREACHABLE();
-            return num_t(0);
         }
     }
 
@@ -395,9 +392,6 @@ namespace sls {
                 add_update(v, num_t(- 1));
                 break;
             }
-            default:
-                UNREACHABLE();
-                break;
             }
         }
         else {
@@ -419,9 +413,6 @@ namespace sls {
                 
                 break;
             }
-            default:
-                UNREACHABLE();
-                break;
             }
         }
     }

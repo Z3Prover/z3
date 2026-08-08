@@ -229,7 +229,6 @@ extern "C" {
                     return "roundTowardNegative";
                     break;
                 case MPF_ROUND_TOWARD_ZERO:
-                default:
                     return "roundTowardZero";
                     break;
                 }

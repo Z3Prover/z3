@@ -258,9 +258,6 @@ Notes:
                     return unate_ge(full, k, n, xs);
                 case sorting_network_encoding::circuit_at_most:
                     return circuit_ge(full, k, n, xs); 
-                default:
-                    UNREACHABLE();
-                    return xs[0];
                 }
             }
         }
@@ -287,10 +284,6 @@ Notes:
                     return mk_at_most_1_bimander(full, n, xs, ors);
                 case sorting_network_encoding::ordered_at_most:
                     return mk_ordered_atmost_1(full, n, xs);
-                    
-                default:
-                    UNREACHABLE();
-                    return xs[0];
                 }
             }
             else {
@@ -308,9 +301,6 @@ Notes:
                     return unate_le(full, k, n, xs); 
                 case sorting_network_encoding::circuit_at_most:
                     return circuit_le(full, k, n, xs); 
-                default:                    
-                    UNREACHABLE();
-                    return xs[0];
                 }
             }
         }
@@ -349,9 +339,6 @@ Notes:
                     return unate_eq(k, n, xs);              
                 case sorting_network_encoding::circuit_at_most:
                     return circuit_eq(k, n, xs);        
-                default:                    
-                    UNREACHABLE();
-                    return xs[0];
                 }
             }
         }
@@ -491,9 +478,6 @@ Notes:
                 return carry[k-1];
             case EQ:
                 return mk_and(mk_not(carry[k]), carry[k-1]);
-            default:
-                UNREACHABLE();
-                return xs[0];
             }
         }
 
@@ -584,9 +568,6 @@ Notes:
                 eqs.push_back(mk_not(ovfl));
                 return mk_and(eqs);
             }                
-            default:
-                UNREACHABLE();
-                return xs[0];
             }            
         }
 
@@ -709,9 +690,6 @@ Notes:
                 break;
             case sorting_network_encoding::ordered_at_most:
                 return mk_ordered_exactly_1(full, n, xs);
-            default:
-                UNREACHABLE();
-                return mk_ordered_exactly_1(full, n, xs);                
             }
 
             if (full) {

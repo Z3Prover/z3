@@ -4023,7 +4023,6 @@ namespace z3 {
         case RTP: return expr(*this, Z3_mk_fpa_rtp(m_ctx));
         case RTN: return expr(*this, Z3_mk_fpa_rtn(m_ctx));
         case RTZ: return expr(*this, Z3_mk_fpa_rtz(m_ctx));
-        default: return expr(*this);
         }
     }
 

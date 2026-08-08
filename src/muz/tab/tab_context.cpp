@@ -775,9 +775,6 @@ namespace tb {
                 return trivial_select(g);
             case VAR_USE_SELECT:
                 return andrei_select(g);
-            default:
-                return weight_select(g);
-
             }
         }
 
