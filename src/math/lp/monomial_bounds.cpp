@@ -1138,18 +1138,8 @@ namespace nla {
         m_bounds_optimization_enabled = false;
 
         auto& lra = c().lra;
-        if (!lra.is_feasible())
+        if (!lra.is_int_feasible())
             return false;
-        SASSERT(lra.model_is_int_feasible());
-        auto check_model = [&]() {
-            SASSERT(lra.is_feasible());
-            SASSERT(lra.model_is_int_feasible());
-        };
-        auto status = lra.find_feasible_solution();
-        SASSERT(status != lp::lp_status::INFEASIBLE);
-        if (status == lp::lp_status::INFEASIBLE)
-            return false;
-        check_model();
 
         // Gather the candidate columns: every non-fixed leaf variable that
         // participates in a monomial (mirrors solver=2's max_min_nl_vars).
@@ -1186,12 +1176,10 @@ namespace nla {
         struct improved_bound { lpvar j; lp::lconstraint_kind kind; rational bound; u_dependency* dep; };
         vector<improved_bound> improvements;
         for (lpvar j : cands) {
-            if (!lra.is_feasible())
-                break;
             for (bool is_lower : { true, false }) {
                 rational bound;
                 u_dependency* dep = improve_bound(j, is_lower, bound);
-                check_model();
+                SASSERT(lra.is_int_feasible());
                 if (!dep)
                     continue;
                 auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
@@ -1199,19 +1187,11 @@ namespace nla {
             }
         }
 
-        if (improvements.empty()) {
-            // The exploratory simplex walk in improve_bound/mm_optimize mutated the
-            // LP model even though no bound was tightened.  Restore a clean feasible
-            // model so downstream lemma passes see a feasible integral assignment.
-            lra.find_feasible_solution();
-            check_model();
-            return true;
-        }
-
         for (auto const& ib : improvements)
             lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
         lra.find_feasible_solution();
-        check_model();
+        SASSERT(lra.is_int_feasible());
+        lra.get_rid_of_inf_eps();
         return true;
     }
 

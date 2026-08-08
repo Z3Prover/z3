@@ -431,9 +431,9 @@ public:
     bool is_nl_var(lpvar) const;
     
     bool is_used_in_monic(lpvar) const;
-    bool patch_monomials();
-    bool patch_monomials_on_to_refine();
-    bool patch_monomial(lpvar);
+    void patch_monomials();
+    void patch_monomials_on_to_refine();
+    void patch_monomial(lpvar);
     bool var_breaks_correct_monic(lpvar) const;
     bool var_breaks_correct_monic_as_factor(lpvar, const monic&) const;
     void update_to_refine_of_var(lpvar j);

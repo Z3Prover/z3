@@ -1338,6 +1338,10 @@ namespace lp {
             return false;
         }
     }
+
+    bool lar_solver::is_int_feasible() const {
+        return is_feasible() && model_is_int_feasible();
+    }
     
     numeric_pair<mpq> lar_solver::get_basic_var_value_from_row(unsigned i) {
         numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();

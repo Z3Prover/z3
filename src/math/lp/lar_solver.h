@@ -185,6 +185,7 @@ public:
         std::function<std::string(lpvar)> var_str = [](lpvar j) { return std::string("j") + T_to_string(j); }) const;
     // this function just looks at the status
     bool is_feasible() const;
+    bool is_int_feasible() const;
 
     const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() const;
     const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_real() const;

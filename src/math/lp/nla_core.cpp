@@ -642,8 +642,7 @@ void core::init_to_refine() {
     // violates it. optimize_nl_bounds() re-solves the LP and re-introduces
     // delta components, so they are dropped here rather than only on entry to
     // check().
-    if (lra.is_feasible())
-        lra.get_rid_of_inf_eps();
+    SASSERT(lra.is_feasible());
     m_to_refine.reset();
     unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; ++k) {
@@ -1168,18 +1167,18 @@ bool core::to_refine_is_correct() const {
     return true;
 }
 
-bool core::patch_monomial(lpvar j) {
-    m_patched_monic =& (emon(j));
+void core::patch_monomial(lpvar j) {
+    m_patched_monic = &(emon(j));
     m_patched_var = j;
     TRACE(nla_solver, tout << "m = "; print_monic(*m_patched_monic, tout) << "\n";);
     rational v = mul_val(*m_patched_monic);
     if (val(j) == v) {
         erase_from_to_refine(j);
-        return false;
+        return;
     }
     if (!var_breaks_correct_monic(j) && try_to_patch(v)) {
         SASSERT(to_refine_is_correct());
-        return true;
+        return;
     }
   
     // We could not patch j, now we try patching the factor variables.
@@ -1191,11 +1190,11 @@ bool core::patch_monomial(lpvar j) {
             m_patched_var = (*m_patched_monic).vars()[0];
             if (!var_breaks_correct_monic(m_patched_var) && (try_to_patch(root) || try_to_patch(-root))) { 
                 TRACE(nla_solver, tout << "patched square\n";);
-                return true;
+                return;
             }
         }
         TRACE(nla_solver, tout << " cannot patch\n";);
-        return false;
+        return;
     }
 
     // We have v != abc, but we need to have v = abc.
@@ -1212,14 +1211,14 @@ bool core::patch_monomial(lpvar j) {
                 TRACE(nla_solver, tout << "patched  " << m_patched_var << "\n";);
                 SASSERT(mul_val((*m_patched_monic)) == val(j));
                 erase_from_to_refine(j);
-                return true;
+                return;
             }
         }
     }
-    return false;
+    return;
 }
 
-bool core::patch_monomials_on_to_refine() {
+void core::patch_monomials_on_to_refine() {
     // the rest of the function might change m_to_refine, so have to copy
     unsigned_vector to_refine;
     for (unsigned j : m_to_refine) 
@@ -1228,18 +1227,17 @@ bool core::patch_monomials_on_to_refine() {
     unsigned sz = to_refine.size();
 
     unsigned start = random();
-    bool patched = false;
+
     for (unsigned i = 0; i < sz && !m_to_refine.empty(); ++i) 
-        patched |= patch_monomial(to_refine[(start + i) % sz]);
+        patch_monomial(to_refine[(start + i) % sz]);
 
     TRACE(nla_solver, tout << "sz = " << sz << ", m_to_refine = " << m_to_refine.size() <<
           (sz > m_to_refine.size()? " less" : " same" ) << "\n";);
-    return patched;
 }
 
-bool core::patch_monomials() {
+void core::patch_monomials() {
     m_cautious_patching = true;
-    return patch_monomials_on_to_refine();
+    patch_monomials_on_to_refine();
 }
 
 /**
@@ -1299,44 +1297,38 @@ void core::add_bounds() {
 lbool core::check(unsigned level) {
     lp_settings().stats().m_nla_calls++;
     TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
-    lra.get_rid_of_inf_eps();
-    if (!(lra.get_status() == lp::lp_status::OPTIMAL || 
-          lra.get_status() == lp::lp_status::FEASIBLE)) {
+
+    if (!lra.is_feasible()) {
         TRACE(nla_solver, tout << "unknown because of the lra.m_status = " << lra.get_status() << "\n";);
         return l_undef;
     }
+    if (!lra.is_int_feasible())
+        return l_false;
 
+    lra.get_rid_of_inf_eps();
     set_use_nra_model(false);
     init_to_refine();
     if (m_to_refine.empty())
         return l_true;
-    bool patched = patch_monomials();
-    if (m_to_refine.empty()) {
-        SASSERT(patched);
+
+    patch_monomials();
+    if (m_to_refine.empty()) 
         return l_false;
-    }
+    
     init_search();
 
-    if (m_monomial_bounds.optimize_nl_bounds()) {
-        init_to_refine();
-        if (m_to_refine.empty())
-            return l_false;
-    }
+    m_monomial_bounds.optimize_nl_bounds();
 
+    SASSERT(lra.is_int_feasible());
+
+    init_to_refine();
+    if (m_to_refine.empty())
+        return l_false;
+    
     lbool ret = l_undef;
-    bool run_grobner = need_run_grobner();
-    bool run_horner = need_run_horner();
-    bool run_bounds = params().arith_nl_branching();
 
     auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
-    
-    if (no_effect())
-        m_monomial_bounds.generate_lemmas();
-
-    if (no_effect() && refine_pseudo_linear())
-        return l_false;
-       
-    
+        
     if (no_effect()) {
         unsigned old_idx = m_strategy_idx;
         trail().push(value_trail(m_strategy_idx));
@@ -1345,20 +1337,27 @@ lbool core::check(unsigned level) {
             case 0:
                 propagate();
                 break;
-            case 1:
-                if (run_horner)
-                    m_horner.horner_lemmas();
+            case 1: 
+                m_monomial_bounds.generate_lemmas(); 
                 break;
             case 2:
-                if (run_grobner)
-                    m_grobner();
+                if (refine_pseudo_linear())
+                    return l_false; 
                 break;
             case 3:
-                if (run_bounds)
+                if (need_run_horner())
+                    m_horner.horner_lemmas();
+                break;
+            case 4:
+                if (need_run_grobner())
+                    m_grobner();
+                break;
+            case 5:
+                if (params().arith_nl_branching())
                     add_bounds();
                 break;
             }
-            m_strategy_idx = (m_strategy_idx + 1) % 4;
+            m_strategy_idx = (m_strategy_idx + 1) % 6;
             if (lp_settings().get_cancel_flag())
                 return l_undef;
             if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
