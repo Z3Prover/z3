@@ -282,15 +282,15 @@ bool lt(numeral_manager & m,
         case EN_PLUS_INFINITY:
             return true;
 
-	    // The default case below is not necessary: the cases above cover all the
-	    // elements of the ext_numeral_kind enum.  But gcc complains with a warning
-	    // if this default case is absent.  So we leave it in, but disable Clang's
-	    // (correct) warning that the default is unnecessary.
-	    START_DISABLE_COVERED_SWITCH_DEFAULT;
+            // The default case below is not necessary: the cases above cover all the
+            // elements of the ext_numeral_kind enum.  But gcc complains with a warning
+            // if this default case is absent.  So we leave it in, but disable Clang's
+            // (correct) warning that the default is unnecessary.
+            START_DISABLE_COVERED_SWITCH_DEFAULT;
         default:
             UNREACHABLE();
             return false;
-	    END_DISABLE_WARNING_STMT;
+            END_DISABLE_WARNING_STMT;
         }
     case EN_PLUS_INFINITY:
         return false;
@@ -347,4 +347,3 @@ void display_pp(std::ostream & out,
     case EN_PLUS_INFINITY: out << "+&infin;"; break;
     }
 }
-
