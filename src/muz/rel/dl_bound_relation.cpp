@@ -363,9 +363,6 @@ namespace datalog {
             case LE_VAR:
                 r.mk_le(m_vars[0], m_vars[1]);
                 break;
-            default:
-                UNREACHABLE();
-                break;
             }    
             TRACE(dl, t.display(tout << "result\n"););   
         }

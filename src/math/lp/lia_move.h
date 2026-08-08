@@ -46,8 +46,6 @@ namespace lp {
             return "undef";
         case lia_move::cancelled:
             return "cancelled";
-        default:
-            UNREACHABLE();
         };
         return "strange";
     }

@@ -42,15 +42,22 @@ Revision History:
   DO_PRAGMA(clang diagnostic ignored #s)
 
 
+// This version should be used in decl contexts.
 #define END_DISABLE_WARNING			\
   _Pragma("clang diagnostic pop")		\
   DUMMY_DECL
 
+// This version should be used in statement contexts.
+#define END_DISABLE_WARNING_STMT		\
+  _Pragma("clang diagnostic pop")
+
 #define START_DISABLE_EXTRA_SEMI_WARNING START_DISABLE_WARNING(-Wextra-semi)
+#define START_DISABLE_COVERED_SWITCH_DEFAULT START_DISABLE_WARNING(-Wcovered-switch-default)
 
 #else
 
 #define START_DISABLE_EXTRA_SEMI_WARNING
+#define START_DISABLE_COVERED_SWITCH_DEFAULT
 #define END_DISABLE_WARNING
 
 #endif

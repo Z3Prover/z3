@@ -209,9 +209,6 @@ namespace arith {
         case hint_type::nla_h:
             name = "nla";
             break;
-        default:
-            name = "unknown-arithmetic";
-            break;
         }
 
         auto push_eq = [&](bool is_eq, enode* x, enode* y) {

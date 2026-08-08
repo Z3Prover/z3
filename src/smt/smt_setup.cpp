@@ -683,9 +683,6 @@ namespace smt {
         case arith_solver_id::AS_NEW_ARITH:
             setup_lra_arith();
             break;
-        default:
-            m_context.register_plugin(alloc(smt::theory_mi_arith, m_context));
-            break;
         }
     }
 

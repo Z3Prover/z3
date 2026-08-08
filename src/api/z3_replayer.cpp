@@ -65,7 +65,6 @@ struct z3_replayer::imp {
         case SYMBOL_ARRAY: return "symbol_array";
         case OBJECT_ARRAY: return "object_array";
         case FLOAT: return "float";
-        default: UNREACHABLE(); return "unknown";
         }
     }
 
