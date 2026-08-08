@@ -2869,8 +2869,8 @@ namespace lp {
         m_imp->m_crossed_bounds_column = j;
         const auto& ul = m_imp->m_columns[j];
         u_dependency* bdep = lower_bound? ul.lower_bound_witness() : ul.upper_bound_witness();
-        SASSERT(bdep != nullptr);
         m_imp->m_crossed_bounds_deps = dep_manager().mk_join(bdep, dep);
+        SASSERT(m_imp->m_crossed_bounds_deps != nullptr);
         TRACE(dio, tout << "crossed_bound_deps:\n";  print_explanation(tout, flatten(m_imp->m_crossed_bounds_deps)) << "\n";);
     }
     const indexed_uint_set & lar_solver::touched_rows() const { return m_imp->m_touched_rows; }
@@ -3098,4 +3098,3 @@ namespace lp {
         out << "(exit)\n";
         }
 } // namespace lp
-

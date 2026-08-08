@@ -50,6 +50,7 @@ z3_add_component(rewriter
     seq_range_predicate.cpp
     seq_rewriter.cpp
     seq_regex_bisim.cpp
+    seq_regex_live.cpp
     seq_skolem.cpp
     term_enumeration.cpp
     th_rewriter.cpp

@@ -1942,7 +1942,6 @@ namespace euf {
             enode *matching_cgr = nullptr, *min_gen_match = nullptr;
             for (enode* curr : euf::enode_class(first)) {
                 get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
-                curr = curr->get_next();
             }
             if (matching_cgr)
                 update_max_generation(min_gen_match, first);                          

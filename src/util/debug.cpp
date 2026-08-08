@@ -140,7 +140,6 @@ void set_default_exit_action(exit_action a) {
             default:
                 throw default_exception("unknown");
         }
-    default:
         exit(code);
     }
 }
@@ -231,7 +230,6 @@ void invoke_debugger() {
             }
             return;
         case debug_action::ask:
-        default:
             a = ask_debug_action(std::cin);
         }
     }
