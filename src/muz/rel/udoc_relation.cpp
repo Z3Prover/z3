@@ -719,7 +719,6 @@ namespace datalog {
             hi1 += col1;
             unsigned col2 = column_idx(v2);
             lo2 += col2;
-            hi2 += col2;
             for (unsigned j = 0; j <= hi1-lo1; ++j) {
                 roots.push_back(lo1 + j);
                 equalities.merge(lo1 + j, lo2 + j);

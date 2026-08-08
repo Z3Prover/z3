@@ -16,6 +16,7 @@ namespace nla {
     class core;
     class monomial_bounds : common {
         dep_intervals& dep;
+        bool m_bounds_optimization_enabled = true;
 
         bool tighten_lp_bound(dep_interval const &range, lpvar v, unsigned p);
         bool tighten_lp_upper_bound(dep_interval const& range, lpvar v, unsigned p);
@@ -91,6 +92,7 @@ namespace nla {
         bool propagate_linear_bounds();
         bool propagate_changed_bounds();
         bool propagate_fixed_rows();
+        bool optimize_nl_bounds();
 
         // Maximize (is_lower == false) or minimize (is_lower == true) column j
         // over the LP tableau and, if the resulting bound improves j's current

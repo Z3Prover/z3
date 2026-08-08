@@ -153,7 +153,7 @@ namespace datalog {
         bool m_has_parent;
         /** Parent is a constant that appears earlier in the rule and has always the same value
             as this constant. */
-        unsigned m_parent_index;
+        unsigned m_parent_index = 0;
     public:
 
         const_info(int tail_index, unsigned arg_index) 
