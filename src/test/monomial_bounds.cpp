@@ -107,10 +107,10 @@ void test_monomial_bounds_intervals() {
     vars.push_back(b);
     nla_solver.add_monic(ab, vars.size(), vars.begin());
     
-    // Set up consistent bounds on variables
-    s.set_column_value_test(a, lp::impq(rational(1), rational(2))); // 0.5
-    s.set_column_value_test(b, lp::impq(rational(3), rational(2))); // 1.5
-    s.set_column_value_test(ab, lp::impq(rational(3), rational(4))); // 0.5 * 1.5 = 0.75
+    // Seed an integral but monomial-inconsistent assignment: 3 * 5 != 7.
+    s.set_column_value_test(a, lp::impq(rational(3)));
+    s.set_column_value_test(b, lp::impq(rational(5)));
+    s.set_column_value_test(ab, lp::impq(rational(7)));
     
     lbool result = nla_solver.test_check();
     VERIFY(result == l_false); // Patching requests another final-check round.
