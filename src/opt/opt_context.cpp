@@ -547,7 +547,6 @@ namespace opt {
         case O_MAXIMIZE: return execute_min_max(obj.m_index, committed, scoped, true);
         case O_MINIMIZE: return execute_min_max(obj.m_index, committed, scoped, false);
         case O_MAXSMT: return execute_maxsat(obj.m_id, committed, scoped);
-        default: UNREACHABLE(); return l_undef;
         }
     }
     
@@ -1278,7 +1277,6 @@ namespace opt {
         case O_MAXIMIZE: name = "maximize"; break;
         case O_MINIMIZE: name = "minimize"; break;
         case O_MAXSMT: name = "maxsat"; break;
-        default: name = ""; break;
         }
         func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.data(), m.mk_bool_sort());
         m_objective_fns.insert(f, index);
@@ -1651,9 +1649,6 @@ namespace opt {
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         case O_MAXIMIZE: 
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
-        default:
-            UNREACHABLE();
-            return inf_eps();
         }        
     }
 
@@ -1669,9 +1664,6 @@ namespace opt {
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         case O_MAXIMIZE: 
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
-        default:
-            UNREACHABLE();
-            return inf_eps();
         }
     }
 
@@ -1841,9 +1833,6 @@ namespace opt {
             case O_MAXSMT: 
                 visitor.collect(obj.m_terms);
                 break;
-            default: 
-                UNREACHABLE();
-                break;
             }
         }
 
@@ -1885,9 +1874,6 @@ namespace opt {
                     }
                     out << ")\n";
                 }
-                break;
-            default: 
-                UNREACHABLE();
                 break;
             }
         }        

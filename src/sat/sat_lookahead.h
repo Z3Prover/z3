@@ -57,7 +57,6 @@ namespace sat {
         case lookahead_mode::searching:  return out << "searching";
         case lookahead_mode::lookahead1: return out << "lookahead1";
         case lookahead_mode::lookahead2: return out << "lookahead2";
-        default: break;
         }
         return out;
     }

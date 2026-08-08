@@ -2689,7 +2689,6 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         case BV_RM_TO_NEGATIVE: mrm = MPF_ROUND_TOWARD_NEGATIVE; break;
         case BV_RM_TO_POSITIVE: mrm = MPF_ROUND_TOWARD_POSITIVE; break;
         case BV_RM_TO_ZERO: mrm = MPF_ROUND_TOWARD_ZERO; break;
-        default: UNREACHABLE();
         }
 
         rational q;
@@ -3726,8 +3725,6 @@ void fpa2bv_converter::mk_is_rm(expr * rme, BV_RM_VAL rm, expr_ref & result) {
     case BV_RM_TO_POSITIVE:
     case BV_RM_TO_ZERO:
         return m_simp.mk_eq(rme, rm_num, result);
-    default:
-        UNREACHABLE();
     }
 }
 

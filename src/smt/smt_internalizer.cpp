@@ -1495,8 +1495,6 @@ namespace smt {
             dump_lemma(num_lits, lits);
             add_scores(num_lits, lits);
             break;
-        default:
-            break;
         }
         TRACE(mk_clause, display_literals_verbose(tout << "after simplification: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
 

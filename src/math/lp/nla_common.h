@@ -27,7 +27,6 @@ inline llc negate(llc cmp) {
     case llc::GT: return llc::LE;
     case llc::EQ: return llc::NE;
     case llc::NE: return llc::EQ;
-    default: SASSERT(false);
     };
     return cmp; // not reachable
 }
@@ -40,7 +39,6 @@ inline llc swap_side(llc cmp) {
     case llc::GT: return llc::LT;
     case llc::EQ: return llc::EQ;
     case llc::NE: return llc::NE;
-    default: SASSERT(false);
     };
     return cmp; // not reachable
 }

@@ -123,9 +123,6 @@ namespace smt {
                 out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
             }
             break;
-        default:
-            out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
-            break;
         }
     }
 

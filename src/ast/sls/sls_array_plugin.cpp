@@ -75,9 +75,6 @@ namespace sls {
                 case const_axiom:
                     add_eq_axiom(sto, sel);
                     break;
-                default:
-                    UNREACHABLE();
-                    break;
                 }
             }
         }

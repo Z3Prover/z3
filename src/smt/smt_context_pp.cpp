@@ -644,9 +644,6 @@ namespace smt {
             display_literals_smt2(out, lits);
             break;
         }
-        default:
-            UNREACHABLE();
-            break;
         }
         return out << "\n";
     }
@@ -672,9 +669,6 @@ namespace smt {
             out << lits;
             break;
         }
-        default:
-            UNREACHABLE();
-            break;
         }
         return out << "\n";
     }

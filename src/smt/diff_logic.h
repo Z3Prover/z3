@@ -1632,8 +1632,6 @@ private:
                     TRACE(diff_logic, tout << delta << " ?> " << state.m_delta[target] << "\n";);
                     SASSERT(delta >= state.m_delta[target]);
                     break;
-                default:
-                    UNREACHABLE();
                 }
             }
         }        

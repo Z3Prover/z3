@@ -1888,9 +1888,6 @@ namespace upolynomial {
             case MPBQ:
                 sign = eval_sign_at(psz, p, b);
                 break;
-            default:
-                UNREACHABLE();
-                break;
             }
             if (sign == 0)
                 continue;
