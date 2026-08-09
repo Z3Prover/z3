@@ -10,6 +10,7 @@
 #include "util/uint_set.h"
 #include "math/lp/implied_bound.h"
 #include "util/vector.h"
+
 namespace lp {
     
 template <typename T>
