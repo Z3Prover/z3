@@ -260,6 +260,8 @@ struct pb2bv_rewriter::imp {
                 }
                 return ::mk_and(fmls);
             }
+            UNREACHABLE();
+            return expr_ref(m);
         }
 
         /**

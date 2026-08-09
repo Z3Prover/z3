@@ -87,6 +87,8 @@ namespace nlsat {
         case justification::CLAUSE: return out << "clause";
         case justification::LAZY: return out << "lazy";
         }
+        UNREACHABLE();
+        return out;
     }
     
     const justification null_justification;
@@ -106,4 +108,3 @@ namespace nlsat {
         }
     }
 }
-

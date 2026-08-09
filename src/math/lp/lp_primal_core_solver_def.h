@@ -64,6 +64,8 @@ bool lp_primal_core_solver<T, X>::correctly_moved_to_bounds(unsigned j) const {
     case column_type::free_column:
         return true;
     }
+    UNREACHABLE();
+    return false;
 }
 
 
