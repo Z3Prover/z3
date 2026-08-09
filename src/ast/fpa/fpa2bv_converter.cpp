@@ -1097,6 +1097,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     round_sig = res_sig;
     round_exp = res_exp;
 
+    expr_ref exp_below_round_range(m), underflow_result(m);
     if (exp_bits > ebits + 2) {
         // The rounder consumes the target format's ebits+2 exponent workspace.
         // Keep ordinary exponents in that representation, map guaranteed
@@ -1110,14 +1111,13 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         round_min_exp_ext = m_bv_util.mk_sign_extend(exp_bits - round_exp_bits, round_min_exp);
         round_max_exp_ext = m_bv_util.mk_sign_extend(exp_bits - round_exp_bits, round_max_exp);
 
-        expr_ref exp_below_round_range(m), exp_above_round_range(m), exp_in_round_range(m);
+        expr_ref exp_above_round_range(m), exp_in_round_range(m);
         exp_below_round_range = m_bv_util.mk_slt(res_exp, round_min_exp_ext);
         exp_above_round_range = m_bv_util.mk_slt(round_max_exp_ext, res_exp);
         exp_in_round_range = m_bv_util.mk_extract(round_exp_bits - 1, 0, res_exp);
         m_simp.mk_ite(exp_above_round_range, round_max_exp, exp_in_round_range, round_exp);
         m_simp.mk_ite(exp_below_round_range, round_min_exp, round_exp, round_exp);
 
-        expr_ref underflow_result(m);
         expr_ref min_exp(m), min_exp_ext(m), underflow_shift(m), underflow_shift_sized(m);
         mk_min_exp(ebits, min_exp);
         min_exp_ext = m_bv_util.mk_sign_extend(exp_bits - ebits, min_exp);
@@ -1141,7 +1141,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         expr_ref shift_is_deep(m), all_discarded(m);
         shift_is_deep = m_bv_util.mk_ule(
             m_bv_util.mk_numeral(2 * sig_size, 2 * sig_size), underflow_shift_sized);
-        all_discarded = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, res_sig);
+        all_discarded = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, res_sig.get());
         m_simp.mk_ite(shift_is_deep, all_discarded, discarded_shifted, discarded);
 
         expr_ref sticky_ext(m), underflow_sig(m);
