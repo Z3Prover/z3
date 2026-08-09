@@ -195,6 +195,12 @@ namespace seq {
             return *this;
         }
 
+        // Two DIFFERENT notions, on purpose: operator== is snode::similar, i.e.
+        // equality modulo slice wrappers (used by nielsen_node::is_node_sibling),
+        // while operator< is the finer total order on snode ids (used to
+        // canonicalize the constraint list before hashing).  Consequence: two
+        // similar-but-not-identical equations can sort to different positions in
+        // two otherwise equal nodes, so the sibling / unsat-cache lookup misses.
         bool operator==(const str_eq& other) const {
             return m_lhs->similar(other.m_lhs, m) && m_rhs->similar(other.m_rhs, m);
         }
@@ -277,7 +283,15 @@ namespace seq {
         }
 
         bool contains_var(euf::snode const* var) const {
-            return m_lhs->collect_tokens().contains(var) || m_rhs->collect_tokens().contains(var);
+            // token iteration (early exit, no materialized vector) — this runs
+            // inside the modifier scan loops
+            for (euf::snode const* s : { m_lhs, m_rhs }) {
+                for (euf::snode const* t : *s) {
+                    if (t == var)
+                        return true;
+                }
+            }
+            return false;
         }
 
         bool well_formed() const {
@@ -666,9 +680,9 @@ namespace seq {
 
         sat::literal get_external_conflict_literal() const { return m_conflict_external_literal; }
 
-        // Query current bounds for a variable from the arithmetic subsolver.
-        // Falls der Subsolver keinen Bound liefert, werden konservative Defaults
-        // 0 / UINT_MAX verwendet.
+        // Query the current bound of an arithmetic expression from the context
+        // solver, joining the supporting literals/equalities into `dep`.
+        // Returns false when no bound is available (no default is invented).
         bool lower_bound(expr* e, rational& lo, dep_tracker& dep);
         bool upper_bound(expr* e, rational& up, dep_tracker& dep);
 
@@ -865,8 +879,8 @@ namespace seq {
         unsigned m_mod_const_num_unwinding = 0;
         unsigned m_mod_regex_if_split = 0;
         unsigned m_mod_eq_split        = 0;
-        unsigned m_mod_star_intr       = 0;
         unsigned m_mod_cycle_subsumption = 0;
+        unsigned m_mod_landing         = 0;
         unsigned m_mod_view_land       = 0;
         unsigned m_mod_gpower_intr     = 0;
         unsigned m_mod_regex_factorization = 0;
@@ -989,9 +1003,8 @@ namespace seq {
         // entry would permanently burn one assumption literal + kernel clause
         // per constraint per iteration (sub_solver::assert_expr), growing every
         // subsequent check().  Maintained by assert_node_side_constraints; reset
-        // together with the sub-solver (reset / reset_length_solver).  mutable:
-        // assert_node_side_constraints is const.
-        mutable unsigned              m_root_ic_asserted = 0;
+        // together with the sub-solver (reset / reset_length_solver).
+        unsigned                      m_root_ic_asserted = 0;
 
         // Parikh image filter: generates modular length constraints from regex
         // memberships.  Allocated in the constructor; owned by this graph.
@@ -1030,12 +1043,6 @@ namespace seq {
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
-
-
-        // Maps each variable to its current length term
-        // ptr_vector<euf::snode>        m_length_trail;
-        // u_map<euf::snode *>           m_length_info;
-        u_map<unsigned>               m_mod_cnt;
 
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
         // (e.g., explain_conflict) can call mk_join / linearize.
@@ -1177,9 +1184,9 @@ namespace seq {
                              unsigned len, zstring& out);
 
         // add constraints to the root node from external solver
-        void add_str_eq(euf::snode const* lhs, euf::snode const* rhs, smt::enode* l, smt::enode* r) const;
-        void add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal l) const;
-        void add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal l) const;
+        void add_str_eq(euf::snode const* lhs, euf::snode const* rhs, smt::enode* l, smt::enode* r);
+        void add_str_deq(euf::snode const* lhs, euf::snode const* rhs, sat::literal l);
+        void add_str_mem(euf::snode const* str, euf::snode const* regex, sat::literal l);
 
         // test-friendly overloads (no external dependency tracking); they
         // create the root lazily — production callers (theory_nseq) use the
@@ -1355,7 +1362,7 @@ namespace seq {
         // starts at the node's inherited-constraint count — required on the
         // first call of every visit, since the previous visit's assertions
         // were popped with its scope.
-        void assert_node_side_constraints(nielsen_node* node, unsigned from_idx = UINT_MAX) const;
+        void assert_node_side_constraints(nielsen_node* node, unsigned from_idx = UINT_MAX);
 
     private:
 
@@ -1403,18 +1410,32 @@ namespace seq {
             euf::snode const* m_state = nullptr;      // current plain regex state
             euf::snode const* m_root = nullptr;       // land-state view acceptance state s
             unsigned          m_nu = 0;               // ν (Q snapshot)
+            // Q_ν resolved once at construction (projection_region).  The gate is
+            // tested on EVERY character step of every view component in the
+            // product searches, so re-resolving ν through m_projection_snapshots
+            // there would put a hash lookup in the innermost loop.  nullptr = the
+            // empty region (ν = 0 or unknown ν), matching projection_state_in_Q.
+            uint_set const*   m_region = nullptr;
             bool              m_sink = false;         // co-view became Σ*
             bool              m_dead = false;         // language collapsed to ∅
 
             static prod_comp mk_plain(euf::snode const* s) { prod_comp c; c.m_state = s; return c; }
-            static prod_comp mk_view(euf::snode const* s, euf::snode const* root, unsigned nu, bool compl_) {
+            static prod_comp mk_view(euf::snode const* s, euf::snode const* root, unsigned nu,
+                                     uint_set const* region, bool compl_) {
                 prod_comp c;
                 c.m_kind = mem_kind::stab_view;
                 c.m_state = s;
                 c.m_root = root;
                 c.m_nu = nu;
+                c.m_region = region;
                 c.m_complemented = compl_;
                 return c;
+            }
+
+            // state ∈ Q_ν — the view/co-view gate (cf. projection_state_in_Q).
+            bool state_in_region() const {
+                return m_region && m_state && m_state->get_expr()
+                    && m_region->contains(m_state->get_expr()->get_id());
             }
         };
 
@@ -1477,7 +1498,18 @@ namespace seq {
 
         // Collect (into Q, as expr ids) every state forward-reachable from
         // head_re over the recorded partial-DFA edges.  Always includes head_re.
-        void collect_reachable_from_head(euf::snode const* head_re, uint_set& Q) const;
+        // When `states` is given it receives the same states as expressions, in
+        // discovery order (head_re first) — collected during the SAME walk, so
+        // callers that need both do not pay a second pass over the partial DFA.
+        void collect_reachable_from_head(euf::snode const* head_re, uint_set& Q,
+                                         ptr_vector<expr>* states = nullptr) const;
+
+        // The exact state-id set Q_ν of a minted snapshot, or nullptr for ν = 0
+        // and for an unknown ν (both denote the empty region).  The returned
+        // pointer stays valid until reset() clears m_projection_snapshots:
+        // std::unordered_map never invalidates pointers to existing elements on
+        // insertion, so a cached region survives later ν mintings.
+        uint_set const* projection_region(unsigned nu) const;
 
         // Mark every forward-reachable edge from head_re with a monotone
         // extraction index ν (only previously-unmarked edges), bumping ν iff
@@ -1578,7 +1610,8 @@ namespace seq {
         euf::snode const* mk_block_word(euf::snode_vector const& block, unsigned k,
                                         bool fwd, sort* s);
 
-        // variable Nielsen modifier: var vs var, all progress (3 branches)
+        // variable Nielsen modifier: var vs var (5 branches).  x → ε, y → ε,
+        // x → y are progress; x → y·x' and y → x·y' are not.
         bool apply_var_nielsen(nielsen_node* node);
 
         // eq split modifier: splits a regex-free equation at a chosen index into
