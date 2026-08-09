@@ -269,6 +269,7 @@ namespace smt {
         // clause is a legitimate theory conflict.
         bool all_true(literal_vector const& lits) const;
         void propagate_accept_legacy(literal lit, expr* s, expr* r);
+        void propagate_length_residue(literal lit, expr* s, expr* r);
         void enable_legacy_fallback();
 
     public:

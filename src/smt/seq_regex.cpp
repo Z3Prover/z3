@@ -497,11 +497,54 @@ namespace smt {
 
         if (coallesce_in_re(lit)) 
             return;
-        
+
+        propagate_length_residue(lit, s, r);
+
         if (th.use_monadic_regex())
             add_monadic_membership(lit, s, r);
         else
             propagate_accept_legacy(lit, s, r);
+    }
+
+    /*
+      Feed the semilinear length abstraction of r to arithmetic.
+
+      Lambda(r) over-approximates the length set of L(r) as an ultimately periodic set, so a
+      positive membership s in r entails  |s| mod period  in  residues.  Length *bounds*
+      alone cannot express this: (aaaa)* and (bbbbbb)* both have bounds [0, oo), yet
+      |z| in 4N together with |w| in 6N and |z| + 1 = |w| is refuted by 6n - 4m = 1, which
+      linear arithmetic closes with its gcd test once the residues are visible to it.
+
+      Emitted only when the abstraction is non-trivial and the residue set is small, so the
+      common case costs nothing and no large disjunction is ever produced.  The abstraction
+      over-approximates, so this axiom is implied by the membership and cannot remove models.
+
+      Deliberately *not* gated on |s| already being internalized.  That gate looks right --
+      a residue for a length nothing reasons about should be useless -- but it measured worse:
+      it recovers one regressed sat benchmark and forfeits four unsat wins.  The reason is
+      that theory_seq derives |xy| = |x| + |y| for concatenations on its own, so residues on
+      the parts become arithmetically live even in goals that never mention str.len.
+    */
+    void seq_regex::propagate_length_residue(literal lit, expr* s, expr* r) {
+        if (lit.sign())
+            return;
+        auto info = re().get_info(r);
+        if (!info.is_known() || info.period <= 1)
+            return;
+        unsigned num = 0;
+        for (unsigned i = 0; i < info.period; ++i)
+            if (info.residues & (1ull << i))
+                ++num;
+        if (num == 0 || num > 4)
+            return;
+        expr_ref len(th.mk_len(s), m);
+        expr_ref mod(a().mk_mod(len, a().mk_int(info.period)), m);
+        literal_vector lits;
+        lits.push_back(~lit);
+        for (unsigned i = 0; i < info.period; ++i)
+            if (info.residues & (1ull << i))
+                lits.push_back(th.mk_eq(mod, a().mk_int(i), false));
+        th.add_axiom(lits);
     }
 
     bool seq_regex::unfold_complement(literal lit, expr *s, expr *r) {
