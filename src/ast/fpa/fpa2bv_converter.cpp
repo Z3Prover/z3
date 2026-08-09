@@ -1101,8 +1101,8 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     if (exp_bits > ebits + 2) {
         // The rounder consumes the target format's ebits+2 exponent workspace.
         // Keep ordinary exponents in that representation, map guaranteed
-        // overflow to its signed maximum, and preserve discarded bits before
-        // mapping an underflowing exponent to its signed minimum.
+        // overflow to its signed maximum for round's existing overflow logic,
+        // and handle exponents below the range locally.
         unsigned round_exp_bits = ebits + 2;
         unsigned sig_size = sbits + 4;
         expr_ref round_min_exp(m), round_max_exp(m), round_min_exp_ext(m), round_max_exp_ext(m);
