@@ -4278,13 +4278,18 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     // exponent workspace itself is wider and the count must be truncated.
     SASSERT(sigma_cap_size <= 2 * sig_size);
 
-    expr_ref sigma_neg(m), sigma_neg_ext(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
+    expr_ref sigma_neg(m), sigma_ext(m), sigma_neg_ext(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
         rs_sig(m), ls_sig(m), big_sh_sig(m), sigma_le_cap(m);
     sigma_neg = m_bv_util.mk_bv_neg(sigma);
     if (sigma_count_size == sigma_size)
         sigma_neg_ext = sigma_neg;
-    else
-        sigma_neg_ext = m_bv_util.mk_zero_extend(sigma_count_size - sigma_size, sigma_neg);
+    else {
+        // Widen sigma before negating it. Zero-extending sigma_neg would turn
+        // a positive sigma into a small unsigned count instead of preserving
+        // its negative two's-complement value for the cap comparison.
+        sigma_ext = m_bv_util.mk_sign_extend(sigma_count_size - sigma_size, sigma);
+        sigma_neg_ext = m_bv_util.mk_bv_neg(sigma_ext);
+    }
     sigma_cap = m_bv_util.mk_numeral(sbits+2, sigma_count_size);
     sigma_le_cap = m_bv_util.mk_ule(sigma_neg_ext, sigma_cap);
     m_simp.mk_ite(sigma_le_cap, sigma_neg_ext, sigma_cap, sigma_neg_capped);
