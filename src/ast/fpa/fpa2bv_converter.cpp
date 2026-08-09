@@ -4267,13 +4267,23 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(sig_size == sbits + 4);
     SASSERT(m_bv_util.get_bv_size(sigma) == ebits+2);
     unsigned sigma_size = ebits + 2;
+    // The exponent workspace is not necessarily wide enough to represent the
+    // unsigned cap sbits + 2. Keep the exponent arithmetic at its established
+    // width, but give the cap comparison its own minimal unsigned workspace.
+    unsigned sigma_count_size = sigma_size;
+    if (sigma_count_size < log2(sbits + 2) + 1)
+        sigma_count_size = log2(sbits + 2) + 1;
 
-    expr_ref sigma_neg(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
+    expr_ref sigma_neg(m), sigma_neg_ext(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
         rs_sig(m), ls_sig(m), big_sh_sig(m), sigma_le_cap(m);
     sigma_neg = m_bv_util.mk_bv_neg(sigma);
-    sigma_cap = m_bv_util.mk_numeral(sbits+2, sigma_size);
-    sigma_le_cap = m_bv_util.mk_ule(sigma_neg, sigma_cap);
-    m_simp.mk_ite(sigma_le_cap, sigma_neg, sigma_cap, sigma_neg_capped);
+    if (sigma_count_size == sigma_size)
+        sigma_neg_ext = sigma_neg;
+    else
+        sigma_neg_ext = m_bv_util.mk_zero_extend(sigma_count_size - sigma_size, sigma_neg);
+    sigma_cap = m_bv_util.mk_numeral(sbits+2, sigma_count_size);
+    sigma_le_cap = m_bv_util.mk_ule(sigma_neg_ext, sigma_cap);
+    m_simp.mk_ite(sigma_le_cap, sigma_neg_ext, sigma_cap, sigma_neg_capped);
     dbg_decouple("fpa2bv_rnd_sigma_neg", sigma_neg);
     dbg_decouple("fpa2bv_rnd_sigma_cap", sigma_cap);
     dbg_decouple("fpa2bv_rnd_sigma_neg_capped", sigma_neg_capped);
@@ -4282,17 +4292,19 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
 
     sig_ext = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, sig_size));
     expr_ref rs_shift(m), ls_shift(m);
+    if (sigma_count_size <= 2 * sig_size)
+        rs_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_count_size, sigma_neg_capped);
+    else
+        rs_shift = m_bv_util.mk_extract(2*sig_size - 1, 0, sigma_neg_capped);
+
     if (sigma_size <= 2 * sig_size) {
-        rs_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma_neg_capped);
         ls_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma);
     }
     else {
-        // Both selected counts fit in the 2*sig_size-bit shift operand. The
-        // right count is capped at sbits + 2. On the selected nonnegative
-        // branch, sigma is lz outside TINY; under TINY, sigma is sigma_add and
-        // TINY implies sigma_add <= lz - 1. Thus 0 <= sigma <= lz, so the
-        // discarded high bits are structurally zero.
-        rs_shift = m_bv_util.mk_extract(2*sig_size - 1, 0, sigma_neg_capped);
+        // On the selected nonnegative branch, sigma is lz outside TINY;
+        // under TINY, sigma is sigma_add and TINY implies sigma_add <= lz - 1.
+        // Thus 0 <= sigma <= lz, so the discarded high bits are structurally
+        // zero in this shift operand.
         ls_shift = m_bv_util.mk_extract(2*sig_size - 1, 0, sigma);
     }
     rs_sig = m_bv_util.mk_bv_lshr(sig_ext, rs_shift);
