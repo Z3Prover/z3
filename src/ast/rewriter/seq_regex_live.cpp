@@ -89,7 +89,9 @@ namespace seq {
                 expr_ref f = m_rw.is_nullable(r);
                 n = m.is_true(f) ? l_true : m.is_false(f) ? l_false : l_undef;
             }
-            m_nullable[id] = n == l_true ? 1 : n == l_false ? 0 : 3;
+            if (n == l_true) m_nullable[id] = 1;
+            else if (n == l_false) m_nullable[id] = 0;
+            else m_nullable[id] = 3;
             return m_nullable[id];
         }
 

@@ -85,7 +85,11 @@ namespace {
     }
 
     char const* result_name(lbool r) {
-        return r == l_true ? "sat" : r == l_false ? "unsat" : "unknown";
+        switch (r) {
+        case l_true:  return "sat";
+        case l_false: return "unsat";
+        default:      return "unknown";
+        }
     }
 }
 
@@ -117,8 +121,11 @@ lbool seq_monadic::nullable(expr* r) {
     if (i != l_undef)
         return i;
     char v = 0;
-    if (m_nullable_cache.find(r, v))
-        return v == 1 ? l_true : v == 0 ? l_false : l_undef;
+    if (m_nullable_cache.find(r, v)) {
+        if (v == 1) return l_true;
+        if (v == 0) return l_false;
+        return l_undef;
+    }
     expr_ref nb = m_rw.is_nullable(r);
     lbool res = m.is_true(nb) ? l_true : m.is_false(nb) ? l_false : l_undef;
     m_pin.push_back(r);
