@@ -1163,7 +1163,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
             m_bv_util.mk_zero_extend(sbits, underflow_inc));
 
         expr_ref underflow_sig_ovf(m), underflow_exp(m), underflow_frac(m);
-        underflow_sig_ovf = m_bv_util.mk_extract(sbits, sbits, underflow_rounded_sig);
+        underflow_sig_ovf = m.mk_eq(
+            m_bv_util.mk_extract(sbits, sbits, underflow_rounded_sig),
+            m_bv_util.mk_numeral(1, 1));
         underflow_exp = m_bv_util.mk_numeral(0, ebits);
         underflow_frac = m_bv_util.mk_extract(sbits - 2, 0, underflow_rounded_sig);
         expr_ref min_normal_exp(m), zero_frac(m);
