@@ -601,3 +601,40 @@ void tst_box_independent() {
     Z3_del_context(ctx);
     std::cout << "box independent objectives test passed" << std::endl;
 }
+
+// Regression test for issue #10465:
+// duplicate minimize objectives must not trigger an LP assertion in debug mode.
+void tst_opt_dup_min() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_sort bool_sort = Z3_mk_bool_sort(ctx);
+    Z3_sort real_sort = Z3_mk_real_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), bool_sort);
+    Z3_ast i = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "i"), real_sort);
+    Z3_ast o = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "o"), real_sort);
+    Z3_ast n = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "n"), real_sort);
+    Z3_ast zero = Z3_mk_real(ctx, 0, 1);
+
+    Z3_optimize opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+
+    Z3_optimize_assert(ctx, opt, Z3_mk_lt(ctx, o, zero));
+    Z3_ast neg_o = Z3_mk_unary_minus(ctx, o);
+    Z3_ast disj[] = { x, Z3_mk_eq(ctx, i, neg_o) };
+    Z3_ast conj[] = { Z3_mk_or(ctx, 2, disj), Z3_mk_lt(ctx, n, zero) };
+    Z3_optimize_assert(ctx, opt, Z3_mk_and(ctx, 2, conj));
+
+    Z3_ast neg_n = Z3_mk_unary_minus(ctx, n);
+    Z3_optimize_minimize(ctx, opt, neg_n);
+    Z3_optimize_minimize(ctx, opt, neg_n);
+    Z3_optimize_minimize(ctx, opt, i);
+    Z3_optimize_minimize(ctx, opt, o);
+
+    ENSURE(Z3_optimize_check(ctx, opt, 0, nullptr) == Z3_L_TRUE);
+
+    Z3_optimize_dec_ref(ctx, opt);
+    Z3_del_context(ctx);
+    std::cout << "duplicate minimize objective test passed" << std::endl;
+}

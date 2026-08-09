@@ -1366,15 +1366,9 @@ namespace lp {
     bool lar_solver::all_constraints_hold() const {
         if (m_imp->m_settings.get_cancel_flag())
             return true;
-        std::unordered_map<lpvar, mpq> var_map;
-        // Compute the strict-bounds delta once per model: it flattens both the
-        // model (var_map) and the eps component of any delta-rational bound in
-        // constraint_holds, so the two must use the very same value.
-        mpq delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
-        get_model_do_not_care_about_diff_vars(var_map, delta);
 
         for (auto const& c : m_imp->m_constraints.active()) {
-            if (!constraint_holds(c, var_map, delta)) {
+            if (!constraint_holds(c)) {
                 TRACE(lar_solver,
                     m_imp->m_constraints.display(tout, c) << "\n";
                 for (auto p : c.coeffs()) {
@@ -1386,15 +1380,11 @@ namespace lp {
         return true;
     }
 
-    bool lar_solver::constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map, const mpq& delta) const {
-        mpq left_side_val = get_left_side_val(constr, var_map);
-        // Account for a delta-rational bound  rhs + eps*delta  (eps != 0 only for
-        // the bounds that validate strict optimization optima).  'delta' is the
-        // same strict-bounds delta that flattened var_map, so the comparison is
-        // exact over the reals.
-        mpq rhs = constr.rhs();
-        if (!constr.bound_eps().is_zero())
-            rhs += constr.bound_eps() * delta;
+    bool lar_solver::constraint_holds(const lar_base_constraint& constr) const {
+        impq left_side_val(constr.get_free_coeff_of_left_side());
+        for (auto& it : constr.coeffs())
+            left_side_val += it.first * get_core_solver().r_x(it.second);
+        impq rhs(constr.rhs(), constr.bound_eps());
         switch (constr.kind()) {
         case LE: return left_side_val <= rhs;
         case LT: return left_side_val < rhs;
