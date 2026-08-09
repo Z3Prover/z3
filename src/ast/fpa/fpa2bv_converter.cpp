@@ -1177,7 +1177,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     round(s, rm, res_sgn, round_sig, round_exp, v9);
 
     if (exp_bits > ebits + 2)
-        m_simp.mk_ite(exp_below_round_range, underflow_result, v9, v9);
+        mk_ite(exp_below_round_range, underflow_result, v9, v9);
 
     // And finally, we tie them together.
     mk_ite(c8, v8, v9, result);
