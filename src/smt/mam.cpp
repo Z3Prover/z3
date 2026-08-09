@@ -387,6 +387,7 @@ namespace {
         unsigned                   m_num_choices;
         instruction *              m_root;
         enode_vector               m_candidates;
+        unsigned m_candidate_gc_threshold = 10000;
 #ifdef Z3DEBUG
         context *                  m_context;
         ptr_vector<app>            m_patterns;
@@ -528,6 +529,22 @@ namespace {
 
         void add_candidate(enode * n) {
             m_candidates.push_back(n);
+        }
+
+        void compress_candidates() {
+            if (m_candidates.size() < m_candidate_gc_threshold) 
+                return;
+            uint_set seen;
+            unsigned j = 0;
+            for (enode *n : m_candidates) {
+                auto id = n->get_expr_id();
+                if (!seen.contains(id))
+                    m_candidates[j++] = n;
+                seen.insert(id);
+            }
+            m_candidates.shrink(j);
+            if (2 * m_candidates.size() > m_candidate_gc_threshold)
+                m_candidate_gc_threshold *= 2;          
         }
 
         bool has_candidates() const {
@@ -3171,6 +3188,7 @@ namespace {
                 if (!t->has_candidates())
                     m_to_match.push_back(t);
                 t->add_candidate(app);
+                t->compress_candidates();
             }
         }
 
@@ -3988,7 +4006,7 @@ namespace {
                     update_lbls(n, h);
                 if (is_plbl(lbl))
                     update_children_plbls(n, h);
-                TRACE(mam_bug, tout << "adding relevant candidate:\n" << mk_ll_pp(n->get_expr(), m) << "\n";);
+                TRACE(mam_bug, tout << "adding relevant candidate:\n" << mk_ll_pp(n->get_expr(), m) << "\n";);       
                 if (!lazy)
                     add_candidate(n);
             }
