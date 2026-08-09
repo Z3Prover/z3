@@ -144,28 +144,23 @@ class seq_monadic {
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
 
-    // A term atom: a sequence variable or a constant element (a value of the element sort).
-    struct atom {
-        bool     is_var;
-        expr_ref var;
-        expr_ref elem;
-
-        atom(ast_manager& m, bool is_var, expr* var, expr* elem) :
-            is_var(is_var), var(var, m), elem(elem, m) {}
-    };
+    using atom = seq::membership_length_constraints::atom;
+    using atom_vector = seq::membership_length_constraints::atom_vector;
+    using atom_vectors = seq::membership_length_constraints::atom_vectors;
+    using component = seq::membership_length_constraints::bucket;
+    using component_vector = seq::membership_length_constraints::bucket_vector;
+    using component_vectors = seq::membership_length_constraints::bucket_vectors;
 
     // A component of one variable's constraint.  As the variable's value w is read,
     // the current state is derived from `state`; the component accepts when
     //   target ? (current == target)      -- reach component (w drives A from state to target)
     //           : nullable(current)        -- membership component (w in L(state))
-    struct component { expr* var; expr* state; expr* target; };
-
     // ---- depth-first search state; valid for the duration of one decide()/solve() ----
-    vector<vector<atom>>   m_atoms;         // parsed atoms, one entry per membership
+    atom_vectors           m_atoms;         // parsed atoms, one entry per membership
     expr_ref_vector        m_regexes;       // regex of each membership (parallel to m_atoms)
     ptr_vector<expr>       m_vars;          // variables occurring in the memberships
     obj_map<expr, unsigned> m_var_idx;      // variable -> index into m_vars / m_groups
-    vector<svector<component>> m_groups;    // components accumulated on the current branch
+    component_vectors      m_groups;        // components accumulated on the current branch
     obj_map<expr, uint64_t> m_last_occ;     // variable -> last (membership, atom) position
     unsigned               m_undef_vars = 0;  // depth of groups whose emptiness test gave up
     // memo for the per-variable emptiness test, keyed by the sorted, deduplicated
@@ -288,7 +283,6 @@ public:
 
     void set_is_var(std::function<bool(expr *)> const &is_var) {
         m_is_var = is_var;
-        m_length_constraints.set_is_var(is_var);
     }
 
     // Assert a membership  (term in regex)  to be decided jointly by the next check().

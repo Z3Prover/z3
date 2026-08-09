@@ -483,18 +483,18 @@ bool seq_monadic::parse_term(expr* t, vector<atom>& atoms) {
     if (u().str.is_string(t, s)) {
         for (unsigned i = 0; i < s.length(); ++i) {
             expr* elem = u().str.mk_char(s, i);
-            atoms.push_back(atom(m, false, nullptr, elem));
+            atoms.push_back(atom(m, nullptr, elem));
         }
         return true;
     }
     expr *elem = nullptr;
     if (u().str.is_unit(t, elem) && m.is_value(elem)) {                     // seq.unit of a constant element
-        atoms.push_back(atom(m, false, nullptr, elem));
+        atoms.push_back(atom(m, nullptr, elem));
         return true;
     }
     // uninterpreted constant of sequence sort => a sequence variable
     if (is_var(t)) {
-        atoms.push_back(atom(m, true, t, nullptr));
+        atoms.push_back(atom(m, t, nullptr));
         return true;
     }
     return false;
@@ -507,7 +507,7 @@ unsigned seq_monadic::var_index(expr* v) {
     vi = m_vars.size();
     m_var_idx.insert(v, vi);
     m_vars.push_back(v);
-    m_groups.push_back(svector<component>());
+    m_groups.push_back(component_vector());
     return vi;
 }
 
@@ -553,7 +553,7 @@ bool seq_monadic::prepare(membership_vec const& memberships) {
     for (unsigned mi = 0; mi < m_atoms.size(); ++mi) {
         vector<atom> const& atoms = m_atoms[mi];
         for (unsigned i = 0; i < atoms.size(); ++i) {
-            if (!atoms[i].is_var)
+            if (!atoms[i].is_var())
                 continue;
             expr* v = atoms[i].var.get();
             var_index(v);
@@ -642,7 +642,7 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
         return l_undef;                           // undecidable nullability
     }
     atom const& a = atoms[i];
-    if (!a.is_var) {                              // a constant element is consumed by a derivative
+    if (!a.is_var()) {                            // a constant element is consumed by a derivative
         expr_ref d = der_elem(R, a.elem.get());
         if (re().is_empty(d))
             return l_false;
@@ -660,12 +660,15 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
 
     // Explores one split target; the caller stops at the first l_true.
     auto explore = [&](expr* target) -> lbool {
-        m_groups[vi].push_back(component{ a.var.get(), R, target });
+        void* dependency = std::get<2>(m_last_search_memberships[mi]);
+        m_groups[vi].push_back(component{ a.var.get(), R, target, dependency });
         // The group's emptiness test has to be run at some point anyway; running it as
         // soon as the group is complete (or as soon as it holds several components, where
         // an inconsistency can first arise) prunes the entire subtree below.
         lbool ne = l_true;
-        if (re().is_empty(R))
+        if (m_length_constraints.check(m_last_search_memberships, m_atoms, m_groups) == l_false)
+            ne = l_false;
+        else if (re().is_empty(R))
             ne = l_false;
         else if (finalize || m_groups[vi].size() > 1)
             ne = group_nonempty(vi);
@@ -836,7 +839,17 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
 
 lbool seq_monadic::check() {
     m_core.reset();
-    lbool length_result = m_length_constraints.check(m_memberships);
+    atom_vectors atoms;
+    for (auto const& [term, regex, dependency] : m_memberships) {
+        atom_vector term_atoms;
+        if (!parse_term(term, term_atoms)) {
+            atoms.reset();
+            break;
+        }
+        atoms.push_back(term_atoms);
+    }
+    lbool length_result = atoms.size() == m_memberships.size() ?
+        m_length_constraints.check(m_memberships, atoms, component_vectors()) : l_true;
     if (length_result == l_false) {
         m_core.append(m_length_constraints.core());
         m_model.reset();
@@ -927,8 +940,8 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         display_expr(m_regexes.get(mi));
         out << " :atoms (";
         for (atom const& a : m_atoms[mi]) {
-            out << " " << (a.is_var ? "var:" : "elem:");
-            display_expr(a.is_var ? a.var.get() : a.elem.get());
+            out << " " << (a.is_var() ? "var:" : "elem:");
+            display_expr(a.is_var() ? a.var.get() : a.elem.get());
         }
         out << " )";
     }

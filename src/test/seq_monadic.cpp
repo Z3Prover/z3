@@ -786,7 +786,7 @@ public:
         // Lower bounds on repeated variables refine the compound term's minimum length.
         {
             m_trail.push_scope();
-            m_mon.add_lo(x, 3, m_dm.mk_leaf(0));
+            m_mon.add(x, word("aaa"), m_dm.mk_leaf(0));
             m_mon.add_hi(t_xax, 5, m_dm.mk_leaf(1));
             m_mon.add(y, dotstar(), m_dm.mk_leaf(2));
             lbool got = m_mon.check();
@@ -797,6 +797,23 @@ public:
             if (!ok) ++m_fail;
             std::cout << (ok ? "  OK   " : "  FAIL ")
                       << "refined minimum sequence length exceeds maximum regex length\n";
+        }
+        // A reach bucket for x in the decomposition of x.a in aaaa implies |x| >= 3.
+        {
+            m_trail.push_scope();
+            m_mon.set_min_core(true);
+            m_mon.add(tXa, word("aaaa"), m_dm.mk_leaf(0));
+            m_mon.add(x, loop(dot(), 0, 2), m_dm.mk_leaf(1));
+            m_mon.add(y, dotstar(), m_dm.mk_leaf(2));
+            lbool got = m_mon.check();
+            std::set<unsigned> ids;
+            core_ids(ids);
+            m_trail.pop_scope(1);
+            m_mon.set_min_core(false);
+            bool ok = got == l_false && ids == std::set<unsigned>{0, 1};
+            if (!ok) ++m_fail;
+            std::cout << (ok ? "  OK   " : "  FAIL ")
+                      << "decomposition bucket minimum exceeds variable maximum\n";
         }
 
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("
