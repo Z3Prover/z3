@@ -4301,23 +4301,40 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
 
     sig_ext = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, sig_size));
     expr_ref rs_shift(m), ls_shift(m);
-    if (sigma_count_size <= 2 * sig_size)
-        rs_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_count_size, sigma_neg_capped);
+    unsigned shift_width = 2 * sig_size;
+    if (sigma_count_size <= shift_width)
+        rs_shift = m_bv_util.mk_zero_extend(shift_width - sigma_count_size, sigma_neg_capped);
     else {
-        // sigma_neg_capped is bounded by sbits + 2, so its high bits are
-        // known zero when the wider exponent workspace is truncated here.
-        rs_shift = m_bv_util.mk_extract(2*sig_size - 1, 0, sigma_neg_capped);
+        // Preserve shift semantics even if a generic caller supplies a count
+        // at least as large as the shift operand width: such a shift produces zero.
+        expr_ref rs_shift_low(m), rs_shift_limit(m), rs_shift_is_large(m);
+        rs_shift_low = m_bv_util.mk_extract(shift_width - 1, 0, sigma_neg_capped);
+        rs_shift_limit = m_bv_util.mk_numeral(shift_width, sigma_count_size);
+        rs_shift_is_large = m_bv_util.mk_ule(rs_shift_limit, sigma_neg_capped);
+        m_simp.mk_ite(
+            rs_shift_is_large,
+            m_bv_util.mk_numeral(shift_width, shift_width),
+            rs_shift_low,
+            rs_shift);
     }
 
-    if (sigma_size <= 2 * sig_size) {
-        ls_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma);
+    if (sigma_size <= shift_width) {
+        ls_shift = m_bv_util.mk_zero_extend(shift_width - sigma_size, sigma);
     }
     else {
         // On the selected nonnegative branch, sigma is lz outside TINY;
         // under TINY, sigma is sigma_add and TINY implies sigma_add <= lz - 1.
-        // Thus 0 <= sigma <= lz, so the discarded high bits are structurally
-        // zero in this shift operand.
-        ls_shift = m_bv_util.mk_extract(2*sig_size - 1, 0, sigma);
+        // Thus 0 <= sigma <= lz. The guard also preserves the generic shift
+        // semantics if a count outside that invariant reaches this branch.
+        expr_ref ls_shift_low(m), ls_shift_limit(m), ls_shift_is_large(m);
+        ls_shift_low = m_bv_util.mk_extract(shift_width - 1, 0, sigma);
+        ls_shift_limit = m_bv_util.mk_numeral(shift_width, sigma_size);
+        ls_shift_is_large = m_bv_util.mk_ule(ls_shift_limit, sigma);
+        m_simp.mk_ite(
+            ls_shift_is_large,
+            m_bv_util.mk_numeral(shift_width, shift_width),
+            ls_shift_low,
+            ls_shift);
     }
     rs_sig = m_bv_util.mk_bv_lshr(sig_ext, rs_shift);
     ls_sig = m_bv_util.mk_bv_shl(sig_ext, ls_shift);
