@@ -977,7 +977,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     scoped_mpz max_result_shift(m_mpz_manager);
     m_mpz_manager.add(mpz(sbits), mpz(3), max_result_shift);
     SASSERT(m_mpz_manager.lt(max_result_shift, m_mpf_manager.m_powers2(exp_bits)));
-    unsigned lz_bits = needs_wide_lz ? exp_bits : ebits;
+    // The local count only needs to represent 0..sbits-1; do not reuse the
+    // wider signed exponent workspace for this unsigned count.
+    unsigned lz_bits = needs_wide_lz ? m_mpz_manager.log2(mpz(sbits - 1)) + 1 : ebits;
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), a_lz(m), b_sgn(m), b_sig(m), b_exp(m), b_lz(m);
     // Defer normalization only for wide-LZ formats; the shared e-bit count
