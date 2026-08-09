@@ -288,6 +288,7 @@ public:
 
     void set_is_var(std::function<bool(expr *)> const &is_var) {
         m_is_var = is_var;
+        m_length_constraints.set_is_var(is_var);
     }
 
     // Assert a membership  (term in regex)  to be decided jointly by the next check().

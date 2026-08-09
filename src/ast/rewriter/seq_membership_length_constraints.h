@@ -15,6 +15,7 @@ Abstract:
 #include "ast/ast.h"
 #include "util/lbool.h"
 #include "util/vector.h"
+#include <functional>
 #include <tuple>
 
 class seq_rewriter;
@@ -29,9 +30,15 @@ public:
 private:
     seq_rewriter& m_rw;
     ptr_vector<void> m_core;
+    std::function<bool(expr*)> m_is_var;
+
+    bool is_var(expr* term) const;
+    bool length_interval(expr* regex, unsigned& lo, unsigned& hi) const;
 
 public:
     explicit membership_length_constraints(seq_rewriter& rw) : m_rw(rw) {}
+
+    void set_is_var(std::function<bool(expr*)> const& is_var) { m_is_var = is_var; }
 
     // Return l_false when the constraints are inconsistent and populate core().
     // Return l_true when no contradiction was found.

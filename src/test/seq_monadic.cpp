@@ -783,19 +783,20 @@ public:
             ms.push_back(std::make_pair((expr*)x.get(), (expr*)aP.get()));        // 2: x in a+
             check_core("z in a* (& x in b* & x in a+)", ms, std::set<unsigned>{1, 2});
         }
-        // The term's syntactic minimum length exceeds the regex's finite maximum.
+        // Lower bounds on repeated variables refine the compound term's minimum length.
         {
             m_trail.push_scope();
-            m_mon.add(sword("aa"), word("a"), m_dm.mk_leaf(0));
-            m_mon.add(y, dotstar(), m_dm.mk_leaf(1));
+            m_mon.add_lo(x, 3, m_dm.mk_leaf(0));
+            m_mon.add_hi(t_xax, 5, m_dm.mk_leaf(1));
+            m_mon.add(y, dotstar(), m_dm.mk_leaf(2));
             lbool got = m_mon.check();
             std::set<unsigned> ids;
             core_ids(ids);
             m_trail.pop_scope(1);
-            bool ok = got == l_false && ids == std::set<unsigned>{0};
+            bool ok = got == l_false && ids == std::set<unsigned>{0, 1};
             if (!ok) ++m_fail;
             std::cout << (ok ? "  OK   " : "  FAIL ")
-                      << "minimum sequence length exceeds maximum regex length\n";
+                      << "refined minimum sequence length exceeds maximum regex length\n";
         }
 
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("
