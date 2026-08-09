@@ -27,42 +27,36 @@ lbool membership_length_constraints::check(
 
     obj_map<expr, unsigned> var_min_lengths;
     obj_map<expr, void*> var_dependencies;
+    auto insert_min_length = [&](expr* var, expr* state, expr* target, void* dependency) {
+        auto state_info = m_rw.u().re.get_info(state);
+        if (!state_info.is_known())
+            return;
+        unsigned min_length = state_info.min_length;
+        if (target) {
+            auto target_info = m_rw.u().re.get_info(target);
+            if (!target_info.is_known() || target_info.max_length == UINT_MAX)
+                return;
+            min_length = state_info.min_length > target_info.max_length ?
+                state_info.min_length - target_info.max_length : 0;
+        }
+        unsigned current = 0;
+        if (!var_min_lengths.find(var, current) || min_length > current) {
+            var_min_lengths.insert(var, min_length);
+            var_dependencies.insert(var, dependency);
+        }
+    };
+
     for (unsigned i = 0; i < constraints.size(); ++i) {
         atom_vector const& bucket = atoms[i];
         if (bucket.size() != 1 || !bucket[0].is_var())
             continue;
         auto const& [term, regex, dependency] = constraints[i];
-        auto info = m_rw.u().re.get_info(regex);
-        if (!info.is_known())
-            continue;
-        expr* var = bucket[0].var.get();
-        unsigned current = 0;
-        if (!var_min_lengths.find(var, current) || info.min_length > current) {
-            var_min_lengths.insert(var, info.min_length);
-            var_dependencies.insert(var, dependency);
-        }
+        insert_min_length(bucket[0].var.get(), regex, nullptr, dependency);
     }
 
-    for (bucket_vector const& variable_buckets : buckets) {
-        for (bucket const& b : variable_buckets) {
-            auto state_info = m_rw.u().re.get_info(b.state);
-            if (!state_info.is_known())
-                continue;
-            unsigned bucket_min_length = state_info.min_length;
-            if (b.target) {
-                auto target_info = m_rw.u().re.get_info(b.target);
-                if (!target_info.is_known() || target_info.max_length == UINT_MAX)
-                    continue;
-                bucket_min_length = state_info.min_length > target_info.max_length ?
-                    state_info.min_length - target_info.max_length : 0;
-            }
-            unsigned current = 0;
-            if (!var_min_lengths.find(b.var, current) || bucket_min_length > current) {
-                var_min_lengths.insert(b.var, bucket_min_length);
-                var_dependencies.insert(b.var, b.dependency);
-            }
-        }
-    }
+    for (bucket_vector const& variable_buckets : buckets)
+        for (bucket const& b : variable_buckets)
+            insert_min_length(b.var, b.state, b.target, b.dependency);
 
     auto add_dependency = [&](void* dependency) {
         if (!dependency)
