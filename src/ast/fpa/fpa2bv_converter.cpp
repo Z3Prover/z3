@@ -4187,7 +4187,9 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(is_well_sorted(m, OVF1));
 
     expr_ref lz(m);
-    mk_leading_zeros(sig, ebits+2, lz); // CMW: is this always large enough?
+    // Keep round's established ebits+2 leading-zero workspace. Division
+    // computes any wider operand count locally before it calls round.
+    mk_leading_zeros(sig, ebits+2, lz);
 
     dbg_decouple("fpa2bv_rnd_lz", lz);
 
