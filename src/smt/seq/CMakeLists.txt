@@ -4,6 +4,11 @@ z3_add_component(smt_seq
     seq_state.cpp
     seq_parikh.cpp
     seq_nielsen.cpp
+    seq_nielsen_simplify.cpp
+    seq_nielsen_search.cpp
+    seq_nielsen_modifiers.cpp
+    seq_nielsen_regex.cpp
+    seq_nielsen_automaton.cpp
     seq_nielsen_pp.cpp
   COMPONENT_DEPENDENCIES
     euf
