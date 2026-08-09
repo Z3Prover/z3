@@ -33,11 +33,13 @@ lbool membership_length_constraints::check(
             return;
         unsigned min_length = state_info.min_length;
         if (target) {
+            // state -> target.
+            // min_length(state) - min_length(target)
             auto target_info = m_rw.u().re.get_info(target);
-            if (!target_info.is_known() || target_info.max_length == UINT_MAX)
+            if (!target_info.is_known())
                 return;
-            min_length = state_info.min_length > target_info.max_length ?
-                state_info.min_length - target_info.max_length : 0;
+            min_length = state_info.min_length > target_info.min_length ?
+                state_info.min_length - target_info.min_length : 0;
         }
         unsigned current = 0;
         if (!var_min_lengths.find(var, current) || min_length > current) {
