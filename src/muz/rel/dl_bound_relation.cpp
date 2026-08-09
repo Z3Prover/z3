@@ -363,9 +363,6 @@ namespace datalog {
             case LE_VAR:
                 r.mk_le(m_vars[0], m_vars[1]);
                 break;
-            default:
-                UNREACHABLE();
-                break;
             }    
             TRACE(dl, t.display(tout << "result\n"););   
         }
@@ -469,9 +466,7 @@ namespace datalog {
     void bound_relation::mk_rename_elem(uint_set2& t, unsigned col_cnt, unsigned const* cycle) {
         // [ 0 -> 2 -> 3 -> 0]
         if (col_cnt == 0) return;
-        unsigned col1, col2;
-        col1 = find(cycle[0]);
-        col2 = find(cycle[col_cnt-1]);
+        unsigned col1, col2 = find(cycle[col_cnt-1]);
         bool has_col2_lt = t.lt.contains(col2);
         t.lt.remove(col2);
         bool has_col2_le = t.le.contains(col2);
@@ -677,5 +672,4 @@ namespace datalog {
 
 
 }
-
 

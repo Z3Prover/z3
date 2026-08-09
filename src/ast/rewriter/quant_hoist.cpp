@@ -187,8 +187,6 @@ private:
         case Q_exists_neg: return is_forall;
         case Q_none_pos: return true;
         case Q_none_neg: return true;
-        default:
-            UNREACHABLE();
         }
         return false;
     }

@@ -1037,8 +1037,6 @@ public:
         case lp_api::upper_t:
             k = lp::LE;
             break;
-        default:
-            break;
         }         
         auto vi = register_theory_var_in_lar_solver(b->get_var());
         if (vi == lp::null_lpvar) {
@@ -1669,8 +1667,6 @@ public:
             return FC_CONTINUE;
         case l_undef:
             return FC_GIVEUP;
-        default:
-            break;
         }
         return FC_GIVEUP;
     }
@@ -1813,9 +1809,6 @@ public:
         case l_undef:
             TRACE(arith, tout << "check feasible is undef\n";);
             return m.inc() ? FC_CONTINUE : FC_GIVEUP;
-        default:
-            UNREACHABLE();
-            break;
         }
         TRACE(arith, tout << "default giveup\n";);
         return FC_GIVEUP;
@@ -2123,8 +2116,6 @@ public:
             is_eq = true;
             pos = true;
             break;
-        default:
-            UNREACHABLE();
         }
         expr_ref atom(m);
         // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
@@ -4460,9 +4451,6 @@ public:
             case null_source:                    
                 out << idx << " null";
                 break;
-            default:
-                UNREACHABLE();
-                break; 
             }
         }
         for (lp::explanation::cimpq ev : evidence) 

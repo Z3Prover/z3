@@ -108,10 +108,9 @@ private:
         case IUB_RETURN_UNDEF: return false;
         case IUB_USE_TACTIC_IF_QF: return !has_quantifiers();
         case IUB_USE_TACTIC: return true;
-        default:
-            UNREACHABLE();
-            return false;
         }
+        UNREACHABLE();
+        return false;
     }
 
 public:

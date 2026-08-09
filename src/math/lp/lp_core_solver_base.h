@@ -467,8 +467,6 @@ public:
         case column_type::free_column:
             out << "[-oo, oo]";
             break;
-        default:
-            UNREACHABLE();
         }
         if (print_nl)
             out << "\n";

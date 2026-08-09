@@ -217,8 +217,6 @@ namespace euf {
             m_update_shared_trail.pop_back();
             break;
         }
-        default:
-            UNREACHABLE();
         }
     }
 

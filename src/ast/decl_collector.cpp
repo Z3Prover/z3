@@ -128,8 +128,6 @@ void decl_collector::visit(ast* n) {
             }
             case AST_VAR:
                 break;
-            default:
-                UNREACHABLE();
             }
             m_visited.mark(n, true);
             m_trail.push_back(n);

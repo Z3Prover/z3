@@ -41,8 +41,9 @@ inline std::ostream& operator<<(std::ostream& out, br_status st) {
     case BR_REWRITE_FULL: return out << "rewrite_full";
     case BR_DONE: return out << "done";
     case BR_FAILED: return out << "failed";
-    default: return out << "unknown";
     }
+    UNREACHABLE();
+    return out;
 }
 
 #define RW_UNBOUNDED_DEPTH 3
@@ -59,4 +60,3 @@ class rewriter_exception : public default_exception {
 public:                                                
     rewriter_exception(std::string && msg) : default_exception(std::move(msg)) {}
 };
-

@@ -285,10 +285,9 @@ namespace dd {
             return cnf_size(m_cost_bdd);
         case dnf_cost:
             return dnf_size(m_cost_bdd);
-        default:
-            UNREACHABLE();
-            return 0;
         }
+        UNREACHABLE();
+        return 0;
     }
 
     bool bdd_manager::is_bad_cost(double current_cost, double best_cost) const {

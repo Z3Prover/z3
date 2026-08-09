@@ -16,6 +16,7 @@ namespace nla {
     class core;
     class monomial_bounds : common {
         dep_intervals& dep;
+        bool m_bounds_optimization_enabled = true;
 
         bool tighten_lp_bound(dep_interval const &range, lpvar v, unsigned p);
         bool tighten_lp_upper_bound(dep_interval const& range, lpvar v, unsigned p);
@@ -49,8 +50,10 @@ namespace nla {
         // when all but one variable of a monomial are fixed, the monomial is
         // linear and its value/equality can be propagated into the LP solver.
         bool propagate_linear_bound(monic & m);
+        bool linearize(monic const& m, lpvar w, lpvar fixed_to_zero);
         bool is_linear(monic const& m, lpvar& w, lpvar & fixed_to_zero);
         rational fixed_var_product(monic const& m, lpvar w);
+
 
         // ----------------------------------------------------------------
         // max_min: incremental LP bound optimization.
@@ -90,7 +93,9 @@ namespace nla {
         bool tighten_lp_bounds();
         bool propagate_linear_bounds();
         bool propagate_changed_bounds();
+        bool propagate_violated_linear_monomials();
         bool propagate_fixed_rows();
+        bool optimize_nl_bounds();
 
         // Maximize (is_lower == false) or minimize (is_lower == true) column j
         // over the LP tableau and, if the resulting bound improves j's current
