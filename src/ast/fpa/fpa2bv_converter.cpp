@@ -1145,9 +1145,8 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         m_simp.mk_ite(shift_is_deep, all_discarded, discarded_shifted, discarded);
 
         expr_ref sticky_ext(m), underflow_sig(m);
-        unsigned underflow_sig_low_bit = sig_extract_low_bit;
         underflow_sig = m_bv_util.mk_extract(
-            2 * sig_size - 1, underflow_sig_low_bit, shifted_sig);
+            2 * sig_size - 1, sig_extract_low_bit, shifted_sig);
         sticky_ext = m_bv_util.mk_zero_extend(sbits + 1, discarded);
         underflow_sig = m_bv_util.mk_bv_or({underflow_sig, sticky_ext});
 
