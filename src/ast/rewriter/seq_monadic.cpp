@@ -883,7 +883,7 @@ lbool seq_monadic::choose_cont(unsigned vi, unsigned s_offset, unsigned s_size, 
     return any_undef ? l_undef : l_false;
 }
 
-lbool seq_monadic::decide(membership_vec const& memberships) {
+lbool seq_monadic::decide(membership_vec const& memberships, bool core_trial) {
     m_last_search_memberships = memberships;
     m_model.reset();
     reset_search();                               // clear the caches before dropping the
@@ -891,7 +891,10 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     m_rp_cache.maybe_reset(1u << 16);
     reset_ivl_cache();
     m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
-    m_budget = 200000;
+    constexpr unsigned state_search_budget = 200000;
+    constexpr unsigned positional_search_budget = 200000;
+    constexpr unsigned extended_positional_search_budget = 1000000;
+    m_budget = m_config.m_state_search ? state_search_budget : positional_search_budget;
     m_giveup = false;
     lbool r = l_true;                             // empty conjunction is vacuously true
     if (!memberships.empty() && !prepare(memberships))
@@ -910,6 +913,24 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
             }
             if (r != l_false)
                 r = search();
+
+            // State search and positional DFS have complementary good orderings.
+            // If state search exhausts its private work budget, retry from a clean
+            // search state. The extended retry is reserved for conjunctions with enough
+            // independent intersections to justify delaying the legacy solver.
+            bool use_portfolio = memberships.size() >= m_vars.size() + 2;
+            if (!core_trial && r == l_undef && m_giveup && m_budget == 0) {
+                m_giveup = false;
+                m_budget = positional_search_budget;
+                if (prepare(memberships))
+                    r = dfs_membership(0);
+            }
+            if (!core_trial && use_portfolio && r == l_undef && m_giveup && m_budget == 0) {
+                m_giveup = false;
+                m_budget = extended_positional_search_budget;
+                if (prepare(memberships))
+                    r = dfs_membership(0);
+            }
         }
         else
             r = dfs_membership(0);
@@ -1011,7 +1032,7 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
     for (unsigned i = 0; i < keep.size(); ) {
         membership_vec trial(keep);
         trial.erase(trial.begin() + i);
-        if (decide(trial) == l_false)
+        if (decide(trial, true) == l_false)
             keep.swap(trial);                     // membership i is not needed for unsat
         else
             ++i;                                  // membership i is needed; keep it

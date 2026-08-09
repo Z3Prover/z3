@@ -284,8 +284,9 @@ class seq_monadic {
     // by several memberships accumulates several components in the same branch, which are
     // intersected -- enforcing one consistent value across all memberships.  Does not
     // touch m_memberships or m_core; fills m_model on l_true when model generation is
-    // enabled.
-    lbool decide(membership_vec const& memberships);
+    // enabled. Core-minimization trials skip the search portfolio because l_undef safely
+    // keeps the candidate dependency in the core.
+    lbool decide(membership_vec const& memberships, bool core_trial = false);
 
     // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
     // deletion and collect the (non-null) dependencies of its members into m_core.
