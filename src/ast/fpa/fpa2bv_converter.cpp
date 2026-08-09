@@ -1117,35 +1117,68 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         m_simp.mk_ite(exp_above_round_range, round_max_exp, exp_in_round_range, round_exp);
         m_simp.mk_ite(exp_below_round_range, round_min_exp, round_exp, round_exp);
 
-        expr_ref underflow_shift(m), underflow_shift_sized(m), underflow_shift_capped(m);
-        underflow_shift = m_bv_util.mk_bv_sub(round_min_exp_ext, res_exp);
-        // The exact division exponent range makes this distance fit in the
-        // sbits+4-bit significand workspace. Cap the mask shift as a defensive
-        // deep-underflow path; the data shift itself remains the original
-        // distance and therefore becomes zero when it reaches the data width.
+        expr_ref underflow_result(m);
+        expr_ref min_exp(m), min_exp_ext(m), underflow_shift(m), underflow_shift_sized(m);
+        mk_min_exp(ebits, min_exp);
+        min_exp_ext = m_bv_util.mk_sign_extend(exp_bits - ebits, min_exp);
+        // Below the rounder's signed range, the value is necessarily tiny.
+        // Round it locally: passing a value-preserving shift through round
+        // would make round's t intermediate wrap in its established width.
+        underflow_shift = m_bv_util.mk_bv_sub(min_exp_ext, res_exp);
+        underflow_shift = m_bv_util.mk_bv_sub(
+            underflow_shift, m_bv_util.mk_numeral(1, exp_bits));
         SASSERT(exp_bits <= sig_size);
-        underflow_shift_sized = m_bv_util.mk_zero_extend(sig_size - exp_bits, underflow_shift);
-        expr_ref sig_size_bv(m), underflow_is_deep(m);
-        sig_size_bv = m_bv_util.mk_numeral(sig_size, sig_size);
-        underflow_is_deep = m_bv_util.mk_ule(sig_size_bv, underflow_shift_sized);
-        m_simp.mk_ite(underflow_is_deep, sig_size_bv, underflow_shift_sized, underflow_shift_capped);
+        underflow_shift_sized = m_bv_util.mk_zero_extend(
+            2 * sig_size - exp_bits, underflow_shift);
 
-        expr_ref shift_back(m), low_mask(m), masked_sig(m), discarded(m);
-        shift_back = m_bv_util.mk_bv_sub(sig_size_bv, underflow_shift_capped);
-        low_mask = m_bv_util.mk_bv_lshr(
-            m_bv_util.mk_numeral(m_mpf_manager.m_powers2.m1(sig_size, false), sig_size),
-            shift_back);
-        masked_sig = m.mk_app(m_bv_util.get_fid(), OP_BAND, res_sig, low_mask);
-        discarded = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, masked_sig.get());
+        expr_ref sig_ext(m), shifted_sig(m), discarded(m), discarded_shifted(m);
+        sig_ext = m_bv_util.mk_concat(res_sig, m_bv_util.mk_numeral(0, sig_size));
+        shifted_sig = m_bv_util.mk_bv_lshr(sig_ext, underflow_shift_sized);
+        unsigned sig_extract_low_bit = 2 * sig_size - (sbits + 2);
+        discarded_shifted = m.mk_app(
+            m_bv_util.get_fid(), OP_BREDOR,
+            m_bv_util.mk_extract(sig_extract_low_bit - 1, 0, shifted_sig));
+        expr_ref shift_is_deep(m), all_discarded(m);
+        shift_is_deep = m_bv_util.mk_ule(
+            m_bv_util.mk_numeral(2 * sig_size, 2 * sig_size), underflow_shift_sized);
+        all_discarded = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, res_sig);
+        m_simp.mk_ite(shift_is_deep, all_discarded, discarded_shifted, discarded);
 
-        expr_ref shifted_sig(m), sticky_ext(m);
-        shifted_sig = m_bv_util.mk_bv_lshr(res_sig, underflow_shift_sized);
-        sticky_ext = m_bv_util.mk_zero_extend(sig_size - 1, discarded);
-        shifted_sig = m_bv_util.mk_bv_or({shifted_sig, sticky_ext});
-        m_simp.mk_ite(exp_below_round_range, shifted_sig, res_sig, round_sig);
+        expr_ref sticky_ext(m), underflow_sig(m);
+        unsigned underflow_sig_low_bit = sig_extract_low_bit;
+        underflow_sig = m_bv_util.mk_extract(
+            2 * sig_size - 1, underflow_sig_low_bit, shifted_sig);
+        sticky_ext = m_bv_util.mk_zero_extend(sbits + 1, discarded);
+        underflow_sig = m_bv_util.mk_bv_or({underflow_sig, sticky_ext});
+
+        expr_ref underflow_sticky(m), underflow_round(m), underflow_last(m);
+        underflow_sticky = m_bv_util.mk_extract(0, 0, underflow_sig);
+        underflow_round = m_bv_util.mk_extract(1, 1, underflow_sig);
+        underflow_last = m_bv_util.mk_extract(2, 2, underflow_sig);
+        expr_ref underflow_retained(m), underflow_inc(m), underflow_rounded_sig(m);
+        underflow_retained = m_bv_util.mk_extract(sbits + 1, 2, underflow_sig);
+        underflow_inc = mk_rounding_decision(
+            rm, res_sgn, underflow_last, underflow_round, underflow_sticky);
+        underflow_rounded_sig = m_bv_util.mk_bv_add(
+            m_bv_util.mk_zero_extend(1, underflow_retained),
+            m_bv_util.mk_zero_extend(sbits, underflow_inc));
+
+        expr_ref underflow_sig_ovf(m), underflow_exp(m), underflow_frac(m);
+        underflow_sig_ovf = m_bv_util.mk_extract(sbits, sbits, underflow_rounded_sig);
+        underflow_exp = m_bv_util.mk_numeral(0, ebits);
+        underflow_frac = m_bv_util.mk_extract(sbits - 2, 0, underflow_rounded_sig);
+        expr_ref min_normal_exp(m), zero_frac(m);
+        min_normal_exp = m_bv_util.mk_numeral(1, ebits);
+        zero_frac = m_bv_util.mk_numeral(0, sbits - 1);
+        m_simp.mk_ite(underflow_sig_ovf, min_normal_exp, underflow_exp, underflow_exp);
+        m_simp.mk_ite(underflow_sig_ovf, zero_frac, underflow_frac, underflow_frac);
+        underflow_result = m_util.mk_fp(res_sgn, underflow_exp, underflow_frac);
     }
 
     round(s, rm, res_sgn, round_sig, round_exp, v9);
+
+    if (exp_bits > ebits + 2)
+        m_simp.mk_ite(exp_below_round_range, underflow_result, v9, v9);
 
     // And finally, we tie them together.
     mk_ite(c8, v8, v9, result);
