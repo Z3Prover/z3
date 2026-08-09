@@ -4270,9 +4270,13 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     // The exponent workspace is not necessarily wide enough to represent the
     // unsigned cap sbits + 2. Keep the exponent arithmetic at its established
     // width, but give the cap comparison its own minimal unsigned workspace.
+    unsigned sigma_cap_size = log2(sbits + 2) + 1;
     unsigned sigma_count_size = sigma_size;
-    if (sigma_count_size < log2(sbits + 2) + 1)
-        sigma_count_size = log2(sbits + 2) + 1;
+    if (sigma_count_size < sigma_cap_size)
+        sigma_count_size = sigma_cap_size;
+    // The cap is always representable in the shift operand, even when the
+    // exponent workspace itself is wider and the count must be truncated.
+    SASSERT(sigma_cap_size <= 2 * sig_size);
 
     expr_ref sigma_neg(m), sigma_neg_ext(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
         rs_sig(m), ls_sig(m), big_sh_sig(m), sigma_le_cap(m);
@@ -4294,8 +4298,11 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     expr_ref rs_shift(m), ls_shift(m);
     if (sigma_count_size <= 2 * sig_size)
         rs_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_count_size, sigma_neg_capped);
-    else
+    else {
+        // sigma_neg_capped is bounded by sbits + 2, so its high bits are
+        // known zero when the wider exponent workspace is truncated here.
         rs_shift = m_bv_util.mk_extract(2*sig_size - 1, 0, sigma_neg_capped);
+    }
 
     if (sigma_size <= 2 * sig_size) {
         ls_shift = m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma);
