@@ -1903,7 +1903,7 @@ seq_util::rex::info seq_util::rex::info::xor_(seq_util::rex::info const& rhs) co
                 false);
             // Lambda(r xor s) is contained in Lambda(r) union Lambda(s), but the bounds of a
             // symmetric difference are not, so only the cyclic component carries over.
-            seq::len_abs a = len().unite(rhs.len());
+            len_abs a = len().unite(rhs.len());
             a.set_bounds(0, UINT_MAX);
             r.set_len(a);
             return r;

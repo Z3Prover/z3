@@ -66,6 +66,7 @@
     X(uint_set) \
     X_ARGV(expr_rand) \
     X(list) \
+    X(len_abs) \
     X(small_object_allocator) \
     X(timeout) \
     X(proof_checker) \
@@ -116,7 +117,6 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
-    X(seq_len_abs) \
     X(seq_monadic) \
     X(seq_monadic_bench) \
     X(check_assumptions) \

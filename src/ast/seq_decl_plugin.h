@@ -24,8 +24,8 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/char_decl_plugin.h"
-#include "ast/seq_len_abs.h"
 #include "util/lbool.h"
+#include "util/len_abs.h"
 #include "util/manage_warnings.h"
 #include "util/zstring.h"
 
@@ -460,18 +460,18 @@ public:
 
                   Lambda(r)  subseteq  { n : min_length <= n <= max_length, (n mod period) in residues }
 
-              The abstraction itself, and every operation on it, lives in seq::len_abs;
-              this struct only stores it and forwards. See ast/seq_len_abs.h.
+              The abstraction itself, and every operation on it, lives in len_abs;
+              this struct only stores it and forwards. See util/len_abs.h.
             */
-            static constexpr unsigned max_period = seq::len_abs::max_period;
+            static constexpr unsigned max_period = len_abs::max_period;
             unsigned period { 1 };
             uint64_t residues { 1 };
 
             /* The length abstraction of this info as a standalone value. */
-            seq::len_abs len() const { return seq::len_abs(min_length, max_length, period, residues); }
+            len_abs len() const { return len_abs(min_length, max_length, period, residues); }
 
             /* Overwrites the length component, bounds included. */
-            void set_len(seq::len_abs const& a) {
+            void set_len(len_abs const& a) {
                 min_length = a.lo();
                 max_length = a.hi();
                 period = a.period();

@@ -3,25 +3,23 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    seq_len_abs.cpp
+    len_abs.cpp
 
 Abstract:
 
     Unit tests for the ultimately periodic length abstraction.
 
-    These exercise seq::len_abs directly, with no ast_manager and no rewriter, so
+    These exercise len_abs directly, with no ast_manager and no rewriter, so
     they pin the arithmetic of the lattice itself.  The tests that check how the
     abstraction is derived from a regex live in tst_seq_rewriter.
 
 --*/
 
-#include "ast/seq_len_abs.h"
+#include "util/len_abs.h"
 #include "util/debug.h"
 #include <iostream>
 
 namespace {
-
-    using seq::len_abs;
 
     /* Membership in the concretization of the abstraction. */
     static bool admits(len_abs const& a, unsigned n) {
@@ -178,7 +176,7 @@ namespace {
     }
 }
 
-void tst_seq_len_abs() {
+void tst_len_abs() {
     tst_basics();
     tst_progression();
     tst_star_and_plus();
@@ -188,5 +186,5 @@ void tst_seq_len_abs() {
     tst_loop_and_opt();
     tst_emptiness_needs_a_full_window();
     tst_residues_mod();
-    std::cout << "tst_seq_len_abs: all tests passed\n";
+    std::cout << "tst_len_abs: all tests passed\n";
 }
