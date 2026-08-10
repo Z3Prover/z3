@@ -1131,11 +1131,11 @@ namespace nla {
        otherwise be missed with only the propagated bounds.
     */
     bool monomial_bounds::optimize_nl_bounds() {
-        if (!c().params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
+        if (!c().params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled) //remove parameter
             return false;
 
-        c().trail().push(value_trail(m_bounds_optimization_enabled));
-        m_bounds_optimization_enabled = false;
+//        c().trail().push(value_trail(m_bounds_optimization_enabled));
+//        m_bounds_optimization_enabled = false;
 
         auto& lra = c().lra;
         if (!lra.is_int_feasible())
