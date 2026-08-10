@@ -66,6 +66,7 @@
     X(uint_set) \
     X_ARGV(expr_rand) \
     X(list) \
+    X(len_abs) \
     X(small_object_allocator) \
     X(timeout) \
     X(proof_checker) \
@@ -79,6 +80,7 @@
     X(scaled_min) \
     X(box_mod_opt) \
     X(box_independent) \
+    X(opt_dup_min) \
     X(deep_api_bugs) \
     X(api_algebraic) \
     X(api_polynomial) \

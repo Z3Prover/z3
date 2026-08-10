@@ -147,8 +147,6 @@ column_is_dual_feasible(unsigned j) const {
         break;
     case column_type::free_column:
         return numeric_traits<X>::is_zero(m_d[j]);
-    default:
-        UNREACHABLE();
     }
     UNREACHABLE();
     return false;
@@ -191,8 +189,6 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feas
     case column_type::free_column:
         return true;
         break;
-    default:
-        UNREACHABLE();
     }
     return false; // it is unreachable
 }

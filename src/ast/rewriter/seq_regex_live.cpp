@@ -24,7 +24,6 @@ namespace seq {
         uint_set m_seen;
         vector<svector<unsigned>> m_predecessors;
         bool_vector m_live;
-        bool_vector m_closed;
         svector<unsigned> m_live_frontier;
         unsigned m_root_id = 0;
         failure m_failure = failure::none;
@@ -76,8 +75,6 @@ namespace seq {
                 s.m_predecessors.resize(size);
             if (s.m_live.size() < size)
                 s.m_live.resize(size, false);
-            if (s.m_closed.size() < size)
-                s.m_closed.resize(size, false);
         }
 
         char nullable(unsigned id) {
@@ -89,7 +86,9 @@ namespace seq {
                 expr_ref f = m_rw.is_nullable(r);
                 n = m.is_true(f) ? l_true : m.is_false(f) ? l_false : l_undef;
             }
-            m_nullable[id] = n == l_true ? 1 : n == l_false ? 0 : 3;
+            if (n == l_true) m_nullable[id] = 1;
+            else if (n == l_false) m_nullable[id] = 0;
+            else m_nullable[id] = 3;
             return m_nullable[id];
         }
 
@@ -144,9 +143,6 @@ namespace seq {
         }
 
         void close(search& s) {
-            for (unsigned id : s.m_to_explore)
-                if (!s.m_live[id])
-                    s.m_closed[id] = true;
             s.m_complete = true;
         }
 

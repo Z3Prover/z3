@@ -268,7 +268,6 @@ br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr *
                             nis_head = nis.size();
                             break;
                         }
-            default: UNREACHABLE();
         }
     }
     if (!m_okay || !is_sat()) {

@@ -82,13 +82,16 @@ namespace {
             return "brzozowski";
         case seq::transition_mode::light_antimirov_tm:
             return "light-antimirov";
-        default:
-            return "unknown";
         }
+        return "unknown";
     }
 
     char const* result_name(lbool r) {
-        return r == l_true ? "sat" : r == l_false ? "unsat" : "unknown";
+        switch (r) {
+        case l_true:  return "sat";
+        case l_false: return "unsat";
+        default:      return "unknown";
+        }
     }
 }
 
@@ -138,8 +141,11 @@ lbool seq_monadic::nullable(expr* r) {
     if (i != l_undef)
         return i;
     char v = 0;
-    if (m_nullable_cache.find(r, v))
-        return v == 1 ? l_true : v == 0 ? l_false : l_undef;
+    if (m_nullable_cache.find(r, v)) {
+        if (v == 1) return l_true;
+        if (v == 0) return l_false;
+        return l_undef;
+    }
     expr_ref nb = m_rw.is_nullable(r);
     lbool res = m.is_true(nb) ? l_true : m.is_false(nb) ? l_false : l_undef;
     m_pin.push_back(r);
@@ -919,7 +925,7 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     m_rp_cache.maybe_reset(1u << 16);
     reset_ivl_cache();
     m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
-    m_budget = 200000;
+    m_budget = 1000000;
     m_giveup = false;
     lbool r = l_true;                             // empty conjunction is vacuously true
     if (!memberships.empty() && !prepare(memberships))
