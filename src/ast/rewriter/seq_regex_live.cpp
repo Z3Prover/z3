@@ -140,21 +140,6 @@ namespace seq {
             return true;
         }
 
-        /*
-          Reaching this point means the queue drained without hitting the state cap or a
-          resource limit, so m_to_explore is the complete, fully expanded forward cone of
-          the root and any state in it that liveness never reached has empty language --
-          a verdict that holds for every root, not just this one.
-
-          That verdict used to be recorded per search in a m_closed bit vector which no
-          caller ever read.  Retaining it globally and pruning on it was measured and does
-          not pay: by the time close() can prove a state empty, the search has already
-          expanded it and its whole cone, so the only work saved is on revisits, which the
-          successor, cofactor and product-visited caches already make cheap.  Over the
-          bench regexes corpus the result was -1.3% (seq monadic path) and +1.2% (legacy
-          path), and +1.7% on a QF_S sample, with no benchmark decided either way.  A
-          filter has to prune before exploration to be worth its lookups.
-        */
         void close(search& s) {
             s.m_complete = true;
         }
