@@ -66,6 +66,7 @@
     X(uint_set) \
     X_ARGV(expr_rand) \
     X(list) \
+    X(len_abs) \
     X(small_object_allocator) \
     X(timeout) \
     X(proof_checker) \

@@ -25,6 +25,7 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/char_decl_plugin.h"
 #include "util/lbool.h"
+#include "util/len_abs.h"
 #include "util/manage_warnings.h"
 #include "util/zstring.h"
 
@@ -454,6 +455,30 @@ public:
             bool classical { true };
 
             /*
+              Approximate semilinear (ultimately periodic) abstraction of the length set
+              Lambda(r) = { |w| : w in L(r) }. The soundness contract is the containment
+
+                  Lambda(r)  subseteq  { n : min_length <= n <= max_length, (n mod period) in residues }
+
+              The abstraction itself, and every operation on it, lives in len_abs;
+              this struct only stores it and forwards. See util/len_abs.h.
+            */
+            static constexpr unsigned max_period = len_abs::max_period;
+            unsigned period { 1 };
+            uint64_t residues { 1 };
+
+            /* The length abstraction of this info as a standalone value. */
+            len_abs len() const { return len_abs(min_length, max_length, period, residues); }
+
+            /* Overwrites the length component, bounds included. */
+            void set_len(len_abs const& a) {
+                min_length = a.lo();
+                max_length = a.hi();
+                period = a.period();
+                residues = a.residues();
+            }
+
+            /*
               Default constructor of invalid info.
             */
             info() = default;
@@ -492,6 +517,21 @@ public:
             bool is_valid() const { return known != l_undef; }
 
             bool is_known() const { return known == l_true; }
+
+            /*
+              True when the length abstraction is empty, which certifies that L(r) is empty.
+              Returns false for unknown info.
+            */
+            bool length_is_empty() const { return is_known() && len().is_empty(); }
+
+            /* Over-approximates the residues of Lambda modulo q, as a bitmask over [0, q). */
+            uint64_t residues_mod(unsigned q) const { return len().residues_mod(q); }
+
+            /* The gcd of the abstracted length set; 0 when that set is empty or is exactly {0}. */
+            unsigned length_gcd() const { return len().gcd(); }
+
+            /* Period to use when combining with another info; 0 means "adaptable". */
+            unsigned eff_period() const { return len().eff_period(); }
 
             info star() const;
             info plus() const;

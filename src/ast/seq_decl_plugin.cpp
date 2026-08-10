@@ -1758,7 +1758,9 @@ std::ostream& seq_util::rex::info::display(std::ostream& out) const {
             << "nullable=" << (nullable == l_true ? "T" : (nullable == l_false ? "F" : "U")) << ", "
             << "min_length=" << min_length << ", "
             << "max_length=" << max_length << ", "
-            << "classical=" << (classical ? "T" : "F") << ")";
+            << "classical=" << (classical ? "T" : "F");
+        len().display(out);
+        out << ")";
     }
     else if (is_valid())
         out << "UNKNOWN";
@@ -1778,13 +1780,17 @@ std::string seq_util::rex::info::str() const {
 
 seq_util::rex::info seq_util::rex::info::star() const {
     //if is_known() is false then all mentioned properties will remain false
-    return seq_util::rex::info(interpreted, l_true, 0, max_length == 0 ? 0 : UINT_MAX, classical);
+    info r(interpreted, l_true, 0, 0, classical);
+    r.set_len(len().star());
+    return r;
 }
 
 seq_util::rex::info seq_util::rex::info::plus() const {
     if (is_known()) {
         //plus never occurs in a normalized regex
-        return info(interpreted, nullable, min_length, max_length == 0 ? 0 : UINT_MAX, classical);
+        info r(interpreted, nullable, 0, 0, classical);
+        r.set_len(len().plus());
+        return r;
     }
     else
         return *this;
@@ -1793,13 +1799,16 @@ seq_util::rex::info seq_util::rex::info::plus() const {
 seq_util::rex::info seq_util::rex::info::opt() const {
     // if is_known() is false then all mentioned properties will remain false
     // optional construct never occurs in a normalized regex
-    return seq_util::rex::info(interpreted, l_true, 0, max_length, classical);
+    info r(interpreted, l_true, 0, 0, classical);
+    r.set_len(len().opt());
+    return r;
 }
 
 seq_util::rex::info seq_util::rex::info::complement() const {
     if (is_known()) {
         lbool compl_nullable = (nullable == l_true ? l_false : (nullable == l_false ? l_true : l_undef));
         unsigned compl_min_length = (compl_nullable == l_false ? 1 : 0);
+        // The length set of a complement is not determined by that of the argument: degrade to top.
         return info(interpreted, compl_nullable, compl_min_length, UINT_MAX, false);
     }
     else
@@ -1814,11 +1823,13 @@ seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info const& rhs, 
                 is_nullable = l_true;
             if (nullable == l_false || rhs.nullable == l_false)
                 is_nullable = l_false;
-            return info(interpreted && rhs.interpreted,
+            info r(interpreted && rhs.interpreted,
                 is_nullable,
-                add_truncate(min_length, rhs.min_length),
-                add_truncate(max_length, rhs.max_length),
+                0, 0,
                 classical && rhs.classical);
+            // Lengths add, so residues add modulo the gcd of the two periods.
+            r.set_len(len().concat(rhs.len()));
+            return r;
         }
         else
             return rhs;
@@ -1830,11 +1841,13 @@ seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info const& rhs, 
 seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info const& rhs) const {
     if (is_known() || rhs.is_known()) {
         //works correctly if one of the arguments is unknown
-        return info(interpreted && rhs.interpreted,
+        info r(interpreted && rhs.interpreted,
             ((nullable == l_true || rhs.nullable == l_true) ? l_true : ((nullable == l_false && rhs.nullable == l_false) ? l_false : l_undef)),
-            std::min(min_length, rhs.min_length),
-            std::max(max_length, rhs.max_length),
+            0, 0,
             classical && rhs.classical);
+        // Lambda(r|s) = Lambda(r) union Lambda(s)
+        r.set_len(len().unite(rhs.len()));
+        return r;
     }
     else
         return rhs;
@@ -1843,11 +1856,13 @@ seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info const& rhs) co
 seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info const& rhs) const {
     if (is_known()) {
         if (rhs.is_known()) {
-            return info(interpreted && rhs.interpreted,
+            info r(interpreted && rhs.interpreted,
                 ((nullable == l_true && rhs.nullable == l_true) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
-                std::max(min_length, rhs.min_length),
-                std::min(max_length, rhs.max_length),
+                0, 0,
                 false);
+            // Lambda(r&s) is contained in Lambda(r) intersect Lambda(s), which is the sound direction.
+            r.set_len(len().meet(rhs.len()));
+            return r;
         }
         else
             return rhs;
@@ -1859,11 +1874,13 @@ seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info const& rhs) co
 seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) const {
     if (is_known()) {
         if (rhs.is_known()) {
-            return info(interpreted & rhs.interpreted,
+            info r(interpreted & rhs.interpreted,
                 ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
-                min_length,
-                max_length,
+                0, 0,
                 false);
+            // Lambda(r \ s) is contained in Lambda(r), so the lhs abstraction carries over.
+            r.set_len(len());
+            return r;
         }
         else
             return rhs;
@@ -1879,11 +1896,17 @@ seq_util::rex::info seq_util::rex::info::xor_(seq_util::rex::info const& rhs) co
             lbool xor_nullable = l_undef;
             if (nullable != l_undef && rhs.nullable != l_undef)
                 xor_nullable = (nullable == rhs.nullable) ? l_false : l_true;
-            return info(interpreted & rhs.interpreted,
+            info r(interpreted & rhs.interpreted,
                 xor_nullable,
                 0,
                 UINT_MAX,
                 false);
+            // Lambda(r xor s) is contained in Lambda(r) union Lambda(s), but the bounds of a
+            // symmetric difference are not, so only the cyclic component carries over.
+            len_abs a = len().unite(rhs.len());
+            a.set_bounds(0, UINT_MAX);
+            r.set_len(a);
+            return r;
         }
         else
             return rhs;
@@ -1898,11 +1921,13 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) co
             // unsigned ite_min_length = std::min(min_length, i.min_length);
             // lbool ite_nullable = (nullable == i.nullable ? nullable : l_undef);
             // TBD: whether ite is interpreted or not depends on whether the condition is interpreted and both branches are interpreted
-            return info(false,
+            info r(false,
                 ((nullable == l_true && i.nullable == l_true) ? l_true : ((nullable == l_false && i.nullable == l_false) ? l_false : l_undef)),
-                std::min(min_length, i.min_length),
-                std::max(max_length, i.max_length),
+                0, 0,
                 classical && i.classical);
+            // The ite denotes one of the two branches, so its lengths lie in the union.
+            r.set_len(len().unite(i.len()));
+            return r;
         }
         else
             return i;
@@ -1913,10 +1938,10 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) co
 
 seq_util::rex::info seq_util::rex::info::loop(unsigned lower, unsigned upper) const {
     if (is_known()) {
-        unsigned m = mul_truncate(min_length, lower);
-        unsigned max_l = mul_truncate(max_length, upper);
         lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);
-        return info(interpreted, loop_nullable, m, max_l, classical);
+        info r(interpreted, loop_nullable, 0, 0, classical);
+        r.set_len(len().loop(lower, upper));
+        return r;
     }
     else
         return *this;
@@ -1933,5 +1958,7 @@ seq_util::rex::info& seq_util::rex::info::operator=(info const& other) {
     min_length = other.min_length;
     max_length = other.max_length;
     classical = other.classical;
+    period = other.period;
+    residues = other.residues;
     return *this;
 }

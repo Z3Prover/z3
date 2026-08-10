@@ -79,6 +79,7 @@ add_executable(test-z3
   interval.cpp
   karr.cpp
   lcube.cpp
+  len_abs.cpp
   list.cpp
   main.cpp
   map.cpp

@@ -26,6 +26,15 @@ Author:
 
 namespace smt {
 
+    static unsigned u_gcd(unsigned a, unsigned b) {
+        while (b) {
+            unsigned t = a % b;
+            a = b;
+            b = t;
+        }
+        return a;
+    }
+
     seq_regex::seq_regex(theory_seq& th):
         th(th),
         ctx(th.get_context()),
@@ -497,11 +506,149 @@ namespace smt {
 
         if (coallesce_in_re(lit)) 
             return;
-        
+
+        propagate_length_residue(lit, s, r);
+
         if (th.use_monadic_regex())
             add_monadic_membership(lit, s, r);
         else
             propagate_accept_legacy(lit, s, r);
+    }
+
+    /*
+      Feed the semilinear length abstraction of r to arithmetic.
+
+      Lambda(r) over-approximates the length set of L(r) as an ultimately periodic set, so a
+      positive membership s in r entails  |s| mod period  in  residues.  Length *bounds*
+      alone cannot express this: (aaaa)* and (bbbbbb)* both have bounds [0, oo), yet
+      |z| in 4N together with |w| in 6N and |z| + 1 = |w| is refuted by 6n - 4m = 1, which
+      linear arithmetic closes with its gcd test once the residues are visible to it.
+
+      There are two ways to use the residues, and they have very different costs.
+
+      (1) A *local* refutation needs no arithmetic at all.  Relaxing every non-constant part
+      of s to an unconstrained non-negative length puts |s| in cst + g*N (see length_shape).
+      If no admissible residue is reachable there, the membership is false outright and we
+      say so directly.  This is the case that pays for itself: x ++ "e" ++ x in an
+      intersection of (Sigma^k)* forces 2|x| + 1 = 0 (mod even), which is unsatisfiable.
+
+      (2) Otherwise the residues can only be exploited by arithmetic, jointly with whatever
+      else constrains these lengths.  That requires materializing |s|, and materializing a
+      length term is *not* free: it drags theory_seq's length axioms in, and in monadic mode
+      the derived arithmetic bounds then feed collect_candidate_bounds, whose re-solve loop
+      re-invokes the monadic solver once per violated bound.  Measured on
+      split_membership_medium_sat_0046, that turns 1 monadic check into 152 and 48ms into a
+      timeout, on a goal master decides in 4 decisions with 4 arithmetic columns.  So the
+      axiom is emitted only when |s| is already internalized, i.e. when the goal reasons
+      about this length anyway and the residues genuinely add information to arithmetic.
+
+      The abstraction over-approximates, so both forms are implied by the membership and
+      neither can remove models.
+    */
+    void seq_regex::propagate_length_residue(literal lit, expr* s, expr* r) {
+        if (lit.sign())
+            return;
+        auto info = re().get_info(r);
+        if (!info.is_known() || info.period <= 1)
+            return;
+
+        unsigned cst = 0, g = 0;
+        length_shape(s, cst, g);
+        if (!residue_reachable(info.period, info.residues, cst, g)) {
+            th.add_axiom(~lit);
+            return;
+        }
+
+        if (!lengths_are_live(s))
+            return;
+
+        unsigned num = 0;
+        for (unsigned i = 0; i < info.period; ++i)
+            if (info.residues & (1ull << i))
+                ++num;
+        if (num == 0 || num > 4)
+            return;
+        expr_ref len(th.mk_len(s), m);
+        expr_ref mod(a().mk_mod(len, a().mk_int(info.period)), m);
+        literal_vector lits;
+        lits.push_back(~lit);
+        for (unsigned i = 0; i < info.period; ++i)
+            if (info.residues & (1ull << i))
+                lits.push_back(th.mk_eq(mod, a().mk_int(i), false));
+        th.add_axiom(lits);
+    }
+
+    void seq_regex::length_shape(expr* s, unsigned& cst, unsigned& g) {
+        cst = 0;
+        g = 0;
+        obj_map<expr, unsigned> mult;
+        ptr_vector<expr> todo;
+        todo.push_back(s);
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            expr* a1 = nullptr, *a2 = nullptr;
+            zstring val;
+            if (str().is_concat(e, a1, a2)) {
+                todo.push_back(a1);
+                todo.push_back(a2);
+            }
+            else if (str().is_empty(e))
+                continue;
+            else if (str().is_unit(e))
+                cst += 1;
+            else if (str().is_string(e, val))
+                cst += val.length();
+            else {
+                unsigned c = 0;
+                mult.find(e, c);
+                mult.insert(e, c + 1);
+            }
+        }
+        for (auto const& kv : mult)
+            g = u_gcd(g, kv.m_value);
+    }
+
+    bool seq_regex::residue_reachable(unsigned period, uint64_t residues, unsigned cst, unsigned g) {
+        unsigned c = cst % period;
+        // Lengths cst + g*k, k >= 0, cover exactly the residues congruent to cst modulo
+        // gcd(g, period); with g = 0 the only reachable length residue is cst itself.
+        unsigned d = g == 0 ? period : u_gcd(g, period);
+        for (unsigned i = 0; i < period; ++i) {
+            if (0 == (residues & (1ull << i)))
+                continue;
+            if (g == 0) {
+                if (i == c)
+                    return true;
+            }
+            else if ((i + period - c) % d == 0)
+                return true;
+        }
+        return false;
+    }
+
+    bool seq_regex::lengths_are_live(expr* s) {
+        if (th.has_length(s))
+            return true;
+        ptr_vector<expr> todo;
+        todo.push_back(s);
+        bool has_var = false;
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            expr* a1 = nullptr, *a2 = nullptr;
+            if (str().is_concat(e, a1, a2)) {
+                todo.push_back(a1);
+                todo.push_back(a2);
+                continue;
+            }
+            if (str().is_empty(e) || str().is_unit(e) || str().is_string(e))
+                continue;
+            if (!th.has_length(e))
+                return false;
+            has_var = true;
+        }
+        return has_var;
     }
 
     bool seq_regex::unfold_complement(literal lit, expr *s, expr *r) {
