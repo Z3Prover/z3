@@ -270,6 +270,20 @@ namespace smt {
         bool all_true(literal_vector const& lits) const;
         void propagate_accept_legacy(literal lit, expr* s, expr* r);
         void propagate_length_residue(literal lit, expr* s, expr* r);
+
+        // Decompose s into a constant length plus a non-negative combination of the lengths
+        // of its non-constant parts: |s| in cst + { sum c_i |v_i| }.  Returns the constant and
+        // the gcd of the multiplicities c_i (0 when s has no variable part).
+        void length_shape(expr* s, unsigned& cst, unsigned& g);
+
+        // Is some residue in the set reachable by a length of the form cst + g*k, k >= 0?
+        bool residue_reachable(unsigned period, uint64_t residues, unsigned cst, unsigned g);
+
+        // Is |s| already determined by lengths arithmetic reasons about?  True when |s| is
+        // itself internalized, or when every non-constant part of s has an internalized
+        // length -- theory_seq derives |xy| = |x| + |y|, so materializing |s| then adds no
+        // new length variable, only a sum of live ones.
+        bool lengths_are_live(expr* s);
         void enable_legacy_fallback();
 
     public:
