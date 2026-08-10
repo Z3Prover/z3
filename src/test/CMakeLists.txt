@@ -80,6 +80,7 @@ add_executable(test-z3
   karr.cpp
   lcube.cpp
   list.cpp
+  lp_dio.cpp
   main.cpp
   map.cpp
   matcher.cpp
