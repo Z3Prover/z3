@@ -523,6 +523,7 @@ void seq_monadic::reset_search() {
     m_elem_sort = nullptr;
     m_atoms.reset();
     m_regexes.reset();
+    m_deps.reset();
     m_vars.reset();
     m_var_idx.reset();
     m_groups.reset();
@@ -552,6 +553,7 @@ bool seq_monadic::prepare(membership_vec const& memberships) {
         }
         m_regexes.push_back(regex);
         m_atoms.push_back(atoms);
+        m_deps.push_back(d);
         m_pin.push_back(regex);
     }
     // A variable's component group is complete once the search passes the variable's
@@ -610,6 +612,8 @@ lbool seq_monadic::leaf() {
         lbool ne = product_nonempty(m_groups[vi], &w);
         if (ne != l_true) {                       // groups were already shown non-empty;
             m_model.reset();                      // only reachable if the search was cut short
+            if (ne == l_false)                    // record the deps of the empty intersection
+                push_group_deps(vi);
             return ne;
         }
         m_pin.push_back(w);
@@ -619,12 +623,28 @@ lbool seq_monadic::leaf() {
 }
 
 lbool seq_monadic::dfs_membership(unsigned mi) {
+    unsigned mark = m_core_trail.size();
+    lbool r = dfs_membership_body(mi);
+    if (r != l_false)                             // not a refuted branch: drop its deps
+        m_core_trail.shrink(mark);
+    return r;
+}
+
+lbool seq_monadic::dfs_membership_body(unsigned mi) {
     if (mi == m_atoms.size())
         return leaf();
     return dfs_atoms(mi, 0, m_regexes.get(mi));
 }
 
 lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
+    unsigned mark = m_core_trail.size();
+    lbool r = dfs_atoms_body(mi, i, R);
+    if (r != l_false)                             // not a refuted branch: drop its deps
+        m_core_trail.shrink(mark);
+    return r;
+}
+
+lbool seq_monadic::dfs_atoms_body(unsigned mi, unsigned i, expr* R) {
     if (m_giveup)
         return l_undef;                           // unwind the whole search, don't keep branching
     if (m_budget == 0) {
@@ -643,16 +663,20 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
         lbool nb = nullable(R);
         if (nb == l_true)
             return dfs_membership(mi + 1);
-        if (nb == l_false)
+        if (nb == l_false) {                      // membership mi alone closes this branch
+            push_dep(m_deps[mi]);
             return l_false;
+        }
         m_stats.inc_bail(bail_reason::nullability);
         return l_undef;                           // undecidable nullability
     }
     atom const& a = atoms[i];
     if (!a.is_var) {                              // a constant element is consumed by a derivative
         expr_ref d = der_elem(R, a.elem.get());
-        if (re().is_empty(d))
+        if (re().is_empty(d)) {                   // membership mi alone closes this branch
+            push_dep(m_deps[mi]);
             return l_false;
+        }
         m_pin.push_back(d);
         return dfs_atoms(mi, i + 1, d);
     }
@@ -667,7 +691,7 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
 
     // Explores one split target; the caller stops at the first l_true.
     auto explore = [&](expr* target) -> lbool {
-        m_groups[vi].push_back(component{ a.var.get(), R, target });
+        m_groups[vi].push_back(component{ a.var.get(), R, target, m_deps[mi] });
         // The group's emptiness test has to be run at some point anyway; running it as
         // soon as the group is complete (or as soon as it holds several components, where
         // an inconsistency can first arise) prunes the entire subtree below.
@@ -677,8 +701,12 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
         else if (finalize || m_groups[vi].size() > 1)
             ne = group_nonempty(vi);
         lbool r;
-        if (ne == l_false)
+        if (ne == l_false) {
+            // The intersection of this variable's components is empty: the branch is
+            // closed by exactly the memberships that contributed those components.
+            push_group_deps(vi);
             r = l_false;
+        }
         else {
             if (ne == l_undef)
                 ++m_undef_vars;
@@ -729,6 +757,7 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
     m_budget = 200000;
     m_giveup = false;
+    m_core_trail.reset();                         // deps collected as branches close below
     lbool r = l_true;                             // empty conjunction is vacuously true
     if (!memberships.empty() && !prepare(memberships))
         r = l_undef;
@@ -741,10 +770,13 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
 }
 
 lbool seq_monadic::solve(expr* term, expr* R) {
-    m_core.reset();
     membership_vec mv;
     mv.push_back({ expr_ref(term, m), expr_ref(R, m), nullptr });
     m_last_result = decide(mv);
+    if (m_last_result == l_false)
+        finalize_core();
+    else
+        m_core.reset();
     return m_last_result;
 }
 
@@ -815,39 +847,25 @@ void seq_monadic::add_len(expr* term, unsigned len, void* d) {
 }
 
 
-void seq_monadic::minimize_core(membership_vec const& memberships) {
+void seq_monadic::finalize_core() {
+    // The core is the set of dependencies that closed the refuted branches, left in
+    // m_core_trail by decide().  Deduplicate (by pointer identity) into m_core.
     m_core.reset();
-    if (!m_config.m_min_core) {
-        // No minimization: the core is simply every asserted membership's dependency.
-        for (auto const& [term, regex, d] : memberships)
-            if (d)
-                m_core.push_back(d);
-        return;
-    }
-    // Deletion-based minimization: start from the full unsat set and try to drop each
-    // membership; a membership is kept only if removing it makes the set no longer
-    // provably unsat.  The result is a minimal unsat subset (relevant constraints only).
-    membership_vec keep(memberships);
-    for (unsigned i = 0; i < keep.size(); ) {
-        membership_vec trial(keep);
-        trial.erase(trial.begin() + i);
-        if (decide(trial) == l_false)
-            keep.swap(trial);                     // membership i is not needed for unsat
-        else
-            ++i;                                  // membership i is needed; keep it
-    }
-    for (auto const& [term, regex, d] : keep)
-        if (d)
+    std::sort(m_core_trail.begin(), m_core_trail.end());
+    void* prev = nullptr;
+    for (void* d : m_core_trail) {
+        if (d && d != prev)
             m_core.push_back(d);
+        prev = d;
+    }
 }
 
 lbool seq_monadic::check() {
-    m_core.reset();
     lbool r = decide(m_memberships);
-    if (r == l_false) {
-        minimize_core(m_memberships);
-        m_model.reset();
-    }
+    if (r == l_false)
+        finalize_core();
+    else
+        m_core.reset();
     m_last_result = r;
     return m_last_result;
 }
@@ -863,7 +881,6 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
     out << "(seq-monadic\n"
         << "  :mode " << mode_name(m_config.m_mode) << "\n"
         << "  :generate-model " << (m_config.m_model ? "true" : "false") << "\n"
-        << "  :minimize-core " << (m_config.m_min_core ? "true" : "false") << "\n"
         << "  :last-result " << result_name(m_last_result) << "\n"
         << "  :budget " << m_budget << "\n"
         << "  :giveup " << (m_giveup ? "true" : "false") << "\n"

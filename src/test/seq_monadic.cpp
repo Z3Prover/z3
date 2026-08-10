@@ -230,44 +230,27 @@ class seq_monadic_test {
     }
 
     // Assert each membership with a distinct leaf dependency (id = its index) and expect
-    // the conjunction to be UNSAT.  With minimization ON, core() must be exactly
-    // `expected_core` (irrelevant constraints omitted); with minimization OFF, core()
-    // must be all membership dependencies.
+    // the conjunction to be UNSAT.  The core is now tracked inline as the search closes
+    // branches, so core() must be exactly `expected_core`: the union of the dependencies
+    // of the memberships that participated in the contradiction, with constraints
+    // irrelevant to the conflict omitted.
     void check_core(char const* name, vector<std::pair<expr*, expr*>> const& mems,
                     std::set<unsigned> const& expected_core) {
         m_mon.set_gen_model(false);
-        std::set<unsigned> all_ids, got_ids;
-        for (unsigned i = 0; i < mems.size(); ++i)
-            all_ids.insert(i);
-
-        // minimization disabled: the core is every asserted membership's dependency.
-        m_mon.set_min_core(false);
         m_trail.push_scope();
         for (unsigned i = 0; i < mems.size(); ++i)
             m_mon.add(mems[i].first, mems[i].second, m_dm.mk_leaf(i));
-        lbool got0 = m_mon.check();
+        lbool got = m_mon.check();
+        std::set<unsigned> got_ids;
         core_ids(got_ids);
-        bool ok0 = (got0 == l_false) && (got_ids == all_ids);
         m_trail.pop_scope(1);
 
-        // minimization enabled: the core drops constraints irrelevant to the conflict.
-        m_mon.set_min_core(true);
-        m_trail.push_scope();
-        for (unsigned i = 0; i < mems.size(); ++i)
-            m_mon.add(mems[i].first, mems[i].second, m_dm.mk_leaf(i));
-        lbool got1 = m_mon.check();
-        std::set<unsigned> min_ids;
-        core_ids(min_ids);
-        bool ok1 = (got1 == l_false) && (min_ids == expected_core);
-        m_trail.pop_scope(1);
-        m_mon.set_min_core(false);                // restore the harness default
-
-        bool ok = ok0 && ok1;
+        bool ok = (got == l_false) && (got_ids == expected_core);
         if (!ok) ++m_fail;
-        std::cout << (ok ? "  OK   " : "  FAIL ") << name << "  got=" << s(got1) << " core={";
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name << "  got=" << s(got) << " core={";
         bool first = true;
-        for (unsigned id : min_ids) { std::cout << (first ? "" : ",") << id; first = false; }
-        std::cout << "} full=" << (ok0 ? "yes" : "no") << "\n";
+        for (unsigned id : got_ids) { std::cout << (first ? "" : ",") << id; first = false; }
+        std::cout << "}\n";
     }
 
     lbool smt_check(expr_ref_vector const& assertions, bool enable_monadic = true) {
@@ -293,7 +276,6 @@ public:
         m_reg(m), m_rw(m), m_mon(m_rw, m_trail, mode), u(m), m_str(m), m_re(m), m_mode(mode) {
         m_str = u.str.mk_string_sort();
         m_re  = re().mk_re(m_str);
-        m_mon.set_min_core(false);   // tests use unminimized cores by default
     }
 
     void run() {
@@ -494,7 +476,6 @@ public:
 
         m_trail.push_scope();
         unsigned display_dep1 = 1, display_dep2 = 2;
-        m_mon.set_min_core(true);
         m_mon.add(x, aaS, &display_dep1);
         m_mon.add(x, a_aaS, &display_dep2);
         lbool unsat_display_result = m_mon.check();
@@ -507,7 +488,6 @@ public:
             unsat_display_text.find(":model ()") != std::string::npos &&
             unsat_display_text.find(":last-internal-search") != std::string::npos;
         m_trail.pop_scope(1);
-        m_mon.set_min_core(false);
         if (!unsat_display_ok) ++m_fail;
         std::cout << (unsat_display_ok ? "  OK   " : "  FAIL ")
                   << "display distinguishes unsat result from core-search state\n";

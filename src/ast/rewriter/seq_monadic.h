@@ -83,7 +83,6 @@ class seq_monadic {
     struct config {
         seq::transition_mode m_mode;
         bool m_model = true;  // whether solve()/check() extract a feasible model
-        bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
 
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
@@ -134,7 +133,9 @@ class seq_monadic {
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     membership_vec m_last_search_memberships; // inputs used by the last internal decide()
-    ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
+    ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check()/solve() on l_false
+    ptr_vector<void> m_core_trail;          // deps collected inline as branches close during decide();
+                                            // shrunk on a satisfiable/undetermined branch, kept on a refuted one
     std::function<bool(expr *)> m_is_var;   // predicate for whether a term is a sequence variable
     lbool m_last_result = l_undef;           // result of the last public solve()/check()
     lbool m_last_search_result = l_undef;    // result of the last internal decide()
@@ -156,11 +157,14 @@ class seq_monadic {
     // the current state is derived from `state`; the component accepts when
     //   target ? (current == target)      -- reach component (w drives A from state to target)
     //           : nullable(current)        -- membership component (w in L(state))
-    struct component { expr* var; expr* state; expr* target; };
+    // `dep` is the dependency of the membership that produced this component; it is
+    // collected into the unsat core when the variable's component intersection is empty.
+    struct component { expr* var; expr* state; expr* target; void* dep; };
 
     // ---- depth-first search state; valid for the duration of one decide()/solve() ----
     vector<vector<atom>>   m_atoms;         // parsed atoms, one entry per membership
     expr_ref_vector        m_regexes;       // regex of each membership (parallel to m_atoms)
+    ptr_vector<void>       m_deps;          // dependency of each membership (parallel to m_atoms)
     ptr_vector<expr>       m_vars;          // variables occurring in the memberships
     obj_map<expr, unsigned> m_var_idx;      // variable -> index into m_vars / m_groups
     vector<svector<component>> m_groups;    // components accumulated on the current branch
@@ -221,8 +225,26 @@ class seq_monadic {
     // dfs_atoms(mi, i, R) continues membership `mi` at atom `i` with derivative state R.
     // l_true = a satisfying branch was found (m_model is filled when model generation is
     // enabled), l_false = every branch below is empty, l_undef = gave up.
+    //
+    // The public entry points are thin wrappers enforcing the core-collection discipline:
+    // each remembers the m_core_trail height on entry and, on a non-refuting result
+    // (l_true / l_undef), rewinds the trail to that height -- so only deps pushed on the
+    // committed refutation subtree survive.  The *_body methods hold the actual search.
     lbool dfs_membership(unsigned mi);
     lbool dfs_atoms(unsigned mi, unsigned i, expr* R);
+    lbool dfs_membership_body(unsigned mi);
+    lbool dfs_atoms_body(unsigned mi, unsigned i, expr* R);
+
+    // Push the dependency `d` (if non-null) onto the core trail.
+    void push_dep(void* d) { if (d) m_core_trail.push_back(d); }
+    // Push the dependencies of every component currently accumulated for variable `vi`;
+    // used when that variable's component intersection is found empty (a closed branch).
+    void push_group_deps(unsigned vi) {
+        for (auto const& c : m_groups[vi])
+            push_dep(c.dep);
+    }
+    // Deduplicate m_core_trail into m_core after a l_false decide().
+    void finalize_core();
 
     // Emptiness of the components accumulated for variable `vi` on the current branch,
     // memoized on their signature.  Duplicated components are collapsed before the
@@ -237,13 +259,9 @@ class seq_monadic {
     // explores the joint decomposition of all memberships depth-first.  A variable shared
     // by several memberships accumulates several components in the same branch, which are
     // intersected -- enforcing one consistent value across all memberships.  Does not
-    // touch m_memberships or m_core; fills m_model on l_true when model generation is
-    // enabled.
+    // touch m_memberships; fills m_model on l_true when model generation is enabled and,
+    // on l_false, leaves the dependencies that closed the search in m_core_trail.
     lbool decide(membership_vec const& memberships);
-
-    // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
-    // deletion and collect the (non-null) dependencies of its members into m_core.
-    void minimize_core(membership_vec const& memberships);
 
     bool is_var(expr *term) const {
         return m_is_var ? m_is_var(term) : is_uninterp(term);        
@@ -279,10 +297,6 @@ public:
     // (possibly repeated / several distinct) and constant characters.
     //   l_true = sat, l_false = unsat, l_undef = unsupported shape / gave up.
     lbool solve(expr* term, expr* R);
-
-    // Enable/disable unsat-core minimization (default: enabled).  When disabled, core()
-    // returns the dependencies of all asserted memberships (no deletion-based shrinking).
-    void set_min_core(bool b) { m_config.m_min_core = b; }
 
     void set_is_var(std::function<bool(expr *)> const &is_var) {
         m_is_var = is_var;
@@ -322,10 +336,10 @@ public:
     // Per-variable extra constraints are expressed as extra memberships (v in R').
     // Leaves the asserted memberships unchanged.  l_true = sat (empty conjunction is sat),
     // l_false = unsat, l_undef = gave up.  On l_false, core() holds the dependencies
-    // of a minimal unsatisfiable subset.
+    // of an unsatisfiable subset (the union of the deps that closed the refuted branches).
     lbool check();
 
-    // Dependencies of a minimal unsatisfiable subset from the last check() that returned
+    // Dependencies of an unsatisfiable subset from the last check() that returned
     // l_false (nullptr dependencies are omitted).  Empty otherwise.
     ptr_vector<void> const& core() const { return m_core; }
 };
