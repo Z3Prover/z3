@@ -1158,21 +1158,15 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         underflow_retained = m_bv_util.mk_extract(sbits + 1, 2, underflow_sig);
         underflow_inc = mk_rounding_decision(
             rm, res_sgn, underflow_last, underflow_round, underflow_sticky);
+        // This path shifts by at least eight bits, so the retained significand
+        // has a leading zero and rounding cannot carry into minimum normal.
         underflow_rounded_sig = m_bv_util.mk_bv_add(
-            m_bv_util.mk_zero_extend(1, underflow_retained),
-            m_bv_util.mk_zero_extend(sbits, underflow_inc));
+            underflow_retained,
+            m_bv_util.mk_zero_extend(sbits - 1, underflow_inc));
 
-        expr_ref underflow_sig_ovf(m), underflow_exp(m), underflow_frac(m);
-        underflow_sig_ovf = m.mk_eq(
-            m_bv_util.mk_extract(sbits, sbits, underflow_rounded_sig),
-            m_bv_util.mk_numeral(1, 1));
+        expr_ref underflow_exp(m), underflow_frac(m);
         underflow_exp = m_bv_util.mk_numeral(0, ebits);
         underflow_frac = m_bv_util.mk_extract(sbits - 2, 0, underflow_rounded_sig);
-        expr_ref min_normal_exp(m), zero_frac(m);
-        min_normal_exp = m_bv_util.mk_numeral(1, ebits);
-        zero_frac = m_bv_util.mk_numeral(0, sbits - 1);
-        m_simp.mk_ite(underflow_sig_ovf, min_normal_exp, underflow_exp, underflow_exp);
-        m_simp.mk_ite(underflow_sig_ovf, zero_frac, underflow_frac, underflow_frac);
         underflow_result = m_util.mk_fp(res_sgn, underflow_exp, underflow_frac);
     }
 
@@ -4307,17 +4301,9 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     if (sigma_count_size <= shift_width)
         rs_shift = m_bv_util.mk_zero_extend(shift_width - sigma_count_size, sigma_neg_capped);
     else {
-        // Preserve shift semantics even if a generic caller supplies a count
-        // at least as large as the shift operand width: such a shift produces zero.
-        expr_ref rs_shift_low(m), rs_shift_limit(m), rs_shift_is_large(m);
-        rs_shift_low = m_bv_util.mk_extract(shift_width - 1, 0, sigma_neg_capped);
-        rs_shift_limit = m_bv_util.mk_numeral(shift_width, sigma_count_size);
-        rs_shift_is_large = m_bv_util.mk_ule(rs_shift_limit, sigma_neg_capped);
-        m_simp.mk_ite(
-            rs_shift_is_large,
-            m_bv_util.mk_numeral(shift_width, shift_width),
-            rs_shift_low,
-            rs_shift);
+        // The count is capped at sbits + 2, below the shift operand width, so
+        // the discarded high bits are zero.
+        rs_shift = m_bv_util.mk_extract(shift_width - 1, 0, sigma_neg_capped);
     }
 
     if (sigma_size <= shift_width) {
@@ -4326,17 +4312,9 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     else {
         // On the selected nonnegative branch, sigma is lz outside TINY;
         // under TINY, sigma is sigma_add and TINY implies sigma_add <= lz - 1.
-        // Thus 0 <= sigma <= lz. The guard also preserves the generic shift
-        // semantics if a count outside that invariant reaches this branch.
-        expr_ref ls_shift_low(m), ls_shift_limit(m), ls_shift_is_large(m);
-        ls_shift_low = m_bv_util.mk_extract(shift_width - 1, 0, sigma);
-        ls_shift_limit = m_bv_util.mk_numeral(shift_width, sigma_size);
-        ls_shift_is_large = m_bv_util.mk_ule(ls_shift_limit, sigma);
-        m_simp.mk_ite(
-            ls_shift_is_large,
-            m_bv_util.mk_numeral(shift_width, shift_width),
-            ls_shift_low,
-            ls_shift);
+        // Thus 0 <= sigma <= lz, below the shift operand width, and the
+        // discarded high bits are zero.
+        ls_shift = m_bv_util.mk_extract(shift_width - 1, 0, sigma);
     }
     rs_sig = m_bv_util.mk_bv_lshr(sig_ext, rs_shift);
     ls_sig = m_bv_util.mk_bv_shl(sig_ext, ls_shift);
