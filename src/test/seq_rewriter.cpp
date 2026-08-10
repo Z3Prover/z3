@@ -377,5 +377,110 @@ void tst_seq_rewriter() {
         ENSURE(almost_max.concat(two, false).max_length == UINT_MAX);
     }
 
+    // -----------------------------------------------------------------------
+    // 25. Semilinear length abstraction: Lambda(r) as an ultimately periodic set.
+    //     The soundness contract is
+    //        Lambda(r) subseteq { n : min_length <= n <= max_length, n mod period in residues }
+    //     so the abstraction may be weakened but never sharpened.
+    // -----------------------------------------------------------------------
+    {
+        expr_ref ab(su.re.mk_to_re(su.str.mk_string("ab")), m);
+        expr_ref ba(su.re.mk_to_re(su.str.mk_string("ba")), m);
+        expr_ref a(su.re.mk_to_re(su.str.mk_string("a")), m);
+        expr_ref abc(su.re.mk_to_re(su.str.mk_string("abc")), m);
+
+        // (ab)* has even lengths.
+        expr_ref ab_star(su.re.mk_star(ab), m);
+        auto i_ab_star = su.re.get_info(ab_star);
+        std::cout << "(ab)*      " << i_ab_star.str() << "\n";
+        ENSURE(i_ab_star.period == 2 && i_ab_star.residues == 0x1);
+
+        // (abc)* has lengths 3k, recovering the period from the star rule.
+        expr_ref abc_star(su.re.mk_star(abc), m);
+        auto i_abc_star = su.re.get_info(abc_star);
+        std::cout << "(abc)*     " << i_abc_star.str() << "\n";
+        ENSURE(i_abc_star.period == 3 && i_abc_star.residues == 0x1);
+
+        // a(ba)* has odd lengths: the singleton "a" shifts the residue by 1.
+        expr_ref a_ba_star(su.re.mk_concat(a, su.re.mk_star(ba)), m);
+        auto i_a_ba_star = su.re.get_info(a_ba_star);
+        std::cout << "a(ba)*     " << i_a_ba_star.str() << "\n";
+        ENSURE(i_a_ba_star.period == 2 && i_a_ba_star.residues == 0x2);
+
+        // (ab)* & a(ba)* is empty by parity, even though the length interval [1, oo) is not.
+        auto i_par = i_ab_star.conj(i_a_ba_star);
+        std::cout << "(ab)*&a(ba)* " << i_par.str() << "\n";
+        ENSURE(i_par.residues == 0 && i_par.length_is_empty());
+
+        // (ab)*a is odd, which is the parity argument behind "xx in (ab)*a is unsat".
+        auto i_ab_star_a = i_ab_star.concat(su.re.get_info(a), false);
+        ENSURE(i_ab_star_a.period == 2 && i_ab_star_a.residues == 0x2);
+
+        // Intersecting compatible periods must NOT report empty: (ab)* & (abc)* share length 6k.
+        auto i_compat = i_ab_star.conj(i_abc_star);
+        std::cout << "(ab)*&(abc)* " << i_compat.str() << "\n";
+        ENSURE(!i_compat.length_is_empty());
+        ENSURE(i_compat.period == 6 && i_compat.residues == 0x1);
+
+        // Union takes the lcm and unions residues: (ab)* | (abc)* keeps 0 mod 2 and 0 mod 3.
+        auto i_union = i_ab_star.disj(i_abc_star);
+        ENSURE(i_union.period == 6);
+        // residues mod 6 are {0,2,4} from (ab)* and {0,3} from (abc)*
+        ENSURE(i_union.residues == ((1ull<<0)|(1ull<<2)|(1ull<<4)|(1ull<<3)));
+
+        // Complement degrades to top: no periodic information may survive.
+        auto i_compl = i_ab_star.complement();
+        ENSURE(i_compl.period == 1 && i_compl.residues == 0x1 && !i_compl.length_is_empty());
+
+        // Star of an odd-length language saturates to gcd 1, not to the odd residue.
+        auto i_odd_star = i_a_ba_star.star();
+        ENSURE(i_odd_star.period == 1 && !i_odd_star.length_is_empty());
+
+        // A bounded loop sums residues: ((ab)*a){2,2} has even length (odd + odd).
+        auto i_loop = i_ab_star_a.loop(2, 2);
+        std::cout << "((ab)*a){2,2} " << i_loop.str() << "\n";
+        ENSURE(i_loop.period == 2 && i_loop.residues == 0x1);
+
+        // ((ab)*a){1,2} admits both parities.
+        auto i_loop12 = i_ab_star_a.loop(1, 2);
+        ENSURE(i_loop12.period == 2 && i_loop12.residues == 0x3);
+
+        // opt adds length 0.
+        auto i_opt = i_a_ba_star.opt();
+        ENSURE(i_opt.period == 2 && i_opt.residues == 0x3);
+
+        // diff keeps the lhs abstraction, which is the sound direction.
+        auto i_diff = i_ab_star.diff(i_abc_star);
+        ENSURE(i_diff.period == 2 && i_diff.residues == 0x1);
+
+        // An empty residue set certifies emptiness only via length_is_empty, and the
+        // interval test must still work on its own for re.empty.
+        expr_ref empty2(su.re.mk_empty(re_sort), m);
+        ENSURE(su.re.get_info(empty2).length_is_empty());
+
+        // Unknown info must never claim emptiness.
+        seq_util::rex::info unknown(l_false);
+        ENSURE(!unknown.length_is_empty());
+        ENSURE(!unknown.star().length_is_empty());
+
+        // (a(ab)*bc)* : the inner language has odd lengths >= 3, whose gcd is 1, so the
+        // star saturates to top. The exact set is nat \ {1,2,4}; the (min,max,p,R) form
+        // cannot express holes above min, so this is a precision loss, not unsoundness.
+        expr_ref bc(su.re.mk_to_re(su.str.mk_string("bc")), m);
+        expr_ref inner(su.re.mk_concat(a, su.re.mk_concat(su.re.mk_star(ab), bc)), m);
+        auto i_inner = su.re.get_info(inner);
+        std::cout << "a(ab)*bc   " << i_inner.str() << "\n";
+        ENSURE(i_inner.min_length == 3 && i_inner.period == 2 && i_inner.residues == 0x2);
+
+        auto i_inner_star = su.re.get_info(su.re.mk_star(inner));
+        std::cout << "(a(ab)*bc)* " << i_inner_star.str() << "\n";
+        ENSURE(i_inner_star.period == 1 && i_inner_star.min_length == 0);
+        // Soundness spot-check: every length actually in the language must be admitted.
+        for (unsigned n : { 0u, 3u, 5u, 6u, 7u, 8u, 9u, 10u, 11u, 12u })
+            ENSURE(!i_inner_star.length_is_empty() &&
+                   n >= i_inner_star.min_length && n <= i_inner_star.max_length &&
+                   (i_inner_star.residues & (1ull << (n % i_inner_star.period))));
+    }
+
     std::cout << "tst_seq_rewriter: all tests passed\n";
 }

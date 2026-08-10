@@ -131,6 +131,7 @@ add_executable(test-z3
   sat_user_scope.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_len_abs.cpp
   seq_rewriter.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp
