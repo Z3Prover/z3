@@ -1136,8 +1136,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         sig_ext = m_bv_util.mk_concat(res_sig, m_bv_util.mk_numeral(0, sig_size));
         shifted_sig = m_bv_util.mk_bv_lshr(sig_ext, underflow_shift_sized);
         unsigned sig_extract_low_bit = 2 * sig_size - (sbits + 2);
-        // Exact division-exponent bounds keep the shift below 2 * sig_size,
-        // so reducing the shifted-out low bits preserves sticky directly.
+        // The shift is at most sbits + 2^(ebits - 1) - 2. If it passes the
+        // zero padding, the normalized leading one remains in this low slice,
+        // so sticky is already one for any source bits shifted out entirely.
         discarded = m.mk_app(
             m_bv_util.get_fid(), OP_BREDOR,
             m_bv_util.mk_extract(sig_extract_low_bit - 1, 0, shifted_sig));
@@ -4272,22 +4273,21 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     // exponent workspace itself is wider and the count must be truncated.
     SASSERT(sigma_cap_size <= 2 * sig_size);
 
-    expr_ref sigma_neg(m), sigma_ext(m), sigma_neg_ext(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
+    expr_ref sigma_ext(m), sigma_neg_ext(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
         rs_sig(m), ls_sig(m), big_sh_sig(m), sigma_le_cap(m);
-    sigma_neg = m_bv_util.mk_bv_neg(sigma);
     if (sigma_count_size == sigma_size)
-        sigma_neg_ext = sigma_neg;
+        sigma_neg_ext = m_bv_util.mk_bv_neg(sigma);
     else {
-        // Widen sigma before negating it. Zero-extending sigma_neg would turn
-        // a positive sigma into a small unsigned count instead of preserving
-        // its negative two's-complement value for the cap comparison.
+        // Widen sigma before negating it. Zero-extending the narrow negation
+        // would turn a positive sigma into a small unsigned count instead of
+        // preserving its negative two's-complement value for the comparison.
         sigma_ext = m_bv_util.mk_sign_extend(sigma_count_size - sigma_size, sigma);
         sigma_neg_ext = m_bv_util.mk_bv_neg(sigma_ext);
     }
     sigma_cap = m_bv_util.mk_numeral(sbits+2, sigma_count_size);
     sigma_le_cap = m_bv_util.mk_ule(sigma_neg_ext, sigma_cap);
     m_simp.mk_ite(sigma_le_cap, sigma_neg_ext, sigma_cap, sigma_neg_capped);
-    dbg_decouple("fpa2bv_rnd_sigma_neg", sigma_neg);
+    dbg_decouple("fpa2bv_rnd_sigma_neg", sigma_neg_ext);
     dbg_decouple("fpa2bv_rnd_sigma_cap", sigma_cap);
     dbg_decouple("fpa2bv_rnd_sigma_neg_capped", sigma_neg_capped);
     sigma_lt_zero = m_bv_util.mk_sle(sigma, m_bv_util.mk_numeral(rational(-1), sigma_size));
