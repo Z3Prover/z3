@@ -974,9 +974,11 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         // max_exp's bit-length covers both endpoints.
         exp_bits = m_mpz_manager.log2(max_exp) + 2;
     }
-    scoped_mpz max_result_shift(m_mpz_manager);
-    m_mpz_manager.add(mpz(sbits), mpz(3), max_result_shift);
-    SASSERT(m_mpz_manager.lt(max_result_shift, m_mpf_manager.m_powers2(exp_bits)));
+    DEBUG_CODE({
+        scoped_mpz max_result_shift(m_mpz_manager);
+        m_mpz_manager.add(mpz(sbits), mpz(3), max_result_shift);
+        SASSERT(m_mpz_manager.lt(max_result_shift, m_mpf_manager.m_powers2(exp_bits)));
+    });
     // The local count only needs to represent 0..sbits-1; do not reuse the
     // wider signed exponent workspace for this unsigned count.
     unsigned lz_bits = needs_wide_lz ? m_mpz_manager.log2(mpz(sbits - 1)) + 1 : ebits;
@@ -1093,8 +1095,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     dbg_decouple("fpa2bv_div_res_sig", res_sig);
     dbg_decouple("fpa2bv_div_res_exp", res_exp);
 
-    expr_ref round_sig(m), round_exp(m);
-    round_sig = res_sig;
+    expr_ref round_exp(m);
     round_exp = res_exp;
 
     expr_ref exp_below_round_range(m), underflow_result(m);
@@ -1131,18 +1132,15 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         underflow_shift_sized = m_bv_util.mk_zero_extend(
             2 * sig_size - exp_bits, underflow_shift);
 
-        expr_ref sig_ext(m), shifted_sig(m), discarded(m), discarded_shifted(m);
+        expr_ref sig_ext(m), shifted_sig(m), discarded(m);
         sig_ext = m_bv_util.mk_concat(res_sig, m_bv_util.mk_numeral(0, sig_size));
         shifted_sig = m_bv_util.mk_bv_lshr(sig_ext, underflow_shift_sized);
         unsigned sig_extract_low_bit = 2 * sig_size - (sbits + 2);
-        discarded_shifted = m.mk_app(
+        // Exact division-exponent bounds keep the shift below 2 * sig_size,
+        // so reducing the shifted-out low bits preserves sticky directly.
+        discarded = m.mk_app(
             m_bv_util.get_fid(), OP_BREDOR,
             m_bv_util.mk_extract(sig_extract_low_bit - 1, 0, shifted_sig));
-        expr_ref shift_is_deep(m), all_discarded(m);
-        shift_is_deep = m_bv_util.mk_ule(
-            m_bv_util.mk_numeral(2 * sig_size, 2 * sig_size), underflow_shift_sized);
-        all_discarded = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, res_sig.get());
-        m_simp.mk_ite(shift_is_deep, all_discarded, discarded_shifted, discarded);
 
         expr_ref sticky_ext(m), underflow_sig(m);
         underflow_sig = m_bv_util.mk_extract(
@@ -1170,7 +1168,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         underflow_result = m_util.mk_fp(res_sgn, underflow_exp, underflow_frac);
     }
 
-    round(s, rm, res_sgn, round_sig, round_exp, v9);
+    round(s, rm, res_sgn, res_sig, round_exp, v9);
 
     if (exp_bits > ebits + 2)
         mk_ite(exp_below_round_range, underflow_result, v9, v9);
