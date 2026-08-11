@@ -84,6 +84,7 @@ class seq_monadic {
         seq::transition_mode m_mode;
         bool m_model = true;  // whether solve()/check() extract a feasible model
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
+        unsigned m_budget_limit = 1000000;  // value m_budget is reset to on each decide()
 
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
@@ -283,6 +284,14 @@ public:
     // Enable/disable unsat-core minimization (default: enabled).  When disabled, core()
     // returns the dependencies of all asserted memberships (no deletion-based shrinking).
     void set_min_core(bool b) { m_config.m_min_core = b; }
+
+    // Work budget consumed by a single solve()/check(): each search node and each product
+    // expansion costs one unit, and the search gives up (l_undef, bail_reason::budget) when
+    // it runs out.  The budget is reset per decision, so it bounds one decision rather than
+    // the session.  A budget of 0 gives up immediately; UINT_MAX is effectively unbounded.
+    void set_budget(unsigned b) { m_config.m_budget_limit = b; }
+
+    unsigned budget() const { return m_config.m_budget_limit; }
 
     void set_is_var(std::function<bool(expr *)> const &is_var) {
         m_is_var = is_var;
