@@ -522,6 +522,7 @@ void seq_monadic::reset_search() {
     m_seq_sort = nullptr;
     m_elem_sort = nullptr;
     m_atoms.reset();
+    m_prefiltered.reset();
     m_regexes.reset();
     m_vars.reset();
     m_var_idx.reset();
@@ -552,6 +553,7 @@ bool seq_monadic::prepare(membership_vec const& memberships) {
         }
         m_regexes.push_back(regex);
         m_atoms.push_back(atoms);
+        m_prefiltered.push_back(false);
         m_pin.push_back(regex);
     }
     // A variable's component group is complete once the search passes the variable's
@@ -619,6 +621,8 @@ lbool seq_monadic::leaf() {
 }
 
 lbool seq_monadic::dfs_membership(unsigned mi) {
+    while (mi < m_atoms.size() && m_prefiltered[mi])
+        ++mi;                                     // already handled by filter_single_var_groups
     if (mi == m_atoms.size())
         return leaf();
     return dfs_atoms(mi, 0, m_regexes.get(mi));
@@ -719,6 +723,83 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
     return any_undef ? l_undef : l_false;
 }
 
+lbool seq_monadic::filter_single_var_groups(membership_vec const& memberships) {
+    // Collect, per variable, the indices of the single-variable memberships (term is a bare
+    // variable atom).
+    vector<svector<unsigned>> group_members;
+    group_members.resize(m_groups.size());
+    bool any = false;
+    for (unsigned mi = 0; mi < m_atoms.size(); ++mi) {
+        vector<atom> const& atoms = m_atoms[mi];
+        if (atoms.size() != 1 || !atoms[0].is_var)
+            continue;
+        unsigned vi = var_index(atoms[0].var.get());
+        group_members[vi].push_back(mi);
+        any = true;
+    }
+    if (!any)
+        return l_undef;
+
+    for (unsigned vi = 0; vi < m_groups.size(); ++vi) {
+        svector<unsigned> const& members = group_members[vi];
+        if (members.empty())
+            continue;
+
+        // Emptiness of the group formed by an arbitrary subset of this variable's memberships:
+        // the fast length-abstraction filter first, then exact product reachability.
+        auto subset_status = [&](svector<unsigned> const& subset) -> lbool {
+            svector<component> comps;
+            expr_ref inter(m_regexes.get(subset[0]), m);
+            comps.push_back(component{ m_vars[vi], m_regexes.get(subset[0]), nullptr });
+            for (unsigned k = 1; k < subset.size(); ++k) {
+                inter = re().mk_inter(inter, m_regexes.get(subset[k]));
+                comps.push_back(component{ m_vars[vi], m_regexes.get(subset[k]), nullptr });
+            }
+            if (re().get_info(inter).length_is_empty())
+                return l_false;
+            return product_nonempty(comps, nullptr);
+        };
+
+        // Seed the variable's component group with its single-variable memberships.
+        for (unsigned mi : members)
+            m_groups[vi].push_back(component{ m_vars[vi], m_regexes.get(mi), nullptr });
+
+        lbool ne = subset_status(members);
+        if (ne == l_false) {
+            // Deletion-based minimization: drop one membership at a time, keeping it only when
+            // its removal makes the group no longer provably empty.
+            svector<unsigned> keep(members);
+            for (unsigned i = 0; i < keep.size() && keep.size() > 1; ) {
+                svector<unsigned> trial(keep);
+                trial.erase(trial.begin() + i);
+                if (subset_status(trial) == l_false)
+                    keep.swap(trial);
+                else
+                    ++i;
+            }
+            // Focused, minimized unsat core: just the retained memberships of this group.
+            m_core.reset();
+            for (unsigned mi : keep) {
+                void* d = std::get<2>(memberships[mi]);
+                if (d)
+                    m_core.push_back(d);
+            }
+            m_fast_core = true;
+            return l_false;
+        }
+        else if (ne == l_true) {
+            // Group is non-empty: keep its components so the DFS does not re-process them.
+            for (unsigned mi : members)
+                m_prefiltered[mi] = true;
+        }
+        else {
+            // Inconclusive: undo the seeding and let the full search handle these memberships.
+            m_groups[vi].reset();
+        }
+    }
+    return l_undef;
+}
+
 lbool seq_monadic::decide(membership_vec const& memberships) {
     m_last_search_memberships = memberships;
     m_model.reset();
@@ -729,11 +810,17 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     m_rw.get_derive().maybe_reset_cached_cofactors(1u << 16);
     m_budget = 1000000;
     m_giveup = false;
+    m_fast_core = false;
     lbool r = l_true;                             // empty conjunction is vacuously true
     if (!memberships.empty() && !prepare(memberships))
         r = l_undef;
-    else if (!memberships.empty())
-        r = dfs_membership(0);
+    else if (!memberships.empty()) {
+        // Cheap single-variable emptiness pre-filter: may refute the conjunction with a
+        // focused core before the full search is launched.
+        r = filter_single_var_groups(memberships);
+        if (r != l_false)
+            r = dfs_membership(0);
+    }
     if (r != l_true)
         m_model.reset();
     m_last_search_result = r;
@@ -845,7 +932,10 @@ lbool seq_monadic::check() {
     m_core.reset();
     lbool r = decide(m_memberships);
     if (r == l_false) {
-        minimize_core(m_memberships);
+        // The single-variable pre-filter produced a focused core; keep it when minimization is
+        // requested, otherwise fall through to emit the full core.
+        if (!m_fast_core || !m_config.m_min_core)
+            minimize_core(m_memberships);
         m_model.reset();
     }
     m_last_result = r;

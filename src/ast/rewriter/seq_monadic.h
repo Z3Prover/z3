@@ -135,6 +135,8 @@ class seq_monadic {
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     membership_vec m_last_search_memberships; // inputs used by the last internal decide()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
+    bool m_fast_core = false;               // set when decide() proved unsat via the single-variable
+                                            // pre-filter and already stored a focused core in m_core
     std::function<bool(expr *)> m_is_var;   // predicate for whether a term is a sequence variable
     lbool m_last_result = l_undef;           // result of the last public solve()/check()
     lbool m_last_search_result = l_undef;    // result of the last internal decide()
@@ -160,6 +162,9 @@ class seq_monadic {
 
     // ---- depth-first search state; valid for the duration of one decide()/solve() ----
     vector<vector<atom>>   m_atoms;         // parsed atoms, one entry per membership
+    bool_vector            m_prefiltered;   // membership handled by filter_single_var_groups; its
+                                            // single-variable component is already in m_groups, so
+                                            // the DFS skips it (parallel to m_atoms)
     expr_ref_vector        m_regexes;       // regex of each membership (parallel to m_atoms)
     ptr_vector<expr>       m_vars;          // variables occurring in the memberships
     obj_map<expr, unsigned> m_var_idx;      // variable -> index into m_vars / m_groups
@@ -240,6 +245,18 @@ class seq_monadic {
     // touch m_memberships or m_core; fills m_model on l_true when model generation is
     // enabled.
     lbool decide(membership_vec const& memberships);
+
+    // Cheap pre-filter run before the full DFS. Gathers every membership whose term is a
+    // single variable atom into that variable's component group (m_groups[vi]) and tests
+    // the group for emptiness. Such a group is a plain conjunction of memberships on one
+    // variable, so an empty group already refutes the whole conjunction with a focused
+    // core. Emptiness is checked first by a fast length-abstraction filter -- the
+    // intersection of the group's regexes (all components have target == nullptr) is empty
+    // when re::info::length_is_empty() holds -- and, failing that, exactly by
+    // product_nonempty(). Returns l_false with m_core set to that group's dependencies when
+    // a group is proven empty, l_undef otherwise (inconclusive: run the full search). The
+    // groups are restored to empty before returning so the DFS starts from a clean state.
+    lbool filter_single_var_groups(membership_vec const& memberships);
 
     // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
     // deletion and collect the (non-null) dependencies of its members into m_core.
