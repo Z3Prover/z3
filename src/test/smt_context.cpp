@@ -7,6 +7,9 @@ Copyright (c) 2015 Microsoft Corporation
 #include "smt/smt_context.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+#include <sstream>
 
 void tst_smt_context()
 {
@@ -60,6 +63,24 @@ void tst_smt_context()
 
         smt::context qctx(m, params);
         qctx.assert_expr(q);
+        VERIFY(l_false == qctx.check());
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(set-logic ALL)\n"
+            "(declare-datatypes ((Node 0)) (((base) (wrapped (payload Float32)))))\n"
+            "(define-fun measure ((node Node) (fallback Int)) Int\n"
+            "  (ite ((_ is wrapped) node) 1 fallback))\n"
+            "(assert\n"
+            "  (forall ((other Node))\n"
+            "    (= (measure base 0)\n"
+            "       (measure other 0))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        smt::context qctx(m, params);
+        for (expr* a : cmd.assertions())
+            qctx.assert_expr(a);
         VERIFY(l_false == qctx.check());
     }
 }
