@@ -195,12 +195,16 @@ namespace seq {
             return *this;
         }
 
-        // Two DIFFERENT notions, on purpose: operator== is snode::similar, i.e.
-        // equality modulo slice wrappers (used by nielsen_node::is_node_sibling),
-        // while operator< is the finer total order on snode ids (used to
-        // canonicalize the constraint list before hashing).  Consequence: two
-        // similar-but-not-identical equations can sort to different positions in
-        // two otherwise equal nodes, so the sibling / unsat-cache lookup misses.
+        // operator== is snode::similar, i.e. equality modulo slice wrappers
+        // (used by nielsen_node::is_node_sibling), while operator< is the finer
+        // total order on snode ids (used to canonicalize the constraint list
+        // before hashing).  Consequence: two similar-but-not-identical equations
+        // can sort to different positions in two otherwise equal nodes, so the
+        // sibling / unsat-cache lookup misses.
+        // Do NOT "fix" this by tightening operator== to snode identity: the
+        // hash agrees with `similar`, not with identity (compute_hash_matrix
+        // strips slices), and the slice-modulo cut is what makes the
+        // slice-generated recurrences terminate.  See §1.10b of NSEQ_GUIDE.md.
         bool operator==(const str_eq& other) const {
             return m_lhs->similar(other.m_lhs, m) && m_rhs->similar(other.m_rhs, m);
         }
@@ -390,8 +394,15 @@ namespace seq {
             // unsat-cache lookups.
             if (m_kind != other.m_kind)
                 return m_kind < other.m_kind;
-            if (m_root != other.m_root)
-                return m_root < other.m_root;
+            // by snode id, NOT by address: m_root is null on a plain membership
+            // and non-null on a view, so order the null first and compare ids
+            // otherwise.  Addresses vary between runs and would make the
+            // canonical order — hence every node hash — run-dependent.
+            if (m_root != other.m_root) {
+                if (!m_root || !other.m_root)
+                    return m_root == nullptr;
+                return m_root->id() < other.m_root->id();
+            }
             return m_nu < other.m_nu;
         }
 

@@ -25,25 +25,11 @@ Author:
 
 namespace seq {
 
-#ifdef Z3DEBUG
-    // Deep occurrence check: does `var` occur anywhere in `n`, INCLUDING
-    // inside power bases?  collect_tokens treats a power token as opaque, so
-    // neither nielsen_subst's ctor assertion nor is_eliminating() can see an
-    // occurrence nested inside a base — such a substitution would silently be
-    // non-eliminating and its |x| = |replacement| edge constraint wrong.  All
-    // power bases are ground w.r.t. the substituted variable by construction
-    // today (gpower prefixes stop at the first variable); the assertions at
-    // the power-substitution sites pin that invariant down.
-    static bool deep_contains_var(euf::snode const* n, euf::snode const* var) {
-        for (euf::snode const* t : *n) {
-            if (t == var)
-                return true;
-            if (t->is_power() && t->arg0() && deep_contains_var(t->arg0(), var))
-                return true;
-        }
-        return false;
-    }
-#endif
+    // deep_contains_var now lives in seq_nielsen_internal.h: nielsen_subst's
+    // is_eliminating() and add_subst_length_constraints need it too.  All power
+    // bases are ground w.r.t. the substituted variable by construction today
+    // (gpower prefixes stop at the first variable); the assertions at the
+    // power-substitution sites pin that invariant down.
 
     bool nielsen_graph::apply_det_modifier(nielsen_node* node) {
         // resist the temptation to add rules that "simplify" primitive membership constraints!

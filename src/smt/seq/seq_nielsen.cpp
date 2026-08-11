@@ -134,8 +134,9 @@ namespace seq {
 
     bool nielsen_subst::is_eliminating() const {
         SASSERT(m_var && m_replacement);
-        // check if var appears in replacement
-        return !snode_contains_var(m_replacement, m_var);
+        // check if var appears in replacement - deep, so that an occurrence
+        // buried in a power base is not mistaken for an eliminating substitution
+        return !deep_contains_var(m_replacement, m_var);
     }
 
     bool nielsen_subst::is_char_subst() const {
@@ -444,6 +445,15 @@ namespace seq {
     }
 
     void nielsen_node::add_char_range(euf::snode const* sym_char, char_set const& range, dep_tracker dep) {
+        // An empty class admits no character at all.  Handle it here rather than
+        // falling through: the fresh-key branch below would insert it silently
+        // and the generated mk_or over zero ranges is just `false`, i.e. an
+        // arithmetic conflict with the wrong reason and no general conflict.
+        if (range.is_empty()) {
+            set_conflict(backtrack_reason::character_range, dep);
+            set_general_conflict();
+            return;
+        }
         if (sym_char->is_char()) {
             // for a concrete character just check if it matches
             const expr * val = sym_char->get_expr();
@@ -451,10 +461,8 @@ namespace seq {
             expr* ch_expr = nullptr;
             VERIFY(graph().seq().str.is_unit(val, ch_expr));
             VERIFY(graph().seq().is_const_char(ch_expr, ch));
-            for (unsigned i = 0; i < range.ranges().size(); i++) {
-                if (range.ranges()[i].contains(ch))
-                    return; // matches, no conflict
-            }
+            if (range.contains(ch))
+                return; // matches, no conflict
             set_conflict(backtrack_reason::character_range, dep);
             set_general_conflict();
             return;
@@ -601,7 +609,14 @@ namespace seq {
         m_sat_node = nullptr;
         m_sat_path.reset();
         m_depth_bound = 0;
-        m_fresh_cnt = 0;
+        // m_fresh_cnt is deliberately NOT reset: it must stay monotone across
+        // resets.  Names are hash-consed, so restarting the counter makes the
+        // next problem's v!0 the very same expression as the previous one's --
+        // and the previous one is still live in the main context, where
+        // add_nielsen_assumptions internalized the sat leaf's constraints
+        // (len(v!0) = ..., bounds) as literals that outlive our reset.  The new
+        // variable would then inherit those stale bounds through
+        // nielsen_node::lower_bound/upper_bound and literal_if_false.
         m_root_constraints_asserted = false;
         m_root_ic_asserted = 0;    // paired with the m_length_solver.reset() below
         m_partial_dfa_edges.reset();
@@ -646,11 +661,16 @@ namespace seq {
 
         if (m_sk.is_slice(new_arg, arg, l, r)) {
             new_l = a.mk_add(left, l);
-            m_rw(new_l);
             new_r = a.mk_add(right, r);
-            m_rw(new_r);
             new_arg = arg;
         }
+        // Normalize on BOTH paths.  The slice skolem is keyed on its index
+        // expressions, so two callers passing arithmetically equal but
+        // syntactically different indices would get different skolems, hence
+        // different snodes, hence nodes that should be structurally identical
+        // are not - and the sibling / unsat-cache lookups miss them.
+        m_rw(new_l);
+        m_rw(new_r);
         expr_ref slice = m_sk.mk_slice(new_arg, new_l, new_r);
         return m_sg.mk(slice);
     }
@@ -742,7 +762,11 @@ namespace seq {
                     expr_ref len_var(seq.str.mk_length(tok->get_expr()), m);
                     expr_ref ge_zero(a.mk_ge(len_var, a.mk_int(0)), m);
                     TRACE(seq, tout << "non-negative length " << ge_zero << "\n");
-                    constraints.push_back(length_constraint(ge_zero, eq.m_dep, length_kind::nonneg, m));
+                    // no dependency: len(x) >= 0 is an unconditional axiom, it
+                    // is not entailed by the equation we happened to find x in.
+                    // Attributing eq.m_dep would drag that input equality into
+                    // every unsat core the bound participates in.
+                    constraints.push_back(length_constraint(ge_zero, nullptr, length_kind::nonneg, m));
                 }
             }
         }
@@ -796,9 +820,11 @@ namespace seq {
         SASSERT(e && seq.is_re(e));
         min_len = seq.re.min_length(e);
         max_len = seq.re.max_length(e);
-        // for empty language, min_length may be UINT_MAX (vacuously true);
-        // normalize to avoid generating bogus constraints
-        if (min_len > max_len) {
+        // For an empty language min_length is UINT_MAX (vacuously true).  Test
+        // that explicitly as well as min > max: a saturating add can leave BOTH
+        // fields at UINT_MAX, which min > max does not catch and which would
+        // emit len(s) >= 4294967295 into the arithmetic solver.
+        if (min_len == UINT_MAX || min_len > max_len) {
             min_len = 0;
             max_len = 0;
         }
@@ -842,12 +868,14 @@ namespace seq {
 
     void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {
         // |x| = |replacement| for every substitution of a sequence variable.
-        // Substitutions are eliminating by construction (nielsen_subst's ctor
-        // asserts the variable does not occur in the replacement), so the
-        // equation never degenerates to |x| = ... + |x|.
+        // Substitutions are eliminating by construction, so the equation never
+        // degenerates to |x| = ... + |x|.  The check must be DEEP: a variable
+        // hidden inside a power base is invisible to the token-level check in
+        // nielsen_subst's ctor, and would make this equation wrong.
         for (auto const& s : e->subst()) {
             if (!s.m_var->is_var() || !m_seq.is_seq(s.m_var->get_expr()))
                 continue;
+            SASSERT(s.is_eliminating());
             e->add_side_constraint(mk_constraint(
                 a.mk_eq(compute_length_expr(s.m_var), compute_length_expr(s.m_replacement)),
                 s.m_dep));
@@ -928,7 +956,8 @@ namespace seq {
                 if (tok->is_var() && !seen_vars.contains(tok->id())) {
                     seen_vars.insert(tok->id());
                     expr_ref len_var = compute_length_expr(tok);
-                    node->add_constraint(mk_constraint(a.mk_ge(len_var, a.mk_int(0)), eq.m_dep));
+                    // unconditional axiom - no dependency (see generate_length_constraints)
+                    node->add_constraint(mk_constraint(a.mk_ge(len_var, a.mk_int(0)), nullptr));
                 }
             }
         }

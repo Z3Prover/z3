@@ -114,6 +114,22 @@ namespace seq {
         return false;
     }
 
+    // Deep occurrence check: does `var` occur anywhere in `n`, INCLUDING inside
+    // power bases?  collect_tokens / snode_contains_var treat a power token as
+    // opaque, so a variable nested inside a base is invisible to them - and a
+    // substitution x -> u.(x)^n.v would pass for eliminating while its
+    // |x| = |replacement| edge constraint degenerates to |x| = ... + n.|x|.
+    inline bool deep_contains_var(euf::snode const* n, euf::snode const* var) {
+        SASSERT(n && var);
+        for (euf::snode const* t : *n) {
+            if (t == var)
+                return true;
+            if (t->is_power() && t->arg0() && deep_contains_var(t->arg0(), var))
+                return true;
+        }
+        return false;
+    }
+
     // Get the base expression of a power snode.
     inline expr* get_power_base_expr(euf::snode const* power, seq_util& seq) {
         if (!power || !power->is_power()) return nullptr;

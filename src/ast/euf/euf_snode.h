@@ -125,20 +125,29 @@ namespace euf {
             return arg(0);
         }
 
-        // equal modulo slicing
+        // Equal modulo slicing: a variable token matches another one with the
+        // same un-sliced base.  This is the equality behind str_eq/str_deq/
+        // str_mem::operator==, hence the key equality of the sibling and
+        // unsat-cache containers -- it is deliberately coarser than snode
+        // identity, and sgraph::compute_hash_matrix strips slices for exactly
+        // this reason, so assoc_hash() agrees with it.  Tightening this to
+        // plain identity destroys the loop cut on slice-generated recurrences
+        // (measured: nseq_zipt's XabcY = YbacX goes from <1s to >25min).
         bool similar(const snode* str, ast_manager& m) const {
             if (m_length != str->m_length)
                 return false;
+            // hoisted out of the loop: constructing a th_rewriter allocates the
+            // whole rewriter core, and this runs per token on every container probe
+            th_rewriter th(m);
+            seq::skolem sk(m, th);
             auto it1 = begin();
             auto it2 = str->begin();
-            for (; it1 != end() && it2 != str->end(); it1++, it2++) {
+            for (; it1 != end() && it2 != str->end(); ++it1, ++it2) {
                 if ((*it1)->kind() != (*it2)->kind())
                     return false;
                 if ((*it1)->is_var()) {
                     expr* e1 = (*it1)->get_expr();
                     expr* e2 = (*it2)->get_expr();
-                    th_rewriter th(m);
-                    seq::skolem sk(m, th);
                     while (sk.is_slice(e1)) {
                         e1 = to_app(e1)->get_arg(0);
                     }
@@ -152,7 +161,7 @@ namespace euf {
                 if (*it1 != *it2)
                     return false;
             }
-            return true;
+            return it1 == end() && it2 == str->end();
         }
 
         // Iterator over the leaf tokens of this snode, modulo concatenation
