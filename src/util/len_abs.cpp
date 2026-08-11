@@ -69,11 +69,7 @@ bool len_abs::is_empty() const {
 unsigned len_abs::num_residues() const {
     if (is_empty())
         return 0;
-    unsigned n = 0;
-    for (unsigned i = 0; i < m_period; ++i)
-        if (m_residues & (1ull << i))
-            ++n;
-    return n;
+    return get_num_1bits(m_residues & full_mask(m_period));
 }
 
 uint64_t len_abs::residues_mod(unsigned q) const {

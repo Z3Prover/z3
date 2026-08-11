@@ -23,17 +23,9 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/seq_regex_bisim.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include <numeric>
 
 namespace smt {
-
-    static unsigned u_gcd(unsigned a, unsigned b) {
-        while (b) {
-            unsigned t = a % b;
-            a = b;
-            b = t;
-        }
-        return a;
-    }
 
     seq_regex::seq_regex(theory_seq& th):
         th(th),
@@ -606,14 +598,14 @@ namespace smt {
             }
         }
         for (auto const& kv : mult)
-            g = u_gcd(g, kv.m_value);
+            g = std::gcd(g, kv.m_value);
     }
 
     bool seq_regex::residue_reachable(unsigned period, uint64_t residues, unsigned cst, unsigned g) {
         unsigned c = cst % period;
         // Lengths cst + g*k, k >= 0, cover exactly the residues congruent to cst modulo
         // gcd(g, period); with g = 0 the only reachable length residue is cst itself.
-        unsigned d = g == 0 ? period : u_gcd(g, period);
+        unsigned d = g == 0 ? period : std::gcd(g, period);
         for (unsigned i = 0; i < period; ++i) {
             if (0 == (residues & (1ull << i)))
                 continue;
