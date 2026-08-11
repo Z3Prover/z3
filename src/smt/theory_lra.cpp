@@ -1794,7 +1794,7 @@ public:
                             if (current != FC_DONE)
                                 break;
                         }
-                        current = check_nla(level);
+                        current = check_nla_cheap(level);
                         nla_checked = current == FC_DONE;
                         if (current == FC_GIVEUP) {
                             TRACE(arith, tout << "check-nra giveup\n";);
@@ -1813,10 +1813,22 @@ public:
                 // If NLA ran earlier in this round-robin cycle, validate the
                 // repaired assignment before accepting it.
                 if (lia_after_nla) {
-                    current = check_nla(level);
+                    current = check_nla_cheap(level);
                     if (current == FC_CONTINUE)
                         return FC_CONTINUE;
                     if (current == FC_GIVEUP)
+                        st = FC_GIVEUP;
+                }
+
+                // The cheap nonlinear checks and equality assumptions have now
+                // reached a fixpoint for this final-check cycle. Only at this
+                // point do we invoke the expensive nonlinear hammers (nlsat and
+                // incremental linearization).
+                if (st != FC_GIVEUP) {
+                    final_check_status ec = check_nla_expensive(level);
+                    if (ec == FC_CONTINUE)
+                        return FC_CONTINUE;
+                    if (ec == FC_GIVEUP)
                         st = FC_GIVEUP;
                 }
             }
@@ -2207,6 +2219,61 @@ public:
         flet f(lp().validate_blocker(), true);
 #endif
         lbool r = m_nla->check(level);
+        switch (r) {
+        case l_false:
+            add_lemmas();
+            return FC_CONTINUE;
+        case l_true:
+            return FC_DONE;
+        default:
+            return FC_GIVEUP;
+        }
+    }
+
+    // Cheap nonlinear checks (round-robin: propagation, monomial bounds,
+    // pseudo-linear refinement, Horner, Grobner). A no-effect result is
+    // reported as FC_DONE so the enclosing round-robin can proceed to equality
+    // assumptions and, ultimately, the expensive hammers - it is not a giveup.
+    final_check_status check_nla_cheap(unsigned level) {
+        if (!m.inc()) {
+            TRACE(arith, tout << "canceled\n";);
+            return FC_GIVEUP;
+        }
+        if (!m_nla)
+            return FC_DONE;
+        if (!m_nla->need_check())
+            return FC_DONE;
+#if Z3DEBUG
+        flet f(lp().validate_blocker(), true);
+#endif
+        lbool r = m_nla->check_cheap(level);
+        switch (r) {
+        case l_false:
+            add_lemmas();
+            return FC_CONTINUE;
+        case l_true:
+            return FC_DONE;
+        default:
+            // no effect: defer to the expensive hammers scheduled after eqs.
+            return FC_DONE;
+        }
+    }
+
+    // Expensive nonlinear hammers (incremental linearization + nlsat). A
+    // no-effect result here is a genuine giveup.
+    final_check_status check_nla_expensive(unsigned level) {
+        if (!m.inc()) {
+            TRACE(arith, tout << "canceled\n";);
+            return FC_GIVEUP;
+        }
+        if (!m_nla)
+            return FC_DONE;
+        if (!m_nla->need_check())
+            return FC_DONE;
+#if Z3DEBUG
+        flet f(lp().validate_blocker(), true);
+#endif
+        lbool r = m_nla->check_expensive(level);
         switch (r) {
         case l_false:
             add_lemmas();

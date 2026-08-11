@@ -403,6 +403,8 @@ public:
     bool  conflict_found() const;
     
     lbool check(unsigned level);
+    lbool check_cheap(unsigned level);
+    lbool check_expensive(unsigned level);
     lbool check_power(lpvar r, lpvar x, lpvar y);
     void check_bounded_divisions();
 

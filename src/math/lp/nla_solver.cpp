@@ -54,6 +54,14 @@ namespace nla {
         return m_core->check(level);
     }
 
+    lbool solver::check_cheap(unsigned level) {
+        return m_core->check_cheap(level);
+    }
+
+    lbool solver::check_expensive(unsigned level) {
+        return m_core->check_expensive(level);
+    }
+
     bool solver::propagate() {
         return m_core->propagate();
     }

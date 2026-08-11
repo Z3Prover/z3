@@ -1295,6 +1295,25 @@ void core::add_bounds() {
 }
 
 lbool core::check(unsigned level) {
+    lbool r = check_cheap(level);
+    if (r != l_undef)
+        return r;
+    // The cheap round-robin checks produced no lemma and did not refute the
+    // model. Fall through to the expensive nonlinear hammers.
+    return check_expensive(level);
+}
+
+// Cheap phase: feasibility gates, monomial patching, nonlinear bound
+// optimization and the round-robin strategy loop (propagation, monomial-bound
+// lemmas, pseudo-linear refinement, Horner and Grobner). This is the part that
+// theory_lra schedules alongside its other cheap checks.
+//
+// Return value:
+//   l_true  - the nonlinear constraints are satisfied
+//   l_false - a conflict/lemma was found or the model was refined
+//   l_undef - the cheap checks had no effect; the caller should invoke
+//             check_expensive() to run the heavy nonlinear hammers
+lbool core::check_cheap(unsigned level) {
     lp_settings().stats().m_nla_calls++;
     TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
 
@@ -1365,6 +1384,36 @@ lbool core::check(unsigned level) {
         }
         while (m_strategy_idx != old_idx);
     }
+
+    // No lemma from the cheap checks: defer to the expensive nonlinear hammers.
+    return l_undef;
+}
+
+// Expensive phase: the heavy nonlinear hammers - incremental linearization
+// (basic/order/monotonicity/tangent lemmas and division reasoning) and nlsat
+// (bounded and full). theory_lra schedules this only after the cheap checks and
+// equality assumptions have reached a fixpoint.
+//
+// Return value:
+//   l_true  - the nonlinear constraints are satisfied
+//   l_false - a conflict/lemma was found or the model was refined
+//   l_undef - the hammers were unable to decide (unknown)
+lbool core::check_expensive(unsigned level) {
+    if (!lra.is_feasible()) {
+        TRACE(nla_solver, tout << "unknown because of the lra.m_status = " << lra.get_status() << "\n";);
+        return l_undef;
+    }
+    if (!lra.is_int_feasible())
+        return l_false;
+
+    set_use_nra_model(false);
+    init_to_refine();
+    if (m_to_refine.empty())
+        return l_true;
+
+    lbool ret = l_undef;
+
+    auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
 
     if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {
         scoped_limits sl(m_reslim);

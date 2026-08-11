@@ -40,6 +40,8 @@ namespace nla {
         void reset_strategy();
         bool need_check();
         lbool check(unsigned level);
+        lbool check_cheap(unsigned level);
+        lbool check_expensive(unsigned level);
         bool propagate();
         bool incremental_propagate();
         void simplify() { m_core->simplify(); }
