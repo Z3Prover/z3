@@ -405,4 +405,25 @@ void tst_smt2print_parse() {
         ENSURE(resp.find("unknown") == std::string::npos);
     }
 
+    // Regression test for GitHub issue #10480:
+    // smt.bv.solver=2 must not report SAT for this unsatisfiable formula.
+    {
+        char const* spec =
+            "(set-option :smt.bv.solver 2)\n"
+            "(declare-fun y () (_ BitVec 1))\n"
+            "(assert (exists ((V (Array (_ BitVec 8) (_ BitVec 8)))) "
+            "(= (store V (_ bv0 8) (_ bv0 8)) "
+            "(store V (_ bv0 8) (bvadd (_ bv1 8) ((_ zero_extend 7) y))))))\n"
+            "(check-sat)\n";
+
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        is_error = false;
+        std::string resp = Z3_eval_smtlib2_string(ctx, spec);
+        Z3_del_context(ctx);
+        std::cout << "Issue #10480 response: " << resp << "\n";
+        ENSURE(!is_error);
+        ENSURE(resp.find("unsat") != std::string::npos);
+    }
+
 }
