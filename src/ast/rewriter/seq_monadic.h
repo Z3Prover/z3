@@ -89,11 +89,12 @@ class seq_monadic {
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
-    enum class bail_reason { unsupported, state_cap, dnf_cap, budget, resource, nullability, guard, num_reasons };
+    enum class bail_reason { unsupported, state_cap, dnf_cap, budget, state_expansion, resource, nullability, guard, num_reasons };
 
     struct statistics {
         unsigned m_cofactor_calls = 0;
         unsigned m_states = 0;
+        unsigned m_max_state_expansion = 0;  // most inner steps any single product state took
         unsigned m_bails[static_cast<unsigned>(bail_reason::num_reasons)] = {};
 
         void inc_bail(bail_reason reason) {
@@ -205,6 +206,13 @@ class seq_monadic {
 
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
     bool parse_term(expr* term, vector<atom>& atoms);
+
+    // Charge one search step against the budget and poll the global resource limit.
+    // Returns true when the search must stop, having recorded the reason and set m_giveup.
+    // One step is one product state or one dfs_atoms node, which is what the budget has
+    // always counted; the loops that expand a single state are bounded separately (see
+    // product_nonempty) so that this meaning stays intact.
+    bool out_of_budget();
 
     // Drop all search state accumulated by the previous decide()/solve().
     void reset_search();
