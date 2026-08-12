@@ -72,7 +72,6 @@ Author:
 #include "util/dependency.h"
 #include "util/trail.h"
 #include "util/statistics.h"
-#include "util/vector.h"
 #include <utility>
 #include <tuple>
 #include <map>
@@ -85,20 +84,15 @@ class seq_monadic {
         seq::transition_mode m_mode;
         bool m_model = true;  // whether solve()/check() extract a feasible model
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
-        bool m_state_search = true;  // use the state-based search driver (select next
-                                     // membership by the last-expanded / most-frequent
-                                     // head variable) instead of the positional DFS
 
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
-    enum class bail_reason { unsupported, state_cap, budget, resource, nullability, guard, num_reasons };
-
-    static char const* bail_stat_name(bail_reason reason);
-    static char const* bail_name(bail_reason reason);
+    enum class bail_reason { unsupported, state_cap, dnf_cap, budget, resource, nullability, guard, num_reasons };
 
     struct statistics {
         unsigned m_cofactor_calls = 0;
+        unsigned m_states = 0;
         unsigned m_bails[static_cast<unsigned>(bail_reason::num_reasons)] = {};
 
         void inc_bail(bail_reason reason) {
@@ -170,7 +164,7 @@ class seq_monadic {
     ptr_vector<expr>       m_vars;          // variables occurring in the memberships
     obj_map<expr, unsigned> m_var_idx;      // variable -> index into m_vars / m_groups
     vector<svector<component>> m_groups;    // components accumulated on the current branch
-    svector<unsigned>      m_num_occ;
+    obj_map<expr, uint64_t> m_last_occ;     // variable -> last (membership, atom) position
     unsigned               m_undef_vars = 0;  // depth of groups whose emptiness test gave up
     // memo for the per-variable emptiness test, keyed by the sorted, deduplicated
     // (state, target) signature of the variable's component group
@@ -188,20 +182,6 @@ class seq_monadic {
     group_sig m_sig_buf;                    // reused by group_nonempty (avoids allocating per lookup)
     std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
     seq::live_states m_live_states;
-
-    // ---- state-based search driver (see the "search state" note in the .cpp) ----
-    // A membership cursor: how far membership `mi` has been consumed on the current
-    // branch.  `i` is the next unconsumed atom, `R` the derivative state of the regex
-    // after the consumed prefix, `complete` once every atom is consumed (and the tail is
-    // known nullable / covered by a membership component).  The set of non-complete
-    // cursors is the "set of active membership constraints"; each non-complete cursor has
-    // a *variable* head (leading constants are eagerly consumed).  The per-variable
-    // component groups (m_groups) are the "variable intersection membership constraints".
-    struct cursor { unsigned i; expr* R; bool complete; };
-    svector<cursor> m_cursors;              // one cursor per membership (parallel to m_atoms)
-    unsigned        m_last_var = UINT_MAX;  // index (in m_vars) of the last expanded variable
-    unsigned_vector m_head_cnt;
-    unsigned_vector m_head_stack;
 
     // Brzozowski derivative of regex `r` by the concrete element `elem`.  Memoized on
     // (r, elem): the search revisits the same constant step on many branches.
@@ -228,12 +208,10 @@ class seq_monadic {
     // Drop all search state accumulated by the previous decide()/solve().
     void reset_search();
 
-    // Parse every membership into atoms, register its variables and count each
-    // variable's occurrences.  Sets m_seq_sort/m_elem_sort.  False on an
+    // Parse every membership into atoms, register its variables and record each
+    // variable's last occurrence.  Sets m_seq_sort/m_elem_sort.  False on an
     // unsupported shape.
     bool prepare(membership_vec const& memberships);
-
-    bool group_complete(unsigned vi) const { return m_groups[vi].size() == m_num_occ[vi]; }
 
     // Index of `v` in m_vars / m_groups, registering it on first sight.
     unsigned var_index(expr* v);
@@ -245,31 +223,6 @@ class seq_monadic {
     // enabled), l_false = every branch below is empty, l_undef = gave up.
     lbool dfs_membership(unsigned mi);
     lbool dfs_atoms(unsigned mi, unsigned i, expr* R);
-
-    // ---- state-based search driver ----------------------------------------------------
-    bool inc_budget();
-
-    // One search step: pick the next variable to expand (preferring the last-expanded
-    // variable, else the one occurring most often as a head atom of the active cursors),
-    // and expand it.  Returns l_true (sat leaf found), l_false (this branch is empty), or
-    // l_undef (gave up on a sub-branch).
-    lbool search();
-
-    // Expand variable `vi`, which is the head of the cursors in
-    // m_head_stack[s_offset .. s_offset + s_size).  Assign a continuation (a reach target
-    // q, or the epsilon/membership encoding for a last atom) to each cursor in turn (k
-    // indexes the set), pushing the component on m_groups[vi] and pruning as soon as the
-    // accumulated intersection for vi is empty.  When every cursor is assigned, recurse
-    // into search().
-    lbool choose_cont(unsigned vi, unsigned s_offset, unsigned s_size, unsigned k);
-
-    lbool consume_constants(cursor& c, unsigned mi);
-
-    // Advance cursor `mi` past its head variable to continuation `target` (null = the
-    // variable is a last atom, i.e. a plain membership component), then eagerly consume
-    // the following constant atoms.  l_false = the continuation is empty (prune),
-    // l_undef = feasible but the tail nullability is unknown, l_true = feasible.
-    lbool advance_cursor(cursor& c, unsigned mi, expr* target);
 
     // Emptiness of the components accumulated for variable `vi` on the current branch,
     // memoized on their signature.  Duplicated components are collapsed before the
@@ -330,9 +283,6 @@ public:
     // Enable/disable unsat-core minimization (default: enabled).  When disabled, core()
     // returns the dependencies of all asserted memberships (no deletion-based shrinking).
     void set_min_core(bool b) { m_config.m_min_core = b; }
-
-    void set_state_search(bool b) { m_config.m_state_search = b; }
-    bool state_search() const { return m_config.m_state_search; }
 
     void set_is_var(std::function<bool(expr *)> const &is_var) {
         m_is_var = is_var;

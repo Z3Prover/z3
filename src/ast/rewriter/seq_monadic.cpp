@@ -29,38 +29,23 @@ TODOs:
   Model construction would assign values to the elements.
 - make unsat core tracking less naive by tracking dependencies at a finer grain.
 - add selective tracing TRACE(seq, ..).
+- revisit DFS to select next membership constraint to explore base on the current state.
+  In the current state include current set of variable intersection membership constraints.
+  The next membership constraint to explore is preferrably for a variable that was just
+  explored and we can check the variable intersection membership constraints if the new
+  expansion is feasible. Constant characters are consumed at the same time to also prune
+  the choice.
+- separate out "live-state" and enumerator over reachable live states:
+  - make it share live states between callers.
+  - make it expose an iterator instead of using vectors of live states to allow on-demand expansion of live states.
+  - make use of DFS exploration of derivatives to extract live states without visiting all states up front.
+  - use it in seq_regex legacy mode that also has this notion.
+
+
 
 Author:
 
     Nikolaj Bjorner / Margus Veanes 2026
-
-Shady parts:
-
-- epsilon transitions appear not accounted for when computing reaching states.
-  If a regex R contains N by taking a set of epsilon transitions, then it is nullable relative
-  to N. It suggests a use for a version of nullability that is relative to N.
-  Deal also with when N itself has epsilon transitions to N1, .., Nk.
-
-- witness extraction is plain wrong. It should generally rely on a choice function that takes a
-  Boolean expression F[(:var 0)] with a single free variable and synthesize a value for the free
-  variable such that the expression is true.
-  For character predicates we can assume that the Boolean expressions are range predicates and we can
-  use utilities for range predicates. For other types use some best effort, say F is of the form (= (:var 0) value).
-  Expose the witness function in a self-contained module outside of this file.
-
-- checking intersections with continuation regexes is shady. The nullability check is now really about
-  whether there is an epsilon transition to the accepting state N. The copilot-generated code ignores this.
-  Generally, dealing with epsilon state is shady. There are many equivalent ways a state can be epsilon, such
-  as epsilon*, or comp(.+), etc.
-
-- I don't think there should be a special case for when N is epsilon and having N being nullptr
-  is uneven.
-  The code uses "live_states" and "reaching_states" for two cases.
-
-- The code in test_intersect shouldn't be relying on a rewriter. Anything that can be rewritten
-  could be done prior.
-
-- Remove hard-wired constants such as STATE_CAP.
 
 --*/
 
@@ -86,6 +71,19 @@ namespace {
         return "unknown";
     }
 
+    char const* bail_name(unsigned i) {
+        static char const* const names[] = {
+            "unsupported",
+            "state-cap",
+            "dnf-cap",
+            "budget",
+            "resource",
+            "nullability",
+            "guard"
+        };
+        return i < std::size(names) ? names[i] : "unknown";
+    }
+
     char const* result_name(lbool r) {
         switch (r) {
         case l_true:  return "sat";
@@ -93,24 +91,6 @@ namespace {
         default:      return "unknown";
         }
     }
-}
-
-#define SEQ_MONADIC_BAIL_PREFIX "seq monadic bail "
-
-char const* seq_monadic::bail_stat_name(bail_reason reason) {
-    switch (reason) {
-    case bail_reason::unsupported: return SEQ_MONADIC_BAIL_PREFIX "unsupported";
-    case bail_reason::state_cap:   return SEQ_MONADIC_BAIL_PREFIX "state cap";
-    case bail_reason::budget:      return SEQ_MONADIC_BAIL_PREFIX "budget";
-    case bail_reason::resource:    return SEQ_MONADIC_BAIL_PREFIX "resource";
-    case bail_reason::nullability: return SEQ_MONADIC_BAIL_PREFIX "nullability";
-    case bail_reason::guard:       return SEQ_MONADIC_BAIL_PREFIX "guard";
-    default:                       return SEQ_MONADIC_BAIL_PREFIX "unknown";
-    }
-}
-
-char const* seq_monadic::bail_name(bail_reason reason) {
-    return bail_stat_name(reason) + (sizeof(SEQ_MONADIC_BAIL_PREFIX) - 1);
 }
 
 
@@ -535,8 +515,6 @@ unsigned seq_monadic::var_index(expr* v) {
     m_var_idx.insert(v, vi);
     m_vars.push_back(v);
     m_groups.push_back(svector<component>());
-    m_num_occ.push_back(0);
-    m_head_cnt.push_back(0);
     return vi;
 }
 
@@ -548,15 +526,11 @@ void seq_monadic::reset_search() {
     m_vars.reset();
     m_var_idx.reset();
     m_groups.reset();
-    m_num_occ.reset();
+    m_last_occ.reset();
     m_group_cache.clear();
     m_der_cache.reset();
     m_nullable_cache.reset();
     m_undef_vars = 0;
-    m_cursors.reset();
-    m_last_var = UINT_MAX;
-    m_head_cnt.reset();
-    m_head_stack.reset();
     m_live_states.reset();
 }
 
@@ -580,12 +554,17 @@ bool seq_monadic::prepare(membership_vec const& memberships) {
         m_atoms.push_back(atoms);
         m_pin.push_back(regex);
     }
+    // A variable's component group is complete once the search passes the variable's
+    // last occurrence; positions are compared in search order, i.e. lexicographically
+    // on (membership index, atom index).
     for (unsigned mi = 0; mi < m_atoms.size(); ++mi) {
         vector<atom> const& atoms = m_atoms[mi];
-        for (atom const& a : atoms) {
-            if (!a.is_var)
+        for (unsigned i = 0; i < atoms.size(); ++i) {
+            if (!atoms[i].is_var)
                 continue;
-            ++m_num_occ[var_index(a.var.get())];
+            expr* v = atoms[i].var.get();
+            var_index(v);
+            m_last_occ.insert(v, (static_cast<uint64_t>(mi) << 32) | i);
         }
     }
     return true;
@@ -639,23 +618,6 @@ lbool seq_monadic::leaf() {
     return l_true;
 }
 
-bool seq_monadic::inc_budget() {
-    if (m_giveup)
-        return false;                             // unwind the whole search, don't keep branching
-    if (m_budget == 0) {
-        m_stats.inc_bail(bail_reason::budget);
-        m_giveup = true;
-        return false;
-    }
-    if (!m.inc()) {
-        m_stats.inc_bail(bail_reason::resource);
-        m_giveup = true;
-        return false;
-    }
-    --m_budget;
-    return true;
-}
-
 lbool seq_monadic::dfs_membership(unsigned mi) {
     if (mi == m_atoms.size())
         return leaf();
@@ -663,8 +625,19 @@ lbool seq_monadic::dfs_membership(unsigned mi) {
 }
 
 lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
-    if (!inc_budget())
+    if (m_giveup)
+        return l_undef;                           // unwind the whole search, don't keep branching
+    if (m_budget == 0) {
+        m_stats.inc_bail(bail_reason::budget);
+        m_giveup = true;
         return l_undef;
+    }
+    if (!m.inc()) {
+        m_stats.inc_bail(bail_reason::resource);
+        m_giveup = true;
+        return l_undef;
+    }
+    --m_budget;
     vector<atom> const& atoms = m_atoms[mi];
     if (i == atoms.size()) {                      // the rest of this membership is epsilon
         lbool nb = nullable(R);
@@ -680,6 +653,7 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
         expr_ref d = der_elem(R, a.elem.get());
         if (re().is_empty(d))
             return l_false;
+        m_pin.push_back(d);
         return dfs_atoms(mi, i + 1, d);
     }
 
@@ -687,6 +661,9 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
     // the derivative automaton from R to some live state q, which splits the search.
     bool last_atom = (i + 1 == atoms.size());
     unsigned vi = var_index(a.var.get());
+    uint64_t pos = (static_cast<uint64_t>(mi) << 32) | i;
+    uint64_t last = 0;
+    bool finalize = m_last_occ.find(a.var.get(), last) && last == pos;
 
     // Explores one split target; the caller stops at the first l_true.
     auto explore = [&](expr* target) -> lbool {
@@ -697,7 +674,7 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
         lbool ne = l_true;
         if (re().is_empty(R))
             ne = l_false;
-        else if (group_complete(vi) || m_groups[vi].size() > 1)
+        else if (finalize || m_groups[vi].size() > 1)
             ne = group_nonempty(vi);
         lbool r;
         if (ne == l_false)
@@ -742,181 +719,6 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
     return any_undef ? l_undef : l_false;
 }
 
-// ---- state-based search driver ------------------------------------------------------
-//
-// This is an alternative to the strictly positional dfs_membership/dfs_atoms above.  The
-// positional search finishes membership 0 entirely, then membership 1, and so on, so two
-// memberships that share a variable only intersect that variable's components deep in the
-// tree -- after the first membership's alignment was chosen blindly.  The state-based
-// search keeps a *cursor* per membership and, at each step, expands ONE variable across
-// ALL memberships whose current head is that variable, intersecting the per-variable
-// components (m_groups) immediately.  An infeasible choice for a shared variable is thus
-// pruned as soon as it is made, rather than after committing to a full membership.
-//
-// A search state is:
-//   - the set of active (non-complete) cursors      == active membership constraints,
-//   - the per-variable component groups (m_groups)  == variable intersection constraints,
-//   - the last expanded variable (m_last_var)       == locality hint for the next choice.
-// Every non-complete cursor has a variable head (leading constants are eagerly consumed by
-// consume_constants).  The state is complete when every cursor is complete, and accepting
-// when additionally every variable group is non-empty.
-
-lbool seq_monadic::consume_constants(cursor& c, unsigned mi) {
-    vector<atom> const& atoms = m_atoms[mi];
-    while (c.i < atoms.size() && !atoms[c.i].is_var) {
-        expr_ref d = der_elem(c.R, atoms[c.i].elem.get());
-        if (re().is_empty(d))
-            return l_false;                        // dead: this continuation is empty
-        c.R = d;
-        c.i += 1;
-    }
-    c.complete = (c.i == atoms.size());
-    if (!c.complete)
-        return l_true;                             // stopped on a variable head
-    lbool nb = nullable(c.R);                      // the remaining tail is epsilon
-    if (nb == l_false)
-        return l_false;
-    if (nb == l_undef) {
-        m_stats.inc_bail(bail_reason::nullability);
-        return l_undef;                            // tail nullability undecidable
-    }
-    return l_true;
-}
-
-lbool seq_monadic::advance_cursor(cursor& c, unsigned mi, expr* target) {
-    // Step past the head variable.  target == null encodes "the variable is the last atom",
-    // i.e. a plain membership component: nothing follows, the cursor is complete.
-    if (!target) {
-        c.i = m_atoms[mi].size();
-        c.complete = true;
-        return l_true;
-    }
-    c.i += 1;
-    c.R = target;
-    return consume_constants(c, mi);
-}
-
-lbool seq_monadic::search() {
-    if (!inc_budget())
-        return l_undef;
-
-    unsigned best_vi = UINT_MAX, best_cnt = 0;
-    for (unsigned mi = 0; mi < m_cursors.size(); ++mi) {
-        cursor const& c = m_cursors[mi];
-        if (c.complete)
-            continue;
-        unsigned vi = m_var_idx[m_atoms[mi][c.i].var.get()];
-        unsigned cnt = ++m_head_cnt[vi];
-        // Prefer the most frequent head variable; break ties toward the smallest index so
-        // the choice is deterministic.  m_last_var (locality) is applied afterwards.
-        if (cnt > best_cnt || (cnt == best_cnt && vi < best_vi)) {
-            best_cnt = cnt;
-            best_vi = vi;
-        }
-    }
-
-    // Locality: if the last expanded variable is still an active head, expand it next --
-    // its freshly chosen continuation can be checked against the intersection immediately.
-    unsigned vi = best_vi;
-    if (best_vi != UINT_MAX && m_last_var != UINT_MAX && m_head_cnt[m_last_var] > 0)
-        vi = m_last_var;
-
-    // All cursors whose current head is variable vi are expanded together at this step.
-    unsigned s_offset = m_head_stack.size(), s_size = 0;
-    for (unsigned mi = 0; mi < m_cursors.size(); ++mi) {
-        cursor const& c = m_cursors[mi];
-        if (c.complete)
-            continue;
-        unsigned hv = m_var_idx[m_atoms[mi][c.i].var.get()];
-        m_head_cnt[hv] = 0;
-        if (hv == vi) {
-            m_head_stack.push_back(mi);
-            ++s_size;
-        }
-    }
-    if (best_vi == UINT_MAX)
-        return leaf();                             // every cursor complete
-
-    lbool r = choose_cont(vi, s_offset, s_size, 0);
-    m_head_stack.shrink(s_offset);
-    return r;
-}
-
-lbool seq_monadic::choose_cont(unsigned vi, unsigned s_offset, unsigned s_size, unsigned k) {
-    if (!inc_budget())
-        return l_undef;
-    if (k == s_size) {
-        unsigned saved = m_last_var;
-        m_last_var = vi;
-        lbool r = search();
-        m_last_var = saved;
-        return r;
-    }
-    unsigned mi = m_head_stack[s_offset + k];
-    cursor& c = m_cursors[mi];
-    vector<atom> const& atoms = m_atoms[mi];
-    expr* R = c.R;
-    expr* v = atoms[c.i].var.get();
-    bool last_atom = (c.i + 1 == atoms.size());
-
-    auto explore = [&](expr* target) -> lbool {
-        m_groups[vi].push_back(component{ v, R, target });
-        // Intersect immediately: prune as soon as vi's accumulated components are empty.
-        // The test is forced once the group is complete so the accepting state does not
-        // need to re-verify; running it earlier (size > 1) prunes.
-        lbool ne;
-        if (re().is_empty(R))
-            ne = l_false;
-        else if (group_complete(vi) || m_groups[vi].size() > 1)
-            ne = group_nonempty(vi);
-        else
-            ne = l_true;
-        if (ne == l_false) {
-            m_groups[vi].pop_back();
-            return l_false;                        // infeasible continuation for vi: prune
-        }
-        cursor saved = c;                          // save/restore cursor across the branch
-        lbool adv = advance_cursor(c, mi, target);
-        if (adv == l_false) {
-            c = saved;
-            m_groups[vi].pop_back();
-            return l_false;
-        }
-        unsigned undef_here = (ne == l_undef ? 1u : 0u) + (adv == l_undef ? 1u : 0u);
-        m_undef_vars += undef_here;
-        lbool r = choose_cont(vi, s_offset, s_size, k + 1);
-        m_undef_vars -= undef_here;
-        c = saved;
-        m_groups[vi].pop_back();
-        return r;
-    };
-
-    // A last variable contributes a plain membership component. Otherwise consume live
-    // split states lazily so an early satisfying continuation avoids expanding the rest.
-    if (last_atom)
-        return explore(nullptr);
-
-    bool any_undef = false;
-    auto live = m_live_states.reachable_live(R);
-    for (expr* target : live) {
-        lbool r = explore(target);
-        if (r == l_true)
-            return l_true;
-        if (r == l_undef) {
-            if (m_giveup)
-                return l_undef;
-            any_undef = true;
-        }
-    }
-    if (live.failed()) {
-        m_stats.inc_bail(
-            live.failure_reason() == seq::live_states::failure::state_cap ?
-            bail_reason::state_cap : bail_reason::resource);
-        return l_undef;
-    }
-    return any_undef ? l_undef : l_false;
-}
-
 lbool seq_monadic::decide(membership_vec const& memberships) {
     m_last_search_memberships = memberships;
     m_model.reset();
@@ -930,24 +732,8 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     lbool r = l_true;                             // empty conjunction is vacuously true
     if (!memberships.empty() && !prepare(memberships))
         r = l_undef;
-    else if (!memberships.empty()) {
-        if (m_config.m_state_search) {
-            // Build one cursor per membership at its regex start; consuming the leading
-            // constants leaves every active cursor on a variable head.
-            m_cursors.reset();
-            m_last_var = UINT_MAX;
-            for (unsigned mi = 0; mi < m_atoms.size() && r != l_false; ++mi) {
-                m_cursors.push_back(cursor{ 0, m_regexes.get(mi), false });
-                r = consume_constants(m_cursors.back(), mi);
-                if (r == l_undef)
-                    ++m_undef_vars;
-            }
-            if (r != l_false)
-                r = search();
-        }
-        else
-            r = dfs_membership(0);
-    }
+    else if (!memberships.empty())
+        r = dfs_membership(0);
     if (r != l_true)
         m_model.reset();
     m_last_search_result = r;
@@ -1078,7 +864,6 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         << "  :mode " << mode_name(m_config.m_mode) << "\n"
         << "  :generate-model " << (m_config.m_model ? "true" : "false") << "\n"
         << "  :minimize-core " << (m_config.m_min_core ? "true" : "false") << "\n"
-        << "  :state-search " << (m_config.m_state_search ? "true" : "false") << "\n"
         << "  :last-result " << result_name(m_last_result) << "\n"
         << "  :budget " << m_budget << "\n"
         << "  :giveup " << (m_giveup ? "true" : "false") << "\n"
@@ -1136,9 +921,6 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         out << " ";
         display_expr(var);
     }
-    out << " )\n     :variable-occurrences (";
-    for (unsigned n : m_num_occ)
-        out << " " << n;
     out << " )\n     :parsed-memberships (";
     for (unsigned mi = 0; mi < m_atoms.size(); ++mi) {
         out << "\n       [" << mi << "] :regex ";
@@ -1183,14 +965,25 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         << "     :pinned-expressions " << m_pin.size() << ")\n";
 
     out << "  :statistics\n"
-        << "    (:cofactor-calls " << m_stats.m_cofactor_calls;
+        << "    (:cofactor-calls " << m_stats.m_cofactor_calls << "\n"
+        << "     :states " << m_stats.m_states;
     for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i)
-        out << "\n     :bail-" << bail_name(static_cast<bail_reason>(i)) << " " << m_stats.m_bails[i];
+        out << "\n     :bail-" << bail_name(i) << " " << m_stats.m_bails[i];
     return out << "))\n";
 }
 
 void seq_monadic::collect_statistics(::statistics& st) const {
+    static char const* const bail_names[] = {
+        "seq monadic bail unsupported",
+        "seq monadic bail state cap",
+        "seq monadic bail dnf cap",
+        "seq monadic bail budget",
+        "seq monadic bail resource",
+        "seq monadic bail nullability",
+        "seq monadic bail guard"
+    };
     st.update("seq monadic cofactor calls", m_stats.m_cofactor_calls);
+    st.update("seq monadic states", m_stats.m_states);
     for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i)
-        st.update(bail_stat_name(static_cast<bail_reason>(i)), m_stats.m_bails[i]);
+        st.update(bail_names[i], m_stats.m_bails[i]);
 }

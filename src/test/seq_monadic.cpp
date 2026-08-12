@@ -27,10 +27,8 @@ Author:
 #include "params/smt_params.h"
 #include "smt/smt_kernel.h"
 #include <iostream>
-#include <climits>
 #include <sstream>
 #include <set>
-#include <functional>
 
 namespace {
 
@@ -62,15 +60,11 @@ class seq_monadic_test {
     expr_ref comp(expr* a) { return expr_ref(re().mk_complement(a), m); }
     expr_ref dot() { return expr_ref(re().mk_full_char(m_re), m); }
     expr_ref dotstar() { return expr_ref(re().mk_full_seq(m_re), m); }
-    expr_ref none() { return expr_ref(re().mk_empty(m_re), m); }
     expr_ref rng(char lo, char hi) {
         char sl[2] = { lo, 0 }, sh[2] = { hi, 0 };
         return expr_ref(re().mk_range(u.str.mk_string(zstring(sl)), u.str.mk_string(zstring(sh))), m);
     }
     expr_ref loop(expr* r, unsigned lo, unsigned hi) { return expr_ref(re().mk_loop(r, lo, hi), m); }
-    expr_ref plus(expr* a) { return cat(a, star(a)); }
-    expr_ref inter2(expr* a, expr* b) { return expr_ref(re().mk_inter(a, b), m); }
-    expr_ref eps() { return expr_ref(re().mk_epsilon(m_str), m); }
 
     // string-term builders
     expr_ref var(char const* nm) { return expr_ref(m.mk_const(nm, m_str), m); }
@@ -132,28 +126,9 @@ class seq_monadic_test {
                   << mode_name() << " cofactor construction\n";
     }
 
-    lbool run_both_drivers(char const* name, std::function<lbool()> const& query) {
-        bool saved = m_mon.state_search();
-        m_mon.set_state_search(true);
-        lbool a = query();
-        m_mon.set_state_search(false);
-        lbool b = query();
-        m_mon.set_state_search(saved);
-        if (a != b && a != l_undef && b != l_undef) {
-            ++m_fail;
-            std::cout << "  FAIL " << name << "  drivers contradict: state=" << s(a)
-                      << " positional=" << s(b) << "\n";
-        }
-        else if (a != b) {
-            std::cout << "  NOTE " << name << "  state=" << s(a)
-                      << " positional=" << s(b) << " (one gave up)\n";
-        }
-        return a;
-    }
-
     void check(char const* name, expr* term, expr* R, lbool expected) {
         m_mon.set_gen_model(false);               // this check does not use the model
-        lbool got = run_both_drivers(name, [&]() { return m_mon.solve(term, R); });
+        lbool got = m_mon.solve(term, R);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
@@ -173,7 +148,7 @@ class seq_monadic_test {
         m_trail.push_scope();
         add_extra(term, R, ve);
         m_mon.set_gen_model(false);               // this check does not use the model
-        lbool got = run_both_drivers(name, [&]() { return m_mon.check(); });
+        lbool got = m_mon.check();
         m_trail.pop_scope(1);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
@@ -185,17 +160,13 @@ class seq_monadic_test {
     void flatten_seq(expr* seqv, ptr_vector<expr>& elems) {
         zstring zs;
         if (u.str.is_concat(seqv)) {
-            for (expr* arg : *to_app(seqv)) {
-                flatten_seq(arg, elems);
-            }
+            for (expr* arg : *to_app(seqv)) flatten_seq(arg, elems);
             return;
         }
         if (u.str.is_empty(seqv))
             return;
         if (u.str.is_string(seqv, zs)) {
-            for (unsigned i = 0; i < zs.length(); ++i) {
-                elems.push_back(u.str.mk_char(zs, i));
-            }
+            for (unsigned i = 0; i < zs.length(); ++i) elems.push_back(u.str.mk_char(zs, i));
             return;
         }
         if (u.str.is_unit(seqv))
