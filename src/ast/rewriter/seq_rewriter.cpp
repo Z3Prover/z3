@@ -1794,12 +1794,10 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
         result = a;
         return BR_DONE;
     } 
-    if (a == b) {
-        {
-            auto _seq1814_0 = str().mk_is_empty(b);
-            auto _seq1814_1 = str().mk_empty(a->get_sort());
-            result = m().mk_ite(_seq1814_0, _seq1814_1, c);
-        }
+    if (a == b) {        
+        auto _seq1814_0 = str().mk_is_empty(b);
+        auto _seq1814_1 = str().mk_empty(a->get_sort());
+        result = m().mk_ite(_seq1814_0, _seq1814_1, c);        
         return BR_REWRITE2;
     }
     if (str().is_empty(a) && str().is_empty(c)) {
@@ -4795,6 +4793,55 @@ bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_r
     return true;
 }
 
+bool seq_rewriter::split_bag(expr_ref_vector &ls, expr_ref_vector &rs, expr_ref_pair_vector &new_eqs) {
+    if (rs.size() < 3 || ls.size() < 3)
+        return true;
+    auto eq = [](auto &a, auto &b) {
+        if (a.size() != b.size())
+            return false;
+        for (auto [k, v] : a)
+            if (!b.contains(k) || b[k] != v)
+                return false;
+        return true;
+    };
+    obj_map<expr, unsigned> ls_bag, rs_bag;
+    for (unsigned i = ls.size(), j = rs.size(); i-- > 0 && j-- > 0;) {
+        ls_bag.insert_if_not_there(ls.get(i), 0)++;
+        rs_bag.insert_if_not_there(rs.get(j), 0)++;
+        if (eq(ls_bag, rs_bag)) {
+            auto l = str().mk_concat(ls.size() - i, ls.data() + i, ls.get(i)->get_sort());
+            auto r = str().mk_concat(rs.size() - j, rs.data() + j, rs.get(j)->get_sort());
+            new_eqs.push_back(l, r);
+            ls_bag.reset();
+            rs_bag.reset();
+            ls.shrink(i);
+            rs.shrink(j);
+        }
+    }
+    if (rs.size() < 3 || ls.size() < 3)
+        return true;
+    ls_bag.reset();
+    rs_bag.reset();
+    unsigned start = 0;
+    for (unsigned i = 0; i < ls.size() && i < rs.size(); ++i) {
+        ls_bag.insert_if_not_there(ls.get(i), 0)++;
+        rs_bag.insert_if_not_there(rs.get(i), 0)++;
+        if (eq(ls_bag, rs_bag)) {
+            auto l = str().mk_concat(i - start, ls.data() + start, ls.get(i)->get_sort());
+            auto r = str().mk_concat(i - start, rs.data() + start, rs.get(i)->get_sort());
+            new_eqs.push_back(l, r);
+            ls_bag.reset();
+            rs_bag.reset();
+            start = i;
+        }
+    }
+    if (start > 0) {
+        remove_leading(start, ls);
+        remove_leading(start, rs);
+    }
+    return true;
+}
+
 /**
    \brief simplify equality ls = rs
    - New equalities are inserted into eqs.
@@ -4819,6 +4866,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         reduce_subsequence(ls, rs, eqs) &&
         reduce_non_overlap(ls, rs, eqs) && 
         reduce_non_overlap(rs, ls, eqs) && 
+        split_bag(ls, rs, eqs) &&
         (change = (hash_l != ls.hash() || hash_r != rs.hash() || eqs.size() != sz_eqs), 
          true);
 }
