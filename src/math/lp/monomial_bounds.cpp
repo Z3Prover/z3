@@ -1199,11 +1199,8 @@ namespace nla {
        bounds.
     */
     bool monomial_bounds::optimize_nl_bounds() {
-        if (!c().params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
+        if (!c().params().arith_nl_optimize_bounds())
             return false;
-
-        c().trail().push(value_trail(m_bounds_optimization_enabled));
-        m_bounds_optimization_enabled = false;
 
         auto& lra = c().lra;
         if (!lra.is_feasible())
@@ -1265,22 +1262,12 @@ namespace nla {
             }
         }
 
-        if (improvements.empty()) {
-            // The exploratory simplex walk in improve_bound/mm_optimize mutated the
-            // LP model even though no bound was tightened.  Restore a clean feasible
-            // model and re-calibrate m_to_refine so downstream lemma passes (grobner,
-            // basic_lemma) never see a stale monomial that is now consistent.
-            lra.find_feasible_solution();
-            c().init_to_refine();
-            return false;
-        }
-
         for (auto const& ib : improvements)
             lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
         lra.find_feasible_solution();
         // The model changed: re-calibrate m_to_refine against the new assignment.
         c().init_to_refine();
-        return true;
+        return !improvements.empty();
     }
 
 }
