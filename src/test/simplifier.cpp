@@ -162,6 +162,7 @@ static void test_fpa() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_sort fp64 = Z3_mk_fpa_sort(ctx, 11, 53);
+    // x is created before y, so ast_lt orders x before y and fp.add RNE y x should normalize to fp.add RNE x y.
     Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), fp64);
     Z3_ast y = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), fp64);
     Z3_ast rm = Z3_mk_fpa_rne(ctx);
