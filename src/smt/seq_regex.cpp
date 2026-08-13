@@ -23,17 +23,9 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/seq_regex_bisim.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include <numeric>
 
 namespace smt {
-
-    static unsigned u_gcd(unsigned a, unsigned b) {
-        while (b) {
-            unsigned t = a % b;
-            a = b;
-            b = t;
-        }
-        return a;
-    }
 
     seq_regex::seq_regex(theory_seq& th):
         th(th),
