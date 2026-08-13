@@ -65,7 +65,6 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
     case llc::GT: return ls > rs;
     case llc::EQ: return ls == rs;
     case llc::NE: return ls != rs;
-    default: SASSERT(false);
     };
         
     return false;
@@ -284,9 +283,6 @@ bool core::explain_ineq(lemma_builder& lemma, const lp::lar_term& t, llc cmp, co
         // TBD - NB: does this work for Reals?
         r = explain_lower_bound(t, rs + rational(1), exp) || explain_upper_bound(t, rs - rational(1), exp);           
         break;
-    default:
-        UNREACHABLE();
-        return false;
     }
     if (r) {
         lemma &= exp;
@@ -634,6 +630,16 @@ void core::erase_from_to_refine(lpvar j) {
 
 void core::init_to_refine() {
     TRACE(nla_solver_details, tout << "emons:" << pp_emons(*this, m_emons););
+    // check_monic() compares only the rational parts of the column values, so
+    // m_to_refine has to be calibrated against a model without infinitesimal
+    // (delta) components. Otherwise a monomial whose factors still carry
+    // non-zero delta parts looks consistent here, while the model handed to the
+    // theory solver - where delta is instantiated by a positive rational -
+    // violates it. optimize_nl_bounds() re-solves the LP and re-introduces
+    // delta components, so they are dropped here rather than only on entry to
+    // check().
+    if (lra.is_feasible())
+        lra.get_rid_of_inf_eps();
     m_to_refine.reset();
     unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; ++k) {
@@ -1299,13 +1305,14 @@ lbool core::check(unsigned level) {
     if (m_to_refine.empty())
         return l_true;    
     init_search();
+    m_nla_satisfied = false;
 
     lbool ret = l_undef;
     bool run_grobner = need_run_grobner();
     bool run_horner = need_run_horner();
     bool run_bounds = params().arith_nl_branching();
 
-    auto no_effect = [&]() { return ret == l_undef && !done() && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
+    auto no_effect = [&]() { return ret == l_undef && !done() && !m_nla_satisfied && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
     if (no_effect())
         m_monomial_bounds.generate_lemmas();
@@ -1329,6 +1336,9 @@ lbool core::check(unsigned level) {
             return l_undef;
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;
+        // bound optimization proved all monomials consistent: goal satisfied.
+        if (m_nla_satisfied)
+            return l_true;
     }
 
     if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {
@@ -1486,9 +1496,6 @@ unsigned core::get_var_weight(lpvar j) const {
     case lp::column_type::free_column:
         k = 9;
         break;
-    default:
-        UNREACHABLE();
-        break;
     }
     if (is_monic_var(j)) {
         k++;
@@ -1526,8 +1533,14 @@ void core::set_use_nra_model(bool m) {
     
 bool core::propagate() {
     clear();
-    bool propagated = m_monomial_bounds.tighten_lp_bounds();
+	bool propagated = false;
+    if (m_monomial_bounds.propagate_fixed_rows())
+        propagated = true;
+    if (m_monomial_bounds.tighten_lp_bounds())
+		propagated = true;
     if (m_monomial_bounds.propagate_changed_bounds())
+        propagated = true;
+    if (m_monomial_bounds.propagate_violated_linear_monomials())
         propagated = true;
     m_monics_with_changed_bounds.reset();
     if (propagated)
@@ -1545,83 +1558,6 @@ bool core::incremental_propagate() {
         m_check_feasible = true;
     return propagated;    
 }
-
-/**
-   \brief Tighten the bounds of variables occurring in nonlinear monomials by
-   maximizing/minimizing them over the LP tableau (analogous to theory_arith's
-   max_min_nl_vars). The tighter implied bounds, each carrying an LP explanation,
-   let the subsequent horner/cross-nested interval evaluation exclude zero and
-   detect a conflict that would otherwise be missed with only the propagated
-   bounds.
-*/
-bool core::optimize_nl_bounds() {
-    if (!params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
-        return false;
-
-    trail().push(value_trail(m_bounds_optimization_enabled));
-    m_bounds_optimization_enabled = false;
-
-    if (!lra.is_feasible())
-        return false;
-    if (lra.find_feasible_solution() == lp::lp_status::INFEASIBLE)
-        return false;
-
-    // Gather the candidate columns: every non-fixed leaf variable that
-    // participates in a monomial (mirrors solver=2's max_min_nl_vars).
-    svector<lpvar> cands;
-    auto add = [&](lpvar j) {
-        if (active_var_set_contains(j))
-            return;
-        insert_to_active_var_set(j);
-        if (lra.column_is_fixed(j))
-            return;
-        cands.push_back(j);
-    };
-    clear_active_var_set();
-    for (auto const& m : m_emons) {
-        add(m.var());
-        for (lpvar k : m.vars())
-            add(k);
-    }
-
-    // Throttle: the LP maximize/minimize cost scales with the number of
-    // candidate variables (two LP optimizations each). On large nonlinear
-    // problems this pass is expensive and rarely productive, so skip it when the
-    // candidate set exceeds the threshold (0 = unlimited).
-    unsigned const max_vars = params().arith_nl_optimize_bounds_lp_max_vars();
-    if (max_vars != 0 && cands.size() > max_vars)
-        return false;
-
-    // Collect improved bounds first (each find_improved_bound maximizes a term
-    // over the *unchanged* constraint set, so all improvements are valid implied
-    // bounds), then apply them together and re-establish feasibility once.
-    // Interleaving update_column_type_and_bound between the maximize calls
-    // corrupts the core solver's x/inf_heap (maximize_term_on_tableau issues a
-    // raw solve() that does not reconcile pending bound changes).
-    struct improved_bound { lpvar j; lp::lconstraint_kind kind; rational bound; u_dependency* dep; };
-    vector<improved_bound> improvements;
-    for (lpvar j : cands) {
-        if (!lra.is_feasible())
-            break;
-        for (bool is_lower : { true, false }) {
-            rational bound;
-            u_dependency* dep = lra.find_improved_bound(j, is_lower, bound);
-            if (!dep)
-                continue;
-            auto kind = is_lower ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
-            improvements.push_back({ j, kind, bound, dep });
-        }
-    }
-
-    if (improvements.empty())
-        return false;
-
-    for (auto const& ib : improvements)
-        lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
-    lra.find_feasible_solution();
-    return true;
-}
-
 
 void core::simplify() {
     // in-processing simplifiation can go here, such as bounds improvements.

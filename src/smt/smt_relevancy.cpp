@@ -320,7 +320,6 @@ namespace smt {
                 case eh_trail::kind::POS_WATCH: ehs = get_watches(n, true); SASSERT(ehs); set_watches(n, true, ehs->tail()); break;
                 case eh_trail::kind::NEG_WATCH: ehs = get_watches(n, false); SASSERT(ehs); set_watches(n, false, ehs->tail()); break;
                 case eh_trail::kind::HANDLER:   ehs = get_handlers(n); SASSERT(ehs); set_handlers(n, ehs->tail()); break;
-                default: UNREACHABLE(); break;
                 }
                 m.dec_ref(n);
             }

@@ -53,10 +53,9 @@ namespace smt {
             return status::lemma;
         case CLS_TH_LEMMA:
             return status::th_lemma;
-        default:
-            UNREACHABLE();
-            return status::lemma;
         }
+        UNREACHABLE();
+        return status::lemma;
     }
 
     proof_ref clause_proof::justification2proof(status st, justification* j) {
@@ -218,8 +217,6 @@ namespace smt {
             case clause_proof::status::deleted:
                 display_literals(out << "(del", v) << ")\n";
                 break;
-            default:
-                UNREACHABLE();
             }
             out.flush();
         }
@@ -286,11 +283,9 @@ namespace smt {
             return out << "th_lem";
         case clause_proof::status::deleted:
             return out << "del";
-        default:
-            return out << "unkn";
         }
+        return out << "unkn";
     }
 
 }
-
 

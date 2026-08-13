@@ -148,7 +148,7 @@ class lar_solver : public column_namer {
     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i);
     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, lpvar>>& left_side);
     bool all_constraints_hold() const;
-    bool constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map, const mpq& delta) const;
+    bool constraint_holds(const lar_base_constraint& constr) const;
     static void register_in_map(std::unordered_map<lpvar, mpq>& coeffs, const lar_base_constraint& cn, const mpq& a);
     static void register_monoid_in_map(std::unordered_map<lpvar, mpq>& coeffs, const mpq& a, unsigned j);
     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>>& evidence) const;
@@ -515,6 +515,9 @@ public:
         }
         return dep;
     }
+
+    u_dependency* get_bound_constraint_witnesses_for_fixed_in_row(unsigned row_index);
+    bool row_determines_column(unsigned row_index, lpvar& j, mpq& value) const;
 
     std::ostream& print_expl(std::ostream& out, const explanation& exp) const {
         for (auto p : exp)

@@ -257,6 +257,36 @@ void test_symbol_escape() {
     std::cout << "done evaluating\n";
 }
 
+void test_builtin_signature_clash() {
+    char const* rejected[] = {
+        "(declare-fun and (Bool Bool) Int)",
+        "(define-fun not ((a Bool)) Bool false)",
+        "(declare-const true Bool)",
+        "(define-fun = ((a Int) (b Int)) Bool true)",
+        "(define-fun ite ((c Bool) (a Int) (b Int)) Int 0)",
+        "(define-fun + ((a Int) (b Int)) Int 0)",
+        "(define-fun-rec and ((a Bool) (b Bool)) Bool false)"
+    };
+
+    for (char const* spec : rejected) {
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        is_error = false;
+        Z3_parse_smtlib2_string(ctx, spec, 0, nullptr, nullptr, 0, nullptr, nullptr);
+        ENSURE(is_error);
+        Z3_del_context(ctx);
+    }
+
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, setError);
+    test_eval(ctx,
+              "(declare-fun and (Int Int) Int)\n"
+              "(assert (= (and 1 2) 0))\n"
+              "(check-sat)\n",
+              false);
+    Z3_del_context(ctx);
+}
+
 void tst_smt2print_parse() {
 
     // test basic datatypes  
@@ -326,6 +356,7 @@ void tst_smt2print_parse() {
     test_ho_choice_expression();
 
     test_symbol_escape();
+    test_builtin_signature_clash();
 
     // Regression test for GitHub issue #10166:
     // With (set-option :smtlib2_compliant true), a formula involving to_real
@@ -373,5 +404,4 @@ void tst_smt2print_parse() {
         ENSURE(resp.find("unsat") != std::string::npos);
         ENSURE(resp.find("unknown") == std::string::npos);
     }
-
 }

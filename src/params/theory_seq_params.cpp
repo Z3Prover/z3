@@ -21,8 +21,7 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_split_w_len = p.seq_split_w_len();
     m_seq_validate = p.seq_validate();
+    m_seq_regex_monadic = p.seq_regex_monadic();
     m_seq_max_unfolding = p.seq_max_unfolding();
     m_seq_min_unfolding = p.seq_min_unfolding();
-    m_seq_regex_factorization_enabled = p.seq_regex_factorization_enabled();
-    m_seq_regex_factorization_threshold = p.seq_regex_factorization_threshold();
 }

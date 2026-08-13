@@ -30,6 +30,16 @@ unsigned get_verbosity_level() {
     return g_verbosity_level;
 }
 
+static bool g_suppress_platform_verbose = false;
+
+void set_suppress_platform_verbose(bool suppress) {
+    g_suppress_platform_verbose = suppress;
+}
+
+bool get_suppress_platform_verbose() {
+    return g_suppress_platform_verbose;
+}
+
 static std::ostream* g_verbose_stream = &std::cerr;
 
 void set_verbose_stream(std::ostream& str) {
@@ -76,7 +86,6 @@ unsigned log2(unsigned v) {
         r |=  2;
     }
     if (v & 0x2) {
-        v >>= 1;
         r |=  1;
     }
     return r;
@@ -105,10 +114,19 @@ unsigned uint64_log2(uint64_t v) {
         r |=  2;
     }
     if (v & 0x2) {
-        v >>= 1;
         r |=  1;
     }
     return r;
+}
+
+unsigned mul_truncate(unsigned a, unsigned b) {
+    auto r = (uint64_t)a * (uint64_t)b;
+    return r > UINT_MAX ? UINT_MAX : (unsigned)r;
+}
+
+unsigned add_truncate(unsigned a, unsigned b) {
+    auto r = (uint64_t)a + (uint64_t)b;
+    return r > UINT_MAX ? UINT_MAX : (unsigned)r;
 }
 
 bool product_iterator_next(unsigned n, unsigned const * sz, unsigned * it) {
@@ -152,4 +170,3 @@ void escaped::display(std::ostream & out) const {
         }
     }
 }
-

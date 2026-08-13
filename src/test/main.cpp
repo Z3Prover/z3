@@ -66,6 +66,7 @@
     X(uint_set) \
     X_ARGV(expr_rand) \
     X(list) \
+    X(len_abs) \
     X(small_object_allocator) \
     X(timeout) \
     X(proof_checker) \
@@ -73,11 +74,13 @@
     X(bit_blaster) \
     X(var_subst) \
     X(simple_parser) \
+    X(scanner_io) \
     X(api) \
     X(max_rev) \
     X(scaled_min) \
     X(box_mod_opt) \
     X(box_independent) \
+    X(opt_dup_min) \
     X(deep_api_bugs) \
     X(api_algebraic) \
     X(api_polynomial) \
@@ -115,6 +118,8 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_monadic) \
+    X(seq_monadic_bench) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
@@ -196,7 +201,6 @@
     X(ho_matcher) \
     X(finite_set) \
     X(finite_set_rewriter) \
-    X(seq_split) \
     X(seq_regex_bisim) \
     X(term_enumeration) \
     X(lcube) \

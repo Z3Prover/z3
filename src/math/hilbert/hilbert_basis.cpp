@@ -1010,8 +1010,6 @@ void hilbert_basis::select_inequality() {
         unsigned non_zeros2 = get_num_nonzeros(m_ineqs[j]);
         unsigned prod2 = get_ineq_product(m_ineqs[j]);
         if (prod2 == 0) {
-            prod = prod2;
-            non_zeros = non_zeros2;
             best = j;
             break;
         }

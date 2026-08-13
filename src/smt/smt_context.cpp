@@ -1949,10 +1949,9 @@ namespace smt {
         case PS_OCCURRENCE: {
             return m_lit_occs[l.index()] > m_lit_occs[(~l).index()];
         }
-        default:
-            UNREACHABLE();
-            return false;
         }
+        UNREACHABLE();
+        return false;
     }
 
     /**
@@ -3849,7 +3848,8 @@ namespace smt {
             }
             for (auto const& clause : clauses) init_clause(clause);
             r = search();   
-            r = mk_unsat_core(r);             
+            r = mk_unsat_core(r);
+            reset_tmp_clauses();
         }
         while (should_research(r));
         r = check_finalize(r);
@@ -3959,8 +3959,6 @@ namespace smt {
                 break;
             case RS_ARITHMETIC:
                 m_restart_threshold = static_cast<unsigned>(m_restart_threshold + m_fparams.m_restart_factor);
-                break;
-            default:
                 break;
             }
         }

@@ -17,6 +17,8 @@ Revision History:
 
 --*/
 #include<cstdio>
+#include<cstdlib>
+#include<csignal>
 #ifndef _WINDOWS
 #include<unistd.h>
 #endif
@@ -122,7 +124,7 @@ void set_default_exit_action(exit_action a) {
     g_default_exit_action = a;
 }
 
-void invoke_exit_action(unsigned int code) {
+[[noreturn]] void invoke_exit_action(unsigned int code) {
     exit_action a = get_default_exit_action();
     switch (a) {
     case exit_action::exit:
@@ -138,7 +140,6 @@ void invoke_exit_action(unsigned int code) {
             default:
                 throw default_exception("unknown");
         }
-    default:
         exit(code);
     }
 }
@@ -185,9 +186,13 @@ debug_action ask_debug_action(std::istream& in) {
 }
 
 #if !defined(_WINDOWS) && !defined(NO_Z3_DEBUGGER)
+[[noreturn]] static void force_segfault() {
+    std::raise(SIGSEGV);
+    std::abort();
+}
+
 void invoke_debugger() {
     std::string buffer;
-    int *x = nullptr;
     debug_action a = get_default_debug_action();
     for (;;) {
         switch (a) {
@@ -197,8 +202,7 @@ void invoke_debugger() {
             exit(1);
         case debug_action::stop:
             // force seg fault...
-            *x = 0;
-            return;
+            force_segfault();
         case debug_action::throw_exception:
             throw default_exception("assertion violation");
         case debug_action::invoke_gdb:
@@ -210,8 +214,7 @@ void invoke_debugger() {
             else {
                 std::cerr << "error starting GDB...\n";
                 // forcing seg fault.
-                int *x = nullptr;
-                *x = 0;
+                force_segfault();
             }
             return;
         case debug_action::invoke_lldb:
@@ -223,12 +226,10 @@ void invoke_debugger() {
             else {
                 std::cerr << "error starting LLDB...\n";
                 // forcing seg fault.
-                int *x = nullptr;
-                *x = 0;
+                force_segfault();
             }
             return;
         case debug_action::ask:
-        default:
             a = ask_debug_action(std::cin);
         }
     }

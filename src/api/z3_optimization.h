@@ -197,7 +197,8 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_optimize_get_unsat_core(Z3_context c, Z3_optimize o);
 
     /**
-       \brief Set parameters on optimization context.
+       \brief Set parameters on optimization context, including parameters for
+       the underlying SMT solver.
 
        \param c - context
        \param o - optimization context
@@ -403,4 +404,3 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif // __cplusplus
-

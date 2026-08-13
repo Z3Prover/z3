@@ -195,7 +195,6 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
     }
     case AST_APP: {
         app *       c    = to_app(n);
-        func_decl * decl = c->get_decl();
         if (m_owner.is_forbidden(c)) {
             save(n, delta, nullptr);
             return;

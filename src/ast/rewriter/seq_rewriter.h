@@ -18,7 +18,6 @@ Notes:
 --*/
 #pragma once
 
-#include "seq_split.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_derive.h"
 #include "ast/ast_pp.h"
@@ -38,6 +37,7 @@ inline std::ostream& operator<<(std::ostream& out, expr_ref_pair_vector const& e
     return out;
 }
 
+#if 0
 class sym_expr {
     enum ty {
         t_char,
@@ -81,16 +81,7 @@ public:
     void inc_ref(sym_expr* s) { if (s) s->inc_ref(); }
     void dec_ref(sym_expr* s) { if (s) s->dec_ref(); }
 };
-
-#if 0
-
-class expr_solver {
-public:
-    virtual ~expr_solver() = default;
-    virtual lbool check_sat(expr* e) = 0;
-};
 #endif
-
 
 /**
    \brief Cheap rewrite rules for seq constraints
@@ -134,7 +125,6 @@ class seq_rewriter {
 
     seq_util       m_util;
     seq_subset     m_subset;
-    seq_split      m_split;
     arith_util     m_autil;
     bool_rewriter  m_br;
     seq::derive    m_derive;
@@ -319,6 +309,7 @@ class seq_rewriter {
     bool reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     bool reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     bool reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
+    bool split_bag(expr_ref_vector &ls, expr_ref_vector &rs, expr_ref_pair_vector &new_eqs);
     void remove_empty_and_concats(expr_ref_vector& es);
     void remove_leading(unsigned n, expr_ref_vector& es);
 
@@ -329,12 +320,9 @@ class seq_rewriter {
 
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
-    bool get_bounds(expr* e, unsigned& low, unsigned& high);
-    lbool some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str);
-
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_subset(m_util.re), m_split(*this), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m),
+        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m),
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m) {
     }
@@ -413,20 +401,6 @@ public:
         return result;
     }
 
-    // Split decomposition (sigma) of a regex; see seq_split.h.  `oracle` (optional)
-    // prunes non-viable splits during generation.
-    bool split(expr* r, split_set& out, unsigned threshold,
-        const split_mode mode = split_mode::strong, split_oracle const& oracle = {}) {
-        return m_split.compute(r, out, threshold, mode, oracle);
-    }
-
-    void simplify_split(split_set& s) { m_split.simplify(s); }
-
-    // decompose a membership constraint into a set of pairs of regex splits
-    std::pair<expr_ref, expr_ref> split_membership(expr* str, expr* regex, unsigned threshold, split_set& result) const {
-        return m_split.split_membership(str, regex, threshold, result);
-    }
-
     /**
      * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences
      */
@@ -480,6 +454,10 @@ public:
         m_derive.get_cofactors(ele, r, result);
     }
 
+    seq::derive &get_derive() {
+        return m_derive;
+    }
+
     /*
     Compute the symbolic derivative of r and enumerate its reachable leaves
     in fully ITE-hoisted normal form: a list of (path_condition, target)
@@ -489,6 +467,15 @@ public:
     */
     void brz_derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
         m_derive.derivative_cofactors(r, result);
+    }
+
+    /*
+    Compute Brzozowski cofactors, then expose nondeterminism in targets of the
+    form (s1 | ... | sn) or (s1 | ... | sn) . tail. Cofactors with the same
+    resulting target are merged by disjoining their guards.
+    */
+    void light_ant_derivative_cofactors(expr* r, expr_ref_pair_vector& result) {
+        m_derive.light_ant_derivative_cofactors(r, result);
     }
 
     // heuristic elimination of element from condition that comes form a derivative.

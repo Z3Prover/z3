@@ -1186,9 +1186,6 @@ namespace sat {
                     it2++;
                 }
                 break;
-            default:
-                UNREACHABLE();
-                break;
             }
         }
         wlist.set_end(it2);
@@ -1738,10 +1735,9 @@ namespace sat {
             return m_best_phase[next];
         case PS_RANDOM:
             return (m_rand() % 2) == 0;
-        default:
-            UNREACHABLE();
-            return false;
         }
+        UNREACHABLE();
+        return false;
     }
 
     void solver::get_backbone_candidates(literal_vector& lits, unsigned max_num) {
@@ -2327,8 +2323,11 @@ namespace sat {
         strm << "(sat.stats " << std::setw(6) << m_stats.m_conflicts << " " 
              << std::setw(6) << m_stats.m_decision << " "
              << std::setw(4) << m_stats.m_restart 
-             << mk_stat(*this)
-             << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";
+             << mk_stat(*this);
+        if (!get_suppress_platform_verbose()) {
+            strm << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds();
+        }
+        strm << ")\n";
         std::string str = std::move(strm).str();
         svector<size_t> nums;
         for (size_t i = 0; i < str.size(); ++i) {
@@ -2450,9 +2449,6 @@ namespace sat {
             m_restart_threshold = m_config.m_restart_initial;
             break;
         case RS_STATIC:
-            break;
-        default:
-            UNREACHABLE();
             break;
         }
         CASSERT("sat_restart", check_invariant());
@@ -2592,9 +2588,6 @@ namespace sat {
                     process_antecedent(l, num_marks);                
                 break;
             }
-            default:
-                UNREACHABLE();
-                break;
             }
             
             bool_var c_var;
@@ -2762,9 +2755,6 @@ namespace sat {
             }
             break;
         }
-        default:
-            UNREACHABLE();
-            break;
         }
     }
 
@@ -2885,9 +2875,6 @@ namespace sat {
             for (literal l : m_ext_antecedents) 
                 level = update_max_level(l, level, unique_max);
             break;
-        default:
-            UNREACHABLE();
-            break;
         }
         TRACE(sat, tout << "max-level " << level << " " << unique_max << "\n");
         return level;
@@ -2925,8 +2912,6 @@ namespace sat {
                 break;
             case BH_CHB:
                 m_last_conflict[var] = m_stats.m_conflicts;
-                break;
-            default:
                 break;
             }
             if (var_lvl == m_conflict_lvl)
@@ -3070,9 +3055,6 @@ namespace sat {
                     set_phase(i, m_best_phase[i]);
             }
 
-            break;
-        default:
-            UNREACHABLE();
             break;
         }
         m_rephase_inc += m_config.m_rephase_base;
@@ -3283,9 +3265,6 @@ namespace sat {
                 }
                 break;
             }
-            default:
-                UNREACHABLE();
-                break;
             }
             TRACE(sat_conflict, 
                   display_justification(tout << var << " ",js) << "\n";);
@@ -4020,8 +3999,6 @@ namespace sat {
             if (m_ext) 
                 m_ext->display_justification(out << "ext ", js.get_ext_justification_idx());            
             break;
-        default:
-            break;
         }
         return out;
     }
@@ -4684,9 +4661,6 @@ namespace sat {
             }
             break;
         }
-        default:
-            UNREACHABLE();
-            break;
         }
         TRACE(sat, display_index_set(tout << lit << ": " , s) << "\n";);
         return all_found;
@@ -4797,8 +4771,12 @@ namespace sat {
         out << "  :ternary-clauses " << num_ter << "\n";
         out << "  :clauses         " << num_cls << "\n";
         out << "  :del-clause      " << m_stats.m_del_clause << "\n";
-        out << "  :avg-clause-size " << (total_cls == 0 ? 0.0 : static_cast<double>(num_lits) / static_cast<double>(total_cls)) << "\n";
-        out << "  :memory          " << std::fixed << std::setprecision(2) << mem << ")" << std::endl;
+        out << "  :avg-clause-size " << (total_cls == 0 ? 0.0 : static_cast<double>(num_lits) / static_cast<double>(total_cls));
+        if (!get_suppress_platform_verbose()) {
+            out << "\n";
+            out << "  :memory          " << std::fixed << std::setprecision(2) << mem;
+        }
+        out << ")" << std::endl;
     }
 
     void stats::collect_statistics(statistics & st) const {
@@ -4835,7 +4813,9 @@ namespace sat {
         out << " " << std::setw(5) << (m_solver.m_learned.size() + redundant - m_solver.m_num_frozen) << "/" << redundant;
         out << " " << std::setw(3)  << m_solver.init_trail_size();
         out << " " << std::setw(7)  << m_solver.m_stats.m_gc_clause << " ";
-        out << " " << std::setw(7)  << mem_stat();
+        if (!get_suppress_platform_verbose()) {
+            out << " " << std::setw(7)  << mem_stat();
+        }
     }
 
     std::ostream & operator<<(std::ostream & out, mk_stat const & stat) {

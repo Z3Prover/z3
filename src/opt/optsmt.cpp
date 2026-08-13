@@ -181,7 +181,6 @@ namespace opt {
             else {
                 if (num_scopes > 0)
                     m_s->pop(num_scopes);        
-                num_scopes = 0;
                 break;
             }
         }
@@ -270,6 +269,22 @@ namespace opt {
                     // to_int, prevent the LP from seeing the full feasible region.
                     if (m_lower[obj_index].is_finite() && m_lower[obj_index] > obj)
                         bound = m_s->mk_ge(obj_index, m_lower[obj_index]);
+                    if (bound == last_bound && obj.get_infinitesimal().is_pos()) {
+                        // The objective sits infinitesimally above the strict
+                        // bound asserted in the previous round: r + k*delta with
+                        // k > 0.  Such a value is not a proven optimum, it only
+                        // says the arithmetic solver could not move off the
+                        // bound it was just given.  Its blocker is built from
+                        // the rational part alone, so it collapses onto the
+                        // previous blocker and the search would stop here and
+                        // report the stalled value as the optimum.  Force a
+                        // strictly larger rational step instead; if the step is
+                        // infeasible the loop terminates through the l_false
+                        // branch below with the best proven bound.
+                        m_s->push();
+                        ++num_scopes;
+                        bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
+                    }
                     if (bound == last_bound)
                         break;
                 }
@@ -627,4 +642,3 @@ namespace opt {
         m_s = nullptr;
     }
 }
-

@@ -373,6 +373,30 @@ bool cmd_context::contains_func_decl(symbol const& s, unsigned n, sort* const* d
     return m_func_decls.find(s, fs) && fs.contains(n, domain, range);
 }
 
+bool cmd_context::builtin_signature_collides(symbol const& s, unsigned arity, sort* const* domain) const {
+    expr_ref_vector args(m());
+    for (unsigned i = 0; i < arity; ++i)
+        args.push_back(m().mk_var(i, domain[i]));
+    expr_ref result(m());
+    try {
+        if (!try_mk_builtin_app(s, arity, args.data(), 0, nullptr, nullptr, result))
+            return false;
+    }
+    catch (ast_exception&) {
+        return false;
+    }
+    // A function/overload collision (arity > 0) is always rejected: the user
+    // declaration would clash with a built-in of the same argument sorts.
+    if (arity > 0)
+        return true;
+    // For nullary symbols there are no argument sorts to distinguish an
+    // overload. Only genuine reserved core constants (e.g. true/false in the
+    // basic theory) block a user declaration. Z3-specific extension constants
+    // such as 'pi' and 'euler' are not SMT-LIB reserved symbols and may be
+    // shadowed by user declarations, as was historically permitted.
+    return is_app(result) && to_app(result)->get_family_id() == m().get_basic_family_id();
+}
+
 bool cmd_context::contains_macro(symbol const& s) const {
     macro_decls decls;
     return m_macros.find(s, decls) && !decls.empty();
@@ -938,11 +962,12 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
     if (contains_macro(s, f)) {
         throw cmd_exception("invalid declaration, named expression already defined with this name ", s);
     }
-#if 0
-    if (m_builtin_decls.contains(s)) {
-        throw cmd_exception("invalid declaration, builtin symbol ", s);
+    if (builtin_signature_collides(s, f->get_arity(), f->get_domain())) {
+        std::string msg = "invalid declaration, builtin symbol '";
+        msg += s.str();
+        msg += "' has the same argument sorts";
+        throw cmd_exception(std::move(msg));
     }
-#endif
     func_decls & fs = m_func_decls.insert_if_not_there(s, func_decls());
     if (!fs.insert(m(), f)) {
         if (m_allow_duplicate_declarations)
@@ -980,11 +1005,12 @@ void cmd_context::insert(symbol const & s, psort_decl * p) {
 
 void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
     expr_ref _t(t, m());
-#if 0
-    if (m_builtin_decls.contains(s)) {
-        throw cmd_exception("invalid macro/named expression, builtin symbol ", s);
+    if (builtin_signature_collides(s, arity, domain)) {
+        std::string msg = "invalid named expression, builtin symbol '";
+        msg += s.str();
+        msg += "' has the same argument sorts";
+        throw cmd_exception(std::move(msg));
     }
-#endif
     if (contains_macro(s, arity, domain)) {
         throw cmd_exception("named expression already defined");
     }
@@ -2570,4 +2596,3 @@ std::ostream & operator<<(std::ostream & out, cmd_context::status st) {
     }
     return out;
 }
-

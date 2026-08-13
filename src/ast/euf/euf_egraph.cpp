@@ -452,8 +452,8 @@ namespace euf {
                 undo_add_th_var(p.r1, p.r2_num_parents);
                 break;
             case update_record::tag_t::is_replace_th_var:
-                SASSERT(p.r1->get_th_var(p.m_th_id) != null_theory_var);
-                p.r1->replace_th_var(p.m_old_th_var, p.m_th_id);
+                SASSERT(p.r1->get_th_var(p.m_th.m_th_id) != null_theory_var);
+                p.r1->replace_th_var(p.m_th.m_old_th_var, p.m_th.m_th_id);
                 break;
             case update_record::tag_t::is_new_th_eq:
                 m_new_th_eqs.pop_back();
@@ -490,10 +490,7 @@ namespace euf {
                 }
                 break;
             case update_record::tag_t::is_plugin_undo:
-                m_plugins[p.m_th_id]->undo();
-                break;
-            default:
-                UNREACHABLE();
+                m_plugins[p.m_th.m_th_id]->undo();
                 break;
             }                    
         }        

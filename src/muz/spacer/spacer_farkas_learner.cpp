@@ -378,6 +378,7 @@ void farkas_learner::get_lemmas(proof* root, expr_set const& bs, expr_ref_vector
                 INSERT(res);
                 b_closed.mark(p, true);
             }
+            break;
         }
         default:
             break;

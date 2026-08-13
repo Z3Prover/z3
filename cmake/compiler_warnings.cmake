@@ -25,6 +25,13 @@ set(CLANG_ONLY_WARNINGS
   "-Winconsistent-missing-override"
   "-Wno-missing-field-initializers"
   "-Wcast-qual"
+  "-Wimplicit-fallthrough"
+  "-Wextra-semi"
+  "-Wignored-qualifiers"
+  "-Wnoctad-maybe-unsupported"
+  "-Wdeprecated-copy-with-user-provided-copy"
+  "-Wgnu-anonymous-struct"
+  "-Wcovered-switch-default"
 )
 
 set(MSVC_WARNINGS "/W3")

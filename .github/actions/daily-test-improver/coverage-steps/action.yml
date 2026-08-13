@@ -66,7 +66,6 @@ runs:
         cd build
         ninja c_example || echo "c_example build failed, continuing" >> ../coverage-steps.log
         ninja cpp_example || echo "cpp_example build failed, continuing" >> ../coverage-steps.log
-        ninja z3_tptp5 || echo "z3_tptp5 build failed, continuing" >> ../coverage-steps.log
         ninja c_maxsat_example || echo "c_maxsat_example build failed, continuing" >> ../coverage-steps.log
         echo "Examples build completed" >> ../coverage-steps.log
         cd ..
@@ -112,9 +111,6 @@ runs:
         echo "Running built examples for additional coverage" >> coverage-steps.log
         if [ -f "build/examples/cpp_example_build_dir/cpp_example" ]; then
           ./build/examples/cpp_example_build_dir/cpp_example 2>&1 | tee -a coverage-steps.log || echo "cpp_example execution failed" >> coverage-steps.log
-        fi
-        if [ -f "build/examples/tptp_build_dir/z3_tptp5" ]; then
-          ./build/examples/tptp_build_dir/z3_tptp5 --help 2>&1 | tee -a coverage-steps.log || echo "z3_tptp5 execution failed" >> coverage-steps.log
         fi
         if [ -f "build/examples/c_maxsat_example_build_dir/c_maxsat_example" ] && [ -f "examples/maxsat/ex.smt" ]; then
           ./build/examples/c_maxsat_example_build_dir/c_maxsat_example examples/maxsat/ex.smt 2>&1 | tee -a coverage-steps.log || echo "c_maxsat_example execution failed" >> coverage-steps.log

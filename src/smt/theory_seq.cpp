@@ -428,6 +428,16 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
         TRACEFIN("solve_recfun");
         return FC_CONTINUE;
     }
+    switch (m_regex.final_check()) {
+    case FC_CONTINUE:
+        TRACEFIN("regex monadic");
+        return FC_CONTINUE;
+    case FC_GIVEUP:
+        TRACEFIN("regex monadic giveup");
+        return FC_GIVEUP;
+    case FC_DONE:
+        break;
+    }
     if (m_unhandled_expr) {
         TRACEFIN("give_up");
         TRACE(seq, tout << "unhandled: " << mk_pp(m_unhandled_expr, m) << "\n";);
@@ -1944,6 +1954,7 @@ std::ostream& theory_seq::display_deps(std::ostream& out, dependency* dep) const
 }
 
 void theory_seq::collect_statistics(::statistics & st) const {
+    m_regex.collect_statistics(st);
     st.update("seq num splits", m_stats.m_num_splits);
     st.update("seq num reductions", m_stats.m_num_reductions);
     st.update("seq length coherence", m_stats.m_check_length_coherence);
@@ -1956,6 +1967,12 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq fixed length", m_stats.m_fixed_length);
     st.update("seq int.to.str", m_stats.m_int_string);
     st.update("seq str.from_ubv", m_stats.m_ubv_string);
+    st.update("seq regex monadic checks", m_stats.m_regex_monadic_checks);
+    st.update("seq regex monadic sat", m_stats.m_regex_monadic_sat);
+    st.update("seq regex monadic unsat", m_stats.m_regex_monadic_unsat);
+    st.update("seq regex monadic undef", m_stats.m_regex_monadic_undef);
+    st.update("seq regex monadic assumptions", m_stats.m_regex_monadic_assumptions);
+    st.update("seq regex monadic fallbacks", m_stats.m_regex_monadic_fallbacks);
 }
 
 void theory_seq::init_search_eh() {
@@ -2204,6 +2221,16 @@ app* theory_seq::mk_value(expr* e) {
     }
     else {
         m_rewrite(result);
+    }
+    // Avoid leaking internal terms into the model. An unresolved sequence
+    // value (e.g. (seq.nth_i k!0 0) over an internal sequence constant k!0)
+    // is not a proper value and must not be exposed to the user. Since such a
+    // term is unconstrained at this point, replace it by a concrete fresh
+    // value from the factory. See issue #9063.
+    if (m_util.is_seq(result) && !m.is_value(result)) {
+        expr_ref fresh(m_factory->get_fresh_value(result->get_sort()), m);
+        if (fresh)
+            result = fresh;
     }
     m_factory->add_trail(result);
     TRACE(seq, tout << mk_pp(e, m) << " -> " << result << "\n";);

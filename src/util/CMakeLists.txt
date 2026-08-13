@@ -26,6 +26,7 @@ z3_add_component(util
     inf_rational.cpp
     inf_s_integer.cpp
     lbool.cpp
+    len_abs.cpp
     luby.cpp
     memory_manager.cpp
     min_cut.cpp
@@ -51,7 +52,6 @@ z3_add_component(util
     small_object_allocator.cpp
     smt2_util.cpp
     stack.cpp
-    state_graph.cpp
     statistics.cpp
     symbol.cpp
     tbv.cpp
@@ -71,7 +71,6 @@ z3_add_component(util
     prime_generator.h
     rational.h
     rlimit.h
-    state_graph.h
     symbol.h
     trace.h
 )

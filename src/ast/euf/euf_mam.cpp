@@ -1874,7 +1874,7 @@ namespace euf {
                 enode_vector *  m_to_recycle;
                 enode * const * m_it;
                 enode * const * m_end;
-            };
+            } m_rest;
         };
     };
 
@@ -1942,7 +1942,6 @@ namespace euf {
             enode *matching_cgr = nullptr, *min_gen_match = nullptr;
             for (enode* curr : euf::enode_class(first)) {
                 get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
-                curr = curr->get_next();
             }
             if (matching_cgr)
                 update_max_generation(min_gen_match, first);                          
@@ -2212,32 +2211,33 @@ namespace euf {
         backtrack_point & bp = m_backtrack_stack[m_top];
         bp.m_instr                = c;
         bp.m_old_max_generation   = m_max_generation;
+        auto& bp_rest = bp.m_rest;
         if (best_v == nullptr) {
             TRACE(mam_bug, tout << "m_top: " << m_top << ", m_backtrack_stack.size(): " << m_backtrack_stack.size() << "\n";
                   tout << *c << "\n";);
-            bp.m_to_recycle           = nullptr;
-            bp.m_it                   = ctx.get_egraph().enodes_of(lbl).begin();
-            bp.m_end                  = ctx.get_egraph().enodes_of(lbl).end();
+            bp_rest.m_to_recycle      = nullptr;
+            bp_rest.m_it              = ctx.get_egraph().enodes_of(lbl).begin();
+            bp_rest.m_end             = ctx.get_egraph().enodes_of(lbl).end();
         }
         else {
             SASSERT(!best_v->empty());
-            bp.m_to_recycle           = best_v;
-            bp.m_it                   = best_v->begin();
-            bp.m_end                  = best_v->end();
+            bp_rest.m_to_recycle      = best_v;
+            bp_rest.m_it              = best_v->begin();
+            bp_rest.m_end             = best_v->end();
         }
         // find application with the right number of arguments
-        for (; bp.m_it != bp.m_end; ++bp.m_it) {
-            enode * curr = *bp.m_it;
+        for (; bp_rest.m_it != bp_rest.m_end; ++bp_rest.m_it) {
+            enode * curr = *bp_rest.m_it;
             if (curr->num_args() == expected_num_args && ctx.is_relevant(curr))
                 break;
         }
-        if (bp.m_it == bp.m_end) {
-            recycle_enode_vector(bp.m_to_recycle);
+        if (bp_rest.m_it == bp_rest.m_end) {
+            recycle_enode_vector(bp_rest.m_to_recycle);
             return nullptr;
         }
         m_top++;
-        update_max_generation(*(bp.m_it), nullptr);
-        return *(bp.m_it);
+        update_max_generation(*(bp_rest.m_it), nullptr);
+        return *(bp_rest.m_it);
     }
 
     void interpreter::display_reg(std::ostream & out, unsigned reg) {
@@ -2812,8 +2812,8 @@ namespace euf {
                 // Cleanup before exiting
                 while (m_top != 0) {
                     backtrack_point & bp = m_backtrack_stack[m_top - 1];
-                    if (bp.m_instr->m_opcode == CONTINUE && bp.m_to_recycle)
-                        recycle_enode_vector(bp.m_to_recycle);
+                    if (bp.m_instr->m_opcode == CONTINUE && bp.m_rest.m_to_recycle)
+                        recycle_enode_vector(bp.m_rest.m_to_recycle);
                     m_top--;
                 }
 #ifdef _PROFILE_MAM
@@ -2910,10 +2910,11 @@ namespace euf {
             m_pc = bp.m_instr->m_next;
             goto main_loop;
 
-        case CONTINUE:
-            ++bp.m_it;
-            for (; bp.m_it != bp.m_end; ++bp.m_it) {
-                m_app = *bp.m_it;
+        case CONTINUE: {
+            auto &bp_rest = bp.m_rest;
+            ++bp_rest.m_it;
+            for (; bp_rest.m_it != bp_rest.m_end; ++bp_rest.m_it) {
+                m_app = *bp_rest.m_it;
                 const cont * c = static_cast<const cont*>(bp.m_instr);
                 // bp.m_it may reference an enode in [begin_enodes_of(lbl), end_enodes_of(lbl))
                 // This enodes are not necessarily relevant.
@@ -2939,11 +2940,11 @@ namespace euf {
                 }
             }
             // continue failed
-            if (bp.m_to_recycle)
-                recycle_enode_vector(bp.m_to_recycle);
+            if (bp_rest.m_to_recycle)
+                recycle_enode_vector(bp_rest.m_to_recycle);
             m_top--;
             goto backtrack;
-
+        }
         default:
             UNREACHABLE();
         }

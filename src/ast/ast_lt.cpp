@@ -49,9 +49,6 @@ Revision History:
     case parameter::PARAM_ZSTRING:                              \
         check_zstring(p1.get_zstring(), p2.get_zstring());      \
         break;                                                  \
-    default:                                                    \
-        UNREACHABLE();                                          \
-        break;                                                  \
     }                                                           \
 }
 
@@ -132,10 +129,9 @@ bool lt(ast * n1, ast * n2) {
         n1 = to_var(n1)->get_sort();
         n2 = to_var(n2)->get_sort();
         goto start;
-    default:
-        UNREACHABLE();
-        return false;
     }
+    UNREACHABLE();
+    return false;
 }
 
 bool is_sorted(unsigned num, expr * const * ns) {

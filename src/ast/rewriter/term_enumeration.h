@@ -46,5 +46,36 @@ public:
 
     terms enum_terms(sort* s);
 
+    // -- tuple enumeration --
+    // Iterate over vectors of terms, one term per input sort. Produces all
+    // combinations (dovetailed, since individual streams may be infinite).
+
+    class tuple_iterator {
+        struct timp;
+        timp* m_imp;
+    public:
+        tuple_iterator(imp& i, unsigned n, sort* const* sorts);
+        tuple_iterator(std::nullptr_t);
+        ~tuple_iterator();
+        expr_ref_vector operator*();
+        tuple_iterator& operator++();
+        bool operator!=(tuple_iterator const& other) const {
+            return !(*this == other);
+        }
+        bool operator==(tuple_iterator const& other) const;
+    };
+
+    class tuples {
+        imp*             m_imp;
+        ptr_vector<sort> m_sorts;
+    public:
+        tuples(imp* i, unsigned n, sort* const* sorts);
+        tuple_iterator begin();
+        tuple_iterator end();
+    };
+
+    tuples enum_tuples(unsigned n, sort* const* sorts);
+    tuples enum_tuples(sort_ref_vector const& sorts);
+
     std::ostream& display(std::ostream& out) const;
 };

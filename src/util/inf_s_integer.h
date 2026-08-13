@@ -45,6 +45,7 @@ class inf_s_integer {
     std::string to_string() const;
 
     inf_s_integer() = default;
+    inf_s_integer(const inf_s_integer&) = default;
 
     explicit inf_s_integer(int n):m_first(n), m_second(0) {}
     explicit inf_s_integer(int n, int d): m_first(n), m_second(0) { SASSERT(d == 1); }

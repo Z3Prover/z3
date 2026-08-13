@@ -1849,12 +1849,15 @@ def write_core_py_post(core_py):
   core_py.write("""
 # Clean up
 del _lib
+del _lib_name
+del _lib_names
 del _default_dirs
 del _all_dirs
 del _ext
+del _sover
 """)
 
-def write_core_py_preamble(core_py):
+def write_core_py_preamble(core_py, z3py_soversion=None):
   core_py.write(
 """
 # Automatically generated file
@@ -1871,7 +1874,14 @@ from .z3consts import *
 
 _file_manager = contextlib.ExitStack()
 atexit.register(_file_manager.close)
+""")
+  core_py.write(f"_sover = {z3py_soversion!r}\n")
+  core_py.write(
+"""
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
+_lib_name = 'libz3.%s.%s' % (_ext, _sover) if sys.platform.startswith('linux') and _sover else 'libz3.%s' % _ext
+# On Linux with a soversion, also try the unversioned name as a fallback (e.g. build directories)
+_lib_names = ['libz3.%s.%s' % (_ext, _sover), 'libz3.%s' % _ext] if sys.platform.startswith('linux') and _sover else ['libz3.%s' % _ext]
 _lib = None
 _z3_lib_resource = importlib_resources.files('z3').joinpath('lib')
 _z3_lib_resource_path = _file_manager.enter_context(
@@ -1902,39 +1912,44 @@ for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
     _all_dirs.extend(lds)
 
 _failures = []
-for d in _all_dirs:
-  try:
-    d = os.path.realpath(d)
-    if os.path.isdir(d):
-      d = os.path.join(d, 'libz3.%s' % _ext)
-      if os.path.isfile(d):
-        _lib = ctypes.CDLL(d)
-        break
-  except Exception as e:
-    _failures += [e]
-    pass
+for _name in _lib_names:
+  for d in _all_dirs:
+    try:
+      d = os.path.realpath(d)
+      if os.path.isdir(d):
+        d = os.path.join(d, _name)
+        if os.path.isfile(d):
+          _lib = ctypes.CDLL(d)
+          break
+    except Exception as e:
+      _failures += [e]
+      pass
+  if _lib is not None:
+    break
 
 if _lib is None:
   # If all else failed, ask the system to find it.
-  try:
-    _lib = ctypes.CDLL('libz3.%s' % _ext)
-  except Exception as e:
-    _failures += [e]
-    pass
+  for _name in _lib_names:
+    try:
+      _lib = ctypes.CDLL(_name)
+      break
+    except Exception as e:
+      _failures += [e]
+      pass
 
 if _lib is None:
-  print("Could not find libz3.%s; consider adding the directory containing it to" % _ext)
+  print("Could not find %s; consider adding the directory containing it to" % ' or '.join(_lib_names))
   print("  - your system's PATH environment variable,")
   print("  - the Z3_LIBRARY_PATH environment variable, or ")
   print("  - to the custom Z3_LIB_DIRS Python-builtin before importing the z3 module, e.g. via")
   if sys.version < '3':
     print("    import __builtin__")
-    print("    __builtin__.Z3_LIB_DIRS = [ '/path/to/z3/lib/dir' ] # directory containing libz3.%s" % _ext)
+    print("    __builtin__.Z3_LIB_DIRS = [ '/path/to/z3/lib/dir' ] # directory containing %s" % _lib_name)
   else:
     print("    import builtins")
-    print("    builtins.Z3_LIB_DIRS = [ '/path/to/z3/lib/dir' ] # directory containing libz3.%s" % _ext)
+    print("    builtins.Z3_LIB_DIRS = [ '/path/to/z3/lib/dir' ] # directory containing %s" % _lib_name)
   print(_failures)
-  raise Z3Exception("libz3.%s not found." % _ext)
+  raise Z3Exception("%s not found." % _lib_name)
 
 
 if sys.version < '3':
@@ -2000,6 +2015,7 @@ core_py = None
 def generate_files(api_files,
                    api_output_dir=None,
                    z3py_output_dir=None,
+                   z3py_soversion=None,
                    dotnet_output_dir=None,
                    java_input_dir=None,
                    java_output_dir=None,
@@ -2057,7 +2073,7 @@ def generate_files(api_files,
           write_log_h_preamble(log_h)
           write_log_c_preamble(log_c)
           write_exe_c_preamble(exe_c)
-          write_core_py_preamble(core_py)
+          write_core_py_preamble(core_py, z3py_soversion)
 
           # FIXME: these functions are awful
           apiTypes.def_Types(api_files)
@@ -2100,6 +2116,10 @@ def main(args):
                       dest="z3py_output_dir",
                       default=None,
                       help="Directory to emit z3py files. If not specified no files are emitted.")
+  parser.add_argument("--z3py-soversion",
+                      dest="z3py_soversion",
+                      default=None,
+                      help="SOVERSION for loading libz3 on supported platforms.")
   parser.add_argument("--dotnet-output-dir",
                       dest="dotnet_output_dir",
                       default=None,
@@ -2147,6 +2167,7 @@ def main(args):
   generate_files(api_files=pargs.api_files,
                  api_output_dir=pargs.api_output_dir,
                  z3py_output_dir=pargs.z3py_output_dir,
+                 z3py_soversion=pargs.z3py_soversion,
                  dotnet_output_dir=pargs.dotnet_output_dir,
                  java_input_dir=pargs.java_input_dir,
                  java_output_dir=pargs.java_output_dir,

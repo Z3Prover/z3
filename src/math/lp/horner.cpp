@@ -109,7 +109,14 @@ bool horner::horner_lemmas() {
     // exclude zero and expose conflicts. Done here (instead of core::propagate)
     // so the LP maximization only runs when horner is actually scheduled.
     // optimize_nl_bounds() checks arith.nl.optimize_bounds internally.
-    c().optimize_nl_bounds();
+    c().m_monomial_bounds.optimize_nl_bounds();
+    // optimize_nl_bounds re-calibrated m_to_refine against the model it produced.
+    // If nothing remains to refine, every monomial is consistent under a feasible
+    // LP model: the nonlinear goal is satisfied. Declare it and stop.
+    if (c().to_refine().empty()) {
+        c().set_nla_satisfied();
+        return false;
+    }
     c().lp_settings().stats().m_horner_calls++;
     const auto& matrix = c().lra.A_r();
     // choose only rows that depend on m_to_refine variables
@@ -138,4 +145,3 @@ bool horner::horner_lemmas() {
     return conflict;
 }
 }
-

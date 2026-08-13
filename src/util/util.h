@@ -80,6 +80,12 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 # define Z3_fallthrough
 #endif
 
+// UNREACHABLE is not defined in a way that makes it clear to the compiler
+// that it does not return (because it calls INVOKE_DEBUGGER() in debug builds,
+// and that *may* return).  Using this for unreachable switch cases avoids
+// any fall-through warnings.
+#define Z3_unreachable_case() UNREACHABLE(); Z3_fallthrough
+
 static inline bool is_power_of_two(unsigned v) { return !(v & (v - 1)) && v; }
 
 /**
@@ -103,6 +109,8 @@ static inline unsigned next_power_of_two(unsigned v) {
 */
 unsigned log2(unsigned v);
 unsigned uint64_log2(uint64_t v);
+unsigned mul_truncate(unsigned a, unsigned b);
+unsigned add_truncate(unsigned a, unsigned b);
 
 static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 
@@ -191,6 +199,8 @@ struct delete_proc {
 
 void set_verbosity_level(unsigned lvl);
 unsigned get_verbosity_level();
+void set_suppress_platform_verbose(bool suppress);
+bool get_suppress_platform_verbose();
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
 
@@ -352,6 +362,9 @@ public:
     }
 
     unsigned operator()(unsigned u) {
+        SASSERT(u > 0);
+        if (u == 0)
+            return 0;
         unsigned r = static_cast<unsigned>((*this)());
         return r % u;
     }

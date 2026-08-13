@@ -259,10 +259,9 @@ struct pb2bv_rewriter::imp {
                     fmls.push_back(m.mk_eq(bound, es.back()));
                 }
                 return ::mk_and(fmls);
-            default:
-                UNREACHABLE();
-                return expr_ref(m.mk_true(), m);
             }
+            UNREACHABLE();
+            return expr_ref(m);
         }
 
         /**

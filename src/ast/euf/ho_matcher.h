@@ -38,26 +38,56 @@ namespace euf {
         enum state {
             init_s,
             project_s,
-            app_s, 
+            imitate_s, 
+            eq_s,
+            ite_s,
             done_s
         };
         state m_state = state::init_s;
         unsigned m_index = 0;
         bool m_in_scope = false;
+        expr *m_t = nullptr;
+
+        void set_state(state s) {
+            m_state = s;
+            m_index = 0;
+            m_t = nullptr;
+        }
 
     public:
         void set_init() {
             m_state = state::init_s;
             m_index = 0;
             m_in_scope = false;
+            m_t = nullptr;
         }
         bool is_init() const { return m_state == state::init_s; }
         bool is_project() const { return m_state == state::project_s; }
-        bool is_app() const { return m_state == state::app_s && m_index == 0; }
+        bool is_imitate() const { return m_state == state::imitate_s && m_index == 0; }
         bool is_done() const { return m_state == state::done_s; }
-        void set_project() { m_state = state::project_s; m_index = 0; }
-        void set_app() { m_state = state::app_s; m_index = 0; }
-        void set_done() { m_state = state::done_s; }
+        bool is_eq() const {
+            return m_state == state::eq_s;
+        }
+        bool is_ite() const {
+            return m_state == state::ite_s;
+        }
+        void set_project() {
+            set_state(state::project_s);
+        }
+        void set_imitate() {
+            set_state(state::imitate_s);
+        }
+        void set_eq() {
+            set_state(state::eq_s);
+        }
+        void set_ite() {
+            set_state(state::ite_s);
+        }
+        void set_term(expr *t) {
+            m_t = t;
+        }                        
+        expr* get_term() const { return m_t; }
+        void set_done() { set_state(state::done_s); }
         void inc_index() { ++m_index; }
         void set_index(unsigned i) { m_index = i; }
         unsigned index() const { return m_index; }
@@ -68,6 +98,7 @@ namespace euf {
     class match_goal : public dll_base<match_goal>, public work_state {
         unsigned base_offset = 0;
         unsigned delta_offset = 0; // offset of term
+        match_goal *m_parent = nullptr;
     public:
         expr_ref pat, t;
         unsigned level = 0; // level backtrack level
@@ -88,13 +119,18 @@ namespace euf {
             return !(*this == other);
         }
 
-        match_goal(unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t) noexcept : 
-            base_offset(offset), pat(pat), t(t),  level(level)  {
+        match_goal(match_goal* parent, unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t) noexcept : 
+            base_offset(offset), 
+            m_parent(parent), pat(pat), t(t),  level(level)  {
             SASSERT(pat->get_sort() == t->get_sort());
         }
 
         unsigned term_offset() const { return base_offset + delta_offset; }
         unsigned pat_offset() const { return base_offset + delta_offset; }
+
+        match_goal *parent() const {
+            return m_parent;
+        }
 
         std::ostream& display(std::ostream& out) const {
             return out << "[" << level << ":" << base_offset + delta_offset << "] " << mk_bounded_pp(pat, pat.m()) << " ~ " << mk_bounded_pp(t, t.m()) << "\n";
@@ -113,8 +149,8 @@ namespace euf {
         match_goals(ho_matcher& em, ast_manager& m) : ho(em), m(m) {}
         bool empty() const { return m_cheap == nullptr && m_expensive == nullptr; }
         void reset() { m_cheap = m_expensive = nullptr; }
-        void push(unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t);
-        void push(unsigned level, unsigned offset, expr* p, expr* t) { push(level, offset, expr_ref(p, m), expr_ref(t, m)); }
+        void push(match_goal* parent, unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t);
+        void push(match_goal* parent, unsigned level, unsigned offset, expr* p, expr* t) { push(parent, level, offset, expr_ref(p, m), expr_ref(t, m)); }
         match_goal* pop();
 
         std::ostream& display(std::ostream& out) const;
@@ -336,6 +372,48 @@ namespace euf {
 
         bool consume_work(match_goal& wi);
 
+        bool process_project(match_goal &wi, var* v, ptr_vector<app> const& pats, expr* t);
+
+        bool process_app(match_goal &wi, expr *p, expr *t);
+
+        bool process_equiv_class(match_goal &wi, expr *t, std::function<bool(expr *)> const &f);
+
+        // Shared description of the curried argument structure of a flex head
+        // applied to a select chain `pats`. Used by both imitation and ite
+        // inference to build fresh meta-variable applications and to wrap the
+        // resulting body in the matching lambda binders.
+        struct flex_frame {
+            ptr_vector<sort> domain, pat_domain;
+            ptr_vector<expr> pat_args;  // slot 0 reserved for the flex head, then distinct pattern indices
+            expr_ref_vector  pat_vars;  // slot 0 reserved for the flex head, then bound-variable proxies
+            vector<symbol>   names;
+            unsigned         num_bound = 0;
+            flex_frame(ast_manager &m) : pat_vars(m) {}
+        };
+
+        // Populate `fr` from the select chain `pats`.
+        void init_flex_frame(ptr_vector<app> const &pats, flex_frame &fr);
+
+        // Allocate a fresh meta-variable of range sort `range` over the frame,
+        // producing its application to the pattern indices (subgoal_app, used in
+        // residual subgoals) and to the bound-variable proxies (body_app, used
+        // inside the imitating lambda body).
+        void mk_flex_app(flex_frame &fr, unsigned pat_offset, sort *range, expr_ref &subgoal_app, expr_ref &body_app);
+
+        // Wrap `body` in the lambda binders described by `fr` / `pats`.
+        expr_ref mk_flex_lambda(flex_frame const &fr, ptr_vector<app> const &pats, expr *body);
+
+        // solve 
+        // v pats == f(ts)
+        // using imitation: v -> lambda xs . f(X1 pats, X2, pats...), X_i pats == t_i
+        bool process_imitation(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t);
+
+        bool process_eq(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t);
+
+        bool process_ite(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t);
+
+        bool block_inference(match_goal const& wi);
+
         expr_ref whnf(expr* e, unsigned offset) const;
 
         expr_ref whnf_star(expr *e, unsigned offset) const;
@@ -352,7 +430,8 @@ namespace euf {
 
         void add_binding(var* v, unsigned offset, expr* t);
 
-        expr_ref mk_project(unsigned num_lambdas, unsigned xi, sort* array_sort);
+        expr_ref mk_project(unsigned num_lambdas, unsigned xi, sort *array_sort,
+                            std::function<expr *(expr *)> const &mk_body);
 
         void bind_lambdas(unsigned j, sort* s, expr_ref& body);
 
@@ -378,6 +457,19 @@ namespace euf {
 
         std::function<void(ho_subst&)> m_on_match;
 
+        // Support for matching modulo constraints
+        std::function<bool(expr *, expr *)> m_are_equal;        // are expressions equal modulo assertions
+        std::function<bool(expr *, expr *)> m_are_distinct;     // are expressions forced distinct modulo assertions
+        std::function<expr *(expr *)> m_root;                   // root of equivalence class
+        std::function<expr *(expr *)> m_next;                   // next element in equivalence class
+        std::function<bool(expr *)> m_is_cgr_root;              // is root of congruence class
+
+        bool use_cgr() const {
+            SASSERT(!m_are_equal || (m_are_distinct && m_root && m_next && m_is_cgr_root));
+            return !!m_are_equal;
+        }
+
+
     public:
 
         ho_matcher(ast_manager& m, trail_stack &trail) : 
@@ -394,6 +486,22 @@ namespace euf {
         }
 
         void set_on_match(std::function<void(ho_subst&)>& on_match) { m_on_match = on_match; }
+
+        void set_are_equal(std::function<bool(expr *, expr *)> &are_equal) {
+            m_are_equal = are_equal;
+        }
+        void set_are_distinct(std::function<bool(expr *, expr *)> &are_distinct) {
+            m_are_distinct = are_distinct;
+        }
+        void set_root(std::function<expr *(expr *)> &root) {
+            m_root = root;
+        }
+        void set_next(std::function<expr *(expr *)> &next) {
+            m_next = next;
+        }
+        void set_is_cgr_root(std::function<bool(expr *)> &is_cgr_root) {
+            m_is_cgr_root = is_cgr_root;
+        }
 
         void set_max_depth(unsigned d) { m_max_depth = d; }
 

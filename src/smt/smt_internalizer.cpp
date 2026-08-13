@@ -780,7 +780,7 @@ namespace smt {
             case OP_DISTINCT:
                 throw default_exception(std::string("formula has not been simplified") + " : " + mk_pp(n, m));
             case OP_OEQ:
-                UNREACHABLE();
+                Z3_unreachable_case();
             default:
                 break;
             }
@@ -974,6 +974,8 @@ namespace smt {
             internalize_rec(arg, false);
             SASSERT(e_internalized(arg));
         }
+        if (e_internalized(n))
+            return;
         
         enode * e = mk_enode(n, 
                              false, /* do not suppress args */
@@ -1494,8 +1496,6 @@ namespace smt {
         case CLS_LEARNED:
             dump_lemma(num_lits, lits);
             add_scores(num_lits, lits);
-            break;
-        default:
             break;
         }
         TRACE(mk_clause, display_literals_verbose(tout << "after simplification: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);

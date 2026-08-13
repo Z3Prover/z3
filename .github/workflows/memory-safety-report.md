@@ -18,6 +18,7 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
+  copilot-requests: write
 
 env:
   GH_TOKEN: ${{ github.token }}

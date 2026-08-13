@@ -763,6 +763,7 @@ class elim_uncnstr_tactic : public tactic {
                     }
                     return r;
                 }
+                return nullptr;
             default:
                 return nullptr;
             }

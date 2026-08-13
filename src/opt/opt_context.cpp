@@ -547,8 +547,9 @@ namespace opt {
         case O_MAXIMIZE: return execute_min_max(obj.m_index, committed, scoped, true);
         case O_MINIMIZE: return execute_min_max(obj.m_index, committed, scoped, false);
         case O_MAXSMT: return execute_maxsat(obj.m_id, committed, scoped);
-        default: UNREACHABLE(); return l_undef;
         }
+        UNREACHABLE();
+        return l_undef;
     }
     
     /**
@@ -650,6 +651,7 @@ namespace opt {
         switch (obj.m_type) {
         case O_MINIMIZE:
             is_ge = !is_ge;
+            Z3_fallthrough;
         case O_MAXIMIZE:
             val = (*mdl)(obj.m_term);
             if (is_numeral(val, k)) {
@@ -771,8 +773,7 @@ namespace opt {
         opt_params p(m_params);        
         if (p.optsmt_engine() == symbol("symba") ||
             p.optsmt_engine() == symbol("farkas")) {
-            auto str = std::to_string((unsigned)(arith_solver_id::AS_OPTINF));
-            gparams::set("smt.arith.solver", str.c_str());
+            m_params.set_uint("arith.solver", static_cast<unsigned>(arith_solver_id::AS_OPTINF));
         }
     }
 
@@ -1277,7 +1278,6 @@ namespace opt {
         case O_MAXIMIZE: name = "maximize"; break;
         case O_MINIMIZE: name = "minimize"; break;
         case O_MAXSMT: name = "maxsat"; break;
-        default: break;
         }
         func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.data(), m.mk_bool_sort());
         m_objective_fns.insert(f, index);
@@ -1650,10 +1650,9 @@ namespace opt {
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         case O_MAXIMIZE: 
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
-        default:
-            UNREACHABLE();
-            return inf_eps();
         }        
+        UNREACHABLE();
+        return inf_eps();
     }
 
     inf_eps context::get_upper_as_num(unsigned idx) {
@@ -1668,10 +1667,9 @@ namespace opt {
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         case O_MAXIMIZE: 
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
-        default:
-            UNREACHABLE();
-            return inf_eps();
         }
+        UNREACHABLE();
+        return inf_eps();
     }
 
     expr_ref context::get_lower(unsigned idx) {
@@ -1760,6 +1758,7 @@ namespace opt {
 
     void context::collect_param_descrs(param_descrs & r) {
         opt_params::collect_param_descrs(r);
+        smt::kernel::collect_param_descrs(r);
         insert_timeout(r);
         insert_ctrl_c(r);
     }
@@ -1840,9 +1839,6 @@ namespace opt {
             case O_MAXSMT: 
                 visitor.collect(obj.m_terms);
                 break;
-            default: 
-                UNREACHABLE();
-                break;
             }
         }
 
@@ -1884,9 +1880,6 @@ namespace opt {
                     }
                     out << ")\n";
                 }
-                break;
-            default: 
-                UNREACHABLE();
                 break;
             }
         }        

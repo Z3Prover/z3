@@ -69,8 +69,11 @@ namespace sat {
                        if (num_units > 0)   verbose_stream() << " :units " << num_units;
                        if (tr > 0)          verbose_stream() << " :hte " << tr;
                        verbose_stream() << " :cost " << m_asymm_branch.m_counter;
-                       verbose_stream() << mem_stat();
-                       verbose_stream() << m_watch << ")\n";);
+                       if (!get_suppress_platform_verbose()) {
+                           verbose_stream() << mem_stat();
+                           verbose_stream() << m_watch;
+                       }
+                       verbose_stream() << ")\n";);
         }
     };
 

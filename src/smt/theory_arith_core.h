@@ -2206,9 +2206,8 @@ namespace smt {
             return get_value(v) >= k ? l_true : l_false;
         case B_UPPER:
             return get_value(v) <= k ? l_true : l_false;
-        default:
-            return l_undef;
         }
+        return l_undef;
     }
 
     /**
@@ -2460,6 +2459,7 @@ namespace smt {
         case QUASI_BASE:
             quasi_base_row2base_row(get_var_row(v));
             SASSERT(get_var_kind(v) == BASE);
+            Z3_fallthrough;
         case BASE:
             if (!m_to_patch.contains(v) && get_value(v) < k) {
                 TRACE(to_patch_bug, tout << "need to be patched (assert_lower): "; display_var(tout, v););
@@ -2508,6 +2508,7 @@ namespace smt {
         case QUASI_BASE:
             quasi_base_row2base_row(get_var_row(v));
             SASSERT(get_var_kind(v) == BASE);
+            Z3_fallthrough;
         case BASE:
             if (!m_to_patch.contains(v) && get_value(v) > k) {
                 TRACE(to_patch_bug, tout << "need to be patched (assert upper): "; display_var(tout, v););
@@ -3571,4 +3572,3 @@ namespace smt {
 
 
 }
-

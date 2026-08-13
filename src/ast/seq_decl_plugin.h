@@ -25,6 +25,7 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/char_decl_plugin.h"
 #include "util/lbool.h"
+#include "util/len_abs.h"
 #include "util/manage_warnings.h"
 #include "util/zstring.h"
 
@@ -225,9 +226,6 @@ class seq_util {
 
 public:
 
-    unsigned max_plus(unsigned x, unsigned y) const;
-    unsigned max_mul(unsigned x, unsigned y) const;
-
     ast_manager& get_manager() const { return m; }
     char_decl_plugin &get_char_plugin() const {
         return ch;
@@ -271,6 +269,8 @@ public:
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
+
+    bool can_be_member(expr *seq, expr *regex);
 
     START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_BINARY(is_char_le);
@@ -397,6 +397,11 @@ public:
             return (u.is_seq(s) && !u.is_string(s));
         }
 
+        // Decompose s into a constant length plus a non-negative combination of the lengths
+        // of its non-constant parts: |s| in cst + { sum c_i |v_i| }.  Returns the constant and
+        // the gcd of the multiplicities c_i (0 when s has no variable part).
+        std::pair<unsigned, unsigned> length_shape(expr *s);
+
         START_DISABLE_EXTRA_SEMI_WARNING;
         MATCH_BINARY(is_concat);
         MATCH_UNARY(is_length);
@@ -451,13 +456,40 @@ public:
             lbool nullable { l_undef };
             /* Lower bound  on the length of all accepted words. */
             unsigned min_length { 0 };
+            /* Upper bound on the length of all accepted words, or UINT_MAX if unknown. */
+            unsigned max_length { UINT_MAX };
             /* Classical regular expression: does not use complement, intersection, diff, or the empty language (fail). */
             bool classical { true };
+
+            /*
+              Approximate semilinear (ultimately periodic) abstraction of the length set
+              Lambda(r) = { |w| : w in L(r) }. The soundness contract is the containment
+
+                  Lambda(r)  subseteq  { n : min_length <= n <= max_length, (n mod period) in residues }
+
+              The abstraction itself, and every operation on it, lives in len_abs;
+              this struct only stores it and forwards. See util/len_abs.h.
+            */
+            static constexpr unsigned max_period = len_abs::max_period;
+            unsigned period { 1 };
+            uint64_t residues { 1 };
+
+            /* The length abstraction of this info as a standalone value. */
+            len_abs len() const { return len_abs(min_length, max_length, period, residues); }
+
+            /* Overwrites the length component, bounds included. */
+            void set_len(len_abs const& a) {
+                min_length = a.lo();
+                max_length = a.hi();
+                period = a.period();
+                residues = a.residues();
+            }
 
             /*
               Default constructor of invalid info.
             */
             info() = default;
+            info(const info&) = default;
 
             /*
               Used for constructing either an invalid info that is only used to indicate uninitialized entry, or valid but unknown info value.
@@ -470,11 +502,13 @@ public:
             info(bool is_interpreted,
                 lbool is_nullable,
                 unsigned min_l,
+                unsigned max_l,
                 bool is_classical) :
                 known(l_true), 
                 interpreted(is_interpreted),
                 nullable(is_nullable),
                 min_length(min_l),
+                max_length(max_l),
                 classical(is_classical) {}
 
             /*
@@ -490,6 +524,21 @@ public:
             bool is_valid() const { return known != l_undef; }
 
             bool is_known() const { return known == l_true; }
+
+            /*
+              True when the length abstraction is empty, which certifies that L(r) is empty.
+              Returns false for unknown info.
+            */
+            bool length_is_empty() const { return is_known() && len().is_empty(); }
+
+            /* Over-approximates the residues of Lambda modulo q, as a bitmask over [0, q). */
+            uint64_t residues_mod(unsigned q) const { return len().residues_mod(q); }
+
+            /* The gcd of the abstracted length set; 0 when that set is empty or is exactly {0}. */
+            unsigned length_gcd() const { return len().gcd(); }
+
+            /* Period to use when combining with another info; 0 means "adaptable". */
+            unsigned eff_period() const { return len().eff_period(); }
 
             info star() const;
             info plus() const;
@@ -592,6 +641,10 @@ public:
         MATCH_BINARY(is_diff);
         MATCH_BINARY(is_xor);
         MATCH_BINARY(is_range);
+        MATCH_UNARY(is_concat);
+        MATCH_UNARY(is_union);
+        MATCH_UNARY(is_intersection);
+        MATCH_UNARY(is_xor);
         MATCH_UNARY(is_complement);
         MATCH_UNARY(is_star);
         MATCH_UNARY(is_plus);
@@ -659,4 +712,3 @@ public:
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::pp const & p) { return p.display(out); }
 
 inline std::ostream& operator<<(std::ostream& out, seq_util::rex::info const& p) { return p.display(out); }
-

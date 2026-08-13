@@ -293,7 +293,7 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
         return false;
 
     set_var_interval<wd>(j, i);
-    interval bi;
+    scoped_dep_interval bi(get_dep_intervals());
     m_dep_intervals.mul<wd>(a, i, bi);
     m_dep_intervals.add(b, bi);
     m_dep_intervals.set<wd>(i, bi);

@@ -110,8 +110,6 @@ namespace euf {
         case undo_t::undo_mul:
             m_mul.undo();
             break;
-        default:
-            UNREACHABLE();
         }
     }
         
