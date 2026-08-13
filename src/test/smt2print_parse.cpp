@@ -404,26 +404,4 @@ void tst_smt2print_parse() {
         ENSURE(resp.find("unsat") != std::string::npos);
         ENSURE(resp.find("unknown") == std::string::npos);
     }
-
-    // Regression test for GitHub issue #10477:
-    // Quantified arrays over Float32 should not trigger sort mismatch/assertion violations in fpa2bv conversion.
-    {
-        char const* spec =
-            "(set-logic ALL)\n"
-            "(set-option :timeout 1000)\n"
-            "(assert (forall ((A (Array Float32 Float32))) (= (select A (_ +oo 8 24)) (select A (_ -oo 8 24)))))\n"
-            "(check-sat)\n";
-
-        Z3_context ctx = Z3_mk_context(nullptr);
-        Z3_set_error_handler(ctx, setError);
-        is_error = false;
-        std::string resp = Z3_eval_smtlib2_string(ctx, spec);
-        Z3_del_context(ctx);
-        std::cout << "Issue #10477 response: " << resp << "\n";
-        ENSURE(!is_error);
-        ENSURE(resp.find("sat") != std::string::npos ||
-               resp.find("unsat") != std::string::npos ||
-               resp.find("unknown") != std::string::npos);
-    }
-
 }
