@@ -118,22 +118,33 @@ namespace seq {
     }
 
     bool regex_witness::decode_string(seq_util& u, expr* e, zstring& out) {
-        if (u.str.is_empty(e))
-            return true;
-        if (u.str.is_concat(e))
-            return all_of(*to_app(e), [&](expr* arg) { return decode_string(u, arg, out); });
-        zstring s;
-        if (u.str.is_string(e, s)) {
-            out += s;
-            return true;
+        while (true) {
+            if (u.str.is_empty(e))
+                return true;
+            if (u.str.is_concat(e)) {
+                app* a = to_app(e);
+                unsigned n = a->get_num_args();
+                if (n == 0)
+                    return true;
+                for (unsigned i = 0; i + 1 < n; ++i)
+                    if (!decode_string(u, a->get_arg(i), out))
+                        return false;
+                e = a->get_arg(n - 1);
+                continue;
+            }
+            zstring s;
+            if (u.str.is_string(e, s)) {
+                out += s;
+                return true;
+            }
+            expr* ch = nullptr;
+            unsigned c;
+            if (u.str.is_unit(e, ch) && u.is_const_char(ch, c)) {
+                out += zstring(c);
+                return true;
+            }
+            return false;
         }
-        expr* ch = nullptr;
-        unsigned c;
-        if (u.str.is_unit(e, ch) && u.is_const_char(ch, c)) {
-            out += zstring(c);
-            return true;
-        }
-        return false;
     }
 
     lbool regex_witness::get_witness(expr* r, zstring& s) {
