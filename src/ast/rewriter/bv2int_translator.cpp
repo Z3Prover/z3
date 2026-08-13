@@ -66,8 +66,6 @@ void bv2int_translator::ensure_translated(expr* e) {
         if (!is_app(e))
             continue;
         app* a = to_app(e);
-        if (m.is_bool(e) && a->get_family_id() != bv.get_family_id())
-            continue;
         for (auto arg : *a)
             if (!visited.is_marked(arg) && !m_translate.get(arg->get_id(), nullptr)) {
                 visited.mark(arg);

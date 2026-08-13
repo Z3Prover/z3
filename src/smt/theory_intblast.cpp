@@ -184,6 +184,20 @@ namespace smt {
         m_translator.translate_eq(atom);
     }
 
+    void theory_intblast::new_eq_eh(theory_var v1, theory_var v2) {
+        expr* x = get_enode(v1)->get_expr();
+        expr* y = get_enode(v2)->get_expr();
+        if (!bv.is_bv(x) || !bv.is_bv(y))
+            return;
+        m_translator.ensure_translated(x);
+        m_translator.ensure_translated(y);
+        auto a = mk_literal(m.mk_eq(x, y));
+        auto b = mk_literal(m.mk_eq(m_translator.translated(x), m_translator.translated(y)));
+        ctx.mark_as_relevant(a);
+        ctx.mark_as_relevant(b);
+        ctx.mk_th_axiom(m_id, ~a, b);
+    }
+
     void theory_intblast::init_model(model_generator& mg) {
         m_factory = alloc(bv_factory, m);
         mg.register_factory(m_factory);

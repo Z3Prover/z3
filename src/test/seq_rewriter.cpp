@@ -19,6 +19,7 @@ Tests:
  22. re.loop with bounds as arguments agrees with the indexed form
  23. (Σ*·S)* is flattened to () | Σ*·S
  24. Regex info tracks inferred maximal lengths
+ 25. Bag splitting ignores a whole-equation bag match
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -276,6 +277,22 @@ void tst_seq_rewriter() {
             ctx.assert_expr(su.re.mk_in_re(a_str, regex));
             lbool res = ctx.check();
             std::cout << "nested symbolic re.range under re.++ sat: " << res << "\n";
+            ENSURE(res == l_true);
+        }
+
+        // 25. A whole-equation bag match is not a split point.
+        {
+            smt_params sp;
+            smt::context ctx(m, sp);
+            app_ref a(m.mk_fresh_const("a", str_sort), m);
+            app_ref b(m.mk_fresh_const("b", str_sort), m);
+            app_ref c(m.mk_fresh_const("c", str_sort), m);
+            expr_ref abc(su.str.mk_concat(a, su.str.mk_concat(b, c)), m);
+            expr_ref bca(su.str.mk_concat(b, su.str.mk_concat(c, a)), m);
+            ctx.assert_expr(m.mk_eq(abc, bca));
+            ctx.assert_expr(m.mk_not(m.mk_eq(a, c)));
+            lbool res = ctx.check();
+            std::cout << "whole bag equality solver sat: " << res << "\n";
             ENSURE(res == l_true);
         }
 

@@ -258,12 +258,15 @@ void test_optimize_translate() {
     Z3_del_context(ctx1);
 }
 
+static void test_optimize_arith_params();
+
 void tst_api() {
     test_apps();
     test_mk_app_polymorphic_arity();
     test_bvneg();
     test_mk_distinct();
     test_optimize_translate();
+    test_optimize_arith_params();
 }
 
 void test_max_rev() {
@@ -443,6 +446,68 @@ public:
             Z3_global_param_set(m_id.c_str(), m_old.c_str());
     }
 };
+
+static Z3_lbool check_factor_problem(Z3_context ctx, unsigned arith_solver) {
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), int_sort);
+    Z3_ast y = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), int_sort);
+    Z3_ast lower = Z3_mk_int(ctx, 31000, int_sort);
+    Z3_ast upper = Z3_mk_int(ctx, 32000, int_sort);
+    Z3_ast product = Z3_mk_int64(ctx, 999616589, int_sort);
+    Z3_ast xy[] = { x, y };
+
+    Z3_optimize opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+    Z3_params params = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, params);
+    Z3_params_set_uint(ctx, params, Z3_mk_string_symbol(ctx, "smt.arith.solver"), arith_solver);
+    Z3_params_set_uint(ctx, params, Z3_mk_string_symbol(ctx, "timeout"), 5000);
+    Z3_optimize_set_params(ctx, opt, params);
+    Z3_params_dec_ref(ctx, params);
+
+    Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, x, lower));
+    Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, y, lower));
+    Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, x, upper));
+    Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, y, upper));
+    Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, x, y));
+    Z3_optimize_assert(ctx, opt, Z3_mk_eq(ctx, Z3_mk_mul(ctx, 2, xy), product));
+    Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
+    Z3_optimize_dec_ref(ctx, opt);
+    return result;
+}
+
+static void test_optimize_arith_params() {
+    scoped_global_param arith_solver("smt.arith.solver", "6");
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    ENSURE(check_factor_problem(ctx, 2) == Z3_L_FALSE);
+
+    Z3_optimize opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+    Z3_params params = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, params);
+    Z3_params_set_symbol(ctx, params, Z3_mk_string_symbol(ctx, "optsmt_engine"),
+        Z3_mk_string_symbol(ctx, "symba"));
+    Z3_optimize_set_params(ctx, opt, params);
+    Z3_params_dec_ref(ctx, params);
+
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "z"), int_sort);
+    Z3_ast zero = Z3_mk_int(ctx, 0, int_sort);
+    Z3_ast one = Z3_mk_int(ctx, 1, int_sort);
+    Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, x, zero));
+    Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, x, one));
+    Z3_optimize_maximize(ctx, opt, x);
+    ENSURE(Z3_optimize_check(ctx, opt, 0, nullptr) == Z3_L_TRUE);
+    Z3_string value = nullptr;
+    ENSURE(Z3_global_param_get("smt.arith.solver", &value));
+    ENSURE(value && std::string(value) == "6");
+
+    Z3_optimize_dec_ref(ctx, opt);
+    Z3_del_context(ctx);
+}
 
 void tst_scaled_min() {
     test_scaled_minimize_unbounded();

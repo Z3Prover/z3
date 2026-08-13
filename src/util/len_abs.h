@@ -47,10 +47,10 @@ Abstract:
 #include <iosfwd>
 
 class len_abs {
-    unsigned m_lo { 0 };
-    unsigned m_hi { UINT_MAX };
-    unsigned m_period { 1 };
-    uint64_t m_residues { 1 };
+    unsigned m_lo = 0;
+    unsigned m_hi = UINT_MAX;
+    unsigned m_period = 1;
+    uint64_t m_residues = 1;
 
 public:
     /*
@@ -83,6 +83,8 @@ public:
     unsigned hi() const { return m_hi; }
     unsigned period() const { return m_period; }
     uint64_t residues() const { return m_residues; }
+
+    static bool residue_reachable(unsigned period, uint64_t residues, unsigned cst, unsigned g);
 
     void set_bounds(unsigned lo, unsigned hi) { m_lo = lo; m_hi = hi; }
 
