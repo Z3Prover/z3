@@ -316,6 +316,7 @@ public:
         check("Sig*aaSig*    x.a.x", xwx(x, "a"), saas, l_true);
         check("x in (a|b)*        ", x, star(alt(a, b)), l_true);
         check("x in b* (x=aa)     ", xwx(x, "a"), star(b), l_false);
+        check("non-ground regex guard", sword("z"), star(re().mk_to_re(x)), l_undef);
 
         // ALT = (a|b)* & ~(Sig*aaSig*) & ~(Sig*bbSig*)  (strictly alternating)
         expr_ref altre = inter(star(alt(a, b)), inter(comp(saas), comp(sbbs)));
