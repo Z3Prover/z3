@@ -509,7 +509,8 @@ namespace smt {
 
         propagate_length_residue(lit, s, r);
 
-        if (th.use_monadic_regex())
+        bool is_ground = re().is_ground(r);
+        if (th.use_monadic_regex() && is_ground)
             add_monadic_membership(lit, s, r);
         else
             propagate_accept_legacy(lit, s, r);

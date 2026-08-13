@@ -3493,6 +3493,18 @@ bool seq_rewriter::lift_str_from_to_re(expr* r, expr_ref& result)
 }
 
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
+    expr* s = nullptr, *i = nullptr;
+    if (str().is_at(a, s, i)) {
+        expr_ref valid(m().mk_and(
+            m_autil.mk_ge(i, zero()),
+            m_autil.mk_lt(i, str().mk_length(s))), m());
+        expr_ref nth(str().mk_unit(str().mk_nth_i(s, i)), m());
+        result = m().mk_ite(
+            valid,
+            re().mk_to_re(nth),
+            re().mk_to_re(str().mk_empty(a->get_sort())));
+        return BR_REWRITE_FULL;
+    }
     return BR_FAILED;
 }
 

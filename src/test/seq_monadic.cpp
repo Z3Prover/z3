@@ -676,6 +676,16 @@ public:
         }
         {
             arith_util ar2(m);
+            expr_ref i(m.mk_fresh_const("issue_10492_i", ar2.mk_int()), m);
+            expr_ref y = var("issue_10492_y");
+            expr_ref at(u.str.mk_at(y, i), m);
+            expr_ref_vector assertions(m);
+            assertions.push_back(m.mk_eq(at, u.str.mk_empty(m_str)));
+            assertions.push_back(re().mk_in_re(sword("z"), star(re().mk_to_re(at))));
+            check_smt("non-ground regex issue 10492", assertions, l_false);
+        }
+        {
+            arith_util ar2(m);
             expr_ref zero(ar2.mk_int(0), m);
             expr_ref one(ar2.mk_int(1), m);
             expr_ref k = var("issue_10379_k");
