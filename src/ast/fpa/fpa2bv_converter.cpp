@@ -289,7 +289,11 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
     expr_ref fapp(m);
     sort_ref rng(m);
     app_ref bv_app(m), flt_app(m);
+    ptr_vector<sort> domain;
     rng = f->get_range();
+    if (m_util.is_float(rng) || m_util.is_rm(rng))
+        for (unsigned i = 0; i < num; ++i)
+            domain.push_back(args[i]->get_sort());
     fapp = m.mk_app(f, num, args);
     if (m_util.is_float(rng)) {
         sort_ref bv_rng(m);
@@ -298,7 +302,7 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
         unsigned sbits = m_util.get_sbits(rng);
         unsigned bv_sz = ebits+sbits;
         bv_rng = m_bv_util.mk_sort(bv_sz);
-        func_decl * bv_f = mk_bv_uf(f, f->get_domain(), bv_rng);
+        func_decl * bv_f = mk_bv_uf(f, domain.data(), bv_rng);
         bv_app = m.mk_app(bv_f, num, args);
         flt_app = m_util.mk_fp(m_bv_util.mk_extract(bv_sz-1, bv_sz-1, bv_app),
                                m_bv_util.mk_extract(sbits+ebits-2, sbits-1, bv_app),
@@ -311,7 +315,7 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
         sort_ref bv_rng(m);
         expr_ref new_eq(m);
         bv_rng = m_bv_util.mk_sort(3);
-        func_decl * bv_f = mk_bv_uf(f, f->get_domain(), bv_rng);
+        func_decl * bv_f = mk_bv_uf(f, domain.data(), bv_rng);
         bv_app = m.mk_app(bv_f, num, args);
         flt_app = m_util.mk_bv2rm(bv_app);
         new_eq = m.mk_eq(fapp, flt_app);
