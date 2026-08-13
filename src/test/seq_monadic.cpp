@@ -316,6 +316,7 @@ public:
         check("Sig*aaSig*    x.a.x", xwx(x, "a"), saas, l_true);
         check("x in (a|b)*        ", x, star(alt(a, b)), l_true);
         check("x in b* (x=aa)     ", xwx(x, "a"), star(b), l_false);
+        check("non-ground regex guard", sword("z"), star(re().mk_to_re(x)), l_undef);
 
         // ALT = (a|b)* & ~(Sig*aaSig*) & ~(Sig*bbSig*)  (strictly alternating)
         expr_ref altre = inter(star(alt(a, b)), inter(comp(saas), comp(sbbs)));
@@ -673,6 +674,16 @@ public:
             assertions.push_back(re().mk_in_re(x, star(alt(a, b))));
             check_smt("enabled SAT membership", assertions, l_true);
             check_smt("disabled legacy membership", assertions, l_true, false);
+        }
+        {
+            arith_util ar2(m);
+            expr_ref i(m.mk_fresh_const("issue_10492_i", ar2.mk_int()), m);
+            expr_ref y = var("issue_10492_y");
+            expr_ref at(u.str.mk_at(y, i), m);
+            expr_ref_vector assertions(m);
+            assertions.push_back(m.mk_eq(at, u.str.mk_empty(m_str)));
+            assertions.push_back(re().mk_in_re(sword("z"), star(re().mk_to_re(at))));
+            check_smt("non-ground regex issue 10492", assertions, l_false);
         }
         {
             arith_util ar2(m);

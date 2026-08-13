@@ -541,6 +541,11 @@ bool seq_monadic::prepare(membership_vec const& memberships) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
         }
+        // Derivative processing assumes the regex denotes a fixed language.
+        if (!re().is_ground(regex)) {
+            m_stats.inc_bail(bail_reason::unsupported);
+            return false;
+        }
         if (!u().is_seq(m_seq_sort, m_elem_sort)) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
