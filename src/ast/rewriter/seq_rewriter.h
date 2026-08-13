@@ -320,9 +320,6 @@ class seq_rewriter {
 
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
 
-    bool get_bounds(expr* e, unsigned& low, unsigned& high);
-    lbool some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str);
-
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m),
