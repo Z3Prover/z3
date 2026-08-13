@@ -410,6 +410,7 @@ void tst_smt2print_parse() {
     {
         char const* spec =
             "(set-logic ALL)\n"
+            "(set-option :timeout 1000)\n"
             "(assert (forall ((A (Array Float32 Float32))) (= (select A (_ +oo 8 24)) (select A (_ -oo 8 24)))))\n"
             "(check-sat)\n";
 
