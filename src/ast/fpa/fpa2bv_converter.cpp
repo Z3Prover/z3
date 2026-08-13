@@ -20,6 +20,7 @@ Notes:
 
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_lt.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/used_vars.h"
@@ -562,6 +563,8 @@ void fpa2bv_converter::mk_add(func_decl * f, unsigned num, expr * const * args, 
     rm = to_app(args[0])->get_arg(0);
     x = args[1];
     y = args[2];
+    if (ast_lt()(y, x))
+        std::swap(x, y);
     mk_add(f->get_range(), rm, x, y, result);
 }
 

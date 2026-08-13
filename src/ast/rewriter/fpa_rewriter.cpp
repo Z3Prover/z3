@@ -19,6 +19,7 @@ Notes:
 #include "ast/rewriter/fpa_rewriter.h"
 #include "params/fpa_rewriter_params.hpp"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_lt.h"
 
 fpa_rewriter::fpa_rewriter(ast_manager & m, params_ref const & p) :
     m_util(m),
@@ -257,6 +258,12 @@ br_status fpa_rewriter::mk_to_fp_unsigned(func_decl * f, expr * arg1, expr * arg
 }
 
 br_status fpa_rewriter::mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
+    ast_lt lt;
+    if (lt(arg3, arg2)) {
+        result = m_util.mk_add(arg1, arg3, arg2);
+        return BR_REWRITE2;
+    }
+
     mpf_rounding_mode rm;
     if (m_util.is_rm_numeral(arg1, rm)) {
         scoped_mpf v2(m_fm), v3(m_fm);
