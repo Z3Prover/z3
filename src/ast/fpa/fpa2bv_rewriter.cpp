@@ -20,7 +20,6 @@ Notes:
 
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/fpa/fpa2bv_rewriter.h"
-#include "ast/ast_lt.h"
 #include "params/fpa2bv_rewriter_params.hpp"
 
 
@@ -116,13 +115,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_PLUS_ZERO: m_conv.mk_pzero(f, result); return BR_DONE;
         case OP_FPA_MINUS_ZERO: m_conv.mk_nzero(f, result); return BR_DONE;
         case OP_FPA_NAN: m_conv.mk_nan(f, result); return BR_DONE;
-        case OP_FPA_ADD:
-            if (ast_lt()(args[2], args[1])) {
-                result = m().mk_app(f, args[0], args[2], args[1]);
-                return BR_REWRITE2;
-            }
-            m_conv.mk_add(f, num, args, result);
-            return BR_DONE;
+        case OP_FPA_ADD: m_conv.mk_add(f, num, args, result); return BR_DONE;
         case OP_FPA_SUB: m_conv.mk_sub(f, num, args, result); return BR_DONE;
         case OP_FPA_NEG: m_conv.mk_neg(f, num, args, result); return BR_DONE;
         case OP_FPA_MUL: m_conv.mk_mul(f, num, args, result); return BR_DONE;
