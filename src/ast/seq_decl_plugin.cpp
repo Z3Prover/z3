@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include <sstream>
 #include <format>
+#include <numeric>
 
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false),
@@ -892,6 +893,15 @@ bool seq_util::is_char_const_range(expr const* x, expr* e, unsigned& l, unsigned
     return false;
 }
 
+bool seq_util::can_be_member(expr *seq, expr *regex) {
+    auto info = re.get_info(regex);
+    if (!info.is_known() || info.period <= 1)
+        return true;
+
+    auto [cst, g] = str.length_shape(seq);
+    return len_abs::residue_reachable(info.period, info.residues, cst, g);
+}
+
 bool seq_util::str::is_string(func_decl const* f, zstring& s) const {
     if (is_string(f)) {
         s = f->get_parameter(0).get_zstring();
@@ -1042,20 +1052,20 @@ unsigned seq_util::str::min_length(expr* s) const {
     return result;
 }
 
-unsigned seq_util::str::max_length(expr* s) const {
+unsigned seq_util::str::max_length(expr *s) const {
     SASSERT(u.is_seq(s));
     unsigned result = 0;
-    expr* s1 = nullptr, *s2 = nullptr, *s3 = nullptr;
+    expr *s1 = nullptr, *s2 = nullptr, *s3 = nullptr;
     unsigned n = 0;
     zstring st;
-    auto get_length = [&](expr* s1) {
+    auto get_length = [&](expr *s1) {
         if (is_empty(s1))
             return 0u;
         else if (is_unit(s1))
             return 1u;
         else if (is_at(s1))
             return 1u;
-        else if (is_extract(s1, s1, s2, s3)) 
+        else if (is_extract(s1, s1, s2, s3))
             return (arith_util(m).is_unsigned(s3, n)) ? n : UINT_MAX;
         else if (is_string(s1, st))
             return st.length();
@@ -1071,6 +1081,38 @@ unsigned seq_util::str::max_length(expr* s) const {
     }
     result = add_truncate(get_length(s), result);
     return result;
+}
+
+std::pair<unsigned, unsigned> seq_util::str::length_shape(expr *s) {
+    unsigned cst = 0;
+    unsigned g = 0;
+    obj_map<expr, unsigned> mult;
+    ptr_vector<expr> todo;
+    todo.push_back(s);
+    while (!todo.empty()) {
+        expr *e = todo.back();
+        todo.pop_back();
+        expr *a1 = nullptr, *a2 = nullptr;
+        zstring val;
+        if (is_concat(e, a1, a2)) {
+            todo.push_back(a1);
+            todo.push_back(a2);
+        }
+        else if (is_empty(e))
+            continue;
+        else if (is_unit(e))
+            cst += 1;
+        else if (is_string(e, val))
+            cst += val.length();
+        else {
+            unsigned c = 0;
+            mult.find(e, c);
+            mult.insert(e, c + 1);
+        }
+    }
+    for (auto const &[k, v] : mult)
+        g = std::gcd(g, v);
+    return {cst, g};
 }
 
 unsigned seq_util::rex::min_length(expr* r) const {

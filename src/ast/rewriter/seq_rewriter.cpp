@@ -3384,6 +3384,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             return BR_REWRITE_FULL;
     }
 
+    if (!u().can_be_member(a, b)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+
 #if 0
     
     expr_ref hd(m()), tl(m());

@@ -240,3 +240,23 @@ std::ostream& len_abs::display(std::ostream& out) const {
         out << "{}";
     return out << " mod " << m_period;
 }
+
+bool len_abs::residue_reachable(unsigned period, uint64_t residues, unsigned cst, unsigned g) {
+    if (period == 0)
+        return true;
+    unsigned c = cst % period;
+    // Lengths cst + g*k, k >= 0, cover exactly the residues congruent to cst modulo
+    // gcd(g, period); with g = 0 the only reachable length residue is cst itself.
+    unsigned d = g == 0 ? period : std::gcd(g, period);
+    for (unsigned i = 0; i < period; ++i) {
+        if (0 == (residues & (1ull << i)))
+            continue;
+        if (g == 0) {
+            if (i == c)
+                return true;
+        }
+        else if ((i + period - c) % d == 0)
+            return true;
+    }
+    return false;
+}

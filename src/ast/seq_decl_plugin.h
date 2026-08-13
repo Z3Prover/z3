@@ -270,6 +270,8 @@ public:
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
+    bool can_be_member(expr *seq, expr *regex);
+
     START_DISABLE_EXTRA_SEMI_WARNING;
     MATCH_BINARY(is_char_le);
     MATCH_UNARY(is_char2int);
@@ -394,6 +396,11 @@ public:
             sort * s = n->get_sort();
             return (u.is_seq(s) && !u.is_string(s));
         }
+
+        // Decompose s into a constant length plus a non-negative combination of the lengths
+        // of its non-constant parts: |s| in cst + { sum c_i |v_i| }.  Returns the constant and
+        // the gcd of the multiplicities c_i (0 when s has no variable part).
+        std::pair<unsigned, unsigned> length_shape(expr *s);
 
         START_DISABLE_EXTRA_SEMI_WARNING;
         MATCH_BINARY(is_concat);
