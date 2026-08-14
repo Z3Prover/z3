@@ -1301,9 +1301,9 @@ lbool core::check(unsigned level) {
 
     init_to_refine();
     patch_monomials();
-    set_use_nra_model(false);    
+    set_use_nra_model(false);
     if (m_to_refine.empty())
-        return l_true;    
+        return l_true;
     init_search();
     m_nla_satisfied = false;
 
@@ -1319,8 +1319,27 @@ lbool core::check(unsigned level) {
 
     if (no_effect() && refine_pseudo_linear())
         return l_false;
-       
-    
+
+    // Squeeze the bounds of monomial variables over the tableau (the analog of
+    // theory_arith's max_min_nl_vars) before any nonlinear engine runs. The
+    // implied bounds, each carrying an LP explanation, propagate back to the
+    // search; the squeeze also pins monomial variables at bounds or pivots them
+    // into the basis, so the engines see a tighter tableau. If it proves every
+    // monomial consistent the round ends before Grobner saturates or nlsat runs.
+    // Squeezing every call pays off only while the squeeze keeps finding better
+    // bounds; after a streak of fruitless calls fall back to the horner cadence,
+    // where a productive squeeze re-arms the eager mode.
+    bool eager_squeeze = m_squeeze_fail_streak < 3;
+    bool squeeze_cadence = lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0;
+    if (no_effect() && (run_horner || run_grobner) && (eager_squeeze || squeeze_cadence)) {
+        if (m_monomial_bounds.optimize_nl_bounds())
+            m_squeeze_fail_streak = 0;
+        else
+            ++m_squeeze_fail_streak;
+        if (m_to_refine.empty())
+            return l_true;
+    }
+
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
         std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
@@ -1426,11 +1445,18 @@ lbool core::bounded_nlsat() {
     p.set_uint("max_conflicts", lp_settings().m_max_conflicts);            
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
-    if (ret == l_undef) 
-        ++m_nlsat_delay_bound;
-    else if (m_nlsat_delay_bound > 0)
-        m_nlsat_delay_bound /= 2;        
-    
+    // A probe pays off only when it finds a conflict: re-engage eagerly then.
+    // Both other outcomes - l_true (an expensive confirmation that the current
+    // nonlinear state is satisfiable) and l_undef (the probe budget ran out) -
+    // back off exponentially, so a search whose quiet rounds keep getting the
+    // same answer stops paying ~100K rlimit for it every few rounds. The final
+    // full nra check (level >= 2) is not delayed, so completeness on satisfiable
+    // goals is unaffected.
+    if (ret == l_false)
+        m_nlsat_delay_bound /= 2;
+    else if (m_nlsat_delay_bound < (1u << 20))
+        m_nlsat_delay_bound = std::max(2 * m_nlsat_delay_bound, 1u);
+
     m_nlsat_delay = m_nlsat_delay_bound;
 
     if (ret == l_true) 
