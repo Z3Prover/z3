@@ -29,7 +29,9 @@ namespace seq {
         if (i != l_undef)
             return i;
         expr_ref nb = m_rw.is_nullable(r);
-        return m.is_true(nb) ? l_true : (m.is_false(nb) ? l_false : l_undef);
+        if (m.is_true(nb))  return l_true;
+        if (m.is_false(nb)) return l_false;
+        return l_undef;
     }
 
     expr_ref_pair_vector const& regex_witness::cofactors(expr* r) const {
@@ -64,9 +66,10 @@ namespace seq {
             while (s != r) {
                 std::pair<expr*, expr*> pr;
                 if (!parent.find(s, pr))
-                    break;                            // should not happen
-                elems.push_back(pr.second);
-                s = pr.first;
+                    break;                           // should not happen
+                auto [pred, elem] = pr;
+                elems.push_back(elem);
+                s = pred;
             }
             expr_ref_vector es(m);                    // root..accept order
             for (unsigned i = elems.size(); i-- > 0; )
