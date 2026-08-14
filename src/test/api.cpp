@@ -260,6 +260,46 @@ void test_optimize_translate() {
 
 static void test_optimize_arith_params();
 
+void test_strict_real_maximize() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_sort real_sort = Z3_mk_real_sort(ctx);
+    Z3_ast a = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a"), real_sort);
+    Z3_ast b = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "b"), real_sort);
+
+    auto mk_real = [&](int num, int den = 1) { return Z3_mk_real(ctx, num, den); };
+    auto mk_add = [&](Z3_ast x, Z3_ast y) { Z3_ast args[] = { x, y }; return Z3_mk_add(ctx, 2, args); };
+    auto mk_mul = [&](Z3_ast x, Z3_ast y) { Z3_ast args[] = { x, y }; return Z3_mk_mul(ctx, 2, args); };
+
+    Z3_optimize opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+
+    Z3_ast lhs = mk_add(Z3_mk_unary_minus(ctx, a), mk_mul(mk_real(4), b));
+    Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, lhs, mk_real(-1000000)));
+    Z3_optimize_assert(ctx, opt, Z3_mk_gt(ctx, mk_real(0), b));
+    unsigned h = Z3_optimize_maximize(ctx, opt, a);
+
+    ENSURE(Z3_optimize_check(ctx, opt, 0, nullptr) == Z3_L_TRUE);
+
+    Z3_ast_vector lower = Z3_optimize_get_lower_as_vector(ctx, opt, h);
+    ENSURE(Z3_ast_vector_size(ctx, lower) == 3);
+
+    int64_t inf = 0, rat = 0, eps = 0;
+    ENSURE(Z3_get_numeral_int64(ctx, Z3_ast_vector_get(ctx, lower, 0), &inf));
+    ENSURE(Z3_get_numeral_int64(ctx, Z3_ast_vector_get(ctx, lower, 1), &rat));
+    ENSURE(Z3_get_numeral_int64(ctx, Z3_ast_vector_get(ctx, lower, 2), &eps));
+    std::cout << "strict real maximize lower: "
+              << Z3_ast_to_string(ctx, Z3_optimize_get_lower(ctx, opt, h)) << std::endl;
+    ENSURE(inf == 0);
+    ENSURE(rat == 1000000);
+    ENSURE(eps < 0);
+
+    Z3_optimize_dec_ref(ctx, opt);
+    Z3_del_context(ctx);
+}
+
 void tst_api() {
     test_apps();
     test_mk_app_polymorphic_arity();
@@ -267,6 +307,7 @@ void tst_api() {
     test_mk_distinct();
     test_optimize_translate();
     test_optimize_arith_params();
+    test_strict_real_maximize();
 }
 
 void test_max_rev() {
