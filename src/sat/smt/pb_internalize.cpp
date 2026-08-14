@@ -203,7 +203,7 @@ namespace pb {
         literal_vector lits;
         convert_pb_args(t, lits);
         // (at-least k) is unsatisfiable when k exceeds the number of arguments.
-        // truncate k to avoid overflow when negating the bound.
+        // truncate k to lits.size() + 1 so that negating the bound below does not underflow.
         unsigned k2 = k > rational(lits.size()) ? lits.size() + 1 : k.get_unsigned();
         if (root && s().num_user_scopes() == 0) {
             if (sign) {
@@ -260,7 +260,8 @@ namespace pb {
         bool_var v1 = (root && !sign) ? sat::null_bool_var : s().add_var(true);
         bool_var v2 = (root && !sign) ? sat::null_bool_var : s().add_var(true);
         // (= k) is unsatisfiable when k exceeds the number of arguments.
-        // truncate k to avoid underflow when computing the dual bound.
+        // truncate k to lits.size() + 1, which makes the first constraint false,
+        // and use 0 as the dual bound, which is the tautology (at-most k).
         unsigned k1 = k > rational(lits.size()) ? lits.size() + 1 : k.get_unsigned();
         add_at_least(v1, lits, k1);
         for (literal& l : lits) {
