@@ -38,8 +38,6 @@ struct factor_simplifier::rw_cfg : public default_rewriter_cfg {
     void updt_params(params_ref const & p) {
         m_split_factors = p.get_bool("split_factors", true);
         m_fparams.updt_params(p);
-        if (!p.contains("num_primes"))
-            m_fparams.m_p_trials = polynomial::default_factor_num_primes;
     }
 
     expr * mk_mul(unsigned sz, expr * const * args) {

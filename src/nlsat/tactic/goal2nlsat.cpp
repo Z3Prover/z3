@@ -80,8 +80,6 @@ struct goal2nlsat::imp {
         m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_factor       = p.get_bool("factor", true);  
         m_fparams.updt_params(p);
-        if (!p.contains("num_primes"))
-            m_fparams.m_p_trials = polynomial::default_factor_num_primes;
     }
 
     nlsat::atom::kind flip(nlsat::atom::kind k) {
