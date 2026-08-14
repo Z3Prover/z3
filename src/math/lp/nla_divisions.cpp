@@ -294,7 +294,7 @@ namespace nla {
                     continue;
                 if (xval != cc * aval)     // ensure x = c*a holds exactly in the model
                     continue;
-                lemma_builder lemma(c, "mod(a,y) = 0 & x = c*a => mod(x,y) = 0");
+                lemma_builder lemma(c, "y != 0 & y = y2 & mod(a,y2) = 0 & x = c*a => mod(x,y) = 0");
                 lemma |= ineq(y, llc::EQ, 0);                       // y = 0 (guard: mod/div uninterpreted when divisor is 0)
                 if (y2 != y)
                     lemma |= ineq(term(y, rational(-1), y2), llc::NE, 0); // y != y2 (guard: divisors must coincide symbolically)
