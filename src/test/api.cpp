@@ -300,6 +300,29 @@ void test_strict_real_maximize() {
     Z3_del_context(ctx);
 }
 
+void test_mod_case_split_soundness() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+    Z3_solver_from_string(ctx, s,
+        "(set-option :auto-config false)\n"
+        "(set-option :smt.case_split 3)\n"
+        "(declare-const c Int)\n"
+        "(declare-const d Int)\n"
+        "(assert (distinct 0 (- d c)))\n"
+        "(assert\n"
+        "  (exists ((k Int))\n"
+        "    (and\n"
+        "      (distinct 0 (mod k c))\n"
+        "      (= 0 (mod k (mod c d))))))\n");
+    ENSURE(Z3_solver_check(ctx, s) == Z3_L_TRUE);
+    Z3_solver_dec_ref(ctx, s);
+    Z3_del_context(ctx);
+}
+
 void tst_api() {
     test_apps();
     test_mk_app_polymorphic_arity();
@@ -308,6 +331,7 @@ void tst_api() {
     test_optimize_translate();
     test_optimize_arith_params();
     test_strict_real_maximize();
+    test_mod_case_split_soundness();
 }
 
 void test_max_rev() {

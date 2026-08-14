@@ -254,12 +254,12 @@ namespace nla {
     }
 
     // Linear divisibility closure:
-    //   mod(a, y) = 0  &  x = c * a   (c an integer constant)  =>  mod(x, y) = 0.
+    //   y != 0  &  mod(a, y) = 0  &  x = c * a   (c an integer constant)  =>  mod(x, y) = 0.
     // The emitted clause
-    //   (x - c*a != 0)  \/  (mod(a, y) != 0)  \/  (mod(x, y) = 0)
+    //   y = 0  \/  (y != y2)  \/  (x - c*a != 0)  \/  (mod(a, y2) != 0)  \/  (mod(x, y) = 0)
     // is a tautology for every integer c (under the Euclidean semantics of mod),
     // so the choice of c/a from the current model can never be unsound. We only
-    // emit it when all three literals are false in the current model, which makes
+    // emit it when the arithmetic literals are false in the current model, which makes
     // the clause a real conflict/propagation and guarantees progress.
     void divisions::check_linear_divisibility() {
         core& c = m_core;
@@ -271,13 +271,16 @@ namespace nla {
             if (c.val(rx).is_zero())   // mod(x, y) already 0 in model: nothing to refute
                 continue;
             auto xval = c.val(x);
+            auto yval = c.val(y);
+            if (yval.is_zero())
+                continue;
             if (xval.is_zero())
                 continue;
             for (unsigned j = 0; j < sz; ++j) {
                 if (i == j)
                     continue;
                 auto const& [ra, a, y2, da] = m_divisibility[j];
-                if (y2 != y && c.val(y2) != c.val(y)) // same divisor (by column or value)
+                if (y2 != y && c.val(y2) != yval) // same divisor (by column or value)
                     continue;
                 if (!c.is_relevant(ra))
                     continue;
@@ -292,6 +295,9 @@ namespace nla {
                 if (xval != cc * aval)     // ensure x = c*a holds exactly in the model
                     continue;
                 lemma_builder lemma(c, "mod(a,y) = 0 & x = c*a => mod(x,y) = 0");
+                lemma |= ineq(y, llc::EQ, 0);                       // y = 0 (guard: mod/div uninterpreted when divisor is 0)
+                if (y2 != y)
+                    lemma |= ineq(term(y, rational(-1), y2), llc::NE, 0); // y != y2 (guard: divisors must coincide symbolically)
                 lemma |= ineq(term(x, -cc, a), llc::NE, 0); // x - c*a != 0
                 lemma |= ineq(ra, llc::NE, 0);              // mod(a, y) != 0
                 lemma |= ineq(rx, llc::EQ, 0);              // mod(x, y) = 0
