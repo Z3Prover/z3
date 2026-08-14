@@ -1302,8 +1302,14 @@ lbool core::check(unsigned level) {
     init_to_refine();
     patch_monomials();
     set_use_nra_model(false);
-    if (m_to_refine.empty())
+    if (m_to_refine.empty()) {
+        // A check that needs no nonlinear work is a sign of a healthy search:
+        // wind the eager-squeeze breaker down (see below). Decay rather than
+        // reset, so occasional healthy checks inside a squeeze-driven divergence
+        // do not keep re-arming eager mode.
+        m_squeezes_without_progress /= 2;
         return l_true;
+    }
     init_search();
     m_nla_satisfied = false;
 
@@ -1329,15 +1335,25 @@ lbool core::check(unsigned level) {
     // Squeezing every call pays off only while the squeeze keeps finding better
     // bounds; after a streak of fruitless calls fall back to the horner cadence,
     // where a productive squeeze re-arms the eager mode.
+    // A long run of squeezes with no check ever finding its monomials already
+    // consistent is the signature of a lemma loop (squeezed bounds feed
+    // Grobner/Horner lemmas whose bounds are popped and re-derived forever):
+    // m_squeezes_without_progress then shuts the squeeze off entirely as a
+    // circuit breaker. The counter halves on every check that needs no
+    // nonlinear work, so a healthy search re-arms it.
+    bool squeeze_enabled = m_squeezes_without_progress < 50;
     bool eager_squeeze = m_squeeze_fail_streak < 3;
     bool squeeze_cadence = lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0;
-    if (no_effect() && (run_horner || run_grobner) && (eager_squeeze || squeeze_cadence)) {
+    if (no_effect() && squeeze_enabled && (run_horner || run_grobner) && (eager_squeeze || squeeze_cadence)) {
+        ++m_squeezes_without_progress;
         if (m_monomial_bounds.optimize_nl_bounds())
             m_squeeze_fail_streak = 0;
         else
             ++m_squeeze_fail_streak;
-        if (m_to_refine.empty())
+        if (m_to_refine.empty()) {
+            m_squeezes_without_progress /= 2;
             return l_true;
+        }
     }
 
     {
