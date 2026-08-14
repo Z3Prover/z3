@@ -71,6 +71,16 @@ unsigned get_budget() {
     return 1000000;
 }
 
+// Mirrors the seq.regex_orientation parameter so the bench can compare directions.
+seq_monadic::orientation get_orientation() {
+    char const* o = getenv("Z3_SEQ_MONADIC_ORIENTATION");
+    if (o && std::string(o) == "reversed")
+        return seq_monadic::orientation::reversed;
+    if (o && std::string(o) == "retry")
+        return seq_monadic::orientation::retry;
+    return seq_monadic::orientation::forward;
+}
+
 bool is_seq_var(expr* t) {
     return is_app(t) && to_app(t)->get_num_args() == 0 &&
            to_app(t)->get_family_id() == null_family_id;
@@ -113,6 +123,7 @@ lbool run_file(
     trail_stack undo_trail;
     seq_monadic mon(rw, undo_trail, mode);
     mon.set_budget(get_budget());
+    mon.set_orientation(get_orientation());
 
     obj_map<expr, expr*> var_re;
     obj_map<expr, expr*> term_re;

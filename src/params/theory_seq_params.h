@@ -27,6 +27,7 @@ struct theory_seq_params {
     bool m_seq_regex_monadic = false;
     unsigned m_seq_regex_budget = 1000000;
     symbol m_seq_regex_transition_mode = symbol("light-ant");
+    symbol m_seq_regex_orientation = symbol("forward");
     unsigned m_seq_max_unfolding = UINT_MAX/4;
     unsigned m_seq_min_unfolding = 1;
 

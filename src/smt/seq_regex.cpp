@@ -35,6 +35,16 @@ namespace smt {
         throw default_exception("invalid seq.regex_transition_mode, use 'light-ant' or 'brz'");
     }
 
+    static seq_monadic::orientation monadic_orientation(symbol const& s) {
+        if (s == "forward")
+            return seq_monadic::orientation::forward;
+        if (s == "reversed")
+            return seq_monadic::orientation::reversed;
+        if (s == "retry")
+            return seq_monadic::orientation::retry;
+        throw default_exception("invalid seq.regex_orientation, use 'forward', 'reversed' or 'retry'");
+    }
+
     seq_regex::seq_regex(theory_seq& th):
         th(th),
         ctx(th.get_context()),
@@ -44,6 +54,7 @@ namespace smt {
         m_live_states(seq_rw(), seq::transition_mode::brzozowski_tm, 10000) {
         m_monadic.set_is_var([&th](expr *e) { return th.is_var(e); });
         m_monadic.set_budget(ctx.get_fparams().m_seq_regex_budget);
+        m_monadic.set_orientation(monadic_orientation(ctx.get_fparams().m_seq_regex_orientation));
     }
 
     seq_util& seq_regex::u() { return th.m_util; }
