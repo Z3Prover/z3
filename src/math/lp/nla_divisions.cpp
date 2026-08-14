@@ -297,7 +297,7 @@ namespace nla {
                 lemma_builder lemma(c, "y != 0 & y = y2 & mod(a,y2) = 0 & x = c*a => mod(x,y) = 0");
                 lemma |= ineq(y, llc::EQ, 0);                       // y = 0 (guard: mod/div uninterpreted when divisor is 0)
                 if (y2 != y)
-                    lemma |= ineq(term(y, rational(-1), y2), llc::NE, 0); // negated equality guard for y = y2
+                    lemma |= ineq(term(y, rational(-1), y2), llc::NE, 0); // y != y2 (guard: lemma only applies when divisors are equal)
                 lemma |= ineq(term(x, -cc, a), llc::NE, 0); // x - c*a != 0
                 lemma |= ineq(ra, llc::NE, 0);              // mod(a, y) != 0
                 lemma |= ineq(rx, llc::EQ, 0);              // mod(x, y) = 0
