@@ -3423,8 +3423,12 @@ bool seq_rewriter::lift_str_from_to_re(expr* r, expr_ref& result)
 }
 
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
-    expr* s = nullptr, *i = nullptr;
-    if (str().is_at(a, s, i)) {
+    expr* s = nullptr, *i = nullptr, *l = nullptr;
+    rational n;
+    // (str.substr s i 1) denotes the same sequence as (str.at s i)
+    bool is_char_at = str().is_at(a, s, i) ||
+        (str().is_extract(a, s, i, l) && m_autil.is_numeral(l, n) && n.is_one());
+    if (is_char_at) {
         expr_ref valid(m().mk_and(
             m_autil.mk_ge(i, zero()),
             m_autil.mk_lt(i, str().mk_length(s))), m());
