@@ -39,6 +39,8 @@ namespace algebraic_numbers {
 }
 
 namespace polynomial {
+    constexpr unsigned default_factor_num_primes = 4;
+
     typedef unsigned var;
     const var null_var = UINT_MAX;
     typedef svector<var> var_vector;
@@ -1426,4 +1428,3 @@ inline void factor(polynomial_ref const & p, polynomial::factors & r, polynomial
 }
 
 std::ostream & operator<<(std::ostream & out, polynomial_ref_vector const & seq);
-
