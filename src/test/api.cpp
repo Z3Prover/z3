@@ -308,9 +308,12 @@ static void test_qfnra_degree80_square_bound() {
     Z3_solver s = Z3_mk_solver(ctx);
     Z3_solver_inc_ref(ctx, s);
 
+    // A deterministic resource limit instead of a wall-clock timeout: the fixed
+    // factoring path needs < 1M rlimit while the num_primes=1 blowup needs > 5M,
+    // so 2M separates them regardless of machine speed or debug/release build.
     Z3_params p = Z3_mk_params(ctx);
     Z3_params_inc_ref(ctx, p);
-    Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "timeout"), 5000);
+    Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "rlimit"), 2000000);
     Z3_solver_set_params(ctx, s, p);
     Z3_params_dec_ref(ctx, p);
 
