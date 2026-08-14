@@ -783,6 +783,14 @@ namespace seq {
         if (!harvest_mode() && apply_cycle_subsumption(node))
             return ++m_stats.m_mod_cycle_subsumption, true;
 
+        // Priority 5c: MonadicLanding - decompose the non-primitive memberships in
+        // ONE step via seq_monadic's satisfying branch, emitted as land-state views.
+        // Must precede the modifiers that grind the subject down by splitting
+        // (landing 6, factorization 8, const nielsen 8b, regex var split 10).
+        // (regex-related: skipped in benchmark-harvest mode)
+        if (!harvest_mode() && apply_monadic_landing(node))
+            return ++m_stats.m_mod_monadic_landing, true;
+
         // Priority 6: LandingDecomp - the core branching rule (paper §5.3):
         // split the leading variable by its landing state in the explored region
         // (land-at-s + escape-via-frontier).  Subsumes character unwinding.

@@ -621,6 +621,19 @@ lbool seq_monadic::group_nonempty(unsigned vi) {
 lbool seq_monadic::leaf() {
     if (m_undef_vars > 0)
         return l_undef;                           // some variable's emptiness test gave up
+    if (m_config.m_branch) {
+        // Snapshot here: choose_cont pops m_groups on the way out even when the
+        // branch succeeded, so the caller could not read it afterwards.
+        m_branch.reset();
+        for (auto const& g : m_groups) {
+            for (auto const& c : g) {
+                m_pin.push_back(c.state);
+                if (c.target)
+                    m_pin.push_back(c.target);
+                m_branch.push_back(branch_component{ c.var, c.state, c.target });
+            }
+        }
+    }
     if (!m_config.m_model)
         return l_true;
     m_model.reset();
@@ -920,6 +933,7 @@ lbool seq_monadic::choose_cont(unsigned vi, unsigned s_offset, unsigned s_size, 
 lbool seq_monadic::decide(membership_vec const& memberships) {
     m_last_search_memberships = memberships;
     m_model.reset();
+    m_branch.reset();
     reset_search();                               // clear the caches before dropping the
     m_pin.reset();                                // pins that keep their keys alive
     m_rp_cache.maybe_reset(1u << 16);
@@ -948,8 +962,10 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
         else
             r = dfs_membership(0);
     }
-    if (r != l_true)
+    if (r != l_true) {
         m_model.reset();
+        m_branch.reset();
+    }
     m_last_search_result = r;
     return r;
 }
@@ -1059,8 +1075,11 @@ lbool seq_monadic::check() {
     m_core.reset();
     lbool r = decide(m_memberships);
     if (r == l_false) {
+        // minimize_core re-runs decide() on subsets, some of which are satisfiable
+        // and leave their model/branch behind; neither belongs to an unsat check().
         minimize_core(m_memberships);
         m_model.reset();
+        m_branch.reset();
     }
     m_last_result = r;
     return m_last_result;

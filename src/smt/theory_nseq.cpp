@@ -1022,6 +1022,7 @@ namespace smt {
                 m_nielsen.set_block_compression(get_fparams().m_nseq_block_compression);
                 m_nielsen.set_fine_wilf(get_fparams().m_nseq_fine_wilf);
                 m_nielsen.set_monadic_split(get_fparams().m_nseq_monadic_split);
+                m_nielsen.set_monadic_landing(get_fparams().m_nseq_monadic_landing);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
                 m_nielsen.set_regex_factorization_eager(get_fparams().m_nseq_regex_factorization_eager);
                 m_nielsen.set_regex_dynamic_decomposition(get_fparams().m_nseq_regex_dynamic_decomposition);
@@ -2072,6 +2073,12 @@ namespace smt {
         // SAT instance as UNSAT.  Guard by matching the leaf membership against the
         // root's input memberships (snode identity ⇒ same constraint).
         auto is_original_mem = [&](seq::str_mem const& mem) {
+            // The root only ever carries plain memberships, and the comparison below
+            // ignores the view annotation — so a land-state view whose (str, regex)
+            // happens to match an input membership would be misclassified as
+            // original.  A view is always a decomposition branch.
+            if (!mem.is_plain())
+                return false;
             for (auto const& rmem : m_nielsen.root()->str_mems())
                 if (rmem.m_str->id() == mem.m_str->id() &&
                     rmem.m_regex->id() == mem.m_regex->id())
@@ -2102,20 +2109,38 @@ namespace smt {
 
             unsigned_vector const &mem_indices = var_to_mems[var_id];
             euf::snode_vector regexes;
-            bool has_view_or_guard = false;
+            bool has_view = false;          // decide over the product (landing on)
+            bool has_view_or_guard = false; // skip, as before (landing off)
             bool has_derived = false;
             for (auto i : mem_indices) {
                 SASSERT(mems[i].well_formed());
                 regexes.push_back(mems[i].m_regex);
-                // Synthetic cycle variables carry a stabilizer view / cycle guard
-                // (Section 3.3) rather than a real regex; skip length coherence.
-                if (!mems[i].is_plain())
-                    has_view_or_guard = true;
+                // A land-state view does not denote its m_regex, so the plain
+                // check_intersection_emptiness path below cannot decide it.
+                //
+                // Historically such a variable was skipped outright, justified by
+                // views only ever pinning SYNTHETIC cycle variables whose length
+                // consistency follows from the decomposition — and by the Σ^l ∩ view
+                // value ladder not converging.  apply_monadic_landing breaks the
+                // first half: it pins USER variables, where skipping yields an
+                // INVALID MODEL (x·"ab"·x ∈ (ab)* forces |x| even, yet len(x)=3 went
+                // unchecked).  Those are decided over the product instead, below.
+                //
+                // The switch is tied to the flag rather than to the view itself: the
+                // second half of the old justification (the ladder) still stands, and
+                // with monadic landing off the behaviour must be exactly as before.
+                if (!mems[i].is_plain()) {
+                    if (get_fparams().m_nseq_monadic_landing)
+                        has_view = true;
+                    else
+                        has_view_or_guard = true;
+                }
                 // Factorization/decomposition-derived (branch-specific) membership:
                 // its length implication is not globally sound (see is_original_mem).
                 if (!is_original_mem(mems[i]))
                     has_derived = true;
             }
+
 
             // Skip length coherence for synthetic cycle variables constrained by a
             // stabilizer view / cycle guard (x'∈stab(R), noloop(x'',R)) introduced
@@ -2157,10 +2182,47 @@ namespace smt {
             expr_ref loop_l(m_seq.re.mk_loop_proper(allchar.get(), l, l), m);
 
             euf::snode const* sigmal_node = get_snode(loop_l.get());
-            regexes.push_back(sigmal_node);
-            SASSERT(regexes.size() > 1);
 
-            lbool result = m_regex.check_intersection_emptiness(regexes);
+            lbool result;
+            if (has_view) {
+                seq::dep_tracker vdep = nullptr;
+                result = m_nielsen.check_var_length_emptiness(s_node, *m_nielsen.sat_node(), l, vdep);
+            }
+            else {
+                regexes.push_back(sigmal_node);
+                SASSERT(regexes.size() > 1);
+                result = m_regex.check_intersection_emptiness(regexes);
+            }
+
+            if (result == l_true && has_view) {
+                // No closed-form intersection exists for a view, so neither the
+                // gradient nor the shortest-word jump applies: block this value.
+                // The view is a decomposition BRANCH, never an input membership, so
+                // has_derived holds and the block is attached branch-locally below.
+                expr_ref prop_expr(m.mk_not(m.mk_eq(len_expr, l_expr)), m);
+                if (!ctx.b_internalized(prop_expr))
+                    ctx.internalize(prop_expr, true);
+                literal lit_prop = ctx.get_literal(prop_expr);
+                SASSERT(has_derived);
+                seq::nielsen_node* leaf = m_nielsen.sat_node();
+                seq::dep_tracker dep = nullptr;
+                for (unsigned idx : mem_indices)
+                    dep = m_nielsen.dep_mgr().mk_join(dep, mems[idx].m_dep);
+                leaf->add_constraint(seq::constraint(prop_expr, dep, m));
+                ctx.mark_as_relevant(lit_prop);
+                switch (ctx.get_assignment(lit_prop)) {
+                case l_undef:
+                    ctx.privileged_split(lit_prop);
+                    break;
+                case l_false:
+                    leaf->set_external_conflict(lit_prop, dep);
+                    m_nielsen.clear_sat_node();
+                    break;
+                case l_true:
+                    break;
+                }
+                return false;
+            }
 
             if (result == l_true) {
                 // TODO: Incorporate that we might know the maximum length generated by a regex [in those cases, the

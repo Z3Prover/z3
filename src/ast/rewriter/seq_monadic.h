@@ -80,10 +80,21 @@ Author:
 #include <unordered_map>
 
 class seq_monadic {
+public:
+    // One component of the satisfying branch (see branch()).  This is the per-variable
+    // constraint the decomposition committed to, NOT a concrete value:
+    //   target != null : `var`'s value drives the derivative automaton from `state`
+    //                    to `target`                                (reach component)
+    //   target == null : `var`'s value is in L(state)          (membership component)
+    // A variable occurring several times contributes several entries; their
+    // conjunction is that variable's constraint on the branch.
+    struct branch_component { expr* var; expr* state; expr* target; };
 
+private:
     struct config {
         seq::transition_mode m_mode;
         bool m_model = true;  // whether solve()/check() extract a feasible model
+        bool m_branch = false; // whether solve()/check() record the satisfying branch
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
         bool m_state_search = true;  // use the state-based search driver (select next
                                      // membership by the last-expanded / most-frequent
@@ -119,6 +130,9 @@ class seq_monadic {
     config          m_config;
     statistics      m_stats;
     obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
+    // last recorded satisfying branch; see branch().  Snapshotted at the sat leaf
+    // because choose_cont pops m_groups on the way out, even on success.
+    vector<branch_component> m_branch;
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
     // Interval ("t-regex") form of a state's derivative cofactors over the character sort:
     // a canonical list of disjoint ranges in increasing order, each carrying the targets
@@ -315,6 +329,15 @@ public:
     // Enable/disable model generation (default: enabled).  When enabled, a successful
     // solve()/check() extracts a feasible model retrievable via get_model().
     void set_gen_model(bool b) { m_config.m_model = b; }
+
+    // Enable/disable recording of the satisfying branch (default: disabled).  Lets a
+    // caller consume the decomposition itself rather than a witness word.
+    void set_gen_branch(bool b) { m_config.m_branch = b; }
+
+    // The branch of the last solve()/check() that returned l_true; empty otherwise.
+    // The state/target terms are pinned by the solver and stay valid until the next
+    // solve()/check(), exactly like get_model()'s witnesses.
+    vector<branch_component> const& branch() const { return m_branch; }
 
     // The model extracted by the last successful solve()/check(): var -> witness,
     // where each witness is a concrete sequence term (over the element sort) giving one

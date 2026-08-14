@@ -327,6 +327,7 @@ namespace seq {
     // decomposition (paper §5.3) needs no guard.
     enum class mem_kind : unsigned char { plain, stab_view };
 
+
     // regex membership constraint: str in regex
     struct str_mem {
         ast_manager& m;
@@ -641,6 +642,13 @@ namespace seq {
         // into the resource/node budget and degrades to unknown — the sound
         // direction for an LP timeout.  Sticky so it survives hot restart.
         bool                    m_is_arith_split = false;
+        // Sticky marker: true if this node is the "did not take the monadic
+        // decomposition" branch of apply_monadic_landing (child B).  Child B is an
+        // exact clone of its parent, so it aliases the parent's string signature
+        // and needs the same exemptions as an rf continuation (is_signature_alias).
+        // It is ALSO the modifier's re-fire guard: seq_monadic is deterministic, so
+        // re-running it on child B would return the same branch forever.
+        bool                    m_is_monadic_cont = false;
         // Fine & Wilf refire guard: directional keys of equations this node
         // (or an ancestor, via clone_from) has already been F&W-split on
         // (apply_fine_wilf).  The symbolic small-overlap child keeps the
@@ -723,16 +731,23 @@ namespace seq {
         bool is_arith_split() const { return m_is_arith_split; }
         void set_arith_split() { m_is_arith_split = true; }
 
+        // "did not take the monadic decomposition" branch (see m_is_monadic_cont).
+        bool is_monadic_cont() const { return m_is_monadic_cont; }
+        void set_monadic_cont() { m_is_monadic_cont = true; }
+
         // Fine & Wilf refire guard (see m_fw_applied).
         bool fw_applied(uint64_t key) const { return m_fw_applied.contains(key); }
         void mark_fw_applied(uint64_t key) { m_fw_applied.push_back(key); }
 
         // True if this node structurally aliases its parent's string signature
-        // without being a recurrence: a factorization continuation (pending splits)
-        // or an arithmetic-split child (pending LP resolution of its branch
-        // constraint).  Such nodes are exempt from the sibling loop-cut and from
-        // the unsat transposition cache (lookup AND insertion) in search_dfs.
-        bool is_signature_alias() const { return m_is_rf_cont || m_is_arith_split; }
+        // without being a recurrence: a factorization continuation (pending splits),
+        // an arithmetic-split child (pending LP resolution of its branch
+        // constraint), or the monadic-landing "did not take it" branch.  Such nodes
+        // are exempt from the sibling loop-cut and from the unsat transposition
+        // cache (lookup AND insertion) in search_dfs.
+        bool is_signature_alias() const {
+            return m_is_rf_cont || m_is_arith_split || m_is_monadic_cont;
+        }
 
         // returns 0 if hash is unknown
         unsigned hash() const {
@@ -896,6 +911,7 @@ namespace seq {
         unsigned m_mod_gpower_intr     = 0;
         unsigned m_mod_regex_factorization = 0;
         unsigned m_mod_monadic_split   = 0;
+        unsigned m_mod_monadic_landing = 0;
         unsigned m_mod_const_nielsen   = 0;
         unsigned m_mod_block_compression = 0;
         unsigned m_block_chars_consumed  = 0;
@@ -978,6 +994,7 @@ namespace seq {
         unsigned                      m_block_compression = 4;
         bool                          m_fine_wilf = false;
         bool                          m_monadic_split = false;
+        bool                          m_monadic_landing = false;
         unsigned                      m_regex_factorization_threshold = 1;
         bool                          m_regex_factorization_eager = false;
         bool                          m_regex_dynamic_decomposition = true;
@@ -1094,6 +1111,13 @@ namespace seq {
         // been recorded into the partial DFA (lazy, once-per-component Q growth;
         // see ensure_automaton_explored).
         uint_set                      m_explored_automaton;
+        // Regexes whose forward-reachable automaton is recorded COMPLETELY (the
+        // exploration queue drained without hitting the budget or the resource
+        // limit).  m_explored_automaton alone cannot say this: a truncated run
+        // still marks the states it processed, so a later call returns early.
+        // Completeness is what lets a ν-snapshot denote the whole reach language —
+        // see apply_monadic_landing.
+        uint_set                      m_fully_explored;
 
         // Active-path index for the subsumption rule, keyed structurally (nodes
         // with identical string constraints share a bucket).  While a node is on
@@ -1191,6 +1215,15 @@ namespace seq {
         // length (Σ^len factor).  Returns true and sets `out` on success.  Used
         // for view-constrained variables at a SAT leaf, where a land-state view
         // (F={s}, s≠head) does not denote a plain regex and ε may be inadmissible.
+        // Emptiness of  (⋂ var's primitive constraints) ∩ Σ^len  over the product.
+        // Needed wherever a variable carries a land-state view: a view's language is
+        // NOT its m_regex, so seq_regex::check_intersection_emptiness — which takes
+        // plain regex snodes — cannot decide it.
+        // l_true = empty (no word of that length), l_false = non-empty,
+        // l_undef = the product search was inconclusive.
+        lbool check_var_length_emptiness(euf::snode const* var, nielsen_node const& node,
+                                         unsigned len, dep_tracker& dep);
+
         bool product_witness(euf::snode const* var, nielsen_node const& node,
                              unsigned len, zstring& out);
 
@@ -1230,6 +1263,7 @@ namespace seq {
         void set_fine_wilf(bool e) { m_fine_wilf = e; }
 
         void set_monadic_split(bool e) { m_monadic_split = e; }
+        void set_monadic_landing(bool e) { m_monadic_landing = e; }
 
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
         void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
@@ -1406,6 +1440,7 @@ namespace seq {
         // l_true: feasible; l_false: some intersection empty (dep set);
         // l_undef: product-search budget exhausted — must not be treated as SAT.
         lbool check_leaf_regex(nielsen_node const& node, dep_tracker& dep);
+
 
         // -------------------------------------------------------------------
         // Synchronous product over plain / view / guard / co-view components
@@ -1733,7 +1768,11 @@ namespace seq {
         // concrete children to record them one level at a time.
         // Lazily record the complete reachable automaton of root_re into the
         // partial DFA, once per regex component (cached in m_explored_automaton).
-        void ensure_automaton_explored(euf::snode const* root_re);
+        // Returns true when the reachable automaton of `root_re` is recorded in
+        // FULL; false when the walk was cut short by the state budget or the
+        // resource limit (Q stays a sound under-approximation, which is all the
+        // landing escapes need, but not enough to treat Q as the whole automaton).
+        bool ensure_automaton_explored(euf::snode const* root_re);
 
         // generalized power introduction: for an equation where one head is
         // a variable v and the other side has ground prefix + a variable x
@@ -1760,9 +1799,34 @@ namespace seq {
         // Abstract a membership subject into the term shape seq_monadic parses
         // (a concatenation of constant characters and 0-ary constants), pinning the
         // constructed terms in `pin` and reporting in `unit_vars` the constants that
-        // stand for symbolic characters (length exactly 1).  false: the subject is ground.
+        // stand for symbolic characters (length exactly 1).  Every abstracted token
+        // is appended to `tokens` as (token, its constant), so a caller can map
+        // seq_monadic's answer back onto the node.  false: the subject is ground.
         bool monadic_abstract_subject(euf::snode const* str, expr_ref_vector& pin,
-                                      ptr_vector<expr>& unit_vars, expr_ref& out);
+                                      ptr_vector<expr>& unit_vars,
+                                      vector<std::pair<euf::snode const*, expr*>>& tokens,
+                                      expr_ref& out);
+
+        // Allocate m_monadic on first use.
+        void ensure_monadic();
+
+        // whole-language monadic decomposition as a BRANCHING rule.  Where
+        // apply_monadic_split consumes only seq_monadic's refutation, this consumes
+        // its satisfying BRANCH: the per-variable reach/membership components of one
+        // disjunct of
+        //     x·u ∈ R  ⟺  ⋁_{q live} ( x drives A_R from R to q  ∧  u ∈ q ),
+        // emitted as land-state views (§1.4b) and plain memberships on the variables
+        // themselves.  That makes the node's memberships PRIMITIVE in one step,
+        // instead of grinding the subject down by splitting.
+        //
+        // Binary split, mirroring apply_regex_factorization:
+        //   child A — the covered memberships replaced by the branch's components;
+        //   child B — an exact clone that keeps them (set_monadic_cont), extended by
+        //             the ordinary modifiers.
+        // Child B alone already covers the node, so the split is trivially
+        // exhaustive and child A is a pure shortcut: no completeness obligation on
+        // the branch, and no resumption of seq_monadic's search is needed.
+        bool apply_monadic_landing(nielsen_node* node);
 
         // Build a suspended factorization (boundary head/tail + split iterator)
         // for `mem`.  Returns null if the regex shape is unsupported (the engine

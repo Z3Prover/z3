@@ -404,12 +404,12 @@ namespace seq {
     // resource limit.
     // -----------------------------------------------------------------------
 
-    void nielsen_graph::ensure_automaton_explored(euf::snode const* root_re) {
+    bool nielsen_graph::ensure_automaton_explored(euf::snode const* root_re) {
         SASSERT(root_re);
         if (!root_re->is_ground())
-            return;
+            return false;
         if (m_explored_automaton.contains(root_re->get_expr()->get_id()))
-            return;
+            return m_fully_explored.contains(root_re->get_expr()->get_id());
 
         // Per-call cap on eagerly explored states.  Components that overflow
         // it fall back to the paper's lazy escape-driven exploration.
@@ -419,18 +419,31 @@ namespace seq {
 
         svector<euf::snode const*> queue;
         queue.push_back(root_re);
+        // States dequeued on THIS walk.  If the queue drains, every one of them has
+        // its full reachable set recorded (reachability is transitive), so they can
+        // all be marked complete — not just the root.
+        unsigned_vector walked;
+        // A state already in m_explored_automaton is skipped WITHOUT re-enqueuing its
+        // successors, so this walk learns nothing about what lies beyond it.  If that
+        // state is not itself known complete (an earlier walk may have been truncated
+        // right after expanding it), draining our queue proves nothing.
+        bool complete = true;
 
         while (!queue.empty()) {
             if (!m.inc())
-                return; // resource limit: leave Q partial (sound under-approx)
+                return false; // resource limit: leave Q partial (sound under-approx)
             euf::snode const* re = queue.back();
             queue.pop_back();
             const unsigned re_eid = re->get_expr()->get_id();
-            if (m_explored_automaton.contains(re_eid))
+            if (m_explored_automaton.contains(re_eid)) {
+                if (!m_fully_explored.contains(re_eid))
+                    complete = false;
                 continue; // already explored (here or in a previous component)
+            }
             if (processed++ >= exploration_budget)
-                return; // budget: leave the remainder to the escape branches
+                return false; // budget: leave the remainder to the escape branches
             m_explored_automaton.insert(re_eid);
+            walked.push_back(re_eid);
 
             euf::snode_vector mts;
             m_sg.compute_minterms(re, mts);
@@ -443,6 +456,14 @@ namespace seq {
                     queue.push_back(deriv);
             }
         }
+        // The queue drained AND nothing we skipped was of unknown depth: every state
+        // walked here has its whole reachable set recorded, so Q may be treated as
+        // the full automaton from any of them.
+        if (!complete)
+            return false;
+        for (const unsigned id : walked)
+            m_fully_explored.insert(id);
+        return true;
     }
 
     // -----------------------------------------------------------------------
@@ -825,6 +846,20 @@ namespace seq {
             found = true;
         }
         return found;
+    }
+
+    lbool nielsen_graph::check_var_length_emptiness(euf::snode const* var, nielsen_node const& node,
+                                                    unsigned len, dep_tracker& dep) {
+        vector<prod_comp> comps;
+        collect_var_components(var, node, comps, dep);
+        if (comps.empty())
+            return l_false;   // unconstrained: every length is realizable
+        sort* re_sort = comps[0].m_state ? comps[0].m_state->get_expr()->get_sort() : nullptr;
+        if (!re_sort)
+            return l_undef;
+        const expr_ref sigma_n(m_seq.re.mk_loop(m_seq.re.mk_full_char(re_sort), len, len), m);
+        comps.push_back(prod_comp::mk_plain(m_sg.mk(sigma_n)));
+        return check_product_emptiness(comps, 5000);
     }
 
     bool nielsen_graph::product_witness(euf::snode const* var, nielsen_node const& node,

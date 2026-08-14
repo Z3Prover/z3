@@ -67,6 +67,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_signature = p.nseq_signature();
     m_nseq_fine_wilf = p.nseq_fine_wilf();
     m_nseq_monadic_split = p.nseq_monadic_split();
+    m_nseq_monadic_landing = p.nseq_monadic_landing();
     m_nseq_axiomatize_diseq = p.nseq_axiomatize_diseq();
     m_nseq_eager = p.nseq_eager();
     m_nseq_harvest = p.nseq_harvest();
@@ -189,6 +190,7 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nseq_regex_dynamic_decomposition);
     DISPLAY_PARAM(m_nseq_fine_wilf);
     DISPLAY_PARAM(m_nseq_monadic_split);
+    DISPLAY_PARAM(m_nseq_monadic_landing);
     DISPLAY_PARAM(m_nseq_axiomatize_diseq);
     DISPLAY_PARAM(m_nseq_harvest);
 

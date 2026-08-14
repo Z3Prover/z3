@@ -720,7 +720,9 @@ namespace seq {
     // -----------------------------------------------------------------------
     // Modifier: apply_monadic_split  (whole-language monadic decomposition)
     bool nielsen_graph::monadic_abstract_subject(euf::snode const* str, expr_ref_vector& pin,
-                                                 ptr_vector<expr>& unit_vars, expr_ref& out) {
+                                                 ptr_vector<expr>& unit_vars,
+                                                 vector<std::pair<euf::snode const*, expr*>>& tokens,
+                                                 expr_ref& out) {
         expr_ref_vector args(m);
         bool has_var = false;
         for (euf::snode const* t : *str) {
@@ -735,6 +737,7 @@ namespace seq {
             // A symbolic character has unknown value but length exactly 1.
             if (t->is_unit())
                 unit_vars.push_back(v);
+            tokens.push_back({ t, v.get() });
             args.push_back(v);
             has_var = true;
         }
@@ -745,6 +748,14 @@ namespace seq {
         return true;
     }
 
+    void nielsen_graph::ensure_monadic() {
+        if (m_monadic)
+            return;
+        m_monadic = alloc(seq_monadic, m_monadic_rw, m_monadic_trail);
+        // Conflict-only by default: apply_monadic_split consumes no witness.
+        m_monadic->set_gen_model(false);
+    }
+
     bool nielsen_graph::apply_monadic_split(nielsen_node* node) {
         if (!m_monadic_split)
             return false;
@@ -752,11 +763,7 @@ namespace seq {
         if (mems.empty())
             return false;
 
-        if (!m_monadic) {
-            m_monadic = alloc(seq_monadic, m_monadic_rw, m_monadic_trail);
-            // Conflict-only use: no witness is ever consumed, so skip model extraction.
-            m_monadic->set_gen_model(false);
-        }
+        ensure_monadic();
 
         // Abstract the plain memberships once; `src` maps back to the mems index.
         expr_ref_vector pin(m);
@@ -771,7 +778,8 @@ namespace seq {
                 continue;
             expr_ref term(m);
             ptr_vector<expr> uvars;
-            if (!monadic_abstract_subject(mi.m_str, pin, uvars, term))
+            vector<std::pair<euf::snode const*, expr*>> toks;
+            if (!monadic_abstract_subject(mi.m_str, pin, uvars, toks, term))
                 continue;
             if (!m_monadic->can_decide_term(term))
                 continue;
@@ -837,6 +845,214 @@ namespace seq {
         for (unsigned k = 0; k < n; ++k)
             all.push_back(k);
         return close(all);
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_monadic_landing  (monadic decomposition as a branching rule)
+    bool nielsen_graph::apply_monadic_landing(nielsen_node* node) {
+        if (!m_monadic_landing)
+            return false;
+        // Never fire on a node that aliases its parent's string signature.  Three
+        // reasons, and all three are needed:
+        //  - our own child B: seq_monadic is deterministic, so re-running it would
+        //    return the same branch forever;
+        //  - a factorization continuation: it holds a LIVE split iterator that
+        //    neither of our children would inherit, so firing here silently discards
+        //    the suspended enumeration (and with it the "iterator exhausted ⇒ the
+        //    split disjunction is refuted" conflict);
+        //  - any exact clone (arith split, and the clones the two cases above
+        //    create): m_is_monadic_cont is NOT copied by clone_from, so a guard
+        //    keyed on it alone lets a constraint-identical descendant re-fire.  All
+        //    such nodes are is_signature_alias() and therefore exempt from the
+        //    sibling loop cut AND the unsat cache, so nothing would stop the
+        //    resulting N → B → B_B → … descent; the edges are progress edges, so the
+        //    depth bound does not stop it either.
+        // The parent has already had its chance on the identical constraint set, so
+        // no applicable branch is lost.
+        if (node->is_signature_alias())
+            return false;
+
+        ensure_monadic();   // can_decide_term is used while collecting, below
+
+        // Variables constrained by a residual word (dis)equation.  seq_monadic never
+        // sees those, so an `l_true` about a membership on such a variable says
+        // nothing about the NODE — the equation can still be unsatisfiable with it.
+        // Emitting child A there is pure overhead, and it is not symmetric: child B
+        // already carries the whole problem, so on an UNSAT node child A is an extra
+        // subtree to refute that can never pay off (there is no model to find).
+        // Measured on noodles-unsat-2/harvest_000002: 16 such firings took the search
+        // from 10 to 326 DFS nodes and 0.07 s to 6.0 s, inside ONE solve() call.
+        // Where the variables ARE disjoint the two subproblems are independent and
+        // the answer is informative again, so equations as such are not the gate.
+        uint_set eq_vars;
+        auto note_vars = [&](euf::snode const* s) {
+            euf::snode_vector toks;
+            s->collect_tokens(toks);
+            for (euf::snode const* t : toks) {
+                if (t->is_var())
+                    eq_vars.insert(t->id());
+            }
+        };
+        for (str_eq const& eq : node->str_eqs()) {
+            if (eq.is_trivial())
+                continue;
+            note_vars(eq.m_lhs);
+            note_vars(eq.m_rhs);
+        }
+        for (str_deq const& dq : node->str_deqs()) {
+            note_vars(dq.m_lhs);
+            note_vars(dq.m_rhs);
+        }
+
+        auto const& mems = node->str_mems();
+        unsigned_vector covered;      // indices into mems fed to the engine
+        bool any_non_primitive = false;
+        expr_ref_vector pin(m);
+        vector<std::pair<expr*, expr*>> abstracted;
+        vector<std::pair<euf::snode const*, expr*>> tokens;   // token -> its constant
+        dep_tracker dep = nullptr;
+
+        for (unsigned i = 0; i < mems.size(); ++i) {
+            str_mem const& mi = mems[i];
+            // A view is owned by the landing machinery; an unresolved ite residual
+            // belongs to apply_regex_if_split.
+            if (!mi.is_plain() || mi.m_regex->is_ite())
+                continue;
+            expr_ref term(m);
+            ptr_vector<expr> uvars;
+            vector<std::pair<euf::snode const*, expr*>> toks;
+            if (!monadic_abstract_subject(mi.m_str, pin, uvars, toks, term))
+                continue;   // ground subject: nothing to decompose
+            // Only a free, non-rigid variable denotes an unconstrained word.  A
+            // power / replace / symbolic-character token abstracts to an
+            // unconstrained constant, so the components the engine returns would
+            // not be implied by the node — and here we USE them, we do not merely
+            // refute with them.
+            if (!uvars.empty())
+                continue;
+            if (any_of(toks, [](auto const& p) { return !p.first->is_var() || p.first->is_rigid(); }))
+                continue;
+            // Shares a variable with a residual equation: the engine's answer would
+            // not be informative about the node — see eq_vars above.
+            if (any_of(toks, [&](auto const& p) { return eq_vars.contains(p.first->id()); }))
+                continue;
+            if (!m_monadic->can_decide_term(term))
+                continue;
+            if (!mi.is_primitive())
+                any_non_primitive = true;
+            for (auto const& t : toks) {
+                if (!any_of(tokens, [&](auto const& p) { return p.first == t.first; }))
+                    tokens.push_back(t);
+            }
+            abstracted.push_back({ term.get(), mi.m_regex->get_expr() });
+            covered.push_back(i);
+            dep = m_dep_mgr.mk_join(dep, mi.m_dep);
+        }
+        // Nothing to gain unless some membership is actually non-primitive: on an
+        // all-primitive node check_leaf_regex already decides the same question.
+        if (!any_non_primitive || tokens.empty())
+            return false;
+
+        m_monadic_trail.push_scope();
+        m_monadic->set_gen_branch(true);
+        for (auto const& [term, re] : abstracted)
+            m_monadic->add(term, re, nullptr);
+        const lbool r = m_monadic->check();
+        // Copy the branch out before the scope is popped.
+        vector<seq_monadic::branch_component> branch;
+        if (r == l_true)
+            branch.append(m_monadic->branch());
+        m_monadic->set_gen_branch(false);
+        m_monadic_trail.pop_scope(1);
+
+        // l_false is apply_monadic_split's business (it carries the deps a conflict
+        // clause needs); l_undef means the engine gave up.
+        if (r != l_true || branch.empty())
+            return false;
+
+        // Map each component back onto the node.
+        //
+        // A reach component means "drive the automaton from `state` to `target`",
+        // with no region restriction, whereas a view is gated on Q_ν.  The two
+        // coincide exactly when Q_ν contains every state a run from `state` can
+        // visit — which holds when Q_ν is the COMPLETE reachable set of the
+        // membership's regex, since a run from a state reachable from R stays
+        // inside the states reachable from R.  So the ν minted per covered
+        // membership is usable iff its automaton was explored in full, and each
+        // component picks the ν whose region actually contains its states.
+        //
+        // Testing membership in the region does double duty: it also verifies that
+        // seq_monadic's state terms canonicalize (via mk_rewrite) onto the same
+        // snodes the partial DFA was built from.  If they do not, the state is not
+        // in any region and we bail instead of emitting a dead child.
+        unsigned_vector nus;
+        for (unsigned i : covered) {
+            euf::snode const* R = mems[i].m_regex;
+            unsigned nu = 0;
+            if (R->is_ground() && ensure_automaton_explored(R))
+                nu = mark_reachable_projection_edges(R);
+            nus.push_back(nu);
+        }
+
+        auto region_for = [&](euf::snode const* a, euf::snode const* b) {
+            for (unsigned nu : nus) {
+                if (nu == 0)
+                    continue;
+                if (!projection_state_in_Q(a->get_expr(), nu))
+                    continue;
+                if (b && !projection_state_in_Q(b->get_expr(), nu))
+                    continue;
+                return nu;
+            }
+            return 0u;
+        };
+
+        vector<str_mem> components;
+        for (auto const& c : branch) {
+            euf::snode const* tok = nullptr;
+            for (auto const& [t, v] : tokens) {
+                if (v == c.var) { tok = t; break; }
+            }
+            if (!tok)
+                return false;
+            euf::snode const* state = mk_rewrite(c.state);
+            if (!state)
+                return false;
+            if (!c.target) {
+                components.push_back(str_mem(m, tok, state, dep));
+                continue;
+            }
+            euf::snode const* target = mk_rewrite(c.target);
+            if (!target)
+                return false;
+            const unsigned nu = region_for(state, target);
+            if (nu == 0)
+                return false;
+            components.push_back(str_mem::mk_view(m, tok, state, target, nu, dep));
+        }
+
+        // child A — the covered memberships replaced by the branch's components.
+        // Each component implies its membership, so the child is a STRENGTHENING
+        // of the node: sound as one disjunct.
+        nielsen_node* child_a = mk_child(node);
+        mk_edge(node, child_a, "monadic landing", true);
+        auto& child_mems = child_a->str_mems();
+        for (unsigned k = covered.size(); k-- > 0; ) {
+            child_mems[covered[k]] = child_mems.back();
+            child_mems.pop_back();
+        }
+        for (auto const& c : components)
+            child_a->add_str_mem(c);
+
+        // child B — the node unchanged.  It alone covers everything the parent
+        // denotes, so the split is exhaustive and child A costs no completeness.
+        nielsen_node* child_b = mk_child(node);
+        mk_edge(node, child_b, "monadic landing rest", true);
+        child_b->set_monadic_cont();
+
+        TRACE(seq, tout << "monadic landing: " << covered.size() << " membership(s) -> "
+                        << components.size() << " component(s)\n");
+        return true;
     }
 
     bool nielsen_graph::apply_regex_if_split(nielsen_node *node) {

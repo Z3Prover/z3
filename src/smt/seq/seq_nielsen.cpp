@@ -627,6 +627,7 @@ namespace seq {
         m_projection_snapshots.clear();
         m_projection_head_cache.clear();
         m_explored_automaton.reset();
+        m_fully_explored.reset();
         m_unsat_node_cache.clear();
         m_siblings.clear();
         m_num_cache_hits = 0;
@@ -1119,6 +1120,7 @@ namespace seq {
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
         st.update("nseq mod regex fact",       m_stats.m_mod_regex_factorization);
         st.update("nseq mod monadic split",    m_stats.m_mod_monadic_split);
+        st.update("nseq mod monadic landing",  m_stats.m_mod_monadic_landing);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
         st.update("nseq mod block compr",      m_stats.m_mod_block_compression);
         st.update("nseq block chars",          m_stats.m_block_chars_consumed);
