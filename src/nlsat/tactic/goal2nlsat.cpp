@@ -80,6 +80,8 @@ struct goal2nlsat::imp {
         m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_factor       = p.get_bool("factor", true);  
         m_fparams.updt_params(p);
+        if (!p.contains("num_primes"))
+            m_fparams.m_p_trials = 4;
     }
 
     nlsat::atom::kind flip(nlsat::atom::kind k) {
@@ -442,5 +444,4 @@ nlsat2goal::~nlsat2goal() {
 expr_ref nlsat2goal::operator()(nlsat::solver& s, u_map<expr*> const& b2a, u_map<expr*> const& x2t, nlsat::literal l) {
     return (*m_imp)(s, b2a, x2t, l);
 }
-
 

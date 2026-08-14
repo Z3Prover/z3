@@ -300,6 +300,50 @@ void test_strict_real_maximize() {
     Z3_del_context(ctx);
 }
 
+static void test_qfnra_degree80_square_bound() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+
+    Z3_params p = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, p);
+    Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "timeout"), 5000);
+    Z3_solver_set_params(ctx, s, p);
+    Z3_params_dec_ref(ctx, p);
+
+    Z3_sort real_sort = Z3_mk_real_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), real_sort);
+    Z3_ast y = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), real_sort);
+
+    auto mk_real = [&](int num, int den = 1) { return Z3_mk_real(ctx, num, den); };
+    auto mk_mul = [&](Z3_ast a, Z3_ast b) { Z3_ast args[] = { a, b }; return Z3_mk_mul(ctx, 2, args); };
+    auto mk_pow = [&](Z3_ast base, unsigned power) {
+        Z3_ast result = mk_real(1);
+        Z3_ast factor = base;
+        while (power > 0) {
+            if (power & 1)
+                result = mk_mul(result, factor);
+            power >>= 1;
+            if (power > 0)
+                factor = mk_mul(factor, factor);
+        }
+        return result;
+    };
+
+    Z3_solver_assert(ctx, s, Z3_mk_ge(ctx, x, mk_real(1)));
+    Z3_solver_assert(ctx, s, Z3_mk_le(ctx, x, mk_real(100)));
+    Z3_solver_assert(ctx, s, Z3_mk_ge(ctx, y, mk_real(0)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, mk_pow(y, 80), x));
+    Z3_solver_assert(ctx, s, Z3_mk_lt(ctx, y, mk_real(1)));
+    ENSURE(Z3_solver_check(ctx, s) == Z3_L_FALSE);
+
+    Z3_solver_dec_ref(ctx, s);
+    Z3_del_context(ctx);
+}
+
 void tst_api() {
     test_apps();
     test_mk_app_polymorphic_arity();
@@ -308,6 +352,7 @@ void tst_api() {
     test_optimize_translate();
     test_optimize_arith_params();
     test_strict_real_maximize();
+    test_qfnra_degree80_square_bound();
 }
 
 void test_max_rev() {
