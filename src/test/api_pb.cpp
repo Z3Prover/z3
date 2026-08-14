@@ -166,5 +166,34 @@ void tst_api_pb() {
         ENSURE(empty_pbeq != nullptr);
     }
 
+    // Test thresholds that exceed the number of arguments.
+    // The conversion to cardinality constraints in the sat solver used to
+    // underflow on these, turning satisfiable constraints into unsatisfiable ones.
+    {
+        Z3_ast vars[] = {x, y, z};
+        Z3_tactic sat_tactic = Z3_mk_tactic(ctx, "sat");
+        Z3_tactic_inc_ref(ctx, sat_tactic);
+        Z3_solver s = Z3_mk_solver_from_tactic(ctx, sat_tactic);
+        Z3_solver_inc_ref(ctx, s);
+
+        Z3_solver_assert(ctx, s, Z3_mk_atmost(ctx, 3, vars, 5));
+        ENSURE(Z3_solver_check(ctx, s) == Z3_L_TRUE);
+
+        Z3_solver_reset(ctx, s);
+        Z3_solver_assert(ctx, s, Z3_mk_not(ctx, Z3_mk_atleast(ctx, 3, vars, 5)));
+        ENSURE(Z3_solver_check(ctx, s) == Z3_L_TRUE);
+
+        Z3_solver_reset(ctx, s);
+        Z3_solver_assert(ctx, s, Z3_mk_atleast(ctx, 3, vars, 5));
+        ENSURE(Z3_solver_check(ctx, s) == Z3_L_FALSE);
+
+        Z3_solver_reset(ctx, s);
+        Z3_solver_assert(ctx, s, Z3_mk_not(ctx, Z3_mk_atmost(ctx, 3, vars, 5)));
+        ENSURE(Z3_solver_check(ctx, s) == Z3_L_FALSE);
+
+        Z3_solver_dec_ref(ctx, s);
+        Z3_tactic_dec_ref(ctx, sat_tactic);
+    }
+
     Z3_del_context(ctx);
 }
