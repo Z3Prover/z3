@@ -1924,6 +1924,9 @@ namespace algebraic_numbers {
                 algebraic_cell * c = a.to_algebraic();
                 upm().p_minus_x(c->m_p_sz, c->m_p);
                 bqim().neg(c->m_interval);
+                // Preserve a materialized root-object index under p(x) -> p(-x).
+                if (c->m_i != 0)
+                    c->m_i = upm().get_root_id(c->m_p_sz, c->m_p, lower(c)) + 1;
                 update_sign_lower(c);
                 SASSERT(acell_inv(*c));
             }

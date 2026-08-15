@@ -100,6 +100,40 @@ void tst_api_algebraic() {
         ENSURE(Z3_algebraic_eq(ctx, result, four));
     }
 
+    // Test that negation mirrors a materialized algebraic root index.
+    {
+        Z3_ast zero = Z3_mk_real(ctx, 0, 1);
+        Z3_ast two = Z3_mk_real(ctx, 2, 1);
+        Z3_ast three = Z3_mk_real(ctx, 3, 1);
+        Z3_ast sqrt2 = Z3_algebraic_root(ctx, two, 2);
+        Z3_ast sqrt3 = Z3_algebraic_root(ctx, three, 2);
+
+        ENSURE(Z3_algebraic_get_i(ctx, sqrt2) == 2);
+        Z3_ast neg_sqrt2 = Z3_algebraic_sub(ctx, zero, sqrt2);
+        ENSURE(Z3_algebraic_get_i(ctx, neg_sqrt2) == 1);
+        ENSURE(Z3_algebraic_sign(ctx, neg_sqrt2) < 0);
+
+        Z3_ast cbrt2 = Z3_algebraic_root(ctx, two, 3);
+        ENSURE(Z3_algebraic_get_i(ctx, cbrt2) == 1);
+        Z3_ast neg_cbrt2 = Z3_algebraic_sub(ctx, zero, cbrt2);
+        ENSURE(Z3_algebraic_get_i(ctx, neg_cbrt2) == 1);
+        ENSURE(Z3_algebraic_sign(ctx, neg_cbrt2) < 0);
+
+        Z3_ast big = Z3_algebraic_add(ctx, sqrt2, sqrt3);
+        ENSURE(Z3_algebraic_get_i(ctx, big) == 4);
+        Z3_ast neg_big = Z3_algebraic_sub(ctx, zero, big);
+        ENSURE(Z3_algebraic_get_i(ctx, neg_big) == 1);
+        ENSURE(Z3_algebraic_sign(ctx, neg_big) < 0);
+
+        // Roots of x^4 - 10*x^2 + 1 are ordered as
+        // -sqrt3-sqrt2 < sqrt2-sqrt3 < sqrt3-sqrt2 < sqrt3+sqrt2.
+        Z3_ast mid = Z3_algebraic_add(ctx, neg_sqrt2, sqrt3);
+        ENSURE(Z3_algebraic_get_i(ctx, mid) == 3);
+        Z3_ast neg_mid = Z3_algebraic_sub(ctx, zero, mid);
+        ENSURE(Z3_algebraic_get_i(ctx, neg_mid) == 2);
+        ENSURE(Z3_algebraic_sign(ctx, neg_mid) < 0);
+    }
+
     // Test Z3_algebraic_mul
     {
         Z3_ast three = Z3_mk_real(ctx, 3, 1);
