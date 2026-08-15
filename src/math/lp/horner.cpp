@@ -104,9 +104,6 @@ bool horner::horner_lemmas() {
         TRACE(nla_solver, tout << "not generating horner lemmas\n";);
         return false;
     }
-    // core::check already ran optimize_nl_bounds() before scheduling the
-    // nonlinear engines and returned when it left nothing to refine; the guard
-    // stays for safety.
     if (c().to_refine().empty()) {
         c().set_nla_satisfied();
         return false;

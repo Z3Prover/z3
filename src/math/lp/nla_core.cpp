@@ -1303,10 +1303,6 @@ lbool core::check(unsigned level) {
     patch_monomials();
     set_use_nra_model(false);
     if (m_to_refine.empty()) {
-        // A check that needs no nonlinear work is a sign of a healthy search:
-        // wind the eager-squeeze breaker down (see below). Decay rather than
-        // reset, so occasional healthy checks inside a squeeze-driven divergence
-        // do not keep re-arming eager mode.
         m_squeezes_without_progress /= 2;
         return l_true;
     }
@@ -1326,21 +1322,8 @@ lbool core::check(unsigned level) {
     if (no_effect() && refine_pseudo_linear())
         return l_false;
 
-    // Squeeze the bounds of monomial variables over the tableau (the analog of
-    // theory_arith's max_min_nl_vars) before any nonlinear engine runs. The
-    // implied bounds, each carrying an LP explanation, propagate back to the
-    // search; the squeeze also pins monomial variables at bounds or pivots them
-    // into the basis, so the engines see a tighter tableau. If it proves every
-    // monomial consistent the round ends before Grobner saturates or nlsat runs.
-    // Squeezing every call pays off only while the squeeze keeps finding better
-    // bounds; after a streak of fruitless calls fall back to the horner cadence,
-    // where a productive squeeze re-arms the eager mode.
-    // A long run of squeezes with no check ever finding its monomials already
-    // consistent is the signature of a lemma loop (squeezed bounds feed
-    // Grobner/Horner lemmas whose bounds are popped and re-derived forever):
-    // m_squeezes_without_progress then shuts the squeeze off entirely as a
-    // circuit breaker. The counter halves on every check that needs no
-    // nonlinear work, so a healthy search re-arms it.
+    // Squeeze monomial bounds eagerly while it helps, otherwise on the horner
+    // cadence; disable after too many fruitless calls.
     bool squeeze_enabled = m_squeezes_without_progress < 50;
     bool eager_squeeze = m_squeeze_fail_streak < 3;
     bool squeeze_cadence = lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0;
@@ -1461,13 +1444,7 @@ lbool core::bounded_nlsat() {
     p.set_uint("max_conflicts", lp_settings().m_max_conflicts);            
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
-    // A probe pays off only when it finds a conflict: re-engage eagerly then.
-    // Both other outcomes - l_true (an expensive confirmation that the current
-    // nonlinear state is satisfiable) and l_undef (the probe budget ran out) -
-    // back off exponentially, so a search whose quiet rounds keep getting the
-    // same answer stops paying ~100K rlimit for it every few rounds. The final
-    // full nra check (level >= 2) is not delayed, so completeness on satisfiable
-    // goals is unaffected.
+    // On a conflict re-engage, otherwise back off.
     if (ret == l_false)
         m_nlsat_delay_bound /= 2;
     else if (m_nlsat_delay_bound < (1u << 20))
