@@ -225,7 +225,7 @@ extern "C" {
     /**
        \brief Return the coefficients of the defining polynomial.
 
-       \pre Z3_algebraic_is_value(c, a)
+       \pre Z3_is_algebraic_number(c, a)
 
        def_API('Z3_algebraic_get_poly', AST_VECTOR, (_in(CONTEXT), _in(AST)))
     */
@@ -234,7 +234,7 @@ extern "C" {
     /**
        \brief Return which root of the polynomial the algebraic number represents.
 
-       \pre Z3_algebraic_is_value(c, a)
+       \pre Z3_is_algebraic_number(c, a)
 
        def_API('Z3_algebraic_get_i', UINT, (_in(CONTEXT), _in(AST)))
     */
