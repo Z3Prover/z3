@@ -95,7 +95,10 @@ def create_native_jar(base_jar, zip_path, platform, output_path):
             if entry is not None:
                 found.append((library, release_zip.read(entry)))
 
-    if len(found) < 2:
+    found_z3 = any(os.path.splitext(library)[0].endswith("z3") and "z3java" not in library
+                   for library, _ in found)
+    found_z3java = any("z3java" in library for library, _ in found)
+    if not found_z3 or not found_z3java:
         names = ", ".join(platform["libraries"])
         raise RuntimeError("Could not find required native libraries for {} in {}. Looked for {}".format(
             platform["classifier"], zip_path, names))

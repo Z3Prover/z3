@@ -64,6 +64,22 @@ class TestJavaPackageAssembly(unittest.TestCase):
         self.assertIn("<artifactId>z3</artifactId>", text)
         self.assertIn("<version>5.0.0</version>", text)
 
+    def test_rejects_platform_jar_without_jni_library(self):
+        release_zip = self._write_release_zip(
+            self.tmp.name,
+            "z3-5.0.0-x64-win.zip",
+            ["libz3.dll", "z3.dll"],
+        )
+        out_dir = os.path.join(self.tmp.name, "out")
+        base_zip, base_entry = mk_java_package.find_base_jar([release_zip])
+        base_jar = os.path.join(out_dir, "z3-5.0.0.jar")
+        os.makedirs(out_dir)
+        mk_java_package.copy_base_jar(base_zip, base_entry, base_jar)
+
+        output = os.path.join(out_dir, "z3-5.0.0-win-x64.jar")
+        with self.assertRaisesRegex(RuntimeError, "required native libraries"):
+            mk_java_package.create_native_jar(base_jar, release_zip, mk_java_package.PLATFORMS[5], output)
+
     def test_main_creates_all_release_artifacts(self):
         for platform in mk_java_package.PLATFORMS:
             self._write_release_zip(
