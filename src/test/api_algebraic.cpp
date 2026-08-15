@@ -185,6 +185,7 @@ void tst_api_algebraic() {
         Z3_sort real_sort = Z3_mk_real_sort(ctx);
         Z3_ast four = Z3_mk_numeral(ctx, "4", real_sort);
         Z3_ast result = Z3_algebraic_root(ctx, four, 2);
+        ENSURE(Z3_algebraic_is_value(ctx, result));
         ENSURE(!Z3_is_algebraic_number(ctx, result));
         ENSURE(!Z3_algebraic_get_poly(ctx, result));
         ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
