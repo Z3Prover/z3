@@ -202,7 +202,9 @@ namespace pb {
         SASSERT(k.is_unsigned());
         literal_vector lits;
         convert_pb_args(t, lits);
-        unsigned k2 = k.get_unsigned();
+        // (at-least k) is unsatisfiable when k exceeds the number of arguments.
+        // truncate k to lits.size() + 1 so that negating the bound below does not underflow.
+        unsigned k2 = k > rational(lits.size()) ? lits.size() + 1 : k.get_unsigned();
         if (root && s().num_user_scopes() == 0) {
             if (sign) {
                 for (literal& l : lits) l.neg();
@@ -214,7 +216,7 @@ namespace pb {
         else {
             bool_var v = s().add_var(true);
             literal lit(v, false);
-            add_at_least(v, lits, k.get_unsigned());
+            add_at_least(v, lits, k2);
             si.cache(t, lit);
             if (sign) lit.neg();
             TRACE(ba, tout << "root: " << root << " lit: " << lit << "\n";);
@@ -229,7 +231,10 @@ namespace pb {
         for (literal& l : lits) {
             l.neg();
         }
-        unsigned k2 = lits.size() - k.get_unsigned();
+        // (at-most k) is valid when k is at least the number of arguments.
+        // truncate k to avoid underflow when computing the dual bound.
+        unsigned k1 = k >= rational(lits.size()) ? lits.size() : k.get_unsigned();
+        unsigned k2 = lits.size() - k1;
         if (root && s().num_user_scopes() == 0) {
             if (sign) {
                 for (literal& l : lits) l.neg();
@@ -254,11 +259,15 @@ namespace pb {
         convert_pb_args(t, lits);
         bool_var v1 = (root && !sign) ? sat::null_bool_var : s().add_var(true);
         bool_var v2 = (root && !sign) ? sat::null_bool_var : s().add_var(true);
-        add_at_least(v1, lits, k.get_unsigned());
+        // (= k) is unsatisfiable when k exceeds the number of arguments.
+        // truncate k to lits.size() + 1, which makes the first constraint false,
+        // and use 0 as the dual bound, which is the tautology (at-most k).
+        unsigned k1 = k > rational(lits.size()) ? lits.size() + 1 : k.get_unsigned();
+        add_at_least(v1, lits, k1);
         for (literal& l : lits) {
             l.neg();
         }
-        add_at_least(v2, lits, lits.size() - k.get_unsigned());
+        add_at_least(v2, lits, k1 > lits.size() ? 0 : lits.size() - k1);
 
         if (!root || sign) {        
             literal l1(v1, false), l2(v2, false);

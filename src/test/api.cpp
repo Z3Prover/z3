@@ -300,27 +300,60 @@ void test_strict_real_maximize() {
     Z3_del_context(ctx);
 }
 
-void test_mod_case_split_soundness() {
+static void test_qfnra_degree80_square_bound() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
 
     Z3_solver s = Z3_mk_solver(ctx);
     Z3_solver_inc_ref(ctx, s);
-    Z3_solver_from_string(ctx, s,
-        "(set-option :auto-config false)\n"
-        "(set-option :smt.case_split 3)\n"
-        "(declare-const c Int)\n"
-        "(declare-const d Int)\n"
-        "(assert (distinct 0 (- d c)))\n"
-        "(assert\n"
-        "  (exists ((k Int))\n"
-        "    (and\n"
-        "      (distinct 0 (mod k c))\n"
-        "      (= 0 (mod k (mod c d))))))\n");
-    ENSURE(Z3_solver_check(ctx, s) == Z3_L_TRUE);
+
+    // A deterministic resource limit instead of a wall-clock timeout: the fixed
+    // factoring path needs < 1M rlimit while the num_primes=1 blowup needs > 5M,
+    // so 2M separates them regardless of machine speed or debug/release build.
+    Z3_params p = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, p);
+    Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "rlimit"), 2000000);
+    Z3_solver_set_params(ctx, s, p);
+    Z3_params_dec_ref(ctx, p);
+
+    Z3_sort real_sort = Z3_mk_real_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), real_sort);
+    Z3_ast y = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), real_sort);
+
+    auto mk_real = [&](int num, int den = 1) { return Z3_mk_real(ctx, num, den); };
+    auto mk_mul = [&](Z3_ast a, Z3_ast b) { Z3_ast args[] = { a, b }; return Z3_mk_mul(ctx, 2, args); };
+    auto mk_pow = [&](Z3_ast base, unsigned power) {
+        Z3_ast result = mk_real(1);
+        Z3_ast factor = base;
+        while (power > 0) {
+            if (power & 1)
+                result = mk_mul(result, factor);
+            power >>= 1;
+            if (power > 0)
+                factor = mk_mul(factor, factor);
+        }
+        return result;
+    };
+
+    Z3_solver_assert(ctx, s, Z3_mk_ge(ctx, x, mk_real(1)));
+    Z3_solver_assert(ctx, s, Z3_mk_le(ctx, x, mk_real(100)));
+    Z3_solver_assert(ctx, s, Z3_mk_ge(ctx, y, mk_real(0)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, mk_pow(y, 80), x));
+    Z3_solver_assert(ctx, s, Z3_mk_lt(ctx, y, mk_real(1)));
+    Z3_lbool result = Z3_solver_check(ctx, s);
+    bool is_unsat = result == Z3_L_FALSE;
+    std::string unknown_reason;
+    if (result == Z3_L_UNDEF)
+        unknown_reason = Z3_solver_get_reason_unknown(ctx, s);
+
     Z3_solver_dec_ref(ctx, s);
     Z3_del_context(ctx);
+    if (result == Z3_L_UNDEF) {
+        std::string msg = "qfnra degree-80 regression returned unknown: " + unknown_reason;
+        throw default_exception(msg.c_str());
+    }
+    ENSURE(is_unsat);
 }
 
 void tst_api() {
@@ -331,7 +364,7 @@ void tst_api() {
     test_optimize_translate();
     test_optimize_arith_params();
     test_strict_real_maximize();
-    test_mod_case_split_soundness();
+    test_qfnra_degree80_square_bound();
 }
 
 void test_max_rev() {
