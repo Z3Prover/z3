@@ -102,7 +102,7 @@ private:
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
-    enum class bail_reason { unsupported, state_cap, dnf_cap, budget, state_expansion, resource, nullability, guard, not_reversible, num_reasons };
+    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, num_reasons };
 
     struct statistics {
         unsigned m_cofactor_calls = 0;
@@ -207,12 +207,8 @@ private:
     std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
     seq::live_states m_live_states;
 
-    // Names the reversed reading of a sequence variable.  When the search runs backwards a
-    // variable x is replaced by rev(x) for this uninterpreted marker, so that a reversed and
-    // a forward occurrence of the same variable are different terms and cannot be collected
-    // into one group by mistake; the alternative, silently reinterpreting x, makes that error
-    // possible and invisible.  The marker never leaves the search: leaf() strips it and turns
-    // the witness back around, so get_model() only ever mentions the caller's own terms.
+    // Names the reversed reading of a sequence variable while the search runs backwards.
+    // The marker is stripped before witnesses are reported.
     func_decl_ref m_rev_decl;
 
     // Brzozowski derivative of regex `r` by the concrete element `elem`.  Memoized on
@@ -243,9 +239,6 @@ private:
     // would put the system in a mixture of orientations, so a single failure makes prepare()
     // keep the whole problem forwards.
     bool reverse_regex(expr* r, expr_ref& result);
-
-    // Reverse a witness word, i.e. a concatenation of str.unit terms or the empty sequence.
-    expr_ref reverse_word(expr* w);
 
     // Wrap / unwrap the marker that names a variable's reversed reading.
     expr_ref mk_rev_var(expr* v);

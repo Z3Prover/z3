@@ -356,6 +356,8 @@ public:
         return result;
     }
 
+    expr_ref mk_seq_reverse(expr* s);
+
     /**
      * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences
      */
