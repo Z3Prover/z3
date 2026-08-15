@@ -164,6 +164,7 @@ class theory_lra::imp {
     unsigned_vector        m_unassigned_bounds;
     unsigned_vector        m_bounds_trail;
     unsigned               m_asserted_qhead;
+    unsigned_vector        m_active_inf_eps_constraints;
 
     svector<unsigned>       m_bv_to_propagate;      // Boolean variables that can be propagated
     
@@ -2467,6 +2468,17 @@ public:
 #endif
     
     unsigned propagate_lp_solver_bound(const lp::implied_bound& be) {
+        // implied_bound stores only a rational threshold and a strict bit.
+        // Do not project a consequence whose explanation uses a delta-rational
+        // API bound, because this can strengthen x >= r - eps into x > r.
+        if (!m_active_inf_eps_constraints.empty()) {
+            for (lp::constraint_index ci : lp().flatten(be.explain_implied())) {
+                for (lp::constraint_index eps_ci : m_active_inf_eps_constraints)
+                    if (ci == eps_ci)
+                        return 0;
+            }
+        }
+
         lpvar vi = be.m_j;
         theory_var v = lp().local_to_external(vi);
 
@@ -3304,6 +3316,10 @@ public:
         TRACE(arith, tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
+        if (is_true && b.has_infinitesimal()) {
+            ctx().push_trail(push_back_vector(m_active_inf_eps_constraints));
+            m_active_inf_eps_constraints.push_back(ci);
+        }
         if (is_infeasible()) 
             return false;
         lp::lconstraint_kind k = bound2constraint_kind(b.is_int(), b.get_bound_kind(), is_true);
