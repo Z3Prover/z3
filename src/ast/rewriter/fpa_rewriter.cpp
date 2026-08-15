@@ -440,13 +440,9 @@ br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg
             other_mul = arg3;
             zero_is_neg = m_fm.is_neg(vzero);
         }
-        else {
-            scoped_mpf v3tmp(m_fm);
-            if (m_util.is_numeral(arg3, v3tmp) && m_fm.is_zero(v3tmp)) {
-                other_mul = arg2;
-                zero_is_neg = m_fm.is_neg(v3tmp);
-                m_fm.set(vzero, v3tmp);
-            }
+        else if (m_util.is_numeral(arg3, vzero) && m_fm.is_zero(vzero)) {
+            other_mul = arg2;
+            zero_is_neg = m_fm.is_neg(vzero);
         }
 
         if (other_mul) {
