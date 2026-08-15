@@ -65,6 +65,14 @@ namespace smt {
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
 
+    void seq_regex::mark_guard_relevant(expr* e) {
+        auto mark_atom = [&](expr* n) {
+            if (is_atom(m, n) && !m.is_true(n) && !m.is_false(n))
+                ctx.mark_as_relevant(th.mk_literal(n));
+        };
+        for_each_expr(mark_atom, e);
+    }
+
     expr_ref seq_regex::expand_shallow(expr* e, void*& deps, unsigned depth) {
         expr* elem = nullptr;
         if (depth > 40)
@@ -522,8 +530,7 @@ namespace smt {
 
         propagate_length_residue(lit, s, r);
 
-        bool is_ground = re().is_ground(r);
-        if (th.use_monadic_regex() && is_ground)
+        if (th.use_monadic_regex())
             add_monadic_membership(lit, s, r);
         else
             propagate_accept_legacy(lit, s, r);
@@ -819,6 +826,7 @@ namespace smt {
                     << " (Warning: is_nullable did not simplify)";);
                 literal is_nullable_lit = th.mk_literal(is_nullable);
                 ctx.mark_as_relevant(is_nullable_lit);
+                mark_guard_relevant(is_nullable);
                 // Acc(s,i,r) & |s|<=i  ==> nullable(r)
                 th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
                 //TODO: what if is_nullable contains an in_re 
@@ -839,6 +847,7 @@ namespace smt {
         accept_next.push_back(~lit);
         accept_next.push_back(len_s_le_i);
         accept_next.push_back(th.mk_literal(accept_deriv));
+        mark_guard_relevant(accept_deriv);
         // Acc(s, i, r) => (|s|<=i or Acc(s, i+1, D(s_i,r)))
         // where Acc(s, i+1, ite(c, t, f)) = ite(c, Acc(s, i+1, t), Acc(s, i+1, t))
         // and Acc(s, i+1, r U s) = Acc(s, i+1, r) or Acc(s, i+1, s)
