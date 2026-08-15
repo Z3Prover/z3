@@ -104,15 +104,6 @@ bool horner::horner_lemmas() {
         TRACE(nla_solver, tout << "not generating horner lemmas\n";);
         return false;
     }
-    // Tighten the bounds of nonlinear variables over the LP tableau before the
-    // cross-nested/horner interval evaluation, so the tighter implied bounds can
-    // exclude zero and expose conflicts. Done here (instead of core::propagate)
-    // so the LP maximization only runs when horner is actually scheduled.
-    // optimize_nl_bounds() checks arith.nl.optimize_bounds internally.
-    c().m_monomial_bounds.optimize_nl_bounds();
-    // optimize_nl_bounds re-calibrated m_to_refine against the model it produced.
-    // If nothing remains to refine, every monomial is consistent under a feasible
-    // LP model: the nonlinear goal is satisfied. Declare it and stop.
     if (c().to_refine().empty()) {
         c().set_nla_satisfied();
         return false;

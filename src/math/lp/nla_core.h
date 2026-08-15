@@ -93,6 +93,10 @@ class core {
     // set when bound optimization re-calibrates m_to_refine to empty: every
     // monomial is consistent under the optimized model, so the goal is satisfied.
     bool                     m_nla_satisfied = false;
+    // consecutive fruitless optimize_nl_bounds() calls
+    unsigned                 m_squeeze_fail_streak = 0;
+    // optimize_nl_bounds() calls since check() last returned l_true
+    unsigned                 m_squeezes_without_progress = 0;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
