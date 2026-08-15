@@ -52,6 +52,7 @@ Author:
 #include "ast/rewriter/seq_monadic.h"
 #include "ast/rewriter/guard_set.h"
 #include "ast/rewriter/seq_range_collapse.h"
+#include "ast/for_each_expr.h"
 #include <set>
 #include <vector>
 #include <map>
@@ -75,11 +76,12 @@ namespace {
         static char const* const names[] = {
             "unsupported",
             "state-cap",
-            "dnf-cap",
             "budget",
+            "state-expansion",
             "resource",
             "nullability",
-            "guard"
+            "guard",
+            "not-reversible"
         };
         return i < std::size(names) ? names[i] : "unknown";
     }
@@ -330,21 +332,8 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     key st_key;
     bool bail = false;
 
-    // Expanding one product state is not a bounded amount of work: the interval sweep and
-    // the cartesian branch enumeration below can both run away on their own, which is how a
-    // search that polls only the outer loop ends up never returning.  They are bounded per
-    // state rather than out of the budget, because the budget counts product states and
-    // charging it for inner iterations too would inflate the cost of every ordinary state by
-    // roughly twice the number of character classes in its derivative -- changing what a
-    // given budget means for every problem in order to bound the few runaway ones.
-    //
-    // The allowance is a fixed constant rather than a fraction of the budget: whether a
-    // single state is pathological does not depend on how many states the caller is willing
-    // to explore, and scaling it down with the budget would push it into the range ordinary
-    // states occupy.  Measured over a 200-file regex corpus, the most any one state needed
-    // was 33 steps, while a runaway state exceeds 1e7, so the constant below sits far above
-    // ordinary use and far below the explosion.  Exhausting it abandons the whole search
-    // (m_giveup), so it is paid at most once per decision.
+    // Bound the work spent expanding a single product state.  The main budget counts
+    // product states, so inner loops get a separate cap to preserve the budget's meaning.
     uint64_t const inner_limit = 1u << 16;
     uint64_t inner_steps = 0;
     auto inner_step = [&]() -> bool {
@@ -589,48 +578,11 @@ void seq_monadic::reset_search() {
 bool seq_monadic::reverse_regex(expr* r, expr_ref& result) {
     result = expr_ref(re().mk_reverse(r), m);
     m_thrw(result, result);
-    // seq_rewriter pushes re.reverse through every constructor it knows, so a surviving
-    // occurrence means some subterm was opaque to it and the language is not the one the
-    // search would then explore.
-    ptr_vector<expr> todo;
-    obj_hashtable<expr> seen;
-    todo.push_back(result);
-    while (!todo.empty()) {
-        expr* e = todo.back();
-        todo.pop_back();
-        if (!is_app(e) || !seen.insert_if_not_there(e))
-            continue;
+    // A remaining re.reverse marks a subterm that seq_rewriter could not push through.
+    for (auto e : subterms::ground(result))
         if (re().is_reverse(e))
             return false;
-        for (expr* arg : *to_app(e))
-            todo.push_back(arg);
-    }
     return true;
-}
-
-expr_ref seq_monadic::reverse_word(expr* w) {
-    ptr_vector<expr> units;                       // the word's elements, left to right
-    ptr_vector<expr> todo;
-    todo.push_back(w);
-    while (!todo.empty()) {
-        expr* e = todo.back();
-        todo.pop_back();
-        if (u().str.is_concat(e)) {               // str.++ is n-ary; push args so that the
-            app* a = to_app(e);                   // leftmost is popped first
-            for (unsigned i = a->get_num_args(); i-- > 0; )
-                todo.push_back(a->get_arg(i));
-            continue;
-        }
-        if (u().str.is_empty(e))
-            continue;
-        units.push_back(e);
-    }
-    expr_ref_vector es(m);
-    for (unsigned i = units.size(); i-- > 0; )
-        es.push_back(units[i]);
-    if (es.empty())
-        return expr_ref(u().str.mk_empty(m_seq_sort), m);
-    return expr_ref(u().str.mk_concat(es.size(), es.data(), m_seq_sort), m);
 }
 
 expr_ref seq_monadic::mk_rev_var(expr* v) {
@@ -767,7 +719,7 @@ lbool seq_monadic::leaf() {
             return ne;
         }
         if (m_reversed)                           // the search solved rev(term) in rev(R), so
-            w = reverse_word(w);                  // rev(x)'s witness is x's value backwards
+            w = m_rw.mk_seq_reverse(w);           // rev(x)'s witness is x's value backwards
         m_pin.push_back(w);
         m_model.insert(strip_rev_var(m_vars[vi]), w.get());
     }
@@ -1164,7 +1116,6 @@ void seq_monadic::collect_statistics(::statistics& st) const {
     static char const* const bail_names[] = {
         "seq monadic bail unsupported",
         "seq monadic bail state cap",
-        "seq monadic bail dnf cap",
         "seq monadic bail budget",
         "seq monadic bail state expansion",
         "seq monadic bail resource",

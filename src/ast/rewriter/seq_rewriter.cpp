@@ -468,6 +468,29 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
+expr_ref seq_rewriter::mk_seq_reverse(expr* s) {
+    ptr_vector<expr> units;
+    ptr_vector<expr> todo;
+    todo.push_back(s);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (str().is_concat(e)) {
+            app* a = to_app(e);
+            for (unsigned i = a->get_num_args(); i-- > 0; )
+                todo.push_back(a->get_arg(i));
+            continue;
+        }
+        if (str().is_empty(e))
+            continue;
+        units.push_back(e);
+    }
+    expr_ref_vector es(m());
+    for (unsigned i = units.size(); i-- > 0; )
+        es.push_back(units[i]);
+    return expr_ref(str().mk_concat(es.size(), es.data(), s->get_sort()), m());
+}
+
 br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     zstring b;
     rational r;
