@@ -127,7 +127,7 @@ class seq_monadic_test {
     }
 
     void check(char const* name, expr* term, expr* R, lbool expected) {
-        m_mon.set_gen_model(false);               // this check does not use the model
+        m_mon.set_gen_solution(false);               // this check does not use the model
         lbool got = m_mon.solve(term, R);
         bool ok = (got == expected);
         if (!ok) ++m_fail;
@@ -147,7 +147,7 @@ class seq_monadic_test {
                      obj_map<expr, expr*> const& ve, lbool expected) {
         m_trail.push_scope();
         add_extra(term, R, ve);
-        m_mon.set_gen_model(false);               // this check does not use the model
+        m_mon.set_gen_solution(false);               // this check does not use the model
         lbool got = m_mon.check();
         m_trail.pop_scope(1);
         bool ok = (got == expected);
@@ -187,9 +187,13 @@ class seq_monadic_test {
                        obj_map<expr, expr*> const& ve) {
         m_trail.push_scope();
         add_extra(term, R, ve);
-        m_mon.set_gen_model(true);                // this check verifies the extracted model
+        m_mon.set_gen_solution(true);                // this check verifies the extracted model
         lbool got = m_mon.check();
-        obj_map<expr, expr*> const& model = m_mon.get_model();
+        // The solver reports CONSTRAINTS; collapse them to values to check a witness.
+        obj_map<expr, expr*> model;
+        expr_ref_vector pin(m);
+        if (got == l_true)
+            m_mon.materialize_all(model, pin);
         bool ok = (got == l_true) && !model.empty();
         if (ok) {
             expr_safe_replace rep(m);
@@ -211,7 +215,7 @@ class seq_monadic_test {
         m_trail.push_scope();
         for (auto const& [t, r] : mems)
             m_mon.add(t, r, nullptr);
-        m_mon.set_gen_model(false);               // this check does not use the model
+        m_mon.set_gen_solution(false);               // this check does not use the model
         lbool got = m_mon.check();
         m_trail.pop_scope(1);
         bool ok = (got == expected);
@@ -235,7 +239,7 @@ class seq_monadic_test {
     // must be all membership dependencies.
     void check_core(char const* name, vector<std::pair<expr*, expr*>> const& mems,
                     std::set<unsigned> const& expected_core) {
-        m_mon.set_gen_model(false);
+        m_mon.set_gen_solution(false);
         std::set<unsigned> all_ids, got_ids;
         for (unsigned i = 0; i < mems.size(); ++i)
             all_ids.insert(i);
@@ -451,7 +455,7 @@ public:
         check_and("x.a.y & y.b.x in (a|b)*", mSat2, l_true);
 
         std::cout << "=== seq_monadic: assertion trail ===\n";
-        m_mon.set_gen_model(false);
+        m_mon.set_gen_solution(false);
         m_trail.push_scope();
         m_mon.add(x, aaS, nullptr);
         lbool before = m_mon.check();
@@ -472,7 +476,7 @@ public:
         std::cout << "=== seq_monadic: display ===\n";
         m_trail.push_scope();
         unsigned display_dep = 0;
-        m_mon.set_gen_model(true);
+        m_mon.set_gen_solution(true);
         m_mon.add(x, aaS, &display_dep);
         lbool display_result = m_mon.check();
         std::ostringstream display_out;
@@ -482,7 +486,7 @@ public:
             display_result == l_true &&
             display_text.find("(seq-monadic") != std::string::npos &&
             display_text.find(":memberships") != std::string::npos &&
-            display_text.find(":model") != std::string::npos &&
+            display_text.find(":solution") != std::string::npos &&
             display_text.find(":last-result sat") != std::string::npos &&
             display_text.find(":last-internal-search") != std::string::npos &&
             display_text.find(":parsed-memberships") != std::string::npos &&
@@ -505,7 +509,7 @@ public:
         bool unsat_display_ok =
             unsat_display_result == l_false &&
             unsat_display_text.find(":last-result unsat") != std::string::npos &&
-            unsat_display_text.find(":model ()") != std::string::npos &&
+            unsat_display_text.find(":solution ()") != std::string::npos &&
             unsat_display_text.find(":last-internal-search") != std::string::npos;
         m_trail.pop_scope(1);
         m_mon.set_min_core(false);

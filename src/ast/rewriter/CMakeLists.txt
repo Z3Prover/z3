@@ -51,6 +51,7 @@ z3_add_component(rewriter
     seq_regex_live.cpp
     seq_regex_witness.cpp
     seq_skolem.cpp
+    seq_view.cpp
     term_enumeration.cpp
     th_rewriter.cpp
     value_sweep.cpp
