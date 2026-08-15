@@ -39,6 +39,7 @@ namespace lp {
     template mpq static_matrix<mpq, mpq>::get_min_abs_in_column(unsigned int) const;
     template mpq static_matrix<mpq, mpq>::get_min_abs_in_row(unsigned int) const;
     template void static_matrix<mpq, mpq>::init_row_columns(unsigned int, unsigned int);
+    template void static_matrix<mpq, mpq>::clear();
     template static_matrix<mpq, mpq>::ref& static_matrix<mpq, mpq>::ref::operator=(mpq const&);
     template void static_matrix<mpq, mpq>::set(unsigned int, unsigned int, mpq const&);
 

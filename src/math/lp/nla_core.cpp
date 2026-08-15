@@ -1301,9 +1301,11 @@ lbool core::check(unsigned level) {
 
     init_to_refine();
     patch_monomials();
-    set_use_nra_model(false);    
-    if (m_to_refine.empty())
-        return l_true;    
+    set_use_nra_model(false);
+    if (m_to_refine.empty()) {
+        m_squeezes_without_progress /= 2;
+        return l_true;
+    }
     init_search();
     m_nla_satisfied = false;
 
@@ -1319,8 +1321,24 @@ lbool core::check(unsigned level) {
 
     if (no_effect() && refine_pseudo_linear())
         return l_false;
-       
-    
+
+    // Squeeze monomial bounds eagerly while it helps, otherwise on the horner
+    // cadence; disable after too many fruitless calls.
+    bool squeeze_enabled = m_squeezes_without_progress < 50;
+    bool eager_squeeze = m_squeeze_fail_streak < 3;
+    bool squeeze_cadence = lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0;
+    if (no_effect() && squeeze_enabled && (run_horner || run_grobner) && (eager_squeeze || squeeze_cadence)) {
+        ++m_squeezes_without_progress;
+        if (m_monomial_bounds.optimize_nl_bounds())
+            m_squeeze_fail_streak = 0;
+        else
+            ++m_squeeze_fail_streak;
+        if (m_to_refine.empty()) {
+            m_squeezes_without_progress /= 2;
+            return l_true;
+        }
+    }
+
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
         std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
@@ -1426,11 +1444,12 @@ lbool core::bounded_nlsat() {
     p.set_uint("max_conflicts", lp_settings().m_max_conflicts);            
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
-    if (ret == l_undef) 
-        ++m_nlsat_delay_bound;
-    else if (m_nlsat_delay_bound > 0)
-        m_nlsat_delay_bound /= 2;        
-    
+    // On a conflict re-engage, otherwise back off.
+    if (ret == l_false)
+        m_nlsat_delay_bound /= 2;
+    else if (m_nlsat_delay_bound < (1u << 20))
+        m_nlsat_delay_bound = std::max(2 * m_nlsat_delay_bound, 1u);
+
     m_nlsat_delay = m_nlsat_delay_bound;
 
     if (ret == l_true) 

@@ -142,8 +142,7 @@ namespace smt {
         seq_monadic                       m_monadic;
         vector<monadic_membership>         m_monadic_memberships;
         // witnesses collapsed from the monadic solver's views, rebuilt per check() round
-        obj_map<expr, expr*>               m_monadic_model;
-        expr_ref_vector                    m_monadic_model_pin;   // keys and values
+        expr_substitution                  m_monadic_model;
         svector<monadic_assumption>        m_monadic_assumptions;
         vector<bound_constraint>           m_monadic_bounds;
         unsigned                          m_monadic_generation = 0;
@@ -174,6 +173,7 @@ namespace smt {
         expr_ref get_overapprox_regex(expr* s);
 
         void rewrite(expr_ref& e);
+        void mark_guard_relevant(expr* e);
 
         bool coallesce_in_re(literal lit);
 

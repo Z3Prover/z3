@@ -40,7 +40,7 @@ namespace polynomial {
 
     factor_params::factor_params():
         m_max_p(UINT_MAX),
-        m_p_trials(1),
+        m_p_trials(default_factor_num_primes),
         m_max_search_size(UINT_MAX) {
     }
 
@@ -52,14 +52,14 @@ namespace polynomial {
 
     void factor_params::updt_params(params_ref const & p) {
         m_max_p    = p.get_uint("max_prime", UINT_MAX);
-        m_p_trials = p.get_uint("num_primes", 1);
+        m_p_trials = p.get_uint("num_primes", default_factor_num_primes);
         m_max_search_size = p.get_uint("max_search_size", UINT_MAX);
     }
 
     void factor_params::get_param_descrs(param_descrs & r) {
         r.insert("max_search_size", CPK_UINT, "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.");
         r.insert("max_prime", CPK_UINT, "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.");
-        r.insert("num_primes", CPK_UINT, "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.");
+        r.insert("num_primes", CPK_UINT, "(default: 4) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specifies the maximum number of finite factorizations to be considered, before lifting and searching.");
     }
 
     typedef ptr_vector<monomial> monomial_vector;

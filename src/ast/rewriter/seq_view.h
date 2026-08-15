@@ -99,9 +99,6 @@ namespace seq {
     // l_undef when nullability is undecided.
     lbool accepts(view const& v, seq_rewriter& rw);
 
-    // Advance over one element.  The derived state is fresh and is pinned in `pin`.
-    view step(view const& v, expr* elem, seq_rewriter& rw, expr_ref_vector& pin);
-
     // Empty language; for a complemented view this means it accepts everything.
     bool is_dead(view const& v, seq_rewriter& rw);
 

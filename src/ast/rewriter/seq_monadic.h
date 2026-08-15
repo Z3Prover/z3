@@ -62,6 +62,7 @@ Author:
 --*/
 #pragma once
 
+#include "ast/expr_substitution.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_view.h"
 #include "ast/rewriter/seq_range_predicate.h"
@@ -82,23 +83,45 @@ Author:
 
 class seq_monadic {
 
+public:
+    // Which end of the problem the search reads from.  Reading a membership backwards is
+    // sound because w in R iff rev(w) in rev(R), and it is worth doing because the two
+    // directions can have wildly different derivative-automaton sizes: .*a.{k} needs
+    // 2^(k+1) states read forwards and k+2 read backwards.  The reversal is internal --
+    // every membership is reinterpreted together and witnesses are turned back around on
+    // the way out -- so it is never visible to the caller.  `retry` reads forwards and
+    // turns a decision around only when the forward search runs out of budget, which keeps
+    // the cost of the second direction to the decisions that had no answer anyway.
+    enum class orientation { forward, reversed, retry };
+
+private:
     struct config {
         seq::transition_mode m_mode;
         bool m_solution = true;   // whether solve()/check() record the solution
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
+        unsigned m_budget_limit = 1000000;  // value m_budget is reset to on each decide()
+        orientation m_orientation = orientation::forward;
 
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
-    enum class bail_reason { unsupported, state_cap, dnf_cap, budget, resource, nullability, guard, num_reasons };
+    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, num_reasons };
 
     struct statistics {
         unsigned m_cofactor_calls = 0;
         unsigned m_states = 0;
+        unsigned m_max_state_expansion = 0;  // most inner steps any single product state took
         unsigned m_bails[static_cast<unsigned>(bail_reason::num_reasons)] = {};
 
         void inc_bail(bail_reason reason) {
             ++m_bails[static_cast<unsigned>(reason)];
+        }
+
+        // Times the search stopped because it ran out of allotted work, as opposed to
+        // meeting something it cannot decide in any direction.
+        unsigned work_bails() const {
+            return m_bails[static_cast<unsigned>(bail_reason::budget)] +
+                   m_bails[static_cast<unsigned>(bail_reason::state_expansion)];
         }
     };
 
@@ -140,6 +163,8 @@ class seq_monadic {
     std::function<bool(expr *)> m_is_var;   // predicate for whether a term is a sequence variable
     lbool m_last_result = l_undef;           // result of the last public solve()/check()
     lbool m_last_search_result = l_undef;    // result of the last internal decide()
+    bool m_reversed = false;                 // whether prepare() reversed the current problem
+    bool m_retry_disabled = false;           // reversed retry gave up once on this query
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -182,6 +207,10 @@ class seq_monadic {
     std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
     seq::live_states m_live_states;
 
+    // Names the reversed reading of a sequence variable while the search runs backwards.
+    // The marker is stripped before witnesses are reported.
+    func_decl_ref m_rev_decl;
+
     // Brzozowski derivative of regex `r` by the concrete element `elem`.  Memoized on
     // (r, elem): the search revisits the same constant step on many branches.
     expr_ref der_elem(expr* r, expr* elem);
@@ -204,13 +233,37 @@ class seq_monadic {
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
     bool parse_term(expr* term, vector<atom>& atoms);
 
+    // Rewrite re.reverse(r) away, giving a regex for the reversed language.  False when the
+    // rewriter leaves a re.reverse behind, which it does for shapes it cannot push through
+    // (a regex variable, an unexpanded derivative).  Reversing only some of the memberships
+    // would put the system in a mixture of orientations, so a single failure makes prepare()
+    // keep the whole problem forwards.
+    bool reverse_regex(expr* r, expr_ref& result);
+
+    // Wrap / unwrap the marker that names a variable's reversed reading.
+    expr_ref mk_rev_var(expr* v);
+    expr* strip_rev_var(expr* v) const;
+
+    // Charge one search step against the budget and poll the global resource limit.
+    // Returns true when the search must stop, having recorded the reason and set m_giveup.
+    // One step is one product state or one dfs_atoms node, which is what the budget has
+    // always counted; the loops that expand a single state are bounded separately (see
+    // product_nonempty) so that this meaning stays intact.
+    bool out_of_budget();
+
+    // Run one decision in one direction with a given budget.  decide() layers the
+    // orientation policy on top of this.
+    lbool decide_oriented(membership_vec const& memberships, bool reversed, unsigned budget);
+
+    unsigned work_bails() const { return m_stats.work_bails(); }
+
     // Drop all search state accumulated by the previous decide()/solve().
     void reset_search();
 
     // Parse every membership into atoms, register its variables and record each
     // variable's last occurrence.  Sets m_seq_sort/m_elem_sort.  False on an
     // unsupported shape.
-    bool prepare(membership_vec const& memberships);
+    bool prepare(membership_vec const& memberships, bool reversed);
 
     // Index of `v` in m_vars / m_groups, registering it on first sight.
     unsigned var_index(expr* v);
@@ -252,7 +305,7 @@ public:
                 seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
         m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()), m_ivl_pin(rw.m()),
-        m_regexes(rw.m()), m_live_states(rw, mode, 1u << 12) {}
+        m_regexes(rw.m()), m_live_states(rw, mode, 1u << 12), m_rev_decl(rw.m()) {}
 
     ~seq_monadic() { reset_ivl_cache(); }
 
@@ -277,7 +330,7 @@ public:
     // a word gets built.  l_true = `word` set, l_false = empty intersection,
     // l_undef = no recorded solution, or the search gave up.
     lbool materialize(expr* var, expr_ref& word);
-    lbool materialize_all(obj_map<expr, expr*>& model, expr_ref_vector& pin);
+    lbool materialize_all(expr_substitution& model);
 
     // Decide  (str.in_re term R)  for a term that is a concatenation of string variables
     // (possibly repeated / several distinct) and constant characters.
@@ -287,6 +340,26 @@ public:
     // Enable/disable unsat-core minimization (default: enabled).  When disabled, core()
     // returns the dependencies of all asserted memberships (no deletion-based shrinking).
     void set_min_core(bool b) { m_config.m_min_core = b; }
+
+    // Work budget consumed by a single solve()/check(): each search node and each product
+    // expansion costs one unit, and the search gives up (l_undef, bail_reason::budget) when
+    // it runs out.  The budget is reset per decision, so it bounds one decision rather than
+    // the session.  A budget of 0 gives up immediately; UINT_MAX is effectively unbounded.
+    void set_budget(unsigned b) { m_config.m_budget_limit = b; }
+
+    unsigned budget() const { return m_config.m_budget_limit; }
+
+    // Direction the search reads memberships in (default: forward).  Setting this to
+    // `reversed` solves rev(term) in rev(R) instead, which is equisatisfiable and preserves
+    // every length property; witnesses are reversed back before they are reported, so the
+    // choice is not observable other than through the work it takes to reach an answer.
+    void set_orientation(orientation o) { m_config.m_orientation = o; }
+
+    orientation get_orientation() const { return m_config.m_orientation; }
+
+    // Whether the last prepare() actually reversed the problem.  This can be false even
+    // when the orientation is `reversed`, if some regex could not be reversed.
+    bool is_reversed() const { return m_reversed; }
 
     void set_is_var(std::function<bool(expr *)> const &is_var) {
         m_is_var = is_var;

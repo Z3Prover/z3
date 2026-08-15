@@ -190,14 +190,13 @@ class seq_monadic_test {
         m_mon.set_gen_solution(true);                // this check verifies the extracted model
         lbool got = m_mon.check();
         // The solver reports CONSTRAINTS; collapse them to values to check a witness.
-        obj_map<expr, expr*> model;
-        expr_ref_vector pin(m);
+        expr_substitution model(m);
         if (got == l_true)
-            m_mon.materialize_all(model, pin);
+            m_mon.materialize_all(model);
         bool ok = (got == l_true) && !model.empty();
         if (ok) {
             expr_safe_replace rep(m);
-            for (auto const& kv : model) rep.insert(kv.m_key, kv.m_value);
+            for (auto const& kv : model.sub()) rep.insert(kv.m_key, kv.m_value);
             expr_ref g(m);
             rep(term, g);
             ptr_vector<expr> elems;
@@ -688,6 +687,28 @@ public:
             assertions.push_back(m.mk_eq(at, u.str.mk_empty(m_str)));
             assertions.push_back(re().mk_in_re(sword("z"), star(re().mk_to_re(at))));
             check_smt("non-ground regex issue 10492", assertions, l_false);
+        }
+        {
+            arith_util ar2(m);
+            expr_ref zero(ar2.mk_int(0), m);
+            expr_ref one(ar2.mk_int(1), m);
+            expr_ref y = var("issue_10511_y");
+            expr_ref o = var("issue_10511_o");
+            expr_ref lhs(u.str.mk_substr(y, zero, one), m);
+            expr_ref offset(u.str.mk_length(o), m);
+            expr_ref rhs(u.str.mk_substr(y, offset, one), m);
+            smt_params params;
+            params.m_seq_regex_monadic = true;
+            smt::kernel solver(m, params);
+            solver.assert_expr(m.mk_not(re().mk_in_re(lhs, re().mk_plus(re().mk_to_re(rhs)))));
+            expr_ref_vector assumptions(m);
+            assumptions.push_back(m.mk_eq(offset, zero));
+            lbool got = solver.check(assumptions);
+            bool ok = got == l_false;
+            if (!ok) ++m_fail;
+            std::cout << (ok ? "  OK   " : "  FAIL ")
+                      << "non-ground regex assumption issue 10511"
+                      << "  got=" << s(got) << " expected=unsat\n";
         }
         {
             arith_util ar2(m);

@@ -27,14 +27,35 @@ Author:
 
 namespace smt {
 
+    static seq::transition_mode monadic_transition_mode(symbol const& s) {
+        if (s == "light-ant")
+            return seq::transition_mode::light_antimirov_tm;
+        if (s == "brz")
+            return seq::transition_mode::brzozowski_tm;
+        throw default_exception("invalid seq.regex_transition_mode, use 'light-ant' or 'brz'");
+    }
+
+    static seq_monadic::orientation monadic_orientation(symbol const& s) {
+        if (s == "forward")
+            return seq_monadic::orientation::forward;
+        if (s == "reversed")
+            return seq_monadic::orientation::reversed;
+        if (s == "retry")
+            return seq_monadic::orientation::retry;
+        throw default_exception("invalid seq.regex_orientation, use 'forward', 'reversed' or 'retry'");
+    }
+
     seq_regex::seq_regex(theory_seq& th):
         th(th),
         ctx(th.get_context()),
         m(th.get_manager()),
-        m_monadic(seq_rw(), ctx.get_trail_stack()),
-        m_monadic_model_pin(th.get_manager()),
+        m_monadic(seq_rw(), ctx.get_trail_stack(),
+                  monadic_transition_mode(ctx.get_fparams().m_seq_regex_transition_mode)),
+        m_monadic_model(th.get_manager()),
         m_live_states(seq_rw(), seq::transition_mode::brzozowski_tm, 10000) {
         m_monadic.set_is_var([&th](expr *e) { return th.is_var(e); });
+        m_monadic.set_budget(ctx.get_fparams().m_seq_regex_budget);
+        m_monadic.set_orientation(monadic_orientation(ctx.get_fparams().m_seq_regex_orientation));
     }
 
     seq_util& seq_regex::u() { return th.m_util; }
@@ -44,6 +65,14 @@ namespace smt {
     seq::skolem& seq_regex::sk() { return th.m_sk; }
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
+
+    void seq_regex::mark_guard_relevant(expr* e) {
+        auto mark_atom = [&](expr* n) {
+            if (is_atom(m, n) && !m.is_true(n) && !m.is_false(n))
+                ctx.mark_as_relevant(th.mk_literal(n));
+        };
+        for_each_expr(mark_atom, e);
+    }
 
     expr_ref seq_regex::expand_shallow(expr* e, void*& deps, unsigned depth) {
         expr* elem = nullptr;
@@ -196,7 +225,7 @@ namespace smt {
     }
 
     bool seq_regex::model_len(expr* t, unsigned& len) {
-        obj_map<expr, expr*> const& model = m_monadic_model;
+        expr_substitution& model = m_monadic_model;
         ptr_vector<expr> todo;
         todo.push_back(t);
         len = 0;
@@ -220,8 +249,8 @@ namespace smt {
                 len += s.length();
                 continue;
             }
-            expr* w = nullptr;
-            if (model.find(e, w) && w != e) {     // variable: replace by its witness
+            expr* w = model.find(e);
+            if (w && w != e) {                    // variable: replace by its witness
                 todo.push_back(w);
                 continue;
             }
@@ -357,7 +386,6 @@ namespace smt {
         lbool result = l_undef;
         unsigned guard = candidates.size() + 1;
         m_monadic_model.reset();
-        m_monadic_model_pin.reset();
         while (true) {
             ++th.m_stats.m_regex_monadic_checks;
             result = m_monadic.check();
@@ -365,13 +393,10 @@ namespace smt {
                 break;
             // the bound checks below need values, and every round has a new solution
             m_monadic_model.reset();
-            m_monadic_model_pin.reset();
-            if (m_monadic.materialize_all(m_monadic_model, m_monadic_model_pin) != l_true) {
+            if (m_monadic.materialize_all(m_monadic_model) != l_true) {
                 result = l_undef;
                 break;
             }
-            for (auto const& [var, w] : m_monadic_model)
-                m_monadic_model_pin.push_back(var);
             bool progressed = false;
             for (auto const& cb : candidates) {
                 if (model_satisfies_bound(cb))
@@ -425,7 +450,7 @@ namespace smt {
         ++th.m_stats.m_regex_monadic_sat;
         ctx.push_trail(value_trail<unsigned>(m_monadic_assumption_generation));
         m_monadic_assumption_generation = m_monadic_generation;
-        for (auto const& [var, witness] : m_monadic_model) {
+        for (auto const& [var, witness] : m_monadic_model.sub()) {
             enode* var_node = th.ensure_enode(var);
             enode* witness_node = th.ensure_enode(witness);
             if (var_node->get_root() == witness_node->get_root())
@@ -513,8 +538,7 @@ namespace smt {
 
         propagate_length_residue(lit, s, r);
 
-        bool is_ground = re().is_ground(r);
-        if (th.use_monadic_regex() && is_ground)
+        if (th.use_monadic_regex())
             add_monadic_membership(lit, s, r);
         else
             propagate_accept_legacy(lit, s, r);
@@ -810,6 +834,7 @@ namespace smt {
                     << " (Warning: is_nullable did not simplify)";);
                 literal is_nullable_lit = th.mk_literal(is_nullable);
                 ctx.mark_as_relevant(is_nullable_lit);
+                mark_guard_relevant(is_nullable);
                 // Acc(s,i,r) & |s|<=i  ==> nullable(r)
                 th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
                 //TODO: what if is_nullable contains an in_re 
@@ -830,6 +855,7 @@ namespace smt {
         accept_next.push_back(~lit);
         accept_next.push_back(len_s_le_i);
         accept_next.push_back(th.mk_literal(accept_deriv));
+        mark_guard_relevant(accept_deriv);
         // Acc(s, i, r) => (|s|<=i or Acc(s, i+1, D(s_i,r)))
         // where Acc(s, i+1, ite(c, t, f)) = ite(c, Acc(s, i+1, t), Acc(s, i+1, t))
         // and Acc(s, i+1, r U s) = Acc(s, i+1, r) or Acc(s, i+1, s)

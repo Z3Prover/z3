@@ -42,17 +42,4 @@ namespace seq {
         return !v.m_state || !v.in_region() || rw.u().re.is_empty(v.m_state);
     }
 
-    view step(view const& v, expr* elem, seq_rewriter& rw, expr_ref_vector& pin) {
-        view r = v;
-        if (!v.m_state)
-            return r;
-        if (!v.in_region()) {
-            r.m_state = nullptr;               // left the region
-            return r;
-        }
-        expr_ref d = rw.mk_derivative(elem, v.m_state);
-        pin.push_back(d);
-        r.m_state = d.get();
-        return r;
-    }
 }
