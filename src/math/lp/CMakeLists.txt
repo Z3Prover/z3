@@ -28,10 +28,12 @@ z3_add_component(lp
     nla_common.cpp
     nla_core.cpp
     nla_divisions.cpp
+    nla_explanations.cpp
     nla_grobner.cpp
     nla_intervals.cpp
     nla_monotone_lemmas.cpp
     nla_order_lemmas.cpp
+    nla_patcher.cpp
     nla_powers.cpp
     nla_pp.cpp
     nla_solver.cpp

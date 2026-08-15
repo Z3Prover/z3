@@ -277,7 +277,7 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
     rational a, b;
     lp::lar_term norm_t = expression_to_normalized_term(&e.to_sum(), a, b);
     lp::explanation exp;
-    if (m_core->explain_by_equiv(norm_t, exp)) {
+    if (m_core->m_explanations.explain_by_equiv(norm_t, exp)) {
         m_dep_intervals.set_interval_for_scalar(i, b);
         if (wd == e_with_deps::with_deps) {
             for (auto p : exp) {
