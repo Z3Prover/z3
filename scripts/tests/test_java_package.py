@@ -77,8 +77,9 @@ class TestJavaPackageAssembly(unittest.TestCase):
         mk_java_package.copy_base_jar(base_zip, base_entry, base_jar)
 
         output = os.path.join(out_dir, "z3-5.0.0-win-x64.jar")
+        platform = next(p for p in mk_java_package.PLATFORMS if p["classifier"] == "win-x64")
         with self.assertRaisesRegex(RuntimeError, "required native libraries"):
-            mk_java_package.create_native_jar(base_jar, release_zip, mk_java_package.PLATFORMS[5], output)
+            mk_java_package.create_native_jar(base_jar, release_zip, platform, output)
 
     def test_main_creates_all_release_artifacts(self):
         for platform in mk_java_package.PLATFORMS:
