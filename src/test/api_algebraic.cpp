@@ -118,15 +118,13 @@ void tst_api_algebraic() {
         ENSURE(Z3_algebraic_get_i(ctx, neg_cbrt2) == 1);
         ENSURE(Z3_algebraic_sign(ctx, neg_cbrt2) < 0);
 
-        Z3_ast args[2] = { sqrt2, sqrt3 };
-        Z3_ast big = Z3_algebraic_add(ctx, args[0], args[1]);
+        Z3_ast big = Z3_algebraic_add(ctx, sqrt2, sqrt3);
         ENSURE(Z3_algebraic_get_i(ctx, big) == 4);
         Z3_ast neg_big = Z3_algebraic_sub(ctx, zero, big);
         ENSURE(Z3_algebraic_get_i(ctx, neg_big) == 1);
         ENSURE(Z3_algebraic_sign(ctx, neg_big) < 0);
 
-        args[0] = neg_sqrt2;
-        Z3_ast mid = Z3_algebraic_add(ctx, args[0], args[1]);
+        Z3_ast mid = Z3_algebraic_add(ctx, neg_sqrt2, sqrt3);
         ENSURE(Z3_algebraic_get_i(ctx, mid) == 3);
         Z3_ast neg_mid = Z3_algebraic_sub(ctx, zero, mid);
         ENSURE(Z3_algebraic_get_i(ctx, neg_mid) == 2);
