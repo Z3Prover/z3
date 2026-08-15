@@ -421,7 +421,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_algebraic_get_poly(c, a);
         RESET_ERROR_CODE();
-        CHECK_IS_ALGEBRAIC(a, nullptr);
+        if (!Z3_is_algebraic_number(c, a)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return nullptr;
+        }
         algebraic_numbers::manager & _am = am(c);
         algebraic_numbers::anum const & av = get_irrational(c, a);
         scoped_mpz_vector coeffs(_am.qm());
@@ -441,7 +444,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_algebraic_get_i(c, a);
         RESET_ERROR_CODE();
-        CHECK_IS_ALGEBRAIC(a, 0);
+        if (!Z3_is_algebraic_number(c, a)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return 0;
+        }
         algebraic_numbers::manager & _am = am(c);
         algebraic_numbers::anum const & av = get_irrational(c, a);
         return _am.get_i(av);

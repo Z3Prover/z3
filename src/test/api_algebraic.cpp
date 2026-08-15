@@ -25,6 +25,7 @@ void tst_api_algebraic() {
     Z3_set_param_value(cfg, "model", "true");
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
 
     // Test Z3_algebraic_is_value with rational numbers
     {
@@ -177,6 +178,19 @@ void tst_api_algebraic() {
 
         Z3_ast result = Z3_algebraic_root(ctx, four, 2); // Square root of 4
         ENSURE(Z3_algebraic_eq(ctx, result, two));
+    }
+
+    // Rational algebraic values do not have a root-object representation.
+    {
+        Z3_sort real_sort = Z3_mk_real_sort(ctx);
+        Z3_ast four = Z3_mk_numeral(ctx, "4", real_sort);
+        Z3_ast result = Z3_algebraic_root(ctx, four, 2);
+        ENSURE(Z3_algebraic_is_value(ctx, result));
+        ENSURE(!Z3_is_algebraic_number(ctx, result));
+        ENSURE(!Z3_algebraic_get_poly(ctx, result));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(Z3_algebraic_get_i(ctx, result) == 0);
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
     }
 
     // Test with negative numbers and fractions
