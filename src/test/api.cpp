@@ -342,18 +342,15 @@ static void test_qfnra_degree80_square_bound() {
     Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, mk_pow(y, 80), x));
     Z3_solver_assert(ctx, s, Z3_mk_lt(ctx, y, mk_real(1)));
     Z3_lbool result = Z3_solver_check(ctx, s);
-    bool is_unsat = result == Z3_L_FALSE;
     std::string unknown_reason;
     if (result == Z3_L_UNDEF)
         unknown_reason = Z3_solver_get_reason_unknown(ctx, s);
 
     Z3_solver_dec_ref(ctx, s);
     Z3_del_context(ctx);
-    if (result == Z3_L_UNDEF) {
-        std::string msg = "qfnra degree-80 regression returned unknown: " + unknown_reason;
-        throw default_exception(msg.c_str());
-    }
-    ENSURE(is_unsat);
+    if (result == Z3_L_UNDEF)
+        throw default_exception(("qfnra degree-80 regression returned unknown: " + unknown_reason).c_str());
+    ENSURE(result == Z3_L_FALSE);
 }
 
 void tst_api() {
