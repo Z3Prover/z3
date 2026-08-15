@@ -124,8 +124,8 @@ void tst_api_algebraic() {
         ENSURE(Z3_algebraic_get_i(ctx, neg_big) == 1);
         ENSURE(Z3_algebraic_sign(ctx, neg_big) < 0);
 
-        // Roots of x^4 - 10*x^2 + 1 are ordered as:
-        // -sqrt2-sqrt3, sqrt2-sqrt3, -sqrt2+sqrt3, sqrt2+sqrt3.
+        // Roots of x^4 - 10*x^2 + 1 are ordered as
+        // -sqrt3-sqrt2 < sqrt2-sqrt3 < sqrt3-sqrt2 < sqrt3+sqrt2.
         Z3_ast mid = Z3_algebraic_add(ctx, neg_sqrt2, sqrt3);
         ENSURE(Z3_algebraic_get_i(ctx, mid) == 3);
         Z3_ast neg_mid = Z3_algebraic_sub(ctx, zero, mid);
