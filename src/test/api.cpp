@@ -384,7 +384,6 @@ static void test_qfnra_degree80_square_bound() {
         throw default_exception(("qfnra degree-80 regression returned unknown: " + unknown_reason).c_str());
     ENSURE(result == Z3_L_FALSE);
 }
-
 void tst_api() {
     test_apps();
     test_mk_app_polymorphic_arity();
