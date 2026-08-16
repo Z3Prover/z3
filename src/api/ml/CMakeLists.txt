@@ -352,7 +352,7 @@ if (Z3_INSTALL_OCAML_BINDINGS)
         message(FATAL_ERROR \"Failed to inspect installed OCaml stub library '\${_z3ml_stub}'\")
       endif()
 
-      set(_z3ml_expected_dep \"@loader_path/../../libz3.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.dylib\")
+      set(_z3ml_expected_dep \"@rpath/libz3.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.dylib\")
       string(REGEX MATCH \"[^ \\\\n\\\\t]*libz3[^ \\\\n\\\\t]*\\\\.dylib\" _z3ml_recorded_dep \"\${_z3ml_otool_output}\")
       if (_z3ml_recorded_dep STREQUAL \"\")
         message(FATAL_ERROR
@@ -366,6 +366,25 @@ if (Z3_INSTALL_OCAML_BINDINGS)
         )
         if (NOT _z3ml_install_name_result EQUAL 0)
           message(FATAL_ERROR \"Failed to update the libz3 load path for '\${_z3ml_stub}'\")
+        endif()
+      endif()
+
+      execute_process(
+        COMMAND otool -l \"\${_z3ml_stub}\"
+        RESULT_VARIABLE _z3ml_otool_load_result
+        OUTPUT_VARIABLE _z3ml_otool_load_output
+      )
+      if (NOT _z3ml_otool_load_result EQUAL 0)
+        message(FATAL_ERROR \"Failed to inspect load commands for '\${_z3ml_stub}'\")
+      endif()
+
+      if (NOT _z3ml_otool_load_output MATCHES \"@loader_path/../../\")
+        execute_process(
+          COMMAND install_name_tool -add_rpath \"@loader_path/../../\" \"\${_z3ml_stub}\"
+          RESULT_VARIABLE _z3ml_add_rpath_result
+        )
+        if (NOT _z3ml_add_rpath_result EQUAL 0)
+          message(FATAL_ERROR \"Failed to add an rpath for '\${_z3ml_stub}'\")
         endif()
       endif()
     ")
