@@ -1123,8 +1123,6 @@ void core::set_use_nra_model(bool m) {
 bool core::propagate() {
     clear();
 	bool propagated = false;
-    if (m_monomial_bounds.propagate_fixed_rows())
-        propagated = true;
     if (m_monomial_bounds.tighten_lp_bounds())
 		propagated = true;
     if (m_monomial_bounds.propagate_changed_bounds())
