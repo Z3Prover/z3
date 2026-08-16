@@ -468,27 +468,34 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
-expr_ref seq_rewriter::mk_seq_reverse(expr* s) {
-    ptr_vector<expr> units;
-    ptr_vector<expr> todo;
+bool seq_rewriter::mk_seq_reverse(expr* s, expr_ref& result) {
+    ptr_vector<expr> elems, todo;
     todo.push_back(s);
     while (!todo.empty()) {
         expr* e = todo.back();
         todo.pop_back();
-        if (str().is_concat(e)) {
-            app* a = to_app(e);
-            for (unsigned i = a->get_num_args(); i-- > 0; )
-                todo.push_back(a->get_arg(i));
+        if (str().is_concat(e)) {             // str.++ is n-ary; pushing the arguments left
+            app* a = to_app(e);               // to right pops them right to left, which is
+            for (expr* arg : *a)              // the order the reversed sequence needs
+                todo.push_back(arg);
             continue;
         }
         if (str().is_empty(e))
             continue;
-        units.push_back(e);
+        elems.push_back(e);
     }
+    zstring zs;
     expr_ref_vector es(m());
-    for (unsigned i = units.size(); i-- > 0; )
-        es.push_back(units[i]);
-    return expr_ref(str().mk_concat(es.size(), es.data(), s->get_sort()), m());
+    for (expr* e : elems) {
+        if (str().is_unit(e))
+            es.push_back(e);                  // a one-element sequence is its own reverse
+        else if (str().is_string(e, zs))
+            es.push_back(str().mk_string(zs.reverse()));
+        else
+            return false;                     // there is no sequence-level reverse operator,
+    }                                         // so a non-concrete element has no reverse here
+    result = str().mk_concat(es, s->get_sort());
+    return true;
 }
 
 br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {

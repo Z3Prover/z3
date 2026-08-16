@@ -356,7 +356,12 @@ public:
         return result;
     }
 
-    expr_ref mk_seq_reverse(expr* s);
+    /**
+     * Reverse a concrete sequence, i.e. a concatenation of str.unit terms and string
+     * literals. Returns false if some element is neither, because sequences have no
+     * reverse operator to fall back on and the reverse is then not expressible.
+     */
+    bool mk_seq_reverse(expr* s, expr_ref& result);
 
     /**
      * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences
