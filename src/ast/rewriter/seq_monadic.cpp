@@ -254,10 +254,10 @@ lbool seq_monadic::product_nonempty(svector<component> const& comps, expr_ref* w
     typedef std::vector<unsigned> key;
     struct key_hash {
         size_t operator()(key const& k) const {
-            size_t h = 1469598103934665603ull;
+            uint64_t h = 1469598103934665603ull;
             for (unsigned x : k)
                 h = (h ^ x) * 1099511628211ull;
-            return h;
+            return static_cast<size_t>(h);
         }
     };
 
