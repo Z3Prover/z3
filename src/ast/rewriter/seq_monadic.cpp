@@ -61,6 +61,7 @@ Author:
 #include <algorithm>
 #include <unordered_set>
 
+namespace {
 char const* mode_name(seq::transition_mode mode) {
     switch (mode) {
     case seq::transition_mode::brzozowski_tm:
@@ -99,6 +100,7 @@ void dedup_views(seq::view_vector const& g, seq::view_vector& out) {
         if (seen.insert(c.key()).second)
             out.push_back(c);
     }
+}
 }
 
 expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
