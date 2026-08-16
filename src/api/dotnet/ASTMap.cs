@@ -25,7 +25,7 @@ namespace Microsoft.Z3
     /// <summary>
     /// Map from AST to AST
     /// </summary>
-    internal class ASTMap : Z3Object
+    public class ASTMap : Z3Object
     {
         /// <summary>
         /// Checks whether the map contains the key <paramref name="k"/>.
