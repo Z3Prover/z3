@@ -718,8 +718,10 @@ lbool seq_monadic::leaf() {
             m_model.reset();                      // only reachable if the search was cut short
             return ne;
         }
-        if (m_reversed)                           // the search solved rev(term) in rev(R), so
-            w = m_rw.mk_seq_reverse(w);           // rev(x)'s witness is x's value backwards
+        if (m_reversed && !m_rw.mk_seq_reverse(w, w)) {  // the search solved rev(term) in
+            m_model.reset();                             // rev(R), so rev(x)'s witness is
+            return l_undef;                              // x's value backwards
+        }
         m_pin.push_back(w);
         m_model.insert(strip_rev_var(m_vars[vi]), w.get());
     }
