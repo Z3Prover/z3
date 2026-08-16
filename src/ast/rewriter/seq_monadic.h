@@ -130,7 +130,8 @@ private:
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
                                              // ground guards so dead states become re.empty)
     trail_stack&    m_undo_trail;
-    sort*           m_seq_sort = nullptr;   // sequence sort of the regex under analysis
+    sort*           m_seq_sort = nullptr;   // sequence sort shared by all memberships of the
+                                            // problem under analysis (prepare rejects a mixture)
     sort*           m_elem_sort = nullptr;  // element sort of that sequence sort
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (search nodes + product pops)
@@ -262,7 +263,7 @@ private:
 
     // Parse every membership into atoms, register its variables and record each
     // variable's last occurrence.  Sets m_seq_sort/m_elem_sort.  False on an
-    // unsupported shape.
+    // unsupported shape, and on memberships over different sequence sorts.
     bool prepare(membership_vec const& memberships, bool reversed);
 
     // Index of `v` in m_vars / m_groups, registering it on first sight.
@@ -327,7 +328,8 @@ public:
 
     // Collapse `var`'s views into one value: a word driving all of them to acceptance
     // at once -- the first the product search finds, not the shortest.  The only place
-    // a word gets built.  l_true = `word` set, l_false = empty intersection,
+    // a word gets built; its sort is taken from the views, resp. from `var` when the
+    // search left it unconstrained.  l_true = `word` set, l_false = empty intersection,
     // l_undef = no recorded solution, or the search gave up.
     lbool materialize(expr* var, expr_ref& word);
     lbool materialize_all(expr_substitution& model);

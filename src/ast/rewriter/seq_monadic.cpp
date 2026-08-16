@@ -261,7 +261,13 @@ lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* wit
             *witness_word = expr_ref(u().str.mk_empty(m_seq_sort), m);
         return l_true;
     }
-    expr_ref var0(m.mk_var(0, m_elem_sort), m);   // the element variable the guards range over
+    // sorts of the value being decided: they are read off the views rather than taken
+    // from the problem-wide m_seq_sort/m_elem_sort
+    sort* seq_sort = nullptr;
+    sort* elem_sort = nullptr;
+    if (!u().is_re(comps[0].m_state, seq_sort) || !u().is_seq(seq_sort, elem_sort))
+        return l_undef;
+    expr_ref var0(m.mk_var(0, elem_sort), m);     // the element variable the guards range over
 
     typedef std::vector<unsigned> key;
     struct key_hash {
@@ -332,8 +338,8 @@ lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* wit
         for (unsigned idx = elems.size(); idx-- > 0; )
             es.push_back(u().str.mk_unit(elems[idx]));
         if (es.empty())
-            return expr_ref(u().str.mk_empty(m_seq_sort), m);
-        return expr_ref(u().str.mk_concat(es.size(), es.data(), m_seq_sort), m);
+            return expr_ref(u().str.mk_empty(seq_sort), m);
+        return expr_ref(u().str.mk_concat(es.size(), es.data(), seq_sort), m);
     };
 
     // Hoisted out of the search loop: the per-view cofactor vectors are owned by the
@@ -366,7 +372,7 @@ lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* wit
     // of the common refinement of those n interval lists, obtained by a cursor merge in
     // O(sum_i intervals_i) -- whereas the cartesian enumeration below tries
     // prod_i(k_i) combinations, almost all of which are pruned as empty.
-    bool const sweep_ok = u().is_char(m_elem_sort);
+    bool const sweep_ok = u().is_char(elem_sort);
     unsigned const max_char = sweep_ok ? u().max_char() : 0;
     svector<ivl_list const*> sw_lists;
     svector<unsigned> sw_cur, sw_odo;
@@ -526,7 +532,7 @@ lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* wit
 
         // joint transitions = cartesian product of the branches with the guards
         // conjoined; prune as soon as the accumulated guard is empty, bail on unknown.
-        guard_set top(m, u(), m_elem_sort, var0, &m_rp_cache);
+        guard_set top(m, u(), elem_sort, var0, &m_rp_cache);
         rec(0, top);
         if (bail)
             return l_undef;
@@ -631,10 +637,18 @@ bool seq_monadic::prepare(membership_vec const& memberships, bool reversed) {
     }
     unsigned mi = 0;
     for (auto const& [term, regex, d] : memberships) {
-        if (!u().is_re(regex, m_seq_sort)) {
+        sort* seq_sort = nullptr;
+        if (!u().is_re(regex, seq_sort)) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
         }
+        // The memberships are decided jointly over one guard algebra, so they all have to
+        // speak about the same sequence sort.
+        if (m_seq_sort && m_seq_sort != seq_sort) {
+            m_stats.inc_bail(bail_reason::unsupported);
+            return false;
+        }
+        m_seq_sort = seq_sort;
         // Derivative processing assumes the regex denotes a fixed language.
         if (!re().is_ground(regex)) {
             m_stats.inc_bail(bail_reason::unsupported);
@@ -732,7 +746,7 @@ lbool seq_monadic::leaf() {
 lbool seq_monadic::materialize(expr* var, expr_ref& word) {
     // without a recorded solution m_solution is empty, and an empty word would pass
     // for a satisfying assignment
-    if (m_last_result != l_true || !m_config.m_solution || !m_seq_sort)
+    if (m_last_result != l_true || !m_config.m_solution)
         return l_undef;
     seq::view_vector views;
     expr* key = var;
@@ -742,7 +756,7 @@ lbool seq_monadic::materialize(expr* var, expr_ref& word) {
         key = rev_key.get();
     }
     if (!m_solution.find(key, views)) {
-        word = u().str.mk_empty(m_seq_sort);      // unconstrained: any value will do
+        word = u().str.mk_empty(var->get_sort());  // unconstrained: any value will do
         return l_true;
     }
     seq::view_vector comps;
