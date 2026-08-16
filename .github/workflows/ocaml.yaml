@@ -128,6 +128,7 @@ jobs:
             -package zarith \
             -linkpkg \
             -I install/lib/ocaml/z3 \
+            -I install/lib/ocaml/stublibs \
             -dllpath install/lib/ocaml/stublibs \
             install/lib/ocaml/z3/z3ml.cma \
             examples/ml/ml_example.ml
@@ -146,6 +147,7 @@ jobs:
             -package zarith \
             -linkpkg \
             -I install/lib/ocaml/z3 \
+            -I install/lib/ocaml/stublibs \
             install/lib/ocaml/z3/z3ml.cmxa \
             examples/ml/ml_example.ml
 

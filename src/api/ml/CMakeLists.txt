@@ -339,7 +339,7 @@ if (Z3_INSTALL_OCAML_BINDINGS)
 
   if (APPLE)
     install(CODE "
-      set(_z3ml_stub \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/${Z3_OCAML_STUB_INSTALLDIR}/dllz3ml.so\")
+      set(_z3ml_stub \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${Z3_OCAML_STUB_INSTALLDIR}/dllz3ml.so\")
       execute_process(
         COMMAND otool -L \"\${_z3ml_stub}\"
         RESULT_VARIABLE _z3ml_otool_result
