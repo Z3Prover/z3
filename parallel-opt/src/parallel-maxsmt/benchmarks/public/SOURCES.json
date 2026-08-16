@@ -1,0 +1,122 @@
+[
+  {
+    "family": "maxsat-evaluation-2023-anytime-weighted-archive",
+    "format": "archive",
+    "note": "advertised size 5726648750 exceeds cap 5242880",
+    "path": "public/mse2023_anytime_weighted.zip",
+    "size_bytes": 5726648750,
+    "status": "oversize",
+    "url": "https://www.cs.helsinki.fi/group/coreo/MSE2023-anytime-instances/MSE2023-anytime-W-benchmarks.zip"
+  },
+  {
+    "family": "maxsat-evaluation-2023-anytime-unweighted-archive",
+    "format": "archive",
+    "note": "advertised size 2301903923 exceeds cap 5242880",
+    "path": "public/mse2023_anytime_unweighted.zip",
+    "size_bytes": 2301903923,
+    "status": "oversize",
+    "url": "https://www.cs.helsinki.fi/group/coreo/MSE2023-anytime-instances/MSE2023-anytime-UW-benchmarks.zip"
+  },
+  {
+    "family": "DPMaxSAT-CATS",
+    "first_status": "downloaded",
+    "format": "wcnf",
+    "note": "text format marker verified",
+    "path": "public/dpmaxsat_cat.wcnf",
+    "size_bytes": 10816,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/zzwonder/DPMaxSAT/main/examples/cat.wcnf"
+  },
+  {
+    "family": "DPMaxSAT-demo-CNF",
+    "first_status": "downloaded",
+    "format": "cnf",
+    "note": "text format marker verified",
+    "path": "public/dpmaxsat_test.cnf",
+    "size_bytes": 39,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/zzwonder/DPMaxSAT/main/dmc/test.cnf"
+  },
+  {
+    "family": "Z3-MaxSAT-example",
+    "first_status": "downloaded",
+    "format": "smt2",
+    "note": "text format marker verified",
+    "path": "public/z3_maxsat_ex.smt",
+    "size_bytes": 247,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/Z3Prover/z3/master/examples/maxsat/ex.smt"
+  },
+  {
+    "family": "Pacose-regression-unweighted",
+    "first_status": "downloaded",
+    "format": "wcnf",
+    "license": "MIT (Pacose repository)",
+    "note": "text format marker verified",
+    "path": "public/pacose_smallo0.wcnf",
+    "size_bytes": 27,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/tobipaxe/PacoseMaxSATSolver/main/MaxSATRegressionSuite/baseWCNFs/smallo0.wcnf",
+    "weighted": false
+  },
+  {
+    "family": "Pacose-regression-unweighted",
+    "first_status": "downloaded",
+    "format": "wcnf",
+    "license": "MIT (Pacose repository)",
+    "note": "text format marker verified",
+    "path": "public/pacose_smallo1.wcnf",
+    "size_bytes": 22,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/tobipaxe/PacoseMaxSATSolver/main/MaxSATRegressionSuite/baseWCNFs/smallo1.wcnf",
+    "weighted": false
+  },
+  {
+    "family": "Pacose-regression-unweighted",
+    "first_status": "downloaded",
+    "format": "wcnf",
+    "license": "MIT (Pacose repository)",
+    "note": "text format marker verified",
+    "path": "public/pacose_two_minimal_contradicting.wcnf",
+    "size_bytes": 13,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/tobipaxe/PacoseMaxSATSolver/main/MaxSATRegressionSuite/baseWCNFs/TwoMinimalContradictingSoftClauses.wcnf",
+    "weighted": false
+  },
+  {
+    "family": "i2hs-planning-weighted",
+    "first_status": "downloaded",
+    "format": "wcnf",
+    "license": "MIT (i2hs repository)",
+    "note": "text format marker verified",
+    "path": "public/i2hs_planning_depot01c.wcnf",
+    "size_bytes": 11434,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/maxbannach/i2hs/main/examples/planning_wt-depot01c.wcsp.dir.wcnf",
+    "weighted": true
+  },
+  {
+    "family": "i2hs-planning-weighted",
+    "first_status": "downloaded",
+    "format": "wcnf",
+    "license": "MIT (i2hs repository)",
+    "note": "text format marker verified",
+    "path": "public/i2hs_planning_driverlog01bc.wcnf",
+    "size_bytes": 11103,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/maxbannach/i2hs/main/examples/planning_wt-driverlog01bc.wcsp.dir.wcnf",
+    "weighted": true
+  },
+  {
+    "family": "i2hs-qcp-weighted",
+    "first_status": "downloaded",
+    "format": "wcnf",
+    "license": "MIT (i2hs repository)",
+    "note": "text format marker verified",
+    "path": "public/i2hs_qcp_N10_H60_2.wcnf",
+    "size_bytes": 245524,
+    "status": "existing",
+    "url": "https://raw.githubusercontent.com/maxbannach/i2hs/main/examples/qcp_wt-file_qc_wcnf_N10_H60_2.wcnf",
+    "weighted": true
+  }
+]

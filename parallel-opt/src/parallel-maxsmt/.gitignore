@@ -1,0 +1,21 @@
+# Generated Python/test caches
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+# Bulky per-run subprocess output; committed runs.jsonl and report remain
+# the compact evidence artifacts.
+eval/results/raw/
+eval/e2e_artifacts/
+eval/tmp/
+
+# Documented solve outputs written directly under eval/.
+eval/*.trace.jsonl
+eval/*.certificate.json
+
+# Local campaign logs, probes, and scratch files (retain the transcript).
+eval/campaign_*.log
+eval/campaign_*.done
+eval/campaigns.done
+eval/e2e_probe*.jsonl
+!eval/e2e_tmux.log

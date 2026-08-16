@@ -1,0 +1,1075 @@
+{
+  "attempts": [
+    {
+      "family": "random_2sat",
+      "params": {
+        "nvars": 40000
+      },
+      "seconds": 1.705,
+      "seed": 20261927,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "random_2sat",
+      "params": {
+        "nvars": 54000
+      },
+      "seconds": 2.368,
+      "seed": 20269846,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 220
+      },
+      "seconds": 35.006,
+      "seed": 20261928,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 220
+      },
+      "seconds": 60.011,
+      "seed": 20261928,
+      "status": "hard-confirm:timeout",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 110
+      },
+      "seconds": 0.012,
+      "seed": 20269847,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 165
+      },
+      "seconds": 0.081,
+      "seed": 20277766,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 192
+      },
+      "seconds": 2.976,
+      "seed": 20285685,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 206
+      },
+      "seconds": 35.015,
+      "seed": 20293604,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 199
+      },
+      "seconds": 0.116,
+      "seed": 20301523,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 203
+      },
+      "seconds": 35.009,
+      "seed": 20309442,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 70
+      },
+      "seconds": 0.165,
+      "seed": 20262121,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 140
+      },
+      "seconds": 35.01,
+      "seed": 20270040,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 140
+      },
+      "seconds": 60.002,
+      "seed": 20270040,
+      "status": "hard-confirm:timeout",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 105
+      },
+      "seconds": 13.566,
+      "seed": 20277959,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 122
+      },
+      "seconds": 35.043,
+      "seed": 20285878,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 114
+      },
+      "seconds": 35.007,
+      "seed": 20293797,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 109
+      },
+      "seconds": 18.645,
+      "seed": 20301716,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 70
+      },
+      "seconds": 0.086,
+      "seed": 20261783,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 140
+      },
+      "seconds": 14.598,
+      "seed": 20269702,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 189
+      },
+      "seconds": 35.011,
+      "seed": 20277621,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 189
+      },
+      "seconds": 60.014,
+      "seed": 20277621,
+      "status": "hard-confirm:timeout",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 164
+      },
+      "seconds": 33.52,
+      "seed": 20285540,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 177
+      },
+      "seconds": 35.012,
+      "seed": 20293459,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 171
+      },
+      "seconds": 35.014,
+      "seed": 20301378,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 168
+      },
+      "seconds": 35.007,
+      "seed": 20309297,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 250
+      },
+      "seconds": 35.015,
+      "seed": 20261123,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 250
+      },
+      "seconds": 60.009,
+      "seed": 20261123,
+      "status": "hard-confirm:timeout",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 125
+      },
+      "seconds": 0.327,
+      "seed": 20269042,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 188
+      },
+      "seconds": 0.847,
+      "seed": 20276961,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 219
+      },
+      "seconds": 1.334,
+      "seed": 20284880,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 234
+      },
+      "seconds": 35.008,
+      "seed": 20292799,
+      "status": "timeout",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 227
+      },
+      "seconds": 5.612,
+      "seed": 20300718,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "scheduling",
+      "params": {
+        "noise": 1.5,
+        "nvars": 150
+      },
+      "seconds": 0.04,
+      "seed": 20261875,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "scheduling",
+      "params": {
+        "noise": 1.5,
+        "nvars": 300
+      },
+      "seconds": 10.631,
+      "seed": 20269794,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "scheduling",
+      "params": {
+        "noise": 1.5,
+        "nvars": 405
+      },
+      "seconds": 23.21,
+      "seed": 20277713,
+      "status": "optimal",
+      "weighted": false
+    },
+    {
+      "family": "random_2sat",
+      "params": {
+        "nvars": 40000
+      },
+      "seconds": 8.518,
+      "seed": 20366656,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "random_2sat",
+      "params": {
+        "nvars": 54000
+      },
+      "seconds": 13.088,
+      "seed": 20374575,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 220
+      },
+      "seconds": 1.383,
+      "seed": 20366657,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 297
+      },
+      "seconds": 0.442,
+      "seed": 20374576,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 594
+      },
+      "seconds": 35.014,
+      "seed": 20382495,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 594
+      },
+      "seconds": 60.008,
+      "seed": 20382495,
+      "status": "hard-confirm:timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 446
+      },
+      "seconds": 35.001,
+      "seed": 20390414,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 371
+      },
+      "seconds": 35.008,
+      "seed": 20398333,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 334
+      },
+      "seconds": 35.008,
+      "seed": 20406252,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 316
+      },
+      "seconds": 35.012,
+      "seed": 20414171,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 70
+      },
+      "seconds": 0.226,
+      "seed": 20366850,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 140
+      },
+      "seconds": 35.007,
+      "seed": 20374769,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 105
+      },
+      "seconds": 32.704,
+      "seed": 20382688,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 122
+      },
+      "seconds": 35.003,
+      "seed": 20390607,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 220
+      },
+      "seconds": 1.436,
+      "seed": 20366657,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 297
+      },
+      "seconds": 0.464,
+      "seed": 20374576,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 594
+      },
+      "seconds": 35.008,
+      "seed": 20382495,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 446
+      },
+      "seconds": 35.007,
+      "seed": 20390414,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 371
+      },
+      "seconds": 35.009,
+      "seed": 20398333,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 334
+      },
+      "seconds": 35.007,
+      "seed": 20406252,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "params": {
+        "nvars": 316
+      },
+      "seconds": 35.003,
+      "seed": 20414171,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 70
+      },
+      "seconds": 0.222,
+      "seed": 20366850,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 140
+      },
+      "seconds": 35.009,
+      "seed": 20374769,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 105
+      },
+      "seconds": 32.504,
+      "seed": 20382688,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 122
+      },
+      "seconds": 35.012,
+      "seed": 20390607,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 114
+      },
+      "seconds": 35.015,
+      "seed": 20398526,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 109
+      },
+      "seconds": 35.001,
+      "seed": 20406445,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "vertex_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 107
+      },
+      "seconds": 35.005,
+      "seed": 20414364,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 70
+      },
+      "seconds": 0.028,
+      "seed": 20366512,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 140
+      },
+      "seconds": 0.141,
+      "seed": 20374431,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 280
+      },
+      "seconds": 24.583,
+      "seed": 20382350,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 378
+      },
+      "seconds": 35.015,
+      "seed": 20390269,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 329
+      },
+      "seconds": 35.015,
+      "seed": 20398188,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 304
+      },
+      "seconds": 35.001,
+      "seed": 20406107,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "params": {
+        "noise": 0.5,
+        "nvars": 292
+      },
+      "seconds": 4.186,
+      "seed": 20414026,
+      "status": "optimal",
+      "weighted": true
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 250
+      },
+      "seconds": 35.008,
+      "seed": 20365852,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 125
+      },
+      "seconds": 35.011,
+      "seed": 20373771,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 62
+      },
+      "seconds": 35.013,
+      "seed": 20381690,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 31
+      },
+      "seconds": 35.002,
+      "seed": 20389609,
+      "status": "timeout",
+      "weighted": true
+    },
+    {
+      "family": "lia",
+      "params": {
+        "nvars": 30
+      },
+      "seconds": 35.01,
+      "seed": 20397528,
+      "status": "timeout",
+      "weighted": true
+    }
+  ],
+  "generated_by": "calibrate.py",
+  "instances": [
+    {
+      "family": "random_2sat",
+      "known_optimum": 0,
+      "measured_seconds": 1.705,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "nvars": 40000
+      },
+      "path": "local/eval_random_2sat_u_0.wcnf",
+      "seed": 20261927,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "family": "random_2sat",
+      "known_optimum": 0,
+      "measured_seconds": 2.368,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "nvars": 54000
+      },
+      "path": "local/eval_random_2sat_u_1.wcnf",
+      "seed": 20269846,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "best_known_cost": 129,
+      "family": "random_3sat",
+      "known_optimum": null,
+      "measured_seconds": 60.011,
+      "measured_with_timeout_seconds": 60.0,
+      "params": {
+        "nvars": 220
+      },
+      "path": "local/hard_random_3sat_u_0.wcnf",
+      "seed": 20261928,
+      "tier": "hard",
+      "weighted": false
+    },
+    {
+      "family": "random_3sat",
+      "known_optimum": 1,
+      "measured_seconds": 2.976,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "nvars": 192
+      },
+      "path": "local/eval_random_3sat_u_3.wcnf",
+      "seed": 20285685,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "best_known_cost": 123,
+      "family": "vertex_cover",
+      "known_optimum": null,
+      "measured_seconds": 60.002,
+      "measured_with_timeout_seconds": 60.0,
+      "params": {
+        "noise": 0.5,
+        "nvars": 140
+      },
+      "path": "local/hard_vertex_cover_u_1.wcnf",
+      "seed": 20270040,
+      "tier": "hard",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "known_optimum": 83,
+      "measured_seconds": 13.566,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "noise": 0.5,
+        "nvars": 105
+      },
+      "path": "local/eval_vertex_cover_u_2.wcnf",
+      "seed": 20277959,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "family": "vertex_cover",
+      "known_optimum": 88,
+      "measured_seconds": 18.645,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "noise": 0.5,
+        "nvars": 109
+      },
+      "path": "local/eval_vertex_cover_u_5.wcnf",
+      "seed": 20301716,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "family": "set_cover",
+      "known_optimum": 16,
+      "measured_seconds": 14.598,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "noise": 0.5,
+        "nvars": 140
+      },
+      "path": "local/eval_set_cover_u_1.wcnf",
+      "seed": 20269702,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "best_known_cost": 39,
+      "family": "set_cover",
+      "known_optimum": null,
+      "measured_seconds": 60.014,
+      "measured_with_timeout_seconds": 60.0,
+      "params": {
+        "noise": 0.5,
+        "nvars": 189
+      },
+      "path": "local/hard_set_cover_u_2.wcnf",
+      "seed": 20277621,
+      "tier": "hard",
+      "weighted": false
+    },
+    {
+      "best_known_cost": 374,
+      "family": "lia",
+      "known_optimum": null,
+      "measured_seconds": 60.009,
+      "measured_with_timeout_seconds": 60.0,
+      "params": {
+        "nvars": 250
+      },
+      "path": "local/hard_lia_u_0.smt2",
+      "seed": 20261123,
+      "tier": "hard",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "known_optimum": 83,
+      "measured_seconds": 1.334,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "nvars": 219
+      },
+      "path": "local/eval_lia_u_3.smt2",
+      "seed": 20284880,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "family": "lia",
+      "known_optimum": 86,
+      "measured_seconds": 5.612,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "nvars": 227
+      },
+      "path": "local/eval_lia_u_5.smt2",
+      "seed": 20300718,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "family": "scheduling",
+      "known_optimum": 167,
+      "measured_seconds": 10.631,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "noise": 1.5,
+        "nvars": 300
+      },
+      "path": "local/eval_scheduling_u_1.wcnf",
+      "seed": 20269794,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "family": "scheduling",
+      "known_optimum": 233,
+      "measured_seconds": 23.21,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "noise": 1.5,
+        "nvars": 405
+      },
+      "path": "local/eval_scheduling_u_2.wcnf",
+      "seed": 20277713,
+      "tier": "eval",
+      "weighted": false
+    },
+    {
+      "family": "random_2sat",
+      "known_optimum": 0,
+      "measured_seconds": 8.518,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "nvars": 40000
+      },
+      "path": "local/eval_random_2sat_w_0.wcnf",
+      "seed": 20366656,
+      "tier": "eval",
+      "weighted": true
+    },
+    {
+      "family": "random_2sat",
+      "known_optimum": 0,
+      "measured_seconds": 13.088,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "nvars": 54000
+      },
+      "path": "local/eval_random_2sat_w_1.wcnf",
+      "seed": 20374575,
+      "tier": "eval",
+      "weighted": true
+    },
+    {
+      "family": "random_3sat",
+      "known_optimum": 0,
+      "measured_seconds": 1.383,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "nvars": 220
+      },
+      "path": "local/eval_random_3sat_w_0.wcnf",
+      "seed": 20366657,
+      "tier": "eval",
+      "weighted": true
+    },
+    {
+      "best_known_cost": 39,
+      "family": "random_3sat",
+      "known_optimum": null,
+      "measured_seconds": 60.008,
+      "measured_with_timeout_seconds": 60.0,
+      "params": {
+        "nvars": 594
+      },
+      "path": "local/hard_random_3sat_w_2.wcnf",
+      "seed": 20382495,
+      "tier": "hard",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "known_optimum": 102,
+      "measured_seconds": 24.583,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "noise": 0.5,
+        "nvars": 280
+      },
+      "path": "local/eval_set_cover_w_2.wcnf",
+      "seed": 20382350,
+      "tier": "eval",
+      "weighted": true
+    },
+    {
+      "family": "set_cover",
+      "known_optimum": 86,
+      "measured_seconds": 4.186,
+      "measured_with_timeout_seconds": 35.0,
+      "params": {
+        "noise": 0.5,
+        "nvars": 292
+      },
+      "path": "local/eval_set_cover_w_6.wcnf",
+      "seed": 20414026,
+      "tier": "eval",
+      "weighted": true
+    }
+  ],
+  "probe_timeout_seconds": 60.0,
+  "search_timeout_seconds": 35.0,
+  "seed": 20260813,
+  "sweep_wall_seconds": 700.07,
+  "target_window_seconds": [
+    1.0,
+    30.0
+  ]
+}
