@@ -14,7 +14,7 @@ Abstract:
         m_target ? the run ends at m_target      (reach view)
                  : the end state is nullable     (membership view)
 
-    without leaving m_region, and negated when m_complemented.
+    without leaving m_region.
 
     Views on the same value are conjunctive: the admissible values are the
     intersection of their languages.  See seq_monadic, which reports the
@@ -44,7 +44,6 @@ namespace seq {
         struct sig {
             unsigned        state, target;
             uint_set const* region;
-            bool            complemented;
         };
 
         view() = default;
@@ -83,13 +82,12 @@ namespace seq {
     inline bool operator<(view::sig const& a, view::sig const& b) {
         if (a.state != b.state) return a.state < b.state;
         if (a.target != b.target) return a.target < b.target;
-        if (a.region != b.region) return a.region < b.region;
-        return a.complemented < b.complemented;
+        return a.region < b.region;
     }
 
     inline bool operator==(view::sig const& a, view::sig const& b) {
         return a.state == b.state && a.target == b.target
-            && a.region == b.region && a.complemented == b.complemented;
+            && a.region == b.region;
     }
 
     using view_vector = svector<view>;
@@ -98,7 +96,7 @@ namespace seq {
     // l_undef when nullability is undecided.
     lbool accepts(view const& v, seq_rewriter& rw);
 
-    // Empty language; for a complemented view this means it accepts everything.
+    // Empty language.
     bool is_dead(view const& v, seq_rewriter& rw);
 
 }
