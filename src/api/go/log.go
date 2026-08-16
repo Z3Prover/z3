@@ -44,6 +44,26 @@ func CloseLog() {
 	isLogOpen = false
 }
 
+// EnableTrace enables trace messages for tag.
+func EnableTrace(tag string) {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	cTag := C.CString(tag)
+	defer C.free(unsafe.Pointer(cTag))
+	C.Z3_enable_trace(cTag)
+}
+
+// DisableTrace disables trace messages for tag.
+func DisableTrace(tag string) {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	cTag := C.CString(tag)
+	defer C.free(unsafe.Pointer(cTag))
+	C.Z3_disable_trace(cTag)
+}
+
 // AppendLog appends a user-provided string to the interaction log
 // Panics if the log is not open
 func AppendLog(s string) {
