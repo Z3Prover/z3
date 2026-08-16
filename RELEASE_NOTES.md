@@ -58,6 +58,7 @@ Version 5.1.0
 - Fix regex ITE propagation. https://github.com/Z3Prover/z3/pull/10431
 - Fix non-ground regex fallback relevance. https://github.com/Z3Prover/z3/pull/10527
 - Fix #10435: inverted path index may reinsert the same enode repeatedly into candidate set for instantiation; use periodic compression.
+  https://github.com/Z3Prover/z3/commit/15010422f4901d3199137d3cac6ead732a15b04a
 - Reject declarations that clash with built-in signatures (pi, euler). https://github.com/Z3Prover/z3/pull/10411
 - Reduce per-cell bignum allocation in HNF `pivot_column_non_fractional` for improved performance.
   https://github.com/Z3Prover/z3/pull/10497
