@@ -4042,6 +4042,64 @@ namespace Microsoft.Z3
         }
         #endregion
 
+        #region Quantifier Elimination
+        /// <summary>
+        /// Creates an empty map from ASTs to ASTs.
+        /// </summary>
+        public ASTMap MkASTMap()
+        {
+            return new ASTMap(this);
+        }
+
+        /// <summary>
+        /// Performs best-effort quantifier elimination for the variables in <paramref name="vars"/>.
+        /// </summary>
+        public Expr QeLite(ASTVector vars, Expr body)
+        {
+            CheckContextMatch(vars);
+            CheckContextMatch(body);
+            return Expr.Create(this, Native.Z3_qe_lite(nCtx, vars.NativeObject, body.NativeObject));
+        }
+
+        /// <summary>
+        /// Projects the bound applications from <paramref name="body"/> using <paramref name="model"/>.
+        /// </summary>
+        public Expr QeModelProject(Model model, Expr[] bounds, Expr body)
+        {
+            CheckContextMatch(model);
+            CheckContextMatch<Expr>(bounds);
+            CheckContextMatch(body);
+            return Expr.Create(this, Native.Z3_qe_model_project(nCtx, model.NativeObject,
+                (uint)bounds.Length, AST.ArrayToNative(bounds), body.NativeObject));
+        }
+
+        /// <summary>
+        /// Projects bound applications and records Skolem terms in <paramref name="map"/>.
+        /// </summary>
+        public Expr QeModelProjectSkolem(Model model, Expr[] bounds, Expr body, ASTMap map)
+        {
+            CheckContextMatch(model);
+            CheckContextMatch<Expr>(bounds);
+            CheckContextMatch(body);
+            CheckContextMatch(map);
+            return Expr.Create(this, Native.Z3_qe_model_project_skolem(nCtx, model.NativeObject,
+                (uint)bounds.Length, AST.ArrayToNative(bounds), body.NativeObject, map.NativeObject));
+        }
+
+        /// <summary>
+        /// Projects bound applications and records witnesses in <paramref name="map"/>.
+        /// </summary>
+        public Expr QeModelProjectWithWitness(Model model, Expr[] bounds, Expr body, ASTMap map)
+        {
+            CheckContextMatch(model);
+            CheckContextMatch<Expr>(bounds);
+            CheckContextMatch(body);
+            CheckContextMatch(map);
+            return Expr.Create(this, Native.Z3_qe_model_project_with_witness(nCtx, model.NativeObject,
+                (uint)bounds.Length, AST.ArrayToNative(bounds), body.NativeObject, map.NativeObject));
+        }
+        #endregion
+
         #region Simplifiers
         /// <summary>
         /// The number of supported simplifiers.

@@ -189,13 +189,13 @@ namespace smt {
         expr* y = get_enode(v2)->get_expr();
         if (!bv.is_bv(x) || !bv.is_bv(y))
             return;
-        m_translator.ensure_translated(x);
-        m_translator.ensure_translated(y);
-        auto a = mk_literal(m.mk_eq(x, y));
-        auto b = mk_literal(m.mk_eq(m_translator.translated(x), m_translator.translated(y)));
-        ctx.mark_as_relevant(a);
-        ctx.mark_as_relevant(b);
-        ctx.mk_th_axiom(m_id, ~a, b);
+        expr_ref eq(m.mk_eq(x, y), m);
+        m_translator.translate_eq(eq);
+        auto lit1 = mk_literal(eq);
+        auto lit2 = mk_literal(m_translator.translated(eq));
+        ctx.mark_as_relevant(lit1);
+        ctx.mark_as_relevant(lit2);
+        ctx.mk_th_axiom(m_id, ~lit1, lit2);
     }
 
     void theory_intblast::init_model(model_generator& mg) {

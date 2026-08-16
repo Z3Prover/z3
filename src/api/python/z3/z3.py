@@ -8925,6 +8925,21 @@ class ApplyResult(Z3PPObject):
 #
 #########################################
 
+def num_simplifiers(ctx=None):
+    """Return the number of simplifiers supported by the given context."""
+    return Z3_get_num_simplifiers(_get_ctx(ctx).ref())
+
+
+def simplifier_name(i, ctx=None):
+    """Return the name of the i-th simplifier supported by the given context."""
+    return Z3_get_simplifier_name(_get_ctx(ctx).ref(), i)
+
+
+def simplifier_description(name, ctx=None):
+    """Return the description of the simplifier identified by name."""
+    return Z3_simplifier_get_descr(_get_ctx(ctx).ref(), name)
+
+
 class Simplifier:
     """Simplifiers act as pre-processing utilities for solvers.
     Build a custom simplifier and add it to a solver"""

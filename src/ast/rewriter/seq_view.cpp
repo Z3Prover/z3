@@ -31,14 +31,10 @@ namespace seq {
             ast_manager& m = rw.m();
             r = m.is_true(nb) ? l_true : m.is_false(nb) ? l_false : l_undef;
         }
-        if (v.m_complemented && r != l_undef)
-            r = (r == l_true) ? l_false : l_true;
         return r;
     }
 
     bool is_dead(view const& v, seq_rewriter& rw) {
-        if (v.m_complemented)
-            return false;
         return !v.m_state || !v.in_region() || rw.u().re.is_empty(v.m_state);
     }
 

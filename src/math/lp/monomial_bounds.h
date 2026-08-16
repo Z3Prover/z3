@@ -93,7 +93,6 @@ namespace nla {
         bool propagate_linear_bounds();
         bool propagate_changed_bounds();
         bool propagate_violated_linear_monomials();
-        bool propagate_fixed_rows();
         bool optimize_nl_bounds();
 
         // Maximize (is_lower == false) or minimize (is_lower == true) column j

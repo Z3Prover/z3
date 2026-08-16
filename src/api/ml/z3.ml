@@ -1305,6 +1305,10 @@ struct
   let mk_seq_nth = Z3native.mk_seq_nth
   let mk_seq_index = Z3native.mk_seq_index
   let mk_seq_last_index = Z3native.mk_seq_last_index
+  let mk_seq_map = Z3native.mk_seq_map
+  let mk_seq_mapi = Z3native.mk_seq_mapi
+  let mk_seq_foldl = Z3native.mk_seq_foldl
+  let mk_seq_foldli = Z3native.mk_seq_foldli
   let mk_str_to_int = Z3native.mk_str_to_int
   let mk_str_le = Z3native.mk_str_le
   let mk_str_lt = Z3native.mk_str_lt
@@ -2141,6 +2145,29 @@ struct
     AST.ASTVector.to_expr_list av
 end
 
+module QE =
+struct
+  let qe_lite (ctx:context) (vars:AST.ASTVector.ast_vector) (body:Expr.expr) =
+    Z3native.qe_lite ctx vars body
+
+  let model_project (model:Model.model) (bounds:Expr.expr list) (body:Expr.expr) =
+    Z3native.qe_model_project (Model.gc model) model (List.length bounds) bounds body
+
+  let model_project_skolem (model:Model.model) (bounds:Expr.expr list) (body:Expr.expr)
+      (map:AST.ASTMap.ast_map) =
+    Z3native.qe_model_project_skolem (Model.gc model) model (List.length bounds) bounds body map
+
+  let model_project_with_witness (model:Model.model) (bounds:Expr.expr list) (body:Expr.expr)
+      (map:AST.ASTMap.ast_map) =
+    Z3native.qe_model_project_with_witness (Model.gc model) model (List.length bounds) bounds body map
+end
+
+module Polynomial =
+struct
+  let mk_polynomial_subresultants (ctx:context) (p:Expr.expr) (q:Expr.expr) (x:Expr.expr) =
+    AST.ASTVector.to_expr_list (Z3native.polynomial_subresultants ctx p q x)
+end
+
 
 module Optimize =
 struct
@@ -2178,6 +2205,10 @@ struct
 
   let get_lower (x:handle) = Z3native.optimize_get_lower (gc x.opt) x.opt x.h
   let get_upper (x:handle) = Z3native.optimize_get_upper (gc x.opt) x.opt x.h
+  let get_lower_as_vector (x:handle) =
+    AST.ASTVector.to_expr_list (Z3native.optimize_get_lower_as_vector (gc x.opt) x.opt x.h)
+  let get_upper_as_vector (x:handle) =
+    AST.ASTVector.to_expr_list (Z3native.optimize_get_upper_as_vector (gc x.opt) x.opt x.h)
   let push (x:optimize) = Z3native.optimize_push (gc x) x
   let pop (x:optimize) = Z3native.optimize_pop (gc x) x
   let get_reason_unknown (x:optimize) = Z3native.optimize_get_reason_unknown (gc x) x

@@ -20,11 +20,13 @@ Tests:
  23. (Σ*·S)* is flattened to () | Σ*·S
  24. Regex info tracks inferred maximal lengths
  25. Bag splitting ignores a whole-equation bag match
+ 26. mk_seq_reverse reverses concrete sequences and rejects non-concrete ones
 --*/
 
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq_decl_plugin.h"
 #include "smt/smt_context.h"
@@ -497,6 +499,62 @@ void tst_seq_rewriter() {
             ENSURE(!i_inner_star.length_is_empty() &&
                    n >= i_inner_star.min_length && n <= i_inner_star.max_length &&
                    (i_inner_star.residues & (1ull << (n % i_inner_star.period))));
+    }
+
+    // 26. seq_rewriter::mk_seq_reverse on concrete sequences.
+    {
+        seq_rewriter sr(m);
+        expr_ref result(m);
+        auto unit = [&](unsigned c) { return expr_ref(su.str.mk_unit(su.str.mk_char(c)), m); };
+        auto cat = [&](expr_ref_vector const& es) {
+            return expr_ref(su.str.mk_concat(es, str_sort), m);
+        };
+
+        // A string literal is a sequence of characters, not an opaque element: reversing
+        // it has to reverse its characters.
+        expr_ref abc_str(su.str.mk_string("abc"), m);
+        expr_ref cba_str(su.str.mk_string("cba"), m);
+        ENSURE(sr.mk_seq_reverse(abc_str, result));
+        ENSURE(result == cba_str);
+
+        // A concatenation of units comes back in the opposite order.
+        expr_ref_vector abc(m);
+        abc.push_back(unit('a')).push_back(unit('b')).push_back(unit('c'));
+        expr_ref_vector cba(m);
+        cba.push_back(unit('c')).push_back(unit('b')).push_back(unit('a'));
+        ENSURE(sr.mk_seq_reverse(cat(abc), result));
+        ENSURE(result == cat(cba));
+
+        // Literals and units mix, and each literal is reversed in place.
+        expr_ref_vector ab_c(m);
+        ab_c.push_back(expr_ref(su.str.mk_string("ab"), m)).push_back(unit('c'));
+        expr_ref_vector c_ba(m);
+        c_ba.push_back(unit('c')).push_back(expr_ref(su.str.mk_string("ba"), m));
+        ENSURE(sr.mk_seq_reverse(cat(ab_c), result));
+        ENSURE(result == cat(c_ba));
+
+        // Nesting on either side flattens to the same reversal.
+        expr_ref_vector ab(m), inner(m);
+        ab.push_back(unit('a')).push_back(unit('b'));
+        inner.push_back(cat(ab)).push_back(unit('c'));
+        ENSURE(sr.mk_seq_reverse(cat(inner), result));
+        ENSURE(result == cat(cba));
+
+        // The empty sequence and a single element are their own reverse.
+        expr_ref empty_seq(su.str.mk_empty(str_sort), m);
+        ENSURE(sr.mk_seq_reverse(empty_seq, result));
+        ENSURE(result == empty_seq);
+        ENSURE(sr.mk_seq_reverse(unit('a'), result));
+        ENSURE(result == unit('a'));
+
+        // Sequences have no reverse operator, so a non-concrete element has no reverse to
+        // return. Reporting failure is the only sound answer; returning the element
+        // unchanged would claim rev(x) = x.
+        expr_ref x(m.mk_const(symbol("x"), str_sort), m);
+        ENSURE(!sr.mk_seq_reverse(x, result));
+        expr_ref_vector ax(m);
+        ax.push_back(unit('a')).push_back(x);
+        ENSURE(!sr.mk_seq_reverse(cat(ax), result));
     }
 
     std::cout << "tst_seq_rewriter: all tests passed\n";

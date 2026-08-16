@@ -22,7 +22,7 @@ import java.lang.ref.ReferenceQueue;
 /**
  * Map from AST to AST
  **/
-class ASTMap extends Z3Object {
+public class ASTMap extends Z3Object {
     /**
      * Checks whether the map contains the key {@code k}. 
      * @param k An AST

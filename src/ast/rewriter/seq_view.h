@@ -39,7 +39,6 @@ namespace seq {
         expr*           m_state = nullptr;
         expr*           m_target = nullptr;     // null: membership view
         uint_set const* m_region = nullptr;     // null: whole automaton
-        bool            m_complemented = false;
 
         // identity for dedup/memoization; covers the same fields as operator==
         struct sig {
@@ -49,8 +48,8 @@ namespace seq {
         };
 
         view() = default;
-        view(expr* state, expr* target, uint_set const* region = nullptr, bool compl_ = false) :
-            m_state(state), m_target(target), m_region(region), m_complemented(compl_) {}
+        view(expr* state, expr* target, uint_set const* region = nullptr) :
+            m_state(state), m_target(target), m_region(region) {}
 
         static view membership(expr* state, uint_set const* region = nullptr) {
             return view(state, nullptr, region);
@@ -70,12 +69,12 @@ namespace seq {
         sig key() const {
             return { m_state ? m_state->get_id() : UINT_MAX,
                      m_target ? m_target->get_id() : UINT_MAX,
-                     m_region, m_complemented };
+                     m_region };
         }
 
         bool operator==(view const& other) const {
             return m_state == other.m_state && m_target == other.m_target
-                && m_region == other.m_region && m_complemented == other.m_complemented;
+                && m_region == other.m_region;
         }
 
         bool operator!=(view const& other) const { return !(*this == other); }

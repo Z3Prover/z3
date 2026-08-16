@@ -562,13 +562,13 @@ void bv2int_translator::translate_bv(app* e) {
     }
     case OP_BREDOR: {
         r = umod(e->get_arg(0), 0);
-        r = m.mk_not(m.mk_eq(r, a.mk_int(0)));
+        r = m.mk_ite(m.mk_eq(r, a.mk_int(0)), a.mk_int(0), a.mk_int(1));
         break;
     }
     case OP_BREDAND: {
         rational N = bv_size(e->get_arg(0));
         r = umod(e->get_arg(0), 0);
-        r = m.mk_not(m.mk_eq(r, a.mk_int(N - 1)));
+        r = m.mk_ite(m.mk_eq(r, a.mk_int(N - 1)), a.mk_int(1), a.mk_int(0));
         break;
     }
     default:

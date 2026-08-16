@@ -254,7 +254,7 @@ lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* wit
     // region/complement are for clients of seq::view; not implemented here, so
     // decline rather than decide the wrong language
     for (auto const& c : comps)
-        if (c.m_region || c.m_complemented)
+        if (c.m_region)
             return l_undef;
     if (n == 0) {
         if (witness_word)
@@ -266,10 +266,10 @@ lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* wit
     typedef std::vector<unsigned> key;
     struct key_hash {
         size_t operator()(key const& k) const {
-            size_t h = 1469598103934665603ull;
+            uint64_t h = 1469598103934665603ull;
             for (unsigned x : k)
                 h = (h ^ x) * 1099511628211ull;
-            return h;
+            return static_cast<size_t>(h);
         }
     };
 
@@ -750,8 +750,8 @@ lbool seq_monadic::materialize(expr* var, expr_ref& word) {
     expr_ref w(m);
     lbool r = product_nonempty(comps, &w);
     if (r == l_true) {
-        if (m_reversed)                           // the search solved rev(term) in rev(R), so
-            w = m_rw.mk_seq_reverse(w);           // rev(x)'s witness is x's value backwards
+        if (m_reversed && !m_rw.mk_seq_reverse(w, w))  // the search solved rev(term) in rev(R),
+            return l_undef;                            // so rev(x)'s witness is x's value backwards
         m_pin.push_back(w);
         word = w;
     }

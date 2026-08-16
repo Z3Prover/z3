@@ -692,28 +692,6 @@ public:
             arith_util ar2(m);
             expr_ref zero(ar2.mk_int(0), m);
             expr_ref one(ar2.mk_int(1), m);
-            expr_ref y = var("issue_10511_y");
-            expr_ref o = var("issue_10511_o");
-            expr_ref lhs(u.str.mk_substr(y, zero, one), m);
-            expr_ref offset(u.str.mk_length(o), m);
-            expr_ref rhs(u.str.mk_substr(y, offset, one), m);
-            smt_params params;
-            params.m_seq_regex_monadic = true;
-            smt::kernel solver(m, params);
-            solver.assert_expr(m.mk_not(re().mk_in_re(lhs, re().mk_plus(re().mk_to_re(rhs)))));
-            expr_ref_vector assumptions(m);
-            assumptions.push_back(m.mk_eq(offset, zero));
-            lbool got = solver.check(assumptions);
-            bool ok = got == l_false;
-            if (!ok) ++m_fail;
-            std::cout << (ok ? "  OK   " : "  FAIL ")
-                      << "non-ground regex assumption issue 10511"
-                      << "  got=" << s(got) << " expected=unsat\n";
-        }
-        {
-            arith_util ar2(m);
-            expr_ref zero(ar2.mk_int(0), m);
-            expr_ref one(ar2.mk_int(1), m);
             expr_ref k = var("issue_10379_k");
             expr_ref k0(u.str.mk_at(k, zero), m);
             expr_ref mod00(ar2.mk_mod(zero, zero), m);

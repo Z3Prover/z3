@@ -300,6 +300,38 @@ void test_strict_real_maximize() {
     Z3_del_context(ctx);
 }
 
+void test_strict_real_maximize_disjunction() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_sort real_sort = Z3_mk_real_sort(ctx);
+    auto mk_const = [&](char const* name) {
+        return Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, name), real_sort);
+    };
+    Z3_ast v = mk_const("v");
+    Z3_ast j = mk_const("j");
+    Z3_ast x = mk_const("x");
+    Z3_ast zero = Z3_mk_real(ctx, 0, 1);
+    Z3_ast one = Z3_mk_real(ctx, 1, 1);
+
+    Z3_optimize opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+    Z3_optimize_assert(ctx, opt, Z3_mk_lt(ctx, j, zero));
+    Z3_ast two_v_args[] = { v, v };
+    Z3_optimize_assert(ctx, opt, Z3_mk_gt(ctx, Z3_mk_add(ctx, 2, two_v_args), x));
+    Z3_ast cases[] = { Z3_mk_eq(ctx, zero, x), Z3_mk_eq(ctx, zero, v) };
+    Z3_optimize_assert(ctx, opt, Z3_mk_or(ctx, 2, cases));
+    Z3_ast objective_args[] = { one, x };
+    unsigned h = Z3_optimize_maximize(ctx, opt, Z3_mk_add(ctx, 2, objective_args));
+
+    ENSURE(Z3_optimize_check(ctx, opt, 0, nullptr) == Z3_L_TRUE);
+    ENSURE(std::string(Z3_ast_to_string(ctx, Z3_optimize_get_lower(ctx, opt, h))) == "1");
+
+    Z3_optimize_dec_ref(ctx, opt);
+    Z3_del_context(ctx);
+}
+
 static void test_qfnra_degree80_square_bound() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -352,7 +384,6 @@ static void test_qfnra_degree80_square_bound() {
         throw default_exception(("qfnra degree-80 regression returned unknown: " + unknown_reason).c_str());
     ENSURE(result == Z3_L_FALSE);
 }
-
 void tst_api() {
     test_apps();
     test_mk_app_polymorphic_arity();
@@ -361,6 +392,7 @@ void tst_api() {
     test_optimize_translate();
     test_optimize_arith_params();
     test_strict_real_maximize();
+    test_strict_real_maximize_disjunction();
     test_qfnra_degree80_square_bound();
 }
 
