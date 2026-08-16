@@ -1,5 +1,97 @@
 RELEASE NOTES
 
+Version 5.1.0
+==============
+- New monadic regex solver enabled by default (`smt.seq.regex_monadic=true`).
+  The solver uses live-state traversal and interval-refinement products for improved
+  regex constraint solving, with semilinear length abstraction for regular expressions.
+  https://github.com/Z3Prover/z3/pull/10466, https://github.com/Z3Prover/z3/pull/10472,
+  https://github.com/Z3Prover/z3/pull/10455, https://github.com/Z3Prover/z3/pull/10389
+- Add seq_monadic: configurable orientation (retry default) for reading regex memberships,
+  light Antimirov cofactor mode, DNF replacement with depth-first search, and unsat-core extraction.
+  Thanks to Margus Veanes.
+  https://github.com/Z3Prover/z3/pull/10519, https://github.com/Z3Prover/z3/pull/10323,
+  https://github.com/Z3Prover/z3/pull/10366
+- FPA rewriter simplifications for `fma` with zero multiplier. Fixes #8185.
+  Thanks to Lev Nachmanson.
+  https://github.com/Z3Prover/z3/pull/9038
+- LP-based nonlinear bound optimization for cross-nested conflicts; nonlinear bound optimization
+  moved into monomial_bounds for improved NLA performance.
+  https://github.com/Z3Prover/z3/pull/10180, https://github.com/Z3Prover/z3/pull/10434
+- NLA: re-linearize violated monomials with fixed factors at final check; run bound squeeze
+  before nonlinear engines and back off satisfiable nlsat probes.
+  Thanks to Lev Nachmanson.
+  https://github.com/Z3Prover/z3/pull/10521
+- Fix strict optimization objective reporting to preserve strict-real suprema in LRA path.
+  Fixes #10534. https://github.com/Z3Prover/z3/pull/10269
+- Fix intblast soundness for array-derived BV equalities (`smt.bv.solver=2`).
+  https://github.com/Z3Prover/z3/pull/10485
+- Fix `str.at` soundness inside regular expressions.
+  https://github.com/Z3Prover/z3/pull/10495
+- Fix ill-sorted UF rewriting in fpa2bv for quantified Float32 arrays.
+  https://github.com/Z3Prover/z3/pull/10486
+- Fix duplicate enode internalization for quantified Float32 datatype terms.
+  https://github.com/Z3Prover/z3/pull/10482
+- Fix unsigned underflow of cardinality bounds in PB internalization.
+  https://github.com/Z3Prover/z3/pull/10515
+- Fix assertion violation in `lp_bound_propagator` for columns with non-zero delta.
+  https://github.com/Z3Prover/z3/pull/10438
+- Fix variable-divisor mod divisibility lemmas.
+  https://github.com/Z3Prover/z3/pull/10514
+- Fix cached root index when negating algebraic numbers; reject rational values in algebraic root accessors.
+  https://github.com/Z3Prover/z3/pull/10530, https://github.com/Z3Prover/z3/pull/10531
+- Fix `elim-term-ite` simplifier soundness: add missing auxiliary variable constraints.
+  https://github.com/Z3Prover/z3/pull/10244
+- Fix `euf_arith_plugin` missing `uminus` implementation.
+  https://github.com/Z3Prover/z3/pull/10243
+- Fix QF_NRA: avoid degree-80 perfect-square factoring blowup by raising default prime trials.
+  https://github.com/Z3Prover/z3/pull/10506
+- Fix `smtlib2_compliant` mode: Int/Real sort mismatch in `coeffs2app` caused `unsat` to return `unknown`.
+  https://github.com/Z3Prover/z3/pull/10204
+- Fix parallel mode exits `unknown` immediately for QF_BV due to reason-string mismatch.
+  https://github.com/Z3Prover/z3/pull/10183
+- Fix spacer: harden `get_cex_depth`/`get_rules_along_trace` against malformed traces.
+  https://github.com/Z3Prover/z3/pull/10500
+- Fix qe2: eliminate fresh undeclared constant leak; fix nonlinear term in MBP from term_graph representative selection.
+  https://github.com/Z3Prover/z3/pull/10186
+- Fix nested datatype declaration printing. https://github.com/Z3Prover/z3/pull/10433
+- Fix regex ITE propagation. https://github.com/Z3Prover/z3/pull/10431
+- Fix non-ground regex fallback relevance. https://github.com/Z3Prover/z3/pull/10527
+- Fix #10435: inverted path index may reinsert the same enode repeatedly into candidate set for instantiation; use periodic compression.
+- Reject declarations that clash with built-in signatures (pi, euler). https://github.com/Z3Prover/z3/pull/10411
+- Reduce per-cell bignum allocation in HNF `pivot_column_non_fractional` for improved performance.
+  https://github.com/Z3Prover/z3/pull/10497
+- Avoid full-column rescan on each delta halving in `lar_solver::init_model`.
+  https://github.com/Z3Prover/z3/pull/10217
+- Optimize SMT arithmetic parameters to be object-local in Optimize.
+  https://github.com/Z3Prover/z3/pull/10484
+- Normalize `fp.add` operands during FP rewriting and FPA→BV lowering.
+  https://github.com/Z3Prover/z3/pull/10501
+- Bound the work done when a term is retired from dioph_eq. Thanks to Lev Nachmanson.
+  https://github.com/Z3Prover/z3/pull/10503
+- Make `string_hash` independent of `char` signedness. Thanks to Michael Tautschnig.
+  https://github.com/Z3Prover/z3/pull/10163
+- Sequence AST-creating arguments in rewriters for cross-compiler determinism. Thanks to Michael Tautschnig.
+  https://github.com/Z3Prover/z3/pull/10165
+- Fix unsigned BV-to-FP exponent narrowing. Thanks to 1sgtpepper.
+  https://github.com/Z3Prover/z3/pull/10189
+- Fix polymorphic application arity validation. Thanks to 1sgtpepper.
+  https://github.com/Z3Prover/z3/pull/10179
+- Fix ASAN memory leak by removing unused `m_fixed_val` in `undo_fixed_column`. Thanks to l46kok.
+  https://github.com/Z3Prover/z3/pull/10199
+- Fix `Solver.solutions(t)` lost solutions. Thanks to Daniel Tang.
+  https://github.com/Z3Prover/z3/pull/10195
+- Make axiom profiler logs reflect binding rewrites to eclass root. Thanks to Can Cebeci.
+  https://github.com/Z3Prover/z3/pull/10446
+- Fix `globalThis` usage instead of `global` in JavaScript API. Thanks to yhx-12243.
+  https://github.com/Z3Prover/z3/pull/10249
+- Export `killThreads` from z3-solver to allow Node.js thread cleanup.
+  https://github.com/Z3Prover/z3/pull/10320
+- Add MinGW build/test support in Windows CI.
+  https://github.com/Z3Prover/z3/pull/10211
+- Build warning improvements: `-Wcovered-switch-default`, `-Wignored-qualifiers`, `deprecated-copy-with-user-provided-copy`. Thanks to davedets.
+  https://github.com/Z3Prover/z3/pull/10445, https://github.com/Z3Prover/z3/pull/10325, https://github.com/Z3Prover/z3/pull/10332
+
 Version 5.0.1
 ==============
 
