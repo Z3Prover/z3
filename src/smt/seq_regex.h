@@ -171,7 +171,6 @@ namespace smt {
         expr_ref get_overapprox_regex(expr* s);
 
         void rewrite(expr_ref& e);
-        void mark_guard_relevant(expr* e);
 
         bool coallesce_in_re(literal lit);
 
