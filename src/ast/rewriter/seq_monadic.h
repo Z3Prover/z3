@@ -195,12 +195,12 @@ private:
     typedef std::vector<std::pair<unsigned, unsigned>> group_sig;
     struct group_sig_hash {
         size_t operator()(group_sig const& s) const {
-            size_t h = 1469598103934665603ull;
+            uint64_t h = 1469598103934665603ull;
             for (auto const& p : s) {
                 h = (h ^ p.first) * 1099511628211ull;
                 h = (h ^ p.second) * 1099511628211ull;
             }
-            return h;
+            return static_cast<size_t>(h);
         }
     };
     group_sig m_sig_buf;                    // reused by group_nonempty (avoids allocating per lookup)
