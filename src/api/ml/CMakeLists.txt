@@ -185,6 +185,7 @@ set(ocamlmklib_flags "-o" "z3ml"
 add_custom_command(
   OUTPUT ${z3ml_bin}/dllz3ml.so
          ${z3ml_bin}/libz3ml.a
+         ${z3ml_bin}/z3ml.a
          ${z3ml_bin}/z3ml.cma
          ${z3ml_bin}/z3ml.cmxa
          ${z3ml_bin}/z3ml.cmxs
@@ -248,6 +249,7 @@ add_custom_target(build_z3_ocaml_bindings
     ${z3ml_bin}/z3ml.cmxs
     ${z3ml_bin}/dllz3ml.so
     ${z3ml_bin}/libz3ml.a
+    ${z3ml_bin}/z3ml.a
     ${META_OUTPUT_FILE}
 )
 
@@ -322,6 +324,7 @@ if (Z3_INSTALL_OCAML_BINDINGS)
     "${z3ml_bin}/z3native.cmx"
     "${z3ml_bin}/z3native.mli"
     "${z3ml_bin}/libz3ml.a"
+    "${z3ml_bin}/z3ml.a"
     "${z3ml_bin}/z3ml.cma"
     "${z3ml_bin}/z3ml.cmxa"
     "${z3ml_bin}/z3ml.cmxs"
@@ -349,8 +352,8 @@ if (Z3_INSTALL_OCAML_BINDINGS)
         message(FATAL_ERROR \"Failed to inspect installed OCaml stub library '\${_z3ml_stub}'\")
       endif()
 
-      set(_z3ml_expected_dep \"@loader_path/../../libz3.dylib\")
-      string(REGEX MATCH \"[^ \\\\n\\\\t]*libz3\\\\.dylib\" _z3ml_recorded_dep \"\${_z3ml_otool_output}\")
+      set(_z3ml_expected_dep \"@loader_path/../../libz3.${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.dylib\")
+      string(REGEX MATCH \"[^ \\\\n\\\\t]*libz3[^ \\\\n\\\\t]*\\\\.dylib\" _z3ml_recorded_dep \"\${_z3ml_otool_output}\")
       if (_z3ml_recorded_dep STREQUAL \"\")
         message(FATAL_ERROR
           \"Could not determine the libz3 dependency recorded in '\${_z3ml_stub}'.\\n\${_z3ml_otool_output}\")

@@ -110,6 +110,7 @@ jobs:
           test -f "$INSTALL_OCAML_DIR/z3native.cmi"
           test -f "$INSTALL_OCAML_DIR/z3native.cmx"
           test -f "$INSTALL_OCAML_DIR/libz3ml.a"
+          test -f "$INSTALL_OCAML_DIR/z3ml.a"
           test -f "$INSTALL_OCAML_DIR/z3ml.cma"
           test -f "$INSTALL_OCAML_DIR/z3ml.cmxa"
           test -f "$INSTALL_OCAML_DIR/z3ml.cmxs"
@@ -119,7 +120,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           otool -L install/lib/ocaml/stublibs/dllz3ml.so | tee install/dllz3ml-otool.txt
-          grep '@loader_path/../../libz3.dylib' install/dllz3ml-otool.txt
+          grep -E '@loader_path/../../libz3(\.[0-9]+)+\.dylib' install/dllz3ml-otool.txt
 
       - name: Compile installed ml_example.byte
         run: |
