@@ -93,9 +93,6 @@ Version 5.1.0
 - Build warning improvements: `-Wcovered-switch-default`, `-Wignored-qualifiers`, `deprecated-copy-with-user-provided-copy`. Thanks to davedets.
   https://github.com/Z3Prover/z3/pull/10445, https://github.com/Z3Prover/z3/pull/10325, https://github.com/Z3Prover/z3/pull/10332
 
-Version 5.0.1
-==============
-
 
 Version 5.0.0
 ==============
