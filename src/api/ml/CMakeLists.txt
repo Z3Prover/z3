@@ -290,24 +290,81 @@ add_custom_command(
 # Install
 ###############################################################################
 
-# Hacky: When the os is APPLE, a fix command will mutate `libz3.dylib` and `dlllibz3.so` inplace.
-# I don't know how to use conditional `COMMAND` nor specify a file dependency for itself
-# Renaming it and back seems a simple solution.
+option(Z3_INSTALL_OCAML_BINDINGS "Install OCaml bindings when invoking install target" ON)
+if (Z3_INSTALL_OCAML_BINDINGS)
+  if (NOT Z3_OCAML_PACKAGE_INSTALLDIR)
+    set(Z3_OCAML_PACKAGE_INSTALLDIR
+      "${CMAKE_INSTALL_LIBDIR}/ocaml/z3"
+      CACHE
+      PATH
+      "Directory to install Z3 OCaml package files relative to install prefix"
+    )
+  endif()
 
-#   COMMAND mv "${z3ml_bin}/dllz3ml.so" "${z3ml_bin}/dllz3ml.pre.so"
-# if (NOT APPLE)
-#   add_custom_command(
-#     OUTPUT "${z3ml_bin}/dllz3ml.so"
-#     COMMAND mv "${z3ml_bin}/dllz3ml.pre.so" "${z3ml_bin}/dllz3ml.so}"
-#     DEPENDS "${z3ml_bin}/dllz3ml.pre.so"
-#   )
-# else()
-#   # if IS_OSX:
-#   # install_name_tool -id ${stubs_install_path}/libz3.dylib libz3.dylib
-#   # install_name_tool -change libz3.dylib ${stubs_install_path}/libz3.dylib api/ml/dllz3ml.so
-#   add_custom_command(
-#     OUTPUT "${z3ml_bin}/dllz3ml.so"
-#     COMMAND mv "${z3ml_bin}/dllz3ml.pre.so" "${z3ml_bin}/dllz3ml.so"
-#     DEPENDS "${z3ml_bin}/dllz3ml.so"
-#   )
-# endif()
+  if (NOT Z3_OCAML_STUB_INSTALLDIR)
+    set(Z3_OCAML_STUB_INSTALLDIR
+      "${CMAKE_INSTALL_LIBDIR}/ocaml/stublibs"
+      CACHE
+      PATH
+      "Directory to install Z3 OCaml stub libraries relative to install prefix"
+    )
+  endif()
+
+  set(z3_ocaml_package_install_files
+    "${META_OUTPUT_FILE}"
+    "${z3ml_bin}/z3.cmi"
+    "${z3ml_src}/z3.mli"
+    "${z3ml_bin}/z3.cmx"
+    "${z3ml_bin}/z3enums.cmi"
+    "${z3ml_bin}/z3enums.cmx"
+    "${z3ml_bin}/z3enums.mli"
+    "${z3ml_bin}/z3native.cmi"
+    "${z3ml_bin}/z3native.cmx"
+    "${z3ml_bin}/z3native.mli"
+    "${z3ml_bin}/libz3ml.a"
+    "${z3ml_bin}/z3ml.cma"
+    "${z3ml_bin}/z3ml.cmxa"
+    "${z3ml_bin}/z3ml.cmxs"
+  )
+
+  install(
+    FILES ${z3_ocaml_package_install_files}
+    DESTINATION "${Z3_OCAML_PACKAGE_INSTALLDIR}"
+  )
+
+  install(
+    FILES "${z3ml_bin}/dllz3ml.so"
+    DESTINATION "${Z3_OCAML_STUB_INSTALLDIR}"
+  )
+
+  if (APPLE)
+    install(CODE "
+      set(_z3ml_stub \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/${Z3_OCAML_STUB_INSTALLDIR}/dllz3ml.so\")
+      execute_process(
+        COMMAND otool -L \"\${_z3ml_stub}\"
+        RESULT_VARIABLE _z3ml_otool_result
+        OUTPUT_VARIABLE _z3ml_otool_output
+      )
+      if (NOT _z3ml_otool_result EQUAL 0)
+        message(FATAL_ERROR \"Failed to inspect installed OCaml stub library '\${_z3ml_stub}'\")
+      endif()
+
+      set(_z3ml_expected_dep \"@loader_path/../../libz3.dylib\")
+      string(REGEX MATCH \"[^ \\\\n\\\\t]*libz3\\\\.dylib\" _z3ml_recorded_dep \"\${_z3ml_otool_output}\")
+      if (_z3ml_recorded_dep STREQUAL \"\")
+        message(FATAL_ERROR
+          \"Could not determine the libz3 dependency recorded in '\${_z3ml_stub}'.\\n\${_z3ml_otool_output}\")
+      endif()
+
+      if (NOT _z3ml_recorded_dep STREQUAL \"\${_z3ml_expected_dep}\")
+        execute_process(
+          COMMAND install_name_tool -change \"\${_z3ml_recorded_dep}\" \"\${_z3ml_expected_dep}\" \"\${_z3ml_stub}\"
+          RESULT_VARIABLE _z3ml_install_name_result
+        )
+        if (NOT _z3ml_install_name_result EQUAL 0)
+          message(FATAL_ERROR \"Failed to update the libz3 load path for '\${_z3ml_stub}'\")
+        endif()
+      endif()
+    ")
+  endif()
+endif()
