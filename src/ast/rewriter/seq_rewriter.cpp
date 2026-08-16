@@ -869,6 +869,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
 
+
     rational len_a;
     if (constantPos && max_length(a, len_a) && len_a <= pos) {
         result = str().mk_empty(a_sort);
@@ -878,7 +879,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     constantPos &= pos.is_unsigned();
     constantLen &= len.is_unsigned();
 
-    if (constantPos && constantLen && len == 1) {
+    if (constantLen && len == 1) {
         result = str().mk_at(a, b);
         return BR_REWRITE1;
     }
