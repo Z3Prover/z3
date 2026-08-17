@@ -1621,7 +1621,18 @@ namespace smt2 {
                     next();
                 }
                 else if (curr_is_identifier() || curr_is_lparen()) {
-                    m_param_stack.push_back(parameter(parse_func_decl_ref()));
+                    if (r == symbol("is") && curr_is_identifier()) {
+                        try {
+                            m_param_stack.push_back(parameter(parse_func_decl_ref()));
+                        }
+                        catch (cmd_exception &) {
+                            m_param_stack.push_back(parameter(curr_id()));
+                            next();
+                        }
+                    }
+                    else {
+                        m_param_stack.push_back(parameter(parse_func_decl_ref()));
+                    }
                 }
                 else {
                     throw parser_exception("invalid indexed identifier, integer, identifier or '(' expected");

@@ -16,8 +16,11 @@ Author:
 --*/
 
 #include "api/z3.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include "util/util.h"
 #include <iostream>
+#include <sstream>
 #include <string>
 
 
@@ -168,7 +171,21 @@ static void test_nested_datatype_declaration_printing() {
     Z3_del_context(ctx);
 }
 
+static void test_smt2_parametric_datatype_is_constructor() {
+    std::cout << "test_smt2_parametric_datatype_is_constructor\n";
+
+    cmd_context ctx;
+    std::stringstream is;
+    is << "(set-logic ALL)\n"
+       << "(declare-datatypes ((Maybe 1)) ((par (a) ((Nothing) (Just (Just_sel a))))))\n"
+       << "(declare-const x Int)\n"
+       << "(assert ((_ is Just) (Just x)))\n"
+       << "(check-sat)\n";
+    ENSURE(parse_smt2_commands(ctx, is));
+}
+
 void tst_parametric_datatype() {
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();
+    test_smt2_parametric_datatype_is_constructor();
 }
