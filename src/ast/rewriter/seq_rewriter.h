@@ -38,51 +38,6 @@ inline std::ostream& operator<<(std::ostream& out, expr_ref_pair_vector const& e
     return out;
 }
 
-#if 0
-class sym_expr {
-    enum ty {
-        t_char,
-        t_pred,
-        t_not,
-        t_range
-    };
-    ty        m_ty;
-    sort*     m_sort;
-    sym_expr* m_expr;
-    expr_ref  m_t;
-    expr_ref  m_s;
-    unsigned  m_ref;
-    sym_expr(ty ty, expr_ref& t, expr_ref& s, sort* srt, sym_expr* e) : 
-        m_ty(ty), m_sort(srt), m_expr(e), m_t(t), m_s(s), m_ref(0) {}
-public:
-    ~sym_expr() { if (m_expr) m_expr->dec_ref(); }
-    expr_ref accept(expr* e);
-    static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, t_char, t, t, t->get_sort(), nullptr); }
-    static sym_expr* mk_char(ast_manager& m, expr* t) { expr_ref tr(t, m); return mk_char(tr); }
-    static sym_expr* mk_pred(expr_ref& t, sort* s) { return alloc(sym_expr, t_pred, t, t, s, nullptr); }
-    static sym_expr* mk_range(expr_ref& lo, expr_ref& hi) { return alloc(sym_expr, t_range, lo, hi, hi->get_sort(), nullptr); }
-    static sym_expr* mk_not(ast_manager& m, sym_expr* e) { expr_ref f(m); e->inc_ref(); return alloc(sym_expr, t_not, f, f, e->get_sort(), e); }
-    void inc_ref() { ++m_ref;  }
-    void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
-    std::ostream& display(std::ostream& out) const;
-    bool is_char() const { return m_ty == t_char; }
-    bool is_pred() const { return !is_char(); }
-    bool is_range() const { return m_ty == t_range; }
-    bool is_not() const { return m_ty == t_not; }
-    sort* get_sort() const { return m_sort; }
-    expr* get_char() const { SASSERT(is_char()); return m_t; }
-    expr* get_pred() const { SASSERT(is_pred()); return m_t; }
-    expr* get_lo() const { SASSERT(is_range()); return m_t; }
-    expr* get_hi() const { SASSERT(is_range()); return m_s; }
-    sym_expr* get_arg() const { SASSERT(is_not()); return m_expr; }
-};
-
-class sym_expr_manager {
-public:
-    void inc_ref(sym_expr* s) { if (s) s->inc_ref(); }
-    void dec_ref(sym_expr* s) { if (s) s->dec_ref(); }
-};
-#endif
 
 /**
    \brief Cheap rewrite rules for seq constraints
@@ -311,6 +266,7 @@ class seq_rewriter {
     bool reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     bool reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
     bool reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
+    bool split_bag(expr_ref_vector &ls, expr_ref_vector &rs, expr_ref_pair_vector &new_eqs);
     void remove_empty_and_concats(expr_ref_vector& es);
     void remove_leading(unsigned n, expr_ref_vector& es);
 
@@ -320,9 +276,6 @@ class seq_rewriter {
     class seq_util::str const& str() const { return u().str; }
 
     void intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges);
-
-    bool char_set_of_condition(expr* e, char_set& result);
-    lbool some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str);
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()) :
@@ -435,6 +388,13 @@ public:
     void reset_split_stats() { m_split.reset_stats(); }
 
     expr_ref mk_symmetric_diff(expr *r1, expr *r2);
+
+    /**
+     * Reverse a concrete sequence, i.e. a concatenation of str.unit terms and string
+     * literals. Returns false if some element is neither, because sequences have no
+     * reverse operator to fall back on and the reverse is then not expressible.
+     */
+    bool mk_seq_reverse(expr* s, expr_ref& result);
 
     /**
      * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences

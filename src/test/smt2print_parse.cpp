@@ -404,5 +404,4 @@ void tst_smt2print_parse() {
         ENSURE(resp.find("unsat") != std::string::npos);
         ENSURE(resp.find("unknown") == std::string::npos);
     }
-
 }

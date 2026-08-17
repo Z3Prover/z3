@@ -759,62 +759,6 @@ namespace nla {
         return new_bound;
     }
 
-    /**
-       \brief Fix the columns determined by rows that are already all but fixed.
-
-       lar_solver::row_determines_column finds a row in which every column but one
-       is fixed together with the value that row forces on the remaining column;
-       both bounds of that column are then set to it. This is constant folding
-       over the row, with no simplex involved.
-
-       Only columns occurring in a monomial are considered: the point is the
-       effect on nonlinear reasoning, not tighter arithmetic in general.
-       is_linear takes a monic with at most one non-fixed factor out of nonlinear
-       reasoning altogether, so fixing one column can linearize every monomial it
-       occurs in at once. lar_solver does not derive these values on its own,
-       since it only analyzes rows touched by a pivot and theory_lra drops an
-       implied bound with no matching atom.
-
-       Only one pass is made. A fixpoint loop would find strictly more, but this
-       runs on every nonlinear propagation, so a later round mostly finds what the
-       next call would have found anyway. Fixing every determined column measured
-       better than capping how many one call may fix.
-    */
-    bool monomial_bounds::propagate_fixed_rows() {
-        auto& lra = c().lra;
-        if (!c().params().arith_nl_propagate_fixed_rows())
-            return false;
-
-        indexed_uint_set nl_vars;
-        for (auto const& m : c().emons()) {
-            nl_vars.insert(m.var());
-            for (lpvar k : m.vars())
-                nl_vars.insert(k);
-        }
-
-        bool propagated = false;
-        for (unsigned i = 0; i < lra.row_count(); ++i) {
-            if (lra.get_row(i).size() > 32)
-                continue;
-            lpvar free_j;
-            rational value;
-            if (!lra.row_determines_column(i, free_j, value))
-                continue;
-            if (!nl_vars.contains(free_j))
-                continue;
-            if (lra.column_has_lower_bound(free_j) && lra.column_has_upper_bound(free_j) &&
-                lra.get_lower_bound(free_j).x == value && lra.get_upper_bound(free_j).x == value)
-                continue;
-            u_dependency* dep = lra.get_bound_constraint_witnesses_for_fixed_in_row(i);
-            lra.update_column_type_and_bound(free_j, lp::lconstraint_kind::GE, value, dep);
-            lra.update_column_type_and_bound(free_j, lp::lconstraint_kind::LE, value, dep);
-            propagated = true;
-        }
-        if (propagated)
-            lra.find_feasible_solution();
-        return propagated;
-    }
-
     // ================================================================
     // max_min: incremental LP bound optimization.
     //
@@ -1199,11 +1143,8 @@ namespace nla {
        bounds.
     */
     bool monomial_bounds::optimize_nl_bounds() {
-        if (!c().params().arith_nl_optimize_bounds() || !m_bounds_optimization_enabled)
+        if (!c().params().arith_nl_optimize_bounds())
             return false;
-
-        c().trail().push(value_trail(m_bounds_optimization_enabled));
-        m_bounds_optimization_enabled = false;
 
         auto& lra = c().lra;
         if (!lra.is_feasible())
@@ -1265,22 +1206,12 @@ namespace nla {
             }
         }
 
-        if (improvements.empty()) {
-            // The exploratory simplex walk in improve_bound/mm_optimize mutated the
-            // LP model even though no bound was tightened.  Restore a clean feasible
-            // model and re-calibrate m_to_refine so downstream lemma passes (grobner,
-            // basic_lemma) never see a stale monomial that is now consistent.
-            lra.find_feasible_solution();
-            c().init_to_refine();
-            return false;
-        }
-
         for (auto const& ib : improvements)
             lra.update_column_type_and_bound(ib.j, ib.kind, ib.bound, ib.dep);
         lra.find_feasible_solution();
         // The model changed: re-calibrate m_to_refine against the new assignment.
         c().init_to_refine();
-        return true;
+        return !improvements.empty();
     }
 
 }

@@ -33,6 +33,16 @@ func (c *Context) MkSimplifier(name string) *Simplifier {
 	return newSimplifier(c, C.Z3_mk_simplifier(c.ptr, cName))
 }
 
+// NumSimplifiers returns the number of simplifiers supported by this context.
+func (c *Context) NumSimplifiers() uint {
+	return uint(C.Z3_get_num_simplifiers(c.ptr))
+}
+
+// SimplifierName returns the name of the i-th supported simplifier.
+func (c *Context) SimplifierName(i uint) string {
+	return C.GoString(C.Z3_get_simplifier_name(c.ptr, C.uint(i)))
+}
+
 // AndThen creates a simplifier that applies s followed by s2.
 func (s *Simplifier) AndThen(s2 *Simplifier) *Simplifier {
 	return newSimplifier(s.ctx, C.Z3_simplifier_and_then(s.ctx.ptr, s.ptr, s2.ptr))

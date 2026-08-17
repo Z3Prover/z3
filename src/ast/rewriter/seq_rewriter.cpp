@@ -22,6 +22,7 @@ Authors:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_regex_bisim.h"
 #include "ast/rewriter/seq_range_collapse.h"
+#include "ast/rewriter/seq_regex_witness.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -467,6 +468,36 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
+bool seq_rewriter::mk_seq_reverse(expr* s, expr_ref& result) {
+    ptr_vector<expr> elems, todo;
+    todo.push_back(s);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (str().is_concat(e)) {             // str.++ is n-ary; pushing the arguments left
+            app* a = to_app(e);               // to right pops them right to left, which is
+            for (expr* arg : *a)              // the order the reversed sequence needs
+                todo.push_back(arg);
+            continue;
+        }
+        if (str().is_empty(e))
+            continue;
+        elems.push_back(e);
+    }
+    zstring zs;
+    expr_ref_vector es(m());
+    for (expr* e : elems) {
+        if (str().is_unit(e))
+            es.push_back(e);                  // a one-element sequence is its own reverse
+        else if (str().is_string(e, zs))
+            es.push_back(str().mk_string(zs.reverse()));
+        else
+            return false;                     // there is no sequence-level reverse operator,
+    }                                         // so a non-concrete element has no reverse here
+    result = str().mk_concat(es, s->get_sort());
+    return true;
+}
+
 br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     zstring b;
     rational r;
@@ -838,6 +869,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
 
+
     rational len_a;
     if (constantPos && max_length(a, len_a) && len_a <= pos) {
         result = str().mk_empty(a_sort);
@@ -847,7 +879,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     constantPos &= pos.is_unsigned();
     constantLen &= len.is_unsigned();
 
-    if (constantPos && constantLen && len == 1) {
+    if (constantLen && len == 1) {
         result = str().mk_at(a, b);
         return BR_REWRITE1;
     }
@@ -1794,12 +1826,10 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
         result = a;
         return BR_DONE;
     } 
-    if (a == b) {
-        {
-            auto _seq1814_0 = str().mk_is_empty(b);
-            auto _seq1814_1 = str().mk_empty(a->get_sort());
-            result = m().mk_ite(_seq1814_0, _seq1814_1, c);
-        }
+    if (a == b) {        
+        auto _seq1814_0 = str().mk_is_empty(b);
+        auto _seq1814_1 = str().mk_empty(a->get_sort());
+        result = m().mk_ite(_seq1814_0, _seq1814_1, c);        
         return BR_REWRITE2;
     }
     if (str().is_empty(a) && str().is_empty(c)) {
@@ -3405,76 +3435,10 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             return BR_REWRITE_FULL;
     }
 
-#if 0
-    
-    expr_ref hd(m()), tl(m());
-    if (get_head_tail(a, hd, tl)) {
-        //result = re().mk_in_re(tl, re().mk_derivative(hd, b));
-        //result = re().mk_in_re(tl, mk_derivative(hd, b));
-        result = mk_in_antimirov(tl, mk_antimirov_deriv(hd, b, m().mk_true()));
-        return BR_REWRITE_FULL;
+    if (!u().can_be_member(a, b)) {
+        result = m().mk_false();
+        return BR_DONE;
     }
-    
-    if (get_head_tail_reversed(a, hd, tl)) {
-        result = re().mk_reverse(re().mk_derivative(tl, re().mk_reverse(b)));
-        result = re().mk_in_re(hd, result);
-        return BR_REWRITE_FULL;
-    }
-
-    if (get_re_head_tail(b, hd, tl)) {
-        SASSERT(re().min_length(hd) == re().max_length(hd));
-        expr_ref len_hd(m_autil.mk_int(re().min_length(hd)), m()); 
-        expr_ref len_a(str().mk_length(a), m());
-        expr_ref len_tl(m_autil.mk_sub(len_a, len_hd), m());
-        auto ge_len = m_autil.mk_ge(len_a, len_hd);
-        auto prefix = re().mk_in_re(str().mk_substr(a, zero(), len_hd), hd);
-        auto suffix = re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl);
-        result = m().mk_and(ge_len, prefix, suffix);
-        return BR_REWRITE_FULL;
-    }
-    if (get_re_head_tail_reversed(b, hd, tl)) {
-        SASSERT(re().min_length(tl) == re().max_length(tl));
-        expr_ref len_tl(m_autil.mk_int(re().min_length(tl)), m());
-        expr_ref len_a(str().mk_length(a), m());
-        expr_ref len_hd(m_autil.mk_sub(len_a, len_tl), m());
-        expr* s = nullptr;
-        auto ge_len = m_autil.mk_ge(len_a, len_tl);
-        auto prefix = re().mk_in_re(str().mk_substr(a, zero(), len_hd), hd);
-        auto tail_seq = str().mk_substr(a, len_hd, len_tl);
-        auto tail = (re().is_to_re(tl, s) ? m().mk_eq(s, tail_seq) : re().mk_in_re(tail_seq, tl));
-        result = m().mk_and(ge_len, prefix, tail);
-        return BR_REWRITE_FULL;
-    }
-
-#endif
-
-#if 0
-    unsigned len = 0;
-    if (has_fixed_length_constraint(b, len)) {
-        auto _seq0 = m_autil.mk_int(len);
-        auto _seq1 = str().mk_length(a);
-        expr_ref len_lim(m().mk_eq(_seq0, _seq1), m());
-        // this forces derivatives. Perhaps not a good thing for intersections.
-        // alternative is to hoist out the smallest length constraining regex
-        // and keep the result for the sequence expression that is kept without rewriting
-        // or alternative is to block rewriting on this expression in some way.
-        expr_ref_vector args(m());
-        for (unsigned i = 0; i < len; ++i) {
-            args.push_back(str().mk_unit(str().mk_nth_i(a, m_autil.mk_int(i))));
-        }
-        expr_ref in_re(re().mk_in_re(str().mk_concat(args, a->get_sort()), b), m());
-        result = m().mk_and(len_lim, in_re);
-        return BR_REWRITE_FULL;
-    }
-#endif
-
-    // Disabled rewrites
-    if (false && re().is_complement(b, b1)) {
-        result = m().mk_not(re().mk_in_re(a, b1));
-        return BR_REWRITE2;
-    }
-    if (false && rewrite_contains_pattern(a, b, result))
-        return BR_REWRITE_FULL;
 
     return BR_FAILED;
 }
@@ -3509,6 +3473,18 @@ bool seq_rewriter::lift_str_from_to_re(expr* r, expr_ref& result)
 }
 
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
+    expr* s = nullptr, *i = nullptr;
+    if (str().is_at(a, s, i)) {
+        expr_ref valid(m().mk_and(
+            m_autil.mk_ge(i, zero()),
+            m_autil.mk_lt(i, str().mk_length(s))), m());
+        expr_ref nth(str().mk_unit(str().mk_nth_i(s, i)), m());
+        result = m().mk_ite(
+            valid,
+            re().mk_to_re(nth),
+            re().mk_to_re(str().mk_empty(a->get_sort())));
+        return BR_REWRITE_FULL;
+    }
     return BR_FAILED;
 }
 
@@ -4814,6 +4790,51 @@ bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_r
     return true;
 }
 
+bool seq_rewriter::split_bag(expr_ref_vector &ls, expr_ref_vector &rs, expr_ref_pair_vector &new_eqs) {
+    auto eq = [](auto &a, auto &b) {
+        if (a.size() != b.size())
+            return false;
+        for (auto [k, v] : a)
+            if (!b.contains(k) || b[k] != v)
+                return false;
+        return true;
+    };
+    obj_map<expr, unsigned> ls_bag, rs_bag;
+    for (unsigned i = ls.size(), j = rs.size(); i-- > 0 && j-- > 0 && (i > 0 || j > 0);) {
+        ls_bag.insert_if_not_there(ls.get(i), 0)++;
+        rs_bag.insert_if_not_there(rs.get(j), 0)++;
+        if (eq(ls_bag, rs_bag)) {
+            auto l = str().mk_concat(ls.size() - i, ls.data() + i, ls.get(i)->get_sort());
+            auto r = str().mk_concat(rs.size() - j, rs.data() + j, rs.get(j)->get_sort());
+            new_eqs.push_back(l, r);
+            ls_bag.reset();
+            rs_bag.reset();
+            ls.shrink(i);
+            rs.shrink(j);
+        }
+    }
+    ls_bag.reset();
+    rs_bag.reset();
+    unsigned start = 0;
+    for (unsigned i = 0; i + 1 < ls.size() && i + 1 < rs.size(); ++i) {
+        ls_bag.insert_if_not_there(ls.get(i), 0)++;
+        rs_bag.insert_if_not_there(rs.get(i), 0)++;
+        if (eq(ls_bag, rs_bag)) {
+            auto l = str().mk_concat(i + 1 - start, ls.data() + start, ls.get(i)->get_sort());
+            auto r = str().mk_concat(i + 1 - start, rs.data() + start, rs.get(i)->get_sort());
+            new_eqs.push_back(l, r);
+            ls_bag.reset();
+            rs_bag.reset();
+            start = i + 1;
+        }
+    }
+    if (start > 0) {
+        remove_leading(start, ls);
+        remove_leading(start, rs);
+    }
+    return true;
+}
+
 /**
    \brief simplify equality ls = rs
    - New equalities are inserted into eqs.
@@ -4838,6 +4859,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         reduce_subsequence(ls, rs, eqs) &&
         reduce_non_overlap(ls, rs, eqs) && 
         reduce_non_overlap(rs, ls, eqs) && 
+        split_bag(ls, rs, eqs) &&
         (change = (hash_l != ls.hash() || hash_r != rs.hash() || eqs.size() != sz_eqs), 
          true);
 }
@@ -5439,168 +5461,6 @@ void seq_rewriter::op_cache::cleanup() {
 }
 
 lbool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
-    sort* rs;
-    (void)rs;
-    // SASSERT(u().is_re(r, rs) && m_util.is_string(rs));
-    expr_mark visited;
-    unsigned_vector str;
-
-    auto result = some_string_in_re(visited, r, str);
-    if (result == l_true)
-        s = zstring(str.size(), str.data());
-    return result;
+    seq::regex_witness rw(*this);
+    return rw.get_witness(r, s);
 }
-
-struct re_eval_pos {
-    expr_ref e; // use reference to avoid gc
-    unsigned str_len;
-    char_set allowed;      // characters still possible for the position under decision
-    bool needs_derivation;
-};
-
-/**
-   Set of characters satisfying the condition of a symbolic derivative's ite.
-   The condition constrains the single derivative variable; returns false for
-   conditions outside the supported (boolean combination of bounds) fragment.
-*/
-bool seq_rewriter::char_set_of_condition(expr* e, char_set& result) {
-    const unsigned max_c = u().max_char();
-    auto is_deriv_var = [](expr* v) { return is_var(v) && to_var(v)->get_idx() == 0; };
-    expr* x = nullptr, * y = nullptr, * a = nullptr;
-    unsigned ch = 0;
-    if (m().is_true(e)) {
-        result = char_set::full(max_c);
-        return true;
-    }
-    if (m().is_false(e)) {
-        result = char_set();
-        return true;
-    }
-    if (m().is_not(e, a)) {
-        char_set s;
-        if (!char_set_of_condition(a, s))
-            return false;
-        result = s.complement(max_c);
-        return true;
-    }
-    if (m().is_and(e)) {
-        result = char_set::full(max_c);
-        for (expr* arg : *to_app(e)) {
-            char_set s;
-            if (!char_set_of_condition(arg, s))
-                return false;
-            result = result.intersect_with(s);
-        }
-        return true;
-    }
-    if (m().is_or(e)) {
-        result = char_set();
-        for (expr* arg : *to_app(e)) {
-            char_set s;
-            if (!char_set_of_condition(arg, s))
-                return false;
-            result.add(s);
-        }
-        return true;
-    }
-    if (m_util.is_char_le(e, x, y)) {
-        if (m_util.is_const_char(x, ch) && is_deriv_var(y)) {
-            result = ch > max_c ? char_set() : char_set(char_range(ch, max_c + 1));
-            return true;
-        }
-        if (m_util.is_const_char(y, ch) && is_deriv_var(x)) {
-            result = char_set(char_range(0, std::min(ch, max_c) + 1));
-            return true;
-        }
-        return false;
-    }
-    if (m().is_eq(e, x, y)) {
-        if (is_deriv_var(x))
-            std::swap(x, y);
-        if (m_util.is_const_char(x, ch) && is_deriv_var(y)) {
-            result = char_set();
-            if (ch <= max_c)
-                result.add(ch);
-            return true;
-        }
-        return false;
-    }
-    return false;
-}
-
-lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vector& str) {
-    SASSERT(str.empty());
-    const unsigned max_c = u().max_char();
-    vector<re_eval_pos> todo;
-    todo.push_back({ expr_ref(r, m()), 0, char_set::full(max_c), true });
-    while (!todo.empty()) {
-        re_eval_pos current = todo.back();
-        todo.pop_back();
-        r = current.e;
-        str.resize(current.str_len);
-        if (current.needs_derivation) {
-            // We are looking for the next character => generate derivation
-            if (visited.is_marked(r))
-                continue;
-            if (re().is_empty(r))
-                continue;
-            auto info = re().get_info(r);
-            if (info.nullable == l_true)
-                return l_true;
-            visited.mark(r);
-            if (re().is_union(r)) {
-                for (expr* arg : *to_app(r)) {
-                    todo.push_back({ expr_ref(arg, m()), str.size(), char_set::full(max_c), true });
-                }
-                continue;
-            }
-
-            r = mk_derivative(r);
-        }
-        // otw. we are still in the process of deciding case of the derivation to
-        // take.  All ite conditions of a derivative constrain the SAME (not yet
-        // committed) character, so they are collected in `allowed` and the
-        // character is only chosen once a plain regex state is reached.  Deriving
-        // a branch that is itself an ite would (re-)interpret its conditions as
-        // constraints on the *next* character.
-        char_set allowed = std::move(current.allowed);
-
-        expr* c, * th, * el;
-        if (re().is_empty(r))
-            continue;
-        if (re().is_union(r)) {
-            for (expr* arg : *to_app(r)) {
-                todo.push_back({ expr_ref(arg, m()), str.size(), allowed.clone(), false });
-            }
-            continue;
-        }
-        if (m().is_ite(r, c, th, el)) {
-            char_set cond;
-            if (!char_set_of_condition(c, cond))
-                return l_undef;
-            char_set else_allowed = allowed.intersect_with(cond.complement(max_c));
-            char_set then_allowed = allowed.intersect_with(cond);
-            if (!re().is_empty(el) && !else_allowed.is_empty())
-                todo.push_back({ expr_ref(el, m()), str.size(), std::move(else_allowed), false });
-            // I want the then-case to be processed first => push it last
-            if (!re().is_empty(th) && !then_allowed.is_empty())
-                todo.push_back({ expr_ref(th, m()), str.size(), std::move(then_allowed), false });
-            continue;
-        }
-
-        if (is_ground(r)) {
-            // the ite tree is resolved: commit a character consistent with every
-            // condition along the path
-            if (allowed.is_empty())
-                continue;
-            unsigned ch = allowed.contains('a') ? 'a' : allowed.first_char();
-            str.push_back(ch);
-            todo.push_back({ expr_ref(r, m()), str.size(), char_set::full(max_c), true });
-            continue;
-        }
-
-        return l_undef;
-    }
-    return l_false;
-}
-

@@ -71,6 +71,8 @@ namespace lp_api {
 
         rational const& get_value() const { return m_value; }
 
+        bool has_infinitesimal() const { return !m_eps.is_zero(); }
+
         lp::constraint_index get_constraint(bool b) const { return m_constraints[b]; }
 
         inf_rational get_value(bool is_true) const {

@@ -26,27 +26,28 @@ Abstract:
 
     Decomposing u recursively (a leading constant is consumed by a derivative, a leading
     variable splits again, the last variable is a plain membership) yields a disjunction
-    of conjunctions of per-variable *components*:
+    of conjunctions of per-variable *views* (seq::view):
 
-      - reach component    <var, state0, q>       : the variable's value drives the
-                                                     derivative automaton from state0 to q
-      - membership component<var, state0, null>    : the variable's value is in L(state0)
+      - reach view       <state0, q>     : the variable's value drives the derivative
+                                           automaton from state0 to q
+      - membership view  <state0, null>  : the variable's value is in L(state0)
 
     That disjunction is NEVER materialized as a DNF.  Materializing it costs the product
     of the per-position split degrees (and, for a conjunction of memberships, the product
     over memberships), which is the dominant cost in practice.  Instead the decomposition
-    is explored as a depth-first search tree: one branch at a time, components pushed on
-    entry and popped on backtracking.  A variable's accumulated components are tested for
+    is explored as a depth-first search tree: one branch at a time, views pushed on
+    entry and popped on backtracking.  A variable's accumulated views are tested for
     emptiness as soon as the search passes the variable's LAST occurrence -- the test has
     to be done anyway, and doing it there prunes the whole remaining subtree.  The search
-    stops at the first satisfying leaf.
+    stops at the first satisfying leaf and reports the views it committed to (solution()).
+    No word is built; materialize() collapses a variable's views to one on request.
 
     reach(q) is therefore NEVER built as a regex (which state-elimination would blow up
     super-polynomially for lattice-shaped automata).  Instead the constraints on a
     variable are decided directly by a lazy product-reachability search over tuples of
-    component states: a product state accepts iff every reach component is at its target
-    and every membership component is nullable; transitions are the product of the
-    components' cofactor branches with pairwise-conjoined range guards (minterm-free).
+    view states: a product state accepts iff every reach view is at its target and every
+    membership view is nullable; transitions are the product of the views' cofactor
+    branches with pairwise-conjoined range guards (minterm-free).
     This stays in the product-of-state-counts regime, never the path-enumeration (k!)
     regime of regex state-elimination.
 
@@ -61,7 +62,9 @@ Author:
 --*/
 #pragma once
 
+#include "ast/expr_substitution.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_view.h"
 #include "ast/rewriter/seq_range_predicate.h"
 #include "ast/rewriter/seq_regex_live.h"
 #include "ast/rewriter/guard_set.h"
@@ -81,39 +84,50 @@ Author:
 
 class seq_monadic {
 public:
-    // One component of the satisfying branch (see branch()).  This is the per-variable
-    // constraint the decomposition committed to, NOT a concrete value:
-    //   target != null : `var`'s value drives the derivative automaton from `state`
-    //                    to `target`                                (reach component)
-    //   target == null : `var`'s value is in L(state)          (membership component)
-    // A variable occurring several times contributes several entries; their
-    // conjunction is that variable's constraint on the branch.
-    struct branch_component { expr* var; expr* state; expr* target; };
+    // Which end of the problem the search reads from.  Reading a membership backwards is
+    // sound because w in R iff rev(w) in rev(R), and it is worth doing because the two
+    // directions can have wildly different derivative-automaton sizes: .*a.{k} needs
+    // 2^(k+1) states read forwards and k+2 read backwards.  The reversal is internal --
+    // every membership is reinterpreted together and witnesses are turned back around on
+    // the way out -- so it is never visible to the caller.  `retry` reads forwards and
+    // turns a decision around only when the forward search runs out of budget, which keeps
+    // the cost of the second direction to the decisions that had no answer anyway.
+    enum class orientation { forward, reversed, retry };
 
 private:
     struct config {
         seq::transition_mode m_mode;
-        bool m_model = true;  // whether solve()/check() extract a feasible model
-        bool m_branch = false; // whether solve()/check() record the satisfying branch
+        bool m_solution = true;   // whether solve()/check() record the solution
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
         bool m_state_search = true;  // use the state-based search driver (select next
                                      // membership by the last-expanded / most-frequent
                                      // head variable) instead of the positional DFS
+        unsigned m_budget_limit = 1000000;  // value m_budget is reset to on each decide()
+        orientation m_orientation = orientation::forward;
 
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
-    enum class bail_reason { unsupported, state_cap, budget, resource, nullability, guard, num_reasons };
+    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, num_reasons };
 
     static char const* bail_stat_name(bail_reason reason);
     static char const* bail_name(bail_reason reason);
 
     struct statistics {
         unsigned m_cofactor_calls = 0;
+        unsigned m_states = 0;
+        unsigned m_max_state_expansion = 0;  // most inner steps any single product state took
         unsigned m_bails[static_cast<unsigned>(bail_reason::num_reasons)] = {};
 
         void inc_bail(bail_reason reason) {
             ++m_bails[static_cast<unsigned>(reason)];
+        }
+
+        // Times the search stopped because it ran out of allotted work, as opposed to
+        // meeting something it cannot decide in any direction.
+        unsigned work_bails() const {
+            return m_bails[static_cast<unsigned>(bail_reason::budget)] +
+                   m_bails[static_cast<unsigned>(bail_reason::state_expansion)];
         }
     };
 
@@ -122,17 +136,17 @@ private:
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
                                              // ground guards so dead states become re.empty)
     trail_stack&    m_undo_trail;
-    sort*           m_seq_sort = nullptr;   // sequence sort of the regex under analysis
+    sort*           m_seq_sort = nullptr;   // sequence sort shared by all memberships of the
+                                            // problem under analysis (prepare rejects a mixture)
     sort*           m_elem_sort = nullptr;  // element sort of that sequence sort
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (search nodes + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
     config          m_config;
     statistics      m_stats;
-    obj_map<expr, expr*> m_model;           // last extracted model (var -> witness); see get_model()
-    // last recorded satisfying branch; see branch().  Snapshotted at the sat leaf
-    // because choose_cont pops m_groups on the way out, even on success.
-    vector<branch_component> m_branch;
+    // var -> views, from the last decide().  Snapshotted at the sat leaf because the
+    // search pops m_groups on the way out, even on success.
+    obj_map<expr, seq::view_vector> m_solution;
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
     // Interval ("t-regex") form of a state's derivative cofactors over the character sort:
     // a canonical list of disjoint ranges in increasing order, each carrying the targets
@@ -158,6 +172,8 @@ private:
     std::function<bool(expr *)> m_is_var;   // predicate for whether a term is a sequence variable
     lbool m_last_result = l_undef;           // result of the last public solve()/check()
     lbool m_last_search_result = l_undef;    // result of the last internal decide()
+    bool m_reversed = false;                 // whether prepare() reversed the current problem
+    bool m_retry_disabled = false;           // reversed retry gave up once on this query
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -172,45 +188,46 @@ private:
             is_var(is_var), var(var, m), elem(elem, m) {}
     };
 
-    // A component of one variable's constraint.  As the variable's value w is read,
-    // the current state is derived from `state`; the component accepts when
-    //   target ? (current == target)      -- reach component (w drives A from state to target)
-    //           : nullable(current)        -- membership component (w in L(state))
-    struct component { expr* var; expr* state; expr* target; };
 
     // ---- depth-first search state; valid for the duration of one decide()/solve() ----
     vector<vector<atom>>   m_atoms;         // parsed atoms, one entry per membership
     expr_ref_vector        m_regexes;       // regex of each membership (parallel to m_atoms)
     ptr_vector<expr>       m_vars;          // variables occurring in the memberships
     obj_map<expr, unsigned> m_var_idx;      // variable -> index into m_vars / m_groups
-    vector<svector<component>> m_groups;    // components accumulated on the current branch
-    svector<unsigned>      m_num_occ;
+    vector<seq::view_vector> m_groups;      // views accumulated on the current branch
+    svector<unsigned>      m_num_occ;       // variable -> number of occurrences (see group_complete)
     unsigned               m_undef_vars = 0;  // depth of groups whose emptiness test gave up
     // memo for the per-variable emptiness test, keyed by the sorted, deduplicated
-    // (state, target) signature of the variable's component group
-    typedef std::vector<std::pair<unsigned, unsigned>> group_sig;
+    // signature of the variable's view group
+    typedef std::vector<seq::view::sig> group_sig;
     struct group_sig_hash {
         size_t operator()(group_sig const& s) const {
-            size_t h = 1469598103934665603ull;
+            uint64_t h = 1469598103934665603ull;
             for (auto const& p : s) {
-                h = (h ^ p.first) * 1099511628211ull;
-                h = (h ^ p.second) * 1099511628211ull;
+                h = (h ^ p.state) * 1099511628211ull;
+                h = (h ^ p.target) * 1099511628211ull;
+                h = (h ^ reinterpret_cast<size_t>(p.region)) * 1099511628211ull;
+                h = (h ^ (p.complemented ? 1u : 0u)) * 1099511628211ull;
             }
-            return h;
+            return static_cast<size_t>(h);
         }
     };
     group_sig m_sig_buf;                    // reused by group_nonempty (avoids allocating per lookup)
     std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
     seq::live_states m_live_states;
 
+    // Names the reversed reading of a sequence variable while the search runs backwards.
+    // The marker is stripped before witnesses are reported.
+    func_decl_ref m_rev_decl;
+
     // ---- state-based search driver (see the "search state" note in the .cpp) ----
     // A membership cursor: how far membership `mi` has been consumed on the current
     // branch.  `i` is the next unconsumed atom, `R` the derivative state of the regex
     // after the consumed prefix, `complete` once every atom is consumed (and the tail is
-    // known nullable / covered by a membership component).  The set of non-complete
+    // known nullable / covered by a membership view).  The set of non-complete
     // cursors is the "set of active membership constraints"; each non-complete cursor has
     // a *variable* head (leading constants are eagerly consumed).  The per-variable
-    // component groups (m_groups) are the "variable intersection membership constraints".
+    // view groups (m_groups) are the "variable intersection membership constraints".
     struct cursor { unsigned i; expr* R; bool complete; };
     svector<cursor> m_cursors;              // one cursor per membership (parallel to m_atoms)
     unsigned        m_last_var = UINT_MAX;  // index (in m_vars) of the last expanded variable
@@ -228,24 +245,48 @@ private:
     // by seq_rewriter's mode-specific cofactor cache.
     expr_ref_pair_vector const& derivative_cofactors(expr* r);
 
-    // Product-reachability emptiness of a conjunction of components (all on one
+    // Product-reachability emptiness of a conjunction of views (all on one
     // variable).  l_false = empty (unsat), l_true = non-empty (sat), l_undef = gave up
     // (cap overrun, non-range guard, or undecidable nullability).
     // On l_true, if `witness_word` is non-null it is set to a concrete sequence term
-    // (over the element sort) whose value drives every component to acceptance
-    // simultaneously -- i.e. a witness value for the variable the components constrain.
-    lbool product_nonempty(svector<component> const& comps, expr_ref* witness_word = nullptr);
+    // (over the element sort) whose value drives every view to acceptance
+    // simultaneously -- i.e. a witness value for the variable the views constrain.
+    lbool product_nonempty(seq::view_vector const& comps, expr_ref* witness_word = nullptr);
 
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
     bool parse_term(expr* term, vector<atom>& atoms);
+
+    // Rewrite re.reverse(r) away, giving a regex for the reversed language.  False when the
+    // rewriter leaves a re.reverse behind, which it does for shapes it cannot push through
+    // (a regex variable, an unexpanded derivative).  Reversing only some of the memberships
+    // would put the system in a mixture of orientations, so a single failure makes prepare()
+    // keep the whole problem forwards.
+    bool reverse_regex(expr* r, expr_ref& result);
+
+    // Wrap / unwrap the marker that names a variable's reversed reading.
+    expr_ref mk_rev_var(expr* v);
+    expr* strip_rev_var(expr* v) const;
+
+    // Charge one search step against the budget and poll the global resource limit.
+    // Returns true when the search must stop, having recorded the reason and set m_giveup.
+    // One step is one product state or one dfs_atoms node, which is what the budget has
+    // always counted; the loops that expand a single state are bounded separately (see
+    // product_nonempty) so that this meaning stays intact.
+    bool out_of_budget();
+
+    // Run one decision in one direction with a given budget.  decide() layers the
+    // orientation policy on top of this.
+    lbool decide_oriented(membership_vec const& memberships, bool reversed, unsigned budget);
+
+    unsigned work_bails() const { return m_stats.work_bails(); }
 
     // Drop all search state accumulated by the previous decide()/solve().
     void reset_search();
 
     // Parse every membership into atoms, register its variables and count each
-    // variable's occurrences.  Sets m_seq_sort/m_elem_sort.  False on an
-    // unsupported shape.
-    bool prepare(membership_vec const& memberships);
+    // variable's occurrences.  Sets m_seq_sort/m_elem_sort.  False on an unsupported
+    // shape, and on memberships over different sequence sorts.
+    bool prepare(membership_vec const& memberships, bool reversed);
 
     bool group_complete(unsigned vi) const { return m_groups[vi].size() == m_num_occ[vi]; }
 
@@ -255,8 +296,8 @@ private:
     // Depth-first search over the monadic decomposition.  dfs_membership(mi) starts
     // membership `mi` (or reaches a leaf when every membership is consumed);
     // dfs_atoms(mi, i, R) continues membership `mi` at atom `i` with derivative state R.
-    // l_true = a satisfying branch was found (m_model is filled when model generation is
-    // enabled), l_false = every branch below is empty, l_undef = gave up.
+    // l_true = a satisfying branch was found (recorded in m_solution), l_false = every
+    // branch below is empty, l_undef = gave up.
     lbool dfs_membership(unsigned mi);
     lbool dfs_atoms(unsigned mi, unsigned i, expr* R);
 
@@ -272,7 +313,7 @@ private:
     // Expand variable `vi`, which is the head of the cursors in
     // m_head_stack[s_offset .. s_offset + s_size).  Assign a continuation (a reach target
     // q, or the epsilon/membership encoding for a last atom) to each cursor in turn (k
-    // indexes the set), pushing the component on m_groups[vi] and pruning as soon as the
+    // indexes the set), pushing the view on m_groups[vi] and pruning as soon as the
     // accumulated intersection for vi is empty.  When every cursor is assigned, recurse
     // into search().
     lbool choose_cont(unsigned vi, unsigned s_offset, unsigned s_size, unsigned k);
@@ -280,26 +321,25 @@ private:
     lbool consume_constants(cursor& c, unsigned mi);
 
     // Advance cursor `mi` past its head variable to continuation `target` (null = the
-    // variable is a last atom, i.e. a plain membership component), then eagerly consume
+    // variable is a last atom, i.e. a plain membership view), then eagerly consume
     // the following constant atoms.  l_false = the continuation is empty (prune),
     // l_undef = feasible but the tail nullability is unknown, l_true = feasible.
     lbool advance_cursor(cursor& c, unsigned mi, expr* target);
 
-    // Emptiness of the components accumulated for variable `vi` on the current branch,
-    // memoized on their signature.  Duplicated components are collapsed before the
-    // product search (they constrain the variable identically).
+    // Emptiness of the views accumulated for variable `vi` on the current branch,
+    // memoized on their signature.  Duplicates are collapsed before the product search
+    // (they constrain the variable identically).
     lbool group_nonempty(unsigned vi);
 
     // All memberships consumed: every variable group has already been shown non-empty,
-    // so this only extracts witnesses when model generation is enabled.
+    // so this only records the branch as the solution.
     lbool leaf();
 
     // Decide a CONJUNCTION of memberships jointly (the core algorithm behind check()):
     // explores the joint decomposition of all memberships depth-first.  A variable shared
-    // by several memberships accumulates several components in the same branch, which are
+    // by several memberships accumulates several views in the same branch, which are
     // intersected -- enforcing one consistent value across all memberships.  Does not
-    // touch m_memberships or m_core; fills m_model on l_true when model generation is
-    // enabled.
+    // touch m_memberships or m_core; fills m_solution on l_true.
     lbool decide(membership_vec const& memberships);
 
     // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
@@ -315,7 +355,7 @@ public:
                 seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
         m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()), m_ivl_pin(rw.m()),
-        m_regexes(rw.m()), m_live_states(rw, mode, 1u << 12) {}
+        m_regexes(rw.m()), m_live_states(rw, mode, 1u << 12), m_rev_decl(rw.m()) {}
 
     ~seq_monadic() { reset_ivl_cache(); }
 
@@ -326,24 +366,22 @@ public:
 
     seq::transition_mode mode() const { return m_config.m_mode; }
 
-    // Enable/disable model generation (default: enabled).  When enabled, a successful
-    // solve()/check() extracts a feasible model retrievable via get_model().
-    void set_gen_model(bool b) { m_config.m_model = b; }
+    // Record the solution (default: enabled).  Callers that only want the verdict
+    // switch it off; the search itself is unaffected.
+    void set_gen_solution(bool b) { m_config.m_solution = b; }
+    bool gen_solution() const { return m_config.m_solution; }
 
-    // Enable/disable recording of the satisfying branch (default: disabled).  Lets a
-    // caller consume the decomposition itself rather than a witness word.
-    void set_gen_branch(bool b) { m_config.m_branch = b; }
+    // Per variable, the views its value has to satisfy, from the last solve()/check()
+    // that returned l_true.  The state/target terms stay valid until the next one.
+    obj_map<expr, seq::view_vector> const& solution() const { return m_solution; }
 
-    // The branch of the last solve()/check() that returned l_true; empty otherwise.
-    // The state/target terms are pinned by the solver and stay valid until the next
-    // solve()/check(), exactly like get_model()'s witnesses.
-    vector<branch_component> const& branch() const { return m_branch; }
-
-    // The model extracted by the last successful solve()/check(): var -> witness,
-    // where each witness is a concrete sequence term (over the element sort) giving one
-    // satisfying assignment.  Witness terms are pinned by the solver and remain valid
-    // until the next solve()/check().  Only valid when model generation is enabled.
-    obj_map<expr, expr*> const& get_model() const { return m_model; }
+    // Collapse `var`'s views into one value: a word driving all of them to acceptance
+    // at once -- the first the product search finds, not the shortest.  The only place
+    // a word gets built; its sort is taken from the views, resp. from `var` when the
+    // search left it unconstrained.  l_true = `word` set, l_false = empty intersection,
+    // l_undef = no recorded solution, or the search gave up.
+    lbool materialize(expr* var, expr_ref& word);
+    lbool materialize_all(expr_substitution& model);
 
     // Decide  (str.in_re term R)  for a term that is a concatenation of string variables
     // (possibly repeated / several distinct) and constant characters.
@@ -356,6 +394,26 @@ public:
 
     void set_state_search(bool b) { m_config.m_state_search = b; }
     bool state_search() const { return m_config.m_state_search; }
+
+    // Work budget consumed by a single solve()/check(): each search node and each product
+    // expansion costs one unit, and the search gives up (l_undef, bail_reason::budget) when
+    // it runs out.  The budget is reset per decision, so it bounds one decision rather than
+    // the session.  A budget of 0 gives up immediately; UINT_MAX is effectively unbounded.
+    void set_budget(unsigned b) { m_config.m_budget_limit = b; }
+
+    unsigned budget() const { return m_config.m_budget_limit; }
+
+    // Direction the search reads memberships in (default: forward).  Setting this to
+    // `reversed` solves rev(term) in rev(R) instead, which is equisatisfiable and preserves
+    // every length property; witnesses are reversed back before they are reported, so the
+    // choice is not observable other than through the work it takes to reach an answer.
+    void set_orientation(orientation o) { m_config.m_orientation = o; }
+
+    orientation get_orientation() const { return m_config.m_orientation; }
+
+    // Whether the last prepare() actually reversed the problem.  This can be false even
+    // when the orientation is `reversed`, if some regex could not be reversed.
+    bool is_reversed() const { return m_reversed; }
 
     void set_is_var(std::function<bool(expr *)> const &is_var) {
         m_is_var = is_var;

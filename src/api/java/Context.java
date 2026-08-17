@@ -3477,6 +3477,68 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Creates an empty map from ASTs to ASTs.
+     **/
+    public ASTMap mkASTMap()
+    {
+        return new ASTMap(this);
+    }
+
+    /**
+     * Performs best-effort quantifier elimination for the variables in
+     * {@code vars}.
+     **/
+    public Expr<?> qeLite(ASTVector vars, Expr<?> body)
+    {
+        checkContextMatch(vars);
+        checkContextMatch(body);
+        return Expr.create(this, Native.qeLite(nCtx(), vars.getNativeObject(),
+                body.getNativeObject()));
+    }
+
+    /**
+     * Projects the bound applications from {@code body} using {@code model}.
+     **/
+    public Expr<?> qeModelProject(Model model, Expr<?>[] bounds, Expr<?> body)
+    {
+        checkContextMatch(model);
+        checkContextMatch(bounds);
+        checkContextMatch(body);
+        return Expr.create(this, Native.qeModelProject(nCtx(), model.getNativeObject(),
+                bounds.length, AST.arrayToNative(bounds), body.getNativeObject()));
+    }
+
+    /**
+     * Projects bound applications and records Skolem terms in {@code map}.
+     **/
+    public Expr<?> qeModelProjectSkolem(Model model, Expr<?>[] bounds, Expr<?> body,
+            ASTMap map)
+    {
+        checkContextMatch(model);
+        checkContextMatch(bounds);
+        checkContextMatch(body);
+        checkContextMatch(map);
+        return Expr.create(this, Native.qeModelProjectSkolem(nCtx(),
+                model.getNativeObject(), bounds.length, AST.arrayToNative(bounds),
+                body.getNativeObject(), map.getNativeObject()));
+    }
+
+    /**
+     * Projects bound applications and records witnesses in {@code map}.
+     **/
+    public Expr<?> qeModelProjectWithWitness(Model model, Expr<?>[] bounds,
+            Expr<?> body, ASTMap map)
+    {
+        checkContextMatch(model);
+        checkContextMatch(bounds);
+        checkContextMatch(body);
+        checkContextMatch(map);
+        return Expr.create(this, Native.qeModelProjectWithWitness(nCtx(),
+                model.getNativeObject(), bounds.length, AST.arrayToNative(bounds),
+                body.getNativeObject(), map.getNativeObject()));
+    }
+
+    /**
      * The number of supported simplifiers.
      **/
     public int getNumSimplifiers()

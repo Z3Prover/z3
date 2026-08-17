@@ -66,8 +66,6 @@ void bv2int_translator::ensure_translated(expr* e) {
         if (!is_app(e))
             continue;
         app* a = to_app(e);
-        if (m.is_bool(e) && a->get_family_id() != bv.get_family_id())
-            continue;
         for (auto arg : *a)
             if (!visited.is_marked(arg) && !m_translate.get(arg->get_id(), nullptr)) {
                 visited.mark(arg);
@@ -564,13 +562,13 @@ void bv2int_translator::translate_bv(app* e) {
     }
     case OP_BREDOR: {
         r = umod(e->get_arg(0), 0);
-        r = m.mk_not(m.mk_eq(r, a.mk_int(0)));
+        r = m.mk_ite(m.mk_eq(r, a.mk_int(0)), a.mk_int(0), a.mk_int(1));
         break;
     }
     case OP_BREDAND: {
         rational N = bv_size(e->get_arg(0));
         r = umod(e->get_arg(0), 0);
-        r = m.mk_not(m.mk_eq(r, a.mk_int(N - 1)));
+        r = m.mk_ite(m.mk_eq(r, a.mk_int(N - 1)), a.mk_int(1), a.mk_int(0));
         break;
     }
     default:

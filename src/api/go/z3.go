@@ -393,6 +393,13 @@ func (c *Context) MkConst(name *Symbol, sort *Sort) *Expr {
 	return newExpr(c, C.Z3_mk_const(c.ptr, name.ptr, sort.ptr))
 }
 
+// MkFreshConst creates a fresh constant with a name prefixed by prefix.
+func (c *Context) MkFreshConst(prefix string, sort *Sort) *Expr {
+	cPrefix := C.CString(prefix)
+	defer C.free(unsafe.Pointer(cPrefix))
+	return newExpr(c, C.Z3_mk_fresh_const(c.ptr, cPrefix, sort.ptr))
+}
+
 // MkBoolConst creates a Boolean constant (variable) with the given name.
 func (c *Context) MkBoolConst(name string) *Expr {
 	sym := c.MkStringSymbol(name)
@@ -553,6 +560,20 @@ func (f *FuncDecl) GetRange() *Sort {
 func (c *Context) MkFuncDecl(name *Symbol, domain []*Sort, range_ *Sort) *FuncDecl {
 	_, domainPtr := sortsToCSorts(domain)
 	return newFuncDecl(c, C.Z3_mk_func_decl(c.ptr, name.ptr, C.uint(len(domain)), domainPtr, range_.ptr))
+}
+
+// MkFreshFuncDecl creates a fresh function declaration with a name prefixed by prefix.
+func (c *Context) MkFreshFuncDecl(prefix string, domain []*Sort, range_ *Sort) *FuncDecl {
+	cPrefix := C.CString(prefix)
+	defer C.free(unsafe.Pointer(cPrefix))
+	_, domainPtr := sortsToCSorts(domain)
+	return newFuncDecl(c, C.Z3_mk_fresh_func_decl(c.ptr, cPrefix, C.uint(len(domain)), domainPtr, range_.ptr))
+}
+
+// PolynomialSubresultants returns the nonzero subresultants of p and q with
+// respect to x. Non-polynomial subterms are treated as variables.
+func (c *Context) PolynomialSubresultants(p, q, x *Expr) *ASTVector {
+	return newASTVector(c, C.Z3_polynomial_subresultants(c.ptr, p.ptr, q.ptr, x.ptr))
 }
 
 // MkRecFuncDecl creates a recursive function declaration.

@@ -142,6 +142,11 @@ namespace lp {
             VERIFY(it != m_map.end());
             return it->second;
         }
+
+        void clear() {
+            m_map.clear();
+            m_rev_map.clear();
+        }
     };
 
     template <typename T>
@@ -185,6 +190,11 @@ namespace lp {
             auto it = m_data.find(b);
             VERIFY(it != m_data.end());
             return it->second;
+        }
+
+        void clear() {
+            m_bij.clear();
+            m_data.clear();
         }
     };
     class dioph_eq::imp {
@@ -536,6 +546,9 @@ namespace lp {
 
         unsigned m_normalize_conflict_index = UINT_MAX;  // the row index of the conflict
         mpq      m_normalize_conflict_gcd; // the gcd of the coefficients of m_e_matrix[m_normalize_conflict_gcd].
+        // The amount of work, measured in machine words, spent since the last check() on
+        // eliminating the columns of the retired terms from m_l_matrix. See undo_add_term_method().
+        uint64_t m_undo_work = 0;
         void reset_conflict() { m_normalize_conflict_index = UINT_MAX; }
         bool has_conflict_index() const { return m_normalize_conflict_index != UINT_MAX; }
         void set_rewrite_conflict(unsigned idx, const mpq& gcd) {
@@ -543,6 +556,79 @@ namespace lp {
             m_normalize_conflict_index = idx;
             m_normalize_conflict_gcd = gcd;
             lra.stats().m_dio_rewrite_conflicts++;
+        }
+
+        // Deregister a term from m_columns_to_terms. The registration is done in init(),
+        // when the term is moved from m_added_terms to m_active_terms, so only the terms
+        // in m_active_terms are registered.
+        void deregister_columns_of_term(const lar_term* t) {
+            for (const auto& p : t->ext_coeffs()) {
+                TRACE(dio_reg, tout << "derigister p.var():" << p.var() << "->" << t->j() << std::endl;);
+                auto it = m_columns_to_terms.find(p.var());
+                SASSERT(it != m_columns_to_terms.end());
+                if (it == m_columns_to_terms.end())
+                    continue;
+                it->second.erase(t->j());
+                if (it->second.size() == 0)
+                    m_columns_to_terms.erase(it);
+            }
+        }
+
+        // An estimate, in machine words, of the cost of eliminating the column of the term
+        // that is being retired: the last row of m_l_matrix is added to every other row of
+        // that column. Both the number of such rows and the size of the coefficients grow
+        // with the accumulated state, so this is not bounded by the size of the increment
+        // that is being undone.
+        uint64_t elimination_work_estimate() const {
+            if (m_l_matrix.column_count() == 0 || m_l_matrix.row_count() == 0)
+                return 0;
+            unsigned j = m_l_matrix.column_count() - 1;
+            uint64_t col_size = m_l_matrix.m_columns[j].size();
+            if (col_size <= 1)
+                return 0;
+            uint64_t words = 0;
+            for (const auto& p : m_l_matrix.m_rows.back())
+                words += 1 + p.coeff().bitsize() / 32;
+            return (col_size - 1) * words;
+        }
+
+        // Drop everything that has been derived so far and put the still active terms back
+        // into m_added_terms, so that init() refills the matrices from scratch on the next
+        // check(). Every entry is a linear combination of the definitions of the active
+        // terms, so rebuilding gives exactly the state a fresh solver would have for the
+        // same set of terms: no information that is still valid is lost, only the work of
+        // rederiving it. That work is then done inside check(), where the rlimit and the
+        // timeout are polled, instead of inside the undo, where they are not.
+        void reset_state() {
+            TRACE(dio, tout << "resetting the state of dioph_eq\n";);
+            for (const lar_term* t : m_active_terms) {
+                deregister_columns_of_term(t);
+                m_added_terms.push_back(t);
+            }
+            m_active_terms.clear();
+            // the terms have to be reactivated in the order of their columns: undoing a term
+            // removes the last row and the last column of m_l_matrix
+            std::sort(m_added_terms.begin(), m_added_terms.end(),
+                      [](const lar_term* a, const lar_term* b) { return a->j() < b->j(); });
+
+            m_e_matrix.clear();
+            m_l_matrix.clear();
+            m_sum_of_fixed.clear();
+            m_var_register.clear();
+            m_k2s.clear();
+            m_fresh_k2xt_terms.clear();
+            m_row2fresh_defs.clear();
+            m_changed_rows.reset();
+            m_changed_f_columns.reset();
+            m_changed_terms.reset();
+            m_terms_to_tighten.reset();
+            m_espace.clear();
+            m_lspace.clear();
+            m_q.reset();
+            m_infeas_explanation.clear();
+            reset_conflict();
+            m_undo_work = 0;
+            lra.stats().m_dio_state_resets++;
         }
 
         void undo_add_term_method(const lar_term* t) {
@@ -559,19 +645,26 @@ namespace lp {
                 return;
             }
             // deregister the term that has been activated
-            for (const auto& p : t->ext_coeffs()) {
-                TRACE(dio_reg, tout << "derigister p.var():" << p.var() << "->" << t->j() << std::endl;);
-                auto it = m_columns_to_terms.find(p.var());
-                SASSERT(it != m_columns_to_terms.end());
-                it->second.erase(t->j());
-                if (it->second.size() == 0) {
-                    m_columns_to_terms.erase(it);
-                }
-            }
+            deregister_columns_of_term(t);
             SASSERT(std::find(m_added_terms.begin(), m_added_terms.end(), t) == m_added_terms.end());
             SASSERT(contains(m_active_terms, t));
             m_active_terms.erase(t);
             TRACE(dio, tout << "the deleted term column in m_l_matrix" << std::endl; for (auto p : m_l_matrix.column(t->j())) { tout << "p.coeff():" << p.coeff() << ", row " << p.var() << std::endl; } tout << "m_l_matrix has " << m_l_matrix.column_count() << " columns" << std::endl; tout << "and " << m_l_matrix.row_count() << " rows" << std::endl; print_lar_term_L(*t, tout); tout << "; t->j()=" << t->j() << std::endl;);
+            // shrink_matrices() runs under the trail, either from the parser reading (pop 1)
+            // or from resolve_conflict(), where neither the timeout nor the rlimit applies,
+            // and where a half finished elimination would leave m_l_matrix and m_e_matrix
+            // inconsistent. So instead of making it interruptible we keep it bounded: when
+            // a pop gets too expensive the derived state is dropped and rebuilt lazily.
+            // After a cancelled check nobody is going to look at the derived state before it
+            // is rebuilt anyway, so there is nothing to preserve.
+            unsigned max_work = lra.settings().dio_undo_max_work();
+            if (max_work > 0) {
+                m_undo_work += 1 + elimination_work_estimate();
+                if (m_undo_work > max_work || lra.settings().get_cancel_flag()) {
+                    reset_state();
+                    return;
+                }
+            }
             shrink_matrices();
         }
 
@@ -1236,6 +1329,7 @@ namespace lp {
             m_infeas_explanation.clear();
             lia.get_term().clear();
             reset_conflict();
+            m_undo_work = 0;
 
             process_m_changed_f_columns(f_vector);
             for (const lar_term* t : m_added_terms) {

@@ -164,6 +164,7 @@ class theory_lra::imp {
     unsigned_vector        m_unassigned_bounds;
     unsigned_vector        m_bounds_trail;
     unsigned               m_asserted_qhead;
+    unsigned_vector        m_active_inf_eps_constraints;
 
     svector<unsigned>       m_bv_to_propagate;      // Boolean variables that can be propagated
     
@@ -2467,6 +2468,17 @@ public:
 #endif
     
     unsigned propagate_lp_solver_bound(const lp::implied_bound& be) {
+        // implied_bound stores only a rational threshold and a strict bit.
+        // Do not project a consequence whose explanation uses a delta-rational
+        // API bound, because this can strengthen x >= r - eps into x > r.
+        if (!m_active_inf_eps_constraints.empty()) {
+            for (lp::constraint_index ci : lp().flatten(be.explain_implied())) {
+                for (lp::constraint_index eps_ci : m_active_inf_eps_constraints)
+                    if (ci == eps_ci)
+                        return 0;
+            }
+        }
+
         lpvar vi = be.m_j;
         theory_var v = lp().local_to_external(vi);
 
@@ -3304,6 +3316,10 @@ public:
         TRACE(arith, tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
+        if (is_true && b.has_infinitesimal()) {
+            ctx().push_trail(push_back_vector(m_active_inf_eps_constraints));
+            m_active_inf_eps_constraints.push_back(ci);
+        }
         if (is_infeasible()) 
             return false;
         lp::lconstraint_kind k = bound2constraint_kind(b.is_int(), b.get_bound_kind(), is_true);
@@ -4184,17 +4200,17 @@ public:
         return false;
     }
 
-    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::lp_status st, expr_ref& blocker, bool& has_shared) {
+    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::impq const& term_max, lp::lp_status st, expr_ref& blocker, bool& has_shared) {
         switch (st) {
         case lp::lp_status::OPTIMAL:
             init_variable_values();
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            blocker = mk_gt(v);
-            return value(v);
+            blocker = mk_gt(v, term_max);
+            return inf_eps(rational(0), inf_rational(term_max.x, term_max.y));
         case lp::lp_status::FEASIBLE:
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            blocker = mk_gt(v);
-            return value(v);
+            blocker = mk_gt(v, term_max);
+            return inf_eps(rational(0), inf_rational(term_max.x, term_max.y));
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
@@ -4225,7 +4241,7 @@ public:
             if (max_with_nl(v, st, level, blocker, nl_result))
                 return nl_result;
         }
-        return max_result(v, vi, st, blocker, has_shared);
+        return max_result(v, vi, term_max, st, blocker, has_shared);
     }
 
     expr_ref mk_gt(theory_var v) {
@@ -4380,7 +4396,10 @@ public:
             // validation assert the over-strong v >= r.  The bound's real meaning
             // (including the -delta) is attached via the api_bound's eps below.
             std::ostringstream strm;
-            strm << r << " - eps <= " << mk_pp(get_expr(v), m) << " (opt)";
+            strm << r;
+            if (!val.get_infinitesimal().is_zero())
+                strm << " + " << val.get_infinitesimal() << "*eps";
+            strm << " <= " << mk_pp(get_expr(v), m) << " (opt)";
             b = m.mk_const(symbol(strm.str()), m.mk_bool_sort());
         }
         else if (is_strict) {
@@ -4397,7 +4416,7 @@ public:
             // ctx().set_enode_flag(bv, true);
             lp_api::bound_kind bkind = lp_api::bound_kind::lower_t;
             if (is_strict) bkind = lp_api::bound_kind::upper_t;
-            rational eps = is_lower_eps ? rational::minus_one() : rational::zero();
+            rational eps = is_lower_eps ? val.get_infinitesimal() : rational::zero();
             api_bound* a = mk_var_bound(bv, v, bkind, r, eps);
             mk_bound_axioms(*a);
             updt_unassigned_bounds(v, +1);

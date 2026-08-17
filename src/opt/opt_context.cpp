@@ -773,8 +773,7 @@ namespace opt {
         opt_params p(m_params);        
         if (p.optsmt_engine() == symbol("symba") ||
             p.optsmt_engine() == symbol("farkas")) {
-            auto str = std::to_string((unsigned)(arith_solver_id::AS_OPTINF));
-            gparams::set("smt.arith.solver", str.c_str());
+            m_params.set_uint("arith.solver", static_cast<unsigned>(arith_solver_id::AS_OPTINF));
         }
     }
 
@@ -1759,6 +1758,7 @@ namespace opt {
 
     void context::collect_param_descrs(param_descrs & r) {
         opt_params::collect_param_descrs(r);
+        smt::kernel::collect_param_descrs(r);
         insert_timeout(r);
         insert_ctrl_c(r);
     }

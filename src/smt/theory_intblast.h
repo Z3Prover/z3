@@ -64,10 +64,9 @@ namespace smt {
         void apply_sort_cnstr(enode* n, sort* s) override;
         void init_model(model_generator& m) override;
         model_value_proc* mk_value(enode* n, model_generator& m) override;
-        void new_eq_eh(theory_var v1, theory_var v2) override {}
+        void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
 
     };
 
 }
-

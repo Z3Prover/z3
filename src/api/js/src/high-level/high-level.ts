@@ -2446,6 +2446,14 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         return _toExpr(check(Z3.optimize_get_upper(contextPtr, this.ptr, index)));
       }
 
+      getLowerAsVector(index: number): AstVector<Name, Expr<Name>> {
+        return new AstVectorImpl(check(Z3.optimize_get_lower_as_vector(contextPtr, this.ptr, index)));
+      }
+
+      getUpperAsVector(index: number): AstVector<Name, Expr<Name>> {
+        return new AstVectorImpl(check(Z3.optimize_get_upper_as_vector(contextPtr, this.ptr, index)));
+      }
+
       unsatCore(): AstVector<Name, Bool<Name>> {
         return new AstVectorImpl(check(Z3.optimize_get_unsat_core(contextPtr, this.ptr)));
       }

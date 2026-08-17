@@ -752,8 +752,8 @@ namespace seq {
         if (m_monadic)
             return;
         m_monadic = alloc(seq_monadic, m_monadic_rw, m_monadic_trail);
-        // Conflict-only by default: apply_monadic_split consumes no witness.
-        m_monadic->set_gen_model(false);
+        // Conflict-only by default: apply_monadic_split consumes no solution.
+        m_monadic->set_gen_solution(false);
     }
 
     bool nielsen_graph::apply_monadic_split(nielsen_node* node) {
@@ -954,32 +954,37 @@ namespace seq {
             return false;
 
         m_monadic_trail.push_scope();
-        m_monadic->set_gen_branch(true);
+        m_monadic->set_gen_solution(true);
         for (auto const& [term, re] : abstracted)
             m_monadic->add(term, re, nullptr);
         const lbool r = m_monadic->check();
-        // Copy the branch out before the scope is popped.
-        vector<seq_monadic::branch_component> branch;
-        if (r == l_true)
-            branch.append(m_monadic->branch());
-        m_monadic->set_gen_branch(false);
+        // Copy the solution out before the scope is popped.  The engine reports one
+        // view_vector per variable; a variable is constrained by their conjunction.
+        obj_map<expr, seq::view_vector> solution;
+        // A reversed search reports views over the REVERSED regexes, keyed on the
+        // reversed reading of the variable, so they do not describe the node's values.
+        const bool reversed = m_monadic->is_reversed();
+        if (r == l_true && !reversed)
+            for (auto const& [var, views] : m_monadic->solution())
+                solution.insert(var, views);
+        m_monadic->set_gen_solution(false);
         m_monadic_trail.pop_scope(1);
 
         // l_false is apply_monadic_split's business (it carries the deps a conflict
         // clause needs); l_undef means the engine gave up.
-        if (r != l_true || branch.empty())
+        if (r != l_true || solution.empty())
             return false;
 
-        // Map each component back onto the node.
+        // Map each view back onto the node.
         //
-        // A reach component means "drive the automaton from `state` to `target`",
-        // with no region restriction, whereas a view is gated on Q_ν.  The two
+        // A reach view means "drive the automaton from `state` to `target`",
+        // with no region restriction, whereas a node view is gated on Q_ν.  The two
         // coincide exactly when Q_ν contains every state a run from `state` can
         // visit — which holds when Q_ν is the COMPLETE reachable set of the
         // membership's regex, since a run from a state reachable from R stays
         // inside the states reachable from R.  So the ν minted per covered
         // membership is usable iff its automaton was explored in full, and each
-        // component picks the ν whose region actually contains its states.
+        // view picks the ν whose region actually contains its states.
         //
         // Testing membership in the region does double duty: it also verifies that
         // seq_monadic's state terms canonicalize (via mk_rewrite) onto the same
@@ -1007,28 +1012,32 @@ namespace seq {
             return 0u;
         };
 
+        // Driven by `tokens` rather than by the solution map: every covered membership
+        // has a non-ground subject whose every token is a free variable, so each token
+        // must carry at least one view or child A would drop a membership without
+        // replacing it (and stop being a strengthening).  Iterating the vector also
+        // keeps the emitted order independent of expression addresses.
         vector<str_mem> components;
-        for (auto const& c : branch) {
-            euf::snode const* tok = nullptr;
-            for (auto const& [t, v] : tokens) {
-                if (v == c.var) { tok = t; break; }
+        for (auto const& [tok, var] : tokens) {
+            seq::view_vector views;
+            if (!solution.find(var, views))
+                return false;
+            for (auto const& c : views) {
+                euf::snode const* state = mk_rewrite(c.m_state);
+                if (!state)
+                    return false;
+                if (c.is_membership()) {
+                    components.push_back(str_mem(m, tok, state, dep));
+                    continue;
+                }
+                euf::snode const* target = mk_rewrite(c.m_target);
+                if (!target)
+                    return false;
+                const unsigned nu = region_for(state, target);
+                if (nu == 0)
+                    return false;
+                components.push_back(str_mem::mk_view(m, tok, state, target, nu, dep));
             }
-            if (!tok)
-                return false;
-            euf::snode const* state = mk_rewrite(c.state);
-            if (!state)
-                return false;
-            if (!c.target) {
-                components.push_back(str_mem(m, tok, state, dep));
-                continue;
-            }
-            euf::snode const* target = mk_rewrite(c.target);
-            if (!target)
-                return false;
-            const unsigned nu = region_for(state, target);
-            if (nu == 0)
-                return false;
-            components.push_back(str_mem::mk_view(m, tok, state, target, nu, dep));
         }
 
         // child A — the covered memberships replaced by the branch's components.

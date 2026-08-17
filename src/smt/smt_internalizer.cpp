@@ -974,6 +974,8 @@ namespace smt {
             internalize_rec(arg, false);
             SASSERT(e_internalized(arg));
         }
+        if (e_internalized(n))
+            return;
         
         enode * e = mk_enode(n, 
                              false, /* do not suppress args */

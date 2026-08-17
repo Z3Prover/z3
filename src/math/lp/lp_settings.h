@@ -137,6 +137,7 @@ struct statistics {
     unsigned m_dio_calls = 0;
     unsigned m_dio_tighten_conflicts = 0;
     unsigned m_dio_rewrite_conflicts = 0;
+    unsigned m_dio_state_resets = 0;
     unsigned m_bounds_tightening_conflicts = 0;
     unsigned m_bounds_tightenings = 0;
     unsigned m_nla_throttled_lemmas = 0;
@@ -179,6 +180,7 @@ struct statistics {
         st.update("arith-dio-calls", m_dio_calls);
         st.update("arith-dio-tighten-conflicts", m_dio_tighten_conflicts);
         st.update("arith-dio-rewrite-conflicts", m_dio_rewrite_conflicts);
+        st.update("arith-dio-state-resets", m_dio_state_resets);
         st.update("arith-bounds-tightening-conflicts", m_bounds_tightening_conflicts);
         st.update("arith-bounds-tightenings", m_bounds_tightenings);
         st.update("arith-nla-throttled-lemmas", m_nla_throttled_lemmas);
@@ -267,6 +269,7 @@ private:
     unsigned         m_dio_calls_period = 4;
     unsigned         m_dio_calls_period_decrease = 2;
     bool             m_dio_run_gcd = true;
+    unsigned         m_dio_undo_max_work = 1000000;
     bool             m_random_hammers = true;
     bool             m_lcube = true;
     unsigned         m_lcube_flips = 16;
@@ -302,6 +305,9 @@ public:
     bool dio_run_gcd() const { return m_dio && m_dio_run_gcd; }
     bool dio_enable_hnf_cuts() const { return m_dio && m_dio_enable_hnf_cuts; }
     bool dio_ignore_big_nums() const { return m_dio_ignore_big_nums; }
+    // Work budget, in machine words, for eliminating the columns of the retired terms
+    // from the certificate matrix of the Diophantine handler. See dioph_eq::imp::undo_add_term_method.
+    unsigned dio_undo_max_work() const { return m_dio_undo_max_work; }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
     bool bound_progation() const { 
         return m_bound_propagation;

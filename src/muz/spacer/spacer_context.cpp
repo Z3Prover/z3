@@ -2816,6 +2816,12 @@ unsigned context::get_cex_depth()
 
     // get and discard query rule
     fact = m_query->get_last_rf ();
+    if (!fact) {
+        IF_VERBOSE(1,
+                   verbose_stream () <<
+                   "Warning: counterexample is trivial or non-existent\n";);
+        return 0;
+    }
     r = &fact->get_rule ();
 
     unsigned cex_depth = 0;
@@ -2831,9 +2837,14 @@ unsigned context::get_cex_depth()
                    "Warning: counterexample is trivial or non-existent\n";);
         return cex_depth;
     }
-    SASSERT (facts.size () == 1);
     m_query->find_predecessors (*r, preds);
-    SASSERT (preds.size () == 1);
+    if (preds.size() != 1) {
+        // XXX AG: Escape if an assertion is about to fail
+        IF_VERBOSE(1,
+                   verbose_stream () <<
+                   "Warning: counterexample is trivial or non-existent\n";);
+        return cex_depth;
+    }
     pts.push_back (&(get_pred_transformer (preds[0])));
 
     pts.push_back (nullptr); // cex depth marker
@@ -2848,6 +2859,18 @@ unsigned context::get_cex_depth()
             // insert new marker if there are pts at higher depth
             if (curr + 1 < pts.size()) { pts.push_back(nullptr); }
             continue;
+        }
+        // defensive: the number of non-marker entries processed so far
+        // (curr - cex_depth) must be a valid index into facts. If the
+        // derivation queues are inconsistent (e.g., a reach fact whose
+        // justifications don't match its rule's tail), bail out instead
+        // of underflowing/overflowing the index.
+        if (curr < cex_depth || curr - cex_depth >= facts.size()) {
+            IF_VERBOSE(1,
+                       verbose_stream () <<
+                       "Warning: counterexample trace is malformed; "
+                       "returning partial depth\n";);
+            break;
         }
         fact = facts.get (curr - cex_depth); // discount the number of markers
         // get rule justifying the derivation of fact at pt
@@ -2891,6 +2914,12 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
 
     // get query rule
     fact = m_query->get_last_rf ();
+    if (!fact) {
+        IF_VERBOSE(1,
+                   verbose_stream () <<
+                   "Warning: counterexample is trivial or non-existent\n";);
+        return;
+    }
     r = &fact->get_rule ();
     rules.push_back (const_cast<datalog::rule *> (r));
     TRACE(spacer,
@@ -2908,15 +2937,30 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
                    "Warning: counterexample is trivial or non-existent\n";);
         return;
     }
-    SASSERT (facts.size () == 1);
     m_query->find_predecessors (*r, preds);
-    SASSERT (preds.size () == 1);
+    if (preds.size() != 1) {
+        // XXX AG: Escape if an assertion is about to fail
+        IF_VERBOSE(1,
+                   verbose_stream () <<
+                   "Warning: counterexample is trivial or non-existent\n";);
+        return;
+    }
     pts.push_back (&(get_pred_transformer (preds[0])));
 
     // populate rules according to a preorder traversal of the query derivation tree
     for (unsigned curr = 0; curr < pts.size (); ++curr) {
         // get current pt and fact
         pt = pts.get (curr);
+        // defensive: facts and pts should grow in lockstep; bail out if a
+        // prior mismatch left facts short of the current index instead of
+        // reading out of bounds.
+        if (curr >= facts.size()) {
+            IF_VERBOSE(1,
+                       verbose_stream () <<
+                       "Warning: counterexample trace is malformed; "
+                       "returning partial trace\n";);
+            break;
+        }
         fact = facts.get (curr);
         // get rule justifying the derivation of fact at pt
         r = &fact->get_rule ();

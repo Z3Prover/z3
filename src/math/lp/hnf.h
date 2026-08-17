@@ -132,11 +132,16 @@ void pivot_column_non_fractional(M &m, unsigned r, bool & overflow, const mpq & 
     // rows <= r are not written below, so these pivot entries are loop-invariant
     const auto & mrr = m[r][r];
     const mpq * denom = r > 0 ? &m[r - 1][r - 1] : nullptr;
+    mpq scratch;
     for (unsigned j = r + 1; j < m.column_count(); ++j) {
         const auto & mrj = m[r][j];
         for (unsigned i = r + 1; i < m.row_count(); ++i) {
             auto & mij = m[i][j];
-            mij = mrr * mij - m[i][r] * mrj;
+            // reuse scratch to avoid allocating fresh bignum temporaries per cell
+            mij *= mrr;
+            scratch = m[i][r];
+            scratch *= mrj;
+            mij -= scratch;
             if (denom)
                 mij /= *denom;
             if (mij >= big_number) {

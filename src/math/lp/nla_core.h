@@ -29,6 +29,9 @@
 #include "nlsat/nlsat_solver.h"
 #include "params/smt_params_helper.hpp"
 #include "math/lp/nla_throttle.h"
+#include "math/lp/nla_backoff.h"
+#include "math/lp/nla_patcher.h"
+#include "math/lp/nla_explanations.h"
 
 namespace nra {
     class solver;
@@ -60,9 +63,10 @@ class core {
     friend class monomial_bounds;
     friend class nra::solver;
     friend class divisions;
+    friend class patcher;
+    friend class explanations;
 
-    unsigned m_nlsat_delay = 0;
-    unsigned m_nlsat_delay_bound = 0;
+    backoff  m_nlsat_backoff;
     unsigned m_check_assignment_fail_cnt = 0;
 
     bool should_run_bounded_nlsat();
@@ -86,13 +90,16 @@ class core {
     monotone                 m_monotone;
     powers                   m_powers;
     divisions                m_divisions;
-    intervals                m_intervals; 
+    intervals                m_intervals;
     monomial_bounds          m_monomial_bounds;
+    patcher                  m_patcher;
+    explanations             m_explanations;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
     // set when bound optimization re-calibrates m_to_refine to empty: every
     // monomial is consistent under the optimized model, so the goal is satisfied.
     bool                     m_nla_satisfied = false;
+    squeeze_schedule         m_squeeze_schedule;
     horner                   m_horner;
     grobner                  m_grobner;
     emonics                  m_emons;
@@ -105,9 +112,6 @@ class core {
 
     bool                     m_use_nra_model = false;
     nra::solver              m_nra;
-    bool                     m_cautious_patching = true;
-    lpvar                    m_patched_var = 0;
-    monic const*             m_patched_monic = nullptr; 
 
     nla_throttle             m_throttle;
     bool                     m_throttle_enabled = true;
@@ -194,9 +198,7 @@ public:
 
     void set_active_vars_weights(nex_creator&);
     std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
-    
-    void incremental_linearization(bool);
-    
+
     svector<lpvar> sorted_rvars(const factor& f) const;
     bool done() const;
 
@@ -211,13 +213,8 @@ public:
     // the value of the rooted monomias is equal to the value of the m.var() variable multiplied
     // by the canonize_sign
     bool canonize_sign(const monic& m) const;
-    
 
-    void deregister_monic_from_monicomials (const monic & m, unsigned i);
-
-    void deregister_monic_from_tables(const monic & m, unsigned i);
-
-    void add_monic(lpvar v, unsigned sz, lpvar const* vs);   
+    void add_monic(lpvar v, unsigned sz, lpvar const* vs);
     void add_idivision(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_idivision(q, x, y, r); }
     void add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_rdivision(q, x, y, r); }
     void add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_bounded_division(q, x, y, r); }
@@ -285,17 +282,13 @@ public:
                         const factor& b,
                         std::ostream& out);
 
-        
-    void mk_ineq_no_expl_check(lemma_builder& lemma, lp::lar_term& t, llc cmp, const rational& rs);
-    
+
     void maybe_add_a_factor(lpvar i,
                             const factor& c,
                             std::unordered_set<lpvar>& found_vars,
                             std::unordered_set<unsigned>& found_rm,
                             vector<factor> & r) const;
 
-    llc apply_minus(llc cmp);
-    
     void fill_explanation_and_lemma_sign(lemma_builder& lemma, const monic& a, const monic & b, rational const& sign);
 
     svector<lpvar> reduce_monic_to_rooted(const svector<lpvar> & vars, rational & sign) const;
@@ -341,13 +334,7 @@ public:
     
     bool var_is_separated_from_zero(lpvar j) const;
 
-    bool vars_are_equiv(lpvar a, lpvar b) const;    
-    bool explain_ineq(lemma_builder& lemma, const lp::lar_term& t, llc cmp, const rational& rs);
-    bool explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
-    bool explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
-    bool explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
-    bool explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
-    bool explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const;
+    bool vars_are_equiv(lpvar a, lpvar b) const;
     bool has_zero_factor(const factorization& factorization) const;
 
     template <typename T>
@@ -355,30 +342,6 @@ public:
     lp::lp_settings& lp_settings();
     const lp::lp_settings& lp_settings() const;
     unsigned random();
-
-    // we look for octagon constraints here, with a left part  +-x +- y 
-    void collect_equivs();
-
-    bool is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &j) const;
-    
-    void add_equivalence_maybe(const lp::lar_term* t, u_dependency* c0, u_dependency* c1);
-
-    void init_vars_equivalence();
-
-    bool vars_table_is_ok() const;
-
-    bool rm_table_is_ok() const;
-    
-    bool tables_are_ok() const;
-    
-    bool var_is_a_root(lpvar j) const;
-
-    template <typename T>
-    bool vars_are_roots(const T& v) const;
-
-    void register_monic_in_tables(unsigned i_mon);
-
-    void register_monics_in_tables();
 
     void clear();
     
@@ -432,15 +395,6 @@ public:
     bool is_nl_var(lpvar) const;
     
     bool is_used_in_monic(lpvar) const;
-    void patch_monomials();
-    void patch_monomials_on_to_refine();
-    void patch_monomial(lpvar);
-    bool var_breaks_correct_monic(lpvar) const;
-    bool var_breaks_correct_monic_as_factor(lpvar, const monic&) const;
-    void update_to_refine_of_var(lpvar j);
-    bool try_to_patch(const rational&);
-    bool to_refine_is_correct() const;
-    bool is_patch_blocked(lpvar u, const lp::impq&) const;
     bool has_big_num(const monic&) const;
     bool var_is_big(lpvar) const;
     bool has_real(const factorization&) const;
