@@ -22,7 +22,7 @@ namespace seq {
 
     lbool accepts(view const& v, seq_rewriter& rw) {
         lbool r;
-        if (!v.m_state || !v.in_region())
+        if (!v.m_state)
             r = l_false;
         else if (v.is_reach())
             r = v.m_state == v.m_target ? l_true : l_false;
@@ -35,7 +35,7 @@ namespace seq {
     }
 
     bool is_dead(view const& v, seq_rewriter& rw) {
-        return !v.m_state || !v.in_region() || rw.u().re.is_empty(v.m_state);
+        return !v.m_state || rw.u().re.is_empty(v.m_state);
     }
 
 }

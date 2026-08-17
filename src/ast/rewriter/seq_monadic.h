@@ -206,8 +206,6 @@ private:
             for (auto const& p : s) {
                 h = (h ^ p.state) * 1099511628211ull;
                 h = (h ^ p.target) * 1099511628211ull;
-                h = (h ^ reinterpret_cast<size_t>(p.region)) * 1099511628211ull;
-                h = (h ^ (p.complemented ? 1u : 0u)) * 1099511628211ull;
             }
             return static_cast<size_t>(h);
         }

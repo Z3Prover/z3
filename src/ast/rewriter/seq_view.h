@@ -14,8 +14,6 @@ Abstract:
         m_target ? the run ends at m_target      (reach view)
                  : the end state is nullable     (membership view)
 
-    without leaving m_region, and negated when m_complemented.
-
     Views on the same value are conjunctive: the admissible values are the
     intersection of their languages.  See seq_monadic, which reports the
     decomposition it commits to as views.
@@ -30,7 +28,6 @@ Author:
 #include "ast/ast.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/lbool.h"
-#include "util/uint_set.h"
 #include "util/vector.h"
 
 namespace seq {
@@ -38,43 +35,34 @@ namespace seq {
     struct view {
         expr*           m_state = nullptr;
         expr*           m_target = nullptr;     // null: membership view
-        uint_set const* m_region = nullptr;     // null: whole automaton
 
         // identity for dedup/memoization; covers the same fields as operator==
         struct sig {
             unsigned        state, target;
-            uint_set const* region;
-            bool            complemented;
         };
 
         view() = default;
-        view(expr* state, expr* target, uint_set const* region = nullptr) :
-            m_state(state), m_target(target), m_region(region) {}
+        view(expr* state, expr* target) :
+            m_state(state), m_target(target) {}
 
-        static view membership(expr* state, uint_set const* region = nullptr) {
-            return view(state, nullptr, region);
+        static view membership(expr* state) {
+            return view(state, nullptr);
         }
 
-        static view reach(expr* state, expr* target, uint_set const* region = nullptr) {
-            return view(state, target, region);
+        static view reach(expr* state, expr* target) {
+            return view(state, target);
         }
 
         bool is_membership() const { return m_target == nullptr; }
         bool is_reach() const { return m_target != nullptr; }
 
-        bool in_region() const {
-            return !m_region || (m_state && m_region->contains(m_state->get_id()));
-        }
-
         sig key() const {
             return { m_state ? m_state->get_id() : UINT_MAX,
-                     m_target ? m_target->get_id() : UINT_MAX,
-                     m_region };
+                     m_target ? m_target->get_id() : UINT_MAX };
         }
 
         bool operator==(view const& other) const {
-            return m_state == other.m_state && m_target == other.m_target
-                && m_region == other.m_region;
+            return m_state == other.m_state && m_target == other.m_target;
         }
 
         bool operator!=(view const& other) const { return !(*this == other); }
@@ -82,14 +70,11 @@ namespace seq {
 
     inline bool operator<(view::sig const& a, view::sig const& b) {
         if (a.state != b.state) return a.state < b.state;
-        if (a.target != b.target) return a.target < b.target;
-        if (a.region != b.region) return a.region < b.region;
-        return a.complemented < b.complemented;
+        return a.target < b.target;
     }
 
     inline bool operator==(view::sig const& a, view::sig const& b) {
-        return a.state == b.state && a.target == b.target
-            && a.region == b.region && a.complemented == b.complemented;
+        return a.state == b.state && a.target == b.target;
     }
 
     using view_vector = svector<view>;
@@ -98,7 +83,7 @@ namespace seq {
     // l_undef when nullability is undecided.
     lbool accepts(view const& v, seq_rewriter& rw);
 
-    // Empty language; for a complemented view this means it accepts everything.
+    // Empty language: no value satisfies the view.
     bool is_dead(view const& v, seq_rewriter& rw);
 
 }
