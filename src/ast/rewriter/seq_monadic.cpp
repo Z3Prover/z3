@@ -900,23 +900,11 @@ lbool seq_monadic::decide_oriented(membership_vec const& memberships, bool rever
 }
 
 bool seq_monadic::constrains_length(expr* r) {
-    unsigned lo = 0, hi = 0;
-    expr* body = nullptr;
-    ptr_vector<expr> todo;
-    obj_hashtable<expr> seen;
-    todo.push_back(r);
-    while (!todo.empty()) {
-        expr* t = todo.back();
-        todo.pop_back();
-        if (!is_app(t) || seen.contains(t))
-            continue;
-        seen.insert(t);
-        if (re().is_loop(t, body, lo, hi) && lo == hi && lo > 1)
-            return true;
-        for (expr* arg : *to_app(t))
-            todo.push_back(arg);
-    }
-    return false;
+    return any_of(subterms::ground(expr_ref(r, m)), [&](expr* t) {
+        unsigned lo = 0, hi = 0;
+        expr* body = nullptr;
+        return re().is_loop(t, body, lo, hi) && lo == hi && lo > 1;
+    });
 }
 
 void seq_monadic::split_conjuncts(expr* r, ptr_vector<expr>& out) {
@@ -981,25 +969,23 @@ lbool seq_monadic::model_accepts(expr* term, expr* r) {
 
 lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budget,
                                 unsigned allowance) {
-    // Flatten every membership into the regexes its top-level intersection conjoins.
-    vector<ptr_vector<expr>> conjuncts;
-    unsigned total = 0;
+    // Normalize top-level intersections into separate memberships.  They remain linked by
+    // their term and dependency, while the refinement can select them independently.
+    membership_vec conjuncts;
     for (auto const& [term, regex, d] : memberships) {
         ptr_vector<expr> cs;
         split_conjuncts(regex, cs);
-        total += cs.size();
-        conjuncts.push_back(cs);
+        for (expr* r : cs)
+            conjuncts.push_back({ term, expr_ref(r, m), d });
     }
-    if (total <= memberships.size())
+    if (conjuncts.size() <= memberships.size())
         return l_undef;                           // nothing is intersected: same problem
 
     m_stats.m_split_calls++;
 
-    // The relaxation keeps conjunct j of membership i exactly when selected[i][j]; it starts
-    // out empty, so the first round decides nothing and every conjunct has to earn its place.
-    vector<bool_vector> selected;
-    for (auto const& cs : conjuncts)
-        selected.push_back(bool_vector(cs.size(), false));
+    // The relaxation starts empty, so the first round decides nothing and every conjunct
+    // has to earn its place.
+    bool_vector selected(conjuncts.size(), false);
 
     // Cost of one lookahead probe.  It only has to tell an expensive candidate from a cheap
     // one, so it is a fraction of the real budget -- and a probe that refutes within it is
@@ -1007,25 +993,15 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
     unsigned const probe_budget = std::max(1000u, budget / 8);
     bool const reversed = m_config.m_orientation == orientation::reversed;
 
-    auto relaxation = [&](vector<bool_vector> const& sel) {
+    auto relaxation = [&](bool_vector const& sel) {
         membership_vec relaxed;
-        for (unsigned i = 0; i < memberships.size(); ++i) {
-            expr_ref r(m);
-            for (unsigned j = 0; j < conjuncts[i].size(); ++j) {
-                if (!sel[i][j])
-                    continue;
-                if (r)
-                    r = re().mk_inter(r, conjuncts[i][j]);
-                else
-                    r = conjuncts[i][j];
-            }
-            if (r)                                // a membership with nothing kept is dropped
-                relaxed.push_back({ std::get<0>(memberships[i]), r, std::get<2>(memberships[i]) });
-        }
+        for (unsigned i = 0; i < conjuncts.size(); ++i)
+            if (sel[i])
+                relaxed.push_back(conjuncts[i]);
         return relaxed;
     };
 
-    svector<std::pair<unsigned, unsigned>> violated;
+    unsigned_vector violated;
     // Total work the decomposition may spend, over all of its rounds and probes together.
     // It caps the price of failure: a decomposition that gives up has cost no more than the
     // undivided search it is standing in for.
@@ -1055,11 +1031,10 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
         // Collapsing a variable's views runs a product search, so the words are built once
         // per round and shared by every conjunct tested against them.
         m_split_words.reset();
-        for (unsigned i = 0; i < memberships.size(); ++i)
-            for (unsigned j = 0; j < conjuncts[i].size(); ++j)
-                if (!selected[i][j] &&
-                    model_accepts(std::get<0>(memberships[i]), conjuncts[i][j]) != l_true)
-                    violated.push_back({ i, j });
+        for (unsigned i = 0; i < conjuncts.size(); ++i)
+            if (!selected[i] &&
+                model_accepts(std::get<0>(conjuncts[i]), std::get<1>(conjuncts[i])) != l_true)
+                violated.push_back(i);
         if (violated.empty()) {
             m_stats.m_split_decided++;
             return l_true;
@@ -1078,13 +1053,13 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
         unsigned best = 0;
         uint64_t best_key = 0;
         for (unsigned k = 0; k < violated.size(); ++k) {
-            auto const& [i, j] = violated[k];
-            selected[i][j] = true;
+            unsigned i = violated[k];
+            selected[i] = true;
             membership_vec trial = relaxation(selected);
             lbool p = decide_oriented(trial, reversed, probe_budget);
-            selected[i][j] = false;
+            selected[i] = false;
             if (p == l_false) {
-                selected[i][j] = true;
+                selected[i] = true;
                 m_stats.m_split_decided++;
                 return l_false;
             }
@@ -1094,7 +1069,8 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
                     return l_undef;
                 continue;
             }
-            uint64_t key = m_budget | (constrains_length(conjuncts[i][j]) ? 1ull << 40 : 0);
+            uint64_t key = m_budget |
+                (constrains_length(std::get<1>(conjuncts[i])) ? 1ull << 40 : 0);
             if (key >= best_key) {
                 best = k;
                 best_key = key;
@@ -1102,10 +1078,10 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
             if (!affordable)
                 break;
         }
-        auto const& [bi, bj] = violated[best];
-        selected[bi][bj] = true;
-        IF_VERBOSE(3, verbose_stream() << "(seq-monadic-split :add " << bi << "." << bj
-                   << " " << mk_pp(conjuncts[bi][bj], m) << ")\n");
+        unsigned bi = violated[best];
+        selected[bi] = true;
+        IF_VERBOSE(3, verbose_stream() << "(seq-monadic-split :add " << bi
+                   << " " << mk_pp(std::get<1>(conjuncts[bi]), m) << ")\n");
     }
     return l_undef;
 }
