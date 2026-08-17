@@ -251,11 +251,6 @@ bool seq_monadic::out_of_budget() {
 
 lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* witness_word) {
     unsigned n = comps.size();
-    // region/complement are for clients of seq::view; not implemented here, so
-    // decline rather than decide the wrong language
-    for (auto const& c : comps)
-        if (c.m_region)
-            return l_undef;
     if (n == 0) {
         if (witness_word)
             *witness_word = expr_ref(u().str.mk_empty(m_seq_sort), m);
