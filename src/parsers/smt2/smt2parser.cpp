@@ -1623,12 +1623,10 @@ namespace smt2 {
                 else if (curr_is_identifier() || curr_is_lparen()) {
                     if (r == symbol("is") && curr_is_identifier()) {
                         symbol id = curr_id();
-                        try {
+                        if (m_ctx.is_func_decl(id))
                             m_param_stack.push_back(parameter(m_ctx.find_func_decl(id)));
-                        }
-                        catch (cmd_exception &) {
+                        else
                             m_param_stack.push_back(parameter(id));
-                        }
                         next();
                     }
                     else {

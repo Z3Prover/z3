@@ -175,13 +175,13 @@ static void test_smt2_parametric_datatype_is_constructor() {
     std::cout << "test_smt2_parametric_datatype_is_constructor\n";
 
     cmd_context ctx;
-    std::stringstream is;
-    is << "(set-logic ALL)\n"
-       << "(declare-datatypes ((Maybe 1)) ((par (a) ((Nothing) (Just (Just_sel a))))))\n"
-       << "(declare-const x Int)\n"
-       << "(assert ((_ is Just) (Just x)))\n"
-       << "(check-sat)\n";
-    ENSURE(parse_smt2_commands(ctx, is));
+    std::stringstream smtlib_input;
+    smtlib_input << "(set-logic ALL)\n"
+                 << "(declare-datatypes ((Maybe 1)) ((par (a) ((Nothing) (Just (Just_sel a))))))\n"
+                 << "(declare-const x Int)\n"
+                 << "(assert ((_ is Just) (Just x)))\n"
+                 << "(check-sat)\n";
+    ENSURE(parse_smt2_commands(ctx, smtlib_input));
 }
 
 void tst_parametric_datatype() {

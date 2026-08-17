@@ -1410,7 +1410,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         return;
     if (try_mk_builtin_app(s, num_args, args, num_indices, indices, range, result)) 
         return;
-    if (!range && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
+    if (!range && s != symbol("is") && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
         return;
     
     func_decls fs;
