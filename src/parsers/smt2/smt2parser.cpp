@@ -1622,13 +1622,14 @@ namespace smt2 {
                 }
                 else if (curr_is_identifier() || curr_is_lparen()) {
                     if (r == symbol("is") && curr_is_identifier()) {
+                        symbol id = curr_id();
                         try {
-                            m_param_stack.push_back(parameter(parse_func_decl_ref()));
+                            m_param_stack.push_back(parameter(m_ctx.find_func_decl(id)));
                         }
                         catch (cmd_exception &) {
-                            m_param_stack.push_back(parameter(curr_id()));
-                            next();
+                            m_param_stack.push_back(parameter(id));
                         }
+                        next();
                     }
                     else {
                         m_param_stack.push_back(parameter(parse_func_decl_ref()));
