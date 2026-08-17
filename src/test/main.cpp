@@ -120,6 +120,7 @@
     X(seq_rewriter) \
     X(seq_monadic) \
     X(seq_monadic_bench) \
+    X(seq_parikh) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
