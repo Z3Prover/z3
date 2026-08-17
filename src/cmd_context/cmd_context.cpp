@@ -1359,6 +1359,7 @@ bool cmd_context::try_mk_pdecl_app(symbol const & s, unsigned num_args, expr * c
                 return true;
             }
         }
+        throw cmd_exception("invalid datatype recognizer, unknown constructor ", indices[0].get_symbol());
     }
     for (auto* c : dt.plugin().get_constructors(s)) {
         if (c->accessors().size() != num_args)
