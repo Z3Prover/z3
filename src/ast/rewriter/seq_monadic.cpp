@@ -62,46 +62,36 @@ Author:
 #include <unordered_set>
 
 namespace {
-char const* mode_name(seq::transition_mode mode) {
-    switch (mode) {
-    case seq::transition_mode::brzozowski_tm:
-        return "brzozowski";
-    case seq::transition_mode::light_antimirov_tm:
-        return "light-antimirov";
+    char const *mode_name(seq::transition_mode mode) {
+        switch (mode) {
+        case seq::transition_mode::brzozowski_tm: return "brzozowski";
+        case seq::transition_mode::light_antimirov_tm: return "light-antimirov";
+        }
+        return "unknown";
     }
-    return "unknown";
-}
 
-char const* bail_name(unsigned i) {
-    static char const* const names[] = {
-        "unsupported",
-        "state-cap",
-        "budget",
-        "state-expansion",
-        "resource",
-        "nullability",
-        "guard",
-        "not-reversible"
-    };
-    return i < std::size(names) ? names[i] : "unknown";
-}
-
-char const* result_name(lbool r) {
-    switch (r) {
-    case l_true:  return "sat";
-    case l_false: return "unsat";
-    default:      return "unknown";
+    char const *bail_name(unsigned i) {
+        static char const *const names[] = {"unsupported", "state-cap",   "budget", "state-expansion",
+                                            "resource",    "nullability", "guard",  "not-reversible"};
+        return i < std::size(names) ? names[i] : "unknown";
     }
-}
 
-void dedup_views(seq::view_vector const& g, seq::view_vector& out) {
-    std::set<seq::view::sig> seen;
-    for (auto const& c : g) {
-        if (seen.insert(c.key()).second)
-            out.push_back(c);
+    char const *result_name(lbool r) {
+        switch (r) {
+        case l_true: return "sat";
+        case l_false: return "unsat";
+        default: return "unknown";
+        }
     }
-}
-}
+
+    void dedup_views(seq::view_vector const &g, seq::view_vector &out) {
+        std::set<seq::view::sig> seen;
+        for (auto const &c : g) {
+            if (seen.insert(c.key()).second)
+                out.push_back(c);
+        }
+    }
+}  // namespace
 
 expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
     expr* cached = nullptr;
@@ -249,6 +239,7 @@ bool seq_monadic::out_of_budget() {
     return false;
 }
 
+// TODO - get rid of m_seq_sort. Pass the appropriate sort in function call.
 lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* witness_word) {
     unsigned n = comps.size();
     if (n == 0) {
@@ -574,7 +565,6 @@ unsigned seq_monadic::var_index(expr* v) {
 
 void seq_monadic::reset_search() {
     m_seq_sort = nullptr;
-    m_elem_sort = nullptr;
     m_atoms.reset();
     m_regexes.reset();
     m_vars.reset();
@@ -599,9 +589,9 @@ bool seq_monadic::reverse_regex(expr* r, expr_ref& result) {
 }
 
 expr_ref seq_monadic::mk_rev_var(expr* v) {
-    if (!m_rev_decl || m_rev_decl->get_range() != m_seq_sort) {
-        sort* domain[1] = { m_seq_sort };
-        m_rev_decl = m.mk_fresh_func_decl("rev", 1, domain, m_seq_sort);
+    if (!m_rev_decl || m_rev_decl->get_range() != v->get_sort()) {
+        sort *domain[1] = {v->get_sort()};
+        m_rev_decl = m.mk_fresh_func_decl("rev", 1, domain, v->get_sort());
     }
     return expr_ref(m.mk_app(m_rev_decl, v), m);
 }
@@ -649,7 +639,7 @@ bool seq_monadic::prepare(membership_vec const& memberships, bool reversed) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
         }
-        if (!u().is_seq(m_seq_sort, m_elem_sort)) {
+        if (!u().is_seq(seq_sort)) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
         }
@@ -822,7 +812,7 @@ lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
 
     // Explores one split target; the caller stops at the first l_true.
     auto explore = [&](expr* target) -> lbool {
-        m_groups[vi].push_back(target ? seq::view::reach(R, target) : seq::view::membership(R));
+        m_groups[vi].push_back(seq::view::reach(R, target));
         // The group's emptiness test has to be run at some point anyway; running it as
         // soon as the group is complete (or as soon as it holds several views, where
         // an inconsistency can first arise) prunes the entire subtree below.
@@ -1065,11 +1055,6 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         << "  :sequence-sort ";
     if (m_seq_sort)
         out << mk_pp(m_seq_sort, m);
-    else
-        out << "null";
-    out << "\n  :element-sort ";
-    if (m_elem_sort)
-        out << mk_pp(m_elem_sort, m);
     else
         out << "null";
 

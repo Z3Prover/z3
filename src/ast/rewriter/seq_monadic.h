@@ -132,7 +132,6 @@ private:
     trail_stack&    m_undo_trail;
     sort*           m_seq_sort = nullptr;   // sequence sort shared by all memberships of the
                                             // problem under analysis (prepare rejects a mixture)
-    sort*           m_elem_sort = nullptr;  // element sort of that sequence sort
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (search nodes + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
