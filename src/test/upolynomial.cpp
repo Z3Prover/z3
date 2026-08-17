@@ -993,6 +993,57 @@ static void tst_fact() {
               5);
 }
 
+/**
+   \brief Regression for #10505.
+
+   nlsat reaches the degree-80 polynomial y^80 - 100 while refuting
+   1 <= x <= 100 /\ 0 <= y < 1 /\ y^80 = x. Factoring it with a single
+   finite-field trial leaves a combinatorial search costing ~7.5M resource units;
+   polynomial::default_factor_num_primes intersects the candidate degree sets of
+   several primes and brings that down to ~110K.
+
+   Factorization is a pure computation, so the resource count below is reproducible:
+   it does not depend on wall-clock time, on process memory, or on what else ran
+   before. Driving the same formula through Z3_solver_check is not reproducible,
+   because the QF_NRA portfolio picks its sub-solvers using try_for() deadlines and
+   a probe on globally allocated memory.
+*/
+static void tst_fact_default_num_primes() {
+    // Both ways of obtaining default parameters must agree with the shared
+    // constant; goal2nlsat reaches the factorizer through updt_params.
+    ENSURE(upolynomial::factor_params().m_p_trials == polynomial::default_factor_num_primes);
+    params_ref no_params;
+    upolynomial::factor_params fp;
+    fp.updt_params(no_params);
+    ENSURE(fp.m_p_trials == polynomial::default_factor_num_primes);
+
+    reslimit rl;
+    polynomial::numeral_manager nm;
+    polynomial::manager m(rl, nm);
+    polynomial_ref x0(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    polynomial_ref p(m);
+    p = (x0^80) - 100;
+
+    upolynomial::manager um(rl, nm);
+    upolynomial::scoped_numeral_vector _p(um);
+    upolynomial::factors fs(um);
+    um.to_numeral_vector(p, _p);
+    try {
+        scoped_rlimit _limit(rl, 1000000);
+        um.factor(_p, fs, fp);
+    }
+    catch (z3_exception & ex) {
+        throw default_exception(std::string("degree-80 factorization failed (") + ex.what() +
+                                "); the default number of finite-field trials likely regressed (#10505)");
+    }
+    // y^80 - 100 = (y^40 - 10)*(y^40 + 10), both irreducible by Eisenstein at 2.
+    ENSURE(fs.distinct_factors() == 2);
+    upolynomial::scoped_numeral_vector _r(um);
+    fs.multiply(_r);
+    ENSURE(um.eq(_p, _r));
+}
+
 static void tst_rem(polynomial_ref const & p, polynomial_ref const & q, polynomial_ref const & expected) {
     ENSURE(is_univariate(p));
     ENSURE(is_univariate(q));
@@ -1069,6 +1120,7 @@ void tst_upolynomial() {
     tst_gcd();
     tst_lower_bound();
     tst_fact();
+    tst_fact_default_num_primes();
     tst_rem();
     tst_exact_div();
     tst_isolate_roots5();
