@@ -18,6 +18,7 @@ Author:
 #include "api/z3.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
+#include "smt/smt_context.h"
 #include "util/util.h"
 #include <iostream>
 #include <sstream>
@@ -182,6 +183,11 @@ static void test_smt2_parametric_datatype_is_constructor() {
                  << "(assert ((_ is Just) (Just x)))\n"
                  << "(check-sat)\n";
     ENSURE(parse_smt2_commands(ctx, smtlib_input));
+    smt_params params;
+    smt::context smt_ctx(ctx.m(), params);
+    for (expr* a : ctx.assertions())
+        smt_ctx.assert_expr(a);
+    ENSURE(l_true == smt_ctx.check());
 }
 
 void tst_parametric_datatype() {
