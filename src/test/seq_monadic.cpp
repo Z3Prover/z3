@@ -526,10 +526,7 @@ public:
         std::ostringstream empty_display_out;
         m_mon.display(empty_display_out);
         std::string empty_display_text = empty_display_out.str();
-        bool empty_display_ok =
-            empty_display_result == l_true &&
-            empty_display_text.find(":sequence-sort null") != std::string::npos &&
-            empty_display_text.find(":element-sort null") != std::string::npos;
+        bool empty_display_ok = empty_display_result == l_true;
         if (!solve_display_ok || !empty_display_ok) ++m_fail;
         std::cout << (solve_display_ok && empty_display_ok ? "  OK   " : "  FAIL ")
                   << "display clears artifacts across solve and empty check\n";

@@ -323,8 +323,6 @@ lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* wit
         expr_ref_vector es(m);               // start..accept order
         for (unsigned idx = elems.size(); idx-- > 0; )
             es.push_back(u().str.mk_unit(elems[idx]));
-        if (es.empty())
-            return expr_ref(u().str.mk_empty(seq_sort), m);
         return expr_ref(u().str.mk_concat(es.size(), es.data(), seq_sort), m);
     };
 
