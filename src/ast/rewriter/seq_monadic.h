@@ -101,6 +101,8 @@ private:
         bool m_min_core = true;   // whether check() minimizes the unsat core (else: all deps)
         unsigned m_budget_limit = 1000000;  // value m_budget is reset to on each decide()
         orientation m_orientation = orientation::forward;
+        // Refinement rounds allowed when decomposing an intersection of regexes; 0 = off.
+        unsigned m_split_rounds = 0;
 
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
@@ -111,6 +113,9 @@ private:
         unsigned m_cofactor_calls = 0;
         unsigned m_states = 0;
         unsigned m_max_state_expansion = 0;  // most inner steps any single product state took
+        unsigned m_split_calls = 0;          // decisions handed to the intersection split
+        unsigned m_split_rounds = 0;         // refinement rounds spent across those decisions
+        unsigned m_split_decided = 0;        // ... that the split then decided
         unsigned m_bails[static_cast<unsigned>(bail_reason::num_reasons)] = {};
 
         void inc_bail(bail_reason reason) {
@@ -138,6 +143,7 @@ private:
     config          m_config;
     statistics      m_stats;
     obj_map<expr, seq::view_vector> m_solution;  // var -> views, from the last decide()
+    obj_map<expr, expr*> m_split_words;     // var -> witness word, cached per refinement round
     guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
     // Interval ("t-regex") form of a state's derivative cofactors over the character sort:
     // a canonical list of disjoint ranges in increasing order, each carrying the targets
@@ -165,6 +171,8 @@ private:
     lbool m_last_search_result = l_undef;    // result of the last internal decide()
     bool m_reversed = false;                 // whether prepare() reversed the current problem
     bool m_retry_disabled = false;           // reversed retry gave up once on this query
+    bool m_split_disabled = false;           // suppresses decide()'s intersection decomposition
+                                             // while an unsat core is being minimized
 
     seq_util&      u() const { return m_rw.u(); }
     seq_util::rex& re() const { return m_rw.u().re; }
@@ -290,6 +298,44 @@ private:
     // touch m_memberships or m_core; fills m_solution on l_true.
     lbool decide(membership_vec const& memberships);
 
+    // One pass of the orientation policy over `memberships` with an explicit budget.
+    // `sticky` allows a failed reversed retry to disable retrying for the rest of the
+    // query -- appropriate only for an attempt that was given the full budget.
+    lbool decide_policy(membership_vec const& memberships, unsigned budget, bool sticky);
+
+    // ---- decomposition of intersections of regexes -------------------------------------
+    // A membership t in R1 & ... & Rk makes the search explore the product of all k regexes
+    // at once.  These decide instead a RELAXATION that keeps only some of the Ri, and grow
+    // it on demand.  Dropping intersected regexes only enlarges the language, so a
+    // relaxation that is unsatisfiable refutes the original, and a model that every dropped
+    // Ri accepts satisfies it.  Anything else falls back to the undecomposed search.
+
+    // The conjuncts of a membership: the arguments of its top-level intersection, flattened
+    // through nested re.inter.  A membership that is not an intersection yields itself.
+    void split_conjuncts(expr* r, ptr_vector<expr>& out);
+
+    // Whether `r` restricts the lengths of the words it accepts to a proper subset of a
+    // residue class, i.e. contains a loop with equal bounds above 1.
+    bool constrains_length(expr* r);
+
+    // Replace the variables of `term` by the values the recorded solution collapses to,
+    // appending the resulting concrete elements to `elems`.  False if some part has no
+    // value or is not a word.
+    bool instantiate_word(expr* term, ptr_vector<expr>& elems, bool subst = true);
+
+    // Whether the recorded solution makes `term` a member of `r`, by deriving r along the
+    // instantiated word.  l_undef when the word or a derivative cannot be evaluated.
+    lbool model_accepts(expr* term, expr* r);
+
+    // materialize() without its precondition on the last top-level result, so that the
+    // refinement loop can read the solution of a search it ran itself.
+    lbool materialize_recorded(expr* var, expr_ref& word);
+
+    // Decide `memberships` by refining a relaxation of their intersections, for at most
+    // m_split_rounds rounds and `allowance` units of work in total.  l_undef leaves the
+    // caller no worse off than before.
+    lbool decide_split(membership_vec const& memberships, unsigned budget, unsigned allowance);
+
     // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
     // deletion and collect the (non-null) dependencies of its members into m_core.
     void minimize_core(membership_vec const& memberships);
@@ -355,6 +401,13 @@ public:
     void set_orientation(orientation o) { m_config.m_orientation = o; }
 
     orientation get_orientation() const { return m_config.m_orientation; }
+
+    // Refinement rounds allowed for decomposing a membership in an intersection of regexes,
+    // once both reading directions have run out of budget.  0 (the default) disables it, so
+    // the search behaves exactly as before.
+    void set_split_rounds(unsigned n) { m_config.m_split_rounds = n; }
+
+    unsigned split_rounds() const { return m_config.m_split_rounds; }
 
     // Whether the last prepare() actually reversed the problem.  This can be false even
     // when the orientation is `reversed`, if some regex could not be reversed.

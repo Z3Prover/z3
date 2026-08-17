@@ -727,9 +727,16 @@ lbool seq_monadic::leaf() {
 }
 
 lbool seq_monadic::materialize(expr* var, expr_ref& word) {
+    // without a completed search there is nothing recorded to collapse
+    if (m_last_result != l_true)
+        return l_undef;
+    return materialize_recorded(var, word);
+}
+
+lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word) {
     // without a recorded solution m_solution is empty, and an empty word would pass
     // for a satisfying assignment
-    if (m_last_result != l_true || !m_config.m_solution)
+    if (!m_config.m_solution)
         return l_undef;
     seq::view_vector views;
     expr* key = var;
@@ -892,32 +899,264 @@ lbool seq_monadic::decide_oriented(membership_vec const& memberships, bool rever
     return r;
 }
 
+bool seq_monadic::constrains_length(expr* r) {
+    unsigned lo = 0, hi = 0;
+    expr* body = nullptr;
+    ptr_vector<expr> todo;
+    obj_hashtable<expr> seen;
+    todo.push_back(r);
+    while (!todo.empty()) {
+        expr* t = todo.back();
+        todo.pop_back();
+        if (!is_app(t) || seen.contains(t))
+            continue;
+        seen.insert(t);
+        if (re().is_loop(t, body, lo, hi) && lo == hi && lo > 1)
+            return true;
+        for (expr* arg : *to_app(t))
+            todo.push_back(arg);
+    }
+    return false;
+}
+
+void seq_monadic::split_conjuncts(expr* r, ptr_vector<expr>& out) {
+    if (re().is_intersection(r)) {
+        for (expr* arg : *to_app(r))
+            split_conjuncts(arg, out);            // re.inter is n-ary and can nest
+        return;
+    }
+    out.push_back(r);
+}
+
+bool seq_monadic::instantiate_word(expr* t, ptr_vector<expr>& elems, bool subst) {
+    if (u().str.is_concat(t))
+        return all_of(*to_app(t), [&](expr* arg) { return instantiate_word(arg, elems, subst); });
+    if (u().str.is_empty(t))
+        return true;
+    zstring s;
+    if (u().str.is_string(t, s)) {
+        for (unsigned i = 0; i < s.length(); ++i) {
+            expr_ref e(u().str.mk_char(s, i), m);
+            m_pin.push_back(e);
+            elems.push_back(e);
+        }
+        return true;
+    }
+    expr* elem = nullptr;
+    if (u().str.is_unit(t, elem) && m.is_value(elem)) {
+        elems.push_back(elem);
+        return true;
+    }
+    expr* cached = nullptr;
+    // A witness is a concrete sequence, so it is instantiated without substituting again --
+    // which also stops a self-referential solution from looping.
+    if (!subst || !is_var(t))
+        return false;
+    if (m_split_words.find(t, cached))
+        return cached && instantiate_word(cached, elems, false);
+    expr_ref w(m);
+    if (materialize_recorded(t, w) != l_true) {
+        m_split_words.insert(t, nullptr);         // remember the failure too
+        return false;
+    }
+    m_pin.push_back(w);
+    m_split_words.insert(t, w);
+    return instantiate_word(w, elems, false);
+}
+
+lbool seq_monadic::model_accepts(expr* term, expr* r) {
+    ptr_vector<expr> elems;
+    if (!instantiate_word(term, elems))
+        return l_undef;                           // a variable the relaxation never valued
+    expr_ref state(r, m);
+    for (expr* e : elems) {
+        if (re().is_empty(state))
+            return l_false;
+        state = der_elem(state, e);
+        if (!state)
+            return l_undef;
+    }
+    return nullable(state);
+}
+
+lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budget,
+                                unsigned allowance) {
+    // Flatten every membership into the regexes its top-level intersection conjoins.
+    vector<ptr_vector<expr>> conjuncts;
+    unsigned total = 0;
+    for (auto const& [term, regex, d] : memberships) {
+        ptr_vector<expr> cs;
+        split_conjuncts(regex, cs);
+        total += cs.size();
+        conjuncts.push_back(cs);
+    }
+    if (total <= memberships.size())
+        return l_undef;                           // nothing is intersected: same problem
+
+    m_stats.m_split_calls++;
+
+    // The relaxation keeps conjunct j of membership i exactly when selected[i][j]; it starts
+    // out empty, so the first round decides nothing and every conjunct has to earn its place.
+    vector<bool_vector> selected;
+    for (auto const& cs : conjuncts)
+        selected.push_back(bool_vector(cs.size(), false));
+
+    // Cost of one lookahead probe.  It only has to tell an expensive candidate from a cheap
+    // one, so it is a fraction of the real budget -- and a probe that refutes within it is
+    // an answer to the whole query, not just to the comparison.
+    unsigned const probe_budget = std::max(1000u, budget / 8);
+    bool const reversed = m_config.m_orientation == orientation::reversed;
+
+    auto relaxation = [&](vector<bool_vector> const& sel) {
+        membership_vec relaxed;
+        for (unsigned i = 0; i < memberships.size(); ++i) {
+            expr_ref r(m);
+            for (unsigned j = 0; j < conjuncts[i].size(); ++j) {
+                if (!sel[i][j])
+                    continue;
+                if (r)
+                    r = re().mk_inter(r, conjuncts[i][j]);
+                else
+                    r = conjuncts[i][j];
+            }
+            if (r)                                // a membership with nothing kept is dropped
+                relaxed.push_back({ std::get<0>(memberships[i]), r, std::get<2>(memberships[i]) });
+        }
+        return relaxed;
+    };
+
+    svector<std::pair<unsigned, unsigned>> violated;
+    // Total work the decomposition may spend, over all of its rounds and probes together.
+    // It caps the price of failure: a decomposition that gives up has cost no more than the
+    // undivided search it is standing in for.
+    auto spend = [&](unsigned granted) {
+        unsigned const used = granted - std::min(granted, m_budget);
+        allowance -= std::min(allowance, used);
+        return allowance > 0;
+    };
+
+    for (unsigned round = 0; round < m_config.m_split_rounds && allowance > 0; ++round) {
+        m_stats.m_split_rounds++;
+        membership_vec relaxed = relaxation(selected);
+        lbool r = decide_oriented(relaxed, reversed, budget);
+        if (r == l_undef)
+            return l_undef;                       // the relaxation is already too hard
+        if (r == l_false) {
+            // Dropping intersected regexes only enlarges the language, so the relaxation is
+            // implied by the original: refuting it refutes the original.
+            m_stats.m_split_decided++;
+            return l_false;
+        }
+        // Satisfiable, but only of the kept conjuncts.  The model answers the whole query
+        // iff every dropped conjunct also accepts it.
+        if (!spend(budget))
+            return l_undef;
+        violated.reset();
+        // Collapsing a variable's views runs a product search, so the words are built once
+        // per round and shared by every conjunct tested against them.
+        m_split_words.reset();
+        for (unsigned i = 0; i < memberships.size(); ++i)
+            for (unsigned j = 0; j < conjuncts[i].size(); ++j)
+                if (!selected[i][j] &&
+                    model_accepts(std::get<0>(memberships[i]), conjuncts[i][j]) != l_true)
+                    violated.push_back({ i, j });
+        if (violated.empty()) {
+            m_stats.m_split_decided++;
+            return l_true;
+        }
+        IF_VERBOSE(3, verbose_stream() << "(seq-monadic-split :round " << round
+                   << " :kept " << relaxed.size() << "/" << memberships.size()
+                   << " :violated " << violated.size() << ")\n");
+        // Grow the relaxation by one violated conjunct.  Which one decides how fast the
+        // loop converges.  Prefer a conjunct that pins word lengths to a residue class:
+        // the search refutes a membership set by exhausting the reachable product, and a
+        // length constraint shrinks that product across every branch at once, where a
+        // conjunct that merely forbids a rare infix leaves it essentially unchanged.
+        // Among equals prefer the cheapest, measured by the work its probe left unspent: a
+        // candidate that exhausts the probe rebuilds the product this is avoiding.  The
+        // probes invalidate m_solution, which is why `violated` is complete by now.
+        unsigned best = 0;
+        uint64_t best_key = 0;
+        for (unsigned k = 0; k < violated.size(); ++k) {
+            auto const& [i, j] = violated[k];
+            selected[i][j] = true;
+            membership_vec trial = relaxation(selected);
+            lbool p = decide_oriented(trial, reversed, probe_budget);
+            selected[i][j] = false;
+            if (p == l_false) {
+                selected[i][j] = true;
+                m_stats.m_split_decided++;
+                return l_false;
+            }
+            bool const affordable = spend(probe_budget);
+            if (p == l_undef) {
+                if (!affordable)
+                    return l_undef;
+                continue;
+            }
+            uint64_t key = m_budget | (constrains_length(conjuncts[i][j]) ? 1ull << 40 : 0);
+            if (key >= best_key) {
+                best = k;
+                best_key = key;
+            }
+            if (!affordable)
+                break;
+        }
+        auto const& [bi, bj] = violated[best];
+        selected[bi][bj] = true;
+        IF_VERBOSE(3, verbose_stream() << "(seq-monadic-split :add " << bi << "." << bj
+                   << " " << mk_pp(conjuncts[bi][bj], m) << ")\n");
+    }
+    return l_undef;
+}
+
+lbool seq_monadic::decide_policy(membership_vec const& memberships, unsigned budget, bool sticky) {
+    if (m_config.m_orientation != orientation::retry)
+        return decide_oriented(memberships, m_config.m_orientation == orientation::reversed, budget);
+    // Read forwards first, with the whole budget: halving it would make retry lose
+    // decisions that plain forward solves, and a direction that is about to succeed is
+    // not worth interrupting.  Only a search that ran out of work is worth turning
+    // around; the other ways of giving up (an unsupported shape, an undecidable
+    // nullability, a guard the range solver cannot evaluate) are properties of the
+    // problem rather than of the direction it is read in.
+    unsigned const before = work_bails();
+    lbool r = decide_oriented(memberships, false, budget);
+    if (r != l_undef || m_retry_disabled || work_bails() == before)
+        return r;
+    r = decide_oriented(memberships, true, budget);
+    // A bail is not in itself bad: it hands the problem back to the caller, which has its
+    // own way of making progress.  Reversing spends a second full budget instead, so a
+    // reversed attempt that also fails is evidence that this query's regexes are no cheaper
+    // backwards -- and the same regexes recur at every decision, so stop paying for it.
+    // Only a full-budget attempt is evidence of that; a probe was never given the chance.
+    if (r == l_undef && sticky)
+        m_retry_disabled = true;
+    return r;
+}
+
 lbool seq_monadic::decide(membership_vec const& memberships) {
     m_last_search_memberships = memberships;
     unsigned const limit = m_config.m_budget_limit;
-    lbool r;
-    if (m_config.m_orientation != orientation::retry)
-        r = decide_oriented(memberships, m_config.m_orientation == orientation::reversed, limit);
-    else {
-        // Read forwards first, with the whole budget: halving it would make retry lose
-        // decisions that plain forward solves, and a direction that is about to succeed is
-        // not worth interrupting.  Only a search that ran out of work is worth turning
-        // around; the other ways of giving up (an unsupported shape, an undecidable
-        // nullability, a guard the range solver cannot evaluate) are properties of the
-        // problem rather than of the direction it is read in.
+    lbool r = l_undef;
+    if (m_config.m_split_rounds > 0 && !m_split_disabled) {
+        // Decomposing an intersection is only worth it for a decision the undivided search
+        // cannot make, and the cheapest way to find that out is to give the undivided
+        // search a fraction of its budget first: a decision it reaches within that fraction
+        // is one the decomposition could only have slowed down.  Nothing is lost when the
+        // decomposition fails -- the fraction is then re-spent as the prefix of the full
+        // attempt below.  Relaxations get a larger share, since each is a smaller problem
+        // than the one that just ran out, but still well short of the undivided budget: a
+        // relaxation that needs all of it has rebuilt the product this is meant to avoid.
+        // The decomposition as a whole is held to one undivided budget, so a query it
+        // cannot decide costs no more than the search it stands in for.
+        unsigned const probe_budget = std::max(1000u, limit / 128);
         unsigned const before = work_bails();
-        r = decide_oriented(memberships, false, limit);
-        if (r == l_undef && !m_retry_disabled && work_bails() > before) {
-            r = decide_oriented(memberships, true, limit);
-            // A bail is not in itself bad: it hands the problem back to the caller, which
-            // has its own way of making progress.  Reversing spends a second full budget
-            // instead, so a reversed attempt that also fails is evidence that this query's
-            // regexes are no cheaper backwards -- and the same regexes recur at every
-            // decision, so stop paying for it.
-            if (r == l_undef)
-                m_retry_disabled = true;
-        }
+        r = decide_policy(memberships, probe_budget, false);
+        if (r == l_undef && work_bails() > before)
+            r = decide_split(memberships, std::max(1000u, limit / 16), limit);
     }
+    if (r == l_undef)
+        r = decide_policy(memberships, limit, true);
     m_last_search_result = r;
     return r;
 }
@@ -1010,6 +1249,9 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
     // Deletion-based minimization: start from the full unsat set and try to drop each
     // membership; a membership is kept only if removing it makes the set no longer
     // provably unsat.  The result is a minimal unsat subset (relevant constraints only).
+    // The intersection decomposition stays off here: it would run a refinement loop per
+    // trial, and a trial it cannot decide only leaves more memberships in the core.
+    flet<bool> _split(m_split_disabled, true);
     membership_vec keep(memberships);
     for (unsigned i = 0; i < keep.size(); ) {
         membership_vec trial(keep);
@@ -1171,6 +1413,9 @@ void seq_monadic::collect_statistics(::statistics& st) const {
     st.update("seq monadic cofactor calls", m_stats.m_cofactor_calls);
     st.update("seq monadic states", m_stats.m_states);
     st.update("seq monadic max state expansion", m_stats.m_max_state_expansion);
+    st.update("seq monadic split calls", m_stats.m_split_calls);
+    st.update("seq monadic split rounds", m_stats.m_split_rounds);
+    st.update("seq monadic split decided", m_stats.m_split_decided);
     for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i)
         st.update(bail_names[i], m_stats.m_bails[i]);
 }

@@ -116,6 +116,7 @@ lbool run_file(
     seq_monadic mon(rw, undo_trail, mode);
     mon.set_budget(params.m_seq_regex_budget);
     mon.set_orientation(get_orientation(params.m_seq_regex_orientation));
+    mon.set_split_rounds(params.m_seq_regex_split);
 
     obj_map<expr, expr*> var_re;
     obj_map<expr, expr*> term_re;
@@ -504,7 +505,8 @@ void tst_seq_monadic_bench() {
         std::cout << "seq_monadic_bench: set Z3_SEQ_BENCH_DIR; "
                      "optional parameters: smt.seq.regex_transition_mode=brz|light-ant, "
                      "smt.seq.regex_budget=<n>, "
-                     "smt.seq.regex_orientation=forward|reversed|retry\n";
+                     "smt.seq.regex_orientation=forward|reversed|retry, "
+                     "smt.seq.regex_split=<rounds>\n";
         return;
     }
     if (!fs::exists(dir, ec)) {
