@@ -75,7 +75,9 @@ jobs:
             -DZ3_BUILD_OCAML_BINDINGS=ON \
             -DZ3_BUILD_JAVA_BINDINGS=OFF \
             -DZ3_BUILD_PYTHON_BINDINGS=OFF \
+            -DZ3_BUILD_EXECUTABLE=OFF \
             -DZ3_BUILD_CLI=OFF \
+            -DZ3_ENABLE_EXAMPLE_TARGETS=OFF \
             -DZ3_BUILD_TEST_EXECUTABLES=OFF \
             -DCMAKE_VERBOSE_MAKEFILE=TRUE
 
@@ -87,34 +89,75 @@ jobs:
           ninja build_z3_ocaml_bindings
           ccache -s || true
 
-      - name: Compile ml_example.byte
+      - name: Install Z3 and OCaml bindings
+        run: |
+          eval $(opam env)
+          cmake --install build --prefix "$(pwd)/install"
+
+      - name: Verify installed OCaml artifacts
+        run: |
+          INSTALL_LIBDIR="$(pwd)/install/lib"
+          INSTALL_OCAML_DIR="$INSTALL_LIBDIR/ocaml/z3"
+          INSTALL_STUBLIB_DIR="$INSTALL_LIBDIR/ocaml/stublibs"
+
+          test -e "$INSTALL_LIBDIR/libz3${{ matrix.os == 'macos-latest' && '.dylib' || '.so' }}"
+          test -f "$INSTALL_OCAML_DIR/META"
+          test -f "$INSTALL_OCAML_DIR/z3.mli"
+          test -f "$INSTALL_OCAML_DIR/z3.cmi"
+          test -f "$INSTALL_OCAML_DIR/z3.cmx"
+          test -f "$INSTALL_OCAML_DIR/z3enums.mli"
+          test -f "$INSTALL_OCAML_DIR/z3enums.cmi"
+          test -f "$INSTALL_OCAML_DIR/z3enums.cmx"
+          test -f "$INSTALL_OCAML_DIR/z3native.mli"
+          test -f "$INSTALL_OCAML_DIR/z3native.cmi"
+          test -f "$INSTALL_OCAML_DIR/z3native.cmx"
+          test -f "$INSTALL_OCAML_DIR/libz3ml.a"
+          test -f "$INSTALL_OCAML_DIR/z3ml.a"
+          test -f "$INSTALL_OCAML_DIR/z3ml.cma"
+          test -f "$INSTALL_OCAML_DIR/z3ml.cmxa"
+          test -f "$INSTALL_OCAML_DIR/z3ml.cmxs"
+          test -f "$INSTALL_STUBLIB_DIR/dllz3ml.so"
+
+      - name: Verify macOS OCaml stub load path
+        if: matrix.os == 'macos-latest'
+        run: |
+          otool -L install/lib/ocaml/stublibs/dllz3ml.so | tee install/dllz3ml-otool.txt
+          grep -E '@rpath/libz3(\.[0-9]+)+\.dylib' install/dllz3ml-otool.txt
+          otool -l install/lib/ocaml/stublibs/dllz3ml.so | tee install/dllz3ml-load-commands.txt
+          grep '@loader_path/../../' install/dllz3ml-load-commands.txt
+
+      - name: Compile installed ml_example.byte
         run: |
           eval $(opam env)
           ocamlfind ocamlc -o ml_example.byte \
             -package zarith \
             -linkpkg \
-            -I build/src/api/ml \
-            -dllpath build/src/api/ml \
-            build/src/api/ml/z3ml.cma \
+            -I install/lib/ocaml/z3 \
+            -I install/lib/ocaml/stublibs \
+            -dllpath install/lib/ocaml/stublibs \
+            install/lib/ocaml/z3/z3ml.cma \
             examples/ml/ml_example.ml
 
-      - name: Run ml_example.byte
+      - name: Run installed ml_example.byte
         run: |
           eval $(opam env)
-          export DYLD_LIBRARY_PATH=$(pwd)/build
+          export DYLD_LIBRARY_PATH=$(pwd)/install/lib
+          export LD_LIBRARY_PATH=$(pwd)/install/lib
           ocamlrun ./ml_example.byte
 
-      - name: Compile ml_example (native)
+      - name: Compile installed ml_example (native)
         run: |
           eval $(opam env)
           ocamlfind ocamlopt -o ml_example \
             -package zarith \
             -linkpkg \
-            -I build/src/api/ml \
-            build/src/api/ml/z3ml.cmxa \
+            -I install/lib/ocaml/z3 \
+            -I install/lib/ocaml/stublibs \
+            install/lib/ocaml/z3/z3ml.cmxa \
             examples/ml/ml_example.ml
 
-      - name: Run ml_example (native)
+      - name: Run installed ml_example (native)
         run: |
-          export DYLD_LIBRARY_PATH=$(pwd)/build
+          export DYLD_LIBRARY_PATH=$(pwd)/install/lib
+          export LD_LIBRARY_PATH=$(pwd)/install/lib
           ./ml_example
