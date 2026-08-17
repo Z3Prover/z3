@@ -454,7 +454,7 @@ lbool run_file(
     }
 
     auto start = std::chrono::high_resolution_clock::now();
-    mon.set_gen_model(false);                     // benchmark only needs the verdict
+    mon.set_gen_solution(false);                     // benchmark only needs the verdict
     lbool verdict = n_added == 0
         ? l_undef
         : mon.check();

@@ -141,6 +141,8 @@ namespace smt {
 
         seq_monadic                       m_monadic;
         vector<monadic_membership>         m_monadic_memberships;
+        // witnesses collapsed from the monadic solver's views, rebuilt per check() round
+        expr_substitution                  m_monadic_model;
         svector<monadic_assumption>        m_monadic_assumptions;
         vector<bound_constraint>           m_monadic_bounds;
         unsigned                          m_monadic_generation = 0;

@@ -51,6 +51,7 @@ namespace smt {
         m(th.get_manager()),
         m_monadic(seq_rw(), ctx.get_trail_stack(),
                   monadic_transition_mode(ctx.get_fparams().m_seq_regex_transition_mode)),
+        m_monadic_model(th.get_manager()),
         m_live_states(seq_rw(), seq::transition_mode::brzozowski_tm, 10000) {
         m_monadic.set_is_var([&th](expr *e) { return th.is_var(e); });
         m_monadic.set_budget(ctx.get_fparams().m_seq_regex_budget);
@@ -216,7 +217,7 @@ namespace smt {
     }
 
     bool seq_regex::model_len(expr* t, unsigned& len) {
-        obj_map<expr, expr*> const& model = m_monadic.get_model();
+        expr_substitution& model = m_monadic_model;
         ptr_vector<expr> todo;
         todo.push_back(t);
         len = 0;
@@ -240,8 +241,8 @@ namespace smt {
                 len += s.length();
                 continue;
             }
-            expr* w = nullptr;
-            if (model.find(e, w) && w != e) {     // variable: replace by its witness
+            expr* w = model.find(e);
+            if (w && w != e) {                    // variable: replace by its witness
                 todo.push_back(w);
                 continue;
             }
@@ -376,11 +377,18 @@ namespace smt {
         collect_candidate_bounds(candidates);
         lbool result = l_undef;
         unsigned guard = candidates.size() + 1;
+        m_monadic_model.reset();
         while (true) {
             ++th.m_stats.m_regex_monadic_checks;
             result = m_monadic.check();
             if (result != l_true)
                 break;
+            // the bound checks below need values, and every round has a new solution
+            m_monadic_model.reset();
+            if (m_monadic.materialize_all(m_monadic_model) != l_true) {
+                result = l_undef;
+                break;
+            }
             bool progressed = false;
             for (auto const& cb : candidates) {
                 if (model_satisfies_bound(cb))
@@ -434,7 +442,7 @@ namespace smt {
         ++th.m_stats.m_regex_monadic_sat;
         ctx.push_trail(value_trail<unsigned>(m_monadic_assumption_generation));
         m_monadic_assumption_generation = m_monadic_generation;
-        for (auto const& [var, witness] : m_monadic.get_model()) {
+        for (auto const& [var, witness] : m_monadic_model.sub()) {
             enode* var_node = th.ensure_enode(var);
             enode* witness_node = th.ensure_enode(witness);
             if (var_node->get_root() == witness_node->get_root())
