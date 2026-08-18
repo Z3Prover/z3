@@ -29,6 +29,7 @@ Author:
 #include <iostream>
 #include <sstream>
 #include <set>
+#include <tuple>
 
 namespace {
 
@@ -250,6 +251,109 @@ class seq_monadic_test {
     // the conjunction to be UNSAT.  With minimization ON, core() must be exactly
     // `expected_core` (irrelevant constraints omitted); with minimization OFF, core()
     // must be all membership dependencies.
+    // Identity of a reported branch: the (var, state, target) triples it commits to.
+    typedef std::set<std::tuple<unsigned, unsigned, unsigned>> branch_sig;
+
+    static branch_sig sig_of(obj_map<expr, seq::view_vector> const& sol) {
+        branch_sig sig;
+        for (auto const& [var, views] : sol) {
+            for (auto const& v : views)
+                sig.insert(std::make_tuple(var->get_id(), v.m_state->get_id(),
+                                           v.m_target ? v.m_target->get_id() : UINT_MAX));
+        }
+        return sig;
+    }
+
+    // Enumerate every branch of a conjunction of memberships and check what the lazy
+    // enumeration has to guarantee:
+    //   - it terminates, and reports `count()` branches;
+    //   - no branch is reported twice (a replay that restarted instead of resuming would
+    //     hand out the same first branch forever);
+    //   - the iterator survives the trail scope its memberships were asserted in;
+    //   - it drains cleanly (nothing given up) on problems this small, and a clean drain
+    //     agrees with check(): branches were found iff the conjunction is satisfiable.
+    // `min_branches` is a lower bound, not the branch count: how many branches survive is
+    // a property of the search's pruning (an infeasible continuation is refuted, not
+    // reported), whereas the enumeration only owes the invariants above.  A bound above 1
+    // does pin down that resuming works at all, since every branch after the first comes
+    // out of a replay.
+    void check_enumerate(char const* name, vector<std::pair<expr*, expr*>> const& mems,
+                         unsigned min_branches, lbool expected) {
+        m_trail.push_scope();
+        for (auto const& [t, r] : mems)
+            m_mon.add(t, r, nullptr);
+        lbool const decided = m_mon.check();
+        obj_map<expr, seq::view_vector> first;
+        for (auto const& [var, views] : m_mon.solution())
+            first.insert(var, views);
+        branch_sig const check_sig = sig_of(first);
+        seq_monadic::iterator it = m_mon.iterate(1000);
+        m_trail.pop_scope(1);                        // the iterator owns its own copy
+
+        std::set<branch_sig> seen;
+        obj_map<expr, seq::view_vector> sol;
+        bool dup = false, first_matches = true;
+        unsigned n = 0;
+        while (it.next(sol)) {
+            branch_sig sig = sig_of(sol);
+            if (n == 0)
+                first_matches = (sig == check_sig);
+            if (!seen.insert(sig).second)
+                dup = true;
+            ++n;
+        }
+
+        bool const ok = decided == expected && !it.gave_up() && !dup && it.count() == n
+                        && (n > 0) == (expected == l_true) && n >= min_branches
+                        && first_matches;
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  branches=" << n << " expected>=" << min_branches
+                  << (dup ? " DUPLICATE" : "")
+                  << (it.gave_up() ? " GAVE-UP" : "")
+                  << (first_matches ? "" : " FIRST-DIFFERS")
+                  << "  check=" << s(decided) << " expected=" << s(expected) << "\n";
+    }
+
+    // Stronger check on a single membership: collapse every reported branch to a
+    // concrete word per variable, substitute them into the term, and decide the resulting
+    // GROUND membership with the same engine -- a path that involves no views at all.  So
+    // every branch has to be a real solution, not merely a non-empty set of views.  The
+    // nested solve() also drops the engine's whole search state between pulls, which is
+    // exactly the interleaving a suspended iterator has to survive.
+    void check_enumerate_words(char const* name, expr* term, expr* R, unsigned min_branches) {
+        m_trail.push_scope();
+        m_mon.add(term, R, nullptr);
+        seq_monadic::iterator it = m_mon.iterate(100);
+        m_trail.pop_scope(1);
+
+        obj_map<expr, seq::view_vector> sol;
+        unsigned n = 0;
+        bool ok = true;
+        while (ok && it.next(sol)) {
+            ++n;
+            expr_safe_replace rep(m);
+            for (auto const& [var, views] : sol) {
+                expr_ref w(m);
+                if (m_mon.materialize(var, w) != l_true) {
+                    ok = false;
+                    break;
+                }
+                rep.insert(var, w);
+            }
+            if (!ok)
+                break;
+            expr_ref ground(m);
+            rep(term, ground);
+            ok = m_mon.solve(ground, R) == l_true;   // independent, view-free re-check
+        }
+        ok = ok && !it.gave_up() && n >= min_branches;
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  branches=" << n << " expected>=" << min_branches
+                  << (it.gave_up() ? " GAVE-UP" : "") << "\n";
+    }
+
     void check_core(char const* name, vector<std::pair<expr*, expr*>> const& mems,
                     std::set<unsigned> const& expected_core) {
         m_mon.set_gen_solution(false);
@@ -778,6 +882,47 @@ public:
 
         // ---- unsat cores: the extracted core must contain only constraints that
         // ---- participate in the contradiction, not independent ones.
+        // ---- lazy branch enumeration ---------------------------------------------------
+        // seq_monadic::iterator hands out the branches of the decomposition one at a time,
+        // suspending between them by replaying the choice path of the last one reported.
+        std::cout << "=== seq_monadic: branch enumeration ===\n";
+        {
+            expr_ref y = var("y");
+            auto ms1 = [&](expr* t, expr* r) {
+                vector<std::pair<expr*, expr*>> v;
+                v.push_back(std::make_pair(t, r));
+                return v;
+            };
+            // A single variable is one membership view and no choice at all: the recorded
+            // path is empty, which the replay has to handle as well as any other.
+            check_enumerate("x in (a|b)*", ms1(x, star(alt(a, b))), 1, l_true);
+            // Two occurrences: one branch per live state x can drive the automaton to.
+            check_enumerate("x.a.x in (a|b)*", ms1(xwx(x, "a"), star(alt(a, b))), 1, l_true);
+            // Only one of x's two continuations survives here: after the other one the
+            // constant `a` has no derivative, so the branch is refuted rather than reported.
+            check_enumerate("x.a.y in (ab)*", ms1(xay(x, y), star(ab)), 1, l_true);
+            // The union keeps several states live at both variables, so the enumeration
+            // has to resume repeatedly -- and every branch it reports must be a new one.
+            check_enumerate("x.y.x in (a|b|bba)*",
+                            ms1(xyx(x, y), star(alt(alt(a, b), word("bba")))), 4, l_true);
+            // Unsat: no branch at all, and the drain is clean, which is what makes "the
+            // enumerator ran out" usable as a refutation.
+            check_enumerate("x.a.x in b*", ms1(xwx(x, "a"), star(b)), 0, l_false);
+            // Two memberships sharing a variable: branches over the joint decomposition.
+            {
+                vector<std::pair<expr*, expr*>> ms;
+                ms.push_back(std::make_pair((expr*)xay(x, y).get(), (expr*)star(ab).get()));
+                ms.push_back(std::make_pair((expr*)x.get(), (expr*)star(cat(a, b)).get()));
+                check_enumerate("x.a.y in (ab)* & x in (ab)*", ms, 1, l_true);
+            }
+            // Every branch, collapsed to concrete words, really does satisfy the
+            // membership -- decided by the engine on the ground term, without views.
+            check_enumerate_words("words: x.a.x in (a|b)*", xwx(x, "a"), star(alt(a, b)), 1);
+            check_enumerate_words("words: x.y.x in (a|b|bba)*", xyx(x, y),
+                                  star(alt(alt(a, b), word("bba"))), 4);
+            check_enumerate_words("words: x.a.y in Sig*aaSig*", xay(x, y), saas, 1);
+        }
+
         std::cout << "=== seq_monadic: unsat cores ===\n";
         // x in a* /\ x in ~(a*) /\ y in b*  -> unsat over x; core = {0,1}, not the y-constraint.
         {

@@ -107,7 +107,7 @@ private:
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
-    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, num_reasons };
+    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, replay, num_reasons };
 
     struct statistics {
         unsigned m_cofactor_calls = 0;
@@ -163,6 +163,19 @@ private:
     obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
                                             // seq_rewriter's own cache is capped and flushed whole
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
+
+    // ---- lazy branch enumeration (see the public `iterator`) ----------------------
+    // One branching decision: the search, at membership `mi` and derivative state `state`,
+    // continues at `target`.  Recorded by TERM IDENTITY, never by position in the
+    // live-state enumeration, so a replay that no longer finds its choice is detected
+    // instead of silently taking a different one.  Forced continuations are not recorded.
+    struct choice { unsigned mi; expr* state; expr* target; };
+    svector<choice>        m_cur_path;          // choices of the branch being explored
+    svector<choice>        m_leaf_path;         // ... of the branch reported by the last pull
+    svector<choice> const* m_resume = nullptr;  // branch to replay before continuing
+    bool m_enumerate = false;   // enumeration mode: reject the replayed leaf, record paths
+    bool m_in_replay = false;   // the current branch is still the replayed prefix
+    bool m_had_undef = false;   // an undecided branch was passed over in this pull
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     membership_vec m_last_search_memberships; // inputs used by the last internal decide()
     ptr_vector<void> m_core;                // dependencies of an unsat subset, filled by check() on l_false
@@ -265,6 +278,14 @@ private:
 
     // Drop all search state accumulated by the previous decide()/solve().
     void reset_search();
+
+    // One pull of `iterator`: replay `resume` (when `has_resume`), then continue the
+    // search from where that branch left off and report the next satisfying branch.
+    lbool enumerate(membership_vec const& memberships, svector<choice> const& resume,
+                    bool has_resume);
+
+    // Abandon the search: the tree is not the one the replayed path was recorded on.
+    lbool replay_bail();
 
     // Parse every membership into atoms, register its variables and record each
     // variable's last occurrence.  Sets m_seq_sort/m_elem_sort.  False on an
@@ -457,4 +478,47 @@ public:
     // Dependencies of a minimal unsatisfiable subset from the last check() that returned
     // l_false (nullptr dependencies are omitted).  Empty otherwise.
     ptr_vector<void> const& core() const { return m_core; }
+
+    // Lazy enumerator over the BRANCHES of the decomposition of a conjunction of
+    // memberships: check() stops at the first satisfying branch, this hands them out one
+    // at a time in the search's own order, so a caller can walk
+    //
+    //     conjunction  <=>  OR_i (branch i's per-variable views)
+    //
+    // as a lazy case split instead of materializing the disjunction.
+    //
+    // Suspension is by REPLAY: the iterator keeps its query and the choice path of the
+    // branch it last reported, and a pull re-runs the search, descends that path and
+    // continues from there.  It is therefore a plain value owning all it needs, and any
+    // number of them survive being suspended across other uses of the engine (check()
+    // probes, other iterators) -- which a search state living in the engine could not.
+    //
+    // next() returning false with gave_up() false means every branch not yet reported is
+    // REFUTED, so the conjunction holds only if a reported branch does.  gave_up() (a
+    // budget / state cap, an undecidable nullability, a replay mismatch, the emission
+    // limit) means the enumeration is incomplete and its end proves nothing.
+    class iterator {
+        seq_monadic&    m_engine;
+        membership_vec  m_memberships;   // own copy: the query is re-prepared per pull
+        svector<choice> m_path;          // choice path of the last reported branch
+        expr_ref_vector m_path_pin;      // keeps that path's states alive across pulls
+        unsigned        m_limit;         // cap on the number of branches reported
+        unsigned        m_count = 0;
+        bool            m_started = false;
+        bool            m_done = false;
+        bool            m_giveup = false;
+    public:
+        iterator(seq_monadic& engine, membership_vec const& memberships, unsigned limit);
+        // Report the next branch as the views it commits each variable to; fills
+        // `solution` on success, and keeps returning false once it has returned it.
+        // While it holds, materialize() collapses the branch's views to concrete words.
+        bool next(obj_map<expr, seq::view_vector>& solution);
+        bool gave_up() const { return m_giveup; }
+        unsigned count() const { return m_count; }
+    };
+
+    // Enumerate the branches of the conjunction of all memberships asserted via add().
+    // The iterator snapshots them, so it outlives the trail scope they were asserted in.
+    // `limit` caps the branches reported; hitting it is a give-up, not an exhaustion.
+    iterator iterate(unsigned limit);
 };
