@@ -28,7 +28,7 @@ on:
       fstar_otherflags:
         description: "Extra FStar OTHERFLAGS"
         required: false
-        default: "--split_queries on_failure --log_failing_queries --ext higher_order_smt --proof_recovery"
+        default: "--log_failing_queries --proof_recovery"
       fstar_run_tests:
         description: "Run the FStar test suite (make test) after the build"
         required: false
@@ -56,7 +56,7 @@ jobs:
       Z3_RUNTIME_ARGS: ${{ github.event.inputs.z3_runtime_args || 'smt.ho_matching=false' }}
       FSTAR_REF: ${{ github.event.inputs.fstar_ref || 'master' }}
       FSTAR_OPAM_SWITCH: ${{ github.event.inputs.fstar_opam_switch || '4.14.2' }}
-      FSTAR_OTHERFLAGS: ${{ github.event.inputs.fstar_otherflags || '--split_queries on_failure --log_failing_queries --ext higher_order_smt --proof_recovery' }}
+      FSTAR_OTHERFLAGS: ${{ github.event.inputs.fstar_otherflags || '--log_failing_queries --proof_recovery' }}
       FSTAR_RUN_TESTS: ${{ github.event.inputs.fstar_run_tests || 'true' }}
       DISCUSSION_CATEGORY: ${{ github.event.inputs.discussion_category || 'Agentic Workflows' }}
     steps:
