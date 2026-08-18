@@ -118,6 +118,8 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_eq_approx) \
+    X(seq_regex_witness) \
     X(seq_monadic) \
     X(seq_monadic_bench) \
     X(check_assumptions) \

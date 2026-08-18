@@ -57,6 +57,10 @@ namespace seq {
         // Symbolic transition cofactors of `r` in the configured derivative mode.
         expr_ref_pair_vector const& cofactors(expr* r) const;
 
+        // Derivative reachability search from `r`.  When `witness` is non-null it is
+        // set to a member of the language on l_true; otherwise no word is built.
+        lbool search(expr* r, expr_ref* witness);
+
         // Decode a witness term built by get_witness (a concatenation of seq.unit
         // elements, seq.empty, or a string literal) into a zstring. False if some part
         // of the term is not a constant character.
@@ -69,6 +73,9 @@ namespace seq {
         regex_witness(seq_rewriter& rw,
                       transition_mode mode = transition_mode::light_antimirov_tm,
                       unsigned max_states = 1u << 14);
+
+        void set_max_states(unsigned n) { m_max_states = n; }
+        unsigned max_states() const { return m_max_states; }
 
         // Find a witness term `witness`, over the sequence sort of `r`, such that
         // `witness` is a member of `r`.  The witness is a concatenation of
@@ -87,6 +94,14 @@ namespace seq {
         //   l_false = r is empty.
         //   l_undef = gave up, or `r` does not range over strings.
         lbool get_witness(expr* r, zstring& s);
+
+        // Non-emptiness of L(r), the same search without building a member.
+        //   l_true = non-empty, l_false = empty, l_undef = gave up.
+        lbool nonempty(expr* r);
+
+        // Non-emptiness of L(r1) & L(r2).  It is decided on the derivatives of
+        // re.inter, which conjoins the cofactor guards of the two regexes as it goes.
+        lbool intersect_nonempty(expr* r1, expr* r2);
     };
 
 }
