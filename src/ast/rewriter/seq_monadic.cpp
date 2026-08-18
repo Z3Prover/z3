@@ -738,14 +738,16 @@ lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word) {
     // for a satisfying assignment
     if (!m_config.m_solution)
         return l_undef;
-    seq::view_vector views;
     expr* key = var;
     expr_ref rev_key(m);
-    if (!m_solution.find(key, views) && m_reversed) {
+    seq::view_vector views;
+    bool found = m_solution.find(key, views);
+    if (!found && m_reversed) {
         rev_key = mk_rev_var(var);
         key = rev_key.get();
+        found = m_solution.find(key, views);
     }
-    if (!m_solution.find(key, views)) {
+    if (!found) {
         word = u().str.mk_empty(var->get_sort());  // unconstrained: any value will do
         return l_true;
     }
@@ -769,7 +771,7 @@ lbool seq_monadic::materialize_all(expr_substitution& model) {
     for (auto const& [var, views] : m_solution) {
         expr_ref w(m);
         expr* v = strip_rev_var(var);
-        lbool r = materialize(v, w);
+        lbool r = materialize_recorded(v, w);  // preconditions already checked above
         if (r != l_true)
             return r;
         model.insert(v, w.get());
@@ -978,8 +980,8 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
         for (expr* r : cs)
             conjuncts.push_back({ term, expr_ref(r, m), d });
     }
-    if (conjuncts.size() <= memberships.size())
-        return l_undef;                           // nothing is intersected: same problem
+    if (conjuncts.size() == memberships.size())
+        return l_undef;                           // no membership was an intersection: nothing to decompose
 
     m_stats.m_split_calls++;
 
@@ -992,6 +994,12 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
     // an answer to the whole query, not just to the comparison.
     unsigned const probe_budget = std::max(1000u, budget / 8);
     bool const reversed = m_config.m_orientation == orientation::reversed;
+
+    // Cache length-constraining status per conjunct: constrains_length traverses the full
+    // expression tree, so computing it once avoids repeated work inside the probe loop.
+    bool_vector length_constraining(conjuncts.size());
+    for (unsigned i = 0; i < conjuncts.size(); ++i)
+        length_constraining[i] = constrains_length(std::get<1>(conjuncts[i]));
 
     auto relaxation = [&](bool_vector const& sel) {
         membership_vec relaxed;
@@ -1070,7 +1078,7 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
                 continue;
             }
             uint64_t key = m_budget |
-                (constrains_length(std::get<1>(conjuncts[i])) ? 1ull << 40 : 0);
+                (length_constraining[i] ? 1ull << 40 : 0);
             if (key >= best_key) {
                 best = k;
                 best_key = key;
