@@ -1004,6 +1004,10 @@ namespace seq {
         bool                          m_fine_wilf = false;
         bool                          m_monadic_split = false;
         bool                          m_monadic_landing = false;
+        // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
+        unsigned                      m_exploration_budget = 512;
+        // attach the view length abstraction to pinned variables
+        bool                          m_view_length_constraints = true;
         unsigned                      m_regex_factorization_threshold = 1;
         bool                          m_regex_factorization_eager = false;
         bool                          m_regex_dynamic_decomposition = true;
@@ -1276,6 +1280,8 @@ namespace seq {
 
         void set_monadic_split(bool e) { m_monadic_split = e; }
         void set_monadic_landing(bool e) { m_monadic_landing = e; }
+        void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
+        void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
 
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
         void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }

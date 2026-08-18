@@ -301,6 +301,8 @@ namespace seq {
 
     void nielsen_graph::add_view_length_constraints(nielsen_edge* e, view_len_info const& info, unsigned nu,
                                                     euf::snode const* pinned, expr* to, dep_tracker const& dep) {
+        if (!m_view_length_constraints)
+            return;
         if (!e || !info.m_ok || !pinned || !to)
             return;
 
@@ -411,10 +413,13 @@ namespace seq {
         if (m_explored_automaton.contains(root_re->get_expr()->get_id()))
             return m_fully_explored.contains(root_re->get_expr()->get_id());
 
-        // Per-call cap on eagerly explored states.  Components that overflow
-        // it fall back to the paper's lazy escape-driven exploration.
-        // TODO: expose as smt.nseq parameter if tuning proves worthwhile.
-        static constexpr unsigned exploration_budget = 512;
+        // Per-call cap on eagerly explored states.  Components that overflow it
+        // fall back to the paper's lazy escape-driven exploration.  Exposed as
+        // smt.nseq.exploration_budget; 0 = no eager exploration at all, i.e. the
+        // fully lazy mode where Q grows only via escapes and consumption-time edges.
+        const unsigned exploration_budget = m_exploration_budget;
+        if (exploration_budget == 0)
+            return false;
         unsigned processed = 0;
 
         svector<euf::snode const*> queue;
