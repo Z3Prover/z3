@@ -3939,8 +3939,7 @@ namespace {
         void rematch(bool use_irrelevant) override {
             ptr_vector<code_tree>::iterator it  = m_trees.begin_code_trees();
             ptr_vector<code_tree>::iterator end = m_trees.end_code_trees();
-            unsigned lbl = 0;
-            for (; it != end; ++it, ++lbl) {
+            for (; it != end; ++it) {
                 code_tree * t = *it;
                 if (t) {
                     m_interpreter.init(t);
@@ -4059,4 +4058,3 @@ namespace smt {
         return alloc(mam_impl, ctx, true);
     }
 }
-

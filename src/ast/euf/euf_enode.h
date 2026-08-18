@@ -75,6 +75,8 @@ namespace euf {
         friend class etable;
         friend class egraph;
 
+        explicit enode(unsigned num_args): m_num_args(num_args) {}
+
         static unsigned get_enode_size(unsigned num_args) {
             return sizeof(enode) + num_args * sizeof(enode*);
         }
@@ -82,13 +84,12 @@ namespace euf {
         static enode* mk(region& r, expr* f, unsigned generation, unsigned num_args, enode* const* args) {
             SASSERT(num_args <= (is_app(f) ? to_app(f)->get_num_args() : 0));
             void* mem = r.allocate(get_enode_size(num_args));
-            enode* n = new (mem) enode();
+            enode* n = new (mem) enode(num_args);
             n->m_expr = f;
             n->m_next = n;
             n->m_root = n;
             n->m_generation = generation, 
             n->m_commutative = num_args == 2 && is_app(f) && to_app(f)->get_decl()->is_commutative();
-            n->m_num_args = num_args;
             n->m_cgc_enabled = true;
             for (unsigned i = 0; i < num_args; ++i) {
                 SASSERT(to_app(f)->get_arg(i) == args[i]->get_expr());
@@ -100,12 +101,11 @@ namespace euf {
 
         static enode* mk_tmp(region& r, unsigned num_args) {
             void* mem = r.allocate(get_enode_size(num_args));
-            enode* n = new (mem) enode();
+            enode* n = new (mem) enode(2);
             n->m_expr = nullptr;
             n->m_next = n;
             n->m_root = n;
             n->m_commutative = true;
-            n->m_num_args = 2;
             n->m_cgc_enabled = true;
             for (unsigned i = 0; i < num_args; ++i) 
                 n->m_args[i] = nullptr;            
@@ -114,12 +114,11 @@ namespace euf {
 
         static enode* mk_tmp(unsigned num_args) {
             void* mem = memory::allocate(get_enode_size(num_args));
-            enode* n = new (mem) enode();
+            enode* n = new (mem) enode(2);
             n->m_expr = nullptr;
             n->m_next = n;
             n->m_root = n;
             n->m_commutative = true;
-            n->m_num_args = 2;
             n->m_cgc_enabled = true;
             for (unsigned i = 0; i < num_args; ++i) 
                 n->m_args[i] = nullptr;            

@@ -2423,7 +2423,7 @@ namespace realclosure {
             }
             SASSERT(i < n);
             SASSERT(!is_zero(p[i]));
-            ptr_buffer<value> nz_p;
+            ptr_vector<value> nz_p;
             for (; i < n; ++i)
                 nz_p.push_back(p[i].m_value);
             nz_isolate_roots(nz_p.size(), nz_p.data(), roots);
@@ -4100,7 +4100,7 @@ namespace realclosure {
             if (sz <= 1)
                 return 0;
             unsigned r = 0;
-            int sign, prev_sign;
+            int sign = 0, prev_sign;
             prev_sign = 0;
             unsigned i = 0;
             for (; i < sz; ++i) {
@@ -4955,7 +4955,7 @@ namespace realclosure {
         bool determine_sign(rational_function_value * v) {
             if (!contains_zero(v->interval()))
                 return true;
-            bool r;
+            bool r = false;
             switch (v->ext()->knd()) {
             case extension::TRANSCENDENTAL: determine_transcendental_sign(v); r = true; break; // it is never zero
             case extension::INFINITESIMAL:  determine_infinitesimal_sign(v);  r = true; break; // it is never zero

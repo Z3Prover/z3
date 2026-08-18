@@ -909,17 +909,17 @@ namespace fm {
         static unsigned get_obj_size(unsigned num_lits, unsigned num_vars) {
             return sizeof(constraint) + num_lits*sizeof(literal) + num_vars*(sizeof(var) + sizeof(rational));
         }
-        unsigned           m_id;
-        unsigned           m_num_lits:29;
-        unsigned           m_strict:1;
-        unsigned           m_dead:1;
-        unsigned           m_mark:1;
-        unsigned           m_num_vars;
-        literal *          m_lits;
-        var *              m_xs;
-        rational  *        m_as;
+        unsigned           m_id = 0;
+        unsigned           m_num_lits:29 = 0;
+        unsigned           m_strict:1 = 0;
+        unsigned           m_dead:1 = 0;
+        unsigned           m_mark:1 = 0;
+        unsigned           m_num_vars = 0;
+        literal *          m_lits = nullptr;
+        var *              m_xs = nullptr;
+        rational  *        m_as = nullptr;
         rational           m_c;
-        expr_dependency *  m_dep;
+        expr_dependency *  m_dep = nullptr;
         ~constraint() {
             rational * it  = m_as;
             rational * end = it + m_num_vars;
