@@ -830,3 +830,50 @@ void tst_opt_dup_min() {
     Z3_del_context(ctx);
     std::cout << "duplicate minimize objective test passed" << std::endl;
 }
+
+void tst_maxsat_sls() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_optimize opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+
+    Z3_params p = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, p);
+    Z3_params_set_symbol(ctx, p, Z3_mk_string_symbol(ctx, "maxsat_engine"),
+                         Z3_mk_string_symbol(ctx, "sls"));
+    Z3_optimize_set_params(ctx, opt, p);
+    Z3_params_dec_ref(ctx, p);
+
+    Z3_sort bool_sort = Z3_mk_bool_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), bool_sort);
+    Z3_optimize_assert_soft(ctx, opt, x, "1", 0);
+    Z3_optimize_assert_soft(ctx, opt, Z3_mk_not(ctx, x), "2", 0);
+
+    ENSURE(Z3_optimize_check(ctx, opt, 0, nullptr) == Z3_L_TRUE);
+
+    Z3_model mdl = Z3_optimize_get_model(ctx, opt);
+    Z3_model_inc_ref(ctx, mdl);
+    Z3_ast val = nullptr;
+    ENSURE(Z3_model_eval(ctx, mdl, x, true, &val));
+    ENSURE(Z3_get_bool_value(ctx, val) == Z3_L_FALSE);
+    Z3_model_dec_ref(ctx, mdl);
+
+    Z3_stats st = Z3_optimize_get_statistics(ctx, opt);
+    Z3_stats_inc_ref(ctx, st);
+    bool saw_sls_stats = false;
+    for (unsigned i = 0; i < Z3_stats_size(ctx, st); ++i) {
+        std::string key = Z3_stats_get_key(ctx, st, i);
+        if (key.find("sls") != std::string::npos) {
+            saw_sls_stats = true;
+            break;
+        }
+    }
+    ENSURE(saw_sls_stats);
+    Z3_stats_dec_ref(ctx, st);
+
+    Z3_optimize_dec_ref(ctx, opt);
+    Z3_del_context(ctx);
+    std::cout << "maxsat sls test passed" << std::endl;
+}

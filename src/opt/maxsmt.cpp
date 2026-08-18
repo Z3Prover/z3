@@ -26,6 +26,8 @@ Notes:
 #include "opt/maxcore.h"
 #include "opt/maxlex.h"
 #include "opt/wmax.h"
+#include "opt/pb_sls.h"
+
 #include "opt/opt_params.hpp"
 #include "opt/opt_context.h"
 #include "opt/opt_preprocess.h"
@@ -173,6 +175,62 @@ namespace opt {
                    if (l > u) std::swap(l, u);
                    verbose_stream() << "(opt." << solver << " [" << l << ":" << u << "])\n";);                
     }
+    class sls_maxsmt : public maxsmt_solver_base {
+        scoped_ptr<smt::pb_sls> m_solver;
+
+        void update_assignment() {
+            rational penalty(0);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                auto& s = m_soft[i];
+                s.set_value(m_solver->soft_holds(i));
+                if (!s.is_true()) {
+                    penalty += s.weight;
+                }
+            }
+            m_lower = penalty;
+            m_upper = penalty;
+        }
+
+    public:
+        sls_maxsmt(maxsat_context& c, unsigned index, vector<soft>& soft):
+            maxsmt_solver_base(c, soft, index) {}
+
+        lbool operator()() override {
+            init();
+            enable_sls(true);
+            if (m_solver) {
+                m_solver->reset();
+            }
+            else {
+                m_solver = alloc(smt::pb_sls, m);
+            }
+            m_solver->set_model(m_model);
+            m_solver->updt_params(m_params);
+            for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
+                m_solver->add(s().get_assertion(i));
+            }
+            for (soft const& soft : m_soft) {
+                m_solver->add(soft.s, soft.weight);
+            }
+            lbool result = (*m_solver)();
+            if (result == l_true) {
+                m_solver->get_model(m_model);
+                update_assignment();
+            }
+            return result;
+        }
+
+        void collect_statistics(statistics& st) const override {
+            if (m_solver) {
+                m_solver->collect_statistics(st);
+            }
+        }
+    };
+
+    maxsmt_solver_base* mk_sls(maxsat_context& c, unsigned id, vector<soft>& soft) {
+        return alloc(sls_maxsmt, c, id, soft);
+    }
+
 
 
     maxsmt::maxsmt(maxsat_context& c, unsigned index):
@@ -199,6 +257,8 @@ namespace opt {
             m_msolver = mk_rc2bin(m_c, m_index, m_soft);
         else if (maxsat_engine == symbol("pd-maxres"))             
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_soft);
+        else if (maxsat_engine == symbol("sls"))
+            m_msolver = mk_sls(m_c, m_index, m_soft);
         else if (maxsat_engine == symbol("wmax")) 
             m_msolver = mk_wmax(m_c, m_soft, m_index);
         else if (maxsat_engine == symbol("sortmax")) 

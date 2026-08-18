@@ -81,6 +81,7 @@
     X(box_mod_opt) \
     X(box_independent) \
     X(opt_dup_min) \
+    X(maxsat_sls) \
     X(deep_api_bugs) \
     X(api_algebraic) \
     X(api_polynomial) \

@@ -23,7 +23,7 @@ Notes:
 #include "tactic/arith/card2bv_tactic.h"
 #include "tactic/core/nnf_tactic.h"
 #include "opt/pb_sls.h"
-#include "tactic/sls/bvsls_opt_engine.h"
+#include "ast/sls/bvsls_opt_engine.h"
 
 
 namespace opt {
