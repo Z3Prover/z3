@@ -1010,17 +1010,22 @@ lbool core::bounded_nlsat() {
     lbool ret;
     p.set_uint("max_conflicts", 100);
     m_nra.updt_params(p);
+    uint64_t probe_cost = m_nra_lim.count();
     {
         scoped_limits sl(m_reslim);
         sl.push_child(&m_nra_lim);
         scoped_rlimit sr(m_nra_lim, 100000);
         ret = m_nra.check();
     }
-    p.set_uint("max_conflicts", lp_settings().m_max_conflicts);            
+    probe_cost = m_nra_lim.count() - probe_cost;
+    p.set_uint("max_conflicts", lp_settings().m_max_conflicts);
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
-    // On a conflict re-engage, otherwise back off.
-    m_nlsat_backoff.update(ret == l_false);
+    // A conflict, or a probe that cost almost nothing, re-engages; only an
+    // expensive inconclusive probe backs off. A search that needs a cheap
+    // satisfiability certificate every round to advance (e.g. between
+    // quantifier instantiation rounds) must not be starved of them.
+    m_nlsat_backoff.update(ret == l_false || probe_cost < 10000);
 
     if (ret == l_true)
         clear();
