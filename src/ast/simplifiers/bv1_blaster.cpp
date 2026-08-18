@@ -159,7 +159,7 @@ void bv1_blaster_simplifier::rw_cfg::reduce_extract(func_decl* f, expr* arg, exp
     bit_buffer bits;
     for (unsigned i = start; i <= end; ++i)
         bits.push_back(arg_bits[i]);
-    result = butil().mk_concat(bits.size(), bits.data());
+    result = butil().mk_concat(bits.size(), bits.empty() ? nullptr : bits.data());
 }
 
 void bv1_blaster_simplifier::rw_cfg::reduce_concat(unsigned num, expr* const* args, expr_ref& result) {
@@ -171,7 +171,7 @@ void bv1_blaster_simplifier::rw_cfg::reduce_concat(unsigned num, expr* const* ar
         get_bits(arg, arg_bits);
         bits.append(arg_bits.size(), arg_bits.data());
     }
-    result = butil().mk_concat(bits.size(), bits.data());
+    result = butil().mk_concat(bits.size(), bits.empty() ? nullptr : bits.data());
 }
 
 void bv1_blaster_simplifier::rw_cfg::reduce_bin_xor(expr* arg1, expr* arg2, expr_ref& result) {

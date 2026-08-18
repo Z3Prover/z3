@@ -235,7 +235,7 @@ void order::order_lemma_on_factorization(const monic& m, const factorization& ab
             lemma &= m;
         }
     }
-    for (unsigned j = 0, k = 1; j < 2; ++j, k--) {
+    for (unsigned j = 0; j < 2; ++j) {
         order_lemma_on_ac_explore(m, ab, j == 1);
     }
 }
