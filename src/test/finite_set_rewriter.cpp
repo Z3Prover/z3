@@ -19,6 +19,7 @@ Author:
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/rewriter/finite_set_rewriter.h"
 
 class finite_set_rewriter_test {
@@ -332,6 +333,91 @@ public:
         ENSURE(st == BR_DONE);
         ENSURE(m.is_false(result));
     }
+    void test_map_filter() {
+        ast_manager m;
+        reg_decl_plugins(m);
+
+        finite_set_util fsets(m);
+        finite_set_rewriter rw(m);
+        arith_util arith(m);
+        array_util autil(m);
+
+        sort_ref int_sort(arith.mk_int(), m);
+        parameter param(int_sort.get());
+        sort_ref set_sort(m.mk_sort(fsets.get_family_id(), FINITE_SET_SORT, 1, &param), m);
+        sort *domain[1] = { int_sort.get() };
+        sort_ref array_sort(autil.mk_array_sort(1, domain, int_sort), m);
+        sort_ref pred_sort(autil.mk_array_sort(1, domain, m.mk_bool_sort()), m);
+        expr_ref f(m.mk_const(symbol("f"), array_sort), m);
+        expr_ref p(m.mk_const(symbol("p"), pred_sort), m);
+        expr_ref five(arith.mk_int(5), m);
+        expr_ref ten(arith.mk_int(10), m);
+        app_ref empty_set(fsets.mk_empty(set_sort), m);
+        app_ref singleton_five(fsets.mk_singleton(five), m);
+        app_ref singleton_ten(fsets.mk_singleton(ten), m);
+
+        // set.map(f, empty) -> empty
+        app_ref map1(fsets.mk_map(f, empty_set), m);
+        expr_ref result(m);
+        br_status st = rw.mk_app_core(map1->get_decl(), map1->get_num_args(), map1->get_args(), result);
+        ENSURE(st == BR_DONE);
+        ENSURE(fsets.is_empty(result));
+
+        // set.map(f, singleton(5)) -> singleton(f[5])
+        app_ref map2(fsets.mk_map(f, singleton_five), m);
+        st = rw.mk_app_core(map2->get_decl(), map2->get_num_args(), map2->get_args(), result);
+        ENSURE(st == BR_REWRITE2);
+        ENSURE(result == fsets.mk_singleton(autil.mk_select(f, five)));
+
+        // set.map(f, union(s, t)) -> union(map(f, s), map(f, t))
+        app_ref union_set(fsets.mk_union(singleton_five, singleton_ten), m);
+        app_ref map3(fsets.mk_map(f, union_set), m);
+        st = rw.mk_app_core(map3->get_decl(), map3->get_num_args(), map3->get_args(), result);
+        ENSURE(st == BR_REWRITE2);
+        ENSURE(fsets.is_union(result));
+
+        // set.filter(p, empty) -> empty
+        app_ref filter1(fsets.mk_filter(p, empty_set), m);
+        st = rw.mk_app_core(filter1->get_decl(), filter1->get_num_args(), filter1->get_args(), result);
+        ENSURE(st == BR_DONE);
+        ENSURE(result == empty_set);
+
+        // set.filter(p, singleton(5)) -> ite(p[5], singleton(5), empty)
+        app_ref filter2(fsets.mk_filter(p, singleton_five), m);
+        st = rw.mk_app_core(filter2->get_decl(), filter2->get_num_args(), filter2->get_args(), result);
+        ENSURE(st == BR_REWRITE2);
+        ENSURE(m.is_ite(result));
+
+        // set.filter(p, union(s, t)) -> union(filter(p, s), filter(p, t))
+        app_ref filter3(fsets.mk_filter(p, union_set), m);
+        st = rw.mk_app_core(filter3->get_decl(), filter3->get_num_args(), filter3->get_args(), result);
+        ENSURE(st == BR_REWRITE2);
+        ENSURE(fsets.is_union(result));
+
+        expr_ref sym_set(m.mk_const(symbol("s"), set_sort), m);
+        expr_ref sym_set2(m.mk_const(symbol("t"), set_sort), m);
+
+        // set.filter(p, intersect(s, t)) -> intersect(filter(p, s), filter(p, t))
+        app_ref filter4(fsets.mk_filter(p, fsets.mk_intersect(sym_set, sym_set2)), m);
+        st = rw.mk_app_core(filter4->get_decl(), filter4->get_num_args(), filter4->get_args(), result);
+        ENSURE(st == BR_REWRITE2);
+        ENSURE(result == fsets.mk_intersect(fsets.mk_filter(p, sym_set), fsets.mk_filter(p, sym_set2)));
+
+        // set.filter(p, difference(s, t)) -> difference(filter(p, s), filter(p, t))
+        app_ref filter5(fsets.mk_filter(p, fsets.mk_difference(sym_set, sym_set2)), m);
+        st = rw.mk_app_core(filter5->get_decl(), filter5->get_num_args(), filter5->get_args(), result);
+        ENSURE(st == BR_REWRITE2);
+        ENSURE(result == fsets.mk_difference(fsets.mk_filter(p, sym_set), fsets.mk_filter(p, sym_set2)));
+
+        // set.map does not distribute over intersect or difference
+        app_ref map4(fsets.mk_map(f, fsets.mk_intersect(singleton_five, sym_set)), m);
+        st = rw.mk_app_core(map4->get_decl(), map4->get_num_args(), map4->get_args(), result);
+        ENSURE(st == BR_FAILED);
+
+        app_ref map5(fsets.mk_map(f, fsets.mk_difference(singleton_five, sym_set)), m);
+        st = rw.mk_app_core(map5->get_decl(), map5->get_num_args(), map5->get_args(), result);
+        ENSURE(st == BR_FAILED);
+    }
 };
 
 void tst_finite_set_rewriter() {
@@ -347,4 +433,5 @@ void tst_finite_set_rewriter() {
     test.test_subset_with_empty();
     test.test_in_singleton();
     test.test_in_empty();
+    test.test_map_filter();
 }
