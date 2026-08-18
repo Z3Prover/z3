@@ -18,6 +18,16 @@ Abstract:
     intersection of their languages.  See seq_monadic, which reports the
     decomposition it commits to as views.
 
+    A REACH view is relative to a transition relation, and therefore to the
+    seq::transition_mode of the engine that produced it: under light_antimirov_tm a
+    derivative is split over its top-level unions, so reaching m_target means SOME run
+    ends there, whereas under brzozowski_tm the derivative is a single state and the
+    run is the deterministic one.  A client that evaluates views with the producing
+    engine (product_nonempty, materialize) never sees the difference; a client that
+    re-states them against an automaton of its own must build the engine in the mode
+    that automaton steps in.  A MEMBERSHIP view is mode-independent: m_state denotes a
+    language either way.
+
 Author:
 
     Clemens Eisenhofer 2026

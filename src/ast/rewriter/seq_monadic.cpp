@@ -116,6 +116,7 @@ char const* seq_monadic::bail_stat_name(bail_reason reason) {
     case bail_reason::nullability:     return SEQ_MONADIC_BAIL_PREFIX "nullability";
     case bail_reason::guard:           return SEQ_MONADIC_BAIL_PREFIX "guard";
     case bail_reason::not_reversible:  return SEQ_MONADIC_BAIL_PREFIX "not reversible";
+    case bail_reason::replay:          return SEQ_MONADIC_BAIL_PREFIX "replay";
     default:                           return SEQ_MONADIC_BAIL_PREFIX "unknown";
     }
 }
@@ -613,6 +614,13 @@ void seq_monadic::reset_search() {
     m_head_cnt.reset();
     m_head_stack.reset();
     m_live_states.reset();
+    m_cur_path.reset();
+}
+
+lbool seq_monadic::replay_bail() {
+    m_stats.inc_bail(bail_reason::replay);
+    m_giveup = true;
+    return l_undef;
 }
 
 bool seq_monadic::reverse_regex(expr* r, expr_ref& result) {
@@ -743,8 +751,20 @@ lbool seq_monadic::group_nonempty(unsigned vi) {
 lbool seq_monadic::leaf() {
     if (m_giveup)
         return l_undef;                           // the search was already abandoned
-    if (m_undef_vars > 0)
+    if (m_in_replay) {
+        // The branch the previous pull reported: reject it, and the search continues
+        // exactly as if that leaf had failed.  A different depth means a different tree.
+        if (m_cur_path.size() != m_resume->size())
+            return replay_bail();
+        m_in_replay = false;
+        return l_false;
+    }
+    if (m_undef_vars > 0) {
+        m_had_undef = true;
         return l_undef;                           // some variable's emptiness test gave up
+    }
+    if (m_enumerate)
+        m_leaf_path = m_cur_path;                 // resume point of the branch reported now
     if (!m_config.m_solution)
         return l_true;
     // Snapshot the branch: the search pops m_groups on the way out even on success.
@@ -1049,20 +1069,48 @@ lbool seq_monadic::choose_cont(unsigned vi, unsigned s_offset, unsigned s_size, 
     // A last variable contributes a plain membership view. Otherwise consume live
     // split states lazily so an early satisfying continuation avoids expanding the rest.
     if (last_atom)
-        return explore(nullptr);
+        return explore(nullptr);                   // forced: not a recorded choice
+
+    // Enumeration replay (see `iterator`).  While the branch still follows the path of
+    // the one last reported, this level skips to its recorded continuation -- everything
+    // before it was reported or refuted by an earlier pull -- descends it, and only then
+    // walks the rest normally: "resume as if the reported leaf had just failed".
+    unsigned const depth = m_cur_path.size();
+    bool const replay = m_in_replay;
+    if (replay && (depth >= m_resume->size() || (*m_resume)[depth].mi != mi ||
+                   (*m_resume)[depth].state != R))
+        return replay_bail();
+    expr* const resume_target = replay ? (*m_resume)[depth].target : nullptr;
+    bool seen_resume = false;
 
     bool any_undef = false;
     auto live = m_live_states.reachable_live(R);
     for (expr* target : live) {
+        if (replay && !seen_resume) {
+            if (target != resume_target)
+                continue;                          // covered by an earlier pull
+            seen_resume = true;
+        }
+        if (m_enumerate)
+            m_cur_path.push_back(choice{ mi, R, target });
         lbool r = explore(target);
-        if (r == l_true)
+        if (m_enumerate)
+            m_cur_path.pop_back();
+        if (replay && seen_resume && m_in_replay)
+            return replay_bail();                  // the replay did not reach its leaf
+        if (r == l_true) {
+            if (any_undef)
+                m_had_undef = true;                // passed over, and never revisited
             return l_true;
+        }
         if (r == l_undef) {
             if (m_giveup)
                 return l_undef;
             any_undef = true;
         }
     }
+    if (replay && !seen_resume)
+        return replay_bail();                      // the recorded continuation is gone
     if (live.failed()) {
         m_stats.inc_bail(
             live.failure_reason() == seq::live_states::failure::state_cap ?
@@ -1144,6 +1192,72 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     }
     m_last_search_result = r;
     return r;
+}
+
+lbool seq_monadic::enumerate(membership_vec const& memberships, svector<choice> const& resume,
+                             bool has_resume) {
+    m_enumerate = true;
+    m_resume = &resume;
+    m_in_replay = has_resume;
+    m_had_undef = false;
+    m_leaf_path.reset();
+    // Forward only: a reversed reading reports views over the reversed regexes, and the
+    // retry policy would run two searches -- neither is a branch of the problem the
+    // caller asked about.
+    lbool r = decide_oriented(memberships, false, m_config.m_budget_limit);
+    m_enumerate = false;
+    m_resume = nullptr;
+    m_in_replay = false;
+    m_last_search_memberships = memberships;
+    m_last_search_result = r;
+    return r;
+}
+
+seq_monadic::iterator::iterator(seq_monadic& engine, membership_vec const& memberships,
+                                unsigned limit) :
+    m_engine(engine), m_memberships(memberships), m_path_pin(engine.m), m_limit(limit) {}
+
+bool seq_monadic::iterator::next(obj_map<expr, seq::view_vector>& solution) {
+    solution.reset();
+    if (m_done)
+        return false;
+    // The positional driver takes no recorded choices, so there is nothing to resume from;
+    // an empty conjunction has no search to resume either.
+    if (!m_engine.state_search() || m_memberships.empty() || m_count >= m_limit) {
+        m_giveup = true;
+        m_done = true;
+        return false;
+    }
+    const bool gen = m_engine.gen_solution();
+    m_engine.set_gen_solution(true);
+    const lbool r = m_engine.enumerate(m_memberships, m_path, m_started);
+    m_engine.set_gen_solution(gen);
+    // A branch passed over undecided is one this enumeration will never report, so its
+    // end no longer refutes anything.
+    if (m_engine.m_had_undef || r == l_undef)
+        m_giveup = true;
+    if (r != l_true) {
+        m_done = true;
+        return false;
+    }
+    // Resume point of the branch just found.  Pinned here: the engine drops its own pins
+    // on the next query from anybody else.
+    m_path = m_engine.m_leaf_path;
+    m_path_pin.reset();
+    for (auto const& c : m_path) {
+        m_path_pin.push_back(c.state);
+        if (c.target)
+            m_path_pin.push_back(c.target);
+    }
+    for (auto const& [var, views] : m_engine.solution())
+        solution.insert(var, views);
+    m_started = true;
+    ++m_count;
+    return true;
+}
+
+seq_monadic::iterator seq_monadic::iterate(unsigned limit) {
+    return iterator(*this, m_memberships, limit);
 }
 
 lbool seq_monadic::solve(expr* term, expr* R) {

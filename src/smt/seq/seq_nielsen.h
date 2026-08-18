@@ -158,6 +158,7 @@ namespace seq {
 
     // suspended state of a lazy regex factorization (see apply_regex_factorization).
     struct rf_state;
+    struct mon_state;
 
     // decompose a membership constraint into a set of pairs of regex splits.
     // Eagerly materialises the full split-set (used by the eager propagation path
@@ -642,12 +643,14 @@ namespace seq {
         // into the resource/node budget and degrades to unknown — the sound
         // direction for an LP timeout.  Sticky so it survives hot restart.
         bool                    m_is_arith_split = false;
-        // Sticky marker: true if this node is the "did not take the monadic
-        // decomposition" branch of apply_monadic_landing (child B).  Child B is an
-        // exact clone of its parent, so it aliases the parent's string signature
-        // and needs the same exemptions as an rf continuation (is_signature_alias).
-        // It is ALSO the modifier's re-fire guard: seq_monadic is deterministic, so
-        // re-running it on child B would return the same branch forever.
+        // Lazy monadic-decomposition continuation: the suspended branch enumerator of
+        // apply_monadic_landing, so the decomposition resumes at the next branch when
+        // this node is extended.  Owned by nielsen_graph::m_mon_states.  Exactly the
+        // m_rf_cont pattern above, sticky flag included -- child B is an exact clone, so
+        // it aliases its parent's signature without being a recurrence, and the exemption
+        // must survive hot restart, where m_monadic_cont is already null.  The sticky
+        // flag is also the re-fire guard: a fresh enumerator would restart at branch 1.
+        mon_state*              m_monadic_cont = nullptr;
         bool                    m_is_monadic_cont = false;
         // Fine & Wilf refire guard: directional keys of equations this node
         // (or an ancestor, via clone_from) has already been F&W-split on
@@ -731,9 +734,11 @@ namespace seq {
         bool is_arith_split() const { return m_is_arith_split; }
         void set_arith_split() { m_is_arith_split = true; }
 
-        // "did not take the monadic decomposition" branch (see m_is_monadic_cont).
+        // lazy monadic decomposition continuation (see m_monadic_cont).
+        mon_state* monadic_cont() const { return m_monadic_cont; }
+        void set_monadic_cont(mon_state* s) { m_monadic_cont = s; if (s) m_is_monadic_cont = true; }
+        // Sticky: true if this node was EVER a monadic continuation.
         bool is_monadic_cont() const { return m_is_monadic_cont; }
-        void set_monadic_cont() { m_is_monadic_cont = true; }
 
         // Fine & Wilf refire guard (see m_fw_applied).
         bool fw_applied(uint64_t key) const { return m_fw_applied.contains(key); }
@@ -912,6 +917,10 @@ namespace seq {
         unsigned m_mod_regex_factorization = 0;
         unsigned m_mod_monadic_split   = 0;
         unsigned m_mod_monadic_landing = 0;
+        // branches the monadic enumerator handed out, and enumerations it drained
+        // cleanly (each of those closes a node)
+        unsigned m_monadic_branches    = 0;
+        unsigned m_monadic_drained     = 0;
         unsigned m_mod_const_nielsen   = 0;
         unsigned m_mod_block_compression = 0;
         unsigned m_block_chars_consumed  = 0;
@@ -1071,6 +1080,9 @@ namespace seq {
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
+        // Owns the suspended monadic-decomposition continuations (mon_state), the same
+        // way.  Freed in reset() BEFORE m_monadic, whose iterators they hold.
+        ptr_vector<mon_state>   m_mon_states;
 
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
         // (e.g., explain_conflict) can call mk_join / linearize.
@@ -1819,14 +1831,32 @@ namespace seq {
         // themselves.  That makes the node's memberships PRIMITIVE in one step,
         // instead of grinding the subject down by splitting.
         //
-        // Binary split, mirroring apply_regex_factorization:
-        //   child A — the covered memberships replaced by the branch's components;
-        //   child B — an exact clone that keeps them (set_monadic_cont), extended by
-        //             the ordinary modifiers.
-        // Child B alone already covers the node, so the split is trivially
-        // exhaustive and child A is a pure shortcut: no completeness obligation on
-        // the branch, and no resumption of seq_monadic's search is needed.
+        // The branches are enumerated LAZILY through a seq_monadic::iterator and the rule
+        // branches BINARY, the same shape as apply_regex_factorization:
+        //   child A — the covered memberships replaced by this branch's components;
+        //   child B — an exact clone that keeps them, carrying the SAME enumerator
+        //             (set_monadic_cont) so the next branch is taken when it is extended.
+        // Child B alone covers the node, so the split is exhaustive whatever the
+        // enumerator does.  A CLEAN drain means every branch not handed to a child A is
+        // refuted, and the continuation node becomes a regex conflict; any branch lost on
+        // the way (give-up, undecided, unmappable) turns that back into a fall-through.
         bool apply_monadic_landing(nielsen_node* node);
+
+        // Collect the memberships apply_monadic_landing may decompose on `node`, abstract
+        // them, and start a branch enumerator.  Null when there is nothing to gain (no
+        // covered non-primitive membership, a gate not met).  Owned by m_mon_states.
+        mon_state* mk_mon_state(nielsen_node* node);
+
+        enum class mon_step_result { branched, conflict, gaveup };
+        // Pull the next usable branch from `st` and, on success, create the two children
+        // of `node`.  Clean exhaustion returns conflict; anything lost returns gaveup.
+        mon_step_result mon_step(nielsen_node* node, mon_state* st);
+
+        // Turn one reported branch into node constraints (land-state views for reach
+        // views, plain memberships otherwise).  false: the branch does not map onto the
+        // node, which does NOT refute it -- the caller marks the enumeration lossy.
+        bool mon_map_branch(mon_state* st, obj_map<expr, seq::view_vector> const& solution,
+                            vector<str_mem>& components);
 
         // Build a suspended factorization (boundary head/tail + split iterator)
         // for `mem`.  Returns null if the regex shape is unsupported (the engine

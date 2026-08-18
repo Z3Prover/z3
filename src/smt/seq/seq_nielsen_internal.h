@@ -70,6 +70,25 @@ namespace seq {
             m_mem(mem), m_head(head), m_tail(tail), m_c(c), m_iter(std::move(it)) {}
     };
 
+    // Suspended state of a lazy monadic decomposition (apply_monadic_landing).  One
+    // mon_state drives the whole binary "remaining branches" chain for one set of covered
+    // memberships: the branch enumerator plus the map from the engine's variables back to
+    // the node's tokens.  The chain is made of exact clones, so the covered memberships
+    // (and their positions) stay valid all the way down.
+    struct mon_state {
+        vector<str_mem>  m_mems;    // the covered memberships (kept on child B)
+        unsigned_vector  m_idx;     // their positions in the node's membership vector
+        vector<std::pair<euf::snode const*, expr*>> m_tokens;  // token -> abstract constant
+        expr_ref_vector  m_pin;     // abstract constants and terms
+        dep_tracker      m_dep;     // join of the covered memberships' deps
+        seq_monadic::iterator m_iter;
+        // A reported branch that could not be expressed as node constraints.  It is not
+        // refuted, so a drained enumerator may then only fall through, never conflict.
+        bool             m_lossy = false;
+        mon_state(ast_manager& m, dep_tracker dep, seq_monadic::iterator&& it) :
+            m_pin(m), m_dep(dep), m_iter(std::move(it)) {}
+    };
+
     // Directional helpers:
     // fwd=true  -> left-to-right (prefix/head)
     // fwd=false -> right-to-left (suffix/tail)

@@ -751,7 +751,16 @@ namespace seq {
     void nielsen_graph::ensure_monadic() {
         if (m_monadic)
             return;
-        m_monadic = alloc(seq_monadic, m_monadic_rw, m_monadic_trail);
+        // Brzozowski, not the engine's default light-Antimirov: apply_monadic_landing
+        // turns the reported reach views into land-state views over nseq's partial DFA,
+        // which steps with brzozowski_deriv.  Under light-Antimirov the engine splits a
+        // derivative over its top-level unions, so "x reaches q" means "SOME run ends at
+        // q" -- a different relation from "the deterministic derivative run ends at q",
+        // and a view built from it constrains the variable differently than the branch
+        // does.  The refutations apply_monadic_split consumes are mode-independent, so
+        // the one mode serves both users.
+        m_monadic = alloc(seq_monadic, m_monadic_rw, m_monadic_trail,
+                          seq::transition_mode::brzozowski_tm);
         // Conflict-only by default: apply_monadic_split consumes no solution.
         m_monadic->set_gen_solution(false);
     }
@@ -849,30 +858,21 @@ namespace seq {
 
     // -----------------------------------------------------------------------
     // Modifier: apply_monadic_landing  (monadic decomposition as a branching rule)
-    bool nielsen_graph::apply_monadic_landing(nielsen_node* node) {
-        if (!m_monadic_landing)
-            return false;
-        // Never fire on a node that aliases its parent's string signature.  Three
-        // reasons, and all three are needed:
-        //  - our own child B: seq_monadic is deterministic, so re-running it would
-        //    return the same branch forever;
-        //  - a factorization continuation: it holds a LIVE split iterator that
-        //    neither of our children would inherit, so firing here silently discards
-        //    the suspended enumeration (and with it the "iterator exhausted ⇒ the
-        //    split disjunction is refuted" conflict);
-        //  - any exact clone (arith split, and the clones the two cases above
-        //    create): m_is_monadic_cont is NOT copied by clone_from, so a guard
-        //    keyed on it alone lets a constraint-identical descendant re-fire.  All
-        //    such nodes are is_signature_alias() and therefore exempt from the
-        //    sibling loop cut AND the unsat cache, so nothing would stop the
-        //    resulting N → B → B_B → … descent; the edges are progress edges, so the
-        //    depth bound does not stop it either.
-        // The parent has already had its chance on the identical constraint set, so
-        // no applicable branch is lost.
-        if (node->is_signature_alias())
-            return false;
 
+    // Cap on the branches this rule hands out for one node: the branch count is a product
+    // of per-position split degrees and every branch costs two nodes.  Overrunning it is a
+    // give-up, never an exhaustion.
+    static const unsigned MON_LAZY_CAP = 256;
+
+    mon_state* nielsen_graph::mk_mon_state(nielsen_node* node) {
         ensure_monadic();   // can_decide_term is used while collecting, below
+        // Enforced, not assumed: a reach view only means what a land-state view means
+        // when the engine steps the same automaton the partial DFA does.  Whoever
+        // changes the mode in ensure_monadic (say to give apply_monadic_split its
+        // Antimirov speed back) gets a rule that stops firing, not one that answers
+        // wrongly.
+        if (m_monadic->mode() != seq::transition_mode::brzozowski_tm)
+            return nullptr;
 
         // Variables constrained by a residual word (dis)equation.  seq_monadic never
         // sees those, so an `l_true` about a membership on such a variable says
@@ -951,74 +951,60 @@ namespace seq {
         // Nothing to gain unless some membership is actually non-primitive: on an
         // all-primitive node check_leaf_regex already decides the same question.
         if (!any_non_primitive || tokens.empty())
-            return false;
+            return nullptr;
 
+        // The iterator snapshots the memberships, so it outlives the scope they are
+        // asserted in and can be suspended across other uses of the engine.
         m_monadic_trail.push_scope();
-        m_monadic->set_gen_solution(true);
         for (auto const& [term, re] : abstracted)
             m_monadic->add(term, re, nullptr);
-        const lbool r = m_monadic->check();
-        // Copy the solution out before the scope is popped.  The engine reports one
-        // view_vector per variable; a variable is constrained by their conjunction.
-        obj_map<expr, seq::view_vector> solution;
-        // A reversed search reports views over the REVERSED regexes, keyed on the
-        // reversed reading of the variable, so they do not describe the node's values.
-        const bool reversed = m_monadic->is_reversed();
-        if (r == l_true && !reversed)
-            for (auto const& [var, views] : m_monadic->solution())
-                solution.insert(var, views);
-        m_monadic->set_gen_solution(false);
+        seq_monadic::iterator it = m_monadic->iterate(MON_LAZY_CAP);
         m_monadic_trail.pop_scope(1);
 
-        // l_false is apply_monadic_split's business (it carries the deps a conflict
-        // clause needs); l_undef means the engine gave up.
-        if (r != l_true || solution.empty())
-            return false;
-
-        // Map each view back onto the node.
-        //
-        // A reach view means "drive the automaton from `state` to `target`",
-        // with no region restriction, whereas a node view is gated on Q_ν.  The two
-        // coincide exactly when Q_ν contains every state a run from `state` can
-        // visit — which holds when Q_ν is the COMPLETE reachable set of the
-        // membership's regex, since a run from a state reachable from R stays
-        // inside the states reachable from R.  So the ν minted per covered
-        // membership is usable iff its automaton was explored in full, and each
-        // view picks the ν whose region actually contains its states.
-        //
-        // Testing membership in the region does double duty: it also verifies that
-        // seq_monadic's state terms canonicalize (via mk_rewrite) onto the same
-        // snodes the partial DFA was built from.  If they do not, the state is not
-        // in any region and we bail instead of emitting a dead child.
-        unsigned_vector nus;
+        mon_state* st = alloc(mon_state, m, dep, std::move(it));
+        st->m_pin.append(pin);
+        st->m_tokens.append(tokens);
         for (unsigned i : covered) {
-            euf::snode const* R = mems[i].m_regex;
+            st->m_idx.push_back(i);
+            st->m_mems.push_back(mems[i]);
+        }
+        m_mon_states.push_back(st);
+        return st;
+    }
+
+    bool nielsen_graph::mon_map_branch(mon_state* st,
+                                       obj_map<expr, seq::view_vector> const& solution,
+                                       vector<str_mem>& components) {
+        // A reach view means "drive the automaton from `state` to `target`" with no region
+        // restriction, whereas a node view is gated on Q_nu.  The two coincide when Q_nu
+        // holds every state a run from `state` can visit, which is the case when it is the
+        // COMPLETE reachable set of a membership's regex -- so only fully explored regexes
+        // mint a nu, and each view takes the nu whose region contains both its states.
+        // That test does double duty: it also verifies that the engine's state terms
+        // canonicalize (via mk_rewrite) onto the snodes the partial DFA was built from.
+        unsigned_vector nus;
+        for (str_mem const& mem : st->m_mems) {
+            euf::snode const* R = mem.m_regex;
             unsigned nu = 0;
             if (R->is_ground() && ensure_automaton_explored(R))
                 nu = mark_reachable_projection_edges(R);
             nus.push_back(nu);
         }
-
         auto region_for = [&](euf::snode const* a, euf::snode const* b) {
             for (unsigned nu : nus) {
-                if (nu == 0)
-                    continue;
-                if (!projection_state_in_Q(a->get_expr(), nu))
-                    continue;
-                if (b && !projection_state_in_Q(b->get_expr(), nu))
-                    continue;
-                return nu;
+                if (nu != 0 && projection_state_in_Q(a->get_expr(), nu)
+                    && projection_state_in_Q(b->get_expr(), nu))
+                    return nu;
             }
             return 0u;
         };
 
-        // Driven by `tokens` rather than by the solution map: every covered membership
-        // has a non-ground subject whose every token is a free variable, so each token
-        // must carry at least one view or child A would drop a membership without
-        // replacing it (and stop being a strengthening).  Iterating the vector also
-        // keeps the emitted order independent of expression addresses.
-        vector<str_mem> components;
-        for (auto const& [tok, var] : tokens) {
+        // Driven by the recorded tokens rather than by the solution map: every covered
+        // membership has a non-ground subject whose every token is a free variable, so
+        // each token must carry at least one view or child A would drop a membership
+        // without replacing it (and stop being a strengthening).  Iterating the vector
+        // also keeps the emitted order independent of expression addresses.
+        for (auto const& [tok, var] : st->m_tokens) {
             seq::view_vector views;
             if (!solution.find(var, views))
                 return false;
@@ -1027,41 +1013,130 @@ namespace seq {
                 if (!state)
                     return false;
                 if (c.is_membership()) {
-                    components.push_back(str_mem(m, tok, state, dep));
+                    components.push_back(str_mem(m, tok, state, st->m_dep));
                     continue;
                 }
                 euf::snode const* target = mk_rewrite(c.m_target);
-                if (!target)
-                    return false;
-                const unsigned nu = region_for(state, target);
+                const unsigned nu = target ? region_for(state, target) : 0;
                 if (nu == 0)
                     return false;
-                components.push_back(str_mem::mk_view(m, tok, state, target, nu, dep));
+                components.push_back(str_mem::mk_view(m, tok, state, target, nu, st->m_dep));
             }
         }
-
-        // child A — the covered memberships replaced by the branch's components.
-        // Each component implies its membership, so the child is a STRENGTHENING
-        // of the node: sound as one disjunct.
-        nielsen_node* child_a = mk_child(node);
-        mk_edge(node, child_a, "monadic landing", true);
-        auto& child_mems = child_a->str_mems();
-        for (unsigned k = covered.size(); k-- > 0; ) {
-            child_mems[covered[k]] = child_mems.back();
-            child_mems.pop_back();
-        }
-        for (auto const& c : components)
-            child_a->add_str_mem(c);
-
-        // child B — the node unchanged.  It alone covers everything the parent
-        // denotes, so the split is exhaustive and child A costs no completeness.
-        nielsen_node* child_b = mk_child(node);
-        mk_edge(node, child_b, "monadic landing rest", true);
-        child_b->set_monadic_cont();
-
-        TRACE(seq, tout << "monadic landing: " << covered.size() << " membership(s) -> "
-                        << components.size() << " component(s)\n");
         return true;
+    }
+
+    nielsen_graph::mon_step_result nielsen_graph::mon_step(nielsen_node* node, mon_state* st) {
+        auto const& mems = node->str_mems();
+        // The chain is made of exact clones, so the covered memberships must still sit
+        // where they were, as the very same snodes.  By IDENTITY, not str_mem::operator==,
+        // which is slice-insensitive (1.10b): child A drops whatever is AT THESE POSITIONS
+        // and replaces it by components over the recorded tokens, so a merely similar
+        // membership would be dropped without being replaced.
+        dep_tracker dep = nullptr;
+        for (unsigned k = 0; k < st->m_idx.size(); ++k) {
+            if (st->m_idx[k] >= mems.size())
+                return mon_step_result::gaveup;
+            str_mem const& at = mems[st->m_idx[k]];
+            if (at.m_str != st->m_mems[k].m_str || at.m_regex != st->m_mems[k].m_regex ||
+                at.m_kind != st->m_mems[k].m_kind)
+                return mon_step_result::gaveup;
+            dep = m_dep_mgr.mk_join(dep, at.m_dep);
+        }
+        // Deps grow along the chain (a simplification pass can join a source into a
+        // membership without touching its subject or regex), so take them from the node
+        // being extended: the components and a drain conflict must name all of them.
+        st->m_dep = dep;
+
+        obj_map<expr, seq::view_vector> solution;
+        while (st->m_iter.next(solution)) {
+            // An unmappable branch is not a refuted one, so the enumeration stops being
+            // complete and its end may then only fall through (see mon_state::m_lossy).
+            // is_reversed would key the views on the reversed reading of the variable;
+            // the enumerator always reads forwards, so that is a guard, not a live path.
+            vector<str_mem> components;
+            if (solution.empty() || m_monadic->is_reversed()
+                || !mon_map_branch(st, solution, components)) {
+                st->m_lossy = true;
+                continue;
+            }
+
+            // child A -- the covered memberships replaced by this branch's components.
+            // Each component implies its membership, so the child is a STRENGTHENING of
+            // the node: sound as one disjunct.
+            nielsen_node* child_a = mk_child(node);
+            mk_edge(node, child_a, "monadic landing", true);
+            auto& child_mems = child_a->str_mems();
+            for (unsigned k = st->m_idx.size(); k-- > 0; ) {
+                child_mems[st->m_idx[k]] = child_mems.back();
+                child_mems.pop_back();
+            }
+            for (auto const& c : components)
+                child_a->add_str_mem(c);
+
+            // child B -- the node unchanged, carrying the SAME enumerator so the next
+            // branch is taken when it is extended.  It alone covers the parent, so the
+            // split is exhaustive whatever the enumerator does.
+            nielsen_node* child_b = mk_child(node);
+            mk_edge(node, child_b, "monadic landing rest", true);
+            child_b->set_monadic_cont(st);
+
+            ++m_stats.m_monadic_branches;
+            TRACE(seq, tout << "monadic landing: branch " << st->m_iter.count() << ", "
+                            << st->m_mems.size() << " membership(s) -> "
+                            << components.size() << " component(s)\n");
+            return mon_step_result::branched;
+        }
+
+        // Drained: every branch was either handed to a child A above us or refuted by the
+        // engine -- but only if nothing was lost on the way.
+        if (st->m_iter.gave_up() || st->m_lossy)
+            return mon_step_result::gaveup;
+        ++m_stats.m_monadic_drained;
+        return mon_step_result::conflict;
+    }
+
+    bool nielsen_graph::apply_monadic_landing(nielsen_node* node) {
+        if (!m_monadic_landing)
+            return false;
+
+        // Resume the enumerator handed down by the parent's "remaining branches" child.
+        // The pointer migrates to the next child B, exactly as the factorization iterator
+        // does; a fresh state that reports nothing is dropped again right away.
+        mon_state* st = node->monadic_cont();
+        const bool fresh = !st;
+        if (st)
+            node->set_monadic_cont(nullptr);
+        else {
+            // Never START on a node that aliases its parent's string signature: one of our
+            // own spent continuations (a fresh enumerator would restart at branch 1
+            // forever), a factorization continuation (whose live split iterator neither of
+            // our children would inherit), or any exact clone -- all of them are exempt
+            // from the loop cut and the unsat cache, so nothing would stop the resulting
+            // N -> B -> B_B -> ... descent.  The parent has already had its chance on the
+            // identical constraint set.
+            if (node->is_signature_alias())
+                return false;
+            st = mk_mon_state(node);
+            if (!st)
+                return false;
+        }
+
+        switch (mon_step(node, st)) {
+        case mon_step_result::branched:
+            return true;
+        case mon_step_result::conflict:
+            node->set_general_conflict();
+            node->set_conflict(backtrack_reason::regex, st->m_dep);
+            return true;
+        default:
+            if (fresh) {
+                SASSERT(m_mon_states.back() == st);
+                m_mon_states.pop_back();
+                dealloc(st);
+            }
+            return false;
+        }
     }
 
     bool nielsen_graph::apply_regex_if_split(nielsen_node *node) {

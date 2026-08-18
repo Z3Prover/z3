@@ -599,6 +599,12 @@ namespace seq {
             dealloc(st);
         }
         m_rf_states.reset();
+        // suspended monadic branch enumerators: they hold iterators into m_monadic, so
+        // they have to go before it does
+        for (mon_state* st : m_mon_states) {
+            dealloc(st);
+        }
+        m_mon_states.reset();
         // continuation-regex service: release its pinned derivative graph so a
         // fresh problem starts with a clean cache (its pins would grow forever).
         dealloc(m_monadic);
@@ -1121,6 +1127,8 @@ namespace seq {
         st.update("nseq mod regex fact",       m_stats.m_mod_regex_factorization);
         st.update("nseq mod monadic split",    m_stats.m_mod_monadic_split);
         st.update("nseq mod monadic landing",  m_stats.m_mod_monadic_landing);
+        st.update("nseq monadic branches",     m_stats.m_monadic_branches);
+        st.update("nseq monadic drained",      m_stats.m_monadic_drained);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
         st.update("nseq mod block compr",      m_stats.m_mod_block_compression);
         st.update("nseq block chars",          m_stats.m_block_chars_consumed);
@@ -1154,5 +1162,11 @@ namespace seq {
         st.update("nseq split max-split-set",    sp.m_max_split_set);
         st.update("nseq split dedup-drops",      sp.m_dedup_drops);
         st.update("nseq split simplify",         sp.m_simplify);
+
+        // monadic-decomposition counters (bail reasons, states, cofactor calls), from the
+        // shared seq_monadic engine.  Without this the reasons the landing enumerator and
+        // the split backstop give up are invisible.
+        if (m_monadic)
+            m_monadic->collect_statistics(st);
     }
 }
