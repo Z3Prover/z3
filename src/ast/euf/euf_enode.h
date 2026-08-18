@@ -101,7 +101,7 @@ namespace euf {
 
         static enode* mk_tmp(region& r, unsigned num_args) {
             void* mem = r.allocate(get_enode_size(num_args));
-            enode* n = new (mem) enode(num_args);
+            enode* n = new (mem) enode(2);
             n->m_expr = nullptr;
             n->m_next = n;
             n->m_root = n;
@@ -114,7 +114,7 @@ namespace euf {
 
         static enode* mk_tmp(unsigned num_args) {
             void* mem = memory::allocate(get_enode_size(num_args));
-            enode* n = new (mem) enode(num_args);
+            enode* n = new (mem) enode(2);
             n->m_expr = nullptr;
             n->m_next = n;
             n->m_root = n;
