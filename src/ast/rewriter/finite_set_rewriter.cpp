@@ -272,7 +272,8 @@ br_status finite_set_rewriter::mk_filter(expr * p, expr * set, expr_ref & result
     return BR_FAILED;
 }
 
-br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result) {    // set.in(x, empty) -> false
+br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result) {
+    // set.in(x, empty) -> false
     if (u.is_empty(set)) {
         result = m.mk_false();
         return BR_DONE;
