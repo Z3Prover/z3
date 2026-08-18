@@ -366,14 +366,14 @@ public:
         // set.map(f, singleton(5)) -> singleton(f[5])
         app_ref map2(fsets.mk_map(f, singleton_five), m);
         st = rw.mk_app_core(map2->get_decl(), map2->get_num_args(), map2->get_args(), result);
-        ENSURE(st == BR_REWRITE_FULL);
+        ENSURE(st == BR_REWRITE2);
         ENSURE(result == fsets.mk_singleton(autil.mk_select(f, five)));
 
         // set.map(f, union(s, t)) -> union(map(f, s), map(f, t))
         app_ref union_set(fsets.mk_union(singleton_five, singleton_ten), m);
         app_ref map3(fsets.mk_map(f, union_set), m);
         st = rw.mk_app_core(map3->get_decl(), map3->get_num_args(), map3->get_args(), result);
-        ENSURE(st == BR_REWRITE_FULL);
+        ENSURE(st == BR_REWRITE2);
         ENSURE(fsets.is_union(result));
 
         // set.filter(p, empty) -> empty
@@ -385,14 +385,38 @@ public:
         // set.filter(p, singleton(5)) -> ite(p[5], singleton(5), empty)
         app_ref filter2(fsets.mk_filter(p, singleton_five), m);
         st = rw.mk_app_core(filter2->get_decl(), filter2->get_num_args(), filter2->get_args(), result);
-        ENSURE(st == BR_REWRITE_FULL);
+        ENSURE(st == BR_REWRITE2);
         ENSURE(m.is_ite(result));
 
         // set.filter(p, union(s, t)) -> union(filter(p, s), filter(p, t))
         app_ref filter3(fsets.mk_filter(p, union_set), m);
         st = rw.mk_app_core(filter3->get_decl(), filter3->get_num_args(), filter3->get_args(), result);
-        ENSURE(st == BR_REWRITE_FULL);
+        ENSURE(st == BR_REWRITE2);
         ENSURE(fsets.is_union(result));
+
+        expr_ref sym_set(m.mk_const(symbol("s"), set_sort), m);
+        expr_ref sym_set2(m.mk_const(symbol("t"), set_sort), m);
+
+        // set.filter(p, intersect(s, t)) -> intersect(filter(p, s), filter(p, t))
+        app_ref filter4(fsets.mk_filter(p, fsets.mk_intersect(sym_set, sym_set2)), m);
+        st = rw.mk_app_core(filter4->get_decl(), filter4->get_num_args(), filter4->get_args(), result);
+        ENSURE(st == BR_REWRITE2);
+        ENSURE(result == fsets.mk_intersect(fsets.mk_filter(p, sym_set), fsets.mk_filter(p, sym_set2)));
+
+        // set.filter(p, difference(s, t)) -> difference(filter(p, s), filter(p, t))
+        app_ref filter5(fsets.mk_filter(p, fsets.mk_difference(sym_set, sym_set2)), m);
+        st = rw.mk_app_core(filter5->get_decl(), filter5->get_num_args(), filter5->get_args(), result);
+        ENSURE(st == BR_REWRITE2);
+        ENSURE(result == fsets.mk_difference(fsets.mk_filter(p, sym_set), fsets.mk_filter(p, sym_set2)));
+
+        // set.map does not distribute over intersect or difference
+        app_ref map4(fsets.mk_map(f, fsets.mk_intersect(singleton_five, sym_set)), m);
+        st = rw.mk_app_core(map4->get_decl(), map4->get_num_args(), map4->get_args(), result);
+        ENSURE(st == BR_FAILED);
+
+        app_ref map5(fsets.mk_map(f, fsets.mk_difference(singleton_five, sym_set)), m);
+        st = rw.mk_app_core(map5->get_decl(), map5->get_num_args(), map5->get_args(), result);
+        ENSURE(st == BR_FAILED);
     }
 };
 

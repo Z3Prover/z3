@@ -230,6 +230,13 @@ br_status finite_set_rewriter::mk_size(expr * arg, expr_ref & result) {
 // set.map(f, set.empty) -> set.empty
 // set.map(f, set.singleton(x)) -> set.singleton(f(x))
 // set.map(f, set.union(s, t)) -> set.union(set.map(f, s), set.map(f, t))
+// NB. set.map does not distribute over set.intersect or set.difference:
+// f is not required to be injective, so set.map(f, s) can contain elements
+// whose pre-images are all outside of s. For example with f = (lambda (x) 0),
+// s = {1}, t = {2}: set.map(f, set.intersect(s, t)) is empty while
+// set.intersect(set.map(f, s), set.map(f, t)) is {0}, and
+// set.map(f, set.difference(s, t)) is {0} while
+// set.difference(set.map(f, s), set.map(f, t)) is empty.
 br_status finite_set_rewriter::mk_map(expr * f, expr * set, expr_ref & result) {
     if (u.is_empty(set)) {
         sort *set_sort = u.mk_finite_set_sort(get_array_range(f->get_sort()));
@@ -240,12 +247,12 @@ br_status finite_set_rewriter::mk_map(expr * f, expr * set, expr_ref & result) {
     if (u.is_singleton(set, x)) {
         array_util autil(m);
         result = u.mk_singleton(autil.mk_select(f, x));
-        return BR_REWRITE_FULL;
+        return BR_REWRITE2;
     }
     expr *s = nullptr, *t = nullptr;
     if (u.is_union(set, s, t)) {
         result = u.mk_union(u.mk_map(f, s), u.mk_map(f, t));
-        return BR_REWRITE_FULL;
+        return BR_REWRITE2;
     }
     return BR_FAILED;
 }
@@ -253,6 +260,8 @@ br_status finite_set_rewriter::mk_map(expr * f, expr * set, expr_ref & result) {
 // set.filter(p, set.empty) -> set.empty
 // set.filter(p, set.singleton(x)) -> ite(p(x), set.singleton(x), set.empty)
 // set.filter(p, set.union(s, t)) -> set.union(set.filter(p, s), set.filter(p, t))
+// set.filter(p, set.intersect(s, t)) -> set.intersect(set.filter(p, s), set.filter(p, t))
+// set.filter(p, set.difference(s, t)) -> set.difference(set.filter(p, s), set.filter(p, t))
 br_status finite_set_rewriter::mk_filter(expr * p, expr * set, expr_ref & result) {
     if (u.is_empty(set)) {
         result = set;
@@ -262,12 +271,22 @@ br_status finite_set_rewriter::mk_filter(expr * p, expr * set, expr_ref & result
     if (u.is_singleton(set, x)) {
         array_util autil(m);
         result = m.mk_ite(autil.mk_select(p, x), set, u.mk_empty(set->get_sort()));
-        return BR_REWRITE_FULL;
+        return BR_REWRITE2;
     }
     expr *s = nullptr, *t = nullptr;
     if (u.is_union(set, s, t)) {
         result = u.mk_union(u.mk_filter(p, s), u.mk_filter(p, t));
-        return BR_REWRITE_FULL;
+        return BR_REWRITE2;
+    }
+    // set.filter is a pointwise restriction, so it distributes over
+    // set.intersect and set.difference.
+    if (u.is_intersect(set, s, t)) {
+        result = u.mk_intersect(u.mk_filter(p, s), u.mk_filter(p, t));
+        return BR_REWRITE2;
+    }
+    if (u.is_difference(set, s, t)) {
+        result = u.mk_difference(u.mk_filter(p, s), u.mk_filter(p, t));
+        return BR_REWRITE2;
     }
     return BR_FAILED;
 }

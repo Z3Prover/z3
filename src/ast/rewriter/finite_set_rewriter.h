@@ -21,6 +21,8 @@ Sample rewrite rules:
     set.map(f, set.union(s, t)) -> set.union(set.map(f, s), set.map(f, t))
     set.filter(p, set.singleton(x)) -> ite(p(x), set.singleton(x), set.empty)
     set.filter(p, set.union(s, t)) -> set.union(set.filter(p, s), set.filter(p, t))
+    set.filter(p, set.intersect(s, t)) -> set.intersect(set.filter(p, s), set.filter(p, t))
+    set.filter(p, set.difference(s, t)) -> set.difference(set.filter(p, s), set.filter(p, t))
 
 
 Generally this module implements basic algebraic simplification rules for finite sets
