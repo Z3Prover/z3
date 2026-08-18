@@ -156,6 +156,20 @@ class seq_monadic_test {
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
     }
 
+    // decide two memberships on the same term jointly.
+    void check_split(char const* name, expr* term, expr* r0, expr* r1, lbool expected) {
+        m_trail.push_scope();
+        m_mon.add(term, r0, nullptr);
+        m_mon.add(term, r1, nullptr);
+        m_mon.set_gen_solution(true);                // the refinement loop reads the solution
+        lbool got = m_mon.check();
+        m_trail.pop_scope(1);
+        bool ok = (got == expected);
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  got=" << s(got) << " expected=" << s(expected) << "\n";
+    }
+
     // flatten a ground sequence term into its element values.
     void flatten_seq(expr* seqv, ptr_vector<expr>& elems) {
         zstring zs;
@@ -793,6 +807,38 @@ public:
             ms.push_back(std::make_pair((expr*)x.get(), (expr*)bStarX.get()));    // 1: x in b*
             ms.push_back(std::make_pair((expr*)x.get(), (expr*)aP.get()));        // 2: x in a+
             check_core("z in a* (& x in b* & x in a+)", ms, std::set<unsigned>{1, 2});
+        }
+
+        // ---- decomposing intersections -------------------------------------------------
+        // A membership whose regex intersects a counting constraint with camouflage that
+        // the counting constraint alone already refutes.  Under a budget too small for the
+        // whole product the undivided search gives up, and only the decomposition -- which
+        // decides a relaxation keeping just the counting conjuncts -- reaches the
+        // contradiction.  A relaxation is a weaker problem, so its unsat verdict is the
+        // original's; the test therefore also pins down that the decomposition is sound.
+        std::cout << "=== seq_monadic: intersection decomposition ===\n";
+        {
+            // camouflage: forbid a handful of infixes.  Satisfied by every word the
+            // counting conjuncts allow, so it contributes nothing but product states.
+            expr_ref camo(dotstar(), m);
+            char const* infixes[] = { "bab", "bba", "abb", "bbb", "aab", "aba", "bab", "abab" };
+            for (char const* w : infixes)
+                camo = inter(camo, comp(cat(dotstar(), cat(word(w), dotstar()))));
+            expr_ref sig3(loop(dot(), 3, 3), m);
+            expr_ref mod3(star(sig3), m);                   // lengths divisible by 3
+            expr_ref mod3_1(cat(dot(), mod3), m);           // lengths 1 modulo 3
+            vector<std::pair<expr*, expr*>> ms;
+            expr_ref r0(inter(mod3, camo), m), r1(inter(mod3_1, camo), m);
+
+            unsigned const saved_budget = m_mon.budget();
+            m_mon.set_budget(8000);                         // too little for the product
+            check_split("x.y.x in Sigma^3*&camo & in Sigma.Sigma^3*&camo, split off",
+                        t_xyx, r0, r1, l_undef);
+            m_mon.set_split_rounds(8);
+            check_split("x.y.x in Sigma^3*&camo & in Sigma.Sigma^3*&camo, split on",
+                        t_xyx, r0, r1, l_false);
+            m_mon.set_split_rounds(0);
+            m_mon.set_budget(saved_budget);
         }
 
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("

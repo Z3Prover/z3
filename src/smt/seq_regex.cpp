@@ -56,6 +56,7 @@ namespace smt {
         m_monadic.set_is_var([&th](expr *e) { return th.is_var(e); });
         m_monadic.set_budget(ctx.get_fparams().m_seq_regex_budget);
         m_monadic.set_orientation(monadic_orientation(ctx.get_fparams().m_seq_regex_orientation));
+        m_monadic.set_split_rounds(ctx.get_fparams().m_seq_regex_split);
     }
 
     seq_util& seq_regex::u() { return th.m_util; }
