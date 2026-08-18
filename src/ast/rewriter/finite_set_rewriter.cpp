@@ -17,6 +17,7 @@ Author:
 
 #include "ast/rewriter/finite_set_rewriter.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
 
 br_status finite_set_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -41,6 +42,12 @@ br_status finite_set_rewriter::mk_app_core(func_decl * f, unsigned num_args, exp
         return mk_in(args[0], args[1], result);
     case OP_FINITE_SET_SIZE:
         return mk_size(args[0], result);
+    case OP_FINITE_SET_MAP:
+        SASSERT(num_args == 2);
+        return mk_map(args[0], args[1], result);
+    case OP_FINITE_SET_FILTER:
+        SASSERT(num_args == 2);
+        return mk_filter(args[0], args[1], result);
     default:
         return BR_FAILED;
     }
@@ -220,8 +227,52 @@ br_status finite_set_rewriter::mk_size(expr * arg, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result) {
-    // set.in(x, empty) -> false
+// set.map(f, set.empty) -> set.empty
+// set.map(f, set.singleton(x)) -> set.singleton(f(x))
+// set.map(f, set.union(s, t)) -> set.union(set.map(f, s), set.map(f, t))
+br_status finite_set_rewriter::mk_map(expr * f, expr * set, expr_ref & result) {
+    if (u.is_empty(set)) {
+        sort *set_sort = u.mk_finite_set_sort(get_array_range(f->get_sort()));
+        result = u.mk_empty(set_sort);
+        return BR_DONE;
+    }
+    expr *x = nullptr;
+    if (u.is_singleton(set, x)) {
+        array_util autil(m);
+        result = u.mk_singleton(autil.mk_select(f, x));
+        return BR_REWRITE_FULL;
+    }
+    expr *s = nullptr, *t = nullptr;
+    if (u.is_union(set, s, t)) {
+        result = u.mk_union(u.mk_map(f, s), u.mk_map(f, t));
+        return BR_REWRITE_FULL;
+    }
+    return BR_FAILED;
+}
+
+// set.filter(p, set.empty) -> set.empty
+// set.filter(p, set.singleton(x)) -> ite(p(x), set.singleton(x), set.empty)
+// set.filter(p, set.union(s, t)) -> set.union(set.filter(p, s), set.filter(p, t))
+br_status finite_set_rewriter::mk_filter(expr * p, expr * set, expr_ref & result) {
+    if (u.is_empty(set)) {
+        result = set;
+        return BR_DONE;
+    }
+    expr *x = nullptr;
+    if (u.is_singleton(set, x)) {
+        array_util autil(m);
+        result = m.mk_ite(autil.mk_select(p, x), set, u.mk_empty(set->get_sort()));
+        return BR_REWRITE_FULL;
+    }
+    expr *s = nullptr, *t = nullptr;
+    if (u.is_union(set, s, t)) {
+        result = u.mk_union(u.mk_filter(p, s), u.mk_filter(p, t));
+        return BR_REWRITE_FULL;
+    }
+    return BR_FAILED;
+}
+
+br_status finite_set_rewriter::mk_in(expr * elem, expr * set, expr_ref & result) {    // set.in(x, empty) -> false
     if (u.is_empty(set)) {
         result = m.mk_false();
         return BR_DONE;

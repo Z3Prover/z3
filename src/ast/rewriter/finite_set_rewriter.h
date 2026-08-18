@@ -53,6 +53,8 @@ class finite_set_rewriter {
     br_status mk_singleton(expr *arg1, expr_ref &result);
     br_status mk_in(expr *arg1, expr *arg2, expr_ref &result);
     br_status mk_size(expr *arg, expr_ref &result);
+    br_status mk_map(expr *arg1, expr *arg2, expr_ref &result);
+    br_status mk_filter(expr *arg1, expr *arg2, expr_ref &result);
 
 public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):
