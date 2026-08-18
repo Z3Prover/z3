@@ -240,22 +240,19 @@ bool seq_monadic::out_of_budget() {
     return false;
 }
 
-// TODO - get rid of m_seq_sort. Pass the appropriate sort in function call.
-lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* witness_word) {
+lbool seq_monadic::product_nonempty(expr* var, seq::view_vector const& comps, expr_ref* witness_word) {
+    sort *elem_sort = nullptr;
+    auto seq_sort = var->get_sort();
+    if (!u().is_seq(seq_sort, elem_sort))
+        return l_undef;
     unsigned n = comps.size();
     if (n == 0) {
         if (witness_word)
-            *witness_word = expr_ref(u().str.mk_empty(m_seq_sort), m);
+            *witness_word = expr_ref(u().str.mk_empty(seq_sort), m);
         return l_true;
     }
-    // sorts of the value being decided: they are read off the views rather than taken
-    // from the problem-wide m_seq_sort/m_elem_sort
-    sort* seq_sort = nullptr;
-    sort* elem_sort = nullptr;
-    if (!u().is_re(comps[0].m_state, seq_sort) || !u().is_seq(seq_sort, elem_sort))
-        return l_undef;
-    expr_ref var0(m.mk_var(0, elem_sort), m);     // the element variable the guards range over
 
+    expr_ref var0(m.mk_var(0, elem_sort), m);     // the element variable the guards range over
     typedef std::vector<unsigned> key;
     struct key_hash {
         size_t operator()(key const& k) const {
@@ -563,7 +560,6 @@ unsigned seq_monadic::var_index(expr* v) {
 }
 
 void seq_monadic::reset_search() {
-    m_seq_sort = nullptr;
     m_atoms.reset();
     m_regexes.reset();
     m_vars.reset();
@@ -633,13 +629,6 @@ bool seq_monadic::prepare(membership_vec const& memberships, bool reversed) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
         }
-        // The memberships are decided jointly over one guard algebra, so they all have to
-        // speak about the same sequence sort.
-        if (m_seq_sort && m_seq_sort != seq_sort) {
-            m_stats.inc_bail(bail_reason::unsupported);
-            return false;
-        }
-        m_seq_sort = seq_sort;
         // Derivative processing assumes the regex denotes a fixed language.
         if (!re().is_ground(regex)) {
             m_stats.inc_bail(bail_reason::unsupported);
@@ -707,7 +696,7 @@ lbool seq_monadic::group_nonempty(unsigned vi) {
         comps = g;                            // signature already deduplicated
     else
         dedup_views(g, comps);
-    lbool r = product_nonempty(comps, nullptr);
+    lbool r = product_nonempty(m_vars[vi], comps, nullptr);
     m_group_cache.emplace(sig, r);            // sig is m_sig_buf; emplace copies it
     return r;
 }
@@ -774,7 +763,7 @@ lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word) {
     seq::view_vector comps;
     dedup_views(views, comps);
     expr_ref w(m);
-    lbool r = product_nonempty(comps, &w);
+    lbool r = product_nonempty(var, comps, &w);
     if (r == l_true) {
         if (m_reversed && !m_rw.mk_seq_reverse(w, w))  // the search solved rev(term) in rev(R),
             return l_undef;                            // so rev(x)'s witness is x's value backwards
@@ -1391,10 +1380,6 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         << "  :budget " << m_budget << "\n"
         << "  :giveup " << (m_giveup ? "true" : "false") << "\n"
         << "  :sequence-sort ";
-    if (m_seq_sort)
-        out << mk_pp(m_seq_sort, m);
-    else
-        out << "null";
 
     out << "\n  :memberships (";
     for (unsigned i = 0; i < m_memberships.size(); ++i) {

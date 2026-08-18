@@ -135,8 +135,6 @@ private:
     th_rewriter     m_thrw;                  // normalizes constant-element derivatives (folds
                                              // ground guards so dead states become re.empty)
     trail_stack&    m_undo_trail;
-    sort*           m_seq_sort = nullptr;   // sequence sort shared by all memberships of the
-                                            // problem under analysis (prepare rejects a mixture)
     expr_ref_vector m_pin;                  // pins derivative states / witnesses referenced later
     unsigned        m_budget = 0;           // global work budget (search nodes + product pops)
     bool            m_giveup = false;       // set when the budget is exhausted
@@ -247,7 +245,7 @@ private:
     // On l_true, if `witness_word` is non-null it is set to a concrete sequence term
     // (over the element sort) whose value drives every view to acceptance
     // simultaneously -- i.e. a witness value for the variable the views constrain.
-    lbool product_nonempty(seq::view_vector const& comps, expr_ref* witness_word = nullptr);
+    lbool product_nonempty(expr* var, seq::view_vector const& comps, expr_ref* witness_word = nullptr);
 
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
     bool parse_term(expr* term, vector<atom>& atoms);
@@ -288,7 +286,7 @@ private:
     lbool replay_bail();
 
     // Parse every membership into atoms, register its variables and record each
-    // variable's last occurrence.  Sets m_seq_sort/m_elem_sort.  False on an
+    // variable's last occurrence.  False on an
     // unsupported shape, and on memberships over different sequence sorts.
     bool prepare(membership_vec const& memberships, bool reversed);
 
