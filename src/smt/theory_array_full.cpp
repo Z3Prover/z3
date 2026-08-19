@@ -51,9 +51,9 @@ namespace smt {
         //
         // TODO: defaulting to exhaustive up-propagation.
         //       instead apply stratified filter.
-        set_prop_upward(v,d);
+        set_prop_upward(v, d);
         d_full->m_maps.push_back(s);
-        m_trail_stack.push(push_back_trail<enode *, false>(d_full->m_maps));
+        m_trail_stack.push(push_back_trail<enode*, false>(d_full->m_maps));
         for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
             enode* n = d->m_parent_selects[i];
             SASSERT(is_select(n));
@@ -64,15 +64,15 @@ namespace smt {
 
     bool theory_array_full::instantiate_axiom_map_for(theory_var v) {
         bool result = false;
-        var_data * d = m_var_data[v];
-        var_data_full * d_full = m_var_data_full[v];
+        var_data* d = m_var_data[v];
+        var_data_full* d_full = m_var_data_full[v];
         for (unsigned i = 0; i < d_full->m_parent_maps.size(); ++i) {
             enode* pm = d_full->m_parent_maps[i];
             for (unsigned j = 0; j < d->m_parent_selects.size(); ++j) {
                 enode* ps = d->m_parent_selects[j];
-                if (instantiate_select_map_axiom(ps, pm)) 
-                    result = true;                  
-            }  
+                if (instantiate_select_map_axiom(ps, pm))
+                    result = true;
+            }
         }
         return result;
     }
@@ -83,17 +83,17 @@ namespace smt {
         }
         SASSERT(v != null_theory_var);
         SASSERT(is_map(s));
-        v                = find(v);
-        var_data * d     = m_var_data[v];
-        var_data_full * d_full     = m_var_data_full[v];
+        v = find(v);
+        var_data* d = m_var_data[v];
+        var_data_full* d_full = m_var_data_full[v];
         d_full->m_parent_maps.push_back(s);
-        m_trail_stack.push(push_back_trail<enode *, false>(d_full->m_parent_maps));
+        m_trail_stack.push(push_back_trail<enode*, false>(d_full->m_parent_maps));
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
-                enode * n = d->m_parent_selects[i];
+                enode* n = d->m_parent_selects[i];
                 if (!m_params.m_array_cg || n->is_cgr()) {
                     instantiate_select_map_axiom(n, s);
-                }                
+                }
             }
         }
     }
@@ -103,7 +103,7 @@ namespace smt {
     // 
     void theory_array_full::set_prop_upward(theory_var v) {
         v = find(v);
-        var_data * d = m_var_data[v];
+        var_data* d = m_var_data[v];
         if (!d->m_prop_upward) {
             if (m_params.m_array_weak) {
                 add_weak_var(v);
@@ -116,17 +116,72 @@ namespace smt {
                 instantiate_axiom2b_for(v);
                 instantiate_axiom_map_for(v);
             }
-            var_data_full * d2 = m_var_data_full[v];
-            for (enode * n : d->m_stores) {
+            var_data_full* d2 = m_var_data_full[v];
+            for (enode* n : d->m_stores) {
                 set_prop_upward(n);
             }
-            for (enode * n : d2->m_maps) {
+            for (enode* n : d2->m_maps) {
                 set_prop_upward(n);
             }
-            for (enode * n : d2->m_consts) {
+            for (enode* n : d2->m_consts) {
                 set_prop_upward(n);
             }
-        }        
+        }
+    }
+
+    bool theory_array_full::check_const_arrays() {
+
+        return true;
+        // disabled until worked out
+        ptr_vector<enode> const_arrays;
+        for (unsigned v = 0; v < m_var_data.size(); ++v) {
+            auto* d = m_var_data_full[v];
+            const_arrays.append(d->m_consts);
+        }
+        if (const_arrays.empty())
+            return true;
+
+        collect_defaults();
+        collect_selects();
+        propagate_selects();
+        //
+        // default(K v) = v
+        // (K v)[i] = v
+        // (K w)[j] = w
+        // 
+        // (K v)(diag i1 ... ik) = v
+        //
+        verbose_stream() << "check_const_arrays: #const_arrays: " << const_arrays.size() << "\n";
+        for (auto n : const_arrays) {
+            auto r = n->get_root();
+            if (r->is_marked())
+                continue;
+            r->set_mark();
+            sort *range = get_array_range(r->get_sort());
+            auto sz = range->get_num_elements();            
+            auto sels = m_selects.find(r);
+            auto num_sels = sels ? sels->size() : 0;
+            if (!sz.is_finite())
+                continue;
+            if (num_sels > sz.size())               
+                continue;
+
+            // 
+            // create skolem k, such that 
+            // k not in indices of selects 
+            // and (select (const v) k) = v
+            //
+
+            verbose_stream() << "check_const_arrays: #sels: " << num_sels << " ~ #range: " << sz << "\n";
+            verbose_stream() << "check_const_arrays: const_array: " << mk_ismt2_pp(r->get_expr(), m) << "\n";
+            verbose_stream() << "check_const_arrays: #selects: " << sels->size() << "\n";
+        }
+        for (auto n : const_arrays) {
+            auto r = n->get_root();
+            if (r->is_marked()) 
+                r->unset_mark();            
+        }
+        return true;
     }
 
     //
@@ -837,6 +892,8 @@ namespace smt {
                 }
             }
         }
+        if (r == FC_DONE && !check_const_arrays())
+            r = FC_CONTINUE;
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail() || has_non_beta_as_array();
         if (r == FC_DONE && should_giveup)
             r = FC_GIVEUP;

@@ -105,6 +105,8 @@ namespace smt {
         bool try_assign_eq(expr* n1, expr* n2);
         void assign_eqs();
 
+        bool check_const_arrays();
+
         
     public:
         theory_array_full(context& ctx);
