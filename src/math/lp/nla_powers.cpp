@@ -138,10 +138,17 @@ namespace nla {
         bool use_rational = !c.use_nra_model();
         rational xval, yval, rval;
         if (use_rational) {
+            // the lemmas below are checked against the values used by core::val,
+            // which ignores the infinitesimal parts, so bail out when the model
+            // assigns an infinitesimal to one of x, y, r.
+            if (!c.lra.get_column_value(x).y.is_zero() ||
+                !c.lra.get_column_value(y).y.is_zero() ||
+                !c.lra.get_column_value(r).y.is_zero())
+                return l_undef;
 
-            xval = c.lra.get_value(x);
-            yval = c.lra.get_value(y);
-            rval = c.lra.get_value(r);
+            xval = c.val(x);
+            yval = c.val(y);
+            rval = c.val(r);
         } 
         else {
             auto& am = c.m_nra.am();
