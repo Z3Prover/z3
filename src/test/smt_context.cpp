@@ -9,6 +9,9 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/arith_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
+#include "tactic/goal.h"
+#include "tactic/tactic.h"
+#include "tactic/smtlogics/quant_tactics.h"
 #include <sstream>
 
 void tst_smt_context()
@@ -82,5 +85,36 @@ void tst_smt_context()
         for (expr* a : cmd.assertions())
             qctx.assert_expr(a);
         VERIFY(l_false == qctx.check());
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort Element)\n"
+            "(declare-sort Index)\n"
+            "(declare-fun e6 () Element)\n"
+            "(declare-fun i6 () Index)\n"
+            "(declare-fun i2 () Index)\n"
+            "(declare-fun i4 () Index)\n"
+            "(declare-fun e9 () Element)\n"
+            "(declare-fun i8 () Index)\n"
+            "(declare-fun i10 () Index)\n"
+            "(declare-fun a1 () (Array Index Element))\n"
+            "(assert (exists ((i3 Index)) (and (= i3 i8) (= i6 i10) "
+            "(not (= (store (store (store a1 i4 e9) i2 e6) i10 e6) "
+            "(store (store (store a1 i6 e9) i8 e6) i10 e9))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("rewriter.expand_nested_stores", true);
+        tactic_ref t = mk_lira_tactic(m, p);
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_true == check_sat(*t, g, md, labels, pr, core, reason_unknown));
     }
 }

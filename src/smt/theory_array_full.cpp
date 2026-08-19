@@ -855,7 +855,7 @@ namespace smt {
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
-                if (ctx.is_relevant(p) && !is_default(p) && !is_select(p) && !ctx.is_beta_redex(p, n) && !is_congruent_eq(p)) {
+                if (ctx.is_relevant(p) && !is_default(p) && !is_select(p) && !is_array_ext(p->get_expr()) && !ctx.is_beta_redex(p, n) && !is_congruent_eq(p)) {
                     TRACE(array, tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
@@ -863,18 +863,16 @@ namespace smt {
     }
 
     /**
-       \brief A relevant equality between two array terms whose roots coincide is
-       handled by the congruence axiom asserted on merge (see merge_eh /
-       assert_congruent). Such an equality parent does not make a lambda an
-       unsupported (non beta-redex) occurrence, so it should not trigger a
-       final-check give-up.
+       \brief Relevant array equalities are supported by the array solver:
+       disequalities trigger extensionality and equalities trigger congruence
+       closure plus asserted congruence. Such parents do not make lambda
+       occurrences unsupported.
     */
     bool theory_array_full::is_congruent_eq(enode* p) {
         expr* a = nullptr, * b = nullptr;
         if (!m.is_eq(p->get_expr(), a, b))
             return false;
-        return is_array_sort(p->get_arg(0)) &&
-               p->get_arg(0)->get_root() == p->get_arg(1)->get_root();
+        return is_array_sort(p->get_arg(0));
     }
 
 
