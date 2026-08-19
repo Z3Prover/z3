@@ -151,7 +151,13 @@ namespace smt {
     literal theory::mk_literal(expr* _e) {
         expr_ref e(_e, m);
         bool is_not = m.is_not(_e, _e);
-        if (!ctx.e_internalized(_e)) {
+        if (is_quantifier(_e)) {
+            // quantifiers are never associated with enodes. Internalize them
+            // directly as boolean atoms instead of introducing a proxy constant.
+            if (!ctx.b_internalized(_e))
+                ctx.internalize(_e, true);
+        }
+        else if (!ctx.e_internalized(_e)) {
             auto n = ctx.non_ground_internalize(_e);
             _e = n->get_expr();            
         }

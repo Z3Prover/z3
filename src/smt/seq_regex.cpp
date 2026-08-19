@@ -1362,9 +1362,7 @@ namespace smt {
             lits.push_back(~lit);
             if (!m.is_true(cond)) {
                 expr_ref ncond(mk_not(m, cond), m);
-                expr_ref facond = mk_forall(m, hd, ncond);
-                ctx.internalize(facond, true); // make sure fa is internalized, and assumed in positive polarity only.
-                lits.push_back(th.mk_literal(facond));
+                lits.push_back(th.mk_literal(mk_forall(m, hd, ncond)));
             }
             expr_ref is_empty1 = sk().mk_is_empty(r, re().mk_union(u, r), n);    
             lits.push_back(th.mk_literal(is_empty1)); 
