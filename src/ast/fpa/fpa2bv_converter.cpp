@@ -4122,21 +4122,41 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(m_bv_util.get_bv_size(sigma) == ebits+2);
     unsigned sigma_size = ebits + 2;
 
-    expr_ref sigma_neg(m), sigma_cap(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
-        rs_sig(m), ls_sig(m), big_sh_sig(m), sigma_le_cap(m);
+    expr_ref sigma_neg(m), sigma_neg_capped(m), sigma_lt_zero(m), sig_ext(m),
+        rs_sig(m), ls_sig(m), big_sh_sig(m);
     sigma_neg = m_bv_util.mk_bv_neg(sigma);
-    sigma_cap = m_bv_util.mk_numeral(sbits+2, sigma_size);
-    sigma_le_cap = m_bv_util.mk_ule(sigma_neg, sigma_cap);
-    m_simp.mk_ite(sigma_le_cap, sigma_neg, sigma_cap, sigma_neg_capped);
+    if (log2(sbits + 2) < sigma_size) {
+        expr_ref sigma_cap(m), sigma_le_cap(m);
+        sigma_cap = m_bv_util.mk_numeral(sbits + 2, sigma_size);
+        sigma_le_cap = m_bv_util.mk_ule(sigma_neg, sigma_cap);
+        m_simp.mk_ite(sigma_le_cap, sigma_neg, sigma_cap, sigma_neg_capped);
+        dbg_decouple("fpa2bv_rnd_sigma_cap", sigma_cap);
+    }
+    else {
+        // An unrepresentable cap is at least 2^sigma_size, while negating a
+        // negative sigma yields at most 2^(sigma_size-1), so the cap cannot bind.
+        sigma_neg_capped = sigma_neg;
+    }
     dbg_decouple("fpa2bv_rnd_sigma_neg", sigma_neg);
-    dbg_decouple("fpa2bv_rnd_sigma_cap", sigma_cap);
     dbg_decouple("fpa2bv_rnd_sigma_neg_capped", sigma_neg_capped);
     sigma_lt_zero = m_bv_util.mk_sle(sigma, m_bv_util.mk_numeral(rational(-1), sigma_size));
     dbg_decouple("fpa2bv_rnd_sigma_lt_zero", sigma_lt_zero);
 
     sig_ext = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, sig_size));
-    rs_sig = m_bv_util.mk_bv_lshr(sig_ext, m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma_neg_capped));
-    ls_sig = m_bv_util.mk_bv_shl(sig_ext, m_bv_util.mk_zero_extend(2*sig_size - sigma_size, sigma));
+    unsigned shift_width = 2 * sig_size;
+    expr_ref rs_shift(m), ls_shift(m);
+    if (sigma_size <= shift_width) {
+        rs_shift = m_bv_util.mk_zero_extend(shift_width - sigma_size, sigma_neg_capped);
+        ls_shift = m_bv_util.mk_zero_extend(shift_width - sigma_size, sigma);
+    }
+    else {
+        // The right count is capped at sbits+2, and a nonnegative sigma is at
+        // most sig's leading-zero count. Both are below shift_width.
+        rs_shift = m_bv_util.mk_extract(shift_width - 1, 0, sigma_neg_capped);
+        ls_shift = m_bv_util.mk_extract(shift_width - 1, 0, sigma);
+    }
+    rs_sig = m_bv_util.mk_bv_lshr(sig_ext, rs_shift);
+    ls_sig = m_bv_util.mk_bv_shl(sig_ext, ls_shift);
     m_simp.mk_ite(sigma_lt_zero, rs_sig, ls_sig, big_sh_sig);
     SASSERT(m_bv_util.get_bv_size(big_sh_sig) == 2*sig_size);
 
