@@ -855,7 +855,7 @@ namespace smt {
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
-                if (ctx.is_relevant(p) && !is_default(p) && !is_select(p) && !is_array_ext(p->get_expr()) && !ctx.is_beta_redex(p, n) && !is_congruent_eq(p)) {
+                if (ctx.is_relevant(p) && !is_default(p) && !is_select(p) && !is_array_ext(p->get_expr()) && !ctx.is_beta_redex(p, n) && !is_supported_array_eq(p)) {
                     TRACE(array, tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }
@@ -863,16 +863,17 @@ namespace smt {
     }
 
     /**
-       \brief Relevant array equalities are supported by the array solver:
-       disequalities trigger extensionality and equalities trigger congruence
-       closure plus asserted congruence. Such parents do not make lambda
-       occurrences unsupported.
+       \brief Relevant array equalities are supported when they are already
+       decided as equal by congruence closure, or decided as disequal (which
+       triggers extensionality). Such parents do not make lambda occurrences
+       unsupported.
     */
-    bool theory_array_full::is_congruent_eq(enode* p) {
-        expr* a = nullptr, * b = nullptr;
-        if (!m.is_eq(p->get_expr(), a, b))
+    bool theory_array_full::is_supported_array_eq(enode* p) {
+        if (!m.is_eq(p->get_expr()))
             return false;
-        return is_array_sort(p->get_arg(0));
+        if (!is_array_sort(p->get_arg(0)))
+            return false;
+        return p->get_arg(0)->get_root() == p->get_arg(1)->get_root() || ctx.is_diseq(p->get_arg(0), p->get_arg(1));
     }
 
 
