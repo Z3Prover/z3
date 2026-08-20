@@ -39,6 +39,8 @@ namespace seq {
     }
 
     lbool regex_witness::search(expr* r, expr_ref* witness) {
+        m_pin.reset();
+        m_rp_cache.maybe_reset(1u << 16);
         sort* seq_sort = nullptr;
         if (!u().is_re(r, seq_sort))
             return l_undef;
