@@ -31,5 +31,7 @@ def_module_params('sls',
                         ('bv_use_top_level_assertions', BOOL, True, 'use top-level assertions for BV lookahead solver'),
                         ('bv_use_lookahead', BOOL, True, 'use lookahead solver for BV'),
                         ('bv_allow_rotation', BOOL, True, 'allow model rotation when repairing literal assignment'),
+                        ('fp.mode', SYMBOL, 'auto', 'floating-point lookahead mode: auto, cpu, or gpu'),
+                        ('fp.use_callback', BOOL, True, 'allow registered external callback to override local FP lookahead candidate choice'),
                         ('str_update_strategy', UINT, 2, 'string update candidate selection: 0 - single character based update, 1 - subsequence based update, 2 - combined')
               ))
