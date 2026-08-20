@@ -946,7 +946,7 @@ lbool core::check(unsigned level) {
             ++m_check_assignment_fail_cnt;
     }
 
-    if (no_effect() && should_run_bounded_nlsat()) 
+    if (no_effect() && should_run_bounded_nlsat())
         ret = bounded_nlsat();
                 
     if (no_effect()) 
@@ -974,7 +974,7 @@ lbool core::check(unsigned level) {
         check_weighted(3, checks);
 
         unsigned num_calls = lp_settings().stats().m_nla_calls;
-        if (!conflict_found() && params().arith_nl_nra() && num_calls % 50 == 0 && num_calls > 500) 
+        if (!conflict_found() && params().arith_nl_nra() && num_calls % 50 == 0 && num_calls > 500)
             ret = bounded_nlsat();
     }
 
@@ -1005,22 +1005,45 @@ bool core::should_run_bounded_nlsat() {
     return params().arith_nl_nra() && m_nlsat_backoff.should_run();
 }
 
+// One budget-limited run of the nlsat solver on the full set of nonlinear
+// constraints. nlsat is complete for nonlinear real arithmetic but can be
+// arbitrarily expensive, so the run is capped by a conflict and an rlimit
+// budget. l_true: nlsat found a model, the state is satisfiable; l_false:
+// nlsat proved infeasibility and produced a lemma; l_undef: nlsat exhausted
+// its budget without an answer.
 lbool core::bounded_nlsat() {
+    const unsigned max_conflicts_budget = 100;
+    const unsigned rlimit_budget = 100000;
     params_ref p;
     lbool ret;
-    p.set_uint("max_conflicts", 100);
+    p.set_uint("max_conflicts", max_conflicts_budget);
     m_nra.updt_params(p);
+    uint64_t rlimit_consumed = 0;
     {
         scoped_limits sl(m_reslim);
-        sl.push_child(&m_nra_lim);
-        scoped_rlimit sr(m_nra_lim, 100000);
+        sl.push_child(&m_nra_lim); // zeroes m_nra_lim's counter
+        scoped_rlimit sr(m_nra_lim, rlimit_budget);
         ret = m_nra.check();
+        // must be read here: pop_child transfers the child's count to the
+        // parent and zeroes it, so outside this block the counter is 0 again
+        rlimit_consumed = m_nra_lim.count();
     }
-    p.set_uint("max_conflicts", lp_settings().m_max_conflicts);            
+    p.set_uint("max_conflicts", lp_settings().m_max_conflicts);
     m_nra.updt_params(p);
     lp_settings().stats().m_nra_calls++;
-    // On a conflict re-engage, otherwise back off.
-    m_nlsat_backoff.update(ret == l_false);
+
+    // A conflict, or a run that consumed almost none of its budget,
+    // re-engages the backoff scheduler; only an expensive run that gave up
+    // backs off. A search that needs a cheap satisfiability certificate
+    // every round to advance (e.g. between quantifier instantiation rounds)
+    // must not be starved of them.
+    bool cheap = rlimit_consumed < rlimit_budget / 10;
+    bool re_engage = ret == l_false || cheap;
+    m_nlsat_backoff.update(re_engage);
+
+    IF_VERBOSE(3, verbose_stream() << "(nla-bounded-nlsat :result " << ret
+               << " :rlimit-consumed " << rlimit_consumed
+               << " :re-engage " << (re_engage ? "true" : "false") << ")\n");
 
     if (ret == l_true)
         clear();
