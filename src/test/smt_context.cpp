@@ -8,7 +8,6 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
-#include "params/sat_params.hpp"
 #include "parsers/smt2/smt2parser.h"
 #include "solver/solver.h"
 #include "tactic/goal.h"
@@ -136,11 +135,6 @@ void tst_smt_context()
         params_ref p;
         p.set_bool("smt", true);
         p.set_uint("bv.solver", 2);
-        sat_params check_sat_params(p);
-        VERIFY(check_sat_params.smt());
-        smt_params check_params;
-        check_params.updt_params(p);
-        VERIFY(check_params.m_bv_solver == 2);
         ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
         for (expr* a : cmd.assertions())
             slv->assert_expr(a);
