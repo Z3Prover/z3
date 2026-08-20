@@ -108,7 +108,7 @@ private:
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
-    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, replay, num_reasons };
+    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, num_reasons };
 
     static char const* bail_stat_name(bail_reason reason);
     static char const* bail_name(bail_reason reason);
@@ -166,19 +166,6 @@ private:
     obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
                                             // seq_rewriter's own cache is capped and flushed whole
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
-
-    // ---- lazy branch enumeration (see the public `iterator`) ----------------------
-    // One branching decision: cursor `mi`, at derivative state `state`, continues at
-    // `target`.  Recorded by TERM IDENTITY, never by position in the live-state
-    // enumeration, so a replay that no longer finds its choice is detected instead of
-    // silently taking a different one.  Forced continuations are not recorded.
-    struct choice { unsigned mi; expr* state; expr* target; };
-    svector<choice>        m_cur_path;          // choices of the branch being explored
-    svector<choice>        m_leaf_path;         // ... of the branch reported by the last pull
-    svector<choice> const* m_resume = nullptr;  // branch to replay before continuing
-    bool m_enumerate = false;   // enumeration mode: reject the replayed leaf, record paths
-    bool m_in_replay = false;   // the current branch is still the replayed prefix
-    bool m_had_undef = false;   // an undecided branch was passed over in this pull
 
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
     membership_vec m_last_search_memberships; // inputs used by the last internal decide()
@@ -242,9 +229,28 @@ private:
     // view groups (m_groups) are the "variable intersection membership constraints".
     struct cursor { unsigned i; expr* R; bool complete; };
     svector<cursor> m_cursors;              // one cursor per membership (parallel to m_atoms)
-    unsigned        m_last_var = UINT_MAX;  // index (in m_vars) of the last expanded variable
     unsigned_vector m_head_cnt;
     unsigned_vector m_head_stack;
+
+    // The search runs on its own stack rather than on the C++ one: a frame per cursor that
+    // has been given a continuation, in the order the branch assigned them.  The frames of
+    // one search step -- the cursors sharing the variable expanded at that step -- carry
+    // the same vi/s_offset/s_size and consecutive k.  Everything the branch has to undo on
+    // backtracking sits in the frame, so the stack alone says where the search stands.
+    struct frame {
+        unsigned vi;                    // variable being expanded
+        unsigned s_offset, s_size, k;   // this cursor is m_head_stack[s_offset + k]
+        unsigned mi;                    // the cursor it assigns
+        unsigned next;                  // position in the live states to continue at
+        cursor   saved;                 // the cursor as it was before this frame; its state
+                                        // is the source state of every view the frame pushes
+        unsigned undef;                 // what this frame contributed to m_undef_vars
+    };
+    svector<frame> m_stack;
+    bool m_any_undef = false;   // a branch was passed over undecided, so running the tree
+                                // to its end no longer refutes anything
+    unsigned m_search_gen = 0;  // bumped per search: an `iterator` from an older one has
+                                // had its stack thrown away and says so instead of resuming
 
     // Brzozowski derivative of regex `r` by the concrete element `elem`.  Memoized on
     // (r, elem): the search revisits the same constant step on many branches.
@@ -281,9 +287,9 @@ private:
 
     // Charge one search step against the budget and poll the global resource limit.
     // Returns true when the search must stop, having recorded the reason and set m_giveup.
-    // One step is one product state or one dfs_atoms node, which is what the budget has
-    // always counted; the loops that expand a single state are bounded separately (see
-    // product_nonempty) so that this meaning stays intact.
+    // One step is one product state or one node of the decomposition tree, which is what
+    // the budget has always counted; the loops that expand a single state are bounded
+    // separately (see product_nonempty) so that this meaning stays intact.
     bool out_of_budget();
 
     // Run one decision in one direction with a given budget.  decide() layers the
@@ -295,13 +301,9 @@ private:
     // Drop all search state accumulated by the previous decide()/solve().
     void reset_search();
 
-    // One pull of `iterator`: replay `resume` (when `has_resume`), then continue the
-    // search from where that branch left off and report the next satisfying branch.
-    lbool enumerate(membership_vec const& memberships, svector<choice> const& resume,
-                    bool has_resume);
-
-    // Abandon the search: the tree is not the one the replayed path was recorded on.
-    lbool replay_bail();
+    // One pull of `iterator`: run the search to its next satisfying branch, either from
+    // scratch (`resume` false, the first pull) or on from the branch it stands on.
+    lbool enumerate(membership_vec const& memberships, bool resume);
 
     // Parse every membership into atoms, register its variables and count each
     // variable's occurrences.  Sets m_seq_sort/m_elem_sort.  False on an unsupported
@@ -324,19 +326,26 @@ private:
     // ---- state-based search driver ----------------------------------------------------
     bool inc_budget();
 
-    // One search step: pick the next variable to expand (preferring the last-expanded
-    // variable, else the one occurring most often as a head atom of the active cursors),
-    // and expand it.  Returns l_true (sat leaf found), l_false (this branch is empty), or
-    // l_undef (gave up on a sub-branch).
-    lbool search();
+    // Open a search step: pick the variable to expand (preferring the one expanded last,
+    // else the one occurring most often as a head atom of the active cursors) and collect
+    // the cursors it heads into m_head_stack[s_offset .. s_offset + s_size).  False when
+    // every cursor is complete, i.e. the branch has reached a leaf.
+    bool start_step(unsigned& vi, unsigned& s_offset, unsigned& s_size);
 
-    // Expand variable `vi`, which is the head of the cursors in
-    // m_head_stack[s_offset .. s_offset + s_size).  Assign a continuation (a reach target
-    // q, or the epsilon/membership encoding for a last atom) to each cursor in turn (k
-    // indexes the set), pushing the view on m_groups[vi] and pruning as soon as the
-    // accumulated intersection for vi is empty.  When every cursor is assigned, recurse
-    // into search().
-    lbool choose_cont(unsigned vi, unsigned s_offset, unsigned s_size, unsigned k);
+    // Extend the branch by one frame: the next cursor of the current step, or the first
+    // cursor of a new step.  False at a leaf.
+    bool push_frame();
+
+    // Give `f`'s cursor its next continuation (a reach target q, or the membership
+    // encoding for a last atom) pushing the view on m_groups[f.vi] and skipping the
+    // continuations that the accumulated intersection for f.vi refutes on the spot.
+    // False once the frame has no continuation left.
+    bool commit_next(frame& f);
+
+    // Run the search up to the next accepting leaf.  `resume` picks the search up at the
+    // leaf it stands on and continues as if that leaf had failed.  l_true = leaf
+    // reached (recorded in m_solution), l_false = the tree is exhausted, l_undef = gave up.
+    lbool run_search(bool resume);
 
     lbool consume_constants(cursor& c, unsigned mi);
 
@@ -488,24 +497,22 @@ public:
     //
     // as a lazy binary case split, the way seq_split::iterator is used for sigma.
     //
-    // Suspension is by REPLAY: the iterator keeps its query and the choice path of the
-    // branch it last reported, and a pull re-runs the search, descends that path and
-    // continues from there.  It is therefore a plain value owning all it needs, and any
-    // number of them survive being suspended across other uses of the engine (check()
-    // probes, other iterators) -- which a search state living in the engine could not.
+    // A pull leaves the search standing on the branch it reports, and the next one carries
+    // on from there, so nothing is searched twice.  The search state is the engine's, so
+    // exactly ONE iterator can be in flight: anybody else's solve()/check() takes the
+    // stack away, and the iterator then reports a give-up instead of resuming.
     //
     // next() returning false with gave_up() false means every branch not yet reported is
     // REFUTED, so the conjunction holds only if a reported branch does.  gave_up() (a
-    // budget / state cap, an undecidable nullability, a replay mismatch, the emission
-    // limit, or the positional driver, which records no choices) means the enumeration is
+    // budget / state cap, an undecidable nullability, the emission limit, an intervening
+    // search, or the positional driver, which leaves no stack) means the enumeration is
     // incomplete and its end proves nothing.
     class iterator {
         seq_monadic&    m_engine;
-        membership_vec  m_memberships;   // own copy: the query is re-prepared per pull
-        svector<choice> m_path;          // choice path of the last reported branch
-        expr_ref_vector m_path_pin;      // keeps that path's states alive across pulls
+        membership_vec  m_memberships;   // own copy: outlives the scope it was asserted in
         unsigned        m_limit;         // cap on the number of branches reported
         unsigned        m_count = 0;
+        unsigned        m_gen = 0;       // engine search this iterator's stack belongs to
         bool            m_started = false;
         bool            m_done = false;
         bool            m_giveup = false;
