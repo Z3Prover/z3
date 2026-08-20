@@ -1411,7 +1411,7 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
     out << " )";
 
     out << "\n  :last-internal-search\n"
-        << "    (:result " << lbool_to_result_name(m_last_search_result)
+        << "    (:result " << m_last_search_result
         << "\n     :memberships (";
     for (unsigned i = 0; i < m_last_search_memberships.size(); ++i) {
         auto const& [term, regex, dep] = m_last_search_memberships[i];
