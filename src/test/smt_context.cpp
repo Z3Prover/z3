@@ -9,6 +9,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/arith_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
+#include "solver/solver.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/smtlogics/quant_tactics.h"
@@ -116,5 +117,27 @@ void tst_smt_context()
         expr_dependency_ref core(m);
         std::string reason_unknown;
         VERIFY(l_true == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(set-logic ALL)\n"
+            "(declare-const y (_ BitVec 1))\n"
+            "(assert\n"
+            "  (exists ((V (_ BitVec 8)))\n"
+            "    (= (_ bv1 8)\n"
+            "       ((_ extract 7 0)\n"
+            "         (bvlshr\n"
+            "           (concat V (_ bv0 8))\n"
+            "           ((_ zero_extend 15) y))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", true);
+        p.set_uint("bv.solver", 2);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_false == slv->check_sat(0, nullptr));
     }
 }
