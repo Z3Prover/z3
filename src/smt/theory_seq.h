@@ -526,10 +526,6 @@ namespace smt {
         bool propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs = true);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
         void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
-        // Report a refuted set of literals (with the equalities in `dep`): a conflict when
-        // every literal is assigned true, and a blocking clause otherwise -- justifying a
-        // conflict with a literal that is not true is unsound (#10398).  `lits` is negated
-        // in place in the second case.
         void conflict_or_axiom(literal_vector& lits, dependency* dep);
 
         // self-validation
