@@ -1372,7 +1372,7 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
     out << "(seq-monadic\n"
         << "  :mode " << transition_mode_name(m_config.m_mode) << "\n"
         << "  :minimize-core " << (m_config.m_min_core ? "true" : "false") << "\n"
-        << "  :last-result " << lbool_to_result_name(m_last_result) << "\n"
+        << "  :last-result " << m_last_result << "\n"
         << "  :budget " << m_budget << "\n"
         << "  :giveup " << (m_giveup ? "true" : "false") << "\n"
         << "  :sequence-sort ";
