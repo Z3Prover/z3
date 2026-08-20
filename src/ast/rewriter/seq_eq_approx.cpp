@@ -90,41 +90,41 @@ void seq_eq_approx::add_segment(expr* r, segments& out) {
     out.push_back(views);
 }
 
-bool seq_eq_approx::to_segments(expr* t, segments& out) {
+void seq_eq_approx::to_segments(expr* t, segments& out) {
+    if (u().str.is_empty(t))
+        return;
+    if (u().str.is_concat(t)) {
+        for (auto arg : *to_app(t))
+            to_segments(arg, out);
+        return;
+    }    
     sort* seq_sort = t->get_sort();
-    if (!u().is_seq(seq_sort))
-        return false;
-    sort* re_sort = re().mk_re(seq_sort);
+    VERIFY(u().is_seq(seq_sort));    
+    sort_ref re_sort(re().mk_re(seq_sort), m);
 
     seq::view_vector views;
     if (m_views.find(t, views)) {
-        for (auto const& v : views) {
-            if (!v.m_state || v.m_state->get_sort() != re_sort)
-                return false;
-        }
+        DEBUG_CODE(all_of(views, [&](view const& v) { return v.m_state && v.m_state->get_sort() == re_sort; }));
         if (!m_used.contains(t))
             m_used.push_back(t);
         out.push_back(views);
-        return true;
+        return;
     }
-    if (u().str.is_concat(t))
-        return all_of(*to_app(t), [&](expr* arg) { return to_segments(arg, out); });
-    if (u().str.is_empty(t))
-        return true;
+
+
     zstring s;
     if (u().str.is_string(t, s)) {
         if (s.length() > 0)
             add_segment(re().mk_to_re(t), out);
-        return true;
+        return;
     }
     expr* elem = nullptr;
     if (u().str.is_unit(t, elem)) {
         // an unknown element is still exactly one element
         add_segment(m.is_value(elem) ? (expr*)re().mk_to_re(t) : (expr*)re().mk_full_char(re_sort), out);
-        return true;
     }
-    add_segment(re().mk_full_seq(re_sort), out);   // a variable, or a term no view describes
-    return true;
+    else 
+        add_segment(re().mk_full_seq(re_sort), out);   // a variable, or a term no view describes
 }
 
 lbool seq_eq_approx::segment_done(seq::view_vector const& views, ptr_vector<expr> const& states) {
@@ -155,19 +155,19 @@ lbool seq_eq_approx::intersect_nonempty(segments const& lhs, segments const& rhs
             if (seg.empty())
                 return l_undef;
             for (auto const& v : seg) {
-                if (!v.m_state)
-                    return l_undef;
+                VERIFY(v.m_state);
                 if (!probe)
                     probe = v.m_state;
-                else if (v.m_state->get_sort() != probe->get_sort())
-                    return l_undef;
+                VERIFY(v.m_state->get_sort() == probe->get_sort());
             }
         }
     }
     sort* seq_sort = nullptr;
     sort* elem_sort = nullptr;
-    if (!probe || !u().is_re(probe, seq_sort) || !u().is_seq(seq_sort, elem_sort))
+    if (!probe)
         return l_undef;
+    VERIFY(u().is_re(probe, seq_sort));
+    VERIFY(u().is_seq(seq_sort, elem_sort));    
     expr_ref v0(m.mk_var(0, elem_sort), m);
 
     // A node is a cursor per side: the segment the side is inside, plus the state each
@@ -304,11 +304,10 @@ lbool seq_eq_approx::check(expr* lhs, expr* rhs) {
     m_used.reset();
     m_rp_cache.maybe_reset(1u << 16);
     segments l, r;
-    if (lhs->get_sort() != rhs->get_sort() || !to_segments(lhs, l) || !to_segments(rhs, r)) {
-        ++m_stats.m_unsupported;
-        m_used.reset();
-        return l_undef;
-    }
+    VERIFY(lhs->get_sort() == rhs->get_sort());
+    
+    to_segments(lhs, l); 
+    to_segments(rhs, r);
     m_last_result = intersect_nonempty(l, r);
     if (m_last_result == l_false)
         ++m_stats.m_refuted;
@@ -343,7 +342,7 @@ std::ostream& seq_eq_approx::display(std::ostream& out) const {
     };
 
     out << "(seq-eq-approx\n"
-        << "  :last-result " << lbool_to_result_name(m_last_result) << "\n"
+        << "  :last-result " << m_last_result << "\n"
         << "  :max-states " << m_max_states << "\n"
         << "  :views (";
     for (auto const& [t, views] : m_views) {
