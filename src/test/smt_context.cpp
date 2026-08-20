@@ -135,6 +135,9 @@ void tst_smt_context()
         params_ref p;
         p.set_bool("smt", true);
         p.set_uint("bv.solver", 2);
+        smt_params check_params;
+        check_params.updt_params(p);
+        VERIFY(check_params.m_bv_solver == 2);
         ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
         for (expr* a : cmd.assertions())
             slv->assert_expr(a);
