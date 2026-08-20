@@ -81,10 +81,10 @@ namespace arith {
             // r is m/n then x >= 0 => x^m = p^n
             if (denominator(r) > 1) {
                 expr_ref x_ge_0(a.mk_ge(x, a.mk_real(0)), m);
-                expr_ref x(m);
+                expr_ref xn(x, m);
                 if (numerator(r) > 1)
-                    x = a.mk_power(x, a.mk_real(numerator(r)));
-                expr_ref x_eq_pn(a.mk_eq(x, a.mk_power(p, a.mk_real(denominator(r)))), m);
+                    xn = a.mk_power(x, a.mk_real(numerator(r)));
+                expr_ref x_eq_pn(a.mk_eq(xn, a.mk_power(p, a.mk_real(denominator(r)))), m);
                 add_clause(~mk_literal(x_ge_0), mk_literal(x_eq_pn));
             }
         }
