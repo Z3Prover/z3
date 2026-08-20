@@ -172,7 +172,8 @@ namespace seq {
 
     lbool regex_witness::get_witness(expr* r, zstring& s) {
         sort* seq_sort = nullptr;
-        if (!u().is_re(r, seq_sort) || !u().is_string(seq_sort))
+        VERIFY(u().is_re(r, seq_sort));
+        if (!u().is_string(seq_sort))
             return l_undef;
         expr_ref w(m);
         lbool res = get_witness(r, w);
