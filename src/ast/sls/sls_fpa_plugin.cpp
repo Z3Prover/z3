@@ -402,6 +402,7 @@ namespace sls {
     void fpa_plugin::collect_statistics(statistics& st) const {
         st.copy(m_stats);
         st.update("sls-fpa-terms", m_terms.size());
+        m_gpu.collect_statistics(st);
     }
 
     void fpa_plugin::reset_statistics() {

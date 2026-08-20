@@ -9,3 +9,27 @@ On macOS and Linux, you must install z3 first using
    sudo make install
 OR update LD_LIBRARY_PATH (Linux) or DYLD_LIBRARY_PATH (macOS) with the build directory. You need that to be able to find the Z3 shared library.
 
+
+Floating-point SLS callback hook
+================================
+
+Z3 exposes a solver-local callback registration point for floating-point SLS lookahead candidate evaluation:
+
+* `Z3_solver_set_fpa_local_search_gpu_callbacks`
+* parameters:
+  * `sls.enable=true`
+  * `sls.fp.mode=auto|cpu|gpu`
+  * `sls.fp.use_callback=true|false`
+
+The local emulator remains the default chooser. A registered callback may override the chooser when `sls.fp.mode != cpu` and `sls.fp.use_callback=true`.
+
+The callback receives:
+
+* the current false literal
+* the desired truth value
+* a serialized literal DAG
+* the candidate variable list
+* a flattened candidate assignment matrix
+
+The callback returns the selected candidate index, or `-1` to defer to the local chooser.
+

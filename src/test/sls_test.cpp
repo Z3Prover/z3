@@ -359,6 +359,35 @@ static void test_fp_plugin_runtime_override() {
     ENSURE(solver.m_last_num_candidates >= 1);
 }
 
+static void test_fp_plugin_callback_gated_by_params() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    fpa_util fpa(m);
+    bv::my_sat_solver_context solver;
+    sls::context ctx(m, solver);
+
+    params_ref p;
+    p.set_sym(symbol("fp.mode"), symbol("cpu"));
+    p.set_bool("fp.use_callback", true);
+    ctx.updt_params(p);
+
+    sort_ref fps(fpa.mk_float_sort(8, 24), m);
+    expr_ref x(m.mk_const("x", fps), m);
+    expr_ref y(m.mk_const("y", fps), m);
+    expr_ref one = mk_fp_one(m, fpa, fps);
+    scoped_mpf two_mpf(fpa.fm());
+    fpa.fm().set(two_mpf, fpa.get_ebits(fps), fpa.get_sbits(fps), 2);
+    expr_ref two(fpa.mk_value(two_mpf), m);
+    expr_ref ex(fpa.mk_float_eq(x, one), m);
+    expr_ref ey(fpa.mk_float_eq(y, two), m);
+    expr_ref disj(m.mk_or(ex, ey), m);
+
+    ctx.add_input_assertion(disj);
+    ENSURE(ctx.check() == l_true);
+    ENSURE(solver.m_eval_calls == 0);
+}
+
+
 
 
 void tst_sls_test() {
@@ -367,4 +396,5 @@ void tst_sls_test() {
     test_fp_plugin_reverse_eq_repair();
     test_fp_plugin_or_dag_repair();
     test_fp_plugin_runtime_override();
+    test_fp_plugin_callback_gated_by_params();
 }

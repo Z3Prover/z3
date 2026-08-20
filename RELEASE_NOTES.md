@@ -237,6 +237,8 @@ Version 5.0.0
 - Add `bv_divrem_bounds_tactic`: new tactic for handling bounded bitvector division and remainder constraints (Issue 438).
   https://github.com/Z3Prover/z3/pull/10085
 - Improve higher-order matching (ho_matching): fix imitation curry-order, instance-assembly ordering, variable shift bugs, and callback scope nesting. Defer ho-matching to lazy MAM and add throttle configurations.
+- Add experimental floating-point SLS lookahead with DAG-based candidate scoring, local chooser fallback, and a solver-local callback hook for external candidate evaluators.
+
 - Improve pattern inference to handle binders correctly, support patterns with variables outside of scope, and fix variable shift.
 - Improve generation accounting for quantifier instantiation.
   https://github.com/Z3Prover/z3/pull/10009
