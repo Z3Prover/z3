@@ -486,8 +486,12 @@ class theory_lra::imp {
                         theory_var rv = mk_var(n);
                         m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
                     }
-                    if (!a.is_numeral(n2) && is_app(n1) && is_app(n2)) {
-                        // register mod(x, y) with variable divisor for divisibility reasoning
+                    if (!a.is_numeral(n2) && !a.is_zero(n1) && is_app(n1) && is_app(n2)) {
+                        // register mod(x, y) with variable divisor for divisibility reasoning;
+                        // skip a zero dividend: mk_idiv_mod_axioms already forces
+                        // y != 0 => mod(0, y) = 0 and div(0, y) = 0 by linear axioms, so
+                        // divisibility closure adds nothing and ensure_nla() here would
+                        // pull an otherwise linear problem into the nonlinear solver
                         ensure_nla();
                         if (m_nla) {
                             app_ref div(a.mk_idiv(n1, n2), m);
