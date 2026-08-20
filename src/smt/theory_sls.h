@@ -132,6 +132,8 @@ namespace smt {
         bool parallel_mode() const override { return m_parallel_mode; }
         bool get_smt_value(expr* v, expr_ref& value) override;
         void init_search_eh() override;
+        int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) override;
+
 
     };
 

@@ -1,6 +1,7 @@
 
 #include "ast/sls/sls_bv_eval.h"
 #include "ast/sls/sls_bv_terms.h"
+#include "ast/fpa_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
@@ -13,6 +14,11 @@ namespace bv {
         indexed_uint_set s;
         reslimit m_limit;
     public:
+        int m_eval_calls = 0;
+        unsigned m_last_num_nodes = 0;
+        unsigned m_last_num_vars = 0;
+        unsigned m_last_num_candidates = 0;
+
         my_sat_solver_context() {}
 
         vector<sat::clause_info> const& clauses() const override { return m_clauses; }
@@ -24,21 +30,30 @@ namespace bv {
         double get_weigth(unsigned clause_idx) override { return 0; }
         bool is_true(sat::literal lit) override { return true; }
         bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& bound) override { return false; }
-        unsigned num_vars() const override { return 0; }
+        unsigned m_num_vars = 0;
+        unsigned num_vars() const override { return m_num_vars; }
         indexed_uint_set const& unsat() const override { return s; }
         indexed_uint_set const& unsat_vars() const override { return s; }
         void shift_weights() override {}
         void on_model(model_ref& mdl) override {}
         unsigned num_external_in_unsat_vars() const override { return 0; }
-        sat::bool_var add_var() override { return sat::null_bool_var;}
+        sat::bool_var add_var() override { 
+            return m_num_vars++;
+        }
         void add_clause(unsigned n, sat::literal const* lits) override {}
-        //        void collect_statistics(statistics& st) const override {}
-        // void reset_statistics() override {}
         void force_restart() override {}
         std::ostream& display(std::ostream& out)  override { return out; }
         reslimit& rlimit() override { return m_limit; }
         uint64_t timestamp(sat::bool_var v) override { return 0; }
+        int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) override {
+            ++m_eval_calls;
+            m_last_num_nodes = dag.size();
+            m_last_num_vars = vars.size();
+            m_last_num_candidates = num_candidates;
+            return num_candidates == 0 ? -1 : 0;
+        }
     };
+
 
     class sls_test {
         ast_manager& m;
@@ -57,9 +72,6 @@ namespace bv {
         }
 
         void check_eval(expr* e) {
-            std::function<bool(expr*, unsigned)> value = [](expr*, unsigned) {
-                return false;
-            };
             expr_ref_vector es(m);
             bv_util bv(m);
             es.push_back(e);
@@ -76,28 +88,18 @@ namespace bv {
             rw(r);
 
             if (bv.is_bv(e)) {
-                auto const& val = ev.wval(e);
+                auto const & val = ev.wval(e);
                 rational n1, n2;
 
                 n1 = val.get_value();
 
                 VERIFY(bv.is_numeral(r, n2));
-                if (n1 != n2) {
-                    verbose_stream() << mk_pp(e, m) << " computed value " << val << "\n";
-                    verbose_stream() << "should be " << n2 << "\n";
-                }
                 ENSURE(n1 == n2);
-                VERIFY(n1 == n2);
             }
             else if (m.is_bool(e)) {
                 auto val1 = ev.bval1(to_app(e));
                 auto val2 = m.is_true(r);
-                if (val1 != val2) {
-                    verbose_stream() << mk_pp(e, m) << " computed value " << val1 
-                        << " at odds with definition " << val2 << "\n";
-                }
                 ENSURE(val1 == val2);
-                VERIFY(val1 == val2);
             }
         }
 
@@ -131,21 +133,10 @@ namespace bv {
                 .push_back(bv.mk_bv_rotate_left(a, j))
                 .push_back(bv.mk_bv_rotate_right(a, j))
                 .push_back(bv.mk_bv_rotate_left(a, b))
-                .push_back(bv.mk_bv_rotate_right(a, b))
-    //            .push_back(bv.mk_bvsadd_ovfl(a, b))
-    //            .push_back(bv.mk_bvneg_ovfl(a))
-    //            .push_back(bv.mk_bvsmul_no_ovfl(a, b))
-    //            .push_back(bv.mk_bvsmul_no_udfl(a, b))
-    //            .push_back(bv.mk_bvsmul_ovfl(a, b))
-    //            .push_back(bv.mk_bvsdiv_ovfl(a, b))
-                ;
+                .push_back(bv.mk_bv_rotate_right(a, b));
             return result;
         }
 
-
-        // e = op(a, b), 
-        // update value of a to "random"
-        // repair a based on computed values.
         void check_repair(expr* a, expr* b, unsigned j) {
             expr_ref x(m.mk_const("x", bv.mk_sort(bv.get_bv_size(a))), m);
             expr_ref y(m.mk_const("y", bv.mk_sort(bv.get_bv_size(b))), m);
@@ -173,9 +164,6 @@ namespace bv {
         random_gen rand;
 
         void check_repair_idx(expr* e1, expr* e2, unsigned idx, expr* x) {            
-            std::function<bool(expr*, unsigned)> value = [&](expr*, unsigned) {
-                return rand() % 2 == 0;
-                };
             expr_ref_vector es(m);
             bv_util bv(m);
             th_rewriter rw(m);
@@ -199,16 +187,10 @@ namespace bv {
                 if (val != val2) {
                     ev.set(e2, val);
                     auto rep1 = ev.repair_down(to_app(e2), idx);
-                    if (!rep1) {
-                        verbose_stream() << "Not repaired " << mk_pp(e1, m) << " " << mk_pp(e2, m) << " r: " << r << "\n";
+                    if (rep1) {
+                        auto val3 = ev.bval0(e2);
+                        ENSURE(val3 == val);
                     }
-                    auto val3 = ev.bval0(e2);
-                    if (val3 != val) {
-                        verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
-                        ev.display(std::cout);
-                        exit(0);
-                    }
-                    //ENSURE(rep1);
                 }
             }
             if (bv.is_bv(e1)) {
@@ -217,34 +199,20 @@ namespace bv {
                 if (!val1.eq(val2)) {
                     val2.set(val1.bits());
                     auto rep2 = ev.repair_down(to_app(e2), idx);
-                    if (!rep2) {
-                        verbose_stream() << "Not repaired " << mk_pp(e2, m) << "\n";
-                    }                    
-                    auto val3 = ev.wval(e2);
-                    verbose_stream() << val3 << "\n";
-                    VERIFY(val3.commit_eval_check_tabu());
-                    if (!val3.eq(val1)) {
-                        verbose_stream() << "Repaired but not corrected " << mk_pp(e2, m) << "\n";
+                    if (rep2) {
+                        auto val3 = ev.wval(e2);
+                        VERIFY(val3.commit_eval_check_tabu());
                     }
-                    //ENSURE(rep2);
                 }
             }
         }
-
-        // todo: 
-        void test_fixed() {
-
-        }
     };
 }
-
 
 [[maybe_unused]] static void test_eval1() {
     ast_manager m;
     reg_decl_plugins(m);
     bv_util bv(m);
-
-    expr_ref e(m);
 
     bv::sls_test validator(m);
 
@@ -255,8 +223,6 @@ namespace bv {
         for (unsigned j = 0; j < 1ul << bw; ++j) {
             expr_ref b(bv.mk_numeral(rational(j), bw), m);
             ++k;
-            if (k % 1000 == 0)
-                verbose_stream() << "tests " << k << "\n";
             validator.check_eval(a, b, j);
         }
     }
@@ -266,7 +232,6 @@ namespace bv {
     ast_manager m;
     reg_decl_plugins(m);
     bv_util bv(m);
-    expr_ref e(m);
     bv::sls_test validator(m);
 
     unsigned k = 0;
@@ -276,15 +241,130 @@ namespace bv {
         for (unsigned j = 0; j < 1ul << bw; ++j) {
             expr_ref b(bv.mk_numeral(rational(j), bw), m);
             ++k;
-            if (k % 1000 == 0)
-                verbose_stream() << "tests " << k << "\n";
             validator.check_repair(a, b, j);
         }
     }
 }
 
-void tst_sls_test() {
-    //test_eval1();
-    //test_repair1();
+static expr_ref mk_fp_one(ast_manager& m, fpa_util& fpa, sort* s) {
+    scoped_mpf one(fpa.fm());
+    fpa.fm().set(one, fpa.get_ebits(s), fpa.get_sbits(s), 1);
+    return expr_ref(fpa.mk_value(one), m);
+}
 
+static void test_fp_plugin_ground_eval() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    fpa_util fpa(m);
+    bv::my_sat_solver_context solver;
+    sls::context ctx(m, solver);
+
+    sort_ref fps(fpa.mk_float_sort(8, 24), m);
+    expr_ref rm(fpa.mk_round_nearest_ties_to_even(), m);
+    expr_ref z0(fpa.mk_pzero(fps), m);
+    expr_ref sum(fpa.mk_add(rm, z0, z0), m);
+    expr_ref eq(fpa.mk_float_eq(sum, z0), m);
+
+    ctx.add_input_assertion(eq);
+    ENSURE(ctx.check() == l_true);
+    ENSURE(fpa.is_zero(ctx.get_value(sum)));
+}
+
+static void test_fp_plugin_simple_repair() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    fpa_util fpa(m);
+    bv::my_sat_solver_context solver;
+    sls::context ctx(m, solver);
+
+    sort_ref fps(fpa.mk_float_sort(8, 24), m);
+    expr_ref x(m.mk_const("x", fps), m);
+    expr_ref one = mk_fp_one(m, fpa, fps);
+    expr_ref eq(fpa.mk_float_eq(x, one), m);
+
+    ctx.add_input_assertion(eq);
+    ENSURE(ctx.check() == l_true);
+    scoped_mpf xv(fpa.fm()), ov(fpa.fm());
+    ENSURE(fpa.is_numeral(ctx.get_value(x), xv));
+    ENSURE(fpa.is_numeral(one, ov));
+    ENSURE(fpa.fm().eq(xv, ov));
+}
+
+static void test_fp_plugin_reverse_eq_repair() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    fpa_util fpa(m);
+    bv::my_sat_solver_context solver;
+    sls::context ctx(m, solver);
+
+    sort_ref fps(fpa.mk_float_sort(8, 24), m);
+    expr_ref x(m.mk_const("x", fps), m);
+    expr_ref one = mk_fp_one(m, fpa, fps);
+    expr_ref eq(fpa.mk_float_eq(one, x), m);
+
+    ctx.add_input_assertion(eq);
+    ENSURE(ctx.check() == l_true);
+    scoped_mpf xv(fpa.fm()), ov(fpa.fm());
+    ENSURE(fpa.is_numeral(ctx.get_value(x), xv));
+    ENSURE(fpa.is_numeral(one, ov));
+    ENSURE(fpa.fm().eq(xv, ov));
+}
+
+static void test_fp_plugin_or_dag_repair() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    fpa_util fpa(m);
+    bv::my_sat_solver_context solver;
+    sls::context ctx(m, solver);
+
+    sort_ref fps(fpa.mk_float_sort(8, 24), m);
+    expr_ref x(m.mk_const("x", fps), m);
+    expr_ref y(m.mk_const("y", fps), m);
+    expr_ref one = mk_fp_one(m, fpa, fps);
+    scoped_mpf two_mpf(fpa.fm());
+    fpa.fm().set(two_mpf, fpa.get_ebits(fps), fpa.get_sbits(fps), 2);
+    expr_ref two(fpa.mk_value(two_mpf), m);
+    expr_ref ex(fpa.mk_float_eq(x, one), m);
+    expr_ref ey(fpa.mk_float_eq(y, two), m);
+    expr_ref disj(m.mk_or(ex, ey), m);
+
+    ctx.add_input_assertion(disj);
+    ENSURE(ctx.check() == l_true);
+    ENSURE(m.is_true(ctx.get_value(disj)));
+}
+
+static void test_fp_plugin_runtime_override() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    fpa_util fpa(m);
+    bv::my_sat_solver_context solver;
+    sls::context ctx(m, solver);
+
+    sort_ref fps(fpa.mk_float_sort(8, 24), m);
+    expr_ref x(m.mk_const("x", fps), m);
+    expr_ref y(m.mk_const("y", fps), m);
+    expr_ref one = mk_fp_one(m, fpa, fps);
+    scoped_mpf two_mpf(fpa.fm());
+    fpa.fm().set(two_mpf, fpa.get_ebits(fps), fpa.get_sbits(fps), 2);
+    expr_ref two(fpa.mk_value(two_mpf), m);
+    expr_ref ex(fpa.mk_float_eq(x, one), m);
+    expr_ref ey(fpa.mk_float_eq(y, two), m);
+    expr_ref disj(m.mk_or(ex, ey), m);
+
+    ctx.add_input_assertion(disj);
+    ENSURE(ctx.check() == l_true);
+    ENSURE(solver.m_eval_calls > 0);
+    ENSURE(solver.m_last_num_nodes >= 3);
+    ENSURE(solver.m_last_num_vars >= 1);
+    ENSURE(solver.m_last_num_candidates >= 1);
+}
+
+
+
+void tst_sls_test() {
+    test_fp_plugin_ground_eval();
+    test_fp_plugin_simple_repair();
+    test_fp_plugin_reverse_eq_repair();
+    test_fp_plugin_or_dag_repair();
+    test_fp_plugin_runtime_override();
 }

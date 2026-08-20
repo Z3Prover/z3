@@ -6,9 +6,12 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "api/z3.h"
 #include "api/z3_private.h"
+#include "cmd_context/cmd_context.h"
+#include "api/api_solver.h"
 #include <iostream>
 #include "util/util.h"
 #include "util/trace.h"
+#include "sat/smt/euf_solver.h"
 #include <map>
 #include <string>
 #include "util/trace.h"
@@ -384,6 +387,104 @@ static void test_qfnra_degree80_square_bound() {
         throw default_exception(("qfnra degree-80 regression returned unknown: " + unknown_reason).c_str());
     ENSURE(result == Z3_L_FALSE);
 }
+struct fpa_ls_test_state {
+    int eval_calls = 0;
+    int reset_calls = 0;
+    int last_num_nodes = 0;
+    int last_num_vars = 0;
+    int last_num_candidates = 0;
+};
+
+static int fpa_ls_eval_cb(
+    void* user_context,
+    Z3_context,
+    Z3_ast,
+    bool,
+    unsigned num_nodes,
+    Z3_ast const[],
+    unsigned num_vars,
+    Z3_ast const[],
+    unsigned num_candidates,
+    Z3_ast const[]) {
+    auto* st = static_cast<fpa_ls_test_state*>(user_context);
+    st->eval_calls++;
+    st->last_num_nodes = static_cast<int>(num_nodes);
+    st->last_num_vars = static_cast<int>(num_vars);
+    st->last_num_candidates = static_cast<int>(num_candidates);
+    return 0;
+}
+
+static void fpa_ls_reset_cb(void* user_context) {
+    auto* st = static_cast<fpa_ls_test_state*>(user_context);
+    st->reset_calls++;
+}
+
+static void test_solver_fpa_local_search_gpu_callback_bridge() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_solver s = Z3_mk_simple_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+
+    fpa_ls_test_state st;
+    Z3_solver_set_fpa_local_search_gpu_callbacks(
+        ctx,
+        s,
+        &st,
+        reinterpret_cast<void*>(&fpa_ls_eval_cb),
+        reinterpret_cast<void*>(&fpa_ls_reset_cb));
+
+    Z3_params p = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, p);
+    Z3_params_set_bool(ctx, p, Z3_mk_string_symbol(ctx, "sls.enable"), true);
+    Z3_solver_set_params(ctx, s, p);
+    Z3_params_dec_ref(ctx, p);
+
+    ENSURE(Z3_solver_check(ctx, s) == Z3_L_TRUE);
+
+    auto* solver_ref = to_solver(s);
+    ENSURE(solver_ref != nullptr);
+    ENSURE(solver_ref->m_fpa_ls_eval != nullptr);
+    ENSURE(solver_ref->m_fpa_ls_reset != nullptr);
+
+    Z3_sort fps = Z3_mk_fpa_sort_32(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), fps);
+    Z3_ast one = Z3_mk_fpa_numeral_float(ctx, 1.0f, fps);
+    Z3_ast eq = Z3_mk_eq(ctx, x, one);
+
+    Z3_ast dag_nodes[] = { x, one, eq };
+    Z3_ast vars[] = { x };
+    Z3_ast candidate_values[] = { one };
+
+    int idx = solver_ref->m_fpa_ls_eval(
+        &st,
+        ctx,
+        eq,
+        true,
+        3,
+        dag_nodes,
+        1,
+        vars,
+        1,
+        candidate_values);
+    ENSURE(idx == 0);
+    ENSURE(st.eval_calls == 1);
+    ENSURE(st.last_num_nodes == 3);
+    ENSURE(st.last_num_vars == 1);
+    ENSURE(st.last_num_candidates == 1);
+
+    solver_ref->m_fpa_ls_reset(&st);
+    ENSURE(st.reset_calls == 1);
+
+    Z3_solver_dec_ref(ctx, s);
+    Z3_del_context(ctx);
+}
+
+void tst_fpa_ls_api_bridge() {
+    test_solver_fpa_local_search_gpu_callback_bridge();
+}
+
 void tst_api() {
     test_apps();
     test_mk_app_polymorphic_arity();

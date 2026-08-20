@@ -76,6 +76,7 @@
     X(simple_parser) \
     X(scanner_io) \
     X(api) \
+    X(fpa_ls_api_bridge) \
     X(max_rev) \
     X(scaled_min) \
     X(box_mod_opt) \
@@ -83,7 +84,6 @@
     X(opt_dup_min) \
     X(maxsat_sls) \
     X(deep_api_bugs) \
-    X(api_algebraic) \
     X(api_polynomial) \
     X(api_pb) \
     X(api_datalog) \

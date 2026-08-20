@@ -7415,6 +7415,51 @@ extern "C" {
 
 
     /**
+       \brief callback for evaluating GPU lookahead candidates for floating-point local search.
+
+       The callback receives:
+       - the current false floating-point literal \c atom
+       - the desired truth value for \c atom
+       - a serialized sub-DAG \c dag_nodes rooted at \c atom
+       - a list of floating-point variables \c vars
+       - a flattened row-major matrix of candidate assignments \c candidate_values
+
+       Candidate \c i and variable \c j is stored at
+       \c candidate_values[i * num_vars + j].
+
+       The callback returns the chosen candidate index in [0, num_candidates),
+       or -1 if no candidate should be selected.
+    */
+    typedef int (*Z3_fpa_ls_eval_candidates_eh)(
+        void*       user_context,
+        Z3_context  c,
+        Z3_ast      atom,
+        bool        desired_value,
+        unsigned    num_nodes,
+        Z3_ast const dag_nodes[],
+        unsigned    num_vars,
+        Z3_ast const vars[],
+        unsigned    num_candidates,
+        Z3_ast const candidate_values[]);
+
+    /** \brief callback for resetting external GPU lookahead state. */
+    typedef void (*Z3_fpa_ls_reset_eh)(void* user_context);
+
+    /**
+       \brief register solver-local GPU callbacks for floating-point local-search lookahead.
+
+       The callbacks are dormant until a floating-point local-search backend uses them.
+
+       def_API('Z3_solver_set_fpa_local_search_gpu_callbacks', VOID, (_in(CONTEXT), _in(SOLVER), _in(VOID_PTR), _in(VOID_PTR), _in(VOID_PTR)))
+    */
+    void Z3_API Z3_solver_set_fpa_local_search_gpu_callbacks(
+        Z3_context c,
+        Z3_solver s,
+        void* user_context,
+        void* eval_eh,
+        void* reset_eh);
+
+    /**
        \brief register a callback when the solver instantiates a quantifier.
        If the callback returns false, the actual instantiation of the quantifier is blocked.
        This allows the user propagator selectively prioritize instantiations without relying on default

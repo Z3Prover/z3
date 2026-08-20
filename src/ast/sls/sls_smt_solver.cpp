@@ -103,6 +103,10 @@ namespace sls {
         reslimit& rlimit() override { return m_ddfw.rlimit(); }
         void shift_weights() override { m_ddfw.shift_weights(); }
         uint64_t timestamp(sat::bool_var v) override { return m_ddfw.timestamp(v); }
+        int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) override {
+            return -1;
+        }
+
 
         void force_restart() override { m_ddfw.force_restart(); }
 

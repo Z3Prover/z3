@@ -39,15 +39,18 @@ struct solver2smt2_pp {
 };
 
 struct Z3_solver_ref : public api::object {
-    scoped_ptr<solver_factory> m_solver_factory;
-    ref<solver>                m_solver;
-    params_ref                 m_params;
-    param_descrs               m_param_descrs;
-    symbol                     m_logic;
-    scoped_ptr<solver2smt2_pp> m_pp;
-    scoped_ptr<cmd_context>    m_cmd_context;
-    mutex                      m_mux;
-    event_handler*             m_eh;
+    scoped_ptr<solver_factory>      m_solver_factory;
+    ref<solver>                     m_solver;
+    params_ref                      m_params;
+    param_descrs                    m_param_descrs;
+    symbol                          m_logic;
+    scoped_ptr<solver2smt2_pp>      m_pp;
+    scoped_ptr<cmd_context>         m_cmd_context;
+    mutex                           m_mux;
+    event_handler*                  m_eh;
+    void*                           m_fpa_ls_user_context = nullptr;
+    Z3_fpa_ls_eval_candidates_eh    m_fpa_ls_eval = nullptr;
+    Z3_fpa_ls_reset_eh              m_fpa_ls_reset = nullptr;
 
     Z3_solver_ref(api::context& c, solver_factory * f): 
         api::object(c), m_solver_factory(f), m_solver(nullptr), m_logic(symbol::null), m_eh(nullptr) {}

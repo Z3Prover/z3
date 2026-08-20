@@ -102,6 +102,8 @@ namespace sls {
         unsigned get_num_bool_vars() const override;
         bool parallel_mode() const override { return false; }
         bool get_smt_value(expr* v, expr_ref& value) override { return false; }
+        int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) override;
+
         
     };
 

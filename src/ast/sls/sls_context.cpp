@@ -22,7 +22,9 @@ Author:
 #include "ast/sls/sls_bv_plugin.h"
 #include "ast/sls/sls_euf_plugin.h"
 #include "ast/sls/sls_datatype_plugin.h"
+#include "ast/sls/sls_fpa_plugin.h"
 #include "ast/sls/sls_seq_plugin.h"
+
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
@@ -73,6 +75,8 @@ namespace sls {
             register_plugin(alloc(array_plugin, *this));
         else if (fid == datatype_util(m).get_family_id())
             register_plugin(alloc(datatype_plugin, *this));
+        else if (fid == fpa_util(m).get_family_id())
+            register_plugin(alloc(fpa_plugin, *this));
         else if (fid == seq_util(m).get_family_id() || fid == seq_util(m).get_char_family_id())
             register_plugin(alloc(seq_plugin, *this));
         else {
@@ -292,6 +296,30 @@ namespace sls {
         if (!is_app(e))
             throw default_exception("no plugin for " + mk_pp(e, m));
         family_id fid = to_app(e)->get_family_id();
+        if (m.is_bool(e)) {
+            fpa_util fpa(m);
+            if (fpa.is_float(to_app(e)->get_sort()))
+                fid = fpa.get_family_id();
+            else if (is_app(e)) {
+                ptr_vector<expr> todo;
+                expr_mark visited;
+                todo.push_back(e);
+                while (!todo.empty()) {
+                    expr* t = todo.back();
+                    todo.pop_back();
+                    if (visited.is_marked(t))
+                        continue;
+                    visited.mark(t);
+                    if (fpa.is_float(t) || fpa.is_rm(t)) {
+                        fid = fpa.get_family_id();
+                        break;
+                    }
+                    if (is_app(t))
+                        for (expr* a : *to_app(t))
+                            todo.push_back(a);
+                }
+            }
+        }
         if (m.is_eq(e))
             fid = to_app(e)->get_arg(0)->get_sort()->get_family_id();   
         if (m.is_distinct(e))

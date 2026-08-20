@@ -68,6 +68,10 @@ namespace sls {
         return s().num_vars();
     }
 
+    int solver::eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) {
+        return ctx.eval_fpa_candidates(atom, desired, dag, vars, values, num_candidates);
+    }
+
     void solver::finalize() {
         if (!m_smt_plugin)
             return;
@@ -119,7 +123,6 @@ namespace sls {
     std::ostream& solver::display(std::ostream& out) const {
         return out << "theory-sls\n";
     }
-     
 
 #endif
 }

@@ -75,6 +75,10 @@ namespace smt {
     unsigned theory_sls::get_num_bool_vars() const {
         return ctx.get_num_bool_vars();
     }
+    int theory_sls::eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) {
+        return -1;
+    }
+
 
     void theory_sls::init_search_eh() {
         m_init_search = true;

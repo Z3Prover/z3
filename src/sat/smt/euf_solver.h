@@ -34,6 +34,8 @@ Author:
 #include "params/smt_params.h"
 
 
+namespace sls { struct fpa_lookahead_candidate; }
+
 namespace euf {
     typedef sat::literal literal;
     typedef sat::ext_constraint_idx ext_constraint_idx;
@@ -130,6 +132,9 @@ namespace euf {
         scoped_ptr<euf::ackerman>        m_ackerman;
         void*                            m_on_clause_ctx = nullptr;
         user_solver::solver*             m_user_propagator = nullptr;
+        std::function<int(expr*, bool, ptr_vector<expr> const&, ptr_vector<expr> const&, ptr_vector<expr> const&, unsigned)> m_fpa_ls_eval;
+        std::function<void()>             m_fpa_ls_reset;
+
         th_solver*                       m_qsolver = nullptr;
         unsigned                         m_generation = 0;
         std::string                      m_reason_unknown; 
@@ -564,6 +569,18 @@ namespace euf {
         }
 
         void user_propagate_initialize_value(expr* var, expr* value);
+        void set_fpa_ls_callbacks(std::function<int(expr*, bool, ptr_vector<expr> const&, ptr_vector<expr> const&, ptr_vector<expr> const&, unsigned)> const& eval, std::function<void()> const& reset) {
+            m_fpa_ls_eval = eval;
+            m_fpa_ls_reset = reset;
+        }
+        int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) {
+            return m_fpa_ls_eval ? m_fpa_ls_eval(atom, desired, dag, vars, values, num_candidates) : -1;
+        }
+        void reset_fpa_gpu() {
+            if (m_fpa_ls_reset)
+                m_fpa_ls_reset();
+        }
+
 
         // solver factory
         ::solver* mk_solver() { return m_mk_solver(); }

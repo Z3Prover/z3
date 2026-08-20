@@ -87,6 +87,8 @@ namespace sls {
         virtual std::ostream& display(std::ostream& out) = 0;
         virtual reslimit& rlimit() = 0;
         virtual uint64_t timestamp(sat::bool_var v) = 0;
+        virtual int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) { return -1; }
+
     };
     
     class context {
@@ -203,6 +205,10 @@ namespace sls {
         unsigned rand() { return m_rand(); }
         unsigned rand(unsigned n) { return m_rand(n); }
         reslimit& rlimit() { return s.rlimit(); }
+        int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) {
+            return s.eval_fpa_candidates(atom, desired, dag, vars, values, num_candidates);
+        }
+
         sat::literal_vector const& root_literals() const { return m_root_literals; }
         sat::literal_vector const& unit_literals() const { return m_unit_literals; }
         expr_ref_vector const& input_assertions() const { return m_input_assertions; }

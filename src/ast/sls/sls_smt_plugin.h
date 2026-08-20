@@ -40,6 +40,8 @@ namespace sls {
         virtual void set_finished() = 0;
         virtual unsigned get_num_bool_vars() const = 0;
         virtual bool parallel_mode() const = 0;
+        virtual int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) { return -1; }
+
     };
 
 
@@ -187,5 +189,9 @@ namespace sls {
         }
         void force_restart() override { m_ddfw->force_restart(); }
         uint64_t timestamp(sat::bool_var v) override { return m_ddfw->timestamp(v); }
+        int eval_fpa_candidates(expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) override {
+            return ctx.eval_fpa_candidates(atom, desired, dag, vars, values, num_candidates);
+        }
+
     };
 }

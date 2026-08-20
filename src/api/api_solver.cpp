@@ -46,6 +46,7 @@ Revision History:
 #include "sat/tactic/sat2goal.h"
 #include "cmd_context/extra_cmds/proof_cmds.h"
 #include "solver/simplifier_solver.h"
+#include "sat/smt/euf_solver.h"
 
 
 extern "C" {
@@ -142,6 +143,37 @@ extern "C" {
         m_solver->assert_expr(e, t);
     }
 
+    static void attach_fpa_ls_callbacks(Z3_context c, Z3_solver_ref* sr) {
+        if (!sr->m_solver)
+            return;
+        auto* es = dynamic_cast<euf::solver*>(sr->m_solver.get());
+        if (!es)
+            return;
+        auto* user_ctx = sr->m_fpa_ls_user_context;
+        auto* eval_cb = sr->m_fpa_ls_eval;
+        auto* reset_cb = sr->m_fpa_ls_reset;
+        es->set_fpa_ls_callbacks(
+            [=](expr* atom, bool desired, ptr_vector<expr> const& dag, ptr_vector<expr> const& vars, ptr_vector<expr> const& values, unsigned num_candidates) -> int {
+                if (!eval_cb)
+                    return -1;
+                return eval_cb(
+                    user_ctx,
+                    c,
+                    reinterpret_cast<Z3_ast>(atom),
+                    desired,
+                    dag.size(),
+                    reinterpret_cast<Z3_ast const*>(dag.data()),
+                    vars.size(),
+                    reinterpret_cast<Z3_ast const*>(vars.data()),
+                    num_candidates,
+                    reinterpret_cast<Z3_ast const*>(values.data()));
+            },
+            [=]() {
+                if (reset_cb)
+                    reset_cb(user_ctx);
+            });
+    }
+
     static void init_solver_core(Z3_context c, Z3_solver _s) {
         Z3_solver_ref * s = to_solver(_s);
         bool proofs_enabled = true, models_enabled = true, unsat_core_enabled = false;
@@ -156,6 +188,7 @@ extern "C" {
         context_params::collect_solver_param_descrs(r);
         p.validate(r);
         s->m_solver->updt_params(p);
+        attach_fpa_ls_callbacks(c, s);
     }
 
     static void init_solver(Z3_context c, Z3_solver s) {
@@ -1087,6 +1120,24 @@ extern "C" {
             return fresh_eh(user_ctx, reinterpret_cast<Z3_context>(ctx));
         };
         to_solver_ref(s)->user_propagate_init(user_context, _push, _pop, _fresh);
+        Z3_CATCH;
+    }
+
+
+    void Z3_API Z3_solver_set_fpa_local_search_gpu_callbacks(
+        Z3_context c,
+        Z3_solver s,
+        void* user_context,
+        void* eval_eh,
+        void* reset_eh) {
+        Z3_TRY;
+        LOG_Z3_solver_set_fpa_local_search_gpu_callbacks(c, s, user_context, eval_eh, reset_eh);
+        RESET_ERROR_CODE();
+        auto* sr = to_solver(s);
+        sr->m_fpa_ls_user_context = user_context;
+        sr->m_fpa_ls_eval = reinterpret_cast<Z3_fpa_ls_eval_candidates_eh>(eval_eh);
+        sr->m_fpa_ls_reset = reinterpret_cast<Z3_fpa_ls_reset_eh>(reset_eh);
+        attach_fpa_ls_callbacks(c, sr);
         Z3_CATCH;
     }
 
