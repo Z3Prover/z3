@@ -1193,7 +1193,6 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
     SASSERT(t.exponent() < INT_MAX);
 
     m_mpz_manager.set(z, t.significand());
-    verbose_stream() << t.exponent() << " " << t.sbits() << "\n";
     mpf_exp_t exponent = t.exponent();
     if (exponent < static_cast<mpf_exp_t>(t.sbits()) - 1) {
         uint64_t shift = exponent < 0
