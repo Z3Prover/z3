@@ -127,7 +127,7 @@ public:
     // Read `term` as a sequence of segments, appending the constrained terms it consults
     // to used().  False when a view constrains a part over the wrong sequence sort.  The
     // segments stay valid until the views are reset.
-    bool to_segments(expr* term, segments& out);
+    void to_segments(expr* term, segments& out);
 
     // Emptiness of  L(V_1)...L(V_m) & L(W_1)...L(W_n).  A view holds raw pointers, so
     // segments a caller builds itself must outlive the call; the ones to_segments
