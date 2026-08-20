@@ -134,8 +134,7 @@ namespace seq {
     }
 
     lbool regex_witness::intersect_nonempty(expr* r1, expr* r2) {
-        if (!u().is_re(r1) || r1->get_sort() != r2->get_sort())
-            return l_undef;
+        SASSERT(u().is_re(r1) && r1->get_sort() == r2->get_sort());        
         expr_ref r = m_rw.mk_inter(r1, r2);
         return search(r, nullptr);
     }
