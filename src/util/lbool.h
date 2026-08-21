@@ -30,14 +30,6 @@ inline lbool to_lbool(bool b) {
     return static_cast<lbool>(static_cast<int>(b)*2-1);
 }
 
-inline char const* lbool_to_result_name(const lbool r) {
-    switch (r) {
-    case l_true: return "sat";
-    case l_false: return "unsat";
-    default: return "unknown";
-    }
-}
-
 std::ostream & operator<<(std::ostream & out, lbool b);
 
 /**
