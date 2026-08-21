@@ -138,14 +138,12 @@ namespace nla {
         bool use_rational = !c.use_nra_model();
         rational xval, yval, rval;
         if (use_rational) {
-            // the lemmas below are checked against the values used by core::val,
-            // which ignores the infinitesimal parts, so bail out when the model
-            // assigns an infinitesimal to one of x, y, r.
-            if (!c.lra.get_column_value(x).y.is_zero() ||
-                !c.lra.get_column_value(y).y.is_zero() ||
-                !c.lra.get_column_value(r).y.is_zero())
-                return l_undef;
-
+            // Read the values with core::val so that the lemmas below are decided and
+            // checked against the same rational values that core::ineq_holds uses for
+            // lemma validation. Using these consistent values (instead of
+            // lar_solver::get_value, which folds the infinitesimal part into the
+            // rational) keeps the emitted lemmas sound even when the model assigns an
+            // infinitesimal to one of x, y, r.
             xval = c.val(x);
             yval = c.val(y);
             rval = c.val(r);
@@ -162,12 +160,25 @@ namespace nla {
             }
         }
 
+        // r is only infinitesimally positive when its rational part (c.val) is 0 but
+        // its column value carries a positive infinitesimal. In that case rval == 0, so
+        // the "x > 0 => x^y > 0" lemma would only re-assert r > 0, which the
+        // infinitesimal already satisfies - making no progress and stalling the search
+        // at 'unknown'. Detect this so we can fall through to the stronger bound lemmas
+        // (e.g. "x > 1, y > 0 => x^y > 1"), which the infinitesimal cannot satisfy.
+        auto r_is_infinitesimally_pos = [&]() {
+            if (!use_rational || c.use_nra_model())
+                return false;
+            auto const& cv = c.lra.get_column_value(r);
+            return cv.x.is_zero() && cv.y.is_pos();
+        };
+
         if (use_rational) {
             if (xval != 0 && yval == 0 && rval != 1)
                 return x_exp_0();
             else if (xval == 0 && yval != 0 && rval != 0)
                 return zero_exp_y();
-            else if (xval > 0 && rval <= 0)
+            else if (xval > 0 && rval <= 0 && !r_is_infinitesimally_pos())
                 return x_gt_0();
             else if (xval > 1 && yval < 0 && rval >= 1)
                 return y_lt_1();
