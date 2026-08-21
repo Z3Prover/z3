@@ -214,7 +214,7 @@ namespace arith {
         vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
         // attributes for incremental version:
-        u_map<api_bound*>      m_bool_var2bound;
+        ptr_vector<api_bound>  m_bool_var2bound;   // indexed by bool_var (dense); nullptr = absent
         vector<lp_bounds>      m_bounds;
         unsigned_vector        m_unassigned_bounds;
         unsigned_vector        m_bounds_trail;

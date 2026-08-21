@@ -68,7 +68,7 @@ namespace arith {
                 result->m_bounds[w].push_back(b2);
                 result->m_bounds_trail.push_back(w);
                 result->updt_unassigned_bounds(w, +1);
-                result->m_bool_var2bound.insert(b->get_lit().var(), b2);
+                result->m_bool_var2bound.setx(b->get_lit().var(), b2, nullptr);
                 result->m_new_bounds.push_back(b2);
             }
         }
@@ -91,9 +91,9 @@ namespace arith {
         unsigned qhead = m_asserted_qhead;
         while (m_asserted_qhead < m_asserted.size() && !s().inconsistent() && m.inc()) {
             literal lit = m_asserted[m_asserted_qhead];
-            api_bound* b = nullptr;
-            CTRACE(arith, !m_bool_var2bound.contains(lit.var()), tout << "not found " << lit << "\n";);
-            if (m_bool_var2bound.find(lit.var(), b)) 
+            api_bound* b = m_bool_var2bound.get(lit.var(), nullptr);
+            CTRACE(arith, !b, tout << "not found " << lit << "\n";);
+            if (b) 
                 assert_bound(lit.sign() == b->get_lit().sign(), *b);
             ++m_asserted_qhead;
         }
@@ -122,7 +122,8 @@ namespace arith {
         api_bound* b = nullptr;
         for (; qhead < m_asserted_qhead && !s().inconsistent(); ++qhead) {
             literal lit = m_asserted[qhead];
-            if (m_bool_var2bound.find(lit.var(), b)) 
+            b = m_bool_var2bound.get(lit.var(), nullptr);
+            if (b) 
                 propagate_bound(lit, *b);            
         }
     }
@@ -594,8 +595,8 @@ namespace arith {
             if (!is_bool(v))
                 continue;
             euf::enode* n = var2enode(v);
-            api_bound* b = nullptr;
-            if (!m_bool_var2bound.find(n->bool_var(), b)) {
+            api_bound* b = m_bool_var2bound.get(n->bool_var(), nullptr);
+            if (!b) {
                 IF_VERBOSE(0, verbose_stream() << "no boolean variable\n";);
                 continue;
             }
@@ -718,7 +719,8 @@ namespace arith {
         for (unsigned i = m_bounds_trail.size(); i-- > old_size; ) {
             unsigned v = m_bounds_trail[i];
             api_bound* b = m_bounds[v].back();
-            m_bool_var2bound.erase(b->get_lit().var());
+            SASSERT(b->get_lit().var() < m_bool_var2bound.size());
+            m_bool_var2bound[b->get_lit().var()] = nullptr;
             // del_use_lists(b);
             dealloc(b);
             m_bounds[v].pop_back();
@@ -839,8 +841,8 @@ namespace arith {
     }
 
     lbool solver::get_phase(bool_var v) {
-        api_bound* b;
-        if (!m_bool_var2bound.find(v, b)) {
+        api_bound* b = m_bool_var2bound.get(v, nullptr);
+        if (!b) {
             return l_undef;
         }
         lp::lconstraint_kind k = lp::EQ;

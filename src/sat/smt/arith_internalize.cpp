@@ -327,7 +327,8 @@ namespace arith {
         lp_api::bound_kind k;
         theory_var v = euf::null_theory_var;
         bool_var bv = ctx.get_si().add_bool_var(atom);
-        m_bool_var2bound.erase(bv);
+        if (bv < m_bool_var2bound.size())
+            m_bool_var2bound[bv] = nullptr;
         literal lit(bv, false);
         ctx.attach_lit(lit, atom);
 
@@ -393,7 +394,7 @@ namespace arith {
         m_bounds[v].push_back(b);
         updt_unassigned_bounds(v, +1);
         m_bounds_trail.push_back(v);
-        m_bool_var2bound.insert(bv, b);
+        m_bool_var2bound.setx(bv, b, nullptr);
         TRACE(arith_verbose, tout << "Internalized " << lit << ": " << mk_pp(atom, m) << " " << *b << "\n";);
         m_new_bounds.push_back(b);
         //add_use_lists(b);

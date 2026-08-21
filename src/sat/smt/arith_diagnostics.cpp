@@ -49,8 +49,8 @@ namespace arith {
             out << "v" << v << " ";
             if (is_bool(v)) {
                 euf::enode* n = var2enode(v);
-                api_bound* b = nullptr;
-                if (m_bool_var2bound.find(n->bool_var(), b)) {
+                api_bound* b = m_bool_var2bound.get(n->bool_var(), nullptr);
+                if (b) {
                     sat::literal lit = b->get_lit();
                     out << lit << " " << s().value(lit);
                 }
