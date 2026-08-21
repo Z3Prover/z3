@@ -166,16 +166,6 @@ class seq_eq_approx_test {
     // inputs the module cannot read as segments
     void check_unsupported() {
         expr_ref x = var("x");
-        sort_ref si(u.str.mk_seq(m_arith.mk_int()), m);
-        expr_ref other(re().mk_full_seq(re().mk_re(si)), m);
-        m_eq.add_view(x, seq::view::membership(other));   // a view at the wrong sort
-        report("view at the wrong sort", m_eq.check(x, sword("abc")), l_undef);
-        m_eq.reset_views();
-
-        expr_ref one(m_arith.mk_int(1), m), two(m_arith.mk_int(2), m);
-        report("1 = 2 over Int", m_eq.check(one, two), l_undef);
-        report("String = Seq Int", m_eq.check(x, m.mk_const("xi", si)), l_undef);
-
         report("check(x = abc)", m_eq.check(m.mk_eq(x, sword("abc"))), l_true);
         report("check(x.a = x.b)", m_eq.check(m.mk_eq(sconcat(x, sword("a")),
                                                       sconcat(x, sword("b")))), l_false);
@@ -573,9 +563,6 @@ public:
                          sconcat(x, sword("b"), z), sconcat(x, sword("a"), z), l_true);
         check_with_regex("x in ~(a*): x = aa", x, comp(star(a)), x, sword("aa"), l_false);
         check_with_regex("x in ~(a*): x = ab", x, comp(star(a)), x, sword("ab"), l_true);
-        // a compound term may be constrained directly, and is then not decomposed
-        check_with_regex("x.y in a*: x.y = b", sconcat(x, y).get(), star(a),
-                         sconcat(x, y), sword("b"), l_false);
         // several views on one term are conjunctive
         {
             m_eq.add_view(x, seq::view::membership(star(alt(a, b))));

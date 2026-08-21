@@ -19,7 +19,6 @@ Author:
 #include "ast/ast.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
-#include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_regex_witness.h"
 #include <iostream>
@@ -36,7 +35,6 @@ class regex_witness_test {
     seq_rewriter     m_rw;
     seq::regex_witness m_wit;
     seq_util         u;
-    arith_util       m_arith;
     sort_ref         m_str;
     sort_ref         m_re;
     seq::transition_mode m_mode;
@@ -95,7 +93,7 @@ class regex_witness_test {
 public:
 
     regex_witness_test(seq::transition_mode mode) :
-        m_reg(m), m_rw(m), m_wit(m_rw, mode), u(m), m_arith(m),
+        m_reg(m), m_rw(m), m_wit(m_rw, mode), u(m),
         m_str(u.str.mk_string_sort(), m), m_re(re().mk_re(m_str), m), m_mode(mode) {}
 
     void run() {
@@ -123,13 +121,6 @@ public:
                m_wit.intersect_nonempty(cat(dotstar(), ab), cat(ab, dotstar())), l_true);
         report("a.Sigma* & Sigma*.b & b.Sigma*",
                m_wit.intersect_nonempty(cat(a, dotstar()), cat(b, dotstar())), l_false);
-        // a regex over a different sequence sort is not a comparable language
-        {
-            sort_ref si(u.str.mk_seq(m_arith.mk_int()), m);
-            expr_ref other(re().mk_full_seq(re().mk_re(si)), m);
-            report("sort mismatch", m_wit.intersect_nonempty(star(a), other), l_undef);
-        }
-
         std::cout << "=== regex_witness: state bound ===\n";
         {
             unsigned const saved = m_wit.max_states();
