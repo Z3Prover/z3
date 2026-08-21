@@ -137,14 +137,19 @@ namespace nla {
 
         bool use_rational = !c.use_nra_model();
         rational xval, yval, rval;
+        // The sign/threshold lemmas below compare the model values against 0/1.
+        // They are validated with core::val, which ignores the infinitesimal
+        // part, so when the model assigns an infinitesimal to x, y or r the
+        // emitted inequality can already hold in the validated model, yielding a
+        // lemma that makes no progress. Track that here and skip those lemmas in
+        // that case (the concrete power-evaluation lemma further below is still
+        // sound and is what pins r to x^y).
+        bool has_infinitesimal = false;
         if (use_rational) {
-            // the lemmas below are checked against the values used by core::val,
-            // which ignores the infinitesimal parts, so bail out when the model
-            // assigns an infinitesimal to one of x, y, r.
-            if (!c.lra.get_column_value(x).y.is_zero() ||
+            has_infinitesimal =
+                !c.lra.get_column_value(x).y.is_zero() ||
                 !c.lra.get_column_value(y).y.is_zero() ||
-                !c.lra.get_column_value(r).y.is_zero())
-                return l_undef;
+                !c.lra.get_column_value(r).y.is_zero();
 
             xval = c.val(x);
             yval = c.val(y);
@@ -163,19 +168,21 @@ namespace nla {
         }
 
         if (use_rational) {
-            if (xval != 0 && yval == 0 && rval != 1)
-                return x_exp_0();
-            else if (xval == 0 && yval != 0 && rval != 0)
-                return zero_exp_y();
-            else if (xval > 0 && rval <= 0)
-                return x_gt_0();
-            else if (xval > 1 && yval < 0 && rval >= 1)
-                return y_lt_1();
-            else if (xval > 1 && yval > 0 && rval <= 1)
-                return y_gt_1();
-            else if (xval >= 3 && yval != 0 && rval <= yval + 1)
-                return x_ge_3();
-            else if (xval > 0 && yval.is_unsigned()) {
+            if (!has_infinitesimal) {
+                if (xval != 0 && yval == 0 && rval != 1)
+                    return x_exp_0();
+                else if (xval == 0 && yval != 0 && rval != 0)
+                    return zero_exp_y();
+                else if (xval > 0 && rval <= 0)
+                    return x_gt_0();
+                else if (xval > 1 && yval < 0 && rval >= 1)
+                    return y_lt_1();
+                else if (xval > 1 && yval > 0 && rval <= 1)
+                    return y_gt_1();
+                else if (xval >= 3 && yval != 0 && rval <= yval + 1)
+                    return x_ge_3();
+            }
+            if (xval > 0 && yval.is_unsigned()) {
                 auto r2val = power(xval, yval.get_unsigned());
                 if (rval == r2val)
                     return l_true;
