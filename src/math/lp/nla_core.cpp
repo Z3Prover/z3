@@ -846,6 +846,10 @@ void core::check_weighted(unsigned sz, std::pair<unsigned, std::function<void(vo
 
 lbool core::check_power(lpvar r, lpvar x, lpvar y) {
     clear();
+    // powers::check and lemma validation read only the rational parts of the
+    // column values; drop infinitesimals first, as init_to_refine does for check().
+    if (lra.is_feasible())
+        lra.get_rid_of_inf_eps();
     return m_powers.check(r, x, y, m_lemmas);
 }
 
