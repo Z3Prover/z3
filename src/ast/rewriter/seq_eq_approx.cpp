@@ -104,7 +104,7 @@ void seq_eq_approx::to_segments(expr* t, segments& out) {
 
     seq::view_vector views;
     if (m_views.find(t, views)) {
-        DEBUG_CODE(all_of(views, [&](view const& v) { return v.m_state && v.m_state->get_sort() == re_sort; }));
+        DEBUG_CODE(all_of(views, [&](seq::view const& v) { return v.m_state && v.m_state->get_sort() == re_sort; }));
         if (!m_used.contains(t))
             m_used.push_back(t);
         out.push_back(views);
