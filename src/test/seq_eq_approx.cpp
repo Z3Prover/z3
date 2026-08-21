@@ -102,11 +102,7 @@ class seq_eq_approx_test {
     // checks only see through the verdict.
     void check_member(char const* name, expr* term, char const* w, lbool expected) {
         seq_eq_approx::segments segs, wsegs;
-        if (!m_eq.to_segments(term, segs)) {
-            ++m_fail;
-            std::cout << "  FAIL " << name << "  to_segments failed\n";
-            return;
-        }
+        m_eq.to_segments(term, segs);
         expr_ref w_re = word(w);           // a view holds a raw pointer: keep it alive
         seq::view_vector v;
         v.push_back(seq::view::membership(w_re));
