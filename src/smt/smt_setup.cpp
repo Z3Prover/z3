@@ -833,7 +833,7 @@ namespace smt {
             m_params.m_case_split_strategy == CS_RELEVANCY_GOAL)
             return;
 
-        if (st.m_has_bv && st.m_num_quantifiers == 0)
+        if (st.m_has_bv && !st.m_has_fpa && st.m_num_quantifiers == 0)
              m_params.m_relevancy_lvl = 0;           
     }
 
