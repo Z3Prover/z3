@@ -96,6 +96,7 @@
     X(mpz) \
     X(mpq) \
     X(mpf) \
+    X(fpa) \
     X(total_order) \
     X(dl_table) \
     X(dl_context) \
