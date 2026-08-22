@@ -147,7 +147,7 @@ namespace smt {
     // The K e operator breaks the assumption that is otherwise used for model construction, namely
     // that values of array variables can be modified to satisfy store chains.
 
-    bool theory_array_full::check_const_arrays() {
+    lbool theory_array_full::check_const_arrays() {
         ptr_vector<enode> const_arrays;
         obj_hashtable<enode> seen_consts;
         for (unsigned v = 0; v < m_var_data.size(); ++v) {
@@ -159,7 +159,7 @@ namespace smt {
                 }
         }
         if (const_arrays.size() < 2)
-            return true;
+            return l_true;
 
         struct reach {
             enode* m_root;
@@ -255,6 +255,7 @@ namespace smt {
         for (unsigned i = 0; i < const_arrays.size(); ++i)
             reachable(const_arrays[i], all_reachable[i]);
 
+        bool has_uninterpreted = false;
         for (unsigned i = 0; i < const_arrays.size(); ++i) {
             enode* value_expr1 = const_arrays[i]->get_arg(0);
             enode* value1 = value_expr1->get_root();
@@ -286,10 +287,13 @@ namespace smt {
                 sort* array_sort = const_arrays[i]->get_sort();
                 bool domain_exceeds_indices = false;
                 uint64_t domain_size = 1;
+                bool has_uninterp = false;
                 for (unsigned k = 0; k < get_array_arity(array_sort); ++k) {
                     sort* index_sort = get_array_domain(array_sort, k);
-                    if (m.is_uninterp(index_sort))
+                    if (m.is_uninterp(index_sort)) {
+                        has_uninterp = true;
                         continue;
+                    }
                     sort_size const& size = index_sort->get_num_elements();
                     if (!size.is_finite() || size.size() > indices.size() ||
                         domain_size > indices.size() / size.size()) {
@@ -310,7 +314,7 @@ namespace smt {
                             ext_theory_eq_propagation_justification(
                                 get_id(), ctx, 0, nullptr, eqs.size(), eqs.data(), value_expr1, value_expr2));
                     ctx.assign_eq(value_expr1, value_expr2, eq_justification(js));
-                    return false;
+                    return l_false;
                 }
 
                 bool is_new = false;
@@ -323,10 +327,16 @@ namespace smt {
                     is_new |= internalize_select(const_arrays[j], arity, store_indices.data());
                 }
                 if (is_new)
-                    return false;
+                    return l_false;
+
+                // we are inconclusive towards satisfiability
+                // the domain size of uninterpreted sort is determined dynamically
+                // by number of distinct enode roots for the sort.                
+                if (has_uninterp)
+                    has_uninterpreted = true;
             }
         }
-        return true;
+        return has_uninterpreted ? l_undef : l_true;
     }
 
     //
@@ -1037,8 +1047,13 @@ namespace smt {
                 }
             }
         }
-        if (r == FC_DONE && !check_const_arrays())
-            r = FC_CONTINUE;
+        if (r == FC_DONE) {
+            switch (check_const_arrays()) {
+            case l_false: r = FC_CONTINUE; break;
+            case l_true: break;
+            case l_undef: r = FC_GIVEUP; break;
+            }
+        }
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail() || has_non_beta_as_array();
         if (r == FC_DONE && should_giveup)
             r = FC_GIVEUP;
