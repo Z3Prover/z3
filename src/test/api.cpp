@@ -13,6 +13,39 @@ Copyright (c) 2015 Microsoft Corporation
 #include <string>
 #include "util/trace.h"
 
+static void test_solver_model_completion() {
+    Z3_global_param_set("model.completion", "true");
+    Z3_config cfg = Z3_mk_config();
+    Z3_set_param_value(cfg, "MODEL", "true");
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_sort s = Z3_mk_uninterpreted_sort(ctx, Z3_mk_string_symbol(ctx, "S"));
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), s);
+    Z3_func_decl f = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, "f"), 1, &s, s);
+    Z3_ast fx = Z3_mk_app(ctx, f, 1, &x);
+    Z3_ast args[] = { Z3_mk_eq(ctx, x, x), Z3_mk_eq(ctx, fx, fx) };
+    Z3_solver_assert(ctx, solver, Z3_mk_and(ctx, 2, args));
+
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_model mdl = Z3_solver_get_model(ctx, solver);
+    Z3_model_inc_ref(ctx, mdl);
+    ENSURE(Z3_model_get_const_interp(ctx, mdl, Z3_get_app_decl(ctx, Z3_to_app(ctx, x))));
+    ENSURE(Z3_model_get_func_interp(ctx, mdl, f));
+    ENSURE(Z3_model_get_num_sorts(ctx, mdl) == 1);
+    ENSURE(Z3_model_get_sort(ctx, mdl, 0) == s);
+    Z3_ast_vector universe = Z3_model_get_sort_universe(ctx, mdl, s);
+    ENSURE(universe);
+    ENSURE(Z3_ast_vector_size(ctx, universe) == 1);
+
+    Z3_model_dec_ref(ctx, mdl);
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+    Z3_global_param_set("model.completion", "false");
+}
+
 void test_apps() {
     Z3_config cfg = Z3_mk_config();
     Z3_set_param_value(cfg,"MODEL","true");
@@ -362,6 +395,7 @@ void test_strict_real_maximize_disjunction() {
 // on machine load and on whatever ran earlier in the same process.
 
 void tst_api() {
+    test_solver_model_completion();
     test_apps();
     test_mk_app_polymorphic_arity();
     test_mk_quantifier_const_loose_bound_variables();
