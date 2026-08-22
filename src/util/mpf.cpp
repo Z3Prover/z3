@@ -915,14 +915,8 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
 
         set(o, x.ebits, x.sbits, res.sign(), res.exponent(), mpz(0));
 
-        if (x.sbits >= 4) {
-            m_mpz_manager.machine_div_rem(res.significand(), m_powers2(x.sbits - 4 + 3), o.significand, sticky_rem);
-            renorm_sticky |= !m_mpz_manager.is_zero(sticky_rem);
-        }
-        else {
-            m_mpz_manager.mul2k(res.significand(), 4 - x.sbits + 3, o.significand);
-            o.exponent -= 4 - x.sbits + 3;
-        }
+        m_mpz_manager.machine_div_rem(res.significand(), m_powers2(x.sbits - 1), o.significand, sticky_rem);
+        renorm_sticky |= !m_mpz_manager.is_zero(sticky_rem);
 
         if (renorm_sticky && m_mpz_manager.is_even(o.significand))
             m_mpz_manager.inc(o.significand);
