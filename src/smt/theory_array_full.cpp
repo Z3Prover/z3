@@ -24,6 +24,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "smt/smt_context.h"
 #include "smt/theory_array_full.h"
+#include "util/scoped_ptr_vector.h"
 
 namespace smt {
 
@@ -129,57 +130,201 @@ namespace smt {
         }
     }
 
-    bool theory_array_full::check_const_arrays() {
+    // Consider the following patch:
+    //
+    // (K e1) reaches (K e2) over store chain with indices I, with e1 != e2.
+    // Reachability over store chains means that there is transitiviely a store chain of parents
+    // (store A i v) where A is (from congruence) reachable from (K e1) or (K e2)
+    // and i is in I and the chain ends in a congruent pair of stores.
+    // DS is domain size of index type. It is either finite, large (infinite) or uninterpreted.
+    //     // If DS is uninterpreted then let DS be the minimal size of the uninterpreted sort
+    // If DS is finite and I < DS, then the store chain is unsat
+    // If DS is finite and I >= DS, then ensure that all I are applied at both K e1 and K e2
+    // to enforce no disequality is masked.
+    // If DS is finite and I >= DS and the select applications at K e1 and K e2 contain all of I
+    // then conclude SAT.
+    //
+    // The K e operator breaks the assumption that is otherwise used for model construction, namely
+    // that values of array variables can be modified to satisfy store chains.
 
-        return true;
-        // disabled until worked out
+    bool theory_array_full::check_const_arrays() {
         ptr_vector<enode> const_arrays;
+        obj_hashtable<enode> seen_consts;
         for (unsigned v = 0; v < m_var_data.size(); ++v) {
             auto* d = m_var_data_full[v];
-            const_arrays.append(d->m_consts);
+            for (enode* cnst : d->m_consts)
+                if (!seen_consts.contains(cnst->get_root()) && ctx.is_relevant(cnst)) {
+                    seen_consts.insert(cnst->get_root());
+                    const_arrays.push_back(cnst);
+                }
         }
-        if (const_arrays.empty())
+        if (const_arrays.size() < 2)
             return true;
 
-        collect_defaults();
-        collect_selects();
-        propagate_selects();
-        //
-        // default(K v) = v
-        // (K v)[i] = v
-        // (K w)[j] = w
-        // 
-        // (K v)(diag i1 ... ik) = v
-        //
-        verbose_stream() << "check_const_arrays: #const_arrays: " << const_arrays.size() << "\n";
-        for (auto n : const_arrays) {
-            auto r = n->get_root();
-            if (r->is_marked())
-                continue;
-            r->set_mark();
-            sort *range = get_array_range(r->get_sort());
-            auto sz = range->get_num_elements();            
-            auto sels = m_selects.find(r);
-            auto num_sels = sels ? sels->size() : 0;
-            if (!sz.is_finite())
-                continue;
-            if (num_sels > sz.size())               
-                continue;
+        struct reach {
+            enode* m_root;
+            reach* m_parent = nullptr;
+            enode* m_store = nullptr;
+        };
 
-            // 
-            // create skolem k, such that 
-            // k not in indices of selects 
-            // and (select (const v) k) = v
-            //
+        scoped_ptr_vector<reach> reach_nodes;
+        auto reachable = [&](enode* cnst, ptr_vector<reach>& result) {
+            obj_hashtable<enode> visited;
+            reach* initial = alloc(reach, cnst->get_root());
+            reach_nodes.push_back(initial);
+            result.push_back(initial);
+            visited.insert(cnst->get_root());
+            for (unsigned qhead = 0; qhead < result.size(); ++qhead) {
+                reach* current = result[qhead];
+                theory_var v = current->m_root->get_th_var(get_id());
+                if (v == null_theory_var)
+                    continue;
+                for (enode* store : m_var_data[find(v)]->m_parent_stores) {
+                    if (!is_store(store) || !ctx.is_relevant(store) ||
+                        store->get_arg(0)->get_root() != current->m_root)
+                        continue;
+                    enode* next_root = store->get_root();
+                    if (visited.contains(next_root))
+                        continue;
+                    visited.insert(next_root);
+                    reach* next = alloc(reach, next_root, current, store);
+                    reach_nodes.push_back(next);
+                    result.push_back(next);
+                }
+            }
+        };
 
-            verbose_stream() << "check_const_arrays: #sels: " << num_sels << " ~ #range: " << sz << "\n";
-            verbose_stream() << "check_const_arrays: const_array: " << mk_ismt2_pp(r->get_expr(), m) << "\n";
-            verbose_stream() << "check_const_arrays: #selects: " << sels->size() << "\n";
-        }
-        for (auto n : const_arrays) {
-            auto r = n->get_root();
-            if (r->is_marked()) 
-                r->unset_mark();            
+        auto same_index = [&](enode* s1, enode* s2) {
+            if (s1->get_num_args() != s2->get_num_args())
+                return false;
+            for (unsigned i = 1; i + 1 < s1->get_num_args(); ++i)
+                if (s1->get_arg(i)->get_root() != s2->get_arg(i)->get_root())
+                    return false;
+            return true;
+        };
+
+        auto add_indices = [&](reach const* path, ptr_vector<enode>& indices) {
+            for (; path->m_store; path = path->m_parent) {
+                enode* store = path->m_store;
+                bool found = false;
+                for (enode* old : indices)
+                    if (same_index(store, old)) {
+                        found = true;
+                        break;
+                    }
+                if (!found)
+                    indices.push_back(store);
+            }
+        };
+
+        auto add_eq = [&](enode* n1, enode* n2, enode_pair_vector& eqs) {
+            if (n1 != n2) {
+                SASSERT(n1->get_root() == n2->get_root());
+                eqs.push_back({ n1, n2 });
+            }
+        };
+
+        auto add_path_eqs = [&](enode* cnst, reach const* path, enode_pair_vector& eqs) {
+            reach const* initial = path;
+            while (initial->m_parent)
+                initial = initial->m_parent;
+            add_eq(cnst, initial->m_root, eqs);
+            for (; path->m_store; path = path->m_parent) {
+                add_eq(path->m_store->get_arg(0), path->m_parent->m_root, eqs);
+                add_eq(path->m_store, path->m_root, eqs);
+            }
+        };
+
+        auto internalize_select = [&](enode* cnst, unsigned num_indices, expr* const* indices) {
+            ptr_buffer<expr> args;
+            args.push_back(cnst->get_expr());
+            args.append(num_indices, indices);
+            app* select = mk_select(args.size(), args.data());
+            bool is_new = !ctx.e_internalized(select);
+            ctx.internalize(select, false);
+            enode* select_node = ctx.get_enode(select);
+            if (!ctx.is_relevant(select_node)) {
+                ctx.mark_as_relevant(select_node);
+                is_new = true;
+            }
+            return is_new;
+        };
+
+        vector<ptr_vector<reach>> all_reachable;
+        all_reachable.resize(const_arrays.size());
+        for (unsigned i = 0; i < const_arrays.size(); ++i)
+            reachable(const_arrays[i], all_reachable[i]);
+
+        for (unsigned i = 0; i < const_arrays.size(); ++i) {
+            enode* value_expr1 = const_arrays[i]->get_arg(0);
+            enode* value1 = value_expr1->get_root();
+            for (unsigned j = i + 1; j < const_arrays.size(); ++j) {
+                enode* value_expr2 = const_arrays[j]->get_arg(0);
+                enode* value2 = value_expr2->get_root();
+                if (value1 == value2)
+                    continue;
+
+                reach const* path1 = nullptr;
+                reach const* path2 = nullptr;
+                for (reach const* r1 : all_reachable[i]) {
+                    for (reach const* r2 : all_reachable[j])
+                        if (r1->m_root == r2->m_root) {
+                            path1 = r1;
+                            path2 = r2;
+                            break;
+                        }
+                    if (path1)
+                        break;
+                }
+                if (!path1)
+                    continue;
+
+                ptr_vector<enode> indices;
+                add_indices(path1, indices);
+                add_indices(path2, indices);
+
+                sort* array_sort = const_arrays[i]->get_sort();
+                bool domain_exceeds_indices = false;
+                uint64_t domain_size = 1;
+                for (unsigned k = 0; k < get_array_arity(array_sort); ++k) {
+                    sort* index_sort = get_array_domain(array_sort, k);
+                    if (m.is_uninterp(index_sort))
+                        continue;
+                    sort_size const& size = index_sort->get_num_elements();
+                    if (!size.is_finite() || size.size() > indices.size() ||
+                        domain_size > indices.size() / size.size()) {
+                        domain_exceeds_indices = true;
+                        break;
+                    }
+                    domain_size *= size.size();
+                }
+                bool has_common_uncovered_index =
+                    domain_exceeds_indices || domain_size > indices.size();
+
+                if (has_common_uncovered_index) {
+                    enode_pair_vector eqs;
+                    add_path_eqs(const_arrays[i], path1, eqs);
+                    add_path_eqs(const_arrays[j], path2, eqs);
+                    justification* js =
+                        ctx.mk_justification(
+                            ext_theory_eq_propagation_justification(
+                                get_id(), ctx, 0, nullptr, eqs.size(), eqs.data(), value_expr1, value_expr2));
+                    ctx.assign_eq(value_expr1, value_expr2, eq_justification(js));
+                    return false;
+                }
+
+                bool is_new = false;
+                for (enode* store : indices) {
+                    unsigned arity = store->get_num_args() - 2;
+                    ptr_buffer<expr> store_indices;
+                    for (unsigned k = 1; k <= arity; ++k)
+                        store_indices.push_back(store->get_arg(k)->get_expr());
+                    is_new |= internalize_select(const_arrays[i], arity, store_indices.data());
+                    is_new |= internalize_select(const_arrays[j], arity, store_indices.data());
+                }
+                if (is_new)
+                    return false;
+            }
         }
         return true;
     }
