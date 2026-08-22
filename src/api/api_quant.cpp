@@ -19,6 +19,7 @@ Revision History:
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
 #include "api/api_util.h"
+#include "ast/has_free_vars.h"
 #include "parsers/util/pattern_validation.h"
 #include "ast/expr_abstract.h"
 
@@ -47,6 +48,7 @@ extern "C" {
             );
 
     }
+
 
     Z3_ast mk_quantifier_ex_core(
         Z3_context c,
@@ -222,6 +224,10 @@ extern "C" {
         }
         if (num_bound == 0) {
             SET_ERROR_CODE(Z3_INVALID_USAGE, "number of bound variables is 0");
+            RETURN_Z3(nullptr);
+        }
+        if (has_free_vars(to_expr(body))) {
+            SET_ERROR_CODE(Z3_INVALID_USAGE, "body contains loose bound variables");
             RETURN_Z3(nullptr);
         }
         for (unsigned i = 0; i < num_bound; ++i) {
@@ -584,4 +590,3 @@ extern "C" {
     }
 
 }
-
