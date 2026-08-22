@@ -32,6 +32,7 @@ Revision History:
 #include "api/api_model.h"
 #include "api/api_stats.h"
 #include "api/api_ast_vector.h"
+#include "ast/decl_collector.h"
 #include "model/model_params.hpp"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
@@ -47,6 +48,47 @@ Revision History:
 #include "cmd_context/extra_cmds/proof_cmds.h"
 #include "solver/simplifier_solver.h"
 
+static void complete_model_from_assertions(solver& s, model& mdl) {
+    model_params mp(s.get_params());
+    if (!mp.completion())
+        return;
+
+    ast_manager& m = s.get_manager();
+    expr_ref_vector assertions(m);
+    s.get_assertions(assertions);
+    decl_collector decls(m);
+    for (expr* assertion : assertions)
+        decls.visit(assertion);
+
+    for (sort* srt : decls.get_sorts()) {
+        if (m.is_uninterp(srt) && !mdl.has_uninterpreted_sort(srt)) {
+            expr* value = m.get_some_value(srt);
+            mdl.register_usort(srt, 1, &value);
+        }
+    }
+
+    for (unsigned i = 0; i < mdl.get_num_functions(); ++i) {
+        func_decl* f = mdl.get_function(i);
+        func_interp* fi = mdl.get_func_interp(f);
+        if (fi->is_partial())
+            fi->set_else(m.get_some_value(f->get_range()));
+    }
+
+    for (func_decl* f : decls.get_func_decls()) {
+        if (f->get_family_id() != null_family_id || mdl.has_interpretation(f))
+            continue;
+        expr* value = mdl.get_some_value(f->get_range());
+        if (f->get_arity() == 0) {
+            mdl.register_decl(f, value);
+        }
+        else {
+            func_interp* fi = alloc(func_interp, m, f->get_arity());
+            fi->set_else(value);
+            mdl.register_decl(f, fi);
+        }
+    }
+    mdl.add_rec_funs();
+}
 
 extern "C" {
 
@@ -725,6 +767,7 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
         if (_m) {
+            complete_model_from_assertions(*to_solver_ref(s), *_m);
             model_params mp(to_solver_ref(s)->get_params());
             if (mp.compact()) _m->compress();
         }
