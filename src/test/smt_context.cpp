@@ -170,4 +170,82 @@ void tst_smt_context()
         std::string reason_unknown;
         VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
     }
+
+    {
+        // fp.rem with a subnormal divisor: exp_diff reaches 31, past the significand's headroom. rem(-2132.0, -1.2516975402832031e-06) is exactly 5/8388608; the truncated dividend makes it look like -0.
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const x (_ FloatingPoint 5 11))\n"
+            "(declare-const y (_ FloatingPoint 5 11))\n"
+            "(declare-const xb (_ BitVec 16))\n"
+            "(declare-const yb (_ BitVec 16))\n"
+            "(assert (= x ((_ to_fp 5 11) xb)))\n"
+            "(assert (= y ((_ to_fp 5 11) yb)))\n"
+            "(assert (= xb #b1110100000101010))\n"
+            "(assert (= yb #b1000000000010101))\n"
+            "(assert (not (= ((_ fp.to_ieee_bv 16) (fp.rem x y)) #x000a)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = and_then(mk_fpa2bv_tactic(m), mk_simplify_tactic(m), mk_bit_blaster_tactic(m), mk_smt_tactic(m));
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+    }
+
+    {
+        // Same defect at exp_diff 32: rem(21632.0, 6.67572021484375e-06) is exactly 1/1048576, and the truncation doubles it.
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const x (_ FloatingPoint 5 11))\n"
+            "(declare-const y (_ FloatingPoint 5 11))\n"
+            "(declare-const xb (_ BitVec 16))\n"
+            "(declare-const yb (_ BitVec 16))\n"
+            "(assert (= x ((_ to_fp 5 11) xb)))\n"
+            "(assert (= y ((_ to_fp 5 11) yb)))\n"
+            "(assert (= xb #b0111010101001000))\n"
+            "(assert (= yb #b0000000001110000))\n"
+            "(assert (not (= ((_ fp.to_ieee_bv 16) (fp.rem x y)) #x0010)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = and_then(mk_fpa2bv_tactic(m), mk_simplify_tactic(m), mk_bit_blaster_tactic(m), mk_smt_tactic(m));
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+    }
+
+    {
+        // The smallest overflow, exp_diff 30: rem(44096.0, 5.793571472167969e-05) lands 116 ulp out rather than collapsing to zero.
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const x (_ FloatingPoint 5 11))\n"
+            "(declare-const y (_ FloatingPoint 5 11))\n"
+            "(declare-const xb (_ BitVec 16))\n"
+            "(declare-const yb (_ BitVec 16))\n"
+            "(assert (= x ((_ to_fp 5 11) xb)))\n"
+            "(assert (= y ((_ to_fp 5 11) yb)))\n"
+            "(assert (= xb #b0111100101100010))\n"
+            "(assert (= yb #b0000001111001100))\n"
+            "(assert (not (= ((_ fp.to_ieee_bv 16) (fp.rem x y)) #x8148)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = and_then(mk_fpa2bv_tactic(m), mk_simplify_tactic(m), mk_bit_blaster_tactic(m), mk_smt_tactic(m));
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+    }
 }

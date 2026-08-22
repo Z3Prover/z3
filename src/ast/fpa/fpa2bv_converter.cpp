@@ -1176,8 +1176,16 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     // way to go in the long run (using the lazy bit-blaster helps on simple instances).
     expr_ref lshift(m), rshift(m), shifted(m), huge_rem(m), huge_div(m), huge_div_is_even(m);
     expr_ref a_sig_ext_l = a_sig, b_sig_ext_l = b_sig;
+
+    // exp_diff is computed from the normalized exponents, so a subnormal
+    // divisor (b_exp at the minimum with a non-zero b_lz) drives it up to
+    // max_exp_diff + sbits - 1.
+    scoped_mpz max_sig_ext(m_mpz_manager);
+    m_mpz_manager.add(max_exp_diff, sbits, max_sig_ext);
+    m_mpz_manager.sub(max_sig_ext, 1, max_sig_ext);
+
     scoped_mpz remaining(m_mpz_manager);
-    m_mpz_manager.set(remaining, max_exp_diff);
+    m_mpz_manager.set(remaining, max_sig_ext);
     while (m_mpz_manager.gt(remaining, INT32_MAX)) {
         SASSERT(false); // zero-extend ast's expect int params which would overflow.
         a_sig_ext_l = m_bv_util.mk_zero_extend(INT32_MAX, a_sig_ext_l);
@@ -1193,10 +1201,14 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     a_sig_ext = m_bv_util.mk_concat(a_sig_ext_l, m_bv_util.mk_numeral(0, 3));
     b_sig_ext = m_bv_util.mk_concat(b_sig_ext_l, m_bv_util.mk_numeral(0, 3));
 
+    // Sizes lshift/rshift to match a_sig_ext, which bvshl and bvlshr
+    // require, so it grows with the significand extension above.
     scoped_mpz max_exp_diff_adj(m_mpz_manager);
     m_mpz_manager.add(max_exp_diff, sbits, max_exp_diff_adj);
     m_mpz_manager.sub(max_exp_diff_adj, ebits, max_exp_diff_adj);
     m_mpz_manager.add(max_exp_diff_adj, 1, max_exp_diff_adj);
+    m_mpz_manager.add(max_exp_diff_adj, sbits, max_exp_diff_adj);
+    m_mpz_manager.sub(max_exp_diff_adj, 1, max_exp_diff_adj);
     expr_ref edr_tmp = exp_diff, nedr_tmp = neg_exp_diff;
     m_mpz_manager.set(remaining, max_exp_diff_adj);
     if (m_mpz_manager.gt(remaining, INT32_MAX))
