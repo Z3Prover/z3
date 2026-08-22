@@ -19,9 +19,9 @@ Revision History:
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
 #include "api/api_util.h"
-#include "ast/has_free_vars.h"
 #include "parsers/util/pattern_validation.h"
 #include "ast/expr_abstract.h"
+#include "ast/rewriter/rewriter.h"
 
 extern "C" {
 
@@ -225,10 +225,6 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_USAGE, "number of bound variables is 0");
             RETURN_Z3(nullptr);
         }
-        if (has_free_vars(to_expr(body))) {
-            SET_ERROR_CODE(Z3_INVALID_USAGE, "body contains loose bound variables");
-            RETURN_Z3(nullptr);
-        }
         for (unsigned i = 0; i < num_bound; ++i) {
             app* a = to_app(bound[i]);
             if (a->get_kind() != AST_APP) {
@@ -247,11 +243,13 @@ extern "C" {
         // Abstract patterns
         svector<Z3_pattern> _patterns;
         expr_ref_vector pinned(mk_c(c)->m());
+        var_shifter shift(mk_c(c)->m());
         for (unsigned i = 0; i < num_patterns; ++i) {
             expr_ref result(mk_c(c)->m());
             app* pat = to_pattern(patterns[i]);
             SASSERT(mk_c(c)->m().is_pattern(pat));
-            expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), pat, result);
+            shift(pat, num_bound, result);
+            expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), result, result);
             SASSERT(result.get()->get_kind() == AST_APP);
             pinned.push_back(result.get());
             if (!mk_c(c)->m().is_pattern(result.get())) {
@@ -268,13 +266,15 @@ extern "C" {
                 RETURN_Z3(nullptr);
             }
             app* pat = to_app(to_expr(no_patterns[i]));
-            expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), pat, result);
+            shift(pat, num_bound, result);
+            expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), result, result);
             SASSERT(result.get()->get_kind() == AST_APP);
             pinned.push_back(result.get());
             _no_patterns.push_back(of_ast(result.get()));
         }
         expr_ref abs_body(mk_c(c)->m());
-        expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), to_expr(body), abs_body);
+        shift(to_expr(body), num_bound, abs_body);
+        expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), abs_body, abs_body);
 
         Z3_ast result = mk_quantifier_ex_core(c, is_forall, weight,
                                               quantifier_id,

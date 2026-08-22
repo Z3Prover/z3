@@ -4461,7 +4461,7 @@ extern "C" {
        \param bound array of constants to be abstracted into bound variables.
        \param num_patterns number of patterns.
        \param patterns array containing the patterns created using #Z3_mk_pattern.
-       \param body the body of the quantifier. It must not contain loose bound variables.
+       \param body the body of the quantifier.
 
        \sa Z3_mk_pattern
        \sa Z3_mk_exists_const
@@ -4491,7 +4491,7 @@ extern "C" {
        \param bound array of constants to be abstracted into bound variables.
        \param num_patterns number of patterns.
        \param patterns array containing the patterns created using #Z3_mk_pattern.
-       \param body the body of the quantifier. It must not contain loose bound variables.
+       \param body the body of the quantifier.
 
        \sa Z3_mk_pattern
        \sa Z3_mk_forall_const
@@ -4510,8 +4510,7 @@ extern "C" {
 
     /**
        \brief Create a universal or existential quantifier using a list of
-       constants that will form the set of bound variables. The body must not
-       contain loose bound variables.
+       constants that will form the set of bound variables.
 
        def_API('Z3_mk_quantifier_const', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(UINT), _in_array(3, APP), _in(UINT), _in_array(5, PATTERN), _in(AST)))
     */
@@ -4526,8 +4525,7 @@ extern "C" {
 
     /**
        \brief Create a universal or existential quantifier using a list of
-       constants that will form the set of bound variables. The body must not
-       contain loose bound variables.
+       constants that will form the set of bound variables.
 
        def_API('Z3_mk_quantifier_const_ex', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(SYMBOL), _in(SYMBOL), _in(UINT), _in_array(5, APP), _in(UINT), _in_array(7, PATTERN), _in(UINT), _in_array(9, AST), _in(AST)))
     */

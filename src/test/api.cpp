@@ -119,20 +119,21 @@ static void test_mk_quantifier_const_loose_bound_variables() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
-    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
-
     Z3_sort int_sort = Z3_mk_int_sort(ctx);
     Z3_ast q = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "q"), int_sort);
     Z3_app bound[] = { Z3_to_app(ctx, q) };
     Z3_ast loose[] = { Z3_mk_bound(ctx, 0, int_sort), Z3_mk_bound(ctx, 1, int_sort) };
     Z3_ast body = Z3_mk_eq(ctx, q, Z3_mk_add(ctx, 2, loose));
 
-    ENSURE(Z3_mk_exists_const(ctx, 0, 1, bound, 0, nullptr, body) == nullptr);
-    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_USAGE);
-
-    body = Z3_mk_eq(ctx, q, q);
-    ENSURE(Z3_mk_exists_const(ctx, 0, 1, bound, 0, nullptr, body));
+    Z3_ast quantifier = Z3_mk_exists_const(ctx, 0, 1, bound, 0, nullptr, body);
+    ENSURE(quantifier);
     ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_ast quantifier_body = Z3_get_quantifier_body(ctx, quantifier);
+    Z3_app eq = Z3_to_app(ctx, quantifier_body);
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, eq, 0)) == 0);
+    Z3_app add = Z3_to_app(ctx, Z3_get_app_arg(ctx, eq, 1));
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, add, 0)) == 1);
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, add, 1)) == 2);
 
     Z3_del_context(ctx);
 }
