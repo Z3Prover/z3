@@ -294,3 +294,12 @@ to Z3's C API. For more information, see [MachineArithmetic/README.md](https://g
 
 ## Power Tools
 * The [Axiom Profiler](https://github.com/viperproject/axiom-profiler-2) currently developed by ETH Zurich
+
+# Policy for filing fuzz bugs
+Z3 is a popular target for fuzzers. Many (best) papers have been published on finding bugs in z3 and SMT solvers and 
+without doubt the bug file/fix ratio plays an important role establishing evidence in the publications for the value of fuzz tools. 
+Unfortunately, addressing fuzz bugs doesn't necessarily advance uses of z3 where it matters most to users, 
+and efforts to address them takes time away from such activities.
+With rapidly increasing quality of coding agents for diagnostics and fixes 
+it is now a reasonable ask that fuzz bug reports make a solid effort on diagnostics and fix. 
+To help focus efforts on what matters, fuzz bugs without further analysis than a repro may be closed without further consideration. 
