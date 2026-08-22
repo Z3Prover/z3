@@ -118,6 +118,7 @@ add_executable(test-z3
   seq_regex_bisim.cpp
   proof_checker.cpp
   qe_arith.cpp
+  qe_lite.cpp
   mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp

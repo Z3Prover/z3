@@ -174,6 +174,7 @@
     X(rcf) \
     X(polynorm) \
     X(qe_arith) \
+    X(qe_lite) \
     X(expr_substitution) \
     X(sorting_network) \
     X(theory_pb) \

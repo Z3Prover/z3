@@ -2235,6 +2235,7 @@ class qe_lite::impl {
             }
             if (q->get_kind() != lambda_k) {
                 m_imp(indices, true, result);
+                m_imp.eliminate_diseq_vars(q, result);
             }
             // After eq_der + FM, try to expand remaining bounded
             // integer quantifiers into finite disjunctions.
@@ -2287,6 +2288,76 @@ private:
 
     bool m_use_array_der;
     static const unsigned EXPAND_BOUND_LIMIT = 10000;
+
+    bool has_fresh_value(sort* s, unsigned num_forbidden) {
+        arith_util a_util(m);
+        if (a_util.is_int(s) || a_util.is_real(s))
+            return true;
+        bv_util bv_util(m);
+        if (!bv_util.is_bv_sort(s))
+            return false;
+        unsigned width = bv_util.get_bv_size(s);
+        return width >= 32 || num_forbidden < (1u << width);
+    }
+
+    bool collect_negative_equalities(expr* e, unsigned index, bool positive, obj_hashtable<app>& equalities) {
+        if (is_ground(e))
+            return true;
+        if (is_var(e))
+            return to_var(e)->get_idx() != index;
+        if (is_quantifier(e)) {
+            quantifier* q = to_quantifier(e);
+            return !qel::occurs_var(index + q->get_num_decls(), q->get_expr());
+        }
+
+        SASSERT(is_app(e));
+        app* a = to_app(e);
+        expr* arg = nullptr;
+        if (m.is_not(a, arg))
+            return collect_negative_equalities(arg, index, !positive, equalities);
+        if (m.is_and(a) || m.is_or(a)) {
+            for (expr* arg : *a)
+                if (!collect_negative_equalities(arg, index, positive, equalities))
+                    return false;
+            return true;
+        }
+
+        expr* lhs = nullptr, *rhs = nullptr;
+        if (m.is_eq(a, lhs, rhs)) {
+            bool lhs_is_var = is_var(lhs) && to_var(lhs)->get_idx() == index;
+            bool rhs_is_var = is_var(rhs) && to_var(rhs)->get_idx() == index;
+            if (lhs_is_var != rhs_is_var) {
+                expr* value = lhs_is_var ? rhs : lhs;
+                if (!positive && !qel::occurs_var(index, value)) {
+                    equalities.insert(a);
+                    return true;
+                }
+            }
+        }
+        return !qel::occurs_var(index, e);
+    }
+
+    bool eliminate_diseq_vars(quantifier* q, expr_ref& body) {
+        expr_safe_replace replace(m);
+        bool changed = false;
+        for (unsigned i = 0; i < q->get_num_decls(); ++i) {
+            obj_hashtable<app> equalities;
+            if (collect_negative_equalities(body, i, true, equalities) &&
+                !equalities.empty() &&
+                has_fresh_value(q->get_decl_sort(q->get_num_decls() - i - 1), equalities.size())) {
+                for (app* eq : equalities)
+                    replace.insert(eq, m.mk_false());
+                changed = true;
+            }
+        }
+        if (!changed)
+            return false;
+        expr_ref result(m);
+        replace(body, result);
+        proof_ref pr(m);
+        m_rewriter(result, body, pr);
+        return true;
+    }
 
     bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
         index = fmls.size();
