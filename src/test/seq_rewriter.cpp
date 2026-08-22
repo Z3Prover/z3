@@ -21,6 +21,9 @@ Tests:
  24. Regex info tracks inferred maximal lengths
  25. Bag splitting ignores a whole-equation bag match
  26. mk_seq_reverse reverses concrete sequences and rejects non-concrete ones
+ 27. Solver: seq.nth_i on a concat with an ite of unequal-length-1 branches
+     followed by unit elements resolves to the correct element (regression
+     for a refutational soundness bug, issue #10621)
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -555,6 +558,45 @@ void tst_seq_rewriter() {
         expr_ref_vector ax(m);
         ax.push_back(unit('a')).push_back(x);
         ENSURE(!sr.mk_seq_reverse(cat(ax), result));
+    }
+
+    // -----------------------------------------------------------------------
+    // 27. Regression for a refutational soundness bug (issue #10621): a
+    //     (Seq Int) equation whose right-hand side is
+    //         seq.extract(seq.unit(seq.len y) ++ seq.unit(ite x 0 1) ++
+    //                      seq.unit(1) ++ seq.unit(0), 2, 2)
+    //     is satisfiable (e.g. x = true, y = seq.unit(1) ++ seq.unit(0)),
+    //     because the extracted region never depends on the self-referential
+    //     seq.len(y) unit. seq_rewriter::mk_seq_nth_i used to mis-track the
+    //     character offset when a concat contains an ite-branch element
+    //     whose length differs from 1 followed by further unit elements: it
+    //     compared the absolute target offset against the loop index over
+    //     "as" entries instead of the true cumulative character position,
+    //     picking the wrong unit and asserting a false equality axiom, which
+    //     made the (satisfiable) formula UNSAT.
+    // -----------------------------------------------------------------------
+    {
+        arith_util a_util(m);
+        sort* int_sort = a_util.mk_int();
+        sort* seq_int_sort = su.str.mk_seq(int_sort);
+        app_ref x(m.mk_fresh_const("x", m.mk_bool_sort()), m);
+        app_ref y(m.mk_fresh_const("y", seq_int_sort), m);
+        expr_ref len_y(su.str.mk_length(y), m);
+        expr_ref unit_len_y(su.str.mk_unit(len_y), m);
+        expr_ref unit_ite(su.str.mk_unit(m.mk_ite(x, a_util.mk_int(0), a_util.mk_int(1))), m);
+        expr_ref unit_1(su.str.mk_unit(a_util.mk_int(1)), m);
+        expr_ref unit_0(su.str.mk_unit(a_util.mk_int(0)), m);
+        expr_ref_vector concat_args(m);
+        concat_args.push_back(unit_len_y).push_back(unit_ite).push_back(unit_1).push_back(unit_0);
+        expr_ref base(su.str.mk_concat(concat_args, seq_int_sort), m);
+        expr_ref extracted(su.str.mk_substr(base, a_util.mk_int(2), a_util.mk_int(2)), m);
+
+        smt_params sp;
+        smt::context ctx(m, sp);
+        ctx.assert_expr(m.mk_eq(y, extracted));
+        lbool res = ctx.check();
+        std::cout << "self-referential seq.extract with ite branch sat: " << res << "\n";
+        ENSURE(res == l_true);
     }
 
     std::cout << "tst_seq_rewriter: all tests passed\n";
