@@ -49,7 +49,6 @@ extern "C" {
 
     }
 
-
     Z3_ast mk_quantifier_ex_core(
         Z3_context c,
         bool is_forall,
