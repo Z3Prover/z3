@@ -12,7 +12,12 @@ Copyright (c) 2015 Microsoft Corporation
 #include "solver/solver.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/fpa/fpa2bv_tactic.h"
 #include "tactic/smtlogics/quant_tactics.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include <sstream>
 
 void tst_smt_context()
@@ -139,5 +144,30 @@ void tst_smt_context()
         for (expr* a : cmd.assertions())
             slv->assert_expr(a);
         VERIFY(l_false == slv->check_sat(0, nullptr));
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const x (_ FloatingPoint 5 11))\n"
+            "(declare-const y (_ FloatingPoint 5 11))\n"
+            "(declare-const xb (_ BitVec 16))\n"
+            "(declare-const yb (_ BitVec 16))\n"
+            "(assert (= x ((_ to_fp 5 11) xb)))\n"
+            "(assert (= y ((_ to_fp 5 11) yb)))\n"
+            "(assert (= xb #b1000001111000111))\n"
+            "(assert (= yb #b0011110111000000))\n"
+            "(assert (not (= ((_ fp.to_ieee_bv 16) (fp.fma RNE x y x)) #x889b)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = and_then(mk_fpa2bv_tactic(m), mk_simplify_tactic(m), mk_bit_blaster_tactic(m), mk_smt_tactic(m));
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
     }
 }
