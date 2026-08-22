@@ -1402,25 +1402,27 @@ br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
     str().get_concat_units(a, as);
 
     expr* cond = nullptr, *el = nullptr, *th = nullptr;
+    unsigned pos = 0;
     for (unsigned i = 0; i < as.size(); ++i) {
         expr* a = as.get(i), *u = nullptr;
         if (str().is_unit(a, u)) {
-            if (offset == i) {
+            if (offset == pos) {
                 result = u;
                 return BR_DONE;
             }
+            ++pos;
             continue;
         }
         else if (m().is_ite(a, cond, th, el)) {
             auto [bounded, len1] = min_length(a);
             if (!bounded)
                 break;
-            if (i + len1 < offset) {
-                offset -= len1;
+            if (pos + len1 <= offset) {
+                pos += len1;
                 continue;
             }
             expr_ref idx(m());
-            idx = m_autil.mk_int(offset - i);
+            idx = m_autil.mk_int(offset - pos);
             th = str().mk_nth_i(th, idx);
             el = str().mk_nth_i(el, idx);
             result = m().mk_ite(cond, th, el);
