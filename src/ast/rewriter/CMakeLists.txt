@@ -39,6 +39,7 @@ z3_add_component(rewriter
     recfun_rewriter.cpp
     rewriter.cpp
     seq_axioms.cpp
+    seq_eq_approx.cpp
     seq_eq_solver.cpp
     seq_derive.cpp
     seq_subset.cpp

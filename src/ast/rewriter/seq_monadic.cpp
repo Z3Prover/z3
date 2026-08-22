@@ -62,27 +62,12 @@ Author:
 #include <unordered_set>
 
 namespace {
-    char const *mode_name(seq::transition_mode mode) {
-        switch (mode) {
-        case seq::transition_mode::brzozowski_tm: return "brzozowski";
-        case seq::transition_mode::light_antimirov_tm: return "light-antimirov";
-        }
-        return "unknown";
-    }
 
     char const *bail_name(unsigned i) {
         static char const *const names[] = {"unsupported", "state-cap",   "budget", "state-expansion",
                                             "resource",    "nullability", "guard",  "not-reversible",
                                             "replay"};
         return i < std::size(names) ? names[i] : "unknown";
-    }
-
-    char const *result_name(lbool r) {
-        switch (r) {
-        case l_true: return "sat";
-        case l_false: return "unsat";
-        default: return "unknown";
-        }
     }
 
     void dedup_views(seq::view_vector const &g, seq::view_vector &out) {
@@ -1374,9 +1359,9 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
     };
 
     out << "(seq-monadic\n"
-        << "  :mode " << mode_name(m_config.m_mode) << "\n"
+        << "  :mode " << transition_mode_name(m_config.m_mode) << "\n"
         << "  :minimize-core " << (m_config.m_min_core ? "true" : "false") << "\n"
-        << "  :last-result " << result_name(m_last_result) << "\n"
+        << "  :last-result " << m_last_result << "\n"
         << "  :budget " << m_budget << "\n"
         << "  :giveup " << (m_giveup ? "true" : "false") << "\n"
         << "  :sequence-sort ";
@@ -1411,7 +1396,7 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
     out << " )";
 
     out << "\n  :last-internal-search\n"
-        << "    (:result " << result_name(m_last_search_result)
+        << "    (:result " << m_last_search_result
         << "\n     :memberships (";
     for (unsigned i = 0; i < m_last_search_memberships.size(); ++i) {
         auto const& [term, regex, dep] = m_last_search_memberships[i];

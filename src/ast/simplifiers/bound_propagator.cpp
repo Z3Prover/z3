@@ -389,7 +389,7 @@ bool bound_propagator::relevant_bound(var x, double new_k) const {
         double improvement;
         double abs_k = b->m_approx_k;
         if (abs_k < 0.0) 
-            abs_k -= abs_k;
+            abs_k = -abs_k;
         if (bounded)
             improvement = m_threshold * std::clamp(interval_size, 1.0, abs_k);
         else

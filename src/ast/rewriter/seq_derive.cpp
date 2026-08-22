@@ -32,6 +32,14 @@ Authors:
 
 namespace seq {
 
+    const char* transition_mode_name(const transition_mode mode) {
+        switch (mode) {
+        case transition_mode::brzozowski_tm: return "brzozowski";
+        case transition_mode::light_antimirov_tm: return "light-antimirov";
+        }
+        return "unknown";
+    }
+
     derive::derive(ast_manager& m, seq_rewriter& re) :
         m(m),
         m_util(m),
