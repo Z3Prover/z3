@@ -32,6 +32,7 @@ Revision History:
 #include "smt/qi_queue.h"
 #include "util/statistics.h"
 #include "util/obj_hashtable.h"
+#include <climits>
 
 namespace smt {
 
@@ -549,7 +550,11 @@ namespace smt {
         return m_imp->has_quantifiers();
     }
 
-    bool quantifier_manager::mbqi_enabled(quantifier *q) const {
+    unsigned quantifier_manager::get_num_instances() const {
+        return m_imp->m_qi_queue.get_num_instances();
+    }
+
+    bool quantifier_manager::mbqi_enabled(quantifier * q) const {
         return m_imp->m_plugin->mbqi_enabled(q);
     }
 
@@ -621,9 +626,11 @@ namespace smt {
         scoped_ptr<model_finder>    m_model_finder;
         scoped_ptr<model_checker>   m_model_checker;
         scoped_ptr<euf::ho_matcher> m_ho_matcher;
+        static constexpr unsigned   SUSPEND_EMATCHING_AT = 1000;
         unsigned                    m_new_enode_qhead;
         unsigned                    m_lazy_matching_idx;
         bool                        m_active;
+        bool                        m_suspend_ematching;
 
         // State for higher-order match refinement callback
         struct ho_match_state {
@@ -646,7 +653,8 @@ namespace smt {
             m_context(nullptr),
             m_new_enode_qhead(0),
             m_lazy_matching_idx(0),
-            m_active(false) {
+            m_active(false),
+            m_suspend_ematching(false) {
         }
 
         void set_manager(quantifier_manager & qm) override {
@@ -804,6 +812,7 @@ namespace smt {
 
         void init_search_eh() override {
             m_lazy_matching_idx = 0;
+            m_suspend_ematching = false;
             m_model_finder->init_search_eh();
             m_model_checker->init_search_eh();            
         }
@@ -855,7 +864,7 @@ namespace smt {
         }
 
         bool use_ematching() const {
-            return m_fparams->m_ematching && !m_qm->empty();
+            return m_fparams->m_ematching && !m_suspend_ematching && !m_qm->empty();
         }
 
 
@@ -878,7 +887,7 @@ namespace smt {
         }
 
         bool can_propagate() const override {
-            bool r = m_active && m_mam->has_work();
+            bool r = m_active && use_ematching() && m_mam->has_work();
             IF_VERBOSE(11, if (r) verbose_stream() << "ho_matching: can_propagate=true\n");
             return r;
         }
@@ -904,8 +913,17 @@ namespace smt {
         void propagate() override {
             if (!m_active)
                 return;
+            if (!m_suspend_ematching &&
+                m_fparams->m_mbqi &&
+                m_fparams->m_qi_max_instances == UINT_MAX &&
+                m_qm->get_num_instances() > SUSPEND_EMATCHING_AT) {
+                IF_VERBOSE(10, verbose_stream() << "(smt.ematching :suspend true :instances " << m_qm->get_num_instances() << ")\n");
+                m_suspend_ematching = true;
+            }
+            if (!use_ematching())
+                return;
             m_mam->match();
-            if (!m_context->relevancy() && use_ematching()) {
+            if (!m_context->relevancy()) {
                 ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
                 ptr_vector<enode>::const_iterator end = m_context->end_enodes();
                 unsigned sz = static_cast<unsigned>(end - it);

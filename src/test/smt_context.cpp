@@ -170,4 +170,25 @@ void tst_smt_context()
         std::string reason_unknown;
         VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
     }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort M 0)\n"
+            "(declare-fun op (M M) M)\n"
+            "(declare-fun unit () M)\n"
+            "(declare-fun a () M)\n"
+            "(declare-fun b () M)\n"
+            "(assert (forall ((a M) (b M) (c M)) (= (op (op a b) c) (op a (op b c)))))\n"
+            "(assert (forall ((a M)) (and (= (op unit a) a) (= (op a unit) a))))\n"
+            "(assert (forall ((fd_a M) (fd_b M)) (=> (not (= fd_a unit)) (= (op fd_a fd_b) fd_a))))\n"
+            "(assert (not (= (op a b) (op b a))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_uint("timeout", 5000);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_true == slv->check_sat(0, nullptr));
+    }
 }

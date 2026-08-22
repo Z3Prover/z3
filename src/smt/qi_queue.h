@@ -100,7 +100,7 @@ namespace smt {
         void register_on_binding(std::function<bool(quantifier* q, expr* e)> & on_binding) {
             m_on_binding = on_binding;
         }
+        unsigned get_num_instances() const { return m_stats.m_num_instances; }
     };
 }
-
 
