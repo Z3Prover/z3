@@ -35,6 +35,7 @@ Notes:
 #include "util/ref_buffer.h"
 #include "util/common_msgs.h"
 #include <memory>
+#include <numeric>
 
 namespace polynomial {
 
@@ -2686,7 +2687,7 @@ namespace polynomial {
                 }
                 if (j == 1 || j == -1)
                     return;
-                g = u_gcd(abs(j), g);
+                g = std::gcd(abs(j), g);
                 if (g == 1) 
                     return;
             }

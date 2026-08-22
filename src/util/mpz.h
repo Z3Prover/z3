@@ -27,8 +27,6 @@ Revision History:
 #include "util/scoped_numeral_vector.h"
 #include "util/mpn.h"
 
-unsigned u_gcd(unsigned u, unsigned v);
-uint64_t u64_gcd(uint64_t u, uint64_t v);
 unsigned trailing_zeros(uint64_t);
 unsigned trailing_zeros(uint32_t);
 
