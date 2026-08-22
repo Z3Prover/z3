@@ -38,7 +38,9 @@ namespace seq {
         return m_rw.get_derive().get_cached_cofactors(m_mode, r);
     }
 
-    lbool regex_witness::get_witness(expr* r, expr_ref& witness) {
+    lbool regex_witness::search(expr* r, expr_ref* witness) {
+        m_pin.reset();
+        m_rp_cache.maybe_reset(1u << 16);
         sort* seq_sort = nullptr;
         if (!u().is_re(r, seq_sort))
             return l_undef;
@@ -52,8 +54,8 @@ namespace seq {
 
         // BFS over derivative states, so the first nullable state reached gives a
         // shortest witness.  `parent` records, for every discovered state other than
-        // the root, the state it was reached from and the element read on that edge,
-        // enabling witness reconstruction by walking back to the root.
+        // the root, the state it was reached from and the element read on that edge; it
+        // is only built when the caller asked for a witness.
         expr_mark visited;
         ptr_vector<expr> work;
         obj_map<expr, std::pair<expr*, expr*>> parent;
@@ -74,7 +76,7 @@ namespace seq {
             expr_ref_vector es(m);                    // root..accept order
             for (unsigned i = elems.size(); i-- > 0; )
                 es.push_back(u().str.mk_unit(elems[i]));
-            witness = expr_ref(u().str.mk_concat(es.size(), es.data(), seq_sort), m);
+            *witness = expr_ref(u().str.mk_concat(es.size(), es.data(), seq_sort), m);
         };
 
         unsigned num_states = 0;
@@ -90,7 +92,8 @@ namespace seq {
             }
             lbool nb = nullable(state);
             if (nb == l_true) {
-                reconstruct(state);
+                if (witness)
+                    reconstruct(state);
                 return l_true;
             }
             if (nb == l_undef) {
@@ -103,7 +106,7 @@ namespace seq {
                 guard_set gs(m, u(), elem_sort, v0, &m_rp_cache);
                 gs.conjoin(g);
                 expr_ref elem(m);
-                lbool sat = gs.eval(&elem);
+                lbool sat = gs.eval(witness ? &elem : nullptr);
                 if (sat == l_undef) {
                     bail = true;                       // guard outside the supported grammar
                     continue;
@@ -112,12 +115,28 @@ namespace seq {
                     continue;                          // empty guard: unreachable on this edge
                 visited.mark(t);
                 m_pin.push_back(t);
-                m_pin.push_back(elem);
-                parent.insert(t, { state, elem.get() });
+                if (elem)
+                    m_pin.push_back(elem);
+                if (witness)
+                    parent.insert(t, { state, elem.get() });
                 work.push_back(t);
             }
         }
         return bail ? l_undef : l_false;
+    }
+
+    lbool regex_witness::get_witness(expr* r, expr_ref& witness) {
+        return search(r, &witness);
+    }
+
+    lbool regex_witness::nonempty(expr* r) {
+        return search(r, nullptr);
+    }
+
+    lbool regex_witness::intersect_nonempty(expr* r1, expr* r2) {
+        SASSERT(u().is_re(r1) && r1->get_sort() == r2->get_sort());        
+        expr_ref r = m_rw.mk_inter(r1, r2);
+        return search(r, nullptr);
     }
 
     bool regex_witness::decode_string(seq_util& u, expr* e, zstring& out) {
@@ -152,7 +171,8 @@ namespace seq {
 
     lbool regex_witness::get_witness(expr* r, zstring& s) {
         sort* seq_sort = nullptr;
-        if (!u().is_re(r, seq_sort) || !u().is_string(seq_sort))
+        VERIFY(u().is_re(r, seq_sort));
+        if (!u().is_string(seq_sort))
             return l_undef;
         expr_ref w(m);
         lbool res = get_witness(r, w);

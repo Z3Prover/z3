@@ -604,7 +604,7 @@ public:
             display_text.find("(seq-monadic") != std::string::npos &&
             display_text.find(":memberships") != std::string::npos &&
             display_text.find(":solution") != std::string::npos &&
-            display_text.find(":last-result sat") != std::string::npos &&
+            display_text.find(":last-result l_true") != std::string::npos &&
             display_text.find(":last-internal-search") != std::string::npos &&
             display_text.find(":parsed-memberships") != std::string::npos &&
             display_text.find(":statistics") != std::string::npos &&
@@ -625,7 +625,7 @@ public:
         std::string unsat_display_text = unsat_display_out.str();
         bool unsat_display_ok =
             unsat_display_result == l_false &&
-            unsat_display_text.find(":last-result unsat") != std::string::npos &&
+            unsat_display_text.find(":last-result l_false") != std::string::npos &&
             unsat_display_text.find(":solution ()") != std::string::npos &&
             unsat_display_text.find(":last-internal-search") != std::string::npos;
         m_trail.pop_scope(1);
