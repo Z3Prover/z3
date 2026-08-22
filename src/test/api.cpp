@@ -115,6 +115,29 @@ static void test_mk_app_polymorphic_arity() {
     Z3_del_context(ctx);
 }
 
+static void test_mk_quantifier_const_loose_bound_variables() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast q = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "q"), int_sort);
+    Z3_app bound[] = { Z3_to_app(ctx, q) };
+    Z3_ast loose[] = { Z3_mk_bound(ctx, 0, int_sort), Z3_mk_bound(ctx, 1, int_sort) };
+    Z3_ast body = Z3_mk_eq(ctx, q, Z3_mk_add(ctx, 2, loose));
+
+    Z3_ast quantifier = Z3_mk_exists_const(ctx, 0, 1, bound, 0, nullptr, body);
+    ENSURE(quantifier);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_ast quantifier_body = Z3_get_quantifier_body(ctx, quantifier);
+    Z3_app eq = Z3_to_app(ctx, quantifier_body);
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, eq, 0)) == 0);
+    Z3_app add = Z3_to_app(ctx, Z3_get_app_arg(ctx, eq, 1));
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, add, 0)) == 1);
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, add, 1)) == 2);
+
+    Z3_del_context(ctx);
+}
+
 void test_bvneg() {
     Z3_config cfg = Z3_mk_config();
     Z3_set_param_value(cfg,"MODEL","true");
@@ -341,6 +364,7 @@ void test_strict_real_maximize_disjunction() {
 void tst_api() {
     test_apps();
     test_mk_app_polymorphic_arity();
+    test_mk_quantifier_const_loose_bound_variables();
     test_bvneg();
     test_mk_distinct();
     test_optimize_translate();
