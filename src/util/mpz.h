@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include <bit>
 #include<string>
 #include "util/mutex.h"
 #include "util/util.h"
@@ -27,8 +28,8 @@ Revision History:
 #include "util/scoped_numeral_vector.h"
 #include "util/mpn.h"
 
-unsigned trailing_zeros(uint64_t);
-unsigned trailing_zeros(uint32_t);
+static inline unsigned trailing_zeros(uint64_t x) { return std::countr_zero(x); }
+static inline unsigned trailing_zeros(uint32_t x) { return std::countr_zero(x); }
 
 
 #ifdef _MP_GMP
