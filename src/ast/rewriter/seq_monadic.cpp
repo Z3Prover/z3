@@ -138,9 +138,8 @@ expr_ref_pair_vector const& seq_monadic::derivative_cofactors(expr* r) {
 }
 
 void seq_monadic::reset_ivl_cache() {
-    for (auto& kv : m_ivl_cache){
+    for (auto& kv : m_ivl_cache)
         dealloc(kv.m_value);
-    }
     m_ivl_cache.reset();
     m_ivl_pin.reset();
 }
@@ -258,9 +257,8 @@ lbool seq_monadic::product_nonempty(expr* var, seq::view_vector const& comps, ex
     struct key_hash {
         size_t operator()(key const& k) const {
             uint64_t h = 1469598103934665603ull;
-            for (unsigned x : k) {
+            for (unsigned x : k)
                 h = (h ^ x) * 1099511628211ull;
-            }
             return static_cast<size_t>(h);
         }
     };
