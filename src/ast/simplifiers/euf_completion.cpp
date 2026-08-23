@@ -190,12 +190,8 @@ namespace euf {
             m_side_condition_solver->pop(n);
     }
 
-    void completion::translate(dependent_expr_simplifier& src, ast_translation&) {
-        dynamic_cast<completion&>(src);
-        // The translated state still has qhead 0. Replaying its translated
-        // prefix rebuilds the e-graph, matcher, rules, and side solver using
-        // the destination declarations.
-        add_egraph();
+    void completion::translate(dependent_expr_simplifier&, ast_translation&) {
+        throw default_exception("euf_completion is not clonable");
     }
 
     void completion::clear_propagation_queue() {
