@@ -278,9 +278,7 @@ public:
         simplifier_solver* result = alloc(simplifier_solver, new_s, factory);
         for (dependent_expr const& f : m_fmls) 
             result->m_fmls.push_back(dependent_expr(tr, f));
-        result->m_preprocess.set_ast_translation(&tr);
-        auto reset_translation = on_scope_exit([&]() { result->m_preprocess.set_ast_translation(nullptr); });
-        result->m_preprocess.translate(m_preprocess);
+        result->m_preprocess.translate(m_preprocess, tr);
         m_preprocess_state.translate(result->m_preprocess_state, tr);
         result->m_inconsistent = m_inconsistent;
         if (m_mc) 

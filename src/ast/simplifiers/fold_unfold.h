@@ -95,7 +95,7 @@ namespace euf {
 
         void reduce() override;
 
-        void translate(dependent_expr_simplifier& src) override;
+        void translate(dependent_expr_simplifier& src, ast_translation& tr) override;
 
         void updt_params(params_ref const &p) override;
 

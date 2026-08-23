@@ -22,9 +22,8 @@ Author:
 
 namespace bv {
 
-    void slice::translate(dependent_expr_simplifier& src) {
+    void slice::translate(dependent_expr_simplifier& src, ast_translation& tr) {
         auto& source = dynamic_cast<slice&>(src);
-        ast_translation& tr = translation();
         SASSERT(m_boundaries.empty());
         for (auto const& [e, boundaries] : source.m_boundaries)
             m_boundaries.insert(tr(e), boundaries);

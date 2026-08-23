@@ -50,7 +50,7 @@ namespace bv {
         char const* name() const override { return "bv-slice"; }
         void push() override { dependent_expr_simplifier::push(); }
         void pop(unsigned n) override { dependent_expr_simplifier::pop(n); }
-        void translate(dependent_expr_simplifier& src) override;
+        void translate(dependent_expr_simplifier& src, ast_translation& tr) override;
         void reduce() override;
     };
 }

@@ -123,9 +123,8 @@ public:
 
     char const* name() const override { return "randomizer"; }
 
-    void translate(dependent_expr_simplifier& src) override {
+    void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
         auto& source = dynamic_cast<randomizer_simplifier&>(src);
-        ast_translation& tr = translation();
         m_rand = source.m_rand;
         for (auto const& [f, r] : source.m_rename) {
             func_decl* new_f = tr(f);

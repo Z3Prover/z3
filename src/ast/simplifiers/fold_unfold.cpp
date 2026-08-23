@@ -55,9 +55,8 @@ namespace euf {
         reduce_alias(false);
     }
 
-    void fold_unfold::translate(dependent_expr_simplifier& src) {
+    void fold_unfold::translate(dependent_expr_simplifier& src, ast_translation& tr) {
         auto& source = dynamic_cast<fold_unfold&>(src);
-        auto& tr = translation();
         expr_dependency_translation dep_tr(tr);
         SASSERT(num_scopes() == 0 && source.num_scopes() == 0);
 

@@ -200,8 +200,6 @@ protected:
     ast_manager& m;
     dependent_expr_state& m_fmls;
     trail_stack& m_trail;
-    ast_translation* m_translation = nullptr;
-    ast_translation& translation() const { SASSERT(m_translation); return *m_translation; }
 
     unsigned num_scopes() const { return m_trail.get_num_scopes(); }
 
@@ -233,8 +231,7 @@ public:
     virtual char const* name() const = 0;
     virtual void push() { }
     virtual void pop(unsigned n) { }
-    virtual void set_ast_translation(ast_translation* tr) { m_translation = tr; }
-    virtual void translate(dependent_expr_simplifier& src) {}
+    virtual void translate(dependent_expr_simplifier& src, ast_translation& tr) {}
     virtual void reduce() = 0;
     virtual void collect_statistics(statistics& st) const {}
     virtual void reset_statistics() {}

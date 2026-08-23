@@ -54,9 +54,9 @@ public:
     
     void pop(unsigned n) override { m_rewriter.pop(n); m_df.pop(n); dependent_expr_simplifier::pop(n); }
 
-    void translate(dependent_expr_simplifier& src) override {
+    void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
         auto& source = dynamic_cast<elim_term_ite_simplifier&>(src);
-        source.m_df.translate(m_df, translation());
+        source.m_df.translate(m_df, tr);
     }
 };
 

@@ -63,8 +63,8 @@ public:
 
     void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_defined_names.pop(n); }
 
-    void translate(dependent_expr_simplifier& src) override {
+    void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
         auto& source = dynamic_cast<cnf_nnf_simplifier&>(src);
-        source.m_defined_names.translate(m_defined_names, translation());
+        source.m_defined_names.translate(m_defined_names, tr);
     }
 };

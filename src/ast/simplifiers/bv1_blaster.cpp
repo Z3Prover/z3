@@ -292,11 +292,10 @@ void bv1_blaster_simplifier::reduce() {
     }
 }
 
-void bv1_blaster_simplifier::translate(dependent_expr_simplifier& src) {
+void bv1_blaster_simplifier::translate(dependent_expr_simplifier& src, ast_translation& tr) {
     auto& source = dynamic_cast<bv1_blaster_simplifier&>(src);
     auto& src_cfg = source.m_rw.cfg();
     auto& dst_cfg = m_rw.cfg();
-    ast_translation& tr = translation();
     SASSERT(dst_cfg.m_const2bits.empty());
     for (auto const& [f, bits] : src_cfg.m_const2bits) {
         func_decl* new_f = tr(f);
