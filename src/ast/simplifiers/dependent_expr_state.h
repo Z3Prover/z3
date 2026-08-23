@@ -84,7 +84,7 @@ public:
         m_trail.push(thaw(*this));
     }
     void pop(unsigned n) { m_trail.pop_scope(n); }
-    void translate(dependent_expr_state& dst, ast_translation& tr);
+    void translate(dependent_expr_state& src, ast_translation& tr);
     
     void advance_qhead() { freeze_prefix(); m_suffix_frozen = false; m_has_quantifiers = l_undef;  m_qhead = qtail(); }
     unsigned num_exprs();

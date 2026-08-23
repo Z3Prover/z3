@@ -145,7 +145,7 @@ public:
     model_reconstruction_trail(ast_manager& m, trail_stack& tr): 
         m(m), m_trail_stack(tr), m_model_vars_trail(m) {}
 
-    void translate(model_reconstruction_trail& dst, ast_translation& tr) const;
+    void translate(model_reconstruction_trail const& src, ast_translation& tr);
 
     /**
     * add a new substitution to the trail

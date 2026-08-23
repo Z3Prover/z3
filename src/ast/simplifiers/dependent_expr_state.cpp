@@ -132,17 +132,17 @@ bool dependent_expr_state::has_quantifiers() {
     m_has_quantifiers = found ? l_true : l_false;
     return m_has_quantifiers == l_true;
 }
-void dependent_expr_state::translate(dependent_expr_state& dst, ast_translation& tr) {
-    SASSERT(m_trail.get_num_scopes() == 0);
-    SASSERT(dst.m_qhead == 0);
-    dst.m_qhead = m_qhead;
-    dst.m_suffix_frozen = m_suffix_frozen;
-    dst.m_num_recfun = m_num_recfun;
-    dst.m_has_quantifiers = m_has_quantifiers;
-    for (func_decl* f : m_frozen_trail) {
+void dependent_expr_state::translate(dependent_expr_state& src, ast_translation& tr) {
+    SASSERT(src.m_trail.get_num_scopes() == 0);
+    SASSERT(m_qhead == 0);
+    m_qhead = src.m_qhead;
+    m_suffix_frozen = src.m_suffix_frozen;
+    m_num_recfun = src.m_num_recfun;
+    m_has_quantifiers = src.m_has_quantifiers;
+    for (func_decl* f : src.m_frozen_trail) {
         func_decl* new_f = tr(f);
-        dst.m_frozen.mark(new_f, true);
-        dst.m_frozen_trail.push_back(new_f);
+        m_frozen.mark(new_f, true);
+        m_frozen_trail.push_back(new_f);
     }
-    model_trail().translate(dst.model_trail(), tr);
+    model_trail().translate(src.model_trail(), tr);
 }

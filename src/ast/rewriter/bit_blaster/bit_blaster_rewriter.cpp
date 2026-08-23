@@ -788,16 +788,16 @@ void bit_blaster_rewriter::get_translation(obj_map<func_decl, expr*>& const2bits
     m_imp->get_translation(const2bits, newbits);
 }
 
-void bit_blaster_rewriter::translate(bit_blaster_rewriter& dst, ast_translation& tr) const {
-    SASSERT(get_num_scopes() == 0);
+void bit_blaster_rewriter::translate(bit_blaster_rewriter& src, ast_translation& tr) const {
+    SASSERT(src.get_num_scopes() == 0);
     obj_map<func_decl, expr*> source;
     ptr_vector<func_decl> source_bits;
-    m_imp->get_translation(source, source_bits);
+    src.m_imp->get_translation(source, source_bits);
     obj_map<func_decl, expr*> translated;
     ptr_vector<func_decl> translated_bits;
     for (auto const& [f, bits] : source)
         translated.insert(tr(f), tr(bits));
     for (func_decl* f : source_bits)
         translated_bits.push_back(tr(f));
-    dst.m_imp->set_translation(translated, translated_bits);
+    m_imp->set_translation(translated, translated_bits);
 }

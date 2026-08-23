@@ -245,28 +245,28 @@ std::ostream& model_reconstruction_trail::display(std::ostream& out) const {
     }
     return out;
 }
-void model_reconstruction_trail::translate(model_reconstruction_trail& dst, ast_translation& tr) const {
-    SASSERT(dst.m_trail.empty());
+void model_reconstruction_trail::translate(model_reconstruction_trail const& src, ast_translation& tr) {
+    SASSERT(m_trail.empty());
     expr_dependency_translation dep_tr(tr);
-    for (entry* e : m_trail) {
+    for (entry* e : src.m_trail) {
         vector<dependent_expr> removed;
         for (dependent_expr const& d : e->m_removed)
             removed.push_back(dependent_expr(tr, d));
         if (e->is_hide()) {
-            dst.hide(tr(e->m_decl.get()));
+            hide(tr(e->m_decl.get()));
         }
         else if (e->is_def()) {
             vector<std::tuple<func_decl_ref, expr_ref, expr_dependency_ref>> defs;
             for (auto const& [f, def, dep] : e->m_defs)
                 defs.push_back({
-                    func_decl_ref(tr(f.get()), dst.m),
-                    expr_ref(tr(def.get()), dst.m),
-                    expr_dependency_ref(dep_tr(dep.get()), dst.m)
+                    func_decl_ref(tr(f.get()), m),
+                    expr_ref(tr(def.get()), m),
+                    expr_dependency_ref(dep_tr(dep.get()), m)
                 });
-            dst.push(defs, removed);
+            push(defs, removed);
         }
         else {
-            auto* subst = alloc(expr_substitution, dst.m, e->m_subst->unsat_core_enabled(), e->m_subst->proofs_enabled());
+            auto* subst = alloc(expr_substitution, m, e->m_subst->unsat_core_enabled(), e->m_subst->proofs_enabled());
             for (auto const& [k, v] : e->m_subst->sub()) {
                 proof* pr = nullptr;
                 expr_dependency* dep = nullptr;
@@ -274,8 +274,8 @@ void model_reconstruction_trail::translate(model_reconstruction_trail& dst, ast_
                 VERIFY(e->m_subst->find(k, value, pr, dep));
                 subst->insert(tr(k), tr(value), tr(pr), dep_tr(dep));
             }
-            dst.push(subst, removed, e->is_loose_constraint());
+            push(subst, removed, e->is_loose_constraint());
         }
-        dst.m_trail.back()->m_active = e->m_active;
+        m_trail.back()->m_active = e->m_active;
     }
 }

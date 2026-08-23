@@ -279,7 +279,7 @@ public:
         for (dependent_expr const& f : m_fmls) 
             result->m_fmls.push_back(dependent_expr(tr, f));
         result->m_preprocess.translate(m_preprocess, tr);
-        m_preprocess_state.translate(result->m_preprocess_state, tr);
+        result->m_preprocess_state.translate(m_preprocess_state, tr);
         result->m_inconsistent = m_inconsistent;
         if (m_mc) 
             result->m_mc = m_mc->translate(tr);
