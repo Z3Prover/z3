@@ -16,19 +16,10 @@ Author:
 --*/
 
 #include "ast/ast_pp.h"
-#include "ast/ast_translation.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/simplifiers/bv_slice.h"
 
 namespace bv {
-
-    void slice::translate(dependent_expr_simplifier& other) {
-        auto& dst = dynamic_cast<slice&>(other);
-        ast_translation& tr = translation();
-        SASSERT(dst.m_boundaries.empty());
-        for (auto const& [e, boundaries] : m_boundaries)
-            dst.m_boundaries.insert(tr(e), boundaries);
-    }
 
     void slice::reduce() {
         process_eqs();

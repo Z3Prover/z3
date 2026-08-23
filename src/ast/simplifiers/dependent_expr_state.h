@@ -84,7 +84,6 @@ public:
         m_trail.push(thaw(*this));
     }
     void pop(unsigned n) { m_trail.pop_scope(n); }
-    void translate(dependent_expr_state& dst, ast_translation& tr);
     
     void advance_qhead() { freeze_prefix(); m_suffix_frozen = false; m_has_quantifiers = l_undef;  m_qhead = qtail(); }
     unsigned num_exprs();
@@ -200,8 +199,6 @@ protected:
     ast_manager& m;
     dependent_expr_state& m_fmls;
     trail_stack& m_trail;
-    ast_translation* m_translation = nullptr;
-    ast_translation& translation() const { SASSERT(m_translation); return *m_translation; }
 
     unsigned num_scopes() const { return m_trail.get_num_scopes(); }
 
@@ -233,8 +230,6 @@ public:
     virtual char const* name() const = 0;
     virtual void push() { }
     virtual void pop(unsigned n) { }
-    virtual void set_ast_translation(ast_translation* tr) { m_translation = tr; }
-    virtual void translate(dependent_expr_simplifier& other) {}
     virtual void reduce() = 0;
     virtual void collect_statistics(statistics& st) const {}
     virtual void reset_statistics() {}

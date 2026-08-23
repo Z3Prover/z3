@@ -124,10 +124,6 @@ public:
 
     solver* translate(ast_manager& dst_m, params_ref const& p) override {
         ast_translation tr(m, dst_m);
-        return translate(dst_m, p, tr);
-    }
-
-    solver* translate(ast_manager& dst_m, params_ref const& p, ast_translation& tr) override {
         m_solver.pop_to_base_level();
         inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p, is_incremental());
         auto* ext = get_euf();
@@ -153,12 +149,7 @@ public:
             result->m_sat_mc = static_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
         }
         result->m_has_uninterpreted = m_has_uninterpreted;
-        if (m_bb_rewriter) {
-            result->m_preprocess = nullptr;
-            result->m_bb_rewriter = nullptr;
-            result->m_bb_rewriter = alloc(bit_blaster_rewriter, dst_m, p);
-            m_bb_rewriter->translate(*result->m_bb_rewriter, tr);
-        }
+        // copy m_bb_rewriter?
         result->m_internalized_converted = m_internalized_converted;
         return result;
     }

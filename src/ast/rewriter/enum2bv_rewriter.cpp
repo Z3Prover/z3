@@ -20,7 +20,6 @@ Notes:
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/enum2bv_rewriter.h"
-#include "ast/ast_translation.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 
@@ -338,24 +337,3 @@ void enum2bv_rewriter::pop(unsigned num_scopes) { m_imp->pop(num_scopes); }
 void enum2bv_rewriter::flush_side_constraints(expr_ref_vector& side_constraints) { m_imp->flush_side_constraints(side_constraints); } 
 unsigned enum2bv_rewriter::num_translated() const { return m_imp->m_num_translated; }
 void enum2bv_rewriter::set_is_fd(i_sort_pred* sp) const { m_imp->set_is_fd(sp); }
-
-void enum2bv_rewriter::translate(enum2bv_rewriter& dst, ast_translation& tr) const {
-    auto& src = *m_imp;
-    auto& target = *dst.m_imp;
-    SASSERT(src.m_enum_consts_lim.empty());
-    SASSERT(target.m_enum_consts.empty());
-    for (unsigned i = 0; i < src.m_enum_consts.size(); ++i) {
-        func_decl* f = tr(src.m_enum_consts.get(i));
-        func_decl* bv = tr(src.m_enum_bvs.get(i));
-        expr* def = tr(src.m_enum_defs.get(i));
-        target.m_enum2bv.insert(f, bv);
-        target.m_bv2enum.insert(bv, f);
-        target.m_enum2def.insert(f, def);
-        target.m_enum_consts.push_back(f);
-        target.m_enum_bvs.push_back(bv);
-        target.m_enum_defs.push_back(def);
-    }
-    for (expr* bound : src.m_bounds)
-        target.m_bounds.push_back(tr(bound));
-    target.m_num_translated = src.m_num_translated;
-}

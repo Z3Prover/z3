@@ -18,7 +18,6 @@ Revision History:
 --*/
 
 #include "ast/rewriter/maximize_ac_sharing.h"
-#include "ast/ast_translation.h"
 #include "ast/ast_pp.h"
 
 
@@ -122,14 +121,6 @@ maximize_ac_sharing::maximize_ac_sharing(ast_manager & m):
 
 maximize_ac_sharing::~maximize_ac_sharing() {
     restore_entries(0);
-}
-
-void maximize_ac_sharing::translate(maximize_ac_sharing& dst, ast_translation& tr) const {
-    SASSERT(m_scopes.empty());
-    SASSERT(dst.m_entries.empty());
-    dst.init();
-    for (entry* e : m_entries)
-        dst.insert(tr(e->m_decl), tr(e->m_arg1), tr(e->m_arg2));
 }
 
 

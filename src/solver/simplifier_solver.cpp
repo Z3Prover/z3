@@ -143,7 +143,6 @@ class simplifier_solver : public solver {
                     return nullptr;
                 result = current;
             }
-
             else if (is_app(current)) {
                 for (expr* arg : *to_app(current))
                     todo.push_back(arg);
@@ -300,23 +299,16 @@ public:
     }
 
     solver* translate(ast_manager& m, params_ref const& p) override { 
+        solver* new_s = s->translate(m, p);
         ast_translation tr(get_manager(), m);
-        solver* new_s = s->translate(m, p, tr);
-        SASSERT(s->get_num_assertions() == new_s->get_num_assertions());
-        for (unsigned i = 0; i < s->get_num_assertions(); ++i)
-            tr.seed(s->get_assertion(i), new_s->get_assertion(i));
         simplifier_factory* factory = m_factory ? &m_factory : nullptr;
         simplifier_solver* result = alloc(simplifier_solver, new_s, factory);
         for (dependent_expr const& f : m_fmls) 
             result->m_fmls.push_back(dependent_expr(tr, f));
-        m_preprocess.set_ast_translation(&tr);
-        auto reset_translation = on_scope_exit([&]() { m_preprocess.set_ast_translation(nullptr); });
-        m_preprocess.translate(result->m_preprocess);
-        m_preprocess_state.translate(result->m_preprocess_state, tr);
-        result->m_inconsistent = m_inconsistent;
         if (m_mc) 
             result->m_mc = m_mc->translate(tr);
 
+        // translate any m_preprocess_state?    
         return result;
     }    
 

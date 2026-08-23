@@ -27,7 +27,6 @@ Notes:
 #pragma once
 
 #include "ast/simplifiers/dependent_expr_state.h"
-#include "ast/ast_translation.h"
 #include "ast/rewriter/rewriter_def.h"
 
 class injectivity_simplifier : public dependent_expr_simplifier {
@@ -165,15 +164,6 @@ public:
         dependent_expr_simplifier(m, s), m_map(m), m_rw(m, m_map) {}
 
     char const* name() const override { return "injectivity"; }
-
-    void translate(dependent_expr_simplifier& other) override {
-        auto& dst = dynamic_cast<injectivity_simplifier&>(other);
-        ast_translation& tr = translation();
-        SASSERT(dst.m_map.empty());
-        for (auto const& [f, inverses] : m_map)
-            for (func_decl* g : *inverses)
-                dst.m_map.insert(tr(f), tr(g));
-    }
 
     void reduce() override {
         // Phase 1: Scan for injectivity axioms

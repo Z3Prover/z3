@@ -95,7 +95,6 @@ public:
 
     void reset_cache();
     void cleanup();
-    void seed(expr* src, expr* dst);
     
     unsigned loop_count() const { return m_loop_count; }
     unsigned hit_count() const { return m_hit_count; }
@@ -127,3 +126,4 @@ inline expr_dependency * translate(expr_dependency * d, ast_manager & from, ast_
     expr_dependency_translation td(t);
     return td(d);
 }
+
