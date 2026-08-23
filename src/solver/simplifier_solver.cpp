@@ -115,6 +115,7 @@ class simplifier_solver : public solver {
     then_simplifier             m_preprocess;
     expr_ref_vector             m_assumptions;
     model_converter_ref         m_mc;
+    simplifier_factory          m_factory;
     bool                        m_inconsistent = false;
     expr_safe_replace           m_core_replace;
 
@@ -186,8 +187,10 @@ public:
         m_core_replace(m),
         m_proof(m)
     {
-        if (fac) 
-            m_preprocess.add_simplifier((*fac)(m, s->get_params(), m_preprocess_state));
+        if (fac) {
+            m_factory = *fac;
+            m_preprocess.add_simplifier(m_factory(m, s->get_params(), m_preprocess_state));
+        }
         else 
             init_preprocess(m, s->get_params(), m_preprocess, m_preprocess_state);
     }
@@ -266,15 +269,23 @@ public:
     }
 
     solver* translate(ast_manager& m, params_ref const& p) override { 
-        solver* new_s = s->translate(m, p);
         ast_translation tr(get_manager(), m);
-        simplifier_solver* result = alloc(simplifier_solver, new_s, nullptr); // factory?
+        solver* new_s = s->translate(m, p);
+        SASSERT(s->get_num_assertions() == new_s->get_num_assertions());
+        for (unsigned i = 0; i < s->get_num_assertions(); ++i)
+            tr.seed(s->get_assertion(i), new_s->get_assertion(i));
+        simplifier_factory* factory = m_factory ? &m_factory : nullptr;
+        simplifier_solver* result = alloc(simplifier_solver, new_s, factory);
         for (dependent_expr const& f : m_fmls) 
             result->m_fmls.push_back(dependent_expr(tr, f));
+        result->m_preprocess.set_ast_translation(&tr);
+        auto reset_translation = on_scope_exit([&]() { result->m_preprocess.set_ast_translation(nullptr); });
+        result->m_preprocess.translate(m_preprocess);
+        m_preprocess_state.translate(result->m_preprocess_state, tr);
+        result->m_inconsistent = m_inconsistent;
         if (m_mc) 
             result->m_mc = m_mc->translate(tr);
 
-        // copy m_preprocess_state?
         return result;
     }    
 
@@ -403,4 +414,3 @@ public:
 solver* mk_simplifier_solver(solver* s, simplifier_factory* fac) {
     return alloc(simplifier_solver, s, fac);
 }
-
