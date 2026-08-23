@@ -213,11 +213,12 @@ public:
         s(s),
         m_preprocess_state(*this),
         m_preprocess(m, s->get_params(), m_preprocess_state),
-        m_factory(fac ? *fac : simplifier_factory()),
         m_assumptions(m),
         m_core_replace(m),
         m_proof(m)
     {
+        if (fac)
+            m_factory = *fac;
         if (m_factory)
             m_preprocess.add_simplifier(m_factory(m, s->get_params(), m_preprocess_state));
         else 
@@ -307,7 +308,7 @@ public:
         if (m_mc) 
             result->m_mc = m_mc->translate(tr);
 
-        // copy m_preprocess_state?
+        // translate any m_preprocess_state?    
         return result;
     }    
 
