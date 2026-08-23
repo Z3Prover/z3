@@ -2290,13 +2290,13 @@ private:
     static const unsigned EXPAND_BOUND_LIMIT = 10000;
 
     bool has_fresh_value(sort* s, unsigned num_forbidden) {
-        arith_util a_util(m);
-        if (a_util.is_int(s) || a_util.is_real(s))
+        arith_util arith(m);
+        if (arith.is_int(s) || arith.is_real(s))
             return true;
-        bv_util bv_util(m);
-        if (!bv_util.is_bv_sort(s))
+        bv_util bv(m);
+        if (!bv.is_bv_sort(s))
             return false;
-        unsigned width = bv_util.get_bv_size(s);
+        unsigned width = bv.get_bv_size(s);
         return width >= 32 || num_forbidden < (1u << width);
     }
 
