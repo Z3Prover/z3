@@ -1,9 +1,7 @@
 z3_add_component(fd_solver
   SOURCES
-    bounded_int2bv_solver.cpp
-    enum2bv_solver.cpp
+    fd_simplifier.cpp
     fd_solver.cpp
-    pb2bv_solver.cpp
     smtfd_solver.cpp
   COMPONENT_DEPENDENCIES
     sat_solver

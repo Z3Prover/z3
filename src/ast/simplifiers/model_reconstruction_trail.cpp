@@ -40,7 +40,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
 
     if (m_trail.empty())
         return;
-    if (qhead == st.qtail())
+    if (qhead == st.qtail() && assumptions.empty())
         return;
 
     ast_mark free_vars;

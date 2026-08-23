@@ -5,12 +5,14 @@ Copyright (c) 2016 Microsoft Corporation
 
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/tactic.h"
 #include "model/model_smt2_pp.h"
+#include "model/model_evaluator.h"
 #include "tactic/fd_solver/fd_solver.h"
 #include <iostream>
 
@@ -85,6 +87,7 @@ void test2() {
     vars.push_back(y);
 
     VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
+    ENSURE(!conseq.empty());
     std::cout << conseq << "\n";
     conseq.reset();
 
@@ -94,6 +97,7 @@ void test2() {
     fd_solver->pop(1);
 
     VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
+    ENSURE(!conseq.empty());
 
     std::cout << conseq << "\n";
     conseq.reset();
@@ -109,7 +113,48 @@ void test2() {
 
 }
 
+static void test_bounded_int() {
+    ast_manager source;
+    reg_decl_plugins(source);
+    params_ref p;
+    ref<solver> source_solver = mk_fd_solver(source, p);
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    ref<solver> fd_solver = source_solver->translate(m, p);
+    arith_util arith(m);
+    expr_ref x = mk_const(m, "x", arith.mk_int());
+    expr_ref three(arith.mk_int(3), m);
+    expr_ref four(arith.mk_int(4), m);
+    expr_ref zero(arith.mk_int(0), m);
+    expr_ref five(arith.mk_int(5), m);
+
+    fd_solver->assert_expr(arith.mk_le(zero, x));
+    fd_solver->assert_expr(arith.mk_le(x, five));
+    fd_solver->assert_expr(m.mk_eq(x, three));
+
+    expr_ref_vector asms(m), vars(m), conseq(m);
+    vars.push_back(x);
+    VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
+    ENSURE(!conseq.empty());
+
+    model_ref mdl;
+    fd_solver->get_model(mdl);
+    ENSURE(mdl.get());
+    model_evaluator eval(*mdl);
+    expr_ref value(m);
+    eval(x, value);
+    ENSURE(m.are_equal(value, three));
+
+    fd_solver->push();
+    fd_solver->assert_expr(m.mk_eq(x, four));
+    VERIFY(l_false == fd_solver->check_sat(0, nullptr));
+    fd_solver->pop(1);
+    VERIFY(l_true == fd_solver->check_sat(0, nullptr));
+}
+
 void tst_get_consequences() {
     test1();
     test2();
+    test_bounded_int();
 }
