@@ -72,6 +72,9 @@ public:
     \brief Creates a clone of the solver.
     */
     virtual solver* translate(ast_manager& m, params_ref const& p) = 0;
+    virtual solver* translate(ast_manager& m, params_ref const& p, ast_translation& tr) {
+        return translate(m, p);
+    }
 
     /**
        \brief Update the solver internal settings. 

@@ -14,6 +14,7 @@ Abstract:
 #include "tactic/fd_solver/fd_simplifier.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_translation.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/enum2bv_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -99,6 +100,19 @@ public:
         m_hidden_limits.shrink(m_hidden_limits.size() - n);
         m_defined_limits.shrink(m_defined_limits.size() - n);
         m_rewriter.pop(n);
+    }
+
+    void translate(dependent_expr_simplifier& other) override {
+        auto& dst = dynamic_cast<enum2bv_simplifier&>(other);
+        m_rewriter.translate(dst.m_rewriter, translation());
+        for (auto const& [f, bv] : dst.m_rewriter.enum2bv()) {
+            dst.m_hidden.insert(bv);
+            dst.m_hidden_trail.push_back(bv);
+        }
+        for (auto const& [f, def] : dst.m_rewriter.enum2def()) {
+            dst.m_defined.insert(f);
+            dst.m_defined_trail.push_back(f);
+        }
     }
 
     void updt_params(params_ref const& p) override { m_rewriter.updt_params(p); }
@@ -268,6 +282,28 @@ public:
             dealloc(m_bounds.back());
             m_bounds.pop_back();
         }
+    }
+
+    void translate(dependent_expr_simplifier& other) override {
+        auto& dst = dynamic_cast<bounded_int2bv_simplifier&>(other);
+        ast_translation& tr = translation();
+        SASSERT(m_bounds.size() == 1);
+        SASSERT(dst.m_bounds.size() == 1);
+        dealloc(dst.m_bounds.back());
+        dst.m_bounds.back() = m_bounds.back()->translate(dst.m);
+        for (unsigned i = 0; i < m_int_fns.size(); ++i) {
+            func_decl* f = tr(m_int_fns.get(i));
+            func_decl* fbv = tr(m_bv_fns.get(i));
+            rational offset;
+            VERIFY(m_bv2offset.find(m_bv_fns.get(i), offset));
+            dst.m_int2bv.insert(f, fbv);
+            dst.m_bv2int.insert(fbv, f);
+            dst.m_bv2offset.insert(fbv, offset);
+            dst.m_int_fns.push_back(f);
+            dst.m_bv_fns.push_back(fbv);
+        }
+        for (expr* condition : m_side_conditions)
+            dst.m_side_conditions.push_back(tr(condition));
     }
 
     void collect_statistics(statistics& st) const override {

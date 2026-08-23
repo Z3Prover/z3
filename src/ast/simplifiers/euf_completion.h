@@ -229,6 +229,7 @@ namespace euf {
         char const* name() const override { return "euf-completion"; }
         void push() override;
         void pop(unsigned n) override;
+        void translate(dependent_expr_simplifier& other) override;
         void reduce() override;
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override { m_stats.reset(); }

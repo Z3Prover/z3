@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "util/obj_hashtable.h"
 #include "ast/normal_forms/defined_names.h"
+#include "ast/ast_translation.h"
 #include "ast/used_vars.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_smt2_pp.h"
@@ -69,6 +70,7 @@ struct defined_names::impl {
     void push_scope();
     void pop_scope(unsigned num_scopes);
     void reset();
+    void translate(impl& dst, ast_translation& tr) const;
 
     unsigned get_num_names() const { return m_names.size(); }
     func_decl * get_name_decl(unsigned i) const { return to_app(m_names.get(i))->get_decl(); }
@@ -80,6 +82,20 @@ struct defined_names::pos_impl : public defined_names::impl {
 
 };
 
+void defined_names::impl::translate(impl& dst, ast_translation& tr) const {
+    SASSERT(m_lims.empty());
+    SASSERT(dst.m_exprs.empty());
+    for (unsigned i = 0; i < m_exprs.size(); ++i) {
+        expr* e = tr(m_exprs.get(i));
+        app* n = to_app(tr(m_names.get(i)));
+        dst.cache_new_name(e, n);
+        if (m.proofs_enabled()) {
+            proof* p = to_app(tr(m_apply_proofs.get(i)));
+            dst.cache_new_name_intro_proof(e, p);
+        }
+    }
+}
+
 
 defined_names::impl::impl(ast_manager & m, char const * prefix):
     m(m),
@@ -88,6 +104,11 @@ defined_names::impl::impl(ast_manager & m, char const * prefix):
     m_apply_proofs(m) {
     if (prefix)
         m_z3name = prefix;
+}
+
+void defined_names::translate(defined_names& dst, ast_translation& tr) const {
+    m_impl->translate(*dst.m_impl, tr);
+    m_pos_impl->translate(*dst.m_pos_impl, tr);
 }
 
 /**
@@ -329,8 +350,4 @@ func_decl * defined_names::get_name_decl(unsigned i) const {
     unsigned n1 = m_impl->get_num_names();
     return i < n1 ? m_impl->get_name_decl(i) : m_pos_impl->get_name_decl(i - n1);
 }
-
-
-
-
 

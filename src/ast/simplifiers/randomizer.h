@@ -21,6 +21,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/simplifiers/dependent_expr_state.h"
+#include "ast/ast_translation.h"
 #include "util/obj_hashtable.h"
 #include "params/tactic_params.hpp"
 #include <algorithm>
@@ -121,6 +122,35 @@ public:
         }
 
     char const* name() const override { return "randomizer"; }
+
+    void translate(dependent_expr_simplifier& other) override {
+        auto& dst = dynamic_cast<randomizer_simplifier&>(other);
+        ast_translation& tr = translation();
+        dst.m_rand = m_rand;
+        for (auto const& [f, r] : m_rename) {
+            func_decl* new_f = tr(f);
+            func_decl* new_r = tr(r);
+            dst.m_rename.insert(new_f, new_r);
+            dst.m_ast_trail.push_back(new_f);
+            dst.m_ast_trail.push_back(new_r);
+            dst.m_args.reset();
+            for (unsigned i = 0; i < new_f->get_arity(); ++i)
+                dst.m_args.push_back(dst.m.mk_var(i, new_f->get_domain(i)));
+        }
+        for (ast* a : m_ast_trail) {
+            if (!is_expr(a))
+                continue;
+            expr* e = to_expr(a);
+            expr* r = get_new_expr(e);
+            if (!r)
+                continue;
+            expr* new_e = tr(e);
+            expr* new_r = tr(r);
+            dst.m_new_exprs.setx(new_e->get_id(), new_r);
+            dst.m_ast_trail.push_back(new_e);
+            dst.m_ast_trail.push_back(new_r);
+        }
+    }
 
     void reduce() override {
         for (unsigned idx : indices()) {

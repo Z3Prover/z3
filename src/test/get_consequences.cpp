@@ -9,6 +9,7 @@ Copyright (c) 2016 Microsoft Corporation
 #include "ast/datatype_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_translation.h"
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/tactic.h"
 #include "model/model_smt2_pp.h"
@@ -118,25 +119,36 @@ static void test_bounded_int() {
     reg_decl_plugins(source);
     params_ref p;
     ref<solver> source_solver = mk_fd_solver(source, p);
+    arith_util source_arith(source);
+    expr_ref source_x = mk_const(source, "x", source_arith.mk_int());
+    expr_ref source_three(source_arith.mk_int(3), source);
+    expr_ref source_zero(source_arith.mk_int(0), source);
+    expr_ref source_five(source_arith.mk_int(5), source);
+    source_solver->assert_expr(source_arith.mk_le(source_zero, source_x));
+    source_solver->assert_expr(source_arith.mk_le(source_x, source_five));
+    source_solver->assert_expr(source.mk_eq(source_x, source_three));
+    VERIFY(l_true == source_solver->check_sat(0, nullptr));
 
     ast_manager m;
     reg_decl_plugins(m);
     ref<solver> fd_solver = source_solver->translate(m, p);
+    ast_translation tr(source, m);
     arith_util arith(m);
-    expr_ref x = mk_const(m, "x", arith.mk_int());
+    expr_ref x(tr(source_x.get()), m);
     expr_ref three(arith.mk_int(3), m);
     expr_ref four(arith.mk_int(4), m);
-    expr_ref zero(arith.mk_int(0), m);
-    expr_ref five(arith.mk_int(5), m);
-
-    fd_solver->assert_expr(arith.mk_le(zero, x));
-    fd_solver->assert_expr(arith.mk_le(x, five));
-    fd_solver->assert_expr(m.mk_eq(x, three));
 
     expr_ref_vector asms(m), vars(m), conseq(m);
     vars.push_back(x);
+    VERIFY(l_true == fd_solver->check_sat(0, nullptr));
+
+    fd_solver->push();
+    fd_solver->assert_expr(m.mk_eq(x, four));
+    lbool translated_result = fd_solver->check_sat(0, nullptr);
+    VERIFY(l_false == translated_result);
+    fd_solver->pop(1);
+
     VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
-    ENSURE(!conseq.empty());
 
     model_ref mdl;
     fd_solver->get_model(mdl);
@@ -146,10 +158,6 @@ static void test_bounded_int() {
     eval(x, value);
     ENSURE(m.are_equal(value, three));
 
-    fd_solver->push();
-    fd_solver->assert_expr(m.mk_eq(x, four));
-    VERIFY(l_false == fd_solver->check_sat(0, nullptr));
-    fd_solver->pop(1);
     VERIFY(l_true == fd_solver->check_sat(0, nullptr));
 }
 
