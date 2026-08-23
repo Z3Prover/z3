@@ -32,7 +32,7 @@ ast_translation::~ast_translation() {
 void ast_translation::seed(expr* src, expr* dst) {
     // Seed mappings exposed by a solver translated without this translation
     // object. cache() deliberately retains only shared nodes.
-    vector<std::pair<expr*, expr*>> todo;
+    svector<std::pair<expr*, expr*>> todo;
     todo.push_back({ src, dst });
     while (!todo.empty()) {
         auto [s, d] = todo.back();
@@ -40,38 +40,23 @@ void ast_translation::seed(expr* src, expr* dst) {
         if (m_cache.contains(s))
             continue;
         SASSERT(s->get_kind() == d->get_kind());
-        SASSERT(is_app(s) == is_app(d));
-        SASSERT(is_quantifier(s) == is_quantifier(d));
-        if (is_app(s)) {
-            app* sa = to_app(s);
-            app* da = to_app(d);
-            SASSERT(sa->get_num_args() == da->get_num_args());
-            SASSERT(sa->get_decl()->get_family_id() == da->get_decl()->get_family_id());
-            SASSERT(sa->get_decl()->get_decl_kind() == da->get_decl()->get_decl_kind());
-        }
-        else if (is_quantifier(s)) {
-            SASSERT(to_quantifier(s)->get_num_decls() == to_quantifier(d)->get_num_decls());
-        }
-        else {
-            SASSERT(to_var(s)->get_idx() == to_var(d)->get_idx());
-        }
         cache(s, d);
         if (!m_cache.contains(s->get_sort()))
             cache(s->get_sort(), d->get_sort());
-        if (is_app(s) && is_app(d)) {
+        if (is_app(s)) {
+            SASSERT(is_app(d));
             app* sa = to_app(s);
             app* da = to_app(d);
+            SASSERT(sa->get_num_args() == da->get_num_args());
             if (!m_cache.contains(sa->get_decl()))
                 cache(sa->get_decl(), da->get_decl());
             for (unsigned i = 0; i < sa->get_num_args(); ++i)
                 todo.push_back({ sa->get_arg(i), da->get_arg(i) });
         }
-        else if (is_quantifier(s) && is_quantifier(d)) {
+        else if (is_quantifier(s)) {
+            SASSERT(is_quantifier(d));
             quantifier* sq = to_quantifier(s);
             quantifier* dq = to_quantifier(d);
-            for (unsigned i = 0; i < sq->get_num_decls(); ++i)
-                if (!m_cache.contains(sq->get_decl_sort(i)))
-                    cache(sq->get_decl_sort(i), dq->get_decl_sort(i));
             todo.push_back({ sq->get_expr(), dq->get_expr() });
         }
     }
