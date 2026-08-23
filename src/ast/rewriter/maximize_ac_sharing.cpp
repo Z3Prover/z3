@@ -124,12 +124,12 @@ maximize_ac_sharing::~maximize_ac_sharing() {
     restore_entries(0);
 }
 
-void maximize_ac_sharing::translate(maximize_ac_sharing& dst, ast_translation& tr) const {
-    SASSERT(m_scopes.empty());
-    SASSERT(dst.m_entries.empty());
-    dst.init();
-    for (entry* e : m_entries)
-        dst.insert(tr(e->m_decl), tr(e->m_arg1), tr(e->m_arg2));
+void maximize_ac_sharing::translate(maximize_ac_sharing& src, ast_translation& tr) {
+    SASSERT(src.m_scopes.empty());
+    SASSERT(m_entries.empty());
+    init();
+    for (entry* e : src.m_entries)
+        insert(tr(e->m_decl), tr(e->m_arg1), tr(e->m_arg2));
 }
 
 

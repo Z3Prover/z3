@@ -65,6 +65,6 @@ public:
 
     void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
         auto& source = dynamic_cast<cnf_nnf_simplifier&>(src);
-        source.m_defined_names.translate(m_defined_names, tr);
+        m_defined_names.translate(source.m_defined_names, tr);
     }
 };

@@ -45,6 +45,19 @@ namespace euf {
         if (!m_config.m_enabled)
             return;
 
+        SASSERT(m_pr_dep.empty());
+        m_egraph.push();
+        auto reset_egraph = on_scope_exit([&]() {
+            m_find.reset();
+            m_args.reset();
+            m_todo.reset();
+            m_node2level.reset();
+            m_level2node.reset();
+            m_egraph.pop(1);
+            m_pr_dep.reset();
+            m_th_var = 0;
+        });
+
         m_fmls.freeze_suffix();
 
         for (extract_eq* ex : m_extract_plugins)
@@ -53,41 +66,6 @@ namespace euf {
         reduce_alias(true);
         reduce_linear();
         reduce_alias(false);
-    }
-
-    void fold_unfold::translate(dependent_expr_simplifier& src, ast_translation& tr) {
-        auto& source = dynamic_cast<fold_unfold&>(src);
-        expr_dependency_translation dep_tr(tr);
-        SASSERT(num_scopes() == 0 && source.num_scopes() == 0);
-
-        for (enode* n : source.m_egraph.nodes())
-            mk_enode(tr(n->get_expr()));
-
-        for (enode* root : source.m_egraph.nodes()) {
-            if (!root->is_root())
-                continue;
-            enode* dst_root = m_egraph.find(tr(root->get_expr()));
-            for (enode* n : enode_class(root)) {
-                if (n == root)
-                    continue;
-                proof_ref pr(source.m);
-                if (source.m.proofs_enabled()) {
-                    expr_ref_vector prs(source.m);
-                    ptr_vector<size_t> just;
-                    source.m_egraph.begin_explain();
-                    source.m_egraph.explain_eq(just, nullptr, root, n);
-                    source.m_egraph.end_explain();
-                    for (size_t* j : just)
-                        prs.push_back(source.m_pr_dep[source.from_ptr(j)].first);
-                    prs.push_back(source.m.mk_eq(root->get_expr(), n->get_expr()));
-                    pr = source.m.mk_app(symbol("euf"), prs.size(), prs.data(), source.m.mk_proof_sort());
-                }
-                auto* dep = dep_tr(source.explain_eq(root, n));
-                auto* dst_n = m_egraph.find(tr(n->get_expr()));
-                m_egraph.merge(dst_root, dst_n, to_ptr(push_pr_dep(tr(pr.get()), dep)));
-            }
-        }
-        m_egraph.propagate();
     }
 
     void fold_unfold::reduce_alias(bool fuf) {
@@ -208,7 +186,6 @@ namespace euf {
         unsigned sz = m_pr_dep.size();
         SASSERT(!m.proofs_enabled() || pr);
         m_pr_dep.push_back({proof_ref(pr, m), d});
-        m_trail.push(push_back_vector(m_pr_dep));
         return sz;
     }
 

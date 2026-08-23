@@ -56,7 +56,7 @@ public:
 
     void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
         auto& source = dynamic_cast<elim_term_ite_simplifier&>(src);
-        source.m_df.translate(m_df, tr);
+        m_df.translate(source.m_df, tr);
     }
 };
 

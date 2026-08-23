@@ -64,7 +64,7 @@ public:
 
     void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
         auto& source = dynamic_cast<max_bv_sharing&>(src);
-        source.m_rewriter.translate(m_rewriter, tr);
+        m_rewriter.translate(source.m_rewriter, tr);
     }
     
 };

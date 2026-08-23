@@ -70,7 +70,7 @@ struct defined_names::impl {
     void push_scope();
     void pop_scope(unsigned num_scopes);
     void reset();
-    void translate(impl& dst, ast_translation& tr) const;
+    void translate(impl& src, ast_translation& tr);
 
     unsigned get_num_names() const { return m_names.size(); }
     func_decl * get_name_decl(unsigned i) const { return to_app(m_names.get(i))->get_decl(); }
@@ -82,16 +82,16 @@ struct defined_names::pos_impl : public defined_names::impl {
 
 };
 
-void defined_names::impl::translate(impl& dst, ast_translation& tr) const {
-    SASSERT(m_lims.empty());
-    SASSERT(dst.m_exprs.empty());
-    for (unsigned i = 0; i < m_exprs.size(); ++i) {
-        expr* e = tr(m_exprs.get(i));
-        app* n = to_app(tr(m_names.get(i)));
-        dst.cache_new_name(e, n);
-        if (m.proofs_enabled()) {
-            proof* p = to_app(tr(m_apply_proofs.get(i)));
-            dst.cache_new_name_intro_proof(e, p);
+void defined_names::impl::translate(impl& src, ast_translation& tr) {
+    SASSERT(src.m_lims.empty());
+    SASSERT(m_exprs.empty());
+    for (unsigned i = 0; i < src.m_exprs.size(); ++i) {
+        expr* e = tr(src.m_exprs.get(i));
+        app* n = to_app(tr(src.m_names.get(i)));
+        cache_new_name(e, n);
+        if (src.m.proofs_enabled()) {
+            proof* p = to_app(tr(src.m_apply_proofs.get(i)));
+            cache_new_name_intro_proof(e, p);
         }
     }
 }
@@ -106,9 +106,9 @@ defined_names::impl::impl(ast_manager & m, char const * prefix):
         m_z3name = prefix;
 }
 
-void defined_names::translate(defined_names& dst, ast_translation& tr) const {
-    m_impl->translate(*dst.m_impl, tr);
-    m_pos_impl->translate(*dst.m_pos_impl, tr);
+void defined_names::translate(defined_names& src, ast_translation& tr) {
+    m_impl->translate(*src.m_impl, tr);
+    m_pos_impl->translate(*src.m_pos_impl, tr);
 }
 
 /**
@@ -350,4 +350,3 @@ func_decl * defined_names::get_name_decl(unsigned i) const {
     unsigned n1 = m_impl->get_num_names();
     return i < n1 ? m_impl->get_name_decl(i) : m_pos_impl->get_name_decl(i - n1);
 }
-
