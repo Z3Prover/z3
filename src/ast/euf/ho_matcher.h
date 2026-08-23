@@ -511,6 +511,8 @@ namespace euf {
 
         void operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars);
 
+        void operator()(unsigned num_goals, expr* const* pats, expr* const* terms, unsigned num_vars);
+
         std::pair<quantifier*, app*> compile_ho_pattern(quantifier* q, app* p);
 
         bool is_ho_pattern(app* p);

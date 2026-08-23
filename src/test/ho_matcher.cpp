@@ -282,6 +282,29 @@ namespace euf {
                 m_matcher(pat, f, 3);
             }
 
+        void test_constraint_system() {
+            func_decl_ref g(m.mk_func_decl(symbol("g"), m_int, m_int), m);
+            expr_ref v0(m.mk_var(0, m_int), m);
+            expr_ref zero(m_arith.mk_int(0), m);
+            expr_ref one(m_arith.mk_int(1), m);
+            expr_ref p1(m.mk_app(m_f.get(), v0.get(), zero.get()), m);
+            expr_ref p2(m.mk_app(g.get(), v0.get()), m);
+            expr_ref t1(m.mk_app(m_f.get(), one.get(), zero.get()), m);
+            expr_ref t2(m.mk_app(g.get(), one.get()), m);
+            expr* pats[2] = { p1, p2 };
+            expr* terms[2] = { t1, t2 };
+            unsigned count = 0;
+            std::function<void(ho_subst&)> on_match = [&](ho_subst&) { ++count; };
+            m_matcher.set_on_match(on_match);
+            m_matcher(2, pats, terms, 1);
+            VERIFY(count > 0);
+
+            terms[1] = m.mk_app(g.get(), zero.get());
+            count = 0;
+            m_matcher(2, pats, terms, 1);
+            VERIFY(count == 0);
+        }
+
             // Faithful isolation test for the refine-time sort guard used by
             // ho_matcher::refine_ho_match (throws "sort mismatch ..." on failure).
             // Mirrors the SEV510^1 family where a bound-variable binding's sort
@@ -327,6 +350,7 @@ void tst_ho_matcher() {
         tm.test7();
         tm.test8();
         tm.test9();
+        tm.test_constraint_system();
         tm.test10();
     }
     catch (std::exception const& ex) {

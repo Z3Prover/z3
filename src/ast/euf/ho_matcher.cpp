@@ -112,12 +112,38 @@ namespace euf {
     }
 
     void ho_matcher::operator()(expr *pat, expr *t, unsigned num_bound, unsigned num_vars) {
+        expr* pats[1] = { pat };
+        expr* terms[1] = { t };
+        if (num_bound == 0) {
+            (*this)(1, pats, terms, num_vars);
+            return;
+        }
         scoped_trail_level _restore(m_trail);
         m_trail.push_scope();
         m_subst.resize(0);
         m_subst.resize(num_vars);
         m_goals.reset();
         m_goals.push(nullptr, 0, num_bound, pat, t);
+        search();
+    }
+
+    void ho_matcher::operator()(unsigned num_goals, expr* const* pats, expr* const* terms, unsigned num_vars) {
+        scoped_trail_level _restore(m_trail);
+        m_trail.push_scope();
+        m_subst.resize(0);
+        m_subst.resize(num_vars);
+        m_goals.reset();
+        ptr_vector<sort> domain;
+        for (unsigned i = 0; i < num_goals; ++i) {
+            SASSERT(pats[i]->get_sort() == terms[i]->get_sort());
+            add_pattern(pats[i]);
+            domain.push_back(pats[i]->get_sort());
+        }
+        func_decl_ref tuple(m.mk_fresh_func_decl("ho-match", num_goals, domain.data(), m.mk_bool_sort()), m);
+        expr_ref pat(m.mk_app(tuple, num_goals, pats), m);
+        expr_ref term(m.mk_app(tuple, num_goals, terms), m);
+        add_pattern(pat);
+        m_goals.push(nullptr, 0, 0, pat, term);
         search();
     }
 
