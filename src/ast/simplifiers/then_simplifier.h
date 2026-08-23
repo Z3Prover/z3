@@ -120,8 +120,8 @@ public:
             s->pop(n);     
     }
 
-    void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
-        auto& source = dynamic_cast<then_simplifier&>(src);
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override {
+        auto const& source = dynamic_cast<then_simplifier const&>(src);
         if (m_simplifiers.size() != source.m_simplifiers.size())
             throw default_exception("cannot translate mismatched simplifier pipelines");
         for (unsigned i = 0; i < m_simplifiers.size(); ++i)

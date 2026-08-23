@@ -40,7 +40,7 @@ public:
     void collect_statistics(statistics& st) const override;
     void push() override;
     void pop(unsigned n) override;
-    void translate(dependent_expr_simplifier& src, ast_translation& tr) override;
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override;
 
     /*
     * Expose the bit-blaster rewriter so that assumptions and implied bit-vectors can be reconstructed

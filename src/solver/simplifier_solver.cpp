@@ -51,6 +51,7 @@ class simplifier_solver : public solver {
         bool updated() override { return m_updated; }
         void reset_updated() override { m_updated = false; }
         model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
+        model_reconstruction_trail const& model_trail() const override { return m_reconstruction_trail; }
         std::ostream& display(std::ostream& out) const override {
             unsigned i = 0;
             for (auto const& d : s.m_fmls) {

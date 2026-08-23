@@ -62,8 +62,8 @@ public:
 
     void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_rewriter.pop_scope(n); }
 
-    void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
-        auto& source = dynamic_cast<max_bv_sharing&>(src);
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override {
+        auto const& source = dynamic_cast<max_bv_sharing const&>(src);
         m_rewriter.translate(source.m_rewriter, tr);
     }
     

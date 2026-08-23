@@ -91,7 +91,7 @@ public:
     void updt_params(params_ref const& p) override { m_rw.cfg().updt_params(p); }
     void collect_param_descrs(param_descrs& r) override;
     void reduce() override;
-    void translate(dependent_expr_simplifier& src, ast_translation& tr) override;
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override;
 };
 
 /*

@@ -132,7 +132,7 @@ bool dependent_expr_state::has_quantifiers() {
     m_has_quantifiers = found ? l_true : l_false;
     return m_has_quantifiers == l_true;
 }
-void dependent_expr_state::translate(dependent_expr_state& src, ast_translation& tr) {
+void dependent_expr_state::translate(dependent_expr_state const& src, ast_translation& tr) {
     SASSERT(src.m_trail.get_num_scopes() == 0);
     SASSERT(m_qhead == 0);
     m_qhead = src.m_qhead;

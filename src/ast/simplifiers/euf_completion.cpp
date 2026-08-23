@@ -190,7 +190,7 @@ namespace euf {
             m_side_condition_solver->pop(n);
     }
 
-    void completion::translate(dependent_expr_simplifier&, ast_translation&) {
+    void completion::translate(dependent_expr_simplifier const&, ast_translation&) {
         throw default_exception("euf_completion is not clonable");
     }
 

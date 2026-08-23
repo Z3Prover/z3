@@ -292,9 +292,9 @@ void bv1_blaster_simplifier::reduce() {
     }
 }
 
-void bv1_blaster_simplifier::translate(dependent_expr_simplifier& src, ast_translation& tr) {
-    auto& source = dynamic_cast<bv1_blaster_simplifier&>(src);
-    auto& src_cfg = source.m_rw.cfg();
+void bv1_blaster_simplifier::translate(dependent_expr_simplifier const& src, ast_translation& tr) {
+    auto const& source = dynamic_cast<bv1_blaster_simplifier const&>(src);
+    auto const& src_cfg = source.m_rw.cfg();
     auto& dst_cfg = m_rw.cfg();
     SASSERT(dst_cfg.m_const2bits.empty());
     for (auto const& [f, bits] : src_cfg.m_const2bits) {

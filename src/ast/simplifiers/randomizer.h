@@ -67,7 +67,7 @@ class randomizer_simplifier : public dependent_expr_simplifier {
         m_todo.pop_back();
     }
 
-    expr* get_new_expr(expr* e) {
+    expr* get_new_expr(expr* e) const {
         return m_new_exprs.get(e->get_id(), nullptr);
     }
 
@@ -123,8 +123,8 @@ public:
 
     char const* name() const override { return "randomizer"; }
 
-    void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
-        auto& source = dynamic_cast<randomizer_simplifier&>(src);
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override {
+        auto const& source = dynamic_cast<randomizer_simplifier const&>(src);
         m_rand = source.m_rand;
         for (auto const& [f, r] : source.m_rename) {
             func_decl* new_f = tr(f);

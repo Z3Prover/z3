@@ -788,7 +788,7 @@ void bit_blaster_rewriter::get_translation(obj_map<func_decl, expr*>& const2bits
     m_imp->get_translation(const2bits, newbits);
 }
 
-void bit_blaster_rewriter::translate(bit_blaster_rewriter& src, ast_translation& tr) const {
+void bit_blaster_rewriter::translate(bit_blaster_rewriter const& src, ast_translation& tr) const {
     SASSERT(src.get_num_scopes() == 0);
     obj_map<func_decl, expr*> source;
     ptr_vector<func_decl> source_bits;

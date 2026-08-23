@@ -73,6 +73,7 @@ public:
     virtual void add(dependent_expr const& j) = 0;
     virtual bool inconsistent() = 0;
     virtual model_reconstruction_trail& model_trail() = 0;
+    virtual model_reconstruction_trail const& model_trail() const = 0;
     virtual void flatten_suffix() {}
     virtual bool updated() = 0;
     virtual void reset_updated() = 0;
@@ -84,7 +85,7 @@ public:
         m_trail.push(thaw(*this));
     }
     void pop(unsigned n) { m_trail.pop_scope(n); }
-    void translate(dependent_expr_state& src, ast_translation& tr);
+    void translate(dependent_expr_state const& src, ast_translation& tr);
     
     void advance_qhead() { freeze_prefix(); m_suffix_frozen = false; m_has_quantifiers = l_undef;  m_qhead = qtail(); }
     unsigned num_exprs();
@@ -112,6 +113,7 @@ public:
     void add(dependent_expr const& j) override { throw default_exception("unexpected addition"); }
     bool inconsistent() override { return false; }
     model_reconstruction_trail& model_trail() override { throw default_exception("unexpected access to model reconstruction"); }
+    model_reconstruction_trail const& model_trail() const override { throw default_exception("unexpected access to model reconstruction"); }
     bool updated() override { return false; }
     void reset_updated() override {}
 };
@@ -137,6 +139,7 @@ struct base_dependent_expr_state : public dependent_expr_state {
     bool updated() override { return m_updated; }
     void reset_updated() override { m_updated = false; }
     model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
+    model_reconstruction_trail const& model_trail() const override { return m_reconstruction_trail; }
     std::ostream& display(std::ostream& out) const override {
         unsigned i = 0;
         for (auto const& d : m_fmls) {
@@ -231,7 +234,7 @@ public:
     virtual char const* name() const = 0;
     virtual void push() { }
     virtual void pop(unsigned n) { }
-    virtual void translate(dependent_expr_simplifier& src, ast_translation& tr) {}
+    virtual void translate(dependent_expr_simplifier const& src, ast_translation& tr) {}
     virtual void reduce() = 0;
     virtual void collect_statistics(statistics& st) const {}
     virtual void reset_statistics() {}

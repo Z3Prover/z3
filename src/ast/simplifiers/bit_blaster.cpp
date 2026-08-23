@@ -75,7 +75,7 @@ void bit_blaster_simplifier::pop(unsigned n) {
     m_rewriter.pop(n);
 }
 
-void bit_blaster_simplifier::translate(dependent_expr_simplifier& src, ast_translation& tr) {
-    auto& source = dynamic_cast<bit_blaster_simplifier&>(src);
+void bit_blaster_simplifier::translate(dependent_expr_simplifier const& src, ast_translation& tr) {
+    auto const& source = dynamic_cast<bit_blaster_simplifier const&>(src);
     m_rewriter.translate(source.m_rewriter, tr);
 }

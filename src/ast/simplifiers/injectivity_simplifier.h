@@ -166,8 +166,8 @@ public:
 
     char const* name() const override { return "injectivity"; }
 
-    void translate(dependent_expr_simplifier& src, ast_translation& tr) override {
-        auto& source = dynamic_cast<injectivity_simplifier&>(src);
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override {
+        auto const& source = dynamic_cast<injectivity_simplifier const&>(src);
         SASSERT(m_map.empty());
         for (auto const& [f, inverses] : source.m_map)
             for (func_decl* g : *inverses)
