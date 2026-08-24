@@ -21,6 +21,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 #include "ast/simplifiers/bound_manager.h"
+#include "ast/ast_translation.h"
 
 bound_manager::bound_manager(ast_manager & m):
     m_util(m),
@@ -34,13 +35,18 @@ bound_manager::~bound_manager() {
 bound_manager* bound_manager::translate(ast_manager& dst_m) {
     bound_manager* result = alloc(bound_manager, dst_m);
     ast_translation tr(m(), dst_m);
-    expr_dependency_translation edtr(tr);
-    for (auto& kv : m_lowers) result->m_lowers.insert(tr(kv.m_key), kv.m_value);
-    for (auto& kv : m_uppers) result->m_uppers.insert(tr(kv.m_key), kv.m_value);
-    for (auto& kv : m_lower_deps) result->m_lower_deps.insert(tr(kv.m_key), edtr(kv.m_value));
-    for (auto& kv : m_upper_deps) result->m_upper_deps.insert(tr(kv.m_key), edtr(kv.m_value));
-    for (expr* e : m_bounded_vars) result->m_bounded_vars.push_back(tr(e));
+    result->translate(*this, tr);
     return result;
+}
+
+void bound_manager::translate(bound_manager const& src, ast_translation& tr) {
+    expr_dependency_translation edtr(tr);
+    SASSERT(m_bounded_vars.empty());
+    for (auto& kv : src.m_lowers) m_lowers.insert(tr(kv.m_key), kv.m_value);
+    for (auto& kv : src.m_uppers) m_uppers.insert(tr(kv.m_key), kv.m_value);
+    for (auto& kv : src.m_lower_deps) m_lower_deps.insert(tr(kv.m_key), edtr(kv.m_value));
+    for (auto& kv : src.m_upper_deps) m_upper_deps.insert(tr(kv.m_key), edtr(kv.m_value));
+    for (expr* e : src.m_bounded_vars) m_bounded_vars.push_back(tr(e));
 }
 
 

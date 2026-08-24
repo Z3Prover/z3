@@ -117,7 +117,6 @@ class simplifier_solver : public solver {
     simplifier_factory          m_factory;
     expr_ref_vector             m_assumptions;
     model_converter_ref         m_mc;
-    simplifier_factory          m_factory;
     bool                        m_inconsistent = false;
     expr_safe_replace           m_core_replace;
 

@@ -91,26 +91,64 @@ void test2() {
     std::cout << conseq << "\n";
     conseq.reset();
 
-    fd_solver->push();
-    fd_solver->assert_expr(m.mk_not(m.mk_eq(x, g)));
-    VERIFY(l_false == fd_solver->check_sat(0,nullptr));
-    fd_solver->pop(1);
+    ast_manager dst;
+    reg_decl_plugins(dst);
+    ref<solver> translated_solver = fd_solver->translate(dst, p);
+    ast_translation tr(m, dst);
+    expr_ref translated_x(tr(x.get()), dst);
+    expr_ref translated_g(tr(g.get()), dst);
 
-    VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
-    ENSURE(!conseq.empty());
-
-    std::cout << conseq << "\n";
-    conseq.reset();
-
+    VERIFY(l_true == translated_solver->check_sat(0, nullptr));
     model_ref mr;
-    fd_solver->get_model(mr);
-    model_smt2_pp(std::cout << "model:\n", m, *mr.get(), 0);
-
-    VERIFY(l_true == fd_solver->check_sat(0,nullptr));
-    fd_solver->get_model(mr);
+    translated_solver->get_model(mr);
     ENSURE(mr.get());
-    model_smt2_pp(std::cout, m, *mr.get(), 0);
+    model_evaluator eval(*mr);
+    expr_ref value(dst);
+    eval(translated_x, value);
+    ENSURE(dst.are_equal(value, translated_g));
+    model_smt2_pp(std::cout << "model:\n", dst, *mr.get(), 0);
 
+    VERIFY(l_true == translated_solver->check_sat(0,nullptr));
+    translated_solver->get_model(mr);
+    ENSURE(mr.get());
+    model_smt2_pp(std::cout, dst, *mr.get(), 0);
+
+}
+
+static void test_bounded_int_translation() {
+    ast_manager source;
+    reg_decl_plugins(source);
+    params_ref p;
+    ref<solver> source_solver = mk_fd_solver(source, p);
+    arith_util source_arith(source);
+    expr_ref source_x = mk_const(source, "x", source_arith.mk_int());
+    expr_ref source_three(source_arith.mk_int(3), source);
+    expr_ref source_zero(source_arith.mk_int(0), source);
+    expr_ref source_five(source_arith.mk_int(5), source);
+    source_solver->assert_expr(source_arith.mk_le(source_zero, source_x));
+    source_solver->assert_expr(source_arith.mk_le(source_x, source_five));
+    source_solver->assert_expr(source.mk_eq(source_x, source_three));
+    VERIFY(l_true == source_solver->check_sat(0, nullptr));
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    ref<solver> fd_solver = source_solver->translate(m, p);
+    ast_translation tr(source, m);
+    arith_util arith(m);
+    expr_ref x(tr(source_x.get()), m);
+    expr_ref three(arith.mk_int(3), m);
+
+    VERIFY(l_true == fd_solver->check_sat(0, nullptr));
+
+    model_ref mdl;
+    fd_solver->get_model(mdl);
+    ENSURE(mdl.get());
+    model_evaluator eval(*mdl);
+    expr_ref value(m);
+    eval(x, value);
+    ENSURE(m.are_equal(value, three));
+
+    VERIFY(l_true == fd_solver->check_sat(0, nullptr));
 }
 
 static void test_bounded_int() {
@@ -138,14 +176,6 @@ static void test_bounded_int() {
     VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
     ENSURE(!conseq.empty());
 
-    model_ref mdl;
-    fd_solver->get_model(mdl);
-    ENSURE(mdl.get());
-    model_evaluator eval(*mdl);
-    expr_ref value(m);
-    eval(x, value);
-    ENSURE(m.are_equal(value, three));
-
     fd_solver->push();
     fd_solver->assert_expr(m.mk_eq(x, four));
     VERIFY(l_false == fd_solver->check_sat(0, nullptr));
@@ -157,4 +187,5 @@ void tst_get_consequences() {
     test1();
     test2();
     test_bounded_int();
+    test_bounded_int_translation();
 }

@@ -101,6 +101,25 @@ public:
         m_rewriter.pop(n);
     }
 
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override {
+        auto const& source = dynamic_cast<enum2bv_simplifier const&>(src);
+        SASSERT(source.m_hidden_limits.empty());
+        SASSERT(source.m_defined_limits.empty());
+        SASSERT(m_hidden_trail.empty());
+        SASSERT(m_defined_trail.empty());
+        m_rewriter.translate(source.m_rewriter, tr);
+        for (func_decl* f : source.m_hidden_trail) {
+            func_decl* translated = tr(f);
+            m_hidden.insert(translated);
+            m_hidden_trail.push_back(translated);
+        }
+        for (func_decl* f : source.m_defined_trail) {
+            func_decl* translated = tr(f);
+            m_defined.insert(translated);
+            m_defined_trail.push_back(translated);
+        }
+    }
+
     void updt_params(params_ref const& p) override { m_rewriter.updt_params(p); }
     void collect_statistics(statistics& st) const override {
         st.update("enum2bv-rewrites", m_num_rewrites);
@@ -268,6 +287,28 @@ public:
             dealloc(m_bounds.back());
             m_bounds.pop_back();
         }
+    }
+
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override {
+        auto const& source = dynamic_cast<bounded_int2bv_simplifier const&>(src);
+        SASSERT(source.m_bounds.size() == 1);
+        SASSERT(source.m_fn_limits.empty());
+        SASSERT(m_bounds.size() == 1);
+        SASSERT(m_int_fns.empty());
+        m_bounds.back()->translate(*source.m_bounds.back(), tr);
+        for (unsigned i = 0; i < source.m_int_fns.size(); ++i) {
+            func_decl* f = tr(source.m_int_fns.get(i));
+            func_decl* fbv = tr(source.m_bv_fns.get(i));
+            rational offset;
+            VERIFY(source.m_bv2offset.find(source.m_bv_fns.get(i), offset));
+            m_int2bv.insert(f, fbv);
+            m_bv2int.insert(fbv, f);
+            m_bv2offset.insert(fbv, offset);
+            m_int_fns.push_back(f);
+            m_bv_fns.push_back(fbv);
+        }
+        for (expr* condition : source.m_side_conditions)
+            m_side_conditions.push_back(tr(condition));
     }
 
     void collect_statistics(statistics& st) const override {
