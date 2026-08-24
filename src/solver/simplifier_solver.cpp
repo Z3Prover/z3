@@ -114,9 +114,9 @@ class simplifier_solver : public solver {
     vector<dependent_expr>      m_fmls;
     dep_expr_state              m_preprocess_state;
     then_simplifier             m_preprocess;
+    simplifier_factory          m_factory;
     expr_ref_vector             m_assumptions;
     model_converter_ref         m_mc;
-    simplifier_factory          m_factory;
     bool                        m_inconsistent = false;
     expr_safe_replace           m_core_replace;
 
@@ -128,23 +128,53 @@ class simplifier_solver : public solver {
         }
     }
 
+    expr* consequence_representative(expr* e) {
+        expr_mark visited;
+        ptr_vector<expr> todo;
+        expr* result = nullptr;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* current = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(current))
+                continue;
+            visited.mark(current, true);
+            if (is_uninterp_const(current)) {
+                if (result && result != current)
+                    return nullptr;
+                result = current;
+            }
+            else if (is_app(current)) {
+                for (expr* arg : *to_app(current))
+                    todo.push_back(arg);
+            }
+            else if (is_quantifier(current)) {
+                todo.push_back(to_quantifier(current)->get_expr());
+            }
+        }
+        return result;
+    }
+
     void flush(expr_ref_vector& assumptions) {
         unsigned qhead = m_preprocess_state.qhead();
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();
         m_preprocess_state.replay(qhead, assumptions);   
-        for (unsigned i = 0; i < assumptions.size(); ++i) 
-            m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));                    
 
         if (qhead < m_fmls.size()) {
             m_preprocess.reduce();
             if (!m.inc())
                 return;
+            // Simplification may introduce definitions for expressions passed
+            // as assumptions or consequence variables in this flush.
+            m_preprocess_state.replay(qhead, assumptions);
             TRACE(solver, tout << "qhead " << qhead << "\n";
                   m_preprocess_state.display(tout));
             m_preprocess_state.advance_qhead();
         }
 
+        for (unsigned i = 0; i < assumptions.size(); ++i)
+            m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));
         m_mc = m_preprocess_state.model_trail().get_model_converter(); 
         m_cached_mc = nullptr;
         for (; qhead < m_fmls.size(); ++qhead)
@@ -329,8 +359,60 @@ public:
         flush(es);
         expr_ref_vector asms1(m, asms.size(), es.data());
         expr_ref_vector vars1(m, vars.size(), es.data() + asms.size());
-        lbool r = s->get_consequences(asms1, vars1, consequences);
-        replace(consequences);        
+        expr_ref_vector query_vars(m);
+        for (expr* v : vars1) {
+            expr* representative = consequence_representative(v);
+            query_vars.push_back(representative ? representative : v);
+        }
+        lbool r = s->get_consequences(asms1, query_vars, consequences);
+
+        th_rewriter rw(m);
+        for (unsigned i = 0; i < consequences.size(); ++i) {
+            expr* premise = nullptr, *conclusion = nullptr;
+            expr* lhs = nullptr, *rhs = nullptr;
+            expr* query = nullptr, *value = nullptr;
+            if (!m.is_implies(consequences.get(i), premise, conclusion))
+                continue;
+            if (m.is_eq(conclusion, lhs, rhs)) {
+                for (expr* q : query_vars) {
+                    if (lhs == q) {
+                        query = lhs;
+                        value = rhs;
+                        break;
+                    }
+                    if (rhs == q) {
+                        query = rhs;
+                        value = lhs;
+                        break;
+                    }
+                }
+            }
+            else if (is_uninterp_const(conclusion)) {
+                query = conclusion;
+                value = m.mk_true();
+            }
+            else if (m.is_not(conclusion, query) && is_uninterp_const(query)) {
+                value = m.mk_false();
+            }
+            if (!query)
+                continue;
+
+            for (unsigned j = 0; j < query_vars.size(); ++j) {
+                if (query_vars.get(j) != query || vars.get(j) == vars1.get(j))
+                    continue;
+                expr_safe_replace sub(m);
+                expr_ref decoded(m), new_premise(premise, m);
+                sub.insert(query, value);
+                sub(vars1.get(j), decoded);
+                rw(decoded);
+                consequences[i] = m.mk_implies(
+                    new_premise,
+                    m.mk_eq(vars.get(j), decoded));
+                query = nullptr;
+                break;
+            }
+        }
+        replace(consequences);
         return r;
     }
 

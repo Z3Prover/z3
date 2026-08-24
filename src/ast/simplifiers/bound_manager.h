@@ -46,6 +46,7 @@ public:
     ~bound_manager();
     
     bound_manager* translate(ast_manager& dst_m);
+    void translate(bound_manager const& src, ast_translation& tr);
 
     ast_manager & m() const { return m_util.get_manager(); }
     
@@ -108,4 +109,3 @@ public:
     // for debugging purposes
     void display(std::ostream & out) const;
 };
-
