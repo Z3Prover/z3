@@ -112,12 +112,6 @@ namespace euf {
     }
 
     void ho_matcher::operator()(expr *pat, expr *t, unsigned num_bound, unsigned num_vars) {
-        expr* pats[1] = { pat };
-        expr* terms[1] = { t };
-        if (num_bound == 0) {
-            (*this)(1, pats, terms, num_vars);
-            return;
-        }
         scoped_trail_level _restore(m_trail);
         m_trail.push_scope();
         m_subst.resize(0);
@@ -139,11 +133,11 @@ namespace euf {
             add_pattern(pats[i]);
             domain.push_back(pats[i]->get_sort());
         }
-        func_decl_ref tuple(m.mk_fresh_func_decl("ho-match", num_goals, domain.data(), m.mk_bool_sort()), m);
+        func_decl_ref tuple(m.mk_func_decl(symbol("ho-match"), num_goals, domain.data(), m.mk_bool_sort()), m);
         expr_ref pat(m.mk_app(tuple, num_goals, pats), m);
         expr_ref term(m.mk_app(tuple, num_goals, terms), m);
         add_pattern(pat);
-        m_goals.push(nullptr, 0, 0, pat, term);
+        m_goals.push(nullptr, 0, 0, pat, term); // CR comment: can't i just push num_goals goals?
         search();
     }
 
