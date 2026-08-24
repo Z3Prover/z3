@@ -21,7 +21,6 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 #include "ast/simplifiers/bound_manager.h"
-#include "ast/ast_translation.h"
 
 bound_manager::bound_manager(ast_manager & m):
     m_util(m),
