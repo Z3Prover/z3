@@ -97,6 +97,10 @@ public:
         return *m_model_trail;
     }
 
+    model_reconstruction_trail const& model_trail() const override {
+        return *m_model_trail;
+    }
+
     char const* name() const override { return m_simp ? m_simp->name() : "null"; }
 
     bool updated() override { return m_updated; }
