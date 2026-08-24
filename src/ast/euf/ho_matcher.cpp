@@ -142,6 +142,8 @@ namespace euf {
 
     void ho_matcher::search() {
         IF_VERBOSE(10, display(verbose_stream()));
+        m_num_matches = 0;
+        m_match_limit_reached = false;
 
         struct drain_backtrack {
             ho_matcher &m;
@@ -156,7 +158,7 @@ namespace euf {
         drain_backtrack _drain(*this);
 
         unsigned budget = m_max_iterations;
-        while (m.inc()) {
+        while (!m_match_limit_reached && m.inc()) {
             if (budget-- == 0) {
                 IF_VERBOSE(2, verbose_stream() << "ho_matcher: search budget exhausted\n");
                 break;
@@ -189,8 +191,10 @@ namespace euf {
             TRACE(ho_matching, display(tout << "ho_matcher::consume_work: " << mk_bounded_pp(wi.pat, m) << " =?= "
                                             << mk_bounded_pp(wi.t, m) << " -> " << (st ? "true" : "false") << "\n"););
             if (st) {
-                if (m_goals.empty())
+                if (m_goals.empty()) {
                     m_on_match(m_subst);
+                    m_match_limit_reached = ++m_num_matches >= m_max_matches;
+                }
                 break;
             }
             else

@@ -39,6 +39,7 @@ namespace smt {
             m(ctx.get_manager()),
             matcher(m, ctx.get_trail_stack()) {
             matcher.set_max_iterations(ctx.get_fparams().m_ho_matching_bound);
+            matcher.set_max_matches(1);
 
             std::function<void(euf::ho_subst&)> on_match = [this](euf::ho_subst& subst) {
                 save_matches(subst);
@@ -78,7 +79,7 @@ namespace smt {
                 if (!terms)
                     return;
                 func_decl* head = is_app(pat) ? to_app(pat)->get_decl() : nullptr;
-                unsigned bound = ctx.get_fparams().m_ho_matching_bound;
+                unsigned bound = std::min(100u, ctx.get_fparams().m_ho_matching_bound);
                 for (expr* term : terms->enum_terms(pat->get_sort())) {
                     if (!head || (is_app(term) && to_app(term)->get_decl() == head))
                         result.push_back(term);
@@ -132,7 +133,7 @@ namespace smt {
             if (!terms)
                 return;
 
-            unsigned bound = ctx.get_fparams().m_ho_matching_bound;
+            unsigned bound = std::min(100u, ctx.get_fparams().m_ho_matching_bound);
             for (expr_ref_vector const& tuple : terms->enum_tuples(sorts.size(), sorts.data())) {
                 for (unsigned i = 0; i < missing.size(); ++i)
                     subst.set(missing[i], tuple.get(i));
@@ -181,7 +182,7 @@ namespace smt {
         }
 
         bool final_check() {
-            if (!ctx.get_fparams().m_ho_matching)
+            if (!ctx.get_fparams().m_ho_qmatcher)
                 return false;
 
             scoped_ptr<term_enumeration> term_store;

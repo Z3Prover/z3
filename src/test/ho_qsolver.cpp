@@ -9,7 +9,7 @@ Copyright (c) 2026 Microsoft Corporation
 #include "smt/smt_context.h"
 #include <sstream>
 
-static lbool check_ho_qsolver(char const* input, bool ho_matching) {
+static lbool check_ho_qsolver(char const* input, bool ho_qmatcher) {
     ast_manager m;
     reg_decl_plugins(m);
     cmd_context cmd(false, &m);
@@ -19,7 +19,8 @@ static lbool check_ho_qsolver(char const* input, bool ho_matching) {
     smt_params params;
     params.m_ematching = false;
     params.m_mbqi = false;
-    params.m_ho_matching = ho_matching;
+    params.m_ho_matching = true;
+    params.m_ho_qmatcher = ho_qmatcher;
     params.m_term_enumeration = true;
     params.m_ho_matching_bound = 100;
 

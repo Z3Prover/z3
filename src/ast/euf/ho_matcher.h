@@ -28,6 +28,7 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/var_subst.h"
+#include <climits>
 
 
 namespace euf {
@@ -356,6 +357,9 @@ namespace euf {
         ptr_vector<match_goal> m_backtrack;
         unsigned         m_max_depth = 10;        // bound on imitation/projection depth (secondary safety cap)
         unsigned         m_max_iterations = 10000; // per-search expansion-step budget to guarantee termination
+        unsigned         m_max_matches = UINT_MAX;
+        unsigned         m_num_matches = 0;
+        bool             m_match_limit_reached = false;
         mutable array_rewriter   m_rewriter;
         array_util       m_array;
         obj_map<app, app*>     m_pat2hopat, m_hopat2pat;
@@ -510,6 +514,8 @@ namespace euf {
         void set_max_depth(unsigned d) { m_max_depth = d; }
 
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
+
+        void set_max_matches(unsigned n) { m_max_matches = n; }
 
         void operator()(expr *pat, expr *t, unsigned num_vars);
 
