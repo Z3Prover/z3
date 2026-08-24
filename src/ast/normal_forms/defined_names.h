@@ -84,9 +84,8 @@ public:
     void push();
     void pop(unsigned num_scopes);
     void reset();
+    void translate(defined_names const& src, ast_translation& tr);
 
     unsigned get_num_names() const;
     func_decl * get_name_decl(unsigned i) const;
 };
-
-

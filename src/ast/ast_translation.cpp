@@ -29,6 +29,39 @@ ast_translation::~ast_translation() {
     reset_cache();
 }
 
+void ast_translation::seed(expr* src, expr* dst) {
+    // Seed mappings exposed by a solver translated without this translation
+    // object. cache() deliberately retains only shared nodes.
+    svector<std::pair<expr*, expr*>> todo;
+    todo.push_back({ src, dst });
+    while (!todo.empty()) {
+        auto [s, d] = todo.back();
+        todo.pop_back();
+        if (m_cache.contains(s))
+            continue;
+        SASSERT(s->get_kind() == d->get_kind());
+        cache(s, d);
+        if (!m_cache.contains(s->get_sort()))
+            cache(s->get_sort(), d->get_sort());
+        if (is_app(s)) {
+            SASSERT(is_app(d));
+            app* sa = to_app(s);
+            app* da = to_app(d);
+            SASSERT(sa->get_num_args() == da->get_num_args());
+            if (!m_cache.contains(sa->get_decl()))
+                cache(sa->get_decl(), da->get_decl());
+            for (unsigned i = 0; i < sa->get_num_args(); ++i)
+                todo.push_back({ sa->get_arg(i), da->get_arg(i) });
+        }
+        else if (is_quantifier(s)) {
+            SASSERT(is_quantifier(d));
+            quantifier* sq = to_quantifier(s);
+            quantifier* dq = to_quantifier(d);
+            todo.push_back({ sq->get_expr(), dq->get_expr() });
+        }
+    }
+}
+
 void ast_translation::cleanup() {
     reset_cache();
     m_cache.finalize();

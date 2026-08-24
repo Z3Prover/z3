@@ -51,6 +51,7 @@ class simplifier_solver : public solver {
         bool updated() override { return m_updated; }
         void reset_updated() override { m_updated = false; }
         model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
+        model_reconstruction_trail const& model_trail() const override { return m_reconstruction_trail; }
         std::ostream& display(std::ostream& out) const override {
             unsigned i = 0;
             for (auto const& d : s.m_fmls) {
@@ -116,6 +117,7 @@ class simplifier_solver : public solver {
     simplifier_factory          m_factory;
     expr_ref_vector             m_assumptions;
     model_converter_ref         m_mc;
+    simplifier_factory          m_factory;
     bool                        m_inconsistent = false;
     expr_safe_replace           m_core_replace;
 
@@ -217,10 +219,10 @@ public:
         m_core_replace(m),
         m_proof(m)
     {
-        if (fac)
+        if (fac) {
             m_factory = *fac;
-        if (m_factory)
             m_preprocess.add_simplifier(m_factory(m, s->get_params(), m_preprocess_state));
+        }
         else 
             init_preprocess(m, s->get_params(), m_preprocess, m_preprocess_state);
     }
@@ -299,16 +301,21 @@ public:
     }
 
     solver* translate(ast_manager& m, params_ref const& p) override { 
-        solver* new_s = s->translate(m, p);
         ast_translation tr(get_manager(), m);
+        solver* new_s = s->translate(m, p);
+        SASSERT(s->get_num_assertions() == new_s->get_num_assertions());
+        for (unsigned i = 0; i < s->get_num_assertions(); ++i)
+            tr.seed(s->get_assertion(i), new_s->get_assertion(i));
         simplifier_factory* factory = m_factory ? &m_factory : nullptr;
         simplifier_solver* result = alloc(simplifier_solver, new_s, factory);
         for (dependent_expr const& f : m_fmls) 
             result->m_fmls.push_back(dependent_expr(tr, f));
+        result->m_preprocess.translate(m_preprocess, tr);
+        result->m_preprocess_state.translate(m_preprocess_state, tr);
+        result->m_inconsistent = m_inconsistent;
         if (m_mc) 
             result->m_mc = m_mc->translate(tr);
 
-        // translate any m_preprocess_state?    
         return result;
     }    
 

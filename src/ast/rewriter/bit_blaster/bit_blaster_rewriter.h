@@ -39,9 +39,8 @@ public:
     void push();
     void pop(unsigned num_scopes);
     unsigned get_num_scopes() const;
+    void translate(bit_blaster_rewriter const& src, ast_translation& tr) const;
 private:
     obj_map<func_decl, expr*> const& const2bits() const;     
 
 };
-
-
