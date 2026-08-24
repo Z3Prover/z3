@@ -76,31 +76,30 @@ namespace euf {
                 tout << i << " - " << mk_pp(m_binding.get(i)->get_sort(), m) << ": " << mk_ll_pp(m_binding.get(i), m)
                      << "\n";
             });
-        if (m_binding.size() > q->get_num_decls()) {
-            // binding is indexed directly (binding[k] = value for var k),
-            // so the substitution must use direct (non-standard) order to
-            // resolve chained HO variable references; the sort guard below
-            // is checked with the matching order.
-            var_subst sub(m, false);
-            bool change = true;
-            while (change) {
-                change = false;
-                for (unsigned i = 0; i < m_binding.size(); ++i) {
-                    if (!m_binding.get(i))
-                        continue;
-                    // A misaligned higher-order binding would build an
-                    // ill-sorted term. Abandon this refinement (no instance)
-                    // rather than aborting the whole solve.
-                    SASSERT(is_well_sorted(m, m_binding.get(i)));
-                    auto r = sub(m_binding.get(i), m_binding);
-                    change |= r != m_binding.get(i);
-                    m_binding[i] = r;
-                    SASSERT(is_well_sorted(m, m_binding.get(i)));
-                    TRACE(ho_matching, tout << "setting v" << i << " <- " << r << "\n");
-                }
+        // binding is indexed directly (binding[k] = value for var k),
+        // so the substitution must use direct (non-standard) order to
+        // resolve chained HO variable references; the sort guard below
+        // is checked with the matching order.
+        var_subst sub(m, false);
+        bool change = true;
+        while (change) {
+            change = false;
+            for (unsigned i = 0; i < m_binding.size(); ++i) {
+                if (!m_binding.get(i))
+                    continue;
+                // A misaligned higher-order binding would build an
+                // ill-sorted term. Abandon this refinement (no instance)
+                // rather than aborting the whole solve.
+                SASSERT(is_well_sorted(m, m_binding.get(i)));
+                auto r = sub(m_binding.get(i), m_binding);
+                change |= r != m_binding.get(i);
+                m_binding[i] = r;
+                SASSERT(is_well_sorted(m, m_binding.get(i)));
+                TRACE(ho_matching, tout << "setting v" << i << " <- " << r << "\n");
             }
-            m_binding.shrink(q->get_num_decls());
         }
+        if (m_binding.size() > q->get_num_decls())
+            m_binding.shrink(q->get_num_decls());
         SASSERT(m_binding.size() == q->get_num_decls());
 
         m_binding.reverse();
@@ -358,9 +357,6 @@ namespace euf {
     }
 
     bool ho_matcher::consume_work(match_goal &wi) {
-        //        IF_VERBOSE(1, display(verbose_stream() << "ho_matcher::consume_work: " << wi.pat << " =?= " << wi.t <<
-        //        "\n"););
-
         if (wi.in_scope())
             m_trail.pop_scope(1);
 
@@ -379,6 +375,67 @@ namespace euf {
 
         auto t = wi.t;
         auto p = wi.pat;
+        expr *p1, *p2;
+
+        if (m.is_not(p) && m.is_true(t)) {
+            m_goals.push(&wi, wi.level, wi.term_offset(), to_app(p)->get_arg(0), m.mk_false());
+            wi.set_done();
+            return true;
+        }
+
+        if (m.is_not(p) && m.is_false(t)) {
+            m_goals.push(&wi, wi.level, wi.term_offset(), to_app(p)->get_arg(0), m.mk_true());
+            wi.set_done();
+            return true;
+        }
+
+        if (m.is_eq(p, p1, p2) && use_cgr() && m.is_true(t)) {
+            if (is_ground(p1)) {
+                m_goals.push(&wi, wi.level, wi.term_offset(), p2, p1);
+                wi.set_done();
+                return true;
+            }
+            if (is_ground(p2)) {
+                m_goals.push(&wi, wi.level, wi.term_offset(), p1, p2);
+                wi.set_done();
+                return true;
+            }
+        }
+
+        if (m.is_eq(p, p1, p2) && use_cgr() && m.is_false(t)) {
+            if (is_ground(p1) && is_ground(p2)) {
+                wi.set_done();
+                return m_are_distinct(p1, p2);
+            }
+            if (!m_enum_terms)
+                return false;
+            if (wi.is_init())
+                wi.set_eq();
+            expr* lhs = is_ground(p1) ? p2 : p1;
+            expr* rhs = lhs == p1 ? p2 : p1;
+            ptr_vector<expr> candidates;
+            m_enum_terms(lhs, candidates);
+            for (unsigned i = wi.index(); i < candidates.size(); ++i) {
+                expr* candidate = candidates[i];
+                wi.set_index(i + 1);
+                if (candidate->get_sort() != lhs->get_sort())
+                    continue;
+                expr_ref diseq(m.mk_eq(rhs, candidate), m);
+                add_pattern(diseq);
+                m_goals.push(&wi, wi.level, wi.term_offset(), diseq, m.mk_false());
+                if (is_app(lhs) && is_app(candidate) &&
+                    to_app(lhs)->get_decl() == to_app(candidate)->get_decl() &&
+                    to_app(lhs)->get_num_args() == to_app(candidate)->get_num_args()) {
+                    for (unsigned j = 0; j < to_app(lhs)->get_num_args(); ++j)
+                        m_goals.push(&wi, wi.level, wi.term_offset(), to_app(lhs)->get_arg(j), to_app(candidate)->get_arg(j));
+                }
+                else {
+                    m_goals.push(&wi, wi.level, wi.term_offset(), lhs, candidate);
+                }
+                return true;
+            }
+            return false;
+        }
 
         switch (are_equal(wi.pat_offset(), p, wi.term_offset(), t)) {
         case l_false: wi.set_done(); return false;
@@ -453,18 +510,6 @@ namespace euf {
             return true;
         }
 
-        if (m.is_not(p) && m.is_true(t)) {
-            m_goals.push(&wi, wi.level, wi.term_offset(), to_app(p)->get_arg(0), m.mk_false());
-            wi.set_done();
-            return true;
-        }
-
-        if (m.is_not(p) && m.is_false(t)) {
-            m_goals.push(&wi, wi.level, wi.term_offset(), to_app(p)->get_arg(0), m.mk_true());
-            wi.set_done();
-            return true;
-        }
-
         expr *cond, *th, *el;
         if (m.is_ite(p, cond, th, el) && use_cgr()) {
             if (wi.is_init())
@@ -493,20 +538,6 @@ namespace euf {
             }
             if (m_are_equal(cond, m.mk_false())) {
                 m_goals.push(&wi, wi.level, wi.term_offset(), p, el);
-                wi.set_done();
-                return true;
-            }
-        }
-
-        expr *p1, *p2;
-        if (m.is_eq(p, p1, p2) && use_cgr() && m.is_true(t)) {
-            if (is_ground(p1)) {
-                m_goals.push(&wi, wi.level, wi.term_offset(), p2, p1);
-                wi.set_done();
-                return true;
-            }
-            if (is_ground(p2)) {
-                m_goals.push(&wi, wi.level, wi.term_offset(), p1, p2);
                 wi.set_done();
                 return true;
             }
@@ -590,7 +621,8 @@ namespace euf {
         if (!wi.is_eq())
             return false;
 
-        if (m.is_true(t)) {
+        if (m.is_true(t) || m.is_false(t)) {
+            bool negate = m.is_false(t);
             unsigned start = wi.index();
             unsigned i = 0;
             unsigned num_bound = 0;
@@ -607,7 +639,8 @@ namespace euf {
                             var_shifter vs(m);
                             expr_ref shifted_pi(m);
                             vs(pi, num_bound, shifted_pi);
-                            return m.mk_eq(shifted_pi, x);
+                            expr* result = m.mk_eq(shifted_pi, x);
+                            return negate ? m.mk_not(result) : result;
                         };
                         auto e = mk_project(pats.size(), i, v->get_sort(), mk_eq);
                         add_binding(v, wi.pat_offset(), e);
@@ -618,8 +651,6 @@ namespace euf {
                 }
             }
             return false;
-        }
-        if (m.is_false(t)) {
         }
         return false;
     }
@@ -1021,6 +1052,7 @@ namespace euf {
         }
         SASSERT(var_sort);
         body = m.mk_var(num_binders - i - 1, var_sort);
+        body = mk_body(body);
         bind_lambdas(num_lambdas, s, body);
         SASSERT(body->get_sort() == s);
         SASSERT(is_well_sorted(m, body));

@@ -57,7 +57,10 @@ namespace smt {
                     return true;
                 enode* na = ctx.find_enode(a);
                 enode* nb = ctx.find_enode(b);
-                return na && nb && ctx.is_diseq(na, nb);
+                if (na && nb && ctx.is_diseq(na, nb))
+                    return true;
+                expr_ref eq(m.mk_eq(a, b), m);
+                return ctx.find_assignment(eq) == l_false;
             };
             std::function<expr*(expr*)> root = [&ctx](expr* e) {
                 enode* n = ctx.find_enode(e);
@@ -71,11 +74,24 @@ namespace smt {
                 enode* n = ctx.find_enode(e);
                 return !n || !n->uses_cg_table() || ctx.get_cg_root(n) == n;
             };
+            std::function<void(expr*, ptr_vector<expr>&)> enum_terms = [this, &ctx](expr* pat, ptr_vector<expr>& result) {
+                if (!terms)
+                    return;
+                func_decl* head = is_app(pat) ? to_app(pat)->get_decl() : nullptr;
+                unsigned bound = ctx.get_fparams().m_ho_matching_bound;
+                for (expr* term : terms->enum_terms(pat->get_sort())) {
+                    if (!head || (is_app(term) && to_app(term)->get_decl() == head))
+                        result.push_back(term);
+                    if (result.size() >= bound)
+                        break;
+                }
+            };
             matcher.set_are_equal(are_equal);
             matcher.set_are_distinct(are_distinct);
             matcher.set_root(root);
             matcher.set_next(next);
             matcher.set_is_cgr_root(is_cgr_root);
+            matcher.set_enum_terms(enum_terms);
         }
 
         void init_terms(term_enumeration& te) {

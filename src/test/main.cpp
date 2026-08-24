@@ -202,6 +202,7 @@
     X(scoped_vector) \
     X(sls_seq_plugin) \
     X(ho_matcher) \
+    X(ho_qsolver) \
     X(finite_set) \
     X(finite_set_rewriter) \
     X(seq_regex_bisim) \

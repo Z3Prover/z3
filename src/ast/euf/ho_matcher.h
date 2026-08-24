@@ -463,6 +463,7 @@ namespace euf {
         std::function<expr *(expr *)> m_root;                   // root of equivalence class
         std::function<expr *(expr *)> m_next;                   // next element in equivalence class
         std::function<bool(expr *)> m_is_cgr_root;              // is root of congruence class
+        std::function<void(expr *, ptr_vector<expr>&)> m_enum_terms;
 
         bool use_cgr() const {
             SASSERT(!m_are_equal || (m_are_distinct && m_root && m_next && m_is_cgr_root));
@@ -501,6 +502,9 @@ namespace euf {
         }
         void set_is_cgr_root(std::function<bool(expr *)> &is_cgr_root) {
             m_is_cgr_root = is_cgr_root;
+        }
+        void set_enum_terms(std::function<void(expr *, ptr_vector<expr>&)>& enum_terms) {
+            m_enum_terms = enum_terms;
         }
 
         void set_max_depth(unsigned d) { m_max_depth = d; }
