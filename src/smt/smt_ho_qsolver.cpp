@@ -45,31 +45,31 @@ namespace smt {
             };
             matcher.set_on_match(on_match);
 
-            std::function<bool(expr*, expr*)> are_equal = [this](expr* a, expr* b) {
+            std::function<bool(expr*, expr*)> are_equal = [&ctx](expr* a, expr* b) {
                 if (a == b)
                     return true;
-                enode* na = this->ctx.find_enode(a);
-                enode* nb = this->ctx.find_enode(b);
-                return na && nb && context::is_eq(na, nb);
+                enode* na = ctx.find_enode(a);
+                enode* nb = ctx.find_enode(b);
+                return na && nb && na->get_root() == nb->get_root();
             };
-            std::function<bool(expr*, expr*)> are_distinct = [this](expr* a, expr* b) {
+            std::function<bool(expr*, expr*)> are_distinct = [this, &ctx](expr* a, expr* b) {
                 if (m.are_distinct(a, b))
                     return true;
-                enode* na = this->ctx.find_enode(a);
-                enode* nb = this->ctx.find_enode(b);
-                return na && nb && this->ctx.is_diseq(na, nb);
+                enode* na = ctx.find_enode(a);
+                enode* nb = ctx.find_enode(b);
+                return na && nb && ctx.is_diseq(na, nb);
             };
-            std::function<expr*(expr*)> root = [this](expr* e) {
-                enode* n = this->ctx.find_enode(e);
+            std::function<expr*(expr*)> root = [&ctx](expr* e) {
+                enode* n = ctx.find_enode(e);
                 return n ? n->get_root()->get_expr() : e;
             };
-            std::function<expr*(expr*)> next = [this](expr* e) {
-                enode* n = this->ctx.find_enode(e);
+            std::function<expr*(expr*)> next = [&ctx](expr* e) {
+                enode* n = ctx.find_enode(e);
                 return n ? n->get_next()->get_expr() : e;
             };
-            std::function<bool(expr*)> is_cgr_root = [this](expr* e) {
-                enode* n = this->ctx.find_enode(e);
-                return !n || !n->uses_cg_table() || this->ctx.get_cg_root(n) == n;
+            std::function<bool(expr*)> is_cgr_root = [&ctx](expr* e) {
+                enode* n = ctx.find_enode(e);
+                return !n || !n->uses_cg_table() || ctx.get_cg_root(n) == n;
             };
             matcher.set_are_equal(are_equal);
             matcher.set_are_distinct(are_distinct);
@@ -90,7 +90,7 @@ namespace smt {
                 if (!is_app(e))
                     continue;
                 func_decl* f = to_app(e)->get_decl();
-                if (!is_uninterp(e) || f->is_skolem() || seen.contains(f))
+                if (f->is_skolem() || seen.contains(f))
                     continue;
                 seen.insert(f);
                 te.add_production(f);
@@ -134,10 +134,8 @@ namespace smt {
                 return false;
             literals.reset();
             flatten_or(q->get_expr(), literals);
-            for (expr* lit : literals)
-                if (!::is_literal(m, lit))
-                    return false;
-            return true;
+            auto& m = this->m;
+            return all_of(literals, [&m](expr* lit) { return ::is_literal(m, lit); });
         }
 
         bool instantiate_matches() {

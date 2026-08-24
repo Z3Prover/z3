@@ -137,7 +137,7 @@ namespace euf {
         expr_ref pat(m.mk_app(tuple, num_goals, pats), m);
         expr_ref term(m.mk_app(tuple, num_goals, terms), m);
         add_pattern(pat);
-        m_goals.push(nullptr, 0, 0, pat, term); // CR comment: can't i just push num_goals goals?
+        m_goals.push(nullptr, 0, 0, pat, term);
         search();
     }
 
