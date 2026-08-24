@@ -161,6 +161,7 @@ add_executable(test-z3
   theory_pb.cpp
   timeout.cpp
   tptp.cpp
+  tptp_crashes.cpp
   total_order.cpp
   totalizer.cpp
   trigo.cpp

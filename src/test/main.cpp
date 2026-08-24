@@ -148,6 +148,7 @@
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
     X(tptp) \
+    X(tptp_crashes) \
     X(ext_numeral) \
     X(interval) \
     X(value_generator) \

@@ -243,13 +243,15 @@ namespace smt {
     
     bool theory_array_base::assert_store_axiom2(enode * store, enode * select) { 
         SASSERT(is_store(store) || is_lambda(store->get_expr()));
-        unsigned num_args = select->get_num_args();
-        unsigned        i = 1;
-        for (; i < num_args; ++i) 
-            if (is_store(store) && store->get_arg(i)->get_root() != select->get_arg(i)->get_root())
-                break;
-        if (i == num_args)
-            return false;
+        if (is_store(store)) {
+            unsigned num_args = select->get_num_args();
+            unsigned i = 1;
+            for (; i < num_args; ++i)
+                if (store->get_arg(i)->get_root() != select->get_arg(i)->get_root())
+                    break;
+            if (i == num_args)
+                return false;
+        }
         if (ctx.add_fingerprint(store, store->get_owner_id(), select->get_num_args() - 1, select->get_args() + 1)) {
             TRACE(array, tout << "adding axiom2 to todo queue\n";);
             m_axiom2_todo.push_back({store, select}); 
