@@ -220,6 +220,15 @@ namespace opt {
         rational delta_per_step(1);
         unsigned num_scopes = 0;
         inf_eps last_objective = inf_eps(rational(-1), inf_rational(0));
+        inf_eps const infty(rational(1), inf_rational(0));
+        // Upper bounds established along the way for a real-valued objective
+        // that the arithmetic solver could not optimize directly (nonlinear
+        // constraints, mod, to_int, ...): the least hint that check_bound
+        // refuted, and the value of the last model-derived step that turned
+        // out infeasible. Both are sound: 'obj >= value' has no model.
+        inf_eps refuted_hint = infty;
+        inf_eps step_bound = infty;
+        bool last_bound_valid = true;
 
         while (m.inc()) {
             SASSERT(delta_per_step.is_int());
@@ -233,6 +242,10 @@ namespace opt {
                   );
             if (is_sat == l_true) {                
                 bool bound_valid = m_s->maximize_objective(obj_index, bound);
+                last_bound_valid = bound_valid;
+                step_bound = infty;
+                if (!bound_valid && m_s->last_hint_status() == l_false && m_s->last_hint().is_finite())
+                    refuted_hint = std::min(refuted_hint, m_s->last_hint());
                 m_s->get_model(m_model);
                 SASSERT(m_model);
                 inf_eps obj = m_s->saved_objective_value(obj_index);
@@ -260,6 +273,7 @@ namespace opt {
                     m_s->push();
                     ++num_scopes;
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
+                    step_bound = obj + inf_eps(delta_per_step);
                 }
                 last_objective = obj;
                 if (bound == last_bound) {
@@ -284,6 +298,7 @@ namespace opt {
                         m_s->push();
                         ++num_scopes;
                         bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
+                        step_bound = obj + inf_eps(delta_per_step);
                     }
                     if (bound == last_bound)
                         break;
@@ -300,6 +315,19 @@ namespace opt {
                 m_s->pop(1);                             
             }
             else {
+                if (is_sat == l_false && !is_int && !last_bound_valid && m_lower[obj_index].is_finite()) {
+                    // A real-valued objective whose last step was the
+                    // model-derived fallback: the failed step only shows
+                    // obj < step_bound, it does not make the model value
+                    // optimal. Close or narrow the gap by bisection instead of
+                    // reporting the lower bound as the optimum.
+                    inf_eps hi = std::min(step_bound, refuted_hint);
+                    if (hi.is_finite() && m_lower[obj_index] < hi) {
+                        m_s->pop(num_scopes);
+                        num_scopes = 0;
+                        is_sat = bisect(obj_index, is_maximize, hi);
+                    }
+                }
                 break;
             }
         }
@@ -321,6 +349,92 @@ namespace opt {
             for (unsigned i = obj_index+1; i < m_lower.size(); ++i)
                 m_lower[i] = inf_eps(rational(-1), inf_rational(0));
         return l_true;
+    }
+
+    void optsmt::set_best(unsigned idx, inf_eps const& v, bool is_maximize) {
+        m_lower[idx] = v;
+        IF_VERBOSE(1, 
+                   if (is_maximize) 
+                       verbose_stream() << "(optsmt lower bound: " << v << ")\n";
+                   else
+                       verbose_stream() << "(optsmt upper bound: " << (-v) << ")\n";
+                   );
+        m_best_model = m_model;
+        m_s->get_labels(m_labels);
+        m_context.set_model(m_model);
+    }
+
+    /**
+       \brief Search the interval [m_lower[idx], hi] for the optimum of a
+       real-valued objective when the arithmetic solver cannot push it
+       (nonlinear constraints, mod, to_int, ...). Both endpoints are sound:
+       the lower bound is attained by m_best_model and no model satisfies
+       obj >= hi. Alternates two queries (GOMT F-Sat / F-Close / F-Split):
+         - obj > lo: unsat proves lo optimal; sat raises lo to the new model;
+         - obj >= (lo + hi)/2: unsat lowers hi; sat raises lo.
+       Returns l_true with m_lower = m_upper when the optimum is proven, and
+       l_undef with m_lower < m_upper (the remaining gap) when the budget
+       m_bisect_rounds is exhausted or the solver gives up.
+    */
+    lbool optsmt::bisect(unsigned idx, bool is_maximize, inf_eps hi) {
+        arith_util arith(m);
+        inf_eps lo = m_lower[idx];
+        inf_eps const eps(rational(0), inf_rational(rational(0), rational(1)));
+        SASSERT(lo.is_finite() && hi.is_finite() && lo < hi);
+        IF_VERBOSE(2, verbose_stream() << "(optsmt bisect [" << lo << ", " << hi << "])\n");
+        bool strict = true;
+        lbool result = l_undef;
+        for (unsigned rounds = 0; m.inc() && lo < hi && rounds < m_bisect_rounds; ++rounds, strict = !strict) {
+            inf_eps bound = lo + eps;
+            if (!strict) {
+                bound = lo + hi;
+                bound /= rational(2);
+            }
+            m_s->push();
+            m_s->assert_expr(m_s->mk_ge(idx, bound));
+            lbool is_sat = m_s->check_sat(0, nullptr);
+            TRACE(opt, tout << "bisect " << (strict ? "strict " : "mid ") << bound << " " << is_sat << "\n";);
+            if (is_sat == l_true) {
+                m_s->get_model(m_model);
+                m_s->pop(1);
+                if (!m_model)
+                    break;
+                // Prefer the model's own value of the objective; if the model
+                // is algebraic (nlsat) and the value is not a numeral, fall
+                // back to the bound the model is known to satisfy.
+                inf_eps v = bound;
+                rational q;
+                expr_ref val = (*m_model)(m_objs.get(idx));
+                if (arith.is_numeral(val, q) && inf_eps(q) >= bound)
+                    v = inf_eps(q);
+                else if (strict)
+                    continue;  // no exact value to record; the midpoint query makes progress
+                if (v > lo) {
+                    lo = v;
+                    set_best(idx, v, is_maximize);
+                }
+            }
+            else if (is_sat == l_false) {
+                m_s->pop(1);
+                if (strict) {
+                    // no model is strictly better than the best model.
+                    hi = lo;
+                    result = l_true;
+                    break;
+                }
+                hi = bound;
+            }
+            else {
+                m_s->pop(1);
+                break;
+            }
+        }
+        m_lower[idx] = lo;
+        m_upper[idx] = hi;
+        if (result == l_true || lo == hi) 
+            return l_true;
+        IF_VERBOSE(1, verbose_stream() << "(optsmt interval [" << lo << ", " << hi << "])\n");
+        return l_undef;
     }
 
     bool optsmt::can_increment_delta(vector<inf_eps> const& lower, unsigned i) {
@@ -628,6 +742,7 @@ namespace opt {
     void optsmt::updt_params(params_ref& p) {
         opt_params _p(p);
         m_optsmt_engine = _p.optsmt_engine();        
+        m_bisect_rounds = _p.optsmt_bisect_rounds();
     }
 
     void optsmt::reset() {
