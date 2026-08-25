@@ -338,6 +338,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             fi = alloc(func_interp, m, g->get_arity());
             fi->set_else(m_model.get_some_value(g->get_range()));
             m_model.register_decl(g, fi);
+            fi = m_model.get_func_interp(g);
         }
         if (fi && !fi->get_else()) {
             fi->set_else(m_model.get_some_value(g->get_range()));
