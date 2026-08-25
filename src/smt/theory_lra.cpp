@@ -513,7 +513,9 @@ class theory_lra::imp {
                     if (!ctx().relevancy()) mk_rem_axiom(n1, n2);                    
                 }
                 else if (a.is_div(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
+                    expr_ref divisor(n2, m);
+                    ctx().get_rewriter()(divisor);
+                    if (!a.is_numeral(divisor, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
