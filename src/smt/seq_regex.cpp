@@ -243,7 +243,7 @@ namespace smt {
                 len += s.length();
                 continue;
             }
-            expr* w = model.find(e);
+            expr* w = model.try_find(e);
             if (w && w != e) {                    // variable: replace by its witness
                 todo.push_back(w);
                 continue;
