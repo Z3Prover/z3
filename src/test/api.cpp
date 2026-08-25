@@ -446,8 +446,10 @@ void test_max_rev() {
     };
 
     auto result_str = [](Z3_lbool r) { return r == Z3_L_TRUE ? "sat" : r == Z3_L_FALSE ? "unsat" : "unknown"; };
+    auto is_true = [&](Z3_ast fml) { return Z3_is_eq_ast(ctx, Z3_simplify(ctx, fml), Z3_mk_true(ctx)); };
 
     unsigned num_sat = 0;
+    unsigned num_unknown = 0;
 
     {
         Z3_optimize opt = mk_max_reg();
@@ -460,6 +462,7 @@ void test_max_rev() {
             Z3_model_inc_ref(ctx, m);
             Z3_ast val; Z3_model_eval(ctx, m, f1, true, &val);
             std::cout << "  f1=" << Z3_ast_to_string(ctx, val) << std::endl;
+            ENSURE(is_true(Z3_mk_eq(ctx, val, mk_real(0))));   // attained at (0, 0)
             Z3_model_dec_ref(ctx, m);
             num_sat++;
         }
@@ -477,6 +480,7 @@ void test_max_rev() {
             Z3_model_inc_ref(ctx, m);
             Z3_ast val; Z3_model_eval(ctx, m, f2, true, &val);
             std::cout << "  f2=" << Z3_ast_to_string(ctx, val) << std::endl;
+            ENSURE(is_true(Z3_mk_eq(ctx, val, mk_real(4))));   // attained at (5, 3)
             Z3_model_dec_ref(ctx, m);
             num_sat++;
         }
@@ -491,23 +495,43 @@ void test_max_rev() {
         Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
         std::cout << "max_rev weighted (w1=" << w[0] << "/5, w2=" << w[1] << "/5): "
                   << result_str(result) << std::endl;
-        ENSURE(result == Z3_L_TRUE);
+        // Ground truth: the objective is separable and its unconstrained
+        // minimizer x1 = x2 = 5*w2/(w2 + 4*w1) is feasible for all these
+        // weights, so the optimum is 2*w1*w2/(w2 + 4*w1). It is an interior
+        // optimum of a nonlinear objective, which the optimizer can only
+        // certify when its search lands on it exactly; otherwise it must
+        // answer unknown with an interval [lower, upper] enclosing it.
+        Z3_ast best = mk_real(2 * w[0] * w[1], w[1] + 4 * w[0]);
+        ENSURE(result == Z3_L_TRUE || result == Z3_L_UNDEF);
+        Z3_model m = Z3_optimize_get_model(ctx, opt);
+        Z3_model_inc_ref(ctx, m);
+        Z3_ast v1, v2, v;
+        Z3_model_eval(ctx, m, f1, true, &v1);
+        Z3_model_eval(ctx, m, f2, true, &v2);
+        Z3_model_eval(ctx, m, weighted, true, &v);
+        std::cout << "  f1=" << Z3_ast_to_string(ctx, v1)
+                  << " f2=" << Z3_ast_to_string(ctx, v2)
+                  << " objective=" << Z3_ast_to_string(ctx, v)
+                  << " optimum=" << Z3_ast_to_string(ctx, best) << std::endl;
+        Z3_model_dec_ref(ctx, m);
         if (result == Z3_L_TRUE) {
-            Z3_model m = Z3_optimize_get_model(ctx, opt);
-            Z3_model_inc_ref(ctx, m);
-            Z3_ast v1, v2;
-            Z3_model_eval(ctx, m, f1, true, &v1);
-            Z3_model_eval(ctx, m, f2, true, &v2);
-            std::cout << "  f1=" << Z3_ast_to_string(ctx, v1)
-                      << " f2=" << Z3_ast_to_string(ctx, v2) << std::endl;
-            Z3_model_dec_ref(ctx, m);
+            ENSURE(is_true(Z3_mk_eq(ctx, v, best)));
             num_sat++;
+        }
+        else {
+            Z3_ast lo = Z3_optimize_get_lower(ctx, opt, 0);
+            Z3_ast hi = Z3_optimize_get_upper(ctx, opt, 0);
+            std::cout << "  interval [" << Z3_ast_to_string(ctx, lo) << ", " << Z3_ast_to_string(ctx, hi) << "]" << std::endl;
+            Z3_ast encloses[] = { Z3_mk_le(ctx, lo, best), Z3_mk_le(ctx, best, hi), Z3_mk_le(ctx, lo, v), Z3_mk_le(ctx, v, hi) };
+            ENSURE(is_true(Z3_mk_and(ctx, 4, encloses)));
+            num_unknown++;
         }
         Z3_optimize_dec_ref(ctx, opt);
     }
 
-    std::cout << "max_rev: " << num_sat << "/7 optimizations returned sat" << std::endl;
-    ENSURE(num_sat == 7);
+    std::cout << "max_rev: " << num_sat << " sat, " << num_unknown << " unknown with enclosing interval, of 7" << std::endl;
+    ENSURE(num_sat + num_unknown == 7);
+    ENSURE(num_sat >= 2);   // the single objectives f1 and f2 are always certified
     Z3_del_context(ctx);
     std::cout << "max_rev optimization test done" << std::endl;
 }
