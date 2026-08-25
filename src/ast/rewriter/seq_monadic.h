@@ -107,7 +107,10 @@ private:
         config(seq::transition_mode mode) : m_mode(mode) {}
     };
 
-    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, num_reasons };
+    // `stale`: an `iterator` was resumed after another search took the engine's stack away,
+    // so it can no longer report the branches it still owed.  A caller that suspends an
+    // iterator across unrelated engine calls will see this and must fall back conservatively.
+    enum class bail_reason { unsupported, state_cap, budget, state_expansion, resource, nullability, guard, not_reversible, stale, num_reasons };
 
     struct statistics {
         unsigned m_cofactor_calls = 0;

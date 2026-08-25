@@ -1129,6 +1129,9 @@ namespace seq {
         st.update("nseq mod monadic landing",  m_stats.m_mod_monadic_landing);
         st.update("nseq monadic branches",     m_stats.m_monadic_branches);
         st.update("nseq monadic drained",      m_stats.m_monadic_drained);
+        st.update("nseq monadic fresh",        m_stats.m_monadic_fresh);
+        st.update("nseq monadic resumed",      m_stats.m_monadic_resumed);
+        st.update("nseq monadic gaveup",       m_stats.m_monadic_gaveup);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
         st.update("nseq mod block compr",      m_stats.m_mod_block_compression);
         st.update("nseq block chars",          m_stats.m_block_chars_consumed);

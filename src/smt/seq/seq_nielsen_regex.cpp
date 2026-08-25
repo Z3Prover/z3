@@ -1106,8 +1106,7 @@ namespace seq {
         mon_state* st = node->monadic_cont();
         const bool fresh = !st;
         if (st)
-            node->set_monadic_cont(nullptr);
-        else {
+            node->set_monadic_cont(nullptr);        else {
             // Never START on a node that aliases its parent's string signature: one of our
             // own spent continuations (a fresh enumerator would restart at branch 1
             // forever), a factorization continuation (whose live split iterator neither of
@@ -1124,12 +1123,15 @@ namespace seq {
 
         switch (mon_step(node, st)) {
         case mon_step_result::branched:
+            if (fresh) ++m_stats.m_monadic_fresh; else ++m_stats.m_monadic_resumed;
             return true;
         case mon_step_result::conflict:
+            if (fresh) ++m_stats.m_monadic_fresh; else ++m_stats.m_monadic_resumed;
             node->set_general_conflict();
             node->set_conflict(backtrack_reason::regex, st->m_dep);
             return true;
         default:
+            ++m_stats.m_monadic_gaveup;
             if (fresh) {
                 SASSERT(m_mon_states.back() == st);
                 m_mon_states.pop_back();

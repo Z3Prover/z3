@@ -65,7 +65,8 @@ namespace {
 
     char const *bail_name(unsigned i) {
         static char const *const names[] = {"unsupported", "state-cap",   "budget", "state-expansion",
-                                            "resource",    "nullability", "guard",  "not-reversible"};
+                                            "resource",    "nullability", "guard",  "not-reversible",
+                                            "stale"};
         return i < std::size(names) ? names[i] : "unknown";
     }
 
@@ -1224,8 +1225,10 @@ bool seq_monadic::iterator::next(obj_map<expr, seq::view_vector>& solution) {
         return false;
     // An empty conjunction has no search to run, and anybody else's search has taken the
     // stack away.
-    if (m_memberships.empty() || m_count >= m_limit ||
-        (m_started && m_gen != m_engine.m_search_gen)) {
+    const bool stale = m_started && m_gen != m_engine.m_search_gen;
+    if (m_memberships.empty() || m_count >= m_limit || stale) {
+        if (stale)
+            m_engine.m_stats.inc_bail(bail_reason::stale);
         m_giveup = true;
         m_done = true;
         return false;
@@ -1493,7 +1496,8 @@ void seq_monadic::collect_statistics(::statistics& st) const {
         "seq monadic bail resource",
         "seq monadic bail nullability",
         "seq monadic bail guard",
-        "seq monadic bail not reversible"
+        "seq monadic bail not reversible",
+        "seq monadic bail stale"
     };
     static_assert(sizeof(bail_names) / sizeof(bail_names[0]) ==
                   static_cast<unsigned>(bail_reason::num_reasons),

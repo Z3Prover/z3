@@ -921,6 +921,9 @@ namespace seq {
         // cleanly (each of those closes a node)
         unsigned m_monadic_branches    = 0;
         unsigned m_monadic_drained     = 0;
+        unsigned m_monadic_fresh       = 0;  // landing calls that built a new enumerator
+        unsigned m_monadic_resumed     = 0;  // ... that resumed a parent's suspended one
+        unsigned m_monadic_gaveup      = 0;  // ... that reported nothing and fell through
         unsigned m_mod_const_nielsen   = 0;
         unsigned m_mod_block_compression = 0;
         unsigned m_block_chars_consumed  = 0;
