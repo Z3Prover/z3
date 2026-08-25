@@ -29,6 +29,7 @@ namespace smt {
         euf::ho_matcher                  matcher;
         quantifier*                      current_q = nullptr;
         term_enumeration*                terms = nullptr;
+        bool                             traverse_bool_assignments = false;
         vector<expr_ref_vector>          matches;
         unsigned                         num_candidates = 0;
         unsigned                         num_instances = 0;
@@ -67,11 +68,37 @@ namespace smt {
                 enode* n = ctx.find_enode(e);
                 return n ? n->get_root()->get_expr() : e;
             };
-            std::function<expr*(expr*)> next = [&ctx](expr* e) {
+            std::function<expr*(expr*)> next = [this, &ctx](expr* e) -> expr* {
+                if (traverse_bool_assignments && m.is_bool(e) &&
+                    (m.is_true(e) || m.is_false(e) || ctx.lit_internalized(e))) {
+                    literal lit = ctx.get_literal(e);
+                    unsigned num_vars = ctx.get_num_bool_vars();
+                    if (lit != null_literal && num_vars > 0) {
+                        lbool value = ctx.get_assignment(lit);
+                        if (value != l_undef) {
+                            bool_var start = lit.var();
+                            bool_var v = start;
+                            do {
+                                v = v + 1 == num_vars ? 0 : v + 1;
+                                if (v == false_literal.var())
+                                    return value == l_true ? m.mk_true() : m.mk_false();
+                                if (ctx.get_assignment(v) == value) {
+                                    expr* candidate = ctx.bool_var2expr(v);
+                                    if (candidate)
+                                        return candidate;
+                                }
+                            }
+                            while (v != start);
+                            return e;
+                        }
+                    }
+                }
                 enode* n = ctx.find_enode(e);
                 return n ? n->get_next()->get_expr() : e;
             };
-            std::function<bool(expr*)> is_cgr_root = [&ctx](expr* e) {
+            std::function<bool(expr*)> is_cgr_root = [this, &ctx](expr* e) {
+                if (traverse_bool_assignments && m.is_bool(e))
+                    return true;
                 enode* n = ctx.find_enode(e);
                 return !n || !n->uses_cg_table() || ctx.get_cg_root(n) == n;
             };
@@ -204,6 +231,13 @@ namespace smt {
                 for (unsigned i = 0; i < literals.size(); ++i)
                     targets.push_back(m.mk_false());
                 matcher(literals.size(), literals.data(), targets.data(), q->get_num_decls());
+                // Preserve the existing search order before widening Boolean
+                // equivalence classes to all literals with the same value.
+                if (matches.empty()) {
+                    traverse_bool_assignments = true;
+                    matcher(literals.size(), literals.data(), targets.data(), q->get_num_decls());
+                    traverse_bool_assignments = false;
+                }
                 found |= instantiate_matches();
             }
             current_q = nullptr;

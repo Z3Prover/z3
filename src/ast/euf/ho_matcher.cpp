@@ -848,6 +848,61 @@ namespace euf {
         return true;
     }
 
+    bool ho_matcher::is_repeated_functional_projection(match_goal const& wi, expr* arg, expr* t) const {
+        for (auto parent = wi.parent(); parent; parent = parent->parent()) {
+            if (!parent->is_project() || parent->t != t)
+                continue;
+            expr* p = parent->pat;
+            while (m_array.is_select(p)) {
+                for (auto index : array_select_indices(to_app(p)))
+                    if (index == arg)
+                        return true;
+                p = to_app(p)->get_arg(0);
+            }
+        }
+        return false;
+    }
+
+    bool ho_matcher::process_functional_projection(
+        match_goal& wi, var* v, ptr_vector<app> const& pats, expr* arg, expr* t) {
+        if (is_repeated_functional_projection(wi, arg, t))
+            return false;
+
+        IF_VERBOSE(3, verbose_stream() << "maps to " << mk_pp(arg->get_sort(), m) << " "
+                                       << mk_pp(t->get_sort(), m) << "\n");
+        m_trail.push(undo_resize(m_subst));
+
+        flex_frame fr(m);
+        init_flex_frame(pats, fr);
+        unsigned arg_idx = 1;
+        while (arg_idx < fr.pat_args.size() && fr.pat_args.get(arg_idx) != arg)
+            ++arg_idx;
+        SASSERT(arg_idx < fr.pat_args.size());
+
+        expr_ref projected(arg, m);
+        expr_ref body(fr.pat_vars.get(arg_idx), m);
+        sort* range = arg->get_sort();
+        while (range != t->get_sort()) {
+            SASSERT(m_array.is_array(range));
+            expr_ref_vector projected_args(m), body_args(m);
+            projected_args.push_back(projected);
+            body_args.push_back(body);
+            for (unsigned j = 0; j < get_array_arity(range); ++j) {
+                expr_ref subgoal_app(m), body_app(m);
+                mk_flex_app(fr, wi.pat_offset(), get_array_domain(range, j), subgoal_app, body_app);
+                projected_args.push_back(subgoal_app);
+                body_args.push_back(body_app);
+            }
+            projected = m_array.mk_select(projected_args);
+            body = m_array.mk_select(body_args);
+            range = get_array_range(range);
+        }
+
+        add_binding(v, wi.pat_offset(), mk_flex_lambda(fr, pats, body));
+        m_goals.push(&wi, wi.level + 1, wi.term_offset(), projected, t);
+        return true;
+    }
+
     bool ho_matcher::process_project(match_goal &wi, var* v, ptr_vector<app> const& pats, expr* t) {
         if (!wi.is_project())
             return false;
@@ -871,14 +926,10 @@ namespace euf {
                 }
                 // pi has sort T1 -> T2 -> T, and t has sort T.
                 // we can project \vars . x_i (H1 vars) (H2 vars) to get a term of sort T.
-                if (start <= i && maps_to_sort(pi->get_sort(), t->get_sort())) {
-                    IF_VERBOSE(3, verbose_stream() << "maps to " << mk_pp(pi->get_sort(), m) << " "
-                                                   << mk_pp(t->get_sort(), m) << "\n");
-                    // TODO: implement this case
-                    // v->get_sort() determines vars
-                    // x := bound variable from "project" function.
-                    // add_meta_var_apps(sort *s, sort *t, expr_ref& x, expr_ref_vector const& vars, unsigned
-                    // offset)
+                if (start <= i && maps_to_sort(pi->get_sort(), t->get_sort()) &&
+                    process_functional_projection(wi, v, pats, pi, t)) {
+                    wi.set_index(i + 1);
+                    return true;
                 }
                 ++i;
             }

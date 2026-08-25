@@ -396,6 +396,10 @@ namespace euf {
         };
 
         // Populate `fr` from the select chain `pats`.
+        bool is_repeated_functional_projection(match_goal const& wi, expr* arg, expr* t) const;
+
+        bool process_functional_projection(match_goal &wi, var* v, ptr_vector<app> const& pats, expr* arg, expr* t);
+
         void init_flex_frame(ptr_vector<app> const &pats, flex_frame &fr);
 
         // Allocate a fresh meta-variable of range sort `range` over the frame,

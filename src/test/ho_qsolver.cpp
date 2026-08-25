@@ -68,4 +68,24 @@ void tst_ho_qsolver() {
         "(assert (g b))\n"
         "(assert (not (g a)))\n";
     VERIFY(l_false == check_ho_qsolver(many_sorted, true));
+
+    // Core of SYO300^5: the second clause becomes contradictory with the
+    // first for X := lambda u. u(c).
+    char const* fixed_point =
+        "(declare-sort U 0)\n"
+        "(declare-const P\n"
+        "  (Array (Array (Array U U) U)\n"
+        "         (Array (Array (Array U U) U) Bool)))\n"
+        "(assert (forall ((Z (Array (Array U U) U)))\n"
+        "  (select (select P Z) Z)))\n"
+        "(assert (forall ((X (Array (Array U U) U)))\n"
+        "  (not (select\n"
+        "    (select P\n"
+        "      (lambda ((u (Array U U)))\n"
+        "        (select u (select X (lambda ((v U)) v)))))\n"
+        "    X))))\n";
+    VERIFY(l_undef == check_ho_qsolver(fixed_point, false));
+    // With E-matching and MBQI disabled, neither quantifier creates the
+    // ground Boolean atom needed to start qmatching.
+    VERIFY(l_undef == check_ho_qsolver(fixed_point, true));
 }
