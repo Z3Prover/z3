@@ -43,7 +43,6 @@
 #include "ast/converters/generic_model_converter.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/rewriter/th_rewriter.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
 #include "util/distribution.h"
@@ -515,8 +514,7 @@ class theory_lra::imp {
                 }
                 else if (a.is_div(n, n1, n2)) {
                     expr_ref divisor(n2, m);
-                    th_rewriter rw(this->m);
-                    rw(divisor);
+                    ctx().get_rewriter()(divisor);
                     if (!a.is_numeral(divisor, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
                     st.to_ensure_var().push_back(n1);
