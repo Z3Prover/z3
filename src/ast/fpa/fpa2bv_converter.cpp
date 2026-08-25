@@ -966,9 +966,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     unsigned sbits = m_util.get_sbits(s);
     const mpz & lz_modulus = m_mpf_manager.m_powers2(ebits);
 
-    // The ebits-wide count returned by unpack is exact when sbits <= 2^ebits.
-    // Division computes the count locally when the significand exceeds that
-    // modulus, before any normalization shift can consume a wrapped value.
+    // unpack's ebits-wide leading-zero count is exact when sbits <= 2^ebits.
+    // For wider significands, compute the count here before normalization can
+    // shift by a wrapped value.
     bool needs_wide_lz = m_mpz_manager.lt(lz_modulus, mpz(sbits));
     unsigned exp_bits = ebits + 2;
     if (needs_wide_lz) {
@@ -991,17 +991,15 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     unsigned lz_bits = needs_wide_lz ? m_mpz_manager.log2(mpz(sbits - 1)) + 1 : ebits;
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), a_lz(m), b_sgn(m), b_sig(m), b_exp(m), b_lz(m);
-    // Defer normalization only when the leading-zero count does not fit in
-    // ebits; otherwise unpack would consume the wrapped count before division
-    // can compute the exact value locally.
+    // Defer normalization when the leading-zero count does not fit in ebits;
+    // otherwise unpack would shift by a wrapped count.
     bool normalize_before_division = !needs_wide_lz;
     unpack(x, a_sgn, a_sig, a_exp, a_lz, normalize_before_division);
     unpack(y, b_sgn, b_sig, b_exp, b_lz, normalize_before_division);
 
     if (needs_wide_lz) {
-        // Division needs the exact leading-zero count in its exponent arithmetic.
-        // Keep this local: the shared unpack path must retain its ebits-wide
-        // interface, while division needs the raw significand before shifting.
+        // Compute the exact count before shifting. Keep this local because the
+        // other unpack callers rely on its ebits-wide result.
         expr_ref zero_sig(m), a_sig_is_zero(m), b_sig_is_zero(m);
         zero_sig = m_bv_util.mk_numeral(0, sbits);
         m_simp.mk_eq(zero_sig, a_sig, a_sig_is_zero);
@@ -1056,9 +1054,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(extra_bits-2, 0, quotient));
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(extra_bits+sbits+1, extra_bits-1, quotient), sticky);
     if (sbits == 2) {
-        // The excess quotient bits would be extract [3*sbits+1:2*sbits+4],
-        // with width sbits-2. At sbits == 2, [7:8] is invalid, so skip both
-        // the extract and OP_BREDOR; the OR of no excess bits is false.
+        // At sbits == 2, the range [3*sbits+1:2*sbits+4] is [7:8], so there
+        // are no quotient bits above res_sig. Skip the invalid extract and
+        // OP_BREDOR, and use false for too_large.
         too_large = m.mk_false();
     }
     else {
@@ -1100,11 +1098,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     dbg_decouple("fpa2bv_div_res_exp", res_exp);
 
     if (exp_bits > ebits + 2) {
-        // The rounder consumes an ebits+2 exponent. Keep ordinary exponents
-        // in that representation. Clamping overflow to round_max_exp forces
-        // round's existing OVF1 condition; exact underflow distance must remain
-        // available because it determines retained bits, sticky, and zero versus
-        // subnormal results.
+        // round takes an ebits+2-bit exponent. Exponents in that range stay
+        // exact. Larger exponents can use round's existing overflow path, but
+        // smaller exponents need the full shift distance for subnormal rounding.
         unsigned round_exp_bits = ebits + 2;
         unsigned sig_size = sbits + 4;
         expr_ref round_exp(m), exp_below_round_range(m), underflow_result(m);
@@ -1118,17 +1114,16 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         exp_below_round_range = m_bv_util.mk_slt(res_exp, round_min_exp_ext);
         exp_above_round_range = m_bv_util.mk_slt(round_max_exp_ext, res_exp);
         exp_in_round_range = m_bv_util.mk_extract(round_exp_bits - 1, 0, res_exp);
-        // round_max_exp has leading bits 0,1,1, so OVF1 is true and round's
-        // existing sign and rounding-mode logic selects infinity or max finite.
+        // round_max_exp has leading bits 0,1,1, selecting round's existing
+        // overflow result for the current sign and rounding mode.
         m_simp.mk_ite(exp_above_round_range, round_max_exp, exp_in_round_range, round_exp);
         m_simp.mk_ite(exp_below_round_range, round_min_exp, round_exp, round_exp);
 
         expr_ref min_exp(m), min_exp_ext(m), underflow_shift(m), underflow_shift_sized(m);
         mk_min_exp(ebits, min_exp);
         min_exp_ext = m_bv_util.mk_sign_extend(exp_bits - ebits, min_exp);
-        // Below the rounder's signed range, the value is necessarily tiny.
-        // Round it locally: passing a value-preserving shift through round
-        // would make round's t intermediate wrap in its established width.
+        // round cannot represent this larger underflow distance in its
+        // ebits+2-bit exponent, so shift and round the significand here.
         underflow_shift = m_bv_util.mk_bv_sub(min_exp_ext, res_exp);
         underflow_shift = m_bv_util.mk_bv_sub(
             underflow_shift, m_bv_util.mk_numeral(1, exp_bits));
@@ -1141,8 +1136,8 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         shifted_sig = m_bv_util.mk_bv_lshr(sig_ext, underflow_shift_sized);
         unsigned sig_extract_low_bit = 2 * sig_size - (sbits + 2);
         // The shift is at most sbits + 2^(ebits - 1) - 2. If it passes the
-        // zero padding, the normalized leading one remains in this low slice,
-        // so sticky is already one for any source bits shifted out entirely.
+        // zero padding, the leading one enters this discarded range, so
+        // discarded remains true.
         discarded = m.mk_app(
             m_bv_util.get_fid(), OP_BREDOR,
             m_bv_util.mk_extract(sig_extract_low_bit - 1, 0, shifted_sig));
