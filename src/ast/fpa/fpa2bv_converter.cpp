@@ -991,8 +991,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     unsigned lz_bits = needs_wide_lz ? m_mpz_manager.log2(mpz(sbits - 1)) + 1 : ebits;
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), a_lz(m), b_sgn(m), b_sig(m), b_exp(m), b_lz(m);
-    // Defer normalization only for wide-LZ formats; the shared ebits-wide count
-    // would otherwise be consumed before division can compute the exact count.
+    // Defer normalization only when the leading-zero count does not fit in
+    // ebits; otherwise unpack would consume the wrapped count before division
+    // can compute the exact value locally.
     bool normalize_before_division = !needs_wide_lz;
     unpack(x, a_sgn, a_sig, a_exp, a_lz, normalize_before_division);
     unpack(y, b_sgn, b_sig, b_exp, b_lz, normalize_before_division);
@@ -1055,8 +1056,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(extra_bits-2, 0, quotient));
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(extra_bits+sbits+1, extra_bits-1, quotient), sticky);
     if (sbits == 2) {
-        // The upper quotient slice has width sbits - 2, so it is empty here.
-        // The sort constructor guarantees that sbits is never below 2.
+        // The excess quotient bits would be extract [3*sbits+1:2*sbits+4],
+        // with width sbits-2. At sbits == 2, [7:8] is invalid, so skip both
+        // the extract and OP_BREDOR; the OR of no excess bits is false.
         too_large = m.mk_false();
     }
     else {
@@ -1084,7 +1086,8 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     expr_ref res_sig_shifted(m), res_exp_shifted(m);
     res_sig_shifted = m_bv_util.mk_bv_shl(res_sig, res_sig_shift_amount);
     expr_ref exp_shift_amount(m);
-    // The shifted branch's correction is at most sbits + 3, so this resize is exact.
+    // res_sig_shift_amount is the exponent decrement for left normalization.
+    // It is at most sbits+3, so resizing preserves its value.
     if (exp_bits <= sbits + 4)
         exp_shift_amount = m_bv_util.mk_extract(exp_bits - 1, 0, res_sig_shift_amount);
     else
@@ -1098,8 +1101,10 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
 
     if (exp_bits > ebits + 2) {
         // The rounder consumes an ebits+2 exponent. Keep ordinary exponents
-        // in that representation, clamp guaranteed overflow for round's
-        // existing overflow logic, and handle deeper underflow locally.
+        // in that representation. Clamping overflow to round_max_exp forces
+        // round's existing OVF1 condition; exact underflow distance must remain
+        // available because it determines retained bits, sticky, and zero versus
+        // subnormal results.
         unsigned round_exp_bits = ebits + 2;
         unsigned sig_size = sbits + 4;
         expr_ref round_exp(m), exp_below_round_range(m), underflow_result(m);
@@ -1113,6 +1118,8 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         exp_below_round_range = m_bv_util.mk_slt(res_exp, round_min_exp_ext);
         exp_above_round_range = m_bv_util.mk_slt(round_max_exp_ext, res_exp);
         exp_in_round_range = m_bv_util.mk_extract(round_exp_bits - 1, 0, res_exp);
+        // round_max_exp has leading bits 0,1,1, so OVF1 is true and round's
+        // existing sign and rounding-mode logic selects infinity or max finite.
         m_simp.mk_ite(exp_above_round_range, round_max_exp, exp_in_round_range, round_exp);
         m_simp.mk_ite(exp_below_round_range, round_min_exp, round_exp, round_exp);
 
