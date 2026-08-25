@@ -236,8 +236,8 @@ namespace smt {
         expr_ref beta(alpha);
         ctx.get_rewriter()(beta);
         TRACE(array, tout << alpha << " == " << beta << "\n";);
-        auto alpha_n = ensure_enode(alpha);
-        auto beta_n = ensure_enode(beta);
+        auto alpha_n = ctx.non_ground_internalize(alpha);
+        auto beta_n = ctx.non_ground_internalize(beta);
         ctx.assign_eq(alpha_n, beta_n, eq_justification::mk_axiom());
     }
     

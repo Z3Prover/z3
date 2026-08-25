@@ -5,6 +5,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 #include "cmd_context/tptp_frontend.h"
 #include "util/debug.h"
+#include "util/gparams.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -51,4 +52,28 @@ thf(c,conjecture,
     ( ( @+[X: fin @ ( suc @ zer )] : ( X = ( zerf @ zer ) ) )
     = ( zerf @ zer ) )).)");
     ENSURE(out.find("% SZS status GaveUp") != std::string::npos);
+
+    // HO refinement can expose a lambda with free outer variables to the
+    // legacy array solver. Its beta axiom must use a proxy enode.
+    gparams::set("smt.ho_matching", "true");
+    out = run_tptp_crash_regression(
+R"(thf(a_type,type,a: $tType).
+thf(c,conjecture,
+    ! [T: ( a > $o ) > $o] :
+      ( ! [K: ( a > $o ) > $o,R: a > $o] :
+          ( ( ! [X: a > $o] : ( ( K @ X ) => ( T @ X ) )
+            & ( R = ( ^ [X: a] : ? [S: a > $o] : ( ( K @ S ) & ( S @ X ) ) ) ) )
+         => ( T @ R ) )
+     => ! [S: a > $o] :
+          ( ( T @ S )
+        <=> ! [X: a] :
+              ( ( S @ X )
+             => ? [R: a > $o] :
+                  ( ? [N: a > $o] :
+                      ( ( T @ N )
+                      & ! [Y: a] : ( ( N @ Y ) => ( R @ Y ) )
+                      & ( N @ X ) )
+                  & ! [Y: a] : ( ( R @ Y ) => ( S @ Y ) ) ) ) ) )).)");
+    ENSURE(out.find("% SZS status GaveUp") != std::string::npos);
+    gparams::set("smt.ho_matching", "false");
 }

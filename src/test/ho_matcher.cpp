@@ -334,6 +334,14 @@ namespace euf {
                 VERIFY(!ho_matcher::subst_sorts_match(m, pat, s_bad, true));
                 IF_VERBOSE(0, verbose_stream() << "test10: subst_sorts_match detects sort mismatch\n";);
             }
+
+            void test_missing_ho_quantifier() {
+                sort* sorts[1] = { m_int };
+                symbol names[1] = { symbol("x") };
+                expr_ref body(m.mk_eq(m.mk_var(0, m_int), m.mk_var(0, m_int)), m);
+                quantifier_ref q(m.mk_forall(1, sorts, names, body), m);
+                VERIFY(m_matcher.hoq2q(q) == nullptr);
+            }
     };
 
 }
@@ -352,6 +360,7 @@ void tst_ho_matcher() {
         tm.test9();
         tm.test_constraint_system();
         tm.test10();
+        tm.test_missing_ho_quantifier();
     }
     catch (std::exception const& ex) {
         std::cout << ex.what() << "\n";

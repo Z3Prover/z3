@@ -1243,12 +1243,19 @@ namespace euf {
     }
 
     void ho_matcher::refine_ho_match(app* p, expr_ref_vector& s) {
-        auto fo_pat = m_hopat2pat[p];
+        auto hopat_entry = m_hopat2pat.find_core(p);
+        if (!hopat_entry)
+            return;
+        auto fo_pat = hopat_entry->get_data().get_value();
+        auto abs_entry = m_pat2abs.find_core(fo_pat);
+        auto free_vars_entry = m_hopat2free_vars.find_core(p);
+        if (!abs_entry || !free_vars_entry)
+            return;
+        auto const& abstractions = abs_entry->get_data().get_value();
+        auto const& free_vars = free_vars_entry->get_data().get_value();
         IF_VERBOSE(10, verbose_stream() << "refine_ho_match: p=" << mk_pp(p, m) << "\n  fo_pat=" << mk_pp(fo_pat, m) << "\n";
-                   verbose_stream() << "  m_pat2abs has fo_pat: " << m_pat2abs.contains(fo_pat) << "\n";
-                   auto& abs = m_pat2abs[fo_pat];
-                   verbose_stream() << "  m_pat2abs size: " << abs.size() << "\n";
-                   for (auto [v, pat] : abs) verbose_stream() << "    v=" << v << " pat=" << mk_pp(pat, m) << "\n";);
+                   verbose_stream() << "  m_pat2abs size: " << abstractions.size() << "\n";
+                   for (auto [v, pat] : abstractions) verbose_stream() << "    v=" << v << " pat=" << mk_pp(pat, m) << "\n";);
         scoped_trail_level _restore(m_trail);
         m_trail.push_scope();
         m_subst.resize(0);
@@ -1258,7 +1265,7 @@ namespace euf {
         // m_subst is indexed by var index directly
         for (unsigned i = 0; i < s.size(); ++i) {
             auto idx = s.size() - i - 1;
-            if (!m_hopat2free_vars[p].contains(idx))
+            if (!free_vars.contains(idx))
                 s[i] = m.mk_var(idx, s[i]->get_sort());
             else if (s.get(i))
                 m_subst.set(idx, s.get(i));
@@ -1267,7 +1274,7 @@ namespace euf {
         TRACE(ho_matching, tout << "refine " << mk_pp(p, m) << "\n" << s << "\n");
 
         unsigned num_bound = 0, level = 0;
-        for (auto [v, pat] : m_pat2abs[fo_pat]) {
+        for (auto [v, pat] : abstractions) {
             // If a binding's sort disagrees with the pattern variable it would
             // fill, substituting it would build an ill-sorted term. This can
             // arise for deeply nested multi-select patterns whose de Bruijn
@@ -1282,7 +1289,9 @@ namespace euf {
                 return;
             }
         }
-        for (auto [v, pat] : m_pat2abs[fo_pat]) {
+        for (auto [v, pat] : abstractions) {
+            if (v >= m_subst.size() || !m_subst.get(v))
+                return;
             var_subst sub(m, true);
             auto pat_refined = sub(pat, s);
             TRACE(ho_matching, tout << mk_pp(pat, m) << " -> " << pat_refined << "\n");

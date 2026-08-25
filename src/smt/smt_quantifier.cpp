@@ -685,6 +685,8 @@ namespace smt {
             auto &st = m_ho_state;
             auto *hoq = st.m_q;
             auto *q = m_ho_matcher->hoq2q(hoq);
+            if (!q)
+                return;
             auto const &binding = s.get_binding(q);
             st.m_matches.push_back({ q, binding });
         }

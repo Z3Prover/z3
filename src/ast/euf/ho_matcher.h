@@ -542,7 +542,11 @@ namespace euf {
 
         bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
 
-        quantifier* hoq2q(quantifier* q) const { return m_hoq2q[q]; }
+        quantifier* hoq2q(quantifier* q) const {
+            quantifier* result = nullptr;
+            m_hoq2q.find(q, result);
+            return result;
+        }
 
 
         svector<std::pair<unsigned, expr*>> const* get_flex_subterms(app* p) const {
