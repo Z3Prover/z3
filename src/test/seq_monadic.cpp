@@ -519,7 +519,10 @@ class seq_monadic_test {
             slv->check_sat(0, nullptr);
         }
         if (!ok) ++m_fail;
-        std::cout << (ok ? "  OK   " : "  FAIL ") << name << "\n";
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name;
+        if (!ok)
+            std::cout << " parse failed";
+        std::cout << "\n";
     }
 
 public:
