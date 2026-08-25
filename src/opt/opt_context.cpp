@@ -1752,8 +1752,6 @@ namespace opt {
             kv.m_value->collect_statistics(stats);
         get_memory_statistics(stats);
         get_rlimit_statistics(m.limit(), stats);
-        if (m_qmax) 
-            m_qmax->collect_statistics(stats);
     }
 
     void context::collect_param_descrs(param_descrs & r) {
@@ -1963,53 +1961,5 @@ namespace opt {
             }
             }       
         } 
-    }
-
-    bool context::is_qsat_opt() {
-        if (m_objectives.size() != 1) {
-            return false;
-        }
-        if (m_objectives[0].m_type != O_MAXIMIZE && 
-            m_objectives[0].m_type != O_MINIMIZE) {
-            return false;
-        }
-        if (!m_arith.is_real(m_objectives[0].m_term)) {
-            return false;
-        }
-        for (expr* fml : m_hard_constraints) {
-            if (has_quantifiers(fml)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    lbool context::run_qsat_opt() {
-        SASSERT(is_qsat_opt());
-        objective const& obj = m_objectives[0];
-        app_ref term(obj.m_term);
-        if (obj.m_type == O_MINIMIZE) {
-            term = m_arith.mk_uminus(term);
-        }
-        inf_eps value;
-        m_qmax = alloc(qe::qmax, m, m_params);
-        lbool result = (*m_qmax)(m_hard_constraints, term, value, m_model);
-        if (result != l_undef && obj.m_type == O_MINIMIZE) {
-            value.neg();
-        }
-        m_optsmt.setup(*m_opt_solver.get());
-        if (result == l_undef) {
-            if (obj.m_type == O_MINIMIZE) {
-                m_optsmt.update_upper(obj.m_index, value);
-            }
-            else {
-                m_optsmt.update_lower(obj.m_index, value);
-            }
-        }
-        else {
-            m_optsmt.update_lower(obj.m_index, value);
-            m_optsmt.update_upper(obj.m_index, value);
-        }
-        return result;
     }
 }
