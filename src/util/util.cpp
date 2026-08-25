@@ -67,58 +67,6 @@ void set_fatal_error_handler(void (*pfn)(int error_code)) {
     g_fatal_error_handler = pfn;
 }
 
-unsigned log2(unsigned v) {
-    unsigned r = 0;
-    if (v & 0xFFFF0000) {
-        v >>= 16;
-        r |=  16;
-    }
-    if (v & 0xFF00) {
-        v >>= 8;
-        r |=  8;
-    }
-    if (v & 0xF0) {
-        v >>= 4;
-        r |=  4;
-    }
-    if (v & 0xC) {
-        v >>= 2;
-        r |=  2;
-    }
-    if (v & 0x2) {
-        r |=  1;
-    }
-    return r;
-}
-
-unsigned uint64_log2(uint64_t v) {
-    unsigned r = 0;
-    if (v & 0xFFFFFFFF00000000ull) {
-        v >>= 32;
-        r |=  32;
-    }
-    if (v & 0xFFFF0000) {
-        v >>= 16;
-        r |=  16;
-    }
-    if (v & 0xFF00) {
-        v >>= 8;
-        r |=  8;
-    }
-    if (v & 0xF0) {
-        v >>= 4;
-        r |=  4;
-    }
-    if (v & 0xC) {
-        v >>= 2;
-        r |=  2;
-    }
-    if (v & 0x2) {
-        r |=  1;
-    }
-    return r;
-}
-
 unsigned mul_truncate(unsigned a, unsigned b) {
     auto r = (uint64_t)a * (uint64_t)b;
     return r > UINT_MAX ? UINT_MAX : (unsigned)r;

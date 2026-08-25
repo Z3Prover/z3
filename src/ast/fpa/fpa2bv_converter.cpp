@@ -1769,7 +1769,7 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     expr_ref sig_abs_h2(m), sticky_h2(m), sticky_h2_red(m), sig_abs_h2_f(m), res_sig_2(m);
     sticky_h2 = m_bv_util.mk_extract(sbits+too_short-1, 0, sig_abs);
     sig_abs_h2 = m_bv_util.mk_extract(2*sbits+too_short+4, sbits+too_short, sig_abs);
-    sticky_h2_red = m_bv_util.mk_zero_extend(sbits+4, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_h1.get()));
+    sticky_h2_red = m_bv_util.mk_zero_extend(sbits+4, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_h2.get()));
     sig_abs_h2_f = m_bv_util.mk_zero_extend(1, m_bv_util.mk_bv_or({sig_abs_h2, sticky_h2_red}));
     res_sig_2 = m_bv_util.mk_extract(sbits+3, 0, sig_abs_h2_f);
     SASSERT(m_bv_util.get_bv_size(sticky_h2) == sbits+too_short);

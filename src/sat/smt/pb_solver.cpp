@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include <cmath>
+#include <numeric>
 #include "util/mpz.h"
 #include "sat/sat_types.h"
 #include "sat/smt/pb_solver.h"
@@ -1241,7 +1242,7 @@ namespace pb {
                 g = coeff;
             }
             else {
-                g = u_gcd(g, coeff);
+                g = std::gcd(g, coeff);
             }
         }
 
@@ -3774,4 +3775,3 @@ namespace pb {
     }
     
 }
-

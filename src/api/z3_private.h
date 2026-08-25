@@ -30,7 +30,6 @@ extern "C" {
     bool Z3_API Z3_get_numeral_rational(Z3_context c, Z3_ast a, rational& r);
 
 #ifdef __cplusplus
-};
+}
 #endif // __cplusplus
-
 

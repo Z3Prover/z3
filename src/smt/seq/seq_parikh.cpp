@@ -26,6 +26,7 @@ Author:
 #include "smt/seq/seq_parikh.h"
 #include "util/mpz.h"
 #include "util/zstring.h"
+#include <numeric>
 #include <string>
 
 namespace seq {
@@ -91,14 +92,14 @@ namespace seq {
             unsigned inner = compute_length_stride(r1);
             // stride(r*) = gcd(min_length(r), stride(r))
             // when inner=0 (fixed-length body), gcd(mn, 0) = mn → stride = mn
-            return u_gcd(mn, inner);
+            return std::gcd(mn, inner);
         }
 
         // r+ — one or more: same stride analysis as r*.
         if (seq.re.is_plus(re, r1)) {
             unsigned mn = seq.re.min_length(r1);
             unsigned inner = compute_length_stride(r1);
-            return u_gcd(mn, inner);
+            return std::gcd(mn, inner);
         }
 
         // r? — zero or one: lengths = {0} ∪ lengths(r)
@@ -113,15 +114,15 @@ namespace seq {
             // A result > 1 gives a useful modular constraint; result == 1
             // means every non-negative integer is achievable (no constraint).
             if (inner == 0)
-                return u_gcd(mn, 0);   // gcd(mn, 0) = mn; useful when mn > 1
-            return u_gcd(inner, mn);
+                return std::gcd(mn, 0u);   // gcd(mn, 0) = mn; useful when mn > 1
+            return std::gcd(inner, mn);
         }
 
         // concat(r1, r2): lengths add → stride = GCD(stride(r1), stride(r2)).
         if (seq.re.is_concat(re, r1, r2)) {
             unsigned s1 = compute_length_stride(r1);
             unsigned s2 = compute_length_stride(r2);
-            return u_gcd(s1, s2);
+            return std::gcd(s1, s2);
         }
 
         // union(r1, r2): lengths from either branch → need GCD of both
@@ -134,8 +135,8 @@ namespace seq {
             unsigned d  = (m1 >= m2) ? (m1 - m2) : (m2 - m1);
             // Replace 0-strides with d for GCD computation:
             // a fixed-length branch only introduces constraint via its offset.
-            unsigned g = u_gcd(s1 == 0 ? d : s1, s2 == 0 ? d : s2);
-            g = u_gcd(g, d);
+            unsigned g = std::gcd(s1 == 0 ? d : s1, s2 == 0 ? d : s2);
+            g = std::gcd(g, d);
             return g;
         }
 
@@ -145,12 +146,12 @@ namespace seq {
         if (seq.re.is_loop(re, r1, lo, hi)) {
             unsigned mn = seq.re.min_length(r1);
             unsigned inner = compute_length_stride(r1);
-            return u_gcd(mn, inner);
+            return std::gcd(mn, inner);
         }
         if (seq.re.is_loop(re, r1, lo)) {
             unsigned mn = seq.re.min_length(r1);
             unsigned inner = compute_length_stride(r1);
-            return u_gcd(mn, inner);
+            return std::gcd(mn, inner);
         }
 
         // intersection(r1, r2): lengths must be in both languages.
@@ -160,7 +161,7 @@ namespace seq {
         if (seq.re.is_intersection(re, r1, r2)) {
             unsigned s1 = compute_length_stride(r1);
             unsigned s2 = compute_length_stride(r2);
-            return u_gcd(s1, s2);
+            return std::gcd(s1, s2);
         }
 
         // For complement, diff, reverse, derivative, of_pred, and anything

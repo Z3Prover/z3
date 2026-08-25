@@ -689,7 +689,7 @@ Notes:
         literal mk_exactly_1(bool full, unsigned n, literal const* xs) {
             TRACE(pb, tout << "exactly 1 with " << n << " arguments " << (full?"full":"not full") << "\n";);
             literal_vector ors;
-            literal r1;
+            literal r1 = ctx.mk_false();
             switch (m_cfg.m_encoding) {
             case sorting_network_encoding::grouped_at_most:
             case sorting_network_encoding::sorted_at_most:

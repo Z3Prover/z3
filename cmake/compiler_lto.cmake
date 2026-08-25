@@ -22,6 +22,15 @@ if (Z3_LINK_TIME_OPTIMIZATION)
       (CMAKE_CXX_COMPILER_ID MATCHES "GNU"))
       set(_lto_compiler_flag "-flto")
       set(_lto_linker_flag "-flto")
+      if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        # A bare -flto leaves GCC's LTRANS phase serial, which then dominates
+        # the build. "auto" scales it to the machine, using the build system's
+        # jobserver when one is offered and the host CPU count otherwise, so it
+        # needs none of the per-machine tuning a fixed -flto=N would. Only the
+        # link flag needs this; leaving the compile flag bare keeps existing
+        # object files valid when this changes.
+        set(_lto_linker_flag "-flto=auto")
+      endif()
   elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(_lto_compiler_flag "/GL")
     set(_lto_linker_flag "/LTCG")

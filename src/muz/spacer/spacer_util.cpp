@@ -798,12 +798,19 @@ struct adhoc_rewriter_rpp : public default_rewriter_cfg {
     }
 };
 
+static params_ref const& epp_params() {
+    static params_ref const p = [] {
+        params_ref result;
+        result.set_uint("min_alias_size", UINT_MAX);
+        result.set_uint("max_depth", UINT_MAX);
+        return result;
+    }();
+    return p;
+}
+
 mk_epp::mk_epp(ast *t, ast_manager &m, unsigned indent, unsigned num_vars,
                char const *var_prefix)
-    : mk_pp(t, m, m_epp_params, indent, num_vars, var_prefix), m_epp_expr(m) {
-    m_epp_params.set_uint("min_alias_size", UINT_MAX);
-    m_epp_params.set_uint("max_depth", UINT_MAX);
-
+    : mk_pp(t, m, epp_params(), indent, num_vars, var_prefix), m_epp_expr(m) {
     if (is_expr(m_ast)) {
         rw(to_expr(m_ast), m_epp_expr);
         m_ast = m_epp_expr;

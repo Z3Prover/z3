@@ -21,6 +21,7 @@ Author:
 --*/
 
 #include "smt/seq/seq_nielsen_internal.h"
+#include <numeric>
 
 namespace seq {
 
@@ -292,7 +293,7 @@ namespace seq {
                 SASSERT(info.m_dist.contains(v)); // v is reachable since u is
                 const unsigned t = du + 1 - info.m_dist.find(v);
                 if (t != 0)
-                    g = g == 0 ? t : u_gcd(g, t);
+                    g = g == 0 ? t : std::gcd(g, t);
             }
         }
         info.m_stride = g;
@@ -327,7 +328,7 @@ namespace seq {
             for (auto const& [id, d] : info.m_dist) {
                 (void)id;
                 if (d != 0)
-                    stride = stride == 0 ? d : u_gcd(stride, d);
+                    stride = stride == 0 ? d : std::gcd(stride, d);
             }
             exact = stride == 0; // only the head is reachable: len = 1 exactly
         }

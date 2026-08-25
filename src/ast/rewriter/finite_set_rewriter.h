@@ -17,6 +17,12 @@ Sample rewrite rules:
     set.union(x, x) -> x
     set.intersect(x, x) -> x
     set.difference(x, x) -> set.empty
+    set.map(f, set.singleton(x)) -> set.singleton(f(x))
+    set.map(f, set.union(s, t)) -> set.union(set.map(f, s), set.map(f, t))
+    set.filter(p, set.singleton(x)) -> ite(p(x), set.singleton(x), set.empty)
+    set.filter(p, set.union(s, t)) -> set.union(set.filter(p, s), set.filter(p, t))
+    set.filter(p, set.intersect(s, t)) -> set.intersect(set.filter(p, s), set.filter(p, t))
+    set.filter(p, set.difference(s, t)) -> set.difference(set.filter(p, s), set.filter(p, t))
 
 
 Generally this module implements basic algebraic simplification rules for finite sets
@@ -53,6 +59,8 @@ class finite_set_rewriter {
     br_status mk_singleton(expr *arg1, expr_ref &result);
     br_status mk_in(expr *arg1, expr *arg2, expr_ref &result);
     br_status mk_size(expr *arg, expr_ref &result);
+    br_status mk_map(expr *arg1, expr *arg2, expr_ref &result);
+    br_status mk_filter(expr *arg1, expr *arg2, expr_ref &result);
 
 public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):

@@ -8,18 +8,14 @@
 
 static bool build_instance(char const * filename, sat::solver& s, sat::local_search& local_search)
 {
-    char  line[16383];
-    // for temporary storage
-
     std::ifstream infile(filename);
     if (!infile) {
         std::cout << "File not found " << filename << "\n";
         return false;
     }
-    infile.getline(line, 16383);
     int cur_term;
     int num_vars = 0, num_constraints = 0;
-    if (sscanf(line, "%d %d", &num_vars, &num_constraints) != 2) {
+    if (!(infile >> num_vars >> num_constraints)) {
         std::cout << "Failed to parse header (expected: num_vars num_constraints)\n";
         return false;
     }

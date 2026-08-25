@@ -35,6 +35,7 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     m_seq_validate = p.seq_validate();
     m_seq_regex_monadic = p.seq_regex_monadic();
     m_seq_regex_budget = p.seq_regex_budget();
+    m_seq_regex_split = p.seq_regex_split();
     m_seq_regex_transition_mode = p.seq_regex_transition_mode();
     validate_regex_transition_mode(m_seq_regex_transition_mode);
     m_seq_regex_orientation = p.seq_regex_orientation();

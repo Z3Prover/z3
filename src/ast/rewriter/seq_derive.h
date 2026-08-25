@@ -38,6 +38,9 @@ namespace seq {
 
     enum class derivative_kind { antimirov_t, brzozowski_t };
     enum class transition_mode { brzozowski_tm, light_antimirov_tm };
+
+    const char* transition_mode_name(transition_mode mode);
+
     /**
      * Symbolic derivative engine for regular expressions.
      *

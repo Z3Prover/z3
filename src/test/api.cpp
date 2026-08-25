@@ -13,6 +13,39 @@ Copyright (c) 2015 Microsoft Corporation
 #include <string>
 #include "util/trace.h"
 
+static void test_solver_model_completion() {
+    Z3_global_param_set("model.completion", "true");
+    Z3_config cfg = Z3_mk_config();
+    Z3_set_param_value(cfg, "MODEL", "true");
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_sort s = Z3_mk_uninterpreted_sort(ctx, Z3_mk_string_symbol(ctx, "S"));
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), s);
+    Z3_func_decl f = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, "f"), 1, &s, s);
+    Z3_ast fx = Z3_mk_app(ctx, f, 1, &x);
+    Z3_ast args[] = { Z3_mk_eq(ctx, x, x), Z3_mk_eq(ctx, fx, fx) };
+    Z3_solver_assert(ctx, solver, Z3_mk_and(ctx, 2, args));
+
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_model mdl = Z3_solver_get_model(ctx, solver);
+    Z3_model_inc_ref(ctx, mdl);
+    ENSURE(Z3_model_get_const_interp(ctx, mdl, Z3_get_app_decl(ctx, Z3_to_app(ctx, x))));
+    ENSURE(Z3_model_get_func_interp(ctx, mdl, f));
+    ENSURE(Z3_model_get_num_sorts(ctx, mdl) == 1);
+    ENSURE(Z3_model_get_sort(ctx, mdl, 0) == s);
+    Z3_ast_vector universe = Z3_model_get_sort_universe(ctx, mdl, s);
+    ENSURE(universe);
+    ENSURE(Z3_ast_vector_size(ctx, universe) == 1);
+
+    Z3_model_dec_ref(ctx, mdl);
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+    Z3_global_param_set("model.completion", "false");
+}
+
 void test_apps() {
     Z3_config cfg = Z3_mk_config();
     Z3_set_param_value(cfg,"MODEL","true");
@@ -111,6 +144,29 @@ static void test_mk_app_polymorphic_arity() {
     Z3_ast int_res[] = { empty_re_int, empty_re_int, empty_re_int };
     ENSURE(Z3_mk_app(ctx, re_union_decl, 3, int_res));
     ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    Z3_del_context(ctx);
+}
+
+static void test_mk_quantifier_const_loose_bound_variables() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast q = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "q"), int_sort);
+    Z3_app bound[] = { Z3_to_app(ctx, q) };
+    Z3_ast loose[] = { Z3_mk_bound(ctx, 0, int_sort), Z3_mk_bound(ctx, 1, int_sort) };
+    Z3_ast body = Z3_mk_eq(ctx, q, Z3_mk_add(ctx, 2, loose));
+
+    Z3_ast quantifier = Z3_mk_exists_const(ctx, 0, 1, bound, 0, nullptr, body);
+    ENSURE(quantifier);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_ast quantifier_body = Z3_get_quantifier_body(ctx, quantifier);
+    Z3_app eq = Z3_to_app(ctx, quantifier_body);
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, eq, 0)) == 0);
+    Z3_app add = Z3_to_app(ctx, Z3_get_app_arg(ctx, eq, 1));
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, add, 0)) == 1);
+    ENSURE(Z3_get_index_value(ctx, Z3_get_app_arg(ctx, add, 1)) == 2);
 
     Z3_del_context(ctx);
 }
@@ -332,68 +388,23 @@ void test_strict_real_maximize_disjunction() {
     Z3_del_context(ctx);
 }
 
-static void test_qfnra_degree80_square_bound() {
-    Z3_config cfg = Z3_mk_config();
-    Z3_context ctx = Z3_mk_context(cfg);
-    Z3_del_config(cfg);
+// The QF_NRA regression for #10505 lives in tst_upolynomial(). Driving it
+// through Z3_solver_check is not reproducible: the QF_NRA portfolio is a
+// sequence of try_for() tactics guarded by wall-clock timeouts and a probe on
+// process-global allocated memory, so the work reaching the factorizer depends
+// on machine load and on whatever ran earlier in the same process.
 
-    Z3_solver s = Z3_mk_solver(ctx);
-    Z3_solver_inc_ref(ctx, s);
-
-    // A deterministic resource limit instead of a wall-clock timeout: the fixed
-    // factoring path needs < 1M rlimit while the num_primes=1 blowup needs > 5M,
-    // so 2M separates them regardless of machine speed or debug/release build.
-    Z3_params p = Z3_mk_params(ctx);
-    Z3_params_inc_ref(ctx, p);
-    Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx, "rlimit"), 2000000);
-    Z3_solver_set_params(ctx, s, p);
-    Z3_params_dec_ref(ctx, p);
-
-    Z3_sort real_sort = Z3_mk_real_sort(ctx);
-    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), real_sort);
-    Z3_ast y = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), real_sort);
-
-    auto mk_real = [&](int num, int den = 1) { return Z3_mk_real(ctx, num, den); };
-    auto mk_mul = [&](Z3_ast a, Z3_ast b) { Z3_ast args[] = { a, b }; return Z3_mk_mul(ctx, 2, args); };
-    auto mk_pow = [&](Z3_ast base, unsigned power) {
-        Z3_ast result = mk_real(1);
-        Z3_ast factor = base;
-        while (power > 0) {
-            if (power & 1)
-                result = mk_mul(result, factor);
-            power >>= 1;
-            if (power > 0)
-                factor = mk_mul(factor, factor);
-        }
-        return result;
-    };
-
-    Z3_solver_assert(ctx, s, Z3_mk_ge(ctx, x, mk_real(1)));
-    Z3_solver_assert(ctx, s, Z3_mk_le(ctx, x, mk_real(100)));
-    Z3_solver_assert(ctx, s, Z3_mk_ge(ctx, y, mk_real(0)));
-    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, mk_pow(y, 80), x));
-    Z3_solver_assert(ctx, s, Z3_mk_lt(ctx, y, mk_real(1)));
-    Z3_lbool result = Z3_solver_check(ctx, s);
-    std::string unknown_reason;
-    if (result == Z3_L_UNDEF)
-        unknown_reason = Z3_solver_get_reason_unknown(ctx, s);
-
-    Z3_solver_dec_ref(ctx, s);
-    Z3_del_context(ctx);
-    if (result == Z3_L_UNDEF)
-        throw default_exception(("qfnra degree-80 regression returned unknown: " + unknown_reason).c_str());
-    ENSURE(result == Z3_L_FALSE);
-}
 void tst_api() {
+    test_solver_model_completion();
     test_apps();
     test_mk_app_polymorphic_arity();
+    test_mk_quantifier_const_loose_bound_variables();
     test_bvneg();
     test_mk_distinct();
     test_optimize_translate();
     test_optimize_arith_params();
     test_strict_real_maximize();
     test_strict_real_maximize_disjunction();
-    test_qfnra_degree80_square_bound();
 }
 
 void test_max_rev() {

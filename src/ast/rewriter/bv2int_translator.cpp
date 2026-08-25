@@ -340,7 +340,7 @@ void bv2int_translator::translate_bv(app* e) {
         r = bnot(arg(0));
         break;
     case OP_BLSHR:
-        if (!a.is_numeral(arg(0)) && !a.is_numeral(arg(1)))
+        if (!m_is_plugin && !a.is_numeral(arg(0)) && !a.is_numeral(arg(1)))
             r = a.mk_lshr(bv.get_bv_size(e), arg(0), arg(1));
         else {
             expr* x = arg(0), * y = umod(e, 1);

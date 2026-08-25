@@ -123,6 +123,7 @@ add_executable(test-z3
   seq_nielsen.cpp
   proof_checker.cpp
   qe_arith.cpp
+  qe_lite.cpp
   mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp
@@ -138,6 +139,8 @@ add_executable(test-z3
   scoped_timer.cpp
   scoped_vector.cpp
   seq_rewriter.cpp
+  seq_eq_approx.cpp
+  seq_regex_witness.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp
   simple_parser.cpp

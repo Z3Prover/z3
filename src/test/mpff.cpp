@@ -148,10 +148,10 @@ static void tst_ ## OP ## _core(int64_t n1, uint64_t d1, int64_t n2, uint64_t d2
     ENSURE(fm.le(fc2, fc1));                                           \
 }
 
-MK_BIN_OP(add);
-MK_BIN_OP(sub);
-MK_BIN_OP(mul);
-MK_BIN_OP(div);
+MK_BIN_OP(add)
+MK_BIN_OP(sub)
+MK_BIN_OP(mul)
+MK_BIN_OP(div)
 
 #define MK_BIN_RANDOM_TST(OP)                                           \
     static void tst_ ## OP(unsigned N, unsigned max, unsigned prec = 2, bool is_div = false) { \

@@ -52,10 +52,12 @@ namespace smt {
         m_monadic(seq_rw(), ctx.get_trail_stack(),
                   monadic_transition_mode(ctx.get_fparams().m_seq_regex_transition_mode)),
         m_monadic_model(th.get_manager()),
+        m_eq_approx(seq_rw(), 1u << 12),
         m_live_states(seq_rw(), seq::transition_mode::brzozowski_tm, 10000) {
         m_monadic.set_is_var([&th](expr *e) { return th.is_var(e); });
         m_monadic.set_budget(ctx.get_fparams().m_seq_regex_budget);
         m_monadic.set_orientation(monadic_orientation(ctx.get_fparams().m_seq_regex_orientation));
+        m_monadic.set_split_rounds(ctx.get_fparams().m_seq_regex_split);
     }
 
     seq_util& seq_regex::u() { return th.m_util; }
@@ -241,7 +243,7 @@ namespace smt {
                 len += s.length();
                 continue;
             }
-            expr* w = model.find(e);
+            expr* w = model.try_find(e);
             if (w && w != e) {                    // variable: replace by its witness
                 todo.push_back(w);
                 continue;
@@ -279,10 +281,6 @@ namespace smt {
         TRACE(seq_regex, tout << "monadic bound " << mk_pp(len, m)
                              << (k == bound_constraint::LO ? " >= " :
                                  k == bound_constraint::HI ? " <= " : " = ") << v << "\n";);
-    }
-
-    bool seq_regex::all_true(literal_vector const& lits) const {
-        return all_of(lits, [this](literal lit) { return l_true == ctx.get_assignment(lit); });
     }
 
     void seq_regex::add_core_literal(void* dep, literal_vector& lits, void*& deps) {
@@ -343,6 +341,64 @@ namespace smt {
         ctx.push_trail(value_trail<unsigned>(m_monadic_fallback_generation));
         m_monadic_fallback_generation = m_monadic_generation;
         ++th.m_stats.m_regex_monadic_fallbacks;
+    }
+
+    /**
+     * Refute a word equation without solving it: replace every part of both sides by an
+     * over-approximation of its values -- the asserted memberships as views, Sigma^* for
+     * everything else -- and intersect the two languages.  Every solution of the equation
+     * lies in both, so an empty intersection contradicts the equation together with the
+     * memberships whose views were used.
+     */
+    bool seq_regex::check_equation_conflict() {
+        if (m_monadic_memberships.empty() || th.m_eqs.empty())
+            return false;
+
+        // every term with an asserted membership is confined to its regex: one view per
+        // membership, which the module intersects when a term carries several.  The membership term is taken as it was asserted, not as the
+        // monadic solver expanded it: the expansion is refreshed in final_check, which
+        // runs after this, so its equalities may be stale here -- while the literal of
+        // the membership justifies the plain term on its own.
+        m_eq_approx.reset_views();
+        obj_map<expr, unsigned_vector> owner;         // constrained term -> memberships
+        for (unsigned idx = 0; idx < m_monadic_memberships.size(); ++idx) {
+            monadic_membership const& mem = m_monadic_memberships[idx];
+            // negative memberships reach us as complements, so an entry holds exactly
+            // when its literal is assigned true
+            if (ctx.get_assignment(mem.m_lit) != l_true)
+                continue;
+            unsigned_vector& mems = owner.insert_if_not_there(mem.m_s, unsigned_vector());
+            mems.push_back(idx);
+            m_eq_approx.add_view(mem.m_s, seq::view::membership(mem.m_re));
+        }
+        if (owner.empty())
+            return false;
+
+        for (auto const& e : th.m_eqs) {
+            if (e.ls.empty() || e.rs.empty())
+                continue;
+            expr_ref lhs(str().mk_concat(e.ls, e.ls[0]->get_sort()), m);
+            expr_ref rhs(str().mk_concat(e.rs, e.rs[0]->get_sort()), m);
+            if (m_eq_approx.check(lhs, rhs) != l_false)
+                continue;
+            // blame the equation and the memberships whose views the refutation used
+            literal_vector lits;
+            for (expr* t : m_eq_approx.used()) {
+                unsigned_vector mems;
+                if (owner.find(t, mems))
+                    for (unsigned idx : mems)
+                        lits.push_back(m_monadic_memberships[idx].m_lit);
+            }
+            if (!e.dep() && lits.empty())
+                continue;                 // nothing to justify a conflict with
+            TRACE(seq_regex, tout << "equation over-approximation refuted "
+                                  << mk_pp(lhs, m) << " = " << mk_pp(rhs, m) << "\n";
+                  m_eq_approx.display(tout););
+            ++th.m_stats.m_regex_eq_approx_unsat;
+            th.conflict_or_axiom(lits, e.dep());
+            return true;
+        }
+        return false;
     }
 
     final_check_status seq_regex::final_check() {
@@ -409,28 +465,7 @@ namespace smt {
             void* deps = nullptr;
             for (void* core_dep : m_monadic.core())
                 add_core_literal(core_dep, lits, deps);
-            if (all_true(lits)) {
-                // Every core literal is assigned true, so the negated core (together with the
-                // equalities collected while canonizing membership terms, carried in deps) is a
-                // legitimate theory conflict.
-                th.set_conflict(static_cast<theory_seq::dependency*>(deps), lits);
-            }
-            else {
-                // Some core literal is not currently assigned true, so this is not a legitimate
-                // theory conflict (see #10398): raising one would justify it with non-true
-                // literals. Assert the blocking clause instead -- the negation of the literals
-                // and canonization equalities that the monadic solver refuted.
-                for (unsigned i = 0; i < lits.size(); ++i)
-                    lits[i] = ~lits[i];
-                enode_pair_vector eqs;
-                literal_vector dep_lits;
-                th.linearize(static_cast<theory_seq::dependency*>(deps), eqs, dep_lits);
-                for (literal l : dep_lits)
-                    lits.push_back(~l);
-                for (auto const& [a, b] : eqs)
-                    lits.push_back(~th.mk_eq(a->get_expr(), b->get_expr(), false));
-                th.add_axiom(lits);
-            }
+            th.conflict_or_axiom(lits, static_cast<theory_seq::dependency*>(deps));
             return FC_CONTINUE;
         }
         if (result == l_undef) {
@@ -961,8 +996,13 @@ namespace smt {
         // Uses canonical variable (:var 0) for the derivative element
         // Substitute (:var 0) with the actual element
         expr_ref der = seq_rw().mk_derivative(r);
-        var_subst subst(m);
-        der = subst(der, ele);
+        sort* seq_sort = nullptr, * elem_sort = nullptr;
+        VERIFY(u().is_re(r, seq_sort));
+        VERIFY(u().is_seq(seq_sort, elem_sort));
+        expr_ref v(m.mk_var(0, elem_sort), m);
+        expr_safe_replace subst(m);
+        subst.insert(v, ele);
+        subst(der, der);
 
         STRACE(seq_regex, tout << "derivative result: " << mk_pp(der, m) << std::endl;);
         STRACE(seq_regex_brief, tout << "d(" << state_str(r) << ")="

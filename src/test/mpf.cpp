@@ -81,8 +81,39 @@ static void bug_set_double() {
     ENSURE(fm.to_float(a) == -42.25);
 }
 
+static void test_to_sbv_mpq() {
+    mpf_manager fm;
+    scoped_mpf a(fm);
+    scoped_mpq r(fm.mpq_manager()), expected(fm.mpq_manager());
+
+    fm.set(a, 11, 53, 2.5);
+    fm.to_sbv_mpq(MPF_ROUND_NEAREST_TEVEN, a, r);
+    fm.mpq_manager().set(expected, 2);
+    ENSURE(fm.mpq_manager().eq(r, expected));
+    fm.to_sbv_mpq(MPF_ROUND_NEAREST_TAWAY, a, r);
+    fm.mpq_manager().set(expected, 3);
+    ENSURE(fm.mpq_manager().eq(r, expected));
+
+    fm.set(a, 63, 24, false, fm.mk_min_exp(63), 0);
+    fm.to_sbv_mpq(MPF_ROUND_TOWARD_POSITIVE, a, r);
+    ENSURE(fm.mpq_manager().is_one(r));
+    fm.to_sbv_mpq(MPF_ROUND_TOWARD_ZERO, a, r);
+    ENSURE(fm.mpq_manager().is_zero(r));
+
+    fm.set(a, 63, 24, true, fm.mk_min_exp(63), 0);
+    fm.to_sbv_mpq(MPF_ROUND_TOWARD_NEGATIVE, a, r);
+    ENSURE(fm.mpq_manager().is_minus_one(r));
+    fm.to_sbv_mpq(MPF_ROUND_TOWARD_POSITIVE, a, r);
+    ENSURE(fm.mpq_manager().is_zero(r));
+
+    fm.mk_pzero(63, 24, a);
+    fm.to_sbv_mpq(MPF_ROUND_TOWARD_POSITIVE, a, r);
+    ENSURE(fm.mpq_manager().is_zero(r));
+}
+
 void tst_mpf() {
     // enable_trace("mpf_mul_bug");
     bug_set_int();
     bug_set_double();
+    test_to_sbv_mpq();
 }

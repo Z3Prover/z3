@@ -19,6 +19,7 @@ Notes:
 --*/
 
 #include <typeinfo>
+#include <numeric>
 #include "smt/theory_pb.h"
 #include "smt/smt_context.h"
 #include "smt/smt_kernel.h"
@@ -1786,7 +1787,7 @@ namespace smt {
                 g = static_cast<unsigned>(coeff);
             }
             else {
-                g = u_gcd(g, static_cast<unsigned>(coeff));
+                g = std::gcd(g, static_cast<unsigned>(coeff));
             }
         }
         if (g >= 2) {

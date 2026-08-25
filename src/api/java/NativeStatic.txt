@@ -251,7 +251,7 @@ struct JavaOnClauseInfo {
 static void java_on_clause_eh(void* _p, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals) {
   JavaOnClauseInfo *info = static_cast<JavaOnClauseInfo*>(_p);
   jintArray jdeps = info->jenv->NewIntArray((jsize)n);
-  info->jenv->SetIntArrayRegion(jdeps, 0, (jsize)n, (jint*)deps);
+  info->jenv->SetIntArrayRegion(jdeps, 0, (jsize)n, reinterpret_cast<jint const*>(deps));
   info->jenv->CallVoidMethod(info->jobj, info->on_clause, (jlong)proof_hint, jdeps, (jlong)literals);
   info->jenv->DeleteLocalRef(jdeps);
 }
