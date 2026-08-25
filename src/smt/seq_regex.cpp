@@ -996,8 +996,13 @@ namespace smt {
         // Uses canonical variable (:var 0) for the derivative element
         // Substitute (:var 0) with the actual element
         expr_ref der = seq_rw().mk_derivative(r);
-        var_subst subst(m);
-        der = subst(der, ele);
+        sort* seq_sort = nullptr, * elem_sort = nullptr;
+        VERIFY(u().is_re(r, seq_sort));
+        VERIFY(u().is_seq(seq_sort, elem_sort));
+        expr_ref v(m.mk_var(0, elem_sort), m);
+        expr_safe_replace subst(m);
+        subst.insert(v, ele);
+        subst(der, der);
 
         STRACE(seq_regex, tout << "derivative result: " << mk_pp(der, m) << std::endl;);
         STRACE(seq_regex_brief, tout << "d(" << state_str(r) << ")="

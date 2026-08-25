@@ -24,8 +24,11 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_monadic.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include "params/smt_params.h"
 #include "smt/smt_kernel.h"
+#include "solver/solver.h"
 #include <iostream>
 #include <sstream>
 #include <set>
@@ -503,6 +506,22 @@ class seq_monadic_test {
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
     }
 
+    void check_smt2_no_crash(char const* name, char const* input, unsigned rlimit) {
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        bool ok = parse_smt2_commands(cmd, is);
+        if (ok) {
+            params_ref p;
+            p.set_uint("rlimit", rlimit);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (expr* a : cmd.assertions())
+                slv->assert_expr(a);
+            slv->check_sat(0, nullptr);
+        }
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name << "\n";
+    }
+
 public:
     seq_monadic_test(seq::transition_mode mode) :
         m_reg(m), m_rw(m), m_mon(m_rw, m_trail, mode), u(m), m_str(m), m_re(m), m_mode(mode) {
@@ -897,6 +916,19 @@ public:
             assertions.push_back(re().mk_in_re(sword("z"), star(re().mk_to_re(at))));
             check_smt("non-ground regex issue 10492", assertions, l_false);
         }
+        if (m_mode == seq::transition_mode::brzozowski_tm)
+            check_smt2_no_crash("quantified str.from_code regex issue 10651",
+                "(declare-fun v () String)\n"
+                "(declare-fun r () Bool)\n"
+                "(declare-fun w () String)\n"
+                "(declare-fun q () String)\n"
+                "(assert (forall ((v String))\n"
+                "  (or r\n"
+                "      (exists ((V String))\n"
+                "        (str.in_re\n"
+                "          (str.++ (str.++ (str.++ v V V) q (str.++ w w w)) v)\n"
+                "          (re.* (str.to_re (str.from_code (str.len V)))))))))\n",
+                100000);
         {
             arith_util ar2(m);
             expr_ref zero(ar2.mk_int(0), m);
