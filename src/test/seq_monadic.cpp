@@ -30,6 +30,8 @@ Author:
 #include <sstream>
 #include <set>
 #include <tuple>
+#include <algorithm>
+#include <string>
 
 namespace {
 
@@ -327,6 +329,7 @@ class seq_monadic_test {
         seq_monadic::iterator it = m_mon.iterate(100);
         m_trail.pop_scope(1);
 
+        expr_ref_vector grounds(m);
         obj_map<expr, seq::view_vector> sol;
         unsigned n = 0;
         bool ok = true;
@@ -345,9 +348,11 @@ class seq_monadic_test {
                 break;
             expr_ref ground(m);
             rep(term, ground);
-            ok = m_mon.solve(ground, R) == l_true;   // independent, view-free re-check
+            grounds.push_back(ground);
         }
         ok = ok && !it.gave_up() && n >= min_branches;
+        for (unsigned i = 0; ok && i < grounds.size(); ++i)
+            ok = m_mon.solve(grounds.get(i), R) == l_true;   // independent, view-free re-check
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name
                   << "  branches=" << n << " expected>=" << min_branches
@@ -389,6 +394,95 @@ class seq_monadic_test {
         bool first = true;
         for (unsigned id : min_ids) { std::cout << (first ? "" : ",") << id; first = false; }
         std::cout << "} full=" << (ok0 ? "yes" : "no") << "\n";
+    }
+
+    // One enumerated branch as a comparable string: per variable, the views it commits to.
+    std::string branch_str(obj_map<expr, seq::view_vector> const& sol) {
+        std::vector<std::string> per_var;
+        for (auto const& [v, views] : sol) {
+            std::ostringstream os;
+            os << v->get_id() << ":";
+            for (seq::view const& c : views)
+                os << " " << c.m_state->get_id() << "->"
+                   << (c.is_reach() ? c.m_target->get_id() : 0);
+            per_var.push_back(os.str());
+        }
+        std::sort(per_var.begin(), per_var.end());
+        std::string r;
+        for (std::string const& s : per_var)
+            r += s + " | ";
+        return r;
+    }
+
+    void enum_branches(vector<std::pair<expr*, expr*>> const& mems,
+                       std::vector<std::string>& out, bool& giveup,
+                       std::pair<expr*, expr*> const* itl = nullptr) {
+        m_trail.push_scope();
+        for (auto const& [t, r] : mems)
+            m_mon.add(t, r, nullptr);
+        seq_monadic::iterator it = m_mon.iterate(256);
+        m_trail.pop_scope(1);                     // the iterator owns its query
+
+        obj_map<expr, seq::view_vector> sol;
+        while (it.next(sol)) {
+            out.push_back(branch_str(sol));
+            if (itl) {
+                m_trail.push_scope();
+                m_mon.add(itl->first, itl->second, nullptr);
+                (void)m_mon.check();
+                m_trail.pop_scope(1);
+            }
+        }
+        giveup = it.gave_up();
+    }
+
+    void check_iterate(char const* name, vector<std::pair<expr*, expr*>> const& mems,
+                       std::pair<expr*, expr*> const& itl) {
+        std::vector<std::string> plain, interrupted;
+        bool g1 = true, g2 = true;
+        enum_branches(mems, plain, g1);
+        enum_branches(mems, interrupted, g2, &itl);
+
+        m_trail.push_scope();
+        for (auto const& [t, r] : mems)
+            m_mon.add(t, r, nullptr);
+        lbool direct = m_mon.check();
+        m_trail.pop_scope(1);
+
+        std::set<std::string> distinct(plain.begin(), plain.end());
+        bool prefix = interrupted.size() <= plain.size() &&
+                      std::equal(interrupted.begin(), interrupted.end(), plain.begin());
+        bool ok = !g1 && distinct.size() == plain.size() && prefix &&
+                  g2 == !plain.empty() &&           // no pull, no interruption
+                  direct == (plain.empty() ? l_false : l_true);
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << "  branches=" << plain.size() << " exhaustive=" << (g1 ? "no" : "yes")
+                  << " interrupted=" << interrupted.size() << (g2 ? " (gave up)" : "")
+                  << " check=" << s(direct) << "\n";
+    }
+
+    void check_budget_sweep(char const* name, vector<std::pair<expr*, expr*>> const& mems,
+                            lbool truth) {
+        unsigned const saved = m_mon.budget();
+        unsigned wrong = 0, gave_up = 0;
+        for (unsigned b = 1; b <= 60; ++b) {
+            m_mon.set_budget(b);
+            m_trail.push_scope();
+            for (auto const& [t, r] : mems)
+                m_mon.add(t, r, nullptr);
+            lbool got = m_mon.check();
+            m_trail.pop_scope(1);
+            if (got == l_undef)
+                ++gave_up;
+            else if (got != truth)
+                ++wrong;
+        }
+        m_mon.set_budget(saved);
+        bool ok = wrong == 0;
+        if (!ok) ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name << "  wrong=" << wrong
+                  << " gave-up=" << gave_up << "/60\n";
     }
 
     lbool smt_check(expr_ref_vector const& assertions, bool enable_monadic = true) {
@@ -952,6 +1046,60 @@ public:
             ms.push_back(std::make_pair((expr*)x.get(), (expr*)bStarX.get()));    // 1: x in b*
             ms.push_back(std::make_pair((expr*)x.get(), (expr*)aP.get()));        // 2: x in a+
             check_core("z in a* (& x in b* & x in a+)", ms, std::set<unsigned>{1, 2});
+        }
+
+        std::cout << "=== seq_monadic: resumable enumeration ===\n";
+        {
+            expr_ref z = var("z");
+            expr_ref aStar(star(a), m), abStar(star(cat(a, b)), m);
+            expr_ref aaS(star(cat(a, a)), m), a_aaS(cat(a, star(cat(a, a))), m);
+            expr_ref t_xax = xwx(x, "a"), t_xyx = xyx(x, y), t_xay = xay(x, y);
+            std::pair<expr*, expr*> itl((expr*)z.get(), (expr*)aStar.get());  // z in a*
+
+            vector<std::pair<expr*, expr*>> ms;
+            ms.push_back(std::make_pair((expr*)t_xax.get(), (expr*)saas.get()));
+            check_iterate("x.a.x in Sig* aa Sig*", ms, itl);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t_xyx.get(), (expr*)abStar.get()));
+            check_iterate("x.y.x in (ab)*", ms, itl);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)aStar.get()));
+            ms.push_back(std::make_pair((expr*)t_xay.get(), (expr*)saas.get()));
+            check_iterate("x in a* & x.a.y in Sig* aa Sig*", ms, itl);
+
+            ms.reset();                                // two views per variable per branch
+            ms.push_back(std::make_pair((expr*)t_xax.get(), (expr*)saas.get()));
+            ms.push_back(std::make_pair((expr*)t_xax.get(), (expr*)sbbs.get()));
+            check_iterate("x.a.x in Sig* aa Sig* & in Sig* bb Sig*", ms, itl);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t_xyx.get(), (expr*)saas.get()));
+            check_iterate("x.y.x in Sig* aa Sig*", ms, itl);
+
+            ms.reset();                                // refuted: no branch at all
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)aaS.get()));
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)a_aaS.get()));
+            check_iterate("x in (aa)* & x in a(aa)*", ms, itl);
+            check_budget_sweep("x in (aa)* & x in a(aa)* (unsat)", ms, l_false);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t_xyx.get(), (expr*)saas.get()));
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)abStar.get()));
+            check_budget_sweep("x.y.x in Sig* aa Sig* & x in (ab)* (sat)", ms, l_true);
+
+            expr_ref t5 = sconcat(x, sconcat(sword("a"), sconcat(x, sconcat(sword("a"), x))));
+            expr_ref abS(star(alt(a, b)), m);
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t5.get(), (expr*)saas.get()));
+            ms.push_back(std::make_pair((expr*)x.get(), (expr*)abS.get()));
+            check_budget_sweep("x.a.x.a.x in Sig* aa Sig* & x in (a|b)* (sat)", ms, l_true);
+
+            ms.reset();
+            ms.push_back(std::make_pair((expr*)t5.get(), (expr*)saas.get()));
+            ms.push_back(std::make_pair((expr*)t5.get(), (expr*)sbbs.get()));
+            check_budget_sweep("x.a.x.a.x in Sig* aa Sig* & in Sig* bb Sig* (sat)", ms, l_true);
         }
 
         // ---- decomposing intersections -------------------------------------------------

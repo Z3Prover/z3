@@ -53,6 +53,7 @@ namespace seq {
                 m_owner(owner), m_search(s) {}
             iterator begin() const;
             iterator end() const;
+            expr* at(unsigned idx) const;
             bool failed() const;
             failure failure_reason() const;
             bool is_dead();
