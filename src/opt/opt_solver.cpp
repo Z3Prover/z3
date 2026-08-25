@@ -310,6 +310,8 @@ namespace opt {
         // relative to other theories.
         // 
         inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
+        m_last_hint = val;
+        m_last_hint_status = l_undef;
         m_context.get_model(m_model);
         inf_eps val2;
         has_shared = true;
@@ -361,7 +363,11 @@ namespace opt {
         // 
         auto check_bound = [&]() {
             SASSERT(has_shared);
-            return bound_value(i, val) && l_true == m_context.check(0, nullptr);
+            lbool r = bound_value(i, val);
+            if (r == l_true) 
+                r = m_context.check(0, nullptr);
+            m_last_hint_status = r;
+            return r == l_true;
         };
 
         if (!val.is_finite()) {
@@ -381,6 +387,7 @@ namespace opt {
         else if (!check_bound())
             return false;
         m_objective_values[i] = val;
+        m_last_hint_status = l_true;
         TRACE(opt, { 
                 tout << "objective:     " << mk_pp(m_objective_terms.get(i), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
@@ -391,7 +398,7 @@ namespace opt {
         return true;
     }
 
-    bool opt_solver::bound_value(unsigned i, inf_eps& val) {
+    lbool opt_solver::bound_value(unsigned i, inf_eps& val) {
         push_core();
         expr_ref ge = mk_ge(i, val);
         assert_expr(ge);
@@ -402,7 +409,7 @@ namespace opt {
             m_objective_models.set(i, m_model.get());
         }
         pop_core(1);
-        return is_sat == l_true;
+        return is_sat;
     }
 
     lbool opt_solver::adjust_result(lbool r) {

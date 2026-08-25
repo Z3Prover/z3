@@ -520,6 +520,16 @@ namespace opt {
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);
         if (result == l_true) { m_optsmt.get_model(m_model, m_labels); SASSERT(m_model); }
+        if (result == l_undef) {
+            // best model found so far, e.g. the lower end of a reported interval.
+            model_ref mdl;
+            svector<symbol> labels;
+            m_optsmt.get_model(mdl, labels);
+            if (mdl) {
+                m_model = mdl;
+                m_labels = labels;
+            }
+        }
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
         if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
