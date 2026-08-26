@@ -61,6 +61,10 @@ namespace smt {
         vector<prop_item>       m_prop_queue;
         unsigned                m_prop_qhead = 0;
         obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
+        obj_hashtable<expr>     m_replace_contains; // all contains guards introduced by replace axioms
+        bool                    m_tracking_replace_contains = false;
+        unsigned                m_num_replace_terms = 0;
+        unsigned                m_num_contains_terms = 0;
         obj_hashtable<expr>     m_no_diseq_set;     // track expressions that should not trigger new disequality axioms
         hashtable<literal, obj_hash<literal>, default_eq<literal>>    m_ignored_mem;     // track membership constraints that should not be passed to Nielsen
         expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant
@@ -154,7 +158,7 @@ namespace smt {
         // private helpers
         void populate_nielsen_graph();
         void eager_structural_check();
-        void explain_nielsen_conflict();
+        bool explain_nielsen_conflict();
         // benchmark-harvest: block the current assignment of membership/equation
         // literals so the SAT solver tries a different one.  Returns false if there
         // is nothing to block (empty clause).  Intentionally unsound.

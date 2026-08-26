@@ -331,6 +331,26 @@ static void test_nseq_replace_symbolic_pattern() {
     std::cout << "  ok: symbolic str.replace is unsat/sat according to replace_axiom\n";
 }
 
+static void test_nseq_replace_constant_pattern() {
+    std::cout << "test_nseq_replace_constant_pattern\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    smt::context ctx(m, params);
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref source(m.mk_const(symbol("replace_source"), str_sort), m);
+    const expr_ref a(su.str.mk_string(zstring("a")), m);
+    const expr_ref x(su.str.mk_string(zstring("X")), m);
+    const expr_ref replace(su.str.mk_replace(source, a, x), m);
+
+    ctx.assert_expr(expr_ref(su.str.mk_contains(source, a), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(replace, source), m));
+    VERIFY(ctx.check() == l_false);
+    std::cout << "  ok: positive replace containment uses the finite witness axiom\n";
+}
+
 static void test_nseq_replace_membership_without_relevancy() {
     std::cout << "test_nseq_replace_membership_without_relevancy\n";
     ast_manager m;
@@ -454,6 +474,7 @@ void tst_nseq_basic() {
     test_setup_seq_str_dispatches_nseq();
     test_nseq_replace_rigidity_scope();
     test_nseq_replace_symbolic_pattern();
+    test_nseq_replace_constant_pattern();
     test_nseq_replace_membership_without_relevancy();
     test_nseq_fine_wilf_e2e_unsat();
     test_nseq_fine_wilf_e2e_sat();

@@ -49,6 +49,15 @@ namespace smt {
             [&](expr_ref_vector const &clause) {
             literal_vector lits;
             for (auto const &e : clause) {
+                expr* atom = nullptr;
+                if (m_tracking_replace_contains) {
+                    if (!m.is_not(e, atom))
+                        atom = e;
+                    if (m_seq.str.is_contains(atom) && !m_replace_contains.contains(atom)) {
+                        m_replace_contains.insert(atom);
+                        ctx.push_trail(insert_obj_trail<expr>(m_replace_contains, atom));
+                    }
+                }
                 auto lit = mk_literal(e);
                 if (lit == false_literal)
                     continue;
@@ -168,6 +177,15 @@ namespace smt {
 
         // register in our private sgraph
         get_snode(term);
+
+        if (m_seq.str.is_replace(term)) {
+            ctx.push_trail(value_trail(m_num_replace_terms));
+            ++m_num_replace_terms;
+        }
+        if (m_seq.str.is_contains(term)) {
+            ctx.push_trail(value_trail(m_num_contains_terms));
+            ++m_num_contains_terms;
+        }
 
         if (m_seq.is_seq(term) && m_axioms.sk().is_skolem(term))
             ensure_length_var(term);
@@ -366,6 +384,15 @@ namespace smt {
                     m_axioms.suffix_axiom(e);
             }
             else if (m_seq.str.is_contains(e)) {
+                if (m_replace_contains.contains(e)) {
+                    if (is_true)
+                        m_axioms.contains_true_axiom(e);
+                    else {
+                        flet<bool> tracking(m_tracking_replace_contains, true);
+                        m_axioms.unroll_not_contains(e);
+                    }
+                    return;
+                }
                 zstring str;
                 if (m_seq.str.is_string(to_app(e)->get_arg(1), str)) {
                     // contains(u, v) with v const => u \in \Sigma* v \Sigma^*
@@ -584,8 +611,12 @@ namespace smt {
         if (r == seq::nielsen_graph::search_result::unsat) {
             IF_VERBOSE(1, verbose_stream() << "nseq eager: structural conflict\n";);
             TRACE(seq, tout << "nseq eager: structural conflict\n");
-            ++m_num_eager_conflicts;
-            explain_nielsen_conflict(); // reads conflict_sources() + root, then sets the conflict
+            if (explain_nielsen_conflict())
+                ++m_num_eager_conflicts;
+            else {
+                m_nielsen.eager_invalidate();
+                m_eager_processed = 0;
+            }
         }
         // Keep the chain for the next propagation (incremental).  It is discarded by
         // pop_scope_eh / final_check's reset, never here.
@@ -792,8 +823,10 @@ namespace smt {
             m_axioms.indexof_axiom(n);
         else if (m_seq.str.is_last_index(n))
             m_axioms.last_indexof_axiom(n);
-        else if (m_seq.str.is_replace(n))
+        else if (m_seq.str.is_replace(n)) {
+            flet<bool> tracking(m_tracking_replace_contains, true);
             m_axioms.replace_axiom(n);
+        }
         else if (m_seq.str.is_replace_all(n))
             m_axioms.replace_all_axiom(n);
         else if (m_seq.str.is_extract(n))
@@ -901,6 +934,14 @@ namespace smt {
 
     final_check_status theory_nseq::final_check_eh(unsigned /*final_check_round*/) {
         try {
+            // Incremental not-contains unrolling can otherwise build a deep
+            // recursive expansion on contains-heavy replace benchmarks.
+            constexpr unsigned max_replace_contains_terms = 12;
+            if (m_num_replace_terms && m_num_contains_terms >= max_replace_contains_terms) {
+                TRACE(seq, tout << "nseq final_check: replace/contains expansion limit reached\n");
+                return FC_GIVEUP;
+            }
+
             // Always assert non-negativity for all string theory vars,
             // even when there are no string equations/memberships.
             if (assert_nonneg_for_all_vars()) {
@@ -1102,7 +1143,8 @@ namespace smt {
             if (result == seq::nielsen_graph::search_result::unsat) {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
                 TRACE(seq, tout << "nseq final_check: solve UNSAT\n");
-                explain_nielsen_conflict();
+                if (!explain_nielsen_conflict())
+                    m_can_hot_restart = false;
                 return FC_CONTINUE;
             }
 
@@ -1247,14 +1289,20 @@ namespace smt {
     // Conflict explanation
     // -----------------------------------------------------------------------
 
-    void theory_nseq::explain_nielsen_conflict() {
+    bool theory_nseq::explain_nielsen_conflict() {
         enode_pair_vector eqs;
         literal_vector lits;
         for (seq::dep_source const& d : m_nielsen.conflict_sources()) {
             if (std::holds_alternative<enode_pair>(d))
                 eqs.push_back(std::get<enode_pair>(d));
-            else if (std::holds_alternative<sat::literal>(d))
-                lits.push_back(std::get<sat::literal>(d));
+            else if (std::holds_alternative<sat::literal>(d)) {
+                const literal lit = std::get<sat::literal>(d);
+                if (lit == null_literal || lit.var() >= ctx.get_num_bool_vars()) {
+                    TRACE(seq, tout << "nseq conflict cites a deleted literal; rebuilding graph\n");
+                    return false;
+                }
+                lits.push_back(lit);
+            }
             else
                 UNREACHABLE();
         }
@@ -1389,6 +1437,7 @@ namespace smt {
         }
         std::flush(std::cout);
 #endif
+        return true;
     }
 
     void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {

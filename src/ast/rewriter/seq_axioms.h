@@ -112,7 +112,7 @@ namespace seq {
         void str_from_code_axiom(expr* n);
         void unit_axiom(expr* n);
         void length_axiom(expr* n);
-        void unroll_not_contains(expr* e);
+        void unroll_not_contains(expr* e); // one-step expansion used by sequence solvers
         void not_contains_axiom(expr *e);
         void replace_re_axiom(expr* e);
         void replace_all_axiom(expr* e);
@@ -133,4 +133,3 @@ namespace seq {
     };
 
 }
-
