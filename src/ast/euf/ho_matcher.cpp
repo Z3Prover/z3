@@ -422,8 +422,7 @@ namespace euf {
             for (unsigned i = wi.index(); i < candidates.size(); ++i) {
                 expr* candidate = candidates[i];
                 wi.set_index(i + 1);
-                if (candidate->get_sort() != lhs->get_sort())
-                    continue;
+                SASSERT (candidate->get_sort() == lhs->get_sort());                    
                 expr_ref diseq(m.mk_eq(rhs, candidate), m);
                 add_pattern(diseq);
                 m_goals.push(&wi, wi.level, wi.term_offset(), diseq, m.mk_false());
