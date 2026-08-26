@@ -857,6 +857,83 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
+    // Modifier: apply_eq_approx  (word equation vs the languages of its tokens)
+    
+    static const unsigned EQ_APPROX_MAX_STATES = 1u << 12;
+
+    void nielsen_graph::ensure_eq_approx() {
+        if (m_eq_approx_engine)
+            return;
+        m_eq_approx_engine = alloc(seq_eq_approx, m_eq_approx_rw, EQ_APPROX_MAX_STATES,
+                                   seq::transition_mode::light_antimirov_tm);
+    }
+
+    bool nielsen_graph::apply_eq_approx(nielsen_node* node) {
+        if (!m_eq_approx)
+            return false;
+        auto const& eqs = node->str_eqs();
+        auto const& mems = node->str_mems();
+        if (eqs.empty() || mems.empty())
+            return false;
+
+        ensure_eq_approx();
+        seq_eq_approx& eng = *m_eq_approx_engine;
+        eng.reset_views();
+        
+        obj_map<expr, dep_tracker> dep_of;
+        for (str_mem const& mem : mems) {
+            // an unresolved symbolic-derivative residual (ite) belongs to
+            // apply_regex_if_split; the module has no case for it
+            if (!mem.is_plain() || mem.m_str->length() != 1 || mem.m_regex->is_ite())
+                continue;
+            // a constant already IS its language; a view would replace {c} by the
+            // wider L(regex), which is sound but strictly weaker
+            if (mem.m_str->is_char() || mem.m_str->is_empty())
+                continue;
+            expr* t = mem.m_str->get_expr();
+            eng.add_view(t, seq::view::membership(mem.m_regex->get_expr()));
+            dep_tracker d = nullptr;
+            dep_of.find(t, d);
+            dep_of.insert(t, m_dep_mgr.mk_join(d, mem.m_dep));
+        }
+        if (dep_of.empty())
+            return false;
+
+        auto constrained = [&](euf::snode const* s) {
+            for (euf::snode const* t : *s) {
+                if (dep_of.contains(t->get_expr()))
+                    return true;
+            }
+            return false;
+        };
+
+        for (str_eq const& eq : eqs) {
+            if (eq.is_trivial())
+                continue;
+            // Without a constrained token the check sees the bare word equation, whose
+            // refutations (a clash of constants) simplify_and_init already makes.
+            if (!constrained(eq.m_lhs) && !constrained(eq.m_rhs))
+                continue;
+            if (eng.check(eq.m_lhs->get_expr(), eq.m_rhs->get_expr()) != l_false)
+                continue;
+            // The refutation rests on the equation and on the memberships the check
+            // consulted, and on nothing else.
+            dep_tracker dep = eq.m_dep;
+            for (expr* t : eng.used()) {
+                dep_tracker d = nullptr;
+                if (dep_of.find(t, d))
+                    dep = m_dep_mgr.mk_join(dep, d);
+            }
+            TRACE(seq, tout << "eq approx: refuted " << eq_pp(eq) << " on "
+                            << eng.used().size() << " membership(s)\n");
+            node->set_general_conflict();
+            node->set_conflict(backtrack_reason::regex, dep);
+            return true;
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
     // Modifier: apply_monadic_landing  (monadic decomposition as a branching rule)
 
     // Cap on the branches this rule hands out for one node: the branch count is a product

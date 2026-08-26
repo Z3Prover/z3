@@ -38,6 +38,7 @@ Author:
 #include "ast/euf/euf_mam.h"
 #include "ast/euf/euf_sgraph.h"
 #include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/seq_eq_approx.h"
 #include "ast/rewriter/seq_monadic.h"
 #include "model/model.h"
 #include "util/lbool.h"
@@ -917,6 +918,7 @@ namespace seq {
         unsigned m_mod_regex_factorization = 0;
         unsigned m_mod_monadic_split   = 0;
         unsigned m_mod_monadic_landing = 0;
+        unsigned m_mod_eq_approx       = 0;
         // branches the monadic enumerator handed out, and enumerations it drained
         // cleanly (each of those closes a node)
         unsigned m_monadic_branches    = 0;
@@ -1004,6 +1006,7 @@ namespace seq {
         bool                          m_fine_wilf = false;
         bool                          m_monadic_split = false;
         bool                          m_monadic_landing = false;
+        bool                          m_eq_approx = false;
         // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
         unsigned                      m_exploration_budget = 512;
         // attach the view length abstraction to pinned variables
@@ -1081,6 +1084,13 @@ namespace seq {
         // Monadic-decomposition membership solver (seq_monadic); allocated lazily
         // on first use and released in reset().
         seq_monadic*     m_monadic = nullptr;
+        // Dedicated rewriter backing the word-equation view intersection used by
+        // apply_eq_approx, kept separate for the same reason as m_monadic_rw.
+        seq_rewriter            m_eq_approx_rw;
+        // Intersection of the two sides of an equation, read as concatenations of
+        // views (seq_eq_approx); allocated lazily on first use, released in reset()
+        // so its pinned derivative graph does not outlive the problem.
+        seq_eq_approx*   m_eq_approx_engine = nullptr;
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
@@ -1280,6 +1290,7 @@ namespace seq {
 
         void set_monadic_split(bool e) { m_monadic_split = e; }
         void set_monadic_landing(bool e) { m_monadic_landing = e; }
+        void set_eq_approx(bool e) { m_eq_approx = e; }
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
 
@@ -1827,6 +1838,18 @@ namespace seq {
 
         // Allocate m_monadic on first use.
         void ensure_monadic();
+
+        // Word-equation refutation by intersecting the two sides read as
+        // concatenations of views (seq_eq_approx).  Every token contributes one
+        // segment: a constant its own language, a token carrying a membership the
+        // language of that regex, anything else Sigma^*.  An empty intersection
+        // means no value satisfies the equation together with those memberships, so
+        // the node is a regex conflict.  Sound one-way only (like
+        // apply_monadic_split): never creates a child, never claims SAT.
+        bool apply_eq_approx(nielsen_node* node);
+
+        // Allocate m_eq_approx_engine on first use.
+        void ensure_eq_approx();
 
         // whole-language monadic decomposition as a BRANCHING rule.  Where
         // apply_monadic_split consumes only seq_monadic's refutation, this consumes

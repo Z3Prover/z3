@@ -93,6 +93,7 @@ public:
     // turns a decision around only when the forward search runs out of budget, which keeps
     // the cost of the second direction to the decisions that had no answer anyway.
     enum class orientation { forward, reversed, retry };
+    class iterator;
 
 private:
     struct config {
@@ -259,7 +260,6 @@ private:
         }
     };
 
-    class iterator;
     iterator* m_active_iter = nullptr;  // whose branch the engine's search state is
 
     // Exchange the live search with `s` (everything but the pins, which `s` owns).

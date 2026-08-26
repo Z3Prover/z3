@@ -4107,6 +4107,101 @@ static void test_fine_wilf_solve_commuting_sat() {
     std::cout << "  ok\n";
 }
 
+// -----------------------------------------------------------------------
+// Word-equation view intersection (apply_eq_approx, priority 4b)
+// -----------------------------------------------------------------------
+
+// Build  x.z = y.w  with x, y constrained by the given regexes.  Returns the
+// root after generate_extensions has run.
+static seq::nielsen_node* run_eq_approx(seq::nielsen_graph& ng, euf::sgraph& sg, seq_util& seq,
+                                        ast_manager& m, expr* rx, expr* ry, bool enabled,
+                                        bool& extended) {
+    ng.set_eq_approx(enabled);
+    euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode const* y = sg.mk_var(symbol("y"), sg.get_str_sort());
+    euf::snode const* z = sg.mk_var(symbol("z"), sg.get_str_sort());
+    euf::snode const* w = sg.mk_var(symbol("w"), sg.get_str_sort());
+    ng.add_str_mem(x, sg.mk(rx));
+    ng.add_str_mem(y, sg.mk(ry));
+    ng.add_str_eq(sg.mk_concat(x, z), sg.mk_concat(y, w));
+    seq::nielsen_node* root = ng.root();
+    extended = ng.generate_extensions(root);
+    return root;
+}
+
+// x.z = y.w with x in a+ and y in b+: every value of one side starts with 'a'
+// and of the other with 'b', so the two concatenations share no word.
+static void test_eq_approx_refutes_disjoint_heads() {
+    std::cout << "test_eq_approx_refutes_disjoint_heads\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+
+    expr_ref ap(seq.re.mk_plus(seq.re.mk_to_re(seq.str.mk_string(zstring("a")))), m);
+    expr_ref bp(seq.re.mk_plus(seq.re.mk_to_re(seq.str.mk_string(zstring("b")))), m);
+    bool extended = false;
+    seq::nielsen_node* root = run_eq_approx(ng, sg, seq, m, ap, bp, true, extended);
+    VERIFY(extended);
+    SASSERT(root->outgoing().empty());     // a conflict rule: closes, never branches
+    SASSERT(root->is_general_conflict());
+    std::cout << "  ok\n";
+}
+
+// The same node with the rule off: it is handed to a branching modifier instead.
+static void test_eq_approx_disabled_falls_through() {
+    std::cout << "test_eq_approx_disabled_falls_through\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+
+    expr_ref ap(seq.re.mk_plus(seq.re.mk_to_re(seq.str.mk_string(zstring("a")))), m);
+    expr_ref bp(seq.re.mk_plus(seq.re.mk_to_re(seq.str.mk_string(zstring("b")))), m);
+    bool extended = false;
+    seq::nielsen_node* root = run_eq_approx(ng, sg, seq, m, ap, bp, false, extended);
+    VERIFY(extended);
+    SASSERT(!root->outgoing().empty());
+    SASSERT(!root->is_general_conflict());
+    std::cout << "  ok\n";
+}
+
+// x in a+, y in (a|b)+: the sides do share words, so the check falls through
+// to a branching modifier rather than closing the node.
+static void test_eq_approx_consistent_falls_through() {
+    std::cout << "test_eq_approx_consistent_falls_through\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+
+    expr_ref a(seq.re.mk_to_re(seq.str.mk_string(zstring("a"))), m);
+    expr_ref b(seq.re.mk_to_re(seq.str.mk_string(zstring("b"))), m);
+    expr_ref ap(seq.re.mk_plus(a), m);
+    expr_ref abp(seq.re.mk_plus(seq.re.mk_union(a, b)), m);
+    bool extended = false;
+    seq::nielsen_node* root = run_eq_approx(ng, sg, seq, m, ap, abp, true, extended);
+    VERIFY(extended);
+    SASSERT(!root->outgoing().empty());
+    SASSERT(!root->is_general_conflict());
+    std::cout << "  ok\n";
+}
+
 void tst_seq_nielsen() {
     std::cout << std::unitbuf; // flush per write: locate crashes/assertions
     test_dep_tracker();
@@ -4236,4 +4331,8 @@ void tst_seq_nielsen() {
     test_fine_wilf_disabled_falls_through();
     test_fine_wilf_symbolic_refire_guard();
     test_fine_wilf_solve_commuting_sat();
+    // Word-equation view intersection (apply_eq_approx, priority 4b)
+    test_eq_approx_refutes_disjoint_heads();
+    test_eq_approx_disabled_falls_through();
+    test_eq_approx_consistent_falls_through();
 }

@@ -1023,6 +1023,7 @@ namespace smt {
                 m_nielsen.set_fine_wilf(get_fparams().m_nseq_fine_wilf);
                 m_nielsen.set_monadic_split(get_fparams().m_nseq_monadic_split);
                 m_nielsen.set_monadic_landing(get_fparams().m_nseq_monadic_landing);
+                m_nielsen.set_eq_approx(get_fparams().m_nseq_eq_approx);
                 m_nielsen.set_exploration_budget(get_fparams().m_nseq_exploration_budget);
                 m_nielsen.set_view_length_constraints(get_fparams().m_nseq_view_length_constraints);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);

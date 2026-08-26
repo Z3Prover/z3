@@ -774,6 +774,10 @@ namespace seq {
         if (apply_const_num_unwinding(node))
             return ++m_stats.m_mod_const_num_unwinding, true;
 
+        // Priority 4b: EqApprox - intersect the two sides of an equation
+        if (!harvest_mode() && apply_eq_approx(node))
+            return ++m_stats.m_mod_eq_approx, true;
+
         // Priority 5: EqSplit - split equations into two (single progress child)
         if (apply_eq_split(node))
             return ++m_stats.m_mod_eq_split, true;
