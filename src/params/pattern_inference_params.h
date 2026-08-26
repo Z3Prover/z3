@@ -33,6 +33,7 @@ struct pattern_inference_params {
     bool                          m_pi_decompose_patterns;
     arith_pattern_inference_kind  m_pi_arith;
     bool                          m_pi_use_database;
+    bool                          m_pi_legacy_nested_binders;
     unsigned                      m_pi_arith_weight;
     unsigned                      m_pi_non_nested_arith_weight;
     bool                          m_pi_pull_quantifiers;
@@ -48,5 +49,3 @@ struct pattern_inference_params {
 
     void display(std::ostream & out) const;
 };
-
-

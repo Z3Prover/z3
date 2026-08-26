@@ -27,6 +27,7 @@ void pattern_inference_params::updt_params(params_ref const & _p) {
     m_pi_decompose_patterns      = p.decompose_patterns();
     m_pi_arith                   = static_cast<arith_pattern_inference_kind>(p.arith());
     m_pi_use_database            = p.use_database();
+    m_pi_legacy_nested_binders   = p.legacy_nested_binders();
     m_pi_arith_weight            = p.arith_weight();
     m_pi_non_nested_arith_weight = p.non_nested_arith_weight();
     m_pi_pull_quantifiers        = p.pull_quantifiers();
@@ -43,6 +44,7 @@ void pattern_inference_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_pi_decompose_patterns);
     DISPLAY_PARAM(m_pi_arith);
     DISPLAY_PARAM(m_pi_use_database);
+    DISPLAY_PARAM(m_pi_legacy_nested_binders);
     DISPLAY_PARAM(m_pi_arith_weight);
     DISPLAY_PARAM(m_pi_non_nested_arith_weight);
     DISPLAY_PARAM(m_pi_pull_quantifiers);

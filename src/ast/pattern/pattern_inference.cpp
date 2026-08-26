@@ -181,6 +181,10 @@ inline void pattern_inference_cfg::collect::save(expr * n, unsigned delta, info 
 }
 
 void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
+    if (m_owner.m_params.m_pi_legacy_nested_binders) {
+        save_candidate_legacy(n, delta);
+        return;
+    }
     switch (n->get_kind()) {
     case AST_VAR: {
         uint_set free_vars, bound_vars;
@@ -189,7 +193,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
             free_vars.insert(idx - delta);
         else if (idx < delta)
             bound_vars.insert(idx);
-        info * i = alloc(info, free_vars, bound_vars, 1);
+        info * i = alloc(info, m, n, free_vars, bound_vars, 1);
         save(n, delta, i);
         return;
     }
@@ -201,7 +205,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         }
 
         if (c->get_num_args() == 0) {
-            save(n, delta, alloc(info, uint_set(), uint_set(), 1));
+            save(n, delta, alloc(info, m, n, uint_set(), uint_set(), 1));
             return;
         }
 
@@ -219,7 +223,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
             size       += child_info->m_size;
         }
 
-        save(n, delta, alloc(info, free_vars, bound_vars, size));
+        save(n, delta, alloc(info, m, n, free_vars, bound_vars, size));
         // Remark: arithmetic patterns are only used if they are nested inside other terms.
         // That is, we never consider x + 1 as pattern. On the other hand, f(x+1) can be a pattern
         // if arithmetic is not in the forbidden list.        
@@ -251,7 +255,82 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
             if (b >= num_decls)
                 bound_vars.insert(b - num_decls);
         
-        save(n, delta, alloc(info, body_info->m_free_vars, bound_vars, body_info->m_size + 1));
+        save(n, delta, alloc(info, m, n, body_info->m_free_vars, bound_vars, body_info->m_size + 1));
+        return;
+    }
+    default:
+        save(n, delta, nullptr);
+        return;
+    }
+}
+
+void pattern_inference_cfg::collect::save_candidate_legacy(expr * n, unsigned delta) {
+    switch (n->get_kind()) {
+    case AST_VAR: {
+        unsigned idx = to_var(n)->get_idx();
+        if (idx < delta) {
+            save(n, delta, nullptr);
+            return;
+        }
+        idx -= delta;
+        uint_set free_vars;
+        if (idx < m_num_bindings)
+            free_vars.insert(idx);
+        expr * new_node = delta == 0 ? n : m.mk_var(idx, to_var(n)->get_sort());
+        save(n, delta, alloc(info, m, new_node, free_vars, 1));
+        return;
+    }
+    case AST_APP: {
+        app * c = to_app(n);
+        if (m_owner.is_forbidden(c)) {
+            save(n, delta, nullptr);
+            return;
+        }
+        if (c->get_num_args() == 0) {
+            save(n, delta, alloc(info, m, n, uint_set(), 1));
+            return;
+        }
+        ptr_buffer<expr> args;
+        bool changed = false;
+        uint_set free_vars;
+        unsigned size = 1;
+        for (expr * child : *c) {
+            info * child_info = nullptr;
+            VERIFY(m_cache.find(entry(child, delta), child_info));
+            if (!child_info) {
+                save(n, delta, nullptr);
+                return;
+            }
+            args.push_back(child_info->m_node);
+            free_vars |= child_info->m_free_vars;
+            size += child_info->m_size;
+            changed |= child != child_info->m_node;
+        }
+        app * new_node = changed ? m.mk_app(c->get_decl(), args.size(), args.data()) : c;
+        save(n, delta, alloc(info, m, new_node, free_vars, size));
+        family_id fid = c->get_family_id();
+        decl_kind k = c->get_decl_kind();
+        if (!free_vars.empty() &&
+            (fid != m_afid || (fid == m_afid && !m_owner.m_nested_arith_only &&
+             (k == OP_DIV || k == OP_IDIV || k == OP_MOD || k == OP_REM || k == OP_MUL))))
+            m_owner.add_candidate(new_node, free_vars, size);
+        return;
+    }
+    case AST_QUANTIFIER: {
+        quantifier * q = to_quantifier(n);
+        unsigned num_decls = q->get_num_decls();
+        info * body_info = nullptr;
+        m_cache.find(entry(q->get_expr(), delta + num_decls), body_info);
+        if (!body_info) {
+            save(n, delta, nullptr);
+            return;
+        }
+        expr_ref new_body(m);
+        var_shifter shift(m);
+        shift(body_info->m_node, num_decls, new_body);
+        quantifier_ref new_q(m);
+        new_q = new_body == q->get_expr() ? q : m.update_quantifier(q, new_body);
+        save(n, delta, alloc(info, m, new_q, body_info->m_free_vars, body_info->m_size + 1));
         return;
     }
     default:

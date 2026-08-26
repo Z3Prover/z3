@@ -125,10 +125,13 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
         };
         
         struct info {
+            expr_ref    m_node;
             uint_set    m_free_vars, m_bound_vars;
             unsigned    m_size;
-            info(uint_set const & fvars, uint_set const& bvars, unsigned sz):
-                m_free_vars(fvars), m_bound_vars(bvars), m_size(sz) {}
+            info(ast_manager& m, expr * n, uint_set const& fvars, uint_set const& bvars, unsigned sz):
+                m_node(n, m), m_free_vars(fvars), m_bound_vars(bvars), m_size(sz) {}
+            info(ast_manager& m, expr * n, uint_set const& fvars, unsigned sz):
+                m_node(n, m), m_free_vars(fvars), m_size(sz) {}
         };
         
         ast_manager &            m;
@@ -144,6 +147,7 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
         bool visit_children(expr * n, unsigned delta);
         void save(expr * n, unsigned delta, info * i);
         void save_candidate(expr * n, unsigned delta);
+        void save_candidate_legacy(expr * n, unsigned delta);
         void reset();
     public:
         collect(ast_manager & m, pattern_inference_cfg & o):m(m), m_owner(o), m_afid(m.mk_family_id("arith")) {}
@@ -253,5 +257,3 @@ class pattern_inference_rw : public rewriter_tpl<pattern_inference_cfg> {
 public:
     pattern_inference_rw(ast_manager& m, pattern_inference_params const & params);
 };
-
-
