@@ -335,6 +335,8 @@ namespace smt {
                     auto y = q->get_arg(0);
                     if (x->get_root() == y->get_root())
                         continue;
+                    if (!is_new_axiom(p->get_expr(), q->get_expr()))
+                        continue;
                     expr_ref size(u.mk_size(s->get_expr()), m);
                     literal_vector lemma;
                     lemma.push_back(~mk_literal(p->get_expr()));
