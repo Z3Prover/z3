@@ -1788,7 +1788,7 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
 
 bool bv_rewriter::is_zero_extended(expr* e, expr*& x) {
     expr* zero = nullptr;
-    return m_util.is_concat(zero, x) && is_zero(zero);
+    return m_util.is_concat(e, zero, x) && is_zero(zero);
 }
 
 bool bv_rewriter::is_sign_extended(expr* e, expr*& x) {
