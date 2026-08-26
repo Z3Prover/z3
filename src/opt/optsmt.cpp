@@ -776,21 +776,55 @@ namespace opt {
         labels = m_labels;
     }
 
+    /**
+       \brief A coarse rational interval (l, u) that isolates a among the
+       roots of its defining polynomial (coeffs, consumed): the simplest
+       rationals between a and its neighbouring roots, an integer beyond the
+       extreme roots. Wide on purpose: the interval feeds the LP relaxation
+       of the next lex objective, and a tight bracket makes the LP hint for
+       that objective sit a hair above its true optimum, a gap the nlsat
+       stage would then have to close one cut at a time.
+    */
+    static void coarse_isolating_interval(ast_manager& m, algebraic_numbers::manager& am, algebraic_numbers::anum const& a,
+                                          svector<mpz>& coeffs, rational& l, rational& u) {
+        polynomial::manager pm(m.limit(), am.qm());
+        polynomial::var x = pm.mk_var();
+        polynomial_ref p(pm);
+        p = pm.mk_univariate(x, coeffs.size() - 1, coeffs.data());
+        scoped_anum_vector roots(am);
+        am.isolate_roots(p, roots);
+        unsigned j = 0;
+        while (j < roots.size() && !am.eq(roots[j], a))
+            ++j;
+        if (j == roots.size()) {
+            am.get_lower(a, l, 40);
+            am.get_upper(a, u, 40);
+            return;
+        }
+        scoped_anum lo(am), hi(am);
+        if (j == 0)
+            am.int_lt(a, lo);
+        else
+            am.select(roots[j-1], a, lo);
+        if (j + 1 == roots.size())
+            am.int_gt(a, hi);
+        else
+            am.select(a, roots[j+1], hi);
+        am.to_rational(lo, l);
+        am.to_rational(hi, u);
+    }
+
     // force lower_bound(i) <= objective_value(i)    
     void optsmt::commit_assignment(unsigned i) {
         inf_eps lo = m_lower[i];
         TRACE(opt, tout << "set lower bound of " << mk_pp(m_objs.get(i), m) << " to: " << lo << "\n";
               tout << get_lower(i) << ":" << get_upper(i) << "\n";);    
-        // Only assert bounds for bounded objectives
-        if (lo.is_finite()) {
-            m_s->assert_expr(m_s->mk_ge(i, lo));
-        }
-        // An algebraic optimum a (nlsat cells) is committed exactly: with p
-        // the defining polynomial of a and (l, u) a rational isolating
-        // interval, p(obj) = 0 /\ l <= obj <= u pins obj to a.
         expr* e = m_exact.get(i);
         arith_util arith(m);
         if (e && arith.is_irrational_algebraic_numeral(e)) {
+            // An algebraic optimum a (nlsat cells) is committed exactly: with
+            // p the defining polynomial of a and (l, u) a rational isolating
+            // interval, p(obj) = 0 /\ l <= obj <= u pins obj to a.
             algebraic_numbers::manager& am = arith.am();
             algebraic_numbers::anum const& a = arith.to_irrational_algebraic_numeral(e);
             svector<mpz> coeffs;
@@ -802,16 +836,17 @@ namespace opt {
                 expr_ref c(arith.mk_numeral(rational(coeffs[k]), false), m);
                 poly = poly ? arith.mk_add(arith.mk_mul(poly, obj), c) : c;
             }
-            for (auto& c : coeffs)
-                am.qm().del(c);
             rational l, u;
-            am.get_lower(a, l, 40);
-            am.get_upper(a, u, 40);
+            coarse_isolating_interval(m, am, a, coeffs, l, u);
             expr_ref zero(arith.mk_real(rational(0)), m);
             m_s->assert_expr(m.mk_eq(poly, zero));
             m_s->assert_expr(arith.mk_ge(obj, arith.mk_numeral(l, false)));
             m_s->assert_expr(arith.mk_le(obj, arith.mk_numeral(u, false)));
             TRACE(opt, tout << "commit exact " << mk_pp(e, m) << ": " << poly << " = 0, [" << l << ", " << u << "]\n";);
+        }
+        else if (lo.is_finite()) {
+            // Only assert bounds for bounded objectives
+            m_s->assert_expr(m_s->mk_ge(i, lo));
         }
     }
 
