@@ -28,6 +28,7 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/var_subst.h"
+#include <climits>
 
 
 namespace euf {
@@ -356,6 +357,9 @@ namespace euf {
         ptr_vector<match_goal> m_backtrack;
         unsigned         m_max_depth = 10;        // bound on imitation/projection depth (secondary safety cap)
         unsigned         m_max_iterations = 10000; // per-search expansion-step budget to guarantee termination
+        unsigned         m_max_matches = UINT_MAX;
+        unsigned         m_num_matches = 0;
+        bool             m_match_limit_reached = false;
         mutable array_rewriter   m_rewriter;
         array_util       m_array;
         obj_map<app, app*>     m_pat2hopat, m_hopat2pat;
@@ -392,6 +396,10 @@ namespace euf {
         };
 
         // Populate `fr` from the select chain `pats`.
+        bool is_repeated_functional_projection(match_goal const& wi, expr* arg, expr* t) const;
+
+        bool process_functional_projection(match_goal &wi, var* v, ptr_vector<app> const& pats, expr* arg, expr* t);
+
         void init_flex_frame(ptr_vector<app> const &pats, flex_frame &fr);
 
         // Allocate a fresh meta-variable of range sort `range` over the frame,
@@ -463,6 +471,7 @@ namespace euf {
         std::function<expr *(expr *)> m_root;                   // root of equivalence class
         std::function<expr *(expr *)> m_next;                   // next element in equivalence class
         std::function<bool(expr *)> m_is_cgr_root;              // is root of congruence class
+        std::function<void(expr *, ptr_vector<expr>&)> m_enum_terms;
 
         bool use_cgr() const {
             SASSERT(!m_are_equal || (m_are_distinct && m_root && m_next && m_is_cgr_root));
@@ -502,14 +511,21 @@ namespace euf {
         void set_is_cgr_root(std::function<bool(expr *)> &is_cgr_root) {
             m_is_cgr_root = is_cgr_root;
         }
+        void set_enum_terms(std::function<void(expr *, ptr_vector<expr>&)>& enum_terms) {
+            m_enum_terms = enum_terms;
+        }
 
         void set_max_depth(unsigned d) { m_max_depth = d; }
 
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
 
+        void set_max_matches(unsigned n) { m_max_matches = n; }
+
         void operator()(expr *pat, expr *t, unsigned num_vars);
 
         void operator()(expr* pat, expr* t, unsigned num_bound, unsigned num_vars);
+
+        void operator()(unsigned num_goals, expr* const* pats, expr* const* terms, unsigned num_vars);
 
         std::pair<quantifier*, app*> compile_ho_pattern(quantifier* q, app* p);
 
@@ -530,7 +546,11 @@ namespace euf {
 
         bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
 
-        quantifier* hoq2q(quantifier* q) const { return m_hoq2q[q]; }
+        quantifier* hoq2q(quantifier* q) const {
+            quantifier* result = nullptr;
+            m_hoq2q.find(q, result);
+            return result;
+        }
 
 
         svector<std::pair<unsigned, expr*>> const* get_flex_subterms(app* p) const {

@@ -611,10 +611,6 @@ namespace smt {
             SASSERT(is_map(map));
             instantiate_select_map_axiom(s, map);
         }
-        for (enode *lam : d_full->m_lambdas) {
-            SASSERT(is_lambda(lam->get_expr()));
-            instantiate_select_lambda_axiom(s, lam);
-        }
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (enode * map : d_full->m_parent_maps) {
                 SASSERT(is_map(map));
@@ -738,35 +734,6 @@ namespace smt {
 
         return try_assign_eq(sel1, sel2);
     }
-
-    bool theory_array_full::instantiate_select_lambda_axiom(enode* sl, enode* lambda) {
-        app* select = sl->get_app();
-        SASSERT(is_select(select));
-        SASSERT(is_lambda(lambda->get_expr()));
-        SASSERT(lambda->get_sort() == sl->get_arg(0)->get_sort());
-
-        if (!ctx.add_fingerprint(lambda, lambda->get_owner_id(), sl->get_num_args() - 1, sl->get_args() + 1)) {
-            return false;
-        }
-
-        m_stats.m_num_select_lambda_axiom++;
-
-        unsigned num_args = select->get_num_args();
-        ptr_buffer<expr> args;
-        args.push_back(lambda->get_expr());
-        for (unsigned i = 1; i < num_args; ++i)
-            args.push_back(select->get_arg(i));
-
-        expr_ref sel1(m), sel2(m);
-        sel1 = mk_select(args.size(), args.data());
-        sel2 = sel1;
-        ctx.get_rewriter()(sel2);
-        ctx.internalize(sel1, false);
-        ctx.internalize(sel2, false);
-        TRACE(array, tout << mk_bounded_pp(sel1, m) << "\n==\n" << mk_bounded_pp(sel2, m) << "\n";);
-        return try_assign_eq(sel1, sel2);
-    }
-
 
     //
     //

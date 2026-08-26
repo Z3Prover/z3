@@ -148,6 +148,7 @@
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
     X(tptp) \
+    X(tptp_crashes) \
     X(ext_numeral) \
     X(interval) \
     X(value_generator) \
@@ -202,6 +203,7 @@
     X(scoped_vector) \
     X(sls_seq_plugin) \
     X(ho_matcher) \
+    X(ho_qsolver) \
     X(finite_set) \
     X(finite_set_rewriter) \
     X(seq_regex_bisim) \
