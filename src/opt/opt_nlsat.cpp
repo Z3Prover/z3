@@ -299,6 +299,7 @@ namespace opt {
         // 3. F-Sat / F-Close loop: each model is blocked by t > value.
         scoped_anum best(am);
         bool has_best = false;
+        unsigned unbounded_rounds = 0;
         st = l_undef;
         for (unsigned round = 0; round < max_rounds && m.inc(); ++round) {
             res.m_rounds = round + 1;
@@ -312,11 +313,18 @@ namespace opt {
                        verbose_stream() << (s.max_var_attained() ? " sup" : " below-sup") << ")\n");
             res.m_model = extract_model(s, x2t, b2a, T, mc.get());
             if (s.max_var_unbounded()) {
-                // the feasible set of t was unbounded above when t was assigned:
-                // the objective may be unbounded; stop with the improved model.
-                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: feasible set unbounded above)\n");
-                break;
+                // The feasible set of t was unbounded above when t was
+                // assigned: nothing nlsat has learned so far bounds the
+                // objective. Keep cutting - a conflict above the optimum
+                // teaches nlsat the bound - but not for long: the objective
+                // may really be unbounded.
+                if (++unbounded_rounds > 4) {
+                    IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: feasible set unbounded above)\n");
+                    break;
+                }
             }
+            else
+                unbounded_rounds = 0;
             nlsat::literal l = mk_lower_bound(s, t, best, true);
             if (l == nlsat::null_literal) {
                 IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: root index not found)\n");
