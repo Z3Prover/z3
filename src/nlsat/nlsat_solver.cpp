@@ -275,7 +275,8 @@ namespace nlsat {
             m_scope_lvl(0),
             m_lemma(s),
             m_lazy_clause(s),
-            m_lemma_assumptions(m_asm) {
+            m_lemma_assumptions(m_asm),
+            m_max_sup(m_am) {
             updt_params(c.m_params);
             reset_statistics();
             mk_true_bvar();
@@ -1816,7 +1817,20 @@ namespace nlsat {
         void select_witness() {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
-            m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
+            if (m_xk == m_max_var) {
+                bool attained = false;
+                if (m_ism.pick_max_in_complement(m_infeasible[m_xk], w, m_max_sup, attained)) {
+                    m_max_attained = attained;
+                    m_max_unbounded = false;
+                }
+                else {
+                    m_max_attained = false;
+                    m_max_unbounded = true;
+                    m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
+                }
+            }
+            else
+                m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
             TRACE(nlsat, tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
             TRACE(nlsat_root, tout << "value as root object: "; m_am.display_root(tout, w); tout << "\n";);
@@ -2064,6 +2078,9 @@ namespace nlsat {
         }
 
         bool m_reordered = false;
+        var  m_max_var = null_var;       // optimization: variable assigned its maximal feasible value
+        bool m_max_attained = false;
+        bool m_max_unbounded = false;
         bool simple_check() {
             literal_vector learned_unit;
             simple_checker checker(m_pm, m_am, m_clauses, learned_unit, m_atoms, m_is_int.size());
@@ -2288,6 +2305,7 @@ namespace nlsat {
         scoped_literal_vector  m_lemma;
         scoped_literal_vector  m_lazy_clause;
         assumption_set_ref     m_lemma_assumptions; // assumption tracking
+        scoped_anum            m_max_sup;        // optimization: supremum of the max var's feasible set at its last assignment
 
         // Conflict resolution invariant: a marked literal is in m_lemma or on the trail stack.
 
@@ -3026,7 +3044,8 @@ namespace nlsat {
         }
 
         bool can_reorder() const {
-            return all_of(m_learned, [&](clause* c) { return !has_root_atom(*c); }) 
+            return m_max_var == null_var
+                && all_of(m_learned, [&](clause* c) { return !has_root_atom(*c); }) 
                 && all_of(m_clauses, [&](clause* c) { return !has_root_atom(*c); });
         }
 
@@ -4565,6 +4584,24 @@ namespace nlsat {
 
     explain& solver::get_explain() {
         return m_imp->m_explain;
+    }
+
+    void solver::set_max_var(var x) {
+        m_imp->m_max_var = x;
+        m_imp->m_max_attained = false;
+        m_imp->m_max_unbounded = false;
+    }
+
+    bool solver::max_var_attained() const {
+        return m_imp->m_max_attained;
+    }
+
+    bool solver::max_var_unbounded() const {
+        return m_imp->m_max_unbounded;
+    }
+
+    anum const& solver::max_var_sup() const {
+        return m_imp->m_max_sup;
     }
 
     void solver::reorder(unsigned sz, var const* p) {
