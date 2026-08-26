@@ -1,8 +1,6 @@
 # Enforce some CMake policies
 cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-
 # Read version from VERSION.txt file
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/scripts/VERSION.txt" Z3_VERSION_FROM_FILE)
 string(STRIP "${Z3_VERSION_FROM_FILE}" Z3_VERSION_FROM_FILE)
@@ -383,19 +381,19 @@ if (Z3_ENABLE_CFI)
       "Current compiler: ${CMAKE_CXX_COMPILER_ID}. "
       "You should set Z3_ENABLE_CFI to OFF or use Clang to compile.")
   endif()
-  
+
   if (NOT Z3_LINK_TIME_OPTIMIZATION)
     message(FATAL_ERROR "Cannot enable Control Flow Integrity without link-time optimization. "
       "You should set Z3_LINK_TIME_OPTIMIZATION to ON or Z3_ENABLE_CFI to OFF.")
   endif()
-  
+
   set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
   if (DEFINED CMAKE_CONFIGURATION_TYPES)
     # Multi configuration generator
     message(STATUS "Note CFI is only enabled for the following configurations: ${build_types_with_cfi}")
     # No need for else because this is the same as the set that LTO requires.
   endif()
-  
+
   message(STATUS "Enabling Control Flow Integrity (CFI) for Clang")
   z3_add_cxx_flag("-fsanitize=cfi" REQUIRED)
   z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED)
@@ -422,7 +420,7 @@ if (Z3_ENABLE_CFG)
   # Check for incompatible options (handle both / and - forms for robustness)
   string(REGEX MATCH "[-/]ZI" _has_ZI "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${CMAKE_CXX_FLAGS_MINSIZEREL}")
   string(REGEX MATCH "[-/]clr" _has_clr "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${CMAKE_CXX_FLAGS_MINSIZEREL}")
-  
+
   if(_has_ZI)
     message(WARNING "/guard:cf is incompatible with /ZI (Edit and Continue debug information). "
                    "Control Flow Guard will be disabled due to /ZI option.")
