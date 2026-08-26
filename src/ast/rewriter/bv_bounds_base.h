@@ -226,11 +226,10 @@ namespace bv {
                 return true;
             }
 
-            if (m_bv.is_sign_ext(t)) {
-                expr* arg = to_app(t)->get_arg(0);
-                if (is_nonnegative(arg)) {
-                    unsigned n = m_bv.get_bv_size(t) - m_bv.get_bv_size(arg);
-                    result = m_bv.mk_zero_extend(n, arg);
+            if (m_bv.is_sign_ext(t, t1)) {
+                if (is_nonnegative(t1)) {
+                    unsigned n = m_bv.get_bv_size(t) - m_bv.get_bv_size(t1);
+                    result = m_bv.mk_zero_extend(n, t1);
                     return true;
                 }
             }
