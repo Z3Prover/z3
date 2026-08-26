@@ -57,10 +57,8 @@ static inline unsigned hash_ull(unsigned long long a) {
 }
 
 static inline unsigned combine_hash(unsigned h1, unsigned h2) {
-    h2 -= h1; h2 ^= (h1 << 8);
-    h1 -= h2; h2 ^= (h1 << 16);
-    h2 -= h1; h2 ^= (h1 << 10);
-    return h2;
+    h1 ^= h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2);
+    return hash_u(h1);
 }
 
 static inline unsigned hash_u_u(unsigned a, unsigned b) {
