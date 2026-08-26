@@ -28,8 +28,14 @@ Author:
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "model/model.h"
+#include "nlsat/nlsat_types.h"
+#include "tactic/goal.h"
 #include "util/params.h"
 #include "util/lbool.h"
+
+namespace algebraic_numbers { class manager; class anum; }
+namespace nlsat { class solver; }
+class model_converter;
 
 namespace opt {
 
@@ -48,6 +54,7 @@ namespace opt {
             model_ref  m_model;              // best model
             unsigned   m_rounds = 0;
             result(ast_manager& m): m_value(m) {}
+            void reset();
         };
 
         nlsat_opt(ast_manager& m, params_ref const& p);
@@ -61,5 +68,14 @@ namespace opt {
         */
         lbool maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
                        unsigned max_rounds, result& r);
+
+    private:
+        // The steps of maximize, in order.
+        lbool preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+                         app_ref& T, goal_ref& pg);
+        bool load(goal const& pg, app* T, nlsat::solver& s, nlsat::var& t, expr_ref_vector& x2t, expr_ref_vector& b2a);
+        model_ref extract_model(nlsat::solver& s, expr_ref_vector const& x2t, expr_ref_vector const& b2a, app* T,
+                                model_converter* mc);
+        void set_result(algebraic_numbers::manager& am, algebraic_numbers::anum const& best, bool attained, result& res);
     };
 }
