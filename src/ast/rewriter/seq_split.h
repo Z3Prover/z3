@@ -175,7 +175,8 @@ class seq_split {
     // Fully drain a suspended split-set into `out` (used for inter/compl bodies).
     // Runs an `iterator` to exhaustion; returns false on a give-up.
     bool materialize(expr* node, split_mode mode, unsigned threshold,
-                     split_oracle const& oracle, split_set& out);
+                     split_oracle const& oracle, split_set& out,
+                     obj_hashtable<expr>* deriv_memo = nullptr);
 
     // Push <d, n> onto `out`, unless `oracle` rejects it.
     void push(split_set& out, split_oracle const& oracle, expr* d, expr* n) const;
@@ -245,11 +246,14 @@ public:
         bool            m_giveup = false;
         // Complement ~-regex states already expanded via the symbolic-derivative
         // rule; re-encountering one (a cycle) falls back to the De Morgan rule so
-        // the lazy unfolding terminates.  Per-iterator (iterators run concurrently).
-        obj_hashtable<expr> m_deriv_memo;
+        // the lazy unfolding terminates. Nested materializations share the top-level
+        // iterator's memo; independent iterators keep separate local memos.
+        obj_hashtable<expr>  m_local_deriv_memo;
+        obj_hashtable<expr>* m_deriv_memo;
     public:
         iterator(seq_split& engine, expr* node, split_mode mode,
-                 unsigned threshold, split_oracle oracle);
+                 unsigned threshold, split_oracle oracle,
+                 obj_hashtable<expr>* deriv_memo = nullptr);
         // Compute the next split.  On success returns true and sets <d, n>; on
         // exhaustion or give-up returns false (see gave_up()).  Calling next()
         // again after it has returned false keeps returning false.

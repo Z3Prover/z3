@@ -120,6 +120,7 @@ add_executable(test-z3
   prime_generator.cpp
   psmt.cpp
   seq_regex_bisim.cpp
+  seq_split.cpp
   seq_nielsen.cpp
   proof_checker.cpp
   qe_arith.cpp

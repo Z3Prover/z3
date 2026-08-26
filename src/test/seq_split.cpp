@@ -317,6 +317,17 @@ public:
         (void)check_agree(cc);
     }
 
+    void test_nested_materialization_cycle() {
+        // The derivative of ~(.*."A".*) can regenerate the same complement
+        // while its body is being materialized. The shared cycle memo must make
+        // this terminate through the De Morgan fallback.
+        expr_ref contains_a(
+            re().mk_concat(dotstar(), re().mk_concat(word("A"), dotstar())), m);
+        expr_ref excludes_a(re().mk_complement(contains_a), m);
+        split_set s;
+        (void)eager(excludes_a, s, 32, split_mode::strong);
+    }
+
     void test_determinism() {
         expr_ref r(re().mk_concat(rng('a', 'a'), re().mk_star(rng('b', 'b'))), m);
         split_set s1, s2;
@@ -444,6 +455,7 @@ public:
         test_nary_union();
         test_nary_concat();
         test_nested_complement();
+        test_nested_materialization_cycle();
         test_determinism();
         test_threshold_boundary();
         test_early_stop_after_two();

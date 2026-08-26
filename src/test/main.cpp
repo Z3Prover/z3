@@ -202,6 +202,7 @@
     X(finite_set) \
     X(finite_set_rewriter) \
     X(seq_regex_bisim) \
+    X(seq_split) \
     X(seq_nielsen) \
     X(nseq_basic) \
     X(nseq_zipt) \

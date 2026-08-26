@@ -674,8 +674,8 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
         // how many splits the lazy enumeration may emit
         const unsigned cap = std::min(threshold, BOOL_CLOSURE_CAP);
         split_set sa, sb, tmp;
-        if (!materialize(a, mode, cap, oracle, sa) ||
-            !materialize(b, mode, cap, oracle, sb)) {
+        if (!materialize(a, mode, cap, oracle, sa, &deriv_memo) ||
+            !materialize(b, mode, cap, oracle, sb, &deriv_memo)) {
             ok = false;
             return expr_ref(m);
         }
@@ -699,7 +699,7 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
         // complement().
         const unsigned cap = std::min(threshold, BOOL_CLOSURE_CAP);
         split_set sa, res;
-        if (!materialize(a, mode, cap, split_oracle{}, sa)) {
+        if (!materialize(a, mode, cap, split_oracle{}, sa, &deriv_memo)) {
             ok = false;
             return expr_ref(m);
         }
@@ -723,9 +723,10 @@ expr_ref seq_split::head_normalize(expr* t, split_mode mode, unsigned threshold,
 }
 
 bool seq_split::materialize(expr* node, split_mode mode, unsigned threshold,
-                            split_oracle const& oracle, split_set& out) {
+                            split_oracle const& oracle, split_set& out,
+                            obj_hashtable<expr>* deriv_memo) {
     ++m_stats.m_materialize;
-    iterator it(*this, node, mode, threshold, oracle);
+    iterator it(*this, node, mode, threshold, oracle, deriv_memo);
     expr_ref d(m), n(m);
     while (it.next(d, n))
         out.push_back(split_pair(d, n, m));
@@ -750,9 +751,10 @@ expr_ref seq_split::make(expr* r) {
 // expansion work happens lazily, one split per next() call.
 
 seq_split::iterator::iterator(seq_split& engine, expr* node, split_mode mode,
-                              unsigned threshold, split_oracle oracle) :
+                              unsigned threshold, split_oracle oracle,
+                              obj_hashtable<expr>* deriv_memo) :
     m_engine(engine), m(engine.m), m_mode(mode), m_threshold(threshold),
-    m_oracle(std::move(oracle)), m_work(engine.m) {
+    m_oracle(std::move(oracle)), m_work(engine.m), m_deriv_memo(deriv_memo) {
     SASSERT(node);
     m_work.push_back(node);
 }
@@ -765,7 +767,8 @@ bool seq_split::iterator::next(expr_ref& out_d, expr_ref& out_n) {
         m_work.pop_back();
 
         bool ok = true;
-        expr_ref hn = m_engine.head_normalize(t, m_mode, m_threshold, m_oracle, ok, m_deriv_memo);
+        obj_hashtable<expr>& deriv_memo = m_deriv_memo ? *m_deriv_memo : m_local_deriv_memo;
+        expr_ref hn = m_engine.head_normalize(t, m_mode, m_threshold, m_oracle, ok, deriv_memo);
         if (!ok) {
             m_giveup = true;           // unsupported / weak Boolean / overrun
             ++m_engine.m_stats.m_giveups;

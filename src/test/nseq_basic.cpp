@@ -344,11 +344,63 @@ static void test_nseq_replace_constant_pattern() {
     const expr_ref a(su.str.mk_string(zstring("a")), m);
     const expr_ref x(su.str.mk_string(zstring("X")), m);
     const expr_ref replace(su.str.mk_replace(source, a, x), m);
+    const expr_ref same_replace(su.str.mk_replace(source, a, x), m);
+    const expr_ref contains(su.str.mk_contains(source, a), m);
 
-    ctx.assert_expr(expr_ref(su.str.mk_contains(source, a), m));
+    VERIFY(replace == same_replace);
+
+    ctx.push();
+    ctx.assert_expr(contains);
     ctx.assert_expr(expr_ref(m.mk_eq(replace, source), m));
     VERIFY(ctx.check() == l_false);
-    std::cout << "  ok: positive replace containment uses the finite witness axiom\n";
+    ctx.pop(1);
+
+    ctx.push();
+    ctx.assert_expr(expr_ref(m.mk_not(contains), m));
+    ctx.assert_expr(expr_ref(m.mk_eq(replace, source), m));
+    VERIFY(ctx.check() == l_true);
+    ctx.pop(1);
+
+    const expr_ref empty(su.str.mk_string(zstring()), m);
+    const expr_ref empty_replace(su.str.mk_replace(source, empty, x), m);
+    const expr_ref prepended(su.str.mk_concat(x, source), m);
+    ctx.push();
+    ctx.assert_expr(expr_ref(m.mk_not(m.mk_eq(empty_replace, prepended)), m));
+    VERIFY(ctx.check() == l_false);
+    ctx.pop(1);
+    std::cout << "  ok: constant replace guards lower to positive/negative regex membership\n";
+}
+
+static void test_nseq_replace_equivalent_constant_patterns() {
+    std::cout << "test_nseq_replace_equivalent_constant_patterns\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    smt::context ctx(m, params);
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref a(su.str.mk_string(zstring("a")), m);
+    const expr_ref x(su.str.mk_string(zstring("X")), m);
+    expr_ref_vector pinned(m);
+
+    for (unsigned i = 0; i < 13; ++i) {
+        const std::string suffix = std::to_string(i);
+        const expr_ref source(m.mk_const(symbol(("replace_source_" + suffix).c_str()), str_sort), m);
+        const expr_ref pattern(m.mk_const(symbol(("replace_pattern_" + suffix).c_str()), str_sort), m);
+        const expr_ref contains(su.str.mk_contains(source, pattern), m);
+        const expr_ref replace(su.str.mk_replace(source, pattern, x), m);
+        pinned.push_back(source);
+        pinned.push_back(pattern);
+        pinned.push_back(contains);
+        pinned.push_back(replace);
+        ctx.assert_expr(expr_ref(m.mk_eq(pattern, a), m));
+        ctx.assert_expr(expr_ref(m.mk_not(contains), m));
+        ctx.assert_expr(expr_ref(m.mk_eq(replace, source), m));
+    }
+
+    VERIFY(ctx.check() == l_true);
+    std::cout << "  ok: equivalent constants bypass the symbolic replace expansion limit\n";
 }
 
 static void test_nseq_replace_membership_without_relevancy() {
@@ -475,6 +527,7 @@ void tst_nseq_basic() {
     test_nseq_replace_rigidity_scope();
     test_nseq_replace_symbolic_pattern();
     test_nseq_replace_constant_pattern();
+    test_nseq_replace_equivalent_constant_patterns();
     test_nseq_replace_membership_without_relevancy();
     test_nseq_fine_wilf_e2e_unsat();
     test_nseq_fine_wilf_e2e_sat();

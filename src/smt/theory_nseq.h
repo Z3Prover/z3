@@ -62,9 +62,9 @@ namespace smt {
         unsigned                m_prop_qhead = 0;
         obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
         obj_hashtable<expr>     m_replace_contains; // all contains guards introduced by replace axioms
+        obj_hashtable<expr>     m_lowered_contains; // syntactic constant contains axiomatized as regex
+        obj_hashtable<expr>     m_symbolic_replace_contains; // replace guards requiring recursive unrolling
         bool                    m_tracking_replace_contains = false;
-        unsigned                m_num_replace_terms = 0;
-        unsigned                m_num_contains_terms = 0;
         obj_hashtable<expr>     m_no_diseq_set;     // track expressions that should not trigger new disequality axioms
         hashtable<literal, obj_hash<literal>, default_eq<literal>>    m_ignored_mem;     // track membership constraints that should not be passed to Nielsen
         expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant
@@ -188,6 +188,8 @@ namespace smt {
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);
         void ensure_length_var(expr* e) const;
+        expr* find_string_constant(expr* e) const;
+        bool lower_contains_to_regex(expr* e, bool use_eqc);
 
         // higher-order term unfolding
         bool unfold_ho_terms();

@@ -178,15 +178,6 @@ namespace smt {
         // register in our private sgraph
         get_snode(term);
 
-        if (m_seq.str.is_replace(term)) {
-            ctx.push_trail(value_trail(m_num_replace_terms));
-            ++m_num_replace_terms;
-        }
-        if (m_seq.str.is_contains(term)) {
-            ctx.push_trail(value_trail(m_num_contains_terms));
-            ++m_num_contains_terms;
-        }
-
         if (m_seq.is_seq(term) && m_axioms.sk().is_skolem(term))
             ensure_length_var(term);
 
@@ -313,6 +304,72 @@ namespace smt {
     // Boolean assignment notification
     // -----------------------------------------------------------------------
 
+    expr* theory_nseq::find_string_constant(expr* e) const {
+        zstring value;
+        if (m_seq.str.is_string(e, value))
+            return e;
+        if (!ctx.e_internalized(e))
+            return nullptr;
+        enode* root = ctx.get_enode(e)->get_root();
+        enode* current = root;
+        do {
+            if (m_seq.str.is_string(current->get_expr(), value))
+                return current->get_expr();
+            current = current->get_next();
+        } while (current != root);
+        return nullptr;
+    }
+
+    bool theory_nseq::lower_contains_to_regex(expr* e, bool use_eqc) {
+        expr* source = nullptr, *pattern = nullptr;
+        VERIFY(m_seq.str.is_contains(e, source, pattern));
+        expr* constant = use_eqc ? find_string_constant(pattern) : pattern;
+        zstring value;
+        if (!constant || !m_seq.str.is_string(constant, value))
+            return false;
+
+        const bool syntactic = constant == pattern;
+        if (syntactic && m_lowered_contains.contains(e))
+            return true;
+
+        literal eq_lit = true_literal;
+        if (!syntactic) {
+            eq_lit = mk_literal(m.mk_eq(pattern, constant));
+            ctx.mark_as_relevant(eq_lit);
+        }
+
+        const literal contains_lit = mk_literal(e);
+        if (value.empty()) {
+            if (syntactic)
+                ctx.mk_th_axiom(get_id(), contains_lit);
+            else
+                ctx.mk_th_axiom(get_id(), ~eq_lit, contains_lit);
+        }
+        else {
+            sort* re_sort = m_seq.re.mk_re(source->get_sort());
+            expr* all = m_seq.re.mk_full_seq(re_sort);
+            const expr_ref regex(m_seq.re.mk_concat(
+                all, m_seq.re.mk_concat(m_seq.re.mk_to_re(constant), all)), m);
+            const expr_ref membership(m_seq.re.mk_in_re(source, regex), m);
+            ctx.internalize(membership, false);
+            const literal mem_lit = ctx.get_literal(membership);
+            if (syntactic) {
+                ctx.mk_th_axiom(get_id(), ~contains_lit, mem_lit);
+                ctx.mk_th_axiom(get_id(), contains_lit, ~mem_lit);
+            }
+            else {
+                ctx.mk_th_axiom(get_id(), ~eq_lit, ~contains_lit, mem_lit);
+                ctx.mk_th_axiom(get_id(), ~eq_lit, contains_lit, ~mem_lit);
+            }
+        }
+
+        if (syntactic) {
+            m_lowered_contains.insert(e);
+            ctx.push_trail(insert_obj_trail<expr>(m_lowered_contains, e));
+        }
+        return true;
+    }
+
     void theory_nseq::assign_eh(const bool_var v, const bool is_true) {
         try {
             expr* e = ctx.bool_var2expr(v);
@@ -385,31 +442,23 @@ namespace smt {
             }
             else if (m_seq.str.is_contains(e)) {
                 if (m_replace_contains.contains(e)) {
-                    if (is_true)
+                    if (lower_contains_to_regex(e, true))
+                        return;
+                    if (is_true) {
                         m_axioms.contains_true_axiom(e);
+                    }
                     else {
+                        if (!m_symbolic_replace_contains.contains(e)) {
+                            m_symbolic_replace_contains.insert(e);
+                            ctx.push_trail(insert_obj_trail<expr>(m_symbolic_replace_contains, e));
+                        }
                         flet<bool> tracking(m_tracking_replace_contains, true);
                         m_axioms.unroll_not_contains(e);
                     }
                     return;
                 }
-                zstring str;
-                if (m_seq.str.is_string(to_app(e)->get_arg(1), str)) {
-                    // contains(u, v) with v const => u \in \Sigma* v \Sigma^*
-                    sort* re_sort = m_seq.re.mk_re(to_app(e)->get_arg(0)->get_sort());
-                    expr* all = m_seq.re.mk_full_seq(re_sort);
-                    const expr_ref con(m_seq.re.mk_in_re(to_app(e)->get_arg(0), m_seq.re.mk_concat(
-                        all,
-                        m_seq.re.mk_concat(
-                            m_seq.re.mk_to_re(to_app(e)->get_arg(1)), all)
-                    )), m);
-                    ctx.internalize(con, false);
-                    literal l = ctx.get_literal(con);
-                    if (!is_true)
-                        l = ~l;
-                    ctx.mk_th_axiom(get_id(), ~lit, l);
+                if (lower_contains_to_regex(e, false))
                     return;
-                }
                 if (is_true)
                     m_axioms.contains_true_axiom(e);
                 else
@@ -937,7 +986,7 @@ namespace smt {
             // Incremental not-contains unrolling can otherwise build a deep
             // recursive expansion on contains-heavy replace benchmarks.
             constexpr unsigned max_replace_contains_terms = 12;
-            if (m_num_replace_terms && m_num_contains_terms >= max_replace_contains_terms) {
+            if (m_symbolic_replace_contains.size() >= max_replace_contains_terms) {
                 TRACE(seq, tout << "nseq final_check: replace/contains expansion limit reached\n");
                 return FC_GIVEUP;
             }
