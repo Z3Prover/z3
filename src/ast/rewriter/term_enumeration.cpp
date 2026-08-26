@@ -348,6 +348,11 @@ public:
         m_rewriter.reset();
         m_seen_terms.reset();
         m_children_iter.reset();
+        m_external_seeded.reset();
+    }
+
+    void set_external_enumerator(std::function<expr*(sort*)> f) {
+        m_external = std::move(f);
     }
 
     expr* add_term(expr_ref const& term, unsigned cost) {
@@ -380,9 +385,23 @@ private:
     obj_hashtable<expr> m_seen_terms;
     std::unique_ptr<children_iterator> m_children_iter;
     sort *m_target_sort = nullptr;
+    std::function<expr*(sort*)> m_external;
+    obj_hashtable<sort> m_external_seeded;
 
     bool sort_matches(expr* e) const {
         return !m_target_sort || e->get_sort() == m_target_sort;
+    }
+
+    // Consult the external enumerator (if any) at most once per sort to
+    // seed a base leaf value. Used to supply values for non-datatype
+    // argument sorts that are not otherwise covered by the grammar.
+    void seed_external_if_needed(sort* s) {
+        if (!m_external || m_external_seeded.contains(s))
+            return;
+        m_external_seeded.insert(s);
+        expr_ref term(m_external(s), m);
+        if (term)
+            add_term(term, 0);
     }
 
     expr* find_next() {
@@ -483,6 +502,8 @@ private:
             
             production const &prod = *ops[m_op_idx];
             m_op_idx++;
+            for (sort* dom : prod.domain)
+                seed_external_if_needed(dom);
             m_children_iter = std::make_unique<children_iterator>(m, prod, m_bank, m_cost);
         }
     }
@@ -501,12 +522,15 @@ private:
  */
 class sort_stream {
 public:
-    sort_stream(ast_manager& m, func_decl_ref_vector const& funcs, expr_ref_vector const& exprs, sort* s)
+    sort_stream(ast_manager& m, func_decl_ref_vector const& funcs, expr_ref_vector const& exprs, sort* s,
+                term_enumeration::external_enumerator_t const& ext = nullptr)
         : m(m), m_grammar(m), m_enum(m_grammar), autil(m), m_sort(s), m_current(m), m_pinned(m) {
         for (func_decl* f : funcs)
             m_grammar.add_func_decl(f);
         for (expr* e : exprs)
             m_grammar.add_expr(e);
+        if (ext)
+            m_enum.set_external_enumerator(ext);
         m_enum.reset();
         init_sort();
         advance();
@@ -601,6 +625,7 @@ struct term_enumeration::imp {
     std::function<unsigned(expr*)> m_cost;
     func_decl_ref_vector          m_user_funcs;
     expr_ref_vector               m_user_exprs;
+    term_enumeration::external_enumerator_t m_external;
 
     imp(ast_manager& m) :
         m(m), m_grammar(m), m_bottom_up_enumerator(m_grammar),
@@ -618,6 +643,11 @@ struct term_enumeration::imp {
 
     void set_cost(std::function<unsigned(expr*)> const& cost) {
         // TODO
+    }
+
+    void set_external_enumerator(term_enumeration::external_enumerator_t fn) {
+        m_bottom_up_enumerator.set_external_enumerator(fn);
+        m_external = std::move(fn);
     }
 
     std::ostream& display(std::ostream& out) const {
@@ -716,6 +746,20 @@ term_enumeration::iterator::iterator(std::nullptr_t) {
     m_imp = nullptr;
 }
 
+term_enumeration::iterator::iterator(iterator&& other) noexcept {
+    m_imp = other.m_imp;
+    other.m_imp = nullptr;
+}
+
+term_enumeration::iterator& term_enumeration::iterator::operator=(iterator&& other) noexcept {
+    if (this != &other) {
+        dealloc(m_imp);
+        m_imp = other.m_imp;
+        other.m_imp = nullptr;
+    }
+    return *this;
+}
+
 term_enumeration::iterator::~iterator() {
     dealloc(m_imp);
 }
@@ -730,7 +774,9 @@ term_enumeration::iterator& term_enumeration::iterator::operator++() {
 }
 
 term_enumeration::iterator term_enumeration::iterator::operator++(int) {
-    iterator tmp(*this);
+    iterator tmp(nullptr);
+    if (m_imp)
+        tmp.m_imp = alloc(iter_imp, *m_imp);
     ++(*this);
     return tmp;
 }
@@ -774,7 +820,7 @@ struct term_enumeration::tuple_iterator::timp {
     timp(imp& i, unsigned n, sort* const* sorts) :
         m_imp(i), m(i.m), m_n(n), m_current(i.m) {
         for (unsigned k = 0; k < n; ++k) {
-            m_streams.push_back(alloc(term_enum::sort_stream, m, i.m_user_funcs, i.m_user_exprs, sorts[k]));
+            m_streams.push_back(alloc(term_enum::sort_stream, m, i.m_user_funcs, i.m_user_exprs, sorts[k], i.m_external));
             m_terms.push_back(expr_ref_vector(m));
             m_done.push_back(false);
         }
@@ -926,6 +972,10 @@ void term_enumeration::add_production(expr* e) {
 
 void term_enumeration::set_cost(std::function<unsigned(expr*)> const& cost) {
     m_imp->set_cost(cost);
+}
+
+void term_enumeration::set_external_enumerator(external_enumerator_t fn) {
+    m_imp->set_external_enumerator(std::move(fn));
 }
 
 term_enumeration::terms term_enumeration::enum_terms(sort* s) {
