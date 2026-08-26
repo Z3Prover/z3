@@ -773,14 +773,6 @@ term_enumeration::iterator& term_enumeration::iterator::operator++() {
     return *this;
 }
 
-term_enumeration::iterator term_enumeration::iterator::operator++(int) {
-    iterator tmp(nullptr);
-    if (m_imp)
-        tmp.m_imp = alloc(iter_imp, *m_imp);
-    ++(*this);
-    return tmp;
-}
-
 bool term_enumeration::iterator::operator==(iterator const& other) const {
     if (!m_imp && !other.m_imp) return true;
     if (!m_imp) return other.m_imp->m_end;

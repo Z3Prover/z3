@@ -40,7 +40,6 @@ public:
         iterator& operator=(iterator const&) = delete;
         ~iterator();
         expr* operator*();
-        iterator operator++(int);
         iterator& operator++();
         bool operator!=(iterator const& other) const {
             return !(*this == other);
