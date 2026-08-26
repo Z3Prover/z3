@@ -1867,6 +1867,19 @@ namespace seq {
         bool mon_map_branch(mon_state* st, obj_map<expr, seq::view_vector> const& solution,
                             vector<str_mem>& components);
 
+        // Length abstraction for the views of one monadic-landing branch.  Child A
+        // REPLACES the covered plain memberships, so -- unlike apply_view_landing_
+        // decomposition, which keeps a residual `u ∈ s` carrying the plain interval --
+        // nothing else on that child accounts for their length.  Views are skipped by
+        // generate_node_length_constraints on purpose (their plain interval is unsound
+        // in both directions), so without add_view_length_constraints child A is
+        // arithmetically WEAKER than the node it claims to strengthen: a SAT leaf can
+        // then be closed at a length no view can realize, which is an unsound sat.
+        // With `e` null the branch is only validated; with `e` set the constraints are
+        // emitted onto it.  false: no sound abstraction, caller drops the branch as
+        // lossy instead of emitting child A.
+        bool mon_view_lengths(vector<str_mem> const& components, nielsen_edge* e);
+
         // Build a suspended factorization (boundary head/tail + split iterator)
         // for `mem`.  Returns null if the regex shape is unsupported (the engine
         // cannot even start a split).  Allocated into m_rf_states.

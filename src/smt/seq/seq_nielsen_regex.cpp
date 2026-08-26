@@ -1026,6 +1026,34 @@ namespace seq {
         return true;
     }
 
+    bool nielsen_graph::mon_view_lengths(vector<str_mem> const& components, nielsen_edge* e) {
+        // The abstraction is the only length information child A gets for a view, so
+        // the rule cannot run soundly without it.
+        if (!m_view_length_constraints)
+            return false;
+        for (str_mem const& c : components) {
+            // A plain component is still picked up by generate_node_length_constraints.
+            if (!c.is_view())
+                continue;
+            view_len_info vli;
+            compute_view_length_info(c.m_nu, c.m_regex->get_expr(), vli);
+            if (!vli.m_ok)
+                return false;
+            expr* to = c.m_root->get_expr();
+            // region_for put BOTH endpoints inside Q_nu, so the in-Q branch of
+            // add_view_length_constraints is the one that applies and it needs `to`
+            // to be gated-reachable from the head.  An unreachable target means the
+            // view language is empty -- true, but not expressible as a length
+            // constraint, and here there is no residual membership left to kill the
+            // branch at its leaf.
+            if (!projection_state_in_Q(to, c.m_nu) || !vli.m_dist.contains(to->get_id()))
+                return false;
+            if (e)
+                add_view_length_constraints(e, vli, c.m_nu, c.m_str, to, c.m_dep);
+        }
+        return true;
+    }
+
     nielsen_graph::mon_step_result nielsen_graph::mon_step(nielsen_node* node, mon_state* st) {
         auto const& mems = node->str_mems();
         // The chain is made of exact clones, so the covered memberships must still sit
@@ -1056,16 +1084,20 @@ namespace seq {
             // the enumerator always reads forwards, so that is a guard, not a live path.
             vector<str_mem> components;
             if (solution.empty() || m_monadic->is_reversed()
-                || !mon_map_branch(st, solution, components)) {
+                || !mon_map_branch(st, solution, components)
+                || !mon_view_lengths(components, nullptr)) {
                 st->m_lossy = true;
                 continue;
             }
 
             // child A -- the covered memberships replaced by this branch's components.
             // Each component implies its membership, so the child is a STRENGTHENING of
-            // the node: sound as one disjunct.
+            // the node: sound as one disjunct.  That holds in the STRING dimension only:
+            // the components must also carry the length information of the memberships
+            // they replace, which is what mon_view_lengths emits below (and which the
+            // guard above already established is available).
             nielsen_node* child_a = mk_child(node);
-            mk_edge(node, child_a, "monadic landing", true);
+            nielsen_edge* e_a = mk_edge(node, child_a, "monadic landing", true);
             auto& child_mems = child_a->str_mems();
             for (unsigned k = st->m_idx.size(); k-- > 0; ) {
                 child_mems[st->m_idx[k]] = child_mems.back();
@@ -1073,6 +1105,11 @@ namespace seq {
             }
             for (auto const& c : components)
                 child_a->add_str_mem(c);
+            // The strengthening only holds once the views carry their length
+            // abstraction: the plain memberships just dropped were the sole source of
+            // length information for these tokens on this child.  Validated above, so
+            // the emission cannot fail here.
+            VERIFY(mon_view_lengths(components, e_a));
 
             // child B -- the node unchanged, carrying the SAME enumerator so the next
             // branch is taken when it is extended.  It alone covers the parent, so the
