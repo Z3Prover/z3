@@ -20,6 +20,7 @@ Author:
 #include "ast/expr2var.h"
 #include "ast/occurs.h"
 #include "ast/for_each_expr.h"
+#include "ast/converters/model_converter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "nlsat/nlsat_solver.h"
@@ -35,6 +36,14 @@ namespace opt {
 
     nlsat_opt::nlsat_opt(ast_manager& m, params_ref const& p):
         m(m), m_params(p), m_arith(m) {}
+
+    void nlsat_opt::result::reset() {
+        m_value = nullptr;
+        m_model = nullptr;
+        m_attained = false;
+        m_has_sup = false;
+        m_rounds = 0;
+    }
 
     /**
        \brief The fragment nlsat decides: Boolean structure over polynomial
@@ -77,23 +86,18 @@ namespace opt {
         return chk.ok;
     }
 
-    lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
-                              unsigned max_rounds, result& res) {
-        res.m_value = nullptr;
-        res.m_model = nullptr;
-        res.m_attained = false;
-        res.m_rounds = 0;
-        res.m_has_sup = false;
-        if (!in_nra_fragment(m, m_arith, hard, obj)) {
-            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: outside the nonlinear real arithmetic fragment)\n");
-            return l_undef;
-        }
-
-        // 1. hard /\ T = obj /\ lo <= T <= hi, normalized for goal2nlsat
-        //    (purified arithmetic, no term-ite, CNF). T is a fresh constant
-        //    that only occurs in these three assertions, so no preprocessing
-        //    step can substitute it away except by eliminating the objective.
-        app_ref T(m.mk_fresh_const("opt.nlsat.obj", m_arith.mk_real()), m);
+    /**
+       \brief Build hard /\ T = obj /\ lo <= T <= hi and normalize it for
+       goal2nlsat (purified arithmetic, no term-ite, CNF). T is a fresh
+       constant that only occurs in these three assertions, so no
+       preprocessing step can substitute it away except by eliminating the
+       objective. Returns l_true with the preprocessed goal in pg, l_false if
+       preprocessing refutes the goal, and l_undef if preprocessing fails or
+       loses T.
+    */
+    lbool nlsat_opt::preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+                                app_ref& T, goal_ref& pg) {
+        T = m.mk_fresh_const("opt.nlsat.obj", m_arith.mk_real());
         goal_ref g = alloc(goal, m, false, true, false);
         for (expr* f : hard)
             g->assert_expr(f);
@@ -125,40 +129,177 @@ namespace opt {
         }
         if (pre_result.size() != 1)
             return l_undef;
-        goal_ref pg = pre_result[0];
+        pg = pre_result[0];
         if (pg->inconsistent())
             return l_false;
-        bool has_T = false;
-        for (unsigned i = 0; i < pg->size() && !has_T; ++i)
-            has_T = occurs(T, pg->form(i));
-        if (!has_T)
+        for (unsigned i = 0; i < pg->size(); ++i)
+            if (occurs(T, pg->form(i)))
+                return l_true;
+        return l_undef;
+    }
+
+    /**
+       \brief Load the preprocessed goal into s with T as the first variable
+       and the maximization target. On return t is T's nlsat variable and
+       x2t, b2a map nlsat arithmetic and Boolean variables back to terms and
+       atoms. Returns false if goal2nlsat rejects the goal.
+    */
+    bool nlsat_opt::load(goal const& pg, app* T, nlsat::solver& s, nlsat::var& t, expr_ref_vector& x2t, expr_ref_vector& b2a) {
+        expr2var a2b(m), t2x(m);
+        t = s.mk_var(false);
+        t2x.insert(T, t);
+        goal2nlsat g2n;
+        try {
+            g2n(pg, m_params, s, a2b, t2x);
+        }
+        catch (tactic_exception& ex) {
+            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: unsupported: " << ex.what() << ")\n");
+            return false;
+        }
+        s.set_max_var(t);
+        t2x.mk_inv(x2t);
+        a2b.mk_inv(b2a);
+        return true;
+    }
+
+    /**
+       \brief The literal t > v (strict) or t >= v (!strict): a linear
+       inequality when v is rational, otherwise a root atom on the defining
+       polynomial of v. Returns null_literal if the root index of v cannot
+       be recovered from the polynomial.
+    */
+    static nlsat::literal mk_lower_bound(nlsat::solver& s, nlsat::var t, anum const& v, bool strict) {
+        algebraic_numbers::manager& am = s.am();
+        polynomial::manager& pm = s.pm();
+        polynomial_ref p(pm);
+        if (am.is_rational(v)) {
+            rational q;
+            am.to_rational(v, q);
+            rational d = denominator(q), n = -numerator(q);   // d*t - n > 0  <=>  t > q
+            p = pm.mk_linear(1, &d, &t, n);
+            polynomial::polynomial* pp = p.get();
+            bool is_even = false;
+            if (strict)
+                return s.mk_ineq_literal(nlsat::atom::GT, 1, &pp, &is_even);
+            return ~s.mk_ineq_literal(nlsat::atom::LT, 1, &pp, &is_even);   // !(t < q)
+        }
+        svector<mpz> coeffs;
+        am.get_polynomial(v, coeffs);
+        p = pm.mk_univariate(t, coeffs.size() - 1, coeffs.data());   // consumes coeffs
+        scoped_anum_vector roots(am);
+        am.isolate_roots(p, roots);
+        for (unsigned k = 0; k < roots.size(); ++k)
+            if (am.eq(roots[k], v))
+                return nlsat::literal(s.mk_root_atom(strict ? nlsat::atom::ROOT_GT : nlsat::atom::ROOT_GE, t, k + 1, p.get()), false);
+        return nlsat::null_literal;
+    }
+
+    /**
+       \brief The model of the preprocessed goal from the current nlsat
+       assignment, mapped back through the model converter.
+    */
+    model_ref nlsat_opt::extract_model(nlsat::solver& s, expr_ref_vector const& x2t, expr_ref_vector const& b2a, app* T,
+                                       model_converter* mc) {
+        algebraic_numbers::manager& am = s.am();
+        model_ref md = alloc(model, m);
+        for (unsigned x = 0; x < x2t.size(); ++x) {
+            expr* e = x2t.get(x);
+            if (!e || !is_uninterp_const(e) || e == T)
+                continue;
+            expr_ref v(m);
+            try {
+                v = m_arith.mk_numeral(am, s.value(x), m_arith.is_int(e));
+            }
+            catch (z3_exception&) {
+                v = m_arith.mk_to_int(m_arith.mk_numeral(am, s.value(x), false));
+            }
+            md->register_decl(to_app(e)->get_decl(), v);
+        }
+        for (unsigned b = 0; b < b2a.size(); ++b) {
+            expr* a = b2a.get(b);
+            if (!a || !is_uninterp_const(a))
+                continue;
+            lbool val = s.bvalue(b);
+            if (val == l_undef)
+                continue;
+            md->register_decl(to_app(a)->get_decl(), val == l_true ? m.mk_true() : m.mk_false());
+        }
+        if (mc)
+            (*mc)(md);
+        return md;
+    }
+
+    /**
+       \brief The round budget was exhausted at a model below an open
+       supremum r of the feasible set of t. Check whether t >= r has a model;
+       if not, r is a proven upper bound (F-Close at the supremum) and is
+       recorded in res.
+    */
+    static void prove_supremum(nlsat::solver& s, nlsat::var t, anum const& best, nlsat_opt::result& res) {
+        algebraic_numbers::manager& am = s.am();
+        scoped_anum r(am);
+        am.set(r, s.max_var_sup());
+        if (!am.gt(r, best))
+            return;
+        nlsat::literal l = mk_lower_bound(s, t, r, false);
+        if (l == nlsat::null_literal)
+            return;
+        s.mk_clause(1, &l);
+        lbool st = s.check();
+        IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat sup-check "; am.display_root_smt2(verbose_stream(), r); verbose_stream() << " " << st << ")\n");
+        if (st != l_false)
+            return;
+        res.m_has_sup = true;
+        if (am.is_rational(r))
+            am.to_rational(r, res.m_sup_upper);
+        else
+            am.get_upper(r, res.m_sup_upper, 40);
+    }
+
+    /**
+       \brief Report best as the exact value with a rational bracket.
+    */
+    void nlsat_opt::set_result(algebraic_numbers::manager& am, anum const& best, bool attained, result& res) {
+        res.m_value = m_arith.mk_numeral(am, best, false);
+        if (am.is_rational(best)) {
+            am.to_rational(best, res.m_lower);
+            res.m_upper = res.m_lower;
+        }
+        else {
+            am.get_lower(best, res.m_lower, 40);
+            am.get_upper(best, res.m_upper, 40);
+        }
+        res.m_attained = attained;
+    }
+
+    lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+                              unsigned max_rounds, result& res) {
+        res.reset();
+        if (!in_nra_fragment(m, m_arith, hard, obj)) {
+            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: outside the nonlinear real arithmetic fragment)\n");
             return l_undef;
+        }
+
+        // 1. hard /\ T = obj /\ lo <= T <= hi, normalized for goal2nlsat.
+        app_ref T(m);
+        goal_ref pg;
+        lbool st = preprocess(hard, obj, lo, has_hi, hi, T, pg);
+        if (st != l_true)
+            return st;
         model_converter_ref mc = pg->mc();
 
         // 2. nlsat with T as the first variable and maximization target.
         nlsat::solver s(m.limit(), m_params, true);
-        expr2var a2b(m), t2x(m);
-        nlsat::var t = s.mk_var(false);
-        t2x.insert(T, t);
-        goal2nlsat g2n;
-        try {
-            g2n(*pg, m_params, s, a2b, t2x);
-        }
-        catch (tactic_exception& ex) {
-            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: unsupported: " << ex.what() << ")\n");
-            return l_undef;
-        }
-        s.set_max_var(t);
-        algebraic_numbers::manager& am = s.am();
-        polynomial::manager& pm = s.pm();
+        nlsat::var t;
         expr_ref_vector x2t(m), b2a(m);
-        t2x.mk_inv(x2t);
-        a2b.mk_inv(b2a);
+        if (!load(*pg, T, s, t, x2t, b2a))
+            return l_undef;
+        algebraic_numbers::manager& am = s.am();
 
+        // 3. F-Sat / F-Close loop: each model is blocked by t > value.
         scoped_anum best(am);
         bool has_best = false;
-        lbool st = l_undef;
-        // 3. F-Sat / F-Close loop: each model is blocked by t > value.
+        st = l_undef;
         for (unsigned round = 0; round < max_rounds && m.inc(); ++round) {
             res.m_rounds = round + 1;
             st = s.check();
@@ -169,133 +310,30 @@ namespace opt {
             has_best = true;
             IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat round " << round << " value "; am.display_root_smt2(verbose_stream(), best); 
                        verbose_stream() << (s.max_var_attained() ? " sup" : " below-sup") << ")\n");
-            // model of the preprocessed goal, mapped back through the model converter
-            model_ref md = alloc(model, m);
-            for (unsigned x = 0; x < x2t.size(); ++x) {
-                expr* e = x2t.get(x);
-                if (!e || !is_uninterp_const(e) || e == T.get())
-                    continue;
-                expr_ref v(m);
-                try {
-                    v = m_arith.mk_numeral(am, s.value(x), m_arith.is_int(e));
-                }
-                catch (z3_exception&) {
-                    v = m_arith.mk_to_int(m_arith.mk_numeral(am, s.value(x), false));
-                }
-                md->register_decl(to_app(e)->get_decl(), v);
-            }
-            for (unsigned b = 0; b < b2a.size(); ++b) {
-                expr* a = b2a.get(b);
-                if (!a || !is_uninterp_const(a))
-                    continue;
-                lbool val = s.bvalue(b);
-                if (val == l_undef)
-                    continue;
-                md->register_decl(to_app(a)->get_decl(), val == l_true ? m.mk_true() : m.mk_false());
-            }
-            if (mc)
-                (*mc)(md);
-            res.m_model = md;
+            res.m_model = extract_model(s, x2t, b2a, T, mc.get());
             if (s.max_var_unbounded()) {
                 // the feasible set of t was unbounded above when t was assigned:
                 // the objective may be unbounded; stop with the improved model.
                 IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: feasible set unbounded above)\n");
                 break;
             }
-
-            // block: t > best
-            if (am.is_rational(best)) {
-                rational q;
-                am.to_rational(best, q);
-                rational d = denominator(q), n = -numerator(q);   // d*t - n > 0  <=>  t > q
-                polynomial_ref p(pm);
-                p = pm.mk_linear(1, &d, &t, n);
-                polynomial::polynomial* pp = p.get();
-                bool is_even = false;
-                nlsat::literal l = s.mk_ineq_literal(nlsat::atom::GT, 1, &pp, &is_even);
-                s.mk_clause(1, &l);
+            nlsat::literal l = mk_lower_bound(s, t, best, true);
+            if (l == nlsat::null_literal) {
+                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: root index not found)\n");
+                st = l_undef;
+                break;
             }
-            else {
-                svector<mpz> coeffs;
-                am.get_polynomial(best, coeffs);
-                polynomial_ref p(pm);
-                p = pm.mk_univariate(t, coeffs.size() - 1, coeffs.data());   // consumes coeffs
-                scoped_anum_vector roots(am);
-                am.isolate_roots(p, roots);
-                unsigned idx = 0;
-                for (unsigned k = 0; k < roots.size(); ++k)
-                    if (am.eq(roots[k], best)) { idx = k + 1; break; }
-                if (idx == 0) {
-                    IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: root index not found)\n");
-                    st = l_undef;
-                    break;
-                }
-                nlsat::bool_var bv = s.mk_root_atom(nlsat::atom::ROOT_GT, t, idx, p.get());
-                nlsat::literal l(bv, false);
-                s.mk_clause(1, &l);
-            }
+            s.mk_clause(1, &l);
             IF_VERBOSE(4, s.display(verbose_stream() << "(optsmt nlsat state after blocking)\n") << "\n");
         }
         if (!has_best)
             return st == l_false ? l_false : l_undef;
 
-        if (st == l_true && !s.max_var_unbounded()) {
-            // Round budget exhausted below an open supremum r of the feasible
-            // set of t: check whether t >= r has a model. If not, r is a
-            // proven upper bound (F-Close at the supremum).
-            scoped_anum r(am);
-            am.set(r, s.max_var_sup());
-            if (am.gt(r, best)) {
-                nlsat::literal l;
-                if (am.is_rational(r)) {
-                    rational q;
-                    am.to_rational(r, q);
-                    rational d = denominator(q), n = -numerator(q);   // !(d*t - n < 0)  <=>  t >= q
-                    polynomial_ref p(pm);
-                    p = pm.mk_linear(1, &d, &t, n);
-                    polynomial::polynomial* pp = p.get();
-                    bool is_even = false;
-                    l = ~s.mk_ineq_literal(nlsat::atom::LT, 1, &pp, &is_even);
-                }
-                else {
-                    svector<mpz> coeffs;
-                    am.get_polynomial(r, coeffs);
-                    polynomial_ref p(pm);
-                    p = pm.mk_univariate(t, coeffs.size() - 1, coeffs.data());
-                    scoped_anum_vector roots(am);
-                    am.isolate_roots(p, roots);
-                    unsigned idx = 0;
-                    for (unsigned k = 0; k < roots.size(); ++k)
-                        if (am.eq(roots[k], r)) { idx = k + 1; break; }
-                    if (idx > 0)
-                        l = nlsat::literal(s.mk_root_atom(nlsat::atom::ROOT_GE, t, idx, p.get()), false);
-                }
-                if (l != nlsat::null_literal) {
-                    s.mk_clause(1, &l);
-                    lbool st2 = s.check();
-                    IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat sup-check "; am.display_root_smt2(verbose_stream(), r); verbose_stream() << " " << st2 << ")\n");
-                    if (st2 == l_false) {
-                        res.m_has_sup = true;
-                        if (am.is_rational(r))
-                            am.to_rational(r, res.m_sup_upper);
-                        else
-                            am.get_upper(r, res.m_sup_upper, 40);
-                    }
-                }
-            }
-        }
+        if (st == l_true && !s.max_var_unbounded())
+            prove_supremum(s, t, best, res);
 
         // 4. report the exact value and a rational bracket.
-        res.m_value = m_arith.mk_numeral(am, best, false);
-        if (am.is_rational(best)) {
-            am.to_rational(best, res.m_lower);
-            res.m_upper = res.m_lower;
-        }
-        else {
-            am.get_lower(best, res.m_lower, 40);
-            am.get_upper(best, res.m_upper, 40);
-        }
-        res.m_attained = (st == l_false);
+        set_result(am, best, st == l_false, res);
         return res.m_attained ? l_true : l_undef;
     }
 }
