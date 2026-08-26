@@ -1,11 +1,8 @@
 # Enforce some CMake policies
 cmake_minimum_required(VERSION 3.16)
 
-# Read version from VERSION.txt file
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/scripts/VERSION.txt" Z3_VERSION_FROM_FILE)
-string(STRIP "${Z3_VERSION_FROM_FILE}" Z3_VERSION_FROM_FILE)
-
-project(Z3 VERSION ${Z3_VERSION_FROM_FILE} LANGUAGES CXX)
+file(STRINGS scripts/VERSION.txt Z3_VERSION)
+project(Z3 VERSION ${Z3_VERSION} LANGUAGES CXX)
 
 ################################################################################
 # Project version
@@ -43,63 +40,43 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 # Handle git hash and description
 ################################################################################
 include(${PROJECT_SOURCE_DIR}/cmake/git_utils.cmake)
-macro(disable_git_describe)
-  if(Z3_INCLUDE_GIT_DESCRIBE)
-    message(WARNING "Disabling Z3_INCLUDE_GIT_DESCRIBE")
-    set(Z3_INCLUDE_GIT_DESCRIBE OFF CACHE BOOL "Include git describe output in version output" FORCE)
-  endif()
-endmacro()
-macro(disable_git_hash)
-  if(Z3_INCLUDE_GIT_HASH)
-    message(WARNING "Disabling Z3_INCLUDE_GIT_HASH")
-    set(Z3_INCLUDE_GIT_HASH OFF CACHE BOOL "Include git hash in version output" FORCE)
-  endif()
-endmacro()
 option(Z3_INCLUDE_GIT_HASH "Include git hash in version output" ON)
 option(Z3_INCLUDE_GIT_DESCRIBE "Include git describe output in version output" ON)
 
-set(GIT_DIR "${PROJECT_SOURCE_DIR}/.git")
-if ((Z3_INCLUDE_GIT_HASH OR Z3_INCLUDE_GIT_HASH) AND EXISTS "${GIT_DIR}")
-  # Try to make CMake configure depend on the current git HEAD so that
-  # a re-configure is triggered when the HEAD changes.
-  add_git_dir_dependency("${GIT_DIR}" ADD_GIT_DEP_SUCCESS)
-  if (ADD_GIT_DEP_SUCCESS)
-    if (Z3_INCLUDE_GIT_HASH)
-      get_git_head_hash("${GIT_DIR}" Z3GITHASH)
-      if (NOT Z3GITHASH)
-        message(WARNING "Failed to get Git hash")
-        disable_git_hash()
-      else()
-        message(STATUS "Using Git hash in version output: ${Z3GITHASH}")
-        # This mimics the behaviour of the old build system.
-        set(Z3_FULL_VERSION_STR "${Z3_FULL_VERSION_STR} ${Z3GITHASH}")
-      endif()
+if (Z3_INCLUDE_GIT_HASH OR Z3_INCLUDE_GIT_DESCRIBE)
+  # Reconfigure automatically when the git HEAD changes (e.g. a new commit
+  # or checkout) so this version information stays up to date.
+  add_git_dir_dependency(ADD_GIT_DEP_SUCCESS)
+  if (NOT ADD_GIT_DEP_SUCCESS)
+    message(WARNING "Could not track git HEAD for automatic reconfiguration")
+  endif()
+
+  if (Z3_INCLUDE_GIT_HASH)
+    call_git(Z3GITHASH rev-parse -q HEAD)
+    if (Z3GITHASH)
+      message(STATUS "Using Git hash in version output: ${Z3GITHASH}")
+      # This mimics the behaviour of the old build system.
+      set(Z3_FULL_VERSION_STR "${Z3_FULL_VERSION_STR} ${Z3GITHASH}")
     else()
-      message(STATUS "Not using Git hash in version output")
+      message(WARNING "Failed to get Git hash; disabling Z3_INCLUDE_GIT_HASH")
+      set(Z3_INCLUDE_GIT_HASH OFF CACHE BOOL "Include git hash in version output" FORCE)
     endif()
-    if (Z3_INCLUDE_GIT_DESCRIBE)
-      get_git_head_describe("${GIT_DIR}" Z3_GIT_DESCRIPTION)
-      if (NOT Z3_GIT_DESCRIPTION)
-        message(WARNING "Failed to get Git description")
-        disable_git_describe()
-      endif()
+  endif()
+
+  if (Z3_INCLUDE_GIT_DESCRIBE)
+    call_git(Z3_GIT_DESCRIPTION describe --tags)
+    if (Z3_GIT_DESCRIPTION)
       message(STATUS "Using Git description in version output: ${Z3_GIT_DESCRIPTION}")
       # This mimics the behaviour of the old build system.
       set(Z3_FULL_VERSION_STR "${Z3_FULL_VERSION_STR} ${Z3_GIT_DESCRIPTION}")
     else()
-      message(STATUS "Not including git description in version")
+      message(WARNING "Failed to get Git description; disabling Z3_INCLUDE_GIT_DESCRIBE")
+      set(Z3_INCLUDE_GIT_DESCRIBE OFF CACHE BOOL "Include git describe output in version output" FORCE)
     endif()
-  else()
-    message(WARNING "Failed to add git dependency.")
-    disable_git_describe()
-    disable_git_hash()
   endif()
-else()
-  message(STATUS "Failed to find git directory.")
-  disable_git_describe()
-  disable_git_hash()
 endif()
-if(NOT Z3_INCLUDE_GIT_HASH)
+
+if (NOT Z3_INCLUDE_GIT_HASH)
   unset(Z3GITHASH) # Used in configure_file()
 endif()
 
