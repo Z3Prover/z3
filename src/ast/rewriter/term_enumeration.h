@@ -34,8 +34,8 @@ public:
     public:
         iterator(imp& i, sort* s);
         iterator(std::nullptr_t);
-        iterator(iterator&& other) noexcept;
-        iterator& operator=(iterator&& other) noexcept;
+        iterator(iterator&& other) = delete;
+        iterator& operator=(iterator&& other) = delete;
         iterator(iterator const&) = delete;
         iterator& operator=(iterator const&) = delete;
         ~iterator();

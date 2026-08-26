@@ -746,20 +746,6 @@ term_enumeration::iterator::iterator(std::nullptr_t) {
     m_imp = nullptr;
 }
 
-term_enumeration::iterator::iterator(iterator&& other) noexcept {
-    m_imp = other.m_imp;
-    other.m_imp = nullptr;
-}
-
-term_enumeration::iterator& term_enumeration::iterator::operator=(iterator&& other) noexcept {
-    if (this != &other) {
-        dealloc(m_imp);
-        m_imp = other.m_imp;
-        other.m_imp = nullptr;
-    }
-    return *this;
-}
-
 term_enumeration::iterator::~iterator() {
     dealloc(m_imp);
 }

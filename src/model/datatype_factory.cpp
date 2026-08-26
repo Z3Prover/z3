@@ -44,9 +44,11 @@ datatype_factory::~datatype_factory() {
    \brief Build (or retrieve from \c cache) a term_enumeration that can
    enumerate values of sort \c s. The enumerator's grammar is seeded with
    the constructors of \c s and of every datatype sort transitively
-   reachable through constructor argument sorts. Values for argument
-   sorts that are not datatypes are produced on demand by the external
-   enumerator, which asks the model for a value.
+   reachable through constructor argument sorts -- including datatype
+   sorts nested under parametric sort constructors such as Array, Seq
+   and FiniteSet (e.g. (Array Int MyList), (Seq MyList)). Values for
+   argument sorts that are not datatypes are produced on demand by the
+   external enumerator, which asks the model for a value.
 */
 term_enumeration & datatype_factory::get_enumerator(sort * s, obj_map<sort, term_enumeration *> & cache) {
     term_enumeration * te = nullptr;
@@ -63,17 +65,28 @@ term_enumeration & datatype_factory::get_enumerator(sort * s, obj_map<sort, term
     while (!todo.empty()) {
         sort * cur = todo.back();
         todo.pop_back();
-        if (!m_util.is_datatype(cur))
-            continue;
-        for (func_decl * c : *m_util.get_datatype_constructors(cur)) {
-            te->add_production(c);
-            unsigned num = c->get_arity();
-            for (unsigned i = 0; i < num; ++i) {
-                sort * s_arg = c->get_domain(i);
-                if (m_util.is_datatype(s_arg) && !visited.contains(s_arg)) {
-                    visited.insert(s_arg);
-                    todo.push_back(s_arg);
+        if (m_util.is_datatype(cur)) {
+            for (func_decl * c : *m_util.get_datatype_constructors(cur)) {
+                te->add_production(c);
+                unsigned num = c->get_arity();
+                for (unsigned i = 0; i < num; ++i) {
+                    sort * s_arg = c->get_domain(i);
+                    if (!visited.contains(s_arg)) {
+                        visited.insert(s_arg);
+                        todo.push_back(s_arg);
+                    }
                 }
+            }
+        }
+        // Sorts such as Array, Seq and FiniteSet may nest a datatype sort
+        // as one of their sort parameters (e.g., the range of an Array,
+        // the element sort of a Seq or FiniteSet). Follow those nested
+        // sorts uniformly, via sort::get_sort_parameters(), so that any
+        // datatype constructors they contain are also registered.
+        for (sort * nested : cur->get_sort_parameters()) {
+            if (!visited.contains(nested)) {
+                visited.insert(nested);
+                todo.push_back(nested);
             }
         }
     }
