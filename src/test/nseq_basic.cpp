@@ -283,6 +283,76 @@ static void test_setup_seq_str_dispatches_nseq() {
     std::cout << "  ok: setup_seq_str dispatched to setup_nseq for 'nseq'\n";
 }
 
+static void test_nseq_replace_rigidity_scope() {
+    std::cout << "test_nseq_replace_rigidity_scope\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref x(m.mk_const(symbol("replace_x"), str_sort), m);
+    const expr_ref empty(su.str.mk_string(zstring()), m);
+    const expr_ref a(su.str.mk_string(zstring("a")), m);
+    const expr_ref replace(su.str.mk_replace(empty, x, a), m);
+    expr* replace_all_args[3] = { empty, x, a };
+    const expr_ref replace_all(
+        m.mk_app(su.get_family_id(), OP_SEQ_REPLACE_ALL, 3, replace_all_args), m);
+
+    VERIFY(!sg.mk(replace)->is_rigid());
+    VERIFY(sg.mk(replace_all)->is_rigid());
+    std::cout << "  ok: str.replace uses finite axioms; recursive replacement stays rigid\n";
+}
+
+static void test_nseq_replace_symbolic_pattern() {
+    std::cout << "test_nseq_replace_symbolic_pattern\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    smt::context ctx(m, params);
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref pattern(m.mk_const(symbol("replace_pattern"), str_sort), m);
+    const expr_ref empty(su.str.mk_string(zstring()), m);
+    const expr_ref a(su.str.mk_string(zstring("A")), m);
+    const expr_ref b(su.str.mk_string(zstring("B")), m);
+    const expr_ref replace(su.str.mk_replace(empty, pattern, a), m);
+
+    ctx.push();
+    ctx.assert_expr(expr_ref(m.mk_eq(replace, b), m));
+    VERIFY(ctx.check() == l_false);
+    ctx.pop(1);
+
+    ctx.push();
+    ctx.assert_expr(expr_ref(m.mk_eq(replace, a), m));
+    VERIFY(ctx.check() == l_true);
+    ctx.pop(1);
+    std::cout << "  ok: symbolic str.replace is unsat/sat according to replace_axiom\n";
+}
+
+static void test_nseq_replace_membership_without_relevancy() {
+    std::cout << "test_nseq_replace_membership_without_relevancy\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_relevancy_lvl = 0;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref pattern(m.mk_const(symbol("replace_membership_pattern"), str_sort), m);
+    const expr_ref empty(su.str.mk_string(zstring()), m);
+    const expr_ref a(su.str.mk_string(zstring("A")), m);
+    const expr_ref b(su.str.mk_string(zstring("B")), m);
+    const expr_ref replace(su.str.mk_replace(empty, pattern, a), m);
+    const expr_ref b_regex(su.re.mk_to_re(b), m);
+
+    ctx.assert_expr(expr_ref(su.re.mk_in_re(replace, b_regex), m));
+    VERIFY(ctx.check() == l_false);
+    std::cout << "  ok: replace_axiom is active for direct membership at relevancy=0\n";
+}
+
 // -----------------------------------------------------------------------
 // Fine & Wilf end-to-end tests (full smt::context, real arithmetic).
 // The equation shape U^n·V = Y·W^m·Z with different-base powers used to
@@ -382,6 +452,9 @@ void tst_nseq_basic() {
     test_nseq_const_nielsen_solvable();
     test_nseq_length_mismatch();
     test_setup_seq_str_dispatches_nseq();
+    test_nseq_replace_rigidity_scope();
+    test_nseq_replace_symbolic_pattern();
+    test_nseq_replace_membership_without_relevancy();
     test_nseq_fine_wilf_e2e_unsat();
     test_nseq_fine_wilf_e2e_sat();
     test_nseq_fine_wilf_option_off();

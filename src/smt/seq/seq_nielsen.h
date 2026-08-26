@@ -849,7 +849,7 @@ namespace seq {
         bool is_satisfied() const;
 
         // true if ANY equality/disequality/membership references a rigid (defined) op
-        // snode (str.replace, str.replace_all, str.replace_re*). Used to defer to the
+        // snode (str.replace_all or str.replace_re*). Used to defer to the
         // axiom layer (FC_GIVEUP) before searching: these terms are not free variables
         // but are pinned by the recfun/axiom layer, and the Nielsen modifiers would
         // substitute/unify them as if free, discarding their definition and producing

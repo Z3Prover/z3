@@ -219,7 +219,7 @@ namespace seq {
         ++m_stats.m_num_eager_calls;
         const ptr_vector<nielsen_edge> empty_path;
 
-        // Rigid defined ops (str.replace_all, …) must never be Nielsen-substituted;
+        // Rigid recursive replacement ops must never be Nielsen-substituted;
         // a rigid term is inherited down the whole chain, so a single check on the
         // leaf (which holds all current constraints) suffices — bail before any det
         // step (mirrors final_check's guard).
