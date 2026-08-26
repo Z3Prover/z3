@@ -20,6 +20,9 @@
 #include "ast/polymorphism_util.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/simplifiers/then_simplifier.h"
+#include "ast/simplifiers/rewriter_simplifier.h"
+#include "ast/simplifiers/lambda_simplifier.h"
 #include "solver/solver.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
@@ -2942,6 +2945,20 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         tptp_parser p(ctx);
         p.parse_input(in, current_file ? current_file : ".");
         p.assert_distinct_objects();
+
+        // Pre-processing pipeline applied to the solver's assertions before search:
+        // simplify -> unfold lambda-defined constants (shallow HOL/modal embeddings) -> simplify.
+        // Must be installed before set_solver_factory(), which eagerly builds the solver.
+        if (tptp().unfold_lambda_macros()) {
+            simplifier_factory factory = [](ast_manager& m, params_ref const& p, dependent_expr_state& st) {
+                scoped_ptr<then_simplifier> t = alloc(then_simplifier, m, p, st);
+                t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
+                t->add_simplifier(alloc(lambda_simplifier, m, p, st));
+                t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
+                return t.detach();
+            };
+            ctx.set_simplifier_factory(factory);
+        }
 
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
         params_ref solver_params;

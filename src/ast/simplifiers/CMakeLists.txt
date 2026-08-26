@@ -19,6 +19,7 @@ z3_add_component(simplifiers
     extract_eqs.cpp
     factor_simplifier.cpp
     fold_unfold.cpp
+    lambda_simplifier.cpp
     linear_equation.cpp
     max_bv_sharing.cpp
     model_reconstruction_trail.cpp
@@ -40,6 +41,7 @@ z3_add_component(simplifiers
     blast_term_ite_simplifier.h
     elim_bounds.h
     elim_term_ite.h
+    lambda_simplifier.h
     pull_nested_quantifiers.h
     push_ite.h
     randomizer.h
