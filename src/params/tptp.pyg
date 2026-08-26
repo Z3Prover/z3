@@ -4,4 +4,5 @@ def_module_params('tptp',
                   export=True,
                   params=(('root', SYMBOL, '', 'root directory for resolving TPTP include() axiom paths (replaces the TPTP environment variable)'),
                           ('dump_smt2', SYMBOL, '', 'if non-empty, file path to dump the parsed TPTP goal as an SMT-LIB2 benchmark (replaces the Z3_TPTP_DUMP_SMT2 environment variable)'),
-                          ('unfold_lambda_macros', BOOL, True, 'pre-process the goal by unfolding constants that are defined as lambda terms (shallow embeddings of higher-order/modal operators), inlining and beta-reducing their occurrences')))
+                          ('unfold_lambda_macros', BOOL, True, 'pre-process the goal by unfolding constants that are defined as lambda terms (shallow embeddings of higher-order/modal operators), inlining and beta-reducing their occurrences'),
+                          ('leibniz_instantiation', BOOL, False, 'pre-process the goal by synthesizing and adding Leibniz-equality style instantiations of universally quantified predicate variables applied to distinct argument terms')))
