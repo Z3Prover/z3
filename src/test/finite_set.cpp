@@ -16,6 +16,7 @@ Author:
 Revision History:
 
 --*/
+#include "api/z3.h"
 #include "ast/ast.h"
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
@@ -277,10 +278,35 @@ static void tst_finite_set_sort_size() {
     ENSURE(bv4_set_sz.size() == 65536); // 2^16 = 65536
 }
 
+static void tst_finite_set_size_members() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_sort set_sort = Z3_mk_finite_set_sort(ctx, int_sort);
+    Z3_ast s = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "s"), set_sort);
+    Z3_ast a = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a"), int_sort);
+    Z3_ast b = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "b"), int_sort);
+    Z3_solver_assert(ctx, solver, Z3_mk_finite_set_member(ctx, a, s));
+    Z3_solver_assert(ctx, solver, Z3_mk_finite_set_member(ctx, b, s));
+    Z3_solver_assert(ctx, solver, Z3_mk_eq(ctx, Z3_mk_finite_set_size(ctx, s), Z3_mk_int(ctx, 1, int_sort)));
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_ast elems[] = { a, b };
+    Z3_solver_push(ctx, solver);
+    Z3_solver_assert(ctx, solver, Z3_mk_distinct(ctx, 2, elems));
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+    Z3_solver_pop(ctx, solver, 1);
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+    Z3_del_config(cfg);
+}
+
 void tst_finite_set() {
     tst_finite_set_basic();
     tst_finite_set_map_filter();
     tst_finite_set_is_value();
     tst_finite_set_is_fully_interp();
     tst_finite_set_sort_size();
+    tst_finite_set_size_members();
 }

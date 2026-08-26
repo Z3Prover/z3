@@ -319,6 +319,34 @@ namespace smt {
         if (assume_eqs())
             return FC_CONTINUE;
 
+        arith_util a(m);
+        for (auto f : m_set_in_decls) {
+            auto const& members = ctx.enodes_of(f);
+            for (unsigned i = 0; i < members.size(); ++i) {
+                auto p = members[i];
+                if (!ctx.is_relevant(p) || ctx.get_assignment(p) != l_true)
+                    continue;
+                auto x = p->get_arg(0);
+                auto s = p->get_arg(1)->get_root();
+                for (unsigned j = 0; j < i; ++j) {
+                    auto q = members[j];
+                    if (!ctx.is_relevant(q) || ctx.get_assignment(q) != l_true || s != q->get_arg(1)->get_root())
+                        continue;
+                    auto y = q->get_arg(0);
+                    if (x->get_root() == y->get_root())
+                        continue;
+                    expr_ref size(u.mk_size(s->get_expr()), m);
+                    literal_vector lemma;
+                    lemma.push_back(~mk_literal(p->get_expr()));
+                    lemma.push_back(~mk_literal(q->get_expr()));
+                    lemma.push_back(mk_literal(m.mk_eq(x->get_expr(), y->get_expr())));
+                    lemma.push_back(mk_literal(a.mk_ge(size, a.mk_int(2))));
+                    ctx.mk_th_axiom(get_id(), lemma);
+                    return FC_CONTINUE;
+                }
+            }
+        }
+
         switch (m_cardinality_solver.final_check()) {
         case l_true: break;
         case l_false: return FC_CONTINUE;
