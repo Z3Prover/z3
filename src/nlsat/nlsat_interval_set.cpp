@@ -778,6 +778,51 @@ namespace nlsat {
         m_am.set(w, s->m_intervals[irrational_i].m_upper);
     }
 
+    bool interval_set_manager::pick_max_in_complement(interval_set const * s, anum & w, anum & sup, bool & attained) {
+        SASSERT(!is_full(s));
+        attained = false;
+        if (s == nullptr)
+            return false;
+        unsigned num = num_intervals(s);
+        if (!s->m_intervals[num-1].m_upper_inf)
+            return false;
+        // The rightmost interval extends to +oo. Walk to the left over
+        // intervals glued to it to find the rightmost point of the complement.
+        unsigned i = num - 1;
+        while (true) {
+            interval const & curr = s->m_intervals[i];
+            if (curr.m_lower_inf)
+                return false; // cannot happen: s would be full
+            bool has_prev = i > 0;
+            interval const * prev = has_prev ? &s->m_intervals[i-1] : nullptr;
+            if (curr.m_lower_open) {
+                // curr.m_lower is not in curr; it is in the complement unless prev covers it.
+                if (!has_prev || m_am.lt(prev->m_upper, curr.m_lower) || prev->m_upper_open) {
+                    m_am.set(w, curr.m_lower);
+                    m_am.set(sup, curr.m_lower);
+                    attained = true;
+                    return true;
+                }
+            }
+            else {
+                // curr.m_lower is infeasible: the supremum of the complement is
+                // the open endpoint curr.m_lower, provided the gap to prev is non-empty.
+                if (!has_prev) {
+                    m_am.int_lt(curr.m_lower, w);
+                    m_am.set(sup, curr.m_lower);
+                    return true;
+                }
+                if (m_am.lt(prev->m_upper, curr.m_lower)) {
+                    m_am.select(prev->m_upper, curr.m_lower, w);
+                    m_am.set(sup, curr.m_lower);
+                    return true;
+                }
+            }
+            // prev and curr are glued: treat them as one interval.
+            --i;
+        }
+    }
+
     std::ostream& interval_set_manager::display(std::ostream & out, interval_set const * s) const {
         if (s == nullptr) {
             out << "{}";

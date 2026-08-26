@@ -49,7 +49,7 @@ namespace opt {
         void set_negate(bool neg) { m_negate = neg; }
         rational const& get_offset() const { return m_offset; }
         void add_offset(rational const& o) { if (m_negate) m_offset -= o; else m_offset += o; }
-        bool get_negate() { return m_negate; }
+        bool get_negate() const { return m_negate; }
         inf_eps operator()(inf_eps const& r) const {
             inf_eps result = r;
             if (m_negate) result.neg();
