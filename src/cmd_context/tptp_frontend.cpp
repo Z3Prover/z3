@@ -304,6 +304,11 @@ class tptp_parser {
     bool m_has_conjecture = false;
     unsigned m_dropped_formulas = 0;      // axioms/definitions skipped due to encoding errors
     bool m_has_dependent_type = false;    // a "T > $tType" (value-indexed type family) was declared
+    bool m_has_type_quantifier = false;   // a value-level "![A: $tType] : ..." or "!>[A: $tType] : ..."
+                                           // quantifier was parsed; theory_polymorphism only instantiates
+                                           // such axioms on demand for types seen during search, which is
+                                           // incomplete over the space of all types and can make a
+                                           // sat/unsat verdict unsound (see report_szs_status downgrade).
     bool m_last_name_quoted = false;
     bool m_last_name_dquoted = false;     // last parsed name was a double-quoted distinct object
     // Distinct objects: TPTP double-quoted strings ("...") denote pairwise distinct
@@ -2120,6 +2125,7 @@ class tptp_parser {
                     if (is_ttype(s)) {
                         auto it = m_sorts.find(v);
                         saved_tvars.emplace_back(v, it == m_sorts.end() ? nullptr : it->second);
+                        m_has_type_quantifier = true;
                         if (is_forall) {
                             sort* tvs = m.mk_type_var(symbol(v));
                             m_pinned_sorts.push_back(tvs);
@@ -2172,6 +2178,7 @@ class tptp_parser {
                         parse_type_expr(); // consume $tType annotation
                     auto it = m_sorts.find(tv);
                     saved.emplace_back(tv, it == m_sorts.end() ? nullptr : it->second);
+                    m_has_type_quantifier = true;
                     // Universal type quantification is genuine parametric polymorphism:
                     // keep the type variable (mk_type_var) so the body becomes a
                     // polymorphic axiom that theory_polymorphism instantiates on demand.
@@ -2823,6 +2830,12 @@ public:
     // dependent type that our polymorphic encoding cannot represent soundly.
     bool has_dependent_type() const { return m_has_dependent_type; }
 
+    // True if the problem contains a value-level quantifier over $tType (either
+    // "![A: $tType] : ..." or "!>[A: $tType] : ..."). Our encoding instantiates
+    // such axioms lazily (on demand, for types encountered during search) rather
+    // than truly universally, so any sat/unsat verdict is not certified.
+    bool has_type_quantifier() const { return m_has_type_quantifier; }
+
     std::string const& expected_status() const { return m_expected_status; }
 
     // Scan TPTP comments for an SZS/Status annotation, e.g.
@@ -2995,14 +3008,37 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         TRACE(parser, ctx.get_solver()->display(tout));
         ctx.check_sat(0, nullptr);
         // A value-indexed type family ("T > $tType") is a dependent type that our
-        // encoding approximates unsoundly (a universe element stands in for a type).
-        // Neither an unsat (Theorem/Unsatisfiable) nor a sat (CounterSatisfiable/
-        // Satisfiable) verdict can be trusted, so downgrade both to GaveUp.
-        if (p.has_dependent_type() &&
-            (ctx.cs_state() == cmd_context::css_unsat || ctx.cs_state() == cmd_context::css_sat)) {
+        // encoding approximates unsoundly: a single universe element stands in for
+        // a whole type, so constraints on one instance of the family can be
+        // conflated with constraints on another. This conflation can fabricate a
+        // false contradiction just as easily as a false model, so both an unsat
+        // and a sat verdict are uncertified when a dependent type family is
+        // declared.
+        //
+        // A value-level quantifier over $tType ("![A: $tType] : ..." or
+        // "!>[A: $tType] : ...") is instantiated only lazily, on demand, for types
+        // encountered during search (theory_polymorphism) rather than truly
+        // universally -- this is incomplete over the space of all types. Unlike
+        // the dependent-type-family case, this does not conflate distinct types
+        // with one another, so it can only make a *sat* verdict unsound: a model
+        // built from a subset of type instances may not satisfy instances that
+        // were never generated. An *unsat* verdict remains sound: it was derived
+        // using only actually-instantiated axioms, and using fewer instances can
+        // never manufacture a false contradiction. So this case only downgrades
+        // sat verdicts.
+        bool downgrade = p.has_dependent_type()
+            ? (ctx.cs_state() == cmd_context::css_unsat || ctx.cs_state() == cmd_context::css_sat)
+            : (p.has_type_quantifier() && ctx.cs_state() == cmd_context::css_sat);
+        if (downgrade) {
             std::cout << "% SZS status GaveUp\n";
-            std::cout << "% SZS reason problem declares a dependent type family "
-                         "(T > $tType); verdict is not certified\n";
+            if (p.has_dependent_type())
+                std::cout << "% SZS reason problem declares a dependent type family "
+                             "(T > $tType); verdict is not certified\n";
+            else
+                std::cout << "% SZS reason problem quantifies over $tType "
+                             "(![A: $tType] : ... or !>[A: $tType] : ...); "
+                             "verdict relies on incomplete on-demand type "
+                             "instantiation and is not certified\n";
         }
         else
         switch (ctx.cs_state()) {
