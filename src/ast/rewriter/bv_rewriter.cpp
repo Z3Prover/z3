@@ -1283,11 +1283,8 @@ br_status bv_rewriter::mk_bv_srem_core(expr * arg1, expr * arg2, bool hi_div0, e
         expr* x = nullptr, *divisor = nullptr;
         numeral divisor_value;
         unsigned divisor_size = 0;
-        if (m_util.is_bv_sremi(arg1)) {
-            x = to_app(arg1)->get_arg(0);
-            divisor = to_app(arg1)->get_arg(1);
-        }
-        if (!r2.is_zero() && divisor && is_numeral(divisor, divisor_value, divisor_size)) {
+        if (m_util.is_bv_sremi(arg1, x, divisor) && 
+            !r2.is_zero() && is_numeral(divisor, divisor_value, divisor_size)) {
             divisor_value = m_util.norm(divisor_value, divisor_size, true);
             if (!divisor_value.is_zero() && (divisor_value % r2).is_zero()) {
                 result = m.mk_app(get_fid(), OP_BSREM_I, x, arg2);
