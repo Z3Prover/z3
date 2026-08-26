@@ -47,6 +47,7 @@ public:
     void insert(expr* s, expr* def, expr_dependency* def_dep) { insert(s, def, nullptr, def_dep); }
     void erase(expr * s);
     expr* find(expr* s) { return m_subst[s]; }
+    expr* try_find(expr* s) { expr* v = nullptr; m_subst.find(s, v); return v; }
     expr_dependency* dep(expr* s) { return (*m_subst_dep)[s]; }
     bool find(expr * s, expr * & def, proof * & def_pr);
     bool find(expr * s, expr * & def, proof * & def_pr, expr_dependency * & def_dep);

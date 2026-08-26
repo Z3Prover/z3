@@ -2,6 +2,7 @@
 #include "model/model_evaluator.h"
 #include "model/func_interp.h"
 #include "model/model_pp.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
@@ -89,6 +90,19 @@ void tst_model_evaluator() {
         [[maybe_unused]] func_entry* kept = fi2.get_entry(kept_args);
         ENSURE(kept != nullptr);
         ENSURE(kept->get_result() == one.get());
+    }
+
+    {
+        array_util au(m);
+        sort* dom[1] = { sI };
+        func_decl_ref fn(m.mk_func_decl(symbol("fn"), 1, dom, sI), m);
+        expr_ref as_array(au.mk_as_array(fn), m);
+        ENSURE(eval.eval(as_array, v, true));
+        ENSURE(!au.is_as_array(v));
+        ENSURE(au.is_const(v));
+        func_interp* fni = mdl.get_func_interp(fn);
+        ENSURE(fni != nullptr);
+        ENSURE(fni->get_else() != nullptr);
     }
     
 }

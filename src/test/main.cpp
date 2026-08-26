@@ -118,6 +118,8 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_eq_approx) \
+    X(seq_regex_witness) \
     X(seq_monadic) \
     X(seq_monadic_bench) \
     X(check_assumptions) \
@@ -125,6 +127,7 @@
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
+    X(mbp_qel) \
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
@@ -171,7 +174,7 @@
     X(rcf) \
     X(polynorm) \
     X(qe_arith) \
-    X(mbp_qel) \
+    X(qe_lite) \
     X(expr_substitution) \
     X(sorting_network) \
     X(theory_pb) \

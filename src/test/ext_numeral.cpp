@@ -34,8 +34,8 @@ static void tst_ ## NAME(int a, ext_numeral_kind ak, int expected_c, ext_numeral
     }                                                                   \
 }
 
-MK_TST_UNARY(neg);
-MK_TST_UNARY(inv);
+MK_TST_UNARY(neg)
+MK_TST_UNARY(inv)
 
 #define MK_TST_BIN_CORE(FUN_NAME, OP_NAME)                              \
 static void FUN_NAME(int a, ext_numeral_kind ak, int b, ext_numeral_kind bk, int expected_c, ext_numeral_kind expected_ck) { \
@@ -62,9 +62,9 @@ static void tst_ ## NAME(int a, ext_numeral_kind ak, int b, ext_numeral_kind bk,
     tst_ ## NAME ## _core(b, bk, a, ak, expected_c, expected_ck);       \
 }
 
-MK_TST_COMM_BIN(add);
-MK_TST_BIN(sub);
-MK_TST_COMM_BIN(mul);
+MK_TST_COMM_BIN(add)
+MK_TST_BIN(sub)
+MK_TST_COMM_BIN(mul)
 
 static void tst1() {
     tst_neg(0, EN_MINUS_INFINITY, 0, EN_PLUS_INFINITY);
@@ -170,12 +170,12 @@ static void tst_ ## NAME(int a, ext_numeral_kind ak, int b, ext_numeral_kind bk,
     tst_ ## NAME ## _core(b, bk, a, ak, expected);                      \
 }
 
-MK_TST_SYMM_REL(eq);
-MK_TST_SYMM_REL(neq);
-MK_TST_REL(lt);
-MK_TST_REL(gt);
-MK_TST_REL(le);
-MK_TST_REL(ge);
+MK_TST_SYMM_REL(eq)
+MK_TST_SYMM_REL(neq)
+MK_TST_REL(lt)
+MK_TST_REL(gt)
+MK_TST_REL(le)
+MK_TST_REL(ge)
 
 static void tst2() {
     tst_eq(0, EN_NUMERAL, 0, EN_NUMERAL, true);

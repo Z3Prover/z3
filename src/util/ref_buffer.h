@@ -43,6 +43,11 @@ protected:
             dec_ref(*it);
     }
 
+    void dec_all_ref() {
+        for (T* elem : m_buffer)
+            dec_ref(elem);
+    }
+
 public:
     typedef T * data_t;
 
@@ -51,7 +56,7 @@ public:
     }
 
     ~ref_buffer_core() {
-        dec_range_ref(m_buffer.begin(), m_buffer.end());
+        dec_all_ref();
     }
 
     void push_back(T * n) {
@@ -106,12 +111,12 @@ public:
     }
 
     void reset() {
-        dec_range_ref(m_buffer.begin(), m_buffer.end());
+        dec_all_ref();
         m_buffer.reset();
     }
 
     void finalize() {
-        dec_range_ref(m_buffer.begin(), m_buffer.end());
+        dec_all_ref();
         m_buffer.finalize();
     }        
 
@@ -186,4 +191,3 @@ template<typename T, unsigned INITIAL_SIZE=16>
 class sref_buffer : public ref_buffer_core<T, ref_unmanaged_wrapper<T>, INITIAL_SIZE> {
 public:
 };
-

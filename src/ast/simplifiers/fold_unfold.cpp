@@ -45,6 +45,19 @@ namespace euf {
         if (!m_config.m_enabled)
             return;
 
+        SASSERT(m_pr_dep.empty());
+        m_egraph.push();
+        auto reset_egraph = on_scope_exit([&]() {
+            m_find.reset();
+            m_args.reset();
+            m_todo.reset();
+            m_node2level.reset();
+            m_level2node.reset();
+            m_egraph.pop(1);
+            m_pr_dep.reset();
+            m_th_var = 0;
+        });
+
         m_fmls.freeze_suffix();
 
         for (extract_eq* ex : m_extract_plugins)
@@ -173,7 +186,6 @@ namespace euf {
         unsigned sz = m_pr_dep.size();
         SASSERT(!m.proofs_enabled() || pr);
         m_pr_dep.push_back({proof_ref(pr, m), d});
-        m_trail.push(push_back_vector(m_pr_dep));
         return sz;
     }
 

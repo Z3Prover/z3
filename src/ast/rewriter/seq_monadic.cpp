@@ -29,38 +29,23 @@ TODOs:
   Model construction would assign values to the elements.
 - make unsat core tracking less naive by tracking dependencies at a finer grain.
 - add selective tracing TRACE(seq, ..).
+- revisit DFS to select next membership constraint to explore base on the current state.
+  In the current state include current set of variable intersection membership constraints.
+  The next membership constraint to explore is preferrably for a variable that was just
+  explored and we can check the variable intersection membership constraints if the new
+  expansion is feasible. Constant characters are consumed at the same time to also prune
+  the choice.
+- separate out "live-state" and enumerator over reachable live states:
+  - make it share live states between callers.
+  - make it expose an iterator instead of using vectors of live states to allow on-demand expansion of live states.
+  - make use of DFS exploration of derivatives to extract live states without visiting all states up front.
+  - use it in seq_regex legacy mode that also has this notion.
+
+
 
 Author:
 
     Nikolaj Bjorner / Margus Veanes 2026
-
-Shady parts:
-
-- epsilon transitions appear not accounted for when computing reaching states.
-  If a regex R contains N by taking a set of epsilon transitions, then it is nullable relative
-  to N. It suggests a use for a version of nullability that is relative to N.
-  Deal also with when N itself has epsilon transitions to N1, .., Nk.
-
-- witness extraction is plain wrong. It should generally rely on a choice function that takes a
-  Boolean expression F[(:var 0)] with a single free variable and synthesize a value for the free
-  variable such that the expression is true.
-  For character predicates we can assume that the Boolean expressions are range predicates and we can
-  use utilities for range predicates. For other types use some best effort, say F is of the form (= (:var 0) value).
-  Expose the witness function in a self-contained module outside of this file.
-
-- checking intersections with continuation regexes is shady. The nullability check is now really about
-  whether there is an epsilon transition to the accepting state N. The copilot-generated code ignores this.
-  Generally, dealing with epsilon state is shady. There are many equivalent ways a state can be epsilon, such
-  as epsilon*, or comp(.+), etc.
-
-- I don't think there should be a special case for when N is epsilon and having N being nullptr
-  is uneven.
-  The code uses "live_states" and "reaching_states" for two cases.
-
-- The code in test_intersect shouldn't be relying on a rewriter. Anything that can be rewritten
-  could be done prior.
-
-- Remove hard-wired constants such as STATE_CAP.
 
 --*/
 
@@ -77,53 +62,21 @@ Shady parts:
 #include <unordered_set>
 
 namespace {
-char const* mode_name(seq::transition_mode mode) {
-    switch (mode) {
-    case seq::transition_mode::brzozowski_tm:
-        return "brzozowski";
-    case seq::transition_mode::light_antimirov_tm:
-        return "light-antimirov";
+
+    char const *bail_name(unsigned i) {
+        static char const *const names[] = {"unsupported", "state-cap",   "budget", "state-expansion",
+                                            "resource",    "nullability", "guard",  "not-reversible"};
+        return i < std::size(names) ? names[i] : "unknown";
     }
-    return "unknown";
-}
 
-char const* result_name(lbool r) {
-    switch (r) {
-    case l_true:  return "sat";
-    case l_false: return "unsat";
-    default:      return "unknown";
+    void dedup_views(seq::view_vector const &g, seq::view_vector &out) {
+        std::set<seq::view::sig> seen;
+        for (auto const &c : g) {
+            if (seen.insert(c.key()).second)
+                out.push_back(c);
+        }
     }
-}
-
-void dedup_views(seq::view_vector const& g, seq::view_vector& out) {
-    std::set<seq::view::sig> seen;
-    for (auto const& c : g) {
-        if (seen.insert(c.key()).second)
-            out.push_back(c);
-    }
-}
-}
-
-#define SEQ_MONADIC_BAIL_PREFIX "seq monadic bail "
-
-char const* seq_monadic::bail_stat_name(bail_reason reason) {
-    switch (reason) {
-    case bail_reason::unsupported:     return SEQ_MONADIC_BAIL_PREFIX "unsupported";
-    case bail_reason::state_cap:       return SEQ_MONADIC_BAIL_PREFIX "state cap";
-    case bail_reason::budget:          return SEQ_MONADIC_BAIL_PREFIX "budget";
-    case bail_reason::state_expansion: return SEQ_MONADIC_BAIL_PREFIX "state expansion";
-    case bail_reason::resource:        return SEQ_MONADIC_BAIL_PREFIX "resource";
-    case bail_reason::nullability:     return SEQ_MONADIC_BAIL_PREFIX "nullability";
-    case bail_reason::guard:           return SEQ_MONADIC_BAIL_PREFIX "guard";
-    case bail_reason::not_reversible:  return SEQ_MONADIC_BAIL_PREFIX "not reversible";
-    case bail_reason::replay:          return SEQ_MONADIC_BAIL_PREFIX "replay";
-    default:                           return SEQ_MONADIC_BAIL_PREFIX "unknown";
-    }
-}
-
-char const* seq_monadic::bail_name(bail_reason reason) {
-    return bail_stat_name(reason) + (sizeof(SEQ_MONADIC_BAIL_PREFIX) - 1);
-}
+}  // namespace
 
 expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
     expr* cached = nullptr;
@@ -232,9 +185,10 @@ seq_monadic::ivl_list const* seq_monadic::interval_cofactors(expr* r, expr* v0) 
         unsigned lo = bounds[bi];
         unsigned hi = bi + 1 < bounds.size() ? bounds[bi + 1] - 1 : max_char;
         hits.reset();
-        for (auto const& e : tr)
+        for (auto const& e : tr) {
             if (e.lo <= lo && lo <= e.hi)
                 hits.push_back(e.t);
+        }
         if (hits.empty())
             continue;                          // gap: no transition on this range
         // extend the previous range when it carries exactly the same target set
@@ -271,21 +225,19 @@ bool seq_monadic::out_of_budget() {
     return false;
 }
 
-lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* witness_word) {
+lbool seq_monadic::product_nonempty(expr* var, seq::view_vector const& comps, expr_ref* witness_word) {
+    sort *elem_sort = nullptr;
+    auto seq_sort = var->get_sort();
+    if (!u().is_seq(seq_sort, elem_sort))
+        return l_undef;
     unsigned n = comps.size();
     if (n == 0) {
         if (witness_word)
-            *witness_word = expr_ref(u().str.mk_empty(m_seq_sort), m);
+            *witness_word = expr_ref(u().str.mk_empty(seq_sort), m);
         return l_true;
     }
-    // sorts of the value being decided: they are read off the views rather than taken
-    // from the problem-wide m_seq_sort/m_elem_sort
-    sort* seq_sort = nullptr;
-    sort* elem_sort = nullptr;
-    if (!u().is_re(comps[0].m_state, seq_sort) || !u().is_seq(seq_sort, elem_sort))
-        return l_undef;
-    expr_ref var0(m.mk_var(0, elem_sort), m);     // the element variable the guards range over
 
+    expr_ref var0(m.mk_var(0, elem_sort), m);     // the element variable the guards range over
     typedef std::vector<unsigned> key;
     struct key_hash {
         size_t operator()(key const& k) const {
@@ -354,8 +306,6 @@ lbool seq_monadic::product_nonempty(seq::view_vector const& comps, expr_ref* wit
         expr_ref_vector es(m);               // start..accept order
         for (unsigned idx = elems.size(); idx-- > 0; )
             es.push_back(u().str.mk_unit(elems[idx]));
-        if (es.empty())
-            return expr_ref(u().str.mk_empty(seq_sort), m);
         return expr_ref(u().str.mk_concat(es.size(), es.data(), seq_sort), m);
     };
 
@@ -591,36 +541,26 @@ unsigned seq_monadic::var_index(expr* v) {
     m_var_idx.insert(v, vi);
     m_vars.push_back(v);
     m_groups.push_back(seq::view_vector());
-    m_num_occ.push_back(0);
-    m_head_cnt.push_back(0);
     return vi;
 }
 
 void seq_monadic::reset_search() {
-    m_seq_sort = nullptr;
-    m_elem_sort = nullptr;
     m_atoms.reset();
     m_regexes.reset();
     m_vars.reset();
     m_var_idx.reset();
     m_groups.reset();
-    m_num_occ.reset();
+    m_last_occ.reset();
     m_group_cache.clear();
     m_der_cache.reset();
     m_nullable_cache.reset();
     m_undef_vars = 0;
-    m_cursors.reset();
-    m_last_var = UINT_MAX;
-    m_head_cnt.reset();
-    m_head_stack.reset();
+    m_any_undef = false;
     m_live_states.reset();
-    m_cur_path.reset();
-}
-
-lbool seq_monadic::replay_bail() {
-    m_stats.inc_bail(bail_reason::replay);
-    m_giveup = true;
-    return l_undef;
+    m_stack.reset();
+    m_pos_mi = 0;
+    m_pos_i = 0;
+    m_pos_R = nullptr;
 }
 
 bool seq_monadic::reverse_regex(expr* r, expr_ref& result) {
@@ -634,9 +574,9 @@ bool seq_monadic::reverse_regex(expr* r, expr_ref& result) {
 }
 
 expr_ref seq_monadic::mk_rev_var(expr* v) {
-    if (!m_rev_decl || m_rev_decl->get_range() != m_seq_sort) {
-        sort* domain[1] = { m_seq_sort };
-        m_rev_decl = m.mk_fresh_func_decl("rev", 1, domain, m_seq_sort);
+    if (!m_rev_decl || m_rev_decl->get_range() != v->get_sort()) {
+        sort *domain[1] = {v->get_sort()};
+        m_rev_decl = m.mk_fresh_func_decl("rev", 1, domain, v->get_sort());
     }
     return expr_ref(m.mk_app(m_rev_decl, v), m);
 }
@@ -672,19 +612,12 @@ bool seq_monadic::prepare(membership_vec const& memberships, bool reversed) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
         }
-        // The memberships are decided jointly over one guard algebra, so they all have to
-        // speak about the same sequence sort.
-        if (m_seq_sort && m_seq_sort != seq_sort) {
-            m_stats.inc_bail(bail_reason::unsupported);
-            return false;
-        }
-        m_seq_sort = seq_sort;
         // Derivative processing assumes the regex denotes a fixed language.
         if (!re().is_ground(regex)) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
         }
-        if (!u().is_seq(m_seq_sort, m_elem_sort)) {
+        if (!u().is_seq(seq_sort)) {
             m_stats.inc_bail(bail_reason::unsupported);
             return false;
         }
@@ -714,14 +647,17 @@ bool seq_monadic::prepare(membership_vec const& memberships, bool reversed) {
         m_pin.push_back(R);
         ++mi;
     }
-    // A variable's view group is complete once it holds one view per occurrence
-    // of the variable (see group_complete).
+    // A variable's view group is complete once the search passes the variable's
+    // last occurrence; positions are compared in search order, i.e. lexicographically
+    // on (membership index, atom index).
     for (unsigned mi = 0; mi < m_atoms.size(); ++mi) {
         vector<atom> const& atoms = m_atoms[mi];
-        for (atom const& a : atoms) {
-            if (!a.is_var)
+        for (unsigned i = 0; i < atoms.size(); ++i) {
+            if (!atoms[i].is_var)
                 continue;
-            ++m_num_occ[var_index(a.var.get())];
+            expr* v = atoms[i].var.get();
+            var_index(v);
+            m_last_occ.insert(v, (static_cast<uint64_t>(mi) << 32) | i);
         }
     }
     return true;
@@ -743,7 +679,7 @@ lbool seq_monadic::group_nonempty(unsigned vi) {
         comps = g;                            // signature already deduplicated
     else
         dedup_views(g, comps);
-    lbool r = product_nonempty(comps, nullptr);
+    lbool r = product_nonempty(m_vars[vi], comps, nullptr);
     m_group_cache.emplace(sig, r);            // sig is m_sig_buf; emplace copies it
     return r;
 }
@@ -751,23 +687,14 @@ lbool seq_monadic::group_nonempty(unsigned vi) {
 lbool seq_monadic::leaf() {
     if (m_giveup)
         return l_undef;                           // the search was already abandoned
-    if (m_in_replay) {
-        // The branch the previous pull reported: reject it, and the search continues
-        // exactly as if that leaf had failed.  A different depth means a different tree.
-        if (m_cur_path.size() != m_resume->size())
-            return replay_bail();
-        m_in_replay = false;
-        return l_false;
-    }
     if (m_undef_vars > 0) {
-        m_had_undef = true;
+        m_any_undef = true;
         return l_undef;                           // some variable's emptiness test gave up
     }
-    if (m_enumerate)
-        m_leaf_path = m_cur_path;                 // resume point of the branch reported now
     if (!m_config.m_solution)
         return l_true;
-    // Snapshot the branch: the search pops m_groups on the way out even on success.
+    // Snapshot the branch: the next search, or the next pull of an `iterator`, unwinds
+    // m_groups again.
     m_solution.reset();
     for (unsigned vi = 0; vi < m_groups.size(); ++vi) {
         if (m_groups[vi].empty())
@@ -783,25 +710,34 @@ lbool seq_monadic::leaf() {
 }
 
 lbool seq_monadic::materialize(expr* var, expr_ref& word) {
+    // without a completed search there is nothing recorded to collapse
+    if (m_last_result != l_true)
+        return l_undef;
+    return materialize_recorded(var, word);
+}
+
+lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word) {
     // without a recorded solution m_solution is empty, and an empty word would pass
     // for a satisfying assignment
-    if (m_last_result != l_true || !m_config.m_solution)
+    if (!m_config.m_solution)
         return l_undef;
-    seq::view_vector views;
     expr* key = var;
     expr_ref rev_key(m);
-    if (!m_solution.find(key, views) && m_reversed) {
+    seq::view_vector views;
+    bool found = m_solution.find(key, views);
+    if (!found && m_reversed) {
         rev_key = mk_rev_var(var);
         key = rev_key.get();
+        found = m_solution.find(key, views);
     }
-    if (!m_solution.find(key, views)) {
+    if (!found) {
         word = u().str.mk_empty(var->get_sort());  // unconstrained: any value will do
         return l_true;
     }
     seq::view_vector comps;
     dedup_views(views, comps);
     expr_ref w(m);
-    lbool r = product_nonempty(comps, &w);
+    lbool r = product_nonempty(var, comps, &w);
     if (r == l_true) {
         if (m_reversed && !m_rw.mk_seq_reverse(w, w))  // the search solved rev(term) in rev(R),
             return l_undef;                            // so rev(x)'s witness is x's value backwards
@@ -818,7 +754,7 @@ lbool seq_monadic::materialize_all(expr_substitution& model) {
     for (auto const& [var, views] : m_solution) {
         expr_ref w(m);
         expr* v = strip_rev_var(var);
-        lbool r = materialize(v, w);
+        lbool r = materialize_recorded(v, w);  // preconditions already checked above
         if (r != l_true)
             return r;
         model.insert(v, w.get());
@@ -826,298 +762,155 @@ lbool seq_monadic::materialize_all(expr_substitution& model) {
     return l_true;
 }
 
-bool seq_monadic::inc_budget() {
-    if (m_giveup)
-        return false;                             // unwind the whole search, don't keep branching
-    return !out_of_budget();
+void seq_monadic::start_membership(unsigned mi) {
+    m_pos_mi = mi;
+    m_pos_i = 0;
+    m_pos_R = mi == m_atoms.size() ? nullptr : m_regexes.get(mi);
 }
 
-lbool seq_monadic::dfs_membership(unsigned mi) {
-    if (mi == m_atoms.size())
-        return leaf();
-    return dfs_atoms(mi, 0, m_regexes.get(mi));
-}
-
-lbool seq_monadic::dfs_atoms(unsigned mi, unsigned i, expr* R) {
-    if (!inc_budget())
-        return l_undef;
-    vector<atom> const& atoms = m_atoms[mi];
-    if (i == atoms.size()) {                      // the rest of this membership is epsilon
-        lbool nb = nullable(R);
-        if (nb == l_true)
-            return dfs_membership(mi + 1);
-        if (nb == l_false)
-            return l_false;
-        m_stats.inc_bail(bail_reason::nullability);
-        return l_undef;                           // undecidable nullability
-    }
-    atom const& a = atoms[i];
-    if (!a.is_var) {                              // a constant element is consumed by a derivative
-        expr_ref d = der_elem(R, a.elem.get());
-        if (re().is_empty(d))
-            return l_false;
-        return dfs_atoms(mi, i + 1, d);
-    }
-
-    // A variable: the last atom is a plain membership in R, otherwise the variable drives
-    // the derivative automaton from R to some live state q, which splits the search.
-    bool last_atom = (i + 1 == atoms.size());
-    unsigned vi = var_index(a.var.get());
-
-    // Explores one split target; the caller stops at the first l_true.
-    auto explore = [&](expr* target) -> lbool {
-        m_groups[vi].push_back(target ? seq::view::reach(R, target) : seq::view::membership(R));
-        // The group's emptiness test has to be run at some point anyway; running it as
-        // soon as the group is complete (or as soon as it holds several views, where
-        // an inconsistency can first arise) prunes the entire subtree below.
-        lbool ne = l_true;
-        if (re().is_empty(R))
-            ne = l_false;
-        else if (group_complete(vi) || m_groups[vi].size() > 1)
-            ne = group_nonempty(vi);
-        lbool r;
-        if (ne == l_false)
-            r = l_false;
-        else {
-            if (ne == l_undef)
-                ++m_undef_vars;
-            r = last_atom ? dfs_membership(mi + 1) : dfs_atoms(mi, i + 1, target);
-            if (ne == l_undef)
-                --m_undef_vars;
-        }
-        m_groups[vi].pop_back();
-        return r;
-    };
-
-    if (last_atom)
-        return explore(nullptr);
-
-    // The live states are consumed as they are produced, so a satisfying branch under an
-    // early state means the rest of the reachable set is never expanded.  That is what
-    // makes a root with an exponential live set tractable when a witness is found early.
-    bool any_undef = false;
-    auto live = m_live_states.reachable_live(R);
-    for (expr* q : live) {
-        lbool r = explore(q);
-        if (r == l_true)
+lbool seq_monadic::advance_pos() {
+    while (true) {
+        if (m_pos_mi == m_atoms.size())
             return l_true;
-        if (r == l_undef) {
-            if (m_giveup)
+        if (out_of_budget())
+            return l_undef;
+        vector<atom> const& atoms = m_atoms[m_pos_mi];
+        if (m_pos_i == atoms.size()) {
+            // the rest of this membership is epsilon
+            lbool nb = nullable(m_pos_R);
+            if (nb == l_false)
+                return l_false;
+            if (nb == l_undef) {
+                m_stats.inc_bail(bail_reason::nullability);
                 return l_undef;
-            any_undef = true;
+            }
+            start_membership(m_pos_mi + 1);
+            continue;
         }
-    }
-    // Short of the full reachable set the unexplored split states could still hold a
-    // solution, so the l_false the loop would otherwise report is not justified.
-    if (live.failed()) {
-        m_stats.inc_bail(
-            live.failure_reason() == seq::live_states::failure::state_cap ?
-            bail_reason::state_cap : bail_reason::resource);
-        return l_undef;
-    }
-    return any_undef ? l_undef : l_false;
-}
-
-// ---- state-based search driver ------------------------------------------------------
-//
-// This is an alternative to the strictly positional dfs_membership/dfs_atoms above.  The
-// positional search finishes membership 0 entirely, then membership 1, and so on, so two
-// memberships that share a variable only intersect that variable's components deep in the
-// tree -- after the first membership's alignment was chosen blindly.  The state-based
-// search keeps a *cursor* per membership and, at each step, expands ONE variable across
-// ALL memberships whose current head is that variable, intersecting the per-variable
-// components (m_groups) immediately.  An infeasible choice for a shared variable is thus
-// pruned as soon as it is made, rather than after committing to a full membership.
-//
-// A search state is:
-//   - the set of active (non-complete) cursors      == active membership constraints,
-//   - the per-variable view groups (m_groups)       == variable intersection constraints,
-//   - the last expanded variable (m_last_var)       == locality hint for the next choice.
-// Every non-complete cursor has a variable head (leading constants are eagerly consumed by
-// consume_constants).  The state is complete when every cursor is complete, and accepting
-// when additionally every variable group is non-empty.
-
-lbool seq_monadic::consume_constants(cursor& c, unsigned mi) {
-    vector<atom> const& atoms = m_atoms[mi];
-    while (c.i < atoms.size() && !atoms[c.i].is_var) {
-        expr_ref d = der_elem(c.R, atoms[c.i].elem.get());
+        atom const& a = atoms[m_pos_i];
+        if (a.is_var)
+            return l_true;
+        expr_ref d = der_elem(m_pos_R, a.elem.get());
         if (re().is_empty(d))
-            return l_false;                        // dead: this continuation is empty
-        c.R = d;
-        c.i += 1;
+            return l_false;
+        m_pin.push_back(d);
+        m_pos_R = d;
+        ++m_pos_i;
     }
-    c.complete = (c.i == atoms.size());
-    if (!c.complete)
-        return l_true;                             // stopped on a variable head
-    lbool nb = nullable(c.R);                      // the remaining tail is epsilon
-    if (nb == l_false)
-        return l_false;
-    if (nb == l_undef) {
-        m_stats.inc_bail(bail_reason::nullability);
-        return l_undef;                            // tail nullability undecidable
-    }
-    return l_true;
 }
 
-lbool seq_monadic::advance_cursor(cursor& c, unsigned mi, expr* target) {
-    // Step past the head variable.  target == null encodes "the variable is the last atom",
-    // i.e. a plain membership view: nothing follows, the cursor is complete.
-    if (!target) {
-        c.i = m_atoms[mi].size();
-        c.complete = true;
-        return l_true;
-    }
-    c.i += 1;
-    c.R = target;
-    return consume_constants(c, mi);
+bool seq_monadic::push_frame() {
+    if (m_pos_mi == m_atoms.size())
+        return false;
+    vector<atom> const& atoms = m_atoms[m_pos_mi];
+    SASSERT(atoms[m_pos_i].is_var);
+    expr* v = atoms[m_pos_i].var.get();
+    uint64_t const pos = (static_cast<uint64_t>(m_pos_mi) << 32) | m_pos_i;
+    uint64_t last = 0;
+    m_stack.push_back(frame{ m_pos_mi, m_pos_i, m_pos_R, var_index(v),
+                             m_last_occ.find(v, last) && last == pos,
+                             m_pos_i + 1 == atoms.size() });
+    return true;
 }
 
-lbool seq_monadic::search() {
-    if (!inc_budget())
-        return l_undef;
-
-    unsigned best_vi = UINT_MAX, best_cnt = 0;
-    for (unsigned mi = 0; mi < m_cursors.size(); ++mi) {
-        cursor const& c = m_cursors[mi];
-        if (c.complete)
-            continue;
-        unsigned vi = m_var_idx[m_atoms[mi][c.i].var.get()];
-        unsigned cnt = ++m_head_cnt[vi];
-        // Prefer the most frequent head variable; break ties toward the smallest index so
-        // the choice is deterministic.  m_last_var (locality) is applied afterwards.
-        if (cnt > best_cnt || (cnt == best_cnt && vi < best_vi)) {
-            best_cnt = cnt;
-            best_vi = vi;
+bool seq_monadic::commit_next(frame& f) {
+    seq::view_vector& g = m_groups[f.vi];
+    while (true) {
+        expr* target = nullptr;
+        if (f.last_atom) {
+            if (f.next++ > 0)
+                return false;
         }
-    }
-
-    // Locality: if the last expanded variable is still an active head, expand it next --
-    // its freshly chosen continuation can be checked against the intersection immediately.
-    unsigned vi = best_vi;
-    if (best_vi != UINT_MAX && m_last_var != UINT_MAX && m_head_cnt[m_last_var] > 0)
-        vi = m_last_var;
-
-    // All cursors whose current head is variable vi are expanded together at this step.
-    unsigned s_offset = m_head_stack.size(), s_size = 0;
-    for (unsigned mi = 0; mi < m_cursors.size(); ++mi) {
-        cursor const& c = m_cursors[mi];
-        if (c.complete)
-            continue;
-        unsigned hv = m_var_idx[m_atoms[mi][c.i].var.get()];
-        m_head_cnt[hv] = 0;
-        if (hv == vi) {
-            m_head_stack.push_back(mi);
-            ++s_size;
+        else {
+            // Live states are consumed as they are produced, so a witness found early
+            // leaves the rest of the reachable set unexpanded.
+            auto live = m_live_states.reachable_live(f.R);
+            target = live.at(f.next++);
+            if (!target) {
+                // Short of the full reachable set, running out of states refutes nothing.
+                if (live.failed()) {
+                    m_stats.inc_bail(
+                        live.failure_reason() == seq::live_states::failure::state_cap ?
+                        bail_reason::state_cap : bail_reason::resource);
+                    m_any_undef = true;
+                }
+                return false;
+            }
         }
-    }
-    if (best_vi == UINT_MAX)
-        return leaf();                             // every cursor complete
-
-    lbool r = choose_cont(vi, s_offset, s_size, 0);
-    m_head_stack.shrink(s_offset);
-    return r;
-}
-
-lbool seq_monadic::choose_cont(unsigned vi, unsigned s_offset, unsigned s_size, unsigned k) {
-    if (!inc_budget())
-        return l_undef;
-    if (k == s_size) {
-        unsigned saved = m_last_var;
-        m_last_var = vi;
-        lbool r = search();
-        m_last_var = saved;
-        return r;
-    }
-    unsigned mi = m_head_stack[s_offset + k];
-    cursor& c = m_cursors[mi];
-    vector<atom> const& atoms = m_atoms[mi];
-    expr* R = c.R;
-    bool last_atom = (c.i + 1 == atoms.size());
-
-    auto explore = [&](expr* target) -> lbool {
-        m_groups[vi].push_back(target ? seq::view::reach(R, target) : seq::view::membership(R));
-        // Intersect immediately: prune as soon as vi's accumulated views are empty.
-        // The test is forced once the group is complete so the accepting state does not
-        // need to re-verify; running it earlier (size > 1) prunes.
+        g.push_back(seq::view::reach(f.R, target));
+        // Testing as soon as the group is complete, or holds several views, prunes the
+        // whole subtree below.
         lbool ne;
-        if (re().is_empty(R))
+        if (re().is_empty(f.R))
             ne = l_false;
-        else if (group_complete(vi) || m_groups[vi].size() > 1)
-            ne = group_nonempty(vi);
+        else if (f.finalize || g.size() > 1)
+            ne = group_nonempty(f.vi);
         else
             ne = l_true;
         if (ne == l_false) {
-            m_groups[vi].pop_back();
-            return l_false;                        // infeasible continuation for vi: prune
+            g.pop_back();
+            continue;
         }
-        cursor saved = c;                          // save/restore cursor across the branch
-        lbool adv = advance_cursor(c, mi, target);
-        if (adv == l_false) {
-            c = saved;
-            m_groups[vi].pop_back();
-            return l_false;
+        // A last atom absorbs the rest of its membership, so it moves on to the next one
+        // instead of testing the tail for nullability.
+        if (f.last_atom)
+            start_membership(f.mi + 1);
+        else {
+            m_pos_mi = f.mi;
+            m_pos_i = f.i + 1;
+            m_pos_R = target;
         }
-        unsigned undef_here = (ne == l_undef ? 1u : 0u) + (adv == l_undef ? 1u : 0u);
-        m_undef_vars += undef_here;
-        lbool r = choose_cont(vi, s_offset, s_size, k + 1);
-        m_undef_vars -= undef_here;
-        c = saved;
-        m_groups[vi].pop_back();
-        return r;
-    };
-
-    // A last variable contributes a plain membership view. Otherwise consume live
-    // split states lazily so an early satisfying continuation avoids expanding the rest.
-    if (last_atom)
-        return explore(nullptr);                   // forced: not a recorded choice
-
-    // Enumeration replay (see `iterator`).  While the branch still follows the path of
-    // the one last reported, this level skips to its recorded continuation -- everything
-    // before it was reported or refuted by an earlier pull -- descends it, and only then
-    // walks the rest normally: "resume as if the reported leaf had just failed".
-    unsigned const depth = m_cur_path.size();
-    bool const replay = m_in_replay;
-    if (replay && (depth >= m_resume->size() || (*m_resume)[depth].mi != mi ||
-                   (*m_resume)[depth].state != R))
-        return replay_bail();
-    expr* const resume_target = replay ? (*m_resume)[depth].target : nullptr;
-    bool seen_resume = false;
-
-    bool any_undef = false;
-    auto live = m_live_states.reachable_live(R);
-    for (expr* target : live) {
-        if (replay && !seen_resume) {
-            if (target != resume_target)
-                continue;                          // covered by an earlier pull
-            seen_resume = true;
-        }
-        if (m_enumerate)
-            m_cur_path.push_back(choice{ mi, R, target });
-        lbool r = explore(target);
-        if (m_enumerate)
-            m_cur_path.pop_back();
-        if (replay && seen_resume && m_in_replay)
-            return replay_bail();                  // the replay did not reach its leaf
-        if (r == l_true) {
-            if (any_undef)
-                m_had_undef = true;                // passed over, and never revisited
-            return l_true;
-        }
-        if (r == l_undef) {
+        lbool adv = advance_pos();
+        if (adv != l_true) {
+            if (adv == l_undef)
+                m_any_undef = true;
+            g.pop_back();
             if (m_giveup)
-                return l_undef;
-            any_undef = true;
+                return false;
+            continue;
+        }
+        f.undef = (ne == l_undef);
+        if (f.undef)
+            ++m_undef_vars;
+        return true;
+    }
+}
+
+lbool seq_monadic::run_search(bool resume) {
+    bool backtrack = resume;
+    while (true) {
+        if (m_giveup)
+            return l_undef;                       // the tree below is unexplored: it
+                                                  // neither proves nor refutes anything
+        if (backtrack) {
+            if (m_stack.empty())
+                return m_any_undef ? l_undef : l_false;
+            frame& f = m_stack.back();
+            if (f.undef)
+                --m_undef_vars;
+            f.undef = false;
+            m_groups[f.vi].pop_back();
+            backtrack = false;                    // commit_next re-seats the position
+        }
+        else if (!push_frame()) {
+            DEBUG_CODE({
+                unsigned views = 0;
+                for (seq::view_vector const& g : m_groups) {
+                    views += g.size();
+                }
+                SASSERT(views == m_stack.size());   // exactly one view per frame
+            });
+            lbool r = leaf();
+            if (r == l_true)
+                return l_true;
+            backtrack = true;
+            continue;
+        }
+        if (!commit_next(m_stack.back())) {
+            m_stack.pop_back();
+            backtrack = true;
         }
     }
-    if (replay && !seen_resume)
-        return replay_bail();                      // the recorded continuation is gone
-    if (live.failed()) {
-        m_stats.inc_bail(
-            live.failure_reason() == seq::live_states::failure::state_cap ?
-            bail_reason::state_cap : bail_reason::resource);
-        return l_undef;
-    }
-    return any_undef ? l_undef : l_false;
 }
 
 lbool seq_monadic::decide_oriented(membership_vec const& memberships, bool reversed,
@@ -1143,111 +936,397 @@ lbool seq_monadic::decide_oriented(membership_vec const& memberships, bool rever
         m_stats.inc_bail(bail_reason::not_reversible);
         r = l_undef;
     }
-    else if (m_config.m_state_search) {
-        // Build one cursor per membership at its regex start; consuming the leading
-        // constants leaves every active cursor on a variable head.
-        m_cursors.reset();
-        m_last_var = UINT_MAX;
-        for (unsigned mi = 0; mi < m_atoms.size() && r != l_false; ++mi) {
-            m_cursors.push_back(cursor{ 0, m_regexes.get(mi), false });
-            r = consume_constants(m_cursors.back(), mi);
-            if (r == l_undef)
-                ++m_undef_vars;
-        }
-        if (r != l_false)
-            r = search();
+    else {
+        // Seat the position on the first variable atom, consuming the leading constants,
+        // and let the stack machine take it from there.
+        start_membership(0);
+        r = advance_pos();
+        if (r == l_true)
+            r = run_search(false);
     }
-    else
-        r = dfs_membership(0);
     if (r != l_true)
         m_solution.reset();
+    return r;
+}
+
+bool seq_monadic::constrains_length(expr* r) {
+    return any_of(subterms::ground(expr_ref(r, m)), [&](expr* t) {
+        unsigned lo = 0, hi = 0;
+        expr* body = nullptr;
+        return re().is_loop(t, body, lo, hi) && lo == hi && lo > 1;
+    });
+}
+
+void seq_monadic::split_conjuncts(expr* r, ptr_vector<expr>& out) {
+    if (re().is_intersection(r)) {
+        for (expr* arg : *to_app(r))
+            split_conjuncts(arg, out);            // re.inter is n-ary and can nest
+        return;
+    }
+    out.push_back(r);
+}
+
+bool seq_monadic::instantiate_word(expr* t, ptr_vector<expr>& elems, bool subst) {
+    if (u().str.is_concat(t))
+        return all_of(*to_app(t), [&](expr* arg) { return instantiate_word(arg, elems, subst); });
+    if (u().str.is_empty(t))
+        return true;
+    zstring s;
+    if (u().str.is_string(t, s)) {
+        for (unsigned i = 0; i < s.length(); ++i) {
+            expr_ref e(u().str.mk_char(s, i), m);
+            m_pin.push_back(e);
+            elems.push_back(e);
+        }
+        return true;
+    }
+    expr* elem = nullptr;
+    if (u().str.is_unit(t, elem) && m.is_value(elem)) {
+        elems.push_back(elem);
+        return true;
+    }
+    expr* cached = nullptr;
+    // A witness is a concrete sequence, so it is instantiated without substituting again --
+    // which also stops a self-referential solution from looping.
+    if (!subst || !is_var(t))
+        return false;
+    if (m_split_words.find(t, cached))
+        return cached && instantiate_word(cached, elems, false);
+    expr_ref w(m);
+    if (materialize_recorded(t, w) != l_true) {
+        m_split_words.insert(t, nullptr);         // remember the failure too
+        return false;
+    }
+    m_pin.push_back(w);
+    m_split_words.insert(t, w);
+    return instantiate_word(w, elems, false);
+}
+
+lbool seq_monadic::model_accepts(expr* term, expr* r) {
+    ptr_vector<expr> elems;
+    if (!instantiate_word(term, elems))
+        return l_undef;                           // a variable the relaxation never valued
+    expr_ref state(r, m);
+    for (expr* e : elems) {
+        if (re().is_empty(state))
+            return l_false;
+        state = der_elem(state, e);
+        if (!state)
+            return l_undef;
+    }
+    return nullable(state);
+}
+
+lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budget,
+                                unsigned allowance) {
+    // Normalize top-level intersections into separate memberships.  They remain linked by
+    // their term and dependency, while the refinement can select them independently.
+    membership_vec conjuncts;
+    for (auto const& [term, regex, d] : memberships) {
+        ptr_vector<expr> cs;
+        split_conjuncts(regex, cs);
+        for (expr* r : cs)
+            conjuncts.push_back({ term, expr_ref(r, m), d });
+    }
+    if (conjuncts.size() == memberships.size())
+        return l_undef;                           // no membership was an intersection: nothing to decompose
+
+    m_stats.m_split_calls++;
+
+    // The relaxation starts empty, so the first round decides nothing and every conjunct
+    // has to earn its place.
+    bool_vector selected(conjuncts.size(), false);
+
+    // Cost of one lookahead probe.  It only has to tell an expensive candidate from a cheap
+    // one, so it is a fraction of the real budget -- and a probe that refutes within it is
+    // an answer to the whole query, not just to the comparison.
+    unsigned const probe_budget = std::max(1000u, budget / 8);
+    bool const reversed = m_config.m_orientation == orientation::reversed;
+
+    // Cache length-constraining status per conjunct: constrains_length traverses the full
+    // expression tree, so computing it once avoids repeated work inside the probe loop.
+    bool_vector length_constraining(conjuncts.size());
+    for (unsigned i = 0; i < conjuncts.size(); ++i)
+        length_constraining[i] = constrains_length(std::get<1>(conjuncts[i]));
+
+    auto relaxation = [&](bool_vector const& sel) {
+        membership_vec relaxed;
+        for (unsigned i = 0; i < conjuncts.size(); ++i)
+            if (sel[i])
+                relaxed.push_back(conjuncts[i]);
+        return relaxed;
+    };
+
+    unsigned_vector violated;
+    // Total work the decomposition may spend, over all of its rounds and probes together.
+    // It caps the price of failure: a decomposition that gives up has cost no more than the
+    // undivided search it is standing in for.
+    auto spend = [&](unsigned granted) {
+        unsigned const used = granted - std::min(granted, m_budget);
+        allowance -= std::min(allowance, used);
+        return allowance > 0;
+    };
+
+    for (unsigned round = 0; round < m_config.m_split_rounds && allowance > 0; ++round) {
+        m_stats.m_split_rounds++;
+        membership_vec relaxed = relaxation(selected);
+        lbool r = decide_oriented(relaxed, reversed, budget);
+        if (r == l_undef)
+            return l_undef;                       // the relaxation is already too hard
+        if (r == l_false) {
+            // Dropping intersected regexes only enlarges the language, so the relaxation is
+            // implied by the original: refuting it refutes the original.
+            m_stats.m_split_decided++;
+            return l_false;
+        }
+        // Satisfiable, but only of the kept conjuncts.  The model answers the whole query
+        // iff every dropped conjunct also accepts it.
+        if (!spend(budget))
+            return l_undef;
+        violated.reset();
+        // Collapsing a variable's views runs a product search, so the words are built once
+        // per round and shared by every conjunct tested against them.
+        m_split_words.reset();
+        for (unsigned i = 0; i < conjuncts.size(); ++i)
+            if (!selected[i] &&
+                model_accepts(std::get<0>(conjuncts[i]), std::get<1>(conjuncts[i])) != l_true)
+                violated.push_back(i);
+        if (violated.empty()) {
+            m_stats.m_split_decided++;
+            return l_true;
+        }
+        IF_VERBOSE(3, verbose_stream() << "(seq-monadic-split :round " << round
+                   << " :kept " << relaxed.size() << "/" << memberships.size()
+                   << " :violated " << violated.size() << ")\n");
+        // Grow the relaxation by one violated conjunct.  Which one decides how fast the
+        // loop converges.  Prefer a conjunct that pins word lengths to a residue class:
+        // the search refutes a membership set by exhausting the reachable product, and a
+        // length constraint shrinks that product across every branch at once, where a
+        // conjunct that merely forbids a rare infix leaves it essentially unchanged.
+        // Among equals prefer the cheapest, measured by the work its probe left unspent: a
+        // candidate that exhausts the probe rebuilds the product this is avoiding.  The
+        // probes invalidate m_solution, which is why `violated` is complete by now.
+        unsigned best = 0;
+        uint64_t best_key = 0;
+        for (unsigned k = 0; k < violated.size(); ++k) {
+            unsigned i = violated[k];
+            selected[i] = true;
+            membership_vec trial = relaxation(selected);
+            lbool p = decide_oriented(trial, reversed, probe_budget);
+            selected[i] = false;
+            if (p == l_false) {
+                selected[i] = true;
+                m_stats.m_split_decided++;
+                return l_false;
+            }
+            bool const affordable = spend(probe_budget);
+            if (p == l_undef) {
+                if (!affordable)
+                    return l_undef;
+                continue;
+            }
+            uint64_t key = m_budget |
+                (length_constraining[i] ? 1ull << 40 : 0);
+            if (key >= best_key) {
+                best = k;
+                best_key = key;
+            }
+            if (!affordable)
+                break;
+        }
+        unsigned bi = violated[best];
+        selected[bi] = true;
+        IF_VERBOSE(3, verbose_stream() << "(seq-monadic-split :add " << bi
+                   << " " << mk_pp(std::get<1>(conjuncts[bi]), m) << ")\n");
+    }
+    return l_undef;
+}
+
+lbool seq_monadic::decide_policy(membership_vec const& memberships, unsigned budget, bool sticky) {
+    if (m_config.m_orientation != orientation::retry)
+        return decide_oriented(memberships, m_config.m_orientation == orientation::reversed, budget);
+    // Read forwards first, with the whole budget: halving it would make retry lose
+    // decisions that plain forward solves, and a direction that is about to succeed is
+    // not worth interrupting.  Only a search that ran out of work is worth turning
+    // around; the other ways of giving up (an unsupported shape, an undecidable
+    // nullability, a guard the range solver cannot evaluate) are properties of the
+    // problem rather than of the direction it is read in.
+    unsigned const before = work_bails();
+    lbool r = decide_oriented(memberships, false, budget);
+    if (r != l_undef || m_retry_disabled || work_bails() == before)
+        return r;
+    r = decide_oriented(memberships, true, budget);
+    // A bail is not in itself bad: it hands the problem back to the caller, which has its
+    // own way of making progress.  Reversing spends a second full budget instead, so a
+    // reversed attempt that also fails is evidence that this query's regexes are no cheaper
+    // backwards -- and the same regexes recur at every decision, so stop paying for it.
+    // Only a full-budget attempt is evidence of that; a probe was never given the chance.
+    if (r == l_undef && sticky)
+        m_retry_disabled = true;
     return r;
 }
 
 lbool seq_monadic::decide(membership_vec const& memberships) {
     m_last_search_memberships = memberships;
     unsigned const limit = m_config.m_budget_limit;
-    lbool r;
-    if (m_config.m_orientation != orientation::retry)
-        r = decide_oriented(memberships, m_config.m_orientation == orientation::reversed, limit);
-    else {
-        // Read forwards first, with the whole budget: halving it would make retry lose
-        // decisions that plain forward solves, and a direction that is about to succeed is
-        // not worth interrupting.  Only a search that ran out of work is worth turning
-        // around; the other ways of giving up (an unsupported shape, an undecidable
-        // nullability, a guard the range solver cannot evaluate) are properties of the
-        // problem rather than of the direction it is read in.
+    lbool r = l_undef;
+    if (m_config.m_split_rounds > 0 && !m_split_disabled) {
+        // Decomposing an intersection is only worth it for a decision the undivided search
+        // cannot make, and the cheapest way to find that out is to give the undivided
+        // search a fraction of its budget first: a decision it reaches within that fraction
+        // is one the decomposition could only have slowed down.  Nothing is lost when the
+        // decomposition fails -- the fraction is then re-spent as the prefix of the full
+        // attempt below.  Relaxations get a larger share, since each is a smaller problem
+        // than the one that just ran out, but still well short of the undivided budget: a
+        // relaxation that needs all of it has rebuilt the product this is meant to avoid.
+        // The decomposition as a whole is held to one undivided budget, so a query it
+        // cannot decide costs no more than the search it stands in for.
+        unsigned const probe_budget = std::max(1000u, limit / 128);
         unsigned const before = work_bails();
-        r = decide_oriented(memberships, false, limit);
-        if (r == l_undef && !m_retry_disabled && work_bails() > before) {
-            r = decide_oriented(memberships, true, limit);
-            // A bail is not in itself bad: it hands the problem back to the caller, which
-            // has its own way of making progress.  Reversing spends a second full budget
-            // instead, so a reversed attempt that also fails is evidence that this query's
-            // regexes are no cheaper backwards -- and the same regexes recur at every
-            // decision, so stop paying for it.
-            if (r == l_undef)
-                m_retry_disabled = true;
-        }
+        r = decide_policy(memberships, probe_budget, false);
+        if (r == l_undef && work_bails() > before)
+            r = decide_split(memberships, std::max(1000u, limit / 16), limit);
     }
+    if (r == l_undef)
+        r = decide_policy(memberships, limit, true);
     m_last_search_result = r;
     return r;
 }
 
-lbool seq_monadic::enumerate(membership_vec const& memberships, svector<choice> const& resume,
-                             bool has_resume) {
-    m_enumerate = true;
-    m_resume = &resume;
-    m_in_replay = has_resume;
-    m_had_undef = false;
-    m_leaf_path.reset();
-    // Forward only: a reversed reading reports views over the reversed regexes, and the
-    // retry policy would run two searches -- neither is a branch of the problem the
-    // caller asked about.
-    lbool r = decide_oriented(memberships, false, m_config.m_budget_limit);
-    m_enumerate = false;
-    m_resume = nullptr;
-    m_in_replay = false;
+lbool seq_monadic::enumerate(membership_vec const& memberships, bool resume) {
+    lbool r;
+    if (resume) {
+        m_budget = m_config.m_budget_limit;       // each pull gets its own allowance
+        m_giveup = false;
+        r = run_search(true);
+        if (r != l_true)
+            m_solution.reset();                   // do not leave the previous branch behind
+    }
+    else
+        // Forward only: a reversed reading reports views over the reversed regexes, and
+        // the retry policy would run two searches -- neither is a branch of the problem
+        // the caller asked about.
+        r = decide_oriented(memberships, false, m_config.m_budget_limit);
     m_last_search_memberships = memberships;
     m_last_search_result = r;
+    m_last_result = r;    // a reported branch is materialize()-able, a drained one is not
     return r;
+}
+
+void seq_monadic::swap_search(parked_search& s) {
+    m_atoms.swap(s.m_atoms);
+    m_regexes.swap(s.m_regexes);
+    m_vars.swap(s.m_vars);
+    std::swap(m_var_idx, s.m_var_idx);
+    m_groups.swap(s.m_groups);
+    std::swap(m_last_occ, s.m_last_occ);
+    m_stack.swap(s.m_stack);
+    std::swap(m_solution, s.m_solution);
+    std::swap(m_pos_R, s.m_pos_R);
+    std::swap(m_pos_mi, s.m_pos_mi);
+    std::swap(m_pos_i, s.m_pos_i);
+    std::swap(m_undef_vars, s.m_undef_vars);
+    std::swap(m_any_undef, s.m_any_undef);
+    std::swap(m_reversed, s.m_reversed);
+}
+
+void seq_monadic::pin_parked(parked_search& s) {
+    // Built fresh and swapped in, so the new references are taken before the old ones go.
+    expr_ref_vector pin(m);
+    for (expr* v : s.m_vars) {
+        pin.push_back(v);
+    }
+    for (auto const& f : s.m_stack) {
+        pin.push_back(f.R);
+    }
+    for (auto const& g : s.m_groups) {
+        for (auto const& v : g) {
+            pin.push_back(v.m_state);
+            if (v.m_target)
+                pin.push_back(v.m_target);
+        }
+    }
+    for (auto const& [var, views] : s.m_solution) {
+        pin.push_back(var);
+        for (auto const& v : views) {
+            pin.push_back(v.m_state);
+            if (v.m_target)
+                pin.push_back(v.m_target);
+        }
+    }
+    if (s.m_pos_R)
+        pin.push_back(s.m_pos_R);
+    s.m_pin.swap(pin);
+}
+
+void seq_monadic::park_active() {
+    if (!m_active_iter)
+        return;
+    iterator* it = m_active_iter;
+    m_active_iter = nullptr;
+    // The slot is empty, so the swap leaves the engine's search empty in turn.
+    swap_search(it->m_parked);
+    pin_parked(it->m_parked);
+    it->m_parked_valid = true;
+}
+
+void seq_monadic::activate(iterator* it) {
+    if (m_active_iter == it)
+        return;
+    park_active();
+    if (it->m_parked_valid) {
+        swap_search(it->m_parked);
+        it->m_parked_valid = false;
+    }
+    m_active_iter = it;
 }
 
 seq_monadic::iterator::iterator(seq_monadic& engine, membership_vec const& memberships,
                                 unsigned limit) :
-    m_engine(engine), m_memberships(memberships), m_path_pin(engine.m), m_limit(limit) {}
+    m_engine(engine), m_memberships(memberships), m_parked(engine.m), m_limit(limit) {}
+
+seq_monadic::iterator::iterator(iterator&& other) noexcept :
+    m_engine(other.m_engine),
+    m_memberships(std::move(other.m_memberships)),
+    m_parked(other.m_engine.m),
+    m_limit(other.m_limit),
+    m_count(other.m_count),
+    m_parked_valid(other.m_parked_valid),
+    m_started(other.m_started),
+    m_done(other.m_done),
+    m_giveup(other.m_giveup) {
+    m_parked.swap(other.m_parked);
+    if (m_engine.m_active_iter == &other)
+        m_engine.m_active_iter = this;
+    other.m_parked_valid = false;
+    other.m_done = true;
+}
+
+seq_monadic::iterator::~iterator() {
+    if (m_engine.m_active_iter == this)
+        m_engine.m_active_iter = nullptr;    // the search state is now nobody's
+}
 
 bool seq_monadic::iterator::next(obj_map<expr, seq::view_vector>& solution) {
     solution.reset();
     if (m_done)
         return false;
-    // The positional driver takes no recorded choices, so there is nothing to resume from;
-    // an empty conjunction has no search to resume either.
-    if (!m_engine.state_search() || m_memberships.empty() || m_count >= m_limit) {
+    if (m_memberships.empty() || m_count >= m_limit) {
         m_giveup = true;
         m_done = true;
         return false;
     }
+    m_engine.activate(this);
     const bool gen = m_engine.gen_solution();
     m_engine.set_gen_solution(true);
-    const lbool r = m_engine.enumerate(m_memberships, m_path, m_started);
+    const lbool r = m_engine.enumerate(m_memberships, m_started);
     m_engine.set_gen_solution(gen);
-    // A branch passed over undecided is one this enumeration will never report, so its
-    // end no longer refutes anything.
-    if (m_engine.m_had_undef || r == l_undef)
+    // A branch passed over undecided is one this enumeration will never report.
+    if (m_engine.m_any_undef || r == l_undef)
         m_giveup = true;
     if (r != l_true) {
         m_done = true;
         return false;
-    }
-    // Resume point of the branch just found.  Pinned here: the engine drops its own pins
-    // on the next query from anybody else.
-    m_path = m_engine.m_leaf_path;
-    m_path_pin.reset();
-    for (auto const& c : m_path) {
-        m_path_pin.push_back(c.state);
-        if (c.target)
-            m_path_pin.push_back(c.target);
     }
     for (auto const& [var, views] : m_engine.solution())
         solution.insert(var, views);
@@ -1261,6 +1340,7 @@ seq_monadic::iterator seq_monadic::iterate(unsigned limit) {
 }
 
 lbool seq_monadic::solve(expr* term, expr* R) {
+    park_active();          // an enumeration in flight keeps its branch
     m_core.reset();
     m_retry_disabled = false;
     membership_vec mv;
@@ -1348,6 +1428,9 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
     // Deletion-based minimization: start from the full unsat set and try to drop each
     // membership; a membership is kept only if removing it makes the set no longer
     // provably unsat.  The result is a minimal unsat subset (relevant constraints only).
+    // The intersection decomposition stays off here: it would run a refinement loop per
+    // trial, and a trial it cannot decide only leaves more memberships in the core.
+    flet<bool> _split(m_split_disabled, true);
     membership_vec keep(memberships);
     for (unsigned i = 0; i < keep.size(); ) {
         membership_vec trial(keep);
@@ -1363,12 +1446,11 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
 }
 
 lbool seq_monadic::check() {
+    park_active();          // an enumeration in flight keeps its branch
     m_core.reset();
     m_retry_disabled = false;
     lbool r = decide(m_memberships);
     if (r == l_false) {
-        // minimize_core re-runs decide() on subsets, some of which are satisfiable
-        // and leave their solution behind; that does not belong to an unsat check().
         minimize_core(m_memberships);
         m_solution.reset();
     }
@@ -1385,22 +1467,12 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
     };
 
     out << "(seq-monadic\n"
-        << "  :mode " << mode_name(m_config.m_mode) << "\n"
+        << "  :mode " << transition_mode_name(m_config.m_mode) << "\n"
         << "  :minimize-core " << (m_config.m_min_core ? "true" : "false") << "\n"
-        << "  :state-search " << (m_config.m_state_search ? "true" : "false") << "\n"
-        << "  :last-result " << result_name(m_last_result) << "\n"
+        << "  :last-result " << m_last_result << "\n"
         << "  :budget " << m_budget << "\n"
         << "  :giveup " << (m_giveup ? "true" : "false") << "\n"
         << "  :sequence-sort ";
-    if (m_seq_sort)
-        out << mk_pp(m_seq_sort, m);
-    else
-        out << "null";
-    out << "\n  :element-sort ";
-    if (m_elem_sort)
-        out << mk_pp(m_elem_sort, m);
-    else
-        out << "null";
 
     out << "\n  :memberships (";
     for (unsigned i = 0; i < m_memberships.size(); ++i) {
@@ -1432,7 +1504,7 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
     out << " )";
 
     out << "\n  :last-internal-search\n"
-        << "    (:result " << result_name(m_last_search_result)
+        << "    (:result " << m_last_search_result
         << "\n     :memberships (";
     for (unsigned i = 0; i < m_last_search_memberships.size(); ++i) {
         auto const& [term, regex, dep] = m_last_search_memberships[i];
@@ -1449,9 +1521,6 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         out << " ";
         display_expr(var);
     }
-    out << " )\n     :variable-occurrences (";
-    for (unsigned n : m_num_occ)
-        out << " " << n;
     out << " )\n     :parsed-memberships (";
     for (unsigned mi = 0; mi < m_atoms.size(); ++mi) {
         out << "\n       [" << mi << "] :regex ";
@@ -1496,16 +1565,34 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
         << "     :pinned-expressions " << m_pin.size() << ")\n";
 
     out << "  :statistics\n"
-        << "    (:cofactor-calls " << m_stats.m_cofactor_calls;
+        << "    (:cofactor-calls " << m_stats.m_cofactor_calls << "\n"
+        << "     :states " << m_stats.m_states;
     for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i)
-        out << "\n     :bail-" << bail_name(static_cast<bail_reason>(i)) << " " << m_stats.m_bails[i];
+        out << "\n     :bail-" << bail_name(i) << " " << m_stats.m_bails[i];
     return out << "))\n";
 }
 
 void seq_monadic::collect_statistics(::statistics& st) const {
+    static char const* const bail_names[] = {
+        "seq monadic bail unsupported",
+        "seq monadic bail state cap",
+        "seq monadic bail budget",
+        "seq monadic bail state expansion",
+        "seq monadic bail resource",
+        "seq monadic bail nullability",
+        "seq monadic bail guard",
+        "seq monadic bail not reversible"
+    };
+    static_assert(sizeof(bail_names) / sizeof(bail_names[0]) ==
+                  static_cast<unsigned>(bail_reason::num_reasons),
+                  "bail_names must list every bail_reason");
     st.update("seq monadic cofactor calls", m_stats.m_cofactor_calls);
     st.update("seq monadic states", m_stats.m_states);
     st.update("seq monadic max state expansion", m_stats.m_max_state_expansion);
-    for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i)
-        st.update(bail_stat_name(static_cast<bail_reason>(i)), m_stats.m_bails[i]);
+    st.update("seq monadic split calls", m_stats.m_split_calls);
+    st.update("seq monadic split rounds", m_stats.m_split_rounds);
+    st.update("seq monadic split decided", m_stats.m_split_decided);
+    for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i){
+        st.update(bail_names[i], m_stats.m_bails[i]);
+    }
 }

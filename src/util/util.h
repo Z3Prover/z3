@@ -27,6 +27,7 @@ Revision History:
 #include <string>
 #include <functional>
 #include <algorithm>
+#include <bit>
 #include <iterator>
 #include <span>
 
@@ -86,7 +87,8 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 // any fall-through warnings.
 #define Z3_unreachable_case() UNREACHABLE(); Z3_fallthrough
 
-static inline bool is_power_of_two(unsigned v) { return !(v & (v - 1)) && v; }
+static inline bool is_power_of_two(unsigned v) { return std::has_single_bit(v); }
+static inline bool is_power_of_two(uint64_t v) { return std::has_single_bit(v); }
 
 /**
    \brief Return the next power of two that is greater than or equal to v.
@@ -107,8 +109,9 @@ static inline unsigned next_power_of_two(unsigned v) {
 /**
    \brief Return the position of the most significant bit.
 */
-unsigned log2(unsigned v);
-unsigned uint64_log2(uint64_t v);
+static inline unsigned log2(int v) { return v > 0 ? (std::bit_width(static_cast<unsigned>(v)) - 1) : 0; }
+static inline unsigned log2(unsigned v) { return v ? (std::bit_width(v) - 1) : 0; }
+static inline unsigned log2(uint64_t v) { return v ? (std::bit_width(v) - 1) : 0; }
 unsigned mul_truncate(unsigned a, unsigned b);
 unsigned add_truncate(unsigned a, unsigned b);
 

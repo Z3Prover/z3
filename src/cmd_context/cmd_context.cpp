@@ -1352,6 +1352,15 @@ bool cmd_context::try_mk_pdecl_app(symbol const & s, unsigned num_args, expr * c
     };
     datatype::util dt(m());
     func_decl_ref fn(m());
+    if (s == symbol("is") && num_args == 1 && num_indices == 1 && indices[0].is_symbol() && dt.is_datatype(args[0]->get_sort())) {
+        for (func_decl* c : *dt.get_datatype_constructors(args[0]->get_sort())) {
+            if (c->get_name() == indices[0].get_symbol()) {
+                r = dt.mk_is(c, args[0]);
+                return true;
+            }
+        }
+        throw cmd_exception("invalid datatype recognizer, unknown constructor ", indices[0].get_symbol());
+    }
     for (auto* c : dt.plugin().get_constructors(s)) {
         if (c->accessors().size() != num_args)
             continue;
@@ -1398,9 +1407,11 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         return;
     if (try_mk_declared_app(s, num_args, args, num_indices, indices, range, result))
         return;   
+    if (!range && s == symbol("is") && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
+        return;
     if (try_mk_builtin_app(s, num_args, args, num_indices, indices, range, result)) 
         return;
-    if (!range && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
+    if (!range && s != symbol("is") && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
         return;
     
     func_decls fs;

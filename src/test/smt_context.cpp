@@ -9,6 +9,15 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/arith_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
+#include "solver/solver.h"
+#include "tactic/goal.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/fpa/fpa2bv_tactic.h"
+#include "tactic/smtlogics/quant_tactics.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include <sstream>
 
 void tst_smt_context()
@@ -82,5 +91,83 @@ void tst_smt_context()
         for (expr* a : cmd.assertions())
             qctx.assert_expr(a);
         VERIFY(l_false == qctx.check());
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort Element)\n"
+            "(declare-sort Index)\n"
+            "(declare-fun e6 () Element)\n"
+            "(declare-fun i6 () Index)\n"
+            "(declare-fun i2 () Index)\n"
+            "(declare-fun i4 () Index)\n"
+            "(declare-fun e9 () Element)\n"
+            "(declare-fun i8 () Index)\n"
+            "(declare-fun i10 () Index)\n"
+            "(declare-fun a1 () (Array Index Element))\n"
+            "(assert (exists ((i3 Index)) (and (= i3 i8) (= i6 i10) "
+            "(not (= (store (store (store a1 i4 e9) i2 e6) i10 e6) "
+            "(store (store (store a1 i6 e9) i8 e6) i10 e9))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("rewriter.expand_nested_stores", true);
+        tactic_ref t = mk_lira_tactic(m, p);
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_true == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(set-logic ALL)\n"
+            "(declare-const y (_ BitVec 1))\n"
+            "(assert\n"
+            "  (exists ((V (_ BitVec 8)))\n"
+            "    (= (_ bv1 8)\n"
+            "       ((_ extract 7 0)\n"
+            "         (bvlshr\n"
+            "           (concat V (_ bv0 8))\n"
+            "           ((_ zero_extend 15) y))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", true);
+        p.set_uint("bv.solver", 2);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_false == slv->check_sat(0, nullptr));
+    }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const x (_ FloatingPoint 5 11))\n"
+            "(declare-const y (_ FloatingPoint 5 11))\n"
+            "(declare-const xb (_ BitVec 16))\n"
+            "(declare-const yb (_ BitVec 16))\n"
+            "(assert (= x ((_ to_fp 5 11) xb)))\n"
+            "(assert (= y ((_ to_fp 5 11) yb)))\n"
+            "(assert (= xb #b1000001111000111))\n"
+            "(assert (= yb #b0011110111000000))\n"
+            "(assert (not (= ((_ fp.to_ieee_bv 16) (fp.fma RNE x y x)) #x889b)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = and_then(mk_fpa2bv_tactic(m), mk_simplify_tactic(m), mk_bit_blaster_tactic(m), mk_smt_tactic(m));
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
     }
 }

@@ -4156,6 +4156,8 @@ namespace z3 {
         case RTN: return expr(*this, Z3_mk_fpa_rtn(m_ctx));
         case RTZ: return expr(*this, Z3_mk_fpa_rtz(m_ctx));
         }
+        assert(false);
+        return expr(*this, Z3_mk_fpa_rne(m_ctx));
     }
 
     inline expr context::bool_val(bool b) { return b ? expr(*this, Z3_mk_true(m_ctx)) : expr(*this, Z3_mk_false(m_ctx)); }

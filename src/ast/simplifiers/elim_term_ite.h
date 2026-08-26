@@ -53,6 +53,11 @@ public:
     void push() override { dependent_expr_simplifier::push(); m_df.push(); m_rewriter.push(); }
     
     void pop(unsigned n) override { m_rewriter.pop(n); m_df.pop(n); dependent_expr_simplifier::pop(n); }
+
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override {
+        auto const& source = dynamic_cast<elim_term_ite_simplifier const&>(src);
+        m_df.translate(source.m_df, tr);
+    }
 };
 
 /*

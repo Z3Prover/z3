@@ -234,6 +234,10 @@ namespace seq {
         return iterator(m_owner, m_search, 0, true);
     }
 
+    expr* live_states::reachable::at(unsigned idx) const {
+        return m_owner->ensure(m_search, idx) ? m_owner->get_live(m_search, idx) : nullptr;
+    }
+
     bool live_states::reachable::failed() const {
         return m_owner->get_failure(m_search) != failure::none;
     }
