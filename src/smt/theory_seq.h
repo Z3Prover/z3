@@ -465,6 +465,18 @@ namespace smt {
         bool check_extensionality(expr* e1, enode* n1, enode* n2);
         bool check_contains();
         bool check_lts();
+
+        // bridge nth(s,idx) = c and indexof(s, unit(c), 0) terms that already
+        // coexist over the same base sequence s: if 0 <= idx < len(s) and
+        // nth(s,idx) is known-equal to c, then indexof(s,unit(c),0) <= idx.
+        // This is only checked lazily, over terms that already exist, so it
+        // never creates new nth/indexof terms (avoiding eager instantiation blowup).
+        expr_ref_vector                m_nth_terms;       // is_nth_i(s, idx) terms seen so far
+        expr_ref_vector                m_indexof_terms;   // is_index(t, u, offset) terms (offset absent or 0) seen so far
+        obj_pair_hashtable<expr, expr> m_nth_indexof_cache; // (nth term, indexof term) pairs already bridged
+        void add_nth_term(expr* n);
+        void add_indexof_term(expr* n);
+        bool check_nth_indexof();
         dependency* m_eq_deps { nullptr };
         bool solve_eqs(unsigned start);
         bool solve_eq(unsigned idx);

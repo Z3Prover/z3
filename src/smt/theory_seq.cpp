@@ -265,6 +265,8 @@ theory_seq::theory_seq(context& ctx):
     m_ubv_string(m),
     m_length(m),
     m_length_limit(m),
+    m_nth_terms(m),
+    m_indexof_terms(m),
     m_mg(nullptr),
     m_rewrite(m),
     m_str_rewrite(m),
@@ -372,6 +374,10 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
     if (check_contains()) {
         ++m_stats.m_propagate_contains;
         TRACEFIN("propagate_contains");
+        return FC_CONTINUE;
+    }
+    if (check_nth_indexof()) {
+        TRACEFIN("check_nth_indexof");
         return FC_CONTINUE;
     }
     if (check_int_string()) {
@@ -671,6 +677,82 @@ bool theory_seq::check_contains() {
         if (solve_nc(i)) 
             m_ncs.erase_and_swap(i--);
     return m_new_propagation || ctx.inconsistent();
+}
+
+void theory_seq::add_nth_term(expr* n) {
+    m_nth_terms.push_back(n);
+    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_nth_terms));
+}
+
+void theory_seq::add_indexof_term(expr* n) {
+    expr* t = nullptr, *s = nullptr, *offset = nullptr;
+    if (!m_util.str.is_index(n, t, s, offset))
+        return;
+    // only handle indexof(t, unit(c), 0) shaped terms - searching for a single character from the start.
+    if (!m_util.str.is_unit(s))
+        return;
+    rational r;
+    if (!m_autil.is_numeral(offset, r) || !r.is_zero())
+        return;
+    m_indexof_terms.push_back(n);
+    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_indexof_terms));
+}
+
+/**
+   Lazily bridge nth(s,idx) and indexof(s,unit(c),0) terms that already coexist
+   over the same base sequence s, without creating any new nth/indexof terms:
+
+   0 <= idx & idx < len(s) & nth(s,idx) = c => indexof(s,unit(c),0) <= idx
+
+   This captures: if s contains c at position idx (a valid index), then the first
+   occurrence of c in s is at or before idx.
+*/
+bool theory_seq::check_nth_indexof() {
+    struct remove_nth_indexof_map : public trail {
+        ast_manager& m;
+        obj_pair_hashtable<expr, expr>& m_map;
+        expr* a, *b;
+        remove_nth_indexof_map(ast_manager& m, obj_pair_hashtable<expr, expr>& map, expr* a, expr* b):
+            m(m), m_map(map), a(a), b(b) {}
+        void undo() override {
+            m_map.erase(std::make_pair(a, b));
+            m.dec_ref(a);
+            m.dec_ref(b);
+        }
+    };
+    bool change = false;
+    for (expr* nth : m_nth_terms) {
+        expr* s = nullptr, *idx = nullptr;
+        if (!m_util.str.is_nth_i(nth, s, idx))
+            continue;
+        for (expr* idxof : m_indexof_terms) {
+            expr* t = nullptr, *unit_c = nullptr, *offset = nullptr;
+            VERIFY(m_util.str.is_index(idxof, t, unit_c, offset));
+            if (!ctx.e_internalized(s) || !ctx.e_internalized(t))
+                continue;
+            if (ctx.get_enode(s)->get_root() != ctx.get_enode(t)->get_root())
+                continue;
+            auto key = std::make_pair(nth, idxof);
+            if (m_nth_indexof_cache.contains(key))
+                continue;
+            expr* c = nullptr;
+            VERIFY(m_util.str.is_unit(unit_c, c));
+            expr_ref unit_nth(m_util.str.mk_unit(nth), m);
+            literal nth_eq_c = mk_eq(unit_nth, unit_c, false);
+            if (ctx.get_assignment(nth_eq_c) != l_true)
+                continue;
+            m.inc_ref(nth);
+            m.inc_ref(idxof);
+            m_nth_indexof_cache.insert(key);
+            get_trail_stack().push(remove_nth_indexof_map(m, m_nth_indexof_cache, nth, idxof));
+            literal idx_ge_0 = m_ax.mk_ge(idx, 0);
+            literal idx_lt_len_s = ~m_ax.mk_ge(mk_sub(idx, mk_len(s)), 0);
+            literal idxof_le_idx = m_ax.mk_ge(mk_sub(idx, idxof), 0);
+            add_axiom(~idx_ge_0, ~idx_lt_len_s, ~nth_eq_c, idxof_le_idx);
+            change = true;
+        }
+    }
+    return change;
 }
 
 bool theory_seq::check_lts() {
@@ -3451,6 +3533,11 @@ void theory_seq::relevant_eh(expr* _n) {
         m_util.str.is_le(n)) {
         enque_axiom(n);
     }
+
+    if (m_util.str.is_nth_i(n))
+        add_nth_term(n);
+    if (m_util.str.is_index(n))
+        add_indexof_term(n);
 
     if (m_util.str.is_itos(n) ||
         m_util.str.is_stoi(n)) {
