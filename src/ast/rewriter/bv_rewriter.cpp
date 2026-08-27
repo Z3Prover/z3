@@ -383,11 +383,9 @@ br_status bv_rewriter::rw_leq_overflow(bool is_signed, expr * a, expr * b, expr_
     }
     else {
         SASSERT(lower.is_pos());
-        {
-            auto _seq386_0 = m_util.mk_ule(mk_numeral(lower, sz), common);
-            auto _seq386_1 = m_util.mk_ule(common, mk_numeral(upper, sz));
-            result = m.mk_and(_seq386_0, _seq386_1);
-        }
+        auto lower_le_common = m_util.mk_ule(mk_numeral(lower, sz), common);
+        auto common_le_upper = m_util.mk_ule(common, mk_numeral(upper, sz));
+        result = m.mk_and(lower_le_common, common_le_upper);
     }
     return BR_REWRITE2;
 }
@@ -606,9 +604,9 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         unsigned sz1 = get_bv_size(b_1);
         unsigned sz2 = get_bv_size(b_2);
         {
-            auto _seq596_0 = m.mk_eq(m_mk_extract(sz2+sz1-1, sz2, a), b_1);
-            auto _seq596_1 = m_util.mk_ule(m_mk_extract(sz2-1, 0, a), b_2);
-            result = m.mk_and(_seq596_0, _seq596_1);
+            auto hi_eq = m.mk_eq(m_mk_extract(sz2+sz1-1, sz2, a), b_1);
+            auto lo_ule = m_util.mk_ule(m_mk_extract(sz2-1, 0, a), b_2);
+            result = m.mk_and(hi_eq, lo_ule);
         }
         return BR_REWRITE3;
     }
@@ -903,9 +901,9 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
     if (m.is_ite(arg, c, t, e) &&
         (t->get_ref_count() == 1 || e->get_ref_count() == 1 || !m.is_ite(t) || !m.is_ite(e))) {
         {
-            auto _seq872_0 = m_mk_extract(high, low, t);
-            auto _seq872_1 = m_mk_extract(high, low, e);
-            result = m.mk_ite(c, _seq872_0, _seq872_1);
+            auto t_extract = m_mk_extract(high, low, t);
+            auto e_extract = m_mk_extract(high, low, e);
+            result = m.mk_ite(c, t_extract, e_extract);
         }
         return BR_REWRITE2;
     }
@@ -970,9 +968,9 @@ br_status bv_rewriter::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result) {
         expr_ref sum(m_util.mk_bv_add(y, arg2), m);
         expr_ref cond(m_util.mk_ule(y, sum), m);
         {
-            auto _seq935_0 = m_util.mk_bv_shl(x, sum);
-            auto _seq935_1 = mk_zero(bv_size);
-            result = m.mk_ite(cond, _seq935_0, _seq935_1);
+            auto shifted = m_util.mk_bv_shl(x, sum);
+            auto zero = mk_zero(bv_size);
+            result = m.mk_ite(cond, shifted, zero);
         }
         return BR_REWRITE3;
     }
@@ -1118,9 +1116,9 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
 
         unsigned k = r2.get_unsigned();
         {
-            auto _seq1081_0 = mk_zero(k);
-            auto _seq1081_1 = m_mk_extract(bv_size - 1, k, arg1);
-            result = m_util.mk_concat(_seq1081_0, _seq1081_1);
+            auto zero_prefix = mk_zero(k);
+            auto hi_bits = m_mk_extract(bv_size - 1, k, arg1);
+            result = m_util.mk_concat(zero_prefix, hi_bits);
         }
         return BR_REWRITE2;
     }
@@ -1158,10 +1156,10 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
             }
             else {
                 {
-                    auto _seq1118_0 = m.mk_app(get_fid(), OP_SLT, arg1, mk_zero(bv_size));
-                    auto _seq1118_1 = mk_one(bv_size);
-                    auto _seq1118_2 = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
-                    result = m.mk_ite(_seq1118_0, _seq1118_1, _seq1118_2);
+                    auto is_neg = m.mk_app(get_fid(), OP_SLT, arg1, mk_zero(bv_size));
+                    auto one = mk_one(bv_size);
+                    auto all_ones = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
+                    result = m.mk_ite(is_neg, one, all_ones);
                 }
                 return BR_REWRITE2;
             }
@@ -1189,10 +1187,10 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
 
     bv_size = get_bv_size(arg2);
     {
-        auto _seq1146_0 = m.mk_eq(arg2, mk_zero(bv_size));
-        auto _seq1146_1 = m_util.mk_bv_sdiv0(arg1);
-        auto _seq1146_2 = m_util.mk_bv_sdiv_i(arg1, arg2);
-        result = m.mk_ite(_seq1146_0, _seq1146_1, _seq1146_2);
+        auto div_by_zero = m.mk_eq(arg2, mk_zero(bv_size));
+        auto sdiv0_case = m_util.mk_bv_sdiv0(arg1);
+        auto sdiv_case = m_util.mk_bv_sdiv_i(arg1, arg2);
+        result = m.mk_ite(div_by_zero, sdiv0_case, sdiv_case);
     }
     return BR_REWRITE2;
 }
@@ -1247,10 +1245,10 @@ br_status bv_rewriter::mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, e
 
     bv_size = get_bv_size(arg2);
     {
-        auto _seq1201_0 = m.mk_eq(arg2, mk_zero(bv_size));
-        auto _seq1201_1 = m_util.mk_bv_udiv0(arg1);
-        auto _seq1201_2 = m_util.mk_bv_udiv_i(arg1, arg2);
-        result = m.mk_ite(_seq1201_0, _seq1201_1, _seq1201_2);
+        auto div_by_zero = m.mk_eq(arg2, mk_zero(bv_size));
+        auto udiv0_case = m_util.mk_bv_udiv0(arg1);
+        auto udiv_case = m_util.mk_bv_udiv_i(arg1, arg2);
+        result = m.mk_ite(div_by_zero, udiv0_case, udiv_case);
     }
 
     TRACE(bv_udiv, tout << mk_pp(arg1, m) << "\n" << mk_pp(arg2, m) << "\n---->\n" << mk_pp(result, m) << "\n";);
@@ -1309,10 +1307,10 @@ br_status bv_rewriter::mk_bv_srem_core(expr * arg1, expr * arg2, bool hi_div0, e
 
     bv_size = get_bv_size(arg2);
     {
-        auto _seq1248_0 = m.mk_eq(arg2, mk_zero(bv_size));
-        auto _seq1248_1 = m.mk_app(get_fid(), OP_BSREM0, arg1);
-        auto _seq1248_2 = m.mk_app(get_fid(), OP_BSREM_I, arg1, arg2);
-        result = m.mk_ite(_seq1248_0, _seq1248_1, _seq1248_2);
+        auto div_by_zero = m.mk_eq(arg2, mk_zero(bv_size));
+        auto srem0_case = m.mk_app(get_fid(), OP_BSREM0, arg1);
+        auto srem_case = m.mk_app(get_fid(), OP_BSREM_I, arg1, arg2);
+        result = m.mk_ite(div_by_zero, srem0_case, srem_case);
     }
     return BR_REWRITE2;
 }
@@ -1402,9 +1400,9 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
         if (is_num1 && r1.is_zero()) {
             expr * zero = arg1;
             {
-                auto _seq1338_0 = m.mk_eq(arg2, zero);
-                auto _seq1338_1 = m_util.mk_bv_urem0(zero);
-                result = m.mk_ite(_seq1338_0, _seq1338_1, zero);
+                auto div_by_zero = m.mk_eq(arg2, zero);
+                auto urem0_case = m_util.mk_bv_urem0(zero);
+                result = m.mk_ite(div_by_zero, urem0_case, zero);
             }
             return BR_REWRITE2;
         }
@@ -1416,9 +1414,9 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
             expr * x_minus_1 = arg1;
             expr * minus_one = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
             {
-                auto _seq1350_0 = m.mk_eq(x, mk_zero(bv_size));
-                auto _seq1350_1 = m_util.mk_bv_urem0(minus_one);
-                result = m.mk_ite(_seq1350_0, _seq1350_1, x_minus_1);
+                auto x_is_zero = m.mk_eq(x, mk_zero(bv_size));
+                auto urem0_case = m_util.mk_bv_urem0(minus_one);
+                result = m.mk_ite(x_is_zero, urem0_case, x_minus_1);
             }
             return BR_REWRITE2;
         }
@@ -1448,10 +1446,10 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
 
     bv_size = get_bv_size(arg2);
     {
-        auto _seq1380_0 = m.mk_eq(arg2, mk_zero(bv_size));
-        auto _seq1380_1 = m_util.mk_bv_urem0(arg1);
-        auto _seq1380_2 = m_util.mk_bv_urem_i(arg1, arg2);
-        result = m.mk_ite(_seq1380_0, _seq1380_1, _seq1380_2);
+        auto div_by_zero = m.mk_eq(arg2, mk_zero(bv_size));
+        auto urem0_case = m_util.mk_bv_urem0(arg1);
+        auto urem_case = m_util.mk_bv_urem_i(arg1, arg2);
+        result = m.mk_ite(div_by_zero, urem0_case, urem_case);
     }
     return BR_REWRITE2;
 }
@@ -1515,14 +1513,14 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
             expr_ref a1(m_util.mk_bv_smod(a, arg2), m);
             expr_ref a2(m_util.mk_bv_smod(b, arg2), m);
             {
-                auto _seq1444_0 = mk_zero(bv_size - nb);
-                auto _seq1444_1 = m_mk_extract(nb-1,0,a1);
-                a1 = m_util.mk_concat(_seq1444_0, _seq1444_1);
+                auto zero_hi = mk_zero(bv_size - nb);
+                auto lo_bits = m_mk_extract(nb-1,0,a1);
+                a1 = m_util.mk_concat(zero_hi, lo_bits);
             }
             {
-                auto _seq1445_0 = mk_zero(bv_size - nb);
-                auto _seq1445_1 = m_mk_extract(nb-1,0,a2);
-                a2 = m_util.mk_concat(_seq1445_0, _seq1445_1);
+                auto zero_hi = mk_zero(bv_size - nb);
+                auto lo_bits = m_mk_extract(nb-1,0,a2);
+                a2 = m_util.mk_concat(zero_hi, lo_bits);
             }
             result = m_util.mk_bv_mul(a1, a2);
             std::cout << result << "\n";
@@ -1540,10 +1538,10 @@ br_status bv_rewriter::mk_bv_smod_core(expr * arg1, expr * arg2, bool hi_div0, e
 
     bv_size = get_bv_size(arg2);
     {
-        auto _seq1461_0 = m.mk_eq(arg2, mk_zero(bv_size));
-        auto _seq1461_1 = m.mk_app(get_fid(), OP_BSMOD0, arg1);
-        auto _seq1461_2 = m.mk_app(get_fid(), OP_BSMOD_I, arg1, arg2);
-        result = m.mk_ite(_seq1461_0, _seq1461_1, _seq1461_2);
+        auto div_by_zero = m.mk_eq(arg2, mk_zero(bv_size));
+        auto smod0_case = m.mk_app(get_fid(), OP_BSMOD0, arg1);
+        auto smod_case = m.mk_app(get_fid(), OP_BSMOD_I, arg1, arg2);
+        result = m.mk_ite(div_by_zero, smod0_case, smod_case);
     }
     return BR_REWRITE2;
 }
@@ -1762,9 +1760,9 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
                 for (unsigned i = 0; i < new_args.size(); ++i)
                     args1.push_back(y), args2.push_back(z);
                 {
-                    auto _seq1680_0 = m_util.mk_concat(args1);
-                    auto _seq1680_1 = m_util.mk_concat(args2);
-                    result = m.mk_ite(x, _seq1680_0, _seq1680_1);
+                    auto concat_t = m_util.mk_concat(args1);
+                    auto concat_e = m_util.mk_concat(args2);
+                    result = m.mk_ite(x, concat_t, concat_e);
                 }
                 return BR_REWRITE2;
             }
@@ -2287,9 +2285,9 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
     if (m.is_ite(arg, x, y, z) && m_util.is_numeral(y, val, bv_size)) {
         val = bitwise_not(bv_size, val);
         {
-            auto _seq2155_0 = m_util.mk_numeral(val, bv_size);
-            auto _seq2155_1 = m_util.mk_bv_not(z);
-            result = m.mk_ite(x, _seq2155_0, _seq2155_1);
+            auto not_val = m_util.mk_numeral(val, bv_size);
+            auto not_z = m_util.mk_bv_not(z);
+            result = m.mk_ite(x, not_val, not_z);
         }
         return BR_REWRITE2;
     }
@@ -2297,9 +2295,9 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
     if (m.is_ite(arg, x, y, z) && m_util.is_numeral(z, val, bv_size)) {
         val = bitwise_not(bv_size, val);
         {
-            auto _seq2161_0 = m_util.mk_bv_not(y);
-            auto _seq2161_1 = m_util.mk_numeral(val, bv_size);
-            result = m.mk_ite(x, _seq2161_0, _seq2161_1);
+            auto not_y = m_util.mk_bv_not(y);
+            auto not_val = m_util.mk_numeral(val, bv_size);
+            result = m.mk_ite(x, not_y, not_val);
         }
         return BR_REWRITE2;
     }
@@ -2469,10 +2467,10 @@ br_status bv_rewriter::mk_bv_comp(expr * arg1, expr * arg2, expr_ref & result) {
     }
 
     {
-        auto _seq2328_0 = m.mk_eq(arg1, arg2);
-        auto _seq2328_1 = mk_one(1);
-        auto _seq2328_2 = mk_zero(1);
-        result = m.mk_ite(_seq2328_0, _seq2328_1, _seq2328_2);
+        auto eq = m.mk_eq(arg1, arg2);
+        auto one = mk_one(1);
+        auto zero = mk_zero(1);
+        result = m.mk_ite(eq, one, zero);
     }
     return BR_REWRITE2;
 }
@@ -2749,9 +2747,9 @@ br_status bv_rewriter::mk_blast_eq_value(expr * lhs, expr * rhs, expr_ref & resu
     ptr_buffer<expr> new_args;
     for (unsigned i = 0; i < sz; ++i) {
         bool bit0 = (v % two).is_zero();
-        auto _seq0 = m_mk_extract(i, i, lhs);
-        auto _seq1 = mk_numeral(bit0 ? 0 : 1, 1);
-        new_args.push_back(m.mk_eq(_seq0, _seq1));
+        auto bit_extract = m_mk_extract(i, i, lhs);
+        auto bit_val = mk_numeral(bit0 ? 0 : 1, 1);
+        new_args.push_back(m.mk_eq(bit_extract, bit_val));
         div(v, two, v);
     }
     result = m.mk_and(new_args);
@@ -2795,11 +2793,9 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
         unsigned rsz1 = sz1 - low1;
         unsigned rsz2 = sz2 - low2;
         if (rsz1 == rsz2) {
-            {
-                auto _seq2651_0 = m_mk_extract(sz1 - 1, low1, arg1);
-                auto _seq2651_1 = m_mk_extract(sz2 - 1, low2, arg2);
-                new_eqs.push_back(m.mk_eq(_seq2651_0, _seq2651_1));
-            }
+            auto lhs_ext = m_mk_extract(sz1 - 1, low1, arg1);
+            auto rhs_ext = m_mk_extract(sz2 - 1, low2, arg2);
+            new_eqs.push_back(m.mk_eq(lhs_ext, rhs_ext));
             low1 = 0;
             low2 = 0;
             --i1;
@@ -2807,21 +2803,17 @@ br_status bv_rewriter::mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result) {
             continue;
         }
         else if (rsz1 < rsz2) {
-            {
-                auto _seq2660_0 = m_mk_extract(sz1 - 1, low1, arg1);
-                auto _seq2660_1 = m_mk_extract(rsz1 + low2 - 1, low2, arg2);
-                new_eqs.push_back(m.mk_eq(_seq2660_0, _seq2660_1));
-            }
+            auto lhs_ext = m_mk_extract(sz1 - 1, low1, arg1);
+            auto rhs_ext = m_mk_extract(rsz1 + low2 - 1, low2, arg2);
+            new_eqs.push_back(m.mk_eq(lhs_ext, rhs_ext));
             low1  = 0;
             low2 += rsz1;
             --i1;
         }
         else {
-            {
-                auto _seq2667_0 = m_mk_extract(rsz2 + low1 - 1, low1, arg1);
-                auto _seq2667_1 = m_mk_extract(sz2 - 1, low2, arg2);
-                new_eqs.push_back(m.mk_eq(_seq2667_0, _seq2667_1));
-            }
+            auto lhs_ext = m_mk_extract(rsz2 + low1 - 1, low1, arg1);
+            auto rhs_ext = m_mk_extract(sz2 - 1, low2, arg2);
+            new_eqs.push_back(m.mk_eq(lhs_ext, rhs_ext));
             low1 += rsz2;
             low2  = 0;
             --i2;
@@ -2966,11 +2958,9 @@ br_status bv_rewriter::mk_mul_eq(expr * lhs, expr * rhs, expr_ref & result) {
             }
         }
         if (found) {
-            {
-                auto _seq2813_0 = m_util.mk_numeral(c2_inv_val * c_val, sz);
-                auto _seq2813_1 = m_util.mk_bv_mul(m_util.mk_numeral(c2_inv_val, sz), rhs);
-                result = m.mk_eq(_seq2813_0, _seq2813_1);
-            }
+            auto lhs_val = m_util.mk_numeral(c2_inv_val * c_val, sz);
+            auto rhs_scaled = m_util.mk_bv_mul(m_util.mk_numeral(c2_inv_val, sz), rhs);
+            result = m.mk_eq(lhs_val, rhs_scaled);
             return BR_REWRITE3;
         }
     }
@@ -3272,9 +3262,9 @@ br_status bv_rewriter::mk_distinct(unsigned num_args, expr * const * args, expr_
 br_status bv_rewriter::mk_bvsmul_overflow(unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
     {
-        auto _seq3105_0 = m.mk_not(m_util.mk_bvsmul_no_ovfl(args[0], args[1]));
-        auto _seq3105_1 = m.mk_not(m_util.mk_bvsmul_no_udfl(args[0], args[1]));
-        result = m.mk_or(_seq3105_0, _seq3105_1);
+        auto no_ovfl = m.mk_not(m_util.mk_bvsmul_no_ovfl(args[0], args[1]));
+        auto no_udfl = m.mk_not(m_util.mk_bvsmul_no_udfl(args[0], args[1]));
+        result = m.mk_or(no_ovfl, no_udfl);
     }
     return BR_REWRITE_FULL;
 }
@@ -3442,9 +3432,9 @@ br_status bv_rewriter::mk_bvsdiv_overflow(unsigned num, expr * const * args, exp
     auto minSigned = mk_numeral(rational::power_of_two(sz-1), sz);
     auto minusOne = mk_numeral(rational::power_of_two(sz) - 1, sz);
     {
-        auto _seq3274_0 = m.mk_eq(args[0], minSigned);
-        auto _seq3274_1 = m.mk_eq(args[1], minusOne);
-        result = m.mk_and(_seq3274_0, _seq3274_1);
+        auto is_min_signed = m.mk_eq(args[0], minSigned);
+        auto is_minus_one = m.mk_eq(args[1], minusOne);
+        result = m.mk_and(is_min_signed, is_minus_one);
     }
     return BR_REWRITE_FULL;
 }
