@@ -2999,8 +2999,15 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
 
         // Optional: dump the parsed goal as an SMT-LIB2 benchmark (parameter tptp.dump_smt2
         // gives the output file path). Used to produce SMTLIB versions of TPTP instances.
+        // The simplifier_solver only flushes its pending preprocessing pipeline (running the
+        // configured simplifiers) lazily, when push()/check_sat_core() is invoked. We trigger
+        // that flush explicitly with a push()/pop() pair (leaving solver state unchanged) before
+        // dumping and before calling check_sat, so the dump captures fully preprocessed formulas,
+        // and so it still happens even if check_sat times out (on_timeout calls _Exit(0)).
         std::string dump_path = tptp().dump_smt2().str();
         if (!dump_path.empty()) {
+            ctx.get_solver()->push();
+            ctx.get_solver()->pop(1);
             std::ofstream dout(dump_path);
             if (dout) {
                 dout << "; Auto-generated from TPTP input: "
