@@ -143,6 +143,7 @@
     X(prime_generator) \
     X(permutation) \
     X(nlsat) \
+    X(opt_nlsat) \
     X(13) \
     X(zstring)
 

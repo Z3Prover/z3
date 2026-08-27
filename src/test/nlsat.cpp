@@ -2514,7 +2514,81 @@ static void tst_25() {
     std::cout << "=== END tst_25 ===\n\n";
 }
 
+// pick_max_in_complement: the supremum of the complement of an interval set
+// (optimization support: the maximization variable is assigned this value).
+static void tst_pick_max() {
+    std::cout << "=== tst_pick_max ===\n";
+    reslimit rl;
+    unsynch_mpq_manager         qm;
+    anum_manager                am(rl, qm);
+    small_object_allocator      allocator;
+    nlsat::interval_set_manager ism(am, allocator);
+
+    scoped_anum zero(am), one(am), two(am), sqrt2(am);
+    am.set(one, 1);
+    am.set(two, 2);
+    am.root(two, 2, sqrt2);
+
+    nlsat::literal p1(1, false);
+    nlsat::literal p2(2, false);
+    nlsat::interval_set_ref s1(ism), s2(ism), s(ism);
+    scoped_anum w(am), sup(am);
+    bool attained;
+
+    // empty set: the complement is the whole line, unbounded above
+    s = ism.mk_empty();
+    ENSURE(!ism.pick_max_in_complement(s, w, sup, attained));
+
+    // [0, 2]: the complement is unbounded above
+    s = ism.mk(false, false, zero, false, false, two, p1, nullptr);
+    ENSURE(!ism.pick_max_in_complement(s, w, sup, attained));
+
+    // (sqrt2, +oo): the maximum of the complement is sqrt2 and is attained
+    s = ism.mk(true, false, sqrt2, true, true, sqrt2, p1, nullptr);
+    ENSURE(ism.pick_max_in_complement(s, w, sup, attained));
+    ENSURE(attained);
+    ENSURE(am.eq(w, sqrt2));
+    ENSURE(am.eq(sup, sqrt2));
+
+    // [sqrt2, +oo): the supremum sqrt2 is not attained; w is below it
+    s = ism.mk(false, false, sqrt2, true, true, sqrt2, p1, nullptr);
+    ENSURE(ism.pick_max_in_complement(s, w, sup, attained));
+    ENSURE(!attained);
+    ENSURE(am.eq(sup, sqrt2));
+    ENSURE(am.lt(w, sqrt2));
+
+    // [1,1] u [2, +oo): w is picked in the gap (1, 2); the supremum 2 is not attained
+    s1 = ism.mk(false, false, one, false, false, one, p1, nullptr);
+    s2 = ism.mk(false, false, two, true, true, two, p2, nullptr);
+    s  = ism.mk_union(s1, s2);
+    ENSURE(ism.pick_max_in_complement(s, w, sup, attained));
+    ENSURE(!attained);
+    ENSURE(am.eq(sup, two));
+    ENSURE(am.lt(one, w));
+    ENSURE(am.lt(w, two));
+
+    // [1,1] u (1, +oo): glued at 1; the supremum 1 is not attained
+    s1 = ism.mk(false, false, one, false, false, one, p1, nullptr);
+    s2 = ism.mk(true, false, one, true, true, one, p2, nullptr);
+    s  = ism.mk_union(s1, s2);
+    ENSURE(ism.pick_max_in_complement(s, w, sup, attained));
+    ENSURE(!attained);
+    ENSURE(am.eq(sup, one));
+    ENSURE(am.lt(w, one));
+
+    // (0, 1) u (1, +oo): the shared endpoint 1 belongs to the complement: attained
+    s1 = ism.mk(true, false, zero, true, false, one, p1, nullptr);
+    s2 = ism.mk(true, false, one, true, true, one, p2, nullptr);
+    s  = ism.mk_union(s1, s2);
+    ENSURE(ism.pick_max_in_complement(s, w, sup, attained));
+    ENSURE(attained);
+    ENSURE(am.eq(w, one));
+    ENSURE(am.eq(sup, one));
+}
+
 void tst_nlsat() {
+    tst_pick_max();
+    std::cout << "------------------\n";
     tst_22();
     std::cout << "------------------\n";    
     tst_25();
