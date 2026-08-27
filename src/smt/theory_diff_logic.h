@@ -306,7 +306,7 @@ namespace smt {
         // -----------------------------------
 
         expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val);
-        inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
+        inf_eps maximize(theory_var v, expr_ref& blocker) override;
         inf_eps value(theory_var v) override;
         theory_var add_objective(app* term) override;
 
@@ -408,7 +408,6 @@ namespace smt {
     typedef theory_diff_logic<rdl_ext> theory_rdl;
     typedef theory_diff_logic<srdl_ext> theory_frdl;
 }
-
 
 
 

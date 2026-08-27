@@ -1096,7 +1096,7 @@ namespace smt {
         //
         // -----------------------------------
         expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_numeral const& val);
-        inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
+        inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker) override;
         inf_eps_rational<inf_rational> value(theory_var v) override;
         theory_var add_objective(app* term) override;
         void enable_record_conflict(expr* bound);
@@ -1278,5 +1278,4 @@ namespace smt {
 
     
 }
-
 
