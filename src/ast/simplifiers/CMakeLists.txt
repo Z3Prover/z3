@@ -29,6 +29,7 @@ z3_add_component(simplifiers
     reduce_args_simplifier.cpp
     solve_context_eqs.cpp
     solve_eqs.cpp
+    witness_instantiation_simplifier.cpp
   COMPONENT_DEPENDENCIES
     bit_blaster
     euf
@@ -51,4 +52,5 @@ z3_add_component(simplifiers
     randomizer.h
     refine_inj_axiom.h
     rewriter_simplifier.h
+    witness_instantiation_simplifier.h
 )
