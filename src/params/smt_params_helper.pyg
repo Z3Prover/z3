@@ -152,6 +152,8 @@ def_module_params(module_name='smt',
                           ('nseq.view_length_constraints', BOOL, True, 'attach the length abstraction of a land-state view to each pinned variable as arithmetic side constraints'),
                           ('nseq.monadic_landing', BOOL, False, 'emit the monadic decomposition (seq_monadic) of a non-primitive membership as land-state view constraints instead of decomposing the subject by splitting'),
                           ('nseq.monadic_split', BOOL, False, 'enable the continuation-regex intersection modifier (seq_monadic) in the Nielsen solver: closes a node when several memberships on the same sequence have a provably empty language intersection'),
+                          ('nseq.monadic_leaf', BOOL, False, 'use seq_monadic as a decision procedure over the whole membership set of an equation-free node in the Nielsen solver: an unsat core closes the node, a satisfying witness is pinned as a child alongside an unchanged one'),
+                          ('nseq.monadic_leaf_budget', UINT, 300000, 'work budget for a single nseq.monadic_leaf decision (search nodes plus product expansions); the rule runs mid-search ahead of the Nielsen rules, so an over-long decision is taken instead of a cheaper search step, and exceeding the budget makes the rule fall through rather than answer; 0 = the engine default'),
                           ('nseq.axiomatize_diseq', BOOL, False, 'eagerly axiomatize sequence disequalities'),
                           ('nseq.eager', BOOL, True, 'enable the incremental eager structural Nielsen closure during propagation, detecting conflicts before final_check'),
                           ('nseq.harvest', UINT, 0, 'benchmark-harvest mode: bound on non-progress Nielsen extension steps before dumping the current node as an .smt2 benchmark; 0 = disabled (normal sound reasoning). WARNING: intentionally unsound, for benchmark generation only'),
@@ -177,3 +179,5 @@ def_module_params(module_name='smt',
                           ('dt_lazy_splits', UINT, 1, 'How lazy datatype splits are performed: 0- eager, 1- lazy for infinite types, 2- lazy'),
                           ('qsat_use_qel', BOOL, True, 'Use QEL for lite quantifier elimination and model-based projection in QSAT')
                           ))
+
+

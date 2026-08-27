@@ -857,6 +857,161 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
+    // Modifier: apply_monadic_leaf  (monadic decomposition as an END-GAME)
+
+    void nielsen_graph::ensure_monadic_leaf() {
+        if (m_monadic_leaf_engine)
+            return;
+        // Default transition mode on purpose -- see the member's declaration.  This rule
+        // consumes only the verdict, the core and a concrete witness, none of which are
+        // tied to nseq's partial DFA, so it is free to use the mode theory_seq uses.
+        m_monadic_leaf_engine = alloc(seq_monadic, m_monadic_leaf_rw, m_monadic_leaf_trail,
+                                      seq::transition_mode::light_antimirov_tm);
+        // The witness is the whole point of this rule.
+        m_monadic_leaf_engine->set_gen_solution(true);
+        m_monadic_leaf_engine->set_orientation(seq_monadic::orientation::retry);
+        // Intersection refinement, off by default in the engine.  These nodes are an
+        // intersection by construction -- every membership on one subject is a conjunct --
+        // so without it the engine bails on exactly the re.inter/re.comp shapes this rule
+        // is aimed at.  10 is theory_seq's default (smt.seq.regex_split).
+        m_monadic_leaf_engine->set_split_rounds(10);
+        // Bounded work, unlike theory_seq's 1000000.  theory_seq calls the engine at final
+        // check, when it has nothing cheaper left to try; this rule calls it mid-search,
+        // ahead of nseq's own rules, so an expensive decision here is not free -- it is
+        // taken INSTEAD of a search step that might have been cheap.  Measured: a file
+        // nseq's native rules close in 0.10s costs the engine ~6s to decide (theory_seq
+        // needs the same 6s on it).  A budget turns that into an l_undef the rule falls
+        // through on, which is the whole reason the component reports one.  Measured over
+        // the regex corpus: unbounded gains 26 files and loses 4; at 300000 it gains 22
+        // and loses none, and the commonly decided set runs 15% faster rather than 9%.
+        if (m_monadic_leaf_budget > 0)
+            m_monadic_leaf_engine->set_budget(m_monadic_leaf_budget);
+    }
+
+    bool nielsen_graph::apply_monadic_leaf(nielsen_node* node) {
+        if (!m_monadic_leaf)
+            return false;
+        // The engine never sees equations, so its verdict is a verdict about the NODE
+        // only when the node has none.  This is the eq_vars gate of mk_mon_state taken to
+        // its conclusion: instead of dropping the memberships that touch an equation, do
+        // not run at all until the equations are gone.
+        if (!node->str_eqs().empty() || !node->str_deqs().empty())
+            return false;
+        // child B below is an exact clone; refusing on an alias is what stops the rule
+        // from firing again all the way down that spine (see m_is_monadic_leaf_rest).
+        if (node->is_signature_alias())
+            return false;
+
+        auto const& mems = node->str_mems();
+        if (mems.empty())
+            return false;
+
+        ensure_monadic_leaf();
+
+        // EVERY membership has to be covered: a satisfiable subset says nothing about the
+        // node, and it is the l_true half this rule exists for.
+        expr_ref_vector pin(m);
+        vector<std::pair<expr*, expr*>> abstracted;
+        vector<dep_tracker> mem_deps;
+        vector<std::pair<euf::snode const*, expr*>> tokens;
+        bool any_non_primitive = false;
+        dep_tracker all_dep = nullptr;
+        for (str_mem const& mi : mems) {
+            if (!mi.is_plain() || mi.m_regex->is_ite())
+                return false;
+            expr_ref term(m);
+            ptr_vector<expr> uvars;
+            vector<std::pair<euf::snode const*, expr*>> toks;
+            if (!monadic_abstract_subject(mi.m_str, pin, uvars, toks, term))
+                return false;   // ground subject: not covered, so the verdict is partial
+            // Same guard as mk_mon_state: only a free, non-rigid variable denotes an
+            // unconstrained word.  Anything else abstracts to a constant the witness
+            // would be free to choose but the node is not.
+            if (!uvars.empty())
+                return false;
+            if (any_of(toks, [](auto const& p) { return !p.first->is_var() || p.first->is_rigid(); }))
+                return false;
+            if (!m_monadic_leaf_engine->can_decide_term(term))
+                return false;
+            if (!mi.is_primitive())
+                any_non_primitive = true;
+            for (auto const& t : toks) {
+                if (!any_of(tokens, [&](auto const& p) { return p.first == t.first; }))
+                    tokens.push_back(t);
+            }
+            abstracted.push_back({ term.get(), mi.m_regex->get_expr() });
+            mem_deps.push_back(mi.m_dep);
+            all_dep = m_dep_mgr.mk_join(all_dep, mi.m_dep);
+        }
+        // An all-primitive node is check_leaf_regex's business, and it answers the same
+        // question without spending a monadic decision on it.
+        if (!any_non_primitive || tokens.empty())
+            return false;
+
+        m_monadic_leaf_trail.push_scope();
+        for (unsigned k = 0; k < abstracted.size(); ++k)
+            m_monadic_leaf_engine->add(abstracted[k].first, abstracted[k].second, mem_deps[k]);
+        const lbool r = m_monadic_leaf_engine->check();
+
+        if (r == l_false) {
+            // Explain with the engine's minimized core rather than with every membership:
+            // all of them were asserted, so whatever it kept is a subset of the node's own
+            // constraints and a stronger conflict clause.
+            dep_tracker dep = nullptr;
+            for (void* d : m_monadic_leaf_engine->core())
+                dep = m_dep_mgr.mk_join(dep, static_cast<dep_tracker>(d));
+            m_monadic_leaf_trail.pop_scope(1);
+            ++m_stats.m_monadic_leaf_unsat;
+            node->set_general_conflict();
+            node->set_conflict(backtrack_reason::regex, dep);
+            TRACE(seq, tout << "monadic leaf: node refuted by the end-game\n");
+            return true;
+        }
+        if (r != l_true) {
+            m_monadic_leaf_trail.pop_scope(1);
+            ++m_stats.m_monadic_leaf_gaveup;
+            return false;
+        }
+
+        // l_true: collapse each token's views into one concrete word.  Materialize BEFORE
+        // any child is built, so that a token the engine cannot collapse costs nothing.
+        vector<std::pair<euf::snode const*, expr_ref>> witness;
+        for (auto const& [tok, v] : tokens) {
+            expr_ref word(m);
+            if (m_monadic_leaf_engine->materialize(v, word) != l_true) {
+                m_monadic_leaf_trail.pop_scope(1);
+                ++m_stats.m_monadic_leaf_gaveup;
+                return false;
+            }
+            witness.push_back({ tok, word });
+        }
+        m_monadic_leaf_trail.pop_scope(1);
+
+        // child A -- every token pinned to its witness word.  Adding equations is a
+        // RESTRICTION of the node, so the child is sound as one disjunct however good or
+        // bad the witness is; nseq's own machinery then substitutes the constants and
+        // either reaches a satisfied leaf or refutes this particular witness.  Nothing
+        // here trusts the engine: an equation cannot make the node easier to satisfy.
+        // The witness rests on all the memberships jointly, so it carries their join.
+        nielsen_node* child_a = mk_child(node);
+        mk_edge(node, child_a, "monadic leaf witness", true);
+        for (auto const& [tok, word] : witness)
+            child_a->add_str_eq(str_eq(m, tok, m_sg.mk(word), all_dep));
+
+        // child B -- the node unchanged.  It alone covers the parent, so completeness does
+        // not depend on the witness being the right one.  The flag makes it a signature
+        // alias: it must escape the sibling loop-cut against its own parent, and the rule
+        // must not fire on it again (see m_is_monadic_leaf_rest).
+        nielsen_node* child_b = mk_child(node);
+        mk_edge(node, child_b, "monadic leaf rest", true);
+        child_b->set_monadic_leaf_rest();
+
+        ++m_stats.m_monadic_leaf_sat;
+        TRACE(seq, tout << "monadic leaf: witness pinned for " << witness.size() << " token(s)\n");
+        return true;
+    }
+
+    // -----------------------------------------------------------------------
     // Modifier: apply_monadic_landing  (monadic decomposition as a branching rule)
 
     // Cap on the branches this rule hands out for one node: the branch count is a product

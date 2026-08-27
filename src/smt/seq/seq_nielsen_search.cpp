@@ -783,7 +783,15 @@ namespace seq {
         if (!harvest_mode() && apply_cycle_subsumption(node))
             return ++m_stats.m_mod_cycle_subsumption, true;
 
-        // Priority 5c: MonadicLanding - decompose the non-primitive memberships in
+        // Priority 5c: MonadicLeaf - seq_monadic as a DECISION PROCEDURE over the whole
+        // membership set of an equation-free node: a core refutes the node outright, a
+        // witness becomes a pinned child.  Tried before the enumerator below and before
+        // the grinding rules, because it answers in one call what they approach by
+        // splitting.  (opt-in via smt.nseq.monadic_leaf, default off)
+        if (!harvest_mode() && apply_monadic_leaf(node))
+            return ++m_stats.m_mod_monadic_leaf, true;
+
+        // Priority 5d: MonadicLanding - decompose the non-primitive memberships in
         // ONE step via seq_monadic's satisfying branch, emitted as land-state views.
         // Must precede the modifiers that grind the subject down by splitting
         // (landing 6, factorization 8, const nielsen 8b, regex var split 10).

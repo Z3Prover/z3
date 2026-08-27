@@ -506,7 +506,8 @@ namespace seq {
         m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_a_rw(m),
         m_sk(m, m_rw), m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)), m_split_rw(sg.get_manager()), m_deriv_rw(sg.get_manager()),
-        m_monadic_rw(sg.get_manager()), m_partial_dfa_pin(sg.get_manager()) {
+        m_monadic_rw(sg.get_manager()), m_monadic_leaf_rw(sg.get_manager()),
+        m_partial_dfa_pin(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -609,6 +610,8 @@ namespace seq {
         // fresh problem starts with a clean cache (its pins would grow forever).
         dealloc(m_monadic);
         m_monadic = nullptr;
+        dealloc(m_monadic_leaf_engine);
+        m_monadic_leaf_engine = nullptr;
         m_nodes.reset();
         m_edges.reset();
         m_root = nullptr;
@@ -1127,6 +1130,10 @@ namespace seq {
         st.update("nseq mod regex fact",       m_stats.m_mod_regex_factorization);
         st.update("nseq mod monadic split",    m_stats.m_mod_monadic_split);
         st.update("nseq mod monadic landing",  m_stats.m_mod_monadic_landing);
+        st.update("nseq mod monadic leaf",     m_stats.m_mod_monadic_leaf);
+        st.update("nseq monadic leaf sat",     m_stats.m_monadic_leaf_sat);
+        st.update("nseq monadic leaf unsat",   m_stats.m_monadic_leaf_unsat);
+        st.update("nseq monadic leaf gaveup",  m_stats.m_monadic_leaf_gaveup);
         st.update("nseq monadic branches",     m_stats.m_monadic_branches);
         st.update("nseq monadic drained",      m_stats.m_monadic_drained);
         st.update("nseq monadic fresh",        m_stats.m_monadic_fresh);

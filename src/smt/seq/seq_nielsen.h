@@ -652,6 +652,15 @@ namespace seq {
         // flag is also the re-fire guard: a fresh enumerator would restart at branch 1.
         mon_state*              m_monadic_cont = nullptr;
         bool                    m_is_monadic_cont = false;
+        // apply_monadic_leaf's "witness declined" child B: an exact clone of its parent,
+        // so it aliases the parent's signature without being a recurrence.  Same two jobs
+        // as the flags above.  (1) Exemption: without it the sibling loop-cut would close
+        // B against its own parent, leaving the parent decided by child A alone -- i.e. by
+        // one witness -- which turns a declined witness into a spurious UNSAT.  (2) Re-fire
+        // guard: B has the parent's constraints verbatim, so the rule would compute the
+        // same witness forever down an N -> B -> B_B -> ... spine.  Sticky, to survive hot
+        // restart.
+        bool                    m_is_monadic_leaf_rest = false;
         // Fine & Wilf refire guard: directional keys of equations this node
         // (or an ancestor, via clone_from) has already been F&W-split on
         // (apply_fine_wilf).  The symbolic small-overlap child keeps the
@@ -740,6 +749,9 @@ namespace seq {
         // Sticky: true if this node was EVER a monadic continuation.
         bool is_monadic_cont() const { return m_is_monadic_cont; }
 
+        // Mark this node as apply_monadic_leaf's child B (see m_is_monadic_leaf_rest).
+        void set_monadic_leaf_rest() { m_is_monadic_leaf_rest = true; }
+
         // Fine & Wilf refire guard (see m_fw_applied).
         bool fw_applied(uint64_t key) const { return m_fw_applied.contains(key); }
         void mark_fw_applied(uint64_t key) { m_fw_applied.push_back(key); }
@@ -751,7 +763,7 @@ namespace seq {
         // are exempt from the sibling loop-cut and from the unsat transposition
         // cache (lookup AND insertion) in search_dfs.
         bool is_signature_alias() const {
-            return m_is_rf_cont || m_is_arith_split || m_is_monadic_cont;
+            return m_is_rf_cont || m_is_arith_split || m_is_monadic_cont || m_is_monadic_leaf_rest;
         }
 
         // returns 0 if hash is unknown
@@ -917,6 +929,12 @@ namespace seq {
         unsigned m_mod_regex_factorization = 0;
         unsigned m_mod_monadic_split   = 0;
         unsigned m_mod_monadic_landing = 0;
+        // Surface-A end-game (apply_monadic_leaf): calls that closed the node by a
+        // witness, by a core, and calls the engine left undecided.
+        unsigned m_mod_monadic_leaf    = 0;
+        unsigned m_monadic_leaf_sat    = 0;
+        unsigned m_monadic_leaf_unsat  = 0;
+        unsigned m_monadic_leaf_gaveup = 0;
         // branches the monadic enumerator handed out, and enumerations it drained
         // cleanly (each of those closes a node)
         unsigned m_monadic_branches    = 0;
@@ -1007,6 +1025,8 @@ namespace seq {
         bool                          m_fine_wilf = false;
         bool                          m_monadic_split = false;
         bool                          m_monadic_landing = false;
+        bool                          m_monadic_leaf = false;
+        unsigned                      m_monadic_leaf_budget = 300000;
         // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
         unsigned                      m_exploration_budget = 512;
         // attach the view length abstraction to pinned variables
@@ -1084,6 +1104,17 @@ namespace seq {
         // Monadic-decomposition membership solver (seq_monadic); allocated lazily
         // on first use and released in reset().
         seq_monadic*     m_monadic = nullptr;
+        // Surface-A end-game engine (apply_monadic_leaf), kept apart from m_monadic on
+        // purpose.  ensure_monadic pins m_monadic to brzozowski_tm so that the reach
+        // views apply_monadic_landing mints line up with nseq's partial DFA; the leaf
+        // rule consumes no views -- only a verdict, a core and a concrete witness -- so
+        // it runs in the engine's default light-Antimirov mode, the one theory_seq uses
+        // and the one that does not grow derivative TERM DEPTH on nested re.inter/re.comp.
+        // Its own rewriter and trail: a derivative cache must not be shared across two
+        // transition modes.
+        seq_rewriter     m_monadic_leaf_rw;
+        trail_stack      m_monadic_leaf_trail;
+        seq_monadic*     m_monadic_leaf_engine = nullptr;
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
@@ -1283,6 +1314,8 @@ namespace seq {
 
         void set_monadic_split(bool e) { m_monadic_split = e; }
         void set_monadic_landing(bool e) { m_monadic_landing = e; }
+        void set_monadic_leaf(bool e) { m_monadic_leaf = e; }
+        void set_monadic_leaf_budget(unsigned n) { m_monadic_leaf_budget = n; }
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
 
@@ -1851,6 +1884,25 @@ namespace seq {
         // the way (give-up, undecided, unmappable) turns that back into a fall-through.
         bool apply_monadic_landing(nielsen_node* node);
 
+        // Modifier: apply_monadic_leaf -- seq_monadic as an END-GAME decision procedure
+        // (its "Surface A": add / check / core / materialize), rather than as a source of
+        // branches the way apply_monadic_landing consumes it.
+        //
+        // Fires only on a node that IS its memberships: no residual (dis)equation, so a
+        // verdict about the memberships is a verdict about the node.  Every membership
+        // must be covered -- a subset that is satisfiable says nothing -- and at least one
+        // must be non-primitive, since check_leaf_regex already decides an all-primitive
+        // node.
+        //   l_false -> conflict, explained by the engine's minimized core.
+        //   l_true  -> child A pins every token to the engine's witness word by a str_eq,
+        //              and child B is the node unchanged, so the split is exhaustive
+        //              whatever the witness turns out to be worth.
+        //   l_undef -> fall through, unchanged.
+        bool apply_monadic_leaf(nielsen_node* node);
+
+        // Allocate m_monadic_leaf_engine on first use, in the default transition mode.
+        void ensure_monadic_leaf();
+
         // Collect the memberships apply_monadic_landing may decompose on `node`, abstract
         // them, and start a branch enumerator.  Null when there is nothing to gain (no
         // covered non-primitive membership, a gate not met).  Owned by m_mon_states.
@@ -1989,3 +2041,4 @@ namespace seq {
     };
 
 }
+
