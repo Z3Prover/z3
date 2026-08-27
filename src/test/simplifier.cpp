@@ -24,6 +24,40 @@ static void ev_const(Z3_context ctx, Z3_ast e) {
               Z3_OP_FALSE == Z3_get_decl_kind(ctx,Z3_get_app_decl(ctx, Z3_to_app(ctx, r))))));
 }
 
+static void expect_simplifies_to(Z3_context ctx, Z3_ast input, Z3_ast expected) {
+    Z3_ast actual = Z3_simplify(ctx, input);
+    expected = Z3_simplify(ctx, expected);
+    TRACE(simplifier,
+        tout << Z3_ast_to_string(ctx, input) << " -> "
+             << Z3_ast_to_string(ctx, actual) << "\n";);
+    ENSURE(Z3_is_eq_ast(ctx, actual, expected));
+}
+
+static void expect_context_simplifies_to(
+    Z3_context ctx, Z3_ast context, Z3_ast input, Z3_ast expected) {
+    Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    Z3_goal_assert(ctx, goal, context);
+    Z3_goal_assert(ctx, goal, input);
+
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "propagate-bv-bounds2");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+
+    expected = Z3_simplify(ctx, expected);
+    Z3_goal subgoal = Z3_apply_result_get_subgoal(ctx, result, 0);
+    bool found = false;
+    for (unsigned i = 0; i < Z3_goal_size(ctx, subgoal); ++i)
+        found |= Z3_is_eq_ast(ctx, Z3_goal_formula(ctx, subgoal, i), expected);
+    ENSURE(found);
+
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_goal_dec_ref(ctx, goal);
+}
+
 static void test_bv() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -77,6 +111,67 @@ static void test_bv() {
 
     ev_const(ctx, Z3_mk_rotate_left(ctx,21,b13));
     ev_const(ctx, Z3_mk_rotate_right(ctx,21,b13));
+
+    Z3_sort bv8 = Z3_mk_bv_sort(ctx, 8);
+    Z3_sort bv16 = Z3_mk_bv_sort(ctx, 16);
+    Z3_ast x8 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x8"), bv8);
+    Z3_ast y8 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y8"), bv8);
+    Z3_ast x16 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x16"), bv16);
+    Z3_ast cond = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "cond"), Z3_mk_bool_sort(ctx));
+    Z3_ast zx = Z3_mk_zero_ext(ctx, 8, x8);
+    Z3_ast zy = Z3_mk_zero_ext(ctx, 8, y8);
+    Z3_ast sx = Z3_mk_sign_ext(ctx, 8, x8);
+    Z3_ast sy = Z3_mk_sign_ext(ctx, 8, y8);
+
+    expect_simplifies_to(ctx,
+        Z3_mk_extract(ctx, 7, 0, Z3_mk_bvudiv(ctx, zx, zy)),
+        Z3_mk_bvudiv(ctx, x8, y8));
+    expect_simplifies_to(ctx,
+        Z3_mk_extract(ctx, 7, 0, Z3_mk_bvurem(ctx, zx, zy)),
+        Z3_mk_bvurem(ctx, x8, y8));
+    expect_simplifies_to(ctx,
+        Z3_mk_extract(ctx, 7, 0, Z3_mk_bvsdiv(ctx, sx, sy)),
+        Z3_mk_bvsdiv(ctx, x8, y8));
+    expect_simplifies_to(ctx,
+        Z3_mk_extract(ctx, 7, 0, Z3_mk_bvsrem(ctx, sx, sy)),
+        Z3_mk_bvsrem(ctx, x8, y8));
+    expect_simplifies_to(ctx,
+        Z3_mk_bvsle(ctx, zx, zy),
+        Z3_mk_bvule(ctx, x8, y8));
+    expect_simplifies_to(ctx,
+        Z3_mk_bvand(ctx, zx, zy),
+        Z3_mk_zero_ext(ctx, 8, Z3_mk_bvand(ctx, x8, y8)));
+    expect_simplifies_to(ctx,
+        Z3_mk_bvor(ctx, zx, zy),
+        Z3_mk_zero_ext(ctx, 8, Z3_mk_bvor(ctx, x8, y8)));
+    expect_simplifies_to(ctx,
+        Z3_mk_ite(ctx, cond, zx, zy),
+        Z3_mk_zero_ext(ctx, 8, Z3_mk_ite(ctx, cond, x8, y8)));
+    expect_simplifies_to(ctx,
+        Z3_mk_ite(ctx, cond, sx, sy),
+        Z3_mk_sign_ext(ctx, 8, Z3_mk_ite(ctx, cond, x8, y8)));
+
+    Z3_ast bv12 = Z3_mk_numeral(ctx, "12", bv16);
+    Z3_ast bv4 = Z3_mk_numeral(ctx, "4", bv16);
+    expect_simplifies_to(ctx,
+        Z3_mk_bvsrem(ctx, Z3_mk_bvsrem(ctx, x16, bv12), bv4),
+        Z3_mk_bvsrem(ctx, x16, bv4));
+
+    Z3_ast y16 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y16"), bv16);
+    Z3_ast bv255 = Z3_mk_numeral(ctx, "255", bv16);
+    expect_context_simplifies_to(ctx,
+        Z3_mk_bvule(ctx, y16, bv255),
+        Z3_mk_eq(ctx, zx, y16),
+        Z3_mk_eq(ctx, x8, Z3_mk_extract(ctx, 7, 0, y16)));
+
+    Z3_ast bv0 = Z3_mk_numeral(ctx, "0", bv8);
+    Z3_sort bv9 = Z3_mk_bv_sort(ctx, 9);
+    Z3_ast bv0_9 = Z3_mk_numeral(ctx, "0", bv9);
+    Z3_ast nonnegative_x = Z3_mk_concat(ctx, bv0_9, Z3_mk_extract(ctx, 6, 0, x8));
+    expect_context_simplifies_to(ctx,
+        Z3_mk_bvsle(ctx, bv0, x8),
+        Z3_mk_eq(ctx, x16, sx),
+        Z3_mk_eq(ctx, x16, nonnegative_x));
 
     Z3_del_config(cfg);
     Z3_del_context(ctx);

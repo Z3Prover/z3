@@ -394,6 +394,7 @@ public:
     MATCH_UNARY(is_bv_not);
     MATCH_UNARY(is_redand);
     MATCH_UNARY(is_redor);
+    MATCH_UNARY(is_sign_ext);
 
     MATCH_BINARY(is_ext_rotate_left);
     MATCH_BINARY(is_ext_rotate_right);
@@ -634,5 +635,4 @@ public:
     }
 
 };
-
 
