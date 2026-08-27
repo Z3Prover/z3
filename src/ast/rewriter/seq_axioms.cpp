@@ -316,7 +316,7 @@ namespace seq {
             expr_ref zero(a.mk_int(0), m);
             expr_ref i_ge_0 = mk_ge(i, 0);
             expr_ref i_l_le_len_s = mk_le(mk_sub(mk_sub(mk_len(s), i), l), 0);
-            expr_ref idx(seq.str.mk_index(s, e, zero), m);
+            expr_ref idx(seq.str.mk_index(e, s, zero), m);
             add_clause(~i_ge_0, ~i_l_le_len_s, mk_le(mk_sub(idx, i), 0));
             return true;
         }
@@ -650,7 +650,7 @@ namespace seq {
             nth = es.back();
             es.push_back(m_sk.mk_tail(s, i));
             add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(s, seq.str.mk_concat(es, e->get_sort())));
-            add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));                
+            add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));
         }
         else {
             expr_ref x =     m_sk.mk_pre(s, i);
@@ -659,6 +659,15 @@ namespace seq {
             expr_ref len_x = mk_len(x);
             add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(s, xey));
             add_clause(~i_ge_0, i_ge_len_s, mk_eq(i, len_x));
+
+            // 0 <= i < len(s) => indexof(s, e, 0) <= i
+            // e = at(s, i) occurs in s at position i, so its first occurrence
+            // is at most i. seq.extract(s, i, 1) is rewritten to at(s, i) by
+            // the rewriter, so this bridges seq.extract/seq.at with
+            // seq.indexof (issue #3508), mirroring nth_axiom's bridging
+            // clause below.
+            expr_ref idx(seq.str.mk_index(s, e, zero), m);
+            add_clause(~i_ge_0, i_ge_len_s, mk_le(mk_sub(idx, i), 0));
         }
 
         add_clause(i_ge_0, mk_eq(e, emp));
