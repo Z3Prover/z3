@@ -260,13 +260,6 @@ namespace seq {
         add_clause(~ls_le_0, le_is_0);
         add_clause(~l_le_0,  le_is_0);
         add_clause(~le_is_0, ~i_ge_0, ls_le_i, ls_le_0, l_le_0);
-
-        // e = extract(s, i, l) occurs in s at position i (when in range),
-        // so its first occurrence in s is at most i. This shortcuts the
-        // indirect reasoning through pre/post skolems otherwise required to
-        // connect seq.extract and seq.indexof (issue #3508).
-        expr_ref idx(seq.str.mk_index(s, e, zero), m);
-        add_clause(~i_ge_0, ~i_le_ls, ~l_ge_0, ~ls_ge_li, mk_le(mk_sub(idx, i), 0));
     }
 
     void axioms::tail_axiom(expr* e, expr* s) {    
@@ -309,15 +302,6 @@ namespace seq {
                 es.push_back(seq.str.mk_at(e, a.mk_add(i, a.mk_int(j))));
             expr_ref r(seq.str.mk_concat(es, e->get_sort()), m);
             add_clause(mk_seq_eq(r, s));
-            // e = extract(s, i, l) occurs in s at position i, so its first
-            // occurrence is at most i. This shortcuts the indirect reasoning
-            // otherwise required to connect seq.extract and seq.indexof
-            // (issue #3508).
-            expr_ref zero(a.mk_int(0), m);
-            expr_ref i_ge_0 = mk_ge(i, 0);
-            expr_ref i_l_le_len_s = mk_le(mk_sub(mk_sub(mk_len(s), i), l), 0);
-            expr_ref idx(seq.str.mk_index(e, s, zero), m);
-            add_clause(~i_ge_0, ~i_l_le_len_s, mk_le(mk_sub(idx, i), 0));
             return true;
         }
         return false;
@@ -659,15 +643,6 @@ namespace seq {
             expr_ref len_x = mk_len(x);
             add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(s, xey));
             add_clause(~i_ge_0, i_ge_len_s, mk_eq(i, len_x));
-
-            // 0 <= i < len(s) => indexof(s, e, 0) <= i
-            // e = at(s, i) occurs in s at position i, so its first occurrence
-            // is at most i. seq.extract(s, i, 1) is rewritten to at(s, i) by
-            // the rewriter, so this bridges seq.extract/seq.at with
-            // seq.indexof (issue #3508), mirroring nth_axiom's bridging
-            // clause below.
-            expr_ref idx(seq.str.mk_index(s, e, zero), m);
-            add_clause(~i_ge_0, i_ge_len_s, mk_le(mk_sub(idx, i), 0));
         }
 
         add_clause(i_ge_0, mk_eq(e, emp));
@@ -702,15 +677,6 @@ namespace seq {
             if (!seq.str.is_at(s) || zero != i) rhs = seq.str.mk_at(s, i);
             m_rewrite(rhs);
             add_clause(~i_ge_0, i_ge_len_s, mk_eq(lhs, rhs));
-
-            // 0 <= i < len(s) => indexof(s, unit(nth(s,i)), 0) <= i
-            // nth(s,i) occurs in s at position i, so its first occurrence is at most i.
-            // This shortcuts the indirect reasoning through at/pre/tail skolems and
-            // tightest_prefix that otherwise requires many instantiation rounds to
-            // connect seq.nth and seq.indexof (issue #3508).
-            expr_ref unit_e(seq.str.mk_unit(e), m);
-            expr_ref idx(seq.str.mk_index(s, unit_e, zero), m);
-            add_clause(~i_ge_0, i_ge_len_s, mk_le(mk_sub(idx, i), 0));
         }
     }
 
