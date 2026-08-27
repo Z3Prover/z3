@@ -1054,19 +1054,17 @@ namespace smt {
     }
 
     template<typename Ext>
-    inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
+    inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker) {
         TRACE(bound_bug, display_var(tout, v); display(tout););
         if (ctx.get_fparams().m_threads > 1)
             throw default_exception("multi-threaded optimization is not supported");
-        has_shared = false;
         if (!m_nl_monomials.empty()) {
-            has_shared = true;
             blocker = mk_gt(v);
             return inf_eps_rational<inf_rational>(get_value(v));            
         }
-        max_min_t r = max_min(v, true, true, has_shared); 
+        bool ignored_shared = false;
+        max_min_t r = max_min(v, true, true, ignored_shared);
         if (r == UNBOUNDED) {
-            has_shared = false;
             blocker = get_manager().mk_false();
             return inf_eps_rational<inf_rational>::infinity();
         }
@@ -2296,5 +2294,3 @@ namespace smt {
 #endif
 
 }
-
-
