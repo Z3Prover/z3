@@ -45,8 +45,10 @@ Notes:
 #include "ast/rewriter/bv_rewriter.h"
 #include "solver/parallel_params.hpp"
 #include "params/tactic_params.hpp"
+#include "params/smt_params.h"
 #include "parsers/smt2/smt2parser.h"
 #include "params/sat_params.hpp"
+#include "util/gparams.h"
 
 tactic* mk_tactic_for_logic(ast_manager& m, params_ref const& p, symbol const& logic);
 
@@ -162,6 +164,13 @@ public:
         else
             l = logic;
 
+        params_ref q(p);
+        params_ref smt_p = gparams::get_module("smt");
+        if (l == "QF_S" && !p.contains("phase_selection") && !smt_p.contains("phase_selection")) {
+            // Positive phases favor empty witnesses for satisfiable string constraints.
+            q.set_uint("phase_selection", static_cast<unsigned>(PS_ALWAYS_TRUE));
+        }
+
         tactic_params tp;
         tactic_ref t;
         if (tp.default_tactic() != symbol::null &&
@@ -170,22 +179,22 @@ public:
             cmd_context ctx(false, &m, l);
             std::istringstream is(tp.default_tactic().str());
             char const* file_name = "";
-            sexpr_ref se = parse_sexpr(ctx, is, p, file_name);
+            sexpr_ref se = parse_sexpr(ctx, is, q, file_name);
             if (se) {
                 t = sexpr2tactic(ctx, se.get());
             }
         }
 
         if (!t) {
-            solver* s = mk_special_solver_for_logic(m, p, l);
+            solver* s = mk_special_solver_for_logic(m, q, l);
             if (s) return s;
         }
         if (!t) {
-            t = mk_tactic_for_logic(m, p, l);
+            t = mk_tactic_for_logic(m, q, l);
         }
-        return mk_combined_solver(mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l),
-                                  mk_solver_for_logic(m, p, l), 
-                                  p);
+        return mk_combined_solver(mk_tactic2solver(m, t.get(), q, proofs_enabled, models_enabled, unsat_core_enabled, l),
+                                  mk_solver_for_logic(m, q, l),
+                                  q);
     }
     
     solver_factory* translate(ast_manager& m) override {
@@ -196,5 +205,3 @@ public:
 solver_factory * mk_smt_strategic_solver_factory(symbol const & logic) {
     return alloc(smt_strategic_solver_factory, logic);
 }
-
-
