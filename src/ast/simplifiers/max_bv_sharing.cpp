@@ -61,10 +61,14 @@ public:
     void push() override { dependent_expr_simplifier::push(); m_rewriter.push_scope(); }
 
     void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_rewriter.pop_scope(n); }
+
+    void translate(dependent_expr_simplifier const& src, ast_translation& tr) override {
+        auto const& source = dynamic_cast<max_bv_sharing const&>(src);
+        m_rewriter.translate(source.m_rewriter, tr);
+    }
     
 };
 
 dependent_expr_simplifier * mk_max_bv_sharing(ast_manager & m, params_ref const & p, dependent_expr_state& fmls) {
     return alloc(max_bv_sharing, m, p, fmls);    
 }
-

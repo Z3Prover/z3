@@ -95,6 +95,7 @@ public:
     void push_scope();
     void pop_scope(unsigned num_scopes);
     void reset();
+    void translate(maximize_ac_sharing const& src, ast_translation& tr);
     br_status reduce_app(func_decl* f, unsigned n, expr * const* args, expr_ref& result, proof_ref& result_pr);
 
 };
@@ -118,6 +119,5 @@ public:
     void push_scope() { m_cfg.push_scope(); }
     void pop_scope(unsigned n) { m_cfg.pop_scope(n); }
     void reset() { m_cfg.reset(); }
+    void translate(maximize_bv_sharing_rw const& src, ast_translation& tr) { m_cfg.translate(src.m_cfg, tr); }
 };
-
-

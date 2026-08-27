@@ -492,6 +492,15 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         return BR_DONE;
     }
 
+    expr* x = nullptr, *y = nullptr;
+    if (is_signed &&
+        is_zero_extended(a, x) &&
+        is_zero_extended(b, y) &&
+        get_bv_size(x) == get_bv_size(y)) {
+        result = m_util.mk_ule(x, y);
+        return BR_REWRITE2;
+    }
+
     if (is_num1)
         r1 = m_util.norm(r1, sz, is_signed);
     if (is_num2)
@@ -840,6 +849,24 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
             }
         }
         UNREACHABLE();
+    }
+
+    if (low == 0 && is_app(arg)) {
+        expr* a = nullptr, *b = nullptr, *x = nullptr, *y = nullptr;
+        decl_kind k = to_app(arg)->get_decl_kind();
+        bool is_unsigned = k == OP_BUDIV_I || k == OP_BUREM_I;
+        bool is_signed = k == OP_BSDIV_I || k == OP_BSREM_I;
+        if ((is_unsigned || is_signed) && to_app(arg)->get_num_args() == 2) {
+            a = to_app(arg)->get_arg(0);
+            b = to_app(arg)->get_arg(1);
+            bool extended = is_unsigned
+                ? is_zero_extended(a, x) && is_zero_extended(b, y)
+                : is_sign_extended(a, x) && is_sign_extended(b, y);
+            if (extended && high + 1 == get_bv_size(x) && get_bv_size(x) == get_bv_size(y)) {
+                result = m.mk_app(get_fid(), k, x, y);
+                return BR_REWRITE1;
+            }
+        }
     }
 
     if (m_util.is_bv_not(arg) ||
@@ -1248,9 +1275,21 @@ br_status bv_rewriter::mk_bv_srem_core(expr * arg1, expr * arg2, bool hi_div0, e
             }
         }
 
-        if (r2.is_one()) {
+        if (r2.is_one() || r2.is_minus_one()) {
             result = mk_zero(bv_size);
             return BR_DONE;
+        }
+
+        expr* x = nullptr, *divisor = nullptr;
+        numeral divisor_value;
+        unsigned divisor_size = 0;
+        if (m_util.is_bv_sremi(arg1, x, divisor) && 
+            !r2.is_zero() && is_numeral(divisor, divisor_value, divisor_size)) {
+            divisor_value = m_util.norm(divisor_value, divisor_size, true);
+            if (!divisor_value.is_zero() && (divisor_value % r2).is_zero()) {
+                result = m.mk_app(get_fid(), OP_BSREM_I, x, arg2);
+                return BR_REWRITE1;
+            }
         }
 
         if (!r2.is_zero() && is_numeral(arg1, r1, bv_size)) {
@@ -1747,7 +1786,51 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
         return BR_DONE;
 }
 
+bool bv_rewriter::is_zero_extended(expr* e, expr*& x) {
+    expr* zero = nullptr;
+    return m_util.is_concat(e, zero, x) && is_zero(zero);
+}
 
+bool bv_rewriter::is_sign_extended(expr* e, expr*& x) {
+    if (is_app(e) && to_app(e)->get_decl_kind() == OP_SIGN_EXT) {
+        x = to_app(e)->get_arg(0);
+        return true;
+    }
+    if (!m_util.is_concat(e) || to_app(e)->get_num_args() < 2)
+        return false;
+    app* a = to_app(e);
+    x = a->get_arg(a->get_num_args() - 1);
+    unsigned sz = get_bv_size(x);
+    for (unsigned i = 0; i + 1 < a->get_num_args(); ++i) {
+        expr* sign = a->get_arg(i);
+        if (!m_util.is_extract(sign) ||
+            m_util.get_extract_high(sign) != sz - 1 ||
+            m_util.get_extract_low(sign) != sz - 1 ||
+            to_app(sign)->get_arg(0) != x)
+            return false;
+    }
+    return true;
+}
+
+bool bv_rewriter::factor_zero_extensions(
+    decl_kind k, unsigned num, expr* const* args, expr_ref& result) {
+    if (num < 2)
+        return false;
+    expr* x = nullptr;
+    if (!is_zero_extended(args[0], x))
+        return false;
+    unsigned inner_size = get_bv_size(x);
+    ptr_buffer<expr> inner_args;
+    inner_args.push_back(x);
+    for (unsigned i = 1; i < num; ++i) {
+        if (!is_zero_extended(args[i], x) || get_bv_size(x) != inner_size)
+            return false;
+        inner_args.push_back(x);
+    }
+    expr* inner = m.mk_app(get_fid(), k, inner_args.size(), inner_args.data());
+    result = m_util.mk_zero_extend(get_bv_size(args[0]) - inner_size, inner);
+    return true;
+}
 
 br_status bv_rewriter::mk_zero_extend(unsigned n, expr * arg, expr_ref & result) {
     if (n == 0) {
@@ -1808,6 +1891,8 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
         result = args[0];
         return BR_DONE;
     }
+    if (factor_zero_extensions(OP_BOR, num, args, result))
+        return BR_REWRITE2;
     unsigned sz    = get_bv_size(args[0]);
     bool flattened = false;
     ptr_buffer<expr> flat_args;
@@ -2245,6 +2330,8 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
 }
 
 br_status bv_rewriter::mk_bv_and(unsigned num, expr * const * args, expr_ref & result) {
+    if (factor_zero_extensions(OP_BAND, num, args, result))
+        return BR_REWRITE2;
     ptr_buffer<expr> new_args;
     for (unsigned i = 0; i < num; ++i) {
         new_args.push_back(m_util.mk_bv_not(args[i]));
@@ -3093,6 +3180,16 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
     if (m.is_not(c)) {
         result = m.mk_ite(to_app(c)->get_arg(0), e, t);
         return BR_REWRITE1;
+    }
+
+    expr* x = nullptr, *y = nullptr;
+    if (is_zero_extended(t, x) && is_zero_extended(e, y) && get_bv_size(x) == get_bv_size(y)) {
+        result = m_util.mk_zero_extend(get_bv_size(t) - get_bv_size(x), m.mk_ite(c, x, y));
+        return BR_REWRITE2;
+    }
+    if (is_sign_extended(t, x) && is_sign_extended(e, y) && get_bv_size(x) == get_bv_size(y)) {
+        result = m_util.mk_sign_extend(get_bv_size(t) - get_bv_size(x), m.mk_ite(c, x, y));
+        return BR_REWRITE2;
     }
 
     // if x = 0 then 0 else 1

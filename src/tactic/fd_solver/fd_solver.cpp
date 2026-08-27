@@ -18,21 +18,18 @@ Notes:
 --*/
 
 #include "tactic/fd_solver/fd_solver.h"
+#include "tactic/fd_solver/fd_simplifier.h"
 #include "tactic/tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
-#include "tactic/fd_solver/enum2bv_solver.h"
-#include "tactic/fd_solver/pb2bv_solver.h"
-#include "tactic/fd_solver/bounded_int2bv_solver.h"
 #include "solver/solver2tactic.h"
+#include "solver/simplifier_solver.h"
 #include "solver/parallel_tactical.h"
 #include "solver/parallel_params.hpp"
 
 solver * mk_fd_solver(ast_manager & m, params_ref const & p, bool incremental_mode) {
     solver* s = mk_inc_sat_solver(m, p, incremental_mode);
-    s = mk_enum2bv_solver(m, p, s);
-    s = mk_pb2bv_solver(m, p, s);
-    s = mk_bounded_int2bv_solver(m, p, s);
-    return s;
+    simplifier_factory factory = mk_fd_simplifier;
+    return mk_simplifier_solver(s, &factory);
 }
 
 static tactic * mk_seq_fd_tactic(ast_manager & m, params_ref const& p) {
@@ -49,4 +46,3 @@ tactic * mk_fd_tactic(ast_manager & m, params_ref const& _p) {
     params_ref p = _p;
     return pp.enable() ? mk_parallel_qffd_tactic(m, p) : mk_seq_fd_tactic(m, p);
 }
-

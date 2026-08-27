@@ -513,7 +513,9 @@ class theory_lra::imp {
                     if (!ctx().relevancy()) mk_rem_axiom(n1, n2);                    
                 }
                 else if (a.is_div(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
+                    expr_ref divisor(n2, m);
+                    ctx().get_rewriter()(divisor);
+                    if (!a.is_numeral(divisor, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
@@ -4190,7 +4192,7 @@ public:
         return false;
     }
 
-    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::impq const& term_max, lp::lp_status st, expr_ref& blocker, bool& has_shared) {
+    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::impq const& term_max, lp::lp_status st, expr_ref& blocker) {
         switch (st) {
         case lp::lp_status::OPTIMAL:
             init_variable_values();
@@ -4204,13 +4206,12 @@ public:
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());
         }
     }
 
-    theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
+    theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker) {
         unsigned level = 2;
         lp::impq term_max;
         lp::lp_status st;
@@ -4231,7 +4232,7 @@ public:
             if (max_with_nl(v, st, level, blocker, nl_result))
                 return nl_result;
         }
-        return max_result(v, vi, term_max, st, blocker, has_shared);
+        return max_result(v, vi, term_max, st, blocker);
     }
 
     expr_ref mk_gt(theory_var v) {
@@ -4660,8 +4661,8 @@ void theory_lra::collect_statistics(::statistics & st) const {
 theory_lra::inf_eps theory_lra::value(theory_var v) {
     return m_imp->value(v);
 }
-theory_lra::inf_eps theory_lra::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
-    return m_imp->maximize(v, blocker, has_shared);
+theory_lra::inf_eps theory_lra::maximize(theory_var v, expr_ref& blocker) {
+    return m_imp->maximize(v, blocker);
 }
 theory_var theory_lra::add_objective(app* term) {
     return m_imp->add_objective(term);

@@ -704,6 +704,7 @@ public:
     }
 
     expr * get_assertion(unsigned idx) const override {
+        const_cast<inc_sat_solver*>(this)->convert_internalized();
         if (is_internalized() && m_internalized_converted) {
             return m_internalized_fmls[idx];
         }

@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "ast/rewriter/bit_blaster/bit_blaster_rewriter.h"
+#include "ast/ast_translation.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/bit_blaster/bit_blaster_tpl_def.h"
 #include "ast/rewriter/rewriter_def.h"
@@ -207,6 +208,18 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
             const2bits.insert(m_keys.get(i), m_values.get(i));
         for (func_decl* f : m_newbits) 
             newbits.push_back(f);        
+    }
+
+    void set_translation(obj_map<func_decl, expr*> const& const2bits, ptr_vector<func_decl> const& newbits) {
+        SASSERT(m_keys.empty());
+        SASSERT(m_newbits.empty());
+        for (auto const& [f, bits] : const2bits) {
+            m_const2bits.insert(f, bits);
+            m_keys.push_back(f);
+            m_values.push_back(bits);
+        }
+        for (func_decl* f : newbits)
+            m_newbits.push_back(f);
     }
 
     template<typename V>
@@ -714,6 +727,7 @@ struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
     void start_rewrite() { m_cfg.start_rewrite(); }
     void end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) { m_cfg.end_rewrite(const2bits, newbits); }
     void get_translation(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) { m_cfg.get_translation(const2bits, newbits); }
+    void set_translation(obj_map<func_decl, expr*> const& const2bits, ptr_vector<func_decl> const& newbits) { m_cfg.set_translation(const2bits, newbits); }
     unsigned get_num_scopes() const { return m_cfg.get_num_scopes(); }
 };
 
@@ -772,4 +786,18 @@ void bit_blaster_rewriter::end_rewrite(obj_map<func_decl, expr*>& const2bits, pt
 
 void bit_blaster_rewriter::get_translation(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
     m_imp->get_translation(const2bits, newbits);
+}
+
+void bit_blaster_rewriter::translate(bit_blaster_rewriter const& src, ast_translation& tr) const {
+    SASSERT(src.get_num_scopes() == 0);
+    obj_map<func_decl, expr*> source;
+    ptr_vector<func_decl> source_bits;
+    src.m_imp->get_translation(source, source_bits);
+    obj_map<func_decl, expr*> translated;
+    ptr_vector<func_decl> translated_bits;
+    for (auto const& [f, bits] : source)
+        translated.insert(tr(f), tr(bits));
+    for (func_decl* f : source_bits)
+        translated_bits.push_back(tr(f));
+    m_imp->set_translation(translated, translated_bits);
 }

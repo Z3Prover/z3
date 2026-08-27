@@ -634,7 +634,7 @@ namespace seq {
             nth = es.back();
             es.push_back(m_sk.mk_tail(s, i));
             add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(s, seq.str.mk_concat(es, e->get_sort())));
-            add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));                
+            add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));
         }
         else {
             expr_ref x =     m_sk.mk_pre(s, i);

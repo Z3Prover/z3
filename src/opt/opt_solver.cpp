@@ -288,19 +288,14 @@ namespace opt {
        Return a predicate that blocks the current maximal value.
        
        The result of 'maximize' is post-processed. 
-       When maximization involves shared symbols the model produced
-       by local optimization does not necessarily satisfy combination 
-       constraints (it may not be a real model).
-       In this case, the model is post-processed (update_model 
-       causes an additional call to final_check to propagate theory equalities
-       when 'has_shared' is true).
+       The model produced by local optimization does not necessarily satisfy
+       combination constraints, so it is post-processed by update_model.
 
        Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
     bool opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
         smt::theory_var v = m_objective_vars[i];
-        bool has_shared = false;
         m_model = nullptr;
         blocker = nullptr;
         //
@@ -309,11 +304,12 @@ namespace opt {
         // Generally, the hint is not necessarily valid and has to be checked
         // relative to other theories.
         // 
-        inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
+        inf_eps val = get_optimizer().maximize(v, blocker);
+        m_last_hint = val;
+        m_last_hint_status = l_undef;
         m_context.get_model(m_model);
         inf_eps val2;
-        has_shared = true;
-        TRACE(opt, tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";
+        TRACE(opt, tout << val << " " << blocker << "\n";
               if (m_model) tout << *m_model << "\n";);
         if (!m_objective_models[i]) 
             m_objective_models.set(i, m_model.get());
@@ -360,20 +356,23 @@ namespace opt {
         // check that "val" obtained from optimization hint is a valid bound.
         // 
         auto check_bound = [&]() {
-            SASSERT(has_shared);
-            return bound_value(i, val) && l_true == m_context.check(0, nullptr);
+            lbool r = bound_value(i, val);
+            if (r == l_true) 
+                r = m_context.check(0, nullptr);
+            m_last_hint_status = r;
+            return r == l_true;
         };
 
         if (!val.is_finite()) {
             // skip model updates
         }
-        else if (m_context.get_context().update_model(has_shared)) {
+        else if (m_context.get_context().update_model(true)) {
             TRACE(opt, tout << "updated\n";);
             m_model = nullptr;
             m_context.get_model(m_model);
             if (!m_model)
                 return false;
-            else if (!has_shared || val == current_objective_value(i))
+            else if (val == current_objective_value(i))
                 m_objective_models.set(i, m_model.get());
             else if (!check_bound())
                 return false;
@@ -381,6 +380,7 @@ namespace opt {
         else if (!check_bound())
             return false;
         m_objective_values[i] = val;
+        m_last_hint_status = l_true;
         TRACE(opt, { 
                 tout << "objective:     " << mk_pp(m_objective_terms.get(i), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
@@ -391,7 +391,7 @@ namespace opt {
         return true;
     }
 
-    bool opt_solver::bound_value(unsigned i, inf_eps& val) {
+    lbool opt_solver::bound_value(unsigned i, inf_eps& val) {
         push_core();
         expr_ref ge = mk_ge(i, val);
         assert_expr(ge);
@@ -402,7 +402,7 @@ namespace opt {
             m_objective_models.set(i, m_model.get());
         }
         pop_core(1);
-        return is_sat == l_true;
+        return is_sat;
     }
 
     lbool opt_solver::adjust_result(lbool r) {
