@@ -1136,6 +1136,12 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE2;
     }
 
+    auto [bounded_a, max_a] = max_length(a);
+    if (bounded_a && max_a <= 1) {
+        result = m().mk_or(str().mk_is_empty(b), m().mk_eq(a, b));
+        return BR_REWRITE2;
+    }
+
     for (unsigned i = 0; bs.size() + i <= as.size(); ++i) {
         unsigned j = 0;
         for (; j < bs.size() && as.get(j+i) == bs.get(j); ++j) {};
