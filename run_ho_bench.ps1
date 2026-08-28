@@ -1,18 +1,19 @@
 param(
     [Parameter(Mandatory=$true)][string]$FileListPath,
     [Parameter(Mandatory=$true)][string]$ConfigName,
-    [string[]]$ExtraArgs = @(),
+    [string]$ExtraArgsStr = "",
     [Parameter(Mandatory=$true)][string]$OutCsv,
     [int]$Throttle = 32,
     [string]$Z3 = "C:\z3\build-ninja\z3.exe"
 )
 
 $files = Get-Content $FileListPath
+$ExtraArgsArr = if ($ExtraArgsStr) { $ExtraArgsStr -split ',' } else { @() }
 
 $results = $files | ForEach-Object -ThrottleLimit $Throttle -Parallel {
     $file = $_
     $z3 = $using:Z3
-    $extra = $using:ExtraArgs
+    $extra = $using:ExtraArgsArr
     $argList = @('-tptp', '-T:10') + $extra + @($file)
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $z3
