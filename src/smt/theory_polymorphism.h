@@ -71,6 +71,14 @@ namespace smt {
                 vector<polymorphism::instantiation> instances;
                 m_inst.instantiate(instances);
                 if (!instances.empty()) {
+                    // There are still polymorphic axioms to instantiate. Force the
+                    // solver to fail under the theory assumption so that a new
+                    // research round (see should_research) can assert the new
+                    // instances. Assigning the negation of the (already true)
+                    // assumption creates a conflict, so we must return FC_CONTINUE
+                    // to let conflict resolution turn it into l_false; returning
+                    // FC_DONE here would report l_true while the context is
+                    // inconsistent, violating a core search invariant.
                     for (auto const& [orig, inst, sub] : instances)
                         ctx.add_asserted(inst);
                     ctx.internalize_assertions();
