@@ -1557,8 +1557,8 @@ namespace nlsat {
         ptr_vector<clause> clauses;
         bool process_boolean_clause(const clause & cls) {
             SASSERT(m_xk == null_var);
-            unsigned num_undef   = 0;
-            unsigned first_undef = UINT_MAX;
+            unsigned num_undef          = 0;
+            unsigned selected_undef_idx = UINT_MAX;
             unsigned sz = cls.size();
             for (unsigned i = 0; i < sz; ++i) {
                 literal l = cls[i];
@@ -1568,16 +1568,16 @@ namespace nlsat {
                     continue;
                 SASSERT(value(l) == l_undef);
                 num_undef++;
-                if (first_undef == UINT_MAX)
-                    first_undef = i;
+                if (selected_undef_idx == UINT_MAX)
+                    selected_undef_idx = i;
             }
             if (num_undef == 0) 
                 return false;
-            SASSERT(first_undef != UINT_MAX);
+            SASSERT(selected_undef_idx != UINT_MAX);
             if (num_undef == 1)
-                set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
+                set_literal_to_true(cls[selected_undef_idx], mk_clause_jst(&cls));
             else
-                decide_literal(cls[first_undef]);
+                decide_literal(cls[selected_undef_idx]);
             return true;
         }
         
@@ -1658,9 +1658,9 @@ namespace nlsat {
                 return true; // ignore lemmas in super lazy mode
             }
             SASSERT(m_xk == max_var(cls));
-            unsigned num_undef   = 0;                // number of undefined literals
-            unsigned first_undef = UINT_MAX;         // position of the first undefined literal
-            interval_set_ref first_undef_set(m_ism); // infeasible region of the first undefined literal
+            unsigned num_undef          = 0;        // number of undefined literals
+            unsigned selected_undef_idx = UINT_MAX; // position of the selected undefined literal
+            interval_set_ref selected_undef_infeasible_set(m_ism);
             interval_set * xk_set = m_infeasible[m_xk]; // current set of infeasible interval for current variable
             TRACE(nlsat_inf_set, tout << "m_infeasible[x"<< m_xk << "]:";
                   m_ism.display(tout, xk_set) << "\n";);
@@ -1682,7 +1682,7 @@ namespace nlsat {
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
                 curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);           
-		TRACE(nlsat_inf_set, 
+		        TRACE(nlsat_inf_set, 
                       tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
                       display(tout << "cls: " , cls) << "\n";
                       tout << "m_xk:" << m_xk << "(" << debug_get_var_name(m_xk) << ")"<< "\n";);
@@ -1723,15 +1723,15 @@ namespace nlsat {
                     continue;
                 }
                 num_undef++;
-                if (first_undef == UINT_MAX) {
-                    first_undef = idx;
-                    first_undef_set = curr_set;
+                if (selected_undef_idx == UINT_MAX) {
+                    selected_undef_idx = idx;
+                    selected_undef_infeasible_set = curr_set;
                 }
             }
             TRACE(nlsat_inf_set, tout << "num_undef: " << num_undef << "\n";);
             if (num_undef == 0) 
                 return false;
-            SASSERT(first_undef != UINT_MAX);
+            SASSERT(selected_undef_idx != UINT_MAX);
             if (num_undef == 1) {
                 CTRACE(nlsat, cls.size() > 1,
                        tout << "num_undef=1, "; display(tout, cls) << "\n";
@@ -1740,14 +1740,14 @@ namespace nlsat {
                        }
                     );
                 
-                set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
-                updt_infeasible(first_undef_set);
+                set_literal_to_true(cls[selected_undef_idx], mk_clause_jst(&cls));
+                updt_infeasible(selected_undef_infeasible_set);
             }
             else if ( satisfy_learned ||
                       !cls.is_learned() /* must always satisfy input clauses */ ||
                       m_lazy == 0 /* if not in lazy mode, we also satiffy lemmas */) {
-                decide_literal(cls[first_undef]);
-                updt_infeasible(first_undef_set);
+                decide_literal(cls[selected_undef_idx]);
+                updt_infeasible(selected_undef_infeasible_set);
             }
             else {
                 TRACE(nlsat_lazy, tout << "skipping clause, satisfy_learned: " << satisfy_learned << ", cls.is_learned(): " << cls.is_learned()
