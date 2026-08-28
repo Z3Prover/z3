@@ -875,31 +875,32 @@ namespace seq {
         // so without it the engine bails on exactly the re.inter/re.comp shapes this rule
         // is aimed at.  10 is theory_seq's default (smt.seq.regex_split).
         m_monadic_leaf_engine->set_split_rounds(10);
-        // Bounded work, unlike theory_seq's 1000000.  theory_seq calls the engine at final
-        // check, when it has nothing cheaper left to try; this rule calls it mid-search,
-        // ahead of nseq's own rules, so an expensive decision here is not free -- it is
-        // taken INSTEAD of a search step that might have been cheap.  Measured: a file
-        // nseq's native rules close in 0.10s costs the engine ~6s to decide (theory_seq
-        // needs the same 6s on it).  A budget turns that into an l_undef the rule falls
-        // through on, which is the whole reason the component reports one.  Measured over
-        // the regex corpus: unbounded gains 26 files and loses 4; at 300000 it gains 22
-        // and loses none, and the commonly decided set runs 15% faster rather than 9%.
-        if (m_monadic_leaf_budget > 0)
-            m_monadic_leaf_engine->set_budget(m_monadic_leaf_budget);
+        // What "0 = engine default" resolves to, read from the engine rather than
+        // duplicated, so escalating to the full budget cannot drift from it.
+        m_monadic_leaf_engine_budget = m_monadic_leaf_engine->budget();
     }
 
-    bool nielsen_graph::apply_monadic_leaf(nielsen_node* node) {
+    bool nielsen_graph::apply_monadic_leaf(nielsen_node* node, bool force_root) {
         if (!m_monadic_leaf)
             return false;
-        // The engine never sees equations, so its verdict is a verdict about the NODE
-        // only when the node has none.  This is the eq_vars gate of mk_mon_state taken to
-        // its conclusion: instead of dropping the memberships that touch an equation, do
-        // not run at all until the equations are gone.
-        if (!node->str_eqs().empty() || !node->str_deqs().empty())
+        // The engine never sees equations, so an l_true about the memberships is a verdict
+        // about the NODE only when the node has none -- that is the eq_vars gate of
+        // mk_mon_state taken to its conclusion.  An l_false needs no such gate: the
+        // memberships are a SUBSET of the node's constraints, so a refutation of them
+        // alone refutes the node whatever the equations say.  Running in refute-only mode
+        // is therefore sound on any node, and it is the half that costs nothing when it
+        // fails -- no child is built, so the "extra subtree to refute" that made child A
+        // unprofitable under equations cannot arise.
+        const bool refute_only = force_root
+                              || !node->str_eqs().empty() || !node->str_deqs().empty();
+        if (refute_only && !force_root && !m_monadic_leaf_refute)
             return false;
         // child B below is an exact clone; refusing on an alias is what stops the rule
         // from firing again all the way down that spine (see m_is_monadic_leaf_rest).
-        if (node->is_signature_alias())
+        // It is also what stops a refute-only call from re-asking a question an ancestor
+        // with the identical signature has already been told the answer to.  The root ask
+        // is exempt: it is asked once, before any of that has happened.
+        if (!force_root && node->is_signature_alias())
             return false;
 
         auto const& mems = node->str_mems();
@@ -951,6 +952,23 @@ namespace seq {
         m_monadic_leaf_trail.push_scope();
         for (unsigned k = 0; k < abstracted.size(); ++k)
             m_monadic_leaf_engine->add(abstracted[k].first, abstracted[k].second, mem_deps[k]);
+        // Bounded work, unlike theory_seq's 1000000.  theory_seq calls the engine at final
+        // check, when it has nothing cheaper left to try; this rule calls it mid-search,
+        // ahead of nseq's own rules, so an expensive decision here is not free -- it is
+        // taken INSTEAD of a search step that might have been cheap.  Measured: a file
+        // nseq's native rules close in 0.10s costs the engine ~6s to decide (theory_seq
+        // needs the same 6s on it).  A budget turns that into an l_undef the rule falls
+        // through on, which is the whole reason the component reports one.  Measured over
+        // the regex corpus: unbounded gains 26 files and loses 4; at 300000 it gains 22
+        // and loses none, and the commonly decided set runs 15% faster rather than 9%.
+        unsigned call_budget = m_monadic_leaf_budget > 0 ? m_monadic_leaf_budget
+                                                        : m_monadic_leaf_engine_budget;
+        if (force_root)
+            call_budget = m_monadic_leaf_budget_root > 0 ? m_monadic_leaf_budget_root
+                                                         : m_monadic_leaf_engine_budget;
+        else if (refute_only && m_monadic_leaf_budget_refute > 0)
+            call_budget = std::min(call_budget, m_monadic_leaf_budget_refute);
+        m_monadic_leaf_engine->set_budget(call_budget);
         const lbool r = m_monadic_leaf_engine->check();
 
         if (r == l_false) {
@@ -962,6 +980,10 @@ namespace seq {
                 dep = m_dep_mgr.mk_join(dep, static_cast<dep_tracker>(d));
             m_monadic_leaf_trail.pop_scope(1);
             ++m_stats.m_monadic_leaf_unsat;
+            if (refute_only)
+                ++m_stats.m_monadic_leaf_refuted;
+            if (force_root)
+                ++m_stats.m_monadic_leaf_root_refutes;
             node->set_general_conflict();
             node->set_conflict(backtrack_reason::regex, dep);
             TRACE(seq, tout << "monadic leaf: node refuted by the end-game\n");
@@ -970,6 +992,13 @@ namespace seq {
         if (r != l_true) {
             m_monadic_leaf_trail.pop_scope(1);
             ++m_stats.m_monadic_leaf_gaveup;
+            return false;
+        }
+        if (refute_only) {
+            // Only the refutation half is a verdict about this node: the memberships are
+            // satisfiable, but the equations the relaxation dropped are not accounted for,
+            // so there is no witness to hand back.  Fall through to nseq's own rules.
+            m_monadic_leaf_trail.pop_scope(1);
             return false;
         }
 
@@ -1009,6 +1038,16 @@ namespace seq {
         ++m_stats.m_monadic_leaf_sat;
         TRACE(seq, tout << "monadic leaf: witness pinned for " << witness.size() << " token(s)\n");
         return true;
+    }
+
+    bool nielsen_graph::monadic_leaf_root_refute() {
+        if (!m_monadic_leaf || !m_monadic_leaf_root || m_monadic_leaf_root_asked)
+            return false;
+        if (!m_root || m_root->is_currently_conflict())
+            return false;
+        m_monadic_leaf_root_asked = true;
+        ++m_stats.m_monadic_leaf_root_asks;
+        return apply_monadic_leaf(m_root, true);
     }
 
     // -----------------------------------------------------------------------

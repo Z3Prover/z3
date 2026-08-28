@@ -1025,6 +1025,10 @@ namespace smt {
                 m_nielsen.set_monadic_landing(get_fparams().m_nseq_monadic_landing);
                 m_nielsen.set_monadic_leaf(get_fparams().m_nseq_monadic_leaf);
                 m_nielsen.set_monadic_leaf_budget(get_fparams().m_nseq_monadic_leaf_budget);
+                m_nielsen.set_monadic_leaf_refute(get_fparams().m_nseq_monadic_leaf_refute);
+                m_nielsen.set_monadic_leaf_budget_refute(get_fparams().m_nseq_monadic_leaf_budget_refute);
+                m_nielsen.set_monadic_leaf_root(get_fparams().m_nseq_monadic_leaf_root);
+                m_nielsen.set_monadic_leaf_budget_root(get_fparams().m_nseq_monadic_leaf_budget_root);
                 m_nielsen.set_exploration_budget(get_fparams().m_nseq_exploration_budget);
                 m_nielsen.set_view_length_constraints(get_fparams().m_nseq_view_length_constraints);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);

@@ -70,6 +70,10 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_monadic_landing = p.nseq_monadic_landing();
     m_nseq_monadic_leaf = p.nseq_monadic_leaf();
     m_nseq_monadic_leaf_budget = p.nseq_monadic_leaf_budget();
+    m_nseq_monadic_leaf_refute = p.nseq_monadic_leaf_refute();
+    m_nseq_monadic_leaf_budget_refute = p.nseq_monadic_leaf_budget_refute();
+    m_nseq_monadic_leaf_root = p.nseq_monadic_leaf_root();
+    m_nseq_monadic_leaf_budget_root = p.nseq_monadic_leaf_budget_root();
     m_nseq_exploration_budget = p.nseq_exploration_budget();
     m_nseq_view_length_constraints = p.nseq_view_length_constraints();
     m_nseq_axiomatize_diseq = p.nseq_axiomatize_diseq();
@@ -197,6 +201,10 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nseq_monadic_landing);
     DISPLAY_PARAM(m_nseq_monadic_leaf);
     DISPLAY_PARAM(m_nseq_monadic_leaf_budget);
+    DISPLAY_PARAM(m_nseq_monadic_leaf_refute);
+    DISPLAY_PARAM(m_nseq_monadic_leaf_budget_refute);
+    DISPLAY_PARAM(m_nseq_monadic_leaf_root);
+    DISPLAY_PARAM(m_nseq_monadic_leaf_budget_root);
     DISPLAY_PARAM(m_nseq_exploration_budget);
     DISPLAY_PARAM(m_nseq_view_length_constraints);
     DISPLAY_PARAM(m_nseq_axiomatize_diseq);

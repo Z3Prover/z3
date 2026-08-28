@@ -612,6 +612,7 @@ namespace seq {
         m_monadic = nullptr;
         dealloc(m_monadic_leaf_engine);
         m_monadic_leaf_engine = nullptr;
+        m_monadic_leaf_root_asked = false;
         m_nodes.reset();
         m_edges.reset();
         m_root = nullptr;
@@ -1134,6 +1135,9 @@ namespace seq {
         st.update("nseq monadic leaf sat",     m_stats.m_monadic_leaf_sat);
         st.update("nseq monadic leaf unsat",   m_stats.m_monadic_leaf_unsat);
         st.update("nseq monadic leaf gaveup",  m_stats.m_monadic_leaf_gaveup);
+        st.update("nseq monadic leaf refuted", m_stats.m_monadic_leaf_refuted);
+        st.update("nseq monadic leaf root asks", m_stats.m_monadic_leaf_root_asks);
+        st.update("nseq monadic leaf root refutes", m_stats.m_monadic_leaf_root_refutes);
         st.update("nseq monadic branches",     m_stats.m_monadic_branches);
         st.update("nseq monadic drained",      m_stats.m_monadic_drained);
         st.update("nseq monadic fresh",        m_stats.m_monadic_fresh);
@@ -1178,5 +1182,11 @@ namespace seq {
         // the split backstop give up are invisible.
         if (m_monadic)
             m_monadic->collect_statistics(st);
+        // The monadic_leaf rule runs its own engine instance, so its counters are separate
+        // and were invisible before: a run with only smt.nseq.monadic_leaf=true reported a
+        // give-up with no way to see which bail caused it.  When both engines are enabled
+        // the keys coincide and the counters read as the sum over the two.
+        if (m_monadic_leaf_engine)
+            m_monadic_leaf_engine->collect_statistics(st);
     }
 }

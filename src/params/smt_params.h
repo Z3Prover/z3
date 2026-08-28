@@ -265,6 +265,10 @@ struct smt_params : public preprocessor_params,
     bool m_nseq_monadic_landing = false;
     bool m_nseq_monadic_leaf = false;
     unsigned m_nseq_monadic_leaf_budget = 300000;
+    bool m_nseq_monadic_leaf_refute = false;
+    unsigned m_nseq_monadic_leaf_budget_refute = 30000;
+    bool m_nseq_monadic_leaf_root = true;
+    unsigned m_nseq_monadic_leaf_budget_root = 50000;
     unsigned m_nseq_exploration_budget = 512;
     bool m_nseq_view_length_constraints = true;
     bool m_nseq_axiomatize_diseq = false;

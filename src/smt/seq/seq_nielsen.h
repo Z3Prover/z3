@@ -935,6 +935,12 @@ namespace seq {
         unsigned m_monadic_leaf_sat    = 0;
         unsigned m_monadic_leaf_unsat  = 0;
         unsigned m_monadic_leaf_gaveup = 0;
+        // ... of which closed a node that still carried equations, where only the
+        // refutation half is a verdict about the node (see apply_monadic_leaf).
+        unsigned m_monadic_leaf_refuted = 0;
+        // up-front whole-problem refutations (see monadic_leaf_root_refute)
+        unsigned m_monadic_leaf_root_asks    = 0;
+        unsigned m_monadic_leaf_root_refutes = 0;
         // branches the monadic enumerator handed out, and enumerations it drained
         // cleanly (each of those closes a node)
         unsigned m_monadic_branches    = 0;
@@ -1027,6 +1033,27 @@ namespace seq {
         bool                          m_monadic_landing = false;
         bool                          m_monadic_leaf = false;
         unsigned                      m_monadic_leaf_budget = 300000;
+        // Allow the rule on a node that still carries equations, where only an l_false is
+        // a verdict about the node.  Refutation needs no eq-free gate: the memberships are
+        // a subset of the node's constraints.  Off by default: measured over the regex
+        // corpus it decides nothing extra and costs 1.3%, because at a node the equations
+        // are what drives the contradiction the memberships alone are still satisfiable.
+        // It does prune -- 2032 subtrees on lyndon-schuetzenberg-1 -- so it is kept for
+        // the word-equation rules that would make those subtrees worth refuting.
+        bool                          m_monadic_leaf_refute = false;
+        // Budget for the up-front whole-problem refutation (see monadic_leaf_root_refute).
+        // Deliberately SMALLER than the engine default rather than larger: measured over
+        // the regex corpus, a root refutation that is going to succeed succeeds cheaply --
+        // all six files this recovers close at 50000 -- while the ask is paid on every
+        // problem, so raising it only buys cost.  At 50000: +6 files, -6.2% time; at
+        // 150000: +6, -3.6%, and one file near the limit tips over; at 400000: two files
+        // lost; at the 1000000 engine default: eight lost and 23% slower.
+        bool                          m_monadic_leaf_root = true;
+        unsigned                      m_monadic_leaf_budget_root = 50000;
+        // Budget for a refute-only call.  Unlike the l_true half, this one is attempted on
+        // every equation-bearing node, so the per-call cost is what decides whether the
+        // rule pays for itself.  0 = the round's own budget.
+        unsigned                      m_monadic_leaf_budget_refute = 30000;
         // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
         unsigned                      m_exploration_budget = 512;
         // attach the view length abstraction to pinned variables
@@ -1115,6 +1142,12 @@ namespace seq {
         seq_rewriter     m_monadic_leaf_rw;
         trail_stack      m_monadic_leaf_trail;
         seq_monadic*     m_monadic_leaf_engine = nullptr;
+        // What the engine's own budget default is, captured on allocation so that a
+        // configured 0 ("engine default") resolves to the same number the engine uses.
+        unsigned         m_monadic_leaf_engine_budget = 0;
+        // The deferred root refutation is asked once per graph: the root's memberships do
+        // not change between solve calls, so a second full-budget ask has the same answer.
+        bool             m_monadic_leaf_root_asked = false;
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
@@ -1316,6 +1349,10 @@ namespace seq {
         void set_monadic_landing(bool e) { m_monadic_landing = e; }
         void set_monadic_leaf(bool e) { m_monadic_leaf = e; }
         void set_monadic_leaf_budget(unsigned n) { m_monadic_leaf_budget = n; }
+        void set_monadic_leaf_refute(bool e) { m_monadic_leaf_refute = e; }
+        void set_monadic_leaf_root(bool e) { m_monadic_leaf_root = e; }
+        void set_monadic_leaf_budget_root(unsigned n) { m_monadic_leaf_budget_root = n; }
+        void set_monadic_leaf_budget_refute(unsigned n) { m_monadic_leaf_budget_refute = n; }
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
 
@@ -1898,7 +1935,23 @@ namespace seq {
         //              and child B is the node unchanged, so the split is exhaustive
         //              whatever the witness turns out to be worth.
         //   l_undef -> fall through, unchanged.
-        bool apply_monadic_leaf(nielsen_node* node);
+        //
+        // On a node that DOES carry equations, dropping them is a relaxation, so only the
+        // l_false half is a verdict; force_root additionally spends the root budget and
+        // ignores the alias guard, which is what makes it safe to ask of an already
+        // extended root (nothing is built on l_true).  See monadic_leaf_root_refute.
+        bool apply_monadic_leaf(nielsen_node* node, bool force_root = false);
+
+        // Up-front full-membership-set refutation of the ROOT, asked once per graph before
+        // the search starts.  theory_seq decides most of what it wins over nseq in a single
+        // monadic check over the whole membership set; nseq's rule instead runs mid-search
+        // on a budget, after the tree has already been split, and measurably the decisive
+        // call is the FIRST one -- medium_unsat_0027 closes on the root, and in no number
+        // of budgeted calls further down.  Deferring the ask to a failed deepening round
+        // does not work: on exactly those files round one never ends, because the budgeted
+        // calls inside it are what is slow.  Refute-only, so it never builds anything.
+        // Returns true when the whole problem is refuted.
+        bool monadic_leaf_root_refute();
 
         // Allocate m_monadic_leaf_engine on first use, in the default transition mode.
         void ensure_monadic_leaf();

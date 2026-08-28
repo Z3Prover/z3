@@ -101,6 +101,22 @@ namespace seq {
                 return search_result::unknown;
             }
 
+            // Before spending anything on the search: ask the root once, refute-only, over
+            // the whole membership set.  theory_seq decides most of what it wins over nseq
+            // in a single monadic check of exactly that shape, and measurably it is the
+            // FIRST call that decides these problems -- medium_unsat_0027 closes on the
+            // ROOT node, and in no number of budgeted calls further down.  Deferring the
+            // ask to after a failed deepening round does not work: on exactly those files
+            // round one never ends, because the budgeted calls inside it are what is slow.
+            if (monadic_leaf_root_refute()) {
+                ++m_stats.m_num_unsat;
+                const auto deps = collect_conflict_deps();
+                m_conflict_sources.reset();
+                m_dep_mgr.linearize(deps, m_conflict_sources);
+                TRACE(seq, tout << "nseq: root refuted by the monadic end-game\n");
+                return search_result::unsat;
+            }
+
             // Iterative deepening: double the bound on each failure.
             // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
             m_depth_bound = 3;
