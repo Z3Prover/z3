@@ -3261,11 +3261,7 @@ bool seq_rewriter::rewrite_contains_pattern(expr* a, expr* b, expr_ref& result) 
                 suffix = re().mk_concat(suffix, re().mk_to_re(e));
             suffix = re().mk_concat(suffix, full);
         }
-        {
-            auto _seq3217_0 = re().mk_in_re(x, prefix);
-            auto _seq3217_1 = re().mk_in_re(y, suffix);
-            fmls.push_back(m().mk_and(_seq3217_0, _seq3217_1));
-        }
+        fmls.push_back(m().mk_and(re().mk_in_re(x, prefix), re().mk_in_re(y, suffix)));
     }
     result = mk_or(fmls);
     return true;    

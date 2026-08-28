@@ -582,7 +582,6 @@ namespace smt {
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto'");
         }
-        // m_params.m_phase_selection = PS_ALWAYS_TRUE;
     }
 
     bool is_arith(static_features const & st) {
