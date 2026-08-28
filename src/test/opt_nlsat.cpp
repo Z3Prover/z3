@@ -95,6 +95,32 @@ static void tst_open_sup() {
     ENSURE(res.m_lower < res.m_sup_upper);
 }
 
+// maximize x s.t. x^3 = 2*x within [-2, 2]: the feasible set is the three
+// isolated roots {-sqrt(2), 0, sqrt(2)} of the cubic, so every cell is a
+// point; the maximum is the irrational root sqrt(2), attained and reported
+// as an algebraic numeral.
+static void tst_cubic_roots() {
+    std::cout << "opt_nlsat: cubic roots\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref two(a.mk_numeral(rational(2), false), m);
+    expr_ref_vector hard(m);
+    hard.push_back(m.mk_eq(a.mk_mul(x, a.mk_mul(x, x)), a.mk_mul(two, x)));
+    params_ref p;
+    opt::nlsat_opt opt(m, p);
+    opt::nlsat_opt::result res(m);
+    lbool r = opt.maximize(hard, x, rational(-2), true, rational(2), 64, res);
+    ENSURE(r == l_true);
+    ENSURE(res.m_attained);
+    ENSURE(res.m_model);
+    ENSURE(a.is_irrational_algebraic_numeral(res.m_value));
+    ENSURE(res.m_lower <= res.m_upper);
+    ENSURE(res.m_lower < rational(141422, 100000));
+    ENSURE(res.m_upper > rational(141421, 100000));
+}
+
 // an uninterpreted function is outside the fragment: the engine declines
 // without producing a model.
 static void tst_outside_fragment() {
@@ -138,6 +164,7 @@ static void tst_infeasible() {
 
 void tst_opt_nlsat() {
     tst_attained();
+    tst_cubic_roots();
     tst_unbounded();
     tst_open_sup();
     tst_outside_fragment();
