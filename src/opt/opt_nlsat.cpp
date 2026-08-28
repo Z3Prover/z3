@@ -313,11 +313,25 @@ namespace opt {
                        verbose_stream() << (s.max_var_attained() ? " sup" : " below-sup") << ")\n");
             res.m_model = extract_model(s, x2t, b2a, T, mc.get());
             if (s.max_var_unbounded()) {
-                // The feasible set of t was unbounded above when t was
-                // assigned: nothing nlsat has learned so far bounds the
-                // objective. Keep cutting - a conflict above the optimum
-                // teaches nlsat the bound - but not for long: the objective
-                // may really be unbounded.
+                // max_var_unbounded() does not mean the objective is
+                // unbounded: it only says that when t was assigned, no
+                // learned clause over t alone bounded it from above. t is
+                // first in the variable order, so constraints that bound the
+                // objective through other variables (higher max-var) are
+                // invisible at that point; the huge value picked for t then
+                // conflicts deeper in the stack and nlsat learns a lemma
+                // over t alone, so a later round assigns t with a bounded
+                // feasible set. Hence keep going on a single unbounded
+                // round. But if the objective really is unbounded no such
+                // lemma ever appears and every round repeats this way, so
+                // give up after a few consecutive ones (the counter resets
+                // on any bounded round) instead of spending the whole
+                // budget. Either way this proves nothing, and the caller
+                // sees l_undef, not an unboundedness verdict. A real verdict
+                // would need the quantified query (forall c. exists x. hard
+                // /\ t > c), which is outside nlsat's quantifier-free
+                // fragment but decidable by the nlsat-based qe/nlqsat
+                // solver, at CAD cost; that check is not wired in.
                 if (++unbounded_rounds > 4) {
                     IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: feasible set unbounded above)\n");
                     break;
