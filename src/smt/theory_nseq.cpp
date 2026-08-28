@@ -26,6 +26,13 @@ Author:
 
 namespace smt {
     
+    // Both mapped from the same params the legacy driver reads; validated there
+    // (theory_seq_params::updt_params).
+    static seq::transition_mode nseq_monadic_mode(symbol const& s) {
+        return s == "brz" ? seq::transition_mode::brzozowski_tm
+                           : seq::transition_mode::light_antimirov_tm;
+    }
+
     static seq_monadic::orientation nseq_monadic_orientation(symbol const& s) {
         if (s == "reversed")
             return seq_monadic::orientation::reversed;
@@ -1868,7 +1875,7 @@ namespace smt {
 
         if (!m_whole_monadic) {
             m_whole_monadic = alloc(seq_monadic, m_whole_rw, m_whole_trail,
-                                    seq::transition_mode::brzozowski_tm);
+                                    nseq_monadic_mode(get_fparams().m_seq_regex_transition_mode));
             m_whole_monadic->set_is_var([this](expr* e) { return m_whole_vars.contains(e); });
         }
         m_whole_monadic->set_budget(get_fparams().m_seq_regex_budget);
