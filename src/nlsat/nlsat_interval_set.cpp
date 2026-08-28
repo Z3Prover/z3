@@ -780,19 +780,27 @@ namespace nlsat {
 
     bool interval_set_manager::pick_max_in_complement(interval_set const * s, anum & w, anum & sup, bool & attained) {
         SASSERT(!is_full(s));
+        TRACE(nlsat_inf_set, tout << "pick_max_in_complement: "; display(tout, s) << "\n";);
         attained = false;
-        if (s == nullptr)
+        if (s == nullptr) {
+            TRACE(nlsat_inf_set, tout << "complement is unbounded above: infeasible set is empty\n";);
             return false;
+        }
         unsigned num = num_intervals(s);
-        if (!s->m_intervals[num-1].m_upper_inf)
+        if (!s->m_intervals[num-1].m_upper_inf) {
+            TRACE(nlsat_inf_set, tout << "complement is unbounded above: rightmost infeasible interval is bounded\n";);
             return false;
+        }
         // The rightmost interval extends to +oo. Walk to the left over
         // intervals glued to it to find the rightmost point of the complement.
         unsigned i = num - 1;
         while (true) {
             interval const & curr = s->m_intervals[i];
-            if (curr.m_lower_inf)
+            TRACE(nlsat_inf_set, tout << "scan interval " << i << ": "; nlsat::display(tout, m_am, curr); tout << "\n";);
+            if (curr.m_lower_inf) {
+                TRACE(nlsat_inf_set, tout << "complement is empty\n";);
                 return false; // cannot happen: s would be full
+            }
             bool has_prev = i > 0;
             interval const * prev = has_prev ? &s->m_intervals[i-1] : nullptr;
             if (curr.m_lower_open) {
@@ -801,6 +809,7 @@ namespace nlsat {
                     m_am.set(w, curr.m_lower);
                     m_am.set(sup, curr.m_lower);
                     attained = true;
+                    TRACE(nlsat_inf_set, tout << "maximum attained at "; m_am.display_decimal(tout, w); tout << "\n";);
                     return true;
                 }
             }
@@ -810,15 +819,20 @@ namespace nlsat {
                 if (!has_prev) {
                     m_am.int_lt(curr.m_lower, w);
                     m_am.set(sup, curr.m_lower);
+                    TRACE(nlsat_inf_set, tout << "open supremum "; m_am.display_decimal(tout, sup);
+                          tout << ", witness "; m_am.display_decimal(tout, w); tout << "\n";);
                     return true;
                 }
                 if (m_am.lt(prev->m_upper, curr.m_lower)) {
                     m_am.select(prev->m_upper, curr.m_lower, w);
                     m_am.set(sup, curr.m_lower);
+                    TRACE(nlsat_inf_set, tout << "open supremum "; m_am.display_decimal(tout, sup);
+                          tout << ", witness "; m_am.display_decimal(tout, w); tout << "\n";);
                     return true;
                 }
             }
             // prev and curr are glued: treat them as one interval.
+            TRACE(nlsat_inf_set, tout << "interval " << i << " is glued to its predecessor\n";);
             --i;
         }
     }
