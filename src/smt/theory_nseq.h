@@ -41,6 +41,14 @@ namespace smt {
         arith_value    m_arith_value;
         euf::egraph    m_egraph;  // private egraph (not shared with smt context)
         euf::sgraph    m_sg;  // private sgraph
+        // Whole-problem monadic decision, the way the legacy driver uses the same
+        // engine (seq_regex::final_check).  Its own trail and rewriter so its
+        // derivative caches never interleave with the per-node probes the Nielsen
+        // graph runs.
+        seq_rewriter          m_whole_rw;
+        trail_stack           m_whole_trail;
+        scoped_ptr<seq_monadic> m_whole_monadic;
+        obj_hashtable<expr>   m_whole_vars;   // outlives the set_is_var closure
         // m_context_solver must be declared before m_nielsen: its address is passed
         // to the m_nielsen constructor and must remain stable for the object's lifetime.
         sub_solver m_length_solver;
@@ -118,7 +126,13 @@ namespace smt {
         // unhandled boolean string predicates (prefixof, suffixof, contains, etc.)
         unsigned         m_num_unhandled_bool = 0;
 
+        struct { unsigned m_monadic_whole_checks = 0, m_monadic_whole_sat = 0, m_monadic_whole_unsat = 0; } m_stats_whole;
         bool has_unhandled_preds() const { return m_num_unhandled_bool > 0; }
+
+        // Decide every asserted membership at once with seq_monadic.  l_false =
+        // conflict asserted, l_true = a witness was assumed (caller returns
+        // FC_CONTINUE), l_undef = not applicable / undecided, run the DFS.
+        lbool check_monadic_whole();
         void push_unhandled_pred();
 
         // required virtual methods

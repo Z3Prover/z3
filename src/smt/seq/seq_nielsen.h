@@ -1006,6 +1006,9 @@ namespace seq {
         bool                          m_fine_wilf = false;
         bool                          m_monadic_split = false;
         bool                          m_monadic_landing = false;
+        unsigned                      m_monadic_budget = 1000000;
+        unsigned                      m_monadic_split_rounds = 10;
+        seq_monadic::orientation      m_monadic_orientation = seq_monadic::orientation::retry;
         bool                          m_eq_approx = false;
         // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
         unsigned                      m_exploration_budget = 512;
@@ -1290,6 +1293,9 @@ namespace seq {
 
         void set_monadic_split(bool e) { m_monadic_split = e; }
         void set_monadic_landing(bool e) { m_monadic_landing = e; }
+        void set_monadic_budget(unsigned b) { m_monadic_budget = b; }
+        void set_monadic_split_rounds(unsigned n) { m_monadic_split_rounds = n; }
+        void set_monadic_orientation(seq_monadic::orientation o) { m_monadic_orientation = o; }
         void set_eq_approx(bool e) { m_eq_approx = e; }
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }

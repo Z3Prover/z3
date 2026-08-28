@@ -763,6 +763,12 @@ namespace seq {
                           seq::transition_mode::brzozowski_tm);
         // Conflict-only by default: apply_monadic_split consumes no solution.
         m_monadic->set_gen_solution(false);
+        // The rest of the engine's configuration, from the same params the legacy
+        // driver reads.  Leaving them at the engine's defaults is what kept the
+        // intersection refinement (split rounds) off and the search forward-only.
+        m_monadic->set_budget(m_monadic_budget);
+        m_monadic->set_split_rounds(m_monadic_split_rounds);
+        m_monadic->set_orientation(m_monadic_orientation);
     }
 
     bool nielsen_graph::apply_monadic_split(nielsen_node* node) {

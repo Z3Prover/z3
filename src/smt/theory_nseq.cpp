@@ -25,6 +25,14 @@ Author:
 #include <stack>
 
 namespace smt {
+    
+    static seq_monadic::orientation nseq_monadic_orientation(symbol const& s) {
+        if (s == "reversed")
+            return seq_monadic::orientation::reversed;
+        if (s == "retry")
+            return seq_monadic::orientation::retry;
+        return seq_monadic::orientation::forward;
+    }
 
     theory_nseq::theory_nseq(context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("seq")),
@@ -33,6 +41,7 @@ namespace smt {
         m_th_rewriter(m),
         m_rewriter(m),
         m_arith_value(m),
+        m_whole_rw(m),
         m_egraph(m),
         m_sg(m, m_egraph),
         m_length_solver(m),
@@ -1023,6 +1032,10 @@ namespace smt {
                 m_nielsen.set_fine_wilf(get_fparams().m_nseq_fine_wilf);
                 m_nielsen.set_monadic_split(get_fparams().m_nseq_monadic_split);
                 m_nielsen.set_monadic_landing(get_fparams().m_nseq_monadic_landing);
+                m_nielsen.set_monadic_budget(get_fparams().m_seq_regex_budget);
+                m_nielsen.set_monadic_split_rounds(get_fparams().m_seq_regex_split);
+                m_nielsen.set_monadic_orientation(
+                    nseq_monadic_orientation(get_fparams().m_seq_regex_orientation));
                 m_nielsen.set_eq_approx(get_fparams().m_nseq_eq_approx);
                 m_nielsen.set_exploration_budget(get_fparams().m_nseq_exploration_budget);
                 m_nielsen.set_view_length_constraints(get_fparams().m_nseq_view_length_constraints);
@@ -1059,6 +1072,21 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: rigid defined op present, FC_GIVEUP\n";);
                 TRACE(seq, tout << "nseq final_check: rigid defined op present, FC_GIVEUP\n");
                 return FC_GIVEUP;
+            }
+
+            // Whole-problem monadic decision, before the DFS: with the other regex
+            // engines disabled this is what the legacy driver does with the same engine,
+            // and the Nielsen search has nothing to add on a pure membership problem.
+            if (!m_nielsen.root()->is_currently_conflict() && !get_fparams().m_nseq_harvest
+                && get_fparams().m_nseq_monadic_whole) {
+                switch (check_monadic_whole()) {
+                case l_false:
+                    return FC_CONTINUE;   // conflict asserted
+                case l_true:
+                    return FC_CONTINUE;   // witness assumed; re-enter with ground subjects
+                default:
+                    break;
+                }
             }
 
             // Regex membership pre-check: before running DFS, check intersection
@@ -1813,6 +1841,113 @@ namespace smt {
     //   l_false — all variables satisfiable and no word eqs/diseqs → SAT
     //   l_undef — inconclusive, proceed to DFS
     // -----------------------------------------------------------------------
+
+    // Index-encoded dependency: seq_monadic hands these back through core().
+    static void* nseq_dep_of_idx(unsigned i) {
+        return reinterpret_cast<void*>(static_cast<size_t>(i) + 1);
+    }
+    static unsigned nseq_idx_of_dep(void* d) {
+        return static_cast<unsigned>(reinterpret_cast<size_t>(d)) - 1;
+    }
+
+    lbool theory_nseq::check_monadic_whole() {
+        if (has_unhandled_preds())
+            return l_undef;
+
+        // The engine never sees word (dis)equations, so its answer would say nothing
+        // about a problem that has any: leave those to the Nielsen search.
+        ptr_vector<tracked_str_mem const> mems;
+        for (auto const& item : m_prop_queue) {
+            if (std::holds_alternative<eq_item>(item) || std::holds_alternative<deq_item>(item))
+                return l_undef;
+            if (std::holds_alternative<mem_item>(item))
+                mems.push_back(&std::get<mem_item>(item));
+        }
+        if (mems.empty())
+            return l_undef;
+
+        if (!m_whole_monadic) {
+            m_whole_monadic = alloc(seq_monadic, m_whole_rw, m_whole_trail,
+                                    seq::transition_mode::brzozowski_tm);
+            m_whole_monadic->set_is_var([this](expr* e) { return m_whole_vars.contains(e); });
+        }
+        m_whole_monadic->set_budget(get_fparams().m_seq_regex_budget);
+        m_whole_monadic->set_split_rounds(get_fparams().m_seq_regex_split);
+        m_whole_monadic->set_orientation(
+            nseq_monadic_orientation(get_fparams().m_seq_regex_orientation));
+
+        // The variables are exactly the variable TOKENS of the subjects.
+        m_whole_vars.reset();
+        for (auto const* mem : mems) {
+            for (euf::snode const* t : *mem->m_str) {
+                if (t->is_var())
+                    m_whole_vars.insert(t->get_expr());
+                else if (!t->is_char() && !t->is_unit())
+                    return l_undef;   // power / rigid / anything whose value is not free
+            }
+        }
+
+        m_whole_trail.push_scope();
+        lbool r = l_undef;
+        expr_substitution model(m);
+        bool decidable = true;
+        for (unsigned i = 0; i < mems.size() && decidable; ++i) {
+            expr* s = mems[i]->m_str->get_expr();
+            expr* re = mems[i]->m_regex->get_expr();
+            if (!s || !re || !m_whole_monadic->can_decide_term(s))
+                decidable = false;
+            else
+                m_whole_monadic->add(s, re, nseq_dep_of_idx(i));
+        }
+        if (decidable) {
+            ++m_stats_whole.m_monadic_whole_checks;
+            r = m_whole_monadic->check();
+            if (r == l_true && m_whole_monadic->materialize_all(model) != l_true)
+                r = l_undef;
+        }
+
+        if (r == l_false) {
+            // The core names the memberships it used; their literals are the conflict.
+            literal_vector lits;
+            for (void* d : m_whole_monadic->core()) {
+                const unsigned idx = nseq_idx_of_dep(d);
+                if (idx < mems.size())
+                    lits.push_back(mems[idx]->lit);
+            }
+            m_whole_trail.pop_scope(1);
+            if (lits.empty())
+                return l_undef;
+            ++m_stats_whole.m_monadic_whole_unsat;
+            TRACE(seq, tout << "nseq monadic whole: UNSAT on " << lits.size() << " literal(s)\n");
+            set_conflict(lits);
+            return l_false;
+        }
+
+        if (r == l_true) {
+            // Model construction, on demand: the engine's witness is handed to the core as
+            // assumed equalities, so the next final_check sees ground subjects.  Only
+            // report progress if a split was actually created -- otherwise we would be
+            // called again on the identical state.
+            bool progressed = false;
+            for (auto const& [var, witness] : model.sub()) {
+                enode* vn = ensure_enode(var);
+                enode* wn = ensure_enode(witness);
+                if (!vn || !wn || vn->get_root() == wn->get_root())
+                    continue;
+                if (ctx.assume_eq(vn, wn))
+                    progressed = true;
+            }
+            m_whole_trail.pop_scope(1);
+            if (!progressed)
+                return l_undef;
+            ++m_stats_whole.m_monadic_whole_sat;
+            TRACE(seq, tout << "nseq monadic whole: SAT, witness assumed\n");
+            return l_true;
+        }
+
+        m_whole_trail.pop_scope(1);
+        return l_undef;
+    }
 
     lbool theory_nseq::check_regex_memberships_precheck() {
         // Collect mem items from the propagation queue into a local pointer array
