@@ -593,17 +593,28 @@ namespace seq {
     // EqSplit: find_eq_split_point
     //
     // Walks tokens from each side tracking two accumulators:
-    //   - lhs_has_symbolic / rhs_has_symbolic : whether a variable-length token
-    //     has been consumed on that side since the last reset
+    //   - balance : per variable-length token, occurrences consumed on the LHS
+    //     minus occurrences consumed on the RHS, with nz counting the entries
+    //     that are currently nonzero
     //   - const_diff : net constant-length difference (LHS constants − RHS constants)
     //
-    // A potential split point arises when both accumulators are "zero"
-    // (no outstanding symbolic contributions on either side), meaning
-    // the prefix lengths are determined up to a constant offset (const_diff).
+    // A potential split point arises when nz == 0, i.e. the two prefixes have
+    // *equal variable content*: their symbolic lengths then cancel and the
+    // prefix lengths are determined up to the constant offset const_diff, which
+    // becomes the padding.
     //
     // Among all such split points, we pick the one minimising |const_diff|
     // (the padding amount). We also require having seen at least one variable-
     // length token before accepting a split, so that the split is non-trivial.
+    //
+    // NB: the accumulators used to be two booleans, "has a variable-length token
+    // been consumed on this side", which were set but never cleared -- and since
+    // a split needed both to be false *after* a variable had been seen, the
+    // condition was unsatisfiable and the whole modifier was unreachable (it
+    // fired zero times across 709 corpus files that entered the search).  A
+    // per-token signed balance is what the surrounding code always assumed: the
+    // split is sound exactly when the variable multisets of the two prefixes
+    // agree, which is what makes |LHS prefix| - |RHS prefix| = const_diff hold.
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::find_eq_split_point(
@@ -617,102 +628,76 @@ namespace seq {
         if (lhs_len <= 1 || rhs_len <= 1)
             return false;
 
-        // Initialize accumulators with the first token on each side (index 0).
-        bool lhs_has_symbolic = token_has_variable_length(lhs_toks[0]);
-        bool rhs_has_symbolic = token_has_variable_length(rhs_toks[0]);
+        u_map<int> balance;
+        unsigned nz = 0;
         int const_diff = 0;
-        if (!lhs_has_symbolic)
-            const_diff += token_const_length(lhs_toks[0]);
-        if (!rhs_has_symbolic)
-            const_diff -= token_const_length(rhs_toks[0]);
+        unsigned li = 0, ri = 0;
+        unsigned lvars = 0, rvars = 0;   // variable-length tokens consumed
+        bool seen_variable = false;
 
-        bool seen_variable = lhs_has_symbolic || rhs_has_symbolic;
-
-        // Best confirmed split point.
         bool has_best = false;
         unsigned best_lhs = 0, best_rhs = 0;
         int best_padding = 0;
 
-        // Pending split (needs confirmation by a subsequent variable token).
-        bool has_pending = false;
-        unsigned pending_lhs = 0, pending_rhs = 0;
-        int pending_padding = 0;
+        auto bump = [&](euf::snode const* tok, const int d) {
+            int b = 0;
+            balance.find(tok->id(), b);
+            if (b == 0)
+                ++nz;
+            b += d;
+            if (b == 0)
+                --nz;
+            balance.insert(tok->id(), b);
+        };
 
-        unsigned li = 1, ri = 1;
-
-        while (li < lhs_len || ri < rhs_len) {
-            const bool lhs_zero = !lhs_has_symbolic;
-            const bool rhs_zero = !rhs_has_symbolic;
-
-            // Potential split point: both symbolic accumulators are zero.
-            if (seen_variable && lhs_zero && rhs_zero) {
-                if (!has_pending || std::abs(const_diff) < std::abs(pending_padding)) {
-                    has_pending = true;
-                    pending_padding = const_diff;
-                    pending_lhs = li;
-                    pending_rhs = ri;
-                }
+        while (true) {
+            // The split must be strictly interior on *both* sides.  A boundary
+            // at an endpoint leaves one side's prefix equal to the whole side
+            // and its suffix empty, so eq1 is just the original equation with a
+            // renamed tail: no progress, the child re-derives the parent, and
+            // since eq_split emits a single progress child the node would be
+            // closed as unsat by the memo.  Requiring 0 < li < lhs_len and
+            // 0 < ri < rhs_len also makes both new equations strictly shorter
+            // than the original, which bounds the recursion.
+            const bool interior = li > 0 && li < lhs_len && ri > 0 && ri < rhs_len;
+            if (seen_variable && nz == 0 && interior &&
+                (!has_best || std::abs(const_diff) < std::abs(best_padding))) {
+                has_best = true;
+                best_padding = const_diff;
+                best_lhs = li;
+                best_rhs = ri;
             }
 
-            // Decide which side to consume from.
-            // Prefer consuming from the side whose symbolic accumulator is zero
-            // (i.e., that side has no outstanding variable contributions).
+            const bool l_done = li >= lhs_len;
+            const bool r_done = ri >= rhs_len;
+            if (l_done && r_done)
+                break;
+
+            // Advance the side that is behind on variable-length tokens: that is
+            // what lets two differently-ordered variable sequences reach a
+            // cancellation point.  With the counts level, prefer the side
+            // carrying fewer constants, which keeps |padding| small.
             bool consume_lhs;
-            if (lhs_zero && !rhs_zero)
-                consume_lhs = true;
-            else if (!lhs_zero && rhs_zero)
+            if (l_done)
                 consume_lhs = false;
-            else if (lhs_zero && rhs_zero)
-                consume_lhs = (const_diff <= 0);  // consume from side with less accumulated constant
+            else if (r_done)
+                consume_lhs = true;
+            else if (lvars != rvars)
+                consume_lhs = lvars < rvars;
             else
-                consume_lhs = (li <= ri);  // both non-zero: round-robin
+                consume_lhs = const_diff <= 0;
 
-            if (consume_lhs) {
-                if (li >= lhs_len) break;
-                euf::snode const* tok = lhs_toks[li++];
-                const bool is_var = token_has_variable_length(tok);
-                if (is_var) {
-                    // Confirm any pending split point.
-                    if (has_pending && (!has_best || std::abs(pending_padding) < std::abs(best_padding))) {
-                        has_best = true;
-                        best_padding = pending_padding;
-                        best_lhs = pending_lhs;
-                        best_rhs = pending_rhs;
-                        has_pending = false;
-                    }
-                    seen_variable = true;
-                    lhs_has_symbolic = true;
-                }
-                else
-                    const_diff += (int)token_const_length(tok);
+            euf::snode const* tok = consume_lhs ? lhs_toks[li++] : rhs_toks[ri++];
+            if (token_has_variable_length(tok)) {
+                bump(tok, consume_lhs ? 1 : -1);
+                ++(consume_lhs ? lvars : rvars);
+                seen_variable = true;
             }
-            else {
-                if (ri >= rhs_len)
-                    break;
-                euf::snode const* tok = rhs_toks[ri++];
-                const bool is_var = token_has_variable_length(tok);
-                if (is_var) {
-                    if (has_pending && (!has_best || std::abs(pending_padding) < std::abs(best_padding))) {
-                        has_best = true;
-                        best_padding = pending_padding;
-                        best_lhs = pending_lhs;
-                        best_rhs = pending_rhs;
-                        has_pending = false;
-                    }
-                    seen_variable = true;
-                    rhs_has_symbolic = true;
-                }
-                else
-                    const_diff -= (int)token_const_length(tok);
-            }
+            else
+                const_diff += (consume_lhs ? 1 : -1) * (int)token_const_length(tok);
         }
 
         if (!has_best)
-            return false;
-
-        // A split at the very start or very end is degenerate — skip.
-        if ((best_lhs == 0 && best_rhs == 0) ||
-            (best_lhs == lhs_len && best_rhs == rhs_len))
             return false;
 
         out_lhs_idx = best_lhs;
@@ -766,18 +751,22 @@ namespace seq {
             euf::snode const* pad = nullptr;
             if (padding != 0) {
                 // NSB review: can we represent pad_var using a string function?
-                expr *pad_var = m_sk.mk("eq-split", a.mk_int(padding), eq.m_lhs->get_expr(),
-                                                 eq.m_rhs->get_expr(), eq.m_lhs->get_sort());
+                // seq_skolem::mk returns an expr_ref, so the result must be kept
+                // in one: binding it to a raw expr* drops the only reference and
+                // frees the fresh skolem before m_sg.mk ever sees it.
+                const expr_ref pad_var(
+                    m_sk.mk("eq-split", a.mk_int(padding), eq.m_lhs->get_expr(),
+                            eq.m_rhs->get_expr(), eq.m_lhs->get_sort()), m);
                 pad = m_sg.mk(pad_var);
                 if (padding > 0) {
-                    // LHS prefix is longer by |padding| constants.
-                    // Prepend pad to RHS prefix, append pad to LHS suffix.
-                    eq1_rhs = m_sg.mk_concat(pad, rhs_prefix);
-                    eq2_lhs = m_sg.mk_concat(lhs_suffix, pad);
+                    // LHS prefix is longer by |padding|, so RHS prefix is a
+                    // prefix of it: lhs_prefix = rhs_prefix·pad, and the extra
+                    // pad is what rhs_suffix starts with: rhs_suffix = pad·lhs_suffix.
+                    eq1_rhs = m_sg.mk_concat(rhs_prefix, pad);
+                    eq2_lhs = m_sg.mk_concat(pad, lhs_suffix);
                 }
                 else {
-                    // RHS prefix is longer by |padding| constants.
-                    // Append pad to LHS prefix, prepend pad to RHS suffix.
+                    // Mirror image: RHS prefix is longer by |padding|.
                     eq1_lhs = m_sg.mk_concat(lhs_prefix, pad);
                     eq2_rhs = m_sg.mk_concat(pad, rhs_suffix);
                 }
