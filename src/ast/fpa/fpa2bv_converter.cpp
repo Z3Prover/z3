@@ -1135,9 +1135,10 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         sig_ext = m_bv_util.mk_concat(res_sig, m_bv_util.mk_numeral(0, sig_size));
         shifted_sig = m_bv_util.mk_bv_lshr(sig_ext, underflow_shift_sized);
         unsigned sig_extract_low_bit = 2 * sig_size - (sbits + 2);
-        // The shift is at most sbits + 2^(ebits - 1) - 2. If it passes the
-        // zero padding, the leading one enters this discarded range, so
-        // discarded remains true.
+        // Finite operand bounds make underflow_shift at most
+        // sbits + 2^(ebits - 1) - 2. If it exceeds the sbits + 4 appended
+        // zero bits, res_sig's normalized leading one still lands in the range
+        // reduced into discarded, so discarded remains true.
         discarded = m.mk_app(
             m_bv_util.get_fid(), OP_BREDOR,
             m_bv_util.mk_extract(sig_extract_low_bit - 1, 0, shifted_sig));
@@ -1156,8 +1157,10 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         underflow_retained = m_bv_util.mk_extract(sbits + 1, 2, underflow_sig);
         underflow_inc = mk_rounding_decision(
             rm, res_sgn, underflow_last, underflow_round, underflow_sticky);
-        // This path shifts by at least eight bits, so the retained significand
-        // has a leading zero and rounding cannot carry into minimum normal.
+        // exp_below_round_range implies
+        // underflow_shift >= 2 + 3*2^(ebits - 1), which is at least eight for
+        // ebits >= 2. The retained significand therefore has a leading zero,
+        // so rounding cannot carry into minimum normal.
         underflow_rounded_sig = m_bv_util.mk_bv_add(
             underflow_retained,
             m_bv_util.mk_zero_extend(sbits - 1, underflow_inc));
