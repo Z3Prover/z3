@@ -880,6 +880,11 @@ namespace seq {
         // true.  Otherwise returns false.
         bool check_empty_side_conflict(euf::snode const* non_empty_side, dep_tracker const& dep);
 
+        // Refute the node when the equation's own length identity forces two
+        // *differing* concrete characters onto the same position of the common
+        // string.  See seq_nielsen_simplify.cpp for the normalization.
+        bool check_positional_clash();
+
         // Length bounds are queried from the arithmetic subsolver when needed.
     };
 
@@ -912,6 +917,7 @@ namespace seq {
         unsigned m_num_extensions      = 0;
         unsigned m_num_fresh_vars      = 0;
         unsigned m_num_arith_infeasible = 0;
+        unsigned m_num_positional_clash = 0;
         unsigned m_max_depth           = 0;
         // modifier application counts
         unsigned m_mod_det             = 0;
@@ -1054,6 +1060,12 @@ namespace seq {
         // every equation-bearing node, so the per-call cost is what decides whether the
         // rule pays for itself.  0 = the round's own budget.
         unsigned                      m_monadic_leaf_budget_refute = 30000;
+        // Length-forced positional constant clash (nielsen_node::check_positional_clash).
+        // Cap on the number of concrete character positions considered per equation: the
+        // scan is quadratic in that count, and a long string literal would otherwise make
+        // a cheap refuter expensive on exactly the nodes where it never fires.
+        bool                          m_positional_clash = true;
+        unsigned                      m_positional_clash_limit = 64;
         // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
         unsigned                      m_exploration_budget = 512;
         // attach the view length abstraction to pinned variables
@@ -1344,6 +1356,9 @@ namespace seq {
         void set_block_compression(unsigned cap) { m_block_compression = cap; }
 
         void set_fine_wilf(bool e) { m_fine_wilf = e; }
+
+        void set_positional_clash(bool e) { m_positional_clash = e; }
+        void set_positional_clash_limit(unsigned n) { m_positional_clash_limit = n; }
 
         void set_monadic_split(bool e) { m_monadic_split = e; }
         void set_monadic_landing(bool e) { m_monadic_landing = e; }

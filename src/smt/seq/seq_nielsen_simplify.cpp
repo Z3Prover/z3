@@ -128,6 +128,193 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
+    // Length-forced positional constant clash
+    // -----------------------------------------------------------------------
+    //
+    // Both sides of `lhs = rhs` denote the SAME string, so a character position
+    // can be measured from the left of that common string.  The offset of a
+    // token is then a linear form over token lengths, and a concrete character
+    // sits at a symbolic offset  P = sum_t c_t·|t| + k.  The equation supplies
+    // one linear hypothesis for free:
+    //
+    //     Lv := |lhs| - |rhs| = 0.
+    //
+    // Two concrete characters a != b at offsets P and Q refute the node as soon
+    // as Lv = 0 entails P = Q -- that is, as soon as P - Q lies in span{Lv}.
+    //
+    // Neither ingredient refutes on its own: length/Parikh reasoning never looks
+    // at characters, and prefix/suffix cancellation only ever aligns the two
+    // *ends* of the sides.  This rule aligns an INTERIOR position.
+    //
+    // Worked example --  y·2·z·1·x = x·2·z·1·x·2·z :
+    //     Lv          = |y| - |x| - |z| - 1
+    //     left  '2' at |y|
+    //     right '1' at |x| + |z| + 1
+    // the difference of the two offsets is exactly Lv, so the positions coincide
+    // and 2 != 1 closes the node.  Note the length identity alone is perfectly
+    // satisfiable here (|y| = |x|+|z|+1 has solutions), so no amount of integer
+    // reasoning finds this on its own.
+    //
+    // Testing "P - Q in span{Lv}" pairwise is avoided by normalizing each offset
+    // against a fixed pivot coordinate i0 of Lv:
+    //
+    //     canon(P) := Lv[i0]·P - P[i0]·Lv
+    //
+    // which is integral, zeroes coordinate i0, and applies the same scale factor
+    // Lv[i0] to every offset -- so P == Q mod span{Lv} iff the canonical forms
+    // agree.  When Lv is syntactically zero the normalization is the identity.
+    //
+    // Soundness note: a coordinate is keyed on the token's snode id, and a
+    // token's length is a function of the term it denotes, so two occurrences
+    // sharing an id do have equal length.  Distinct ids that happen to denote
+    // equal lengths merely cost refutations, never soundness.
+    bool nielsen_node::check_positional_clash() {
+        if (!m_graph.m_positional_clash)
+            return false;
+
+        for (str_eq const& eq : m_str_eq) {
+            if (eq.is_trivial())
+                continue;
+
+            euf::snode const* const sides[2] = { eq.m_lhs, eq.m_rhs };
+
+            // Cheap pre-filter, before any allocation: the rule can only fire if
+            // the equation carries at least two DISTINCT concrete characters.
+            // This is what keeps it off the hot path -- most nodes never get
+            // past here, and the scan below allocates per equation per node.
+            {
+                unsigned seen = UINT_MAX;
+                bool distinct = false;
+                for (euf::snode const* side : sides) {
+                    for (euf::snode const* t : *side) {
+                        if (!t->is_char())
+                            continue;
+                        if (seen == UINT_MAX)
+                            seen = t->id();
+                        else if (seen != t->id()) {
+                            distinct = true;
+                            break;
+                        }
+                    }
+                    if (distinct)
+                        break;
+                }
+                if (!distinct)
+                    continue;
+            }
+
+            euf::snode_vector toks[2];
+            eq.m_lhs->collect_tokens(toks[0]);
+            eq.m_rhs->collect_tokens(toks[1]);
+
+            // Pass 1: fix the coordinate system, one coordinate per distinct
+            // token of unknown length.  Chars and units contribute a known 1.
+            unsigned_vector atoms;
+            unsigned nchars = 0;
+            for (auto const& side : toks)
+                for (euf::snode const* t : side) {
+                    if (t->is_char())
+                        ++nchars;
+                    else if (!t->is_unit() && !atoms.contains(t->id()))
+                        atoms.push_back(t->id());
+                }
+
+            // The scan below is quadratic in the character count, so a long
+            // string literal would make a cheap refuter expensive on exactly
+            // the nodes where it cannot fire.
+            if (nchars > m_graph.m_positional_clash_limit)
+                continue;
+
+            const unsigned n = atoms.size();
+            auto coord = [&](unsigned id) {
+                for (unsigned i = 0; i < n; ++i)
+                    if (atoms[i] == id)
+                        return i;
+                UNREACHABLE();
+                return 0u;
+            };
+
+            // Pass 2: the offset of every concrete character, and Lv.
+            vector<svector<int>> pc;     // coefficients of each character offset
+            svector<int>         pk;     // constant term of each character offset
+            unsigned_vector      pch;    // the character itself (snode id)
+            svector<int>         lv;
+            int                  lk = 0;
+            lv.resize(n, 0);
+
+            for (unsigned s = 0; s < 2; ++s) {
+                const int sign = (s == 0) ? 1 : -1;
+                svector<int> cur;
+                int cur_k = 0;
+                cur.resize(n, 0);
+                for (euf::snode const* t : toks[s]) {
+                    if (t->is_char()) {
+                        pc.push_back(cur);
+                        pk.push_back(cur_k);
+                        pch.push_back(t->id());
+                        ++cur_k;
+                    }
+                    else if (t->is_unit())
+                        ++cur_k;            // length 1, character not concrete
+                    else
+                        ++cur[coord(t->id())];
+                }
+                for (unsigned i = 0; i < n; ++i)
+                    lv[i] += sign * cur[i];
+                lk += sign * cur_k;
+            }
+
+            unsigned pivot = n;
+            for (unsigned i = 0; i < n; ++i)
+                if (lv[i] != 0) {
+                    pivot = i;
+                    break;
+                }
+
+            // Lv has no variable part but a nonzero constant: the two sides can
+            // never have equal length, so the equation is refuted outright.
+            if (pivot == n && lk != 0) {
+                set_simplify_conflict(backtrack_reason::symbol_clash, eq.m_dep);
+                ++m_graph.m_stats.m_num_positional_clash;
+                return true;
+            }
+
+            // Normalize every offset into the quotient by span{Lv}.
+            const int64_t scale = (pivot == n) ? 1 : lv[pivot];
+            vector<svector<int64_t>> cc;
+            svector<int64_t>         ck;
+            for (unsigned p = 0; p < pch.size(); ++p) {
+                const int64_t f = (pivot == n) ? 0 : pc[p][pivot];
+                svector<int64_t> row;
+                row.resize(n, 0);
+                for (unsigned i = 0; i < n; ++i)
+                    row[i] = scale * pc[p][i] - f * lv[i];
+                cc.push_back(row);
+                ck.push_back(scale * pk[p] - f * lk);
+            }
+
+            // Any two differing characters forced onto the same position refute
+            // the node -- including two positions of the same side, which the
+            // length identity can just as well collapse onto each other.
+            for (unsigned i = 0; i + 1 < pch.size(); ++i)
+                for (unsigned j = i + 1; j < pch.size(); ++j) {
+                    if (pch[i] == pch[j] || ck[i] != ck[j])
+                        continue;
+                    bool aligned = true;
+                    for (unsigned c = 0; aligned && c < n; ++c)
+                        aligned = cc[i][c] == cc[j][c];
+                    if (!aligned)
+                        continue;
+                    TRACE(seq, tout << "positional clash " << eq_pp(eq) << "\n");
+                    set_simplify_conflict(backtrack_reason::symbol_clash, eq.m_dep);
+                    ++m_graph.m_stats.m_num_positional_clash;
+                    return true;
+                }
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
     // Power simplification helpers
     // -----------------------------------------------------------------------
 
@@ -881,6 +1068,12 @@ namespace seq {
             if (m_graph.check_regex_widening(*this, mem, dep))
                 return set_simplify_conflict(backtrack_reason::regex_widening, dep);
         }
+
+        // Length-forced positional constant clash.  Purely syntactic, and it
+        // reaches interior alignments that affix cancellation cannot.  Run last,
+        // on the fully canonical node.
+        if (check_positional_clash())
+            return simplify_result::conflict;
 
         // Simplification ran to completion: memoize.  Constraint additions made
         // DURING the passes cleared the stamp; setting it here (last) makes the

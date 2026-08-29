@@ -370,6 +370,75 @@ static void test_nseq_fine_wilf_option_off() {
     std::cout << "  ok: sat with fine_wilf disabled\n";
 }
 
+// -----------------------------------------------------------------------
+// Length-forced positional constant clash (smt.nseq.positional_clash)
+// -----------------------------------------------------------------------
+
+// Asserts  "a"·z·z·y  ==  y·y·z·"ba"  into ctx.  The equation is UNSAT
+// (verified by exhaustive search over {a,b} — two letters are WLOG, since the
+// morphism fixing a and b collapses any larger alphabet onto them), but no
+// prefix/suffix cancellation applies and the length identity |z| = |y| + 1 is
+// perfectly satisfiable, so only an *interior* alignment refutes it.
+static void assert_positional_clash_eq(smt::context& ctx, ast_manager& m) {
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref y(m.mk_const(symbol("y"), str_sort), m);
+    const expr_ref z(m.mk_const(symbol("z"), str_sort), m);
+
+    expr_ref lhs(su.str.mk_concat(su.str.mk_string(zstring("a")), z), m);
+    lhs = su.str.mk_concat(lhs, z);
+    lhs = su.str.mk_concat(lhs, y);
+
+    expr_ref rhs(su.str.mk_concat(y, y), m);
+    rhs = su.str.mk_concat(rhs, z);
+    rhs = su.str.mk_concat(rhs, su.str.mk_string(zstring("ba")));
+
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+}
+
+// UNSAT, and reached only through the positional-clash rule: with the rule
+// disabled the Nielsen search diverges on this equation (8000+ nodes and still
+// running after a minute), with it enabled the node closes in a few dozen.
+// This is the regression test for that rule.
+static void test_nseq_positional_clash_e2e_unsat() {
+    std::cout << "test_nseq_positional_clash_e2e_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    SASSERT(params.m_nseq_positional_clash); // on by default
+    smt::context ctx(m, params);
+    assert_positional_clash_eq(ctx, m);
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// The rule must not refute a satisfiable equation.  x·"ab"·y == y·"ab"·x is
+// solved by x = y (in particular x = y = ""), yet it presents the scan with
+// four concrete character positions and a syntactically zero length identity —
+// the configuration in which the alignment test is least constrained.
+static void test_nseq_positional_clash_sat_guard() {
+    std::cout << "test_nseq_positional_clash_sat_guard\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    smt::context ctx(m, params);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref x(m.mk_const(symbol("x"), str_sort), m);
+    const expr_ref y(m.mk_const(symbol("y"), str_sort), m);
+    expr_ref lhs(su.str.mk_concat(x, su.str.mk_string(zstring("ab"))), m);
+    lhs = su.str.mk_concat(lhs, y);
+    expr_ref rhs(su.str.mk_concat(y, su.str.mk_string(zstring("ab"))), m);
+    rhs = su.str.mk_concat(rhs, x);
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -385,5 +454,7 @@ void tst_nseq_basic() {
     test_nseq_fine_wilf_e2e_unsat();
     test_nseq_fine_wilf_e2e_sat();
     test_nseq_fine_wilf_option_off();
+    test_nseq_positional_clash_e2e_unsat();
+    test_nseq_positional_clash_sat_guard();
     std::cout << "nseq_basic: all tests passed\n";
 }
