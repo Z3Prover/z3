@@ -50,41 +50,38 @@ namespace smt {
             return m_pending;
         }
 
-        /**
-        * Assert instances of polymorphic axioms
-        */
+        // Collect and assert any pending polymorphic instances. Returns true if
+        // any new instances were produced.
+        bool assert_instances() {
+            vector<polymorphism::instantiation> instances;
+            m_inst.instantiate(instances);
+            if (instances.empty())
+                return false;
+            for (auto const& [orig, inst, sub] : instances)
+                ctx.add_asserted(inst);
+            ctx.internalize_assertions();
+            return true;
+        }
+
         void propagate() override {
             if (!m_pending)
                 return;
             m_pending = false;
-            vector<polymorphism::instantiation> instances;
-            m_inst.instantiate(instances);
-            if (instances.empty())
-                return;
-            for (auto const& [orig, inst, sub] : instances) 
-                ctx.add_asserted(inst);
-            ctx.internalize_assertions();
+            assert_instances();
         }
 
         final_check_status final_check_eh(unsigned) override {
-            if (m_inst.pending()) {
-                vector<polymorphism::instantiation> instances;
-                m_inst.instantiate(instances);
-                if (!instances.empty()) {
-                    // There are still polymorphic axioms to instantiate. Force the
-                    // solver to fail under the theory assumption so that a new
-                    // research round (see should_research) can assert the new
-                    // instances. Assigning the negation of the (already true)
-                    // assumption creates a conflict, so we must return FC_CONTINUE
-                    // to let conflict resolution turn it into l_false; returning
-                    // FC_DONE here would report l_true while the context is
-                    // inconsistent, violating a core search invariant.
-                    for (auto const& [orig, inst, sub] : instances)
-                        ctx.add_asserted(inst);
-                    ctx.internalize_assertions();
-                    ctx.assign(~mk_literal(m_assumption), nullptr);
-                    return FC_CONTINUE;
-                }
+            if (m_inst.pending() && assert_instances()) {
+                // There are still polymorphic axioms to instantiate. Force the
+                // solver to fail under the theory assumption so that a new
+                // research round (see should_research) can assert the new
+                // instances. Assigning the negation of the (already true)
+                // assumption creates a conflict, so we must return FC_CONTINUE
+                // to let conflict resolution turn it into l_false; returning
+                // FC_DONE here would report l_true while the context is
+                // inconsistent, violating a core search invariant.
+                ctx.assign(~mk_literal(m_assumption), nullptr);
+                return FC_CONTINUE;
             }
             return FC_DONE;
         }
@@ -101,12 +98,8 @@ namespace smt {
         }
 
         bool should_research(expr_ref_vector & assumptions) override {
-            for (auto * a : assumptions)
-                if (a == m_assumption)
-                    return true;
-            return false;
+            return assumptions.contains(m_assumption.get());
         }
-
 
     public:
         theory_polymorphism(context& ctx):
@@ -126,5 +119,3 @@ namespace smt {
     };
 
 }
-
-
