@@ -166,7 +166,16 @@ namespace seq {
                     TRACE(seq, display(tout, m_root));
                     return r;
                 }
-                // depth limit hit – double the bound and retry
+                // Depth limit hit – double the bound and retry.
+                //
+                // Only the depth bound is worth retrying.  search_dfs also
+                // returns unknown when the *global* DFS node budget is spent,
+                // and that budget only ever grows: retrying re-trips it on the
+                // first node, so the loop would spin -- burning the whole time
+                // budget and reporting a timeout -- instead of giving up. Bail
+                // out and let the unknown below stand.
+                if (m_max_nodes > 0 && m_stats.m_num_dfs_nodes > m_max_nodes)
+                    break;
                 if (m_depth_bound < INT_MAX/2)
                     m_depth_bound *= 2;
                 SASSERT(m_depth_bound < INT_MAX);

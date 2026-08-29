@@ -465,6 +465,43 @@ static void test_nseq_eq_split_no_endpoint_split() {
     std::cout << "  ok: sat\n";
 }
 
+// The DFS node budget (smt.nseq.max_nodes) must make the search give up.
+//
+// search_dfs returns unknown both when the *per-iteration* depth bound is hit
+// and when the *global* node budget is spent, and the iterative-deepening loop
+// used to treat every unknown as the former: double the bound and retry.  The
+// node budget only ever grows, so each retry re-tripped it on the first node
+// and the loop spun until the external timeout -- reporting "timeout" after
+// burning the full time budget instead of "unknown" after 500 nodes.
+//
+// b·z·y·y = y·y·z·a is a divergent instance (nseq does not terminate on it),
+// so this test hangs forever rather than failing if the regression returns:
+// with no resource limit set there is nothing to break the spin.
+static void test_nseq_max_nodes_gives_up() {
+    std::cout << "test_nseq_max_nodes_gives_up\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    SASSERT(params.m_nseq_max_nodes == 0); // default: unlimited
+    params.m_nseq_max_nodes = 500;
+    smt::context ctx(m, params);
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref y(m.mk_const(symbol("y"), str_sort), m);
+    const expr_ref z(m.mk_const(symbol("z"), str_sort), m);
+    const expr_ref lhs(
+        su.str.mk_concat(su.str.mk_concat(su.str.mk_string(zstring("b")), z),
+                         su.str.mk_concat(y, y)), m);
+    const expr_ref rhs(
+        su.str.mk_concat(su.str.mk_concat(y, y),
+                         su.str.mk_concat(z, su.str.mk_string(zstring("a")))), m);
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_undef);
+    std::cout << "  ok: unknown\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -483,5 +520,6 @@ void tst_nseq_basic() {
     test_nseq_eq_split_e2e_unsat();
     test_nseq_eq_split_sat_guard();
     test_nseq_eq_split_no_endpoint_split();
+    test_nseq_max_nodes_gives_up();
     std::cout << "nseq_basic: all tests passed\n";
 }
