@@ -370,6 +370,101 @@ static void test_nseq_fine_wilf_option_off() {
     std::cout << "  ok: sat with fine_wilf disabled\n";
 }
 
+// -----------------------------------------------------------------------
+// EqSplit: decomposition of a word equation at an interior split point
+// -----------------------------------------------------------------------
+
+// Asserts  "a"·z·z·y  ==  y·y·z·"ba"  into ctx.  The equation is UNSAT
+// (verified by exhaustive search over {a,b} — two letters are WLOG, since the
+// morphism fixing a and b collapses any larger alphabet onto them), but no
+// prefix/suffix cancellation applies and the length identity |z| = |y| + 1 is
+// perfectly satisfiable, so the refutation has to come from an *interior*
+// alignment.  eq_split supplies one: it cuts both sides at a boundary where
+// the two prefixes carry equal variable multisets.
+static void assert_eq_split_eq(smt::context& ctx, ast_manager& m) {
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref y(m.mk_const(symbol("y"), str_sort), m);
+    const expr_ref z(m.mk_const(symbol("z"), str_sort), m);
+
+    expr_ref lhs(su.str.mk_concat(su.str.mk_string(zstring("a")), z), m);
+    lhs = su.str.mk_concat(lhs, z);
+    lhs = su.str.mk_concat(lhs, y);
+
+    expr_ref rhs(su.str.mk_concat(y, y), m);
+    rhs = su.str.mk_concat(rhs, z);
+    rhs = su.str.mk_concat(rhs, su.str.mk_string(zstring("ba")));
+
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+}
+
+// UNSAT, and reached only because eq_split fires: the modifier spent a long
+// time unable to execute at all (its split condition was unsatisfiable), and
+// without it the Nielsen search diverges on this equation — 8000+ nodes and
+// still running after a minute.  This is the regression test for that.
+static void test_nseq_eq_split_e2e_unsat() {
+    std::cout << "test_nseq_eq_split_e2e_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    smt::context ctx(m, params);
+    assert_eq_split_eq(ctx, m);
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// eq_split must not refute a satisfiable equation.  x·"ab"·y == y·"ab"·x is
+// solved by x = y (in particular x = y = ""), yet it offers split points on
+// both sides together with a syntactically zero length identity — the
+// configuration in which the split is least constrained, and the one in which
+// an off-by-one in which side receives the padding shows up as sat -> unsat.
+static void test_nseq_eq_split_sat_guard() {
+    std::cout << "test_nseq_eq_split_sat_guard\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    smt::context ctx(m, params);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref x(m.mk_const(symbol("x"), str_sort), m);
+    const expr_ref y(m.mk_const(symbol("y"), str_sort), m);
+    expr_ref lhs(su.str.mk_concat(x, su.str.mk_string(zstring("ab"))), m);
+    lhs = su.str.mk_concat(lhs, y);
+    expr_ref rhs(su.str.mk_concat(y, su.str.mk_string(zstring("ab"))), m);
+    rhs = su.str.mk_concat(rhs, x);
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
+// A split point may not sit at either side's endpoint: the "prefix" would be
+// the whole side and the suffix empty, so the first new equation is just the
+// original with a renamed tail.  eq_split emits a single progress child, so
+// that child re-derives its own parent and the node is closed as unsat by the
+// memo.  "a"·z == z·"a" is satisfiable (z = "" among others) and was reported
+// unsat while such splits were accepted.
+static void test_nseq_eq_split_no_endpoint_split() {
+    std::cout << "test_nseq_eq_split_no_endpoint_split\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    smt::context ctx(m, params);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref z(m.mk_const(symbol("z"), str_sort), m);
+    const expr_ref lhs(su.str.mk_concat(su.str.mk_string(zstring("a")), z), m);
+    const expr_ref rhs(su.str.mk_concat(z, su.str.mk_string(zstring("a"))), m);
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -385,5 +480,8 @@ void tst_nseq_basic() {
     test_nseq_fine_wilf_e2e_unsat();
     test_nseq_fine_wilf_e2e_sat();
     test_nseq_fine_wilf_option_off();
+    test_nseq_eq_split_e2e_unsat();
+    test_nseq_eq_split_sat_guard();
+    test_nseq_eq_split_no_endpoint_split();
     std::cout << "nseq_basic: all tests passed\n";
 }
