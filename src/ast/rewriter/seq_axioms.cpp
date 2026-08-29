@@ -1187,6 +1187,41 @@ namespace seq {
     }
 
     /**
+       let e = s^n
+
+       n <= 0    => e = empty
+       s = empty => e = empty
+       n > 0     => len(e) = n * len(s)
+
+       The unfolding into a concatenation is only added on demand, see power_unfold_axiom.
+    */
+    void axioms::power_axiom(expr* e) {
+        expr* s = nullptr, *n = nullptr;
+        VERIFY(seq.str.is_power(e, s, n));
+        expr_ref emp(seq.str.mk_empty(e->get_sort()), m);
+        expr_ref n_ge_1 = mk_ge(n, 1);
+        add_clause(n_ge_1, mk_eq(e, emp));
+        add_clause(~mk_eq(s, emp), mk_eq(e, emp));
+        add_clause(~n_ge_1, mk_eq(mk_len(e), a.mk_mul(n, mk_len(s))));
+    }
+
+    /**
+       n = j => s^n = s ++ .. ++ s (j copies), for 1 <= j <= k
+
+       The exponent is bounded by k thanks to the length limit of e, so the
+       cases below are exhaustive for the current unfolding depth.
+    */
+    void axioms::power_unfold_axiom(expr* e, unsigned k) {
+        expr* s = nullptr, *n = nullptr;
+        VERIFY(seq.str.is_power(e, s, n));
+        expr_ref pow(s, m);
+        for (unsigned j = 1; j <= k; ++j) {
+            add_clause(~mk_eq(n, a.mk_int(j)), mk_seq_eq(e, pow));
+            pow = mk_concat(s, pow);
+        }
+    }
+
+    /**
        suffix(s, t):
        - the sequence s is a suffix of t.
 
@@ -1351,7 +1386,9 @@ namespace seq {
 
     expr_ref axioms::length_limit(expr* s, unsigned k) {
         expr_ref bound_tracker = m_sk.mk_length_limit(s, k);
-        expr* s0 = nullptr;
+        expr* s0 = nullptr, *n = nullptr;
+        if (seq.str.is_power(s, s0, n))
+            add_clause(~bound_tracker, mk_le(n, k));
         if (seq.str.is_stoi(s, s0)) 
             s = s0;
         add_clause(~bound_tracker, mk_le(mk_len(s), k));

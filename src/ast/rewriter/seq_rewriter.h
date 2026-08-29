@@ -87,6 +87,7 @@ class seq_rewriter {
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
     bool m_coalesce_chars = true;
+    unsigned m_max_power_expansion = 2;
     bool           m_in_bisim { false };   
     unsigned       m_re_deriv_depth { 0 };
     static const unsigned m_max_re_deriv_depth = 512;
@@ -148,6 +149,7 @@ class seq_rewriter {
     br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
+    br_status mk_seq_power(expr* a, expr* b, expr_ref& result);
     expr_ref mk_len(rational const& offset, expr_ref_vector const& xs);
     bool extract_pop_suffix(expr_ref_vector const& as, expr* b, expr* c, expr_ref& result);
     bool extract_push_offset(expr_ref_vector const& as, expr* b, expr* c, expr_ref& result);
@@ -280,6 +282,7 @@ public:
         m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m),
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m) {
+        updt_params(p);
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }

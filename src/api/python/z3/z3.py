@@ -11942,6 +11942,16 @@ def Length(s):
     s = _coerce_seq(s)
     return ArithRef(Z3_mk_seq_length(s.ctx_ref(), s.as_ast()), s.ctx)
 
+def SeqPower(s, n):
+    """Concatenate the sequence 's' with itself 'n' times. It is the empty sequence for n <= 0
+    >>> p = SeqPower(StringVal("ab"), 2)
+    >>> simplify(p)
+    "abab"
+    """
+    s = _coerce_seq(s)
+    n = _py2expr(n, s.ctx)
+    return SeqRef(Z3_mk_seq_power(s.ctx_ref(), s.as_ast(), n.as_ast()), s.ctx)
+
 def SeqMap(f, s):
     """Map function 'f' over sequence 's'"""
     ctx = _get_ctx2(f, s)

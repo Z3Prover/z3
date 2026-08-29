@@ -496,6 +496,7 @@ namespace sls {
             case OP_SEQ_MAPI:
             case OP_SEQ_FOLDL:
             case OP_SEQ_FOLDLI:           
+            case OP_SEQ_POWER:
             case OP_RE_DERIVATIVE:
             case OP_STRING_ITOS:
             case OP_STRING_FROM_CODE:
@@ -1286,6 +1287,7 @@ namespace sls {
         case OP_SEQ_MAPI:
         case OP_SEQ_FOLDL:
         case OP_SEQ_FOLDLI:
+        case OP_SEQ_POWER:
 
         case OP_SEQ_TO_RE:
         case OP_RE_PLUS:            
