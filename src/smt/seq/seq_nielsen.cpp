@@ -1114,7 +1114,6 @@ namespace seq {
         st.update("nseq extensions",      m_stats.m_num_extensions);
         st.update("nseq fresh vars",      m_stats.m_num_fresh_vars);
         st.update("nseq arith prune",     m_stats.m_num_arith_infeasible);
-        st.update("nseq positional clash", m_stats.m_num_positional_clash);
         st.update("nseq max depth",       m_stats.m_max_depth);
 
         // modifier breakdown
