@@ -2009,6 +2009,10 @@ sig
   (** length of a sequence *)
   val mk_seq_length : context -> Expr.expr -> Expr.expr
 
+  (** [mk_seq_power ctx s n] is [s] concatenated [n] times with itself,
+      it is the empty sequence when [n] is not positive *)
+  val mk_seq_power : context -> Expr.expr -> Expr.expr -> Expr.expr
+
   (** [mk_seq_nth ctx s index] retrieves from [s] the element at position [index].
       The function is under-specified if the index is out of bounds. *)
   val mk_seq_nth : context -> Expr.expr -> Expr.expr -> Expr.expr

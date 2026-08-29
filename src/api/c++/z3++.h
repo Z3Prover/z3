@@ -1707,6 +1707,12 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
+        expr power(expr const& n) const {
+            check_context(*this, n);
+            Z3_ast r = Z3_mk_seq_power(ctx(), *this, n);
+            check_error();
+            return expr(ctx(), r);
+        }
         expr stoi() const {
             Z3_ast r = Z3_mk_str_to_int(ctx(), *this);
             check_error();
