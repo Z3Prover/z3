@@ -263,7 +263,7 @@ namespace smt {
         //
         // -----------------------------------
 
-        inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
+        inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker) override;
         inf_eps_rational<inf_rational> value(theory_var v) override;
         theory_var add_objective(app* term) override;
         virtual expr_ref mk_gt(theory_var v, inf_eps const& val);
@@ -293,5 +293,4 @@ namespace smt {
     typedef theory_dense_diff_logic<smi_ext> theory_dense_smi;
     typedef theory_dense_diff_logic<si_ext>  theory_dense_si;
 }
-
 

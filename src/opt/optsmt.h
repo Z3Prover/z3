@@ -38,6 +38,7 @@ namespace opt {
         expr_ref_vector  m_lower_fmls;
         svector<smt::theory_var> m_vars;
         symbol           m_optsmt_engine;
+        unsigned         m_bisect_rounds = 64;
         model_ref        m_model, m_best_model;
         svector<symbol>  m_labels;
         sref_vector<model> m_models;
@@ -82,6 +83,10 @@ namespace opt {
         lbool symba_opt();
 
         lbool geometric_lex(unsigned idx, bool is_maximize, bool is_box = false);
+
+        lbool bisect(unsigned idx, bool is_maximize, inf_eps hi);
+
+        void set_best(unsigned idx, inf_eps const& v, bool is_maximize);
 
         void set_max(vector<inf_eps>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls);
 

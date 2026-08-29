@@ -1859,7 +1859,7 @@ namespace smt {
     }
 
     void context::set_conflict(const b_justification & js, literal not_l) {
-        if (!inconsistent()) {
+        if (m_conflict == null_b_justification) {
             TRACE(set_conflict, display_literal_verbose(tout << m_scope_lvl << " ", not_l); display(tout << " ", js); );
             m_conflict = js;
             m_not_l    = not_l;
@@ -3377,7 +3377,7 @@ namespace smt {
             if (get_cancel_flag()) 
                 return;
             if (m_asserted_formulas.inconsistent()) {
-                if (!inconsistent())
+                if (m_conflict == null_b_justification)
                     asserted_inconsistent();
                 break;
             }

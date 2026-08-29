@@ -92,18 +92,18 @@ namespace smt {
         enode_vector m_as_array;
         enode_vector m_lambdas;
         bool has_non_beta_as_array();
-        bool is_congruent_eq(enode* p);
+        bool is_supported_array_eq(enode* p);
 
         bool instantiate_select_const_axiom(enode* select, enode* cnst);
         bool instantiate_select_as_array_axiom(enode* select, enode* arr);
         bool instantiate_select_map_axiom(enode* select, enode* map);
-        bool instantiate_select_lambda_axiom(enode *select, enode *lambda);
-
         bool instantiate_axiom_map_for(theory_var v);
 
 
         bool try_assign_eq(expr* n1, expr* n2);
         void assign_eqs();
+
+        lbool check_const_arrays();
 
         
     public:
@@ -120,4 +120,3 @@ namespace smt {
     };
 
 }
-

@@ -205,8 +205,11 @@ namespace smt {
         TRACE(array, tout << "axiom 2a: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
         SASSERT(is_store(store) || is_lambda(store->get_expr()));
-        if (assert_store_axiom2(store, select))
+        if (assert_store_axiom2(store, select)) {
             m_stats.m_num_axiom2a++;
+            if (is_lambda(store->get_expr()))
+                m_stats.m_num_select_lambda_axiom++;
+        }
     }
 
     bool theory_array::instantiate_axiom2b(enode * select, enode * store) {
@@ -215,6 +218,8 @@ namespace smt {
         SASSERT(is_store(store) || is_lambda(store->get_expr()));
         if (assert_store_axiom2(store, select)) {
             m_stats.m_num_axiom2b++;
+            if (is_lambda(store->get_expr()))
+                m_stats.m_num_select_lambda_axiom++;
             return true;
         }
         return false;

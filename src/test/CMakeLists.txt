@@ -71,6 +71,7 @@ add_executable(test-z3
   heap_trie.cpp
   hilbert_basis.cpp
   ho_matcher.cpp
+  ho_qsolver.cpp
   horn_subsume_model_converter.cpp
   horner.cpp
   hwf.cpp
@@ -118,6 +119,7 @@ add_executable(test-z3
   seq_regex_bisim.cpp
   proof_checker.cpp
   qe_arith.cpp
+  qe_lite.cpp
   mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp
@@ -134,6 +136,8 @@ add_executable(test-z3
   scoped_vector.cpp
   seq_power.cpp
   seq_rewriter.cpp
+  seq_eq_approx.cpp
+  seq_regex_witness.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp
   simple_parser.cpp
@@ -158,6 +162,7 @@ add_executable(test-z3
   theory_pb.cpp
   timeout.cpp
   tptp.cpp
+  tptp_crashes.cpp
   total_order.cpp
   totalizer.cpp
   trigo.cpp

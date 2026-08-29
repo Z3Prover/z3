@@ -101,7 +101,7 @@ bool explanations::explain_ineq(lemma_builder& lemma, const lp::lar_term& t, llc
     if (t.is_empty() && rs.is_zero() &&
         (cmp == llc::LT || cmp == llc::GT || cmp == llc::NE)) return true;
     lp::explanation exp;
-    bool r;
+    bool r = false;
     switch (negate(cmp)) {
     case llc::LE:
         r = explain_upper_bound(t, rs, exp);

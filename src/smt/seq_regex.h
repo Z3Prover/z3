@@ -19,6 +19,7 @@ Author:
 #include "util/scoped_vector.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/rewriter/seq_eq_approx.h"
 #include "ast/rewriter/seq_regex_live.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
@@ -149,6 +150,8 @@ namespace smt {
         unsigned                          m_monadic_assumption_generation = UINT_MAX;
         unsigned                          m_monadic_fallback_generation = UINT_MAX;
 
+        // over-approximation of theory_seq's word equations, run as a conflict detector
+        seq_eq_approx                     m_eq_approx;
         seq::live_states               m_live_states;
         /* map from uninterpreted regex constants to assigned regex expressions by EQ */
         // expr_map                       m_const_to_expr;
@@ -267,9 +270,6 @@ namespace smt {
         // accumulating (into deps, a theory_seq::dependency* held as void*) the equalities
         // used to canonize any participating membership term.
         void add_core_literal(void* dep, literal_vector& lits, void*& deps);
-        // Whether every literal is currently assigned true, i.e. whether the negated
-        // clause is a legitimate theory conflict.
-        bool all_true(literal_vector const& lits) const;
         void propagate_accept_legacy(literal lit, expr* s, expr* r);
         void propagate_length_residue(literal lit, expr* s, expr* r);
 
@@ -294,8 +294,15 @@ namespace smt {
         void pop_scope(unsigned num_scopes) {}
         bool can_propagate() const { return false; }
         bool propagate() const { return false; }
+        // theory_seq enters the regex solver twice per final check.  Once early, through
+        // check_equation_conflict, while the word equations are still unsolved; and once at
+        // the end, through final_check, for the membership end-game.
         final_check_status final_check();
-        void collect_statistics(::statistics& st) const { m_monadic.collect_statistics(st); }
+        // Refute a word equation of theory_seq against the asserted memberships, read as
+        // views over their regexes.  True when a conflict (or a blocking clause) was
+        // reported.
+        bool check_equation_conflict();
+        void collect_statistics(::statistics& st) const { m_monadic.collect_statistics(st); m_eq_approx.collect_statistics(st); }
 
         void propagate_in_re(literal lit);
 

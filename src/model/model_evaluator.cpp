@@ -335,6 +335,14 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
         expr_ref tmp(m);
         func_interp* fi = m_model.get_func_interp(g);
+        family_id gfid = g->get_family_id();
+        bool g_is_uninterp = gfid == null_family_id || m.get_plugin(gfid)->is_considered_uninterpreted(g);
+        if (!fi && g_is_uninterp) {
+            fi = alloc(func_interp, m, g->get_arity());
+            fi->set_else(m_model.get_some_value(g->get_range()));
+            m_model.register_decl(g, fi);
+            fi = m_model.get_func_interp(g);
+        }
         if (fi && !fi->get_else()) {
             fi->set_else(m_model.get_some_value(g->get_range()));
         }

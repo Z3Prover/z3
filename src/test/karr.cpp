@@ -294,7 +294,7 @@ namespace karr {
 
     }
 
-};
+}
 
 void tst_karr() {
     karr::tst3();

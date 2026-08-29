@@ -1,5 +1,8 @@
 RELEASE NOTES
 
+Version 5.2.0
+==============
+
 Version 5.1.0
 ==============
 - New monadic regex solver enabled by default (`smt.seq.regex_monadic=true`).

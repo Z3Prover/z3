@@ -159,7 +159,7 @@ class theory_lra::imp {
     vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
-    u_map<api_bound*>      m_bool_var2bound;
+    ptr_vector<api_bound>  m_bool_var2bound;   // indexed by bool_var (dense); nullptr = absent
     vector<lp_bounds>      m_bounds;
     unsigned_vector        m_unassigned_bounds;
     unsigned_vector        m_bounds_trail;
@@ -486,8 +486,12 @@ class theory_lra::imp {
                         theory_var rv = mk_var(n);
                         m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
                     }
-                    if (!a.is_numeral(n2) && is_app(n1) && is_app(n2)) {
-                        // register mod(x, y) with variable divisor for divisibility reasoning
+                    if (!a.is_numeral(n2) && !a.is_zero(n1) && is_app(n1) && is_app(n2)) {
+                        // register mod(x, y) with variable divisor for divisibility reasoning;
+                        // skip a zero dividend: mk_idiv_mod_axioms already forces
+                        // y != 0 => mod(0, y) = 0 and div(0, y) = 0 by linear axioms, so
+                        // divisibility closure adds nothing and ensure_nla() here would
+                        // pull an otherwise linear problem into the nonlinear solver
                         ensure_nla();
                         if (m_nla) {
                             app_ref div(a.mk_idiv(n1, n2), m);
@@ -509,7 +513,9 @@ class theory_lra::imp {
                     if (!ctx().relevancy()) mk_rem_axiom(n1, n2);                    
                 }
                 else if (a.is_div(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
+                    expr_ref divisor(n2, m);
+                    ctx().get_rewriter()(divisor);
+                    if (!a.is_numeral(divisor, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
@@ -948,7 +954,8 @@ public:
         lp_api::bound_kind k;
         theory_var v = null_theory_var;
         bool_var bv = ctx().mk_bool_var(atom);
-        m_bool_var2bound.erase(bv);
+        if (bv < m_bool_var2bound.size())
+            m_bool_var2bound[bv] = nullptr;
         ctx().set_var_theory(bv, get_id());
         if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n2, r) && is_app(n1)) {
             v = internalize_def(to_app(n1));
@@ -988,7 +995,7 @@ public:
         m_bounds[v].push_back(b);
         updt_unassigned_bounds(v, +1);
         m_bounds_trail.push_back(v);
-        m_bool_var2bound.insert(bv, b);
+        m_bool_var2bound.setx(bv, b, nullptr);
         mk_bound_axioms(*b);
         TRACE(arith_internalize, tout << "Internalized " << bv << ": " << bpp(atom) << "\n";);
         return true;
@@ -1026,8 +1033,8 @@ public:
     }
 
     lbool get_phase(bool_var v) {
-        api_bound* b;
-        if (!m_bool_var2bound.find(v, b)) {
+        api_bound* b = m_bool_var2bound.get(v, nullptr);
+        if (!b) {
             return l_undef;
         }
         lp::lconstraint_kind k = lp::EQ;
@@ -2289,10 +2296,10 @@ public:
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
             auto [bv, is_true] = m_asserted_atoms[m_asserted_qhead];
                         
-            api_bound* b = nullptr;
+            api_bound* b = m_bool_var2bound.get(bv, nullptr);
             TRACE(arith, tout << "propagate: " << literal(bv, !is_true) << "\n";
-                  if (!m_bool_var2bound.contains(bv)) tout << "not found\n");
-            if (m_bool_var2bound.find(bv, b) && !assert_bound(bv, is_true, *b)) {
+                  if (!b) tout << "not found\n");
+            if (b && !assert_bound(bv, is_true, *b)) {
                 get_infeasibility_explanation_and_set_conflict();
                 return true;
             }
@@ -4185,7 +4192,7 @@ public:
         return false;
     }
 
-    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::impq const& term_max, lp::lp_status st, expr_ref& blocker, bool& has_shared) {
+    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::impq const& term_max, lp::lp_status st, expr_ref& blocker) {
         switch (st) {
         case lp::lp_status::OPTIMAL:
             init_variable_values();
@@ -4199,13 +4206,12 @@ public:
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
             TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());
         }
     }
 
-    theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
+    theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker) {
         unsigned level = 2;
         lp::impq term_max;
         lp::lp_status st;
@@ -4226,7 +4232,7 @@ public:
             if (max_with_nl(v, st, level, blocker, nl_result))
                 return nl_result;
         }
-        return max_result(v, vi, term_max, st, blocker, has_shared);
+        return max_result(v, vi, term_max, st, blocker);
     }
 
     expr_ref mk_gt(theory_var v) {
@@ -4396,7 +4402,8 @@ public:
         if (!ctx().b_internalized(b)) {
             fm.hide(b->get_decl());
             bool_var bv =  ctx().mk_bool_var(b);
-            m_bool_var2bound.erase(bv);
+            if (bv < m_bool_var2bound.size())
+                m_bool_var2bound[bv] = nullptr;
             ctx().set_var_theory(bv, get_id());
             // ctx().set_enode_flag(bv, true);
             lp_api::bound_kind bkind = lp_api::bound_kind::lower_t;
@@ -4407,7 +4414,7 @@ public:
             updt_unassigned_bounds(v, +1);
             m_bounds[v].push_back(a);
             m_bounds_trail.push_back(v);
-            m_bool_var2bound.insert(bv, a);
+            m_bool_var2bound.setx(bv, a, nullptr);
 
             TRACE(arith, tout << "internalized " << bv << ": " << mk_pp(b, m) << "\n";);
         }
@@ -4654,8 +4661,8 @@ void theory_lra::collect_statistics(::statistics & st) const {
 theory_lra::inf_eps theory_lra::value(theory_var v) {
     return m_imp->value(v);
 }
-theory_lra::inf_eps theory_lra::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
-    return m_imp->maximize(v, blocker, has_shared);
+theory_lra::inf_eps theory_lra::maximize(theory_var v, expr_ref& blocker) {
+    return m_imp->maximize(v, blocker);
 }
 theory_var theory_lra::add_objective(app* term) {
     return m_imp->add_objective(term);

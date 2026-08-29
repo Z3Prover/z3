@@ -119,6 +119,8 @@
     X(regex_range_collapse) \
     X(seq_rewriter) \
     X(seq_power) \
+    X(seq_eq_approx) \
+    X(seq_regex_witness) \
     X(seq_monadic) \
     X(seq_monadic_bench) \
     X(check_assumptions) \
@@ -126,6 +128,7 @@
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
+    X(mbp_qel) \
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
@@ -146,6 +149,7 @@
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
     X(tptp) \
+    X(tptp_crashes) \
     X(ext_numeral) \
     X(interval) \
     X(value_generator) \
@@ -172,7 +176,7 @@
     X(rcf) \
     X(polynorm) \
     X(qe_arith) \
-    X(mbp_qel) \
+    X(qe_lite) \
     X(expr_substitution) \
     X(sorting_network) \
     X(theory_pb) \
@@ -200,6 +204,7 @@
     X(scoped_vector) \
     X(sls_seq_plugin) \
     X(ho_matcher) \
+    X(ho_qsolver) \
     X(finite_set) \
     X(finite_set_rewriter) \
     X(seq_regex_bisim) \
