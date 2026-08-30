@@ -15,6 +15,10 @@ Version 5.1.0
   Thanks to Margus Veanes.
   https://github.com/Z3Prover/z3/pull/10519, https://github.com/Z3Prover/z3/pull/10323,
   https://github.com/Z3Prover/z3/pull/10366
+- Add the sequence power operator `seq.power` (`str.power` on strings): `s^n` is the n-fold
+  concatenation of `s` and the empty sequence for `n <= 0`. It is available over SMT-LIB,
+  as `Z3_mk_seq_power` and in the C++, .NET, Java, OCaml, Python and JavaScript bindings.
+  The rewriter expands powers up to an exponent of `rewriter.max_power_expansion`.
 - FPA rewriter simplifications for `fma` with zero multiplier. Fixes #8185.
   Thanks to Lev Nachmanson.
   https://github.com/Z3Prover/z3/pull/9038

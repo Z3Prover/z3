@@ -2398,6 +2398,15 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Retrieve the sequence s concatenated n times with itself.
+     */
+    public final <R extends Sort> SeqExpr<R> mkSeqPower(Expr<SeqSort<R>> s, Expr<IntSort> n)
+    {
+        checkContextMatch(s, n);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqPower(nCtx(), s.getNativeObject(), n.getNativeObject()));
+    }
+
+    /**
      * Check for sequence prefix.
      */
     public final <R extends Sort> BoolExpr mkPrefixOf(Expr<SeqSort<R>> s1, Expr<SeqSort<R>> s2)

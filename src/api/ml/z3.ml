@@ -1302,6 +1302,7 @@ struct
   let mk_seq_replace_re_all = Z3native.mk_seq_replace_re_all
   let mk_seq_at = Z3native.mk_seq_at
   let mk_seq_length = Z3native.mk_seq_length
+  let mk_seq_power = Z3native.mk_seq_power
   let mk_seq_nth = Z3native.mk_seq_nth
   let mk_seq_index = Z3native.mk_seq_index
   let mk_seq_last_index = Z3native.mk_seq_last_index
