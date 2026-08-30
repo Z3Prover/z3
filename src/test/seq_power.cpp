@@ -22,6 +22,7 @@ static void tst_power_rewriter() {
     sort* str_sort = seq.str.mk_string_sort();
     app_ref x(m.mk_const("x", str_sort), m);
     app_ref n(m.mk_const("n", a.mk_int()), m);
+    app_ref k(m.mk_const("k", a.mk_int()), m);
     expr_ref emp(seq.str.mk_empty(str_sort), m);
 
     auto power = [&](expr* s, expr* k) { return expr_ref(seq.str.mk_power(s, k), m); };
@@ -60,6 +61,14 @@ static void tst_power_rewriter() {
 
     // symbolic exponents are not touched
     ENSURE(seq.str.is_power(simp(power(x, n))));
+
+    // equality rewrites for powers
+    ENSURE(simp(expr_ref(m.mk_eq(power(x, n), emp), m)) ==
+           simp(expr_ref(m.mk_or(a.mk_le(n, a.mk_int(0)), m.mk_eq(x, emp)), m)));
+    ENSURE(simp(expr_ref(m.mk_eq(power(x, n), power(x, k)), m)) ==
+           simp(expr_ref(m.mk_or(m.mk_eq(x, emp),
+                                 m.mk_and(a.mk_le(n, a.mk_int(0)), a.mk_le(k, a.mk_int(0))),
+                                 m.mk_and(a.mk_lt(a.mk_int(0), n), a.mk_lt(a.mk_int(0), k), m.mk_eq(n, k))), m)));
 }
 
 static lbool check(ast_manager& m, expr_ref_vector const& fmls) {
@@ -82,26 +91,26 @@ static void tst_power_solver() {
     expr_ref ab(seq.str.mk_string(zstring("ab")), m);
     expr_ref_vector fmls(m);
 
-    // "ab"^n = "abab" has the solution n = 2
+    // symbolic exponents are unsupported by theory_seq
     fmls.push_back(m.mk_eq(seq.str.mk_power(ab, n), seq.str.mk_string(zstring("abab"))));
-    ENSURE(check(m, fmls) == l_true);
+    ENSURE(check(m, fmls) == l_undef);
 
-    // the length of "ab"^n is even
+    // symbolic exponents are unsupported by theory_seq
     fmls.reset();
     fmls.push_back(m.mk_eq(seq.str.mk_power(ab, n), seq.str.mk_string(zstring("aba"))));
-    ENSURE(check(m, fmls) == l_false);
+    ENSURE(check(m, fmls) == l_undef);
 
-    // x^n is empty for n <= 0
+    // symbolic exponents are unsupported by theory_seq
     fmls.reset();
     fmls.push_back(a.mk_le(n, a.mk_int(0)));
     fmls.push_back(m.mk_eq(seq.str.mk_power(x, n), seq.str.mk_string(zstring("a"))));
-    ENSURE(check(m, fmls) == l_false);
+    ENSURE(check(m, fmls) == l_undef);
 
-    // x^n = "aaaa" with |x| = 2 has the solution x = "aa", n = 2
+    // symbolic exponents are unsupported by theory_seq
     fmls.reset();
     fmls.push_back(m.mk_eq(seq.str.mk_power(x, n), seq.str.mk_string(zstring("aaaa"))));
     fmls.push_back(m.mk_eq(seq.str.mk_length(x), a.mk_int(2)));
-    ENSURE(check(m, fmls) == l_true);
+    ENSURE(check(m, fmls) == l_undef);
 }
 
 void tst_seq_power() {

@@ -4620,6 +4620,16 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     bool changed = false;
     if (reduce_eq_empty(l, r, result)) 
         return BR_REWRITE_FULL;
+    expr* s1 = nullptr, *n1 = nullptr, *s2 = nullptr, *n2 = nullptr;
+    if (str().is_power(l, s1, n1) && str().is_power(r, s2, n2) && s1 == s2) {
+        expr* emp = str().mk_empty(s1->get_sort());
+        expr_ref_vector disj(m());
+        disj.push_back(m().mk_eq(s1, emp));
+        disj.push_back(m().mk_and(m_autil.mk_le(n1, zero()), m_autil.mk_le(n2, zero())));
+        disj.push_back(m().mk_and(m_autil.mk_lt(zero(), n1), m_autil.mk_lt(zero(), n2), m().mk_eq(n1, n2)));
+        result = m().mk_or(disj);
+        return BR_REWRITE_FULL;
+    }
 
     // a, b are unit-length ground strings => replace_all(x, a, b) in re.to_re(s)
     {
@@ -5280,6 +5290,14 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
     }
     if (str().is_itos(r, s)) {
         result = m_autil.mk_lt(s, zero());
+        return true;
+    }
+    expr* n = nullptr;
+    if (str().is_power(r, s, n)) {
+        expr_ref_vector disj(m());
+        disj.push_back(m_autil.mk_le(n, zero()));
+        disj.push_back(m().mk_eq(s, l));
+        result = m().mk_or(disj);
         return true;
     }
     // at(s, offset) = "" <=> len(s) <= offset or offset < 0
