@@ -1021,6 +1021,7 @@ namespace smt {
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_block_compression(get_fparams().m_nseq_block_compression);
                 m_nielsen.set_fine_wilf(get_fparams().m_nseq_fine_wilf);
+                m_nielsen.set_abelian(get_fparams().m_nseq_abelian);
                 m_nielsen.set_monadic_split(get_fparams().m_nseq_monadic_split);
                 m_nielsen.set_monadic_landing(get_fparams().m_nseq_monadic_landing);
                 m_nielsen.set_monadic_leaf(get_fparams().m_nseq_monadic_leaf);

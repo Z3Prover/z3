@@ -502,6 +502,94 @@ static void test_nseq_max_nodes_gives_up() {
     std::cout << "  ok: unknown\n";
 }
 
+// The abelian (per-letter count) rule.  b·z·y·y == y·y·z·a is the canonical
+// case where nseq diverges: the two sides have identical length, the free z
+// keeps the constants from ever meeting, and substituting y -> b·y' adds a
+// constant to both occurrences on each side while only one cancels, so the
+// equation grows by two constants per peel and no state ever repeats.  Every
+// variable occurs equally often on both sides, so the length row degenerates
+// to 0 = 0 -- but letter 'a' alone gives 0 = 1.
+static void assert_abelian_eq(smt::context& ctx, ast_manager& m,
+                              char const* lhs_head, char const* rhs_tail) {
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref y(m.mk_const(symbol("y"), str_sort), m);
+    const expr_ref z(m.mk_const(symbol("z"), str_sort), m);
+    const expr_ref lhs(
+        su.str.mk_concat(su.str.mk_concat(su.str.mk_string(zstring(lhs_head)), z),
+                         su.str.mk_concat(y, y)), m);
+    const expr_ref rhs(
+        su.str.mk_concat(su.str.mk_concat(y, y),
+                         su.str.mk_concat(z, su.str.mk_string(zstring(rhs_tail)))), m);
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+}
+
+static void test_nseq_abelian_e2e_unsat() {
+    std::cout << "test_nseq_abelian_e2e_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    SASSERT(!params.m_nseq_abelian); // opt-in
+    params.m_nseq_abelian = true;
+    smt::context ctx(m, params);
+    assert_abelian_eq(ctx, m, "b", "a");
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// Same shape with multi-character literals, so the scan has to count inside a
+// zstring rather than only over single units.  "ab" vs "aa" balances in total
+// length (and even in the 'a' count of the length row) but not per letter.
+static void test_nseq_abelian_multichar_unsat() {
+    std::cout << "test_nseq_abelian_multichar_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_abelian = true;
+    smt::context ctx(m, params);
+    assert_abelian_eq(ctx, m, "ab", "aa");
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// The rule must not over-refute.  Making the two literals agree turns the same
+// shape satisfiable (y = z = ""), and every letter now balances, so the abelian
+// check has to stay silent.
+static void test_nseq_abelian_sat_guard() {
+    std::cout << "test_nseq_abelian_sat_guard\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_abelian = true;
+    smt::context ctx(m, params);
+    assert_abelian_eq(ctx, m, "b", "b");
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
+// ... and with the option off the same instance is undecided, which is what
+// makes the refutation above attributable to the rule rather than to some
+// other pass.  A node budget is needed only to make the divergence terminate.
+static void test_nseq_abelian_option_off() {
+    std::cout << "test_nseq_abelian_option_off\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_max_nodes = 500;
+    smt::context ctx(m, params);
+    assert_abelian_eq(ctx, m, "b", "a");
+    const lbool r = ctx.check();
+    SASSERT(r == l_undef);
+    std::cout << "  ok: unknown\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -521,5 +609,9 @@ void tst_nseq_basic() {
     test_nseq_eq_split_sat_guard();
     test_nseq_eq_split_no_endpoint_split();
     test_nseq_max_nodes_gives_up();
+    test_nseq_abelian_e2e_unsat();
+    test_nseq_abelian_multichar_unsat();
+    test_nseq_abelian_sat_guard();
+    test_nseq_abelian_option_off();
     std::cout << "nseq_basic: all tests passed\n";
 }

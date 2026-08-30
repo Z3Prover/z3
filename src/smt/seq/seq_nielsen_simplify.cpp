@@ -882,6 +882,20 @@ namespace seq {
                 return set_simplify_conflict(backtrack_reason::regex_widening, dep);
         }
 
+        // Abelian (per-letter count) refutation.  A pure check -- it neither
+        // rewrites nor branches -- so it runs once, after the fixpoint above
+        // has normalized the equations.  Opt-in via smt.nseq.abelian.
+        if (m_graph.abelian_enabled()) {
+            for (str_eq const& eq : m_str_eq) {
+                if (abelian_refutes(eq)) {
+                    ++m_graph.m_stats.m_abelian;
+                    TRACE(seq, tout << "abelian refutation "
+                                    << spp(eq.m_lhs, m) << " = " << spp(eq.m_rhs, m) << "\n");
+                    return set_simplify_conflict(backtrack_reason::abelian, eq.m_dep);
+                }
+            }
+        }
+
         // Simplification ran to completion: memoize.  Constraint additions made
         // DURING the passes cleared the stamp; setting it here (last) makes the
         // completed state authoritative.  Conflict paths return early and stay
@@ -895,6 +909,81 @@ namespace seq {
             return simplify_result::satisfied;
         }
         return simplify_result::proceed;
+    }
+
+    bool nielsen_node::abelian_refutes(str_eq const& eq) const {
+        auto gcd2 = [](unsigned a, unsigned b) {
+            while (b != 0) { unsigned t = a % b; a = b; b = t; }
+            return a;
+        };
+        seq_util& seq = this->graph().seq();
+
+        // delta[c] = (#c among RHS literals) - (#c among LHS literals)
+        // bal[id]  = (occurrences of token id on the LHS) - (on the RHS)
+        u_map<int> delta, bal;
+
+        auto scan = [&](euf::snode const* side, int sign) {
+            euf::snode_vector toks;
+            side->collect_tokens(toks);
+            for (euf::snode const* t : toks) {
+                expr* e = t->get_expr();
+                zstring s;
+                unsigned ch = 0;
+                expr* u = nullptr;
+                if (e && seq.str.is_string(e, s)) {
+                    for (unsigned i = 0; i < s.length(); ++i) {
+                        const unsigned c = s[i];
+                        delta.insert_if_not_there(c, 0);
+                        delta[c] -= sign;
+                    }
+                }
+                else if (e && seq.str.is_unit(e, u) && seq.is_const_char(u, ch)) {
+                    delta.insert_if_not_there(ch, 0);
+                    delta[ch] -= sign;
+                }
+                else {
+                    // Opaque: some string, unknown contents, but the same
+                    // string at every occurrence of this snode.
+                    const unsigned id = t->id();
+                    bal.insert_if_not_there(id, 0);
+                    bal[id] += sign;
+                }
+            }
+        };
+        scan(eq.m_lhs, 1);
+        scan(eq.m_rhs, -1);
+
+        // g = gcd of the nonzero coefficients (0 when they all vanish);
+        // pos/neg record their signs for the non-negativity test.
+        unsigned g = 0;
+        bool pos = false, neg = false;
+        for (auto const& kv : bal) {
+            const int d = kv.m_value;
+            if (d == 0)
+                continue;
+            g = gcd2(g, (unsigned) std::abs(d));
+            if (d > 0) pos = true; else neg = true;
+        }
+
+        for (auto const& kv : delta) {
+            const int rhs = kv.m_value;
+            if (rhs == 0)
+                continue;
+            // All coefficients vanish: the variable contributions cancel and
+            // the literals alone must balance, so 0 = rhs != 0 is a conflict.
+            if (g == 0)
+                return true;
+            // Diophantine solvability: g must divide the right-hand side.
+            if (std::abs(rhs) % (int) g != 0)
+                return true;
+            // Counts are non-negative, so a strictly positive combination
+            // cannot reach a negative total, and vice versa.
+            if (!neg && rhs < 0)
+                return true;
+            if (!pos && rhs > 0)
+                return true;
+        }
+        return false;
     }
 
     bool nielsen_node::consume_view(str_mem& mem) {

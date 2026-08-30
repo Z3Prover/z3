@@ -80,6 +80,7 @@ namespace seq {
         extended,
         symbol_clash,
         parikh_image,
+        abelian,
         arithmetic,
         regex,
         sibling,
@@ -851,6 +852,30 @@ namespace seq {
         // Returns proceed, conflict, or satisfied.
         simplify_result simplify_and_init(ptr_vector<nielsen_edge> const& cur_path);
 
+        // Abelian (per-letter count) refutation of a single equation.
+        //
+        // Applying an assignment to both sides of L = R yields the same string,
+        // so for every letter c the counts agree.  Writing d_x for the
+        // difference in occurrences of token x between the sides and delta(c)
+        // for the difference in literal c-counts, every solution satisfies
+        //
+        //     sum_x d_x * n[x][c] = delta(c),   n[x][c] = #c(x) >= 0
+        //
+        // one independent linear Diophantine system per letter.  Returns true
+        // when some letter's system is unsolvable, which refutes the equation
+        // outright -- no branching, no substitution.
+        //
+        // Only tokens that are fully concrete are counted exactly; every other
+        // token is treated as an opaque non-negative unknown keyed by snode id.
+        // That is sound for ANY token (each denotes some string, and equal
+        // snodes denote equal strings); it merely makes the test weaker.
+        //
+        // Summing the per-letter rows reproduces the length equation, so this
+        // strictly refines length reasoning -- and it sees cases length cannot,
+        // such as b.z.y.y = y.y.z.a, where every d_x is 0 and the length row
+        // collapses to 0 = 0 while letter 'a' gives 0 = 1.
+        bool abelian_refutes(str_eq const& eq) const;
+
         // Consume leading concrete/symbolic characters of a land-state view
         // membership (paper §5.3): gate on Q_ν, step with the ordinary
         // derivative, keeping the annotation.  Returns true if the view died
@@ -959,6 +984,7 @@ namespace seq {
         unsigned m_mod_var_num_unwinding_eq = 0;
         unsigned m_mod_var_num_unwinding_mem = 0;
         unsigned m_ax_diseq = 0;
+        unsigned m_abelian = 0;
         // subsumption rule
         unsigned m_num_sibling_cut     = 0; // loop-cut leaves (deferred to an ancestor)
         unsigned m_num_sibling_closure = 0; // subtrees closed as string-only sibling conflicts
@@ -1029,6 +1055,7 @@ namespace seq {
         bool                          m_signature_split = false;
         unsigned                      m_block_compression = 4;
         bool                          m_fine_wilf = false;
+        bool                          m_abelian = false;
         bool                          m_monadic_split = false;
         bool                          m_monadic_landing = false;
         bool                          m_monadic_leaf = false;
@@ -1344,6 +1371,11 @@ namespace seq {
         void set_block_compression(unsigned cap) { m_block_compression = cap; }
 
         void set_fine_wilf(bool e) { m_fine_wilf = e; }
+
+        // enable/disable the abelian (per-letter count) refutation, see
+        // nielsen_node::abelian_refutes
+        void set_abelian(bool e) { m_abelian = e; }
+        bool abelian_enabled() const { return m_abelian; }
 
         void set_monadic_split(bool e) { m_monadic_split = e; }
         void set_monadic_landing(bool e) { m_monadic_landing = e; }

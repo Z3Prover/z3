@@ -261,6 +261,7 @@ struct smt_params : public preprocessor_params,
     unsigned m_nseq_block_compression = 4;
     bool m_nseq_signature = false;
     bool m_nseq_fine_wilf = false;
+    bool m_nseq_abelian = false;
     bool m_nseq_monadic_split = false;
     bool m_nseq_monadic_landing = false;
     bool m_nseq_monadic_leaf = false;
