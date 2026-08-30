@@ -109,6 +109,15 @@ namespace nlsat {
            \pre !is_full(s)
         */
         void pick_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize);
+
+        /**
+           \brief Pick the largest element of the complement of s.
+           Return false if the complement is unbounded above (w is not modified).
+           Otherwise sup is set to the supremum of the complement, and w to sup when
+           the supremum belongs to the complement (attained = true), or to some element
+           of the complement below sup when it does not (attained = false).
+        */
+        bool pick_max_in_complement(interval_set const * s, anum & w, anum & sup, bool & attained);
     };
 
     typedef obj_ref<interval_set, interval_set_manager> interval_set_ref;

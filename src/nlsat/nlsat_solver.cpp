@@ -275,7 +275,8 @@ namespace nlsat {
             m_scope_lvl(0),
             m_lemma(s),
             m_lazy_clause(s),
-            m_lemma_assumptions(m_asm) {
+            m_lemma_assumptions(m_asm),
+            m_max_sup(m_am) {
             updt_params(c.m_params);
             reset_statistics();
             mk_true_bvar();
@@ -1556,8 +1557,8 @@ namespace nlsat {
         ptr_vector<clause> clauses;
         bool process_boolean_clause(const clause & cls) {
             SASSERT(m_xk == null_var);
-            unsigned num_undef   = 0;
-            unsigned first_undef = UINT_MAX;
+            unsigned num_undef          = 0;
+            unsigned selected_undef_idx = UINT_MAX;
             unsigned sz = cls.size();
             for (unsigned i = 0; i < sz; ++i) {
                 literal l = cls[i];
@@ -1567,16 +1568,16 @@ namespace nlsat {
                     continue;
                 SASSERT(value(l) == l_undef);
                 num_undef++;
-                if (first_undef == UINT_MAX)
-                    first_undef = i;
+                if (selected_undef_idx == UINT_MAX)
+                    selected_undef_idx = i;
             }
             if (num_undef == 0) 
                 return false;
-            SASSERT(first_undef != UINT_MAX);
+            SASSERT(selected_undef_idx != UINT_MAX);
             if (num_undef == 1)
-                set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
+                set_literal_to_true(cls[selected_undef_idx], mk_clause_jst(&cls));
             else
-                decide_literal(cls[first_undef]);
+                decide_literal(cls[selected_undef_idx]);
             return true;
         }
         
@@ -1657,9 +1658,9 @@ namespace nlsat {
                 return true; // ignore lemmas in super lazy mode
             }
             SASSERT(m_xk == max_var(cls));
-            unsigned num_undef   = 0;                // number of undefined literals
-            unsigned first_undef = UINT_MAX;         // position of the first undefined literal
-            interval_set_ref first_undef_set(m_ism); // infeasible region of the first undefined literal
+            unsigned num_undef          = 0;        // number of undefined literals
+            unsigned selected_undef_idx = UINT_MAX; // position of the selected undefined literal
+            interval_set_ref selected_undef_infeasible_set(m_ism);
             interval_set * xk_set = m_infeasible[m_xk]; // current set of infeasible interval for current variable
             TRACE(nlsat_inf_set, tout << "m_infeasible[x"<< m_xk << "]:";
                   m_ism.display(tout, xk_set) << "\n";);
@@ -1681,7 +1682,7 @@ namespace nlsat {
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
                 curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);           
-		TRACE(nlsat_inf_set, 
+		        TRACE(nlsat_inf_set, 
                       tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
                       display(tout << "cls: " , cls) << "\n";
                       tout << "m_xk:" << m_xk << "(" << debug_get_var_name(m_xk) << ")"<< "\n";);
@@ -1722,15 +1723,15 @@ namespace nlsat {
                     continue;
                 }
                 num_undef++;
-                if (first_undef == UINT_MAX) {
-                    first_undef = idx;
-                    first_undef_set = curr_set;
+                if (selected_undef_idx == UINT_MAX) {
+                    selected_undef_idx = idx;
+                    selected_undef_infeasible_set = curr_set;
                 }
             }
             TRACE(nlsat_inf_set, tout << "num_undef: " << num_undef << "\n";);
             if (num_undef == 0) 
                 return false;
-            SASSERT(first_undef != UINT_MAX);
+            SASSERT(selected_undef_idx != UINT_MAX);
             if (num_undef == 1) {
                 CTRACE(nlsat, cls.size() > 1,
                        tout << "num_undef=1, "; display(tout, cls) << "\n";
@@ -1739,14 +1740,14 @@ namespace nlsat {
                        }
                     );
                 
-                set_literal_to_true(cls[first_undef], mk_clause_jst(&cls));
-                updt_infeasible(first_undef_set);
+                set_literal_to_true(cls[selected_undef_idx], mk_clause_jst(&cls));
+                updt_infeasible(selected_undef_infeasible_set);
             }
             else if ( satisfy_learned ||
                       !cls.is_learned() /* must always satisfy input clauses */ ||
                       m_lazy == 0 /* if not in lazy mode, we also satiffy lemmas */) {
-                decide_literal(cls[first_undef]);
-                updt_infeasible(first_undef_set);
+                decide_literal(cls[selected_undef_idx]);
+                updt_infeasible(selected_undef_infeasible_set);
             }
             else {
                 TRACE(nlsat_lazy, tout << "skipping clause, satisfy_learned: " << satisfy_learned << ", cls.is_learned(): " << cls.is_learned()
@@ -1816,7 +1817,20 @@ namespace nlsat {
         void select_witness() {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
-            m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
+            if (m_xk == m_max_var) {
+                bool attained = false;
+                if (m_ism.pick_max_in_complement(m_infeasible[m_xk], w, m_max_sup, attained)) {
+                    m_max_attained = attained;
+                    m_max_unbounded = false;
+                }
+                else {
+                    m_max_attained = false;
+                    m_max_unbounded = true;
+                    m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
+                }
+            }
+            else
+                m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
             TRACE(nlsat, tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
             TRACE(nlsat_root, tout << "value as root object: "; m_am.display_root(tout, w); tout << "\n";);
@@ -2064,6 +2078,9 @@ namespace nlsat {
         }
 
         bool m_reordered = false;
+        var  m_max_var = null_var;       // optimization: variable assigned its maximal feasible value
+        bool m_max_attained = false;
+        bool m_max_unbounded = false;
         bool simple_check() {
             literal_vector learned_unit;
             simple_checker checker(m_pm, m_am, m_clauses, learned_unit, m_atoms, m_is_int.size());
@@ -2288,6 +2305,7 @@ namespace nlsat {
         scoped_literal_vector  m_lemma;
         scoped_literal_vector  m_lazy_clause;
         assumption_set_ref     m_lemma_assumptions; // assumption tracking
+        scoped_anum            m_max_sup;        // optimization: supremum of the max var's feasible set at its last assignment
 
         // Conflict resolution invariant: a marked literal is in m_lemma or on the trail stack.
 
@@ -3026,7 +3044,8 @@ namespace nlsat {
         }
 
         bool can_reorder() const {
-            return all_of(m_learned, [&](clause* c) { return !has_root_atom(*c); }) 
+            return m_max_var == null_var
+                && all_of(m_learned, [&](clause* c) { return !has_root_atom(*c); }) 
                 && all_of(m_clauses, [&](clause* c) { return !has_root_atom(*c); });
         }
 
@@ -4565,6 +4584,24 @@ namespace nlsat {
 
     explain& solver::get_explain() {
         return m_imp->m_explain;
+    }
+
+    void solver::set_max_var(var x) {
+        m_imp->m_max_var = x;
+        m_imp->m_max_attained = false;
+        m_imp->m_max_unbounded = false;
+    }
+
+    bool solver::max_var_attained() const {
+        return m_imp->m_max_attained;
+    }
+
+    bool solver::max_var_unbounded() const {
+        return m_imp->m_max_unbounded;
+    }
+
+    anum const& solver::max_var_sup() const {
+        return m_imp->m_max_sup;
     }
 
     void solver::reorder(unsigned sz, var const* p) {

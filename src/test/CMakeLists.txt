@@ -105,6 +105,7 @@ add_executable(test-z3
   no_overflow.cpp
   object_allocator.cpp
   old_interval.cpp
+  opt_nlsat.cpp
   optional.cpp
   parray.cpp
   pb2bv.cpp

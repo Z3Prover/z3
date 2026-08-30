@@ -39,12 +39,14 @@ namespace opt {
         svector<smt::theory_var> m_vars;
         symbol           m_optsmt_engine;
         unsigned         m_bisect_rounds = 64;
+        bool             m_optsmt_nlsat = true;
+        expr_ref_vector  m_exact;         // exact (possibly algebraic) optimum per objective, null if none
         model_ref        m_model, m_best_model;
         svector<symbol>  m_labels;
         sref_vector<model> m_models;
     public:
         optsmt(ast_manager& m, context& ctx): 
-            m(m), m_context(ctx), m_s(nullptr), m_objs(m), m_lower_fmls(m) {}
+            m(m), m_context(ctx), m_s(nullptr), m_objs(m), m_lower_fmls(m), m_exact(m) {}
 
         void setup(opt_solver& solver);
 
@@ -62,6 +64,7 @@ namespace opt {
         void commit_assignment(unsigned index);
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
+        expr*   get_exact(unsigned index) const { return m_exact.get(index); }
         void    get_model(model_ref& mdl, svector<symbol>& labels);
         model*  get_model(unsigned index) const { return m_models[index]; }
 
@@ -85,6 +88,7 @@ namespace opt {
         lbool geometric_lex(unsigned idx, bool is_maximize, bool is_box = false);
 
         lbool bisect(unsigned idx, bool is_maximize, inf_eps hi);
+        lbool nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
 
         void set_best(unsigned idx, inf_eps const& v, bool is_maximize);
 
