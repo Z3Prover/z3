@@ -2699,6 +2699,12 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
         if (!arg1 || !arg2) return true;
         result = m_util.str.mk_index(arg1, arg2, e3);
     }
+    else if (m_util.str.is_power(e, e1, e2)) {
+        arg1 = try_expand(e1, deps);
+        if (!arg1) return true;
+        result = m_util.str.mk_power(arg1, e2);
+        ctx.get_rewriter()(result);
+    }
     else if (m_util.str.is_map(e, e1, e2)) {
         arg2 = try_expand(e2, deps);
         if (!arg2) return true;
@@ -3490,7 +3496,8 @@ void theory_seq::relevant_eh(expr* _n) {
     if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) 
         add_length_to_eqc(arg);
 
-    if (m_util.str.is_replace_all(n) ||
+    if (m_util.str.is_power(n) ||
+        m_util.str.is_replace_all(n) ||
         m_util.str.is_replace_re(n) ||
         m_util.str.is_replace_re_all(n)) {
         add_unhandled_expr(n);

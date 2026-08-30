@@ -1222,6 +1222,7 @@ typedef enum {
     Z3_OP_SEQ_MAPI,           
     Z3_OP_SEQ_FOLDL,          
     Z3_OP_SEQ_FOLDLI,         
+    Z3_OP_SEQ_POWER,
 
     // strings
     Z3_OP_STR_TO_INT,
@@ -3970,6 +3971,14 @@ extern "C" {
        def_API('Z3_mk_seq_nth', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_nth(Z3_context c, Z3_ast s, Z3_ast index);
+
+    /**
+       \brief Create the sequence \c s concatenated \c n times with itself.
+       The result is the empty sequence when \c n is not positive.
+
+       def_API('Z3_mk_seq_power', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_seq_power(Z3_context c, Z3_ast s, Z3_ast n);
 
     /**
        \brief Return the length of the sequence \c s.
