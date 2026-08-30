@@ -29,8 +29,9 @@ class datatype_factory : public struct_factory {
     // instance is seeded with the constructors of the sort and of every
     // datatype sort transitively reachable through constructor argument
     // sorts, and is given an external enumerator that defers to the model
-    // for values of non-datatype argument sorts.
-    obj_map<sort, term_enumeration *>          m_some_enum;
+    // for values of non-datatype argument sorts. Used by get_fresh_value to
+    // manufacture successive, structurally distinct values of a recursive
+    // datatype sort.
     obj_map<sort, term_enumeration *>          m_fresh_enum;
     obj_map<sort, term_enumeration::iterator *> m_fresh_iter;
 
