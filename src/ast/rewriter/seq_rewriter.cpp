@@ -546,7 +546,7 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         return BR_REWRITE1;
     } 
     // len(s^n) = n * len(s) for n > 0
-    if (str().is_power(a, x, y) && m_autil.is_numeral(y, r) && r.is_pos()) {
+    if (str().is_power(a, x, y) && m_autil.is_numeral(y, r) && r >= 0) {
         result = m_autil.mk_mul(y, str().mk_length(x));
         return BR_REWRITE2;
     }
