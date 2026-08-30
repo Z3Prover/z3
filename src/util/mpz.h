@@ -154,6 +154,7 @@ public:
     }
     mpz(int v) : mpz(int64_t(v)) {}
     mpz(unsigned v) : mpz(int64_t(v)) {}
+    mpz(uint64_t v) : mpz(int64_t(v)) {}
 
     mpz(mpz_type* ptr) noexcept {
         set_ptr(ptr, false, true); // external pointer, non-negative
