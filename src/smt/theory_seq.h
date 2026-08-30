@@ -371,7 +371,7 @@ namespace smt {
         seq_axioms       m_ax;
         seq::eq_solver   m_eq;
         seq_regex        m_regex;
-        seq_parikh     m_parikh;
+        seq::parikh      m_parikh;
         // encoding of the Parikh abstraction per equation, keyed by its two sides.
         // m_parikh_pin keeps the keys and the encodings alive, three entries per equation
         obj_pair_map<expr, expr, expr*> m_parikh_cache;

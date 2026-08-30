@@ -57,10 +57,10 @@ namespace {
         f.side(l, ls);
         f.side(r, rs);
 
-        seq_parikh::config cfg;
+        seq::parikh::config cfg;
         cfg.m_k = k;
         cfg.m_n = n;
-        seq_parikh parikh(f.m, cfg);
+        seq::parikh parikh(f.m, cfg);
         if (!parikh(ls, rs, defs, eqs))
             return verdict::skipped;
 
@@ -165,8 +165,8 @@ namespace {
             { "xaby", "abxy" }, { "yx", "xy" }, { "xdx", "dd" }
         };
         fixture f;
-        seq_parikh::config cfg;
-        seq_parikh parikh(f.m, cfg);
+        seq::parikh::config cfg;
+        seq::parikh parikh(f.m, cfg);
         expr_ref_vector defs(f.m), eqs(f.m);
         for (auto const& e : equations) {
             expr_ref_vector ls(f.m), rs(f.m);

@@ -275,7 +275,7 @@ theory_seq::theory_seq(context& ctx):
     m_ax(*this, m_rewrite),
     m_eq(m, *this, m_ax.ax()),
     m_regex(*this),
-    m_parikh(m, seq_parikh::config()),
+    m_parikh(m, seq::parikh::config()),
     m_parikh_pin(m),
     m_arith_value(m),
     m_trail_stack(),
@@ -308,7 +308,7 @@ void theory_seq::init() {
     m_arith_value.init(&ctx);
     m_max_unfolding_depth = ctx.get_fparams().m_seq_min_unfolding;
 
-    seq_parikh::config cfg;
+    seq::parikh::config cfg;
     cfg.m_k = ctx.get_fparams().m_seq_parikh_k;
     cfg.m_n = ctx.get_fparams().m_seq_parikh_n;
     cfg.m_max_chars = ctx.get_fparams().m_seq_parikh_chars;

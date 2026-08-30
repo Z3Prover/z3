@@ -42,7 +42,9 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "util/obj_hashtable.h"
 
-class seq_parikh {
+namespace seq {
+
+class parikh {
 public:
     struct config {
         unsigned m_k = 2;          // maximal factor length, 0 disables the abstraction
@@ -108,7 +110,7 @@ private:
     bool over_budget(vector<block> const& l, vector<block> const& r, unsigned_vector const& moduli);
 
 public:
-    seq_parikh(ast_manager& m, config const& c);
+    parikh(ast_manager& m, config const& c);
 
     void updt_config(config const& c);
 
@@ -118,3 +120,5 @@ public:
     bool operator()(expr_ref_vector const& l, expr_ref_vector const& r,
                     expr_ref_vector& defs, expr_ref_vector& eqs);
 };
+
+}

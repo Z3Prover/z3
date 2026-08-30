@@ -18,12 +18,14 @@ Author:
 #include "ast/rewriter/seq_parikh.h"
 #include "ast/ast_util.h"
 
-seq_parikh::seq_parikh(ast_manager& _m, config const& c):
+namespace seq {
+
+parikh::parikh(ast_manager& _m, config const& c):
     m(_m), m_util(_m), m_autil(_m), m_pinned(_m) {
     updt_config(c);
 }
 
-void seq_parikh::updt_config(config const& c) {
+void parikh::updt_config(config const& c) {
     m_config = c;
     // the boundary encoding is exact only up to factors of length two
     if (m_config.m_k > 2)
@@ -32,24 +34,24 @@ void seq_parikh::updt_config(config const& c) {
         m_config.m_n = 1;
 }
 
-expr_ref seq_parikh::mk_sk(char const* name, std::initializer_list<expr*> args, sort* range) {
+expr_ref parikh::mk_sk(char const* name, std::initializer_list<expr*> args, sort* range) {
     return expr_ref(m_util.mk_skolem(symbol(name), args.size(), args.begin(), range), m);
 }
 
 // numerals are handed around as raw pointers, so keep them alive for the whole encoding
-expr* seq_parikh::num(int i) {
+expr* parikh::num(int i) {
     expr* e = m_autil.mk_int(i);
     m_pinned.push_back(e);
     return e;
 }
 
-expr_ref seq_parikh::sum(expr_ref_vector const& args) {
+expr_ref parikh::sum(expr_ref_vector const& args) {
     if (args.empty())
         return expr_ref(num(0), m);
     return expr_ref(m_autil.mk_add(args), m);
 }
 
-expr_ref seq_parikh::conj(expr_ref_vector const& args) {
+expr_ref parikh::conj(expr_ref_vector const& args) {
     expr_ref_vector as(m);
     for (expr* e : args) {
         if (m.is_false(e))
@@ -60,14 +62,14 @@ expr_ref seq_parikh::conj(expr_ref_vector const& args) {
     return mk_and(as);
 }
 
-void seq_parikh::push_impl(expr_ref_vector& defs, expr* cond, expr* e) {
+void parikh::push_impl(expr_ref_vector& defs, expr* cond, expr* e) {
     if (m.is_false(cond))
         return;
     defs.push_back(m.is_true(cond) ? e : m.mk_implies(cond, e));
 }
 
 // true the first time a symbol is seen, so that its definition is emitted once
-bool seq_parikh::fresh(expr* key) {
+bool parikh::fresh(expr* key) {
     if (m_defined.contains(key))
         return false;
     m_defined.insert(key);
@@ -75,7 +77,7 @@ bool seq_parikh::fresh(expr* key) {
     return true;
 }
 
-unsigned seq_parikh::num_grams(unsigned level) const {
+unsigned parikh::num_grams(unsigned level) const {
     unsigned n = 1;
     for (unsigned i = 0; i < level; ++i) {
         n *= m_p;
@@ -83,7 +85,7 @@ unsigned seq_parikh::num_grams(unsigned level) const {
     return n;
 }
 
-unsigned seq_parikh::char_index(unsigned ch) const {
+unsigned parikh::char_index(unsigned ch) const {
     for (unsigned i = 0; i < m_chars.size(); ++i) {
         if (m_chars[i] == ch)
             return i;
@@ -91,7 +93,7 @@ unsigned seq_parikh::char_index(unsigned ch) const {
     return m_chars.size();
 }
 
-bool seq_parikh::has_char(expr_ref_vector const& side) const {
+bool parikh::has_char(expr_ref_vector const& side) const {
     expr* c = nullptr;
     for (expr* e : side) {
         if (m_util.str.is_unit(e, c) && m_util.is_const_char(c))
@@ -100,7 +102,7 @@ bool seq_parikh::has_char(expr_ref_vector const& side) const {
     return false;
 }
 
-void seq_parikh::collect_chars(expr_ref_vector const& side) {
+void parikh::collect_chars(expr_ref_vector const& side) {
     expr* c = nullptr;
     unsigned ch = 0;
     for (expr* e : side) {
@@ -111,7 +113,7 @@ void seq_parikh::collect_chars(expr_ref_vector const& side) {
     }
 }
 
-void seq_parikh::collect_blocks(expr_ref_vector const& side, vector<block>& blocks) {
+void parikh::collect_blocks(expr_ref_vector const& side, vector<block>& blocks) {
     expr* c = nullptr;
     unsigned ch = 0;
     for (expr* e : side) {
@@ -130,7 +132,7 @@ void seq_parikh::collect_blocks(expr_ref_vector const& side, vector<block>& bloc
 
 // pairs of blocks that can end up next to each other: everything in between has to be able
 // to be empty, and a unit never is
-void seq_parikh::adjacent(vector<block> const& blocks, svector<block_pair>& out) {
+void parikh::adjacent(vector<block> const& blocks, svector<block_pair>& out) {
     for (unsigned i = 0; i < blocks.size(); ++i) {
         for (unsigned j = i + 1; j < blocks.size(); ++j) {
             out.push_back(block_pair(i, j));
@@ -140,38 +142,38 @@ void seq_parikh::adjacent(vector<block> const& blocks, svector<block_pair>& out)
     }
 }
 
-expr_ref seq_parikh::len(block const& b) {
+expr_ref parikh::len(block const& b) {
     if (b.m_unit)
         return expr_ref(num(1), m);
     return expr_ref(m_util.str.mk_length(b.m_e), m);
 }
 
-expr_ref seq_parikh::is_empty(block const& b) {
+expr_ref parikh::is_empty(block const& b) {
     if (b.m_unit)
         return expr_ref(m.mk_false(), m);
     return expr_ref(m.mk_eq(len(b), num(0)), m);
 }
 
-expr_ref seq_parikh::first(block const& b, unsigned c) {
+expr_ref parikh::first(block const& b, unsigned c) {
     if (b.m_is_char)
         return expr_ref(b.m_char == c ? m.mk_true() : m.mk_false(), m);
     return mk_sk("seq.parikh.first", { b.m_e, num(c), num(m_p) }, m.mk_bool_sort());
 }
 
-expr_ref seq_parikh::last(block const& b, unsigned c) {
+expr_ref parikh::last(block const& b, unsigned c) {
     if (b.m_is_char)
         return expr_ref(b.m_char == c ? m.mk_true() : m.mk_false(), m);
     return mk_sk("seq.parikh.last", { b.m_e, num(c), num(m_p) }, m.mk_bool_sort());
 }
 
-expr_ref seq_parikh::count(block const& b, unsigned level, unsigned gram, unsigned r) {
+expr_ref parikh::count(block const& b, unsigned level, unsigned gram, unsigned r) {
     if (b.m_is_char)
         return expr_ref(num(level == 1 && gram == b.m_char && r == 0 ? 1 : 0), m);
     return mk_sk("seq.parikh", { b.m_e, num(level), num(gram), num(r), num(m_mod), num(m_p) }, m_autil.mk_int());
 }
 
 // number of factor windows of the given level: max(0, len - level + 1)
-expr_ref seq_parikh::window(block const& b, unsigned level, expr_ref_vector& defs) {
+expr_ref parikh::window(block const& b, unsigned level, expr_ref_vector& defs) {
     if (level == 1)
         return len(b);
     if (b.m_unit)
@@ -187,7 +189,7 @@ expr_ref seq_parikh::window(block const& b, unsigned level, expr_ref_vector& def
 }
 
 // 1 if cond holds, 0 otherwise; keying on cond lets equal conditions share the variable
-expr_ref seq_parikh::indicator(expr* cond, expr_ref_vector& defs) {
+expr_ref parikh::indicator(expr* cond, expr_ref_vector& defs) {
     if (m.is_true(cond))
         return expr_ref(num(1), m);
     if (m.is_false(cond))
@@ -201,7 +203,7 @@ expr_ref seq_parikh::indicator(expr* cond, expr_ref_vector& defs) {
 }
 
 // position clock: the length of a prefix of a side, taken modulo m_mod
-expr_ref seq_parikh::clock(expr* prefix_len, expr_ref_vector& defs) {
+expr_ref parikh::clock(expr* prefix_len, expr_ref_vector& defs) {
     if (m_mod == 1)
         return expr_ref(num(0), m);
     expr_ref v = mk_sk("seq.parikh.clk", { prefix_len, num(m_mod) }, m_autil.mk_int());
@@ -215,14 +217,14 @@ expr_ref seq_parikh::clock(expr* prefix_len, expr_ref_vector& defs) {
     return v;
 }
 
-expr_ref seq_parikh::clock_is(expr* clk, unsigned v) {
+expr_ref parikh::clock_is(expr* clk, unsigned v) {
     if (m_mod == 1)
         return expr_ref(v == 0 ? m.mk_true() : m.mk_false(), m);
     return expr_ref(m.mk_eq(clk, num(v)), m);
 }
 
 // a block has a first and a last letter exactly when it is non-empty
-void seq_parikh::define_letters(block const& b, expr_ref_vector& defs) {
+void parikh::define_letters(block const& b, expr_ref_vector& defs) {
     if (b.m_is_char || !fresh(first(b, 0)))
         return;
 
@@ -247,7 +249,7 @@ void seq_parikh::define_letters(block const& b, expr_ref_vector& defs) {
 }
 
 // counters of one level, tied to the window count split over the residue classes
-void seq_parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs) {
+void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs) {
     if (b.m_is_char || !fresh(count(b, level, 0, 0)))
         return;
 
@@ -279,7 +281,7 @@ void seq_parikh::define_level(block const& b, unsigned level, expr_ref_vector& d
 
 // de-Bruijn flow: an occurrence of a letter extends to a two-letter factor unless it sits
 // at the corresponding end of the block
-void seq_parikh::define_flow(block const& b, expr_ref_vector& defs) {
+void parikh::define_flow(block const& b, expr_ref_vector& defs) {
     if (b.m_is_char || m_config.m_k < 2)
         return;
     if (!fresh(mk_sk("seq.parikh.flow", { b.m_e, num(m_mod), num(m_p) }, m.mk_bool_sort())))
@@ -309,7 +311,7 @@ void seq_parikh::define_flow(block const& b, expr_ref_vector& defs) {
     }
 }
 
-void seq_parikh::define_block(block const& b, expr_ref_vector& defs) {
+void parikh::define_block(block const& b, expr_ref_vector& defs) {
     define_letters(b, defs);
     for (unsigned level = 1; level <= m_config.m_k; ++level) {
         define_level(b, level, defs);
@@ -318,7 +320,7 @@ void seq_parikh::define_block(block const& b, expr_ref_vector& defs) {
 }
 
 // out[gram * m_mod + r] counts the occurrences of gram starting at a position congruent to r
-void seq_parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector& out, expr_ref_vector& defs) {
+void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector& out, expr_ref_vector& defs) {
     vector<expr_ref_vector> acc;
     for (unsigned i = 0; i < num_grams(level) * m_mod; ++i) {
         acc.push_back(expr_ref_vector(m));
@@ -403,7 +405,7 @@ void seq_parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_ve
     }
 }
 
-void seq_parikh::add_observer(vector<block> const& l, vector<block> const& r, unsigned mod,
+void parikh::add_observer(vector<block> const& l, vector<block> const& r, unsigned mod,
                                 expr_ref_vector& defs, expr_ref_vector& eqs) {
     m_mod = mod;
     for (block const& b : l) {
@@ -423,7 +425,7 @@ void seq_parikh::add_observer(vector<block> const& l, vector<block> const& r, un
     }
 }
 
-bool seq_parikh::over_budget(vector<block> const& l, vector<block> const& r, unsigned_vector const& moduli) {
+bool parikh::over_budget(vector<block> const& l, vector<block> const& r, unsigned_vector const& moduli) {
     svector<block_pair> pairs;
     adjacent(l, pairs);
     adjacent(r, pairs);
@@ -442,7 +444,7 @@ bool seq_parikh::over_budget(vector<block> const& l, vector<block> const& r, uns
     return counters > m_config.m_max_counters;
 }
 
-bool seq_parikh::operator()(expr_ref_vector const& l, expr_ref_vector const& r,
+bool parikh::operator()(expr_ref_vector const& l, expr_ref_vector const& r,
                               expr_ref_vector& defs, expr_ref_vector& eqs) {
     if (m_config.m_k == 0)
         return false;
@@ -473,4 +475,6 @@ bool seq_parikh::operator()(expr_ref_vector const& l, expr_ref_vector const& r,
         add_observer(bl, br, n, defs, eqs);
     }
     return !eqs.empty();
+}
+
 }
