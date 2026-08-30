@@ -38,16 +38,13 @@ expr_ref parikh::mk_sk(char const* name, std::initializer_list<expr*> args, sort
     return expr_ref(m_util.mk_skolem(symbol(name), args.size(), args.begin(), range), m);
 }
 
-// numerals are handed around as raw pointers, so keep them alive for the whole encoding
-expr* parikh::num(int i) {
-    expr* e = m_autil.mk_int(i);
-    m_pinned.push_back(e);
-    return e;
+expr_ref parikh::num(int i) {
+    return expr_ref(m_autil.mk_int(i), m);
 }
 
 expr_ref parikh::sum(expr_ref_vector const& args) {
     if (args.empty())
-        return expr_ref(num(0), m);
+        return num(0);
     return expr_ref(m_autil.mk_add(args), m);
 }
 
@@ -144,32 +141,43 @@ void parikh::adjacent(vector<block> const& blocks, svector<block_pair>& out) {
 
 expr_ref parikh::len(block const& b) {
     if (b.m_unit)
-        return expr_ref(num(1), m);
+        return num(1);
     return expr_ref(m_util.str.mk_length(b.m_e), m);
 }
 
 expr_ref parikh::is_empty(block const& b) {
     if (b.m_unit)
         return expr_ref(m.mk_false(), m);
-    return expr_ref(m.mk_eq(len(b), num(0)), m);
+    auto length = len(b);
+    auto zero = num(0);
+    return expr_ref(m.mk_eq(length.get(), zero.get()), m);
 }
 
 expr_ref parikh::first(block const& b, unsigned c) {
     if (b.m_is_char)
         return expr_ref(b.m_char == c ? m.mk_true() : m.mk_false(), m);
-    return mk_sk("seq.parikh.first", { b.m_e, num(c), num(m_p) }, m.mk_bool_sort());
+    auto c_ref = num(c);
+    auto p_ref = num(m_p);
+    return mk_sk("seq.parikh.first", { b.m_e, c_ref.get(), p_ref.get() }, m.mk_bool_sort());
 }
 
 expr_ref parikh::last(block const& b, unsigned c) {
     if (b.m_is_char)
         return expr_ref(b.m_char == c ? m.mk_true() : m.mk_false(), m);
-    return mk_sk("seq.parikh.last", { b.m_e, num(c), num(m_p) }, m.mk_bool_sort());
+    auto c_ref = num(c);
+    auto p_ref = num(m_p);
+    return mk_sk("seq.parikh.last", { b.m_e, c_ref.get(), p_ref.get() }, m.mk_bool_sort());
 }
 
 expr_ref parikh::count(block const& b, unsigned level, unsigned gram, unsigned r) {
     if (b.m_is_char)
-        return expr_ref(num(level == 1 && gram == b.m_char && r == 0 ? 1 : 0), m);
-    return mk_sk("seq.parikh", { b.m_e, num(level), num(gram), num(r), num(m_mod), num(m_p) }, m_autil.mk_int());
+        return num(level == 1 && gram == b.m_char && r == 0 ? 1 : 0);
+    auto level_ref = num(level);
+    auto gram_ref = num(gram);
+    auto r_ref = num(r);
+    auto mod_ref = num(m_mod);
+    auto p_ref = num(m_p);
+    return mk_sk("seq.parikh", { b.m_e, level_ref.get(), gram_ref.get(), r_ref.get(), mod_ref.get(), p_ref.get() }, m_autil.mk_int());
 }
 
 // number of factor windows of the given level: max(0, len - level + 1)
@@ -177,13 +185,17 @@ expr_ref parikh::window(block const& b, unsigned level, expr_ref_vector& defs) {
     if (level == 1)
         return len(b);
     if (b.m_unit)
-        return expr_ref(num(0), m);
-    expr_ref w = mk_sk("seq.parikh.w", { b.m_e, num(level) }, m_autil.mk_int());
+        return num(0);
+    auto level_ref = num(level);
+    expr_ref w = mk_sk("seq.parikh.w", { b.m_e, level_ref.get() }, m_autil.mk_int());
     if (fresh(w)) {
-        expr_ref fits(m_autil.mk_ge(len(b), num(level)), m);
-        defs.push_back(m_autil.mk_ge(w, num(0)));
-        push_impl(defs, fits, m.mk_eq(w, m_autil.mk_sub(len(b), num(level - 1))));
-        push_impl(defs, mk_not(m, fits), m.mk_eq(w, num(0)));
+        auto length = len(b);
+        auto zero = num(0);
+        auto level_minus_one = num(level - 1);
+        expr_ref fits(m_autil.mk_ge(length.get(), level_ref.get()), m);
+        defs.push_back(m_autil.mk_ge(w.get(), zero.get()));
+        push_impl(defs, fits.get(), m.mk_eq(w.get(), m_autil.mk_sub(length.get(), level_minus_one.get())));
+        push_impl(defs, mk_not(m, fits), m.mk_eq(w.get(), zero.get()));
     }
     return w;
 }
@@ -191,13 +203,15 @@ expr_ref parikh::window(block const& b, unsigned level, expr_ref_vector& defs) {
 // 1 if cond holds, 0 otherwise; keying on cond lets equal conditions share the variable
 expr_ref parikh::indicator(expr* cond, expr_ref_vector& defs) {
     if (m.is_true(cond))
-        return expr_ref(num(1), m);
+        return num(1);
     if (m.is_false(cond))
-        return expr_ref(num(0), m);
+        return num(0);
     expr_ref v = mk_sk("seq.parikh.ind", { cond }, m_autil.mk_int());
     if (fresh(v)) {
-        defs.push_back(m.mk_implies(cond, m.mk_eq(v, num(1))));
-        defs.push_back(m.mk_implies(mk_not(m, cond), m.mk_eq(v, num(0))));
+        auto one = num(1);
+        auto zero = num(0);
+        defs.push_back(m.mk_implies(cond, m.mk_eq(v.get(), one.get())));
+        defs.push_back(m.mk_implies(mk_not(m, cond), m.mk_eq(v.get(), zero.get())));
     }
     return v;
 }
@@ -205,14 +219,17 @@ expr_ref parikh::indicator(expr* cond, expr_ref_vector& defs) {
 // position clock: the length of a prefix of a side, taken modulo m_mod
 expr_ref parikh::clock(expr* prefix_len, expr_ref_vector& defs) {
     if (m_mod == 1)
-        return expr_ref(num(0), m);
-    expr_ref v = mk_sk("seq.parikh.clk", { prefix_len, num(m_mod) }, m_autil.mk_int());
+        return num(0);
+    auto mod_ref = num(m_mod);
+    expr_ref v = mk_sk("seq.parikh.clk", { prefix_len, mod_ref.get() }, m_autil.mk_int());
     if (fresh(v)) {
-        expr_ref q = mk_sk("seq.parikh.clkq", { prefix_len, num(m_mod) }, m_autil.mk_int());
-        defs.push_back(m_autil.mk_ge(v, num(0)));
-        defs.push_back(m_autil.mk_le(v, num(m_mod - 1)));
-        defs.push_back(m_autil.mk_ge(q, num(0)));
-        defs.push_back(m.mk_eq(prefix_len, m_autil.mk_add(m_autil.mk_mul(num(m_mod), q), v)));
+        auto zero = num(0);
+        auto mod_minus_one = num(m_mod - 1);
+        expr_ref q = mk_sk("seq.parikh.clkq", { prefix_len, mod_ref.get() }, m_autil.mk_int());
+        defs.push_back(m_autil.mk_ge(v.get(), zero.get()));
+        defs.push_back(m_autil.mk_le(v.get(), mod_minus_one.get()));
+        defs.push_back(m_autil.mk_ge(q.get(), zero.get()));
+        defs.push_back(m.mk_eq(prefix_len, m_autil.mk_add(m_autil.mk_mul(mod_ref.get(), q.get()), v.get())));
     }
     return v;
 }
@@ -220,7 +237,8 @@ expr_ref parikh::clock(expr* prefix_len, expr_ref_vector& defs) {
 expr_ref parikh::clock_is(expr* clk, unsigned v) {
     if (m_mod == 1)
         return expr_ref(v == 0 ? m.mk_true() : m.mk_false(), m);
-    return expr_ref(m.mk_eq(clk, num(v)), m);
+    auto v_ref = num(v);
+    return expr_ref(m.mk_eq(clk, v_ref.get()), m);
 }
 
 // a block has a first and a last letter exactly when it is non-empty
@@ -242,7 +260,14 @@ void parikh::define_letters(block const& b, expr_ref_vector& defs) {
     expr_ref emp = is_empty(b);
     defs.push_back(m.mk_iff(emp, mk_not(m, mk_or(fs))));
     defs.push_back(m.mk_iff(emp, mk_not(m, mk_or(ls))));
-    expr_ref one = b.m_unit ? expr_ref(m.mk_true(), m) : expr_ref(m.mk_eq(len(b), num(1)), m);
+    expr_ref one(m);
+    if (b.m_unit)
+        one = m.mk_true();
+    else {
+        auto length = len(b);
+        auto numeral_one = num(1);
+        one = m.mk_eq(length.get(), numeral_one.get());
+    }
     for (unsigned c = 0; c < m_p; ++c) {
         push_impl(defs, one, m.mk_iff(fs.get(c), ls.get(c)));
     }
@@ -256,25 +281,31 @@ void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs)
     // w = m_mod * q + rem, so residue r covers q windows, and one more when r < rem
     expr_ref w = window(b, level, defs);
     expr_ref q = w, rem(m);
+    auto zero = num(0);
     if (m_mod > 1) {
-        q = mk_sk("seq.parikh.q", { b.m_e, num(level), num(m_mod) }, m_autil.mk_int());
-        rem = mk_sk("seq.parikh.rem", { b.m_e, num(level), num(m_mod) }, m_autil.mk_int());
-        defs.push_back(m_autil.mk_ge(q, num(0)));
-        defs.push_back(m_autil.mk_ge(rem, num(0)));
-        defs.push_back(m_autil.mk_le(rem, num(m_mod - 1)));
-        defs.push_back(m.mk_eq(w, m_autil.mk_add(m_autil.mk_mul(num(m_mod), q), rem)));
+        auto level_ref = num(level);
+        auto mod_ref = num(m_mod);
+        auto mod_minus_one = num(m_mod - 1);
+        q = mk_sk("seq.parikh.q", { b.m_e, level_ref.get(), mod_ref.get() }, m_autil.mk_int());
+        rem = mk_sk("seq.parikh.rem", { b.m_e, level_ref.get(), mod_ref.get() }, m_autil.mk_int());
+        defs.push_back(m_autil.mk_ge(q.get(), zero.get()));
+        defs.push_back(m_autil.mk_ge(rem.get(), zero.get()));
+        defs.push_back(m_autil.mk_le(rem.get(), mod_minus_one.get()));
+        defs.push_back(m.mk_eq(w.get(), m_autil.mk_add(m_autil.mk_mul(mod_ref.get(), q.get()), rem.get())));
     }
 
     for (unsigned r = 0; r < m_mod; ++r) {
         expr_ref_vector row(m);
         for (unsigned g = 0; g < num_grams(level); ++g) {
             expr_ref c = count(b, level, g, r);
-            defs.push_back(m_autil.mk_ge(c, num(0)));
+            defs.push_back(m_autil.mk_ge(c.get(), zero.get()));
             row.push_back(c);
         }
-        expr_ref extra(num(0), m);
-        if (m_mod > 1)
-            extra = indicator(m_autil.mk_ge(rem, num(r + 1)), defs);
+        expr_ref extra = zero;
+        if (m_mod > 1) {
+            auto r_plus_one = num(r + 1);
+            extra = indicator(m_autil.mk_ge(rem.get(), r_plus_one.get()), defs);
+        }
         defs.push_back(m.mk_eq(sum(row), m_autil.mk_add(q, extra)));
     }
 }
@@ -284,12 +315,17 @@ void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs)
 void parikh::define_flow(block const& b, expr_ref_vector& defs) {
     if (b.m_is_char || m_config.m_k < 2)
         return;
-    if (!fresh(mk_sk("seq.parikh.flow", { b.m_e, num(m_mod), num(m_p) }, m.mk_bool_sort())))
+    auto mod_ref = num(m_mod);
+    auto p_ref = num(m_p);
+    auto flow = mk_sk("seq.parikh.flow", { b.m_e, mod_ref.get(), p_ref.get() }, m.mk_bool_sort());
+    if (!fresh(flow))
         return;
 
     expr_ref rem(m);
-    if (m_mod > 1)
-        rem = mk_sk("seq.parikh.rem", { b.m_e, num(1), num(m_mod) }, m_autil.mk_int());
+    if (m_mod > 1) {
+        auto one = num(1);
+        rem = mk_sk("seq.parikh.rem", { b.m_e, one.get(), mod_ref.get() }, m_autil.mk_int());
+    }
 
     for (unsigned c = 0; c < m_p; ++c) {
         for (unsigned r = 0; r < m_mod; ++r) {
@@ -300,8 +336,10 @@ void parikh::define_flow(block const& b, expr_ref_vector& defs) {
             }
             // the last letter opens the last window, at residue (len - 1) mod m_mod
             expr_ref at_end = last(b, c);
-            if (m_mod > 1)
-                at_end = m.mk_and(at_end, m.mk_eq(rem, num((r + 1) % m_mod)));
+            if (m_mod > 1) {
+                auto residue = num((r + 1) % m_mod);
+                at_end = m.mk_and(at_end, m.mk_eq(rem.get(), residue.get()));
+            }
             defs.push_back(m.mk_eq(sum(right), m_autil.mk_sub(count(b, 1, c, r), indicator(at_end, defs))));
 
             // the first letter opens the first window, at residue 0
@@ -328,7 +366,8 @@ void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector
 
     // clocks[i] is the clock reached in front of block i
     expr_ref_vector lens(m), clocks(m);
-    clocks.push_back(clock(num(0), defs));
+    auto zero = num(0);
+    clocks.push_back(clock(zero.get(), defs));
     for (block const& b : blocks) {
         lens.push_back(len(b));
         clocks.push_back(clock(sum(lens), defs));
@@ -354,7 +393,12 @@ void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector
                 // The clock is an argument, so positions whose clocks agree share the
                 // rotation by congruence.  That is wanted within one observer, but clocks of
                 // different moduli can agree by accident, hence m_mod in the key.
-                expr_ref rot = mk_sk("seq.parikh.rot", { b.m_e, num(level), num(g), num(r), pre, num(m_mod), num(m_p) }, m_autil.mk_int());
+                auto level_ref = num(level);
+                auto gram_ref = num(g);
+                auto r_ref = num(r);
+                auto mod_ref = num(m_mod);
+                auto p_ref = num(m_p);
+                expr_ref rot = mk_sk("seq.parikh.rot", { b.m_e, level_ref.get(), gram_ref.get(), r_ref.get(), pre, mod_ref.get(), p_ref.get() }, m_autil.mk_int());
                 if (fresh(rot)) {
                     for (unsigned v = 0; v < m_mod; ++v) {
                         push_impl(defs, clock_is(pre, v), m.mk_eq(rot, count(b, level, g, (r + m_mod - v) % m_mod)));

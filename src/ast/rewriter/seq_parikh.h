@@ -77,7 +77,7 @@ private:
     unsigned_vector     m_chars;   // projected characters, index m_chars.size() is the rest
 
     expr_ref mk_sk(char const* name, std::initializer_list<expr*> args, sort* range);
-    expr*    num(int i);
+    expr_ref num(int i);
     expr_ref sum(expr_ref_vector const& args);
     expr_ref conj(expr_ref_vector const& args);
     void     push_impl(expr_ref_vector& defs, expr* cond, expr* e);
