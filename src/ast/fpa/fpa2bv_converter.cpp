@@ -1054,9 +1054,9 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(extra_bits-2, 0, quotient));
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(extra_bits+sbits+1, extra_bits-1, quotient), sticky);
     if (sbits == 2) {
-        // At sbits == 2, the range [3*sbits+1:2*sbits+4] is [7:8], so there
-        // are no quotient bits above res_sig. Skip the invalid extract and
-        // OP_BREDOR, and use false for too_large.
+        // At sbits == 2, upper would require mk_extract(7, 8, quotient), whose
+        // high index is below its low index. res_sig already consumes every
+        // quotient bit, so too_large is false without constructing upper.
         too_large = m.mk_false();
     }
     else {
@@ -1110,13 +1110,13 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         round_min_exp_ext = m_bv_util.mk_sign_extend(exp_bits - round_exp_bits, round_min_exp);
         round_max_exp_ext = m_bv_util.mk_sign_extend(exp_bits - round_exp_bits, round_max_exp);
 
-        expr_ref exp_above_round_range(m), exp_in_round_range(m);
+        expr_ref exp_above_round_range(m), narrowed_exp(m);
         exp_below_round_range = m_bv_util.mk_slt(res_exp, round_min_exp_ext);
         exp_above_round_range = m_bv_util.mk_slt(round_max_exp_ext, res_exp);
-        exp_in_round_range = m_bv_util.mk_extract(round_exp_bits - 1, 0, res_exp);
-        // round_max_exp has leading bits 0,1,1, selecting round's existing
-        // overflow result for the current sign and rounding mode.
-        m_simp.mk_ite(exp_above_round_range, round_max_exp, exp_in_round_range, round_exp);
+        narrowed_exp = m_bv_util.mk_extract(round_exp_bits - 1, 0, res_exp);
+        // An above-range res_exp is already an overflow. round_max_exp selects
+        // round's existing infinity or max-finite result for the sign and mode.
+        m_simp.mk_ite(exp_above_round_range, round_max_exp, narrowed_exp, round_exp);
         m_simp.mk_ite(exp_below_round_range, round_min_exp, round_exp, round_exp);
 
         expr_ref min_exp(m), min_exp_ext(m), underflow_shift(m), underflow_shift_sized(m);
@@ -1135,7 +1135,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
         sig_ext = m_bv_util.mk_concat(res_sig, m_bv_util.mk_numeral(0, sig_size));
         shifted_sig = m_bv_util.mk_bv_lshr(sig_ext, underflow_shift_sized);
         unsigned sig_extract_low_bit = 2 * sig_size - (sbits + 2);
-        // Finite operand bounds make underflow_shift at most
+        // res_exp >= 3 - 2^ebits - sbits makes underflow_shift at most
         // sbits + 2^(ebits - 1) - 2. If it exceeds the sbits + 4 appended
         // zero bits, res_sig's normalized leading one still lands in the range
         // reduced into discarded, so discarded remains true.
@@ -4292,8 +4292,8 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
         ls_shift = m_bv_util.mk_zero_extend(shift_width - sigma_size, sigma);
     }
     else {
-        // The right count is capped at sbits+2, and a nonnegative sigma is at
-        // most sig's leading-zero count. Both are below shift_width.
+        // sigma_neg_capped is at most sbits+2, and a nonnegative sigma is at
+        // most lz, sig's leading-zero count. Both values are below shift_width.
         rs_shift = m_bv_util.mk_extract(shift_width - 1, 0, sigma_neg_capped);
         ls_shift = m_bv_util.mk_extract(shift_width - 1, 0, sigma);
     }
