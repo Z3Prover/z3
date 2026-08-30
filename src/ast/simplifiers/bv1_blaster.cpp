@@ -21,6 +21,7 @@ Author:
 
 --*/
 #include "ast/simplifiers/bv1_blaster.h"
+#include "ast/ast_translation.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/bv_rewriter.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -159,7 +160,7 @@ void bv1_blaster_simplifier::rw_cfg::reduce_extract(func_decl* f, expr* arg, exp
     bit_buffer bits;
     for (unsigned i = start; i <= end; ++i)
         bits.push_back(arg_bits[i]);
-    result = butil().mk_concat(bits.size(), bits.data());
+    result = butil().mk_concat(bits.size(), bits.empty() ? nullptr : bits.data());
 }
 
 void bv1_blaster_simplifier::rw_cfg::reduce_concat(unsigned num, expr* const* args, expr_ref& result) {
@@ -171,7 +172,7 @@ void bv1_blaster_simplifier::rw_cfg::reduce_concat(unsigned num, expr* const* ar
         get_bits(arg, arg_bits);
         bits.append(arg_bits.size(), arg_bits.data());
     }
-    result = butil().mk_concat(bits.size(), bits.data());
+    result = butil().mk_concat(bits.size(), bits.empty() ? nullptr : bits.data());
 }
 
 void bv1_blaster_simplifier::rw_cfg::reduce_bin_xor(expr* arg1, expr* arg2, expr_ref& result) {
@@ -288,5 +289,24 @@ void bv1_blaster_simplifier::reduce() {
         func_decl* first = to_app(to_app(v)->get_arg(0))->get_decl();
         if (new_bit_set.contains(first))
             m_fmls.model_trail().push(f, v, nullptr, {});
+    }
+}
+
+void bv1_blaster_simplifier::translate(dependent_expr_simplifier const& src, ast_translation& tr) {
+    auto const& source = dynamic_cast<bv1_blaster_simplifier const&>(src);
+    auto const& src_cfg = source.m_rw.cfg();
+    auto& dst_cfg = m_rw.cfg();
+    SASSERT(dst_cfg.m_const2bits.empty());
+    for (auto const& [f, bits] : src_cfg.m_const2bits) {
+        func_decl* new_f = tr(f);
+        expr* new_bits = tr(bits);
+        dst_cfg.m_const2bits.insert(new_f, new_bits);
+        dst_cfg.m_saved.push_back(new_f);
+        dst_cfg.m_saved.push_back(new_bits);
+    }
+    for (func_decl* f : src_cfg.m_newbits) {
+        func_decl* new_f = tr(f);
+        dst_cfg.m_newbits.push_back(new_f);
+        dst_cfg.m_saved.push_back(new_f);
     }
 }

@@ -12,6 +12,7 @@ Author:
 --*/
 
 #include "ast/simplifiers/dependent_expr_state.h"
+#include "ast/ast_translation.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/for_each_ast.h"
 
@@ -130,4 +131,18 @@ bool dependent_expr_state::has_quantifiers() {
         found |= ::has_quantifiers((*this)[i].fml());
     m_has_quantifiers = found ? l_true : l_false;
     return m_has_quantifiers == l_true;
+}
+void dependent_expr_state::translate(dependent_expr_state const& src, ast_translation& tr) {
+    SASSERT(src.m_trail.get_num_scopes() == 0);
+    SASSERT(m_qhead == 0);
+    m_qhead = src.m_qhead;
+    m_suffix_frozen = src.m_suffix_frozen;
+    m_num_recfun = src.m_num_recfun;
+    m_has_quantifiers = src.m_has_quantifiers;
+    for (func_decl* f : src.m_frozen_trail) {
+        func_decl* new_f = tr(f);
+        m_frozen.mark(new_f, true);
+        m_frozen_trail.push_back(new_f);
+    }
+    model_trail().translate(src.model_trail(), tr);
 }

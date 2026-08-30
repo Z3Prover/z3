@@ -517,14 +517,37 @@ namespace opt {
 
 
     lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
+        // Bounds before optimization come from the initial model, which the
+        // core checked against the quantified constraints (update_lower in
+        // optimize()). The theory-level push below does not instantiate
+        // quantifiers, so an "unbounded" verdict from it is not trustworthy.
+        inf_eps lower0 = m_optsmt.get_lower(index);
+        inf_eps upper0 = m_optsmt.get_upper(index);
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);
+        if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
+            // Give up on this objective: keep the initial model and its
+            // bounds and answer unknown, rather than throwing and leaving
+            // 'oo' behind for get-objectives to report.
+            if (scoped) get_solver().pop(1);
+            m_optsmt.update_lower(index, lower0);
+            m_optsmt.update_upper(index, upper0);
+            warning_msg("unbounded objectives on quantified constraints is not supported");
+            return l_undef;
+        }
         if (result == l_true) { m_optsmt.get_model(m_model, m_labels); SASSERT(m_model); }
+        if (result == l_undef) {
+            // best model found so far, e.g. the lower end of a reported interval.
+            model_ref mdl;
+            svector<symbol> labels;
+            m_optsmt.get_model(mdl, labels);
+            if (mdl) {
+                m_model = mdl;
+                m_labels = labels;
+            }
+        }
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
-        if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
-            throw default_exception("unbounded objectives on quantified constraints is not supported");
-        }
         return result;
     }
     
@@ -1612,7 +1635,11 @@ namespace opt {
             objective const& obj = m_scoped_state.m_objectives[i];
             out << " (";
             display_objective(out, obj);
-            if (get_lower_as_num(i) != get_upper_as_num(i)) {
+            expr_ref exact = get_exact(i);
+            if (exact) {
+                out << " " << exact;
+            }
+            else if (get_lower_as_num(i) != get_upper_as_num(i)) {
                 out << "  (interval " << get_lower(i) << " " << get_upper(i) << ")";
             }
             else {
@@ -1689,6 +1716,29 @@ namespace opt {
         es.push_back(m_arith.mk_numeral(eps, eps.is_int()));
     }
 
+    /**
+       \brief The exact value of an arithmetic objective when the optsmt
+       engine established it as an algebraic number (nlsat cells), adjusted
+       for minimization and offsets; null otherwise.
+    */
+    expr_ref context::get_exact(unsigned idx) {
+        expr_ref r(m);
+        objective const& obj = m_objectives[idx];
+        if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
+            return r;
+        expr* e = m_optsmt.get_exact(obj.m_index);
+        if (!e)
+            return r;
+        r = e;
+        if (obj.m_adjust_value.get_negate())
+            r = m_arith.mk_uminus(r);
+        if (!obj.m_adjust_value.get_offset().is_zero())
+            r = m_arith.mk_add(r, m_arith.mk_numeral(obj.m_adjust_value.get_offset(), false));
+        th_rewriter rw(m);
+        rw(r);
+        return r;
+    }
+
     expr_ref context::to_expr(inf_eps const& n) {
         rational inf = n.get_infinity();
         rational r   = n.get_rational();
@@ -1752,8 +1802,6 @@ namespace opt {
             kv.m_value->collect_statistics(stats);
         get_memory_statistics(stats);
         get_rlimit_statistics(m.limit(), stats);
-        if (m_qmax) 
-            m_qmax->collect_statistics(stats);
     }
 
     void context::collect_param_descrs(param_descrs & r) {
@@ -1963,53 +2011,5 @@ namespace opt {
             }
             }       
         } 
-    }
-
-    bool context::is_qsat_opt() {
-        if (m_objectives.size() != 1) {
-            return false;
-        }
-        if (m_objectives[0].m_type != O_MAXIMIZE && 
-            m_objectives[0].m_type != O_MINIMIZE) {
-            return false;
-        }
-        if (!m_arith.is_real(m_objectives[0].m_term)) {
-            return false;
-        }
-        for (expr* fml : m_hard_constraints) {
-            if (has_quantifiers(fml)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    lbool context::run_qsat_opt() {
-        SASSERT(is_qsat_opt());
-        objective const& obj = m_objectives[0];
-        app_ref term(obj.m_term);
-        if (obj.m_type == O_MINIMIZE) {
-            term = m_arith.mk_uminus(term);
-        }
-        inf_eps value;
-        m_qmax = alloc(qe::qmax, m, m_params);
-        lbool result = (*m_qmax)(m_hard_constraints, term, value, m_model);
-        if (result != l_undef && obj.m_type == O_MINIMIZE) {
-            value.neg();
-        }
-        m_optsmt.setup(*m_opt_solver.get());
-        if (result == l_undef) {
-            if (obj.m_type == O_MINIMIZE) {
-                m_optsmt.update_upper(obj.m_index, value);
-            }
-            else {
-                m_optsmt.update_lower(obj.m_index, value);
-            }
-        }
-        else {
-            m_optsmt.update_lower(obj.m_index, value);
-            m_optsmt.update_upper(obj.m_index, value);
-        }
-        return result;
     }
 }

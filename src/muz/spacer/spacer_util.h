@@ -132,7 +132,6 @@ void find_decls(expr *fml, app_ref_vector &decls, std::string &prefix);
  * disables aliasing of common sub-expressions
  */
 struct mk_epp : public mk_pp {
-    params_ref m_epp_params;
     expr_ref m_epp_expr;
     mk_epp(ast *t, ast_manager &m, unsigned indent = 0, unsigned num_vars = 0,
            char const *var_prefix = nullptr);

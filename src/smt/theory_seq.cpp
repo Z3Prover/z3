@@ -340,6 +340,10 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
         TRACEFIN("solve_eqs");
         return FC_CONTINUE;
     }    
+    if (m_regex.check_equation_conflict()) {
+        TRACEFIN("regex equation approximation");
+        return FC_CONTINUE;
+    }
     if (check_lts()) {
         TRACEFIN("check_lts");
         return FC_CONTINUE;
@@ -837,6 +841,25 @@ void theory_seq::set_conflict(dependency* dep, literal_vector const& _lits) {
     linearize(dep, eqs, lits);
     m_new_propagation = true;
     set_conflict(eqs, lits);
+}
+
+void theory_seq::conflict_or_axiom(literal_vector& lits, dependency* dep) {
+    if (all_of(lits, [this](literal lit) { return l_true == ctx.get_assignment(lit); })) {
+        set_conflict(dep, lits);
+        return;
+    }
+    // Some literal is not assigned true, so the negated set is not a legitimate conflict:
+    // assert it as a clause, together with the negated equalities it rests on.
+    for (unsigned i = 0; i < lits.size(); ++i)
+        lits[i] = ~lits[i];
+    enode_pair_vector eqs;
+    literal_vector dep_lits;
+    linearize(dep, eqs, dep_lits);
+    for (literal l : dep_lits)
+        lits.push_back(~l);
+    for (auto const& [a, b] : eqs)
+        lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+    add_axiom(lits);
 }
 
 void theory_seq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
@@ -1984,6 +2007,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq regex monadic checks", m_stats.m_regex_monadic_checks);
     st.update("seq regex monadic sat", m_stats.m_regex_monadic_sat);
     st.update("seq regex monadic unsat", m_stats.m_regex_monadic_unsat);
+    st.update("seq regex eq approx unsat", m_stats.m_regex_eq_approx_unsat);
     st.update("seq regex monadic undef", m_stats.m_regex_monadic_undef);
     st.update("seq regex monadic assumptions", m_stats.m_regex_monadic_assumptions);
     st.update("seq regex monadic fallbacks", m_stats.m_regex_monadic_fallbacks);

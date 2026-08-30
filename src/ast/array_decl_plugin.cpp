@@ -228,12 +228,17 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
         return nullptr;
     }
     sort * s = domain[0];
+    if (!is_array_sort(s)) {
+        m_manager->raise_exception(std::format("select expects the first argument sort to be an array, but was provided a value of sort {}",
+                                                to_string(sort_ref(s, *m_manager))));
+        return nullptr;
+    }
     unsigned num_parameters = s->get_num_parameters();
     parameter const* parameters = s->get_parameters();
- 
+
     if (num_parameters != arity) {
-        m_manager->raise_exception(std::format("select requires {} arguments, but was provided with {} arguments", 
-                                                num_parameters, arity));
+        m_manager->raise_exception(std::format("select expects the first argument to be an array taking {}, instead it was passed {} arguments",
+                                                num_parameters - 1, arity - 1));
         return nullptr;
     }
     ptr_buffer<sort> new_domain; // we need this because of coercions.

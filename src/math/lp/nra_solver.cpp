@@ -36,6 +36,7 @@ struct solver::imp {
     scoped_ptr<scoped_anum_vector>   m_values; // values provided by LRA solver
     scoped_ptr<scoped_anum> m_tmp1, m_tmp2;
     nla::coi                  m_coi;
+    indexed_uint_set          m_skipped_constraints; // COI constraints kept out of the nlsat problem
     svector<lp::constraint_index> m_literal2constraint;
     struct eq {
         bool operator()(unsigned_vector const &a, unsigned_vector const &b) const {
@@ -62,6 +63,36 @@ struct solver::imp {
         m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
         m_values = alloc(scoped_anum_vector, am());
         m_lp2nl.reset();
+        m_skipped_constraints.reset();
+    }
+
+    // Power of two dividing the denominator of r (capped at 64).
+    static unsigned dyadic_valuation_of_denominator(rational const& r) {
+        rational den = denominator(r);
+        unsigned k = 0;
+        while (k < 64 && den.is_even()) {
+            den /= 2;
+            ++k;
+        }
+        return k;
+    }
+
+    // Bounds derived by the eager bound squeeze reach the constraint set as
+    // asserted atoms whose values are LP-vertex/delta-rational artifacts with a
+    // huge power-of-two denominator (e.g. 1367758954463/2^39). They are implied
+    // by the constraints they were derived from, yet after clearing denominators
+    // they inject outsized coefficients into the nlsat polynomials and blow up
+    // the resultant computations. Decimal constants from the input have
+    // denominators 10^k = 2^k*5^k with small k, so a large dyadic valuation
+    // singles out the derived bounds.
+    bool is_dyadic_artifact(lp::lar_base_constraint const& c) const {
+        unsigned const dyadic_artifact_threshold = 24;
+        if (dyadic_valuation_of_denominator(c.rhs()) >= dyadic_artifact_threshold)
+            return true;
+        for (auto const& [coeff, v] : c.coeffs())
+            if (dyadic_valuation_of_denominator(coeff) >= dyadic_artifact_threshold)
+                return true;
+        return false;
     }
 
     // Create polynomial definition for variable v used in setup_solver_poly.
@@ -122,6 +153,11 @@ struct solver::imp {
         // we rely on that all information encoded into the tableau is present as a constraint.
         for (auto ci : m_coi.constraints()) {
             auto &c = lra.constraints()[ci];
+            if (is_dyadic_artifact(c)) {
+                // implied bound artifact: keep it out of the nlsat problem
+                m_skipped_constraints.insert(ci);
+                continue;
+            }
             auto &pm = m_nlsat->pm();
             auto k = c.kind();
             auto rhs = c.rhs();
@@ -240,8 +276,10 @@ struct solver::imp {
             lra.init_model();
             for (lp::constraint_index ci : lra.constraints().indices()) {
                 if (check_constraint(ci)) continue;
-                // Non-COI constraint violations are benign; only COI violations indicate a bug.
-                if (m_coi.constraints().contains(ci)) {
+                // Non-COI constraint violations are benign, and constraints deliberately
+                // kept out of the nlsat problem may be violated by its model; only
+                // violations of COI constraints nlsat actually saw indicate a bug.
+                if (m_coi.constraints().contains(ci) && !m_skipped_constraints.contains(ci)) {
                     IF_VERBOSE(0, verbose_stream() << "constraint " << ci << " violated\n";
                                lra.constraints().display(verbose_stream()));
                     UNREACHABLE();

@@ -1223,10 +1223,9 @@ typename theory_diff_logic<Ext>::inf_eps theory_diff_logic<Ext>::value(theory_va
 
 template<typename Ext>
 typename theory_diff_logic<Ext>::inf_eps 
-theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
+theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
     SASSERT(is_consistent());
 
-    has_shared = false;
     Simplex& S = m_S;
 
     CTRACE(arith,!m_graph.is_feasible_dbg(), m_graph.display(tout););
@@ -1454,5 +1453,4 @@ void theory_diff_logic<Ext>::init_zero() {
     SASSERT(!is_attached_to_var(e));
     m_rzero = mk_var(e);   
 }
-
 

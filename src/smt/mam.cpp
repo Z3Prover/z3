@@ -2417,8 +2417,8 @@ namespace {
         case COMPARE:
             m_n1 = m_registers[static_cast<const compare *>(m_pc)->m_reg1];
             m_n2 = m_registers[static_cast<const compare *>(m_pc)->m_reg2];
-            SASSERT(m_n1 != 0);
-            SASSERT(m_n2 != 0);
+            if (!m_n1 || !m_n2)
+                goto backtrack;
             if (m_n1->get_root() != m_n2->get_root())
                 goto backtrack;
             
@@ -2434,9 +2434,9 @@ namespace {
         case CHECK:
             m_n1 = m_registers[static_cast<const check *>(m_pc)->m_reg];
             m_n2 = static_cast<const check *>(m_pc)->m_enode;
-            SASSERT(m_n1 != 0);
-            SASSERT(m_n2 != 0);
-
+            if (!m_n1 || !m_n2)
+                goto backtrack;
+            
             // hack to handle dynamically generated patterns:
             // if the pattern is ground and an if-expression, ignore equality check.
             if (m_n1->get_root() != m_n2->get_root() && !m.is_ite(m_n2->get_expr()))
@@ -3497,12 +3497,11 @@ namespace {
            \brief Update inverted path index.
         */
         void update_filters(quantifier * qa, app * mp) {
-            TRACE(mam_bug, tout << "updating filters using:\n" << mk_pp(mp, m) << "\n";);
             unsigned num_vars = qa->get_num_decls();
             if (num_vars >= m_var_paths.size())
                 m_var_paths.resize(num_vars+1);
-            for (unsigned i = 0; i < num_vars; ++i)
-                m_var_paths[i].reset();
+            for (auto& p : m_var_paths)
+                p.reset();
             m_tmp_region.reset();
             // Given a multi-pattern (p_1, ..., p_n)
             // We need to update the filters using patterns:
@@ -3939,8 +3938,7 @@ namespace {
         void rematch(bool use_irrelevant) override {
             ptr_vector<code_tree>::iterator it  = m_trees.begin_code_trees();
             ptr_vector<code_tree>::iterator end = m_trees.end_code_trees();
-            unsigned lbl = 0;
-            for (; it != end; ++it, ++lbl) {
+            for (; it != end; ++it) {
                 code_tree * t = *it;
                 if (t) {
                     m_interpreter.init(t);
@@ -4059,4 +4057,3 @@ namespace smt {
         return alloc(mam_impl, ctx, true);
     }
 }
-

@@ -209,6 +209,14 @@ namespace bv {
             return false;
         }
 
+        bool is_nonnegative(expr* t) const {
+            interval b;
+            unsigned sz = m_bv.get_bv_size(t);
+            return m_bound.find(t, b) &&
+                b.lo() <= b.hi() &&
+                b.hi() < rational::power_of_two(sz - 1);
+        }
+
         bool simplify_core(expr* t, expr_ref& result) {
             expr* t1;
             interval b;
@@ -216,6 +224,14 @@ namespace bv {
             if (m_bound.find(t, b) && b.is_singleton()) {
                 result = m_bv.mk_numeral(b.lo(), m_bv.get_bv_size(t));
                 return true;
+            }
+
+            if (m_bv.is_sign_ext(t, t1)) {
+                if (is_nonnegative(t1)) {
+                    unsigned n = m_bv.get_bv_size(t) - m_bv.get_bv_size(t1);
+                    result = m_bv.mk_zero_extend(n, t1);
+                    return true;
+                }
             }
 
             if (zero_patch(t, result))

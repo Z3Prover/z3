@@ -246,9 +246,9 @@ static void tst_ ## NAME(unsigned N, unsigned magnitude) {              \
     im.del(a); im.del(b); im.del(r);                                    \
 }
 
-MK_BINARY(mul, "(* a b)");
-MK_BINARY(add, "(+ a b)");
-MK_BINARY(sub, "(- a b)");
+MK_BINARY(mul, "(* a b)")
+MK_BINARY(add, "(+ a b)")
+MK_BINARY(sub, "(- a b)")
 
 static void tst_neg(unsigned N, unsigned magnitude) {
     reslimit rl;

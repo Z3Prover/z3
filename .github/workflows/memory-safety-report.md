@@ -63,22 +63,34 @@ Your name is ${{ github.workflow }}. You are an expert memory safety analyst for
 
 ## Your Task
 
-### 1. Download Artifacts from the Triggering Workflow Run
+### 1. Load Artifacts from the Triggering Workflow Run
 
-If triggered by `workflow_run`, the run ID is `${{ github.event.workflow_run.id }}`. If manual dispatch (empty run ID), call `github-mcp-server-actions_list` with method `list_workflow_runs` for the "Memory Safety Analysis" workflow and pick the latest completed run.
+For `workflow_run` triggers, artifacts are pre-downloaded by the workflow into `/tmp/reports/` before this prompt runs.
 
-Get the artifact list and download URLs:
+1. First, check for:
+   - `/tmp/reports/asan-reports/`
+   - `/tmp/reports/ubsan-reports/`
+2. If both are present, parse immediately:
 
-1. Call `github-mcp-server-actions_list` with method `list_workflow_run_artifacts` and the run ID. The run produces two artifacts: `asan-reports` and `ubsan-reports`.
-2. For each artifact, call `github-mcp-server-actions_get` with method `download_workflow_run_artifact` and the artifact ID. This returns a temporary download URL.
-3. Run the helper scripts to download, extract, and parse:
+```bash
+python3 .github/scripts/parse_sanitizer_reports.py /tmp/reports
+```
+
+If `/tmp/reports/` is missing (for example, manual dispatch), fallback to MCP artifact download:
+
+1. Determine the run ID:
+   - Use `${{ github.event.workflow_run.id }}` when available.
+   - Otherwise call `github-mcp-server-actions_list` with method `list_workflow_runs` for "Memory Safety Analysis" and pick the latest completed run.
+2. Call `github-mcp-server-actions_list` with method `list_workflow_run_artifacts` for that run ID.
+3. For each artifact (`asan-reports`, `ubsan-reports`), call `github-mcp-server-actions_get` with method `download_workflow_run_artifact` and the artifact ID.
+4. Download and extract:
 
 ```bash
 bash .github/scripts/fetch-artifacts.sh "$ASAN_URL" "$UBSAN_URL"
 python3 .github/scripts/parse_sanitizer_reports.py /tmp/reports
 ```
 
-After this, `/tmp/reports/{asan,ubsan}-reports/` contain the extracted files, `/tmp/parsed-report.json` has structured findings, and `/tmp/fetch-artifacts.log` has the download log.
+After this, `/tmp/reports/{asan,ubsan}-reports/` contain extracted files and `/tmp/parsed-report.json` has structured findings.
 
 ### 2. Analyze Sanitizer Reports
 

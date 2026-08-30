@@ -142,6 +142,7 @@ void set_default_exit_action(exit_action a) {
         }
         exit(code);
     }
+    abort();
 }
 
 atomic<debug_action> g_default_debug_action(debug_action::ask);

@@ -630,6 +630,34 @@ public:
     void set_num_elements(sort_size const& s) { get_info()->set_num_elements(s); }
     unsigned get_size() const { return get_obj_size(); }
     bool is_type_var() const { return get_family_id() == poly_family_id; }
+
+    // Uniform access to the sort(s) nested under a parametric sort
+    // constructor, e.g., the domain/range sorts of an Array sort, the
+    // element sort of a Seq/RegEx sort, or the element sort of a
+    // FiniteSet sort. Such sorts store their argument sorts as PARAM_AST
+    // parameters, so a nested sort is simply a parameter that is an ast
+    // of kind AST_SORT. Defined out-of-line below, once is_sort()/to_sort()
+    // are available.
+    unsigned get_num_sort_parameters() const;
+    sort * get_sort_parameter(unsigned idx) const;
+
+    class sort_parameters {
+        sort const & m_s;
+    public:
+        class iterator {
+            sort const & m_s;
+            unsigned     m_idx;
+        public:
+            iterator(sort const & s, unsigned idx) : m_s(s), m_idx(idx) {}
+            iterator & operator++() { ++m_idx; return *this; }
+            sort * operator*() const { return m_s.get_sort_parameter(m_idx); }
+            bool operator!=(iterator const & other) const { return m_idx != other.m_idx; }
+        };
+        sort_parameters(sort const & s) : m_s(s) {}
+        iterator begin() const { return iterator(m_s, 0); }
+        iterator end() const { return iterator(m_s, m_s.get_num_sort_parameters()); }
+    };
+    sort_parameters get_sort_parameters() const { return sort_parameters(*this); }
 };
 
 // -----------------------------------
@@ -949,6 +977,29 @@ inline bool is_quantifier(ast const * n) { return n->get_kind() == AST_QUANTIFIE
 inline bool is_forall(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->get_kind() == forall_k; }
 inline bool is_exists(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->get_kind() == exists_k; }
 inline bool is_lambda(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->get_kind() == lambda_k; }
+
+inline unsigned sort::get_num_sort_parameters() const {
+    unsigned n = 0;
+    for (unsigned i = 0; i < get_num_parameters(); ++i) {
+        parameter const & p = get_parameter(i);
+        if (p.is_ast() && is_sort(p.get_ast()))
+            ++n;
+    }
+    return n;
+}
+
+inline sort * sort::get_sort_parameter(unsigned idx) const {
+    for (unsigned i = 0; i < get_num_parameters(); ++i) {
+        parameter const & p = get_parameter(i);
+        if (p.is_ast() && is_sort(p.get_ast())) {
+            if (idx == 0)
+                return static_cast<sort *>(p.get_ast());
+            --idx;
+        }
+    }
+    UNREACHABLE();
+    return nullptr;
+}
 
 // -----------------------------------
 //

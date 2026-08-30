@@ -23,7 +23,6 @@ Notes:
 #include "ast/converters/model_converter.h"
 #include "tactic/tactic.h"
 #include "solver/preferred_value_propagator.h"
-#include "qe/qsat.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_pareto.h"
 #include "opt/optsmt.h"
@@ -178,7 +177,6 @@ namespace opt {
         ref<solver>         m_sat_solver;
         scoped_ptr<pareto_base>  m_pareto;
         bool                 m_pareto1;
-        scoped_ptr<qe::qmax> m_qmax;
         sref_vector<model>  m_box_models;
         unsigned            m_box_index;
         params_ref          m_params;
@@ -254,6 +252,7 @@ namespace opt {
         params_ref& get_params() { return m_params; }
 
         expr_ref get_lower(unsigned idx);
+        expr_ref get_exact(unsigned idx);
         expr_ref get_upper(unsigned idx);
 
         void get_lower(unsigned idx, expr_ref_vector& es) { to_exprs(get_lower_as_num(idx), es); }
@@ -379,9 +378,6 @@ namespace opt {
         expr_ref mk_cmp(bool is_ge, model_ref& mdl, objective const& obj);
 
 
-        // quantifiers
-        bool is_qsat_opt();
-        lbool run_qsat_opt();
 
       
     };

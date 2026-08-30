@@ -42,5 +42,5 @@ public:
     void flush_side_constraints(expr_ref_vector& side_constraints);
     unsigned num_translated() const;
     void set_is_fd(i_sort_pred* sp) const;
+    void translate(enum2bv_rewriter const& src, ast_translation& tr) const;
 };
-

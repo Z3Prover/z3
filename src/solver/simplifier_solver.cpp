@@ -51,6 +51,7 @@ class simplifier_solver : public solver {
         bool updated() override { return m_updated; }
         void reset_updated() override { m_updated = false; }
         model_reconstruction_trail& model_trail() override { return m_reconstruction_trail; }
+        model_reconstruction_trail const& model_trail() const override { return m_reconstruction_trail; }
         std::ostream& display(std::ostream& out) const override {
             unsigned i = 0;
             for (auto const& d : s.m_fmls) {
@@ -113,6 +114,7 @@ class simplifier_solver : public solver {
     vector<dependent_expr>      m_fmls;
     dep_expr_state              m_preprocess_state;
     then_simplifier             m_preprocess;
+    simplifier_factory          m_factory;
     expr_ref_vector             m_assumptions;
     model_converter_ref         m_mc;
     bool                        m_inconsistent = false;
@@ -126,23 +128,53 @@ class simplifier_solver : public solver {
         }
     }
 
+    expr* consequence_representative(expr* e) {
+        expr_mark visited;
+        ptr_vector<expr> todo;
+        expr* result = nullptr;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* current = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(current))
+                continue;
+            visited.mark(current, true);
+            if (is_uninterp_const(current)) {
+                if (result && result != current)
+                    return nullptr;
+                result = current;
+            }
+            else if (is_app(current)) {
+                for (expr* arg : *to_app(current))
+                    todo.push_back(arg);
+            }
+            else if (is_quantifier(current)) {
+                todo.push_back(to_quantifier(current)->get_expr());
+            }
+        }
+        return result;
+    }
+
     void flush(expr_ref_vector& assumptions) {
         unsigned qhead = m_preprocess_state.qhead();
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();
         m_preprocess_state.replay(qhead, assumptions);   
-        for (unsigned i = 0; i < assumptions.size(); ++i) 
-            m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));                    
 
         if (qhead < m_fmls.size()) {
             m_preprocess.reduce();
             if (!m.inc())
                 return;
+            // Simplification may introduce definitions for expressions passed
+            // as assumptions or consequence variables in this flush.
+            m_preprocess_state.replay(qhead, assumptions);
             TRACE(solver, tout << "qhead " << qhead << "\n";
                   m_preprocess_state.display(tout));
             m_preprocess_state.advance_qhead();
         }
 
+        for (unsigned i = 0; i < assumptions.size(); ++i)
+            m_core_replace.insert(assumptions.get(i), orig_assumptions.get(i));
         m_mc = m_preprocess_state.model_trail().get_model_converter(); 
         m_cached_mc = nullptr;
         for (; qhead < m_fmls.size(); ++qhead)
@@ -186,8 +218,10 @@ public:
         m_core_replace(m),
         m_proof(m)
     {
-        if (fac) 
-            m_preprocess.add_simplifier((*fac)(m, s->get_params(), m_preprocess_state));
+        if (fac) {
+            m_factory = *fac;
+            m_preprocess.add_simplifier(m_factory(m, s->get_params(), m_preprocess_state));
+        }
         else 
             init_preprocess(m, s->get_params(), m_preprocess, m_preprocess_state);
     }
@@ -266,15 +300,21 @@ public:
     }
 
     solver* translate(ast_manager& m, params_ref const& p) override { 
-        solver* new_s = s->translate(m, p);
         ast_translation tr(get_manager(), m);
-        simplifier_solver* result = alloc(simplifier_solver, new_s, nullptr); // factory?
+        solver* new_s = s->translate(m, p);
+        SASSERT(s->get_num_assertions() == new_s->get_num_assertions());
+        for (unsigned i = 0; i < s->get_num_assertions(); ++i)
+            tr.seed(s->get_assertion(i), new_s->get_assertion(i));
+        simplifier_factory* factory = m_factory ? &m_factory : nullptr;
+        simplifier_solver* result = alloc(simplifier_solver, new_s, factory);
         for (dependent_expr const& f : m_fmls) 
             result->m_fmls.push_back(dependent_expr(tr, f));
+        result->m_preprocess.translate(m_preprocess, tr);
+        result->m_preprocess_state.translate(m_preprocess_state, tr);
+        result->m_inconsistent = m_inconsistent;
         if (m_mc) 
             result->m_mc = m_mc->translate(tr);
 
-        // copy m_preprocess_state?
         return result;
     }    
 
@@ -319,8 +359,60 @@ public:
         flush(es);
         expr_ref_vector asms1(m, asms.size(), es.data());
         expr_ref_vector vars1(m, vars.size(), es.data() + asms.size());
-        lbool r = s->get_consequences(asms1, vars1, consequences);
-        replace(consequences);        
+        expr_ref_vector query_vars(m);
+        for (expr* v : vars1) {
+            expr* representative = consequence_representative(v);
+            query_vars.push_back(representative ? representative : v);
+        }
+        lbool r = s->get_consequences(asms1, query_vars, consequences);
+
+        th_rewriter rw(m);
+        for (unsigned i = 0; i < consequences.size(); ++i) {
+            expr* premise = nullptr, *conclusion = nullptr;
+            expr* lhs = nullptr, *rhs = nullptr;
+            expr* query = nullptr, *value = nullptr;
+            if (!m.is_implies(consequences.get(i), premise, conclusion))
+                continue;
+            if (m.is_eq(conclusion, lhs, rhs)) {
+                for (expr* q : query_vars) {
+                    if (lhs == q) {
+                        query = lhs;
+                        value = rhs;
+                        break;
+                    }
+                    if (rhs == q) {
+                        query = rhs;
+                        value = lhs;
+                        break;
+                    }
+                }
+            }
+            else if (is_uninterp_const(conclusion)) {
+                query = conclusion;
+                value = m.mk_true();
+            }
+            else if (m.is_not(conclusion, query) && is_uninterp_const(query)) {
+                value = m.mk_false();
+            }
+            if (!query)
+                continue;
+
+            for (unsigned j = 0; j < query_vars.size(); ++j) {
+                if (query_vars.get(j) != query || vars.get(j) == vars1.get(j))
+                    continue;
+                expr_safe_replace sub(m);
+                expr_ref decoded(m), new_premise(premise, m);
+                sub.insert(query, value);
+                sub(vars1.get(j), decoded);
+                rw(decoded);
+                consequences[i] = m.mk_implies(
+                    new_premise,
+                    m.mk_eq(vars.get(j), decoded));
+                query = nullptr;
+                break;
+            }
+        }
+        replace(consequences);
         return r;
     }
 
@@ -403,4 +495,3 @@ public:
 solver* mk_simplifier_solver(solver* s, simplifier_factory* fac) {
     return alloc(simplifier_solver, s, fac);
 }
-

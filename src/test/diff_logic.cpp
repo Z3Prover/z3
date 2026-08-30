@@ -39,7 +39,7 @@ struct tst_dl_functor {
     }
 };
 
-static void tst1() {
+[[maybe_unused]] static void tst1() {
     dlg g;
     smt::literal l;
     g.init_var(1);
@@ -55,7 +55,7 @@ static void tst1() {
     g.pop(1);
 }
 
-static void tst2() {
+[[maybe_unused]] static void tst2() {
     dlg g;
     rational w;
     smt::literal l1(1);
@@ -115,7 +115,7 @@ static int add_edge(dlg& g, dl_var src, dl_var dst, int weight, unsigned lit) {
     return id;
 }
 
-static void tst3() {
+[[maybe_unused]] static void tst3() {
     dlg g;
     for (unsigned i = 1; i <= 10; ++i) {
         g.init_var(i);

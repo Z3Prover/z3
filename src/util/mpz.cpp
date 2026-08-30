@@ -19,6 +19,7 @@ Revision History:
 #include <cstring>
 #include <sstream>
 #include <iomanip>
+#include <numeric>
 #include "util/mpz.h"
 #include "util/buffer.h"
 #include "util/trace.h"
@@ -45,88 +46,6 @@ Revision History:
 #else
 #define LEHMER_GCD
 #endif
-
-#ifdef __has_builtin
-    #define HAS_BUILTIN(X) __has_builtin(X)
-#else
-    #define HAS_BUILTIN(X) 0
-#endif
-#if HAS_BUILTIN(__builtin_ctz)
-#define _trailing_zeros32(X) __builtin_ctz(X)
-#elif defined(_WINDOWS) && (defined(_M_X86) || (defined(_M_X64) && !defined(_M_ARM64EC))) && !defined(__clang__)
-// This is needed for _tzcnt_u32 and friends.
-#include <immintrin.h>
-#define _trailing_zeros32(X) _tzcnt_u32(X)
-#else
-static uint32_t _trailing_zeros32(uint32_t x) {
-    uint32_t r = 0;
-    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
-    return r;
-}
-#endif
-
-#if (defined(__LP64__) || defined(_WIN64)) && defined(_M_X64) && !defined(_M_ARM64EC)
-#if HAS_BUILTIN(__builtin_ctzll)
-#define _trailing_zeros64(X) __builtin_ctzll(X)
-#elif !defined(__clang__)
-#define _trailing_zeros64(X) _tzcnt_u64(X)
-#endif
-#else
-static uint64_t _trailing_zeros64(uint64_t x) {
-    uint64_t r = 0;
-    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
-    return r;
-}
-#endif
-
-#undef HAS_BUILTIN
-
-unsigned trailing_zeros(uint32_t x) {
-    return static_cast<unsigned>(_trailing_zeros32(x));
-}
-
-unsigned trailing_zeros(uint64_t x) {
-    return static_cast<unsigned>(_trailing_zeros64(x));
-}
-
-#define _bit_min(x, y) (y + ((x - y) & ((int)(x - y) >> 31)))
-#define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))
-
-
-unsigned u_gcd(unsigned u, unsigned v) { 
-    if (u == 0) return v;
-    if (v == 0) return u;
-    unsigned shift = _trailing_zeros32(u | v);
-    u >>= _trailing_zeros32(u);
-    if (u == 1 || v == 1) return 1 << shift; 
-    if (u == v) return u << shift;
-    do {
-        v >>= _trailing_zeros32(v);        
-        unsigned diff = u - v;
-        unsigned mdiff = diff & (unsigned)((int)diff >> 31);
-        u = v + mdiff; // min
-        v = diff - 2 * mdiff;   // if v <= u: u - v, if v > u: v - u = u - v - 2 * (u - v)
-    }
-    while (v != 0);
-    return u << shift;
-}
-
-uint64_t u64_gcd(uint64_t u, uint64_t v) { 
-    if (u == 0) return v;
-    if (v == 0) return u;
-    if (u == 1 || v == 1) return 1;
-    auto shift = _trailing_zeros64(u | v);
-    u >>= _trailing_zeros64(u);
-    do {
-        v >>= _trailing_zeros64(v);        
-        if (u > v) std::swap(u, v);
-        v -= u;        
-    }
-    while (v != 0);
-    return u << shift;
-}
-
-
 
 template<bool SYNCH>
 mpz_manager<SYNCH>::mpz_manager():
@@ -947,7 +866,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         int _b = b.m_val;
         if (_a < 0) _a = -_a;
         if (_b < 0) _b = -_b;
-        unsigned r = u_gcd(_a, _b);
+        unsigned r = std::gcd(_a, _b);
         set(c, r);
     }
     else {
@@ -1027,7 +946,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         else {
             while (true) {
                 if (is_uint64(tmp1) && is_uint64(tmp2)) {
-                    set(c, u64_gcd(get_uint64(tmp1), get_uint64(tmp2)));
+                    set(c, std::gcd(get_uint64(tmp1), get_uint64(tmp2)));
                     break;
                 }
                 rem(tmp1, tmp2, aux);
@@ -1118,7 +1037,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             SASSERT(ge(a1, b1));
             if (is_small(b1)) {
                 if (is_small(a1)) {
-                    unsigned r = u_gcd(a1.m_val, b1.m_val);
+                    unsigned r = std::gcd(a1.m_val, b1.m_val);
                     set(c, r);
                     break;
                 }
@@ -1986,7 +1905,7 @@ bool mpz_manager<SYNCH>::is_power_of_two(mpz const & a, unsigned & shift) {
     if (is_nonpos(a))
         return false;
     if (is_small(a)) {
-        if (::is_power_of_two(a.m_val)) {
+        if (::is_power_of_two(static_cast<unsigned>(a.m_val))) {
             shift = ::log2((unsigned)a.m_val);
             return true;
         }
@@ -2300,7 +2219,7 @@ unsigned mpz_manager<SYNCH>::log2(mpz const & a) {
     unsigned sz      = c->m_size;
     digit_t * ds     = c->m_digits; 
     if (sizeof(digit_t) == 8) 
-        return (sz - 1)*64 + uint64_log2(ds[sz-1]);
+        return (sz - 1)*64 + ::log2(static_cast<uint64_t>(ds[sz-1]));
     else
         return (sz - 1)*32 + ::log2(static_cast<unsigned>(ds[sz-1]));
 #else
@@ -2325,7 +2244,7 @@ unsigned mpz_manager<SYNCH>::mlog2(mpz const & a) {
     unsigned sz      = c->m_size;
     digit_t * ds     = c->m_digits; 
     if (sizeof(digit_t) == 8)
-        return (sz - 1)*64 + uint64_log2(ds[sz-1]);
+        return (sz - 1)*64 + ::log2(static_cast<uint64_t>(ds[sz-1]));
     else
         return (sz - 1)*32 + ::log2(static_cast<unsigned>(ds[sz-1]));
 #else
