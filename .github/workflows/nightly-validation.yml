@@ -601,14 +601,6 @@ jobs:
       
       - name: Install and test wheel
         run: |
-          # Nightly wheels are tagged with the exact deployment target (e.g.
-          # macosx_13_3), but pip only recognizes major.0 platform tags such as
-          # macosx_13_0. Rewrite the unsupported minor version so the wheel is
-          # installable, mirroring the rename done in nightly.yml.
-          for whl in wheels/*-macosx_13_3_*.whl; do
-            [ -e "$whl" ] || continue
-            mv "$whl" "${whl/macosx_13_3_/macosx_13_0_}"
-          done
           pip install wheels/*.whl
           python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
 
@@ -638,14 +630,6 @@ jobs:
       
       - name: Install and test wheel
         run: |
-          # Nightly wheels are tagged with the exact deployment target (e.g.
-          # macosx_13_3), but pip only recognizes major.0 platform tags such as
-          # macosx_13_0. Rewrite the unsupported minor version so the wheel is
-          # installable, mirroring the rename done in nightly.yml.
-          for whl in wheels/*-macosx_13_3_*.whl; do
-            [ -e "$whl" ] || continue
-            mv "$whl" "${whl/macosx_13_3_/macosx_13_0_}"
-          done
           pip install wheels/*.whl
           python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
 

@@ -322,15 +322,30 @@ class sdist(_sdist):
 # to releases.
 
 internal_build_re = re.compile("(.+)_7")
+MACOS_PLATFORMS = ("osx", "darwin", "sequoia")
+
+def normalize_macos_wheel_os_version(platform, os_version_tag):
+    if platform not in MACOS_PLATFORMS:
+        return os_version_tag
+    parts = os_version_tag.split("_")
+    if len(parts) < 2:
+        return os_version_tag
+    try:
+        major = int(parts[0])
+    except ValueError:
+        return os_version_tag
+    if major >= 11:
+        return f"{parts[0]}_0"
+    return os_version_tag
 
 class bdist_wheel(_bdist_wheel):
 
     def remove_build_machine_os_version(self, platform, os_version_tag):
-        if platform in ["osx", "darwin", "sequoia"]:
+        if platform in MACOS_PLATFORMS:
             m = internal_build_re.search(os_version_tag)
             if m:
-                return m.group(1) + "_0"
-        return os_version_tag
+                os_version_tag = m.group(1) + "_0"
+        return normalize_macos_wheel_os_version(platform, os_version_tag)
             
             
     def finalize_options(self):
