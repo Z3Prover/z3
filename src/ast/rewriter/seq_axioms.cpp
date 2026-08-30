@@ -1386,9 +1386,7 @@ namespace seq {
 
     expr_ref axioms::length_limit(expr* s, unsigned k) {
         expr_ref bound_tracker = m_sk.mk_length_limit(s, k);
-        expr* s0 = nullptr, *n = nullptr;
-        if (seq.str.is_power(s, s0, n))
-            add_clause(~bound_tracker, mk_le(n, k));
+        expr* s0 = nullptr;
         if (seq.str.is_stoi(s, s0)) 
             s = s0;
         add_clause(~bound_tracker, mk_le(mk_len(s), k));
