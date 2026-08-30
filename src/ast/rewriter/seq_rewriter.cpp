@@ -5292,11 +5292,11 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
         result = m_autil.mk_lt(s, zero());
         return true;
     }
-    expr* n = nullptr;
-    if (str().is_power(r, s, n)) {
+    expr* base = nullptr, *n = nullptr;
+    if (str().is_power(r, base, n)) {
         expr_ref_vector disj(m());
         disj.push_back(m_autil.mk_le(n, zero()));
-        disj.push_back(m().mk_eq(s, l));
+        disj.push_back(m().mk_eq(base, l));
         result = m().mk_or(disj);
         return true;
     }
