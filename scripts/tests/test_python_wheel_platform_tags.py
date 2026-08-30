@@ -52,6 +52,7 @@ class TestPythonWheelPlatformTags(unittest.TestCase):
     def test_bdist_wheel_normalizes_release_metadata_tag(self):
         cmd = self.python_setup.bdist_wheel()
         self.assertEqual("13_0", cmd.remove_build_machine_os_version("osx", "13_3"))
+        self.assertEqual("13_0", cmd.remove_build_machine_os_version("osx", "13_3_7"))
 
     def test_macos_10_keeps_minor_version(self):
         self.assertEqual(
