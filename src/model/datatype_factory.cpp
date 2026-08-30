@@ -32,8 +32,6 @@ datatype_factory::datatype_factory(ast_manager & m, model_core & md):
 }
 
 datatype_factory::~datatype_factory() {
-    for (auto & kv : m_some_enum)
-        dealloc(kv.m_value);
     for (auto & kv : m_fresh_iter)
         dealloc(kv.m_value);
     for (auto & kv : m_fresh_enum)
@@ -104,14 +102,28 @@ expr * datatype_factory::get_some_value(sort * s) {
     auto& [set, values] = get_value_set(s);
     if (!set.empty())
         return *(set.begin());
-    term_enumeration & te = get_enumerator(s, m_some_enum);
-    for (expr * e : te.enum_terms(s)) {
-        register_value(e);
-        TRACE(datatype, tout << mk_pp(e, m_util.get_manager()) << "\n";);
-        return e;
+    // Use the non-recursive constructor selection here (instead of the
+    // cheapest term_enumeration production) so that the "some value" of a
+    // datatype sort is chosen consistently with how the rest of the model
+    // (and, in particular, model-based quantifier instantiation) has
+    // historically picked datatype values. Always preferring the
+    // structurally cheapest (e.g. nullary) constructor can make the model's
+    // default datatype value more likely to clash with unrelated ground
+    // terms of the same sort during MBQI's candidate model construction,
+    // needlessly triggering additional (and sometimes incomplete) theory
+    // case splits. get_fresh_value below still relies on term_enumeration
+    // to manufacture arbitrarily many pairwise-distinct values.
+    func_decl * c = m_util.get_non_rec_constructor(s);
+    expr_ref_vector args(m_manager);
+    unsigned num = c->get_arity();
+    for (unsigned i = 0; i < num; ++i) {
+        sort * s_arg = c->get_domain(i);
+        args.push_back(m_util.is_datatype(s_arg) ? get_some_value(s_arg) : m_model.get_some_value(s_arg));
     }
-    UNREACHABLE();
-    return nullptr;
+    expr * r = m_manager.mk_app(c, args);
+    register_value(r);
+    TRACE(datatype, tout << mk_pp(r, m_util.get_manager()) << "\n";);
+    return r;
 }
 
 expr * datatype_factory::get_fresh_value(sort * s) {
