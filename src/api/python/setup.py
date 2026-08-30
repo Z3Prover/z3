@@ -325,6 +325,7 @@ internal_build_re = re.compile("(.+)_7")
 MACOS_PLATFORMS = ("osx", "darwin", "sequoia")
 
 def normalize_macos_wheel_os_version(platform, os_version_tag):
+    """Normalize the macOS version portion used in a wheel platform tag."""
     if platform not in MACOS_PLATFORMS:
         return os_version_tag
     parts = os_version_tag.split("_")
