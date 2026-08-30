@@ -26,7 +26,7 @@ def load_python_setup():
     module = importlib.util.module_from_spec(spec)
     bdist_wheel_module = types.ModuleType("setuptools.command.bdist_wheel")
     bdist_wheel_module.bdist_wheel = DummyBdistWheel
-    with patch.dict(os.environ, {}, clear=False), \
+    with patch.dict(os.environ, {}, clear=True), \
          patch.dict(sys.modules, {"setuptools.command.bdist_wheel": bdist_wheel_module}), \
          patch("setuptools.setup"), \
          contextlib.redirect_stdout(io.StringIO()):
