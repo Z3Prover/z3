@@ -133,6 +133,7 @@ add_executable(test-z3
   scoped_timer.cpp
   scoped_vector.cpp
   seq_rewriter.cpp
+  seq_parikh.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp
   simple_parser.cpp
