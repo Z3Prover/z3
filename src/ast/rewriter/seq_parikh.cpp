@@ -291,7 +291,7 @@ void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs)
     for (unsigned r = 0; r < m_mod; ++r) {
         expr_ref_vector row(m);
         rational gram_count = num_grams(level);
-        SASSERT(gram_count.is_unsigned());
+        VERIFY(gram_count.is_unsigned());
         for (unsigned g = 0; g < gram_count.get_unsigned(); ++g) {
             expr_ref c = count(b, level, g, r);
             defs.push_back(m_autil.mk_ge(c.get(), zero.get()));
@@ -357,9 +357,9 @@ void parikh::define_block(block const& b, expr_ref_vector& defs) {
 void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector& out, expr_ref_vector& defs) {
     vector<expr_ref_vector> acc;
     rational gram_count = num_grams(level);
-    SASSERT(gram_count.is_unsigned());
+    VERIFY(gram_count.is_unsigned());
     rational total_count = gram_count * rational(m_mod);
-    SASSERT(total_count.is_unsigned());
+    VERIFY(total_count.is_unsigned());
     for (unsigned i = 0; i < total_count.get_unsigned(); ++i) {
         acc.push_back(expr_ref_vector(m));
     }
@@ -474,14 +474,14 @@ bool parikh::over_budget(vector<block> const& l, vector<block> const& r, unsigne
     adjacent(l, pairs);
     adjacent(r, pairs);
     rational blocks = rational(l.size()) + rational(r.size()) + rational(1);
-    rational per_observer;
+    rational per_observer(0);
     for (unsigned level = 1; level <= m_config.m_k; ++level) {
         per_observer += blocks * num_grams(level);
     }
     // the boundary factors dominate: one variable per pair of blocks and per factor
     if (m_config.m_k >= 2)
         per_observer += rational(pairs.size()) * num_grams(2);
-    rational counters;
+    rational counters(0);
     for (unsigned n : moduli) {
         counters += per_observer * rational(n);
     }
