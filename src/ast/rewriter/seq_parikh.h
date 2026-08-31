@@ -44,7 +44,6 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "util/obj_hashtable.h"
-#include "util/uint_set.h"
 
 namespace seq {
 
@@ -79,7 +78,7 @@ private:
 
     unsigned            m_p = 0;   // size of the projected alphabet
     unsigned            m_mod = 1; // modulus of the observer being built
-    indexed_uint_set    m_chars;   // projected characters, index m_chars.size() is the rest
+    unsigned_vector     m_chars;   // projected characters, index m_chars.size() is the rest
 
     expr_ref mk_sk(char const* name, std::initializer_list<expr*> args, sort* range);
     expr_ref num(int i);

@@ -101,8 +101,8 @@ void parikh::collect_chars(expr_ref_vector const& side) {
     for (expr* e : side) {
         if (!m_util.str.is_unit(e, c) || !m_util.is_const_char(c, ch))
             continue;
-        if (!m_chars.contains(ch) && m_chars.size() < m_config.m_max_chars)
-            m_chars.insert(ch);
+        if (char_index(ch) == m_chars.size() && m_chars.size() < m_config.m_max_chars)
+            m_chars.push_back(ch);
     }
 }
 
