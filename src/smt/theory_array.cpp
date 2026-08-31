@@ -246,6 +246,19 @@ namespace smt {
         TRACE(array_bug, tout << mk_bounded_pp(n, m) << "\n";);
         for (expr* arg : *n)
             ctx.ensure_internalized(arg);
+        // Force merge-tf for boolean arguments: an argument may have already
+        // been b_internalized in a gate context (merge_tf left false), and
+        // ensure_internalized() above is then a no-op for it. Re-invoking
+        // internalize(arg, false) in that case still runs the gate_ctx=false
+        // path in internalize_formula(), which calls set_merge_tf() on the
+        // existing enode so its enode participates in congruence closure
+        // with true/false (needed here since the array argument is a genuine
+        // term position, not a gate). Without this, select/store terms whose
+        // boolean argument enode was never merged with true/false can yield
+        // spurious (unsound) models. See SYO041^1.p (TPTP).
+        for (expr* arg : *n)
+            if (m.is_bool(arg))
+                ctx.internalize(arg, false);
         if (ctx.e_internalized(n)) 
             return false;
         // defensive: mk_enode indexes args through app2enode and dereferences

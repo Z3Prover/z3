@@ -2957,6 +2957,8 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
     try {
         cmd_context ctx;
+        if (g_display_model)
+            ctx.set_produce_models(true);
 
         tptp_parser p(ctx);
         p.parse_input(in, current_file ? current_file : ".");
@@ -3115,8 +3117,10 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
             else report_szs_status("Satisfiable", p.expected_status());
             if (g_display_model) {
                 model_ref mdl;
-                if (ctx.is_model_available(mdl))
+                if (ctx.is_model_available(mdl)) {
+                    ctx.set_regular_stream("stdout");
                     ctx.display_model(mdl);
+                }
             }
             break;
         case cmd_context::css_unknown:
