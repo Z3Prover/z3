@@ -54,7 +54,7 @@ public:
         unsigned m_k = 2;          // maximal factor length, 0 disables the abstraction
         unsigned m_n = 2;          // maximal position modulus
         unsigned m_max_chars = 6;  // how many distinct characters are kept apart
-        unsigned m_max_size = 25;  // maximal number of factor coordinates p^k
+        unsigned m_max_size = 25;  // maximal number of factor coordinates |A|^k
         unsigned m_max_counters = 5000;
     };
 
