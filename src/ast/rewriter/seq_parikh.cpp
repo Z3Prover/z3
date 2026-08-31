@@ -75,6 +75,8 @@ bool parikh::fresh(expr* key) {
 }
 
 rational parikh::num_grams(unsigned level) const {
+    // There is one coordinate for every word in the projected alphabet A of this length:
+    // |A^level| = |A|^level.  See Eisenhofer et al., Section 6.
     return power(rational(m_p), level);
 }
 
@@ -174,7 +176,8 @@ expr_ref parikh::count(block const& b, unsigned level, unsigned gram, unsigned r
     return mk_sk("seq.parikh", { b.m_e, level_ref.get(), gram_ref.get(), r_ref.get(), mod_ref.get(), p_ref.get() }, m_autil.mk_int());
 }
 
-// number of factor windows of the given level: max(0, len - level + 1)
+// The number of length-k windows of w is max(0, |w| - k + 1);
+// this is the marginal sum of its generalized Parikh image.
 expr_ref parikh::window(block const& b, unsigned level, expr_ref_vector& defs) {
     if (level == 1)
         return len(b);
@@ -267,7 +270,8 @@ void parikh::define_letters(block const& b, expr_ref_vector& defs) {
     }
 }
 
-// counters of one level, tied to the window count split over the residue classes
+// For O[k,n](w)[u,r] = |{ i : w[i..i+k) = u, i = r (mod n) }|,
+// summing over u gives the number of length-k windows at residue r.
 void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs) {
     if (b.m_is_char || !fresh(count(b, level, 0, 0)))
         return;
@@ -290,10 +294,8 @@ void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs)
 
     for (unsigned r = 0; r < m_mod; ++r) {
         expr_ref_vector row(m);
-        rational gram_count = num_grams(level);
-        if (!gram_count.is_unsigned())
-            return;
-        for (unsigned g = 0; g < gram_count.get_unsigned(); ++g) {
+        unsigned gram_count = num_grams(level).get_unsigned();
+        for (unsigned g = 0; g < gram_count; ++g) {
             expr_ref c = count(b, level, g, r);
             defs.push_back(m_autil.mk_ge(c.get(), zero.get()));
             row.push_back(c);
@@ -307,8 +309,9 @@ void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs)
     }
 }
 
-// de-Bruijn flow: an occurrence of a letter extends to a two-letter factor unless it sits
-// at the corresponding end of the block
+// The de-Bruijn flow equations project pair counts onto letter counts:
+// sum_d O[2,n](w)[cd,r] = O[1,n](w)[c,r] - [c is the last letter at r],
+// with the dual equation for incoming pairs and the first letter.
 void parikh::define_flow(block const& b, expr_ref_vector& defs) {
     if (b.m_is_char || m_config.m_k < 2)
         return;
@@ -354,15 +357,13 @@ void parikh::define_block(block const& b, expr_ref_vector& defs) {
     define_flow(b, defs);
 }
 
-// out[gram * m_mod + r] counts the occurrences of gram starting at a position congruent to r
+// Concatenation rotates each block image by the preceding length:
+// O[k,n](xy)[u,r] = O[k,n](x)[u,r] + O[k,n](y)[u,r-|x|] + boundary[u,r].
+// out[gram * m_mod + r] stores this coordinate.
 void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector& out, expr_ref_vector& defs) {
     vector<expr_ref_vector> acc;
-    rational gram_count = num_grams(level);
-    if (!gram_count.is_unsigned())
-        return;
-    rational total_count = gram_count * rational(m_mod);
-    if (!total_count.is_unsigned())
-        return;
+    unsigned gram_count = num_grams(level).get_unsigned();
+    rational total_count = rational(gram_count) * rational(m_mod);
     for (unsigned i = 0; i < total_count.get_unsigned(); ++i) {
         acc.push_back(expr_ref_vector(m));
     }
@@ -387,7 +388,7 @@ void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector
             }
             continue;
         }
-        for (unsigned g = 0; g < gram_count.get_unsigned(); ++g) {
+        for (unsigned g = 0; g < gram_count; ++g) {
             if (m_mod == 1) {
                 acc[g].push_back(count(b, level, g, 0));
                 continue;
@@ -479,6 +480,8 @@ bool parikh::over_budget(vector<block> const& l, vector<block> const& r, unsigne
     rational blocks = rational(l.size()) + rational(r.size()) + rational(1);
     rational per_observer(0);
     for (unsigned level = 1; level <= m_config.m_k; ++level) {
+        if (num_grams(level) > rational(m_config.m_max_size))
+            return true;
         per_observer += blocks * num_grams(level);
     }
     // the boundary factors dominate: one variable per pair of blocks and per factor

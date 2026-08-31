@@ -237,6 +237,10 @@ void tst_seq_parikh() {
     // the abstraction can be turned off
     check("yy", "abba", 0, 1, verdict::skipped);
 
+    // The default size bound admits 5^2 = 25 coordinates and rejects 6^2 = 36.
+    check("abcd", "abcd", 2, 1, verdict::allowed);
+    check("abcde", "abcde", 2, 1, verdict::skipped);
+
     // Regression for the rotation being shared across observers.  The clock is an argument
     // of the rotation, so clocks of different moduli that happen to agree used to make
     // congruence identify rotations that mean different things.  n >= 3 puts two observers

@@ -31,6 +31,9 @@ Abstract:
     everywhere.  The projected alphabet therefore only grows, and both its size and the
     observer's modulus are part of the identity of the symbols indexed by them.
 
+    See Section 6 of C. Eisenhofer, T. Seiser, N. Bjørner, and L. Kovács,
+    "On Solving String Equations via Powers and Parikh Images", arXiv:2603.05273.
+
 Author:
 
     Clemens Eisenhofer 2026
@@ -51,6 +54,7 @@ public:
         unsigned m_k = 2;          // maximal factor length, 0 disables the abstraction
         unsigned m_n = 2;          // maximal position modulus
         unsigned m_max_chars = 6;  // how many distinct characters are kept apart
+        unsigned m_max_size = 25;  // maximal number of factor coordinates p^k
         unsigned m_max_counters = 5000;
     };
 
