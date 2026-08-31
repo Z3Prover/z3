@@ -245,7 +245,11 @@ namespace smt {
        
         TRACE(array_bug, tout << mk_bounded_pp(n, m) << "\n";);
         for (expr* arg : *n)
-            ctx.ensure_internalized(arg);
+            ctx.internalize(arg, false);
+        // force merge-tf by re-internalizing expression.
+        for (expr* arg : *n)
+            if (m.is_bool(arg))
+                ctx.internalize(arg, false);
         if (ctx.e_internalized(n)) 
             return false;
         // defensive: mk_enode indexes args through app2enode and dereferences
