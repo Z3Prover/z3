@@ -74,12 +74,8 @@ bool parikh::fresh(expr* key) {
     return true;
 }
 
-unsigned parikh::num_grams(unsigned level) const {
-    unsigned n = 1;
-    for (unsigned i = 0; i < level; ++i) {
-        n *= m_p;
-    }
-    return n;
+rational parikh::num_grams(unsigned level) const {
+    return power(rational(m_p), level);
 }
 
 unsigned parikh::char_index(unsigned ch) const {
@@ -91,12 +87,10 @@ unsigned parikh::char_index(unsigned ch) const {
 }
 
 bool parikh::has_char(expr_ref_vector const& side) const {
-    expr* c = nullptr;
-    for (expr* e : side) {
-        if (m_util.str.is_unit(e, c) && m_util.is_const_char(c))
-            return true;
-    }
-    return false;
+    return any_of(side, [&](expr* e) {
+        expr* c = nullptr;
+        return m_util.str.is_unit(e, c) && m_util.is_const_char(c);
+    });
 }
 
 void parikh::collect_chars(expr_ref_vector const& side) {
@@ -105,8 +99,8 @@ void parikh::collect_chars(expr_ref_vector const& side) {
     for (expr* e : side) {
         if (!m_util.str.is_unit(e, c) || !m_util.is_const_char(c, ch))
             continue;
-        if (char_index(ch) == m_chars.size() && m_chars.size() < m_config.m_max_chars)
-            m_chars.push_back(ch);
+        if (!m_chars.contains(ch) && m_chars.size() < m_config.m_max_chars)
+            m_chars.insert(ch);
     }
 }
 
@@ -296,7 +290,9 @@ void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs)
 
     for (unsigned r = 0; r < m_mod; ++r) {
         expr_ref_vector row(m);
-        for (unsigned g = 0; g < num_grams(level); ++g) {
+        rational gram_count = num_grams(level);
+        SASSERT(gram_count.is_unsigned());
+        for (unsigned g = 0; g < gram_count.get_unsigned(); ++g) {
             expr_ref c = count(b, level, g, r);
             defs.push_back(m_autil.mk_ge(c.get(), zero.get()));
             row.push_back(c);
@@ -360,7 +356,9 @@ void parikh::define_block(block const& b, expr_ref_vector& defs) {
 // out[gram * m_mod + r] counts the occurrences of gram starting at a position congruent to r
 void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector& out, expr_ref_vector& defs) {
     vector<expr_ref_vector> acc;
-    for (unsigned i = 0; i < num_grams(level) * m_mod; ++i) {
+    rational gram_count = num_grams(level);
+    SASSERT(gram_count.is_unsigned());
+    for (unsigned i = 0; i < gram_count.get_unsigned() * m_mod; ++i) {
         acc.push_back(expr_ref_vector(m));
     }
 
@@ -384,7 +382,7 @@ void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector
             }
             continue;
         }
-        for (unsigned g = 0; g < num_grams(level); ++g) {
+        for (unsigned g = 0; g < gram_count.get_unsigned(); ++g) {
             if (m_mod == 1) {
                 acc[g].push_back(count(b, level, g, 0));
                 continue;
@@ -473,19 +471,19 @@ bool parikh::over_budget(vector<block> const& l, vector<block> const& r, unsigne
     svector<block_pair> pairs;
     adjacent(l, pairs);
     adjacent(r, pairs);
-    unsigned blocks = l.size() + r.size() + 1;
-    unsigned per_observer = 0;
+    rational blocks = rational(l.size()) + rational(r.size()) + rational(1);
+    rational per_observer;
     for (unsigned level = 1; level <= m_config.m_k; ++level) {
         per_observer += blocks * num_grams(level);
     }
     // the boundary factors dominate: one variable per pair of blocks and per factor
     if (m_config.m_k >= 2)
-        per_observer += pairs.size() * num_grams(2);
-    unsigned counters = 0;
+        per_observer += rational(pairs.size()) * num_grams(2);
+    rational counters;
     for (unsigned n : moduli) {
-        counters += per_observer * n;
+        counters += per_observer * rational(n);
     }
-    return counters > m_config.m_max_counters;
+    return counters > rational(m_config.m_max_counters);
 }
 
 bool parikh::operator()(expr_ref_vector const& l, expr_ref_vector const& r,
