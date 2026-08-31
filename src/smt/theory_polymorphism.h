@@ -73,7 +73,6 @@ namespace smt {
         }
 
         final_check_status final_check_eh(unsigned) override {
-        final_check_status final_check_eh(unsigned) override {
             if (m_inst.pending() && assert_instances()) {
                 // There are still polymorphic axioms to instantiate. Force the
                 // solver to fail under the theory assumption so that a new
