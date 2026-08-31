@@ -488,9 +488,10 @@ bool parikh::over_budget(vector<block> const& l, vector<block> const& r, unsigne
     rational blocks = rational(l.size()) + rational(r.size()) + rational(1);
     rational per_observer(0);
     for (unsigned level = 1; level <= m_config.m_k; ++level) {
-        if (num_grams(level) > rational(m_config.m_max_size))
+        rational gram_count = num_grams(level);
+        if (gram_count > rational(m_config.m_max_size))
             return true;
-        per_observer += blocks * num_grams(level);
+        per_observer += blocks * gram_count;
     }
     // the boundary factors dominate: one variable per pair of blocks and per factor
     if (m_config.m_k >= 2)
