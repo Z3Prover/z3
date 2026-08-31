@@ -1192,7 +1192,10 @@ namespace seq {
        n <= 0    => e = empty
        s = empty => e = empty
        n > 0     => len(e) = n * len(s)
+       n > 0 and s != empty => n <= len(e)
 
+       The last axiom is implied by the previous one, but it is linear and
+       therefore bounds the exponent even when len(s) is not fixed.
        The unfolding into a concatenation is only added on demand, see power_unfold_axiom.
     */
     void axioms::power_axiom(expr* e) {
@@ -1200,21 +1203,33 @@ namespace seq {
         VERIFY(seq.str.is_power(e, s, n));
         expr_ref emp(seq.str.mk_empty(e->get_sort()), m);
         expr_ref n_ge_1 = mk_ge(n, 1);
+        expr_ref len_e = mk_len(e);
         add_clause(n_ge_1, mk_eq(e, emp));
         add_clause(~mk_eq(s, emp), mk_eq(e, emp));
-        add_clause(~n_ge_1, mk_eq(mk_len(e), a.mk_mul(n, mk_len(s))));
+        add_clause(~n_ge_1, mk_eq(len_e, a.mk_mul(n, mk_len(s))));
+        add_clause(~n_ge_1, mk_eq(s, emp), mk_ge_e(len_e, n));
     }
 
     /**
        n = j => s^n = s ++ .. ++ s (j copies), for 1 <= j <= k
 
-       The exponent is bounded by k thanks to the length limit of e, so the
-       cases below are exhaustive for the current unfolding depth.
+       The length limit of e bounds n by k, so the cases are exhaustive at
+       the current unfolding depth.
     */
     void axioms::power_unfold_axiom(expr* e, unsigned k) {
         expr* s = nullptr, *n = nullptr;
         VERIFY(seq.str.is_power(e, s, n));
         expr_ref pow(s, m);
+        rational v;
+        // a known exponent only needs the case it matches
+        if (a.is_numeral(n, v)) {
+            if (!v.is_pos() || v > rational(k))
+                return;
+            for (unsigned j = 1; j < v.get_unsigned(); ++j)
+                pow = mk_concat(s, pow);
+            add_clause(mk_seq_eq(e, pow));
+            return;
+        }
         for (unsigned j = 1; j <= k; ++j) {
             add_clause(~mk_eq(n, a.mk_int(j)), mk_seq_eq(e, pow));
             pow = mk_concat(s, pow);
@@ -1386,7 +1401,12 @@ namespace seq {
 
     expr_ref axioms::length_limit(expr* s, unsigned k) {
         expr_ref bound_tracker = m_sk.mk_length_limit(s, k);
-        expr* s0 = nullptr;
+        expr* s0 = nullptr, *n = nullptr;
+        // the unfolding of a power is bounded by its exponent, not by its length
+        if (seq.str.is_power(s, s0, n)) {
+            add_clause(~bound_tracker, mk_le(n, k));
+            return bound_tracker;
+        }
         if (seq.str.is_stoi(s, s0)) 
             s = s0;
         add_clause(~bound_tracker, mk_le(mk_len(s), k));

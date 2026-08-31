@@ -545,7 +545,7 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = str().mk_length(z);
         return BR_REWRITE1;
     } 
-    // len(s^n) = n * len(s) for n > 0
+    // len(s^n) = n * len(s) for n >= 0
     if (str().is_power(a, x, y) && m_autil.is_numeral(y, r) && r >= 0) {
         result = m_autil.mk_mul(y, str().mk_length(x));
         return BR_REWRITE2;
@@ -597,13 +597,13 @@ br_status seq_rewriter::mk_seq_power(expr* a, expr* b, expr_ref& result) {
         if (!(n * rational(t.length())).is_unsigned())
             return BR_FAILED;
         zstring r = t;
-        for (unsigned i = 1; i < v; i++)
+        for (unsigned i = 1; i < v; ++i)
             r += t;
         result = str().mk_string(r);
         return BR_DONE;
     }
     expr_ref_vector es(m());
-    for (unsigned i = 0; i < v; i++)
+    for (unsigned i = 0; i < v; ++i)
         es.push_back(a);
     result = str().mk_concat(es, a->get_sort());
     return BR_REWRITE_FULL;
@@ -4620,14 +4620,15 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     bool changed = false;
     if (reduce_eq_empty(l, r, result)) 
         return BR_REWRITE_FULL;
+    // s^n = s^k <=> s = "" or (n <= 0 and k <= 0) or (0 < n = k)
     expr* s1 = nullptr, *n1 = nullptr, *s2 = nullptr, *n2 = nullptr;
     if (str().is_power(l, s1, n1) && str().is_power(r, s2, n2) && s1 == s2) {
-        expr* emp = str().mk_empty(s1->get_sort());
-        expr_ref_vector disj(m());
-        disj.push_back(m().mk_eq(s1, emp));
-        disj.push_back(m().mk_and(m_autil.mk_le(n1, zero()), m_autil.mk_le(n2, zero())));
-        disj.push_back(m().mk_and(m_autil.mk_lt(zero(), n1), m_autil.mk_lt(zero(), n2), m().mk_eq(n1, n2)));
-        result = m().mk_or(disj);
+        expr_ref emp(str().mk_empty(s1->get_sort()), m());
+        expr_ref_vector fmls(m());
+        fmls.push_back(m().mk_eq(s1, emp));
+        fmls.push_back(m().mk_and(m_autil.mk_le(n1, zero()), m_autil.mk_le(n2, zero())));
+        fmls.push_back(m().mk_and(m_autil.mk_lt(zero(), n1), m_autil.mk_lt(zero(), n2), m().mk_eq(n1, n2)));
+        result = m().mk_or(fmls);
         return BR_REWRITE_FULL;
     }
 
@@ -5292,12 +5293,13 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
         result = m_autil.mk_lt(s, zero());
         return true;
     }
+    // s^n = "" <=> n <= 0 or s = ""
     expr* base = nullptr, *n = nullptr;
     if (str().is_power(r, base, n)) {
-        expr_ref_vector disj(m());
-        disj.push_back(m_autil.mk_le(n, zero()));
-        disj.push_back(m().mk_eq(base, l));
-        result = m().mk_or(disj);
+        expr_ref_vector fmls(m());
+        fmls.push_back(m_autil.mk_le(n, zero()));
+        fmls.push_back(m().mk_eq(base, l));
+        result = m().mk_or(fmls);
         return true;
     }
     // at(s, offset) = "" <=> len(s) <= offset or offset < 0

@@ -91,26 +91,32 @@ static void tst_power_solver() {
     expr_ref ab(seq.str.mk_string(zstring("ab")), m);
     expr_ref_vector fmls(m);
 
-    // symbolic exponents are unsupported by theory_seq
+    // "ab"^n = "abab" has the solution n = 2
     fmls.push_back(m.mk_eq(seq.str.mk_power(ab, n), seq.str.mk_string(zstring("abab"))));
-    ENSURE(check(m, fmls) == l_undef);
+    ENSURE(check(m, fmls) == l_true);
 
-    // symbolic exponents are unsupported by theory_seq
+    // the length of "ab"^n is even
     fmls.reset();
     fmls.push_back(m.mk_eq(seq.str.mk_power(ab, n), seq.str.mk_string(zstring("aba"))));
-    ENSURE(check(m, fmls) == l_undef);
+    ENSURE(check(m, fmls) == l_false);
 
-    // symbolic exponents are unsupported by theory_seq
+    // x^n is empty for n <= 0
     fmls.reset();
     fmls.push_back(a.mk_le(n, a.mk_int(0)));
     fmls.push_back(m.mk_eq(seq.str.mk_power(x, n), seq.str.mk_string(zstring("a"))));
-    ENSURE(check(m, fmls) == l_undef);
+    ENSURE(check(m, fmls) == l_false);
 
-    // symbolic exponents are unsupported by theory_seq
+    // x^n = "aaaa" with |x| = 2 has the solution x = "aa", n = 2
     fmls.reset();
     fmls.push_back(m.mk_eq(seq.str.mk_power(x, n), seq.str.mk_string(zstring("aaaa"))));
     fmls.push_back(m.mk_eq(seq.str.mk_length(x), a.mk_int(2)));
-    ENSURE(check(m, fmls) == l_undef);
+    ENSURE(check(m, fmls) == l_true);
+
+    // the unfolding is exact for a fixed exponent
+    fmls.reset();
+    fmls.push_back(a.mk_eq(n, a.mk_int(3)));
+    fmls.push_back(m.mk_not(m.mk_eq(seq.str.mk_power(x, n), seq.str.mk_concat(x, seq.str.mk_concat(x, x)))));
+    ENSURE(check(m, fmls) == l_false);
 }
 
 void tst_seq_power() {

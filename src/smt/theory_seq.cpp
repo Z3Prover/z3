@@ -2855,6 +2855,10 @@ void theory_seq::deque_axiom(expr* n) {
     else if (m_util.str.is_unit(n)) {
         m_ax.add_unit_axiom(n);
     }
+    else if (m_util.str.is_power(n)) {
+        m_ax.add_power_axiom(n);
+        add_length_limit(n, m_max_unfolding_depth, true);
+    }
     else if (m_util.str.is_is_digit(n)) {
         m_ax.add_is_digit_axiom(n);        
     }
@@ -3451,6 +3455,7 @@ void theory_seq::relevant_eh(expr* _n) {
         m_util.str.is_from_code(n) ||
         m_util.str.is_to_code(n) ||
         m_util.str.is_unit(n) ||
+        m_util.str.is_power(n) ||
         m_util.str.is_last_index(n) ||
         m_util.str.is_length(n) || 
         /* m_util.str.is_replace_all(n) || uncomment to enable axiomatization */
@@ -3482,8 +3487,7 @@ void theory_seq::relevant_eh(expr* _n) {
     if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) 
         add_length_to_eqc(arg);
 
-    if (m_util.str.is_power(n) ||
-        m_util.str.is_replace_all(n) ||
+    if (m_util.str.is_replace_all(n) ||
         m_util.str.is_replace_re(n) ||
         m_util.str.is_replace_re_all(n)) {
         add_unhandled_expr(n);
@@ -3570,6 +3574,9 @@ void theory_seq::propagate_length_limit(expr* e) {
     }    
     if (m_util.str.is_itos(s)) {
         m_ax.add_itos_axiom(s, k);
+    }
+    if (m_util.str.is_power(s)) {
+        m_ax.add_power_unfold_axiom(s, k);
     }
 }
 
