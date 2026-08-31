@@ -294,7 +294,10 @@ void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs)
 
     for (unsigned r = 0; r < m_mod; ++r) {
         expr_ref_vector row(m);
-        unsigned gram_count = num_grams(level).get_unsigned();
+        rational factor_count = num_grams(level);
+        if (factor_count > rational(m_config.m_max_size))
+            return;
+        unsigned gram_count = factor_count.get_unsigned();
         for (unsigned g = 0; g < gram_count; ++g) {
             expr_ref c = count(b, level, g, r);
             defs.push_back(m_autil.mk_ge(c.get(), zero.get()));
@@ -362,9 +365,14 @@ void parikh::define_block(block const& b, expr_ref_vector& defs) {
 // out[gram * m_mod + r] stores this coordinate.
 void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector& out, expr_ref_vector& defs) {
     vector<expr_ref_vector> acc;
-    unsigned gram_count = num_grams(level).get_unsigned();
-    rational total_count = rational(gram_count) * rational(m_mod);
-    for (unsigned i = 0; i < total_count.get_unsigned(); ++i) {
+    rational factor_count = num_grams(level);
+    if (factor_count > rational(m_config.m_max_size))
+        return;
+    unsigned gram_count = factor_count.get_unsigned();
+    rational total = factor_count * rational(m_mod);
+    if (total > rational(m_config.m_max_counters))
+        return;
+    for (unsigned i = 0; i < total.get_unsigned(); ++i) {
         acc.push_back(expr_ref_vector(m));
     }
 
