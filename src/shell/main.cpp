@@ -350,15 +350,12 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                             strcmp(ext, "drat") == 0 || strcmp(ext, "p") == 0))
                     is_filepath = true;
             }
-            if (is_filepath) {
-                if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {
-                    g_input_kind = IN_DRAT;
-                    g_drat_input_file = arg;
-                }
-                else if (g_input_file)
-                    warning_msg("input file was already specified.");
-                else
-                    g_input_file = arg;
+            if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {
+            	g_input_kind = IN_DRAT;
+                g_drat_input_file = arg;
+            }
+            else if (is_filepath && !g_input_file) {
+                g_input_file = arg;
             }
             else {
                 char * key   = argv[i];

@@ -57,8 +57,10 @@ namespace smt {
             m_inst.instantiate(instances);
             if (instances.empty())
                 return false;
-            for (auto const& [orig, inst, sub] : instances)
+            for (auto const& [orig, inst, sub] : instances) {
+                TRACE(context, tout << "instantiate: " << mk_pp(inst, m) << "\n");
                 ctx.add_asserted(inst);
+            }
             ctx.internalize_assertions();
             return true;
         }
