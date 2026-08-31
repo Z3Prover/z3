@@ -523,10 +523,9 @@ bool parikh::operator()(expr_ref_vector const& l, expr_ref_vector const& r,
 
     // a modulus is redundant as soon as a proper multiple of it is in range as well
     unsigned_vector moduli;
-    for (unsigned n = 1; n <= m_config.m_n; ++n) {
-        if (2 * n > m_config.m_n)
-            moduli.push_back(n);
-    }
+    for (unsigned n = m_config.m_n / 2 + 1; n < m_config.m_n; ++n)
+        moduli.push_back(n);
+    moduli.push_back(m_config.m_n);
     if (over_budget(bl, br, moduli))
         return false;
 
