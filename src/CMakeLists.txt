@@ -85,7 +85,7 @@ set (object_files "")
 foreach (component ${Z3_LIBZ3_COMPONENTS_LIST})
   list(APPEND object_files $<TARGET_OBJECTS:${component}>)
 endforeach()
-if (Z3_BUILD_LIBZ3_SHARED)
+if (BUILD_SHARED_LIBS)
   set(lib_type "SHARED")
 else()
   set(lib_type "STATIC")
@@ -148,6 +148,9 @@ if (NOT MSVC)
   # ``.ilk``, ``.pdb``, ``.lib`` and ``.exp`` files sharing the same
   # prefix.
   set_target_properties(libz3 PROPERTIES OUTPUT_NAME z3)
+elseif (WIN32 AND NOT BUILD_SHARED_LIBS)
+  # Do not overwrite the shared build's import library when co-installed.
+  set_target_properties(libz3 PROPERTIES OUTPUT_NAME libz3-static)
 endif()
 
 # The `PRIVATE` usage requirement is specified so that when building Z3 as a

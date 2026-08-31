@@ -353,7 +353,18 @@ endif()
 ################################################################################
 # Option to control what type of library we build
 ################################################################################
-option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
+# Z3_BUILD_LIBZ3_SHARED is retained for existing build scripts.  Use CMake's
+# standard switch internally so packages can make the same choice.
+if (DEFINED Z3_BUILD_LIBZ3_SHARED)
+  set(BUILD_SHARED_LIBS "${Z3_BUILD_LIBZ3_SHARED}")
+endif()
+option(BUILD_SHARED_LIBS "Build libz3 as a shared library" ON)
+set(Z3_BUILD_LIBZ3_SHARED "${BUILD_SHARED_LIBS}")
+if (BUILD_SHARED_LIBS)
+  set(Z3_LIBZ3_VARIANT shared)
+else()
+  set(Z3_LIBZ3_VARIANT static)
+endif()
 option(Z3_BUILD_LIBZ3_MSVC_STATIC "Build libz3 as a statically-linked runtime library"                   OFF)
 
 
@@ -603,7 +614,7 @@ if (Z3_BUILD_LIBZ3_CORE)
 
   export(EXPORT Z3_EXPORTED_TARGETS
      NAMESPACE z3::
-     FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
+     FILE "${PROJECT_BINARY_DIR}/Z3-${Z3_LIBZ3_VARIANT}-targets.cmake"
   )
 else()
   # When not building libz3, we need to find it
@@ -670,6 +681,20 @@ write_basic_package_version_file("${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
   COMPATIBILITY SameMajorVersion
 )
 
+set(Z3_FIND_GMP_MODULE_DIR "${PROJECT_SOURCE_DIR}/cmake/modules")
+configure_file(
+  "${PROJECT_SOURCE_DIR}/cmake/Z3StaticDependencies.cmake.in"
+  "${PROJECT_BINARY_DIR}/Z3-static-dependencies.cmake"
+  @ONLY
+)
+set(Z3_FIND_GMP_MODULE_DIR "\${CMAKE_CURRENT_LIST_DIR}")
+configure_file(
+  "${PROJECT_SOURCE_DIR}/cmake/Z3StaticDependencies.cmake.in"
+  "${PROJECT_BINARY_DIR}/cmake/Z3-static-dependencies.cmake"
+  @ONLY
+)
+unset(Z3_FIND_GMP_MODULE_DIR)
+
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
 	"${CMAKE_CURRENT_BINARY_DIR}/z3.pc" @ONLY)
 
@@ -681,10 +706,22 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
 if (Z3_BUILD_LIBZ3_CORE)
   install(EXPORT
     Z3_EXPORTED_TARGETS
-    FILE "Z3Targets.cmake"
+    FILE "Z3-${Z3_LIBZ3_VARIANT}-targets.cmake"
     NAMESPACE z3::
     DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
   )
+  if (NOT BUILD_SHARED_LIBS)
+    install(
+      FILES "${PROJECT_BINARY_DIR}/cmake/Z3-static-dependencies.cmake"
+      DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+    )
+    if (Z3_USE_LIB_GMP)
+      install(
+        FILES "${PROJECT_SOURCE_DIR}/cmake/modules/FindGMP.cmake"
+        DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+      )
+    endif()
+  endif()
 endif()
 set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${PROJECT_BINARY_DIR}/cmake/Z3Config.cmake")
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
