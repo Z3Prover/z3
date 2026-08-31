@@ -95,7 +95,7 @@ namespace opt {
        preprocessing refutes the goal, and l_undef if preprocessing fails or
        loses T.
     */
-    lbool nlsat_opt::preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+    lbool nlsat_opt::preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                                 app_ref& T, goal_ref& pg) {
         T = m.mk_fresh_const("opt.nlsat.obj", m_arith.mk_real());
         goal_ref g = alloc(goal, m, false, true, false);
@@ -103,8 +103,8 @@ namespace opt {
             g->assert_expr(f);
         g->assert_expr(m.mk_eq(T, obj));
         g->assert_expr(m_arith.mk_ge(T, m_arith.mk_numeral(lo, false)));
-        if (has_hi)
-            g->assert_expr(m_arith.mk_le(T, m_arith.mk_numeral(hi, false)));
+        if (hi)
+            g->assert_expr(m_arith.mk_le(T, m_arith.mk_numeral(*hi, false)));
 
         params_ref simp_p;
         simp_p.set_bool("elim_and", true);
@@ -272,7 +272,7 @@ namespace opt {
         res.m_attained = attained;
     }
 
-    lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+    lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                               unsigned max_rounds, result& res) {
         res.reset();
         if (!in_nra_fragment(m, m_arith, hard, obj)) {
@@ -283,7 +283,7 @@ namespace opt {
         // 1. hard /\ T = obj /\ lo <= T <= hi, normalized for goal2nlsat.
         app_ref T(m);
         goal_ref pg;
-        lbool st = preprocess(hard, obj, lo, has_hi, hi, T, pg);
+        lbool st = preprocess(hard, obj, lo, hi, T, pg);
         if (st != l_true)
             return st;
         model_converter_ref mc = pg->mc();

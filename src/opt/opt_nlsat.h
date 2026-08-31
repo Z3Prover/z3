@@ -25,6 +25,7 @@ Author:
 --*/
 #pragma once
 
+#include <optional>
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "model/model.h"
@@ -60,18 +61,18 @@ namespace opt {
         nlsat_opt(ast_manager& m, params_ref const& p);
 
         /**
-           \brief Maximize obj subject to the hard constraints and lo <= obj (<= hi when has_hi).
+           \brief Maximize obj subject to the hard constraints and lo <= obj (<= hi when provided).
            Returns l_true when the optimum is proven (r.m_attained),
            l_undef when the problem is outside nlsat's fragment or the round
            budget is exhausted (r.m_model, if set, is the best model found),
            and l_false when hard /\ lo <= obj <= hi has no model.
         */
-        lbool maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+        lbool maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                        unsigned max_rounds, result& r);
 
     private:
         // The steps of maximize, in order.
-        lbool preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+        lbool preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                          app_ref& T, goal_ref& pg);
         bool load(goal const& pg, app* T, nlsat::solver& s, nlsat::var& t, expr_ref_vector& x2t, expr_ref_vector& b2a);
         model_ref extract_model(nlsat::solver& s, expr_ref_vector const& x2t, expr_ref_vector const& b2a, app* T,

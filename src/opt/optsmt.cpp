@@ -401,7 +401,10 @@ namespace opt {
         nlsat_opt engine(m, p);
         nlsat_opt::result res(m);
         IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat [" << m_lower[idx] << ", " << hi << "])\n");
-        lbool r = engine.maximize(hard, m_objs.get(idx), m_lower[idx].get_rational(), hi.is_finite(), hi.get_rational(), m_bisect_rounds, res);
+        std::optional<rational> upper;
+        if (hi.is_finite())
+            upper = hi.get_rational();
+        lbool r = engine.maximize(hard, m_objs.get(idx), m_lower[idx].get_rational(), upper, m_bisect_rounds, res);
         TRACE(opt, tout << "nlsat cells: " << r << " rounds " << res.m_rounds << " value " << res.m_value << "\n";);
         if (!res.m_model)
             return l_false;

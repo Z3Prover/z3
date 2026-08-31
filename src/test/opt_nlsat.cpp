@@ -34,7 +34,7 @@ static void tst_attained() {
     params_ref p;
     opt::nlsat_opt opt(m, p);
     opt::nlsat_opt::result res(m);
-    lbool r = opt.maximize(hard, x, rational(0), true, rational(2), 64, res);
+    lbool r = opt.maximize(hard, x, rational(0), rational(2), 64, res);
     ENSURE(r == l_true);
     ENSURE(res.m_attained);
     ENSURE(res.m_model);
@@ -62,7 +62,7 @@ static void tst_unbounded() {
     params_ref p;
     opt::nlsat_opt opt(m, p);
     opt::nlsat_opt::result res(m);
-    lbool r = opt.maximize(hard, x, rational(1), false, rational(0), 64, res);
+    lbool r = opt.maximize(hard, x, rational(1), std::nullopt, 64, res);
     ENSURE(r == l_undef);
     ENSURE(!res.m_attained);
     ENSURE(!res.m_has_sup);
@@ -85,7 +85,7 @@ static void tst_open_sup() {
     params_ref p;
     opt::nlsat_opt opt(m, p);
     opt::nlsat_opt::result res(m);
-    lbool r = opt.maximize(hard, x, rational(0), true, rational(2), 8, res);
+    lbool r = opt.maximize(hard, x, rational(0), rational(2), 8, res);
     ENSURE(r == l_undef);
     ENSURE(!res.m_attained);
     ENSURE(res.m_model);
@@ -111,7 +111,7 @@ static void tst_cubic_roots() {
     params_ref p;
     opt::nlsat_opt opt(m, p);
     opt::nlsat_opt::result res(m);
-    lbool r = opt.maximize(hard, x, rational(-2), true, rational(2), 64, res);
+    lbool r = opt.maximize(hard, x, rational(-2), rational(2), 64, res);
     ENSURE(r == l_true);
     ENSURE(res.m_attained);
     ENSURE(res.m_model);
@@ -138,7 +138,7 @@ static void tst_outside_fragment() {
     params_ref p;
     opt::nlsat_opt opt(m, p);
     opt::nlsat_opt::result res(m);
-    lbool r = opt.maximize(hard, x, rational(0), true, rational(2), 64, res);
+    lbool r = opt.maximize(hard, x, rational(0), rational(2), 64, res);
     ENSURE(r == l_undef);
     ENSURE(!res.m_model);
     ENSURE(!res.m_attained);
@@ -157,7 +157,7 @@ static void tst_infeasible() {
     params_ref p;
     opt::nlsat_opt opt(m, p);
     opt::nlsat_opt::result res(m);
-    lbool r = opt.maximize(hard, x, rational(3), true, rational(4), 64, res);
+    lbool r = opt.maximize(hard, x, rational(3), rational(4), 64, res);
     ENSURE(r == l_false);
     ENSURE(!res.m_model);
 }
