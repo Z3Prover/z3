@@ -599,5 +599,19 @@ void tst_seq_rewriter() {
         ENSURE(res == l_true);
     }
 
+    // A sequence of length at most one contains only itself and the empty sequence.
+    {
+        arith_util a_util(m);
+        app_ref x(m.mk_fresh_const("x", str_sort), m);
+        app_ref y(m.mk_fresh_const("y", str_sort), m);
+        expr_ref at(su.str.mk_at(x, a_util.mk_int(0)), m);
+        expr_ref contains(su.str.mk_contains(at, y), m);
+        expr_ref expected(
+            m.mk_or(su.str.mk_is_empty(y), m.mk_eq(at, y)), m);
+        rw(contains);
+        rw(expected);
+        ENSURE(contains == expected);
+    }
+
     std::cout << "tst_seq_rewriter: all tests passed\n";
 }

@@ -101,10 +101,12 @@ class lazy_tactic : public tactic {
     params_ref p;
     std::function<tactic* (ast_manager& m, params_ref const& p)> m_mk_tactic;
     tactic* m_tactic = nullptr;
+    symbol m_logic;
     void ensure_tactic() {
         if (!m_tactic) {
             m_tactic = m_mk_tactic(m, p);
             m_tactic->updt_params(p);
+            m_tactic->set_logic(m_logic);
         }
     }
 public:
@@ -117,6 +119,10 @@ public:
     void updt_params(params_ref const& p) override { 
         this->p.append(p);
         if (m_tactic) m_tactic->updt_params(p);
+    }
+    void set_logic(symbol const& l) override {
+        m_logic = l;
+        if (m_tactic) m_tactic->set_logic(l);
     }
     void cleanup() override { if (m_tactic) m_tactic->cleanup(); }
     char const* name() const override { return "lazy tactic"; }

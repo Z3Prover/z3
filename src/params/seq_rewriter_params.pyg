@@ -1,4 +1,5 @@
 def_module_params(module_name='rewriter',
                   class_name='seq_rewriter_params',
                   export=True,
-                  params=(("coalesce_chars", BOOL, True, "coalesce characters into strings"),))
+                  params=(("coalesce_chars", BOOL, True, "coalesce characters into strings"),
+                          ("max_power_expansion", UINT, 2, "maximal exponent of a sequence power that is expanded into a concatenation")))

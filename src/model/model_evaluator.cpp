@@ -99,6 +99,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
         params_ref rp;
         rp.set_bool("unfold_recursive_functions", true);
         m_rec_rw.updt_params(rp);
+        params_ref sp;
+        sp.set_uint("max_power_expansion", UINT_MAX);
+        m_seq_rw.updt_params(sp);
         updt_params(p);
         //add_unspecified_function_models(md);
     }
@@ -334,7 +337,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         func_interp* fi = m_model.get_func_interp(g);
         family_id gfid = g->get_family_id();
         bool g_is_uninterp = gfid == null_family_id || m.get_plugin(gfid)->is_considered_uninterpreted(g);
-        if (!fi && g_is_uninterp) {
+        // Do not complete fresh/skolem functions that back internal as-array model values.
+        if (!fi && g_is_uninterp && !g->is_skolem()) {
             fi = alloc(func_interp, m, g->get_arity());
             fi->set_else(m_model.get_some_value(g->get_range()));
             m_model.register_decl(g, fi);

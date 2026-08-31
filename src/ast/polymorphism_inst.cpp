@@ -17,10 +17,12 @@ Author:
 --*/
 #include "ast/polymorphism_inst.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 
 namespace polymorphism {
     
     void inst::add(expr* e) {
+        TRACE(context, tout << "add " << mk_pp(e, m) << "\n");
         if (!m.has_type_vars())
             return;
 
@@ -29,6 +31,7 @@ namespace polymorphism {
 
         instances inst;
         u.collect_poly_instances(e, inst.m_poly_fns);
+        CTRACE(context, inst.m_poly_fns.empty(), tout << "no poly fns\n");
         if (inst.m_poly_fns.empty())
             return;
         if (m_instances.contains(e))
@@ -36,8 +39,15 @@ namespace polymorphism {
         
         add_instantiations(e, inst.m_poly_fns);
 
+        CTRACE(context, !u.has_type_vars(e), tout << "no type vars\n";
+        for (auto e : subterms::all(expr_ref(e, m))) {
+            if (is_app(e))
+                tout << mk_pp(to_app(e)->get_decl(), m) << "\n";
+        });
         if (!u.has_type_vars(e))
             return;
+
+        TRACE(context, tout << "inserting " << mk_pp(e, m) << "\n");
         
         // insert e into the occurs list for polymorphic roots
         ast_mark seen;

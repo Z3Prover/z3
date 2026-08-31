@@ -2766,6 +2766,17 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Retrieve the sequence s concatenated n times with itself.
+        /// </summary>
+        public SeqExpr MkSeqPower(SeqExpr s, Expr n)
+        {
+            Debug.Assert(s != null);
+            Debug.Assert(n != null);
+            CheckContextMatch(s, n);
+            return new SeqExpr(this, Native.Z3_mk_seq_power(nCtx, s.NativeObject, n.NativeObject));
+        }
+
+        /// <summary>
         /// Check for sequence prefix.
         /// </summary>
         public BoolExpr MkPrefixOf(SeqExpr s1, SeqExpr s2)

@@ -252,6 +252,7 @@ namespace opt {
         params_ref& get_params() { return m_params; }
 
         expr_ref get_lower(unsigned idx);
+        expr_ref get_exact(unsigned idx);
         expr_ref get_upper(unsigned idx);
 
         void get_lower(unsigned idx, expr_ref_vector& es) { to_exprs(get_lower_as_num(idx), es); }

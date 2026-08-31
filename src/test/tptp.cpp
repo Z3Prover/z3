@@ -135,6 +135,32 @@ fof(c1,conjecture, ! [X] : p(X) => g).)",
         // to_real(3) = 3.0. Boxing severed the link and reported CounterSatisfiable.
         {"tff-int-real-equality-coercion",
 R"(tff(c1,conjecture, $to_int(3.0) = 3.0).)",
+         "% SZS status Theorem"},
+        {"thf-polymorphic-finite-subset",
+R"(thf(real_type,type,real: $tType).
+thf(univ_type,type,univ: !>[A: $tType] : (A > $o)).
+thf(subset_type,type,subset: !>[A: $tType] : ((A > $o) > (A > $o) > $o)).
+thf(setspec_type,type,setspec: !>[A: $tType] : (A > $o > A > $o)).
+thf(infinite_type,type,infinite: !>[A: $tType] : ((A > $o) > $o)).
+thf(gspec_type,type,gspec: !>[A: $tType] : ((A > $o) > A > $o)).
+thf(finite_type,type,finite: !>[A: $tType] : ((A > $o) > $o)).
+thf(le_type,type,le: real > real > $o).
+thf(nonfinite_interval,axiom,
+    ! [A: real] :
+      ~ (finite @ real
+        @ (gspec @ real
+          @ ^ [A0: real] :
+            ? [A1: real] : (setspec @ real @ A0 @ (le @ A @ A1) @ A1)))).
+thf(subset_univ,axiom,
+    ! [A: $tType,A0: A > $o] : (subset @ A @ A0 @ (univ @ A))).
+thf(finite_subset,axiom,
+    ! [A: $tType,A0: A > $o,A1: A > $o] :
+      (((finite @ A @ A1) & (subset @ A @ A0 @ A1))
+       => (finite @ A @ A0))).
+thf(infinite_def,axiom,
+    ! [A: $tType,A0: A > $o] :
+      ((infinite @ A @ A0) = (~ (finite @ A @ A0)))).
+thf(real_infinite,conjecture,infinite @ real @ (univ @ real)).)",
          "% SZS status Theorem"}
     };
     for (auto const& c : cases) {

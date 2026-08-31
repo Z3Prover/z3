@@ -200,6 +200,32 @@ namespace nlsat {
         /**
            \brief reorder variables. 
          */
+        /**
+           \brief Optimization support: when x is the designated maximization
+           variable, the solver assigns x the largest value compatible with the
+           current infeasible intervals (instead of an arbitrary witness) and
+           does not reorder variables, so that x keeps its position in the
+           variable order. Use null_var to disable.
+        */
+        void set_max_var(var x);
+        /**
+           \brief After a successful check(): true if the value assigned to the
+           maximization variable is the supremum of its feasible set at the time
+           of the assignment (as opposed to a point below an open supremum).
+        */
+        bool max_var_attained() const;
+        /**
+           \brief After a successful check(): true if the feasible set of the
+           maximization variable was unbounded above when it was assigned.
+        */
+        bool max_var_unbounded() const;
+        /**
+           \brief After a successful check(): the supremum of the feasible set of
+           the maximization variable at the time of its assignment (equal to its
+           value when max_var_attained()). Meaningful only when !max_var_unbounded().
+        */
+        anum const& max_var_sup() const;
+
         void reorder(unsigned sz, var const* permutation);
         void restore_order();
 

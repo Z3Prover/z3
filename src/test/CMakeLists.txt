@@ -105,6 +105,7 @@ add_executable(test-z3
   no_overflow.cpp
   object_allocator.cpp
   old_interval.cpp
+  opt_nlsat.cpp
   optional.cpp
   parray.cpp
   pb2bv.cpp
@@ -134,6 +135,7 @@ add_executable(test-z3
   sat_user_scope.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_power.cpp
   seq_rewriter.cpp
   seq_eq_approx.cpp
   seq_regex_witness.cpp

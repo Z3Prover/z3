@@ -170,4 +170,28 @@ void tst_smt_context()
         std::string reason_unknown;
         VERIFY(l_false == check_sat(*t, g, md, labels, pr, core, reason_unknown));
     }
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-fun length ((Array Int Int)) Int)\n"
+            "(declare-const lindx2 (Array Int Int))\n"
+            "(declare-const indx1 (Array Int Int))\n"
+            "(declare-const orig_findx1 (Array Int Int))\n"
+            "(assert (and\n"
+            "  (forall ((i Int) (j Int))\n"
+            "    (let ((a!1 (and (<= 0 i)\n"
+            "                    (<= i (- (length indx1) 1))\n"
+            "                    (<= 0 j)\n"
+            "                    (<= j (- (length orig_findx1) 1))\n"
+            "                    (= i j))))\n"
+            "      (=> a!1 (= (select indx1 i) (select orig_findx1 j)))))\n"
+            "  (= (length lindx2) 11)\n"
+            "  (forall ((i Int)) (=> (and (<= 3 i) (<= i 25)) (= (select indx1 i) (- 1))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        ref<solver> slv = mk_smt2_solver(m, params_ref(), symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_true == slv->check_sat(0, nullptr));
+    }
 }

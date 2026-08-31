@@ -118,6 +118,7 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_power) \
     X(seq_eq_approx) \
     X(seq_regex_witness) \
     X(seq_monadic) \
@@ -143,6 +144,7 @@
     X(prime_generator) \
     X(permutation) \
     X(nlsat) \
+    X(opt_nlsat) \
     X(13) \
     X(zstring)
 

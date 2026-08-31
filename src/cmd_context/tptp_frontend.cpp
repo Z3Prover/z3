@@ -2962,6 +2962,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         p.parse_input(in, current_file ? current_file : ".");
         p.assert_distinct_objects();
 
+
         // Pre-processing pipeline applied to the solver's assertions before search:
         // simplify -> unfold lambda-defined constants (shallow HOL/modal embeddings) -> simplify.
         // Must be installed before set_solver_factory(), which eagerly builds the solver.
@@ -3004,7 +3005,8 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
 
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
         params_ref solver_params;
-        solver_params.set_bool("pi.avoid_skolems", false);
+        solver_params.set_bool("avoid_skolems", false);
+        solver_params.set_uint("max_multi_patterns", 1);
         ctx.get_solver()->updt_params(solver_params);
 
         // Optional: dump the parsed goal as an SMT-LIB2 benchmark (parameter tptp.dump_smt2
@@ -3020,10 +3022,10 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
             ctx.get_solver()->pop(1);
             std::ofstream dout(dump_path);
             if (dout) {
-                dout << "; Auto-generated from TPTP input: "
-                     << (current_file ? current_file : "?") << "\n";
+                dout << "; Auto-generated from TPTP input: " << (current_file ? current_file : "?") << "\n";
                 dout << "(set-logic ALL)\n";
                 dout << "(set-param :pi.avoid_skolems false)\n";
+                dout << "(set-param :pi.max_multi_patterns 1)\n";
                 ctx.get_solver()->display(dout);
                 dout << "(check-sat)\n";
             }
