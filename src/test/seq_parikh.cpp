@@ -237,7 +237,8 @@ void tst_seq_parikh() {
     // the abstraction can be turned off
     check("yy", "abba", 0, 1, verdict::skipped);
 
-    // The default size bound admits 5^2 = 25 coordinates and rejects 6^2 = 36.
+    // Including the catch-all class, the default bound admits p = 5 (25 pairs)
+    // and rejects p = 6 (36 pairs).
     check("abcd", "abcd", 2, 1, verdict::allowed);
     check("abcde", "abcde", 2, 1, verdict::skipped);
 
