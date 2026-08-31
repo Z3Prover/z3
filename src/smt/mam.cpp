@@ -3794,7 +3794,15 @@ namespace {
                 SASSERT(tmp_tree != 0);
                 SASSERT(m_context.get_num_enodes_of(lbl) > 0);
                 m_interpreter.init(tmp_tree);
-                for (enode * app : m_context.enodes_of(lbl)) {
+                // See rematch(): execute_core may trigger (HO-lambda / non-ground)
+                // internalization of new applications of `lbl`, which can grow/reallocate
+                // the context's decl->enodes vector. Re-fetch size() each iteration (and
+                // index rather than hold an iterator/range-for over `nodes`) so that any
+                // such growth during execute_core is picked up safely instead of reading
+                // from a stale/freed buffer.
+                enode_vector const& nodes = m_context.enodes_of(lbl);
+                for (unsigned i = 0; i < nodes.size(); ++i) {
+                    enode * app = nodes[i];
                     if (m_context.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
                 }
@@ -3943,7 +3951,14 @@ namespace {
                 if (t) {
                     m_interpreter.init(t);
                     func_decl * lbl = t->get_root_lbl();
-                    for (enode * curr : m_context.enodes_of(lbl)) {
+                    // execute_core may trigger (HO-lambda / non-ground) internalization of
+                    // new applications of `lbl`, which can grow/reallocate the context's
+                    // decl->enodes vector. Re-fetch size() each iteration (and index rather
+                    // than hold an iterator/range-for) so that growth during execute_core is
+                    // picked up safely instead of reading from a stale/freed buffer.
+                    enode_vector const& nodes = m_context.enodes_of(lbl);
+                    for (unsigned i = 0; i < nodes.size(); ++i) {
+                        enode * curr = nodes[i];
                         if (use_irrelevant || m_context.is_relevant(curr))
                             m_interpreter.execute_core(t, curr);
                     }
