@@ -1050,6 +1050,21 @@ namespace seq {
         return apply_monadic_leaf(m_root, true);
     }
 
+    bool nielsen_graph::letter_count_root_refute() {
+        if (!m_regex_parikh || !m_root || m_root->is_currently_conflict())
+            return false;
+        if (m_root->str_mems().empty())
+            return false;
+        dep_tracker dep = nullptr;
+        if (!parikh().check_letter_conflict(*m_root, dep, m_regex_parikh_mod, 6))
+            return false;
+        ++m_stats.m_letter_count;
+        m_root->set_general_conflict();
+        m_root->set_conflict(backtrack_reason::letter_count, dep);
+        TRACE(seq, tout << "nseq: root refuted by the per-letter congruence rule\n");
+        return true;
+    }
+
     // -----------------------------------------------------------------------
     // Modifier: apply_monadic_landing  (monadic decomposition as a branching rule)
 

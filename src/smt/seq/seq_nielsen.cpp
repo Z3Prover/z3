@@ -1156,6 +1156,7 @@ namespace seq {
         st.update("nseq mod var num unwind (mem)",   m_stats.m_mod_var_num_unwinding_mem);
         st.update("nseq mod axiomatized disequalities",   m_stats.m_ax_diseq);
         st.update("nseq abelian refutations",            m_stats.m_abelian);
+        st.update("nseq letter-count refutations",       m_stats.m_letter_count);
         st.update("nseq unsat-cache size",                (unsigned) m_unsat_node_cache.size());
         st.update("nseq unsat-cache hits",                m_num_cache_hits);
         st.update("nseq sibling cuts",                    m_stats.m_num_sibling_cut);

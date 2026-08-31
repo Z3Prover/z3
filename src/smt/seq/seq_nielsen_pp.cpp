@@ -753,6 +753,7 @@ namespace seq {
         case backtrack_reason::symbol_clash:     return "Symbol Clash";
         case backtrack_reason::parikh_image:     return "Parikh Image";
         case backtrack_reason::abelian:          return "Abelian";
+        case backtrack_reason::letter_count:     return "LetterCount";
         case backtrack_reason::arithmetic:       return "Arithmetic";
         case backtrack_reason::regex:            return "Regex";
         case backtrack_reason::sibling:          return "Sibling";

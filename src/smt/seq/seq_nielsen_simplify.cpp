@@ -896,6 +896,23 @@ namespace seq {
             }
         }
 
+        // Per-letter congruence refutation over the regex memberships.  Like the
+        // abelian rule this is a pure check -- no rewriting, no branching, no
+        // solver call -- so it runs once, after the fixpoint above.  Where the
+        // abelian rule reads letter counts off the two sides of an EQUATION,
+        // this one reads them off the LANGUAGE of a membership, which is the
+        // only thing available when a benchmark has no word equations at all.
+        // Opt-in via smt.nseq.regex_parikh.
+        if (m_graph.regex_parikh_enabled() && !m_str_mem.empty()) {
+            dep_tracker lc_dep = nullptr;
+            if (m_graph.parikh().check_letter_conflict(*this, lc_dep,
+                                                       m_graph.regex_parikh_mod(), 6)) {
+                ++m_graph.m_stats.m_letter_count;
+                TRACE(seq, tout << "letter-count refutation\n");
+                return set_simplify_conflict(backtrack_reason::letter_count, lc_dep);
+            }
+        }
+
         // Simplification ran to completion: memoize.  Constraint additions made
         // DURING the passes cleared the stamp; setting it here (last) makes the
         // completed state authoritative.  Conflict paths return early and stay

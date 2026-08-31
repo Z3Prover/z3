@@ -108,6 +108,17 @@ namespace seq {
             // ROOT node, and in no number of budgeted calls further down.  Deferring the
             // ask to after a failed deepening round does not work: on exactly those files
             // round one never ends, because the budgeted calls inside it are what is slow.
+            // Cheapest first: a pure arithmetic scan of the root memberships, which on a
+            // regex-only benchmark is the only thing that ever gets asked -- the monadic
+            // ask below can consume the whole time budget on that family.
+            if (letter_count_root_refute()) {
+                ++m_stats.m_num_unsat;
+                const auto deps = collect_conflict_deps();
+                m_conflict_sources.reset();
+                m_dep_mgr.linearize(deps, m_conflict_sources);
+                return search_result::unsat;
+            }
+
             if (monadic_leaf_root_refute()) {
                 ++m_stats.m_num_unsat;
                 const auto deps = collect_conflict_deps();

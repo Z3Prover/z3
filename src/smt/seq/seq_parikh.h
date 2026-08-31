@@ -114,6 +114,40 @@ namespace seq {
         // Emit the reachability guard  count = 0 -> c1 = 0.
         void push_zero_guard(vector<constraint>& out, dep_tracker dep, expr* count, expr* c1);
 
+        // --- state of the per-letter profile abstraction (regex_residues) ----
+        // Set by begin_pass and read by profiles/forced; a "pass" is one choice
+        // of (sigma, modulus), over which the caches below stay valid.
+        unsigned m_pk_mod   = 0;   // modulus of the abstraction being computed
+        unsigned m_pk_sigma = 0;   // character being counted
+        unsigned m_pk_top   = 0;   // full profile mask for m_pk_mod
+        unsigned m_pk_budget = 0;  // remaining recursion steps, 0 = exhausted
+        obj_map<expr, unsigned> m_pk_prof;    // memo for profiles()
+        obj_map<expr, unsigned> m_pk_forced;  // memo for forced()
+
+        void     begin_pass(unsigned modulus, unsigned sigma);
+
+        // profile-mask combinators, all over the (count, length) domain
+        unsigned prof_cat(unsigned a, unsigned b) const;
+        unsigned prof_pow(unsigned a, unsigned n) const;
+        unsigned prof_star(unsigned a) const;
+        unsigned prof_loop(unsigned a, unsigned lo, unsigned hi) const;
+        unsigned prof_chars(bool has_sigma, bool has_other) const;
+
+        // Over-approximation of the profiles of L(re): w in L(re) implies
+        // profile(w) is in the result.  Degrades to the full mask when a
+        // construct is out of scope or the budget runs out -- always sound.
+        unsigned profiles(expr* re);
+
+        // Under-approximation of the profiles p for which EVERY word with
+        // profile p lies in L(re).  Used to make complement precise: no word of
+        // comp(re) can have such a profile.  Degrades to the empty set.
+        unsigned forced(expr* re);
+
+        // Collect the concrete characters of a node with their multiplicities,
+        // most frequent first, capped at `max_letters`.
+        void collect_letters(nielsen_node const& node, unsigned max_letters,
+                             unsigned_vector& letters);
+
     public:
         explicit seq_parikh(euf::sgraph& sg);
 
@@ -185,6 +219,64 @@ namespace seq {
         // single, indivisible character equivalence class.  Minterms are
         // produced by sgraph::compute_minterms and used in
         // apply_regex_var_split to constrain fresh character variables.
+
+        // --- per-letter Parikh abstraction, refined by length ---------------
+        //
+        // The module above abstracts a regex by the LENGTHS of its words.  The
+        // routines below abstract it by the number of occurrences of a single
+        // character, taken modulo a small number -- the (k=1, n=m) observer, or
+        // equivalently the classic Parikh image projected on one letter.
+        //
+        // Profile domain: a word w is abstracted to the pair
+        //
+        //     (#sigma(w) mod modulus,  min(|w|, 2))
+        //
+        // and a language to the SET of profiles of its words, held as a bitmask
+        // with bit (c * 3 + l) set when profile (c, l) is possible.  The
+        // abstraction over-approximates: w in L implies profile(w) is in the
+        // mask, so an empty intersection with what an equation forces refutes.
+        //
+        // The length component is what makes EXTENDED regexes usable.  A pure
+        // count abstraction cannot see through complement -- comp(R) has to go
+        // to the full set, since a word and its permutations share a count --
+        // so the common idiom
+        //
+        //     (re.inter re.allchar (re.comp (str.to_re "a")))   "any char but a"
+        //
+        // collapses to "anything at all".  Tracking length pins re.allchar to
+        // length exactly 1, and the complement of a ONE-CHARACTER language can
+        // then be excluded exactly at that length, recovering "one non-sigma
+        // character".  Without it the abstraction is vacuous on precisely the
+        // benchmarks it is meant for.
+        //
+        // Returns the residues of #sigma, i.e. the profile mask projected on the
+        // count axis, as a bitmask over Z_modulus.  All bits set carries no
+        // information.  `modulus` must lie in [2, max_modulus].
+        unsigned regex_residues(expr* re, unsigned modulus, unsigned sigma);
+
+        // Largest modulus the profile bitmask can hold (3 length classes per
+        // residue must fit in an unsigned).
+        static const unsigned max_modulus = 10;
+
+        // Per-letter congruence refutation over a whole node.  No branching, no
+        // substitution and no solver call, in the spirit of check_parikh_conflict.
+        //
+        // A membership  w in L  gives  #sigma(w) mod m  in regex_residues(L), and
+        // w is a concatenation of tokens, so this is a linear congruence in the
+        // unknowns n[x] = #sigma(x) >= 0.  An equation  l = r  gives the exact
+        // congruence  #sigma(l) = #sigma(r).  Together they form one system per
+        // (sigma, m); an infeasible system refutes the node outright.
+        //
+        // sigma ranges over the most frequent concrete characters occurring in
+        // the node and m over [2, max_mod].  Every choice is independently sound,
+        // so searching only adds power.  Tokens that are not fully concrete are
+        // opaque non-negative unknowns keyed by snode id -- sound for any token,
+        // since equal snodes denote equal strings; it only weakens the test.
+        //
+        // Returns true when some system is infeasible, and then sets `dep` to the
+        // join of the dependencies of the rows that were used.
+        bool check_letter_conflict(nielsen_node const& node, dep_tracker& dep,
+                                   unsigned max_mod, unsigned max_letters);
     };
 
 } // namespace seq

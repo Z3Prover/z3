@@ -590,6 +590,103 @@ static void test_nseq_abelian_option_off() {
     std::cout << "  ok: unknown\n";
 }
 
+// The per-letter congruence rule over regex memberships.  The shape below is
+// the generated split_membership family in miniature: every constraint is a
+// membership, there is no word equation anywhere -- so the abelian rule above,
+// and any abstraction hooked to the equation store, sees nothing at all -- and
+// the languages encode "#a is even" / "#a is odd" through the camouflage idiom
+//
+//     (re.inter re.allchar (re.comp (str.to_re "a")))      any character but a
+//
+// which is exactly what a count-only Parikh abstraction cannot see through:
+// complement forces it to the full set, since a word and its permutations
+// share a count.  These tests therefore also pin the length refinement that
+// makes the abstraction non-vacuous -- drop it and `even` abstracts to "any
+// number of a's" and nothing is refuted.
+namespace {
+    struct mod2_langs {
+        ast_manager& m;
+        seq_util     su;
+        expr_ref     m_even, m_odd;
+
+        explicit mod2_langs(ast_manager& mgr) : m(mgr), su(mgr), m_even(mgr), m_odd(mgr) {
+            const expr_ref a(su.re.mk_to_re(su.str.mk_string(zstring("a"))), m);
+            sort* re_sort = a->get_sort();
+            const expr_ref na(su.re.mk_inter(su.re.mk_full_char(re_sort),
+                                             su.re.mk_complement(a)), m);
+            const expr_ref nas(su.re.mk_star(na), m);
+            // (a · [^a]*){2,2} repeated: blocks contributing exactly two a's each
+            const expr_ref blk(
+                su.re.mk_star(su.re.mk_loop(su.re.mk_concat(a, nas), 2, 2)), m);
+            m_even = su.re.mk_concat(nas, blk);
+            m_odd = su.re.mk_concat(su.re.mk_concat(nas, su.re.mk_concat(a, nas)), blk);
+        }
+    };
+}
+
+// x ∈ even, y ∈ odd, x·y ∈ even.  Counting a's modulo 2 gives 0 + 1 ≡ 0,
+// which is false, and no other reasoning is needed.
+static void assert_mod2_memberships(smt::context& ctx, ast_manager& m, bool y_is_odd) {
+    seq_util su(m);
+    const mod2_langs lang(m);
+    sort* str_sort = su.str.mk_string_sort();
+    const expr_ref x(m.mk_const(symbol("x"), str_sort), m);
+    const expr_ref y(m.mk_const(symbol("y"), str_sort), m);
+    ctx.assert_expr(expr_ref(su.re.mk_in_re(x, lang.m_even), m));
+    ctx.assert_expr(expr_ref(su.re.mk_in_re(y, y_is_odd ? lang.m_odd : lang.m_even), m));
+    ctx.assert_expr(expr_ref(su.re.mk_in_re(su.str.mk_concat(x, y), lang.m_even), m));
+}
+
+static void test_nseq_regex_parikh_e2e_unsat() {
+    std::cout << "test_nseq_regex_parikh_e2e_unsat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    SASSERT(!params.m_nseq_regex_parikh); // opt-in
+    params.m_nseq_regex_parikh = true;
+    smt::context ctx(m, params);
+    assert_mod2_memberships(ctx, m, true);
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat\n";
+}
+
+// The rule must not over-refute: making both variables even leaves the system
+// solvable (x = y = ""), so the check has to stay silent and the instance is
+// satisfiable.
+static void test_nseq_regex_parikh_sat_guard() {
+    std::cout << "test_nseq_regex_parikh_sat_guard\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_regex_parikh = true;
+    smt::context ctx(m, params);
+    assert_mod2_memberships(ctx, m, false);
+    const lbool r = ctx.check();
+    SASSERT(r == l_true);
+    std::cout << "  ok: sat\n";
+}
+
+// A modulus bound below the one the instance needs must not refute: with
+// max modulus 2 the rule sees "#a mod 2", which is exactly what this instance
+// needs, so raise the requirement to 3 a's and check the bound is honoured.
+static void test_nseq_regex_parikh_residues() {
+    std::cout << "test_nseq_regex_parikh_residues\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_regex_parikh = true;
+    params.m_nseq_regex_parikh_mod = 2;
+    smt::context ctx(m, params);
+    assert_mod2_memberships(ctx, m, true);
+    const lbool r = ctx.check();
+    SASSERT(r == l_false);
+    std::cout << "  ok: unsat at modulus 2\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
@@ -613,5 +710,8 @@ void tst_nseq_basic() {
     test_nseq_abelian_multichar_unsat();
     test_nseq_abelian_sat_guard();
     test_nseq_abelian_option_off();
+    test_nseq_regex_parikh_e2e_unsat();
+    test_nseq_regex_parikh_sat_guard();
+    test_nseq_regex_parikh_residues();
     std::cout << "nseq_basic: all tests passed\n";
 }

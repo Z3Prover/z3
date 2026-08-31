@@ -81,6 +81,7 @@ namespace seq {
         symbol_clash,
         parikh_image,
         abelian,
+        letter_count,
         arithmetic,
         regex,
         sibling,
@@ -985,6 +986,7 @@ namespace seq {
         unsigned m_mod_var_num_unwinding_mem = 0;
         unsigned m_ax_diseq = 0;
         unsigned m_abelian = 0;
+        unsigned m_letter_count = 0;
         // subsumption rule
         unsigned m_num_sibling_cut     = 0; // loop-cut leaves (deferred to an ancestor)
         unsigned m_num_sibling_closure = 0; // subtrees closed as string-only sibling conflicts
@@ -1056,6 +1058,8 @@ namespace seq {
         unsigned                      m_block_compression = 4;
         bool                          m_fine_wilf = false;
         bool                          m_abelian = false;
+        bool                          m_regex_parikh = false;
+        unsigned                      m_regex_parikh_mod = 5;
         bool                          m_monadic_split = false;
         bool                          m_monadic_landing = false;
         bool                          m_monadic_leaf = false;
@@ -1376,6 +1380,15 @@ namespace seq {
         // nielsen_node::abelian_refutes
         void set_abelian(bool e) { m_abelian = e; }
         bool abelian_enabled() const { return m_abelian; }
+
+        // enable/disable the per-letter congruence refutation over regex
+        // memberships, see seq_parikh::check_letter_conflict.  The modulus
+        // bound caps the search: moduli 2..m are tried for each candidate
+        // letter, so cost grows roughly linearly in it.
+        void set_regex_parikh(bool e) { m_regex_parikh = e; }
+        bool regex_parikh_enabled() const { return m_regex_parikh; }
+        void set_regex_parikh_mod(unsigned k) { m_regex_parikh_mod = k; }
+        unsigned regex_parikh_mod() const { return m_regex_parikh_mod; }
 
         void set_monadic_split(bool e) { m_monadic_split = e; }
         void set_monadic_landing(bool e) { m_monadic_landing = e; }
@@ -1984,6 +1997,16 @@ namespace seq {
         // calls inside it are what is slow.  Refute-only, so it never builds anything.
         // Returns true when the whole problem is refuted.
         bool monadic_leaf_root_refute();
+
+        // Per-letter congruence refutation asked ONCE of the whole problem, before any
+        // search and before the monadic end-game above.  The same check also runs per
+        // node from simplify_and_init, but on a regex-only benchmark the search never
+        // gets that far: monadic_leaf_root_refute is asked first and, on exactly the
+        // family this rule targets, spends the entire time budget inside it.  The check
+        // is a pure arithmetic scan of the root memberships -- milliseconds against the
+        // end-game's 50000-step budget -- so asking it first costs nothing when it fails.
+        // Returns true when the whole problem is refuted.
+        bool letter_count_root_refute();
 
         // Allocate m_monadic_leaf_engine on first use, in the default transition mode.
         void ensure_monadic_leaf();
