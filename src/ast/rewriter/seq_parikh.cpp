@@ -358,7 +358,9 @@ void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector
     vector<expr_ref_vector> acc;
     rational gram_count = num_grams(level);
     SASSERT(gram_count.is_unsigned());
-    for (unsigned i = 0; i < gram_count.get_unsigned() * m_mod; ++i) {
+    rational total_count = gram_count * rational(m_mod);
+    SASSERT(total_count.is_unsigned());
+    for (unsigned i = 0; i < total_count.get_unsigned(); ++i) {
         acc.push_back(expr_ref_vector(m));
     }
 
