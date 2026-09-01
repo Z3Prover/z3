@@ -1941,12 +1941,22 @@ namespace {
             enode * n         = m_registers[pc->m_ireg];
             func_decl * f     = pc->m_label;
             enode * first     = n;
+            // Under HO matching, a register may reference a raw lambda subterm that has
+            // no corresponding app-enode in the E-graph, leaving m_registers[...] null.
+            // Guard against dereferencing a null register instead of crashing.
+            for (unsigned i = 0; i < num_args; ++i)
+                if (!m_registers[pc->m_iregs[i]])
+                    return false;
             switch (num_args) {
             case 1:
                 m_args[0] = m_registers[pc->m_iregs[0]]->get_root();
                 SASSERT(n != 0);
                 do {
-                    if (n->get_decl() == f &&
+                    // Guard against enodes whose args storage does not actually hold
+                    // `num_args` arguments (e.g., HO placeholder enodes allocated with
+                    // suppressed/zero-sized args but sharing the same func_decl). Without
+                    // this check get_arg(0) below can read out of bounds/garbage memory.
+                    if (n->get_decl() == f && n->get_num_args() == num_args &&
                         n->get_arg(0)->get_root() == m_args[0]) {
                         update_max_generation(n, first);
                         return true;
@@ -1960,7 +1970,7 @@ namespace {
                 m_args[1] = m_registers[pc->m_iregs[1]]->get_root();
                 SASSERT(n != 0);
                 do {
-                    if (n->get_decl() == f &&
+                    if (n->get_decl() == f && n->get_num_args() == num_args &&
                         n->get_arg(0)->get_root() == m_args[0] &&
                         n->get_arg(1)->get_root() == m_args[1]) {
                         update_max_generation(n, first);
@@ -3796,13 +3806,13 @@ namespace {
                 m_interpreter.init(tmp_tree);
                 // See rematch(): execute_core may trigger (HO-lambda / non-ground)
                 // internalization of new applications of `lbl`, which can grow/reallocate
-                // the context's decl->enodes vector. Re-fetch size() each iteration (and
-                // index rather than hold an iterator/range-for over `nodes`) so that any
-                // such growth during execute_core is picked up safely instead of reading
-                // from a stale/freed buffer.
-                enode_vector const& nodes = m_context.enodes_of(lbl);
-                for (unsigned i = 0; i < nodes.size(); ++i) {
-                    enode * app = nodes[i];
+                // the context's decl->enodes vector (the enode_vector for `lbl`, but also
+                // possibly the outer vector<ptr_vector<enode>> that owns it, invalidating
+                // even a live reference to `m_context.enodes_of(lbl)`). Re-fetch the vector
+                // itself (not just its size) every iteration so both kinds of reallocation
+                // are picked up safely instead of reading from a stale/freed buffer.
+                for (unsigned i = 0; i < m_context.enodes_of(lbl).size(); ++i) {
+                    enode * app = m_context.enodes_of(lbl)[i];
                     if (m_context.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
                 }
@@ -3953,12 +3963,13 @@ namespace {
                     func_decl * lbl = t->get_root_lbl();
                     // execute_core may trigger (HO-lambda / non-ground) internalization of
                     // new applications of `lbl`, which can grow/reallocate the context's
-                    // decl->enodes vector. Re-fetch size() each iteration (and index rather
-                    // than hold an iterator/range-for) so that growth during execute_core is
+                    // decl->enodes vector (the enode_vector for `lbl`, but also possibly the
+                    // outer vector<ptr_vector<enode>> that owns it, invalidating even a live
+                    // reference to `m_context.enodes_of(lbl)`). Re-fetch the vector itself
+                    // (not just its size) every iteration so both kinds of reallocation are
                     // picked up safely instead of reading from a stale/freed buffer.
-                    enode_vector const& nodes = m_context.enodes_of(lbl);
-                    for (unsigned i = 0; i < nodes.size(); ++i) {
-                        enode * curr = nodes[i];
+                    for (unsigned i = 0; i < m_context.enodes_of(lbl).size(); ++i) {
+                        enode * curr = m_context.enodes_of(lbl)[i];
                         if (use_irrelevant || m_context.is_relevant(curr))
                             m_interpreter.execute_core(t, curr);
                     }
