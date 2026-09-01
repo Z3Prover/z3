@@ -103,6 +103,7 @@ namespace smt {
                 m_map[r.v->get_id()] = r;
             }
             void add_trail(map_update op, expr* l, expr* r, dependency* d);
+            bool reduces_to(expr* r, expr* e) const;
         public:
             solution_map(ast_manager& m, dependency_manager& dm): 
                 m(m),  m_dm(dm), m_cache(m), m_lhs(m), m_rhs(m) {}
