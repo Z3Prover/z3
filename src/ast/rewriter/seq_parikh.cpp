@@ -17,6 +17,7 @@ Author:
 
 #include "ast/rewriter/seq_parikh.h"
 #include "ast/ast_util.h"
+#include "util/zstring.h"
 #include <numeric>
 
 namespace seq {
@@ -678,6 +679,147 @@ void parikh::membership_constraints(expr* str, expr* re, expr_ref_vector& out) {
         unsigned max_k = range / stride;
         out.push_back(m_autil.mk_le(k_var, num(max_k)));
     }
+}
+
+// -----------------------------------------------------------------------
+// Exact semi-linear length encoding (visit-count Parikh)
+// -----------------------------------------------------------------------
+
+expr_ref parikh::mk_count_var(expr_ref_vector& out, expr* str_key, expr* root_re, unsigned& idx) {
+    // Deterministic Skolem term keyed on the membership + a per-encoding DFS
+    // index: re-encoding the same membership reuses the same counters.
+    auto idx_ref = num(idx++);
+    expr_ref c = mk_sk("seq.rc", { str_key, root_re, idx_ref.get() }, m_autil.mk_int());
+    out.push_back(m_autil.mk_ge(c, num(0)));
+    return c;
+}
+
+void parikh::push_zero_guard(expr_ref_vector& out, expr* count, expr* c1) {
+    // count = 0  ->  c1 = 0   (an unentered subterm produces nothing)
+    push_impl(out, m.mk_eq(count, num(0).get()), m.mk_eq(c1, num(0).get()));
+}
+
+bool parikh::rec(expr* re, expr* count, expr* str_key, expr* root_re, unsigned& idx,
+                  expr_ref_vector& out, expr_ref& contrib) {
+    SASSERT(re);
+    contrib = num(0);
+
+    expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
+    unsigned lo = 0, hi = 0;
+
+    // empty: this subterm can never be visited.
+    if (m_util.re.is_empty(re)) {
+        out.push_back(m.mk_eq(count, num(0).get()));
+        return true;
+    }
+
+    // epsilon: contributes no length.
+    if (m_util.re.is_epsilon(re))
+        return true;
+
+    // single character (range / allchar): one char per visit.
+    if (m_util.re.is_range(re) || m_util.re.is_full_char(re)) {
+        contrib = expr_ref(count, m);
+        return true;
+    }
+
+    // to_re("w"): fixed-length literal -> n chars per visit.
+    if (m_util.re.is_to_re(re, s)) {
+        zstring zs;
+        if (!m_util.str.is_string(s, zs))
+            return false; // symbolic to_re: not a classical length leaf
+        unsigned n = zs.length();
+        if (n != 0)
+            contrib = expr_ref(m_autil.mk_mul(num(n), count), m);
+        return true;
+    }
+
+    // Sigma* (full_seq, incl. allchar*): any number of chars; gated by reachability.
+    // NB: checked before is_star so star(allchar) is treated as Sigma*.
+    if (m_util.re.is_full_seq(re)) {
+        expr_ref c1 = mk_count_var(out, str_key, root_re, idx);
+        push_zero_guard(out, count, c1);
+        contrib = c1;
+        return true;
+    }
+
+    // concat(r1, r2): both children visited exactly `count` times; lengths add.
+    if (m_util.re.is_concat(re, r1, r2)) {
+        expr_ref l1(m), l2(m);
+        if (!rec(r1, count, str_key, root_re, idx, out, l1)) return false;
+        if (!rec(r2, count, str_key, root_re, idx, out, l2)) return false;
+        contrib = expr_ref(m_autil.mk_add(l1, l2), m);
+        return true;
+    }
+
+    // union(r1, r2): each visit goes to exactly one branch: count = c1 + c2.
+    if (m_util.re.is_union(re, r1, r2)) {
+        expr_ref c1 = mk_count_var(out, str_key, root_re, idx);
+        expr_ref c2 = mk_count_var(out, str_key, root_re, idx);
+        out.push_back(m.mk_eq(count, m_autil.mk_add(c1, c2)));
+        expr_ref l1(m), l2(m);
+        if (!rec(r1, c1, str_key, root_re, idx, out, l1)) return false;
+        if (!rec(r2, c2, str_key, root_re, idx, out, l2)) return false;
+        contrib = expr_ref(m_autil.mk_add(l1, l2), m);
+        return true;
+    }
+
+    // star(r1): body visited c1 >= 0 times total; reachability guard.
+    if (m_util.re.is_star(re, r1)) {
+        expr_ref c1 = mk_count_var(out, str_key, root_re, idx);
+        push_zero_guard(out, count, c1);
+        return rec(r1, c1, str_key, root_re, idx, out, contrib);
+    }
+
+    // plus(r1): >= 1 iteration per visit -> c1 >= count; plus reachability guard.
+    if (m_util.re.is_plus(re, r1)) {
+        expr_ref c1 = mk_count_var(out, str_key, root_re, idx);
+        out.push_back(m_autil.mk_ge(c1, count));
+        push_zero_guard(out, count, c1);
+        return rec(r1, c1, str_key, root_re, idx, out, contrib);
+    }
+
+    // opt(r1): 0 or 1 iteration per visit -> c1 <= count (and c1 >= 0).
+    if (m_util.re.is_opt(re, r1)) {
+        expr_ref c1 = mk_count_var(out, str_key, root_re, idx);
+        out.push_back(m_autil.mk_le(c1, count));
+        return rec(r1, c1, str_key, root_re, idx, out, contrib);
+    }
+
+    // loop(r1, lo, hi): between lo and hi iterations per visit.
+    if (m_util.re.is_loop(re, r1, lo, hi)) {
+        expr_ref c1 = mk_count_var(out, str_key, root_re, idx);
+        out.push_back(m_autil.mk_ge(c1, m_autil.mk_mul(num(lo), count)));
+        out.push_back(m_autil.mk_le(c1, m_autil.mk_mul(num(hi), count)));
+        return rec(r1, c1, str_key, root_re, idx, out, contrib);
+    }
+    // loop(r1, lo): at least lo iterations per visit, unbounded above.
+    if (m_util.re.is_loop(re, r1, lo)) {
+        expr_ref c1 = mk_count_var(out, str_key, root_re, idx);
+        out.push_back(m_autil.mk_ge(c1, m_autil.mk_mul(num(lo), count)));
+        push_zero_guard(out, count, c1);
+        return rec(r1, c1, str_key, root_re, idx, out, contrib);
+    }
+
+    // intersection / complement / diff / xor / of_pred / reverse / derivative /
+    // antimirov-union / anything else: the visit-count flow does not capture
+    // these exactly - bail so the caller keeps the coarse fallback.
+    return false;
+}
+
+bool parikh::encode_length_set(expr* str, expr* re, expr_ref_vector& out) {
+    if (!str || !re || !m_util.is_re(re))
+        return false;
+    unsigned before = out.size();
+    unsigned idx = 0;
+    expr_ref contrib(m);
+    if (!rec(re, num(1), str, re, idx, out, contrib)) {
+        out.shrink(before); // discard any partial constraints on bail
+        return false;
+    }
+    expr_ref len_str(m_util.str.mk_length(str), m);
+    out.push_back(m.mk_eq(len_str, contrib));
+    return true;
 }
 
 bool parikh::operator()(expr_ref_vector const& l, expr_ref_vector const& r,
