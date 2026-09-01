@@ -25,6 +25,7 @@ Revision History:
 #include "ast/has_free_vars.h"
 #include "smt/smt_quantifier.h"
 #include "smt/smt_context.h"
+#include "smt/smt_ho_qsolver.h"
 #include "smt/smt_model_finder.h"
 #include "smt/smt_model_checker.h"
 #include "smt/smt_quick_checker.h"
@@ -135,6 +136,7 @@ namespace smt {
         q::quantifier_stat_gen                    m_qstat_gen;
         ptr_vector<quantifier>                 m_quantifiers;
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
+        scoped_ptr<ho_qsolver>                 m_ho_qsolver;
         unsigned                               m_num_instances = 0;
 
         imp(quantifier_manager & wrapper, context & ctx, smt_params & p, quantifier_manager_plugin * plugin):
@@ -145,6 +147,7 @@ namespace smt {
             m_qstat_gen(ctx.get_manager(), ctx.get_region()),
             m_plugin(plugin) {
             m_qi_queue.setup();
+            m_ho_qsolver = alloc(ho_qsolver, ctx, wrapper);
         }
 
         ast_manager& m() const { return m_context.get_manager(); }
@@ -422,7 +425,8 @@ namespace smt {
         final_check_status final_check_eh(bool full) {
             if (full) {
                 IF_VERBOSE(100, if (!m_quantifiers.empty()) verbose_stream() << "(smt.final-check \"quantifiers\")\n";);
-                final_check_status result  = m_qi_queue.final_check_eh() ? FC_DONE : FC_CONTINUE;
+                bool ho_instance = m_ho_qsolver->final_check();
+                final_check_status result  = m_qi_queue.final_check_eh() && !ho_instance ? FC_DONE : FC_CONTINUE;
                 final_check_status presult = m_plugin->final_check_eh(full);
                 if (presult != FC_DONE)
                     result = presult;
@@ -590,6 +594,7 @@ namespace smt {
     void quantifier_manager::collect_statistics(::statistics & st) const {
         m_imp->m_qi_queue.collect_statistics(st);
         m_imp->m_plugin->collect_statistics(st);
+        m_imp->m_ho_qsolver->collect_statistics(st);
     }
 
     void quantifier_manager::reset_statistics() {
@@ -680,6 +685,8 @@ namespace smt {
             auto &st = m_ho_state;
             auto *hoq = st.m_q;
             auto *q = m_ho_matcher->hoq2q(hoq);
+            if (!q)
+                return;
             auto const &binding = s.get_binding(q);
             st.m_matches.push_back({ q, binding });
         }

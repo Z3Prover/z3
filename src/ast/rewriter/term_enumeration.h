@@ -19,15 +19,27 @@ public:
 
     void set_cost(std::function<unsigned(expr*)> const& cost);
 
+    // An external enumerator is consulted (at most once per sort) to
+    // produce a base value for sorts that are not covered by the grammar
+    // (e.g., non-datatype sorts referenced as fields of an algebraic
+    // datatype). This allows clients such as the model's datatype value
+    // factory to combine bottom-up enumeration of constructor applications
+    // with model-provided values for the non-datatype argument sorts.
+    using external_enumerator_t = std::function<expr*(sort*)>;
+    void set_external_enumerator(external_enumerator_t fn);
+
     class iterator {
         struct iter_imp;
         iter_imp* m_imp;
     public:
         iterator(imp& i, sort* s);
         iterator(std::nullptr_t);
+        iterator(iterator&& other) = delete;
+        iterator& operator=(iterator&& other) = delete;
+        iterator(iterator const&) = delete;
+        iterator& operator=(iterator const&) = delete;
         ~iterator();
         expr* operator*();
-        iterator operator++(int);
         iterator& operator++();
         bool operator!=(iterator const& other) const {
             return !(*this == other);

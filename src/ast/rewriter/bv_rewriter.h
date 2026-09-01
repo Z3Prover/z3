@@ -112,6 +112,9 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     bool is_add_no_overflow(expr* e);
     bool is_mul_no_overflow(expr* e);
     unsigned num_leading_zero_bits(expr* e);
+    bool is_zero_extended(expr* e, expr*& x);
+    bool is_sign_extended(expr* e, expr*& x);
+    bool factor_zero_extensions(decl_kind k, unsigned num, expr* const* args, expr_ref& result);
 
     br_status mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, expr_ref & result);
     br_status mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, expr_ref & result);
@@ -265,4 +268,3 @@ public:
 
 
 };
-

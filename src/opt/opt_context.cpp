@@ -536,6 +536,16 @@ namespace opt {
             return l_undef;
         }
         if (result == l_true) { m_optsmt.get_model(m_model, m_labels); SASSERT(m_model); }
+        if (result == l_undef) {
+            // best model found so far, e.g. the lower end of a reported interval.
+            model_ref mdl;
+            svector<symbol> labels;
+            m_optsmt.get_model(mdl, labels);
+            if (mdl) {
+                m_model = mdl;
+                m_labels = labels;
+            }
+        }
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
         return result;
@@ -1625,7 +1635,11 @@ namespace opt {
             objective const& obj = m_scoped_state.m_objectives[i];
             out << " (";
             display_objective(out, obj);
-            if (get_lower_as_num(i) != get_upper_as_num(i)) {
+            expr_ref exact = get_exact(i);
+            if (exact) {
+                out << " " << exact;
+            }
+            else if (get_lower_as_num(i) != get_upper_as_num(i)) {
                 out << "  (interval " << get_lower(i) << " " << get_upper(i) << ")";
             }
             else {
@@ -1700,6 +1714,29 @@ namespace opt {
         es.push_back(m_arith.mk_numeral(inf, inf.is_int()));
         es.push_back(m_arith.mk_numeral(r, r.is_int()));
         es.push_back(m_arith.mk_numeral(eps, eps.is_int()));
+    }
+
+    /**
+       \brief The exact value of an arithmetic objective when the optsmt
+       engine established it as an algebraic number (nlsat cells), adjusted
+       for minimization and offsets; null otherwise.
+    */
+    expr_ref context::get_exact(unsigned idx) {
+        expr_ref r(m);
+        objective const& obj = m_objectives[idx];
+        if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
+            return r;
+        expr* e = m_optsmt.get_exact(obj.m_index);
+        if (!e)
+            return r;
+        r = e;
+        if (obj.m_adjust_value.get_negate())
+            r = m_arith.mk_uminus(r);
+        if (!obj.m_adjust_value.get_offset().is_zero())
+            r = m_arith.mk_add(r, m_arith.mk_numeral(obj.m_adjust_value.get_offset(), false));
+        th_rewriter rw(m);
+        rw(r);
+        return r;
     }
 
     expr_ref context::to_expr(inf_eps const& n) {

@@ -909,11 +909,10 @@ namespace smt {
     }
 
     template<typename Ext>
-    inf_eps_rational<inf_rational> theory_dense_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
+    inf_eps_rational<inf_rational> theory_dense_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
         typedef simplex::simplex<simplex::mpq_ext> Simplex;
         Simplex S(m.limit());
         objective_term const& objective = m_objectives[v];
-        has_shared = false;
         
         IF_VERBOSE(4,
                    for (auto const& o : objective) {
@@ -1124,5 +1123,4 @@ namespace smt {
     }
 
 }
-
 

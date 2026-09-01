@@ -640,7 +640,7 @@ namespace seq {
             nth = es.back();
             es.push_back(m_sk.mk_tail(s, i));
             add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(s, seq.str.mk_concat(es, e->get_sort())));
-            add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));                
+            add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));
         }
         else {
             expr_ref x =     m_sk.mk_pre(s, i);
@@ -1180,6 +1180,41 @@ namespace seq {
         expr* u = nullptr;
         VERIFY(seq.str.is_unit(n, u));
         add_clause(mk_eq(u, m_sk.mk_unit_inv(n)));
+    }
+
+    /**
+       let e = s^n
+
+       n <= 0    => e = empty
+       s = empty => e = empty
+       n > 0     => len(e) = n * len(s)
+
+       The unfolding into a concatenation is only added on demand, see power_unfold_axiom.
+    */
+    void axioms::power_axiom(expr* e) {
+        expr* s = nullptr, *n = nullptr;
+        VERIFY(seq.str.is_power(e, s, n));
+        expr_ref emp(seq.str.mk_empty(e->get_sort()), m);
+        expr_ref n_ge_1 = mk_ge(n, 1);
+        add_clause(n_ge_1, mk_eq(e, emp));
+        add_clause(~mk_eq(s, emp), mk_eq(e, emp));
+        add_clause(~n_ge_1, mk_eq(mk_len(e), a.mk_mul(n, mk_len(s))));
+    }
+
+    /**
+       n = j => s^n = s ++ .. ++ s (j copies), for 1 <= j <= k
+
+       The exponent is bounded by k thanks to the length limit of e, so the
+       cases below are exhaustive for the current unfolding depth.
+    */
+    void axioms::power_unfold_axiom(expr* e, unsigned k) {
+        expr* s = nullptr, *n = nullptr;
+        VERIFY(seq.str.is_power(e, s, n));
+        expr_ref pow(s, m);
+        for (unsigned j = 1; j <= k; ++j) {
+            add_clause(~mk_eq(n, a.mk_int(j)), mk_seq_eq(e, pow));
+            pow = mk_concat(s, pow);
+        }
     }
 
     /**

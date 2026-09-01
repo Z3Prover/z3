@@ -4392,6 +4392,11 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         return new ArithImpl(check(Z3.mk_seq_length(contextPtr, this.ast)));
       }
 
+      power(exponent: Arith<Name> | number | bigint): Seq<Name, ElemSort> {
+        const exponentExpr = isArith(exponent) ? exponent : Int.val(exponent);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_power(contextPtr, this.ast, exponentExpr.ast)));
+      }
+
       at(index: Arith<Name> | number | bigint): Seq<Name, ElemSort> {
         const indexExpr = isArith(index) ? index : Int.val(index);
         return new SeqImpl<ElemSort>(check(Z3.mk_seq_at(contextPtr, this.ast, indexExpr.ast)));

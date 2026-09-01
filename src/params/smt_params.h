@@ -110,6 +110,7 @@ struct smt_params : public preprocessor_params,
     bool             m_new_core2th_eq = true;
     bool             m_ematching = true;
     bool             m_ho_matching = false;
+    bool             m_ho_qmatcher = false;
     unsigned         m_ho_matching_bound = 10000;
     bool             m_term_enumeration = true;
     bool             m_induction = false;
@@ -339,7 +340,4 @@ struct smt_params : public preprocessor_params,
     void setup_LRA();
             
 };
-
-
-
 

@@ -29,6 +29,7 @@ z3_add_component(smt
     smt_enode.cpp
     smt_farkas_util.cpp
     smt_for_each_relevant_expr.cpp
+    smt_ho_qsolver.cpp
     smt_implied_equalities.cpp
     smt_internalizer.cpp
     smt_justification.cpp

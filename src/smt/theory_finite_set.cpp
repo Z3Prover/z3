@@ -319,6 +319,41 @@ namespace smt {
         if (assume_eqs())
             return FC_CONTINUE;
 
+        arith_value av(m);
+        av.init(&ctx);
+        arith_util a(m);
+        for (auto [s, elems] : m_set_members) {
+            ptr_vector<enode> members;
+            for (auto [x, is_member] : *elems) {
+                if (!is_member)
+                    continue;
+                for (auto p : enode::parents(x)) {
+                    if (u.is_in(p->get_expr()) && ctx.get_assignment(p) == l_true && p->get_arg(1)->get_root() == s) {
+                        members.push_back(p);
+                        break;
+                    }
+                }
+            }
+            if (members.size() < 2)
+                continue;
+            for (auto p : enode::parents(s)) {
+                if (!u.is_size(p->get_expr()) || p->get_arg(0)->get_root() != s)
+                    continue;
+                rational size;
+                if (!av.get_value_equiv(p->get_expr(), size) || size >= rational(members.size()))
+                    continue;
+                literal_vector lemma;
+                for (auto q : members)
+                    lemma.push_back(~mk_literal(q->get_expr()));
+                for (unsigned i = 0; i < members.size(); ++i)
+                    for (unsigned j = 0; j < i; ++j)
+                        lemma.push_back(mk_literal(m.mk_eq(members[i]->get_arg(0)->get_expr(), members[j]->get_arg(0)->get_expr())));
+                lemma.push_back(mk_literal(a.mk_ge(p->get_expr(), a.mk_int(members.size()))));
+                ctx.mk_th_axiom(get_id(), lemma);
+                return FC_CONTINUE;
+            }
+        }
+
         switch (m_cardinality_solver.final_check()) {
         case l_true: break;
         case l_false: return FC_CONTINUE;

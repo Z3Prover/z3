@@ -41,6 +41,7 @@ z3_add_component(rewriter
     seq_axioms.cpp
     seq_eq_approx.cpp
     seq_eq_solver.cpp
+    seq_parikh.cpp
     seq_derive.cpp
     seq_monadic.cpp
     seq_split.cpp

@@ -275,6 +275,8 @@ theory_seq::theory_seq(context& ctx):
     m_ax(*this, m_rewrite),
     m_eq(m, *this, m_ax.ax()),
     m_regex(*this),
+    m_parikh(m, seq::parikh::config()),
+    m_parikh_pin(m),
     m_arith_value(m),
     m_trail_stack(),
     m_ls(m), m_rs(m),
@@ -305,6 +307,12 @@ void theory_seq::init() {
     m_ax.mk_eq_empty2 = mk_eq_emp;
     m_arith_value.init(&ctx);
     m_max_unfolding_depth = ctx.get_fparams().m_seq_min_unfolding;
+
+    seq::parikh::config cfg;
+    cfg.m_k = ctx.get_fparams().m_seq_parikh_k;
+    cfg.m_n = ctx.get_fparams().m_seq_parikh_n;
+    cfg.m_max_chars = ctx.get_fparams().m_seq_parikh_chars;
+    m_parikh.updt_config(cfg);
 }
 
 #define TRACEFIN(s) { TRACE(seq, tout << ">>" << s << "\n";); IF_VERBOSE(20, verbose_stream() << s << "\n"); }
@@ -347,6 +355,11 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
     }
     if (m_regex.propagate()) {
         TRACEFIN("regex propagate");
+        return FC_CONTINUE;
+    }
+    if (check_parikh()) {
+        ++m_stats.m_parikh;
+        TRACEFIN("parikh");
         return FC_CONTINUE;
     }
     if (check_fixed_length(true, false)) {
@@ -1981,6 +1994,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq num splits", m_stats.m_num_splits);
     st.update("seq num reductions", m_stats.m_num_reductions);
     st.update("seq length coherence", m_stats.m_check_length_coherence);
+    st.update("seq parikh", m_stats.m_parikh);
     st.update("seq branch", m_stats.m_branch_variable);
     st.update("seq solve !=", m_stats.m_solve_nqs);
     st.update("seq solve =", m_stats.m_solve_eqs);
@@ -2684,6 +2698,12 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
         arg2 = try_expand(e2, deps);
         if (!arg1 || !arg2) return true;
         result = m_util.str.mk_index(arg1, arg2, e3);
+    }
+    else if (m_util.str.is_power(e, e1, e2)) {
+        arg1 = try_expand(e1, deps);
+        if (!arg1) return true;
+        result = m_util.str.mk_power(arg1, e2);
+        ctx.get_rewriter()(result);
     }
     else if (m_util.str.is_map(e, e1, e2)) {
         arg2 = try_expand(e2, deps);
@@ -3476,9 +3496,10 @@ void theory_seq::relevant_eh(expr* _n) {
     if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) 
         add_length_to_eqc(arg);
 
-    if (m_util.str.is_replace_re(n) ||
-        m_util.str.is_replace_re_all(n) ||
-        m_util.str.is_replace_all(n)) {
+    if (m_util.str.is_power(n) ||
+        m_util.str.is_replace_all(n) ||
+        m_util.str.is_replace_re(n) ||
+        m_util.str.is_replace_re_all(n)) {
         add_unhandled_expr(n);
     }
 }

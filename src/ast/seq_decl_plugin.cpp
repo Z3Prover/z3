@@ -204,6 +204,7 @@ void seq_decl_plugin::init() {
     sort* strTreT[2] = { strT, reT };
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
+    sort* strTintT[2] = { strT, intT };
     sort* seq3A[3] = { seqA, seqA, seqA };
 
     m_sigs.resize(LAST_SEQ_OP);
@@ -269,6 +270,7 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_REGEXP_EMPTY]      = alloc(psig, m, "re.none", 0, 0, nullptr, reT);
     m_sigs[_OP_REGEXP_FULL_CHAR]  = alloc(psig, m, "re.allchar", 0, 0, nullptr, reT);
     m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
+    m_sigs[_OP_STRING_POWER]      = alloc(psig, m, "str.power", 0, 2, strTintT, strT);
 }
 
 
@@ -580,6 +582,11 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_LENGTH);
     case _OP_STRING_LENGTH:
         return mk_str_fun(k, arity, domain, range, OP_SEQ_LENGTH);
+
+    case OP_SEQ_POWER:
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_POWER);
+    case _OP_STRING_POWER:
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_POWER);
 
     case OP_SEQ_CONTAINS:
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRCTN);

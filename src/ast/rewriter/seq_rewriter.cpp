@@ -37,6 +37,7 @@ Authors:
 void seq_rewriter::updt_params(params_ref const & p) {
     seq_rewriter_params sp(p);
     m_coalesce_chars = sp.coalesce_chars();
+    m_max_power_expansion = sp.max_power_expansion();
 }
 
 void seq_rewriter::get_param_descrs(param_descrs & r) {
@@ -264,6 +265,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_SEQ_LENGTH:
         SASSERT(num_args == 1);
         st = mk_seq_length(args[0], result);
+        break;
+    case OP_SEQ_POWER:
+        SASSERT(num_args == 2);
+        st = mk_seq_power(args[0], args[1], result);
         break;
     case OP_SEQ_EXTRACT:
         SASSERT(num_args == 3);
@@ -540,6 +545,11 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = str().mk_length(z);
         return BR_REWRITE1;
     } 
+    // len(s^n) = n * len(s) for n > 0
+    if (str().is_power(a, x, y) && m_autil.is_numeral(y, r) && r >= 0) {
+        result = m_autil.mk_mul(y, str().mk_length(x));
+        return BR_REWRITE2;
+    }
     // len(extract(x, 0, z)) = min(z, len(x))
     if (str().is_extract(a, x, y, z) && 
         m_autil.is_numeral(y, r) && r.is_zero() &&
@@ -549,6 +559,54 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
     return BR_FAILED;
+}
+
+/**
+   s^n = "" if n <= 0
+   s^n = s ++ ... ++ s (n copies) if n > 0
+
+   Exponents above rewriter.max_power_expansion are left to the theory solver.
+*/
+br_status seq_rewriter::mk_seq_power(expr* a, expr* b, expr_ref& result) {
+    expr* s = nullptr, *k = nullptr;
+    rational n, kv;
+    if (str().is_empty(a)) {
+        result = a;
+        return BR_DONE;
+    }
+    bool is_num = m_autil.is_numeral(b, n);
+    if (is_num && !n.is_pos()) {
+        result = str().mk_empty(a->get_sort());
+        return BR_DONE;
+    }
+    if (is_num && n.is_one()) {
+        result = a;
+        return BR_DONE;
+    }
+    // (s^k)^n = s^(k*n) whenever k or n is a positive numeral
+    if (str().is_power(a, s, k) &&
+        (is_num || (m_autil.is_numeral(k, kv) && kv.is_pos()))) {
+        result = str().mk_power(s, m_autil.mk_mul(k, b));
+        return BR_REWRITE_FULL;
+    }
+    if (!is_num || n > rational(m_max_power_expansion))
+        return BR_FAILED;
+    unsigned v = n.get_unsigned();
+    zstring t;
+    if (str().is_string(a, t)) {
+        if (!(n * rational(t.length())).is_unsigned())
+            return BR_FAILED;
+        zstring r = t;
+        for (unsigned i = 1; i < v; i++)
+            r += t;
+        result = str().mk_string(r);
+        return BR_DONE;
+    }
+    expr_ref_vector es(m());
+    for (unsigned i = 0; i < v; i++)
+        es.push_back(a);
+    result = str().mk_concat(es, a->get_sort());
+    return BR_REWRITE_FULL;
 }
 
 /*
@@ -1133,6 +1191,12 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
 
     if (as.empty()) {
         result = str().mk_is_empty(b);
+        return BR_REWRITE2;
+    }
+
+    auto [bounded_a, max_a] = max_length(a);
+    if (bounded_a && max_a <= 1) {
+        result = m().mk_or(str().mk_is_empty(b), m().mk_eq(a, b));
         return BR_REWRITE2;
     }
 
@@ -4575,6 +4639,16 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     bool changed = false;
     if (reduce_eq_empty(l, r, result)) 
         return BR_REWRITE_FULL;
+    expr* s1 = nullptr, *n1 = nullptr, *s2 = nullptr, *n2 = nullptr;
+    if (str().is_power(l, s1, n1) && str().is_power(r, s2, n2) && s1 == s2) {
+        expr* emp = str().mk_empty(s1->get_sort());
+        expr_ref_vector disj(m());
+        disj.push_back(m().mk_eq(s1, emp));
+        disj.push_back(m().mk_and(m_autil.mk_le(n1, zero()), m_autil.mk_le(n2, zero())));
+        disj.push_back(m().mk_and(m_autil.mk_lt(zero(), n1), m_autil.mk_lt(zero(), n2), m().mk_eq(n1, n2)));
+        result = m().mk_or(disj);
+        return BR_REWRITE_FULL;
+    }
 
     // a, b are unit-length ground strings => replace_all(x, a, b) in re.to_re(s)
     {
@@ -5235,6 +5309,14 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
     }
     if (str().is_itos(r, s)) {
         result = m_autil.mk_lt(s, zero());
+        return true;
+    }
+    expr* base = nullptr, *n = nullptr;
+    if (str().is_power(r, base, n)) {
+        expr_ref_vector disj(m());
+        disj.push_back(m_autil.mk_le(n, zero()));
+        disj.push_back(m().mk_eq(base, l));
+        result = m().mk_or(disj);
         return true;
     }
     // at(s, offset) = "" <=> len(s) <= offset or offset < 0

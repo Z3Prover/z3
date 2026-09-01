@@ -15,21 +15,27 @@ Author:
 #include "ast/simplifiers/dominator_simplifier.h"
 #include "ast/rewriter/bv_bounds_base.h"
 #include "ast/rewriter/dom_simplifier.h"
+#include "ast/rewriter/th_rewriter.h"
 
 
 class dom_bv_bounds_simplifier : public dom_simplifier, public bv::bv_bounds_base {
     params_ref         m_params;
+    th_rewriter        m_rewriter;
     
 public:
-    dom_bv_bounds_simplifier(ast_manager& m, params_ref const& p) : bv_bounds_base(m), m_params(p) {
+    dom_bv_bounds_simplifier(ast_manager& m, params_ref const& p) :
+        bv_bounds_base(m), m_rewriter(m) {
         updt_params(p);
     }
     
     void updt_params(params_ref const & p) override {
+        m_params.append(p);
         m_propagate_eq = p.get_bool("propagate_eq", false);
+        m_rewriter.updt_params(m_params);
     }
     
     void collect_param_descrs(param_descrs& r) override {
+        th_rewriter::get_param_descrs(r);
         r.insert("propagate-eq", CPK_BOOL, "propagate equalities from inequalities", "false");
     }
     
@@ -39,9 +45,10 @@ public:
     
     void operator()(expr_ref& r) override {
         expr_ref result(m);
-        simplify_core(r, result);
-        if (result)
+        if (simplify_core(r, result)) {
+            m_rewriter(result);
             r = result;
+        }
     }       
     
     void pop(unsigned num_scopes) override {

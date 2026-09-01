@@ -282,6 +282,29 @@ namespace euf {
                 m_matcher(pat, f, 3);
             }
 
+        void test_constraint_system() {
+            func_decl_ref g(m.mk_func_decl(symbol("g"), m_int, m_int), m);
+            expr_ref v0(m.mk_var(0, m_int), m);
+            expr_ref zero(m_arith.mk_int(0), m);
+            expr_ref one(m_arith.mk_int(1), m);
+            expr_ref p1(m.mk_app(m_f.get(), v0.get(), zero.get()), m);
+            expr_ref p2(m.mk_app(g.get(), v0.get()), m);
+            expr_ref t1(m.mk_app(m_f.get(), one.get(), zero.get()), m);
+            expr_ref t2(m.mk_app(g.get(), one.get()), m);
+            expr* pats[2] = { p1, p2 };
+            expr* terms[2] = { t1, t2 };
+            unsigned count = 0;
+            std::function<void(ho_subst&)> on_match = [&](ho_subst&) { ++count; };
+            m_matcher.set_on_match(on_match);
+            m_matcher(2, pats, terms, 1);
+            VERIFY(count > 0);
+
+            terms[1] = m.mk_app(g.get(), zero.get());
+            count = 0;
+            m_matcher(2, pats, terms, 1);
+            VERIFY(count == 0);
+        }
+
             // Faithful isolation test for the refine-time sort guard used by
             // ho_matcher::refine_ho_match (throws "sort mismatch ..." on failure).
             // Mirrors the SEV510^1 family where a bound-variable binding's sort
@@ -311,6 +334,48 @@ namespace euf {
                 VERIFY(!ho_matcher::subst_sorts_match(m, pat, s_bad, true));
                 IF_VERBOSE(0, verbose_stream() << "test10: subst_sorts_match detects sort mismatch\n";);
             }
+
+            // Fixed-point projection from SYO300^5:
+            //   lambda u. u (X id) = lambda u. u c
+            // is solved by X := lambda f. f c.
+            void test11() {
+                sort_ref u(m.mk_uninterpreted_sort(symbol("U")), m);
+                sort_ref uu(m_array.mk_array_sort(u, u), m);
+                sort_ref x_sort(m_array.mk_array_sort(uu, u), m);
+
+                expr_ref X(m.mk_var(1, x_sort), m);
+                expr_ref arg(m.mk_var(0, uu), m);
+                symbol v_name("v");
+                sort* u_sort = u.get();
+                expr_ref id(m.mk_lambda(1, &u_sort, &v_name, m.mk_var(0, u)), m);
+                expr_ref pat_body(m_array.mk_select(arg, m_array.mk_select(X, id)), m);
+                symbol u_name("u");
+                sort* uu_sort = uu.get();
+                expr_ref pat(m.mk_lambda(1, &uu_sort, &u_name, pat_body), m);
+
+                expr_ref c(m.mk_const(symbol("c"), u), m);
+                expr_ref term_body(m_array.mk_select(arg, c), m);
+                expr_ref term(m.mk_lambda(1, &uu_sort, &u_name, term_body), m);
+
+                unsigned count = 0;
+                std::function<void(ho_subst&)> on_match = [&](ho_subst& s) {
+                    ++count;
+                    VERIFY(s.get(0) != nullptr);
+                    VERIFY(s.get(0)->get_sort() == x_sort);
+                };
+                m_matcher.set_on_match(on_match);
+                m_matcher.add_pattern(pat);
+                m_matcher(pat, term, 1);
+                VERIFY(count > 0);
+            }
+
+            void test_missing_ho_quantifier() {
+                sort* sorts[1] = { m_int };
+                symbol names[1] = { symbol("x") };
+                expr_ref body(m.mk_eq(m.mk_var(0, m_int), m.mk_var(0, m_int)), m);
+                quantifier_ref q(m.mk_forall(1, sorts, names, body), m);
+                VERIFY(m_matcher.hoq2q(q) == nullptr);
+            }
     };
 
 }
@@ -327,7 +392,10 @@ void tst_ho_matcher() {
         tm.test7();
         tm.test8();
         tm.test9();
+        tm.test_constraint_system();
         tm.test10();
+        tm.test11();
+        tm.test_missing_ho_quantifier();
     }
     catch (std::exception const& ex) {
         std::cout << ex.what() << "\n";

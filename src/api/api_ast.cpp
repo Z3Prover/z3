@@ -1350,6 +1350,7 @@ extern "C" {
         case OP_SEQ_MAPI: return Z3_OP_SEQ_MAPI;
         case OP_SEQ_FOLDL: return Z3_OP_SEQ_FOLDL;
         case OP_SEQ_FOLDLI: return Z3_OP_SEQ_FOLDLI;
+        case OP_SEQ_POWER: return Z3_OP_SEQ_POWER;
         case _OP_STRING_STRREPL: return Z3_OP_SEQ_REPLACE;
         case _OP_STRING_CONCAT: return Z3_OP_SEQ_CONCAT;
         case _OP_STRING_LENGTH: return Z3_OP_SEQ_LENGTH;

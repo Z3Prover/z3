@@ -3642,6 +3642,9 @@ export interface Seq<Name extends string = 'main', ElemSort extends Sort<Name> =
   length(): Arith<Name>;
 
   /** @category Operations */
+  power(exponent: Arith<Name> | number | bigint): Seq<Name, ElemSort>;
+
+  /** @category Operations */
   at(index: Arith<Name> | number | bigint): Seq<Name, ElemSort>;
 
   /** @category Operations */

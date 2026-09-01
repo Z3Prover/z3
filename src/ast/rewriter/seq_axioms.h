@@ -111,6 +111,8 @@ namespace seq {
         void str_to_code_axiom(expr* n);
         void str_from_code_axiom(expr* n);
         void unit_axiom(expr* n);
+        void power_axiom(expr* n);
+        void power_unfold_axiom(expr* n, unsigned k);
         void length_axiom(expr* n);
         void unroll_not_contains(expr* e);
         void not_contains_axiom(expr *e);
