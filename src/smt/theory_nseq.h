@@ -71,7 +71,6 @@ namespace smt {
         obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
         obj_hashtable<expr>     m_no_diseq_set;     // track expressions that should not trigger new disequality axioms
         hashtable<literal, obj_hash<literal>, default_eq<literal>>    m_ignored_mem;     // track membership constraints that should not be passed to Nielsen
-        expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant
         obj_map<expr, unsigned> m_gradient_cache;
         // Pins the keys of m_gradient_cache: the cache is deliberately not
         // trailed (the gradient escalation must survive backtracking), so its

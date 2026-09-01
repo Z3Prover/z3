@@ -57,7 +57,6 @@ namespace smt {
         m_axioms(m_th_rewriter),
         m_regex(m_sg),
         m_model(m, ctx, m_seq, m_rewriter, m_sg),
-        m_relevant_lengths(m),
         m_gradient_pin(m),
         m_nonneg_cache(m)
     {
@@ -198,12 +197,6 @@ namespace smt {
             m_ho_terms.push_back(term);
             ensure_length_var(ho_s);
         }
-        expr* v;
-        if (m_seq.str.is_length(term, v)) {
-            ctx.push_trail(restore_vector(m_relevant_lengths));
-            m_relevant_lengths.push_back(term);
-        }
-
         return true;
     }
 
@@ -2183,10 +2176,6 @@ namespace smt {
     }
 
     bool theory_nseq::check_length_coherence() {
-        if (m_relevant_lengths.empty())
-            // TODO: Make use of this; so far we always introduce lengths always
-            return true;
-
         SASSERT(m_nielsen.sat_node());
 
         auto const &mems = m_nielsen.sat_node()->str_mems();
@@ -2231,16 +2220,38 @@ namespace smt {
             return false;
         };
 
-        for (expr* len_expr : m_relevant_lengths) {
-            expr* s = nullptr;
-            VERIFY(m_seq.str.is_length(len_expr, s));
+        // Walk the leaf memberships: assert_nonneg_for_all_vars has internalized
+        // len(e) for every seq-sorted theory var before this check runs, so every
+        // length the arithmetic solver can commit to is reachable from here.  A
+        // variable the decomposition introduced (a slice of a user variable, say)
+        // may have no enode and hence no length term.  With the view's length
+        // abstraction attached nothing has to check it: that side constraint ties
+        // its length to the pin for the arithmetic solver.  With
+        // nseq.view_length_constraints off there is no such tie, arith commits to a
+        // length no word of the view has, and the model assembled from the leaf
+        // gives the user variable a length contradicting the input, so introduce
+        // the length var and come back in the next round.
+        bool introduced = false;
+        for (unsigned mi = 0; mi < mems.size(); ++mi) {
+            auto const& mem = mems[mi];
+            unsigned var_id = mem.m_str->id();
+            unsigned_vector const &mem_indices = var_to_mems[var_id];
+            if (mem_indices[0] != mi)
+                continue;  // already handled at the variable's first membership
 
-            euf::snode const* s_node = m_sg.find(s);
-            SASSERT(s_node);
-
-            unsigned var_id = s_node->id();
-            if (!var_to_mems.contains(var_id))
+            euf::snode const* s_node = mem.m_str;
+            expr* s = s_node->get_expr();
+            if (!s)
                 continue;
+
+            expr_ref len_expr(m_seq.str.mk_length(s), m);
+            if (!ctx.e_internalized(len_expr)) {
+                if (!mem.is_plain() && !get_fparams().m_nseq_view_length_constraints) {
+                    ensure_length_var(s);
+                    introduced = true;
+                }
+                continue;
+            }
 
             rational val_l;
             if (!get_num_value(len_expr, val_l))
@@ -2252,7 +2263,6 @@ namespace smt {
             // so check if we really want this value
             const unsigned l = val_l.get_unsigned();
 
-            unsigned_vector const &mem_indices = var_to_mems[var_id];
             euf::snode_vector regexes;
             bool has_view = false;          // decide over the product (landing on)
             bool has_view_or_guard = false; // skip, as before (landing off)
@@ -2274,8 +2284,17 @@ namespace smt {
                 // The switch is tied to the flag rather than to the view itself: the
                 // second half of the old justification (the ladder) still stands, and
                 // with monadic landing off the behaviour must be exactly as before.
+                //
+                // The skip also presupposes that the view carries its length
+                // abstraction (add_view_length_constraints): that side constraint is
+                // what makes the decomposition's length consistency visible to the
+                // arithmetic solver in the first place.  With nseq.view_length_-
+                // constraints off nothing else does, and skipping is again an
+                // invalid model (len(x)=2k against a leaf admitting only len 1),
+                // so decide over the product there too.
                 if (!mems[i].is_plain()) {
-                    if (get_fparams().m_nseq_monadic_landing)
+                    if (get_fparams().m_nseq_monadic_landing
+                        || !get_fparams().m_nseq_view_length_constraints)
                         has_view = true;
                     else
                         has_view_or_guard = true;
@@ -2367,6 +2386,41 @@ namespace smt {
                     break;
                 }
                 return false;
+            }
+
+            if (result == l_false && has_view
+                && !get_fparams().m_nseq_view_length_constraints) {
+                // The value is realizable, but with the view's length abstraction
+                // switched off nothing ties len(s) to the pin: l is merely what
+                // arith holds right now, and it stays free to pick another value
+                // from the same feasible interval when the model is finally built.
+                // It then picks an unrealizable one (an odd length against a view
+                // admitting only even ones), the witness search finds no word of
+                // it, and the assembled model is length-inconsistent.  Checking a
+                // tentative value cannot fix that on its own; pin the value we
+                // just certified, branch-locally like the block above, so the
+                // model is built at the length that was checked.
+                expr_ref pin(m.mk_eq(len_expr, l_expr), m);
+                if (!ctx.b_internalized(pin))
+                    ctx.internalize(pin, true);
+                literal lit_pin = ctx.get_literal(pin);
+                seq::nielsen_node* leaf = m_nielsen.sat_node();
+                seq::dep_tracker dep = nullptr;
+                for (unsigned idx : mem_indices)
+                    dep = m_nielsen.dep_mgr().mk_join(dep, mems[idx].m_dep);
+                leaf->add_constraint(seq::constraint(pin, dep, m));
+                ctx.mark_as_relevant(lit_pin);
+                switch (ctx.get_assignment(lit_pin)) {
+                case l_undef:
+                    ctx.privileged_split(lit_pin);
+                    return false;
+                case l_false:
+                    leaf->set_external_conflict(lit_pin, dep);
+                    m_nielsen.clear_sat_node();
+                    return false;
+                case l_true:
+                    break;   // already fixed to l: the model cannot drift
+                }
             }
 
             if (result == l_true) {
@@ -2508,7 +2562,7 @@ namespace smt {
             }
         }
 
-        return true;
+        return !introduced;
     }
 
     bool theory_nseq::ensure_model_internalized() const {

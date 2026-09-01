@@ -2,11 +2,14 @@
 """
 Compare z3 string solver configurations, and optionally against external solvers.
 
-We always run three z3 configurations:
-    nseq_md  monadic decomposition (parikh off, lazy regex factorization)
-    nseq_md2  monadic decomposition via automaton (parikh off, lazy regex factorization via automaton)
-    nseq_pa  parikh (parikh on, no regex factorization)
-    seq      the old/baseline string solver
+We always run five z3 configurations, the four nseq ones with the legacy
+monadic end-game engine switched off (smt.nseq.monadic_whole=false) so that the
+Nielsen solver is what gets measured:
+    nseq      landing decomposition off (unwinding and over-approximation only)
+    nseq_md   monadic decomposition (lazy regex factorization)
+    nseq_md2  monadic decomposition via automaton
+    nseq_pa   landing decomposition on, no regex factorization
+    seq       the old/baseline string solver
 
 Optionally compare against external solvers:
     zipt     ZIPT solver (--zipt /path/to/zipt)
@@ -35,16 +38,27 @@ from pathlib import Path
 DEFAULT_TIMEOUT = 5  # seconds
 COMMON_ARGS = ["model_validate=true"]
 
-# All three configurations are always run.
+# All configurations below are always run.
+# Common to every nseq configuration below.  monadic_whole=false matters:
+# left at its default, check_monadic_whole() hands any problem without word
+# (dis)equations to the legacy seq_monadic engine before the Nielsen search is
+# entered, so on membership-only benchmarks none of these configurations
+# measures the Nielsen solver at all -- they all measure seq_monadic, and come
+# out indistinguishable from each other and from "seq".
+NSEQ_COMMON = ["smt.string_solver=nseq", "smt.nseq.monadic_whole=false",
+               "smt.nseq.parikh=false", "smt.nseq.eager=false",
+               "smt.nseq.regex_factorization_eager=false"]
+
 SOLVERS = {
-    "nseq": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
-             "smt.nseq.regex_factorization_threshold=0", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=false"],
-    "nseq_md": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
-                "smt.nseq.regex_factorization_threshold=10000000", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=false"],
-    "nseq_md2": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
-                "smt.nseq.monadic_split=true", "smt.nseq.regex_factorization_threshold=0", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=false"],
-    "nseq_pa": ["smt.string_solver=nseq", "smt.nseq.parikh=false", "smt.nseq.eager=false",
-                "smt.nseq.regex_factorization_threshold=0", "smt.nseq.regex_factorization_eager=false", "smt.nseq.regex_dynamic_decomposition=true"],
+    "nseq": NSEQ_COMMON + ["smt.nseq.regex_factorization_threshold=0",
+                           "smt.nseq.regex_dynamic_decomposition=false"],
+    "nseq_md": NSEQ_COMMON + ["smt.nseq.regex_factorization_threshold=10000000",
+                              "smt.nseq.regex_dynamic_decomposition=false"],
+    "nseq_md2": NSEQ_COMMON + ["smt.nseq.monadic_split=true",
+                               "smt.nseq.regex_factorization_threshold=0",
+                               "smt.nseq.regex_dynamic_decomposition=false"],
+    "nseq_pa": NSEQ_COMMON + ["smt.nseq.regex_factorization_threshold=0",
+                              "smt.nseq.regex_dynamic_decomposition=true"],
     "seq":     ["smt.string_solver=seq"],
 }
 
