@@ -110,8 +110,24 @@ Outline:
 
 using namespace smt;
 
+bool theory_seq::solution_map::reduces_to(expr* r, expr* e) const {
+    expr_dep value;
+    while (r != e) {
+        if (!find(r, value))
+            return false;
+        r = value.e;
+    }
+    return true;
+}
+
 void theory_seq::solution_map::update(expr* e, expr* r, dependency* d) {
     if (e == r) {
+        return;
+    }
+    // Adding e |-> r when r already reduces to e would close a cycle in the
+    // solution map, making find diverge. The equality is already represented
+    // by the existing chain, so the update can be skipped.
+    if (reduces_to(r, e)) {
         return;
     }
     m_cache.reset();
