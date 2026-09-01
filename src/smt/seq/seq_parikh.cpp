@@ -34,12 +34,8 @@ Author:
 namespace seq {
 
     seq_parikh::seq_parikh(euf::sgraph& sg)
-        : m(sg.get_manager()), seq(m), a(m), m_rw(m), m_sk(m, m_rw), m_fresh_cnt(0) {}
-
-    expr_ref seq_parikh::mk_fresh_int_var() {
-        std::string name = "pk!" + std::to_string(m_fresh_cnt++);
-        return expr_ref(m.mk_fresh_const(name.c_str(), a.mk_int()), m);
-    }
+        : m(sg.get_manager()), seq(m), a(m), m_rw(m), m_sk(m, m_rw),
+          m_pk(m, parikh::config()) {}
 
     // -----------------------------------------------------------------------
     // Stride computation
@@ -329,53 +325,13 @@ namespace seq {
         if (!re_expr || !seq.is_re(re_expr))
             return;
 
-        // Length bounds from the regex.
-        unsigned min_len = seq.re.min_length(re_expr);
-        unsigned max_len = seq.re.max_length(re_expr);
-
-        // If min_len >= max_len the bounds already pin the length exactly
-        // (or the language is empty — empty language is detected by simplify_and_init
-        // via Brzozowski derivative / is_empty checks, not here).
-        // We only generate modular constraints when the length is variable.
-        if (min_len >= max_len)
-            return;
-
-        unsigned stride = compute_length_stride(re_expr);
-
-        // stride == 1: every integer length is possible — no useful constraint.
-        // stride == 0: fixed length or empty — handled by bounds.
-        if (stride <= 1)
-            return;
-
-        // Build len(str) as an arithmetic expression.
-        expr_ref len_str(seq.str.mk_length(mem.m_str->get_expr()), m);
-
-        // Introduce fresh integer variable k ≥ 0.
-        expr_ref k_var = mk_fresh_int_var();
-
-        // Constraint 1: len(str) = min_len + stride · k
-        expr_ref min_expr(a.mk_int(min_len), m);
-        expr_ref stride_expr(a.mk_int(stride), m);
-        expr_ref stride_k(a.mk_mul(stride_expr, k_var), m);
-        expr_ref rhs(a.mk_add(min_expr, stride_k), m);
-        out.push_back(constraint(m.mk_eq(len_str, rhs), mem.m_dep, m));
-
-        // Constraint 2: k ≥ 0
-        expr_ref zero(a.mk_int(0), m);
-        out.push_back(constraint(a.mk_ge(k_var, zero), mem.m_dep, m));
-
-        // Constraint 3 (optional): k ≤ max_k when max_len is bounded.
-        // max_k = floor((max_len - min_len) / stride)
-        // This gives the solver an explicit upper bound on k.
-        // The subtraction is safe because min_len < max_len is guaranteed
-        // by the early return above.
-        if (max_len != UINT_MAX) {
-            SASSERT(max_len > min_len);
-            unsigned range = max_len - min_len;
-            unsigned max_k = range / stride;
-            expr_ref max_k_expr(a.mk_int(max_k), m);
-            out.push_back(constraint(a.mk_le(k_var, max_k_expr), mem.m_dep, m));
-        }
+        // Delegate to the consolidated, nielsen_node/str_mem-free implementation in
+        // ast/rewriter/seq_parikh: it takes the membership as a plain pair of
+        // expressions and returns the assertions that hold whenever it is asserted.
+        expr_ref_vector asserts(m);
+        m_pk.membership_constraints(mem.m_str->get_expr(), re_expr, asserts);
+        for (expr* e : asserts)
+            out.push_back(constraint(e, mem.m_dep, m));
     }
 
     void seq_parikh::apply_to_node(nielsen_node& node) {

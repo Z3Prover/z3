@@ -41,6 +41,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
+#include "ast/rewriter/seq_parikh.h"
 #include "smt/seq/seq_nielsen.h"
 
 namespace seq {
@@ -63,7 +64,7 @@ namespace seq {
         arith_util   a;
         th_rewriter  m_rw;
         skolem       m_sk;         // for deterministic, reusable visit-count vars
-        unsigned     m_fresh_cnt;  // counter for fresh variable names
+        parikh       m_pk;         // consolidated per-membership modular length constraints
 
         // Compute the stride (period) of the length language of a regex.
         //
@@ -81,10 +82,6 @@ namespace seq {
         //   stride((ab)*(cd)*)    = 2  (lengths 0, 2, 4, ...)
         //   stride((ab)*|(abc)*)  = 1  (lengths 0, 2, 3, 4, ...)
         unsigned compute_length_stride(expr* re);
-
-        // Create a fresh integer variable (name "pk!N") for use as the
-        // Parikh multiplier variable k in len(str) = min_len + stride·k.
-        expr_ref mk_fresh_int_var();
 
         // --- exact semi-linear length encoding (visit-count Parikh) ---------
         // Recursively encode the length set of a NON-EXTENDED (classical) regex
