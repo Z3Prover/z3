@@ -226,6 +226,11 @@ namespace seq {
         // Without this the merge algorithm produces incorrect unions
         // when it has to combine our materialized output with another
         // (id-sorted) regex set.
+        //
+        // An re.of_pred lambda would be more compact than a union of ranges,
+        // but it was measured to be no better on a regex benchmark corpus,
+        // and it is opaque to consumers that match on re.range / re.union
+        // structurally.
         expr_ref_vector ranges(m);
 
         for (unsigned i = 0; i < n; ++i) {
@@ -238,22 +243,6 @@ namespace seq {
         for (unsigned i = n - 1; i-- > 0;)
             acc = expr_ref(u.re.mk_union(ranges.get(i), acc), m);
         return acc;
-        #if 0
-        expr_ref bound(m.mk_var(0, char_sort), m);
-        symbol char_sym("ch");
-        auto &ch = u.get_char_plugin();
-        for (unsigned i = 0; i < n; ++i) {
-            auto [lo, hi] = p[i];
-            {
-                auto _seq251_0 = ch.mk_le(ch.mk_char(lo), bound);
-                auto _seq251_1 = ch.mk_le(bound, ch.mk_char(hi));
-                ranges.push_back(m.mk_and(_seq251_0, _seq251_1));
-            }
-        }
-        expr_ref body(m.mk_or(ranges), m);
-        auto lam = m.mk_lambda(1, &char_sort, &char_sym, body);
-        return expr_ref(u.re.mk_of_pred(lam), m);
-        #endif
     }
 
     expr_ref unfold_fold(seq_rewriter &rw, expr *r) {
