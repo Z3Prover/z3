@@ -155,6 +155,50 @@ private:
     //   stride((ab)*(cd)*)    = 2  (lengths 0, 2, 4, ...)
     //   stride((ab)*|(abc)*)  = 1  (lengths 0, 2, 3, 4, ...)
     unsigned compute_length_stride(expr* re);
+
+public:
+    // Exact semi-linear length encoding for a membership constraint str in re.
+    //
+    // For a NON-EXTENDED (classical) regex R, appends to `out` an existential
+    // Presburger encoding of the exact length set { |w| : w in L(R) }: an
+    // equality  len(str) = <linear combination of fresh visit-count skolems>
+    // together with the per-subterm flow constraints (concat: additive;
+    // union: count = c1 + c2; star/plus/opt/loop: bounded child count with a
+    // "count = 0 -> child count = 0" reachability guard).  This is linear in
+    // |R| and, unlike the single gcd stride of membership_constraints, does
+    // not collapse on unions - e.g. (aa)*|(aaa)* yields len = 2*c1 + 3*c2
+    // with c1+c2 the active branch, i.e. exactly {2k} u {3k}.
+    //
+    // Returns true and appends the encoding when R is classical; returns
+    // false (leaving `out` unchanged) for extended regexes (intersection,
+    // complement, diff, xor, of_pred, reverse, derivative, ...), in which
+    // case the caller keeps the coarser membership_constraints fallback.
+    //
+    // The visit-count skolems are keyed on (str, re) and a per-encoding DFS
+    // index, so re-encoding the same membership reuses the same counters
+    // instead of leaking new constants on every call.
+    bool encode_length_set(expr* str, expr* re, expr_ref_vector& out);
+
+private:
+    // Deterministic non-negative integer visit-count variable
+    //   seq.rc(str_key, root_re, idx++)
+    // pushes c >= 0 into out and bumps idx.
+    expr_ref mk_count_var(expr_ref_vector& out, expr* str_key, expr* root_re, unsigned& idx);
+
+    // Emit the reachability guard  count = 0 -> c1 = 0.
+    void push_zero_guard(expr_ref_vector& out, expr* count, expr* c1);
+
+    // Recursively encode the length set of a NON-EXTENDED (classical) regex by
+    // introducing, per subterm, an integer "visit-count" variable and
+    // Presburger flow constraints (paper "On the Complexity of Equational
+    // Horn Clauses", Verma/Seidl/Schwentick).  `count` is the count expr of
+    // the current subterm; on success pushes the subterm's structural
+    // constraints into `out` and returns its linear length contribution in
+    // `contrib`.  Returns false (caller discards) for any operator the flow
+    // cannot capture exactly (intersection, complement, diff, xor, of_pred,
+    // reverse, derivative, antimirov-union, ...).
+    bool rec(expr* re, expr* count, expr* str_key, expr* root_re, unsigned& idx,
+             expr_ref_vector& out, expr_ref& contrib);
 };
 
 }
