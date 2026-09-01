@@ -138,6 +138,7 @@ add_executable(test-z3
   seq_power.cpp
   seq_rewriter.cpp
   seq_eq_approx.cpp
+  seq_eq_facet.cpp
   seq_regex_witness.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp
@@ -154,6 +155,7 @@ add_executable(test-z3
   sorting_network.cpp
   stack.cpp
   string_buffer.cpp
+  stx_search_tree.cpp
   substitution.cpp
   symbol.cpp
   symbol_table.cpp

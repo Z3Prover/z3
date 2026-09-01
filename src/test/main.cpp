@@ -49,6 +49,8 @@
     X(symbol_table) \
     X(region) \
     X(symbol) \
+    X(stx_search_tree) \
+    X(seq_eq_facet) \
     X(heap) \
     X(hashtable) \
     X(rational) \
