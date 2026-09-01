@@ -891,8 +891,15 @@ namespace seq {
         // is therefore sound on any node, and it is the half that costs nothing when it
         // fails -- no child is built, so the "extra subtree to refute" that made child A
         // unprofitable under equations cannot arise.
-        const bool refute_only = force_root
-                              || !node->str_eqs().empty() || !node->str_deqs().empty();
+        //
+        // force_root does NOT force refute-only.  It used to, and on an equation-free root
+        // that threw the answer away: measured over the regex corpus, six of the seven sat
+        // files theory_seq wins over nseq are ones where this very ask returns l_true and
+        // the witness was then discarded, after which nseq times out.  The root ask still
+        // builds nothing itself -- the root is neither simplified nor extended when it runs
+        // -- so it parks the witness for apply_monadic_leaf_root_witness instead.  A root
+        // that DOES carry equations stays refute-only, exactly as before.
+        const bool refute_only = !node->str_eqs().empty() || !node->str_deqs().empty();
         if (refute_only && !force_root && !m_monadic_leaf_refute)
             return false;
         // child B below is an exact clone; refusing on an alias is what stops the rule
@@ -1016,6 +1023,22 @@ namespace seq {
         }
         m_monadic_leaf_trail.pop_scope(1);
 
+        // The root ask runs ahead of the search, on a node that simplify_and_init has not
+        // touched and generate_extensions has not claimed.  Cloning children here would
+        // slip past that once-per-node guard and snapshot an un-simplified parent, so park
+        // the witness and let the root's own DFS visit build them the ordinary way.
+        if (force_root) {
+            m_monadic_leaf_root_witness.reset();
+            for (auto const& [tok, word] : witness)
+                m_monadic_leaf_root_witness.push_back({ tok, word });
+            m_monadic_leaf_root_witness_dep = all_dep;
+            m_monadic_leaf_root_has_witness = true;
+            ++m_stats.m_monadic_leaf_root_wins;
+            TRACE(seq, tout << "monadic leaf: root witness parked for "
+                            << witness.size() << " token(s)\n");
+            return false;   // NOT a refutation -- the caller reads true as unsat
+        }
+
         // child A -- every token pinned to its witness word.  Adding equations is a
         // RESTRICTION of the node, so the child is sound as one disjunct however good or
         // bad the witness is; nseq's own machinery then substitutes the constants and
@@ -1037,6 +1060,34 @@ namespace seq {
 
         ++m_stats.m_monadic_leaf_sat;
         TRACE(seq, tout << "monadic leaf: witness pinned for " << witness.size() << " token(s)\n");
+        return true;
+    }
+
+    bool nielsen_graph::apply_monadic_leaf_root_witness(nielsen_node* node) {
+        if (!m_monadic_leaf_root_has_witness || node != m_root)
+            return false;
+        // Fire once: on a second visit the pin has already been offered and declined.
+        m_monadic_leaf_root_has_witness = false;
+        if (m_monadic_leaf_root_witness.empty())
+            return false;
+
+        // Same two children apply_monadic_leaf's l_true path builds, and sound for the
+        // same reason: child B is an exact clone of the parent, so it covers the parent on
+        // its own and child A is free to be any restriction at all.  Nothing here trusts
+        // the engine -- a witness that simplify_and_init has since substituted away, or
+        // that the node's non-membership constraints reject, simply makes child A close.
+        nielsen_node* child_a = mk_child(node);
+        mk_edge(node, child_a, "monadic leaf root witness", true);
+        for (auto const& [tok, word] : m_monadic_leaf_root_witness)
+            child_a->add_str_eq(str_eq(m, tok, m_sg.mk(word), m_monadic_leaf_root_witness_dep));
+
+        nielsen_node* child_b = mk_child(node);
+        mk_edge(node, child_b, "monadic leaf root rest", true);
+        child_b->set_monadic_leaf_rest();
+
+        TRACE(seq, tout << "monadic leaf: root witness pinned for "
+                        << m_monadic_leaf_root_witness.size() << " token(s)\n");
+        m_monadic_leaf_root_witness.reset();
         return true;
     }
 

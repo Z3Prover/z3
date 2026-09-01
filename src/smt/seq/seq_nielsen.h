@@ -967,6 +967,10 @@ namespace seq {
         // up-front whole-problem refutations (see monadic_leaf_root_refute)
         unsigned m_monadic_leaf_root_asks    = 0;
         unsigned m_monadic_leaf_root_refutes = 0;
+        // ... and up-front whole-problem SATisfying assignments, parked by the same ask
+        // and pinned later by apply_monadic_leaf_root_witness.
+        unsigned m_monadic_leaf_root_wins    = 0;
+        unsigned m_mod_monadic_leaf_root_wit = 0;
         // branches the monadic enumerator handed out, and enumerations it drained
         // cleanly (each of those closes a node)
         unsigned m_monadic_branches    = 0;
@@ -1179,6 +1183,16 @@ namespace seq {
         // The deferred root refutation is asked once per graph: the root's memberships do
         // not change between solve calls, so a second full-budget ask has the same answer.
         bool             m_monadic_leaf_root_asked = false;
+        // A satisfying assignment the up-front root ask found, parked until the search
+        // reaches the root.  The ask runs BEFORE simplify_and_init, where the memberships
+        // are still plain and the engine can answer -- but cloning children from a node
+        // that has not been simplified or extended yet would bypass generate_extensions'
+        // once-per-node guard.  So the witness is stashed here and consumed by
+        // apply_monadic_leaf_root_witness on the root's first DFS visit, through the
+        // ordinary extension path.  See monadic_leaf_root_refute.
+        vector<std::pair<euf::snode const*, expr_ref>> m_monadic_leaf_root_witness;
+        dep_tracker      m_monadic_leaf_root_witness_dep = nullptr;
+        bool             m_monadic_leaf_root_has_witness = false;
         // Owns the suspended factorization continuations (rf_state); nodes hold
         // raw pointers into this pool.  Freed in reset().
         ptr_vector<rf_state>    m_rf_states;
@@ -1986,6 +2000,13 @@ namespace seq {
         // ignores the alias guard, which is what makes it safe to ask of an already
         // extended root (nothing is built on l_true).  See monadic_leaf_root_refute.
         bool apply_monadic_leaf(nielsen_node* node, bool force_root = false);
+
+        // Consumes the witness the up-front root ask parked (see
+        // m_monadic_leaf_root_witness): pins each token to its word in child A and clones
+        // the node unchanged into child B, exactly as apply_monadic_leaf's l_true path
+        // does.  Fires at most once, on the root only.  Sound for ANY child A whatever the
+        // witness turned out to be, because child B alone already covers the parent.
+        bool apply_monadic_leaf_root_witness(nielsen_node* node);
 
         // Up-front full-membership-set refutation of the ROOT, asked once per graph before
         // the search starts.  theory_seq decides most of what it wins over nseq in a single

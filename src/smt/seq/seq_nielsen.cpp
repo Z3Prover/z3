@@ -613,6 +613,9 @@ namespace seq {
         dealloc(m_monadic_leaf_engine);
         m_monadic_leaf_engine = nullptr;
         m_monadic_leaf_root_asked = false;
+        m_monadic_leaf_root_witness.reset();
+        m_monadic_leaf_root_witness_dep = nullptr;
+        m_monadic_leaf_root_has_witness = false;
         m_nodes.reset();
         m_edges.reset();
         m_root = nullptr;
@@ -1138,6 +1141,8 @@ namespace seq {
         st.update("nseq monadic leaf refuted", m_stats.m_monadic_leaf_refuted);
         st.update("nseq monadic leaf root asks", m_stats.m_monadic_leaf_root_asks);
         st.update("nseq monadic leaf root refutes", m_stats.m_monadic_leaf_root_refutes);
+        st.update("nseq monadic leaf root wins", m_stats.m_monadic_leaf_root_wins);
+        st.update("nseq mod monadic leaf root wit", m_stats.m_mod_monadic_leaf_root_wit);
         st.update("nseq monadic branches",     m_stats.m_monadic_branches);
         st.update("nseq monadic drained",      m_stats.m_monadic_drained);
         st.update("nseq monadic fresh",        m_stats.m_monadic_fresh);

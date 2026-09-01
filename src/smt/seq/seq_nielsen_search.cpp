@@ -819,6 +819,14 @@ namespace seq {
         if (!harvest_mode() && apply_cycle_subsumption(node))
             return ++m_stats.m_mod_cycle_subsumption, true;
 
+        // Priority 5c-: MonadicLeafRootWitness - pin the satisfying assignment the
+        // up-front root ask already found (see monadic_leaf_root_refute).  Ahead of the
+        // rule below because that ask ran before simplify_and_init, where the memberships
+        // were still plain: re-asking here is the strictly harder question and normally
+        // answers l_undef or does not get past the is_plain gate at all.
+        if (!harvest_mode() && apply_monadic_leaf_root_witness(node))
+            return ++m_stats.m_mod_monadic_leaf_root_wit, true;
+
         // Priority 5c: MonadicLeaf - seq_monadic as a DECISION PROCEDURE over the whole
         // membership set of an equation-free node: a core refutes the node outright, a
         // witness becomes a pinned child.  Tried before the enumerator below and before
