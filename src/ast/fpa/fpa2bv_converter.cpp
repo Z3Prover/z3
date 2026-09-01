@@ -1293,6 +1293,12 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     if (m_mpz_manager.gt(max_exp_diff, INT32_MAX))
         // because zero-extend allows only int params...
         throw rewriter_exception("Maximum exponent difference in fp.rem does not fit into a signed int. Huge exponents in fp.rem are not supported.");
+    scoped_mpz sig_ext_amount(m_mpz_manager);
+    m_mpz_manager.add(max_exp_diff, sbits, sig_ext_amount);
+    m_mpz_manager.sub(sig_ext_amount, 1, sig_ext_amount);
+    if (m_mpz_manager.gt(sig_ext_amount, INT32_MAX))
+        // because zero-extend allows only int params...
+        throw rewriter_exception("Maximum significand extension in fp.rem does not fit into a signed int. Huge exponents in fp.rem are not supported.");
 
     expr_ref a_exp_ext(m), b_exp_ext(m);
     a_exp_ext = m_bv_util.mk_sign_extend(2, a_exp);
@@ -1319,7 +1325,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     expr_ref lshift(m), rshift(m), shifted(m), huge_rem(m), huge_div(m), huge_div_is_even(m);
     expr_ref a_sig_ext_l = a_sig, b_sig_ext_l = b_sig;
     scoped_mpz remaining(m_mpz_manager);
-    m_mpz_manager.set(remaining, max_exp_diff);
+    m_mpz_manager.set(remaining, sig_ext_amount);
     while (m_mpz_manager.gt(remaining, INT32_MAX)) {
         SASSERT(false); // zero-extend ast's expect int params which would overflow.
         a_sig_ext_l = m_bv_util.mk_zero_extend(INT32_MAX, a_sig_ext_l);
@@ -1336,7 +1342,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     b_sig_ext = m_bv_util.mk_concat(b_sig_ext_l, m_bv_util.mk_numeral(0, 3));
 
     scoped_mpz max_exp_diff_adj(m_mpz_manager);
-    m_mpz_manager.add(max_exp_diff, sbits, max_exp_diff_adj);
+    m_mpz_manager.add(sig_ext_amount, sbits, max_exp_diff_adj);
     m_mpz_manager.sub(max_exp_diff_adj, ebits, max_exp_diff_adj);
     m_mpz_manager.add(max_exp_diff_adj, 1, max_exp_diff_adj);
     expr_ref edr_tmp = exp_diff, nedr_tmp = neg_exp_diff;

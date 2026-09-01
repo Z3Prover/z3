@@ -57,6 +57,7 @@ add_executable(test-z3
   expr_substitution.cpp
   ext_numeral.cpp
   f2n.cpp
+  fpa.cpp
   finite_set.cpp
   finite_set_rewriter.cpp
   factor_rewriter.cpp
