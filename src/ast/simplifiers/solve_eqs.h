@@ -64,7 +64,14 @@ namespace euf {
 
         bool is_var(expr* e) const { return e->get_id() < m_var2id.size() && m_var2id[e->get_id()] != UINT_MAX; }
         unsigned var2id(expr* v) const { return m_var2id[v->get_id()]; }
-        bool can_be_var(expr* e) const { return is_uninterp_const(e) && !m_unsafe_vars.is_marked(e) && check_occs(e); }
+        // Polymorphic constants (declared with a type-variable-parametric signature, e.g.
+        // TPTP's !>[A:$tType] : ... constants) must not be eliminated by solve-eqs: their
+        // ground instances are created on demand by theory_polymorphism when a type
+        // substitution is discovered, and substituting away the polymorphic constant here
+        // would hide it from that instantiation machinery, preventing the axiom from ever
+        // being instantiated at the needed concrete types.
+        bool is_polymorphic_const(expr* e) const { return m.has_type_vars() && to_app(e)->get_decl()->is_polymorphic(); }
+        bool can_be_var(expr* e) const { return is_uninterp_const(e) && !is_polymorphic_const(e) && !m_unsafe_vars.is_marked(e) && check_occs(e); }
         void get_eqs(dep_eq_vector& eqs);
         void filter_unsafe_vars();        
         void extract_subst();
