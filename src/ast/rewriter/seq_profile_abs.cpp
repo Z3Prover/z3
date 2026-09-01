@@ -220,13 +220,10 @@ namespace seq {
         return r;
     }
 
-    unsigned profile_abs::regex_residues(expr* re, unsigned modulus, unsigned sigma) {
-        if (modulus < 2 || modulus > max_modulus)
-            return UINT_MAX;
-        begin_pass(modulus, sigma);
+    unsigned profile_abs::residues_in_pass(expr* re) {
         const unsigned mask = profiles(re);
         unsigned res = 0;
-        for (unsigned c = 0; c < modulus; ++c)
+        for (unsigned c = 0; c < m_pk_mod; ++c)
             for (unsigned l = 0; l <= LCAP; ++l)
                 if (mask & pbit(c, l)) {
                     res |= 1u << c;
@@ -235,6 +232,11 @@ namespace seq {
         return res;
     }
 
-    // -----------------------------------------------------------------------
-    // Congruence refutation
+    unsigned profile_abs::regex_residues(expr* re, unsigned modulus, unsigned sigma) {
+        if (modulus < 2 || modulus > max_modulus)
+            return UINT_MAX;
+        begin_pass(modulus, sigma);
+        return residues_in_pass(re);
+    }
+
 } // namespace seq

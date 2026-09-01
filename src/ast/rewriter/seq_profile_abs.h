@@ -82,6 +82,11 @@ namespace seq {
         // axis, as a bitmask over Z_modulus.  All bits set carries no
         // information.  `modulus` must lie in [2, max_modulus].
         unsigned regex_residues(expr* re, unsigned modulus, unsigned sigma);
+
+        // Same projection, but within a pass already begun by begin_pass.
+        // Lets a caller abstract several regexes under one (sigma, modulus)
+        // choice while sharing the memo tables.
+        unsigned residues_in_pass(expr* re);
     };
 
 } // namespace seq
