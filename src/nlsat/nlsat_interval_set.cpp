@@ -778,10 +778,12 @@ namespace nlsat {
         m_am.set(w, s->m_intervals[irrational_i].m_upper);
     }
 
-    bool interval_set_manager::pick_max_in_complement(interval_set const * s, anum & w, anum & sup, bool & attained) {
-        SASSERT(!is_full(s));
-        TRACE(nlsat_inf_set, tout << "pick_max_in_complement: "; display(tout, s) << "\n";);
-        attained = false;
+    // Find the interval of s whose lower endpoint is the supremum of the
+    // complement of s: starting from the rightmost interval, which extends to
+    // +oo, walk to the left over intervals glued to it and set i to the last
+    // interval of the glued block. Return false if the complement of s is
+    // unbounded above.
+    bool interval_set_manager::find_complement_sup(interval_set const * s, unsigned & i) {
         if (s == nullptr) {
             TRACE(nlsat_inf_set, tout << "complement is unbounded above: infeasible set is empty\n";);
             return false;
@@ -791,9 +793,7 @@ namespace nlsat {
             TRACE(nlsat_inf_set, tout << "complement is unbounded above: rightmost infeasible interval is bounded\n";);
             return false;
         }
-        // The rightmost interval extends to +oo. Walk to the left over
-        // intervals glued to it to find the rightmost point of the complement.
-        unsigned i = num - 1;
+        i = num - 1;
         while (true) {
             interval const & curr = s->m_intervals[i];
             TRACE(nlsat_inf_set, tout << "scan interval " << i << ": "; nlsat::display(tout, m_am, curr); tout << "\n";);
@@ -805,36 +805,51 @@ namespace nlsat {
             interval const * prev = has_prev ? &s->m_intervals[i-1] : nullptr;
             if (curr.m_lower_open) {
                 // curr.m_lower is not in curr; it is in the complement unless prev covers it.
-                if (!has_prev || m_am.lt(prev->m_upper, curr.m_lower) || prev->m_upper_open) {
-                    m_am.set(w, curr.m_lower);
-                    m_am.set(sup, curr.m_lower);
-                    attained = true;
-                    TRACE(nlsat_inf_set, tout << "maximum attained at "; m_am.display_decimal(tout, w); tout << "\n";);
+                if (!has_prev || m_am.lt(prev->m_upper, curr.m_lower) || prev->m_upper_open)
                     return true;
-                }
             }
             else {
                 // curr.m_lower is infeasible: the supremum of the complement is
                 // the open endpoint curr.m_lower, provided the gap to prev is non-empty.
-                if (!has_prev) {
-                    m_am.int_lt(curr.m_lower, w);
-                    m_am.set(sup, curr.m_lower);
-                    TRACE(nlsat_inf_set, tout << "open supremum "; m_am.display_decimal(tout, sup);
-                          tout << ", witness "; m_am.display_decimal(tout, w); tout << "\n";);
+                if (!has_prev || m_am.lt(prev->m_upper, curr.m_lower))
                     return true;
-                }
-                if (m_am.lt(prev->m_upper, curr.m_lower)) {
-                    m_am.select(prev->m_upper, curr.m_lower, w);
-                    m_am.set(sup, curr.m_lower);
-                    TRACE(nlsat_inf_set, tout << "open supremum "; m_am.display_decimal(tout, sup);
-                          tout << ", witness "; m_am.display_decimal(tout, w); tout << "\n";);
-                    return true;
-                }
             }
             // prev and curr are glued: treat them as one interval.
             TRACE(nlsat_inf_set, tout << "interval " << i << " is glued to its predecessor\n";);
             --i;
         }
+    }
+
+    bool interval_set_manager::pick_max_in_complement(interval_set const * s, anum & w) {
+        SASSERT(!is_full(s));
+        TRACE(nlsat_inf_set, tout << "pick_max_in_complement: "; display(tout, s) << "\n";);
+        unsigned i;
+        if (!find_complement_sup(s, i))
+            return false;
+        interval const & curr = s->m_intervals[i];
+        if (curr.m_lower_open)
+            // the supremum curr.m_lower belongs to the complement: it is the maximum
+            m_am.set(w, curr.m_lower);
+        else if (i == 0)
+            m_am.int_lt(curr.m_lower, w);
+        else
+            m_am.select(s->m_intervals[i-1].m_upper, curr.m_lower, w);
+        TRACE(nlsat_inf_set, tout << "witness "; m_am.display_decimal(tout, w); tout << "\n";);
+        return true;
+    }
+
+    bool interval_set_manager::query_max_in_complement(interval_set const * s, anum & sup, bool & attained) {
+        SASSERT(!is_full(s));
+        TRACE(nlsat_inf_set, tout << "query_max_in_complement: "; display(tout, s) << "\n";);
+        unsigned i;
+        if (!find_complement_sup(s, i))
+            return false;
+        interval const & curr = s->m_intervals[i];
+        m_am.set(sup, curr.m_lower);
+        attained = curr.m_lower_open;
+        TRACE(nlsat_inf_set, tout << (attained ? "attained" : "open") << " supremum ";
+              m_am.display_decimal(tout, sup); tout << "\n";);
+        return true;
     }
 
     std::ostream& interval_set_manager::display(std::ostream & out, interval_set const * s) const {

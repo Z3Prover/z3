@@ -1817,9 +1817,7 @@ namespace nlsat {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
             if (m_xk == m_max_var) {
-                scoped_anum sup(m_am);
-                bool attained;
-                if (!m_ism.pick_max_in_complement(m_infeasible[m_xk], w, sup, attained))
+                if (!m_ism.pick_max_in_complement(m_infeasible[m_xk], w))
                     m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
             }
             else
@@ -2079,8 +2077,7 @@ namespace nlsat {
         bool max_var_sup(anum & sup, bool & attained) const {
             if (m_max_var == null_var || !m_assignment.is_assigned(m_max_var))
                 return false;
-            scoped_anum w(m_am);
-            return m_ism.pick_max_in_complement(m_infeasible[m_max_var], w, sup, attained);
+            return m_ism.query_max_in_complement(m_infeasible[m_max_var], sup, attained);
         }
 
         bool simple_check() {
