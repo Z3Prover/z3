@@ -46,6 +46,16 @@ Abstract:
         `nielsen_graph` does across incremental SMT `check()` calls) is
         future work.
 
+    "Phase 4" addition: `facet_i::on_enter()`/`on_leave()`, called by
+    `dfs()` in strict LIFO nesting matching the DFS call stack (enter on
+    descent, leave on backtrack, via an RAII guard local to `dfs()`).
+    This is the hook an incremental-solver-backed facet (`arith_facet`,
+    wrapping something like `smt::kernel`) needs to keep its backend's
+    own `push()`/`pop()` scope stack synchronized with the search tree's
+    backtracking, without the generic engine knowing anything about
+    incremental solvers itself. Facets with no incremental backend simply
+    inherit the default no-op implementations.
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026
@@ -110,6 +120,22 @@ namespace stx {
         // Is this facet's constraint set trivially/vacuously satisfied
         // (e.g. no equations left, or an empty membership set)?
         virtual bool is_satisfied() const = 0;
+
+        // Optional DFS-scope hooks: called by the engine exactly once when
+        // `dfs()` descends into a node holding this facet (after any
+        // transposition-cache/sibling-cut short-circuit, before
+        // propagation runs) and exactly once when `dfs()` backtracks back
+        // out of that same node (after all of its children, if any, have
+        // themselves been entered and left). The nesting therefore always
+        // matches the DFS call stack, which is the discipline an
+        // incremental backend's `push()`/`pop()` needs: a facet that wraps
+        // one (e.g. `arith_facet` wrapping `sub_solver_i`) implements
+        // `on_enter` as "assert this node's newly-added constraints and
+        // push a solver scope" and `on_leave` as "pop that scope". Facets
+        // with no incremental backend (e.g. `eq_facet`) simply do not
+        // override these (default no-ops).
+        virtual void on_enter() {}
+        virtual void on_leave() {}
     };
 
     /**
@@ -306,6 +332,19 @@ namespace stx {
 
             ptr_vector<edge>& outgoing() { return m_outgoing; }
             ptr_vector<edge> const& outgoing() const { return m_outgoing; }
+
+            // Invoke on_enter()/on_leave() on every installed facet, in
+            // registration order for enter and reverse order for leave
+            // (LIFO, matching the push/pop discipline an incremental
+            // backend needs). See facet_i::on_enter/on_leave.
+            void on_enter_all() {
+                for (auto* f : m_facets)
+                    if (f) f->on_enter();
+            }
+            void on_leave_all() {
+                for (unsigned i = m_facets.size(); i-- > 0; )
+                    if (m_facets[i]) m_facets[i]->on_leave();
+            }
         };
 
         struct stats {
@@ -439,6 +478,18 @@ namespace stx {
                     return search_result::unsat;
                 }
             }
+
+            // RAII enter/leave scope: every facet with an incremental
+            // backend (e.g. arith_facet) gets exactly one on_enter() call
+            // here and exactly one matching on_leave() call on every exit
+            // path below (including through the recursive calls further
+            // down), so push/pop nesting always matches the DFS call
+            // stack. See facet_i::on_enter/on_leave.
+            struct enter_leave_guard {
+                node* m_n;
+                explicit enter_leave_guard(node* n) : m_n(n) { m_n->on_enter_all(); }
+                ~enter_leave_guard() { m_n->on_leave_all(); }
+            } guard(n);
 
             search_result result;
             simplify_result sr = propagate_to_fixpoint(*n);

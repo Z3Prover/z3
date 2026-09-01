@@ -1,0 +1,144 @@
+/*++
+Copyright (c) 2026 Microsoft Corporation
+
+Module Name:
+
+    seq_arith_facet.cpp
+
+Abstract:
+
+    See seq_arith_facet.h.
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2026
+
+--*/
+#include "smt/seq_arith_facet.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
+
+namespace seq {
+
+    // -- arith_sub_solver --
+
+    arith_sub_solver::arith_sub_solver(ast_manager& m, arith_util&) : m(m) {
+        params_ref p;
+        m_solver = mk_smt_solver(m, p, symbol("QF_LIA"));
+    }
+
+    arith_sub_solver::~arith_sub_solver() {
+        dealloc(m_solver);
+    }
+
+    void arith_sub_solver::assert_expr(expr* e) {
+        m_solver->assert_expr(e);
+    }
+
+    void arith_sub_solver::push() {
+        m_solver->push();
+    }
+
+    void arith_sub_solver::pop(unsigned n) {
+        m_solver->pop(n);
+    }
+
+    unsigned arith_sub_solver::get_scope_level() const {
+        return m_solver->get_scope_level();
+    }
+
+    lbool arith_sub_solver::check() {
+        return m_solver->check_sat(0, nullptr);
+    }
+
+    // -- arith_facet --
+
+    void arith_facet::add_constraint(expr* c) {
+        for (expr* e : m_own)
+            if (e == c)
+                return; // already recorded (propagate may revisit the same equation across simplify rounds)
+        m_own.push_back(c);
+        if (!m_scope_pushed) {
+            m_solver.push();
+            m_scope_pushed = true;
+        }
+        m_solver.assert_expr(c);
+        m_conflict = (m_solver.check() == l_false);
+    }
+
+    void arith_facet::add_length_constraint(token_list const& lhs, token_list const& rhs) {
+        expr_ref lsum(a.mk_int(0), m);
+        expr_ref rsum(a.mk_int(0), m);
+        for (expr* t : lhs) {
+            expr_ref len(is_const_token(u, t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
+            lsum = a.mk_add(lsum, len);
+        }
+        for (expr* t : rhs) {
+            expr_ref len(is_const_token(u, t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
+            rsum = a.mk_add(rsum, len);
+        }
+        add_constraint(m.mk_eq(lsum, rsum));
+        for (expr* t : lhs)
+            if (!is_const_token(u, t))
+                add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0)));
+        for (expr* t : rhs)
+            if (!is_const_token(u, t))
+                add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0)));
+    }
+
+    stx::facet_i* arith_facet::clone() const {
+        arith_facet* f = alloc(arith_facet, m, u, m_solver);
+        // A cloned node's *own* constraint set starts empty: the parent's
+        // constraints are already permanently reflected in the shared
+        // solver's scope stack (they were asserted+pushed when the parent
+        // itself was entered), so the clone only needs to record whatever
+        // NEW constraints get added to it from here on (e.g. by
+        // arith_propagation reading a newly-branched eq_facet equation).
+        return f;
+    }
+
+    unsigned arith_facet::hash() const {
+        unsigned h = m_own.size() * 40503u;
+        for (expr* e : m_own)
+            h = combine_hash(h, e->get_id());
+        return h ? h : 1;
+    }
+
+    bool arith_facet::similar(facet_i const& other) const {
+        auto const& o = static_cast<arith_facet const&>(other);
+        if (m_own.size() != o.m_own.size())
+            return false;
+        for (unsigned i = 0; i < m_own.size(); ++i)
+            if (m_own.get(i) != o.m_own.get(i))
+                return false;
+        return true;
+    }
+
+    void arith_facet::on_enter() {
+        // Nothing to do until add_constraint() first fires for this node
+        // (lazy push - a node with no new constraints of its own never
+        // touches the shared backend's scope stack at all).
+    }
+
+    void arith_facet::on_leave() {
+        if (m_scope_pushed) {
+            m_solver.pop(1);
+            m_scope_pushed = false;
+        }
+    }
+
+    // -- arith_propagation --
+
+    stx::simplify_result arith_propagation::propagate(eq_tree::node& n) {
+        auto& ef = n.facet_as<eq_facet>(m_eq_id);
+        auto& af = n.facet_as<arith_facet>(m_arith_id);
+        for (auto const& eq : ef.equations())
+            af.add_length_constraint(eq.m_lhs, eq.m_rhs);
+        if (af.has_conflict()) {
+            n.set_conflict(stx::br_plugin_base, nullptr);
+            return stx::simplify_result::conflict;
+        }
+        return stx::simplify_result::proceed;
+    }
+
+} // namespace seq

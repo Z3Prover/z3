@@ -51,6 +51,7 @@
     X(symbol) \
     X(stx_search_tree) \
     X(seq_eq_facet) \
+    X(seq_arith_facet) \
     X(heap) \
     X(hashtable) \
     X(rational) \
