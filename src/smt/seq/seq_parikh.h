@@ -42,6 +42,7 @@ Author:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/seq_parikh.h"
+#include "ast/rewriter/seq_profile_abs.h"
 #include "smt/seq/seq_nielsen.h"
 
 namespace seq {
@@ -65,6 +66,11 @@ namespace seq {
         th_rewriter  m_rw;
         skolem       m_sk;         // for deterministic, reusable visit-count vars
         parikh       m_pk;         // consolidated per-membership modular length constraints
+
+        // The per-letter profile abstraction (see regex_residues below).  It
+        // is free of solver state; this class only chooses the letters and
+        // assembles the congruence rows.
+        seq::profile_abs m_abs;
 
         // Compute the stride (period) of the length language of a regex.
         //
@@ -110,35 +116,6 @@ namespace seq {
 
         // Emit the reachability guard  count = 0 -> c1 = 0.
         void push_zero_guard(vector<constraint>& out, dep_tracker dep, expr* count, expr* c1);
-
-        // --- state of the per-letter profile abstraction (regex_residues) ----
-        // Set by begin_pass and read by profiles/forced; a "pass" is one choice
-        // of (sigma, modulus), over which the caches below stay valid.
-        unsigned m_pk_mod   = 0;   // modulus of the abstraction being computed
-        unsigned m_pk_sigma = 0;   // character being counted
-        unsigned m_pk_top   = 0;   // full profile mask for m_pk_mod
-        unsigned m_pk_budget = 0;  // remaining recursion steps, 0 = exhausted
-        obj_map<expr, unsigned> m_pk_prof;    // memo for profiles()
-        obj_map<expr, unsigned> m_pk_forced;  // memo for forced()
-
-        void     begin_pass(unsigned modulus, unsigned sigma);
-
-        // profile-mask combinators, all over the (count, length) domain
-        unsigned prof_cat(unsigned a, unsigned b) const;
-        unsigned prof_pow(unsigned a, unsigned n) const;
-        unsigned prof_star(unsigned a) const;
-        unsigned prof_loop(unsigned a, unsigned lo, unsigned hi) const;
-        unsigned prof_chars(bool has_sigma, bool has_other) const;
-
-        // Over-approximation of the profiles of L(re): w in L(re) implies
-        // profile(w) is in the result.  Degrades to the full mask when a
-        // construct is out of scope or the budget runs out -- always sound.
-        unsigned profiles(expr* re);
-
-        // Under-approximation of the profiles p for which EVERY word with
-        // profile p lies in L(re).  Used to make complement precise: no word of
-        // comp(re) can have such a profile.  Degrades to the empty set.
-        unsigned forced(expr* re);
 
         // Collect the concrete characters of a node with their multiplicities,
         // most frequent first, capped at `max_letters`.
@@ -253,7 +230,7 @@ namespace seq {
 
         // Largest modulus the profile bitmask can hold (3 length classes per
         // residue must fit in an unsigned).
-        static const unsigned max_modulus = 10;
+        static const unsigned max_modulus = seq::profile_abs::max_modulus;
 
         // Per-letter congruence refutation over a whole node.  No branching, no
         // substitution and no solver call, in the spirit of check_parikh_conflict.
