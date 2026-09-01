@@ -141,6 +141,7 @@ add_executable(test-z3
   seq_regex_witness.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp
+  seq_profile_abs.cpp
   simple_parser.cpp
   scanner_io.cpp
   simplex.cpp
