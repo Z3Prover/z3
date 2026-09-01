@@ -351,7 +351,7 @@ void bv2int_translator::translate_bv(app* e) {
         }
         break;
     case OP_BASHR:
-        if (!a.is_numeral(arg(1)))
+        if (!m_is_plugin && !a.is_numeral(arg(1)))
             r = a.mk_ashr(bv.get_bv_size(e), arg(0), arg(1));
         else {
 
