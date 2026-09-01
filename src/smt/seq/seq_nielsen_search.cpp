@@ -35,8 +35,26 @@ namespace seq {
         node.m_parikh_applied = true;
 
         // Generate modular length constraints (len(str) = min_len + stride·k, etc.)
-        // and append them to the node's integer constraint list.
-        m_parikh->apply_to_node(node);
+        // for every membership at this node, and append them to the node's
+        // integer constraint list.  (Formerly seq_parikh::apply_to_node,
+        // inlined here since it had a single caller.)
+        vector<constraint> constraints;
+        for (str_mem const& mem : node.str_mems()) {
+            m_parikh->generate_parikh_constraints(mem, constraints);
+
+            // Exact semi-linear length encoding for classical regex states.
+            // Only plain memberships: view/guard kinds carry projection run
+            // states, not plain regexes.  is_classical() pre-filters extended
+            // ops (∩, complement, …); encode_length_set self-bails on anything
+            // else (e.g. symbolic to_re) it cannot encode exactly.
+            if (mem.is_plain() && mem.m_str && mem.m_regex && mem.m_regex->is_classical()
+                && m_seq.is_re(mem.m_regex->get_expr())) {
+                expr_ref len_str(m_seq.str.mk_length(mem.m_str->get_expr()), m);
+                m_parikh->encode_length_set(mem.m_str->get_expr(), mem.m_regex->get_expr(), len_str, mem.m_dep, constraints);
+            }
+        }
+        for (auto& ic : constraints)
+            node.add_constraint(ic);
 
         // Lightweight feasibility pre-check: does the Parikh modular constraint
         // contradict the variable's current integer bounds?  If so, mark this

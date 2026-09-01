@@ -39,8 +39,6 @@ Author:
 
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
-#include "ast/rewriter/th_rewriter.h"
-#include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/seq_parikh.h"
 #include "ast/rewriter/seq_profile_abs.h"
 #include "smt/seq/seq_nielsen.h"
@@ -51,11 +49,8 @@ namespace seq {
      * Parikh image filter: generates modular length constraints from
      * regex membership constraints in a nielsen_node.
      *
-     * Usage:
+     * Usage (per-membership):
      *   seq_parikh parikh(sg);
-     *   parikh.apply_to_node(node);      // adds constraints to node
-     *
-     * Or per-membership:
      *   vector<int_constraint> out;
      *   parikh.generate_parikh_constraints(mem, out);
      */
@@ -63,8 +58,6 @@ namespace seq {
         ast_manager& m;
         seq_util     seq;
         arith_util   a;
-        th_rewriter  m_rw;
-        skolem       m_sk;         // for deterministic, reusable visit-count vars
         parikh       m_pk;         // consolidated per-membership modular length constraints
 
         // The per-letter profile abstraction (see regex_residues below).  It
@@ -89,34 +82,6 @@ namespace seq {
         //   stride((ab)*|(abc)*)  = 1  (lengths 0, 2, 3, 4, ...)
         unsigned compute_length_stride(expr* re);
 
-        // --- exact semi-linear length encoding (visit-count Parikh) ---------
-        // Recursively encode the length set of a NON-EXTENDED (classical) regex
-        // by introducing, per subterm, an integer "visit-count" variable and
-        // Presburger flow constraints (paper "On the Complexity of Equational
-        // Horn Clauses", Verma/Seidl/Schwentick).  `count` is the count expr of
-        // the current subterm; on success pushes the subterm's structural
-        // constraints into `out` and returns its linear length contribution in
-        // `contrib`.  Returns false (caller discards) for any operator the flow
-        // cannot capture exactly (intersection, complement, diff, xor, of_pred,
-        // reverse, derivative, …).
-        //
-        // Count variables are NOT fresh constants — they are Skolem terms
-        //   seq.rc(str_key, root_re, idx)
-        // keyed on the membership (str + root regex) and a per-encoding DFS index
-        // `idx`.  Re-encoding the same membership therefore reuses the exact same
-        // counters instead of leaking new constants on every final_check / node.
-        bool rec(expr* re, expr* count, expr* str_key, expr* root_re, unsigned& idx,
-                 dep_tracker dep, vector<constraint>& out, expr_ref& contrib);
-
-        // Deterministic non-negative integer count variable
-        //   seq.rc(str_key, root_re, idx++)
-        // emits c >= 0 into out and bumps idx.
-        expr_ref mk_count_var(vector<constraint>& out, dep_tracker dep,
-                              expr* str_key, expr* root_re, unsigned& idx);
-
-        // Emit the reachability guard  count = 0 -> c1 = 0.
-        void push_zero_guard(vector<constraint>& out, dep_tracker dep, expr* count, expr* c1);
-
         // Collect the concrete characters of a node with their multiplicities,
         // most frequent first, capped at `max_letters`.
         void collect_letters(nielsen_node const& node, unsigned max_letters,
@@ -137,11 +102,6 @@ namespace seq {
         // Does nothing when min_len ≥ max_len (empty or fixed-length language).
         void generate_parikh_constraints(str_mem const& mem,
                                          vector<constraint>& out);
-
-        // Apply Parikh constraints to all memberships at a node.
-        // Calls generate_parikh_constraints for each str_mem in the node
-        // and appends the resulting constraints to node.constraints().
-        void apply_to_node(nielsen_node& node);
 
         // Quick Parikh feasibility check (no solver call).
         //
@@ -184,6 +144,13 @@ namespace seq {
         // `str_key` identifies the membership's string term (mem.m_str): together
         // with `re` it keys the reusable Skolem count variables, so re-encoding
         // the same membership does not allocate new counters.
+        //
+        // Delegates to the consolidated, nielsen_node/str_mem-free implementation
+        // in ast/rewriter/seq_parikh (seq::parikh::encode_length_set), re-tagging
+        // each produced assertion with `dep`.  `len_target` must equal
+        // seq.str.mk_length(str_key): every call site already constructs it that
+        // way, and the delegate computes it internally rather than taking it as
+        // a parameter.
         bool encode_length_set(expr* str_key, expr* re, expr* len_target, dep_tracker dep, vector<constraint>& out);
 
         // Convert a regex minterm expression to a char_set.

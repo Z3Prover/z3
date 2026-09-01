@@ -474,8 +474,29 @@ static void test_generate_constraints_dep_propagated() {
 }
 
 // ---------------------------------------------------------------------------
-// apply_to_node tests
+// nielsen_graph::apply_parikh_to_node tests
+// (formerly exercised seq_parikh::apply_to_node directly; that helper was
+// inlined into nielsen_graph::apply_parikh_to_node, its sole caller, which is
+// private -- these tests instead replicate its loop via the public
+// generate_parikh_constraints/encode_length_set API, exposed through
+// nielsen_graph::parikh())
 // ---------------------------------------------------------------------------
+
+static void apply_parikh_via_public_api(seq::nielsen_graph& ng, seq::nielsen_node& node,
+                                        ast_manager& m, seq_util& seq) {
+    vector<seq::constraint> constraints;
+    for (seq::str_mem const& mem : node.str_mems()) {
+        ng.parikh().generate_parikh_constraints(mem, constraints);
+        if (mem.is_plain() && mem.m_str && mem.m_regex && mem.m_regex->is_classical()
+            && seq.is_re(mem.m_regex->get_expr())) {
+            expr_ref len_str(seq.str.mk_length(mem.m_str->get_expr()), m);
+            ng.parikh().encode_length_set(mem.m_str->get_expr(), mem.m_regex->get_expr(),
+                                          len_str, mem.m_dep, constraints);
+        }
+    }
+    for (auto& ic : constraints)
+        node.add_constraint(ic);
+}
 
 // applying to a node with one membership adds constraints to node
 static void test_apply_to_node_adds_constraints() {
@@ -488,7 +509,6 @@ static void test_apply_to_node_adds_constraints() {
     parikh_test_solver solver;
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
-    seq::seq_parikh parikh(sg);
 
     euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_ab_star(m, seq);  // stride 2 → generates constraints
@@ -499,17 +519,14 @@ static void test_apply_to_node_adds_constraints() {
     SASSERT(ng.root() != nullptr);
     unsigned before = ng.root()->constraints().size();
 
-    parikh.apply_to_node(*ng.root());
+    apply_parikh_via_public_api(ng, *ng.root(), m, seq);
 
     unsigned after = ng.root()->constraints().size();
     std::cout << "  before=" << before << " after=" << after << "\n";
     SASSERT(after > before);
 }
 
-// applying twice is idempotent (m_parikh_applied would prevent double-add
-// via nielsen_graph::apply_parikh_to_node, but seq_parikh::apply_to_node
-// itself does not guard — so calling apply_to_node directly adds again;
-// this test verifies the direct call does add, not the idempotency guard)
+// stride-1 (Sigma*) memberships add no modular length constraints.
 static void test_apply_to_node_stride_one_no_constraints() {
     std::cout << "test_apply_to_node_stride_one_no_constraints\n";
     ast_manager m;
@@ -521,7 +538,6 @@ static void test_apply_to_node_stride_one_no_constraints() {
     parikh_test_solver solver;
     seq::context_solver_i context_solver;
     seq::nielsen_graph ng(sg, solver, context_solver);
-    seq::seq_parikh parikh(sg);
 
     euf::snode const* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re(seq.re.mk_full_seq(str_sort), m);  // stride 1 → no constraints
@@ -529,7 +545,7 @@ static void test_apply_to_node_stride_one_no_constraints() {
     ng.add_str_mem(x, regex);
 
     unsigned before = ng.root()->constraints().size();
-    parikh.apply_to_node(*ng.root());
+    apply_parikh_via_public_api(ng, *ng.root(), m, seq);
     unsigned after = ng.root()->constraints().size();
     std::cout << "  before=" << before << " after=" << after << " (expect no change)\n";
     SASSERT(after == before);
