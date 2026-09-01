@@ -151,6 +151,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
 void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     force_push();
     proof_ref  in_pr(_in_pr, m), pr(_in_pr, m);
+    expr_ref   e_ref(e, m);
     expr_ref   r(e, m);
     SASSERT(m.is_bool(e));
 
@@ -163,9 +164,9 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     if (m_smt_params.m_preprocess) {
         TRACE(assert_expr_bug, tout << r << "\n";);
         set_eliminate_and(false); // do not eliminate and before nnf.
-        m_rewriter(e, r, pr);
+        m_rewriter(e_ref, r, pr);
         if (m.proofs_enabled()) {
-            if (e == r)
+            if (e_ref == r)
                 pr = in_pr;
             else
                 pr = m.mk_modus_ponens(in_pr, pr);
@@ -173,7 +174,7 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
         TRACE(assert_expr_bug, tout << "after...\n" << r << "\n" << pr << "\n";);
     }
 
-    m_has_quantifiers |= ::has_quantifiers(e);
+    m_has_quantifiers |= ::has_quantifiers(e_ref);
 
     push_assertion(r, pr, m_formulas);
     TRACE(asserted_formulas_bug, tout << "after assert_expr\n"; display(tout););
