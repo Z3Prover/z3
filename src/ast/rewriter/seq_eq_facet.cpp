@@ -66,7 +66,7 @@ namespace seq {
         return cmp_tokens(m_lhs, other.m_lhs) == 0 && cmp_tokens(m_rhs, other.m_rhs) == 0;
     }
 
-    void eq_facet::subst_in(token_list& ts, expr* var, token_list const& repl) {
+    void subst_in(token_list& ts, expr* var, token_list const& repl) {
         token_list orig(ts);
         ts.reset();
         for (unsigned i = 0; i < orig.size(); ++i) {
@@ -212,6 +212,20 @@ namespace seq {
         return stx::simplify_result::proceed;
     }
 
+    // Broadcast a substitution chosen by eq_facet's Nielsen split to every
+    // other facet in `target` that implements subst_sink_i (e.g.
+    // deq_facet), so their state stays consistent with the branch. `eq_id`
+    // is skipped since the caller has already applied the substitution to
+    // that facet directly.
+    static void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, token_list const& repl) {
+        for (unsigned id = 0; id < target.num_facets(); ++id) {
+            if (id == eq_id || !target.has_facet(id))
+                continue;
+            if (auto* sink = dynamic_cast<subst_sink_i*>(&target.facet(id)))
+                sink->apply_subst(var, repl);
+        }
+    }
+
     bool word_eq_split::split(eq_tree::node& n, unsigned cost, ptr_vector<eq_tree::edge>& out) {
         if (cost != 0)
             return false;
@@ -242,6 +256,7 @@ namespace seq {
                 {
                     token_list empty(m);
                     childA->facet_as<eq_facet>(m_id).apply_subst(v1, empty);
+                    broadcast_subst(*childA, m_id, v1, empty);
                 }
                 out.push_back(alloc(eq_tree::edge, &n, childA, "v1:=eps", nullptr, true));
 
@@ -249,6 +264,7 @@ namespace seq {
                 {
                     token_list empty(m);
                     childB->facet_as<eq_facet>(m_id).apply_subst(v2, empty);
+                    broadcast_subst(*childB, m_id, v2, empty);
                 }
                 out.push_back(alloc(eq_tree::edge, &n, childB, "v2:=eps", nullptr, true));
 
@@ -258,6 +274,7 @@ namespace seq {
                     repl.push_back(v2);
                     repl.push_back(v1p);
                     childC->facet_as<eq_facet>(m_id).apply_subst(v1, repl);
+                    broadcast_subst(*childC, m_id, v1, repl);
                 }
                 out.push_back(alloc(eq_tree::edge, &n, childC, "v1:=v2.v1'", nullptr, true));
                 return true;
@@ -273,6 +290,7 @@ namespace seq {
             {
                 token_list empty(m);
                 childA->facet_as<eq_facet>(m_id).apply_subst(var, empty);
+                broadcast_subst(*childA, m_id, var, empty);
             }
             out.push_back(alloc(eq_tree::edge, &n, childA, "v:=eps", nullptr, true));
 
@@ -282,11 +300,130 @@ namespace seq {
                 repl.push_back(c);
                 repl.push_back(var2);
                 childB->facet_as<eq_facet>(m_id).apply_subst(var, repl);
+                broadcast_subst(*childB, m_id, var, repl);
             }
             out.push_back(alloc(eq_tree::edge, &n, childB, "v:=c.v'", nullptr, true));
             return true;
         }
         return false;
+    }
+
+    // -- deq_facet --
+
+    bool deq_facet::disequation::operator<(disequation const& other) const {
+        int c = cmp_tokens(m_lhs, other.m_lhs);
+        if (c != 0)
+            return c < 0;
+        return cmp_tokens(m_rhs, other.m_rhs) < 0;
+    }
+
+    bool deq_facet::disequation::operator==(disequation const& other) const {
+        return cmp_tokens(m_lhs, other.m_lhs) == 0 && cmp_tokens(m_rhs, other.m_rhs) == 0;
+    }
+
+    void deq_facet::apply_subst(expr* var, token_list const& repl) {
+        for (auto& dq : m_diseqs) {
+            subst_in(dq.m_lhs, var, repl);
+            subst_in(dq.m_rhs, var, repl);
+        }
+    }
+
+    stx::facet_i* deq_facet::clone() const {
+        deq_facet* f = alloc(deq_facet, m, u);
+        for (auto const& dq : m_diseqs)
+            f->m_diseqs.push_back(dq);
+        return f;
+    }
+
+    unsigned deq_facet::hash() const {
+        // Order-independent, same rationale as eq_facet::hash.
+        unsigned h = m_diseqs.size() * 2246822519u;
+        for (auto const& dq : m_diseqs) {
+            unsigned dh = 1;
+            for (expr* t : dq.m_lhs) dh = combine_hash(dh, t->get_id());
+            dh = combine_hash(dh, 0x85ebca6bu);
+            for (expr* t : dq.m_rhs) dh = combine_hash(dh, t->get_id());
+            h += dh;
+        }
+        return h ? h : 1;
+    }
+
+    bool deq_facet::similar(facet_i const& other) const {
+        auto const& o = static_cast<deq_facet const&>(other);
+        if (m_diseqs.size() != o.m_diseqs.size())
+            return false;
+        vector<disequation> a = m_diseqs, b = o.m_diseqs;
+        std::sort(a.begin(), a.end());
+        std::sort(b.begin(), b.end());
+        for (unsigned i = 0; i < a.size(); ++i)
+            if (!(a[i] == b[i]))
+                return false;
+        return true;
+    }
+
+    bool deq_facet::simplify(bool& conflict) {
+        conflict = false;
+        bool changed = false;
+        for (unsigned i = 0; i < m_diseqs.size(); ) {
+            disequation& dq = m_diseqs[i];
+            token_list& L = dq.m_lhs;
+            token_list& R = dq.m_rhs;
+
+            // strip a common leading prefix, exactly as eq_facet::simplify.
+            unsigned li = 0, ri = 0;
+            while (li < L.size() && ri < R.size() && L.get(li) == R.get(ri)) {
+                ++li; ++ri;
+            }
+            if (li > 0 || ri > 0) {
+                token_list newL(m), newR(m);
+                for (unsigned k = li; k < L.size(); ++k) newL.push_back(L.get(k));
+                for (unsigned k = ri; k < R.size(); ++k) newR.push_back(R.get(k));
+                L = std::move(newL);
+                R = std::move(newR);
+                changed = true;
+            }
+
+            if (L.empty() && R.empty()) {
+                // both sides forced identical: the disequation cannot hold.
+                conflict = true;
+                return true;
+            }
+
+            if (!L.empty() && !R.empty()) {
+                expr* lh = L.get(0);
+                expr* rh = R.get(0);
+                if (is_const_token(u, lh) && is_const_token(u, rh) && lh != rh) {
+                    // distinct leading constants: the two sides can never
+                    // be made equal by any future substitution - the
+                    // disequation is proved and discharged.
+                    m_diseqs.erase(m_diseqs.begin() + i);
+                    changed = true;
+                    continue;
+                }
+            }
+
+            // Otherwise stuck: one side is empty with the other led by a
+            // variable (not yet resolved to epsilon or not), or the
+            // leading tokens are a variable vs. constant / two variables.
+            // deq_facet never invents its own substitution (see module
+            // comment) - it waits for eq_facet's split to narrow things
+            // further and re-broadcast via apply_subst.
+            ++i;
+        }
+        return changed;
+    }
+
+    stx::simplify_result deq_propagation::propagate(eq_tree::node& n) {
+        auto& f = n.facet_as<deq_facet>(m_id);
+        bool conflict = false;
+        f.simplify(conflict);
+        if (conflict) {
+            n.set_conflict(stx::br_plugin_base, nullptr);
+            return stx::simplify_result::conflict;
+        }
+        if (f.is_satisfied())
+            return stx::simplify_result::satisfied;
+        return stx::simplify_result::proceed;
     }
 
 } // namespace seq

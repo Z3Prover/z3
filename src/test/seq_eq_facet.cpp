@@ -114,6 +114,84 @@ namespace {
         ENSURE(solve_eq(m, u, lhs, rhs, 0) == stx::search_result::unknown);
     }
 
+    // A disequation between two distinct constants is immediately
+    // discharged (proved satisfiable-distinct) with no branching needed.
+    static void tst_deq_trivial_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        expr_ref a(u.str.mk_string(zstring("a")), m);
+        expr_ref b(u.str.mk_string(zstring("b")), m);
+
+        seq::eq_tree tree;
+        stx::facet_id id = tree.register_facet();
+        seq::deq_propagation dprop(id);
+        tree.add_propagation_plugin(&dprop);
+
+        seq::deq_facet* f = alloc(seq::deq_facet, m, u);
+        f->add_disequation(a, b);
+        tree.mk_root()->set_facet(id, f);
+        tree.set_max_search_depth(4);
+        ENSURE(tree.solve() == stx::search_result::sat);
+    }
+
+    // A disequation between a constant and itself is an immediate
+    // conflict (both sides prefix-strip to empty: forced equal).
+    static void tst_deq_trivial_unsat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        expr_ref a1(u.str.mk_string(zstring("a")), m);
+        expr_ref a2(u.str.mk_string(zstring("a")), m);
+
+        seq::eq_tree tree;
+        stx::facet_id id = tree.register_facet();
+        seq::deq_propagation dprop(id);
+        tree.add_propagation_plugin(&dprop);
+
+        seq::deq_facet* f = alloc(seq::deq_facet, m, u);
+        f->add_disequation(a1, a2);
+        tree.mk_root()->set_facet(id, f);
+        tree.set_max_search_depth(4);
+        ENSURE(tree.solve() == stx::search_result::unsat);
+    }
+
+    // eq_facet and deq_facet share the same node/variable pool: solving
+    // `X = "a"` (via eq_facet's Nielsen split) must broadcast the chosen
+    // substitution to `deq_facet`'s pending `X != "b"`, which then gets
+    // discharged once X is resolved far enough to see a symbol clash
+    // against "b" - this exercises subst_sink_i cross-facet wiring.
+    static void tst_deq_reacts_to_eq_branch_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref a(u.str.mk_string(zstring("a")), m);
+        expr_ref b(u.str.mk_string(zstring("b")), m);
+
+        seq::eq_tree tree;
+        stx::facet_id eq_id = tree.register_facet();
+        stx::facet_id deq_id = tree.register_facet();
+        seq::eq_propagation eprop(eq_id);
+        seq::word_eq_split esplit(tree, eq_id);
+        seq::deq_propagation dprop(deq_id);
+        tree.add_propagation_plugin(&eprop);
+        tree.add_propagation_plugin(&dprop);
+        tree.add_split_plugin(&esplit);
+
+        seq::eq_facet* ef = alloc(seq::eq_facet, m, u);
+        ef->add_equation(X, a);
+        seq::deq_facet* df = alloc(seq::deq_facet, m, u);
+        df->add_disequation(X, b);
+
+        auto* root = tree.mk_root();
+        root->set_facet(eq_id, ef);
+        root->set_facet(deq_id, df);
+        tree.set_max_search_depth(12);
+        ENSURE(tree.solve() == stx::search_result::sat);
+    }
+
 } // namespace
 
 void tst_seq_eq_facet() {
@@ -122,5 +200,8 @@ void tst_seq_eq_facet() {
     tst_commute_sat();
     tst_branch_then_unsat();
     tst_depth_cutoff_unknown();
+    tst_deq_trivial_sat();
+    tst_deq_trivial_unsat();
+    tst_deq_reacts_to_eq_branch_sat();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
