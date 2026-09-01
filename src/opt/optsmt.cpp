@@ -232,6 +232,8 @@ namespace opt {
         inf_eps refuted_hint = infty;
         inf_eps step_bound = infty;
         bool last_bound_valid = true;
+        unsigned climb_rounds = 0;
+        bool unbounded_checked = false;
 
         while (m.inc()) {
             SASSERT(delta_per_step.is_int());
@@ -264,6 +266,23 @@ namespace opt {
                 }
                 else {
                     ++steps;
+                }
+                // A real objective that keeps producing better models while
+                // no arithmetic bound above it was ever refuted may be
+                // unbounded (e.g. maximize x under x*y = 1 /\ y > 0): every
+                // model-derived step below stays satisfiable, so the loop
+                // climbs forever and never reaches the nlsat/bisect fallback.
+                // After a streak of such rounds decide the question once
+                // (prove_unbounded_above, README section 3.3): on the proof,
+                // commit +oo with the current model as a witness.
+                if (is_int || refuted_hint.is_finite())
+                    climb_rounds = 0;
+                else if (m_optsmt_nlsat && !unbounded_checked && ++climb_rounds >= 8) {
+                    unbounded_checked = true;
+                    if (prove_unbounded_above(obj_index)) {
+                        set_best(obj_index, infty, is_maximize);
+                        break;
+                    }
                 }
                 // When maximize_objective could not validate its arithmetic
                 // hint (bound_valid == false), the blocker it produced refers to
@@ -382,6 +401,25 @@ namespace opt {
     }
 
     /**
+       \brief Certify that objective idx is unbounded above over the current
+       assertions with one quantified-NRA (nlqsat) query (README section 3.3);
+       bounds pushed by the climb hold in the current model and are harmless.
+    */
+    bool optsmt::prove_unbounded_above(unsigned idx) {
+        if (!m_lower[idx].is_finite())
+            return false;
+        expr_ref_vector hard(m);
+        for (unsigned i = 0; i < m_s->get_num_assertions(); ++i)
+            hard.push_back(m_s->get_assertion(i));
+        params_ref p;
+        nlsat_opt engine(m, p);
+        lbool r = engine.prove_unbounded(hard, m_objs.get(idx), m_lower[idx].get_rational());
+        IF_VERBOSE(1, if (r == l_true) verbose_stream() << "(optsmt nlsat unbounded above)\n");
+        TRACE(opt, tout << "prove_unbounded_above: " << r << "\n";);
+        return r == l_true;
+    }
+
+    /**
        \brief Exact optimization over nlsat cells (README section 3.3, layer 2):
        maximize the objective over the hard constraints within
        [m_lower[idx], hi] with nlsat_opt. On success the optimum may be an
@@ -405,6 +443,12 @@ namespace opt {
         TRACE(opt, tout << "nlsat cells: " << r << " rounds " << res.m_rounds << " value " << res.m_value << "\n";);
         if (!res.m_model)
             return l_false;
+        if (res.m_unbounded) {
+            m_model = res.m_model;
+            set_best(idx, inf_eps(rational(1), inf_rational(0)), is_maximize);
+            m_upper[idx] = m_lower[idx];
+            return l_true;
+        }
         inf_eps v(res.m_lower);
         if (v < m_lower[idx])
             return l_false;

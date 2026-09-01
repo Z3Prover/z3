@@ -275,8 +275,7 @@ namespace nlsat {
             m_scope_lvl(0),
             m_lemma(s),
             m_lazy_clause(s),
-            m_lemma_assumptions(m_asm),
-            m_max_sup(m_am) {
+            m_lemma_assumptions(m_asm) {
             updt_params(c.m_params);
             reset_statistics();
             mk_true_bvar();
@@ -1818,16 +1817,10 @@ namespace nlsat {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
             if (m_xk == m_max_var) {
-                bool attained = false;
-                if (m_ism.pick_max_in_complement(m_infeasible[m_xk], w, m_max_sup, attained)) {
-                    m_max_attained = attained;
-                    m_max_unbounded = false;
-                }
-                else {
-                    m_max_attained = false;
-                    m_max_unbounded = true;
+                scoped_anum sup(m_am);
+                bool attained;
+                if (!m_ism.pick_max_in_complement(m_infeasible[m_xk], w, sup, attained))
                     m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
-                }
             }
             else
                 m_ism.pick_in_complement(m_infeasible[m_xk], is_int(m_xk), w, m_randomize);
@@ -2079,8 +2072,17 @@ namespace nlsat {
 
         bool m_reordered = false;
         var  m_max_var = null_var;       // optimization: variable assigned its maximal feasible value
-        bool m_max_attained = false;
-        bool m_max_unbounded = false;
+
+        // Valid right after a satisfying check(): setting m_max_var disables
+        // reordering (see can_reorder), so m_infeasible[m_max_var] still holds
+        // the intervals select_witness saw when it assigned the variable.
+        bool max_var_sup(anum & sup, bool & attained) const {
+            if (m_max_var == null_var || !m_assignment.is_assigned(m_max_var))
+                return false;
+            scoped_anum w(m_am);
+            return m_ism.pick_max_in_complement(m_infeasible[m_max_var], w, sup, attained);
+        }
+
         bool simple_check() {
             literal_vector learned_unit;
             simple_checker checker(m_pm, m_am, m_clauses, learned_unit, m_atoms, m_is_int.size());
@@ -2123,29 +2125,26 @@ namespace nlsat {
             }
         }
 
+        bool apply_initial_reorder() {
+            if (!can_reorder())
+                return false;
+            if (m_variable_ordering_strategy > 0)
+                run_variable_ordering_strategy();
+            else if (m_random_order)
+                shuffle_vars();
+            else if (m_reorder)
+                heuristic_reorder();
+            else
+                return false;
+            return true;
+        }
+
         lbool check() {
             TRACE(nlsat_smt2, display_smt2(tout););
             TRACE(nlsat_fd, tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
             init_search();
             m_explain.set_full_dimensional(is_full_dimensional());
-            bool reordered = false;
-
-           
-            if (!can_reorder()) {
-
-            }
-            else if (m_variable_ordering_strategy > 0) {
-                run_variable_ordering_strategy();
-                reordered = true;
-            }
-            else if (m_random_order) {
-                shuffle_vars();
-                reordered = true;
-            }
-            else if (m_reorder) {
-                heuristic_reorder();
-                reordered = true;
-            }
+            bool reordered = apply_initial_reorder();
             sort_watched_clauses();
             lbool r = search_check();
             if (reordered) {
@@ -2305,7 +2304,6 @@ namespace nlsat {
         scoped_literal_vector  m_lemma;
         scoped_literal_vector  m_lazy_clause;
         assumption_set_ref     m_lemma_assumptions; // assumption tracking
-        scoped_anum            m_max_sup;        // optimization: supremum of the max var's feasible set at its last assignment
 
         // Conflict resolution invariant: a marked literal is in m_lemma or on the trail stack.
 
@@ -4588,20 +4586,10 @@ namespace nlsat {
 
     void solver::set_max_var(var x) {
         m_imp->m_max_var = x;
-        m_imp->m_max_attained = false;
-        m_imp->m_max_unbounded = false;
     }
 
-    bool solver::max_var_attained() const {
-        return m_imp->m_max_attained;
-    }
-
-    bool solver::max_var_unbounded() const {
-        return m_imp->m_max_unbounded;
-    }
-
-    anum const& solver::max_var_sup() const {
-        return m_imp->m_max_sup;
+    bool solver::max_var_sup(anum & sup, bool & attained) const {
+        return m_imp->max_var_sup(sup, attained);
     }
 
     void solver::reorder(unsigned sz, var const* p) {
