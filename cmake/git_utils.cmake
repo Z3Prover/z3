@@ -34,10 +34,19 @@ endfunction()
 # repo).
 function(add_git_dir_dependency SUCCESS_VAR)
   set(${SUCCESS_VAR} FALSE PARENT_SCOPE)
-  # `HEAD` changes when checking out a different branch/commit.
-  # `logs/HEAD` (the reflog) additionally changes on every commit, so
-  # together they cover "the working tree now points somewhere else".
-  foreach (git_path HEAD logs/HEAD)
+  # `HEAD` changes when checking out a different branch or, while detached,
+  # a different commit. `logs/HEAD` (the reflog) additionally changes on
+  # every commit, but only if reflogs are enabled (the default, but not
+  # always the case). The ref that `HEAD` points at (e.g. `refs/heads/main`)
+  # changes on every commit regardless of reflog settings, so track that
+  # too when `HEAD` is not detached.
+  set(git_paths HEAD logs/HEAD)
+  call_git(git_head_ref rev-parse --symbolic-full-name HEAD)
+  if (git_head_ref)
+    list(APPEND git_paths "${git_head_ref}")
+  endif()
+
+  foreach (git_path ${git_paths})
     call_git(git_path_output rev-parse --git-path "${git_path}")
     if (git_path_output)
       # `--git-path` prints a path relative to PROJECT_SOURCE_DIR normally,
