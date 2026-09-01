@@ -147,6 +147,25 @@ void tst_smt_context()
     }
 
     {
+        ast_manager m2;
+        reg_decl_plugins(m2);
+        cmd_context cmd(false, &m2);
+        std::istringstream is(
+            "(set-logic ALL)\n"
+            "(assert\n"
+            "  (exists ((V (_ BitVec 1)))\n"
+            "    (= (_ bv0 1) (bvashr (_ bv1 1) V))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", true);
+        p.set_uint("bv.solver", 2);
+        ref<solver> slv = mk_smt2_solver(m2, p, symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_false == slv->check_sat(0, nullptr));
+    }
+
+    {
         cmd_context cmd(false, &m);
         std::istringstream is(
             "(declare-const x (_ FloatingPoint 5 11))\n"
