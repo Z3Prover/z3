@@ -17,6 +17,7 @@ Author:
 
 #include "ast/rewriter/seq_parikh.h"
 #include "ast/ast_util.h"
+#include <numeric>
 
 namespace seq {
 
@@ -501,6 +502,182 @@ bool parikh::over_budget(vector<block> const& l, vector<block> const& r, unsigne
         counters += per_observer * rational(n);
     }
     return counters > rational(m_config.m_max_counters);
+}
+
+// compute_length_stride: structural traversal of regex expression.
+//
+// Return value semantics:
+//   0 — fixed length (or empty language): no modular constraint needed
+//         beyond the min == max bounds.
+//   1 — all integer lengths >= min_len are achievable: no useful modular
+//         constraint.
+//   k > 1 — all lengths in L(re) satisfy len = min_len (mod k):
+//         modular constraint len(str) = min_len + k*j is useful.
+unsigned parikh::compute_length_stride(expr* re) {
+    if (!re)
+        return 1;
+
+    expr* r1 = nullptr, *r2 = nullptr, *s = nullptr;
+    unsigned lo = 0, hi = 0;
+
+    // Empty language: no strings exist; stride is irrelevant.
+    if (m_util.re.is_empty(re))
+        return 0;
+
+    // Epsilon regex {""}: single fixed length 0.
+    if (m_util.re.is_epsilon(re))
+        return 0;
+
+    // to_re(concrete_string): fixed-length, no modular constraint needed.
+    if (m_util.re.is_to_re(re, s)) {
+        // min_length == max_length, covered by bounds.
+        return 0;
+    }
+
+    // Single character: range, full_char - fixed length 1.
+    if (m_util.re.is_range(re) || m_util.re.is_full_char(re))
+        return 0;
+
+    // full_seq (.* / Sigma*): every length >= 0 is possible.
+    if (m_util.re.is_full_seq(re))
+        return 1;
+
+    // r* - Kleene star.
+    // L(r*) = {eps} u L(r) u L(r).L(r) u ...
+    // If all lengths in L(r) are congruent to c modulo s (c = min_len, s = stride),
+    // then L(r*) includes lengths {0, c, c+s, 2c, 2c+s, 2c+2s, ...} and
+    // the overall GCD is gcd(c, s).
+    if (m_util.re.is_star(re, r1)) {
+        unsigned mn = m_util.re.min_length(r1);
+        unsigned inner = compute_length_stride(r1);
+        // stride(r*) = gcd(min_length(r), stride(r))
+        // when inner=0 (fixed-length body), gcd(mn, 0) = mn -> stride = mn
+        return std::gcd(mn, inner);
+    }
+
+    // r+ - one or more: same stride analysis as r*.
+    if (m_util.re.is_plus(re, r1)) {
+        unsigned mn = m_util.re.min_length(r1);
+        unsigned inner = compute_length_stride(r1);
+        return std::gcd(mn, inner);
+    }
+
+    // r? - zero or one: lengths = {0} u lengths(r)
+    // stride = GCD(mn_r, stride(r)) unless stride(r) is 0 (fixed length).
+    if (m_util.re.is_opt(re, r1)) {
+        unsigned mn = m_util.re.min_length(r1);
+        unsigned inner = compute_length_stride(r1);
+        // L(r?) includes length 0 and all lengths of L(r).
+        // GCD(stride(r), min_len(r)) is a valid stride because:
+        //   - the gap from 0 to min_len(r) is min_len(r) itself, and
+        //   - subsequent lengths grow in steps governed by stride(r).
+        // A result > 1 gives a useful modular constraint; result == 1
+        // means every non-negative integer is achievable (no constraint).
+        if (inner == 0)
+            return std::gcd(mn, 0u);   // gcd(mn, 0) = mn; useful when mn > 1
+        return std::gcd(inner, mn);
+    }
+
+    // concat(r1, r2): lengths add -> stride = GCD(stride(r1), stride(r2)).
+    if (m_util.re.is_concat(re, r1, r2)) {
+        unsigned s1 = compute_length_stride(r1);
+        unsigned s2 = compute_length_stride(r2);
+        return std::gcd(s1, s2);
+    }
+
+    // union(r1, r2): lengths from either branch -> need GCD of both
+    // strides and the difference between their minimum lengths.
+    if (m_util.re.is_union(re, r1, r2)) {
+        unsigned s1 = compute_length_stride(r1);
+        unsigned s2 = compute_length_stride(r2);
+        unsigned m1 = m_util.re.min_length(r1);
+        unsigned m2 = m_util.re.min_length(r2);
+        unsigned d  = (m1 >= m2) ? (m1 - m2) : (m2 - m1);
+        // Replace 0-strides with d for GCD computation:
+        // a fixed-length branch only introduces constraint via its offset.
+        unsigned g = std::gcd(s1 == 0 ? d : s1, s2 == 0 ? d : s2);
+        g = std::gcd(g, d);
+        return g;
+    }
+
+    // loop(r, lo, hi): the length of any word is a sum of lo..hi copies of
+    // lengths from L(r).  Since all lengths in L(r) are = min_len(r) mod
+    // stride(r), the overall stride is gcd(min_len(r), stride(r)).
+    if (m_util.re.is_loop(re, r1, lo, hi)) {
+        unsigned mn = m_util.re.min_length(r1);
+        unsigned inner = compute_length_stride(r1);
+        return std::gcd(mn, inner);
+    }
+    if (m_util.re.is_loop(re, r1, lo)) {
+        unsigned mn = m_util.re.min_length(r1);
+        unsigned inner = compute_length_stride(r1);
+        return std::gcd(mn, inner);
+    }
+
+    // intersection(r1, r2): lengths must be in both languages.
+    // A conservative safe choice: GCD(stride(r1), stride(r2)) is a valid
+    // stride for the intersection (every length in the intersection is
+    // also in r1 and in r2).
+    if (m_util.re.is_intersection(re, r1, r2)) {
+        unsigned s1 = compute_length_stride(r1);
+        unsigned s2 = compute_length_stride(r2);
+        return std::gcd(s1, s2);
+    }
+
+    // For complement, diff, reverse, derivative, of_pred, and anything
+    // else we cannot analyse statically: be conservative and return 1
+    // (no useful modular constraint rather than an unsound one).
+    return 1;
+}
+
+// Modular length constraints for a single membership constraint str in re.
+// See seq_parikh.h for the semantics of the generated assertions.
+void parikh::membership_constraints(expr* str, expr* re, expr_ref_vector& out) {
+    if (!str || !re || !m_util.is_re(re))
+        return;
+
+    // Length bounds from the regex.
+    unsigned min_len = m_util.re.min_length(re);
+    unsigned max_len = m_util.re.max_length(re);
+
+    // If min_len >= max_len the bounds already pin the length exactly
+    // (or the language is empty).  Only generate modular constraints when
+    // the length is variable.
+    if (min_len >= max_len)
+        return;
+
+    unsigned stride = compute_length_stride(re);
+
+    // stride == 1: every integer length is possible - no useful constraint.
+    // stride == 0: fixed length or empty - handled by bounds.
+    if (stride <= 1)
+        return;
+
+    // Build len(str) as an arithmetic expression.
+    expr_ref len_str(m_util.str.mk_length(str), m);
+
+    // Introduce fresh integer variable k >= 0.
+    expr_ref k_var(m.mk_fresh_const("seq.parikh.k", m_autil.mk_int()), m);
+
+    // Assertion 1: len(str) = min_len + stride * k
+    expr_ref min_expr = num(min_len);
+    expr_ref stride_expr = num(stride);
+    expr_ref stride_k(m_autil.mk_mul(stride_expr, k_var), m);
+    expr_ref rhs(m_autil.mk_add(min_expr, stride_k), m);
+    out.push_back(m.mk_eq(len_str, rhs));
+
+    // Assertion 2: k >= 0
+    out.push_back(m_autil.mk_ge(k_var, num(0)));
+
+    // Assertion 3 (optional): k <= max_k when max_len is bounded.
+    // max_k = floor((max_len - min_len) / stride)
+    // The subtraction is safe because min_len < max_len is guaranteed above.
+    if (max_len != UINT_MAX) {
+        SASSERT(max_len > min_len);
+        unsigned range = max_len - min_len;
+        unsigned max_k = range / stride;
+        out.push_back(m_autil.mk_le(k_var, num(max_k)));
+    }
 }
 
 bool parikh::operator()(expr_ref_vector const& l, expr_ref_vector const& r,

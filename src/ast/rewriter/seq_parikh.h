@@ -123,6 +123,38 @@ public:
     // which hold whenever l = r does.  Returns false if the equation is out of scope.
     bool operator()(expr_ref_vector const& l, expr_ref_vector const& r,
                     expr_ref_vector& defs, expr_ref_vector& eqs);
+
+    // Modular length constraints for a single membership constraint str in re.
+    //
+    // Appends to `out` assertions over a fresh integer skolem k that are implied by
+    // str in L(re):
+    //
+    //   len(str) = min_len + stride * k     (k a fresh integer)
+    //   k >= 0
+    //   k <= (max_len - min_len) / stride   (when re has a bounded maximal length)
+    //
+    // where min_len/max_len are the minimal/maximal lengths of L(re) and stride is the
+    // period of its length language (see compute_length_stride).  Does nothing when the
+    // bounds already pin the length exactly, or when no useful stride exists.
+    void membership_constraints(expr* str, expr* re, expr_ref_vector& out);
+
+private:
+    // Compute the stride (period) of the length language of a regex.
+    //
+    // The stride k satisfies: all lengths in L(re) are congruent to
+    // min_length(re) modulo k.  A stride of 1 means every integer
+    // length is possible (no useful modular constraint).  A stride of
+    // 0 is a sentinel meaning the language is empty or has a single
+    // fixed length (already captured by bounds).
+    //
+    // Examples:
+    //   stride(to_re("ab"))   = 0  (fixed length 2)
+    //   stride((ab)*)         = 2  (lengths 0, 2, 4, ...)
+    //   stride((abc)*)        = 3  (lengths 0, 3, 6, ...)
+    //   stride(a*b*)          = 1  (all lengths possible)
+    //   stride((ab)*(cd)*)    = 2  (lengths 0, 2, 4, ...)
+    //   stride((ab)*|(abc)*)  = 1  (lengths 0, 2, 3, 4, ...)
+    unsigned compute_length_stride(expr* re);
 };
 
 }
