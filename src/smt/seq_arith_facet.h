@@ -9,7 +9,7 @@ Abstract:
 
     Arithmetic (length) facet ("Phase 4" of the modular plugin-based search
     tree design, following the `stx::` core in util/stx_search_tree.h and
-    the `eq_facet`/`deq_facet` facets in ast/rewriter/seq_eq_facet.h).
+    the `eq_facet`/`deq_facet` facets in ast/seq/seq_eq_facet.h).
 
     This is the first facet that wraps a genuine incremental SMT backend
     (per z3papers/nseq/facet-arith.md's `sub_solver_i`): rather than
@@ -64,7 +64,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
-#include "ast/rewriter/seq_eq_facet.h"
+#include "ast/seq/seq_eq_facet.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include "util/params.h"

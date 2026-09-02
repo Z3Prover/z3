@@ -11,7 +11,7 @@ Abstract:
 
 --*/
 
-#include "ast/rewriter/seq_regex_live.h"
+#include "ast/seq/seq_regex_live.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/obj_hashtable.h"
 #include "util/uint_set.h"

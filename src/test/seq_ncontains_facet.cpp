@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Unit test for `seq::ncontains_facet` / `seq::ncontains_propagation` /
-    `seq::ncontains_split` (ast/rewriter/seq_ncontains_facet.h): the
+    `seq::ncontains_split` (ast/seq/seq_ncontains_facet.h): the
     negative str.contains facet, combined with `eq_facet`/`arith_facet`.
 
 Author:
@@ -20,8 +20,8 @@ Author:
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
-#include "ast/rewriter/seq_eq_facet.h"
-#include "ast/rewriter/seq_ncontains_facet.h"
+#include "ast/seq/seq_eq_facet.h"
+#include "ast/seq/seq_ncontains_facet.h"
 #include "smt/seq_arith_facet.h"
 #include <iostream>
 

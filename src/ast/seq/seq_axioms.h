@@ -22,7 +22,7 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "ast/rewriter/seq_skolem.h"
+#include "ast/seq/seq_skolem.h"
 
 namespace seq {
 

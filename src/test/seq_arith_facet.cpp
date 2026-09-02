@@ -11,7 +11,7 @@ Abstract:
     (smt/seq_arith_facet.h): a real incremental-SMT-backed length facet,
     push/pop synced to DFS backtracking via a `scope_trail` trail object
     registered on the shared `trail_stack` (see util/stx_search_tree.h),
-    combined with `eq_facet` (ast/rewriter/seq_eq_facet.h).
+    combined with `eq_facet` (ast/seq/seq_eq_facet.h).
 
 Author:
 
@@ -22,7 +22,7 @@ Author:
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
-#include "ast/rewriter/seq_eq_facet.h"
+#include "ast/seq/seq_eq_facet.h"
 #include "smt/seq_arith_facet.h"
 #include <iostream>
 

@@ -13,7 +13,7 @@ Abstract:
 #include "ast/ast.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
-#include "ast/rewriter/seq_mem_facet.h"
+#include "ast/seq/seq_mem_facet.h"
 #include <iostream>
 
 namespace {

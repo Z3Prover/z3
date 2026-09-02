@@ -22,7 +22,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
-#include "ast/rewriter/seq_monadic.h"
+#include "ast/seq/seq_monadic.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"

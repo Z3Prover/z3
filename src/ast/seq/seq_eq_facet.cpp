@@ -14,7 +14,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2026
 
 --*/
-#include "ast/rewriter/seq_eq_facet.h"
+#include "ast/seq/seq_eq_facet.h"
 #include <algorithm>
 #include <utility>
 

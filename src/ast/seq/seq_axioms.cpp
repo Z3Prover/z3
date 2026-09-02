@@ -23,7 +23,7 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/recfun_replace.h"
-#include "ast/rewriter/seq_axioms.h"
+#include "ast/seq/seq_axioms.h"
 
 
 namespace seq {

@@ -17,7 +17,7 @@ Author:
 #pragma once
 
 #include "ast/arith_decl_plugin.h"
-#include "ast/rewriter/seq_axioms.h"
+#include "ast/seq/seq_axioms.h"
 
 namespace seq {
 

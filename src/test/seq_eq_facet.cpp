@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Unit test for `seq::eq_facet` / `seq::eq_propagation` / `seq::word_eq_split`
-    (ast/rewriter/seq_eq_facet.h): word-equation solving via the Nielsen
+    (ast/seq/seq_eq_facet.h): word-equation solving via the Nielsen
     transformation, running on top of the generic `stx::search_tree` core
     (util/stx_search_tree.h).
 
@@ -20,7 +20,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
-#include "ast/rewriter/seq_eq_facet.h"
+#include "ast/seq/seq_eq_facet.h"
 #include <iostream>
 
 namespace {

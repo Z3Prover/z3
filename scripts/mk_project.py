@@ -39,6 +39,7 @@ def init_project_def():
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('grobner', ['ast', 'dd', 'simplex'], 'math/grobner')    
     add_lib('rewriter', ['ast', 'polynomial', 'interval', 'params'], 'ast/rewriter')
+    add_lib('ast_seq', ['ast', 'rewriter', 'polynomial', 'interval', 'params'], 'ast/seq')
     add_lib('euf', ['ast', 'rewriter'], 'ast/euf')
     add_lib('normal_forms', ['rewriter'], 'ast/normal_forms')
     add_lib('macros', ['rewriter'], 'ast/macros')
@@ -69,7 +70,7 @@ def init_project_def():
 
     add_lib('proto_model', ['model', 'rewriter', 'params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model', 'solver_assertions',
-                    'substitution', 'grobner', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp'])
+                    'substitution', 'grobner', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp', 'ast_seq'])
     add_lib('sat_smt', ['sat', 'ast_sls', 'euf', 'smt', 'tactic', 'solver', 'params', 'bit_blaster', 'fpa', 'mbp', 'normal_forms', 'lp', 'pattern', 'qe_lite'], 'sat/smt')
     add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')
     add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')    

@@ -14,7 +14,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2026
 
 --*/
-#include "ast/rewriter/seq_ncontains_facet.h"
+#include "ast/seq/seq_ncontains_facet.h"
 #include <algorithm>
 
 namespace seq {

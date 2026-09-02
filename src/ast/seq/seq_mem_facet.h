@@ -47,10 +47,10 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
-#include "ast/rewriter/seq_eq_facet.h"
-#include "ast/rewriter/seq_view.h"
-#include "ast/rewriter/seq_regex_live.h"
-#include "ast/rewriter/seq_monadic.h"
+#include "ast/seq/seq_eq_facet.h"
+#include "ast/seq/seq_view.h"
+#include "ast/seq/seq_regex_live.h"
+#include "ast/seq/seq_monadic.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"

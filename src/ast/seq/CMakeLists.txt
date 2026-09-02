@@ -1,0 +1,19 @@
+z3_add_component(ast_seq
+  SOURCES
+    seq_axioms.cpp
+    seq_eq_approx.cpp
+    seq_eq_facet.cpp
+    seq_eq_solver.cpp
+    seq_mem_facet.cpp
+    seq_monadic.cpp
+    seq_ncontains_facet.cpp
+    seq_regex_live.cpp
+    seq_skolem.cpp
+    seq_view.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    rewriter
+    params
+    interval
+    polynomial
+)

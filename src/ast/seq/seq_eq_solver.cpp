@@ -16,7 +16,7 @@ Author:
 --*/
 
 #include "ast/ast_pp.h"
-#include "ast/rewriter/seq_eq_solver.h"
+#include "ast/seq/seq_eq_solver.h"
 #include "ast/bv_decl_plugin.h"
 
 namespace seq {

@@ -93,4 +93,5 @@ z3_add_component(smt
     proto_model
     simplex
     substitution
+    ast_seq
 )

@@ -11,7 +11,7 @@ Author:
 
 --*/
 
-#include "ast/rewriter/seq_skolem.h"
+#include "ast/seq/seq_skolem.h"
 #include "ast/ast_pp.h"
 
 using namespace seq;

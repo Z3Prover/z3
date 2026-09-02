@@ -64,9 +64,9 @@ Author:
 
 #include "ast/expr_substitution.h"
 #include "ast/rewriter/seq_rewriter.h"
-#include "ast/rewriter/seq_view.h"
+#include "ast/seq/seq_view.h"
 #include "ast/rewriter/seq_range_predicate.h"
-#include "ast/rewriter/seq_regex_live.h"
+#include "ast/seq/seq_regex_live.h"
 #include "ast/rewriter/guard_set.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "util/lbool.h"
