@@ -33,10 +33,7 @@ namespace seq {
 
         void flatten_to_expr(seq_util& u, expr_ref_vector const& ts, expr_ref& out) {
             ast_manager& m = out.get_manager();
-            expr_ref_vector es(m);
-            for (expr* t : ts)
-                es.push_back(t);
-            out = expr_ref(u.str.mk_concat(es.size(), es.data(), ts.empty() ? u.str.mk_string_sort() : ts[0]->get_sort()), m);
+            out = expr_ref(u.str.mk_concat(ts.size(), ts.data(), ts.empty() ? u.str.mk_string_sort() : ts[0]->get_sort()), m);
         }
 
         void broadcast_subst(eq_tree::node& target, stx::facet_id src_id, expr* var, expr_ref_vector const& repl) {
@@ -81,8 +78,7 @@ namespace seq {
 
     stx::facet_i* mem_facet::clone(trail_stack& trail) const {
         mem_facet* f = alloc(mem_facet, trail, m, u);
-        for (auto const& sm : m_mems)
-            f->m_mems.push_back(sm);
+        f->m_mems.append(m_mems);
         return f;
     }
 

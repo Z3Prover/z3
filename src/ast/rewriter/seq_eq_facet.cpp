@@ -70,13 +70,10 @@ namespace seq {
         expr_ref_vector orig(ts);
         ts.reset();
         for (unsigned i = 0; i < orig.size(); ++i) {
-            if (orig.get(i) == var) {
-                for (unsigned j = 0; j < repl.size(); ++j)
-                    ts.push_back(repl.get(j));
-            }
-            else {
+            if (orig.get(i) == var)
+                ts.append(repl);
+            else
                 ts.push_back(orig.get(i));
-            }
         }
     }
 
@@ -89,8 +86,7 @@ namespace seq {
 
     stx::facet_i* eq_facet::clone(trail_stack& trail) const {
         eq_facet* f = alloc(eq_facet, trail, m, u);
-        for (auto const& eq : m_eqs)
-            f->m_eqs.push_back(eq);
+        f->m_eqs.append(m_eqs);
         return f;
     }
 
@@ -139,8 +135,8 @@ namespace seq {
             }
             if (li > 0 || ri > 0) {
                 expr_ref_vector newL(m), newR(m);
-                for (unsigned k = li; k < L.size(); ++k) newL.push_back(L.get(k));
-                for (unsigned k = ri; k < R.size(); ++k) newR.push_back(R.get(k));
+                newL.append(L.size() - li, L.data() + li);
+                newR.append(R.size() - ri, R.data() + ri);
                 // Fine-grained: undo restores just this equation's two
                 // expr_ref_vector fields addressed by (m_eqs, i, member), safe
                 // across later erase()/push_back() reallocation - not the
@@ -340,8 +336,7 @@ namespace seq {
 
     stx::facet_i* deq_facet::clone(trail_stack& trail) const {
         deq_facet* f = alloc(deq_facet, trail, m, u);
-        for (auto const& dq : m_diseqs)
-            f->m_diseqs.push_back(dq);
+        f->m_diseqs.append(m_diseqs);
         return f;
     }
 
@@ -386,8 +381,8 @@ namespace seq {
             }
             if (li > 0 || ri > 0) {
                 expr_ref_vector newL(m), newR(m);
-                for (unsigned k = li; k < L.size(); ++k) newL.push_back(L.get(k));
-                for (unsigned k = ri; k < R.size(); ++k) newR.push_back(R.get(k));
+                newL.append(L.size() - li, L.data() + li);
+                newR.append(R.size() - ri, R.data() + ri);
                 m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, &disequation::m_lhs));
                 m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, &disequation::m_rhs));
                 L = std::move(newL);

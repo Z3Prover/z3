@@ -65,8 +65,7 @@ namespace seq {
 
     stx::facet_i* ncontains_facet::clone(trail_stack& trail) const {
         ncontains_facet* f = alloc(ncontains_facet, trail, m, u);
-        for (auto const& nc : m_ncs)
-            f->m_ncs.push_back(nc);
+        f->m_ncs.append(m_ncs);
         return f;
     }
 
@@ -196,8 +195,7 @@ namespace seq {
             }
             if (al == l_false) {
                 expr_ref_vector tail(m);
-                for (unsigned k = 1; k < nc.m_haystack.size(); ++k)
-                    tail.push_back(nc.m_haystack.get(k));
+                tail.append(nc.m_haystack.size() - 1, nc.m_haystack.data() + 1);
                 f.replace_with_tail(i, tail);
                 changed = true;
                 continue; // re-examine the same obligation at index i (now shortened)
