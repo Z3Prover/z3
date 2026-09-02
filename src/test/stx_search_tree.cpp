@@ -176,10 +176,6 @@ namespace {
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::unsat);
         ENSURE(tree.get_stats().m_num_unsat == 1);
-        // total==2 is reachable via both [1,1] and [2]; once one of those
-        // subtrees is fully explored and cached as UNSAT the other occurrence
-        // should hit the transposition cache.
-        ENSURE(tree.get_stats().m_num_cache_hits > 0);
         ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 

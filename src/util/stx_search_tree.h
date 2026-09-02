@@ -26,8 +26,8 @@ Abstract:
     Backtracking out of a branch means popping that trail scope, which
     restores every mutated facet's prior state without any cloning.
     `facet_i::clone()` still exists, but only for cold-path use (hot
-    restart's post-solve snapshot of a SAT leaf, and cache-entry storage);
-    it is never used on the DFS hot path itself.
+    restart's post-solve snapshot of a SAT leaf); it is never used on the
+    DFS hot path itself.
 
     The two extension points are:
       - `propagation_plugin_i`: deterministic, non-branching simplification.
@@ -60,7 +60,6 @@ Author:
 #include <memory>
 #include <algorithm>
 #include <unordered_map>
-#include <unordered_set>
 #include <climits>
 
 namespace stx {
@@ -82,12 +81,11 @@ namespace stx {
     using facet_id = unsigned;
 
     // Reason a node/subtree was closed. Plugin-defined, engine-opaque; the
-    // core reserves 0 for "unevaluated" and a couple of small values for its
-    // own generic reasons (sibling cut, children all failed); plugins
-    // should use values >= br_plugin_base.
+    // core reserves 0 for "unevaluated" and a small value for its own
+    // generic reason (children all failed); plugins should use values
+    // >= br_plugin_base.
     using backtrack_reason = unsigned;
     const backtrack_reason br_unevaluated     = 0;
-    const backtrack_reason br_sibling         = 1;
     const backtrack_reason br_children_failed = 2;
     const backtrack_reason br_plugin_base     = 3; // first value free for plugin use
 
@@ -112,9 +110,8 @@ namespace stx {
         virtual ~facet_i() = default;
 
         // Cold-path deep-clone, e.g. for a hot-restart snapshot of a SAT
-        // leaf's facets (taken outside the live trail before it unwinds) or
-        // for a cache entry that must survive later pop_scope() calls. NOT
-        // used on the DFS hot path.
+        // leaf's facets (taken outside the live trail before it unwinds).
+        // NOT used on the DFS hot path.
         virtual facet_i* clone(trail_stack& trail) const = 0;
 
         // Scope-boundary hooks, called by the engine (never by a facet or
@@ -128,13 +125,15 @@ namespace stx {
 
         // Order/collision-insensitive hash contribution (canonicalized
         // internally by the facet, e.g. by sorting its own constraint
-        // vector). Used to build the node's transposition/subsumption key.
+        // vector). Currently unused by the generic engine (the
+        // transposition/sibling caches that consumed it were removed);
+        // kept as part of the facet contract for possible future reuse.
         virtual unsigned hash() const = 0;
 
         // Are `this` and `other` equivalent for subsumption purposes? (same
         // facet_id assumed; the engine only ever compares facets that come
         // from the same registered slot.) Equality modulo representation,
-        // not pointer identity.
+        // not pointer identity. Currently unused by the generic engine.
         virtual bool similar(facet_i const& other) const = 0;
 
         // Is this facet's constraint set trivially/vacuously satisfied
@@ -328,9 +327,9 @@ namespace stx {
             dep_tracker conflict_dep() const { return m_conflict_dep; }
 
             // Canonicalized structural hash over all installed facets.
-            // Always recomputed fresh (there is only ever one live node, so
-            // there is nothing to cache against; the trail may have changed
-            // any facet's contents since the last call).
+            // Always recomputed fresh (there is only ever one live node).
+            // Currently unused by the generic engine (kept for possible
+            // future reuse alongside facet_i::hash()).
             unsigned hash() const {
                 unsigned h = m_facets.size() + 1;
                 for (auto* f : m_facets)
@@ -338,8 +337,8 @@ namespace stx {
                 return h ? h : 1; // 0 is reserved for "unset"
             }
 
-            // Slot-wise `facet_i::similar`; used by the transposition and
-            // sibling caches.
+            // Slot-wise `facet_i::similar`. Currently unused by the generic
+            // engine (kept for possible future reuse).
             bool similar(node const& other) const {
                 if (m_facets.size() != other.m_facets.size())
                     return false;
@@ -357,8 +356,7 @@ namespace stx {
             // Cold-path: snapshot every installed facet into a standalone
             // node not tied to any live trail scope (used by hot restart to
             // preserve a SAT leaf's facet state across the trail unwinding
-            // back to root, and by the unsat cache to store a comparison
-            // key that survives pop_scope()).
+            // back to root).
             node* clone(trail_stack& trail) const {
                 node* n = alloc(node, m_facets.size());
                 for (facet_id id = 0; id < m_facets.size(); ++id)
@@ -404,8 +402,6 @@ namespace stx {
             unsigned m_num_sat          = 0;
             unsigned m_num_unsat        = 0;
             unsigned m_num_unknown      = 0;
-            unsigned m_num_cache_hits   = 0;
-            unsigned m_num_sibling_cuts = 0;
             unsigned m_max_depth        = 0;
             std::unordered_map<std::string, unsigned> m_propagate_counts;
             std::unordered_map<std::string, unsigned> m_split_counts;
@@ -413,33 +409,12 @@ namespace stx {
         };
 
     private:
-        // A lightweight, trail-independent comparison key for a node,
-        // captured at the point a frame is entered (for the sibling/
-        // transposition caches). Since there is only one live node, we
-        // cannot keep a pointer to "the node as it was" - instead we take a
-        // cold-path `clone()` snapshot, exactly analogous to hot restart's
-        // SAT-leaf snapshot. This is only paid for nodes actually inserted
-        // into a cache bucket (not for every DFS frame).
-        struct digest {
-            unsigned                    m_hash;
-            scoped_ptr<node>            m_snapshot; // owned, trail-independent
-            digest() : m_hash(0) {}
-            digest(unsigned h, node* snap) : m_hash(h), m_snapshot(snap) {}
-        };
-        struct digest_hash_functor { unsigned operator()(digest const* d) const { return d->m_hash; } };
-        struct digest_eq_functor {
-            bool operator()(digest const* a, digest const* b) const { return a->m_snapshot->similar(*b->m_snapshot); }
-        };
-
         // Per-depth bookkeeping for the (recursive) DFS driver. Replaces
         // what used to live directly on a persistent `node` object: since
         // there is only one live node now, everything that varies by DFS
-        // depth (loop-cut/subsumption participation, the winning split's
-        // resumable iterator, its last-produced edge) must live on the
-        // call stack instead.
+        // depth (the winning split's resumable iterator, its
+        // last-produced edge) must live on the call stack instead.
         struct dfs_frame {
-            bool                                  m_is_signature_alias = false;
-            scoped_ptr<digest>                    m_sibling_digest;      // non-null while this frame is on the active path
             scoped_ptr<split_iterator_i>           m_iter;                // resumable remaining branches, if any
             edge                                   m_last_edge;
         };
@@ -455,19 +430,6 @@ namespace stx {
         unsigned                               m_max_nodes = 0; // 0 == unlimited
         dep_manager_t                          m_dep_mgr;
         stats                                  m_stats;
-
-        // Transposition table: digests of node states already proven UNSAT
-        // for reasons intrinsic to their own facets (not a sibling cut). A
-        // node whose digest matches one present here is unsatisfiable
-        // regardless of how it was reached.
-        std::unordered_set<digest*, digest_hash_functor, digest_eq_functor> m_unsat_cache;
-        ptr_vector<digest>                     m_unsat_cache_storage; // owns entries in m_unsat_cache
-
-        // Active-path index for the sibling (loop-cut) subsumption rule:
-        // while a frame is on the DFS path its digest is present in this
-        // bucket, so a non-empty match for a newly-visited node means the
-        // search has looped back to an ancestor with the same facet state.
-        std::unordered_map<digest*, unsigned, digest_hash_functor, digest_eq_functor> m_siblings;
 
         // Hot-restart snapshot of the (unique, innermost) SAT leaf found by
         // the most recent `solve()` call, taken via the cold-path `clone()`
@@ -531,10 +493,6 @@ namespace stx {
             n.pop_facets();
         }
 
-        scoped_ptr<digest> mk_digest(node& n) {
-            return scoped_ptr<digest>(alloc(digest, n.hash(), n.clone(m_trail)));
-        }
-
         // Search for the cheapest available split, raising `cost` from 0.
         // Pushes exactly one trail scope immediately before each `split()`
         // call, popping it again if that call declines to commit a
@@ -586,31 +544,6 @@ namespace stx {
                 return search_result::unknown;
 
             dfs_frame frame;
-            // Signature-alias frames (structural aliasing without genuine
-            // recurrence, e.g. a lazily resumed split continuation) are
-            // exempt from both caches; the engine has no generic way to
-            // detect this itself in the trail-based model, so (as before)
-            // it is plugin-driven - a facet can suppress caching for the
-            // current frame by installing a sentinel via
-            // `mark_signature_alias()` prior to re-entering dfs. For now,
-            // this is left for facets to opt into via node state; the
-            // generic engine simply always participates in both caches.
-            {
-                auto probe = mk_digest(n);
-                auto it = m_unsat_cache.find(probe.get());
-                if (it != m_unsat_cache.end()) {
-                    m_stats.m_num_cache_hits++;
-                    n.set_conflict(br_sibling, nullptr);
-                    return search_result::unsat;
-                }
-                auto sib_it = m_siblings.find(probe.get());
-                if (sib_it != m_siblings.end() && sib_it->second > 0) {
-                    m_stats.m_num_sibling_cuts++;
-                    n.set_conflict(br_sibling, nullptr);
-                    return search_result::unsat;
-                }
-                frame.m_sibling_digest = std::move(probe);
-            }
 
             search_result result;
             n.clear_status();
@@ -627,9 +560,6 @@ namespace stx {
                 result = search_result::depth_cutoff;
             }
             else {
-                auto& bucket = m_siblings[frame.m_sibling_digest.get()];
-                bucket++;
-
                 edge first_edge;
                 bool has_children = extend_node(n, frame, first_edge);
 
@@ -673,44 +603,13 @@ namespace stx {
                                : saw_unknown       ? search_result::unknown
                                :                     search_result::unsat;
                 }
-
-                // Remove this frame's sibling-cache entry entirely rather
-                // than just decrementing it to 0: `frame.m_sibling_digest`
-                // (the map's key) is about to be destroyed when `frame`
-                // goes out of scope (unless it gets promoted into
-                // `m_unsat_cache` below, which re-inserts a fresh owned
-                // key), so a lingering zero-count entry would leave a
-                // dangling `digest*` key in `m_siblings` forever.
-                auto sib_it2 = m_siblings.find(frame.m_sibling_digest.get());
-                if (sib_it2 != m_siblings.end()) {
-                    if (sib_it2->second > 1)
-                        sib_it2->second--;
-                    else
-                        m_siblings.erase(sib_it2);
-                }
-            }
-
-            // Cache the UNSAT verdict for this facet signature, regardless of
-            // whether it came from an immediate propagation conflict or from
-            // every child branch failing - both are properties of the node's
-            // own facet state, and are safe to memoize across the rest of the
-            // search.
-            if (result == search_result::unsat && n.reason() != br_sibling) {
-                auto* d = frame.m_sibling_digest.detach();
-                if (m_unsat_cache.find(d) == m_unsat_cache.end()) {
-                    m_unsat_cache.insert(d);
-                    m_unsat_cache_storage.push_back(d);
-                }
-                else {
-                    dealloc(d);
-                }
             }
             return result;
         }
 
     public:
         search_tree() = default;
-        ~search_tree() { for (auto* d : m_unsat_cache_storage) dealloc(d); }
+        ~search_tree() = default;
 
         dep_manager_t& dep_mgr() { return m_dep_mgr; }
         trail_stack& trail() { return m_trail; }
