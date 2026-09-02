@@ -569,11 +569,18 @@ namespace stx {
                     // has anything left to offer: the node is stuck (a
                     // genuine "unknown", not a depth cutoff - retrying with
                     // a larger depth bound will not help).
-                    result = n.is_satisfied() ? search_result::sat : search_result::unknown;
+                    if (n.is_satisfied()) {
+                        result = search_result::sat;
+                        m_sat_snapshot = n.clone(m_trail);
+                        m_sat_snapshot_taken = true;
+                    }
+                    else
+                        result = search_result::unknown;
                 }
                 else {
                     bool saw_unknown = false;
                     bool saw_depth_cutoff = false;
+                    dep_tracker unsat_dep = nullptr; // join of every unsat branch's edge dependency
                     result = search_result::unsat;
                     edge cur_edge = first_edge;
                     bool have_branch = true;
@@ -593,16 +600,25 @@ namespace stx {
                             result = search_result::sat;
                             break;
                         }
-                        if (cr == search_result::depth_cutoff)
+                        if (cr == search_result::unsat)
+                            unsat_dep = unsat_dep ? m_dep_mgr.mk_join(unsat_dep, cur_edge.dep()) : cur_edge.dep();
+                        else if (cr == search_result::depth_cutoff)
                             saw_depth_cutoff = true;
                         else if (cr == search_result::unknown)
                             saw_unknown = true;
                         have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge);
                     }
-                    if (result != search_result::sat)
+                    if (result != search_result::sat) {
                         result = saw_depth_cutoff ? search_result::depth_cutoff
                                : saw_unknown       ? search_result::unknown
                                :                     search_result::unsat;
+                        // Every branch failed with unsat (no unknown/
+                        // depth-cutoff anywhere): the node itself is
+                        // unsatisfiable, justified by the join of every
+                        // branch's own justification.
+                        if (result == search_result::unsat)
+                            n.set_conflict(br_children_failed, unsat_dep);
+                    }
                 }
             }
             return result;
