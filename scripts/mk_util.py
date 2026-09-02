@@ -2390,6 +2390,10 @@ class MLExampleComponent(ExampleComponent):
             out.write('ml_example$(EXE_EXT): api/ml/z3ml.cmxa')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
+            # Order-only prerequisite: both compilations write ml_example.cmi
+            # into the shared source directory, so keep them from racing
+            # under make -j.
+            out.write(' | ml_example.byte')
             out.write('\n')
             out.write('\tocamlfind %s ' % OCAMLOPT)
             if DEBUG_MODE:
@@ -2417,15 +2421,23 @@ class MLExampleComponent(ExampleComponent):
                 (OCAMLOPT,            'ml_example_shared$(EXE_EXT)')
             ]
 
+        # The example compilations below all write intermediate files (.cmi,
+        # .cmo, .cmx, .o) next to the shared .ml sources, so they clobber each
+        # other when run concurrently under make -j. Chain each target to the
+        # previous one with an order-only prerequisite to serialize them.
+        prev_testname = None
         for ocaml_compiler, testname in ml_post_install_tests:
             out.write(testname + ':')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
+            if prev_testname is not None:
+                out.write(' | %s' % prev_testname)
             out.write('\n')
             out.write('\tocamlfind %s -o %s %s %s ' % (ocaml_compiler, debug_opt, testname, opam_z3_opts))
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
+            prev_testname = testname
 
         if STATIC_LIB:
             out.write('_ex_ml_example_post_install: ml_example_static.byte ml_example_static_custom.byte ml_example_static$(EXE_EXT)\n')
