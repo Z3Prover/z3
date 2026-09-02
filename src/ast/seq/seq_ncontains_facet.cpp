@@ -147,31 +147,6 @@ namespace seq {
                 return stx::simplify_result::conflict;
             }
 
-            // Length gate (facet-ncontains.md section 3.3): if h is
-            // provably shorter than n, containment is impossible - the
-            // obligation is vacuously satisfied. This can only be
-            // decided via arith_facet's incremental backend (real
-            // str.len reasoning): a haystack/needle *token count* is NOT
-            // a sound proxy for actual sequence length here, since a
-            // non-constant token is an opaque variable that may denote a
-            // string of any length (including longer than any bound
-            // implied by token count, or shorter, e.g. epsilon) - unlike
-            // eq_facet's constant tokens, which are always exactly one
-            // character.
-            expr* h_expr = tokens_to_expr(u, m, nc.m_haystack);
-            expr* n_expr = tokens_to_expr(u, m, nc.m_needle);
-            expr_ref len_h(u.str.mk_length(h_expr), m);
-            expr_ref len_n(u.str.mk_length(n_expr), m);
-            expr_ref gate(m.mk_not(a.mk_le(len_n, len_h)), m); // len(h) < len(n)
-
-            if (af.implies(gate) == l_true) {
-                // len(h) < len(n): n cannot possibly occur in h - the
-                // obligation is vacuously satisfied.
-                f.remove(i);
-                changed = true;
-                continue;
-            }
-
             // Recursive prefix-unrolling (facet-ncontains.md section
             // 3.4): try every token-aligned starting position of the
             // needle within the haystack's *current* token list, not
@@ -245,6 +220,35 @@ namespace seq {
                 changed = true;
                 continue; // re-examine the same obligation at index i (now shortened)
             }
+
+            // Length gate (facet-ncontains.md section 3.3): only reached
+            // once the cheap syntactic scan above found no determined
+            // match/mismatch/progress. If h is provably shorter than n,
+            // containment is impossible - the obligation is vacuously
+            // satisfied. This can only be decided via arith_facet's
+            // incremental backend (real str.len reasoning): a
+            // haystack/needle *token count* is NOT a sound proxy for
+            // actual sequence length here, since a non-constant token is
+            // an opaque variable that may denote a string of any length
+            // (including longer than any bound implied by token count,
+            // or shorter, e.g. epsilon) - unlike eq_facet's constant
+            // tokens, which are always exactly one character. Checked
+            // last since it invokes the (comparatively expensive)
+            // incremental arithmetic solver.
+            expr* h_expr = tokens_to_expr(u, m, nc.m_haystack);
+            expr* n_expr = tokens_to_expr(u, m, nc.m_needle);
+            expr_ref len_h(u.str.mk_length(h_expr), m);
+            expr_ref len_n(u.str.mk_length(n_expr), m);
+            expr_ref gate(m.mk_not(a.mk_le(len_n, len_h)), m); // len(h) < len(n)
+
+            if (af.implies(gate) == l_true) {
+                // len(h) < len(n): n cannot possibly occur in h - the
+                // obligation is vacuously satisfied.
+                f.remove(i);
+                changed = true;
+                continue;
+            }
+
             ++i;
         }
         if (f.is_satisfied())
