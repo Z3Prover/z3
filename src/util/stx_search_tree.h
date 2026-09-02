@@ -33,7 +33,7 @@ Abstract:
       - `propagation_plugin_i`: deterministic, non-branching simplification.
         Mutations MUST register with the trail; must NEVER call
         `push_scope()` itself (that is the DFS driver's job, via
-        `scoped_pop`).
+        `scoped_push`).
       - `split_plugin_i`: nondeterministic branching (search) rules,
         selected lowest-cost-first. `split()` now materializes the first
         available branch immediately (mutating the live node in place and
@@ -101,7 +101,7 @@ namespace stx {
      * by the plugin, not by this interface) can register undo objects
      * (`m_trail.push(some_trail_object)`) instead of allocating a fresh
      * clone per mutation. `push_scope()`/`pop_scope()` themselves are never
-     * called by a facet or plugin - only the DFS driver (via `scoped_pop`)
+     * called by a facet or plugin - only the DFS driver (via `scoped_push`)
      * owns scope boundaries.
      */
     class facet_i {
@@ -116,6 +116,15 @@ namespace stx {
         // for a cache entry that must survive later pop_scope() calls. NOT
         // used on the DFS hot path.
         virtual facet_i* clone(trail_stack& trail) const = 0;
+
+        // Scope-boundary hooks, called by the engine (never by a facet or
+        // plugin) in lockstep with the shared trail's push_scope()/
+        // pop_scope(): push() immediately after a trail scope is opened,
+        // pop() immediately before/alongside the matching trail unwind.
+        // Default no-ops; a facet overrides these only if it maintains
+        // scope-local state that isn't already trail-object-based.
+        virtual void push() {}
+        virtual void pop() {}
 
         // Order/collision-insensitive hash contribution (canonicalized
         // internally by the facet, e.g. by sorting its own constraint
@@ -292,6 +301,18 @@ namespace stx {
                 return true;
             }
 
+            // Scope-boundary fan-out to every installed facet, called by
+            // the engine's scoped_push/pop() in lockstep with the shared
+            // trail's push_scope()/pop_scope().
+            void push_facets() {
+                for (auto* f : m_facets)
+                    if (f) f->push();
+            }
+            void pop_facets() {
+                for (auto* f : m_facets)
+                    if (f) f->pop();
+            }
+
             node_status status() const { return m_status; }
             bool is_conflict() const { return m_status == node_status::conflict; }
 
@@ -350,22 +371,28 @@ namespace stx {
             }
         };
 
-        // RAII guard around one DFS branch descent: pushes a trail scope on
-        // construction, pops it (unwinding every trail object registered
-        // since) on destruction - including through an exception, so a
-        // plugin/facet throwing mid-mutation cannot leave the shared node
-        // and trail in a mismatched state relative to the DFS call stack.
-        class scoped_pop {
-            trail_stack& m_trail;
+        // RAII guard around one DFS branch descent: pushes a trail scope
+        // and fans out node::push_facets() on construction; pops both
+        // (unwinding every trail object registered since, and calling
+        // node::pop_facets()) on destruction - including through an
+        // exception, so a plugin/facet throwing mid-mutation cannot leave
+        // the shared node and trail in a mismatched state relative to the
+        // DFS call stack. Internal to search_tree; use search_tree::pop()
+        // for a one-shot trail+node pop outside of a scoped_push.
+        class scoped_push {
+            search_tree& m_tree;
+            node&        m_node;
             unsigned     m_scopes;
             bool         m_active = true;
         public:
-            explicit scoped_pop(trail_stack& trail, unsigned scopes = 1) : m_trail(trail), m_scopes(scopes) {
-                m_trail.push_scope();
+            explicit scoped_push(search_tree& tree, node& n, unsigned scopes = 1)
+                : m_tree(tree), m_node(n), m_scopes(scopes) {
+                m_tree.m_trail.push_scope();
+                m_node.push_facets();
             }
-            ~scoped_pop() { if (m_active) m_trail.pop_scope(m_scopes); }
-            scoped_pop(scoped_pop const&) = delete;
-            scoped_pop& operator=(scoped_pop const&) = delete;
+            ~scoped_push() { if (m_active) m_tree.pop(m_node, m_scopes); }
+            scoped_push(scoped_push const&) = delete;
+            scoped_push& operator=(scoped_push const&) = delete;
             // Release without popping (ownership of the scope(s) has been
             // transferred elsewhere, e.g. to a surviving split_iterator_i).
             void release() { m_active = false; }
@@ -494,6 +521,16 @@ namespace stx {
             return n.is_satisfied() ? simplify_result::satisfied : simplify_result::proceed;
         }
 
+        // Pop one trail scope and fan out node::pop_facets() together -
+        // the one-shot counterpart to scoped_push, for call sites that
+        // pop a scope committed elsewhere (e.g. the dfs() recursion site,
+        // which matches a scope a split already committed rather than
+        // owning a fresh one itself).
+        void pop(node& n, unsigned scopes = 1) {
+            m_trail.pop_scope(scopes);
+            n.pop_facets();
+        }
+
         scoped_ptr<digest> mk_digest(node& n) {
             return scoped_ptr<digest>(alloc(digest, n.hash(), n.clone(m_trail)));
         }
@@ -514,10 +551,10 @@ namespace stx {
                     m_stats.m_split_counts[sp->name()]++;
                     bool has_more = false;
                     bool committed = false;
-                    scoped_pop pop(m_trail);
+                    scoped_push guard(*this, n);
                     auto it = sp->split(n, cost, out, has_more, committed);
                     if (committed) {
-                        pop.release();
+                        guard.release();
                         frame.m_iter = std::move(it);
                         return true;
                     }
@@ -534,10 +571,10 @@ namespace stx {
         // `iter->next()`, popping it again if `next()` returns false (no
         // more branches). On success the pushed scope holds that branch's
         // mutations and is left in place for the caller.
-        bool advance_iter(split_iterator_i& iter, edge& out) {
-            scoped_pop pop(m_trail);
+        bool advance_iter(node& n, split_iterator_i& iter, edge& out) {
+            scoped_push guard(*this, n);
             if (iter.next(out)) {
-                pop.release();
+                guard.release();
                 return true;
             }
             return false;
@@ -620,7 +657,7 @@ namespace stx {
                         // suspended just to keep the live node in the
                         // satisfying state - callers that want to
                         // inspect it use sat_snapshot() instead.
-                        m_trail.pop_scope(1); // matches the scope the split committed for this branch
+                        pop(n, 1); // matches the scope the split committed for this branch
                         if (cr == search_result::sat) {
                             result = search_result::sat;
                             break;
@@ -629,7 +666,7 @@ namespace stx {
                             saw_depth_cutoff = true;
                         else if (cr == search_result::unknown)
                             saw_unknown = true;
-                        have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge);
+                        have_branch = frame.m_iter && advance_iter(n, *frame.m_iter, cur_edge);
                     }
                     if (result != search_result::sat)
                         result = saw_depth_cutoff ? search_result::depth_cutoff
