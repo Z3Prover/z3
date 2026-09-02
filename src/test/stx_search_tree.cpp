@@ -154,12 +154,9 @@ namespace {
         ENSURE(tree.get_stats().m_num_sat == 1);
         ENSURE(tree.sat_snapshot() != nullptr);
         ENSURE(tree.sat_snapshot()->facet_as<counter_facet>(id).total() == 5);
-        // Popping is suspended on sat: the live root keeps the satisfying
-        // branch's state until the caller explicitly asks to go back to
-        // base level (or calls solve() again), rather than being eagerly
-        // unwound here.
-        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 5);
-        tree.ensure_base_level();
+        // The live root's trail scopes are always fully popped back to
+        // base level by solve() before it returns, regardless of verdict:
+        // the satisfying state is only available via sat_snapshot().
         ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
@@ -219,11 +216,9 @@ namespace {
     }
 
     // A second solve() call (e.g. after the caller has mutated facets, or
-    // just re-solving as-is) must transparently unwind any scopes left
-    // suspended by a prior sat result before starting the new search -
-    // exercising the "pop to base level only on new add/search" part of
-    // the suspend design without requiring the caller to remember to call
-    // ensure_base_level() themselves.
+    // just re-solving as-is) must still find the same sat result: the live
+    // root is always back at base level after a solve() call (sat or not),
+    // so there is no suspended-scope state to leak/compound across calls.
     static void tst_resolve_after_sat_resumes_base_level() {
         counter_config cfg{ 5, { 3 } };
         tree_t tree;
@@ -236,16 +231,9 @@ namespace {
         tree.set_max_search_depth(10);
 
         ENSURE(tree.solve() == stx::search_result::sat);
-        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 5);
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
 
-        // Solving again (without an explicit ensure_base_level() call)
-        // must still find the same sat result, proving the pending unwind
-        // from the first solve() was correctly performed as part of the
-        // second solve() entry rather than leaking/compounding state.
         ENSURE(tree.solve() == stx::search_result::sat);
-        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 5);
-
-        tree.ensure_base_level();
         ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
