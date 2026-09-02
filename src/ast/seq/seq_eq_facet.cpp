@@ -279,11 +279,27 @@ namespace seq {
             eq_tree::dep_tracker eq_dep = eq.m_dep;
 
             if (!lc && !rc) {
-                // two distinct variables lh, rh
+                // Two distinct variables lh, rh: the classic 4-branch
+                // Nielsen transformation for word equations (design doc
+                // facet-eq-deq.md section 2.2 / c3 branch's
+                // apply_var_nielsen). Since v1, v2 are symbols at the
+                // head of each side, exactly one of these must hold in
+                // any solution:
+                //   (1) v1 := epsilon
+                //   (2) v2 := epsilon
+                //   (3) v1 := v2 . v1'   (v1 is at least as long as v2)
+                //   (4) v2 := v1 . v2'   (v2 is at least as long as v1)
+                // Branches (3)/(4) are the "non-progress" cases (they
+                // introduce a fresh variable rather than shrinking the
+                // equation), but are still required for completeness:
+                // without them, any solution where both v1 and v2 are
+                // non-empty and neither is a literal prefix of the other
+                // one being consumed first is unreachable.
                 expr* v1 = lh;
                 expr* v2 = rh;
                 sort* s = v1->get_sort();
                 expr* v1p = f.mk_fresh_var(s);
+                expr* v2p = f.mk_fresh_var(s);
 
                 iterator* it = alloc(iterator, n, m_id);
                 {
@@ -295,6 +311,12 @@ namespace seq {
                     repl.push_back(v2);
                     repl.push_back(v1p);
                     it->push_back("v1:=v2.v1'", v1, repl, eq_dep);
+                }
+                {
+                    expr_ref_vector repl(m);
+                    repl.push_back(v1);
+                    repl.push_back(v2p);
+                    it->push_back("v2:=v1.v2'", v2, repl, eq_dep);
                 }
 
                 // Materialize the first branch ("v1:=eps") now, in the
