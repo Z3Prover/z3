@@ -376,22 +376,21 @@ namespace stx {
         // exception, so a plugin/facet throwing mid-mutation cannot leave
         // the shared node and trail in a mismatched state relative to the
         // DFS call stack. Internal to search_tree; use search_tree::pop()
-        // for a one-shot trail+node pop outside of a scoped_push.
+        // for a one-shot trail+node pop outside of a scoped_push. Always
+        // operates on the single live node (m_tree.m_root) - there is only
+        // ever one.
         class scoped_push {
             search_tree& m_tree;
-            node&        m_node;
-            unsigned     m_scopes;
             bool         m_active = true;
         public:
-            explicit scoped_push(search_tree& tree, node& n, unsigned scopes = 1)
-                : m_tree(tree), m_node(n), m_scopes(scopes) {
+            explicit scoped_push(search_tree& tree) : m_tree(tree) {
                 m_tree.m_trail.push_scope();
-                m_node.push_facets();
+                m_tree.m_root->push_facets();
             }
-            ~scoped_push() { if (m_active) m_tree.pop(m_node, m_scopes); }
+            ~scoped_push() { if (m_active) m_tree.pop(); }
             scoped_push(scoped_push const&) = delete;
             scoped_push& operator=(scoped_push const&) = delete;
-            // Release without popping (ownership of the scope(s) has been
+            // Release without popping (ownership of the scope has been
             // transferred elsewhere, e.g. to a surviving split_iterator_i).
             void release() { m_active = false; }
         };
@@ -487,10 +486,11 @@ namespace stx {
         // the one-shot counterpart to scoped_push, for call sites that
         // pop a scope committed elsewhere (e.g. the dfs() recursion site,
         // which matches a scope a split already committed rather than
-        // owning a fresh one itself).
-        void pop(node& n, unsigned scopes = 1) {
-            m_trail.pop_scope(scopes);
-            n.pop_facets();
+        // owning a fresh one itself). Always operates on the single live
+        // node (m_root).
+        void pop() {
+            m_trail.pop_scope(1);
+            m_root->pop_facets();
         }
 
         // Search for the cheapest available split, raising `cost` from 0.
@@ -509,7 +509,7 @@ namespace stx {
                     m_stats.m_split_counts[sp->name()]++;
                     bool has_more = false;
                     bool committed = false;
-                    scoped_push guard(*this, n);
+                    scoped_push guard(*this);
                     auto it = sp->split(n, cost, out, has_more, committed);
                     if (committed) {
                         guard.release();
@@ -529,8 +529,8 @@ namespace stx {
         // `iter->next()`, popping it again if `next()` returns false (no
         // more branches). On success the pushed scope holds that branch's
         // mutations and is left in place for the caller.
-        bool advance_iter(node& n, split_iterator_i& iter, edge& out) {
-            scoped_push guard(*this, n);
+        bool advance_iter(split_iterator_i& iter, edge& out) {
+            scoped_push guard(*this);
             if (iter.next(out)) {
                 guard.release();
                 return true;
@@ -538,7 +538,8 @@ namespace stx {
             return false;
         }
 
-        search_result dfs(node& n, unsigned depth) {
+        search_result dfs(unsigned depth) {
+            node& n = *m_root;
             m_stats.m_num_dfs_nodes++;
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
                 return search_result::unknown;
@@ -578,7 +579,7 @@ namespace stx {
                     bool have_branch = true;
                     while (have_branch) {
                         search_result cr;
-                        cr = dfs(n, depth + 1);
+                        cr = dfs(depth + 1);
                         // Always pop back out of this branch, even on
                         // sat: the sat leaf's facet state was already
                         // captured by m_sat_snapshot (a cold-path
@@ -587,7 +588,7 @@ namespace stx {
                         // suspended just to keep the live node in the
                         // satisfying state - callers that want to
                         // inspect it use sat_snapshot() instead.
-                        pop(n, 1); // matches the scope the split committed for this branch
+                        pop(); // matches the scope the split committed for this branch
                         if (cr == search_result::sat) {
                             result = search_result::sat;
                             break;
@@ -596,7 +597,7 @@ namespace stx {
                             saw_depth_cutoff = true;
                         else if (cr == search_result::unknown)
                             saw_unknown = true;
-                        have_branch = frame.m_iter && advance_iter(n, *frame.m_iter, cur_edge);
+                        have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge);
                     }
                     if (result != search_result::sat)
                         result = saw_depth_cutoff ? search_result::depth_cutoff
@@ -649,17 +650,15 @@ namespace stx {
         stats const& get_stats() const { return m_stats; }
         void reset_stats() { m_stats.reset(); }
 
-        // Iterative-deepening DFS over the single live node (root, or a
-        // caller-supplied node - almost always root). Trail scopes opened
-        // during the search are always fully popped back to their level on
-        // entry before `solve()` returns, regardless of verdict, so the
-        // node's facet state is restored to what it was on entry. On sat,
-        // callers inspect the satisfying state via `sat_snapshot()` (a
-        // cold-path clone taken where the leaf was found) rather than the
-        // live node.
-        search_result solve(node* start = nullptr) {
-            node* r = start ? start : m_root.get();
-            SASSERT(r);
+        // Iterative-deepening DFS over the single live node (m_root).
+        // Trail scopes opened during the search are always fully popped
+        // back to their level on entry before `solve()` returns,
+        // regardless of verdict, so the node's facet state is restored to
+        // what it was on entry. On sat, callers inspect the satisfying
+        // state via `sat_snapshot()` (a cold-path clone taken where the
+        // leaf was found) rather than the live node.
+        search_result solve() {
+            SASSERT(m_root);
             m_stats.m_num_solve_calls++;
             unsigned base_scopes = m_trail.get_num_scopes();
             m_sat_snapshot = nullptr;
@@ -668,7 +667,7 @@ namespace stx {
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth; ++depth_bound) {
                 m_depth_bound = depth_bound;
                 m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth_bound);
-                search_result res = dfs(*r, 0);
+                search_result res = dfs(0);
                 SASSERT(m_trail.get_num_scopes() == base_scopes);
                 if (res == search_result::sat) { m_stats.m_num_sat++; final_res = res; break; }
                 if (res == search_result::unsat) { m_stats.m_num_unsat++; final_res = res; break; }
