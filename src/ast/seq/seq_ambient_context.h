@@ -64,6 +64,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "util/stx_search_tree.h"
 
 namespace seq {
 
@@ -79,11 +80,19 @@ namespace seq {
      * dependency on any one `stx::search_tree<...>` instantiation; in
      * practice every current user instantiates it with
      * `seq::eq_tree::dep_tracker` (see seq_eq_facet.h).
+     *
+     * Derives from `stx::ambient_context_base` (util/stx_search_tree.h) -
+     * the domain-opaque, method-free marker class that a
+     * `stx::search_tree::node` actually stores (`node::ambient()`/
+     * `search_tree::set_ambient_context()`), so that an instance
+     * constructed here can be handed straight to
+     * `search_tree::set_ambient_context()` and later recovered from any
+     * facet via `static_cast` (see e.g. `eq_facet::ambient()` below).
      */
     template <typename dep_tracker_t>
-    class ambient_context_i {
+    class ambient_context_i : public stx::ambient_context_base {
     public:
-        virtual ~ambient_context_i() = default;
+        ~ambient_context_i() override = default;
 
         // Is `e` an opaque, freely-substitutable "variable" token (as
         // opposed to an interpreted/structured term such as a

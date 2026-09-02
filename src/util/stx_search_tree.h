@@ -94,6 +94,26 @@ namespace stx {
     const backtrack_reason br_plugin_base     = 3; // first value free for plugin use
 
     /**
+     * Domain-opaque marker base class for an "ambient context" handle
+     * stashed on a `search_tree::node` and reachable from every facet
+     * registered against that node. This class deliberately has NO
+     * virtual methods and NO dependency on any domain type (in
+     * particular, nothing from `src/ast`): `stx_search_tree.h` is a
+     * domain-agnostic engine and must not know what an `expr*` or a
+     * `dep_tracker` is. The domain layer (e.g. `ast/seq/
+     * seq_ambient_context.h`'s `ambient_context_i<dep_tracker_t>`)
+     * derives its concrete, method-bearing interface from this class;
+     * facets that need to query it hold a `facet_i::ambient()`-style
+     * accessor that `static_cast`s this base pointer back down to the
+     * domain's own `ambient_context_i` type (see e.g. `seq::eq_facet::
+     * ambient()` in `ast/seq/seq_eq_facet.h`).
+     */
+    class ambient_context_base {
+    public:
+        virtual ~ambient_context_base() = default;
+    };
+
+    /**
      * One constituent of a node's state. Plugins define concrete subclasses
      * (e.g. an `eq_facet`, an `arith_facet`); the engine interacts only
      * through this interface, and never inspects a facet's contents.
@@ -285,6 +305,14 @@ namespace stx {
             // after solve() returns unsat.
             vector<dep_tracker>  m_conflict_deps;
 
+            // Not owned; set once (search_tree::set_ambient_context(),
+            // typically right after mk_root()) and thereafter reachable
+            // from every facet registered against this node via
+            // `ambient()`. See `ambient_context_base`'s comment above for
+            // why this is stored as an opaque, method-free base pointer
+            // here rather than the domain's own `ambient_context_i`.
+            ambient_context_base* m_ambient = nullptr;
+
             explicit node(unsigned num_facets) {
                 m_facets.resize(num_facets, nullptr);
             }
@@ -293,6 +321,13 @@ namespace stx {
             ~node() {
                 for (auto* f : m_facets) dealloc(f);
             }
+
+            // Opaque ambient-context handle, or nullptr if none was ever
+            // set. Facets/plugins that need the domain's own method-
+            // bearing interface `static_cast` this down to it (see e.g.
+            // `seq::eq_facet::ambient()`).
+            ambient_context_base* ambient() const { return m_ambient; }
+            void set_ambient(ambient_context_base* ac) { m_ambient = ac; }
 
             unsigned num_facets() const { return m_facets.size(); }
 
@@ -398,6 +433,7 @@ namespace stx {
                 n->m_status = m_status;
                 n->m_reason = m_reason;
                 n->m_conflict_dep = m_conflict_dep;
+                n->m_ambient = m_ambient;
                 return n;
             }
         };
@@ -656,6 +692,12 @@ namespace stx {
         dep_manager_t& dep_mgr() { return m_dep_mgr; }
         trail_stack& trail() { return m_trail; }
 
+        // Set the (opaque, not-owned) ambient-context handle on the root
+        // node, so every facet registered against it can reach it via
+        // `node::ambient()`. Typically called once, right after
+        // `mk_root()`, before any facets are registered.
+        void set_ambient_context(ambient_context_base* ac) { m_root->set_ambient(ac); }
+
         // Reserve a new facet slot; returns its stable id.
         facet_id register_facet() { return m_next_facet_id++; }
 
@@ -702,25 +744,28 @@ namespace stx {
             SASSERT(m_root);
             m_stats.m_num_solve_calls++;
             unsigned base_scopes = m_trail.get_num_scopes();
+            on_scope_exit rewind([&]() {
+                while (m_trail.get_num_scopes() > base_scopes)
+                    pop();
+            });
             m_sat_snapshot = nullptr;
             m_sat_snapshot_taken = false;
             m_root->clear_conflict_deps();
-            search_result res = search_result::unknown;
-            for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth; ++depth_bound) {
+            search_result res = search_result::depth_cutoff;
+            for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth && res == search_result::depth_cutoff; ++depth_bound) {
                 m_depth_bound = depth_bound;
                 m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth_bound);
                 res = dfs(0);
-                SASSERT(m_trail.get_num_scopes() == base_scopes);
-                if (res == search_result::sat) { m_stats.m_num_sat++; break; }
-                if (res == search_result::unsat) { m_stats.m_num_unsat++; break; }
-                if (res == search_result::unknown)
-                    // Genuinely stuck: no facets changed and no split
-                    // available at any depth - retrying with a larger
-                    // depth bound will not help, so stop deepening now.
-                    break;
-                // res == depth_cutoff: retrying with a larger depth bound
-                // may still resolve this subtree, so keep deepening until
-                // the search-depth budget is exhausted.
+                if (res == search_result::sat) { m_stats.m_num_sat++; }
+                if (res == search_result::unsat) { m_stats.m_num_unsat++; }
+                // res == search_result::unknown: genuinely stuck (no
+                // facets changed and no split available at any depth) -
+                // retrying with a larger depth bound will not help, so
+                // the loop condition below stops deepening.
+                // res == search_result::depth_cutoff: retrying with a
+                // larger depth bound may still resolve this subtree, so
+                // the loop condition keeps deepening until the
+                // search-depth budget is exhausted.
             }
             if (res == search_result::unknown || res == search_result::depth_cutoff) {
                 m_stats.m_num_unknown++;
