@@ -360,7 +360,9 @@ namespace stx {
             unsigned     m_scopes;
             bool         m_active = true;
         public:
-            explicit scoped_pop(trail_stack& trail, unsigned scopes = 1) : m_trail(trail), m_scopes(scopes) {}
+            explicit scoped_pop(trail_stack& trail, unsigned scopes = 1) : m_trail(trail), m_scopes(scopes) {
+                m_trail.push_scope();
+            }
             ~scoped_pop() { if (m_active) m_trail.pop_scope(m_scopes); }
             scoped_pop(scoped_pop const&) = delete;
             scoped_pop& operator=(scoped_pop const&) = delete;
@@ -421,6 +423,7 @@ namespace stx {
         scoped_ptr<node>                      m_root;
         trail_stack                            m_trail;
         unsigned                               m_max_search_depth = 1000;
+        unsigned                               m_depth_bound = 0; // current iterative-deepening bound, set by solve()
         unsigned                               m_max_cost = 1000;
         unsigned                               m_max_nodes = 0; // 0 == unlimited
         dep_manager_t                          m_dep_mgr;
@@ -511,13 +514,13 @@ namespace stx {
                     m_stats.m_split_counts[sp->name()]++;
                     bool has_more = false;
                     bool committed = false;
-                    m_trail.push_scope();
+                    scoped_pop pop(m_trail);
                     auto it = sp->split(n, cost, out, has_more, committed);
                     if (committed) {
+                        pop.release();
                         frame.m_iter = std::move(it);
                         return true;
                     }
-                    m_trail.pop_scope(1);
                     if (has_more)
                         any_offer = true;
                 }
@@ -532,14 +535,15 @@ namespace stx {
         // more branches). On success the pushed scope holds that branch's
         // mutations and is left in place for the caller.
         bool advance_iter(split_iterator_i& iter, edge& out) {
-            m_trail.push_scope();
-            if (iter.next(out))
+            scoped_pop pop(m_trail);
+            if (iter.next(out)) {
+                pop.release();
                 return true;
-            m_trail.pop_scope(1);
+            }
             return false;
         }
 
-        search_result dfs(node& n, unsigned depth_bound, unsigned depth) {
+        search_result dfs(node& n, unsigned depth) {
             m_stats.m_num_dfs_nodes++;
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
                 return search_result::unknown;
@@ -582,7 +586,7 @@ namespace stx {
                 m_sat_snapshot = n.clone(m_trail);
                 m_sat_snapshot_taken = true;
             }
-            else if (depth >= depth_bound) {
+            else if (depth >= m_depth_bound) {
                 result = search_result::depth_cutoff;
             }
             else {
@@ -607,18 +611,16 @@ namespace stx {
                     bool have_branch = true;
                     while (have_branch) {
                         search_result cr;
-                        {
-                            scoped_pop pop(m_trail); // matches the scope the split committed for this branch
-                            cr = dfs(n, depth_bound, depth + 1);
-                            // Always pop back out of this branch, even on
-                            // sat: the sat leaf's facet state was already
-                            // captured by m_sat_snapshot (a cold-path
-                            // clone taken where the leaf was found), so
-                            // there is no need to leave any trail scopes
-                            // suspended just to keep the live node in the
-                            // satisfying state - callers that want to
-                            // inspect it use sat_snapshot() instead.
-                        }
+                        cr = dfs(n, depth + 1);
+                        // Always pop back out of this branch, even on
+                        // sat: the sat leaf's facet state was already
+                        // captured by m_sat_snapshot (a cold-path
+                        // clone taken where the leaf was found), so
+                        // there is no need to leave any trail scopes
+                        // suspended just to keep the live node in the
+                        // satisfying state - callers that want to
+                        // inspect it use sat_snapshot() instead.
+                        m_trail.pop_scope(1); // matches the scope the split committed for this branch
                         if (cr == search_result::sat) {
                             result = search_result::sat;
                             break;
@@ -728,8 +730,9 @@ namespace stx {
             m_sat_snapshot_taken = false;
             search_result final_res = search_result::unknown;
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth; ++depth_bound) {
+                m_depth_bound = depth_bound;
                 m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth_bound);
-                search_result res = dfs(*r, depth_bound, 0);
+                search_result res = dfs(*r, 0);
                 SASSERT(m_trail.get_num_scopes() == base_scopes);
                 if (res == search_result::sat) { m_stats.m_num_sat++; final_res = res; break; }
                 if (res == search_result::unsat) { m_stats.m_num_unsat++; final_res = res; break; }
