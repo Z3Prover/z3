@@ -107,6 +107,7 @@ namespace seq {
 
     stx::simplify_result mem_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<mem_facet>(m_mem_id);
+        bool changed = false;
         for (unsigned i = 0; i < f.memberships().size(); ) {
             auto const& sm = f.memberships()[i];
             expr_ref cur(sm.m_view.m_state, m_rw.m());
@@ -133,6 +134,7 @@ namespace seq {
                 }
                 if (m_rw.m().is_true(nb)) {
                     f.remove(i);
+                    changed = true;
                     continue;
                 }
             }
@@ -147,13 +149,14 @@ namespace seq {
             }
             if (a == l_true) {
                 f.remove(i);
+                changed = true;
                 continue;
             }
             ++i;
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;
-        return stx::simplify_result::proceed;
+        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
     bool mem_var_split::iterator::next(eq_tree::edge& out) {

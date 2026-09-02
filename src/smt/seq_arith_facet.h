@@ -171,13 +171,17 @@ namespace seq {
         // when this trail scope is popped - so the backend's scope stack
         // always tracks the DFS call stack, without the generic `stx::`
         // engine needing to know anything about incremental solvers.
-        void add_constraint(expr* c);
+        // Returns true iff `c` was newly recorded (false if it was
+        // already present, e.g. because propagate() revisits the same
+        // equation across simplify rounds).
+        bool add_constraint(expr* c);
 
         // Generate `len(lhs) = len(rhs)` (as an expr over str.len of each
         // token-list side, per the module comment) from an eq_facet
         // equation and record it via add_constraint. Also records
-        // `len(v) >= 0` once per fresh variable token seen.
-        void add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs);
+        // `len(v) >= 0` once per fresh variable token seen. Returns true
+        // iff at least one new constraint was recorded.
+        bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs);
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;

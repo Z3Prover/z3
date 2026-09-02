@@ -85,7 +85,7 @@ namespace {
             }
             if (f.total() == m_cfg->m_target)
                 return stx::simplify_result::satisfied;
-            return stx::simplify_result::proceed;
+            return stx::simplify_result::noop;
         }
     };
 

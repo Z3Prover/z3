@@ -53,10 +53,10 @@ namespace seq {
 
     // -- arith_facet --
 
-    void arith_facet::add_constraint(expr* c) {
+    bool arith_facet::add_constraint(expr* c) {
         for (expr* e : m_own)
             if (e == c)
-                return; // already recorded (propagate may revisit the same equation across simplify rounds)
+                return false; // already recorded (propagate may revisit the same equation across simplify rounds)
         if (!m_scope_pushed) {
             m_trail.push(scope_trail(m_solver));
             m_trail.push(value_trail<bool>(m_scope_pushed));
@@ -67,9 +67,10 @@ namespace seq {
         m_solver.assert_expr(c);
         m_trail.push(value_trail<bool>(m_conflict));
         m_conflict = (m_solver.check() == l_false);
+        return true;
     }
 
-    void arith_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
+    bool arith_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
         expr_ref lsum(a.mk_int(0), m);
         expr_ref rsum(a.mk_int(0), m);
         for (expr* t : lhs) {
@@ -80,13 +81,14 @@ namespace seq {
             expr_ref len(is_const_token(u, t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
             rsum = a.mk_add(rsum, len);
         }
-        add_constraint(m.mk_eq(lsum, rsum));
+        bool changed = add_constraint(m.mk_eq(lsum, rsum));
         for (expr* t : lhs)
             if (!is_const_token(u, t))
-                add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0)));
+                changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
         for (expr* t : rhs)
             if (!is_const_token(u, t))
-                add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0)));
+                changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
+        return changed;
     }
 
     lbool arith_facet::implies(expr* c) const {
@@ -134,13 +136,14 @@ namespace seq {
     stx::simplify_result arith_propagation::propagate(eq_tree::node& n) {
         auto& ef = n.facet_as<eq_facet>(m_eq_id);
         auto& af = n.facet_as<arith_facet>(m_arith_id);
+        bool changed = false;
         for (auto const& eq : ef.equations())
-            af.add_length_constraint(eq.m_lhs, eq.m_rhs);
+            changed = af.add_length_constraint(eq.m_lhs, eq.m_rhs) || changed;
         if (af.has_conflict()) {
             n.set_conflict(stx::br_plugin_base, nullptr);
             return stx::simplify_result::conflict;
         }
-        return stx::simplify_result::proceed;
+        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
 } // namespace seq

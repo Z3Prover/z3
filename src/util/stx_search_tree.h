@@ -64,8 +64,12 @@ Author:
 
 namespace stx {
 
-    // Result of a deterministic propagation pass.
-    enum class simplify_result { proceed, conflict, satisfied };
+    // Result of a deterministic propagation pass. `noop` means this call
+    // made no change to the node's facets (used by propagate_to_fixpoint()
+    // to detect a fixed point without a structural fingerprint); `proceed`
+    // means it made some change but reached neither a conflict nor a
+    // satisfied state.
+    enum class simplify_result { noop, proceed, conflict, satisfied };
 
     // Result of solve()/dfs(). `depth_cutoff` is an internal-only variant
     // of `unknown` used by dfs() to distinguish "this subtree was
@@ -210,8 +214,13 @@ namespace stx {
             virtual char const* name() const = 0;
             // Run one pass over `n`. Return `conflict` if `n` is now
             // provably unsatisfiable (call `n.set_conflict(reason, dep)`
-            // first), `satisfied` if `n` is now trivially satisfied, and
-            // `proceed` otherwise (whether or not this pass changed `n`).
+            // first), `satisfied` if `n` is now trivially satisfied,
+            // `noop` if this pass made no change to `n` at all, and
+            // `proceed` if it made some change but reached neither of the
+            // above. The engine's propagate_to_fixpoint() relies on every
+            // plugin reporting `noop` accurately to detect the fixed
+            // point (a round where every plugin reports `noop`) - a
+            // plugin that mutates `n` must never report `noop`.
             virtual simplify_result propagate(node& n) = 0;
         };
 
@@ -440,31 +449,26 @@ namespace stx {
         bool                                   m_sat_snapshot_taken = false;
 
         // Run every registered propagation plugin to a fixed point. The
-        // fixed point is detected generically (no extra plugin API): a
-        // round is a single pass over every plugin in registration order;
-        // we stop once a full round leaves the node's raw facet fingerprint
-        // unchanged, or a plugin reports conflict/satisfied.
-        unsigned raw_fingerprint(node const& n) const {
-            unsigned h = n.num_facets() + 1;
-            for (facet_id id = 0; id < n.num_facets(); ++id)
-                if (n.has_facet(id))
-                    h = combine_hash(h, n.facet(id).hash());
-            return h;
-        }
-
+        // fixed point is detected via each plugin's own report: a round
+        // is a single pass over every plugin in registration order; we
+        // stop once a full round has every plugin report `noop` (no
+        // plugin changed anything), or a plugin reports
+        // conflict/satisfied.
         simplify_result propagate_to_fixpoint(node& n) {
             // Bound the number of rounds by the number of plugins plus
             // facets: propagation must be confluent/terminating, so this
             // is a safety net against a misbehaving plugin, not a normal
             // termination condition.
             unsigned max_rounds = (m_prop_plugins.size() + n.num_facets() + 1) * 4 + 8;
-            unsigned prev_fp = raw_fingerprint(n);
             for (unsigned round = 0; round < max_rounds; ++round) {
+                bool any_change = false;
                 for (auto* p : m_prop_plugins) {
                     m_stats.m_propagate_counts[p->name()]++;
                     simplify_result r = p->propagate(n);
                     if (r == simplify_result::conflict)
                         return r;
+                    if (r != simplify_result::noop)
+                        any_change = true;
                     // NOTE: a plugin reporting `satisfied` only means ITS
                     // OWN facet is discharged, not that every other facet
                     // in this node is - the node is only truly satisfied
@@ -474,10 +478,8 @@ namespace stx {
                     // other facets may still need to react/propagate)
                     // rather than short-circuiting here.
                 }
-                unsigned fp = raw_fingerprint(n);
-                if (fp == prev_fp)
+                if (!any_change)
                     break;
-                prev_fp = fp;
             }
             return n.is_satisfied() ? simplify_result::satisfied : simplify_result::proceed;
         }

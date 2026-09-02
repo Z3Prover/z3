@@ -201,7 +201,7 @@ namespace seq {
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;
-        return changed ? stx::simplify_result::proceed : stx::simplify_result::proceed;
+        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
 } // namespace seq

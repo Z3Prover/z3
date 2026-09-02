@@ -206,14 +206,14 @@ namespace seq {
     stx::simplify_result eq_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<eq_facet>(m_id);
         bool conflict = false;
-        f.simplify(conflict);
+        bool changed = f.simplify(conflict);
         if (conflict) {
             n.set_conflict(stx::br_plugin_base, nullptr);
             return stx::simplify_result::conflict;
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;
-        return stx::simplify_result::proceed;
+        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
     // Broadcast a substitution chosen by eq_facet's Nielsen split to every
@@ -424,14 +424,14 @@ namespace seq {
     stx::simplify_result deq_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<deq_facet>(m_id);
         bool conflict = false;
-        f.simplify(conflict);
+        bool changed = f.simplify(conflict);
         if (conflict) {
             n.set_conflict(stx::br_plugin_base, nullptr);
             return stx::simplify_result::conflict;
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;
-        return stx::simplify_result::proceed;
+        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
 } // namespace seq
