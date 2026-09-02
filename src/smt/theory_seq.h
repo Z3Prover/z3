@@ -22,6 +22,7 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
+#include "ast/rewriter/seq_parikh.h"
 #include "ast/rewriter/seq_eq_solver.h"
 #include "ast/ast_trail.h"
 #include "util/scoped_vector.h"
@@ -310,6 +311,7 @@ namespace smt {
             unsigned m_num_splits;
             unsigned m_num_reductions;
             unsigned m_check_length_coherence;
+            unsigned m_parikh;
             unsigned m_branch_variable;
             unsigned m_branch_nqs;
             unsigned m_solve_nqs;
@@ -370,6 +372,12 @@ namespace smt {
         seq_axioms       m_ax;
         seq::eq_solver   m_eq;
         seq_regex        m_regex;
+        seq::parikh      m_parikh;
+        // encoding of the Parikh abstraction per equation, keyed by its two sides.
+        // m_parikh_pin keeps the keys and the encodings alive, three entries per equation
+        obj_pair_map<expr, expr, expr*> m_parikh_cache;
+        expr_ref_vector  m_parikh_pin;
+        static const unsigned m_max_parikh_eqs = 512;
         arith_value      m_arith_value;
         trail_stack      m_trail_stack;
         stats            m_stats;
@@ -439,6 +447,7 @@ namespace smt {
         bool branch_variable_eq();       // branch on a variable, by an alignment among variable boundaries.
         bool is_solved(); 
         bool check_length_coherence();
+        bool check_parikh();
         bool check_length_coherence0(expr* e);
         bool check_length_coherence(expr* e);
         bool check_fixed_length(bool is_zero, bool check_long_strings);
