@@ -47,6 +47,8 @@ namespace smt {
         m_autil(m), 
         m_th_rewriter(m),
         m_rewriter(m),
+        m_ssnf(m_seq),
+        m_charclass(m_seq),
         m_arith_value(m),
         m_whole_rw(m),
         m_egraph(m),
@@ -57,6 +59,7 @@ namespace smt {
         m_axioms(m_th_rewriter),
         m_regex(m_sg),
         m_model(m, ctx, m_seq, m_rewriter, m_sg),
+        m_ssnf_pin(m),
         m_gradient_pin(m),
         m_nonneg_cache(m)
     {
@@ -309,8 +312,9 @@ namespace smt {
             expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
             TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
             if (m_seq.str.is_in_re(e, s, re)) {
+                const expr_ref re_pp = preprocess_regex(re);
                 euf::snode const* sn_str = get_snode(s);
-                euf::snode const* sn_re  = get_snode(re);
+                euf::snode const* sn_re  = get_snode(re_pp);
                 if (is_true) {
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(m, sn_str, sn_re, lit, nullptr));
@@ -322,7 +326,7 @@ namespace smt {
                     // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
                     // so the Nielsen graph sees it uniformly; the original negative literal
                     // is kept in mem_source for conflict reporting.
-                    const expr_ref re_compl(m_seq.re.mk_complement(re), m);
+                    const expr_ref re_compl(m_seq.re.mk_complement(re_pp), m);
                     euf::snode const* sn_re_compl = get_snode(re_compl.get());
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(m, sn_str, sn_re_compl, lit, nullptr));
@@ -1038,6 +1042,10 @@ namespace smt {
                     nseq_monadic_orientation(get_fparams().m_seq_regex_orientation));
                 m_nielsen.set_eq_approx(get_fparams().m_nseq_eq_approx);
                 m_nielsen.set_exploration_budget(get_fparams().m_nseq_exploration_budget);
+                m_nielsen.set_bisim(get_fparams().m_nseq_bisim);
+                m_nielsen.set_bisim_probe(get_fparams().m_nseq_bisim_probe);
+                m_nielsen.set_landing_merge(get_fparams().m_nseq_landing_merge);
+                m_nielsen.set_widening_budget(get_fparams().m_nseq_widening_budget);
                 m_nielsen.set_view_length_constraints(get_fparams().m_nseq_view_length_constraints);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
                 m_nielsen.set_regex_factorization_eager(get_fparams().m_nseq_regex_factorization_eager);
@@ -1525,6 +1533,8 @@ namespace smt {
         st.update("nseq final checks",      m_num_final_checks);
         st.update("nseq sat revalidations", m_num_sat_revalidations);
         st.update("nseq length axioms",     m_num_length_axioms);
+        st.update("nseq ssnf rewrites",     m_num_ssnf_rewrites);
+        st.update("nseq charclass rewrites", m_num_charclass_rewrites);
         st.update("nseq ho unfolds",      m_num_ho_unfolds);
         m_nielsen.collect_statistics(st);
     }
@@ -1692,6 +1702,44 @@ namespace smt {
 
     euf::snode const* theory_nseq::get_snode(expr* e) {
         return m_sg.mk(e);
+    }
+
+    // Regex preprocessing for a membership: negated character classes
+    // (smt.nseq.charclass) and strong star normal form (smt.nseq.ssnf).  Both
+    // preserve the language, so the result replaces the original everywhere the
+    // Nielsen solver, the split engine and the partial DFA see it; the literal
+    // of the str.in_re atom is unchanged.  Both build with the raw
+    // constructors, so the result is canonicalized here.
+    expr_ref theory_nseq::preprocess_regex(expr* re) {
+        expr_ref res(re, m);
+        const bool ssnf = get_fparams().m_nseq_ssnf;
+        const bool charclass = get_fparams().m_nseq_charclass;
+        if (!ssnf && !charclass)
+            return res;
+        expr* cached = nullptr;
+        if (m_ssnf_memo.find(re, cached)) {
+            res = cached;
+            return res;
+        }
+        // Character classes first: they shrink the term and make it classical
+        // again, which is also what the nullability queries of SSNF read.
+        if (charclass) {
+            res = m_charclass(res);
+            if (res.get() != re)
+                ++m_num_charclass_rewrites;
+        }
+        if (ssnf) {
+            expr* before = res.get();
+            res = m_ssnf(res);
+            if (res.get() != before)
+                ++m_num_ssnf_rewrites;
+        }
+        if (res.get() != re)
+            m_th_rewriter(res);
+        m_ssnf_memo.insert(re, res.get());
+        m_ssnf_pin.push_back(re);
+        m_ssnf_pin.push_back(res);
+        return res;
     }
 
     // -----------------------------------------------------------------------
@@ -1871,7 +1919,10 @@ namespace smt {
                                     nseq_monadic_mode(get_fparams().m_seq_regex_transition_mode));
             m_whole_monadic->set_is_var([this](expr* e) { return m_whole_vars.contains(e); });
         }
-        m_whole_monadic->set_budget(get_fparams().m_seq_regex_budget);
+        // Not smt.seq.regex_budget: at the seq default this engine can burn the
+        // whole time limit on a problem the Nielsen search closes in a fraction of
+        // it, and it runs FIRST, so the search never gets a turn.  See the §17 entry.
+        m_whole_monadic->set_budget(get_fparams().m_nseq_monadic_whole_budget);
         m_whole_monadic->set_split_rounds(get_fparams().m_seq_regex_split);
         m_whole_monadic->set_orientation(
             nseq_monadic_orientation(get_fparams().m_seq_regex_orientation));

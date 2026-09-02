@@ -21,6 +21,8 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_axioms.h"
+#include "ast/rewriter/seq_ssnf.h"
+#include "ast/rewriter/seq_charclass.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
 #include "smt/smt_theory.h"
@@ -38,6 +40,8 @@ namespace smt {
         arith_util     m_autil;
         th_rewriter    m_th_rewriter;
         seq_rewriter   m_rewriter;
+        seq_ssnf       m_ssnf;   // strong star normal form of membership regexes (smt.nseq.ssnf)
+        seq_charclass  m_charclass;  // negated character classes (smt.nseq.charclass)
         arith_value    m_arith_value;
         euf::egraph    m_egraph;  // private egraph (not shared with smt context)
         euf::sgraph    m_sg;  // private sgraph
@@ -71,6 +75,10 @@ namespace smt {
         obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
         obj_hashtable<expr>     m_no_diseq_set;     // track expressions that should not trigger new disequality axioms
         hashtable<literal, obj_hash<literal>, default_eq<literal>>    m_ignored_mem;     // track membership constraints that should not be passed to Nielsen
+        // memo for preprocess_regex: original membership regex -> its normalized
+        // strong star normal form.  m_ssnf_pin keeps both alive.
+        obj_map<expr, expr*>    m_ssnf_memo;
+        expr_ref_vector         m_ssnf_pin;
         obj_map<expr, unsigned> m_gradient_cache;
         // Pins the keys of m_gradient_cache: the cache is deliberately not
         // trailed (the gradient escalation must survive backtracking), so its
@@ -111,6 +119,8 @@ namespace smt {
         unsigned m_num_final_checks     = 0;
         unsigned m_num_sat_revalidations = 0;   // times the cached SAT path was reused instead of rebuilding
         unsigned m_num_length_axioms    = 0;
+        unsigned m_num_ssnf_rewrites    = 0;   // membership regexes changed by preprocess_regex
+        unsigned m_num_charclass_rewrites = 0; // ... by the negated-character-class collapse
         bool     m_digits_initialized   = false;
 
         // higher-order terms (seq.map, seq.mapi, seq.foldl, seq.foldli)
@@ -193,6 +203,7 @@ namespace smt {
         void propagate_eq(tracked_str_eq const& eq) const;
         void propagate_deq(tracked_str_deq const& deq) const;
         void propagate_pos_mem(tracked_str_mem const& mem);
+        expr_ref preprocess_regex(expr* re);
 
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);

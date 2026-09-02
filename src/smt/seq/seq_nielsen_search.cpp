@@ -74,6 +74,7 @@ namespace seq {
             // new solve = possibly new external context (outer bounds / literal
             // assignments): let every node re-simplify once under it
             ++m_simplify_epoch;
+            refill_bisim_budget();
             clear_sat_node();
 
             TRACE(seq, tout << "Solve call " << m_stats.m_num_solve_calls << "\n");

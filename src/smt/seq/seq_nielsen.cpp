@@ -91,7 +91,7 @@ namespace seq {
             // (see is_contradiction), so treating it as trivial would silently
             // drop the constraint.
             // ε ∈ L_{Q,{s}}(state) iff current state ≡ acceptance state s (=m_root).
-            return m_str->is_empty() && m_regex == m_root;
+            return m_str->is_empty() && accepts_here(n->graph());
         if (m_regex->is_full_seq())
             return true;
         if (!m_str->is_empty())
@@ -106,7 +106,7 @@ namespace seq {
             // δ_a(Σ*) = Σ* for every a: once the run state is Σ*, it stays
             // there, so no continuation can land at a different acceptance
             // state — the view denotes ∅ regardless of the remaining string.
-            if (m_regex->is_full_seq() && m_regex != m_root)
+            if (m_regex->is_full_seq() && !accepts_here(n->graph()))
                 return true;
             // An unresolved symbolic residual (ite / non-ground state, produced
             // by consume_view stepping over a symbolic unit) is not a settled
@@ -116,11 +116,22 @@ namespace seq {
             if (!m_regex->is_ground() || m_regex->kind() == euf::snode_kind::s_ite)
                 return false;
             // ε ∉ view when current state ≢ acceptance s
-            return m_str->is_empty() && m_regex != m_root;
+            return m_str->is_empty() && !accepts_here(n->graph());
         }
         if (!m_str->is_empty())
             return false;
         return n->graph().sg().re_nullable(m_regex) == l_false;
+    }
+
+    // Is the current run state one of the view's acceptance states?
+    bool str_mem::accepts_here(nielsen_graph& g) const {
+        if (g.same_state(m_regex, m_root))
+            return true;
+        for (euf::snode const* r : m_alt_roots) {
+            if (g.same_state(m_regex, r))
+                return true;
+        }
+        return false;
     }
 
     bool str_mem::contains_var(euf::snode const* var) const {
@@ -175,6 +186,7 @@ namespace seq {
             return;
         // We prefer internal conflicts (we need it as a justification for general conflicts)
         TRACE(seq, tout << "internal conflict " << (unsigned)r << "\n");
+        ++m_graph.m_stats.m_clash_reason[(unsigned)r];
         m_reason = r;
         m_conflict_internal = confl;
         m_conflict_external_literal = sat::null_literal;
@@ -507,6 +519,7 @@ namespace seq {
         m_sk(m, m_rw), m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)), m_split_rw(sg.get_manager()), m_deriv_rw(sg.get_manager()),
         m_monadic_rw(sg.get_manager()), m_eq_approx_rw(sg.get_manager()),
+        m_bisim_rw(sg.get_manager()), m_canon_pin(sg.get_manager()),
         m_partial_dfa_pin(sg.get_manager()) {
     }
 
@@ -637,6 +650,13 @@ namespace seq {
         m_projection_head_cache.clear();
         m_explored_automaton.reset();
         m_fully_explored.reset();
+        // Cleared together with the partial DFA it keys, so the two never
+        // disagree about which states exist.
+        dealloc(m_bisim_engine);
+        m_bisim_engine = nullptr;
+        m_state_canon.reset();
+        m_canon_buckets.clear();
+        m_canon_pin.reset();
         m_unsat_node_cache.clear();
         m_siblings.clear();
         m_num_cache_hits = 0;
@@ -1110,6 +1130,19 @@ namespace seq {
         st.update("nseq unsat",           m_stats.m_num_unsat);
         st.update("nseq unknown",         m_stats.m_num_unknown);
         st.update("nseq simplify clash",  m_stats.m_num_simplify_conflict);
+        {
+            // statistics stores the key POINTER, so these must be literals
+            // with static lifetime -- never a temporary std::string.
+            static char const* const clash_name[] = {
+                "nseq clash unevaluated", "nseq clash extended", "nseq clash symbol",
+                "nseq clash parikh", "nseq clash arithmetic", "nseq clash regex",
+                "nseq clash sibling", "nseq clash widening", "nseq clash char range",
+                "nseq clash smt", "nseq clash external", "nseq clash children" };
+            for (unsigned i = 0; i < sizeof(clash_name) / sizeof(*clash_name); ++i) {
+                if (m_stats.m_clash_reason[i])
+                    st.update(clash_name[i], m_stats.m_clash_reason[i]);
+            }
+        }
         st.update("nseq extensions",      m_stats.m_num_extensions);
         st.update("nseq fresh vars",      m_stats.m_num_fresh_vars);
         st.update("nseq arith prune",     m_stats.m_num_arith_infeasible);
@@ -1147,6 +1180,13 @@ namespace seq {
         st.update("nseq mod axiomatized disequalities",   m_stats.m_ax_diseq);
         st.update("nseq unsat-cache size",                (unsigned) m_unsat_node_cache.size());
         st.update("nseq unsat-cache hits",                m_num_cache_hits);
+        st.update("nseq bisim calls",                     m_stats.m_bisim_calls);
+        st.update("nseq bisim merges",                    m_stats.m_bisim_merges);
+        st.update("nseq bisim states",                    m_stats.m_bisim_states);
+        st.update("nseq landing land branches",           m_stats.m_landing_land);
+        st.update("nseq landing q raw",                   m_stats.m_landing_q_raw);
+        st.update("nseq landing q classes",               m_stats.m_landing_q_classes);
+        st.update("nseq landing escape branches",         m_stats.m_landing_escape);
         st.update("nseq sibling cuts",                    m_stats.m_num_sibling_cut);
         st.update("nseq sibling closures",                m_stats.m_num_sibling_closure);
 

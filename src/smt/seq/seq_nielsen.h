@@ -40,6 +40,7 @@ Author:
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/rewriter/seq_eq_approx.h"
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/rewriter/seq_regex_bisim.h"
 #include "model/model.h"
 #include "util/lbool.h"
 #include "util/dependency.h"
@@ -340,10 +341,22 @@ namespace seq {
         // land-state view annotation (paper §5.3)
         mem_kind          m_kind = mem_kind::plain;
         euf::snode const* m_root = nullptr;  // landing/acceptance state s (view F={s}; stabilizer: s=head)
+        // Further acceptance states, so a view can denote F = {m_root} ∪ m_alt_roots.
+        // Landing merges land-at-s branches whose states are language-equivalent:
+        // their tail constraints coincide and only the acceptance differs, so the
+        // union is exact where dropping either would lose words (equal languages
+        // do NOT give equal driving sets).  Empty on every ordinary view, kept
+        // sorted by snode id so operator< stays run-independent.
+        svector<euf::snode const*> m_alt_roots;
         unsigned          m_nu = 0;          // ν: snapshot index identifying Q
 
         str_mem(ast_manager& m, euf::snode const* str, euf::snode const* regex, dep_tracker const& dep):
             m(m), m_str(str), m_regex(regex), m_dep(dep) {}
+
+        // The user-declared assignment below suppresses the implicit move
+        // constructor, and vector<str_mem> requires one that is noexcept.
+        str_mem(str_mem const&) = default;
+        str_mem(str_mem&&) noexcept = default;
 
         str_mem& operator=(const str_mem& other) {
             m_str = other.m_str;
@@ -351,6 +364,7 @@ namespace seq {
             m_dep = other.m_dep;
             m_kind = other.m_kind;
             m_root = other.m_root;
+            m_alt_roots = other.m_alt_roots;
             m_nu = other.m_nu;
             return *this;
         }
@@ -367,9 +381,22 @@ namespace seq {
         bool is_plain() const { return m_kind == mem_kind::plain; }
         bool is_view()  const { return m_kind == mem_kind::stab_view; }
 
+        // Add an acceptance state, keeping the set sorted and duplicate-free.
+        void add_root(euf::snode const* r) {
+            if (!r || r == m_root)
+                return;
+            for (euf::snode const* o : m_alt_roots)
+                if (o == r)
+                    return;
+            m_alt_roots.push_back(r);
+            std::sort(m_alt_roots.begin(), m_alt_roots.end(),
+                      [](euf::snode const* a, euf::snode const* b) { return a->id() < b->id(); });
+        }
+
         bool operator==(const str_mem& other) const {
             return m_str->similar(other.m_str, m) && m_regex == other.m_regex
                 && m_kind == other.m_kind && m_root == other.m_root
+                && m_alt_roots == other.m_alt_roots
                 && m_nu == other.m_nu;
         }
 
@@ -406,12 +433,22 @@ namespace seq {
                     return m_root == nullptr;
                 return m_root->id() < other.m_root->id();
             }
+            // Same tie-breaker discipline for the rest of the acceptance set.
+            if (m_alt_roots.size() != other.m_alt_roots.size())
+                return m_alt_roots.size() < other.m_alt_roots.size();
+            for (unsigned i = 0; i < m_alt_roots.size(); ++i) {
+                if (m_alt_roots[i] != other.m_alt_roots[i])
+                    return m_alt_roots[i]->id() < other.m_alt_roots[i]->id();
+            }
             return m_nu < other.m_nu;
         }
 
         unsigned hash() const {
             return 381416603 * m_str->assoc_hash() + m_regex->assoc_hash();
         }
+
+        // True when the current run state is an acceptance state of the view.
+        bool accepts_here(nielsen_graph& g) const;
 
         // check if the constraint has the form x in R with x a single variable
         bool is_primitive() const;
@@ -898,6 +935,9 @@ namespace seq {
         unsigned m_num_unsat           = 0;
         unsigned m_num_unknown         = 0;
         unsigned m_num_simplify_conflict = 0;
+        // Breakdown of m_num_simplify_conflict by backtrack_reason: which
+        // check is actually killing the children the modifiers create.
+        unsigned m_clash_reason[(unsigned)backtrack_reason::children_failed + 1] = { 0 };
         unsigned m_num_extensions      = 0;
         unsigned m_num_fresh_vars      = 0;
         unsigned m_num_arith_infeasible = 0;
@@ -934,6 +974,18 @@ namespace seq {
         unsigned m_mod_var_num_unwinding_eq = 0;
         unsigned m_mod_var_num_unwinding_mem = 0;
         unsigned m_ax_diseq = 0;
+        // bisimulation state merging (smt.nseq.bisim)
+        unsigned m_bisim_calls         = 0;  // regex_bisim::are_equivalent invocations
+        unsigned m_bisim_merges        = 0;  // states aliased onto an existing representative
+        unsigned m_bisim_states        = 0;  // distinct representatives minted
+        // Fan-out of the landing decomposition: land-at-s children (|Q|) and
+        // escape children (|frontier|) summed over every firing.
+        unsigned m_landing_land        = 0;
+        // Reduction potential of a language-equivalence merge on the land-state
+        // set: |Q| against the number of equivalence classes in it (probe only).
+        unsigned m_landing_q_raw       = 0;
+        unsigned m_landing_q_classes   = 0;
+        unsigned m_landing_escape      = 0;
         // subsumption rule
         unsigned m_num_sibling_cut     = 0; // loop-cut leaves (deferred to an ancestor)
         unsigned m_num_sibling_closure = 0; // subtrees closed as string-only sibling conflicts
@@ -1012,6 +1064,10 @@ namespace seq {
         bool                          m_eq_approx = false;
         // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
         unsigned                      m_exploration_budget = 512;
+        bool                          m_bisim = false;
+        bool                          m_bisim_probe = false;
+        bool                          m_landing_merge = false;
+        unsigned                      m_widening_budget = 5000;
         // attach the view length abstraction to pinned variables
         bool                          m_view_length_constraints = true;
         unsigned                      m_regex_factorization_threshold = 1;
@@ -1140,6 +1196,26 @@ namespace seq {
         // been recorded into the partial DFA (lazy, once-per-component Q growth;
         // see ensure_automaton_explored).
         uint_set                      m_explored_automaton;
+        // --- bisimulation state merging (smt.nseq.bisim) -------------------
+        // The partial DFA keys its states by expr id, so two derivative terms
+        // that denote the same language but were built differently are two
+        // states: a cycle through them is never detected and Q holds both.
+        // canonical_state maps a state onto a representative of its language
+        // class, decided by seq::regex_bisim.  The map is MONOTONE -- a state's
+        // representative is fixed the first time it is seen and never
+        // re-pointed -- so the partial DFA stays the finite monotone graph the
+        // landing termination argument needs.
+        seq_rewriter                  m_bisim_rw;
+        seq::regex_bisim*             m_bisim_engine = nullptr;  // lazily allocated, released in reset()
+        obj_map<expr, expr*>          m_state_canon;             // state -> representative
+        // Representatives bucketed by a necessary condition for equivalence
+        // (nullability), so are_equivalent is only asked about plausible pairs.
+        std::unordered_map<unsigned, ptr_vector<expr>> m_canon_buckets;
+        expr_ref_vector               m_canon_pin;               // pins keys and representatives
+        // Per-solve budget on are_equivalent calls; 0 disables further merging
+        // for the rest of the search (the map built so far stays valid).
+        unsigned                      m_bisim_calls_left = 0;
+
         // Regexes whose forward-reachable automaton is recorded COMPLETELY (the
         // exploration queue drained without hitting the budget or the resource
         // limit).  m_explored_automaton alone cannot say this: a truncated run
@@ -1298,6 +1374,16 @@ namespace seq {
         void set_monadic_orientation(seq_monadic::orientation o) { m_monadic_orientation = o; }
         void set_eq_approx(bool e) { m_eq_approx = e; }
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
+        void set_bisim(bool e) { m_bisim = e; }
+        void set_bisim_probe(bool e) { m_bisim_probe = e; }
+        void set_landing_merge(bool e) { m_landing_merge = e; }
+        void set_widening_budget(unsigned b) { m_widening_budget = b; }
+        // Identity of two partial-DFA states up to bisimulation canonicalization.
+        // A land-state comes from the recorded automaton and is canonical, while
+        // the state a view has stepped to is the raw derivative, so every
+        // comparison of the two goes through here.  Plain pointer identity when
+        // smt.nseq.bisim is off.
+        bool same_state(euf::snode const* a, euf::snode const* b);
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
 
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
@@ -1490,6 +1576,8 @@ namespace seq {
             bool              m_complemented = false; // ~stab co-view (kind==stab_view)
             euf::snode const* m_state = nullptr;      // current plain regex state
             euf::snode const* m_root = nullptr;       // land-state view acceptance state s
+            // Rest of the acceptance set F, mirroring str_mem::m_alt_roots.
+            svector<euf::snode const*> m_alt_roots;
             unsigned          m_nu = 0;               // ν (Q snapshot)
             // Q_ν resolved once at construction (projection_region).  The gate is
             // tested on EVERY character step of every view component in the
@@ -1502,11 +1590,14 @@ namespace seq {
 
             static prod_comp mk_plain(euf::snode const* s) { prod_comp c; c.m_state = s; return c; }
             static prod_comp mk_view(euf::snode const* s, euf::snode const* root, unsigned nu,
-                                     uint_set const* region, bool compl_) {
+                                     uint_set const* region, bool compl_,
+                                     svector<euf::snode const*> const* alt = nullptr) {
                 prod_comp c;
                 c.m_kind = mem_kind::stab_view;
                 c.m_state = s;
                 c.m_root = root;
+                if (alt)
+                    c.m_alt_roots = *alt;
                 c.m_nu = nu;
                 c.m_region = region;
                 c.m_complemented = compl_;
@@ -1539,7 +1630,11 @@ namespace seq {
                                              prod_comp const& rhs, unsigned max_states);
 
         // acceptance / single-character step of one product component.
-        lbool comp_accepting(prod_comp const& c) const;
+        lbool comp_accepting(prod_comp const& c);
+        // Canonicalizing counterparts of prod_comp::state_in_region and of the
+        // land-state acceptance test (see the definitions).
+        bool comp_state_in_region(prod_comp const& c);
+        bool comp_at_root(prod_comp const& c);
         prod_comp comp_step(prod_comp const& c, euf::snode const* mt);
 
         // Shared pieces of the synchronous product engines (tuple-emptiness
@@ -1548,7 +1643,7 @@ namespace seq {
         static void prod_comp_key(prod_comp const& c, std::vector<unsigned>& key);
         // all-components-accepting test of a tuple (l_true: all accept,
         // l_false: some component rejects, l_undef: undecided);
-        lbool tuple_accepting(vector<prod_comp> const& cs) const;
+        lbool tuple_accepting(vector<prod_comp> const& cs);
         // step every component of a tuple by one joint minterm; false iff a
         // component died (the successor tuple is then to be discarded);
         bool step_tuple(vector<prod_comp> const& cur, euf::snode const* mt, vector<prod_comp>& nxt);
@@ -1567,11 +1662,27 @@ namespace seq {
 
         // Record a discovered derivative edge src→dst in the global partial DFA
         // (edges are deduplicated by (src,dst); transition labels are unused).
+        // Representative of state's language class (identity when smt.nseq.bisim
+        // is off, or when no equivalent representative is known).  Every place
+        // that uses an expr id as a partial-DFA state key goes through this, so
+        // the edge table, Q and the view gates all speak about the same states.
+        expr* canonical_state(expr* state);
+        // Number of language-equivalence classes among states, WITHOUT touching
+        // the canonicalization map (so the automaton is left alone).
+        unsigned count_state_classes(svector<euf::snode const*> const& states);
+        // Partition states by language equivalence, without recording anything
+        // globally (the partial DFA keeps its raw edges).
+        void group_states_by_language(svector<euf::snode const*> const& states,
+                                      vector<svector<euf::snode const*>>& out);
+        euf::snode const* canonical_state(euf::snode const* state);
+        void ensure_bisim();
+        void refill_bisim_budget();
+
         void record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* dst_re);
 
         // Trigger gate for the cycle machinery: does some non-empty recorded
         // path lead from head_re back to head_re in the partial DFA?
-        bool head_on_cycle(euf::snode const* head_re) const;
+        bool head_on_cycle(euf::snode const* head_re);
 
         // Landing decomposition (paper §5.3): Q is the set of explored states
         // forward-reachable from the head r in the partial DFA G, not merely r's
@@ -1583,7 +1694,7 @@ namespace seq {
         // discovery order (head_re first) — collected during the SAME walk, so
         // callers that need both do not pay a second pass over the partial DFA.
         void collect_reachable_from_head(euf::snode const* head_re, uint_set& Q,
-                                         ptr_vector<expr>* states = nullptr) const;
+                                         ptr_vector<expr>* states = nullptr);
 
         // The exact state-id set Q_ν of a minted snapshot, or nullptr for ν = 0
         // and for an unknown ν (both denote the empty region).  The returned

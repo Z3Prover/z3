@@ -265,6 +265,13 @@ struct smt_params : public preprocessor_params,
     bool m_nseq_monadic_landing = false;
     bool m_nseq_monadic_whole = true;
     bool m_nseq_eq_approx = false;
+    bool m_nseq_ssnf = false;
+    bool m_nseq_bisim = false;
+    bool m_nseq_bisim_probe = false;
+    bool m_nseq_landing_merge = false;
+    unsigned m_nseq_widening_budget = 5000;
+    bool m_nseq_charclass = false;
+    unsigned m_nseq_monadic_whole_budget = 200000;
     unsigned m_nseq_exploration_budget = 512;
     bool m_nseq_view_length_constraints = true;
     bool m_nseq_axiomatize_diseq = false;

@@ -25,6 +25,135 @@ Author:
 
 namespace seq {
 
+    // -----------------------------------------------------------------------
+    // Bisimulation state merging (smt.nseq.bisim)
+    // -----------------------------------------------------------------------
+    // Per-pair step bound for regex_bisim.  A merge is an optimization, never a
+    // proof obligation, so an undecidable pair must cost little.
+    static const unsigned BISIM_STEP_BOUND = 1u << 12;
+    // How many existing representatives a new state is compared against, most
+    // recent first: derivative states of one automaton arrive together.
+    static const unsigned BISIM_MAX_CANDIDATES = 8;
+    // Per-solve cap on are_equivalent calls.
+    static const unsigned BISIM_CALL_BUDGET = 1u << 14;
+
+    void nielsen_graph::refill_bisim_budget() {
+        // Every consumer of the equivalence check draws on this budget: the
+        // state canonicalization, the land-state merge and the probe.
+        const bool want = m_bisim || m_landing_merge || m_bisim_probe;
+        m_bisim_calls_left = want ? BISIM_CALL_BUDGET : 0;
+    }
+
+    void nielsen_graph::ensure_bisim() {
+        if (m_bisim_engine)
+            return;
+        m_bisim_engine = alloc(seq::regex_bisim, m_bisim_rw);
+        m_bisim_engine->set_step_bound(BISIM_STEP_BOUND);
+    }
+
+    expr* nielsen_graph::canonical_state(expr* state) {
+        if (!m_bisim || !state)
+            return state;
+        expr* rep = nullptr;
+        if (m_state_canon.find(state, rep))
+            return rep;
+
+        rep = state;
+        // Nullability is a necessary condition for equivalence and is cached on
+        // the regex info, so it partitions the representatives for free.  An
+        // unknown nullability gets its own bucket rather than being compared
+        // against everything.
+        const lbool nul = m_sg.get_seq_util().re.get_info(state).nullable;
+        const unsigned key = nul == l_true ? 1 : (nul == l_false ? 2 : 0);
+        ptr_vector<expr>& bucket = m_canon_buckets[key];
+        ensure_bisim();
+        unsigned tried = 0;
+        for (unsigned i = bucket.size(); i-- > 0 && tried < BISIM_MAX_CANDIDATES
+                                                && m_bisim_calls_left > 0; ) {
+            expr* cand = bucket[i];
+            ++tried;
+            --m_bisim_calls_left;
+            ++m_stats.m_bisim_calls;
+            if (m_bisim_engine->are_equivalent(cand, state) == l_true) {
+                rep = cand;
+                ++m_stats.m_bisim_merges;
+                break;
+            }
+        }
+        if (rep == state) {
+            bucket.push_back(state);
+            ++m_stats.m_bisim_states;
+        }
+        // Monotone: the entry is written once and never re-pointed, so the
+        // partial DFA stays finite and monotone.
+        m_state_canon.insert(state, rep);
+        m_canon_pin.push_back(state);
+        m_canon_pin.push_back(rep);
+        return rep;
+    }
+
+    unsigned nielsen_graph::count_state_classes(svector<euf::snode const*> const& states) {
+        ensure_bisim();
+        ptr_vector<expr> reps;
+        for (euf::snode const* sn : states) {
+            if (!sn || !sn->get_expr() || !sn->is_ground())
+                continue;
+            expr* e = sn->get_expr();
+            bool merged = false;
+            for (expr* r : reps) {
+                if (m_bisim_engine->are_equivalent(r, e) == l_true) {
+                    merged = true;
+                    break;
+                }
+            }
+            if (!merged)
+                reps.push_back(e);
+        }
+        return reps.size();
+    }
+
+    // Partition states into language-equivalence classes.  Unlike canonical_state
+    // this records nothing globally: the partial DFA's edges are untouched, so the
+    // reachable region is exactly what it was.  Classes come out in the order the
+    // states were given, so the emitted branches stay run-independent.
+    void nielsen_graph::group_states_by_language(svector<euf::snode const*> const& states,
+                                                 vector<svector<euf::snode const*>>& out) {
+        out.reset();
+        ensure_bisim();
+        for (euf::snode const* sn : states) {
+            bool placed = false;
+            if (sn && sn->get_expr() && sn->is_ground() && m_bisim_calls_left > 0) {
+                for (auto& cls : out) {
+                    euf::snode const* rep = cls[0];
+                    if (!rep->get_expr() || !rep->is_ground())
+                        continue;
+                    if (m_bisim_calls_left == 0)
+                        break;
+                    --m_bisim_calls_left;
+                    ++m_stats.m_bisim_calls;
+                    if (m_bisim_engine->are_equivalent(rep->get_expr(), sn->get_expr()) == l_true) {
+                        cls.push_back(sn);
+                        ++m_stats.m_bisim_merges;
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+            if (!placed) {
+                out.push_back(svector<euf::snode const*>());
+                out.back().push_back(sn);
+            }
+        }
+    }
+
+    euf::snode const* nielsen_graph::canonical_state(euf::snode const* state) {
+        if (!m_bisim || !state || !state->get_expr() || !state->is_ground())
+            return state;
+        expr* e = state->get_expr();
+        expr* rep = canonical_state(e);
+        return rep == e ? state : m_sg.mk(rep);
+    }
+
     uint_set const* nielsen_graph::projection_region(unsigned nu) const {
         if (nu == 0)
             return nullptr;
@@ -41,7 +170,9 @@ namespace seq {
         if (!state)
             return false;
         uint_set const* Q = projection_region(nu);
-        return Q && Q->contains(state->get_id());
+        // Q holds canonical states, so the state under test is canonicalized
+        // too -- otherwise a merged state would read as outside its own region.
+        return Q && Q->contains(canonical_state(state)->get_id());
     }
 
     void nielsen_graph::record_partial_derivative_edge(euf::snode const* src_re, euf::snode const* dst_re) {
@@ -51,8 +182,8 @@ namespace seq {
         if (src_re->is_fail() || dst_re->is_fail())
             return;
 
-        expr* src_e = src_re->get_expr();
-        expr* dst_e = dst_re->get_expr();
+        expr* src_e = canonical_state(src_re->get_expr());
+        expr* dst_e = canonical_state(dst_re->get_expr());
 
         // Deduplicate transitions by (src, dst) only — NOT by label.  The
         // Brzozowski automaton is deterministic, so the only a-transition out of
@@ -81,7 +212,7 @@ namespace seq {
         m_partial_dfa_out[src_e->get_id()].push_back(edge_idx);
     }
 
-    bool nielsen_graph::head_on_cycle(euf::snode const* head_re) const {
+    bool nielsen_graph::head_on_cycle(euf::snode const* head_re) {
         // Trigger gate for the cycle machinery: does some non-empty recorded
         // path lead from head_re back to head_re?  (Formerly a full SCC
         // computation whose result was only ever consumed as this boolean.)
@@ -90,7 +221,7 @@ namespace seq {
         // m_partial_dfa_pin.
         if (!head_re || !head_re->get_expr())
             return false;
-        const unsigned root_id = head_re->get_expr()->get_id();
+        const unsigned root_id = canonical_state(head_re->get_expr())->get_id();
         uint_set seen;
         unsigned_vector stack;
         auto push_succs = [&](unsigned s) {
@@ -124,7 +255,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     void nielsen_graph::collect_reachable_from_head(euf::snode const* head_re, uint_set& Q,
-                                                    ptr_vector<expr>* states) const {
+                                                    ptr_vector<expr>* states) {
         Q.reset();
         if (states)
             states->reset();
@@ -133,8 +264,10 @@ namespace seq {
         // Walk over expressions rather than bare ids so that `states` can be
         // filled in the same pass — the callers that need the state handles
         // would otherwise have to re-scan the whole partial DFA to recover them.
+        // The seed is canonicalized; every successor read out of the edge table
+        // already is (record_partial_derivative_edge canonicalizes both endpoints).
         ptr_vector<expr> stack;
-        stack.push_back(head_re->get_expr());
+        stack.push_back(canonical_state(head_re->get_expr()));
         while (!stack.empty()) {
             expr* se = stack.back();
             stack.pop_back();
@@ -165,7 +298,8 @@ namespace seq {
         // (projection_state_in_Q).
         if (!head_re || !head_re->get_expr())
             return 0;
-        const unsigned head_id = head_re->get_expr()->get_id();
+        expr* const head_e = canonical_state(head_re->get_expr());
+        const unsigned head_id = head_e->get_id();
 
         // Fast path: the partial DFA is monotone, so an unchanged edge count
         // means the head's reachable set is unchanged — reuse the previous ν.
@@ -203,9 +337,9 @@ namespace seq {
         // are already pinned by record_partial_derivative_edge).
         projection_snapshot snap;
         snap.m_ids = Q;
-        m_partial_dfa_pin.push_back(head_re->get_expr());
+        m_partial_dfa_pin.push_back(head_e);
         snap.m_states.swap(states);
-        SASSERT(!snap.m_states.empty() && snap.m_states[0] == head_re->get_expr());
+        SASSERT(!snap.m_states.empty() && snap.m_states[0] == head_e);
         m_projection_snapshots.emplace(nu, std::move(snap));
         m_projection_head_cache[head_id] = { m_partial_dfa_edges.size(), nu };
         return nu;
@@ -411,8 +545,12 @@ namespace seq {
         SASSERT(root_re);
         if (!root_re->is_ground())
             return false;
-        if (m_explored_automaton.contains(root_re->get_expr()->get_id()))
-            return m_fully_explored.contains(root_re->get_expr()->get_id());
+        // The explored/complete sets are keyed by canonical state, like the edge
+        // table, so a state merged onto an already-walked representative is not
+        // re-walked.
+        const unsigned root_eid = canonical_state(root_re->get_expr())->get_id();
+        if (m_explored_automaton.contains(root_eid))
+            return m_fully_explored.contains(root_eid);
 
         // Per-call cap on eagerly explored states.  Components that overflow it
         // fall back to the paper's lazy escape-driven exploration.  Exposed as
@@ -440,7 +578,7 @@ namespace seq {
                 return false; // resource limit: leave Q partial (sound under-approx)
             euf::snode const* re = queue.back();
             queue.pop_back();
-            const unsigned re_eid = re->get_expr()->get_id();
+            const unsigned re_eid = canonical_state(re->get_expr())->get_id();
             if (m_explored_automaton.contains(re_eid)) {
                 if (!m_fully_explored.contains(re_eid))
                     complete = false;
@@ -458,7 +596,8 @@ namespace seq {
                 if (!deriv || deriv->is_fail())
                     continue;
                 record_partial_derivative_edge(re, deriv);
-                if (deriv->is_ground() && !m_explored_automaton.contains(deriv->get_expr()->get_id()))
+                if (deriv->is_ground()
+                    && !m_explored_automaton.contains(canonical_state(deriv->get_expr())->get_id()))
                     queue.push_back(deriv);
             }
         }
@@ -563,11 +702,16 @@ namespace seq {
         // one-character law, Theorem "Soundness of views").
         const prod_comp rhs = mem.is_view()
             ? prod_comp::mk_view(mem.m_regex, mem.m_root, mem.m_nu,
-                                 projection_region(mem.m_nu), /*complemented*/ false)
+                                 projection_region(mem.m_nu), /*complemented*/ false,
+                                 &mem.m_alt_roots)
             : prod_comp::mk_plain(mem.m_regex);
 
         // TODO: Minimize the conflict here
-        const lbool result = check_concat_product_emptiness(factors, rhs, 5000);
+        // Widening is both the dominant pruner and the dominant cost of the
+        // landing configuration (it refutes ~62% of the nodes explored), so the
+        // state bound of its product search is a real knob: smaller prunes less
+        // per call but leaves more budget for the search.  smt.nseq.widening_budget.
+        const lbool result = check_concat_product_emptiness(factors, rhs, m_widening_budget);
         TRACE(seq, tout << "widen empty-product: " << result << " " << mem_pp(mem) << "\n";
         display(tout, &node) << "\n");
         return result == l_true;
@@ -577,7 +721,37 @@ namespace seq {
     // Synchronous product over plain / view / guard / co-view components.
     // -----------------------------------------------------------------------
 
-    lbool nielsen_graph::comp_accepting(prod_comp const& c) const {
+    // A component's own state is the raw derivative, while the region and the
+    // land-state it is tested against were recorded in the partial DFA and are
+    // therefore canonical.  Both tests canonicalize before comparing; with
+    // smt.nseq.bisim off they are the plain identity tests they replaced.
+    bool nielsen_graph::comp_state_in_region(prod_comp const& c) {
+        if (!m_bisim)
+            return c.state_in_region();
+        if (!c.m_region || !c.m_state || !c.m_state->get_expr())
+            return false;
+        return c.m_region->contains(canonical_state(c.m_state->get_expr())->get_id());
+    }
+
+    bool nielsen_graph::same_state(euf::snode const* a, euf::snode const* b) {
+        if (a == b)
+            return true;
+        if (!m_bisim || !a || !b || !a->get_expr() || !b->get_expr())
+            return false;
+        return canonical_state(a->get_expr()) == canonical_state(b->get_expr());
+    }
+
+    bool nielsen_graph::comp_at_root(prod_comp const& c) {
+        if (same_state(c.m_state, c.m_root))
+            return true;
+        for (euf::snode const* r : c.m_alt_roots) {
+            if (same_state(c.m_state, r))
+                return true;
+        }
+        return false;
+    }
+
+    lbool nielsen_graph::comp_accepting(prod_comp const& c) {
         if (c.m_dead)
             return l_false;
         switch (c.m_kind) {
@@ -585,8 +759,8 @@ namespace seq {
             return m_sg.re_nullable(c.m_state);
         case mem_kind::stab_view:
             if (c.m_complemented)
-                return (c.m_sink || c.m_state != c.m_root) ? l_true : l_false;
-            return (c.m_state == c.m_root) ? l_true : l_false;
+                return (c.m_sink || !comp_at_root(c)) ? l_true : l_false;
+            return comp_at_root(c) ? l_true : l_false;
         }
         return l_undef;
     }
@@ -604,13 +778,13 @@ namespace seq {
         case mem_kind::stab_view: {
             if (c.m_complemented) {
                 if (c.m_sink) return r;                    // Σ*
-                if (!c.state_in_region()) { r.m_sink = true; return r; }
+                if (!comp_state_in_region(c)) { r.m_sink = true; return r; }
                 euf::snode const* d = m_sg.brzozowski_deriv(c.m_state, mt);
                 if (!d || d->is_fail()) { r.m_sink = true; return r; } // ~∅ = Σ*
                 r.m_state = d;
                 return r;
             }
-            if (!c.state_in_region()) { r.m_dead = true; return r; }
+            if (!comp_state_in_region(c)) { r.m_dead = true; return r; }
             euf::snode const* d = m_sg.brzozowski_deriv(c.m_state, mt);
             if (!d || d->is_fail()) { r.m_dead = true; return r; }
             r.m_state = d;
@@ -626,7 +800,7 @@ namespace seq {
         key.push_back(c.m_state ? c.m_state->id() : UINT_MAX);
     }
 
-    lbool nielsen_graph::tuple_accepting(vector<prod_comp> const& cs) const {
+    lbool nielsen_graph::tuple_accepting(vector<prod_comp> const& cs) {
         bool any_undef = false;
         for (auto const& c : cs) {
             const lbool a = comp_accepting(c);
@@ -845,7 +1019,8 @@ namespace seq {
                 break;
             case mem_kind::stab_view:
                 out.push_back(prod_comp::mk_view(mem.m_regex, mem.m_root, mem.m_nu,
-                                                 projection_region(mem.m_nu), false));
+                                                 projection_region(mem.m_nu), false,
+                                                 &mem.m_alt_roots));
                 break;
             }
             dep = m_dep_mgr.mk_join(dep, mem.m_dep);

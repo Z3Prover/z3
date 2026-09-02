@@ -313,22 +313,59 @@ namespace seq {
 
             sort* seq_sort = x->get_expr()->get_sort();
 
+            // Merge land states that accept the same language into ONE branch with
+            // a set-valued acceptance.  Their tail constraints  u in s  coincide,
+            // and only the view's acceptance differs; the union  x in_{Q,F} R  is
+            // exact, whereas dropping either would lose words (equal languages do
+            // NOT give equal driving sets).  This is the only place the language
+            // equivalence is applied: the partial DFA's edges stay raw, so the
+            // reachable region -- and hence Q itself -- is unchanged.
+            vector<svector<euf::snode const*>> land_classes;
+            if (m_landing_merge)
+                group_states_by_language(Qstates, land_classes);
+            else {
+                for (euf::snode const* s : Qstates) {
+                    land_classes.push_back(svector<euf::snode const*>());
+                    land_classes.back().push_back(s);
+                }
+            }
+
             // (a) LAND-AT-s branches (progress: x removed).
-            for (euf::snode const* s : Qstates) {
+            m_stats.m_landing_land += land_classes.size();
+            if (m_bisim_probe) {
+                m_stats.m_landing_q_raw += Qstates.size();
+                m_stats.m_landing_q_classes += count_state_classes(Qstates);
+            }
+            for (svector<euf::snode const*> const& cls : land_classes) {
+                euf::snode const* s = cls[0];
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* le = mk_edge(node, child, "land", /*progress*/ true);
                 str_mem& cm = child->m_str_mem[mi];
                 cm.m_str = m_sg.drop_first(cm.m_str);      // u
                 cm.m_regex = s;                            // active becomes  u ∈ s
                 // x ∈_{Q_ν,{s}} R : state = R (start), root = s (acceptance).
-                child->add_str_mem(str_mem::mk_view(m, x, R, s, nu, mem.m_dep));
-                add_view_length_constraints(le, vli, nu, x, s->get_expr(), mem.m_dep);
+                str_mem view = str_mem::mk_view(m, x, R, s, nu, mem.m_dep);
+                for (unsigned k = 1; k < cls.size(); ++k)
+                    view.add_root(cls[k]);
+                child->add_str_mem(view);
+                // The length abstraction must admit EVERY acceptance state of the
+                // merged view, so pin against the class member nearest the head.
+                euf::snode const* len_s = s;
+                for (unsigned k = 1; k < cls.size(); ++k) {
+                    if (vli.m_dist.contains(cls[k]->get_expr()->get_id())
+                        && (!vli.m_dist.contains(len_s->get_expr()->get_id())
+                            || vli.m_dist[cls[k]->get_expr()->get_id()]
+                               < vli.m_dist[len_s->get_expr()->get_id()]))
+                        len_s = cls[k];
+                }
+                add_view_length_constraints(le, vli, nu, x, len_s->get_expr(), mem.m_dep);
                 TRACE(seq, tout << "landing: land x=" << mk_pp(x->get_expr(), m)
                                 << " at " << mk_pp(s->get_expr(), m)
                                 << " R=" << mk_pp(R->get_expr(), m) << " nu=" << nu << "\n");
             }
 
             // (b) ESCAPE branches (non-progress: consumes a fresh state, grows Q).
+            m_stats.m_landing_escape += frontier.size();
             for (frontier_edge const& fe : frontier) {
                 euf::snode const* p = fe.m_src;
                 char_set cs = m_seq_regex->minterm_to_char_set(fe.m_mt->get_expr());
@@ -455,7 +492,7 @@ namespace seq {
 
             // ---- degenerate case: p ∉ Q_ν  →  L_{Q_ν,F}(p) ⊆ {ε} ----------
             if (!projection_state_in_Q(p->get_expr(), mem.m_nu)) {
-                if (p != mem.m_root) {
+                if (!mem.accepts_here(*this)) {
                     // ε ∉ L_{Q_ν,{root}}(p): the view denotes ∅.
                     node->set_general_conflict();
                     node->set_conflict(backtrack_reason::regex, mem.m_dep);
@@ -491,7 +528,7 @@ namespace seq {
             // ---- land-only branching over Q_ν ∪ {root} --------------------
             svector<euf::snode const*> Sstates;
             collect_projection_states(mem.m_nu, Sstates);
-            if (all_of(Sstates, [&](euf::snode const* s) { return s != mem.m_root; }))
+            if (all_of(Sstates, [&](euf::snode const* s) { return !same_state(s, mem.m_root); }))
                 Sstates.push_back(mem.m_root);
 
             // Length abstraction from the current state p over the view's own
