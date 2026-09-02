@@ -25,7 +25,7 @@ namespace seq {
         return u.str.is_string(e, s) && s.length() == 1;
     }
 
-    void flatten(seq_util& u, expr* e, token_list& out) {
+    void flatten(seq_util& u, expr* e, expr_ref_vector& out) {
         expr* a = nullptr, *b = nullptr;
         if (u.str.is_concat(e, a, b)) {
             flatten(u, a, out);
@@ -43,7 +43,7 @@ namespace seq {
         out.push_back(e);
     }
 
-    static int cmp_tokens(token_list const& a, token_list const& b) {
+    static int cmp_tokens(expr_ref_vector const& a, expr_ref_vector const& b) {
         unsigned n = std::min(a.size(), b.size());
         for (unsigned i = 0; i < n; ++i) {
             unsigned ida = a[i]->get_id(), idb = b[i]->get_id();
@@ -66,8 +66,8 @@ namespace seq {
         return cmp_tokens(m_lhs, other.m_lhs) == 0 && cmp_tokens(m_rhs, other.m_rhs) == 0;
     }
 
-    void subst_in(token_list& ts, expr* var, token_list const& repl) {
-        token_list orig(ts);
+    void subst_in(expr_ref_vector& ts, expr* var, expr_ref_vector const& repl) {
+        expr_ref_vector orig(ts);
         ts.reset();
         for (unsigned i = 0; i < orig.size(); ++i) {
             if (orig.get(i) == var) {
@@ -80,7 +80,7 @@ namespace seq {
         }
     }
 
-    void eq_facet::apply_subst(expr* var, token_list const& repl) {
+    void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl) {
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
             subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);
             subst_in_trailed(m_trail, m_eqs, i, &equation::m_rhs, var, repl);
@@ -127,8 +127,8 @@ namespace seq {
         bool changed = false;
         for (unsigned i = 0; i < m_eqs.size(); ) {
             equation& eq = m_eqs[i];
-            token_list& L = eq.m_lhs;
-            token_list& R = eq.m_rhs;
+            expr_ref_vector& L = eq.m_lhs;
+            expr_ref_vector& R = eq.m_rhs;
 
             // strip a common leading prefix (constants are interned by the
             // ast_manager, so pointer equality already captures "same
@@ -138,15 +138,15 @@ namespace seq {
                 ++li; ++ri;
             }
             if (li > 0 || ri > 0) {
-                token_list newL(m), newR(m);
+                expr_ref_vector newL(m), newR(m);
                 for (unsigned k = li; k < L.size(); ++k) newL.push_back(L.get(k));
                 for (unsigned k = ri; k < R.size(); ++k) newR.push_back(R.get(k));
                 // Fine-grained: undo restores just this equation's two
-                // token_list fields addressed by (m_eqs, i, member), safe
+                // expr_ref_vector fields addressed by (m_eqs, i, member), safe
                 // across later erase()/push_back() reallocation - not the
                 // whole m_eqs vector.
-                m_trail.push(vector_field_trail<equation, token_list>(m_eqs, i, &equation::m_lhs));
-                m_trail.push(vector_field_trail<equation, token_list>(m_eqs, i, &equation::m_rhs));
+                m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, i, &equation::m_lhs));
+                m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, i, &equation::m_rhs));
                 L = std::move(newL);
                 R = std::move(newR);
                 changed = true;
@@ -168,7 +168,7 @@ namespace seq {
                 // (unconditional) substitution v := epsilon.
                 bool bad = false;
                 while (true) {
-                    token_list& side = L.empty() ? R : L;
+                    expr_ref_vector& side = L.empty() ? R : L;
                     if (side.empty())
                         break;
                     expr* tok = side.get(0);
@@ -176,7 +176,7 @@ namespace seq {
                         bad = true;
                         break;
                     }
-                    token_list empty_repl(m);
+                    expr_ref_vector empty_repl(m);
                     apply_subst(tok, empty_repl);
                     changed = true;
                 }
@@ -225,7 +225,7 @@ namespace seq {
     // deq_facet), so their state stays consistent with the branch. `eq_id`
     // is skipped since the caller has already applied the substitution to
     // that facet directly.
-    static void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, token_list const& repl) {
+    static void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl) {
         for (unsigned id = 0; id < target.num_facets(); ++id) {
             if (id == eq_id || !target.has_facet(id))
                 continue;
@@ -274,11 +274,11 @@ namespace seq {
 
                 auto it = std::make_unique<iterator>(n, m_id);
                 {
-                    token_list empty(m);
+                    expr_ref_vector empty(m);
                     it->push_back("v2:=eps", v2, empty);
                 }
                 {
-                    token_list repl(m);
+                    expr_ref_vector repl(m);
                     repl.push_back(v2);
                     repl.push_back(v1p);
                     it->push_back("v1:=v2.v1'", v1, repl);
@@ -286,7 +286,7 @@ namespace seq {
 
                 // Materialize the first branch ("v1:=eps") now.
                 f.push_scope();
-                token_list empty(m);
+                expr_ref_vector empty(m);
                 f.apply_subst(v1, empty);
                 broadcast_subst(n, m_id, v1, empty);
                 out = eq_tree::edge("v1:=eps", nullptr, true, 0);
@@ -301,7 +301,7 @@ namespace seq {
 
             auto it = std::make_unique<iterator>(n, m_id);
             {
-                token_list repl(m);
+                expr_ref_vector repl(m);
                 repl.push_back(c);
                 repl.push_back(var2);
                 it->push_back("v:=c.v'", var, repl);
@@ -309,7 +309,7 @@ namespace seq {
 
             // Materialize the first branch ("v:=eps") now.
             f.push_scope();
-            token_list empty(m);
+            expr_ref_vector empty(m);
             f.apply_subst(var, empty);
             broadcast_subst(n, m_id, var, empty);
             out = eq_tree::edge("v:=eps", nullptr, true, 0);
@@ -331,7 +331,7 @@ namespace seq {
         return cmp_tokens(m_lhs, other.m_lhs) == 0 && cmp_tokens(m_rhs, other.m_rhs) == 0;
     }
 
-    void deq_facet::apply_subst(expr* var, token_list const& repl) {
+    void deq_facet::apply_subst(expr* var, expr_ref_vector const& repl) {
         for (unsigned i = 0; i < m_diseqs.size(); ++i) {
             subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_lhs, var, repl);
             subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_rhs, var, repl);
@@ -376,8 +376,8 @@ namespace seq {
         bool changed = false;
         for (unsigned i = 0; i < m_diseqs.size(); ) {
             disequation& dq = m_diseqs[i];
-            token_list& L = dq.m_lhs;
-            token_list& R = dq.m_rhs;
+            expr_ref_vector& L = dq.m_lhs;
+            expr_ref_vector& R = dq.m_rhs;
 
             // strip a common leading prefix, exactly as eq_facet::simplify.
             unsigned li = 0, ri = 0;
@@ -385,11 +385,11 @@ namespace seq {
                 ++li; ++ri;
             }
             if (li > 0 || ri > 0) {
-                token_list newL(m), newR(m);
+                expr_ref_vector newL(m), newR(m);
                 for (unsigned k = li; k < L.size(); ++k) newL.push_back(L.get(k));
                 for (unsigned k = ri; k < R.size(); ++k) newR.push_back(R.get(k));
-                m_trail.push(vector_field_trail<disequation, token_list>(m_diseqs, i, &disequation::m_lhs));
-                m_trail.push(vector_field_trail<disequation, token_list>(m_diseqs, i, &disequation::m_rhs));
+                m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, &disequation::m_lhs));
+                m_trail.push(vector_field_trail<disequation, expr_ref_vector>(m_diseqs, i, &disequation::m_rhs));
                 L = std::move(newL);
                 R = std::move(newR);
                 changed = true;

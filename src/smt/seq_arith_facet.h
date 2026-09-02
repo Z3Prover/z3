@@ -177,7 +177,7 @@ namespace seq {
         // token-list side, per the module comment) from an eq_facet
         // equation and record it via add_constraint. Also records
         // `len(v) >= 0` once per fresh variable token seen.
-        void add_length_constraint(token_list const& lhs, token_list const& rhs);
+        void add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs);
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;

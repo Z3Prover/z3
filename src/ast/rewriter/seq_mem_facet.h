@@ -84,7 +84,7 @@ namespace seq {
         void add(str_mem const& sm);
         void narrow(unsigned idx, view const& new_view);
         void remove(unsigned idx);
-        void apply_subst(expr* var, token_list const& repl) override;
+        void apply_subst(expr* var, expr_ref_vector const& repl) override;
 
         stx::facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;

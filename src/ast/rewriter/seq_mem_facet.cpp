@@ -31,7 +31,7 @@ namespace seq {
             return 0;
         }
 
-        void flatten_to_expr(seq_util& u, token_list const& ts, expr_ref& out) {
+        void flatten_to_expr(seq_util& u, expr_ref_vector const& ts, expr_ref& out) {
             ast_manager& m = out.get_manager();
             expr_ref_vector es(m);
             for (expr* t : ts)
@@ -39,7 +39,7 @@ namespace seq {
             out = expr_ref(u.str.mk_concat(es.size(), es.data(), ts.empty() ? u.str.mk_string_sort() : ts[0]->get_sort()), m);
         }
 
-        void broadcast_subst(eq_tree::node& target, stx::facet_id src_id, expr* var, token_list const& repl) {
+        void broadcast_subst(eq_tree::node& target, stx::facet_id src_id, expr* var, expr_ref_vector const& repl) {
             for (unsigned id = 0; id < target.num_facets(); ++id) {
                 if (id == src_id || !target.has_facet(id))
                     continue;
@@ -68,7 +68,7 @@ namespace seq {
         m_mems.erase(m_mems.begin() + idx);
     }
 
-    void mem_facet::apply_subst(expr* var, token_list const& repl) {
+    void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl) {
         expr_ref replacement(m);
         flatten_to_expr(u, repl, replacement);
         for (unsigned i = 0; i < m_mems.size(); ++i) {
@@ -115,7 +115,7 @@ namespace seq {
             auto const& sm = f.memberships()[i];
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             seq_util& u = m_rw.u();
-            token_list ts(f.get_manager());
+            expr_ref_vector ts(f.get_manager());
             flatten(f.get_seq_util(), sm.m_str.get(), ts);
             bool bad = false;
             for (expr* t : ts) {
@@ -166,7 +166,7 @@ namespace seq {
             return false;
         m_done = true;
         auto& eq = m_n.facet_as<eq_facet>(m_eq_id);
-        token_list repl(eq.get_manager());
+        expr_ref_vector repl(eq.get_manager());
         expr* fresh = eq.mk_fresh_var(m_var->get_sort());
         repl.push_back(fresh);
         eq.push_scope();
@@ -184,7 +184,7 @@ namespace seq {
         seq_util& u = mf.get_seq_util();
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             expr* s = mf.memberships()[i].m_str.get();
-            token_list ts(mf.get_manager());
+            expr_ref_vector ts(mf.get_manager());
             flatten(u, s, ts);
             if (ts.empty() || is_const_token(u, ts.get(0)))
                 continue;
@@ -192,7 +192,7 @@ namespace seq {
             auto it = std::make_unique<iterator>(n, m_mem_id, m_eq_id, i, var);
             auto& eq = n.facet_as<eq_facet>(m_eq_id);
             eq.push_scope();
-            token_list empty(eq.get_manager());
+            expr_ref_vector empty(eq.get_manager());
             eq.apply_subst(var, empty);
             broadcast_subst(n, m_eq_id, var, empty);
             out = eq_tree::edge("mem-v:=eps", nullptr, true, 0);
@@ -253,7 +253,7 @@ namespace seq {
             return nullptr;
         bool has_multi = false;
         for (auto const& sm : mf.memberships()) {
-            token_list ts(mf.get_manager());
+            expr_ref_vector ts(mf.get_manager());
             flatten(mf.get_seq_util(), sm.m_str.get(), ts);
             unsigned vars = 0;
             for (expr* t : ts)

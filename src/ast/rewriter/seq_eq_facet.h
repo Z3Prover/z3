@@ -81,18 +81,18 @@ namespace seq {
     // but required by stx::search_tree's template parameter) suffices.
     using eq_tree = stx::search_tree<unsigned>;
 
-    // A flattened side of a word equation: a sequence of tokens, each
-    // either a length-1 string constant or an opaque variable/term.
-    // Reference-counted (rather than a raw ptr_vector<expr>) since tokens
-    // may be freshly-created variables (e.g. from mk_fresh_var) that
-    // nothing else in the system is holding a reference to.
-    using token_list = expr_ref_vector;
+    // A flattened side of a word equation is represented directly as an
+    // `expr_ref_vector`: a sequence of tokens, each either a length-1
+    // string constant or an opaque variable/term. Reference-counted
+    // (rather than a raw ptr_vector<expr>) since tokens may be
+    // freshly-created variables (e.g. from mk_fresh_var) that nothing
+    // else in the system is holding a reference to.
 
     // Flatten a str-sort expr (a str.++ chain, possibly a bare leaf) into
     // its token list: constants are exploded into one token per character;
     // any other leaf (variable or otherwise-opaque term) becomes a single
     // token. `u` must be the seq_util of `e`'s ast_manager.
-    void flatten(seq_util& u, expr* e, token_list& out);
+    void flatten(seq_util& u, expr* e, expr_ref_vector& out);
 
     // Is `e` a length-1 string constant?
     bool is_const_token(seq_util& u, expr* e);
@@ -100,7 +100,7 @@ namespace seq {
     // Replace every occurrence of `var` in `ts` with the tokens of `repl`
     // (order-preserving splice). Shared helper between `eq_facet` and
     // `deq_facet` (and any future facet holding token-list equations).
-    void subst_in(token_list& ts, expr* var, token_list const& repl);
+    void subst_in(expr_ref_vector& ts, expr* var, expr_ref_vector const& repl);
 
     // Mixin implemented by any facet whose state is expressed over the
     // same shared variable pool as `eq_facet`'s token lists, so that a
@@ -115,7 +115,7 @@ namespace seq {
     class subst_sink_i {
     public:
         virtual ~subst_sink_i() = default;
-        virtual void apply_subst(expr* var, token_list const& repl) = 0;
+        virtual void apply_subst(expr* var, expr_ref_vector const& repl) = 0;
     };
 
     // Trail undo object for a single-element `vector<T>::erase(idx)`:
@@ -149,7 +149,7 @@ namespace seq {
     // of a vector, not a raw reference - so it stays safe even if later
     // operations (erase/push_back) reallocate or shift the vector's
     // storage before undo() runs. `Member` is a pointer-to-member selecting
-    // the (move-only, e.g. token_list/expr_ref) field to restore.
+    // the (move-only, e.g. expr_ref_vector/expr_ref) field to restore.
     template <typename Elem, typename T>
     class vector_field_trail : public ::trail {
         vector<Elem>& m_vec;
@@ -173,14 +173,14 @@ namespace seq {
     // no-op returning false: apply_subst's per-call loop over every entry
     // only pays for a trail object on the entries that actually change.
     template <typename Elem>
-    inline bool subst_in_trailed(trail_stack& trail, vector<Elem>& vec, unsigned idx, token_list Elem::* member, expr* var, token_list const& repl) {
-        token_list& ts = vec[idx].*member;
+    inline bool subst_in_trailed(trail_stack& trail, vector<Elem>& vec, unsigned idx, expr_ref_vector Elem::* member, expr* var, expr_ref_vector const& repl) {
+        expr_ref_vector& ts = vec[idx].*member;
         bool present = false;
         for (expr* t : ts)
             if (t == var) { present = true; break; }
         if (!present)
             return false;
-        trail.push(vector_field_trail<Elem, token_list>(vec, idx, member));
+        trail.push(vector_field_trail<Elem, expr_ref_vector>(vec, idx, member));
         subst_in(ts, var, repl);
         return true;
     }
@@ -193,9 +193,9 @@ namespace seq {
     class eq_facet : public stx::facet_i, public subst_sink_i {
     public:
         struct equation {
-            token_list m_lhs;
-            token_list m_rhs;
-            equation(token_list const& lhs, token_list const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
+            expr_ref_vector m_lhs;
+            expr_ref_vector m_rhs;
+            equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
             bool operator<(equation const& other) const;
             bool operator==(equation const& other) const;
         };
@@ -213,11 +213,11 @@ namespace seq {
 
         // Non-trailed: only for root construction, before any search has
         // begun (no branch to undo back past).
-        void add_equation(token_list const& lhs, token_list const& rhs) {
+        void add_equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
             m_eqs.push_back(equation(lhs, rhs));
         }
         void add_equation(expr* lhs, expr* rhs) {
-            token_list lts(m), rts(m);
+            expr_ref_vector lts(m), rts(m);
             flatten(u, lhs, lts);
             flatten(u, rhs, rts);
             add_equation(lts, rts);
@@ -227,7 +227,7 @@ namespace seq {
         // branch mid-search (e.g. ncontains_split's "needle aligns here"
         // branch, which introduces a fresh eq_facet equation rather than
         // a substitution). Undo just pops the pushed element.
-        void add_equation_trailed(token_list const& lhs, token_list const& rhs) {
+        void add_equation_trailed(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
             m_eqs.push_back(equation(lhs, rhs));
             m_trail.push(push_back_trail<equation>(m_eqs));
         }
@@ -238,7 +238,7 @@ namespace seq {
         // equation currently in the facet. Trailed per-equation: only
         // equations that actually contain `var` register an undo object
         // (see subst_in_trailed).
-        void apply_subst(expr* var, token_list const& repl) override;
+        void apply_subst(expr* var, expr_ref_vector const& repl) override;
 
         // Push a new trail scope (used by word_eq_split to open a branch
         // before its first mutating apply_subst call).
@@ -285,12 +285,12 @@ namespace seq {
             // Remaining alternatives to produce, in order. Each entry is a
             // (rule_name, var, replacement) triple; `next()` pops the
             // front one, mutates in place, pushes a scope, and returns it.
-            struct alt { char const* m_name; expr* m_var; token_list m_repl; };
+            struct alt { char const* m_name; expr* m_var; expr_ref_vector m_repl; };
             vector<alt>    m_pending;
             unsigned       m_pos = 0;
         public:
             iterator(eq_tree::node& n, stx::facet_id id) : m_n(n), m_id(id) {}
-            void push_back(char const* name, expr* var, token_list const& repl) {
+            void push_back(char const* name, expr* var, expr_ref_vector const& repl) {
                 m_pending.push_back(alt{ name, var, repl });
             }
             bool next(eq_tree::edge& out) override;
@@ -318,9 +318,9 @@ namespace seq {
     class deq_facet : public stx::facet_i, public subst_sink_i {
     public:
         struct disequation {
-            token_list m_lhs;
-            token_list m_rhs;
-            disequation(token_list const& lhs, token_list const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
+            expr_ref_vector m_lhs;
+            expr_ref_vector m_rhs;
+            disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
             bool operator<(disequation const& other) const;
             bool operator==(disequation const& other) const;
         };
@@ -337,11 +337,11 @@ namespace seq {
         seq_util& get_seq_util() const { return u; }
 
         // Non-trailed: root construction only.
-        void add_disequation(token_list const& lhs, token_list const& rhs) {
+        void add_disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
             m_diseqs.push_back(disequation(lhs, rhs));
         }
         void add_disequation(expr* lhs, expr* rhs) {
-            token_list lts(m), rts(m);
+            expr_ref_vector lts(m), rts(m);
             flatten(u, lhs, lts);
             flatten(u, rhs, rts);
             add_disequation(lts, rts);
@@ -352,7 +352,7 @@ namespace seq {
         // Apply a substitution `var := repl` (chosen elsewhere, by
         // eq_facet's split plugin) to every pending disequation. Trailed
         // per-disequation (only entries containing `var` register undo).
-        void apply_subst(expr* var, token_list const& repl) override;
+        void apply_subst(expr* var, expr_ref_vector const& repl) override;
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;

@@ -27,9 +27,9 @@ Abstract:
     `unroll_not_contains`) per facet-ncontains.md:
 
       - `ncontains_facet` owns `vector<str_ncontains>`, each a pending
-        `haystack` / `needle` obligation, flattened into `token_list`s
+        `haystack` / `needle` obligation, flattened into `expr_ref_vector`s
         exactly like eq_facet/deq_facet's equations (shared helpers:
-        `seq::flatten`, `seq::token_list`, `seq::subst_in`) so that a
+        `seq::flatten`, `seq::expr_ref_vector`, `seq::subst_in`) so that a
         substitution chosen by `word_eq_split` keeps every obligation's
         haystack/needle in sync via `subst_sink_i::apply_subst` (this is
         the fix for the nseq monotonicity-soundness gap documented in
@@ -98,9 +98,9 @@ namespace seq {
     // equations) as flattened token lists so that eq_facet substitutions
     // keep it in sync via subst_sink_i.
     struct str_ncontains {
-        token_list m_haystack;
-        token_list m_needle;
-        str_ncontains(token_list const& h, token_list const& n) : m_haystack(h), m_needle(n) {}
+        expr_ref_vector m_haystack;
+        expr_ref_vector m_needle;
+        str_ncontains(expr_ref_vector const& h, expr_ref_vector const& n) : m_haystack(h), m_needle(n) {}
         bool operator<(str_ncontains const& other) const;
         bool operator==(str_ncontains const& other) const;
     };
@@ -121,11 +121,11 @@ namespace seq {
         seq_util& get_seq_util() const { return u; }
 
         // Non-trailed: root construction only.
-        void add_ncontains(token_list const& h, token_list const& n) {
+        void add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n) {
             m_ncs.push_back(str_ncontains(h, n));
         }
         void add_ncontains(expr* haystack, expr* needle) {
-            token_list hts(m), nts(m);
+            expr_ref_vector hts(m), nts(m);
             flatten(u, haystack, hts);
             flatten(u, needle, nts);
             add_ncontains(hts, nts);
@@ -140,13 +140,13 @@ namespace seq {
         // `new_haystack` (used by ncontains_propagation's deterministic
         // prefix-unrolling: strip one leading haystack token, keep the
         // same needle). Trailed.
-        void replace_with_tail(unsigned idx, token_list const& new_haystack);
+        void replace_with_tail(unsigned idx, expr_ref_vector const& new_haystack);
 
         // Broadcast substitution from eq_facet's Nielsen split - keeps
         // every obligation's haystack/needle in sync with the shared
         // variable pool (the monotonicity-soundness fix, see module
         // comment).
-        void apply_subst(expr* var, token_list const& repl) override;
+        void apply_subst(expr* var, expr_ref_vector const& repl) override;
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;

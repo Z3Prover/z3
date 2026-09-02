@@ -19,7 +19,7 @@ Author:
 
 namespace seq {
 
-    static int cmp_token_lists(token_list const& a, token_list const& b) {
+    static int cmp_expr_ref_vectors(expr_ref_vector const& a, expr_ref_vector const& b) {
         unsigned n = std::min(a.size(), b.size());
         for (unsigned i = 0; i < n; ++i) {
             unsigned ida = a[i]->get_id(), idb = b[i]->get_id();
@@ -32,15 +32,15 @@ namespace seq {
     }
 
     bool str_ncontains::operator<(str_ncontains const& other) const {
-        int c = cmp_token_lists(m_haystack, other.m_haystack);
+        int c = cmp_expr_ref_vectors(m_haystack, other.m_haystack);
         if (c != 0)
             return c < 0;
-        return cmp_token_lists(m_needle, other.m_needle) < 0;
+        return cmp_expr_ref_vectors(m_needle, other.m_needle) < 0;
     }
 
     bool str_ncontains::operator==(str_ncontains const& other) const {
-        return cmp_token_lists(m_haystack, other.m_haystack) == 0 &&
-               cmp_token_lists(m_needle, other.m_needle) == 0;
+        return cmp_expr_ref_vectors(m_haystack, other.m_haystack) == 0 &&
+               cmp_expr_ref_vectors(m_needle, other.m_needle) == 0;
     }
 
     void ncontains_facet::remove(unsigned idx) {
@@ -48,15 +48,15 @@ namespace seq {
         m_ncs.erase(m_ncs.begin() + idx);
     }
 
-    void ncontains_facet::replace_with_tail(unsigned idx, token_list const& new_haystack) {
-        token_list needle(m_ncs[idx].m_needle);
+    void ncontains_facet::replace_with_tail(unsigned idx, expr_ref_vector const& new_haystack) {
+        expr_ref_vector needle(m_ncs[idx].m_needle);
         m_trail.push(vector_erase_trail<str_ncontains>(m_ncs, idx));
         m_ncs.erase(m_ncs.begin() + idx);
         m_ncs.push_back(str_ncontains(new_haystack, needle));
         m_trail.push(push_back_trail<str_ncontains>(m_ncs));
     }
 
-    void ncontains_facet::apply_subst(expr* var, token_list const& repl) {
+    void ncontains_facet::apply_subst(expr* var, expr_ref_vector const& repl) {
         for (unsigned i = 0; i < m_ncs.size(); ++i) {
             subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_haystack, var, repl);
             subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_needle, var, repl);
@@ -99,7 +99,7 @@ namespace seq {
     // Build a str.++ chain expr from a token list, for querying
     // arith_facet's length-gate (`u.str.mk_length` needs an actual
     // sequence-sorted expr, not a token vector).
-    static expr* tokens_to_expr(seq_util& u, ast_manager& m, token_list const& ts) {
+    static expr* tokens_to_expr(seq_util& u, ast_manager& m, expr_ref_vector const& ts) {
         if (ts.empty())
             return u.str.mk_empty(u.str.mk_string(zstring())->get_sort());
         return u.str.mk_concat(ts.size(), ts.data(), ts[0]->get_sort());
@@ -115,7 +115,7 @@ namespace seq {
     // different), and `l_undef` if the alignment cannot yet be decided
     // (some position pairs an unresolved variable with anything, so a
     // future substitution could still make it match or not).
-    static lbool compare_alignment(seq_util& u, token_list const& h, unsigned pos, token_list const& n) {
+    static lbool compare_alignment(seq_util& u, expr_ref_vector const& h, unsigned pos, expr_ref_vector const& n) {
         bool undef = false;
         for (unsigned k = 0; k < n.size(); ++k) {
             expr* ht = h.get(pos + k);
@@ -195,7 +195,7 @@ namespace seq {
                 return stx::simplify_result::conflict;
             }
             if (al == l_false) {
-                token_list tail(m);
+                expr_ref_vector tail(m);
                 for (unsigned k = 1; k < nc.m_haystack.size(); ++k)
                     tail.push_back(nc.m_haystack.get(k));
                 f.replace_with_tail(i, tail);

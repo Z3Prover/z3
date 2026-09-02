@@ -69,7 +69,7 @@ namespace seq {
         m_conflict = (m_solver.check() == l_false);
     }
 
-    void arith_facet::add_length_constraint(token_list const& lhs, token_list const& rhs) {
+    void arith_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
         expr_ref lsum(a.mk_int(0), m);
         expr_ref rsum(a.mk_int(0), m);
         for (expr* t : lhs) {
