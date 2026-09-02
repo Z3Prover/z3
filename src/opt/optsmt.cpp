@@ -29,6 +29,7 @@ Notes:
 --*/
 
 #include <typeinfo>
+#include "util/common_msgs.h"
 #include "opt/optsmt.h"
 #include "opt/opt_nlsat.h"
 #include "math/polynomial/algebraic_numbers.h"
@@ -233,7 +234,10 @@ namespace opt {
         inf_eps step_bound = infty;
         bool last_bound_valid = true;
         unsigned climb_rounds = 0;
-        bool unbounded_checked = false;
+        unsigned unbounded_check_rounds = 8;
+        // initial budget: same constant as the bounded nlsat run in
+        // nla_core::bounded_nlsat; the known unbounded proofs need 4k-23k
+        unsigned unbounded_check_rlimit = 100000;
 
         while (m.inc()) {
             SASSERT(delta_per_step.is_int());
@@ -272,17 +276,33 @@ namespace opt {
                 // unbounded (e.g. maximize x under x*y = 1 /\ y > 0): every
                 // model-derived step below stays satisfiable, so the loop
                 // climbs forever and never reaches the nlsat/bisect fallback.
-                // After a streak of such rounds decide the question once
-                // (prove_unbounded_above, README section 3.3): on the proof,
-                // commit +oo with the current model as a witness.
+                // After a streak of such rounds try to decide the question
+                // with prove_unbounded_above (README section 3.3): on the
+                // proof, commit +oo with the current model as a witness.
+                // A bounded objective climbing to its optimum in small steps
+                // shows the same streak, and on it the nlqsat query is pure
+                // waste that can dwarf the whole optimization (a 0.1s
+                // benchmark regressed past 180s firing it once), so the query
+                // runs under a resource-count budget (an rlimit, not
+                // wall-clock time, so the same input behaves the same on
+                // every machine and build), and every inconclusive attempt
+                // doubles both the budget and the streak required for the
+                // next attempt: a truly unbounded climb still gets decided,
+                // a bounded one spends at most a fixed share of its rounds
+                // here.
                 if (is_int || refuted_hint.is_finite())
                     climb_rounds = 0;
-                else if (m_optsmt_nlsat && !unbounded_checked && ++climb_rounds >= 8) {
-                    unbounded_checked = true;
-                    if (prove_unbounded_above(obj_index)) {
+                else if (m_optsmt_nlsat && ++climb_rounds >= unbounded_check_rounds) {
+                    climb_rounds = 0;
+                    unbounded_check_rounds *= 2;
+                    if (prove_unbounded_above(obj_index, unbounded_check_rlimit)) {
                         set_best(obj_index, infty, is_maximize);
                         break;
                     }
+                    // saturate: an overflow to 0 would make the budget
+                    // infinite (reslimit::push treats 0 as no limit)
+                    if (unbounded_check_rlimit <= UINT_MAX / 2)
+                        unbounded_check_rlimit *= 2;
                 }
                 // When maximize_objective could not validate its arithmetic
                 // hint (bound_valid == false), the blocker it produced refers to
@@ -402,10 +422,19 @@ namespace opt {
 
     /**
        \brief Certify that objective idx is unbounded above over the current
-       assertions with one quantified-NRA (nlqsat) query (README section 3.3);
-       bounds pushed by the climb hold in the current model and are harmless.
+       assertions with one quantified-NRA (nlqsat) query (README section 3.3),
+       given a budget of rlimit_budget resource-counter ticks; bounds pushed
+       by the climb hold in the current model and are harmless. The budget's
+       expiry surfaces from the nlsat solver as a solver_exception, not a
+       tactic_exception, so any z3_exception here means "no proof within
+       budget", never an error to propagate. A cancellation flag (a soft
+       timeout, ctrl-c) also lands in the same catch, and popping the budget
+       would erase it; it is probed while still set and re-raised so the
+       caller's m.inc() loop still observes it. An expired tighter enclosing
+       rlimit needs no such care: the counter stays above that ceiling after
+       the pop and keeps failing on its own.
     */
-    bool optsmt::prove_unbounded_above(unsigned idx) {
+    bool optsmt::prove_unbounded_above(unsigned idx, unsigned rlimit_budget) {
         if (!m_lower[idx].is_finite())
             return false;
         expr_ref_vector hard(m);
@@ -413,9 +442,29 @@ namespace opt {
             hard.push_back(m_s->get_assertion(i));
         params_ref p;
         nlsat_opt engine(m, p);
-        lbool r = engine.prove_unbounded(hard, m_objs.get(idx), m_lower[idx].get_rational());
+        lbool r = l_undef;
+        uint64_t start = m.limit().count();
+        uint64_t consumed = 0;
+        bool external_cancel = false;
+        {
+            scoped_rlimit budget(m.limit(), rlimit_budget);
+            try {
+                r = engine.prove_unbounded(hard, m_objs.get(idx), m_lower[idx].get_rational());
+            }
+            catch (z3_exception&) {
+                external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
+                r = l_undef;
+            }
+            // read before the pop of the budget truncates the counter
+            consumed = m.limit().count() - start;
+        }
+        if (external_cancel)
+            m.limit().cancel();
         IF_VERBOSE(1, if (r == l_true) verbose_stream() << "(optsmt nlsat unbounded above)\n");
-        TRACE(opt, tout << "prove_unbounded_above: " << r << "\n";);
+        IF_VERBOSE(3, verbose_stream() << "(optsmt unbounded-check :result " << r
+                   << " :rlimit-consumed " << consumed
+                   << " :budget " << rlimit_budget << ")\n");
+        TRACE(opt, tout << "prove_unbounded_above: " << r << " budget: " << rlimit_budget << "\n";);
         return r == l_true;
     }
 
