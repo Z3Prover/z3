@@ -20,6 +20,7 @@ z3_add_component(simplifiers
     factor_simplifier.cpp
     fold_unfold.cpp
     lambda_simplifier.cpp
+    lambda_reify_simplifier.cpp
     leibniz_simplifier.cpp
     linear_equation.cpp
     max_bv_sharing.cpp
@@ -28,6 +29,7 @@ z3_add_component(simplifiers
     reduce_args_simplifier.cpp
     solve_context_eqs.cpp
     solve_eqs.cpp
+    witness_instantiation_simplifier.cpp
   COMPONENT_DEPENDENCIES
     bit_blaster
     euf
@@ -43,10 +45,12 @@ z3_add_component(simplifiers
     elim_bounds.h
     elim_term_ite.h
     lambda_simplifier.h
+    lambda_reify_simplifier.h
     leibniz_simplifier.h
     pull_nested_quantifiers.h
     push_ite.h
     randomizer.h
     refine_inj_axiom.h
     rewriter_simplifier.h
+    witness_instantiation_simplifier.h
 )

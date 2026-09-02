@@ -23,7 +23,9 @@
 #include "ast/simplifiers/then_simplifier.h"
 #include "ast/simplifiers/rewriter_simplifier.h"
 #include "ast/simplifiers/lambda_simplifier.h"
+#include "ast/simplifiers/lambda_reify_simplifier.h"
 #include "ast/simplifiers/leibniz_simplifier.h"
+#include "ast/simplifiers/witness_instantiation_simplifier.h"
 #include "solver/solver.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
@@ -2955,6 +2957,8 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
     try {
         cmd_context ctx;
+        if (g_display_model)
+            ctx.set_produce_models(true);
 
         tptp_parser p(ctx);
         p.parse_input(in, current_file ? current_file : ".");
@@ -2964,18 +2968,36 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         // Pre-processing pipeline applied to the solver's assertions before search:
         // simplify -> unfold lambda-defined constants (shallow HOL/modal embeddings) -> simplify.
         // Must be installed before set_solver_factory(), which eagerly builds the solver.
-        if (tptp().unfold_lambda_macros() || tptp().leibniz_instantiation()) {
+        if (tptp().unfold_lambda_macros() || tptp().reify_lambda_literals() || tptp().leibniz_instantiation() || tptp().witness_instantiation()) {
             bool do_lambda = tptp().unfold_lambda_macros();
+            bool do_reify = tptp().reify_lambda_literals();
             bool do_leibniz = tptp().leibniz_instantiation();
-            simplifier_factory factory = [do_lambda, do_leibniz](ast_manager& m, params_ref const& p, dependent_expr_state& st) {
+            bool do_witness = tptp().witness_instantiation();
+            simplifier_factory factory = [do_lambda, do_reify, do_leibniz, do_witness](ast_manager& m, params_ref const& p, dependent_expr_state& st) {
                 scoped_ptr<then_simplifier> t = alloc(then_simplifier, m, p, st);
                 t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
                 if (do_lambda) {
                     t->add_simplifier(alloc(lambda_simplifier, m, p, st));
                     t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
                 }
+                if (do_reify) {
+                    // Reify any remaining lambda literals (whether written
+                    // inline as arguments, or reintroduced by unfolding a
+                    // lambda-defined macro above) into fresh named constants
+                    // so they participate in ordinary E-matching.
+                    t->add_simplifier(alloc(lambda_reify_simplifier, m, p, st));
+                    t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
+                }
                 if (do_leibniz) {
                     t->add_simplifier(alloc(leibniz_simplifier, m, p, st));
+                    t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
+                }
+                if (do_witness) {
+                    // Seed a ground witness for any uninterpreted sort that
+                    // otherwise has no ground term at all, so quantifiers
+                    // ranging purely over such a sort are not permanently
+                    // unreachable to E-matching (see ANA068^1.p).
+                    t->add_simplifier(alloc(witness_instantiation_simplifier, m, p, st));
                     t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
                 }
                 return t.detach();
@@ -2991,8 +3013,15 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
 
         // Optional: dump the parsed goal as an SMT-LIB2 benchmark (parameter tptp.dump_smt2
         // gives the output file path). Used to produce SMTLIB versions of TPTP instances.
+        // The simplifier_solver only flushes its pending preprocessing pipeline (running the
+        // configured simplifiers) lazily, when push()/check_sat_core() is invoked. We trigger
+        // that flush explicitly with a push()/pop() pair (leaving solver state unchanged) before
+        // dumping and before calling check_sat, so the dump captures fully preprocessed formulas,
+        // and so it still happens even if check_sat times out (on_timeout calls _Exit(0)).
         std::string dump_path = tptp().dump_smt2().str();
         if (!dump_path.empty()) {
+            ctx.get_solver()->push();
+            ctx.get_solver()->pop(1);
             std::ofstream dout(dump_path);
             if (dout) {
                 dout << "; Auto-generated from TPTP input: " << (current_file ? current_file : "?") << "\n";
@@ -3001,6 +3030,29 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
                 dout << "(set-param :pi.max_multi_patterns 1)\n";
                 ctx.get_solver()->display(dout);
                 dout << "(check-sat)\n";
+            }
+        }
+
+        // Some simplifiers (e.g. witness_instantiation_simplifier) add new
+        // formulas (e.g. an instantiated axiom seeded with a fresh witness
+        // constant) that themselves may need a further simplification pass
+        // (e.g. lambda_reify_simplifier reifying a lambda literal newly
+        // exposed inside that instantiated axiom, or th_rewriter folding it).
+        // The pipeline's reduce() only processes each simplifier once per
+        // flush over the formulas present at that time, so force one more
+        // flush here (a push()/pop() pair, a no-op on solver state) to let
+        // the whole pipeline run again over any newly added formulas before
+        // starting search. Guard with try/catch: a semantic error surfacing
+        // from a simplifier pass here (e.g. an ill-sorted term synthesized
+        // by one of these experimental passes) must not abort the whole
+        // run; check_sat below is already prepared to catch such errors and
+        // report GaveUp, so let it do so instead by skipping this extra
+        // flush attempt on failure.
+        if (tptp().reify_lambda_literals() || tptp().leibniz_instantiation() || tptp().witness_instantiation()) {
+            try {
+                ctx.get_solver()->push();
+                ctx.get_solver()->pop(1);
+            } catch (z3_exception const&) {
             }
         }
 
@@ -3065,8 +3117,10 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
             else report_szs_status("Satisfiable", p.expected_status());
             if (g_display_model) {
                 model_ref mdl;
-                if (ctx.is_model_available(mdl))
+                if (ctx.is_model_available(mdl)) {
+                    ctx.set_regular_stream("stdout");
                     ctx.display_model(mdl);
+                }
             }
             break;
         case cmd_context::css_unknown:
