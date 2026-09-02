@@ -74,27 +74,43 @@ class solver;
 namespace seq {
 
     /**
-     * Thin incremental-arithmetic backend abstraction (per
-     * z3papers/nseq/facet-arith.md's `sub_solver_i`), wrapping a single
-     * shared `solver` instance for the whole search (see
-     * src/solver/solver.h, src/smt/smt_solver.h). One instance is shared
-     * by every `arith_facet` clone in the tree (they all describe the
-     * same underlying incremental scope stack, kept in sync with DFS
-     * backtracking via `facet_i::on_enter`/`on_leave`).
+     * Abstract incremental-arithmetic backend interface (per
+     * z3papers/nseq/facet-arith.md's `sub_solver_i`). `arith_facet` is
+     * built entirely against this interface - it has no dependency on
+     * `src/solver/solver.h` or any concrete solver implementation. One
+     * instance is shared by every `arith_facet` clone in the tree (they
+     * all describe the same underlying incremental scope stack, kept in
+     * sync with DFS backtracking via `facet_i::on_enter`/`on_leave`).
      */
-    class arith_sub_solver {
+    class sub_solver_i {
+    public:
+        virtual ~sub_solver_i() = default;
+        virtual void assert_expr(expr* e) = 0;
+        virtual void push() = 0;
+        virtual void pop(unsigned n) = 0;
+        virtual unsigned get_scope_level() const = 0;
+        virtual lbool check() = 0;
+    };
+
+    /**
+     * Concrete `sub_solver_i` backed by a single shared `solver` instance
+     * (see src/solver/solver.h, src/smt/smt_solver.h). This is the only
+     * place in the arith-facet module that depends on the concrete solver
+     * API; `arith_facet` itself only ever sees `sub_solver_i&`.
+     */
+    class arith_sub_solver : public sub_solver_i {
         ast_manager& m;
         solver*      m_solver; // owned
 
     public:
         arith_sub_solver(ast_manager& m, arith_util& a);
-        ~arith_sub_solver();
+        ~arith_sub_solver() override;
 
-        void assert_expr(expr* e);
-        void push();
-        void pop(unsigned n);
-        unsigned get_scope_level() const;
-        lbool check();
+        void assert_expr(expr* e) override;
+        void push() override;
+        void pop(unsigned n) override;
+        unsigned get_scope_level() const override;
+        lbool check() override;
     };
 
     /**
@@ -113,7 +129,7 @@ namespace seq {
         ast_manager&      m;
         arith_util        a;
         seq_util&         u;
-        arith_sub_solver& m_solver;
+        sub_solver_i&     m_solver;
         expr_ref_vector   m_own;       // constraints added at this node only
         bool              m_scope_pushed = false; // true once a scope has been pushed for the current branch
         bool              m_conflict = false; // true if the shared solver went unsat after the last add_constraint
@@ -124,9 +140,9 @@ namespace seq {
         // pop, keeping the shared incremental solver's scope stack synced
         // to the search tree's own trail-scope stack.
         class scope_trail : public ::trail {
-            arith_sub_solver& m_solver;
+            sub_solver_i& m_solver;
         public:
-            explicit scope_trail(arith_sub_solver& s) : m_solver(s) { s.push(); }
+            explicit scope_trail(sub_solver_i& s) : m_solver(s) { s.push(); }
             void undo() override { m_solver.pop(1); }
         };
 
@@ -141,7 +157,7 @@ namespace seq {
         };
 
     public:
-        arith_facet(trail_stack& trail, ast_manager& m, seq_util& u, arith_sub_solver& solver) :
+        arith_facet(trail_stack& trail, ast_manager& m, seq_util& u, sub_solver_i& solver) :
             facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_own(m) {}
 
         ast_manager& get_manager() const { return m; }
