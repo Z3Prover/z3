@@ -127,7 +127,7 @@ namespace seq {
     public:
         mem_var_split(ast_manager& m, seq_util& u, stx::facet_id mem_id, stx::facet_id eq_id) : m(m), u(u), m_mem_id(mem_id), m_eq_id(eq_id) {}
         char const* name() const override { return "mem-var-split"; }
-        std::unique_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
     class mem_monadic_split : public eq_tree::split_plugin_i {
@@ -157,7 +157,7 @@ namespace seq {
         mem_monadic_split(ast_manager& m, seq_util& u, stx::facet_id mem_id, seq_rewriter& rw, trail_stack& trail) :
             m(m), u(u), m_mem_id(mem_id), m_rw(rw), m_trail(trail) {}
         char const* name() const override { return "mem-monadic"; }
-        std::unique_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
 }

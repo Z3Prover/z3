@@ -240,7 +240,7 @@ namespace seq {
         return true;
     }
 
-    std::unique_ptr<eq_tree::split_iterator_i> word_eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+    scoped_ptr<eq_tree::split_iterator_i> word_eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
         if (cost != 0)
@@ -266,7 +266,7 @@ namespace seq {
                 sort* s = v1->get_sort();
                 expr* v1p = f.mk_fresh_var(s);
 
-                auto it = std::make_unique<iterator>(n, m_id);
+                iterator* it = alloc(iterator, n, m_id);
                 {
                     expr_ref_vector empty(m);
                     it->push_back("v2:=eps", v2, empty);
@@ -294,7 +294,7 @@ namespace seq {
             sort* s = var->get_sort();
             expr* var2 = f.mk_fresh_var(s);
 
-            auto it = std::make_unique<iterator>(n, m_id);
+            iterator* it = alloc(iterator, n, m_id);
             {
                 expr_ref_vector repl(m);
                 repl.push_back(c);

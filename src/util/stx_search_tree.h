@@ -68,8 +68,15 @@ namespace stx {
     // Result of a deterministic propagation pass.
     enum class simplify_result { proceed, conflict, satisfied };
 
-    // Result of solve()/dfs().
-    enum class search_result { sat, unsat, unknown };
+    // Result of solve()/dfs(). `depth_cutoff` is an internal-only variant
+    // of `unknown` used by dfs() to distinguish "this subtree was
+    // truncated by the current depth bound" (retrying with a larger bound
+    // may resolve it) from a genuine stuck/no-more-splits `unknown`
+    // (retrying will not help); `solve()`'s iterative deepening uses this
+    // to decide whether to keep raising the depth bound, but never
+    // returns `depth_cutoff` itself to callers - it is normalized to
+    // `unknown` in the final result.
+    enum class search_result { sat, unsat, unknown, depth_cutoff };
 
     // A stable per-plugin handle into a node's facet array.
     using facet_id = unsigned;
@@ -234,7 +241,7 @@ namespace stx {
             // materialized in `n` (the always-fresh, pre-pushed scope for
             // this call), regardless of whether the returned iterator is
             // null (single-branch case) or non-null.
-            virtual std::unique_ptr<split_iterator_i> split(node& n, unsigned cost, edge& out, bool& has_more, bool& committed) = 0;
+            virtual scoped_ptr<split_iterator_i> split(node& n, unsigned cost, edge& out, bool& has_more, bool& committed) = 0;
         };
 
         enum class node_status { unevaluated, satisfied, conflict };
@@ -332,7 +339,7 @@ namespace stx {
             // back to root, and by the unsat cache to store a comparison
             // key that survives pop_scope()).
             node* clone(trail_stack& trail) const {
-                node* n = new node(m_facets.size());
+                node* n = alloc(node, m_facets.size());
                 for (facet_id id = 0; id < m_facets.size(); ++id)
                     if (m_facets[id])
                         n->m_facets[id] = m_facets[id]->clone(trail);
@@ -386,7 +393,7 @@ namespace stx {
         // into a cache bucket (not for every DFS frame).
         struct digest {
             unsigned                    m_hash;
-            std::unique_ptr<node>       m_snapshot; // owned, trail-independent
+            scoped_ptr<node>            m_snapshot; // owned, trail-independent
             digest() : m_hash(0) {}
             digest(unsigned h, node* snap) : m_hash(h), m_snapshot(snap) {}
         };
@@ -403,15 +410,15 @@ namespace stx {
         // call stack instead.
         struct dfs_frame {
             bool                                  m_is_signature_alias = false;
-            std::unique_ptr<digest>                m_sibling_digest;      // non-null while this frame is on the active path
-            std::unique_ptr<split_iterator_i>       m_iter;                // resumable remaining branches, if any
+            scoped_ptr<digest>                    m_sibling_digest;      // non-null while this frame is on the active path
+            scoped_ptr<split_iterator_i>           m_iter;                // resumable remaining branches, if any
             edge                                   m_last_edge;
         };
 
         unsigned                              m_next_facet_id = 0;
         ptr_vector<propagation_plugin_i>       m_prop_plugins;  // not owned
         ptr_vector<split_plugin_i>             m_split_plugins; // not owned
-        std::unique_ptr<node>                   m_root;
+        scoped_ptr<node>                      m_root;
         trail_stack                            m_trail;
         unsigned                               m_max_search_depth = 1000;
         unsigned                               m_max_cost = 1000;
@@ -438,7 +445,7 @@ namespace stx {
         // callers can still inspect the satisfying facet state (e.g. read
         // off a model) after `solve()` has returned and the live node has
         // been restored to its pre-solve state.
-        std::unique_ptr<node>                 m_sat_snapshot;
+        scoped_ptr<node>                       m_sat_snapshot;
         bool                                   m_sat_snapshot_taken = false;
 
         // Run every registered propagation plugin to a fixed point. The
@@ -484,8 +491,8 @@ namespace stx {
             return n.is_satisfied() ? simplify_result::satisfied : simplify_result::proceed;
         }
 
-        std::unique_ptr<digest> mk_digest(node& n) {
-            return std::make_unique<digest>(n.hash(), n.clone(m_trail));
+        scoped_ptr<digest> mk_digest(node& n) {
+            return scoped_ptr<digest>(alloc(digest, n.hash(), n.clone(m_trail)));
         }
 
         // Search for the cheapest available split, raising `cost` from 0.
@@ -572,11 +579,11 @@ namespace stx {
             }
             else if (sr == simplify_result::satisfied) {
                 result = search_result::sat;
-                m_sat_snapshot.reset(n.clone(m_trail));
+                m_sat_snapshot = n.clone(m_trail);
                 m_sat_snapshot_taken = true;
             }
             else if (depth >= depth_bound) {
-                result = search_result::unknown;
+                result = search_result::depth_cutoff;
             }
             else {
                 auto& bucket = m_siblings[frame.m_sibling_digest.get()];
@@ -587,11 +594,14 @@ namespace stx {
 
                 if (!has_children) {
                     // No propagation conflict/satisfaction and no split rule
-                    // has anything left to offer: the node is stuck.
+                    // has anything left to offer: the node is stuck (a
+                    // genuine "unknown", not a depth cutoff - retrying with
+                    // a larger depth bound will not help).
                     result = n.is_satisfied() ? search_result::sat : search_result::unknown;
                 }
                 else {
                     bool saw_unknown = false;
+                    bool saw_depth_cutoff = false;
                     result = search_result::unsat;
                     edge cur_edge = first_edge;
                     bool have_branch = true;
@@ -613,12 +623,16 @@ namespace stx {
                             result = search_result::sat;
                             break;
                         }
-                        if (cr == search_result::unknown)
+                        if (cr == search_result::depth_cutoff)
+                            saw_depth_cutoff = true;
+                        else if (cr == search_result::unknown)
                             saw_unknown = true;
                         have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge);
                     }
                     if (result != search_result::sat)
-                        result = saw_unknown ? search_result::unknown : search_result::unsat;
+                        result = saw_depth_cutoff ? search_result::depth_cutoff
+                               : saw_unknown       ? search_result::unknown
+                               :                     search_result::unsat;
                 }
 
                 // Remove this frame's sibling-cache entry entirely rather
@@ -643,13 +657,13 @@ namespace stx {
             // own facet state, and are safe to memoize across the rest of the
             // search.
             if (result == search_result::unsat && n.reason() != br_sibling) {
-                auto* d = frame.m_sibling_digest.release();
+                auto* d = frame.m_sibling_digest.detach();
                 if (m_unsat_cache.find(d) == m_unsat_cache.end()) {
                     m_unsat_cache.insert(d);
                     m_unsat_cache_storage.push_back(d);
                 }
                 else {
-                    delete d;
+                    dealloc(d);
                 }
             }
             return result;
@@ -657,7 +671,7 @@ namespace stx {
 
     public:
         search_tree() = default;
-        ~search_tree() { for (auto* d : m_unsat_cache_storage) delete d; }
+        ~search_tree() { for (auto* d : m_unsat_cache_storage) dealloc(d); }
 
         dep_manager_t& dep_mgr() { return m_dep_mgr; }
         trail_stack& trail() { return m_trail; }
@@ -672,7 +686,7 @@ namespace stx {
         facet_id register_facet(node& n, Args&&... args) {
             facet_id id = m_next_facet_id++;
             n.m_facets.resize(m_next_facet_id, nullptr);
-            n.install_facet(id, new T(m_trail, std::forward<Args>(args)...));
+            n.install_facet(id, alloc(T, m_trail, std::forward<Args>(args)...));
             return id;
         }
 
@@ -686,7 +700,7 @@ namespace stx {
         // Create the single root node (all facet slots initially null;
         // fill them in via the templated `register_facet<T>(node&, ...)`
         // overload above, or `node::install_facet` directly).
-        node* mk_root() { SASSERT(!m_root); m_root.reset(new node(m_next_facet_id)); return m_root.get(); }
+        node* mk_root() { SASSERT(!m_root); m_root = alloc(node, m_next_facet_id); return m_root.get(); }
         node* root() const { return m_root.get(); }
 
         // Non-null only immediately after a `solve()` call returned `sat`;
@@ -710,7 +724,7 @@ namespace stx {
             SASSERT(r);
             m_stats.m_num_solve_calls++;
             unsigned base_scopes = m_trail.get_num_scopes();
-            m_sat_snapshot.reset();
+            m_sat_snapshot = nullptr;
             m_sat_snapshot_taken = false;
             search_result final_res = search_result::unknown;
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth; ++depth_bound) {
@@ -719,15 +733,22 @@ namespace stx {
                 SASSERT(m_trail.get_num_scopes() == base_scopes);
                 if (res == search_result::sat) { m_stats.m_num_sat++; final_res = res; break; }
                 if (res == search_result::unsat) { m_stats.m_num_unsat++; final_res = res; break; }
-                // res == unknown: either genuinely stuck (no facets changed
-                // and no split available - retrying with a larger depth
-                // bound will not help) or a depth cutoff (retrying helps).
-                // We cannot distinguish those two cases from the return
-                // value alone, so we simply keep deepening until the
-                // search-depth budget is exhausted.
+                if (res == search_result::unknown) {
+                    // Genuinely stuck: no facets changed and no split
+                    // available at any depth - retrying with a larger
+                    // depth bound will not help, so stop deepening now.
+                    final_res = res;
+                    break;
+                }
+                // res == depth_cutoff: retrying with a larger depth bound
+                // may still resolve this subtree, so keep deepening until
+                // the search-depth budget is exhausted.
+                final_res = res;
             }
-            if (final_res == search_result::unknown)
+            if (final_res == search_result::unknown || final_res == search_result::depth_cutoff) {
                 m_stats.m_num_unknown++;
+                final_res = search_result::unknown; // normalize: never leak depth_cutoff to callers
+            }
             return final_res;
         }
 

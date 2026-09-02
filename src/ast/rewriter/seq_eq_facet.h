@@ -297,7 +297,7 @@ namespace seq {
     public:
         word_eq_split(ast_manager& m, seq_util& u, stx::facet_id id) : m(m), u(u), m_id(id) {}
         char const* name() const override { return "nielsen-split"; }
-        std::unique_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
     /**

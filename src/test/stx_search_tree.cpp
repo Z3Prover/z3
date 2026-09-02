@@ -116,7 +116,7 @@ namespace {
     public:
         step_split(stx::facet_id id, counter_config const* cfg) : m_id(id), m_cfg(cfg) {}
         char const* name() const override { return "step"; }
-        std::unique_ptr<tree_t::split_iterator_i> split(tree_t::node& n, unsigned cost, tree_t::edge& out, bool& has_more, bool& committed) override {
+        scoped_ptr<tree_t::split_iterator_i> split(tree_t::node& n, unsigned cost, tree_t::edge& out, bool& has_more, bool& committed) override {
             has_more = false;
             committed = false;
             if (cost != 0)
@@ -127,7 +127,7 @@ namespace {
             f.add(1);
             out = tree_t::edge("+1", nullptr, true, 0);
             committed = true;
-            return std::make_unique<iterator>(n, m_id);
+            return alloc(iterator, n, m_id);
         }
     };
 

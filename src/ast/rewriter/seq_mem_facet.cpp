@@ -170,7 +170,7 @@ namespace seq {
         return true;
     }
 
-    std::unique_ptr<eq_tree::split_iterator_i> mem_var_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+    scoped_ptr<eq_tree::split_iterator_i> mem_var_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
         if (cost != 0 || !n.has_facet(m_eq_id))
@@ -183,7 +183,7 @@ namespace seq {
             if (ts.empty() || is_const_token(u, ts.get(0)))
                 continue;
             expr* var = ts.get(0);
-            auto it = std::make_unique<iterator>(n, m_mem_id, m_eq_id, i, var);
+            iterator* it = alloc(iterator, n, m_mem_id, m_eq_id, i, var);
             auto& eq = n.facet_as<eq_facet>(m_eq_id);
             expr_ref_vector empty(eq.get_manager());
             eq.apply_subst(var, empty);
@@ -236,7 +236,7 @@ namespace seq {
         return apply_solution(sol, out);
     }
 
-    std::unique_ptr<eq_tree::split_iterator_i> mem_monadic_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+    scoped_ptr<eq_tree::split_iterator_i> mem_monadic_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
         if (cost != 0)
@@ -259,14 +259,14 @@ namespace seq {
         }
         if (!has_multi)
             return nullptr;
-        auto it = std::make_unique<iterator>(n, m_mem_id, m_rw, m_trail, mf.memberships());
+        scoped_ptr<iterator> it(alloc(iterator, n, m_mem_id, m_rw, m_trail, mf.memberships()));
         if (!it->has_first())
             return nullptr;
         if (!it->next(out))
             return nullptr;
         committed = true;
         has_more = true;
-        return it;
+        return it.detach();
     }
 
 }
