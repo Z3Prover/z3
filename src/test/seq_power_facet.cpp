@@ -50,7 +50,7 @@ namespace {
         fixture() :
             u((init_plugins(m), m)), a(m), s(u.str.mk_string_sort()),
             root(tree.mk_root()),
-            solver(m, a),
+            solver(m, a, tree.dep_mgr()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
             arith_id(tree.register_facet<seq::arith_facet>(*root, m, u, solver)),
             pow_id(tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr())),

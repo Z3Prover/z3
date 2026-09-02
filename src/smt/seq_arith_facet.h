@@ -69,6 +69,7 @@ Author:
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include "util/params.h"
+#include "util/obj_hashtable.h"
 
 class solver;
 
@@ -79,20 +80,41 @@ namespace seq {
      * (see src/solver/solver.h, src/smt/smt_solver.h). This is the only
      * place in the arith-facet module that depends on the concrete solver
      * API; `arith_facet` itself only ever sees `sub_solver_i&`.
+     *
+     * Follows the c3 branch's `smt::sub_solver` (src/smt/
+     * nseq_context_solver.h): a dependency-tracked `assert_expr(e, dep)`
+     * introduces a fresh Boolean assumption literal `a` and asserts
+     * `a => e`, remembering `dep` at `a`'s slot; `check()` passes every
+     * live assumption literal to the backend solver and, on `l_false`,
+     * reads back the backend's own UNSAT core (over assumption literals)
+     * to compute the join of the corresponding deps, cached for
+     * `unsat_core()`. Assertions with `dep == nullptr` are asserted
+     * directly (unconditional facts, never explained by/retracted from a
+     * core). Assumption-literal slots are recycled across push/pop
+     * scopes (mirroring `sub_solver`'s `m_assump_lits`/`m_frame_bounds`)
+     * so that repeated add/pop cycles across DFS sibling branches do not
+     * leak ever-growing vectors.
      */
     class arith_sub_solver : public sub_solver_i {
-        ast_manager& m;
-        solver*      m_solver; // owned
+        ast_manager&              m;
+        solver*                   m_solver; // owned
+        expr_ref_vector           m_assump_lits;   // assumption exprs; reused, only grows
+        obj_map<expr, unsigned>   m_assump_lit2id; // assumption expr -> its slot index
+        svector<unsigned>         m_frame_bounds;  // m_deps.size() at each push()
+        vector<eq_tree::dep_tracker> m_deps;       // slot id -> dep
+        eq_tree::dep_manager_t&   m_core_dep_mgr;
+        eq_tree::dep_tracker      m_last_core = nullptr;
 
     public:
-        arith_sub_solver(ast_manager& m, arith_util& a);
+        arith_sub_solver(ast_manager& m, arith_util& a, eq_tree::dep_manager_t& core_dep_mgr);
         ~arith_sub_solver() override;
 
-        void assert_expr(expr* e) override;
+        void assert_expr(expr* e, eq_tree::dep_tracker dep = nullptr) override;
         void push() override;
         void pop(unsigned n) override;
         unsigned get_scope_level() const override;
         lbool check() override;
+        eq_tree::dep_tracker unsat_core() const override { return m_last_core; }
     };
 
     /**
@@ -115,6 +137,7 @@ namespace seq {
         expr_ref_vector   m_own;       // constraints added at this node only
         unsigned          m_pushed_at_scope = 0; // trail scope level at which the backend scope currently in effect was pushed (0 = none pushed yet)
         bool              m_conflict = false; // true if the shared solver went unsat after the last add_constraint
+        eq_tree::dep_tracker m_conflict_dep = nullptr; // dep justifying m_conflict (from m_solver.unsat_core()), valid iff m_conflict
 
         // Trail undo object: pairs with the backend push done when the
         // first constraint at a given trail-scope level is asserted.
@@ -160,17 +183,25 @@ namespace seq {
         // when this trail scope is popped - so the backend's scope stack
         // always tracks the DFS call stack, without the generic `stx::`
         // engine needing to know anything about incremental solvers.
+        // `dep` (if non-null) is the dependency justifying `c` (e.g. the
+        // equation/obligation `c` was derived from); it is forwarded to
+        // `m_solver.assert_expr` so that, should the backend go unsat,
+        // `has_conflict()`/`conflict_dep()` can report a precise
+        // dependency instead of `nullptr` (an unconditional "some subset
+        // of everything asserted so far" claim).
         // Returns true iff `c` was newly recorded (false if it was
         // already present, e.g. because propagate() revisits the same
         // equation across simplify rounds).
-        bool add_constraint(expr* c);
+        bool add_constraint(expr* c, eq_tree::dep_tracker dep = nullptr);
 
         // Generate `len(lhs) = len(rhs)` (as an expr over str.len of each
         // token-list side, per the module comment) from an eq_facet
-        // equation and record it via add_constraint. Also records
-        // `len(v) >= 0` once per fresh variable token seen. Returns true
-        // iff at least one new constraint was recorded.
-        bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs);
+        // equation and record it via add_constraint, tagged with `dep`
+        // (the equation's own dependency). Also records `len(v) >= 0`
+        // once per fresh variable token seen (asserted with a null dep:
+        // an unconditional axiom, not contingent on any one equation).
+        // Returns true iff at least one new constraint was recorded.
+        bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr);
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
@@ -188,6 +219,16 @@ namespace seq {
         bool is_satisfied() const override { return true; }
 
         bool has_conflict() const { return m_conflict; }
+
+        // Dependency justifying the current conflict (valid iff
+        // `has_conflict()`): the join, as computed by the backend's own
+        // `unsat_core()`, of every dependency-tracked constraint that
+        // contributed to the UNSAT result. May be `nullptr` even when
+        // `has_conflict()` is true (e.g. the conflict is purely among
+        // unconditional facts) - callers should treat a `nullptr` here
+        // exactly as they already treat a `nullptr` dep elsewhere: sound,
+        // just less precise.
+        eq_tree::dep_tracker conflict_dep() const { return m_conflict_dep; }
 
         // Query the shared incremental backend for whether `c` is
         // currently *implied* (resp. its negation implied) by the

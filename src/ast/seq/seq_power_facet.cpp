@@ -121,20 +121,20 @@ namespace seq {
                 expr_ref s_is_emp(m.mk_eq(len_s, a.mk_int(0)), m);
 
                 // n <= 0 => len(e) = 0 (stands in for e = epsilon)
-                af.add_constraint(m.mk_or(n_ge_1, e_is_emp));
+                af.add_constraint(m.mk_or(n_ge_1, e_is_emp), p.m_dep);
                 // s = epsilon => len(e) = 0
-                af.add_constraint(m.mk_or(m.mk_not(s_is_emp), e_is_emp));
+                af.add_constraint(m.mk_or(m.mk_not(s_is_emp), e_is_emp), p.m_dep);
                 // n >= 1 => len(e) = n * len(s)
-                af.add_constraint(m.mk_or(m.mk_not(n_ge_1), m.mk_eq(len_e, a.mk_mul(p.m_n.get(), len_s))));
+                af.add_constraint(m.mk_or(m.mk_not(n_ge_1), m.mk_eq(len_e, a.mk_mul(p.m_n.get(), len_s))), p.m_dep);
                 // n >= 1 & s != epsilon => n <= len(e)
-                af.add_constraint(m.mk_or(m.mk_not(n_ge_1), s_is_emp, a.mk_le(p.m_n.get(), len_e)));
+                af.add_constraint(m.mk_or(m.mk_not(n_ge_1), s_is_emp, a.mk_le(p.m_n.get(), len_e)), p.m_dep);
                 f.set_axiomatized(i);
                 changed = true;
             }
             ++i;
         }
         if (af.has_conflict()) {
-            n.set_conflict(stx::br_plugin_base, nullptr);
+            n.set_conflict(stx::br_plugin_base, af.conflict_dep());
             return stx::simplify_result::conflict;
         }
         if (f.is_satisfied())
@@ -160,7 +160,7 @@ namespace seq {
         expr_ref_vector repl(m);
         flatten(u, rhs.get(), repl);
         ef.apply_subst(p.m_e.get(), repl, m_dep);
-        af.add_constraint(m.mk_eq(p.m_n.get(), a.mk_int(j)));
+        af.add_constraint(m.mk_eq(p.m_n.get(), a.mk_int(j)), m_dep);
         f.remove(m_pow_index);
 
         out = eq_tree::edge("power:n=j", m_dep, true, 0);
@@ -189,7 +189,7 @@ namespace seq {
             // power_axiom/power_unfold_axiom).
             expr_ref_vector empty(m);
             ef.apply_subst(p.m_e.get(), empty, dep);
-            af.add_constraint(a.mk_le(p.m_n.get(), a.mk_int(0)));
+            af.add_constraint(a.mk_le(p.m_n.get(), a.mk_int(0)), dep);
             f.remove(i);
 
             iterator* it = alloc(iterator, n, m_pow_id, m_eq_id, m_arith_id, i, bound, dep, m, u, a);
