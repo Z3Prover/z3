@@ -41,6 +41,8 @@ z3_add_component(rewriter
     seq_axioms.cpp
     seq_eq_approx.cpp
     seq_eq_facet.cpp
+  seq_mem_facet.cpp
+  seq_ncontains_facet.cpp
     seq_eq_solver.cpp
     seq_derive.cpp
     seq_subset.cpp

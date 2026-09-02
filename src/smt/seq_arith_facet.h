@@ -167,14 +167,31 @@ namespace seq {
         stx::facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
-        // arith_facet never itself declares the search "done": it only
-        // ever prunes (conflict) or stays silent, deferring the sat
-        // verdict to the other facets (eq_facet/deq_facet's own
-        // is_satisfied()).
-        bool is_satisfied() const override { return false; }
+        // arith_facet never itself blocks the "satisfied" verdict: it only
+        // ever prunes via a conflict (surfaced through propagate(),
+        // returning simplify_result::conflict, not through is_satisfied());
+        // it defers to the other facets (eq_facet/deq_facet's own
+        // is_satisfied()) for whether solving as a whole is done. Since
+        // node::is_satisfied() is an AND over every registered facet,
+        // arith_facet must return true here (silently "not objecting"),
+        // not false (which would make it impossible for any node with
+        // this facet registered to ever reach the sat verdict).
+        bool is_satisfied() const override { return true; }
 
         bool has_conflict() const { return m_conflict; }
+
+        // Query the shared incremental backend for whether `c` is
+        // currently *implied* (resp. its negation implied) by the
+        // asserted constraint set, without adding it permanently: used by
+        // ncontains_facet's length-gate propagation (facet-ncontains.md
+        // §3.3) to check `len(h) < len(n)` without polluting m_own. This
+        // pushes/asserts/checks/pops a throwaway scope on the shared
+        // backend directly (NOT via the trail - this is a read-only
+        // probe, symmetric and side-effect-free by construction, so it
+        // needs no undo registration).
+        lbool implies(expr* c) const;
     };
+
 
     // Deterministic propagation plugin: reads eq_facet's current equation
     // set (facet id `eq_id`) and feeds any not-yet-seen equation's length

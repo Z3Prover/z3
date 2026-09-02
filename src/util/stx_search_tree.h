@@ -455,10 +455,14 @@ namespace stx {
                     simplify_result r = p->propagate(n);
                     if (r == simplify_result::conflict)
                         return r;
-                    if (r == simplify_result::satisfied) {
-                        n.set_satisfied();
-                        return r;
-                    }
+                    // NOTE: a plugin reporting `satisfied` only means ITS
+                    // OWN facet is discharged, not that every other facet
+                    // in this node is - the node is only truly satisfied
+                    // once ALL facets agree (n.is_satisfied(), an AND over
+                    // every registered facet). Keep running the remaining
+                    // plugins in this round (and further rounds, since
+                    // other facets may still need to react/propagate)
+                    // rather than short-circuiting here.
                 }
                 unsigned fp = raw_fingerprint(n);
                 if (fp == prev_fp)

@@ -89,6 +89,20 @@ namespace seq {
                 add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0)));
     }
 
+    lbool arith_facet::implies(expr* c) const {
+        m_solver.push();
+        m_solver.assert_expr(m.mk_not(c));
+        lbool r = m_solver.check();
+        m_solver.pop(1);
+        // unsat under the negation means c is implied (l_true); otherwise
+        // undecided/not implied (l_undef, or l_false meaning c's negation
+        // is itself consistent, i.e. c is not implied - callers treat
+        // anything other than l_false-from-negation-check as "not yet
+        // known", per facet-ncontains.md §3.3's l_true/l_undef/l_false
+        // three-way split on the GATE, not on this helper's own result).
+        return r == l_false ? l_true : l_undef;
+    }
+
     stx::facet_i* arith_facet::clone(trail_stack& trail) const {
         arith_facet* f = alloc(arith_facet, trail, m, u, m_solver);
         // A cloned node's *own* constraint set starts empty: this is only

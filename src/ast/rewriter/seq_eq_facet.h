@@ -172,6 +172,15 @@ namespace seq {
             add_equation(lts, rts);
         }
 
+        // Trailed variant: for adding a new equation to an existing
+        // branch mid-search (e.g. ncontains_split's "needle aligns here"
+        // branch, which introduces a fresh eq_facet equation rather than
+        // a substitution). Registers an undo snapshot first.
+        void add_equation_trailed(token_list const& lhs, token_list const& rhs) {
+            snapshot();
+            m_eqs.push_back(equation(lhs, rhs));
+        }
+
         vector<equation> const& equations() const { return m_eqs; }
 
         // Apply a forced/branch substitution `var := repl` to every
