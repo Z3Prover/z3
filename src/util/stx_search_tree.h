@@ -506,7 +506,6 @@ namespace stx {
         // off a model) after `solve()` has returned and the live node has
         // been restored to its pre-solve state.
         scoped_ptr<node>                       m_sat_snapshot;
-        bool                                   m_sat_snapshot_taken = false;
 
         // Run every registered propagation plugin to a fixed point. The
         // fixed point is detected via each plugin's own report: a round
@@ -617,7 +616,6 @@ namespace stx {
             else if (sr == simplify_result::satisfied) {
                 result = search_result::sat;
                 m_sat_snapshot = n.clone(m_trail);
-                m_sat_snapshot_taken = true;
             }
             else if (depth >= m_depth_bound) {
                 result = search_result::depth_cutoff;
@@ -634,7 +632,6 @@ namespace stx {
                     if (n.is_satisfied()) {
                         result = search_result::sat;
                         m_sat_snapshot = n.clone(m_trail);
-                        m_sat_snapshot_taken = true;
                     }
                     else
                         result = search_result::unknown;
@@ -728,7 +725,7 @@ namespace stx {
         // Non-null only immediately after a `solve()` call returned `sat`;
         // a standalone (trail-independent) snapshot of the satisfying
         // facet state. Overwritten/cleared by the next `solve()` call.
-        node const* sat_snapshot() const { return m_sat_snapshot_taken ? m_sat_snapshot.get() : nullptr; }
+        node const* sat_snapshot() const { return m_sat_snapshot.get(); }
 
         stats const& get_stats() const { return m_stats; }
         void reset_stats() { m_stats.reset(); }
@@ -749,7 +746,6 @@ namespace stx {
                     pop();
             });
             m_sat_snapshot = nullptr;
-            m_sat_snapshot_taken = false;
             m_root->clear_conflict_deps();
             search_result res = search_result::depth_cutoff;
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth && res == search_result::depth_cutoff; ++depth_bound) {
