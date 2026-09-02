@@ -429,6 +429,18 @@ namespace stx {
         std::unique_ptr<node>                 m_sat_snapshot;
         bool                                   m_sat_snapshot_taken = false;
 
+        // When `solve()` returns sat, trail unwinding back to the level it
+        // started at is suspended: the trail scopes pushed along the
+        // winning branch are left in place, so the live node's facets
+        // stay in exactly the satisfying state (no need to consult
+        // `sat_snapshot()`/re-run the search to inspect it). The pending
+        // unwind is only performed lazily, by `ensure_base_level()`, once
+        // the caller actually wants to mutate facets again (e.g. add a
+        // new constraint) or calls `solve()` again - not eagerly on
+        // return from the sat `solve()` call itself.
+        bool                                   m_pop_suspended = false;
+        unsigned                               m_suspend_base_scopes = 0;
+
         // Run every registered propagation plugin to a fixed point. The
         // fixed point is detected generically (no extra plugin API): a
         // round is a single pass over every plugin in registration order;
@@ -572,6 +584,17 @@ namespace stx {
                         {
                             scoped_pop pop(m_trail); // matches the scope the split committed for this branch
                             cr = dfs(n, depth_bound, depth + 1);
+                            // On sat, suspend unwinding: release the guard
+                            // instead of popping, so this branch's trail
+                            // scope (and, transitively, every ancestor
+                            // scope up the recursive dfs call chain, each
+                            // doing the same thing) is left in place. The
+                            // live node's facets therefore stay exactly in
+                            // the satisfying state after solve() returns;
+                            // the suspended scopes are only unwound later,
+                            // lazily, by ensure_base_level().
+                            if (cr == search_result::sat)
+                                pop.release();
                         }
                         if (cr == search_result::sat) {
                             result = search_result::sat;
@@ -669,6 +692,7 @@ namespace stx {
         search_result solve(node* start = nullptr) {
             node* r = start ? start : m_root.get();
             SASSERT(r);
+            ensure_base_level(); // undo any suspended sat-branch scopes from a prior solve()
             m_stats.m_num_solve_calls++;
             unsigned base_scopes = m_trail.get_num_scopes();
             m_sat_snapshot.reset();
@@ -677,8 +701,17 @@ namespace stx {
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth; ++depth_bound) {
                 m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth_bound);
                 search_result res = dfs(*r, depth_bound, 0);
-                SASSERT(m_trail.get_num_scopes() == base_scopes);
-                if (res == search_result::sat) { m_stats.m_num_sat++; final_res = res; break; }
+                SASSERT(res == search_result::sat || m_trail.get_num_scopes() == base_scopes);
+                if (res == search_result::sat) {
+                    m_stats.m_num_sat++; final_res = res;
+                    // Leave the winning branch's trail scopes in place
+                    // (see the dfs() sat case above); record where they
+                    // need to be unwound back to, once the caller actually
+                    // needs base level again.
+                    m_pop_suspended = m_trail.get_num_scopes() > base_scopes;
+                    m_suspend_base_scopes = base_scopes;
+                    break;
+                }
                 if (res == search_result::unsat) { m_stats.m_num_unsat++; final_res = res; break; }
                 // res == unknown: either genuinely stuck (no facets changed
                 // and no split available - retrying with a larger depth
@@ -691,6 +724,22 @@ namespace stx {
                 m_stats.m_num_unknown++;
             return final_res;
         }
+
+        // Unwind any trail scopes left suspended by a prior sat `solve()`
+        // call, restoring the live node/root to its pre-solve (base) facet
+        // state. A no-op if no sat unwind is pending. Called automatically
+        // at the start of `solve()`; callers that want to inspect/mutate
+        // facets between solve() calls (e.g. add a new constraint while a
+        // sat result is still "live") should call this explicitly first.
+        void ensure_base_level() {
+            if (!m_pop_suspended)
+                return;
+            m_pop_suspended = false;
+            unsigned cur = m_trail.get_num_scopes();
+            SASSERT(cur >= m_suspend_base_scopes);
+            m_trail.pop_scope(cur - m_suspend_base_scopes);
+        }
+
     };
 
 } // namespace stx

@@ -155,7 +155,12 @@ namespace {
         ENSURE(tree.get_stats().m_num_sat == 1);
         ENSURE(tree.sat_snapshot() != nullptr);
         ENSURE(tree.sat_snapshot()->facet_as<counter_facet>(id).total() == 5);
-        // The live root's facet state must be fully restored after solve().
+        // Popping is suspended on sat: the live root keeps the satisfying
+        // branch's state until the caller explicitly asks to go back to
+        // base level (or calls solve() again), rather than being eagerly
+        // unwound here.
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 5);
+        tree.ensure_base_level();
         ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
@@ -214,6 +219,37 @@ namespace {
         ENSURE(r == stx::search_result::sat);
     }
 
+    // A second solve() call (e.g. after the caller has mutated facets, or
+    // just re-solving as-is) must transparently unwind any scopes left
+    // suspended by a prior sat result before starting the new search -
+    // exercising the "pop to base level only on new add/search" part of
+    // the suspend design without requiring the caller to remember to call
+    // ensure_base_level() themselves.
+    static void tst_resolve_after_sat_resumes_base_level() {
+        counter_config cfg{ 5, { 3 } };
+        tree_t tree;
+        stx::facet_id id;
+        mk_root(tree, id, &cfg);
+        overshoot_propagation prop(id, &cfg);
+        step_split split(id, &cfg);
+        tree.add_propagation_plugin(&prop);
+        tree.add_split_plugin(&split);
+        tree.set_max_search_depth(10);
+
+        ENSURE(tree.solve() == stx::search_result::sat);
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 5);
+
+        // Solving again (without an explicit ensure_base_level() call)
+        // must still find the same sat result, proving the pending unwind
+        // from the first solve() was correctly performed as part of the
+        // second solve() entry rather than leaking/compounding state.
+        ENSURE(tree.solve() == stx::search_result::sat);
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 5);
+
+        tree.ensure_base_level();
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
+    }
+
 } // namespace
 
 void tst_stx_search_tree() {
@@ -221,5 +257,7 @@ void tst_stx_search_tree() {
     tst_unsat();
     tst_unknown_depth_cutoff();
     tst_trivially_satisfied_root();
+    tst_resolve_after_sat_resumes_base_level();
     std::cout << "stx_search_tree: all tests passed\n";
 }
+
