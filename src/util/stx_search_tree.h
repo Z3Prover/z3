@@ -274,6 +274,16 @@ namespace stx {
             node_status          m_status = node_status::unevaluated;
             backtrack_reason     m_reason = br_unevaluated;
             dep_tracker          m_conflict_dep = nullptr;
+            // Every dependency that contributed to an unsat verdict
+            // anywhere in the current solve() call, in the order
+            // discovered. Only cleared by solve() itself before a new
+            // search begins - never by clear_status() - since dfs()
+            // revisits this same node at every depth/branch and each
+            // contributing dependency must survive across all of them.
+            // No joining happens during search; a caller that needs a
+            // single combined justification joins over this vector once,
+            // after solve() returns unsat.
+            vector<dep_tracker>  m_conflict_deps;
 
             explicit node(unsigned num_facets) {
                 m_facets.resize(num_facets, nullptr);
@@ -328,12 +338,26 @@ namespace stx {
                 m_status = node_status::conflict;
                 m_reason = r;
                 m_conflict_dep = dep;
+                // Leaf conflicts (reported by a propagation plugin) carry
+                // a real dependency and are recorded here. Aggregate
+                // conflicts (all branches of a split failed) have no
+                // dependency of their own - each contributing branch
+                // already recorded its own dependency when it hit its
+                // conflict - so there is nothing new to add to the vector.
+                if (dep)
+                    m_conflict_deps.push_back(dep);
             }
             void set_satisfied() { m_status = node_status::satisfied; }
             void clear_status() { m_status = node_status::unevaluated; m_reason = br_unevaluated; m_conflict_dep = nullptr; }
 
+            // Called once by solve() before a new search begins; NOT by
+            // clear_status(), which runs on every dfs() re-visit of this
+            // same node throughout the search.
+            void clear_conflict_deps() { m_conflict_deps.reset(); }
+
             backtrack_reason reason() const { return m_reason; }
             dep_tracker conflict_dep() const { return m_conflict_dep; }
+            vector<dep_tracker> const& conflict_deps() const { return m_conflict_deps; }
 
             // Canonicalized structural hash over all installed facets.
             // Always recomputed fresh (there is only ever one live node).
@@ -582,7 +606,6 @@ namespace stx {
                 else {
                     bool saw_unknown = false;
                     bool saw_depth_cutoff = false;
-                    dep_tracker unsat_dep = nullptr; // join of every unsat branch's edge dependency
                     result = search_result::unsat;
                     edge cur_edge = first_edge;
                     bool have_branch = true;
@@ -602,9 +625,7 @@ namespace stx {
                             result = search_result::sat;
                             break;
                         }
-                        if (cr == search_result::unsat)
-                            unsat_dep = unsat_dep ? m_dep_mgr.mk_join(unsat_dep, cur_edge.dep()) : cur_edge.dep();
-                        else if (cr == search_result::depth_cutoff)
+                        if (cr == search_result::depth_cutoff)
                             saw_depth_cutoff = true;
                         else if (cr == search_result::unknown)
                             saw_unknown = true;
@@ -616,10 +637,12 @@ namespace stx {
                                :                     search_result::unsat;
                         // Every branch failed with unsat (no unknown/
                         // depth-cutoff anywhere): the node itself is
-                        // unsatisfiable, justified by the join of every
-                        // branch's own justification.
+                        // unsatisfiable. Each contributing branch already
+                        // recorded its own dependency in m_conflict_deps
+                        // when it hit conflict, so there is nothing to
+                        // join here.
                         if (result == search_result::unsat)
-                            n.set_conflict(br_children_failed, unsat_dep);
+                            n.set_conflict(br_children_failed, nullptr);
                     }
                 }
             }
@@ -681,6 +704,7 @@ namespace stx {
             unsigned base_scopes = m_trail.get_num_scopes();
             m_sat_snapshot = nullptr;
             m_sat_snapshot_taken = false;
+            m_root->clear_conflict_deps();
             search_result res = search_result::unknown;
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth; ++depth_bound) {
                 m_depth_bound = depth_bound;
