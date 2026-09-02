@@ -679,31 +679,28 @@ namespace stx {
             unsigned base_scopes = m_trail.get_num_scopes();
             m_sat_snapshot = nullptr;
             m_sat_snapshot_taken = false;
-            search_result final_res = search_result::unknown;
+            search_result res = search_result::unknown;
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth; ++depth_bound) {
                 m_depth_bound = depth_bound;
                 m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth_bound);
-                search_result res = dfs(0);
+                res = dfs(0);
                 SASSERT(m_trail.get_num_scopes() == base_scopes);
-                if (res == search_result::sat) { m_stats.m_num_sat++; final_res = res; break; }
-                if (res == search_result::unsat) { m_stats.m_num_unsat++; final_res = res; break; }
-                if (res == search_result::unknown) {
+                if (res == search_result::sat) { m_stats.m_num_sat++; break; }
+                if (res == search_result::unsat) { m_stats.m_num_unsat++; break; }
+                if (res == search_result::unknown)
                     // Genuinely stuck: no facets changed and no split
                     // available at any depth - retrying with a larger
                     // depth bound will not help, so stop deepening now.
-                    final_res = res;
                     break;
-                }
                 // res == depth_cutoff: retrying with a larger depth bound
                 // may still resolve this subtree, so keep deepening until
                 // the search-depth budget is exhausted.
-                final_res = res;
             }
-            if (final_res == search_result::unknown || final_res == search_result::depth_cutoff) {
+            if (res == search_result::unknown || res == search_result::depth_cutoff) {
                 m_stats.m_num_unknown++;
-                final_res = search_result::unknown; // normalize: never leak depth_cutoff to callers
+                res = search_result::unknown; // normalize: never leak depth_cutoff to callers
             }
-            return final_res;
+            return res;
         }
 
     };
