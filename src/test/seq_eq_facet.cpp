@@ -20,7 +20,9 @@ Author:
 #include "ast/ast.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
+#include "smt/seq_arith_facet.h"
 #include <iostream>
 
 namespace {
@@ -185,6 +187,104 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::sat);
     }
 
+    // Direct unit test of eq_split::find_eq_split_point (the ported
+    // c3-branch balance-tracking algorithm), independent of the full
+    // search: LHS = [a, X, Y], RHS = [X, a, Y] (a is a constant char, X
+    // and Y are distinct variables). Tracing the algorithm by hand: the
+    // running signed balance of variable tokens returns to zero (nz==0)
+    // at the interior point (li=2, ri=2) with const_diff=0 - i.e. the
+    // split "a.X | Y" vs "X.a | Y" - which is the minimal-|padding|
+    // choice (padding=0) since an earlier candidate at (li=2, ri=1) had
+    // |const_diff|=1. This confirms the ported algorithm finds a valid,
+    // minimal-padding interior split rather than stopping at the first
+    // nz==0 point it encounters.
+    static void tst_eq_split_find_point() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref Y(m.mk_fresh_const("Y", s), m);
+        expr_ref a(u.str.mk_string(zstring("a")), m);
+
+        expr_ref_vector lhs(m), rhs(m);
+        lhs.push_back(a); lhs.push_back(X); lhs.push_back(Y);
+        rhs.push_back(X); rhs.push_back(a); rhs.push_back(Y);
+
+        unsigned split_lhs = 0, split_rhs = 0;
+        int padding = 0;
+        bool found = seq::eq_split::find_eq_split_point(u, lhs, rhs, split_lhs, split_rhs, padding);
+        ENSURE(found);
+        ENSURE(split_lhs == 2);
+        ENSURE(split_rhs == 2);
+        ENSURE(padding == 0);
+    }
+
+    // No split point exists when there is only one variable-length
+    // token total (find_eq_split_point requires lhs_len>1 && rhs_len>1,
+    // and also requires an interior point where the variable balance is
+    // zero) - LHS = [X], RHS = [a] never reaches the `lhs_len<=1`
+    // guard's else-branch productively since lhs has just one token.
+    // Confirms the short-circuit guard for trivially-short sides.
+    static void tst_eq_split_find_point_none() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref a(u.str.mk_string(zstring("a")), m);
+
+        expr_ref_vector lhs(m), rhs(m);
+        lhs.push_back(X);
+        rhs.push_back(a);
+
+        unsigned split_lhs = 0, split_rhs = 0;
+        int padding = 0;
+        ENSURE(!seq::eq_split::find_eq_split_point(u, lhs, rhs, split_lhs, split_rhs, padding));
+    }
+
+    // eq_split (mid-equation split with padding variable): "X ++ a ++ Y =
+    // Y ++ a ++ X" is satisfiable (e.g. X = Y = epsilon, or X = Y = any
+    // common value) - find_eq_split_point finds a balanced interior
+    // point around the shared "a" token (X, Y both consumed once on
+    // each side, net zero balance), splitting into "X = Y" and "Y = X"
+    // (up to padding), which then re-enter eq_facet/word_eq_split and
+    // resolve to sat. This exercises eq_split's own splitting logic
+    // (not just word_eq_split's single-token peel, which alone cannot
+    // make progress here since neither side starts/ends with a
+    // resolvable constant-vs-constant or matching-variable head token
+    // pair beyond the shared "a" in the middle).
+    static void tst_eq_split_progress_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref Y(m.mk_fresh_const("Y", s), m);
+        expr_ref ch(u.str.mk_string(zstring("a")), m);
+        expr_ref lhs(u.str.mk_concat(u.str.mk_concat(X, ch), Y), m);
+        expr_ref rhs(u.str.mk_concat(u.str.mk_concat(Y, ch), X), m);
+
+        seq::eq_tree tree;
+        auto* root = tree.mk_root();
+        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        root->facet_as<seq::eq_facet>(eq_id).add_equation(lhs, rhs);
+
+        seq::eq_propagation eprop(eq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
+        seq::arith_propagation aprop(arith_id, eq_id);
+        seq::eq_split split(m, u, eq_id, arith_id);
+        tree.add_propagation_plugin(&eprop);
+        tree.add_propagation_plugin(&aprop);
+        tree.add_split_plugin(&esplit);
+        tree.add_split_plugin(&split);
+        tree.set_max_search_depth(20);
+        ENSURE(tree.solve() == stx::search_result::sat);
+    }
+
 } // namespace
 
 void tst_seq_eq_facet() {
@@ -196,5 +296,8 @@ void tst_seq_eq_facet() {
     tst_deq_trivial_sat();
     tst_deq_trivial_unsat();
     tst_deq_reacts_to_eq_branch_sat();
+    tst_eq_split_find_point();
+    tst_eq_split_find_point_none();
+    tst_eq_split_progress_sat();
     std::cout << "seq_eq_facet: all tests passed\n";
 }

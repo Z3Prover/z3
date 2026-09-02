@@ -15,7 +15,9 @@ Author:
 
 --*/
 #include "ast/seq/seq_eq_facet.h"
+#include "smt/seq_arith_facet.h"
 #include <algorithm>
+#include <cstdlib>
 #include <utility>
 
 namespace seq {
@@ -351,6 +353,164 @@ namespace seq {
             out = eq_tree::edge("v:=eps", eq_dep, true, 0);
             committed = true;
             return it;
+        }
+        return nullptr;
+    }
+
+    // -- eq_split (mid-equation split with padding variable) --
+
+    // Ported from the c3 branch's find_eq_split_point
+    // (seq_nielsen_modifiers.cpp): walk tokens from each side, tracking a
+    // per-token-id signed balance of variable-length tokens consumed on
+    // LHS (+1) vs RHS (-1), plus a running net constant-length difference
+    // (const_diff). A split point is valid when the balance is entirely
+    // zero (nz==0, i.e. the two prefixes consumed the exact same
+    // multiset of variable tokens so far, so their symbolic lengths
+    // cancel) and interior on both sides (never at an endpoint - an
+    // endpoint split degenerates to the original equation with a renamed
+    // tail, no progress). Among valid split points, keep the one
+    // minimizing |const_diff| (the padding amount).
+    //
+    // NOTE (preserved from c3 branch history): an earlier version used
+    // two booleans ("has a variable-length token been consumed on this
+    // side") instead of a per-token signed balance, requiring both false
+    // *after* a variable had been seen - unsatisfiable, so that version
+    // never fired. The per-token balance above is the correct fix.
+    bool eq_split::find_eq_split_point(seq_util& u, expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                                        unsigned& out_lhs_idx, unsigned& out_rhs_idx, int& out_padding) {
+        unsigned lhs_len = lhs.size();
+        unsigned rhs_len = rhs.size();
+        if (lhs_len <= 1 || rhs_len <= 1)
+            return false;
+
+        u_map<int> balance;
+        unsigned nz = 0;
+        int const_diff = 0;
+        unsigned li = 0, ri = 0;
+        unsigned lvars = 0, rvars = 0;
+        bool seen_variable = false;
+        bool has_best = false;
+        unsigned best_lhs = 0, best_rhs = 0;
+        int best_padding = 0;
+
+        auto bump = [&](expr* tok, int d) {
+            int b = 0;
+            balance.find(tok->get_id(), b);
+            if (b == 0) ++nz;
+            b += d;
+            if (b == 0) --nz;
+            balance.insert(tok->get_id(), b);
+        };
+
+        while (true) {
+            bool interior = li > 0 && li < lhs_len && ri > 0 && ri < rhs_len;
+            if (seen_variable && nz == 0 && interior &&
+                (!has_best || std::abs(const_diff) < std::abs(best_padding))) {
+                has_best = true;
+                best_padding = const_diff;
+                best_lhs = li;
+                best_rhs = ri;
+            }
+            bool l_done = li >= lhs_len;
+            bool r_done = ri >= rhs_len;
+            if (l_done && r_done)
+                break;
+
+            bool consume_lhs;
+            if (l_done) consume_lhs = false;
+            else if (r_done) consume_lhs = true;
+            else if (lvars != rvars) consume_lhs = lvars < rvars;
+            else consume_lhs = const_diff <= 0;
+
+            expr* tok = consume_lhs ? lhs.get(li++) : rhs.get(ri++);
+            // A length-1 string constant is const-length 1 (flatten()'s
+            // token model never produces longer constant tokens); every
+            // other token (opaque variable, fresh Skolem, etc.) is
+            // variable-length.
+            if (is_const_token(u, tok)) {
+                const_diff += (consume_lhs ? 1 : -1);
+            }
+            else {
+                bump(tok, consume_lhs ? 1 : -1);
+                ++(consume_lhs ? lvars : rvars);
+                seen_variable = true;
+            }
+        }
+
+        if (!has_best)
+            return false;
+        out_lhs_idx = best_lhs;
+        out_rhs_idx = best_rhs;
+        out_padding = best_padding;
+        return true;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        if (cost != 0)
+            return nullptr;
+        auto& f = n.facet_as<eq_facet>(m_eq_id);
+        auto& af = n.facet_as<arith_facet>(m_arith_id);
+
+        for (unsigned idx = 0; idx < f.equations().size(); ++idx) {
+            eq_facet::equation const& eq = f.equations()[idx];
+            if (eq.m_lhs.empty() || eq.m_rhs.empty())
+                continue; // resolved by propagation; not eq_split's business
+            unsigned split_lhs = 0, split_rhs = 0;
+            int padding = 0;
+            if (!find_eq_split_point(u, eq.m_lhs, eq.m_rhs, split_lhs, split_rhs, padding))
+                continue;
+            has_more = true; // an alternative exists at this cost, even if not yet materialized below (loop continues to next equation only on failure)
+
+            eq_tree::dep_tracker eq_dep = eq.m_dep;
+            expr_ref_vector lhs_prefix(m), lhs_suffix(m), rhs_prefix(m), rhs_suffix(m);
+            lhs_prefix.append(split_lhs, eq.m_lhs.data());
+            lhs_suffix.append(eq.m_lhs.size() - split_lhs, eq.m_lhs.data() + split_lhs);
+            rhs_prefix.append(split_rhs, eq.m_rhs.data());
+            rhs_suffix.append(eq.m_rhs.size() - split_rhs, eq.m_rhs.data() + split_rhs);
+
+            expr* pad = padding != 0 ? f.mk_fresh_var(eq.m_lhs[0]->get_sort()) : nullptr;
+            expr_ref_vector eq1_lhs(m), eq1_rhs(m), eq2_lhs(m), eq2_rhs(m);
+            eq1_lhs.append(lhs_prefix);
+            eq1_rhs.append(rhs_prefix);
+            eq2_lhs.append(lhs_suffix);
+            eq2_rhs.append(rhs_suffix);
+            if (pad) {
+                if (padding > 0) {
+                    // LHS prefix is longer by |padding|: rhs_prefix.pad = lhs_prefix, pad.lhs_suffix = rhs_suffix.
+                    eq1_rhs.push_back(pad);
+                    expr_ref_vector new_eq2_lhs(m);
+                    new_eq2_lhs.push_back(pad);
+                    new_eq2_lhs.append(eq2_lhs);
+                    eq2_lhs.reset();
+                    eq2_lhs.append(new_eq2_lhs);
+                }
+                else {
+                    // Mirror: RHS prefix is longer by |padding|.
+                    eq1_lhs.push_back(pad);
+                    expr_ref_vector new_eq2_rhs(m);
+                    new_eq2_rhs.push_back(pad);
+                    new_eq2_rhs.append(eq2_rhs);
+                    eq2_rhs.reset();
+                    eq2_rhs.append(new_eq2_rhs);
+                }
+            }
+
+            f.remove_equation_trailed(idx);
+            f.add_equation_trailed(eq1_lhs, eq1_rhs, eq_dep);
+            f.add_equation_trailed(eq2_lhs, eq2_rhs, eq_dep);
+
+            if (pad) {
+                expr_ref len_pad(u.str.mk_length(pad), m);
+                af.add_constraint(m.mk_eq(len_pad, af.get_arith_util().mk_int(std::abs(padding))), eq_dep);
+            }
+            af.add_length_constraint(eq1_lhs, eq1_rhs, eq_dep);
+            af.add_length_constraint(eq2_lhs, eq2_rhs, eq_dep);
+
+            out = eq_tree::edge("eq-split", eq_dep, true, 0);
+            committed = true;
+            return nullptr; // single deterministic progress branch, no resumable iterator
         }
         return nullptr;
     }

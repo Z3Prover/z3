@@ -251,6 +251,16 @@ namespace seq {
             m_trail.push(push_back_trail<equation>(m_eqs));
         }
 
+        // Trailed removal of the equation at `idx` (e.g. eq_split
+        // replacing one equation with two shorter ones): uses
+        // vector_erase_trail so the removed element is restored at the
+        // same index on undo, regardless of any push_back_trailed
+        // insertions that may have shifted the vector's storage since.
+        void remove_equation_trailed(unsigned idx) {
+            m_trail.push(vector_erase_trail<equation>(m_eqs, idx));
+            m_eqs.erase(m_eqs.begin() + idx);
+        }
+
         vector<equation> const& equations() const { return m_eqs; }
 
         // Apply a forced/branch substitution `var := repl` to every
@@ -337,6 +347,56 @@ namespace seq {
     public:
         word_eq_split(ast_manager& m, seq_util& u, stx::facet_id id) : m(m), u(u), m_id(id) {}
         char const* name() const override { return "nielsen-split"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+    };
+
+    // Mid-equation split with a padding variable, ported from the c3
+    // branch's `apply_eq_split`/`find_eq_split_point`
+    // (seq_nielsen_modifiers.cpp) per facet-eq-deq.md section 2.2. Unlike
+    // `word_eq_split` (which only ever peels the *head* token of an
+    // equation), this rule looks for an interior position on each side
+    // where the multiset of variable tokens consumed so far balances out
+    // between LHS and RHS - at such a position the two prefixes must have
+    // equal length up to a constant offset ("padding"), so the equation
+    // can be safely cut in two there, each half strictly shorter than the
+    // original (bounding recursion) without losing any solutions: this is
+    // a single deterministic *progress* transformation, not a
+    // multi-branch case split, so it is offered at split cost 0 exactly
+    // like word_eq_split, but always commits its lone alternative
+    // immediately (no resumable iterator, mirroring power_split's
+    // single-branch cases).
+    //
+    // If lhs is longer than rhs at the split (padding > 0), a fresh
+    // Skolem "pad" variable is introduced and spliced onto the shorter
+    // (rhs) side at the split point (mirrored if rhs is longer); an
+    // exact-length constraint `len(pad) = |padding|` plus the two new
+    // equations' own `len(lhs)=len(rhs)` constraints are asserted into
+    // arith_facet, all tagged with the original equation's dependency.
+    class eq_split : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        stx::facet_id m_eq_id;
+        stx::facet_id m_arith_id;
+
+        // Classify a token's length as a known constant (chars, always 1
+        // here since flatten() explodes multi-char strings into
+        // single-char tokens) or unknown/variable (anything else,
+        // including fresh Skolem/opaque terms).
+        static bool token_has_variable_length(seq_util& u, expr* tok) { return !is_const_token(u, tok); }
+
+    public:
+        eq_split(ast_manager& m, seq_util& u, stx::facet_id eq_id, stx::facet_id arith_id) :
+            m(m), u(u), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        char const* name() const override { return "eq-split"; }
+
+        // Walk `lhs`/`rhs` token lists looking for a balanced interior
+        // split point, as in the c3 branch's find_eq_split_point (see
+        // module comment above and the .cpp implementation for the
+        // per-token signed-balance algorithm and its history). Returns
+        // false if no such point exists.
+        static bool find_eq_split_point(seq_util& u, expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                                         unsigned& out_lhs_idx, unsigned& out_rhs_idx, int& out_padding);
+
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
