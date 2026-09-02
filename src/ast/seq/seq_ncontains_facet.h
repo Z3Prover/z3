@@ -86,8 +86,8 @@ Author:
 
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
-#include "smt/seq_arith_facet.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 

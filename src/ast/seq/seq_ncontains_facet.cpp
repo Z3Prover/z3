@@ -15,6 +15,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_ncontains_facet.h"
+#include "smt/seq_arith_facet.h"
 #include <algorithm>
 
 namespace seq {

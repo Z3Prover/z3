@@ -124,6 +124,7 @@ namespace seq {
 
     bool eq_facet::simplify_equation(unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
+        eq_tree::dep_tracker parent_dep = eq.m_dep;
         expr_ref_vector L(eq.m_lhs);
         expr_ref_vector R(eq.m_rhs);
         expr_ref_pair_vector new_eqs(m);
@@ -133,10 +134,14 @@ namespace seq {
             conflict_dep = eq.m_dep;
             return false;
         }
-        if (!eq_changed && new_eqs.empty())
-            return true;
-
-        changed = true;
+        // NOTE: do not early-return here just because reduce_eq itself made
+        // no change - L/R may already be in an unresolved empty-vs-nonempty
+        // state (e.g. because some other facet's apply_subst just emptied
+        // one side directly, without going through reduce_eq at all), and
+        // that state must still be checked/resolved below on every call,
+        // not only when reduce_eq itself reports a change.
+        if (eq_changed || !new_eqs.empty())
+            changed = true;
         m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, idx, &equation::m_lhs));
         m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, idx, &equation::m_rhs));
         eq.m_lhs = std::move(L);
@@ -175,12 +180,16 @@ namespace seq {
         // equations, trailed. The decomposition is definitional (not an
         // added assumption), so each sub-equation inherits the parent
         // equation's dependency directly rather than joining a fresh leaf.
+        // NOTE: `eq` may be a dangling reference at this point if the
+        // equation at idx was just erased above (the vector element it
+        // referred to has been shifted/removed) - capture the dependency
+        // we need (parent_dep) BEFORE the erase, not here.
         for (unsigned i = 0; i < new_eqs.size(); ++i) {
             auto p = new_eqs[i].get();
             expr_ref_vector lts(m), rts(m);
             flatten(u, p.first, lts);
             flatten(u, p.second, rts);
-            add_equation_trailed(lts, rts, eq.m_dep);
+            add_equation_trailed(lts, rts, parent_dep);
         }
         return true;
     }

@@ -65,6 +65,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
+#include "ast/seq/seq_sub_solver.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include "util/params.h"
@@ -72,25 +73,6 @@ Author:
 class solver;
 
 namespace seq {
-
-    /**
-     * Abstract incremental-arithmetic backend interface (per
-     * z3papers/nseq/facet-arith.md's `sub_solver_i`). `arith_facet` is
-     * built entirely against this interface - it has no dependency on
-     * `src/solver/solver.h` or any concrete solver implementation. One
-     * instance is shared by every `arith_facet` clone in the tree (they
-     * all describe the same underlying incremental scope stack, kept in
-     * sync with DFS backtracking via `facet_i::on_enter`/`on_leave`).
-     */
-    class sub_solver_i {
-    public:
-        virtual ~sub_solver_i() = default;
-        virtual void assert_expr(expr* e) = 0;
-        virtual void push() = 0;
-        virtual void pop(unsigned n) = 0;
-        virtual unsigned get_scope_level() const = 0;
-        virtual lbool check() = 0;
-    };
 
     /**
      * Concrete `sub_solver_i` backed by a single shared `solver` instance
@@ -131,19 +113,26 @@ namespace seq {
         seq_util&         u;
         sub_solver_i&     m_solver;
         expr_ref_vector   m_own;       // constraints added at this node only
-        bool              m_scope_pushed = false; // true once a scope has been pushed for the current branch
+        unsigned          m_pushed_at_scope = 0; // trail scope level at which the backend scope currently in effect was pushed (0 = none pushed yet)
         bool              m_conflict = false; // true if the shared solver went unsat after the last add_constraint
 
         // Trail undo object: pairs with the backend push done when the
-        // first constraint of a branch is asserted. Its constructor does
-        // the push; `undo()` (invoked on pop_scope()) does the matching
-        // pop, keeping the shared incremental solver's scope stack synced
-        // to the search tree's own trail-scope stack.
+        // first constraint at a given trail-scope level is asserted.
+        // Its constructor does the push; `undo()` (invoked on
+        // pop_scope()) does the matching pop, keeping the shared
+        // incremental solver's scope stack synced to the search tree's
+        // own trail-scope stack. Also restores `m_pushed_at_scope` to
+        // its prior value so a later sibling branch at the same (now
+        // popped-back-to) trail level pushes its own fresh backend scope
+        // rather than assuming one is still open.
         class scope_trail : public ::trail {
             sub_solver_i& m_solver;
+            unsigned&     m_pushed_at_scope;
+            unsigned      m_old_value;
         public:
-            explicit scope_trail(sub_solver_i& s) : m_solver(s) { s.push(); }
-            void undo() override { m_solver.pop(1); }
+            explicit scope_trail(sub_solver_i& s, unsigned& pushed_at_scope) :
+                m_solver(s), m_pushed_at_scope(pushed_at_scope), m_old_value(pushed_at_scope) { s.push(); }
+            void undo() override { m_solver.pop(1); m_pushed_at_scope = m_old_value; }
         };
 
         // Trail undo object mirroring push_back_trail but for a

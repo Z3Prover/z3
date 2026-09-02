@@ -142,6 +142,7 @@ add_executable(test-z3
   seq_eq_facet.cpp
   seq_mem_facet.cpp
   seq_ncontains_facet.cpp
+  seq_power_facet.cpp
   seq_regex_witness.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp

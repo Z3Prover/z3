@@ -36,10 +36,15 @@ Revision History:
 #include "smt/seq_regex.h"
 #include "smt/seq_offset_eq.h"
 
+namespace seq {
+    class theory_seq_ambient_context;
+}
+
 namespace smt {
 
     class theory_seq : public theory, public seq::eq_solver_context {
         friend class seq_regex;
+        friend class seq::theory_seq_ambient_context;
 
         struct assumption {
             enode* n1, *n2;

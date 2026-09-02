@@ -57,10 +57,10 @@ namespace seq {
         for (expr* e : m_own)
             if (e == c)
                 return false; // already recorded (propagate may revisit the same equation across simplify rounds)
-        if (!m_scope_pushed) {
-            m_trail.push(scope_trail(m_solver));
-            m_trail.push(value_trail<bool>(m_scope_pushed));
-            m_scope_pushed = true;
+        if (m_trail.get_num_scopes() != m_pushed_at_scope) {
+            unsigned cur_scope = m_trail.get_num_scopes();
+            m_trail.push(scope_trail(m_solver, m_pushed_at_scope));
+            m_pushed_at_scope = cur_scope;
         }
         m_trail.push(push_back_ref_trail(m_own));
         m_own.push_back(c);

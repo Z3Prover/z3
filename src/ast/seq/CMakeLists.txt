@@ -7,6 +7,7 @@ z3_add_component(ast_seq
     seq_mem_facet.cpp
     seq_monadic.cpp
     seq_ncontains_facet.cpp
+    seq_power_facet.cpp
     seq_regex_live.cpp
     seq_skolem.cpp
     seq_view.cpp
