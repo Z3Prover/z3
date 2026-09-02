@@ -100,7 +100,9 @@ namespace seq {
     struct str_ncontains {
         expr_ref_vector m_haystack;
         expr_ref_vector m_needle;
-        str_ncontains(expr_ref_vector const& h, expr_ref_vector const& n) : m_haystack(h), m_needle(n) {}
+        eq_tree::dep_tracker m_dep;
+        str_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) :
+            m_haystack(h), m_needle(n), m_dep(dep) {}
         bool operator<(str_ncontains const& other) const;
         bool operator==(str_ncontains const& other) const;
     };
@@ -112,23 +114,25 @@ namespace seq {
     class ncontains_facet : public stx::facet_i, public subst_sink_i {
         ast_manager& m;
         seq_util&    u;
+        eq_tree::dep_manager_t& m_dm;
         vector<str_ncontains> m_ncs;
 
     public:
-        ncontains_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
+        ncontains_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
+            facet_i(trail), m(m), u(u), m_dm(dm) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
         // Non-trailed: root construction only.
-        void add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n) {
-            m_ncs.push_back(str_ncontains(h, n));
+        void add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) {
+            m_ncs.push_back(str_ncontains(h, n, dep));
         }
-        void add_ncontains(expr* haystack, expr* needle) {
+        void add_ncontains(expr* haystack, expr* needle, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector hts(m), nts(m);
             flatten(u, haystack, hts);
             flatten(u, needle, nts);
-            add_ncontains(hts, nts);
+            add_ncontains(hts, nts, dep);
         }
 
         vector<str_ncontains> const& ncontains() const { return m_ncs; }
@@ -145,8 +149,9 @@ namespace seq {
         // Broadcast substitution from eq_facet's Nielsen split - keeps
         // every obligation's haystack/needle in sync with the shared
         // variable pool (the monotonicity-soundness fix, see module
-        // comment).
-        void apply_subst(expr* var, expr_ref_vector const& repl) override;
+        // comment). The touched obligation's dependency is joined with
+        // `subst_dep`, also trailed.
+        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;

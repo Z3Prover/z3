@@ -116,7 +116,13 @@ namespace seq {
     class subst_sink_i {
     public:
         virtual ~subst_sink_i() = default;
-        virtual void apply_subst(expr* var, expr_ref_vector const& repl) = 0;
+        // `subst_dep` is the dependency justifying the substitution
+        // itself (e.g. the dependency of the equation whose branching
+        // produced it). Each sink joins it (via its dep manager's
+        // `mk_join`) with the existing dependency of every constraint it
+        // actually mutates, so provenance accumulates through chains of
+        // substitutions rather than being dropped.
+        virtual void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) = 0;
     };
 
     // Trail undo object for a single-element `vector<T>::erase(idx)`:
@@ -194,43 +200,54 @@ namespace seq {
     class eq_facet : public stx::facet_i, public subst_sink_i {
     public:
         struct equation {
-            expr_ref_vector m_lhs;
-            expr_ref_vector m_rhs;
-            equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
+            expr_ref_vector      m_lhs;
+            expr_ref_vector      m_rhs;
+            // Justification for this equation: for a root-level equation,
+            // the dependency of the original assertion it came from
+            // (nullptr/empty if none); for an equation produced by
+            // simplification (reduce_eq's sub-equations), the parent
+            // equation's dependency (the decomposition is definitional,
+            // not an added assumption, so no new leaf is introduced).
+            eq_tree::dep_tracker m_dep;
+            equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
+                m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
             bool operator<(equation const& other) const;
             bool operator==(equation const& other) const;
         };
 
     private:
-        ast_manager& m;
-        seq_util&    u;
-        seq_rewriter m_rw;
-        vector<equation> m_eqs;
+        ast_manager&          m;
+        seq_util&             u;
+        seq_rewriter          m_rw;
+        eq_tree::dep_manager_t& m_dm;
+        vector<equation>      m_eqs;
 
     public:
-        eq_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u), m_rw(m) {}
+        eq_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
+            facet_i(trail), m(m), u(u), m_rw(m), m_dm(dm) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
+        eq_tree::dep_manager_t& dm() const { return m_dm; }
 
         // Non-trailed: only for root construction, before any search has
         // begun (no branch to undo back past).
-        void add_equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
-            m_eqs.push_back(equation(lhs, rhs));
+        void add_equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
+            m_eqs.push_back(equation(lhs, rhs, dep));
         }
-        void add_equation(expr* lhs, expr* rhs) {
+        void add_equation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector lts(m), rts(m);
             flatten(u, lhs, lts);
             flatten(u, rhs, rts);
-            add_equation(lts, rts);
+            add_equation(lts, rts, dep);
         }
 
         // Trailed variant: for adding a new equation to an existing
         // branch mid-search (e.g. ncontains_split's "needle aligns here"
         // branch, which introduces a fresh eq_facet equation rather than
         // a substitution). Undo just pops the pushed element.
-        void add_equation_trailed(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
-            m_eqs.push_back(equation(lhs, rhs));
+        void add_equation_trailed(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
+            m_eqs.push_back(equation(lhs, rhs, dep));
             m_trail.push(push_back_trail<equation>(m_eqs));
         }
 
@@ -239,8 +256,10 @@ namespace seq {
         // Apply a forced/branch substitution `var := repl` to every
         // equation currently in the facet. Trailed per-equation: only
         // equations that actually contain `var` register an undo object
-        // (see subst_in_trailed).
-        void apply_subst(expr* var, expr_ref_vector const& repl) override;
+        // (see subst_in_trailed). Each touched equation's dependency is
+        // joined with `subst_dep` (the justification for the
+        // substitution itself), also trailed.
+        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         // Allocate a fresh opaque variable token of `s`'s sort.
         expr* mk_fresh_var(sort* s) { return m.mk_fresh_const("t", s); }
@@ -258,17 +277,20 @@ namespace seq {
         // solved (both-empty) equations, and folds any newly-produced
         // sub-equations back into the set. Returns true if the equation
         // set changed (informational only - the engine detects the fixed
-        // point itself via facet hashing). Trailed. See module comment.
-        bool simplify(bool& conflict);
+        // point itself via facet hashing). Trailed. On conflict, sets
+        // `conflict_dep` to the dependency of the equation that produced
+        // the contradiction. See module comment.
+        bool simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep);
 
     private:
         // Simplify a single equation (by index into m_eqs) using
-        // seq_rewriter::reduce_eq. Returns false and sets conflict=true if
-        // the equation is contradictory; otherwise returns true. Sets
+        // seq_rewriter::reduce_eq. Returns false and sets conflict=true
+        // (and conflict_dep to the culprit equation's dependency) if the
+        // equation is contradictory; otherwise returns true. Sets
         // changed=true if the equation's token lists were mutated or new
         // sub-equations were appended to m_eqs. On success, if both sides
         // reduced to empty, the equation is erased (trailed).
-        bool simplify_equation(unsigned idx, bool& conflict, bool& changed);
+        bool simplify_equation(unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
     };
 
     // Deterministic propagation plugin wrapping eq_facet::simplify.
@@ -295,15 +317,19 @@ namespace seq {
             eq_tree::node& m_n;
             stx::facet_id  m_id;
             // Remaining alternatives to produce, in order. Each entry is a
-            // (rule_name, var, replacement) triple; `next()` pops the
-            // front one, mutates in place, pushes a scope, and returns it.
-            struct alt { char const* m_name; expr* m_var; expr_ref_vector m_repl; };
+            // (rule_name, var, replacement, dep) tuple - `m_dep` is the
+            // dependency of the equation whose stuck leading tokens
+            // motivated this split (a case-split on how to unstick a
+            // single equation derives its justification from that one
+            // equation, not a join of several). `next()` pops the front
+            // one, mutates in place, pushes a scope, and returns it.
+            struct alt { char const* m_name; expr* m_var; expr_ref_vector m_repl; eq_tree::dep_tracker m_dep; };
             vector<alt>    m_pending;
             unsigned       m_pos = 0;
         public:
             iterator(eq_tree::node& n, stx::facet_id id) : m_n(n), m_id(id) {}
-            void push_back(char const* name, expr* var, expr_ref_vector const& repl) {
-                m_pending.push_back(alt{ name, var, repl });
+            void push_back(char const* name, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep) {
+                m_pending.push_back(alt{ name, var, repl, dep });
             }
             bool next(eq_tree::edge& out) override;
         };
@@ -330,9 +356,11 @@ namespace seq {
     class deq_facet : public stx::facet_i, public subst_sink_i {
     public:
         struct disequation {
-            expr_ref_vector m_lhs;
-            expr_ref_vector m_rhs;
-            disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs) : m_lhs(lhs), m_rhs(rhs) {}
+            expr_ref_vector      m_lhs;
+            expr_ref_vector      m_rhs;
+            eq_tree::dep_tracker m_dep;
+            disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
+                m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
             bool operator<(disequation const& other) const;
             bool operator==(disequation const& other) const;
         };
@@ -340,23 +368,25 @@ namespace seq {
     private:
         ast_manager& m;
         seq_util&    u;
+        eq_tree::dep_manager_t& m_dm;
         vector<disequation> m_diseqs;
 
     public:
-        deq_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
+        deq_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
+            facet_i(trail), m(m), u(u), m_dm(dm) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
         // Non-trailed: root construction only.
-        void add_disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
-            m_diseqs.push_back(disequation(lhs, rhs));
+        void add_disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
+            m_diseqs.push_back(disequation(lhs, rhs, dep));
         }
-        void add_disequation(expr* lhs, expr* rhs) {
+        void add_disequation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector lts(m), rts(m);
             flatten(u, lhs, lts);
             flatten(u, rhs, rts);
-            add_disequation(lts, rts);
+            add_disequation(lts, rts, dep);
         }
 
         vector<disequation> const& disequations() const { return m_diseqs; }
@@ -364,7 +394,9 @@ namespace seq {
         // Apply a substitution `var := repl` (chosen elsewhere, by
         // eq_facet's split plugin) to every pending disequation. Trailed
         // per-disequation (only entries containing `var` register undo).
-        void apply_subst(expr* var, expr_ref_vector const& repl) override;
+        // The touched disequation's dependency is joined with
+        // `subst_dep`, also trailed.
+        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
@@ -373,9 +405,10 @@ namespace seq {
         bool is_satisfied() const override { return m_diseqs.empty(); }
 
         // Deterministic simplification pass: prefix-stripping, then
-        // discharge-on-symbol-clash / conflict-on-both-empty. See module
-        // comment. Trailed.
-        bool simplify(bool& conflict);
+        // discharge-on-symbol-clash / conflict-on-both-empty. On
+        // conflict, sets `conflict_dep` to the culprit disequation's
+        // dependency. See module comment. Trailed.
+        bool simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep);
     };
 
     // Deterministic propagation plugin wrapping deq_facet::simplify.

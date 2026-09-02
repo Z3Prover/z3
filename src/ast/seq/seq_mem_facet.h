@@ -72,10 +72,12 @@ namespace seq {
     class mem_facet : public stx::facet_i, public subst_sink_i {
         ast_manager&      m;
         seq_util&         u;
+        eq_tree::dep_manager_t& m_dm;
         vector<str_mem>   m_mems;
 
     public:
-        mem_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
+        mem_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
+            facet_i(trail), m(m), u(u), m_dm(dm) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
@@ -84,7 +86,7 @@ namespace seq {
         void add(str_mem const& sm);
         void narrow(unsigned idx, view const& new_view);
         void remove(unsigned idx);
-        void apply_subst(expr* var, expr_ref_vector const& repl) override;
+        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         stx::facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
@@ -117,10 +119,11 @@ namespace seq {
             stx::facet_id  m_eq_id;
             unsigned       m_mem_index;
             expr*          m_var;
+            eq_tree::dep_tracker m_dep;
             bool           m_done = false;
         public:
-            iterator(eq_tree::node& n, stx::facet_id mem_id, stx::facet_id eq_id, unsigned mem_index, expr* var) :
-                m_n(n), m_mem_id(mem_id), m_eq_id(eq_id), m_mem_index(mem_index), m_var(var) {}
+            iterator(eq_tree::node& n, stx::facet_id mem_id, stx::facet_id eq_id, unsigned mem_index, expr* var, eq_tree::dep_tracker dep = nullptr) :
+                m_n(n), m_mem_id(mem_id), m_eq_id(eq_id), m_mem_index(mem_index), m_var(var), m_dep(dep) {}
             bool next(eq_tree::edge& out) override;
         };
 

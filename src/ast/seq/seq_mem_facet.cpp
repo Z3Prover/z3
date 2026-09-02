@@ -36,12 +36,12 @@ namespace seq {
             out = expr_ref(u.str.mk_concat(ts.size(), ts.data(), ts.empty() ? u.str.mk_string_sort() : ts[0]->get_sort()), m);
         }
 
-        void broadcast_subst(eq_tree::node& target, stx::facet_id src_id, expr* var, expr_ref_vector const& repl) {
+        void broadcast_subst(eq_tree::node& target, stx::facet_id src_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
             for (unsigned id = 0; id < target.num_facets(); ++id) {
                 if (id == src_id || !target.has_facet(id))
                     continue;
                 if (auto* sink = dynamic_cast<subst_sink_i*>(&target.facet(id)))
-                    sink->apply_subst(var, repl);
+                    sink->apply_subst(var, repl, subst_dep);
             }
         }
     }
@@ -65,7 +65,7 @@ namespace seq {
         m_mems.erase(m_mems.begin() + idx);
     }
 
-    void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl) {
+    void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         expr_ref replacement(m);
         flatten_to_expr(u, repl, replacement);
         for (unsigned i = 0; i < m_mems.size(); ++i) {
@@ -73,11 +73,15 @@ namespace seq {
                 continue;
             m_trail.push(vector_field_trail<str_mem, expr_ref>(m_mems, i, &str_mem::m_str));
             m_mems[i].m_str = replacement;
+            if (subst_dep) {
+                m_trail.push(vector_field_trail<str_mem, eq_tree::dep_tracker>(m_mems, i, &str_mem::m_dep));
+                m_mems[i].m_dep = m_dm.mk_join(m_mems[i].m_dep, subst_dep);
+            }
         }
     }
 
     stx::facet_i* mem_facet::clone(trail_stack& trail) const {
-        mem_facet* f = alloc(mem_facet, trail, m, u);
+        mem_facet* f = alloc(mem_facet, trail, m, u, m_dm);
         f->m_mems.append(m_mems);
         return f;
     }
@@ -167,8 +171,8 @@ namespace seq {
         expr_ref_vector repl(eq.get_manager());
         expr* fresh = eq.mk_fresh_var(m_var->get_sort());
         repl.push_back(fresh);
-        eq.apply_subst(m_var, repl);
-        broadcast_subst(m_n, m_eq_id, m_var, repl);
+        eq.apply_subst(m_var, repl, m_dep);
+        broadcast_subst(m_n, m_eq_id, m_var, repl, m_dep);
         out = eq_tree::edge("mem-v:=v'", nullptr, true, 0);
         return true;
     }
@@ -186,11 +190,12 @@ namespace seq {
             if (ts.empty() || is_const_token(u, ts.get(0)))
                 continue;
             expr* var = ts.get(0);
-            iterator* it = alloc(iterator, n, m_mem_id, m_eq_id, i, var);
+            eq_tree::dep_tracker dep = mf.memberships()[i].m_dep;
+            iterator* it = alloc(iterator, n, m_mem_id, m_eq_id, i, var, dep);
             auto& eq = n.facet_as<eq_facet>(m_eq_id);
             expr_ref_vector empty(eq.get_manager());
-            eq.apply_subst(var, empty);
-            broadcast_subst(n, m_eq_id, var, empty);
+            eq.apply_subst(var, empty, dep);
+            broadcast_subst(n, m_eq_id, var, empty, dep);
             out = eq_tree::edge("mem-v:=eps", nullptr, true, 0);
             committed = true;
             return it;

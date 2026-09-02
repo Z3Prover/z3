@@ -47,7 +47,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u);
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         seq::arith_sub_solver solver(m, a);
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
 
@@ -86,7 +86,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u);
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         seq::arith_sub_solver solver(m, a);
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
 
@@ -119,7 +119,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u);
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         seq::arith_sub_solver solver(m, a);
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
 

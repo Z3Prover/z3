@@ -28,7 +28,7 @@ namespace {
     stx::search_result solve_eq(ast_manager& m, seq_util& u, expr* lhs, expr* rhs, unsigned max_depth = 12) {
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u);
+        stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::eq_facet>(id).add_equation(lhs, rhs);
 
         seq::eq_propagation prop(id);
@@ -89,7 +89,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u);
+        stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         auto& f = root->facet_as<seq::eq_facet>(id);
         f.add_equation(X, a);
         f.add_equation(X, b);
@@ -125,7 +125,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u);
+        stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::deq_facet>(id).add_disequation(a, b);
 
         seq::deq_propagation dprop(id);
@@ -145,7 +145,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u);
+        stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::deq_facet>(id).add_disequation(a1, a2);
 
         seq::deq_propagation dprop(id);
@@ -170,8 +170,8 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u);
-        stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u);
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, a);
         root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, b);
 

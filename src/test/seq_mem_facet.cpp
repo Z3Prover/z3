@@ -31,8 +31,8 @@ namespace {
     stx::search_result solve_mem(fixture& f, std::function<void(seq::eq_tree&, seq::eq_tree::node*, stx::facet_id, stx::facet_id)> init, unsigned depth = 12) {
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, f.m, *f.u);
-        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, f.m, *f.u);
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, f.m, *f.u, tree.dep_mgr());
+        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, f.m, *f.u, tree.dep_mgr());
         init(tree, root, eq_id, mem_id);
         seq::eq_propagation eprop(eq_id);
         seq::word_eq_split esplit(f.m, *f.u, eq_id);

@@ -50,21 +50,26 @@ namespace seq {
 
     void ncontains_facet::replace_with_tail(unsigned idx, expr_ref_vector const& new_haystack) {
         expr_ref_vector needle(m_ncs[idx].m_needle);
+        eq_tree::dep_tracker dep = m_ncs[idx].m_dep;
         m_trail.push(vector_erase_trail<str_ncontains>(m_ncs, idx));
         m_ncs.erase(m_ncs.begin() + idx);
-        m_ncs.push_back(str_ncontains(new_haystack, needle));
+        m_ncs.push_back(str_ncontains(new_haystack, needle, dep));
         m_trail.push(push_back_trail<str_ncontains>(m_ncs));
     }
 
-    void ncontains_facet::apply_subst(expr* var, expr_ref_vector const& repl) {
+    void ncontains_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_ncs.size(); ++i) {
-            subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_haystack, var, repl);
-            subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_needle, var, repl);
+            bool touched_h = subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_haystack, var, repl);
+            bool touched_n = subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_needle, var, repl);
+            if ((touched_h || touched_n) && subst_dep) {
+                m_trail.push(vector_field_trail<str_ncontains, eq_tree::dep_tracker>(m_ncs, i, &str_ncontains::m_dep));
+                m_ncs[i].m_dep = m_dm.mk_join(m_ncs[i].m_dep, subst_dep);
+            }
         }
     }
 
     stx::facet_i* ncontains_facet::clone(trail_stack& trail) const {
-        ncontains_facet* f = alloc(ncontains_facet, trail, m, u);
+        ncontains_facet* f = alloc(ncontains_facet, trail, m, u, m_dm);
         f->m_ncs.append(m_ncs);
         return f;
     }
@@ -138,7 +143,7 @@ namespace seq {
 
             // Trivial conflict: an empty needle is always contained.
             if (nc.m_needle.empty()) {
-                n.set_conflict(stx::br_plugin_base, nullptr);
+                n.set_conflict(stx::br_plugin_base, nc.m_dep);
                 return stx::simplify_result::conflict;
             }
 
@@ -187,7 +192,7 @@ namespace seq {
             // finally decide the alignment).
             lbool al = compare_alignment(u, nc.m_haystack, 0, nc.m_needle);
             if (al == l_true) {
-                n.set_conflict(stx::br_plugin_base, nullptr);
+                n.set_conflict(stx::br_plugin_base, nc.m_dep);
                 return stx::simplify_result::conflict;
             }
             if (al == l_false) {

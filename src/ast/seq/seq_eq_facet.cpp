@@ -77,15 +77,19 @@ namespace seq {
         }
     }
 
-    void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl) {
+    void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
-            subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);
-            subst_in_trailed(m_trail, m_eqs, i, &equation::m_rhs, var, repl);
+            bool touched_l = subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);
+            bool touched_r = subst_in_trailed(m_trail, m_eqs, i, &equation::m_rhs, var, repl);
+            if ((touched_l || touched_r) && subst_dep) {
+                m_trail.push(vector_field_trail<equation, eq_tree::dep_tracker>(m_eqs, i, &equation::m_dep));
+                m_eqs[i].m_dep = m_dm.mk_join(m_eqs[i].m_dep, subst_dep);
+            }
         }
     }
 
     stx::facet_i* eq_facet::clone(trail_stack& trail) const {
-        eq_facet* f = alloc(eq_facet, trail, m, u);
+        eq_facet* f = alloc(eq_facet, trail, m, u, m_dm);
         f->m_eqs.append(m_eqs);
         return f;
     }
@@ -118,7 +122,7 @@ namespace seq {
         return true;
     }
 
-    bool eq_facet::simplify_equation(unsigned idx, bool& conflict, bool& changed) {
+    bool eq_facet::simplify_equation(unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
         expr_ref_vector L(eq.m_lhs);
         expr_ref_vector R(eq.m_rhs);
@@ -126,6 +130,7 @@ namespace seq {
         bool eq_changed = false;
         if (!m_rw.reduce_eq(L, R, new_eqs, eq_changed)) {
             conflict = true;
+            conflict_dep = eq.m_dep;
             return false;
         }
         if (!eq_changed && new_eqs.empty())
@@ -142,18 +147,21 @@ namespace seq {
         // loop) does not itself force the remaining tokens of a side to
         // epsilon when the other side has already been fully consumed -
         // do that here: pop leading variables as forced (unconditional)
-        // substitutions v := epsilon; a leading constant on the nonempty
-        // side at this point is a symbol clash (conflict).
+        // substitutions v := epsilon, justified by this equation's own
+        // dependency; a leading constant on the nonempty side at this
+        // point is a symbol clash (conflict).
         if (eq.m_lhs.empty() != eq.m_rhs.empty()) {
             expr_ref_vector& side = eq.m_lhs.empty() ? eq.m_rhs : eq.m_lhs;
+            eq_tree::dep_tracker eq_dep = eq.m_dep;
             while (!side.empty()) {
                 expr* tok = side.get(0);
                 if (is_const_token(u, tok)) {
                     conflict = true;
+                    conflict_dep = eq_dep;
                     return false;
                 }
                 expr_ref_vector empty_repl(m);
-                apply_subst(tok, empty_repl);
+                apply_subst(tok, empty_repl, eq_dep);
             }
         }
 
@@ -164,23 +172,26 @@ namespace seq {
 
         // Any newly-produced sub-equations (from unit-vs-unit
         // decomposition, length reasoning, etc.) are appended as fresh
-        // equations, trailed.
+        // equations, trailed. The decomposition is definitional (not an
+        // added assumption), so each sub-equation inherits the parent
+        // equation's dependency directly rather than joining a fresh leaf.
         for (unsigned i = 0; i < new_eqs.size(); ++i) {
             auto p = new_eqs[i].get();
             expr_ref_vector lts(m), rts(m);
             flatten(u, p.first, lts);
             flatten(u, p.second, rts);
-            add_equation_trailed(lts, rts);
+            add_equation_trailed(lts, rts, eq.m_dep);
         }
         return true;
     }
 
-    bool eq_facet::simplify(bool& conflict) {
+    bool eq_facet::simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep) {
         conflict = false;
+        conflict_dep = nullptr;
         bool changed = false;
         for (unsigned i = 0; i < m_eqs.size(); ) {
             unsigned sz_before = m_eqs.size();
-            if (!simplify_equation(i, conflict, changed)) {
+            if (!simplify_equation(i, conflict, conflict_dep, changed)) {
                 SASSERT(conflict);
                 return true;
             }
@@ -198,9 +209,10 @@ namespace seq {
     stx::simplify_result eq_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<eq_facet>(m_id);
         bool conflict = false;
-        bool changed = f.simplify(conflict);
+        eq_tree::dep_tracker conflict_dep = nullptr;
+        bool changed = f.simplify(conflict, conflict_dep);
         if (conflict) {
-            n.set_conflict(stx::br_plugin_base, nullptr);
+            n.set_conflict(stx::br_plugin_base, conflict_dep);
             return stx::simplify_result::conflict;
         }
         if (f.is_satisfied())
@@ -213,12 +225,12 @@ namespace seq {
     // deq_facet), so their state stays consistent with the branch. `eq_id`
     // is skipped since the caller has already applied the substitution to
     // that facet directly.
-    static void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl) {
+    static void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned id = 0; id < target.num_facets(); ++id) {
             if (id == eq_id || !target.has_facet(id))
                 continue;
             if (auto* sink = dynamic_cast<subst_sink_i*>(&target.facet(id)))
-                sink->apply_subst(var, repl);
+                sink->apply_subst(var, repl, subst_dep);
         }
     }
 
@@ -226,9 +238,9 @@ namespace seq {
         if (m_pos >= m_pending.size())
             return false;
         auto& a = m_pending[m_pos++];
-        m_n.facet_as<eq_facet>(m_id).apply_subst(a.m_var, a.m_repl);
-        broadcast_subst(m_n, m_id, a.m_var, a.m_repl);
-        out = eq_tree::edge(a.m_name, nullptr, true, 0);
+        m_n.facet_as<eq_facet>(m_id).apply_subst(a.m_var, a.m_repl, a.m_dep);
+        broadcast_subst(m_n, m_id, a.m_var, a.m_repl, a.m_dep);
+        out = eq_tree::edge(a.m_name, a.m_dep, true, 0);
         return true;
     }
 
@@ -251,6 +263,12 @@ namespace seq {
             if (!lc && !rc && lh == rh)
                 continue; // resolved by propagation
 
+            // Every alternative below is a case-split on how to unstick
+            // this one equation, so all of them (and the immediately
+            // materialized first branch) are justified by this
+            // equation's own dependency, not a join of several.
+            eq_tree::dep_tracker eq_dep = eq.m_dep;
+
             if (!lc && !rc) {
                 // two distinct variables lh, rh
                 expr* v1 = lh;
@@ -261,21 +279,21 @@ namespace seq {
                 iterator* it = alloc(iterator, n, m_id);
                 {
                     expr_ref_vector empty(m);
-                    it->push_back("v2:=eps", v2, empty);
+                    it->push_back("v2:=eps", v2, empty, eq_dep);
                 }
                 {
                     expr_ref_vector repl(m);
                     repl.push_back(v2);
                     repl.push_back(v1p);
-                    it->push_back("v1:=v2.v1'", v1, repl);
+                    it->push_back("v1:=v2.v1'", v1, repl, eq_dep);
                 }
 
                 // Materialize the first branch ("v1:=eps") now, in the
                 // scope the driver already pushed for this call.
                 expr_ref_vector empty(m);
-                f.apply_subst(v1, empty);
-                broadcast_subst(n, m_id, v1, empty);
-                out = eq_tree::edge("v1:=eps", nullptr, true, 0);
+                f.apply_subst(v1, empty, eq_dep);
+                broadcast_subst(n, m_id, v1, empty, eq_dep);
+                out = eq_tree::edge("v1:=eps", eq_dep, true, 0);
                 committed = true;
                 return it;
             }
@@ -291,15 +309,15 @@ namespace seq {
                 expr_ref_vector repl(m);
                 repl.push_back(c);
                 repl.push_back(var2);
-                it->push_back("v:=c.v'", var, repl);
+                it->push_back("v:=c.v'", var, repl, eq_dep);
             }
 
             // Materialize the first branch ("v:=eps") now, in the scope
             // the driver already pushed for this call.
             expr_ref_vector empty(m);
-            f.apply_subst(var, empty);
-            broadcast_subst(n, m_id, var, empty);
-            out = eq_tree::edge("v:=eps", nullptr, true, 0);
+            f.apply_subst(var, empty, eq_dep);
+            broadcast_subst(n, m_id, var, empty, eq_dep);
+            out = eq_tree::edge("v:=eps", eq_dep, true, 0);
             committed = true;
             return it;
         }
@@ -319,15 +337,19 @@ namespace seq {
         return cmp_tokens(m_lhs, other.m_lhs) == 0 && cmp_tokens(m_rhs, other.m_rhs) == 0;
     }
 
-    void deq_facet::apply_subst(expr* var, expr_ref_vector const& repl) {
+    void deq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_diseqs.size(); ++i) {
-            subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_lhs, var, repl);
-            subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_rhs, var, repl);
+            bool touched_l = subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_lhs, var, repl);
+            bool touched_r = subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_rhs, var, repl);
+            if ((touched_l || touched_r) && subst_dep) {
+                m_trail.push(vector_field_trail<disequation, eq_tree::dep_tracker>(m_diseqs, i, &disequation::m_dep));
+                m_diseqs[i].m_dep = m_dm.mk_join(m_diseqs[i].m_dep, subst_dep);
+            }
         }
     }
 
     stx::facet_i* deq_facet::clone(trail_stack& trail) const {
-        deq_facet* f = alloc(deq_facet, trail, m, u);
+        deq_facet* f = alloc(deq_facet, trail, m, u, m_dm);
         f->m_diseqs.append(m_diseqs);
         return f;
     }
@@ -358,8 +380,9 @@ namespace seq {
         return true;
     }
 
-    bool deq_facet::simplify(bool& conflict) {
+    bool deq_facet::simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep) {
         conflict = false;
+        conflict_dep = nullptr;
         bool changed = false;
         for (unsigned i = 0; i < m_diseqs.size(); ) {
             disequation& dq = m_diseqs[i];
@@ -385,6 +408,7 @@ namespace seq {
             if (L.empty() && R.empty()) {
                 // both sides forced identical: the disequation cannot hold.
                 conflict = true;
+                conflict_dep = dq.m_dep;
                 return true;
             }
 
@@ -416,9 +440,10 @@ namespace seq {
     stx::simplify_result deq_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<deq_facet>(m_id);
         bool conflict = false;
-        bool changed = f.simplify(conflict);
+        eq_tree::dep_tracker conflict_dep = nullptr;
+        bool changed = f.simplify(conflict, conflict_dep);
         if (conflict) {
-            n.set_conflict(stx::br_plugin_base, nullptr);
+            n.set_conflict(stx::br_plugin_base, conflict_dep);
             return stx::simplify_result::conflict;
         }
         if (f.is_satisfied())
