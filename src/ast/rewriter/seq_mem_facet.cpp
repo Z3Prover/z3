@@ -50,32 +50,32 @@ namespace seq {
     }
 
     void mem_facet::add(str_mem const& sm) {
-        snapshot();
         m_mems.push_back(sm);
+        m_trail.push(push_back_trail<str_mem>(m_mems));
     }
 
     void mem_facet::narrow(unsigned idx, view const& new_view) {
         SASSERT(idx < m_mems.size());
         if (m_mems[idx].m_view == new_view)
             return;
-        snapshot();
+        m_trail.push(vector_field_trail<str_mem, view>(m_mems, idx, &str_mem::m_view));
         m_mems[idx].m_view = new_view;
     }
 
     void mem_facet::remove(unsigned idx) {
         SASSERT(idx < m_mems.size());
-        snapshot();
+        m_trail.push(vector_erase_trail<str_mem>(m_mems, idx));
         m_mems.erase(m_mems.begin() + idx);
     }
 
     void mem_facet::apply_subst(expr* var, token_list const& repl) {
         expr_ref replacement(m);
         flatten_to_expr(u, repl, replacement);
-        snapshot();
-        for (auto& sm : m_mems) {
-            if (sm.m_str.get() != var)
+        for (unsigned i = 0; i < m_mems.size(); ++i) {
+            if (m_mems[i].m_str.get() != var)
                 continue;
-            sm.m_str = replacement;
+            m_trail.push(vector_field_trail<str_mem, expr_ref>(m_mems, i, &str_mem::m_str));
+            m_mems[i].m_str = replacement;
         }
     }
 

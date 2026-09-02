@@ -44,22 +44,22 @@ namespace seq {
     }
 
     void ncontains_facet::remove(unsigned idx) {
-        snapshot();
+        m_trail.push(vector_erase_trail<str_ncontains>(m_ncs, idx));
         m_ncs.erase(m_ncs.begin() + idx);
     }
 
     void ncontains_facet::replace_with_tail(unsigned idx, token_list const& new_haystack) {
-        snapshot();
         token_list needle(m_ncs[idx].m_needle);
+        m_trail.push(vector_erase_trail<str_ncontains>(m_ncs, idx));
         m_ncs.erase(m_ncs.begin() + idx);
         m_ncs.push_back(str_ncontains(new_haystack, needle));
+        m_trail.push(push_back_trail<str_ncontains>(m_ncs));
     }
 
     void ncontains_facet::apply_subst(expr* var, token_list const& repl) {
-        snapshot();
-        for (auto& nc : m_ncs) {
-            subst_in(nc.m_haystack, var, repl);
-            subst_in(nc.m_needle, var, repl);
+        for (unsigned i = 0; i < m_ncs.size(); ++i) {
+            subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_haystack, var, repl);
+            subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_needle, var, repl);
         }
     }
 

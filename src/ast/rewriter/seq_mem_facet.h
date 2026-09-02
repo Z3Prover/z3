@@ -27,7 +27,7 @@ Abstract:
         shared variable pool.
 
     Scope note / simplifications relative to the full design:
-      - regex factorization (§4.2 of facet-membership.md) is NOT implemented
+      - regex factorization (ï¿½4.2 of facet-membership.md) is NOT implemented
         in this pass;
       - the variable split is implemented soundly for the `x -> epsilon`
         branch, and the second branch narrows through `seq_monadic` rather
@@ -73,8 +73,6 @@ namespace seq {
         ast_manager&      m;
         seq_util&         u;
         vector<str_mem>   m_mems;
-
-        void snapshot() { m_trail.push(vector_snapshot_trail<str_mem>(m_mems)); }
 
     public:
         mem_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}

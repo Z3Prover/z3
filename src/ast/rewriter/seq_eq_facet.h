@@ -118,18 +118,72 @@ namespace seq {
         virtual void apply_subst(expr* var, token_list const& repl) = 0;
     };
 
-    // Trail undo object: snapshots a `vector<T>` before a mutation and
-    // restores the whole vector on undo. Used by eq_facet/deq_facet to
-    // make their equation-set mutators (apply_subst, simplify) undoable
-    // without a per-element trail object for every add/erase/assign.
+    // Trail undo object for a single-element `vector<T>::erase(idx)`:
+    // remembers just the erased index and value (not the whole vector) and
+    // re-inserts it at the same index on undo, restoring `erase`'s
+    // shift-down with a shift-up. O(distance from idx to the end) at both
+    // erase and undo time, versus the old whole-vector snapshot's O(n)
+    // copy regardless of where the change was.
     template <typename T>
-    class vector_snapshot_trail : public ::trail {
+    class vector_erase_trail : public ::trail {
         vector<T>& m_vec;
-        vector<T>  m_saved;
+        unsigned   m_idx;
+        T          m_value;
     public:
-        explicit vector_snapshot_trail(vector<T>& v) : m_vec(v), m_saved(v) {}
-        void undo() override { m_vec = m_saved; }
+        vector_erase_trail(vector<T>& v, unsigned idx) : m_vec(v), m_idx(idx), m_value(v[idx]) {}
+        void undo() override {
+            // Grow by one via a copy of m_value appended at the end (copy
+            // *construction* is available even for move-only-assignable
+            // T), then shift every element from idx..end-2 up by one
+            // (move-assign, safe since no reallocation happens once the
+            // vector has already grown), then drop m_value into the
+            // now-vacant slot at m_idx.
+            m_vec.push_back(m_value);
+            for (unsigned i = m_vec.size() - 1; i > m_idx; --i)
+                m_vec[i] = std::move(m_vec[i - 1]);
+            m_vec[m_idx] = std::move(m_value);
+        }
     };
+
+    // Like value_trail<T>, but the target is a field of the idx'th element
+    // of a vector, not a raw reference - so it stays safe even if later
+    // operations (erase/push_back) reallocate or shift the vector's
+    // storage before undo() runs. `Member` is a pointer-to-member selecting
+    // the (move-only, e.g. token_list/expr_ref) field to restore.
+    template <typename Elem, typename T>
+    class vector_field_trail : public ::trail {
+        vector<Elem>& m_vec;
+        unsigned      m_idx;
+        T Elem::*     m_member;
+        T             m_old_value;
+    public:
+        vector_field_trail(vector<Elem>& v, unsigned idx, T Elem::* member)
+            : m_vec(v), m_idx(idx), m_member(member), m_old_value(v[idx].*member) {}
+        void undo() override {
+            m_vec[m_idx].*m_member = std::move(m_old_value);
+        }
+    };
+
+    // Scan the field `ts` (the `member` field of the `idx`'th element of
+    // `vec`) for `var`; if present, register a fine-grained undo (just
+    // this one field, addressed by vector+index+member so it stays valid
+    // across later vector reallocation - not the whole facet's
+    // equation/disequation/membership/ncontains vector) and perform the
+    // substitution, returning true. If `var` does not occur, this is a
+    // no-op returning false: apply_subst's per-call loop over every entry
+    // only pays for a trail object on the entries that actually change.
+    template <typename Elem>
+    inline bool subst_in_trailed(trail_stack& trail, vector<Elem>& vec, unsigned idx, token_list Elem::* member, expr* var, token_list const& repl) {
+        token_list& ts = vec[idx].*member;
+        bool present = false;
+        for (expr* t : ts)
+            if (t == var) { present = true; break; }
+        if (!present)
+            return false;
+        trail.push(vector_field_trail<Elem, token_list>(vec, idx, member));
+        subst_in(ts, var, repl);
+        return true;
+    }
 
     /**
      * Facet holding a set of pending word equations. Equations are
@@ -150,9 +204,6 @@ namespace seq {
         ast_manager& m;
         seq_util&    u;
         vector<equation> m_eqs;
-
-        // Register an undo snapshot of m_eqs before a destructive mutation.
-        void snapshot() { m_trail.push(vector_snapshot_trail<equation>(m_eqs)); }
 
     public:
         eq_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
@@ -175,17 +226,18 @@ namespace seq {
         // Trailed variant: for adding a new equation to an existing
         // branch mid-search (e.g. ncontains_split's "needle aligns here"
         // branch, which introduces a fresh eq_facet equation rather than
-        // a substitution). Registers an undo snapshot first.
+        // a substitution). Undo just pops the pushed element.
         void add_equation_trailed(token_list const& lhs, token_list const& rhs) {
-            snapshot();
             m_eqs.push_back(equation(lhs, rhs));
+            m_trail.push(push_back_trail<equation>(m_eqs));
         }
 
         vector<equation> const& equations() const { return m_eqs; }
 
         // Apply a forced/branch substitution `var := repl` to every
-        // equation currently in the facet. Trailed: undoable via
-        // vector_snapshot_trail.
+        // equation currently in the facet. Trailed per-equation: only
+        // equations that actually contain `var` register an undo object
+        // (see subst_in_trailed).
         void apply_subst(expr* var, token_list const& repl) override;
 
         // Push a new trail scope (used by word_eq_split to open a branch
@@ -278,8 +330,6 @@ namespace seq {
         seq_util&    u;
         vector<disequation> m_diseqs;
 
-        void snapshot() { m_trail.push(vector_snapshot_trail<disequation>(m_diseqs)); }
-
     public:
         deq_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
 
@@ -300,7 +350,8 @@ namespace seq {
         vector<disequation> const& disequations() const { return m_diseqs; }
 
         // Apply a substitution `var := repl` (chosen elsewhere, by
-        // eq_facet's split plugin) to every pending disequation. Trailed.
+        // eq_facet's split plugin) to every pending disequation. Trailed
+        // per-disequation (only entries containing `var` register undo).
         void apply_subst(expr* var, token_list const& repl) override;
 
         // -- stx::facet_i --

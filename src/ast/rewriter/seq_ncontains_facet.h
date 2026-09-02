@@ -114,8 +114,6 @@ namespace seq {
         seq_util&    u;
         vector<str_ncontains> m_ncs;
 
-        void snapshot() { m_trail.push(vector_snapshot_trail<str_ncontains>(m_ncs)); }
-
     public:
         ncontains_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
 

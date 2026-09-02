@@ -81,10 +81,9 @@ namespace seq {
     }
 
     void eq_facet::apply_subst(expr* var, token_list const& repl) {
-        snapshot();
-        for (auto& eq : m_eqs) {
-            subst_in(eq.m_lhs, var, repl);
-            subst_in(eq.m_rhs, var, repl);
+        for (unsigned i = 0; i < m_eqs.size(); ++i) {
+            subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);
+            subst_in_trailed(m_trail, m_eqs, i, &equation::m_rhs, var, repl);
         }
     }
 
@@ -126,7 +125,6 @@ namespace seq {
     bool eq_facet::simplify(bool& conflict) {
         conflict = false;
         bool changed = false;
-        snapshot();
         for (unsigned i = 0; i < m_eqs.size(); ) {
             equation& eq = m_eqs[i];
             token_list& L = eq.m_lhs;
@@ -143,6 +141,12 @@ namespace seq {
                 token_list newL(m), newR(m);
                 for (unsigned k = li; k < L.size(); ++k) newL.push_back(L.get(k));
                 for (unsigned k = ri; k < R.size(); ++k) newR.push_back(R.get(k));
+                // Fine-grained: undo restores just this equation's two
+                // token_list fields addressed by (m_eqs, i, member), safe
+                // across later erase()/push_back() reallocation - not the
+                // whole m_eqs vector.
+                m_trail.push(vector_field_trail<equation, token_list>(m_eqs, i, &equation::m_lhs));
+                m_trail.push(vector_field_trail<equation, token_list>(m_eqs, i, &equation::m_rhs));
                 L = std::move(newL);
                 R = std::move(newR);
                 changed = true;
@@ -152,6 +156,7 @@ namespace seq {
             bool rempty = R.empty();
 
             if (lempty && rempty) {
+                m_trail.push(vector_erase_trail<equation>(m_eqs, i));
                 m_eqs.erase(m_eqs.begin() + i);
                 changed = true;
                 continue;
@@ -179,6 +184,7 @@ namespace seq {
                     conflict = true;
                     return true;
                 }
+                m_trail.push(vector_erase_trail<equation>(m_eqs, i));
                 m_eqs.erase(m_eqs.begin() + i);
                 changed = true;
                 continue;
@@ -326,10 +332,9 @@ namespace seq {
     }
 
     void deq_facet::apply_subst(expr* var, token_list const& repl) {
-        snapshot();
-        for (auto& dq : m_diseqs) {
-            subst_in(dq.m_lhs, var, repl);
-            subst_in(dq.m_rhs, var, repl);
+        for (unsigned i = 0; i < m_diseqs.size(); ++i) {
+            subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_lhs, var, repl);
+            subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_rhs, var, repl);
         }
     }
 
@@ -369,7 +374,6 @@ namespace seq {
     bool deq_facet::simplify(bool& conflict) {
         conflict = false;
         bool changed = false;
-        snapshot();
         for (unsigned i = 0; i < m_diseqs.size(); ) {
             disequation& dq = m_diseqs[i];
             token_list& L = dq.m_lhs;
@@ -384,6 +388,8 @@ namespace seq {
                 token_list newL(m), newR(m);
                 for (unsigned k = li; k < L.size(); ++k) newL.push_back(L.get(k));
                 for (unsigned k = ri; k < R.size(); ++k) newR.push_back(R.get(k));
+                m_trail.push(vector_field_trail<disequation, token_list>(m_diseqs, i, &disequation::m_lhs));
+                m_trail.push(vector_field_trail<disequation, token_list>(m_diseqs, i, &disequation::m_rhs));
                 L = std::move(newL);
                 R = std::move(newR);
                 changed = true;
@@ -402,6 +408,7 @@ namespace seq {
                     // distinct leading constants: the two sides can never
                     // be made equal by any future substitution - the
                     // disequation is proved and discharged.
+                    m_trail.push(vector_erase_trail<disequation>(m_diseqs, i));
                     m_diseqs.erase(m_diseqs.begin() + i);
                     changed = true;
                     continue;
