@@ -252,13 +252,32 @@ namespace opt {
         return true;
     }
 
+    // Extract from a model value of an objective a rational the model proves
+    // attainable. A rational numeral is the value itself. An irrational
+    // algebraic value (e.g. 1/sqrt(2) for an objective pinned by nonlinear
+    // equations) does not fit in inf_eps; a rational lower bound of its
+    // isolating interval is still a sound floor, since optsmt objectives are
+    // always maximized. Without this floor the objective value stays -oo and
+    // geometric_lex reports -oo as the optimum of a satisfiable objective;
+    // the exact algebraic optimum is recovered later by the nlsat fallback.
+    bool opt_solver::model_objective_floor(expr* value, rational& r) {
+        arith_util a(m);
+        if (a.is_numeral(value, r))
+            return true;
+        if (a.is_irrational_algebraic_numeral(value)) {
+            a.am().get_lower(a.to_irrational_algebraic_numeral(value), r, 40);
+            return true;
+        }
+        return false;
+    }
+
     // If baseline_model evaluates objective i to a value better than the
     // current optimum, adopt that value and update the blocker.
     void opt_solver::update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker) {
         arith_util a(m);
         rational r;
         expr_ref obj_val = (*baseline_model)(m_objective_terms.get(i));
-        if (a.is_numeral(obj_val, r) && inf_eps(r) > m_objective_values[i]) {
+        if (model_objective_floor(obj_val, r) && inf_eps(r) > m_objective_values[i]) {
             m_objective_values[i] = inf_eps(r);
             if (!m_objective_models[i])
                 m_objective_models.set(i, baseline_model.get());
@@ -345,8 +364,8 @@ namespace opt {
         auto update_objective = [&]() {
             rational r;
             expr_ref value = (*m_model)(m_objective_terms.get(i));
-            if (arith_util(m).is_numeral(value, r) && r > m_objective_values[i])
-                m_objective_values[i] = inf_eps(r);   
+            if (model_objective_floor(value, r) && inf_eps(r) > m_objective_values[i])
+                m_objective_values[i] = inf_eps(r);
         };
 
         update_objective();

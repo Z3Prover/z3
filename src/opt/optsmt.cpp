@@ -271,25 +271,12 @@ namespace opt {
                 else {
                     ++steps;
                 }
-                // A real objective that keeps producing better models while
-                // no arithmetic bound above it was ever refuted may be
-                // unbounded (e.g. maximize x under x*y = 1 /\ y > 0): every
-                // model-derived step below stays satisfiable, so the loop
-                // climbs forever and never reaches the nlsat/bisect fallback.
-                // After a streak of such rounds try to decide the question
-                // with prove_unbounded_above (README section 3.3): on the
-                // proof, commit +oo with the current model as a witness.
-                // A bounded objective climbing to its optimum in small steps
-                // shows the same streak, and on it the nlqsat query is pure
-                // waste that can dwarf the whole optimization (a 0.1s
-                // benchmark regressed past 180s firing it once), so the query
-                // runs under a resource-count budget (an rlimit, not
-                // wall-clock time, so the same input behaves the same on
-                // every machine and build), and every inconclusive attempt
-                // doubles both the budget and the streak required for the
-                // next attempt: a truly unbounded climb still gets decided,
-                // a bounded one spends at most a fixed share of its rounds
-                // here.
+                // A real objective may improve forever without refuting an
+                // upper bound. After a streak, use prove_unbounded_above to
+                // commit +oo with the current model as a witness. Bounded
+                // objectives can show the same pattern, so limit the query by
+                // deterministic resource count and exponentially back off
+                // inconclusive retries.
                 if (is_int || refuted_hint.is_finite())
                     climb_rounds = 0;
                 else if (m_optsmt_nlsat && ++climb_rounds >= unbounded_check_rounds) {
@@ -396,10 +383,17 @@ namespace opt {
             return l_undef;
         }
 
+        // A satisfiable objective whose lower bound is still -oo means no
+        // model value was ever extracted before the loop stalled. Tightening
+        // below would then report -oo as the optimum of a satisfiable
+        // objective; report the interval as unknown instead.
+        if (!m_lower[obj_index].is_finite() && m_lower[obj_index].is_neg())
+            return l_undef;
+
         // set the solution tight. An algebraic optimum keeps its rational
         // bracket [m_lower, m_upper]; the exact value is in m_exact.
         if (!m_exact.get(obj_index))
-            m_upper[obj_index] = m_lower[obj_index];    
+            m_upper[obj_index] = m_lower[obj_index];
         if (!is_box)
             for (unsigned i = obj_index+1; i < m_lower.size(); ++i)
                 m_lower[i] = inf_eps(rational(-1), inf_rational(0));

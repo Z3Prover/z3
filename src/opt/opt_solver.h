@@ -171,6 +171,7 @@ namespace opt {
         bool maximize_objectives1(expr_ref_vector& blockers);
         bool maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         void update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker);
+        bool model_objective_floor(expr* value, rational& r);
         inf_eps const & saved_objective_value(unsigned obj_index);
         // The optimization hint of the last maximize_objective call and what
         // check_bound established about it: l_true - a model attains it;
