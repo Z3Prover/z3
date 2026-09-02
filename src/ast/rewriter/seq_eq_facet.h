@@ -240,10 +240,6 @@ namespace seq {
         // (see subst_in_trailed).
         void apply_subst(expr* var, expr_ref_vector const& repl) override;
 
-        // Push a new trail scope (used by word_eq_split to open a branch
-        // before its first mutating apply_subst call).
-        void push_scope() { m_trail.push_scope(); }
-
         // Allocate a fresh opaque variable token of `s`'s sort.
         expr* mk_fresh_var(sort* s) { return m.mk_fresh_const("t", s); }
 
@@ -277,6 +273,8 @@ namespace seq {
     // branches (up to two more, for the two-variable case) are produced
     // lazily by the returned `split_iterator_i` on resumption.
     class word_eq_split : public eq_tree::split_plugin_i {
+        ast_manager& m;
+        seq_util&    u;
         stx::facet_id m_id;
 
         class iterator : public eq_tree::split_iterator_i {
@@ -297,9 +295,9 @@ namespace seq {
         };
 
     public:
-        word_eq_split(stx::facet_id id) : m_id(id) {}
+        word_eq_split(ast_manager& m, seq_util& u, stx::facet_id id) : m(m), u(u), m_id(id) {}
         char const* name() const override { return "nielsen-split"; }
-        std::unique_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more) override;
+        std::unique_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
     /**

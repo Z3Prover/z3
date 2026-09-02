@@ -55,7 +55,7 @@ namespace {
         root->facet_as<seq::arith_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(3)));
 
         seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(eq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
         seq::arith_propagation aprop(arith_id, eq_id);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
@@ -93,7 +93,7 @@ namespace {
         root->facet_as<seq::eq_facet>(eq_id).add_equation(lhs, rhs);
 
         seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(eq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
         seq::arith_propagation aprop(arith_id, eq_id);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
@@ -127,7 +127,7 @@ namespace {
         root->facet_as<seq::arith_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(2)));
 
         seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(eq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
         seq::arith_propagation aprop(arith_id, eq_id);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);

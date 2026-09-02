@@ -35,10 +35,10 @@ namespace {
         stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, f.m, *f.u);
         init(tree, root, eq_id, mem_id);
         seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(eq_id);
-        seq::mem_propagation mprop(mem_id, *f.rw, *f.live);
-        seq::mem_var_split vsplit(mem_id, eq_id);
-        seq::mem_monadic_split msplit(mem_id, *f.rw, f.trail);
+        seq::word_eq_split esplit(f.m, *f.u, eq_id);
+        seq::mem_propagation mprop(f.m, *f.u, mem_id, *f.rw, *f.live);
+        seq::mem_var_split vsplit(f.m, *f.u, mem_id, eq_id);
+        seq::mem_monadic_split msplit(f.m, *f.u, mem_id, *f.rw, f.trail);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&mprop);
         tree.add_split_plugin(&vsplit);

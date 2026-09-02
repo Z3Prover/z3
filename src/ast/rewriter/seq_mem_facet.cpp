@@ -110,15 +110,14 @@ namespace seq {
         for (unsigned i = 0; i < f.memberships().size(); ) {
             auto const& sm = f.memberships()[i];
             expr_ref cur(sm.m_view.m_state, m_rw.m());
-            seq_util& u = m_rw.u();
-            expr_ref_vector ts(f.get_manager());
-            flatten(f.get_seq_util(), sm.m_str.get(), ts);
+            expr_ref_vector ts(m);
+            flatten(u, sm.m_str.get(), ts);
             bool bad = false;
             for (expr* t : ts) {
-                if (!is_const_token(f.get_seq_util(), t)) { bad = true; break; }
+                if (!is_const_token(u, t)) { bad = true; break; }
                 zstring z;
-                VERIFY(f.get_seq_util().str.is_string(t, z) && z.length() == 1);
-                expr_ref elem(f.get_seq_util().str.mk_char(z, 0), m_rw.m());
+                VERIFY(u.str.is_string(t, z) && z.length() == 1);
+                expr_ref elem(u.str.mk_char(z, 0), m_rw.m());
                 cur = m_rw.mk_derivative(elem, cur);
                 if (u.re.is_empty(cur)) {
                     n.set_conflict(stx::br_plugin_base, sm.m_dep);
@@ -165,33 +164,32 @@ namespace seq {
         expr_ref_vector repl(eq.get_manager());
         expr* fresh = eq.mk_fresh_var(m_var->get_sort());
         repl.push_back(fresh);
-        eq.push_scope();
         eq.apply_subst(m_var, repl);
         broadcast_subst(m_n, m_eq_id, m_var, repl);
         out = eq_tree::edge("mem-v:=v'", nullptr, true, 0);
         return true;
     }
 
-    std::unique_ptr<eq_tree::split_iterator_i> mem_var_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more) {
+    std::unique_ptr<eq_tree::split_iterator_i> mem_var_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
+        committed = false;
         if (cost != 0 || !n.has_facet(m_eq_id))
             return nullptr;
         auto& mf = n.facet_as<mem_facet>(m_mem_id);
-        seq_util& u = mf.get_seq_util();
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             expr* s = mf.memberships()[i].m_str.get();
-            expr_ref_vector ts(mf.get_manager());
+            expr_ref_vector ts(m);
             flatten(u, s, ts);
             if (ts.empty() || is_const_token(u, ts.get(0)))
                 continue;
             expr* var = ts.get(0);
             auto it = std::make_unique<iterator>(n, m_mem_id, m_eq_id, i, var);
             auto& eq = n.facet_as<eq_facet>(m_eq_id);
-            eq.push_scope();
             expr_ref_vector empty(eq.get_manager());
             eq.apply_subst(var, empty);
             broadcast_subst(n, m_eq_id, var, empty);
             out = eq_tree::edge("mem-v:=eps", nullptr, true, 0);
+            committed = true;
             return it;
         }
         return nullptr;
@@ -235,13 +233,12 @@ namespace seq {
         }
         else if (!m_it.next(sol))
             return false;
-        auto& eq = dynamic_cast<eq_facet&>(m_n.facet(0));
-        eq.push_scope();
         return apply_solution(sol, out);
     }
 
-    std::unique_ptr<eq_tree::split_iterator_i> mem_monadic_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more) {
+    std::unique_ptr<eq_tree::split_iterator_i> mem_monadic_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
+        committed = false;
         if (cost != 0)
             return nullptr;
         auto& mf = n.facet_as<mem_facet>(m_mem_id);
@@ -249,11 +246,11 @@ namespace seq {
             return nullptr;
         bool has_multi = false;
         for (auto const& sm : mf.memberships()) {
-            expr_ref_vector ts(mf.get_manager());
-            flatten(mf.get_seq_util(), sm.m_str.get(), ts);
+            expr_ref_vector ts(m);
+            flatten(u, sm.m_str.get(), ts);
             unsigned vars = 0;
             for (expr* t : ts)
-                if (!is_const_token(mf.get_seq_util(), t))
+                if (!is_const_token(u, t))
                     ++vars;
             if (vars >= 2) {
                 has_multi = true;
@@ -267,6 +264,7 @@ namespace seq {
             return nullptr;
         if (!it->next(out))
             return nullptr;
+        committed = true;
         has_more = true;
         return it;
     }

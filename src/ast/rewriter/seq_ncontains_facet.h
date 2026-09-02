@@ -169,11 +169,14 @@ namespace seq {
     // proceed - mirroring deq_facet's own "no branching of its own"
     // design (facet-eq-deq.md section 2.5).
     class ncontains_propagation : public eq_tree::propagation_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
         stx::facet_id m_ncontains_id;
         stx::facet_id m_arith_id;
     public:
-        ncontains_propagation(stx::facet_id ncontains_id, stx::facet_id arith_id) :
-            m_ncontains_id(ncontains_id), m_arith_id(arith_id) {}
+        ncontains_propagation(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id ncontains_id, stx::facet_id arith_id) :
+            m(m), u(u), a(a), m_ncontains_id(ncontains_id), m_arith_id(arith_id) {}
         char const* name() const override { return "ncontains-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
     };

@@ -131,9 +131,6 @@ namespace seq {
     stx::simplify_result ncontains_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<ncontains_facet>(m_ncontains_id);
         auto& af = n.facet_as<arith_facet>(m_arith_id);
-        ast_manager& m = f.get_manager();
-        seq_util& u = f.get_seq_util();
-        arith_util& a = af.get_arith_util();
 
         bool changed = false;
         for (unsigned i = 0; i < f.ncontains().size(); ) {

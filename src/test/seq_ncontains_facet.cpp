@@ -53,8 +53,8 @@ namespace {
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u)),
             arith_id(tree.register_facet<seq::arith_facet>(*root, m, u, solver)),
             nc_id(tree.register_facet<seq::ncontains_facet>(*root, m, u)),
-            eprop(eq_id), esplit(eq_id), aprop(arith_id, eq_id),
-            ncprop(nc_id, arith_id)
+            eprop(eq_id), esplit(m, u, eq_id), aprop(arith_id, eq_id),
+            ncprop(m, u, a, nc_id, arith_id)
         {
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&aprop);

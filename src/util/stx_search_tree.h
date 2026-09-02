@@ -166,13 +166,17 @@ namespace stx {
 
         // Resumable iterator over the remaining branches of a split that
         // has already materialized (and the driver has since backtracked
-        // out of) its first branch. `next()`:
+        // out of) its first branch. The driver pushes exactly one trail
+        // scope immediately before every `next()` call (popping it again
+        // if `next()` returns false), so `next()` itself must NEVER call
+        // push_scope()/pop_scope() - only the scope-owning driver does
+        // that. `next()`:
         //   - on success: destructively mutates the live node via the
         //     owning facet's own mutator method(s), registering trail undo
-        //     objects as it goes, then pushes exactly one new trail scope,
-        //     fills `out`, and returns true.
-        //   - on failure (no more branches): must not touch the node or the
-        //     trail, and returns false.
+        //     objects as it goes, fills `out`, and returns true.
+        //   - on failure (no more branches): must not touch the node, and
+        //     returns false (the driver undoes the scope it pre-pushed for
+        //     this call).
         class split_iterator_i {
         public:
             virtual ~split_iterator_i() = default;
@@ -201,28 +205,36 @@ namespace stx {
         // own: the driver assigns a `cost` (an iterative-deepening bound
         // over branch expense, not tree depth) and repeatedly asks whether
         // the plugin has a split available at exactly that cost, starting
-        // at 0 and increasing.
+        // at 0 and increasing. The driver pushes exactly one trail scope
+        // immediately before every `split()` call (popping it again if the
+        // call declines to commit a branch), so `split()` itself must
+        // NEVER call push_scope()/pop_scope() - only the scope-owning
+        // driver does that; all scope management for both `split()` and
+        // `split_iterator_i::next()` happens in one place in the engine.
         class split_plugin_i {
         public:
             virtual ~split_plugin_i() = default;
             virtual char const* name() const = 0;
             // - A split exists at exactly `cost`: materialize the FIRST
             //   branch immediately (mutate `n`'s own facet(s) via their
-            //   mutator methods, registering trail undo objects, then push
-            //   exactly one trail scope), fill `out`, and return a
-            //   (possibly null, if there is only one branch)
-            //   `split_iterator_i` for the remaining branches. `has_more`
-            //   is unspecified in this case (the non-null-materialization
-            //   contract is signaled by returning from this branch of the
-            //   contract at all - the driver detects "did this plugin
-            //   commit a branch" by checking whether the trail's scope
-            //   count increased).
+            //   mutator methods, registering trail undo objects - but do
+            //   NOT push a scope), fill `out`, and return a (possibly
+            //   null, if there is only one branch) `split_iterator_i` for
+            //   the remaining branches. The driver has already pushed the
+            //   scope this branch's mutations land in; it detects "did
+            //   this plugin commit a branch" via a separate `committed`
+            //   out-flag rather than by inspecting the trail's scope
+            //   count (which no longer changes here).
             // - No split at `cost` but one exists at a higher cost: leave
             //   `n`/the trail untouched, set `has_more = true`, and return
             //   nullptr.
             // - Nothing left to offer `n` at any cost: leave `n`/the trail
             //   untouched, set `has_more = false`, and return nullptr.
-            virtual std::unique_ptr<split_iterator_i> split(node& n, unsigned cost, edge& out, bool& has_more) = 0;
+            // `committed` must be set to true iff a branch was
+            // materialized in `n` (the always-fresh, pre-pushed scope for
+            // this call), regardless of whether the returned iterator is
+            // null (single-branch case) or non-null.
+            virtual std::unique_ptr<split_iterator_i> split(node& n, unsigned cost, edge& out, bool& has_more, bool& committed) = 0;
         };
 
         enum class node_status { unevaluated, satisfied, conflict };
@@ -489,30 +501,46 @@ namespace stx {
         }
 
         // Search for the cheapest available split, raising `cost` from 0.
-        // On success, `n`/the trail have already been mutated for the
-        // first branch (exactly one new scope pushed), `out` holds that
-        // branch's edge, and `frame.m_iter` (possibly null) holds the
-        // resumable iterator for the rest. Returns false once every plugin
-        // has nothing left to offer at any cost (the node is closed).
+        // Pushes exactly one trail scope immediately before each `split()`
+        // call, popping it again if that call declines to commit a
+        // branch. On success, `n`/the trail have already been mutated for
+        // the first branch (inside that one pushed scope, left in place),
+        // `out` holds that branch's edge, and `frame.m_iter` (possibly
+        // null) holds the resumable iterator for the rest. Returns false
+        // once every plugin has nothing left to offer at any cost (the
+        // node is closed).
         bool extend_node(node& n, dfs_frame& frame, edge& out) {
             for (unsigned cost = 0; cost <= m_max_cost; ++cost) {
                 bool any_offer = false;
                 for (auto* sp : m_split_plugins) {
                     m_stats.m_split_counts[sp->name()]++;
                     bool has_more = false;
-                    unsigned scopes_before = m_trail.get_num_scopes();
-                    auto it = sp->split(n, cost, out, has_more);
-                    bool committed = m_trail.get_num_scopes() > scopes_before;
+                    bool committed = false;
+                    m_trail.push_scope();
+                    auto it = sp->split(n, cost, out, has_more, committed);
                     if (committed) {
                         frame.m_iter = std::move(it);
                         return true;
                     }
+                    m_trail.pop_scope(1);
                     if (has_more)
                         any_offer = true;
                 }
                 if (!any_offer)
                     return false;
             }
+            return false;
+        }
+
+        // Pushes exactly one trail scope immediately before calling
+        // `iter->next()`, popping it again if `next()` returns false (no
+        // more branches). On success the pushed scope holds that branch's
+        // mutations and is left in place for the caller.
+        bool advance_iter(split_iterator_i& iter, edge& out) {
+            m_trail.push_scope();
+            if (iter.next(out))
+                return true;
+            m_trail.pop_scope(1);
             return false;
         }
 
@@ -602,7 +630,7 @@ namespace stx {
                         }
                         if (cr == search_result::unknown)
                             saw_unknown = true;
-                        have_branch = frame.m_iter && frame.m_iter->next(cur_edge);
+                        have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge);
                     }
                     if (result != search_result::sat)
                         result = saw_unknown ? search_result::unknown : search_result::unsat;

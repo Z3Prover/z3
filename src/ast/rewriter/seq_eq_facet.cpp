@@ -234,20 +234,18 @@ namespace seq {
         if (m_pos >= m_pending.size())
             return false;
         auto& a = m_pending[m_pos++];
-        m_n.facet_as<eq_facet>(m_id).push_scope();
         m_n.facet_as<eq_facet>(m_id).apply_subst(a.m_var, a.m_repl);
         broadcast_subst(m_n, m_id, a.m_var, a.m_repl);
         out = eq_tree::edge(a.m_name, nullptr, true, 0);
         return true;
     }
 
-    std::unique_ptr<eq_tree::split_iterator_i> word_eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more) {
+    std::unique_ptr<eq_tree::split_iterator_i> word_eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
+        committed = false;
         if (cost != 0)
             return nullptr;
         auto& f = n.facet_as<eq_facet>(m_id);
-        seq_util& u = f.get_seq_util();
-        ast_manager& m = f.get_manager();
 
         for (auto const& eq : f.equations()) {
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
@@ -280,12 +278,13 @@ namespace seq {
                     it->push_back("v1:=v2.v1'", v1, repl);
                 }
 
-                // Materialize the first branch ("v1:=eps") now.
-                f.push_scope();
+                // Materialize the first branch ("v1:=eps") now, in the
+                // scope the driver already pushed for this call.
                 expr_ref_vector empty(m);
                 f.apply_subst(v1, empty);
                 broadcast_subst(n, m_id, v1, empty);
                 out = eq_tree::edge("v1:=eps", nullptr, true, 0);
+                committed = true;
                 return it;
             }
 
@@ -303,12 +302,13 @@ namespace seq {
                 it->push_back("v:=c.v'", var, repl);
             }
 
-            // Materialize the first branch ("v:=eps") now.
-            f.push_scope();
+            // Materialize the first branch ("v:=eps") now, in the scope
+            // the driver already pushed for this call.
             expr_ref_vector empty(m);
             f.apply_subst(var, empty);
             broadcast_subst(n, m_id, var, empty);
             out = eq_tree::edge("v:=eps", nullptr, true, 0);
+            committed = true;
             return it;
         }
         return nullptr;

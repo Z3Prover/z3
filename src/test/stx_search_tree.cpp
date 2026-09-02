@@ -52,10 +52,9 @@ namespace {
 
         // Destructive mutator: registers a trail undo object instead of
         // being cloned. `m_trail.push(value_trail<int>(m_total))` snapshots
-        // the current value and restores it on pop_scope(). Callers push
-        // the enclosing scope themselves (via `push_scope()`) before the
-        // first mutation of a branch.
-        void push_scope() { m_trail.push_scope(); }
+        // the current value and restores it on pop_scope(). The engine
+        // pushes the enclosing scope before calling split()/next(); the
+        // facet/plugin code never calls push_scope()/pop_scope() itself.
         void add(int delta) {
             m_trail.push(value_trail<int>(m_total));
             m_total += delta;
@@ -108,7 +107,6 @@ namespace {
                     return false;
                 m_done = true;
                 auto& f = m_n.facet_as<counter_facet>(m_id);
-                f.push_scope();
                 f.add(2);
                 out = tree_t::edge("+2", nullptr, true, 0);
                 return true;
@@ -118,16 +116,17 @@ namespace {
     public:
         step_split(stx::facet_id id, counter_config const* cfg) : m_id(id), m_cfg(cfg) {}
         char const* name() const override { return "step"; }
-        std::unique_ptr<tree_t::split_iterator_i> split(tree_t::node& n, unsigned cost, tree_t::edge& out, bool& has_more) override {
+        std::unique_ptr<tree_t::split_iterator_i> split(tree_t::node& n, unsigned cost, tree_t::edge& out, bool& has_more, bool& committed) override {
             has_more = false;
+            committed = false;
             if (cost != 0)
                 return nullptr;
             auto& f = n.facet_as<counter_facet>(m_id);
             if (f.total() >= m_cfg->m_target)
                 return nullptr;
-            f.push_scope();
             f.add(1);
             out = tree_t::edge("+1", nullptr, true, 0);
+            committed = true;
             return std::make_unique<iterator>(n, m_id);
         }
     };

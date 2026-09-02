@@ -32,7 +32,7 @@ namespace {
         root->facet_as<seq::eq_facet>(id).add_equation(lhs, rhs);
 
         seq::eq_propagation prop(id);
-        seq::word_eq_split split(id);
+        seq::word_eq_split split(m, u, id);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
 
@@ -95,7 +95,7 @@ namespace {
         f.add_equation(X, b);
 
         seq::eq_propagation prop(id);
-        seq::word_eq_split split(id);
+        seq::word_eq_split split(m, u, id);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
         tree.set_max_search_depth(12);
@@ -176,7 +176,7 @@ namespace {
         root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, b);
 
         seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(eq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
         seq::deq_propagation dprop(deq_id);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&dprop);
