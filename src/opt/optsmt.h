@@ -89,7 +89,7 @@ namespace opt {
 
         lbool bisect(unsigned idx, bool is_maximize, inf_eps hi);
         lbool nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
-        bool prove_unbounded_above(unsigned idx);
+        bool prove_unbounded_above(unsigned idx, unsigned rlimit_budget);
 
         void set_best(unsigned idx, inf_eps const& v, bool is_maximize);
 
