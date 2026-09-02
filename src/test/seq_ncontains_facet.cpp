@@ -131,6 +131,22 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
+    // Multi-position case: haystack = X ++ "b" (X unresolved). Position 0
+    // (X vs "b") is undecided, but position 1 ("b" vs "b") is a
+    // determined match - the needle provably occurs regardless of what X
+    // turns out to be, so this must be unsat even though not every
+    // position is individually decided. This exercises the fix that scans
+    // ALL candidate starting positions (not just position 0) before
+    // concluding "pending".
+    static void tst_ncontains_match_not_at_first_position_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref b(fx.u.str.mk_string(zstring("b")), fx.m);
+        expr_ref h(fx.u.str.mk_concat(X, b), fx.m);
+        fx.root->facet_as<seq::ncontains_facet>(fx.nc_id).add_ncontains(h, b);
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_ncontains_facet() {
@@ -139,5 +155,6 @@ void tst_seq_ncontains_facet() {
     tst_ncontains_ground_no_occurrence_sat();
     tst_ncontains_ground_occurrence_unsat();
     tst_ncontains_resolved_by_substitution_unsat();
+    tst_ncontains_match_not_at_first_position_unsat();
     std::cout << "seq_ncontains_facet: all tests passed\n";
 }

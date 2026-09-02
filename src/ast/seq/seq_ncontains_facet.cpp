@@ -149,17 +149,15 @@ namespace seq {
 
             // Length gate (facet-ncontains.md section 3.3): if h is
             // provably shorter than n, containment is impossible - the
-            // obligation is vacuously satisfied. A cheap syntactic
-            // special case (h's *token count* already less than n's, a
-            // lower bound on len(h) - len(n) that needs no solver query)
-            // is checked first; the general case falls through to
-            // arith_facet's incremental backend.
-            if (nc.m_haystack.size() < nc.m_needle.size()) {
-                f.remove(i);
-                changed = true;
-                continue;
-            }
-
+            // obligation is vacuously satisfied. This can only be
+            // decided via arith_facet's incremental backend (real
+            // str.len reasoning): a haystack/needle *token count* is NOT
+            // a sound proxy for actual sequence length here, since a
+            // non-constant token is an opaque variable that may denote a
+            // string of any length (including longer than any bound
+            // implied by token count, or shorter, e.g. epsilon) - unlike
+            // eq_facet's constant tokens, which are always exactly one
+            // character.
             expr* h_expr = tokens_to_expr(u, m, nc.m_haystack);
             expr* n_expr = tokens_to_expr(u, m, nc.m_needle);
             expr_ref len_h(u.str.mk_length(h_expr), m);
@@ -174,30 +172,75 @@ namespace seq {
                 continue;
             }
 
-            // Recursive prefix-unrolling (facet-ncontains.md section 3.4),
-            // implemented here as deterministic propagation rather than a
-            // nondeterministic split: at each candidate starting position
-            // of an occurrence, `compare_alignment` either determines the
-            // needle can never start there (l_false - safe to strip that
-            // one leading haystack token and recurse, i.e. progress with
-            // no branching) or determines it definitely DOES start there
-            // (l_true - the needle provably occurs in h, so this
-            // `not contains` obligation is UNSAT) or cannot yet decide
-            // (l_undef - some leading token is an unresolved variable;
-            // left pending, exactly as deq_facet's own documented
-            // incompleteness for un-substituted variables. See module
-            // comment's scope note: eq_facet's Nielsen splits will keep
-            // narrowing those variables on later propagation rounds via
-            // `apply_subst`, at which point this check re-runs and may
-            // finally decide the alignment).
-            lbool al = compare_alignment(u, nc.m_haystack, 0, nc.m_needle);
-            if (al == l_true) {
+            // Recursive prefix-unrolling (facet-ncontains.md section
+            // 3.4): try every token-aligned starting position of the
+            // needle within the haystack's *current* token list, not
+            // just position 0 - since haystack/needle tokens may
+            // themselves be unresolved variables, there is in general no
+            // single "the" starting position to check; any position
+            // whose window fits could be the one where the needle
+            // occurs.
+            //   - if some position is a *determined* match
+            //     (`compare_alignment` returns l_true), the needle
+            //     provably occurs somewhere in h - this `not contains`
+            //     obligation is UNSAT (conflict), regardless of what any
+            //     other position resolves to.
+            //   - if EVERY position is a *determined* mismatch (l_false),
+            //     the needle provably does not occur anywhere in the
+            //     current token list - the obligation is proved and
+            //     discharged.
+            //   - otherwise some positions are undecided (l_undef: an
+            //     unresolved variable token is involved) and none is a
+            //     determined match; those undecided positions are left
+            //     pending (sound but incomplete, exactly as deq_facet's
+            //     own documented incompleteness for un-substituted
+            //     variables - a later substitution, broadcast via
+            //     apply_subst, may resolve them on a future propagation
+            //     round). Any *leading* run of determined-mismatch
+            //     positions (before the first undecided one) can still
+            //     be safely stripped as progress: no future substitution
+            //     can turn an already-determined mismatch into a match,
+            //     so it is safe to advance past it (see module comment's
+            //     termination argument: the haystack strictly shortens).
+            //   - if the haystack currently has fewer tokens than the
+            //     needle, there is no complete token-aligned window at
+            //     all yet (a haystack variable token may still expand to
+            //     supply more tokens via a later Nielsen split): left
+            //     pending, no progress made here.
+            unsigned h_size = nc.m_haystack.size();
+            unsigned n_size = nc.m_needle.size();
+            bool has_window = h_size >= n_size;
+            unsigned max_pos = has_window ? h_size - n_size : 0;
+            bool found_match = false;
+            unsigned first_undef_pos = max_pos + 1; // sentinel: "no undef position seen"
+            for (unsigned pos = 0; has_window && pos <= max_pos; ++pos) {
+                lbool al = compare_alignment(u, nc.m_haystack, pos, nc.m_needle);
+                if (al == l_true) {
+                    found_match = true;
+                    break;
+                }
+                if (al == l_undef && first_undef_pos > max_pos) {
+                    first_undef_pos = pos;
+                    // keep scanning later positions: a later position
+                    // might still be a determined match (conflict) even
+                    // though this one is undecided.
+                }
+            }
+            if (found_match) {
                 n.set_conflict(stx::br_plugin_base, nc.m_dep);
                 return stx::simplify_result::conflict;
             }
-            if (al == l_false) {
+            if (has_window && first_undef_pos > max_pos) {
+                // every position is a determined mismatch: the needle
+                // cannot occur anywhere in the current haystack.
+                f.remove(i);
+                changed = true;
+                continue;
+            }
+            if (has_window && first_undef_pos > 0) {
+                // strip the leading run of determined-mismatch positions.
                 expr_ref_vector tail(m);
-                tail.append(nc.m_haystack.size() - 1, nc.m_haystack.data() + 1);
+                tail.append(h_size - first_undef_pos, nc.m_haystack.data() + first_undef_pos);
                 f.replace_with_tail(i, tail);
                 changed = true;
                 continue; // re-examine the same obligation at index i (now shortened)
