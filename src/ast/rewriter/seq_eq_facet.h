@@ -71,6 +71,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "util/stx_search_tree.h"
+#include "util/trail.h"
 
 namespace seq {
 
@@ -117,6 +118,19 @@ namespace seq {
         virtual void apply_subst(expr* var, token_list const& repl) = 0;
     };
 
+    // Trail undo object: snapshots a `vector<T>` before a mutation and
+    // restores the whole vector on undo. Used by eq_facet/deq_facet to
+    // make their equation-set mutators (apply_subst, simplify) undoable
+    // without a per-element trail object for every add/erase/assign.
+    template <typename T>
+    class vector_snapshot_trail : public ::trail {
+        vector<T>& m_vec;
+        vector<T>  m_saved;
+    public:
+        explicit vector_snapshot_trail(vector<T>& v) : m_vec(v), m_saved(v) {}
+        void undo() override { m_vec = m_saved; }
+    };
+
     /**
      * Facet holding a set of pending word equations. Equations are
      * discharged (removed) as soon as they are solved; the facet is
@@ -137,12 +151,17 @@ namespace seq {
         seq_util&    u;
         vector<equation> m_eqs;
 
+        // Register an undo snapshot of m_eqs before a destructive mutation.
+        void snapshot() { m_trail.push(vector_snapshot_trail<equation>(m_eqs)); }
+
     public:
-        eq_facet(ast_manager& m, seq_util& u) : m(m), u(u) {}
+        eq_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
+        // Non-trailed: only for root construction, before any search has
+        // begun (no branch to undo back past).
         void add_equation(token_list const& lhs, token_list const& rhs) {
             m_eqs.push_back(equation(lhs, rhs));
         }
@@ -156,14 +175,19 @@ namespace seq {
         vector<equation> const& equations() const { return m_eqs; }
 
         // Apply a forced/branch substitution `var := repl` to every
-        // equation currently in the facet.
+        // equation currently in the facet. Trailed: undoable via
+        // vector_snapshot_trail.
         void apply_subst(expr* var, token_list const& repl) override;
+
+        // Push a new trail scope (used by word_eq_split to open a branch
+        // before its first mutating apply_subst call).
+        void push_scope() { m_trail.push_scope(); }
 
         // Allocate a fresh opaque variable token of `s`'s sort.
         expr* mk_fresh_var(sort* s) { return m.mk_fresh_const("t", s); }
 
         // -- stx::facet_i --
-        facet_i* clone() const override;
+        facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_eqs.empty(); }
@@ -172,7 +196,7 @@ namespace seq {
         // empty-side substitution, trivial-equation removal, symbol-clash
         // detection. See module comment. Returns true if the equation set
         // changed (informational only - the engine detects the fixed
-        // point itself via facet hashing).
+        // point itself via facet hashing). Trailed.
         bool simplify(bool& conflict);
     };
 
@@ -187,14 +211,34 @@ namespace seq {
 
     // Nielsen-transformation split plugin: branches the first equation
     // whose leading tokens are not both resolved by propagation (i.e. a
-    // variable paired with a constant, or two distinct variables).
+    // variable paired with a constant, or two distinct variables). The
+    // first branch is materialized immediately by `split()`; remaining
+    // branches (up to two more, for the two-variable case) are produced
+    // lazily by the returned `split_iterator_i` on resumption.
     class word_eq_split : public eq_tree::split_plugin_i {
-        eq_tree&      m_tree;
         stx::facet_id m_id;
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            stx::facet_id  m_id;
+            // Remaining alternatives to produce, in order. Each entry is a
+            // (rule_name, var, replacement) triple; `next()` pops the
+            // front one, mutates in place, pushes a scope, and returns it.
+            struct alt { char const* m_name; expr* m_var; token_list m_repl; };
+            vector<alt>    m_pending;
+            unsigned       m_pos = 0;
+        public:
+            iterator(eq_tree::node& n, stx::facet_id id) : m_n(n), m_id(id) {}
+            void push_back(char const* name, expr* var, token_list const& repl) {
+                m_pending.push_back(alt{ name, var, repl });
+            }
+            bool next(eq_tree::edge& out) override;
+        };
+
     public:
-        word_eq_split(eq_tree& tree, stx::facet_id id) : m_tree(tree), m_id(id) {}
+        word_eq_split(stx::facet_id id) : m_id(id) {}
         char const* name() const override { return "nielsen-split"; }
-        bool split(eq_tree::node& n, unsigned cost, ptr_vector<eq_tree::edge>& out) override;
+        std::unique_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more) override;
     };
 
     /**
@@ -225,12 +269,15 @@ namespace seq {
         seq_util&    u;
         vector<disequation> m_diseqs;
 
+        void snapshot() { m_trail.push(vector_snapshot_trail<disequation>(m_diseqs)); }
+
     public:
-        deq_facet(ast_manager& m, seq_util& u) : m(m), u(u) {}
+        deq_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
+        // Non-trailed: root construction only.
         void add_disequation(token_list const& lhs, token_list const& rhs) {
             m_diseqs.push_back(disequation(lhs, rhs));
         }
@@ -244,18 +291,18 @@ namespace seq {
         vector<disequation> const& disequations() const { return m_diseqs; }
 
         // Apply a substitution `var := repl` (chosen elsewhere, by
-        // eq_facet's split plugin) to every pending disequation.
+        // eq_facet's split plugin) to every pending disequation. Trailed.
         void apply_subst(expr* var, token_list const& repl) override;
 
         // -- stx::facet_i --
-        facet_i* clone() const override;
+        facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_diseqs.empty(); }
 
         // Deterministic simplification pass: prefix-stripping, then
         // discharge-on-symbol-clash / conflict-on-both-empty. See module
-        // comment.
+        // comment. Trailed.
         bool simplify(bool& conflict);
     };
 

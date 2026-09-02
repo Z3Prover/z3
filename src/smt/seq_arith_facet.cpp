@@ -57,12 +57,15 @@ namespace seq {
         for (expr* e : m_own)
             if (e == c)
                 return; // already recorded (propagate may revisit the same equation across simplify rounds)
-        m_own.push_back(c);
         if (!m_scope_pushed) {
-            m_solver.push();
+            m_trail.push(scope_trail(m_solver));
+            m_trail.push(value_trail<bool>(m_scope_pushed));
             m_scope_pushed = true;
         }
+        m_trail.push(push_back_ref_trail(m_own));
+        m_own.push_back(c);
         m_solver.assert_expr(c);
+        m_trail.push(value_trail<bool>(m_conflict));
         m_conflict = (m_solver.check() == l_false);
     }
 
@@ -86,14 +89,12 @@ namespace seq {
                 add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0)));
     }
 
-    stx::facet_i* arith_facet::clone() const {
-        arith_facet* f = alloc(arith_facet, m, u, m_solver);
-        // A cloned node's *own* constraint set starts empty: the parent's
-        // constraints are already permanently reflected in the shared
-        // solver's scope stack (they were asserted+pushed when the parent
-        // itself was entered), so the clone only needs to record whatever
-        // NEW constraints get added to it from here on (e.g. by
-        // arith_propagation reading a newly-branched eq_facet equation).
+    stx::facet_i* arith_facet::clone(trail_stack& trail) const {
+        arith_facet* f = alloc(arith_facet, trail, m, u, m_solver);
+        // A cloned node's *own* constraint set starts empty: this is only
+        // used for cold-path snapshots (hot-restart SAT leaf, cache
+        // entries) which never re-enter the shared incremental backend's
+        // scope stack themselves.
         return f;
     }
 
@@ -112,19 +113,6 @@ namespace seq {
             if (m_own.get(i) != o.m_own.get(i))
                 return false;
         return true;
-    }
-
-    void arith_facet::on_enter() {
-        // Nothing to do until add_constraint() first fires for this node
-        // (lazy push - a node with no new constraints of its own never
-        // touches the shared backend's scope stack at all).
-    }
-
-    void arith_facet::on_leave() {
-        if (m_scope_pushed) {
-            m_solver.pop(1);
-            m_scope_pushed = false;
-        }
     }
 
     // -- arith_propagation --

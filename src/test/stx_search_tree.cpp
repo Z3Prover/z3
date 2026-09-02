@@ -14,6 +14,13 @@ Abstract:
     single integer counter that is incremented by 1 or 2 per branch, with an
     optional set of forbidden intermediate totals.
 
+    This exercises the trail/iterator-based engine: there is one live node,
+    mutated in place by `counter_facet::add()`, which registers a
+    `value_trail<int>` undo object rather than being cloned; `step_split`
+    materializes its first branch ("+1") immediately (mutating and pushing
+    one trail scope) and returns a `split_iterator_i` that produces the
+    second branch ("+2") on resumption.
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026
@@ -21,6 +28,7 @@ Author:
 --*/
 #include "util/stx_search_tree.h"
 #include "util/util.h"
+#include "util/trail.h"
 #include <iostream>
 #include <unordered_set>
 
@@ -33,14 +41,27 @@ namespace {
         std::unordered_set<int>   m_forbidden;
     };
 
-    // Toy facet: a single non-negative integer counter.
+    // Toy facet: a single non-negative integer counter, mutated in place.
     class counter_facet : public stx::facet_i {
         counter_config const* m_cfg;
         int                    m_total;
     public:
-        counter_facet(counter_config const* cfg, int total) : m_cfg(cfg), m_total(total) {}
+        counter_facet(trail_stack& trail, counter_config const* cfg, int total) :
+            facet_i(trail), m_cfg(cfg), m_total(total) {}
         int total() const { return m_total; }
-        facet_i* clone() const override { return alloc(counter_facet, m_cfg, m_total); }
+
+        // Destructive mutator: registers a trail undo object instead of
+        // being cloned. `m_trail.push(value_trail<int>(m_total))` snapshots
+        // the current value and restores it on pop_scope(). Callers push
+        // the enclosing scope themselves (via `push_scope()`) before the
+        // first mutation of a branch.
+        void push_scope() { m_trail.push_scope(); }
+        void add(int delta) {
+            m_trail.push(value_trail<int>(m_total));
+            m_total += delta;
+        }
+
+        facet_i* clone(trail_stack& trail) const override { return alloc(counter_facet, trail, m_cfg, m_total); }
         unsigned hash() const override { return combine_hash(17u, static_cast<unsigned>(m_total)); }
         bool similar(facet_i const& other) const override {
             return m_total == static_cast<counter_facet const&>(other).m_total;
@@ -70,50 +91,72 @@ namespace {
     };
 
     // Split: branch into "+1" and "+2" as two alternative edges at cost 0.
+    // The first branch is materialized immediately by `split()`; the
+    // second is produced lazily, on resumption, by `iterator::next()`.
     class step_split : public tree_t::split_plugin_i {
-        tree_t&                m_tree;
         stx::facet_id           m_id;
         counter_config const*   m_cfg;
+
+        class iterator : public tree_t::split_iterator_i {
+            tree_t::node&  m_n;
+            stx::facet_id  m_id;
+            bool           m_done = false;
+        public:
+            iterator(tree_t::node& n, stx::facet_id id) : m_n(n), m_id(id) {}
+            bool next(tree_t::edge& out) override {
+                if (m_done)
+                    return false;
+                m_done = true;
+                auto& f = m_n.facet_as<counter_facet>(m_id);
+                f.push_scope();
+                f.add(2);
+                out = tree_t::edge("+2", nullptr, true, 0);
+                return true;
+            }
+        };
+
     public:
-        step_split(tree_t& tree, stx::facet_id id, counter_config const* cfg) :
-            m_tree(tree), m_id(id), m_cfg(cfg) {}
+        step_split(stx::facet_id id, counter_config const* cfg) : m_id(id), m_cfg(cfg) {}
         char const* name() const override { return "step"; }
-        bool split(tree_t::node& n, unsigned cost, ptr_vector<tree_t::edge>& out) override {
+        std::unique_ptr<tree_t::split_iterator_i> split(tree_t::node& n, unsigned cost, tree_t::edge& out, bool& has_more) override {
+            has_more = false;
             if (cost != 0)
-                return false;
+                return nullptr;
             auto& f = n.facet_as<counter_facet>(m_id);
             if (f.total() >= m_cfg->m_target)
-                return false;
-            for (int delta : {1, 2}) {
-                tree_t::node* child = m_tree.clone_node(n);
-                child->set_facet(m_id, alloc(counter_facet, m_cfg, f.total() + delta));
-                out.push_back(alloc(tree_t::edge, &n, child, delta == 1 ? "+1" : "+2", nullptr, true));
-            }
-            return true;
+                return nullptr;
+            f.push_scope();
+            f.add(1);
+            out = tree_t::edge("+1", nullptr, true, 0);
+            return std::make_unique<iterator>(n, m_id);
         }
     };
 
     // Build a fresh engine + root for the given config; caller owns nothing
-    // extra to clean up (search_tree's destructor frees all nodes).
-    tree_t::node* mk_root(tree_t& tree, stx::facet_id id, counter_config const* cfg) {
+    // extra to clean up (search_tree's destructor frees all state).
+    tree_t::node* mk_root(tree_t& tree, stx::facet_id& id, counter_config const* cfg) {
         tree_t::node* root = tree.mk_root();
-        root->set_facet(id, alloc(counter_facet, cfg, 0));
+        id = tree.register_facet<counter_facet>(*root, cfg, 0);
         return root;
     }
 
     static void tst_sat() {
         counter_config cfg{ 5, { 3 } };
         tree_t tree;
-        stx::facet_id id = tree.register_facet();
+        stx::facet_id id;
+        mk_root(tree, id, &cfg);
         overshoot_propagation prop(id, &cfg);
-        step_split split(tree, id, &cfg);
+        step_split split(id, &cfg);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
-        mk_root(tree, id, &cfg);
         tree.set_max_search_depth(10);
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::sat);
         ENSURE(tree.get_stats().m_num_sat == 1);
+        ENSURE(tree.sat_snapshot() != nullptr);
+        ENSURE(tree.sat_snapshot()->facet_as<counter_facet>(id).total() == 5);
+        // The live root's facet state must be fully restored after solve().
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
     static void tst_unsat() {
@@ -122,12 +165,12 @@ namespace {
         // conflicts, so the whole tree is UNSAT.
         counter_config cfg{ 3, { 3 } };
         tree_t tree;
-        stx::facet_id id = tree.register_facet();
+        stx::facet_id id;
+        mk_root(tree, id, &cfg);
         overshoot_propagation prop(id, &cfg);
-        step_split split(tree, id, &cfg);
+        step_split split(id, &cfg);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
-        mk_root(tree, id, &cfg);
         tree.set_max_search_depth(10);
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::unsat);
@@ -136,6 +179,7 @@ namespace {
         // subtrees is fully explored and cached as UNSAT the other occurrence
         // should hit the transposition cache.
         ENSURE(tree.get_stats().m_num_cache_hits > 0);
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
     static void tst_unknown_depth_cutoff() {
@@ -143,27 +187,28 @@ namespace {
         // and not otherwise refutable, so the search reports unknown.
         counter_config cfg{ 100, {} };
         tree_t tree;
-        stx::facet_id id = tree.register_facet();
+        stx::facet_id id;
+        mk_root(tree, id, &cfg);
         overshoot_propagation prop(id, &cfg);
-        step_split split(tree, id, &cfg);
+        step_split split(id, &cfg);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
-        mk_root(tree, id, &cfg);
         tree.set_max_search_depth(2);
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::unknown);
         ENSURE(tree.get_stats().m_num_unknown == 1);
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
     static void tst_trivially_satisfied_root() {
         counter_config cfg{ 0, {} };
         tree_t tree;
-        stx::facet_id id = tree.register_facet();
+        stx::facet_id id;
+        mk_root(tree, id, &cfg);
         overshoot_propagation prop(id, &cfg);
-        step_split split(tree, id, &cfg);
+        step_split split(id, &cfg);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
-        mk_root(tree, id, &cfg);
         tree.set_max_search_depth(5);
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::sat);

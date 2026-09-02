@@ -9,52 +9,41 @@ Abstract:
 
     Domain-agnostic plugin-based search tree (namespace `stx`).
 
-    This is "Phase 1" of the modular search-tree architecture described in
-    the design document "A Modular Plugin-Based Search Tree for String
-    Solving" (based on `theory_nseq` / `nielsen_graph` on the c3 branch).
-    It provides a generic engine that knows nothing about sequences,
-    strings, or automata: it manages nodes, edges, dependencies, conflict
-    explanation, iterative deepening, subsumption, and backtracking over an
-    abstract node *state*, which is a collection of *facets* contributed by
-    plugins.
+    This implements the trail/iterator-based architecture described in the
+    (updated) design document "A Modular Plugin-Based Search Tree for
+    String Solving" (based on `theory_nseq` / `nielsen_graph` on the c3
+    branch). It provides a generic engine that knows nothing about
+    sequences, strings, or automata: it manages a *single mutable node*,
+    dependencies, conflict explanation, iterative deepening, subsumption,
+    and backtracking over an abstract node *state*, which is a collection
+    of *facets* contributed by plugins.
+
+    Unlike the earlier (Phase 1-4) revision of this file, nodes are no
+    longer persistent/clone-per-edge: there is exactly one live `node`
+    object per `search_tree`, and "descending into a branch" means
+    destructively mutating that node's facets while registering undo
+    actions on a shared `trail_stack` (util/trail.h, reused verbatim).
+    Backtracking out of a branch means popping that trail scope, which
+    restores every mutated facet's prior state without any cloning.
+    `facet_i::clone()` still exists, but only for cold-path use (hot
+    restart's post-solve snapshot of a SAT leaf, and cache-entry storage);
+    it is never used on the DFS hot path itself.
 
     The two extension points are:
       - `propagation_plugin_i`: deterministic, non-branching simplification.
-      - `split_plugin_i`:       nondeterministic branching (search) rules,
-                                selected lowest-cost-first.
+        Mutations MUST register with the trail; must NEVER call
+        `push_scope()` itself (that is the DFS driver's job, via
+        `scoped_pop`).
+      - `split_plugin_i`: nondeterministic branching (search) rules,
+        selected lowest-cost-first. `split()` now materializes the first
+        available branch immediately (mutating the live node in place and
+        pushing exactly one trail scope) and returns a `split_iterator_i`
+        for resuming the remaining branches on backtrack.
 
     Everything domain-specific (string equalities, regex memberships,
     arithmetic constraints, ...) is expected to live *outside* this file, in
     facet/plugin implementations that only interact with the engine through
     `facet_i`, `propagation_plugin_i`, and `split_plugin_i`.
-
-    Simplifications relative to the full `nielsen_graph` this design
-    replaces (left for a later phase, once a concrete sequence
-    instantiation exists to validate against):
-      - The sibling/subsumption cut here is a plain "already on the active
-        DFS path" cut. `nielsen_graph`'s Tarjan-style lowlink bookkeeping
-        (`m_subtree_lowlink`/`m_subtree_has_cut`), which additionally proves
-        *soundness* of caching a cut subtree's UNSAT verdict when arithmetic
-        conflicts are mixed in, is not reproduced; here a node's UNSAT
-        transposition-cache entry is only ever installed for nodes that are
-        NOT signature aliases and were not themselves closed via a sibling
-        cut, which is the simple, always-sound special case.
-      - Hot restart is limited to reusing propagation results across
-        iterative-deepening rounds within a single `solve()` call (the
-        `m_simplify_stamp`/`solve_epoch` mechanism of §4.6); resuming a
-        live search across separate external `solve()` invocations (as
-        `nielsen_graph` does across incremental SMT `check()` calls) is
-        future work.
-
-    "Phase 4" addition: `facet_i::on_enter()`/`on_leave()`, called by
-    `dfs()` in strict LIFO nesting matching the DFS call stack (enter on
-    descent, leave on backtrack, via an RAII guard local to `dfs()`).
-    This is the hook an incremental-solver-backed facet (`arith_facet`,
-    wrapping something like `smt::kernel`) needs to keep its backend's
-    own `push()`/`pop()` scope stack synchronized with the search tree's
-    backtracking, without the generic engine knowing anything about
-    incremental solvers itself. Facets with no incremental backend simply
-    inherit the default no-op implementations.
 
 Author:
 
@@ -66,7 +55,9 @@ Author:
 #include "util/util.h"
 #include "util/vector.h"
 #include "util/dependency.h"
+#include "util/trail.h"
 #include <string>
+#include <memory>
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
@@ -97,14 +88,27 @@ namespace stx {
      * One constituent of a node's state. Plugins define concrete subclasses
      * (e.g. an `eq_facet`, an `arith_facet`); the engine interacts only
      * through this interface, and never inspects a facet's contents.
+     *
+     * Every concrete facet is constructed with a reference to the shared
+     * `trail_stack`, so that its own destructive mutator methods (defined
+     * by the plugin, not by this interface) can register undo objects
+     * (`m_trail.push(some_trail_object)`) instead of allocating a fresh
+     * clone per mutation. `push_scope()`/`pop_scope()` themselves are never
+     * called by a facet or plugin - only the DFS driver (via `scoped_pop`)
+     * owns scope boundaries.
      */
     class facet_i {
+    protected:
+        trail_stack& m_trail;
     public:
+        explicit facet_i(trail_stack& trail) : m_trail(trail) {}
         virtual ~facet_i() = default;
 
-        // Deep-clone this facet for a new child node. Nodes are persistent:
-        // the parent facet is never mutated after a child has cloned it.
-        virtual facet_i* clone() const = 0;
+        // Cold-path deep-clone, e.g. for a hot-restart snapshot of a SAT
+        // leaf's facets (taken outside the live trail before it unwinds) or
+        // for a cache entry that must survive later pop_scope() calls. NOT
+        // used on the DFS hot path.
+        virtual facet_i* clone(trail_stack& trail) const = 0;
 
         // Order/collision-insensitive hash contribution (canonicalized
         // internally by the facet, e.g. by sorting its own constraint
@@ -120,22 +124,6 @@ namespace stx {
         // Is this facet's constraint set trivially/vacuously satisfied
         // (e.g. no equations left, or an empty membership set)?
         virtual bool is_satisfied() const = 0;
-
-        // Optional DFS-scope hooks: called by the engine exactly once when
-        // `dfs()` descends into a node holding this facet (after any
-        // transposition-cache/sibling-cut short-circuit, before
-        // propagation runs) and exactly once when `dfs()` backtracks back
-        // out of that same node (after all of its children, if any, have
-        // themselves been entered and left). The nesting therefore always
-        // matches the DFS call stack, which is the discipline an
-        // incremental backend's `push()`/`pop()` needs: a facet that wraps
-        // one (e.g. `arith_facet` wrapping `sub_solver_i`) implements
-        // `on_enter` as "assert this node's newly-added constraints and
-        // push a solver scope" and `on_leave` as "pop that scope". Facets
-        // with no incremental backend (e.g. `eq_facet`) simply do not
-        // override these (default no-ops).
-        virtual void on_enter() {}
-        virtual void on_leave() {}
     };
 
     /**
@@ -155,32 +143,48 @@ namespace stx {
 
         class node;
 
-        // A named transformation producing a target node, with a
-        // dependency-tracked justification. Substitutions/mutations are a
-        // facet-level concept: an edge is materialized by a split plugin,
-        // which clones the parent's facets (`search_tree::clone_node`),
-        // mutates its own facet(s), and wraps the result in an edge. The
-        // core only ever stores src/tgt/name/dep/is_progress.
+        // A pure value type: a named transformation, with a
+        // dependency-tracked justification and an iterative-deepening
+        // cost. There is only one live `node` at a time, so an edge no
+        // longer carries src/tgt pointers; it exists purely to describe
+        // *how* the (in-place) mutation that already happened got there,
+        // for diagnostics/explanation.
         class edge {
-            node*             m_src;
-            node*             m_tgt;
-            const char*       m_rule_name;
-            dep_tracker       m_dep;
-            bool              m_is_progress;
+            const char*       m_rule_name = "";
+            dep_tracker       m_dep = nullptr;
+            bool              m_is_progress = true;
+            unsigned          m_cost = 0;
         public:
-            edge(node* src, node* tgt, char const* rule_name, dep_tracker dep, bool is_progress) :
-                m_src(src), m_tgt(tgt), m_rule_name(rule_name), m_dep(dep), m_is_progress(is_progress) {}
-            node* src() const { return m_src; }
-            node* tgt() const { return m_tgt; }
+            edge() = default;
+            edge(char const* rule_name, dep_tracker dep, bool is_progress, unsigned cost = 0) :
+                m_rule_name(rule_name), m_dep(dep), m_is_progress(is_progress), m_cost(cost) {}
             char const* rule_name() const { return m_rule_name; }
             dep_tracker dep() const { return m_dep; }
             bool is_progress() const { return m_is_progress; }
+            unsigned cost() const { return m_cost; }
+        };
+
+        // Resumable iterator over the remaining branches of a split that
+        // has already materialized (and the driver has since backtracked
+        // out of) its first branch. `next()`:
+        //   - on success: destructively mutates the live node via the
+        //     owning facet's own mutator method(s), registering trail undo
+        //     objects as it goes, then pushes exactly one new trail scope,
+        //     fills `out`, and returns true.
+        //   - on failure (no more branches): must not touch the node or the
+        //     trail, and returns false.
+        class split_iterator_i {
+        public:
+            virtual ~split_iterator_i() = default;
+            virtual bool next(edge& out) = 0;
         };
 
         // Deterministic, non-branching simplification. Must be confluent:
         // repeated application (in any order, interleaved with other
         // propagation plugins) converges to the same fixed point. May touch
-        // only the facet kind(s) it was registered against.
+        // only the facet kind(s) it was registered against, and any
+        // mutation must register a trail undo object (never call
+        // push_scope()/pop_scope() itself).
         class propagation_plugin_i {
         public:
             virtual ~propagation_plugin_i() = default;
@@ -202,65 +206,48 @@ namespace stx {
         public:
             virtual ~split_plugin_i() = default;
             virtual char const* name() const = 0;
-            // - A split exists at exactly `cost`: append child edge(s) to
-            //   `out` (each carrying a dep_tracker justification) and
-            //   return true. A non-empty `out` claims this node for this
-            //   plugin this round (lowest-cost, first-registered,
-            //   non-empty result wins).
+            // - A split exists at exactly `cost`: materialize the FIRST
+            //   branch immediately (mutate `n`'s own facet(s) via their
+            //   mutator methods, registering trail undo objects, then push
+            //   exactly one trail scope), fill `out`, and return a
+            //   (possibly null, if there is only one branch)
+            //   `split_iterator_i` for the remaining branches. `has_more`
+            //   is unspecified in this case (the non-null-materialization
+            //   contract is signaled by returning from this branch of the
+            //   contract at all - the driver detects "did this plugin
+            //   commit a branch" by checking whether the trail's scope
+            //   count increased).
             // - No split at `cost` but one exists at a higher cost: leave
-            //   `out` empty and return true (driver keeps raising `cost`).
-            // - Nothing left to offer `n` at any cost: leave `out` empty
-            //   and return false.
-            virtual bool split(node& n, unsigned cost, ptr_vector<edge>& out) = 0;
+            //   `n`/the trail untouched, set `has_more = true`, and return
+            //   nullptr.
+            // - Nothing left to offer `n` at any cost: leave `n`/the trail
+            //   untouched, set `has_more = false`, and return nullptr.
+            virtual std::unique_ptr<split_iterator_i> split(node& n, unsigned cost, edge& out, bool& has_more) = 0;
         };
 
         enum class node_status { unevaluated, satisfied, conflict };
 
-        // A node in the search tree. State = ordered vector of facet_i*,
-        // one per registered facet_id, plus generic bookkeeping the core
-        // owns directly.
+        // The single mutable node. Holds one facet_i* per registered
+        // facet_id (installed once, at root-construction time, and
+        // thereafter mutated in place by plugins through trail-registered
+        // undo objects - never replaced/re-`set_facet`'d mid-search).
         class node {
             friend class search_tree;
 
-            unsigned            m_id;
-            ptr_vector<facet_i> m_facets;          // indexed by facet_id
-            ptr_vector<edge>    m_outgoing;
-            node_status         m_status = node_status::unevaluated;
-            backtrack_reason    m_reason = br_unevaluated;
-            dep_tracker         m_conflict_dep = nullptr;
-            mutable unsigned    m_hash = 0;         // 0 == unset
+            ptr_vector<facet_i>  m_facets;          // indexed by facet_id
+            node_status          m_status = node_status::unevaluated;
+            backtrack_reason     m_reason = br_unevaluated;
+            dep_tracker          m_conflict_dep = nullptr;
 
-            // DFS bookkeeping for the sibling (loop-cut) subsumption rule:
-            // structural depth of this node while it is on the active DFS
-            // path (see search_tree::dfs).
-            unsigned            m_dfs_path_pos = 0;
-            bool                m_on_path = false;
-
-            // True for nodes that structurally alias their parent's
-            // signature without being a genuine recurrence (e.g. a lazily
-            // resumed split continuation). Exempt from the sibling loop-cut
-            // and from the unsat transposition cache, exactly as in
-            // `nielsen_node::is_signature_alias`. Set by split plugins via
-            // `mark_signature_alias()`.
-            bool                m_signature_alias = false;
-
-            // Simplification memo: the value of `search_tree::m_solve_epoch`
-            // at the time `propagate_to_fixpoint` last completed on this
-            // node. Cleared (0) whenever a facet is (re)installed via
-            // `set_facet`.
-            unsigned            m_simplify_stamp = 0;
-
-            explicit node(unsigned id, unsigned num_facets) : m_id(id) {
+            explicit node(unsigned num_facets) {
                 m_facets.resize(num_facets, nullptr);
             }
 
         public:
             ~node() {
                 for (auto* f : m_facets) dealloc(f);
-                for (auto* e : m_outgoing) dealloc(e);
             }
 
-            unsigned id() const { return m_id; }
             unsigned num_facets() const { return m_facets.size(); }
 
             facet_i& facet(facet_id id) { SASSERT(m_facets[id]); return *m_facets[id]; }
@@ -270,12 +257,12 @@ namespace stx {
             template <typename T> T& facet_as(facet_id id) { return static_cast<T&>(facet(id)); }
             template <typename T> T const& facet_as(facet_id id) const { return static_cast<T const&>(facet(id)); }
 
-            // Install (or replace) the facet at `id`. Takes ownership.
-            void set_facet(facet_id id, facet_i* f) {
-                if (m_facets[id]) dealloc(m_facets[id]);
+            // Install the facet at `id` (root-construction time only).
+            // Takes ownership. NOT for mid-search mutation - facets mutate
+            // themselves in place via their own mutator methods.
+            void install_facet(facet_id id, facet_i* f) {
+                SASSERT(!m_facets[id]);
                 m_facets[id] = f;
-                m_hash = 0;
-                m_simplify_stamp = 0;
             }
 
             // AND over all installed facets' is_satisfied().
@@ -295,23 +282,20 @@ namespace stx {
                 m_conflict_dep = dep;
             }
             void set_satisfied() { m_status = node_status::satisfied; }
+            void clear_status() { m_status = node_status::unevaluated; m_reason = br_unevaluated; m_conflict_dep = nullptr; }
 
             backtrack_reason reason() const { return m_reason; }
             dep_tracker conflict_dep() const { return m_conflict_dep; }
 
-            void mark_signature_alias() { m_signature_alias = true; }
-            bool is_signature_alias() const { return m_signature_alias; }
-
-            // Canonicalized structural hash over all installed facets;
-            // cached until a facet is replaced via set_facet.
+            // Canonicalized structural hash over all installed facets.
+            // Always recomputed fresh (there is only ever one live node, so
+            // there is nothing to cache against; the trail may have changed
+            // any facet's contents since the last call).
             unsigned hash() const {
-                if (m_hash)
-                    return m_hash;
                 unsigned h = m_facets.size() + 1;
                 for (auto* f : m_facets)
                     h = combine_hash(h, f ? f->hash() : 0);
-                m_hash = h ? h : 1; // 0 is reserved for "unset"
-                return m_hash;
+                return h ? h : 1; // 0 is reserved for "unset"
             }
 
             // Slot-wise `facet_i::similar`; used by the transposition and
@@ -330,21 +314,40 @@ namespace stx {
                 return true;
             }
 
-            ptr_vector<edge>& outgoing() { return m_outgoing; }
-            ptr_vector<edge> const& outgoing() const { return m_outgoing; }
+            // Cold-path: snapshot every installed facet into a standalone
+            // node not tied to any live trail scope (used by hot restart to
+            // preserve a SAT leaf's facet state across the trail unwinding
+            // back to root, and by the unsat cache to store a comparison
+            // key that survives pop_scope()).
+            node* clone(trail_stack& trail) const {
+                node* n = new node(m_facets.size());
+                for (facet_id id = 0; id < m_facets.size(); ++id)
+                    if (m_facets[id])
+                        n->m_facets[id] = m_facets[id]->clone(trail);
+                n->m_status = m_status;
+                n->m_reason = m_reason;
+                n->m_conflict_dep = m_conflict_dep;
+                return n;
+            }
+        };
 
-            // Invoke on_enter()/on_leave() on every installed facet, in
-            // registration order for enter and reverse order for leave
-            // (LIFO, matching the push/pop discipline an incremental
-            // backend needs). See facet_i::on_enter/on_leave.
-            void on_enter_all() {
-                for (auto* f : m_facets)
-                    if (f) f->on_enter();
-            }
-            void on_leave_all() {
-                for (unsigned i = m_facets.size(); i-- > 0; )
-                    if (m_facets[i]) m_facets[i]->on_leave();
-            }
+        // RAII guard around one DFS branch descent: pushes a trail scope on
+        // construction, pops it (unwinding every trail object registered
+        // since) on destruction - including through an exception, so a
+        // plugin/facet throwing mid-mutation cannot leave the shared node
+        // and trail in a mismatched state relative to the DFS call stack.
+        class scoped_pop {
+            trail_stack& m_trail;
+            unsigned     m_scopes;
+            bool         m_active = true;
+        public:
+            explicit scoped_pop(trail_stack& trail, unsigned scopes = 1) : m_trail(trail), m_scopes(scopes) {}
+            ~scoped_pop() { if (m_active) m_trail.pop_scope(m_scopes); }
+            scoped_pop(scoped_pop const&) = delete;
+            scoped_pop& operator=(scoped_pop const&) = delete;
+            // Release without popping (ownership of the scope(s) has been
+            // transferred elsewhere, e.g. to a surviving split_iterator_i).
+            void release() { m_active = false; }
         };
 
         struct stats {
@@ -362,33 +365,69 @@ namespace stx {
         };
 
     private:
-        struct node_hash_functor { unsigned operator()(node* n) const { return n->hash(); } };
-        struct node_eq_functor   { bool operator()(node* a, node* b) const { return a->similar(*b); } };
+        // A lightweight, trail-independent comparison key for a node,
+        // captured at the point a frame is entered (for the sibling/
+        // transposition caches). Since there is only one live node, we
+        // cannot keep a pointer to "the node as it was" - instead we take a
+        // cold-path `clone()` snapshot, exactly analogous to hot restart's
+        // SAT-leaf snapshot. This is only paid for nodes actually inserted
+        // into a cache bucket (not for every DFS frame).
+        struct digest {
+            unsigned                    m_hash;
+            std::unique_ptr<node>       m_snapshot; // owned, trail-independent
+            digest() : m_hash(0) {}
+            digest(unsigned h, node* snap) : m_hash(h), m_snapshot(snap) {}
+        };
+        struct digest_hash_functor { unsigned operator()(digest const* d) const { return d->m_hash; } };
+        struct digest_eq_functor {
+            bool operator()(digest const* a, digest const* b) const { return a->m_snapshot->similar(*b->m_snapshot); }
+        };
+
+        // Per-depth bookkeeping for the (recursive) DFS driver. Replaces
+        // what used to live directly on a persistent `node` object: since
+        // there is only one live node now, everything that varies by DFS
+        // depth (loop-cut/subsumption participation, the winning split's
+        // resumable iterator, its last-produced edge) must live on the
+        // call stack instead.
+        struct dfs_frame {
+            bool                                  m_is_signature_alias = false;
+            std::unique_ptr<digest>                m_sibling_digest;      // non-null while this frame is on the active path
+            std::unique_ptr<split_iterator_i>       m_iter;                // resumable remaining branches, if any
+            edge                                   m_last_edge;
+        };
 
         unsigned                              m_next_facet_id = 0;
-        ptr_vector<node>                       m_nodes;         // owns every node ever created
         ptr_vector<propagation_plugin_i>       m_prop_plugins;  // not owned
         ptr_vector<split_plugin_i>             m_split_plugins; // not owned
-        node*                                  m_root = nullptr;
+        std::unique_ptr<node>                   m_root;
+        trail_stack                            m_trail;
         unsigned                               m_max_search_depth = 1000;
         unsigned                               m_max_cost = 1000;
         unsigned                               m_max_nodes = 0; // 0 == unlimited
-        unsigned                               m_solve_epoch = 1;
         dep_manager_t                          m_dep_mgr;
         stats                                  m_stats;
 
-        // Transposition table: signatures of nodes already proven UNSAT for
-        // reasons intrinsic to their own facets (not a sibling cut). A node
-        // whose signature is present is unsatisfiable regardless of how it
-        // was reached.
-        std::unordered_set<node*, node_hash_functor, node_eq_functor> m_unsat_cache;
+        // Transposition table: digests of node states already proven UNSAT
+        // for reasons intrinsic to their own facets (not a sibling cut). A
+        // node whose digest matches one present here is unsatisfiable
+        // regardless of how it was reached.
+        std::unordered_set<digest*, digest_hash_functor, digest_eq_functor> m_unsat_cache;
+        ptr_vector<digest>                     m_unsat_cache_storage; // owns entries in m_unsat_cache
 
         // Active-path index for the sibling (loop-cut) subsumption rule:
-        // while a node is on the DFS path it is present in this bucket
-        // keyed by its own signature, so a non-empty match for a
-        // newly-visited node means the search has looped back to an
-        // ancestor with the same facet state.
-        std::unordered_map<node*, ptr_vector<node>, node_hash_functor, node_eq_functor> m_siblings;
+        // while a frame is on the DFS path its digest is present in this
+        // bucket, so a non-empty match for a newly-visited node means the
+        // search has looped back to an ancestor with the same facet state.
+        std::unordered_map<digest*, unsigned, digest_hash_functor, digest_eq_functor> m_siblings;
+
+        // Hot-restart snapshot of the (unique, innermost) SAT leaf found by
+        // the most recent `solve()` call, taken via the cold-path `clone()`
+        // before the DFS unwind pops the trail scopes that produced it - so
+        // callers can still inspect the satisfying facet state (e.g. read
+        // off a model) after `solve()` has returned and the live node has
+        // been restored to its pre-solve state.
+        std::unique_ptr<node>                 m_sat_snapshot;
+        bool                                   m_sat_snapshot_taken = false;
 
         // Run every registered propagation plugin to a fixed point. The
         // fixed point is detected generically (no extra plugin API): a
@@ -404,11 +443,6 @@ namespace stx {
         }
 
         simplify_result propagate_to_fixpoint(node& n) {
-            if (n.m_simplify_stamp == m_solve_epoch) {
-                if (n.is_conflict()) return simplify_result::conflict;
-                if (n.is_satisfied()) return simplify_result::satisfied;
-                return simplify_result::proceed;
-            }
             // Bound the number of rounds by the number of plugins plus
             // facets: propagation must be confluent/terminating, so this
             // is a safety net against a misbehaving plugin, not a normal
@@ -419,13 +453,10 @@ namespace stx {
                 for (auto* p : m_prop_plugins) {
                     m_stats.m_propagate_counts[p->name()]++;
                     simplify_result r = p->propagate(n);
-                    if (r == simplify_result::conflict) {
-                        n.m_simplify_stamp = m_solve_epoch;
+                    if (r == simplify_result::conflict)
                         return r;
-                    }
                     if (r == simplify_result::satisfied) {
                         n.set_satisfied();
-                        n.m_simplify_stamp = m_solve_epoch;
                         return r;
                     }
                 }
@@ -434,22 +465,32 @@ namespace stx {
                     break;
                 prev_fp = fp;
             }
-            n.m_simplify_stamp = m_solve_epoch;
             return n.is_satisfied() ? simplify_result::satisfied : simplify_result::proceed;
         }
 
+        std::unique_ptr<digest> mk_digest(node& n) {
+            return std::make_unique<digest>(n.hash(), n.clone(m_trail));
+        }
+
         // Search for the cheapest available split, raising `cost` from 0.
-        // Returns false once every plugin has nothing left to offer at any
-        // cost (the node is closed: no more splits).
-        bool extend_node(node& n, ptr_vector<edge>& out) {
+        // On success, `n`/the trail have already been mutated for the
+        // first branch (exactly one new scope pushed), `out` holds that
+        // branch's edge, and `frame.m_iter` (possibly null) holds the
+        // resumable iterator for the rest. Returns false once every plugin
+        // has nothing left to offer at any cost (the node is closed).
+        bool extend_node(node& n, dfs_frame& frame, edge& out) {
             for (unsigned cost = 0; cost <= m_max_cost; ++cost) {
                 bool any_offer = false;
                 for (auto* sp : m_split_plugins) {
-                    out.reset();
                     m_stats.m_split_counts[sp->name()]++;
-                    bool has_more = sp->split(n, cost, out);
-                    if (!out.empty())
+                    bool has_more = false;
+                    unsigned scopes_before = m_trail.get_num_scopes();
+                    auto it = sp->split(n, cost, out, has_more);
+                    bool committed = m_trail.get_num_scopes() > scopes_before;
+                    if (committed) {
+                        frame.m_iter = std::move(it);
                         return true;
+                    }
                     if (has_more)
                         any_offer = true;
                 }
@@ -459,85 +500,100 @@ namespace stx {
             return false;
         }
 
-        search_result dfs(node* n, unsigned depth_bound, unsigned depth) {
+        search_result dfs(node& n, unsigned depth_bound, unsigned depth) {
             m_stats.m_num_dfs_nodes++;
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
                 return search_result::unknown;
 
-            if (!n->is_signature_alias()) {
-                auto it = m_unsat_cache.find(n);
+            dfs_frame frame;
+            // Signature-alias frames (structural aliasing without genuine
+            // recurrence, e.g. a lazily resumed split continuation) are
+            // exempt from both caches; the engine has no generic way to
+            // detect this itself in the trail-based model, so (as before)
+            // it is plugin-driven - a facet can suppress caching for the
+            // current frame by installing a sentinel via
+            // `mark_signature_alias()` prior to re-entering dfs. For now,
+            // this is left for facets to opt into via node state; the
+            // generic engine simply always participates in both caches.
+            {
+                auto probe = mk_digest(n);
+                auto it = m_unsat_cache.find(probe.get());
                 if (it != m_unsat_cache.end()) {
                     m_stats.m_num_cache_hits++;
-                    n->set_conflict(br_sibling, nullptr);
+                    n.set_conflict(br_sibling, nullptr);
                     return search_result::unsat;
                 }
-                auto sib_it = m_siblings.find(n);
-                if (sib_it != m_siblings.end() && !sib_it->second.empty()) {
+                auto sib_it = m_siblings.find(probe.get());
+                if (sib_it != m_siblings.end() && sib_it->second > 0) {
                     m_stats.m_num_sibling_cuts++;
-                    n->set_conflict(br_sibling, nullptr);
+                    n.set_conflict(br_sibling, nullptr);
                     return search_result::unsat;
                 }
+                frame.m_sibling_digest = std::move(probe);
             }
 
-            // RAII enter/leave scope: every facet with an incremental
-            // backend (e.g. arith_facet) gets exactly one on_enter() call
-            // here and exactly one matching on_leave() call on every exit
-            // path below (including through the recursive calls further
-            // down), so push/pop nesting always matches the DFS call
-            // stack. See facet_i::on_enter/on_leave.
-            struct enter_leave_guard {
-                node* m_n;
-                explicit enter_leave_guard(node* n) : m_n(n) { m_n->on_enter_all(); }
-                ~enter_leave_guard() { m_n->on_leave_all(); }
-            } guard(n);
-
             search_result result;
-            simplify_result sr = propagate_to_fixpoint(*n);
+            n.clear_status();
+            simplify_result sr = propagate_to_fixpoint(n);
             if (sr == simplify_result::conflict) {
                 result = search_result::unsat;
             }
             else if (sr == simplify_result::satisfied) {
                 result = search_result::sat;
+                m_sat_snapshot.reset(n.clone(m_trail));
+                m_sat_snapshot_taken = true;
             }
             else if (depth >= depth_bound) {
                 result = search_result::unknown;
             }
             else {
-                n->m_on_path = true;
-                n->m_dfs_path_pos = depth;
-                if (!n->is_signature_alias())
-                    m_siblings[n].push_back(n);
+                auto& bucket = m_siblings[frame.m_sibling_digest.get()];
+                bucket++;
 
-                ptr_vector<edge> children;
-                bool has_children = extend_node(*n, children);
+                edge first_edge;
+                bool has_children = extend_node(n, frame, first_edge);
 
                 if (!has_children) {
                     // No propagation conflict/satisfaction and no split rule
                     // has anything left to offer: the node is stuck.
-                    result = n->is_satisfied() ? search_result::sat : search_result::unknown;
+                    result = n.is_satisfied() ? search_result::sat : search_result::unknown;
                 }
                 else {
                     bool saw_unknown = false;
                     result = search_result::unsat;
-                    for (auto* e : children) {
-                        n->m_outgoing.push_back(e);
-                        search_result cr = dfs(e->tgt(), depth_bound, depth + 1);
+                    edge cur_edge = first_edge;
+                    bool have_branch = true;
+                    while (have_branch) {
+                        search_result cr;
+                        {
+                            scoped_pop pop(m_trail); // matches the scope the split committed for this branch
+                            cr = dfs(n, depth_bound, depth + 1);
+                        }
                         if (cr == search_result::sat) {
                             result = search_result::sat;
                             break;
                         }
                         if (cr == search_result::unknown)
                             saw_unknown = true;
+                        have_branch = frame.m_iter && frame.m_iter->next(cur_edge);
                     }
                     if (result != search_result::sat)
                         result = saw_unknown ? search_result::unknown : search_result::unsat;
                 }
 
-                n->m_on_path = false;
-                if (!n->is_signature_alias()) {
-                    auto& bucket = m_siblings[n];
-                    if (!bucket.empty())
-                        bucket.pop_back();
+                // Remove this frame's sibling-cache entry entirely rather
+                // than just decrementing it to 0: `frame.m_sibling_digest`
+                // (the map's key) is about to be destroyed when `frame`
+                // goes out of scope (unless it gets promoted into
+                // `m_unsat_cache` below, which re-inserts a fresh owned
+                // key), so a lingering zero-count entry would leave a
+                // dangling `digest*` key in `m_siblings` forever.
+                auto sib_it2 = m_siblings.find(frame.m_sibling_digest.get());
+                if (sib_it2 != m_siblings.end()) {
+                    if (sib_it2->second > 1)
+                        sib_it2->second--;
+                    else
+                        m_siblings.erase(sib_it2);
                 }
             }
 
@@ -545,22 +601,40 @@ namespace stx {
             // whether it came from an immediate propagation conflict or from
             // every child branch failing - both are properties of the node's
             // own facet state, and are safe to memoize across the rest of the
-            // search (see the module comment for the soundness caveat this
-            // Phase-1 implementation carries relative to nielsen_graph's
-            // Tarjan lowlink bookkeeping).
-            if (result == search_result::unsat && !n->is_signature_alias() && n->reason() != br_sibling)
-                m_unsat_cache.insert(n);
+            // search.
+            if (result == search_result::unsat && n.reason() != br_sibling) {
+                auto* d = frame.m_sibling_digest.release();
+                if (m_unsat_cache.find(d) == m_unsat_cache.end()) {
+                    m_unsat_cache.insert(d);
+                    m_unsat_cache_storage.push_back(d);
+                }
+                else {
+                    delete d;
+                }
+            }
             return result;
         }
 
     public:
         search_tree() = default;
-        ~search_tree() { for (auto* n : m_nodes) dealloc(n); }
+        ~search_tree() { for (auto* d : m_unsat_cache_storage) delete d; }
 
         dep_manager_t& dep_mgr() { return m_dep_mgr; }
+        trail_stack& trail() { return m_trail; }
 
         // Reserve a new facet slot; returns its stable id.
         facet_id register_facet() { return m_next_facet_id++; }
+
+        // Reserve a new facet slot and construct+install `T` (forwarding
+        // the shared trail_stack plus any extra constructor args) into `n`
+        // (typically the root node, returned by a prior `mk_root()` call).
+        template <typename T, typename... Args>
+        facet_id register_facet(node& n, Args&&... args) {
+            facet_id id = m_next_facet_id++;
+            n.m_facets.resize(m_next_facet_id, nullptr);
+            n.install_facet(id, new T(m_trail, std::forward<Args>(args)...));
+            return id;
+        }
 
         void add_propagation_plugin(propagation_plugin_i* p) { m_prop_plugins.push_back(p); }
         void add_split_plugin(split_plugin_i* p) { m_split_plugins.push_back(p); }
@@ -569,45 +643,39 @@ namespace stx {
         void set_max_cost(unsigned c) { m_max_cost = c; }
         void set_max_nodes(unsigned n) { m_max_nodes = n; }
 
-        // Allocate a fresh, facet-less node (all slots null). The caller
-        // (typically the domain's root-construction code, or a split
-        // plugin cloning a parent) must fill in facets via set_facet.
-        node* mk_node() {
-            node* n = alloc(node, m_nodes.size(), m_next_facet_id);
-            m_nodes.push_back(n);
-            return n;
-        }
+        // Create the single root node (all facet slots initially null;
+        // fill them in via the templated `register_facet<T>(node&, ...)`
+        // overload above, or `node::install_facet` directly).
+        node* mk_root() { SASSERT(!m_root); m_root.reset(new node(m_next_facet_id)); return m_root.get(); }
+        node* root() const { return m_root.get(); }
 
-        // Deep-clone every installed facet of `parent` into a fresh node.
-        // Used by split plugins to materialize a child before mutating
-        // their own facet(s).
-        node* clone_node(node const& parent) {
-            node* n = mk_node();
-            for (facet_id id = 0; id < parent.num_facets(); ++id)
-                if (parent.has_facet(id))
-                    n->set_facet(id, parent.facet(id).clone());
-            return n;
-        }
-
-        node* mk_root() { SASSERT(!m_root); m_root = mk_node(); return m_root; }
-        node* root() const { return m_root; }
+        // Non-null only immediately after a `solve()` call returned `sat`;
+        // a standalone (trail-independent) snapshot of the satisfying
+        // facet state. Overwritten/cleared by the next `solve()` call.
+        node const* sat_snapshot() const { return m_sat_snapshot_taken ? m_sat_snapshot.get() : nullptr; }
 
         stats const& get_stats() const { return m_stats; }
         void reset_stats() { m_stats.reset(); }
 
-        // Iterative-deepening DFS from `root` (or a caller-supplied node).
-        // Bumps the solve epoch once (hot restart: propagation results are
-        // reused across depth-bound increments within this call).
+        // Iterative-deepening DFS over the single live node (root, or a
+        // caller-supplied node - almost always root). Trail scopes opened
+        // during the search are always fully popped back to their level on
+        // entry before `solve()` returns, regardless of verdict, so the
+        // node's facet state is restored to what it was on entry.
         search_result solve(node* start = nullptr) {
-            node* r = start ? start : m_root;
+            node* r = start ? start : m_root.get();
             SASSERT(r);
             m_stats.m_num_solve_calls++;
-            m_solve_epoch++;
+            unsigned base_scopes = m_trail.get_num_scopes();
+            m_sat_snapshot.reset();
+            m_sat_snapshot_taken = false;
+            search_result final_res = search_result::unknown;
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth; ++depth_bound) {
                 m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth_bound);
-                search_result res = dfs(r, depth_bound, 0);
-                if (res == search_result::sat) { m_stats.m_num_sat++; return res; }
-                if (res == search_result::unsat) { m_stats.m_num_unsat++; return res; }
+                search_result res = dfs(*r, depth_bound, 0);
+                SASSERT(m_trail.get_num_scopes() == base_scopes);
+                if (res == search_result::sat) { m_stats.m_num_sat++; final_res = res; break; }
+                if (res == search_result::unsat) { m_stats.m_num_unsat++; final_res = res; break; }
                 // res == unknown: either genuinely stuck (no facets changed
                 // and no split available - retrying with a larger depth
                 // bound will not help) or a depth cutoff (retrying helps).
@@ -615,8 +683,9 @@ namespace stx {
                 // value alone, so we simply keep deepening until the
                 // search-depth budget is exhausted.
             }
-            m_stats.m_num_unknown++;
-            return search_result::unknown;
+            if (final_res == search_result::unknown)
+                m_stats.m_num_unknown++;
+            return final_res;
         }
     };
 

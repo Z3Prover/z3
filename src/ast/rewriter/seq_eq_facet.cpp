@@ -81,14 +81,15 @@ namespace seq {
     }
 
     void eq_facet::apply_subst(expr* var, token_list const& repl) {
+        snapshot();
         for (auto& eq : m_eqs) {
             subst_in(eq.m_lhs, var, repl);
             subst_in(eq.m_rhs, var, repl);
         }
     }
 
-    stx::facet_i* eq_facet::clone() const {
-        eq_facet* f = alloc(eq_facet, m, u);
+    stx::facet_i* eq_facet::clone(trail_stack& trail) const {
+        eq_facet* f = alloc(eq_facet, trail, m, u);
         for (auto const& eq : m_eqs)
             f->m_eqs.push_back(eq);
         return f;
@@ -125,6 +126,7 @@ namespace seq {
     bool eq_facet::simplify(bool& conflict) {
         conflict = false;
         bool changed = false;
+        snapshot();
         for (unsigned i = 0; i < m_eqs.size(); ) {
             equation& eq = m_eqs[i];
             token_list& L = eq.m_lhs;
@@ -226,9 +228,21 @@ namespace seq {
         }
     }
 
-    bool word_eq_split::split(eq_tree::node& n, unsigned cost, ptr_vector<eq_tree::edge>& out) {
-        if (cost != 0)
+    bool word_eq_split::iterator::next(eq_tree::edge& out) {
+        if (m_pos >= m_pending.size())
             return false;
+        auto& a = m_pending[m_pos++];
+        m_n.facet_as<eq_facet>(m_id).push_scope();
+        m_n.facet_as<eq_facet>(m_id).apply_subst(a.m_var, a.m_repl);
+        broadcast_subst(m_n, m_id, a.m_var, a.m_repl);
+        out = eq_tree::edge(a.m_name, nullptr, true, 0);
+        return true;
+    }
+
+    std::unique_ptr<eq_tree::split_iterator_i> word_eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more) {
+        has_more = false;
+        if (cost != 0)
+            return nullptr;
         auto& f = n.facet_as<eq_facet>(m_id);
         seq_util& u = f.get_seq_util();
         ast_manager& m = f.get_manager();
@@ -252,32 +266,25 @@ namespace seq {
                 sort* s = v1->get_sort();
                 expr* v1p = f.mk_fresh_var(s);
 
-                eq_tree::node* childA = m_tree.clone_node(n);
+                auto it = std::make_unique<iterator>(n, m_id);
                 {
                     token_list empty(m);
-                    childA->facet_as<eq_facet>(m_id).apply_subst(v1, empty);
-                    broadcast_subst(*childA, m_id, v1, empty);
+                    it->push_back("v2:=eps", v2, empty);
                 }
-                out.push_back(alloc(eq_tree::edge, &n, childA, "v1:=eps", nullptr, true));
-
-                eq_tree::node* childB = m_tree.clone_node(n);
-                {
-                    token_list empty(m);
-                    childB->facet_as<eq_facet>(m_id).apply_subst(v2, empty);
-                    broadcast_subst(*childB, m_id, v2, empty);
-                }
-                out.push_back(alloc(eq_tree::edge, &n, childB, "v2:=eps", nullptr, true));
-
-                eq_tree::node* childC = m_tree.clone_node(n);
                 {
                     token_list repl(m);
                     repl.push_back(v2);
                     repl.push_back(v1p);
-                    childC->facet_as<eq_facet>(m_id).apply_subst(v1, repl);
-                    broadcast_subst(*childC, m_id, v1, repl);
+                    it->push_back("v1:=v2.v1'", v1, repl);
                 }
-                out.push_back(alloc(eq_tree::edge, &n, childC, "v1:=v2.v1'", nullptr, true));
-                return true;
+
+                // Materialize the first branch ("v1:=eps") now.
+                f.push_scope();
+                token_list empty(m);
+                f.apply_subst(v1, empty);
+                broadcast_subst(n, m_id, v1, empty);
+                out = eq_tree::edge("v1:=eps", nullptr, true, 0);
+                return it;
             }
 
             // one side is a variable, the other a constant
@@ -286,26 +293,23 @@ namespace seq {
             sort* s = var->get_sort();
             expr* var2 = f.mk_fresh_var(s);
 
-            eq_tree::node* childA = m_tree.clone_node(n);
-            {
-                token_list empty(m);
-                childA->facet_as<eq_facet>(m_id).apply_subst(var, empty);
-                broadcast_subst(*childA, m_id, var, empty);
-            }
-            out.push_back(alloc(eq_tree::edge, &n, childA, "v:=eps", nullptr, true));
-
-            eq_tree::node* childB = m_tree.clone_node(n);
+            auto it = std::make_unique<iterator>(n, m_id);
             {
                 token_list repl(m);
                 repl.push_back(c);
                 repl.push_back(var2);
-                childB->facet_as<eq_facet>(m_id).apply_subst(var, repl);
-                broadcast_subst(*childB, m_id, var, repl);
+                it->push_back("v:=c.v'", var, repl);
             }
-            out.push_back(alloc(eq_tree::edge, &n, childB, "v:=c.v'", nullptr, true));
-            return true;
+
+            // Materialize the first branch ("v:=eps") now.
+            f.push_scope();
+            token_list empty(m);
+            f.apply_subst(var, empty);
+            broadcast_subst(n, m_id, var, empty);
+            out = eq_tree::edge("v:=eps", nullptr, true, 0);
+            return it;
         }
-        return false;
+        return nullptr;
     }
 
     // -- deq_facet --
@@ -322,14 +326,15 @@ namespace seq {
     }
 
     void deq_facet::apply_subst(expr* var, token_list const& repl) {
+        snapshot();
         for (auto& dq : m_diseqs) {
             subst_in(dq.m_lhs, var, repl);
             subst_in(dq.m_rhs, var, repl);
         }
     }
 
-    stx::facet_i* deq_facet::clone() const {
-        deq_facet* f = alloc(deq_facet, m, u);
+    stx::facet_i* deq_facet::clone(trail_stack& trail) const {
+        deq_facet* f = alloc(deq_facet, trail, m, u);
         for (auto const& dq : m_diseqs)
             f->m_diseqs.push_back(dq);
         return f;
@@ -364,6 +369,7 @@ namespace seq {
     bool deq_facet::simplify(bool& conflict) {
         conflict = false;
         bool changed = false;
+        snapshot();
         for (unsigned i = 0; i < m_diseqs.size(); ) {
             disequation& dq = m_diseqs[i];
             token_list& L = dq.m_lhs;

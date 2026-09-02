@@ -27,15 +27,15 @@ namespace {
 
     stx::search_result solve_eq(ast_manager& m, seq_util& u, expr* lhs, expr* rhs, unsigned max_depth = 12) {
         seq::eq_tree tree;
-        stx::facet_id id = tree.register_facet();
+        auto* root = tree.mk_root();
+        stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u);
+        root->facet_as<seq::eq_facet>(id).add_equation(lhs, rhs);
+
         seq::eq_propagation prop(id);
-        seq::word_eq_split split(tree, id);
+        seq::word_eq_split split(id);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
 
-        seq::eq_facet* f = alloc(seq::eq_facet, m, u);
-        f->add_equation(lhs, rhs);
-        tree.mk_root()->set_facet(id, f);
         tree.set_max_search_depth(max_depth);
         return tree.solve();
     }
@@ -88,16 +88,16 @@ namespace {
         expr_ref b(u.str.mk_string(zstring("b")), m);
 
         seq::eq_tree tree;
-        stx::facet_id id = tree.register_facet();
+        auto* root = tree.mk_root();
+        stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u);
+        auto& f = root->facet_as<seq::eq_facet>(id);
+        f.add_equation(X, a);
+        f.add_equation(X, b);
+
         seq::eq_propagation prop(id);
-        seq::word_eq_split split(tree, id);
+        seq::word_eq_split split(id);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
-
-        seq::eq_facet* f = alloc(seq::eq_facet, m, u);
-        f->add_equation(X, a);
-        f->add_equation(X, b);
-        tree.mk_root()->set_facet(id, f);
         tree.set_max_search_depth(12);
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
@@ -124,13 +124,12 @@ namespace {
         expr_ref b(u.str.mk_string(zstring("b")), m);
 
         seq::eq_tree tree;
-        stx::facet_id id = tree.register_facet();
+        auto* root = tree.mk_root();
+        stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u);
+        root->facet_as<seq::deq_facet>(id).add_disequation(a, b);
+
         seq::deq_propagation dprop(id);
         tree.add_propagation_plugin(&dprop);
-
-        seq::deq_facet* f = alloc(seq::deq_facet, m, u);
-        f->add_disequation(a, b);
-        tree.mk_root()->set_facet(id, f);
         tree.set_max_search_depth(4);
         ENSURE(tree.solve() == stx::search_result::sat);
     }
@@ -145,13 +144,12 @@ namespace {
         expr_ref a2(u.str.mk_string(zstring("a")), m);
 
         seq::eq_tree tree;
-        stx::facet_id id = tree.register_facet();
+        auto* root = tree.mk_root();
+        stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u);
+        root->facet_as<seq::deq_facet>(id).add_disequation(a1, a2);
+
         seq::deq_propagation dprop(id);
         tree.add_propagation_plugin(&dprop);
-
-        seq::deq_facet* f = alloc(seq::deq_facet, m, u);
-        f->add_disequation(a1, a2);
-        tree.mk_root()->set_facet(id, f);
         tree.set_max_search_depth(4);
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
@@ -171,23 +169,18 @@ namespace {
         expr_ref b(u.str.mk_string(zstring("b")), m);
 
         seq::eq_tree tree;
-        stx::facet_id eq_id = tree.register_facet();
-        stx::facet_id deq_id = tree.register_facet();
+        auto* root = tree.mk_root();
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u);
+        stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u);
+        root->facet_as<seq::eq_facet>(eq_id).add_equation(X, a);
+        root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, b);
+
         seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(tree, eq_id);
+        seq::word_eq_split esplit(eq_id);
         seq::deq_propagation dprop(deq_id);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&dprop);
         tree.add_split_plugin(&esplit);
-
-        seq::eq_facet* ef = alloc(seq::eq_facet, m, u);
-        ef->add_equation(X, a);
-        seq::deq_facet* df = alloc(seq::deq_facet, m, u);
-        df->add_disequation(X, b);
-
-        auto* root = tree.mk_root();
-        root->set_facet(eq_id, ef);
-        root->set_facet(deq_id, df);
         tree.set_max_search_depth(12);
         ENSURE(tree.solve() == stx::search_result::sat);
     }

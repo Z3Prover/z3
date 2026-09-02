@@ -66,6 +66,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_eq_facet.h"
 #include "util/stx_search_tree.h"
+#include "util/trail.h"
 #include "util/params.h"
 
 class solver;
@@ -114,26 +115,46 @@ namespace seq {
         seq_util&         u;
         arith_sub_solver& m_solver;
         expr_ref_vector   m_own;       // constraints added at this node only
-        bool              m_scope_pushed = false; // true once on_enter() has pushed this node's scope
+        bool              m_scope_pushed = false; // true once a scope has been pushed for the current branch
         bool              m_conflict = false; // true if the shared solver went unsat after the last add_constraint
 
+        // Trail undo object: pairs with the backend push done when the
+        // first constraint of a branch is asserted. Its constructor does
+        // the push; `undo()` (invoked on pop_scope()) does the matching
+        // pop, keeping the shared incremental solver's scope stack synced
+        // to the search tree's own trail-scope stack.
+        class scope_trail : public ::trail {
+            arith_sub_solver& m_solver;
+        public:
+            explicit scope_trail(arith_sub_solver& s) : m_solver(s) { s.push(); }
+            void undo() override { m_solver.pop(1); }
+        };
+
+        // Trail undo object mirroring push_back_trail but for a
+        // ref_vector (whose pop_back manages reference counts, unlike
+        // plain vector<T>).
+        class push_back_ref_trail : public ::trail {
+            expr_ref_vector& m_vec;
+        public:
+            explicit push_back_ref_trail(expr_ref_vector& v) : m_vec(v) {}
+            void undo() override { m_vec.pop_back(); }
+        };
+
     public:
-        arith_facet(ast_manager& m, seq_util& u, arith_sub_solver& solver) :
-            m(m), a(m), u(u), m_solver(solver), m_own(m) {}
+        arith_facet(trail_stack& trail, ast_manager& m, seq_util& u, arith_sub_solver& solver) :
+            facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_own(m) {}
 
         ast_manager& get_manager() const { return m; }
         arith_util& get_arith_util() { return a; }
         seq_util& get_seq_util() const { return u; }
 
         // Record one more length (or other arithmetic) constraint owned by
-        // this node. `on_enter()` has already pushed this node's own
-        // backend scope by the time any propagation plugin can run, so
-        // the constraint is asserted into the shared backend immediately
-        // and satisfiability is rechecked - this keeps the "assert as
-        // soon as discovered, pop on backtrack" discipline correct even
-        // for constraints discovered *after* on_enter() (e.g. from an
-        // equation eq_facet only simplified into existence during this
-        // very DFS node's own propagation pass).
+        // the current branch. The first call within a branch (trail scope)
+        // lazily pushes a matching scope onto the shared incremental
+        // backend via `scope_trail`, whose `undo()` pops it again exactly
+        // when this trail scope is popped - so the backend's scope stack
+        // always tracks the DFS call stack, without the generic `stx::`
+        // engine needing to know anything about incremental solvers.
         void add_constraint(expr* c);
 
         // Generate `len(lhs) = len(rhs)` (as an expr over str.len of each
@@ -143,7 +164,7 @@ namespace seq {
         void add_length_constraint(token_list const& lhs, token_list const& rhs);
 
         // -- stx::facet_i --
-        stx::facet_i* clone() const override;
+        stx::facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
         // arith_facet never itself declares the search "done": it only
@@ -151,9 +172,6 @@ namespace seq {
         // verdict to the other facets (eq_facet/deq_facet's own
         // is_satisfied()).
         bool is_satisfied() const override { return false; }
-
-        void on_enter() override;
-        void on_leave() override;
 
         bool has_conflict() const { return m_conflict; }
     };
