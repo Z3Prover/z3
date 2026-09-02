@@ -118,86 +118,78 @@ namespace seq {
         return true;
     }
 
+    bool eq_facet::simplify_equation(unsigned idx, bool& conflict, bool& changed) {
+        equation& eq = m_eqs[idx];
+        expr_ref_vector L(eq.m_lhs);
+        expr_ref_vector R(eq.m_rhs);
+        expr_ref_pair_vector new_eqs(m);
+        bool eq_changed = false;
+        if (!m_rw.reduce_eq(L, R, new_eqs, eq_changed)) {
+            conflict = true;
+            return false;
+        }
+        if (!eq_changed && new_eqs.empty())
+            return true;
+
+        changed = true;
+        m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, idx, &equation::m_lhs));
+        m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, idx, &equation::m_rhs));
+        eq.m_lhs = std::move(L);
+        eq.m_rhs = std::move(R);
+
+        // reduce_eq strips common prefixes/suffixes and performs other
+        // deterministic simplifications, but (unlike the old hand-rolled
+        // loop) does not itself force the remaining tokens of a side to
+        // epsilon when the other side has already been fully consumed -
+        // do that here: pop leading variables as forced (unconditional)
+        // substitutions v := epsilon; a leading constant on the nonempty
+        // side at this point is a symbol clash (conflict).
+        if (eq.m_lhs.empty() != eq.m_rhs.empty()) {
+            expr_ref_vector& side = eq.m_lhs.empty() ? eq.m_rhs : eq.m_lhs;
+            while (!side.empty()) {
+                expr* tok = side.get(0);
+                if (is_const_token(u, tok)) {
+                    conflict = true;
+                    return false;
+                }
+                expr_ref_vector empty_repl(m);
+                apply_subst(tok, empty_repl);
+            }
+        }
+
+        if (eq.m_lhs.empty() && eq.m_rhs.empty()) {
+            m_trail.push(vector_erase_trail<equation>(m_eqs, idx));
+            m_eqs.erase(m_eqs.begin() + idx);
+        }
+
+        // Any newly-produced sub-equations (from unit-vs-unit
+        // decomposition, length reasoning, etc.) are appended as fresh
+        // equations, trailed.
+        for (unsigned i = 0; i < new_eqs.size(); ++i) {
+            auto p = new_eqs[i].get();
+            expr_ref_vector lts(m), rts(m);
+            flatten(u, p.first, lts);
+            flatten(u, p.second, rts);
+            add_equation_trailed(lts, rts);
+        }
+        return true;
+    }
+
     bool eq_facet::simplify(bool& conflict) {
         conflict = false;
         bool changed = false;
         for (unsigned i = 0; i < m_eqs.size(); ) {
-            equation& eq = m_eqs[i];
-            expr_ref_vector& L = eq.m_lhs;
-            expr_ref_vector& R = eq.m_rhs;
-
-            // strip a common leading prefix (constants are interned by the
-            // ast_manager, so pointer equality already captures "same
-            // character"; same-identity variables strip the same way).
-            unsigned li = 0, ri = 0;
-            while (li < L.size() && ri < R.size() && L.get(li) == R.get(ri)) {
-                ++li; ++ri;
-            }
-            if (li > 0 || ri > 0) {
-                expr_ref_vector newL(m), newR(m);
-                newL.append(L.size() - li, L.data() + li);
-                newR.append(R.size() - ri, R.data() + ri);
-                // Fine-grained: undo restores just this equation's two
-                // expr_ref_vector fields addressed by (m_eqs, i, member), safe
-                // across later erase()/push_back() reallocation - not the
-                // whole m_eqs vector.
-                m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, i, &equation::m_lhs));
-                m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, i, &equation::m_rhs));
-                L = std::move(newL);
-                R = std::move(newR);
-                changed = true;
-            }
-
-            bool lempty = L.empty();
-            bool rempty = R.empty();
-
-            if (lempty && rempty) {
-                m_trail.push(vector_erase_trail<equation>(m_eqs, i));
-                m_eqs.erase(m_eqs.begin() + i);
-                changed = true;
-                continue;
-            }
-
-            if (lempty != rempty) {
-                // The empty side forces the nonempty side to be empty too:
-                // pop constants -> conflict; pop variables -> forced
-                // (unconditional) substitution v := epsilon.
-                bool bad = false;
-                while (true) {
-                    expr_ref_vector& side = L.empty() ? R : L;
-                    if (side.empty())
-                        break;
-                    expr* tok = side.get(0);
-                    if (is_const_token(u, tok)) {
-                        bad = true;
-                        break;
-                    }
-                    expr_ref_vector empty_repl(m);
-                    apply_subst(tok, empty_repl);
-                    changed = true;
-                }
-                if (bad) {
-                    conflict = true;
-                    return true;
-                }
-                m_trail.push(vector_erase_trail<equation>(m_eqs, i));
-                m_eqs.erase(m_eqs.begin() + i);
-                changed = true;
-                continue;
-            }
-
-            // both sides nonempty: check for a symbol clash between two
-            // distinct leading constants (equal-value constants would
-            // already have been stripped above, since equal-value string
-            // constants are the same interned expr*).
-            expr* lh = L.get(0);
-            expr* rh = R.get(0);
-            if (is_const_token(u, lh) && is_const_token(u, rh)) {
-                conflict = true;
+            unsigned sz_before = m_eqs.size();
+            if (!simplify_equation(i, conflict, changed)) {
+                SASSERT(conflict);
                 return true;
             }
-            // otherwise: stuck (variable vs constant, or two distinct
-            // variables) - left for the split plugin.
+            // If the equation at i was erased (set shrunk), stay at i to
+            // process the equation that shifted into its place; otherwise
+            // advance. New equations are appended at the end, so they are
+            // reached in due course without adjusting i.
+            if (m_eqs.size() < sz_before)
+                continue;
             ++i;
         }
         return changed;

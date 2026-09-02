@@ -70,6 +70,7 @@ Author:
 
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 
@@ -203,10 +204,11 @@ namespace seq {
     private:
         ast_manager& m;
         seq_util&    u;
+        seq_rewriter m_rw;
         vector<equation> m_eqs;
 
     public:
-        eq_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u) {}
+        eq_facet(trail_stack& trail, ast_manager& m, seq_util& u) : facet_i(trail), m(m), u(u), m_rw(m) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
@@ -249,12 +251,24 @@ namespace seq {
         bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_eqs.empty(); }
 
-        // Deterministic simplification pass: prefix-stripping, forced
-        // empty-side substitution, trivial-equation removal, symbol-clash
-        // detection. See module comment. Returns true if the equation set
-        // changed (informational only - the engine detects the fixed
-        // point itself via facet hashing). Trailed.
+        // Deterministic simplification pass: uses seq_rewriter::reduce_eq
+        // to simplify each equation's token lists (prefix/suffix
+        // stripping, unit-vs-unit decomposition, symbol-clash and other
+        // contradiction detection, length-based reasoning, etc.), removes
+        // solved (both-empty) equations, and folds any newly-produced
+        // sub-equations back into the set. Returns true if the equation
+        // set changed (informational only - the engine detects the fixed
+        // point itself via facet hashing). Trailed. See module comment.
         bool simplify(bool& conflict);
+
+    private:
+        // Simplify a single equation (by index into m_eqs) using
+        // seq_rewriter::reduce_eq. Returns false and sets conflict=true if
+        // the equation is contradictory; otherwise returns true. Sets
+        // changed=true if the equation's token lists were mutated or new
+        // sub-equations were appended to m_eqs. On success, if both sides
+        // reduced to empty, the equation is erased (trailed).
+        bool simplify_equation(unsigned idx, bool& conflict, bool& changed);
     };
 
     // Deterministic propagation plugin wrapping eq_facet::simplify.
