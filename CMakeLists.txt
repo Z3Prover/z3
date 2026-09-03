@@ -1,5 +1,5 @@
 # Enforce some CMake policies
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.30)
 
 file(STRINGS scripts/VERSION.txt Z3_VERSION)
 project(Z3 VERSION ${Z3_VERSION} LANGUAGES CXX)
@@ -101,28 +101,25 @@ set(Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS "")
 ################################################################################
 message(STATUS "CMake generator: ${CMAKE_GENERATOR}")
 set(available_build_types Debug Release RelWithDebInfo MinSizeRel)
-if (DEFINED CMAKE_CONFIGURATION_TYPES)
+get_property(Z3_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if (Z3_MULTI_CONFIG)
   # Multi-configuration build (e.g. Visual Studio and Xcode). Here
   # CMAKE_BUILD_TYPE doesn't matter
   message(STATUS "Available configurations: ${CMAKE_CONFIGURATION_TYPES}")
 else()
   # Single configuration generator (e.g. Unix Makefiles, Ninja)
-  if(NOT CMAKE_BUILD_TYPE)
+  if (PROJECT_IS_TOP_LEVEL AND NOT CMAKE_BUILD_TYPE)
     message(STATUS "CMAKE_BUILD_TYPE is not set. Setting default")
     message(STATUS "The available build types are: ${available_build_types}")
     set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING
-        "Options are ${available_build_types}"
-        FORCE)
+      "Options are ${available_build_types}"
+      FORCE
+    )
     # Provide drop down menu options in cmake-gui
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${available_build_types})
   endif()
-  message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-
-  # Check the selected build type is valid
-  list(FIND available_build_types "${CMAKE_BUILD_TYPE}" _build_type_index)
-  if ("${_build_type_index}" EQUAL "-1")
-    message(FATAL_ERROR "\"${CMAKE_BUILD_TYPE}\" is an invalid build type.\n"
-      "Use one of the following build types ${available_build_types}")
+  if (CMAKE_BUILD_TYPE)
+    message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
   endif()
 endif()
 
@@ -376,7 +373,7 @@ if (Z3_ENABLE_CFI)
   endif()
 
   set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
-  if (DEFINED CMAKE_CONFIGURATION_TYPES)
+  if (Z3_MULTI_CONFIG)
     # Multi configuration generator
     message(STATUS "Note CFI is only enabled for the following configurations: ${build_types_with_cfi}")
     # No need for else because this is the same as the set that LTO requires.
@@ -460,7 +457,7 @@ message(STATUS "CMAKE_CXX_FLAGS: \"${CMAKE_CXX_FLAGS}\"")
 message(STATUS "CMAKE_EXE_LINKER_FLAGS: \"${CMAKE_EXE_LINKER_FLAGS}\"")
 message(STATUS "CMAKE_STATIC_LINKER_FLAGS: \"${CMAKE_STATIC_LINKER_FLAGS}\"")
 message(STATUS "CMAKE_SHARED_LINKER_FLAGS: \"${CMAKE_SHARED_LINKER_FLAGS}\"")
-if (DEFINED CMAKE_CONFIGURATION_TYPES)
+if (Z3_MULTI_CONFIG)
   # Multi configuration generator
   string(TOUPPER "${available_build_types}" build_types_to_report)
 else()
@@ -506,24 +503,24 @@ message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
 message(STATUS "CMAKE_INSTALL_PKGCONFIGDIR: \"${CMAKE_INSTALL_PKGCONFIGDIR}\"")
 message(STATUS "CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR: \"${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}\"")
 
-################################################################################
-# Uninstall rule
-################################################################################
-configure_file(
-  "${PROJECT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-  @ONLY
-)
+if (PROJECT_IS_TOP_LEVEL)
+  ##############################################################################
+  # Uninstall rule
+  ##############################################################################
+  configure_file(
+    "${PROJECT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+    @ONLY
+  )
 
-# Target needs to be declared before the components so that they can add
-# dependencies to this target so they can run their own custom uninstall rules.
-add_custom_target(uninstall
-  COMMAND
-  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-  COMMENT "Uninstalling..."
-  USES_TERMINAL
-  VERBATIM
-)
+  add_custom_target(uninstall
+    COMMAND
+    "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+    COMMENT "Uninstalling..."
+    USES_TERMINAL
+    VERBATIM
+  )
+endif()
 
 ################################################################################
 # CMake build file locations
@@ -593,21 +590,11 @@ if (Z3_BUILD_LIBZ3_CORE)
   )
 else()
   message(STATUS "Not building libz3; looking for the installed Z3 package")
-  # CMake 3.16 has no block() scope. Preserve the project version variables
-  # around find_package(), which otherwise writes the same names.
-  set(_z3_project_version "${Z3_VERSION}")
-  set(_z3_project_version_major "${Z3_VERSION_MAJOR}")
-  set(_z3_project_version_minor "${Z3_VERSION_MINOR}")
-  set(_z3_project_version_patch "${Z3_VERSION_PATCH}")
-  find_package(Z3 ${Z3_VERSION} EXACT CONFIG REQUIRED COMPONENTS shared)
-  set(Z3_VERSION "${_z3_project_version}")
-  set(Z3_VERSION_MAJOR "${_z3_project_version_major}")
-  set(Z3_VERSION_MINOR "${_z3_project_version_minor}")
-  set(Z3_VERSION_PATCH "${_z3_project_version_patch}")
-  unset(_z3_project_version)
-  unset(_z3_project_version_major)
-  unset(_z3_project_version_minor)
-  unset(_z3_project_version_patch)
+  # Keep variables set by find_package() from replacing the source tree's
+  # version variables. Imported targets are not scoped to variable blocks.
+  block(SCOPE_FOR VARIABLES)
+    find_package(Z3 ${Z3_VERSION} EXACT CONFIG REQUIRED COMPONENTS shared)
+  endblock()
 endif()
 
 if (TARGET libz3 AND NOT TARGET z3::libz3)
