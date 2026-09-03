@@ -436,28 +436,23 @@ jobs:
       - name: Install Ninja
         run: sudo apt-get update && sudo apt-get install -y libgmp-dev ninja-build
 
-      - name: Build shared and static libraries
+      - name: Build and install shared library
         run: |
-          cmake -S . -B build-shared -G Ninja \
+          cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=ON \
-            -DZ3_BUILD_EXECUTABLE=ON \
-            -DZ3_BUILD_TEST_EXECUTABLES=OFF \
-            -DZ3_ENABLE_EXAMPLE_TARGETS=OFF
-          cmake --build build-shared --target libz3 shell
-          cmake -S . -B build-static -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=OFF \
             -DZ3_USE_LIB_GMP=ON \
             -DZ3_BUILD_EXECUTABLE=ON \
             -DZ3_BUILD_TEST_EXECUTABLES=OFF \
             -DZ3_ENABLE_EXAMPLE_TARGETS=OFF
-          cmake --build build-static --target libz3 shell
+          cmake --build build --target libz3 shell
+          cmake --install build --prefix "$PWD/install"
 
-      - name: Co-install both library variants
+      - name: Reconfigure in-place and build and install static library
         run: |
-          cmake --install build-shared --prefix "$PWD/install"
-          cmake --install build-static --prefix "$PWD/install"
+          cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
+          cmake --build build --target libz3 shell
+          cmake --install build --prefix "$PWD/install"
 
       - name: Setup consumer CMake
         uses: jwlawson/actions-setup-cmake@v2
