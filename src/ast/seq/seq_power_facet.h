@@ -453,4 +453,80 @@ namespace seq {
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
+    // Power-vs-variable peel, ported from the c3 branch's
+    // seq_nielsen_modifiers.cpp `apply_var_num_unwinding_eq`. Trigger
+    // pattern: some eq_facet equation has, at the same directional end
+    // (front or back) of its two sides, a power token `U^n` opposite a
+    // Nielsen-substitutable variable token `v` (i.e. neither a unit nor
+    // a power - per z3papers/nseq's README.md section 5.1.1 token model;
+    // computed locally as `!u.str.is_unit(x) && !u.str.is_power(x)`,
+    // mirroring word_eq_split's own convention, not via
+    // ambient_context_i::is_var/theory_seq::is_var). This is exactly
+    // word_eq_split's "one side unit, other side variable" case, except
+    // with the unit token replaced by a power token - word_eq_split
+    // itself explicitly skips any equation whose head is a power (see
+    // its own comment), so this rule is what fills that gap for the
+    // power-vs-variable pairing specifically (the power-vs-non-variable
+    // pairing, e.g. power-vs-unit or power-vs-different-base-power, is
+    // instead power_num_cmp/power_split_elim's territory - a plain
+    // "peel one copy" step like this one would be unsound/incomplete
+    // there since a non-variable head cannot simply be grown by
+    // `v := u.v'`).
+    //
+    // Two branches (both justified by the equation's own dependency):
+    //   1. `n = 0`: replace `U^n` with epsilon (progress). Side
+    //      constraint `n = 0` (via `n>=0` and `n<=0`, matching c3's own
+    //      two-clause form for this branch specifically - see
+    //      `apply_var_num_unwinding_eq`, as opposed to
+    //      `apply_const_num_unwinding`'s single `n=0` clause for the
+    //      analogous non-variable-head case; c3 is not fully consistent
+    //      between the two, but both encode the same fact).
+    //   2. `n >= 1`: peel one copy, replacing `U^n` with `U . U^(n-1)`
+    //      (a *nested* power token, not a fresh string variable, so
+    //      that ordinary propagation/simplification can merge/cancel
+    //      adjacent same-base powers exactly as power_split's own
+    //      per-`j` unfold does) at the same directional end that `U^n`
+    //      originally occupied, and substituting `v := U . v'` for a
+    //      fresh `v'` on the other side (the variable's own Nielsen
+    //      peel, in lock-step with the power's).
+    class power_var_peel : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
+        stx::facet_id m_pow_id;
+        stx::facet_id m_eq_id;
+        stx::facet_id m_arith_id;
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            stx::facet_id  m_pow_id;
+            stx::facet_id  m_eq_id;
+            stx::facet_id  m_arith_id;
+            unsigned       m_eq_idx;
+            bool           m_pow_on_lhs;
+            bool           m_fwd;
+            unsigned       m_pow_idx;
+            expr_ref       m_var; // the variable token opposite U^n, captured before any mutation
+            eq_tree::dep_tracker m_dep;
+            bool           m_done = false;
+            ast_manager&   m;
+            seq_util&      u;
+            arith_util&    a;
+        public:
+            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id,
+                      unsigned eq_idx, bool pow_on_lhs, bool fwd, unsigned pow_idx, expr* var,
+                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
+                m_n(n), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id),
+                m_eq_idx(eq_idx), m_pow_on_lhs(pow_on_lhs), m_fwd(fwd), m_pow_idx(pow_idx), m_var(var, m),
+                m_dep(dep), m(m), u(u), a(a) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        power_var_peel(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
+            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        char const* name() const override { return "power-var-peel"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+    };
+
 } // namespace seq

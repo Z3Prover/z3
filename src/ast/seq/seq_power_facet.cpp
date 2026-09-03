@@ -689,4 +689,121 @@ namespace seq {
         return it;
     }
 
+    // -- power_var_peel --
+
+    // Locate a power-vs-variable peel trigger: some eq_facet equation
+    // has, at a matching directional end of both sides, a power token
+    // `U^n` opposite a Nielsen-substitutable variable `v` (not a unit,
+    // not a power - see class comment). Skipped if `n` is already a
+    // resolved numeral (power_propagation's known-exponent branch
+    // handles that case directly, with no case split needed).
+    static bool find_var_peel_trigger(power_facet const& f, eq_facet const& ef, arith_util& a, seq_util& u,
+                                       unsigned& eq_idx, bool& pow_on_lhs, bool& fwd,
+                                       unsigned& pow_idx, expr*& var, eq_tree::dep_tracker& dep) {
+        for (unsigned i = 0; i < ef.equations().size(); ++i) {
+            eq_facet::equation const& eq = ef.equations()[i];
+            if (eq.m_lhs.empty() || eq.m_rhs.empty())
+                continue;
+            for (bool lhs_pow : {true, false}) {
+                expr_ref_vector const& pow_side = lhs_pow ? eq.m_lhs : eq.m_rhs;
+                expr_ref_vector const& var_side = lhs_pow ? eq.m_rhs : eq.m_lhs;
+                for (bool f2 : {true, false}) {
+                    expr* pow_tok = f2 ? pow_side[0] : pow_side.back();
+                    expr* var_tok = f2 ? var_side[0] : var_side.back();
+                    unsigned pidx;
+                    if (!is_power_token(f, pow_tok, pidx))
+                        continue;
+                    bool is_var = !u.str.is_unit(var_tok) && !u.str.is_power(var_tok);
+                    if (!is_var)
+                        continue;
+                    rational v;
+                    if (a.is_numeral(f.powers()[pidx].m_n, v))
+                        continue; // resolved directly by power_propagation
+                    eq_idx = i;
+                    pow_on_lhs = lhs_pow;
+                    fwd = f2;
+                    pow_idx = pidx;
+                    var = var_tok;
+                    dep = eq.m_dep;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool power_var_peel::iterator::next(eq_tree::edge& out) {
+        if (m_done)
+            return false;
+        m_done = true;
+
+        auto& f = m_n.facet_as<power_facet>(m_pow_id);
+        auto& ef = m_n.facet_as<eq_facet>(m_eq_id);
+        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        if (m_pow_idx >= f.powers().size() || m_eq_idx >= ef.equations().size())
+            return false; // defensive; obligation/equation discharged by another route
+
+        str_power const& p = f.powers()[m_pow_idx];
+        expr* exp_n = p.m_n.get();
+
+        // Branch 2 (the remaining alternative once branch 1 - "n=0",
+        // materialized by split() itself - has been offered): n >= 1,
+        // peel one copy: U^n -> U . U^(n-1) (nested power, same
+        // directional end), and v := U . v' on the other side.
+        expr_ref n_minus_1(a.mk_sub(exp_n, a.mk_int(1)), m);
+        expr_ref nested_pow(u.str.mk_power(p.m_s.get(), n_minus_1.get()), m);
+        expr_ref_vector pow_repl(m);
+        if (m_fwd) { pow_repl.push_back(p.m_s.get()); pow_repl.push_back(nested_pow.get()); }
+        else       { pow_repl.push_back(nested_pow.get()); pow_repl.push_back(p.m_s.get()); }
+
+        sort* s = m_var.get()->get_sort();
+        expr* vp = m.mk_fresh_const("t", s);
+        expr_ref_vector var_repl(m);
+        if (m_fwd) { var_repl.push_back(p.m_s.get()); var_repl.push_back(vp); }
+        else       { var_repl.push_back(vp); var_repl.push_back(p.m_s.get()); }
+
+        broadcast_subst(m_n, m_eq_id, p.m_e.get(), pow_repl, m_dep);
+        broadcast_subst(m_n, m_eq_id, m_var.get(), var_repl, m_dep);
+        af.add_constraint(a.mk_ge(exp_n, a.mk_int(1)), m_dep);
+        f.remove(m_pow_idx);
+
+        out = eq_tree::edge("power-var-peel:n>=1", m_dep, true, 0);
+        return true;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> power_var_peel::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        if (cost != 0)
+            return nullptr;
+        auto& f = n.facet_as<power_facet>(m_pow_id);
+        auto& ef = n.facet_as<eq_facet>(m_eq_id);
+        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+
+        unsigned eq_idx, pow_idx;
+        bool pow_on_lhs, fwd;
+        expr* var = nullptr;
+        eq_tree::dep_tracker dep;
+        if (!find_var_peel_trigger(f, ef, a, u, eq_idx, pow_on_lhs, fwd, pow_idx, var, dep))
+            return nullptr;
+        has_more = true;
+
+        str_power const& p = f.powers()[pow_idx];
+        expr* exp_n = p.m_n.get();
+        expr* e = p.m_e.get();
+
+        // Branch 1 (first, immediately materialized): n = 0, replace
+        // U^n with epsilon (progress).
+        expr_ref_vector empty(m);
+        broadcast_subst(n, m_eq_id, e, empty, dep);
+        af.add_constraint(a.mk_ge(exp_n, a.mk_int(0)), dep);
+        af.add_constraint(a.mk_le(exp_n, a.mk_int(0)), dep);
+        f.remove(pow_idx);
+
+        iterator* it = alloc(iterator, n, m_pow_id, m_eq_id, m_arith_id, eq_idx, pow_on_lhs, fwd, pow_idx, var, dep, m, u, a);
+        out = eq_tree::edge("power-var-peel:n=0", dep, true, 0);
+        committed = true;
+        return it;
+    }
+
 } // namespace seq

@@ -47,6 +47,7 @@ namespace {
         seq::power_fine_wilf     pfw;
         seq::power_num_cmp       pnc;
         seq::power_split_elim    pse;
+        seq::power_var_peel      pvp;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -61,7 +62,8 @@ namespace {
             pprop(m, u, a, pow_id, eq_id, arith_id), psplit(m, u, a, pow_id, eq_id, arith_id),
             pfw(m, u, a, pow_id, eq_id, arith_id),
             pnc(m, u, a, pow_id, eq_id, arith_id),
-            pse(m, u, a, pow_id, eq_id, arith_id)
+            pse(m, u, a, pow_id, eq_id, arith_id),
+            pvp(m, u, a, pow_id, eq_id, arith_id)
         {
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&aprop);
@@ -70,6 +72,7 @@ namespace {
             tree.add_split_plugin(&pfw);
             tree.add_split_plugin(&pnc);
             tree.add_split_plugin(&pse);
+            tree.add_split_plugin(&pvp);
             tree.add_split_plugin(&esplit);
             tree.set_max_search_depth(20);
         }
@@ -331,6 +334,43 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
+    // power_var_peel ("apply_var_num_unwinding_eq" in c3): X^N = Y where
+    // Y is a plain Nielsen-substitutable variable (not a unit, not a
+    // power) - word_eq_split itself explicitly skips any equation whose
+    // head is a power, so without power_var_peel this equation could
+    // never make progress. Must be sat, e.g. via N=0 (X^0=epsilon=Y).
+    static void tst_power_var_peel_sat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, Y);
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
+    // power_var_peel, forced unsat: X^N = Y with len(X)=2, len(Y)=5 (not
+    // a multiple of len(X)) - power_propagation's own length-only axiom
+    // (len(e)=n*len(X) once n>=1, len(e)=0 once n<=0) already refutes
+    // this regardless of how power_var_peel's own two branches are
+    // explored, so this exercises that power_var_peel's presence doesn't
+    // introduce an unsound path around that conflict.
+    static void tst_power_var_peel_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, Y);
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(2)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(5)));
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_power_facet() {
@@ -356,5 +396,9 @@ void tst_seq_power_facet() {
     tst_power_split_elim_sat();
     std::cout << "=== test5i ===\n" << std::flush;
     tst_power_split_elim_unsat();
+    std::cout << "=== test5j ===\n" << std::flush;
+    tst_power_var_peel_sat();
+    std::cout << "=== test5k ===\n" << std::flush;
+    tst_power_var_peel_unsat();
     std::cout << "seq_power_facet: all tests passed\n";
 }
