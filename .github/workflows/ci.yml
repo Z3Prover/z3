@@ -459,6 +459,18 @@ jobs:
         with:
           cmake-version: ${{ matrix.consumer_cmake }}
 
+      # jwlawson's old CMake/ctest binaries are linked against libidn.so.11,
+      # which Ubuntu dropped after focal; pull just that runtime lib from the
+      # focal archive since noble no longer ships it.
+      - name: Install libidn11 for old ctest binary
+        if: matrix.consumer_cmake != 'latest'
+        run: |
+          echo "deb http://archive.ubuntu.com/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/focal.list
+          sudo apt-get update
+          sudo apt-get install -y libidn11
+          sudo rm /etc/apt/sources.list.d/focal.list
+          sudo apt-get update
+
       - name: Consume shared package component
         run: >-
           ctest --build-and-test cmake/tests/package consume-shared
