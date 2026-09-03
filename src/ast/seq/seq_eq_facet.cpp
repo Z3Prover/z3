@@ -285,6 +285,13 @@ namespace seq {
             // init_model).
             bool lv = !lu && !lp;
             bool rv = !ru && !rp;
+            // NSB code review: there is a conflict if characters are distinct.
+            // If characters are not equal, and not distinct, then broadcast a character substitution.
+            // add a new global function to broadcast such character substitutions.
+            // It is enough to perform term substitutions by replacing the lh or rh, 
+            // whichever is not a value (if both are values, but they are not distinct, then choose one
+            // of the values).
+            // add the equality constraint for characters to the sub-solver.
             if (lu && ru) {
                 expr* lch = nullptr, *rch = nullptr;
                 VERIFY(u.str.is_unit(lh, lch));
