@@ -22,6 +22,11 @@ Author:
 
 namespace seq {
 
+    // NSB code review: this is inadequate.
+    // Either match against a unit or a unit const.
+    // pre-processing (flatten) should ensure that there are no strings at all. 
+    // The interface contract to facets should enforce that concatentations are pre-split and strings are compiled to concatentations of units.
+    // Then remove "flatten" and update the datatype for mem_facet to have the sequence be a concatenation as well.
     bool is_const_token(seq_util& u, expr* e) {
         zstring s;
         return u.str.is_string(e, s) && s.length() == 1;
@@ -46,14 +51,14 @@ namespace seq {
     }
 
     static int cmp_tokens(expr_ref_vector const& a, expr_ref_vector const& b) {
-        unsigned n = std::min(a.size(), b.size());
-        for (unsigned i = 0; i < n; ++i) {
+        if (a.size() != b.size())
+            return a.size() < b.size() ? -1 : 1;
+        for (unsigned i = 0; i < a.size(); ++i) {
             unsigned ida = a[i]->get_id(), idb = b[i]->get_id();
             if (ida != idb)
                 return ida < idb ? -1 : 1;
         }
-        if (a.size() != b.size())
-            return a.size() < b.size() ? -1 : 1;
+
         return 0;
     }
 
@@ -79,6 +84,9 @@ namespace seq {
         }
     }
 
+    // NSB code review: the accumulated substitution should be collected somewhere, such as in eq_facet.
+    // application of substitution should always be broadcast among facets so include a central dispatcher
+    // that propagators use?
     void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
             bool touched_l = subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);
@@ -123,6 +131,9 @@ namespace seq {
                 return false;
         return true;
     }
+
+    // NSB code review: This calls "flatten". Use instead a shared get_concats from seq_util with guarantees about splitting 
+    // string expressions into concatentations of unit characters.
 
     bool eq_facet::simplify_equation(unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
