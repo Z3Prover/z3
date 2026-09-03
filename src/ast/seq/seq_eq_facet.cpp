@@ -252,7 +252,6 @@ namespace seq {
         if (cost != 0)
             return nullptr;
         auto& f = n.facet_as<eq_facet>(m_id);
-        auto const& ambient = f.ambient(n);
 
         for (auto const& eq : f.equations()) {
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
@@ -276,8 +275,16 @@ namespace seq {
                 // that machinery, so word_eq_split simply skips any
                 // equation whose head is a power on either side.
                 continue;
-            bool lv = ambient.is_var(lh);
-            bool rv = ambient.is_var(rh);
+            // A token is a Nielsen-substitutable variable precisely when
+            // it is neither a unit nor a power (per z3papers/nseq's
+            // README.md section 5.1.1 token model - no separate is_var
+            // predicate). Computed locally rather than via
+            // ambient_context_i::is_var/theory_seq::is_var, which do not
+            // exclude power tokens and are kept as-is only for legacy
+            // model-construction compatibility (theory_seq::mk_value/
+            // init_model).
+            bool lv = !lu && !lp;
+            bool rv = !ru && !rp;
             if (lu && ru) {
                 expr* lch = nullptr, *rch = nullptr;
                 VERIFY(u.str.is_unit(lh, lch));
