@@ -66,6 +66,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_sub_solver.h"
+#include "ast/seq/seq_arith_facet_i.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include "util/params.h"
@@ -129,7 +130,7 @@ namespace seq {
      * "push/pop synced to DFS scope" requirement without the generic
      * `stx::` engine needing to know anything about incremental solvers.
      */
-    class arith_facet : public stx::facet_i {
+    class arith_facet : public arith_facet_i {
         ast_manager&      m;
         arith_util        a;
         seq_util&         u;
@@ -170,10 +171,10 @@ namespace seq {
 
     public:
         arith_facet(trail_stack& trail, ast_manager& m, seq_util& u, sub_solver_i& solver) :
-            facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_own(m) {}
+            arith_facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_own(m) {}
 
         ast_manager& get_manager() const { return m; }
-        arith_util& get_arith_util() { return a; }
+        arith_util& get_arith_util() override { return a; }
         seq_util& get_seq_util() const { return u; }
 
         // Record one more length (or other arithmetic) constraint owned by
@@ -192,7 +193,7 @@ namespace seq {
         // Returns true iff `c` was newly recorded (false if it was
         // already present, e.g. because propagate() revisits the same
         // equation across simplify rounds).
-        bool add_constraint(expr* c, eq_tree::dep_tracker dep = nullptr);
+        bool add_constraint(expr* c, eq_tree::dep_tracker dep = nullptr) override;
 
         // Generate `len(lhs) = len(rhs)` (as an expr over str.len of each
         // token-list side, per the module comment) from an eq_facet
@@ -201,7 +202,7 @@ namespace seq {
         // once per fresh variable token seen (asserted with a null dep:
         // an unconditional axiom, not contingent on any one equation).
         // Returns true iff at least one new constraint was recorded.
-        bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr);
+        bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) override;
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
@@ -218,7 +219,7 @@ namespace seq {
         // this facet registered to ever reach the sat verdict).
         bool is_satisfied() const override { return true; }
 
-        bool has_conflict() const { return m_conflict; }
+        bool has_conflict() const override { return m_conflict; }
 
         // Dependency justifying the current conflict (valid iff
         // `has_conflict()`): the join, as computed by the backend's own
@@ -228,7 +229,7 @@ namespace seq {
         // unconditional facts) - callers should treat a `nullptr` here
         // exactly as they already treat a `nullptr` dep elsewhere: sound,
         // just less precise.
-        eq_tree::dep_tracker conflict_dep() const { return m_conflict_dep; }
+        eq_tree::dep_tracker conflict_dep() const override { return m_conflict_dep; }
 
         // Query the shared incremental backend for whether `c` is
         // currently *implied* (resp. its negation implied) by the
@@ -239,7 +240,7 @@ namespace seq {
         // backend directly (NOT via the trail - this is a read-only
         // probe, symmetric and side-effect-free by construction, so it
         // needs no undo registration).
-        lbool implies(expr* c) const;
+        lbool implies(expr* c) const override;
     };
 
 

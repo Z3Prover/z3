@@ -97,6 +97,17 @@ namespace seq {
         // the four clauses must be added atomically as a group).
         bool                 m_axiomatized = false;
 
+        // Set once `power_fine_wilf` has fired its (non-progress,
+        // arith-only) "small overlap" case-1 branch for this obligation,
+        // so that branch is not offered again for the same obligation
+        // every round (a coarser but sound substitute for the c3 branch's
+        // per-(lhs,rhs,direction) `fw_applied` key: since case-1 makes no
+        // string-side change at all, without *some* guard the identical
+        // split would be re-offered forever). Does not block
+        // power_fine_wilf's other (progress) cases 2/3, nor any other
+        // plugin, from still acting on this same obligation.
+        bool                 m_fw_marked = false;
+
         str_power(ast_manager& m, expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) :
             m_e(e, m), m_s(s, m), m_n(n, m), m_dep(dep) {}
     };
@@ -149,6 +160,11 @@ namespace seq {
         // asserted (so power_propagation does not re-assert them every
         // round). Trailed.
         void set_axiomatized(unsigned idx);
+
+        // Mark `idx`'s obligation as having had power_fine_wilf's case-1
+        // ("small overlap") branch already offered (see str_power's
+        // m_fw_marked comment). Trailed.
+        void set_fw_marked(unsigned idx);
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;

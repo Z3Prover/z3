@@ -15,7 +15,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_eq_facet.h"
-#include "smt/seq_arith_facet.h"
+#include "ast/seq/seq_arith_facet_i.h"
 #include <algorithm>
 #include <cstdlib>
 #include <utility>
@@ -451,7 +451,7 @@ namespace seq {
         if (cost != 0)
             return nullptr;
         auto& f = n.facet_as<eq_facet>(m_eq_id);
-        auto& af = n.facet_as<arith_facet>(m_arith_id);
+        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
 
         for (unsigned idx = 0; idx < f.equations().size(); ++idx) {
             eq_facet::equation const& eq = f.equations()[idx];

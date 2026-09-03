@@ -15,7 +15,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_power_facet.h"
-#include "smt/seq_arith_facet.h"
+#include "ast/seq/seq_arith_facet_i.h"
 
 namespace seq {
 
@@ -83,7 +83,7 @@ namespace seq {
     stx::simplify_result power_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<power_facet>(m_pow_id);
         auto& ef = n.facet_as<eq_facet>(m_eq_id);
-        auto& af = n.facet_as<arith_facet>(m_arith_id);
+        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
 
         bool changed = false;
         for (unsigned i = 0; i < f.powers().size(); ) {
@@ -154,7 +154,7 @@ namespace seq {
             return false;
 
         auto& ef = m_n.facet_as<eq_facet>(m_eq_id);
-        auto& af = m_n.facet_as<arith_facet>(m_arith_id);
+        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
         unsigned j = m_next_j++;
         expr_ref rhs = mk_power_unfold(u, m, p.m_s.get(), j);
         expr_ref_vector repl(m);
@@ -174,7 +174,7 @@ namespace seq {
             return nullptr;
         auto& f = n.facet_as<power_facet>(m_pow_id);
         auto& ef = n.facet_as<eq_facet>(m_eq_id);
-        auto& af = n.facet_as<arith_facet>(m_arith_id);
+        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
 
         for (unsigned i = 0; i < f.powers().size(); ++i) {
             str_power const& p = f.powers()[i];

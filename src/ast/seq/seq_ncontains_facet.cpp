@@ -15,7 +15,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_ncontains_facet.h"
-#include "smt/seq_arith_facet.h"
+#include "ast/seq/seq_arith_facet_i.h"
 #include <algorithm>
 
 namespace seq {
@@ -136,7 +136,7 @@ namespace seq {
 
     stx::simplify_result ncontains_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<ncontains_facet>(m_ncontains_id);
-        auto& af = n.facet_as<arith_facet>(m_arith_id);
+        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
 
         bool changed = false;
         for (unsigned i = 0; i < f.ncontains().size(); ) {
