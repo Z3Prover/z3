@@ -398,4 +398,59 @@ namespace seq {
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
+    // General same-base power-vs-token-run exponent comparison, ported
+    // from the c3 branch's `apply_split_power_elim`
+    // (seq_nielsen_modifiers.cpp), generalizing power_num_cmp: instead of
+    // requiring the *other* side's directional end to itself be a
+    // registered power obligation with the same base, this rule scans a
+    // whole prefix/suffix run of the other side for repeated copies of
+    // the power's own base pattern `U` (a `comm_power`-style match:
+    // ordinary tokens matching `U`'s flattened token pattern verbatim,
+    // plus - only at a pattern boundary - another power token whose base
+    // is the *same* pattern, whose whole exponent is absorbed into the
+    // running count), accumulating a symbolic "how many copies of U were
+    // just consumed" expression `count`. Once some nonzero-length prefix
+    // run has been matched this way, the relative order of `count`
+    // versus `U^n`'s own exponent `n` is generally undetermined and must
+    // be case-split on, exactly like power_num_cmp:
+    //
+    //   Branch 1: n < count    (side constraint `count >= n + 1`)
+    //   Branch 2: count <= n   (side constraint `n >= count`)
+    //
+    // Both are pure arith_facet side constraints (no string-side
+    // progress in either branch, same as power_num_cmp) - after either
+    // is asserted, ordinary propagation can cancel the common
+    // `U^min(n,count)` prefix/suffix. Guarded so it is only offered when
+    // `count` and `n` are not both already-resolved numerals (that case
+    // needs no case split).
+    class power_split_elim : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
+        stx::facet_id m_pow_id;
+        stx::facet_id m_eq_id;
+        stx::facet_id m_arith_id;
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            stx::facet_id  m_arith_id;
+            expr_ref       m_pow_exp;
+            expr_ref       m_count;
+            eq_tree::dep_tracker m_dep;
+            arith_util&    a;
+            bool           m_done = false;
+        public:
+            iterator(eq_tree::node& n, stx::facet_id arith_id, expr* pow_exp, expr* count,
+                      eq_tree::dep_tracker dep, ast_manager& m, arith_util& a) :
+                m_n(n), m_arith_id(arith_id), m_pow_exp(pow_exp, m), m_count(count, m), m_dep(dep), a(a) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        power_split_elim(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
+            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        char const* name() const override { return "power-split-elim"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+    };
+
 } // namespace seq

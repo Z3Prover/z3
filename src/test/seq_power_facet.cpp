@@ -46,6 +46,7 @@ namespace {
         seq::power_split         psplit;
         seq::power_fine_wilf     pfw;
         seq::power_num_cmp       pnc;
+        seq::power_split_elim    pse;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -59,7 +60,8 @@ namespace {
             eprop(eq_id), esplit(m, u, eq_id), aprop(arith_id, eq_id),
             pprop(m, u, a, pow_id, eq_id, arith_id), psplit(m, u, a, pow_id, eq_id, arith_id),
             pfw(m, u, a, pow_id, eq_id, arith_id),
-            pnc(m, u, a, pow_id, eq_id, arith_id)
+            pnc(m, u, a, pow_id, eq_id, arith_id),
+            pse(m, u, a, pow_id, eq_id, arith_id)
         {
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&aprop);
@@ -67,6 +69,7 @@ namespace {
             tree.add_split_plugin(&psplit);
             tree.add_split_plugin(&pfw);
             tree.add_split_plugin(&pnc);
+            tree.add_split_plugin(&pse);
             tree.add_split_plugin(&esplit);
             tree.set_max_search_depth(20);
         }
@@ -289,6 +292,45 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
+    // power_split_elim ("apply_split_power_elim" in c3): X^N = X.X.V
+    // where the *other* side (X.X.V) contains a literal run of X's own
+    // base pattern (matched token-by-token via comm_power) rather than
+    // a single opposing power token (power_num_cmp's territory) - must
+    // be sat, e.g. via N=2, V=epsilon.
+    static void tst_power_split_elim_sat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref V(fx.m.mk_fresh_const("V", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
+        expr_ref rhs(fx.u.str.mk_concat(X, fx.u.str.mk_concat(X, V)), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, rhs);
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
+    // power_split_elim, forced unsat: same shape as above but with
+    // len(X)=1, len(V)=0 (so the only consistent exponent is N=2) and
+    // N pinned to a conflicting value (5) - no witness in either of
+    // power_split_elim's two branches (nor anywhere else).
+    static void tst_power_split_elim_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref V(fx.m.mk_fresh_const("V", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
+        expr_ref rhs(fx.u.str.mk_concat(X, fx.u.str.mk_concat(X, V)), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, rhs);
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(V), fx.a.mk_int(0)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(N, fx.a.mk_int(5)));
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_power_facet() {
@@ -310,5 +352,9 @@ void tst_seq_power_facet() {
     tst_power_num_cmp_sat();
     std::cout << "=== test5g ===\n" << std::flush;
     tst_power_num_cmp_unsat();
+    std::cout << "=== test5h ===\n" << std::flush;
+    tst_power_split_elim_sat();
+    std::cout << "=== test5i ===\n" << std::flush;
+    tst_power_split_elim_unsat();
     std::cout << "seq_power_facet: all tests passed\n";
 }

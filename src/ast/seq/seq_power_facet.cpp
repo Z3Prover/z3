@@ -512,4 +512,181 @@ namespace seq {
         return it;
     }
 
+    // -- power_split_elim --
+
+    // Ported from c3's `comm_power` (seq_nielsen_simplify.cpp): scan
+    // `side`'s directional run (from the front if `fwd`, else from the
+    // back) for repeated copies of `base_pattern` (the flattened token
+    // pattern of some power's own base `U`), returning how many complete
+    // copies were consumed as a symbolic sum expression, plus the number
+    // of *tokens* of `side` that participated (0 if no complete copy was
+    // ever matched). At each pattern boundary (not mid-pattern, and not
+    // at the very first token, mirroring c3's `i > 0` guard that avoids
+    // undoing power_split's own `u . u^(n-1)` unwinding), a token that is
+    // itself a registered power obligation with exactly the same base
+    // token pattern is absorbed whole - its entire exponent is added to
+    // the running sum directly, rather than requiring it to be matched
+    // token-by-token.
+    static bool comm_power(power_facet const& f, expr_ref_vector const& base_pattern,
+                            expr_ref_vector const& side, bool fwd, unsigned exclude_idx,
+                            ast_manager& m, arith_util& a, seq_util& u,
+                            expr_ref& count, unsigned& consumed) {
+        unsigned bn = base_pattern.size();
+        unsigned sn = side.size();
+        consumed = 0;
+        if (bn == 0 || sn == 0)
+            return false;
+
+        expr* sum = nullptr;
+        unsigned pos = 0;
+        expr* last_stable_sum = nullptr;
+        unsigned last_stable_idx = 0;
+
+        unsigned i = 0;
+        for (; i < sn; ++i) {
+            expr* t = fwd ? side[i] : side[sn - 1 - i];
+            if (pos == 0) {
+                last_stable_idx = i;
+                last_stable_sum = sum;
+            }
+            // Case 1: direct token match with the base pattern.
+            expr* pat = fwd ? base_pattern[pos] : base_pattern[bn - 1 - pos];
+            if (pos < bn && t == pat) {
+                ++pos;
+                if (pos >= bn) {
+                    pos = 0;
+                    sum = sum ? a.mk_add(sum, a.mk_int(1)) : (expr*)a.mk_int(1);
+                }
+                continue;
+            }
+            // Case 2: a power token whose base is the exact same
+            // pattern, absorbed whole - only at a pattern boundary
+            // (pos==0), and never at the very first token (i>0).
+            unsigned pidx;
+            if (pos == 0 && i > 0 && f.find_power(t, pidx) && pidx != exclude_idx) {
+                str_power const& q = f.powers()[pidx];
+                expr_ref_vector qbase(m);
+                flatten(u, q.m_s.get(), qbase);
+                if (qbase.size() == bn) {
+                    bool match = true;
+                    for (unsigned j = 0; j < bn && match; ++j)
+                        match = (qbase[j] == base_pattern[j]);
+                    if (match) {
+                        sum = sum ? a.mk_add(sum, q.m_n.get()) : q.m_n.get();
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+        if (pos == 0) {
+            last_stable_idx = i;
+            last_stable_sum = sum;
+        }
+        consumed = last_stable_idx;
+        if (!last_stable_sum)
+            return false;
+        count = expr_ref(last_stable_sum, m);
+        return true;
+    }
+
+    struct elim_trigger {
+        unsigned      m_eq_idx = 0;
+        bool          m_pow_on_lhs = true;
+        bool          m_fwd = true;
+        unsigned      m_pow_idx = 0;
+        expr_ref      m_count;
+        eq_tree::dep_tracker m_dep;
+        elim_trigger(ast_manager& m) : m_count(m) {}
+    };
+
+    // Locate a power-vs-token-run elimination trigger: some equation has
+    // a power term `U^n` at a directional end of one side, whose base
+    // pattern `U` recurs (per comm_power, possibly absorbing same-base
+    // power tokens at boundaries) along the same directional run of the
+    // *other* side. Skipped if the resulting comparison is already
+    // resolved (both count and n are numerals).
+    static bool find_split_elim_trigger(power_facet const& f, eq_facet const& ef,
+                                         ast_manager& m, arith_util& a, seq_util& u,
+                                         elim_trigger& t) {
+        for (unsigned i = 0; i < ef.equations().size(); ++i) {
+            eq_facet::equation const& eq = ef.equations()[i];
+            if (eq.m_lhs.empty() || eq.m_rhs.empty())
+                continue;
+            for (bool pow_on_lhs : {true, false}) {
+                expr_ref_vector const& pow_side = pow_on_lhs ? eq.m_lhs : eq.m_rhs;
+                expr_ref_vector const& other_side = pow_on_lhs ? eq.m_rhs : eq.m_lhs;
+                for (bool fwd : {true, false}) {
+                    expr* end_tok = fwd ? pow_side[0] : pow_side.back();
+                    unsigned pow_idx;
+                    if (!is_power_token(f, end_tok, pow_idx))
+                        continue;
+                    str_power const& p = f.powers()[pow_idx];
+                    expr_ref_vector base_pattern(m);
+                    flatten(u, p.m_s.get(), base_pattern);
+                    expr_ref count(m);
+                    unsigned consumed;
+                    if (!comm_power(f, base_pattern, other_side, fwd, pow_idx, m, a, u, count, consumed) || consumed == 0)
+                        continue;
+                    // Already resolved: no case split needed (mirrors
+                    // c3's get_const_power_diff-guard - simplification
+                    // is expected to have already discharged this case).
+                    rational vc, vp;
+                    if (a.is_numeral(count, vc) && a.is_numeral(p.m_n, vp))
+                        continue;
+                    t.m_eq_idx = i;
+                    t.m_pow_on_lhs = pow_on_lhs;
+                    t.m_fwd = fwd;
+                    t.m_pow_idx = pow_idx;
+                    t.m_count = count;
+                    t.m_dep = eq.m_dep;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool power_split_elim::iterator::next(eq_tree::edge& out) {
+        if (m_done)
+            return false;
+        m_done = true;
+        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        // Branch 2 (the remaining alternative once branch 1 - "count >
+        // pow_exp", materialized by split() itself - has been offered):
+        // pow_exp >= count.
+        af.add_constraint(a.mk_ge(m_pow_exp.get(), m_count.get()), m_dep);
+        out = eq_tree::edge("power-split-elim:<=", m_dep, true, 0);
+        return true;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> power_split_elim::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        if (cost != 0)
+            return nullptr;
+        auto& f = n.facet_as<power_facet>(m_pow_id);
+        auto& ef = n.facet_as<eq_facet>(m_eq_id);
+        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+
+        elim_trigger t(m);
+        if (!find_split_elim_trigger(f, ef, m, a, u, t))
+            return nullptr;
+        has_more = true;
+
+        expr* pow_exp = f.powers()[t.m_pow_idx].m_n.get();
+        expr* count = t.m_count.get();
+        eq_tree::dep_tracker dep = t.m_dep;
+
+        // Branch 1 (first, immediately materialized): pow_exp < count,
+        // i.e. count >= pow_exp + 1.
+        expr_ref pow_plus_1(a.mk_add(pow_exp, a.mk_int(1)), m);
+        af.add_constraint(a.mk_ge(count, pow_plus_1.get()), dep);
+
+        iterator* it = alloc(iterator, n, m_arith_id, pow_exp, count, dep, m, a);
+        out = eq_tree::edge("power-split-elim:>", dep, true, 0);
+        committed = true;
+        return it;
+    }
+
 } // namespace seq
