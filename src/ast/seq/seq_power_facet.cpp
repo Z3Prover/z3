@@ -806,4 +806,200 @@ namespace seq {
         return it;
     }
 
+    // -- power_var_decompose --
+
+    expr* power_var_decompose::get_or_create_n_var(expr* var) {
+        expr* v = nullptr;
+        if (m_n_cache.find(var, v))
+            return v;
+        v = m.mk_fresh_const("gp-n", a.mk_int());
+        m_n_cache.insert(var, v);
+        return v;
+    }
+
+    expr* power_var_decompose::get_or_create_m_var(expr* var) {
+        expr* v = nullptr;
+        if (m_m_cache.find(var, v))
+            return v;
+        v = m.mk_fresh_const("gp-m", a.mk_int());
+        m_m_cache.insert(var, v);
+        return v;
+    }
+
+    // Locate a variable-vs-power decomposition trigger: some eq_facet
+    // equation has, at a matching directional end of both sides, a
+    // Nielsen-substitutable variable `v` opposite a power token `U^n`,
+    // where `U`'s own flattened base has at least one token (an empty
+    // base cannot happen for a well-formed power term, but the check is
+    // defensive). Skipped if `n` is already a resolved numeral
+    // (power_propagation's known-exponent unfold handles that case
+    // directly, no case split needed).
+    static bool find_var_decompose_trigger(power_facet const& f, eq_facet const& ef, arith_util& a, seq_util& u,
+                                            unsigned& pow_idx, expr*& var, bool& fwd, eq_tree::dep_tracker& dep) {
+        for (unsigned i = 0; i < ef.equations().size(); ++i) {
+            eq_facet::equation const& eq = ef.equations()[i];
+            if (eq.m_lhs.empty() || eq.m_rhs.empty())
+                continue;
+            for (bool lhs_pow : {true, false}) {
+                expr_ref_vector const& pow_side = lhs_pow ? eq.m_lhs : eq.m_rhs;
+                expr_ref_vector const& var_side = lhs_pow ? eq.m_rhs : eq.m_lhs;
+                for (bool f2 : {true, false}) {
+                    expr* pow_tok = f2 ? pow_side[0] : pow_side.back();
+                    expr* var_tok = f2 ? var_side[0] : var_side.back();
+                    unsigned pidx;
+                    if (!is_power_token(f, pow_tok, pidx))
+                        continue;
+                    bool is_var = !u.str.is_unit(var_tok) && !u.str.is_power(var_tok);
+                    if (!is_var)
+                        continue;
+                    rational v;
+                    if (a.is_numeral(f.powers()[pidx].m_n, v))
+                        continue; // resolved directly by power_propagation
+                    pow_idx = pidx;
+                    var = var_tok;
+                    fwd = f2;
+                    dep = eq.m_dep;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool power_var_decompose::iterator::next(eq_tree::edge& out) {
+        auto& ef = m_n.facet_as<eq_facet>(m_eq_id);
+        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        auto& f = m_n.facet_as<power_facet>(m_pow_id);
+
+        while (m_pos < m_base_toks.size()) {
+            unsigned i = m_pos++;
+            expr* tok = m_base_toks[i].get();
+
+            // Skip position i when the *preceding* token is itself a
+            // power: that position's own m' range (0<=m'<=inner_exp)
+            // already covers this boundary (mirrors c3's `i>0 &&
+            // base_toks[i-1]->is_power()` skip guard).
+            unsigned prev_pidx;
+            if (i > 0 && is_power_token(f, m_base_toks[i - 1].get(), prev_pidx))
+                continue;
+
+            // Build the U^m . prefix (or U^m . prefix . w^m') replacement,
+            // in the direction v faces U^n: m_base_toks is already
+            // stored in that direction (see split()'s construction), so
+            // the prefix is simply toks[0..i-1] and the new suffix token
+            // (plain-char case) or w^m' (power case) is appended/
+            // prepended according to m_fwd.
+            expr_ref_vector prefix(m);
+            for (unsigned j = 0; j < i; ++j)
+                prefix.push_back(m_base_toks[j].get());
+
+            unsigned tok_pidx;
+            expr* fresh_inner_m = nullptr;
+            expr* inner_exp = nullptr;
+            expr_ref suffix_tok(m);
+            if (is_power_token(f, tok, tok_pidx)) {
+                str_power const& q = f.powers()[tok_pidx];
+                inner_exp = q.m_n.get();
+                fresh_inner_m = m_owner->get_or_create_m_var(m_var.get());
+                suffix_tok = expr_ref(u.str.mk_power(q.m_s.get(), fresh_inner_m), m);
+            }
+            else
+                suffix_tok = expr_ref(tok, m);
+
+            expr_ref_vector repl(m);
+            if (m_fwd) {
+                repl.push_back(m_pow_e.get());
+                for (unsigned j = 0; j < prefix.size(); ++j) repl.push_back(prefix[j].get());
+                if (fresh_inner_m) repl.push_back(suffix_tok.get());
+            } else {
+                if (fresh_inner_m) repl.push_back(suffix_tok.get());
+                for (unsigned j = prefix.size(); j-- > 0; ) repl.push_back(prefix[j].get());
+                repl.push_back(m_pow_e.get());
+            }
+            // Plain-char case (no power at position i): the token
+            // itself contributes nothing further beyond U^m . prefix
+            // (per c3's P(char)=epsilon rule - the char is absorbed into
+            // the base pattern's own repetition count, not appended
+            // again literally).
+
+            broadcast_subst(m_n, m_eq_id, m_var.get(), repl, m_dep);
+            af.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep);
+            if (fresh_inner_m) {
+                af.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
+                af.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
+            }
+            out = eq_tree::edge("power-var-decompose:pos", m_dep, true, 0);
+            return true;
+        }
+
+        if (!m_extend_done) {
+            m_extend_done = true;
+            // Final non-progress branch: v extends past the whole power,
+            // v := U^n . v' (or v' . U^n if !m_fwd), fresh v', side
+            // constraint len(v') >= 0 (trivially true, but matches c3's
+            // own explicit branch condition and keeps the constraint
+            // symmetric with the other branches' side constraints).
+            sort* s = m_var.get()->get_sort();
+            expr* vp = m.mk_fresh_const("t", s);
+            expr_ref_vector repl(m);
+            if (m_fwd) { repl.push_back(m_pow_e.get()); repl.push_back(vp); }
+            else       { repl.push_back(vp); repl.push_back(m_pow_e.get()); }
+            broadcast_subst(m_n, m_eq_id, m_var.get(), repl, m_dep);
+            af.add_constraint(a.mk_ge(u.str.mk_length(vp), a.mk_int(0)), m_dep);
+            out = eq_tree::edge("power-var-decompose:extend", m_dep, true, 0);
+            return true;
+        }
+        return false;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> power_var_decompose::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        if (cost != 0)
+            return nullptr;
+        auto& f = n.facet_as<power_facet>(m_pow_id);
+        auto& ef = n.facet_as<eq_facet>(m_eq_id);
+        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+
+        unsigned pow_idx;
+        expr* var = nullptr;
+        bool fwd;
+        eq_tree::dep_tracker dep;
+        if (!find_var_decompose_trigger(f, ef, a, u, pow_idx, var, fwd, dep))
+            return nullptr;
+
+        str_power const& p = f.powers()[pow_idx];
+        expr_ref_vector base_toks(m);
+        flatten(u, p.m_s.get(), base_toks);
+        if (base_toks.empty())
+            return nullptr;
+        if (!fwd) {
+            // Store base_toks in the direction v faces U^n (reversed,
+            // mirroring c3's `collect_tokens_dir(base, fwd, ...)`).
+            expr_ref_vector rev(m);
+            for (unsigned j = base_toks.size(); j-- > 0; ) rev.push_back(base_toks[j].get());
+            base_toks = std::move(rev);
+        }
+
+        expr* fresh_m = get_or_create_n_var(var);
+        has_more = true;
+
+        iterator* it = alloc(iterator, n, m_pow_id, m_eq_id, m_arith_id, var, p.m_e.get(), base_toks, fresh_m, fwd, dep, m, u, a, this);
+        // First branch is offered by the iterator itself (position 0),
+        // uniformly with every other decomposition position - unlike
+        // power_var_peel/power_split, there is no "cheap" branch to
+        // materialize immediately in split() itself here (every
+        // decomposition position, including position 0, requires the
+        // same shape of substitution), so split() simply hands off to
+        // the iterator's first next() call.
+        eq_tree::edge first;
+        if (!it->next(first)) {
+            dealloc(it);
+            return nullptr;
+        }
+        out = first;
+        committed = true;
+        return it;
+    }
+
 } // namespace seq

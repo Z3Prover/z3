@@ -529,4 +529,101 @@ namespace seq {
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
+    // Variable-vs-power decomposition, ported from the c3 branch's
+    // seq_nielsen_modifiers.cpp `apply_power_split` (facet-eq-deq.md
+    // section 2.3). Trigger pattern: some eq_facet equation has, at a
+    // directional end (front or back) of one side, a Nielsen-
+    // substitutable variable token `v` (neither a unit nor a power),
+    // opposite a power token `U^n` at the matching end of the other
+    // side, where `U`'s own flattened base is itself made of more than
+    // one token pattern instance the rule can decompose against.
+    // Unlike `power_var_peel` (which only ever peels a single copy of
+    // `U` and keeps the remaining `U^(n-1)` as an opaque nested power),
+    // this rule decomposes `U`'s *own* base token pattern at every
+    // possible position, and additionally offers a "non-progress"
+    // branch where `v` simply extends past the whole power term. Since
+    // both rules can fire on the same trigger, and `power_var_peel`'s
+    // single-copy peel is strictly the cheaper/more incremental step,
+    // this rule is intentionally not merged with it - both are offered
+    // by the search driver's own cost-ordering machinery, not gated
+    // against each other here.
+    //
+    // Let `t_0, t_1, ..., t_{k-1}` be `U`'s own flattened base tokens
+    // (in the direction `v` faces `U^n`, i.e. reversed if `fwd` is
+    // false), and let `n` be `U^n`'s exponent (fresh skolem `m`
+    // introduced per *target variable*, not per branch, mirroring c3's
+    // `get_or_create_gpower_n_var` cache - see class comment on
+    // `m_n_cache`/`m_m_cache` below). One branch is generated per
+    // decomposition position `i` in `0..k-1` (skipped when `i>0` and
+    // `t_{i-1}` is itself a power token, since that position's `m'`
+    // range already covers this one - mirrors c3's own skip guard):
+    //   - if `t_i` is a plain (non-power) token:
+    //       `v := U^m . t_0 . t_1 . ... . t_{i-1}`,  side constraint `m>=0`
+    //   - if `t_i` is itself a power token `w^e` (base `w`, exponent `e`):
+    //       `v := U^m . t_0 . ... . t_{i-1} . w^m'`, fresh `m'` per
+    //       target variable, side constraints `m>=0`, `0<=m'<=e`
+    // plus one final "extend past the power" branch (non-progress,
+    // required for completeness - without it, solutions where `v`'s
+    // value is strictly longer than `U^n` itself are unreachable):
+    //   `v := U^n . v'` for a fresh `v'`, side constraint `len(v')>=0`
+    // (all branches, and the fresh skolems' side constraints, are
+    // justified by the equation's own dependency).
+    class power_var_decompose : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
+        stx::facet_id m_pow_id;
+        stx::facet_id m_eq_id;
+        stx::facet_id m_arith_id;
+
+        // Per-target-variable cache of the fresh exponent skolem `m`
+        // used for `U^m` (the "how much of U has v already consumed"
+        // counter) - mirrors c3's `get_or_create_gpower_n_var`. Keyed
+        // by the target variable's ast pointer so repeated re-triggering
+        // of this rule on the same variable reuses the same skolem
+        // rather than minting an unbounded number of them. Not trailed:
+        // like `power_split::m_next_j`, this is a monotonic counter-ish
+        // cache owned by the plugin itself (shared across the whole
+        // search tree, not per-branch), so leftover entries from an
+        // abandoned branch are harmless dead skolems, not a soundness
+        // issue.
+        obj_map<expr, expr*> m_n_cache;
+        obj_map<expr, expr*> m_m_cache;
+
+        expr* get_or_create_n_var(expr* var);
+        expr* get_or_create_m_var(expr* var);
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            stx::facet_id  m_pow_id;
+            stx::facet_id  m_eq_id;
+            stx::facet_id  m_arith_id;
+            expr_ref       m_var;
+            expr_ref       m_pow_e;      // the U^n token being decomposed
+            expr_ref_vector m_base_toks; // U's own flattened base tokens, in the direction v faces U^n
+            expr_ref       m_fresh_m;    // U^m skolem exponent (shared across all branches below)
+            bool           m_fwd;
+            eq_tree::dep_tracker m_dep;
+            unsigned       m_pos = 0;    // next decomposition position to offer, or m_base_toks.size() once exhausted
+            bool           m_extend_done = false; // whether the final "extend past" branch has been offered
+            ast_manager&   m;
+            seq_util&      u;
+            arith_util&    a;
+            power_var_decompose* m_owner;
+        public:
+            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id,
+                      expr* var, expr* pow_e, expr_ref_vector const& base_toks, expr* fresh_m, bool fwd,
+                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a, power_var_decompose* owner) :
+                m_n(n), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id), m_var(var, m), m_pow_e(pow_e, m),
+                m_base_toks(base_toks), m_fresh_m(fresh_m, m), m_fwd(fwd), m_dep(dep), m(m), u(u), a(a), m_owner(owner) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        power_var_decompose(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
+            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        char const* name() const override { return "power-var-decompose"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+    };
+
 } // namespace seq

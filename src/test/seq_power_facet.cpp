@@ -48,6 +48,7 @@ namespace {
         seq::power_num_cmp       pnc;
         seq::power_split_elim    pse;
         seq::power_var_peel      pvp;
+        seq::power_var_decompose pvd;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -63,7 +64,8 @@ namespace {
             pfw(m, u, a, pow_id, eq_id, arith_id),
             pnc(m, u, a, pow_id, eq_id, arith_id),
             pse(m, u, a, pow_id, eq_id, arith_id),
-            pvp(m, u, a, pow_id, eq_id, arith_id)
+            pvp(m, u, a, pow_id, eq_id, arith_id),
+            pvd(m, u, a, pow_id, eq_id, arith_id)
         {
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&aprop);
@@ -73,6 +75,7 @@ namespace {
             tree.add_split_plugin(&pnc);
             tree.add_split_plugin(&pse);
             tree.add_split_plugin(&pvp);
+            tree.add_split_plugin(&pvd);
             tree.add_split_plugin(&esplit);
             tree.set_max_search_depth(20);
         }
@@ -371,6 +374,44 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
+    // power_var_decompose ("apply_power_split" in c3): a variable facing
+    // a power whose base is multi-token allows decomposing the base at
+    // an interior position - e.g. X = ("ab")^N with X a Nielsen variable
+    // should be sat, exercising both a "plain-char" decomposition branch
+    // (position 1: X := ("ab")^m . "a") and the final "extend past"
+    // branch.
+    static void tst_power_var_decompose_sat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref ab(fx.u.str.mk_string(zstring("ab")), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(ab, N), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, ab, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(X, e_n);
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
+    // power_var_decompose, forced unsat: X = ("ab")^N together with
+    // X = "cd" - no decomposition/extend branch of the power side can
+    // ever produce a string starting with 'c' (every branch's
+    // replacement for X begins with either "ab"'s own repeated content
+    // or, in the plain-char branch, the literal base tokens 'a'/'b'),
+    // so this is refuted by ordinary unit-clash detection
+    // (word_eq_split/eq_propagation) regardless of which
+    // power_var_decompose branch is explored.
+    static void tst_power_var_decompose_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref ab(fx.u.str.mk_string(zstring("ab")), fx.m);
+        expr_ref cd(fx.u.str.mk_string(zstring("cd")), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(ab, N), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, ab, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(X, e_n);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(X, cd);
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_power_facet() {
@@ -400,5 +441,9 @@ void tst_seq_power_facet() {
     tst_power_var_peel_sat();
     std::cout << "=== test5k ===\n" << std::flush;
     tst_power_var_peel_unsat();
+    std::cout << "=== test5l ===\n" << std::flush;
+    tst_power_var_decompose_sat();
+    std::cout << "=== test5m ===\n" << std::flush;
+    tst_power_var_decompose_unsat();
     std::cout << "seq_power_facet: all tests passed\n";
 }
