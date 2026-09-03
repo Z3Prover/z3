@@ -212,6 +212,38 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
+    // Force Fine & Wilf's progress cases (2/3), not case 1: X, Y both
+    // fixed-length-1 constants, and e_u/e_w's *lengths* are pinned to
+    // values that make case 1's disjunction
+    // (len(e_u)-Ly<T \/ len(e_w)<T, with Ly=0, T=len(X)+len(Y)=2)
+    // false outright (both len(e_u), len(e_w) forced to 5 >= T), so the
+    // only way this equation can be satisfied is via case 2 or case 3's
+    // string-level elimination (introducing R1/R2 or S1/S2 and relating
+    // them back to eq_facet/arith_facet) - must still be sat, since
+    // n=m=5 with X=Y-as-strings-of-equal-content is a genuine solution
+    // once the fresh split variables are unified consistently.
+    static void tst_fine_wilf_progress_sat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref M(fx.m.mk_fresh_const("M", fx.a.mk_int()), fx.m);
+        expr_ref e_u(fx.u.str.mk_power(X, N), fx.m);
+        expr_ref e_w(fx.u.str.mk_power(Y, M), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_u, X, N);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_w, Y, M);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_u, e_w);
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(1)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(e_u), fx.a.mk_int(5)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(e_w), fx.a.mk_int(5)));
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
 } // namespace
 
 void tst_seq_power_facet() {
@@ -227,5 +259,7 @@ void tst_seq_power_facet() {
     tst_fine_wilf_sat();
     std::cout << "=== test5d ===\n" << std::flush;
     tst_fine_wilf_large_exponent_unsat();
+    std::cout << "=== test5e ===\n" << std::flush;
+    tst_fine_wilf_progress_sat();
     std::cout << "seq_power_facet: all tests passed\n";
 }
