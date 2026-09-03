@@ -424,4 +424,93 @@ namespace seq {
         return nullptr;
     }
 
+    // -- power_num_cmp --
+
+    // Locate a same-base power-vs-power comparison trigger: some
+    // eq_facet equation has, at the same directional end (front or
+    // back, mirroring c3's fwd/reverse `dir_token` scan) of both sides,
+    // a power token, both with the same registered base but distinct
+    // obligations (distinct power terms - if they were the same term,
+    // ordinary token-equality matching would already have consumed
+    // them). See class comment for the two branches this produces.
+    static bool find_num_cmp_trigger(power_facet const& f, eq_facet const& ef,
+                                      unsigned& eq_idx, bool& at_front,
+                                      unsigned& pow_idx_l, unsigned& pow_idx_r,
+                                      eq_tree::dep_tracker& dep) {
+        for (unsigned i = 0; i < ef.equations().size(); ++i) {
+            eq_facet::equation const& eq = ef.equations()[i];
+            if (eq.m_lhs.empty() || eq.m_rhs.empty())
+                continue;
+            for (bool front : {true, false}) {
+                expr* lh = front ? eq.m_lhs[0] : eq.m_lhs.back();
+                expr* rh = front ? eq.m_rhs[0] : eq.m_rhs.back();
+                unsigned lidx, ridx;
+                if (!is_power_token(f, lh, lidx) || !is_power_token(f, rh, ridx))
+                    continue;
+                if (lidx == ridx)
+                    continue; // same obligation: nothing to compare
+                if (f.powers()[lidx].m_s.get() != f.powers()[ridx].m_s.get())
+                    continue; // different bases: power_fine_wilf's territory, not this rule's
+                // Exponents already numerals are resolved directly by
+                // power_propagation's known-exponent unfold rather than
+                // this rule (a constant-vs-constant comparison needs no
+                // case split).
+                rational vl, vr;
+                arith_util const& a2 = f.get_arith_util();
+                if (a2.is_numeral(f.powers()[lidx].m_n, vl) && a2.is_numeral(f.powers()[ridx].m_n, vr))
+                    continue;
+                eq_idx = i;
+                at_front = front;
+                pow_idx_l = lidx;
+                pow_idx_r = ridx;
+                dep = eq.m_dep;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool power_num_cmp::iterator::next(eq_tree::edge& out) {
+        if (m_done)
+            return false;
+        m_done = true;
+        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        // Branch 2 (the remaining alternative once branch 1 - "n < m",
+        // materialized by split() itself - has been offered): m <= n.
+        af.add_constraint(a.mk_ge(m_n_exp.get(), m_m_exp.get()), m_dep);
+        out = eq_tree::edge("power-cmp:>=", m_dep, true, 0);
+        return true;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> power_num_cmp::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        if (cost != 0)
+            return nullptr;
+        auto& f = n.facet_as<power_facet>(m_pow_id);
+        auto& ef = n.facet_as<eq_facet>(m_eq_id);
+        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+
+        unsigned eq_idx, pow_idx_l, pow_idx_r;
+        bool at_front;
+        eq_tree::dep_tracker dep;
+        if (!find_num_cmp_trigger(f, ef, eq_idx, at_front, pow_idx_l, pow_idx_r, dep))
+            return nullptr;
+        has_more = true;
+
+        expr* lexp = f.powers()[pow_idx_l].m_n.get();
+        expr* rexp = f.powers()[pow_idx_r].m_n.get();
+
+        // Branch 1 (first, immediately materialized): lexp < rexp, i.e.
+        // rexp >= lexp + 1.
+        expr_ref lexp_plus_1(a.mk_add(lexp, a.mk_int(1)), m);
+        af.add_constraint(a.mk_ge(rexp, lexp_plus_1.get()), dep);
+
+        iterator* it = alloc(iterator, n, m_arith_id, lexp, rexp, dep, m, a);
+        out = eq_tree::edge("power-cmp:<", dep, true, 0);
+        committed = true;
+        return it;
+    }
+
 } // namespace seq
+

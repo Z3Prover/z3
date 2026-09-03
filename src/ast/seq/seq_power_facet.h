@@ -339,4 +339,63 @@ namespace seq {
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
+    // Same-base power-vs-power exponent comparison, ported from the c3
+    // branch's seq_nielsen_modifiers.cpp `apply_num_cmp`: when some
+    // eq_facet equation has, at the same directional end (both heads or
+    // both tails) of each side, a power token with the *same* base but a
+    // different registered obligation (i.e. `U^n` and `U^m` for the same
+    // `U`, appearing as distinct tokens - this can only happen before
+    // `power_propagation`'s known-exponent unfold or `word_eq_split`'s
+    // ordinary token matching has fired, e.g. right after two such
+    // obligations are first registered against the same equation), the
+    // relative order of `n` and `m` is not yet determined and must be
+    // case-split on directly (arith-only, no string-side progress in
+    // either branch - unlike power_fine_wilf, this rule's whole point is
+    // to let arith_facet resolve the comparison, after which ordinary
+    // simplification/propagation can cancel the common `U^min(n,m)`
+    // prefix/suffix):
+    //
+    //   Branch 1: n < m   (side constraint `m >= n + 1`)
+    //   Branch 2: m <= n  (side constraint `n >= m`)
+    //
+    // Mirrors c3's two `mk_edge`/`add_side_constraint` branches exactly
+    // (both marked `set_arith_split()` there, i.e. exempt from the
+    // sibling loop-cut/unsat-cache since they differ only in an
+    // arithmetic fact, not in any string-level substitution - c3mv has
+    // no equivalent exemption mechanism yet, so both branches are
+    // offered as ordinary split alternatives here). Guarded so it is
+    // only offered for a given pair of obligations once their exponents
+    // are not already resolvable as a constant difference (that case is
+    // handled by ordinary equation simplification/propagation once one
+    // side is a numeral, per power_propagation's known-exponent branch).
+    class power_num_cmp : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
+        stx::facet_id m_pow_id;
+        stx::facet_id m_eq_id;
+        stx::facet_id m_arith_id;
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            stx::facet_id  m_arith_id;
+            expr_ref       m_n_exp;
+            expr_ref       m_m_exp;
+            eq_tree::dep_tracker m_dep;
+            arith_util&    a;
+            bool           m_done = false;
+        public:
+            iterator(eq_tree::node& n, stx::facet_id arith_id, expr* n_exp, expr* m_exp,
+                      eq_tree::dep_tracker dep, ast_manager& m, arith_util& a) :
+                m_n(n), m_arith_id(arith_id), m_n_exp(n_exp, m), m_m_exp(m_exp, m), m_dep(dep), a(a) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        power_num_cmp(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
+            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        char const* name() const override { return "power-num-cmp"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+    };
+
 } // namespace seq

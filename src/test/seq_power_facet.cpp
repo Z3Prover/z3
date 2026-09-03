@@ -45,6 +45,7 @@ namespace {
         seq::power_propagation   pprop;
         seq::power_split         psplit;
         seq::power_fine_wilf     pfw;
+        seq::power_num_cmp       pnc;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -57,13 +58,15 @@ namespace {
             pow_id(tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr())),
             eprop(eq_id), esplit(m, u, eq_id), aprop(arith_id, eq_id),
             pprop(m, u, a, pow_id, eq_id, arith_id), psplit(m, u, a, pow_id, eq_id, arith_id),
-            pfw(m, u, a, pow_id, eq_id, arith_id)
+            pfw(m, u, a, pow_id, eq_id, arith_id),
+            pnc(m, u, a, pow_id, eq_id, arith_id)
         {
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&aprop);
             tree.add_propagation_plugin(&pprop);
             tree.add_split_plugin(&psplit);
             tree.add_split_plugin(&pfw);
+            tree.add_split_plugin(&pnc);
             tree.add_split_plugin(&esplit);
             tree.set_max_search_depth(20);
         }
@@ -244,6 +247,48 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
+    // Same-base power-vs-power comparison (`apply_num_cmp`): X^n = X^m
+    // for the *same* base X, with n and m otherwise unconstrained -
+    // must be sat regardless of which of power_num_cmp's two branches
+    // (n<m or m<=n) is explored, since n=m=0 (both sides epsilon) is
+    // always a witness.
+    static void tst_power_num_cmp_sat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref M(fx.m.mk_fresh_const("M", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
+        expr_ref e_m(fx.u.str.mk_power(X, M), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_m, X, M);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, e_m);
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
+    // Same-base power-vs-power comparison, forced unsat: X^n = X^m with
+    // len(X) pinned to 1 and n, m forced *disequal* (n >= m+1 or
+    // m >= n+1 via a disjunction that excludes n=m) - since X is a
+    // fixed nonempty base, X^n = X^m forces n=m, so no witness exists
+    // in either of power_num_cmp's two branches.
+    static void tst_power_num_cmp_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref M(fx.m.mk_fresh_const("M", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
+        expr_ref e_m(fx.u.str.mk_power(X, M), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_m, X, M);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, e_m);
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(fx.a.mk_ge(N, fx.a.mk_int(1)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(fx.a.mk_ge(M, fx.a.mk_int(1)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_not(fx.m.mk_eq(N, M)));
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_power_facet() {
@@ -261,5 +306,9 @@ void tst_seq_power_facet() {
     tst_fine_wilf_large_exponent_unsat();
     std::cout << "=== test5e ===\n" << std::flush;
     tst_fine_wilf_progress_sat();
+    std::cout << "=== test5f ===\n" << std::flush;
+    tst_power_num_cmp_sat();
+    std::cout << "=== test5g ===\n" << std::flush;
+    tst_power_num_cmp_unsat();
     std::cout << "seq_power_facet: all tests passed\n";
 }
