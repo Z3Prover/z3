@@ -34,7 +34,7 @@ safe-outputs:
 
 steps:
   - name: Checkout repository
-    uses: actions/checkout@v6.0.2
+    uses: actions/checkout@v7.0.1
     with:
       fetch-depth: 0  # Fetch full history for analyzing commits
       persist-credentials: false
