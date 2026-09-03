@@ -17,3 +17,5 @@ z3_add_component(nlsat
   PYG_FILES
     nlsat_params.pyg
 )
+
+add_subdirectory(tactic)

@@ -93,3 +93,6 @@ z3_add_component(smt
     simplex
     substitution
 )
+
+add_subdirectory(proto_model)
+add_subdirectory(tactic)

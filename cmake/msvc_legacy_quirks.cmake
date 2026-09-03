@@ -64,7 +64,8 @@ if (NOT CMAKE_CXX_FLAGS MATCHES "[-/]D[ ]*_WINDOWS")
   message(FATAL_ERROR "\"/D _WINDOWS\" is missing")
 endif()
 
-list(APPEND Z3_COMPONENT_CXX_DEFINES ${Z3_MSVC_LEGACY_DEFINES})
+target_compile_definitions(z3_internal_options INTERFACE
+  ${Z3_MSVC_LEGACY_DEFINES})
 
 ################################################################################
 # Compiler flags
@@ -83,12 +84,13 @@ endif()
 # except x86_64 release (I don't know why the frame pointer
 # is kept for i686 release).
 if (TARGET_ARCHITECTURE STREQUAL "x86_64")
-  list(APPEND Z3_COMPONENT_CXX_FLAGS
+  target_compile_options(z3_internal_options INTERFACE
     $<$<CONFIG:Debug>:${NO_OMIT_FRAME_POINTER_MSVC_FLAG}>
     $<$<CONFIG:MinSizeRel>:${NO_OMIT_FRAME_POINTER_MSVC_FLAG}>
   )
 else()
-  list(APPEND Z3_COMPONENT_CXX_FLAGS ${NO_OMIT_FRAME_POINTER_MSVC_FLAG})
+  target_compile_options(z3_internal_options INTERFACE
+    ${NO_OMIT_FRAME_POINTER_MSVC_FLAG})
 endif()
 
 if ((TARGET_ARCHITECTURE STREQUAL "x86_64") OR (TARGET_ARCHITECTURE STREQUAL "i686"))
@@ -104,31 +106,15 @@ z3_add_cxx_flag("/EHsc" REQUIRED)
 # Linker flags
 ################################################################################
 
-# By default CMake enables incremental linking for Debug and RelWithDebInfo
-# builds. The old build system disables it for all builds so try to do the same
-# by changing all configurations if necessary
-string(TOUPPER "${available_build_types}" _build_types_as_upper)
-foreach (_build_type ${_build_types_as_upper})
-  foreach (t EXE SHARED STATIC)
-    set(_replacement "/INCREMENTAL:NO")
-    # Remove any existing incremental flags
-    string(REGEX REPLACE
-      "/INCREMENTAL:YES"
-      "${_replacement}"
-      _replaced_linker_flags
-      "${CMAKE_${t}_LINKER_FLAGS_${_build_type}}")
-    string(REGEX REPLACE
-      "(/INCREMENTAL$)|(/INCREMENTAL )"
-      "${_replacement} "
-      _replaced_linker_flags
-      "${_replaced_linker_flags}")
-    if (NOT "${_replaced_linker_flags}" MATCHES "${_replacement}")
-      # Flag not present. Add it
-      string(APPEND _replaced_linker_flags " ${_replacement}")
-    endif()
-    set(CMAKE_${t}_LINKER_FLAGS_${_build_type} "${_replaced_linker_flags}")
-  endforeach()
-endforeach()
+set(_z3_link_executable
+  "$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>")
+set(_z3_link_shared
+  "$<STREQUAL:$<TARGET_PROPERTY:TYPE>,SHARED_LIBRARY>")
+set(_z3_link_binary "$<OR:${_z3_link_executable},${_z3_link_shared}>")
+
+# The old build disables incremental linking for executables and DLLs.
+target_link_options(z3_internal_options INTERFACE
+  "$<${_z3_link_binary}:/INCREMENTAL:NO>")
 
 # The original build system passes `/STACK:` to the linker.
 # This size comes from the original build system.
@@ -137,7 +123,8 @@ set(STACK_SIZE_MSVC_LINKER 8388608)
 # MSVC documentation (https://msdn.microsoft.com/en-us/library/35yc2tc3.aspx)
 # says this only matters for executables which is why this is not being
 # set for CMAKE_SHARED_LINKER_FLAGS or CMAKE_STATIC_LINKER_FLAGS.
-string(APPEND CMAKE_EXE_LINKER_FLAGS " /STACK:${STACK_SIZE_MSVC_LINKER}")
+target_link_options(z3_internal_options INTERFACE
+  "$<${_z3_link_executable}:/STACK:${STACK_SIZE_MSVC_LINKER}>")
 
 # The original build system passes `/SUBSYSTEM:<X>` to the linker where `<X>`
 # depends on what is being linked. Where `<X>` is `CONSOLE` for executables
@@ -147,12 +134,14 @@ string(APPEND CMAKE_EXE_LINKER_FLAGS " /STACK:${STACK_SIZE_MSVC_LINKER}")
 # `add_executable()`.
 # FIXME: We probably don't need this. https://msdn.microsoft.com/en-us/library/fcc1zstk.aspx
 # suggests that `/SUBSYSTEM:` only matters for executables.
-string(APPEND CMAKE_SHARED_LINKER_FLAGS " /SUBSYSTEM:WINDOWS")
+target_link_options(z3_internal_options INTERFACE
+  "$<${_z3_link_shared}:/SUBSYSTEM:WINDOWS>")
 
 # FIXME: The following linker flags are weird. They are set in all configurations
 # in the old build system except release x86_64. We try to emulate this here but
 # this is likely the wrong thing to do.
-foreach (_build_type ${_build_types_as_upper})
+string(TOUPPER "${available_build_types}" _build_types_as_upper)
+foreach (_build_type IN LISTS _build_types_as_upper)
   if (TARGET_ARCHITECTURE STREQUAL "x86_64" AND
       (_build_type STREQUAL "RELEASE" OR
       _build_type  STREQUAL "RELWITHDEBINFO")
@@ -161,18 +150,20 @@ foreach (_build_type ${_build_types_as_upper})
   else()
     # Linker optimizations.
     # See https://msdn.microsoft.com/en-us/library/bxwfs976.aspx
-    string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /OPT:REF /OPT:ICF")
-    string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /OPT:REF /OPT:ICF")
+    target_link_options(z3_internal_options INTERFACE
+      "$<$<AND:${_z3_link_binary},$<CONFIG:${_build_type}>>:/OPT:REF>"
+      "$<$<AND:${_z3_link_binary},$<CONFIG:${_build_type}>>:/OPT:ICF>")
 
     # FIXME: This is not necessary. This is MSVC's default.
     # See https://msdn.microsoft.com/en-us/library/b1kw34cb.aspx
-    string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /TLBID:1")
-    string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /TLBID:1")
+    target_link_options(z3_internal_options INTERFACE
+      "$<$<AND:${_z3_link_binary},$<CONFIG:${_build_type}>>:/TLBID:1>")
 
     # FIXME: This is not necessary. This is MSVC's default.
     # Indicate that the executable is compatible with DEP
     # See https://msdn.microsoft.com/en-us/library/ms235442.aspx
-    string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /NXCOMPAT")
+    target_link_options(z3_internal_options INTERFACE
+      "$<$<AND:${_z3_link_executable},$<CONFIG:${_build_type}>>:/NXCOMPAT>")
 
   endif()
 endforeach()

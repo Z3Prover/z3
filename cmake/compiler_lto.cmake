@@ -3,7 +3,7 @@ option(Z3_LINK_TIME_OPTIMIZATION "Use link time optimiziation" OFF)
 if (Z3_LINK_TIME_OPTIMIZATION)
   message(STATUS "LTO enabled")
   set(build_types_with_lto RELEASE RELWITHDEBINFO)
-  if (DEFINED CMAKE_CONFIGURATION_TYPES)
+  if (Z3_MULTI_CONFIG)
     # Multi configuration generator
     message(STATUS "Note LTO is only enabled for the following configurations: ${build_types_with_lto}")
   else()

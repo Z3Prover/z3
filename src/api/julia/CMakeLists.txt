@@ -28,7 +28,8 @@ if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 add_library(z3jl SHARED z3jl.cpp)
-target_link_libraries(z3jl PRIVATE JlCxx::cxxwrap_julia libz3)
+target_link_libraries(z3jl PRIVATE
+  JlCxx::cxxwrap_julia z3::libz3 z3_common)
 target_include_directories(z3jl PRIVATE
     "${PROJECT_SOURCE_DIR}/src/api"
     "${PROJECT_BINARY_DIR}/src/api"
@@ -36,11 +37,6 @@ target_include_directories(z3jl PRIVATE
 )
 # Add header padding for macOS to allow install_name_tool to modify the dylib
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  target_link_options(z3jl PRIVATE "-Wl,-headerpad_max_install_names")
-endif()
-
-# On macOS, add headerpad for install_name_tool compatibility
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   target_link_options(z3jl PRIVATE "-Wl,-headerpad_max_install_names")
 endif()
 

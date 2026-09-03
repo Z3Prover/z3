@@ -87,14 +87,43 @@ include(CheckCXXSourceCompiles)
 include(CMakeDependentOption)
 
 ################################################################################
-# Compiler flags for Z3 components.
-# Subsequent commands will append to this
+# Core library options
 ################################################################################
-set(Z3_COMPONENT_CXX_DEFINES "")
-set(Z3_COMPONENT_CXX_FLAGS "")
-set(Z3_COMPONENT_EXTRA_INCLUDE_DIRS "")
-set(Z3_DEPENDENT_LIBS "")
-set(Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS "")
+# Z3_BUILD_LIBZ3_SHARED was Z3's historical spelling. Honor it when supplied
+# by existing build scripts, but use CMake's standard switch internally.
+if (DEFINED Z3_BUILD_LIBZ3_SHARED)
+  set(BUILD_SHARED_LIBS "${Z3_BUILD_LIBZ3_SHARED}")
+endif()
+option(BUILD_SHARED_LIBS "Build libraries as shared libraries" ON)
+option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
+option(Z3_BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
+option(Z3_BUILD_LIBZ3_MSVC_STATIC
+  "Build libz3 as a statically-linked runtime library" OFF)
+
+if (BUILD_SHARED_LIBS)
+  set(Z3_LIBZ3_VARIANT shared)
+else()
+  set(Z3_LIBZ3_VARIANT static)
+endif()
+
+if (MSVC AND Z3_BUILD_LIBZ3_MSVC_STATIC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY
+    "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+################################################################################
+# Internal build requirements.  This target is deliberately not exported:
+# these settings are required to build Z3, not to consume its public API.
+################################################################################
+add_library(z3_internal_options INTERFACE)
+target_compile_features(z3_internal_options INTERFACE cxx_std_20)
+
+# Common requirements for Z3's targets. Build-only compiler and linker policy
+# disappears from exports, leaving only dependencies needed by static users.
+add_library(z3_common INTERFACE)
+set_target_properties(z3_common PROPERTIES EXPORT_NAME _common)
+target_link_libraries(z3_common INTERFACE
+  "$<BUILD_LOCAL_INTERFACE:z3_internal_options>")
 
 ################################################################################
 # Build type
@@ -129,9 +158,11 @@ endif()
 #
 # Note for some reason we have to leave off ``-D`` here otherwise
 # we get ``-D-DZ3DEBUG`` passed to the compiler
-list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:Z3DEBUG>)
-list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Release>:_EXTERNAL_RELEASE>)
-list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>)
+target_compile_definitions(z3_internal_options INTERFACE
+  $<$<CONFIG:Debug>:Z3DEBUG>
+  $<$<CONFIG:Release>:_EXTERNAL_RELEASE>
+  $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>
+)
 
 ################################################################################
 # Find Python
@@ -152,31 +183,39 @@ message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
 ################################################################################
 include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 
-################################################################################
-# C++ language version
-################################################################################
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin"
+    AND TARGET_ARCHITECTURE STREQUAL "arm64")
+  # Set this before creating targets because it initializes their
+  # OSX_ARCHITECTURES property.
+  set(CMAKE_OSX_ARCHITECTURES "arm64")
+endif()
+
+if (Z3_BUILD_LIBZ3_CORE)
+  # Components add their object files to this target as they are declared
+  # below. Public headers are attached as file sets in src/CMakeLists.txt.
+  add_library(libz3)
+  add_library(z3::libz3 ALIAS libz3)
+  # z3++.h requires C++11. Use a granular feature because the cxx_std_11
+  # meta-feature is newer than the minimum CMake version for package consumers.
+  target_compile_features(libz3 INTERFACE cxx_noexcept)
+endif()
 
 ################################################################################
 # Platform detection
 ################################################################################
-if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  if (TARGET_ARCHITECTURE STREQUAL "arm64")
-    set(CMAKE_OSX_ARCHITECTURES "arm64")
-  endif()
-elseif (WIN32)
+if (WIN32)
   message(STATUS "Platform: Windows")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_WINDOWS")
+  target_compile_definitions(z3_internal_options INTERFACE _WINDOWS)
   # workaround for #7420
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
+  target_compile_definitions(z3_internal_options INTERFACE
+    _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
   # dbghelp is used in debug.cpp for stack backtraces on Windows.
   # With MSVC this is handled by #pragma comment(lib, "dbghelp.lib") in debug.cpp,
   # but MinGW does not support that pragma, so we add it explicitly here.
-  list(APPEND Z3_DEPENDENT_LIBS dbghelp)
+  target_link_libraries(z3_common INTERFACE dbghelp)
 elseif (EMSCRIPTEN)
   message(STATUS "Platform: Emscripten")
-  list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS
+  target_link_options(z3_internal_options INTERFACE
     "-Os"
     "SHELL:-s ALLOW_MEMORY_GROWTH=1"
     "SHELL:-s ASSERTIONS=0"
@@ -190,7 +229,7 @@ elseif (EMSCRIPTEN)
   )
 endif()
 
-list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
+target_include_directories(z3_internal_options INTERFACE
   "${PROJECT_BINARY_DIR}/src"
   "${PROJECT_SOURCE_DIR}/src"
 )
@@ -204,10 +243,10 @@ if (Z3_USE_LIB_GMP)
   # can't be found
   find_package(GMP REQUIRED)
   message(STATUS "Using libgmp")
-  list(APPEND Z3_DEPENDENT_LIBS GMP::GMP)
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_MP_GMP")
+  target_link_libraries(z3_common INTERFACE GMP::GMP)
+  target_compile_definitions(z3_internal_options INTERFACE _MP_GMP)
 else()
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_MP_INTERNAL")
+  target_compile_definitions(z3_internal_options INTERFACE _MP_INTERNAL)
   message(STATUS "Not using libgmp")
 endif()
 
@@ -220,7 +259,7 @@ option(Z3_API_LOG_SYNC
   OFF
 )
 if (Z3_API_LOG_SYNC)
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
+  target_compile_definitions(z3_internal_options INTERFACE Z3_LOG_SYNC)
   message(STATUS "Using Z3_API_LOG_SYNC")
 else()
   message(STATUS "Not using Z3_API_LOG_SYNC")
@@ -237,7 +276,7 @@ if (Z3_SINGLE_THREADED)
   if (Z3_API_LOG_SYNC)
     message(FATAL_ERROR "Z3_API_LOG_SYNC requires threading support and cannot be combined with Z3_SINGLE_THREADED")
   endif()
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DSINGLE_THREAD")
+  target_compile_definitions(z3_internal_options INTERFACE SINGLE_THREAD)
   message(STATUS "Non-thread-safe build")
 else()
   message(STATUS "Thread-safe build")
@@ -252,7 +291,7 @@ option(Z3_POLLING_TIMER
   OFF
 )
 if (Z3_POLLING_TIMER)
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DPOLLING_TIMER")
+  target_compile_definitions(z3_internal_options INTERFACE POLLING_TIMER)
   message(STATUS "Polling based timer")
 endif()
 
@@ -272,7 +311,7 @@ if ((TARGET_ARCHITECTURE STREQUAL "x86_64") OR (TARGET_ARCHITECTURE STREQUAL "i6
   endif()
   CHECK_CXX_COMPILER_FLAG("${SSE_FLAGS}" HAS_SSE2)
   if (HAS_SSE2)
-    list(APPEND Z3_COMPONENT_CXX_FLAGS ${SSE_FLAGS})
+    target_compile_options(z3_internal_options INTERFACE ${SSE_FLAGS})
   endif()
   unset(SSE_FLAGS)
 endif()
@@ -281,8 +320,8 @@ endif()
 # Threading support
 ################################################################################
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads)
-list(APPEND Z3_DEPENDENT_LIBS Threads::Threads)
+find_package(Threads REQUIRED)
+target_link_libraries(z3_common INTERFACE Threads::Threads)
 
 ################################################################################
 # Compiler warnings
@@ -296,7 +335,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 option(Z3_ADDRESS_SANITIZE "Set address sanitization." OFF)
 
 if (Z3_ADDRESS_SANITIZE)
-  z3_add_cxx_flag("-fsanitize=address" REQUIRED)
+  z3_add_cxx_flag("-fsanitize=address" REQUIRED GLOBAL)
 endif()
 
 ################################################################################
@@ -313,42 +352,20 @@ endif()
 ################################################################################
 if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcolor-diagnostics")
+    target_compile_options(z3_internal_options INTERFACE -fcolor-diagnostics)
   endif()
-#  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color")
-#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdiagnostics-color")
-#  endif()
 endif()
-
-################################################################################
-# Option to control what type of library we build
-################################################################################
-# Z3_BUILD_LIBZ3_SHARED is retained for existing build scripts.  Use CMake's
-# standard switch internally so packages can make the same choice.
-if (DEFINED Z3_BUILD_LIBZ3_SHARED)
-  set(BUILD_SHARED_LIBS "${Z3_BUILD_LIBZ3_SHARED}")
-endif()
-option(BUILD_SHARED_LIBS "Build libz3 as a shared library" ON)
-set(Z3_BUILD_LIBZ3_SHARED "${BUILD_SHARED_LIBS}")
-if (BUILD_SHARED_LIBS)
-  set(Z3_LIBZ3_VARIANT shared)
-else()
-  set(Z3_LIBZ3_VARIANT static)
-endif()
-option(Z3_BUILD_LIBZ3_MSVC_STATIC "Build libz3 as a statically-linked runtime library"                   OFF)
-
 
 ################################################################################
 # Tracing
 ################################################################################
 option(Z3_ENABLE_TRACING_FOR_NON_DEBUG "Enable tracing in non-debug builds." OFF)
 if (Z3_ENABLE_TRACING_FOR_NON_DEBUG)
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_TRACE")
+  target_compile_definitions(z3_internal_options INTERFACE _TRACE)
 else()
   # Tracing is always enabled in debug builds
-  list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
+  target_compile_definitions(z3_internal_options INTERFACE
+    $<$<CONFIG:Debug>:_TRACE>)
 endif()
 
 ################################################################################
@@ -380,8 +397,8 @@ if (Z3_ENABLE_CFI)
   endif()
 
   message(STATUS "Enabling Control Flow Integrity (CFI) for Clang")
-  z3_add_cxx_flag("-fsanitize=cfi" REQUIRED)
-  z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED)
+  z3_add_cxx_flag("-fsanitize=cfi" REQUIRED GLOBAL)
+  z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED GLOBAL)
 endif()
 # End CFI section
 
@@ -416,16 +433,14 @@ if (Z3_ENABLE_CFG)
     # Enable Control Flow Guard if no incompatible options are present
     message(STATUS "Enabling Control Flow Guard (/guard:cf) and ASLR (/DYNAMICBASE) for MSVC")
     z3_add_cxx_flag("/guard:cf" REQUIRED)
-    string(APPEND CMAKE_EXE_LINKER_FLAGS " /GUARD:CF /DYNAMICBASE")
-    string(APPEND CMAKE_SHARED_LINKER_FLAGS " /GUARD:CF /DYNAMICBASE")
+    target_link_options(z3_internal_options INTERFACE /GUARD:CF /DYNAMICBASE)
   endif()
 else()
   if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     # Explicitly disable Control Flow Guard when Z3_ENABLE_CFG is OFF
     message(STATUS "Disabling Control Flow Guard (/guard:cf-) for MSVC")
     z3_add_cxx_flag("/guard:cf-" REQUIRED)
-    string(APPEND CMAKE_EXE_LINKER_FLAGS " /GUARD:NO")
-    string(APPEND CMAKE_SHARED_LINKER_FLAGS " /GUARD:NO")
+    target_link_options(z3_internal_options INTERFACE /GUARD:NO)
   endif()
 endif()
 
@@ -440,8 +455,7 @@ endif()
 # Pass /RELEASE to the linker so that checksums in PE files are calculated.
 ################################################################################
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  string(APPEND CMAKE_EXE_LINKER_FLAGS " /RELEASE")
-  string(APPEND CMAKE_SHARED_LINKER_FLAGS " /RELEASE")
+  target_link_options(z3_internal_options INTERFACE /RELEASE)
 endif()
 
 ################################################################################
@@ -470,15 +484,6 @@ foreach (_build_type ${build_types_to_report})
   message(STATUS "CMAKE_SHARED_LINKER_FLAGS_${_build_type}: \"${CMAKE_SHARED_LINKER_FLAGS_${_build_type}}\"")
   message(STATUS "CMAKE_STATIC_LINKER_FLAGS_${_build_type}: \"${CMAKE_STATIC_LINKER_FLAGS_${_build_type}}\"")
 endforeach()
-
-################################################################################
-# Report Z3_COMPONENT flags
-################################################################################
-message(STATUS "Z3_COMPONENT_CXX_DEFINES: ${Z3_COMPONENT_CXX_DEFINES}")
-message(STATUS "Z3_COMPONENT_CXX_FLAGS: ${Z3_COMPONENT_CXX_FLAGS}")
-message(STATUS "Z3_DEPENDENT_LIBS: ${Z3_DEPENDENT_LIBS}")
-message(STATUS "Z3_COMPONENT_EXTRA_INCLUDE_DIRS: ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS}")
-message(STATUS "Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS}")
 
 ################################################################################
 # Z3 installation locations
@@ -574,14 +579,12 @@ endforeach()
 ################################################################################
 include(CMakePackageConfigHelpers)
 
-option(Z3_BUILD_LIBZ3_CORE "Build the core libz3 library" ON)
 # Only export targets if we built libz3
 if (Z3_BUILD_LIBZ3_CORE)
   ################################################################################
   # Z3 components, library and executables
   ################################################################################
   include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
-  include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
   add_subdirectory(src)
 
   export(EXPORT Z3_EXPORTED_TARGETS
@@ -597,26 +600,11 @@ else()
   endblock()
 endif()
 
-if (TARGET libz3 AND NOT TARGET z3::libz3)
-  add_library(z3::libz3 ALIAS libz3)
-endif()
-
 ################################################################################
-# Z3 API bindings
+# Standalone Z3 Python bindings
 ################################################################################
-option(Z3_BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
-if (Z3_BUILD_PYTHON_BINDINGS)
-  # Validate configuration for Python bindings
-  if (Z3_BUILD_LIBZ3_CORE)
-    # Building libz3 together with Python bindings
-    if (NOT Z3_BUILD_LIBZ3_SHARED)
-      message(FATAL_ERROR "The python bindings will not work with a static libz3. "
-              "You either need to disable Z3_BUILD_PYTHON_BINDINGS or enable Z3_BUILD_LIBZ3_SHARED")
-    endif()
-  else()
-    # Using pre-installed libz3 for Python bindings
-    message(STATUS "Building Python bindings with pre-installed libz3")
-  endif()
+if (Z3_BUILD_PYTHON_BINDINGS AND NOT Z3_BUILD_LIBZ3_CORE)
+  message(STATUS "Building Python bindings with pre-installed libz3")
   add_subdirectory(src/api/python)
 endif()
 
@@ -657,42 +645,41 @@ configure_file(
 )
 unset(Z3_FIND_GMP_MODULE_DIR)
 
-if (Z3_BUILD_LIBZ3_CORE)
-  set(Z3_PKGCONFIG_DIR "${CMAKE_INSTALL_PKGCONFIGDIR}")
-  get_filename_component(Z3_PKGCONFIG_DIR "${Z3_PKGCONFIG_DIR}" ABSOLUTE
-    BASE_DIR "${CMAKE_INSTALL_PREFIX}")
-  set(Z3_PKGCONFIG_PREFIX "${CMAKE_INSTALL_PREFIX}")
-  file(RELATIVE_PATH Z3_PKGCONFIG_PREFIX
-    "${Z3_PKGCONFIG_DIR}" "${Z3_PKGCONFIG_PREFIX}")
+set(Z3_PKGCONFIG_DIR "${CMAKE_INSTALL_PKGCONFIGDIR}")
+cmake_path(ABSOLUTE_PATH Z3_PKGCONFIG_DIR
+  BASE_DIRECTORY "${CMAKE_INSTALL_PREFIX}"
+  NORMALIZE)
+set(Z3_PKGCONFIG_PREFIX "${CMAKE_INSTALL_PREFIX}")
+cmake_path(RELATIVE_PATH Z3_PKGCONFIG_PREFIX
+  BASE_DIRECTORY "${Z3_PKGCONFIG_DIR}")
 
-  set(Z3_PKGCONFIG_REQUIRES_PRIVATE "")
-  if (Z3_USE_LIB_GMP)
-    set(Z3_PKGCONFIG_REQUIRES_PRIVATE gmp)
-  endif()
-
-  set(Z3_PKGCONFIG_LIBS_PRIVATE "")
-  if (CMAKE_THREAD_LIBS_INIT)
-    list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
-  endif()
-  if (ATOMICS_REQUIRE_LIBATOMIC)
-    list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE -latomic)
-  endif()
-  if (MINGW)
-    list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE -ldbghelp)
-  endif()
-  foreach (implicit_lib IN LISTS CMAKE_CXX_IMPLICIT_LINK_LIBRARIES)
-    if (implicit_lib MATCHES "^(c\\+\\+|stdc\\+\\+|m)$")
-      list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE "-l${implicit_lib}")
-    endif()
-  endforeach()
-  list(REMOVE_DUPLICATES Z3_PKGCONFIG_LIBS_PRIVATE)
-  list(JOIN Z3_PKGCONFIG_LIBS_PRIVATE " " Z3_PKGCONFIG_LIBS_PRIVATE)
-
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/z3.pc.configured" @ONLY)
-  file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc"
-    INPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc.configured")
+set(Z3_PKGCONFIG_REQUIRES_PRIVATE "")
+if (Z3_USE_LIB_GMP)
+  set(Z3_PKGCONFIG_REQUIRES_PRIVATE gmp)
 endif()
+
+set(Z3_PKGCONFIG_LIBS_PRIVATE "")
+if (CMAKE_THREAD_LIBS_INIT)
+  list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
+endif()
+if (ATOMICS_REQUIRE_LIBATOMIC)
+  list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE -latomic)
+endif()
+if (MINGW)
+  list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE -ldbghelp)
+endif()
+foreach (implicit_lib IN LISTS CMAKE_CXX_IMPLICIT_LINK_LIBRARIES)
+  if (implicit_lib MATCHES "^(c\\+\\+|stdc\\+\\+|m)$")
+    list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE "-l${implicit_lib}")
+  endif()
+endforeach()
+list(REMOVE_DUPLICATES Z3_PKGCONFIG_LIBS_PRIVATE)
+list(JOIN Z3_PKGCONFIG_LIBS_PRIVATE " " Z3_PKGCONFIG_LIBS_PRIVATE)
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/z3.pc.configured" @ONLY)
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc"
+  INPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc.configured")
 
 ################################################################################
 # Create `Z3Config.cmake` and related files for install tree so clients can use
@@ -763,7 +750,7 @@ endif()
 ################################################################################
 cmake_dependent_option(Z3_ENABLE_EXAMPLE_TARGETS
     "Build Z3 api examples" ON
-    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR;Z3_BUILD_LIBZ3_CORE" OFF)
+    "PROJECT_IS_TOP_LEVEL;Z3_BUILD_LIBZ3_CORE" OFF)
 if (Z3_ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()

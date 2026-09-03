@@ -18,3 +18,5 @@ z3_add_component(cmd_context
     solver
     params
 )
+
+add_subdirectory(extra_cmds)
