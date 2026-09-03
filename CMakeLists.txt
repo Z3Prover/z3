@@ -181,15 +181,15 @@ elseif (EMSCRIPTEN)
   message(STATUS "Platform: Emscripten")
   list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS
     "-Os"
-    "-s ALLOW_MEMORY_GROWTH=1"
-    "-s ASSERTIONS=0"
+    "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+    "SHELL:-s ASSERTIONS=0"
     # Use native wasm exception handling + wasm longjmp to match the ABI of the
     # Pyodide / modern-emscripten main module. The legacy JS-based EH (which the
     # removed "-s DISABLE_EXCEPTION_CATCHING=0" selected) makes libz3 import
     # invoke_* trampolines the Pyodide runtime no longer provides.
     "-fwasm-exceptions"
-    "-s SUPPORT_LONGJMP=wasm"
-    "-s ERROR_ON_UNDEFINED_SYMBOLS=1"
+    "SHELL:-s SUPPORT_LONGJMP=wasm"
+    "SHELL:-s ERROR_ON_UNDEFINED_SYMBOLS=1"
   )
 endif()
 
