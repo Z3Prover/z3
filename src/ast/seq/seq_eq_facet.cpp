@@ -662,4 +662,117 @@ namespace seq {
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
+    // -- deq_split --
+
+    // len(toks[0]) + .. + len(toks[n-1]) as a single arithmetic
+    // expression, mirroring power_facet.cpp's mk_len_sum (a per-token
+    // const-1-or-str.len sum); duplicated locally rather than shared
+    // since eq_facet/power_facet intentionally have no header dependency
+    // on each other's static helpers.
+    static expr_ref mk_side_len(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks) {
+        expr_ref sum(a.mk_int(0), m);
+        for (expr* tok : toks)
+            sum = expr_ref(a.mk_add(sum, is_const_token(u, tok) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(tok)), m);
+        return sum;
+    }
+
+    // Locate the first "stuck" disequation - both sides nonempty (an
+    // empty side would already have been resolved/discharged by
+    // deq_facet::simplify) - to case-split on. Unlike eq_facet's splits,
+    // this rule does not need to inspect the disequation's leading
+    // tokens at all: the 3-way branch (length-order x2, equal-length
+    // split) applies uniformly regardless of what the heads look like.
+    // Since every sibling branch resumes from the very same backtracked
+    // node state that split() itself ran in (the driver pops each
+    // branch's scope before trying the next, mirroring word_eq_split's
+    // iterator), `idx` stays a valid index into f.disequations() for
+    // every branch - no content-based re-lookup is needed.
+    scoped_ptr<eq_tree::split_iterator_i> deq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        if (cost != 0)
+            return nullptr;
+        auto& f = n.facet_as<deq_facet>(m_deq_id);
+
+        for (unsigned idx = 0; idx < f.disequations().size(); ++idx) {
+            deq_facet::disequation const& dq = f.disequations()[idx];
+            if (dq.m_lhs.empty() || dq.m_rhs.empty())
+                continue; // resolved by propagation; shouldn't occur
+            has_more = true;
+
+            eq_tree::dep_tracker dq_dep = dq.m_dep;
+            expr_ref_vector lhs(dq.m_lhs), rhs(dq.m_rhs);
+            auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+            expr_ref len_lhs = mk_side_len(u, af.get_arith_util(), m, lhs);
+            expr_ref len_rhs = mk_side_len(u, af.get_arith_util(), m, rhs);
+
+            iterator* it = alloc(iterator, n, m_deq_id, m_eq_id, m_arith_id, idx, lhs, rhs, dq_dep, 2, m, u);
+
+            // Materialize branch 1 ("len(u) < len(v)") now, in the scope
+            // the driver already pushed for this call: a length mismatch
+            // alone already proves the disequation, so it is simply
+            // discharged (removed) here - the arith side constraint is
+            // what actually justifies the discharge.
+            f.remove_disequation_trailed(idx);
+            af.add_constraint(af.get_arith_util().mk_lt(len_lhs, len_rhs), dq_dep);
+            out = eq_tree::edge("diseq len<", dq_dep, true, 0);
+            committed = true;
+            return it;
+        }
+        return nullptr;
+    }
+
+    bool deq_split::iterator::next(eq_tree::edge& out) {
+        if (m_next_case > 3)
+            return false;
+        unsigned this_case = m_next_case++;
+        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        expr_ref len_lhs = mk_side_len(u, af.get_arith_util(), m, m_lhs);
+        expr_ref len_rhs = mk_side_len(u, af.get_arith_util(), m, m_rhs);
+        auto& f = m_n.facet_as<deq_facet>(m_deq_id);
+
+        if (this_case == 2) {
+            // Branch 2: len(v) < len(u), symmetric to branch 1.
+            f.remove_disequation_trailed(m_diseq_idx);
+            af.add_constraint(af.get_arith_util().mk_lt(len_rhs, len_lhs), m_dep);
+            out = eq_tree::edge("diseq len>", m_dep, true, 0);
+            return true;
+        }
+
+        // Branch 3: equal-length split. Fresh skolem terms w (common
+        // prefix), a, b (fresh single-char unit terms), u', v' (fresh
+        // suffix vars); new equations u = w.a.u', v = w.b.v'; arith
+        // constraint len(u')=len(v'); replace the original disequation
+        // with the finer a != b - which, together with the two new
+        // equalities just asserted, is what actually proves u != v.
+        auto& ef = m_n.facet_as<eq_facet>(m_eq_id);
+        sort* seq_sort = m_lhs[0]->get_sort();
+        sort* char_sort = nullptr;
+        VERIFY(u.is_seq(seq_sort, char_sort));
+        expr* w = m.mk_fresh_const("diseq.w", seq_sort);
+        expr* a_ch = m.mk_fresh_const("diseq.a", char_sort);
+        expr* b_ch = m.mk_fresh_const("diseq.b", char_sort);
+        expr* a_unit = u.str.mk_unit(a_ch);
+        expr* b_unit = u.str.mk_unit(b_ch);
+        expr* up = m.mk_fresh_const("diseq.u'", seq_sort);
+        expr* vp = m.mk_fresh_const("diseq.v'", seq_sort);
+
+        expr_ref_vector u_rhs(m); u_rhs.push_back(w); u_rhs.push_back(a_unit); u_rhs.push_back(up);
+        expr_ref_vector v_rhs(m); v_rhs.push_back(w); v_rhs.push_back(b_unit); v_rhs.push_back(vp);
+        ef.add_equation_trailed(m_lhs, u_rhs, m_dep);
+        ef.add_equation_trailed(m_rhs, v_rhs, m_dep);
+
+        expr_ref len_up(u.str.mk_length(up), m);
+        expr_ref len_vp(u.str.mk_length(vp), m);
+        af.add_constraint(m.mk_eq(len_up, len_vp), m_dep);
+
+        f.remove_disequation_trailed(m_diseq_idx);
+        expr_ref_vector a_vec(m); a_vec.push_back(a_unit);
+        expr_ref_vector b_vec(m); b_vec.push_back(b_unit);
+        f.add_disequation_trailed(a_vec, b_vec, m_dep);
+
+        out = eq_tree::edge("diseq split", m_dep, true, 0);
+        return true;
+    }
+
 } // namespace seq

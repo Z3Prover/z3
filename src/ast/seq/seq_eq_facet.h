@@ -462,6 +462,24 @@ namespace seq {
         // `subst_dep`, also trailed.
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
+        // Trailed variant of add_disequation, for use mid-search (e.g.
+        // deq_split's equal-length branch, which introduces a fresh,
+        // more precise single-character disequation `a != b` alongside
+        // discharging the original). Undo just pops the pushed element.
+        void add_disequation_trailed(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
+            m_diseqs.push_back(disequation(lhs, rhs, dep));
+            m_trail.push(push_back_trail<disequation>(m_diseqs));
+        }
+
+        // Trailed removal of the disequation at `idx` (e.g. deq_split
+        // discharging/replacing a stuck disequation): uses
+        // vector_erase_trail so the removed element is restored at the
+        // same index on undo.
+        void remove_disequation_trailed(unsigned idx) {
+            m_trail.push(vector_erase_trail<disequation>(m_diseqs, idx));
+            m_diseqs.erase(m_diseqs.begin() + idx);
+        }
+
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
@@ -482,6 +500,73 @@ namespace seq {
         explicit deq_propagation(stx::facet_id id) : m_id(id) {}
         char const* name() const override { return "deq-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
+    };
+
+    // Disequation case-split, ported from the c3 branch's
+    // `axiomatize_diseq` (seq_nielsen_modifiers.cpp) per
+    // facet-eq-deq.md section 2.5. Unlike equalities, disequalities have
+    // no symmetric Nielsen-modifier family: `deq_facet::simplify` only
+    // ever discharges a disequation once prefix-stripping exposes two
+    // distinct leading constants, or detects a conflict once both sides
+    // are forced identical - it never invents a substitution of its own.
+    // Without this rule a disequation stuck behind two distinct
+    // variables (e.g. `x . a != y . b`) can never be resolved, since no
+    // other plugin ever mutates deq_facet's pending set except via
+    // subst_sink_i::apply_subst broadcasts triggered by *eq_facet's* own
+    // splits.
+    //
+    // For a stuck disequation `u != v` (both sides nonempty, and not
+    // already resolved by simplification), branches into exactly 3
+    // cases, spanning deq_facet + eq_facet + arith_facet:
+    //   1. `len(u) < len(v)` (arith-only; a length mismatch alone
+    //      already proves `u != v`, so the disequation is discharged -
+    //      removed from deq_facet - in this branch).
+    //   2. `len(v) < len(u)` (symmetric).
+    //   3. equal-length split: fresh skolem terms `w` (common prefix,
+    //      same sort as u/v), `a`, `b` (fresh single-char unit terms),
+    //      `u'`, `v'` (fresh suffix vars); asserts new eq_facet equations
+    //      `u = w.a.u'` and `v = w.b.v'`, an arith_facet constraint
+    //      `len(u') = len(v')`, and replaces the original disequation
+    //      with the finer-grained `a != b` (a single-token disequation
+    //      between two fresh unit chars) - this is what actually proves
+    //      `u != v` in this branch, given the two new equalities.
+    // All three branches are justified solely by the disequation's own
+    // dependency (a case-split on how to resolve one stuck disequation).
+    class deq_split : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        stx::facet_id m_deq_id;
+        stx::facet_id m_eq_id;
+        stx::facet_id m_arith_id;
+
+        // Remaining alternatives (case 2, then case 3) after case 1 (if
+        // offered) is the first, immediately materialized branch -
+        // mirrors word_eq_split::iterator's "alt" list pattern.
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            stx::facet_id  m_deq_id;
+            stx::facet_id  m_eq_id;
+            stx::facet_id  m_arith_id;
+            unsigned       m_diseq_idx;
+            expr_ref_vector m_lhs, m_rhs; // the original disequation's sides, captured before any branch mutates the vector
+            eq_tree::dep_tracker m_dep;
+            unsigned       m_next_case; // 2, then 3, then done
+            ast_manager&   m;
+            seq_util&      u;
+        public:
+            iterator(eq_tree::node& n, stx::facet_id deq_id, stx::facet_id eq_id, stx::facet_id arith_id,
+                      unsigned diseq_idx, expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                      eq_tree::dep_tracker dep, unsigned next_case, ast_manager& m, seq_util& u) :
+                m_n(n), m_deq_id(deq_id), m_eq_id(eq_id), m_arith_id(arith_id),
+                m_diseq_idx(diseq_idx), m_lhs(lhs), m_rhs(rhs), m_dep(dep), m_next_case(next_case), m(m), u(u) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        deq_split(ast_manager& m, seq_util& u, stx::facet_id deq_id, stx::facet_id eq_id, stx::facet_id arith_id) :
+            m(m), u(u), m_deq_id(deq_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        char const* name() const override { return "deq-split"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
 } // namespace seq

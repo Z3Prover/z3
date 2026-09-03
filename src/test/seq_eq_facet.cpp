@@ -288,6 +288,89 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::sat);
     }
 
+    // deq_split: "X != Y" for two free string variables (no other
+    // constraints) is trivially satisfiable (e.g. X = "a", Y = "b"), but
+    // deq_facet's own simplify/propagation can never resolve it - it
+    // only reacts to substitutions broadcast by *eq_facet's* splits, and
+    // there are no equations here for eq_facet to split on. Without
+    // deq_split, tree.solve() would exhaust the search (depth cutoff /
+    // unknown) since nothing ever discharges the disequation. deq_split
+    // should take branch 3 (equal-length split, since X and Y are both
+    // unconstrained free variables of unknown/unequal length - branch 1
+    // and 2's length side-constraints are also individually
+    // satisfiable, so any of the three branches suffices for sat) and
+    // resolve it via the new fresh a != b disequation, which is itself
+    // trivially satisfiable.
+    static void tst_deq_split_free_vars_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref Y(m.mk_fresh_const("Y", s), m);
+
+        seq::eq_tree tree;
+        auto* root = tree.mk_root();
+        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
+        root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, Y);
+
+        seq::eq_propagation eprop(eq_id);
+        seq::arith_propagation aprop(arith_id, eq_id);
+        seq::deq_propagation dprop(deq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
+        seq::eq_split split(m, u, eq_id, arith_id);
+        seq::deq_split dsplit(m, u, deq_id, eq_id, arith_id);
+        tree.add_propagation_plugin(&eprop);
+        tree.add_propagation_plugin(&aprop);
+        tree.add_propagation_plugin(&dprop);
+        tree.add_split_plugin(&esplit);
+        tree.add_split_plugin(&split);
+        tree.add_split_plugin(&dsplit);
+        tree.set_max_search_depth(20);
+        ENSURE(tree.solve() == stx::search_result::sat);
+    }
+
+    // deq_split: "a != a" (two identical single-char constants) is
+    // unsatisfiable - deq_facet::simplify discharges this directly
+    // (both sides collapse to the same constant token, so simplify
+    // detects the conflict) without ever reaching deq_split, so this
+    // exercises that deq_split's presence doesn't interfere with (or
+    // mask) the deterministic-conflict path.
+    static void tst_deq_split_equal_consts_unsat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref ca(mk_unit_char(m, u, 'a'));
+
+        seq::eq_tree tree;
+        auto* root = tree.mk_root();
+        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
+        root->facet_as<seq::deq_facet>(deq_id).add_disequation(ca, ca);
+
+        seq::eq_propagation eprop(eq_id);
+        seq::arith_propagation aprop(arith_id, eq_id);
+        seq::deq_propagation dprop(deq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
+        seq::eq_split split(m, u, eq_id, arith_id);
+        seq::deq_split dsplit(m, u, deq_id, eq_id, arith_id);
+        tree.add_propagation_plugin(&eprop);
+        tree.add_propagation_plugin(&aprop);
+        tree.add_propagation_plugin(&dprop);
+        tree.add_split_plugin(&esplit);
+        tree.add_split_plugin(&split);
+        tree.add_split_plugin(&dsplit);
+        tree.set_max_search_depth(20);
+        ENSURE(tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_eq_facet() {
@@ -302,5 +385,7 @@ void tst_seq_eq_facet() {
     tst_eq_split_find_point();
     tst_eq_split_find_point_none();
     tst_eq_split_progress_sat();
+    tst_deq_split_free_vars_sat();
+    tst_deq_split_equal_consts_unsat();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
