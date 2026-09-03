@@ -49,6 +49,7 @@ namespace {
         seq::power_split_elim    pse;
         seq::power_var_peel      pvp;
         seq::power_var_decompose pvd;
+        seq::power_gpower_intro  pgi;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -65,7 +66,8 @@ namespace {
             pnc(m, u, a, pow_id, eq_id, arith_id),
             pse(m, u, a, pow_id, eq_id, arith_id),
             pvp(m, u, a, pow_id, eq_id, arith_id),
-            pvd(m, u, a, pow_id, eq_id, arith_id)
+            pvd(m, u, a, pow_id, eq_id, arith_id),
+            pgi(m, u, a, pow_id, eq_id, arith_id)
         {
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&aprop);
@@ -76,6 +78,7 @@ namespace {
             tree.add_split_plugin(&pse);
             tree.add_split_plugin(&pvp);
             tree.add_split_plugin(&pvd);
+            tree.add_split_plugin(&pgi);
             tree.add_split_plugin(&esplit);
             tree.set_max_search_depth(20);
         }
@@ -412,6 +415,49 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
+    // power_gpower_intro ("apply_gpower_intr" in c3): a self-cycle
+    // X = a.b.X (X reappears after a ground run within the *same*
+    // equation) is inherently unsatisfiable by a pure length argument
+    // (len(X) = 2 + len(X), impossible for any finite X) regardless of
+    // which branch gpower_intro's own case split explores - this rule's
+    // self-cycle trigger (c3's own limitation, transitive cross-equation
+    // cycles are a TODO there too) can therefore only ever fire on
+    // equations that are already unsat by construction; its job is to
+    // let the ordinary length/arithmetic machinery discover that
+    // quickly via a power representation, not to produce new
+    // satisfying models. This test exercises the plain (uncompressed)
+    // trigger: ground run [a,b] has minimal period 2 (no compression).
+    static void tst_power_gpower_intro_self_cycle_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref a_(fx.u.str.mk_string(zstring("a")), fx.m);
+        expr_ref b_(fx.u.str.mk_string(zstring("b")), fx.m);
+        expr_ref ab_X(fx.u.str.mk_concat(a_, fx.u.str.mk_concat(b_, X)), fx.m);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(X.get(), ab_X.get());
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
+    // power_gpower_intro, exercising minimal-period compression: the
+    // self-cycle X = a.a.a.a.X has ground run [a,a,a,a] with minimal
+    // period 1 ("a" repeated 4 times, not the redundant base "aaaa"),
+    // so gpower_intro should compress it to base "a" before introducing
+    // the fresh power. Still inherently unsat by the same length
+    // argument as the plain case (len(X) = 4 + len(X)).
+    static void tst_power_gpower_intro_period_compress_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref a_(fx.u.str.mk_string(zstring("a")), fx.m);
+        expr_ref aaaa_X(fx.m);
+        {
+            expr_ref tail(X);
+            for (unsigned i = 0; i < 4; ++i)
+                tail = expr_ref(fx.u.str.mk_concat(a_, tail), fx.m);
+            aaaa_X = tail;
+        }
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(X.get(), aaaa_X.get());
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_power_facet() {
@@ -445,5 +491,9 @@ void tst_seq_power_facet() {
     tst_power_var_decompose_sat();
     std::cout << "=== test5m ===\n" << std::flush;
     tst_power_var_decompose_unsat();
+    std::cout << "=== test5n ===\n" << std::flush;
+    tst_power_gpower_intro_self_cycle_unsat();
+    std::cout << "=== test5o ===\n" << std::flush;
+    tst_power_gpower_intro_period_compress_unsat();
     std::cout << "seq_power_facet: all tests passed\n";
 }

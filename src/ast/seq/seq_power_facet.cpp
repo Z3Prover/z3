@@ -1002,4 +1002,245 @@ namespace seq {
         return it;
     }
 
+    // -- power_gpower_intro --
+
+    expr* power_gpower_intro::get_or_create_n_var(expr* var) {
+        expr* v = nullptr;
+        if (m_n_cache.find(var, v))
+            return v;
+        v = m.mk_fresh_const("gp-n", a.mk_int());
+        m_n_cache.insert(var, v);
+        return v;
+    }
+
+    expr* power_gpower_intro::get_or_create_m_var(expr* var) {
+        expr* v = nullptr;
+        if (m_m_cache.find(var, v))
+            return v;
+        v = m.mk_fresh_const("gp-m", a.mk_int());
+        m_m_cache.insert(var, v);
+        return v;
+    }
+
+    // Is `e` a Nielsen-substitutable variable token (neither a unit nor
+    // a power)? Local predicate, per z3papers/nseq's token model - see
+    // word_eq_split's own comment for why this is computed locally
+    // rather than via theory_seq::is_var.
+    static bool is_gpower_var(seq_util& u, expr* e) {
+        return !u.str.is_unit(e) && !u.str.is_power(e);
+    }
+
+    // Locate a self-cycle trigger for gpower introduction: some
+    // eq_facet equation has, at a directional end of one side, a bare
+    // Nielsen-substitutable variable `v`, while the *other* side,
+    // scanned from the matching end, is a non-empty run of ground
+    // (non-variable) tokens followed by that same variable `v`
+    // reappearing. `ground_prefix` is returned in the direction `v`
+    // faces the cycle (i.e. nearest-to-farthest from the reappearance
+    // point), matching `power_var_decompose`'s own `m_base_toks`
+    // convention.
+    static bool find_gpower_trigger(eq_facet const& ef, seq_util& u, ast_manager& m,
+                                     unsigned& eq_idx, bool& fwd,
+                                     expr_ref_vector& ground_prefix, expr*& var, eq_tree::dep_tracker& dep) {
+        for (unsigned i = 0; i < ef.equations().size(); ++i) {
+            eq_facet::equation const& eq = ef.equations()[i];
+            if (eq.m_lhs.empty() || eq.m_rhs.empty())
+                continue;
+            for (bool f2 : {true, false}) {
+                expr* lhead = f2 ? eq.m_lhs[0] : eq.m_lhs.back();
+                expr* rhead = f2 ? eq.m_rhs[0] : eq.m_rhs.back();
+                bool lhead_is_var = is_gpower_var(u, lhead);
+                bool rhead_is_var = is_gpower_var(u, rhead);
+
+                // Orientation 1: rhs directional head is the bare
+                // target variable; scan lhs in the same direction for a
+                // ground prefix that cycles back to it.
+                if (rhead_is_var && !lhead_is_var) {
+                    expr_ref_vector prefix(m);
+                    expr* target = nullptr;
+                    unsigned sz = eq.m_lhs.size();
+                    for (unsigned k = 0; k < sz; ++k) {
+                        expr* t = f2 ? eq.m_lhs[k] : eq.m_lhs[sz - 1 - k];
+                        if (is_gpower_var(u, t)) { target = t; break; }
+                        prefix.push_back(t);
+                    }
+                    if (target && !prefix.empty() && target == rhead) {
+                        eq_idx = i;
+                        fwd = f2;
+                        ground_prefix = std::move(prefix);
+                        var = rhead;
+                        dep = eq.m_dep;
+                        return true;
+                    }
+                }
+
+                // Orientation 2: symmetric, lhs directional head is the
+                // target variable; scan rhs.
+                if (lhead_is_var && !rhead_is_var) {
+                    expr_ref_vector prefix(m);
+                    expr* target = nullptr;
+                    unsigned sz = eq.m_rhs.size();
+                    for (unsigned k = 0; k < sz; ++k) {
+                        expr* t = f2 ? eq.m_rhs[k] : eq.m_rhs[sz - 1 - k];
+                        if (is_gpower_var(u, t)) { target = t; break; }
+                        prefix.push_back(t);
+                    }
+                    if (target && !prefix.empty() && target == lhead) {
+                        eq_idx = i;
+                        fwd = f2;
+                        ground_prefix = std::move(prefix);
+                        var = lhead;
+                        dep = eq.m_dep;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    bool power_gpower_intro::iterator::next(eq_tree::edge& out) {
+        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        auto& f = m_n.facet_as<power_facet>(m_pow_id);
+
+        while (m_pos < m_base_toks.size()) {
+            unsigned i = m_pos++;
+            expr* tok = m_base_toks[i].get();
+
+            // Skip position i when the preceding token is itself a
+            // power - its own m' range already covers this boundary
+            // (mirrors power_var_decompose's identical skip guard and
+            // c3's own).
+            unsigned prev_pidx;
+            if (i > 0 && is_power_token(f, m_base_toks[i - 1].get(), prev_pidx))
+                continue;
+
+            expr_ref_vector prefix(m);
+            for (unsigned j = 0; j < i; ++j)
+                prefix.push_back(m_base_toks[j].get());
+
+            unsigned tok_pidx;
+            expr* fresh_inner_m = nullptr;
+            expr* inner_exp = nullptr;
+            expr_ref suffix_tok(m);
+            if (is_power_token(f, tok, tok_pidx)) {
+                str_power const& q = f.powers()[tok_pidx];
+                inner_exp = q.m_n.get();
+                fresh_inner_m = m_owner->get_or_create_m_var(m_var.get());
+                suffix_tok = expr_ref(u.str.mk_power(q.m_s.get(), fresh_inner_m), m);
+            }
+            else
+                suffix_tok = expr_ref(tok, m);
+
+            expr_ref_vector repl(m);
+            if (m_fwd) {
+                repl.push_back(m_pow_e.get());
+                for (unsigned j = 0; j < prefix.size(); ++j) repl.push_back(prefix[j].get());
+                if (fresh_inner_m) repl.push_back(suffix_tok.get());
+            } else {
+                if (fresh_inner_m) repl.push_back(suffix_tok.get());
+                for (unsigned j = prefix.size(); j-- > 0; ) repl.push_back(prefix[j].get());
+                repl.push_back(m_pow_e.get());
+            }
+
+            broadcast_subst(m_n, m_eq_id, m_var.get(), repl, m_dep);
+            af.add_constraint(a.mk_ge(m_fresh_n.get(), a.mk_int(0)), m_dep);
+            if (fresh_inner_m) {
+                af.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
+                af.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
+            }
+            out = eq_tree::edge("power-gpower-intro:pos", m_dep, true, 0);
+            return true;
+        }
+        return false;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> power_gpower_intro::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        if (cost != 0)
+            return nullptr;
+        auto& f = n.facet_as<power_facet>(m_pow_id);
+        auto& ef = n.facet_as<eq_facet>(m_eq_id);
+
+        unsigned eq_idx;
+        bool fwd;
+        expr_ref_vector ground_prefix_orig(m);
+        expr* var = nullptr;
+        eq_tree::dep_tracker dep;
+        if (!find_gpower_trigger(ef, u, m, eq_idx, fwd, ground_prefix_orig, var, dep))
+            return nullptr;
+
+        // Compress the ground prefix to its minimal repeating period
+        // (token-identity match, since flatten() hash-conses identical
+        // sub-terms to the same expr*).
+        unsigned gn = ground_prefix_orig.size();
+        unsigned period = gn;
+        for (unsigned p = 1; p <= gn / 2; ++p) {
+            if (gn % p != 0)
+                continue;
+            bool match = true;
+            for (unsigned i = p; i < gn && match; ++i)
+                match = ground_prefix_orig[i].get() == ground_prefix_orig[i % p].get();
+            if (match) { period = p; break; }
+        }
+        expr_ref_vector compressed(m);
+        for (unsigned i = 0; i < period; ++i)
+            compressed.push_back(ground_prefix_orig[i].get());
+
+        // If the compressed prefix is a single power token, unwrap it to
+        // its own base tokens (natural order), avoiding a nested
+        // power-of-power - mirrors c3's own unwrap step.
+        if (compressed.size() == 1) {
+            unsigned pidx;
+            if (is_power_token(f, compressed[0].get(), pidx)) {
+                expr_ref_vector inner_base_toks(m);
+                flatten(u, f.powers()[pidx].m_s.get(), inner_base_toks);
+                if (!inner_base_toks.empty()) {
+                    expr_ref_vector rev(m);
+                    if (fwd)
+                        for (unsigned j = 0; j < inner_base_toks.size(); ++j) rev.push_back(inner_base_toks[j].get());
+                    else
+                        for (unsigned j = inner_base_toks.size(); j-- > 0; ) rev.push_back(inner_base_toks[j].get());
+                    compressed = std::move(rev);
+                }
+            }
+        }
+        if (compressed.empty())
+            return nullptr;
+
+        // Build the power's base string in natural (left-to-right)
+        // order: `compressed` is stored in the direction `var` faces
+        // the cycle, which equals natural order when fwd, and is
+        // reversed natural order otherwise.
+        expr_ref_vector natural(m);
+        if (fwd)
+            for (unsigned j = 0; j < compressed.size(); ++j) natural.push_back(compressed[j].get());
+        else
+            for (unsigned j = compressed.size(); j-- > 0; ) natural.push_back(compressed[j].get());
+
+        expr_ref base_str(natural[0].get(), m);
+        for (unsigned j = 1; j < natural.size(); ++j)
+            base_str = expr_ref(u.str.mk_concat(base_str.get(), natural[j].get()), m);
+
+        expr* fresh_n = get_or_create_n_var(var);
+        expr_ref power_expr(u.str.mk_power(base_str.get(), fresh_n), m);
+
+        // Register the fresh power obligation (shared by every branch
+        // this call generates - power_propagation will pick it up on
+        // the very next round in each resulting branch).
+        f.add_power_trailed(power_expr.get(), base_str.get(), fresh_n, dep);
+        has_more = true;
+
+        iterator* it = alloc(iterator, n, m_pow_id, m_eq_id, m_arith_id, var, power_expr.get(), compressed, fresh_n, fwd, dep, m, u, a, this);
+        eq_tree::edge first;
+        if (!it->next(first)) {
+            dealloc(it);
+            return nullptr;
+        }
+        out = first;
+        committed = true;
+        return it;
+    }
+
 } // namespace seq

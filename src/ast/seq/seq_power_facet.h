@@ -140,6 +140,14 @@ namespace seq {
         void add_power(expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) {
             m_pows.push_back(str_power(m, e, s, n, dep));
         }
+        // Trailed variant: for registering a fresh power obligation
+        // introduced mid-search (e.g. power_gpower_intro's fresh
+        // `base^n` skolem power term). Undo just pops the pushed
+        // element.
+        void add_power_trailed(expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) {
+            m_pows.push_back(str_power(m, e, s, n, dep));
+            m_trail.push(push_back_trail<str_power>(m_pows));
+        }
         // Register `e` if it is a `seq.power` term (`e = s^n`); no-op
         // otherwise. Convenience wrapper for callers scanning terms.
         bool add_power_if(expr* e, eq_tree::dep_tracker dep = nullptr) {
@@ -623,6 +631,90 @@ namespace seq {
         power_var_decompose(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-var-decompose"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+    };
+
+    // Generalized power introduction, ported from the c3 branch's
+    // seq_nielsen_modifiers.cpp `apply_gpower_intr`/`fire_gpower_intro`
+    // (facet-eq-deq.md section 2.3). Trigger pattern ("self-cycle"):
+    // some eq_facet equation has, at a directional end (front or back)
+    // of one side, a Nielsen-substitutable variable `v`, while the
+    // *other* side, scanned from the matching end, consists of a
+    // non-empty run of non-variable ("ground") tokens followed by that
+    // *same* variable `v` reappearing. (Transitive cycles spanning
+    // several equations are not detected - c3 leaves this as a TODO
+    // too.)
+    //
+    // On firing: the ground run is compressed to its minimal repeating
+    // period (e.g. `[a,b,a,b]` has period 2, so the power base becomes
+    // `[a,b]` rather than the redundant `[a,b,a,b]`); if the compressed
+    // period is itself a single power token, it is unwrapped to its own
+    // base tokens first (avoiding a nested power-of-power). A fresh
+    // exponent skolem `n` is introduced (per target variable, cached -
+    // mirrors `power_var_decompose`'s own `get_or_create_n_var`, though
+    // this rule keeps a separate cache since its target variables and
+    // c3's own `get_or_create_gpower_n_var` cache are shared across both
+    // rules there - a minor, harmless divergence: at worst two separate
+    // skolems are minted for the same variable across the two rules
+    // rather than one shared skolem), giving `base^n`. Exactly as
+    // `power_var_decompose`, one branch is generated per decomposition
+    // position `i` of the compressed base (skipped when `i>0` and
+    // position `i-1` is itself a power token), substituting
+    // `v := base^n . t_0 . ... . t_{i-1}` (or, at a power-token
+    // position, `v := base^n . t_0 . ... . t_{i-1} . w^m'` with a fresh
+    // partial exponent `0<=m'<=inner_exp`), each with side constraint
+    // `n>=0` (plus `m'>=0`/`m'<=inner_exp` when used). Unlike
+    // `power_var_decompose`, there is no separate "extend past" branch
+    // here - the reappearance of `v` itself at the tail of the ground
+    // run *is* the completion of the cycle, so the decomposition
+    // positions alone are exhaustive (every position up to and
+    // including the last one, where `t_{k-1}` is the token immediately
+    // preceding `v`'s own reappearance, is covered).
+    class power_gpower_intro : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
+        stx::facet_id m_pow_id;
+        stx::facet_id m_eq_id;
+        stx::facet_id m_arith_id;
+
+        // See power_var_decompose's own m_n_cache/m_m_cache comment;
+        // same idiom, separate cache (see class comment above).
+        obj_map<expr, expr*> m_n_cache;
+        obj_map<expr, expr*> m_m_cache;
+
+        expr* get_or_create_n_var(expr* var);
+        expr* get_or_create_m_var(expr* var);
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            stx::facet_id  m_pow_id;
+            stx::facet_id  m_eq_id;
+            stx::facet_id  m_arith_id;
+            expr_ref       m_var;
+            expr_ref       m_pow_e;       // the fresh base^n power token
+            expr_ref_vector m_base_toks;  // compressed ground-prefix base tokens, in the direction v faces the cycle
+            expr_ref       m_fresh_n;     // base^n skolem exponent (shared across all branches below)
+            bool           m_fwd;
+            eq_tree::dep_tracker m_dep;
+            unsigned       m_pos = 0;
+            ast_manager&   m;
+            seq_util&      u;
+            arith_util&    a;
+            power_gpower_intro* m_owner;
+        public:
+            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id,
+                      expr* var, expr* pow_e, expr_ref_vector const& base_toks, expr* fresh_n, bool fwd,
+                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a, power_gpower_intro* owner) :
+                m_n(n), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id), m_var(var, m), m_pow_e(pow_e, m),
+                m_base_toks(base_toks), m_fresh_n(fresh_n, m), m_fwd(fwd), m_dep(dep), m(m), u(u), a(a), m_owner(owner) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        power_gpower_intro(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
+            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        char const* name() const override { return "power-gpower-intro"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
