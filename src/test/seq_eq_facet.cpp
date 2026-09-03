@@ -26,6 +26,9 @@ Author:
 #include <iostream>
 
 namespace {
+    static expr_ref mk_unit_char(ast_manager& m, seq_util& u, char ch) {
+        return expr_ref(u.str.mk_unit(u.str.mk_char(static_cast<unsigned>(ch))), m);
+    }
 
     stx::search_result solve_eq(ast_manager& m, seq_util& u, expr* lhs, expr* rhs, unsigned max_depth = 12) {
         seq::eq_tree tree;
@@ -208,8 +211,8 @@ namespace {
         expr_ref a(u.str.mk_string(zstring("a")), m);
 
         expr_ref_vector lhs(m), rhs(m);
-        lhs.push_back(a); lhs.push_back(X); lhs.push_back(Y);
-        rhs.push_back(X); rhs.push_back(a); rhs.push_back(Y);
+        lhs.push_back(mk_unit_char(m, u, 'a')); lhs.push_back(X); lhs.push_back(Y);
+        rhs.push_back(X); rhs.push_back(mk_unit_char(m, u, 'a')); rhs.push_back(Y);
 
         unsigned split_lhs = 0, split_rhs = 0;
         int padding = 0;
@@ -236,7 +239,7 @@ namespace {
 
         expr_ref_vector lhs(m), rhs(m);
         lhs.push_back(X);
-        rhs.push_back(a);
+        rhs.push_back(mk_unit_char(m, u, 'a'));
 
         unsigned split_lhs = 0, split_rhs = 0;
         int padding = 0;

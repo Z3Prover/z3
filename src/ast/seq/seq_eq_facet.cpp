@@ -22,32 +22,13 @@ Author:
 
 namespace seq {
 
-    // NSB code review: this is inadequate.
-    // Either match against a unit or a unit const.
-    // pre-processing (flatten) should ensure that there are no strings at all. 
-    // The interface contract to facets should enforce that concatentations are pre-split and strings are compiled to concatentations of units.
-    // Then remove "flatten" and update the datatype for mem_facet to have the sequence be a concatenation as well.
     bool is_const_token(seq_util& u, expr* e) {
-        zstring s;
-        return u.str.is_string(e, s) && s.length() == 1;
+        expr* ch = nullptr;
+        return u.str.is_unit(e, ch) && u.is_const_char(ch);
     }
 
     void flatten(seq_util& u, expr* e, expr_ref_vector& out) {
-        expr* a = nullptr, *b = nullptr;
-        if (u.str.is_concat(e, a, b)) {
-            flatten(u, a, out);
-            flatten(u, b, out);
-            return;
-        }
-        zstring s;
-        if (u.str.is_string(e, s)) {
-            for (unsigned i = 0; i < s.length(); ++i)
-                out.push_back(u.str.mk_string(zstring(s[i])));
-            return;
-        }
-        if (u.str.is_empty(e))
-            return;
-        out.push_back(e);
+        u.str.get_concat_units(e, out);
     }
 
     static int cmp_tokens(expr_ref_vector const& a, expr_ref_vector const& b) {
@@ -84,9 +65,6 @@ namespace seq {
         }
     }
 
-    // NSB code review: the accumulated substitution should be collected somewhere, such as in eq_facet.
-    // application of substitution should always be broadcast among facets so include a central dispatcher
-    // that propagators use?
     void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
             bool touched_l = subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);
@@ -102,6 +80,13 @@ namespace seq {
         eq_facet* f = alloc(eq_facet, trail, m, u, m_dm);
         f->m_eqs.append(m_eqs);
         return f;
+    }
+
+    ambient_context_i<eq_tree::dep_tracker> const& eq_facet::ambient(eq_tree::node const& n) const {
+        if (auto* ac = dynamic_cast<ambient_context_i<eq_tree::dep_tracker>*>(n.ambient()))
+            return *ac;
+        static null_ambient_context<eq_tree::dep_tracker> null_ac(m, u);
+        return null_ac;
     }
 
     unsigned eq_facet::hash() const {
@@ -131,9 +116,6 @@ namespace seq {
                 return false;
         return true;
     }
-
-    // NSB code review: This calls "flatten". Use instead a shared get_concats from seq_util with guarantees about splitting 
-    // string expressions into concatentations of unit characters.
 
     bool eq_facet::simplify_equation(unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
@@ -242,19 +224,13 @@ namespace seq {
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
-    // NSB code review: there is no real reason to have broadcast_subst filter out on id == eq_id.
-    // everywhere it is used, it uses apply_subst on the eq_facet. It may as well do it inside this function.
-    // Then expose this mixin as a function that other propagators can access. 
-    // Make apply_subst on eq_facet private. It should not be used, instead broadcast_subst should be used.
-
-    // Broadcast a substitution chosen by eq_facet's Nielsen split to every
-    // other facet in `target` that implements subst_sink_i (e.g.
-    // deq_facet), so their state stays consistent with the branch. `eq_id`
-    // is skipped since the caller has already applied the substitution to
-    // that facet directly.
-    static void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
+    // Centralized substitution dispatcher: apply the substitution to the
+    // eq_facet itself, then broadcast it to every other subst_sink_i in
+    // the same node so all token-based facets stay synchronized.
+    void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
+        target.facet_as<eq_facet>(eq_id).apply_subst(var, repl, subst_dep);
         for (unsigned id = 0; id < target.num_facets(); ++id) {
-            if (id == eq_id || !target.has_facet(id))
+            if (!target.has_facet(id) || id == eq_id)
                 continue;
             if (auto* sink = dynamic_cast<subst_sink_i*>(&target.facet(id)))
                 sink->apply_subst(var, repl, subst_dep);
@@ -265,36 +241,40 @@ namespace seq {
         if (m_pos >= m_pending.size())
             return false;
         auto& a = m_pending[m_pos++];
-        m_n.facet_as<eq_facet>(m_id).apply_subst(a.m_var, a.m_repl, a.m_dep);
         broadcast_subst(m_n, m_id, a.m_var, a.m_repl, a.m_dep);
         out = eq_tree::edge(a.m_name, a.m_dep, true, 0);
         return true;
     }
 
-    // NSB code review: is_const_token should not be used.
-    // The cases are: is_var(lh), is_var(rh), is_unit(rh), is_unit(lh).
-    // where is_var is defined in the ambient content. 
-    // use m.is_diseq to flag conflicts when two unit heads are handled.
-    // accumulate equations on characters when they are not unique values. Add the equations to the sub-solver and in a self-contained substitution for characters.
-    // 
     scoped_ptr<eq_tree::split_iterator_i> word_eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
         if (cost != 0)
             return nullptr;
         auto& f = n.facet_as<eq_facet>(m_id);
+        auto const& ambient = f.ambient(n);
 
         for (auto const& eq : f.equations()) {
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue; // fully resolved by propagation; shouldn't occur
             expr* lh = eq.m_lhs[0];
             expr* rh = eq.m_rhs[0];
-            bool lc = is_const_token(u, lh);
-            bool rc = is_const_token(u, rh);
-            if (lc && rc)
-                continue; // resolved by propagation
-            if (!lc && !rc && lh == rh)
-                continue; // resolved by propagation
+            bool lv = ambient.is_var(lh);
+            bool rv = ambient.is_var(rh);
+            bool lu = u.str.is_unit(lh);
+            bool ru = u.str.is_unit(rh);
+            if (lh == rh)
+                continue;
+            if (lu && ru) {
+                expr* lch = nullptr, *rch = nullptr;
+                VERIFY(u.str.is_unit(lh, lch));
+                VERIFY(u.str.is_unit(rh, rch));
+                if (m.are_distinct(lch, rch))
+                    continue;
+                if (lch == rch)
+                    continue;
+                continue;
+            }
 
             // Every alternative below is a case-split on how to unstick
             // this one equation, so all of them (and the immediately
@@ -302,7 +282,7 @@ namespace seq {
             // equation's own dependency, not a join of several.
             eq_tree::dep_tracker eq_dep = eq.m_dep;
 
-            if (!lc && !rc) {
+            if ((lv || !lu) && (rv || !ru)) {
                 // Two distinct variables lh, rh: the classic 4-branch
                 // Nielsen transformation for word equations (design doc
                 // facet-eq-deq.md section 2.2 / c3 branch's
@@ -346,16 +326,15 @@ namespace seq {
                 // Materialize the first branch ("v1:=eps") now, in the
                 // scope the driver already pushed for this call.
                 expr_ref_vector empty(m);
-                f.apply_subst(v1, empty, eq_dep);
                 broadcast_subst(n, m_id, v1, empty, eq_dep);
                 out = eq_tree::edge("v1:=eps", eq_dep, true, 0);
                 committed = true;
                 return it;
             }
 
-            // one side is a variable, the other a constant
-            expr* var = lc ? rh : lh;
-            expr* c = lc ? lh : rh;
+            // one side is a variable, the other a unit token
+            expr* var = lv || !lu ? lh : rh;
+            expr* c = lv || !lu ? rh : lh;
             sort* s = var->get_sort();
             expr* var2 = f.mk_fresh_var(s);
 
@@ -370,7 +349,6 @@ namespace seq {
             // Materialize the first branch ("v:=eps") now, in the scope
             // the driver already pushed for this call.
             expr_ref_vector empty(m);
-            f.apply_subst(var, empty, eq_dep);
             broadcast_subst(n, m_id, var, empty, eq_dep);
             out = eq_tree::edge("v:=eps", eq_dep, true, 0);
             committed = true;

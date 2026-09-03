@@ -36,14 +36,6 @@ namespace seq {
             out = expr_ref(u.str.mk_concat(ts.size(), ts.data(), ts.empty() ? u.str.mk_string_sort() : ts[0]->get_sort()), m);
         }
 
-        void broadcast_subst(eq_tree::node& target, stx::facet_id src_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
-            for (unsigned id = 0; id < target.num_facets(); ++id) {
-                if (id == src_id || !target.has_facet(id))
-                    continue;
-                if (auto* sink = dynamic_cast<subst_sink_i*>(&target.facet(id)))
-                    sink->apply_subst(var, repl, subst_dep);
-            }
-        }
     }
 
     void mem_facet::add(str_mem const& sm) {
@@ -120,9 +112,8 @@ namespace seq {
             bool bad = false;
             for (expr* t : ts) {
                 if (!is_const_token(u, t)) { bad = true; break; }
-                zstring z;
-                VERIFY(u.str.is_string(t, z) && z.length() == 1);
-                expr_ref elem(u.str.mk_char(z, 0), m_rw.m());
+                expr* elem = nullptr;
+                VERIFY(u.str.is_unit(t, elem));
                 cur = m_rw.mk_derivative(elem, cur);
                 if (u.re.is_empty(cur)) {
                     n.set_conflict(stx::br_plugin_base, sm.m_dep);
@@ -171,7 +162,6 @@ namespace seq {
         expr_ref_vector repl(eq.get_manager());
         expr* fresh = eq.mk_fresh_var(m_var->get_sort());
         repl.push_back(fresh);
-        eq.apply_subst(m_var, repl, m_dep);
         broadcast_subst(m_n, m_eq_id, m_var, repl, m_dep);
         out = eq_tree::edge("mem-v:=v'", nullptr, true, 0);
         return true;
@@ -194,7 +184,6 @@ namespace seq {
             iterator* it = alloc(iterator, n, m_mem_id, m_eq_id, i, var, dep);
             auto& eq = n.facet_as<eq_facet>(m_eq_id);
             expr_ref_vector empty(eq.get_manager());
-            eq.apply_subst(var, empty, dep);
             broadcast_subst(n, m_eq_id, var, empty, dep);
             out = eq_tree::edge("mem-v:=eps", nullptr, true, 0);
             committed = true;

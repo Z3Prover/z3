@@ -111,7 +111,7 @@ namespace seq {
                     rhs = mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned());
                 expr_ref_vector repl(m);
                 flatten(u, rhs.get(), repl);
-                ef.apply_subst(p.m_e.get(), repl, p.m_dep);
+                broadcast_subst(n, m_eq_id, p.m_e.get(), repl, p.m_dep);
                 f.remove(i);
                 changed = true;
                 continue;
@@ -383,7 +383,7 @@ namespace seq {
         expr_ref rhs = mk_power_unfold(u, m, p.m_s.get(), j);
         expr_ref_vector repl(m);
         flatten(u, rhs.get(), repl);
-        ef.apply_subst(p.m_e.get(), repl, m_dep);
+        broadcast_subst(m_n, m_eq_id, p.m_e.get(), repl, m_dep);
         af.add_constraint(m.mk_eq(p.m_n.get(), a.mk_int(j)), m_dep);
         f.remove(m_pow_index);
 
@@ -412,7 +412,7 @@ namespace seq {
             // First branch: n <= 0, e := epsilon (the "n <= 0" case of
             // power_axiom/power_unfold_axiom).
             expr_ref_vector empty(m);
-            ef.apply_subst(p.m_e.get(), empty, dep);
+            broadcast_subst(n, m_eq_id, p.m_e.get(), empty, dep);
             af.add_constraint(a.mk_le(p.m_n.get(), a.mk_int(0)), dep);
             f.remove(i);
 
@@ -513,4 +513,3 @@ namespace seq {
     }
 
 } // namespace seq
-

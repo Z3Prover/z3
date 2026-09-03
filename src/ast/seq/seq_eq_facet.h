@@ -70,6 +70,7 @@ Author:
 
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/seq/seq_ambient_context.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
@@ -95,7 +96,7 @@ namespace seq {
     // token. `u` must be the seq_util of `e`'s ast_manager.
     void flatten(seq_util& u, expr* e, expr_ref_vector& out);
 
-    // Is `e` a length-1 string constant?
+    // Is `e` a `seq.unit` wrapping a constant character?
     bool is_const_token(seq_util& u, expr* e);
 
     // Replace every occurrence of `var` in `ts` with the tokens of `repl`
@@ -269,8 +270,6 @@ namespace seq {
         // (see subst_in_trailed). Each touched equation's dependency is
         // joined with `subst_dep` (the justification for the
         // substitution itself), also trailed.
-        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
-
         // Allocate a fresh opaque variable token of `s`'s sort.
         expr* mk_fresh_var(sort* s) { return m.mk_fresh_const("t", s); }
 
@@ -291,8 +290,10 @@ namespace seq {
         // `conflict_dep` to the dependency of the equation that produced
         // the contradiction. See module comment.
         bool simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep);
+        ambient_context_i<eq_tree::dep_tracker> const& ambient(eq_tree::node const& n) const;
 
     private:
+        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
         // Simplify a single equation (by index into m_eqs) using
         // seq_rewriter::reduce_eq. Returns false and sets conflict=true
         // (and conflict_dep to the culprit equation's dependency) if the
@@ -301,7 +302,10 @@ namespace seq {
         // sub-equations were appended to m_eqs. On success, if both sides
         // reduced to empty, the equation is erased (trailed).
         bool simplify_equation(unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
+        friend void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
     };
+
+    void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
 
     // Deterministic propagation plugin wrapping eq_facet::simplify.
     class eq_propagation : public eq_tree::propagation_plugin_i {
