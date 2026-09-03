@@ -677,6 +677,15 @@ namespace opt {
             Z3_fallthrough;
         case O_MAXIMIZE:
             val = (*mdl)(obj.m_term);
+            // The model can pin the objective to an irrational algebraic
+            // value (e.g. sqrt(2) under x^2 = 2). Compare against the sound
+            // side of its rational isolating interval instead: a lower bound
+            // in term >= value, an upper bound in term <= value, whose
+            // negation still demands a genuine strict improvement. The old
+            // fallback to "true" let the Pareto loop keep dominated models
+            // and stop enumerating the front after one point.
+            if (!is_numeral(val, k) && model_value_bound(m_arith, val, is_ge, k))
+                val = m_arith.mk_numeral(k, false);
             if (is_numeral(val, k)) {
                 if (is_ge) {
                     result = mk_ge(obj.m_term, val);
@@ -1555,7 +1564,11 @@ namespace opt {
             case O_MINIMIZE: {
                 val = (*m_model)(obj.m_term);
                 TRACE(opt, tout << obj.m_term << " " << val << "\n";);
-                if (is_numeral(val, r)) {
+                // An irrational algebraic value contributes the side of its
+                // isolating interval that stays sound after the sign
+                // adjustment: adjust_value negates a minimization term,
+                // turning a lower bound of the value into an upper one.
+                if (is_numeral(val, r) || model_value_bound(m_arith, val, is_lower != obj.m_adjust_value.get_negate(), r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     TRACE(opt, tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {
@@ -1570,7 +1583,7 @@ namespace opt {
             case O_MAXIMIZE: {
                 val = (*m_model)(obj.m_term);
                 TRACE(opt, tout << obj.m_term << " " << val << "\n";);
-                if (is_numeral(val, r)) {
+                if (is_numeral(val, r) || model_value_bound(m_arith, val, is_lower != obj.m_adjust_value.get_negate(), r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     TRACE(opt, tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {

@@ -252,20 +252,31 @@ namespace opt {
         return true;
     }
 
-    // Extract from a model value of an objective a rational the model proves
-    // attainable. A rational numeral is the value itself. An irrational
-    // algebraic value (e.g. 1/sqrt(2) for an objective pinned by nonlinear
-    // equations) does not fit in inf_eps; a rational lower bound of its
-    // isolating interval is still a sound floor, since optsmt objectives are
-    // always maximized. Without this floor the objective value stays -oo and
-    // geometric_lex reports -oo as the optimum of a satisfiable objective;
-    // the exact algebraic optimum is recovered later by the nlsat fallback.
-    bool opt_solver::model_objective_floor(expr* value, rational& r) {
-        arith_util a(m);
-        if (a.is_numeral(value, r))
+    // An irrational algebraic model value (e.g. 1/sqrt(2) for an objective
+    // pinned by nonlinear equations) does not fit in inf_eps; the requested
+    // side of its isolating interval is still a sound bound - a floor, since
+    // optsmt objectives are always maximized. Without the floor the objective
+    // value stays -oo and geometric_lex reports -oo as the optimum of a
+    // satisfiable objective; the exact algebraic optimum is recovered later
+    // by the nlsat fallback. The interval side is rounded outward to 12
+    // decimal digits to keep the constant decimal-like: bounds derived from
+    // it are asserted back into the solver, and the deep dyadic denominators
+    // of the raw interval bounds (2^-40 and finer) look like derived-bound
+    // artifacts to the nonlinear solver (nra_solver::is_dyadic_artifact),
+    // which drops such constraints and answers unknown.
+    bool model_value_bound(arith_util& a, expr* val, bool lower, rational& n) {
+        if (a.is_numeral(val, n))
             return true;
-        if (a.is_irrational_algebraic_numeral(value)) {
-            a.am().get_lower(a.to_irrational_algebraic_numeral(value), r, 40);
+        if (a.is_irrational_algebraic_numeral(val)) {
+            rational const den = rational(10).expt(12);
+            if (lower) {
+                a.am().get_lower(a.to_irrational_algebraic_numeral(val), n, 40);
+                n = floor(n * den) / den;
+            }
+            else {
+                a.am().get_upper(a.to_irrational_algebraic_numeral(val), n, 40);
+                n = ceil(n * den) / den;
+            }
             return true;
         }
         return false;
@@ -277,7 +288,7 @@ namespace opt {
         arith_util a(m);
         rational r;
         expr_ref obj_val = (*baseline_model)(m_objective_terms.get(i));
-        if (model_objective_floor(obj_val, r) && inf_eps(r) > m_objective_values[i]) {
+        if (model_value_bound(a, obj_val, true, r) && inf_eps(r) > m_objective_values[i]) {
             m_objective_values[i] = inf_eps(r);
             if (!m_objective_models[i])
                 m_objective_models.set(i, baseline_model.get());
@@ -362,9 +373,10 @@ namespace opt {
         // current optimal.
         // 
         auto update_objective = [&]() {
+            arith_util a(m);
             rational r;
             expr_ref value = (*m_model)(m_objective_terms.get(i));
-            if (model_objective_floor(value, r) && inf_eps(r) > m_objective_values[i])
+            if (model_value_bound(a, value, true, r) && inf_eps(r) > m_objective_values[i])
                 m_objective_values[i] = inf_eps(r);
         };
 
