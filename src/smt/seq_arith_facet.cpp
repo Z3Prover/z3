@@ -103,9 +103,10 @@ namespace seq {
 
     // -- arith_facet --
 
-    bool arith_facet::add_constraint(expr* c, eq_tree::dep_tracker dep) {
+    bool arith_facet::add_constraint(expr* c0, eq_tree::dep_tracker dep) {
+        expr_ref c(c0, m); // guard against a fresh, ref-count-0 term being collected before m_own retains it
         for (expr* e : m_own)
-            if (e == c)
+            if (e == c.get())
                 return false; // already recorded (propagate may revisit the same equation across simplify rounds)
         if (m_trail.get_num_scopes() != m_pushed_at_scope) {
             unsigned cur_scope = m_trail.get_num_scopes();

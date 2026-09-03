@@ -44,6 +44,7 @@ namespace {
         seq::arith_propagation   aprop;
         seq::power_propagation   pprop;
         seq::power_split         psplit;
+        seq::power_fine_wilf     pfw;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -55,12 +56,14 @@ namespace {
             arith_id(tree.register_facet<seq::arith_facet>(*root, m, u, solver)),
             pow_id(tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr())),
             eprop(eq_id), esplit(m, u, eq_id), aprop(arith_id, eq_id),
-            pprop(m, u, a, pow_id, eq_id, arith_id), psplit(m, u, a, pow_id, eq_id, arith_id)
+            pprop(m, u, a, pow_id, eq_id, arith_id), psplit(m, u, a, pow_id, eq_id, arith_id),
+            pfw(m, u, a, pow_id, eq_id, arith_id)
         {
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&aprop);
             tree.add_propagation_plugin(&pprop);
             tree.add_split_plugin(&psplit);
+            tree.add_split_plugin(&pfw);
             tree.add_split_plugin(&esplit);
             tree.set_max_search_depth(20);
         }
@@ -157,6 +160,58 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
+    // Fine & Wilf trigger, arithmetic-only conflict: e_u = X^n (base X),
+    // e_w = Y^m (base Y, distinct term from X) with equation e_u = e_w
+    // (Y-run empty, so this is exactly power_fine_wilf's trigger
+    // pattern with two *distinct* bases). Forcing len(e_u) way past any
+    // bound power_split could ever unfold to (n is left otherwise
+    // unconstrained) must still be refutable: arith_propagation's
+    // automatic add_length_constraint over this same equation forces
+    // len(e_u)=len(e_w), and power_fine_wilf's case-1 side constraint
+    // `len(e_u)-0 < T \/ len(e_w) < T` (T = len(X)+len(Y) = 2, since X,Y
+    // are both length-1 fresh string constants) then has no way to hold
+    // once len(e_u)=len(e_w)=1000, exercising the plugin's arithmetic
+    // path directly rather than power_split's bounded combinatorial
+    // unfold (whose default bound of 5 could never itself witness or
+    // refute an exponent this large).
+    static void tst_fine_wilf_large_exponent_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref M(fx.m.mk_fresh_const("M", fx.a.mk_int()), fx.m);
+        expr_ref e_u(fx.u.str.mk_power(X, N), fx.m);
+        expr_ref e_w(fx.u.str.mk_power(Y, M), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_u, X, N);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_w, Y, M);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_u, e_w);
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(1)));
+        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(e_u), fx.a.mk_int(1000)));
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
+    // Same trigger pattern but a satisfiable instance: e_u = X^n,
+    // e_w = Y^m, X and Y both length 1, with equation e_u = e_w and no
+    // additional constraint pinning down the (equal, but otherwise
+    // free) common length - sat via n = m = 0 (both sides epsilon).
+    static void tst_fine_wilf_sat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref M(fx.m.mk_fresh_const("M", fx.a.mk_int()), fx.m);
+        expr_ref e_u(fx.u.str.mk_power(X, N), fx.m);
+        expr_ref e_w(fx.u.str.mk_power(Y, M), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_u, X, N);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_w, Y, M);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_u, e_w);
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
 } // namespace
 
 void tst_seq_power_facet() {
@@ -166,6 +221,11 @@ void tst_seq_power_facet() {
     tst_power_symbolic_length_conflict_unsat();
     std::cout << "=== test5 ===\n" << std::flush;
     tst_power_symbolic_split_sat();
+    std::cout << "=== test5b ===\n" << std::flush;
     tst_power_symbolic_split_unsat();
+    std::cout << "=== test5c ===\n" << std::flush;
+    tst_fine_wilf_sat();
+    std::cout << "=== test5d ===\n" << std::flush;
+    tst_fine_wilf_large_exponent_unsat();
     std::cout << "seq_power_facet: all tests passed\n";
 }
