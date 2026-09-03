@@ -3,7 +3,7 @@
 
 src/api/dotnet/Properties/AssemblyInfo.cs text eol=crlf
 
-.github/workflows/*.lock.yml linguist-generated=true merge=ours
+.github/workflows/*.lock.yml linguist-generated=true
 
 # Use bd merge for beads JSONL files
 .beads/issues.jsonl merge=beads
