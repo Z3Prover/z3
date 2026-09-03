@@ -151,6 +151,7 @@
     X(zstring)
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
+    X(seq_parikh_long) \
     X(tptp) \
     X(tptp_crashes) \
     X(ext_numeral) \
