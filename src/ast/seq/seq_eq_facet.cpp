@@ -242,6 +242,11 @@ namespace seq {
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
+    // NSB code review: there is no real reason to have broadcast_subst filter out on id == eq_id.
+    // everywhere it is used, it uses apply_subst on the eq_facet. It may as well do it inside this function.
+    // Then expose this mixin as a function that other propagators can access. 
+    // Make apply_subst on eq_facet private. It should not be used, instead broadcast_subst should be used.
+
     // Broadcast a substitution chosen by eq_facet's Nielsen split to every
     // other facet in `target` that implements subst_sink_i (e.g.
     // deq_facet), so their state stays consistent with the branch. `eq_id`
