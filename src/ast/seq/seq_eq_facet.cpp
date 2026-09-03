@@ -259,12 +259,25 @@ namespace seq {
                 continue; // fully resolved by propagation; shouldn't occur
             expr* lh = eq.m_lhs[0];
             expr* rh = eq.m_rhs[0];
-            bool lv = ambient.is_var(lh);
-            bool rv = ambient.is_var(rh);
             bool lu = u.str.is_unit(lh);
             bool ru = u.str.is_unit(rh);
+            bool lp = u.str.is_power(lh);
+            bool rp = u.str.is_power(rh);
             if (lh == rh)
                 continue;
+            if (lp || rp)
+                // Power tokens are neither units nor Nielsen-substitutable
+                // variables - they are owned exclusively by power_facet's
+                // own dedicated rule family (power_propagation/
+                // power_split/power_fine_wilf/power_num_cmp/
+                // power_split_elim; see facet-eq-deq.md section 2.3).
+                // Substituting a power token wholesale here (as
+                // v:=epsilon or v:=c.v') would be unsound/redundant with
+                // that machinery, so word_eq_split simply skips any
+                // equation whose head is a power on either side.
+                continue;
+            bool lv = ambient.is_var(lh);
+            bool rv = ambient.is_var(rh);
             if (lu && ru) {
                 expr* lch = nullptr, *rch = nullptr;
                 VERIFY(u.str.is_unit(lh, lch));

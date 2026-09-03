@@ -98,9 +98,22 @@ namespace seq {
         // opposed to an interpreted/structured term such as a
         // concatenation, string literal, unit, itos, nth, map/mapi/
         // foldl/foldli application, or ite) - i.e. is it safe for a split
-        // plugin (word_eq_split, power_split, etc.) to treat `e` as a
+        // plugin (word_eq_split, etc.) to treat `e` as a
         // Nielsen-transformation variable and substitute it wholesale?
-        // Replaces the c3 branch's `euf::snode::is_var()`.
+        // Replaces the c3 branch's `euf::snode::is_var()`. NOTE: this
+        // predicate (kept identical to `theory_seq`/`eq_solver::is_var`
+        // for compatibility with model construction, e.g.
+        // `theory_seq::mk_value`/`init_model`) does NOT by itself exclude
+        // power tokens (`seq.power`). Per the token model in
+        // z3papers/nseq's README.md section 5.1.1, a token is exactly one
+        // of unit/power/variable, and classic Nielsen splitting must only
+        // ever treat unit/variable heads as substitutable - power tokens
+        // are owned exclusively by power_facet's own dedicated rule
+        // family (power_propagation/power_split/power_fine_wilf/
+        // power_num_cmp/power_split_elim). Callers that need the strict
+        // three-way token classification (e.g. word_eq_split::split)
+        // must additionally check `u.str.is_power(e)` themselves and
+        // exclude/skip it before consulting `is_var`.
         virtual bool is_var(expr* e) const = 0;
 
         // Best current lower/upper bound on the (integer/arithmetic)
