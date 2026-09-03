@@ -253,12 +253,29 @@ void tst_seq_parikh() {
     }
 
     test_shared_alphabet();
-    for (unsigned n = 1; n <= 4; ++n) {
+    // Only the random grids that finish in a few seconds run here. The
+    // larger grids spend most of their time on systems that exhaust the
+    // resource bound and read as `allowed`, which no assertion consumes;
+    // they run in seq_parikh_long, only when named (see FOR_EACH_EXTRA_TEST
+    // in main.cpp).
+    for (unsigned n = 1; n <= 2; ++n) {
         test_random(80, 1, n);
     }
-    for (unsigned n = 1; n <= 3; ++n) {
+    for (unsigned n = 1; n <= 2; ++n) {
         test_random(25, 2, n);
     }
     std::cout << "seq_parikh: " << g_checks << " directed cases, " << g_failures << " failures" << std::endl;
+    ENSURE(g_failures == 0);
+}
+
+// The random grids dominated by the resource bound (about 1.5 minutes).
+// Not part of `test-z3 -a`; run as `test-z3 seq_parikh_long`.
+void tst_seq_parikh_long() {
+    g_failures = 0;
+    for (unsigned n = 3; n <= 4; ++n) {
+        test_random(80, 1, n);
+    }
+    test_random(25, 2, 3);
+    std::cout << "seq_parikh_long: " << g_failures << " failures" << std::endl;
     ENSURE(g_failures == 0);
 }
