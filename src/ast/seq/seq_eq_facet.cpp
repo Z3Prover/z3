@@ -271,6 +271,12 @@ namespace seq {
         return true;
     }
 
+    // NSB code review: is_const_token should not be used.
+    // The cases are: is_var(lh), is_var(rh), is_unit(rh), is_unit(lh).
+    // where is_var is defined in the ambient content. 
+    // use m.is_diseq to flag conflicts when two unit heads are handled.
+    // accumulate equations on characters when they are not unique values. Add the equations to the sub-solver and in a self-contained substitution for characters.
+    // 
     scoped_ptr<eq_tree::split_iterator_i> word_eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
