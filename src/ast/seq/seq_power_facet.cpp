@@ -16,6 +16,7 @@ Author:
 --*/
 #include "ast/seq/seq_power_facet.h"
 #include "ast/seq/seq_arith_facet_i.h"
+#include "ast/ast_pp.h"
 
 namespace seq {
 
@@ -76,6 +77,13 @@ namespace seq {
         return true;
     }
 
+    std::ostream& power_facet::display(std::ostream& out) const {
+        out << "power_facet: " << m_pows.size() << " power obligation(s)\n";
+        for (auto const& p : m_pows)
+            out << "  " << mk_pp(p.m_e.get(), m) << " = " << mk_pp(p.m_s.get(), m) << "^" << mk_pp(p.m_n.get(), m) << "\n";
+        return out;
+    }
+
     // Build the concatenation of `j` copies of `s` (j >= 1), reusing
     // `flatten`/`u.str.mk_concat` conventions from eq_facet - but since
     // this is destined for eq_facet::add_equation (which itself flattens
@@ -92,6 +100,7 @@ namespace seq {
         auto& f = n.facet_as<power_facet>(m_pow_id);
         auto& ef = n.facet_as<eq_facet>(m_eq_id);
         auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+        m_stats.m_num_propagate++;
 
         bool changed = false;
         for (unsigned i = 0; i < f.powers().size(); ) {
@@ -364,6 +373,7 @@ namespace seq {
         iterator* it = alloc(iterator, n, m_pow_id, m_eq_id, m_arith_id, t, 2u, m, u, a);
         out = eq_tree::edge("fine-wilf:case1", dep, true, 0);
         committed = true;
+        m_stats.m_num_splits++;
         return it;
     }
 
@@ -419,6 +429,7 @@ namespace seq {
             iterator* it = alloc(iterator, n, m_pow_id, m_eq_id, m_arith_id, i, bound, dep, m, u, a);
             out = eq_tree::edge("power:n<=0", dep, true, 0);
             committed = true;
+            m_stats.m_num_splits++;
             return it;
         }
         return nullptr;
@@ -509,6 +520,7 @@ namespace seq {
         iterator* it = alloc(iterator, n, m_arith_id, lexp, rexp, dep, m, a);
         out = eq_tree::edge("power-cmp:<", dep, true, 0);
         committed = true;
+        m_stats.m_num_splits++;
         return it;
     }
 
@@ -686,6 +698,7 @@ namespace seq {
         iterator* it = alloc(iterator, n, m_arith_id, pow_exp, count, dep, m, a);
         out = eq_tree::edge("power-split-elim:>", dep, true, 0);
         committed = true;
+        m_stats.m_num_splits++;
         return it;
     }
 
@@ -803,6 +816,7 @@ namespace seq {
         iterator* it = alloc(iterator, n, m_pow_id, m_eq_id, m_arith_id, eq_idx, pow_on_lhs, fwd, pow_idx, var, dep, m, u, a);
         out = eq_tree::edge("power-var-peel:n=0", dep, true, 0);
         committed = true;
+        m_stats.m_num_splits++;
         return it;
     }
 
@@ -999,6 +1013,7 @@ namespace seq {
         }
         out = first;
         committed = true;
+        m_stats.m_num_splits++;
         return it;
     }
 
@@ -1240,6 +1255,7 @@ namespace seq {
         }
         out = first;
         committed = true;
+        m_stats.m_num_splits++;
         return it;
     }
 

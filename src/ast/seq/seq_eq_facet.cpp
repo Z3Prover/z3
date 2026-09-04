@@ -16,6 +16,7 @@ Author:
 --*/
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_arith_facet_i.h"
+#include "ast/ast_pp.h"
 #include <algorithm>
 #include <cstdlib>
 #include <utility>
@@ -118,6 +119,18 @@ namespace seq {
         return true;
     }
 
+    std::ostream& eq_facet::display(std::ostream& out) const {
+        out << "eq_facet: " << m_eqs.size() << " equation(s)\n";
+        for (auto const& eq : m_eqs) {
+            out << "  ";
+            for (expr* t : eq.m_lhs) out << mk_pp(t, m) << " ";
+            out << "= ";
+            for (expr* t : eq.m_rhs) out << mk_pp(t, m) << " ";
+            out << "\n";
+        }
+        return out;
+    }
+
     bool eq_facet::simplify_equation(eq_tree::node& n, stx::facet_id id, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
         eq_tree::dep_tracker parent_dep = eq.m_dep;
@@ -218,7 +231,10 @@ namespace seq {
         auto& f = n.facet_as<eq_facet>(m_id);
         bool conflict = false;
         eq_tree::dep_tracker conflict_dep = nullptr;
+        m_stats.m_num_propagate++;
         bool changed = f.simplify(n, m_id, conflict, conflict_dep);
+        if (changed)
+            m_stats.m_num_progress++;
         if (conflict) {
             n.set_conflict(stx::br_plugin_base, conflict_dep);
             return stx::simplify_result::conflict;
@@ -350,6 +366,7 @@ namespace seq {
                     broadcast_subst(n, m_id, var_tok, repl, eq_dep);
                     out = eq_tree::edge("char-eq", eq_dep, true, 0);
                     committed = true;
+                    m_stats.m_num_splits++;
                     return nullptr;
                 }
 
@@ -407,6 +424,7 @@ namespace seq {
                     broadcast_subst(n, m_id, v1, empty, eq_dep);
                     out = eq_tree::edge("v1:=eps", eq_dep, true, 0);
                     committed = true;
+                    m_stats.m_num_splits++;
                     return it;
                 }
 
@@ -430,6 +448,7 @@ namespace seq {
                 broadcast_subst(n, m_id, var, empty, eq_dep);
                 out = eq_tree::edge("v:=eps", eq_dep, true, 0);
                 committed = true;
+                m_stats.m_num_splits++;
                 return it;
             }
         }
@@ -589,6 +608,7 @@ namespace seq {
 
             out = eq_tree::edge("eq-split", eq_dep, true, 0);
             committed = true;
+            m_stats.m_num_splits++;
             return nullptr; // single deterministic progress branch, no resumable iterator
         }
         return nullptr;
@@ -645,6 +665,7 @@ namespace seq {
             broadcast_subst(n, m_eq_id, tok, repl1, eq_dep);
             out = eq_tree::edge("ite-split-then", eq_dep, true, 0);
             committed = true;
+            m_stats.m_num_splits++;
 
             // Branch 2 ("else"): resumed lazily via the returned iterator,
             // asserting `!cond` and substituting by else_e's token list.
@@ -709,6 +730,18 @@ namespace seq {
         return true;
     }
 
+    std::ostream& deq_facet::display(std::ostream& out) const {
+        out << "deq_facet: " << m_diseqs.size() << " disequation(s)\n";
+        for (auto const& dq : m_diseqs) {
+            out << "  ";
+            for (expr* t : dq.m_lhs) out << mk_pp(t, m) << " ";
+            out << "!= ";
+            for (expr* t : dq.m_rhs) out << mk_pp(t, m) << " ";
+            out << "\n";
+        }
+        return out;
+    }
+
     bool deq_facet::simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep) {
         conflict = false;
         conflict_dep = nullptr;
@@ -770,6 +803,7 @@ namespace seq {
         auto& f = n.facet_as<deq_facet>(m_id);
         bool conflict = false;
         eq_tree::dep_tracker conflict_dep = nullptr;
+        m_stats.m_num_propagate++;
         bool changed = f.simplify(conflict, conflict_dep);
         if (conflict) {
             n.set_conflict(stx::br_plugin_base, conflict_dep);
@@ -835,6 +869,7 @@ namespace seq {
             af.add_constraint(af.get_arith_util().mk_lt(len_lhs, len_rhs), dq_dep);
             out = eq_tree::edge("diseq len<", dq_dep, true, 0);
             committed = true;
+            m_stats.m_num_splits++;
             return it;
         }
         return nullptr;

@@ -241,6 +241,7 @@ namespace seq {
         // probe, symmetric and side-effect-free by construction, so it
         // needs no undo registration).
         lbool implies(expr* c) const override;
+        std::ostream& display(std::ostream& out) const override;
     };
 
 
@@ -254,11 +255,18 @@ namespace seq {
     class arith_propagation : public eq_tree::propagation_plugin_i {
         stx::facet_id m_arith_id;
         stx::facet_id m_eq_id;
+        struct stats {
+            unsigned m_num_propagate = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     public:
         arith_propagation(stx::facet_id arith_id, stx::facet_id eq_id) :
             m_arith_id(arith_id), m_eq_id(eq_id) {}
         char const* name() const override { return "arith-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
+        void collect_statistics(::statistics& st) const override { st.update("arith-propagate num calls", m_stats.m_num_propagate); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
 } // namespace seq

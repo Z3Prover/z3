@@ -56,11 +56,13 @@ Author:
 #include "util/vector.h"
 #include "util/dependency.h"
 #include "util/trail.h"
+#include "util/statistics.h"
 #include <string>
 #include <memory>
 #include <algorithm>
 #include <unordered_map>
 #include <climits>
+#include <ostream>
 
 namespace stx {
 
@@ -163,6 +165,13 @@ namespace stx {
         // Is this facet's constraint set trivially/vacuously satisfied
         // (e.g. no equations left, or an empty membership set)?
         virtual bool is_satisfied() const = 0;
+
+        // Print this facet's internal state (e.g. its pending equations/
+        // disequations/memberships) for diagnostics. Default: print
+        // nothing (a facet only needs to override this to be useful in
+        // debugging output); the engine never relies on the output being
+        // present.
+        virtual std::ostream& display(std::ostream& out) const { return out; }
     };
 
     /**
@@ -242,6 +251,16 @@ namespace stx {
             // point (a round where every plugin reports `noop`) - a
             // plugin that mutates `n` must never report `noop`.
             virtual simplify_result propagate(node& n) = 0;
+
+            // Add this plugin's own use counters (e.g. "times invoked",
+            // "times it made a change") to `st`, keyed by name() (or a
+            // more specific sub-key); a subclass overrides this to expose
+            // whatever counters it maintains in its own `stats` struct.
+            // Default: no-op (a plugin need not track anything).
+            virtual void collect_statistics(::statistics& st) const {}
+            // Reset this plugin's own internal `stats` struct to zero.
+            // Default: no-op.
+            virtual void reset_statistics() {}
         };
 
         // Nondeterministic branching (search) rule. Unlike
@@ -279,6 +298,15 @@ namespace stx {
             // this call), regardless of whether the returned iterator is
             // null (single-branch case) or non-null.
             virtual scoped_ptr<split_iterator_i> split(node& n, unsigned cost, edge& out, bool& has_more, bool& committed) = 0;
+
+            // Add this plugin's own use counters to `st`, keyed by
+            // name() (or a more specific sub-key); a subclass overrides
+            // this to expose whatever counters it maintains in its own
+            // `stats` struct. Default: no-op.
+            virtual void collect_statistics(::statistics& st) const {}
+            // Reset this plugin's own internal `stats` struct to zero.
+            // Default: no-op.
+            virtual void reset_statistics() {}
         };
 
         enum class node_status { unevaluated, satisfied, conflict };
@@ -729,6 +757,51 @@ namespace stx {
 
         stats const& get_stats() const { return m_stats; }
         void reset_stats() { m_stats.reset(); }
+
+        // Engine-level stats plus a fan-out to every registered
+        // propagation/split plugin's own collect_statistics(), so a
+        // caller need only call this once to get both the generic
+        // engine counters (solve/dfs/split counts, per-plugin
+        // invocation counts) and every plugin's domain-specific
+        // counters (e.g. "eq: word_eq_split applications").
+        void collect_statistics(::statistics& st) const {
+            st.update("stx num solve calls", m_stats.m_num_solve_calls);
+            st.update("stx num dfs nodes", m_stats.m_num_dfs_nodes);
+            st.update("stx num sat", m_stats.m_num_sat);
+            st.update("stx num unsat", m_stats.m_num_unsat);
+            st.update("stx num unknown", m_stats.m_num_unknown);
+            st.update("stx max depth", m_stats.m_max_depth);
+            for (auto const& [k, v] : m_stats.m_propagate_counts)
+                st.update((std::string("stx propagate ") + k).c_str(), v);
+            for (auto const& [k, v] : m_stats.m_split_counts)
+                st.update((std::string("stx split ") + k).c_str(), v);
+            for (auto* p : m_prop_plugins)
+                p->collect_statistics(st);
+            for (auto* sp : m_split_plugins)
+                sp->collect_statistics(st);
+        }
+
+        // Reset both the engine's own stats struct and every registered
+        // plugin's own internal stats struct.
+        void reset_statistics() {
+            m_stats.reset();
+            for (auto* p : m_prop_plugins)
+                p->reset_statistics();
+            for (auto* sp : m_split_plugins)
+                sp->reset_statistics();
+        }
+
+        // Print the live node's installed facets (one per registered
+        // facet_id), via each facet's own facet_i::display() override.
+        // Diagnostics only; the engine itself never parses this output.
+        std::ostream& display(std::ostream& out) const {
+            if (!m_root)
+                return out;
+            for (facet_id id = 0; id < m_root->num_facets(); ++id)
+                if (m_root->has_facet(id))
+                    m_root->facet(id).display(out) << "\n";
+            return out;
+        }
 
         // Iterative-deepening DFS over the single live node (m_root).
         // Trail scopes opened during the search are always fully popped

@@ -288,6 +288,7 @@ namespace seq {
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_eqs.empty(); }
+        std::ostream& display(std::ostream& out) const override;
 
         // Deterministic simplification pass: uses seq_rewriter::reduce_eq
         // to simplify each equation's token lists (prefix/suffix
@@ -331,10 +332,21 @@ namespace seq {
     // Deterministic propagation plugin wrapping eq_facet::simplify.
     class eq_propagation : public eq_tree::propagation_plugin_i {
         stx::facet_id m_id;
+        struct stats {
+            unsigned m_num_propagate = 0;
+            unsigned m_num_progress  = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     public:
         explicit eq_propagation(stx::facet_id id) : m_id(id) {}
         char const* name() const override { return "eq-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
+        void collect_statistics(::statistics& st) const override {
+            st.update("eq-propagate num calls", m_stats.m_num_propagate);
+            st.update("eq-propagate num progress", m_stats.m_num_progress);
+        }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     // Nielsen-transformation split plugin: branches the first equation
@@ -357,6 +369,11 @@ namespace seq {
         ast_manager& m;
         seq_util&    u;
         stx::facet_id m_id;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
@@ -388,6 +405,8 @@ namespace seq {
         word_eq_split(ast_manager& m, seq_util& u, stx::facet_id id) : m(m), u(u), m_id(id) {}
         char const* name() const override { return "nielsen-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("nielsen-split num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     // Mid-equation split with a padding variable, ported from the c3
@@ -417,6 +436,11 @@ namespace seq {
         seq_util&     u;
         stx::facet_id m_eq_id;
         stx::facet_id m_arith_id;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
 
         // Classify a token's length as a known constant (chars, always 1
         // here since flatten() explodes multi-char strings into
@@ -438,6 +462,8 @@ namespace seq {
                                          unsigned& out_lhs_idx, unsigned& out_rhs_idx, int& out_padding);
 
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("eq-split num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     // `ite` token split (eq, arith): per the token model (README.md
@@ -472,6 +498,11 @@ namespace seq {
         seq_util&     u;
         stx::facet_id m_eq_id;
         stx::facet_id m_arith_id;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
 
         // Remaining alternative (branch 2, `!c`) after branch 1 (`c`) is
         // materialized immediately by `split()`.
@@ -496,6 +527,8 @@ namespace seq {
             m(m), u(u), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "ite-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("ite-split num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     /**
@@ -579,6 +612,7 @@ namespace seq {
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_diseqs.empty(); }
+        std::ostream& display(std::ostream& out) const override;
 
         // Deterministic simplification pass: prefix-stripping, then
         // discharge-on-symbol-clash / conflict-on-both-empty. On
@@ -590,10 +624,17 @@ namespace seq {
     // Deterministic propagation plugin wrapping deq_facet::simplify.
     class deq_propagation : public eq_tree::propagation_plugin_i {
         stx::facet_id m_id;
+        struct stats {
+            unsigned m_num_propagate = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     public:
         explicit deq_propagation(stx::facet_id id) : m_id(id) {}
         char const* name() const override { return "deq-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
+        void collect_statistics(::statistics& st) const override { st.update("deq-propagate num calls", m_stats.m_num_propagate); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     // Disequation case-split, ported from the c3 branch's
@@ -632,6 +673,11 @@ namespace seq {
         stx::facet_id m_deq_id;
         stx::facet_id m_eq_id;
         stx::facet_id m_arith_id;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
 
         // Remaining alternatives (case 2, then case 3) after case 1 (if
         // offered) is the first, immediately materialized branch -
@@ -661,6 +707,8 @@ namespace seq {
             m(m), u(u), m_deq_id(deq_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "deq-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("deq-split num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
 } // namespace seq

@@ -15,6 +15,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_mem_facet.h"
+#include "ast/ast_pp.h"
 #include <algorithm>
 
 namespace seq {
@@ -111,9 +112,21 @@ namespace seq {
         return true;
     }
 
+    std::ostream& mem_facet::display(std::ostream& out) const {
+        out << "mem_facet: " << m_mems.size() << " membership(s)\n";
+        for (auto const& sm : m_mems) {
+            out << "  " << mk_pp(sm.m_str.get(), m) << " in state " << mk_pp(sm.m_view.m_state, m);
+            if (sm.m_view.is_reach())
+                out << " -> " << mk_pp(sm.m_view.m_target, m);
+            out << "\n";
+        }
+        return out;
+    }
+
     stx::simplify_result mem_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<mem_facet>(m_mem_id);
         bool changed = false;
+        m_stats.m_num_propagate++;
         for (unsigned i = 0; i < f.memberships().size(); ) {
             auto const& sm = f.memberships()[i];
             expr_ref cur(sm.m_view.m_state, m_rw.m());
@@ -197,6 +210,7 @@ namespace seq {
             broadcast_subst(n, m_eq_id, var, empty, dep);
             out = eq_tree::edge("mem-v:=eps", nullptr, true, 0);
             committed = true;
+            m_stats.m_num_splits++;
             return it;
         }
         return nullptr;
@@ -354,6 +368,7 @@ namespace seq {
         iterator* it = alloc(iterator, n, m_pow_id, m_mem_id, m_arith_id, mem_idx, fwd, pow_idx, dep, m, u, a);
         out = eq_tree::edge("power-var-peel-mem:n=0", dep, true, 0);
         committed = true;
+        m_stats.m_num_splits++;
         return it;
     }
 
@@ -398,6 +413,7 @@ namespace seq {
         if (!it->next(out))
             return nullptr;
         committed = true;
+        m_stats.m_num_splits++;
         has_more = true;
         return it.detach();
     }

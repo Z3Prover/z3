@@ -17,6 +17,7 @@ Author:
 #include "smt/seq_arith_facet.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
+#include "ast/ast_pp.h"
 
 namespace seq {
 
@@ -187,11 +188,20 @@ namespace seq {
         return true;
     }
 
+    std::ostream& arith_facet::display(std::ostream& out) const {
+        out << "arith_facet: " << m_own.size() << " own constraint(s)"
+            << (m_conflict ? " (conflict)" : "") << "\n";
+        for (expr* c : m_own)
+            out << "  " << mk_pp(c, m) << "\n";
+        return out;
+    }
+
     // -- arith_propagation --
 
     stx::simplify_result arith_propagation::propagate(eq_tree::node& n) {
         auto& ef = n.facet_as<eq_facet>(m_eq_id);
         auto& af = n.facet_as<arith_facet>(m_arith_id);
+        m_stats.m_num_propagate++;
         bool changed = false;
         for (auto const& eq : ef.equations())
             changed = af.add_length_constraint(eq.m_lhs, eq.m_rhs, eq.m_dep) || changed;

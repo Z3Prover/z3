@@ -16,6 +16,7 @@ Author:
 --*/
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_arith_facet_i.h"
+#include "ast/ast_pp.h"
 #include <algorithm>
 
 namespace seq {
@@ -101,6 +102,18 @@ namespace seq {
         return true;
     }
 
+    std::ostream& ncontains_facet::display(std::ostream& out) const {
+        out << "ncontains_facet: " << m_ncs.size() << " obligation(s)\n";
+        for (auto const& nc : m_ncs) {
+            out << "  not-contains(";
+            for (expr* t : nc.m_haystack) out << mk_pp(t, m) << " ";
+            out << ", ";
+            for (expr* t : nc.m_needle) out << mk_pp(t, m) << " ";
+            out << ")\n";
+        }
+        return out;
+    }
+
     // Build a str.++ chain expr from a token list, for querying
     // arith_facet's length-gate (`u.str.mk_length` needs an actual
     // sequence-sorted expr, not a token vector).
@@ -137,6 +150,7 @@ namespace seq {
     stx::simplify_result ncontains_propagation::propagate(eq_tree::node& n) {
         auto& f = n.facet_as<ncontains_facet>(m_ncontains_id);
         auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+        m_stats.m_num_propagate++;
 
         bool changed = false;
         for (unsigned i = 0; i < f.ncontains().size(); ) {

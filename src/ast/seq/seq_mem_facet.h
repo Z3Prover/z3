@@ -102,6 +102,7 @@ namespace seq {
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_mems.empty(); }
+        std::ostream& display(std::ostream& out) const override;
     };
 
     class mem_propagation : public eq_tree::propagation_plugin_i {
@@ -110,11 +111,18 @@ namespace seq {
         stx::facet_id   m_mem_id;
         seq_rewriter&   m_rw;
         live_states&    m_live;
+        struct stats {
+            unsigned m_num_propagate = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     public:
         mem_propagation(ast_manager& m, seq_util& u, stx::facet_id mem_id, seq_rewriter& rw, live_states& live) :
             m(m), u(u), m_mem_id(mem_id), m_rw(rw), m_live(live) {}
         char const* name() const override { return "mem-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
+        void collect_statistics(::statistics& st) const override { st.update("mem-propagate num calls", m_stats.m_num_propagate); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     class mem_var_split : public eq_tree::split_plugin_i {
@@ -122,6 +130,11 @@ namespace seq {
         seq_util&     u;
         stx::facet_id m_mem_id;
         stx::facet_id m_eq_id;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
@@ -141,6 +154,8 @@ namespace seq {
         mem_var_split(ast_manager& m, seq_util& u, stx::facet_id mem_id, stx::facet_id eq_id) : m(m), u(u), m_mem_id(mem_id), m_eq_id(eq_id) {}
         char const* name() const override { return "mem-var-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("mem-var-split num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     // Membership-side analog of `power_var_peel` (seq_power_facet.h),
@@ -173,6 +188,11 @@ namespace seq {
         stx::facet_id m_pow_id;
         stx::facet_id m_mem_id;
         stx::facet_id m_arith_id;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
@@ -202,6 +222,8 @@ namespace seq {
             m(m), u(u), a(a), m_pow_id(pow_id), m_mem_id(mem_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-var-peel-mem"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-var-peel-mem num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     class mem_monadic_split : public eq_tree::split_plugin_i {
@@ -210,6 +232,11 @@ namespace seq {
         stx::facet_id     m_mem_id;
         seq_rewriter&     m_rw;
         trail_stack&      m_trail;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node&             m_n;
@@ -232,6 +259,8 @@ namespace seq {
             m(m), u(u), m_mem_id(mem_id), m_rw(rw), m_trail(trail) {}
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("mem-monadic num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
 }

@@ -197,6 +197,7 @@ namespace seq {
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_pows.empty(); }
+        std::ostream& display(std::ostream& out) const override;
     };
 
     // Deterministic propagation: known-exponent obligations are fully
@@ -210,11 +211,18 @@ namespace seq {
         stx::facet_id m_pow_id;
         stx::facet_id m_eq_id;
         stx::facet_id m_arith_id;
+        struct stats {
+            unsigned m_num_propagate = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     public:
         power_propagation(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-propagate num calls", m_stats.m_num_propagate); }
+        void reset_statistics() override { m_stats.reset(); }
     };
 
     // Bounded case-split completeness driver for symbolic exponents: see
@@ -253,6 +261,14 @@ namespace seq {
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-split num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    private:
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     };
 
     // Fine & Wilf periodicity rule, ported from the c3 branch's
@@ -345,6 +361,14 @@ namespace seq {
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-fine-wilf"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-fine-wilf num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    private:
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     };
 
     // Same-base power-vs-power exponent comparison, ported from the c3
@@ -404,6 +428,14 @@ namespace seq {
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-num-cmp"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-num-cmp num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    private:
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     };
 
     // General same-base power-vs-token-run exponent comparison, ported
@@ -459,6 +491,14 @@ namespace seq {
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-split-elim"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-split-elim num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    private:
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     };
 
     // Power-vs-variable peel, ported from the c3 branch's
@@ -535,6 +575,14 @@ namespace seq {
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-var-peel"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-var-peel num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    private:
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     };
 
     // Variable-vs-power decomposition, ported from the c3 branch's
@@ -632,6 +680,14 @@ namespace seq {
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-var-decompose"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-var-decompose num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    private:
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     };
 
     // Generalized power introduction, ported from the c3 branch's
@@ -716,6 +772,14 @@ namespace seq {
             m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
         char const* name() const override { return "power-gpower-intro"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("power-gpower-intro num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    private:
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
     };
 
 } // namespace seq
