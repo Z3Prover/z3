@@ -150,6 +150,8 @@ namespace seq {
         // substitutions v := epsilon, justified by this equation's own
         // dependency; a leading constant on the nonempty side at this
         // point is a symbol clash (conflict).
+
+        // NSB code review: use the broadcast_subst instead of apply_subst
         if (eq.m_lhs.empty() != eq.m_rhs.empty()) {
             expr_ref_vector& side = eq.m_lhs.empty() ? eq.m_rhs : eq.m_lhs;
             eq_tree::dep_tracker eq_dep = eq.m_dep;
