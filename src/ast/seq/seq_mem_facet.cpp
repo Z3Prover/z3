@@ -22,19 +22,17 @@ namespace seq {
 
     namespace {
         int cmp_mem(str_mem const& a, str_mem const& b) {
-            if (a.m_str.get()->get_id() != b.m_str.get()->get_id())
-                return a.m_str.get()->get_id() < b.m_str.get()->get_id() ? -1 : 1;
+            if (a.m_str.size() != b.m_str.size())
+                return a.m_str.size() < b.m_str.size() ? -1 : 1;
+            for (unsigned i = 0; i < a.m_str.size(); ++i)
+                if (a.m_str.get(i)->get_id() != b.m_str.get(i)->get_id())
+                    return a.m_str.get(i)->get_id() < b.m_str.get(i)->get_id() ? -1 : 1;
             auto ak = a.m_view.key(), bk = b.m_view.key();
             if (ak.state != bk.state)
                 return ak.state < bk.state ? -1 : 1;
             if (ak.target != bk.target)
                 return ak.target < bk.target ? -1 : 1;
             return 0;
-        }
-
-        void flatten_to_expr(seq_util& u, sort* seq_sort, expr_ref_vector const& ts, expr_ref& out) {
-            ast_manager& m = out.get_manager();
-            out = expr_ref(u.str.mk_concat(ts.size(), ts.data(), seq_sort), m);
         }
 
     }
@@ -58,10 +56,11 @@ namespace seq {
         m_mems.erase(m_mems.begin() + idx);
     }
 
-    void mem_facet::replace(unsigned idx, expr* new_str, eq_tree::dep_tracker dep) {
+    void mem_facet::replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep) {
         SASSERT(idx < m_mems.size());
-        m_trail.push(vector_field_trail<str_mem, expr_ref>(m_mems, idx, &str_mem::m_str));
-        m_mems[idx].m_str = expr_ref(new_str, m);
+        m_trail.push(vector_field_trail<str_mem, expr_ref_vector>(m_mems, idx, &str_mem::m_str));
+        m_mems[idx].m_str.reset();
+        m_mems[idx].m_str.append(new_str);
         if (dep) {
             m_trail.push(vector_field_trail<str_mem, eq_tree::dep_tracker>(m_mems, idx, &str_mem::m_dep));
             m_mems[idx].m_dep = m_dm.mk_join(m_mems[idx].m_dep, dep);
@@ -69,14 +68,9 @@ namespace seq {
     }
 
     void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
-        expr_ref replacement(m);
-        flatten_to_expr(u, var->get_sort(), repl, replacement);
         for (unsigned i = 0; i < m_mems.size(); ++i) {
-            if (m_mems[i].m_str.get() != var)
-                continue;
-            m_trail.push(vector_field_trail<str_mem, expr_ref>(m_mems, i, &str_mem::m_str));
-            m_mems[i].m_str = replacement;
-            if (subst_dep) {
+            bool touched = subst_in_trailed(m_trail, m_mems, i, &str_mem::m_str, var, repl);
+            if (touched && subst_dep) {
                 m_trail.push(vector_field_trail<str_mem, eq_tree::dep_tracker>(m_mems, i, &str_mem::m_dep));
                 m_mems[i].m_dep = m_dm.mk_join(m_mems[i].m_dep, subst_dep);
             }
@@ -92,7 +86,9 @@ namespace seq {
     unsigned mem_facet::hash() const {
         unsigned h = m_mems.size() * 334214467u;
         for (auto const& sm : m_mems) {
-            unsigned mh = combine_hash(sm.m_str->get_id(), sm.m_view.key().state);
+            unsigned mh = sm.m_view.key().state;
+            for (expr* t : sm.m_str)
+                mh = combine_hash(mh, t->get_id());
             mh = combine_hash(mh, sm.m_view.key().target);
             h += mh;
         }
@@ -115,7 +111,10 @@ namespace seq {
     std::ostream& mem_facet::display(std::ostream& out) const {
         out << "mem_facet: " << m_mems.size() << " membership(s)\n";
         for (auto const& sm : m_mems) {
-            out << "  " << mk_pp(sm.m_str.get(), m) << " in state " << mk_pp(sm.m_view.m_state, m);
+            out << "  ";
+            for (expr* t : sm.m_str)
+                out << mk_pp(t, m) << " ";
+            out << "in state " << mk_pp(sm.m_view.m_state, m);
             if (sm.m_view.is_reach())
                 out << " -> " << mk_pp(sm.m_view.m_target, m);
             out << "\n";
@@ -130,10 +129,8 @@ namespace seq {
         for (unsigned i = 0; i < f.memberships().size(); ) {
             auto const& sm = f.memberships()[i];
             expr_ref cur(sm.m_view.m_state, m_rw.m());
-            expr_ref_vector ts(m);
-            u.str.get_concat_units(sm.m_str.get(), ts);
             bool bad = false;
-            for (expr* t : ts) {
+            for (expr* t : sm.m_str) {
                 if (!u.str.is_unit(t)) { bad = true; break; }
                 expr* elem = nullptr;
                 VERIFY(u.str.is_unit(t, elem));
@@ -199,9 +196,7 @@ namespace seq {
             return nullptr;
         auto& mf = ac.mem_facet_ref();
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
-            expr* s = mf.memberships()[i].m_str.get();
-            expr_ref_vector ts(m);
-            u.str.get_concat_units(s, ts);
+            auto const& ts = mf.memberships()[i].m_str;
             if (ts.empty() || u.str.is_unit(ts.get(0)))
                 continue;
             expr* var = ts.get(0);
@@ -222,8 +217,11 @@ namespace seq {
                                           vector<str_mem> const& mems) :
         m_n(n), m_mon(rw, trail, transition_mode::brzozowski_tm), m_it(m_mon.iterate(64)), m(m), u(u) {
         m_mon.set_gen_solution(true);
-        for (auto const& sm : mems)
-            m_mon.add(sm.m_str.get(), sm.m_view.m_state, sm.m_dep);
+        for (auto const& sm : mems) {
+            sort* s = sm.m_str.empty() ? u.str.mk_string_sort() : sm.m_str.get(0)->get_sort();
+            expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
+            m_mon.add(term, sm.m_view.m_state, sm.m_dep);
+        }
         obj_map<expr, seq::view_vector> first;
         if (m_it.next(first))
             for (auto const& [var, views] : first)
@@ -235,8 +233,10 @@ namespace seq {
         bool changed = false;
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             auto const& sm = mf.memberships()[i];
+            sort* s = sm.m_str.empty() ? u.str.mk_string_sort() : sm.m_str.get(0)->get_sort();
+            expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
             seq::view_vector views;
-            if (!sol.find(sm.m_str.get(), views) || views.empty())
+            if (!sol.find(term, views) || views.empty())
                 continue;
             mf.narrow(i, views[0]);
             changed = true;
@@ -259,8 +259,7 @@ namespace seq {
                                            eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             str_mem const& sm = mf.memberships()[i];
-            expr_ref_vector ts(mf.get_manager());
-            mf.get_seq_util().str.get_concat_units(sm.m_str.get(), ts);
+            auto const& ts = sm.m_str;
             if (ts.empty())
                 continue;
             for (bool f2 : {true, false}) {
@@ -304,25 +303,25 @@ namespace seq {
         expr_ref n_minus_1(a.mk_sub(exp_n, a.mk_int(1)), m);
         expr_ref nested_pow(u.str.mk_power(p.m_s.get(), n_minus_1.get()), m);
 
-        expr_ref_vector ts(m);
-        u.str.get_concat_units(mf.memberships()[m_mem_idx].m_str.get(), ts);
+        expr_ref_vector const& ts = mf.memberships()[m_mem_idx].m_str;
         SASSERT(!ts.empty());
+        expr_ref_vector s_units(m);
+        u.str.get_concat_units(p.m_s.get(), s_units);
         expr_ref_vector new_ts(m);
         if (m_fwd) {
-            new_ts.push_back(p.m_s.get());
+            new_ts.append(s_units);
             new_ts.push_back(nested_pow.get());
             for (unsigned i = 1; i < ts.size(); ++i)
-                new_ts.push_back(ts[i].get());
+                new_ts.push_back(ts.get(i));
         }
         else {
             for (unsigned i = 0; i + 1 < ts.size(); ++i)
-                new_ts.push_back(ts[i].get());
+                new_ts.push_back(ts.get(i));
             new_ts.push_back(nested_pow.get());
-            new_ts.push_back(p.m_s.get());
+            new_ts.append(s_units);
         }
-        expr_ref new_str(u.str.mk_concat(new_ts.size(), new_ts.data(), new_ts[0]->get_sort()), m);
 
-        mf.replace(m_mem_idx, new_str, m_dep);
+        mf.replace(m_mem_idx, new_ts, m_dep);
         af.add_constraint(a.mk_ge(exp_n, a.mk_int(1)), m_dep);
         f.remove(m_pow_idx);
 
@@ -349,23 +348,16 @@ namespace seq {
 
         str_power const& p = f.powers()[pow_idx];
         expr* exp_n = p.m_n.get();
-        expr* e = p.m_e.get();
 
         // Branch 1 (first, immediately materialized): n = 0, replace
         // U^n with epsilon (progress). c3's mem-variant asserts a
         // single `n = 0` clause (not the eq-variant's `n>=0 /\ n<=0`
         // pair) - preserved faithfully per rule variant.
-        expr_ref_vector ts(m);
-        u.str.get_concat_units(mf.memberships()[mem_idx].m_str.get(), ts);
+        expr_ref_vector ts(mf.memberships()[mem_idx].m_str);
         SASSERT(!ts.empty());
         unsigned drop = fwd ? 0 : ts.size() - 1;
         ts.erase(drop);
-        expr_ref new_str(m);
-        if (ts.empty())
-            new_str = expr_ref(u.str.mk_empty(e->get_sort()), m);
-        else
-            new_str = expr_ref(u.str.mk_concat(ts.size(), ts.data(), ts.get(0)->get_sort()), m);
-        mf.replace(mem_idx, new_str, dep);
+        mf.replace(mem_idx, ts, dep);
         af.add_constraint(m.mk_eq(exp_n, a.mk_int(0)), dep);
         f.remove(pow_idx);
 
@@ -398,10 +390,8 @@ namespace seq {
             return nullptr;
         bool has_multi = false;
         for (auto const& sm : mf.memberships()) {
-            expr_ref_vector ts(m);
-            u.str.get_concat_units(sm.m_str.get(), ts);
             unsigned vars = 0;
-            for (expr* t : ts)
+            for (expr* t : sm.m_str)
                 if (!u.str.is_unit(t))
                     ++vars;
             if (vars >= 2) {

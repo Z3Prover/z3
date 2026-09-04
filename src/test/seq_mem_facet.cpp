@@ -162,8 +162,8 @@ namespace {
 
         auto& mf = root->facet_as<seq::mem_facet>(mem_id);
         ENSURE(mf.memberships().size() == 1);
-        expr_ref_vector ts(m), expect(m);
-        u.str.get_concat_units(mf.memberships()[0].m_str.get(), ts);
+        expr_ref_vector const& ts = mf.memberships()[0].m_str;
+        expr_ref_vector expect(m);
         u.str.get_concat_units(b.get(), expect);
         ENSURE(ts.size() == expect.size());
         for (unsigned i = 0; i < ts.size(); ++i)
@@ -212,8 +212,8 @@ namespace {
         ENSURE(it->next(out2));
 
         auto& mf = root->facet_as<seq::mem_facet>(mem_id);
-        expr_ref_vector ts(m), expect_a(m), expect_b(m);
-        u.str.get_concat_units(mf.memberships()[0].m_str.get(), ts);
+        expr_ref_vector const& ts = mf.memberships()[0].m_str;
+        expr_ref_vector expect_a(m), expect_b(m);
         u.str.get_concat_units(one_a.get(), expect_a);
         u.str.get_concat_units(b.get(), expect_b);
         ENSURE(ts.size() == expect_a.size() + 1 + expect_b.size()); // "a", nested pow, "b"

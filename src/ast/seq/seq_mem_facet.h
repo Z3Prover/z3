@@ -60,12 +60,16 @@ Author:
 namespace seq {
 
     struct str_mem {
-        expr_ref            m_str;
-        view                m_view;
+        expr_ref_vector      m_str;
+        view                 m_view;
         eq_tree::dep_tracker m_dep = nullptr;
 
         str_mem(ast_manager& m, expr* s, view const& v, eq_tree::dep_tracker dep = nullptr) :
-            m_str(s, m), m_view(v), m_dep(dep) {}
+            m_str(m), m_view(v), m_dep(dep) {
+            seq_util(m).str.get_concat_units(s, m_str);
+        }
+        str_mem(ast_manager& m, expr_ref_vector const& ts, view const& v, eq_tree::dep_tracker dep = nullptr) :
+            m_str(ts), m_view(v), m_dep(dep) {}
 
         bool is_plain() const { return m_view.is_membership(); }
         bool is_view() const { return m_view.is_reach(); }
@@ -95,7 +99,7 @@ namespace seq {
         // peel at a directional end of `m_str`, where the change is not
         // a substitution for some other facet's variable but a direct
         // edit of this one membership's own term.
-        void replace(unsigned idx, expr* new_str, eq_tree::dep_tracker dep = nullptr);
+        void replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep = nullptr);
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         stx::facet_i* clone(trail_stack& trail) const override;
