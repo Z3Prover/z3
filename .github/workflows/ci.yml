@@ -405,6 +405,94 @@ jobs:
         if: matrix.runTests
         run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
 
+  cmake-package:
+    name: "CMake package - ${{ matrix.name }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build_cmake: 3.16
+            consumer_cmake: 3.5
+            name: minimum builder and consumer
+          - build_cmake: latest
+            consumer_cmake: latest
+            name: latest CMake
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: ${{ matrix.build_cmake }}
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y libgmp-dev ninja-build
+
+      - name: Build and install shared library
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DZ3_USE_LIB_GMP=ON \
+            -DZ3_BUILD_EXECUTABLE=ON \
+            -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+            -DZ3_ENABLE_EXAMPLE_TARGETS=OFF
+          cmake --build build --target libz3 shell
+          cmake --install build --prefix "$PWD/install"
+
+      - name: Reconfigure in-place and build and install static library
+        run: |
+          cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
+          cmake --build build --target libz3 shell
+          cmake --install build --prefix "$PWD/install"
+
+      - name: Setup consumer CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: ${{ matrix.consumer_cmake }}
+
+      # jwlawson's old CMake/ctest binaries are linked against libidn.so.11,
+      # which Ubuntu dropped after focal; pull just that runtime lib from the
+      # focal archive since noble no longer ships it.
+      - name: Install libidn11 for old ctest binary
+        if: matrix.consumer_cmake != 'latest'
+        run: |
+          echo "deb http://archive.ubuntu.com/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/focal.list
+          sudo apt-get update
+          sudo apt-get install -y libidn11
+          sudo rm /etc/apt/sources.list.d/focal.list
+          sudo apt-get update
+
+      - name: Consume shared package component
+        run: >-
+          ctest --build-and-test cmake/tests/package consume-shared
+          --build-generator Ninja
+          --build-options
+          -DZ3_TEST_COMPONENT=shared
+          -DZ3_TEST_CONFLICTING_COMPONENT=static
+          -DZ3_TEST_EXPECTED_TYPE=SHARED_LIBRARY
+          -DCMAKE_PREFIX_PATH=$PWD/install
+          --test-command ctest --output-on-failure
+
+      - name: Consume static package component
+        run: >-
+          ctest --build-and-test cmake/tests/package consume-static
+          --build-generator Ninja
+          --build-options
+          -DZ3_TEST_COMPONENT=static
+          -DZ3_TEST_CONFLICTING_COMPONENT=shared
+          -DZ3_TEST_EXPECTED_TYPE=STATIC_LIBRARY
+          -DCMAKE_PREFIX_PATH=$PWD/install
+          --test-command ctest --output-on-failure
+
   # ============================================================================
   # macOS Python Builds
   # ============================================================================
