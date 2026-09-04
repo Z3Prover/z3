@@ -51,12 +51,17 @@ namespace {
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
 
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        tree.set_ambient_context(&ac);
+
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, ab);
         root->facet_as<seq::arith_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(3)));
 
-        seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::arith_propagation aprop(arith_id, eq_id);
+        seq::eq_propagation eprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::arith_propagation aprop(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
         tree.add_split_plugin(&esplit);
@@ -90,11 +95,16 @@ namespace {
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
 
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        tree.set_ambient_context(&ac);
+
         root->facet_as<seq::eq_facet>(eq_id).add_equation(lhs, rhs);
 
-        seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::arith_propagation aprop(arith_id, eq_id);
+        seq::eq_propagation eprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::arith_propagation aprop(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
         tree.add_split_plugin(&esplit);
@@ -123,12 +133,17 @@ namespace {
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
 
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        tree.set_ambient_context(&ac);
+
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, ab);
         root->facet_as<seq::arith_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(2)));
 
-        seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::arith_propagation aprop(arith_id, eq_id);
+        seq::eq_propagation eprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::arith_propagation aprop(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
         tree.add_split_plugin(&esplit);

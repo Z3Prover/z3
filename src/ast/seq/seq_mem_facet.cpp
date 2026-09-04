@@ -124,7 +124,7 @@ namespace seq {
     }
 
     stx::simplify_result mem_propagation::propagate(eq_tree::node& n) {
-        auto& f = n.facet_as<mem_facet>(m_mem_id);
+        auto& f = get_ambient(n, m, u).mem_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
         for (unsigned i = 0; i < f.memberships().size(); ) {
@@ -181,11 +181,12 @@ namespace seq {
         if (m_done)
             return false;
         m_done = true;
-        auto& eq = m_n.facet_as<eq_facet>(m_eq_id);
+        auto ac = get_ambient(m_n, m, u);
+        auto& eq = ac.eq_facet_ref();
         expr_ref_vector repl(eq.get_manager());
         expr* fresh = eq.mk_fresh_var(m_var->get_sort());
         repl.push_back(fresh);
-        broadcast_subst(m_n, m_eq_id, m_var, repl, m_dep);
+        broadcast_subst(m_n, ac.context(), m_var, repl, m_dep);
         out = eq_tree::edge("mem-v:=v'", nullptr, true, 0);
         return true;
     }
@@ -193,9 +194,10 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> mem_var_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0 || !n.has_facet(m_eq_id))
+        auto ac = get_ambient(n, m, u);
+        if (cost != 0 || !ac.has_eq())
             return nullptr;
-        auto& mf = n.facet_as<mem_facet>(m_mem_id);
+        auto& mf = ac.mem_facet_ref();
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             expr* s = mf.memberships()[i].m_str.get();
             expr_ref_vector ts(m);
@@ -204,10 +206,10 @@ namespace seq {
                 continue;
             expr* var = ts.get(0);
             eq_tree::dep_tracker dep = mf.memberships()[i].m_dep;
-            iterator* it = alloc(iterator, n, m_mem_id, m_eq_id, i, var, dep);
-            auto& eq = n.facet_as<eq_facet>(m_eq_id);
+            iterator* it = alloc(iterator, n, i, var, m, u, dep);
+            auto& eq = ac.eq_facet_ref();
             expr_ref_vector empty(eq.get_manager());
-            broadcast_subst(n, m_eq_id, var, empty, dep);
+            broadcast_subst(n, ac.context(), var, empty, dep);
             out = eq_tree::edge("mem-v:=eps", nullptr, true, 0);
             committed = true;
             m_stats.m_num_splits++;
@@ -216,9 +218,9 @@ namespace seq {
         return nullptr;
     }
 
-    mem_monadic_split::iterator::iterator(eq_tree::node& n, stx::facet_id mem_id, seq_rewriter& rw, trail_stack& trail,
+    mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, trail_stack& trail, ast_manager& m, seq_util& u,
                                           vector<str_mem> const& mems) :
-        m_n(n), m_mem_id(mem_id), m_mon(rw, trail, transition_mode::brzozowski_tm), m_it(m_mon.iterate(64)) {
+        m_n(n), m_mon(rw, trail, transition_mode::brzozowski_tm), m_it(m_mon.iterate(64)), m(m), u(u) {
         m_mon.set_gen_solution(true);
         for (auto const& sm : mems)
             m_mon.add(sm.m_str.get(), sm.m_view.m_state, sm.m_dep);
@@ -229,7 +231,7 @@ namespace seq {
     }
 
     bool mem_monadic_split::iterator::apply_solution(obj_map<expr, seq::view_vector>& sol, eq_tree::edge& out) {
-        auto& mf = m_n.facet_as<mem_facet>(m_mem_id);
+        auto& mf = get_ambient(m_n, m, u).mem_facet_ref();
         bool changed = false;
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             auto const& sm = mf.memberships()[i];
@@ -284,9 +286,10 @@ namespace seq {
             return false;
         m_done = true;
 
-        auto& f = m_n.facet_as<power_facet>(m_pow_id);
-        auto& mf = m_n.facet_as<mem_facet>(m_mem_id);
-        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        auto ac = get_ambient(m_n, m, u);
+        auto& f = ac.power_facet_ref();
+        auto& mf = ac.mem_facet_ref();
+        auto& af = ac.arith_facet_ref();
         if (m_pow_idx >= f.powers().size() || m_mem_idx >= mf.memberships().size())
             return false; // defensive; obligation/membership discharged by another route
 
@@ -332,9 +335,10 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto& f = n.facet_as<power_facet>(m_pow_id);
-        auto& mf = n.facet_as<mem_facet>(m_mem_id);
-        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+        auto ac = get_ambient(n, m, u);
+        auto& f = ac.power_facet_ref();
+        auto& mf = ac.mem_facet_ref();
+        auto& af = ac.arith_facet_ref();
 
         unsigned mem_idx, pow_idx;
         bool fwd;
@@ -365,7 +369,7 @@ namespace seq {
         af.add_constraint(m.mk_eq(exp_n, a.mk_int(0)), dep);
         f.remove(pow_idx);
 
-        iterator* it = alloc(iterator, n, m_pow_id, m_mem_id, m_arith_id, mem_idx, fwd, pow_idx, dep, m, u, a);
+        iterator* it = alloc(iterator, n, mem_idx, fwd, pow_idx, dep, m, u, a);
         out = eq_tree::edge("power-var-peel-mem:n=0", dep, true, 0);
         committed = true;
         m_stats.m_num_splits++;
@@ -389,7 +393,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto& mf = n.facet_as<mem_facet>(m_mem_id);
+        auto& mf = get_ambient(n, m, u).mem_facet_ref();
         if (mf.memberships().empty())
             return nullptr;
         bool has_multi = false;
@@ -407,7 +411,7 @@ namespace seq {
         }
         if (!has_multi)
             return nullptr;
-        scoped_ptr<iterator> it(alloc(iterator, n, m_mem_id, m_rw, m_trail, mf.memberships()));
+        scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m_trail, m, u, mf.memberships()));
         if (!it->has_first())
             return nullptr;
         if (!it->next(out))

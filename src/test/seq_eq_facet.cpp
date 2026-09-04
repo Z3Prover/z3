@@ -36,8 +36,12 @@ namespace {
         stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::eq_facet>(id).add_equation(lhs, rhs);
 
-        seq::eq_propagation prop(id);
-        seq::word_eq_split split(m, u, id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(id);
+        tree.set_ambient_context(&ac);
+
+        seq::eq_propagation prop(m, u);
+        seq::word_eq_split split(m, u);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
 
@@ -99,8 +103,12 @@ namespace {
         f.add_equation(X, a);
         f.add_equation(X, b);
 
-        seq::eq_propagation prop(id);
-        seq::word_eq_split split(m, u, id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(id);
+        tree.set_ambient_context(&ac);
+
+        seq::eq_propagation prop(m, u);
+        seq::word_eq_split split(m, u);
         tree.add_propagation_plugin(&prop);
         tree.add_split_plugin(&split);
         tree.set_max_search_depth(12);
@@ -133,7 +141,11 @@ namespace {
         stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::deq_facet>(id).add_disequation(a, b);
 
-        seq::deq_propagation dprop(id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_deq_id(id);
+        tree.set_ambient_context(&ac);
+
+        seq::deq_propagation dprop(m, u);
         tree.add_propagation_plugin(&dprop);
         tree.set_max_search_depth(4);
         ENSURE(tree.solve() == stx::search_result::sat);
@@ -153,7 +165,11 @@ namespace {
         stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::deq_facet>(id).add_disequation(a1, a2);
 
-        seq::deq_propagation dprop(id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_deq_id(id);
+        tree.set_ambient_context(&ac);
+
+        seq::deq_propagation dprop(m, u);
         tree.add_propagation_plugin(&dprop);
         tree.set_max_search_depth(4);
         ENSURE(tree.solve() == stx::search_result::unsat);
@@ -180,9 +196,14 @@ namespace {
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, a);
         root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, b);
 
-        seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::deq_propagation dprop(deq_id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_deq_id(deq_id);
+        tree.set_ambient_context(&ac);
+
+        seq::eq_propagation eprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::deq_propagation dprop(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&dprop);
         tree.add_split_plugin(&esplit);
@@ -298,10 +319,15 @@ namespace {
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
         root->facet_as<seq::eq_facet>(eq_id).add_equation(lhs, rhs);
 
-        seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::arith_propagation aprop(arith_id, eq_id);
-        seq::eq_split split(m, u, eq_id, arith_id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        tree.set_ambient_context(&ac);
+
+        seq::eq_propagation eprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::arith_propagation aprop(m, u);
+        seq::eq_split split(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
         tree.add_split_plugin(&esplit);
@@ -340,12 +366,18 @@ namespace {
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, Y);
 
-        seq::eq_propagation eprop(eq_id);
-        seq::arith_propagation aprop(arith_id, eq_id);
-        seq::deq_propagation dprop(deq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::eq_split split(m, u, eq_id, arith_id);
-        seq::deq_split dsplit(m, u, deq_id, eq_id, arith_id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        ac.set_deq_id(deq_id);
+        tree.set_ambient_context(&ac);
+
+        seq::eq_propagation eprop(m, u);
+        seq::arith_propagation aprop(m, u);
+        seq::deq_propagation dprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::eq_split split(m, u);
+        seq::deq_split dsplit(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
         tree.add_propagation_plugin(&dprop);
@@ -377,12 +409,18 @@ namespace {
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::deq_facet>(deq_id).add_disequation(ca, ca);
 
-        seq::eq_propagation eprop(eq_id);
-        seq::arith_propagation aprop(arith_id, eq_id);
-        seq::deq_propagation dprop(deq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::eq_split split(m, u, eq_id, arith_id);
-        seq::deq_split dsplit(m, u, deq_id, eq_id, arith_id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        ac.set_deq_id(deq_id);
+        tree.set_ambient_context(&ac);
+
+        seq::eq_propagation eprop(m, u);
+        seq::arith_propagation aprop(m, u);
+        seq::deq_propagation dprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::eq_split split(m, u);
+        seq::deq_split dsplit(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
         tree.add_propagation_plugin(&dprop);
@@ -419,10 +457,15 @@ namespace {
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
         root->facet_as<seq::eq_facet>(eq_id).add_equation(ite_tok, X);
 
-        seq::eq_propagation eprop(eq_id);
-        seq::arith_propagation aprop(arith_id, eq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::ite_split isplit(m, u, eq_id, arith_id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        tree.set_ambient_context(&ac);
+
+        seq::eq_propagation eprop(m, u);
+        seq::arith_propagation aprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::ite_split isplit(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
         tree.add_split_plugin(&isplit);
@@ -462,10 +505,15 @@ namespace {
         root->facet_as<seq::eq_facet>(eq_id).add_equation(ite_tok, X);
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, cc);
 
-        seq::eq_propagation eprop(eq_id);
-        seq::arith_propagation aprop(arith_id, eq_id);
-        seq::word_eq_split esplit(m, u, eq_id);
-        seq::ite_split isplit(m, u, eq_id, arith_id);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        tree.set_ambient_context(&ac);
+
+        seq::eq_propagation eprop(m, u);
+        seq::arith_propagation aprop(m, u);
+        seq::word_eq_split esplit(m, u);
+        seq::ite_split isplit(m, u);
         tree.add_propagation_plugin(&eprop);
         tree.add_propagation_plugin(&aprop);
         tree.add_split_plugin(&esplit);

@@ -108,7 +108,6 @@ namespace seq {
     class mem_propagation : public eq_tree::propagation_plugin_i {
         ast_manager&    m;
         seq_util&       u;
-        stx::facet_id   m_mem_id;
         seq_rewriter&   m_rw;
         live_states&    m_live;
         struct stats {
@@ -117,8 +116,8 @@ namespace seq {
         };
         stats m_stats;
     public:
-        mem_propagation(ast_manager& m, seq_util& u, stx::facet_id mem_id, seq_rewriter& rw, live_states& live) :
-            m(m), u(u), m_mem_id(mem_id), m_rw(rw), m_live(live) {}
+        mem_propagation(ast_manager& m, seq_util& u, seq_rewriter& rw, live_states& live) :
+            m(m), u(u), m_rw(rw), m_live(live) {}
         char const* name() const override { return "mem-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override { st.update("mem-propagate num calls", m_stats.m_num_propagate); }
@@ -128,8 +127,6 @@ namespace seq {
     class mem_var_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
-        stx::facet_id m_mem_id;
-        stx::facet_id m_eq_id;
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
@@ -138,20 +135,20 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_mem_id;
-            stx::facet_id  m_eq_id;
             unsigned       m_mem_index;
             expr*          m_var;
             eq_tree::dep_tracker m_dep;
             bool           m_done = false;
+            ast_manager&   m;
+            seq_util&      u;
         public:
-            iterator(eq_tree::node& n, stx::facet_id mem_id, stx::facet_id eq_id, unsigned mem_index, expr* var, eq_tree::dep_tracker dep = nullptr) :
-                m_n(n), m_mem_id(mem_id), m_eq_id(eq_id), m_mem_index(mem_index), m_var(var), m_dep(dep) {}
+            iterator(eq_tree::node& n, unsigned mem_index, expr* var, ast_manager& m, seq_util& u, eq_tree::dep_tracker dep = nullptr) :
+                m_n(n), m_mem_index(mem_index), m_var(var), m_dep(dep), m(m), u(u) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        mem_var_split(ast_manager& m, seq_util& u, stx::facet_id mem_id, stx::facet_id eq_id) : m(m), u(u), m_mem_id(mem_id), m_eq_id(eq_id) {}
+        mem_var_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "mem-var-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("mem-var-split num splits", m_stats.m_num_splits); }
@@ -185,9 +182,6 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_mem_id;
-        stx::facet_id m_arith_id;
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
@@ -196,9 +190,6 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_pow_id;
-            stx::facet_id  m_mem_id;
-            stx::facet_id  m_arith_id;
             unsigned       m_mem_idx;
             bool           m_fwd;
             unsigned       m_pow_idx;
@@ -208,18 +199,18 @@ namespace seq {
             seq_util&      u;
             arith_util&    a;
         public:
-            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id mem_id, stx::facet_id arith_id,
+            iterator(eq_tree::node& n,
                       unsigned mem_idx, bool fwd, unsigned pow_idx,
                       eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_pow_id(pow_id), m_mem_id(mem_id), m_arith_id(arith_id),
+                m_n(n),
                 m_mem_idx(mem_idx), m_fwd(fwd), m_pow_idx(pow_idx),
                 m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_var_peel_mem(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id mem_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_mem_id(mem_id), m_arith_id(arith_id) {}
+        power_var_peel_mem(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-var-peel-mem"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("power-var-peel-mem num splits", m_stats.m_num_splits); }
@@ -229,7 +220,6 @@ namespace seq {
     class mem_monadic_split : public eq_tree::split_plugin_i {
         ast_manager&      m;
         seq_util&         u;
-        stx::facet_id     m_mem_id;
         seq_rewriter&     m_rw;
         trail_stack&      m_trail;
         struct stats {
@@ -240,23 +230,24 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node&             m_n;
-            stx::facet_id              m_mem_id;
             seq_monadic                m_mon;
             seq_monadic::iterator      m_it;
             bool                       m_first_pending = true;
             obj_map<expr, seq::view_vector> m_first;
+            ast_manager&               m;
+            seq_util&                  u;
 
             bool apply_solution(obj_map<expr, seq::view_vector>& sol, eq_tree::edge& out);
         public:
-            iterator(eq_tree::node& n, stx::facet_id mem_id, seq_rewriter& rw, trail_stack& trail,
+            iterator(eq_tree::node& n, seq_rewriter& rw, trail_stack& trail, ast_manager& m, seq_util& u,
                      vector<str_mem> const& mems);
             bool next(eq_tree::edge& out) override;
             bool has_first() const { return !m_first.empty(); }
         };
 
     public:
-        mem_monadic_split(ast_manager& m, seq_util& u, stx::facet_id mem_id, seq_rewriter& rw, trail_stack& trail) :
-            m(m), u(u), m_mem_id(mem_id), m_rw(rw), m_trail(trail) {}
+        mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, trail_stack& trail) :
+            m(m), u(u), m_rw(rw), m_trail(trail) {}
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("mem-monadic num splits", m_stats.m_num_splits); }

@@ -107,6 +107,20 @@ namespace seq {
     // and smt::arith_facet, which still rely on the concrete-char check.
     bool is_const_token(seq_util& u, expr* e);
 
+    // Recover the node's ambient context, bundled together with the node
+    // itself into an `ambient_ref` (falling back to a shared, always-
+    // "unknown" `null_ambient_context` if none was ever set, e.g. in a
+    // unit test that never called `search_tree::set_ambient_context()`),
+    // so that a propagation/split plugin can either look up its sibling
+    // facets' ids (`eq_id()`, `arith_id()`, `pow_id()`, `mem_id()`,
+    // `deq_id()`, `ncontains_id()`) as before, or - now - coerce straight
+    // to the sibling's own type in one call, e.g.
+    // `get_ambient(n, m, u).mem_facet_ref()` instead of
+    // `n.facet_as<mem_facet>(get_ambient(n, m, u).mem_id())`. `m`/`u` are
+    // only used to construct the fallback instance.
+    ambient_ref<eq_tree::node, eq_tree::dep_tracker> get_ambient(eq_tree::node& n, ast_manager& m, seq_util& u);
+    ambient_ref<eq_tree::node const, eq_tree::dep_tracker> get_ambient(eq_tree::node const& n, ast_manager& m, seq_util& u);
+
     // Replace every occurrence of `var` in `ts` with the tokens of `repl`
     // (order-preserving splice). Shared helper between `eq_facet` and
     // `deq_facet` (and any future facet holding token-list equations).
@@ -307,7 +321,7 @@ namespace seq {
         // previously called apply_subst directly, silently skipping that
         // broadcast and leaving sibling facets holding a stale reference
         // to a variable this facet had already eliminated.
-        bool simplify(eq_tree::node& n, stx::facet_id id, bool& conflict, eq_tree::dep_tracker& conflict_dep);
+        bool simplify(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, bool& conflict, eq_tree::dep_tracker& conflict_dep);
         ambient_context_i<eq_tree::dep_tracker> const& ambient(eq_tree::node const& n) const;
 
     private:
@@ -321,15 +335,18 @@ namespace seq {
         // reduced to empty, the equation is erased (trailed). `n`/`id` are
         // forwarded to broadcast_subst for any forced v:=epsilon
         // substitution (see simplify's comment above).
-        bool simplify_equation(eq_tree::node& n, stx::facet_id id, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
-        friend void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
+        bool simplify_equation(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
+        friend void broadcast_subst(eq_tree::node& target, ambient_context_i<eq_tree::dep_tracker>& ac, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
     };
 
-    void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
+    void broadcast_subst(eq_tree::node& target, ambient_context_i<eq_tree::dep_tracker>& ac, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
 
-    // Deterministic propagation plugin wrapping eq_facet::simplify.
+    // Deterministic propagation plugin wrapping eq_facet::simplify. Reads
+    // its own facet id via the ambient context's eq_id() rather than a
+    // constructor argument (see get_ambient()/ambient_context_i above).
     class eq_propagation : public eq_tree::propagation_plugin_i {
-        stx::facet_id m_id;
+        ast_manager& m;
+        seq_util&    u;
         struct stats {
             unsigned m_num_propagate = 0;
             unsigned m_num_progress  = 0;
@@ -337,7 +354,7 @@ namespace seq {
         };
         stats m_stats;
     public:
-        explicit eq_propagation(stx::facet_id id) : m_id(id) {}
+        eq_propagation(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "eq-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {
@@ -366,7 +383,6 @@ namespace seq {
     class word_eq_split : public eq_tree::split_plugin_i {
         ast_manager& m;
         seq_util&    u;
-        stx::facet_id m_id;
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
@@ -375,7 +391,8 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_id;
+            ast_manager&   m;
+            seq_util&      u;
             // Remaining alternatives to produce, in order. Each entry is a
             // (rule_name, var, replacement, dep) tuple - `m_dep` is the
             // dependency of the equation whose stuck leading/trailing
@@ -392,7 +409,7 @@ namespace seq {
             vector<alt>    m_pending;
             unsigned       m_pos = 0;
         public:
-            iterator(eq_tree::node& n, stx::facet_id id) : m_n(n), m_id(id) {}
+            iterator(eq_tree::node& n, ast_manager& m, seq_util& u) : m_n(n), m(m), u(u) {}
             void push_back(char const* name, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep) {
                 m_pending.push_back(alt{ name, var, repl, dep });
             }
@@ -400,7 +417,7 @@ namespace seq {
         };
 
     public:
-        word_eq_split(ast_manager& m, seq_util& u, stx::facet_id id) : m(m), u(u), m_id(id) {}
+        word_eq_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "nielsen-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("nielsen-split num splits", m_stats.m_num_splits); }
@@ -432,8 +449,6 @@ namespace seq {
     class eq_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
@@ -447,8 +462,7 @@ namespace seq {
         static bool token_has_variable_length(seq_util& u, expr* tok) { return !is_const_token(u, tok); }
 
     public:
-        eq_split(ast_manager& m, seq_util& u, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        eq_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "eq-split"; }
 
         // Walk `lhs`/`rhs` token lists looking for a balanced interior
@@ -494,8 +508,6 @@ namespace seq {
     class ite_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
@@ -506,23 +518,21 @@ namespace seq {
         // materialized immediately by `split()`.
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_eq_id;
-            stx::facet_id  m_arith_id;
+            ast_manager&   m;
+            seq_util&      u;
             expr_ref       m_tok, m_cond;
             expr_ref_vector m_repl2;
             eq_tree::dep_tracker m_dep;
             bool           m_done = false;
-            ast_manager&   m;
         public:
-            iterator(eq_tree::node& n, stx::facet_id eq_id, stx::facet_id arith_id,
-                      expr* tok, expr* cond, expr_ref_vector const& repl2, eq_tree::dep_tracker dep, ast_manager& m) :
-                m_n(n), m_eq_id(eq_id), m_arith_id(arith_id), m_tok(tok, m), m_cond(cond, m), m_repl2(repl2), m_dep(dep), m(m) {}
+            iterator(eq_tree::node& n, ast_manager& m, seq_util& u,
+                      expr* tok, expr* cond, expr_ref_vector const& repl2, eq_tree::dep_tracker dep) :
+                m_n(n), m(m), u(u), m_tok(tok, m), m_cond(cond, m), m_repl2(repl2), m_dep(dep) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        ite_split(ast_manager& m, seq_util& u, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        ite_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "ite-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("ite-split num splits", m_stats.m_num_splits); }
@@ -620,15 +630,17 @@ namespace seq {
     };
 
     // Deterministic propagation plugin wrapping deq_facet::simplify.
+    // Reads its own facet id via the ambient context's deq_id().
     class deq_propagation : public eq_tree::propagation_plugin_i {
-        stx::facet_id m_id;
+        ast_manager& m;
+        seq_util&    u;
         struct stats {
             unsigned m_num_propagate = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
     public:
-        explicit deq_propagation(stx::facet_id id) : m_id(id) {}
+        deq_propagation(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "deq-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override { st.update("deq-propagate num calls", m_stats.m_num_propagate); }
@@ -668,9 +680,6 @@ namespace seq {
     class deq_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
-        stx::facet_id m_deq_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
@@ -682,9 +691,6 @@ namespace seq {
         // mirrors word_eq_split::iterator's "alt" list pattern.
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_deq_id;
-            stx::facet_id  m_eq_id;
-            stx::facet_id  m_arith_id;
             unsigned       m_diseq_idx;
             expr_ref_vector m_lhs, m_rhs; // the original disequation's sides, captured before any branch mutates the vector
             eq_tree::dep_tracker m_dep;
@@ -692,17 +698,16 @@ namespace seq {
             ast_manager&   m;
             seq_util&      u;
         public:
-            iterator(eq_tree::node& n, stx::facet_id deq_id, stx::facet_id eq_id, stx::facet_id arith_id,
+            iterator(eq_tree::node& n,
                       unsigned diseq_idx, expr_ref_vector const& lhs, expr_ref_vector const& rhs,
                       eq_tree::dep_tracker dep, unsigned next_case, ast_manager& m, seq_util& u) :
-                m_n(n), m_deq_id(deq_id), m_eq_id(eq_id), m_arith_id(arith_id),
+                m_n(n),
                 m_diseq_idx(diseq_idx), m_lhs(lhs), m_rhs(rhs), m_dep(dep), m_next_case(next_case), m(m), u(u) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        deq_split(ast_manager& m, seq_util& u, stx::facet_id deq_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), m_deq_id(deq_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        deq_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "deq-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("deq-split num splits", m_stats.m_num_splits); }

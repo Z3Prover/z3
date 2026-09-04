@@ -38,6 +38,7 @@ namespace {
         stx::facet_id    eq_id;
         stx::facet_id    arith_id;
         stx::facet_id    pow_id;
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
 
         seq::eq_propagation      eprop;
         seq::word_eq_split       esplit;
@@ -60,15 +61,20 @@ namespace {
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
             arith_id(tree.register_facet<seq::arith_facet>(*root, m, u, solver)),
             pow_id(tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr())),
-            eprop(eq_id), esplit(m, u, eq_id), aprop(arith_id, eq_id),
-            pprop(m, u, a, pow_id, eq_id, arith_id), psplit(m, u, a, pow_id, eq_id, arith_id),
-            pfw(m, u, a, pow_id, eq_id, arith_id),
-            pnc(m, u, a, pow_id, eq_id, arith_id),
-            pse(m, u, a, pow_id, eq_id, arith_id),
-            pvp(m, u, a, pow_id, eq_id, arith_id),
-            pvd(m, u, a, pow_id, eq_id, arith_id),
-            pgi(m, u, a, pow_id, eq_id, arith_id)
+            ac(m, u),
+            eprop(m, u), esplit(m, u), aprop(m, u),
+            pprop(m, u, a), psplit(m, u, a),
+            pfw(m, u, a),
+            pnc(m, u, a),
+            pse(m, u, a),
+            pvp(m, u, a),
+            pvd(m, u, a),
+            pgi(m, u, a)
         {
+            ac.set_eq_id(eq_id);
+            ac.set_arith_id(arith_id);
+            ac.set_pow_id(pow_id);
+            tree.set_ambient_context(&ac);
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&aprop);
             tree.add_propagation_plugin(&pprop);

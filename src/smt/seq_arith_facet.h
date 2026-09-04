@@ -253,16 +253,16 @@ namespace seq {
     // own dedup via propagate_to_fixpoint's hashing - see module comment
     // for the "no cross-node dedup beyond eq_facet's own set" caveat).
     class arith_propagation : public eq_tree::propagation_plugin_i {
-        stx::facet_id m_arith_id;
-        stx::facet_id m_eq_id;
+        ast_manager&  m;
+        seq_util&     u;
         struct stats {
             unsigned m_num_propagate = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
     public:
-        arith_propagation(stx::facet_id arith_id, stx::facet_id eq_id) :
-            m_arith_id(arith_id), m_eq_id(eq_id) {}
+        arith_propagation(ast_manager& m, seq_util& u) :
+            m(m), u(u) {}
         char const* name() const override { return "arith-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override { st.update("arith-propagate num calls", m_stats.m_num_propagate); }

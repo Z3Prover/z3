@@ -148,8 +148,9 @@ namespace seq {
     }
 
     stx::simplify_result ncontains_propagation::propagate(eq_tree::node& n) {
-        auto& f = n.facet_as<ncontains_facet>(m_ncontains_id);
-        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+        auto ac = get_ambient(n, m, u);
+        auto& f = ac.ncontains_facet_ref();
+        auto& af = ac.arith_facet_ref();
         m_stats.m_num_propagate++;
 
         bool changed = false;

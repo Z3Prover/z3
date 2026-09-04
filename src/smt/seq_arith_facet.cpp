@@ -199,8 +199,9 @@ namespace seq {
     // -- arith_propagation --
 
     stx::simplify_result arith_propagation::propagate(eq_tree::node& n) {
-        auto& ef = n.facet_as<eq_facet>(m_eq_id);
-        auto& af = n.facet_as<arith_facet>(m_arith_id);
+        auto ac = get_ambient(n, m, u);
+        auto& ef = ac.eq_facet_ref();
+        auto& af = ac.arith_facet_ref();
         m_stats.m_num_propagate++;
         bool changed = false;
         for (auto const& eq : ef.equations())

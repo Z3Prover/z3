@@ -86,6 +86,21 @@ namespace seq {
         return null_ac;
     }
 
+    static ambient_context_i<eq_tree::dep_tracker>& get_ambient_context(stx::ambient_context_base* raw, ast_manager& m, seq_util& u) {
+        if (auto* ac = dynamic_cast<ambient_context_i<eq_tree::dep_tracker>*>(raw))
+            return *ac;
+        static null_ambient_context<eq_tree::dep_tracker> null_ac(m, u);
+        return null_ac;
+    }
+
+    ambient_ref<eq_tree::node, eq_tree::dep_tracker> get_ambient(eq_tree::node& n, ast_manager& m, seq_util& u) {
+        return ambient_ref<eq_tree::node, eq_tree::dep_tracker>(n, get_ambient_context(n.ambient(), m, u));
+    }
+
+    ambient_ref<eq_tree::node const, eq_tree::dep_tracker> get_ambient(eq_tree::node const& n, ast_manager& m, seq_util& u) {
+        return ambient_ref<eq_tree::node const, eq_tree::dep_tracker>(n, get_ambient_context(n.ambient(), m, u));
+    }
+
     unsigned eq_facet::hash() const {
         // Order-independent: the equation set is a set, not a sequence, so
         // combine per-equation hashes commutatively (sum) rather than with
@@ -126,7 +141,7 @@ namespace seq {
         return out;
     }
 
-    bool eq_facet::simplify_equation(eq_tree::node& n, stx::facet_id id, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
+    bool eq_facet::simplify_equation(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
         eq_tree::dep_tracker parent_dep = eq.m_dep;
         expr_ref_vector L(eq.m_lhs);
@@ -173,7 +188,7 @@ namespace seq {
                     return false;
                 }
                 expr_ref_vector empty_repl(m);
-                broadcast_subst(n, id, tok, empty_repl, eq_dep);
+                broadcast_subst(n, ac, tok, empty_repl, eq_dep);
             }
         }
 
@@ -201,13 +216,13 @@ namespace seq {
         return true;
     }
 
-    bool eq_facet::simplify(eq_tree::node& n, stx::facet_id id, bool& conflict, eq_tree::dep_tracker& conflict_dep) {
+    bool eq_facet::simplify(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, bool& conflict, eq_tree::dep_tracker& conflict_dep) {
         conflict = false;
         conflict_dep = nullptr;
         bool changed = false;
         for (unsigned i = 0; i < m_eqs.size(); ) {
             unsigned sz_before = m_eqs.size();
-            if (!simplify_equation(n, id, i, conflict, conflict_dep, changed)) {
+            if (!simplify_equation(n, ac, i, conflict, conflict_dep, changed)) {
                 SASSERT(conflict);
                 return true;
             }
@@ -223,11 +238,12 @@ namespace seq {
     }
 
     stx::simplify_result eq_propagation::propagate(eq_tree::node& n) {
-        auto& f = n.facet_as<eq_facet>(m_id);
+        auto ac = get_ambient(n, m, u);
+        auto& f = ac.eq_facet_ref();
         bool conflict = false;
         eq_tree::dep_tracker conflict_dep = nullptr;
         m_stats.m_num_propagate++;
-        bool changed = f.simplify(n, m_id, conflict, conflict_dep);
+        bool changed = f.simplify(n, ac.context(), conflict, conflict_dep);
         if (changed)
             m_stats.m_num_progress++;
         if (conflict) {
@@ -242,8 +258,9 @@ namespace seq {
     // Centralized substitution dispatcher: apply the substitution to the
     // eq_facet itself, then broadcast it to every other subst_sink_i in
     // the same node so all token-based facets stay synchronized.
-    void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
-        target.facet_as<eq_facet>(eq_id).apply_subst(var, repl, subst_dep);
+    void broadcast_subst(eq_tree::node& target, ambient_context_i<eq_tree::dep_tracker>& ac, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
+        ac.eq_facet(target).apply_subst(var, repl, subst_dep);
+        stx::facet_id eq_id = ac.eq_id();
         for (unsigned id = 0; id < target.num_facets(); ++id) {
             if (!target.has_facet(id) || id == eq_id)
                 continue;
@@ -255,8 +272,9 @@ namespace seq {
     bool word_eq_split::iterator::next(eq_tree::edge& out) {
         if (m_pos >= m_pending.size())
             return false;
+        auto ac = get_ambient(m_n, m, u);
         auto& a = m_pending[m_pos++];
-        broadcast_subst(m_n, m_id, a.m_var, a.m_repl, a.m_dep);
+        broadcast_subst(m_n, ac.context(), a.m_var, a.m_repl, a.m_dep);
         out = eq_tree::edge(a.m_name, a.m_dep, true, 0);
         return true;
     }
@@ -266,7 +284,8 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto& f = n.facet_as<eq_facet>(m_id);
+        auto ac = get_ambient(n, m, u);
+        auto& f = ac.eq_facet_ref();
 
         for (auto const& eq : f.equations()) {
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
@@ -358,7 +377,7 @@ namespace seq {
                     expr* val_tok = elim_lh ? rh : lh;
                     expr_ref_vector repl(m);
                     repl.push_back(val_tok);
-                    broadcast_subst(n, m_id, var_tok, repl, eq_dep);
+                    broadcast_subst(n, ac.context(), var_tok, repl, eq_dep);
                     out = eq_tree::edge("char-eq", eq_dep, true, 0);
                     committed = true;
                     m_stats.m_num_splits++;
@@ -395,7 +414,7 @@ namespace seq {
                     expr* v1p = f.mk_fresh_var(s);
                     expr* v2p = f.mk_fresh_var(s);
 
-                    iterator* it = alloc(iterator, n, m_id);
+                    iterator* it = alloc(iterator, n, m, u);
                     {
                         expr_ref_vector empty(m);
                         it->push_back("v2:=eps", v2, empty, eq_dep);
@@ -416,7 +435,7 @@ namespace seq {
                     // Materialize the first branch ("v1:=eps") now, in the
                     // scope the driver already pushed for this call.
                     expr_ref_vector empty(m);
-                    broadcast_subst(n, m_id, v1, empty, eq_dep);
+                    broadcast_subst(n, ac.context(), v1, empty, eq_dep);
                     out = eq_tree::edge("v1:=eps", eq_dep, true, 0);
                     committed = true;
                     m_stats.m_num_splits++;
@@ -429,7 +448,7 @@ namespace seq {
                 sort* s = var->get_sort();
                 expr* var2 = f.mk_fresh_var(s);
 
-                iterator* it = alloc(iterator, n, m_id);
+                iterator* it = alloc(iterator, n, m, u);
                 {
                     expr_ref_vector repl(m);
                     if (fwd) { repl.push_back(c); repl.push_back(var2); }
@@ -440,7 +459,7 @@ namespace seq {
                 // Materialize the first branch ("v:=eps") now, in the scope
                 // the driver already pushed for this call.
                 expr_ref_vector empty(m);
-                broadcast_subst(n, m_id, var, empty, eq_dep);
+                broadcast_subst(n, ac.context(), var, empty, eq_dep);
                 out = eq_tree::edge("v:=eps", eq_dep, true, 0);
                 committed = true;
                 m_stats.m_num_splits++;
@@ -543,8 +562,9 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto& f = n.facet_as<eq_facet>(m_eq_id);
-        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+        auto ac = get_ambient(n, m, u);
+        auto& f = ac.eq_facet_ref();
+        auto& af = ac.arith_facet_ref();
 
         for (unsigned idx = 0; idx < f.equations().size(); ++idx) {
             eq_facet::equation const& eq = f.equations()[idx];
@@ -615,10 +635,11 @@ namespace seq {
         if (m_done)
             return false;
         m_done = true;
-        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        auto ac = get_ambient(m_n, m, u);
+        auto& af = ac.arith_facet_ref();
         expr_ref not_cond(m.mk_not(m_cond), m);
         af.add_constraint(not_cond, m_dep);
-        broadcast_subst(m_n, m_eq_id, m_tok, m_repl2, m_dep);
+        broadcast_subst(m_n, ac.context(), m_tok, m_repl2, m_dep);
         out = eq_tree::edge("ite-split-else", m_dep, true, 0);
         return true;
     }
@@ -628,8 +649,9 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto& f = n.facet_as<eq_facet>(m_eq_id);
-        auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+        auto ac = get_ambient(n, m, u);
+        auto& f = ac.eq_facet_ref();
+        auto& af = ac.arith_facet_ref();
 
         for (auto const& eq : f.equations()) {
             expr* tok = nullptr;
@@ -657,14 +679,14 @@ namespace seq {
             // dependency-tracked disjunction branch (facet-eq-deq.md
             // section 2.3).
             af.add_constraint(cond, eq_dep);
-            broadcast_subst(n, m_eq_id, tok, repl1, eq_dep);
+            broadcast_subst(n, ac.context(), tok, repl1, eq_dep);
             out = eq_tree::edge("ite-split-then", eq_dep, true, 0);
             committed = true;
             m_stats.m_num_splits++;
 
             // Branch 2 ("else"): resumed lazily via the returned iterator,
             // asserting `!cond` and substituting by else_e's token list.
-            return alloc(iterator, n, m_eq_id, m_arith_id, tok, cond, repl2, eq_dep, m);
+            return alloc(iterator, n, m, u, tok, cond, repl2, eq_dep);
         }
         return nullptr;
     }
@@ -795,7 +817,8 @@ namespace seq {
     }
 
     stx::simplify_result deq_propagation::propagate(eq_tree::node& n) {
-        auto& f = n.facet_as<deq_facet>(m_id);
+        auto ac = get_ambient(n, m, u);
+        auto& f = ac.deq_facet_ref();
         bool conflict = false;
         eq_tree::dep_tracker conflict_dep = nullptr;
         m_stats.m_num_propagate++;
@@ -839,7 +862,8 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto& f = n.facet_as<deq_facet>(m_deq_id);
+        auto ac = get_ambient(n, m, u);
+        auto& f = ac.deq_facet_ref();
 
         for (unsigned idx = 0; idx < f.disequations().size(); ++idx) {
             deq_facet::disequation const& dq = f.disequations()[idx];
@@ -849,11 +873,11 @@ namespace seq {
 
             eq_tree::dep_tracker dq_dep = dq.m_dep;
             expr_ref_vector lhs(dq.m_lhs), rhs(dq.m_rhs);
-            auto& af = n.facet_as<arith_facet_i>(m_arith_id);
+            auto& af = ac.arith_facet_ref();
             expr_ref len_lhs = mk_side_len(u, af.get_arith_util(), m, lhs);
             expr_ref len_rhs = mk_side_len(u, af.get_arith_util(), m, rhs);
 
-            iterator* it = alloc(iterator, n, m_deq_id, m_eq_id, m_arith_id, idx, lhs, rhs, dq_dep, 2, m, u);
+            iterator* it = alloc(iterator, n, idx, lhs, rhs, dq_dep, 2, m, u);
 
             // Materialize branch 1 ("len(u) < len(v)") now, in the scope
             // the driver already pushed for this call: a length mismatch
@@ -874,10 +898,11 @@ namespace seq {
         if (m_next_case > 3)
             return false;
         unsigned this_case = m_next_case++;
-        auto& af = m_n.facet_as<arith_facet_i>(m_arith_id);
+        auto ac = get_ambient(m_n, m, u);
+        auto& af = ac.arith_facet_ref();
         expr_ref len_lhs = mk_side_len(u, af.get_arith_util(), m, m_lhs);
         expr_ref len_rhs = mk_side_len(u, af.get_arith_util(), m, m_rhs);
-        auto& f = m_n.facet_as<deq_facet>(m_deq_id);
+        auto& f = ac.deq_facet_ref();
 
         if (this_case == 2) {
             // Branch 2: len(v) < len(u), symmetric to branch 1.
@@ -893,7 +918,7 @@ namespace seq {
         // constraint len(u')=len(v'); replace the original disequation
         // with the finer a != b - which, together with the two new
         // equalities just asserted, is what actually proves u != v.
-        auto& ef = m_n.facet_as<eq_facet>(m_eq_id);
+        auto& ef = ac.eq_facet_ref();
         sort* seq_sort = m_lhs[0]->get_sort();
         sort* char_sort = nullptr;
         VERIFY(u.is_seq(seq_sort, char_sort));

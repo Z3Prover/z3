@@ -208,17 +208,14 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
         struct stats {
             unsigned m_num_propagate = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
     public:
-        power_propagation(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        power_propagation(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override { st.update("power-propagate num calls", m_stats.m_num_propagate); }
@@ -231,15 +228,9 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_pow_id;
-            stx::facet_id  m_eq_id;
-            stx::facet_id  m_arith_id;
             unsigned       m_pow_index;
             unsigned       m_next_j; // next exponent to try (1..bound)
             unsigned       m_bound;
@@ -248,17 +239,17 @@ namespace seq {
             seq_util&      u;
             arith_util&    a;
         public:
-            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id,
+            iterator(eq_tree::node& n,
                       unsigned pow_index, unsigned bound, eq_tree::dep_tracker dep,
                       ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id),
+                m_n(n),
                 m_pow_index(pow_index), m_next_j(1), m_bound(bound), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_split(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        power_split(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("power-split num splits", m_stats.m_num_splits); }
@@ -334,31 +325,25 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_pow_id;
-            stx::facet_id  m_eq_id;
-            stx::facet_id  m_arith_id;
             trigger        m_t;
             unsigned       m_next_case; // 2, then 3, then done
             ast_manager&   m;
             seq_util&      u;
             arith_util&    a;
         public:
-            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id,
+            iterator(eq_tree::node& n,
                       trigger const& t, unsigned next_case, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id),
+                m_n(n),
                 m_t(t), m_next_case(next_case), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_fine_wilf(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        power_fine_wilf(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-fine-wilf"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("power-fine-wilf num splits", m_stats.m_num_splits); }
@@ -404,28 +389,26 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_arith_id;
             expr_ref       m_n_exp;
             expr_ref       m_m_exp;
             eq_tree::dep_tracker m_dep;
+            ast_manager&   m;
+            seq_util&      u;
             arith_util&    a;
             bool           m_done = false;
         public:
-            iterator(eq_tree::node& n, stx::facet_id arith_id, expr* n_exp, expr* m_exp,
-                      eq_tree::dep_tracker dep, ast_manager& m, arith_util& a) :
-                m_n(n), m_arith_id(arith_id), m_n_exp(n_exp, m), m_m_exp(m_exp, m), m_dep(dep), a(a) {}
+            iterator(eq_tree::node& n, expr* n_exp, expr* m_exp,
+                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
+                m_n(n), m_n_exp(n_exp, m), m_m_exp(m_exp, m), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_num_cmp(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        power_num_cmp(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-num-cmp"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("power-num-cmp num splits", m_stats.m_num_splits); }
@@ -467,28 +450,26 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_arith_id;
             expr_ref       m_pow_exp;
             expr_ref       m_count;
             eq_tree::dep_tracker m_dep;
+            ast_manager&   m;
+            seq_util&      u;
             arith_util&    a;
             bool           m_done = false;
         public:
-            iterator(eq_tree::node& n, stx::facet_id arith_id, expr* pow_exp, expr* count,
-                      eq_tree::dep_tracker dep, ast_manager& m, arith_util& a) :
-                m_n(n), m_arith_id(arith_id), m_pow_exp(pow_exp, m), m_count(count, m), m_dep(dep), a(a) {}
+            iterator(eq_tree::node& n, expr* pow_exp, expr* count,
+                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
+                m_n(n), m_pow_exp(pow_exp, m), m_count(count, m), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_split_elim(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        power_split_elim(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-split-elim"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("power-split-elim num splits", m_stats.m_num_splits); }
@@ -541,15 +522,9 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_pow_id;
-            stx::facet_id  m_eq_id;
-            stx::facet_id  m_arith_id;
             unsigned       m_eq_idx;
             bool           m_pow_on_lhs;
             bool           m_fwd;
@@ -561,18 +536,18 @@ namespace seq {
             seq_util&      u;
             arith_util&    a;
         public:
-            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id,
+            iterator(eq_tree::node& n,
                       unsigned eq_idx, bool pow_on_lhs, bool fwd, unsigned pow_idx, expr* var,
                       eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id),
+                m_n(n),
                 m_eq_idx(eq_idx), m_pow_on_lhs(pow_on_lhs), m_fwd(fwd), m_pow_idx(pow_idx), m_var(var, m),
                 m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_var_peel(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        power_var_peel(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-var-peel"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("power-var-peel num splits", m_stats.m_num_splits); }
@@ -628,9 +603,6 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
 
         // Per-target-variable cache of the fresh exponent skolem `m`
         // used for `U^m` (the "how much of U has v already consumed"
@@ -651,9 +623,6 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_pow_id;
-            stx::facet_id  m_eq_id;
-            stx::facet_id  m_arith_id;
             expr_ref       m_var;
             expr_ref       m_pow_e;      // the U^n token being decomposed
             expr_ref_vector m_base_toks; // U's own flattened base tokens, in the direction v faces U^n
@@ -667,17 +636,17 @@ namespace seq {
             arith_util&    a;
             power_var_decompose* m_owner;
         public:
-            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id,
+            iterator(eq_tree::node& n,
                       expr* var, expr* pow_e, expr_ref_vector const& base_toks, expr* fresh_m, bool fwd,
                       eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a, power_var_decompose* owner) :
-                m_n(n), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id), m_var(var, m), m_pow_e(pow_e, m),
+                m_n(n), m_var(var, m), m_pow_e(pow_e, m),
                 m_base_toks(base_toks), m_fresh_m(fresh_m, m), m_fwd(fwd), m_dep(dep), m(m), u(u), a(a), m_owner(owner) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_var_decompose(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        power_var_decompose(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-var-decompose"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("power-var-decompose num splits", m_stats.m_num_splits); }
@@ -730,9 +699,6 @@ namespace seq {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
-        stx::facet_id m_pow_id;
-        stx::facet_id m_eq_id;
-        stx::facet_id m_arith_id;
 
         // See power_var_decompose's own m_n_cache/m_m_cache comment;
         // same idiom, separate cache (see class comment above).
@@ -744,9 +710,6 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            stx::facet_id  m_pow_id;
-            stx::facet_id  m_eq_id;
-            stx::facet_id  m_arith_id;
             expr_ref       m_var;
             expr_ref       m_pow_e;       // the fresh base^n power token
             expr_ref_vector m_base_toks;  // compressed ground-prefix base tokens, in the direction v faces the cycle
@@ -759,17 +722,17 @@ namespace seq {
             arith_util&    a;
             power_gpower_intro* m_owner;
         public:
-            iterator(eq_tree::node& n, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id,
+            iterator(eq_tree::node& n,
                       expr* var, expr* pow_e, expr_ref_vector const& base_toks, expr* fresh_n, bool fwd,
                       eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a, power_gpower_intro* owner) :
-                m_n(n), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id), m_var(var, m), m_pow_e(pow_e, m),
+                m_n(n), m_var(var, m), m_pow_e(pow_e, m),
                 m_base_toks(base_toks), m_fresh_n(fresh_n, m), m_fwd(fwd), m_dep(dep), m(m), u(u), a(a), m_owner(owner) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_gpower_intro(ast_manager& m, seq_util& u, arith_util& a, stx::facet_id pow_id, stx::facet_id eq_id, stx::facet_id arith_id) :
-            m(m), u(u), a(a), m_pow_id(pow_id), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        power_gpower_intro(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
         char const* name() const override { return "power-gpower-intro"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("power-gpower-intro num splits", m_stats.m_num_splits); }

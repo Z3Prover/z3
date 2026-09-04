@@ -21,82 +21,98 @@ Abstract:
 namespace {
 
     struct fixture {
-        ast_manager     m;
-        seq_rewriter*   rw;
-        seq_util*        u;
+        ast_manager      m;
+        seq_util         u;
+        seq_rewriter     rw;
         trail_stack      trail;
-        seq::live_states* live;
-        fixture() { reg_decl_plugins(m); rw = alloc(seq_rewriter, m); u = alloc(seq_util, m); live = alloc(seq::live_states, *rw, seq::transition_mode::brzozowski_tm); }
-        ~fixture() { dealloc(live); dealloc(u); dealloc(rw); }
+        seq::live_states live;
+        seq::eq_tree     tree;
+        seq::eq_tree::node* root;
+        stx::facet_id    eq_id;
+        stx::facet_id    mem_id;
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
+
+        seq::eq_propagation   eprop;
+        seq::word_eq_split    esplit;
+        seq::mem_propagation  mprop;
+        seq::mem_var_split    vsplit;
+        seq::mem_monadic_split msplit;
+
+        static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
+
+        fixture() :
+            u((init_plugins(m), m)), rw(m), live(rw, seq::transition_mode::brzozowski_tm),
+            root(tree.mk_root()),
+            eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
+            mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr())),
+            ac(m, u),
+            eprop(m, u), esplit(m, u),
+            mprop(m, u, rw, live),
+            vsplit(m, u),
+            msplit(m, u, rw, trail)
+        {
+            ac.set_eq_id(eq_id);
+            ac.set_mem_id(mem_id);
+            tree.set_ambient_context(&ac);
+            tree.add_propagation_plugin(&eprop);
+            tree.add_propagation_plugin(&mprop);
+            tree.add_split_plugin(&vsplit);
+            tree.add_split_plugin(&msplit);
+            tree.add_split_plugin(&esplit);
+            tree.set_max_search_depth(12);
+        }
     };
 
-    stx::search_result solve_mem(fixture& f, std::function<void(seq::eq_tree&, seq::eq_tree::node*, stx::facet_id, stx::facet_id)> init, unsigned depth = 12) {
-        seq::eq_tree tree;
-        auto* root = tree.mk_root();
-        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, f.m, *f.u, tree.dep_mgr());
-        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, f.m, *f.u, tree.dep_mgr());
-        init(tree, root, eq_id, mem_id);
-        seq::eq_propagation eprop(eq_id);
-        seq::word_eq_split esplit(f.m, *f.u, eq_id);
-        seq::mem_propagation mprop(f.m, *f.u, mem_id, *f.rw, *f.live);
-        seq::mem_var_split vsplit(f.m, *f.u, mem_id, eq_id);
-        seq::mem_monadic_split msplit(f.m, *f.u, mem_id, *f.rw, f.trail);
-        tree.add_propagation_plugin(&eprop);
-        tree.add_propagation_plugin(&mprop);
-        tree.add_split_plugin(&vsplit);
-        tree.add_split_plugin(&msplit);
-        tree.add_split_plugin(&esplit);
-        tree.set_max_search_depth(depth);
-        return tree.solve();
+    stx::search_result solve_mem(fixture& f, std::function<void(seq::eq_tree::node*)> init, unsigned depth = 12) {
+        init(f.root);
+        f.tree.set_max_search_depth(depth);
+        return f.tree.solve();
     }
 
     static void tst_trivial_sat() {
         fixture f;
-        expr_ref word(f.u->str.mk_string(zstring("ab")), f.m);
-        expr_ref re(f.u->re.mk_concat(f.u->re.mk_to_re(f.u->str.mk_string(zstring("a"))),
-                                      f.u->re.mk_to_re(f.u->str.mk_string(zstring("b")))), f.m);
-        ENSURE(solve_mem(f, [&](seq::eq_tree&, seq::eq_tree::node* root, stx::facet_id, stx::facet_id mem_id) {
-            root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(f.m, word, seq::view::membership(re)));
+        expr_ref word(f.u.str.mk_string(zstring("ab")), f.m);
+        expr_ref re(f.u.re.mk_concat(f.u.re.mk_to_re(f.u.str.mk_string(zstring("a"))),
+                                      f.u.re.mk_to_re(f.u.str.mk_string(zstring("b")))), f.m);
+        ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
+            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, word, seq::view::membership(re)));
         }) == stx::search_result::sat);
     }
 
     static void tst_dead_unsat() {
         fixture f;
-        expr_ref word(f.u->str.mk_string(zstring("a")), f.m);
-        expr_ref re(f.u->re.mk_to_re(f.u->str.mk_string(zstring("a"))), f.m);
-        ENSURE(solve_mem(f, [&](seq::eq_tree&, seq::eq_tree::node* root, stx::facet_id, stx::facet_id mem_id) {
-            root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(f.m, word, seq::view::membership(re)));
+        expr_ref word(f.u.str.mk_string(zstring("a")), f.m);
+        expr_ref re(f.u.re.mk_to_re(f.u.str.mk_string(zstring("a"))), f.m);
+        ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
+            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, word, seq::view::membership(re)));
         }) == stx::search_result::sat);
     }
 
     static void tst_single_var_sat() {
         fixture f;
-        sort* s = f.u->str.mk_string_sort();
+        sort* s = f.u.str.mk_string_sort();
         expr_ref X(f.m.mk_fresh_const("X", s), f.m);
-        expr_ref a(f.u->str.mk_string(zstring("a")), f.m);
-        expr_ref star_a(f.u->re.mk_star(f.u->re.mk_to_re(a)), f.m);
-        ENSURE(solve_mem(f, [&](seq::eq_tree&, seq::eq_tree::node* root, stx::facet_id eq_id, stx::facet_id mem_id) {
-            root->facet_as<seq::eq_facet>(eq_id).add_equation(X, a);
-            root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(f.m, X, seq::view::membership(star_a)));
+        expr_ref a(f.u.str.mk_string(zstring("a")), f.m);
+        expr_ref star_a(f.u.re.mk_star(f.u.re.mk_to_re(a)), f.m);
+        ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
+            root->facet_as<seq::eq_facet>(f.eq_id).add_equation(X, a);
+            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, X, seq::view::membership(star_a)));
         }) == stx::search_result::sat);
     }
 
     static void tst_two_var_monadic_sat() {
         fixture f;
-        sort* s = f.u->str.mk_string_sort();
+        sort* s = f.u.str.mk_string_sort();
         expr_ref X(f.m.mk_fresh_const("X", s), f.m);
         expr_ref Y(f.m.mk_fresh_const("Y", s), f.m);
-        expr_ref term(f.u->str.mk_concat(X, Y), f.m);
-        expr_ref re(f.u->re.mk_concat(f.u->re.mk_star(f.u->re.mk_to_re(f.u->str.mk_string(zstring("a")))),
-                                      f.u->re.mk_star(f.u->re.mk_to_re(f.u->str.mk_string(zstring("b"))))), f.m);
-        ENSURE(solve_mem(f, [&](seq::eq_tree&, seq::eq_tree::node* root, stx::facet_id, stx::facet_id mem_id) {
-            root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(f.m, term, seq::view::membership(re)));
+        expr_ref term(f.u.str.mk_concat(X, Y), f.m);
+        expr_ref re(f.u.re.mk_concat(f.u.re.mk_star(f.u.re.mk_to_re(f.u.str.mk_string(zstring("a")))),
+                                      f.u.re.mk_star(f.u.re.mk_to_re(f.u.str.mk_string(zstring("b"))))), f.m);
+        ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
+            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, term, seq::view::membership(re)));
         }, 16) == stx::search_result::sat);
     }
 
-    // power_var_peel_mem ("apply_var_num_unwinding_mem" in c3): a
-    // membership whose string is a bare power term `"a"^N` in the
-    // regular language `a*` must be sat - power_facet/power_var_peel_mem
     // power_var_peel_mem ("apply_var_num_unwinding_mem" in c3): a
     // membership whose string is a power term `s^n` at a directional
     // end must offer the n=0 (replace with epsilon) branch immediately
@@ -126,13 +142,18 @@ namespace {
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
         stx::facet_id pow_id = tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr());
         stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr());
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_arith_id(arith_id);
+        ac.set_pow_id(pow_id);
+        ac.set_mem_id(mem_id);
+        tree.set_ambient_context(&ac);
         expr_ref N(m.mk_fresh_const("N", a.mk_int()), m);
         expr_ref pow(u.str.mk_power(one_a, N), m);
         expr_ref term(u.str.mk_concat(pow, b), m);
         root->facet_as<seq::power_facet>(pow_id).add_power(pow, one_a, N);
         root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(m, term, seq::view::membership(re)));
 
-        seq::power_var_peel_mem pvpm(m, u, a, pow_id, mem_id, arith_id);
+        seq::power_var_peel_mem pvpm(m, u, a);
         tree.trail().push_scope();
         seq::eq_tree::edge out;
         bool has_more = false, committed = false;
@@ -161,13 +182,18 @@ namespace {
         stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
         stx::facet_id pow_id = tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr());
         stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr());
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        ac.set_arith_id(arith_id);
+        ac.set_pow_id(pow_id);
+        ac.set_mem_id(mem_id);
+        tree.set_ambient_context(&ac);
         expr_ref N(m.mk_fresh_const("N", a.mk_int()), m);
         expr_ref pow(u.str.mk_power(one_a, N), m);
         expr_ref term(u.str.mk_concat(pow, b), m);
         root->facet_as<seq::power_facet>(pow_id).add_power(pow, one_a, N);
         root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(m, term, seq::view::membership(re)));
 
-        seq::power_var_peel_mem pvpm(m, u, a, pow_id, mem_id, arith_id);
+        seq::power_var_peel_mem pvpm(m, u, a);
         tree.trail().push_scope();
         seq::eq_tree::edge out;
         bool has_more = false, committed = false;

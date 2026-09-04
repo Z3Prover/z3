@@ -59,6 +59,21 @@ Author:
 
 namespace seq {
 
+    // Forward declarations only - this header must stay free of any
+    // dependency on the concrete facet classes (see module comment
+    // above); `ambient_context_i`'s typed accessor methods below
+    // (`eq_facet`, `mem_facet`, ...) are member function templates on
+    // the node type, so each is only instantiated (and so only requires
+    // its facet type to be complete) at the point it is actually called
+    // - i.e. in whichever .cpp already includes the concrete facet
+    // header - not here.
+    class eq_facet;
+    class deq_facet;
+    class power_facet;
+    class mem_facet;
+    class ncontains_facet;
+    class arith_facet_i;
+
     /**
      * Abstracted, dependency-tracked bridge into the ambient SMT context.
      * Concrete implementations (e.g. under src/smt, wrapping
@@ -85,9 +100,57 @@ namespace seq {
     protected:
         ast_manager& m;
         seq_util&    u;
+
+        // Sentinel for "not (yet) registered" - distinct from any real
+        // facet_id (facet_id 0 is a legitimate id, so it cannot double as
+        // "unset").
+        static constexpr stx::facet_id no_facet = ~0u;
+
+        // Sibling facet ids, collected here once (by whoever assembles
+        // the search tree - a test fixture today, `theory_nseq`
+        // eventually) right after the corresponding `register_facet<...>`
+        // calls, via the setters below. Every propagation/split plugin
+        // that used to take these as constructor arguments now instead
+        // reads them off `node::ambient()` (cast down to this type) at
+        // the point of use (`propagate(node&)`/`split(node&, ...)`), so
+        // that assembling a new combination of facets/plugins for a node
+        // no longer requires threading each sibling's id through every
+        // plugin constructor - it only requires registering the ids here
+        // once.
+        stx::facet_id m_eq_id = no_facet;
+        stx::facet_id m_deq_id = no_facet;
+        stx::facet_id m_arith_id = no_facet;
+        stx::facet_id m_pow_id = no_facet;
+        stx::facet_id m_mem_id = no_facet;
+        stx::facet_id m_ncontains_id = no_facet;
+
+        // Raw facet ids are deliberately not public: nothing outside this
+        // class (or the facet-accessor templates just below, which are
+        // the only legitimate consumers) should need a bare `facet_id` -
+        // every caller that used to write `n.facet_as<mem_facet>(ac.
+        // mem_id())` should instead write `ac.mem_facet(n)` and never see
+        // an id at all. `broadcast_subst` (seq_eq_facet.h/.cpp) is the one
+        // exception, since it needs `eq_id()` to skip re-applying a
+        // substitution to the eq_facet it already just applied it to
+        // directly; it is declared a friend for that reason.
+        stx::facet_id eq_id() const { return m_eq_id; }
+        stx::facet_id deq_id() const { return m_deq_id; }
+        stx::facet_id arith_id() const { return m_arith_id; }
+        stx::facet_id pow_id() const { return m_pow_id; }
+        stx::facet_id mem_id() const { return m_mem_id; }
+        stx::facet_id ncontains_id() const { return m_ncontains_id; }
+
+        friend void broadcast_subst(stx::search_tree<unsigned>::node& target, ambient_context_i<stx::search_tree<unsigned>::dep_tracker>& ac, expr* var, expr_ref_vector const& repl, stx::search_tree<unsigned>::dep_tracker subst_dep);
     public:
         ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u) {}
         ~ambient_context_i() override = default;
+
+        void set_eq_id(stx::facet_id id) { m_eq_id = id; }
+        void set_deq_id(stx::facet_id id) { m_deq_id = id; }
+        void set_arith_id(stx::facet_id id) { m_arith_id = id; }
+        void set_pow_id(stx::facet_id id) { m_pow_id = id; }
+        void set_mem_id(stx::facet_id id) { m_mem_id = id; }
+        void set_ncontains_id(stx::facet_id id) { m_ncontains_id = id; }
 
         // Is `e` a token this facet layer's Nielsen-style split rules may
         // treat as a freely-substitutable "variable" - i.e. neither a
@@ -130,6 +193,87 @@ namespace seq {
         // no return value/dependency since it does not itself resolve
         // anything within the search tree.
         virtual void add_diseq_axiom(expr* e1, expr* e2) = 0;
+
+        // Retrieve one of this node's sibling facets directly, coercing
+        // it to its concrete type in one call - e.g. `ac.mem_facet(n)`
+        // instead of the old two-step `n.facet_as<mem_facet>(ac.mem_id())`.
+        // `node_t` is a template parameter (rather than a fixed
+        // `stx::search_tree<...>::node`) purely so this header does not
+        // need to name any one `search_tree` instantiation; every current
+        // caller passes `eq_tree::node` (see seq_eq_facet.h). Each method
+        // is a member function template, so (like `facet_as<T>` itself)
+        // it is only instantiated - and so only requires its facet type
+        // to be complete - at the point it is actually called, i.e. in
+        // whichever .cpp already `#include`s that facet's own header.
+        template <typename node_t> seq::eq_facet& eq_facet(node_t& n) const { return n.template facet_as<seq::eq_facet>(eq_id()); }
+        template <typename node_t> seq::deq_facet& deq_facet(node_t& n) const { return n.template facet_as<seq::deq_facet>(deq_id()); }
+        template <typename node_t> seq::power_facet& power_facet(node_t& n) const { return n.template facet_as<seq::power_facet>(pow_id()); }
+        template <typename node_t> seq::mem_facet& mem_facet(node_t& n) const { return n.template facet_as<seq::mem_facet>(mem_id()); }
+        template <typename node_t> seq::ncontains_facet& ncontains_facet(node_t& n) const { return n.template facet_as<seq::ncontains_facet>(ncontains_id()); }
+        template <typename node_t> seq::arith_facet_i& arith_facet(node_t& n) const { return n.template facet_as<seq::arith_facet_i>(arith_id()); }
+
+        template <typename node_t> bool has_eq(node_t& n) const { return n.has_facet(eq_id()); }
+        template <typename node_t> bool has_deq(node_t& n) const { return n.has_facet(deq_id()); }
+        template <typename node_t> bool has_power(node_t& n) const { return n.has_facet(pow_id()); }
+        template <typename node_t> bool has_mem(node_t& n) const { return n.has_facet(mem_id()); }
+        template <typename node_t> bool has_ncontains(node_t& n) const { return n.has_facet(ncontains_id()); }
+        template <typename node_t> bool has_arith(node_t& n) const { return n.has_facet(arith_id()); }
+    };
+
+    /**
+     * A lightweight, non-owning proxy bundling a search-tree node
+     * together with its ambient context, so a call site can write
+     * `get_ambient(n).mem_facet()` instead of the old two-step
+     * `n.facet_as<mem_facet>(get_ambient(n, m, u).mem_id())`. The
+     * ambient context already knows every sibling's `facet_id`
+     * (`eq_id()`, `mem_id()`, etc.); this class just adds the missing
+     * piece - the node to call `facet_as<T>` on - and one accessor
+     * method per sibling facet type.
+     *
+     * Since this is itself a class template, a method such as
+     * `mem_facet()` is only instantiated (and so only requires `seq::
+     * mem_facet` to be a complete type) at the point it is actually
+     * called - i.e. in whichever .cpp already `#include`s the concrete
+     * facet's header. `seq_ambient_context.h` itself never needs to see
+     * those headers, only the forward declarations above; this is what
+     * lets `ambient_ref` return real reference types (`mem_facet&`, not
+     * `facet_i&` requiring a further cast at every call site) without
+     * creating a header dependency cycle.
+     */
+    template <typename node_t, typename dep_tracker_t>
+    class ambient_ref {
+        node_t& m_node;
+        ambient_context_i<dep_tracker_t>& m_ac;
+    public:
+        ambient_ref(node_t& n, ambient_context_i<dep_tracker_t>& ac) : m_node(n), m_ac(ac) {}
+
+        // Access to the underlying context (bounds/values queries,
+        // is_var, ...) for call sites that still need those directly.
+        // Note: raw facet ids are intentionally not exposed here - use
+        // the typed accessors (eq_facet_ref(), etc.) or has_eq()/etc.
+        ambient_context_i<dep_tracker_t>& context() const { return m_ac; }
+        node_t& node() const { return m_node; }
+
+        bool is_var(expr* e) const { return m_ac.is_var(e); }
+        bool lower_bound(expr* e, rational& lo, dep_tracker_t& dep) const { return m_ac.lower_bound(e, lo, dep); }
+        bool upper_bound(expr* e, rational& hi, dep_tracker_t& dep) const { return m_ac.upper_bound(e, hi, dep); }
+        bool current_value(expr* e, rational& v) const { return m_ac.current_value(e, v); }
+        dep_tracker_t literal_if_false(expr* e) const { return m_ac.literal_if_false(e); }
+        void add_diseq_axiom(expr* e1, expr* e2) const { m_ac.add_diseq_axiom(e1, e2); }
+
+        eq_facet& eq_facet_ref() const { return m_ac.eq_facet(m_node); }
+        deq_facet& deq_facet_ref() const { return m_ac.deq_facet(m_node); }
+        power_facet& power_facet_ref() const { return m_ac.power_facet(m_node); }
+        mem_facet& mem_facet_ref() const { return m_ac.mem_facet(m_node); }
+        ncontains_facet& ncontains_facet_ref() const { return m_ac.ncontains_facet(m_node); }
+        arith_facet_i& arith_facet_ref() const { return m_ac.arith_facet(m_node); }
+
+        bool has_eq() const { return m_ac.has_eq(m_node); }
+        bool has_deq() const { return m_ac.has_deq(m_node); }
+        bool has_power() const { return m_ac.has_power(m_node); }
+        bool has_mem() const { return m_ac.has_mem(m_node); }
+        bool has_ncontains() const { return m_ac.has_ncontains(m_node); }
+        bool has_arith() const { return m_ac.has_arith(m_node); }
     };
 
     // Trivial, always-"unknown" implementation: usable by unit tests (or
