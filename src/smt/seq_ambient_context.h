@@ -42,7 +42,7 @@ namespace seq {
      * any one branch's assumptions); this is sound (a `nullptr` dep is
      * always joinable/always "no extra justification needed") but not
      * maximally precise. Callers that need finer-grained provenance
-     * should prefer a `dep_tracker`-carrying route (e.g. `arith_facet`'s
+     * should prefer a `dep_tracker`-carrying route (e.g. `solver_facet`'s
      * own incremental backend) where one exists.
      */
     class theory_seq_ambient_context : public ambient_context_i<eq_tree::dep_tracker> {

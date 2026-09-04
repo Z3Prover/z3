@@ -13,7 +13,7 @@ Abstract:
 
     This is the first facet that wraps a genuine incremental SMT backend
     (per z3papers/nseq/facet-arith.md's `sub_solver_i`): rather than
-    reasoning about length/arithmetic constraints itself, `arith_facet`
+    reasoning about length/arithmetic constraints itself, `solver_facet`
     delegates satisfiability of a set of integer-linear-arithmetic
     constraints (derived from `eq_facet`'s equations via `str.len`) to a
     real `solver` instance (see src/solver/solver.h,
@@ -26,7 +26,7 @@ Abstract:
     for later, since no `mem_facet` exists yet to feed Parikh-image /
     regex-membership constraints):
       - Only length constraints are generated: for each pending equation
-        `L = R` held by `eq_facet`, `arith_facet` asserts
+        `L = R` held by `eq_facet`, `solver_facet` asserts
         `len(L) = len(R)` (as a sum of `str.len` over each token: a
         constant token contributes 1, a variable token contributes
         `str.len(v)`), plus `len(v) >= 0` for every variable it has not
@@ -37,11 +37,11 @@ Abstract:
         itself for *this* equation alone, but combined with iterating
         Nielsen branches that never terminate, the arithmetic facet's
         real payoff appears once a `mem_facet`/exponent argument is
-        layered on. For this phase, `arith_facet` is deliberately kept as
+        layered on. For this phase, `solver_facet` is deliberately kept as
         infrastructure: a real incremental backend, wired to push/pop
         with the tree, generating and checking length constraints - not a
         complete decision procedure for periodicity by itself.
-      - No model extraction / no consequence-finding: `arith_facet` only
+      - No model extraction / no consequence-finding: `solver_facet` only
         asks `check()` for `sat`/`unsat`/`unknown` on the accumulated
         constraint set; `unknown` is folded into the facet reporting
         "unresolved" (never itself conflicting or being satisfied), so it
@@ -80,7 +80,7 @@ namespace seq {
      * Concrete `sub_solver_i` backed by a single shared `solver` instance
      * (see src/solver/solver.h, src/smt/smt_solver.h). This is the only
      * place in the arith-facet module that depends on the concrete solver
-     * API; `arith_facet` itself only ever sees `sub_solver_i&`.
+     * API; `solver_facet` itself only ever sees `sub_solver_i&`.
      *
      * Follows the c3 branch's `smt::sub_solver` (src/smt/
      * nseq_context_solver.h): a dependency-tracked `assert_expr(e, dep)`
@@ -123,14 +123,14 @@ namespace seq {
      * and above whatever its ancestors already pushed into the shared
      * `arith_sub_solver`). Since nodes in `stx::search_tree` are
      * immutable/persistent (a child is a clone of its parent plus one
-     * incremental change), a fresh `arith_facet` clone's own constraint
+     * incremental change), a fresh `solver_facet` clone's own constraint
      * vector naturally holds exactly the constraints *this* node adds -
      * `on_enter()` asserts precisely those and pushes a new backend scope;
      * `on_leave()` pops it. This mirrors facet-arith.md section 2's
      * "push/pop synced to DFS scope" requirement without the generic
      * `stx::` engine needing to know anything about incremental solvers.
      */
-    class arith_facet : public arith_facet_i {
+    class solver_facet : public arith_facet_i {
         ast_manager&      m;
         arith_util        a;
         seq_util&         u;
@@ -170,7 +170,7 @@ namespace seq {
         };
 
     public:
-        arith_facet(trail_stack& trail, ast_manager& m, seq_util& u, sub_solver_i& solver) :
+        solver_facet(trail_stack& trail, ast_manager& m, seq_util& u, sub_solver_i& solver) :
             arith_facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_own(m) {}
 
         ast_manager& get_manager() const { return m; }
@@ -208,13 +208,13 @@ namespace seq {
         stx::facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
-        // arith_facet never itself blocks the "satisfied" verdict: it only
+        // solver_facet never itself blocks the "satisfied" verdict: it only
         // ever prunes via a conflict (surfaced through propagate(),
         // returning simplify_result::conflict, not through is_satisfied());
         // it defers to the other facets (eq_facet/deq_facet's own
         // is_satisfied()) for whether solving as a whole is done. Since
         // node::is_satisfied() is an AND over every registered facet,
-        // arith_facet must return true here (silently "not objecting"),
+        // solver_facet must return true here (silently "not objecting"),
         // not false (which would make it impossible for any node with
         // this facet registered to ever reach the sat verdict).
         bool is_satisfied() const override { return true; }
@@ -247,7 +247,7 @@ namespace seq {
 
     // Deterministic propagation plugin: reads eq_facet's current equation
     // set (facet id `eq_id`) and feeds any not-yet-seen equation's length
-    // constraint into arith_facet (facet id `arith_id`), then checks the
+    // constraint into solver_facet (facet id `arith_id`), then checks the
     // shared incremental backend. Constraints are generated once (the
     // simplify pass here is not idempotency-guarded beyond `eq_facet`'s
     // own dedup via propagate_to_fixpoint's hashing - see module comment

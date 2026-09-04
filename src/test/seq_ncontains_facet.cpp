@@ -52,7 +52,7 @@ namespace {
             root(tree.mk_root()),
             solver(m, a, tree.dep_mgr()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
-            arith_id(tree.register_facet<seq::arith_facet>(*root, m, u, solver)),
+            arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
             nc_id(tree.register_facet<seq::ncontains_facet>(*root, m, u, tree.dep_mgr())),
             ac(m, u),
             eprop(m, u), esplit(m, u), aprop(m, u),

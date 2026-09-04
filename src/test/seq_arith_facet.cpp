@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Unit test for `seq::arith_facet` / `seq::arith_propagation`
+    Unit test for `seq::solver_facet` / `seq::arith_propagation`
     (smt/seq_arith_facet.h): a real incremental-SMT-backed length facet,
     push/pop synced to DFS backtracking via a `scope_trail` trail object
     registered on the shared `trail_stack` (see util/stx_search_tree.h),
@@ -32,7 +32,7 @@ namespace {
     // test additionally asserts the explicit numeric constraint
     // `len(X) = 3` directly into the shared incremental backend up
     // front, contradicting the (implicit) actual length of the solution
-    // - arith_facet's real incremental solver must catch this
+    // - solver_facet's real incremental solver must catch this
     // arithmetic-only conflict that eq_facet's Nielsen transformation
     // alone has no way to see (it never reasons about lengths).
     static void tst_arith_length_conflict() {
@@ -49,7 +49,7 @@ namespace {
         auto* root = tree.mk_root();
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
-        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
         ac.set_eq_id(eq_id);
@@ -57,7 +57,7 @@ namespace {
         tree.set_ambient_context(&ac);
 
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, ab);
-        root->facet_as<seq::arith_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(3)));
+        root->facet_as<seq::solver_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(3)));
 
         seq::eq_propagation eprop(m, u);
         seq::word_eq_split esplit(m, u);
@@ -73,8 +73,8 @@ namespace {
     // eq_facet resolves `X ++ "a" = "b"` to a symbol clash immediately
     // (leading token 'a' of the singleton "b" side after eq_facet's
     // simplify would need len(X)=0 then compare "a" vs "b" - a plain
-    // symbol clash), independent of arith_facet, so the combination
-    // should still find unsat and arith_facet must not introduce a false
+    // symbol clash), independent of solver_facet, so the combination
+    // should still find unsat and solver_facet must not introduce a false
     // sat/unknown verdict.
     static void tst_arith_facet_does_not_break_eq_unsat() {
         ast_manager m;
@@ -93,7 +93,7 @@ namespace {
         auto* root = tree.mk_root();
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
-        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
         ac.set_eq_id(eq_id);
@@ -114,7 +114,7 @@ namespace {
 
     // A satisfiable equation (`X = "ab"`) combined with a consistent
     // explicit length assertion (`len(X) = 2`) must still succeed: this
-    // exercises that arith_facet's push/pop discipline does not leave the
+    // exercises that solver_facet's push/pop discipline does not leave the
     // shared backend permanently polluted/broken across sibling branches
     // (a bug here would show up as a false unsat/unknown).
     static void tst_arith_facet_consistent_sat() {
@@ -131,7 +131,7 @@ namespace {
         auto* root = tree.mk_root();
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
-        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
         ac.set_eq_id(eq_id);
@@ -139,7 +139,7 @@ namespace {
         tree.set_ambient_context(&ac);
 
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, ab);
-        root->facet_as<seq::arith_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(2)));
+        root->facet_as<seq::solver_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(2)));
 
         seq::eq_propagation eprop(m, u);
         seq::word_eq_split esplit(m, u);

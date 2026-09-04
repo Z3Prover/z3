@@ -71,7 +71,7 @@ namespace seq {
 
     lbool arith_sub_solver::check() {
         // do NOT reset m_core_dep_mgr here: the returned dep_tracker tree
-        // may outlive this call (e.g. arith_facet::conflict_dep() is read
+        // may outlive this call (e.g. solver_facet::conflict_dep() is read
         // after check() returns); it is only reset by the arena's own
         // owner.
         m_last_core = nullptr;
@@ -102,9 +102,9 @@ namespace seq {
         return r;
     }
 
-    // -- arith_facet --
+    // -- solver_facet --
 
-    bool arith_facet::add_constraint(expr* c0, eq_tree::dep_tracker dep) {
+    bool solver_facet::add_constraint(expr* c0, eq_tree::dep_tracker dep) {
         expr_ref c(c0, m); // guard against a fresh, ref-count-0 term being collected before m_own retains it
         for (expr* e : m_own)
             if (e == c.get())
@@ -124,7 +124,7 @@ namespace seq {
         return true;
     }
 
-    bool arith_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep) {
+    bool solver_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep) {
         expr_ref lsum(a.mk_int(0), m);
         expr_ref rsum(a.mk_int(0), m);
         for (expr* t : lhs) {
@@ -148,7 +148,7 @@ namespace seq {
         return changed;
     }
 
-    lbool arith_facet::implies(expr* c) const {
+    lbool solver_facet::implies(expr* c) const {
         m_solver.push();
         m_solver.assert_expr(m.mk_not(c));
         lbool r = m_solver.check();
@@ -162,8 +162,8 @@ namespace seq {
         return r == l_false ? l_true : l_undef;
     }
 
-    stx::facet_i* arith_facet::clone(trail_stack& trail) const {
-        arith_facet* f = alloc(arith_facet, trail, m, u, m_solver);
+    stx::facet_i* solver_facet::clone(trail_stack& trail) const {
+        solver_facet* f = alloc(solver_facet, trail, m, u, m_solver);
         // A cloned node's *own* constraint set starts empty: this is only
         // used for cold-path snapshots (hot-restart SAT leaf, cache
         // entries) which never re-enter the shared incremental backend's
@@ -171,15 +171,15 @@ namespace seq {
         return f;
     }
 
-    unsigned arith_facet::hash() const {
+    unsigned solver_facet::hash() const {
         unsigned h = m_own.size() * 40503u;
         for (expr* e : m_own)
             h = combine_hash(h, e->get_id());
         return h ? h : 1;
     }
 
-    bool arith_facet::similar(facet_i const& other) const {
-        auto const& o = static_cast<arith_facet const&>(other);
+    bool solver_facet::similar(facet_i const& other) const {
+        auto const& o = static_cast<solver_facet const&>(other);
         if (m_own.size() != o.m_own.size())
             return false;
         for (unsigned i = 0; i < m_own.size(); ++i)
@@ -188,8 +188,8 @@ namespace seq {
         return true;
     }
 
-    std::ostream& arith_facet::display(std::ostream& out) const {
-        out << "arith_facet: " << m_own.size() << " own constraint(s)"
+    std::ostream& solver_facet::display(std::ostream& out) const {
+        out << "solver_facet: " << m_own.size() << " own constraint(s)"
             << (m_conflict ? " (conflict)" : "") << "\n";
         for (expr* c : m_own)
             out << "  " << mk_pp(c, m) << "\n";

@@ -59,7 +59,7 @@ namespace {
             root(tree.mk_root()),
             solver(m, a, tree.dep_mgr()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
-            arith_id(tree.register_facet<seq::arith_facet>(*root, m, u, solver)),
+            arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
             pow_id(tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr())),
             ac(m, u),
             eprop(m, u), esplit(m, u), aprop(m, u),
@@ -143,9 +143,9 @@ namespace {
         expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
         expr_ref e(fx.u.str.mk_power(X, N), fx.m);
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e, X, N);
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(3)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(e), fx.a.mk_int(4)));
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
@@ -160,7 +160,7 @@ namespace {
         expr_ref aaaa(fx.u.str.mk_string(zstring("aaaa")), fx.m);
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e, X, N);
         fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e, aaaa);
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(2)));
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
@@ -176,7 +176,7 @@ namespace {
         expr_ref aaaa(fx.u.str.mk_string(zstring("aaaa")), fx.m);
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e, X, N);
         fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e, aaaa);
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(3)));
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
@@ -206,11 +206,11 @@ namespace {
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_u, X, N);
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_w, Y, M);
         fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_u, e_w);
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(1)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(e_u), fx.a.mk_int(1000)));
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
@@ -254,13 +254,13 @@ namespace {
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_u, X, N);
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_w, Y, M);
         fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_u, e_w);
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(1)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(e_u), fx.a.mk_int(5)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(e_w), fx.a.mk_int(5)));
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
@@ -298,11 +298,11 @@ namespace {
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_m, X, M);
         fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, e_m);
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(fx.a.mk_ge(N, fx.a.mk_int(1)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(fx.a.mk_ge(M, fx.a.mk_int(1)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(fx.a.mk_ge(N, fx.a.mk_int(1)));
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(fx.a.mk_ge(M, fx.a.mk_int(1)));
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_not(fx.m.mk_eq(N, M)));
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
@@ -337,11 +337,11 @@ namespace {
         expr_ref rhs(fx.u.str.mk_concat(X, fx.u.str.mk_concat(X, V)), fx.m);
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
         fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, rhs);
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(V), fx.a.mk_int(0)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(N, fx.a.mk_int(5)));
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
@@ -376,9 +376,9 @@ namespace {
         expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
         fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
         fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, Y);
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(2)));
-        fx.root->facet_as<seq::arith_facet>(fx.arith_id).add_constraint(
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(5)));
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }

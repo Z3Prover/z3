@@ -115,7 +115,7 @@ namespace seq {
     }
 
     // Build a str.++ chain expr from a token list, for querying
-    // arith_facet's length-gate (`u.str.mk_length` needs an actual
+    // solver_facet's length-gate (`u.str.mk_length` needs an actual
     // sequence-sorted expr, not a token vector).
     static expr* tokens_to_expr(seq_util& u, ast_manager& m, expr_ref_vector const& ts) {
         if (ts.empty())
@@ -241,7 +241,7 @@ namespace seq {
             // once the cheap syntactic scan above found no determined
             // match/mismatch/progress. If h is provably shorter than n,
             // containment is impossible - the obligation is vacuously
-            // satisfied. This can only be decided via arith_facet's
+            // satisfied. This can only be decided via solver_facet's
             // incremental backend (real str.len reasoning): a
             // haystack/needle *token count* is NOT a sound proxy for
             // actual sequence length here, since a non-constant token is

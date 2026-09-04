@@ -316,7 +316,7 @@ namespace {
         auto* root = tree.mk_root();
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
-        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         root->facet_as<seq::eq_facet>(eq_id).add_equation(lhs, rhs);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
@@ -362,7 +362,7 @@ namespace {
         auto* root = tree.mk_root();
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
-        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, Y);
 
@@ -405,7 +405,7 @@ namespace {
         auto* root = tree.mk_root();
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
-        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::deq_facet>(deq_id).add_disequation(ca, ca);
 
@@ -454,7 +454,7 @@ namespace {
         auto* root = tree.mk_root();
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
-        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         root->facet_as<seq::eq_facet>(eq_id).add_equation(ite_tok, X);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
@@ -501,7 +501,7 @@ namespace {
         auto* root = tree.mk_root();
         seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
-        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         root->facet_as<seq::eq_facet>(eq_id).add_equation(ite_tok, X);
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, cc);
 

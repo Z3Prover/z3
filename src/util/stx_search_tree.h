@@ -117,7 +117,7 @@ namespace stx {
 
     /**
      * One constituent of a node's state. Plugins define concrete subclasses
-     * (e.g. an `eq_facet`, an `arith_facet`); the engine interacts only
+     * (e.g. an `eq_facet`, a `solver_facet`); the engine interacts only
      * through this interface, and never inspects a facet's contents.
      *
      * Every concrete facet is constructed with a reference to the shared

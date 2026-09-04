@@ -67,7 +67,7 @@ namespace seq {
         // Obligations are registered in a fixed, caller-determined order
         // (unlike eq_facet's equation set, which is permuted by
         // splitting) - order-sensitive comparison suffices here, mirrors
-        // arith_facet's own similar().
+        // solver_facet's own similar().
         for (unsigned i = 0; i < m_pows.size(); ++i) {
             auto const& p = m_pows[i];
             auto const& q = o.m_pows[i];
@@ -112,7 +112,7 @@ namespace seq {
             // power_unfold_axiom's "known exponent" branch / seq_rewriter's
             // own numeral-power folding): the obligation is fully precise,
             // so unfold it exactly into an eq_facet equation and discharge
-            // it here - no need for arith_facet or power_split at all.
+            // it here - no need for solver_facet or power_split at all.
             if (a.is_numeral(p.m_n, v)) {
                 expr_ref rhs(m);
                 if (!v.is_pos())
@@ -128,7 +128,7 @@ namespace seq {
             }
 
             // Symbolic exponent: assert the length-only consequences of
-            // axioms::power_axiom into arith_facet (see module comment) -
+            // axioms::power_axiom into solver_facet (see module comment) -
             // sound under-approximation, asserted at most once.
             if (!p.m_axiomatized) {
                 expr_ref len_e(u.str.mk_length(p.m_e.get()), m);
@@ -225,9 +225,9 @@ namespace seq {
     }
 
     // len(U^n) = n*len(U) as an expr (both U^n's own str.len and, since
-    // power_propagation asserts `len(e)=n*len(s)` into arith_facet only
+    // power_propagation asserts `len(e)=n*len(s)` into solver_facet only
     // as a *constraint* (not a rewrite), the token's own str.len(e) is
-    // the right handle to use here - arith_facet will relate it to
+    // the right handle to use here - solver_facet will relate it to
     // n*len(base) on its own via that already-asserted axiom).
     static expr_ref mk_len(seq_util& u, ast_manager& m, expr* e) {
         return expr_ref(u.str.mk_length(e), m);
