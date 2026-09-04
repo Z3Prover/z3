@@ -188,9 +188,14 @@ namespace smt {
         void collect_statistics(::statistics& st) const override;
 
         // model construction is deferred: no facilities exist yet to turn a
-        // `seq::eq_tree` sat-snapshot into a `smt::model`. Not overriding
-        // init_model/mk_value/finalize_model/validate_model leaves the
-        // base `theory` no-op defaults in effect.
+        // `seq::eq_tree` sat-snapshot into a `smt::model`. `build_models()`
+        // returning false tells `model_generator::mk_value_procs` to *not*
+        // dispatch to `mk_value` for enodes owning an `nseq` theory_var
+        // (which would otherwise assert/crash, since no `mk_value` override
+        // exists); the core instead synthesizes an arbitrary fresh value for
+        // them, matching the `theory_dummy` convention for theories that do
+        // not (yet) build models.
+        bool build_models() const override { return false; }
 
         char const* get_name() const override { return "nseq"; }
 
