@@ -9,14 +9,14 @@ Abstract:
 
     Abstract incremental-arithmetic backend interface (`sub_solver_i`,
     per z3papers/nseq/facet-arith.md), factored out of
-    smt/seq_arith_facet.h so that facets living in ast/seq (which must
+    smt/seq_solver_facet.h so that facets living in ast/seq (which must
     not depend on anything under src/smt) can reference the interface
-    without pulling in the concrete `smt::seq_arith_facet.h`/`arith_facet`
+    without pulling in the concrete `smt::seq_solver_facet.h`/`arith_facet`
     module (which does depend on src/solver and is compiled as part of
     the `smt` component, itself a consumer of `ast_seq` - the reverse
     dependency direction would create a cycle).
 
-    `arith_facet` (smt/seq_arith_facet.h) is the only concrete consumer
+    `arith_facet` (smt/seq_solver_facet.h) is the only concrete consumer
     that owns/constructs a `sub_solver_i` instance (via `arith_sub_solver`);
     ast/seq facets such as `ncontains_facet`/`power_facet` only ever see
     `arith_facet` referenced by id through `stx::node::facet_as<>`, so

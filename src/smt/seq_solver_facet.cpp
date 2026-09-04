@@ -3,18 +3,18 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    seq_arith_facet.cpp
+    seq_solver_facet.cpp
 
 Abstract:
 
-    See seq_arith_facet.h.
+    See seq_solver_facet.h.
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026
 
 --*/
-#include "smt/seq_arith_facet.h"
+#include "smt/seq_solver_facet.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 #include "ast/ast_pp.h"

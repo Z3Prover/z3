@@ -27,13 +27,16 @@ Abstract:
         shared variable pool.
 
     Scope note / simplifications relative to the full design:
-      - regex factorization (�4.2 of facet-membership.md) is NOT implemented
+      - regex factorization (§4.2 of facet-membership.md) is NOT implemented
         in this pass;
-      - the variable split is implemented soundly for the `x -> epsilon`
-        branch, and the second branch narrows through `seq_monadic` rather
-        than porting Nielsen's historical minterm-based partial-automaton
-        machinery; this keeps the implementation alphabet-agnostic and
-        buildable without introducing a new guard-splitting substrate;
+      - the variable split implements both branches of the c3 branch's
+        `apply_regex_var_split` (`x -> epsilon` and `x -> c.x'`), but uses
+        an unconstrained fresh character for the second branch rather than
+        porting Nielsen's historical minterm partitioning; this keeps the
+        implementation alphabet-agnostic and buildable without introducing
+        a new guard-splitting substrate, at the cost of exploring some
+        infeasible characters that minterm restriction would prune up
+        front (a performance, not soundness, gap);
       - monadic landing is implemented for the conjunction of memberships
         currently present in `mem_facet`; it narrows views reported by
         `seq_monadic::iterate()` and leaves exact witness materialization to
@@ -47,12 +50,13 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_view.h"
 #include "ast/seq/seq_regex_live.h"
 #include "ast/seq/seq_monadic.h"
 #include "ast/seq/seq_power_facet.h"
-#include "ast/seq/seq_arith_facet_i.h"
+#include "ast/seq/seq_solver_facet_i.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
@@ -97,6 +101,7 @@ namespace seq {
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
+        eq_tree::dep_manager_t& dm() const { return m_dm; }
         vector<str_mem> const& memberships() const { return m_mems; }
 
         void add(str_mem const& sm);
@@ -144,6 +149,69 @@ namespace seq {
         char const* name() const override { return "mem-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override { st.update("mem-propagate num calls", m_stats.m_num_propagate); }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
+    // Forwards ambient-context length bounds (lower/upper bounds on
+    // `str.len(x)` known to the surrounding arithmetic theory, together
+    // with their justifying dependency) as membership constraints on the
+    // corresponding sequence variable: `x in (allchar){lo,hi}` (or an
+    // open lower/upper variant when only one side is known). This lets
+    // e.g. `mem_var_split`'s fresh split variables inherit whatever
+    // length obligations the sub-solver has already derived for the
+    // parent variable's remaining suffix/prefix, instead of only ever
+    // seeing them through arithmetic constraints that regex-side rules
+    // do not consult.
+    //
+    // Runs as an ordinary propagation plugin (every node, to fixpoint
+    // alongside every other propagation plugin) rather than a one-shot
+    // "root only" step: per node this naturally also picks up any
+    // *tighter* bound the sub-solver has derived for a variable it saw
+    // before (e.g. after further splits narrow it), not just the first
+    // bound ever seen for that variable. Idempotency (required by
+    // `propagation_plugin_i`'s confluence contract) is maintained by
+    // remembering, per variable, the last (lo, hi) pair whose membership
+    // was actually added, in a trail-managed map that is unwound on
+    // backtrack along with everything else - so a repeated query that
+    // yields the same bound is skipped (`noop`) and only a strictly
+    // tighter bound triggers a fresh membership add.
+    class mem_bounds_propagation : public eq_tree::propagation_plugin_i {
+    public:
+        // Last (lo, hi) bound pair for which a membership was already
+        // added for a given variable, so unchanged bounds are skipped.
+        // Public: referenced by mem_bounds_last_trail (seq_mem_facet.cpp),
+        // this plugin's own trail-undo object for `m_last`.
+        struct last_bound { rational lo, hi; bool has_lo = false, has_hi = false; };
+
+    private:
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
+        trail_stack&  m_trail;
+
+        obj_map<expr, last_bound> m_last;
+
+        struct stats {
+            unsigned m_num_propagate = 0;
+            unsigned m_num_added = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+
+        // Collect the candidate sequence variables currently live in
+        // this node: those appearing in eq_facet's equations (both
+        // sides) and mem_facet's own membership tokens - the only two
+        // facets that expose variable-bearing token vectors today.
+        void collect_vars(eq_tree::node& n, obj_hashtable<expr>& vars) const;
+
+    public:
+        mem_bounds_propagation(ast_manager& m, seq_util& u, arith_util& a, trail_stack& trail) : m(m), u(u), a(a), m_trail(trail) {}
+        char const* name() const override { return "mem-bounds-propagate"; }
+        stx::simplify_result propagate(eq_tree::node& n) override;
+        void collect_statistics(::statistics& st) const override {
+            st.update("mem-bounds-propagate num calls", m_stats.m_num_propagate);
+            st.update("mem-bounds-propagate num added", m_stats.m_num_added);
+        }
         void reset_statistics() override { m_stats.reset(); }
     };
 

@@ -10,7 +10,7 @@ Abstract:
     Negative `str.contains` facet ("Phase 6" of the modular plugin-based
     search tree design, following `stx::` in util/stx_search_tree.h, the
     `eq_facet`/`deq_facet` module (ast/seq/seq_eq_facet.h), and
-    `arith_facet` (smt/seq_arith_facet.h)).
+    `arith_facet` (smt/seq_solver_facet.h)).
 
     Nielsen (seq_nielsen.h/.cpp) has no support for `str.contains` at all:
     positive `str.contains(h,n)` reduces to an `eq_facet` equation

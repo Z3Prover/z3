@@ -35,6 +35,7 @@ namespace smt {
         m_arith_prop(m, m_seq),
         m_pow_prop(m, m_seq, m_autil),
         m_mem_prop(m, m_seq, m_rewriter, m_live),
+        m_mem_bounds_prop(m, m_seq, m_autil, m_tree.trail()),
         m_nc_prop(m, m_seq, m_autil),
         m_pow_num_cmp(m, m_seq, m_autil),
         m_pow_split_elim(m, m_seq, m_autil),
@@ -75,6 +76,7 @@ namespace smt {
         m_tree.add_propagation_plugin(&m_arith_prop);
         m_tree.add_propagation_plugin(&m_pow_prop);
         m_tree.add_propagation_plugin(&m_mem_prop);
+        m_tree.add_propagation_plugin(&m_mem_bounds_prop);
         m_tree.add_propagation_plugin(&m_nc_prop);
 
         // split plugins: registration order mirrors the priority order of

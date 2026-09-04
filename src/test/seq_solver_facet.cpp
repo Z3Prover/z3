@@ -3,12 +3,12 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    seq_arith_facet.cpp (test)
+    seq_solver_facet.cpp (test)
 
 Abstract:
 
     Unit test for `seq::solver_facet` / `seq::arith_propagation`
-    (smt/seq_arith_facet.h): a real incremental-SMT-backed length facet,
+    (smt/seq_solver_facet.h): a real incremental-SMT-backed length facet,
     push/pop synced to DFS backtracking via a `scope_trail` trail object
     registered on the shared `trail_stack` (see util/stx_search_tree.h),
     combined with `eq_facet` (ast/seq/seq_eq_facet.h).
@@ -23,7 +23,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
-#include "smt/seq_arith_facet.h"
+#include "smt/seq_solver_facet.h"
 #include <iostream>
 
 namespace {
@@ -153,9 +153,9 @@ namespace {
 
 } // namespace
 
-void tst_seq_arith_facet() {
+void tst_seq_solver_facet() {
     tst_arith_length_conflict();
     tst_arith_facet_does_not_break_eq_unsat();
     tst_arith_facet_consistent_sat();
-    std::cout << "seq_arith_facet: all tests passed\n";
+    std::cout << "seq_solver_facet: all tests passed\n";
 }

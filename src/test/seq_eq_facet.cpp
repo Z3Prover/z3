@@ -22,7 +22,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
-#include "smt/seq_arith_facet.h"
+#include "smt/seq_solver_facet.h"
 #include <iostream>
 
 namespace {

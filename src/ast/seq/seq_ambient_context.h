@@ -26,7 +26,7 @@ Abstract:
         whatever literals/equalities it consulted into one
         `dep_tracker` (via its own `dep_manager_t`), exactly as
         `arith_sub_solver` already converts assumption literals into
-        dependencies today (`seq_arith_facet.cpp`).
+        dependencies today (`seq_solver_facet.cpp`).
       - It adds `is_var(expr*)`, replacing the c3 branch's
         `euf::snode::is_var()` (a node in the old `sgraph`/Nielsen-graph
         representation, not applicable here since this design has no
@@ -72,7 +72,7 @@ namespace seq {
     class power_facet;
     class mem_facet;
     class ncontains_facet;
-    class arith_facet_i;
+    class solver_facet_i;
 
     /**
      * Abstracted, dependency-tracked bridge into the ambient SMT context.
@@ -208,7 +208,7 @@ namespace seq {
         template <typename node_t> seq::power_facet& power_facet(node_t& n) const { return n.template facet_as<seq::power_facet>(pow_id()); }
         template <typename node_t> seq::mem_facet& mem_facet(node_t& n) const { return n.template facet_as<seq::mem_facet>(mem_id()); }
         template <typename node_t> seq::ncontains_facet& ncontains_facet(node_t& n) const { return n.template facet_as<seq::ncontains_facet>(ncontains_id()); }
-        template <typename node_t> seq::arith_facet_i& arith_facet(node_t& n) const { return n.template facet_as<seq::arith_facet_i>(arith_id()); }
+        template <typename node_t> seq::solver_facet_i& arith_facet(node_t& n) const { return n.template facet_as<seq::solver_facet_i>(arith_id()); }
 
         template <typename node_t> bool has_eq(node_t& n) const { return n.has_facet(eq_id()); }
         template <typename node_t> bool has_deq(node_t& n) const { return n.has_facet(deq_id()); }
@@ -263,7 +263,7 @@ namespace seq {
         power_facet& power_facet_ref() const { return m_ac.power_facet(m_node); }
         mem_facet& mem_facet_ref() const { return m_ac.mem_facet(m_node); }
         ncontains_facet& ncontains_facet_ref() const { return m_ac.ncontains_facet(m_node); }
-        arith_facet_i& arith_facet_ref() const { return m_ac.arith_facet(m_node); }
+        solver_facet_i& arith_facet_ref() const { return m_ac.arith_facet(m_node); }
 
         bool has_eq() const { return m_ac.has_eq(m_node); }
         bool has_deq() const { return m_ac.has_deq(m_node); }

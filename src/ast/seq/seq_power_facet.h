@@ -9,7 +9,7 @@ Abstract:
 
     Sequence power operator (`s^n`, `seq.power`) facet, following `stx::`
     in util/stx_search_tree.h and the `eq_facet`/`arith_facet` modules
-    (ast/seq/seq_eq_facet.h, smt/seq_arith_facet.h).
+    (ast/seq/seq_eq_facet.h, smt/seq_solver_facet.h).
 
     Design, ported from theory_seq's existing power-operator machinery
     (`theory_seq.h/.cpp`'s `is_power`/`add_power_axiom`/

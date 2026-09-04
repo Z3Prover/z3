@@ -15,7 +15,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_ncontains_facet.h"
-#include "ast/seq/seq_arith_facet_i.h"
+#include "ast/seq/seq_solver_facet_i.h"
 #include "ast/ast_pp.h"
 #include <algorithm>
 

@@ -9,7 +9,7 @@ Abstract:
 
     Theory plugin for string/sequence constraints driven by the modular
     `stx::search_tree` engine (util/stx_search_tree.h) with the facets and
-    plugins implemented under `ast/seq` and `smt/seq_arith_facet.h`.
+    plugins implemented under `ast/seq` and `smt/seq_solver_facet.h`.
 
     This is modeled after the c3 branch's `theory_nseq` (Nielsen-graph based),
     but replaces the Nielsen-graph/sgraph end-game machinery with the
@@ -45,7 +45,7 @@ Author:
 #include "ast/seq/seq_regex_live.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
-#include "smt/seq_arith_facet.h"
+#include "smt/seq_solver_facet.h"
 #include "util/trail.h"
 #include <variant>
 
@@ -120,6 +120,7 @@ namespace smt {
         seq::arith_propagation       m_arith_prop;
         seq::power_propagation       m_pow_prop;
         seq::mem_propagation         m_mem_prop;
+        seq::mem_bounds_propagation  m_mem_bounds_prop;
         seq::ncontains_propagation   m_nc_prop;
 
         // split plugins, members so `add_split_plugin` pointers stay valid

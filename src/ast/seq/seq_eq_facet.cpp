@@ -15,7 +15,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_eq_facet.h"
-#include "ast/seq/seq_arith_facet_i.h"
+#include "ast/seq/seq_solver_facet_i.h"
 #include "ast/ast_pp.h"
 #include <algorithm>
 #include <cstdlib>
@@ -331,7 +331,7 @@ namespace seq {
                 // sufficient to guarantee lch/rch agree in any model
                 // (they become literally the same term everywhere) - no
                 // separate arithmetic equality constraint is needed for
-                // soundness (word_eq_split has no arith_facet_i handle in
+                // soundness (word_eq_split has no solver_facet_i handle in
                 // any case; see class comment).
                 if (lu && ru) {
                     expr* lch = nullptr, *rch = nullptr;

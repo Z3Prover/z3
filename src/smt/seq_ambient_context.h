@@ -35,7 +35,7 @@ namespace seq {
      * `theory_seq::lower_bound`/`upper_bound` do not currently return a
      * supporting justification (they are `const`, model-value-style
      * queries over the arithmetic theory), so - like
-     * `arith_sub_solver::implies` (smt/seq_arith_facet.cpp) folding a
+     * `arith_sub_solver::implies` (smt/seq_solver_facet.cpp) folding a
      * whole unsat core into one dependency - bounds obtained this way are
      * reported with a `nullptr` dependency (an unconditional fact of the
      * ambient arithmetic theory's current state, not itself contingent on

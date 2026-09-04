@@ -36,6 +36,25 @@ NSB code review:
 
 namespace seq {
 
+    // Trail-undo object for mem_bounds_propagation's own `m_last` cache;
+    // see mem_bounds_propagation's class comment (seq_mem_facet.h).
+    class mem_bounds_last_trail : public trail {
+        obj_map<expr, mem_bounds_propagation::last_bound>& m_map;
+        expr*                                              m_var;
+        bool                                                m_had_prior;
+        mem_bounds_propagation::last_bound                  m_prior;
+    public:
+        mem_bounds_last_trail(obj_map<expr, mem_bounds_propagation::last_bound>& map, expr* var,
+                               bool had_prior, mem_bounds_propagation::last_bound const& prior) :
+            m_map(map), m_var(var), m_had_prior(had_prior), m_prior(prior) {}
+        void undo() override {
+            if (m_had_prior)
+                m_map.insert(m_var, m_prior);
+            else
+                m_map.remove(m_var);
+        }
+    };
+
     void mem_facet::add(str_mem const& sm) {
         m_mems.push_back(sm);
         m_trail.push(push_back_trail<str_mem>(m_mems));
@@ -113,9 +132,9 @@ namespace seq {
             out << "  ";
             for (expr* t : sm.m_str)
                 out << mk_pp(t, m) << " ";
-            out << "in state " << mk_pp(sm.m_view.m_state, m);
+            out << "in state " << seq_util::rex::pp(u.re, sm.m_view.m_state, false);
             if (sm.m_view.is_reach())
-                out << " -> " << mk_pp(sm.m_view.m_target, m);
+                out << " -> " << seq_util::rex::pp(u.re, sm.m_view.m_target, false);
             out << "\n";
         }
         return out;
@@ -196,20 +215,35 @@ namespace seq {
     }
 
 
-    // NSB code review: what is this for?
-    // it should be removed? It splits x = epsilon | x = x'
-    // but then x' can be split again.
+    // Branch 2 of the c3 branch's apply_regex_var_split: x -> c.x' for a
+    // fresh character c and a fresh tail variable x'. Together with
+    // branch 1 (x -> epsilon, materialized directly by split() below)
+    // this makes the split a genuine two-way disjunction rather than an
+    // unconditional collapse to epsilon - the case where the membership
+    // requires var to start with a real character is preserved here
+    // instead of being silently discarded. This mirrors the c3 branch's
+    // non-ground/no-minterm fallback: c is an unconstrained fresh
+    // character (of the sequence's element sort) rather than a
+    // minterm-restricted one; soundness does not depend on restricting
+    // c's range up front; it is still constrained indirectly as the
+    // search narrows the memberships that mention it. Minterm-based
+    // range restriction (c3's ground/minterms case) is a pruning
+    // refinement left for a follow-up, not a soundness requirement.
     bool mem_var_split::iterator::next(eq_tree::edge& out) {
         if (m_done)
             return false;
         m_done = true;
         auto ac = get_ambient(m_n);
         auto& eq = ac.eq_facet_ref();
+        sort* elem_sort = nullptr;
+        VERIFY(u.is_seq(m_var->get_sort(), elem_sort));
+        expr* fresh_ch = eq.mk_fresh_var(elem_sort);
+        expr* fresh_var = eq.mk_fresh_var(m_var->get_sort());
         expr_ref_vector repl(eq.get_manager());
-        expr* fresh = eq.mk_fresh_var(m_var->get_sort());
-        repl.push_back(fresh);
+        repl.push_back(u.str.mk_unit(fresh_ch));
+        repl.push_back(fresh_var);
         broadcast_subst(m_n, m_var, repl, m_dep);
-        out = eq_tree::edge("mem-v:=v'", nullptr, true, 0);
+        out = eq_tree::edge("mem-v:=c.v'", nullptr, true, 0);
         return true;
     }
 
@@ -226,6 +260,7 @@ namespace seq {
                 continue;
             expr* var = ts.get(0);
             eq_tree::dep_tracker dep = mf.memberships()[i].m_dep;
+
             iterator* it = alloc(iterator, n, i, var, m, u, dep);
             auto& eq = ac.eq_facet_ref();
             expr_ref_vector empty(eq.get_manager());
@@ -434,6 +469,108 @@ namespace seq {
         m_stats.m_num_splits++;
         has_more = true;
         return it.detach();
+    }
+
+    // -- mem_bounds_propagation --
+
+    void mem_bounds_propagation::collect_vars(eq_tree::node& n, obj_hashtable<expr>& vars) const {
+        auto ac = get_ambient(n);
+        if (ac.has_eq()) {
+            auto& ef = ac.eq_facet_ref();
+            for (auto const& eq : ef.equations()) {
+                for (expr* t : eq.m_lhs)
+                    if (ac.is_var(t))
+                        vars.insert(t);
+                for (expr* t : eq.m_rhs)
+                    if (ac.is_var(t))
+                        vars.insert(t);
+            }
+        }
+        if (ac.has_mem()) {
+            auto& mf = ac.mem_facet_ref();
+            for (auto const& sm : mf.memberships())
+                for (expr* t : sm.m_str)
+                    if (ac.is_var(t))
+                        vars.insert(t);
+        }
+    }
+
+    stx::simplify_result mem_bounds_propagation::propagate(eq_tree::node& n) {
+        m_stats.m_num_propagate++;
+        if (!get_ambient(n).has_mem())
+            return stx::simplify_result::noop;
+        auto ac = get_ambient(n);
+        auto& mf = ac.mem_facet_ref();
+        obj_hashtable<expr> vars;
+        collect_vars(n, vars);
+        bool changed = false;
+        for (expr* var : vars) {
+            sort* elem_sort = nullptr;
+            if (!u.is_seq(var->get_sort(), elem_sort))
+                continue;
+            expr* len = u.str.mk_length(var);
+            rational lo, hi;
+            eq_tree::dep_tracker lo_dep = nullptr, hi_dep = nullptr;
+            bool has_lo = ac.lower_bound(len, lo, lo_dep);
+            bool has_hi = ac.upper_bound(len, hi, hi_dep);
+            if (!has_lo && !has_hi)
+                continue;
+            if (has_lo && lo.is_neg())
+                has_lo = false;
+            if (!has_lo && !has_hi)
+                continue;
+
+            last_bound prior;
+            bool have_prior = m_last.find(var, prior);
+            bool same_lo = have_prior && prior.has_lo == has_lo && (!has_lo || prior.lo == lo);
+            bool same_hi = have_prior && prior.has_hi == has_hi && (!has_hi || prior.hi == hi);
+            if (have_prior && same_lo && same_hi)
+                continue;
+
+            sort* re_sort = u.re.mk_re(var->get_sort());
+            app* full_char = u.re.mk_full_char(re_sort);
+            expr* state = nullptr;
+            unsigned lo_u = has_lo ? (lo.is_unsigned() ? lo.get_unsigned() : 0) : 0;
+            if (has_lo && has_hi) {
+                // An infeasible range (hi < lo) is an arithmetic
+                // conflict, not a regex-shape one; leave discharging it
+                // to arith_propagation (which consults the same
+                // ambient bounds directly) rather than duplicating that
+                // conflict-detection responsibility here.
+                if (hi.is_neg() || hi < lo)
+                    continue;
+                unsigned hi_u = hi.is_unsigned() ? hi.get_unsigned() : lo_u;
+                state = u.re.mk_loop_proper(full_char, lo_u, hi_u);
+            }
+            else if (has_lo)
+                state = u.re.mk_loop(full_char, lo_u);
+            else /* has_hi only */
+                state = u.re.mk_loop_proper(full_char, 0, hi.is_unsigned() ? hi.get_unsigned() : 0);
+
+            eq_tree::dep_tracker dep = nullptr;
+            if (has_lo)
+                dep = mf.dm().mk_join(dep, lo_dep);
+            if (has_hi)
+                dep = mf.dm().mk_join(dep, hi_dep);
+
+            mf.add(str_mem(m, var, view::membership(state), dep));
+
+            last_bound updated;
+            updated.has_lo = has_lo; updated.lo = has_lo ? lo : rational::zero();
+            updated.has_hi = has_hi; updated.hi = has_hi ? hi : rational::zero();
+            // `m_last` is a plugin-local cache used purely to skip
+            // redundant re-adds (a performance/confluence aid, not part
+            // of the tree's own state) - so its entries are undone via
+            // the shared trail exactly like every other facet mutation,
+            // restoring whatever was cached before this node was
+            // visited (or removing the key entirely if it is new) once
+            // the trail scope backtracking past this point unwinds.
+            m_trail.push(mem_bounds_last_trail(m_last, var, have_prior, prior));
+            m_last.insert(var, updated);
+            changed = true;
+            m_stats.m_num_added++;
+        }
+        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
 }

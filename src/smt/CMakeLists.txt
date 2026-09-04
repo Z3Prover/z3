@@ -9,7 +9,7 @@ z3_add_component(smt
     old_interval.cpp
     qi_queue.cpp
     seq_axioms.cpp
-    seq_arith_facet.cpp
+    seq_solver_facet.cpp
     seq_eq_solver.cpp
     seq_ne_solver.cpp
     seq_offset_eq.cpp

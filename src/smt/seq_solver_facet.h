@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    seq_arith_facet.h
+    seq_solver_facet.h
 
 Abstract:
 
@@ -66,7 +66,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_sub_solver.h"
-#include "ast/seq/seq_arith_facet_i.h"
+#include "ast/seq/seq_solver_facet_i.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include "util/params.h"
@@ -130,7 +130,7 @@ namespace seq {
      * "push/pop synced to DFS scope" requirement without the generic
      * `stx::` engine needing to know anything about incremental solvers.
      */
-    class solver_facet : public arith_facet_i {
+    class solver_facet : public solver_facet_i {
         ast_manager&      m;
         arith_util        a;
         seq_util&         u;
@@ -171,7 +171,7 @@ namespace seq {
 
     public:
         solver_facet(trail_stack& trail, ast_manager& m, seq_util& u, sub_solver_i& solver) :
-            arith_facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_own(m) {}
+            solver_facet_i(trail), m(m), a(m), u(u), m_solver(solver), m_own(m) {}
 
         ast_manager& get_manager() const { return m; }
         arith_util& get_arith_util() override { return a; }
