@@ -124,7 +124,7 @@ namespace seq {
     }
 
     stx::simplify_result mem_propagation::propagate(eq_tree::node& n) {
-        auto& f = get_ambient(n, m, u).mem_facet_ref();
+        auto& f = get_ambient(n).mem_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
         for (unsigned i = 0; i < f.memberships().size(); ) {
@@ -181,12 +181,12 @@ namespace seq {
         if (m_done)
             return false;
         m_done = true;
-        auto ac = get_ambient(m_n, m, u);
+        auto ac = get_ambient(m_n);
         auto& eq = ac.eq_facet_ref();
         expr_ref_vector repl(eq.get_manager());
         expr* fresh = eq.mk_fresh_var(m_var->get_sort());
         repl.push_back(fresh);
-        broadcast_subst(m_n, ac.context(), m_var, repl, m_dep);
+        broadcast_subst(m_n, m_var, repl, m_dep);
         out = eq_tree::edge("mem-v:=v'", nullptr, true, 0);
         return true;
     }
@@ -194,7 +194,7 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> mem_var_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         if (cost != 0 || !ac.has_eq())
             return nullptr;
         auto& mf = ac.mem_facet_ref();
@@ -209,7 +209,7 @@ namespace seq {
             iterator* it = alloc(iterator, n, i, var, m, u, dep);
             auto& eq = ac.eq_facet_ref();
             expr_ref_vector empty(eq.get_manager());
-            broadcast_subst(n, ac.context(), var, empty, dep);
+            broadcast_subst(n, var, empty, dep);
             out = eq_tree::edge("mem-v:=eps", nullptr, true, 0);
             committed = true;
             m_stats.m_num_splits++;
@@ -231,7 +231,7 @@ namespace seq {
     }
 
     bool mem_monadic_split::iterator::apply_solution(obj_map<expr, seq::view_vector>& sol, eq_tree::edge& out) {
-        auto& mf = get_ambient(m_n, m, u).mem_facet_ref();
+        auto& mf = get_ambient(m_n).mem_facet_ref();
         bool changed = false;
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             auto const& sm = mf.memberships()[i];
@@ -286,7 +286,7 @@ namespace seq {
             return false;
         m_done = true;
 
-        auto ac = get_ambient(m_n, m, u);
+        auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
         auto& mf = ac.mem_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -335,7 +335,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& mf = ac.mem_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -393,7 +393,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto& mf = get_ambient(n, m, u).mem_facet_ref();
+        auto& mf = get_ambient(n).mem_facet_ref();
         if (mf.memberships().empty())
             return nullptr;
         bool has_multi = false;

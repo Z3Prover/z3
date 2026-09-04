@@ -108,18 +108,16 @@ namespace seq {
     bool is_const_token(seq_util& u, expr* e);
 
     // Recover the node's ambient context, bundled together with the node
-    // itself into an `ambient_ref` (falling back to a shared, always-
-    // "unknown" `null_ambient_context` if none was ever set, e.g. in a
-    // unit test that never called `search_tree::set_ambient_context()`),
-    // so that a propagation/split plugin can either look up its sibling
-    // facets' ids (`eq_id()`, `arith_id()`, `pow_id()`, `mem_id()`,
-    // `deq_id()`, `ncontains_id()`) as before, or - now - coerce straight
-    // to the sibling's own type in one call, e.g.
-    // `get_ambient(n, m, u).mem_facet_ref()` instead of
-    // `n.facet_as<mem_facet>(get_ambient(n, m, u).mem_id())`. `m`/`u` are
-    // only used to construct the fallback instance.
-    ambient_ref<eq_tree::node, eq_tree::dep_tracker> get_ambient(eq_tree::node& n, ast_manager& m, seq_util& u);
-    ambient_ref<eq_tree::node const, eq_tree::dep_tracker> get_ambient(eq_tree::node const& n, ast_manager& m, seq_util& u);
+    // itself into an `ambient_ref`, so that a propagation/split plugin
+    // can coerce straight to a sibling facet's own type in one call, e.g.
+    // `get_ambient(n).mem_facet_ref()` instead of
+    // `n.facet_as<mem_facet>(get_ambient(n).mem_id())`. Every node must
+    // have had `search_tree::set_ambient_context()` called on it with a
+    // real `ambient_context_i` (not merely some other
+    // `ambient_context_base`); if not, this throws `default_exception`
+    // rather than silently degrading to an always-"unknown" fallback.
+    ambient_ref<eq_tree::node, eq_tree::dep_tracker> get_ambient(eq_tree::node& n);
+    ambient_ref<eq_tree::node const, eq_tree::dep_tracker> get_ambient(eq_tree::node const& n);
 
     // Replace every occurrence of `var` in `ts` with the tokens of `repl`
     // (order-preserving splice). Shared helper between `eq_facet` and
@@ -322,7 +320,7 @@ namespace seq {
         // broadcast and leaving sibling facets holding a stale reference
         // to a variable this facet had already eliminated.
         bool simplify(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, bool& conflict, eq_tree::dep_tracker& conflict_dep);
-        ambient_context_i<eq_tree::dep_tracker> const& ambient(eq_tree::node const& n) const;
+        ambient_context_i<eq_tree::dep_tracker>& ambient(eq_tree::node const& n) const;
 
     private:
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
@@ -336,10 +334,9 @@ namespace seq {
         // forwarded to broadcast_subst for any forced v:=epsilon
         // substitution (see simplify's comment above).
         bool simplify_equation(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
-        friend void broadcast_subst(eq_tree::node& target, ambient_context_i<eq_tree::dep_tracker>& ac, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
     };
 
-    void broadcast_subst(eq_tree::node& target, ambient_context_i<eq_tree::dep_tracker>& ac, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
+    void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
 
     // Deterministic propagation plugin wrapping eq_facet::simplify. Reads
     // its own facet id via the ambient context's eq_id() rather than a

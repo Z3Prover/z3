@@ -148,7 +148,7 @@ namespace seq {
     }
 
     stx::simplify_result ncontains_propagation::propagate(eq_tree::node& n) {
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.ncontains_facet_ref();
         auto& af = ac.arith_facet_ref();
         m_stats.m_num_propagate++;

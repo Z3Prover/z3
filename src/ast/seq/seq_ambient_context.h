@@ -129,18 +129,16 @@ namespace seq {
         // the only legitimate consumers) should need a bare `facet_id` -
         // every caller that used to write `n.facet_as<mem_facet>(ac.
         // mem_id())` should instead write `ac.mem_facet(n)` and never see
-        // an id at all. `broadcast_subst` (seq_eq_facet.h/.cpp) is the one
-        // exception, since it needs `eq_id()` to skip re-applying a
-        // substitution to the eq_facet it already just applied it to
-        // directly; it is declared a friend for that reason.
+        // an id at all. `broadcast_subst` (seq_eq_facet.h/.cpp) no longer
+        // needs any of these either - it distinguishes the eq_facet it
+        // already updated directly from every other sibling facet by
+        // pointer identity, not by id.
         stx::facet_id eq_id() const { return m_eq_id; }
         stx::facet_id deq_id() const { return m_deq_id; }
         stx::facet_id arith_id() const { return m_arith_id; }
         stx::facet_id pow_id() const { return m_pow_id; }
         stx::facet_id mem_id() const { return m_mem_id; }
         stx::facet_id ncontains_id() const { return m_ncontains_id; }
-
-        friend void broadcast_subst(stx::search_tree<unsigned>::node& target, ambient_context_i<stx::search_tree<unsigned>::dep_tracker>& ac, expr* var, expr_ref_vector const& repl, stx::search_tree<unsigned>::dep_tracker subst_dep);
     public:
         ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u) {}
         ~ambient_context_i() override = default;
@@ -224,8 +222,7 @@ namespace seq {
      * A lightweight, non-owning proxy bundling a search-tree node
      * together with its ambient context, so a call site can write
      * `get_ambient(n).mem_facet()` instead of the old two-step
-     * `n.facet_as<mem_facet>(get_ambient(n, m, u).mem_id())`. The
-     * ambient context already knows every sibling's `facet_id`
+     * `n.facet_as<mem_facet>(get_ambient(n).mem_id())`. The ambient context already knows every sibling's `facet_id`
      * (`eq_id()`, `mem_id()`, etc.); this class just adds the missing
      * piece - the node to call `facet_as<T>` on - and one accessor
      * method per sibling facet type.

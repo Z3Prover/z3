@@ -97,7 +97,7 @@ namespace seq {
     }
 
     stx::simplify_result power_propagation::propagate(eq_tree::node& n) {
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -121,7 +121,7 @@ namespace seq {
                     rhs = mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned());
                 expr_ref_vector repl(m);
                 u.str.get_concat_units(rhs.get(), repl);
-                broadcast_subst(n, ac.context(), p.m_e.get(), repl, p.m_dep);
+                broadcast_subst(n, p.m_e.get(), repl, p.m_dep);
                 f.remove(i);
                 changed = true;
                 continue;
@@ -251,7 +251,7 @@ namespace seq {
             return false;
         unsigned this_case = m_next_case++;
 
-        auto ac = get_ambient(m_n, m, u);
+        auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -339,7 +339,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -376,7 +376,7 @@ namespace seq {
 
 
     bool power_split::iterator::next(eq_tree::edge& out) {
-        auto ac = get_ambient(m_n, m, u);
+        auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
         if (m_pow_index >= f.powers().size())
             return false; // obligation already discharged by another route
@@ -391,7 +391,7 @@ namespace seq {
         expr_ref rhs = mk_power_unfold(u, m, p.m_s.get(), j);
         expr_ref_vector repl(m);
         u.str.get_concat_units(rhs.get(), repl);
-        broadcast_subst(m_n, ac.context(), p.m_e.get(), repl, m_dep);
+        broadcast_subst(m_n, p.m_e.get(), repl, m_dep);
         af.add_constraint(m.mk_eq(p.m_n.get(), a.mk_int(j)), m_dep);
         f.remove(m_pow_index);
 
@@ -404,7 +404,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -421,7 +421,7 @@ namespace seq {
             // First branch: n <= 0, e := epsilon (the "n <= 0" case of
             // power_axiom/power_unfold_axiom).
             expr_ref_vector empty(m);
-            broadcast_subst(n, ac.context(), p.m_e.get(), empty, dep);
+            broadcast_subst(n, p.m_e.get(), empty, dep);
             af.add_constraint(a.mk_le(p.m_n.get(), a.mk_int(0)), dep);
             f.remove(i);
 
@@ -484,7 +484,7 @@ namespace seq {
         if (m_done)
             return false;
         m_done = true;
-        auto& af = get_ambient(m_n, m, u).arith_facet_ref();
+        auto& af = get_ambient(m_n).arith_facet_ref();
         // Branch 2 (the remaining alternative once branch 1 - "n < m",
         // materialized by split() itself - has been offered): m <= n.
         af.add_constraint(a.mk_ge(m_n_exp.get(), m_m_exp.get()), m_dep);
@@ -497,7 +497,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -663,7 +663,7 @@ namespace seq {
         if (m_done)
             return false;
         m_done = true;
-        auto& af = get_ambient(m_n, m, u).arith_facet_ref();
+        auto& af = get_ambient(m_n).arith_facet_ref();
         // Branch 2 (the remaining alternative once branch 1 - "count >
         // pow_exp", materialized by split() itself - has been offered):
         // pow_exp >= count.
@@ -677,7 +677,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -751,7 +751,7 @@ namespace seq {
             return false;
         m_done = true;
 
-        auto ac = get_ambient(m_n, m, u);
+        auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -777,8 +777,8 @@ namespace seq {
         if (m_fwd) { var_repl.push_back(p.m_s.get()); var_repl.push_back(vp); }
         else       { var_repl.push_back(vp); var_repl.push_back(p.m_s.get()); }
 
-        broadcast_subst(m_n, ac.context(), p.m_e.get(), pow_repl, m_dep);
-        broadcast_subst(m_n, ac.context(), m_var.get(), var_repl, m_dep);
+        broadcast_subst(m_n, p.m_e.get(), pow_repl, m_dep);
+        broadcast_subst(m_n, m_var.get(), var_repl, m_dep);
         af.add_constraint(a.mk_ge(exp_n, a.mk_int(1)), m_dep);
         f.remove(m_pow_idx);
 
@@ -791,7 +791,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -811,7 +811,7 @@ namespace seq {
         // Branch 1 (first, immediately materialized): n = 0, replace
         // U^n with epsilon (progress).
         expr_ref_vector empty(m);
-        broadcast_subst(n, ac.context(), e, empty, dep);
+        broadcast_subst(n, e, empty, dep);
         af.add_constraint(a.mk_ge(exp_n, a.mk_int(0)), dep);
         af.add_constraint(a.mk_le(exp_n, a.mk_int(0)), dep);
         f.remove(pow_idx);
@@ -884,7 +884,7 @@ namespace seq {
     }
 
     bool power_var_decompose::iterator::next(eq_tree::edge& out) {
-        auto ac = get_ambient(m_n, m, u);
+        auto ac = get_ambient(m_n);
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
         auto& f = ac.power_facet_ref();
@@ -940,7 +940,7 @@ namespace seq {
             // the base pattern's own repetition count, not appended
             // again literally).
 
-            broadcast_subst(m_n, ac.context(), m_var.get(), repl, m_dep);
+            broadcast_subst(m_n, m_var.get(), repl, m_dep);
             af.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep);
             if (fresh_inner_m) {
                 af.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
@@ -962,7 +962,7 @@ namespace seq {
             expr_ref_vector repl(m);
             if (m_fwd) { repl.push_back(m_pow_e.get()); repl.push_back(vp); }
             else       { repl.push_back(vp); repl.push_back(m_pow_e.get()); }
-            broadcast_subst(m_n, ac.context(), m_var.get(), repl, m_dep);
+            broadcast_subst(m_n, m_var.get(), repl, m_dep);
             af.add_constraint(a.mk_ge(u.str.mk_length(vp), a.mk_int(0)), m_dep);
             out = eq_tree::edge("power-var-decompose:extend", m_dep, true, 0);
             return true;
@@ -975,7 +975,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -1120,7 +1120,7 @@ namespace seq {
     }
 
     bool power_gpower_intro::iterator::next(eq_tree::edge& out) {
-        auto ac = get_ambient(m_n, m, u);
+        auto ac = get_ambient(m_n);
         auto& af = ac.arith_facet_ref();
         auto& f = ac.power_facet_ref();
 
@@ -1164,7 +1164,7 @@ namespace seq {
                 repl.push_back(m_pow_e.get());
             }
 
-            broadcast_subst(m_n, ac.context(), m_var.get(), repl, m_dep);
+            broadcast_subst(m_n, m_var.get(), repl, m_dep);
             af.add_constraint(a.mk_ge(m_fresh_n.get(), a.mk_int(0)), m_dep);
             if (fresh_inner_m) {
                 af.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
@@ -1181,7 +1181,7 @@ namespace seq {
         committed = false;
         if (cost != 0)
             return nullptr;
-        auto ac = get_ambient(n, m, u);
+        auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
 
