@@ -235,7 +235,6 @@ namespace seq {
         ast_manager&      m;
         seq_util&         u;
         seq_rewriter&     m_rw;
-        trail_stack&      m_trail;
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
@@ -244,6 +243,16 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node&             m_n;
+            // Private trail, entirely separate from the search tree's shared trail:
+            // seq_monadic::add() pushes undo-trail entries referencing its own
+            // internal state, and those entries must stay valid for exactly as
+            // long as m_mon itself does. Tying them to the search tree's shared
+            // trail is unsafe, since a declining split() call is immediately
+            // followed by that shared scope being popped (see extend_node()'s
+            // scoped_push), which would run these entries' undo() against an
+            // already-destroyed seq_monadic. A private trail/engine pair, owned
+            // and torn down together by this iterator, avoids that entirely.
+            trail_stack                m_priv_trail;
             seq_monadic                m_mon;
             seq_monadic::iterator      m_it;
             bool                       m_first_pending = true;
@@ -253,7 +262,7 @@ namespace seq {
 
             bool apply_solution(obj_map<expr, seq::view_vector>& sol, eq_tree::edge& out);
         public:
-            iterator(eq_tree::node& n, seq_rewriter& rw, trail_stack& trail, ast_manager& m, seq_util& u,
+            iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
                      vector<str_mem> const& mems);
             bool next(eq_tree::edge& out) override;
             bool has_first() const { return !m_first.empty(); }
@@ -261,7 +270,7 @@ namespace seq {
 
     public:
         mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, trail_stack& trail) :
-            m(m), u(u), m_rw(rw), m_trail(trail) {}
+            m(m), u(u), m_rw(rw) {}
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("mem-monadic num splits", m_stats.m_num_splits); }

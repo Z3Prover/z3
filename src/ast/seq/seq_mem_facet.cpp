@@ -166,7 +166,19 @@ namespace seq {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
                 return stx::simplify_result::conflict;
             }
-            lbool a = bad ? seq::accepts(sm.m_view, m_rw) : l_undef;
+            // NSB code review fix: when `bad` (the string still contains a
+            // variable), nullability/derivative processing above never ran
+            // to completion, so `sm.m_view`'s *original* state cannot be
+            // used to decide acceptance here - calling `seq::accepts` on it
+            // tests only whether the un-derived regex accepts the empty
+            // string, which says nothing about whether the actual
+            // (variable-containing, generally non-empty) string is in the
+            // language; doing so previously caused memberships like
+            // `x ++ "ab" ++ x in (aba)*` to be unsoundly discharged as
+            // satisfied merely because `(aba)*` is nullable. Only a fully
+            // concrete string (`!bad`) can be resolved this way, and that
+            // case is already handled above via `cur`.
+            lbool a = bad ? l_undef : seq::accepts(sm.m_view, m_rw);
             if (a == l_false) {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
                 return stx::simplify_result::conflict;
@@ -227,9 +239,9 @@ namespace seq {
     }
 
     // NSB code review: this uses the end-game version of seq_monadic. 
-    mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, trail_stack& trail, ast_manager& m, seq_util& u,
+    mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
                                           vector<str_mem> const& mems) :
-        m_n(n), m_mon(rw, trail, transition_mode::brzozowski_tm), m_it(m_mon.iterate(64)), m(m), u(u) {
+        m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m_it(m_mon.iterate(64)), m(m), u(u) {
         m_mon.set_gen_solution(true);
         for (auto const& sm : mems) {
             // NSB code review: the sort* s can be obtained from sm.m_view.source regex. 
@@ -413,7 +425,7 @@ namespace seq {
         }
         if (!has_multi)
             return nullptr;
-        scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m_trail, m, u, mf.memberships()));
+        scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships()));
         if (!it->has_first())
             return nullptr;
         if (!it->next(out))
