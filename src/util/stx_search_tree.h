@@ -275,9 +275,22 @@ namespace stx {
         // driver does that; all scope management for both `split()` and
         // `split_iterator_i::next()` happens in one place in the engine.
         class split_plugin_i {
+            unsigned m_min_cost = 0;
         public:
             virtual ~split_plugin_i() = default;
             virtual char const* name() const = 0;
+
+            // Cheapest cost at which this plugin might ever offer a
+            // split (a static lower bound, set once via set_min_cost()
+            // - typically at construction). extend_node() consults this
+            // before calling split() at all, so a plugin whose splits
+            // only ever appear at cost >= k need not itself re-check
+            // `cost < k` in every split() override; the engine already
+            // skips those calls entirely. Default: 0 (no lower bound;
+            // split() is tried starting at cost 0, as before).
+            virtual unsigned min_cost() const { return m_min_cost; }
+            void set_min_cost(unsigned c) { m_min_cost = c; }
+
             // - A split exists at exactly `cost`: materialize the FIRST
             //   branch immediately (mutate `n`'s own facet(s) via their
             //   mutator methods, registering trail undo objects - but do
@@ -595,6 +608,10 @@ namespace stx {
             for (unsigned cost = 0; cost <= m_max_cost; ++cost) {
                 bool any_offer = false;
                 for (auto* sp : m_split_plugins) {
+                    if (cost < sp->min_cost()) {
+                        any_offer = true; // this plugin may still offer at a higher cost
+                        continue;
+                    }
                     m_stats.m_split_counts[sp->name()]++;
                     bool has_more = false;
                     bool committed = false;

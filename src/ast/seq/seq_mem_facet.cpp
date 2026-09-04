@@ -175,7 +175,7 @@ namespace seq {
         has_more = false;
         committed = false;
         auto ac = get_ambient(n);
-        if (cost != 0 || !ac.has_eq())
+        if (!ac.has_eq())
             return nullptr;
         auto& mf = ac.mem_facet_ref();
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
@@ -315,8 +315,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> power_var_peel_mem::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& mf = ac.mem_facet_ref();
@@ -366,8 +364,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> mem_monadic_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto& mf = get_ambient(n).mem_facet_ref();
         if (mf.memberships().empty())
             return nullptr;

@@ -259,8 +259,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> word_eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.eq_facet_ref();
 
@@ -537,8 +535,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> eq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -624,8 +620,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> ite_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
@@ -837,8 +831,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> deq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.deq_facet_ref();
 

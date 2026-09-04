@@ -337,8 +337,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> power_fine_wilf::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
@@ -402,8 +400,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> power_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
@@ -495,8 +491,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> power_num_cmp::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
@@ -675,8 +669,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> power_split_elim::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
@@ -789,8 +781,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> power_var_peel::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
@@ -973,8 +963,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> power_var_decompose::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
@@ -1179,8 +1167,6 @@ namespace seq {
     scoped_ptr<eq_tree::split_iterator_i> power_gpower_intro::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
-        if (cost != 0)
-            return nullptr;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
