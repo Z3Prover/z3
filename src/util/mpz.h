@@ -186,7 +186,11 @@ public:
     }
 
     inline bool is_small() const {
-        return !has_ptr() || ptr()->m_size == 1;
+        return !has_ptr()
+#ifndef _MP_GMP
+                 || ptr()->m_size == 1
+#endif
+               ;
     }
 
     inline int64_t value() const {
