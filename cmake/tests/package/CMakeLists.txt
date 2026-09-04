@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(Z3_PACKAGE_TEST LANGUAGES CXX)
+project(Z3_PACKAGE_TEST LANGUAGES C CXX)
 
 set(Z3_TEST_COMPONENT "" CACHE STRING
   "Z3 package component to request (static or shared)")
@@ -33,6 +33,14 @@ if (Z3_TEST_CONFLICTING_COMPONENT)
     message(FATAL_ERROR "A conflicting package request replaced z3::libz3")
   endif()
 endif()
+
+get_target_property(_z3_compile_features
+  z3::libz3 INTERFACE_COMPILE_FEATURES)
+list(FIND _z3_compile_features cxx_noexcept _z3_cxx11_feature_index)
+if (_z3_cxx11_feature_index EQUAL -1)
+  message(FATAL_ERROR "z3::libz3 does not require C++11")
+endif()
+
 if (Z3_TEST_EXPECTED_TYPE)
   get_target_property(_z3_actual_type z3::libz3 TYPE)
   if (NOT _z3_actual_type STREQUAL Z3_TEST_EXPECTED_TYPE)
@@ -50,5 +58,9 @@ endif()
 add_executable(z3_package_test package_test.cpp)
 target_link_libraries(z3_package_test PRIVATE z3::libz3)
 
+add_executable(z3_package_c_test package_test.c)
+target_link_libraries(z3_package_c_test PRIVATE z3::libz3)
+
 enable_testing()
 add_test(NAME z3_package_test COMMAND z3_package_test)
+add_test(NAME z3_package_c_test COMMAND z3_package_c_test)

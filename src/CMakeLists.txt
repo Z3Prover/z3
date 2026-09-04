@@ -112,8 +112,16 @@ if (MSVC AND Z3_BUILD_LIBZ3_MSVC_STATIC)
     endforeach()
 endif()
 add_library(libz3 ${lib_type} ${object_files})
+if (NOT TARGET z3::libz3)
+  add_library(z3::libz3 ALIAS libz3)
+endif()
+# z3++.h requires C++11. Use a granular feature because the cxx_std_11
+# meta-feature is newer than the minimum CMake version for package consumers.
+target_compile_features(libz3 INTERFACE cxx_noexcept)
 target_include_directories(libz3 INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
+  # z3++.h lives in a separate directory from the C headers.
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api/c++>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 set_target_properties(libz3 PROPERTIES
   # VERSION determines the version in the filename of the shared library.

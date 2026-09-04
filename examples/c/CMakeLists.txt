@@ -5,8 +5,8 @@
 # as a static library if we don't configure this project to also support
 # C++ we will use the C linker rather than the C++ linker and will not link
 # the C++ standard library in resulting in a link failure.
+cmake_minimum_required(VERSION 3.5)
 project(Z3_C_EXAMPLE C CXX)
-cmake_minimum_required(VERSION 3.4)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -37,21 +37,13 @@ if (FORCE_CXX_LINKER)
   )
 endif()
 
-target_include_directories(c_example PRIVATE ${Z3_C_INCLUDE_DIRS})
-target_link_libraries(c_example PRIVATE ${Z3_LIBRARIES})
+target_link_libraries(c_example PRIVATE z3::libz3)
 
 if (CMAKE_SYSTEM_NAME MATCHES "[Ww]indows")
   # On Windows we need to copy the Z3 libraries
   # into the same directory as the executable
   # so that they can be found.
-  foreach (z3_lib ${Z3_LIBRARIES})
-    message(STATUS "Adding copy rule for ${z3_lib}")
-    add_custom_command(TARGET c_example
-      POST_BUILD
-      COMMAND
-        ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:${z3_lib}>
-        $<TARGET_FILE_DIR:c_example>
-    )
-  endforeach()
+  add_custom_command(TARGET c_example POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:z3::libz3> $<TARGET_FILE_DIR:c_example>)
 endif()

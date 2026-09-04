@@ -592,26 +592,26 @@ if (Z3_BUILD_LIBZ3_CORE)
      FILE "${PROJECT_BINARY_DIR}/Z3-${Z3_LIBZ3_VARIANT}-targets.cmake"
   )
 else()
-  # When not building libz3, we need to find it
-  message(STATUS "Not building libz3, will look for pre-installed library")
-  find_library(Z3_LIBRARY NAMES z3 libz3
-    HINTS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
-    PATH_SUFFIXES lib lib64
-  )
-  if (NOT Z3_LIBRARY)
-    message(FATAL_ERROR "Could not find pre-installed libz3. Please ensure libz3 is installed or set Z3_BUILD_LIBZ3_CORE=ON")
-  endif()
-  message(STATUS "Found libz3: ${Z3_LIBRARY}")
+  message(STATUS "Not building libz3; looking for the installed Z3 package")
+  # CMake 3.16 has no block() scope. Preserve the project version variables
+  # around find_package(), which otherwise writes the same names.
+  set(_z3_project_version "${Z3_VERSION}")
+  set(_z3_project_version_major "${Z3_VERSION_MAJOR}")
+  set(_z3_project_version_minor "${Z3_VERSION_MINOR}")
+  set(_z3_project_version_patch "${Z3_VERSION_PATCH}")
+  find_package(Z3 ${Z3_VERSION} EXACT CONFIG REQUIRED COMPONENTS shared)
+  set(Z3_VERSION "${_z3_project_version}")
+  set(Z3_VERSION_MAJOR "${_z3_project_version_major}")
+  set(Z3_VERSION_MINOR "${_z3_project_version_minor}")
+  set(Z3_VERSION_PATCH "${_z3_project_version_patch}")
+  unset(_z3_project_version)
+  unset(_z3_project_version_major)
+  unset(_z3_project_version_minor)
+  unset(_z3_project_version_patch)
+endif()
 
-  # Create an imported target for the pre-installed libz3
-  add_library(libz3 SHARED IMPORTED)
-  set_target_properties(libz3 PROPERTIES
-    IMPORTED_LOCATION "${Z3_LIBRARY}"
-  )
-  # Set include directories for the imported target
-  target_include_directories(libz3 INTERFACE
-    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
-  )
+if (TARGET libz3 AND NOT TARGET z3::libz3)
+  add_library(z3::libz3 ALIAS libz3)
 endif()
 
 ################################################################################
@@ -671,13 +671,12 @@ configure_file(
 unset(Z3_FIND_GMP_MODULE_DIR)
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
-	"${CMAKE_CURRENT_BINARY_DIR}/z3.pc" @ONLY)
+  "${CMAKE_CURRENT_BINARY_DIR}/z3.pc" @ONLY)
 
 ################################################################################
 # Create `Z3Config.cmake` and related files for install tree so clients can use
 # Z3 via CMake.
 ################################################################################
-# Only install targets if we built libz3
 if (Z3_BUILD_LIBZ3_CORE)
   install(EXPORT
     Z3_EXPORTED_TARGETS
@@ -718,30 +717,32 @@ unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
 unset(AUTO_GEN_MSG)
 unset(CONFIG_FILE_TYPE)
 
-# Add install rule to install ${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}
-install(
-  FILES "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+if (Z3_BUILD_LIBZ3_CORE)
+  # Add install rule to install ${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}
+  install(
+    FILES "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
 
-# Add install rule to install ${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake
-install(
-  FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+  # Add install rule to install ${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake
+  install(
+    FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
 
-# Add install rule to install ${PROJECT_BINARY_DIR}/z3.pc
-install(
-  FILES "${PROJECT_BINARY_DIR}/z3.pc"
-  DESTINATION "${CMAKE_INSTALL_PKGCONFIGDIR}"
-)
+  # Add install rule to install ${PROJECT_BINARY_DIR}/z3.pc
+  install(
+    FILES "${PROJECT_BINARY_DIR}/z3.pc"
+    DESTINATION "${CMAKE_INSTALL_PKGCONFIGDIR}"
+  )
+endif()
 
 ################################################################################
 # Examples
 ################################################################################
 cmake_dependent_option(Z3_ENABLE_EXAMPLE_TARGETS
     "Build Z3 api examples" ON
-    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR;Z3_BUILD_LIBZ3_CORE" OFF)
 if (Z3_ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()

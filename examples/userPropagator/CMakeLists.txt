@@ -1,8 +1,8 @@
 ################################################################################
 # Example C++ project
 ################################################################################
+cmake_minimum_required(VERSION 3.12)
 project(Z3_USER_PROPAGATOR_EXAMPLE CXX)
-cmake_minimum_required(VERSION 3.4)
 find_package(Z3
   REQUIRED
   CONFIG
@@ -13,12 +13,6 @@ find_package(Z3
   # use this option.
   NO_DEFAULT_PATH
 )
-
-################################################################################
-# Z3 C++ API bindings require C++11, but this code needs later.
-################################################################################
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 message(STATUS "Z3_FOUND: ${Z3_FOUND}")
 message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
@@ -33,21 +27,14 @@ add_executable(user_propagator_example
         user_propagator_internal_maximisation.h
         user_propagator_created_maximisation.h)
 
-target_include_directories(user_propagator_example PRIVATE ${Z3_CXX_INCLUDE_DIRS})
-target_link_libraries(user_propagator_example PRIVATE ${Z3_LIBRARIES})
+target_compile_features(user_propagator_example PRIVATE cxx_std_20)
+target_link_libraries(user_propagator_example PRIVATE z3::libz3)
 
 if (CMAKE_SYSTEM_NAME MATCHES "[Ww]indows")
   # On Windows we need to copy the Z3 libraries
   # into the same directory as the executable
   # so that they can be found.
-  foreach (z3_lib ${Z3_LIBRARIES})
-    message(STATUS "Adding copy rule for ${z3_lib}")
-    add_custom_command(TARGET user_propagator_example
-      POST_BUILD
-      COMMAND
-        ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:${z3_lib}>
-        $<TARGET_FILE_DIR:user_propagator_example>
-    )
-  endforeach()
+  add_custom_command(TARGET user_propagator_example POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:z3::libz3> $<TARGET_FILE_DIR:user_propagator_example>)
 endif()

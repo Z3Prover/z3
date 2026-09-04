@@ -454,6 +454,15 @@ jobs:
           cmake --build build --target libz3 shell
           cmake --install build --prefix "$PWD/install"
 
+      - name: Build Python bindings from installed shared package
+        run: |
+          cmake -S . -B build-python-only -G Ninja \
+            -DZ3_BUILD_LIBZ3_CORE=OFF \
+            -DZ3_BUILD_PYTHON_BINDINGS=ON \
+            -DZ3_INSTALL_PYTHON_BINDINGS=OFF \
+            -DCMAKE_PREFIX_PATH="$PWD/install"
+          cmake --build build-python-only --target build_z3_python_bindings
+
       - name: Setup consumer CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
