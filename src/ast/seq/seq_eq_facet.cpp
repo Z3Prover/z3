@@ -22,11 +22,13 @@ Author:
 
 namespace seq {
 
+    // NSB code review: remove redundant function
     bool is_const_token(seq_util& u, expr* e) {
         expr* ch = nullptr;
         return u.str.is_unit(e, ch) && u.is_const_char(ch);
     }
 
+    // NSB code review: just use u.str.get_concat and not call this function.
     void flatten(seq_util& u, expr* e, expr_ref_vector& out) {
         u.str.get_concat_units(e, out);
     }
@@ -39,7 +41,6 @@ namespace seq {
             if (ida != idb)
                 return ida < idb ? -1 : 1;
         }
-
         return 0;
     }
 
@@ -152,6 +153,7 @@ namespace seq {
         // point is a symbol clash (conflict).
 
         // NSB code review: use the broadcast_subst instead of apply_subst
+        // NSB code review: replace is_const_token by u.str.is_unit
         if (eq.m_lhs.empty() != eq.m_rhs.empty()) {
             expr_ref_vector& side = eq.m_lhs.empty() ? eq.m_rhs : eq.m_lhs;
             eq_tree::dep_tracker eq_dep = eq.m_dep;
@@ -471,6 +473,7 @@ namespace seq {
             // token model never produces longer constant tokens); every
             // other token (opaque variable, fresh Skolem, etc.) is
             // variable-length.
+            // NSB code review: use u.str.is_unit instead of is_const_token
             if (is_const_token(u, tok)) {
                 const_diff += (consume_lhs ? 1 : -1);
             }
@@ -709,6 +712,7 @@ namespace seq {
             if (!L.empty() && !R.empty()) {
                 expr* lh = L.get(0);
                 expr* rh = R.get(0);
+                // NSB code review: use u.str.is_unit(lh) && u.str.is_unit(rh) && m.are_distinct(lh, rh)
                 if (is_const_token(u, lh) && is_const_token(u, rh) && lh != rh) {
                     // distinct leading constants: the two sides can never
                     // be made equal by any future substitution - the
@@ -752,6 +756,7 @@ namespace seq {
     // const-1-or-str.len sum); duplicated locally rather than shared
     // since eq_facet/power_facet intentionally have no header dependency
     // on each other's static helpers.
+    // NSB code review: use u.str.is_unit instead of is_const_token
     static expr_ref mk_side_len(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks) {
         expr_ref sum(a.mk_int(0), m);
         for (expr* tok : toks)
