@@ -115,6 +115,15 @@ namespace seq {
         stx::facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
+
+// NSB code review: replace is_satisfied with a function that requires either m_mems.empty() or
+// that the monadic split has executed and the current node is a child where every membership constraint
+// is a variable membership into a sequence. That is, the constraints are x_i in view_i for i = 1 ...
+// apply_subst negates the state bit that the state is satisfiable - mem_split has to be invoked again to 
+// ensure that seq_monadic certifies the intersection of aligned views to be non-empty
+// Use a bool flag that is toggled on the trail.push(value_trail(m_is_satisfied));
+// for book-keeping
+
         bool is_satisfied() const override { return m_mems.empty(); }
         std::ostream& display(std::ostream& out) const override;
     };
