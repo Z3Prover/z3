@@ -29,14 +29,11 @@ Abstract:
     Scope note / simplifications relative to the full design:
       - regex factorization (§4.2 of facet-membership.md) is NOT implemented
         in this pass;
-      - the variable split implements both branches of the c3 branch's
-        `apply_regex_var_split` (`x -> epsilon` and `x -> c.x'`), but uses
-        an unconstrained fresh character for the second branch rather than
-        porting Nielsen's historical minterm partitioning; this keeps the
-        implementation alphabet-agnostic and buildable without introducing
-        a new guard-splitting substrate, at the cost of exploring some
-        infeasible characters that minterm restriction would prune up
-        front (a performance, not soundness, gap);
+      - the c3 branch's `apply_regex_var_split` (a per-membership
+        Nielsen-style variable split, `x -> epsilon` / `x -> c.x'`) is not
+        ported here: monadic landing (`mem_monadic_split`, driven by
+        `seq_monadic`) subsumes it as the sole membership-side splitting
+        rule, so no standalone `mem_var_split` class exists in this port;
       - monadic landing is implemented for the conjunction of memberships
         currently present in `mem_facet`; it narrows views reported by
         `seq_monadic::iterate()` and leaves exact witness materialization to
@@ -94,6 +91,14 @@ namespace seq {
         seq_util&         u;
         eq_tree::dep_manager_t& m_dm;
         vector<str_mem>   m_mems;
+        // Set once mem_monadic_split has certified that every remaining
+        // membership constraint has been narrowed to a variable-only
+        // view (x_i in view_i) whose intersection seq_monadic verified
+        // to be non-empty. apply_subst() (a structural change to some
+        // membership's string) clears this again, since the narrowed
+        // views no longer necessarily reflect the (now different) set
+        // of constraints - mem_monadic_split must re-certify.
+        bool              m_is_satisfied = false;
 
     public:
         mem_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
@@ -117,19 +122,16 @@ namespace seq {
         void replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep = nullptr);
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
+        // Toggled (trailed) by mem_monadic_split once it has certified
+        // the current membership set as a satisfiable conjunction of
+        // per-variable views; see class comment on m_is_satisfied.
+        void set_is_satisfied(bool b);
+
         stx::facet_i* clone(trail_stack& trail) const override;
         unsigned hash() const override;
         bool similar(facet_i const& other) const override;
 
-// NSB code review: replace is_satisfied with a function that requires either m_mems.empty() or
-// that the monadic split has executed and the current node is a child where every membership constraint
-// is a variable membership into a sequence. That is, the constraints are x_i in view_i for i = 1 ...
-// apply_subst negates the state bit that the state is satisfiable - mem_split has to be invoked again to 
-// ensure that seq_monadic certifies the intersection of aligned views to be non-empty
-// Use a bool flag that is toggled on the trail.push(value_trail(m_is_satisfied));
-// for book-keeping
-
-        bool is_satisfied() const override { return m_mems.empty(); }
+        bool is_satisfied() const override { return m_mems.empty() || m_is_satisfied; }
         std::ostream& display(std::ostream& out) const override;
     };
 
@@ -212,37 +214,6 @@ namespace seq {
             st.update("mem-bounds-propagate num calls", m_stats.m_num_propagate);
             st.update("mem-bounds-propagate num added", m_stats.m_num_added);
         }
-        void reset_statistics() override { m_stats.reset(); }
-    };
-
-    class mem_var_split : public eq_tree::split_plugin_i {
-        ast_manager&  m;
-        seq_util&     u;
-        struct stats {
-            unsigned m_num_splits = 0;
-            void reset() { *this = stats(); }
-        };
-        stats m_stats;
-
-        class iterator : public eq_tree::split_iterator_i {
-            eq_tree::node& m_n;
-            unsigned       m_mem_index;
-            expr*          m_var;
-            eq_tree::dep_tracker m_dep;
-            bool           m_done = false;
-            ast_manager&   m;
-            seq_util&      u;
-        public:
-            iterator(eq_tree::node& n, unsigned mem_index, expr* var, ast_manager& m, seq_util& u, eq_tree::dep_tracker dep = nullptr) :
-                m_n(n), m_mem_index(mem_index), m_var(var), m_dep(dep), m(m), u(u) {}
-            bool next(eq_tree::edge& out) override;
-        };
-
-    public:
-        mem_var_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
-        char const* name() const override { return "mem-var-split"; }
-        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("mem-var-split num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     };
 
@@ -331,13 +302,16 @@ namespace seq {
             // and torn down together by this iterator, avoids that entirely.
             trail_stack                m_priv_trail;
             seq_monadic                m_mon;
-            seq_monadic::iterator      m_it;
+            // Constructed in the body (after m_mon.add() populates the
+            // engine), not the initializer list: seq_monadic::iterate()
+            // snapshots the engine's CURRENT membership set, so building
+            // it before add() runs would capture an empty conjunction.
+            scoped_ptr<seq_monadic::iterator> m_it;
             bool                       m_first_pending = true;
             obj_map<expr, seq::view_vector> m_first;
             ast_manager&               m;
             seq_util&                  u;
 
-            bool apply_solution(obj_map<expr, seq::view_vector>& sol, eq_tree::edge& out);
         public:
             iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
                      vector<str_mem> const& mems);

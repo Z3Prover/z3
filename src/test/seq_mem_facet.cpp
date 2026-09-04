@@ -35,7 +35,6 @@ namespace {
         seq::eq_propagation   eprop;
         seq::word_eq_split    esplit;
         seq::mem_propagation  mprop;
-        seq::mem_var_split    vsplit;
         seq::mem_monadic_split msplit;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
@@ -48,7 +47,6 @@ namespace {
             ac(m, u),
             eprop(m, u), esplit(m, u),
             mprop(m, u, rw, live),
-            vsplit(m, u),
             msplit(m, u, rw, trail)
         {
             ac.set_eq_id(eq_id);
@@ -56,7 +54,6 @@ namespace {
             tree.set_ambient_context(&ac);
             tree.add_propagation_plugin(&eprop);
             tree.add_propagation_plugin(&mprop);
-            tree.add_split_plugin(&vsplit);
             tree.add_split_plugin(&msplit);
             tree.add_split_plugin(&esplit);
             tree.set_max_search_depth(12);

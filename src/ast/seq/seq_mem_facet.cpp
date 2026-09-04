@@ -58,6 +58,8 @@ namespace seq {
     void mem_facet::add(str_mem const& sm) {
         m_mems.push_back(sm);
         m_trail.push(push_back_trail<str_mem>(m_mems));
+        m_trail.push(value_trail(m_is_satisfied));
+        m_is_satisfied = false;
     }
 
     void mem_facet::narrow(unsigned idx, view const& new_view) {
@@ -83,6 +85,8 @@ namespace seq {
             m_trail.push(vector_field_trail<str_mem, eq_tree::dep_tracker>(m_mems, idx, &str_mem::m_dep));
             m_mems[idx].m_dep = m_dm.mk_join(m_mems[idx].m_dep, dep);
         }
+        m_trail.push(value_trail(m_is_satisfied));
+        m_is_satisfied = false;
     }
 
     void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
@@ -93,11 +97,24 @@ namespace seq {
                 m_mems[i].m_dep = m_dm.mk_join(m_mems[i].m_dep, subst_dep);
             }
         }
+        // A structural change to some membership's string invalidates
+        // any prior mem_monadic_split certification: the narrowed views
+        // it recorded described a different set of constraints, so
+        // mem_monadic_split must re-certify before is_satisfied() can
+        // report true again on this basis.
+        m_trail.push(value_trail(m_is_satisfied));
+        m_is_satisfied = false;
+    }
+
+    void mem_facet::set_is_satisfied(bool b) {
+        m_trail.push(value_trail(m_is_satisfied));
+        m_is_satisfied = b;
     }
 
     stx::facet_i* mem_facet::clone(trail_stack& trail) const {
         mem_facet* f = alloc(mem_facet, trail, m, u, m_dm);
         f->m_mems.append(m_mems);
+        f->m_is_satisfied = m_is_satisfied;
         return f;
     }
 
@@ -215,68 +232,10 @@ namespace seq {
     }
 
 
-    // Branch 2 of the c3 branch's apply_regex_var_split: x -> c.x' for a
-    // fresh character c and a fresh tail variable x'. Together with
-    // branch 1 (x -> epsilon, materialized directly by split() below)
-    // this makes the split a genuine two-way disjunction rather than an
-    // unconditional collapse to epsilon - the case where the membership
-    // requires var to start with a real character is preserved here
-    // instead of being silently discarded. This mirrors the c3 branch's
-    // non-ground/no-minterm fallback: c is an unconstrained fresh
-    // character (of the sequence's element sort) rather than a
-    // minterm-restricted one; soundness does not depend on restricting
-    // c's range up front; it is still constrained indirectly as the
-    // search narrows the memberships that mention it. Minterm-based
-    // range restriction (c3's ground/minterms case) is a pruning
-    // refinement left for a follow-up, not a soundness requirement.
-    bool mem_var_split::iterator::next(eq_tree::edge& out) {
-        if (m_done)
-            return false;
-        m_done = true;
-        auto ac = get_ambient(m_n);
-        auto& eq = ac.eq_facet_ref();
-        sort* elem_sort = nullptr;
-        VERIFY(u.is_seq(m_var->get_sort(), elem_sort));
-        expr* fresh_ch = eq.mk_fresh_var(elem_sort);
-        expr* fresh_var = eq.mk_fresh_var(m_var->get_sort());
-        expr_ref_vector repl(eq.get_manager());
-        repl.push_back(u.str.mk_unit(fresh_ch));
-        repl.push_back(fresh_var);
-        broadcast_subst(m_n, m_var, repl, m_dep);
-        out = eq_tree::edge("mem-v:=c.v'", nullptr, true, 0);
-        return true;
-    }
-
-    scoped_ptr<eq_tree::split_iterator_i> mem_var_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
-        has_more = false;
-        committed = false;
-        auto ac = get_ambient(n);
-        if (!ac.has_eq())
-            return nullptr;
-        auto& mf = ac.mem_facet_ref();
-        for (unsigned i = 0; i < mf.memberships().size(); ++i) {
-            auto const& ts = mf.memberships()[i].m_str;
-            if (ts.empty() || u.str.is_unit(ts.get(0)))
-                continue;
-            expr* var = ts.get(0);
-            eq_tree::dep_tracker dep = mf.memberships()[i].m_dep;
-
-            iterator* it = alloc(iterator, n, i, var, m, u, dep);
-            auto& eq = ac.eq_facet_ref();
-            expr_ref_vector empty(eq.get_manager());
-            broadcast_subst(n, var, empty, dep);
-            out = eq_tree::edge("mem-v:=eps", nullptr, true, 0);
-            committed = true;
-            m_stats.m_num_splits++;
-            return it;
-        }
-        return nullptr;
-    }
-
     // NSB code review: this uses the end-game version of seq_monadic. 
     mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
                                           vector<str_mem> const& mems) :
-        m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m_it(m_mon.iterate(64)), m(m), u(u) {
+        m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m(m), u(u) {
         m_mon.set_gen_solution(true);
         for (auto const& sm : mems) {
             // NSB code review: the sort* s can be obtained from sm.m_view.source regex. 
@@ -284,30 +243,11 @@ namespace seq {
             expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
             m_mon.add(term, sm.m_view.m_state, sm.m_dep);
         }
+        m_it = alloc(seq_monadic::iterator, m_mon.iterate(64));
         obj_map<expr, seq::view_vector> first;
-        if (m_it.next(first))
+        if (m_it->next(first))
             for (auto const& [var, views] : first)
                 m_first.insert(var, views);
-    }
-
-    bool mem_monadic_split::iterator::apply_solution(obj_map<expr, seq::view_vector>& sol, eq_tree::edge& out) {
-        auto& mf = get_ambient(m_n).mem_facet_ref();
-        bool changed = false;
-        for (unsigned i = 0; i < mf.memberships().size(); ++i) {
-            auto const& sm = mf.memberships()[i];
-             // NSB code review: the sort* s can be obtained from sm.m_view.source regex. 
-            sort* s = sm.m_str.empty() ? u.str.mk_string_sort() : sm.m_str.get(0)->get_sort();
-            expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
-            seq::view_vector views;
-            if (!sol.find(term, views) || views.empty())
-                continue;
-            mf.narrow(i, views[0]);
-            changed = true;
-        }
-        if (!changed)
-            return false;
-        out = eq_tree::edge("mem-monadic", nullptr, true, 0);
-        return true;
     }
 
     // Locate a membership-side var-peel trigger: some mem_facet
@@ -436,29 +376,65 @@ namespace seq {
             for (auto const& [var, views] : m_first)
                 sol.insert(var, views);
         }
-        else if (!m_it.next(sol))
+        else if (!m_it->next(sol))
             return false;
-        return apply_solution(sol, out);
+        auto& mf = get_ambient(m_n).mem_facet_ref();
+        bool changed = false;
+        // seq_monadic's solution is keyed per VARIABLE (m_vars/m_groups),
+        // not by a membership's whole (possibly multi-variable) string
+        // term, so a membership whose flattened string is a single token
+        // is narrowed in place, while a genuine multi-variable
+        // concatenation (e.g. x.y in R) is replaced by one single-token
+        // membership per variable, each carrying the view seq_monadic
+        // committed that variable to.
+        for (unsigned i = mf.memberships().size(); i-- > 0; ) {
+            auto const& sm = mf.memberships()[i];
+            if (sm.m_str.size() == 1) {
+                seq::view_vector views;
+                if (!sol.find(sm.m_str.get(0), views) || views.empty())
+                    continue;
+                mf.narrow(i, views[0]);
+                changed = true;
+                continue;
+            }
+            bool all_found = true;
+            vector<std::pair<expr*, seq::view>> per_var;
+            for (expr* t : sm.m_str) {
+                seq::view_vector views;
+                if (!sol.find(t, views) || views.empty()) {
+                    all_found = false;
+                    break;
+                }
+                per_var.push_back({ t, views[0] });
+            }
+            if (!all_found)
+                continue;
+            eq_tree::dep_tracker dep = sm.m_dep;
+            mf.remove(i);
+            for (auto const& [t, v] : per_var) {
+                expr_ref_vector ts(m);
+                ts.push_back(t);
+                mf.add(str_mem(m, ts, v, dep));
+            }
+            changed = true;
+        }
+        if (!changed)
+            return false;
+        // seq_monadic's solve() has certified this branch's per-variable
+        // views as a non-empty intersection: every membership is now a
+        // narrowed variable-only view, and no further splitting is
+        // required for this node - see class comment on
+        // mem_facet::m_is_satisfied.
+        mf.set_is_satisfied(true);
+        out = eq_tree::edge("mem-monadic", nullptr, true, 0);
+        return true;
     }
 
     scoped_ptr<eq_tree::split_iterator_i> mem_monadic_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
         auto& mf = get_ambient(n).mem_facet_ref();
-        if (mf.memberships().empty())
-            return nullptr;
-        bool has_multi = false;
-        for (auto const& sm : mf.memberships()) {
-            unsigned vars = 0;
-            for (expr* t : sm.m_str)
-                if (!u.str.is_unit(t))
-                    ++vars;
-            if (vars >= 2) {
-                has_multi = true;
-                break;
-            }
-        }
-        if (!has_multi)
+        if (mf.memberships().empty() || mf.is_satisfied())
             return nullptr;
         scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships()));
         if (!it->has_first())
