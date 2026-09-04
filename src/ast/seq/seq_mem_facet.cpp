@@ -134,7 +134,7 @@ namespace seq {
             u.str.get_concat_units(sm.m_str.get(), ts);
             bool bad = false;
             for (expr* t : ts) {
-                if (!is_const_token(u, t)) { bad = true; break; }
+                if (!u.str.is_unit(t)) { bad = true; break; }
                 expr* elem = nullptr;
                 VERIFY(u.str.is_unit(t, elem));
                 cur = m_rw.mk_derivative(elem, cur);
@@ -202,7 +202,7 @@ namespace seq {
             expr* s = mf.memberships()[i].m_str.get();
             expr_ref_vector ts(m);
             u.str.get_concat_units(s, ts);
-            if (ts.empty() || is_const_token(u, ts.get(0)))
+            if (ts.empty() || u.str.is_unit(ts.get(0)))
                 continue;
             expr* var = ts.get(0);
             eq_tree::dep_tracker dep = mf.memberships()[i].m_dep;
@@ -402,7 +402,7 @@ namespace seq {
             u.str.get_concat_units(sm.m_str.get(), ts);
             unsigned vars = 0;
             for (expr* t : ts)
-                if (!is_const_token(u, t))
+                if (!u.str.is_unit(t))
                     ++vars;
             if (vars >= 2) {
                 has_multi = true;
