@@ -13,6 +13,22 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2026
 
+
+NSB code review:
+- we need to check non-emptiness of intersection constraints that are created after split.
+  For example if we split xy in R as x in R1, y in R2, and already have x in R0 constraint,
+  then check non-emptiness of R1 n R0 using functionality implemented in seq_monadic.
+- We need model existence and extraction
+  - model existence when all mebership constraints are x_i in R_ij and R_i1 n ... n R_ik is empty
+  - model extraction as a side effect.
+  - use seq_monadic to encapsulate functionality.
+
+- nice to have: allow reverse live_states from a regex.
+  - extend str_mem type to have a "reverse" Boolean flag where regexes are interpreted in a live_states graph that was obtained by reversing a regex.
+  - have reversal be decided by the live_states layer to not have it controlled at this level.
+
+  - add regex display function to seq_util that displays regex in resharper format. Easier to read. Use this for display function here.
+
 --*/
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/ast_pp.h"
@@ -105,6 +121,13 @@ namespace seq {
         return out;
     }
 
+    // NSB code review: also strip units from back for membership constraints.
+    // you can do this by reversing regex, take derivative and reverse result. 
+    // derivative itself can be an if-then-else tree with predicates on characters.
+    // we have to handle it by separately splitting on if-then-else for membership constraints
+    // membership regexes that are if-then-else should not be propagated on. So disable propagation for those.
+    // hoist the ite patterns.
+    // consider if co-factor code in ast/rewriter directory already does this.
     stx::simplify_result mem_propagation::propagate(eq_tree::node& n) {
         auto& f = get_ambient(n).mem_facet_ref();
         bool changed = false;
@@ -122,7 +145,10 @@ namespace seq {
                     n.set_conflict(stx::br_plugin_base, sm.m_dep);
                     return stx::simplify_result::conflict;
                 }
+                // NSB code review: 
+                // sm.m_str should be updated now to not contain prefix/suffix of units
             }
+            // string was all characters
             if (!bad && sm.m_view.is_membership()) {
                 expr_ref nb = m_rw.is_nullable(cur);
                 if (m_rw.m().is_false(nb)) {
@@ -157,6 +183,10 @@ namespace seq {
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
+
+    // NSB code review: what is this for?
+    // it should be removed? It splits x = epsilon | x = x'
+    // but then x' can be split again.
     bool mem_var_split::iterator::next(eq_tree::edge& out) {
         if (m_done)
             return false;
@@ -196,11 +226,13 @@ namespace seq {
         return nullptr;
     }
 
+    // NSB code review: this uses the end-game version of seq_monadic. 
     mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, trail_stack& trail, ast_manager& m, seq_util& u,
                                           vector<str_mem> const& mems) :
         m_n(n), m_mon(rw, trail, transition_mode::brzozowski_tm), m_it(m_mon.iterate(64)), m(m), u(u) {
         m_mon.set_gen_solution(true);
         for (auto const& sm : mems) {
+            // NSB code review: the sort* s can be obtained from sm.m_view.source regex. 
             sort* s = sm.m_str.empty() ? u.str.mk_string_sort() : sm.m_str.get(0)->get_sort();
             expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
             m_mon.add(term, sm.m_view.m_state, sm.m_dep);
@@ -216,6 +248,7 @@ namespace seq {
         bool changed = false;
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             auto const& sm = mf.memberships()[i];
+             // NSB code review: the sort* s can be obtained from sm.m_view.source regex. 
             sort* s = sm.m_str.empty() ? u.str.mk_string_sort() : sm.m_str.get(0)->get_sort();
             expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
             seq::view_vector views;
