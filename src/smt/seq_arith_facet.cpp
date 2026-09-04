@@ -128,11 +128,11 @@ namespace seq {
         expr_ref lsum(a.mk_int(0), m);
         expr_ref rsum(a.mk_int(0), m);
         for (expr* t : lhs) {
-            expr_ref len(is_const_token(u, t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
+            expr_ref len(u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
             lsum = a.mk_add(lsum, len);
         }
         for (expr* t : rhs) {
-            expr_ref len(is_const_token(u, t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
+            expr_ref len(u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
             rsum = a.mk_add(rsum, len);
         }
         bool changed = add_constraint(m.mk_eq(lsum, rsum), dep);
@@ -140,10 +140,10 @@ namespace seq {
         // (the particular equation `v` was seen in) - asserted with a
         // null dep.
         for (expr* t : lhs)
-            if (!is_const_token(u, t))
+            if (!u.str.is_unit(t))
                 changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
         for (expr* t : rhs)
-            if (!is_const_token(u, t))
+            if (!u.str.is_unit(t))
                 changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
         return changed;
     }

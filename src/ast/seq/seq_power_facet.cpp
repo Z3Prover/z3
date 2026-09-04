@@ -236,7 +236,7 @@ namespace seq {
     static expr_ref mk_len_sum(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks, unsigned from, unsigned to) {
         expr_ref sum(a.mk_int(0), m);
         for (unsigned i = from; i < to; ++i)
-            sum = expr_ref(a.mk_add(sum, is_const_token(u, toks[i]) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(toks[i])), m);
+            sum = expr_ref(a.mk_add(sum, u.str.is_unit(toks[i]) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(toks[i])), m);
         return sum;
     }
 

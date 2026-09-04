@@ -456,7 +456,7 @@ namespace seq {
         // here since get_concat_units() explodes multi-char strings into
         // single-char tokens) or unknown/variable (anything else,
         // including fresh Skolem/opaque terms).
-        static bool token_has_variable_length(seq_util& u, expr* tok) { return !is_const_token(u, tok); }
+        static bool token_has_variable_length(seq_util& u, expr* tok) { return !u.str.is_unit(tok); }
 
     public:
         eq_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
