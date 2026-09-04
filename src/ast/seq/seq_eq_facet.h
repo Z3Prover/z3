@@ -419,6 +419,64 @@ namespace seq {
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
     };
 
+    // `ite` token split (eq, arith): per the token model (README.md
+    // section 5.1.1 / ambient_context_i::is_var above), a `m.is_ite(x)`
+    // token is neither a unit nor a power but is ALSO not treated as a
+    // freely-substitutable Nielsen variable (is_var excludes it
+    // explicitly) - it is a case split on its own condition, not on its
+    // relationship to another token. This rule finds the first `ite`
+    // token `(ite c t1 t2)` occurring in any pending equation and
+    // branches:
+    //   1. assert `c` as a hypothesis on arith_facet's sub-solver (via
+    //      add_constraint, dependency-tracked to the equation's own dep)
+    //      and substitute the token by `flatten(t1)`,
+    //   2. assert `!c` likewise and substitute by `flatten(t2)`.
+    // Both `c` and `!c` are asserted (never simultaneously live - each
+    // is scoped to its own branch by the driver's trail push/pop) purely
+    // as a dependency-tracked fact of the incremental arithmetic backend,
+    // exactly like `apply_power_epsilon`'s disjunction branch
+    // (facet-eq-deq.md section 2.3) - this is what lets `arith_facet`'s
+    // `unsat_core()`/`conflict_dep()` surface `c`'s hypothesis as the
+    // culprit dependency of a branch that turns out infeasible. The
+    // caller embedding this tree in a live SMT context (`theory_nseq`)
+    // is expected to recognize a hypothesis dependency of this shape
+    // (originating from an `ite` condition, as opposed to an ordinary
+    // equation-derived dependency) via its own dependency-to-literal
+    // translation layer (mirroring `theory_seq::assumption`/
+    // `deps_to_lits`) and surface `c` as a literal it may branch on
+    // directly in the ambient SAT search, rather than only ever seeing
+    // it folded anonymously into an unsat core.
+    class ite_split : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        stx::facet_id m_eq_id;
+        stx::facet_id m_arith_id;
+
+        // Remaining alternative (branch 2, `!c`) after branch 1 (`c`) is
+        // materialized immediately by `split()`.
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            stx::facet_id  m_eq_id;
+            stx::facet_id  m_arith_id;
+            expr_ref       m_tok, m_cond;
+            expr_ref_vector m_repl2;
+            eq_tree::dep_tracker m_dep;
+            bool           m_done = false;
+            ast_manager&   m;
+        public:
+            iterator(eq_tree::node& n, stx::facet_id eq_id, stx::facet_id arith_id,
+                      expr* tok, expr* cond, expr_ref_vector const& repl2, eq_tree::dep_tracker dep, ast_manager& m) :
+                m_n(n), m_eq_id(eq_id), m_arith_id(arith_id), m_tok(tok, m), m_cond(cond, m), m_repl2(repl2), m_dep(dep), m(m) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        ite_split(ast_manager& m, seq_util& u, stx::facet_id eq_id, stx::facet_id arith_id) :
+            m(m), u(u), m_eq_id(eq_id), m_arith_id(arith_id) {}
+        char const* name() const override { return "ite-split"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+    };
+
     /**
      * Facet holding a set of pending word disequations (`lhs != rhs`).
      * Per the design (z3papers/nseq/facet-eq-deq.md section 2.5),

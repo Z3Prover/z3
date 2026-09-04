@@ -371,6 +371,87 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
 
+    // ite_split: "(ite (= a a) 'a' 'b') = X" - the ite token's condition
+    // trivially evaluates true, but ite_split doesn't itself evaluate
+    // conditions (that's arith_facet/the ambient solver's job); it
+    // merely branches on both polarities. Branch 1 (then) substitutes
+    // the ite token by 'a' and yields "a" = X, which word_eq_split
+    // resolves (X := a) to sat - exercising that ite_split's committed
+    // first branch correctly participates in the rest of the pipeline.
+    static void tst_ite_split_then_branch_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref ca(u.str.mk_string(zstring("a")), m);
+        expr_ref cb(u.str.mk_string(zstring("b")), m);
+        expr_ref cond(m.mk_true(), m);
+        expr_ref ite_tok(m.mk_ite(cond, ca, cb), m);
+
+        seq::eq_tree tree;
+        auto* root = tree.mk_root();
+        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        root->facet_as<seq::eq_facet>(eq_id).add_equation(ite_tok, X);
+
+        seq::eq_propagation eprop(eq_id);
+        seq::arith_propagation aprop(arith_id, eq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
+        seq::ite_split isplit(m, u, eq_id, arith_id);
+        tree.add_propagation_plugin(&eprop);
+        tree.add_propagation_plugin(&aprop);
+        tree.add_split_plugin(&isplit);
+        tree.add_split_plugin(&esplit);
+        tree.set_max_search_depth(20);
+        ENSURE(tree.solve() == stx::search_result::sat);
+    }
+
+    // ite_split: "(ite cond 'a' 'b') = X" together with "X = 'c'" is
+    // unsatisfiable regardless of which polarity of `cond` is chosen -
+    // branch 1 substitutes the ite token by 'a' giving "a = X", branch 2
+    // by 'b' giving "b = X"; word_eq_split then propagates X's value
+    // (broadcast via broadcast_subst) into the second equation, turning
+    // it into "a = c" (resp. "b = c"), a symbol clash either way -
+    // exercises that BOTH branches (then, materialized immediately, and
+    // else, via the returned iterator) are actually explored by
+    // tree.solve(), not just the first, and that ite_split's
+    // substitution correctly participates in cross-equation propagation.
+    static void tst_ite_split_both_branches_unsat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref ca(u.str.mk_string(zstring("a")), m);
+        expr_ref cb(u.str.mk_string(zstring("b")), m);
+        expr_ref cc(u.str.mk_string(zstring("c")), m);
+        expr_ref cond(m.mk_true(), m);
+        expr_ref ite_tok(m.mk_ite(cond, ca, cb), m);
+
+        seq::eq_tree tree;
+        auto* root = tree.mk_root();
+        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id arith_id = tree.register_facet<seq::arith_facet>(*root, m, u, solver);
+        root->facet_as<seq::eq_facet>(eq_id).add_equation(ite_tok, X);
+        root->facet_as<seq::eq_facet>(eq_id).add_equation(X, cc);
+
+        seq::eq_propagation eprop(eq_id);
+        seq::arith_propagation aprop(arith_id, eq_id);
+        seq::word_eq_split esplit(m, u, eq_id);
+        seq::ite_split isplit(m, u, eq_id, arith_id);
+        tree.add_propagation_plugin(&eprop);
+        tree.add_propagation_plugin(&aprop);
+        tree.add_split_plugin(&esplit);
+        tree.add_split_plugin(&isplit);
+        tree.set_max_search_depth(20);
+        ENSURE(tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_eq_facet() {
@@ -387,5 +468,7 @@ void tst_seq_eq_facet() {
     tst_eq_split_progress_sat();
     tst_deq_split_free_vars_sat();
     tst_deq_split_equal_consts_unsat();
+    tst_ite_split_then_branch_sat();
+    tst_ite_split_both_branches_unsat();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
