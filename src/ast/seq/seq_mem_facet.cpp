@@ -34,7 +34,7 @@ namespace seq {
 
         void flatten_to_expr(seq_util& u, sort* seq_sort, expr_ref_vector const& ts, expr_ref& out) {
             ast_manager& m = out.get_manager();
-            out = expr_ref(u.str.mk_concat(ts.size(), ts.data(), ts.empty() ? seq_sort : ts[0]->get_sort()), m);
+            out = expr_ref(u.str.mk_concat(ts.size(), ts.data(), seq_sort), m);
         }
 
     }
@@ -143,7 +143,6 @@ namespace seq {
                     return stx::simplify_result::conflict;
                 }
             }
-            auto live = m_live.reachable_live(sm.m_view.m_state);
             if (!bad && sm.m_view.is_membership()) {
                 expr_ref nb = m_rw.is_nullable(cur);
                 if (m_rw.m().is_false(nb)) {
@@ -156,6 +155,7 @@ namespace seq {
                     continue;
                 }
             }
+            auto live = m_live.reachable_live(sm.m_view.m_state);
             if (live.is_dead() || seq::is_dead(sm.m_view, m_rw)) {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
                 return stx::simplify_result::conflict;
