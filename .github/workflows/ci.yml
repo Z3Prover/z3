@@ -454,6 +454,19 @@ jobs:
           cmake --build build --target libz3 shell
           cmake --install build --prefix "$PWD/install"
 
+      - name: Consume relocated static pkg-config package
+        run: |
+          cp -a install install-relocated
+          export PKG_CONFIG_PATH="$PWD/install-relocated/lib/pkgconfig"
+          c++ cmake/tests/package/package_test.cpp \
+            $(pkg-config --cflags --libs --static z3) \
+            -static \
+            -o pkg-config-test
+          ./pkg-config-test
+
+          # Confirm the binary has no dynamic library dependencies at all.
+          ! ldd pkg-config-test
+
       - name: Build Python bindings from installed shared package
         run: |
           cmake -S . -B build-python-only -G Ninja \
