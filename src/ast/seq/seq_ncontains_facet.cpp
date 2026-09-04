@@ -133,14 +133,14 @@ namespace seq {
     // different), and `l_undef` if the alignment cannot yet be decided
     // (some position pairs an unresolved variable with anything, so a
     // future substitution could still make it match or not).
-    static lbool compare_alignment(seq_util& u, expr_ref_vector const& h, unsigned pos, expr_ref_vector const& n) {
+    static lbool compare_alignment(seq_util& u, ast_manager& m, expr_ref_vector const& h, unsigned pos, expr_ref_vector const& n) {
         bool undef = false;
         for (unsigned k = 0; k < n.size(); ++k) {
             expr* ht = h.get(pos + k);
             expr* nt = n.get(k);
             if (ht == nt)
                 continue; // identical token (same variable, or same interned constant)
-            if (is_const_token(u, ht) && is_const_token(u, nt))
+            if (u.str.is_unit(ht) && u.str.is_unit(nt) && m.are_distinct(ht, nt))
                 return l_false; // distinct resolved constants: determined mismatch
             undef = true; // at least one side is an unresolved variable
         }
@@ -205,7 +205,7 @@ namespace seq {
             bool found_match = false;
             unsigned first_undef_pos = max_pos + 1; // sentinel: "no undef position seen"
             for (unsigned pos = 0; has_window && pos <= max_pos; ++pos) {
-                lbool al = compare_alignment(u, nc.m_haystack, pos, nc.m_needle);
+                lbool al = compare_alignment(u, m, nc.m_haystack, pos, nc.m_needle);
                 if (al == l_true) {
                     found_match = true;
                     break;

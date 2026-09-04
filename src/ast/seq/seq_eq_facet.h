@@ -94,19 +94,6 @@ namespace seq {
     // constants are exploded into one token per character; any other
     // leaf (variable or otherwise-opaque term) becomes a single token.
 
-    // Is `e` a `seq.unit` wrapping a *concrete* character constant
-    // (stricter than u.str.is_unit(e), which only asks whether `e` is a
-    // unit token at all, regardless of whether its char argument is
-    // itself a concrete value or a symbolic term such as an `ite`/`nth`
-    // expression). This distinction matters at call sites that need to
-    // pick a syntactically-resolved side (e.g. word_eq_split's char-eq
-    // conflict/resolution logic), but not at sites that only care about
-    // "this token has length 1" (those should use u.str.is_unit
-    // directly, as seq_eq_facet.cpp's own call sites now do per review
-    // feedback). Shared across power_facet, ncontains_facet, mem_facet,
-    // and smt::arith_facet, which still rely on the concrete-char check.
-    bool is_const_token(seq_util& u, expr* e);
-
     // Recover the node's ambient context, bundled together with the node
     // itself into an `ambient_ref`, so that a propagation/split plugin
     // can coerce straight to a sibling facet's own type in one call, e.g.

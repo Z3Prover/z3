@@ -23,12 +23,6 @@ Author:
 
 namespace seq {
 
-    // NSB code review: remove redundant function
-    bool is_const_token(seq_util& u, expr* e) {
-        expr* ch = nullptr;
-        return u.str.is_unit(e, ch) && u.is_const_char(ch);
-    }
-
     static int cmp_tokens(expr_ref_vector const& a, expr_ref_vector const& b) {
         if (a.size() != b.size())
             return a.size() < b.size() ? -1 : 1;
