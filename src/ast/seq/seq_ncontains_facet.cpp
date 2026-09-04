@@ -21,28 +21,16 @@ Author:
 
 namespace seq {
 
-    static int cmp_expr_ref_vectors(expr_ref_vector const& a, expr_ref_vector const& b) {
-        unsigned n = std::min(a.size(), b.size());
-        for (unsigned i = 0; i < n; ++i) {
-            unsigned ida = a[i]->get_id(), idb = b[i]->get_id();
-            if (ida != idb)
-                return ida < idb ? -1 : 1;
-        }
-        if (a.size() != b.size())
-            return a.size() < b.size() ? -1 : 1;
-        return 0;
-    }
-
     bool str_ncontains::operator<(str_ncontains const& other) const {
-        int c = cmp_expr_ref_vectors(m_haystack, other.m_haystack);
+        int c = cmp_tokens(m_haystack, other.m_haystack);
         if (c != 0)
             return c < 0;
-        return cmp_expr_ref_vectors(m_needle, other.m_needle) < 0;
+        return cmp_tokens(m_needle, other.m_needle) < 0;
     }
 
     bool str_ncontains::operator==(str_ncontains const& other) const {
-        return cmp_expr_ref_vectors(m_haystack, other.m_haystack) == 0 &&
-               cmp_expr_ref_vectors(m_needle, other.m_needle) == 0;
+        return cmp_tokens(m_haystack, other.m_haystack) == 0 &&
+               cmp_tokens(m_needle, other.m_needle) == 0;
     }
 
     void ncontains_facet::remove(unsigned idx) {

@@ -20,23 +20,6 @@ Author:
 
 namespace seq {
 
-    namespace {
-        int cmp_mem(str_mem const& a, str_mem const& b) {
-            if (a.m_str.size() != b.m_str.size())
-                return a.m_str.size() < b.m_str.size() ? -1 : 1;
-            for (unsigned i = 0; i < a.m_str.size(); ++i)
-                if (a.m_str.get(i)->get_id() != b.m_str.get(i)->get_id())
-                    return a.m_str.get(i)->get_id() < b.m_str.get(i)->get_id() ? -1 : 1;
-            auto ak = a.m_view.key(), bk = b.m_view.key();
-            if (ak.state != bk.state)
-                return ak.state < bk.state ? -1 : 1;
-            if (ak.target != bk.target)
-                return ak.target < bk.target ? -1 : 1;
-            return 0;
-        }
-
-    }
-
     void mem_facet::add(str_mem const& sm) {
         m_mems.push_back(sm);
         m_trail.push(push_back_trail<str_mem>(m_mems));
@@ -100,10 +83,10 @@ namespace seq {
         if (m_mems.size() != o.m_mems.size())
             return false;
         vector<str_mem> a = m_mems, b = o.m_mems;
-        std::sort(a.begin(), a.end(), [](str_mem const& x, str_mem const& y) { return cmp_mem(x, y) < 0; });
-        std::sort(b.begin(), b.end(), [](str_mem const& x, str_mem const& y) { return cmp_mem(x, y) < 0; });
+        std::sort(a.begin(), a.end());
+        std::sort(b.begin(), b.end());
         for (unsigned i = 0; i < a.size(); ++i)
-            if (cmp_mem(a[i], b[i]) != 0)
+            if (!(a[i] == b[i]))
                 return false;
         return true;
     }

@@ -74,6 +74,7 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
+#include <algorithm>
 
 namespace seq {
 
@@ -93,6 +94,22 @@ namespace seq {
     // Tokens are obtained directly via `u.str.get_concat_units(e, out)`:
     // constants are exploded into one token per character; any other
     // leaf (variable or otherwise-opaque term) becomes a single token.
+
+    // Lexicographic comparison of two token vectors by ast id (shorter
+    // vector sorts first on a length mismatch, then compared elementwise).
+    // Shared by eq_facet's equation/disequation, ncontains_facet's
+    // str_ncontains, and mem_facet's str_mem operator< implementations.
+    inline int cmp_tokens(expr_ref_vector const& a, expr_ref_vector const& b) {
+        unsigned n = std::min(a.size(), b.size());
+        for (unsigned i = 0; i < n; ++i) {
+            unsigned ida = a[i]->get_id(), idb = b[i]->get_id();
+            if (ida != idb)
+                return ida < idb ? -1 : 1;
+        }
+        if (a.size() != b.size())
+            return a.size() < b.size() ? -1 : 1;
+        return 0;
+    }
 
     // Recover the node's ambient context, bundled together with the node
     // itself into an `ambient_ref`, so that a propagation/split plugin

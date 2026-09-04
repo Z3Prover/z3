@@ -23,17 +23,6 @@ Author:
 
 namespace seq {
 
-    static int cmp_tokens(expr_ref_vector const& a, expr_ref_vector const& b) {
-        if (a.size() != b.size())
-            return a.size() < b.size() ? -1 : 1;
-        for (unsigned i = 0; i < a.size(); ++i) {
-            unsigned ida = a[i]->get_id(), idb = b[i]->get_id();
-            if (ida != idb)
-                return ida < idb ? -1 : 1;
-        }
-        return 0;
-    }
-
     bool eq_facet::equation::operator<(equation const& other) const {
         int c = cmp_tokens(m_lhs, other.m_lhs);
         if (c != 0)

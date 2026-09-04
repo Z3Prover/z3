@@ -73,6 +73,16 @@ namespace seq {
 
         bool is_plain() const { return m_view.is_membership(); }
         bool is_view() const { return m_view.is_reach(); }
+
+        bool operator<(str_mem const& other) const {
+            int c = cmp_tokens(m_str, other.m_str);
+            if (c != 0)
+                return c < 0;
+            return m_view.key() < other.m_view.key();
+        }
+        bool operator==(str_mem const& other) const {
+            return cmp_tokens(m_str, other.m_str) == 0 && m_view.key() == other.m_view.key();
+        }
     };
 
     class mem_facet : public stx::facet_i, public subst_sink_i {
