@@ -118,7 +118,7 @@ namespace seq {
         return true;
     }
 
-    bool eq_facet::simplify_equation(unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
+    bool eq_facet::simplify_equation(eq_tree::node& n, stx::facet_id id, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
         eq_tree::dep_tracker parent_dep = eq.m_dep;
         expr_ref_vector L(eq.m_lhs);
@@ -152,8 +152,8 @@ namespace seq {
         // dependency; a leading constant on the nonempty side at this
         // point is a symbol clash (conflict).
 
-        // NSB code review: use the broadcast_subst instead of apply_subst
-        // NSB code review: replace is_const_token by u.str.is_unit
+        // NSB code review: use broadcast_subst instead of apply_subst, so
+        // this forced v:=epsilon substitution reaches sibling facets too.
         if (eq.m_lhs.empty() != eq.m_rhs.empty()) {
             expr_ref_vector& side = eq.m_lhs.empty() ? eq.m_rhs : eq.m_lhs;
             eq_tree::dep_tracker eq_dep = eq.m_dep;
@@ -165,7 +165,7 @@ namespace seq {
                     return false;
                 }
                 expr_ref_vector empty_repl(m);
-                apply_subst(tok, empty_repl, eq_dep);
+                broadcast_subst(n, id, tok, empty_repl, eq_dep);
             }
         }
 
@@ -193,13 +193,13 @@ namespace seq {
         return true;
     }
 
-    bool eq_facet::simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep) {
+    bool eq_facet::simplify(eq_tree::node& n, stx::facet_id id, bool& conflict, eq_tree::dep_tracker& conflict_dep) {
         conflict = false;
         conflict_dep = nullptr;
         bool changed = false;
         for (unsigned i = 0; i < m_eqs.size(); ) {
             unsigned sz_before = m_eqs.size();
-            if (!simplify_equation(i, conflict, conflict_dep, changed)) {
+            if (!simplify_equation(n, id, i, conflict, conflict_dep, changed)) {
                 SASSERT(conflict);
                 return true;
             }
@@ -218,7 +218,7 @@ namespace seq {
         auto& f = n.facet_as<eq_facet>(m_id);
         bool conflict = false;
         eq_tree::dep_tracker conflict_dep = nullptr;
-        bool changed = f.simplify(conflict, conflict_dep);
+        bool changed = f.simplify(n, m_id, conflict, conflict_dep);
         if (conflict) {
             n.set_conflict(stx::br_plugin_base, conflict_dep);
             return stx::simplify_result::conflict;
@@ -302,13 +302,33 @@ namespace seq {
                 // init_model).
                 bool lv = !lu && !lp;
                 bool rv = !ru && !rp;
-                // NSB code review: there is a conflict if characters are distinct.
-                // If characters are not equal, and not distinct, then broadcast a character substitution.
-                // add a new global function to broadcast such character substitutions.
-                // It is enough to perform term substitutions by replacing the lh or rh, 
-                // whichever is not a value (if both are values, but they are not distinct, then choose one
-                // of the values).
-                // add the equality constraint for characters to the sub-solver.
+                // NSB code review: there is a conflict if characters are
+                // distinct; if not equal and not distinct, force them to
+                // coincide via a term substitution replacing whichever of
+                // lh/rh is not already a concrete char value (if both are
+                // values yet not equal, m.are_distinct necessarily holds
+                // for them, so that case is covered by the conflict arm
+                // above and cannot fall through to here).
+                //
+                // In practice, when lch/rch are both syntactically
+                // determined constant chars, `reduce_eq` (run by
+                // `eq_propagation` immediately before any split is
+                // attempted) already performs this same unit-vs-unit
+                // decomposition/symbol-clash check deterministically, so
+                // the `are_distinct`/`lch == rch` arms below are a
+                // defensive fallback that should not normally trigger;
+                // the case this rule exists to resolve is two *symbolic*
+                // (non-value) character terms - e.g. from an `ite`/`nth`
+                // application - that reduce_eq cannot statically compare,
+                // for which forcing the unit tokens to coincide (via the
+                // same broadcast_subst token-substitution machinery used
+                // by every other Nielsen rule in this file) both resolves
+                // the equation's stuck head/tail and is, by itself,
+                // sufficient to guarantee lch/rch agree in any model
+                // (they become literally the same term everywhere) - no
+                // separate arithmetic equality constraint is needed for
+                // soundness (word_eq_split has no arith_facet_i handle in
+                // any case; see class comment).
                 if (lu && ru) {
                     expr* lch = nullptr, *rch = nullptr;
                     VERIFY(u.str.is_unit(lh, lch));
@@ -317,7 +337,20 @@ namespace seq {
                         continue;
                     if (lch == rch)
                         continue;
-                    continue;
+                    has_more = true;
+                    eq_tree::dep_tracker eq_dep = eq.m_dep;
+                    // Eliminate whichever side is not already a concrete
+                    // char value; if neither (or both) is a value,
+                    // arbitrarily eliminate the trailing/second side (rh).
+                    bool elim_lh = !u.is_const_char(lch) && u.is_const_char(rch);
+                    expr* var_tok = elim_lh ? lh : rh;
+                    expr* val_tok = elim_lh ? rh : lh;
+                    expr_ref_vector repl(m);
+                    repl.push_back(val_tok);
+                    broadcast_subst(n, m_id, var_tok, repl, eq_dep);
+                    out = eq_tree::edge("char-eq", eq_dep, true, 0);
+                    committed = true;
+                    return nullptr;
                 }
 
                 // Every alternative below is a case-split on how to unstick

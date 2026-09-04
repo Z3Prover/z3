@@ -289,7 +289,16 @@ namespace seq {
         // point itself via facet hashing). Trailed. On conflict, sets
         // `conflict_dep` to the dependency of the equation that produced
         // the contradiction. See module comment.
-        bool simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep);
+        //
+        // `n`/`id` identify this facet's own node/slot so that any forced
+        // v:=epsilon substitution discovered during simplification can be
+        // broadcast (via broadcast_subst) to every sibling subst_sink_i
+        // facet (e.g. deq_facet) in the same node, not just applied to
+        // this facet's own equations - NSB code review: simplify_equation
+        // previously called apply_subst directly, silently skipping that
+        // broadcast and leaving sibling facets holding a stale reference
+        // to a variable this facet had already eliminated.
+        bool simplify(eq_tree::node& n, stx::facet_id id, bool& conflict, eq_tree::dep_tracker& conflict_dep);
         ambient_context_i<eq_tree::dep_tracker> const& ambient(eq_tree::node const& n) const;
 
     private:
@@ -300,8 +309,10 @@ namespace seq {
         // equation is contradictory; otherwise returns true. Sets
         // changed=true if the equation's token lists were mutated or new
         // sub-equations were appended to m_eqs. On success, if both sides
-        // reduced to empty, the equation is erased (trailed).
-        bool simplify_equation(unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
+        // reduced to empty, the equation is erased (trailed). `n`/`id` are
+        // forwarded to broadcast_subst for any forced v:=epsilon
+        // substitution (see simplify's comment above).
+        bool simplify_equation(eq_tree::node& n, stx::facet_id id, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
         friend void broadcast_subst(eq_tree::node& target, stx::facet_id eq_id, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
     };
 

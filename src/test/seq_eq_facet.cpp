@@ -201,6 +201,28 @@ namespace {
     // |const_diff|=1. This confirms the ported algorithm finds a valid,
     // minimal-padding interior split rather than stopping at the first
     // nz==0 point it encounters.
+    // word_eq_split's char-eq rule: "unit(c) . X = unit('a') . X" for a
+    // symbolic (non-value) char constant `c` - reduce_eq cannot
+    // statically decide whether c and 'a' clash or agree (both are
+    // units, but not equal terms and not provably distinct), so
+    // word_eq_split's char-eq branch must force `c := 'a'` via
+    // broadcast_subst (NSB code review fix - the rule used to just
+    // `continue`, silently dropping this equation without ever
+    // resolving it), after which "X = X" is trivially satisfiable.
+    static void tst_word_eq_split_char_eq_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        sort* char_s = u.mk_char_sort();
+        sort* s = u.str.mk_string_sort();
+        expr_ref c(m.mk_fresh_const("c", char_s), m);
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref ca(u.mk_char('a'), m);
+        expr_ref lhs(u.str.mk_concat(u.str.mk_unit(c), X), m);
+        expr_ref rhs(u.str.mk_concat(u.str.mk_unit(ca), X), m);
+        ENSURE(solve_eq(m, u, lhs, rhs) == stx::search_result::sat);
+    }
+
     static void tst_eq_split_find_point() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -470,5 +492,6 @@ void tst_seq_eq_facet() {
     tst_deq_split_equal_consts_unsat();
     tst_ite_split_then_branch_sat();
     tst_ite_split_both_branches_unsat();
+    tst_word_eq_split_char_eq_sat();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
