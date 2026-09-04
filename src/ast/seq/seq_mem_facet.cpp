@@ -32,9 +32,9 @@ namespace seq {
             return 0;
         }
 
-        void flatten_to_expr(seq_util& u, expr_ref_vector const& ts, expr_ref& out) {
+        void flatten_to_expr(seq_util& u, sort* seq_sort, expr_ref_vector const& ts, expr_ref& out) {
             ast_manager& m = out.get_manager();
-            out = expr_ref(u.str.mk_concat(ts.size(), ts.data(), ts.empty() ? u.str.mk_string_sort() : ts[0]->get_sort()), m);
+            out = expr_ref(u.str.mk_concat(ts.size(), ts.data(), ts.empty() ? seq_sort : ts[0]->get_sort()), m);
         }
 
     }
@@ -70,7 +70,7 @@ namespace seq {
 
     void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         expr_ref replacement(m);
-        flatten_to_expr(u, repl, replacement);
+        flatten_to_expr(u, var->get_sort(), repl, replacement);
         for (unsigned i = 0; i < m_mems.size(); ++i) {
             if (m_mems[i].m_str.get() != var)
                 continue;
