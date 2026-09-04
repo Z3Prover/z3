@@ -185,11 +185,10 @@ namespace seq {
         // equation at idx was just erased above (the vector element it
         // referred to has been shifted/removed) - capture the dependency
         // we need (parent_dep) BEFORE the erase, not here.
-        for (unsigned i = 0; i < new_eqs.size(); ++i) {
-            auto p = new_eqs[i].get();
+        for (auto const& [l, r] : new_eqs) {
             expr_ref_vector lts(m), rts(m);
-            u.str.get_concat_units(p.first, lts);
-            u.str.get_concat_units(p.second, rts);
+            u.str.get_concat_units(l, lts);
+            u.str.get_concat_units(r, rts);
             add_equation_trailed(lts, rts, parent_dep);
         }
         return true;
