@@ -317,11 +317,21 @@ namespace seq {
     };
 
     // Nielsen-transformation split plugin: branches the first equation
-    // whose leading tokens are not both resolved by propagation (i.e. a
-    // variable paired with a constant, or two distinct variables). The
-    // first branch is materialized immediately by `split()`; remaining
-    // branches (up to two more, for the two-variable case) are produced
-    // lazily by the returned `split_iterator_i` on resumption.
+    // whose leading OR trailing tokens are not both resolved by
+    // propagation (i.e. a variable paired with a constant, or two
+    // distinct variables) - mirroring the c3 branch's `apply_const_nielsen`/
+    // `apply_var_nielsen`, each of which loops over both directions
+    // (`od` in {0=forward/prefix, 1=backward/suffix}) so that a trailing
+    // clash (e.g. `x ++ a = y ++ b`) is caught exactly like a leading one
+    // (`eq_propagation`/`reduce_eq`'s own `reduce_back`/`reduce_front`
+    // pair already strips agreeing prefixes/suffixes deterministically;
+    // this split plugin is the nondeterministic counterpart, so it must
+    // examine both ends too - a leading-only check would miss branching
+    // opportunities exposed only at the tail, e.g. after a suffix
+    // narrowed by some other facet's substitution). The first branch is
+    // materialized immediately by `split()`; remaining branches (up to
+    // two more, for the two-variable case) are produced lazily by the
+    // returned `split_iterator_i` on resumption.
     class word_eq_split : public eq_tree::split_plugin_i {
         ast_manager& m;
         seq_util&    u;
@@ -332,11 +342,16 @@ namespace seq {
             stx::facet_id  m_id;
             // Remaining alternatives to produce, in order. Each entry is a
             // (rule_name, var, replacement, dep) tuple - `m_dep` is the
-            // dependency of the equation whose stuck leading tokens
-            // motivated this split (a case-split on how to unstick a
-            // single equation derives its justification from that one
+            // dependency of the equation whose stuck leading/trailing
+            // tokens motivated this split (a case-split on how to unstick
+            // a single equation derives its justification from that one
             // equation, not a join of several). `next()` pops the front
-            // one, mutates in place, pushes a scope, and returns it.
+            // one, mutates in place, pushes a scope, and returns it. The
+            // replacement vector is already built in the correct
+            // direction by `split()` (`[c, v']` for a forward/prefix
+            // branch, `[v', c]` for a backward/suffix branch), so
+            // `next()` itself does not need to know which direction
+            // produced it.
             struct alt { char const* m_name; expr* m_var; expr_ref_vector m_repl; eq_tree::dep_tracker m_dep; };
             vector<alt>    m_pending;
             unsigned       m_pos = 0;

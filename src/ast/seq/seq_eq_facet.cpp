@@ -256,130 +256,141 @@ namespace seq {
         for (auto const& eq : f.equations()) {
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue; // fully resolved by propagation; shouldn't occur
-            expr* lh = eq.m_lhs[0];
-            expr* rh = eq.m_rhs[0];
-            bool lu = u.str.is_unit(lh);
-            bool ru = u.str.is_unit(rh);
-            bool lp = u.str.is_power(lh);
-            bool rp = u.str.is_power(rh);
-            if (lh == rh)
-                continue;
-            if (lp || rp)
-                // Power tokens are neither units nor Nielsen-substitutable
-                // variables - they are owned exclusively by power_facet's
-                // own dedicated rule family (power_propagation/
-                // power_split/power_fine_wilf/power_num_cmp/
-                // power_split_elim; see facet-eq-deq.md section 2.3).
-                // Substituting a power token wholesale here (as
-                // v:=epsilon or v:=c.v') would be unsound/redundant with
-                // that machinery, so word_eq_split simply skips any
-                // equation whose head is a power on either side.
-                continue;
-            // A token is a Nielsen-substitutable variable precisely when
-            // it is neither a unit nor a power (per z3papers/nseq's
-            // README.md section 5.1.1 token model - no separate is_var
-            // predicate). Computed locally rather than via
-            // ambient_context_i::is_var/theory_seq::is_var, which do not
-            // exclude power tokens and are kept as-is only for legacy
-            // model-construction compatibility (theory_seq::mk_value/
-            // init_model).
-            bool lv = !lu && !lp;
-            bool rv = !ru && !rp;
-            // NSB code review: there is a conflict if characters are distinct.
-            // If characters are not equal, and not distinct, then broadcast a character substitution.
-            // add a new global function to broadcast such character substitutions.
-            // It is enough to perform term substitutions by replacing the lh or rh, 
-            // whichever is not a value (if both are values, but they are not distinct, then choose one
-            // of the values).
-            // add the equality constraint for characters to the sub-solver.
-            if (lu && ru) {
-                expr* lch = nullptr, *rch = nullptr;
-                VERIFY(u.str.is_unit(lh, lch));
-                VERIFY(u.str.is_unit(rh, rch));
-                if (m.are_distinct(lch, rch))
+            // Mirror c3's apply_const_nielsen/apply_var_nielsen: try both
+            // directions (fwd=true: leading/prefix tokens, matching
+            // reduce_front; fwd=false: trailing/suffix tokens, matching
+            // reduce_back) - a two-sided equation can be stuck only at
+            // its tail even though its head has already been resolved by
+            // propagation (e.g. a substitution narrowed a suffix without
+            // touching the still-agreeing prefix).
+            for (int dir = 0; dir < 2; ++dir) {
+                bool fwd = dir == 0;
+                expr* lh = fwd ? eq.m_lhs[0] : eq.m_lhs.back();
+                expr* rh = fwd ? eq.m_rhs[0] : eq.m_rhs.back();
+                bool lu = u.str.is_unit(lh);
+                bool ru = u.str.is_unit(rh);
+                bool lp = u.str.is_power(lh);
+                bool rp = u.str.is_power(rh);
+                if (lh == rh)
                     continue;
-                if (lch == rch)
+                if (lp || rp)
+                    // Power tokens are neither units nor Nielsen-substitutable
+                    // variables - they are owned exclusively by power_facet's
+                    // own dedicated rule family (power_propagation/
+                    // power_split/power_fine_wilf/power_num_cmp/
+                    // power_split_elim; see facet-eq-deq.md section 2.3).
+                    // Substituting a power token wholesale here (as
+                    // v:=epsilon or v:=c.v') would be unsound/redundant with
+                    // that machinery, so word_eq_split simply skips any
+                    // equation whose head/tail is a power on either side.
                     continue;
-                continue;
-            }
+                // A token is a Nielsen-substitutable variable precisely when
+                // it is neither a unit nor a power (per z3papers/nseq's
+                // README.md section 5.1.1 token model - no separate is_var
+                // predicate). Computed locally rather than via
+                // ambient_context_i::is_var/theory_seq::is_var, which do not
+                // exclude power tokens and are kept as-is only for legacy
+                // model-construction compatibility (theory_seq::mk_value/
+                // init_model).
+                bool lv = !lu && !lp;
+                bool rv = !ru && !rp;
+                // NSB code review: there is a conflict if characters are distinct.
+                // If characters are not equal, and not distinct, then broadcast a character substitution.
+                // add a new global function to broadcast such character substitutions.
+                // It is enough to perform term substitutions by replacing the lh or rh, 
+                // whichever is not a value (if both are values, but they are not distinct, then choose one
+                // of the values).
+                // add the equality constraint for characters to the sub-solver.
+                if (lu && ru) {
+                    expr* lch = nullptr, *rch = nullptr;
+                    VERIFY(u.str.is_unit(lh, lch));
+                    VERIFY(u.str.is_unit(rh, rch));
+                    if (m.are_distinct(lch, rch))
+                        continue;
+                    if (lch == rch)
+                        continue;
+                    continue;
+                }
 
-            // Every alternative below is a case-split on how to unstick
-            // this one equation, so all of them (and the immediately
-            // materialized first branch) are justified by this
-            // equation's own dependency, not a join of several.
-            eq_tree::dep_tracker eq_dep = eq.m_dep;
+                // Every alternative below is a case-split on how to unstick
+                // this one equation, so all of them (and the immediately
+                // materialized first branch) are justified by this
+                // equation's own dependency, not a join of several.
+                eq_tree::dep_tracker eq_dep = eq.m_dep;
 
-            if ((lv || !lu) && (rv || !ru)) {
-                // Two distinct variables lh, rh: the classic 4-branch
-                // Nielsen transformation for word equations (design doc
-                // facet-eq-deq.md section 2.2 / c3 branch's
-                // apply_var_nielsen). Since v1, v2 are symbols at the
-                // head of each side, exactly one of these must hold in
-                // any solution:
-                //   (1) v1 := epsilon
-                //   (2) v2 := epsilon
-                //   (3) v1 := v2 . v1'   (v1 is at least as long as v2)
-                //   (4) v2 := v1 . v2'   (v2 is at least as long as v1)
-                // Branches (3)/(4) are the "non-progress" cases (they
-                // introduce a fresh variable rather than shrinking the
-                // equation), but are still required for completeness:
-                // without them, any solution where both v1 and v2 are
-                // non-empty and neither is a literal prefix of the other
-                // one being consumed first is unreachable.
-                expr* v1 = lh;
-                expr* v2 = rh;
-                sort* s = v1->get_sort();
-                expr* v1p = f.mk_fresh_var(s);
-                expr* v2p = f.mk_fresh_var(s);
+                if ((lv || !lu) && (rv || !ru)) {
+                    // Two distinct variables lh, rh: the classic 4-branch
+                    // Nielsen transformation for word equations (design doc
+                    // facet-eq-deq.md section 2.2 / c3 branch's
+                    // apply_var_nielsen). Since v1, v2 are symbols at the
+                    // matching end of each side, exactly one of these must
+                    // hold in any solution (mirrored - v'.c instead of c.v' -
+                    // when fwd is false, i.e. the variables are at the tail):
+                    //   (1) v1 := epsilon
+                    //   (2) v2 := epsilon
+                    //   (3) v1 := v2 . v1'  / v1' . v2   (v1 at least as long as v2)
+                    //   (4) v2 := v1 . v2'  / v2' . v1   (v2 at least as long as v1)
+                    // Branches (3)/(4) are the "non-progress" cases (they
+                    // introduce a fresh variable rather than shrinking the
+                    // equation), but are still required for completeness:
+                    // without them, any solution where both v1 and v2 are
+                    // non-empty and neither is a literal prefix/suffix of the
+                    // other one being consumed first is unreachable.
+                    expr* v1 = lh;
+                    expr* v2 = rh;
+                    sort* s = v1->get_sort();
+                    expr* v1p = f.mk_fresh_var(s);
+                    expr* v2p = f.mk_fresh_var(s);
+
+                    iterator* it = alloc(iterator, n, m_id);
+                    {
+                        expr_ref_vector empty(m);
+                        it->push_back("v2:=eps", v2, empty, eq_dep);
+                    }
+                    {
+                        expr_ref_vector repl(m);
+                        if (fwd) { repl.push_back(v2); repl.push_back(v1p); }
+                        else     { repl.push_back(v1p); repl.push_back(v2); }
+                        it->push_back(fwd ? "v1:=v2.v1'" : "v1:=v1'.v2", v1, repl, eq_dep);
+                    }
+                    {
+                        expr_ref_vector repl(m);
+                        if (fwd) { repl.push_back(v1); repl.push_back(v2p); }
+                        else     { repl.push_back(v2p); repl.push_back(v1); }
+                        it->push_back(fwd ? "v2:=v1.v2'" : "v2:=v2'.v1", v2, repl, eq_dep);
+                    }
+
+                    // Materialize the first branch ("v1:=eps") now, in the
+                    // scope the driver already pushed for this call.
+                    expr_ref_vector empty(m);
+                    broadcast_subst(n, m_id, v1, empty, eq_dep);
+                    out = eq_tree::edge("v1:=eps", eq_dep, true, 0);
+                    committed = true;
+                    return it;
+                }
+
+                // one side is a variable, the other a unit token
+                expr* var = lv || !lu ? lh : rh;
+                expr* c = lv || !lu ? rh : lh;
+                sort* s = var->get_sort();
+                expr* var2 = f.mk_fresh_var(s);
 
                 iterator* it = alloc(iterator, n, m_id);
                 {
-                    expr_ref_vector empty(m);
-                    it->push_back("v2:=eps", v2, empty, eq_dep);
-                }
-                {
                     expr_ref_vector repl(m);
-                    repl.push_back(v2);
-                    repl.push_back(v1p);
-                    it->push_back("v1:=v2.v1'", v1, repl, eq_dep);
-                }
-                {
-                    expr_ref_vector repl(m);
-                    repl.push_back(v1);
-                    repl.push_back(v2p);
-                    it->push_back("v2:=v1.v2'", v2, repl, eq_dep);
+                    if (fwd) { repl.push_back(c); repl.push_back(var2); }
+                    else     { repl.push_back(var2); repl.push_back(c); }
+                    it->push_back(fwd ? "v:=c.v'" : "v:=v'.c", var, repl, eq_dep);
                 }
 
-                // Materialize the first branch ("v1:=eps") now, in the
-                // scope the driver already pushed for this call.
+                // Materialize the first branch ("v:=eps") now, in the scope
+                // the driver already pushed for this call.
                 expr_ref_vector empty(m);
-                broadcast_subst(n, m_id, v1, empty, eq_dep);
-                out = eq_tree::edge("v1:=eps", eq_dep, true, 0);
+                broadcast_subst(n, m_id, var, empty, eq_dep);
+                out = eq_tree::edge("v:=eps", eq_dep, true, 0);
                 committed = true;
                 return it;
             }
-
-            // one side is a variable, the other a unit token
-            expr* var = lv || !lu ? lh : rh;
-            expr* c = lv || !lu ? rh : lh;
-            sort* s = var->get_sort();
-            expr* var2 = f.mk_fresh_var(s);
-
-            iterator* it = alloc(iterator, n, m_id);
-            {
-                expr_ref_vector repl(m);
-                repl.push_back(c);
-                repl.push_back(var2);
-                it->push_back("v:=c.v'", var, repl, eq_dep);
-            }
-
-            // Materialize the first branch ("v:=eps") now, in the scope
-            // the driver already pushed for this call.
-            expr_ref_vector empty(m);
-            broadcast_subst(n, m_id, var, empty, eq_dep);
-            out = eq_tree::edge("v:=eps", eq_dep, true, 0);
-            committed = true;
-            return it;
         }
         return nullptr;
     }

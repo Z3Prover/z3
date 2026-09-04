@@ -30,24 +30,15 @@ Abstract:
       - It adds `is_var(expr*)`, replacing the c3 branch's
         `euf::snode::is_var()` (a node in the old `sgraph`/Nielsen-graph
         representation, not applicable here since this design has no
-        `snode` at all - see seq_eq_facet.h's module comment). Any
-        plugin/facet that needs to distinguish an opaque *solvable
-        variable* token (something the Nielsen/arithmetic engine may
-        freely substitute) from an *interpreted* term it must leave
-        alone (a concat, string literal, unit, itos, nth, map/mapi/
-        foldl/foldli application, ite, etc.) should call
-        `ambient_context_i::is_var` rather than reinventing the predicate
-        locally. The concrete implementation living under `src/smt`
-        should simply forward to `theory_seq::is_var` (`theory_seq.h/
-        .cpp`, itself a thin wrapper - `theory_seq::is_var` just calls
-        `m_eq.is_var`, `eq_solver::is_var` in
-        ast/seq/seq_eq_solver.cpp) so that the ambient-context notion of
-        "variable" is always exactly what `theory_seq`'s own equation
-        solver already uses - not a second, possibly-diverging copy of
-        the predicate. `is_solvable_var` below (used by the context-free
-        `null_ambient_context` fallback, e.g. in unit tests with no live
-        `theory_seq` wired up) is kept textually identical to
-        `eq_solver::is_var` for exactly this reason.
+        `snode` at all - see seq_eq_facet.h's module comment). Per the
+        token model in z3papers/nseq's README.md section 5.1.1, a token
+        is exactly one of unit/power/variable; `is_var` is implemented
+        directly on the base class (non-virtual, `!is_power(x) &&
+        !is_unit(x) && !m.is_ite(x)`) using the `ast_manager&`/`seq_util&`
+        every concrete `ambient_context_i` is now constructed with, so
+        every implementation (including `null_ambient_context`, e.g. in
+        unit tests with no live `theory_seq` wired up) shares exactly the
+        same notion of "variable" and none can silently diverge.
 
     `ambient_context_i` is intentionally domain-generic over the
     `dep_tracker` type of whichever `eq_tree` instantiation the caller
@@ -91,30 +82,29 @@ namespace seq {
      */
     template <typename dep_tracker_t>
     class ambient_context_i : public stx::ambient_context_base {
+    protected:
+        ast_manager& m;
+        seq_util&    u;
     public:
+        ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u) {}
         ~ambient_context_i() override = default;
 
-        // Is `e` an opaque, freely-substitutable "variable" token (as
-        // opposed to an interpreted/structured term such as a
-        // concatenation, string literal, unit, itos, nth, map/mapi/
-        // foldl/foldli application, or ite) - i.e. is it safe for a split
-        // plugin (word_eq_split, etc.) to treat `e` as a
-        // Nielsen-transformation variable and substitute it wholesale?
-        // Replaces the c3 branch's `euf::snode::is_var()`. NOTE: this
-        // predicate (kept identical to `theory_seq`/`eq_solver::is_var`
-        // for compatibility with model construction, e.g.
-        // `theory_seq::mk_value`/`init_model`) does NOT by itself exclude
-        // power tokens (`seq.power`). Per the token model in
-        // z3papers/nseq's README.md section 5.1.1, a token is exactly one
-        // of unit/power/variable, and classic Nielsen splitting must only
-        // ever treat unit/variable heads as substitutable - power tokens
-        // are owned exclusively by power_facet's own dedicated rule
-        // family (power_propagation/power_split/power_fine_wilf/
-        // power_num_cmp/power_split_elim). Callers that need the strict
-        // three-way token classification (e.g. word_eq_split::split)
-        // must additionally check `u.str.is_power(e)` themselves and
-        // exclude/skip it before consulting `is_var`.
-        virtual bool is_var(expr* e) const = 0;
+        // Is `e` a token this facet layer's Nielsen-style split rules may
+        // treat as a freely-substitutable "variable" - i.e. neither a
+        // power token (`seq.power`, owned exclusively by power_facet's
+        // own dedicated rule family: power_propagation/power_split/
+        // power_fine_wilf/power_num_cmp/power_split_elim) nor a unit
+        // token (`seq.unit`, a single concrete character/element, never
+        // itself substitutable) nor an `ite` term (left alone, matching
+        // `is_solvable_var`/`eq_solver::is_var`'s treatment). Per the
+        // token model in z3papers/nseq's README.md section 5.1.1, a token
+        // is exactly one of unit/power/variable, so this predicate - not
+        // `is_solvable_var`/`theory_seq::is_var` - is the one every
+        // strict three-way token classification (word_eq_split::split,
+        // etc.) should consult; it is implemented once here (non-virtual)
+        // so every concrete `ambient_context_i` shares exactly the same
+        // notion of "variable" and none can silently diverge.
+        bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e) && !m.is_ite(e); }
 
         // Best current lower/upper bound on the (integer/arithmetic)
         // value of `e` known to the ambient context (e.g. `str.len` of a
@@ -142,42 +132,16 @@ namespace seq {
         virtual void add_diseq_axiom(expr* e1, expr* e2) = 0;
     };
 
-    // Reference predicate for `ambient_context_i::is_var`, shared so that
-    // every concrete implementation (and any facet that must fall back to
-    // a context-free check, e.g. in a unit test with no ambient context
-    // wired up) agrees on the same notion of "opaque variable" as
-    // `eq_solver::is_var` (ast/seq/seq_eq_solver.cpp) - the two must never
-    // silently diverge, since `word_eq_split`'s `is_const_token`-based
-    // dichotomy (ast/seq/seq_eq_facet.cpp) implicitly assumes "not a
-    // const token" already coincides with this predicate.
-    inline bool is_solvable_var(ast_manager& m, seq_util& u, expr* e) {
-        return
-            u.is_seq(e->get_sort()) &&
-            !u.str.is_concat(e) &&
-            !u.str.is_empty(e) &&
-            !u.str.is_string(e) &&
-            !u.str.is_unit(e) &&
-            !u.str.is_itos(e) &&
-            !u.str.is_nth_i(e) &&
-            !u.str.is_map(e) &&
-            !u.str.is_mapi(e) &&
-            !u.str.is_foldl(e) &&
-            !u.str.is_foldli(e) &&
-            !m.is_ite(e);
-    }
-
     // Trivial, always-"unknown" implementation: usable by unit tests (or
     // any facet standing alone with no live ambient SMT context) that
-    // only need `is_var` (delegated to `is_solvable_var`) and can safely
-    // treat every bound/value query as "not currently known" - never
-    // reports a false bound, only ever a possible loss of precision.
+    // only need `is_var` (inherited, non-virtual, from `ambient_context_i`)
+    // and can safely treat every bound/value query as "not currently
+    // known" - never reports a false bound, only ever a possible loss of
+    // precision.
     template <typename dep_tracker_t>
     class null_ambient_context : public ambient_context_i<dep_tracker_t> {
-        ast_manager& m;
-        seq_util&    u;
     public:
-        null_ambient_context(ast_manager& m, seq_util& u) : m(m), u(u) {}
-        bool is_var(expr* e) const override { return is_solvable_var(m, u, e); }
+        null_ambient_context(ast_manager& m, seq_util& u) : ambient_context_i<dep_tracker_t>(m, u) {}
         bool lower_bound(expr*, rational&, dep_tracker_t&) override { return false; }
         bool upper_bound(expr*, rational&, dep_tracker_t&) override { return false; }
         bool current_value(expr*, rational&) override { return false; }

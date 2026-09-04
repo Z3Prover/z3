@@ -12,10 +12,10 @@ Abstract:
     ast/seq facet layer's dependency-tracker-based interface to
     `theory_seq`'s own bound-query methods.
 
-    `is_var` forwards directly to `theory_seq::is_var` (itself a thin
-    wrapper over `eq_solver::is_var`, ast/seq/seq_eq_solver.cpp) so the
-    ambient context's notion of "solvable variable" is always exactly
-    `theory_seq`'s own, never a second copy that could silently diverge.
+    `is_var` is inherited as-is from `ambient_context_i` (concrete,
+    non-virtual: `!u.str.is_power(e) && !u.str.is_unit(e) && !m.is_ite(e)`);
+    this class only supplies the base's `(ast_manager&, seq_util&)`
+    constructor arguments from the live `theory_seq`.
 
 Author:
 
@@ -48,9 +48,8 @@ namespace seq {
     class theory_seq_ambient_context : public ambient_context_i<eq_tree::dep_tracker> {
         smt::theory_seq& m_th;
     public:
-        explicit theory_seq_ambient_context(smt::theory_seq& th) : m_th(th) {}
-
-        bool is_var(expr* e) const override { return m_th.is_var(e); }
+        explicit theory_seq_ambient_context(smt::theory_seq& th)
+            : ambient_context_i<eq_tree::dep_tracker>(th.get_manager(), th.m_util), m_th(th) {}
 
         bool lower_bound(expr* e, rational& lo, eq_tree::dep_tracker& dep) override {
             dep = nullptr;
