@@ -40,6 +40,13 @@ class model_converter;
 
 namespace opt {
 
+    /**
+       \brief True when the hard constraints and obj lie in the fragment
+       nlsat decides: Boolean structure over polynomial arithmetic atoms,
+       with uninterpreted constants as the only free symbols.
+    */
+    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj);
+
     class nlsat_opt {
         ast_manager&  m;
         params_ref    m_params;

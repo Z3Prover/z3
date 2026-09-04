@@ -79,7 +79,7 @@ namespace opt {
         }
     };
 
-    static bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj) {
+    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj) {
         nra_fragment_check chk(m, a);
         expr_fast_mark1 visited;
         for (expr* f : hard) {
