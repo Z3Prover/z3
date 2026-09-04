@@ -252,18 +252,13 @@ namespace opt {
         return true;
     }
 
-    // An irrational algebraic model value (e.g. 1/sqrt(2) for an objective
-    // pinned by nonlinear equations) does not fit in inf_eps; the requested
-    // side of its isolating interval is still a sound bound - a floor, since
-    // optsmt objectives are always maximized. Without the floor the objective
-    // value stays -oo and geometric_lex reports -oo as the optimum of a
-    // satisfiable objective; the exact algebraic optimum is recovered later
-    // by the nlsat fallback. The interval side is rounded outward to 12
-    // decimal digits to keep the constant decimal-like: bounds derived from
-    // it are asserted back into the solver, and the deep dyadic denominators
-    // of the raw interval bounds (2^-40 and finer) look like derived-bound
-    // artifacts to the nonlinear solver (nra_solver::is_dyadic_artifact),
-    // which drops such constraints and answers unknown.
+    // Irrational algebraic model values do not fit in inf_eps, so use the
+    // requested side of their isolating interval as a sound bound. Without
+    // it, geometric_lex can report -oo for a satisfiable objective. Replace a
+    // lower endpoint n by floor(10^12*n)/10^12 and an upper endpoint n by
+    // ceil(10^12*n)/10^12. Each reduced denominator divides 10^12, so its
+    // dyadic valuation is at most 12. nra_solver omits generated bounds with
+    // valuation at least 24 to avoid large coefficients after clearing denominators.
     bool model_value_bound(arith_util& a, expr* val, bool lower, rational& n) {
         if (a.is_numeral(val, n))
             return true;
@@ -277,6 +272,10 @@ namespace opt {
                 a.am().get_upper(a.to_irrational_algebraic_numeral(val), n, 40);
                 n = ceil(n * den) / den;
             }
+            IF_VERBOSE(10, verbose_stream() << "(opt.model-value-bound :value "
+                       << mk_pp(val, a.get_manager())
+                       << " :side " << (lower ? "lower" : "upper")
+                       << " :bound " << n << ")\n");
             return true;
         }
         return false;

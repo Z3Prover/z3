@@ -677,13 +677,14 @@ namespace opt {
             Z3_fallthrough;
         case O_MAXIMIZE:
             val = (*mdl)(obj.m_term);
-            // The model can pin the objective to an irrational algebraic
-            // value (e.g. sqrt(2) under x^2 = 2). Compare against the sound
-            // side of its rational isolating interval instead: a lower bound
-            // in term >= value, an upper bound in term <= value, whose
-            // negation still demands a genuine strict improvement. The old
-            // fallback to "true" let the Pareto loop keep dominated models
-            // and stop enumerating the front after one point.
+            // The model may pin the objective to an irrational algebraic
+            // value v. The smt backend does not internalize an irrational
+            // algebraic numeral (it reports the term unsupported and answers
+            // unknown), so replace v by an endpoint of a rational isolating
+            // interval l < v < u: l in term >= v, u in term <= v. The
+            // weakened atom holds in the current model, and its negation
+            // (term < l, resp. term > u) implies term < v (resp. term > v),
+            // a strict improvement.
             if (!is_numeral(val, k) && model_value_bound(m_arith, val, is_ge, k))
                 val = m_arith.mk_numeral(k, false);
             if (is_numeral(val, k)) {
@@ -695,6 +696,11 @@ namespace opt {
                 }
             }
             else {
+                // The model value is neither a numeral nor an irrational
+                // algebraic number; the trivial constraint silently weakens
+                // the Pareto dominance test.
+                IF_VERBOSE(5, verbose_stream() << "(opt.pareto :unhandled-objective-value "
+                           << val << ")\n");
                 result = m.mk_true();
             }
             break;
@@ -1564,11 +1570,15 @@ namespace opt {
             case O_MINIMIZE: {
                 val = (*m_model)(obj.m_term);
                 TRACE(opt, tout << obj.m_term << " " << val << "\n";);
-                // An irrational algebraic value contributes the side of its
-                // isolating interval that stays sound after the sign
-                // adjustment: adjust_value negates a minimization term,
-                // turning a lower bound of the value into an upper one.
-                if (is_numeral(val, r) || model_value_bound(m_arith, val, is_lower != obj.m_adjust_value.get_negate(), r)) {
+                // The model value v may be irrational algebraic. Substitute
+                // an endpoint of a rational isolating interval l < v < u,
+                // with the side chosen so that the bound survives
+                // adjust_value: negation reverses order (x <= v iff
+                // -x >= -v), so when adjust_value negates the term the
+                // requested side flips.
+                // model_value_bound also accepts plain arithmetic numerals;
+                // the second check backstops bit-vector objective values.
+                if (model_value_bound(m_arith, val, is_lower != obj.m_adjust_value.get_negate(), r) || m_bv.is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     TRACE(opt, tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {
@@ -1583,7 +1593,7 @@ namespace opt {
             case O_MAXIMIZE: {
                 val = (*m_model)(obj.m_term);
                 TRACE(opt, tout << obj.m_term << " " << val << "\n";);
-                if (is_numeral(val, r) || model_value_bound(m_arith, val, is_lower != obj.m_adjust_value.get_negate(), r)) {
+                if (model_value_bound(m_arith, val, is_lower != obj.m_adjust_value.get_negate(), r) || m_bv.is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     TRACE(opt, tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {
