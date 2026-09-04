@@ -142,8 +142,8 @@ namespace {
         auto& mf = root->facet_as<seq::mem_facet>(mem_id);
         ENSURE(mf.memberships().size() == 1);
         expr_ref_vector ts(m), expect(m);
-        seq::flatten(u, mf.memberships()[0].m_str.get(), ts);
-        seq::flatten(u, b.get(), expect);
+        u.str.get_concat_units(mf.memberships()[0].m_str.get(), ts);
+        u.str.get_concat_units(b.get(), expect);
         ENSURE(ts.size() == expect.size());
         for (unsigned i = 0; i < ts.size(); ++i)
             ENSURE(ts.get(i) == expect.get(i)); // pow spliced out, only "b" left
@@ -187,9 +187,9 @@ namespace {
 
         auto& mf = root->facet_as<seq::mem_facet>(mem_id);
         expr_ref_vector ts(m), expect_a(m), expect_b(m);
-        seq::flatten(u, mf.memberships()[0].m_str.get(), ts);
-        seq::flatten(u, one_a.get(), expect_a);
-        seq::flatten(u, b.get(), expect_b);
+        u.str.get_concat_units(mf.memberships()[0].m_str.get(), ts);
+        u.str.get_concat_units(one_a.get(), expect_a);
+        u.str.get_concat_units(b.get(), expect_b);
         ENSURE(ts.size() == expect_a.size() + 1 + expect_b.size()); // "a", nested pow, "b"
         for (unsigned i = 0; i < expect_a.size(); ++i)
             ENSURE(ts.get(i) == expect_a.get(i));

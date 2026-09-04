@@ -164,7 +164,7 @@ namespace seq {
         // obligation whose power term is `e`, if any. Used by plugins
         // (power_fine_wilf) that need to recognize a `seq.power` token
         // appearing inside an eq_facet equation's token list - since
-        // eq_facet::flatten() treats `seq.power` terms as opaque single
+        // eq_facet::get_concat_units() treats `seq.power` terms as opaque single
         // tokens (it does not decompose them), this linear scan over the
         // (typically small) pending-obligation set is how a plugin
         // bridges "this token is a power term" back to "here is its
@@ -284,7 +284,7 @@ namespace seq {
     //
     // Trigger pattern: some eq_facet equation has, at its head, a power
     // token `U^n` on one side (recognized via power_facet::find_power on
-    // the token, since eq_facet::flatten() never decomposes `seq.power`
+    // the token, since eq_facet::get_concat_units() never decomposes `seq.power`
     // terms - they remain single opaque tokens in the equation's token
     // list) and, on the other side, a run of zero-or-more non-power
     // tokens `Y` immediately followed by a *different* power token

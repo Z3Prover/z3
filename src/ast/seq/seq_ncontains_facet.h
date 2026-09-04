@@ -29,7 +29,7 @@ Abstract:
       - `ncontains_facet` owns `vector<str_ncontains>`, each a pending
         `haystack` / `needle` obligation, flattened into `expr_ref_vector`s
         exactly like eq_facet/deq_facet's equations (shared helpers:
-        `seq::flatten`, `seq::expr_ref_vector`, `seq::subst_in`) so that a
+        `u.str.get_concat_units`, `seq::expr_ref_vector`, `seq::subst_in`) so that a
         substitution chosen by `word_eq_split` keeps every obligation's
         haystack/needle in sync via `subst_sink_i::apply_subst` (this is
         the fix for the nseq monotonicity-soundness gap documented in
@@ -130,8 +130,8 @@ namespace seq {
         }
         void add_ncontains(expr* haystack, expr* needle, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector hts(m), nts(m);
-            flatten(u, haystack, hts);
-            flatten(u, needle, nts);
+            u.str.get_concat_units(haystack, hts);
+            u.str.get_concat_units(needle, nts);
             add_ncontains(hts, nts, dep);
         }
 

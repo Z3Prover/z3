@@ -119,7 +119,7 @@ namespace seq {
                 else
                     rhs = mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned());
                 expr_ref_vector repl(m);
-                flatten(u, rhs.get(), repl);
+                u.str.get_concat_units(rhs.get(), repl);
                 broadcast_subst(n, m_eq_id, p.m_e.get(), repl, p.m_dep);
                 f.remove(i);
                 changed = true;
@@ -392,7 +392,7 @@ namespace seq {
         unsigned j = m_next_j++;
         expr_ref rhs = mk_power_unfold(u, m, p.m_s.get(), j);
         expr_ref_vector repl(m);
-        flatten(u, rhs.get(), repl);
+        u.str.get_concat_units(rhs.get(), repl);
         broadcast_subst(m_n, m_eq_id, p.m_e.get(), repl, m_dep);
         af.add_constraint(m.mk_eq(p.m_n.get(), a.mk_int(j)), m_dep);
         f.remove(m_pow_index);
@@ -578,7 +578,7 @@ namespace seq {
             if (pos == 0 && i > 0 && f.find_power(t, pidx) && pidx != exclude_idx) {
                 str_power const& q = f.powers()[pidx];
                 expr_ref_vector qbase(m);
-                flatten(u, q.m_s.get(), qbase);
+                u.str.get_concat_units(q.m_s.get(), qbase);
                 if (qbase.size() == bn) {
                     bool match = true;
                     for (unsigned j = 0; j < bn && match; ++j)
@@ -635,7 +635,7 @@ namespace seq {
                         continue;
                     str_power const& p = f.powers()[pow_idx];
                     expr_ref_vector base_pattern(m);
-                    flatten(u, p.m_s.get(), base_pattern);
+                    u.str.get_concat_units(p.m_s.get(), base_pattern);
                     expr_ref count(m);
                     unsigned consumed;
                     if (!comm_power(f, base_pattern, other_side, fwd, pow_idx, m, a, u, count, consumed) || consumed == 0)
@@ -984,7 +984,7 @@ namespace seq {
 
         str_power const& p = f.powers()[pow_idx];
         expr_ref_vector base_toks(m);
-        flatten(u, p.m_s.get(), base_toks);
+        u.str.get_concat_units(p.m_s.get(), base_toks);
         if (base_toks.empty())
             return nullptr;
         if (!fwd) {
@@ -1187,7 +1187,7 @@ namespace seq {
             return nullptr;
 
         // Compress the ground prefix to its minimal repeating period
-        // (token-identity match, since flatten() hash-conses identical
+        // (token-identity match, since get_concat_units() hash-conses identical
         // sub-terms to the same expr*).
         unsigned gn = ground_prefix_orig.size();
         unsigned period = gn;
@@ -1210,7 +1210,7 @@ namespace seq {
             unsigned pidx;
             if (is_power_token(f, compressed[0].get(), pidx)) {
                 expr_ref_vector inner_base_toks(m);
-                flatten(u, f.powers()[pidx].m_s.get(), inner_base_toks);
+                u.str.get_concat_units(f.powers()[pidx].m_s.get(), inner_base_toks);
                 if (!inner_base_toks.empty()) {
                     expr_ref_vector rev(m);
                     if (fwd)

@@ -131,7 +131,7 @@ namespace seq {
             auto const& sm = f.memberships()[i];
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             expr_ref_vector ts(m);
-            flatten(u, sm.m_str.get(), ts);
+            u.str.get_concat_units(sm.m_str.get(), ts);
             bool bad = false;
             for (expr* t : ts) {
                 if (!is_const_token(u, t)) { bad = true; break; }
@@ -199,7 +199,7 @@ namespace seq {
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             expr* s = mf.memberships()[i].m_str.get();
             expr_ref_vector ts(m);
-            flatten(u, s, ts);
+            u.str.get_concat_units(s, ts);
             if (ts.empty() || is_const_token(u, ts.get(0)))
                 continue;
             expr* var = ts.get(0);
@@ -258,7 +258,7 @@ namespace seq {
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             str_mem const& sm = mf.memberships()[i];
             expr_ref_vector ts(mf.get_manager());
-            flatten(mf.get_seq_util(), sm.m_str.get(), ts);
+            mf.get_seq_util().str.get_concat_units(sm.m_str.get(), ts);
             if (ts.empty())
                 continue;
             for (bool f2 : {true, false}) {
@@ -302,7 +302,7 @@ namespace seq {
         expr_ref nested_pow(u.str.mk_power(p.m_s.get(), n_minus_1.get()), m);
 
         expr_ref_vector ts(m);
-        flatten(u, mf.memberships()[m_mem_idx].m_str.get(), ts);
+        u.str.get_concat_units(mf.memberships()[m_mem_idx].m_str.get(), ts);
         SASSERT(!ts.empty());
         expr_ref_vector new_ts(m);
         if (m_fwd) {
@@ -352,7 +352,7 @@ namespace seq {
         // single `n = 0` clause (not the eq-variant's `n>=0 /\ n<=0`
         // pair) - preserved faithfully per rule variant.
         expr_ref_vector ts(m);
-        flatten(u, mf.memberships()[mem_idx].m_str.get(), ts);
+        u.str.get_concat_units(mf.memberships()[mem_idx].m_str.get(), ts);
         SASSERT(!ts.empty());
         unsigned drop = fwd ? 0 : ts.size() - 1;
         ts.erase(drop);
@@ -395,7 +395,7 @@ namespace seq {
         bool has_multi = false;
         for (auto const& sm : mf.memberships()) {
             expr_ref_vector ts(m);
-            flatten(u, sm.m_str.get(), ts);
+            u.str.get_concat_units(sm.m_str.get(), ts);
             unsigned vars = 0;
             for (expr* t : ts)
                 if (!is_const_token(u, t))

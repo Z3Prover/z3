@@ -90,11 +90,9 @@ namespace seq {
     // freshly-created variables (e.g. from mk_fresh_var) that nothing
     // else in the system is holding a reference to.
 
-    // Flatten a str-sort expr (a str.++ chain, possibly a bare leaf) into
-    // its token list: constants are exploded into one token per character;
-    // any other leaf (variable or otherwise-opaque term) becomes a single
-    // token. `u` must be the seq_util of `e`'s ast_manager.
-    void flatten(seq_util& u, expr* e, expr_ref_vector& out);
+    // Tokens are obtained directly via `u.str.get_concat_units(e, out)`:
+    // constants are exploded into one token per character; any other
+    // leaf (variable or otherwise-opaque term) becomes a single token.
 
     // Is `e` a `seq.unit` wrapping a *concrete* character constant
     // (stricter than u.str.is_unit(e), which only asks whether `e` is a
@@ -248,8 +246,8 @@ namespace seq {
         }
         void add_equation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector lts(m), rts(m);
-            flatten(u, lhs, lts);
-            flatten(u, rhs, rts);
+            u.str.get_concat_units(lhs, lts);
+            u.str.get_concat_units(rhs, rts);
             add_equation(lts, rts, dep);
         }
 
@@ -443,7 +441,7 @@ namespace seq {
         stats m_stats;
 
         // Classify a token's length as a known constant (chars, always 1
-        // here since flatten() explodes multi-char strings into
+        // here since get_concat_units() explodes multi-char strings into
         // single-char tokens) or unknown/variable (anything else,
         // including fresh Skolem/opaque terms).
         static bool token_has_variable_length(seq_util& u, expr* tok) { return !is_const_token(u, tok); }
@@ -476,8 +474,8 @@ namespace seq {
     // branches:
     //   1. assert `c` as a hypothesis on arith_facet's sub-solver (via
     //      add_constraint, dependency-tracked to the equation's own dep)
-    //      and substitute the token by `flatten(t1)`,
-    //   2. assert `!c` likewise and substitute by `flatten(t2)`.
+    //      and substitute the token by `get_concat_units(t1)`,
+    //   2. assert `!c` likewise and substitute by `get_concat_units(t2)`.
     // Both `c` and `!c` are asserted (never simultaneously live - each
     // is scoped to its own branch by the driver's trail push/pop) purely
     // as a dependency-tracked fact of the incremental arithmetic backend,
@@ -575,8 +573,8 @@ namespace seq {
         }
         void add_disequation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector lts(m), rts(m);
-            flatten(u, lhs, lts);
-            flatten(u, rhs, rts);
+            u.str.get_concat_units(lhs, lts);
+            u.str.get_concat_units(rhs, rts);
             add_disequation(lts, rts, dep);
         }
 

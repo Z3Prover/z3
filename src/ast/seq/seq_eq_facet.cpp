@@ -29,11 +29,6 @@ namespace seq {
         return u.str.is_unit(e, ch) && u.is_const_char(ch);
     }
 
-    // NSB code review: just use u.str.get_concat and not call this function.
-    void flatten(seq_util& u, expr* e, expr_ref_vector& out) {
-        u.str.get_concat_units(e, out);
-    }
-
     static int cmp_tokens(expr_ref_vector const& a, expr_ref_vector const& b) {
         if (a.size() != b.size())
             return a.size() < b.size() ? -1 : 1;
