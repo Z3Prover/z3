@@ -159,7 +159,7 @@ namespace seq {
             eq_tree::dep_tracker eq_dep = eq.m_dep;
             while (!side.empty()) {
                 expr* tok = side.get(0);
-                if (is_const_token(u, tok)) {
+                if (u.str.is_unit(tok)) {
                     conflict = true;
                     conflict_dep = eq_dep;
                     return false;
@@ -186,8 +186,8 @@ namespace seq {
         for (unsigned i = 0; i < new_eqs.size(); ++i) {
             auto p = new_eqs[i].get();
             expr_ref_vector lts(m), rts(m);
-            flatten(u, p.first, lts);
-            flatten(u, p.second, rts);
+            u.str.get_concat_units(p.first, lts);
+            u.str.get_concat_units(p.second, rts);
             add_equation_trailed(lts, rts, parent_dep);
         }
         return true;
@@ -502,12 +502,11 @@ namespace seq {
             else consume_lhs = const_diff <= 0;
 
             expr* tok = consume_lhs ? lhs.get(li++) : rhs.get(ri++);
-            // A length-1 string constant is const-length 1 (flatten()'s
+            // A length-1 string constant is const-length 1 (get_concat_units's
             // token model never produces longer constant tokens); every
             // other token (opaque variable, fresh Skolem, etc.) is
             // variable-length.
-            // NSB code review: use u.str.is_unit instead of is_const_token
-            if (is_const_token(u, tok)) {
+            if (u.str.is_unit(tok)) {
                 const_diff += (consume_lhs ? 1 : -1);
             }
             else {
@@ -632,14 +631,14 @@ namespace seq {
             VERIFY(m.is_ite(tok, cond, then_e, else_e));
 
             expr_ref_vector repl1(m), repl2(m);
-            flatten(u, then_e, repl1);
-            flatten(u, else_e, repl2);
+            u.str.get_concat_units(then_e, repl1);
+            u.str.get_concat_units(else_e, repl2);
 
             has_more = true;
 
             // Branch 1 ("then"): assert `cond` as a hypothesis dependency
             // on arith_facet's incremental backend and substitute the
-            // ite token by flatten(then_e); mirrors apply_power_epsilon's
+            // ite token by then_e's token list; mirrors apply_power_epsilon's
             // dependency-tracked disjunction branch (facet-eq-deq.md
             // section 2.3).
             af.add_constraint(cond, eq_dep);
@@ -648,7 +647,7 @@ namespace seq {
             committed = true;
 
             // Branch 2 ("else"): resumed lazily via the returned iterator,
-            // asserting `!cond` and substituting by flatten(else_e).
+            // asserting `!cond` and substituting by else_e's token list.
             return alloc(iterator, n, m_eq_id, m_arith_id, tok, cond, repl2, eq_dep, m);
         }
         return nullptr;
@@ -745,8 +744,7 @@ namespace seq {
             if (!L.empty() && !R.empty()) {
                 expr* lh = L.get(0);
                 expr* rh = R.get(0);
-                // NSB code review: use u.str.is_unit(lh) && u.str.is_unit(rh) && m.are_distinct(lh, rh)
-                if (is_const_token(u, lh) && is_const_token(u, rh) && lh != rh) {
+                if (u.str.is_unit(lh) && u.str.is_unit(rh) && m.are_distinct(lh, rh)) {
                     // distinct leading constants: the two sides can never
                     // be made equal by any future substitution - the
                     // disequation is proved and discharged.
@@ -789,11 +787,10 @@ namespace seq {
     // const-1-or-str.len sum); duplicated locally rather than shared
     // since eq_facet/power_facet intentionally have no header dependency
     // on each other's static helpers.
-    // NSB code review: use u.str.is_unit instead of is_const_token
     static expr_ref mk_side_len(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks) {
         expr_ref sum(a.mk_int(0), m);
         for (expr* tok : toks)
-            sum = expr_ref(a.mk_add(sum, is_const_token(u, tok) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(tok)), m);
+            sum = expr_ref(a.mk_add(sum, u.str.is_unit(tok) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(tok)), m);
         return sum;
     }
 
