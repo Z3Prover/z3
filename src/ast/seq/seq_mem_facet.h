@@ -217,6 +217,57 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
+    // Length/Parikh feasibility check, ported (in spirit) from the c3
+    // branch's `seq_parikh` congruence-abstraction engine, but built as a
+    // thin wrapper over infrastructure this port already has:
+    // `seq_util::rex::info`/`util/len_abs.h`'s `len_abs` compute a sound
+    // ultimately-periodic over-approximation of a regex's admissible word
+    // lengths structurally, so this plugin only has to combine the
+    // per-membership abstractions already reachable via
+    // `u.re.get_info(view.m_state).len()` and check the meet for
+    // emptiness - no separate hand-rolled length/stride reasoning is
+    // needed (see len_abs.h's module comment: (a^4)* meet (b^6)* type
+    // refutations - e.g. two plain memberships on the same variable whose
+    // period/residue sets disagree - are exactly what this abstraction is
+    // for).
+    //
+    // Trigger: some variable carries two or more PLAIN membership views
+    // (`str_mem::is_plain()`, i.e. `x in R_i`, not a reach view) whose
+    // combined (meet of) length abstractions is certified empty by
+    // `len_abs::is_empty()` - a sound refutation, since every value of
+    // `x` must lie in the length set of every `R_i` simultaneously.
+    //
+    // Implemented as a `split_plugin_i` (not a propagation plugin), per
+    // the same rationale as `eq_approx_split`: this is a pure refutation
+    // gate (it never commits a branch, only ever calls
+    // `n.set_conflict()` or declines), so it must run at a low
+    // `min_cost()` ahead of every other, more expensive branching rule
+    // rather than eagerly firing every propagation fixpoint round -
+    // mirroring how c3 invokes its own Parikh feasibility check ahead of
+    // `generate_extensions` rather than folding it into ordinary
+    // constraint propagation.
+    class mem_parikh_split : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        struct stats {
+            unsigned m_num_checks = 0;
+            unsigned m_num_refuted = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+    public:
+        mem_parikh_split(ast_manager& m, seq_util& u) : m(m), u(u) {
+            set_min_cost(0);
+        }
+        char const* name() const override { return "mem-parikh-split"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override {
+            st.update("mem-parikh-split num checks", m_stats.m_num_checks);
+            st.update("mem-parikh-split num refuted", m_stats.m_num_refuted);
+        }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
     // Membership-side analog of `power_var_peel` (seq_power_facet.h),
     // ported from the c3 branch's `seq_nielsen_modifiers.cpp`
     // `apply_var_num_unwinding_mem` (facet-eq-deq.md /

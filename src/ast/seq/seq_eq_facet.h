@@ -72,6 +72,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/seq/seq_ambient_context.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/seq/seq_eq_approx.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include <algorithm>
@@ -422,6 +423,73 @@ namespace seq {
         char const* name() const override { return "nielsen-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("nielsen-split num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
+    // Refutation-only rule wrapping `seq_eq_approx::check` (see
+    // seq_eq_approx.h's module comment), ported from the c3 branch's use
+    // of exact word-length/segment-intersection refutation as an early,
+    // cheap gate ahead of the Nielsen search proper. `seq_eq_approx`
+    // itself has no notion of "branching": `check(lhs, rhs)` either
+    // refutes the equation outright (l_false, an empty intersection of
+    // the two sides' segment languages) or is inconclusive (l_true/
+    // l_undef). There is therefore nothing to offer as a `split_plugin_i`
+    // in the ordinary sense - this rule never actually branches - but the
+    // user's design explicitly calls for implementing it as a *split*
+    // plugin (not a propagation plugin) precisely so its priority
+    // relative to every other split rule is controlled the same way
+    // theirs is (registration order + `min_cost()`), rather than running
+    // unconditionally to a fixpoint before any split is even considered
+    // (which is what a propagation plugin would do, and which would give
+    // it no way to defer to a cheaper split rule).
+    //
+    // `split()` iterates `eq_facet`'s current equations, feeding each to
+    // a persistent `seq_eq_approx` instance (its derivative caches are
+    // reused across calls; `reset_views()` is not needed since this rule
+    // never calls `add_view`/`set_views` - each equation is checked with
+    // no external view constraints, i.e. plain constant/variable
+    // segments only). On the first refutation found (`l_false`), the
+    // equation's own dependency justifies the conflict (segments over
+    // plain tokens consult nothing beyond the equation's own sides, per
+    // `seq_eq_approx`'s module comment: "An empty intersection refutes
+    // the equation, because every value of a side lies in the language
+    // of its segments" - no view/membership dependency is ever
+    // introduced here since none is ever installed), `n.set_conflict`
+    // is called directly and `split()` returns with `committed = false`
+    // (no branch materialized - a pure refutation). If every equation is
+    // inconclusive, the rule declines (`has_more = false`: nothing about
+    // the equation set has changed since the last check, so retrying at
+    // a higher cost cannot find a different answer without some other
+    // rule first mutating `eq_facet`).
+    //
+    // Given a low `min_cost() == 0`, this is tried before every other
+    // registered split plugin at cost 0 (see `theory_nseq.h`'s
+    // registration-order table), mirroring the c3 branch's placement of
+    // its own cheap pre-search refutation checks ahead of any
+    // nondeterministic branching.
+    class eq_approx_split : public eq_tree::split_plugin_i {
+        ast_manager&    m;
+        seq_util&       u;
+        seq_rewriter&   m_rw;
+        seq_eq_approx   m_approx;
+        struct stats {
+            unsigned m_num_checks = 0;
+            unsigned m_num_refuted = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+    public:
+        eq_approx_split(ast_manager& m, seq_util& u, seq_rewriter& rw,
+                        unsigned max_states = 1u << 12) :
+            m(m), u(u), m_rw(rw), m_approx(rw, max_states) {
+            set_min_cost(0);
+        }
+        char const* name() const override { return "eq-approx-split"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override {
+            st.update("eq-approx-split num checks", m_stats.m_num_checks);
+            st.update("eq-approx-split num refuted", m_stats.m_num_refuted);
+        }
         void reset_statistics() override { m_stats.reset(); }
     };
 

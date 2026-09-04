@@ -443,6 +443,45 @@ namespace seq {
         return nullptr;
     }
 
+    // -- eq_approx_split --
+
+    // Build a `str.++` chain expr from a token list, since `seq_eq_approx`
+    // reads a whole term via `to_segments`, not a pre-flattened token
+    // vector (mirrors `seq_ncontains_facet.cpp`'s `tokens_to_expr`).
+    static expr* eq_approx_tokens_to_expr(seq_util& u, expr_ref_vector const& ts) {
+        if (ts.empty())
+            return u.str.mk_empty(u.str.mk_string(zstring())->get_sort());
+        return u.str.mk_concat(ts.size(), ts.data(), ts[0]->get_sort());
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> eq_approx_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        auto ac = get_ambient(n);
+        auto& f = ac.eq_facet_ref();
+
+        for (auto const& eq : f.equations()) {
+            expr_ref lhs(eq_approx_tokens_to_expr(u, eq.m_lhs), m);
+            expr_ref rhs(eq_approx_tokens_to_expr(u, eq.m_rhs), m);
+            m_stats.m_num_checks++;
+            lbool r = m_approx.check(lhs, rhs);
+            if (r == l_false) {
+                // Empty intersection: every value of either side lies in
+                // the language of its own segments (constants and
+                // unconstrained variables only - no view was ever
+                // installed on any term here), so the equation's own
+                // dependency alone justifies the refutation.
+                m_stats.m_num_refuted++;
+                n.set_conflict(stx::br_plugin_base, eq.m_dep);
+                return nullptr;
+            }
+        }
+        // Nothing refuted: nothing has changed since the last pass over
+        // this (unchanged) equation set, so there is no point offering
+        // again at a higher cost until some other rule mutates eq_facet.
+        return nullptr;
+    }
+
     // -- eq_split (mid-equation split with padding variable) --
 
     // Ported from the c3 branch's find_eq_split_point

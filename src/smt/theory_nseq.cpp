@@ -37,6 +37,8 @@ namespace smt {
         m_mem_prop(m, m_seq, m_rewriter, m_live),
         m_mem_bounds_prop(m, m_seq, m_autil, m_tree.trail()),
         m_nc_prop(m, m_seq, m_autil),
+        m_eq_approx_split(m, m_seq, m_rewriter),
+        m_mem_parikh_split(m, m_seq),
         m_pow_num_cmp(m, m_seq, m_autil),
         m_pow_split_elim(m, m_seq, m_autil),
         m_pow_fine_wilf(m, m_seq, m_autil),
@@ -81,6 +83,8 @@ namespace smt {
         // split plugins: registration order mirrors the priority order of
         // the c3 branch's nielsen_graph::generate_extensions (see
         // theory_nseq.h's module comment for the mapping table).
+        m_tree.add_split_plugin(&m_eq_approx_split);
+        m_tree.add_split_plugin(&m_mem_parikh_split);
         m_tree.add_split_plugin(&m_pow_num_cmp);
         m_tree.add_split_plugin(&m_pow_split_elim);
         m_tree.add_split_plugin(&m_pow_fine_wilf);

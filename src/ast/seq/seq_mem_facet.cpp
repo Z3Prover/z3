@@ -549,4 +549,67 @@ namespace seq {
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
+    // -- mem_parikh_split --
+
+    scoped_ptr<eq_tree::split_iterator_i> mem_parikh_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        auto ac = get_ambient(n);
+        if (!ac.has_mem())
+            return nullptr;
+        auto& mf = ac.mem_facet_ref();
+        if (mf.memberships().empty() || mf.is_satisfied())
+            return nullptr;
+
+        // Group plain membership views (`x in R_i`) by their single
+        // variable token; reach views and multi-token strings carry no
+        // per-variable length obligation this check can use, so they are
+        // skipped (sound: skipping only loses precision, never
+        // soundness).
+        obj_map<expr, len_abs> lens;
+        obj_map<expr, eq_tree::dep_tracker> deps;
+        obj_map<expr, unsigned> counts;
+        for (auto const& sm : mf.memberships()) {
+            if (!sm.is_plain() || sm.m_str.size() != 1)
+                continue;
+            expr* var = sm.m_str.get(0);
+            if (!ac.is_var(var))
+                continue;
+            len_abs const cur = u.re.get_info(sm.m_view.m_state).len();
+            len_abs combined;
+            eq_tree::dep_tracker dep = sm.m_dep;
+            unsigned cnt = 1;
+            len_abs prior;
+            if (lens.find(var, prior)) {
+                combined = prior.meet(cur);
+                eq_tree::dep_tracker prior_dep;
+                deps.find(var, prior_dep);
+                dep = mf.dm().mk_join(prior_dep, sm.m_dep);
+                counts.find(var, cnt);
+                cnt++;
+            }
+            else
+                combined = cur;
+            lens.insert(var, combined);
+            deps.insert(var, dep);
+            counts.insert(var, cnt);
+        }
+
+        for (auto const& [var, la] : lens) {
+            m_stats.m_num_checks++;
+            unsigned cnt = 0;
+            counts.find(var, cnt);
+            if (cnt < 2)
+                continue; // a single membership's own length range cannot be self-contradictory
+            if (!la.is_empty())
+                continue;
+            eq_tree::dep_tracker dep = nullptr;
+            deps.find(var, dep);
+            m_stats.m_num_refuted++;
+            n.set_conflict(stx::br_plugin_base, dep);
+            return nullptr;
+        }
+        return nullptr;
+    }
+
 }

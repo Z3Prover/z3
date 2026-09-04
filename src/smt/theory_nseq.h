@@ -128,6 +128,8 @@ namespace smt {
         // mirrors the priority order of `nielsen_graph::generate_extensions`
         // (seq_nielsen_search.cpp) for every plugin that has a current analog:
         //   priority 2   apply_power_epsilon        -> (folded into power_propagation)
+        //   (refutation gate)  seq_eq_approx (view-segment intersection) -> eq_approx_split
+        //   (refutation gate)  seq_parikh (length/period feasibility)    -> mem_parikh_split
         //   priority 3   apply_num_cmp               -> power_num_cmp
         //   priority 3b  apply_split_power_elim       -> power_split_elim
         //   priority 3c  apply_fine_wilf              -> power_fine_wilf
@@ -142,6 +144,8 @@ namespace smt {
         //   priority 12  apply_var_nielsen            -> word_eq_split (var/var)
         //   (disequality unwinding)                   -> deq_split
         //   (membership power peel)                   -> power_var_peel_mem
+        seq::eq_approx_split      m_eq_approx_split;
+        seq::mem_parikh_split     m_mem_parikh_split;
         seq::power_num_cmp        m_pow_num_cmp;
         seq::power_split_elim     m_pow_split_elim;
         seq::power_fine_wilf      m_pow_fine_wilf;
