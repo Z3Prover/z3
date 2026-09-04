@@ -252,20 +252,30 @@ namespace opt {
         return true;
     }
 
-    // Extract from a model value of an objective a rational the model proves
-    // attainable. A rational numeral is the value itself. An irrational
-    // algebraic value (e.g. 1/sqrt(2) for an objective pinned by nonlinear
-    // equations) does not fit in inf_eps; a rational lower bound of its
-    // isolating interval is still a sound floor, since optsmt objectives are
-    // always maximized. Without this floor the objective value stays -oo and
-    // geometric_lex reports -oo as the optimum of a satisfiable objective;
-    // the exact algebraic optimum is recovered later by the nlsat fallback.
-    bool opt_solver::model_objective_floor(expr* value, rational& r) {
-        arith_util a(m);
-        if (a.is_numeral(value, r))
+    // Irrational algebraic model values do not fit in inf_eps, so use the
+    // requested side of their isolating interval as a sound bound. Without
+    // it, geometric_lex can report -oo for a satisfiable objective. Replace a
+    // lower endpoint n by floor(10^12*n)/10^12 and an upper endpoint n by
+    // ceil(10^12*n)/10^12. Each reduced denominator divides 10^12, so its
+    // dyadic valuation is at most 12. nra_solver omits generated bounds with
+    // valuation at least 24 to avoid large coefficients after clearing denominators.
+    bool model_value_bound(arith_util& a, expr* val, bool lower, rational& n) {
+        if (a.is_numeral(val, n))
             return true;
-        if (a.is_irrational_algebraic_numeral(value)) {
-            a.am().get_lower(a.to_irrational_algebraic_numeral(value), r, 40);
+        if (a.is_irrational_algebraic_numeral(val)) {
+            rational const den = rational(10).expt(12);
+            if (lower) {
+                a.am().get_lower(a.to_irrational_algebraic_numeral(val), n, 40);
+                n = floor(n * den) / den;
+            }
+            else {
+                a.am().get_upper(a.to_irrational_algebraic_numeral(val), n, 40);
+                n = ceil(n * den) / den;
+            }
+            IF_VERBOSE(10, verbose_stream() << "(opt.model-value-bound :value "
+                       << mk_pp(val, a.get_manager())
+                       << " :side " << (lower ? "lower" : "upper")
+                       << " :bound " << n << ")\n");
             return true;
         }
         return false;
@@ -277,7 +287,7 @@ namespace opt {
         arith_util a(m);
         rational r;
         expr_ref obj_val = (*baseline_model)(m_objective_terms.get(i));
-        if (model_objective_floor(obj_val, r) && inf_eps(r) > m_objective_values[i]) {
+        if (model_value_bound(a, obj_val, true, r) && inf_eps(r) > m_objective_values[i]) {
             m_objective_values[i] = inf_eps(r);
             if (!m_objective_models[i])
                 m_objective_models.set(i, baseline_model.get());
@@ -362,9 +372,10 @@ namespace opt {
         // current optimal.
         // 
         auto update_objective = [&]() {
+            arith_util a(m);
             rational r;
             expr_ref value = (*m_model)(m_objective_terms.get(i));
-            if (model_objective_floor(value, r) && inf_eps(r) > m_objective_values[i])
+            if (model_value_bound(a, value, true, r) && inf_eps(r) > m_objective_values[i])
                 m_objective_values[i] = inf_eps(r);
         };
 

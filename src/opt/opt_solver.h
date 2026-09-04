@@ -31,9 +31,17 @@ Notes:
 #include "smt/theory_opt.h"
 #include "ast/converters/generic_model_converter.h"
 
+class arith_util;
+
 namespace opt {
 
     typedef inf_eps_rational<inf_rational> inf_eps;
+
+    // Extract from a model value of an objective term a rational bound on it:
+    // the value itself when it is a rational numeral, otherwise, for an
+    // irrational algebraic value (e.g. sqrt(2) for an objective pinned by
+    // x^2 = 2), the requested side of its isolating interval.
+    bool model_value_bound(arith_util& a, expr* val, bool lower, rational& n);
 
     // Adjust bound bound |-> m_offset + (m_negate?-1:1)*bound
     class adjust_value {
@@ -171,7 +179,6 @@ namespace opt {
         bool maximize_objectives1(expr_ref_vector& blockers);
         bool maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         void update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker);
-        bool model_objective_floor(expr* value, rational& r);
         inf_eps const & saved_objective_value(unsigned obj_index);
         // The optimization hint of the last maximize_objective call and what
         // check_bound established about it: l_true - a model attains it;
