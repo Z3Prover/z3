@@ -277,24 +277,23 @@ namespace seq {
                 expr* rh = fwd ? eq.m_rhs[0] : eq.m_rhs.back();
                 bool lu = u.str.is_unit(lh);
                 bool ru = u.str.is_unit(rh);
-                bool lp = u.str.is_power(lh) || m.is_ite(lh);
-                bool rp = u.str.is_power(rh) || m.is_ite(rh);
+                bool lp = u.str.is_power(lh);
+                bool rp = u.str.is_power(rh);
                 if (lh == rh)
                     continue;
                 if (lp || rp)
-                    // Power tokens (and, per the token model's is_var
-                    // exclusion - README.md section 5.1.1 / this file's
-                    // ite_split - `ite` tokens) are neither units nor
+                    // Power tokens are neither units nor
                     // Nielsen-substitutable variables - they are owned
                     // exclusively by power_facet's own dedicated rule
                     // family (power_propagation/power_split/
                     // power_fine_wilf/power_num_cmp/power_split_elim; see
-                    // facet-eq-deq.md section 2.3) or, for `ite`, by
-                    // ite_split's own condition-branching rule below.
-                    // Substituting a power token wholesale here (as
-                    // v:=epsilon or v:=c.v') would be unsound/redundant with
-                    // that machinery, so word_eq_split simply skips any
-                    // equation whose head/tail is a power on either side.
+                    // facet-eq-deq.md section 2.3). Substituting a power
+                    // token wholesale here (as v:=epsilon or v:=c.v')
+                    // would be unsound/redundant with that machinery, so
+                    // word_eq_split simply skips any equation whose
+                    // head/tail is a power on either side. `ite` tokens
+                    // are treated as ordinary Nielsen variables (no
+                    // special-case here; see ambient_context_i::is_var).
                     continue;
                 // A token is a Nielsen-substitutable variable precisely when
                 // it is neither a unit nor a power (per z3papers/nseq's
@@ -636,66 +635,6 @@ namespace seq {
             committed = true;
             m_stats.m_num_splits++;
             return nullptr; // single deterministic progress branch, no resumable iterator
-        }
-        return nullptr;
-    }
-
-    // -- ite_split --
-
-    bool ite_split::iterator::next(eq_tree::edge& out) {
-        if (m_done)
-            return false;
-        m_done = true;
-        auto ac = get_ambient(m_n);
-        auto& af = ac.arith_facet_ref();
-        expr_ref not_cond(m.mk_not(m_cond), m);
-        af.add_constraint(not_cond, m_dep);
-        broadcast_subst(m_n, m_tok, m_repl2, m_dep);
-        out = eq_tree::edge("ite-split-else", m_dep, true, 0);
-        return true;
-    }
-
-    scoped_ptr<eq_tree::split_iterator_i> ite_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
-        has_more = false;
-        committed = false;
-        auto ac = get_ambient(n);
-        auto& f = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
-
-        for (auto const& eq : f.equations()) {
-            expr* tok = nullptr;
-            eq_tree::dep_tracker eq_dep = nullptr;
-            for (expr* t : eq.m_lhs)
-                if (m.is_ite(t)) { tok = t; eq_dep = eq.m_dep; break; }
-            if (!tok)
-                for (expr* t : eq.m_rhs)
-                    if (m.is_ite(t)) { tok = t; eq_dep = eq.m_dep; break; }
-            if (!tok)
-                continue;
-
-            expr* cond = nullptr, *then_e = nullptr, *else_e = nullptr;
-            VERIFY(m.is_ite(tok, cond, then_e, else_e));
-
-            expr_ref_vector repl1(m), repl2(m);
-            u.str.get_concat_units(then_e, repl1);
-            u.str.get_concat_units(else_e, repl2);
-
-            has_more = true;
-
-            // Branch 1 ("then"): assert `cond` as a hypothesis dependency
-            // on arith_facet's incremental backend and substitute the
-            // ite token by then_e's token list; mirrors apply_power_epsilon's
-            // dependency-tracked disjunction branch (facet-eq-deq.md
-            // section 2.3).
-            af.add_constraint(cond, eq_dep);
-            broadcast_subst(n, tok, repl1, eq_dep);
-            out = eq_tree::edge("ite-split-then", eq_dep, true, 0);
-            committed = true;
-            m_stats.m_num_splits++;
-
-            // Branch 2 ("else"): resumed lazily via the returned iterator,
-            // asserting `!cond` and substituting by else_e's token list.
-            return alloc(iterator, n, m, u, tok, cond, repl2, eq_dep);
         }
         return nullptr;
     }

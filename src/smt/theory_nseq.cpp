@@ -47,7 +47,6 @@ namespace smt {
         m_mem_monadic_split(m, m_seq, m_rewriter, m_tree.trail()),
         m_pow_gpower_intro(m, m_seq, m_autil),
         m_word_eq_split(m, m_seq),
-        m_ite_split(m, m_seq),
         m_pow_split(m, m_seq, m_autil),
         m_pow_var_decompose(m, m_seq, m_autil),
         m_pow_var_peel_mem(m, m_seq, m_autil),
@@ -93,7 +92,6 @@ namespace smt {
         m_tree.add_split_plugin(&m_mem_monadic_split);
         m_tree.add_split_plugin(&m_pow_gpower_intro);
         m_tree.add_split_plugin(&m_word_eq_split);
-        m_tree.add_split_plugin(&m_ite_split);
         m_tree.add_split_plugin(&m_pow_split);
         m_tree.add_split_plugin(&m_pow_var_decompose);
         m_tree.add_split_plugin(&m_pow_var_peel_mem);

@@ -32,9 +32,10 @@ Abstract:
         representation, not applicable here since this design has no
         `snode` at all - see seq_eq_facet.h's module comment). Per the
         token model in z3papers/nseq's README.md section 5.1.1, a token
-        is exactly one of unit/power/variable; `is_var` is implemented
-        directly on the base class (non-virtual, `!is_power(x) &&
-        !is_unit(x) && !m.is_ite(x)`) using the `ast_manager&`/`seq_util&`
+        is exactly one of unit/power/variable (ite terms count as
+        variables); `is_var` is implemented directly on the base class
+        (non-virtual, `!is_power(x) && !is_unit(x)`) using the
+        `ast_manager&`/`seq_util&`
         every concrete `ambient_context_i` is now constructed with, so
         every implementation (including `null_ambient_context`, e.g. in
         unit tests with no live `theory_seq` wired up) shares exactly the
@@ -156,16 +157,17 @@ namespace seq {
         // own dedicated rule family: power_propagation/power_split/
         // power_fine_wilf/power_num_cmp/power_split_elim) nor a unit
         // token (`seq.unit`, a single concrete character/element, never
-        // itself substitutable) nor an `ite` term (left alone, matching
-        // `is_solvable_var`/`eq_solver::is_var`'s treatment). Per the
-        // token model in z3papers/nseq's README.md section 5.1.1, a token
-        // is exactly one of unit/power/variable, so this predicate - not
+        // itself substitutable). `ite` terms are treated as ordinary
+        // variables (unlike `is_solvable_var`/`eq_solver::is_var`'s
+        // treatment, which leaves them alone). Per the token model in
+        // z3papers/nseq's README.md section 5.1.1, a token is exactly one
+        // of unit/power/variable, so this predicate - not
         // `is_solvable_var`/`theory_seq::is_var` - is the one every
         // strict three-way token classification (word_eq_split::split,
         // etc.) should consult; it is implemented once here (non-virtual)
         // so every concrete `ambient_context_i` shares exactly the same
         // notion of "variable" and none can silently diverge.
-        bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e) && !m.is_ite(e); }
+        bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e); }
 
         // Best current lower/upper bound on the (integer/arithmetic)
         // value of `e` known to the ambient context (e.g. `str.len` of a

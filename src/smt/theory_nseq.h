@@ -138,7 +138,7 @@ namespace smt {
         //   priority 5d  apply_monadic_landing        -> mem_monadic_split
         //   priority 7   apply_gpower_intr            -> power_gpower_intro
         //   priority 8b  apply_const_nielsen          -> word_eq_split (const/var)
-        //   priority 9   apply_regex_if_split         -> ite_split
+        //   priority 9   apply_regex_if_split         -> (removed; ite tokens treated as ordinary Nielsen variables, see ambient_context_i::is_var)
         //   priority 10  apply_regex_var_split        -> (removed; see mem_var_split removal note in seq_mem_facet.h)
         //   priority 11  apply_power_split            -> power_split
         //   priority 12  apply_var_nielsen            -> word_eq_split (var/var)
@@ -154,7 +154,6 @@ namespace smt {
         seq::mem_monadic_split    m_mem_monadic_split;
         seq::power_gpower_intro   m_pow_gpower_intro;
         seq::word_eq_split        m_word_eq_split;
-        seq::ite_split            m_ite_split;
         seq::power_split          m_pow_split;
         seq::power_var_decompose  m_pow_var_decompose;
         seq::power_var_peel_mem   m_pow_var_peel_mem;
