@@ -393,8 +393,8 @@ namespace seq {
             ast_manager&   m;
             seq_util&      u;
             // Remaining alternatives to produce, in order. Each entry is a
-            // (rule_name, var, replacement, dep) tuple - `m_dep` is the
-            // dependency of the equation whose stuck leading/trailing
+            // (rule_name, var, replacement, dep, guard) tuple - `m_dep` is
+            // the dependency of the equation whose stuck leading/trailing
             // tokens motivated this split (a case-split on how to unstick
             // a single equation derives its justification from that one
             // equation, not a join of several). `next()` pops the front
@@ -403,14 +403,19 @@ namespace seq {
             // direction by `split()` (`[c, v']` for a forward/prefix
             // branch, `[v', c]` for a backward/suffix branch), so
             // `next()` itself does not need to know which direction
-            // produced it.
-            struct alt { char const* m_name; expr* m_var; expr_ref_vector m_repl; eq_tree::dep_tracker m_dep; };
+            // produced it. `m_guard` (if non-null) is an extra arithmetic
+            // side condition (e.g. `len(v1) > 0`) recorded on the
+            // arithmetic sub-solver alongside the substitution, to keep
+            // the branches of the var/var Nielsen split mutually
+            // exclusive (c3 branch's apply_var_nielsen; see split()'s own
+            // comment on branches (3)/(4)).
+            struct alt { char const* m_name; expr* m_var; expr_ref_vector m_repl; eq_tree::dep_tracker m_dep; expr* m_guard = nullptr; };
             vector<alt>    m_pending;
             unsigned       m_pos = 0;
         public:
             iterator(eq_tree::node& n, ast_manager& m, seq_util& u) : m_n(n), m(m), u(u) {}
-            void push_back(char const* name, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep) {
-                m_pending.push_back(alt{ name, var, repl, dep });
+            void push_back(char const* name, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep, expr* guard = nullptr) {
+                m_pending.push_back(alt{ name, var, repl, dep, guard });
             }
             bool next(eq_tree::edge& out) override;
         };

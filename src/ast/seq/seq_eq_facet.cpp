@@ -246,6 +246,22 @@ namespace seq {
             if (auto* sink = dynamic_cast<subst_sink_i*>(&target.facet(id)))
                 sink->apply_subst(var, repl, subst_dep);
         }
+        // c3 branch's add_subst_length_constraints (seq_nielsen.cpp):
+        // every substitution v := t1...tk is only sound in models where
+        // len(v) actually equals len(t1...tk), so record that length
+        // equation on the arithmetic sub-solver alongside the
+        // substitution itself - this lets the sub-solver detect a
+        // length-infeasible substitution (e.g. one that would force a
+        // negative-length remainder) without waiting for a later
+        // eq_facet equation to expose the same fact via
+        // arith_propagation.
+        auto ac = get_ambient(target);
+        if (ac.has_arith()) {
+            auto& af = ac.arith_facet_ref();
+            expr_ref_vector lhs(af.get_arith_util().get_manager());
+            lhs.push_back(var);
+            af.add_length_constraint(lhs, repl, subst_dep);
+        }
     }
 
     bool word_eq_split::iterator::next(eq_tree::edge& out) {
@@ -253,6 +269,11 @@ namespace seq {
             return false;
         auto& a = m_pending[m_pos++];
         broadcast_subst(m_n, a.m_var, a.m_repl, a.m_dep);
+        if (a.m_guard) {
+            auto ac = get_ambient(m_n);
+            if (ac.has_arith())
+                ac.arith_facet_ref().add_constraint(a.m_guard, a.m_dep);
+        }
         out = eq_tree::edge(a.m_name, a.m_dep, true, 0);
         return true;
     }
@@ -412,6 +433,19 @@ namespace seq {
                     expr* v1p = f.mk_fresh_var(s);
                     expr* v2p = f.mk_fresh_var(s);
 
+                    // Branches (3)/(4) both presuppose their eliminated
+                    // variable is non-empty (that is exactly what
+                    // distinguishes them from branches (1)/(2)): without
+                    // an explicit `len(v) > 0` guard the branches are not
+                    // mutually exclusive, matching c3's apply_var_nielsen
+                    // disjointness guards (seq_nielsen_modifiers.cpp).
+                    expr* v1_pos = nullptr, *v2_pos = nullptr;
+                    if (ac.has_arith()) {
+                        arith_util& a = ac.arith_facet_ref().get_arith_util();
+                        v1_pos = a.mk_gt(u.str.mk_length(v1), a.mk_int(0));
+                        v2_pos = a.mk_gt(u.str.mk_length(v2), a.mk_int(0));
+                    }
+
                     iterator* it = alloc(iterator, n, m, u);
                     {
                         expr_ref_vector empty(m);
@@ -421,13 +455,13 @@ namespace seq {
                         expr_ref_vector repl(m);
                         if (fwd) { repl.push_back(v2); repl.push_back(v1p); }
                         else     { repl.push_back(v1p); repl.push_back(v2); }
-                        it->push_back(fwd ? "v1:=v2.v1'" : "v1:=v1'.v2", v1, repl, eq_dep);
+                        it->push_back(fwd ? "v1:=v2.v1'" : "v1:=v1'.v2", v1, repl, eq_dep, v1_pos);
                     }
                     {
                         expr_ref_vector repl(m);
                         if (fwd) { repl.push_back(v1); repl.push_back(v2p); }
                         else     { repl.push_back(v2p); repl.push_back(v1); }
-                        it->push_back(fwd ? "v2:=v1.v2'" : "v2:=v2'.v1", v2, repl, eq_dep);
+                        it->push_back(fwd ? "v2:=v1.v2'" : "v2:=v2'.v1", v2, repl, eq_dep, v2_pos);
                     }
 
                     // Materialize the first branch ("v1:=eps") now, in the

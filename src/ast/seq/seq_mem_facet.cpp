@@ -156,7 +156,8 @@ namespace seq {
     // hoist the ite patterns.
     // consider if co-factor code in ast/rewriter directory already does this.
     stx::simplify_result mem_propagation::propagate(eq_tree::node& n) {
-        auto& f = get_ambient(n).mem_facet_ref();
+        auto ac = get_ambient(n);
+        auto& f = ac.mem_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
         for (unsigned i = 0; i < f.memberships().size(); ) {
@@ -164,6 +165,35 @@ namespace seq {
             if (sm.is_view()) {
                 ++i;
                 continue;
+            }
+            // c3 branch's generate_length_constraints/
+            // generate_node_length_constraints (seq_nielsen.cpp): a plain
+            // membership `str in re` bounds `len(str)` by re's own
+            // min/max accepted length, independent of whatever
+            // derivative/live-state reasoning this loop does below -
+            // assert those bounds to the arithmetic sub-solver so length
+            // reasoning (arith_propagation, power facets, ...) can prune
+            // on them without waiting for this membership to be fully
+            // resolved structurally. solver_facet::add_constraint itself
+            // de-dupes identical terms via `m_own`, so re-deriving the
+            // same bound on every propagate() round is a cheap no-op
+            // after the first.
+            if (ac.has_arith()) {
+                auto& af = ac.arith_facet_ref();
+                arith_util& a = af.get_arith_util();
+                unsigned lo = u.re.min_length(sm.m_view.m_state);
+                unsigned hi = u.re.max_length(sm.m_view.m_state);
+                if (lo > 0 || hi < UINT_MAX) {
+                    expr_ref len_str(a.mk_int(0), m_rw.m());
+                    for (expr* t : sm.m_str) {
+                        expr_ref tok_len(u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m_rw.m());
+                        len_str = a.mk_add(len_str, tok_len);
+                    }
+                    if (lo > 0)
+                        af.add_constraint(a.mk_ge(len_str, a.mk_int(lo)), sm.m_dep);
+                    if (hi < UINT_MAX)
+                        af.add_constraint(a.mk_le(len_str, a.mk_int(hi)), sm.m_dep);
+                }
             }
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             bool bad = false;
