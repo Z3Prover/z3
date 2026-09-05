@@ -49,7 +49,6 @@ Author:
 #include "smt/smt_arith_value.h"
 #include "smt/seq_solver_facet.h"
 #include "util/trail.h"
-#include <variant>
 
 namespace seq {
     class theory_nseq_ambient_context;
@@ -101,9 +100,10 @@ namespace smt {
         seq_rewriter        m_rewriter;
         arith_value         m_arith_value;
         seq::live_states    m_live;
-        expr_ref_vector     m_pin; // pins fresh terms (e.g. complemented regexes) built by
-                                   // populate_tree() that are not otherwise owned by the
-                                   // calling context.
+        expr_ref_vector     m_pin; // pins fresh terms (e.g. complemented regexes, Skolem
+                                   // fresh existentials for prefix/suffix/contains
+                                   // axiomatization) built while adding constraints that
+                                   // are not otherwise owned by the calling context.
 
         seq::eq_tree                     m_tree;
         seq::eq_tree::node*              m_root = nullptr;
@@ -143,14 +143,15 @@ namespace smt {
         //   (membership power peel)                   -> power_var_peel_mem
 
 
-        // pending-assertion queue, drained into the tree at final_check_eh.
-        struct eq_item   { enode* n1, *n2; };
-        struct deq_item  { enode* n1, *n2; literal lit; };
-        struct mem_item  { enode* s, *re; literal lit; bool positive; };
-        using prop_item = std::variant<eq_item, deq_item, mem_item>;
-        vector<prop_item>  m_prop_queue;
-        unsigned           m_prop_qhead = 0;
-
+        // Constraints are added directly to the ambient facets as soon as
+        // the SMT core notifies us (new_eq_eh/new_diseq_eh/assign_eh), not
+        // queued and drained at final_check_eh time: every facet's own
+        // trail is the shared `ctx.get_trail_stack()` (see m_tree's
+        // constructor), so a constraint added at scope level `k` is
+        // automatically retracted on pop_scope_eh back below `k`, exactly
+        // like any other trailed mutation. `m_assumptions` (below) is the
+        // corresponding side table and is itself scoped the same way, via
+        // `push_back_vector` in `mk_dep`.
         vector<assumption> m_assumptions;
 
         unsigned m_num_conflicts = 0;
@@ -187,10 +188,9 @@ namespace smt {
         char const* get_name() const override { return "nseq"; }
 
         // helpers
-        void enqueue(prop_item const& item);
-        void populate_tree();
-        unsigned mk_dep(assumption const& a);
         void report_conflict(seq::eq_tree::dep_tracker dep);
+        unsigned mk_dep(assumption const& a);
+        void pin(expr* e) { m_pin.push_back(e); ctx.push_trail(push_back_vector(m_pin)); }
 
         bool get_num_value(expr* e, rational& val) const;
         bool lower_bound(expr* e, rational& lo) const;

@@ -153,7 +153,11 @@ namespace smt {
         expr* e2 = n2->get_expr();
         if (!m_seq.is_seq(e1))
             return;
-        enqueue(eq_item{n1, n2});
+        unsigned idx = mk_dep(assumption(n1, n2));
+        seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+        expr_ref_vector lhs = m_ambient->purify(e1);
+        expr_ref_vector rhs = m_ambient->purify(e2);
+        m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
     }
 
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {
@@ -164,72 +168,100 @@ namespace smt {
             return;
         expr* e2 = n2->get_expr();
         literal lit = mk_eq(e1, e2, false);
-        enqueue(deq_item{n1, n2, lit});
+        unsigned idx = mk_dep(assumption(~lit));
+        seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+        expr_ref_vector lhs = m_ambient->purify(e1);
+        expr_ref_vector rhs = m_ambient->purify(e2);
+        m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
     }
 
     // -----------------------------------------------------------------------
-    // Boolean assignment notification: str.in_re
+    // Boolean assignment notification: str.in_re, prefix/suffix/contains
     // -----------------------------------------------------------------------
 
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx.bool_var2expr(v);
         literal lit(v, !is_true);
-        expr* s = nullptr, *re = nullptr;
-        if (m_seq.str.is_in_re(e, s, re)) {
-            enode* n1 = ensure_enode(s);
-            enode* n2 = ensure_enode(re);
-            enqueue(mem_item{n1, n2, lit, is_true});
+        expr* e1 = nullptr, *e2 = nullptr;
+
+        if (m_seq.str.is_in_re(e, e1, e2)) {
+            ensure_enode(e1);
+            ensure_enode(e2);
+            unsigned idx = mk_dep(assumption(is_true ? lit : ~lit));
+            seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+            expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
+            if (!is_true)
+                pin(re); // complement is freshly built here, not owned elsewhere
+            seq::view mv = seq::view::membership(re);
+            expr_ref_vector ts = m_ambient->purify(e1);
+            m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, mv, dep));
+            return;
         }
-    }
 
-    // -----------------------------------------------------------------------
-    // Pending-assertion queue
-    // -----------------------------------------------------------------------
+        if (m_seq.str.is_prefix(e, e1, e2)) {
+            // prefix(e1,e2) <=> exists f. e2 = e1 ++ f  (true case only; the
+            // false case - "e1 is not a prefix of e2" - has no eq_facet/
+            // ncontains_facet analog yet, see theory_seq's
+            // propagate_not_prefix for the c3-era treatment: left as a
+            // documented gap).
+            if (is_true) {
+                unsigned idx = mk_dep(assumption(lit));
+                seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+                expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
+                pin(f);
+                expr_ref_vector lhs = m_ambient->purify(e2);
+                expr_ref_vector rhs = m_ambient->purify(e1);
+                rhs.append(m_ambient->purify(f));
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+            }
+            return;
+        }
 
-    void theory_nseq::enqueue(prop_item const& item) {
-        ctx.push_trail(restore_vector(m_prop_queue));
-        m_prop_queue.push_back(item);
+        if (m_seq.str.is_suffix(e, e1, e2)) {
+            // suffix(e1,e2) <=> exists f. e2 = f ++ e1 (true case only, see
+            // prefix's comment above for the false-case gap).
+            if (is_true) {
+                unsigned idx = mk_dep(assumption(lit));
+                seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+                expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
+                pin(f);
+                expr_ref_vector lhs = m_ambient->purify(e2);
+                expr_ref_vector rhs = m_ambient->purify(f);
+                rhs.append(m_ambient->purify(e1));
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+            }
+            return;
+        }
+
+        if (m_seq.str.is_contains(e, e1, e2)) {
+            unsigned idx = mk_dep(assumption(is_true ? lit : ~lit));
+            seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+            if (is_true) {
+                // contains(e1,e2) <=> exists x,y. e1 = x ++ e2 ++ y
+                expr* x = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
+                expr* y = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
+                pin(x);
+                pin(y);
+                expr_ref_vector lhs = m_ambient->purify(e1);
+                expr_ref_vector rhs = m_ambient->purify(x);
+                rhs.append(m_ambient->purify(e2));
+                rhs.append(m_ambient->purify(y));
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+            }
+            else {
+                // not contains(e1,e2): a universal obligation, not reducible
+                // to an equation - accumulate it on ncontains_facet.
+                m_ambient->ncontains_facet(*m_root).add_ncontains(e1, e2, dep);
+            }
+            return;
+        }
     }
 
     unsigned theory_nseq::mk_dep(assumption const& a) {
         unsigned idx = m_assumptions.size();
         m_assumptions.push_back(a);
+        ctx.push_trail(push_back_vector(m_assumptions));
         return idx;
-    }
-
-    void theory_nseq::populate_tree() {
-        for (; m_prop_qhead < m_prop_queue.size(); ++m_prop_qhead) {
-            prop_item const& item = m_prop_queue[m_prop_qhead];
-            if (std::holds_alternative<eq_item>(item)) {
-                auto const& eq = std::get<eq_item>(item);
-                unsigned idx = mk_dep(assumption(eq.n1, eq.n2));
-                seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-                expr_ref_vector lhs = m_ambient->purify(eq.n1->get_expr());
-                expr_ref_vector rhs = m_ambient->purify(eq.n2->get_expr());
-                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
-            }
-            else if (std::holds_alternative<deq_item>(item)) {
-                auto const& deq = std::get<deq_item>(item);
-                unsigned idx = mk_dep(assumption(~deq.lit));
-                seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-                expr_ref_vector lhs = m_ambient->purify(deq.n1->get_expr());
-                expr_ref_vector rhs = m_ambient->purify(deq.n2->get_expr());
-                m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
-            }
-            else {
-                auto const& mem = std::get<mem_item>(item);
-                unsigned idx = mk_dep(assumption(mem.positive ? mem.lit : ~mem.lit));
-                seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-                expr* re = mem.positive ? mem.re->get_expr() : m_seq.re.mk_complement(mem.re->get_expr());
-                if (!mem.positive) {
-                    m_pin.push_back(re); // complement is freshly built here, not owned elsewhere
-                    ctx.push_trail(push_back_vector(m_pin));
-                }
-                seq::view v = seq::view::membership(re);
-                expr_ref_vector ts = m_ambient->purify(mem.s->get_expr());
-                m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, v, dep));
-            }
-        }
     }
 
     void theory_nseq::report_conflict(seq::eq_tree::dep_tracker dep) {
@@ -257,7 +289,6 @@ namespace smt {
 
     final_check_status theory_nseq::final_check_eh(unsigned) {
         ++m_num_final_checks;
-        populate_tree();
         stx::search_result res = m_tree.solve();
         switch (res) {
         case stx::search_result::sat: {
