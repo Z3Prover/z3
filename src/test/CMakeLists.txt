@@ -4,11 +4,6 @@ add_subdirectory(lp)
 # z3-test executable
 ################################################################################
 set(z3_test_deps api fuzzing simplex)
-z3_expand_dependencies(z3_test_expanded_deps ${z3_test_deps})
-set (z3_test_extra_object_files "")
-foreach (component ${z3_test_expanded_deps})
-  list(APPEND z3_test_extra_object_files $<TARGET_OBJECTS:${component}>)
-endforeach()
 add_executable(test-z3
   EXCLUDE_FROM_ALL
   ackermannize.cpp
@@ -65,7 +60,6 @@ add_executable(test-z3
   for_each_file.cpp
   get_consequences.cpp
   get_implied_equalities.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
   hashtable.cpp
   heap.cpp
   heap_trie.cpp
@@ -76,7 +70,6 @@ add_executable(test-z3
   horner.cpp
   hwf.cpp
   inf_rational.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
   interval.cpp
   karr.cpp
   lcube.cpp
@@ -85,7 +78,6 @@ add_executable(test-z3
   main.cpp
   map.cpp
   matcher.cpp
-  "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp"
   memory.cpp
   model2expr.cpp
   model_based_opt.cpp
@@ -179,16 +171,7 @@ add_executable(test-z3
   lp/lp.cpp
   lp/nla_solver_test.cpp
   zstring.cpp
-  ${z3_test_extra_object_files}
 )
-z3_add_install_tactic_rule(${z3_test_deps})
-z3_add_memory_initializer_rule(${z3_test_deps})
-z3_add_gparams_register_modules_rule(${z3_test_deps})
-target_compile_definitions(test-z3 PRIVATE
-  ${Z3_COMPONENT_CXX_DEFINES}
-)
-target_compile_options(test-z3 PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
-target_link_libraries(test-z3 PRIVATE ${Z3_DEPENDENT_LIBS})
-target_include_directories(test-z3 PRIVATE ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS})
-z3_append_linker_flag_list_to_target(test-z3 ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
-z3_add_component_dependencies_to_target(test-z3 ${z3_test_expanded_deps})
+target_link_libraries(test-z3 PRIVATE
+  z3_common ${z3_test_deps})
+z3_generate_registration(test-z3)

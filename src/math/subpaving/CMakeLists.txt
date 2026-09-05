@@ -9,3 +9,5 @@ z3_add_component(subpaving
   COMPONENT_DEPENDENCIES
     interval
 )
+
+add_subdirectory(tactic)

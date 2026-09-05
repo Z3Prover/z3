@@ -58,3 +58,15 @@ z3_add_component(ast
   PYG_FILES
     pp_params.pyg
 )
+
+add_subdirectory(converters)
+add_subdirectory(euf)
+add_subdirectory(fpa)
+add_subdirectory(macros)
+add_subdirectory(normal_forms)
+add_subdirectory(pattern)
+add_subdirectory(proofs)
+add_subdirectory(rewriter)
+add_subdirectory(simplifiers)
+add_subdirectory(sls)
+add_subdirectory(substitution)

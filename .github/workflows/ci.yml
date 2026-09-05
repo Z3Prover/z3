@@ -413,7 +413,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - build_cmake: 3.16
+          - build_cmake: "3.30"
             consumer_cmake: 3.5
             name: minimum builder and consumer
           - build_cmake: latest
@@ -447,6 +447,9 @@ jobs:
             -DZ3_ENABLE_EXAMPLE_TARGETS=OFF
           cmake --build build --target libz3 shell
           cmake --install build --prefix "$PWD/install"
+
+      - name: Snapshot the shared-only install
+        run: cp -a install install-shared-only
 
       - name: Reconfigure in-place and build and install static library
         run: |
@@ -513,6 +516,20 @@ jobs:
           -DZ3_TEST_CONFLICTING_COMPONENT=shared
           -DZ3_TEST_EXPECTED_TYPE=STATIC_LIBRARY
           -DCMAKE_PREFIX_PATH=$PWD/install
+          --test-command ctest --output-on-failure
+
+      # Only a shared library is installed here. A consumer that sets
+      # BUILD_SHARED_LIBS=OFF (e.g. to prefer static linking generally)
+      # should still fall back to the shared package that's actually
+      # available rather than failing to find a nonexistent static one.
+      - name: Consume shared-only package with BUILD_SHARED_LIBS=OFF
+        run: >-
+          ctest --build-and-test cmake/tests/package consume-shared-only-fallback
+          --build-generator Ninja
+          --build-options
+          -DBUILD_SHARED_LIBS=OFF
+          -DZ3_TEST_EXPECTED_TYPE=SHARED_LIBRARY
+          -DCMAKE_PREFIX_PATH=$PWD/install-shared-only
           --test-command ctest --output-on-failure
 
   # ============================================================================

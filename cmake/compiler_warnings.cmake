@@ -108,13 +108,6 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${CLANG_WARNINGS_AS_ERRORS})
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   list(APPEND WARNING_FLAGS_TO_CHECK ${MSVC_WARNINGS})
-
-  # CMake's default flags include /W3 already so remove them if
-  # they already exist.
-  if (CMAKE_CXX_FLAGS MATCHES "/W3")
-    string(REPLACE "/W3" "" _cmake_cxx_flags_remove_w3 "${CMAKE_CXX_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${_cmake_cxx_flags_remove_w3}" CACHE STRING "" FORCE)
-  endif()
 else()
   message(AUTHOR_WARNING "Unknown compiler")
 endif()
@@ -159,9 +152,9 @@ set_property(
 if (WARNINGS_AS_ERRORS STREQUAL "ON")
   message(STATUS "Treating compiler warnings as errors")
   if ((CMAKE_CXX_COMPILER_ID MATCHES "Clang") OR (CMAKE_CXX_COMPILER_ID MATCHES "GNU"))
-    list(APPEND Z3_COMPONENT_CXX_FLAGS "-Werror")
+    target_compile_options(z3_internal_options INTERFACE "-Werror")
   elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    list(APPEND Z3_COMPONENT_CXX_FLAGS "/WX")
+    target_compile_options(z3_internal_options INTERFACE "/WX")
   else()
     message(AUTHOR_WARNING "Unknown compiler")
   endif()
@@ -178,7 +171,7 @@ elseif (WARNINGS_AS_ERRORS STREQUAL "OFF")
     # Warnings as errors is off by default for MSVC so setting this
     # is not necessary but this duplicates the behaviour of the old
     # build system.
-    list(APPEND Z3_COMPONENT_CXX_FLAGS "/WX-")
+    target_compile_options(z3_internal_options INTERFACE "/WX-")
   endif()
 else()
   message(FATAL_ERROR

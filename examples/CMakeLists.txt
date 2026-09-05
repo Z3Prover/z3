@@ -13,7 +13,7 @@ else()
   set(EXTERNAL_C_PROJ_USE_CXX_LINKER_ARG "")
 endif()
 
-if (DEFINED CMAKE_CONFIGURATION_TYPES)
+if (Z3_MULTI_CONFIG)
   message(WARNING
     "Cannot set built type of external project when building with a "
     "multi-configuration generator")
