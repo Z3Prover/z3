@@ -18,6 +18,23 @@ Author:
 
 NSB code review:
 
+There is a serious flaw with the mem_split rule. 
+The current implementation collects all membership constraints and creates a split iterator on m_mon.
+All membership constraints are used for this.
+The flaw is that dependencies are not tracked correctly. This leads to unsound behavior.
+The iterator creates a set of branches based on all membership constraints. Infeasible leaves are pruned internally in seq_monadic.
+It could settle on that there are no branches. Then the dependencies for the membership constraints used to show emptiness should be
+added to a conflicting state. 
+It could skip leaves that are infeasible because of intersection constraints. 
+Dependencies for skipped leaves have to be reflected in the justification for closing the sub-tree.
+It is probably better to use monadic decomposition one by one for membership constraint.
+In this case, a single membership constraints (uv) in R with dependency dep is decomposed into new membership constraints u in R_i1, v in R_i2 with dependency d.
+We have to then also check non-emptiness of intersections for x in R_i for variables that are either in the original constraints or end up being produced by the iterator.
+seq-monadic has code internally for checking non-emptiness. It would have to be exposed in a suitable way to also minimize conflict dependencies.
+Say, i add x in R_1 with dep_1, x in R_2 with dep_2, ..., sucn that a prefix is known to have non-empty intersection, then adding x in R_k with dep_k is unsat, we can try to
+throw away other constraints x in R_1, .., x in R_{k-1}.
+
+
 - nice to have: allow reverse live_states from a regex.
   - extend str_mem type to have a "reverse" Boolean flag where regexes are interpreted in a live_states graph that was obtained by reversing a regex.
   - have reversal be decided by the live_states layer to not have it controlled at this level.
