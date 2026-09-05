@@ -144,10 +144,8 @@ namespace {
         tree_t tree;
         stx::facet_id id;
         mk_root(tree, id, &cfg);
-        overshoot_propagation prop(id, &cfg);
-        step_split split(id, &cfg);
-        tree.add_propagation_plugin(&prop);
-        tree.add_split_plugin(&split);
+        tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
+        tree.add_split_plugin(alloc(step_split, id, &cfg));
         tree.set_max_search_depth(10);
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::sat);
@@ -168,10 +166,8 @@ namespace {
         tree_t tree;
         stx::facet_id id;
         mk_root(tree, id, &cfg);
-        overshoot_propagation prop(id, &cfg);
-        step_split split(id, &cfg);
-        tree.add_propagation_plugin(&prop);
-        tree.add_split_plugin(&split);
+        tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
+        tree.add_split_plugin(alloc(step_split, id, &cfg));
         tree.set_max_search_depth(10);
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::unsat);
@@ -186,10 +182,8 @@ namespace {
         tree_t tree;
         stx::facet_id id;
         mk_root(tree, id, &cfg);
-        overshoot_propagation prop(id, &cfg);
-        step_split split(id, &cfg);
-        tree.add_propagation_plugin(&prop);
-        tree.add_split_plugin(&split);
+        tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
+        tree.add_split_plugin(alloc(step_split, id, &cfg));
         tree.set_max_search_depth(2);
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::unknown);
@@ -202,10 +196,8 @@ namespace {
         tree_t tree;
         stx::facet_id id;
         mk_root(tree, id, &cfg);
-        overshoot_propagation prop(id, &cfg);
-        step_split split(id, &cfg);
-        tree.add_propagation_plugin(&prop);
-        tree.add_split_plugin(&split);
+        tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
+        tree.add_split_plugin(alloc(step_split, id, &cfg));
         tree.set_max_search_depth(5);
         stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::sat);
@@ -220,10 +212,8 @@ namespace {
         tree_t tree;
         stx::facet_id id;
         mk_root(tree, id, &cfg);
-        overshoot_propagation prop(id, &cfg);
-        step_split split(id, &cfg);
-        tree.add_propagation_plugin(&prop);
-        tree.add_split_plugin(&split);
+        tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
+        tree.add_split_plugin(alloc(step_split, id, &cfg));
         tree.set_max_search_depth(10);
 
         ENSURE(tree.solve() == stx::search_result::sat);

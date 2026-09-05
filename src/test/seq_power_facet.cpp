@@ -34,23 +34,11 @@ namespace {
         sort*            s;
         seq::eq_tree     tree;
         seq::eq_tree::node* root;
-        seq::arith_sub_solver solver;
+        seq::sub_solver solver;
         stx::facet_id    eq_id;
         stx::facet_id    arith_id;
         stx::facet_id    pow_id;
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
-
-        seq::eq_propagation      eprop;
-        seq::word_eq_split       esplit;
-        seq::arith_propagation   aprop;
-        seq::power_propagation   pprop;
-        seq::power_split         psplit;
-        seq::power_fine_wilf     pfw;
-        seq::power_num_cmp       pnc;
-        seq::power_split_elim    pse;
-        seq::power_var_peel      pvp;
-        seq::power_var_decompose pvd;
-        seq::power_gpower_intro  pgi;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -61,31 +49,23 @@ namespace {
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
             arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
             pow_id(tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr())),
-            ac(m, u),
-            eprop(m, u), esplit(m, u), aprop(m, u),
-            pprop(m, u, a), psplit(m, u, a),
-            pfw(m, u, a),
-            pnc(m, u, a),
-            pse(m, u, a),
-            pvp(m, u, a),
-            pvd(m, u, a),
-            pgi(m, u, a)
+            ac(m, u)
         {
             ac.set_eq_id(eq_id);
             ac.set_arith_id(arith_id);
             ac.set_pow_id(pow_id);
             tree.set_ambient_context(&ac);
-            tree.add_propagation_plugin(&eprop);
-            tree.add_propagation_plugin(&aprop);
-            tree.add_propagation_plugin(&pprop);
-            tree.add_split_plugin(&psplit);
-            tree.add_split_plugin(&pfw);
-            tree.add_split_plugin(&pnc);
-            tree.add_split_plugin(&pse);
-            tree.add_split_plugin(&pvp);
-            tree.add_split_plugin(&pvd);
-            tree.add_split_plugin(&pgi);
-            tree.add_split_plugin(&esplit);
+            tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+            tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+            tree.add_propagation_plugin(alloc(seq::power_propagation, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_split, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_fine_wilf, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_num_cmp, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_split_elim, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_var_peel, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_var_decompose, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_gpower_intro, m, u, a));
+            tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
             tree.set_max_search_depth(20);
         }
     };

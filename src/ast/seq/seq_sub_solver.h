@@ -17,7 +17,7 @@ Abstract:
     dependency direction would create a cycle).
 
     `arith_facet` (smt/seq_solver_facet.h) is the only concrete consumer
-    that owns/constructs a `sub_solver_i` instance (via `arith_sub_solver`);
+    that owns/constructs a `sub_solver_i` instance (via `sub_solver`);
     ast/seq facets such as `ncontains_facet`/`power_facet` only ever see
     `arith_facet` referenced by id through `stx::node::facet_as<>`, so
     they do not even need this header directly for that - but they do

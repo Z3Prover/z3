@@ -13,9 +13,9 @@ Abstract:
     `theory_seq`'s own bound-query methods.
 
     `is_var` is inherited as-is from `ambient_context_i` (concrete,
-    non-virtual: `!u.str.is_power(e) && !u.str.is_unit(e) && !m.is_ite(e)`);
-    this class only supplies the base's `(ast_manager&, seq_util&)`
-    constructor arguments from the live `theory_seq`.
+    non-virtual: `!u.str.is_power(e) && !u.str.is_unit(e)`); this class
+    only supplies the base's `(ast_manager&, seq_util&)` constructor
+    arguments from the live `theory_seq`.
 
 Author:
 
@@ -35,7 +35,7 @@ namespace seq {
      * `theory_seq::lower_bound`/`upper_bound` do not currently return a
      * supporting justification (they are `const`, model-value-style
      * queries over the arithmetic theory), so - like
-     * `arith_sub_solver::implies` (smt/seq_solver_facet.cpp) folding a
+     * `sub_solver::implies` (smt/seq_solver_facet.cpp) folding a
      * whole unsat core into one dependency - bounds obtained this way are
      * reported with a `nullptr` dependency (an unconditional fact of the
      * ambient arithmetic theory's current state, not itself contingent on

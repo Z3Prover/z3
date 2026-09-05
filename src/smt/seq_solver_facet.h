@@ -96,7 +96,7 @@ namespace seq {
      * so that repeated add/pop cycles across DFS sibling branches do not
      * leak ever-growing vectors.
      */
-    class arith_sub_solver : public sub_solver_i {
+    class sub_solver : public sub_solver_i {
         ast_manager&              m;
         solver*                   m_solver; // owned
         expr_ref_vector           m_assump_lits;   // assumption exprs; reused, only grows
@@ -107,8 +107,8 @@ namespace seq {
         eq_tree::dep_tracker      m_last_core = nullptr;
 
     public:
-        arith_sub_solver(ast_manager& m, arith_util& a, eq_tree::dep_manager_t& core_dep_mgr);
-        ~arith_sub_solver() override;
+        sub_solver(ast_manager& m, arith_util& a, eq_tree::dep_manager_t& core_dep_mgr);
+        ~sub_solver() override;
 
         void assert_expr(expr* e, eq_tree::dep_tracker dep = nullptr) override;
         void push() override;
@@ -121,7 +121,7 @@ namespace seq {
     /**
      * Facet holding this node's own newly-added length constraints (over
      * and above whatever its ancestors already pushed into the shared
-     * `arith_sub_solver`). Since nodes in `stx::search_tree` are
+     * `sub_solver`). Since nodes in `stx::search_tree` are
      * immutable/persistent (a child is a clone of its parent plus one
      * incremental change), a fresh `solver_facet` clone's own constraint
      * vector naturally holds exactly the constraints *this* node adds -

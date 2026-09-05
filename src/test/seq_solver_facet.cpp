@@ -47,8 +47,8 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
-        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
@@ -59,12 +59,9 @@ namespace {
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, ab);
         root->facet_as<seq::solver_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(3)));
 
-        seq::eq_propagation eprop(m, u);
-        seq::word_eq_split esplit(m, u);
-        seq::arith_propagation aprop(m, u);
-        tree.add_propagation_plugin(&eprop);
-        tree.add_propagation_plugin(&aprop);
-        tree.add_split_plugin(&esplit);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
         tree.set_max_search_depth(8);
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
@@ -91,8 +88,8 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
-        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
@@ -102,12 +99,9 @@ namespace {
 
         root->facet_as<seq::eq_facet>(eq_id).add_equation(lhs, rhs);
 
-        seq::eq_propagation eprop(m, u);
-        seq::word_eq_split esplit(m, u);
-        seq::arith_propagation aprop(m, u);
-        tree.add_propagation_plugin(&eprop);
-        tree.add_propagation_plugin(&aprop);
-        tree.add_split_plugin(&esplit);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
         tree.set_max_search_depth(8);
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
@@ -129,8 +123,8 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
-        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
@@ -141,12 +135,9 @@ namespace {
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, ab);
         root->facet_as<seq::solver_facet>(arith_id).add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(2)));
 
-        seq::eq_propagation eprop(m, u);
-        seq::word_eq_split esplit(m, u);
-        seq::arith_propagation aprop(m, u);
-        tree.add_propagation_plugin(&eprop);
-        tree.add_propagation_plugin(&aprop);
-        tree.add_split_plugin(&esplit);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
         tree.set_max_search_depth(8);
         ENSURE(tree.solve() == stx::search_result::sat);
     }

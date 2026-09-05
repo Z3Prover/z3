@@ -40,10 +40,8 @@ namespace {
         ac.set_eq_id(id);
         tree.set_ambient_context(&ac);
 
-        seq::eq_propagation prop(m, u);
-        seq::word_eq_split split(m, u);
-        tree.add_propagation_plugin(&prop);
-        tree.add_split_plugin(&split);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
 
         tree.set_max_search_depth(max_depth);
         return tree.solve();
@@ -107,10 +105,8 @@ namespace {
         ac.set_eq_id(id);
         tree.set_ambient_context(&ac);
 
-        seq::eq_propagation prop(m, u);
-        seq::word_eq_split split(m, u);
-        tree.add_propagation_plugin(&prop);
-        tree.add_split_plugin(&split);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
         tree.set_max_search_depth(12);
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
@@ -145,8 +141,7 @@ namespace {
         ac.set_deq_id(id);
         tree.set_ambient_context(&ac);
 
-        seq::deq_propagation dprop(m, u);
-        tree.add_propagation_plugin(&dprop);
+        tree.add_propagation_plugin(alloc(seq::deq_propagation, m, u));
         tree.set_max_search_depth(4);
         ENSURE(tree.solve() == stx::search_result::sat);
     }
@@ -169,8 +164,7 @@ namespace {
         ac.set_deq_id(id);
         tree.set_ambient_context(&ac);
 
-        seq::deq_propagation dprop(m, u);
-        tree.add_propagation_plugin(&dprop);
+        tree.add_propagation_plugin(alloc(seq::deq_propagation, m, u));
         tree.set_max_search_depth(4);
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
@@ -201,12 +195,9 @@ namespace {
         ac.set_deq_id(deq_id);
         tree.set_ambient_context(&ac);
 
-        seq::eq_propagation eprop(m, u);
-        seq::word_eq_split esplit(m, u);
-        seq::deq_propagation dprop(m, u);
-        tree.add_propagation_plugin(&eprop);
-        tree.add_propagation_plugin(&dprop);
-        tree.add_split_plugin(&esplit);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::deq_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
         tree.set_max_search_depth(12);
         ENSURE(tree.solve() == stx::search_result::sat);
     }
@@ -314,7 +305,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         root->facet_as<seq::eq_facet>(eq_id).add_equation(lhs, rhs);
@@ -324,14 +315,10 @@ namespace {
         ac.set_arith_id(arith_id);
         tree.set_ambient_context(&ac);
 
-        seq::eq_propagation eprop(m, u);
-        seq::word_eq_split esplit(m, u);
-        seq::arith_propagation aprop(m, u);
-        seq::eq_split split(m, u);
-        tree.add_propagation_plugin(&eprop);
-        tree.add_propagation_plugin(&aprop);
-        tree.add_split_plugin(&esplit);
-        tree.add_split_plugin(&split);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
+        tree.add_split_plugin(alloc(seq::eq_split, m, u));
         tree.set_max_search_depth(20);
         ENSURE(tree.solve() == stx::search_result::sat);
     }
@@ -360,7 +347,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
@@ -372,18 +359,12 @@ namespace {
         ac.set_deq_id(deq_id);
         tree.set_ambient_context(&ac);
 
-        seq::eq_propagation eprop(m, u);
-        seq::arith_propagation aprop(m, u);
-        seq::deq_propagation dprop(m, u);
-        seq::word_eq_split esplit(m, u);
-        seq::eq_split split(m, u);
-        seq::deq_split dsplit(m, u);
-        tree.add_propagation_plugin(&eprop);
-        tree.add_propagation_plugin(&aprop);
-        tree.add_propagation_plugin(&dprop);
-        tree.add_split_plugin(&esplit);
-        tree.add_split_plugin(&split);
-        tree.add_split_plugin(&dsplit);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::deq_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
+        tree.add_split_plugin(alloc(seq::eq_split, m, u));
+        tree.add_split_plugin(alloc(seq::deq_split, m, u));
         tree.set_max_search_depth(20);
         ENSURE(tree.solve() == stx::search_result::sat);
     }
@@ -403,7 +384,7 @@ namespace {
 
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
@@ -415,18 +396,12 @@ namespace {
         ac.set_deq_id(deq_id);
         tree.set_ambient_context(&ac);
 
-        seq::eq_propagation eprop(m, u);
-        seq::arith_propagation aprop(m, u);
-        seq::deq_propagation dprop(m, u);
-        seq::word_eq_split esplit(m, u);
-        seq::eq_split split(m, u);
-        seq::deq_split dsplit(m, u);
-        tree.add_propagation_plugin(&eprop);
-        tree.add_propagation_plugin(&aprop);
-        tree.add_propagation_plugin(&dprop);
-        tree.add_split_plugin(&esplit);
-        tree.add_split_plugin(&split);
-        tree.add_split_plugin(&dsplit);
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::deq_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
+        tree.add_split_plugin(alloc(seq::eq_split, m, u));
+        tree.add_split_plugin(alloc(seq::deq_split, m, u));
         tree.set_max_search_depth(20);
         ENSURE(tree.solve() == stx::search_result::unsat);
     }

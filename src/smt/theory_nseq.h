@@ -102,7 +102,7 @@ namespace smt {
 
         seq::eq_tree                     m_tree;
         seq::eq_tree::node*              m_root = nullptr;
-        seq::arith_sub_solver             m_solver;
+        seq::sub_solver             m_solver;
         scoped_ptr<seq::theory_nseq_ambient_context> m_ambient;
 
         stx::facet_id m_eq_id = 0;
@@ -112,21 +112,15 @@ namespace smt {
         stx::facet_id m_mem_id = 0;
         stx::facet_id m_nc_id = 0;
 
-        // propagation plugins (priority 1-ish, deterministic; order among
-        // these does not matter to `stx::search_tree`, which runs
-        // propagation to fixpoint before ever consulting a split plugin).
-        seq::eq_propagation          m_eq_prop;
-        seq::deq_propagation         m_deq_prop;
-        seq::arith_propagation       m_arith_prop;
-        seq::power_propagation       m_pow_prop;
-        seq::mem_propagation         m_mem_prop;
-        seq::mem_bounds_propagation  m_mem_bounds_prop;
-        seq::ncontains_propagation   m_nc_prop;
-
-        // split plugins, members so `add_split_plugin` pointers stay valid
-        // across final checks; registration order (in the constructor)
-        // mirrors the priority order of `nielsen_graph::generate_extensions`
-        // (seq_nielsen_search.cpp) for every plugin that has a current analog:
+        // Propagation and split plugins are no longer stored as members:
+        // `stx::search_tree::add_propagation_plugin`/`add_split_plugin`
+        // now take ownership of a heap-allocated plugin (stored in the
+        // tree's own `scoped_ptr_vector`s, deallocated with the tree), so
+        // the constructor allocates each with `alloc(...)` and hands it
+        // straight to the tree - see theory_nseq.cpp. Registration order
+        // (in the constructor) mirrors the priority order of
+        // `nielsen_graph::generate_extensions` (seq_nielsen_search.cpp)
+        // for every plugin that has a current analog:
         //   priority 2   apply_power_epsilon        -> (folded into power_propagation)
         //   (refutation gate)  seq_eq_approx (view-segment intersection) -> eq_approx_split
         //   (refutation gate)  seq_parikh (length/period feasibility)    -> mem_parikh_split
@@ -144,20 +138,7 @@ namespace smt {
         //   priority 12  apply_var_nielsen            -> word_eq_split (var/var)
         //   (disequality unwinding)                   -> deq_split
         //   (membership power peel)                   -> power_var_peel_mem
-        seq::eq_approx_split      m_eq_approx_split;
-        seq::mem_parikh_split     m_mem_parikh_split;
-        seq::power_num_cmp        m_pow_num_cmp;
-        seq::power_split_elim     m_pow_split_elim;
-        seq::power_fine_wilf      m_pow_fine_wilf;
-        seq::power_var_peel       m_pow_var_peel;
-        seq::eq_split             m_eq_split;
-        seq::mem_monadic_split    m_mem_monadic_split;
-        seq::power_gpower_intro   m_pow_gpower_intro;
-        seq::word_eq_split        m_word_eq_split;
-        seq::power_split          m_pow_split;
-        seq::power_var_decompose  m_pow_var_decompose;
-        seq::power_var_peel_mem   m_pow_var_peel_mem;
-        seq::deq_split            m_deq_split;
+
 
         // pending-assertion queue, drained into the tree at final_check_eh.
         struct eq_item   { enode* n1, *n2; };

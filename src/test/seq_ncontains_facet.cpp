@@ -34,16 +34,11 @@ namespace {
         sort*            s;
         seq::eq_tree     tree;
         seq::eq_tree::node* root;
-        seq::arith_sub_solver solver;
+        seq::sub_solver solver;
         stx::facet_id    eq_id;
         stx::facet_id    arith_id;
         stx::facet_id    nc_id;
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
-
-        seq::eq_propagation      eprop;
-        seq::word_eq_split       esplit;
-        seq::arith_propagation   aprop;
-        seq::ncontains_propagation ncprop;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -54,18 +49,16 @@ namespace {
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
             arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
             nc_id(tree.register_facet<seq::ncontains_facet>(*root, m, u, tree.dep_mgr())),
-            ac(m, u),
-            eprop(m, u), esplit(m, u), aprop(m, u),
-            ncprop(m, u, a)
+            ac(m, u)
         {
             ac.set_eq_id(eq_id);
             ac.set_arith_id(arith_id);
             ac.set_ncontains_id(nc_id);
             tree.set_ambient_context(&ac);
-            tree.add_propagation_plugin(&eprop);
-            tree.add_propagation_plugin(&aprop);
-            tree.add_propagation_plugin(&ncprop);
-            tree.add_split_plugin(&esplit);
+            tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+            tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+            tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, u, a));
+            tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
             tree.set_max_search_depth(12);
         }
     };

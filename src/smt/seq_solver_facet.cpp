@@ -21,19 +21,19 @@ Author:
 
 namespace seq {
 
-    // -- arith_sub_solver --
+    // -- sub_solver --
 
-    arith_sub_solver::arith_sub_solver(ast_manager& m, arith_util&, eq_tree::dep_manager_t& core_dep_mgr) :
+    sub_solver::sub_solver(ast_manager& m, arith_util&, eq_tree::dep_manager_t& core_dep_mgr) :
         m(m), m_assump_lits(m), m_core_dep_mgr(core_dep_mgr) {
         params_ref p;
         m_solver = mk_smt_solver(m, p, symbol("QF_LIA"));
     }
 
-    arith_sub_solver::~arith_sub_solver() {
+    sub_solver::~sub_solver() {
         dealloc(m_solver);
     }
 
-    void arith_sub_solver::assert_expr(expr* e, eq_tree::dep_tracker dep) {
+    void sub_solver::assert_expr(expr* e, eq_tree::dep_tracker dep) {
         if (!dep) {
             m_solver->assert_expr(e);
             return;
@@ -51,12 +51,12 @@ namespace seq {
         m_deps.push_back(dep);
     }
 
-    void arith_sub_solver::push() {
+    void sub_solver::push() {
         m_solver->push();
         m_frame_bounds.push_back(m_deps.size());
     }
 
-    void arith_sub_solver::pop(unsigned n) {
+    void sub_solver::pop(unsigned n) {
         SASSERT(n <= m_frame_bounds.size());
         unsigned target = m_frame_bounds[m_frame_bounds.size() - n];
         m_deps.shrink(target);
@@ -65,11 +65,11 @@ namespace seq {
         m_solver->pop(n);
     }
 
-    unsigned arith_sub_solver::get_scope_level() const {
+    unsigned sub_solver::get_scope_level() const {
         return m_solver->get_scope_level();
     }
 
-    lbool arith_sub_solver::check() {
+    lbool sub_solver::check() {
         // do NOT reset m_core_dep_mgr here: the returned dep_tracker tree
         // may outlive this call (e.g. solver_facet::conflict_dep() is read
         // after check() returns); it is only reset by the arena's own

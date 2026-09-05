@@ -32,11 +32,6 @@ namespace {
         stx::facet_id    mem_id;
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
 
-        seq::eq_propagation   eprop;
-        seq::word_eq_split    esplit;
-        seq::mem_propagation  mprop;
-        seq::mem_monadic_split msplit;
-
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
         fixture() :
@@ -44,18 +39,15 @@ namespace {
             root(tree.mk_root()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
             mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr())),
-            ac(m, u),
-            eprop(m, u), esplit(m, u),
-            mprop(m, u, rw, live),
-            msplit(m, u, rw, trail)
+            ac(m, u)
         {
             ac.set_eq_id(eq_id);
             ac.set_mem_id(mem_id);
             tree.set_ambient_context(&ac);
-            tree.add_propagation_plugin(&eprop);
-            tree.add_propagation_plugin(&mprop);
-            tree.add_split_plugin(&msplit);
-            tree.add_split_plugin(&esplit);
+            tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+            tree.add_propagation_plugin(alloc(seq::mem_propagation, m, u, rw, live));
+            tree.add_split_plugin(alloc(seq::mem_monadic_split, m, u, rw, trail));
+            tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
             tree.set_max_search_depth(12);
         }
     };
@@ -135,7 +127,7 @@ namespace {
         {
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id pow_id = tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr());
         stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr());
@@ -150,10 +142,10 @@ namespace {
         root->facet_as<seq::power_facet>(pow_id).add_power(pow, one_a, N);
         root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(m, term, seq::view::membership(re)));
 
-        seq::power_var_peel_mem pvpm(m, u, a);
         tree.trail().push_scope();
         seq::eq_tree::edge out;
         bool has_more = false, committed = false;
+        seq::power_var_peel_mem pvpm(m, u, a);
         auto it = pvpm.split(*root, 0, out, has_more, committed);
         ENSURE(committed && has_more && it.get() != nullptr);
 
@@ -175,7 +167,7 @@ namespace {
         {
         seq::eq_tree tree;
         auto* root = tree.mk_root();
-        seq::arith_sub_solver solver(m, a, tree.dep_mgr());
+        seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id pow_id = tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr());
         stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr());
@@ -190,10 +182,10 @@ namespace {
         root->facet_as<seq::power_facet>(pow_id).add_power(pow, one_a, N);
         root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(m, term, seq::view::membership(re)));
 
-        seq::power_var_peel_mem pvpm(m, u, a);
         tree.trail().push_scope();
         seq::eq_tree::edge out;
         bool has_more = false, committed = false;
+        seq::power_var_peel_mem pvpm(m, u, a);
         auto it = pvpm.split(*root, 0, out, has_more, committed);
         ENSURE(committed && it.get() != nullptr);
         tree.trail().pop_scope(1);

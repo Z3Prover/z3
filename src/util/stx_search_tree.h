@@ -57,6 +57,7 @@ Author:
 #include "util/dependency.h"
 #include "util/trail.h"
 #include "util/statistics.h"
+#include "util/scoped_ptr_vector.h"
 #include <string>
 #include <memory>
 #include <algorithm>
@@ -529,8 +530,8 @@ namespace stx {
         };
 
         unsigned                              m_next_facet_id = 0;
-        ptr_vector<propagation_plugin_i>       m_prop_plugins;  // not owned
-        ptr_vector<split_plugin_i>             m_split_plugins; // not owned
+        scoped_ptr_vector<propagation_plugin_i> m_prop_plugins;  // owned
+        scoped_ptr_vector<split_plugin_i>       m_split_plugins; // owned
         scoped_ptr<node>                      m_root;
         trail_stack                            m_trail;
         unsigned                               m_max_search_depth = 1000;

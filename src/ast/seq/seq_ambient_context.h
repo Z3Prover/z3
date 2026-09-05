@@ -25,7 +25,7 @@ Abstract:
         `theory_seq`/`arith_value`) is responsible for converting
         whatever literals/equalities it consulted into one
         `dep_tracker` (via its own `dep_manager_t`), exactly as
-        `arith_sub_solver` already converts assumption literals into
+        `sub_solver` already converts assumption literals into
         dependencies today (`seq_solver_facet.cpp`).
       - It adds `is_var(expr*)`, replacing the c3 branch's
         `euf::snode::is_var()` (a node in the old `sgraph`/Nielsen-graph
@@ -57,6 +57,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "util/stx_search_tree.h"
+#include "util/obj_hashtable.h"
 
 namespace seq {
 
@@ -168,6 +169,97 @@ namespace seq {
         // so every concrete `ambient_context_i` shares exactly the same
         // notion of "variable" and none can silently diverge.
         bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e); }
+
+    private:
+        // Reverse map from a purification-introduced fresh variable back
+        // to the original (compound) expression it stands in for, so a
+        // model built over purified variables can later be reconstructed
+        // in terms of the caller's original terms. `m_purify_pin` keeps
+        // both the fresh variables and the original expressions
+        // reference-counted for the lifetime of this ambient context;
+        // this map is intentionally not trailed/undone on backtracking -
+        // purification is a once-per-search normalization (an identity
+        // fixed the first time a given compound term is purified), not a
+        // search decision.
+        obj_map<expr, expr*> m_purify_map;
+        expr_ref_vector       m_purify_pin{ m };
+
+        expr* mk_purify_fresh(expr* orig) {
+            expr* fresh = m.mk_fresh_const("t", orig->get_sort());
+            m_purify_pin.push_back(fresh);
+            m_purify_pin.push_back(orig);
+            m_purify_map.insert(fresh, orig);
+            return fresh;
+        }
+
+        // Purify the arithmetic expression `n`: keep `+`/`-`/`*`/numerals
+        // (and any other arithmetic-family application) structurally
+        // intact, but replace every sub-term that is not itself an
+        // arithmetic-family application with a fresh constant of its
+        // sort - e.g. `str.len(x) + 1` purifies to `t + 1` where `t` maps
+        // back to `str.len(x)`.
+        expr_ref purify_arith(expr* n) {
+            arith_util a(m);
+            if (!a.is_arith_expr(n))
+                return expr_ref(mk_purify_fresh(n), m);
+            app* t = to_app(n);
+            expr_ref_vector args(m);
+            bool changed = false;
+            for (expr* arg : *t) {
+                expr_ref parg = purify_arith(arg);
+                changed |= parg.get() != arg;
+                args.push_back(parg);
+            }
+            if (!changed)
+                return expr_ref(n, m);
+            return expr_ref(m.mk_app(t->get_decl(), args.size(), args.data()), m);
+        }
+
+        // Purify a single token from `get_concat_units` - a unit or an
+        // uninterpreted constant is left as-is; a power term `s^n` is
+        // purified recursively (both `s` and `n`); anything else
+        // (compound term) is replaced by a fresh variable of the same
+        // sort, with the substitution recorded in `m_purify_map`.
+        expr_ref purify_token(expr* tok) {
+            expr *s = nullptr, *n = nullptr;
+            if (u.str.is_unit(tok) || is_uninterp_const(tok))
+                return expr_ref(tok, m);
+            if (u.str.is_power(tok, s, n)) {
+                expr_ref s_pure = purify_seq(s);
+                expr_ref n_pure = purify_arith(n);
+                return expr_ref(u.str.mk_power(s_pure, n_pure), m);
+            }
+            return expr_ref(mk_purify_fresh(tok), m);
+        }
+
+    protected:
+        // Purify a sequence-sorted expression `e`: flatten it into
+        // concat tokens (`get_concat_units`), purify each token
+        // (`purify_token`), and rebuild the purified sequence via
+        // `mk_concat`. Fresh variables introduced along the way are
+        // recorded in the reverse map (`purify_lookup`) for later model
+        // reconstruction.
+        expr_ref purify_seq(expr* e) {
+            expr_ref_vector tokens(m);
+            u.str.get_concat_units(e, tokens);
+            expr_ref_vector pure_tokens(m);
+            for (expr* tok : tokens)
+                pure_tokens.push_back(purify_token(tok));
+            return expr_ref(u.str.mk_concat(pure_tokens, e->get_sort()), m);
+        }
+
+    public:
+        // Purify `e` (a sequence-sorted expression) - see `purify_seq`.
+        // Public entry point for callers outside this class (facets/
+        // plugins under ast/seq, or theory_nseq's population path).
+        expr_ref purify(expr* e) { return purify_seq(e); }
+
+        // Look up the original expression a purification fresh variable
+        // `fresh` stands in for, if any. Returns false (leaving
+        // `orig` untouched) if `fresh` was not introduced by `purify`.
+        bool purify_lookup(expr* fresh, expr*& orig) const {
+            return m_purify_map.find(fresh, orig);
+        }
 
         // Best current lower/upper bound on the (integer/arithmetic)
         // value of `e` known to the ambient context (e.g. `str.len` of a

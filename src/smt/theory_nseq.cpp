@@ -29,28 +29,7 @@ namespace smt {
         m_arith_value(m),
         m_live(m_rewriter),
         m_root(m_tree.mk_root()),
-        m_solver(m, m_autil, m_tree.dep_mgr()),
-        m_eq_prop(m, m_seq),
-        m_deq_prop(m, m_seq),
-        m_arith_prop(m, m_seq),
-        m_pow_prop(m, m_seq, m_autil),
-        m_mem_prop(m, m_seq, m_rewriter, m_live),
-        m_mem_bounds_prop(m, m_seq, m_autil, m_tree.trail()),
-        m_nc_prop(m, m_seq, m_autil),
-        m_eq_approx_split(m, m_seq, m_rewriter),
-        m_mem_parikh_split(m, m_seq),
-        m_pow_num_cmp(m, m_seq, m_autil),
-        m_pow_split_elim(m, m_seq, m_autil),
-        m_pow_fine_wilf(m, m_seq, m_autil),
-        m_pow_var_peel(m, m_seq, m_autil),
-        m_eq_split(m, m_seq),
-        m_mem_monadic_split(m, m_seq, m_rewriter, m_tree.trail()),
-        m_pow_gpower_intro(m, m_seq, m_autil),
-        m_word_eq_split(m, m_seq),
-        m_pow_split(m, m_seq, m_autil),
-        m_pow_var_decompose(m, m_seq, m_autil),
-        m_pow_var_peel_mem(m, m_seq, m_autil),
-        m_deq_split(m, m_seq)
+        m_solver(m, m_autil, m_tree.dep_mgr())
     {
         m_eq_id = m_tree.register_facet<seq::eq_facet>(*m_root, m, m_seq, m_tree.dep_mgr());
         m_deq_id = m_tree.register_facet<seq::deq_facet>(*m_root, m, m_seq, m_tree.dep_mgr());
@@ -70,32 +49,36 @@ namespace smt {
 
         // deterministic propagation plugins (order among these does not
         // matter: the engine iterates every propagation plugin to
-        // fixpoint before ever consulting a split plugin).
-        m_tree.add_propagation_plugin(&m_eq_prop);
-        m_tree.add_propagation_plugin(&m_deq_prop);
-        m_tree.add_propagation_plugin(&m_arith_prop);
-        m_tree.add_propagation_plugin(&m_pow_prop);
-        m_tree.add_propagation_plugin(&m_mem_prop);
-        m_tree.add_propagation_plugin(&m_mem_bounds_prop);
-        m_tree.add_propagation_plugin(&m_nc_prop);
+        // fixpoint before ever consulting a split plugin). Each plugin
+        // is heap-allocated and handed to `m_tree`, which owns it from
+        // here on (stored in its own `scoped_ptr_vector`, deallocated
+        // with the tree) - see stx_search_tree.h's
+        // `add_propagation_plugin`/`add_split_plugin`.
+        m_tree.add_propagation_plugin(alloc(seq::eq_propagation, m, m_seq));
+        m_tree.add_propagation_plugin(alloc(seq::deq_propagation, m, m_seq));
+        m_tree.add_propagation_plugin(alloc(seq::arith_propagation, m, m_seq));
+        m_tree.add_propagation_plugin(alloc(seq::power_propagation, m, m_seq, m_autil));
+        m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter, m_live));
+        m_tree.add_propagation_plugin(alloc(seq::mem_bounds_propagation, m, m_seq, m_autil, m_tree.trail()));
+        m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
 
         // split plugins: registration order mirrors the priority order of
         // the c3 branch's nielsen_graph::generate_extensions (see
         // theory_nseq.h's module comment for the mapping table).
-        m_tree.add_split_plugin(&m_eq_approx_split);
-        m_tree.add_split_plugin(&m_mem_parikh_split);
-        m_tree.add_split_plugin(&m_pow_num_cmp);
-        m_tree.add_split_plugin(&m_pow_split_elim);
-        m_tree.add_split_plugin(&m_pow_fine_wilf);
-        m_tree.add_split_plugin(&m_pow_var_peel);
-        m_tree.add_split_plugin(&m_eq_split);
-        m_tree.add_split_plugin(&m_mem_monadic_split);
-        m_tree.add_split_plugin(&m_pow_gpower_intro);
-        m_tree.add_split_plugin(&m_word_eq_split);
-        m_tree.add_split_plugin(&m_pow_split);
-        m_tree.add_split_plugin(&m_pow_var_decompose);
-        m_tree.add_split_plugin(&m_pow_var_peel_mem);
-        m_tree.add_split_plugin(&m_deq_split);
+        m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));
+        m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
+        m_tree.add_split_plugin(alloc(seq::power_num_cmp, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_var_peel, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
+        m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, m_tree.trail()));
+        m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
+        m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_var_decompose, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_var_peel_mem, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
 
         m_tree.set_max_search_depth(30);
     }
