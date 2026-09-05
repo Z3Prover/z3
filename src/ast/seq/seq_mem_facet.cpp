@@ -388,16 +388,10 @@ namespace seq {
             return false;
         auto& mf = get_ambient(m_n).mem_facet_ref();
         bool changed = false;
-        // seq_monadic's solution is keyed per VARIABLE (m_vars/m_groups),
-        // not by a membership's whole (possibly multi-variable) string
-        // term, so a membership whose flattened string is a single token
-        // is narrowed in place, while a genuine multi-variable
-        // concatenation (e.g. x.y in R) is replaced by one single-token
-        // membership per variable, each carrying the view seq_monadic
-        // committed that variable to.
 
-        vector<str_mem> mems(mf.memberships());
-                
+        // NSB code review: dependencies are not tracked narrowly across seq_monadic
+        // and these constraints. We would like seq_monadic to track dependencies 
+        // on its own so a solution is a vector of view x dependency pairs.
         for (unsigned i = mf.memberships().size(); i-- > 0; ) {
             auto const& sm = mf.memberships()[i];
             bool all_found = all_of(sm.m_str, [&](expr* t) { return u.str.is_unit(t) || sol.contains(t); });
@@ -411,8 +405,8 @@ namespace seq {
                     continue;
                 for (auto const & view : sol[t]) {
                      expr_ref_vector ts(m);
-                    ts.push_back(t);
-                    mf.add(str_mem(m, ts, view, dep));
+                     ts.push_back(t);
+                     mf.add(str_mem(m, ts, view, dep));
                 }
             }
             changed = true;
