@@ -111,9 +111,31 @@ static void test_to_sbv_mpq() {
     ENSURE(fm.mpq_manager().is_zero(r));
 }
 
+static void test_fma_small_precision() {
+    mpf_manager fm;
+    scoped_mpf x(fm), y(fm), z(fm), result(fm);
+
+    for (unsigned sbits = 2; sbits < 4; ++sbits) {
+        fm.set(x, 3, sbits, 1.0);
+        fm.set(y, 3, sbits, 1.0);
+        fm.mk_pzero(3, sbits, z);
+        fm.fma(MPF_ROUND_NEAREST_TEVEN, x, y, z, result);
+        ENSURE(fm.to_double(result) == 1.0);
+
+        fm.set(z, 3, sbits, 1.0);
+        fm.fma(MPF_ROUND_NEAREST_TEVEN, x, y, z, result);
+        ENSURE(fm.to_double(result) == 2.0);
+
+        fm.set(z, 3, sbits, -1.0);
+        fm.fma(MPF_ROUND_NEAREST_TEVEN, x, y, z, result);
+        ENSURE(fm.is_pzero(result));
+    }
+}
+
 void tst_mpf() {
     // enable_trace("mpf_mul_bug");
     bug_set_int();
     bug_set_double();
     test_to_sbv_mpq();
+    test_fma_small_precision();
 }
