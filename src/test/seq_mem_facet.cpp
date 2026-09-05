@@ -36,6 +36,7 @@ namespace {
 
         fixture() :
             u((init_plugins(m), m)), rw(m), live(rw, seq::transition_mode::brzozowski_tm),
+            tree(trail, m.limit()),
             root(tree.mk_root()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
             mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr())),
@@ -125,7 +126,8 @@ namespace {
 
         // n = 0 branch: split() commits it immediately.
         {
-        seq::eq_tree tree;
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
         auto* root = tree.mk_root();
         seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
@@ -165,7 +167,8 @@ namespace {
         // commits branch 1) then iterator::next() (branch 2), and check
         // branch 2's own splice result independently.
         {
-        seq::eq_tree tree;
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
         auto* root = tree.mk_root();
         seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);

@@ -28,24 +28,20 @@ namespace smt {
         m_rewriter(m),
         m_arith_value(m),
         m_live(m_rewriter),
+        m_pin(m),
+        m_tree(ctx.get_trail_stack(), m.limit()),
         m_root(m_tree.mk_root()),
         m_solver(m, m_autil, m_tree.dep_mgr())
     {
-        m_eq_id = m_tree.register_facet<seq::eq_facet>(*m_root, m, m_seq, m_tree.dep_mgr());
-        m_deq_id = m_tree.register_facet<seq::deq_facet>(*m_root, m, m_seq, m_tree.dep_mgr());
-        m_arith_id = m_tree.register_facet<seq::solver_facet>(*m_root, m, m_seq, m_solver);
-        m_pow_id = m_tree.register_facet<seq::power_facet>(*m_root, m, m_seq, m_autil, m_tree.dep_mgr());
-        m_mem_id = m_tree.register_facet<seq::mem_facet>(*m_root, m, m_seq, m_tree.dep_mgr());
-        m_nc_id = m_tree.register_facet<seq::ncontains_facet>(*m_root, m, m_seq, m_tree.dep_mgr());
-
         m_ambient = alloc(seq::theory_nseq_ambient_context, *this);
-        m_ambient->set_eq_id(m_eq_id);
-        m_ambient->set_deq_id(m_deq_id);
-        m_ambient->set_arith_id(m_arith_id);
-        m_ambient->set_pow_id(m_pow_id);
-        m_ambient->set_mem_id(m_mem_id);
-        m_ambient->set_ncontains_id(m_nc_id);
         m_tree.set_ambient_context(m_ambient.get());
+
+        m_tree.register_facet_bound<seq::eq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_eq_id(id); }, m, m_seq, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::deq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_deq_id(id); }, m, m_seq, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::solver_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_arith_id(id); }, m, m_seq, m_solver);
+        m_tree.register_facet_bound<seq::power_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_pow_id(id); }, m, m_seq, m_autil, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());
 
         // deterministic propagation plugins (order among these does not
         // matter: the engine iterates every propagation plugin to
@@ -207,7 +203,7 @@ namespace smt {
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr_ref_vector lhs = m_ambient->purify(eq.n1->get_expr());
                 expr_ref_vector rhs = m_ambient->purify(eq.n2->get_expr());
-                m_root->facet_as<seq::eq_facet>(m_eq_id).add_equation(lhs, rhs, dep);
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
             else if (std::holds_alternative<deq_item>(item)) {
                 auto const& deq = std::get<deq_item>(item);
@@ -215,16 +211,20 @@ namespace smt {
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr_ref_vector lhs = m_ambient->purify(deq.n1->get_expr());
                 expr_ref_vector rhs = m_ambient->purify(deq.n2->get_expr());
-                m_root->facet_as<seq::deq_facet>(m_deq_id).add_disequation(lhs, rhs, dep);
+                m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
             }
             else {
                 auto const& mem = std::get<mem_item>(item);
                 unsigned idx = mk_dep(assumption(mem.positive ? mem.lit : ~mem.lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* re = mem.positive ? mem.re->get_expr() : m_seq.re.mk_complement(mem.re->get_expr());
+                if (!mem.positive) {
+                    m_pin.push_back(re); // complement is freshly built here, not owned elsewhere
+                    ctx.push_trail(push_back_vector(m_pin));
+                }
                 seq::view v = seq::view::membership(re);
                 expr_ref_vector ts = m_ambient->purify(mem.s->get_expr());
-                m_root->facet_as<seq::mem_facet>(m_mem_id).add(seq::str_mem(m, ts, v, dep));
+                m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, v, dep));
             }
         }
     }

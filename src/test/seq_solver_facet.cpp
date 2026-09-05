@@ -45,7 +45,9 @@ namespace {
         expr_ref X(m.mk_fresh_const("X", s), m);
         expr_ref ab(u.str.mk_string(zstring("ab")), m);
 
-        seq::eq_tree tree;
+        trail_stack tr;
+
+        seq::eq_tree tree(tr, m.limit());
         auto* root = tree.mk_root();
         seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
@@ -86,7 +88,9 @@ namespace {
         expr_ref lhs(u.str.mk_concat(X, ca), m);
         expr_ref rhs(cb, m);
 
-        seq::eq_tree tree;
+        trail_stack tr;
+
+        seq::eq_tree tree(tr, m.limit());
         auto* root = tree.mk_root();
         seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
@@ -121,7 +125,9 @@ namespace {
         expr_ref X(m.mk_fresh_const("X", s), m);
         expr_ref ab(u.str.mk_string(zstring("ab")), m);
 
-        seq::eq_tree tree;
+        trail_stack tr;
+
+        seq::eq_tree tree(tr, m.limit());
         auto* root = tree.mk_root();
         seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());

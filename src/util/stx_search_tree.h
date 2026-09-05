@@ -58,6 +58,7 @@ Author:
 #include "util/trail.h"
 #include "util/statistics.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/rlimit.h"
 #include <string>
 #include <memory>
 #include <algorithm>
@@ -533,7 +534,8 @@ namespace stx {
         scoped_ptr_vector<propagation_plugin_i> m_prop_plugins;  // owned
         scoped_ptr_vector<split_plugin_i>       m_split_plugins; // owned
         scoped_ptr<node>                      m_root;
-        trail_stack                            m_trail;
+        trail_stack&                            m_trail;
+        reslimit&                               m_limit;
         unsigned                               m_max_search_depth = 1000;
         unsigned                               m_depth_bound = 0; // current iterative-deepening bound, set by solve()
         unsigned                               m_max_cost = 1000;
@@ -562,6 +564,8 @@ namespace stx {
             // termination condition.
             unsigned max_rounds = (m_prop_plugins.size() + n.num_facets() + 1) * 4 + 8;
             for (unsigned round = 0; round < max_rounds; ++round) {
+                if (!m_limit.inc())
+                    return simplify_result::proceed;
                 bool any_change = false;
                 for (auto* p : m_prop_plugins) {
                     m_stats.m_propagate_counts[p->name()]++;
@@ -650,6 +654,8 @@ namespace stx {
             m_stats.m_num_dfs_nodes++;
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
                 return search_result::unknown;
+            if (!m_limit.inc())
+                return search_result::unknown;
 
             dfs_frame frame;
 
@@ -729,7 +735,7 @@ namespace stx {
         }
 
     public:
-        search_tree() = default;
+        search_tree(trail_stack& trail, reslimit& lim) : m_trail(trail), m_limit(lim) {}
         ~search_tree() = default;
 
         dep_manager_t& dep_mgr() { return m_dep_mgr; }
@@ -752,6 +758,26 @@ namespace stx {
             facet_id id = m_next_facet_id++;
             n.m_facets.resize(m_next_facet_id, nullptr);
             n.install_facet(id, alloc(T, m_trail, std::forward<Args>(args)...));
+            return id;
+        }
+
+        // Same as above, but additionally invokes `bind(id)` right after
+        // the new facet id is minted. `bind` is typically a small lambda
+        // supplied by the domain layer that stashes `id` on the node's
+        // ambient context (e.g. `[&](facet_id id){ ac->set_eq_id(id); }`),
+        // so that registration and ambient-context id-binding happen as
+        // one atomic step at the call site instead of two - without this
+        // engine header needing to know anything about what an "ambient
+        // context" or a "facet id setter" actually is (`Binder` is fully
+        // generic; this stays domain-agnostic). Named differently from
+        // the overload above (rather than overloaded on it) to avoid an
+        // ambiguous-overload resolution between two same-name variadic
+        // templates whenever `Args...` could itself begin with a
+        // callable.
+        template <typename T, typename Binder, typename... Args>
+        facet_id register_facet_bound(node& n, Binder&& bind, Args&&... args) {
+            facet_id id = register_facet<T>(n, std::forward<Args>(args)...);
+            bind(id);
             return id;
         }
 
@@ -840,6 +866,10 @@ namespace stx {
             m_root->clear_conflict_deps();
             search_result res = search_result::depth_cutoff;
             for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth && res == search_result::depth_cutoff; ++depth_bound) {
+                if (!m_limit.inc()) {
+                    res = search_result::unknown;
+                    break;
+                }
                 m_depth_bound = depth_bound;
                 m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth_bound);
                 res = dfs(0);

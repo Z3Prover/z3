@@ -141,7 +141,9 @@ namespace {
 
     static void tst_sat() {
         counter_config cfg{ 5, { 3 } };
-        tree_t tree;
+        trail_stack tr;
+        reslimit lim;
+        tree_t tree(tr, lim);
         stx::facet_id id;
         mk_root(tree, id, &cfg);
         tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
@@ -163,7 +165,9 @@ namespace {
         // overshooting past it (target=3, step +2 from total=2) also
         // conflicts, so the whole tree is UNSAT.
         counter_config cfg{ 3, { 3 } };
-        tree_t tree;
+        trail_stack tr;
+        reslimit lim;
+        tree_t tree(tr, lim);
         stx::facet_id id;
         mk_root(tree, id, &cfg);
         tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
@@ -179,7 +183,9 @@ namespace {
         // Unreachable within the depth bound (target requires >2 steps),
         // and not otherwise refutable, so the search reports unknown.
         counter_config cfg{ 100, {} };
-        tree_t tree;
+        trail_stack tr;
+        reslimit lim;
+        tree_t tree(tr, lim);
         stx::facet_id id;
         mk_root(tree, id, &cfg);
         tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
@@ -193,7 +199,9 @@ namespace {
 
     static void tst_trivially_satisfied_root() {
         counter_config cfg{ 0, {} };
-        tree_t tree;
+        trail_stack tr;
+        reslimit lim;
+        tree_t tree(tr, lim);
         stx::facet_id id;
         mk_root(tree, id, &cfg);
         tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
@@ -209,7 +217,9 @@ namespace {
     // so there is no suspended-scope state to leak/compound across calls.
     static void tst_resolve_after_sat_resumes_base_level() {
         counter_config cfg{ 5, { 3 } };
-        tree_t tree;
+        trail_stack tr;
+        reslimit lim;
+        tree_t tree(tr, lim);
         stx::facet_id id;
         mk_root(tree, id, &cfg);
         tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));

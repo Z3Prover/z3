@@ -99,18 +99,19 @@ namespace smt {
         seq_rewriter        m_rewriter;
         arith_value         m_arith_value;
         seq::live_states    m_live;
+        expr_ref_vector     m_pin; // pins fresh terms (e.g. complemented regexes) built by
+                                   // populate_tree() that are not otherwise owned by the
+                                   // calling context.
 
         seq::eq_tree                     m_tree;
         seq::eq_tree::node*              m_root = nullptr;
         seq::sub_solver             m_solver;
         scoped_ptr<seq::theory_nseq_ambient_context> m_ambient;
 
-        stx::facet_id m_eq_id = 0;
-        stx::facet_id m_deq_id = 0;
-        stx::facet_id m_arith_id = 0;
-        stx::facet_id m_pow_id = 0;
-        stx::facet_id m_mem_id = 0;
-        stx::facet_id m_nc_id = 0;
+        // Facet ids are registered once in the constructor and handed to
+        // m_ambient (set_eq_id() etc.); they are not kept as members
+        // here - all facet access goes through m_ambient's own id
+        // accessors / facet_as-style helpers (e.g. m_ambient->eq_facet(n)).
 
         // Propagation and split plugins are no longer stored as members:
         // `stx::search_tree::add_propagation_plugin`/`add_split_plugin`

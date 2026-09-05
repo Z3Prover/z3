@@ -32,6 +32,7 @@ namespace {
         seq_util         u;
         arith_util       a;
         sort*            s;
+        trail_stack      trail;
         seq::eq_tree     tree;
         seq::eq_tree::node* root;
         seq::sub_solver solver;
@@ -44,6 +45,7 @@ namespace {
 
         fixture() :
             u((init_plugins(m), m)), a(m), s(u.str.mk_string_sort()),
+            tree(trail, m.limit()),
             root(tree.mk_root()),
             solver(m, a, tree.dep_mgr()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
