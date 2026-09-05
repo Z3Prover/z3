@@ -177,6 +177,8 @@ namespace opt {
         ref<solver>         m_sat_solver;
         scoped_ptr<pareto_base>  m_pareto;
         bool                 m_pareto1;
+        bool                 m_pareto_exact_comparison = false;
+        bool                 m_has_assumptions = false;
         sref_vector<model>  m_box_models;
         unsigned            m_box_index;
         params_ref          m_params;
@@ -305,6 +307,7 @@ namespace opt {
         lbool execute_lex();
         lbool execute_box();
         lbool execute_pareto();
+        solver* mk_pareto_solver();
         lbool adjust_unknown(lbool r);
         bool scoped_lex();
         bool contains_quantifiers() const;
@@ -373,7 +376,7 @@ namespace opt {
         void display_benchmark();
 
         // pareto
-        void yield();
+        void publish_pareto_result();
         expr_ref mk_ge(expr* t, expr* s);
         expr_ref mk_cmp(bool is_ge, model_ref& mdl, objective const& obj);
 

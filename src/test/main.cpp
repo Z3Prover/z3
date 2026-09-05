@@ -147,6 +147,7 @@
     X(permutation) \
     X(nlsat) \
     X(opt_nlsat) \
+    X(opt_pareto) \
     X(13) \
     X(zstring)
 
