@@ -12,6 +12,8 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026
+    Clemens Eisenhofer 2026
+    Margus Veanes 2026
 
 
 NSB code review:
@@ -417,7 +419,7 @@ namespace seq {
                 for (auto const & view : sol[t]) {
                      expr_ref_vector ts(m);
                     ts.push_back(t);
-                    mf.add(str_mem(m, ts, v, dep));
+                    mf.add(str_mem(m, ts, view, dep));
                 }
             }
             changed = true;

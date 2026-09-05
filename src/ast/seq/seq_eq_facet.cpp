@@ -12,6 +12,8 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026
+    Clemens Eisenhofer 2026
+    Margus Veanes 2026
 
 --*/
 #include "ast/seq/seq_eq_facet.h"

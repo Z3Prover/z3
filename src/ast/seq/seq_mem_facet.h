@@ -42,6 +42,8 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026
+    Clemens Eisenhofer 2026
+    Margus Veanes 2026
 
 --*/
 #pragma once
