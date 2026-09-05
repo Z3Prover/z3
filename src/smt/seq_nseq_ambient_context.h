@@ -33,16 +33,19 @@ namespace seq {
 
         bool lower_bound(expr* e, rational& lo, eq_tree::dep_tracker& dep) override {
             dep = nullptr;
-            return m_th.lower_bound(e, lo);
+            expr_ref e2 = unpurify(e);
+            return m_th.lower_bound(e2, lo);
         }
 
         bool upper_bound(expr* e, rational& hi, eq_tree::dep_tracker& dep) override {
             dep = nullptr;
-            return m_th.upper_bound(e, hi);
+            expr_ref e2 = unpurify(e);
+            return m_th.upper_bound(e2, hi);
         }
 
         bool current_value(expr* e, rational& v) override {
-            return m_th.get_num_value(e, v);
+            expr_ref e2 = unpurify(e);
+            return m_th.get_num_value(e2, v);
         }
 
         eq_tree::dep_tracker literal_if_false(expr* e) override {

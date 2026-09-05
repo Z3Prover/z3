@@ -28,6 +28,7 @@ namespace smt {
         m_seq(m),
         m_autil(m),
         m_rewriter(m),
+        m_th_rewriter(m),
         m_arith_value(m),
         m_live(m_rewriter),
         m_pin(m),
@@ -364,21 +365,27 @@ namespace smt {
     }
 
     bool theory_nseq::get_num_value(expr* e, rational& val) const {
-        return m_arith_value.get_value_equiv(e, val) && val.is_int();
+        expr_ref e2(m);
+        const_cast<th_rewriter&>(m_th_rewriter)(e, e2);
+        return m_arith_value.get_value_equiv(e2, val) && val.is_int();
     }
 
     bool theory_nseq::lower_bound(expr* e, rational& lo) const {
         if (!m_autil.is_int(e))
             return false;
+        expr_ref e2(m);
+        const_cast<th_rewriter&>(m_th_rewriter)(e, e2);
         bool is_strict = true;
-        return m_arith_value.get_lo(e, lo, is_strict) && !is_strict && lo.is_int();
+        return m_arith_value.get_lo(e2, lo, is_strict) && !is_strict && lo.is_int();
     }
 
     bool theory_nseq::upper_bound(expr* e, rational& hi) const {
         if (!m_autil.is_int(e))
             return false;
+        expr_ref e2(m);
+        const_cast<th_rewriter&>(m_th_rewriter)(e, e2);
         bool is_strict = true;
-        return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
+        return m_arith_value.get_up(e2, hi, is_strict) && !is_strict && hi.is_int();
     }
 
 }

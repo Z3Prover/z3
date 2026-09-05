@@ -40,6 +40,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_power_facet.h"
 #include "ast/seq/seq_mem_facet.h"
@@ -98,6 +99,12 @@ namespace smt {
         seq_util           m_seq;
         arith_util          m_autil;
         seq_rewriter        m_rewriter;
+        th_rewriter         m_th_rewriter; // band-aid: normalizes `e` (e.g. folds
+                                            // str.len(unit(a)++x) into 1 + str.len(x))
+                                            // before querying m_arith_value, so bound/
+                                            // value queries reach the same term shape
+                                            // the SMT core's own preprocessing produced
+                                            // and internalized.
         arith_value         m_arith_value;
         seq::live_states    m_live;
         expr_ref_vector     m_pin; // pins fresh terms (e.g. complemented regexes, Skolem

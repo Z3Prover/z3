@@ -271,6 +271,37 @@ namespace seq {
             return m_purify_map.find(fresh, orig);
         }
 
+        // Reconstruct `e` in terms of the caller's original (pre-
+        // purification) terms: walk `e`'s DAG bottom-up, replacing any
+        // subterm that is itself a purification-introduced fresh
+        // variable with the original expression it stands in for (via
+        // `purify_lookup`) - non-recursively, since `purify_token`/
+        // `purify_arith` never introduce a fresh variable whose mapped
+        // original itself contains another fresh variable. This is the
+        // inverse of `purify`/`purify_arith`, needed so that a bound/
+        // value query issued by a facet/plugin against a purified token
+        // (e.g. `str.len` of a purified equation's variable) reaches the
+        // ambient solver in terms of the real problem's own terms, which
+        // is what its arithmetic/model machinery actually knows about.
+        expr_ref unpurify(expr* e) const {
+            expr* orig = nullptr;
+            if (purify_lookup(e, orig))
+                return expr_ref(orig, m);
+            if (!is_app(e))
+                return expr_ref(e, m);
+            app* t = to_app(e);
+            expr_ref_vector args(m);
+            bool changed = false;
+            for (expr* arg : *t) {
+                expr_ref parg = unpurify(arg);
+                changed |= parg.get() != arg;
+                args.push_back(parg);
+            }
+            if (!changed)
+                return expr_ref(e, m);
+            return expr_ref(m.mk_app(t->get_decl(), args.size(), args.data()), m);
+        }
+
         // Best current lower/upper bound on the (integer/arithmetic)
         // value of `e` known to the ambient context (e.g. `str.len` of a
         // sequence term), together with the dependency justifying that

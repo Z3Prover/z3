@@ -288,23 +288,6 @@ namespace seq {
     }
 
 
-    // NSB code review: this uses the end-game version of seq_monadic. 
-    mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
-                                          vector<str_mem> const& mems) :
-        m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m(m), u(u) {
-        m_mon.set_gen_solution(true);
-        for (auto const& sm : mems) {
-            sort* s = u.re.to_seq(sm.m_view.m_state->get_sort());
-            expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
-            m_mon.add(term, sm.m_view.m_state, sm.m_dep);
-        }
-        m_it = alloc(seq_monadic::iterator, m_mon.iterate(64));
-        obj_map<expr, seq::view_vector> first;
-        if (m_it->next(first))
-            for (auto const& [var, views] : first)
-                m_first.insert(var, views);
-    }
-
     // Locate a membership-side var-peel trigger: some mem_facet
     // membership's own flattened string has a power token `U^n` at a
     // directional end (front or back). No "opposite side" check is
@@ -422,6 +405,23 @@ namespace seq {
         committed = true;
         m_stats.m_num_splits++;
         return it;
+    }
+
+    // NSB code review: this uses the end-game version of seq_monadic. 
+    mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
+                                          vector<str_mem> const& mems) :
+        m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m(m), u(u) {
+        m_mon.set_gen_solution(true);
+        for (auto const& sm : mems) {
+            sort* s = u.re.to_seq(sm.m_view.m_state->get_sort());
+            expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
+            m_mon.add(term, sm.m_view.m_state, sm.m_dep);
+        }
+        m_it = alloc(seq_monadic::iterator, m_mon.iterate(64));
+        obj_map<expr, seq::view_vector> first;
+        if (m_it->next(first))
+            for (auto const& [var, views] : first)
+                m_first.insert(var, views);
     }
 
     bool mem_monadic_split::iterator::next(eq_tree::edge& out) {
