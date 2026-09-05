@@ -167,12 +167,15 @@ namespace seq {
         m_stats.m_num_propagate++;
         for (unsigned i = 0; i < f.memberships().size(); ) {
             auto const& sm = f.memberships()[i];
-            if (sm.is_view())
+            if (sm.is_view()) {
+                ++i;
                 continue;
+            }
             // NSB review: need to avoid propagating on terms with ite.
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             bool bad = false;
             unsigned left = 0;
+            expr* elem = nullptr;
             for (; left < sm.m_str.size() && !bad; ++left) {
                 auto t = sm.m_str.get(left);
                 if (!u.str.is_unit(t)) { bad = true; break; }
@@ -251,8 +254,7 @@ namespace seq {
         m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m(m), u(u) {
         m_mon.set_gen_solution(true);
         for (auto const& sm : mems) {
-            // NSB code review: the sort* s can be obtained from sm.m_view.source regex. 
-            sort* s = sm.m_str.empty() ? u.str.mk_string_sort() : sm.m_str.get(0)->get_sort();
+            sort* s = u.re.to_seq(sm.m_view.m_state->get_sort());
             expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
             m_mon.add(term, sm.m_view.m_state, sm.m_dep);
         }
