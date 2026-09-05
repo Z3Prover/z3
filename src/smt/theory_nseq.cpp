@@ -44,6 +44,7 @@ namespace smt {
         m_tree.register_facet_bound<seq::power_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_pow_id(id); }, m, m_seq, m_autil, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);
 
         // deterministic propagation plugins (order among these does not
         // matter: the engine iterates every propagation plugin to
@@ -259,9 +260,40 @@ namespace smt {
         populate_tree();
         stx::search_result res = m_tree.solve();
         switch (res) {
-        case stx::search_result::sat:
+        case stx::search_result::sat: {
+            // Assumptions accumulated along the satisfying branch (e.g.
+            // word_eq_split's symbolic char-equality substitutions, see
+            // seq::assumption_facet's class comment) must also hold in
+            // the ambient SMT context for the tree's model to be valid:
+            // check each is already an internalized literal assigned
+            // true, and if not, internalize it and force it true so the
+            // core re-checks with that requirement in place.
+            seq::eq_tree::node const* snap = m_tree.sat_snapshot();
+            if (snap && m_ambient->has_assumption(const_cast<seq::eq_tree::node&>(*snap))) {
+                auto const& af = m_ambient->assumption_facet(const_cast<seq::eq_tree::node&>(*snap));
+                for (expr* a : af.assumptions()) {
+                    if (!ctx.b_internalized(a))
+                        ctx.internalize(a, false);
+                    bool_var bv = ctx.get_bool_var(a);
+                    ctx.set_var_theory(bv, get_id());
+                    literal lit(bv);
+                    if (ctx.get_assignment(lit) == l_true)
+                        continue;
+                    ctx.mark_as_relevant(lit);
+                    if (ctx.get_assignment(lit) == l_false)
+                        // Already refuted by the ambient context: force a
+                        // fresh final check to re-derive/propagate the
+                        // conflict through the ordinary channels next
+                        // round, rather than asserting a unit clause that
+                        // would immediately contradict it.
+                        return FC_CONTINUE;
+                    ctx.mk_th_axiom(get_id(), 1, &lit);
+                    return FC_CONTINUE;
+                }
+            }
             // Model construction is deferred: report done without a model.
             return FC_DONE;
+        }
         case stx::search_result::unsat: {
             seq::eq_tree::dep_tracker dep = m_root->conflict_dep();
             if (dep) {

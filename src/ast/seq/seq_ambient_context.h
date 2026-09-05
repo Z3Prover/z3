@@ -75,6 +75,7 @@ namespace seq {
     class mem_facet;
     class ncontains_facet;
     class solver_facet_i;
+    class assumption_facet;
 
     /**
      * Abstracted, dependency-tracked bridge into the ambient SMT context.
@@ -125,6 +126,7 @@ namespace seq {
         stx::facet_id m_pow_id = no_facet;
         stx::facet_id m_mem_id = no_facet;
         stx::facet_id m_ncontains_id = no_facet;
+        stx::facet_id m_assumption_id = no_facet;
 
         // Raw facet ids are deliberately not public: nothing outside this
         // class (or the facet-accessor templates just below, which are
@@ -141,6 +143,7 @@ namespace seq {
         stx::facet_id pow_id() const { return m_pow_id; }
         stx::facet_id mem_id() const { return m_mem_id; }
         stx::facet_id ncontains_id() const { return m_ncontains_id; }
+        stx::facet_id assumption_id() const { return m_assumption_id; }
     public:
         ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u) {}
         ~ambient_context_i() override = default;
@@ -151,6 +154,7 @@ namespace seq {
         void set_pow_id(stx::facet_id id) { m_pow_id = id; }
         void set_mem_id(stx::facet_id id) { m_mem_id = id; }
         void set_ncontains_id(stx::facet_id id) { m_ncontains_id = id; }
+        void set_assumption_id(stx::facet_id id) { m_assumption_id = id; }
 
         // Is `e` a token this facet layer's Nielsen-style split rules may
         // treat as a freely-substitutable "variable" - i.e. neither a
@@ -309,6 +313,7 @@ namespace seq {
         template <typename node_t> seq::mem_facet& mem_facet(node_t& n) const { return n.template facet_as<seq::mem_facet>(mem_id()); }
         template <typename node_t> seq::ncontains_facet& ncontains_facet(node_t& n) const { return n.template facet_as<seq::ncontains_facet>(ncontains_id()); }
         template <typename node_t> seq::solver_facet_i& arith_facet(node_t& n) const { return n.template facet_as<seq::solver_facet_i>(arith_id()); }
+        template <typename node_t> seq::assumption_facet& assumption_facet(node_t& n) const { return n.template facet_as<seq::assumption_facet>(assumption_id()); }
 
         template <typename node_t> bool has_eq(node_t& n) const { return n.has_facet(eq_id()); }
         template <typename node_t> bool has_deq(node_t& n) const { return n.has_facet(deq_id()); }
@@ -316,6 +321,7 @@ namespace seq {
         template <typename node_t> bool has_mem(node_t& n) const { return n.has_facet(mem_id()); }
         template <typename node_t> bool has_ncontains(node_t& n) const { return n.has_facet(ncontains_id()); }
         template <typename node_t> bool has_arith(node_t& n) const { return n.has_facet(arith_id()); }
+        template <typename node_t> bool has_assumption(node_t& n) const { return n.has_facet(assumption_id()); }
     };
 
     /**
@@ -364,6 +370,7 @@ namespace seq {
         mem_facet& mem_facet_ref() const { return m_ac.mem_facet(m_node); }
         ncontains_facet& ncontains_facet_ref() const { return m_ac.ncontains_facet(m_node); }
         solver_facet_i& arith_facet_ref() const { return m_ac.arith_facet(m_node); }
+        assumption_facet& assumption_facet_ref() const { return m_ac.assumption_facet(m_node); }
 
         bool has_eq() const { return m_ac.has_eq(m_node); }
         bool has_deq() const { return m_ac.has_deq(m_node); }
@@ -371,6 +378,7 @@ namespace seq {
         bool has_mem() const { return m_ac.has_mem(m_node); }
         bool has_ncontains() const { return m_ac.has_ncontains(m_node); }
         bool has_arith() const { return m_ac.has_arith(m_node); }
+        bool has_assumption() const { return m_ac.has_assumption(m_node); }
     };
 
     // Trivial, always-"unknown" implementation: usable by unit tests (or

@@ -45,9 +45,14 @@ namespace seq {
             return m_th.get_num_value(e, v);
         }
 
-        eq_tree::dep_tracker literal_if_false(expr*) override {
-            // Not currently exposed by theory_nseq; conservatively unknown.
-            return nullptr;
+        eq_tree::dep_tracker literal_if_false(expr* e) override {
+            if (!m_th.ctx.b_internalized(e))
+                return nullptr;
+            smt::literal lit = m_th.ctx.get_literal(e);
+            if (m_th.ctx.get_assignment(lit) != l_false)
+                return nullptr;
+            unsigned idx = m_th.mk_dep(smt::theory_nseq::assumption(~lit));
+            return m_th.m_tree.dep_mgr().mk_leaf(idx);
         }
 
         void add_diseq_axiom(expr*, expr*) override {

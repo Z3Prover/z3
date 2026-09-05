@@ -342,8 +342,22 @@ namespace seq {
                         continue;
                     if (lch == rch)
                         continue;
-                    has_more = true;
                     eq_tree::dep_tracker eq_dep = eq.m_dep;
+                    // Neither statically equal nor statically distinct
+                    // (e.g. two symbolic character terms from an
+                    // `ite`/`nth` application): build the equality
+                    // expression and consult the ambient context first -
+                    // if it is already assigned false there, this is a
+                    // genuine conflict (justified by the dependencies
+                    // backing that assignment, joined with this
+                    // equation's own dependency), not a case to resolve
+                    // by substitution.
+                    expr_ref eq_expr(m.mk_eq(lch, rch), m);
+                    if (auto false_dep = ac.literal_if_false(eq_expr)) {
+                        n.set_conflict(stx::br_plugin_base, f.dm().mk_join(eq_dep, false_dep));
+                        return nullptr;
+                    }
+                    has_more = true;
                     // Eliminate whichever side is not already a concrete
                     // char value; if neither (or both) is a value,
                     // arbitrarily eliminate the trailing/second side (rh).
@@ -353,6 +367,15 @@ namespace seq {
                     expr_ref_vector repl(m);
                     repl.push_back(val_tok);
                     broadcast_subst(n, var_tok, repl, eq_dep);
+                    // The substitution alone is only sound in models
+                    // where lch/rch really are equal, so record that
+                    // requirement both in the arithmetic sub-solver (so
+                    // it prunes any future assignment violating it) and
+                    // in assumption_facet (so theory_nseq can, once a
+                    // satisfiable node is found, make the ambient context
+                    // agree - see assumption_facet's class comment).
+                    ac.arith_facet_ref().add_constraint(eq_expr, eq_dep);
+                    ac.assumption_facet_ref().add_assumption(eq_expr);
                     out = eq_tree::edge("char-eq", eq_dep, true, 0);
                     committed = true;
                     m_stats.m_num_splits++;
