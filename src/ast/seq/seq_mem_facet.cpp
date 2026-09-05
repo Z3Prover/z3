@@ -58,8 +58,7 @@ namespace seq {
     void mem_facet::add(str_mem const& sm) {
         m_mems.push_back(sm);
         m_trail.push(push_back_trail<str_mem>(m_mems));
-        m_trail.push(value_trail(m_is_satisfied));
-        m_is_satisfied = false;
+        set_is_satisfied(false);
     }
 
     void mem_facet::narrow(unsigned idx, view const& new_view) {
@@ -85,28 +84,26 @@ namespace seq {
             m_trail.push(vector_field_trail<str_mem, eq_tree::dep_tracker>(m_mems, idx, &str_mem::m_dep));
             m_mems[idx].m_dep = m_dm.mk_join(m_mems[idx].m_dep, dep);
         }
-        m_trail.push(value_trail(m_is_satisfied));
-        m_is_satisfied = false;
+        set_is_satisfied(false);
     }
 
     void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
+        bool some_touched = false;
         for (unsigned i = 0; i < m_mems.size(); ++i) {
             bool touched = subst_in_trailed(m_trail, m_mems, i, &str_mem::m_str, var, repl);
+            some_touched |= touched;
             if (touched && subst_dep) {
                 m_trail.push(vector_field_trail<str_mem, eq_tree::dep_tracker>(m_mems, i, &str_mem::m_dep));
                 m_mems[i].m_dep = m_dm.mk_join(m_mems[i].m_dep, subst_dep);
             }
         }
-        // A structural change to some membership's string invalidates
-        // any prior mem_monadic_split certification: the narrowed views
-        // it recorded described a different set of constraints, so
-        // mem_monadic_split must re-certify before is_satisfied() can
-        // report true again on this basis.
-        m_trail.push(value_trail(m_is_satisfied));
-        m_is_satisfied = false;
+        if (some_touched) 
+            set_is_satisfied(false);
     }
 
     void mem_facet::set_is_satisfied(bool b) {
+        if (m_is_satisfied == b)
+            return;
         m_trail.push(value_trail(m_is_satisfied));
         m_is_satisfied = b;
     }
@@ -170,22 +167,35 @@ namespace seq {
         m_stats.m_num_propagate++;
         for (unsigned i = 0; i < f.memberships().size(); ) {
             auto const& sm = f.memberships()[i];
+            if (sm.is_view())
+                continue;
+            // NSB review: need to avoid propagating on terms with ite.
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             bool bad = false;
-            for (expr* t : sm.m_str) {
+            unsigned left = 0;
+            for (; left < sm.m_str.size() && !bad; ++left) {
+                auto t = sm.m_str.get(left);
                 if (!u.str.is_unit(t)) { bad = true; break; }
-                expr* elem = nullptr;
                 VERIFY(u.str.is_unit(t, elem));
                 cur = m_rw.mk_derivative(elem, cur);
                 if (u.re.is_empty(cur)) {
                     n.set_conflict(stx::br_plugin_base, sm.m_dep);
                     return stx::simplify_result::conflict;
                 }
-                // NSB code review: 
-                // sm.m_str should be updated now to not contain prefix/suffix of units
             }
+            if (left > 0) {
+                // NSB code review:
+                // update sm.m_str to chop of left first characters
+                // update sm.m_view (which is a membership) to start with cur.
+                // pin cur as well so it isn't garbled.
+                // if cur has ite subterm, we break for ite split.
+            }
+            // NSB code review:
+            // do something similar for 
+            // unsigned right = sm.m_str.size() - 1; unless, of course, sm.m_str.empty().
+
             // string was all characters
-            if (!bad && sm.m_view.is_membership()) {
+            if (!bad) {
                 expr_ref nb = m_rw.is_nullable(cur);
                 if (m_rw.m().is_false(nb)) {
                     n.set_conflict(stx::br_plugin_base, sm.m_dep);
@@ -228,7 +238,10 @@ namespace seq {
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;
-        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
+        if (changed)
+            return stx::simplify_result::proceed;
+        m_stats.m_num_propagate--;
+        return stx::simplify_result::noop;
     }
 
 
