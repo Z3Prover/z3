@@ -17,13 +17,6 @@ Author:
 
 
 NSB code review:
-- we need to check non-emptiness of intersection constraints that are created after split.
-  For example if we split xy in R as x in R1, y in R2, and already have x in R0 constraint,
-  then check non-emptiness of R1 n R0 using functionality implemented in seq_monadic.
-- We need model existence and extraction
-  - model existence when all mebership constraints are x_i in R_ij and R_i1 n ... n R_ik is empty
-  - model extraction as a side effect.
-  - use seq_monadic to encapsulate functionality.
 
 - nice to have: allow reverse live_states from a regex.
   - extend str_mem type to have a "reverse" Boolean flag where regexes are interpreted in a live_states graph that was obtained by reversing a regex.
