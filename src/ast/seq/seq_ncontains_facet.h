@@ -124,10 +124,15 @@ namespace seq {
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
-        // Non-trailed: root construction only.
+        // Trailed: for adding an ncontains obligation (root construction
+        // or mid-search alike - all constraint additions are trailed, no
+        // exception). Undo just pops the pushed element.
         void add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) {
             m_ncs.push_back(str_ncontains(h, n, dep));
+            m_trail.push(push_back_trail<str_ncontains>(m_ncs));
         }
+        // Convenience overload: splits haystack/needle into concat units
+        // and delegates to the trailed vector form above.
         void add_ncontains(expr* haystack, expr* needle, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector hts(m), nts(m);
             u.str.get_concat_units(haystack, hts);

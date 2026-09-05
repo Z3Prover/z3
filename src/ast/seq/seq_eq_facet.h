@@ -256,25 +256,20 @@ namespace seq {
         seq_util& get_seq_util() const { return u; }
         eq_tree::dep_manager_t& dm() const { return m_dm; }
 
-        // Non-trailed: only for root construction, before any search has
-        // begun (no branch to undo back past).
+        // Trailed: for adding an equation (root construction or
+        // mid-search alike - all constraint additions are trailed, no
+        // exception). Undo just pops the pushed element.
         void add_equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
             m_eqs.push_back(equation(lhs, rhs, dep));
+            m_trail.push(push_back_trail<equation>(m_eqs));
         }
+        // Convenience overload: splits lhs/rhs into concat units and
+        // delegates to the trailed vector form above.
         void add_equation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector lts(m), rts(m);
             u.str.get_concat_units(lhs, lts);
             u.str.get_concat_units(rhs, rts);
             add_equation(lts, rts, dep);
-        }
-
-        // Trailed variant: for adding a new equation to an existing
-        // branch mid-search (e.g. ncontains_split's "needle aligns here"
-        // branch, which introduces a fresh eq_facet equation rather than
-        // a substitution). Undo just pops the pushed element.
-        void add_equation_trailed(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
-            m_eqs.push_back(equation(lhs, rhs, dep));
-            m_trail.push(push_back_trail<equation>(m_eqs));
         }
 
         // Trailed removal of the equation at `idx` (e.g. eq_split
@@ -585,15 +580,12 @@ namespace seq {
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
-        // Non-trailed: root construction only.
+        // Trailed: for adding a disequation (root construction or
+        // mid-search alike - all constraint additions are trailed, no
+        // exception). Undo just pops the pushed element.
         void add_disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
             m_diseqs.push_back(disequation(lhs, rhs, dep));
-        }
-        void add_disequation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr) {
-            expr_ref_vector lts(m), rts(m);
-            u.str.get_concat_units(lhs, lts);
-            u.str.get_concat_units(rhs, rts);
-            add_disequation(lts, rts, dep);
+            m_trail.push(push_back_trail<disequation>(m_diseqs));
         }
 
         vector<disequation> const& disequations() const { return m_diseqs; }
@@ -604,15 +596,6 @@ namespace seq {
         // The touched disequation's dependency is joined with
         // `subst_dep`, also trailed.
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
-
-        // Trailed variant of add_disequation, for use mid-search (e.g.
-        // deq_split's equal-length branch, which introduces a fresh,
-        // more precise single-character disequation `a != b` alongside
-        // discharging the original). Undo just pops the pushed element.
-        void add_disequation_trailed(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
-            m_diseqs.push_back(disequation(lhs, rhs, dep));
-            m_trail.push(push_back_trail<disequation>(m_diseqs));
-        }
 
         // Trailed removal of the disequation at `idx` (e.g. deq_split
         // discharging/replacing a stuck disequation): uses

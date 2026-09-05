@@ -189,7 +189,7 @@ namespace seq {
             expr_ref_vector lts(m), rts(m);
             u.str.get_concat_units(l, lts);
             u.str.get_concat_units(r, rts);
-            add_equation_trailed(lts, rts, parent_dep);
+            add_equation(lts, rts, parent_dep);
         }
         return true;
     }
@@ -621,8 +621,8 @@ namespace seq {
             }
 
             f.remove_equation_trailed(idx);
-            f.add_equation_trailed(eq1_lhs, eq1_rhs, eq_dep);
-            f.add_equation_trailed(eq2_lhs, eq2_rhs, eq_dep);
+            f.add_equation(eq1_lhs, eq1_rhs, eq_dep);
+            f.add_equation(eq2_lhs, eq2_rhs, eq_dep);
 
             if (pad) {
                 expr_ref len_pad(u.str.mk_length(pad), m);
@@ -878,8 +878,8 @@ namespace seq {
 
         expr_ref_vector u_rhs(m); u_rhs.push_back(w); u_rhs.push_back(a_unit); u_rhs.push_back(up);
         expr_ref_vector v_rhs(m); v_rhs.push_back(w); v_rhs.push_back(b_unit); v_rhs.push_back(vp);
-        ef.add_equation_trailed(m_lhs, u_rhs, m_dep);
-        ef.add_equation_trailed(m_rhs, v_rhs, m_dep);
+        ef.add_equation(m_lhs, u_rhs, m_dep);
+        ef.add_equation(m_rhs, v_rhs, m_dep);
 
         expr_ref len_up(u.str.mk_length(up), m);
         expr_ref len_vp(u.str.mk_length(vp), m);
@@ -888,7 +888,7 @@ namespace seq {
         f.remove_disequation_trailed(m_diseq_idx);
         expr_ref_vector a_vec(m); a_vec.push_back(a_unit);
         expr_ref_vector b_vec(m); b_vec.push_back(b_unit);
-        f.add_disequation_trailed(a_vec, b_vec, m_dep);
+        f.add_disequation(a_vec, b_vec, m_dep);
 
         out = eq_tree::edge("diseq split", m_dep, true, 0);
         return true;

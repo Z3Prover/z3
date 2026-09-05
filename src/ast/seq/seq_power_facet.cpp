@@ -292,9 +292,9 @@ namespace seq {
             expr_ref_vector v_rhs(m); v_rhs.push_back(r2); v_rhs.append(Z);
 
             ef.remove_equation_trailed(m_t.m_eq_idx);
-            ef.add_equation_trailed(un_lhs, un_rhs, dep);
-            ef.add_equation_trailed(wm_lhs, wm_rhs, dep);
-            ef.add_equation_trailed(v_lhs, v_rhs, dep);
+            ef.add_equation(un_lhs, un_rhs, dep);
+            ef.add_equation(wm_lhs, wm_rhs, dep);
+            ef.add_equation(v_lhs, v_rhs, dep);
 
             expr_ref len_r1(u.str.mk_length(r1), m);
             expr_ref len_r2(u.str.mk_length(r2), m);
@@ -318,9 +318,9 @@ namespace seq {
             expr_ref_vector z_rhs(m); z_rhs.push_back(s2); z_rhs.append(V);
 
             ef.remove_equation_trailed(m_t.m_eq_idx);
-            ef.add_equation_trailed(un_lhs, un_rhs, dep);
-            ef.add_equation_trailed(s1_lhs, s1_rhs, dep);
-            ef.add_equation_trailed(z_lhs, z_rhs, dep);
+            ef.add_equation(un_lhs, un_rhs, dep);
+            ef.add_equation(s1_lhs, s1_rhs, dep);
+            ef.add_equation(z_lhs, z_rhs, dep);
 
             expr_ref len_s1(u.str.mk_length(s1), m);
             expr_ref len_s2(u.str.mk_length(s2), m);
@@ -1237,7 +1237,7 @@ namespace seq {
         // Register the fresh power obligation (shared by every branch
         // this call generates - power_propagation will pick it up on
         // the very next round in each resulting branch).
-        f.add_power_trailed(power_expr.get(), base_str.get(), fresh_n, dep);
+        f.add_power(power_expr.get(), base_str.get(), fresh_n, dep);
         has_more = true;
 
         iterator* it = alloc(iterator, n, var, power_expr.get(), compressed, fresh_n, fwd, dep, m, u, a, this);

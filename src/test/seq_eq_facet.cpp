@@ -30,6 +30,15 @@ namespace {
         return expr_ref(u.str.mk_unit(u.str.mk_char(static_cast<unsigned>(ch))), m);
     }
 
+    // deq_facet::add_disequation only takes token vectors (no expr*/expr*
+    // convenience overload); tests that build a disequation from whole
+    // terms go through get_concat_units themselves.
+    static expr_ref_vector mk_toks(seq_util& u, ast_manager& m, expr* e) {
+        expr_ref_vector ts(m);
+        u.str.get_concat_units(e, ts);
+        return ts;
+    }
+
     stx::search_result solve_eq(ast_manager& m, seq_util& u, expr* lhs, expr* rhs, unsigned max_depth = 12) {
         seq::eq_tree tree;
         auto* root = tree.mk_root();
@@ -135,7 +144,7 @@ namespace {
         seq::eq_tree tree;
         auto* root = tree.mk_root();
         stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
-        root->facet_as<seq::deq_facet>(id).add_disequation(a, b);
+        root->facet_as<seq::deq_facet>(id).add_disequation(mk_toks(u, m, a), mk_toks(u, m, b));
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
         ac.set_deq_id(id);
@@ -158,7 +167,7 @@ namespace {
         seq::eq_tree tree;
         auto* root = tree.mk_root();
         stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
-        root->facet_as<seq::deq_facet>(id).add_disequation(a1, a2);
+        root->facet_as<seq::deq_facet>(id).add_disequation(mk_toks(u, m, a1), mk_toks(u, m, a2));
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
         ac.set_deq_id(id);
@@ -188,7 +197,7 @@ namespace {
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
         root->facet_as<seq::eq_facet>(eq_id).add_equation(X, a);
-        root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, b);
+        root->facet_as<seq::deq_facet>(deq_id).add_disequation(mk_toks(u, m, X), mk_toks(u, m, b));
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
         ac.set_eq_id(eq_id);
@@ -351,7 +360,7 @@ namespace {
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
-        root->facet_as<seq::deq_facet>(deq_id).add_disequation(X, Y);
+        root->facet_as<seq::deq_facet>(deq_id).add_disequation(mk_toks(u, m, X), mk_toks(u, m, Y));
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
         ac.set_eq_id(eq_id);
@@ -388,7 +397,7 @@ namespace {
         stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
-        root->facet_as<seq::deq_facet>(deq_id).add_disequation(ca, ca);
+        root->facet_as<seq::deq_facet>(deq_id).add_disequation(mk_toks(u, m, ca), mk_toks(u, m, ca));
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
         ac.set_eq_id(eq_id);

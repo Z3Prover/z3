@@ -225,7 +225,8 @@ namespace seq {
             if (u.str.is_unit(tok) || is_uninterp_const(tok))
                 return expr_ref(tok, m);
             if (u.str.is_power(tok, s, n)) {
-                expr_ref s_pure = purify_seq(s);
+                expr_ref_vector s_pure_tokens = purify_seq(s);
+                expr_ref s_pure(u.str.mk_concat(s_pure_tokens, s->get_sort()), m);
                 expr_ref n_pure = purify_arith(n);
                 return expr_ref(u.str.mk_power(s_pure, n_pure), m);
             }
@@ -235,24 +236,29 @@ namespace seq {
     protected:
         // Purify a sequence-sorted expression `e`: flatten it into
         // concat tokens (`get_concat_units`), purify each token
-        // (`purify_token`), and rebuild the purified sequence via
-        // `mk_concat`. Fresh variables introduced along the way are
-        // recorded in the reverse map (`purify_lookup`) for later model
-        // reconstruction.
-        expr_ref purify_seq(expr* e) {
+        // (`purify_token`), and return the purified token list (not a
+        // rebuilt term) - this is exactly the shape `eq_facet::
+        // add_equation`/`str_mem`/`str_ncontains` already accept (an
+        // `expr_ref_vector` of tokens), so a caller can hand a purified
+        // sequence straight to those constructors without an extra
+        // `mk_concat` + `get_concat_units` round trip. Fresh variables
+        // introduced along the way are recorded in the reverse map
+        // (`purify_lookup`) for later model reconstruction.
+        expr_ref_vector purify_seq(expr* e) {
             expr_ref_vector tokens(m);
             u.str.get_concat_units(e, tokens);
             expr_ref_vector pure_tokens(m);
             for (expr* tok : tokens)
                 pure_tokens.push_back(purify_token(tok));
-            return expr_ref(u.str.mk_concat(pure_tokens, e->get_sort()), m);
+            return pure_tokens;
         }
 
     public:
-        // Purify `e` (a sequence-sorted expression) - see `purify_seq`.
-        // Public entry point for callers outside this class (facets/
-        // plugins under ast/seq, or theory_nseq's population path).
-        expr_ref purify(expr* e) { return purify_seq(e); }
+        // Purify `e` (a sequence-sorted expression), returning its
+        // purified token list - see `purify_seq`. Public entry point for
+        // callers outside this class (facets/plugins under ast/seq, or
+        // theory_nseq's population path).
+        expr_ref_vector purify(expr* e) { return purify_seq(e); }
 
         // Look up the original expression a purification fresh variable
         // `fresh` stands in for, if any. Returns false (leaving

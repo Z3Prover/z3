@@ -205,13 +205,17 @@ namespace smt {
                 auto const& eq = std::get<eq_item>(item);
                 unsigned idx = mk_dep(assumption(eq.n1, eq.n2));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-                m_root->facet_as<seq::eq_facet>(m_eq_id).add_equation(eq.n1->get_expr(), eq.n2->get_expr(), dep);
+                expr_ref_vector lhs = m_ambient->purify(eq.n1->get_expr());
+                expr_ref_vector rhs = m_ambient->purify(eq.n2->get_expr());
+                m_root->facet_as<seq::eq_facet>(m_eq_id).add_equation(lhs, rhs, dep);
             }
             else if (std::holds_alternative<deq_item>(item)) {
                 auto const& deq = std::get<deq_item>(item);
                 unsigned idx = mk_dep(assumption(~deq.lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-                m_root->facet_as<seq::deq_facet>(m_deq_id).add_disequation(deq.n1->get_expr(), deq.n2->get_expr(), dep);
+                expr_ref_vector lhs = m_ambient->purify(deq.n1->get_expr());
+                expr_ref_vector rhs = m_ambient->purify(deq.n2->get_expr());
+                m_root->facet_as<seq::deq_facet>(m_deq_id).add_disequation(lhs, rhs, dep);
             }
             else {
                 auto const& mem = std::get<mem_item>(item);
@@ -219,7 +223,8 @@ namespace smt {
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* re = mem.positive ? mem.re->get_expr() : m_seq.re.mk_complement(mem.re->get_expr());
                 seq::view v = seq::view::membership(re);
-                m_root->facet_as<seq::mem_facet>(m_mem_id).add(seq::str_mem(m, mem.s->get_expr(), v, dep));
+                expr_ref_vector ts = m_ambient->purify(mem.s->get_expr());
+                m_root->facet_as<seq::mem_facet>(m_mem_id).add(seq::str_mem(m, ts, v, dep));
             }
         }
     }

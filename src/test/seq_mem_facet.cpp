@@ -196,7 +196,7 @@ namespace {
         // (as the sibling branch of the same case split would see it)
         // before driving the iterator's own branch-2 logic.
         tree.trail().push_scope();
-        root->facet_as<seq::power_facet>(pow_id).add_power_trailed(pow, one_a, N);
+        root->facet_as<seq::power_facet>(pow_id).add_power(pow, one_a, N);
         seq::eq_tree::edge out2;
         ENSURE(it->next(out2));
 

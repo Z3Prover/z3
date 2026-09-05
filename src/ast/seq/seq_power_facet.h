@@ -136,15 +136,10 @@ namespace seq {
         unsigned max_unfold() const { return m_max_unfold; }
         void set_max_unfold(unsigned k) { m_max_unfold = k; }
 
-        // Non-trailed: root construction only.
+        // Trailed: for adding a power obligation (root construction or
+        // mid-search alike - all constraint additions are trailed, no
+        // exception). Undo just pops the pushed element.
         void add_power(expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) {
-            m_pows.push_back(str_power(m, e, s, n, dep));
-        }
-        // Trailed variant: for registering a fresh power obligation
-        // introduced mid-search (e.g. power_gpower_intro's fresh
-        // `base^n` skolem power term). Undo just pops the pushed
-        // element.
-        void add_power_trailed(expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) {
             m_pows.push_back(str_power(m, e, s, n, dep));
             m_trail.push(push_back_trail<str_power>(m_pows));
         }
