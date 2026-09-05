@@ -27,7 +27,6 @@ NSB code review:
   - extend str_mem type to have a "reverse" Boolean flag where regexes are interpreted in a live_states graph that was obtained by reversing a regex.
   - have reversal be decided by the live_states layer to not have it controlled at this level.
 
-  - add regex display function to seq_util that displays regex in resharper format. Easier to read. Use this for display function here.
 
 --*/
 #include "ast/seq/seq_mem_facet.h"
@@ -171,14 +170,14 @@ namespace seq {
                 ++i;
                 continue;
             }
-            // NSB review: need to avoid propagating on terms with ite.
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             bool bad = false;
-            unsigned left = 0;
             expr* elem = nullptr;
-            for (; left < sm.m_str.size() && !bad; ++left) {
-                auto t = sm.m_str.get(left);
-                if (!u.str.is_unit(t)) { bad = true; break; }
+            for (auto t : sm.m_str) {
+                if (!u.str.is_unit(t)) { 
+                    bad = true; 
+                    break; 
+                }
                 VERIFY(u.str.is_unit(t, elem));
                 cur = m_rw.mk_derivative(elem, cur);
                 if (u.re.is_empty(cur)) {
@@ -186,16 +185,27 @@ namespace seq {
                     return stx::simplify_result::conflict;
                 }
             }
-            if (left > 0) {
-                // NSB code review:
-                // update sm.m_str to chop of left first characters
-                // update sm.m_view (which is a membership) to start with cur.
-                // pin cur as well so it isn't garbled.
-                // if cur has ite subterm, we break for ite split.
+            #if 0 
+            // NSB code review: todo
+            if (bad) {
+                SASSERT(!sm.m_str.empty());
+                auto rcur = cur;
+                rcur = u.rex.mk_reverse(rcur);
+                for (unsigned i = sm.m_str.size(); i-- > 0; ) {
+                    auto t = sm.m_str.get(i);
+                    if (!u.str.is_unit(t, elem))
+                        break;
+                
+                    rcur = m_rw.mk_derivative(elem, rcur);
+                    if (u.re.is_empty(rcur)) {
+                        n.set_conflict(stx::br_plugin_base, sm.m_dep);
+                        return stx::simplify_result::conflict;
+                    }
+                }
+                cur = u.rex.mk_reverse(rcur);
+                // simplify it too?
             }
-            // NSB code review:
-            // do something similar for 
-            // unsigned right = sm.m_str.size() - 1; unless, of course, sm.m_str.empty().
+            #endif
 
             // string was all characters
             if (!bad) {
@@ -215,18 +225,6 @@ namespace seq {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
                 return stx::simplify_result::conflict;
             }
-            // NSB code review fix: when `bad` (the string still contains a
-            // variable), nullability/derivative processing above never ran
-            // to completion, so `sm.m_view`'s *original* state cannot be
-            // used to decide acceptance here - calling `seq::accepts` on it
-            // tests only whether the un-derived regex accepts the empty
-            // string, which says nothing about whether the actual
-            // (variable-containing, generally non-empty) string is in the
-            // language; doing so previously caused memberships like
-            // `x ++ "ab" ++ x in (aba)*` to be unsoundly discharged as
-            // satisfied merely because `(aba)*` is nullable. Only a fully
-            // concrete string (`!bad`) can be resolved this way, and that
-            // case is already handled above via `cur`.
             lbool a = bad ? l_undef : seq::accepts(sm.m_view, m_rw);
             if (a == l_false) {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
@@ -402,34 +400,25 @@ namespace seq {
         // concatenation (e.g. x.y in R) is replaced by one single-token
         // membership per variable, each carrying the view seq_monadic
         // committed that variable to.
+
+        vector<str_mem> mems(mf.memberships());
+                
         for (unsigned i = mf.memberships().size(); i-- > 0; ) {
             auto const& sm = mf.memberships()[i];
-            if (sm.m_str.size() == 1) {
-                seq::view_vector views;
-                if (!sol.find(sm.m_str.get(0), views) || views.empty())
-                    continue;
-                mf.narrow(i, views[0]);
-                changed = true;
-                continue;
-            }
-            bool all_found = true;
-            vector<std::pair<expr*, seq::view>> per_var;
-            for (expr* t : sm.m_str) {
-                seq::view_vector views;
-                if (!sol.find(t, views) || views.empty()) {
-                    all_found = false;
-                    break;
-                }
-                per_var.push_back({ t, views[0] });
-            }
-            if (!all_found)
+            bool all_found = all_of(sm.m_str, [&](expr* t) { return u.str.is_unit(t) || sol.contains(t); });
+            if (!all_found) 
                 continue;
             eq_tree::dep_tracker dep = sm.m_dep;
+            auto str(sm.m_str);
             mf.remove(i);
-            for (auto const& [t, v] : per_var) {
-                expr_ref_vector ts(m);
-                ts.push_back(t);
-                mf.add(str_mem(m, ts, v, dep));
+            for (auto t : str) {
+                if (u.str.is_unit(t))
+                    continue;
+                for (auto const & view : sol[t]) {
+                     expr_ref_vector ts(m);
+                    ts.push_back(t);
+                    mf.add(str_mem(m, ts, v, dep));
+                }
             }
             changed = true;
         }
