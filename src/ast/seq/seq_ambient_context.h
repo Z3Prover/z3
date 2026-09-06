@@ -188,9 +188,9 @@ namespace seq {
         // `is_var`), and every facet/plugin already treats non-unit/
         // non-power tokens as substitutable variables regardless of
         // whether they are themselves compound terms. So no fresh
-        // constants (and therefore no reverse map) are needed at all;
-        // `purify`/`unpurify` below are kept only as thin, identity-like
-        // wrappers around `get_concat_units` for source compatibility
+        // constants (and therefore no reverse map, and no unpurify
+        // inverse) are needed at all; `purify` below is kept only as a
+        // thin wrapper around `get_concat_units` for source compatibility
         // with existing call sites.
 
     public:
@@ -203,12 +203,6 @@ namespace seq {
             u.str.get_concat_units(e, tokens);
             return tokens;
         }
-
-        // Identity: no purification means there is nothing to invert.
-        // Kept so callers that used to translate a query back into the
-        // caller's original terms (e.g. before querying the ambient
-        // arithmetic solver for a bound/value) do not need to change.
-        expr_ref unpurify(expr* e) const { return expr_ref(e, m); }
 
         // Best current lower/upper bound on the (integer/arithmetic)
         // value of `e` known to the ambient context (e.g. `str.len` of a
