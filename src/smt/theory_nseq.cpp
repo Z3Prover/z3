@@ -208,10 +208,9 @@ namespace smt {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
-                pin(f);
                 expr_ref_vector lhs = m_ambient->purify(e2);
                 expr_ref_vector rhs = m_ambient->purify(e1);
-                rhs.append(m_ambient->purify(f));
+                rhs.push_back(f); // fresh existential, kept alive by rhs's own ref (add_equation copies it into the stored equation)
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
             return;
@@ -224,9 +223,9 @@ namespace smt {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
-                pin(f);
                 expr_ref_vector lhs = m_ambient->purify(e2);
-                expr_ref_vector rhs = m_ambient->purify(f);
+                expr_ref_vector rhs(m);
+                rhs.push_back(f); // fresh existential, kept alive by rhs's own ref
                 rhs.append(m_ambient->purify(e1));
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
@@ -240,12 +239,11 @@ namespace smt {
                 // contains(e1,e2) <=> exists x,y. e1 = x ++ e2 ++ y
                 expr* x = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
                 expr* y = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
-                pin(x);
-                pin(y);
                 expr_ref_vector lhs = m_ambient->purify(e1);
-                expr_ref_vector rhs = m_ambient->purify(x);
+                expr_ref_vector rhs(m);
+                rhs.push_back(x); // fresh existentials, kept alive by rhs's own ref
                 rhs.append(m_ambient->purify(e2));
-                rhs.append(m_ambient->purify(y));
+                rhs.push_back(y);
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
             else {
