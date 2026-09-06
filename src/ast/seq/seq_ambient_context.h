@@ -175,132 +175,36 @@ namespace seq {
         bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e); }
 
     private:
-        // Reverse map from a purification-introduced fresh variable back
-        // to the original (compound) expression it stands in for, so a
-        // model built over purified variables can later be reconstructed
-        // in terms of the caller's original terms. `m_purify_pin` keeps
-        // both the fresh variables and the original expressions
-        // reference-counted for the lifetime of this ambient context;
-        // this map is intentionally not trailed/undone on backtracking -
-        // purification is a once-per-search normalization (an identity
-        // fixed the first time a given compound term is purified), not a
-        // search decision.
-        obj_map<expr, expr*> m_purify_map;
-        expr_ref_vector       m_purify_pin{ m };
-
-        expr* mk_purify_fresh(expr* orig) {
-            expr* fresh = m.mk_fresh_const("t", orig->get_sort());
-            m_purify_pin.push_back(fresh);
-            m_purify_pin.push_back(orig);
-            m_purify_map.insert(fresh, orig);
-            return fresh;
-        }
-
-        // Purify the arithmetic expression `n`: keep `+`/`-`/`*`/numerals
-        // (and any other arithmetic-family application) structurally
-        // intact, but replace every sub-term that is not itself an
-        // arithmetic-family application with a fresh constant of its
-        // sort - e.g. `str.len(x) + 1` purifies to `t + 1` where `t` maps
-        // back to `str.len(x)`.
-        expr_ref purify_arith(expr* n) {
-            arith_util a(m);
-            if (!a.is_arith_expr(n))
-                return expr_ref(mk_purify_fresh(n), m);
-            app* t = to_app(n);
-            expr_ref_vector args(m);
-            bool changed = false;
-            for (expr* arg : *t) {
-                expr_ref parg = purify_arith(arg);
-                changed |= parg.get() != arg;
-                args.push_back(parg);
-            }
-            if (!changed)
-                return expr_ref(n, m);
-            return expr_ref(m.mk_app(t->get_decl(), args.size(), args.data()), m);
-        }
-
-        // Purify a single token from `get_concat_units` - a unit or an
-        // uninterpreted constant is left as-is; a power term `s^n` is
-        // purified recursively (both `s` and `n`); anything else
-        // (compound term) is replaced by a fresh variable of the same
-        // sort, with the substitution recorded in `m_purify_map`.
-        expr_ref purify_token(expr* tok) {
-            expr *s = nullptr, *n = nullptr;
-            if (u.str.is_unit(tok) || is_uninterp_const(tok))
-                return expr_ref(tok, m);
-            if (u.str.is_power(tok, s, n)) {
-                expr_ref_vector s_pure_tokens = purify_seq(s);
-                expr_ref s_pure(u.str.mk_concat(s_pure_tokens, s->get_sort()), m);
-                expr_ref n_pure = purify_arith(n);
-                return expr_ref(u.str.mk_power(s_pure, n_pure), m);
-            }
-            return expr_ref(mk_purify_fresh(tok), m);
-        }
-
-    protected:
-        // Purify a sequence-sorted expression `e`: flatten it into
-        // concat tokens (`get_concat_units`), purify each token
-        // (`purify_token`), and return the purified token list (not a
-        // rebuilt term) - this is exactly the shape `eq_facet::
-        // add_equation`/`str_mem`/`str_ncontains` already accept (an
-        // `expr_ref_vector` of tokens), so a caller can hand a purified
-        // sequence straight to those constructors without an extra
-        // `mk_concat` + `get_concat_units` round trip. Fresh variables
-        // introduced along the way are recorded in the reverse map
-        // (`purify_lookup`) for later model reconstruction.
-        expr_ref_vector purify_seq(expr* e) {
-            expr_ref_vector tokens(m);
-            u.str.get_concat_units(e, tokens);
-            expr_ref_vector pure_tokens(m);
-            for (expr* tok : tokens)
-                pure_tokens.push_back(purify_token(tok));
-            return pure_tokens;
-        }
+        // Historically, purification introduced fresh constants for
+        // compound tokens so that word-equation solving never had to look
+        // inside them. This proved unnecessary: `get_concat_units`
+        // already flattens a sequence term into its token list (units,
+        // uninterpreted constants, powers, and any other compound
+        // sequence-sorted subterm treated as an opaque variable token per
+        // `is_var`), and every facet/plugin already treats non-unit/
+        // non-power tokens as substitutable variables regardless of
+        // whether they are themselves compound terms. So no fresh
+        // constants (and therefore no reverse map) are needed at all;
+        // `purify`/`unpurify` below are kept only as thin, identity-like
+        // wrappers around `get_concat_units` for source compatibility
+        // with existing call sites.
 
     public:
-        // Purify `e` (a sequence-sorted expression), returning its
-        // purified token list - see `purify_seq`. Public entry point for
-        // callers outside this class (facets/plugins under ast/seq, or
-        // theory_nseq's population path).
-        expr_ref_vector purify(expr* e) { return purify_seq(e); }
-
-        // Look up the original expression a purification fresh variable
-        // `fresh` stands in for, if any. Returns false (leaving
-        // `orig` untouched) if `fresh` was not introduced by `purify`.
-        bool purify_lookup(expr* fresh, expr*& orig) const {
-            return m_purify_map.find(fresh, orig);
+        // Return `e`'s token list - see `seq_util::str::get_concat_units`.
+        // No fresh variables are introduced; every token (units, powers,
+        // uninterpreted constants, or any other compound sequence-sorted
+        // subterm) is exactly the term the caller passed in.
+        expr_ref_vector purify(expr* e) {
+            expr_ref_vector tokens(m);
+            u.str.get_concat_units(e, tokens);
+            return tokens;
         }
 
-        // Reconstruct `e` in terms of the caller's original (pre-
-        // purification) terms: walk `e`'s DAG bottom-up, replacing any
-        // subterm that is itself a purification-introduced fresh
-        // variable with the original expression it stands in for (via
-        // `purify_lookup`) - non-recursively, since `purify_token`/
-        // `purify_arith` never introduce a fresh variable whose mapped
-        // original itself contains another fresh variable. This is the
-        // inverse of `purify`/`purify_arith`, needed so that a bound/
-        // value query issued by a facet/plugin against a purified token
-        // (e.g. `str.len` of a purified equation's variable) reaches the
-        // ambient solver in terms of the real problem's own terms, which
-        // is what its arithmetic/model machinery actually knows about.
-        expr_ref unpurify(expr* e) const {
-            expr* orig = nullptr;
-            if (purify_lookup(e, orig))
-                return expr_ref(orig, m);
-            if (!is_app(e))
-                return expr_ref(e, m);
-            app* t = to_app(e);
-            expr_ref_vector args(m);
-            bool changed = false;
-            for (expr* arg : *t) {
-                expr_ref parg = unpurify(arg);
-                changed |= parg.get() != arg;
-                args.push_back(parg);
-            }
-            if (!changed)
-                return expr_ref(e, m);
-            return expr_ref(m.mk_app(t->get_decl(), args.size(), args.data()), m);
-        }
+        // Identity: no purification means there is nothing to invert.
+        // Kept so callers that used to translate a query back into the
+        // caller's original terms (e.g. before querying the ambient
+        // arithmetic solver for a bound/value) do not need to change.
+        expr_ref unpurify(expr* e) const { return expr_ref(e, m); }
 
         // Best current lower/upper bound on the (integer/arithmetic)
         // value of `e` known to the ambient context (e.g. `str.len` of a
