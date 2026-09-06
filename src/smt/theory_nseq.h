@@ -45,6 +45,7 @@ Author:
 #include "ast/seq/seq_power_facet.h"
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
+#include "ast/seq/seq_req_facet.h"
 #include "ast/seq/seq_regex_live.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"

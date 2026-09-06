@@ -48,6 +48,7 @@ namespace smt {
         m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);
+        m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());
 
         // deterministic propagation plugins (order among these does not
         // matter: the engine iterates every propagation plugin to
@@ -63,6 +64,7 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter, m_live));
         m_tree.add_propagation_plugin(alloc(seq::mem_bounds_propagation, m, m_seq, m_autil, m_tree.trail()));
         m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
+        m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
 
         // split plugins: registration order mirrors the priority order of
         // the c3 branch's nielsen_graph::generate_extensions (see
@@ -181,6 +183,12 @@ namespace smt {
         enode* n2 = get_enode(v2);
         expr* e1 = n1->get_expr();
         expr* e2 = n2->get_expr();
+        if (m_seq.is_re(e1)) {
+            unsigned idx = mk_dep(assumption(n1, n2));
+            seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+            m_ambient->req_facet(*m_root).add_req(e1, e2, true, dep);
+            return;
+        }
         if (!m_seq.is_seq(e1))
             return;
         unsigned idx = mk_dep(assumption(n1, n2));
@@ -194,9 +202,15 @@ namespace smt {
         enode* n1 = get_enode(v1);
         enode* n2 = get_enode(v2);
         expr* e1 = n1->get_expr();
+        expr* e2 = n2->get_expr();
+        if (m_seq.is_re(e1)) {
+            unsigned idx = mk_dep(assumption(n1, n2, true));
+            seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+            m_ambient->req_facet(*m_root).add_req(e1, e2, false, dep);
+            return;
+        }
         if (!m_seq.is_seq(e1))
             return;
-        expr* e2 = n2->get_expr();
         unsigned idx = mk_dep(assumption(n1, n2, true));
         seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
         expr_ref_vector lhs = m_ambient->purify(e1);
