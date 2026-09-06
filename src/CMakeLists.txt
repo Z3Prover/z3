@@ -86,7 +86,7 @@ set (object_files "")
 foreach (component ${Z3_LIBZ3_COMPONENTS_LIST})
   list(APPEND object_files $<TARGET_OBJECTS:${component}>)
 endforeach()
-if (Z3_BUILD_LIBZ3_SHARED)
+if (BUILD_SHARED_LIBS)
   set(lib_type "SHARED")
 else()
   set(lib_type "STATIC")
@@ -113,8 +113,16 @@ if (MSVC AND Z3_BUILD_LIBZ3_MSVC_STATIC)
     endforeach()
 endif()
 add_library(libz3 ${lib_type} ${object_files})
+if (NOT TARGET z3::libz3)
+  add_library(z3::libz3 ALIAS libz3)
+endif()
+# z3++.h requires C++11. Use a granular feature because the cxx_std_11
+# meta-feature is newer than the minimum CMake version for package consumers.
+target_compile_features(libz3 INTERFACE cxx_noexcept)
 target_include_directories(libz3 INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
+  # z3++.h lives in a separate directory from the C headers.
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api/c++>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 set_target_properties(libz3 PROPERTIES
   # VERSION determines the version in the filename of the shared library.
@@ -149,6 +157,9 @@ if (NOT MSVC)
   # ``.ilk``, ``.pdb``, ``.lib`` and ``.exp`` files sharing the same
   # prefix.
   set_target_properties(libz3 PROPERTIES OUTPUT_NAME z3)
+elseif (WIN32 AND NOT BUILD_SHARED_LIBS)
+  # Do not overwrite the shared build's import library when co-installed.
+  set_target_properties(libz3 PROPERTIES OUTPUT_NAME libz3-static)
 endif()
 
 # The `PRIVATE` usage requirement is specified so that when building Z3 as a
@@ -215,13 +226,10 @@ target_include_directories(libz3 INTERFACE
   $<BUILD_INTERFACE:${Z3_BUILD_INCLUDE_DIR}>
 )
 
-# This is currently only for the OpenMP flags. It needs to be set
-# via `target_link_libraries()` rather than `z3_append_linker_flag_list_to_target()`
-# because when building the `libz3` as a static library when the target is exported
-# the link dependencies need to be exported too.
-foreach (flag_name ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
-  target_link_libraries(libz3 PRIVATE ${flag_name})
-endforeach()
+# target_link_options() understands the "SHELL:" prefix used by some of
+# these flags (e.g. the Emscripten "-s" flags), unlike the raw LINK_FLAGS
+# string property.
+target_link_options(libz3 PRIVATE ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
 
 # Declare which header file are the public header files of libz3
 # these will automatically installed when the libz3 target is installed

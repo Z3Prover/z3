@@ -45,8 +45,9 @@ static void tst_attained() {
 }
 
 // maximize x s.t. x*y = 1 /\ y > 0 with no upper hint: the feasible set of
-// the objective is unbounded above; the engine stops after a few unbounded
-// rounds instead of spending the whole budget, with the best model so far.
+// the objective is unbounded above; after a few unbounded rounds the engine
+// proves it with one quantified (nlqsat) query instead of spending the
+// whole budget, keeping the best model as a witness.
 static void tst_unbounded() {
     std::cout << "opt_nlsat: unbounded\n";
     ast_manager m;
@@ -63,11 +64,45 @@ static void tst_unbounded() {
     opt::nlsat_opt opt(m, p);
     opt::nlsat_opt::result res(m);
     lbool r = opt.maximize(hard, x, rational(1), std::nullopt, 64, res);
-    ENSURE(r == l_undef);
+    ENSURE(r == l_true);
+    ENSURE(res.m_unbounded);
     ENSURE(!res.m_attained);
     ENSURE(!res.m_has_sup);
     ENSURE(res.m_model);
     ENSURE(res.m_rounds <= 8);
+}
+
+// Use prove_unbounded to prove unbounded for x in x*y = 1 /\ y > 0 (also in its
+// division form x = 1/y, which purification must remove for nlqsat), bounded
+// above (l_false) for x^2 <= 2, and l_undef outside the fragment.
+static void tst_prove_unbounded() {
+    std::cout << "opt_nlsat: prove_unbounded\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    sort* real = a.mk_real();
+    expr_ref x(m.mk_const(symbol("x"), real), m);
+    expr_ref y(m.mk_const(symbol("y"), real), m);
+    expr_ref one(a.mk_numeral(rational(1), false), m);
+    expr_ref zero(a.mk_numeral(rational(0), false), m);
+    expr_ref two(a.mk_numeral(rational(2), false), m);
+    params_ref p;
+    opt::nlsat_opt opt(m, p);
+    expr_ref_vector unbounded(m);
+    unbounded.push_back(m.mk_eq(a.mk_mul(x, y), one));
+    unbounded.push_back(a.mk_gt(y, zero));
+    ENSURE(opt.prove_unbounded(unbounded, x, rational(1)) == l_true);
+    expr_ref_vector division(m);
+    division.push_back(m.mk_eq(x, a.mk_div(one, y)));
+    division.push_back(a.mk_gt(y, zero));
+    ENSURE(opt.prove_unbounded(division, x, rational(1)) == l_true);
+    expr_ref_vector bounded(m);
+    bounded.push_back(a.mk_le(a.mk_mul(x, x), two));
+    ENSURE(opt.prove_unbounded(bounded, x, rational(0)) == l_false);
+    func_decl_ref f(m.mk_func_decl(symbol("f"), real, real), m);
+    expr_ref_vector outside(m);
+    outside.push_back(a.mk_le(m.mk_app(f, x.get()), two));
+    ENSURE(opt.prove_unbounded(outside, x, rational(0)) == l_undef);
 }
 
 // maximize x s.t. x^2 < 2 within [0, 2] on a small round budget: the
@@ -166,6 +201,7 @@ void tst_opt_nlsat() {
     tst_attained();
     tst_cubic_roots();
     tst_unbounded();
+    tst_prove_unbounded();
     tst_open_sup();
     tst_outside_fragment();
     tst_infeasible();

@@ -40,6 +40,8 @@ z3_add_component(rewriter
     rewriter.cpp
     seq_derive.cpp
     seq_subset.cpp
+    seq_parikh.cpp
+    seq_profile_abs.cpp
     seq_range_collapse.cpp
     seq_range_predicate.cpp
     seq_rewriter.cpp

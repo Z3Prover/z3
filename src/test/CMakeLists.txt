@@ -106,6 +106,7 @@ add_executable(test-z3
   object_allocator.cpp
   old_interval.cpp
   opt_nlsat.cpp
+  opt_pareto.cpp
   optional.cpp
   parray.cpp
   pb2bv.cpp
@@ -137,6 +138,7 @@ add_executable(test-z3
   scoped_vector.cpp
   seq_power.cpp
   seq_rewriter.cpp
+  seq_parikh.cpp
   seq_eq_approx.cpp
   seq_solver_facet.cpp
   seq_eq_facet.cpp
@@ -146,6 +148,7 @@ add_executable(test-z3
   seq_regex_witness.cpp
   seq_monadic.cpp
   seq_monadic_bench.cpp
+  seq_profile_abs.cpp
   simple_parser.cpp
   scanner_io.cpp
   simplex.cpp

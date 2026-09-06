@@ -45,8 +45,11 @@ Notes:
 #include "ackermannization/ackermannize_bv_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "params/sat_params.hpp"
+#include "solver/tactic2solver.h"
+#include "nlsat/tactic/qfnra_nlsat_tactic.h"
 #include "opt/opt_context.h"
 #include "opt/opt_solver.h"
+#include "opt/opt_nlsat.h"
 #include "opt/opt_params.hpp"
 
 
@@ -353,6 +356,7 @@ namespace opt {
         import_scoped_state(); 
         expr_ref_vector asms(_asms);
         asms.append(m_scoped_state.m_asms);
+        m_has_assumptions = !asms.empty();
         normalize(asms);
         if (m_hard_constraints.size() == 1 && m.is_false(m_hard_constraints.get(0))) {
             return l_false;
@@ -677,6 +681,23 @@ namespace opt {
             Z3_fallthrough;
         case O_MAXIMIZE:
             val = (*mdl)(obj.m_term);
+            if (m_pareto_exact_comparison && m_arith.is_irrational_algebraic_numeral(val)) {
+                // The nlsat-backed Pareto solver (mk_pareto_solver) decides
+                // atoms over algebraic numerals, so compare the objective
+                // against its exact model value.
+                result = is_ge ? mk_ge(obj.m_term, val) : mk_ge(val, obj.m_term);
+                break;
+            }
+            // The model may pin the objective to an irrational algebraic
+            // value v. The smt backend does not internalize an irrational
+            // algebraic numeral (it reports the term unsupported and answers
+            // unknown), so replace v by an endpoint of a rational isolating
+            // interval l < v < u: l in term >= v, u in term <= v. The
+            // weakened atom holds in the current model, and its negation
+            // (term < l, resp. term > u) implies term < v (resp. term > v),
+            // a strict improvement.
+            if (!is_numeral(val, k) && model_value_bound(m_arith, val, is_ge, k))
+                val = m_arith.mk_numeral(k, false);
             if (is_numeral(val, k)) {
                 if (is_ge) {
                     result = mk_ge(obj.m_term, val);
@@ -686,6 +707,11 @@ namespace opt {
                 }
             }
             else {
+                // The model value is neither a numeral nor an irrational
+                // algebraic number; the trivial constraint silently weakens
+                // the Pareto dominance test.
+                IF_VERBOSE(5, verbose_stream() << "(opt.pareto :unhandled-objective-value "
+                           << val << ")\n");
                 result = m.mk_true();
             }
             break;
@@ -732,7 +758,7 @@ namespace opt {
         return result;
     }
 
-    void context::yield() {
+    void context::publish_pareto_result() {
         SASSERT (m_pareto);
         m_pareto->get_model(m_model, m_labels);
         update_bound(true);
@@ -740,16 +766,44 @@ namespace opt {
         TRACE(opt, model_smt2_pp(tout, m, *m_model.get(), 0););
     }
 
-    lbool context::execute_pareto() {        
+    // Pick the solver the GIA loop runs on. On a pure NRA problem the
+    // dominance and blocking constraints go to an nlsat-backed solver:
+    // nlsat decides atoms over irrational algebraic numerals, which the
+    // smt core reports unsupported at internalization, so mk_cmp can
+    // compare an objective against its exact model value instead of a
+    // rounded isolating-interval endpoint (opt.pareto_nlsat to disable).
+    solver* context::mk_pareto_solver() {
+        opt_params optp(m_params);
+        m_pareto_exact_comparison = false;
+        if (!optp.pareto_nlsat() || m_has_assumptions)
+            return m_solver.get();
+        for (objective const& obj : m_objectives) {
+            if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
+                return m_solver.get();
+            if (!m_arith.is_real(obj.m_term))
+                return m_solver.get();
+            if (!in_nra_fragment(m, m_arith, m_hard_constraints, obj.m_term))
+                return m_solver.get();
+        }
+        tactic_ref t = mk_qfnra_nlsat_tactic(m, m_params);
+        solver* s = mk_tactic2solver(m, t.get(), m_params);
+        for (expr* f : m_hard_constraints)
+            s->assert_expr(f);
+        m_pareto_exact_comparison = true;
+        IF_VERBOSE(2, verbose_stream() << "(opt.pareto :solver qfnra-nlsat)\n");
+        return s;
+    }
+
+    lbool context::execute_pareto() {
         if (!m_pareto) {
-            set_pareto(alloc(gia_pareto, m, *this, m_solver.get(), m_params));
+            set_pareto(alloc(gia_pareto, m, *this, mk_pareto_solver(), m_params));
         }
         lbool is_sat = (*(m_pareto.get()))();
         if (is_sat != l_true) {
             set_pareto(nullptr);
         }
         if (is_sat == l_true) {
-            yield();
+            publish_pareto_result();
         }
         return is_sat;
     }
@@ -1555,7 +1609,15 @@ namespace opt {
             case O_MINIMIZE: {
                 val = (*m_model)(obj.m_term);
                 TRACE(opt, tout << obj.m_term << " " << val << "\n";);
-                if (is_numeral(val, r)) {
+                // The model value v may be irrational algebraic. Substitute
+                // an endpoint of a rational isolating interval l < v < u,
+                // with the side chosen so that the bound survives
+                // adjust_value: negation reverses order (x <= v iff
+                // -x >= -v), so when adjust_value negates the term the
+                // requested side flips.
+                // model_value_bound also accepts plain arithmetic numerals;
+                // the second check backstops bit-vector objective values.
+                if (model_value_bound(m_arith, val, is_lower != obj.m_adjust_value.get_negate(), r) || m_bv.is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     TRACE(opt, tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {
@@ -1570,7 +1632,7 @@ namespace opt {
             case O_MAXIMIZE: {
                 val = (*m_model)(obj.m_term);
                 TRACE(opt, tout << obj.m_term << " " << val << "\n";);
-                if (is_numeral(val, r)) {
+                if (model_value_bound(m_arith, val, is_lower != obj.m_adjust_value.get_negate(), r) || m_bv.is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     TRACE(opt, tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {

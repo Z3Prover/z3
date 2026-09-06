@@ -42,4 +42,7 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     validate_regex_orientation(m_seq_regex_orientation);
     m_seq_max_unfolding = p.seq_max_unfolding();
     m_seq_min_unfolding = p.seq_min_unfolding();
+    m_seq_parikh_k = p.seq_parikh_k();
+    m_seq_parikh_n = p.seq_parikh_n();
+    m_seq_parikh_chars = p.seq_parikh_chars();
 }

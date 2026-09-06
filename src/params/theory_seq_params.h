@@ -31,6 +31,9 @@ struct theory_seq_params {
     symbol m_seq_regex_orientation = symbol("forward");
     unsigned m_seq_max_unfolding = UINT_MAX/4;
     unsigned m_seq_min_unfolding = 1;
+    unsigned m_seq_parikh_k = 2;
+    unsigned m_seq_parikh_n = 2;
+    unsigned m_seq_parikh_chars = 6;
 
     theory_seq_params(params_ref const & p = params_ref()) {
         updt_params(p);

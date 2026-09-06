@@ -181,15 +181,15 @@ elseif (EMSCRIPTEN)
   message(STATUS "Platform: Emscripten")
   list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS
     "-Os"
-    "-s ALLOW_MEMORY_GROWTH=1"
-    "-s ASSERTIONS=0"
+    "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+    "SHELL:-s ASSERTIONS=0"
     # Use native wasm exception handling + wasm longjmp to match the ABI of the
     # Pyodide / modern-emscripten main module. The legacy JS-based EH (which the
     # removed "-s DISABLE_EXCEPTION_CATCHING=0" selected) makes libz3 import
     # invoke_* trampolines the Pyodide runtime no longer provides.
     "-fwasm-exceptions"
-    "-s SUPPORT_LONGJMP=wasm"
-    "-s ERROR_ON_UNDEFINED_SYMBOLS=1"
+    "SHELL:-s SUPPORT_LONGJMP=wasm"
+    "SHELL:-s ERROR_ON_UNDEFINED_SYMBOLS=1"
   )
 endif()
 
@@ -328,7 +328,18 @@ endif()
 ################################################################################
 # Option to control what type of library we build
 ################################################################################
-option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
+# Z3_BUILD_LIBZ3_SHARED is retained for existing build scripts.  Use CMake's
+# standard switch internally so packages can make the same choice.
+if (DEFINED Z3_BUILD_LIBZ3_SHARED)
+  set(BUILD_SHARED_LIBS "${Z3_BUILD_LIBZ3_SHARED}")
+endif()
+option(BUILD_SHARED_LIBS "Build libz3 as a shared library" ON)
+set(Z3_BUILD_LIBZ3_SHARED "${BUILD_SHARED_LIBS}")
+if (BUILD_SHARED_LIBS)
+  set(Z3_LIBZ3_VARIANT shared)
+else()
+  set(Z3_LIBZ3_VARIANT static)
+endif()
 option(Z3_BUILD_LIBZ3_MSVC_STATIC "Build libz3 as a statically-linked runtime library"                   OFF)
 
 
@@ -578,29 +589,29 @@ if (Z3_BUILD_LIBZ3_CORE)
 
   export(EXPORT Z3_EXPORTED_TARGETS
      NAMESPACE z3::
-     FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
+     FILE "${PROJECT_BINARY_DIR}/Z3-${Z3_LIBZ3_VARIANT}-targets.cmake"
   )
 else()
-  # When not building libz3, we need to find it
-  message(STATUS "Not building libz3, will look for pre-installed library")
-  find_library(Z3_LIBRARY NAMES z3 libz3
-    HINTS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
-    PATH_SUFFIXES lib lib64
-  )
-  if (NOT Z3_LIBRARY)
-    message(FATAL_ERROR "Could not find pre-installed libz3. Please ensure libz3 is installed or set Z3_BUILD_LIBZ3_CORE=ON")
-  endif()
-  message(STATUS "Found libz3: ${Z3_LIBRARY}")
+  message(STATUS "Not building libz3; looking for the installed Z3 package")
+  # CMake 3.16 has no block() scope. Preserve the project version variables
+  # around find_package(), which otherwise writes the same names.
+  set(_z3_project_version "${Z3_VERSION}")
+  set(_z3_project_version_major "${Z3_VERSION_MAJOR}")
+  set(_z3_project_version_minor "${Z3_VERSION_MINOR}")
+  set(_z3_project_version_patch "${Z3_VERSION_PATCH}")
+  find_package(Z3 ${Z3_VERSION} EXACT CONFIG REQUIRED COMPONENTS shared)
+  set(Z3_VERSION "${_z3_project_version}")
+  set(Z3_VERSION_MAJOR "${_z3_project_version_major}")
+  set(Z3_VERSION_MINOR "${_z3_project_version_minor}")
+  set(Z3_VERSION_PATCH "${_z3_project_version_patch}")
+  unset(_z3_project_version)
+  unset(_z3_project_version_major)
+  unset(_z3_project_version_minor)
+  unset(_z3_project_version_patch)
+endif()
 
-  # Create an imported target for the pre-installed libz3
-  add_library(libz3 SHARED IMPORTED)
-  set_target_properties(libz3 PROPERTIES
-    IMPORTED_LOCATION "${Z3_LIBRARY}"
-  )
-  # Set include directories for the imported target
-  target_include_directories(libz3 INTERFACE
-    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
-  )
+if (TARGET libz3 AND NOT TARGET z3::libz3)
+  add_library(z3::libz3 ALIAS libz3)
 endif()
 
 ################################################################################
@@ -645,21 +656,80 @@ write_basic_package_version_file("${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
   COMPATIBILITY SameMajorVersion
 )
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
-	"${CMAKE_CURRENT_BINARY_DIR}/z3.pc" @ONLY)
+set(Z3_FIND_GMP_MODULE_DIR "${PROJECT_SOURCE_DIR}/cmake/modules")
+configure_file(
+  "${PROJECT_SOURCE_DIR}/cmake/Z3StaticDependencies.cmake.in"
+  "${PROJECT_BINARY_DIR}/Z3-static-dependencies.cmake"
+  @ONLY
+)
+set(Z3_FIND_GMP_MODULE_DIR "\${CMAKE_CURRENT_LIST_DIR}")
+configure_file(
+  "${PROJECT_SOURCE_DIR}/cmake/Z3StaticDependencies.cmake.in"
+  "${PROJECT_BINARY_DIR}/cmake/Z3-static-dependencies.cmake"
+  @ONLY
+)
+unset(Z3_FIND_GMP_MODULE_DIR)
+
+if (Z3_BUILD_LIBZ3_CORE)
+  set(Z3_PKGCONFIG_DIR "${CMAKE_INSTALL_PKGCONFIGDIR}")
+  get_filename_component(Z3_PKGCONFIG_DIR "${Z3_PKGCONFIG_DIR}" ABSOLUTE
+    BASE_DIR "${CMAKE_INSTALL_PREFIX}")
+  set(Z3_PKGCONFIG_PREFIX "${CMAKE_INSTALL_PREFIX}")
+  file(RELATIVE_PATH Z3_PKGCONFIG_PREFIX
+    "${Z3_PKGCONFIG_DIR}" "${Z3_PKGCONFIG_PREFIX}")
+
+  set(Z3_PKGCONFIG_REQUIRES_PRIVATE "")
+  if (Z3_USE_LIB_GMP)
+    set(Z3_PKGCONFIG_REQUIRES_PRIVATE gmp)
+  endif()
+
+  set(Z3_PKGCONFIG_LIBS_PRIVATE "")
+  if (CMAKE_THREAD_LIBS_INIT)
+    list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
+  endif()
+  if (ATOMICS_REQUIRE_LIBATOMIC)
+    list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE -latomic)
+  endif()
+  if (MINGW)
+    list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE -ldbghelp)
+  endif()
+  foreach (implicit_lib IN LISTS CMAKE_CXX_IMPLICIT_LINK_LIBRARIES)
+    if (implicit_lib MATCHES "^(c\\+\\+|stdc\\+\\+|m)$")
+      list(APPEND Z3_PKGCONFIG_LIBS_PRIVATE "-l${implicit_lib}")
+    endif()
+  endforeach()
+  list(REMOVE_DUPLICATES Z3_PKGCONFIG_LIBS_PRIVATE)
+  list(JOIN Z3_PKGCONFIG_LIBS_PRIVATE " " Z3_PKGCONFIG_LIBS_PRIVATE)
+
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/z3.pc.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/z3.pc.configured" @ONLY)
+  file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc"
+    INPUT "${CMAKE_CURRENT_BINARY_DIR}/z3.pc.configured")
+endif()
 
 ################################################################################
 # Create `Z3Config.cmake` and related files for install tree so clients can use
 # Z3 via CMake.
 ################################################################################
-# Only install targets if we built libz3
 if (Z3_BUILD_LIBZ3_CORE)
   install(EXPORT
     Z3_EXPORTED_TARGETS
-    FILE "Z3Targets.cmake"
+    FILE "Z3-${Z3_LIBZ3_VARIANT}-targets.cmake"
     NAMESPACE z3::
     DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
   )
+  if (NOT BUILD_SHARED_LIBS)
+    install(
+      FILES "${PROJECT_BINARY_DIR}/cmake/Z3-static-dependencies.cmake"
+      DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+    )
+    if (Z3_USE_LIB_GMP)
+      install(
+        FILES "${PROJECT_SOURCE_DIR}/cmake/modules/FindGMP.cmake"
+        DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+      )
+    endif()
+  endif()
 endif()
 set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${PROJECT_BINARY_DIR}/cmake/Z3Config.cmake")
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
@@ -681,30 +751,32 @@ unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
 unset(AUTO_GEN_MSG)
 unset(CONFIG_FILE_TYPE)
 
-# Add install rule to install ${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}
-install(
-  FILES "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+if (Z3_BUILD_LIBZ3_CORE)
+  # Add install rule to install ${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}
+  install(
+    FILES "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
 
-# Add install rule to install ${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake
-install(
-  FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
-  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
-)
+  # Add install rule to install ${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake
+  install(
+    FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  )
 
-# Add install rule to install ${PROJECT_BINARY_DIR}/z3.pc
-install(
-  FILES "${PROJECT_BINARY_DIR}/z3.pc"
-  DESTINATION "${CMAKE_INSTALL_PKGCONFIGDIR}"
-)
+  # Add install rule to install ${PROJECT_BINARY_DIR}/z3.pc
+  install(
+    FILES "${PROJECT_BINARY_DIR}/z3.pc"
+    DESTINATION "${CMAKE_INSTALL_PKGCONFIGDIR}"
+  )
+endif()
 
 ################################################################################
 # Examples
 ################################################################################
 cmake_dependent_option(Z3_ENABLE_EXAMPLE_TARGETS
     "Build Z3 api examples" ON
-    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR;Z3_BUILD_LIBZ3_CORE" OFF)
 if (Z3_ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()

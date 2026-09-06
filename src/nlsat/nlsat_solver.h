@@ -209,22 +209,17 @@ namespace nlsat {
         */
         void set_max_var(var x);
         /**
-           \brief After a successful check(): true if the value assigned to the
-           maximization variable is the supremum of its feasible set at the time
-           of the assignment (as opposed to a point below an open supremum).
+           \brief Query right after check() returns l_true. If the feasible set
+           of the maximization variable is bounded above, set sup to its
+           supremum, set attained to true when the assigned value equals sup
+           (false when the supremum is open and the value lies below it), and
+           return true. Return false when the feasible set is unbounded above;
+           that is not a verdict on the problem, since clauses learned in later
+           rounds may still bound the variable. The answer is read from the
+           solver's infeasible-interval sets, so it goes stale after further
+           mk_clause or check calls.
         */
-        bool max_var_attained() const;
-        /**
-           \brief After a successful check(): true if the feasible set of the
-           maximization variable was unbounded above when it was assigned.
-        */
-        bool max_var_unbounded() const;
-        /**
-           \brief After a successful check(): the supremum of the feasible set of
-           the maximization variable at the time of its assignment (equal to its
-           value when max_var_attained()). Meaningful only when !max_var_unbounded().
-        */
-        anum const& max_var_sup() const;
+        bool max_var_sup(anum & sup, bool & attained) const;
 
         void reorder(unsigned sz, var const* permutation);
         void restore_order();
