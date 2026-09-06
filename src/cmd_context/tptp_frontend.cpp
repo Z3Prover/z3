@@ -2955,6 +2955,8 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
     try {
         cmd_context ctx;
+        if (g_display_model)
+            ctx.set_produce_models(true);
 
         tptp_parser p(ctx);
         p.parse_input(in, current_file ? current_file : ".");
@@ -2991,8 +2993,15 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
 
         // Optional: dump the parsed goal as an SMT-LIB2 benchmark (parameter tptp.dump_smt2
         // gives the output file path). Used to produce SMTLIB versions of TPTP instances.
+        // The simplifier_solver only flushes its pending preprocessing pipeline (running the
+        // configured simplifiers) lazily, when push()/check_sat_core() is invoked. We trigger
+        // that flush explicitly with a push()/pop() pair (leaving solver state unchanged) before
+        // dumping and before calling check_sat, so the dump captures fully preprocessed formulas,
+        // and so it still happens even if check_sat times out (on_timeout calls _Exit(0)).
         std::string dump_path = tptp().dump_smt2().str();
         if (!dump_path.empty()) {
+            ctx.get_solver()->push();
+            ctx.get_solver()->pop(1);
             std::ofstream dout(dump_path);
             if (dout) {
                 dout << "; Auto-generated from TPTP input: " << (current_file ? current_file : "?") << "\n";
@@ -3001,6 +3010,26 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
                 dout << "(set-param :pi.max_multi_patterns 1)\n";
                 ctx.get_solver()->display(dout);
                 dout << "(check-sat)\n";
+            }
+        }
+
+        // The leibniz_simplifier's added instantiation formulas may need a
+        // further simplification pass (e.g. th_rewriter folding a newly-
+        // exposed subterm). The pipeline's reduce() only processes each
+        // simplifier once per flush over the formulas present at that time,
+        // so force one more flush here (a push()/pop() pair, a no-op on
+        // solver state) to let the whole pipeline run again over any newly
+        // added formulas before starting search. Guard with try/catch: a
+        // semantic error surfacing from a simplifier pass here (e.g. an
+        // ill-sorted term synthesized by one of these experimental passes)
+        // must not abort the whole run; check_sat below is already prepared
+        // to catch such errors and report GaveUp, so let it do so instead
+        // by skipping this extra flush attempt on failure.
+        if (tptp().leibniz_instantiation()) {
+            try {
+                ctx.get_solver()->push();
+                ctx.get_solver()->pop(1);
+            } catch (z3_exception const&) {
             }
         }
 
@@ -3065,8 +3094,10 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
             else report_szs_status("Satisfiable", p.expected_status());
             if (g_display_model) {
                 model_ref mdl;
-                if (ctx.is_model_available(mdl))
+                if (ctx.is_model_available(mdl)) {
+                    ctx.set_regular_stream("stdout");
                     ctx.display_model(mdl);
+                }
             }
             break;
         case cmd_context::css_unknown:
