@@ -48,6 +48,8 @@ namespace seq {
     }
 
     void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
+        m_subst.push_back(subst_entry(m, var, repl));
+        m_trail.push(push_back_trail<subst_entry>(m_subst));
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
             bool touched_l = subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);
             bool touched_r = subst_in_trailed(m_trail, m_eqs, i, &equation::m_rhs, var, repl);
@@ -61,7 +63,50 @@ namespace seq {
     stx::facet_i* eq_facet::clone(trail_stack& trail) const {
         eq_facet* f = alloc(eq_facet, trail, m, u, m_dm);
         f->m_eqs.append(m_eqs);
+        f->m_subst.append(m_subst);
         return f;
+    }
+
+    bool eq_facet::get_subst(expr* var, expr_ref_vector& out) const {
+        for (unsigned i = m_subst.size(); i-- > 0; ) {
+            if (m_subst[i].m_var == var) {
+                out.reset();
+                out.append(m_subst[i].m_repl);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void eq_facet::eliminate(expr* e, expr_ref_vector& out) const {
+        expr_ref_vector in(m);
+        u.str.get_concat_units(e, in);
+        eliminate(in, out);
+    }
+
+    void eq_facet::eliminate(expr_ref_vector const& in, expr_ref_vector& out) const {
+        out.reset();
+        ptr_vector<expr> todo;
+        obj_hashtable<expr> on_stack;
+        auto push_token = [&](expr* t) {
+            todo.push_back(t);
+            on_stack.insert(t);
+        };
+        for (unsigned i = in.size(); i-- > 0; )
+            push_token(in.get(i));
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            todo.pop_back();
+            on_stack.remove(t);
+            expr_ref_vector repl(m);
+            if (get_subst(t, repl) && !on_stack.contains(t)) {
+                for (unsigned i = repl.size(); i-- > 0; )
+                    push_token(repl.get(i));
+            }
+            else {
+                out.push_back(t);
+            }
+        }
     }
 
     ambient_context_i<eq_tree::dep_tracker>& eq_facet::ambient(eq_tree::node const& n) const {

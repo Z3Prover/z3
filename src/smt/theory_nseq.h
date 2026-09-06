@@ -41,9 +41,11 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_substitution.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_power_facet.h"
 #include "ast/seq/seq_mem_facet.h"
+#include "ast/seq/seq_monadic.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_req_facet.h"
 #include "ast/seq/seq_lex_facet.h"
@@ -52,6 +54,7 @@ Author:
 #include "smt/smt_arith_value.h"
 #include "smt/seq_solver_facet.h"
 #include "smt/seq_axioms.h"
+#include "model/seq_factory.h"
 #include "util/trail.h"
 
 namespace seq {
@@ -151,6 +154,8 @@ namespace smt {
         seq::eq_tree::node*              m_root = nullptr;
         seq::sub_solver             m_solver;
         scoped_ptr<seq::theory_nseq_ambient_context> m_ambient;
+        scoped_ptr<seq_factory>          m_factory;
+        obj_map<expr, expr*>             m_model_subst;
 
         // Facet ids are registered once in the constructor and handed to
         // m_ambient (set_eq_id() etc.); they are not kept as members
@@ -219,16 +224,17 @@ namespace smt {
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
         void collect_statistics(::statistics& st) const override;
+        void init_model(model_generator& mg) override;
+        void finalize_model(model_generator& mg) override;
+        model_value_proc* mk_value(enode* n, model_generator& mg) override;
 
-        // model construction is deferred: no facilities exist yet to turn a
-        // `seq::eq_tree` sat-snapshot into a `smt::model`. `build_models()`
-        // returning false tells `model_generator::mk_value_procs` to *not*
-        // dispatch to `mk_value` for enodes owning an `nseq` theory_var
-        // (which would otherwise assert/crash, since no `mk_value` override
-        // exists); the core instead synthesizes an arbitrary fresh value for
-        // them, matching the `theory_dummy` convention for theories that do
-        // not (yet) build models.
-        bool build_models() const override { return false; }
+        // Model construction reads the SAT snapshot left by the search
+        // tree: eq_facet supplies the accumulated triangular
+        // substitutions, while mem_facet/seq_monadic-simplified views
+        // provide regex witnesses for any variable left unsolved by the
+        // equational part. Remaining unconstrained variables receive a
+        // fresh sequence value from seq_factory.
+        bool build_models() const override { return true; }
 
         char const* get_name() const override { return "nseq"; }
 

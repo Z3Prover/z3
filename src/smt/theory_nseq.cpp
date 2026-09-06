@@ -20,6 +20,8 @@ Author:
 #include "smt/seq_nseq_ambient_context.h"
 #include "smt/smt_context.h"
 #include "smt/smt_justification.h"
+#include "ast/expr_substitution.h"
+#include "smt/smt_model_generator.h"
 #include "util/trail.h"
 
 namespace smt {
@@ -480,6 +482,72 @@ namespace smt {
         ++m_num_conflicts;
     }
 
+    void theory_nseq::init_model(model_generator& mg) {
+        m_model_subst.reset();
+        m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
+        mg.register_factory(m_factory.get());
+        for (enode* n : ctx.enodes()) {
+            expr* e = n->get_expr();
+            if (m_seq.is_seq(e) && m.is_value(e))
+                m_factory->register_value(e);
+        }
+        seq::eq_tree::node const* snap = m_tree.sat_snapshot();
+        if (!snap || !m_ambient->has_mem(const_cast<seq::eq_tree::node&>(*snap)))
+            return;
+        auto const& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
+        seq_monadic mon(m_rewriter, ctx.get_trail_stack(), seq::transition_mode::brzozowski_tm);
+        mon.set_gen_solution(true);
+        for (auto const& sm : mf.memberships()) {
+            sort* s = m_seq.re.to_seq(sm.m_view.m_state->get_sort());
+            expr_ref term(m_seq.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
+            mon.add(term, sm.m_view.m_state, sm.m_dep);
+        }
+        expr_substitution model(m);
+        if (mon.materialize_all(model) == l_true) {
+            for (auto const& kv : model.sub())
+                m_model_subst.insert(kv.m_key, kv.m_value);
+        }
+    }
+
+    void theory_nseq::finalize_model(model_generator&) {
+        m_factory = nullptr;
+        m_model_subst.reset();
+    }
+
+    model_value_proc* theory_nseq::mk_value(enode* n, model_generator&) {
+        expr* e = n->get_expr();
+        if (!m_seq.is_seq(e))
+            return alloc(expr_wrapper_proc, to_app(m_factory->get_fresh_value(e->get_sort())));
+        seq::eq_tree::node const* snap = m_tree.sat_snapshot();
+        expr_ref result(m);
+        expr_ref_vector toks(m), resolved(m);
+        if (snap && m_ambient->has_eq(const_cast<seq::eq_tree::node&>(*snap)))
+            m_ambient->eq_facet(const_cast<seq::eq_tree::node&>(*snap)).eliminate(e, resolved);
+        else
+            m_seq.str.get_concat_units(e, resolved);
+        expr_ref_vector final_toks(m);
+        for (expr* t : resolved) {
+            expr* sub = nullptr;
+            if (m_model_subst.find(t, sub)) {
+                toks.reset();
+                m_seq.str.get_concat_units(sub, toks);
+                final_toks.append(toks);
+            }
+            else if (!m.is_value(t) && !m_seq.str.is_unit(t)) {
+                final_toks.push_back(m_factory->get_fresh_value(t->get_sort()));
+            }
+            else {
+                final_toks.push_back(t);
+            }
+        }
+        result = final_toks.empty() ? m_seq.str.mk_empty(e->get_sort()) : m_seq.str.mk_concat(final_toks.size(), final_toks.data(), e->get_sort());
+        m_th_rewriter(result);
+        if (!m.is_value(result))
+            result = m_factory->get_fresh_value(e->get_sort());
+        m_factory->add_trail(result);
+        return alloc(expr_wrapper_proc, to_app(result));
+    }
+
     final_check_status theory_nseq::final_check_eh(unsigned) {
         ++m_num_final_checks;
         stx::search_result res = m_tree.solve();
@@ -515,9 +583,9 @@ namespace smt {
                     return FC_CONTINUE;
                 }
             }
-            // Model construction is deferred: report done without a model.
             return FC_DONE;
         }
+
         case stx::search_result::unsat: {
             seq::eq_tree::dep_tracker dep = m_root->conflict_dep();
             if (dep) {

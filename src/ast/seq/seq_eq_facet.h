@@ -227,6 +227,12 @@ namespace seq {
      */
     class eq_facet : public stx::facet_i, public subst_sink_i {
     public:
+        struct subst_entry {
+            expr_ref         m_var;
+            expr_ref_vector  m_repl;
+            subst_entry(ast_manager& m, expr* var, expr_ref_vector const& repl) :
+                m_var(var, m), m_repl(repl) {}
+        };
         struct equation {
             expr_ref_vector      m_lhs;
             expr_ref_vector      m_rhs;
@@ -249,6 +255,7 @@ namespace seq {
         seq_rewriter          m_rw;
         eq_tree::dep_manager_t& m_dm;
         vector<equation>      m_eqs;
+        vector<subst_entry>   m_subst;
 
     public:
         eq_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
@@ -285,6 +292,22 @@ namespace seq {
         }
 
         vector<equation> const& equations() const { return m_eqs; }
+        vector<subst_entry> const& substitutions() const { return m_subst; }
+
+        // Global triangular substitution accumulated from every forced
+        // Nielsen substitution this facet decided. Model construction
+        // reads the SAT leaf's table back and repeatedly expands tokens
+        // through it until no further binding applies, so a chain such
+        // as  x := y ++ "a", y := "b"  materializes as "ba".
+        //
+        // The table is append-only and trailed, matching the search
+        // tree's single-live-node discipline: pushing a branch appends
+        // new bindings; backtracking simply pops them in LIFO order.
+        // Because bindings are recorded in creation order, walking the
+        // table backwards yields the newest active binding for a token.
+        bool get_subst(expr* var, expr_ref_vector& out) const;
+        void eliminate(expr* e, expr_ref_vector& out) const;
+        void eliminate(expr_ref_vector const& in, expr_ref_vector& out) const;
 
         // Apply a forced/branch substitution `var := repl` to every
         // equation currently in the facet. Trailed per-equation: only
