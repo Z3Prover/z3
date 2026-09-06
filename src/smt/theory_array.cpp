@@ -252,6 +252,14 @@ namespace smt {
                 ctx.internalize(arg, false);
         if (ctx.e_internalized(n)) 
             return false;
+        // defensive: mk_enode indexes args through app2enode and dereferences
+        // them unconditionally, so make sure every argument really has an
+        // enode before creating one for n (avoids access violations when an
+        // argument ends up only b_internalized, e.g. boolean args that were
+        // previously internalized in a gate context).
+        for (expr* arg : *n)
+            if (!ctx.e_internalized(arg))
+                ctx.mk_enode(arg, true, m.is_bool(arg), false);
 
         enode * e = ctx.mk_enode(n, false, false, true);
         if (!is_attached_to_var(e))
