@@ -485,6 +485,7 @@ namespace smt {
         }
     }
 
+    // NSB code review: this needs to invoke push/pop on m_tree which calls push/pop on solver_facet.
     void theory_nseq::push_scope_eh() {
         theory::push_scope_eh();
     }
@@ -493,6 +494,7 @@ namespace smt {
         theory::pop_scope_eh(num_scopes);
     }
 
+    // NSB code review: this needs to also copy facet state
     theory* theory_nseq::mk_fresh(context* new_ctx) {
         return alloc(theory_nseq, *new_ctx);
     }
