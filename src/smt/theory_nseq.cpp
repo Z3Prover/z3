@@ -187,7 +187,7 @@ namespace smt {
         if (m_seq.str.is_in_re(e, e1, e2)) {
             ensure_enode(e1);
             ensure_enode(e2);
-            unsigned idx = mk_dep(assumption(is_true ? lit : ~lit));
+            unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
             if (!is_true)
@@ -233,7 +233,7 @@ namespace smt {
         }
 
         if (m_seq.str.is_contains(e, e1, e2)) {
-            unsigned idx = mk_dep(assumption(is_true ? lit : ~lit));
+            unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             if (is_true) {
                 // contains(e1,e2) <=> exists x,y. e1 = x ++ e2 ++ y
@@ -268,16 +268,22 @@ namespace smt {
         literal_vector clause;
         for (unsigned idx : idxs) {
             assumption const& a = m_assumptions[idx];
-            if (a.lit != null_literal)
+            if (a.lit != null_literal) {
+                SASSERT(ctx.get_assignment(a.lit) == l_true);
                 clause.push_back(~a.lit);
-            else if (a.is_diseq)
+            }
+            else if (a.is_diseq) {
                 // n1, n2 were distinct in the ambient context - the
                 // equality literal is only created now, lazily, since
                 // the disequality is actually needed to justify this
                 // conflict.
+                SASSERT(a.n1->get_root() != a.n2->get_root());
                 clause.push_back(mk_eq(a.n1->get_expr(), a.n2->get_expr(), false));
-            else
+            }
+            else {
+                SASSERT(a.n1->get_root() == a.n2->get_root());
                 clause.push_back(~mk_eq(a.n1->get_expr(), a.n2->get_expr(), false));
+            }
         }
         for (literal lit : clause)
             ctx.mark_as_relevant(lit);

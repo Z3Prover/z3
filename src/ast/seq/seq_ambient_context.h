@@ -337,7 +337,7 @@ namespace seq {
         // is a member function template, so (like `facet_as<T>` itself)
         // it is only instantiated - and so only requires its facet type
         // to be complete - at the point it is actually called, i.e. in
-        // whichever .cpp already `#include`s that facet's own header.
+        // whichever .cpp already includes that facet's own header.
         template <typename node_t> seq::eq_facet& eq_facet(node_t& n) const { return n.template facet_as<seq::eq_facet>(eq_id()); }
         template <typename node_t> seq::deq_facet& deq_facet(node_t& n) const { return n.template facet_as<seq::deq_facet>(deq_id()); }
         template <typename node_t> seq::power_facet& power_facet(node_t& n) const { return n.template facet_as<seq::power_facet>(pow_id()); }
@@ -367,7 +367,7 @@ namespace seq {
      * Since this is itself a class template, a method such as
      * `mem_facet()` is only instantiated (and so only requires `seq::
      * mem_facet` to be a complete type) at the point it is actually
-     * called - i.e. in whichever .cpp already `#include`s the concrete
+     * called - i.e. in whichever .cpp already includes the concrete
      * facet's header. `seq_ambient_context.h` itself never needs to see
      * those headers, only the forward declarations above; this is what
      * lets `ambient_ref` return real reference types (`mem_facet&`, not
