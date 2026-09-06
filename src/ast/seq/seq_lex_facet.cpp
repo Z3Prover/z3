@@ -303,8 +303,8 @@ namespace seq {
                     // eqf and drop these obligations from lex_facet
                     // (removing high indices first so lower indices
                     // stay valid).
-
-v                   vector<unsigned> to_remove;
+
+                    vector<unsigned> to_remove;
                     for (unsigned k = start; k < on_path.size(); ++k)
                         to_remove.push_back(edges[on_path[k]].lex_idx);
                     std::sort(to_remove.begin(), to_remove.end(), std::greater<unsigned>());

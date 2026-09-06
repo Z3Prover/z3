@@ -24,8 +24,87 @@ Author:
 #include "smt/smt_model_generator.h"
 #include "util/trail.h"
 #include "ast/ast_ll_pp.h"
+#include <functional>
 
 namespace smt {
+
+    // Model-value builder for a seq-sorted enode. Unlike the previous
+    // implementation (which eagerly substituted a *fresh* value for any
+    // non-value, non-unit token and then ran m_th_rewriter over the
+    // whole concatenation - discarding the actual dependency on that
+    // token's real model value), this walks the token list once in
+    // get_dependencies() to record every token that still needs a value
+    // computed for it (any unit() argument, or any other still-unresolved
+    // subterm) as a proper model_value_dependency, and only then, in
+    // mk_value(), splices each dependency's already-materialized value
+    // back into its slot before concatenating - so unit(x) where x is a
+    // shared variable receives the *same* character value assigned to x
+    // elsewhere, and any other non-value token found (e.g. the model_subst-
+    // rewritten forms) is also asked for its own value rather than being
+    // discarded in favor of an unrelated fresh one.
+    class theory_nseq::seq_model_value_proc : public model_value_proc {
+        theory_nseq&       th;
+        sort*              m_sort;
+        // Each slot is either a literal (already-final) token, recorded
+        // directly, or a placeholder standing for the i'th dependency in
+        // m_dep_enodes/m_dep_units (resolved from `values` in mk_value).
+        struct slot {
+            expr* m_literal = nullptr; // non-null: use this token as-is
+            bool  m_is_unit = false;   // true: dependency's value must be wrapped via str.mk_unit
+        };
+        vector<slot>                      m_slots;
+        ptr_vector<enode>                 m_dep_enodes;
+        svector<bool>                     m_dep_is_unit;
+    public:
+        seq_model_value_proc(theory_nseq& th, sort* s) : th(th), m_sort(s) {}
+
+        // Append a token already known to be a final value/constant
+        // (values, or units wrapping a value char) - no dependency
+        // needed.
+        void add_literal(expr* t) {
+            slot sl;
+            sl.m_literal = t;
+            m_slots.push_back(sl);
+        }
+
+        // Append a token that still needs its model value computed:
+        // `n` is the enode whose value should be substituted in; if
+        // `is_unit` holds, `n`'s own value is the character payload of a
+        // unit() token (str.unit(value-of-n) is spliced in), otherwise
+        // `n`'s value is spliced in directly (n is itself seq-sorted).
+        void add_dependency(enode* n, bool is_unit) {
+            slot sl;
+            sl.m_is_unit = is_unit;
+            m_slots.push_back(sl);
+            m_dep_enodes.push_back(n);
+            m_dep_is_unit.push_back(is_unit);
+        }
+
+        void get_dependencies(buffer<model_value_dependency>& result) override {
+            for (enode* n : m_dep_enodes)
+                result.push_back(model_value_dependency(n));
+        }
+
+        app* mk_value(model_generator& mg, expr_ref_vector const& values) override {
+            SASSERT(values.size() == m_dep_enodes.size());
+            ast_manager& m = th.m;
+            expr_ref_vector final_toks(m);
+            unsigned j = 0;
+            for (slot const& sl : m_slots) {
+                if (sl.m_literal) {
+                    final_toks.push_back(sl.m_literal);
+                    continue;
+                }
+                expr* v = values.get(j++);
+                final_toks.push_back(sl.m_is_unit ? th.m_seq.str.mk_unit(v) : v);
+            }
+            expr_ref result(m);
+            result = final_toks.empty() ? th.m_seq.str.mk_empty(m_sort)
+                                        : th.m_seq.str.mk_concat(final_toks.size(), final_toks.data(), m_sort);
+            th.m_factory->add_trail(result);
+            return to_app(result);
+        }
+    };
 
     theory_nseq::theory_nseq(context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("seq")),
@@ -523,33 +602,49 @@ namespace smt {
         if (!m_seq.is_seq(e))
             return alloc(expr_wrapper_proc, to_app(m_factory->get_fresh_value(e->get_sort())));
         seq::eq_tree::node const* snap = m_tree.sat_snapshot();
-        expr_ref result(m);
-        expr_ref_vector toks(m), resolved(m);
+        expr_ref_vector resolved(m);
         if (snap)
             m_ambient->eq_facet(const_cast<seq::eq_tree::node&>(*snap)).eliminate(e, resolved);
         else
             m_seq.str.get_concat_units(e, resolved);
-        expr_ref_vector final_toks(m);
-        for (expr* t : resolved) {
+
+        seq_model_value_proc* proc = alloc(seq_model_value_proc, *this, e->get_sort());
+
+        // Append token `t` to `proc`: literal tokens (values, or units
+        // over a value char) are recorded as-is; anything else records
+        // an actual dependency so its real, already-materialized model
+        // value is spliced in later by seq_model_value_proc::mk_value,
+        // instead of being thrown away for an unrelated fresh value.
+        std::function<void(expr*)> add_token = [&](expr* t) {
             expr* sub = nullptr;
             if (m_model_subst.find(t, sub)) {
-                toks.reset();
+                expr_ref_vector toks(m);
                 m_seq.str.get_concat_units(sub, toks);
-                final_toks.append(toks);
+                for (expr* t2 : toks)
+                    add_token(t2);
+                return;
             }
-            else if (!m.is_value(t) && !m_seq.str.is_unit(t)) {
-                final_toks.push_back(m_factory->get_fresh_value(t->get_sort()));
+            expr* ch = nullptr;
+            if (m_seq.str.is_unit(t, ch)) {
+                if (m.is_value(ch))
+                    proc->add_literal(t);
+                else
+                    proc->add_dependency(ensure_enode(ch), true);
+            }
+            else if (m.is_value(t)) {
+                proc->add_literal(t);
             }
             else {
-                final_toks.push_back(t);
+                // Any other still-unresolved seq-sorted subterm: record
+                // a dependency on its own enode so its (separately
+                // computed) model value is spliced in here, rather than
+                // being replaced by an unrelated fresh value.
+                proc->add_dependency(ensure_enode(t), false);
             }
-        }
-        result = final_toks.empty() ? m_seq.str.mk_empty(e->get_sort()) : m_seq.str.mk_concat(final_toks.size(), final_toks.data(), e->get_sort());
-        m_th_rewriter(result);
-        if (!m.is_value(result))
-            result = m_factory->get_fresh_value(e->get_sort());
-        m_factory->add_trail(result);
-        return alloc(expr_wrapper_proc, to_app(result));
+        };
+        for (expr* t : resolved)
+            add_token(t);
+        return proc;
     }
 
     final_check_status theory_nseq::final_check_eh(unsigned) {

@@ -90,6 +90,7 @@ namespace smt {
      */
     class theory_nseq : public theory {
         friend class seq::theory_nseq_ambient_context;
+        class seq_model_value_proc;
 
         // One real SMT-level justification underlying a single `unsigned`
         // dependency-leaf value recorded in `seq::eq_tree`'s dependency
