@@ -187,10 +187,49 @@ namespace seq {
         // equation at idx was just erased above (the vector element it
         // referred to has been shifted/removed) - capture the dependency
         // we need (parent_dep) BEFORE the erase, not here.
+        //
+        // Special case: reduce_eq's own unit-vs-unit trimming
+        // (reduce_back/reduce_front in ast/rewriter/seq_rewriter.cpp)
+        // pushes a pair (a, b) of individual character terms whenever
+        // two leading/trailing unit tokens are neither statically equal
+        // nor statically distinct (e.g. from an `ite`/`nth` application)
+        // - this is exactly the same situation word_eq_split's
+        // unit-vs-unit fallback (above) handles explicitly, so it must
+        // go through the same soundness checks here: consult the
+        // ambient context first (a conflict if the equality is already
+        // assigned false there), and otherwise record the forced
+        // equality both on the arithmetic sub-solver and in
+        // assumption_facet (so theory_nseq can, once a satisfiable node
+        // is found, make the ambient context agree). Any other shape of
+        // sub-equation (multi-token, from length/overlap/bag reasoning)
+        // is a definitional decomposition, not a forced character
+        // equality, and is added as a plain equation as before.
         for (auto const& [l, r] : new_eqs) {
             expr_ref_vector lts(m), rts(m);
             u.str.get_concat_units(l, lts);
             u.str.get_concat_units(r, rts);
+            if (lts.size() == 1 && rts.size() == 1 && u.str.is_unit(lts.get(0)) && u.str.is_unit(rts.get(0))) {
+                expr* lch = nullptr, *rch = nullptr;
+                VERIFY(u.str.is_unit(lts.get(0), lch));
+                VERIFY(u.str.is_unit(rts.get(0), rch));
+                if (m.are_distinct(lch, rch)) {
+                    conflict = true;
+                    conflict_dep = parent_dep;
+                    return false;
+                }
+                if (lch != rch) {
+                    expr_ref eq_expr(m.mk_eq(lch, rch), m);
+                    if (auto false_dep = ac.literal_if_false(eq_expr)) {
+                        conflict = true;
+                        conflict_dep = m_dm.mk_join(parent_dep, false_dep);
+                        return false;
+                    }
+                    auto ambient = get_ambient(n);
+                    if (ambient.has_arith())
+                        ambient.arith_facet_ref().add_constraint(eq_expr, parent_dep);
+                    ambient.assumption_facet_ref().add_assumption(eq_expr);
+                }
+            }
             add_equation(lts, rts, parent_dep);
         }
         return true;
