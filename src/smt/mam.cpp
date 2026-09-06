@@ -1952,10 +1952,6 @@ namespace {
                 m_args[0] = m_registers[pc->m_iregs[0]]->get_root();
                 SASSERT(n != 0);
                 do {
-                    // Guard against enodes whose args storage does not actually hold
-                    // `num_args` arguments (e.g., HO placeholder enodes allocated with
-                    // suppressed/zero-sized args but sharing the same func_decl). Without
-                    // this check get_arg(0) below can read out of bounds/garbage memory.
                     if (n->get_decl() == f && n->get_num_args() == num_args &&
                         n->get_arg(0)->get_root() == m_args[0]) {
                         update_max_generation(n, first);
@@ -3804,13 +3800,6 @@ namespace {
                 SASSERT(tmp_tree != 0);
                 SASSERT(m_context.get_num_enodes_of(lbl) > 0);
                 m_interpreter.init(tmp_tree);
-                // See rematch(): execute_core may trigger (HO-lambda / non-ground)
-                // internalization of new applications of `lbl`, which can grow/reallocate
-                // the context's decl->enodes vector (the enode_vector for `lbl`, but also
-                // possibly the outer vector<ptr_vector<enode>> that owns it, invalidating
-                // even a live reference to `m_context.enodes_of(lbl)`). Re-fetch the vector
-                // itself (not just its size) every iteration so both kinds of reallocation
-                // are picked up safely instead of reading from a stale/freed buffer.
                 for (unsigned i = 0; i < m_context.enodes_of(lbl).size(); ++i) {
                     enode * app = m_context.enodes_of(lbl)[i];
                     if (m_context.is_relevant(app))
