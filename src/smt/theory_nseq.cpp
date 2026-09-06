@@ -599,6 +599,11 @@ namespace smt {
 
     model_value_proc* theory_nseq::mk_value(enode* n, model_generator&) {
         expr* e = n->get_expr();
+        if (m_seq.is_re(e))
+            // Regexes are not sequence values to be synthesized token by
+            // token - just return the regex term itself as its own
+            // model value (no fresh value needed/possible).
+            return alloc(expr_wrapper_proc, to_app(e));
         if (!m_seq.is_seq(e))
             return alloc(expr_wrapper_proc, to_app(m_factory->get_fresh_value(e->get_sort())));
         seq::eq_tree::node const* snap = m_tree.sat_snapshot();
@@ -610,11 +615,13 @@ namespace smt {
 
         seq_model_value_proc* proc = alloc(seq_model_value_proc, *this, e->get_sort());
 
-        // Append token `t` to `proc`: literal tokens (values, or units
-        // over a value char) are recorded as-is; anything else records
-        // an actual dependency so its real, already-materialized model
-        // value is spliced in later by seq_model_value_proc::mk_value,
-        // instead of being thrown away for an unrelated fresh value.
+        // Append token `t` to `proc`: literal tokens (values, units over
+        // a value char, or any token that has no enode yet - nothing to
+        // depend on) are recorded as-is; anything else that is already
+        // internalized records an actual dependency so its real,
+        // already-materialized model value is spliced in later by
+        // seq_model_value_proc::mk_value, instead of being thrown away
+        // for an unrelated fresh value.
         std::function<void(expr*)> add_token = [&](expr* t) {
             expr* sub = nullptr;
             if (m_model_subst.find(t, sub)) {
@@ -626,20 +633,21 @@ namespace smt {
             }
             expr* ch = nullptr;
             if (m_seq.str.is_unit(t, ch)) {
-                if (m.is_value(ch))
+                if (m.is_value(ch) || !ctx.e_internalized(ch))
                     proc->add_literal(t);
                 else
-                    proc->add_dependency(ensure_enode(ch), true);
+                    proc->add_dependency(ctx.get_enode(ch), true);
             }
-            else if (m.is_value(t)) {
+            else if (m.is_value(t) || !ctx.e_internalized(t)) {
                 proc->add_literal(t);
             }
             else {
-                // Any other still-unresolved seq-sorted subterm: record
-                // a dependency on its own enode so its (separately
-                // computed) model value is spliced in here, rather than
-                // being replaced by an unrelated fresh value.
-                proc->add_dependency(ensure_enode(t), false);
+                // Any other still-unresolved seq-sorted subterm that is
+                // already internalized: record a dependency on its own
+                // enode so its (separately computed) model value is
+                // spliced in here, rather than being replaced by an
+                // unrelated fresh value.
+                proc->add_dependency(ctx.get_enode(t), false);
             }
         };
         for (expr* t : resolved)
