@@ -49,7 +49,7 @@ Author:
 #pragma once
 
 #include "ast/rewriter/seq_rewriter.h"
-#include "ast/rewriter/seq_view.h"
+#include "ast/seq/seq_view.h"
 #include "ast/rewriter/guard_set.h"
 #include "util/lbool.h"
 #include "util/obj_hashtable.h"

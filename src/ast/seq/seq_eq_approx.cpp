@@ -15,7 +15,7 @@ Author:
 
 --*/
 
-#include "ast/rewriter/seq_eq_approx.h"
+#include "ast/seq/seq_eq_approx.h"
 #include "ast/ast_pp.h"
 #include <functional>
 #include <unordered_set>

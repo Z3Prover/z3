@@ -15,7 +15,7 @@ Author:
 
 --*/
 
-#include "ast/rewriter/seq_parikh.h"
+#include "ast/seq/seq_parikh.h"
 #include "ast/ast_util.h"
 #include "util/zstring.h"
 #include <numeric>
