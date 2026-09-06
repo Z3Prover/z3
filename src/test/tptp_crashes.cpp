@@ -6,6 +6,7 @@ Copyright (c) 2026 Microsoft Corporation
 #include "cmd_context/tptp_frontend.h"
 #include "util/debug.h"
 #include "util/gparams.h"
+#include "util/timeout.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -76,4 +77,52 @@ thf(c,conjecture,
                   & ! [Y: a] : ( ( R @ Y ) => ( S @ Y ) ) ) ) ) )).)");
     ENSURE(out.find("% SZS status GaveUp") != std::string::npos);
     gparams::set("smt.ho_matching", "false");
+
+    // Array term internalization must not assume that arguments already
+    // internalized as booleans (e.g., in a gate context) have an enode.
+    // theory_array::internalize_term_core previously indexed app2enode for
+    // such arguments and dereferenced a null enode, causing an access
+    // violation (SYO555^1.p from TPTP with smt.ho_matching=true).
+    gparams::set("smt.ho_matching", "true");
+    set_timeout(5000);
+    out = run_tptp_crash_regression(
+R"(thf(eps1,type,
+    eps1: ( $i > $o ) > $i ).
+thf(choiceax1,axiom,
+    ! [P: $i > $o] :
+      ( ? [X: $i] : ( P @ X )
+     => ( P @ ( eps1 @ P ) ) ) ).
+thf(if1,type,
+    if1: $o > $i > $i > $i ).
+thf(if1d,definition,
+    ( if1
+    = ( ^ [B: $o,X: $i,Y: $i] :
+          ( eps1
+          @ ^ [Z: $i] :
+              ( ( B
+                & ( Z = X ) )
+              | ( ~ B
+                & ( Z = Y ) ) ) ) ) ) ).
+thf(eps2,type,
+    eps2: ( $i > $o ) > $i ).
+thf(choiceax2,axiom,
+    ! [P: $i > $o] :
+      ( ? [X: $i] : ( P @ X )
+     => ( P @ ( eps2 @ P ) ) ) ).
+thf(if2,type,
+    if2: $o > $i > $i > $i ).
+thf(if2d,definition,
+    ( if2
+    = ( ^ [B: $o,X: $i,Y: $i] :
+          ( eps2
+          @ ^ [Z: $i] :
+              ( ( B
+                & ( Z = X ) )
+              | ( ~ B
+                & ( Z = Y ) ) ) ) ) ) ).
+thf(conj,conjecture,
+    if1 = if2 ).)");
+    ENSURE(out.find("% SZS status") != std::string::npos);
+    gparams::set("smt.ho_matching", "false");
+    disable_timeout();
 }
