@@ -88,11 +88,23 @@ namespace smt {
         // One real SMT-level justification underlying a single `unsigned`
         // dependency-leaf value recorded in `seq::eq_tree`'s dependency
         // manager. Mirrors `theory_seq::assumption`.
+        //
+        // `n1`/`n2` together with `is_diseq` represent either "n1 and n2
+        // are equal" (is_diseq == false, from new_eq_eh - already true in
+        // the ambient context, since they share an enode class) or "n1
+        // and n2 are distinct" (is_diseq == true, from new_diseq_eh -
+        // already true in the ambient context, since they are in
+        // different enode classes). Neither case needs (or eagerly
+        // creates) an equality literal: the corresponding
+        // `mk_eq(n1,n2)` atom is only internalized lazily, in
+        // report_conflict, if this assumption actually participates in
+        // a conflict.
         struct assumption {
             enode* n1 = nullptr, *n2 = nullptr;
+            bool is_diseq = false;
             literal lit = null_literal;
             assumption() = default;
-            assumption(enode* n1, enode* n2) : n1(n1), n2(n2) {}
+            assumption(enode* n1, enode* n2, bool is_diseq = false) : n1(n1), n2(n2), is_diseq(is_diseq) {}
             assumption(literal lit) : lit(lit) {}
         };
 

@@ -168,8 +168,7 @@ namespace smt {
         if (!m_seq.is_seq(e1))
             return;
         expr* e2 = n2->get_expr();
-        literal lit = mk_eq(e1, e2, false);
-        unsigned idx = mk_dep(assumption(~lit));
+        unsigned idx = mk_dep(assumption(n1, n2, true));
         seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
         expr_ref_vector lhs = m_ambient->purify(e1);
         expr_ref_vector rhs = m_ambient->purify(e2);
@@ -268,20 +267,20 @@ namespace smt {
     void theory_nseq::report_conflict(seq::eq_tree::dep_tracker dep) {
         vector<unsigned, false> idxs;
         m_tree.dep_mgr().linearize(dep, idxs);
-        enode_pair_vector eqs;
-        literal_vector lits;
+        literal_vector clause;
         for (unsigned idx : idxs) {
             assumption const& a = m_assumptions[idx];
             if (a.lit != null_literal)
-                lits.push_back(a.lit);
+                clause.push_back(~a.lit);
+            else if (a.is_diseq)
+                // n1, n2 were distinct in the ambient context - the
+                // equality literal is only created now, lazily, since
+                // the disequality is actually needed to justify this
+                // conflict.
+                clause.push_back(mk_eq(a.n1->get_expr(), a.n2->get_expr(), false));
             else
-                eqs.push_back({a.n1, a.n2});
+                clause.push_back(~mk_eq(a.n1->get_expr(), a.n2->get_expr(), false));
         }
-        literal_vector clause;
-        for (literal lit : lits)
-            clause.push_back(~lit);
-        for (auto const& p : eqs)
-            clause.push_back(~mk_eq(p.first->get_expr(), p.second->get_expr(), false));
         for (literal lit : clause)
             ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
