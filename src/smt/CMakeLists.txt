@@ -79,7 +79,6 @@ z3_add_component(smt
     uses_theory.cpp
     watch_list.cpp
   COMPONENT_DEPENDENCIES
-    seq
     solver_assertions
     bit_blaster
     cmd_context

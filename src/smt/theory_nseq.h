@@ -49,6 +49,7 @@ Author:
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
 #include "smt/seq_solver_facet.h"
+#include "smt/seq_axioms.h"
 #include "util/trail.h"
 
 namespace seq {
@@ -124,6 +125,21 @@ namespace smt {
                                    // axiomatization) built while adding constraints that
                                    // are not otherwise owned by the calling context.
 
+        // Axiomatization of string operations that are reduced to more
+        // basic constraints (length/index/replace/extract/at/nth/itos/
+        // stoi/lt/le/unit/is_digit/from_code/to_code, and negated
+        // prefix/suffix, following theory_seq's m_ax/enque_axiom/
+        // deque_axiom pattern - see theory_seq.h/.cpp). Unlike
+        // theory_seq, axioms are drained via can_propagate/propagate
+        // (not final_check_eh), consistent with the rest of theory_nseq's
+        // "apply as soon as noticed" style; the axioms themselves are
+        // solver-independent term rewrites (m_ax.add_*), so draining them
+        // eagerly rather than at final_check has no effect on soundness.
+        smt::seq_axioms     m_ax;
+        expr_ref_vector     m_axioms;      // queue of terms awaiting axiomatization
+        obj_hashtable<expr> m_axiom_set;   // dedup guard for m_axioms enqueues
+        unsigned            m_axioms_head = 0; // index of first axiom still to add
+
         seq::eq_tree                     m_tree;
         seq::eq_tree::node*              m_root = nullptr;
         seq::sub_solver             m_solver;
@@ -189,6 +205,9 @@ namespace smt {
         // optional overrides
         void init() override;
         void assign_eh(bool_var v, bool is_true) override;
+        void relevant_eh(expr* n) override;
+        bool can_propagate() override;
+        void propagate() override;
         final_check_status final_check_eh(unsigned) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
@@ -210,6 +229,8 @@ namespace smt {
         void report_conflict(seq::eq_tree::dep_tracker dep);
         unsigned mk_dep(assumption const& a);
         void pin(expr* e) { m_pin.push_back(e); ctx.push_trail(push_back_vector(m_pin)); }
+        void enqueue_axiom(expr* e);
+        void dequeue_axiom(expr* e);
 
         bool get_num_value(expr* e, rational& val) const;
         bool lower_bound(expr* e, rational& lo) const;

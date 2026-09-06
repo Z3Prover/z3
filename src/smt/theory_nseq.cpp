@@ -32,6 +32,8 @@ namespace smt {
         m_arith_value(m),
         m_live(m_rewriter),
         m_pin(m),
+        m_ax(*this, m_th_rewriter),
+        m_axioms(m),
         m_tree(ctx.get_trail_stack(), m.limit()),
         m_root(m_tree.mk_root()),
         m_solver(m, m_autil, m_tree.dep_mgr())
@@ -85,6 +87,33 @@ namespace smt {
 
     void theory_nseq::init() {
         m_arith_value.init(&get_context());
+        std::function<void(literal, literal, literal, literal, literal)> add_ax =
+            [&](literal l1, literal l2, literal l3, literal l4, literal l5) {
+                literal_vector lits;
+                if (l1 == true_literal || l2 == true_literal || l3 == true_literal ||
+                    l4 == true_literal || l5 == true_literal)
+                    return;
+                if (l1 != null_literal && l1 != false_literal) lits.push_back(l1);
+                if (l2 != null_literal && l2 != false_literal) lits.push_back(l2);
+                if (l3 != null_literal && l3 != false_literal) lits.push_back(l3);
+                if (l4 != null_literal && l4 != false_literal) lits.push_back(l4);
+                if (l5 != null_literal && l5 != false_literal) lits.push_back(l5);
+                for (literal lit : lits)
+                    if (ctx.get_assignment(lit) == l_true && ctx.get_assign_level(lit) == 0)
+                        return;
+                for (literal lit : lits)
+                    ctx.mark_as_relevant(lit);
+                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+            };
+        std::function<literal(expr*, bool)> mk_eq_emp = [&](expr* e, bool phase) {
+            expr_ref emp(m_seq.str.mk_empty(e->get_sort()), m);
+            literal lit = mk_eq(e, emp, false);
+            ctx.force_phase(phase ? lit : ~lit);
+            ctx.mark_as_relevant(lit);
+            return lit;
+        };
+        m_ax.add_axiom5 = add_ax;
+        m_ax.mk_eq_empty2 = mk_eq_emp;
     }
 
     // -----------------------------------------------------------------------
@@ -199,11 +228,16 @@ namespace smt {
         }
 
         if (m_seq.str.is_prefix(e, e1, e2)) {
-            // prefix(e1,e2) <=> exists f. e2 = e1 ++ f  (true case only; the
-            // false case - "e1 is not a prefix of e2" - has no eq_facet/
-            // ncontains_facet analog yet, see theory_seq's
-            // propagate_not_prefix for the c3-era treatment: left as a
-            // documented gap).
+            // prefix(e1,e2) <=> exists f. e2 = e1 ++ f  in the true case;
+            // the false case - "e1 is not a prefix of e2" - has no
+            // eq_facet/ncontains_facet analog, so it is axiomatized
+            // directly (following theory_seq::propagate_not_prefix, minus
+            // the canonize-based short-circuit which relies on solved-form
+            // machinery theory_nseq doesn't have): the disjunctive axiom
+            // `!prefix(e1,e2) => len(e1) > len(e2) or e1=xcy & e2=xdz & c!=d`
+            // is emitted via m_ax.add_prefix_axiom, which internally calls
+            // back into add_axiom5/mk_eq_empty2 (wired in init()) to create
+            // ordinary theory-axiom clauses in the ambient SMT context.
             if (is_true) {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
@@ -213,12 +247,15 @@ namespace smt {
                 rhs.push_back(f); // fresh existential, kept alive by rhs's own ref (add_equation copies it into the stored equation)
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
+            else
+                m_ax.add_prefix_axiom(e);
             return;
         }
 
         if (m_seq.str.is_suffix(e, e1, e2)) {
-            // suffix(e1,e2) <=> exists f. e2 = f ++ e1 (true case only, see
-            // prefix's comment above for the false-case gap).
+            // suffix(e1,e2) <=> exists f. e2 = f ++ e1 in the true case;
+            // the false case is axiomatized directly, mirroring the
+            // prefix case above (theory_seq::propagate_not_suffix).
             if (is_true) {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
@@ -229,6 +266,8 @@ namespace smt {
                 rhs.append(m_ambient->purify(e1));
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
+            else
+                m_ax.add_suffix_axiom(e);
             return;
         }
 
@@ -252,6 +291,94 @@ namespace smt {
                 m_ambient->ncontains_facet(*m_root).add_ncontains(e1, e2, dep);
             }
             return;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Axiomatization queue: string operations reducible to more basic
+    // arithmetic/sequence constraints (length/index/replace/extract/at/
+    // nth/itos/stoi/lt/le/unit/is_digit/from_code/to_code). Follows
+    // theory_seq's relevant_eh/enque_axiom/deque_axiom pattern, but is
+    // drained eagerly (can_propagate/propagate) rather than at
+    // final_check_eh, matching theory_nseq's "apply as soon as noticed"
+    // style; the axioms themselves are solver-independent term rewrites,
+    // so eager draining is sound.
+    // -----------------------------------------------------------------------
+
+    void theory_nseq::relevant_eh(expr* n) {
+        if (m_seq.str.is_length(n)      ||
+            m_seq.str.is_index(n)       ||
+            m_seq.str.is_last_index(n)  ||
+            m_seq.str.is_replace(n)     ||
+            m_seq.str.is_replace_all(n) ||
+            m_seq.str.is_extract(n)     ||
+            m_seq.str.is_at(n)          ||
+            m_seq.str.is_nth_i(n)       ||
+            m_seq.str.is_itos(n)        ||
+            m_seq.str.is_stoi(n)        ||
+            m_seq.str.is_lt(n)          ||
+            m_seq.str.is_le(n)          ||
+            m_seq.str.is_unit(n)        ||
+            m_seq.str.is_is_digit(n)    ||
+            m_seq.str.is_from_code(n)   ||
+            m_seq.str.is_to_code(n))
+            enqueue_axiom(n);
+    }
+
+    void theory_nseq::enqueue_axiom(expr* e) {
+        if (!m_axiom_set.contains(e)) {
+            m_axioms.push_back(e);
+            m_axiom_set.insert(e);
+            ctx.push_trail(push_back_vector(m_axioms));
+            ctx.push_trail(insert_obj_trail<expr>(m_axiom_set, e));
+        }
+    }
+
+    void theory_nseq::dequeue_axiom(expr* n) {
+        if (m_seq.str.is_length(n))
+            m_ax.add_length_axiom(n);
+        else if (m_seq.str.is_index(n))
+            m_ax.add_indexof_axiom(n);
+        else if (m_seq.str.is_last_index(n))
+            m_ax.add_last_indexof_axiom(n);
+        else if (m_seq.str.is_replace(n))
+            m_ax.add_replace_axiom(n);
+        else if (m_seq.str.is_replace_all(n))
+            m_ax.add_replace_all_axiom(n);
+        else if (m_seq.str.is_extract(n))
+            m_ax.add_extract_axiom(n);
+        else if (m_seq.str.is_at(n))
+            m_ax.add_at_axiom(n);
+        else if (m_seq.str.is_nth_i(n))
+            m_ax.add_nth_axiom(n);
+        else if (m_seq.str.is_itos(n))
+            m_ax.add_itos_axiom(n);
+        else if (m_seq.str.is_stoi(n))
+            m_ax.add_stoi_axiom(n);
+        else if (m_seq.str.is_lt(n))
+            m_ax.add_lt_axiom(n);
+        else if (m_seq.str.is_le(n))
+            m_ax.add_le_axiom(n);
+        else if (m_seq.str.is_unit(n))
+            m_ax.add_unit_axiom(n);
+        else if (m_seq.str.is_is_digit(n))
+            m_ax.add_is_digit_axiom(n);
+        else if (m_seq.str.is_from_code(n))
+            m_ax.add_str_from_code_axiom(n);
+        else if (m_seq.str.is_to_code(n))
+            m_ax.add_str_to_code_axiom(n);
+    }
+
+    bool theory_nseq::can_propagate() {
+        return m_axioms_head < m_axioms.size();
+    }
+
+    void theory_nseq::propagate() {
+        while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
+            expr* e = m_axioms.get(m_axioms_head);
+            dequeue_axiom(e);
+            ctx.push_trail(value_trail<unsigned>(m_axioms_head));
+            ++m_axioms_head;
         }
     }
 
