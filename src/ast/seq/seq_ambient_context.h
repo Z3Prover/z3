@@ -178,21 +178,6 @@ namespace seq {
         // notion of "variable" and none can silently diverge.
         bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e); }
 
-    private:
-        // Historically, purification introduced fresh constants for
-        // compound tokens so that word-equation solving never had to look
-        // inside them. This proved unnecessary: `get_concat_units`
-        // already flattens a sequence term into its token list (units,
-        // uninterpreted constants, powers, and any other compound
-        // sequence-sorted subterm treated as an opaque variable token per
-        // `is_var`), and every facet/plugin already treats non-unit/
-        // non-power tokens as substitutable variables regardless of
-        // whether they are themselves compound terms. So no fresh
-        // constants (and therefore no reverse map, and no unpurify
-        // inverse) are needed at all; `purify` below is kept only as a
-        // thin wrapper around `get_concat_units` for source compatibility
-        // with existing call sites.
-
     public:
         // Return `e`'s token list - see `seq_util::str::get_concat_units`.
         // No fresh variables are introduced; every token (units, powers,
