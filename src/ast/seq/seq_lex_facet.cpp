@@ -15,6 +15,16 @@ Author:
     Clemens Eisenhofer 2026
     Margus Veanes 2026
 
+Notes: 
+
+    TODO: add cycle detection in the propagator as a separate step.
+    Cycle detection builds a reachability graph based on asserted lt, le 
+    constraints. There is a conflict if the graph contains a cycle with a strict edge.
+    If the graph contains a cycle with non-strict edges, remove the involved comparisons
+    and add them as equalities instead to the equality facet. Make sure that the dependencies
+    for added equalities is the join of all equalities involved in the cycle.
+
+    TODO: review and realize other ways to resolve remaining comparisons based on theory_seq.
 --*/
 #include "ast/seq/seq_lex_facet.h"
 #include "ast/ast_pp.h"
@@ -137,6 +147,10 @@ namespace seq {
                 changed = true;
                 continue;
             }
+            // NSB code reivew: this is unsound for strict.
+            // If it is strict, then R must contain a non-empty sequence
+            // This is true if R contains a unit.
+            // Otherwise it is a split rule to ensure one of the variables in R has length > 0.
             if (L.empty() && !R.empty()) {
                 // lhs is a proper prefix of rhs: lhs < rhs holds (both
                 // strict and non-strict obligations are satisfied).
@@ -144,6 +158,8 @@ namespace seq {
                 changed = true;
                 continue;
             }
+            // NSB code review: this is only a conflict if L contains a non-empty
+            // sequence, or if is_strict is true.
             if (!L.empty() && R.empty()) {
                 // rhs is a proper prefix of lhs: lhs > rhs, so the
                 // obligation (lhs < rhs, or lhs <= rhs) fails outright.
@@ -171,7 +187,7 @@ namespace seq {
                     conflict_dep = lx.m_dep;
                     return true;
                 }
-            }
+            }            
             // Otherwise stuck (at least one leading token is a
             // variable/opaque term): leave pending for a future round,
             // e.g. once a substitution from eq_facet's split narrows it
