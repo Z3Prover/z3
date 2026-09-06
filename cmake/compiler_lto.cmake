@@ -2,8 +2,8 @@ option(Z3_LINK_TIME_OPTIMIZATION "Use link time optimiziation" OFF)
 
 if (Z3_LINK_TIME_OPTIMIZATION)
   message(STATUS "LTO enabled")
-  set(build_types_with_lto "RELEASE" "RELWITHDEBINFO")
-  if (DEFINED CMAKE_CONFIGURATION_TYPES)
+  set(build_types_with_lto RELEASE RELWITHDEBINFO)
+  if (Z3_MULTI_CONFIG)
     # Multi configuration generator
     message(STATUS "Note LTO is only enabled for the following configurations: ${build_types_with_lto}")
   else()
@@ -16,45 +16,16 @@ if (Z3_LINK_TIME_OPTIMIZATION)
     endif()
   endif()
 
-  set(_lto_compiler_flag "")
-  set(_lto_linker_flag "")
-  if ((CMAKE_CXX_COMPILER_ID MATCHES "Clang") OR
-      (CMAKE_CXX_COMPILER_ID MATCHES "GNU"))
-      set(_lto_compiler_flag "-flto")
-      set(_lto_linker_flag "-flto")
-      if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        # A bare -flto leaves GCC's LTRANS phase serial, which then dominates
-        # the build. "auto" scales it to the machine, using the build system's
-        # jobserver when one is offered and the host CPU count otherwise, so it
-        # needs none of the per-machine tuning a fixed -flto=N would. Only the
-        # link flag needs this; leaving the compile flag bare keeps existing
-        # object files valid when this changes.
-        set(_lto_linker_flag "-flto=auto")
-      endif()
-  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(_lto_compiler_flag "/GL")
-    set(_lto_linker_flag "/LTCG")
-  else()
-    message(FATAL_ERROR "Can't enable LTO for compiler \"${CMAKE_CXX_COMPILER_ID}\"."
-      "You should set Z3_LINK_TIME_OPTIMIZATION to OFF.")
-  endif()
-  CHECK_CXX_COMPILER_FLAG("${_lto_compiler_flag}" HAS_LTO)
-  if (NOT HAS_LTO)
-    message(FATAL_ERROR "Compiler does not support LTO")
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT _ipo_supported OUTPUT _ipo_error LANGUAGES CXX)
+  if (NOT _ipo_supported)
+    message(FATAL_ERROR "Compiler does not support LTO: ${_ipo_error}")
   endif()
 
-  foreach (_config ${build_types_with_lto})
-    # Set flags compiler and linker flags globally rather than using
-    # `Z3_COMPONENT_CXX_FLAGS` and `Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS`
-    # respectively.  We need per configuration compiler and linker flags. The
-    # `LINK_FLAGS` property (which we populate with
-    # `Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS`) doesn't seem to support generator
-    # expressions so we can't do `$<$<CONFIG:Release>:${_lto_linker_flag}>`.
-    set(CMAKE_CXX_FLAGS_${_config} "${CMAKE_CXX_FLAGS_${_config}} ${_lto_compiler_flag}")
-    set(CMAKE_EXE_LINKER_FLAGS_${_config} "${CMAKE_EXE_LINKER_FLAGS_${_config}} ${_lto_linker_flag}")
-    set(CMAKE_SHARED_LINKER_FLAGS_${_config} "${CMAKE_SHARED_LINKER_FLAGS_${_config}} ${_lto_linker_flag}")
-    set(CMAKE_STATIC_LINKER_FLAGS_${_config} "${CMAKE_STATIC_LINKER_FLAGS_${_config}} ${_lto_linker_flag}")
+  foreach (_config IN LISTS build_types_with_lto)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_${_config} ON)
   endforeach()
+
 else()
   message(STATUS "LTO disabled")
 endif()

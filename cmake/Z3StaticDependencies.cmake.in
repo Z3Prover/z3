@@ -1,0 +1,17 @@
+include(CMakeFindDependencyMacro)
+
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_dependency(Threads)
+
+if (@Z3_USE_LIB_GMP@)
+  set(_z3_saved_module_path "${CMAKE_MODULE_PATH}")
+  list(INSERT CMAKE_MODULE_PATH 0 "@Z3_FIND_GMP_MODULE_DIR@")
+  find_package(GMP MODULE QUIET)
+  set(CMAKE_MODULE_PATH "${_z3_saved_module_path}")
+  unset(_z3_saved_module_path)
+  if (NOT GMP_FOUND)
+    set(${CMAKE_FIND_PACKAGE_NAME}_NOT_FOUND_MESSAGE
+      "Z3's static library requires GMP, but GMP was not found.")
+    set(${CMAKE_FIND_PACKAGE_NAME}_FOUND FALSE)
+  endif()
+endif()

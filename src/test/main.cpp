@@ -96,6 +96,7 @@
     X(mpz) \
     X(mpq) \
     X(mpf) \
+    X(fpa) \
     X(total_order) \
     X(dl_table) \
     X(dl_context) \
@@ -118,11 +119,13 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_parikh) \
     X(seq_power) \
     X(seq_eq_approx) \
     X(seq_regex_witness) \
     X(seq_monadic) \
     X(seq_monadic_bench) \
+    X(seq_profile_abs) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \
@@ -145,10 +148,12 @@
     X(permutation) \
     X(nlsat) \
     X(opt_nlsat) \
+    X(opt_pareto) \
     X(13) \
     X(zstring)
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
+    X(seq_parikh_long) \
     X(tptp) \
     X(tptp_crashes) \
     X(ext_numeral) \

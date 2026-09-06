@@ -1063,6 +1063,45 @@ bool theory_seq::check_length_coherence0(expr* e) {
     return false;
 }
 
+/**
+   Parikh abstraction: for every current equation propagate that both sides agree on the
+   number of occurrences of each short factor, split by the residue of the position the
+   factor starts at.  The encoding of an equation is built once and kept, keyed by its two
+   sides; asserting it again is cheap and happens after every backtrack.
+*/
+bool theory_seq::check_parikh() {
+    if (get_fparams().m_seq_parikh_k == 0)
+        return false;
+    for (auto const& e : m_eqs) {
+        if (e.ls.empty() || e.rs.empty())
+            continue;
+        sort* srt = e.ls.get(0)->get_sort();
+        expr_ref l(m_util.str.mk_concat(e.ls, srt), m);
+        expr_ref r(m_util.str.mk_concat(e.rs, srt), m);
+        expr* obs = nullptr;
+        if (!m_parikh_cache.find(l, r, obs)) {
+            if (m_parikh_pin.size() >= 3 * m_max_parikh_eqs)
+                continue;
+            expr_ref_vector defs(m), eqs(m);
+            expr_ref enc(m.mk_true(), m);
+            if (m_parikh(e.ls, e.rs, defs, eqs)) {
+                defs.append(eqs);
+                enc = mk_and(defs);
+            }
+            obs = enc;
+            m_parikh_cache.insert(l, r, obs);
+            m_parikh_pin.push_back(l);
+            m_parikh_pin.push_back(r);
+            m_parikh_pin.push_back(obs);
+        }
+        if (m.is_true(obs))
+            continue;
+        if (propagate_lit(e.dep(), 0, nullptr, mk_literal(obs)))
+            return true;
+    }
+    return false;
+}
+
 bool theory_seq::check_length_coherence() {
 
     for (expr* l : m_length) {

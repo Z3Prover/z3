@@ -1,0 +1,14 @@
+z3_add_component(seq
+  SOURCES
+    seq_axioms.cpp
+    seq_eq_approx.cpp
+    seq_eq_solver.cpp
+    seq_monadic.cpp
+    seq_parikh.cpp
+    seq_profile_abs.cpp
+    seq_regex_live.cpp
+    seq_skolem.cpp
+    seq_view.cpp
+  COMPONENT_DEPENDENCIES
+    rewriter
+)

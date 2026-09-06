@@ -31,9 +31,17 @@ Notes:
 #include "smt/theory_opt.h"
 #include "ast/converters/generic_model_converter.h"
 
+class arith_util;
+
 namespace opt {
 
     typedef inf_eps_rational<inf_rational> inf_eps;
+
+    // Extract from a model value of an objective term a rational bound on it:
+    // the value itself when it is a rational numeral, otherwise, for an
+    // irrational algebraic value (e.g. sqrt(2) for an objective pinned by
+    // x^2 = 2), the requested side of its isolating interval.
+    bool model_value_bound(arith_util& a, expr* val, bool lower, rational& n);
 
     // Adjust bound bound |-> m_offset + (m_negate?-1:1)*bound
     class adjust_value {

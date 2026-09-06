@@ -110,8 +110,24 @@ Outline:
 
 using namespace smt;
 
+bool theory_seq::solution_map::reduces_to(expr* r, expr* e) const {
+    expr_dep value;
+    while (r != e) {
+        if (!find(r, value))
+            return false;
+        r = value.e;
+    }
+    return true;
+}
+
 void theory_seq::solution_map::update(expr* e, expr* r, dependency* d) {
     if (e == r) {
+        return;
+    }
+    // Adding e |-> r when r already reduces to e would close a cycle in the
+    // solution map, making find diverge. The equality is already represented
+    // by the existing chain, so the update can be skipped.
+    if (reduces_to(r, e)) {
         return;
     }
     m_cache.reset();
@@ -275,6 +291,8 @@ theory_seq::theory_seq(context& ctx):
     m_ax(*this, m_rewrite),
     m_eq(m, *this, m_ax.ax()),
     m_regex(*this),
+    m_parikh(m, seq::parikh::config()),
+    m_parikh_pin(m),
     m_arith_value(m),
     m_trail_stack(),
     m_ls(m), m_rs(m),
@@ -305,6 +323,12 @@ void theory_seq::init() {
     m_ax.mk_eq_empty2 = mk_eq_emp;
     m_arith_value.init(&ctx);
     m_max_unfolding_depth = ctx.get_fparams().m_seq_min_unfolding;
+
+    seq::parikh::config cfg;
+    cfg.m_k = ctx.get_fparams().m_seq_parikh_k;
+    cfg.m_n = ctx.get_fparams().m_seq_parikh_n;
+    cfg.m_max_chars = ctx.get_fparams().m_seq_parikh_chars;
+    m_parikh.updt_config(cfg);
 }
 
 #define TRACEFIN(s) { TRACE(seq, tout << ">>" << s << "\n";); IF_VERBOSE(20, verbose_stream() << s << "\n"); }
@@ -347,6 +371,11 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
     }
     if (m_regex.propagate()) {
         TRACEFIN("regex propagate");
+        return FC_CONTINUE;
+    }
+    if (check_parikh()) {
+        ++m_stats.m_parikh;
+        TRACEFIN("parikh");
         return FC_CONTINUE;
     }
     if (check_fixed_length(true, false)) {
@@ -1981,6 +2010,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq num splits", m_stats.m_num_splits);
     st.update("seq num reductions", m_stats.m_num_reductions);
     st.update("seq length coherence", m_stats.m_check_length_coherence);
+    st.update("seq parikh", m_stats.m_parikh);
     st.update("seq branch", m_stats.m_branch_variable);
     st.update("seq solve !=", m_stats.m_solve_nqs);
     st.update("seq solve =", m_stats.m_solve_eqs);

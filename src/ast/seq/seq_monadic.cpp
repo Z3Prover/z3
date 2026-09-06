@@ -49,7 +49,7 @@ Author:
 
 --*/
 
-#include "ast/rewriter/seq_monadic.h"
+#include "ast/seq/seq_monadic.h"
 #include "ast/rewriter/guard_set.h"
 #include "ast/rewriter/seq_range_collapse.h"
 #include "ast/for_each_expr.h"

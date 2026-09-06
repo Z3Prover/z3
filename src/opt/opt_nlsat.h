@@ -25,6 +25,7 @@ Author:
 --*/
 #pragma once
 
+#include <optional>
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "model/model.h"
@@ -39,6 +40,13 @@ class model_converter;
 
 namespace opt {
 
+    /**
+       \brief True when the hard constraints and obj lie in the fragment
+       nlsat decides: Boolean structure over polynomial arithmetic atoms,
+       with uninterpreted constants as the only free symbols.
+    */
+    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj);
+
     class nlsat_opt {
         ast_manager&  m;
         params_ref    m_params;
@@ -49,6 +57,7 @@ namespace opt {
             rational   m_lower;              // rational bracket of m_value: m_lower <= m_value <= m_upper
             rational   m_upper;
             bool       m_attained = false;   // m_value is proven optimal
+            bool       m_unbounded = false;  // the objective is proven unbounded above; m_value/m_model are only a witness
             bool       m_has_sup = false;    // an upper bound was proven: no model has obj >= sup, m_sup_upper >= sup
             rational   m_sup_upper;
             model_ref  m_model;              // best model
@@ -60,18 +69,30 @@ namespace opt {
         nlsat_opt(ast_manager& m, params_ref const& p);
 
         /**
-           \brief Maximize obj subject to the hard constraints and lo <= obj (<= hi when has_hi).
-           Returns l_true when the optimum is proven (r.m_attained),
+           \brief Maximize obj subject to the hard constraints and lo <= obj (<= hi when provided).
+           Returns l_true when a verdict is proven: the optimum (r.m_attained)
+           or, with no upper bound given, unboundedness (r.m_unbounded);
            l_undef when the problem is outside nlsat's fragment or the round
            budget is exhausted (r.m_model, if set, is the best model found),
            and l_false when hard /\ lo <= obj <= hi has no model.
         */
-        lbool maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+        lbool maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                        unsigned max_rounds, result& r);
 
+        /**
+           \brief Decide whether obj is unbounded above over the hard
+           constraints and lo <= obj (lo must be attained by some model):
+           one quantified-NRA (nlqsat) query on the closed statement
+           (forall c. exists xs. hard /\ lo <= obj /\ obj > c). Returns
+           l_true (unbounded above), l_false (some upper bound exists, value
+           not computed), l_undef (outside the fragment or the solver gave up).
+        */
+        lbool prove_unbounded(expr_ref_vector const& hard, expr* obj, rational const& lo);
+
     private:
+        lbool prove_unbounded(goal const& pg, app* T);
         // The steps of maximize, in order.
-        lbool preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+        lbool preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                          app_ref& T, goal_ref& pg);
         bool load(goal const& pg, app* T, nlsat::solver& s, nlsat::var& t, expr_ref_vector& x2t, expr_ref_vector& b2a);
         model_ref extract_model(nlsat::solver& s, expr_ref_vector const& x2t, expr_ref_vector const& b2a, app* T,

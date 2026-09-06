@@ -17,7 +17,9 @@ Author:
 --*/
 #include "opt/opt_nlsat.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "ast/expr2var.h"
+#include "ast/expr_abstract.h"
 #include "ast/occurs.h"
 #include "ast/for_each_expr.h"
 #include "ast/converters/model_converter.h"
@@ -31,6 +33,8 @@ Author:
 #include "tactic/core/elim_term_ite_tactic.h"
 #include "tactic/core/tseitin_cnf_tactic.h"
 #include "tactic/arith/purify_arith_tactic.h"
+#include "qe/nlqsat.h"
+#include "qe/lite/qe_lite_tactic.h"
 
 namespace opt {
 
@@ -41,6 +45,7 @@ namespace opt {
         m_value = nullptr;
         m_model = nullptr;
         m_attained = false;
+        m_unbounded = false;
         m_has_sup = false;
         m_rounds = 0;
     }
@@ -74,7 +79,7 @@ namespace opt {
         }
     };
 
-    static bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj) {
+    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj) {
         nra_fragment_check chk(m, a);
         expr_fast_mark1 visited;
         for (expr* f : hard) {
@@ -86,6 +91,86 @@ namespace opt {
         return chk.ok;
     }
 
+    struct uninterp_const_collector {
+        ptr_vector<app>& m_consts;
+        uninterp_const_collector(ptr_vector<app>& cs): m_consts(cs) {}
+        void operator()(var*) {}
+        void operator()(quantifier*) {}
+        void operator()(app* n) { if (is_uninterp_const(n)) m_consts.push_back(n); }
+    };
+
+    lbool nlsat_opt::prove_unbounded(expr_ref_vector const& hard, expr* obj, rational const& lo) {
+        if (!in_nra_fragment(m, m_arith, hard, obj))
+            return l_undef;
+        // Normalize through the same pipeline as maximize: the assertions may
+        // contain division and other non-polynomial arithmetic that nlqsat
+        // rejects but purification removes.
+        app_ref T(m);
+        goal_ref pg;
+        lbool st = preprocess(hard, obj, lo, std::nullopt, T, pg);
+        if (st == l_false)
+            return l_false;   // no model with obj >= lo: lo bounds obj from above
+        if (st != l_true)
+            return l_undef;
+        return prove_unbounded(*pg, T);
+    }
+
+    /**
+       \brief Decide (forall c. exists xs. pg /\ T > c) where xs are the
+       uninterpreted constants of the preprocessed goal (including T and the
+       purification constants), by the nlsat-based quantified-NRA solver
+       qe/nlqsat. pg is polynomial, so the query is in nlqsat's fragment
+       unless integer constants occur; then nlqsat throws and the answer is
+       l_undef.
+    */
+    lbool nlsat_opt::prove_unbounded(goal const& pg, app* T) {
+        ptr_vector<app> consts;
+        ptr_buffer<expr> fmls;
+        {
+            // expr_fast_mark1 marks the nodes themselves and unmarks them only
+            // on destruction; it must not stay alive while the tactics below
+            // traverse the same terms.
+            uninterp_const_collector collect(consts);
+            expr_fast_mark1 visited;
+            for (unsigned i = 0; i < pg.size(); ++i) {
+                for_each_expr_core<uninterp_const_collector, expr_fast_mark1, false, false>(collect, visited, pg.form(i));
+                fmls.push_back(pg.form(i));
+            }
+        }
+        if (consts.empty())
+            return l_undef;
+        app_ref c(m.mk_fresh_const("opt.nlsat.bound", m_arith.mk_real()), m);
+        fmls.push_back(m_arith.mk_gt(T, c));
+        expr_ref fml(mk_and(m, fmls.size(), fmls.data()), m);
+        fml = mk_exists(m, consts.size(), consts.data(), fml);
+        app* cs[1] = { c.get() };
+        fml = mk_forall(m, 1, cs, fml);
+        IF_VERBOSE(3, verbose_stream() << "(optsmt nlsat unbounded-check\n" << mk_pp(fml, m) << ")\n");
+        goal_ref g = alloc(goal, m, false, false, false);
+        g->assert_expr(fml);
+        // the preprocessing nlqsat expects, as composed in mk_nra_tactic.
+        tactic_ref check = and_then(mk_simplify_tactic(m),
+                                    mk_propagate_values_tactic(m),
+                                    mk_qe_lite_tactic(m),
+                                    mk_simplify_tactic(m),
+                                    mk_nlqsat_tactic(m, m_params));
+        goal_ref_buffer result;
+        try {
+            (*check)(g, result);
+        }
+        catch (tactic_exception& ex) {
+            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat unbounded-check failed: " << ex.what() << ")\n");
+            return l_undef;
+        }
+        if (result.size() != 1)
+            return l_undef;
+        if (result[0]->is_decided_sat())
+            return l_true;
+        if (result[0]->is_decided_unsat())
+            return l_false;
+        return l_undef;
+    }
+
     /**
        \brief Build hard /\ T = obj /\ lo <= T <= hi and normalize it for
        goal2nlsat (purified arithmetic, no term-ite, CNF). T is a fresh
@@ -95,7 +180,7 @@ namespace opt {
        preprocessing refutes the goal, and l_undef if preprocessing fails or
        loses T.
     */
-    lbool nlsat_opt::preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+    lbool nlsat_opt::preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                                 app_ref& T, goal_ref& pg) {
         T = m.mk_fresh_const("opt.nlsat.obj", m_arith.mk_real());
         goal_ref g = alloc(goal, m, false, true, false);
@@ -103,8 +188,8 @@ namespace opt {
             g->assert_expr(f);
         g->assert_expr(m.mk_eq(T, obj));
         g->assert_expr(m_arith.mk_ge(T, m_arith.mk_numeral(lo, false)));
-        if (has_hi)
-            g->assert_expr(m_arith.mk_le(T, m_arith.mk_numeral(hi, false)));
+        if (hi)
+            g->assert_expr(m_arith.mk_le(T, m_arith.mk_numeral(*hi, false)));
 
         params_ref simp_p;
         simp_p.set_bool("elim_and", true);
@@ -231,29 +316,27 @@ namespace opt {
 
     /**
        \brief The round budget was exhausted at a model below an open
-       supremum r of the feasible set of t. Check whether t >= r has a model;
-       if not, r is a proven upper bound (F-Close at the supremum) and is
-       recorded in res.
+       supremum sup of the feasible set of t. Check whether t >= sup has a
+       model; if not, sup is a proven upper bound (F-Close at the supremum)
+       and is recorded in res.
     */
-    static void prove_supremum(nlsat::solver& s, nlsat::var t, anum const& best, nlsat_opt::result& res) {
+    static void prove_supremum(nlsat::solver& s, nlsat::var t, anum const& sup, anum const& best, nlsat_opt::result& res) {
         algebraic_numbers::manager& am = s.am();
-        scoped_anum r(am);
-        am.set(r, s.max_var_sup());
-        if (!am.gt(r, best))
+        if (!am.gt(sup, best))
             return;
-        nlsat::literal l = mk_lower_bound(s, t, r, false);
+        nlsat::literal l = mk_lower_bound(s, t, sup, false);
         if (l == nlsat::null_literal)
             return;
         s.mk_clause(1, &l);
         lbool st = s.check();
-        IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat sup-check "; am.display_root_smt2(verbose_stream(), r); verbose_stream() << " " << st << ")\n");
+        IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat sup-check "; am.display_root_smt2(verbose_stream(), sup); verbose_stream() << " " << st << ")\n");
         if (st != l_false)
             return;
         res.m_has_sup = true;
-        if (am.is_rational(r))
-            am.to_rational(r, res.m_sup_upper);
+        if (am.is_rational(sup))
+            am.to_rational(sup, res.m_sup_upper);
         else
-            am.get_upper(r, res.m_sup_upper, 40);
+            am.get_upper(sup, res.m_sup_upper, 40);
     }
 
     /**
@@ -272,7 +355,7 @@ namespace opt {
         res.m_attained = attained;
     }
 
-    lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, bool has_hi, rational const& hi,
+    lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                               unsigned max_rounds, result& res) {
         res.reset();
         if (!in_nra_fragment(m, m_arith, hard, obj)) {
@@ -283,7 +366,7 @@ namespace opt {
         // 1. hard /\ T = obj /\ lo <= T <= hi, normalized for goal2nlsat.
         app_ref T(m);
         goal_ref pg;
-        lbool st = preprocess(hard, obj, lo, has_hi, hi, T, pg);
+        lbool st = preprocess(hard, obj, lo, hi, T, pg);
         if (st != l_true)
             return st;
         model_converter_ref mc = pg->mc();
@@ -296,9 +379,10 @@ namespace opt {
             return l_undef;
         algebraic_numbers::manager& am = s.am();
 
-        // 3. F-Sat / F-Close loop: each model is blocked by t > value.
-        scoped_anum best(am);
+        // 3. F-Sat / F-Close loop: after each model, require t > best.
+        scoped_anum best(am), sup(am);
         bool has_best = false;
+        bool has_sup = false; // the feasible set of t was bounded above at the last sat check
         unsigned unbounded_rounds = 0;
         st = l_undef;
         for (unsigned round = 0; round < max_rounds && m.inc(); ++round) {
@@ -309,31 +393,24 @@ namespace opt {
                 break;
             am.set(best, s.value(t));
             has_best = true;
-            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat round " << round << " value "; am.display_root_smt2(verbose_stream(), best); 
-                       verbose_stream() << (s.max_var_attained() ? " sup" : " below-sup") << ")\n");
+            bool attained = false;
+            has_sup = s.max_var_sup(sup, attained);
+            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat round " << round << " value "; am.display_root_smt2(verbose_stream(), best);
+                       verbose_stream() << (attained ? " sup" : " below-sup") << ")\n");
             res.m_model = extract_model(s, x2t, b2a, T, mc.get());
-            if (s.max_var_unbounded()) {
-                // max_var_unbounded() does not mean the objective is
-                // unbounded: it only says that when t was assigned, no
-                // learned clause over t alone bounded it from above. t is
-                // first in the variable order, so constraints that bound the
-                // objective through other variables (higher max-var) are
-                // invisible at that point; the huge value picked for t then
-                // conflicts deeper in the stack and nlsat learns a lemma
-                // over t alone, so a later round assigns t with a bounded
-                // feasible set. Hence keep going on a single unbounded
-                // round. But if the objective really is unbounded no such
-                // lemma ever appears and every round repeats this way, so
-                // give up after a few consecutive ones (the counter resets
-                // on any bounded round) instead of spending the whole
-                // budget. Either way this proves nothing, and the caller
-                // sees l_undef, not an unboundedness verdict. A real verdict
-                // would need the quantified query (forall c. exists x. hard
-                // /\ t > c), which is outside nlsat's quantifier-free
-                // fragment but decidable by the nlsat-based qe/nlqsat
-                // solver, at CAD cost; that check is not wired in.
+            if (!has_sup) {
+                // A bound on t may depend on variables assigned later. Nlsat
+                // may first see t as unbounded and then learn a clause that
+                // bounds it, so allow a few such rounds. If this continues
+                // and no upper bound was given, use qe/nlqsat to check
+                // (forall c. exists x. hard /\ t > c). If this query is sat,
+                // the objective is unbounded. Otherwise, return l_undef.
                 if (++unbounded_rounds > 4) {
                     IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: feasible set unbounded above)\n");
+                    if (!hi && prove_unbounded(*pg, T) == l_true) {
+                        res.m_unbounded = true;
+                        IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat: objective proven unbounded above)\n");
+                    }
                     break;
                 }
             }
@@ -351,11 +428,12 @@ namespace opt {
         if (!has_best)
             return st == l_false ? l_false : l_undef;
 
-        if (st == l_true && !s.max_var_unbounded())
-            prove_supremum(s, t, best, res);
+        if (st == l_true && has_sup)
+            prove_supremum(s, t, sup, best, res);
 
-        // 4. report the exact value and a rational bracket.
+        // 4. report the exact value and a rational bracket (a witness only
+        //    when unboundedness was proven).
         set_result(am, best, st == l_false, res);
-        return res.m_attained ? l_true : l_undef;
+        return res.m_attained || res.m_unbounded ? l_true : l_undef;
     }
 }

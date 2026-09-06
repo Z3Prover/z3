@@ -22,8 +22,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v7.0.1
 
+    - name: Setup CMake
+      uses: jwlawson/actions-setup-cmake@v2
+
     - name: Install cross build tools
-      run:  apt update && apt install -y ninja-build cmake python3 g++-13-${{ matrix.arch }}-linux-gnu
+      run:  apt update && apt install -y ninja-build python3 g++-13-${{ matrix.arch }}-linux-gnu
       env:
         DEBIAN_FRONTEND: noninteractive
 

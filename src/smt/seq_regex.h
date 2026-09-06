@@ -18,11 +18,11 @@ Author:
 
 #include "util/scoped_vector.h"
 #include "ast/seq_decl_plugin.h"
-#include "ast/rewriter/seq_monadic.h"
-#include "ast/rewriter/seq_eq_approx.h"
-#include "ast/rewriter/seq_regex_live.h"
+#include "ast/seq/seq_monadic.h"
+#include "ast/seq/seq_eq_approx.h"
+#include "ast/seq/seq_regex_live.h"
 #include "ast/rewriter/seq_rewriter.h"
-#include "ast/rewriter/seq_skolem.h"
+#include "ast/seq/seq_skolem.h"
 #include "smt/smt_context.h"
 
 /*

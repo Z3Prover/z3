@@ -26,7 +26,7 @@ Abstract:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "ast/rewriter/seq_monadic.h"
+#include "ast/seq/seq_monadic.h"
 #include "cmd_context/cmd_context.h"
 #include "params/theory_seq_params.h"
 #include "parsers/smt2/smt2parser.h"
