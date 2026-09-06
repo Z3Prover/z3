@@ -10,7 +10,7 @@ Abstract:
     Per-letter Parikh abstraction refined by length.  See seq_profile_abs.h.
 
 --*/
-#include "ast/rewriter/seq_profile_abs.h"
+#include "ast/seq/seq_profile_abs.h"
 #include "util/zstring.h"
 
 namespace seq {

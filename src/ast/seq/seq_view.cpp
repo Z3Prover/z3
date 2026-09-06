@@ -16,7 +16,7 @@ Author:
 
 --*/
 
-#include "ast/rewriter/seq_view.h"
+#include "ast/seq/seq_view.h"
 
 namespace seq {
 

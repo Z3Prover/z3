@@ -30,7 +30,7 @@ Author:
     Margus Veanes (veanes) 2026
 
 --*/
-#include "ast/rewriter/seq_profile_abs.h"
+#include "ast/seq/seq_profile_abs.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include "util/util.h"
