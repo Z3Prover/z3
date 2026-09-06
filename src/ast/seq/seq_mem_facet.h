@@ -130,8 +130,6 @@ namespace seq {
         void set_is_satisfied(bool b);
 
         stx::facet_i* clone(trail_stack& trail) const override;
-        unsigned hash() const override;
-        bool similar(facet_i const& other) const override;
 
         bool is_satisfied() const override { return m_mems.empty() || m_is_satisfied; }
         std::ostream& display(std::ostream& out) const override;

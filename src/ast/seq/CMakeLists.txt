@@ -4,6 +4,7 @@ z3_add_component(ast_seq
     seq_eq_approx.cpp
     seq_eq_facet.cpp
     seq_eq_solver.cpp
+    seq_lex_facet.cpp
     seq_mem_facet.cpp
     seq_monadic.cpp
     seq_ncontains_facet.cpp

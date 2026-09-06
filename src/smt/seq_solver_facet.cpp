@@ -173,23 +173,6 @@ namespace seq {
         return f;
     }
 
-    unsigned solver_facet::hash() const {
-        unsigned h = m_own.size() * 40503u;
-        for (expr* e : m_own)
-            h = combine_hash(h, e->get_id());
-        return h ? h : 1;
-    }
-
-    bool solver_facet::similar(facet_i const& other) const {
-        auto const& o = static_cast<solver_facet const&>(other);
-        if (m_own.size() != o.m_own.size())
-            return false;
-        for (unsigned i = 0; i < m_own.size(); ++i)
-            if (m_own.get(i) != o.m_own.get(i))
-                return false;
-        return true;
-    }
-
     std::ostream& solver_facet::display(std::ostream& out) const {
         out << "solver_facet: " << m_own.size() << " own constraint(s)"
             << (m_conflict ? " (conflict)" : "") << "\n";

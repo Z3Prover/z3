@@ -66,32 +66,6 @@ namespace seq {
         return f;
     }
 
-    unsigned ncontains_facet::hash() const {
-        // Order-independent, same rationale as eq_facet::hash.
-        unsigned h = m_ncs.size() * 40503u;
-        for (auto const& nc : m_ncs) {
-            unsigned nh = 1;
-            for (expr* t : nc.m_haystack) nh = combine_hash(nh, t->get_id());
-            nh = combine_hash(nh, 0xc2b2ae35u);
-            for (expr* t : nc.m_needle) nh = combine_hash(nh, t->get_id());
-            h += nh;
-        }
-        return h ? h : 1;
-    }
-
-    bool ncontains_facet::similar(facet_i const& other) const {
-        auto const& o = static_cast<ncontains_facet const&>(other);
-        if (m_ncs.size() != o.m_ncs.size())
-            return false;
-        vector<str_ncontains> a = m_ncs, b = o.m_ncs;
-        std::sort(a.begin(), a.end());
-        std::sort(b.begin(), b.end());
-        for (unsigned i = 0; i < a.size(); ++i)
-            if (!(a[i] == b[i]))
-                return false;
-        return true;
-    }
-
     std::ostream& ncontains_facet::display(std::ostream& out) const {
         out << "ncontains_facet: " << m_ncs.size() << " obligation(s)\n";
         for (auto const& nc : m_ncs) {

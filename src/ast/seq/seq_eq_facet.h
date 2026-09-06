@@ -297,8 +297,6 @@ namespace seq {
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
-        unsigned hash() const override;
-        bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_eqs.empty(); }
         std::ostream& display(std::ostream& out) const override;
 
@@ -615,8 +613,6 @@ namespace seq {
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
-        unsigned hash() const override;
-        bool similar(facet_i const& other) const override;
         bool is_satisfied() const override { return m_diseqs.empty(); }
         std::ostream& display(std::ostream& out) const override;
 
@@ -692,22 +688,6 @@ namespace seq {
             assumption_facet* f = alloc(assumption_facet, trail, m);
             f->m_assumptions.append(m_assumptions);
             return f;
-        }
-        unsigned hash() const override {
-            // Order-independent, same rationale as eq_facet::hash.
-            unsigned h = m_assumptions.size() * 2246822519u;
-            for (expr* a : m_assumptions) h += a->get_id();
-            return h ? h : 1;
-        }
-        bool similar(facet_i const& other) const override {
-            auto const& o = static_cast<assumption_facet const&>(other);
-            if (m_assumptions.size() != o.m_assumptions.size())
-                return false;
-            ptr_vector<expr> a(m_assumptions.size(), m_assumptions.data());
-            ptr_vector<expr> b(o.m_assumptions.size(), o.m_assumptions.data());
-            std::sort(a.begin(), a.end());
-            std::sort(b.begin(), b.end());
-            return a == b;
         }
         bool is_satisfied() const override { return true; } // never blocks satisfiability on its own
         std::ostream& display(std::ostream& out) const override {

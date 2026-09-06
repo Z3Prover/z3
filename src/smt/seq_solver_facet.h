@@ -208,8 +208,6 @@ namespace seq {
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
-        unsigned hash() const override;
-        bool similar(facet_i const& other) const override;
         // solver_facet never itself blocks the "satisfied" verdict: it only
         // ever prunes via a conflict (surfaced through propagate(),
         // returning simplify_result::conflict, not through is_satisfied());

@@ -46,6 +46,7 @@ Author:
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_req_facet.h"
+#include "ast/seq/seq_lex_facet.h"
 #include "ast/seq/seq_regex_live.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
@@ -137,6 +138,11 @@ namespace smt {
         // solver-independent term rewrites (m_ax.add_*), so draining them
         // eagerly rather than at final_check has no effect on soundness.
         smt::seq_axioms     m_ax;
+        seq::skolem         m_sk; // recognizes m_sk.is_eq-tagged internal equality
+                                   // atoms (see assign_eh's m_sk.is_eq branch);
+                                   // shares no state with m_ax's own private skolem
+                                   // instance, matching theory_seq's own separate
+                                   // m_sk member.
         expr_ref_vector     m_axioms;      // queue of terms awaiting axiomatization
         obj_hashtable<expr> m_axiom_set;   // dedup guard for m_axioms enqueues
         unsigned            m_axioms_head = 0; // index of first axiom still to add
@@ -232,6 +238,17 @@ namespace smt {
         void pin(expr* e) { m_pin.push_back(e); ctx.push_trail(push_back_vector(m_pin)); }
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);
+
+        // Mirrors theory_seq::propagate_eq: propagates an equality
+        // e1 = e2 directly into the SMT core (ctx.assign_eq), justified
+        // by lit (the m_sk.is_eq-tagged atom's literal, now true). Returns
+        // false (no-op) if e1/e2 already share an enode root. Since
+        // theory_nseq has no `new_eq_eh`-fed solved-form bookkeeping of
+        // its own beyond the eq_tree/facet machinery (already driven by
+        // the ordinary new_eq_eh callback once ctx.assign_eq triggers
+        // congruence closure), no separate "add_to_eqs" step is needed
+        // here (unlike theory_seq's own bookkeeping-heavy variant).
+        bool propagate_eq(literal lit, expr* e1, expr* e2);
 
         bool get_num_value(expr* e, rational& val) const;
         bool lower_bound(expr* e, rational& lo) const;

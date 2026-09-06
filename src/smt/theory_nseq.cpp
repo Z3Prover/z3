@@ -19,6 +19,7 @@ Author:
 #include "smt/theory_nseq.h"
 #include "smt/seq_nseq_ambient_context.h"
 #include "smt/smt_context.h"
+#include "smt/smt_justification.h"
 #include "util/trail.h"
 
 namespace smt {
@@ -33,6 +34,7 @@ namespace smt {
         m_live(m_rewriter),
         m_pin(m),
         m_ax(*this, m_th_rewriter),
+        m_sk(m, m_th_rewriter),
         m_axioms(m),
         m_tree(ctx.get_trail_stack(), m.limit()),
         m_root(m_tree.mk_root()),
@@ -49,6 +51,7 @@ namespace smt {
         m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);
         m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::lex_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_lex_id(id); }, m, m_seq, m_tree.dep_mgr());
 
         // deterministic propagation plugins (order among these does not
         // matter: the engine iterates every propagation plugin to
@@ -65,6 +68,7 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::mem_bounds_propagation, m, m_seq, m_autil, m_tree.trail()));
         m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
         m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
+        m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));
 
         // split plugins: registration order mirrors the priority order of
         // the c3 branch's nielsen_graph::generate_extensions (see
@@ -306,6 +310,38 @@ namespace smt {
             }
             return;
         }
+
+        if (m_seq.str.is_lt(e, e1, e2) || m_seq.str.is_le(e, e1, e2)) {
+            // Lexicographic comparison: route into lex_facet instead of
+            // m_ax.add_lt_axiom/add_le_axiom's disjunctive Skolem
+            // axiomatization (see seq_lex_facet.h's module comment).
+            // Negation flips both the operator and the operand order:
+            // !(e1 < e2) <=> e2 <= e1, !(e1 <= e2) <=> e2 < e1.
+            bool strict = m_seq.str.is_lt(e);
+            unsigned idx = mk_dep(assumption(lit));
+            seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+            expr_ref_vector lhs = m_ambient->purify(is_true ? e1 : e2);
+            expr_ref_vector rhs = m_ambient->purify(is_true ? e2 : e1);
+            m_ambient->lex_facet(*m_root).add_lex(lhs, rhs, is_true ? strict : !strict, dep);
+            return;
+        }
+
+        if (m_sk.is_eq(e, e1, e2)) {
+            // Internal equality-atom skolem (see seq::skolem::mk_eq):
+            // theory_seq's own mechanism for deferring an
+            // internally-derived equality until the atom itself is
+            // asserted true - mirror theory_seq::assign_eh's
+            // m_sk.is_eq branch by propagating the equality straight
+            // into the SMT core (propagate_eq/ctx.assign_eq), rather
+            // than merely recording it as an ordinary eq_facet
+            // equation (this is not currently created by any
+            // theory_nseq call site, but assign_eh must still handle it
+            // correctly if any future code path - or a shared skolem
+            // instance - ever creates one).
+            if (is_true)
+                propagate_eq(lit, e1, e2);
+            return;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -330,8 +366,6 @@ namespace smt {
             m_seq.str.is_nth_i(n)       ||
             m_seq.str.is_itos(n)        ||
             m_seq.str.is_stoi(n)        ||
-            m_seq.str.is_lt(n)          ||
-            m_seq.str.is_le(n)          ||
             m_seq.str.is_unit(n)        ||
             m_seq.str.is_is_digit(n)    ||
             m_seq.str.is_from_code(n)   ||
@@ -369,10 +403,6 @@ namespace smt {
             m_ax.add_itos_axiom(n);
         else if (m_seq.str.is_stoi(n))
             m_ax.add_stoi_axiom(n);
-        else if (m_seq.str.is_lt(n))
-            m_ax.add_lt_axiom(n);
-        else if (m_seq.str.is_le(n))
-            m_ax.add_le_axiom(n);
         else if (m_seq.str.is_unit(n))
             m_ax.add_unit_axiom(n);
         else if (m_seq.str.is_is_digit(n))
@@ -401,6 +431,24 @@ namespace smt {
         m_assumptions.push_back(a);
         ctx.push_trail(push_back_vector(m_assumptions));
         return idx;
+    }
+
+    // Mirrors theory_seq::propagate_eq: assign e1 = e2 directly into the
+    // SMT core, justified by lit (already true - the caller is the
+    // m_sk.is_eq branch of assign_eh, called only when is_true holds).
+    bool theory_nseq::propagate_eq(literal lit, expr* e1, expr* e2) {
+        enode* n1 = ensure_enode(e1);
+        enode* n2 = ensure_enode(e2);
+        if (n1->get_root() == n2->get_root())
+            return false;
+        ctx.mark_as_relevant(n1);
+        ctx.mark_as_relevant(n2);
+        justification* js =
+            ctx.mk_justification(
+                ext_theory_eq_propagation_justification(
+                    get_id(), ctx, 1, &lit, 0, nullptr, n1, n2));
+        ctx.assign_eq(n1, n2, eq_justification(js));
+        return true;
     }
 
     void theory_nseq::report_conflict(seq::eq_tree::dep_tracker dep) {

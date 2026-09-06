@@ -153,19 +153,6 @@ namespace stx {
         virtual void push() {}
         virtual void pop() {}
 
-        // Order/collision-insensitive hash contribution (canonicalized
-        // internally by the facet, e.g. by sorting its own constraint
-        // vector). Currently unused by the generic engine (the
-        // transposition/sibling caches that consumed it were removed);
-        // kept as part of the facet contract for possible future reuse.
-        virtual unsigned hash() const = 0;
-
-        // Are `this` and `other` equivalent for subsumption purposes? (same
-        // facet_id assumed; the engine only ever compares facets that come
-        // from the same registered slot.) Equality modulo representation,
-        // not pointer identity. Currently unused by the generic engine.
-        virtual bool similar(facet_i const& other) const = 0;
-
         // Is this facet's constraint set trivially/vacuously satisfied
         // (e.g. no equations left, or an empty membership set)?
         virtual bool is_satisfied() const = 0;
@@ -438,33 +425,6 @@ namespace stx {
             backtrack_reason reason() const { return m_reason; }
             dep_tracker conflict_dep() const { return m_conflict_dep; }
             vector<dep_tracker> const& conflict_deps() const { return m_conflict_deps; }
-
-            // Canonicalized structural hash over all installed facets.
-            // Always recomputed fresh (there is only ever one live node).
-            // Currently unused by the generic engine (kept for possible
-            // future reuse alongside facet_i::hash()).
-            unsigned hash() const {
-                unsigned h = m_facets.size() + 1;
-                for (auto* f : m_facets)
-                    h = combine_hash(h, f ? f->hash() : 0);
-                return h ? h : 1; // 0 is reserved for "unset"
-            }
-
-            // Slot-wise `facet_i::similar`. Currently unused by the generic
-            // engine (kept for possible future reuse).
-            bool similar(node const& other) const {
-                if (m_facets.size() != other.m_facets.size())
-                    return false;
-                for (unsigned i = 0; i < m_facets.size(); ++i) {
-                    facet_i* a = m_facets[i];
-                    facet_i* b = other.m_facets[i];
-                    if ((a == nullptr) != (b == nullptr))
-                        return false;
-                    if (a && !a->similar(*b))
-                        return false;
-                }
-                return true;
-            }
 
             // Cold-path: snapshot every installed facet into a standalone
             // node not tied to any live trail scope (used by hot restart to

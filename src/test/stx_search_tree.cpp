@@ -61,10 +61,6 @@ namespace {
         }
 
         facet_i* clone(trail_stack& trail) const override { return alloc(counter_facet, trail, m_cfg, m_total); }
-        unsigned hash() const override { return combine_hash(17u, static_cast<unsigned>(m_total)); }
-        bool similar(facet_i const& other) const override {
-            return m_total == static_cast<counter_facet const&>(other).m_total;
-        }
         bool is_satisfied() const override { return m_total == m_cfg->m_target; }
     };
 

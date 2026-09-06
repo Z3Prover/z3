@@ -50,35 +50,6 @@ namespace seq {
         return f;
     }
 
-    unsigned power_facet::hash() const {
-        unsigned h = m_pows.size() * 916213631u;
-        for (auto const& p : m_pows) {
-            unsigned ph = 1;
-            ph = combine_hash(ph, p.m_e.get()->get_id());
-            ph = combine_hash(ph, p.m_s.get()->get_id());
-            ph = combine_hash(ph, p.m_n.get()->get_id());
-            h += ph;
-        }
-        return h ? h : 1;
-    }
-
-    bool power_facet::similar(facet_i const& other) const {
-        auto const& o = static_cast<power_facet const&>(other);
-        if (m_pows.size() != o.m_pows.size())
-            return false;
-        // Obligations are registered in a fixed, caller-determined order
-        // (unlike eq_facet's equation set, which is permuted by
-        // splitting) - order-sensitive comparison suffices here, mirrors
-        // solver_facet's own similar().
-        for (unsigned i = 0; i < m_pows.size(); ++i) {
-            auto const& p = m_pows[i];
-            auto const& q = o.m_pows[i];
-            if (p.m_e.get() != q.m_e.get() || p.m_s.get() != q.m_s.get() || p.m_n.get() != q.m_n.get())
-                return false;
-        }
-        return true;
-    }
-
     std::ostream& power_facet::display(std::ostream& out) const {
         out << "power_facet: " << m_pows.size() << " power obligation(s)\n";
         for (auto const& p : m_pows)

@@ -82,34 +82,6 @@ namespace seq {
         throw default_exception("no facet");
     }
 
-    unsigned eq_facet::hash() const {
-        // Order-independent: the equation set is a set, not a sequence, so
-        // combine per-equation hashes commutatively (sum) rather than with
-        // combine_hash (which is order-sensitive).
-        unsigned h = m_eqs.size() * 2654435761u;
-        for (auto const& eq : m_eqs) {
-            unsigned eh = 1;
-            for (expr* t : eq.m_lhs) eh = combine_hash(eh, t->get_id());
-            eh = combine_hash(eh, 0x9e3779b9u);
-            for (expr* t : eq.m_rhs) eh = combine_hash(eh, t->get_id());
-            h += eh;
-        }
-        return h ? h : 1;
-    }
-
-    bool eq_facet::similar(facet_i const& other) const {
-        auto const& o = static_cast<eq_facet const&>(other);
-        if (m_eqs.size() != o.m_eqs.size())
-            return false;
-        vector<equation> a = m_eqs, b = o.m_eqs;
-        std::sort(a.begin(), a.end());
-        std::sort(b.begin(), b.end());
-        for (unsigned i = 0; i < a.size(); ++i)
-            if (!(a[i] == b[i]))
-                return false;
-        return true;
-    }
-
     std::ostream& eq_facet::display(std::ostream& out) const {
         out << "eq_facet: " << m_eqs.size() << " equation(s)\n";
         for (auto const& eq : m_eqs) {
@@ -765,32 +737,6 @@ namespace seq {
         deq_facet* f = alloc(deq_facet, trail, m, u, m_dm);
         f->m_diseqs.append(m_diseqs);
         return f;
-    }
-
-    unsigned deq_facet::hash() const {
-        // Order-independent, same rationale as eq_facet::hash.
-        unsigned h = m_diseqs.size() * 2246822519u;
-        for (auto const& dq : m_diseqs) {
-            unsigned dh = 1;
-            for (expr* t : dq.m_lhs) dh = combine_hash(dh, t->get_id());
-            dh = combine_hash(dh, 0x85ebca6bu);
-            for (expr* t : dq.m_rhs) dh = combine_hash(dh, t->get_id());
-            h += dh;
-        }
-        return h ? h : 1;
-    }
-
-    bool deq_facet::similar(facet_i const& other) const {
-        auto const& o = static_cast<deq_facet const&>(other);
-        if (m_diseqs.size() != o.m_diseqs.size())
-            return false;
-        vector<disequation> a = m_diseqs, b = o.m_diseqs;
-        std::sort(a.begin(), a.end());
-        std::sort(b.begin(), b.end());
-        for (unsigned i = 0; i < a.size(); ++i)
-            if (!(a[i] == b[i]))
-                return false;
-        return true;
     }
 
     std::ostream& deq_facet::display(std::ostream& out) const {

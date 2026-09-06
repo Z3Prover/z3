@@ -65,30 +65,6 @@ namespace seq {
         return f;
     }
 
-    unsigned req_facet::hash() const {
-        // Order-independent, same rationale as eq_facet::hash.
-        unsigned h = m_reqs.size() * 2246822519u;
-        for (auto const& r : m_reqs) {
-            unsigned rh = combine_hash(r.m_p->get_id(), r.m_q->get_id());
-            rh = combine_hash(rh, r.m_is_eq ? 1 : 0);
-            h += rh;
-        }
-        return h ? h : 1;
-    }
-
-    bool req_facet::similar(facet_i const& other) const {
-        auto const& o = static_cast<req_facet const&>(other);
-        if (m_reqs.size() != o.m_reqs.size())
-            return false;
-        vector<str_req> a = m_reqs, b = o.m_reqs;
-        std::sort(a.begin(), a.end());
-        std::sort(b.begin(), b.end());
-        for (unsigned i = 0; i < a.size(); ++i)
-            if (!(a[i] == b[i]))
-                return false;
-        return true;
-    }
-
     std::ostream& req_facet::display(std::ostream& out) const {
         out << "req_facet: " << m_reqs.size() << " request(s), qhead=" << m_qhead << "\n";
         for (auto const& r : m_reqs) {

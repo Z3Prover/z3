@@ -126,31 +126,6 @@ namespace seq {
         return f;
     }
 
-    unsigned mem_facet::hash() const {
-        unsigned h = m_mems.size() * 334214467u;
-        for (auto const& sm : m_mems) {
-            unsigned mh = sm.m_view.key().state;
-            for (expr* t : sm.m_str)
-                mh = combine_hash(mh, t->get_id());
-            mh = combine_hash(mh, sm.m_view.key().target);
-            h += mh;
-        }
-        return h ? h : 1;
-    }
-
-    bool mem_facet::similar(facet_i const& other) const {
-        auto const& o = static_cast<mem_facet const&>(other);
-        if (m_mems.size() != o.m_mems.size())
-            return false;
-        vector<str_mem> a = m_mems, b = o.m_mems;
-        std::sort(a.begin(), a.end());
-        std::sort(b.begin(), b.end());
-        for (unsigned i = 0; i < a.size(); ++i)
-            if (!(a[i] == b[i]))
-                return false;
-        return true;
-    }
-
     std::ostream& mem_facet::display(std::ostream& out) const {
         out << "mem_facet: " << m_mems.size() << " membership(s)\n";
         for (auto const& sm : m_mems) {
