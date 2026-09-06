@@ -249,14 +249,16 @@ namespace seq {
             return id;
         };
 
+        expr_ref_vector pin(m);
         for (unsigned i = 0; i < m_lexs.size(); ++i) {
             str_lex const& lx = m_lexs[i];
-            if (lx.m_lhs.size() != 1 || lx.m_rhs.size() != 1)
+            if (lx.m_lhs.empty() && lx.m_rhs.empty())
                 continue;
-            expr* l = lx.m_lhs.get(0);
-            expr* r = lx.m_rhs.get(0);
-            // Constants would already have been resolved by simplify();
-            // only genuine variables/opaque terms remain here.
+            sort* s = (lx.m_lhs.empty() ? lx.m_rhs.get(0) : lx.m_lhs.get(0))->get_sort();
+            expr* l = u.str.mk_concat(lx.m_lhs, s);
+            expr* r = u.str.mk_concat(lx.m_rhs, s);
+            pin.push_back(l);
+            pin.push_back(r);
             edges.push_back({ get_id(l), get_id(r), lx.m_strict, i });
         }
         if (edges.empty())
@@ -301,13 +303,14 @@ namespace seq {
                     // eqf and drop these obligations from lex_facet
                     // (removing high indices first so lower indices
                     // stay valid).
-                    vector<unsigned> to_remove;
+
+v                   vector<unsigned> to_remove;
                     for (unsigned k = start; k < on_path.size(); ++k)
                         to_remove.push_back(edges[on_path[k]].lex_idx);
                     std::sort(to_remove.begin(), to_remove.end(), std::greater<unsigned>());
                     for (unsigned idx : to_remove) {
                         str_lex const& lx = m_lexs[idx];
-                        eqf.add_equation(lx.m_lhs, lx.m_rhs, lx.m_dep);
+                        eqf.add_equation(lx.m_lhs, lx.m_rhs, dep);
                         remove(idx);
                     }
                     return true;
