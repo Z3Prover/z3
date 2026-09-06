@@ -17,18 +17,12 @@ Author:
 
 Notes: 
 
-    TODO: add cycle detection in the propagator as a separate step.
-    Cycle detection builds a reachability graph based on asserted lt, le 
-    constraints. There is a conflict if the graph contains a cycle with a strict edge.
-    If the graph contains a cycle with non-strict edges, remove the involved comparisons
-    and add them as equalities instead to the equality facet. Make sure that the dependencies
-    for added equalities is the join of all equalities involved in the cycle.
-
     TODO: review and realize other ways to resolve remaining comparisons based on theory_seq.
 --*/
 #include "ast/seq/seq_lex_facet.h"
 #include "ast/ast_pp.h"
 #include <algorithm>
+#include <functional>
 
 namespace seq {
 
@@ -88,6 +82,18 @@ namespace seq {
         return u.str.is_unit(tok, c) && u.is_const_char(c);
     }
 
+    // A token list is only *guaranteed* to denote a non-empty sequence
+    // when one of its tokens is a unit() (a single character is always
+    // length 1). Any other token (an opaque variable/term) could still
+    // be bound to the empty sequence, so its presence in the list does
+    // not by itself establish non-emptiness.
+    static bool contains_unit(seq_util& u, expr_ref_vector const& v) {
+        for (expr* t : v)
+            if (u.str.is_unit(t))
+                return true;
+        return false;
+    }
+
     bool lex_facet::simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep) {
         conflict = false;
         conflict_dep = nullptr;
@@ -133,20 +139,31 @@ namespace seq {
                 changed = true;
                 continue;
             }
-            // NSB code reivew: this is unsound for strict.
             // If it is strict, then R must contain a non-empty sequence
-            // This is true if R contains a unit.
-            // Otherwise it is a split rule to ensure one of the variables in R has length > 0.
+            // for lhs < rhs to hold; this is guaranteed only if R
+            // contains a unit token. Otherwise leave the obligation
+            // pending (a split rule elsewhere must first show one of
+            // R's variables has length > 0).
             if (L.empty() && !R.empty()) {
+                if (lx.m_strict && !contains_unit(u, R)) {
+                    ++i;
+                    continue;
+                }
                 // lhs is a proper prefix of rhs: lhs < rhs holds (both
                 // strict and non-strict obligations are satisfied).
                 remove(i);
                 changed = true;
                 continue;
             }
-            // NSB code review: this is only a conflict if L contains a non-empty
-            // sequence, or if is_strict is true.
+            // rhs is a proper prefix of lhs: lhs > rhs holds only if L is
+            // guaranteed non-empty beyond rhs, i.e. is_strict, or L
+            // contains a unit token (definitely non-empty). Otherwise
+            // leave pending, since L could still collapse to equal rhs.
             if (!L.empty() && R.empty()) {
+                if (!lx.m_strict && !contains_unit(u, L)) {
+                    ++i;
+                    continue;
+                }
                 // rhs is a proper prefix of lhs: lhs > rhs, so the
                 // obligation (lhs < rhs, or lhs <= rhs) fails outright.
                 conflict = true;
@@ -196,7 +213,119 @@ namespace seq {
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;
-        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
+        bool cyc_conflict = false;
+        eq_tree::dep_tracker cyc_dep = nullptr;
+        bool cyc_changed = f.detect_cycles(cyc_conflict, cyc_dep, ac.eq_facet_ref());
+        if (cyc_conflict) {
+            n.set_conflict(stx::br_plugin_base, cyc_dep);
+            return stx::simplify_result::conflict;
+        }
+        if (f.is_satisfied())
+            return stx::simplify_result::satisfied;
+        return (changed || cyc_changed) ? stx::simplify_result::proceed : stx::simplify_result::noop;
+    }
+
+    bool lex_facet::detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf) {
+        conflict = false;
+        conflict_dep = nullptr;
+
+        // Collect the subset of pending obligations that have been
+        // simplified down to a single variable/opaque term on each
+        // side; these are the only ones we can place as edges into a
+        // variable-level comparison graph. Everything else (still
+        // multi-token) is left untouched.
+        obj_map<expr, unsigned> var_id;
+        ptr_vector<expr> vars;
+        struct edge { unsigned src, dst; bool strict; unsigned lex_idx; };
+        vector<edge> edges;
+
+        auto get_id = [&](expr* v) {
+            unsigned id;
+            if (var_id.find(v, id))
+                return id;
+            id = vars.size();
+            vars.push_back(v);
+            var_id.insert(v, id);
+            return id;
+        };
+
+        for (unsigned i = 0; i < m_lexs.size(); ++i) {
+            str_lex const& lx = m_lexs[i];
+            if (lx.m_lhs.size() != 1 || lx.m_rhs.size() != 1)
+                continue;
+            expr* l = lx.m_lhs.get(0);
+            expr* r = lx.m_rhs.get(0);
+            // Constants would already have been resolved by simplify();
+            // only genuine variables/opaque terms remain here.
+            edges.push_back({ get_id(l), get_id(r), lx.m_strict, i });
+        }
+        if (edges.empty())
+            return false;
+
+        // Build adjacency and look for a cycle via DFS, tracking
+        // whether any edge along the current path is strict.
+        vector<vector<unsigned>> adj(vars.size());
+        for (unsigned ei = 0; ei < edges.size(); ++ei)
+            adj[edges[ei].src].push_back(ei);
+
+        enum class color { white, gray, black };
+        vector<color> colors(vars.size(), color::white);
+        vector<unsigned> on_path;      // stack of edge indices on current DFS path
+        vector<unsigned> path_node;    // stack of node ids on current DFS path
+
+        std::function<bool(unsigned)> dfs = [&](unsigned u_id) -> bool {
+            colors[u_id] = color::gray;
+            path_node.push_back(u_id);
+            for (unsigned ei : adj[u_id]) {
+                unsigned v_id = edges[ei].dst;
+                on_path.push_back(ei);
+                if (colors[v_id] == color::gray) {
+                    // Found a cycle: it consists of the edges on
+                    // on_path from v_id's first occurrence onward.
+                    unsigned start = 0;
+                    while (path_node[start] != v_id) ++start;
+                    bool has_strict = false;
+                    eq_tree::dep_tracker dep = nullptr;
+                    for (unsigned k = start; k < on_path.size(); ++k) {
+                        edge const& e = edges[on_path[k]];
+                        has_strict |= e.strict;
+                        dep = m_dm.mk_join(dep, m_lexs[e.lex_idx].m_dep);
+                    }
+                    if (has_strict) {
+                        conflict = true;
+                        conflict_dep = dep;
+                        return true;
+                    }
+                    // All-non-strict cycle: every variable on it is
+                    // forced pairwise equal - re-assert as equations on
+                    // eqf and drop these obligations from lex_facet
+                    // (removing high indices first so lower indices
+                    // stay valid).
+                    vector<unsigned> to_remove;
+                    for (unsigned k = start; k < on_path.size(); ++k)
+                        to_remove.push_back(edges[on_path[k]].lex_idx);
+                    std::sort(to_remove.begin(), to_remove.end(), std::greater<unsigned>());
+                    for (unsigned idx : to_remove) {
+                        str_lex const& lx = m_lexs[idx];
+                        eqf.add_equation(lx.m_lhs, lx.m_rhs, lx.m_dep);
+                        remove(idx);
+                    }
+                    return true;
+                }
+                if (colors[v_id] == color::white && dfs(v_id))
+                    return true;
+                on_path.pop_back();
+            }
+            path_node.pop_back();
+            colors[u_id] = color::black;
+            return false;
+        };
+
+        for (unsigned i = 0; i < vars.size(); ++i)
+            if (colors[i] == color::white && dfs(i))
+                return true;
+        return false;
     }
 
 } // namespace seq
+

@@ -165,6 +165,24 @@ namespace seq {
         // constants. On conflict, sets `conflict_dep` to the culprit
         // obligation's dependency. Trailed.
         bool simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep);
+
+        // Cycle detection over single-variable obligations: builds a
+        // reachability graph whose nodes are the variables appearing as
+        // a lone token on either side of a still-pending obligation
+        // (lhs/rhs each exactly one token, i.e. `x < y` / `x <= y` with
+        // `x`,`y` not yet resolved into longer token sequences), and
+        // whose edges are those obligations (strict or not). A cycle
+        // containing at least one strict edge is a conflict (no total
+        // order can satisfy `x <= ... <= x < ...`). A cycle made up
+        // entirely of non-strict edges instead forces every variable on
+        // the cycle to be pairwise equal: those obligations are removed
+        // and re-asserted as equations on `eqf` instead (with the
+        // dependency being the join of every edge on the cycle), which
+        // is strictly more informative than leaving them as `<=`
+        // obligations here. Returns true if it changed the facet's
+        // pending set (either by discharging a would-be-equality cycle
+        // into equations, or by finding a conflict). Trailed.
+        bool detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf);
     };
 
     // Deterministic propagation plugin wrapping lex_facet::simplify.
