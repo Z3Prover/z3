@@ -26,3 +26,6 @@ z3_add_component(qe
     qe_tactic.h
     qsat.h
 )
+
+add_subdirectory(lite)
+add_subdirectory(mbp)

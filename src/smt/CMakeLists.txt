@@ -96,3 +96,6 @@ z3_add_component(smt
     substitution
     ast_seq
 )
+
+add_subdirectory(proto_model)
+add_subdirectory(tactic)

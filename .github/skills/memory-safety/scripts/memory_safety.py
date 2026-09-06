@@ -27,17 +27,29 @@ SANITIZER_FLAGS = {
     "ubsan": "-fsanitize=undefined -fno-omit-frame-pointer",
 }
 
+MIN_CMAKE_VERSION = (3, 30)
+
 ASAN_ERROR = re.compile(r"ERROR:\s*AddressSanitizer:\s*(\S+)")
 UBSAN_ERROR = re.compile(r":\d+:\d+:\s*runtime error:\s*(.+)")
 LEAK_ERROR = re.compile(r"ERROR:\s*LeakSanitizer:")
 LOCATION = re.compile(r"(\S+\.(?:cpp|c|h|hpp)):(\d+)")
 
 
+def cmake_version() -> tuple:
+    """Return the installed cmake's (major, minor) version, or None if unknown."""
+    proc = subprocess.run(["cmake", "--version"], capture_output=True, text=True)
+    match = re.search(r"version (\d+)\.(\d+)", proc.stdout)
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
 def check_dependencies():
     """Fail early if required build tools are not on PATH."""
     missing = []
     if not shutil.which("cmake"):
-        missing.append(("cmake", "sudo apt install cmake"))
+        missing.append(("cmake", "pip install --user 'cmake>=3.30'"))
+    elif (cmake_version() or (0, 0)) < MIN_CMAKE_VERSION:
+        # Z3 requires CMake >= 3.30; distro packages (e.g. apt's) are often older.
+        missing.append(("cmake >= 3.30", "pip install --user --upgrade 'cmake>=3.30'"))
     if not shutil.which("make"):
         missing.append(("make", "sudo apt install build-essential"))
 

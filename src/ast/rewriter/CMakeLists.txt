@@ -56,3 +56,5 @@ z3_add_component(rewriter
     interval
     polynomial
 )
+
+add_subdirectory(bit_blaster)
