@@ -601,18 +601,21 @@ namespace smt {
         }
     }
 
-    // NSB code review: this needs to invoke push/pop on m_tree which calls push/pop on solver_facet.
     void theory_nseq::push_scope_eh() {
         theory::push_scope_eh();
+        m_tree.push_facets();
     }
 
     void theory_nseq::pop_scope_eh(unsigned num_scopes) {
+        for (unsigned i = 0; i < num_scopes; ++i)
+            m_tree.pop_facets();
         theory::pop_scope_eh(num_scopes);
     }
 
-    // NSB code review: this needs to also copy facet state
     theory* theory_nseq::mk_fresh(context* new_ctx) {
-        return alloc(theory_nseq, *new_ctx);
+        theory_nseq* result = alloc(theory_nseq, *new_ctx);
+        result->m_tree.clone_state_from(m_tree);
+        return result;
     }
 
     void theory_nseq::display(std::ostream& out) const {

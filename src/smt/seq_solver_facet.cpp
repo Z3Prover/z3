@@ -28,6 +28,11 @@ namespace seq {
     sub_solver::sub_solver(ast_manager& m, arith_util&, eq_tree::dep_manager_t& core_dep_mgr) :
         m(m), m_assump_lits(m), m_core_dep_mgr(core_dep_mgr) {
         params_ref p;
+        // Disable the (n)seq string solver on this arithmetic sub-solver:
+        // it only ever sees QF_LIA-level constraints (lengths, etc.), and
+        // without this it could otherwise recursively try to instantiate a
+        // string theory of its own.
+        p.set_sym("smt.string_solver", symbol("empty"));
         m_solver = mk_smt_solver(m, p, symbol("QF_LIA"));
     }
 

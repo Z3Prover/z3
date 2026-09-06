@@ -756,6 +756,45 @@ namespace stx {
         node* mk_root() { SASSERT(!m_root); m_root = alloc(node, m_next_facet_id); return m_root.get(); }
         node* root() const { return m_root.get(); }
 
+        // Called by the ambient owner (theory_nseq) in lockstep with its
+        // own push_scope_eh()/pop_scope_eh(), i.e. at the SMT core's own
+        // scope boundaries - distinct from DFS's internal scoped_push/
+        // pop(), which additionally opens/closes a *trail* scope on the
+        // shared trail_stack (already owned by the SMT core itself, see
+        // m_tree's constructor). Only the facet-level push()/pop() hooks
+        // need to be relayed here (any trail-scope bookkeeping the SMT
+        // core does is already visible to every trail object pushed by a
+        // facet, since m_trail *is* ctx.get_trail_stack()).
+        void push_facets() { m_root->push_facets(); }
+        void pop_facets() { m_root->pop_facets(); }
+
+        // Deep-copy `src`'s current root facet state into this tree's own
+        // root, re-binding each cloned facet to this tree's own trail_stack
+        // (so subsequent mutations undo through *this* tree's trail, not
+        // `src`'s). Used by e.g. `theory_nseq::mk_fresh` to make a cloned
+        // context start out with the same accumulated facet state as the
+        // context it was cloned from, rather than silently starting empty.
+        // Both trees must have gone through the identical sequence of
+        // `register_facet<T>(...)` calls (same facet ids/types/order) -
+        // true whenever `src` and `*this` come from two `theory_nseq`
+        // instances constructed the same way.
+        void clone_state_from(search_tree const& src) {
+            SASSERT(m_root && src.m_root);
+            SASSERT(m_root->num_facets() == src.m_root->num_facets());
+            node* new_root = src.m_root->clone(m_trail);
+            for (facet_id id = 0; id < m_root->num_facets(); ++id) {
+                if (!src.m_root->has_facet(id))
+                    continue;
+                dealloc(m_root->m_facets[id]);
+                m_root->m_facets[id] = new_root->m_facets[id];
+                new_root->m_facets[id] = nullptr;
+            }
+            m_root->m_status = new_root->m_status;
+            m_root->m_reason = new_root->m_reason;
+            m_root->m_conflict_dep = new_root->m_conflict_dep;
+            dealloc(new_root);
+        }
+
         // Non-null only immediately after a `solve()` call returned `sat`;
         // a standalone (trail-independent) snapshot of the satisfying
         // facet state. Overwritten/cleared by the next `solve()` call.
