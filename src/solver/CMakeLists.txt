@@ -24,3 +24,5 @@ z3_add_component(solver
     parallel_params.pyg
 
 )
+
+add_subdirectory(assertions)
