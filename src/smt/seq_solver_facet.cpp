@@ -132,25 +132,38 @@ namespace seq {
     }
 
     bool solver_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep) {
+        // Tokens are usually either a `unit(ch)` application (length 1)
+        // or a full sequence-sorted subterm (length via `seq.len`).
+        // word_eq_split's unit-vs-unit fallback (seq_eq_facet.cpp) can
+        // however push a raw char-sorted equation `c = a` (bare
+        // characters, not wrapped in `unit()`) - such a token has no
+        // `len()` of its own (nor a length of 1, since it isn't
+        // seq-sorted at all), so it must be excluded from the length
+        // sum entirely.
+        auto tok_len = [&](expr* t) -> expr* {
+            if (u.str.is_unit(t))
+                return a.mk_int(1);
+            if (u.is_seq(t->get_sort()))
+                return u.str.mk_length(t);
+            return nullptr;
+        };
         expr_ref lsum(a.mk_int(0), m);
         expr_ref rsum(a.mk_int(0), m);
-        for (expr* t : lhs) {
-            expr_ref len(u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
-            lsum = a.mk_add(lsum, len);
-        }
-        for (expr* t : rhs) {
-            expr_ref len(u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
-            rsum = a.mk_add(rsum, len);
-        }
+        for (expr* t : lhs)
+            if (expr* len = tok_len(t))
+                lsum = a.mk_add(lsum, len);
+        for (expr* t : rhs)
+            if (expr* len = tok_len(t))
+                rsum = a.mk_add(rsum, len);
         bool changed = add_constraint(m.mk_eq(lsum, rsum), dep);
         // len(v) >= 0 is an unconditional axiom, not contingent on `dep`
         // (the particular equation `v` was seen in) - asserted with a
         // null dep.
         for (expr* t : lhs)
-            if (!u.str.is_unit(t))
+            if (!u.str.is_unit(t) && u.is_seq(t->get_sort()))
                 changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
         for (expr* t : rhs)
-            if (!u.str.is_unit(t))
+            if (!u.str.is_unit(t) && u.is_seq(t->get_sort()))
                 changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
         return changed;
     }

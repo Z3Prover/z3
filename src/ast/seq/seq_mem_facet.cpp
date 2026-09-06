@@ -120,7 +120,7 @@ namespace seq {
     }
 
     stx::facet_i* mem_facet::clone(trail_stack& trail) const {
-        mem_facet* f = alloc(mem_facet, trail, m, u, m_dm);
+        mem_facet* f = alloc(mem_facet, trail, m, u, m_dm, m_rw);
         f->m_mems.append(m_mems);
         f->m_is_satisfied = m_is_satisfied;
         return f;
@@ -170,7 +170,7 @@ namespace seq {
             // de-dupes identical terms via `m_own`, so re-deriving the
             // same bound on every propagate() round is a cheap no-op
             // after the first.
-            if (ac.has_arith()) {
+            {
                 auto& af = ac.arith_facet_ref();
                 arith_util& a = af.get_arith_util();
                 unsigned lo = u.re.min_length(sm.m_view.m_state);
@@ -237,7 +237,7 @@ namespace seq {
                     continue;
                 }
             }
-            auto live = m_live.reachable_live(sm.m_view.m_state);
+            auto live = f.live().reachable_live(sm.m_view.m_state);
             if (live.is_dead() || seq::is_dead(sm.m_view, m_rw)) {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
                 return stx::simplify_result::conflict;

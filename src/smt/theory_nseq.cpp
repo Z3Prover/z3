@@ -34,7 +34,6 @@ namespace smt {
         m_rewriter(m),
         m_th_rewriter(m),
         m_arith_value(m),
-        m_live(m_rewriter),
         m_pin(m),
         m_ax(*this, m_th_rewriter),
         m_sk(m, m_th_rewriter),
@@ -50,7 +49,7 @@ namespace smt {
         m_tree.register_facet_bound<seq::deq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_deq_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::solver_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_arith_id(id); }, m, m_seq, m_solver);
         m_tree.register_facet_bound<seq::power_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_pow_id(id); }, m, m_seq, m_autil, m_tree.dep_mgr());
-        m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr(), m_rewriter);
         m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);
         m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());
@@ -67,8 +66,8 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::deq_propagation, m, m_seq));
         m_tree.add_propagation_plugin(alloc(seq::arith_propagation, m, m_seq));
         m_tree.add_propagation_plugin(alloc(seq::power_propagation, m, m_seq, m_autil));
-        m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter, m_live));
-        m_tree.add_propagation_plugin(alloc(seq::mem_bounds_propagation, m, m_seq, m_autil, m_tree.trail()));
+        m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter));
+        m_tree.add_propagation_plugin(alloc(seq::mem_bounds_propagation, m, m_seq, m_autil, *m_ambient));
         m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
         m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
         m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));
@@ -83,7 +82,7 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_var_peel, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
-        m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, m_tree.trail()));
+        m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
         m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));

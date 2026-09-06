@@ -124,7 +124,6 @@ namespace smt {
                                             // the SMT core's own preprocessing produced
                                             // and internalized.
         arith_value         m_arith_value;
-        seq::live_states    m_live;
         expr_ref_vector     m_pin; // pins fresh terms (e.g. complemented regexes, Skolem
                                    // fresh existentials for prefix/suffix/contains
                                    // axiomatization) built while adding constraints that

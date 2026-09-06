@@ -82,6 +82,8 @@ namespace seq {
         ast_manager&      m;
         seq_util&         u;
         eq_tree::dep_manager_t& m_dm;
+        seq_rewriter&     m_rw;
+        live_states       m_live;
         vector<str_mem>   m_mems;
         // Set once mem_monadic_split has certified that every remaining
         // membership constraint has been narrowed to a variable-only
@@ -93,11 +95,12 @@ namespace seq {
         bool              m_is_satisfied = false;
 
     public:
-        mem_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), u(u), m_dm(dm) {}
+        mem_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm, seq_rewriter& rw) :
+            facet_i(trail), m(m), u(u), m_dm(dm), m_rw(rw), m_live(rw) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
+        live_states& live() const { return const_cast<live_states&>(m_live); }
         eq_tree::dep_manager_t& dm() const { return m_dm; }
         vector<str_mem> const& memberships() const { return m_mems; }
 
@@ -129,15 +132,14 @@ namespace seq {
         ast_manager&    m;
         seq_util&       u;
         seq_rewriter&   m_rw;
-        live_states&    m_live;
         struct stats {
             unsigned m_num_propagate = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
     public:
-        mem_propagation(ast_manager& m, seq_util& u, seq_rewriter& rw, live_states& live) :
-            m(m), u(u), m_rw(rw), m_live(live) {}
+        mem_propagation(ast_manager& m, seq_util& u, seq_rewriter& rw) :
+            m(m), u(u), m_rw(rw) {}
         char const* name() const override { return "mem-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override { st.update("mem-propagate num calls", m_stats.m_num_propagate); }
@@ -197,7 +199,7 @@ namespace seq {
         void collect_vars(eq_tree::node& n, obj_hashtable<expr>& vars) const;
 
     public:
-        mem_bounds_propagation(ast_manager& m, seq_util& u, arith_util& a, trail_stack& trail) : m(m), u(u), a(a), m_trail(trail) {}
+        mem_bounds_propagation(ast_manager& m, seq_util& u, arith_util& a, ambient_context_i<eq_tree::dep_tracker>& ac) : m(m), u(u), a(a), m_trail(ac.trail()) {}
         char const* name() const override { return "mem-bounds-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {
@@ -361,7 +363,7 @@ namespace seq {
         };
 
     public:
-        mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, trail_stack& trail) :
+        mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, ambient_context_i<eq_tree::dep_tracker>&) :
             m(m), u(u), m_rw(rw) {}
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;

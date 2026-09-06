@@ -51,7 +51,7 @@ namespace {
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
             arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
             pow_id(tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr())),
-            ac(m, u)
+            ac(m, u, trail)
         {
             ac.set_eq_id(eq_id);
             ac.set_arith_id(arith_id);

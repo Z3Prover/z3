@@ -231,8 +231,7 @@ namespace seq {
                         return false;
                     }
                     auto ambient = get_ambient(n);
-                    if (ambient.has_arith())
-                        ambient.arith_facet_ref().add_constraint(eq_expr, parent_dep);
+                    ambient.arith_facet_ref().add_constraint(eq_expr, parent_dep);
                     ambient.assumption_facet_ref().add_assumption(eq_expr);
                 }
             }
@@ -299,14 +298,17 @@ namespace seq {
         // length-infeasible substitution (e.g. one that would force a
         // negative-length remainder) without waiting for a later
         // eq_facet equation to expose the same fact via
-        // arith_propagation.
+        // arith_propagation. Only applies to sequence-sorted variables:
+        // word_eq_split's character-vs-character splits substitute a
+        // bare char variable (e.g. `c := a`), which has no `len()`.
         auto ac = get_ambient(target);
-        if (ac.has_arith()) {
-            auto& af = ac.arith_facet_ref();
-            expr_ref_vector lhs(af.get_arith_util().get_manager());
-            lhs.push_back(var);
-            af.add_length_constraint(lhs, repl, subst_dep);
-        }
+        auto& af = ac.arith_facet_ref();
+        ast_manager& mgr = af.get_arith_util().get_manager();
+        if (var->get_sort()->get_family_id() != mgr.mk_family_id("seq"))
+            return;
+        expr_ref_vector lhs(mgr);
+        lhs.push_back(var);
+        af.add_length_constraint(lhs, repl, subst_dep);
     }
 
     bool word_eq_split::iterator::next(eq_tree::edge& out) {
@@ -316,8 +318,7 @@ namespace seq {
         broadcast_subst(m_n, a.m_var, a.m_repl, a.m_dep);
         if (a.m_guard) {
             auto ac = get_ambient(m_n);
-            if (ac.has_arith())
-                ac.arith_facet_ref().add_constraint(a.m_guard, a.m_dep);
+            ac.arith_facet_ref().add_constraint(a.m_guard, a.m_dep);
         }
         out = eq_tree::edge(a.m_name, a.m_dep, true, 0);
         return true;
@@ -485,10 +486,18 @@ namespace seq {
                     // mutually exclusive, matching c3's apply_var_nielsen
                     // disjointness guards (seq_nielsen_modifiers.cpp).
                     expr* v1_pos = nullptr, *v2_pos = nullptr;
-                    if (ac.has_arith()) {
+                    {
                         arith_util& a = ac.arith_facet_ref().get_arith_util();
-                        v1_pos = a.mk_gt(u.str.mk_length(v1), a.mk_int(0));
-                        v2_pos = a.mk_gt(u.str.mk_length(v2), a.mk_int(0));
+                        // v1/v2 can themselves be char-sorted variables
+                        // (e.g. two bare character variables compared
+                        // head-to-head); such tokens have no `len()`, so
+                        // the non-emptiness guard is simply omitted for
+                        // them - a char-sorted "variable" is trivially
+                        // non-empty in every model anyway.
+                        if (u.is_seq(v1->get_sort()))
+                            v1_pos = a.mk_gt(u.str.mk_length(v1), a.mk_int(0));
+                        if (u.is_seq(v2->get_sort()))
+                            v2_pos = a.mk_gt(u.str.mk_length(v2), a.mk_int(0));
                     }
 
                     iterator* it = alloc(iterator, n, m, u);

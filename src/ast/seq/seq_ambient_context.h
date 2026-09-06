@@ -154,6 +154,12 @@ namespace seq {
         ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u) {}
         ~ambient_context_i() override = default;
 
+        // The shared search-tree trail_stack, so plugins that used to
+        // take `trail_stack&` as a constructor argument (e.g.
+        // mem_bounds_propagation) can instead pull it off the ambient
+        // context, exactly as they already do for sibling facet ids.
+        virtual trail_stack& trail() = 0;
+
         void set_eq_id(stx::facet_id id) { m_eq_id = id; }
         void set_deq_id(stx::facet_id id) { m_deq_id = id; }
         void set_arith_id(stx::facet_id id) { m_arith_id = id; }
@@ -239,7 +245,6 @@ namespace seq {
         template <typename node_t> seq::req_facet& req_facet(node_t& n) const { return n.template facet_as<seq::req_facet>(req_id()); }
         template <typename node_t> seq::lex_facet& lex_facet(node_t& n) const { return n.template facet_as<seq::lex_facet>(lex_id()); }
 
-        template <typename node_t> bool has_arith(node_t& n) const { return n.has_facet(arith_id()); }
     };
 
     /**
@@ -281,6 +286,7 @@ namespace seq {
         bool current_value(expr* e, rational& v) const { return m_ac.current_value(e, v); }
         dep_tracker_t literal_if_false(expr* e) const { return m_ac.literal_if_false(e); }
         void add_diseq_axiom(expr* e1, expr* e2) const { m_ac.add_diseq_axiom(e1, e2); }
+        trail_stack& trail() const { return m_ac.trail(); }
 
         eq_facet& eq_facet_ref() const { return m_ac.eq_facet(m_node); }
         deq_facet& deq_facet_ref() const { return m_ac.deq_facet(m_node); }
@@ -292,7 +298,6 @@ namespace seq {
         req_facet& req_facet_ref() const { return m_ac.req_facet(m_node); }
         lex_facet& lex_facet_ref() const { return m_ac.lex_facet(m_node); }
 
-        bool has_arith() const { return m_ac.has_arith(m_node); }
     };
 
     // Trivial, always-"unknown" implementation: usable by unit tests (or
@@ -303,12 +308,14 @@ namespace seq {
     // precision.
     template <typename dep_tracker_t>
     class null_ambient_context : public ambient_context_i<dep_tracker_t> {
+        trail_stack& m_trail;
     public:
-        null_ambient_context(ast_manager& m, seq_util& u) : ambient_context_i<dep_tracker_t>(m, u) {}
+        null_ambient_context(ast_manager& m, seq_util& u, trail_stack& trail) : ambient_context_i<dep_tracker_t>(m, u), m_trail(trail) {}
         bool lower_bound(expr*, rational&, dep_tracker_t&) override { return false; }
         bool upper_bound(expr*, rational&, dep_tracker_t&) override { return false; }
         bool current_value(expr*, rational&) override { return false; }
         dep_tracker_t literal_if_false(expr*) override { return nullptr; }
+        trail_stack& trail() override { return m_trail; }
         void add_diseq_axiom(expr*, expr*) override {}
     };
 

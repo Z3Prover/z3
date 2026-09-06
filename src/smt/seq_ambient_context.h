@@ -77,6 +77,8 @@ namespace seq {
             // injection point should use theory_seq's own internalization
             // path instead.
         }
+
+        trail_stack& trail() override { return m_th.get_trail_stack(); }
     };
 
 } // namespace seq

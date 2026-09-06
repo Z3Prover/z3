@@ -23,31 +23,37 @@ namespace {
     struct fixture {
         ast_manager      m;
         seq_util         u;
+        arith_util       a;
         seq_rewriter     rw;
         trail_stack      trail;
-        seq::live_states live;
         seq::eq_tree     tree;
         seq::eq_tree::node* root;
+        seq::sub_solver  solver;
         stx::facet_id    eq_id;
         stx::facet_id    mem_id;
+        stx::facet_id    arith_id;
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
         fixture() :
-            u((init_plugins(m), m)), rw(m), live(rw, seq::transition_mode::brzozowski_tm),
+            u((init_plugins(m), m)), a(m), rw(m),
             tree(trail, m.limit()),
             root(tree.mk_root()),
+            solver(m, a, tree.dep_mgr()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
-            mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr())),
-            ac(m, u)
+            mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw)),
+            arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
+            ac(m, u, trail)
         {
             ac.set_eq_id(eq_id);
             ac.set_mem_id(mem_id);
+            ac.set_arith_id(arith_id);
             tree.set_ambient_context(&ac);
             tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
-            tree.add_propagation_plugin(alloc(seq::mem_propagation, m, u, rw, live));
-            tree.add_split_plugin(alloc(seq::mem_monadic_split, m, u, rw, trail));
+            tree.add_propagation_plugin(alloc(seq::mem_propagation, m, u, rw));
+            tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+            tree.add_split_plugin(alloc(seq::mem_monadic_split, m, u, rw, ac));
             tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
             tree.set_max_search_depth(12);
         }
@@ -123,6 +129,7 @@ namespace {
         expr_ref one_a(u.str.mk_string(zstring("a")), m);
         expr_ref b(u.str.mk_string(zstring("b")), m);
         expr_ref re(u.re.mk_star(u.re.mk_to_re(one_a)), m);
+        seq_rewriter rw(m);
 
         // n = 0 branch: split() commits it immediately.
         {
@@ -132,8 +139,8 @@ namespace {
         seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id pow_id = tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr());
-        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr());
-        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         ac.set_arith_id(arith_id);
         ac.set_pow_id(pow_id);
         ac.set_mem_id(mem_id);
@@ -173,8 +180,8 @@ namespace {
         seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id pow_id = tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr());
-        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr());
-        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u);
+        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         ac.set_arith_id(arith_id);
         ac.set_pow_id(pow_id);
         ac.set_mem_id(mem_id);

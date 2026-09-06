@@ -59,6 +59,8 @@ namespace seq {
             // No-op: no standalone axiom-injection entry point distinct from
             // theory_nseq's ordinary disequality propagation.
         }
+
+        trail_stack& trail() override { return m_th.m_tree.trail(); }
     };
 
 } // namespace seq
