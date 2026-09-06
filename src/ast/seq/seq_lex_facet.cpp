@@ -32,20 +32,6 @@ Notes:
 
 namespace seq {
 
-    bool str_lex::operator<(str_lex const& other) const {
-        int c = cmp_tokens(m_lhs, other.m_lhs);
-        if (c != 0)
-            return c < 0;
-        c = cmp_tokens(m_rhs, other.m_rhs);
-        if (c != 0)
-            return c < 0;
-        return m_strict < other.m_strict;
-    }
-
-    bool str_lex::operator==(str_lex const& other) const {
-        return m_strict == other.m_strict && cmp_tokens(m_lhs, other.m_lhs) == 0 && cmp_tokens(m_rhs, other.m_rhs) == 0;
-    }
-
     void lex_facet::set_sides(unsigned idx, expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
         m_trail.push(vector_field_trail<str_lex, expr_ref_vector>(m_lexs, idx, &str_lex::m_lhs));
         m_trail.push(vector_field_trail<str_lex, expr_ref_vector>(m_lexs, idx, &str_lex::m_rhs));

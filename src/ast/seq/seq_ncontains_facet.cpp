@@ -23,18 +23,6 @@ Author:
 
 namespace seq {
 
-    bool str_ncontains::operator<(str_ncontains const& other) const {
-        int c = cmp_tokens(m_haystack, other.m_haystack);
-        if (c != 0)
-            return c < 0;
-        return cmp_tokens(m_needle, other.m_needle) < 0;
-    }
-
-    bool str_ncontains::operator==(str_ncontains const& other) const {
-        return cmp_tokens(m_haystack, other.m_haystack) == 0 &&
-               cmp_tokens(m_needle, other.m_needle) == 0;
-    }
-
     void ncontains_facet::remove(unsigned idx) {
         m_trail.push(vector_erase_trail<str_ncontains>(m_ncs, idx));
         m_ncs.erase(m_ncs.begin() + idx);

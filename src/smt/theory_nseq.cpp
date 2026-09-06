@@ -23,6 +23,7 @@ Author:
 #include "ast/expr_substitution.h"
 #include "smt/smt_model_generator.h"
 #include "util/trail.h"
+#include "ast/ast_ll_pp.h"
 
 namespace smt {
 
@@ -344,6 +345,10 @@ namespace smt {
                 propagate_eq(lit, e1, e2);
             return;
         }
+
+        // No handler recognized this atom: log it so gaps in assign_eh's
+        // dispatch are visible rather than silently ignored.
+        TRACE(seq, tout << "unhandled assign_eh: " << (is_true ? "" : "not ") << mk_bounded_pp(e, m) << "\n";);
     }
 
     // -----------------------------------------------------------------------
@@ -492,7 +497,7 @@ namespace smt {
                 m_factory->register_value(e);
         }
         seq::eq_tree::node const* snap = m_tree.sat_snapshot();
-        if (!snap || !m_ambient->has_mem(const_cast<seq::eq_tree::node&>(*snap)))
+        if (!snap)
             return;
         auto const& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
         seq_monadic mon(m_rewriter, ctx.get_trail_stack(), seq::transition_mode::brzozowski_tm);
@@ -521,7 +526,7 @@ namespace smt {
         seq::eq_tree::node const* snap = m_tree.sat_snapshot();
         expr_ref result(m);
         expr_ref_vector toks(m), resolved(m);
-        if (snap && m_ambient->has_eq(const_cast<seq::eq_tree::node&>(*snap)))
+        if (snap)
             m_ambient->eq_facet(const_cast<seq::eq_tree::node&>(*snap)).eliminate(e, resolved);
         else
             m_seq.str.get_concat_units(e, resolved);
@@ -561,7 +566,7 @@ namespace smt {
             // true, and if not, internalize it and force it true so the
             // core re-checks with that requirement in place.
             seq::eq_tree::node const* snap = m_tree.sat_snapshot();
-            if (snap && m_ambient->has_assumption(const_cast<seq::eq_tree::node&>(*snap))) {
+            if (snap) {
                 auto const& af = m_ambient->assumption_facet(const_cast<seq::eq_tree::node&>(*snap));
                 for (expr* a : af.assumptions()) {
                     if (!ctx.b_internalized(a))

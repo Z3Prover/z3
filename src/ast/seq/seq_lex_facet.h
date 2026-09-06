@@ -103,8 +103,6 @@ namespace seq {
         eq_tree::dep_tracker m_dep;
         str_lex(expr_ref_vector const& lhs, expr_ref_vector const& rhs, bool strict, eq_tree::dep_tracker dep = nullptr) :
             m_lhs(lhs), m_rhs(rhs), m_strict(strict), m_dep(dep) {}
-        bool operator<(str_lex const& other) const;
-        bool operator==(str_lex const& other) const;
     };
 
     /**

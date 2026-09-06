@@ -88,8 +88,6 @@ namespace seq {
         lbool                m_status = l_undef;
         str_req(ast_manager& m, expr* p, expr* q, bool is_eq, eq_tree::dep_tracker dep = nullptr) :
             m_p(p, m), m_q(q, m), m_is_eq(is_eq), m_dep(dep) {}
-        bool operator<(str_req const& other) const;
-        bool operator==(str_req const& other) const;
     };
 
     /**

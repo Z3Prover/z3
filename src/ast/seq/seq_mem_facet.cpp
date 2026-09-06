@@ -466,30 +466,24 @@ namespace seq {
 
     void mem_bounds_propagation::collect_vars(eq_tree::node& n, obj_hashtable<expr>& vars) const {
         auto ac = get_ambient(n);
-        if (ac.has_eq()) {
-            auto& ef = ac.eq_facet_ref();
-            for (auto const& eq : ef.equations()) {
-                for (expr* t : eq.m_lhs)
-                    if (ac.is_var(t))
-                        vars.insert(t);
-                for (expr* t : eq.m_rhs)
-                    if (ac.is_var(t))
-                        vars.insert(t);
-            }
+        auto& ef = ac.eq_facet_ref();
+        for (auto const& eq : ef.equations()) {
+            for (expr* t : eq.m_lhs)
+                if (ac.is_var(t))
+                    vars.insert(t);
+            for (expr* t : eq.m_rhs)
+                if (ac.is_var(t))
+                    vars.insert(t);
         }
-        if (ac.has_mem()) {
-            auto& mf = ac.mem_facet_ref();
-            for (auto const& sm : mf.memberships())
-                for (expr* t : sm.m_str)
-                    if (ac.is_var(t))
-                        vars.insert(t);
-        }
+        auto& mf = ac.mem_facet_ref();
+        for (auto const& sm : mf.memberships())
+            for (expr* t : sm.m_str)
+                if (ac.is_var(t))
+                    vars.insert(t);
     }
 
     stx::simplify_result mem_bounds_propagation::propagate(eq_tree::node& n) {
         m_stats.m_num_propagate++;
-        if (!get_ambient(n).has_mem())
-            return stx::simplify_result::noop;
         auto ac = get_ambient(n);
         auto& mf = ac.mem_facet_ref();
         obj_hashtable<expr> vars;
@@ -570,8 +564,6 @@ namespace seq {
         has_more = false;
         committed = false;
         auto ac = get_ambient(n);
-        if (!ac.has_mem())
-            return nullptr;
         auto& mf = ac.mem_facet_ref();
         if (mf.memberships().empty() || mf.is_satisfied())
             return nullptr;

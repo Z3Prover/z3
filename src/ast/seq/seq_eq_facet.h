@@ -98,22 +98,6 @@ namespace seq {
     // constants are exploded into one token per character; any other
     // leaf (variable or otherwise-opaque term) becomes a single token.
 
-    // Lexicographic comparison of two token vectors by ast id (shorter
-    // vector sorts first on a length mismatch, then compared elementwise).
-    // Shared by eq_facet's equation/disequation, ncontains_facet's
-    // str_ncontains, and mem_facet's str_mem operator< implementations.
-    inline int cmp_tokens(expr_ref_vector const& a, expr_ref_vector const& b) {
-        unsigned n = std::min(a.size(), b.size());
-        for (unsigned i = 0; i < n; ++i) {
-            unsigned ida = a[i]->get_id(), idb = b[i]->get_id();
-            if (ida != idb)
-                return ida < idb ? -1 : 1;
-        }
-        if (a.size() != b.size())
-            return a.size() < b.size() ? -1 : 1;
-        return 0;
-    }
-
     // Recover the node's ambient context, bundled together with the node
     // itself into an `ambient_ref`, so that a propagation/split plugin
     // can coerce straight to a sibling facet's own type in one call, e.g.
@@ -245,8 +229,6 @@ namespace seq {
             eq_tree::dep_tracker m_dep;
             equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
                 m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
-            bool operator<(equation const& other) const;
-            bool operator==(equation const& other) const;
         };
 
     private:
@@ -591,8 +573,6 @@ namespace seq {
             eq_tree::dep_tracker m_dep;
             disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
                 m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
-            bool operator<(disequation const& other) const;
-            bool operator==(disequation const& other) const;
         };
 
     private:

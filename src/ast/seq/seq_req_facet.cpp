@@ -23,18 +23,6 @@ Author:
 
 namespace seq {
 
-    bool str_req::operator<(str_req const& other) const {
-        if (m_p.get() != other.m_p.get())
-            return m_p->get_id() < other.m_p->get_id();
-        if (m_q.get() != other.m_q.get())
-            return m_q->get_id() < other.m_q->get_id();
-        return m_is_eq < other.m_is_eq;
-    }
-
-    bool str_req::operator==(str_req const& other) const {
-        return m_p.get() == other.m_p.get() && m_q.get() == other.m_q.get() && m_is_eq == other.m_is_eq;
-    }
-
     void req_facet::set_status(unsigned idx, lbool status) {
         m_trail.push(vector_field_trail<str_req, lbool>(m_reqs, idx, &str_req::m_status));
         m_reqs[idx].m_status = status;

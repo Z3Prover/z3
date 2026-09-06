@@ -105,8 +105,6 @@ namespace seq {
         eq_tree::dep_tracker m_dep;
         str_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) :
             m_haystack(h), m_needle(n), m_dep(dep) {}
-        bool operator<(str_ncontains const& other) const;
-        bool operator==(str_ncontains const& other) const;
     };
 
     /**

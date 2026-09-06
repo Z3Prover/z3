@@ -25,17 +25,6 @@ Author:
 
 namespace seq {
 
-    bool eq_facet::equation::operator<(equation const& other) const {
-        int c = cmp_tokens(m_lhs, other.m_lhs);
-        if (c != 0)
-            return c < 0;
-        return cmp_tokens(m_rhs, other.m_rhs) < 0;
-    }
-
-    bool eq_facet::equation::operator==(equation const& other) const {
-        return cmp_tokens(m_lhs, other.m_lhs) == 0 && cmp_tokens(m_rhs, other.m_rhs) == 0;
-    }
-
     void subst_in(expr_ref_vector& ts, expr* var, expr_ref_vector const& repl) {
         expr_ref_vector orig(ts);
         ts.reset();
@@ -755,17 +744,6 @@ namespace seq {
     }
 
     // -- deq_facet --
-
-    bool deq_facet::disequation::operator<(disequation const& other) const {
-        int c = cmp_tokens(m_lhs, other.m_lhs);
-        if (c != 0)
-            return c < 0;
-        return cmp_tokens(m_rhs, other.m_rhs) < 0;
-    }
-
-    bool deq_facet::disequation::operator==(disequation const& other) const {
-        return cmp_tokens(m_lhs, other.m_lhs) == 0 && cmp_tokens(m_rhs, other.m_rhs) == 0;
-    }
 
     void deq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_diseqs.size(); ++i) {

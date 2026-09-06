@@ -239,15 +239,7 @@ namespace seq {
         template <typename node_t> seq::req_facet& req_facet(node_t& n) const { return n.template facet_as<seq::req_facet>(req_id()); }
         template <typename node_t> seq::lex_facet& lex_facet(node_t& n) const { return n.template facet_as<seq::lex_facet>(lex_id()); }
 
-        template <typename node_t> bool has_eq(node_t& n) const { return n.has_facet(eq_id()); }
-        template <typename node_t> bool has_deq(node_t& n) const { return n.has_facet(deq_id()); }
-        template <typename node_t> bool has_power(node_t& n) const { return n.has_facet(pow_id()); }
-        template <typename node_t> bool has_mem(node_t& n) const { return n.has_facet(mem_id()); }
-        template <typename node_t> bool has_ncontains(node_t& n) const { return n.has_facet(ncontains_id()); }
         template <typename node_t> bool has_arith(node_t& n) const { return n.has_facet(arith_id()); }
-        template <typename node_t> bool has_assumption(node_t& n) const { return n.has_facet(assumption_id()); }
-        template <typename node_t> bool has_req(node_t& n) const { return n.has_facet(req_id()); }
-        template <typename node_t> bool has_lex(node_t& n) const { return n.has_facet(lex_id()); }
     };
 
     /**
@@ -279,7 +271,7 @@ namespace seq {
         // Access to the underlying context (bounds/values queries,
         // is_var, ...) for call sites that still need those directly.
         // Note: raw facet ids are intentionally not exposed here - use
-        // the typed accessors (eq_facet_ref(), etc.) or has_eq()/etc.
+        // the typed accessors (eq_facet_ref(), etc.) or has_arith()/etc.
         ambient_context_i<dep_tracker_t>& context() const { return m_ac; }
         node_t& node() const { return m_node; }
 
@@ -300,15 +292,7 @@ namespace seq {
         req_facet& req_facet_ref() const { return m_ac.req_facet(m_node); }
         lex_facet& lex_facet_ref() const { return m_ac.lex_facet(m_node); }
 
-        bool has_eq() const { return m_ac.has_eq(m_node); }
-        bool has_deq() const { return m_ac.has_deq(m_node); }
-        bool has_power() const { return m_ac.has_power(m_node); }
-        bool has_mem() const { return m_ac.has_mem(m_node); }
-        bool has_ncontains() const { return m_ac.has_ncontains(m_node); }
         bool has_arith() const { return m_ac.has_arith(m_node); }
-        bool has_assumption() const { return m_ac.has_assumption(m_node); }
-        bool has_req() const { return m_ac.has_req(m_node); }
-        bool has_lex() const { return m_ac.has_lex(m_node); }
     };
 
     // Trivial, always-"unknown" implementation: usable by unit tests (or
