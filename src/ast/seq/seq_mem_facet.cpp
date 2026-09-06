@@ -510,7 +510,7 @@ namespace seq {
             sort* elem_sort = nullptr;
             if (!u.is_seq(var->get_sort(), elem_sort))
                 continue;
-            expr* len = u.str.mk_length(var);
+            expr_ref len(u.str.mk_length(var), m);
             rational lo, hi;
             eq_tree::dep_tracker lo_dep = nullptr, hi_dep = nullptr;
             bool has_lo = ac.lower_bound(len, lo, lo_dep);

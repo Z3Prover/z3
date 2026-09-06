@@ -332,10 +332,10 @@ namespace seq {
         if (m_pos >= m_pending.size())
             return false;
         auto& a = m_pending[m_pos++];
-        broadcast_subst(m_n, a.m_var, a.m_repl, a.m_dep);
-        if (a.m_guard) {
+        broadcast_subst(m_n, a.m_var.get(), a.m_repl, a.m_dep);
+        if (a.m_guard.get()) {
             auto ac = get_ambient(m_n);
-            ac.arith_facet_ref().add_constraint(a.m_guard, a.m_dep);
+            ac.arith_facet_ref().add_constraint(a.m_guard.get(), a.m_dep);
         }
         out = eq_tree::edge(a.m_name, a.m_dep, true, 0);
         return true;

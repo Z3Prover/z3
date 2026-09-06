@@ -570,11 +570,22 @@ namespace smt {
     void theory_nseq::init_model(model_generator& mg) {
         m_model_subst.reset();
         m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
-        mg.register_factory(m_factory.get());
+        mg.register_factory(m_factory);
+        // model_generator::mk_value_procs() (see smt_model_generator.cpp)
+        // only builds a model_value_proc - and therefore only registers a
+        // root2proc/roots entry - for enodes that are relevant at that
+        // point. mk_value()'s seq_model_value_proc later records
+        // dependencies on char/token enodes (e.g. via str.unit's argument)
+        // that may not otherwise have been marked relevant; force every
+        // seq/char-sorted enode relevant up front so any such dependency
+        // is guaranteed to already have a root2proc entry once mk_values()
+        // walks the graph, instead of crashing on the lookup.
         for (enode* n : ctx.enodes()) {
             expr* e = n->get_expr();
             if (m_seq.is_seq(e) && m.is_value(e))
                 m_factory->register_value(e);
+            if (m_seq.is_seq(e) || m_seq.is_char(e))
+                ctx.mark_as_relevant(n);
         }
         seq::eq_tree::node const* snap = m_tree.sat_snapshot();
         if (!snap)
@@ -582,6 +593,14 @@ namespace smt {
         auto const& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
         seq_monadic mon(m_rewriter, ctx.get_trail_stack(), seq::transition_mode::brzozowski_tm);
         mon.set_gen_solution(true);
+        // seq_monadic::add() pushes undo-trail entries onto
+        // ctx.get_trail_stack() that reference `mon`'s own
+        // m_memberships vector (see seq_monadic.cpp); since `mon` is a
+        // local here and doesn't outlive this function, those trail
+        // entries must be popped again before returning - otherwise a
+        // later scope pop on the shared trail_stack dereferences a
+        // dangling stack address once `mon` is gone.
+        ctx.get_trail_stack().push_scope();
         for (auto const& sm : mf.memberships()) {
             sort* s = m_seq.re.to_seq(sm.m_view.m_state->get_sort());
             expr_ref term(m_seq.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
@@ -592,10 +611,11 @@ namespace smt {
             for (auto const& kv : model.sub())
                 m_model_subst.insert(kv.m_key, kv.m_value);
         }
+        ctx.get_trail_stack().pop_scope(1);
     }
 
     void theory_nseq::finalize_model(model_generator&) {
-        m_factory = nullptr;
+        m_factory = nullptr; // owned by the model's plugin_manager; do not delete here
         m_model_subst.reset();
     }
 
@@ -637,19 +657,42 @@ namespace smt {
             if (m_seq.str.is_unit(t, ch)) {
                 if (m.is_value(ch) || !ctx.e_internalized(ch))
                     proc->add_literal(t);
-                else
-                    proc->add_dependency(ctx.get_enode(ch), true);
+                else {
+                    enode* en = ctx.get_enode(ch);
+                    // model_generator only builds a model_value_proc for
+                    // enodes it deems relevant (see mk_value_procs); a
+                    // dependency on a non-relevant enode's root would
+                    // never be found in root2proc, crashing top-sort/
+                    // mk_values. Force it relevant here.
+                    ctx.mark_as_relevant(en);
+                    proc->add_dependency(en, true);
+                }
             }
             else if (m.is_value(t) || !ctx.e_internalized(t)) {
                 proc->add_literal(t);
             }
             else {
+                enode* en = ctx.get_enode(t);
+                // eliminate() may fail to resolve `t` any further than
+                // `e` itself (e.g. an unconstrained seq variable), in
+                // which case en->get_root() == n: recording that as a
+                // dependency would be a self-dependency on the very
+                // enode this model_value_proc is building the value
+                // for, which model_generator::mk_values (see
+                // smt_model_generator.cpp) cannot satisfy (its value
+                // isn't in m_root2value yet) - fall back to a fresh
+                // value for such an irreducible token instead.
+                if (en->get_root() == n) {
+                    proc->add_literal(to_app(m_factory->get_fresh_value(t->get_sort())));
+                    return;
+                }
                 // Any other still-unresolved seq-sorted subterm that is
                 // already internalized: record a dependency on its own
                 // enode so its (separately computed) model value is
                 // spliced in here, rather than being replaced by an
                 // unrelated fresh value.
-                proc->add_dependency(ctx.get_enode(t), false);
+                ctx.mark_as_relevant(en);
+                proc->add_dependency(en, false);
             }
         };
         for (expr* t : resolved)

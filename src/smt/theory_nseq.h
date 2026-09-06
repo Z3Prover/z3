@@ -154,7 +154,7 @@ namespace smt {
         seq::eq_tree::node*              m_root = nullptr;
         seq::sub_solver             m_solver;
         scoped_ptr<seq::theory_nseq_ambient_context> m_ambient;
-        scoped_ptr<seq_factory>          m_factory;
+        seq_factory*                     m_factory = nullptr; // owned by the model's plugin_manager once registered
         obj_map<expr, expr*>             m_model_subst;
 
         // Facet ids are registered once in the constructor and handed to
