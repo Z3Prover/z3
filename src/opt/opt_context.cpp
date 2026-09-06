@@ -778,11 +778,9 @@ namespace opt {
         if (!optp.pareto_nlsat() || m_has_assumptions)
             return m_solver.get();
         for (objective const& obj : m_objectives) {
-            if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
-                return m_solver.get();
-            if (!m_arith.is_real(obj.m_term))
-                return m_solver.get();
-            if (!in_nra_fragment(m, m_arith, m_hard_constraints, obj.m_term))
+            bool is_max_or_min = obj.m_type == O_MAXIMIZE || obj.m_type == O_MINIMIZE;
+            if (!is_max_or_min || !m_arith.is_real(obj.m_term) ||
+                !in_nra_fragment(m, m_arith, m_hard_constraints, obj.m_term))
                 return m_solver.get();
         }
         tactic_ref t = mk_qfnra_nlsat_tactic(m, m_params);
