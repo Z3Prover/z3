@@ -318,10 +318,12 @@ namespace smt {
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
-            if (!is_true)
-                pin(re); // complement is freshly built here, not owned elsewhere
             seq::view mv = seq::view::membership(re);
             expr_ref_vector ts = m_ambient->purify(e1);
+            // str_mem itself pins m_view's regex (m_regex, an expr_ref)
+            // for as long as the membership is live, so no separate
+            // theory_nseq::pin() call is needed here even though the
+            // complement is freshly built and not owned elsewhere.
             m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, mv, dep));
             return;
         }
@@ -721,7 +723,30 @@ namespace smt {
 
     theory* theory_nseq::mk_fresh(context* new_ctx) {
         theory_nseq* result = alloc(theory_nseq, *new_ctx);
-        result->m_tree.clone_state_from(m_tree);
+        // Cross-manager clone: `new_ctx` may use a different ast_manager
+        // than `this` (e.g. portfolio/parallel solving), so the facets'
+        // own `clone(trail_stack&)` (a same-manager deep-copy, used by
+        // stx::search_tree::clone_state_from for e.g. hot-restart
+        // snapshots) is not safe here - it copies expr* members verbatim,
+        // which are only valid in *this*'s manager. Instead, translate
+        // each facet's AST-typed state directly into `result`'s
+        // already-constructed facets (registered by result's own
+        // constructor, in the same order/types as `this`'s), via each
+        // facet's `clone(src, ast_translation&)` method.
+        ast_translation tr(m, result->m);
+        result->m_ambient->eq_facet(*result->m_root).clone(m_ambient->eq_facet(*m_root), tr);
+        result->m_ambient->deq_facet(*result->m_root).clone(m_ambient->deq_facet(*m_root), tr);
+        result->m_ambient->power_facet(*result->m_root).clone(m_ambient->power_facet(*m_root), tr);
+        result->m_ambient->mem_facet(*result->m_root).clone(m_ambient->mem_facet(*m_root), tr);
+        result->m_ambient->ncontains_facet(*result->m_root).clone(m_ambient->ncontains_facet(*m_root), tr);
+        result->m_ambient->assumption_facet(*result->m_root).clone(m_ambient->assumption_facet(*m_root), tr);
+        result->m_ambient->req_facet(*result->m_root).clone(m_ambient->req_facet(*m_root), tr);
+        result->m_ambient->lex_facet(*result->m_root).clone(m_ambient->lex_facet(*m_root), tr);
+        // solver_facet: intentionally not translated - see
+        // seq::solver_facet::clone(solver_facet const&, ast_translation&)'s
+        // comment (a cloned node's own constraint set is meaningless
+        // without the very same shared incremental backend it was
+        // asserted against, and `result` has its own fresh sub_solver).
         return result;
     }
 

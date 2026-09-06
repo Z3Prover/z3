@@ -56,6 +56,23 @@ namespace seq {
         return f;
     }
 
+    void eq_facet::clone(eq_facet const& src, ast_translation& tr) {
+        SASSERT(&tr.to() == &m);
+        m_eqs.reset();
+        for (equation const& e : src.m_eqs) {
+            expr_ref_vector lhs(m), rhs(m);
+            for (expr* t : e.m_lhs) lhs.push_back(tr(t));
+            for (expr* t : e.m_rhs) rhs.push_back(tr(t));
+            m_eqs.push_back(equation(lhs, rhs, e.m_dep));
+        }
+        m_subst.reset();
+        for (subst_entry const& s : src.m_subst) {
+            expr_ref_vector repl(m);
+            for (expr* t : s.m_repl) repl.push_back(tr(t));
+            m_subst.push_back(subst_entry(m, tr(s.m_var.get()), repl));
+        }
+    }
+
     bool eq_facet::get_subst(expr* var, expr_ref_vector& out) const {
         for (unsigned i = m_subst.size(); i-- > 0; ) {
             if (m_subst[i].m_var == var) {
@@ -769,6 +786,17 @@ namespace seq {
         deq_facet* f = alloc(deq_facet, trail, m, u, m_dm);
         f->m_diseqs.append(m_diseqs);
         return f;
+    }
+
+    void deq_facet::clone(deq_facet const& src, ast_translation& tr) {
+        SASSERT(&tr.to() == &m);
+        m_diseqs.reset();
+        for (disequation const& d : src.m_diseqs) {
+            expr_ref_vector lhs(m), rhs(m);
+            for (expr* t : d.m_lhs) lhs.push_back(tr(t));
+            for (expr* t : d.m_rhs) rhs.push_back(tr(t));
+            m_diseqs.push_back(disequation(lhs, rhs, d.m_dep));
+        }
     }
 
     std::ostream& deq_facet::display(std::ostream& out) const {

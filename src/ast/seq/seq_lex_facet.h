@@ -156,6 +156,8 @@ namespace seq {
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
+        // Cross-manager clone; see eq_facet::clone(eq_facet const&, ast_translation&).
+        void clone(lex_facet const& src, ast_translation& tr);
         bool is_satisfied() const override { return m_lexs.empty(); }
         std::ostream& display(std::ostream& out) const override;
 

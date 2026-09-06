@@ -77,7 +77,12 @@ namespace seq {
         if (m_mems[idx].m_view == new_view)
             return;
         m_trail.push(vector_field_trail<str_mem, view>(m_mems, idx, &str_mem::m_view));
+        m_trail.push(vector_field_trail<str_mem, expr_ref>(m_mems, idx, &str_mem::m_regex));
         m_mems[idx].m_view = new_view;
+        // Pin the narrowed view's own state term (m_regex), mirroring
+        // str_mem's constructor: a narrowed view's state may be a freshly
+        // built derivative/complement term not otherwise owned.
+        m_mems[idx].m_regex = new_view.m_state;
     }
 
     void mem_facet::remove(unsigned idx) {
@@ -124,6 +129,18 @@ namespace seq {
         f->m_mems.append(m_mems);
         f->m_is_satisfied = m_is_satisfied;
         return f;
+    }
+
+    void mem_facet::clone(mem_facet const& src, ast_translation& tr) {
+        SASSERT(&tr.to() == &m);
+        m_mems.reset();
+        for (str_mem const& sm : src.m_mems) {
+            expr_ref_vector ts(m);
+            for (expr* t : sm.m_str) ts.push_back(tr(t));
+            view v(tr(sm.m_view.m_state), sm.m_view.m_target ? tr(sm.m_view.m_target) : nullptr);
+            m_mems.push_back(str_mem(m, ts, v, sm.m_dep));
+        }
+        m_is_satisfied = src.m_is_satisfied;
     }
 
     std::ostream& mem_facet::display(std::ostream& out) const {

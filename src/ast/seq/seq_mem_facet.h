@@ -65,14 +65,22 @@ namespace seq {
     struct str_mem {
         expr_ref_vector      m_str;
         view                 m_view;
+        // Pins the regex term backing `m_view.m_state` (e.g. a freshly
+        // built `re.complement` for a negative `str.in_re`) so it stays
+        // alive for as long as this membership does, without relying on
+        // some external owner (theory_nseq::pin) to hold a reference.
+        // `view` itself stores raw `expr*` (it is a value type shared
+        // with seq_monadic/seq_regex_live, which do not ref-count), so
+        // the owning `expr_ref` lives here instead.
+        expr_ref             m_regex;
         eq_tree::dep_tracker m_dep = nullptr;
 
         str_mem(ast_manager& m, expr* s, view const& v, eq_tree::dep_tracker dep = nullptr) :
-            m_str(m), m_view(v), m_dep(dep) {
+            m_str(m), m_view(v), m_regex(v.m_state, m), m_dep(dep) {
             seq_util(m).str.get_concat_units(s, m_str);
         }
         str_mem(ast_manager& m, expr_ref_vector const& ts, view const& v, eq_tree::dep_tracker dep = nullptr) :
-            m_str(ts), m_view(v), m_dep(dep) {}
+            m_str(ts), m_view(v), m_regex(v.m_state, m), m_dep(dep) {}
 
         bool is_plain() const { return m_view.is_membership(); }
         bool is_view() const { return m_view.is_reach(); }
@@ -123,6 +131,12 @@ namespace seq {
         void set_is_satisfied(bool b);
 
         stx::facet_i* clone(trail_stack& trail) const override;
+        // Cross-manager clone; see eq_facet::clone(eq_facet const&, ast_translation&).
+        // m_live (the derivative-state cache) is NOT copied: it is a pure
+        // performance cache over `m_rw`'s manager, rebuilt lazily on
+        // demand from the (translated) membership terms, so starting it
+        // empty in the target manager is always safe.
+        void clone(mem_facet const& src, ast_translation& tr);
 
         bool is_satisfied() const override { return m_mems.empty() || m_is_satisfied; }
         std::ostream& display(std::ostream& out) const override;

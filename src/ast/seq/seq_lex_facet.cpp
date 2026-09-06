@@ -52,6 +52,17 @@ namespace seq {
         return f;
     }
 
+    void lex_facet::clone(lex_facet const& src, ast_translation& tr) {
+        SASSERT(&tr.to() == &m);
+        m_lexs.reset();
+        for (str_lex const& lx : src.m_lexs) {
+            expr_ref_vector lhs(m), rhs(m);
+            for (expr* t : lx.m_lhs) lhs.push_back(tr(t));
+            for (expr* t : lx.m_rhs) rhs.push_back(tr(t));
+            m_lexs.push_back(str_lex(lhs, rhs, lx.m_strict, lx.m_dep));
+        }
+    }
+
     std::ostream& lex_facet::display(std::ostream& out) const {
         out << "lex_facet: " << m_lexs.size() << " obligation(s)\n";
         for (auto const& lx : m_lexs) {

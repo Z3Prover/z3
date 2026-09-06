@@ -208,6 +208,15 @@ namespace seq {
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
+        // Cross-manager clone; see eq_facet::clone(eq_facet const&, ast_translation&).
+        // Mirrors clone(trail_stack&): a cloned solver_facet's own
+        // constraint set starts empty regardless (see that method's
+        // comment) - m_own's constraints are meaningless without the
+        // *same* shared incremental backend scope stack they were pushed
+        // against, and mk_fresh's target theory_nseq is constructed with
+        // its own fresh sub_solver, not src's, so there is nothing sound
+        // to translate/replay here.
+        void clone(solver_facet const& src, ast_translation& tr) { (void)src; (void)tr; }
         // solver_facet never itself blocks the "satisfied" verdict: it only
         // ever prunes via a conflict (surfaced through propagate(),
         // returning simplify_result::conflict, not through is_satisfied());
