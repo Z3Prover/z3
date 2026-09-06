@@ -288,8 +288,8 @@ if (MSVC)
   add_custom_target(libz3_extra_depends
     DEPENDS "${dll_module_exports_file}"
   )
+  target_sources(libz3 PRIVATE "${dll_module_exports_file}")
   add_dependencies(libz3 libz3_extra_depends)
-  z3_append_linker_flag_list_to_target(libz3 "/DEF:${dll_module_exports_file}")
 endif()
 
 ################################################################################
