@@ -168,4 +168,3 @@ namespace seq {
     };
 
 }
-

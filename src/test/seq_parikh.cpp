@@ -9,7 +9,7 @@
 // variables.
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
-#include "ast/rewriter/seq_parikh.h"
+#include "ast/seq/seq_parikh.h"
 #include "smt/smt_kernel.h"
 #include "params/smt_params.h"
 #include "util/rlimit.h"

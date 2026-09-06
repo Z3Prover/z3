@@ -22,7 +22,7 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq/seq_skolem.h"
-#include "ast/rewriter/seq_parikh.h"
+#include "ast/seq/seq_parikh.h"
 #include "ast/seq/seq_eq_solver.h"
 #include "ast/ast_trail.h"
 #include "util/scoped_vector.h"
@@ -667,4 +667,3 @@ namespace smt {
         bool  get_length(expr* e, rational& r) override;
     };
 }
-
