@@ -23,9 +23,7 @@
 #include "ast/simplifiers/then_simplifier.h"
 #include "ast/simplifiers/rewriter_simplifier.h"
 #include "ast/simplifiers/lambda_simplifier.h"
-#include "ast/simplifiers/lambda_reify_simplifier.h"
 #include "ast/simplifiers/leibniz_simplifier.h"
-#include "ast/simplifiers/witness_instantiation_simplifier.h"
 #include "solver/solver.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
@@ -2968,36 +2966,18 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         // Pre-processing pipeline applied to the solver's assertions before search:
         // simplify -> unfold lambda-defined constants (shallow HOL/modal embeddings) -> simplify.
         // Must be installed before set_solver_factory(), which eagerly builds the solver.
-        if (tptp().unfold_lambda_macros() || tptp().reify_lambda_literals() || tptp().leibniz_instantiation() || tptp().witness_instantiation()) {
+        if (tptp().unfold_lambda_macros() || tptp().leibniz_instantiation()) {
             bool do_lambda = tptp().unfold_lambda_macros();
-            bool do_reify = tptp().reify_lambda_literals();
             bool do_leibniz = tptp().leibniz_instantiation();
-            bool do_witness = tptp().witness_instantiation();
-            simplifier_factory factory = [do_lambda, do_reify, do_leibniz, do_witness](ast_manager& m, params_ref const& p, dependent_expr_state& st) {
+            simplifier_factory factory = [do_lambda, do_leibniz](ast_manager& m, params_ref const& p, dependent_expr_state& st) {
                 scoped_ptr<then_simplifier> t = alloc(then_simplifier, m, p, st);
                 t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
                 if (do_lambda) {
                     t->add_simplifier(alloc(lambda_simplifier, m, p, st));
                     t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
                 }
-                if (do_reify) {
-                    // Reify any remaining lambda literals (whether written
-                    // inline as arguments, or reintroduced by unfolding a
-                    // lambda-defined macro above) into fresh named constants
-                    // so they participate in ordinary E-matching.
-                    t->add_simplifier(alloc(lambda_reify_simplifier, m, p, st));
-                    t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
-                }
                 if (do_leibniz) {
                     t->add_simplifier(alloc(leibniz_simplifier, m, p, st));
-                    t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
-                }
-                if (do_witness) {
-                    // Seed a ground witness for any uninterpreted sort that
-                    // otherwise has no ground term at all, so quantifiers
-                    // ranging purely over such a sort are not permanently
-                    // unreachable to E-matching (see ANA068^1.p).
-                    t->add_simplifier(alloc(witness_instantiation_simplifier, m, p, st));
                     t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
                 }
                 return t.detach();
@@ -3033,22 +3013,19 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
             }
         }
 
-        // Some simplifiers (e.g. witness_instantiation_simplifier) add new
-        // formulas (e.g. an instantiated axiom seeded with a fresh witness
-        // constant) that themselves may need a further simplification pass
-        // (e.g. lambda_reify_simplifier reifying a lambda literal newly
-        // exposed inside that instantiated axiom, or th_rewriter folding it).
-        // The pipeline's reduce() only processes each simplifier once per
-        // flush over the formulas present at that time, so force one more
-        // flush here (a push()/pop() pair, a no-op on solver state) to let
-        // the whole pipeline run again over any newly added formulas before
-        // starting search. Guard with try/catch: a semantic error surfacing
-        // from a simplifier pass here (e.g. an ill-sorted term synthesized
-        // by one of these experimental passes) must not abort the whole
-        // run; check_sat below is already prepared to catch such errors and
-        // report GaveUp, so let it do so instead by skipping this extra
-        // flush attempt on failure.
-        if (tptp().reify_lambda_literals() || tptp().leibniz_instantiation() || tptp().witness_instantiation()) {
+        // The leibniz_simplifier's added instantiation formulas may need a
+        // further simplification pass (e.g. th_rewriter folding a newly-
+        // exposed subterm). The pipeline's reduce() only processes each
+        // simplifier once per flush over the formulas present at that time,
+        // so force one more flush here (a push()/pop() pair, a no-op on
+        // solver state) to let the whole pipeline run again over any newly
+        // added formulas before starting search. Guard with try/catch: a
+        // semantic error surfacing from a simplifier pass here (e.g. an
+        // ill-sorted term synthesized by one of these experimental passes)
+        // must not abort the whole run; check_sat below is already prepared
+        // to catch such errors and report GaveUp, so let it do so instead
+        // by skipping this extra flush attempt on failure.
+        if (tptp().leibniz_instantiation()) {
             try {
                 ctx.get_solver()->push();
                 ctx.get_solver()->pop(1);
