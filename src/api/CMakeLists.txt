@@ -72,3 +72,58 @@ z3_add_component(api
     realclosure
     extra_cmds
 )
+
+add_subdirectory(dll)
+
+option(Z3_BUILD_DOTNET_BINDINGS "Build .NET bindings for Z3" OFF)
+if (Z3_BUILD_DOTNET_BINDINGS)
+  if (NOT BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "The .NET bindings will not work with a static libz3. "
+      "You either need to disable Z3_BUILD_DOTNET_BINDINGS or enable BUILD_SHARED_LIBS")
+  endif()
+  add_subdirectory(dotnet)
+endif()
+
+option(Z3_BUILD_GO_BINDINGS "Build Go bindings for Z3" OFF)
+if (Z3_BUILD_GO_BINDINGS)
+  if (NOT BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "The Go bindings will not work with a static libz3. "
+      "You either need to disable Z3_BUILD_GO_BINDINGS or enable BUILD_SHARED_LIBS")
+  endif()
+  add_subdirectory(go)
+endif()
+
+option(Z3_BUILD_JAVA_BINDINGS "Build Java bindings for Z3" OFF)
+if (Z3_BUILD_JAVA_BINDINGS)
+  if (NOT BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "The Java bindings will not work with a static libz3. "
+      "You either need to disable Z3_BUILD_JAVA_BINDINGS or enable BUILD_SHARED_LIBS")
+  endif()
+  add_subdirectory(java)
+endif()
+
+option(Z3_BUILD_JULIA_BINDINGS "Build Julia bindings for Z3" OFF)
+if (Z3_BUILD_JULIA_BINDINGS)
+  if (NOT BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "The Julia bindings will not work with a static libz3."
+      "You either need to disable Z3_BUILD_JULIA_BINDINGS or enable BUILD_SHARED_LIBS")
+  endif()
+  add_subdirectory(julia)
+endif()
+
+option(Z3_BUILD_OCAML_BINDINGS "Build OCaml bindings for Z3" OFF)
+if (Z3_BUILD_OCAML_BINDINGS)
+  if (NOT BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "The OCaml bindings will not work with a static libz3. "
+      "You either need to disable Z3_BUILD_OCAML_BINDINGS or enable BUILD_SHARED_LIBS")
+  endif()
+  add_subdirectory(ml)
+endif()
+
+if (Z3_BUILD_PYTHON_BINDINGS)
+  if (NOT BUILD_SHARED_LIBS)
+    message(FATAL_ERROR "The Python bindings will not work with a static libz3. "
+      "You either need to disable Z3_BUILD_PYTHON_BINDINGS or enable BUILD_SHARED_LIBS")
+  endif()
+  add_subdirectory(python)
+endif()

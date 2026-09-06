@@ -66,11 +66,14 @@ jobs:
           ref: ${{ env.Z3_REF }}
           fetch-depth: 1
 
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+
       - name: Install dependencies
         run: |
           set -euo pipefail
           sudo apt-get update -y
-          sudo apt-get install -y cmake ninja-build python3 git curl unzip opam m4 pkg-config libgmp-dev
+          sudo apt-get install -y ninja-build python3 git curl unzip opam m4 pkg-config libgmp-dev
 
       - name: Build Z3
         run: |

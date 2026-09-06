@@ -40,3 +40,7 @@ z3_add_component(sat
     sat_scc_params.pyg
     sat_simplifier_params.pyg
 )
+
+add_subdirectory(sat_solver)
+add_subdirectory(smt)
+add_subdirectory(tactic)

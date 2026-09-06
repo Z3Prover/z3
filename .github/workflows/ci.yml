@@ -413,7 +413,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - build_cmake: 3.16
+          - build_cmake: "3.30"
             consumer_cmake: 3.5
             name: minimum builder and consumer
           - build_cmake: latest
