@@ -377,8 +377,8 @@ namespace seq {
         char const* name() const override { return "eq-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {
-            st.update("eq-propagate num calls", m_stats.m_num_propagate);
-            st.update("eq-propagate num progress", m_stats.m_num_progress);
+            st.update("seq-eq-propagate num calls", m_stats.m_num_propagate);
+            st.update("seq-eq-propagate num progress", m_stats.m_num_progress);
         }
         void reset_statistics() override { m_stats.reset(); }
     };
@@ -444,7 +444,7 @@ namespace seq {
         word_eq_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "nielsen-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("nielsen-split num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-nielsen-split num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     };
 
@@ -509,8 +509,8 @@ namespace seq {
         char const* name() const override { return "eq-approx-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override {
-            st.update("eq-approx-split num checks", m_stats.m_num_checks);
-            st.update("eq-approx-split num refuted", m_stats.m_num_refuted);
+            st.update("seq-eq-approx-split num checks", m_stats.m_num_checks);
+            st.update("seq-eq-approx-split num refuted", m_stats.m_num_refuted);
         }
         void reset_statistics() override { m_stats.reset(); }
     };
@@ -565,7 +565,7 @@ namespace seq {
                                          unsigned& out_lhs_idx, unsigned& out_rhs_idx, int& out_padding);
 
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("eq-split num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-eq-split num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     };
 
@@ -659,7 +659,7 @@ namespace seq {
         deq_propagation(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "deq-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
-        void collect_statistics(::statistics& st) const override { st.update("deq-propagate num calls", m_stats.m_num_propagate); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-deq-propagate num calls", m_stats.m_num_propagate); }
         void reset_statistics() override { m_stats.reset(); }
     };
 
@@ -789,7 +789,7 @@ namespace seq {
         deq_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "deq-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("deq-split num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-deq-split num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     };
 

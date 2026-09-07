@@ -825,16 +825,16 @@ namespace stx {
         // invocation counts) and every plugin's domain-specific
         // counters (e.g. "eq: word_eq_split applications").
         void collect_statistics(::statistics& st) const {
-            st.update("stx num solve calls", m_stats.m_num_solve_calls);
-            st.update("stx num dfs nodes", m_stats.m_num_dfs_nodes);
-            st.update("stx num sat", m_stats.m_num_sat);
-            st.update("stx num unsat", m_stats.m_num_unsat);
-            st.update("stx num unknown", m_stats.m_num_unknown);
-            st.update("stx max depth", m_stats.m_max_depth);
+            st.update("seq-stx num solve calls", m_stats.m_num_solve_calls);
+            st.update("seq-stx num dfs nodes", m_stats.m_num_dfs_nodes);
+            st.update("seq-stx num sat", m_stats.m_num_sat);
+            st.update("seq-stx num unsat", m_stats.m_num_unsat);
+            st.update("seq-stx num unknown", m_stats.m_num_unknown);
+            st.update("seq-stx max depth", m_stats.m_max_depth);
             for (auto const& [k, v] : m_stats.m_propagate_counts)
-                st.update((std::string("stx propagate ") + k).c_str(), v);
+                st.update((std::string("seq-stx propagate ") + k).c_str(), v);
             for (auto const& [k, v] : m_stats.m_split_counts)
-                st.update((std::string("stx split ") + k).c_str(), v);
+                st.update((std::string("seq-stx split ") + k).c_str(), v);
             for (auto* p : m_prop_plugins)
                 p->collect_statistics(st);
             for (auto* sp : m_split_plugins)

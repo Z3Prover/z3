@@ -201,7 +201,7 @@ namespace seq {
         lex_propagation(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "lex-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
-        void collect_statistics(::statistics& st) const override { st.update("lex-propagate num calls", m_stats.m_num_propagate); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-lex-propagate num calls", m_stats.m_num_propagate); }
         void reset_statistics() override { m_stats.reset(); }
     };
 

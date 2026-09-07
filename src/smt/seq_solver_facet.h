@@ -274,7 +274,7 @@ namespace seq {
             m(m), u(u) {}
         char const* name() const override { return "arith-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
-        void collect_statistics(::statistics& st) const override { st.update("arith-propagate num calls", m_stats.m_num_propagate); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-arith-propagate num calls", m_stats.m_num_propagate); }
         void reset_statistics() override { m_stats.reset(); }
     };
 

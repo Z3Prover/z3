@@ -215,7 +215,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-propagate num calls", m_stats.m_num_propagate); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-propagate num calls", m_stats.m_num_propagate); }
         void reset_statistics() override { m_stats.reset(); }
     };
 
@@ -249,7 +249,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-split num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-split num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     private:
         struct stats {
@@ -343,7 +343,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-fine-wilf"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-fine-wilf num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-fine-wilf num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     private:
         struct stats {
@@ -408,7 +408,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-num-cmp"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-num-cmp num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-num-cmp num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     private:
         struct stats {
@@ -469,7 +469,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-split-elim"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-split-elim num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-split-elim num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     private:
         struct stats {
@@ -547,7 +547,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-var-peel"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-var-peel num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-var-peel num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     private:
         struct stats {
@@ -646,7 +646,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-var-decompose"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-var-decompose num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-var-decompose num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     private:
         struct stats {
@@ -732,7 +732,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-gpower-intro"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-gpower-intro num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-gpower-intro num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     private:
         struct stats {

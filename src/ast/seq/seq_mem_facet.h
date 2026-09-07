@@ -156,7 +156,7 @@ namespace seq {
             m(m), u(u), m_rw(rw) {}
         char const* name() const override { return "mem-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
-        void collect_statistics(::statistics& st) const override { st.update("mem-propagate num calls", m_stats.m_num_propagate); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-mem-propagate num calls", m_stats.m_num_propagate); }
         void reset_statistics() override { m_stats.reset(); }
     };
 
@@ -217,8 +217,8 @@ namespace seq {
         char const* name() const override { return "mem-bounds-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {
-            st.update("mem-bounds-propagate num calls", m_stats.m_num_propagate);
-            st.update("mem-bounds-propagate num added", m_stats.m_num_added);
+            st.update("seq-mem-bounds-propagate num calls", m_stats.m_num_propagate);
+            st.update("seq-mem-bounds-propagate num added", m_stats.m_num_added);
         }
         void reset_statistics() override { m_stats.reset(); }
     };
@@ -268,8 +268,8 @@ namespace seq {
         char const* name() const override { return "mem-parikh-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override {
-            st.update("mem-parikh-split num checks", m_stats.m_num_checks);
-            st.update("mem-parikh-split num refuted", m_stats.m_num_refuted);
+            st.update("seq-mem-parikh-split num checks", m_stats.m_num_checks);
+            st.update("seq-mem-parikh-split num refuted", m_stats.m_num_refuted);
         }
         void reset_statistics() override { m_stats.reset(); }
     };
@@ -332,7 +332,7 @@ namespace seq {
             m(m), u(u), a(a) {}
         char const* name() const override { return "power-var-peel-mem"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("power-var-peel-mem num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-var-peel-mem num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     };
 
@@ -392,8 +392,8 @@ namespace seq {
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override {
-            st.update("mem-monadic num splits", m_stats.m_num_splits);
-            st.update("mem-monadic num refuted", m_stats.m_num_refuted);
+            st.update("seq-mem-monadic num splits", m_stats.m_num_splits);
+            st.update("seq-mem-monadic num refuted", m_stats.m_num_refuted);
         }
         void reset_statistics() override { m_stats.reset(); }
     };

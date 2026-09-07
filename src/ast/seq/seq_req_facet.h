@@ -166,8 +166,8 @@ namespace seq {
         char const* name() const override { return "req-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {
-            st.update("req-propagate num calls", m_stats.m_num_propagate);
-            st.update("req-propagate num resolved", m_stats.m_num_resolved);
+            st.update("seq-req-propagate num calls", m_stats.m_num_propagate);
+            st.update("seq-req-propagate num resolved", m_stats.m_num_resolved);
         }
         void reset_statistics() override { m_stats.reset(); }
     };
