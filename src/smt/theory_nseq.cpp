@@ -755,6 +755,12 @@ namespace smt {
             return FC_GIVEUP;
         }
         default:
+            if (getenv("NSEQ_DUMP_UNKNOWN")) {
+                std::cerr << "theory_nseq: giving up (" << (res == stx::search_result::unknown ? "unknown" : "depth_cutoff") << ")\n";
+                for (unsigned id = 0; id < m_root->num_facets(); ++id)
+                    if (m_root->has_facet(id))
+                        m_root->facet(id).display(std::cerr) << "\n";
+            }
             return FC_GIVEUP;
         }
     }

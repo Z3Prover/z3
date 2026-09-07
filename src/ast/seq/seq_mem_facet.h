@@ -342,6 +342,7 @@ namespace seq {
         seq_rewriter&     m_rw;
         struct stats {
             unsigned m_num_splits = 0;
+            unsigned m_num_refuted = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
@@ -374,6 +375,15 @@ namespace seq {
                      vector<str_mem> const& mems);
             bool next(eq_tree::edge& out) override;
             bool has_first() const { return !m_first.empty(); }
+            // next() (or the constructor's priming call) reporting no
+            // branch is ambiguous by itself: seq_monadic::iterator's
+            // class comment says "next() returning false with
+            // gave_up() false means every branch not yet reported is
+            // REFUTED" - i.e. the conjunction of memberships fed to
+            // m_mon is actually UNSAT, not merely a case this search
+            // declined to decide. split() uses this to distinguish a
+            // genuine conflict from a benign "nothing to offer".
+            bool is_refuted() const { return m_first.empty() && !m_it->gave_up(); }
         };
 
     public:
@@ -381,7 +391,10 @@ namespace seq {
             m(m), u(u), m_rw(rw) {}
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("mem-monadic num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override {
+            st.update("mem-monadic num splits", m_stats.m_num_splits);
+            st.update("mem-monadic num refuted", m_stats.m_num_refuted);
+        }
         void reset_statistics() override { m_stats.reset(); }
     };
 

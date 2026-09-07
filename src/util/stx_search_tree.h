@@ -642,8 +642,15 @@ namespace stx {
                     // No propagation conflict/satisfaction and no split rule
                     // has anything left to offer: the node is stuck (a
                     // genuine "unknown", not a depth cutoff - retrying with
-                    // a larger depth bound will not help).
-                    if (n.is_satisfied()) {
+                    // a larger depth bound will not help). A split plugin may
+                    // still have called n.set_conflict() itself (e.g.
+                    // mem_monadic_split reporting a refuted membership
+                    // conjunction) while declining to offer a branch -
+                    // that conflict must be honored here, or a real unsat
+                    // is misreported as unknown.
+                    if (n.is_conflict())
+                        result = search_result::unsat;
+                    else if (n.is_satisfied()) {
                         result = search_result::sat;
                         m_sat_snapshot = n.clone(m_trail);
                     }

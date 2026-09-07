@@ -502,6 +502,20 @@ namespace seq {
         if (mf.memberships().empty() || mf.is_satisfied())
             return nullptr;
         scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships()));
+        if (it->is_refuted()) {
+            // seq_monadic proved the conjunction of ALL memberships fed to it is
+            // UNSAT (see seq_monadic::iterator's class comment): every branch was
+            // pruned as empty and none of that pruning was a give-up. That is a
+            // genuine conflict, not merely "nothing to offer" - report it rather
+            // than silently discarding it, or a real unsat instance is misreported
+            // as unknown (see NSB code review above this class).
+            eq_tree::dep_tracker dep = nullptr;
+            for (auto const& sm : mf.memberships())
+                dep = mf.dm().mk_join(dep, sm.m_dep);
+            m_stats.m_num_refuted++;
+            n.set_conflict(stx::br_plugin_base, dep);
+            return nullptr;
+        }
         if (!it->has_first())
             return nullptr;
         if (!it->next(out))
