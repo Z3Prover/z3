@@ -18,6 +18,14 @@ Author:
 Notes: 
 
     TODO: review and realize other ways to resolve remaining comparisons based on theory_seq.
+
+    TODO: extend graph search for loops by usng equalitie from eq_facet.
+    - put equal terms into a union find structure that contains a linked list for justifications.
+    - use the euf_egraph to manage the union find, insert jutification dependencies from the equaltiiees
+    - mine inequalities for whether there are equalities that overlap. Replace overlaps and insert into the egraph.
+    - build dfs graph. edge are labeled by inequalities that are used, nodes labeled by ids for the roots of equivalence class.
+    - use the egraph jutification extraction to get jutifications that use equalitie.
+
 --*/
 #include "ast/seq/seq_lex_facet.h"
 #include "ast/ast_pp.h"
@@ -314,7 +322,8 @@ namespace seq {
                     // eqf and drop these obligations from lex_facet
                     // (removing high indices first so lower indices
                     // stay valid).
-
+
+
                     vector<unsigned> to_remove;
                     for (unsigned k = start; k < on_path.size(); ++k)
                         to_remove.push_back(edges[on_path[k]].lex_idx);
