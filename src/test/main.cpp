@@ -205,6 +205,7 @@
     X(totalizer) \
     X(distribution) \
     X(euf_bv_plugin) \
+    X(euf_assoc_plugin) \
     X(euf_arith_plugin) \
     X(sls_test) \
     X(scoped_vector) \

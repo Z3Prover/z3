@@ -1,6 +1,7 @@
 z3_add_component(euf
   SOURCES
     euf_ac_plugin.cpp
+    euf_assoc_plugin.cpp
     euf_arith_plugin.cpp
     euf_bv_plugin.cpp
     euf_egraph.cpp
