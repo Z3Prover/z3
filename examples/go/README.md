@@ -26,9 +26,8 @@ Demonstrates fundamental Z3 operations:
 ```bash
 # Build Z3 first
 cd ../..
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
+cmake -S . -B build
+cmake --build build --parallel $(nproc)
 
 # Set up environment
 cd ../examples/go
@@ -45,10 +44,8 @@ go run basic_example.go
 ```cmd
 REM Build Z3 first
 cd ..\..
-mkdir build
-cd build
-cmake ..
-cmake --build . --config Release
+cmake -S . -B build
+cmake --build build --config Release
 
 REM Set up environment
 cd ..\examples\go

@@ -170,7 +170,7 @@ def _configure_z3():
         # users only need libz3.so (loaded via ctypes); the CLI is not usable
         # inside a Pyodide environment anyway.
         'Z3_BUILD_EXECUTABLE' : not IS_PYODIDE,
-        'Z3_BUILD_LIBZ3_SHARED' : True,
+        'BUILD_SHARED_LIBS' : True,
         'Z3_LINK_TIME_OPTIMIZATION' : ENABLE_LTO,
         'WARNINGS_AS_ERRORS' : 'SERIOUS_ONLY',
         # Disable Unwanted Options
@@ -200,19 +200,15 @@ def _configure_z3():
                 cmake_options[key] = val
                 
     cmake_args = [ '-D' + key + '=' + value for key,value in cmake_options.items() ]
-    args = [ 'cmake', *cmake_args, SRC_DIR ]
-    if subprocess.call(args, env=build_env, cwd=BUILD_DIR) != 0:
+    args = [ 'cmake', '-S', SRC_DIR, '-B', BUILD_DIR, *cmake_args ]
+    if subprocess.call(args, env=build_env) != 0:
         raise LibError("Unable to configure Z3.")
 
 def _build_z3():
-    if sys.platform == 'win32':
-        if subprocess.call(['nmake'], env=build_env,
-                           cwd=BUILD_DIR) != 0:
-            raise LibError("Unable to build Z3.")
-    else:   # linux and macOS
-        if subprocess.call(['make', '-j', str(multiprocessing.cpu_count())],
-                env=build_env, cwd=BUILD_DIR) != 0:
-            raise LibError("Unable to build Z3.")
+    args = ['cmake', '--build', BUILD_DIR,
+            '--parallel', str(multiprocessing.cpu_count())]
+    if subprocess.call(args, env=build_env) != 0:
+        raise LibError("Unable to build Z3.")
 
 
 def _copy_bins():

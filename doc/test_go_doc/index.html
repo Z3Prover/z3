@@ -83,9 +83,8 @@ func main() {
                 <p><strong>Build Z3 with Go bindings:</strong></p>
                 <div class="code-block">
                     <pre># Using CMake
-mkdir build && cd build
-cmake -DZ3_BUILD_GO_BINDINGS=ON -DZ3_BUILD_LIBZ3_SHARED=ON ..
-make
+cmake -S . -B build -DZ3_BUILD_GO_BINDINGS=ON -DBUILD_SHARED_LIBS=ON
+cmake --build build --parallel
 
 # Using Python build script
 python scripts/mk_make.py --go

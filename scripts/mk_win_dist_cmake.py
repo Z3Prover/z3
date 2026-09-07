@@ -206,10 +206,9 @@ def mk_build_dir(arch):
             vsarch = "amd64_arm64"
 
         cmds = []
-        cmds.append(f"cd {build_path}")
         cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + vsarch)
         cmd = []
-        cmd.append("cmake -S .")
+        cmd.append(f'cmake -G "Ninja" -S . -B "{build_path}"')
         if DOTNET_CORE_ENABLED:
             cmd.append(' -DZ3_BUILD_DOTNET_BINDINGS=ON')
 #           cmd.append(' -DZ3_INSTALL_DOTNET_BINDINGS=ON')
@@ -227,11 +226,10 @@ def mk_build_dir(arch):
             git_hash = get_git_hash()
             cmd.append(' -DGIT_HASH=' + git_hash)
         cmd.append(' -DZ3_USE_LIB_GMP=OFF')
-        cmd.append(' -DZ3_BUILD_LIBZ3_SHARED=ON')
+        cmd.append(' -DBUILD_SHARED_LIBS=ON')
         cmd.append(' -DCMAKE_BUILD_TYPE=RelWithDebInfo')
-        cmd.append(' -DCMAKE_INSTALL_PREFIX=' + os.path.join(DIST_DIR, get_z3_name(arch)))
-        cmd.append(' -G "Ninja"')
-        cmd.append(' ../..\n')
+        cmd.append(' -DCMAKE_INSTALL_PREFIX=' + get_build_dist_path(arch))
+        cmd.append('\n')
         cmds.append("".join(cmd))
         print("CMAKE commands:", cmds)
         sys.stdout.flush()
@@ -276,8 +274,7 @@ def build_z3(arch):
         arch = "amd64_arm64"
     cmds = []
     cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" ' + arch)
-    cmds.append('cd %s' % build_dir)
-    cmds.append('ninja install')
+    cmds.append('cmake --build "%s" --target install' % build_dir)
     if exec_cmds(cmds) != 0:
         raise MKException("Failed to make z3")
 
@@ -421,4 +418,3 @@ def main():
             build_for_arch(arch)
 
 main()
-

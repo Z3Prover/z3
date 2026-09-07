@@ -9,7 +9,8 @@ Run the Clang Static Analyzer over a CMake build of Z3, parse the resulting plis
 
 Action:
     Invoke the script pointing at the CMake build directory. The script
-    runs `scan-build cmake ..` followed by `scan-build make` and writes
+    runs `scan-build cmake -S . -B <build-dir>` followed by a scan-build-wrapped
+    `cmake --build` and writes
     checker output to the output directory.
 
 Expectation:

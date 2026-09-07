@@ -14,9 +14,8 @@ Z3 supports multiple build systems. **ALWAYS** use one of these validated approa
 
 #### Option 2: CMake Build System (Recommended for integration)
 - Clean source tree first if you previously used Python build: `git clean -fx src/`
-- `mkdir build && cd build`
-- `cmake ..` -- takes 1 second to configure
-- `make -j$(nproc)` -- takes 17 minutes to complete. **NEVER CANCEL**. Set timeout to 30+ minutes.
+- `cmake -S . -B build` -- takes 1 second to configure
+- `cmake --build build --parallel $(nproc)` -- takes 17 minutes to complete. **NEVER CANCEL**. Set timeout to 30+ minutes.
 
 #### Dependencies and Requirements
 - Python 3.x (required for both build systems)
@@ -79,8 +78,8 @@ Should display version and usage information.
 
 ### CMake Build System  
 - Clean first: `git clean -fx src/` (if switching from Python build)
-- Configuration: `cmake ..` (1 second)
-- Main build: `make -j$(nproc)` (17 minutes)
+- Configuration: `cmake -S . -B build` (1 second)
+- Main build: `cmake --build build --parallel $(nproc)` (17 minutes)
 - **Advantages**: Clean build tree, no source pollution, better for integration
 - **Recommended for**: IDE integration, package management, deployment
 
