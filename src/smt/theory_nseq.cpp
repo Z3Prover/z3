@@ -15,6 +15,13 @@ Author:
     Clemens Eisenhofer 2026
     Margus Veanes 2026
 
+Notes:
+
+TODO: fresh method doesn't yet have hooks for cloning dependencies.
+The dependencies point to equalities and literal asignments in a stack that is maintained within theory_nseq.
+To properly clone we should ensure that this stack is cloned, and that the dependency manager of the target
+of fresh is used, so essentially add a clone method for dendendencies.
+
 --*/
 #include "smt/theory_nseq.h"
 #include "smt/seq_nseq_ambient_context.h"
