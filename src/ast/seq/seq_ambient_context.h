@@ -170,6 +170,14 @@ namespace seq {
         void set_req_id(stx::facet_id id) { m_req_id = id; }
         void set_lex_id(stx::facet_id id) { m_lex_id = id; }
 
+        // Whether an assumption_facet has been registered for this
+        // search tree - some standalone unit tests exercise a subset of
+        // facets/plugins directly against a null_ambient_context with no
+        // assumption facet at all, so callers that opportunistically
+        // want to record an assumption (e.g. mem_monadic_split's
+        // materialized-length check) must guard on this first.
+        bool has_assumption() const { return m_assumption_id != no_facet; }
+
         // Is `e` a token this facet layer's Nielsen-style split rules may
         // treat as a freely-substitutable "variable" - i.e. neither a
         // power token (`seq.power`, owned exclusively by power_facet's
@@ -294,6 +302,7 @@ namespace seq {
         mem_facet& mem_facet_ref() const { return m_ac.mem_facet(m_node); }
         ncontains_facet& ncontains_facet_ref() const { return m_ac.ncontains_facet(m_node); }
         solver_facet_i& arith_facet_ref() const { return m_ac.arith_facet(m_node); }
+        bool has_assumption() const { return m_ac.has_assumption(); }
         assumption_facet& assumption_facet_ref() const { return m_ac.assumption_facet(m_node); }
         req_facet& req_facet_ref() const { return m_ac.req_facet(m_node); }
         lex_facet& lex_facet_ref() const { return m_ac.lex_facet(m_node); }

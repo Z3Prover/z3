@@ -425,8 +425,10 @@ namespace seq {
         }
         else if (!m_it->next(sol))
             return false;
-        auto& mf = get_ambient(m_n).mem_facet_ref();
+        auto ac = get_ambient(m_n);
+        auto& mf = ac.mem_facet_ref();
         bool changed = false;
+        obj_hashtable<expr> touched_vars;
 
         // NSB code review: dependencies are not tracked narrowly across seq_monadic
         // and these constraints. We would like seq_monadic to track dependencies 
@@ -447,11 +449,42 @@ namespace seq {
                      ts.push_back(t);
                      mf.add(str_mem(m, ts, view, dep));
                 }
+                touched_vars.insert(t);
             }
             changed = true;
         }
         if (!changed)
             return false;
+        // Bounds propagation (mem_bounds_propagation::propagate) can only
+        // hand the arithmetic facet a numeric [lo,hi] interval derived from
+        // whatever bound the ambient context can currently report - it is
+        // lossy for constraints like len(x) = 2*k /\ k >= 1, which collapse
+        // to a plain lower bound (2) and silently drop the "even length"
+        // structure. Certifying is_satisfied against that over-approximated
+        // interval alone is therefore unsound: an odd-length witness that
+        // satisfies the interval but not the real (unapproximated)
+        // arithmetic constraint would slip through. To catch this, extract
+        // the concrete witness word seq_monadic has settled on for each
+        // variable this round narrowed, and assert its length back into the
+        // ambient SMT context as a literal assumption (via assumption_facet
+        // - see theory_nseq::final_check_eh's satisfiable-branch handling):
+        // any inconsistency with the true arithmetic constraints already
+        // asserted there now surfaces as a genuine conflict, instead of
+        // being accepted as a spurious model. Only meaningful when the
+        // ambient context has an assumption_facet registered
+        // (theory_nseq wires one up; some standalone unit tests exercise
+        // mem_monadic_split directly against a null_ambient_context with
+        // no assumption facet at all - skip gracefully there).
+        if (ac.has_assumption()) {
+            auto& asf = ac.assumption_facet_ref();
+            for (expr* var : touched_vars) {
+                expr_ref word(m);
+                if (m_mon.materialize(var, word) != l_true)
+                    continue;
+                expr_ref len_eq(m.mk_eq(u.str.mk_length(var), u.str.mk_length(word)), m);
+                asf.add_assumption(len_eq);
+            }
+        }
         // seq_monadic's solve() has certified this branch's per-variable
         // views as a non-empty intersection: every membership is now a
         // narrowed variable-only view, and no further splitting is

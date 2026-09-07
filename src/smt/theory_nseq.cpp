@@ -719,7 +719,8 @@ namespace smt {
                     if (!ctx.b_internalized(a))
                         ctx.internalize(a, false);
                     bool_var bv = ctx.get_bool_var(a);
-                    ctx.set_var_theory(bv, get_id());
+                    if (ctx.get_var_theory(bv) == null_theory_var)
+                        ctx.set_var_theory(bv, get_id());
                     literal lit(bv);
                     if (ctx.get_assignment(lit) == l_true)
                         continue;
@@ -734,6 +735,11 @@ namespace smt {
                     ctx.mk_th_axiom(get_id(), 1, &lit);
                     return FC_CONTINUE;
                 }
+            }
+            if (getenv("NSEQ_DUMP_SAT") && snap) {
+                for (unsigned id = 0; id < snap->num_facets(); ++id)
+                    if (snap->has_facet(id))
+                        snap->facet(id).display(std::cerr) << "\n";
             }
             return FC_DONE;
         }
