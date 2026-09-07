@@ -13,7 +13,7 @@ import os
 import sys
 
 def main(args):
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARNING)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output_file", help="output def file path")
     parser.add_argument("dllname", help="dllname to use in def file")
@@ -33,4 +33,3 @@ def main(args):
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
-

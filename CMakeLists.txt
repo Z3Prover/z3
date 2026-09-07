@@ -604,7 +604,6 @@ if (Z3_BUILD_LIBZ3_CORE)
         ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
         ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
       COMMENT "Generating \"${dll_module_exports_file}\""
-      USES_TERMINAL
       VERBATIM
     )
     target_sources(libz3 PRIVATE "${dll_module_exports_file}")

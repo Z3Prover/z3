@@ -15,7 +15,6 @@ add_custom_command(OUTPUT "database.h"
   DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_pat_db.py"
           ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating \"database.h\""
-  USES_TERMINAL
   VERBATIM
 )
 
