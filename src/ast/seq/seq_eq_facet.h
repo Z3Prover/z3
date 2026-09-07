@@ -71,7 +71,6 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
-#include "ast/ast_translation.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/seq/seq_ambient_context.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -303,21 +302,6 @@ namespace seq {
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
-
-        // Cross-manager clone: populate *this (already constructed in
-        // its own target ast_manager `m`, e.g. via the ordinary
-        // register_facet_bound<eq_facet> path) from `src` (constructed
-        // against a possibly-different ast_manager), translating every
-        // AST-typed member through `tr`. `src` and `*this` need not share
-        // an ast_manager; `tr` must translate from src's manager to
-        // *this's manager (tr.to() == this->m). Dependency trackers
-        // (`eq_tree::dep_tracker`) are copied verbatim: they are opaque
-        // handles into a `dep_manager_t` keyed by plain `unsigned` leaf
-        // indices, not AST nodes, so no translation applies to them (see
-        // module comment on dep_tracker's non-AST nature) - this mirrors
-        // how the existing same-manager clone(trail_stack&) also copies
-        // them verbatim.
-        void clone(eq_facet const& src, ast_translation& tr);
 
         bool is_satisfied() const override { return m_eqs.empty(); }
         std::ostream& display(std::ostream& out) const override;
@@ -633,8 +617,6 @@ namespace seq {
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
-        // Cross-manager clone; see eq_facet::clone(eq_facet const&, ast_translation&).
-        void clone(deq_facet const& src, ast_translation& tr);
         bool is_satisfied() const override { return m_diseqs.empty(); }
         std::ostream& display(std::ostream& out) const override;
 
@@ -710,13 +692,6 @@ namespace seq {
             assumption_facet* f = alloc(assumption_facet, trail, m);
             f->m_assumptions.append(m_assumptions);
             return f;
-        }
-        // Cross-manager clone; see eq_facet::clone(eq_facet const&, ast_translation&).
-        void clone(assumption_facet const& src, ast_translation& tr) {
-            SASSERT(&tr.to() == &m);
-            m_assumptions.reset();
-            for (expr* a : src.m_assumptions)
-                m_assumptions.push_back(tr(a));
         }
         bool is_satisfied() const override { return true; } // never blocks satisfiability on its own
         std::ostream& display(std::ostream& out) const override {

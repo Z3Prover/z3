@@ -53,17 +53,6 @@ namespace seq {
         return f;
     }
 
-    void req_facet::clone(req_facet const& src, ast_translation& tr) {
-        SASSERT(&tr.to() == &m);
-        m_reqs.reset();
-        for (str_req const& r : src.m_reqs) {
-            str_req nr(m, tr(r.m_p.get()), tr(r.m_q.get()), r.m_is_eq, r.m_dep);
-            nr.m_status = r.m_status;
-            m_reqs.push_back(nr);
-        }
-        m_qhead = src.m_qhead;
-    }
-
     std::ostream& req_facet::display(std::ostream& out) const {
         out << "req_facet: " << m_reqs.size() << " request(s), qhead=" << m_qhead << "\n";
         for (auto const& r : m_reqs) {

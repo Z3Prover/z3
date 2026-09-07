@@ -131,12 +131,6 @@ namespace seq {
         void set_is_satisfied(bool b);
 
         stx::facet_i* clone(trail_stack& trail) const override;
-        // Cross-manager clone; see eq_facet::clone(eq_facet const&, ast_translation&).
-        // m_live (the derivative-state cache) is NOT copied: it is a pure
-        // performance cache over `m_rw`'s manager, rebuilt lazily on
-        // demand from the (translated) membership terms, so starting it
-        // empty in the target manager is always safe.
-        void clone(mem_facet const& src, ast_translation& tr);
 
         bool is_satisfied() const override { return m_mems.empty() || m_is_satisfied; }
         std::ostream& display(std::ostream& out) const override;

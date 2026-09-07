@@ -54,17 +54,6 @@ namespace seq {
         return f;
     }
 
-    void ncontains_facet::clone(ncontains_facet const& src, ast_translation& tr) {
-        SASSERT(&tr.to() == &m);
-        m_ncs.reset();
-        for (str_ncontains const& nc : src.m_ncs) {
-            expr_ref_vector h(m), n(m);
-            for (expr* t : nc.m_haystack) h.push_back(tr(t));
-            for (expr* t : nc.m_needle) n.push_back(tr(t));
-            m_ncs.push_back(str_ncontains(h, n, nc.m_dep));
-        }
-    }
-
     std::ostream& ncontains_facet::display(std::ostream& out) const {
         out << "ncontains_facet: " << m_ncs.size() << " obligation(s)\n";
         for (auto const& nc : m_ncs) {

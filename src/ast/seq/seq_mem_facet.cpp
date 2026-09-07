@@ -131,18 +131,6 @@ namespace seq {
         return f;
     }
 
-    void mem_facet::clone(mem_facet const& src, ast_translation& tr) {
-        SASSERT(&tr.to() == &m);
-        m_mems.reset();
-        for (str_mem const& sm : src.m_mems) {
-            expr_ref_vector ts(m);
-            for (expr* t : sm.m_str) ts.push_back(tr(t));
-            view v(tr(sm.m_view.m_state), sm.m_view.m_target ? tr(sm.m_view.m_target) : nullptr);
-            m_mems.push_back(str_mem(m, ts, v, sm.m_dep));
-        }
-        m_is_satisfied = src.m_is_satisfied;
-    }
-
     std::ostream& mem_facet::display(std::ostream& out) const {
         out << "mem_facet: " << m_mems.size() << " membership(s)\n";
         for (auto const& sm : m_mems) {

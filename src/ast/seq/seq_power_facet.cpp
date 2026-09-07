@@ -50,18 +50,6 @@ namespace seq {
         return f;
     }
 
-    void power_facet::clone(power_facet const& src, ast_translation& tr) {
-        SASSERT(&tr.to() == &m);
-        m_pows.reset();
-        for (str_power const& p : src.m_pows) {
-            str_power np(m, tr(p.m_e.get()), tr(p.m_s.get()), tr(p.m_n.get()), p.m_dep);
-            np.m_axiomatized = p.m_axiomatized;
-            np.m_fw_marked = p.m_fw_marked;
-            m_pows.push_back(np);
-        }
-        m_max_unfold = src.m_max_unfold;
-    }
-
     std::ostream& power_facet::display(std::ostream& out) const {
         out << "power_facet: " << m_pows.size() << " power obligation(s)\n";
         for (auto const& p : m_pows)
