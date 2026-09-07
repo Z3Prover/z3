@@ -65,6 +65,7 @@ Author:
 #include <memory>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 #include <climits>
 #include <ostream>
 
@@ -505,6 +506,23 @@ namespace stx {
         dep_manager_t                          m_dep_mgr;
         stats                                  m_stats;
 
+        // statistics::update() stores the raw char const* without copying
+        // it, and statistics::copy() (used e.g. by check_sat_result to
+        // snapshot stats for later display) shallow-copies that pointer
+        // too - so a dynamically built key's backing storage must survive
+        // for the rest of the process, not merely for the duration of this
+        // collect_statistics() call. A function-local/member std::string
+        // is not enough: by the time cmd_context::display_statistics()
+        // actually prints the snapshot, this search_tree (and any member
+        // buffer) may already be destroyed, leaving a dangling pointer
+        // (a heap-use-after-free caught by ASan). Intern each built name
+        // in a static, process-lifetime pool instead; insertion never
+        // invalidates previously returned pointers.
+        static char const* intern_stat_name(std::string&& s) {
+            static std::unordered_set<std::string> pool;
+            return pool.insert(std::move(s)).first->c_str();
+        }
+
         // Hot-restart snapshot of the (unique, innermost) SAT leaf found by
         // the most recent `solve()` call, taken via the cold-path `clone()`
         // before the DFS unwind pops the trail scopes that produced it - so
@@ -832,9 +850,9 @@ namespace stx {
             st.update("seq-stx num unknown", m_stats.m_num_unknown);
             st.update("seq-stx max depth", m_stats.m_max_depth);
             for (auto const& [k, v] : m_stats.m_propagate_counts)
-                st.update((std::string("seq-stx propagate ") + k).c_str(), v);
+                st.update(intern_stat_name(std::string("seq-stx propagate ") + k), v);
             for (auto const& [k, v] : m_stats.m_split_counts)
-                st.update((std::string("seq-stx split ") + k).c_str(), v);
+                st.update(intern_stat_name(std::string("seq-stx split ") + k), v);
             for (auto* p : m_prop_plugins)
                 p->collect_statistics(st);
             for (auto* sp : m_split_plugins)
