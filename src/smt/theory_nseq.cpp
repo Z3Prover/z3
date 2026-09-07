@@ -752,6 +752,8 @@ namespace smt {
             }
             // No precise dependency recorded: fall back to a giveup rather
             // than asserting an unjustified conflict.
+            if (getenv("NSEQ_DUMP_UNKNOWN"))
+                std::cerr << "theory_nseq: giving up (unsat with no dep)\n";
             return FC_GIVEUP;
         }
         default:

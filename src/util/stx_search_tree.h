@@ -693,10 +693,18 @@ namespace stx {
                         // depth-cutoff anywhere): the node itself is
                         // unsatisfiable. Each contributing branch already
                         // recorded its own dependency in m_conflict_deps
-                        // when it hit conflict, so there is nothing to
-                        // join here.
-                        if (result == search_result::unsat)
-                            n.set_conflict(br_children_failed, nullptr);
+                        // when it hit conflict; join them here into one
+                        // dependency so the caller (theory_nseq::
+                        // final_check_eh) has something to report - an
+                        // aggregate conflict with no dependency at all
+                        // would otherwise fall back to a giveup and the
+                        // real unsat would be misreported as unknown.
+                        if (result == search_result::unsat) {
+                            dep_tracker joined = nullptr;
+                            for (dep_tracker d : n.conflict_deps())
+                                joined = m_dep_mgr.mk_join(joined, d);
+                            n.set_conflict(br_children_failed, joined);
+                        }
                     }
                 }
             }
