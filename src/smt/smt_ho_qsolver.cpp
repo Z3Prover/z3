@@ -12,6 +12,7 @@ Abstract:
 --*/
 
 #include "ast/ast_util.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/euf/ho_matcher.h"
 #include "ast/has_free_vars.h"
 #include "ast/rewriter/term_enumeration.h"
@@ -26,6 +27,7 @@ namespace smt {
         context&                         ctx;
         quantifier_manager&              qm;
         ast_manager&                     m;
+        array_util                       autil;
         euf::ho_matcher                  matcher;
         quantifier*                      current_q = nullptr;
         term_enumeration*                terms = nullptr;
@@ -38,6 +40,7 @@ namespace smt {
             ctx(ctx),
             qm(qm),
             m(ctx.get_manager()),
+            autil(m),
             matcher(m, ctx.get_trail_stack()) {
             matcher.set_max_iterations(ctx.get_fparams().m_ho_matching_bound);
             matcher.set_max_matches(1);
@@ -139,6 +142,51 @@ namespace smt {
                 seen.insert(f);
                 te.add_production(f);
             }
+            // Seed additional candidates for function/array-sorted Skolem
+            // constants that were introduced by Skolemizing other axioms
+            // (e.g., a surjectivity witness function) but may not yet have
+            // a *relevant* enode registered (their defining axiom may not
+            // have fired yet). Such Skolem constants are exactly the kind
+            // of "already-constructed" higher-order witness that HO
+            // quantifiers (like "exists a right inverse function") need,
+            // so make them available regardless of E-graph relevance.
+            ptr_vector<expr> todo;
+            expr_fast_mark1 visited;
+            unsigned num = ctx.get_num_asserted_formulas();
+            for (unsigned i = 0; i < num; ++i)
+                todo.push_back(ctx.get_asserted_formula(i));
+            while (!todo.empty()) {
+                expr* e = todo.back();
+                todo.pop_back();
+                if (!e || visited.is_marked(e))
+                    continue;
+                visited.mark(e);
+                if (is_quantifier(e)) {
+                    todo.push_back(to_quantifier(e)->get_expr());
+                    continue;
+                }
+                if (!is_app(e))
+                    continue;
+                app* a = to_app(e);
+                func_decl* f = a->get_decl();
+                if (a->get_num_args() == 0 && f->get_arity() == 0 && f->is_skolem() && !seen.contains(f) &&
+                    autil.is_array(a)) {
+                    seen.insert(f);
+                    te.add_production(e);
+                }
+                // A Skolem function f : D1,...,Dn -> R (n >= 1) is exactly
+                // the shape of a witness for an existentially quantified
+                // *function* (e.g. "exists a right inverse function").
+                // Such quantifiers range over array sort (Array D1..Dn R),
+                // so offer (as-array f) as a candidate array term.
+                if (f->get_arity() > 0 && f->is_skolem() && !seen.contains(f)) {
+                    seen.insert(f);
+                    expr_ref as_arr(autil.mk_as_array(f), m);
+                    te.add_production(as_arr);
+                }
+                for (expr* arg : *a)
+                    todo.push_back(arg);
+            }
         }
 
         void save_matches(euf::ho_subst& subst) {
@@ -162,6 +210,7 @@ namespace smt {
 
             unsigned bound = std::min(100u, ctx.get_fparams().m_ho_matching_bound);
             for (expr_ref_vector const& tuple : terms->enum_tuples(sorts.size(), sorts.data())) {
+                IF_VERBOSE(10, verbose_stream() << "ho_qsolver: save_matches candidate tuple " << tuple << "\n");
                 for (unsigned i = 0; i < missing.size(); ++i)
                     subst.set(missing[i], tuple.get(i));
                 matches.push_back(subst.get_binding(current_q));

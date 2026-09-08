@@ -24,6 +24,7 @@
 #include "ast/simplifiers/rewriter_simplifier.h"
 #include "ast/simplifiers/lambda_simplifier.h"
 #include "ast/simplifiers/leibniz_simplifier.h"
+#include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
@@ -2964,12 +2965,16 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
 
 
         // Pre-processing pipeline applied to the solver's assertions before search:
-        // simplify -> unfold lambda-defined constants (shallow HOL/modal embeddings) -> simplify.
+        // simplify -> unfold lambda-defined constants (shallow HOL/modal embeddings) -> simplify
+        // -> distribute forall over conjunctions (improves E-matching trigger selection on
+        // axioms with nested quantifiers, e.g. "forall x,y . (and (forall z...) (forall z,w...))"
+        // splits into two independently-triggered top-level axioms) -> simplify.
         // Must be installed before set_solver_factory(), which eagerly builds the solver.
-        if (tptp().unfold_lambda_macros() || tptp().leibniz_instantiation()) {
+        if (tptp().unfold_lambda_macros() || tptp().leibniz_instantiation() || tptp().distribute_forall()) {
             bool do_lambda = tptp().unfold_lambda_macros();
             bool do_leibniz = tptp().leibniz_instantiation();
-            simplifier_factory factory = [do_lambda, do_leibniz](ast_manager& m, params_ref const& p, dependent_expr_state& st) {
+            bool do_distribute_forall = tptp().distribute_forall();
+            simplifier_factory factory = [do_lambda, do_leibniz, do_distribute_forall](ast_manager& m, params_ref const& p, dependent_expr_state& st) {
                 scoped_ptr<then_simplifier> t = alloc(then_simplifier, m, p, st);
                 t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
                 if (do_lambda) {
@@ -2978,6 +2983,10 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
                 }
                 if (do_leibniz) {
                     t->add_simplifier(alloc(leibniz_simplifier, m, p, st));
+                    t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
+                }
+                if (do_distribute_forall) {
+                    t->add_simplifier(alloc(distribute_forall_simplifier, m, p, st));
                     t->add_simplifier(alloc(rewriter_simplifier, m, p, st));
                 }
                 return t.detach();

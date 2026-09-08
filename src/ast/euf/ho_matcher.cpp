@@ -217,6 +217,17 @@ namespace euf {
         if (o1 == o2 && p == t)
             return l_true;
 
+        // (not p) / (= p1 p2) carry special matching semantics that are
+        // handled by consume_work's dedicated branches (e.g. flipping the
+        // target polarity, or enumerating candidates when neither side of
+        // an equality is ground). Bail out to l_undef here rather than
+        // structurally comparing `not`/`=` against the (possibly
+        // differently-shaped) target, which would otherwise incorrectly
+        // report l_false (e.g. `(not X)` vs `false`) and short-circuit the
+        // match before those branches get a chance to run.
+        if (m.is_not(p) || (m.is_eq(p) && use_cgr()))
+            return l_undef;
+
         if (is_ground(p) && is_ground(t)) {
             if (use_cgr())
                 return to_lbool(m_are_equal(p, t));
@@ -403,6 +414,37 @@ namespace euf {
                 m_goals.push(&wi, wi.level, wi.term_offset(), p1, p2);
                 wi.set_done();
                 return true;
+            }
+            // Neither side is ground (e.g. both mention a not-yet-bound
+            // meta variable, such as a quantified higher-order variable
+            // appearing on both sides of an equation, possibly nested at
+            // different depths). Enumerate candidate ground terms for the
+            // sort of one side and push both sides as new match goals
+            // against the same candidate: this unifies any meta variables
+            // occurring in either side consistently with that candidate.
+            if (m_enum_terms) {
+                if (wi.is_init())
+                    wi.set_eq();
+                ptr_vector<expr> candidates;
+                m_enum_terms(p1, candidates);
+                for (unsigned i = wi.index(); i < candidates.size(); ++i) {
+                    expr* candidate = candidates[i];
+                    wi.set_index(i + 1);
+                    SASSERT(candidate->get_sort() == p1->get_sort());
+                    // Bound recursion depth: candidates enumerated from
+                    // term_store can themselves be built from the very
+                    // Skolem/as-array function being solved for, so pushing
+                    // p1/p2 vs candidate at the same wi.level can recreate
+                    // an equally-shaped eq-true goal indefinitely (observed
+                    // as a stack overflow on NUN025^1.p). Increment level so
+                    // the existing m_max_depth cutoff bounds this search,
+                    // matching the depth discipline used by process_project
+                    // and other recursive goal-pushing sites.
+                    m_goals.push(&wi, wi.level + 1, wi.term_offset(), p1, candidate);
+                    m_goals.push(&wi, wi.level + 1, wi.term_offset(), p2, candidate);
+                    return true;
+                }
+                return false;
             }
         }
 

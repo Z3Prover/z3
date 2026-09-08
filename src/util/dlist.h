@@ -115,6 +115,14 @@ public:
         SASSERT(list->invariant());
         SASSERT(elem->invariant());
 #endif
+        // Defensive: undo() on a remove_dll trail entry can fire against an
+        // already-empty list (e.g. an outer scope's undo already cleared it)
+        // without this being a bug in the caller's trail discipline being
+        // separately caught elsewhere; only SASSERT'ing (compiled out in
+        // Release) let this silently become a null-pointer dereference in
+        // Release builds. Treat "list already empty" as a no-op.
+        if (!list)
+            return;
         if (list->m_next == list) {
             SASSERT(elem == list);
             list = nullptr;
