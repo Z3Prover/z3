@@ -32,5 +32,7 @@ jobs:
 
     - name: Configure CMake and build
       run: |
-          cmake -G Ninja -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.arch }}-linux-gnu-g++-13
-          cmake --build build
+        cmake -S . -B build \
+          -G Ninja \
+          -DCMAKE_CXX_COMPILER=${{ matrix.arch }}-linux-gnu-g++-13
+        cmake --build build --parallel
