@@ -72,8 +72,12 @@ Abstract:
     each call instead of rebuilding `m_g` from scratch every time -
     mirroring `req_facet`'s own `m_qhead` convention (see
     `seq_req_facet.h`). If nothing new has been asserted since the last
-    call (no new active equations/disequations, and no pending lex
-    obligations at all), `detect_cycles` is a no-op.
+    call (no new active equations/disequations even after propagating
+    them into `m_g`, and no lex obligations producing any digraph edges),
+    `detect_cycles` is a no-op. Note that propagation of `m_g` still runs
+    whenever there are new equalities/disequalities, independent of
+    whether any lt/le obligations are pending, since the new facts alone
+    may already be contradictory.
 
 Author:
 
@@ -227,10 +231,13 @@ namespace seq {
         // `conflict_dep` extracted via the egraph's justification
         // machinery (`explain`) rather than lex_facet's own dependencies.
         // Only active() equations/disequations/obligations are ever
-        // registered or scanned. If there is nothing new to register
-        // (no new active equations/disequations since the qheads, and
-        // no pending lex obligations at all), this is a no-op and
-        // returns false without touching `m_g`.
+        // registered or scanned. New equations/disequations are always
+        // propagated into m_g, even when there are no pending lex
+        // obligations, since they may be contradictory on their own; the
+        // no-op fast path only skips work when there are no lex
+        // obligations to place as digraph edges at all (`m_lexs` empty
+        // after filtering, i.e. `nedges` is empty), in which case this
+        // returns false without building the digraph.
         bool detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf, deq_facet& deqf);
 
     private:

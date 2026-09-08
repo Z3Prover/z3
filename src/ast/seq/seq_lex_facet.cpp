@@ -341,15 +341,12 @@ namespace seq {
         conflict = false;
         conflict_dep = nullptr;
 
-        // No-op fast path: nothing new to register (no new active
-        // equations/disequations since the qheads) and no pending lex
-        // obligations to place as digraph edges at all.
-        bool new_facts = sync_egraph(eqf, deqf);
-        if (!new_facts && m_lexs.empty())
-            return false;
-
-        if (m_lexs.empty())
-            return false;
+        // sync_egraph() registers any newly-active equations/disequations
+        // since the last call. Propagation must still happen whenever
+        // there are new equalities/disequalities, even without any
+        // pending lt/le obligations, since they alone may already be
+        // contradictory.
+        sync_egraph(eqf, deqf);
 
         obj_map<expr, euf::enode*> node_cache;
         std::function<euf::enode*(expr*)> mk_node = [&](expr* e) -> euf::enode* {
@@ -404,6 +401,9 @@ namespace seq {
             return true;
         }
 
+        // No-op fast path: no lex obligations produced any digraph edges,
+        // so there is nothing further to do regardless of whether new
+        // equations/disequations were registered above.
         if (nedges.empty())
             return false;
 
