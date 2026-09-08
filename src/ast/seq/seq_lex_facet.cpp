@@ -359,7 +359,6 @@ namespace seq {
             return false;
 
         obj_map<expr, unsigned> var_id;
-        u_map<euf::enode*> id_var;
         ptr_vector<expr> vars;
         struct edge { unsigned src, dst; bool strict; unsigned lex_idx; };
         vector<edge> edges;        
@@ -373,7 +372,6 @@ namespace seq {
             id = vars.size();
             vars.push_back(root);
             var_id.insert(root, id);
-            id_var.insert(id, n->get_root());
             return id;
         };
 
@@ -408,36 +406,33 @@ namespace seq {
                     while (path_node[start] != v_id) ++start;
                     bool has_strict = false;
                     eq_tree::dep_tracker dep = nullptr;
+                    unsigned cycle_len = on_path.size() - start;
                     for (unsigned k = start; k < on_path.size(); ++k) {
                         auto edge_id = on_path[k];
                         edge const& e = edges[edge_id];
-                        auto [l, r] = nedges[edge_id];
                         auto& lx = m_lexs[e.lex_idx];
                         has_strict |= e.strict;
                         dep = m_dm.mk_join(dep, lx.m_dep);
-                        // Include the egraph's own justification for why
-                        // `l` (this edge's source node, as originally
-                        // built from the lex obligation's token concat)
-                        // is congruent to the root node recorded for
-                        // this edge's source id (id_var[e.src]) - this
-                        // is exactly the equality that let this edge
-                        // collapse onto the shared digraph node, e.g. an
-                        // eq_facet equation or seq_plugin associative
-                        // completion, not the lex obligation's own dep.
-                        euf::enode* root = id_var[e.src];
-                        if (l != root) {
+                        // Consecutive obligations on the cycle chain
+                        // through a shared digraph-node id (e.g. edge i's
+                        // rhs and edge i+1's lhs both map to the same
+                        // `get_id`), but their *own* token-concat enodes
+                        // may only be congruent, not syntactically
+                        // identical. Explain that congruence directly
+                        // between this edge's rhs node and the next
+                        // edge's lhs node (wrapping around the cycle),
+                        // and join in whatever eq_facet/seq_plugin facts
+                        // established it - this is exactly the equality
+                        // that closes the cycle at this link.
+                        unsigned next_k = (k + 1 - start) % cycle_len + start;
+                        auto next_edge_id = on_path[next_k];
+                        auto [l, b] = nedges[edge_id];
+                        auto [c, r] = nedges[next_edge_id];
+                        (void)l; (void)r;
+                        if (b != c) {
                             ptr_vector<size_t> eq_just;
                             g.begin_explain();
-                            g.explain_eq(eq_just, nullptr, l, root);
-                            g.end_explain();
-                            for (size_t* j : eq_just)
-                                dep = m_dm.mk_join(dep, reasons[from_ptr(j)]);
-                        }
-                        euf::enode* dst_root = id_var[e.dst];
-                        if (r != dst_root) {
-                            ptr_vector<size_t> eq_just;
-                            g.begin_explain();
-                            g.explain_eq(eq_just, nullptr, r, dst_root);
+                            g.explain_eq(eq_just, nullptr, b, c);
                             g.end_explain();
                             for (size_t* j : eq_just)
                                 dep = m_dm.mk_join(dep, reasons[from_ptr(j)]);
