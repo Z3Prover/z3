@@ -35,10 +35,6 @@ z3_add_component(sat
     dd
     grobner
     params
-  EXTRA_REGISTER_MODULE_HEADERS
-    sat_asymm_branch_params.hpp
-    sat_scc_params.hpp
-    sat_simplifier_params.hpp
 )
 
 add_subdirectory(sat_solver)

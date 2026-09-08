@@ -23,11 +23,6 @@ Abstract:
   UINT_(factor_num_primes,   "factor_num_primes",   1,     "parameter for the polynomial factorization procedure in the algebraic number module. Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifting and searching") \
   UINT_(factor_search_size,  "factor_search_size",  5000,  "parameter for the polynomial factorization procedure in the algebraic number module. Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space")
 
-Z3_DEFINE_MODULE_PARAMS(algebraic_params, "algebraic", ALGEBRAIC_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('algebraic', 'algebraic_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('algebraic', 'real algebraic number package. Non-default parameter settings are not supported')
-*/
+Z3_DEFINE_MODULE_PARAMS(algebraic_params, "algebraic", ALGEBRAIC_PARAMS_LIST, "real algebraic number package. Non-default parameter settings are not supported");
 
 #undef ALGEBRAIC_PARAMS_LIST

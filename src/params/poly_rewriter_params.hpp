@@ -22,10 +22,6 @@ Abstract:
   BOOL_(hoist_ite,   "hoist_ite",   false,  "hoist shared summands under ite expressions") \
   BOOL_(flat,        "flat",        true,   "create nary applications for and,or,+,*,bvadd,bvmul,bvand,bvor,bvxor")
 
-Z3_DEFINE_MODULE_PARAMS(poly_rewriter_params, "rewriter", POLY_REWRITER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('rewriter', 'poly_rewriter_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(poly_rewriter_params, "rewriter", POLY_REWRITER_PARAMS_LIST, nullptr);
 
 #undef POLY_REWRITER_PARAMS_LIST

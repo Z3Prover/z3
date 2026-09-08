@@ -20,10 +20,6 @@ Abstract:
   BOOL_(ignore_bad_patterns,      "ignore_bad_patterns",      true,   "ignore malformed patterns") \
   BOOL_(error_for_visual_studio,  "error_for_visual_studio",  false,  "display error messages in Visual Studio format")
 
-Z3_DEFINE_MODULE_PARAMS(parser_params, "parser", PARSER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('parser', 'parser_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(parser_params, "parser", PARSER_PARAMS_LIST, nullptr);
 
 #undef PARSER_PARAMS_LIST

@@ -48,6 +48,4 @@ z3_add_component(lp
     polynomial
     nlsat
     params
-  EXTRA_REGISTER_MODULE_HEADERS
-    lp_params_helper.hpp
 )

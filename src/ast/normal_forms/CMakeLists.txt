@@ -7,7 +7,4 @@ z3_add_component(normal_forms
     pull_quant.cpp
   COMPONENT_DEPENDENCIES
     rewriter
-  EXTRA_REGISTER_MODULE_HEADERS
-    nnf.h
-    nnf_params.hpp
 )
