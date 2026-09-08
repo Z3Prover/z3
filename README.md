@@ -7,8 +7,7 @@ If you are not familiar with Z3, you can start [here](https://github.com/Z3Prove
 
 Pre-built binaries for stable and nightly releases are available [here](https://github.com/Z3Prover/z3/releases).
 
-Z3 can be built using [CMake][3], [Visual Studio][1], a [Makefile][2],
-[vcpkg][4], or [Bazel][5].
+Z3 can be built using [CMake][3], [vcpkg][4], or [Bazel][5].
 It provides [bindings for several programming languages][6].
 
 See the [release notes](RELEASE_NOTES.md) for notes on various stable releases of Z3.
@@ -50,8 +49,6 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 | --------------|----------------------|-------------------------|
 | [![Issue Backlog Processor](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml) | [![Memory Safety Report](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml) | [![SMTLIB Benchmark Finder](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml) |
 
-[1]: #building-z3-on-windows-using-visual-studio-command-prompt
-[2]: #building-z3-using-make-and-gccclang
 [3]: #building-z3-using-cmake
 [4]: #building-z3-using-vcpkg
 [5]: #building-z3-using-bazel
@@ -70,83 +67,19 @@ cmake --build build --parallel
 See [README-CMake.md](README-CMake.md) for build options, language bindings,
 installation, and instructions for consuming Z3 from another CMake project.
 
-## Building Z3 on Windows using Visual Studio Command Prompt
-
-For 32-bit builds, start with:
-
-```bash
-python scripts/mk_make.py
-```
-
-or instead, for a 64-bit build:
-
-```bash
-python scripts/mk_make.py -x
-```
-
-then run:
-
-```bash
-cd build
-nmake
-```
-
-Z3 uses C++20. The recommended version of Visual Studio is therefore VS2019 or later.
+Z3 uses C++20. On Windows, the recommended version of Visual Studio is
+therefore VS2019 or later; CMake with the Ninja or Visual Studio generator
+builds Z3 from the Visual Studio Command Prompt.
 
 **Security Features (MSVC)**: When building with Visual Studio/MSVC, a couple of security features are enabled by default for Z3:
 - Control Flow Guard (`/guard:cf`) - enabled by default to detect attempts to compromise your code by preventing calls to locations other than function entry points, making it more difficult for attackers to execute arbitrary code through control flow redirection
 - Address Space Layout Randomization (`/DYNAMICBASE`) - enabled by default for memory layout randomization, required by the `/GUARD:CF` linker option
-- These can be disabled using `python scripts/mk_make.py --no-guardcf` (Python build) or `cmake -S . -B build -DZ3_ENABLE_CFG=OFF` (CMake build) if needed
+- These can be disabled using `cmake -S . -B build -DZ3_ENABLE_CFG=OFF` if needed
 
-## Building Z3 using make and GCC/Clang
-
-Execute:
-
-```bash
-python scripts/mk_make.py
-cd build
-make
-sudo make install
-```
-
-Note by default ``g++`` is used as C++ compiler if it is available. If you
-prefer to use Clang, change the ``mk_make.py`` invocation to:
-
-```bash
-CXX=clang++ CC=clang python scripts/mk_make.py
-```
-
-Note that Clang < 3.7 does not support OpenMP.
-
-You can also build Z3 for Windows using Cygwin and the Mingw-w64 cross-compiler.
-In that case, make sure to use Cygwin's own Python and not some Windows installation of Python.
-
-For a 64-bit build (from Cygwin64), configure Z3's sources with
-```bash
-CXX=x86_64-w64-mingw32-g++ CC=x86_64-w64-mingw32-gcc AR=x86_64-w64-mingw32-ar python scripts/mk_make.py
-```
-A 32-bit build should work similarly (but is untested); the same is true for 32/64 bit builds from within Cygwin32.
-
-By default, it will install z3 executables at ``PREFIX/bin``, libraries at
-``PREFIX/lib``, and include files at ``PREFIX/include``, where the ``PREFIX``
-installation prefix is inferred by the ``mk_make.py`` script. It is usually
-``/usr`` for most Linux distros, and ``/usr/local`` for FreeBSD and macOS. Use
-the ``--prefix=`` command-line option to change the install prefix. For example:
-
-```bash
-python scripts/mk_make.py --prefix=/home/leo
-cd build
-make
-make install
-```
-
-To uninstall Z3, use
-
-```bash
-sudo make uninstall
-```
-
-To clean Z3, you can delete the build directory and run the ``mk_make.py`` script again.
+Use `sudo cmake --install build` to install to the system prefix (or set
+`-DCMAKE_INSTALL_PREFIX=` at configure time for a custom prefix). To uninstall,
+consult your platform's package manager, or, since CMake tracks installed
+files in `build/install_manifest.txt`, remove those files directly.
 
 ## Building Z3 using vcpkg
 
@@ -182,7 +115,7 @@ Z3 has bindings for various programming languages.
 
 You can install a NuGet package for the latest release Z3 from [nuget.org](https://www.nuget.org/packages/Microsoft.Z3/).
 
-Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
+With CMake, use the ``-DZ3_BUILD_DOTNET_BINDINGS=ON`` option.
 
 See [``examples/dotnet``](examples/dotnet) for examples.
 
@@ -200,7 +133,7 @@ See [``examples/c++``](examples/c++) for examples.
 
 ### ``Java``
 
-Use the ``--java`` command line flag with ``mk_make.py`` to enable building these.
+With CMake, use the ``-DZ3_BUILD_JAVA_BINDINGS=ON`` option.
 
 For IDE setup instructions (Eclipse, IntelliJ IDEA, Visual Studio Code) and troubleshooting, see the [Java IDE Setup Guide](doc/JAVA_IDE_SETUP.md).
 
@@ -208,15 +141,13 @@ See [``examples/java``](examples/java) for examples.
 
 ### ``Go``
 
-Use the ``--go`` command line flag with ``mk_make.py`` to enable building these. Note that Go bindings use CGO and require a Go toolchain (Go 1.20 or later) to build.
-
-With CMake, use the ``-DZ3_BUILD_GO_BINDINGS=ON`` option.
+With CMake, use the ``-DZ3_BUILD_GO_BINDINGS=ON`` option. Note that Go bindings use CGO and require a Go toolchain (Go 1.20 or later) to build.
 
 See [``examples/go``](examples/go) for examples and [``src/api/go/README.md``](src/api/go/README.md) for complete API documentation.
 
 ### ``OCaml``
 
-Use the ``--ml`` command line flag with ``mk_make.py`` to enable building these.
+With CMake, use the ``-DZ3_BUILD_OCAML_BINDINGS=ON`` option.
 
 See [``examples/ml``](examples/ml) for examples.
 
@@ -228,32 +159,31 @@ You can install the Python wrapper for Z3 for the latest release from pypi using
    pip install z3-solver
 ```
 
-Use the ``--python`` command line flag with ``mk_make.py`` to enable building these.
+With CMake, use the ``-DZ3_BUILD_PYTHON_BINDINGS=ON`` option.
 
 Note that it is required on certain platforms that the Python package directory
 (``site-packages`` on most distributions and ``dist-packages`` on Debian-based
 distributions) live under the install prefix. If you use a non-standard prefix
-you can use the ``--pypkgdir`` option to change the Python package directory
-used for installation. For example:
+you can use the ``-DCMAKE_INSTALL_PYTHON_PKG_DIR=`` option to change the Python
+package directory used for installation. For example:
 
 ```bash
-python scripts/mk_make.py --prefix=/home/leo --python --pypkgdir=/home/leo/lib/python-2.7/site-packages
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/home/leo -DZ3_BUILD_PYTHON_BINDINGS=ON -DCMAKE_INSTALL_PYTHON_PKG_DIR=/home/leo/lib/python3.x/site-packages
 ```
 
 If you do need to install to a non-standard prefix, a better approach is to use
 a [Python virtual environment](https://virtualenv.readthedocs.org/en/latest/)
-and install Z3 there. Python packages also work for Python3.
+and install Z3 there.
 Under Windows, recall to build inside the Visual C++ native command build environment.
-Note that the ``build/python/z3`` directory should be accessible from where Python is used with Z3 
+Note that the ``build/python/z3`` directory should be accessible from where Python is used with Z3
 and it requires ``libz3.dll`` to be in the path.
 
 ```bash
 virtualenv venv
 source venv/bin/activate
-python scripts/mk_make.py --python
-cd build
-make
-make install
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$VIRTUAL_ENV -DZ3_BUILD_PYTHON_BINDINGS=ON
+cmake --build build --parallel
+cmake --install build
 # You will find Z3 and the Python bindings installed in the virtual environment
 venv/bin/z3 -h
 ...

@@ -135,16 +135,17 @@ Installation
 I did not touch the installation part in this PR, as I was using opam
 and installed artifacts as simple as:
 ```
-ocamlfind install z3 build/api/ml/* build/libz3-static.a
+ocamlfind install z3 build/src/api/ml/* -dll build/src/api/ml/dllz3ml.so
 ```
 
 assuming that the following configuration and building process
 ```
-python2.7 scripts/mk_make.py --ml --staticlib
-make -C build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_OCAML_BINDINGS=ON
+cmake --build build --parallel
 ```
 
-Though the default installation script in the make file shall work.
+Though CMake's own `install` target (`-DZ3_INSTALL_OCAML_BINDINGS=ON`, the
+default) shall work too.
 
 Dynamic Library mode
 ====================

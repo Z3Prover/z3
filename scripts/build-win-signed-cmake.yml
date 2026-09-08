@@ -21,7 +21,7 @@ jobs:
     inputs:
       script:
         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.VCArchitecture}} &
-        python scripts\mk_win_dist_cmake.py
+        python scripts\mk_win_dist.py
             --${{parameters.BuildArchitecture}}-only
             --assembly-version=${{parameters.ReleaseVersion}}
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk

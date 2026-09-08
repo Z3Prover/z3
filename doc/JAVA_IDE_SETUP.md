@@ -25,9 +25,8 @@ Before setting up Z3 in your IDE, you need to obtain the Z3 binaries:
 If you need to build Z3 from source with Java bindings enabled:
 
 ```bash
-python scripts/mk_make.py --java
-cd build
-make
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_JAVA_BINDINGS=ON
+cmake --build build --parallel
 ```
 
 The resulting files will be in the `build` directory.
@@ -300,11 +299,10 @@ git clone https://github.com/Z3Prover/z3.git
 cd z3
 
 # Configure with Java support
-python scripts/mk_make.py --java
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_JAVA_BINDINGS=ON
 
 # Build
-cd build
-make
+cmake --build build --parallel
 
 # The Java bindings will be in the build directory
 # - com.microsoft.z3.jar

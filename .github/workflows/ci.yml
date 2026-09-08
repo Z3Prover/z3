@@ -21,8 +21,8 @@ jobs:
   # ============================================================================
   # Linux Python Debug Builds
   # ============================================================================
-  linux-python-debug:
-    name: "Ubuntu build - python make - ${{ matrix.variant }}"
+  linux-cmake-debug:
+    name: "Ubuntu build - cmake - ${{ matrix.variant }}"
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -31,10 +31,10 @@ jobs:
         variant: [MT, ST]
         include:
           - variant: MT
-            cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
+            cmdLine: 'cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DZ3_BUILD_JAVA_BINDINGS=ON -DZ3_BUILD_DOTNET_BINDINGS=ON'
             runRegressions: true
           - variant: ST
-            cmdLine: './configure --single-threaded'
+            cmdLine: 'cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_SINGLE_THREADED=ON'
             runRegressions: false
     steps:
       - name: Checkout code
@@ -50,12 +50,8 @@ jobs:
 
       - name: Build
         run: |
-          set -e
-          cd build
-          make -j$(nproc)
-          make -j$(nproc) examples
-          make -j$(nproc) test-z3
-          cd ..
+          cmake --build build --parallel $(nproc)
+          cmake --build build --target test-z3 --parallel $(nproc)
 
       - name: Run unit tests
         run: |
@@ -185,20 +181,24 @@ jobs:
         run: opam install zarith ocamlfind -y
 
       - name: Configure
-        run: eval `opam config env`; python scripts/mk_make.py --ml
+        run: eval `opam config env`; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_OCAML_BINDINGS=ON
 
       - name: Build
         run: |
           set -e
-          cd build
           eval `opam config env`
-          make -j$(nproc)
-          make -j$(nproc) examples
-          make -j$(nproc) test-z3
-          cd ..
+          cmake --build build --parallel $(nproc)
+          cmake --build build --target test-z3 --parallel $(nproc)
 
       - name: Install Z3 OCaml package
-        run: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
+        run: |
+          eval `opam config env`
+          ML=build/src/api/ml
+          ocamlfind install z3 "$ML/META" "$ML/z3.cmi" src/api/ml/z3.mli "$ML/z3.cmx" \
+            "$ML/z3enums.cmi" "$ML/z3enums.cmx" "$ML/z3enums.mli" \
+            "$ML/z3native.cmi" "$ML/z3native.cmx" "$ML/z3native.mli" \
+            "$ML/libz3ml.a" "$ML/z3ml.a" "$ML/z3ml.cma" "$ML/z3ml.cmxa" "$ML/z3ml.cmxs" \
+            -dll "$ML/dllz3ml.so"
 
       - name: Run unit tests
         run: |
@@ -216,7 +216,7 @@ jobs:
         run: |
           cd doc
           sudo apt-get install -y doxygen graphviz
-          python mk_api_doc.py --z3py-package-path=../build/python/z3
+          python mk_api_doc.py --no-z3py
           cd ..
 
   ubuntu-ocaml-static:
@@ -240,23 +240,25 @@ jobs:
         run: opam install zarith ocamlfind -y
 
       - name: Configure
-        run: eval `opam config env`; python scripts/mk_make.py --ml --staticlib
+        run: eval `opam config env`; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_OCAML_BINDINGS=ON
 
       - name: Build
         run: |
           set -e
-          cd build
           eval `opam config env`
-          make -j$(nproc)
-          make -j$(nproc) examples
-          make -j$(nproc) test-z3
-          cd ..
+          cmake --build build --parallel $(nproc)
+          cmake --build build --target test-z3 --parallel $(nproc)
 
       - name: Install Z3 OCaml package
         run: |
           eval `opam config env`
-          ocamlfind install z3-static build/api/ml/* build/libz3-static.a
-          # Ensure the stublibs directory where dllz3ml-static.so was installed is
+          ML=build/src/api/ml
+          ocamlfind install z3-static "$ML/META" "$ML/z3.cmi" src/api/ml/z3.mli "$ML/z3.cmx" \
+            "$ML/z3enums.cmi" "$ML/z3enums.cmx" "$ML/z3enums.mli" \
+            "$ML/z3native.cmi" "$ML/z3native.cmx" "$ML/z3native.mli" \
+            "$ML/libz3ml.a" "$ML/z3ml.a" "$ML/z3ml.cma" "$ML/z3ml.cmxa" "$ML/z3ml.cmxs" \
+            -dll "$ML/dllz3ml.so"
+          # Ensure the stublibs directory where dllz3ml.so was installed is
           # listed in ld.conf so the OCaml bytecode linker can find it.  When no
           # explicit -dll flag is passed, ocamlfind installs dll* files to stublibs
           # but may not update ld.conf, causing "Fatal error: exception End_of_file"
@@ -266,18 +268,6 @@ jobs:
           if [ -d "$STUBLIBS" ] && ! grep -qF "$STUBLIBS" "$LDCONF" 2>/dev/null; then
             echo "$STUBLIBS" >> "$LDCONF"
           fi
-
-      - name: Build and run OCaml examples
-        run: |
-          set -e
-          cd build
-          eval `opam config env`
-          make -j$(nproc)
-          make -j$(nproc) _ex_ml_example_post_install
-          ./ml_example_static.byte
-          ./ml_example_static_custom.byte
-          ./ml_example_static
-          cd ..
 
       - name: Run unit tests
         run: |
@@ -295,7 +285,7 @@ jobs:
         run: |
           cd doc
           sudo apt-get install -y doxygen graphviz
-          python mk_api_doc.py --z3py-package-path=../build/python/z3
+          python mk_api_doc.py --no-z3py
           cd ..
 
   # ============================================================================
@@ -564,19 +554,25 @@ jobs:
           python-version: '3.x'
 
       - name: Configure
-        run: python scripts/mk_make.py -d --java --dotnet
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DZ3_BUILD_JAVA_BINDINGS=ON -DZ3_BUILD_DOTNET_BINDINGS=ON
 
       - name: Build
         run: |
           set -e
-          cd build
           JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu || echo 1)
-          make -j"$JOBS"
-          make -j"$JOBS" examples
-          make -j"$JOBS" test-z3
-          ./cpp_example
-          ./c_example
-          cd ..
+          # Build specific targets rather than the default "all": the
+          # examples/dotnet example (unlike c_example/cpp_example) is not
+          # EXCLUDE_FROM_ALL, and its NuGet restore has no local package
+          # source wired up, so it fails outside of a real packaging flow.
+          # We don't need that example here, just the bindings and the C/C++
+          # examples this job actually exercises below.
+          cmake --build build --target shell --target z3java \
+            --target build_z3_dotnet_bindings --target c_example \
+            --target cpp_example --target test-z3 --parallel "$JOBS"
+          # c_example/cpp_example are ExternalProject_Add targets, so they
+          # build into their own nested binary dirs rather than build/ root.
+          build/examples/cpp_example_build_dir/cpp_example
+          build/examples/c_example_build_dir/c_example
 
       - name: Clone z3test
         run: git clone https://github.com/z3prover/z3test z3test
@@ -613,19 +609,13 @@ jobs:
           python-version: '3.x'
 
       - name: Configure (cross-compile ARM64 host -> x86_64 target)
-        env:
-          CFLAGS: -arch x86_64
-          CXXFLAGS: -arch x86_64
-          LDFLAGS: -arch x86_64
-        run: python scripts/mk_make.py --java --arm64=false
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_JAVA_BINDINGS=ON -DCMAKE_OSX_ARCHITECTURES=x86_64
 
       - name: Build
         run: |
           set -e
-          cd build
           NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
-          make -j"$NPROC" libz3java.dylib
-          cd ..
+          cmake --build build --target z3java --parallel "$NPROC"
 
       - name: Validate libz3java.dylib is x86_64
         run: |

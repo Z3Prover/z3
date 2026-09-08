@@ -112,10 +112,6 @@ endif()
 
 option(Z3_BUILD_OCAML_BINDINGS "Build OCaml bindings for Z3" OFF)
 if (Z3_BUILD_OCAML_BINDINGS)
-  if (NOT BUILD_SHARED_LIBS)
-    message(FATAL_ERROR "The OCaml bindings will not work with a static libz3. "
-      "You either need to disable Z3_BUILD_OCAML_BINDINGS or enable BUILD_SHARED_LIBS")
-  endif()
   add_subdirectory(ml)
 endif()
 

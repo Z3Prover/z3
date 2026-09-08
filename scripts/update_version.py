@@ -239,7 +239,6 @@ def main():
     print("\nUpdate complete!")
     print("\nNote: The following files automatically read from VERSION.txt:")
     print("  - CMakeLists.txt")
-    print("  - scripts/mk_project.py")
     print("\nThese do not need manual updates.")
     print("\nNote: .github/workflows/release.yml uses input parameters for actual releases,")
     print("but the release_version input parameter default and example version in the description have been updated.")

@@ -24,11 +24,9 @@ RUN apt-get update && \
 FROM lib-base as builder
 COPY ./ /z3-source/
 WORKDIR /z3-source/
-RUN python scripts/mk_make.py
-WORKDIR /z3-source/build/
-RUN make
-RUN sudo make install
-WORKDIR /z3-source/
+RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+RUN cmake --build build --parallel
+RUN sudo cmake --install build
 
 # -------
 # Bare z3

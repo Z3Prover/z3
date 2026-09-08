@@ -59,12 +59,13 @@ const z3RootDir = path.join(process.cwd(), '../../../');
 
 // TODO(ritave): Detect if it's in the configuration we need
 if (!existsSync(path.join(z3RootDir, 'build/Makefile'))) {
-  spawnSync('emconfigure python scripts/mk_make.py --staticlib --single-threaded --arm64=false', {
-    cwd: z3RootDir,
-  });
+  spawnSync(
+    'emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DZ3_SINGLE_THREADED=ON',
+    { cwd: z3RootDir },
+  );
 }
 
-spawnSync(`emmake make -j${os.cpus().length} libz3.a`, { cwd: path.join(z3RootDir, 'build') });
+spawnSync(`cmake --build build --target libz3 --parallel ${os.cpus().length}`, { cwd: z3RootDir });
 
 const ccWrapperPath = 'build/async-fns.cc';
 console.log(`- Building ${ccWrapperPath}`);
