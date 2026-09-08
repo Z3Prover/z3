@@ -33,21 +33,18 @@ runs:
         git clean -fx src || echo "No files to clean in src/" | tee -a build-steps.log
         echo "Source tree cleaned" | tee -a build-steps.log
 
-    - name: Create and configure build directory
+    - name: Configure build directory
       shell: bash
       run: |
-        echo "Creating build directory..." | tee -a build-steps.log
-        mkdir -p build
-        cd build
-        echo "Configuring CMake for performance development..." | tee -a ../build-steps.log
-        cmake -G "Ninja" \
+        echo "Configuring CMake for performance development..." | tee -a build-steps.log
+        cmake -G "Ninja" -S . -B build \
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
               -DZ3_ENABLE_TRACING_FOR_NON_DEBUG=TRUE \
-              -DZ3_BUILD_LIBZ3_SHARED=FALSE \
+              -DBUILD_SHARED_LIBS=FALSE \
               -DZ3_BUILD_TEST_EXECUTABLES=TRUE \
               -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer" \
-              ../ | tee -a ../build-steps.log
-        echo "CMake configuration completed" | tee -a ../build-steps.log
+              | tee -a build-steps.log
+        echo "CMake configuration completed" | tee -a build-steps.log
 
     - name: Build Z3
       shell: bash
@@ -114,28 +111,28 @@ runs:
         echo "Creating micro-benchmark infrastructure..." | tee -a build-steps.log
         mkdir -p perf-bench
         cat > perf-bench/README.md << 'EOF'
-# Z3 Performance Benchmarks
+        # Z3 Performance Benchmarks
 
-This directory contains micro-benchmarks for Z3 performance testing.
+        This directory contains micro-benchmarks for Z3 performance testing.
 
-## Quick Start
+        ## Quick Start
 
-1. Run unit tests: `cd build && ./test-z3 -a`
-2. Run regression tests: `python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2-extra`
-3. Basic SMT solving: `echo "(assert (> x 0))" | build/z3 -in`
+        1. Run unit tests: `cd build && ./test-z3 -a`
+        2. Run regression tests: `python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2-extra`
+        3. Basic SMT solving: `echo "(assert (> x 0))" | build/z3 -in`
 
-## Performance Measurement
+        ## Performance Measurement
 
-- Use `build/z3 -st input.smt2` to get statistics
-- Use `perf` or `valgrind` for detailed profiling
-- Time measurements: Use `scoped_timer` class in Z3 code
+        - Use `build/z3 -st input.smt2` to get statistics
+        - Use `perf` or `valgrind` for detailed profiling
+        - Time measurements: Use `scoped_timer` class in Z3 code
 
-## Build Commands
+        ## Build Commands
 
-- Clean rebuild: `rm -rf build && mkdir build && cd build && cmake -G "Ninja" -DCMAKE_BUILD_TYPE=RelWithDebInfo ../ && ninja`
-- Build tests only: `ninja test-z3`
-- Build with profiling: `cmake -DCMAKE_CXX_FLAGS="-pg -fno-omit-frame-pointer" ../`
-EOF
+        - Clean rebuild: `rm -rf build && cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build`
+        - Build tests only: `cmake --build build --target test-z3`
+        - Build with profiling: `cmake -S . -B build -DCMAKE_CXX_FLAGS="-pg -fno-omit-frame-pointer"`
+        EOF
         echo "Micro-benchmark infrastructure created" | tee -a build-steps.log
 
     - name: Display build summary

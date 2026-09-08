@@ -1,10 +1,9 @@
 
 set
 echo "Build"
-md build
-cd build
 call "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" amd64
-cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "NMake Makefiles" ../
+cmake -G "NMake Makefiles" -S . -B build -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True
+cd build
 nmake
 if ERRORLEVEL 1 exit 1
 
@@ -46,4 +45,3 @@ echo "test-benchmarks"
 python z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
 if ERRORLEVEL 1 exit 1
 echo "benchmarks tested"
-

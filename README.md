@@ -7,8 +7,8 @@ If you are not familiar with Z3, you can start [here](https://github.com/Z3Prove
 
 Pre-built binaries for stable and nightly releases are available [here](https://github.com/Z3Prover/z3/releases).
 
-Z3 can be built using [Visual Studio][1], a [Makefile][2], using [CMake][3],
-using [vcpkg][4], or using [Bazel][5].
+Z3 can be built using [CMake][3], [Visual Studio][1], a [Makefile][2],
+[vcpkg][4], or [Bazel][5].
 It provides [bindings for several programming languages][6].
 
 See the [release notes](RELEASE_NOTES.md) for notes on various stable releases of Z3.
@@ -57,6 +57,19 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 [5]: #building-z3-using-bazel
 [6]: #z3-bindings
 
+## Building Z3 using CMake
+
+CMake is the preferred and most fully featured build system for Z3. A basic
+release build is:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+See [README-CMake.md](README-CMake.md) for build options, language bindings,
+installation, and instructions for consuming Z3 from another CMake project.
+
 ## Building Z3 on Windows using Visual Studio Command Prompt
 
 For 32-bit builds, start with:
@@ -83,7 +96,7 @@ Z3 uses C++20. The recommended version of Visual Studio is therefore VS2019 or l
 **Security Features (MSVC)**: When building with Visual Studio/MSVC, a couple of security features are enabled by default for Z3:
 - Control Flow Guard (`/guard:cf`) - enabled by default to detect attempts to compromise your code by preventing calls to locations other than function entry points, making it more difficult for attackers to execute arbitrary code through control flow redirection
 - Address Space Layout Randomization (`/DYNAMICBASE`) - enabled by default for memory layout randomization, required by the `/GUARD:CF` linker option
-- These can be disabled using `python scripts/mk_make.py --no-guardcf` (Python build) or `cmake -DZ3_ENABLE_CFG=OFF` (CMake build) if needed
+- These can be disabled using `python scripts/mk_make.py --no-guardcf` (Python build) or `cmake -S . -B build -DZ3_ENABLE_CFG=OFF` (CMake build) if needed
 
 ## Building Z3 using make and GCC/Clang
 
@@ -134,12 +147,6 @@ sudo make uninstall
 ```
 
 To clean Z3, you can delete the build directory and run the ``mk_make.py`` script again.
-
-## Building Z3 using CMake
-
-Z3 has a build system using CMake. Read the [README-CMake.md](README-CMake.md)
-file for details. It is recommended for most build tasks, 
-except for building OCaml bindings.
 
 ## Building Z3 using vcpkg
 

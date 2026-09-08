@@ -9,9 +9,10 @@ A previous version exposed the C++ API via [CxxWrap.jl](https://github.com/Julia
 In order to build the Julia bindings the build option `Z3_BUILD_JULIA_BINDINGS` has to be enabled via CMake and [libcxxwrap-julia](https://github.com/JuliaInterop/libcxxwrap-julia) has to be present. Infos about obtaining the libcxxwrap prefix can be found [here](https://github.com/JuliaInterop/CxxWrap.jl#compiling-the-c-code).
 
 ```
-mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_JULIA_BINDINGS=True -DCMAKE_PREFIX_PATH=/path/to/libcxxwrap-julia-prefix ..
-make
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+  -DZ3_BUILD_JULIA_BINDINGS=True \
+  -DCMAKE_PREFIX_PATH=/path/to/libcxxwrap-julia-prefix
+cmake --build build --parallel
 ```
 
 ## Julia part

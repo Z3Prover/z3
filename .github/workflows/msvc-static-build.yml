@@ -18,6 +18,6 @@ jobs:
   
     - name: Build
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DZ3_BUILD_LIBZ3_SHARED=OFF -DZ3_BUILD_LIBZ3_MSVC_STATIC=ON
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_LIBZ3_MSVC_STATIC=ON
         cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
         

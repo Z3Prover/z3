@@ -54,12 +54,13 @@ def run_configure(scan_build: str, build_dir: Path, output_dir: Path,
         scan_build,
         "-o", str(output_dir),
         "cmake",
-        str(repo_root),
+        "-S", str(repo_root),
+        "-B", str(build_dir),
     ]
     logger.info("configuring: %s", " ".join(cmd))
     try:
         proc = subprocess.run(
-            cmd, cwd=str(build_dir),
+            cmd, cwd=str(build_dir.parent),
             capture_output=True, text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
@@ -77,19 +78,20 @@ def run_configure(scan_build: str, build_dir: Path, output_dir: Path,
 
 def run_build(scan_build: str, build_dir: Path, output_dir: Path,
               timeout: int) -> bool:
-    """Run scan-build make to build and analyze."""
+    """Run a scan-build-wrapped CMake build and analyze."""
     nproc = os.cpu_count() or 4
     cmd = [
         scan_build,
         "-o", str(output_dir),
         "--status-bugs",
-        "make",
-        f"-j{nproc}",
+        "cmake",
+        "--build", str(build_dir),
+        "--parallel", str(nproc),
     ]
     logger.info("building with analysis: %s", " ".join(cmd))
     try:
         proc = subprocess.run(
-            cmd, cwd=str(build_dir),
+            cmd, cwd=str(build_dir.parent),
             capture_output=True, text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:

@@ -14,7 +14,10 @@ jobs:
     env:
       CC: clang
       CXX: clang++
-      BUILD_TYPE: Debug
+      CFLAGS: --coverage
+      CXXFLAGS: --coverage
+      LDFLAGS: -lgcov
+      CMAKE_BUILD_TYPE: Debug
       CMAKE_GENERATOR: Ninja
       COV_DETAILS_PATH: ${{github.workspace}}/cov-details
 
@@ -29,13 +32,13 @@ jobs:
 
     ## Building
     - name: Configure CMake Z3
-      run: CFLAGS=="--coverage" CXXFLAGS="--coverage" LDFLAGS="-lgcov" cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=./install
+      run: cmake -S . -B ${{github.workspace}}/build -DCMAKE_INSTALL_PREFIX=./install
 
     - name: Build Z3
-      run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build --target install --config ${{env.CMAKE_BUILD_TYPE}}
 
     - name: Build test-z3
-      run: cmake --build ${{github.workspace}}/build --target test-z3 --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build --target test-z3 --config ${{env.CMAKE_BUILD_TYPE}}
 
     - name: Build examples
       run: |

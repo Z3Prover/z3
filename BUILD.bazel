@@ -50,7 +50,6 @@ cmake(
     name = "z3_static",
     generate_args = _DEFAULT_CMAKE_GENERATE_ARGS + [
         "-D BUILD_SHARED_LIBS=OFF",
-        "-D Z3_BUILD_LIBZ3_SHARED=OFF",
     ],
     lib_source = ":all_files",
     out_binaries = ["z3"],

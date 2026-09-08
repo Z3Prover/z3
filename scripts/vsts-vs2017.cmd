@@ -1,10 +1,9 @@
 rem Supply argument x64, x86 or amd64_arm64
 
 echo "Build"
-md build
-cd build
 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %1
-cmake -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "NMake Makefiles" ../
+cmake -G "NMake Makefiles" -S . -B build -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True
+cd build
 nmake
 if ERRORLEVEL 1 exit 1
 

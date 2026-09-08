@@ -148,11 +148,16 @@ jobs:
           pip install build git+https://github.com/rhelmot/auditwheel
 
       - name: Build Python wheel (cross-compile)
+        env:
+          AR: aarch64-none-linux-gnu-ar
+          CC: aarch64-none-linux-gnu-gcc
+          CXX: aarch64-none-linux-gnu-g++
+          LD: aarch64-none-linux-gnu-ld
         run: |
           source $PWD/env/bin/activate
           export PATH="/tmp/arm-toolchain/bin:/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin:$PATH"
           cd src/api/python
-          CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld python -m build
+          python -m build
           AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
           cd ../../..
 
@@ -305,24 +310,32 @@ jobs:
       matrix:
         include:
           - name: releaseClang
+            cc: clang
+            cxx: clang++
             setupCmd1: ''
             setupCmd2: ''
-            buildCmd: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
+            buildCmd: 'cmake -G "Ninja" -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True'
             runTests: true
           - name: debugClang
+            cc: clang
+            cxx: clang++
             setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"'
             setupCmd2: 'JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
-            buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
+            buildCmd: 'cmake -G "Ninja" -S . -B build -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True'
             runTests: true
           - name: debugGcc
+            cc: gcc
+            cxx: g++
             setupCmd1: ''
             setupCmd2: ''
-            buildCmd: 'CC=gcc CXX=g++ cmake -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
+            buildCmd: 'cmake -G "Ninja" -S . -B build -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True'
             runTests: true
           - name: releaseSTGcc
+            cc: gcc
+            cxx: g++
             setupCmd1: ''
             setupCmd2: ''
-            buildCmd: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_SINGLE_THREADED=ON -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
+            buildCmd: 'cmake -G "Ninja" -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_SINGLE_THREADED=ON -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True'
             runTests: false
     steps:
       - name: Checkout code
@@ -348,10 +361,11 @@ jobs:
           version: '1'
 
       - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
         run: |
           set -e
-          mkdir build
-          cd build
           ${{ matrix.setupCmd1 }}
           ${{ matrix.setupCmd2 }}
           ${{ matrix.buildCmd }}
@@ -438,7 +452,7 @@ jobs:
 
       - name: Build and install shared library
         run: |
-          cmake -S . -B build -G Ninja \
+          cmake -G Ninja -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=ON \
             -DZ3_USE_LIB_GMP=ON \
@@ -453,7 +467,7 @@ jobs:
 
       - name: Reconfigure in-place and build and install static library
         run: |
-          cmake -S . -B build -DBUILD_SHARED_LIBS=OFF
+          cmake -G Ninja -S . -B build -DBUILD_SHARED_LIBS=OFF
           cmake --build build --target libz3 shell
           cmake --install build --prefix "$PWD/install"
 
@@ -471,12 +485,13 @@ jobs:
           ! ldd pkg-config-test
 
       - name: Build Python bindings from installed shared package
+        env:
+          Z3_ROOT: ${{ github.workspace }}/install
         run: |
-          cmake -S . -B build-python-only -G Ninja \
+          cmake -G Ninja -S . -B build-python-only \
             -DZ3_BUILD_LIBZ3_CORE=OFF \
             -DZ3_BUILD_PYTHON_BINDINGS=ON \
-            -DZ3_INSTALL_PYTHON_BINDINGS=OFF \
-            -DCMAKE_PREFIX_PATH="$PWD/install"
+            -DZ3_INSTALL_PYTHON_BINDINGS=OFF
           cmake --build build-python-only --target build_z3_python_bindings
 
       - name: Setup consumer CMake
@@ -598,9 +613,11 @@ jobs:
           python-version: '3.x'
 
       - name: Configure (cross-compile ARM64 host -> x86_64 target)
-        run: |
-          CXXFLAGS="-arch x86_64" CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
-            python scripts/mk_make.py --java --arm64=false
+        env:
+          CFLAGS: -arch x86_64
+          CXXFLAGS: -arch x86_64
+          LDFLAGS: -arch x86_64
+        run: python scripts/mk_make.py --java --arm64=false
 
       - name: Build
         run: |
@@ -668,10 +685,7 @@ jobs:
           julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"
           JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
           set -e
-          mkdir build
-          cd build
-          cmake -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
-          cd ..
+          cmake -G "Ninja" -S . -B build -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False
 
       - name: Build
         run: |
