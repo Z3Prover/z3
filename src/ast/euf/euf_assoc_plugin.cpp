@@ -158,7 +158,7 @@ namespace euf {
         int n1 = static_cast<int>(lhs1.size());
         int n2 = static_cast<int>(lhs2.size());
         for (int offset = 1 - n2; offset < n1; ++offset) {
-            if (m_stats.m_num_superpositions >= m_max_superpositions)
+            if (m_num_superpositions >= m_max_superpositions)
                 return;
             int begin = std::max(0, offset);
             int end = std::min(n1, offset + n2);
@@ -167,6 +167,7 @@ namespace euf {
                 overlaps = lhs1[i]->get_root() == lhs2[i - offset]->get_root();
             if (!overlaps)
                 continue;
+            ++m_num_superpositions;
             ++m_stats.m_num_superpositions;
             int first = std::min(0, offset);
             int last = std::max(n1, offset + n2);
@@ -187,9 +188,9 @@ namespace euf {
 
     void assoc_plugin::complete() {
         while (m_completion_head < m_rules.size() &&
-               m_stats.m_num_superpositions < m_max_superpositions) {
+               m_num_superpositions < m_max_superpositions) {
             unsigned i = m_completion_head++;
-            for (unsigned j = 0; j <= i && m_stats.m_num_superpositions < m_max_superpositions; ++j)
+            for (unsigned j = 0; j <= i && m_num_superpositions < m_max_superpositions; ++j)
                 add_overlaps(m_rules[i], m_rules[j]);
         }
     }
@@ -214,6 +215,7 @@ namespace euf {
     }
 
     void assoc_plugin::push_scope_eh() {
+        m_superposition_lim.push_back(m_num_superpositions);
         push_undo(undo_kind::is_push_scope);
     }
 
@@ -236,6 +238,8 @@ namespace euf {
             m_completion_head = std::min(m_completion_head, m_rules.size());
             break;
         case undo_kind::is_push_scope:
+            m_num_superpositions = m_superposition_lim.back();
+            m_superposition_lim.pop_back();
             break;
         }
     }

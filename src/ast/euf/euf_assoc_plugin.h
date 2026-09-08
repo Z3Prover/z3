@@ -58,6 +58,8 @@ namespace euf {
         enode_pair_vector m_queued;
         bool_vector m_is_shared;
         svector<undo_kind> m_undo;
+        unsigned_vector m_superposition_lim;
+        unsigned m_num_superpositions = 0;
         unsigned m_queue_head = 0;
         unsigned m_completion_head = 0;
         unsigned m_max_rules = 64;
