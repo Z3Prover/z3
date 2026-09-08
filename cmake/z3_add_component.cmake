@@ -1,17 +1,12 @@
 define_property(TARGET PROPERTY INTERFACE_Z3_TACTIC_HEADERS
                 BRIEF_DOCS "Headers containing Z3 tactic registrations"
                 FULL_DOCS "Headers scanned to generate tactic installation code")
-define_property(TARGET PROPERTY INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS
-                BRIEF_DOCS "Headers containing Z3 memory hooks"
-                FULL_DOCS "Headers scanned to generate memory initialization code")
 
 # z3_add_component(component_name
 #   [NOT_LIBZ3_COMPONENT]
 #   SOURCES source1 [source2...]
 #   [COMPONENT_DEPENDENCIES component1 [component2...]]
 #   [TACTIC_HEADERS header_file1 [header_file2...]]
-#   [EXTRA_REGISTER_MODULE_HEADERS header_file1 [header_file2...]]
-#   [MEMORY_INIT_FINALIZER_HEADERS header_file1 [header_file2...]]
 # )
 #
 # Declares a Z3 component (as a CMake "object library") with target name
@@ -35,15 +30,11 @@ define_property(TARGET PROPERTY INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS
 # The optional ``TACTIC_HEADERS`` keyword should be followed by a list of one or
 # more header files that declare a tactic and/or a probe that is part of this
 # component (see ``ADD_TACTIC()`` and ``ADD_PROBE()``).
-#
-# The optional ``MEMORY_INIT_FINALIZER_HEADERS`` keyword should be followed by a list
-# of one or more header files that contain memory initializer/finalizer declarations
-# (i.e. ``ADD_INITIALIZER()`` or ``ADD_FINALIZER()``).
 function(z3_add_component component_name)
   cmake_parse_arguments(PARSE_ARGV 1 Z3_MOD
     "NOT_LIBZ3_COMPONENT"
     ""
-    "SOURCES;COMPONENT_DEPENDENCIES;TACTIC_HEADERS;MEMORY_INIT_FINALIZER_HEADERS")
+    "SOURCES;COMPONENT_DEPENDENCIES;TACTIC_HEADERS")
   message(STATUS "Adding component ${component_name}")
   # Note: We don't check the sources exist here because
   # they might be generated files that don't exist yet.
@@ -57,17 +48,6 @@ function(z3_add_component component_name)
     endif()
     list(APPEND _tactic_headers "${_full_tactic_header_file_path}")
   endforeach()
-  # Resolve memory initializer/finalizer headers.
-  set(_mem_init_finalizer_headers "")
-  foreach (memory_init_finalizer_header ${Z3_MOD_MEMORY_INIT_FINALIZER_HEADERS})
-    set(_full_memory_init_finalizer_header_path
-      "${CMAKE_CURRENT_SOURCE_DIR}/${memory_init_finalizer_header}")
-    if (NOT (EXISTS "${_full_memory_init_finalizer_header_path}"))
-      message(FATAL_ERROR "\"${_full_memory_init_finalizer_header_path}\" does not exist")
-    endif()
-    list(APPEND _mem_init_finalizer_headers
-      "${_full_memory_init_finalizer_header_path}")
-  endforeach()
   # Using "object" libraries here means we have a convenient
   # name to refer to a component in CMake but we don't actually
   # create a static/library from them. This allows us to easily
@@ -78,7 +58,6 @@ function(z3_add_component component_name)
   target_link_libraries(${component_name} PRIVATE z3_common)
   set_target_properties(${component_name} PROPERTIES
     INTERFACE_Z3_TACTIC_HEADERS "${_tactic_headers}"
-    INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS "${_mem_init_finalizer_headers}"
   )
   set_target_properties(${component_name} PROPERTIES
     # Position independent code needed in shared libraries
@@ -113,8 +92,7 @@ function(z3_generate_registration target)
   endif()
 
   foreach (_generated_source IN ITEMS
-      install_tactic.cpp
-      mem_initializer.cpp)
+      install_tactic.cpp)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_generated_source}")
       message(FATAL_ERROR
         "\"${CMAKE_CURRENT_SOURCE_DIR}/${_generated_source}\""
@@ -125,12 +103,9 @@ function(z3_generate_registration target)
   # Registration metadata follows the private component link graph. Custom
   # transitive link properties include dependencies guarded by LINK_ONLY.
   set_property(TARGET "${target}" APPEND PROPERTY TRANSITIVE_LINK_PROPERTIES
-    Z3_TACTIC_HEADERS
-    Z3_MEM_INIT_FINALIZER_HEADERS)
+    Z3_TACTIC_HEADERS)
 
   set(_tactic_headers "$<TARGET_PROPERTY:${target},Z3_TACTIC_HEADERS>")
-  set(_mem_init_finalizer_headers
-    "$<TARGET_PROPERTY:${target},Z3_MEM_INIT_FINALIZER_HEADERS>")
 
   # The tactic generator takes its inputs in a file. file(GENERATE) evaluates
   # the target's transitive metadata without rewriting an unchanged deps file.
@@ -153,20 +128,6 @@ function(z3_generate_registration target)
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
     VERBATIM)
 
-  add_custom_command(OUTPUT
-      "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp"
-    COMMAND "${Python3_EXECUTABLE}"
-      "${PROJECT_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
-      "${CMAKE_CURRENT_BINARY_DIR}"
-      "${_mem_init_finalizer_headers}"
-    DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
-      ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-      "${_mem_init_finalizer_headers}"
-    COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp\""
-    COMMAND_EXPAND_LISTS
-    VERBATIM)
-
   target_sources("${target}" PRIVATE
-    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
-    "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp")
+    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp")
 endfunction()

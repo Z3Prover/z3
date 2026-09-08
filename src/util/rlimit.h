@@ -20,14 +20,13 @@ Revision History:
 
 #include "util/vector.h"
 #include "util/timer.h"
+#include "util/memory_manager.h"
 #include <atomic>
 
 void initialize_rlimit();
 void finalize_rlimit();
-/*
-  ADD_INITIALIZER('initialize_rlimit();')
-  ADD_FINALIZER('finalize_rlimit();')
-*/
+Z3_ADD_INITIALIZER(rlimit, initialize_rlimit, 0);
+Z3_ADD_FINALIZER(rlimit, finalize_rlimit);
 
 class reslimit {
     std::atomic<unsigned> m_cancel = 0;
