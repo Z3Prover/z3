@@ -188,7 +188,8 @@ namespace seq {
         }
 
         if (eq.m_lhs.empty() && eq.m_rhs.empty()) {
-            m_trail.push(value_trail<bool>(m_eqs[idx].m_active, false));
+            m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
+            m_eqs[idx].m_active = false;
         }
 
         // Any newly-produced sub-equations (from unit-vs-unit
@@ -864,7 +865,8 @@ namespace seq {
                     // distinct leading constants: the two sides can never
                     // be made equal by any future substitution - the
                     // disequation is proved and discharged.
-                    m_trail.push(value_trail<bool>(m_diseqs[i].m_active, false));
+                    m_trail.push(vector_field_trail<disequation, bool>(m_diseqs, i, &disequation::m_active));
+                m_diseqs[i].m_active = false;
                     changed = true;
                     continue;
                 }
