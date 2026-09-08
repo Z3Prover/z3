@@ -19,22 +19,24 @@ Notes:
 
     TODO: review and realize other ways to resolve remaining comparisons based on theory_seq.
 
-    Loop/cycle detection over lexicographic obligations now builds a
-    local `euf::egraph` (with `euf::seq_plugin` registered for
-    associative-concatenation reasoning) on every `detect_cycles` call:
-    every known equation (`eq_facet`) and disequation (`deq_facet`) is
-    registered into the egraph first (via `merge`/`new_diseq`, with each
-    justification's `void*` reason packing an index into a local
-    `dep_tracker` table, mirroring `ast/simplifiers/euf_completion.cpp`'s
-    `to_ptr`/`from_ptr` trick), then every pending obligation's token-list
-    concatenation is looked up/inserted as a node. After `propagate()`, an
-    egraph-level conflict (the equations/disequations are already
-    contradictory) is reported directly, with the minimal justification
-    extracted via `explain`. Otherwise, the DFS cycle-detection graph uses
-    the *egraph root's expr* (not the raw token-concat expr) as each
-    node's identity, so obligations that are only semantically equal -
-    not just syntactically identical - collapse onto the same digraph
-    node, per the design below.
+    Loop/cycle detection over lexicographic obligations uses `lex_facet`'s
+    own incremental `euf::egraph` (`m_g`, with `euf::seq_plugin` registered
+    for associative-concatenation reasoning), pushed/popped in lockstep
+    with the shared trail's scopes (see `lex_facet::push`/`pop`). Each
+    `detect_cycles` call first calls `sync_egraph` to register into `m_g`
+    only the active equations (`eq_facet`)/disequations (`deq_facet`)
+    added since `m_eq_qhead`/`m_deq_qhead` (via `merge`/`new_diseq`, with
+    each justification's `void*` reason packing an index into the
+    append-only `m_reasons` table, mirroring
+    `ast/simplifiers/euf_completion.cpp`'s `to_ptr`/`from_ptr` trick), then
+    every pending obligation's token-list concatenation is looked
+    up/inserted as a node. After `propagate()`, an egraph-level conflict
+    (the equations/disequations are already contradictory) is reported
+    directly, with the minimal justification extracted via `explain`.
+    Otherwise, the DFS cycle-detection graph uses the *egraph root's expr*
+    (not the raw token-concat expr) as each node's identity, so
+    obligations that are only semantically equal - not just syntactically
+    identical - collapse onto the same digraph node, per the design below.
 
 --*/
 #include "ast/seq/seq_lex_facet.h"
@@ -45,6 +47,11 @@ Notes:
 #include <functional>
 
 namespace seq {
+
+    lex_facet::lex_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
+        facet_i(trail), m(m), u(u), m_dm(dm), m_g(m) {
+        m_g.add_plugin(alloc(euf::seq_plugin, m_g));
+    }
 
     void lex_facet::set_sides(unsigned idx, expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
         m_trail.push(vector_field_trail<str_lex, expr_ref_vector>(m_lexs, idx, &str_lex::m_lhs));
@@ -254,36 +261,15 @@ namespace seq {
     static size_t* to_ptr(size_t i) { return reinterpret_cast<size_t*>(i); }
     static unsigned from_ptr(size_t* s) { return (unsigned)reinterpret_cast<size_t>(s); }
 
-    bool lex_facet::detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf, deq_facet& deqf) {
-        conflict = false;
-        conflict_dep = nullptr;
-
-        // Collect the subset of pending obligations that have been
-        // simplified down to a single variable/opaque term on each
-        // side; these are the only ones we can place as edges into a
-        // variable-level comparison graph. Everything else (still
-        // multi-token) is left untouched.
-        if (m_lexs.empty())
-            return false;
-
-        // -- Build a local egraph (per module comment's TODO), register
-        // the seq associative-completion plugin, and feed it every
-        // known equation (eqf), disequation (deqf), and pending lex
-        // obligation's token-concat term, so that lexicographically
-        // compared terms that are only *equal* (not syntactically
-        // identical) collapse onto a single node - identified by the
-        // root of its equivalence class - for the cycle-detection graph
-        // below.
-        euf::egraph g(m);
-        g.add_plugin(alloc(euf::seq_plugin, g));
-        vector<eq_tree::dep_tracker> reasons;
+    bool lex_facet::sync_egraph(eq_facet& eqf, deq_facet& deqf) {
+        bool added = false;
 
         obj_map<expr, euf::enode*> node_cache;
         std::function<euf::enode*(expr*)> mk_node = [&](expr* e) -> euf::enode* {
             euf::enode* cached = nullptr;
             if (node_cache.find(e, cached))
                 return cached;
-            if (euf::enode* n = g.find(e)) {
+            if (euf::enode* n = m_g.find(e)) {
                 node_cache.insert(e, n);
                 return n;
             }
@@ -291,7 +277,7 @@ namespace seq {
             if (is_app(e))
                 for (expr* arg : *to_app(e))
                     args.push_back(mk_node(arg));
-            euf::enode* n = g.mk(e, 0, args.size(), args.data());
+            euf::enode* n = m_g.mk(e, 0, args.size(), args.data());
             node_cache.insert(e, n);
             return n;
         };
@@ -300,33 +286,92 @@ namespace seq {
             return mk_node(t);
         };
 
-        for (eq_facet::equation const& eq : eqf.equations()) {
-            if (!eq.active())
-                continue;
-            if (eq.m_lhs.empty() && eq.m_rhs.empty())
-                continue;
-            sort* s = (eq.m_lhs.empty() ? eq.m_rhs.get(0) : eq.m_lhs.get(0))->get_sort();
-            euf::enode* l = mk_concat_node(eq.m_lhs, s);
-            euf::enode* r = mk_concat_node(eq.m_rhs, s);
-            reasons.push_back(eq.m_dep);
-            g.merge(l, r, to_ptr(reasons.size() - 1));
+        // Only the [qhead, size) suffix is new since the last call: the
+        // vectors are append-only (eq_facet/deq_facet's own append-only
+        // discipline - see seq_eq_facet.h), so entries before the qhead
+        // were already registered by a prior sync_egraph call and never
+        // change identity, only (possibly) their active() flag - but a
+        // once-active entry later marked inactive by backtracking is
+        // simply popped back out of m_g by pop() below, exactly like any
+        // other trailed mutation, so there is nothing to re-scan there.
+        vector<eq_facet::equation> const& eqs = eqf.equations();
+        for (unsigned i = m_eq_qhead; i < eqs.size(); ++i) {
+            eq_facet::equation const& eq = eqs[i];
+            if (eq.active() && !(eq.m_lhs.empty() && eq.m_rhs.empty())) {
+                sort* s = (eq.m_lhs.empty() ? eq.m_rhs.get(0) : eq.m_lhs.get(0))->get_sort();
+                euf::enode* l = mk_concat_node(eq.m_lhs, s);
+                euf::enode* r = mk_concat_node(eq.m_rhs, s);
+                m_reasons.push_back(eq.m_dep);
+                m_trail.push(push_back_trail<eq_tree::dep_tracker>(m_reasons));
+                m_g.merge(l, r, to_ptr(m_reasons.size() - 1));
+                added = true;
+            }
         }
-        for (deq_facet::disequation const& de : deqf.disequations()) {
-            if (!de.active())
-                continue;
-            if (de.m_lhs.empty() && de.m_rhs.empty())
-                continue;
-            sort* s = (de.m_lhs.empty() ? de.m_rhs.get(0) : de.m_lhs.get(0))->get_sort();
-            euf::enode* l = mk_concat_node(de.m_lhs, s);
-            euf::enode* r = mk_concat_node(de.m_rhs, s);
-            expr_ref eqe(m.mk_eq(l->get_expr(), r->get_expr()), m);
+        if (eqs.size() > m_eq_qhead) {
+            m_trail.push(value_trail<unsigned>(m_eq_qhead));
+            m_eq_qhead = eqs.size();
+        }
+
+        vector<deq_facet::disequation> const& des = deqf.disequations();
+        for (unsigned i = m_deq_qhead; i < des.size(); ++i) {
+            deq_facet::disequation const& de = des[i];
+            if (de.active() && !(de.m_lhs.empty() && de.m_rhs.empty())) {
+                sort* s = (de.m_lhs.empty() ? de.m_rhs.get(0) : de.m_lhs.get(0))->get_sort();
+                euf::enode* l = mk_concat_node(de.m_lhs, s);
+                euf::enode* r = mk_concat_node(de.m_rhs, s);
+                expr_ref eqe(m.mk_eq(l->get_expr(), r->get_expr()), m);
+                euf::enode_vector args;
+                args.push_back(l);
+                args.push_back(r);
+                euf::enode* eqn = m_g.mk(eqe, 0, args.size(), args.data());
+                m_reasons.push_back(de.m_dep);
+                m_trail.push(push_back_trail<eq_tree::dep_tracker>(m_reasons));
+                m_g.new_diseq(eqn, to_ptr(m_reasons.size() - 1));
+                added = true;
+            }
+        }
+        if (des.size() > m_deq_qhead) {
+            m_trail.push(value_trail<unsigned>(m_deq_qhead));
+            m_deq_qhead = des.size();
+        }
+        return added;
+    }
+
+    bool lex_facet::detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf, deq_facet& deqf) {
+        conflict = false;
+        conflict_dep = nullptr;
+
+        // No-op fast path: nothing new to register (no new active
+        // equations/disequations since the qheads) and no pending lex
+        // obligations to place as digraph edges at all.
+        bool new_facts = sync_egraph(eqf, deqf);
+        if (!new_facts && m_lexs.empty())
+            return false;
+
+        if (m_lexs.empty())
+            return false;
+
+        obj_map<expr, euf::enode*> node_cache;
+        std::function<euf::enode*(expr*)> mk_node = [&](expr* e) -> euf::enode* {
+            euf::enode* cached = nullptr;
+            if (node_cache.find(e, cached))
+                return cached;
+            if (euf::enode* n = m_g.find(e)) {
+                node_cache.insert(e, n);
+                return n;
+            }
             euf::enode_vector args;
-            args.push_back(l);
-            args.push_back(r);
-            euf::enode* eqn = g.mk(eqe, 0, args.size(), args.data());
-            reasons.push_back(de.m_dep);
-            g.new_diseq(eqn, to_ptr(reasons.size() - 1));
-        }
+            if (is_app(e))
+                for (expr* arg : *to_app(e))
+                    args.push_back(mk_node(arg));
+            euf::enode* n = m_g.mk(e, 0, args.size(), args.data());
+            node_cache.insert(e, n);
+            return n;
+        };
+        auto mk_concat_node = [&](expr_ref_vector const& ts, sort* s) -> euf::enode* {
+            expr_ref t(u.str.mk_concat(ts, s), m);
+            return mk_node(t);
+        };
 
         vector<std::pair<euf::enode*, euf::enode*>> nedges;
 
@@ -341,19 +386,19 @@ namespace seq {
             nedges.push_back({a, b});
         }
 
-        g.propagate();
-        if (g.inconsistent()) {
+        m_g.propagate();
+        if (m_g.inconsistent()) {
             // The equations/disequations registered above are themselves
             // contradictory (independent of any lex obligation): extract
             // the minimal justification via the egraph's own explanation
             // machinery and report the conflict directly.
             ptr_vector<size_t> just;
-            g.begin_explain();
-            g.explain(just, nullptr);
-            g.end_explain();
+            m_g.begin_explain();
+            m_g.explain(just, nullptr);
+            m_g.end_explain();
             eq_tree::dep_tracker dep = nullptr;
             for (size_t* j : just)
-                dep = m_dm.mk_join(dep, reasons[from_ptr(j)]);
+                dep = m_dm.mk_join(dep, m_reasons[from_ptr(j)]);
             conflict = true;
             conflict_dep = dep;
             return true;
@@ -435,11 +480,11 @@ namespace seq {
                         (void)l; (void)r;
                         if (b != c) {
                             ptr_vector<size_t> eq_just;
-                            g.begin_explain();
-                            g.explain_eq(eq_just, nullptr, b, c);
-                            g.end_explain();
+                            m_g.begin_explain();
+                            m_g.explain_eq(eq_just, nullptr, b, c);
+                            m_g.end_explain();
                             for (size_t* j : eq_just)
-                                dep = m_dm.mk_join(dep, reasons[from_ptr(j)]);
+                                dep = m_dm.mk_join(dep, m_reasons[from_ptr(j)]);
                         }
                     }
                     if (has_strict) {

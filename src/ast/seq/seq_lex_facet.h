@@ -64,17 +64,16 @@ Abstract:
         case) for a future round, e.g. once further substitution
         resolves the leading tokens further.
 
-    `m_qhead` is *not* used the way `req_facet` uses it (entries here are
-    revisited every round, since - unlike `req_facet`'s ground bisimulation
-    calls - stripping/discharging can make progress once other facets'
-    substitutions change a pending entry's leading tokens); it is instead
-    used purely to bound the "already fully stripped, nothing more to do
-    this round" fast path, exactly like `eq_facet`'s own per-entry
-    residual tracking. (Present per the general facet convention even
-    though this facet's obligations are not substituted into by
-    `eq_facet`'s split machinery today - see module note in
-    `lex_propagation::propagate` - so that adding such wiring later needs
-    no facet-shape change.)
+    `m_eq_qhead`/`m_deq_qhead` track which prefix of `eq_facet::equations()`/
+    `deq_facet::disequations()` has already been registered into this
+    facet's own incremental `euf::egraph` (`m_g`, pushed/popped in
+    lockstep with the shared trail's scopes via `push()`/`pop()`), so
+    `detect_cycles` re-registers only the genuinely new active entries on
+    each call instead of rebuilding `m_g` from scratch every time -
+    mirroring `req_facet`'s own `m_qhead` convention (see
+    `seq_req_facet.h`). If nothing new has been asserted since the last
+    call (no new active equations/disequations, and no pending lex
+    obligations at all), `detect_cycles` is a no-op.
 
 Author:
 
@@ -88,6 +87,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
+#include "ast/euf/euf_egraph.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 
@@ -116,9 +116,30 @@ namespace seq {
         eq_tree::dep_manager_t& m_dm;
         vector<str_lex> m_lexs;
 
+        // Incremental egraph, owned by this facet (see module comment's
+        // former TODO, now implemented): registers eq_facet's/deq_facet's
+        // equations/disequations plus every pending lex obligation's
+        // token-concat terms, so that two obligations whose sides are
+        // only *equal* (not syntactically identical) collapse onto the
+        // same digraph node in detect_cycles. Pushed/popped in lockstep
+        // with the shared trail via push()/pop() below (one scope per
+        // call, mirroring the DFS driver's own one-scope-at-a-time
+        // discipline - see stx_search_tree.h's scoped_push).
+        euf::egraph m_g;
+        // Index of the first eq_facet::equations()/deq_facet::disequations()
+        // entry not yet registered into m_g. Trailed (value_trail),
+        // advanced forward only by sync_egraph() below - mirrors
+        // req_facet::m_qhead's convention (see seq_req_facet.h).
+        unsigned m_eq_qhead = 0;
+        unsigned m_deq_qhead = 0;
+        // Dependency for each merge/diseq registered into m_g, indexed by
+        // the packed `void*` reason (to_ptr/from_ptr in seq_lex_facet.cpp)
+        // - append-only, trailed via push_back_trail, so indices handed
+        // out to earlier egraph justifications stay valid across pops.
+        vector<eq_tree::dep_tracker> m_reasons;
+
     public:
-        lex_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), u(u), m_dm(dm) {}
+        lex_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm);
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
@@ -159,6 +180,14 @@ namespace seq {
         bool is_satisfied() const override { return m_lexs.empty(); }
         std::ostream& display(std::ostream& out) const override;
 
+        // Scope-boundary hooks: keep m_g's own scope stack (independent
+        // of eq_facet/deq_facet's own trailing) exactly in lockstep with
+        // the shared trail, one push()/pop(1) per call - see
+        // stx_search_tree.h's scoped_push, which calls every installed
+        // facet's push()/pop() once per DFS branch (de)scent.
+        void push() override { m_g.push(); }
+        void pop() override { m_g.pop(1); }
+
         // Deterministic simplification pass: strip common leading
         // (already-equal) tokens, then discharge/conflict once one side
         // is exhausted or the leading tokens are distinct comparable
@@ -183,20 +212,33 @@ namespace seq {
         // pending set (either by discharging a would-be-equality cycle
         // into equations, or by finding a conflict). Trailed.
         //
-        // Uses a local `euf::egraph` (built fresh on every call, see
-        // module comment's TODO) to register the current equations
-        // (`eqf`) and disequations (`deqf`) together with the token
+        // Uses this facet's own incremental `m_g` (see class comment
+        // above) to register only the equations (`eqf`)/disequations
+        // (`deqf`) added since `m_eq_qhead`/`m_deq_qhead` (advancing
+        // those qheads forward, trailed), together with the token
         // sequences appearing in this facet's pending obligations, so
         // that two obligations whose sides are only *equal* (not
         // syntactically identical) collapse onto the same digraph node
-        // (identified by the egraph root's expr, per the TODO's "nodes
-        // labeled by ids for the roots of equivalence class"). If
-        // registering the equations/disequations alone already yields a
-        // conflict (e.g. `deqf` asserts `s1 != s2` but `eqf`'s equations
-        // force `s1 == s2`), that conflict is reported directly, with
+        // (identified by the egraph root's expr - "nodes labeled by ids
+        // for the roots of equivalence class"). If registering the
+        // equations/disequations alone already yields a conflict (e.g.
+        // `deqf` asserts `s1 != s2` but `eqf`'s equations force
+        // `s1 == s2`), that conflict is reported directly, with
         // `conflict_dep` extracted via the egraph's justification
         // machinery (`explain`) rather than lex_facet's own dependencies.
+        // Only active() equations/disequations/obligations are ever
+        // registered or scanned. If there is nothing new to register
+        // (no new active equations/disequations since the qheads, and
+        // no pending lex obligations at all), this is a no-op and
+        // returns false without touching `m_g`.
         bool detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf, deq_facet& deqf);
+
+    private:
+        // Registers every not-yet-seen active equation/disequation
+        // (advancing m_eq_qhead/m_deq_qhead) into m_g. Returns true if
+        // anything new was registered (informs detect_cycles' no-op
+        // check together with whether any lex obligation is pending).
+        bool sync_egraph(eq_facet& eqf, deq_facet& deqf);
     };
 
     // Deterministic propagation plugin wrapping lex_facet::simplify.
