@@ -329,25 +329,14 @@ namespace seq {
         struct edge { unsigned src, dst; bool strict; unsigned lex_idx; };
         vector<edge> edges;
 
-        auto get_id = [&](euf::enode* n) {
-            expr* root = n->get_root()->get_expr();
-            unsigned id;
-            if (var_id.find(root, id))
-                return id;
-            id = vars.size();
-            vars.push_back(root);
-            var_id.insert(root, id);
-            return id;
-        };
-
+        // register nodes
         for (unsigned i = 0; i < m_lexs.size(); ++i) {
             str_lex const& lx = m_lexs[i];
             if (lx.m_lhs.empty() && lx.m_rhs.empty())
                 continue;
             sort* s = (lx.m_lhs.empty() ? lx.m_rhs.get(0) : lx.m_lhs.get(0))->get_sort();
-            euf::enode* l = mk_concat_node(lx.m_lhs, s);
-            euf::enode* r = mk_concat_node(lx.m_rhs, s);
-            edges.push_back({ get_id(l), get_id(r), lx.m_strict, i });
+            mk_concat_node(lx.m_lhs, s);
+            mk_concat_node(lx.m_rhs, s);
         }
 
         g.propagate();
@@ -367,6 +356,27 @@ namespace seq {
             conflict_dep = dep;
             return true;
         }
+
+        // add nodes to graph
+        auto get_id = [&](euf::enode* n) {
+            expr* root = n->get_root()->get_expr();
+            unsigned id;
+            if (var_id.find(root, id))
+                return id;
+            id = vars.size();
+            vars.push_back(root);
+            var_id.insert(root, id);
+            return id;
+        };
+        for (unsigned i = 0; i < m_lexs.size(); ++i) {
+            str_lex const& lx = m_lexs[i];
+            if (lx.m_lhs.empty() && lx.m_rhs.empty())
+                continue;
+            sort* s = (lx.m_lhs.empty() ? lx.m_rhs.get(0) : lx.m_lhs.get(0))->get_sort();
+            euf::enode* l = mk_concat_node(lx.m_lhs, s);
+            euf::enode* r = mk_concat_node(lx.m_rhs, s);
+            edges.push_back({ get_id(l), get_id(r), lx.m_strict, i });
+        }        
         if (edges.empty())
             return false;
 
@@ -381,6 +391,7 @@ namespace seq {
         vector<unsigned> on_path;      // stack of edge indices on current DFS path
         vector<unsigned> path_node;    // stack of node ids on current DFS path
 
+        //NSB code review: make sure to use explanation from egraph for connection to root
         std::function<bool(unsigned)> dfs = [&](unsigned u_id) -> bool {
             colors[u_id] = color::gray;
             path_node.push_back(u_id);
