@@ -389,9 +389,13 @@ namespace seq {
 
     // NSB code review: this uses the end-game version of seq_monadic. 
     mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
-                                          vector<str_mem> const& mems) :
+                                          vector<str_mem> const& mems, unsigned budget,
+                                          seq_monadic::orientation orientation, unsigned split_rounds) :
         m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m(m), u(u) {
         m_mon.set_gen_solution(true);
+        m_mon.set_budget(budget);
+        m_mon.set_orientation(orientation);
+        m_mon.set_split_rounds(split_rounds);
         for (auto const& sm : mems) {
             sort* s = u.re.to_seq(sm.m_view.m_state->get_sort());
             expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
@@ -489,7 +493,7 @@ namespace seq {
         auto& mf = get_ambient(n).mem_facet_ref();
         if (mf.memberships().empty() || mf.is_satisfied())
             return nullptr;
-        scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships()));
+        scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships(), m_budget, m_orientation, m_split_rounds));
         if (it->is_refuted()) {
             // seq_monadic proved the conjunction of ALL memberships fed to it is
             // UNSAT (see seq_monadic::iterator's class comment): every branch was

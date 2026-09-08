@@ -334,6 +334,19 @@ namespace seq {
         ast_manager&      m;
         seq_util&         u;
         seq_rewriter&     m_rw;
+        // Mirrors theory_seq's smt/seq_regex.cpp wiring of seq_monadic's
+        // config (budget / orientation / split_rounds) from
+        // theory_seq_params: without this, every seq_monadic instance
+        // created here defaults to a forward-only, non-decomposing
+        // search that simply gives up (reports no branch, not a
+        // conflict) once it exhausts its work budget - unlike
+        // theory_seq, which retries in reverse and/or decomposes the
+        // intersection before giving up. That caused genuinely
+        // satisfiable/refutable membership conjunctions to be reported
+        // as spurious "unknown" by nseq while theory_seq solved them.
+        unsigned          m_budget = 1000000;
+        seq_monadic::orientation m_orientation = seq_monadic::orientation::retry;
+        unsigned          m_split_rounds = 10;
         struct stats {
             unsigned m_num_splits = 0;
             unsigned m_num_refuted = 0;
@@ -366,7 +379,8 @@ namespace seq {
 
         public:
             iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
-                     vector<str_mem> const& mems);
+                     vector<str_mem> const& mems, unsigned budget,
+                     seq_monadic::orientation orientation, unsigned split_rounds);
             bool next(eq_tree::edge& out) override;
             bool has_first() const { return !m_first.empty(); }
             // next() (or the constructor's priming call) reporting no
@@ -383,6 +397,11 @@ namespace seq {
     public:
         mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, ambient_context_i<eq_tree::dep_tracker>&) :
             m(m), u(u), m_rw(rw) {}
+        // Allows theory_nseq to wire this up from theory_seq_params the same
+        // way smt/seq_regex.cpp does for theory_seq's own monadic instance.
+        void set_budget(unsigned b) { m_budget = b; }
+        void set_orientation(seq_monadic::orientation o) { m_orientation = o; }
+        void set_split_rounds(unsigned n) { m_split_rounds = n; }
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override {

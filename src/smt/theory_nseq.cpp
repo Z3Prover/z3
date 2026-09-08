@@ -161,7 +161,21 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_var_peel, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
-        m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
+        {
+            // Mirrors smt/seq_regex.cpp's wiring of theory_seq's own
+            // seq_monadic instance from theory_seq_params: without this,
+            // mem_monadic_split's seq_monadic gives up (spurious
+            // "unknown") on cases theory_seq solves by retrying in
+            // reverse and/or decomposing the intersection.
+            auto* mm = alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient);
+            auto const& fp = ctx.get_fparams();
+            mm->set_budget(fp.m_seq_regex_budget);
+            mm->set_orientation(fp.m_seq_regex_orientation == "forward" ? seq_monadic::orientation::forward :
+                                 fp.m_seq_regex_orientation == "reversed" ? seq_monadic::orientation::reversed :
+                                 seq_monadic::orientation::retry);
+            mm->set_split_rounds(fp.m_seq_regex_split);
+            m_tree.add_split_plugin(mm);
+        }
         m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));

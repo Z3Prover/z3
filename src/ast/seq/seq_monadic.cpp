@@ -1203,11 +1203,18 @@ lbool seq_monadic::enumerate(membership_vec const& memberships, bool resume) {
         if (r != l_true)
             m_solution.reset();                   // do not leave the previous branch behind
     }
-    else
-        // Forward only: a reversed reading reports views over the reversed regexes, and
-        // the retry policy would run two searches -- neither is a branch of the problem
-        // the caller asked about.
-        r = decide_oriented(memberships, false, m_config.m_budget_limit);
+    else {
+        // Only the first pull runs the full decide() policy (retry-in-reverse,
+        // intersection decomposition): a subsequent resume=true pull continues the
+        // existing search stack via run_search(true), and switching orientation or
+        // decomposing mid-enumeration would abandon that stack. decide()'s
+        // decomposition path (decide_split) certifies l_true/l_false for the whole
+        // conjunction without leaving behind a resumable m_stack; any later pull
+        // will see gen != m_search_gen (or an empty stack) and stop cleanly, so
+        // reporting the one certified solution from decomposition here is correct
+        // even though further pulls will not yield more branches from it.
+        r = decide(memberships);
+    }
     m_last_search_memberships = memberships;
     m_last_search_result = r;
     m_last_result = r;    // a reported branch is materialize()-able, a drained one is not
@@ -1242,7 +1249,7 @@ bool seq_monadic::iterator::next(obj_map<expr, seq::view_vector>& solution) {
         return false;
     }
     for (auto const& [var, views] : m_engine.solution())
-        solution.insert(var, views);
+        solution.insert(m_engine.unwrap_solution_var(var), views);
     m_gen = m_engine.m_search_gen;
     m_started = true;
     ++m_count;

@@ -392,6 +392,7 @@ public:
     ~seq_monadic() { reset_ivl_cache(); }
 
     void collect_statistics(::statistics &st) const;
+    statistics const& stats() const { return m_stats; }
 
     // Display asserted constraints, result artifacts, search state, caches, and counters.
     std::ostream& display(std::ostream& out) const;
@@ -406,6 +407,12 @@ public:
     // Per variable, the views its value has to satisfy, from the last solve()/check()
     // that returned l_true.  The state/target terms stay valid until the next one.
     obj_map<expr, seq::view_vector> const& solution() const { return m_solution; }
+
+    // Unwrap a solution key that may be a reversed-reading marker (mk_rev_var) back to
+    // the real variable: callers that consume solution() directly (rather than through
+    // materialize_all(), which already does this) need this to match against their own
+    // variable set when the search happened to run reversed (see prepare()/mk_rev_var()).
+    expr* unwrap_solution_var(expr* v) const { return strip_rev_var(v); }
 
     // Collapse `var`'s views into one value: a word driving all of them to acceptance
     // at once -- the first the product search finds, not the shortest.  The only place
