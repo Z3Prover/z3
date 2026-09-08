@@ -324,7 +324,7 @@ namespace seq {
             g.new_diseq(eqn, to_ptr(reasons.size() - 1));
         }
 
-        enode_pair_vector nedges;
+        vector<std::pair<euf::enode*, euf::enode*>> nedges;
 
         // register nodes
         for (unsigned i = 0; i < m_lexs.size(); ++i) {
@@ -394,7 +394,7 @@ namespace seq {
         vector<unsigned> on_path;      // stack of edge indices on current DFS path
         vector<unsigned> path_node;    // stack of node ids on current DFS path
 
-        //NSB code review: make sure to use explanation from egraph for connection to root
+        // NSB code review: use explanation from egraph for connection to root
         std::function<bool(unsigned)> dfs = [&](unsigned u_id) -> bool {
             colors[u_id] = color::gray;
             path_node.push_back(u_id);
@@ -415,10 +415,33 @@ namespace seq {
                         auto& lx = m_lexs[e.lex_idx];
                         has_strict |= e.strict;
                         dep = m_dm.mk_join(dep, lx.m_dep);
-                        // NSB code review TODO:
-                        // make sure to include dependencies that l equals the root associated with the source node
-                        // dep = m_dm.mk_join(dep, explain l = id_var[lx.src])
-                        // using g
+                        // Include the egraph's own justification for why
+                        // `l` (this edge's source node, as originally
+                        // built from the lex obligation's token concat)
+                        // is congruent to the root node recorded for
+                        // this edge's source id (id_var[e.src]) - this
+                        // is exactly the equality that let this edge
+                        // collapse onto the shared digraph node, e.g. an
+                        // eq_facet equation or seq_plugin associative
+                        // completion, not the lex obligation's own dep.
+                        euf::enode* root = id_var[e.src];
+                        if (l != root) {
+                            ptr_vector<size_t> eq_just;
+                            g.begin_explain();
+                            g.explain_eq(eq_just, nullptr, l, root);
+                            g.end_explain();
+                            for (size_t* j : eq_just)
+                                dep = m_dm.mk_join(dep, reasons[from_ptr(j)]);
+                        }
+                        euf::enode* dst_root = id_var[e.dst];
+                        if (r != dst_root) {
+                            ptr_vector<size_t> eq_just;
+                            g.begin_explain();
+                            g.explain_eq(eq_just, nullptr, r, dst_root);
+                            g.end_explain();
+                            for (size_t* j : eq_just)
+                                dep = m_dm.mk_join(dep, reasons[from_ptr(j)]);
+                        }
                     }
                     if (has_strict) {
                         conflict = true;

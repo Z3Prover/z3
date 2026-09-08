@@ -51,6 +51,7 @@
     X(symbol) \
     X(stx_search_tree) \
     X(seq_eq_facet) \
+    X(seq_lex_facet) \
     X(seq_mem_facet) \
     X(seq_ncontains_facet) \
     X(seq_power_facet) \
