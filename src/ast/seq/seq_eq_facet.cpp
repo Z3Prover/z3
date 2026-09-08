@@ -456,23 +456,31 @@ namespace seq {
                 eq_tree::dep_tracker eq_dep = eq.m_dep;
 
                 if ((lv || !lu) && (rv || !ru)) {
-                    // Two distinct variables lh, rh: the classic 4-branch
+                    // Two distinct variables lh, rh: the classic 5-branch
                     // Nielsen transformation for word equations (design doc
                     // facet-eq-deq.md section 2.2 / c3 branch's
                     // apply_var_nielsen). Since v1, v2 are symbols at the
                     // matching end of each side, exactly one of these must
                     // hold in any solution (mirrored - v'.c instead of c.v' -
                     // when fwd is false, i.e. the variables are at the tail):
-                    //   (1) v1 := epsilon
-                    //   (2) v2 := epsilon
-                    //   (3) v1 := v2 . v1'  / v1' . v2   (v1 at least as long as v2)
-                    //   (4) v2 := v1 . v2'  / v2' . v1   (v2 at least as long as v1)
-                    // Branches (3)/(4) are the "non-progress" cases (they
+                    //   (1) v1 := epsilon                                  (progress)
+                    //   (2) v2 := epsilon                                  (progress)
+                    //   (3) v1 := v2                                       (progress)
+                    //   (4) v1 := v2 . v1'  / v1' . v2   (v1 longer than v2, no progress)
+                    //   (5) v2 := v1 . v2'  / v2' . v1   (v2 longer than v1, no progress)
+                    // Branch (3) (c3's apply_var_nielsen child 3) covers the
+                    // case where v1 and v2 turn out equal outright - neither
+                    // properly extends the other - and eliminates v1
+                    // entirely, so it counts as progress alongside (1)/(2).
+                    // Branches (4)/(5) are the "non-progress" cases (they
                     // introduce a fresh variable rather than shrinking the
                     // equation), but are still required for completeness:
                     // without them, any solution where both v1 and v2 are
                     // non-empty and neither is a literal prefix/suffix of the
-                    // other one being consumed first is unreachable.
+                    // other one being consumed first is unreachable. All of
+                    // (3)/(4)/(5) carry a |v1| > 0 (or |v2| > 0) guard so
+                    // the five branches stay pairwise disjoint (mirroring
+                    // c3's apply_var_nielsen disjointness guards).
                     expr* v1 = lh;
                     expr* v2 = rh;
                     sort* s = v1->get_sort();
@@ -504,6 +512,18 @@ namespace seq {
                     {
                         expr_ref_vector empty(m);
                         it->push_back("v2:=eps", v2, empty, eq_dep);
+                    }
+                    {
+                        // Branch 3 (c3's apply_var_nielsen child 3):
+                        // v1 := v2 && |v1| > 0. This is the case where
+                        // the two variables are outright equal (neither
+                        // properly extends the other); it eliminates v1
+                        // entirely (progress), and is guarded by |v1| > 0
+                        // to stay disjoint from branch 1 (v1:=eps, which
+                        // covers |v1| = 0).
+                        expr_ref_vector repl(m);
+                        repl.push_back(v2);
+                        it->push_back("v1:=v2", v1, repl, eq_dep, v1_pos);
                     }
                     {
                         expr_ref_vector repl(m);
