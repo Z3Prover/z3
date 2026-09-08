@@ -520,6 +520,8 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& ef = ac.eq_facet_ref();
         for (auto const& eq : ef.equations()) {
+            if (!eq.active())
+                continue;
             for (expr* t : eq.m_lhs)
                 if (ac.is_var(t))
                     vars.insert(t);

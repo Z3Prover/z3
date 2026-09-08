@@ -40,6 +40,8 @@ namespace seq {
         m_subst.push_back(subst_entry(m, var, repl));
         m_trail.push(push_back_trail<subst_entry>(m_subst));
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
+            if (!m_eqs[i].active())
+                continue;
             bool touched_l = subst_in_trailed(m_trail, m_eqs, i, &equation::m_lhs, var, repl);
             bool touched_r = subst_in_trailed(m_trail, m_eqs, i, &equation::m_rhs, var, repl);
             if ((touched_l || touched_r) && subst_dep) {
@@ -117,8 +119,14 @@ namespace seq {
     }
 
     std::ostream& eq_facet::display(std::ostream& out) const {
-        out << "eq_facet: " << m_eqs.size() << " equation(s)\n";
+        unsigned num_active = 0;
+        for (auto const& eq : m_eqs)
+            if (eq.active())
+                ++num_active;
+        out << "eq_facet: " << num_active << " equation(s) (" << m_eqs.size() << " total incl. inactive)\n";
         for (auto const& eq : m_eqs) {
+            if (!eq.active())
+                continue;
             out << "  ";
             for (expr* t : eq.m_lhs) out << mk_pp(t, m) << " ";
             out << "= ";
@@ -180,8 +188,7 @@ namespace seq {
         }
 
         if (eq.m_lhs.empty() && eq.m_rhs.empty()) {
-            m_trail.push(vector_erase_trail<equation>(m_eqs, idx));
-            m_eqs.erase(m_eqs.begin() + idx);
+            m_trail.push(value_trail<bool>(m_eqs[idx].m_active, false));
         }
 
         // Any newly-produced sub-equations (from unit-vs-unit
@@ -244,19 +251,16 @@ namespace seq {
         conflict = false;
         conflict_dep = nullptr;
         bool changed = false;
-        for (unsigned i = 0; i < m_eqs.size(); ) {
-            unsigned sz_before = m_eqs.size();
+        // Append-only: m_eqs never shrinks, so a plain forward scan
+        // suffices (new equations appended by simplify_equation are
+        // reached in due course without adjusting i).
+        for (unsigned i = 0; i < m_eqs.size(); ++i) {
+            if (!m_eqs[i].active())
+                continue;
             if (!simplify_equation(n, ac, i, conflict, conflict_dep, changed)) {
                 SASSERT(conflict);
                 return true;
             }
-            // If the equation at i was erased (set shrunk), stay at i to
-            // process the equation that shifted into its place; otherwise
-            // advance. New equations are appended at the end, so they are
-            // reached in due course without adjusting i.
-            if (m_eqs.size() < sz_before)
-                continue;
-            ++i;
         }
         return changed;
     }
@@ -331,6 +335,8 @@ namespace seq {
         auto& f = ac.eq_facet_ref();
 
         for (auto const& eq : f.equations()) {
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue; // fully resolved by propagation; shouldn't occur
             // Mirror c3's apply_const_nielsen/apply_var_nielsen: try both
@@ -593,6 +599,8 @@ namespace seq {
         auto& f = ac.eq_facet_ref();
 
         for (auto const& eq : f.equations()) {
+            if (!eq.active())
+                continue;
             expr_ref lhs(eq_approx_tokens_to_expr(u, eq.m_lhs), m);
             expr_ref rhs(eq_approx_tokens_to_expr(u, eq.m_rhs), m);
             m_stats.m_num_checks++;
@@ -711,6 +719,8 @@ namespace seq {
 
         for (unsigned idx = 0; idx < f.equations().size(); ++idx) {
             eq_facet::equation const& eq = f.equations()[idx];
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue; // resolved by propagation; not eq_split's business
             unsigned split_lhs = 0, split_rhs = 0;
@@ -776,6 +786,8 @@ namespace seq {
 
     void deq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_diseqs.size(); ++i) {
+            if (!m_diseqs[i].active())
+                continue;
             bool touched_l = subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_lhs, var, repl);
             bool touched_r = subst_in_trailed(m_trail, m_diseqs, i, &disequation::m_rhs, var, repl);
             if ((touched_l || touched_r) && subst_dep) {
@@ -792,8 +804,14 @@ namespace seq {
     }
 
     std::ostream& deq_facet::display(std::ostream& out) const {
-        out << "deq_facet: " << m_diseqs.size() << " disequation(s)\n";
+        unsigned num_active = 0;
+        for (auto const& dq : m_diseqs)
+            if (dq.active())
+                ++num_active;
+        out << "deq_facet: " << num_active << " disequation(s) (" << m_diseqs.size() << " total incl. inactive)\n";
         for (auto const& dq : m_diseqs) {
+            if (!dq.active())
+                continue;
             out << "  ";
             for (expr* t : dq.m_lhs) out << mk_pp(t, m) << " ";
             out << "!= ";
@@ -807,7 +825,11 @@ namespace seq {
         conflict = false;
         conflict_dep = nullptr;
         bool changed = false;
-        for (unsigned i = 0; i < m_diseqs.size(); ) {
+        // Append-only: m_diseqs never shrinks, so a plain forward scan
+        // suffices.
+        for (unsigned i = 0; i < m_diseqs.size(); ++i) {
+            if (!m_diseqs[i].active())
+                continue;
             disequation& dq = m_diseqs[i];
             expr_ref_vector& L = dq.m_lhs;
             expr_ref_vector& R = dq.m_rhs;
@@ -842,8 +864,7 @@ namespace seq {
                     // distinct leading constants: the two sides can never
                     // be made equal by any future substitution - the
                     // disequation is proved and discharged.
-                    m_trail.push(vector_erase_trail<disequation>(m_diseqs, i));
-                    m_diseqs.erase(m_diseqs.begin() + i);
+                    m_trail.push(value_trail<bool>(m_diseqs[i].m_active, false));
                     changed = true;
                     continue;
                 }
@@ -855,7 +876,6 @@ namespace seq {
             // deq_facet never invents its own substitution (see module
             // comment) - it waits for eq_facet's split to narrow things
             // further and re-broadcast via apply_subst.
-            ++i;
         }
         return changed;
     }

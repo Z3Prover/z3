@@ -301,6 +301,8 @@ namespace seq {
         };
 
         for (eq_facet::equation const& eq : eqf.equations()) {
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() && eq.m_rhs.empty())
                 continue;
             sort* s = (eq.m_lhs.empty() ? eq.m_rhs.get(0) : eq.m_lhs.get(0))->get_sort();
@@ -310,6 +312,8 @@ namespace seq {
             g.merge(l, r, to_ptr(reasons.size() - 1));
         }
         for (deq_facet::disequation const& de : deqf.disequations()) {
+            if (!de.active())
+                continue;
             if (de.m_lhs.empty() && de.m_rhs.empty())
                 continue;
             sort* s = (de.m_lhs.empty() ? de.m_rhs.get(0) : de.m_lhs.get(0))->get_sort();

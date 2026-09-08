@@ -227,8 +227,16 @@ namespace seq {
             // equation's dependency (the decomposition is definitional,
             // not an added assumption, so no new leaf is introduced).
             eq_tree::dep_tracker m_dep;
+            // Append-only representation: m_eqs is never erased/shifted.
+            // "Removing" or "updating" an equation just flips m_active to
+            // false (trailed via value_trail, so it flips back to true on
+            // backtrack) and, for an update, appends the replacement
+            // equation(s) to the back of the vector. Consumers that
+            // iterate equations() must skip entries with !active().
+            bool                 m_active = true;
             equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
                 m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
+            bool active() const { return m_active; }
         };
 
     private:
@@ -264,13 +272,13 @@ namespace seq {
         }
 
         // Trailed removal of the equation at `idx` (e.g. eq_split
-        // replacing one equation with two shorter ones): uses
-        // vector_erase_trail so the removed element is restored at the
-        // same index on undo, regardless of any push_back_trailed
-        // insertions that may have shifted the vector's storage since.
+        // replacing one equation with two shorter ones): the vector is
+        // append-only, so "removal" just flips m_active to false via a
+        // value_trail (restored to true on backtrack) - no shifting, no
+        // index invalidation for any other facet/iterator holding onto
+        // `idx`.
         void remove_equation_trailed(unsigned idx) {
-            m_trail.push(vector_erase_trail<equation>(m_eqs, idx));
-            m_eqs.erase(m_eqs.begin() + idx);
+            m_trail.push(value_trail<bool>(m_eqs[idx].m_active, false));
         }
 
         vector<equation> const& equations() const { return m_eqs; }
@@ -303,7 +311,7 @@ namespace seq {
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
 
-        bool is_satisfied() const override { return m_eqs.empty(); }
+        bool is_satisfied() const override { return std::all_of(m_eqs.begin(), m_eqs.end(), [](equation const& e) { return !e.active(); }); }
         std::ostream& display(std::ostream& out) const override;
 
         // Deterministic simplification pass: uses seq_rewriter::reduce_eq
@@ -572,8 +580,12 @@ namespace seq {
             expr_ref_vector      m_lhs;
             expr_ref_vector      m_rhs;
             eq_tree::dep_tracker m_dep;
+            // Append-only, same discipline as eq_facet::equation: removal/
+            // update flips m_active (trailed) rather than erasing.
+            bool                 m_active = true;
             disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
                 m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
+            bool active() const { return m_active; }
         };
 
     private:
@@ -607,17 +619,15 @@ namespace seq {
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         // Trailed removal of the disequation at `idx` (e.g. deq_split
-        // discharging/replacing a stuck disequation): uses
-        // vector_erase_trail so the removed element is restored at the
-        // same index on undo.
+        // discharging/replacing a stuck disequation): append-only, so
+        // this just flips m_active to false via a value_trail.
         void remove_disequation_trailed(unsigned idx) {
-            m_trail.push(vector_erase_trail<disequation>(m_diseqs, idx));
-            m_diseqs.erase(m_diseqs.begin() + idx);
+            m_trail.push(value_trail<bool>(m_diseqs[idx].m_active, false));
         }
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override;
-        bool is_satisfied() const override { return m_diseqs.empty(); }
+        bool is_satisfied() const override { return std::all_of(m_diseqs.begin(), m_diseqs.end(), [](disequation const& d) { return !d.active(); }); }
         std::ostream& display(std::ostream& out) const override;
 
         // Deterministic simplification pass: prefix-stripping, then

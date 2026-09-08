@@ -207,8 +207,11 @@ namespace seq {
         auto& af = ac.arith_facet_ref();
         m_stats.m_num_propagate++;
         bool changed = false;
-        for (auto const& eq : ef.equations())
+        for (auto const& eq : ef.equations()) {
+            if (!eq.active())
+                continue;
             changed = af.add_length_constraint(eq.m_lhs, eq.m_rhs, eq.m_dep) || changed;
+        }
         if (af.has_conflict()) {
             n.set_conflict(stx::br_plugin_base, af.conflict_dep());
             return stx::simplify_result::conflict;

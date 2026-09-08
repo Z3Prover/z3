@@ -171,6 +171,8 @@ namespace seq {
     static bool find_fw_trigger(power_facet const& f, eq_facet const& ef, power_fine_wilf::trigger& t) {
         for (unsigned eq_idx = 0; eq_idx < ef.equations().size(); ++eq_idx) {
             eq_facet::equation const& eq = ef.equations()[eq_idx];
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue;
             for (bool pow_on_lhs : {true, false}) {
@@ -229,8 +231,11 @@ namespace seq {
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
 
-        // The trigger equation may already have been consumed/replaced
-        if (t_stale(f, m_t) || m_t.m_eq_idx >= ef.equations().size())
+        // The trigger equation may already have been consumed/replaced.
+        // With eq_facet's append-only equation vector, an index is never
+        // reused by an unrelated equation, so it suffices to check that
+        // it is still in range and still active.
+        if (t_stale(f, m_t) || m_t.m_eq_idx >= ef.equations().size() || !ef.equations()[m_t.m_eq_idx].active())
             return false;
 
         eq_facet::equation const& eq = ef.equations()[m_t.m_eq_idx];
@@ -418,6 +423,8 @@ namespace seq {
                                       eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < ef.equations().size(); ++i) {
             eq_facet::equation const& eq = ef.equations()[i];
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue;
             for (bool front : {true, false}) {
@@ -590,6 +597,8 @@ namespace seq {
                                          elim_trigger& t) {
         for (unsigned i = 0; i < ef.equations().size(); ++i) {
             eq_facet::equation const& eq = ef.equations()[i];
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue;
             for (bool pow_on_lhs : {true, false}) {
@@ -681,6 +690,8 @@ namespace seq {
                                        unsigned& pow_idx, expr*& var, eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < ef.equations().size(); ++i) {
             eq_facet::equation const& eq = ef.equations()[i];
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue;
             for (bool lhs_pow : {true, false}) {
@@ -720,7 +731,7 @@ namespace seq {
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
-        if (m_pow_idx >= f.powers().size() || m_eq_idx >= ef.equations().size())
+        if (m_pow_idx >= f.powers().size() || m_eq_idx >= ef.equations().size() || !ef.equations()[m_eq_idx].active())
             return false; // defensive; obligation/equation discharged by another route
 
         str_power const& p = f.powers()[m_pow_idx];
@@ -818,6 +829,8 @@ namespace seq {
                                             unsigned& pow_idx, expr*& var, bool& fwd, eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < ef.equations().size(); ++i) {
             eq_facet::equation const& eq = ef.equations()[i];
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue;
             for (bool lhs_pow : {true, false}) {
@@ -1025,6 +1038,8 @@ namespace seq {
                                      expr_ref_vector& ground_prefix, expr*& var, eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < ef.equations().size(); ++i) {
             eq_facet::equation const& eq = ef.equations()[i];
+            if (!eq.active())
+                continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue;
             for (bool f2 : {true, false}) {
