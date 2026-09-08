@@ -182,7 +182,21 @@ namespace seq {
         // obligations here. Returns true if it changed the facet's
         // pending set (either by discharging a would-be-equality cycle
         // into equations, or by finding a conflict). Trailed.
-        bool detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf);
+        //
+        // Uses a local `euf::egraph` (built fresh on every call, see
+        // module comment's TODO) to register the current equations
+        // (`eqf`) and disequations (`deqf`) together with the token
+        // sequences appearing in this facet's pending obligations, so
+        // that two obligations whose sides are only *equal* (not
+        // syntactically identical) collapse onto the same digraph node
+        // (identified by the egraph root's expr, per the TODO's "nodes
+        // labeled by ids for the roots of equivalence class"). If
+        // registering the equations/disequations alone already yields a
+        // conflict (e.g. `deqf` asserts `s1 != s2` but `eqf`'s equations
+        // force `s1 == s2`), that conflict is reported directly, with
+        // `conflict_dep` extracted via the egraph's justification
+        // machinery (`explain`) rather than lex_facet's own dependencies.
+        bool detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf, deq_facet& deqf);
     };
 
     // Deterministic propagation plugin wrapping lex_facet::simplify.

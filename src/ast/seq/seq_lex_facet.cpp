@@ -19,19 +19,28 @@ Notes:
 
     TODO: review and realize other ways to resolve remaining comparisons based on theory_seq.
 
-    TODO: extend graph search for loops by usng equalities from eq_facet.
-    - put equal terms into a union find structure that contains a linked list for justifications.
-    - use the euf_egraph to manage the union find, insert jutification dependencies from the equaltiiees
-    - mine inequalities for whether there are equalities that overlap. Replace overlaps and insert into the egraph.
-    - build dfs graph. edge are labeled by inequalities that are used, nodes labeled by ids for the roots of equivalence class.
-    - use the egraph jutification extraction to get jutifications that use equalities.
-
-    extend this approach by adding a euf_seq_plugin to euf directory that understands associative equality completion that will be used for for sequence concatentation.
-    detect also conflicts over disequalities.
+    Loop/cycle detection over lexicographic obligations now builds a
+    local `euf::egraph` (with `euf::seq_plugin` registered for
+    associative-concatenation reasoning) on every `detect_cycles` call:
+    every known equation (`eq_facet`) and disequation (`deq_facet`) is
+    registered into the egraph first (via `merge`/`new_diseq`, with each
+    justification's `void*` reason packing an index into a local
+    `dep_tracker` table, mirroring `ast/simplifiers/euf_completion.cpp`'s
+    `to_ptr`/`from_ptr` trick), then every pending obligation's token-list
+    concatenation is looked up/inserted as a node. After `propagate()`, an
+    egraph-level conflict (the equations/disequations are already
+    contradictory) is reported directly, with the minimal justification
+    extracted via `explain`. Otherwise, the DFS cycle-detection graph uses
+    the *egraph root's expr* (not the raw token-concat expr) as each
+    node's identity, so obligations that are only semantically equal -
+    not just syntactically identical - collapse onto the same digraph
+    node, per the design below.
 
 --*/
 #include "ast/seq/seq_lex_facet.h"
 #include "ast/ast_pp.h"
+#include "ast/euf/euf_egraph.h"
+#include "ast/euf/euf_seq_plugin.h"
 #include <algorithm>
 #include <functional>
 
@@ -226,7 +235,7 @@ namespace seq {
             return stx::simplify_result::satisfied;
         bool cyc_conflict = false;
         eq_tree::dep_tracker cyc_dep = nullptr;
-        bool cyc_changed = f.detect_cycles(cyc_conflict, cyc_dep, ac.eq_facet_ref());
+        bool cyc_changed = f.detect_cycles(cyc_conflict, cyc_dep, ac.eq_facet_ref(), ac.deq_facet_ref());
         if (cyc_conflict) {
             n.set_conflict(stx::br_plugin_base, cyc_dep);
             return stx::simplify_result::conflict;
@@ -236,7 +245,16 @@ namespace seq {
         return (changed || cyc_changed) ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
-    bool lex_facet::detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf) {
+    // to_ptr/from_ptr: pack a small integer index into the `void*
+    // reason` slot of an egraph justification (mirrors the identical
+    // trick in ast/simplifiers/euf_completion.h/.cpp), so that
+    // egraph::explain's ptr_vector<size_t> result can be mapped back to
+    // the `eq_tree::dep_tracker` that justified the corresponding
+    // eq_facet/deq_facet entry.
+    static size_t* to_ptr(size_t i) { return reinterpret_cast<size_t*>(i); }
+    static unsigned from_ptr(size_t* s) { return (unsigned)reinterpret_cast<size_t>(s); }
+
+    bool lex_facet::detect_cycles(bool& conflict, eq_tree::dep_tracker& conflict_dep, eq_facet& eqf, deq_facet& deqf) {
         conflict = false;
         conflict_dep = nullptr;
 
@@ -245,32 +263,109 @@ namespace seq {
         // side; these are the only ones we can place as edges into a
         // variable-level comparison graph. Everything else (still
         // multi-token) is left untouched.
+        if (m_lexs.empty())
+            return false;
+
+        // -- Build a local egraph (per module comment's TODO), register
+        // the seq associative-completion plugin, and feed it every
+        // known equation (eqf), disequation (deqf), and pending lex
+        // obligation's token-concat term, so that lexicographically
+        // compared terms that are only *equal* (not syntactically
+        // identical) collapse onto a single node - identified by the
+        // root of its equivalence class - for the cycle-detection graph
+        // below.
+        euf::egraph g(m);
+        g.add_plugin(alloc(euf::seq_plugin, g));
+        vector<eq_tree::dep_tracker> reasons;
+
+        obj_map<expr, euf::enode*> node_cache;
+        std::function<euf::enode*(expr*)> mk_node = [&](expr* e) -> euf::enode* {
+            euf::enode* cached = nullptr;
+            if (node_cache.find(e, cached))
+                return cached;
+            if (euf::enode* n = g.find(e)) {
+                node_cache.insert(e, n);
+                return n;
+            }
+            euf::enode_vector args;
+            if (is_app(e))
+                for (expr* arg : *to_app(e))
+                    args.push_back(mk_node(arg));
+            euf::enode* n = g.mk(e, 0, args.size(), args.data());
+            node_cache.insert(e, n);
+            return n;
+        };
+        auto mk_concat_node = [&](expr_ref_vector const& ts, sort* s) -> euf::enode* {
+            expr_ref t(u.str.mk_concat(ts, s), m);
+            return mk_node(t);
+        };
+
+        for (eq_facet::equation const& eq : eqf.equations()) {
+            if (eq.m_lhs.empty() && eq.m_rhs.empty())
+                continue;
+            sort* s = (eq.m_lhs.empty() ? eq.m_rhs.get(0) : eq.m_lhs.get(0))->get_sort();
+            euf::enode* l = mk_concat_node(eq.m_lhs, s);
+            euf::enode* r = mk_concat_node(eq.m_rhs, s);
+            reasons.push_back(eq.m_dep);
+            g.merge(l, r, to_ptr(reasons.size() - 1));
+        }
+        for (deq_facet::disequation const& de : deqf.disequations()) {
+            if (de.m_lhs.empty() && de.m_rhs.empty())
+                continue;
+            sort* s = (de.m_lhs.empty() ? de.m_rhs.get(0) : de.m_lhs.get(0))->get_sort();
+            euf::enode* l = mk_concat_node(de.m_lhs, s);
+            euf::enode* r = mk_concat_node(de.m_rhs, s);
+            expr_ref eqe(m.mk_eq(l->get_expr(), r->get_expr()), m);
+            euf::enode_vector args;
+            args.push_back(l);
+            args.push_back(r);
+            euf::enode* eqn = g.mk(eqe, 0, args.size(), args.data());
+            reasons.push_back(de.m_dep);
+            g.new_diseq(eqn, to_ptr(reasons.size() - 1));
+        }
+
         obj_map<expr, unsigned> var_id;
         ptr_vector<expr> vars;
         struct edge { unsigned src, dst; bool strict; unsigned lex_idx; };
         vector<edge> edges;
 
-        auto get_id = [&](expr* v) {
+        auto get_id = [&](euf::enode* n) {
+            expr* root = n->get_root()->get_expr();
             unsigned id;
-            if (var_id.find(v, id))
+            if (var_id.find(root, id))
                 return id;
             id = vars.size();
-            vars.push_back(v);
-            var_id.insert(v, id);
+            vars.push_back(root);
+            var_id.insert(root, id);
             return id;
         };
 
-        expr_ref_vector pin(m);
         for (unsigned i = 0; i < m_lexs.size(); ++i) {
             str_lex const& lx = m_lexs[i];
             if (lx.m_lhs.empty() && lx.m_rhs.empty())
                 continue;
             sort* s = (lx.m_lhs.empty() ? lx.m_rhs.get(0) : lx.m_lhs.get(0))->get_sort();
-            expr* l = u.str.mk_concat(lx.m_lhs, s);
-            expr* r = u.str.mk_concat(lx.m_rhs, s);
-            pin.push_back(l);
-            pin.push_back(r);
+            euf::enode* l = mk_concat_node(lx.m_lhs, s);
+            euf::enode* r = mk_concat_node(lx.m_rhs, s);
             edges.push_back({ get_id(l), get_id(r), lx.m_strict, i });
+        }
+
+        g.propagate();
+        if (g.inconsistent()) {
+            // The equations/disequations registered above are themselves
+            // contradictory (independent of any lex obligation): extract
+            // the minimal justification via the egraph's own explanation
+            // machinery and report the conflict directly.
+            ptr_vector<size_t> just;
+            g.begin_explain();
+            g.explain(just, nullptr);
+            g.end_explain();
+            eq_tree::dep_tracker dep = nullptr;
+            for (size_t* j : just)
+                dep = m_dm.mk_join(dep, reasons[from_ptr(j)]);
+            conflict = true;
+            conflict_dep = dep;
+            return true;
         }
         if (edges.empty())
             return false;
