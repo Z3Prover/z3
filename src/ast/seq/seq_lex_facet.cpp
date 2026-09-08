@@ -324,10 +324,7 @@ namespace seq {
             g.new_diseq(eqn, to_ptr(reasons.size() - 1));
         }
 
-        obj_map<expr, unsigned> var_id;
-        ptr_vector<expr> vars;
-        struct edge { unsigned src, dst; bool strict; unsigned lex_idx; };
-        vector<edge> edges;
+        enode_pair_vector nedges;
 
         // register nodes
         for (unsigned i = 0; i < m_lexs.size(); ++i) {
@@ -335,8 +332,9 @@ namespace seq {
             if (lx.m_lhs.empty() && lx.m_rhs.empty())
                 continue;
             sort* s = (lx.m_lhs.empty() ? lx.m_rhs.get(0) : lx.m_lhs.get(0))->get_sort();
-            mk_concat_node(lx.m_lhs, s);
-            mk_concat_node(lx.m_rhs, s);
+            auto a = mk_concat_node(lx.m_lhs, s);
+            auto b = mk_concat_node(lx.m_rhs, s);
+            nedges.push_back({a, b});
         }
 
         g.propagate();
@@ -357,6 +355,15 @@ namespace seq {
             return true;
         }
 
+        if (nedges.empty())
+            return false;
+
+        obj_map<expr, unsigned> var_id;
+        u_map<euf::enode*> id_var;
+        ptr_vector<expr> vars;
+        struct edge { unsigned src, dst; bool strict; unsigned lex_idx; };
+        vector<edge> edges;        
+
         // add nodes to graph
         auto get_id = [&](euf::enode* n) {
             expr* root = n->get_root()->get_expr();
@@ -366,19 +373,15 @@ namespace seq {
             id = vars.size();
             vars.push_back(root);
             var_id.insert(root, id);
+            id_var.insert(id, n->get_root());
             return id;
         };
-        for (unsigned i = 0; i < m_lexs.size(); ++i) {
+
+        for (unsigned i = 0; i < nedges.size(); ++i) {
+            auto [l, r] = nedges[i];
             str_lex const& lx = m_lexs[i];
-            if (lx.m_lhs.empty() && lx.m_rhs.empty())
-                continue;
-            sort* s = (lx.m_lhs.empty() ? lx.m_rhs.get(0) : lx.m_lhs.get(0))->get_sort();
-            euf::enode* l = mk_concat_node(lx.m_lhs, s);
-            euf::enode* r = mk_concat_node(lx.m_rhs, s);
             edges.push_back({ get_id(l), get_id(r), lx.m_strict, i });
-        }        
-        if (edges.empty())
-            return false;
+        } 
 
         // Build adjacency and look for a cycle via DFS, tracking
         // whether any edge along the current path is strict.
@@ -406,9 +409,16 @@ namespace seq {
                     bool has_strict = false;
                     eq_tree::dep_tracker dep = nullptr;
                     for (unsigned k = start; k < on_path.size(); ++k) {
-                        edge const& e = edges[on_path[k]];
+                        auto edge_id = on_path[k];
+                        edge const& e = edges[edge_id];
+                        auto [l, r] = nedges[edge_id];
+                        auto& lx = m_lexs[e.lex_idx];
                         has_strict |= e.strict;
-                        dep = m_dm.mk_join(dep, m_lexs[e.lex_idx].m_dep);
+                        dep = m_dm.mk_join(dep, lx.m_dep);
+                        // NSB code review TODO:
+                        // make sure to include dependencies that l equals the root associated with the source node
+                        // dep = m_dm.mk_join(dep, explain l = id_var[lx.src])
+                        // using g
                     }
                     if (has_strict) {
                         conflict = true;
