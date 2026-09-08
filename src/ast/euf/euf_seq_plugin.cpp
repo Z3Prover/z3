@@ -32,7 +32,7 @@ namespace euf {
     bool seq_plugin::is_unit(enode const* n) const {
         expr* e = n->get_expr();
         zstring value;
-        return m_seq.str.is_unit(e) || (m_seq.str.is_string(e, value) && !value.empty());
+        return m_seq.str.is_unit(e) || (m_seq.str.is_string(e, value) && value.length() == 1);
     }
 
     bool seq_plugin::is_variable(enode const* n) const {

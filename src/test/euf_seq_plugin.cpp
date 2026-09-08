@@ -68,6 +68,7 @@ namespace {
         auto* ab = t.node(t.concat(a, b));
         auto* ba = t.node(t.concat(b, a));
         t.egraph().propagate();
+        TRACE(seq, tout << "sequence associativity\n" << t.egraph() << "\n";);
         ENSURE(left->get_root() == right->get_root());
         ENSURE(ab->get_root() != ba->get_root());
     }
@@ -88,6 +89,7 @@ namespace {
         t.egraph().merge(ab, nu, nullptr);
         t.egraph().merge(bc, nv, nullptr);
         t.egraph().propagate();
+        TRACE(seq, tout << "sequence completion\n" << t.egraph() << "\n";);
         ENSURE(uc->get_root() == av->get_root());
     }
 
@@ -104,6 +106,7 @@ namespace {
         auto* abc = t.node(t.concat(t.concat(a, b), c));
         t.egraph().merge(nx, ab, nullptr);
         t.egraph().propagate();
+        TRACE(seq, tout << "sequence variable simplification\n" << t.egraph() << "\n";);
         ENSURE(xc->get_root() == abc->get_root());
     }
 
@@ -123,8 +126,10 @@ namespace {
         t.egraph().push();
         t.egraph().merge(nx, ab, nullptr);
         t.egraph().propagate();
+        TRACE(seq, tout << "sequence backtracking before pop\n" << t.egraph() << "\n";);
         ENSURE(xc->get_root() == abc->get_root());
         t.egraph().pop(1);
+        TRACE(seq, tout << "sequence backtracking after pop\n" << t.egraph() << "\n";);
         ENSURE(xc->get_root() != abc->get_root());
     }
 }
