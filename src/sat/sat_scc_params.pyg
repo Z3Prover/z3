@@ -1,6 +1,0 @@
-def_module_params(module_name='sat', 
-                  class_name='sat_scc_params',
-                  export=True,
-                  params=(('scc', BOOL, True, 'eliminate Boolean variables by computing strongly connected components'),
-                          ('scc.tr', BOOL, True, 'apply transitive reduction, eliminate redundant binary clauses'), ))
-
