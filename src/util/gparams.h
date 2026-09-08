@@ -146,20 +146,20 @@ public:
 
     /**
        \brief Initialize the global parameter management module.
-       
+
        Remark: I set a priority in the initialization, because this module must be initialized
        after the core modules such as symbol.
-       ADD_INITIALIZER('gparams::init();', 1)
     */
     static void init();
 
     /**
        \brief Finalize the global parameter management module.
-       
-       ADD_FINALIZER('gparams::finalize();');
     */
     static void finalize();
 };
+
+Z3_ADD_INITIALIZER(gparams, gparams::init, 1);
+Z3_ADD_FINALIZER(gparams, gparams::finalize);
 
 
 
