@@ -48,6 +48,7 @@ simplification
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/bv_slice.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 class ast_manager;
 class tactic;
@@ -58,9 +59,7 @@ inline tactic* mk_bv_slice_tactic(ast_manager& m, params_ref const& p = params_r
 }
 
 
-/*
-  ADD_TACTIC("bv-slice", "simplify using bit-vector slices.", "mk_bv_slice_tactic(m, p)")
-  ADD_SIMPLIFIER("bv-slice", "simplify using bit-vector slices.", "alloc(bv::slice, m, s)")
-*/
+Z3_ADD_TACTIC(bv_slice, "bv-slice", "simplify using bit-vector slices.", mk_bv_slice_tactic(m, p));
+Z3_ADD_SIMPLIFIER(bv_slice, "bv-slice", "simplify using bit-vector slices.", alloc(bv::slice, m, s));
 
 

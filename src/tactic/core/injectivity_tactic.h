@@ -47,6 +47,8 @@ Tactic Documentation:
 #include "util/params.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/injectivity_simplifier.h"
+#include "ast/simplifiers/dependent_expr_state.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
@@ -57,8 +59,6 @@ inline tactic* mk_injectivity_tactic(ast_manager& m, params_ref const& p = param
         });
 }
 
-/*
-  ADD_TACTIC("injectivity",  "Identifies and applies injectivity axioms.", "mk_injectivity_tactic(m, p)")
-  ADD_SIMPLIFIER("injectivity", "Identifies and applies injectivity axioms.", "alloc(injectivity_simplifier, m, p, s)")
-*/
+Z3_ADD_TACTIC(injectivity, "injectivity", "Identifies and applies injectivity axioms.", mk_injectivity_tactic(m, p));
+Z3_ADD_SIMPLIFIER(injectivity, "injectivity", "Identifies and applies injectivity axioms.", alloc(injectivity_simplifier, m, p, s));
 

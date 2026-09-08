@@ -43,9 +43,8 @@ and do not represent a high-quality circuit minimization approach.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class tactic;
 
 tactic * mk_aig_tactic(params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("aig", "simplify Boolean structure using AIGs.", "mk_aig_tactic()")
-*/
+Z3_ADD_TACTIC(aig, "aig", "simplify Boolean structure using AIGs.", mk_aig_tactic());

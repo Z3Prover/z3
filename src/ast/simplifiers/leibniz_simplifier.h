@@ -108,6 +108,4 @@ public:
     }
 };
 
-/*
-  ADD_SIMPLIFIER("leibniz-instantiation", "synthesize and add Leibniz-equality style predicate instantiations for quantified predicate variables applied to distinct argument terms.", "alloc(leibniz_simplifier, m, p, s)")
- */
+Z3_ADD_SIMPLIFIER(leibniz_instantiation, "leibniz-instantiation", "synthesize and add Leibniz-equality style predicate instantiations for quantified predicate variables applied to distinct argument terms.", alloc(leibniz_simplifier, m, p, s));

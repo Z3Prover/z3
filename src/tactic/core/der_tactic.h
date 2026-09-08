@@ -51,6 +51,8 @@ equality resolution rule takes the form:
 
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/der_simplifier.h"
+#include "ast/simplifiers/dependent_expr_state.h"
+#include "tactic/tactic.h"
 
 inline tactic * mk_der_tactic(ast_manager & m, params_ref const & p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,
@@ -59,8 +61,6 @@ inline tactic * mk_der_tactic(ast_manager & m, params_ref const & p = params_ref
         });
 }
 
-/*
-  ADD_TACTIC("der", "destructive equality resolution.", "mk_der_tactic(m, p)")
-  ADD_SIMPLIFIER("der", "destructive equality resolution.", "alloc(der_simplifier, m, p, s)")
-*/
+Z3_ADD_TACTIC(der, "der", "destructive equality resolution.", mk_der_tactic(m, p));
+Z3_ADD_SIMPLIFIER(der, "der", "destructive equality resolution.", alloc(der_simplifier, m, p, s));
 

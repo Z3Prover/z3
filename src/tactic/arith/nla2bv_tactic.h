@@ -42,12 +42,11 @@ Convert quantified NIA problems to bounded bit-vector arithmetic problems.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_nla2bv_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("nla2bv", "convert a nonlinear arithmetic problem into a bit-vector problem, in most cases the resultant goal is an under approximation and is useul for finding models.", "mk_nla2bv_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(nla2bv, "nla2bv", "convert a nonlinear arithmetic problem into a bit-vector problem, in most cases the resultant goal is an under approximation and is useul for finding models.", mk_nla2bv_tactic(m, p));
 
 

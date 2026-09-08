@@ -60,11 +60,10 @@ The clauses are also removed.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_recover_01_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("recover-01", "recover 0-1 variables hidden as Boolean variables.", "mk_recover_01_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(recover_01, "recover-01", "recover 0-1 variables hidden as Boolean variables.", mk_recover_01_tactic(m, p));
 

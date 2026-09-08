@@ -14,7 +14,4 @@ z3_add_component(ackermannization
     rewriter
     solver
     tactic
-  TACTIC_HEADERS
-    ackermannize_bv_tactic.h
-    ackr_bound_probe.h
 )

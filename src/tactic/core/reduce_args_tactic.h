@@ -65,21 +65,18 @@ It creates a fresh function for each of the different values at position `i`.
 #include "util/params.h"
 #include "ast/simplifiers/reduce_args_simplifier.h"
 #include "tactic/dependent_expr_state_tactic.h"
+#include "ast/simplifiers/dependent_expr_state.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("reduce-args", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", "mk_reduce_args_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(reduce_args, "reduce-args", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", mk_reduce_args_tactic(m, p));
 
 inline tactic* mk_reduce_args_tactic2(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p, 
         [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* { return mk_reduce_args_simplifier(m, s, p); });
 }
-/*
-  ADD_TACTIC("reduce-args2", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", "mk_reduce_args_tactic2(m, p)")
-  ADD_SIMPLIFIER("reduce-args", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", "mk_reduce_args_simplifier(m, s, p)")
-
-*/
+Z3_ADD_TACTIC(reduce_args2, "reduce-args2", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", mk_reduce_args_tactic2(m, p));
+Z3_ADD_SIMPLIFIER(reduce_args, "reduce-args", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.", mk_reduce_args_simplifier(m, s, p));
 

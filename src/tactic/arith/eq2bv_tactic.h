@@ -36,13 +36,12 @@ The integer variables can only occur in equalities.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_eq2bv_tactic(ast_manager & m);
 
-/*
-    ADD_TACTIC("eq2bv", "convert integer variables used as finite domain elements to bit-vectors.", "mk_eq2bv_tactic(m)")
-*/
+Z3_ADD_TACTIC(eq2bv, "eq2bv", "convert integer variables used as finite domain elements to bit-vectors.", mk_eq2bv_tactic(m));
 
 

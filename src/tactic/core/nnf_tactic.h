@@ -58,15 +58,14 @@ Once all negations are pushed inside, the resulting formula is in NNF.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_snf_tactic(ast_manager & m, params_ref const & p = params_ref());
 tactic * mk_nnf_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("snf", "put goal in skolem normal form.", "mk_snf_tactic(m, p)")
-  ADD_TACTIC("nnf", "put goal in negation normal form.", "mk_nnf_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(snf, "snf", "put goal in skolem normal form.", mk_snf_tactic(m, p));
+Z3_ADD_TACTIC(nnf, "nnf", "put goal in negation normal form.", mk_nnf_tactic(m, p));
 
 

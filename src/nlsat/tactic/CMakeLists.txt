@@ -7,7 +7,4 @@ z3_add_component(nlsat_tactic
     arith_tactics
     nlsat
     sat_tactic
-  TACTIC_HEADERS
-    nlsat_tactic.h
-    qfnra_nlsat_tactic.h
 )

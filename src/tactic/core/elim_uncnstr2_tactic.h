@@ -110,13 +110,12 @@ In addition there are conversions for shift and bit-wise or and signed compariso
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/elim_unconstrained.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 inline tactic * mk_elim_uncnstr2_tactic(ast_manager & m, params_ref const & p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,
                  [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(elim_unconstrained, m, s); });
 }
 
-/*
-  ADD_TACTIC("elim-uncnstr2", "eliminate unconstrained variables.", "mk_elim_uncnstr2_tactic(m, p)")
-  ADD_SIMPLIFIER("elim-unconstrained", "eliminate unconstrained variables.", "alloc(elim_unconstrained, m, s)")
-*/
+Z3_ADD_TACTIC(elim_uncnstr2, "elim-uncnstr2", "eliminate unconstrained variables.", mk_elim_uncnstr2_tactic(m, p));
+Z3_ADD_SIMPLIFIER(elim_unconstrained, "elim-unconstrained", "eliminate unconstrained variables.", alloc(elim_unconstrained, m, s));

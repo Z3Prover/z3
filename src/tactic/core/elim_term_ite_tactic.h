@@ -43,12 +43,11 @@ new fresh auxiliary variables.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_elim_term_ite_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-    ADD_TACTIC("elim-term-ite", "eliminate term if-then-else by adding fresh auxiliary declarations.", "mk_elim_term_ite_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(elim_term_ite, "elim-term-ite", "eliminate term if-then-else by adding fresh auxiliary declarations.", mk_elim_term_ite_tactic(m, p));
 

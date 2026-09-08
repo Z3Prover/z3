@@ -50,6 +50,4 @@ public:
 
 };
 
-/*
-  ADD_SIMPLIFIER("bit-blast", "reduce bit-vector expressions into SAT.", "alloc(bit_blaster_simplifier, m, p, s)")
-*/
+Z3_ADD_SIMPLIFIER(bit_blast, "bit-blast", "reduce bit-vector expressions into SAT.", alloc(bit_blaster_simplifier, m, p, s));
