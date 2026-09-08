@@ -42,14 +42,14 @@ Distribute $\forall$ over conjunctions (and distribute $\exists$ over disjunctio
 #include "util/params.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/distribute_forall.h"
+#include "ast/simplifiers/dependent_expr_state.h"
+#include "tactic/tactic.h"
 
 inline tactic * mk_distribute_forall_tactic(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,
                  [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(distribute_forall_simplifier, m, p, s); });
 }
 
-/*
-  ADD_TACTIC("distribute-forall", "distribute forall over conjunctions.", "mk_distribute_forall_tactic(m, p)")
-  ADD_SIMPLIFIER("distribute-forall", "distribute forall over conjunctions.", "alloc(distribute_forall_simplifier, m, p, s)")
-*/
+Z3_ADD_TACTIC(distribute_forall, "distribute-forall", "distribute forall over conjunctions.", mk_distribute_forall_tactic(m, p));
+Z3_ADD_SIMPLIFIER(distribute_forall, "distribute-forall", "distribute forall over conjunctions.", alloc(distribute_forall_simplifier, m, p, s));
 

@@ -8,9 +8,7 @@
 # You should **not** import ``mk_util`` here
 # to avoid having this code depend on the
 # of the Python build system.
-import io
 import os
-import pprint
 import logging
 import re
 import sys
@@ -39,48 +37,6 @@ def check_files_exist(files):
             _logger.error('"{}" does not exist'.format(f))
             return False
     return True
-
-def sorted_headers_by_component(l):
-    """
-      Take a list of header files and sort them by the
-      path after ``src/``. E.g. for ``src/ast/fpa/fpa2bv_converter.h`` the sorting
-      key is ``ast/fpa/fpa2bv_converter.h``.
-
-      The sort is done this way because for the CMake build
-      there are two directories for every component (e.g.
-      ``<src_dir>/src/ast/fpa`` and ``<build_dir>/src/ast/fpa``).
-      We don't want to sort based on different ``<src_dir>``
-      and ``<build_dir>`` prefixes so that we can match the Python build
-      system's behaviour.
-    """
-    assert isinstance(l, list)
-    def get_key(path):
-        _logger.debug("get_key({})".format(path))
-        path_components = []
-        stripped_path = path
-        if not ('src' in stripped_path.split(os.path.sep) or 'src' in stripped_path.split('/')):
-            raise ValueError(f"Path '{path}' does not contain 'src' directory component")
-        # Keep stripping off directory components until we hit ``src``
-        while os.path.basename(stripped_path) != 'src':
-            path_components.append(os.path.basename(stripped_path))
-            stripped_path = os.path.dirname(stripped_path)
-            # Prevent infinite loop if 'src' is never found
-            if not stripped_path or stripped_path == os.path.dirname(stripped_path):
-                raise ValueError(f"Could not find 'src' directory in path '{path}'")
-        if len(path_components) == 0:
-            raise ValueError(f"Path '{path}' has no components after 'src' directory")
-        path_components.reverse()
-        # For consistency across platforms use ``/`` rather than ``os.sep``.
-        # This is a sorting key so it doesn't need to a platform suitable
-        # path
-        r = '/'.join(path_components)
-        _logger.debug("return key:'{}'".format(r))
-        return r
-    sorted_headers = sorted(l, key=get_key)
-    _logger.debug('sorted headers:{}'.format(pprint.pformat(sorted_headers)))
-    return sorted_headers
-
-
 
 ###############################################################################
 # Functions for generating constant declarations for language bindings
@@ -594,118 +550,6 @@ def mk_def_file_internal(defname, dll_name, export_header_files):
                 num = num + 1
         api.close()
     fout.close()
-
-def path_after_src(h_file):
-    h_file = h_file.replace("\\","/")
-    idx = h_file.rfind("src/")
-    if idx == -1:
-        return h_file
-    return h_file[idx + 4:]
-
-###############################################################################
-# Functions/data structures for generating ``install_tactics.cpp``
-###############################################################################
-
-def mk_install_tactic_cpp_internal(h_files_full_path, path):
-    """
-        Generate a ``install_tactics.cpp`` file in the directory ``path``.
-        Returns the path the generated file.
-
-        This file implements the procedure
-
-        ```
-        void install_tactics(tactic_manager & ctx)
-        ```
-
-        It installs all tactics declared in the given header files
-        ``h_files_full_path`` The procedure looks for ``ADD_TACTIC`` and
-        ``ADD_PROBE``commands in the ``.h``  and ``.hpp`` files of these
-        components.
-    """
-    ADD_TACTIC_DATA = []
-    ADD_SIMPLIFIER_DATA = []
-    ADD_PROBE_DATA = []
-    def ADD_TACTIC(name, descr, cmd):
-        ADD_TACTIC_DATA.append((name, descr, cmd))
-
-    def ADD_PROBE(name, descr, cmd):
-        ADD_PROBE_DATA.append((name, descr, cmd))
-
-    def ADD_SIMPLIFIER(name, descr, cmd):
-        ADD_SIMPLIFIER_DATA.append((name, descr, cmd))
-
-    eval_globals = {
-        'ADD_TACTIC': ADD_TACTIC,
-        'ADD_PROBE': ADD_PROBE,
-        'ADD_SIMPLIFIER': ADD_SIMPLIFIER
-    }
-
-    assert isinstance(h_files_full_path, list)
-    if not check_dir_exists(path):
-        raise ValueError(f"Output directory '{path}' does not exist")
-    fullname = os.path.join(path, 'install_tactic.cpp')
-    fout  = open(fullname, 'w')
-    fout.write('// Automatically generated file.\n')
-    fout.write('#include "tactic/tactic.h"\n')
-    fout.write('#include "cmd_context/tactic_cmds.h"\n')
-    fout.write('#include "cmd_context/simplifier_cmds.h"\n')
-    fout.write('#include "cmd_context/cmd_context.h"\n')
-    tactic_pat   = re.compile(r'[ \t]*ADD_TACTIC\(.*\)')
-    probe_pat    = re.compile(r'[ \t]*ADD_PROBE\(.*\)')
-    simplifier_pat = re.compile(r'[ \t]*ADD_SIMPLIFIER\(.*\)')
-    for h_file in sorted_headers_by_component(h_files_full_path):
-        added_include = False
-        try:
-            with io.open(h_file, encoding='utf-8', mode='r') as fin:
-                for line in fin:
-                    if tactic_pat.match(line):
-                        if not added_include:
-                            added_include = True                        
-                            fout.write('#include "%s"\n' % path_after_src(h_file))
-                        try:
-                            eval(line.strip('\n '), eval_globals, None)
-                        except Exception as e:
-                            _logger.error("Failed processing ADD_TACTIC command at '{}'\n{}".format(
-                                fullname, line))
-                            raise e
-                    if probe_pat.match(line):
-                        if not added_include:
-                            added_include = True
-                            fout.write('#include "%s"\n' % path_after_src(h_file))
-                        try:
-                            eval(line.strip('\n '), eval_globals, None)
-                        except Exception as e:
-                            _logger.error("Failed processing ADD_PROBE command at '{}'\n{}".format(
-                                fullname, line))
-                            raise e
-                    if simplifier_pat.match(line):
-                        if not added_include:
-                            added_include = True
-                            fout.write('#include "%s"\n' % path_after_src(h_file))
-                        try:
-                            eval(line.strip('\n '), eval_globals, None)
-                        except Exception as e:
-                            _logger.error("Failed processing ADD_SIMPLIFIER command at '{}'\n{}".format(
-                                fullname, line))
-                            raise e
-                        
-        except Exception as e:
-           _logger.error("Failed to read file {}\n".format(h_file))
-           raise e
-    # First pass will just generate the tactic factories
-    fout.write('#define ADD_TACTIC_CMD(NAME, DESCR, CODE) ctx.insert(alloc(tactic_cmd, symbol(NAME), DESCR, [](ast_manager &m, const params_ref &p) { return CODE; }))\n')
-    fout.write('#define ADD_PROBE(NAME, DESCR, PROBE) ctx.insert(alloc(probe_info, symbol(NAME), DESCR, PROBE))\n')
-    fout.write('#define ADD_SIMPLIFIER_CMD(NAME, DESCR, CODE) ctx.insert(alloc(simplifier_cmd, symbol(NAME), DESCR, [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return CODE; }))\n')
-    fout.write('void install_tactics(tactic_manager & ctx) {\n')
-    for data in ADD_TACTIC_DATA:
-        fout.write('  ADD_TACTIC_CMD("%s", "%s", %s);\n' % data)
-    for data in ADD_PROBE_DATA:
-        fout.write('  ADD_PROBE("%s", "%s", %s);\n' % data)
-    for data in ADD_SIMPLIFIER_DATA:
-        fout.write('  ADD_SIMPLIFIER_CMD("%s", "%s", %s);\n' % data)
-    fout.write('}\n')
-    fout.close()
-    return fullname
 
 ###############################################################################
 # Functions for generating ``database.h``

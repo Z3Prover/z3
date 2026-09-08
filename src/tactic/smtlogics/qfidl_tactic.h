@@ -19,12 +19,11 @@ Notes:
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_qfidl_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-    ADD_TACTIC("qfidl", "builtin strategy for solving QF_IDL problems.", "mk_qfidl_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(qfidl, "qfidl", "builtin strategy for solving QF_IDL problems.", mk_qfidl_tactic(m, p));
 

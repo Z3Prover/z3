@@ -21,7 +21,5 @@
 
 probe * mk_ackr_bound_probe();
 
-/*
-  ADD_PROBE("ackr-bound-probe", "A probe to give an upper bound of Ackermann congruence lemmas that a formula might generate.", "mk_ackr_bound_probe()")
-*/
+Z3_ADD_PROBE(ackr_bound_probe, "ackr-bound-probe", "A probe to give an upper bound of Ackermann congruence lemmas that a formula might generate.", mk_ackr_bound_probe());
 

@@ -20,6 +20,7 @@ Notes:
 #pragma once
 
 #include "solver/solver.h"
+#include "tactic/tactic.h"
 
 class tactic;
 
@@ -27,9 +28,7 @@ solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_
 
 tactic* mk_psat_tactic(ast_manager& m, params_ref const& p);
 
-/*
-  ADD_TACTIC('psat', '(try to) solve goal using a parallel SAT solver.', 'mk_psat_tactic(m, p)')
-*/
+Z3_ADD_TACTIC(psat, "psat", "(try to) solve goal using a parallel SAT solver.", mk_psat_tactic(m, p));
 
 void  inc_sat_display(std::ostream& out, solver& s, unsigned sz, expr*const* soft, rational const* _weights);
 

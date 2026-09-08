@@ -5,8 +5,4 @@ z3_add_component(smt_tactic
     unit_subsumption_tactic.cpp
   COMPONENT_DEPENDENCIES
     smt
-  TACTIC_HEADERS
-    ctx_solver_simplify_tactic.h
-    smt_tactic_core.h
-    unit_subsumption_tactic.h
 )

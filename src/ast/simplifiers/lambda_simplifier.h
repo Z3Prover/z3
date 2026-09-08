@@ -101,6 +101,4 @@ public:
     }
 };
 
-/*
-  ADD_SIMPLIFIER("lambda-macros", "unfold constants defined as lambda terms (shallow embeddings of higher-order operators), inlining and beta-reducing occurrences.", "alloc(lambda_simplifier, m, p, s)")
- */
+Z3_ADD_SIMPLIFIER(lambda_macros, "lambda-macros", "unfold constants defined as lambda terms (shallow embeddings of higher-order operators), inlining and beta-reducing occurrences.", alloc(lambda_simplifier, m, p, s));

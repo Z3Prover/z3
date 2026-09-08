@@ -5,7 +5,4 @@ z3_add_component(fd_solver
     smtfd_solver.cpp
   COMPONENT_DEPENDENCIES
     sat_solver
-  TACTIC_HEADERS
-    fd_solver.h
-    smtfd_solver.h
 )

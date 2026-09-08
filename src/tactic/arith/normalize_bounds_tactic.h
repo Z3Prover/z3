@@ -38,12 +38,11 @@ Note that, after the transformation $0 \leq x'$.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_normalize_bounds_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("normalize-bounds", "replace a variable x with lower bound k <= x with x' = x - k.", "mk_normalize_bounds_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(normalize_bounds, "normalize-bounds", "replace a variable x with lower bound k <= x with x' = x - k.", mk_normalize_bounds_tactic(m, p));
 

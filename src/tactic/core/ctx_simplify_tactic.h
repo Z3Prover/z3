@@ -43,6 +43,7 @@ The tactic performs simplifies sub-formulas using context built up by walking as
 
 #include "tactic/tactical.h"
 #include "tactic/goal_num_occurs.h"
+#include "tactic/tactic.h"
 
 class ctx_simplify_tactic : public tactic {
 public:
@@ -85,7 +86,5 @@ public:
 
 tactic * mk_ctx_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("ctx-simplify", "apply contextual simplification rules.", "mk_ctx_simplify_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(ctx_simplify, "ctx-simplify", "apply contextual simplification rules.", mk_ctx_simplify_tactic(m, p));
 

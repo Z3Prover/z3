@@ -20,12 +20,11 @@ Notes:
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_qfuf_tactic(ast_manager & m, params_ref const & p);
 
-/*
-  ADD_TACTIC("qfuf", "builtin strategy for solving QF_UF problems.", "mk_qfuf_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(qfuf, "qfuf", "builtin strategy for solving QF_UF problems.", mk_qfuf_tactic(m, p));
 

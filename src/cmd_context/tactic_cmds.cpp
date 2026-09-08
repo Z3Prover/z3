@@ -389,10 +389,6 @@ public:
     }
 };
 
-// The install_tactics procedure is automatically generated for every
-// component that includes the cmd_context & tactic modules.
-void install_tactics(tactic_manager & ctx);
-
 void install_core_tactic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(declare_tactic_cmd));
     ctx.insert(alloc(get_user_tactics_cmd));

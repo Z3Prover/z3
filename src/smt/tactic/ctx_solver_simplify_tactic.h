@@ -29,9 +29,8 @@ In this case the tactic is partial and simplifies a limited number of context oc
 #pragma once
 
 #include "tactic/tactical.h"
+#include "tactic/tactic.h"
 
 tactic * mk_ctx_solver_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("ctx-solver-simplify", "apply solver-based contextual simplification rules.", "mk_ctx_solver_simplify_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(ctx_solver_simplify, "ctx-solver-simplify", "apply solver-based contextual simplification rules.", mk_ctx_solver_simplify_tactic(m, p));
 

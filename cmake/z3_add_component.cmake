@@ -1,12 +1,7 @@
-define_property(TARGET PROPERTY INTERFACE_Z3_TACTIC_HEADERS
-                BRIEF_DOCS "Headers containing Z3 tactic registrations"
-                FULL_DOCS "Headers scanned to generate tactic installation code")
-
 # z3_add_component(component_name
 #   [NOT_LIBZ3_COMPONENT]
 #   SOURCES source1 [source2...]
 #   [COMPONENT_DEPENDENCIES component1 [component2...]]
-#   [TACTIC_HEADERS header_file1 [header_file2...]]
 # )
 #
 # Declares a Z3 component (as a CMake "object library") with target name
@@ -26,28 +21,15 @@ define_property(TARGET PROPERTY INTERFACE_Z3_TACTIC_HEADERS
 # components that ``component_name`` should depend on. Listing components here
 # causes them to be built before ``component_name`` and propagates their usage
 # requirements.
-#
-# The optional ``TACTIC_HEADERS`` keyword should be followed by a list of one or
-# more header files that declare a tactic and/or a probe that is part of this
-# component (see ``ADD_TACTIC()`` and ``ADD_PROBE()``).
 function(z3_add_component component_name)
   cmake_parse_arguments(PARSE_ARGV 1 Z3_MOD
     "NOT_LIBZ3_COMPONENT"
     ""
-    "SOURCES;COMPONENT_DEPENDENCIES;TACTIC_HEADERS")
+    "SOURCES;COMPONENT_DEPENDENCIES")
   message(STATUS "Adding component ${component_name}")
   # Note: We don't check the sources exist here because
   # they might be generated files that don't exist yet.
 
-  # Resolve tactic/probe headers.
-  set(_tactic_headers "")
-  foreach (tactic_header ${Z3_MOD_TACTIC_HEADERS})
-    set(_full_tactic_header_file_path "${CMAKE_CURRENT_SOURCE_DIR}/${tactic_header}")
-    if (NOT (EXISTS "${_full_tactic_header_file_path}"))
-      message(FATAL_ERROR "\"${_full_tactic_header_file_path}\" does not exist")
-    endif()
-    list(APPEND _tactic_headers "${_full_tactic_header_file_path}")
-  endforeach()
   # Using "object" libraries here means we have a convenient
   # name to refer to a component in CMake but we don't actually
   # create a static/library from them. This allows us to easily
@@ -56,9 +38,6 @@ function(z3_add_component component_name)
   # overhead it adds?
   add_library(${component_name} OBJECT ${Z3_MOD_SOURCES})
   target_link_libraries(${component_name} PRIVATE z3_common)
-  set_target_properties(${component_name} PROPERTIES
-    INTERFACE_Z3_TACTIC_HEADERS "${_tactic_headers}"
-  )
   set_target_properties(${component_name} PROPERTIES
     # Position independent code needed in shared libraries
     POSITION_INDEPENDENT_CODE ON
@@ -86,48 +65,3 @@ function(z3_add_component component_name)
   endif()
 endfunction()
 
-function(z3_generate_registration target)
-  if (NOT TARGET "${target}")
-    message(FATAL_ERROR "Unknown target \"${target}\"")
-  endif()
-
-  foreach (_generated_source IN ITEMS
-      install_tactic.cpp)
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_generated_source}")
-      message(FATAL_ERROR
-        "\"${CMAKE_CURRENT_SOURCE_DIR}/${_generated_source}\""
-        ${z3_polluted_tree_msg})
-    endif()
-  endforeach()
-
-  # Registration metadata follows the private component link graph. Custom
-  # transitive link properties include dependencies guarded by LINK_ONLY.
-  set_property(TARGET "${target}" APPEND PROPERTY TRANSITIVE_LINK_PROPERTIES
-    Z3_TACTIC_HEADERS)
-
-  set(_tactic_headers "$<TARGET_PROPERTY:${target},Z3_TACTIC_HEADERS>")
-
-  # The tactic generator takes its inputs in a file. file(GENERATE) evaluates
-  # the target's transitive metadata without rewriting an unchanged deps file.
-  set(_install_tactic_deps
-    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps")
-  file(GENERATE
-    OUTPUT "${_install_tactic_deps}"
-    CONTENT "$<JOIN:${_tactic_headers},\n>"
-    TARGET "${target}")
-
-  add_custom_command(OUTPUT
-      "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
-    COMMAND "${Python3_EXECUTABLE}"
-      "${PROJECT_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
-      "${CMAKE_CURRENT_BINARY_DIR}"
-      "${_install_tactic_deps}"
-    DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
-      ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-      "${_install_tactic_deps}"
-    COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
-    VERBATIM)
-
-  target_sources("${target}" PRIVATE
-    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp")
-endfunction()

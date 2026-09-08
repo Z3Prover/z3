@@ -179,4 +179,3 @@ add_executable(test-z3
 )
 target_link_libraries(test-z3 PRIVATE
   z3_common ${z3_test_deps})
-z3_generate_registration(test-z3)

@@ -49,10 +49,9 @@ Solver for integer problems that contains literals of the form
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_diff_neq_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("diff-neq", "specialized solver for integer arithmetic problems that contain only atoms of the form (<= k x) (<= x k) and (not (= (- x y) k)), where x and y are constants and k is a numeral, and all constants are bounded.", "mk_diff_neq_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(diff_neq, "diff-neq", "specialized solver for integer arithmetic problems that contain only atoms of the form (<= k x) (<= x k) and (not (= (- x y) k)), where x and y are constants and k is a numeral, and all constants are bounded.", mk_diff_neq_tactic(m, p));

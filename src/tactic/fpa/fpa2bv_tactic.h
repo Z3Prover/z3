@@ -20,11 +20,10 @@ Converts floating points to bit-vector representation.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_fpa2bv_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("fpa2bv", "convert floating point numbers to bit-vectors.", "mk_fpa2bv_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(fpa2bv, "fpa2bv", "convert floating point numbers to bit-vectors.", mk_fpa2bv_tactic(m, p));
 

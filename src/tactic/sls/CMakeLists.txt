@@ -7,6 +7,4 @@ z3_add_component(sls_tactic
     normal_forms
     tactic
     ast_sls
-  TACTIC_HEADERS
-    sls_tactic.h
 )

@@ -48,6 +48,7 @@ about magnitudes without unfolding the circuit.
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/bv_divrem_bounds.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 class ast_manager;
 class tactic;
@@ -57,7 +58,5 @@ inline tactic* mk_bv_divrem_bounds_tactic(ast_manager& m, params_ref const& p = 
                  [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* { return alloc(bv::divrem_bounds, m, s); });
 }
 
-/*
-  ADD_TACTIC("bv-divrem-bounds", "add range lemmas for bit-vector division/remainder terms with a symbolic divisor.", "mk_bv_divrem_bounds_tactic(m, p)")
-  ADD_SIMPLIFIER("bv-divrem-bounds", "add range lemmas for bit-vector division/remainder terms with a symbolic divisor.", "alloc(bv::divrem_bounds, m, s)")
-*/
+Z3_ADD_TACTIC(bv_divrem_bounds, "bv-divrem-bounds", "add range lemmas for bit-vector division/remainder terms with a symbolic divisor.", mk_bv_divrem_bounds_tactic(m, p));
+Z3_ADD_SIMPLIFIER(bv_divrem_bounds, "bv-divrem-bounds", "add range lemmas for bit-vector division/remainder terms with a symbolic divisor.", alloc(bv::divrem_bounds, m, s));
