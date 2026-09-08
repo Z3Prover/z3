@@ -779,12 +779,6 @@ namespace smt {
     }
 
     theory* theory_nseq::mk_fresh(context* new_ctx) {
-        // `fresh` only needs to create a new theory solver instance for
-        // `new_ctx` (e.g. for portfolio/parallel solving) - none of this
-        // theory's facet state needs to be copied over: `new_ctx` starts
-        // its own solving session from scratch and will (re)populate its
-        // own facets via the normal assign_eh/internalize path as it
-        // processes its own assertions.
         return alloc(theory_nseq, *new_ctx);
     }
 
