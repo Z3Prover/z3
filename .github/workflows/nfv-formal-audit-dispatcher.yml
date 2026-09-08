@@ -1,0 +1,41 @@
+name: Dispatch NFV formal audit
+
+on:
+  pull_request_target:
+    branches: [master]
+    types: [opened, synchronize, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.Z3_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.Z3_CI_APP_PRIVATE_KEY }}
+          owner: Z3Prover
+          repositories: bench
+
+      - name: Dispatch NFV audit
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const pr = context.payload.pull_request;
+            const sha = pr.merged ? pr.merge_commit_sha : pr.head.sha;
+            await github.rest.actions.createWorkflowDispatch({
+              owner: "Z3Prover",
+              repo: "bench",
+              workflow_id: "nfv-formal-audit.lock.yml",
+              ref: "main",
+              inputs: {
+                sha,
+                pr: String(pr.number),
+              },
+            });
