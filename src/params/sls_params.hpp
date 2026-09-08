@@ -48,11 +48,6 @@ Abstract:
   BOOL_(bv_allow_rotation,           "bv_allow_rotation",           true,     "allow model rotation when repairing literal assignment") \
   UINT_(str_update_strategy,         "str_update_strategy",         2,        "string update candidate selection: 0 - single character based update, 1 - subsequence based update, 2 - combined")
 
-Z3_DEFINE_MODULE_PARAMS(sls_params, "sls", SLS_PARAMS);
-
-/*
-   REG_MODULE_PARAMS('sls', 'sls_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('sls', 'Stochastic Local Search Solver (invoked by sls-qfbv and sls-smt tactics or enabled by smt.sls.enable=true)')
-*/
+Z3_DEFINE_MODULE_PARAMS(sls_params, "sls", SLS_PARAMS, "Stochastic Local Search Solver (invoked by sls-qfbv and sls-smt tactics or enabled by smt.sls.enable=true)");
 
 #undef SLS_PARAMS

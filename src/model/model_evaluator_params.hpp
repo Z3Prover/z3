@@ -22,10 +22,6 @@ Abstract:
   BOOL_(array_equalities,  "array_equalities",  true,      "evaluate array equalities") \
   BOOL_(array_as_stores,   "array_as_stores",   true,      "return array as a set of stores")
 
-Z3_DEFINE_MODULE_PARAMS(model_evaluator_params, "model_evaluator", MODEL_EVALUATOR_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('model_evaluator', 'model_evaluator_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(model_evaluator_params, "model_evaluator", MODEL_EVALUATOR_PARAMS_LIST, nullptr);
 
 #undef MODEL_EVALUATOR_PARAMS_LIST

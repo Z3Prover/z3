@@ -4,6 +4,4 @@ z3_add_component(realclosure
     realclosure.cpp
   COMPONENT_DEPENDENCIES
     interval
-  EXTRA_REGISTER_MODULE_HEADERS
-    rcf_params.hpp
 )

@@ -1,6 +1,3 @@
-define_property(TARGET PROPERTY INTERFACE_Z3_REGISTER_MODULE_HEADERS
-                BRIEF_DOCS "Headers containing Z3 module registrations"
-                FULL_DOCS "Headers scanned to generate parameter registration code")
 define_property(TARGET PROPERTY INTERFACE_Z3_TACTIC_HEADERS
                 BRIEF_DOCS "Headers containing Z3 tactic registrations"
                 FULL_DOCS "Headers scanned to generate tactic installation code")
@@ -39,12 +36,6 @@ define_property(TARGET PROPERTY INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS
 # more header files that declare a tactic and/or a probe that is part of this
 # component (see ``ADD_TACTIC()`` and ``ADD_PROBE()``).
 #
-# The optional ``EXTRA_REGISTER_MODULE_HEADERS`` keyword should be followed by a list
-# of one or more header files that contain module registration declarations
-# (i.e. ``REG_PARAMS()``, ``REG_MODULE_PARAMS()``, and ``REG_MODULE_DESCRIPTION()``
-# declarations, typically from a hand-written <module>_params.hpp using
-# Z3_DEFINE_MODULE_PARAMS -- see util/params.h).
-#
 # The optional ``MEMORY_INIT_FINALIZER_HEADERS`` keyword should be followed by a list
 # of one or more header files that contain memory initializer/finalizer declarations
 # (i.e. ``ADD_INITIALIZER()`` or ``ADD_FINALIZER()``).
@@ -52,12 +43,11 @@ function(z3_add_component component_name)
   cmake_parse_arguments(PARSE_ARGV 1 Z3_MOD
     "NOT_LIBZ3_COMPONENT"
     ""
-    "SOURCES;COMPONENT_DEPENDENCIES;TACTIC_HEADERS;EXTRA_REGISTER_MODULE_HEADERS;MEMORY_INIT_FINALIZER_HEADERS")
+    "SOURCES;COMPONENT_DEPENDENCIES;TACTIC_HEADERS;MEMORY_INIT_FINALIZER_HEADERS")
   message(STATUS "Adding component ${component_name}")
   # Note: We don't check the sources exist here because
   # they might be generated files that don't exist yet.
 
-  set(_register_module_headers "")
   # Resolve tactic/probe headers.
   set(_tactic_headers "")
   foreach (tactic_header ${Z3_MOD_TACTIC_HEADERS})
@@ -66,17 +56,6 @@ function(z3_add_component component_name)
       message(FATAL_ERROR "\"${_full_tactic_header_file_path}\" does not exist")
     endif()
     list(APPEND _tactic_headers "${_full_tactic_header_file_path}")
-  endforeach()
-  # Add additional register module headers
-  foreach (extra_register_module_header ${Z3_MOD_EXTRA_REGISTER_MODULE_HEADERS})
-    set(_full_extra_register_module_header_path
-      "${CMAKE_CURRENT_SOURCE_DIR}/${extra_register_module_header}"
-    )
-    if (NOT (EXISTS "${_full_extra_register_module_header_path}"))
-      message(FATAL_ERROR "\"${_full_extra_register_module_header_path}\" does not exist")
-    endif()
-    list(APPEND _register_module_headers
-      "${_full_extra_register_module_header_path}")
   endforeach()
   # Resolve memory initializer/finalizer headers.
   set(_mem_init_finalizer_headers "")
@@ -98,7 +77,6 @@ function(z3_add_component component_name)
   add_library(${component_name} OBJECT ${Z3_MOD_SOURCES})
   target_link_libraries(${component_name} PRIVATE z3_common)
   set_target_properties(${component_name} PROPERTIES
-    INTERFACE_Z3_REGISTER_MODULE_HEADERS "${_register_module_headers}"
     INTERFACE_Z3_TACTIC_HEADERS "${_tactic_headers}"
     INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS "${_mem_init_finalizer_headers}"
   )
@@ -136,8 +114,7 @@ function(z3_generate_registration target)
 
   foreach (_generated_source IN ITEMS
       install_tactic.cpp
-      mem_initializer.cpp
-      gparams_register_modules.cpp)
+      mem_initializer.cpp)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_generated_source}")
       message(FATAL_ERROR
         "\"${CMAKE_CURRENT_SOURCE_DIR}/${_generated_source}\""
@@ -148,12 +125,9 @@ function(z3_generate_registration target)
   # Registration metadata follows the private component link graph. Custom
   # transitive link properties include dependencies guarded by LINK_ONLY.
   set_property(TARGET "${target}" APPEND PROPERTY TRANSITIVE_LINK_PROPERTIES
-    Z3_REGISTER_MODULE_HEADERS
     Z3_TACTIC_HEADERS
     Z3_MEM_INIT_FINALIZER_HEADERS)
 
-  set(_register_module_headers
-    "$<TARGET_PROPERTY:${target},Z3_REGISTER_MODULE_HEADERS>")
   set(_tactic_headers "$<TARGET_PROPERTY:${target},Z3_TACTIC_HEADERS>")
   set(_mem_init_finalizer_headers
     "$<TARGET_PROPERTY:${target},Z3_MEM_INIT_FINALIZER_HEADERS>")
@@ -192,22 +166,7 @@ function(z3_generate_registration target)
     COMMAND_EXPAND_LISTS
     VERBATIM)
 
-  add_custom_command(OUTPUT
-      "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
-    COMMAND "${Python3_EXECUTABLE}"
-      "${PROJECT_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
-      "${CMAKE_CURRENT_BINARY_DIR}"
-      "${_register_module_headers}"
-    DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
-      ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-      "${_register_module_headers}"
-    COMMENT
-      "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""
-    COMMAND_EXPAND_LISTS
-    VERBATIM)
-
   target_sources("${target}" PRIVATE
-    "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
     "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp"
     "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp")
 endfunction()

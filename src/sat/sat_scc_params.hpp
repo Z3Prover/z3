@@ -19,10 +19,6 @@ Abstract:
   BOOL_(scc,     "scc",     true,  "eliminate Boolean variables by computing strongly connected components") \
   BOOL_(scc_tr,  "scc.tr",  true,  "apply transitive reduction, eliminate redundant binary clauses")
 
-Z3_DEFINE_MODULE_PARAMS(sat_scc_params, "sat", SAT_SCC_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('sat', 'sat_scc_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(sat_scc_params, "sat", SAT_SCC_PARAMS_LIST, nullptr);
 
 #undef SAT_SCC_PARAMS_LIST

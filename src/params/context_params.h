@@ -20,6 +20,7 @@ Notes:
 #pragma once
 
 #include "util/params.h"
+#include "util/gparams.h"
 #include "util/zstring.h"
 
 class context_params {
@@ -52,9 +53,6 @@ public:
     void updt_params();
     void updt_params(params_ref const & p);
     static void collect_param_descrs(param_descrs & d);
-    /*
-      REG_PARAMS('context_params::collect_param_descrs')
-    */
 
     /**
        \brief Goodies for extracting parameters for creating a solver object.
@@ -77,3 +75,5 @@ public:
 
 
 };
+
+Z3_REGISTER_GLOBAL_PARAMS(context_params, context_params::collect_param_descrs);

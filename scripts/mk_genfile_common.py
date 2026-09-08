@@ -595,72 +595,12 @@ def mk_def_file_internal(defname, dll_name, export_header_files):
         api.close()
     fout.close()
 
-###############################################################################
-# Functions for generating ``gparams_register_modules.cpp``
-###############################################################################
-
 def path_after_src(h_file):
     h_file = h_file.replace("\\","/")
     idx = h_file.rfind("src/")
     if idx == -1:
         return h_file
     return h_file[idx + 4:]
-            
-def mk_gparams_register_modules_internal(h_files_full_path, path):
-    """
-        Generate a ``gparams_register_modules.cpp`` file in the directory ``path``.
-        Returns the path to the generated file.
-
-        This file implements the procedure
-
-        ```
-        void gparams_register_modules()
-        ```
-
-        This procedure is invoked by gparams::init()
-    """
-    assert isinstance(h_files_full_path, list)
-    if not check_dir_exists(path):
-        raise ValueError(f"Output directory '{path}' does not exist")
-    cmds = []    
-    mod_cmds = []
-    mod_descrs = []
-    fullname = os.path.join(path, 'gparams_register_modules.cpp')
-    fout  = open(fullname, 'w')
-    fout.write('// Automatically generated file.\n')
-    fout.write('#include "util/gparams.h"\n')
-    reg_pat = re.compile(r'[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
-    reg_mod_pat = re.compile(r'[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
-    reg_mod_descr_pat = re.compile(r'[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
-    for h_file in sorted_headers_by_component(h_files_full_path):
-        added_include = False
-        with io.open(h_file, encoding='utf-8', mode='r') as fin:
-            for line in fin:
-                m = reg_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include "%s"\n' % path_after_src(h_file))
-                    cmds.append((m.group(1)))
-                m = reg_mod_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include "%s"\n' % path_after_src(h_file))
-                    mod_cmds.append((m.group(1), m.group(2)))
-                m = reg_mod_descr_pat.match(line)
-                if m:
-                    mod_descrs.append((m.group(1), m.group(2)))
-    fout.write('void gparams_register_modules() {\n')
-    for code in cmds:
-        fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
-    for (mod, code) in mod_cmds:
-        fout.write('{ auto f = []() { auto* d = alloc(param_descrs); %s(*d); return d; }; gparams::register_module("%s", f); }\n' % (code, mod))
-    for (mod, descr) in mod_descrs:
-        fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
-    fout.write('}\n')
-    fout.close()
-    return fullname
 
 ###############################################################################
 # Functions/data structures for generating ``install_tactics.cpp``

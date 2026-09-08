@@ -27,10 +27,6 @@ Abstract:
   BOOL_(blast_distinct,            "blast_distinct",            false,     "expand a distinct predicate into a quadratic number of disequalities") \
   UINT_(blast_distinct_threshold,  "blast_distinct_threshold",  UINT_MAX,  "when blast_distinct is true, only distinct expressions with less than this number of arguments are blasted")
 
-Z3_DEFINE_MODULE_PARAMS(bool_rewriter_params, "rewriter", BOOL_REWRITER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('rewriter', 'bool_rewriter_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(bool_rewriter_params, "rewriter", BOOL_REWRITER_PARAMS_LIST, nullptr);
 
 #undef BOOL_REWRITER_PARAMS_LIST

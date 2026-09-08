@@ -28,11 +28,6 @@ Abstract:
   BOOL_(avoid_skolems,            "avoid_skolems",            true,   "avoid skolem functions when computing patterns") \
   BOOL_(warnings,                 "warnings",                 false,  "enable/disable warning messages in the pattern inference module")
 
-Z3_DEFINE_MODULE_PARAMS(pattern_inference_params_helper, "pi", PATTERN_INFERENCE_PARAMS_HELPER_LIST);
-
-/*
-   REG_MODULE_PARAMS('pi', 'pattern_inference_params_helper::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('pi', 'pattern inference (heuristics) for universal formulas (without annotation)')
-*/
+Z3_DEFINE_MODULE_PARAMS(pattern_inference_params_helper, "pi", PATTERN_INFERENCE_PARAMS_HELPER_LIST, "pattern inference (heuristics) for universal formulas (without annotation)");
 
 #undef PATTERN_INFERENCE_PARAMS_HELPER_LIST

@@ -135,11 +135,6 @@ Abstract:
   BOOL_  (spacer_use_iuc,                               "spacer.use_iuc",                               true,           "Enable Interpolating Unsat Core(IUC) for lemma generalization") \
   BOOL_  (spacer_expand_bnd,                            "spacer.expand_bnd",                            false,          "Enable expand-bound lemma generalization")
 
-Z3_DEFINE_MODULE_PARAMS(fp_params, "fp", FP_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('fp', 'fp_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('fp', 'fixedpoint parameters')
-*/
+Z3_DEFINE_MODULE_PARAMS(fp_params, "fp", FP_PARAMS_LIST, "fixedpoint parameters");
 
 #undef FP_PARAMS_LIST

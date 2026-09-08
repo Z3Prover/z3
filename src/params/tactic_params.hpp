@@ -28,11 +28,6 @@ Abstract:
   UINT_  (randomizer_seed,               "randomizer.seed",               0,         "seed for randomizer pre-processor") \
   SYMBOL_(default_tactic,                "default_tactic",                "",        "overwrite default tactic in strategic solver")
 
-Z3_DEFINE_MODULE_PARAMS(tactic_params, "tactic", TACTIC_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('tactic', 'tactic_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('tactic', 'tactic parameters')
-*/
+Z3_DEFINE_MODULE_PARAMS(tactic_params, "tactic", TACTIC_PARAMS_LIST, "tactic parameters");
 
 #undef TACTIC_PARAMS_LIST

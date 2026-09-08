@@ -23,11 +23,6 @@ Abstract:
   UINT_(max_precision,                 "max_precision",                 128,   "during sign determination we switch from interval arithmetic to complete methods when the interval size is less than 1/2^k, where k is the max_precision") \
   BOOL_(lazy_algebraic_normalization,  "lazy_algebraic_normalization",  true,  "during sturm-seq and square-free polynomial computations, only normalize algebraic polynomial expressions when the defining polynomial is monic")
 
-Z3_DEFINE_MODULE_PARAMS(rcf_params, "rcf", RCF_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('rcf', 'rcf_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('rcf', 'real closed fields')
-*/
+Z3_DEFINE_MODULE_PARAMS(rcf_params, "rcf", RCF_PARAMS_LIST, "real closed fields");
 
 #undef RCF_PARAMS_LIST

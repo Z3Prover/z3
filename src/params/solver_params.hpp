@@ -29,11 +29,6 @@ Abstract:
   BOOL_  (proof_save,              "proof.save",              false,     "save proof log into a proof object that can be extracted using (get-proof)") \
   BOOL_  (proof_trim,              "proof.trim",              false,     "trim and save proof into a proof object that an be extracted using (get-proof)")
 
-Z3_DEFINE_MODULE_PARAMS(solver_params, "solver", SOLVER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('solver', 'solver_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('solver', 'solver parameters')
-*/
+Z3_DEFINE_MODULE_PARAMS(solver_params, "solver", SOLVER_PARAMS_LIST, "solver parameters");
 
 #undef SOLVER_PARAMS_LIST

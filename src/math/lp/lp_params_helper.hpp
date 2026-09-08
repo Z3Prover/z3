@@ -31,11 +31,6 @@ Abstract:
   UINT_(int_hammer_period,          "int_hammer_period",          4,        "period (in final_check calls) for the integer cut/cube heuristics (find_cube, hnf, gomory); a smaller value calls them more often") \
   BOOL_(random_hammers,             "random_hammers",             true,     "draw the periodic integer heuristic gates (find_cube, lcube, hnf, gomory, dio) at random with the same 1/period rate instead of a deterministic every-k-th-call modulus")
 
-Z3_DEFINE_MODULE_PARAMS(lp_params_helper, "lp", LP_PARAMS_HELPER_LIST);
-
-/*
-   REG_MODULE_PARAMS('lp', 'lp_params_helper::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('lp', 'linear programming parameters')
-*/
+Z3_DEFINE_MODULE_PARAMS(lp_params_helper, "lp", LP_PARAMS_HELPER_LIST, "linear programming parameters");
 
 #undef LP_PARAMS_HELPER_LIST
