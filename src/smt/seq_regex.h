@@ -140,7 +140,7 @@ namespace smt {
                 m_term(term, m), m_len(len, m), m_kind(k), m_value(v) {}
         };
 
-        seq_monadic                       m_monadic;
+        seq::monadic                      m_monadic;
         vector<monadic_membership>         m_monadic_memberships;
         // witnesses collapsed from the monadic solver's views, rebuilt per check() round
         expr_substitution                  m_monadic_model;
@@ -249,11 +249,11 @@ namespace smt {
         // unevaluable bound is left to the arithmetic solver).
         bool model_satisfies_bound(candidate_bound const& cb);
         // Collect the distinct sequence variables of a term viewed as a concatenation of
-        // string constants and variables (mirrors seq_monadic's own term decomposition).
+        // string constants and variables (mirrors seq::monadic's own term decomposition).
         void collect_vars(expr* s, ptr_vector<expr>& vars);
         void record_bound(expr* s, expr* len, bound_constraint::kind_t k, unsigned v);
         // Encode a monadic membership index / bounds-constraint index as the void*
-        // dependency handed to the monadic solver.  seq_monadic OMITS null dependencies
+        // dependency handed to the monadic solver.  seq::monadic OMITS null dependencies
         // from its unsat core, so the encoding must never produce a null pointer (in
         // particular 2*idx would map membership index 0 to null and silently drop it,
         // yielding an empty -- i.e. spurious global -- conflict).  We therefore use

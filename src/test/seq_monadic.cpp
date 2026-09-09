@@ -48,7 +48,7 @@ class seq_monadic_test {
     plugin_registrar m_reg;
     seq_rewriter     m_rw;
     trail_stack      m_trail;
-    seq_monadic      m_mon;
+    seq::monadic     m_mon;
     seq_util         u;
     sort_ref         m_str;   // String sort
     sort_ref         m_re;    // RegEx sort over m_str
@@ -342,7 +342,7 @@ class seq_monadic_test {
         for (auto const& [var, views] : m_mon.solution())
             first.insert(var, views);
         branch_sig const check_sig = sig_of(first);
-        seq_monadic::iterator it = m_mon.iterate(1000);
+        seq::monadic::iterator it = m_mon.iterate(1000);
         m_trail.pop_scope(1);                        // the iterator owns its own copy
 
         std::set<branch_sig> seen;
@@ -379,7 +379,7 @@ class seq_monadic_test {
     void check_enumerate_words(char const* name, expr* term, expr* R, unsigned min_branches) {
         m_trail.push_scope();
         m_mon.add(term, R, nullptr);
-        seq_monadic::iterator it = m_mon.iterate(100);
+        seq::monadic::iterator it = m_mon.iterate(100);
         m_trail.pop_scope(1);
 
         expr_ref_vector grounds(m);
@@ -473,7 +473,7 @@ class seq_monadic_test {
         m_trail.push_scope();
         for (auto const& [t, r] : mems)
             m_mon.add(t, r, nullptr);
-        seq_monadic::iterator it = m_mon.iterate(256);
+        seq::monadic::iterator it = m_mon.iterate(256);
         m_trail.pop_scope(1);                     // the iterator owns its query
 
         obj_map<expr, seq::view_vector> sol;
@@ -1062,7 +1062,7 @@ public:
         // ---- unsat cores: the extracted core must contain only constraints that
         // ---- participate in the contradiction, not independent ones.
         // ---- lazy branch enumeration ---------------------------------------------------
-        // seq_monadic::iterator hands out the branches of the decomposition one at a time,
+        // seq::monadic::iterator hands out the branches of the decomposition one at a time,
         // suspending between them by replaying the choice path of the last one reported.
         std::cout << "=== seq_monadic: branch enumeration ===\n";
         {

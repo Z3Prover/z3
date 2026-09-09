@@ -35,13 +35,13 @@ namespace smt {
         throw default_exception("invalid seq.regex_transition_mode, use 'light-ant' or 'brz'");
     }
 
-    static seq_monadic::orientation monadic_orientation(symbol const& s) {
+    static seq::monadic::orientation monadic_orientation(symbol const& s) {
         if (s == "forward")
-            return seq_monadic::orientation::forward;
+            return seq::monadic::orientation::forward;
         if (s == "reversed")
-            return seq_monadic::orientation::reversed;
+            return seq::monadic::orientation::reversed;
         if (s == "retry")
-            return seq_monadic::orientation::retry;
+            return seq::monadic::orientation::retry;
         throw default_exception("invalid seq.regex_orientation, use 'forward', 'reversed' or 'retry'");
     }
 

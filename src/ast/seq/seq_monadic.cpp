@@ -74,7 +74,9 @@ namespace {
     }
 }  // namespace
 
-expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
+namespace seq {
+
+expr_ref monadic::der_elem(expr* r, expr* elem) {
     expr* cached = nullptr;
     if (m_der_cache.find(r, elem, cached))
         return expr_ref(cached, m);
@@ -91,11 +93,11 @@ expr_ref seq_monadic::der_elem(expr* r, expr* elem) {
     return d2;
 }
 
-lbool seq_monadic::nullable(expr* r) {
+lbool monadic::nullable(expr* r) {
     return m_view_witness.nullable(r);
 }
 
-bool seq_monadic::out_of_budget() {
+bool monadic::out_of_budget() {
     if (m_budget == 0) {
         m_stats.inc_bail(bail_reason::budget);
         m_giveup = true;
@@ -110,11 +112,11 @@ bool seq_monadic::out_of_budget() {
     return false;
 }
 
-lbool seq_monadic::product_nonempty(expr* var, seq::view_vector const& comps, expr_ref* witness_word) {
+lbool monadic::product_nonempty(expr* var, seq::view_vector const& comps, expr_ref* witness_word) {
     return m_view_witness.product_nonempty(var, comps, witness_word);
 }
 
-bool seq_monadic::parse_term(expr* t, vector<atom>& atoms) {
+bool monadic::parse_term(expr* t, vector<atom>& atoms) {
     if (u().str.is_concat(t))
         return all_of(*to_app(t), [&](expr* arg) { return parse_term(arg, atoms); });
     if (u().str.is_empty(t))
@@ -140,7 +142,7 @@ bool seq_monadic::parse_term(expr* t, vector<atom>& atoms) {
     return false;
 }
 
-unsigned seq_monadic::var_index(expr* v) {
+unsigned monadic::var_index(expr* v) {
     unsigned vi;
     if (m_var_idx.find(v, vi))
         return vi;
@@ -151,7 +153,7 @@ unsigned seq_monadic::var_index(expr* v) {
     return vi;
 }
 
-void seq_monadic::reset_search() {
+void monadic::reset_search() {
     m_atoms.reset();
     m_regexes.reset();
     m_vars.reset();
@@ -170,7 +172,7 @@ void seq_monadic::reset_search() {
     m_pos_R = nullptr;
 }
 
-bool seq_monadic::reverse_regex(expr* r, expr_ref& result) {
+bool monadic::reverse_regex(expr* r, expr_ref& result) {
     result = expr_ref(re().mk_reverse(r), m);
     m_thrw(result, result);
     // A remaining re.reverse marks a subterm that seq_rewriter could not push through.
@@ -180,7 +182,7 @@ bool seq_monadic::reverse_regex(expr* r, expr_ref& result) {
     return true;
 }
 
-expr_ref seq_monadic::mk_rev_var(expr* v) {
+expr_ref monadic::mk_rev_var(expr* v) {
     if (!m_rev_decl || m_rev_decl->get_range() != v->get_sort()) {
         sort *domain[1] = {v->get_sort()};
         m_rev_decl = m.mk_fresh_func_decl("rev", 1, domain, v->get_sort());
@@ -188,13 +190,13 @@ expr_ref seq_monadic::mk_rev_var(expr* v) {
     return expr_ref(m.mk_app(m_rev_decl, v), m);
 }
 
-expr* seq_monadic::strip_rev_var(expr* v) const {
+expr* monadic::strip_rev_var(expr* v) const {
     if (m_rev_decl && is_app(v) && to_app(v)->get_decl() == m_rev_decl.get())
         return to_app(v)->get_arg(0);
     return v;
 }
 
-bool seq_monadic::prepare(membership_vec const& memberships, bool reversed) {
+bool monadic::prepare(membership_vec const& memberships, bool reversed) {
     reset_search();
     // Reversing has to be all or nothing: a system in which some memberships read forwards
     // and others backwards constrains a mixture of w and rev(w) and is not the original
@@ -270,7 +272,7 @@ bool seq_monadic::prepare(membership_vec const& memberships, bool reversed) {
     return true;
 }
 
-lbool seq_monadic::group_nonempty(unsigned vi) {
+lbool monadic::group_nonempty(unsigned vi) {
     seq::view_vector const& g = m_groups[vi];
     group_sig& sig = m_sig_buf;
     sig.clear();
@@ -307,7 +309,7 @@ lbool seq_monadic::group_nonempty(unsigned vi) {
     return r;
 }
 
-lbool seq_monadic::leaf() {
+lbool monadic::leaf() {
     if (m_giveup)
         return l_undef;                           // the search was already abandoned
     if (m_undef_vars > 0) {
@@ -332,14 +334,14 @@ lbool seq_monadic::leaf() {
     return l_true;
 }
 
-lbool seq_monadic::materialize(expr* var, expr_ref& word) {
+lbool monadic::materialize(expr* var, expr_ref& word) {
     // without a completed search there is nothing recorded to collapse
     if (m_last_result != l_true)
         return l_undef;
     return materialize_recorded(var, word);
 }
 
-lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word, bool allow_unconstrained) {
+lbool monadic::materialize_recorded(expr* var, expr_ref& word, bool allow_unconstrained) {
     // without a recorded solution m_solution is empty, and an empty word would pass
     // for a satisfying assignment
     if (!m_config.m_solution)
@@ -372,7 +374,7 @@ lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word, bool allow_un
     return r;
 }
 
-lbool seq_monadic::materialize_all(expr_substitution& model) {
+lbool monadic::materialize_all(expr_substitution& model) {
     model.reset();
     if (m_last_result != l_true || !m_config.m_solution)
         return l_undef;
@@ -387,13 +389,13 @@ lbool seq_monadic::materialize_all(expr_substitution& model) {
     return l_true;
 }
 
-void seq_monadic::start_membership(unsigned mi) {
+void monadic::start_membership(unsigned mi) {
     m_pos_mi = mi;
     m_pos_i = 0;
     m_pos_R = mi == m_atoms.size() ? nullptr : m_regexes.get(mi);
 }
 
-lbool seq_monadic::advance_pos() {
+lbool monadic::advance_pos() {
     while (true) {
         if (m_pos_mi == m_atoms.size())
             return l_true;
@@ -424,7 +426,7 @@ lbool seq_monadic::advance_pos() {
     }
 }
 
-bool seq_monadic::push_frame() {
+bool monadic::push_frame() {
     if (m_pos_mi == m_atoms.size())
         return false;
     vector<atom> const& atoms = m_atoms[m_pos_mi];
@@ -438,7 +440,7 @@ bool seq_monadic::push_frame() {
     return true;
 }
 
-bool seq_monadic::commit_next(frame& f) {
+bool monadic::commit_next(frame& f) {
     seq::view_vector& g = m_groups[f.vi];
     while (true) {
         expr* target = nullptr;
@@ -501,7 +503,7 @@ bool seq_monadic::commit_next(frame& f) {
     }
 }
 
-lbool seq_monadic::run_search(bool resume) {
+lbool monadic::run_search(bool resume) {
     bool backtrack = resume;
     while (true) {
         if (m_giveup)
@@ -538,7 +540,7 @@ lbool seq_monadic::run_search(bool resume) {
     }
 }
 
-lbool seq_monadic::decide_oriented(membership_vec const& memberships, bool reversed,
+lbool monadic::decide_oriented(membership_vec const& memberships, bool reversed,
                                    unsigned budget) {
     m_solution.reset();
     ++m_search_gen;                               // any suspended iterator loses its stack
@@ -574,7 +576,7 @@ lbool seq_monadic::decide_oriented(membership_vec const& memberships, bool rever
     return r;
 }
 
-bool seq_monadic::constrains_length(expr* r) {
+bool monadic::constrains_length(expr* r) {
     return any_of(subterms::ground(expr_ref(r, m)), [&](expr* t) {
         unsigned lo = 0, hi = 0;
         expr* body = nullptr;
@@ -582,7 +584,7 @@ bool seq_monadic::constrains_length(expr* r) {
     });
 }
 
-void seq_monadic::split_conjuncts(expr* r, ptr_vector<expr>& out) {
+void monadic::split_conjuncts(expr* r, ptr_vector<expr>& out) {
     if (re().is_intersection(r)) {
         for (expr* arg : *to_app(r))
             split_conjuncts(arg, out);            // re.inter is n-ary and can nest
@@ -591,7 +593,7 @@ void seq_monadic::split_conjuncts(expr* r, ptr_vector<expr>& out) {
     out.push_back(r);
 }
 
-bool seq_monadic::instantiate_word(expr* t, ptr_vector<expr>& elems, bool subst) {
+bool monadic::instantiate_word(expr* t, ptr_vector<expr>& elems, bool subst) {
     if (u().str.is_concat(t))
         return all_of(*to_app(t), [&](expr* arg) { return instantiate_word(arg, elems, subst); });
     if (u().str.is_empty(t))
@@ -627,7 +629,7 @@ bool seq_monadic::instantiate_word(expr* t, ptr_vector<expr>& elems, bool subst)
     return instantiate_word(w, elems, false);
 }
 
-lbool seq_monadic::model_accepts(expr* term, expr* r) {
+lbool monadic::model_accepts(expr* term, expr* r) {
     ptr_vector<expr> elems;
     if (!instantiate_word(term, elems))
         return l_undef;                           // a variable the relaxation never valued
@@ -642,7 +644,7 @@ lbool seq_monadic::model_accepts(expr* term, expr* r) {
     return nullable(state);
 }
 
-lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budget,
+lbool monadic::decide_split(membership_vec const& memberships, unsigned budget,
                                 unsigned allowance) {
     // Normalize top-level intersections into separate memberships.  They remain linked by
     // their term and dependency, while the refinement can select them independently.
@@ -767,7 +769,7 @@ lbool seq_monadic::decide_split(membership_vec const& memberships, unsigned budg
     return l_undef;
 }
 
-lbool seq_monadic::decide_policy(membership_vec const& memberships, unsigned budget, bool sticky) {
+lbool monadic::decide_policy(membership_vec const& memberships, unsigned budget, bool sticky) {
     if (m_config.m_orientation != orientation::retry)
         return decide_oriented(memberships, m_config.m_orientation == orientation::reversed, budget);
     // Read forwards first, with the whole budget: halving it would make retry lose
@@ -791,7 +793,7 @@ lbool seq_monadic::decide_policy(membership_vec const& memberships, unsigned bud
     return r;
 }
 
-lbool seq_monadic::decide(membership_vec const& memberships) {
+lbool monadic::decide(membership_vec const& memberships) {
     m_last_search_memberships = memberships;
     unsigned const limit = m_config.m_budget_limit;
     lbool r = l_undef;
@@ -818,7 +820,7 @@ lbool seq_monadic::decide(membership_vec const& memberships) {
     return r;
 }
 
-lbool seq_monadic::enumerate(membership_vec const& memberships, bool resume) {
+lbool monadic::enumerate(membership_vec const& memberships, bool resume) {
     lbool r;
     if (resume) {
         m_budget = m_config.m_budget_limit;       // each pull gets its own allowance
@@ -838,11 +840,11 @@ lbool seq_monadic::enumerate(membership_vec const& memberships, bool resume) {
     return r;
 }
 
-seq_monadic::iterator::iterator(seq_monadic& engine, membership_vec const& memberships,
-                                unsigned limit) :
+monadic::iterator::iterator(monadic& engine, membership_vec const& memberships,
+                            unsigned limit) :
     m_engine(engine), m_memberships(memberships), m_limit(limit) {}
 
-bool seq_monadic::iterator::next(obj_map<expr, seq::view_vector>& solution) {
+bool monadic::iterator::next(obj_map<expr, seq::view_vector>& solution) {
     solution.reset();
     if (m_done)
         return false;
@@ -873,11 +875,11 @@ bool seq_monadic::iterator::next(obj_map<expr, seq::view_vector>& solution) {
     return true;
 }
 
-seq_monadic::iterator seq_monadic::iterate(unsigned limit) {
+monadic::iterator monadic::iterate(unsigned limit) {
     return iterator(*this, m_memberships, limit);
 }
 
-lbool seq_monadic::solve(expr* term, expr* R) {
+lbool monadic::solve(expr* term, expr* R) {
     m_core.reset();
     m_retry_disabled = false;
     membership_vec mv;
@@ -886,7 +888,7 @@ lbool seq_monadic::solve(expr* term, expr* R) {
     return m_last_result;
 }
 
-void seq_monadic::add(expr* term, expr* regex, void* d) {
+void monadic::add(expr* term, expr* regex, void* d) {
     m_memberships.push_back({ expr_ref(term, m), expr_ref(regex, m), d });
     m_undo_trail.push(push_back_vector(m_memberships));
 }
@@ -909,7 +911,7 @@ namespace {
     };
 }
 
-void seq_monadic::set_term(void* d, expr* term) {
+void monadic::set_term(void* d, expr* term) {
     for (unsigned i = 0; i < m_memberships.size(); ++i) {
         if (std::get<2>(m_memberships[i]) != d)
             continue;
@@ -922,12 +924,12 @@ void seq_monadic::set_term(void* d, expr* term) {
     }
 }
 
-bool seq_monadic::can_decide_term(expr* term) {
+bool monadic::can_decide_term(expr* term) {
     vector<atom> atoms;
     return parse_term(term, atoms);
 }
 
-void seq_monadic::add_lo(expr* term, unsigned lo, void* d) {
+void monadic::add_lo(expr* term, unsigned lo, void* d) {
     if (lo == 0)
         return;
     sort* re_sort = re().mk_re(term->get_sort());
@@ -938,14 +940,14 @@ void seq_monadic::add_lo(expr* term, unsigned lo, void* d) {
     add(term, regex, d);
 }
 
-void seq_monadic::add_hi(expr* term, unsigned hi, void* d) {
+void monadic::add_hi(expr* term, unsigned hi, void* d) {
     sort* re_sort = re().mk_re(term->get_sort());
     expr_ref all_char(re().mk_full_char(re_sort), m);
     expr_ref regex(re().mk_loop_proper(all_char, 0, hi), m);
     add(term, regex, d);
 }
 
-void seq_monadic::add_len(expr* term, unsigned len, void* d) {
+void monadic::add_len(expr* term, unsigned len, void* d) {
     sort* re_sort = re().mk_re(term->get_sort());
     expr_ref all_char(re().mk_full_char(re_sort), m);
     expr_ref regex(re().mk_loop_proper(all_char, len, len), m);
@@ -953,7 +955,7 @@ void seq_monadic::add_len(expr* term, unsigned len, void* d) {
 }
 
 
-void seq_monadic::minimize_core(membership_vec const& memberships) {
+void monadic::minimize_core(membership_vec const& memberships) {
     m_core.reset();
     if (!m_config.m_min_core) {
         // No minimization: the core is simply every asserted membership's dependency.
@@ -982,7 +984,7 @@ void seq_monadic::minimize_core(membership_vec const& memberships) {
             m_core.push_back(d);
 }
 
-lbool seq_monadic::check() {
+lbool monadic::check() {
     m_core.reset();
     m_retry_disabled = false;
     lbool r = decide(m_memberships);
@@ -994,7 +996,7 @@ lbool seq_monadic::check() {
     return m_last_result;
 }
 
-std::ostream& seq_monadic::display(std::ostream& out) const {
+std::ostream& monadic::display(std::ostream& out) const {
     auto display_expr = [&](expr* e) {
         if (e)
             out << mk_pp(e, m);
@@ -1107,7 +1109,7 @@ std::ostream& seq_monadic::display(std::ostream& out) const {
     return out << "))\n";
 }
 
-void seq_monadic::collect_statistics(::statistics& st) const {
+void monadic::collect_statistics(::statistics& st) const {
     static char const* const bail_names[] = {
         "seq monadic bail unsupported",
         "seq monadic bail state cap",
@@ -1130,4 +1132,6 @@ void seq_monadic::collect_statistics(::statistics& st) const {
     for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i){
         st.update(bail_names[i], m_stats.m_bails[i]);
     }
+}
+
 }

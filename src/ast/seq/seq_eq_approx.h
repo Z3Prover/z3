@@ -21,7 +21,7 @@ Abstract:
 
     The two segment sequences are intersected directly, without turning any view into a
     regex: a reach language is the runs between two states and has no regex term
-    (materializing one is the state elimination seq_monadic exists to avoid).  The search
+    (materializing one is the state elimination seq::monadic exists to avoid).  The search
     is a product of the two sides, each side a cursor of a segment index plus one
     derivative state per view of that segment:
 
