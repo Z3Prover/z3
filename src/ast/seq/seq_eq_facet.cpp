@@ -866,7 +866,7 @@ namespace seq {
                     // be made equal by any future substitution - the
                     // disequation is proved and discharged.
                     m_trail.push(vector_field_trail<disequation, bool>(m_diseqs, i, &disequation::m_active));
-                m_diseqs[i].m_active = false;
+                    m_diseqs[i].m_active = false;
                     changed = true;
                     continue;
                 }
