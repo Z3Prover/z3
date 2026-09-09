@@ -10,7 +10,7 @@ Version 5.1.0
   regex constraint solving, with semilinear length abstraction for regular expressions.
   https://github.com/Z3Prover/z3/pull/10466, https://github.com/Z3Prover/z3/pull/10472,
   https://github.com/Z3Prover/z3/pull/10455, https://github.com/Z3Prover/z3/pull/10389
-- Add seq_monadic: configurable orientation (retry default) for reading regex memberships,
+- Add seq::monadic: configurable orientation (retry default) for reading regex memberships,
   light Antimirov cofactor mode, DNF replacement with depth-first search, and unsat-core extraction.
   Thanks to Margus Veanes.
   https://github.com/Z3Prover/z3/pull/10519, https://github.com/Z3Prover/z3/pull/10323,

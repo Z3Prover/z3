@@ -22,7 +22,7 @@ Abstract:
     any other element sort.  This mirrors, in a single-state specialization,
     the general purpose cofactor / guard_set machinery seq_monadic.cpp uses to
     find non-emptiness witnesses for monadic decomposition components
-    (seq_monadic::product_nonempty), but is otherwise independent of it.
+    (seq::monadic::product_nonempty), but is otherwise independent of it.
 
 Author:
 

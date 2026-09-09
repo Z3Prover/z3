@@ -82,7 +82,9 @@ Author:
 #include <vector>
 #include <unordered_map>
 
-class seq_monadic {
+namespace seq {
+
+class monadic {
 
 public:
     // Which end of the problem the search reads from.  Reading a membership backwards is
@@ -341,8 +343,10 @@ private:
     lbool model_accepts(expr* term, expr* r);
 
     // materialize() without its precondition on the last top-level result, so that the
-    // refinement loop can read the solution of a search it ran itself.
-    lbool materialize_recorded(expr* var, expr_ref& word);
+    // refinement loop can read the solution of a search it ran itself.  When
+    // allow_unconstrained is false, a variable absent from the recorded relaxation is
+    // reported as unknown instead of being assigned epsilon.
+    lbool materialize_recorded(expr* var, expr_ref& word, bool allow_unconstrained = true);
 
     // Decide `memberships` by refining a relaxation of their intersections, for at most
     // m_split_rounds rounds and `allowance` units of work in total.  l_undef leaves the
@@ -358,8 +362,8 @@ private:
     }
 
 public:
-    seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
-                seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
+    monadic(seq_rewriter& rw, trail_stack& undo_trail,
+            seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
         m_pin(rw.m()), m_config(mode), m_regexes(rw.m()),
         m_live_states(rw, mode, 1u << 12),
@@ -500,7 +504,7 @@ public:
     // REFUTED, so the conjunction holds only if a reported branch does.  gave_up() means
     // the enumeration is incomplete and its end proves nothing.
     class iterator {
-        seq_monadic&    m_engine;
+        monadic&        m_engine;
         membership_vec  m_memberships;   // own copy: outlives the scope it was asserted in
         unsigned        m_limit;         // cap on the number of branches reported
         unsigned        m_count = 0;
@@ -509,7 +513,7 @@ public:
         bool            m_done = false;
         bool            m_giveup = false;
     public:
-        iterator(seq_monadic& engine, membership_vec const& memberships, unsigned limit);
+        iterator(monadic& engine, membership_vec const& memberships, unsigned limit);
         // Report the next branch as the views it commits each variable to.  While it
         // holds, materialize() collapses those views to concrete words.
         bool next(obj_map<expr, seq::view_vector>& solution);
@@ -522,3 +526,5 @@ public:
     // `limit` caps the branches reported; hitting it is a give-up, not an exhaustion.
     iterator iterate(unsigned limit);
 };
+
+}
