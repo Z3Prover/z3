@@ -87,7 +87,7 @@ namespace seq {
         return a.state == b.state && a.target == b.target;
     }
 
-    using view_vector = svector<view>;
+    using view_vector = vector<view>;
 
     // Uncached reference semantics; an engine with its own caches has to agree with these.
     // l_undef when nullability is undecided.
