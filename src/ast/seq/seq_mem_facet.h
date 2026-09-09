@@ -36,7 +36,7 @@ Abstract:
         rule, so no standalone `mem_var_split` class exists in this port;
       - monadic landing is implemented for the conjunction of memberships
         currently present in `mem_facet`; it narrows views reported by
-        `seq_monadic::iterate()` and leaves exact witness materialization to
+        `monadic::iterate()` and leaves exact witness materialization to
         `seq_monadic` itself.
 
 Author:
@@ -345,7 +345,7 @@ namespace seq {
         // satisfiable/refutable membership conjunctions to be reported
         // as spurious "unknown" by nseq while theory_seq solved them.
         unsigned          m_budget = 1000000;
-        seq_monadic::orientation m_orientation = seq_monadic::orientation::retry;
+        monadic::orientation m_orientation = monadic::orientation::retry;
         unsigned          m_split_rounds = 10;
         struct stats {
             unsigned m_num_splits = 0;
@@ -357,7 +357,7 @@ namespace seq {
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node&             m_n;
             // Private trail, entirely separate from the search tree's shared trail:
-            // seq_monadic::add() pushes undo-trail entries referencing its own
+            // monadic::add() pushes undo-trail entries referencing its own
             // internal state, and those entries must stay valid for exactly as
             // long as m_mon itself does. Tying them to the search tree's shared
             // trail is unsafe, since a declining split() call is immediately
@@ -366,12 +366,12 @@ namespace seq {
             // already-destroyed seq_monadic. A private trail/engine pair, owned
             // and torn down together by this iterator, avoids that entirely.
             trail_stack                m_priv_trail;
-            seq_monadic                m_mon;
+            monadic                m_mon;
             // Constructed in the body (after m_mon.add() populates the
-            // engine), not the initializer list: seq_monadic::iterate()
+            // engine), not the initializer list: monadic::iterate()
             // snapshots the engine's CURRENT membership set, so building
             // it before add() runs would capture an empty conjunction.
-            scoped_ptr<seq_monadic::iterator> m_it;
+            scoped_ptr<monadic::iterator> m_it;
             bool                       m_first_pending = true;
             obj_map<expr, seq::view_vector> m_first;
             ast_manager&               m;
@@ -380,11 +380,11 @@ namespace seq {
         public:
             iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
                      vector<str_mem> const& mems, unsigned budget,
-                     seq_monadic::orientation orientation, unsigned split_rounds);
+                     monadic::orientation orientation, unsigned split_rounds);
             bool next(eq_tree::edge& out) override;
             bool has_first() const { return !m_first.empty(); }
             // next() (or the constructor's priming call) reporting no
-            // branch is ambiguous by itself: seq_monadic::iterator's
+            // branch is ambiguous by itself: monadic::iterator's
             // class comment says "next() returning false with
             // gave_up() false means every branch not yet reported is
             // REFUTED" - i.e. the conjunction of memberships fed to
@@ -400,7 +400,7 @@ namespace seq {
         // Allows theory_nseq to wire this up from theory_seq_params the same
         // way smt/seq_regex.cpp does for theory_seq's own monadic instance.
         void set_budget(unsigned b) { m_budget = b; }
-        void set_orientation(seq_monadic::orientation o) { m_orientation = o; }
+        void set_orientation(monadic::orientation o) { m_orientation = o; }
         void set_split_rounds(unsigned n) { m_split_rounds = n; }
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;

@@ -170,9 +170,9 @@ namespace smt {
             auto* mm = alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient);
             auto const& fp = ctx.get_fparams();
             mm->set_budget(fp.m_seq_regex_budget);
-            mm->set_orientation(fp.m_seq_regex_orientation == "forward" ? seq_monadic::orientation::forward :
-                                 fp.m_seq_regex_orientation == "reversed" ? seq_monadic::orientation::reversed :
-                                 seq_monadic::orientation::retry);
+            mm->set_orientation(fp.m_seq_regex_orientation == "forward" ? seq::monadic::orientation::forward :
+                                 fp.m_seq_regex_orientation == "reversed" ? seq::monadic::orientation::reversed :
+                                 seq::monadic::orientation::retry);
             mm->set_split_rounds(fp.m_seq_regex_split);
             m_tree.add_split_plugin(mm);
         }
@@ -605,7 +605,7 @@ namespace smt {
         if (!snap)
             return;
         auto const& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
-        seq_monadic mon(m_rewriter, ctx.get_trail_stack(), seq::transition_mode::brzozowski_tm);
+        seq::monadic mon(m_rewriter, ctx.get_trail_stack(), seq::transition_mode::brzozowski_tm);
         mon.set_gen_solution(true);
         // seq_monadic::add() pushes undo-trail entries onto
         // ctx.get_trail_stack() that reference `mon`'s own

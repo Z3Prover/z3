@@ -390,7 +390,7 @@ namespace seq {
     // NSB code review: this uses the end-game version of seq_monadic. 
     mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
                                           vector<str_mem> const& mems, unsigned budget,
-                                          seq_monadic::orientation orientation, unsigned split_rounds) :
+                                          monadic::orientation orientation, unsigned split_rounds) :
         m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m(m), u(u) {
         m_mon.set_gen_solution(true);
         m_mon.set_budget(budget);
@@ -413,7 +413,7 @@ namespace seq {
             expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
             m_mon.add(term, sm.m_view.m_state, sm.m_dep);
         }
-        m_it = alloc(seq_monadic::iterator, m_mon.iterate(64));
+        m_it = alloc(monadic::iterator, m_mon.iterate(64));
         obj_map<expr, seq::view_vector> first;
         if (m_it->next(first))
             for (auto const& [var, views] : first)
@@ -519,7 +519,7 @@ namespace seq {
         scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships(), m_budget, m_orientation, m_split_rounds));
         if (it->is_refuted()) {
             // seq_monadic proved the conjunction of the PLAIN memberships fed to
-            // it is UNSAT (see seq_monadic::iterator's class comment): every branch
+            // it is UNSAT (see monadic::iterator's class comment): every branch
             // was pruned as empty and none of that pruning was a give-up. Refuting
             // on a subset of the node's constraints is sound - the dependency below
             // just names that subset. That is a genuine conflict, not merely
