@@ -366,8 +366,10 @@ private:
     lbool model_accepts(expr* term, expr* r);
 
     // materialize() without its precondition on the last top-level result, so that the
-    // refinement loop can read the solution of a search it ran itself.
-    lbool materialize_recorded(expr* var, expr_ref& word);
+    // refinement loop can read the solution of a search it ran itself.  When
+    // allow_unconstrained is false, a variable absent from the recorded relaxation is
+    // reported as unknown instead of being assigned epsilon.
+    lbool materialize_recorded(expr* var, expr_ref& word, bool allow_unconstrained = true);
 
     // Decide `memberships` by refining a relaxation of their intersections, for at most
     // m_split_rounds rounds and `allowance` units of work in total.  l_undef leaves the

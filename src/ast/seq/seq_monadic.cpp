@@ -716,7 +716,7 @@ lbool seq_monadic::materialize(expr* var, expr_ref& word) {
     return materialize_recorded(var, word);
 }
 
-lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word) {
+lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word, bool allow_unconstrained) {
     // without a recorded solution m_solution is empty, and an empty word would pass
     // for a satisfying assignment
     if (!m_config.m_solution)
@@ -731,6 +731,8 @@ lbool seq_monadic::materialize_recorded(expr* var, expr_ref& word) {
         found = m_solution.find(key, views);
     }
     if (!found) {
+        if (!allow_unconstrained)
+            return l_undef;
         word = u().str.mk_empty(var->get_sort());  // unconstrained: any value will do
         return l_true;
     }
@@ -994,7 +996,7 @@ bool seq_monadic::instantiate_word(expr* t, ptr_vector<expr>& elems, bool subst)
     if (m_split_words.find(t, cached))
         return cached && instantiate_word(cached, elems, false);
     expr_ref w(m);
-    if (materialize_recorded(t, w) != l_true) {
+    if (materialize_recorded(t, w, false) != l_true) {
         m_split_words.insert(t, nullptr);         // remember the failure too
         return false;
     }
