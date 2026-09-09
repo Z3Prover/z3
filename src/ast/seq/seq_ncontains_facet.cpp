@@ -23,27 +23,48 @@ Author:
 
 namespace seq {
 
+    void ncontains_facet::advance_qhead(unsigned head) {
+        m_trail.push(value_trail<unsigned>(m_qhead));
+        m_qhead = head;
+    }
+
+    void ncontains_facet::rewind_qhead(unsigned idx) {
+        if (idx < m_qhead)
+            advance_qhead(idx);
+    }
+
     void ncontains_facet::remove(unsigned idx) {
-        m_trail.push(vector_erase_trail<str_ncontains>(m_ncs, idx));
-        m_ncs.erase(m_ncs.begin() + idx);
+        m_trail.push(vector_field_trail<str_ncontains, bool>(m_ncs, idx, &str_ncontains::m_active));
+        m_ncs[idx].m_active = false;
     }
 
     void ncontains_facet::replace_with_tail(unsigned idx, expr_ref_vector const& new_haystack) {
         expr_ref_vector needle(m_ncs[idx].m_needle);
         eq_tree::dep_tracker dep = m_ncs[idx].m_dep;
-        m_trail.push(vector_erase_trail<str_ncontains>(m_ncs, idx));
-        m_ncs.erase(m_ncs.begin() + idx);
+        m_trail.push(vector_field_trail<str_ncontains, bool>(m_ncs, idx, &str_ncontains::m_active));
+        m_ncs[idx].m_active = false;
         m_ncs.push_back(str_ncontains(new_haystack, needle, dep));
         m_trail.push(push_back_trail<str_ncontains>(m_ncs));
     }
 
     void ncontains_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned i = 0; i < m_ncs.size(); ++i) {
+            if (!m_ncs[i].active())
+                continue;
             bool touched_h = subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_haystack, var, repl);
             bool touched_n = subst_in_trailed(m_trail, m_ncs, i, &str_ncontains::m_needle, var, repl);
-            if ((touched_h || touched_n) && subst_dep) {
-                m_trail.push(vector_field_trail<str_ncontains, eq_tree::dep_tracker>(m_ncs, i, &str_ncontains::m_dep));
-                m_ncs[i].m_dep = m_dm.mk_join(m_ncs[i].m_dep, subst_dep);
+            if (touched_h || touched_n) {
+                if (subst_dep) {
+                    m_trail.push(vector_field_trail<str_ncontains, eq_tree::dep_tracker>(m_ncs, i, &str_ncontains::m_dep));
+                    m_ncs[i].m_dep = m_dm.mk_join(m_ncs[i].m_dep, subst_dep);
+                }
+                // A substitution may invalidate a "no further progress
+                // possible" verdict ncontains_propagation reached for
+                // this obligation in an earlier round (e.g. an
+                // undecided position may now resolve), so make sure it
+                // is re-examined next round even if qhead had already
+                // advanced past it.
+                rewind_qhead(i);
             }
         }
     }
@@ -51,12 +72,15 @@ namespace seq {
     stx::facet_i* ncontains_facet::clone(trail_stack& trail) const {
         ncontains_facet* f = alloc(ncontains_facet, trail, m, u, m_dm);
         f->m_ncs.append(m_ncs);
+        f->m_qhead = m_qhead;
         return f;
     }
 
     std::ostream& ncontains_facet::display(std::ostream& out) const {
-        out << "ncontains_facet: " << m_ncs.size() << " obligation(s)\n";
+        out << "ncontains_facet: " << m_ncs.size() << " obligation(s), qhead=" << m_qhead << "\n";
         for (auto const& nc : m_ncs) {
+            if (!nc.active())
+                continue;
             out << "  not-contains(";
             for (expr* t : nc.m_haystack) out << mk_pp(t, m) << " ";
             out << ", ";
@@ -106,8 +130,22 @@ namespace seq {
         m_stats.m_num_propagate++;
 
         bool changed = false;
-        for (unsigned i = 0; i < f.ncontains().size(); ) {
-            str_ncontains const& nc = f.ncontains()[i];
+        // Incremental scan: only [qhead, ncontains().size()) is examined
+        // this round (mirrors req_facet's own m_qhead convention). An
+        // obligation that becomes inactive (remove()/replace_with_tail())
+        // is simply skipped from here on; replace_with_tail's shortened
+        // replacement is appended past the current scan position, so it
+        // is picked up later in this same forward scan without needing
+        // to revisit `head`. apply_subst rewinds qhead when it touches
+        // an already-scanned obligation, so this loop never needs to
+        // look behind qhead on its own.
+        unsigned head = f.qhead();
+        while (head < f.ncontains().size()) {
+            if (!f.ncontains()[head].active()) {
+                ++head;
+                continue;
+            }
+            str_ncontains const& nc = f.ncontains()[head];
 
             // Trivial conflict: an empty needle is always contained.
             if (nc.m_needle.empty()) {
@@ -176,17 +214,20 @@ namespace seq {
             if (has_window && first_undef_pos > max_pos) {
                 // every position is a determined mismatch: the needle
                 // cannot occur anywhere in the current haystack.
-                f.remove(i);
+                f.remove(head);
                 changed = true;
+                ++head;
                 continue;
             }
             if (has_window && first_undef_pos > 0) {
                 // strip the leading run of determined-mismatch positions.
                 expr_ref_vector tail(m);
                 tail.append(h_size - first_undef_pos, nc.m_haystack.data() + first_undef_pos);
-                f.replace_with_tail(i, tail);
+                f.replace_with_tail(head, tail);
                 changed = true;
-                continue; // re-examine the same obligation at index i (now shortened)
+                ++head; // the shortened replacement, appended past `head`,
+                        // is picked up later in this same forward scan.
+                continue;
             }
 
             // Length gate (facet-ncontains.md section 3.3): only reached
@@ -212,12 +253,17 @@ namespace seq {
             if (af.implies(gate) == l_true) {
                 // len(h) < len(n): n cannot possibly occur in h - the
                 // obligation is vacuously satisfied.
-                f.remove(i);
+                f.remove(head);
                 changed = true;
+                ++head;
                 continue;
             }
 
-            ++i;
+            ++head; // no further progress possible this round: left pending.
+        }
+        if (head != f.qhead()) {
+            f.advance_qhead(head);
+            changed = true;
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;

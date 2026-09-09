@@ -77,6 +77,27 @@ Abstract:
         is needed for termination in this concrete/token-list
         representation (as opposed to an open-ended symbolic length).
 
+    Representation / incrementality, mirroring eq_facet/deq_facet's
+    append-only equations/disequations (see seq_eq_facet.h) and
+    req_facet's m_qhead convention (see seq_req_facet.h):
+      - `m_ncs` is append-only: "removing" an obligation (discharged by
+        the length gate or by the prefix-unrolling mismatch scan) just
+        flips its `m_active` flag to false (trailed, so it flips back to
+        true on backtrack), and "replacing" an obligation (stripping a
+        leading run of determined-mismatch tokens) deactivates the old
+        entry and appends the shortened one to the back of the vector -
+        no index into `m_ncs` handed out to another facet/iterator is
+        ever invalidated by a remove/replace.
+      - `m_qhead` tracks the first obligation `ncontains_propagation`
+        has not yet scanned to a fixed point this round, so a
+        propagation call only re-examines `[m_qhead, m_ncs.size())`
+        instead of rescanning every still-active obligation from
+        scratch every round. `apply_subst` rewinds `m_qhead` back down
+        to the earliest touched (still-active) index, since a
+        substitution can invalidate a prior "no further progress
+        possible" verdict for any active obligation, not only ones
+        added after the current qhead.
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026
@@ -92,6 +113,7 @@ Author:
 #include "ast/seq/seq_eq_facet.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
+#include <algorithm>
 
 namespace seq {
 
@@ -99,12 +121,23 @@ namespace seq {
     // occur as an infix of `m_haystack`, represented (like eq_facet's
     // equations) as flattened token lists so that eq_facet substitutions
     // keep it in sync via subst_sink_i.
+    //
+    // Append-only representation, mirroring eq_facet::equation/
+    // deq_facet::disequation: m_ncs is never erased/shifted. "Removing"
+    // or "replacing" an obligation just flips m_active to false (trailed
+    // via vector_field_trail, so it flips back to true on backtrack)
+    // and, for a replace (the deterministic prefix-unrolling propagation
+    // stripping a leading run of determined-mismatch tokens), appends
+    // the shortened obligation to the back of the vector. Consumers
+    // that iterate ncontains() must skip entries with !active().
     struct str_ncontains {
         expr_ref_vector m_haystack;
         expr_ref_vector m_needle;
         eq_tree::dep_tracker m_dep;
+        bool            m_active = true;
         str_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) :
             m_haystack(h), m_needle(n), m_dep(dep) {}
+        bool active() const { return m_active; }
     };
 
     /**
@@ -116,6 +149,18 @@ namespace seq {
         seq_util&    u;
         eq_tree::dep_manager_t& m_dm;
         vector<str_ncontains> m_ncs;
+        // Index of the first obligation not yet known to be at a fixed
+        // point for the current node (mirrors req_facet's m_qhead):
+        // ncontains_propagation only re-scans [m_qhead, m_ncs.size())
+        // each round instead of the whole append-only vector. Trailed
+        // like any other facet-owned scalar (see advance_qhead()).
+        // apply_subst rewinds m_qhead down to the earliest index it
+        // actually touches (only ever backwards - past-the-qhead
+        // obligations were already re-derived, so nothing needs
+        // rewinding for those), since a substitution can invalidate a
+        // "no further progress possible" verdict reached in an earlier
+        // round for any *active* obligation, not just newly-added ones.
+        unsigned m_qhead = 0;
 
     public:
         ncontains_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
@@ -141,8 +186,21 @@ namespace seq {
         }
 
         vector<str_ncontains> const& ncontains() const { return m_ncs; }
+        unsigned qhead() const { return m_qhead; }
 
-        // Drop `idx`'s obligation entirely (discharged/proved). Trailed.
+        // Advance m_qhead to `head` (only ever forward via this call;
+        // rewound backwards only by apply_subst/rewind_qhead). Trailed.
+        void advance_qhead(unsigned head);
+
+        // Rewind m_qhead down to `idx` if it is currently past it -
+        // used by apply_subst when a substitution touches an obligation
+        // that a previous propagation round had already scanned past,
+        // so it (and everything after it) is re-examined next round.
+        // Trailed, and a no-op if m_qhead is already <= idx.
+        void rewind_qhead(unsigned idx);
+
+        // Drop `idx`'s obligation entirely (discharged/proved): flips
+        // m_active to false. Trailed.
         void remove(unsigned idx);
 
         // Drop `idx`'s obligation and push a fresh one whose haystack is
@@ -160,7 +218,7 @@ namespace seq {
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
-        bool is_satisfied() const override { return m_ncs.empty(); }
+        bool is_satisfied() const override { return std::all_of(m_ncs.begin(), m_ncs.end(), [](str_ncontains const& nc) { return !nc.active(); }); }
         std::ostream& display(std::ostream& out) const override;
     };
 
@@ -176,7 +234,9 @@ namespace seq {
     // until a substitution (broadcast via apply_subst, see facet-
     // ncontains.md section 4) resolves it enough for propagation to
     // proceed - mirroring deq_facet's own "no branching of its own"
-    // design (facet-eq-deq.md section 2.5).
+    // design (facet-eq-deq.md section 2.5). Incremental via
+    // `f.qhead()`: only `[qhead, ncontains().size())` is scanned each
+    // call, and only active() obligations are ever examined/mutated.
     class ncontains_propagation : public eq_tree::propagation_plugin_i {
         ast_manager&  m;
         seq_util&     u;
