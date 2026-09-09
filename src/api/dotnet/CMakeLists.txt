@@ -19,7 +19,6 @@ add_custom_command(OUTPUT "${Z3_DOTNET_NATIVE_FILE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating ${Z3_DOTNET_NATIVE_FILE}"
-  USES_TERMINAL
 )
 
 # Generate Enumerations.cs
@@ -35,7 +34,6 @@ add_custom_command(OUTPUT "${Z3_DOTNET_CONST_FILE}"
     "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating ${Z3_DOTNET_CONST_FILE}"
-  USES_TERMINAL
 )
 
 set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
@@ -195,4 +193,3 @@ if(Z3_INSTALL_DOTNET_BINDINGS)
 #  set(PREFIX "${CMAKE_INSTALL_PREFIX}")
 #  set(VERSION "${Z3_VERSION}")
 endif()
-

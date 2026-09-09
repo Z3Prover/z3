@@ -15,6 +15,7 @@ z3_add_component(ast_seq
     seq_req_facet.cpp
     seq_skolem.cpp
     seq_view.cpp
+    seq_view_witness.cpp
   COMPONENT_DEPENDENCIES
     ast
     rewriter

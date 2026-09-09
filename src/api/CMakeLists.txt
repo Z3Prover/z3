@@ -27,7 +27,6 @@ add_custom_command(OUTPUT ${generated_files}
           ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
           ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
   COMMENT "Generating ${generated_files}"
-  USES_TERMINAL
   VERBATIM
 )
 

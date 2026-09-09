@@ -65,6 +65,7 @@ Author:
 #include "ast/expr_substitution.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/seq/seq_view.h"
+#include "ast/seq/seq_view_witness.h"
 #include "ast/rewriter/seq_range_predicate.h"
 #include "ast/seq/seq_regex_live.h"
 #include "ast/rewriter/guard_set.h"
@@ -142,24 +143,7 @@ private:
     statistics      m_stats;
     obj_map<expr, seq::view_vector> m_solution;  // var -> views, from the last decide()
     obj_map<expr, expr*> m_split_words;     // var -> witness word, cached per refinement round
-    guard_set::cache m_rp_cache;             // cofactor guard -> range predicate
-    // Interval ("t-regex") form of a state's derivative cofactors over the character sort:
-    // a canonical list of disjoint ranges in increasing order, each carrying the targets
-    // reachable on that range.  Built once per state and merged by the product, so the
-    // product enumerates only the cells of the common refinement.
-    struct ivl_range { unsigned lo, hi, first, count; };
-    struct ivl_list {
-        svector<ivl_range> ranges;
-        ptr_vector<expr>   targets;   // ranges[i] owns targets[first .. first+count)
-        bool               ok = true; // false: some guard is outside the range algebra
-    };
-    obj_map<expr, ivl_list*> m_ivl_cache;
-    expr_ref_vector          m_ivl_pin;      // pins the states and targets the cache refers to
-    ivl_list const* interval_cofactors(expr* r, expr* v0);
-    void reset_ivl_cache();
     obj_pair_map<expr, expr, expr*> m_der_cache;  // memoizes der_elem per (regex, element)
-    obj_map<expr, char> m_nullable_cache;   // memoizes nullability (0 false / 1 true / 2 unknown);
-                                            // seq_rewriter's own cache is capped and flushed whole
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
 
     membership_vec m_memberships;           // asserted (term in regex, dep) for check()
@@ -234,6 +218,7 @@ private:
     group_sig m_sig_buf;                    // reused by group_nonempty (avoids allocating per lookup)
     std::unordered_map<group_sig, lbool, group_sig_hash> m_group_cache;
     seq::live_states m_live_states;
+    seq::view_witness m_view_witness;
 
     // Names the reversed reading of a sequence variable while the search runs backwards.
     // The marker is stripped before witnesses are reported.
@@ -246,16 +231,6 @@ private:
     // Memoized nullability of a derivative state: l_true / l_false / l_undef (unknown).
     lbool nullable(expr* r);
 
-    // Symbolic transition cofactors in the selected mode.  The returned vector is owned
-    // by seq_rewriter's mode-specific cofactor cache.
-    expr_ref_pair_vector const& derivative_cofactors(expr* r);
-
-    // Product-reachability emptiness of a conjunction of views (all on one
-    // variable).  l_false = empty (unsat), l_true = non-empty (sat), l_undef = gave up
-    // (cap overrun, non-range guard, or undecidable nullability).
-    // On l_true, if `witness_word` is non-null it is set to a concrete sequence term
-    // (over the element sort) whose value drives every view to acceptance
-    // simultaneously -- i.e. a witness value for the variable the views constrain.
     lbool product_nonempty(expr* var, seq::view_vector const& comps, expr_ref* witness_word = nullptr);
 
     // Flatten a str.++ term into atoms; false on an unsupported shape (non-constant unit).
@@ -386,10 +361,16 @@ public:
     seq_monadic(seq_rewriter& rw, trail_stack& undo_trail,
                 seq::transition_mode mode = seq::transition_mode::light_antimirov_tm) :
         m(rw.m()), m_rw(rw), m_thrw(rw.m()), m_undo_trail(undo_trail),
-        m_pin(rw.m()), m_config(mode), m_rp_cache(rw.m()), m_ivl_pin(rw.m()),
-        m_regexes(rw.m()), m_live_states(rw, mode, 1u << 12), m_rev_decl(rw.m()) {}
-
-    ~seq_monadic() { reset_ivl_cache(); }
+        m_pin(rw.m()), m_config(mode), m_regexes(rw.m()),
+        m_live_states(rw, mode, 1u << 12),
+        m_view_witness(undo_trail, rw, m_live_states, mode), m_rev_decl(rw.m()) {
+        m_view_witness.set_checkpoint([this]() {
+            if (!out_of_budget())
+                return seq::view_failure_reason::none;
+            return m_budget == 0 ? seq::view_failure_reason::budget :
+                                   seq::view_failure_reason::resource;
+        });
+    }
 
     void collect_statistics(::statistics &st) const;
     statistics const& stats() const { return m_stats; }
