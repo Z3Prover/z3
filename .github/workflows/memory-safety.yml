@@ -15,6 +15,10 @@ permissions:
   contents: read
   actions: read
 
+env:
+  CC: clang
+  CXX: clang++
+
 concurrency:
   group: memory-safety-${{ github.ref }}
   cancel-in-progress: true
@@ -43,21 +47,17 @@ jobs:
 
       - name: Configure with ASan
         run: |
-          mkdir -p build-asan
-          cd build-asan
-          CC=clang CXX=clang++ cmake \
+          cmake -G Ninja -S . -B build-asan \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_FLAGS="-fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls" \
             -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
-            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address" \
-            -G Ninja ../
+            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address"
 
       - name: Build Z3 with ASan
         run: |
-          cd build-asan
-          ninja -j$(nproc)
-          ninja test-z3
+          cmake --build build-asan
+          cmake --build build-asan --target test-z3
 
       - name: Run unit tests under ASan
         run: |
@@ -133,21 +133,17 @@ jobs:
 
       - name: Configure with UBSan
         run: |
-          mkdir -p build-ubsan
-          cd build-ubsan
-          CC=clang CXX=clang++ cmake \
+          cmake -G Ninja -S . -B build-ubsan \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fsanitize-recover=all" \
             -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fsanitize-recover=all" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined" \
-            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=undefined" \
-            -G Ninja ../
+            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=undefined"
 
       - name: Build Z3 with UBSan
         run: |
-          cd build-ubsan
-          ninja -j$(nproc)
-          ninja test-z3
+          cmake --build build-ubsan
+          cmake --build build-ubsan --target test-z3
 
       - name: Run unit tests under UBSan
         run: |

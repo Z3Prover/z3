@@ -84,28 +84,27 @@ class seq_eq_approx_test {
 
     // one equation checked with the given views installed, which are dropped afterwards
     void check_with_regex(char const* name, expr* var, expr* r, expr* lhs, expr* rhs, lbool expected) {
-        m_eq.add_view(var, seq::view::membership(r));
+        m_eq.add_view(var, seq::view::membership(r, m));
         report(name, m_eq.check(lhs, rhs), expected);
         m_eq.unset_views(var);
     }
 
     void check_with_regexes(char const* name, expr* v1, expr* r1, expr* v2, expr* r2,
                             expr* lhs, expr* rhs, lbool expected) {
-        m_eq.add_view(v1, seq::view::membership(r1));
-        m_eq.add_view(v2, seq::view::membership(r2));
+        m_eq.add_view(v1, seq::view::membership(r1, m));
+        m_eq.add_view(v2, seq::view::membership(r2, m));
         report(name, m_eq.check(lhs, rhs), expected);
         m_eq.reset_views();
     }
 
     // Membership of `w` in the segments of `term`, decided by intersecting them with the
-    // single segment of `w`.  This pins down the segments themselves, which the equation
-    // checks only see through the verdict.
+    // single segment of `w`.
     void check_member(char const* name, expr* term, char const* w, lbool expected) {
         seq_eq_approx::segments segs, wsegs;
         m_eq.to_segments(term, segs);
-        expr_ref w_re = word(w);           // a view holds a raw pointer: keep it alive
+        expr_ref w_re = word(w);
         seq::view_vector v;
-        v.push_back(seq::view::membership(w_re));
+        v.push_back(seq::view::membership(w_re, m));
         wsegs.push_back(v);
         report(name, m_eq.intersect_nonempty(segs, wsegs), expected);
     }
@@ -177,8 +176,8 @@ class seq_eq_approx_test {
         expr_ref x = var("x"), y = var("y");
         expr_ref aStar(star(word("a")), m), bStar(star(word("b")), m);
         seq::view_vector vs;
-        vs.push_back(seq::view::membership(bStar));
-        m_eq.add_view(x, seq::view::membership(aStar));
+        vs.push_back(seq::view::membership(bStar, m));
+        m_eq.add_view(x, seq::view::membership(aStar, m));
         m_eq.set_views(x, vs);                                    // replaces what x carries
         bool ok = m_eq.get_views(x) && m_eq.get_views(x)->size() == 1 &&
                   (*m_eq.get_views(x))[0].m_state == bStar.get() && m_eq.num_terms() == 1 &&
@@ -188,7 +187,7 @@ class seq_eq_approx_test {
         m_eq.unset_views(x);
         report("views unset", m_eq.num_terms() == 0 ? l_true : l_false, l_true);
         report("x unconstrained: x = a", m_eq.check(x, sword("a")), l_true);
-        m_eq.add_view(x, seq::view::membership(aStar));
+        m_eq.add_view(x, seq::view::membership(aStar, m));
         m_eq.reset_views();
         report("views reset", m_eq.num_terms() == 0 ? l_true : l_false, l_true);
     }
@@ -213,7 +212,7 @@ class seq_eq_approx_test {
             return;
         }
         // x drives "ab" from its start to the state after 'a', i.e. x is exactly "a"
-        m_eq.add_view(x, seq::view::reach(ab, after_a));
+        m_eq.add_view(x, seq::view::reach(ab, after_a, m));
         report("x reaches ab-after-a: x = a", m_eq.check(x, sword("a")), l_true);
         report("x reaches ab-after-a: x = b", m_eq.check(x, sword("b")), l_false);
         report("x reaches ab-after-a: x = ab", m_eq.check(x, sword("ab")), l_false);
@@ -227,21 +226,21 @@ class seq_eq_approx_test {
         // a* loops onto itself, so the empty word already reaches the target
         expr_ref aStar = star(word("a"));
         expr* a_after_a = derivative_target(aStar, 'a');
-        m_eq.add_view(x, seq::view::reach(aStar, a_after_a));
+        m_eq.add_view(x, seq::view::reach(aStar, a_after_a, m));
         report("x reaches a*-after-a: x = aaa", m_eq.check(x, sword("aaa")), l_true);
         report("x reaches a*-after-a: x = eps", m_eq.check(x, sword("")), l_true);
         report("x reaches a*-after-a: x = b", m_eq.check(x, sword("b")), l_false);
         m_eq.reset_views();
 
         // a reach and a membership view on the same term are intersected
-        m_eq.add_view(x, seq::view::reach(ab, after_a));
-        m_eq.add_view(x, seq::view::membership(star(word("b"))));
+        m_eq.add_view(x, seq::view::reach(ab, after_a, m));
+        m_eq.add_view(x, seq::view::membership(star(word("b")), m));
         report("x reaches ab-after-a and in b*: x = a", m_eq.check(x, sword("a")), l_false);
         m_eq.reset_views();
 
         // reach views on both sides of the equation
-        m_eq.add_view(x, seq::view::reach(ab, after_a));
-        m_eq.add_view(y, seq::view::reach(ab, after_a));
+        m_eq.add_view(x, seq::view::reach(ab, after_a, m));
+        m_eq.add_view(y, seq::view::reach(ab, after_a, m));
         report("x = y, both reach ab-after-a", m_eq.check(x, y), l_true);
         report("x.b = y.c, both reach", m_eq.check(sconcat(x, sword("b")),
                                                    sconcat(y, sword("c"))), l_false);
@@ -371,11 +370,11 @@ class seq_eq_approx_test {
                 if (with_reach && pick(2) == 0) {
                     step_targets(r, pick(2) ? 'b' : 'a', targets);
                     if (!targets.empty()) {
-                        views.push_back(seq::view::reach(r, targets[0]));
+                        views.push_back(seq::view::reach(r, targets[0], m));
                         continue;
                     }
                 }
-                views.push_back(seq::view::membership(r));
+                views.push_back(seq::view::membership(r, m));
             }
             out.push_back(views);
         }
@@ -397,11 +396,11 @@ class seq_eq_approx_test {
                 states = next;
             }
             if (!states.empty()) {
-                out.push_back(seq::view::reach(r, states[0]));
+                out.push_back(seq::view::reach(r, states[0], m));
                 return;
             }
         }
-        out.push_back(seq::view::membership(w));
+        out.push_back(seq::view::membership(w, m));
     }
 
     // A side that accepts `w`: split it and constrain each part by views that hold of it.
@@ -565,8 +564,8 @@ public:
         check_with_regex("x in ~(a*): x = ab", x, comp(star(a)), x, sword("ab"), l_true);
         // several views on one term are conjunctive
         {
-            m_eq.add_view(x, seq::view::membership(star(alt(a, b))));
-            m_eq.add_view(x, seq::view::membership(star(a)));
+            m_eq.add_view(x, seq::view::membership(star(alt(a, b)), m));
+            m_eq.add_view(x, seq::view::membership(star(a), m));
             report("x in (a|b)* and in a*: x = b", m_eq.check(x, sword("b")), l_false);
             report("x in (a|b)* and in a*: x = aa", m_eq.check(x, sword("aa")), l_true);
             m_eq.reset_views();
@@ -604,8 +603,8 @@ public:
 
         std::cout << "=== seq_eq_approx: used terms ===\n";
         {
-            m_eq.add_view(x, seq::view::membership(star(a)));
-            m_eq.add_view(y, seq::view::membership(star(b)));
+            m_eq.add_view(x, seq::view::membership(star(a), m));
+            m_eq.add_view(y, seq::view::membership(star(b), m));
             report("used: x in a*: x = c", m_eq.check(x, sword("c")), l_false);
             bool ok = m_eq.used().size() == 1 && m_eq.used()[0] == x.get();
             report("used reports x alone", ok ? l_true : l_false, l_true);

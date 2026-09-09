@@ -837,7 +837,7 @@ bool seq_monadic::commit_next(frame& f) {
                 return false;
             }
         }
-        g.push_back(seq::view::reach(f.R, target));
+        g.push_back(seq::view::reach(f.R, target, m));
         // Testing as soon as the group is complete, or holds several views, prunes the
         // whole subtree below.
         lbool ne;

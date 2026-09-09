@@ -36,9 +36,7 @@ void seq_eq_approx::add_view(expr* t, seq::view const& v) {
     seq::view_vector& views = m_views.insert_if_not_there(t, seq::view_vector());
     views.push_back(v);
     m_pin.push_back(t);
-    m_pin.push_back(v.m_state);
-    if (v.m_target)
-        m_pin.push_back(v.m_target);
+    // v.m_state / v.m_target are expr_ref, so they already keep themselves alive.
 }
 
 void seq_eq_approx::set_views(expr* t, seq::view_vector const& views) {
@@ -86,7 +84,7 @@ bool seq_eq_approx::out_of_budget() {
 void seq_eq_approx::add_segment(expr* r, segments& out) {
     m_pin.push_back(r);
     seq::view_vector views;
-    views.push_back(seq::view::membership(r));
+    views.push_back(seq::view::membership(r, m));
     out.push_back(views);
 }
 

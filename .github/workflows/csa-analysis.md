@@ -62,12 +62,10 @@ which scan-build
 
 ### 2. Configure Z3 with CMake
 
-Run CMake inside a fresh `build` directory. Use `scan-build` to wrap the CMake configure step so that analysis starts from the configuration phase, then use it again during the actual build:
+Use `scan-build` to wrap the CMake configure step so that analysis starts from the configuration phase, then use it again during the actual build:
 
 ```bash
-mkdir -p build
-cd build
-scan-build cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja ../
+scan-build cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ```
 
 ### 3. Build Z3 with scan-build
@@ -75,21 +73,18 @@ scan-build cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G 
 Run the build under `scan-build`, directing the HTML report output to a well-known path. Capture both stdout and stderr:
 
 ```bash
-cd build
-scan-build -o /tmp/csa-report --html-title "Z3 CSA Report" ninja 2>&1 | tee /tmp/csa-build.log
-cd ..
+scan-build -o /tmp/csa-report --html-title "Z3 CSA Report" \
+  cmake --build build 2>&1 | tee /tmp/csa-build.log
 ```
 
 If `scan-build` is not available, try the `clang --analyze` approach via CMake flags as a fallback:
 
 ```bash
-cd build
-cmake -DCMAKE_BUILD_TYPE=Debug \
+cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug \
       -DCMAKE_C_FLAGS="--analyze" \
       -DCMAKE_CXX_FLAGS="--analyze" \
-      -G Ninja ../ 2>&1 | tee /tmp/csa-configure.log
-ninja 2>&1 | tee /tmp/csa-build.log
-cd ..
+      2>&1 | tee /tmp/csa-configure.log
+cmake --build build 2>&1 | tee /tmp/csa-build.log
 ```
 
 ### 4. Collect and Parse Results
@@ -283,7 +278,7 @@ Create a GitHub Discussion with a structured report. The discussion title should
 
 - This report was generated automatically by the Z3 CSA Analysis workflow.
 - False positives may be present; human review is recommended before acting on findings.
-- To reproduce locally: `scan-build -o /tmp/csa-report cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja . && scan-build ninja`
+- To reproduce locally: `scan-build -o /tmp/csa-report cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug && scan-build cmake --build build`
 ```
 
 ### 8. Handle Edge Cases

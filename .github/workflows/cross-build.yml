@@ -32,6 +32,5 @@ jobs:
 
     - name: Configure CMake and build
       run: |
-          mkdir build && cd build
-          cmake -DCMAKE_CXX_COMPILER=${{ matrix.arch }}-linux-gnu-g++-13 ../
-          make -j$(nproc)
+          cmake -G Ninja -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.arch }}-linux-gnu-g++-13
+          cmake --build build

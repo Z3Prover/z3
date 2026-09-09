@@ -25,18 +25,19 @@ runs:
     # Configure Z3 build with coverage flags
     - name: Configure Z3 with Coverage
       shell: bash
+      env:
+        CC: clang
+        CFLAGS: --coverage
+        CXX: clang++
+        CXXFLAGS: --coverage
+        LDFLAGS: -lgcov
       run: |
         echo "Configuring Z3 build with coverage instrumentation" >> coverage-steps.log
-        mkdir -p build
-        cd build
         # Configure CMake with coverage flags similar to existing coverage.yml.disabled
-        CXXFLAGS="--coverage" CFLAGS="--coverage" LDFLAGS="-lgcov" CC=clang CXX=clang++ \
-          cmake -B . -DCMAKE_BUILD_TYPE=Debug \
-                    -DCMAKE_INSTALL_PREFIX=./install \
-                    -G "Ninja" \
-                    ../
-        echo "Z3 configured successfully with coverage instrumentation" >> ../coverage-steps.log
-        cd ..
+        cmake -G "Ninja" -S . -B build \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_INSTALL_PREFIX="$PWD/build/install"
+        echo "Z3 configured successfully with coverage instrumentation" >> coverage-steps.log
         
     # Build Z3 core library and install
     - name: Build and Install Z3

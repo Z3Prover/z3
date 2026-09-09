@@ -168,9 +168,8 @@ def mk_build_dir():
     if not os.path.exists(build_path) or FORCE_MK:
         mk_dir(build_path)
         cmds = []
-        cmds.append(f"cd {build_path}")
         cmd = []
-        cmd.append("cmake -S .")
+        cmd.append(f'cmake -G "Ninja" -S . -B "{build_path}"')
         if DOTNET_CORE_ENABLED:
             cmd.append(' -DZ3_BUILD_DOTNET_BINDINGS=ON')
         if JAVA_ENABLED:
@@ -189,11 +188,10 @@ def mk_build_dir():
             git_hash = get_git_hash()
             cmd.append(' -DGIT_HASH=' + git_hash)
         cmd.append(' -DZ3_USE_LIB_GMP=OFF')
-        cmd.append(' -DZ3_BUILD_LIBZ3_SHARED=ON')
+        cmd.append(' -DBUILD_SHARED_LIBS=ON')
         cmd.append(' -DCMAKE_BUILD_TYPE=RelWithDebInfo')
         cmd.append(' -DCMAKE_INSTALL_PREFIX=' + get_build_dist_path())
-        cmd.append(' -G "Ninja"')
-        cmd.append(' ..\n')
+        cmd.append('\n')
         cmds.append("".join(cmd))
         print("CMAKE commands:", cmds)
         sys.stdout.flush()
@@ -222,9 +220,7 @@ def build_z3():
     if is_verbose():
         print("build z3")
     build_dir = get_build_dir()
-    cmds = []
-    cmds.append('cd %s' % build_dir)
-    cmds.append('ninja install')
+    cmds = ['cmake --build "%s" --target install' % build_dir]
     if exec_cmds(cmds) != 0:
         raise MKException("Failed to make z3")
 

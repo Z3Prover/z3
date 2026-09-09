@@ -79,7 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/gh-aw/agent
-          cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release $Z3_CMAKE_ARGS
+          cmake -G Ninja -S . -B build/release -DCMAKE_BUILD_TYPE=Release $Z3_CMAKE_ARGS
           ninja -C build/release z3
           ./build/release/z3 --version | tee /tmp/gh-aw/agent/z3-version.txt
           printf '(check-sat)\n' | ./build/release/z3 $Z3_RUNTIME_ARGS -in | tee /tmp/gh-aw/agent/z3-runtime-check.txt

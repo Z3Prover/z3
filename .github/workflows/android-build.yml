@@ -26,11 +26,10 @@ jobs:
 
     - name: Configure CMake and build
       run:  |
-        mkdir build
+        cmake -G "Unix Makefiles" -S . -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_SYSTEM_NAME=Android -DCMAKE_ANDROID_API=21 -DCMAKE_ANDROID_ARCH_ABI=${{ matrix.android-abi }} "-DCMAKE_ANDROID_NDK=$ANDROID_NDK_LATEST_HOME" -DZ3_BUILD_JAVA_BINDINGS=TRUE
+        cmake --build build --parallel "$(nproc)"
         cd build
-        cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_SYSTEM_NAME=Android -DCMAKE_ANDROID_API=21 -DCMAKE_ANDROID_ARCH_ABI=${{ matrix.android-abi }} "-DCMAKE_ANDROID_NDK=$ANDROID_NDK_LATEST_HOME" -DZ3_BUILD_JAVA_BINDINGS=TRUE -G "Unix Makefiles" ../
-        make -j $(nproc)
-        tar -cvf z3-build-${{ matrix.android-abi }}.tar *.jar *.so
+        tar -cvf z3-build-${{ matrix.android-abi }}.tar ./*.jar ./*.so
 
     - name: Archive production artifacts
       uses: actions/upload-artifact@v7

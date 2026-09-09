@@ -433,7 +433,14 @@ jobs:
           pip install build git+https://github.com/rhelmot/auditwheel
       
       - name: Build wheels
-        run: cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
+        working-directory: src/api/python
+        env:
+          AR: aarch64-none-linux-gnu-ar
+          CC: aarch64-none-linux-gnu-gcc
+          CXX: aarch64-none-linux-gnu-g++
+          LD: aarch64-none-linux-gnu-ld
+          Z3_CROSS_COMPILING: aarch64
+        run: python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -488,7 +495,14 @@ jobs:
           pip install build git+https://github.com/rhelmot/auditwheel
       
       - name: Build wheels
-        run: cd src/api/python && CC=riscv64-unknown-linux-gnu-gcc CXX=riscv64-unknown-linux-gnu-g++ AR=riscv64-unknown-linux-gnu-ar LD=riscv64-unknown-linux-gnu-ld Z3_CROSS_COMPILING=riscv64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
+        working-directory: src/api/python
+        env:
+          AR: riscv64-unknown-linux-gnu-ar
+          CC: riscv64-unknown-linux-gnu-gcc
+          CXX: riscv64-unknown-linux-gnu-g++
+          LD: riscv64-unknown-linux-gnu-ld
+          Z3_CROSS_COMPILING: riscv64
+        run: python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -875,10 +889,11 @@ jobs:
     if: ${{ github.event.inputs.publish_nuget == 'true' }}
     needs: [nuget-package-x64, nuget-package-x86]
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.1
-      
       - name: Download NuGet packages
         uses: actions/download-artifact@v8.0.1
         with:
@@ -895,12 +910,16 @@ jobs:
         uses: nuget/setup-nuget@v4
         with:
           nuget-version: 'latest'
-      
+
+      - name: Log in to NuGet.org with trusted publishing
+        id: nuget-login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Publish to NuGet
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          nuget push packages/*.nupkg -Source https://api.nuget.org/v3/index.json -ApiKey $NUGET_API_KEY
+          nuget push packages/*.nupkg -Source https://api.nuget.org/v3/index.json -ApiKey "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
 
   publish-pypi:
     name: "Publish to PyPI"

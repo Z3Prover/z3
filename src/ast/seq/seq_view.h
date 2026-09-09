@@ -43,28 +43,28 @@ Author:
 namespace seq {
 
     struct view {
-        expr*           m_state = nullptr;
-        expr*           m_target = nullptr;     // null: membership view
+        expr_ref        m_state;
+        expr_ref        m_target;     // null: membership view
 
         // identity for dedup/memoization; covers the same fields as operator==
         struct sig {
             unsigned        state, target;
         };
 
-        view() = default;
-        view(expr* state, expr* target) :
-            m_state(state), m_target(target) {}
+        view(ast_manager& m) : m_state(m), m_target(m) {}
+        view(expr* state, expr* target, ast_manager& m) :
+            m_state(state, m), m_target(target, m) {}
 
-        static view membership(expr* state) {
-            return view(state, nullptr);
+        static view membership(expr* state, ast_manager& m) {
+            return view(state, nullptr, m);
         }
 
-        static view reach(expr* state, expr* target) {
-            return view(state, target);
+        static view reach(expr* state, expr* target, ast_manager& m) {
+            return view(state, target, m);
         }
 
-        bool is_membership() const { return m_target == nullptr; }
-        bool is_reach() const { return m_target != nullptr; }
+        bool is_membership() const { return m_target.get() == nullptr; }
+        bool is_reach() const { return m_target.get() != nullptr; }
 
         sig key() const {
             return { m_state ? m_state->get_id() : UINT_MAX,
@@ -72,7 +72,7 @@ namespace seq {
         }
 
         bool operator==(view const& other) const {
-            return m_state == other.m_state && m_target == other.m_target;
+            return m_state.get() == other.m_state.get() && m_target.get() == other.m_target.get();
         }
 
         bool operator!=(view const& other) const { return !(*this == other); }
@@ -87,7 +87,7 @@ namespace seq {
         return a.state == b.state && a.target == b.target;
     }
 
-    using view_vector = svector<view>;
+    using view_vector = vector<view>;
 
     // Uncached reference semantics; an engine with its own caches has to agree with these.
     // l_undef when nullability is undecided.

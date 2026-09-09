@@ -78,16 +78,16 @@ def configure(build_dir: Path, sanitizer: str, repo_root: Path) -> bool:
     flags = SANITIZER_FLAGS[sanitizer]
     build_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
-        "cmake", str(repo_root),
+        "cmake", "-S", str(repo_root), "-B", str(build_dir),
         f"-DCMAKE_C_FLAGS={flags}",
         f"-DCMAKE_CXX_FLAGS={flags}",
         f"-DCMAKE_EXE_LINKER_FLAGS={flags}",
         "-DCMAKE_BUILD_TYPE=Debug",
-        "-DZ3_BUILD_TEST=ON",
+        "-DZ3_BUILD_TEST_EXECUTABLES=ON",
     ]
     logger.info("configuring %s build in %s", sanitizer, build_dir)
     logger.debug("cmake command: %s", " ".join(cmd))
-    proc = subprocess.run(cmd, cwd=build_dir, capture_output=True, text=True)
+    proc = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True)
     if proc.returncode != 0:
         logger.error("cmake failed:\n%s", proc.stderr)
         return False
@@ -97,9 +97,10 @@ def configure(build_dir: Path, sanitizer: str, repo_root: Path) -> bool:
 def compile_tests(build_dir: Path) -> bool:
     """Compile the test-z3 target."""
     nproc = os.cpu_count() or 4
-    cmd = ["make", f"-j{nproc}", "test-z3"]
+    cmd = ["cmake", "--build", str(build_dir),
+           "--target", "test-z3", "--parallel", str(nproc)]
     logger.info("compiling test-z3 (%d parallel jobs)", nproc)
-    proc = subprocess.run(cmd, cwd=build_dir, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         logger.error("compilation failed:\n%s", proc.stderr[-2000:])
         return False

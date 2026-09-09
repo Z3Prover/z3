@@ -29,9 +29,8 @@ jobs:
       - name: Build Z3 with MinGW
         shell: msys2 {0}
         run: |
-          mkdir build && cd build
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
-          ninja -j$(nproc) shell test-z3
+          cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target shell test-z3
       - name: Run unit tests
         shell: msys2 {0}
         run: |
@@ -59,16 +58,13 @@ jobs:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v3
       - run: |
-          md build
-          cd build
           ${{ matrix.cmd1 }}
           ${{ matrix.cmd2 }}
           ${{ matrix.cmd3 }}
           for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }} || exit /b 1
-          cmake ${{ matrix.bindings }} -G "NMake Makefiles" ../ || exit /b 1
-          nmake || exit /b 1
-          cd ..
+          cmake -G "NMake Makefiles" -S . -B build ${{ matrix.bindings }} || exit /b 1
+          cmake --build build || exit /b 1
         shell: cmd
       - name: Run Regressions
         if: ${{ matrix.test }}
@@ -96,4 +92,3 @@ jobs:
            popd
         shell: cmd
   
-
