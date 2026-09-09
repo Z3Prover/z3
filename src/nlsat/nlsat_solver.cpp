@@ -2261,6 +2261,56 @@ namespace nlsat {
             m_asm.linearize(m_lemma_assumptions.get(), deps);
         }
 
+        void get_dependencies(clause const& c, vector<assumption, false>& deps) const {
+            deps.reset();
+            m_asm.linearize(static_cast<_assumption_set>(c.assumptions()), deps);
+        }
+
+        /**
+           \brief Undo the temporary clause group identified by scope_tag without
+           rebuilding the solver, for example after a Pareto improvement climb.
+
+           Remove both the tagged input clauses and learned clauses whose
+           derivations depend on scope_tag; keeping those consequences could
+           incorrectly exclude models after the group is removed. Clear search state first
+           so trails and explanations no longer reference clauses being deleted.
+           Other input clauses survive, along with at most max_lemmas learned
+           clauses independent of scope_tag, preferring shorter ones. The previous
+           model and unsat core are invalidated.
+        */
+        void retract(assumption scope_tag, unsigned max_lemmas) {
+            if (!m_incremental || !scope_tag)
+                throw default_exception("nlsat retraction requires an incremental solver and a non-null assumption");
+            init_search();
+            m_explain.reset();
+            m_lemma.reset();
+            m_lazy_clause.reset();
+            m_lemma_assumptions = nullptr;
+            vector<assumption, false> deps;
+            auto remove = [&](clause_vector& clauses) {
+                unsigned j = 0;
+                for (clause* c : clauses) {
+                    get_dependencies(*c, deps);
+                    if (std::find(deps.begin(), deps.end(), scope_tag) != deps.end())
+                        del_clause(c);
+                    else
+                        clauses[j++] = c;
+                }
+                clauses.shrink(j);
+            };
+            remove(m_clauses);
+            remove(m_learned);
+            del_clauses(m_valids);
+            if (m_learned.size() > max_lemmas) {
+                std::stable_sort(m_learned.begin(), m_learned.end(),
+                                 [](clause* a, clause* b) { return a->size() < b->size(); });
+                while (m_learned.size() > max_lemmas) {
+                    del_clause(m_learned.back());
+                    m_learned.pop_back();
+                }
+            }
+        }
+
         void collect(literal_vector const& assumptions, clause_vector& clauses) {
             unsigned j  = 0;
             for (clause * c : clauses) {
@@ -4678,6 +4728,18 @@ namespace nlsat {
         
     void solver::mk_clause(unsigned num_lits, literal * lits, assumption a) {
         return m_imp->mk_external_clause(num_lits, lits, a);
+    }
+
+    ptr_vector<clause> const& solver::get_lemmas() const {
+        return m_imp->m_learned;
+    }
+
+    void solver::get_dependencies(clause const& c, vector<assumption, false>& deps) const {
+        m_imp->get_dependencies(c, deps);
+    }
+
+    void solver::retract(assumption scope_tag, unsigned max_lemmas) {
+        m_imp->retract(scope_tag, max_lemmas);
     }
 
     std::ostream& solver::display(std::ostream & out) const {

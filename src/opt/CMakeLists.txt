@@ -9,6 +9,7 @@ z3_add_component(z3_opt
     opt_lns.cpp
     opt_nlsat.cpp
     opt_pareto.cpp
+    opt_pareto_solver.cpp
     opt_parse.cpp
     opt_preprocess.cpp
     optsmt.cpp

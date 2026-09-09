@@ -20,6 +20,7 @@ Notes:
 #include "nlsat/nlsat_interval_set.h"
 #include "nlsat/nlsat_evaluator.h"
 #include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_clause.h"
 #include "nlsat/levelwise.h"
 #include "util/util.h"
 #include "nlsat/nlsat_explain.h"
@@ -2594,7 +2595,82 @@ static void tst_pick_max() {
     ENSURE(am.eq(sup, one));
 }
 
+static void tst_retract_assumptions() {
+    params_ref ps;
+    ps.set_bool("reorder", false);
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, true);
+    nlsat::literal p(s.mk_bool_var(), false);
+    nlsat::literal q(s.mk_bool_var(), false);
+    nlsat::literal r(s.mk_bool_var(), false);
+    s.mk_clause(1, &r);
+    nlsat::clause* independent = s.mk_clause(1, &r, true, nullptr);
+    unsigned tag_a = 0, tag_b = 0;
+    nlsat::literal clauses[4][2] = { {p, q}, {p, ~q}, {~p, q}, {~p, ~q} };
+    s.mk_clause(2, clauses[0], &tag_a);
+    s.mk_clause(2, clauses[1], &tag_a);
+    s.mk_clause(2, clauses[2], &tag_b);
+    s.mk_clause(2, clauses[3], &tag_b);
+    ENSURE(s.check() == l_false);
+    vector<nlsat::assumption, false> deps;
+    s.get_core(deps);
+    ENSURE(deps.contains(&tag_a));
+    ENSURE(deps.contains(&tag_b));
+    bool learned_with_assumptions = false;
+    for (nlsat::clause* c : s.get_lemmas()) {
+        s.get_dependencies(*c, deps);
+        learned_with_assumptions |= !deps.empty();
+    }
+    ENSURE(learned_with_assumptions);
+
+    s.retract(&tag_a);
+    ENSURE(s.get_lemmas().contains(independent));
+    for (nlsat::clause* c : s.get_lemmas()) {
+        s.get_dependencies(*c, deps);
+        ENSURE(!deps.contains(&tag_a));
+    }
+    ENSURE(s.check() == l_true);
+    ENSURE(s.bvalue(p.var()) == l_false);
+    ENSURE(s.bvalue(r.var()) == l_true);
+    s.retract(&tag_b);
+    ENSURE(s.check() == l_true);
+    for (nlsat::clause* c : s.get_lemmas()) {
+        s.get_dependencies(*c, deps);
+        ENSURE(deps.empty());
+    }
+
+    nlsat::literal not_r = ~r;
+    for (unsigned i = 0; i < 10; ++i) {
+        s.mk_clause(1, &not_r, &tag_a);
+        ENSURE(s.check() == l_false);
+        s.retract(&tag_a);
+        ENSURE(s.check() == l_true);
+        ENSURE(s.get_lemmas().contains(independent));
+    }
+    s.retract(&tag_a, 0);
+    ENSURE(s.get_lemmas().empty());
+    ENSURE(s.check() == l_true);
+    bool rejected = false;
+    try {
+        s.retract(nullptr);
+    }
+    catch (default_exception&) {
+        rejected = true;
+    }
+    ENSURE(rejected);
+    nlsat::solver non_incremental(rlim, ps, false);
+    rejected = false;
+    try {
+        non_incremental.retract(&tag_a);
+    }
+    catch (default_exception&) {
+        rejected = true;
+    }
+    ENSURE(rejected);
+}
+
 void tst_nlsat() {
+    tst_retract_assumptions();
     tst_pick_max();
     std::cout << "------------------\n";
     tst_22();

@@ -50,6 +50,7 @@ Notes:
 #include "opt/opt_context.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_nlsat.h"
+#include "opt/opt_pareto_solver.h"
 #include "opt/opt_params.hpp"
 
 
@@ -777,6 +778,7 @@ namespace opt {
         m_pareto_exact_comparison = false;
         if (!optp.pareto_nlsat() || m_has_assumptions)
             return m_solver.get();
+        expr_ref_vector terms(m_hard_constraints);
         for (objective const& obj : m_objectives) {
             if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
                 return m_solver.get();
@@ -784,22 +786,37 @@ namespace opt {
                 return m_solver.get();
             if (!in_nra_fragment(m, m_arith, m_hard_constraints, obj.m_term))
                 return m_solver.get();
+            terms.push_back(obj.m_term);
         }
-        tactic_ref t = mk_qfnra_nlsat_tactic(m, m_params);
-        solver* s = mk_tactic2solver(m, t.get(), m_params);
+        solver* s;
+        bool reuse_nlsat_solver = optp.pareto_nlsat_reuse() && can_reuse_nlsat_solver(terms);
+        if (reuse_nlsat_solver)
+            s = mk_pareto_nlsat_solver(m, m_params);
+        else {
+            tactic_ref t = mk_qfnra_nlsat_tactic(m, m_params);
+            s = mk_tactic2solver(m, t.get(), m_params);
+        }
         for (expr* f : m_hard_constraints)
             s->assert_expr(f);
         m_pareto_exact_comparison = true;
-        IF_VERBOSE(2, verbose_stream() << "(opt.pareto :solver qfnra-nlsat)\n");
+        IF_VERBOSE(2, verbose_stream() << "(opt.pareto :solver " << (reuse_nlsat_solver ? "incremental-nlsat" : "qfnra-nlsat") << ")\n");
         return s;
     }
 
     lbool context::execute_pareto() {
         if (!m_pareto) {
+            m_pareto_unknown.clear();
             set_pareto(alloc(gia_pareto, m, *this, mk_pareto_solver(), m_params));
         }
         lbool is_sat = (*(m_pareto.get()))();
         if (is_sat != l_true) {
+            if (is_sat == l_undef)
+                m_pareto_unknown = m_pareto->reason_unknown();
+            if (m_pareto_exact_comparison) {
+                statistics stats;
+                m_pareto->collect_statistics(stats);
+                add_statistics(stats);
+            }
             set_pareto(nullptr);
         }
         if (is_sat == l_true) {
@@ -813,6 +830,8 @@ namespace opt {
         if (!m.inc()) {
             return Z3_CANCELED_MSG;
         }
+        if (!m_pareto_unknown.empty())
+            return m_pareto_unknown;
         if (m_solver.get()) {
             return m_solver->reason_unknown();
         }
@@ -1841,6 +1860,7 @@ namespace opt {
 
     void context::clear_state() {
         m_pareto = nullptr;
+        m_pareto_unknown.clear();
         m_pareto1 = false;
         m_box_index = UINT_MAX;
         m_box_models.reset();
@@ -1858,6 +1878,8 @@ namespace opt {
     void context::collect_statistics_core(statistics& stats) const {
         if (m_solver) 
             m_solver->collect_statistics(stats);
+        if (m_pareto && m_pareto_exact_comparison)
+            m_pareto->collect_statistics(stats);
         if (m_simplify) 
             m_simplify->collect_statistics(stats);        
         for (auto const& kv : m_maxsmts) 

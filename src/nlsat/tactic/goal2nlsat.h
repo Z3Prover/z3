@@ -46,9 +46,11 @@ public:
        
        \remark a2b and t2x m don't need to be empty. The definitions there are reused.
 
-       The input is expected to be in CNF
+       The input is expected to be in CNF. A non-null external assumption tags
+       every compiled clause; in this case the goal must not track unsat cores.
     */
-    void operator()(goal const & g, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x);
+    void operator()(goal const & g, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x,
+                    nlsat::assumption a = nullptr);
     
 };
 
@@ -67,4 +69,3 @@ public:
     expr_ref operator()(nlsat::solver& s, u_map<expr*> const& b2a, u_map<expr*> const& x2t, nlsat::literal l);
 
 };
-

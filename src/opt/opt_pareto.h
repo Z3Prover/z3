@@ -63,6 +63,7 @@ namespace opt {
         virtual void collect_statistics(statistics & st) const {
             m_solver->collect_statistics(st);
         }
+        std::string reason_unknown() const { return m_solver->reason_unknown(); }
         virtual void display(std::ostream & out) const {
             m_solver->display(out);
         }
@@ -104,4 +105,3 @@ namespace opt {
         lbool operator()() override;
     };
 }
-
