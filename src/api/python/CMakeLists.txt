@@ -52,7 +52,6 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3/z3core.py"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating z3core.py"
-  USES_TERMINAL
 )
 list(APPEND build_z3_python_bindings_target_depends "${z3py_bindings_build_dest}/z3/z3core.py")
 
@@ -68,7 +67,6 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3/z3consts.py"
     "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating z3consts.py"
-  USES_TERMINAL
 )
 list(APPEND build_z3_python_bindings_target_depends "${z3py_bindings_build_dest}/z3/z3consts.py")
 

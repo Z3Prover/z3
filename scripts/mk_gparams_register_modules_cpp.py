@@ -11,7 +11,7 @@ import os
 import sys
 
 def main(args):
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARNING)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination_dir", help="destination directory")
     parser.add_argument("header_files", nargs="+",
@@ -37,4 +37,3 @@ def main(args):
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
-

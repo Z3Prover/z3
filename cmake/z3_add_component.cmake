@@ -85,7 +85,6 @@ function(z3_add_component component_name)
               ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
       COMMENT "Generating \"${_full_output_file_path}\" from \"${pyg_file}\""
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-      USES_TERMINAL
       VERBATIM
     )
     list(APPEND _list_generated_headers "${_full_output_file_path}")
@@ -217,7 +216,6 @@ function(z3_generate_registration target)
       ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
       "${_install_tactic_deps}"
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
-    USES_TERMINAL
     VERBATIM)
 
   add_custom_command(OUTPUT
@@ -231,7 +229,6 @@ function(z3_generate_registration target)
       "${_mem_init_finalizer_headers}"
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp\""
     COMMAND_EXPAND_LISTS
-    USES_TERMINAL
     VERBATIM)
 
   add_custom_command(OUTPUT
@@ -246,7 +243,6 @@ function(z3_generate_registration target)
     COMMENT
       "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""
     COMMAND_EXPAND_LISTS
-    USES_TERMINAL
     VERBATIM)
 
   target_sources("${target}" PRIVATE
