@@ -369,7 +369,7 @@ namespace smt {
                 continue;
             unsigned_vector& mems = owner.insert_if_not_there(mem.m_s, unsigned_vector());
             mems.push_back(idx);
-            m_eq_approx.add_view(mem.m_s, seq::view::membership(mem.m_re));
+            m_eq_approx.add_view(mem.m_s, seq::view::membership(mem.m_re, m));
         }
         if (owner.empty())
             return false;
