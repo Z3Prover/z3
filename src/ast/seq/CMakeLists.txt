@@ -9,6 +9,7 @@ z3_add_component(seq
     seq_regex_live.cpp
     seq_skolem.cpp
     seq_view.cpp
+    seq_view_witness.cpp
   COMPONENT_DEPENDENCIES
     rewriter
 )

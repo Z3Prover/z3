@@ -23,6 +23,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/seq/seq_monadic.h"
+#include "ast/seq/seq_view_witness.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
@@ -119,6 +120,7 @@ class seq_monadic_test {
             if (target == R) {
                 found_R = eval_guard(guard, 'a') && eval_guard(guard, 'b');
             }
+
             else if (target == dot3) {
                 found_dot3 = eval_guard(guard, 'a') && !eval_guard(guard, 'b');
             }
@@ -130,6 +132,54 @@ class seq_monadic_test {
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ")
                   << mode_name() << " cofactor construction\n";
+    }
+
+    void check_view_witness() {
+        std::cout << "=== seq_view_witness: incremental product checking ===\n";
+        expr_ref x = var("view-x");
+        expr_ref aa = word("aa");
+        expr_ref a = word("a");
+        expr_ref even = star(aa);
+        expr_ref odd = cat(a, even);
+        unsigned dep_even = 0, dep_odd = 1;
+        seq::live_states live(m_rw, m_mode, 1u << 12);
+        seq::view_witness witness(m_trail, m_rw, live, m_mode);
+
+        m_trail.push_scope();
+        witness.add(x, seq::view::membership(even, m), &dep_even);
+        lbool first = witness.check();
+        unsigned calls = witness.cofactor_calls();
+        lbool repeated = witness.check();
+        bool cached = first == l_true && repeated == l_true &&
+                      calls == witness.cofactor_calls();
+
+        m_trail.push_scope();
+        witness.add(x, seq::view::membership(odd, m), &dep_odd);
+        lbool conflict = witness.check();
+        ptr_vector<void> core = witness.core();
+        bool core_ok = conflict == l_false && core.contains(&dep_even) &&
+                       core.contains(&dep_odd) && core.size() == 2;
+        m_trail.pop_scope(1);
+
+        witness.set_enable_witness(true);
+        lbool after_pop = witness.check();
+        expr_ref value = witness.materialize_witness(x);
+        bool materialized = after_pop == l_true && value;
+        m_trail.pop_scope(1);
+
+        witness.set_checkpoint([]() { return seq::view_failure_reason::budget; });
+        m_trail.push_scope();
+        witness.add(x, seq::view::membership(odd, m), nullptr);
+        lbool undef = witness.check();
+        bool reason_ok = undef == l_undef &&
+                         witness.get_failure_reason() == seq::view_failure_reason::budget;
+        m_trail.pop_scope(1);
+
+        bool ok = cached && core_ok && materialized && reason_ok;
+        if (!ok)
+            ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ")
+                  << "cache, trail, core, and witness\n";
     }
 
     void check(char const* name, expr* term, expr* R, lbool expected) {
@@ -1169,6 +1219,7 @@ public:
             m_mon.set_budget(saved_budget);
         }
 
+        check_view_witness();
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("
                   << m_fail << " fail) ===\n";
         ENSURE(m_fail == 0);
