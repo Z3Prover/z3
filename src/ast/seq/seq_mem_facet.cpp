@@ -397,6 +397,18 @@ namespace seq {
         m_mon.set_orientation(orientation);
         m_mon.set_split_rounds(split_rounds);
         for (auto const& sm : mems) {
+            // Only plain memberships (str in re) may be handed to
+            // seq_monadic: its add() takes a start state and interprets
+            // the term as a word of the language, so feeding a reach view
+            // (state, target) would silently drop m_target and assert the
+            // strictly stronger `term in L(state)`. For a reach view with
+            // state == target and an empty term that turns a trivially
+            // TRUE constraint into a false one whenever L(state) is not
+            // nullable, and seq_monadic then refutes every branch - a
+            // false conflict, hence unsat on a satisfiable input.
+            // mem_propagation::propagate applies the same is_view() guard.
+            if (sm.is_view())
+                continue;
             sort* s = u.re.to_seq(sm.m_view.m_state->get_sort());
             expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
             m_mon.add(term, sm.m_view.m_state, sm.m_dep);
@@ -427,6 +439,12 @@ namespace seq {
         // on its own so a solution is a vector of view x dependency pairs.
         for (unsigned i = mf.memberships().size(); i-- > 0; ) {
             auto const& sm = mf.memberships()[i];
+            // Reach views were never handed to seq_monadic (see the
+            // constructor), so `sol` says nothing about them - rewriting
+            // one into per-variable membership views here would assert a
+            // constraint the branch does not justify.
+            if (sm.is_view())
+                continue;
             bool all_found = all_of(sm.m_str, [&](expr* t) { return u.str.is_unit(t) || sol.contains(t); });
             if (!all_found) 
                 continue;
@@ -493,17 +511,25 @@ namespace seq {
         auto& mf = get_ambient(n).mem_facet_ref();
         if (mf.memberships().empty() || mf.is_satisfied())
             return nullptr;
+        // Reach views are not fed to seq_monadic (see iterator's ctor); if
+        // nothing plain is left there is no conjunction to decide and, in
+        // particular, no basis on which to report a refutation.
+        if (!any_of(mf.memberships(), [](str_mem const& sm) { return !sm.is_view(); }))
+            return nullptr;
         scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships(), m_budget, m_orientation, m_split_rounds));
         if (it->is_refuted()) {
-            // seq_monadic proved the conjunction of ALL memberships fed to it is
-            // UNSAT (see seq_monadic::iterator's class comment): every branch was
-            // pruned as empty and none of that pruning was a give-up. That is a
-            // genuine conflict, not merely "nothing to offer" - report it rather
-            // than silently discarding it, or a real unsat instance is misreported
-            // as unknown (see NSB code review above this class).
+            // seq_monadic proved the conjunction of the PLAIN memberships fed to
+            // it is UNSAT (see seq_monadic::iterator's class comment): every branch
+            // was pruned as empty and none of that pruning was a give-up. Refuting
+            // on a subset of the node's constraints is sound - the dependency below
+            // just names that subset. That is a genuine conflict, not merely
+            // "nothing to offer" - report it rather than silently discarding it, or
+            // a real unsat instance is misreported as unknown (see NSB code review
+            // above this class).
             eq_tree::dep_tracker dep = nullptr;
             for (auto const& sm : mf.memberships())
-                dep = mf.dm().mk_join(dep, sm.m_dep);
+                if (!sm.is_view())
+                    dep = mf.dm().mk_join(dep, sm.m_dep);
             m_stats.m_num_refuted++;
             n.set_conflict(stx::br_plugin_base, dep);
             return nullptr;

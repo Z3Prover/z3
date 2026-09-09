@@ -277,8 +277,15 @@ namespace seq {
         // value_trail (restored to true on backtrack) - no shifting, no
         // index invalidation for any other facet/iterator holding onto
         // `idx`.
+        // NB: the undo must address the flag by vector+index, not by
+        // reference. Callers routinely follow a removal with add_equation
+        // (eq_split replaces one equation by two), and that push_back can
+        // reallocate m_eqs - a value_trail<bool> capturing m_eqs[idx].m_active
+        // would then restore through a dangling reference, leaving the
+        // equation permanently inactive on backtracking (silent false SAT).
         void remove_equation_trailed(unsigned idx) {
-            m_trail.push(value_trail<bool>(m_eqs[idx].m_active, false));
+            m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
+            m_eqs[idx].m_active = false;
         }
 
         vector<equation> const& equations() const { return m_eqs; }
@@ -620,9 +627,12 @@ namespace seq {
 
         // Trailed removal of the disequation at `idx` (e.g. deq_split
         // discharging/replacing a stuck disequation): append-only, so
-        // this just flips m_active to false via a value_trail.
+        // this just flips m_active to false. As with equations the undo is
+        // addressed by vector+index so it survives a later push_back that
+        // reallocates m_diseqs.
         void remove_disequation_trailed(unsigned idx) {
-            m_trail.push(value_trail<bool>(m_diseqs[idx].m_active, false));
+            m_trail.push(vector_field_trail<disequation, bool>(m_diseqs, idx, &disequation::m_active));
+            m_diseqs[idx].m_active = false;
         }
 
         // -- stx::facet_i --
