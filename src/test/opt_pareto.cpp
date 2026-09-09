@@ -294,6 +294,55 @@ static void tst_solver_scopes() {
     ENSURE(s->check_sat() == l_true);
 }
 
+static void tst_cancelled_solver() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    expr_ref x(m.mk_const("x", a.mk_real()), m);
+    expr_ref y(m.mk_const("y", a.mk_real()), m);
+    expr_ref z(m.mk_const("z", a.mk_real()), m);
+    expr_ref zero(a.mk_numeral(rational(0), false), m);
+    expr_ref five(a.mk_numeral(rational(5), false), m);
+    expr_ref square(a.mk_mul(x, x), m);
+    expr_ref_vector constraints(m);
+    constraints.push_back(m.mk_eq(y, zero));
+    constraints.push_back(m.mk_eq(z, five));
+    constraints.push_back(a.mk_gt(a.mk_add(a.mk_mul(y, square), x), z));
+    constraints.push_back(m.mk_eq(square, a.mk_mul(z, x)));
+    auto make_solver = [&]() {
+        solver_ref s = opt::mk_pareto_nlsat_solver(m, p);
+        s->assert_expr(constraints);
+        s->push();
+        return s;
+    };
+    // With y = 0 and z = 5, x > 5 excludes both roots of x^2 = 5*x.
+    auto full = make_solver();
+    auto start = m.limit().count();
+    ENSURE(full->check_sat() == l_false);
+    ENSURE(m.limit().count() - start <= UINT_MAX);
+    unsigned max_budget = static_cast<unsigned>(m.limit().count() - start);
+    bool interrupted = false;
+    for (unsigned budget = 1; budget <= max_budget; ++budget) {
+        auto s = make_solver();
+        {
+            scoped_rlimit limit(m.limit(), budget);
+            lbool result = s->check_sat();
+            ENSURE(result == l_false || result == l_undef);
+            if (result == l_undef) {
+                ENSURE(m.limit().is_canceled());
+                ENSURE(!s->reason_unknown().empty());
+                interrupted = true;
+            }
+        }
+        // Sweep cancellation through preprocessing and search. The permanent
+        // conflict survives this empty scope, so recovery must still prove UNSAT.
+        s->pop(1);
+        ENSURE(s->check_sat() == l_false);
+    }
+    ENSURE(interrupted);
+}
+
 static void tst_reuse_fragment() {
     // Check which arithmetic terms are eligible for the reusable nlsat path.
     ast_manager m;
@@ -456,6 +505,7 @@ static void tst_assumption_fallback() {
 void tst_opt_pareto() {
     // Cover solver state, fragment selection, and Pareto enumeration/fallback.
     tst_solver_scopes();
+    tst_cancelled_solver();
     tst_reuse_fragment();
     // Sampled fronts already exercise both nlsat modes; assumptions force SMT.
     tst_sampled_fronts();

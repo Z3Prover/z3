@@ -2595,6 +2595,76 @@ static void tst_pick_max() {
     ENSURE(am.eq(sup, one));
 }
 
+static void tst_cancelled_explanation() {
+    // Retrying without a pop also needs clean state: cleanup must happen on
+    // leaving the explanation, not depend solely on the solver's reset path.
+    for (bool retract : {true, false}) {
+        bool interrupted = false;
+        unsigned max_budget = 1;
+        for (unsigned budget = 1; budget <= max_budget && !interrupted; ++budget) {
+            params_ref ps;
+            ps.set_bool("reorder", false);
+            reslimit rlim;
+            nlsat::solver s(rlim, ps, true);
+            auto& pm = s.pm();
+            auto& am = s.am();
+            auto& ex = s.get_explain();
+            nlsat::var y = s.mk_var(false), z = s.mk_var(false), x = s.mk_var(false);
+            polynomial_ref px(pm), py(pm), pz(pm), p(pm), q(pm);
+            px = pm.mk_polynomial(x);
+            py = pm.mk_polynomial(y);
+            pz = pm.mk_polynomial(z);
+            p = py * px * px + px - pz;
+            q = px * px - px * pz;
+            nlsat::scoped_literal_vector core(s), expected(s), result(s);
+            core.push_back(mk_gt(s, p));
+            core.push_back(mk_eq(s, q));
+            nlsat::assignment sample(am);
+            set_assignment_value(sample, am, y, rational(0));
+            set_assignment_value(sample, am, z, rational(5));
+            s.set_rvalues(sample);
+
+            // Normalizing at y = 0 records a projection literal before processing
+            // the conflict: x > 5 excludes both roots of x^2 - 5*x = 0.
+            auto start = rlim.count();
+            ex.compute_conflict_explanation(core.size(), core.data(), expected);
+            ENSURE(!expected.empty());
+            if (budget == 1) {
+                ENSURE(rlim.count() - start <= UINT_MAX);
+                max_budget = static_cast<unsigned>(rlim.count() - start);
+            }
+            bool cancelled = false;
+            {
+                scoped_rlimit limit(rlim, budget);
+                try {
+                    ex.compute_conflict_explanation(core.size(), core.data(), result);
+                }
+                catch (default_exception const&) {
+                    ENSURE(rlim.is_canceled());
+                    cancelled = true;
+                }
+            }
+            // A tiny limit can stop before projection. Require cancellation after
+            // a literal is emitted, when stale duplicate marks can corrupt a retry.
+            if (!cancelled || result.empty())
+                continue;
+            interrupted = true;
+            std::cout << "nlsat: cancelled explanation after " << budget << " steps\n";
+            if (retract) {
+                unsigned tag = 0;
+                s.retract(&tag);
+                s.set_rvalues(sample);
+            }
+            result.reset();
+            ex.compute_conflict_explanation(core.size(), core.data(), result);
+            ENSURE(result.size() == expected.size());
+            for (auto lit : expected)
+                ENSURE(std::find(result.begin(), result.end(), lit) != result.end());
+        }
+        ENSURE(interrupted);
+    }
+}
+
 static void tst_retract_assumptions() {
     params_ref ps;
     ps.set_bool("reorder", false);
@@ -2670,6 +2740,7 @@ static void tst_retract_assumptions() {
 }
 
 void tst_nlsat() {
+    tst_cancelled_explanation();
     tst_retract_assumptions();
     tst_pick_max();
     std::cout << "------------------\n";

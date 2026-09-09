@@ -2679,7 +2679,18 @@ namespace nlsat {
         struct scoped_reset_marks {
             imp& i;
             scoped_reset_marks(imp& i):i(i) {}
-            ~scoped_reset_marks() { if (i.m_num_marks > 0) { i.m_num_marks = 0; for (char& m : i.m_marks) m = 0; } }
+            ~scoped_reset_marks() {
+                if (i.m_num_marks > 0) {
+                    i.m_num_marks = 0;
+                    for (char& m : i.m_marks)
+                        m = 0;
+                }
+                else {
+                    // The counter tracks pending trail literals, not those
+                    // already in the lemma when cancellation interrupts resolution.
+                    i.reset_marks();
+                }
+            }
         };
 
 
