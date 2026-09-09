@@ -71,7 +71,7 @@ namespace {
         expr_ref re(f.u.re.mk_concat(f.u.re.mk_to_re(f.u.str.mk_string(zstring("a"))),
                                       f.u.re.mk_to_re(f.u.str.mk_string(zstring("b")))), f.m);
         ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
-            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, word, seq::view::membership(re)));
+            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, word, seq::view::membership(re, f.m)));
         }) == stx::search_result::sat);
     }
 
@@ -80,7 +80,7 @@ namespace {
         expr_ref word(f.u.str.mk_string(zstring("a")), f.m);
         expr_ref re(f.u.re.mk_to_re(f.u.str.mk_string(zstring("a"))), f.m);
         ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
-            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, word, seq::view::membership(re)));
+            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, word, seq::view::membership(re, f.m)));
         }) == stx::search_result::sat);
     }
 
@@ -92,7 +92,7 @@ namespace {
         expr_ref star_a(f.u.re.mk_star(f.u.re.mk_to_re(a)), f.m);
         ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
             root->facet_as<seq::eq_facet>(f.eq_id).add_equation(X, a);
-            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, X, seq::view::membership(star_a)));
+            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, X, seq::view::membership(star_a, f.m)));
         }) == stx::search_result::sat);
     }
 
@@ -105,7 +105,7 @@ namespace {
         expr_ref re(f.u.re.mk_concat(f.u.re.mk_star(f.u.re.mk_to_re(f.u.str.mk_string(zstring("a")))),
                                       f.u.re.mk_star(f.u.re.mk_to_re(f.u.str.mk_string(zstring("b"))))), f.m);
         ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
-            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, term, seq::view::membership(re)));
+            root->facet_as<seq::mem_facet>(f.mem_id).add(seq::str_mem(f.m, term, seq::view::membership(re, f.m)));
         }, 16) == stx::search_result::sat);
     }
 
@@ -149,7 +149,7 @@ namespace {
         expr_ref pow(u.str.mk_power(one_a, N), m);
         expr_ref term(u.str.mk_concat(pow, b), m);
         root->facet_as<seq::power_facet>(pow_id).add_power(pow, one_a, N);
-        root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(m, term, seq::view::membership(re)));
+        root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(m, term, seq::view::membership(re, m)));
 
         tree.trail().push_scope();
         seq::eq_tree::edge out;
@@ -190,7 +190,7 @@ namespace {
         expr_ref pow(u.str.mk_power(one_a, N), m);
         expr_ref term(u.str.mk_concat(pow, b), m);
         root->facet_as<seq::power_facet>(pow_id).add_power(pow, one_a, N);
-        root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(m, term, seq::view::membership(re)));
+        root->facet_as<seq::mem_facet>(mem_id).add(seq::str_mem(m, term, seq::view::membership(re, m)));
 
         tree.trail().push_scope();
         seq::eq_tree::edge out;

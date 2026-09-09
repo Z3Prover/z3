@@ -596,7 +596,7 @@ namespace seq {
             if (has_hi)
                 dep = mf.dm().mk_join(dep, hi_dep);
 
-            mf.add(str_mem(m, var, view::membership(state), dep));
+            mf.add(str_mem(m, var, view::membership(state, m), dep));
 
             last_bound updated;
             updated.has_lo = has_lo; updated.lo = has_lo ? lo : rational::zero();

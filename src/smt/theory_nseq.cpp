@@ -332,7 +332,7 @@ namespace smt {
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
-            seq::view mv = seq::view::membership(re);
+            seq::view mv = seq::view::membership(re, m);
             expr_ref_vector ts = m_ambient->purify(e1);
             // str_mem itself pins m_view's regex (m_regex, an expr_ref)
             // for as long as the membership is live, so no separate
