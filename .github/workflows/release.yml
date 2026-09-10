@@ -912,6 +912,41 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
+      # NuGet.org requires every package published under the Microsoft.Z3 id to be
+      # author signed with the certificate registered for the owning account.
+      # Pushing unsigned packages fails with
+      # "This package must be signed with a registered certificate."
+      - name: Sign NuGet packages
+        env:
+          SIGNING_CERTIFICATE: ${{ secrets.NUGET_SIGNING_CERTIFICATE }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.NUGET_SIGNING_CERTIFICATE_PASSWORD }}
+          TIMESTAMPER: ${{ vars.NUGET_TIMESTAMPER || 'http://timestamp.digicert.com' }}
+        shell: bash
+        run: |
+          if [ -z "$SIGNING_CERTIFICATE" ]; then
+            echo "::error::NUGET_SIGNING_CERTIFICATE secret is not set. NuGet.org rejects unsigned Microsoft.Z3 packages."
+            exit 1
+          fi
+          umask 077
+          shopt -s nullglob
+          packages=(packages/*.nupkg packages/*.snupkg)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "::error::No NuGet packages found to sign."
+            exit 1
+          fi
+          cert_dir=$(mktemp -d)
+          trap 'rm -rf "$cert_dir"' EXIT
+          printf '%s' "$SIGNING_CERTIFICATE" | base64 --decode > "$cert_dir/signing.pfx"
+          password_args=()
+          if [ -n "$SIGNING_CERTIFICATE_PASSWORD" ]; then
+            password_args=(--certificate-password "$SIGNING_CERTIFICATE_PASSWORD")
+          fi
+          dotnet nuget sign "${packages[@]}" \
+            --certificate-path "$cert_dir/signing.pfx" \
+            "${password_args[@]}" \
+            --timestamper "$TIMESTAMPER" \
+            --overwrite
+
       - name: Publish to NuGet
         run: |
           dotnet nuget push packages/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
