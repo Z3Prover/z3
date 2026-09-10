@@ -624,28 +624,33 @@ namespace smt {
             return;
         auto const& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
         seq::monadic mon(m_rewriter, ctx.get_trail_stack(), seq::transition_mode::brzozowski_tm);
-        mon.set_gen_solution(true);
-        // seq_monadic::add() pushes undo-trail entries onto
-        // ctx.get_trail_stack() that reference `mon`'s own
-        // m_memberships vector (see seq_monadic.cpp); since `mon` is a
-        // local here and doesn't outlive this function, those trail
-        // entries must be popped again before returning - otherwise a
-        // later scope pop on the shared trail_stack dereferences a
-        // dangling stack address once `mon` is gone.
-        ctx.get_trail_stack().push_scope();
+        // At a sat snapshot, mem_facet::is_satisfied() holds: either there are no active
+        // memberships left, or mem_monadic_split has certified every active membership as
+        // narrowed to a single variable's own view (str_mem::m_str.size() == 1) - see the
+        // class comment on mem_facet::m_is_satisfied. Multiple str_mem entries can carry
+        // the same variable (one per occurrence in the original term), and their views are
+        // conjunctive (seq_view.h), so collect all of a variable's views together and let
+        // materialize_views() intersect them - it (via product_nonempty) correctly handles
+        // reach views (state, target) as well as plain memberships, unlike feeding a term
+        // through add()+check(), which only supports plain "term in regex" constraints and
+        // would silently drop any reach view's target, admitting spurious witnesses.
+        obj_map<expr, seq::view_vector> per_var;
         for (auto const& sm : mf.memberships()) {
             if (!sm.active())
                 continue;
-            sort* s = m_seq.re.to_seq(sm.m_view.m_state->get_sort());
-            expr_ref term(m_seq.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
-            mon.add(term, sm.m_view.m_state, sm.m_dep);
+            if (sm.m_str.size() != 1)
+                continue;                          // defensive: shouldn't happen when sat
+            expr* v = sm.m_str.get(0);
+            per_var.insert_if_not_there(v, seq::view_vector()).push_back(sm.m_view);
         }
         expr_substitution model(m);
-        if (mon.materialize_all(model) == l_true) {
-            for (auto const& kv : model.sub())
-                m_model_subst.insert(kv.m_key, kv.m_value);
+        for (auto const& [v, views] : per_var) {
+            expr_ref w(m);
+            if (mon.materialize_views(v, views, w) == l_true)
+                model.insert(v, w);
         }
-        ctx.get_trail_stack().pop_scope(1);
+        for (auto const& kv : model.sub())
+            m_model_subst.insert(kv.m_key, kv.m_value);
     }
 
     void theory_nseq::finalize_model(model_generator&) {

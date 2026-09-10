@@ -407,6 +407,14 @@ public:
     lbool materialize(expr* var, expr_ref& word);
     lbool materialize_all(expr_substitution& model);
 
+    // Collapse an externally-supplied set of per-variable views (e.g. mem_facet's own
+    // narrowed str_mem entries, which may include reach views) into one witness word for
+    // `var`, without requiring a prior add()/check()/solve() to have populated m_solution.
+    // Unlike materialize()/materialize_all(), this does not consult m_solution at all, so
+    // it is safe to call on views that were never - and cannot be, since add() only takes
+    // plain membership constraints - fed through this object's own search.
+    lbool materialize_views(expr* var, seq::view_vector const& views, expr_ref& word);
+
     // Decide  (str.in_re term R)  for a term that is a concatenation of string variables
     // (possibly repeated / several distinct) and constant characters.
     //   l_true = sat, l_false = unsat, l_undef = unsupported shape / gave up.

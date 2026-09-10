@@ -374,6 +374,28 @@ lbool monadic::materialize_recorded(expr* var, expr_ref& word, bool allow_uncons
     return r;
 }
 
+lbool monadic::materialize_views(expr* var, seq::view_vector const& views, expr_ref& word) {
+    if (views.empty()) {
+        word = u().str.mk_empty(var->get_sort());  // unconstrained: any value will do
+        return l_true;
+    }
+    seq::view_vector comps;
+    dedup_views(views, comps);
+    // product_nonempty() (via out_of_budget()) only proceeds while m_budget > 0; that
+    // allowance is normally handed out per decision by decide()/decide_oriented(), which
+    // this entry point bypasses entirely, so it must charge itself the same allowance
+    // here or every call would bail immediately on a fresh (m_budget == 0) instance.
+    m_budget = m_config.m_budget_limit;
+    m_giveup = false;
+    expr_ref w(m);
+    lbool r = product_nonempty(var, comps, &w);
+    if (r == l_true) {
+        m_pin.push_back(w);
+        word = w;
+    }
+    return r;
+}
+
 lbool monadic::materialize_all(expr_substitution& model) {
     model.reset();
     if (m_last_result != l_true || !m_config.m_solution)
