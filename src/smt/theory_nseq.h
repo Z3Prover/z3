@@ -150,6 +150,18 @@ namespace smt {
         obj_hashtable<expr> m_axiom_set;   // dedup guard for m_axioms enqueues
         unsigned            m_axioms_head = 0; // index of first axiom still to add
 
+        // Incremental cursor into ctx.assigned_literals() (the ambient
+        // SMT context's own assignment stack): index of the first literal
+        // not yet examined by flush_assigned_literals(). Mirrors
+        // m_axioms_head's push/pop discipline (via value_trail, on the
+        // same shared ctx.get_trail_stack() used by m_tree/m_root's own
+        // facets), so a literal fed to the arith sub-solver at trail
+        // scope k is naturally "un-consumed" again (the cursor rewinds)
+        // when the context backtracks past k - matching the backend
+        // solver_facet scope that housed it also being popped at that
+        // point (see solver_facet::add_constraint's own scope_trail).
+        unsigned            m_lits_qhead = 0;
+
         seq::eq_tree                     m_tree;
         seq::eq_tree::node*              m_root = nullptr;
         seq::sub_solver             m_solver;
@@ -244,6 +256,32 @@ namespace smt {
         void pin(expr* e) { m_pin.push_back(e); ctx.push_trail(push_back_vector(m_pin)); }
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);
+
+        // Drains ctx.assigned_literals() from m_lits_qhead onward into
+        // the arith facet's shared sub-solver (m_ambient->arith_facet),
+        // so that every relevant Boolean literal already forced true in
+        // the ambient SMT context is visible to solver_facet's backend,
+        // not just the length constraints solver_facet derives on its
+        // own from eq_facet's equations. A literal is forwarded only if
+        // ctx.is_relevant(lit) holds - matching the ambient context's own
+        // notion of relevance (see smt_context.h's is_relevant), so
+        // literals the core itself has no interest in propagating/
+        // explaining are not force-fed into the sub-solver either. Called
+        // right before m_tree.solve() in final_check_eh (i.e. whenever
+        // the sub-solver is about to be consulted). Each forwarded
+        // literal is tagged with its own dependency (mk_dep/
+        // dep_mgr().mk_leaf), exactly like every other assumption fed
+        // into the tree, so that if it contributes to a sub-solver
+        // conflict, report_conflict can build a sound (precise) SMT
+        // conflict clause that actually blocks it - not an unconditional
+        // "fact" that would silently survive backtracking past the scope
+        // that assigned it. m_lits_qhead's own updates are pushed on
+        // ctx.get_trail_stack() (value_trail<unsigned>, mirrors
+        // m_axioms_head), so a literal consumed at trail scope k is
+        // "un-consumed" again on backtracking past k - in lockstep with
+        // solver_facet::add_constraint's own backend scope for that same
+        // trail level being popped.
+        void flush_assigned_literals();
 
         // Mirrors theory_seq::propagate_eq: propagates an equality
         // e1 = e2 directly into the SMT core (ctx.assign_eq), justified
