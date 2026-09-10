@@ -23,8 +23,8 @@ Author:
 namespace seq {
 
     void power_facet::remove(unsigned idx) {
-        m_trail.push(vector_erase_trail<str_power>(m_pows, idx));
-        m_pows.erase(m_pows.begin() + idx);
+        m_trail.push(vector_field_trail<str_power, bool>(m_pows, idx, &str_power::m_active));
+        m_pows[idx].m_active = false;
     }
 
     void power_facet::set_axiomatized(unsigned idx) {
@@ -51,9 +51,16 @@ namespace seq {
     }
 
     std::ostream& power_facet::display(std::ostream& out) const {
-        out << "power_facet: " << m_pows.size() << " power obligation(s)\n";
+        unsigned num_active = 0;
         for (auto const& p : m_pows)
+            if (p.active())
+                ++num_active;
+        out << "power_facet: " << num_active << " power obligation(s) (" << m_pows.size() << " total incl. inactive)\n";
+        for (auto const& p : m_pows) {
+            if (!p.active())
+                continue;
             out << "  " << mk_pp(p.m_e.get(), m) << " = " << mk_pp(p.m_s.get(), m) << "^" << mk_pp(p.m_n.get(), m) << "\n";
+        }
         return out;
     }
 
@@ -77,7 +84,11 @@ namespace seq {
         m_stats.m_num_propagate++;
 
         bool changed = false;
-        for (unsigned i = 0; i < f.powers().size(); ) {
+        // Append-only: m_pows never shrinks, so a plain forward scan
+        // suffices (mirrors eq_facet::simplify's identical idiom).
+        for (unsigned i = 0; i < f.powers().size(); ++i) {
+            if (!f.powers()[i].active())
+                continue;
             str_power const& p = f.powers()[i];
             rational v;
 
@@ -122,7 +133,6 @@ namespace seq {
                 f.set_axiomatized(i);
                 changed = true;
             }
-            ++i;
         }
         if (af.has_conflict()) {
             n.set_conflict(stx::br_plugin_base, af.conflict_dep());
@@ -218,7 +228,8 @@ namespace seq {
     // Sanity check that the trigger's obligation indices still refer to
     // live power obligations (defensive; see call site comment).
     static bool t_stale(power_facet const& f, power_fine_wilf::trigger const& t) {
-        return t.m_pow_idx >= f.powers().size() || t.m_other_pow_idx >= f.powers().size();
+        return t.m_pow_idx >= f.powers().size() || t.m_other_pow_idx >= f.powers().size()
+            || !f.powers()[t.m_pow_idx].active() || !f.powers()[t.m_other_pow_idx].active();
     }
 
     bool power_fine_wilf::iterator::next(eq_tree::edge& out) {
@@ -354,7 +365,7 @@ namespace seq {
     bool power_split::iterator::next(eq_tree::edge& out) {
         auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
-        if (m_pow_index >= f.powers().size())
+        if (m_pow_index >= f.powers().size() || !f.powers()[m_pow_index].active())
             return false; // obligation already discharged by another route
         str_power const& p = f.powers()[m_pow_index];
 
@@ -384,6 +395,8 @@ namespace seq {
         auto& af = ac.arith_facet_ref();
 
         for (unsigned i = 0; i < f.powers().size(); ++i) {
+            if (!f.powers()[i].active())
+                continue;
             str_power const& p = f.powers()[i];
             rational v;
             if (a.is_numeral(p.m_n, v))
@@ -731,7 +744,8 @@ namespace seq {
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& af = ac.arith_facet_ref();
-        if (m_pow_idx >= f.powers().size() || m_eq_idx >= ef.equations().size() || !ef.equations()[m_eq_idx].active())
+        if (m_pow_idx >= f.powers().size() || !f.powers()[m_pow_idx].active()
+            || m_eq_idx >= ef.equations().size() || !ef.equations()[m_eq_idx].active())
             return false; // defensive; obligation/equation discharged by another route
 
         str_power const& p = f.powers()[m_pow_idx];

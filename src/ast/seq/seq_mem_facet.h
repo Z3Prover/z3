@@ -74,6 +74,16 @@ namespace seq {
         // the owning `expr_ref` lives here instead.
         expr_ref             m_regex;
         eq_tree::dep_tracker m_dep = nullptr;
+        // Append-only representation: m_mems is never erased/shifted
+        // (mirrors power_facet::str_power::m_active / eq_facet's
+        // discipline). "Removing" a membership just flips m_active to
+        // false (trailed via value_trail, restored on backtrack); no
+        // index is ever invalidated by a removal elsewhere. This matters
+        // here specifically because power_var_peel_mem's iterator
+        // persists a raw m_mem_idx across next() calls that span DFS
+        // branch resumptions. Consumers that iterate memberships() must
+        // skip entries with !active().
+        bool                 m_active = true;
 
         str_mem(ast_manager& m, expr* s, view const& v, eq_tree::dep_tracker dep = nullptr) :
             m_str(m), m_view(v), m_regex(v.m_state, m), m_dep(dep) {
@@ -84,6 +94,7 @@ namespace seq {
 
         bool is_plain() const { return m_view.is_membership(); }
         bool is_view() const { return m_view.is_reach(); }
+        bool active() const { return m_active; }
     };
 
     class mem_facet : public stx::facet_i, public subst_sink_i {
@@ -114,6 +125,11 @@ namespace seq {
 
         void add(str_mem const& sm);
         void narrow(unsigned idx, view const& new_view);
+        // Drop `idx`'s membership entirely. Trailed: this just flips
+        // m_active to false via a value_trail (restored to true on
+        // backtrack) - append-only, no shifting, no index invalidation
+        // for any other facet/iterator holding onto `idx` (see
+        // str_mem::m_active comment).
         void remove(unsigned idx);
         // Replace `idx`'s own string term wholesale (as opposed to
         // `apply_subst`'s global variable-keyed rewrite): used by
@@ -132,7 +148,7 @@ namespace seq {
 
         stx::facet_i* clone(trail_stack& trail) const override;
 
-        bool is_satisfied() const override { return m_mems.empty() || m_is_satisfied; }
+        bool is_satisfied() const override { return m_is_satisfied || std::all_of(m_mems.begin(), m_mems.end(), [](str_mem const& sm) { return !sm.active(); }); }
         std::ostream& display(std::ostream& out) const override;
     };
 

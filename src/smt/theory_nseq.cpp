@@ -634,6 +634,8 @@ namespace smt {
         // dangling stack address once `mon` is gone.
         ctx.get_trail_stack().push_scope();
         for (auto const& sm : mf.memberships()) {
+            if (!sm.active())
+                continue;
             sort* s = m_seq.re.to_seq(sm.m_view.m_state->get_sort());
             expr_ref term(m_seq.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
             mon.add(term, sm.m_view.m_state, sm.m_dep);

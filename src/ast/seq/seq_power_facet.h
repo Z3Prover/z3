@@ -83,6 +83,7 @@ Author:
 #include "ast/seq/seq_eq_facet.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
+#include <algorithm>
 
 namespace seq {
 
@@ -110,8 +111,26 @@ namespace seq {
         // plugin, from still acting on this same obligation.
         bool                 m_fw_marked = false;
 
+        // Append-only representation: m_pows is never erased/shifted
+        // (mirrors eq_facet/deq_facet's discipline - see seq_eq_facet.h's
+        // `equation::m_active` comment). "Removing" an obligation just
+        // flips m_active to false (trailed via value_trail, so it flips
+        // back to true on backtrack); no index is ever invalidated by a
+        // removal elsewhere. This matters here specifically because
+        // several split plugins' iterators (power_split, power_fine_wilf,
+        // power_var_peel, and mem_facet's power_var_peel_mem) persist a
+        // raw index into this vector across multiple next() calls that
+        // span DFS branch resumptions - a shift-based removal of some
+        // other (earlier-indexed) obligation in between (e.g. from a
+        // re-propagation pass after a sibling branch fails) would
+        // silently repoint those stored indices at the wrong obligation.
+        // Consumers that iterate powers() must skip entries with
+        // !active().
+        bool                 m_active = true;
+
         str_power(ast_manager& m, expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) :
             m_e(e, m), m_s(s, m), m_n(n, m), m_dep(dep) {}
+        bool active() const { return m_active; }
     };
 
     /**
@@ -167,16 +186,22 @@ namespace seq {
         // bridges "this token is a power term" back to "here is its
         // base/exponent/dependency".
         bool find_power(expr* e, unsigned& idx) const {
-            for (unsigned i = 0; i < m_pows.size(); ++i)
+            for (unsigned i = 0; i < m_pows.size(); ++i) {
+                if (!m_pows[i].active())
+                    continue;
                 if (m_pows[i].m_e.get() == e) {
                     idx = i;
                     return true;
                 }
+            }
             return false;
         }
 
         // Drop `idx`'s obligation entirely (fully discharged into
-        // eq_facet). Trailed.
+        // eq_facet). Trailed: this just flips m_active to false via a
+        // value_trail (restored to true on backtrack) - append-only, no
+        // shifting, no index invalidation for any other facet/iterator
+        // holding onto `idx` (see str_power::m_active comment).
         void remove(unsigned idx);
 
         // Mark `idx`'s obligation as having had its length axioms
@@ -191,7 +216,7 @@ namespace seq {
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
-        bool is_satisfied() const override { return m_pows.empty(); }
+        bool is_satisfied() const override { return std::all_of(m_pows.begin(), m_pows.end(), [](str_power const& p) { return !p.active(); }); }
         std::ostream& display(std::ostream& out) const override;
     };
 

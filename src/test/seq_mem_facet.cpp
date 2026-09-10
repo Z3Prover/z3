@@ -167,7 +167,7 @@ namespace {
         for (unsigned i = 0; i < ts.size(); ++i)
             ENSURE(ts.get(i) == expect.get(i)); // pow spliced out, only "b" left
         auto& pf = root->facet_as<seq::power_facet>(pow_id);
-        ENSURE(pf.powers().empty()); // obligation discharged for n=0 branch
+        ENSURE(std::all_of(pf.powers().begin(), pf.powers().end(), [](seq::str_power const& p) { return !p.active(); })); // obligation discharged for n=0 branch
         }
 
         // n >= 1 branch: from a fresh setup, drive split() (which

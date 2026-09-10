@@ -87,8 +87,8 @@ namespace seq {
 
     void mem_facet::remove(unsigned idx) {
         SASSERT(idx < m_mems.size());
-        m_trail.push(vector_erase_trail<str_mem>(m_mems, idx));
-        m_mems.erase(m_mems.begin() + idx);
+        m_trail.push(vector_field_trail<str_mem, bool>(m_mems, idx, &str_mem::m_active));
+        m_mems[idx].m_active = false;
     }
 
     void mem_facet::replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep) {
@@ -132,8 +132,14 @@ namespace seq {
     }
 
     std::ostream& mem_facet::display(std::ostream& out) const {
-        out << "mem_facet: " << m_mems.size() << " membership(s)\n";
+        unsigned num_active = 0;
+        for (auto const& sm : m_mems)
+            if (sm.active())
+                ++num_active;
+        out << "mem_facet: " << num_active << " membership(s) (" << m_mems.size() << " total incl. inactive)\n";
         for (auto const& sm : m_mems) {
+            if (!sm.active())
+                continue;
             out << "  ";
             for (expr* t : sm.m_str)
                 out << mk_pp(t, m) << " ";
@@ -157,12 +163,12 @@ namespace seq {
         auto& f = ac.mem_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
-        for (unsigned i = 0; i < f.memberships().size(); ) {
+        for (unsigned i = 0; i < f.memberships().size(); ++i) {
             auto const& sm = f.memberships()[i];
-            if (sm.is_view()) {
-                ++i;
+            if (!sm.active())
                 continue;
-            }
+            if (sm.is_view())
+                continue;
             // c3 branch's generate_length_constraints/
             // generate_node_length_constraints (seq_nielsen.cpp): a plain
             // membership `str in re` bounds `len(str)` by re's own
@@ -257,7 +263,6 @@ namespace seq {
                 changed = true;
                 continue;
             }
-            ++i;
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;
@@ -280,6 +285,8 @@ namespace seq {
                                            eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             str_mem const& sm = mf.memberships()[i];
+            if (!sm.active())
+                continue;
             auto const& ts = sm.m_str;
             if (ts.empty())
                 continue;
@@ -310,7 +317,8 @@ namespace seq {
         auto& f = ac.power_facet_ref();
         auto& mf = ac.mem_facet_ref();
         auto& af = ac.arith_facet_ref();
-        if (m_pow_idx >= f.powers().size() || m_mem_idx >= mf.memberships().size())
+        if (m_pow_idx >= f.powers().size() || !f.powers()[m_pow_idx].active()
+            || m_mem_idx >= mf.memberships().size() || !mf.memberships()[m_mem_idx].active())
             return false; // defensive; obligation/membership discharged by another route
 
         str_power const& p = f.powers()[m_pow_idx];
@@ -397,6 +405,8 @@ namespace seq {
         m_mon.set_orientation(orientation);
         m_mon.set_split_rounds(split_rounds);
         for (auto const& sm : mems) {
+            if (!sm.active())
+                continue;
             // Only plain memberships (str in re) may be handed to
             // seq_monadic: its add() takes a start state and interprets
             // the term as a word of the language, so feeding a reach view
@@ -439,6 +449,8 @@ namespace seq {
         // on its own so a solution is a vector of view x dependency pairs.
         for (unsigned i = mf.memberships().size(); i-- > 0; ) {
             auto const& sm = mf.memberships()[i];
+            if (!sm.active())
+                continue;
             // Reach views were never handed to seq_monadic (see the
             // constructor), so `sol` says nothing about them - rewriting
             // one into per-variable membership views here would assert a
@@ -509,12 +521,12 @@ namespace seq {
         has_more = false;
         committed = false;
         auto& mf = get_ambient(n).mem_facet_ref();
-        if (mf.memberships().empty() || mf.is_satisfied())
+        if (mf.is_satisfied())
             return nullptr;
         // Reach views are not fed to seq_monadic (see iterator's ctor); if
         // nothing plain is left there is no conjunction to decide and, in
         // particular, no basis on which to report a refutation.
-        if (!any_of(mf.memberships(), [](str_mem const& sm) { return !sm.is_view(); }))
+        if (!any_of(mf.memberships(), [](str_mem const& sm) { return sm.active() && !sm.is_view(); }))
             return nullptr;
         scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships(), m_budget, m_orientation, m_split_rounds));
         if (it->is_refuted()) {
@@ -528,7 +540,7 @@ namespace seq {
             // above this class).
             eq_tree::dep_tracker dep = nullptr;
             for (auto const& sm : mf.memberships())
-                if (!sm.is_view())
+                if (sm.active() && !sm.is_view())
                     dep = mf.dm().mk_join(dep, sm.m_dep);
             m_stats.m_num_refuted++;
             n.set_conflict(stx::br_plugin_base, dep);
@@ -560,10 +572,13 @@ namespace seq {
                     vars.insert(t);
         }
         auto& mf = ac.mem_facet_ref();
-        for (auto const& sm : mf.memberships())
+        for (auto const& sm : mf.memberships()) {
+            if (!sm.active())
+                continue;
             for (expr* t : sm.m_str)
                 if (ac.is_var(t))
                     vars.insert(t);
+        }
     }
 
     stx::simplify_result mem_bounds_propagation::propagate(eq_tree::node& n) {
@@ -649,7 +664,7 @@ namespace seq {
         committed = false;
         auto ac = get_ambient(n);
         auto& mf = ac.mem_facet_ref();
-        if (mf.memberships().empty() || mf.is_satisfied())
+        if (mf.is_satisfied())
             return nullptr;
 
         // Group plain membership views (`x in R_i`) by their single
@@ -661,6 +676,8 @@ namespace seq {
         obj_map<expr, eq_tree::dep_tracker> deps;
         obj_map<expr, unsigned> counts;
         for (auto const& sm : mf.memberships()) {
+            if (!sm.active())
+                continue;
             if (!sm.is_plain() || sm.m_str.size() != 1)
                 continue;
             expr* var = sm.m_str.get(0);
