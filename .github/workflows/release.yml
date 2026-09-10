@@ -914,7 +914,7 @@ jobs:
 
       - name: Publish to NuGet
         run: |
-          dotnet nuget push packages/*.nupkg -Source https://api.nuget.org/v3/index.json -ApiKey "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
+          dotnet nuget push packages/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
 
   publish-pypi:
     name: "Publish to PyPI"
