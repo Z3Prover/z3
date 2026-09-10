@@ -63,6 +63,10 @@ namespace nlsat {
                  - (s_1 or ... or s_m or ~ls[0] or ... or ~ls[n-1]) is a valid clause
                  - s_1, ..., s_m do not contain variable x.
                  - s_1, ..., s_m are false in the current interpretation
+
+           If this operation throws, result may contain partial output and must
+           be cleared before retrying. Internal duplicate-literal marks are
+           cleared even on exception, so the explanation engine can be reused.
         */
         void compute_conflict_explanation(unsigned n, literal const * ls, scoped_literal_vector & result);
 

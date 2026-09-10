@@ -207,6 +207,7 @@ namespace opt {
         symbol                       m_logic;
         svector<symbol>              m_labels;
         std::string                  m_unknown;
+        std::string                  m_pareto_unknown;
     public:
         context(ast_manager& m);
         ~context() override;
@@ -386,4 +387,3 @@ namespace opt {
     };
 
 }
-
