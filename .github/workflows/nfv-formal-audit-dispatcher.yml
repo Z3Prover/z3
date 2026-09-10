@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: app-token
+        # NFV is advisory; report failures below without failing this check.
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.Z3_CI_APP_CLIENT_ID }}
@@ -23,6 +25,9 @@ jobs:
           repositories: bench
 
       - name: Dispatch NFV audit
+        id: dispatch
+        if: steps.app-token.outcome == 'success'
+        continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -39,3 +44,29 @@ jobs:
                 pr: String(pr.number),
               },
             });
+
+      - name: Report NFV dispatch status
+        if: ${{ !cancelled() }}
+        env:
+          TOKEN_OUTCOME: ${{ steps.app-token.outcome }}
+          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
+        shell: bash
+        run: |
+          if [[ "$TOKEN_OUTCOME" != "success" ]]; then
+            message="NFV audit not run: GitHub App token creation failed. See the token step for details."
+            echo "::warning::$message"
+          elif [[ "$DISPATCH_OUTCOME" != "success" ]]; then
+            message="NFV audit not run: workflow dispatch failed or was skipped. See the dispatch step for details."
+            echo "::warning::$message"
+          else
+            message="NFV audit requested in Z3Prover/bench; results are reported there."
+          fi
+          {
+            echo "## NFV audit (advisory)"
+            echo
+            echo "$message"
+            echo
+            echo "This check reports only whether an audit was requested, not whether it passed."
+            echo
+            echo "[NFV audit runs](https://github.com/Z3Prover/bench/actions/workflows/nfv-formal-audit.lock.yml)"
+          } >> "$GITHUB_STEP_SUMMARY"
