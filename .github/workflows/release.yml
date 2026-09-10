@@ -906,11 +906,6 @@ jobs:
           name: NuGet32
           path: packages
       
-      - name: Setup NuGet
-        uses: nuget/setup-nuget@v4
-        with:
-          nuget-version: 'latest'
-
       - name: Log in to NuGet.org with trusted publishing
         id: nuget-login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
@@ -919,7 +914,7 @@ jobs:
 
       - name: Publish to NuGet
         run: |
-          nuget push packages/*.nupkg -Source https://api.nuget.org/v3/index.json -ApiKey "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
+          dotnet nuget push packages/*.nupkg -Source https://api.nuget.org/v3/index.json -ApiKey "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
 
   publish-pypi:
     name: "Publish to PyPI"
