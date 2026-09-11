@@ -1037,6 +1037,7 @@ namespace smt {
                 m_nielsen.set_monadic_orientation(
                     nseq_monadic_orientation(get_fparams().m_seq_regex_orientation));
                 m_nielsen.set_eq_approx(get_fparams().m_nseq_eq_approx);
+                m_nielsen.set_gpower_intr(get_fparams().m_nseq_gpower_intr);
                 m_nielsen.set_exploration_budget(get_fparams().m_nseq_exploration_budget);
                 m_nielsen.set_view_length_constraints(get_fparams().m_nseq_view_length_constraints);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);

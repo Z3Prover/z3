@@ -41,6 +41,8 @@ Author:
 #include "util/statistics.h"
 #include "util/lbool.h"
 #include "util/obj_pair_hashtable.h"
+#include "util/uint_set.h"
+#include "util/obj_hashtable.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -93,6 +95,12 @@ namespace euf {
         // sgraph (snodes live in m_region, which is never freed, and their
         // expressions are pinned in m_pin)
         obj_pair_map<expr, expr, snode const*> m_deriv_cache;
+
+        // Memo for compute_minterms, keyed on the regex expression.  The
+        // partition is a pure function of the regex, and keys and values are
+        // stable for the same reasons as in m_deriv_cache.  The product
+        // emptiness checks ask for the same joint state over and over.
+        obj_map<expr, snode_vector> m_minterm_cache;
         
         // trail of alias entries (string constant → decomposed snode) for pop
         unsigned_vector  m_alias_trail;       // expression ids
@@ -104,6 +112,8 @@ namespace euf {
         void compute_regex_weight(snode* n);
         void compute_hash_matrix(snode* n);
         void collect_re_predicates(snode const* re, expr_ref_vector& preds);
+        void collect_re_predicates(snode const* re, expr_ref_vector& preds, uint_set& visited);
+        void compute_minterms_core(snode const* re, snode_vector& minterms);
 
     public:
         sgraph(ast_manager& m, egraph& eg, bool add_plugin = true);

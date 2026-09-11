@@ -120,9 +120,11 @@ namespace seq {
                 // The active-path index is per-traversal; clear it so a sat-aborted
                 // previous iteration cannot leave stale ancestors behind.
                 m_siblings.clear();
+                m_depth_bound_hit = false;
                 // TODO: scope m_dep_mgr around the traversal to gc dependencies
                 // after the search (the dep arena only ever grows within a solve).
                 SASSERT(!m_root->is_currently_conflict());
+                const unsigned extensions_before = m_stats.m_num_extensions;
                 const search_result r = search_dfs(m_root, cur_path); // the main search loop
                 IF_VERBOSE(1, verbose_stream()
                                   << " depth_bound=" << m_depth_bound << " dfs_nodes=" << m_stats.m_num_dfs_nodes
@@ -151,6 +153,10 @@ namespace seq {
                     return r;
                 }
                 // depth limit hit – double the bound and retry
+                if (!m_depth_bound_hit && m_stats.m_num_extensions == extensions_before) {
+                    ++m_stats.m_num_stalled_deepening;
+                    break;
+                }
                 if (m_depth_bound < INT_MAX/2)
                     m_depth_bound *= 2;
                 SASSERT(m_depth_bound < INT_MAX);
@@ -546,6 +552,7 @@ namespace seq {
 
         // depth bound check
         if (depth >= m_depth_bound) {
+            m_depth_bound_hit = true;
             // Benchmark-harvest mode: this node has reached the configured number of
             // non-progress extension steps and is a genuine intermediate state
             // (post-simplify, post-Parikh, not a conflict, not satisfied) whose
@@ -811,8 +818,11 @@ namespace seq {
         if (!harvest_mode() && apply_view_landing_decomposition(node))
             return ++m_stats.m_mod_view_land, true;
 
-        // Priority 7: GPowerIntr - ground power introduction
-        if (apply_gpower_intr(node))
+        // Priority 7: GPowerIntr - ground power introduction.  Switchable, since
+        // it rewrites a repeated factor into a power term and the regex
+        // decomposition has no rule that takes one apart again: a membership on
+        // the rewritten variable stops being decomposable from here on.
+        if (m_gpower_intr && apply_gpower_intr(node))
             return ++m_stats.m_mod_gpower_intr, true;
 
         // Priority 8: Regex Factorization

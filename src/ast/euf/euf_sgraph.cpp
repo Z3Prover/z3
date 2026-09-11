@@ -776,8 +776,17 @@ namespace euf {
     }
 
     void sgraph::collect_re_predicates(snode const* re, expr_ref_vector& preds) {
-        if (!re)
+        // Derivative states share subterms heavily, so a tree walk revisits the
+        // same subterm many times.  Visit every snode once; the predicates keep
+        // their first-occurrence order.
+        uint_set visited;
+        collect_re_predicates(re, preds, visited);
+    }
+
+    void sgraph::collect_re_predicates(snode const* re, expr_ref_vector& preds, uint_set& visited) {
+        if (!re || visited.contains(re->id()))
             return;
+        visited.insert(re->id());
         expr* e = re->get_expr();
         SASSERT(e);
         expr* lo = nullptr, *hi = nullptr;
@@ -848,11 +857,27 @@ namespace euf {
 
         // recurse into compound regex operators
         for (unsigned i = 0; i < re->num_args(); ++i) {
-            collect_re_predicates(re->arg(i), preds);
+            collect_re_predicates(re->arg(i), preds, visited);
         }
     }
 
     void sgraph::compute_minterms(snode const* re, snode_vector& minterms) {
+        expr* key = re ? re->get_expr() : nullptr;
+        if (!key) {
+            compute_minterms_core(re, minterms);
+            return;
+        }
+        if (auto* e = m_minterm_cache.find_core(key)) {
+            minterms.append(e->get_data().m_value);
+            return;
+        }
+        snode_vector res;
+        compute_minterms_core(re, res);
+        m_minterm_cache.insert(key, res);
+        minterms.append(res);
+    }
+
+    void sgraph::compute_minterms_core(snode const* re, snode_vector& minterms) {
         expr_ref_vector preds(m);
         collect_re_predicates(re, preds);
         

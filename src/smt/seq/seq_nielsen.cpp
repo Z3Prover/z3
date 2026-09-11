@@ -1109,6 +1109,7 @@ namespace seq {
         st.update("nseq sat",             m_stats.m_num_sat);
         st.update("nseq unsat",           m_stats.m_num_unsat);
         st.update("nseq unknown",         m_stats.m_num_unknown);
+        st.update("nseq stalled deepening", m_stats.m_num_stalled_deepening);
         st.update("nseq simplify clash",  m_stats.m_num_simplify_conflict);
         st.update("nseq extensions",      m_stats.m_num_extensions);
         st.update("nseq fresh vars",      m_stats.m_num_fresh_vars);

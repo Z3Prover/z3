@@ -897,6 +897,10 @@ namespace seq {
         unsigned m_num_sat             = 0;
         unsigned m_num_unsat           = 0;
         unsigned m_num_unknown         = 0;
+        // Deepening rounds abandoned because neither the bound was reached nor
+        // anything new was found.  Kept visible so a stalled search stays as
+        // easy to spot in the statistics as it used to be in the timings.
+        unsigned m_num_stalled_deepening = 0;
         unsigned m_num_simplify_conflict = 0;
         unsigned m_num_extensions      = 0;
         unsigned m_num_fresh_vars      = 0;
@@ -999,6 +1003,9 @@ namespace seq {
         ptr_vector<nielsen_edge>      m_sat_path;
         unsigned                      m_depth_bound = 0;
         unsigned                      m_max_search_depth = 0;
+        // Did the traversal actually stop at m_depth_bound anywhere?  Iterative
+        // deepening only makes sense if it did; see the loop in solve().
+        bool                          m_depth_bound_hit = false;
         unsigned                      m_max_nodes = 0;          // 0 = unlimited
         bool                          m_parikh_enabled = true;
         bool                          m_signature_split = false;
@@ -1014,6 +1021,9 @@ namespace seq {
         unsigned                      m_exploration_budget = 512;
         // attach the view length abstraction to pinned variables
         bool                          m_view_length_constraints = true;
+        // ground power introduction.  Off, a variable is never rewritten into a
+        // power term, which the regex decomposition has no rule to take apart.
+        bool                          m_gpower_intr = true;
         unsigned                      m_regex_factorization_threshold = 1;
         bool                          m_regex_factorization_eager = false;
         bool                          m_regex_dynamic_decomposition = true;
@@ -1299,6 +1309,7 @@ namespace seq {
         void set_eq_approx(bool e) { m_eq_approx = e; }
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
+        void set_gpower_intr(bool e) { m_gpower_intr = e; }
 
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
         void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
