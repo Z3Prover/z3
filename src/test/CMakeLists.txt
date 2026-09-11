@@ -100,6 +100,7 @@ add_executable(test-z3
   no_overflow.cpp
   object_allocator.cpp
   old_interval.cpp
+  opt_bounds.cpp
   opt_nlsat.cpp
   opt_pareto.cpp
   optional.cpp

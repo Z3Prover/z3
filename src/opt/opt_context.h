@@ -258,8 +258,8 @@ namespace opt {
         expr_ref get_exact(unsigned idx);
         expr_ref get_upper(unsigned idx);
 
-        void get_lower(unsigned idx, expr_ref_vector& es) { to_exprs(get_lower_as_num(idx), es); }
-        void get_upper(unsigned idx, expr_ref_vector& es) { to_exprs(get_upper_as_num(idx), es); }
+        void get_lower(unsigned idx, expr_ref_vector& es) { to_exprs(get_lower_as_num(idx), get_exact(idx), es); }
+        void get_upper(unsigned idx, expr_ref_vector& es) { to_exprs(get_upper_as_num(idx), get_exact(idx), es); }
 
         std::string to_string();
 
@@ -313,7 +313,7 @@ namespace opt {
         bool scoped_lex();
         bool contains_quantifiers() const;
         expr_ref to_expr(inf_eps const& n);
-        void to_exprs(inf_eps const& n, expr_ref_vector& es);
+        void to_exprs(inf_eps const& n, expr* exact, expr_ref_vector& es);
 
         void reset_maxsmts();
         void import_scoped_state();
