@@ -14,6 +14,7 @@ Abstract:
 #include "ast/seq/seq_regex_live.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
 #include "util/uint_set.h"
 
 namespace seq {
@@ -26,8 +27,13 @@ namespace seq {
         bool_vector m_live;
         svector<unsigned> m_live_frontier;
         unsigned m_root_id = 0;
+        // UINT_MAX: membership view, live states are the nullable ones.
+        // otherwise: reach view, the only live state is the one interned as m_target_id.
+        unsigned m_target_id = UINT_MAX;
         failure m_failure = failure::none;
         bool m_complete = false;
+
+        bool has_target() const { return m_target_id != UINT_MAX; }
     };
 
     struct live_states::imp {
@@ -41,7 +47,8 @@ namespace seq {
         vector<svector<unsigned>> m_successors;
         svector<char> m_nullable;
         bool_vector m_expanded;
-        obj_map<expr, search*> m_searches;
+        obj_map<expr, search*> m_membership_searches;
+        obj_pair_map<expr, expr, search*> m_reach_searches;
 
         imp(seq_rewriter& rw, transition_mode mode, unsigned max_states) :
             m_rw(rw),
@@ -92,6 +99,14 @@ namespace seq {
             return m_nullable[id];
         }
 
+        // Whether id is a live (accepting) state for the view driving search s:
+        // reachability to the view's target if it has one, nullability otherwise.
+        bool accepting(search& s, unsigned id) {
+            if (s.has_target())
+                return id == s.m_target_id;
+            return nullable(id) != 0;
+        }
+
         void mark_live(search& s, unsigned id) {
             svector<unsigned> todo;
             todo.push_back(id);
@@ -117,7 +132,7 @@ namespace seq {
             resize(s);
             s.m_seen.insert(id);
             s.m_to_explore.push_back(id);
-            if (nullable(id) != 0)
+            if (accepting(s, id))
                 mark_live(s, id);
             return true;
         }
@@ -176,22 +191,36 @@ namespace seq {
             return index < s.m_live_frontier.size();
         }
 
-        search* get_search(expr* root) {
+        search* get_search(view const& v) {
+            expr* root = v.m_state;
             search* s = nullptr;
-            if (m_searches.find(root, s))
+            if (v.is_reach()) {
+                if (m_reach_searches.find(root, v.m_target, s))
+                    return s;
+            }
+            else if (m_membership_searches.find(root, s))
                 return s;
+
             s = alloc(search);
             unsigned root_id = intern(root);
             s->m_root_id = root_id;
+            if (v.is_reach()) {
+                s->m_target_id = intern(v.m_target);
+                m_reach_searches.insert(root, v.m_target, s);
+            }
+            else
+                m_membership_searches.insert(root, s);
             add_state(*s, root_id);
-            m_searches.insert(root, s);
             return s;
         }
 
         void reset() {
-            for (auto const& [root, s] : m_searches)
+            for (auto const& [root, s] : m_membership_searches)
                 dealloc(s);
-            m_searches.reset();
+            for (auto const& entry : m_reach_searches)
+                dealloc(entry.get_value());
+            m_membership_searches.reset();
+            m_reach_searches.reset();
             m_ids.reset();
             m_states.reset();
             m_successors.reset();
@@ -250,8 +279,8 @@ namespace seq {
         return !m_owner->ensure(m_search, 0) && !failed();
     }
 
-    live_states::reachable live_states::reachable_live(expr* r) {
-        return reachable(this, m_imp->get_search(r));
+    live_states::reachable live_states::reachable_live(view const& v) {
+        return reachable(this, m_imp->get_search(v));
     }
 
     bool live_states::contains(expr* r) const {
