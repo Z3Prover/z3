@@ -27,6 +27,14 @@ Author:
 
 namespace smt {
 
+    template<typename View = seq::view>
+    static seq::view mk_membership_view(expr* state, ast_manager& m) {
+        if constexpr (requires { View::membership(state, m); })
+            return View::membership(state, m);
+        else
+            return View::membership(state);
+    }
+
     static seq::transition_mode monadic_transition_mode(symbol const& s) {
         if (s == "light-ant")
             return seq::transition_mode::light_antimirov_tm;
@@ -762,7 +770,7 @@ namespace smt {
         }
 
         if (info.interpreted) {
-            auto live = m_live_states.reachable_live(seq::view::membership(r));
+            auto live = m_live_states.reachable_live(mk_membership_view(r, m));
             if (live.is_dead()) {
                 STRACE(seq_regex_brief, tout << "(dead) ";);
                 th.add_axiom(~lit);
