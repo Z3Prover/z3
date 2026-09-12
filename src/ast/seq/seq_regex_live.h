@@ -14,10 +14,19 @@ Abstract:
 
 #include "ast/rewriter/seq_derive.h"
 #include "ast/ast.h"
+#include "ast/seq/seq_view.h"
 
 class seq_rewriter;
 
 namespace seq {
+
+    template<typename View = view>
+    inline view membership_view(expr* state, ast_manager& m) {
+        if constexpr (requires { View::membership(state, m); })
+            return View::membership(state, m);
+        else
+            return View::membership(state);
+    }
 
     class live_states {
         struct search;
@@ -74,7 +83,7 @@ namespace seq {
         live_states(live_states const&) = delete;
         live_states& operator=(live_states const&) = delete;
 
-        reachable reachable_live(expr* r);
+        reachable reachable_live(view const& v);
         bool contains(expr* r) const;
         unsigned state_id(expr* r);
         // Number of interned derivative states, i.e. the size of the shared state table.
