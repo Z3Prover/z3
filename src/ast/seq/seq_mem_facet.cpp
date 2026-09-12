@@ -555,16 +555,27 @@ namespace seq {
         if (re().is_empty(f.R))
             return false;
         expr_ref var(m_atoms.get(f.i), m);
+        // The acceptance view for f.R: reaching m_target when the
+        // membership being decomposed is itself a reach view, plain
+        // membership (nullability) otherwise. Used both as the
+        // final-atom branch's own view below, and to prune/filter
+        // candidate intermediate states via reachable_live() by that
+        // same condition - using a plain membership view unconditionally
+        // there would prune by nullability even when the real target is
+        // m_target, wrongly dropping a state that only leads to
+        // m_target (never a nullable state) from the live frontier, and
+        // silently losing a genuine satisfying branch.
+        view goal = m_target ? view::reach(f.R, m_target, m) : view::membership(f.R, m);
         while (true) {
             expr* target = nullptr;
             view v(m);
             if (f.last_atom) {
                 if (f.next++ > 0)
                     return false;
-                v = m_target ? view::reach(f.R, m_target, m) : view::membership(f.R, m);
+                v = goal;
             }
             else {
-                auto live = m_live.reachable_live(view::membership(f.R, m));
+                auto live = m_live.reachable_live(goal);
                 target = live.at(f.next++);
                 if (!target) {
                     if (live.failed())
