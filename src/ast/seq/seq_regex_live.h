@@ -9,15 +9,6 @@ Abstract:
 
     Shared lazy live-state traversal for regular-expression derivatives.
 
-    reachable_live is parameterized by a seq::view rather than a bare regex
-    state: a membership view (no target) traverses towards nullable states,
-    exactly as before, while a reach view additionally recognizes a state as
-    "live" as soon as it is (AST-)identical to the view's target, independent
-    of nullability. Searches for a membership view and a reach view over the
-    same root are distinct traversals (they are keyed by (root, target)) since
-    the two admit different live states, even though both share the same
-    underlying derivative graph (m_ids / m_states / m_successors / m_expanded).
-
 --*/
 #pragma once
 
