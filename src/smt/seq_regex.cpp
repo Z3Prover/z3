@@ -762,7 +762,7 @@ namespace smt {
         }
 
         if (info.interpreted) {
-            auto live = m_live_states.reachable_live(r);
+            auto live = m_live_states.reachable_live(seq::view::membership(r));
             if (live.is_dead()) {
                 STRACE(seq_regex_brief, tout << "(dead) ";);
                 th.add_axiom(~lit);

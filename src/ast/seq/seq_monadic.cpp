@@ -824,7 +824,7 @@ bool seq_monadic::commit_next(frame& f) {
         else {
             // Live states are consumed as they are produced, so a witness found early
             // leaves the rest of the reachable set unexpanded.
-            auto live = m_live_states.reachable_live(f.R);
+            auto live = m_live_states.reachable_live(seq::view::membership(f.R));
             target = live.at(f.next++);
             if (!target) {
                 // Short of the full reachable set, running out of states refutes nothing.
