@@ -71,6 +71,9 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_monadic_whole = p.nseq_monadic_whole();
     m_nseq_eq_approx = p.nseq_eq_approx();
     m_nseq_gpower_intr = p.nseq_gpower_intr();
+    m_nseq_landing_probes = p.nseq_landing_probes();
+    m_nseq_landing_probe_budget = p.nseq_landing_probe_budget();
+    m_nseq_landing_probe_max = p.nseq_landing_probe_max();
     m_nseq_exploration_budget = p.nseq_exploration_budget();
     m_nseq_view_length_constraints = p.nseq_view_length_constraints();
     m_nseq_axiomatize_diseq = p.nseq_axiomatize_diseq();
@@ -199,6 +202,9 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nseq_monadic_whole);
     DISPLAY_PARAM(m_nseq_eq_approx);
     DISPLAY_PARAM(m_nseq_gpower_intr);
+    DISPLAY_PARAM(m_nseq_landing_probes);
+    DISPLAY_PARAM(m_nseq_landing_probe_budget);
+    DISPLAY_PARAM(m_nseq_landing_probe_max);
     DISPLAY_PARAM(m_nseq_exploration_budget);
     DISPLAY_PARAM(m_nseq_view_length_constraints);
     DISPLAY_PARAM(m_nseq_axiomatize_diseq);

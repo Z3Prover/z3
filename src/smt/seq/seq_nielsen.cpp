@@ -1125,6 +1125,9 @@ namespace seq {
         st.update("nseq mod const num unwind", m_stats.m_mod_const_num_unwinding);
         st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
         st.update("nseq mod landing",          m_stats.m_mod_landing);
+        st.update("nseq probe branches",       m_stats.m_num_probe_branches);
+        st.update("nseq probe sat",            m_stats.m_num_probe_sat);
+        st.update("nseq probe cutoffs",        m_stats.m_num_probe_cutoffs);
         st.update("nseq mod cycle subsump",    m_stats.m_mod_cycle_subsumption);
         st.update("nseq mod view land",        m_stats.m_mod_view_land);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);

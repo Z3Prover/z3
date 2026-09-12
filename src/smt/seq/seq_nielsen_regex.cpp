@@ -222,6 +222,78 @@ namespace seq {
     // escape consumes a fresh state of the finite monotone G.
     // -----------------------------------------------------------------------
 
+    // -----------------------------------------------------------------------
+    // Probe branches  (nseq.landing_probes, nseq.landing_probe_max)
+    //
+    // The short values of the landed variable x -- ε and, at landing_probes=2,
+    // one character per joint minterm class of the constraints x leads -- as
+    // concrete substitutions.  Like character unwinding they reach every
+    // occurrence of x at once, whereas a land branch pins one occurrence and
+    // leaves the others to later landings; that is what makes landing alone
+    // weak on satisfiable inputs whose variables repeat with short values.
+    //
+    // The branches are OPTIONAL: a probe may end the search with a model (a
+    // model under x := c is a model of the node), but it never has to be
+    // refuted, so the land and escape branches remain the complete branching
+    // and neither completeness nor termination rests on a probe.  search_dfs
+    // runs each probe under a node budget and ignores its verdict.
+    //
+    // At most m_landing_probe_max probes are created per landing: a probe costs
+    // a substitution into every occurrence of x plus the derivatives of the
+    // memberships it lands in, and a refutation pays that for every one of
+    // them, so the count decides what refutations pay for the models.
+    // -----------------------------------------------------------------------
+
+    void nielsen_graph::add_probe_branches(nielsen_node* node, euf::snode const* x, dep_tracker const& dep) {
+        const unsigned k = std::min(m_landing_probes, 2u);
+        if (k == 0)
+            return;
+        unsigned created = 0;
+        {
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, "probe", /*progress*/ true);
+            e->set_optional();
+            const nielsen_subst s(x, m_sg.mk_empty_seq(x->get_sort()), dep);
+            e->add_subst(s);
+            child->apply_subst(m_sg, s);
+            ++m_stats.m_num_probe_branches;
+            ++created;
+        }
+        if (k < 2)
+            return;
+        // joint classes of every constraint x leads, as in apply_regex_var_split
+        euf::snode const* combined = nullptr;
+        for (auto const& m2 : node->str_mems())
+            if (m2.m_str->first() == x)
+                combined = combined ? m_sg.mk(m_seq.re.mk_inter(combined->get_expr(), m2.m_regex->get_expr()))
+                                    : m2.m_regex;
+        if (!combined || !combined->is_ground())
+            return;
+        euf::snode_vector minterms;
+        m_sg.compute_minterms(combined, minterms);
+        for (euf::snode const* mt : minterms) {
+            if (m_landing_probe_max > 0 && created >= m_landing_probe_max)
+                break;
+            char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
+            if (cs.is_empty())
+                continue;
+            const bool concrete = cs.is_unit();
+            euf::snode const* cunit = concrete
+                ? m_sg.mk(m_seq.str.mk_unit(m_seq.mk_char(cs.first_char())))
+                : m_sg.mk(get_or_create_char_var(x));
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, "probe", /*progress*/ true);
+            e->set_optional();
+            const nielsen_subst s(x, cunit, dep);
+            e->add_subst(s);
+            child->apply_subst(m_sg, s);
+            if (!concrete)
+                child->add_char_range(cunit, cs, dep);
+            ++m_stats.m_num_probe_branches;
+            ++created;
+        }
+    }
+
     bool nielsen_graph::apply_landing_decomposition(nielsen_node* node) {
         if (!m_regex_dynamic_decomposition)
             return false;
@@ -312,6 +384,10 @@ namespace seq {
             compute_view_length_info(nu, R->get_expr(), vli);
 
             sort* seq_sort = x->get_expr()->get_sort();
+
+            // Probes first (nseq.landing_probes): concrete and cheap to refute,
+            // and they reach every occurrence of x at once.
+            add_probe_branches(node, x, mem.m_dep);
 
             // (a) LAND-AT-s branches (progress: x removed).
             for (euf::snode const* s : Qstates) {
@@ -500,6 +576,8 @@ namespace seq {
             view_len_info vli;
             compute_view_length_info(mem.m_nu, p->get_expr(), vli);
             uint_set const* region = projection_region(mem.m_nu);
+            // Probes first (nseq.landing_probes), as in the plain landing.
+            add_probe_branches(node, y, mem.m_dep);
 
             for (euf::snode const* s : Sstates) {
                 // Skip provably-empty landing blocks (L_{Q_ν,{s}}(p) = ∅): the
@@ -1232,15 +1310,21 @@ namespace seq {
             if (!brw.decompose_ite(r_expr, c, th, el))
                 continue;
 
-            bool created = false;
-
             // Worklist: (regex_expr, accumulated_conditions).
             // Call decompose_ite in a loop until no more ite sub-expressions,
             // branching on c=true and c=false and accumulating conditions.
-            vector<std::pair<expr_ref, expr_ref_vector>> worklist;
+            // The leaves are collected first and only then turned into
+            // children: their number is exponential in the nesting of the ite
+            // conditions, so the walk must be able to give up when the
+            // resource limit hits, and giving up is sound only while no child
+            // of a half-finished branching exists (a node may be closed as
+            // unsat only if its branching is exhaustive).
+            vector<std::pair<expr_ref, expr_ref_vector>> worklist, leaves;
             worklist.push_back({expr_ref(r_expr, m), expr_ref_vector(m)});
 
             while (!worklist.empty()) {
+                if (!m.inc())
+                    return false;
                 auto [r, cs] = std::move(worklist.back());
                 worklist.pop_back();
 
@@ -1249,24 +1333,7 @@ namespace seq {
 
                 expr_ref c2(m), th2(m), el2(m);
                 if (!brw.decompose_ite(r, c2, th2, el2)) {
-                    // No ite remaining: leaf → create child node with regex updated to r.
-                    // Canonicalize with th_rewriter so that the resolved leaf shares
-                    // its snode id with the corresponding partial-DFA state (which is
-                    // built by brzozowski_deriv); otherwise un-simplified residuals
-                    // like (a|∅)·R≠a·R break view Q-membership checks.
-                    euf::snode const* new_regex_snode = mk_rewrite(r);
-                    nielsen_node *child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, "regex if", true);
-                    for (const auto f : cs) {
-                        e->add_side_constraint(constraint(f, mem.m_dep, m));
-                    }
-                    for (str_mem &cm : child->str_mems()) {
-                        if (cm == mem) {
-                            cm.m_regex = new_regex_snode;
-                            break;
-                        }
-                    }
-                    created = true;
+                    leaves.push_back({r, cs});   // no ite remaining
                     continue;
                 }
 
@@ -1295,7 +1362,25 @@ namespace seq {
                 }
             }
 
-            if (created)
+            for (auto const& [r, cs] : leaves) {
+                // Canonicalize with th_rewriter so that the resolved leaf shares
+                // its snode id with the corresponding partial-DFA state (which is
+                // built by brzozowski_deriv); otherwise un-simplified residuals
+                // like (a|∅)·R≠a·R break view Q-membership checks.
+                euf::snode const* new_regex_snode = mk_rewrite(r);
+                nielsen_node *child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, "regex if", true);
+                for (const auto f : cs)
+                    e->add_side_constraint(constraint(f, mem.m_dep, m));
+                for (str_mem &cm : child->str_mems()) {
+                    if (cm == mem) {
+                        cm.m_regex = new_regex_snode;
+                        break;
+                    }
+                }
+            }
+
+            if (!leaves.empty())
                 return true;
 
             // The worklist only ever prunes ∅ branches, so no created child

@@ -19,6 +19,9 @@ Author:
 
 bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
     while (true) {
+        if (m_steps >= m_max_steps)
+            return false;
+        ++m_steps;
 
         if (a == b)
             return true;
@@ -144,6 +147,7 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
 }
 
 bool seq_subset::is_subset(expr* a, expr* b) const {
+    m_steps = 0;
     return is_subset_rec(a, b, 0);
 }
 

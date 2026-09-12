@@ -81,6 +81,7 @@ namespace seq {
 
     expr_ref derive::operator()(derivative_kind k, expr* ele, expr* r) {
         m_derivative_kind = k;
+        m_reduce_steps = 0;
         SASSERT(m_util.is_re(r));
         if (m_trail.size() > 500000)
             reset();
@@ -141,6 +142,13 @@ namespace seq {
         expr* cached = nullptr;
         if (cache().find(m_ele, r, cached))
             return expr_ref(cached, m);
+
+        // Out of resources: the same stuck derivative the depth cap returns.
+        // It denotes the derivative, so the result stays correct; without the
+        // check a cancelled solve keeps unfolding nested intersections and the
+        // time limit passes unnoticed.
+        if (!m.inc())
+            return expr_ref(re().mk_derivative(m_ele, r), m);
 
         // Depth check
         if (m_depth >= m_max_depth) {
@@ -759,6 +767,17 @@ namespace seq {
         auto& cache = k == OP_RE_UNION ? union_cache() : k == OP_RE_INTERSECT ? inter_cache() : xor_cache();
         if (cache.find(a, b, pe, cached))
             return expr_ref(cached, m);
+        // Out of resources: keep the term, drop the simplification.  The ITE
+        // hoisting and the union/intersection reductions below recurse through
+        // mk_core, so a cancelled solve would otherwise keep building the same
+        // cascade.  Not cached: it is weaker than what a fresh call produces.
+        if (!m.inc()) {
+            if (k == OP_RE_UNION)
+                return expr_ref(re().mk_union(a, b), m);
+            if (k == OP_RE_INTERSECT)
+                return m_re.mk_inter(a, b);
+            return m_re.mk_xor0(a, b);
+        }
         expr_ref result(m);
         // ITE handling with path pruning
         auto inter_op = [&](expr *x, expr *y) { return mk_inter(x, y); };
@@ -869,10 +888,25 @@ namespace seq {
     // avoid the stack overflow a recursive formulation incurs on wide unions.
     void derive::add_union_elem(expr_ref_vector& set, expr* e0) {
         expr_ref e(e0, m);
+        // Every reduction below is optional: a union keeping a subsumed or an
+        // unmerged disjunct denotes the same language.  The scan costs two
+        // subset checks per member and restarts after every removal, so it is
+        // quadratic in the width of the union and cubic over a whole insert
+        // sequence; derivatives of nested intersections spent minutes here,
+        // past any time limit.  With the budget spent, keep the pointer
+        // dedup and append.
+        if (m_reduce_steps >= m_max_reduce_steps) {
+            for (expr* s : set)
+                if (s == e)
+                    return;
+            set.push_back(e);
+            return;
+        }
         bool changed = true;
         while (changed) {
             changed = false;
             for (unsigned i = 0; i < set.size(); ++i) {
+                ++m_reduce_steps;
                 expr* s = set.get(i);
                 if (s == e)
                     return;                                  // duplicate

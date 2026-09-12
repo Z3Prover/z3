@@ -121,6 +121,7 @@ namespace seq {
                 // previous iteration cannot leave stale ancestors behind.
                 m_siblings.clear();
                 m_depth_bound_hit = false;
+                m_in_probe = false;
                 // TODO: scope m_dep_mgr around the traversal to gc dependencies
                 // after the search (the dep arena only ever grows within a solve).
                 SASSERT(!m_root->is_currently_conflict());
@@ -374,6 +375,24 @@ namespace seq {
         // m_parent_ic_count via the default argument.)
         unsigned ic_asserted = node->constraints().size();
 
+        // Probe budget (nseq.landing_probes): an exhausted probe is unfinished;
+        // counting it as a bound hit gives it a larger budget next round.
+        if (m_in_probe) {
+            if (m_probe_nodes_left == 0) {
+                // Give up on the whole probe, not just on this node: the child
+                // loop below unwinds at once (m_probe_aborted) instead of
+                // walking the rest of the probe's subtree only to abandon
+                // every node in it.
+                if (!m_probe_aborted) {
+                    ++m_stats.m_num_probe_cutoffs;
+                    m_probe_aborted = true;
+                    m_depth_bound_hit = true;
+                }
+                return search_result::unknown;
+            }
+            --m_probe_nodes_left;
+        }
+
         if (node->is_currently_conflict()) {
             ++m_stats.m_num_simplify_conflict;
             return search_result::unsat;
@@ -577,6 +596,11 @@ namespace seq {
                 harvest_node(node);
                 return search_result::unknown;
             }
+            // A modifier may abandon its work when the resource limit hits
+            // (apply_regex_if_split collects exponentially many ite leaves),
+            // and then owes no extension.
+            if (!ext && !m.inc())
+                return search_result::unknown;
             IF_VERBOSE(1, display(verbose_stream(), node));
             CTRACE(seq, !ext, display(tout, node) << to_dot() << "\n");
             if (!ext) {
@@ -609,6 +633,16 @@ namespace seq {
         bool subtree_has_cut = false;         // a sibling loop-cut occurred below
         unsigned min_child_lowlink = UINT_MAX; // min depth any sibling cut below escapes to
         for (nielsen_edge *e : node->outgoing()) {
+            // A probe (nseq.landing_probes) runs under a node budget and can
+            // only contribute a model; the node's verdict rests on its other
+            // children, which cover every value on their own.
+            const bool probe = e->is_optional();
+            const bool outermost_probe = probe && !m_in_probe;
+            if (outermost_probe) {
+                m_in_probe = true;
+                const uint64_t budget = uint64_t(m_landing_probe_budget) * m_depth_bound;
+                m_probe_nodes_left = budget > (1u << 20) ? (1u << 20) : unsigned(budget);
+            }
             cur_path.push_back(e);
             // Push a solver scope for this edge and assert its side integer
             // constraints.  The child's own new constraints will be asserted
@@ -629,13 +663,27 @@ namespace seq {
 
             const auto new_depth = depth + (e->is_progress() ? 0 : 1);
             const search_result r = search_dfs(e->tgt(), cur_path, new_depth);
+            if (outermost_probe) {
+                m_in_probe = false;
+                m_probe_aborted = false;
+            }
 
             m_length_solver.pop(1);
-            if (r == search_result::sat)
+            if (r == search_result::sat) {
+                if (probe)
+                    ++m_stats.m_num_probe_sat;
                 // m_siblings entry is left dangling; it is cleared at the start of
                 // the next iteration (and the whole search returns sat now anyway).
                 return search_result::sat;
+            }
             cur_path.pop_back();
+            if (m_in_probe && m_probe_aborted) {
+                // inside a probe that ran out of nodes: nothing is decided here
+                any_unknown = true;
+                break;
+            }
+            if (probe)
+                continue; // a failed or unfinished probe says nothing about the node
             if (r == search_result::unknown)
                 any_unknown = true;
             else { // unsat: fold the child's lowlink (cut escape level) into ours
@@ -667,6 +715,8 @@ namespace seq {
             // sibling cut (cuts count as string-only, see reason_is_string_only).
             bool all_string_only = true;
             for (nielsen_edge* e : node->outgoing()) {
+                if (e->is_optional())
+                    continue;
                 if (!node_unsat_string_only(e->tgt())) {
                     all_string_only = false;
                     break;
@@ -903,7 +953,8 @@ namespace seq {
             if (n->reason() == backtrack_reason::children_failed) {
                 for (unsigned i = n->outgoing().size(); i > 0; i--) {
                     nielsen_edge const* e = n->outgoing()[i - 1];
-                    to_visit.push_back(e->tgt());
+                    if (!e->is_optional()) // probes take no part in a refutation
+                        to_visit.push_back(e->tgt());
                 }
                 continue;
             }

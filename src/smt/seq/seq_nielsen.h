@@ -519,6 +519,7 @@ namespace seq {
         vector<constraint>      m_side_constraints;  // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
         bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
+        bool                    m_optional = false; // probe: may yield a model, never needed for a refutation
 
     public:
         nielsen_edge(nielsen_node* src, nielsen_node* tgt, const char* rule, bool is_progress);
@@ -548,6 +549,11 @@ namespace seq {
         vector<constraint> const& side_constraints() const { return m_side_constraints; }
 
         bool is_progress() const { return m_is_progress; }
+
+        // a probe branch (nseq.landing_probes): its subtree may produce a
+        // model, but the parent's verdict rests on its other children
+        bool is_optional() const { return m_optional; }
+        void set_optional() { m_optional = true; }
 
         bool len_constraints_computed() const { return m_len_constraints_computed; }
         void set_len_constraints_computed(bool v) { m_len_constraints_computed = v; }
@@ -917,6 +923,9 @@ namespace seq {
         unsigned m_mod_eq_split        = 0;
         unsigned m_mod_cycle_subsumption = 0;
         unsigned m_mod_landing         = 0;
+        unsigned m_num_probe_branches  = 0;
+        unsigned m_num_probe_sat       = 0;
+        unsigned m_num_probe_cutoffs   = 0;
         unsigned m_mod_view_land       = 0;
         unsigned m_mod_gpower_intr     = 0;
         unsigned m_mod_regex_factorization = 0;
@@ -1024,6 +1033,21 @@ namespace seq {
         // ground power introduction.  Off, a variable is never rewritten into a
         // power term, which the regex decomposition has no rule to take apart.
         bool                          m_gpower_intr = true;
+        // Probe branches of the landing decomposition: the short values of the
+        // landed variable (ε and, at m_landing_probes = 2, single characters)
+        // as concrete substitutions, which reach every occurrence of it at once
+        // the way character unwinding does.  A probe can only yield a model, so
+        // the land and escape branches remain the complete branching.  Each one
+        // runs under a node budget (m_probe_nodes_left, shared by nested
+        // probes), and at most m_landing_probe_max of them are created per
+        // landing: a probe costs a substitution plus the derivatives of the
+        // memberships it lands in, and a refutation pays for every one.
+        unsigned                      m_landing_probes = 2;
+        unsigned                      m_landing_probe_budget = 16; // nodes per unit of depth bound
+        unsigned                      m_landing_probe_max = 2;     // probes per landing, 0 = unlimited
+        bool                          m_in_probe = false;
+        unsigned                      m_probe_nodes_left = 0;
+        bool                          m_probe_aborted = false;
         unsigned                      m_regex_factorization_threshold = 1;
         bool                          m_regex_factorization_eager = false;
         bool                          m_regex_dynamic_decomposition = true;
@@ -1310,6 +1334,9 @@ namespace seq {
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
         void set_gpower_intr(bool e) { m_gpower_intr = e; }
+        void set_landing_probes(unsigned k) { m_landing_probes = k; }
+        void set_landing_probe_budget(unsigned b) { m_landing_probe_budget = b; }
+        void set_landing_probe_max(unsigned n) { m_landing_probe_max = n; }
 
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
         void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
@@ -1783,6 +1810,10 @@ namespace seq {
         // disjoint; character unwinding is the degenerate Q = {R} case.  Replaces
         // the old split-and-guard apply_cycle_decomposition.
         bool apply_landing_decomposition(nielsen_node* node);
+
+        // Probe branches of a landing (nseq.landing_probes); see
+        // seq_nielsen_regex.cpp.
+        void add_probe_branches(nielsen_node* node, euf::snode const* x, dep_tracker const& dep);
 
         // Land-only decomposition of a NON-PRIMITIVE view constraint (paper
         // §5.3, "Landing decomposition on view constraints"): a substitution

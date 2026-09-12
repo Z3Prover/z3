@@ -111,6 +111,11 @@ namespace seq {
         unsigned m_depth { 0 };
         static const unsigned m_max_depth = 512;
 
+        // Budget for the optional union reduction in add_union_elem, counted
+        // per top-level derivative call.
+        unsigned m_reduce_steps { 0 };
+        static const unsigned m_max_reduce_steps = 4000;
+
         seq_util::rex& re() { return m_util.re; }
         seq_util& u() { return m_util; }
 
