@@ -63,14 +63,6 @@ Author:
 
 namespace {
 
-    template<typename View = seq::view>
-    static seq::view mk_membership_view(expr* state, ast_manager& m) {
-        if constexpr (requires { View::membership(state, m); })
-            return View::membership(state, m);
-        else
-            return View::membership(state);
-    }
-
     char const *bail_name(unsigned i) {
         static char const *const names[] = {"unsupported", "state-cap",   "budget", "state-expansion",
                                             "resource",    "nullability", "guard",  "not-reversible"};
@@ -832,7 +824,7 @@ bool seq_monadic::commit_next(frame& f) {
         else {
             // Live states are consumed as they are produced, so a witness found early
             // leaves the rest of the reachable set unexpanded.
-            auto live = m_live_states.reachable_live(mk_membership_view(f.R, m));
+            auto live = m_live_states.reachable_live(seq::membership_view(f.R, m));
             target = live.at(f.next++);
             if (!target) {
                 // Short of the full reachable set, running out of states refutes nothing.
