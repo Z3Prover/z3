@@ -65,6 +65,24 @@ namespace {
         return f.tree.solve();
     }
 
+    // mem_facet is append-only: narrow()/replace()/apply_subst() never
+    // mutate an entry in place - they deactivate the old entry and
+    // append a fresh one (see seq_mem_facet.cpp). Tests that expect
+    // exactly one still-active membership after such an update must
+    // therefore look it up by active(), not assume index 0 / a
+    // single-element vector.
+    static seq::str_mem const& only_active_membership(seq::mem_facet const& mf) {
+        seq::str_mem const* found = nullptr;
+        for (auto const& sm : mf.memberships()) {
+            if (!sm.active())
+                continue;
+            ENSURE(!found);   // exactly one active membership expected
+            found = &sm;
+        }
+        ENSURE(found);
+        return *found;
+    }
+
     static void tst_trivial_sat() {
         fixture f;
         expr_ref word(f.u.str.mk_string(zstring("ab")), f.m);
@@ -159,8 +177,7 @@ namespace {
         ENSURE(committed && has_more && it.get() != nullptr);
 
         auto& mf = root->facet_as<seq::mem_facet>(mem_id);
-        ENSURE(mf.memberships().size() == 1);
-        expr_ref_vector const& ts = mf.memberships()[0].m_str;
+        expr_ref_vector const& ts = only_active_membership(mf).m_str;
         expr_ref_vector expect(m);
         u.str.get_concat_units(b.get(), expect);
         ENSURE(ts.size() == expect.size());
@@ -211,7 +228,7 @@ namespace {
         ENSURE(it->next(out2));
 
         auto& mf = root->facet_as<seq::mem_facet>(mem_id);
-        expr_ref_vector const& ts = mf.memberships()[0].m_str;
+        expr_ref_vector const& ts = only_active_membership(mf).m_str;
         expr_ref_vector expect_a(m), expect_b(m);
         u.str.get_concat_units(one_a.get(), expect_a);
         u.str.get_concat_units(b.get(), expect_b);

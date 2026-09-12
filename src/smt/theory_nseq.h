@@ -168,6 +168,17 @@ namespace smt {
         scoped_ptr<seq::theory_nseq_ambient_context> m_ambient;
         seq_factory*                     m_factory = nullptr; // owned by the model's plugin_manager once registered
         obj_map<expr, expr*>             m_model_subst;
+        // Keeps every model_subst value (a witness term materialized by
+        // view_witness::product_nonempty in init_model) alive for as
+        // long as m_model_subst itself references it: m_model_subst
+        // stores raw expr* (see above), so without a ref-counted owner
+        // the witness's refcount could drop to 0 and the ast_manager
+        // could recycle/delete it once init_model's own locals
+        // (expr_substitution model, the local view_witness) go out of
+        // scope - leaving a dangling pointer that mk_value's add_token
+        // (via m_model_subst.find()) later dereferences. Cleared
+        // together with m_model_subst in finalize_model().
+        expr_ref_vector                  m_model_pin;
 
         // Facet ids are registered once in the constructor and handed to
         // m_ambient (set_eq_id() etc.); they are not kept as members

@@ -119,7 +119,8 @@ namespace smt {
         m_axioms(m),
         m_tree(ctx.get_trail_stack(), m.limit()),
         m_root(m_tree.mk_root()),
-        m_solver(m, m_autil, m_tree.dep_mgr())
+        m_solver(m, m_autil, m_tree.dep_mgr()),
+        m_model_pin(m)
     {
         m_ambient = alloc(seq::theory_nseq_ambient_context, *this);
         m_tree.set_ambient_context(m_ambient.get());
@@ -162,18 +163,16 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_var_peel, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
         {
-            // Mirrors smt/seq_regex.cpp's wiring of theory_seq's own
-            // seq_monadic instance from theory_seq_params: without this,
-            // mem_monadic_split's seq_monadic gives up (spurious
-            // "unknown") on cases theory_seq solves by retrying in
-            // reverse and/or decomposing the intersection.
+            // Budget mirrors smt/seq_regex.cpp's wiring of theory_seq's own
+            // seq_monadic budget from theory_seq_params. mem_monadic_split no
+            // longer wraps seq_monadic (see seq_mem_facet.h): its joint search
+            // is forward-only, one membership at a time via mem_split,
+            // combined with view_witness for cross-membership non-emptiness -
+            // there is no orientation-retry or intersection-decomposition
+            // policy left to configure.
             auto* mm = alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient);
             auto const& fp = ctx.get_fparams();
             mm->set_budget(fp.m_seq_regex_budget);
-            mm->set_orientation(fp.m_seq_regex_orientation == "forward" ? seq::monadic::orientation::forward :
-                                 fp.m_seq_regex_orientation == "reversed" ? seq::monadic::orientation::reversed :
-                                 seq::monadic::orientation::retry);
-            mm->set_split_rounds(fp.m_seq_regex_split);
             m_tree.add_split_plugin(mm);
         }
         m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
@@ -623,17 +622,25 @@ namespace smt {
         if (!snap)
             return;
         auto const& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
-        seq::monadic mon(m_rewriter, ctx.get_trail_stack(), seq::transition_mode::brzozowski_tm);
+        trail_stack scratch_trail;
+        seq::view_witness vw(scratch_trail, m_rewriter, mf.live(), seq::transition_mode::brzozowski_tm);
+        unsigned vw_budget = 0;
+        vw.set_checkpoint([&]() {
+            if (!m.limit().inc())
+                return seq::view_failure_reason::resource;
+            return ++vw_budget > 2000000 ? seq::view_failure_reason::budget : seq::view_failure_reason::none;
+        });
         // At a sat snapshot, mem_facet::is_satisfied() holds: either there are no active
         // memberships left, or mem_monadic_split has certified every active membership as
         // narrowed to a single variable's own view (str_mem::m_str.size() == 1) - see the
         // class comment on mem_facet::m_is_satisfied. Multiple str_mem entries can carry
         // the same variable (one per occurrence in the original term), and their views are
         // conjunctive (seq_view.h), so collect all of a variable's views together and let
-        // materialize_views() intersect them - it (via product_nonempty) correctly handles
+        // view_witness::product_nonempty() intersect them directly - it correctly handles
         // reach views (state, target) as well as plain memberships, unlike feeding a term
-        // through add()+check(), which only supports plain "term in regex" constraints and
-        // would silently drop any reach view's target, admitting spurious witnesses.
+        // through seq_monadic's add()+check(), which only supports plain "term in regex"
+        // constraints and would silently drop any reach view's target, admitting spurious
+        // witnesses.
         obj_map<expr, seq::view_vector> per_var;
         for (auto const& sm : mf.memberships()) {
             if (!sm.active())
@@ -646,16 +653,20 @@ namespace smt {
         expr_substitution model(m);
         for (auto const& [v, views] : per_var) {
             expr_ref w(m);
-            if (mon.materialize_views(v, views, w) == l_true)
+            lbool pr = vw.product_nonempty(v, views, &w);
+            if (pr == l_true)
                 model.insert(v, w);
         }
-        for (auto const& kv : model.sub())
+        for (auto const& kv : model.sub()) {
             m_model_subst.insert(kv.m_key, kv.m_value);
+            m_model_pin.push_back(kv.m_value);
+        }
     }
 
     void theory_nseq::finalize_model(model_generator&) {
         m_factory = nullptr; // owned by the model's plugin_manager; do not delete here
         m_model_subst.reset();
+        m_model_pin.reset();
     }
 
     model_value_proc* theory_nseq::mk_value(enode* n, model_generator&) {

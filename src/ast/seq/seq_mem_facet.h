@@ -21,7 +21,10 @@ Abstract:
     search to already-existing components:
       - deterministic discharge / conflict checks use `seq::accepts`,
         `seq::is_dead`, and `seq::live_states`;
-      - multi-view landing splits are delegated to `seq_monadic`;
+      - multi-view landing splits are delegated to `mem_split` (decomposes
+        one membership at a time into per-variable views) combined with
+        `view_witness` (per-variable view-intersection non-emptiness),
+        both defined in this file;
       - substitutions chosen by `word_eq_split` are broadcast here through
         `subst_sink_i`, so pending memberships stay synchronized with the
         shared variable pool.
@@ -32,12 +35,18 @@ Abstract:
       - the c3 branch's `apply_regex_var_split` (a per-membership
         Nielsen-style variable split, `x -> epsilon` / `x -> c.x'`) is not
         ported here: monadic landing (`mem_monadic_split`, driven by
-        `seq_monadic`) subsumes it as the sole membership-side splitting
-        rule, so no standalone `mem_var_split` class exists in this port;
+        `mem_split` + `view_witness`) subsumes it as the sole
+        membership-side splitting rule, so no standalone `mem_var_split`
+        class exists in this port;
       - monadic landing is implemented for the conjunction of memberships
         currently present in `mem_facet`; it narrows views reported by
-        `monadic::iterate()` and leaves exact witness materialization to
-        `seq_monadic` itself.
+        per-membership `mem_split::iterator`s and leaves exact witness
+        materialization to `view_witness` itself. Unlike the earlier
+        `seq_monadic`-based engine, there is no orientation retry
+        (forward/reversed) or intersection-decomposition refinement pass -
+        those were seq_monadic-specific policies layered on top of its
+        joint search, not part of the one-membership-at-a-time
+        decomposition this port now uses.
 
 Author:
 
@@ -53,26 +62,20 @@ Author:
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_view.h"
 #include "ast/seq/seq_regex_live.h"
-#include "ast/seq/seq_monadic.h"
+#include "ast/seq/seq_view_witness.h"
 #include "ast/seq/seq_power_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
+#include "util/obj_pair_hashtable.h"
 
 namespace seq {
 
     struct str_mem {
         expr_ref_vector      m_str;
         view                 m_view;
-        // Pins the regex term backing `m_view.m_state` (e.g. a freshly
-        // built `re.complement` for a negative `str.in_re`) so it stays
-        // alive for as long as this membership does, without relying on
-        // some external owner (theory_nseq::pin) to hold a reference.
-        // `view` itself stores raw `expr*` (it is a value type shared
-        // with seq_monadic/seq_regex_live, which do not ref-count), so
-        // the owning `expr_ref` lives here instead.
-        expr_ref             m_regex;
         eq_tree::dep_tracker m_dep = nullptr;
         // Append-only representation: m_mems is never erased/shifted
         // (mirrors power_facet::str_power::m_active / eq_facet's
@@ -86,11 +89,11 @@ namespace seq {
         bool                 m_active = true;
 
         str_mem(ast_manager& m, expr* s, view const& v, eq_tree::dep_tracker dep = nullptr) :
-            m_str(m), m_view(v), m_regex(v.m_state, m), m_dep(dep) {
+            m_str(m), m_view(v), m_dep(dep) {
             seq_util(m).str.get_concat_units(s, m_str);
         }
         str_mem(ast_manager& m, expr_ref_vector const& ts, view const& v, eq_tree::dep_tracker dep = nullptr) :
-            m_str(ts), m_view(v), m_regex(v.m_state, m), m_dep(dep) {}
+            m_str(ts), m_view(v), m_dep(dep) {}
 
         bool is_plain() const { return m_view.is_membership(); }
         bool is_view() const { return m_view.is_reach(); }
@@ -104,24 +107,81 @@ namespace seq {
         seq_rewriter&     m_rw;
         live_states       m_live;
         vector<str_mem>   m_mems;
-        // Set once mem_monadic_split has certified that every remaining
-        // membership constraint has been narrowed to a variable-only
-        // view (x_i in view_i) whose intersection seq_monadic verified
-        // to be non-empty. apply_subst() (a structural change to some
-        // membership's string) clears this again, since the narrowed
-        // views no longer necessarily reflect the (now different) set
-        // of constraints - mem_monadic_split must re-certify.
-        bool              m_is_satisfied = false;
+        // Incrementally tracks every active plain membership whose own
+        // string is already a single bare variable (`x in R`): add()
+        // registers it here as soon as it is added (see
+        // is_single_var_plain() in seq_mem_facet.cpp), so the joint
+        // feasibility of every such constraint - across however many
+        // originally-distinct memberships produced views on the same
+        // variable - is checked incrementally by mem_propagation via
+        // m_vw.check(), instead of being recomputed from scratch by
+        // mem_monadic_split on every split() call. Uses this facet's own
+        // (shared, ambient) trail, so add()'s bookkeeping backtracks in
+        // lockstep with m_mems automatically. narrow()/replace()/
+        // apply_subst() never unregister a stale entry when they
+        // deactivate a membership (append-only, like m_mems itself) -
+        // the surviving fact stays true and is harmless to keep around.
+        view_witness      m_vw;
+        // Work counter backing m_vw's checkpoint (see the constructor):
+        // product_nonempty()'s state-expansion search has no bound of its
+        // own and relies entirely on the checkpoint callback to cut off a
+        // search over a cyclic/unbounded view (e.g. `x in (ab)+` alone),
+        // so m_vw must have one installed - mirrors seq_monadic's own
+        // m_budget/out_of_budget (seq_monadic.h), which every OTHER
+        // view_witness in this codebase is given at construction time.
+        mutable unsigned  m_vw_budget = 0;
+
+        // First not-yet-fully-examined index into m_mems for
+        // mem_propagation's per-membership structural scan (mirrors
+        // req_facet's/ncontains_facet's own m_qhead convention): a round
+        // only re-scans [m_qhead, m_mems.size()), never the whole vector
+        // from scratch. No rewind hook is needed here (unlike
+        // ncontains_facet's apply_subst, which mutates an existing
+        // entry's token vectors in place): every mutator that ever
+        // touches an existing membership - narrow(), replace(), and
+        // apply_subst() - is built entirely on remove()+add() (see their
+        // definitions), so a membership below m_qhead can only ever be
+        // deactivated, never have its m_str/m_view changed in place; any
+        // actual update always appears as a brand-new entry appended
+        // past the current size, which is >= m_qhead by construction and
+        // so is naturally still ahead of the qhead when it is reached.
+        // Trailed via advance_qhead(), so it unwinds with everything else
+        // on backtrack.
+        unsigned          m_qhead = 0;
 
     public:
         mem_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm, seq_rewriter& rw) :
-            facet_i(trail), m(m), u(u), m_dm(dm), m_rw(rw), m_live(rw) {}
+            facet_i(trail), m(m), u(u), m_dm(dm), m_rw(rw), m_live(rw),
+            m_vw(trail, rw, m_live, transition_mode::brzozowski_tm) {
+            m_vw.set_checkpoint([this]() {
+                if (!this->m.limit().inc())
+                    return view_failure_reason::resource;
+                return ++m_vw_budget > 2000000 ? view_failure_reason::budget : view_failure_reason::none;
+            });
+        }
+        // Resets the per-check() work counter backing m_vw's checkpoint
+        // (see m_vw_budget's comment): called by mem_propagation right
+        // before vw().check(), so each round gets a fresh budget rather
+        // than a single lifetime allowance for the whole search.
+        void reset_vw_budget() const { m_vw_budget = 0; }
+
+        // See m_qhead's comment: mem_propagation's per-membership scan
+        // uses these to avoid rescanning already-examined entries.
+        unsigned qhead() const { return m_qhead; }
+        // Advance m_qhead to `head` (only ever forward via this call;
+        // trailed so it un-advances correctly on backtrack).
+        void advance_qhead(unsigned head);
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
         live_states& live() const { return const_cast<live_states&>(m_live); }
         eq_tree::dep_manager_t& dm() const { return m_dm; }
         vector<str_mem> const& memberships() const { return m_mems; }
+        // Every active plain single-variable membership registered so
+        // far (see m_vw's comment above); mem_propagation calls
+        // vw().check() each round and reports a conflict from vw().core()
+        // on l_false.
+        view_witness& vw() { return m_vw; }
 
         void add(str_mem const& sm);
         void narrow(unsigned idx, view const& new_view);
@@ -141,14 +201,17 @@ namespace seq {
         void replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep = nullptr);
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
-        // Toggled (trailed) by mem_monadic_split once it has certified
-        // the current membership set as a satisfiable conjunction of
-        // per-variable views; see class comment on m_is_satisfied.
-        void set_is_satisfied(bool b);
-
         stx::facet_i* clone(trail_stack& trail) const override;
 
-        bool is_satisfied() const override { return m_is_satisfied || std::all_of(m_mems.begin(), m_mems.end(), [](str_mem const& sm) { return !sm.active(); }); }
+        // True once there is no active plain membership left for
+        // mem_monadic_split to decompose - i.e. every active plain
+        // membership is already a single-variable view (or there are no
+        // active memberships at all). This says nothing about whether
+        // those single-variable views are jointly satisfiable - that is
+        // m_vw/mem_propagation's job, checked incrementally and reported
+        // as an ordinary conflict, so a node that reaches this predicate
+        // without having already conflicted is known consistent.
+        bool is_satisfied() const override;
         std::ostream& display(std::ostream& out) const override;
     };
 
@@ -346,23 +409,168 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
+    // Self-contained monadic decomposition of ONE membership constraint
+    // `term in R` into an iterator of branches, each branch being the
+    // vector of (variable, view) pairs the search commits to for every
+    // variable occurrence in `term` - a reach view <state,target> for a
+    // variable followed by more of the term, a membership view
+    // <state,null> for a variable that ends it (see seq_view.h).
+    //
+    // This class deliberately does ONLY the decomposition: it never
+    // tests whether the views it hands out for a given variable have a
+    // non-empty intersection with views coming from elsewhere (e.g. the
+    // same variable's occurrence in a DIFFERENT membership, or an
+    // ambient length bound) - that is `view_witness`'s job
+    // (seq_view_witness.h), which a caller combining several
+    // memberships (see mem_monadic_split below) consults once it has
+    // accumulated a variable's views across however many mem_split
+    // instances it drives. Folding that check in here would duplicate
+    // view_witness and reintroduce exactly the conflation seq_monadic
+    // had between single-membership decomposition and joint
+    // (multi-membership) solving.
+    //
+    // Mirrors seq_monadic's derivative-stepping DFS (advance_pos /
+    // push_frame / commit_next / run_search), specialized to a single
+    // membership: there is exactly one atom stream and no per-variable
+    // group bookkeeping.
+    class mem_split {
+    public:
+        struct elem {
+            expr_ref var;
+            view     m_view;
+            elem(expr_ref const& v, view const& w) : var(v), m_view(w) {}
+        };
+        using branch = vector<elem>;
+
+        // Lazily enumerates the branches of the decomposition prepared by
+        // the last iterate() call.  Only ONE iterator may be in flight for
+        // a given mem_split at a time (a fresh iterate() call throws away
+        // the previous search's stack) - `m_gen` detects a stale iterator
+        // and makes it report exhausted rather than resume garbage state.
+        //
+        // next() returning false with gave_up() false means the
+        // decomposition of this membership is fully exhausted, i.e. the
+        // membership itself is UNSAT. gave_up() true means the search hit
+        // a resource bound (budget, live-state cap, or an inconclusive
+        // nullability/guard test) before finishing, so a false result
+        // proves nothing.
+        class iterator {
+            mem_split* m_e;
+            unsigned   m_gen;
+            bool       m_started = false;
+        public:
+            explicit iterator(mem_split& e) : m_e(&e), m_gen(e.m_gen) {}
+            bool next(branch& out);
+            bool gave_up() const { return m_gen != m_e->m_gen || m_e->m_giveup || m_e->m_any_undef; }
+        };
+
+    private:
+        // One frame per variable atom on the branch currently being built;
+        // frames form an explicit stack so a leaf can be left standing and
+        // resumed later by the iterator (mirrors seq_monadic::frame,
+        // narrowed to a single membership: no `mi`/`vi`/`finalize`/`undef`
+        // bookkeeping, since there is one membership and no cross-variable
+        // grouping here).
+        struct frame {
+            unsigned i;             // atom index this frame stands on
+            expr*    R;             // derivative state entering atom i
+            unsigned next = 0;      // next live state (or one-shot flag for the last atom) to try
+            bool     last_atom;     // atom i ends the term: exactly one candidate (a membership view)
+        };
+
+        ast_manager&    m;
+        seq_util&       u;
+        seq_rewriter&   m_rw;
+        live_states&    m_live;
+        th_rewriter     m_thrw;                       // normalizes constant-element derivatives
+        expr_ref_vector m_pin;                        // keeps derivative states / regexes alive
+        obj_pair_map<expr, expr, expr*> m_der_cache;   // memoizes der_elem per (regex, element)
+
+        // The already-flattened atom stream, taken verbatim from
+        // str_mem::m_str (a concatenation of sequence variables and
+        // seq.unit-of-value elements; no concat, string literal, or empty
+        // sequence terms remain after str_mem's own construction via
+        // seq_util::str::get_concat_units). There is no separate boolean
+        // "is variable" tag here: at each position, u.str.is_unit(t, e)
+        // distinguishes a constant element from a variable atom.
+        expr_ref_vector m_atoms;
+        svector<frame> m_stack;
+        branch         m_branch;
+
+        static unsigned const FINAL_POS = UINT_MAX;   // sentinel: positioned past a final-atom view
+        unsigned m_pos_i = 0;
+        expr*    m_pos_R = nullptr;
+
+        unsigned m_budget = 0;
+        unsigned m_budget_limit = 200000;
+        bool     m_giveup = false;
+        // A branch was passed over without a decisive answer (a live-state
+        // enumeration hit its own cap/resource limit): running the search
+        // to full exhaustion no longer refutes the membership, only fails
+        // to find a satisfying branch.
+        bool     m_any_undef = false;
+        unsigned m_gen = 0;
+        lbool    m_init_result = l_undef;
+
+        seq_util::rex& re() const { return u.re; }
+
+        bool out_of_budget();
+        expr* der_elem(expr* r, expr* elem);
+        lbool nullable(expr* r);
+        void reset_search();
+        lbool advance_pos();
+        bool push_frame();
+        bool commit_next(frame& f);
+        lbool run_search(bool backtrack);
+
+    public:
+        mem_split(ast_manager& m, seq_util& u, seq_rewriter& rw, live_states& live) :
+            m(m), u(u), m_rw(rw), m_live(live), m_thrw(m), m_pin(m), m_atoms(m) {}
+
+        // Work budget for one iterate() call (search nodes / derivative
+        // steps); default matches seq_monadic's per-decision budget.
+        void set_budget(unsigned b) { m_budget_limit = b; }
+
+        // True when some element of `str` (already-flattened, e.g.
+        // str_mem::m_str) is a seq.unit wrapping something other than a
+        // constant value - the one shape this class cannot decompose (a
+        // sequence variable, or a seq.unit of a value, are both fine).
+        bool can_decide(expr_ref_vector const& str);
+
+        // Begin decomposing the membership whose already-flattened atom
+        // stream is `str` (see str_mem::m_str) against `R`; invalidates
+        // any iterator from a previous call. If can_decide() flags `str`
+        // as containing an undecidable element, the returned iterator
+        // reports gave_up() immediately (defensive: mem_facet only ever
+        // holds terms this class can decompose).
+        iterator iterate(expr_ref_vector const& str, expr* R);
+    };
+
+    // Drives ONE active plain membership's decomposition at a time (see
+    // mem_split's own class comment for what one membership's
+    // decomposition means): split() picks the cheapest active plain
+    // membership that is not already a single-variable view (see
+    // is_single_var_plain() in seq_mem_facet.cpp - those are handled
+    // directly by mem_facet's own view_witness, m_vw, and never reach
+    // this class at all), and this iterator wraps a single
+    // mem_split::iterator over it. Materializing a branch narrows every
+    // variable occurrence in that one membership's string into a fresh
+    // single-variable str_mem (mem_facet::add), which mem_facet::add()
+    // then registers with m_vw itself - so cross-membership consistency
+    // for a variable that occurs in several (originally distinct)
+    // memberships is entirely m_vw/mem_propagation's responsibility,
+    // never this class's. This intentionally removes the joint
+    // multi-membership DFS the previous port of this class used to run
+    // (with its own private view_witness, m_groups/m_group_deps
+    // bookkeeping, and per-membership last-occurrence tracking): with
+    // decomposition one-membership-at-a-time and per-variable joint
+    // feasibility fully delegated to mem_facet's persistent, incrementally
+    // maintained m_vw, none of that machinery is needed here anymore.
     class mem_monadic_split : public eq_tree::split_plugin_i {
         ast_manager&      m;
         seq_util&         u;
         seq_rewriter&     m_rw;
-        // Mirrors theory_seq's smt/seq_regex.cpp wiring of seq_monadic's
-        // config (budget / orientation / split_rounds) from
-        // theory_seq_params: without this, every seq_monadic instance
-        // created here defaults to a forward-only, non-decomposing
-        // search that simply gives up (reports no branch, not a
-        // conflict) once it exhausts its work budget - unlike
-        // theory_seq, which retries in reverse and/or decomposes the
-        // intersection before giving up. That caused genuinely
-        // satisfiable/refutable membership conjunctions to be reported
-        // as spurious "unknown" by nseq while theory_seq solved them.
         unsigned          m_budget = 1000000;
-        monadic::orientation m_orientation = monadic::orientation::retry;
-        unsigned          m_split_rounds = 10;
         struct stats {
             unsigned m_num_splits = 0;
             unsigned m_num_refuted = 0;
@@ -371,53 +579,42 @@ namespace seq {
         stats m_stats;
 
         class iterator : public eq_tree::split_iterator_i {
-            eq_tree::node&             m_n;
-            // Private trail, entirely separate from the search tree's shared trail:
-            // monadic::add() pushes undo-trail entries referencing its own
-            // internal state, and those entries must stay valid for exactly as
-            // long as m_mon itself does. Tying them to the search tree's shared
-            // trail is unsafe, since a declining split() call is immediately
-            // followed by that shared scope being popped (see extend_node()'s
-            // scoped_push), which would run these entries' undo() against an
-            // already-destroyed seq_monadic. A private trail/engine pair, owned
-            // and torn down together by this iterator, avoids that entirely.
-            trail_stack                m_priv_trail;
-            monadic                m_mon;
-            // Constructed in the body (after m_mon.add() populates the
-            // engine), not the initializer list: monadic::iterate()
-            // snapshots the engine's CURRENT membership set, so building
-            // it before add() runs would capture an empty conjunction.
-            scoped_ptr<monadic::iterator> m_it;
-            bool                       m_first_pending = true;
-            obj_map<expr, seq::view_vector> m_first;
-            ast_manager&               m;
-            seq_util&                  u;
+            eq_tree::node&        m_n;
+            ast_manager&          m;
+            seq_util&             u;
+            unsigned              m_mem_idx;   // index into mf.memberships() of the membership being decomposed
+            eq_tree::dep_tracker  m_dep;       // that membership's own dependency
+            mem_split             m_split;
+            mem_split::iterator   m_it;
 
         public:
-            iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
-                     vector<str_mem> const& mems, unsigned budget,
-                     monadic::orientation orientation, unsigned split_rounds);
+            iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u, live_states& live,
+                     unsigned mem_idx, str_mem const& sm) :
+                m_n(n), m(m), u(u), m_mem_idx(mem_idx), m_dep(sm.m_dep),
+                m_split(m, u, rw, live),
+                m_it(m_split.iterate(sm.m_str, sm.m_view.m_state)) {}
             bool next(eq_tree::edge& out) override;
-            bool has_first() const { return !m_first.empty(); }
-            // next() (or the constructor's priming call) reporting no
-            // branch is ambiguous by itself: monadic::iterator's
-            // class comment says "next() returning false with
-            // gave_up() false means every branch not yet reported is
-            // REFUTED" - i.e. the conjunction of memberships fed to
-            // m_mon is actually UNSAT, not merely a case this search
-            // declined to decide. split() uses this to distinguish a
-            // genuine conflict from a benign "nothing to offer".
-            bool is_refuted() const { return m_first.empty() && !m_it->gave_up(); }
+            // See mem_split::iterator's class comment on the same
+            // ambiguity: next() reporting no branch could mean either
+            // "this single membership is genuinely refuted" or "gave up
+            // before deciding". gave_up() disambiguates for split(),
+            // which must not report a conflict on a mere give-up.
+            bool gave_up() const { return m_it.gave_up(); }
+            eq_tree::dep_tracker dep() const { return m_dep; }
         };
+
+        // Finds the cheapest (fewest atoms) active plain membership that
+        // is not already a single-variable view; ties broken by earliest
+        // index. Returns false if no such membership exists (nothing left
+        // for this class to do - either mf.is_satisfied() already holds,
+        // or every active plain membership is a single-variable view
+        // whose feasibility is m_vw/mem_propagation's job).
+        static bool find_split_target(mem_facet const& mf, unsigned& idx);
 
     public:
         mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, ambient_context_i<eq_tree::dep_tracker>&) :
             m(m), u(u), m_rw(rw) {}
-        // Allows theory_nseq to wire this up from theory_seq_params the same
-        // way smt/seq_regex.cpp does for theory_seq's own monadic instance.
         void set_budget(unsigned b) { m_budget = b; }
-        void set_orientation(monadic::orientation o) { m_orientation = o; }
-        void set_split_rounds(unsigned n) { m_split_rounds = n; }
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override {

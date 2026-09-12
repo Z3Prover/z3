@@ -47,42 +47,53 @@ throw away other constraints x in R_1, .., x in R_{k-1}.
 
 namespace seq {
 
-    // Trail-undo object for mem_bounds_propagation's own `m_last` cache;
-    // see mem_bounds_propagation's class comment (seq_mem_facet.h).
-    class mem_bounds_last_trail : public trail {
-        obj_map<expr, mem_bounds_propagation::last_bound>& m_map;
-        expr*                                              m_var;
-        bool                                                m_had_prior;
-        mem_bounds_propagation::last_bound                  m_prior;
-    public:
-        mem_bounds_last_trail(obj_map<expr, mem_bounds_propagation::last_bound>& map, expr* var,
-                               bool had_prior, mem_bounds_propagation::last_bound const& prior) :
-            m_map(map), m_var(var), m_had_prior(had_prior), m_prior(prior) {}
-        void undo() override {
-            if (m_had_prior)
-                m_map.insert(m_var, m_prior);
-            else
-                m_map.remove(m_var);
-        }
-    };
+    // True when `sm` is an active membership whose own flattened string
+    // is already exactly one bare variable (`x in R` or a narrowed reach
+    // view `x reaches s`): mem_facet registers these with its own
+    // view_witness (m_vw) as soon as they are added, and
+    // mem_monadic_split never decomposes them (see the class comments on
+    // mem_facet::m_vw and mem_monadic_split). Deliberately not restricted
+    // to `sm.is_plain()`: mem_monadic_split's own narrowed reach views for
+    // a non-final atom are exactly as single-variable as a plain `x in R`
+    // membership, and withholding them from m_vw would silently exempt
+    // them from the joint per-variable feasibility check the comments
+    // above promise - which is exactly what used to let a reach view
+    // admitting several distinct lengths (e.g. a Kleene-plus loop-back
+    // state) coexist unchecked with an incompatible length-derived
+    // membership on the same variable.
+    static bool is_single_var_plain(str_mem const& sm) {
+        return sm.m_str.size() == 1 && is_uninterp(sm.m_str.get(0));
+    }
+
+    void mem_facet::advance_qhead(unsigned head) {
+        m_trail.push(value_trail<unsigned>(m_qhead));
+        m_qhead = head;
+    }
 
     void mem_facet::add(str_mem const& sm) {
         m_mems.push_back(sm);
         m_trail.push(push_back_trail<str_mem>(m_mems));
-        set_is_satisfied(false);
+        if (is_single_var_plain(sm))
+            m_vw.add(sm.m_str.get(0), sm.m_view, sm.m_dep);
     }
 
     void mem_facet::narrow(unsigned idx, view const& new_view) {
         SASSERT(idx < m_mems.size());
-        if (m_mems[idx].m_view == new_view)
+        str_mem const& sm = m_mems[idx];
+        if (!sm.active() || sm.m_view == new_view)
             return;
-        m_trail.push(vector_field_trail<str_mem, view>(m_mems, idx, &str_mem::m_view));
-        m_trail.push(vector_field_trail<str_mem, expr_ref>(m_mems, idx, &str_mem::m_regex));
-        m_mems[idx].m_view = new_view;
-        // Pin the narrowed view's own state term (m_regex), mirroring
-        // str_mem's constructor: a narrowed view's state may be a freshly
-        // built derivative/complement term not otherwise owned.
-        m_mems[idx].m_regex = new_view.m_state;
+        // Append-only: an "update" to an existing membership never mutates
+        // its entry in place - it deactivates the old entry and appends a
+        // fresh one with the new view (mirrors str_mem::m_active's own
+        // append-only discipline comment; also matches how
+        // mem_monadic_split::iterator::next already narrows a variable's
+        // membership this way). Copy the fields that survive the update
+        // before remove()/add() touch m_mems, since add() may reallocate
+        // the vector out from under a live reference into it.
+        expr_ref_vector str(sm.m_str);
+        eq_tree::dep_tracker dep = sm.m_dep;
+        remove(idx);
+        add(str_mem(m, str, new_view, dep));
     }
 
     void mem_facet::remove(unsigned idx) {
@@ -93,42 +104,57 @@ namespace seq {
 
     void mem_facet::replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep) {
         SASSERT(idx < m_mems.size());
-        m_trail.push(vector_field_trail<str_mem, expr_ref_vector>(m_mems, idx, &str_mem::m_str));
-        m_mems[idx].m_str.reset();
-        m_mems[idx].m_str.append(new_str);
-        if (dep) {
-            m_trail.push(vector_field_trail<str_mem, eq_tree::dep_tracker>(m_mems, idx, &str_mem::m_dep));
-            m_mems[idx].m_dep = m_dm.mk_join(m_mems[idx].m_dep, dep);
-        }
-        set_is_satisfied(false);
+        str_mem const& sm = m_mems[idx];
+        if (!sm.active())
+            return;
+        view v = sm.m_view;
+        eq_tree::dep_tracker new_dep = m_dm.mk_join(sm.m_dep, dep);
+        remove(idx);
+        add(str_mem(m, new_str, v, new_dep));
     }
 
     void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
-        bool some_touched = false;
-        for (unsigned i = 0; i < m_mems.size(); ++i) {
-            bool touched = subst_in_trailed(m_trail, m_mems, i, &str_mem::m_str, var, repl);
-            some_touched |= touched;
-            if (touched && subst_dep) {
-                m_trail.push(vector_field_trail<str_mem, eq_tree::dep_tracker>(m_mems, i, &str_mem::m_dep));
-                m_mems[i].m_dep = m_dm.mk_join(m_mems[i].m_dep, subst_dep);
-            }
+        // Snapshot the size: entries appended below (already substituted)
+        // must not be revisited by this same pass.
+        unsigned n = m_mems.size();
+        for (unsigned i = 0; i < n; ++i) {
+            str_mem const& sm = m_mems[i];
+            if (!sm.active())
+                continue;
+            bool present = false;
+            for (expr* t : sm.m_str)
+                if (t == var) { present = true; break; }
+            if (!present)
+                continue;
+            expr_ref_vector new_str(sm.m_str);
+            subst_in(new_str, var, repl);
+            view v = sm.m_view;
+            eq_tree::dep_tracker dep = m_dm.mk_join(sm.m_dep, subst_dep);
+            remove(i);
+            add(str_mem(m, new_str, v, dep));
         }
-        if (some_touched) 
-            set_is_satisfied(false);
-    }
-
-    void mem_facet::set_is_satisfied(bool b) {
-        if (m_is_satisfied == b)
-            return;
-        m_trail.push(value_trail(m_is_satisfied));
-        m_is_satisfied = b;
     }
 
     stx::facet_i* mem_facet::clone(trail_stack& trail) const {
         mem_facet* f = alloc(mem_facet, trail, m, u, m_dm, m_rw);
         f->m_mems.append(m_mems);
-        f->m_is_satisfied = m_is_satisfied;
+        f->m_qhead = m_qhead;
+        // Replay registration of every active single-variable plain
+        // membership with the clone's own m_vw (which was built fresh
+        // against `trail`, not `this->m_vw`'s private state) - mirrors
+        // how the rest of this facet's state is deep-copied field by
+        // field rather than shared.
+        for (auto const& sm : f->m_mems)
+            if (is_single_var_plain(sm))
+                f->m_vw.add(sm.m_str.get(0), sm.m_view, sm.m_dep);
         return f;
+    }
+
+    bool mem_facet::is_satisfied() const {
+        for (auto const& sm : m_mems)
+            if (sm.active() && !is_single_var_plain(sm))
+                return false;
+        return true;
     }
 
     std::ostream& mem_facet::display(std::ostream& out) const {
@@ -163,7 +189,37 @@ namespace seq {
         auto& f = ac.mem_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
-        for (unsigned i = 0; i < f.memberships().size(); ++i) {
+        // Every active single-variable plain membership (`x in R`) is
+        // registered incrementally with f.vw() as it is added (see
+        // mem_facet::add / is_single_var_plain) - including narrowed
+        // views mem_monadic_split materializes from a compound
+        // membership's decomposition. Check their joint feasibility per
+        // variable here, before this round's structural checks below:
+        // this is the ONLY place that decides those constraints now that
+        // mem_monadic_split no longer runs a joint multi-membership
+        // search of its own (see mem_monadic_split's class comment).
+        {
+            view_witness& vw = f.vw();
+            f.reset_vw_budget();
+            lbool r = vw.check();
+            if (r == l_false) {
+                eq_tree::dep_tracker dep = nullptr;
+                for (void* d : vw.core())
+                    dep = f.dm().mk_join(dep, static_cast<eq_tree::dep_tracker>(d));
+                n.set_conflict(stx::br_plugin_base, dep);
+                return stx::simplify_result::conflict;
+            }
+        }
+        // Incremental scan: [qhead, memberships().size()) only (see
+        // mem_facet::m_qhead's comment). A membership left pending here
+        // (still active, not yet removed/conflicted) never needs to be
+        // revisited on a later round unless it is actually updated, and
+        // any update always deactivates this index and appends a fresh
+        // one past the current size - so advancing past every entry seen
+        // this pass, whether resolved or merely pending, is sound.
+        unsigned head = f.qhead();
+        while (head < f.memberships().size()) {
+            unsigned i = head++;
             auto const& sm = f.memberships()[i];
             if (!sm.active())
                 continue;
@@ -178,9 +234,9 @@ namespace seq {
             // reasoning (arith_propagation, power facets, ...) can prune
             // on them without waiting for this membership to be fully
             // resolved structurally. solver_facet::add_constraint itself
-            // de-dupes identical terms via `m_own`, so re-deriving the
-            // same bound on every propagate() round is a cheap no-op
-            // after the first.
+            // de-dupes identical terms via `m_own`; the qhead above also
+            // means this fires at most once per membership entry, since
+            // an entry is never revisited once passed.
             {
                 auto& af = ac.arith_facet_ref();
                 arith_util& a = af.get_arith_util();
@@ -263,6 +319,10 @@ namespace seq {
                 changed = true;
                 continue;
             }
+        }
+        if (head != f.qhead()) {
+            f.advance_qhead(head);
+            changed = true;
         }
         if (f.is_satisfied())
             return stx::simplify_result::satisfied;
@@ -395,125 +455,232 @@ namespace seq {
         return it;
     }
 
-    // NSB code review: this uses the end-game version of seq_monadic. 
-    mem_monadic_split::iterator::iterator(eq_tree::node& n, seq_rewriter& rw, ast_manager& m, seq_util& u,
-                                          vector<str_mem> const& mems, unsigned budget,
-                                          monadic::orientation orientation, unsigned split_rounds) :
-        m_n(n), m_mon(rw, m_priv_trail, transition_mode::brzozowski_tm), m(m), u(u) {
-        m_mon.set_gen_solution(true);
-        m_mon.set_budget(budget);
-        m_mon.set_orientation(orientation);
-        m_mon.set_split_rounds(split_rounds);
-        for (auto const& sm : mems) {
-            if (!sm.active())
-                continue;
-            // Only plain memberships (str in re) may be handed to
-            // seq_monadic: its add() takes a start state and interprets
-            // the term as a word of the language, so feeding a reach view
-            // (state, target) would silently drop m_target and assert the
-            // strictly stronger `term in L(state)`. For a reach view with
-            // state == target and an empty term that turns a trivially
-            // TRUE constraint into a false one whenever L(state) is not
-            // nullable, and seq_monadic then refutes every branch - a
-            // false conflict, hence unsat on a satisfiable input.
-            // mem_propagation::propagate applies the same is_view() guard.
-            if (sm.is_view())
-                continue;
-            sort* s = u.re.to_seq(sm.m_view.m_state->get_sort());
-            expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), s), m);
-            m_mon.add(term, sm.m_view.m_state, sm.m_dep);
+    // ---- mem_split ------------------------------------------------------------------
+
+    bool mem_split::out_of_budget() {
+        if (m_budget == 0) {
+            m_giveup = true;
+            return true;
         }
-        m_it = alloc(monadic::iterator, m_mon.iterate(64));
-        obj_map<expr, seq::view_vector> first;
-        if (m_it->next(first))
-            for (auto const& [var, views] : first)
-                m_first.insert(var, views);
+        if (!m.inc()) {
+            m_giveup = true;
+            return true;
+        }
+        --m_budget;
+        return false;
+    }
+
+    expr* mem_split::der_elem(expr* r, expr* elem) {
+        expr* cached = nullptr;
+        if (m_der_cache.find(r, elem, cached))
+            return cached;
+        expr_ref d = m_rw.mk_derivative(elem, r);
+        expr_ref d2(m);
+        m_thrw(d, d2);
+        m_pin.push_back(r);
+        m_pin.push_back(elem);
+        m_pin.push_back(d2);
+        m_der_cache.insert(r, elem, d2.get());
+        return d2.get();
+    }
+
+    lbool mem_split::nullable(expr* r) {
+        lbool i = re().get_info(r).nullable;
+        if (i != l_undef)
+            return i;
+        expr_ref nb = m_rw.is_nullable(r);
+        if (m.is_true(nb))
+            return l_true;
+        if (m.is_false(nb))
+            return l_false;
+        return l_undef;
+    }
+
+    bool mem_split::can_decide(expr_ref_vector const& str) {
+        expr* v = nullptr;
+        return any_of(str, [&](expr* e) { return u.str.is_unit(e, v) && !m.is_value(v); });
+    }
+
+    void mem_split::reset_search() {
+        m_atoms.reset();
+        m_stack.reset();
+        m_branch.reset();
+        m_giveup = false;
+        m_any_undef = false;
+        m_pos_i = 0;
+        m_pos_R = nullptr;
+        ++m_gen;
+    }
+
+    lbool mem_split::advance_pos() {
+        while (true) {
+            if (m_pos_i == FINAL_POS)
+                return l_true;
+            if (out_of_budget())
+                return l_undef;
+            if (m_pos_i == m_atoms.size())
+                return nullable(m_pos_R);
+            expr* elem = nullptr;
+            if (!u.str.is_unit(m_atoms.get(m_pos_i), elem))
+                return l_true;                 // variable atom
+            expr* d = der_elem(m_pos_R, elem);
+            if (re().is_empty(d))
+                return l_false;
+            m_pos_R = d;
+            ++m_pos_i;
+        }
+    }
+
+    bool mem_split::push_frame() {
+        if (m_pos_i == FINAL_POS || m_pos_i == m_atoms.size())
+            return false;
+        SASSERT(!u.str.is_unit(m_atoms.get(m_pos_i)));
+        frame f;
+        f.i = m_pos_i;
+        f.R = m_pos_R;
+        f.next = 0;
+        f.last_atom = (m_pos_i + 1 == m_atoms.size());
+        m_stack.push_back(f);
+        return true;
+    }
+
+    bool mem_split::commit_next(frame& f) {
+        if (re().is_empty(f.R))
+            return false;
+        expr_ref var(m_atoms.get(f.i), m);
+        while (true) {
+            expr* target = nullptr;
+            view v(m);
+            if (f.last_atom) {
+                if (f.next++ > 0)
+                    return false;
+                v = view::membership(f.R, m);
+            }
+            else {
+                auto live = m_live.reachable_live(f.R);
+                target = live.at(f.next++);
+                if (!target) {
+                    if (live.failed())
+                        m_any_undef = true;
+                    return false;
+                }
+                v = view::reach(f.R, target, m);
+            }
+            m_branch.push_back(elem(var, v));
+            if (f.last_atom)
+                m_pos_i = FINAL_POS;
+            else {
+                m_pos_i = f.i + 1;
+                m_pos_R = target;
+            }
+            lbool adv = advance_pos();
+            if (adv == l_true)
+                return true;
+            if (adv == l_undef)
+                m_any_undef = true;
+            m_branch.pop_back();
+            if (m_giveup)
+                return false;
+            // else: retry the next candidate for this frame
+        }
+    }
+
+    lbool mem_split::run_search(bool backtrack) {
+        while (true) {
+            if (m_giveup)
+                return l_undef;
+            if (backtrack) {
+                if (m_stack.empty())
+                    return m_any_undef ? l_undef : l_false;
+                m_branch.pop_back();
+                backtrack = false;             // commit_next re-seats the position
+            }
+            else if (!push_frame())
+                return l_true;                 // leaf: m_branch holds the full branch
+            if (!commit_next(m_stack.back())) {
+                m_stack.pop_back();
+                backtrack = true;
+            }
+        }
+    }
+
+    mem_split::iterator mem_split::iterate(expr_ref_vector const& str, expr* R) {
+        reset_search();
+        if (can_decide(str)) {
+            m_giveup = true;
+            return iterator(*this);
+        }
+        m_atoms.append(str);
+        m_pin.push_back(R);
+        m_pos_i = 0;
+        m_pos_R = R;
+        m_budget = m_budget_limit;
+        m_init_result = advance_pos();
+        // advance_pos() can return l_undef straight from nullable() (a
+        // string of concrete units whose final state's nullability the
+        // rewriter could not decide), before any commit_next() call ever
+        // runs - the only other caller of advance_pos(), which does set
+        // m_any_undef on l_undef itself. Without this, iterator::next()
+        // returning false here would look identical to a genuine
+        // refutation to gave_up()'s callers (see mem_monadic_split::
+        // split()), misreporting an undecided membership as UNSAT.
+        if (m_init_result == l_undef)
+            m_any_undef = true;
+        return iterator(*this);
+    }
+
+    bool mem_split::iterator::next(branch& out) {
+        if (m_gen != m_e->m_gen)
+            return false;
+        lbool r;
+        if (!m_started) {
+            m_started = true;
+            r = m_e->m_init_result;
+            if (r == l_true)
+                r = m_e->run_search(false);
+        }
+        else
+            r = m_e->run_search(true);
+        if (r != l_true)
+            return false;
+        out = m_e->m_branch;
+        return true;
+    }
+
+    // ---- mem_monadic_split ------------------------------------------------------------
+
+    bool mem_monadic_split::find_split_target(mem_facet const& mf, unsigned& idx) {
+        bool found = false;
+        unsigned best_cost = UINT_MAX;
+        for (unsigned i = 0; i < mf.memberships().size(); ++i) {
+            str_mem const& sm = mf.memberships()[i];
+            if (!sm.active() || sm.is_view())
+                continue;
+            if (is_single_var_plain(sm))
+                continue;             // handled directly by mem_facet's own view_witness
+            unsigned cost = sm.m_str.size();
+            if (!found || cost < best_cost) {
+                found = true;
+                best_cost = cost;
+                idx = i;
+            }
+        }
+        return found;
     }
 
     bool mem_monadic_split::iterator::next(eq_tree::edge& out) {
-        obj_map<expr, seq::view_vector> sol;
-        if (m_first_pending) {
-            m_first_pending = false;
-            for (auto const& [var, views] : m_first)
-                sol.insert(var, views);
-        }
-        else if (!m_it->next(sol))
+        mem_split::branch br;
+        if (!m_it.next(br))
             return false;
         auto ac = get_ambient(m_n);
         auto& mf = ac.mem_facet_ref();
-        bool changed = false;
-        obj_hashtable<expr> touched_vars;
-
-        // NSB code review: dependencies are not tracked narrowly across seq_monadic
-        // and these constraints. We would like seq_monadic to track dependencies 
-        // on its own so a solution is a vector of view x dependency pairs.
-        for (unsigned i = mf.memberships().size(); i-- > 0; ) {
-            auto const& sm = mf.memberships()[i];
-            if (!sm.active())
-                continue;
-            // Reach views were never handed to seq_monadic (see the
-            // constructor), so `sol` says nothing about them - rewriting
-            // one into per-variable membership views here would assert a
-            // constraint the branch does not justify.
-            if (sm.is_view())
-                continue;
-            bool all_found = all_of(sm.m_str, [&](expr* t) { return u.str.is_unit(t) || sol.contains(t); });
-            if (!all_found) 
-                continue;
-            eq_tree::dep_tracker dep = sm.m_dep;
-            auto str(sm.m_str);
-            mf.remove(i);
-            for (auto t : str) {
-                if (u.str.is_unit(t))
-                    continue;
-                for (auto const & view : sol[t]) {
-                     expr_ref_vector ts(m);
-                     ts.push_back(t);
-                     mf.add(str_mem(m, ts, view, dep));
-                }
-                touched_vars.insert(t);
-            }
-            changed = true;
+        mf.remove(m_mem_idx);
+        for (auto const& e : br) {
+            expr_ref_vector ts(m);
+            ts.push_back(e.var.get());
+            mf.add(str_mem(m, ts, e.m_view, m_dep));
         }
-        if (!changed)
-            return false;
-        // Bounds propagation (mem_bounds_propagation::propagate) can only
-        // hand the arithmetic facet a numeric [lo,hi] interval derived from
-        // whatever bound the ambient context can currently report - it is
-        // lossy for constraints like len(x) = 2*k /\ k >= 1, which collapse
-        // to a plain lower bound (2) and silently drop the "even length"
-        // structure. Certifying is_satisfied against that over-approximated
-        // interval alone is therefore unsound: an odd-length witness that
-        // satisfies the interval but not the real (unapproximated)
-        // arithmetic constraint would slip through. To catch this, extract
-        // the concrete witness word seq_monadic has settled on for each
-        // variable this round narrowed, and assert its length back into the
-        // ambient SMT context as a literal assumption (via assumption_facet
-        // - see theory_nseq::final_check_eh's satisfiable-branch handling):
-        // any inconsistency with the true arithmetic constraints already
-        // asserted there now surfaces as a genuine conflict, instead of
-        // being accepted as a spurious model. Only meaningful when the
-        // ambient context has an assumption_facet registered
-        // (theory_nseq wires one up; some standalone unit tests exercise
-        // mem_monadic_split directly against a null_ambient_context with
-        // no assumption facet at all - skip gracefully there).
-        if (ac.has_assumption()) {
-            auto& asf = ac.assumption_facet_ref();
-            for (expr* var : touched_vars) {
-                expr_ref word(m);
-                if (m_mon.materialize(var, word) != l_true)
-                    continue;
-                expr_ref len_eq(m.mk_eq(u.str.mk_length(var), u.str.mk_length(word)), m);
-                asf.add_assumption(len_eq);
-            }
-        }
-        // seq_monadic's solve() has certified this branch's per-variable
-        // views as a non-empty intersection: every membership is now a
-        // narrowed variable-only view, and no further splitting is
-        // required for this node - see class comment on
-        // mem_facet::m_is_satisfied.
-        mf.set_is_satisfied(true);
-        out = eq_tree::edge("mem-monadic", nullptr, true, 0);
+        out = eq_tree::edge("mem-monadic", m_dep, true, 0);
         return true;
     }
 
@@ -521,35 +688,26 @@ namespace seq {
         has_more = false;
         committed = false;
         auto& mf = get_ambient(n).mem_facet_ref();
-        if (mf.is_satisfied())
+        unsigned idx;
+        if (!find_split_target(mf, idx))
             return nullptr;
-        // Reach views are not fed to seq_monadic (see iterator's ctor); if
-        // nothing plain is left there is no conjunction to decide and, in
-        // particular, no basis on which to report a refutation.
-        if (!any_of(mf.memberships(), [](str_mem const& sm) { return sm.active() && !sm.is_view(); }))
-            return nullptr;
-        scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.memberships(), m_budget, m_orientation, m_split_rounds));
-        if (it->is_refuted()) {
-            // seq_monadic proved the conjunction of the PLAIN memberships fed to
-            // it is UNSAT (see monadic::iterator's class comment): every branch
-            // was pruned as empty and none of that pruning was a give-up. Refuting
-            // on a subset of the node's constraints is sound - the dependency below
-            // just names that subset. That is a genuine conflict, not merely
-            // "nothing to offer" - report it rather than silently discarding it, or
-            // a real unsat instance is misreported as unknown (see NSB code review
-            // above this class).
-            eq_tree::dep_tracker dep = nullptr;
-            for (auto const& sm : mf.memberships())
-                if (sm.active() && !sm.is_view())
-                    dep = mf.dm().mk_join(dep, sm.m_dep);
+        has_more = true;
+        str_mem const& sm = mf.memberships()[idx];
+        eq_tree::dep_tracker dep0 = sm.m_dep;
+        scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.live(), idx, sm));
+        if (!it->next(out)) {
+            if (it->gave_up())
+                return nullptr;   // resource bound hit before deciding; not a conflict
+            // mem_split never consults any OTHER membership or variable's
+            // constraints when decomposing one membership (see its class
+            // comment): its own decomposition being exhausted with no
+            // satisfying branch means THIS membership alone is UNSAT, so
+            // its own dependency names the conflict precisely - no join
+            // over anything else is needed or would even be more precise.
             m_stats.m_num_refuted++;
-            n.set_conflict(stx::br_plugin_base, dep);
+            n.set_conflict(stx::br_plugin_base, dep0);
             return nullptr;
         }
-        if (!it->has_first())
-            return nullptr;
-        if (!it->next(out))
-            return nullptr;
         committed = true;
         m_stats.m_num_splits++;
         has_more = true;
@@ -557,6 +715,44 @@ namespace seq {
     }
 
     // -- mem_bounds_propagation --
+
+    // Trail-undo object for mem_bounds_propagation's own `m_last` cache;
+    // see mem_bounds_propagation's class comment (seq_mem_facet.h). Kept
+    // right next to its sole use site below rather than at file scope,
+    // since nothing else in this file references it.
+    //
+    // m_prior is heap-allocated (via alloc()/dealloc()) rather than
+    // embedded by value in this object: trail objects are placement-new'd
+    // into trail_stack's own region allocator (see trail_stack::push()),
+    // and popping/resetting that region only rewinds/frees raw memory -
+    // it never runs the placed object's own destructor (region's
+    // operator delete is a no-op by design). last_bound holds two
+    // rational fields, whose own destructor frees a heap-allocated digit
+    // buffer for any value too large for rational's inline
+    // representation; embedding one by value here would silently leak
+    // that buffer on every backtrack past this trail entry, since nothing
+    // would ever call ~last_bound()/~rational() for it. Allocating it
+    // separately on the ordinary heap and explicitly dealloc()-ing it in
+    // undo() (which - unlike this object's own destructor - IS always
+    // invoked on backtrack, see undo_trail_stack()) frees it correctly.
+    class mem_bounds_last_trail : public trail {
+        obj_map<expr, mem_bounds_propagation::last_bound>& m_map;
+        expr*                                              m_var;        
+        mem_bounds_propagation::last_bound*                 m_prior;
+    public:
+        mem_bounds_last_trail(obj_map<expr, mem_bounds_propagation::last_bound>& map, expr* var,
+                               bool had_prior, mem_bounds_propagation::last_bound const& prior) :
+            m_map(map), m_var(var),
+            m_prior(had_prior ? alloc(mem_bounds_propagation::last_bound, prior) : nullptr) {}
+        void undo() override {
+            if (m_prior) {
+                m_map.insert(m_var, *m_prior);
+                dealloc(m_prior);
+            }
+            else
+                m_map.remove(m_var);
+        }
+    };
 
     void mem_bounds_propagation::collect_vars(eq_tree::node& n, obj_hashtable<expr>& vars) const {
         auto ac = get_ambient(n);
