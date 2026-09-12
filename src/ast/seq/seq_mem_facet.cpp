@@ -496,6 +496,12 @@ namespace seq {
         return l_undef;
     }
 
+    lbool mem_split::final_accepts(expr* r) {
+        if (m_target)
+            return r == m_target ? l_true : l_false;
+        return nullable(r);
+    }
+
     bool mem_split::can_decide(expr_ref_vector const& str) {
         expr* v = nullptr;
         return any_of(str, [&](expr* e) { return u.str.is_unit(e, v) && !m.is_value(v); });
@@ -509,6 +515,7 @@ namespace seq {
         m_any_undef = false;
         m_pos_i = 0;
         m_pos_R = nullptr;
+        m_target = nullptr;
         ++m_gen;
     }
 
@@ -519,7 +526,7 @@ namespace seq {
             if (out_of_budget())
                 return l_undef;
             if (m_pos_i == m_atoms.size())
-                return nullable(m_pos_R);
+                return final_accepts(m_pos_R);
             expr* elem = nullptr;
             if (!u.str.is_unit(m_atoms.get(m_pos_i), elem))
                 return l_true;                 // variable atom
@@ -554,7 +561,7 @@ namespace seq {
             if (f.last_atom) {
                 if (f.next++ > 0)
                     return false;
-                v = view::membership(f.R, m);
+                v = m_target ? view::reach(f.R, m_target, m) : view::membership(f.R, m);
             }
             else {
                 auto live = m_live.reachable_live(view::membership(f.R, m));
@@ -604,16 +611,19 @@ namespace seq {
         }
     }
 
-    mem_split::iterator mem_split::iterate(expr_ref_vector const& str, expr* R) {
+    mem_split::iterator mem_split::iterate(expr_ref_vector const& str, view const& v) {
         reset_search();
         if (can_decide(str)) {
             m_giveup = true;
             return iterator(*this);
         }
         m_atoms.append(str);
-        m_pin.push_back(R);
+        m_pin.push_back(v.m_state);
         m_pos_i = 0;
-        m_pos_R = R;
+        m_pos_R = v.m_state;
+        m_target = v.m_target;
+        if (m_target)
+            m_pin.push_back(m_target);
         m_budget = m_budget_limit;
         m_init_result = advance_pos();
         // advance_pos() can return l_undef straight from nullable() (a
@@ -654,11 +664,14 @@ namespace seq {
         unsigned best_cost = UINT_MAX;
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
             str_mem const& sm = mf.memberships()[i];
-            if (!sm.active() || sm.is_view())
+            if (!sm.active())
                 continue;
             if (is_single_var_plain(sm))
                 continue;             // handled directly by mem_facet's own view_witness
-            unsigned cost = sm.m_str.size();
+            unsigned cost = 0;
+            for (expr* e : sm.m_str)
+                if (!u.str.is_unit(e))
+                    ++cost;
             if (!found || cost < best_cost) {
                 found = true;
                 best_cost = cost;

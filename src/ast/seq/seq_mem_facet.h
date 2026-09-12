@@ -500,6 +500,12 @@ namespace seq {
         static unsigned const FINAL_POS = UINT_MAX;   // sentinel: positioned past a final-atom view
         unsigned m_pos_i = 0;
         expr*    m_pos_R = nullptr;
+        // Non-null exactly when the membership being decomposed is itself
+        // a reach view (`s reaches m_target from R`) rather than a plain
+        // `s in R`; the final atom's view and the all-units-consumed
+        // acceptance test both need to know which is intended (see
+        // final_accepts()).
+        expr*    m_target = nullptr;
 
         unsigned m_budget = 0;
         unsigned m_budget_limit = 200000;
@@ -517,6 +523,10 @@ namespace seq {
         bool out_of_budget();
         expr* der_elem(expr* r, expr* elem);
         lbool nullable(expr* r);
+        // Generalizes nullable(r) to a reach view: true when reaching
+        // m_target (or, for a plain membership - m_target == nullptr - the
+        // usual nullability test) after consuming every atom.
+        lbool final_accepts(expr* r);
         void reset_search();
         lbool advance_pos();
         bool push_frame();
@@ -538,13 +548,18 @@ namespace seq {
         bool can_decide(expr_ref_vector const& str);
 
         // Begin decomposing the membership whose already-flattened atom
-        // stream is `str` (see str_mem::m_str) against `R`; invalidates
-        // any iterator from a previous call. If can_decide() flags `str`
-        // as containing an undecidable element, the returned iterator
-        // reports gave_up() immediately (defensive: mem_facet only ever
-        // holds terms this class can decompose).
-        iterator iterate(expr_ref_vector const& str, expr* R);
+        // stream is `str` (see str_mem::m_str) against `v` (a plain
+        // membership or a reach view - live_states/seq::accepts are both
+        // mode-independent in the state they enumerate/test, so either
+        // kind decomposes the same way, only the final acceptance test
+        // differs, see final_accepts()); invalidates any iterator from a
+        // previous call. If can_decide() flags `str` as containing an
+        // undecidable element, the returned iterator reports gave_up()
+        // immediately (defensive: mem_facet only ever holds terms this
+        // class can decompose).
+        iterator iterate(expr_ref_vector const& str, view const& v);
     };
+
 
     // Drives ONE active plain membership's decomposition at a time (see
     // mem_split's own class comment for what one membership's
@@ -592,7 +607,7 @@ namespace seq {
                      unsigned mem_idx, str_mem const& sm) :
                 m_n(n), m(m), u(u), m_mem_idx(mem_idx), m_dep(sm.m_dep),
                 m_split(m, u, rw, live),
-                m_it(m_split.iterate(sm.m_str, sm.m_view.m_state)) {}
+                m_it(m_split.iterate(sm.m_str, sm.m_view)) {}
             bool next(eq_tree::edge& out) override;
             // See mem_split::iterator's class comment on the same
             // ambiguity: next() reporting no branch could mean either
@@ -603,13 +618,19 @@ namespace seq {
             eq_tree::dep_tracker dep() const { return m_dep; }
         };
 
-        // Finds the cheapest (fewest atoms) active plain membership that
-        // is not already a single-variable view; ties broken by earliest
-        // index. Returns false if no such membership exists (nothing left
-        // for this class to do - either mf.is_satisfied() already holds,
-        // or every active plain membership is a single-variable view
-        // whose feasibility is m_vw/mem_propagation's job).
-        static bool find_split_target(mem_facet const& mf, unsigned& idx);
+        // Finds the cheapest (fewest non-unit atoms) active membership
+        // that is not already a single-variable view (plain `x in R` or
+        // reach `x reaches target` alike - mem_split decomposes both, see
+        // its class comment); ties broken by earliest index. Non-unit
+        // atoms (variables) are what drives the combinatorial branching in
+        // mem_split - unit atoms just narrow the automaton state without
+        // any choice, so counting only non-units ranks by actual branching
+        // cost rather than raw string length. Returns false if no such
+        // membership exists (nothing left for this class to do - either
+        // mf.is_satisfied() already holds, or every active membership is a
+        // single-variable view whose feasibility is m_vw/mem_propagation's
+        // job).
+        bool find_split_target(mem_facet const& mf, unsigned& idx);
 
     public:
         mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, ambient_context_i<eq_tree::dep_tracker>&) :
