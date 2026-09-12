@@ -24,6 +24,7 @@ Revision History:
 #include "nlsat/nlsat_common.h"
 #include "util/ref_buffer.h"
 #include "util/mpq.h"
+#include "util/util.h"
 
 namespace nlsat {
 
@@ -129,6 +130,15 @@ namespace nlsat {
             for (literal lit : *m_result) 
                 m_already_added_literal[lit.index()] = false;
             SASSERT(check_already_added());
+        }
+
+        // Clear duplicate marks before cancellation lets the caller discard the
+        // result buffer; otherwise a retry can silently omit required literals.
+        void reset_result() {
+            if (m_result) {
+                reset_already_added();
+                m_result = nullptr;
+            }
         }
 
         
@@ -750,9 +760,8 @@ namespace nlsat {
 
         void test_root_literal(atom::kind k, var y, unsigned i, poly * p, scoped_literal_vector& result) {
             m_result = &result;
+            on_scope_exit reset([&] { reset_result(); });
             add_root_literal(k, y, i, p);
-            reset_already_added();
-            m_result = nullptr;
         }
 
         
@@ -1583,18 +1592,16 @@ namespace nlsat {
             while (true) {
                 try {
                     m_result = &result;
+                    on_scope_exit reset([&] { reset_result(); });
                     process(num, ls);
-                    reset_already_added();
-                    m_result = nullptr;
+                    reset_result();
                     TRACE(nlsat_explain, display(tout << "[explain] result\n", m_solver, result) << "\n";);
                     CASSERT("nlsat", check_already_added());
                     break;
                 }
                 catch (add_all_coeffs_restart const&) {
                     TRACE(nlsat_explain, tout << "restarting explanation with all coefficients\n";);
-                    reset_already_added();
                     result.shrink(base);
-                    m_result = nullptr;
                 }
             }
         }
@@ -1611,6 +1618,7 @@ namespace nlsat {
                   );
 
             m_result = &result;
+            on_scope_exit reset([&] { reset_result(); });
             m_lower_stage_polys.reset();
             collect_polys(num, ls, m_ps);
             for (unsigned i = 0; i < m_lower_stage_polys.size(); i++) {
@@ -1625,8 +1633,7 @@ namespace nlsat {
             SASSERT(levelwise_ok);
             m_solver.record_levelwise_result(levelwise_ok);
 
-            reset_already_added();
-            m_result = nullptr;
+            reset_result();
             TRACE(nlsat_explain, display(tout << "[explain] result\n", m_solver, result) << "\n";);
             CASSERT("nlsat", check_already_added());
         }
@@ -1638,6 +1645,7 @@ namespace nlsat {
                 bool reordered = false;
                 try {
                     m_result = &result;
+                    on_scope_exit reset([&] { reset_result(); });
                     svector<literal> lits;
                     TRACE(nlsat, tout << "project x" << x << "\n"; 
                           m_solver.display(tout, num, ls);
@@ -1667,15 +1675,13 @@ namespace nlsat {
                         }
                         elim_vanishing(m_ps);
                         project(m_ps, mx_var);
-                        reset_already_added();
-                        m_result = nullptr;
+                        reset_result();
                         if (reordered) {
                             m_solver.restore_order();
                         }
                     }
                     else {
-                        reset_already_added();
-                        m_result = nullptr;
+                        reset_result();
                     }
                     for (unsigned i = 0; i < result.size(); ++i) {
                         result.set(i, ~result[i]);
@@ -1693,12 +1699,10 @@ namespace nlsat {
                 }
                 catch (add_all_coeffs_restart const&) {
                     TRACE(nlsat_explain, tout << "restarting projection with all coefficients\n";);
-                    reset_already_added();
                     if (reordered) {
                         m_solver.restore_order();
                     }
                     result.shrink(base);
-                    m_result = nullptr;
                 }
             }
         }
@@ -1730,6 +1734,7 @@ namespace nlsat {
     }
 
     void explain::reset() {
+        m_imp->reset_result();
         m_imp->m_core1.reset();
         m_imp->m_core2.reset();
     }

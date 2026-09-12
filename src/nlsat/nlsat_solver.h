@@ -133,6 +133,21 @@ namespace nlsat {
         */
         void mk_clause(unsigned num_lits, literal * lits, assumption a = nullptr);
 
+        /**
+           \brief Borrow the learned clauses and inspect their external assumption tags.
+           Clause pointers remain valid only until the next solver mutation.
+        */
+        ptr_vector<clause> const& get_lemmas() const;
+        void get_dependencies(clause const& c, vector<assumption, false>& deps) const;
+
+        /**
+           \brief Retract clauses depending on the non-null external scope_tag,
+           preserving independent learned clauses without rebuilding surviving atoms.
+           Keep at most max_lemmas learned clauses, preferring shorter clauses.
+           Requires an incremental solver. Invalidates the model and unsat core.
+        */
+        void retract(assumption scope_tag, unsigned max_lemmas = UINT_MAX);
+
         // -----------------------
         //
         // Basic

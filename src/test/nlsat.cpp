@@ -20,6 +20,7 @@ Notes:
 #include "nlsat/nlsat_interval_set.h"
 #include "nlsat/nlsat_evaluator.h"
 #include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_clause.h"
 #include "nlsat/levelwise.h"
 #include "util/util.h"
 #include "nlsat/nlsat_explain.h"
@@ -2594,7 +2595,153 @@ static void tst_pick_max() {
     ENSURE(am.eq(sup, one));
 }
 
+static void tst_cancelled_explanation() {
+    // Retrying without a pop also needs clean state: cleanup must happen on
+    // leaving the explanation, not depend solely on the solver's reset path.
+    for (bool retract : {true, false}) {
+        bool interrupted = false;
+        unsigned max_budget = 1;
+        for (unsigned budget = 1; budget <= max_budget && !interrupted; ++budget) {
+            params_ref ps;
+            ps.set_bool("reorder", false);
+            reslimit rlim;
+            nlsat::solver s(rlim, ps, true);
+            auto& pm = s.pm();
+            auto& am = s.am();
+            auto& ex = s.get_explain();
+            nlsat::var y = s.mk_var(false), z = s.mk_var(false), x = s.mk_var(false);
+            polynomial_ref px(pm), py(pm), pz(pm), p(pm), q(pm);
+            px = pm.mk_polynomial(x);
+            py = pm.mk_polynomial(y);
+            pz = pm.mk_polynomial(z);
+            p = py * px * px + px - pz;
+            q = px * px - px * pz;
+            nlsat::scoped_literal_vector core(s), expected(s), result(s);
+            core.push_back(mk_gt(s, p));
+            core.push_back(mk_eq(s, q));
+            nlsat::assignment sample(am);
+            set_assignment_value(sample, am, y, rational(0));
+            set_assignment_value(sample, am, z, rational(5));
+            s.set_rvalues(sample);
+
+            // Normalizing at y = 0 records a projection literal before processing
+            // the conflict: x > 5 excludes both roots of x^2 - 5*x = 0.
+            auto start = rlim.count();
+            ex.compute_conflict_explanation(core.size(), core.data(), expected);
+            ENSURE(!expected.empty());
+            if (budget == 1) {
+                ENSURE(rlim.count() - start <= UINT_MAX);
+                max_budget = static_cast<unsigned>(rlim.count() - start);
+            }
+            bool cancelled = false;
+            {
+                scoped_rlimit limit(rlim, budget);
+                try {
+                    ex.compute_conflict_explanation(core.size(), core.data(), result);
+                }
+                catch (default_exception const&) {
+                    ENSURE(rlim.is_canceled());
+                    cancelled = true;
+                }
+            }
+            // A tiny limit can stop before projection. Require cancellation after
+            // a literal is emitted, when stale duplicate marks can corrupt a retry.
+            if (!cancelled || result.empty())
+                continue;
+            interrupted = true;
+            std::cout << "nlsat: cancelled explanation after " << budget << " steps\n";
+            if (retract) {
+                unsigned tag = 0;
+                s.retract(&tag);
+                s.set_rvalues(sample);
+            }
+            result.reset();
+            ex.compute_conflict_explanation(core.size(), core.data(), result);
+            ENSURE(result.size() == expected.size());
+            for (auto lit : expected)
+                ENSURE(std::find(result.begin(), result.end(), lit) != result.end());
+        }
+        ENSURE(interrupted);
+    }
+}
+
+static void tst_retract_assumptions() {
+    params_ref ps;
+    ps.set_bool("reorder", false);
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, true);
+    nlsat::literal p(s.mk_bool_var(), false);
+    nlsat::literal q(s.mk_bool_var(), false);
+    nlsat::literal r(s.mk_bool_var(), false);
+    s.mk_clause(1, &r);
+    nlsat::clause* independent = s.mk_clause(1, &r, true, nullptr);
+    unsigned tag_a = 0, tag_b = 0;
+    nlsat::literal clauses[4][2] = { {p, q}, {p, ~q}, {~p, q}, {~p, ~q} };
+    s.mk_clause(2, clauses[0], &tag_a);
+    s.mk_clause(2, clauses[1], &tag_a);
+    s.mk_clause(2, clauses[2], &tag_b);
+    s.mk_clause(2, clauses[3], &tag_b);
+    ENSURE(s.check() == l_false);
+    vector<nlsat::assumption, false> deps;
+    s.get_core(deps);
+    ENSURE(deps.contains(&tag_a));
+    ENSURE(deps.contains(&tag_b));
+    bool learned_with_assumptions = false;
+    for (nlsat::clause* c : s.get_lemmas()) {
+        s.get_dependencies(*c, deps);
+        learned_with_assumptions |= !deps.empty();
+    }
+    ENSURE(learned_with_assumptions);
+
+    s.retract(&tag_a);
+    ENSURE(s.get_lemmas().contains(independent));
+    for (nlsat::clause* c : s.get_lemmas()) {
+        s.get_dependencies(*c, deps);
+        ENSURE(!deps.contains(&tag_a));
+    }
+    ENSURE(s.check() == l_true);
+    ENSURE(s.bvalue(p.var()) == l_false);
+    ENSURE(s.bvalue(r.var()) == l_true);
+    s.retract(&tag_b);
+    ENSURE(s.check() == l_true);
+    for (nlsat::clause* c : s.get_lemmas()) {
+        s.get_dependencies(*c, deps);
+        ENSURE(deps.empty());
+    }
+
+    nlsat::literal not_r = ~r;
+    for (unsigned i = 0; i < 10; ++i) {
+        s.mk_clause(1, &not_r, &tag_a);
+        ENSURE(s.check() == l_false);
+        s.retract(&tag_a);
+        ENSURE(s.check() == l_true);
+        ENSURE(s.get_lemmas().contains(independent));
+    }
+    s.retract(&tag_a, 0);
+    ENSURE(s.get_lemmas().empty());
+    ENSURE(s.check() == l_true);
+    bool rejected = false;
+    try {
+        s.retract(nullptr);
+    }
+    catch (default_exception&) {
+        rejected = true;
+    }
+    ENSURE(rejected);
+    nlsat::solver non_incremental(rlim, ps, false);
+    rejected = false;
+    try {
+        non_incremental.retract(&tag_a);
+    }
+    catch (default_exception&) {
+        rejected = true;
+    }
+    ENSURE(rejected);
+}
+
 void tst_nlsat() {
+    tst_cancelled_explanation();
+    tst_retract_assumptions();
     tst_pick_max();
     std::cout << "------------------\n";
     tst_22();

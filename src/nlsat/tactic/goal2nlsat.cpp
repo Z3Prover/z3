@@ -59,12 +59,13 @@ struct goal2nlsat::imp {
     expr2var &                m_t2x;
     nlsat_expr2polynomial     m_expr2poly;
     polynomial::factor_params m_fparams;
+    nlsat::assumption         m_assumption;
 
     unsigned long long        m_max_memory;
     bool                      m_factor;
 
 
-    imp(ast_manager & _m, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x):
+    imp(ast_manager & _m, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x, nlsat::assumption a):
         m(_m),
         m_solver(s),
         m_pm(s.pm()),
@@ -72,7 +73,8 @@ struct goal2nlsat::imp {
         m_util(m),
         m_a2b(a2b),
         m_t2x(t2x),
-        m_expr2poly(m_solver, m, m_solver.pm(), &m_t2x) {
+        m_expr2poly(m_solver, m, m_solver.pm(), &m_t2x),
+        m_assumption(a) {
         updt_params(p);
     }
 
@@ -248,7 +250,7 @@ struct goal2nlsat::imp {
         for (unsigned i = 0; i < num_lits; ++i) {
             ls.push_back(process_literal(lits[i]));
         }
-        m_solver.mk_clause(ls.size(), ls.data(), dep);
+        m_solver.mk_clause(ls.size(), ls.data(), m_assumption ? m_assumption : dep);
     }
 
     void operator()(goal const & g) {
@@ -288,8 +290,11 @@ void goal2nlsat::collect_param_descrs(param_descrs & r) {
     polynomial::factor_params::get_param_descrs(r);
 }
     
-void goal2nlsat::operator()(goal const & g, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x) {
-    imp local_imp(g.m(), p, s, a2b, t2x);
+void goal2nlsat::operator()(goal const & g, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x,
+                          nlsat::assumption a) {
+    if (a && g.unsat_core_enabled())
+        throw tactic_exception("external nlsat assumptions cannot replace goal unsat-core dependencies");
+    imp local_imp(g.m(), p, s, a2b, t2x, a);
     scoped_set_imp setter(*this, local_imp);
     local_imp(g);
 }
