@@ -304,7 +304,7 @@ namespace seq {
                     continue;
                 }
             }
-            auto live = f.live().reachable_live(sm.m_view.m_state);
+            auto live = f.live().reachable_live(sm.m_view);
             if (live.is_dead() || seq::is_dead(sm.m_view, m_rw)) {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
                 return stx::simplify_result::conflict;
@@ -557,7 +557,7 @@ namespace seq {
                 v = view::membership(f.R, m);
             }
             else {
-                auto live = m_live.reachable_live(f.R);
+                auto live = m_live.reachable_live(view::membership(f.R, m));
                 target = live.at(f.next++);
                 if (!target) {
                     if (live.failed())
