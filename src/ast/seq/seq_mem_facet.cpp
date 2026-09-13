@@ -205,6 +205,25 @@ namespace seq {
         return true;
     }
 
+    void mem_facet::get_witness_model(obj_map<expr, expr*>& subst, expr_ref_vector& pin) const {
+        subst.reset();
+        pin.reset();
+        expr_mark seen;
+        for (auto const& sm : m_mems) {
+            if (!sm.active() || sm.m_str.size() != 1)
+                continue;                          // defensive: shouldn't happen when sat
+            expr* v = sm.m_str.get(0);
+            if (seen.is_marked(v))
+                continue;
+            seen.mark(v);
+            expr_ref w(m);
+            if (get_witness(v, w)) {
+                subst.insert(v, w);
+                pin.push_back(w);
+            }
+        }
+    }
+
     std::ostream& mem_facet::display(std::ostream& out) const {
         unsigned num_active = 0;
         for (auto const& sm : m_mems)

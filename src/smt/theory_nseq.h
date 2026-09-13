@@ -313,9 +313,9 @@ namespace smt {
         // here (unlike theory_seq's own bookkeeping-heavy variant).
         bool propagate_eq(literal lit, expr* e1, expr* e2);
 
-        bool get_num_value(expr* e, rational& val) const;
-        bool lower_bound(expr* e, rational& lo) const;
-        bool upper_bound(expr* e, rational& hi) const;
+        bool get_num_value(expr* e, rational& val);
+        bool lower_bound(expr* e, rational& lo);
+        bool upper_bound(expr* e, rational& hi);
 
     public:
         theory_nseq(context& ctx);

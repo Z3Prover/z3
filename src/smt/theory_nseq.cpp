@@ -586,7 +586,6 @@ namespace smt {
     }
 
     void theory_nseq::init_model(model_generator& mg) {
-        m_model_subst.reset();
         m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
         mg.register_factory(m_factory);
         for (enode* n : ctx.enodes()) {
@@ -598,23 +597,7 @@ namespace smt {
         if (!snap)
             return;
         auto& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
-        expr_mark seen;
-        expr_substitution model(m);
-        for (auto const& sm : mf.memberships()) {
-            if (!sm.active() || sm.m_str.size() != 1)
-                continue;                          // defensive: shouldn't happen when sat
-            expr* v = sm.m_str.get(0);
-            if (seen.is_marked(v))
-                continue;
-            seen.mark(v);
-            expr_ref w(m);
-            if (mf.get_witness(v, w))
-                model.insert(v, w);
-        }
-        for (auto const& kv : model.sub()) {
-            m_model_subst.insert(kv.m_key, kv.m_value);
-            m_model_pin.push_back(kv.m_value);
-        }
+        mf.get_witness_model(m_model_subst, m_model_pin);
     }
 
     void theory_nseq::finalize_model(model_generator&) {
@@ -626,12 +609,8 @@ namespace smt {
     model_value_proc* theory_nseq::mk_value(enode* n, model_generator&) {
         expr* e = n->get_expr();
         if (m_seq.is_re(e))
-            // Regexes are not sequence values to be synthesized token by
-            // token - just return the regex term itself as its own
-            // model value (no fresh value needed/possible).
             return alloc(expr_wrapper_proc, to_app(e));
-        if (!m_seq.is_seq(e))
-            return alloc(expr_wrapper_proc, to_app(m_factory->get_fresh_value(e->get_sort())));
+        SASSERT (m_seq.is_seq(e));
         seq::eq_tree::node const* snap = m_tree.sat_snapshot();
         expr_ref_vector resolved(m);
         if (snap)
@@ -804,28 +783,28 @@ namespace smt {
         m_tree.collect_statistics(st);
     }
 
-    bool theory_nseq::get_num_value(expr* e, rational& val) const {
+    bool theory_nseq::get_num_value(expr* e, rational& val) {
         expr_ref e2(m);
-        const_cast<th_rewriter&>(m_th_rewriter)(e, e2);
+        m_th_rewriter(e, e2);
         return m_arith_value.get_value_equiv(e2, val) && val.is_int();
     }
 
-    bool theory_nseq::lower_bound(expr* e, rational& lo) const {
+    bool theory_nseq::lower_bound(expr* e, rational& lo) {
         if (!m_autil.is_int(e))
             return false;
         expr_ref e2(m);
-        const_cast<th_rewriter&>(m_th_rewriter)(e, e2);
+        m_th_rewriter(e, e2);
         bool is_strict = true;
-        return const_cast<arith_value&>(m_arith_value).get_lo_equiv(e2, lo, is_strict) && !is_strict && lo.is_int();
+        return m_arith_value.get_lo_equiv(e2, lo, is_strict) && !is_strict && lo.is_int();
     }
 
-    bool theory_nseq::upper_bound(expr* e, rational& hi) const {
+    bool theory_nseq::upper_bound(expr* e, rational& hi) {
         if (!m_autil.is_int(e))
             return false;
         expr_ref e2(m);
-        const_cast<th_rewriter&>(m_th_rewriter)(e, e2);
+        m_th_rewriter(e, e2);
         bool is_strict = true;
-        return const_cast<arith_value&>(m_arith_value).get_up_equiv(e2, hi, is_strict) && !is_strict && hi.is_int();
+        return m_arith_value.get_up_equiv(e2, hi, is_strict) && !is_strict && hi.is_int();
     }
 
 }

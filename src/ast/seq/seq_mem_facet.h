@@ -192,6 +192,12 @@ namespace seq {
         void set_witness_extracted(bool v = true);
         void set_witness(expr* var, expr* w);
         bool get_witness(expr* var, expr_ref& w) const;
+        // Model construction: for every active single-variable plain
+        // membership `x in R` with a materialized witness (see
+        // get_witness), insert `x -> witness` into `subst` and pin the
+        // witness in `pin` (both owned by the caller, typically with the
+        // same lifetime as the model being built).
+        void get_witness_model(obj_map<expr, expr*>& subst, expr_ref_vector& pin) const;
 
         void add(str_mem const& sm);
         void narrow(unsigned idx, view const& new_view);
