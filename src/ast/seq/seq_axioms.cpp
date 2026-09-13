@@ -735,6 +735,43 @@ namespace seq {
         add_clause(~ge0, mk_ge(mk_len(s), 1));                // stoi(s) >= 0 => len(s) >= 1
     }
 
+    /**
+       stoi(s) >= -1
+       stoi("") = -1
+       stoi(s) >= 0 <=> s in re.range("0","9")+
+
+       A regex-based variant of stoi_axiom: instead of tying non-negativity to the
+       first character being a digit, it ties non-negativity to membership of the
+       whole string in [0-9]+. Both directions of the equivalence are asserted so
+       that a solver that decides membership can propagate to stoi and vice versa.
+    */
+    void axioms::stoi_axiom_re(expr* e) {
+        TRACE(seq, tout << mk_pp(e, m) << "\n";);
+        expr* s = nullptr;
+        VERIFY (seq.str.is_stoi(e, s));
+
+        // stoi(s) >= -1
+        add_clause(mk_ge(e, -1));
+
+        // stoi("") = -1
+        {
+            expr_ref empty_s(seq.str.mk_empty(s->get_sort()), m);
+            expr_ref stoi_empty(seq.str.mk_stoi(empty_s), m);
+            add_clause(mk_eq(stoi_empty, a.mk_int(-1)));
+        }
+
+        // stoi(s) >= 0 <=> s in [0-9]+
+        {
+            expr_ref re_digit(seq.re.mk_range(seq.str.mk_string("0"), seq.str.mk_string("9")), m);
+            expr_ref re_plus(seq.re.mk_plus(re_digit), m);
+            expr_ref in_re(seq.re.mk_in_re(s, re_plus), m);
+            expr_ref ge0 = mk_ge(e, 0);
+
+            add_clause(~ge0, in_re);    // stoi(s) >= 0 => s in [0-9]+
+            add_clause(~in_re, ge0);    // s in [0-9]+ => stoi(s) >= 0
+        }
+    }
+
 
     /**
 

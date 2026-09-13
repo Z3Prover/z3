@@ -93,6 +93,7 @@ namespace seq {
         void itos_axiom(expr* n);
         void stoi_axiom(expr* n);
         void stoi_axiom(expr* e, unsigned k);
+        void stoi_axiom_re(expr* n);
         void itos_axiom(expr* s, unsigned k);
         void ubv2s_axiom(expr* b, unsigned k);
         void ubv2s_len_axiom(expr* b, unsigned k);

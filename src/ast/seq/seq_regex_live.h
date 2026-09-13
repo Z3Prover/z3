@@ -29,6 +29,14 @@ class seq_rewriter;
 
 namespace seq {
 
+    template<typename View = view>
+    inline view membership_view(expr* state, ast_manager& m) {
+        if constexpr (requires { View::membership(state, m); })
+            return View::membership(state, m);
+        else
+            return View::membership(state);
+    }
+
     class live_states {
         struct search;
         struct imp;
