@@ -56,6 +56,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "params/theory_seq_params.h"
 #include "util/stx_search_tree.h"
 #include "util/obj_hashtable.h"
 
@@ -106,6 +107,10 @@ namespace seq {
         ast_manager& m;
         seq_util&    u;
 
+        expr_ref_vector m_cond_deps;
+
+        virtual dep_tracker_t mk_leaf_dep(unsigned idx) const = 0;
+
         // Sentinel for "not (yet) registered" - distinct from any real
         // facet_id (facet_id 0 is a legitimate id, so it cannot double as
         // "unset").
@@ -151,14 +156,22 @@ namespace seq {
         stx::facet_id req_id() const { return m_req_id; }
         stx::facet_id lex_id() const { return m_lex_id; }
     public:
-        ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u) {}
+        ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u), m_cond_deps(m) {}
         ~ambient_context_i() override = default;
 
-        // The shared search-tree trail_stack, so plugins that used to
-        // take `trail_stack&` as a constructor argument (e.g.
-        // mem_bounds_propagation) can instead pull it off the ambient
-        // context, exactly as they already do for sibling facet ids.
+        void reset_conditional_deps() { m_cond_deps.reset(); }
+
+        dep_tracker_t add_conditional_dep(expr* e) {
+            unsigned j = m_cond_deps.size();
+            m_cond_deps.push_back(e);
+            return mk_leaf_dep(2 * j);
+        }
+
+        expr* conditional_dep_expr(unsigned j) const { return m_cond_deps.get(j); }
+
         virtual trail_stack& trail() = 0;
+
+        virtual theory_seq_params const& fparams() const = 0;
 
         void set_eq_id(stx::facet_id id) { m_eq_id = id; }
         void set_deq_id(stx::facet_id id) { m_deq_id = id; }
@@ -293,8 +306,10 @@ namespace seq {
         bool upper_bound(expr* e, rational& hi, dep_tracker_t& dep) const { return m_ac.upper_bound(e, hi, dep); }
         bool current_value(expr* e, rational& v) const { return m_ac.current_value(e, v); }
         dep_tracker_t literal_if_false(expr* e) const { return m_ac.literal_if_false(e); }
+        dep_tracker_t add_conditional_dep(expr* e) const { return m_ac.add_conditional_dep(e); }
         void add_diseq_axiom(expr* e1, expr* e2) const { m_ac.add_diseq_axiom(e1, e2); }
         trail_stack& trail() const { return m_ac.trail(); }
+        theory_seq_params const& fparams() const { return m_ac.fparams(); }
 
         eq_facet& eq_facet_ref() const { return m_ac.eq_facet(m_node); }
         deq_facet& deq_facet_ref() const { return m_ac.deq_facet(m_node); }
@@ -318,6 +333,7 @@ namespace seq {
     template <typename dep_tracker_t>
     class null_ambient_context : public ambient_context_i<dep_tracker_t> {
         trail_stack& m_trail;
+        theory_seq_params m_params;
     public:
         null_ambient_context(ast_manager& m, seq_util& u, trail_stack& trail) : ambient_context_i<dep_tracker_t>(m, u), m_trail(trail) {}
         bool lower_bound(expr*, rational&, dep_tracker_t&) override { return false; }
@@ -325,7 +341,10 @@ namespace seq {
         bool current_value(expr*, rational&) override { return false; }
         dep_tracker_t literal_if_false(expr*) override { return nullptr; }
         trail_stack& trail() override { return m_trail; }
+        theory_seq_params const& fparams() const override { return m_params; }
         void add_diseq_axiom(expr*, expr*) override {}
+    protected:
+        dep_tracker_t mk_leaf_dep(unsigned) const override { return dep_tracker_t(); }
     };
 
 } // namespace seq

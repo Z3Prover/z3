@@ -45,6 +45,8 @@ namespace seq {
             return m_th.get_num_value(e, v);
         }
 
+        theory_seq_params const& fparams() const override { return m_th.ctx.get_fparams(); }
+
         eq_tree::dep_tracker literal_if_false(expr* e) override {
             if (!m_th.ctx.b_internalized(e))
                 return nullptr;
@@ -61,6 +63,11 @@ namespace seq {
         }
 
         trail_stack& trail() override { return m_th.m_tree.trail(); }
+
+    protected:
+        eq_tree::dep_tracker mk_leaf_dep(unsigned idx) const override {
+            return m_th.m_tree.dep_mgr().mk_leaf(idx);
+        }
     };
 
 } // namespace seq

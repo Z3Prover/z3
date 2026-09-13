@@ -149,10 +149,14 @@ namespace seq {
         // on backtrack.
         unsigned          m_qhead = 0;
 
+        bool              m_witness_extracted = false;
+        obj_map<expr, expr*> m_witness;
+        expr_ref_vector   m_witness_pin;
+
     public:
         mem_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm, seq_rewriter& rw) :
             facet_i(trail), m(m), u(u), m_dm(dm), m_rw(rw), m_live(rw),
-            m_vw(trail, rw, m_live, transition_mode::brzozowski_tm) {
+            m_vw(trail, rw, m_live, transition_mode::brzozowski_tm), m_witness_pin(m) {
             m_vw.set_checkpoint([this]() {
                 if (!this->m.limit().inc())
                     return view_failure_reason::resource;
@@ -182,6 +186,12 @@ namespace seq {
         // vw().check() each round and reports a conflict from vw().core()
         // on l_false.
         view_witness& vw() { return m_vw; }
+
+        // See m_witness/m_witness_extracted's comment above.
+        bool witness_extracted() const { return m_witness_extracted; }
+        void set_witness_extracted(bool v = true);
+        void set_witness(expr* var, expr* w);
+        bool get_witness(expr* var, expr_ref& w) const;
 
         void add(str_mem const& sm);
         void narrow(unsigned idx, view const& new_view);
@@ -633,9 +643,8 @@ namespace seq {
         bool find_split_target(mem_facet const& mf, unsigned& idx);
 
     public:
-        mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, ambient_context_i<eq_tree::dep_tracker>&) :
-            m(m), u(u), m_rw(rw) {}
-        void set_budget(unsigned b) { m_budget = b; }
+        mem_monadic_split(ast_manager& m, seq_util& u, seq_rewriter& rw, ambient_context_i<eq_tree::dep_tracker>& ac) :
+            m(m), u(u), m_rw(rw), m_budget(ac.fparams().m_seq_regex_budget) {}
         char const* name() const override { return "mem-monadic"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override {

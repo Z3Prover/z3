@@ -75,6 +75,8 @@ namespace seq {
         m_trail.push(push_back_trail<str_mem>(m_mems));
         if (is_single_var_plain(sm))
             m_vw.add(sm.m_str.get(0), sm.m_view, sm.m_dep);
+        if (m_witness_extracted)
+            set_witness_extracted(false);
     }
 
     void mem_facet::narrow(unsigned idx, view const& new_view) {
@@ -146,7 +148,12 @@ namespace seq {
         // field rather than shared.
         for (auto const& sm : f->m_mems)
             if (is_single_var_plain(sm))
-                f->m_vw.add(sm.m_str.get(0), sm.m_view, sm.m_dep);
+                f->m_vw.add_untrailed(sm.m_str.get(0), sm.m_view, sm.m_dep);
+        f->m_witness_extracted = m_witness_extracted;
+        for (auto const& [var, w] : m_witness) {
+            f->m_witness_pin.push_back(w);
+            f->m_witness.insert(var, w);
+        }
         return f;
     }
 
@@ -154,6 +161,47 @@ namespace seq {
         for (auto const& sm : m_mems)
             if (sm.active() && !is_single_var_plain(sm))
                 return false;
+        return true;
+    }
+
+    namespace {
+        class mem_witness_trail : public trail {
+            obj_map<expr, expr*>& m_map;
+            expr*                 m_var;
+            bool                  m_had_prior;
+            expr*                 m_prior;
+        public:
+            mem_witness_trail(obj_map<expr, expr*>& map, expr* var, bool had_prior, expr* prior) :
+                m_map(map), m_var(var), m_had_prior(had_prior), m_prior(prior) {}
+            void undo() override {
+                if (m_had_prior)
+                    m_map.insert(m_var, m_prior);
+                else
+                    m_map.remove(m_var);
+            }
+        };
+    }
+
+    void mem_facet::set_witness_extracted(bool v) {
+        m_trail.push(value_trail<bool>(m_witness_extracted));
+        m_witness_extracted = v;
+    }
+
+    void mem_facet::set_witness(expr* var, expr* w) {
+        expr* prior = nullptr;
+        bool had_prior = m_witness.find(var, prior);
+        m_witness_pin.push_back(w);
+        m_trail.push(mem_witness_trail(m_witness, var, had_prior, prior));
+        m_witness.insert(var, w);
+    }
+
+    bool mem_facet::get_witness(expr* var, expr_ref& w) const {
+        if (!m_witness_extracted)
+            return false;
+        expr* e = nullptr;
+        if (!m_witness.find(var, e))
+            return false;
+        w = e;
         return true;
     }
 
@@ -324,8 +372,89 @@ namespace seq {
             f.advance_qhead(head);
             changed = true;
         }
-        if (f.is_satisfied())
+        if (f.is_satisfied()) {
+            if (!f.witness_extracted() && !f.memberships().empty()) {
+                view_witness& vw = f.vw();
+
+                vector<std::pair<expr*, rational>> lens;
+                {
+                    expr_mark seen;
+                    for (auto const& sm : f.memberships()) {
+                        if (!sm.active() || sm.m_str.size() != 1)
+                            continue;
+                        expr* v = sm.m_str.get(0);
+                        if (seen.is_marked(v))
+                            continue;
+                        seen.mark(v);
+                        rational k;
+                        if (!ac.current_value(u.str.mk_length(v), k) || !k.is_unsigned())
+                            continue;
+                        lens.push_back({v, k});
+                    }
+                }
+                if (!lens.empty() && ac.has_assumption()) {
+                    auto& af0 = ac.arith_facet_ref();
+                    arith_util& au0 = af0.get_arith_util();
+                    auto& asf = ac.assumption_facet_ref();
+                    for (auto const& [v, k] : lens) {
+                        expr_ref len_eq(m.mk_eq(u.str.mk_length(v), au0.mk_int(k)), m);
+                        if (!asf.assumptions().contains(len_eq))
+                            asf.add_assumption(len_eq);
+                    }
+                }
+                trail_stack& tr = ac.trail();
+                if (!lens.empty()) {
+                    tr.push_scope();
+                    auto& af = ac.arith_facet_ref();
+                    arith_util& au = af.get_arith_util();
+                    for (auto const& [v, k] : lens) {
+                        expr_ref len_eq(m.mk_eq(u.str.mk_length(v), au.mk_int(k)), m);
+                        // TODO: once assumption_facet::add_assumption is
+                        // extended to also register the conditional dep
+                        // (see seq_assumption_facet.h), fold the
+                        // asf.add_assumption(len_eq) loop above into this
+                        // one call instead of calling ac.add_conditional_dep
+                        // separately here.
+                        eq_tree::dep_tracker cond_dep = ac.add_conditional_dep(len_eq);
+                        sort* re_sort = u.re.mk_re(v->get_sort());
+                        app* full_char = u.re.mk_full_char(re_sort);
+                        unsigned k_u = k.get_unsigned();
+                        expr_ref exact(u.re.mk_loop_proper(full_char, k_u, k_u), m);
+                        vw.add(v, view::membership(exact, m), static_cast<void*>(cond_dep));
+                    }
+                }
+
+                vw.set_enable_witness(true);
+                f.reset_vw_budget();
+                lbool r = vw.check();
+                if (!lens.empty())
+                    tr.pop_scope(1);
+                if (r == l_false) {
+                    eq_tree::dep_tracker dep = nullptr;
+                    for (void* d : vw.core())
+                        dep = f.dm().mk_join(dep, static_cast<eq_tree::dep_tracker>(d));
+                    vw.set_enable_witness(false);
+                    n.set_conflict(stx::br_plugin_base, dep);
+                    return stx::simplify_result::conflict;
+                }
+                if (r == l_true) {
+                    expr_mark seen;
+                    for (auto const& sm : f.memberships()) {
+                        if (!sm.active() || sm.m_str.size() != 1)
+                            continue;
+                        expr* v = sm.m_str.get(0);
+                        if (seen.is_marked(v))
+                            continue;
+                        seen.mark(v);
+                        expr_ref w = vw.materialize_witness(v);
+                        f.set_witness(v, w);
+                    }
+                    f.set_witness_extracted();
+                }
+                vw.set_enable_witness(false);
+            }
             return stx::simplify_result::satisfied;
+        }
         if (changed)
             return stx::simplify_result::proceed;
         m_stats.m_num_propagate--;

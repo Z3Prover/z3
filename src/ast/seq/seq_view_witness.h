@@ -118,6 +118,9 @@ namespace seq {
         ~view_witness();
 
         void add(expr* x, view const& v, void* dependency);
+        void add_untrailed(expr* x, view const& v, void* dependency) {
+            m_assertions.push_back(assertion(x, v, dependency, m));
+        }
         lbool check();
         ptr_vector<void> core() const { return m_core; }
         expr_ref materialize_witness(expr* x);

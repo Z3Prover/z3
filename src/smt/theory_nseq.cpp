@@ -162,19 +162,7 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_var_peel, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
-        {
-            // Budget mirrors smt/seq_regex.cpp's wiring of theory_seq's own
-            // seq_monadic budget from theory_seq_params. mem_monadic_split no
-            // longer wraps seq_monadic (see seq_mem_facet.h): its joint search
-            // is forward-only, one membership at a time via mem_split,
-            // combined with view_witness for cross-membership non-emptiness -
-            // there is no orientation-retry or intersection-decomposition
-            // policy left to configure.
-            auto* mm = alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient);
-            auto const& fp = ctx.get_fparams();
-            mm->set_budget(fp.m_seq_regex_budget);
-            m_tree.add_split_plugin(mm);
-        }
+        m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
         m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));
@@ -281,39 +269,33 @@ namespace smt {
         enode* n2 = get_enode(v2);
         expr* e1 = n1->get_expr();
         expr* e2 = n2->get_expr();
-        if (m_seq.is_re(e1)) {
-            unsigned idx = mk_dep(assumption(n1, n2));
-            seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-            m_ambient->req_facet(*m_root).add_req(e1, e2, true, dep);
-            return;
-        }
-        if (!m_seq.is_seq(e1))
-            return;
         unsigned idx = mk_dep(assumption(n1, n2));
         seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-        expr_ref_vector lhs = m_ambient->purify(e1);
-        expr_ref_vector rhs = m_ambient->purify(e2);
-        m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+        if (m_seq.is_re(e1)) {
+            m_ambient->req_facet(*m_root).add_req(e1, e2, true, dep);
+        }
+        if (m_seq.is_seq(e1)) {
+            expr_ref_vector lhs = m_ambient->purify(e1);
+            expr_ref_vector rhs = m_ambient->purify(e2);
+            m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
+        }
     }
 
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {
-        enode* n1 = get_enode(v1);
-        enode* n2 = get_enode(v2);
-        expr* e1 = n1->get_expr();
-        expr* e2 = n2->get_expr();
-        if (m_seq.is_re(e1)) {
-            unsigned idx = mk_dep(assumption(n1, n2, true));
-            seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-            m_ambient->req_facet(*m_root).add_req(e1, e2, false, dep);
-            return;
-        }
-        if (!m_seq.is_seq(e1))
-            return;
+        enode *n1 = get_enode(v1);
+        enode *n2 = get_enode(v2);
+        expr *e1 = n1->get_expr();
+        expr *e2 = n2->get_expr();
         unsigned idx = mk_dep(assumption(n1, n2, true));
         seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-        expr_ref_vector lhs = m_ambient->purify(e1);
-        expr_ref_vector rhs = m_ambient->purify(e2);
-        m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
+        if (m_seq.is_re(e1)) {
+            m_ambient->req_facet(*m_root).add_req(e1, e2, false, dep);
+        }
+        if (m_seq.is_seq(e1)) {
+            expr_ref_vector lhs = m_ambient->purify(e1);
+            expr_ref_vector rhs = m_ambient->purify(e2);
+            m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -527,10 +509,10 @@ namespace smt {
     }
 
     unsigned theory_nseq::mk_dep(assumption const& a) {
-        unsigned idx = m_assumptions.size();
+        unsigned j = m_assumptions.size();
         m_assumptions.push_back(a);
         ctx.push_trail(push_back_vector(m_assumptions));
-        return idx;
+        return 2 * j + 1;
     }
 
     // See theory_nseq.h's module comment on flush_assigned_literals for
@@ -574,7 +556,12 @@ namespace smt {
         m_tree.dep_mgr().linearize(dep, idxs);
         literal_vector clause;
         for (unsigned idx : idxs) {
-            assumption const& a = m_assumptions[idx];
+            if ((idx & 1) == 0) {
+                expr* e = m_ambient->conditional_dep_expr(idx / 2);
+                clause.push_back(~mk_literal(e));
+                continue;
+            }
+            assumption const& a = m_assumptions[idx / 2];
             if (a.lit != null_literal) {
                 SASSERT(ctx.get_assignment(a.lit) == l_true);
                 clause.push_back(~a.lit);
@@ -615,46 +602,28 @@ namespace smt {
             expr* e = n->get_expr();
             if (m_seq.is_seq(e) && m.is_value(e))
                 m_factory->register_value(e);
+            // TODO: remove this once model construction handles non-relevant
+            // enodes by assigning them arbitrary values (e.g. the empty
+            // sequence, or a default character) instead of requiring every
+            // seq/char enode to be marked relevant up front.
             if (m_seq.is_seq(e) || m_seq.is_char(e))
                 ctx.mark_as_relevant(n);
         }
         seq::eq_tree::node const* snap = m_tree.sat_snapshot();
         if (!snap)
             return;
-        auto const& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
-        trail_stack scratch_trail;
-        seq::view_witness vw(scratch_trail, m_rewriter, mf.live(), seq::transition_mode::brzozowski_tm);
-        unsigned vw_budget = 0;
-        vw.set_checkpoint([&]() {
-            if (!m.limit().inc())
-                return seq::view_failure_reason::resource;
-            return ++vw_budget > 2000000 ? seq::view_failure_reason::budget : seq::view_failure_reason::none;
-        });
-        // At a sat snapshot, mem_facet::is_satisfied() holds: either there are no active
-        // memberships left, or mem_monadic_split has certified every active membership as
-        // narrowed to a single variable's own view (str_mem::m_str.size() == 1) - see the
-        // class comment on mem_facet::m_is_satisfied. Multiple str_mem entries can carry
-        // the same variable (one per occurrence in the original term), and their views are
-        // conjunctive (seq_view.h), so collect all of a variable's views together and let
-        // view_witness::product_nonempty() intersect them directly - it correctly handles
-        // reach views (state, target) as well as plain memberships, unlike feeding a term
-        // through seq_monadic's add()+check(), which only supports plain "term in regex"
-        // constraints and would silently drop any reach view's target, admitting spurious
-        // witnesses.
-        obj_map<expr, seq::view_vector> per_var;
+        auto& mf = m_ambient->mem_facet(const_cast<seq::eq_tree::node&>(*snap));
+        expr_mark seen;
+        expr_substitution model(m);
         for (auto const& sm : mf.memberships()) {
-            if (!sm.active())
-                continue;
-            if (sm.m_str.size() != 1)
+            if (!sm.active() || sm.m_str.size() != 1)
                 continue;                          // defensive: shouldn't happen when sat
             expr* v = sm.m_str.get(0);
-            per_var.insert_if_not_there(v, seq::view_vector()).push_back(sm.m_view);
-        }
-        expr_substitution model(m);
-        for (auto const& [v, views] : per_var) {
+            if (seen.is_marked(v))
+                continue;
+            seen.mark(v);
             expr_ref w(m);
-            lbool pr = vw.product_nonempty(v, views, &w);
-            if (pr == l_true)
+            if (mf.get_witness(v, w))
                 model.insert(v, w);
         }
         for (auto const& kv : model.sub()) {
@@ -752,6 +721,7 @@ namespace smt {
 
     final_check_status theory_nseq::final_check_eh(unsigned) {
         ++m_num_final_checks;
+        m_ambient->reset_conditional_deps();
         flush_assigned_literals();
         stx::search_result res = m_tree.solve();
         switch (res) {
@@ -767,15 +737,12 @@ namespace smt {
             if (snap) {
                 auto const& af = m_ambient->assumption_facet(const_cast<seq::eq_tree::node&>(*snap));
                 for (expr* a : af.assumptions()) {
-                    if (!ctx.b_internalized(a))
-                        ctx.internalize(a, false);
-                    bool_var bv = ctx.get_bool_var(a);
+                    literal lit = mk_literal(a);
+                    bool_var bv = lit.var();
                     if (ctx.get_var_theory(bv) == null_theory_var)
                         ctx.set_var_theory(bv, get_id());
-                    literal lit(bv);
                     if (ctx.get_assignment(lit) == l_true)
                         continue;
-                    ctx.mark_as_relevant(lit);
                     if (ctx.get_assignment(lit) == l_false)
                         // Already refuted by the ambient context: force a
                         // fresh final check to re-derive/propagate the
@@ -783,14 +750,9 @@ namespace smt {
                         // round, rather than asserting a unit clause that
                         // would immediately contradict it.
                         return FC_CONTINUE;
-                    ctx.mk_th_axiom(get_id(), 1, &lit);
+                    ctx.force_phase(lit);
                     return FC_CONTINUE;
                 }
-            }
-            if (getenv("NSEQ_DUMP_SAT") && snap) {
-                for (unsigned id = 0; id < snap->num_facets(); ++id)
-                    if (snap->has_facet(id))
-                        snap->facet(id).display(std::cerr) << "\n";
             }
             return FC_DONE;
         }
@@ -801,10 +763,6 @@ namespace smt {
                 report_conflict(dep);
                 return FC_CONTINUE;
             }
-            // No precise dependency recorded: fall back to a giveup rather
-            // than asserting an unjustified conflict.
-            if (getenv("NSEQ_DUMP_UNKNOWN"))
-                std::cerr << "theory_nseq: giving up (unsat with no dep)\n";
             return FC_GIVEUP;
         }
         default:
@@ -856,7 +814,7 @@ namespace smt {
         expr_ref e2(m);
         const_cast<th_rewriter&>(m_th_rewriter)(e, e2);
         bool is_strict = true;
-        return m_arith_value.get_lo(e2, lo, is_strict) && !is_strict && lo.is_int();
+        return const_cast<arith_value&>(m_arith_value).get_lo_equiv(e2, lo, is_strict) && !is_strict && lo.is_int();
     }
 
     bool theory_nseq::upper_bound(expr* e, rational& hi) const {
@@ -865,7 +823,7 @@ namespace smt {
         expr_ref e2(m);
         const_cast<th_rewriter&>(m_th_rewriter)(e, e2);
         bool is_strict = true;
-        return m_arith_value.get_up(e2, hi, is_strict) && !is_strict && hi.is_int();
+        return const_cast<arith_value&>(m_arith_value).get_up_equiv(e2, hi, is_strict) && !is_strict && hi.is_int();
     }
 
 }

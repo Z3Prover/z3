@@ -65,6 +65,8 @@ namespace seq {
             return m_th.get_num_value(e, v);
         }
 
+        theory_seq_params const& fparams() const override { return m_th.get_fparams(); }
+
         eq_tree::dep_tracker literal_if_false(expr*) override {
             // Not currently exposed by theory_seq; conservatively unknown.
             return nullptr;
@@ -79,6 +81,13 @@ namespace seq {
         }
 
         trail_stack& trail() override { return m_th.get_trail_stack(); }
+
+    protected:
+        // theory_seq has no eq_tree/dep_manager of its own (see class
+        // comment above on lower_bound/upper_bound's nullptr deps) - a
+        // conditional dependency here is reported the same way, as an
+        // unconditional nullptr (sound, just less precise).
+        eq_tree::dep_tracker mk_leaf_dep(unsigned) const override { return nullptr; }
     };
 
 } // namespace seq
