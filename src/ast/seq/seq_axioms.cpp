@@ -283,12 +283,9 @@ namespace seq {
         if (!a.is_numeral(i, i1) || !i1.is_zero()) {
             return false;
         }
-        expr_ref l2(m), l1(l, m);
-        {
-            auto _seq287_0 = mk_len(s);
-            auto _seq287_1 = a.mk_int(1);
-            l2 = mk_sub(_seq287_0, _seq287_1);
-        }
+        expr_ref l1(l, m);
+        expr_ref len(mk_len(s), m);
+        expr_ref l2 = mk_sub(len, a.mk_int(1));
         m_rewrite(l1);
         m_rewrite(l2);
         return l1 == l2;
@@ -312,12 +309,9 @@ namespace seq {
         rational i1;
         if (!a.is_numeral(i, i1) || !i1.is_one()) 
             return false;
-        expr_ref l2(m), l1(l, m);
-        {
-            auto _seq312_0 = mk_len(s);
-            auto _seq312_1 = a.mk_int(1);
-            l2 = mk_sub(_seq312_0, _seq312_1);
-        }
+        expr_ref len_s = mk_len(s);
+        expr_ref l1(l, m);
+        expr_ref l2 = mk_sub(len_s, a.mk_int(1));
         m_rewrite(l1);
         m_rewrite(l2);
         return l1 == l2;
