@@ -78,6 +78,7 @@ namespace smt {
         void add_nth_axiom(expr* n) { m_ax.nth_axiom(n); }
         void add_itos_axiom(expr* n) { m_ax.itos_axiom(n); }
         void add_stoi_axiom(expr* n) { m_ax.stoi_axiom(n); }
+        void add_stoi_axiom_re(expr* n) { m_ax.stoi_axiom_re(n); }
         void add_stoi_axiom(expr* e, unsigned k) { m_ax.stoi_axiom(e, k); }
         void add_itos_axiom(expr* s, unsigned k) { m_ax.itos_axiom(s, k); }
         void add_ubv2s_axiom(expr* b, unsigned k) { m_ax.ubv2s_axiom(b, k); }

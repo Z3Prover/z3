@@ -484,7 +484,7 @@ namespace smt {
         else if (m_seq.str.is_itos(n))
             m_ax.add_itos_axiom(n);
         else if (m_seq.str.is_stoi(n))
-            m_ax.add_stoi_axiom(n);
+            m_ax.add_stoi_axiom_re(n);
         else if (m_seq.str.is_unit(n))
             m_ax.add_unit_axiom(n);
         else if (m_seq.str.is_is_digit(n))
@@ -589,25 +589,10 @@ namespace smt {
         m_model_subst.reset();
         m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
         mg.register_factory(m_factory);
-        // model_generator::mk_value_procs() (see smt_model_generator.cpp)
-        // only builds a model_value_proc - and therefore only registers a
-        // root2proc/roots entry - for enodes that are relevant at that
-        // point. mk_value()'s seq_model_value_proc later records
-        // dependencies on char/token enodes (e.g. via str.unit's argument)
-        // that may not otherwise have been marked relevant; force every
-        // seq/char-sorted enode relevant up front so any such dependency
-        // is guaranteed to already have a root2proc entry once mk_values()
-        // walks the graph, instead of crashing on the lookup.
         for (enode* n : ctx.enodes()) {
             expr* e = n->get_expr();
             if (m_seq.is_seq(e) && m.is_value(e))
                 m_factory->register_value(e);
-            // TODO: remove this once model construction handles non-relevant
-            // enodes by assigning them arbitrary values (e.g. the empty
-            // sequence, or a default character) instead of requiring every
-            // seq/char enode to be marked relevant up front.
-            if (m_seq.is_seq(e) || m_seq.is_char(e))
-                ctx.mark_as_relevant(n);
         }
         seq::eq_tree::node const* snap = m_tree.sat_snapshot();
         if (!snap)
@@ -682,9 +667,13 @@ namespace smt {
                     // enodes it deems relevant (see mk_value_procs); a
                     // dependency on a non-relevant enode's root would
                     // never be found in root2proc, crashing top-sort/
-                    // mk_values. Force it relevant here.
-                    ctx.mark_as_relevant(en);
-                    proc->add_dependency(en, true);
+                    // mk_values. Rather than forcing it relevant, fall
+                    // back to a default character - non-relevant enodes
+                    // are free to take an arbitrary value.
+                    if (ctx.is_relevant(en))
+                        proc->add_dependency(en, true);
+                    else
+                        proc->add_literal(m_seq.str.mk_unit(m_seq.str.mk_char(0)));
                 }
             }
             else if (m.is_value(t) || !ctx.e_internalized(t)) {
@@ -709,9 +698,13 @@ namespace smt {
                 // already internalized: record a dependency on its own
                 // enode so its (separately computed) model value is
                 // spliced in here, rather than being replaced by an
-                // unrelated fresh value.
-                ctx.mark_as_relevant(en);
-                proc->add_dependency(en, false);
+                // unrelated fresh value - unless it is not relevant, in
+                // which case there is no model_value_proc for it to
+                // depend on; fall back to the empty sequence instead.
+                if (ctx.is_relevant(en))
+                    proc->add_dependency(en, false);
+                else
+                    proc->add_literal(m_seq.str.mk_empty(t->get_sort()));
             }
         };
         for (expr* t : resolved)
@@ -721,18 +714,26 @@ namespace smt {
 
     final_check_status theory_nseq::final_check_eh(unsigned) {
         ++m_num_final_checks;
+
+        if (!m_pending_assumptions.empty()) {
+
+            if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) 
+                return FC_DONE;
+
+            SASSERT(all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) != l_undef; }));
+
+            // At least one hypothesis turned out false: it never held,
+            // so the tree state it came from cannot be trusted as a
+            // model. Discard it and fall through to re-run the tree
+            // search below from scratch.
+            m_pending_assumptions.reset();
+        }
+
         m_ambient->reset_conditional_deps();
         flush_assigned_literals();
         stx::search_result res = m_tree.solve();
         switch (res) {
         case stx::search_result::sat: {
-            // Assumptions accumulated along the satisfying branch (e.g.
-            // word_eq_split's symbolic char-equality substitutions, see
-            // seq::assumption_facet's class comment) must also hold in
-            // the ambient SMT context for the tree's model to be valid:
-            // check each is already an internalized literal assigned
-            // true, and if not, internalize it and force it true so the
-            // core re-checks with that requirement in place.
             seq::eq_tree::node const* snap = m_tree.sat_snapshot();
             if (snap) {
                 auto const& af = m_ambient->assumption_facet(const_cast<seq::eq_tree::node&>(*snap));
@@ -741,16 +742,17 @@ namespace smt {
                     bool_var bv = lit.var();
                     if (ctx.get_var_theory(bv) == null_theory_var)
                         ctx.set_var_theory(bv, get_id());
-                    if (ctx.get_assignment(lit) == l_true)
+                    auto r = ctx.get_assignment(lit);
+                    if (r == l_true)
                         continue;
-                    if (ctx.get_assignment(lit) == l_false)
-                        // Already refuted by the ambient context: force a
-                        // fresh final check to re-derive/propagate the
-                        // conflict through the ordinary channels next
-                        // round, rather than asserting a unit clause that
-                        // would immediately contradict it.
+                    if (r == l_false)
                         return FC_CONTINUE;
-                    ctx.force_phase(lit);
+                    if (r == l_undef)
+                        ctx.force_phase(lit);
+                    m_pending_assumptions.push_back(lit);
+                }
+                if (!m_pending_assumptions.empty()) {
+                    ctx.push_trail(restore_vector<literal_vector>(m_pending_assumptions, 0));
                     return FC_CONTINUE;
                 }
             }

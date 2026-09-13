@@ -20,6 +20,7 @@ Author:
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/seq/seq_ambient_context.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 
@@ -60,15 +61,21 @@ namespace seq {
 
         // Trailed: all constraint additions are trailed, no exception.
         // Undo just pops the pushed element.
-        // TODO: have add_assumption also call the ambient context's
-        // add_conditional_dep(a) and return the resulting dep_tracker_t,
-        // so callers (e.g. mem_propagation::propagate() in
-        // seq_mem_facet.cpp) can record an assumption and obtain its
-        // conditional dependency in one call instead of two separate
-        // ones against assumption_facet and the ambient context.
         void add_assumption(expr* a) {
             m_assumptions.push_back(a);
             m_trail.push(push_back_vector(m_assumptions));
+        }
+
+        // Records `a` as an assumption (as above) and also registers it
+        // as a conditional dependency with the ambient context, so a
+        // caller can attach the returned dep_tracker_t to whatever
+        // hypothetical constraint (e.g. a view_witness assertion) relies
+        // on `a`, instead of calling add_assumption(a) and
+        // ac.add_conditional_dep(a) separately.
+        template <typename dep_tracker_t>
+        dep_tracker_t add_assumption(expr* a, ambient_context_i<dep_tracker_t>& ac) {
+            add_assumption(a);
+            return ac.add_conditional_dep(a);
         }
 
         expr_ref_vector const& assumptions() const { return m_assumptions; }

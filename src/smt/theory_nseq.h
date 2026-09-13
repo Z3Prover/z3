@@ -224,6 +224,14 @@ namespace smt {
         // `push_back_vector` in `mk_dep`.
         vector<assumption> m_assumptions;
 
+        // Assumption literals (from assumption_facet) that a satisfying
+        // tree state depended on, but that final_check_eh found not yet
+        // assigned true in the ambient context on the round it was found
+        // (see final_check_eh's sat case). Reset (to empty) via a trailed
+        // restore_vector pushed the moment this is populated, so it
+        // unwinds like any other trailed state on backtrack.
+        literal_vector m_pending_assumptions;
+
         unsigned m_num_conflicts = 0;
         unsigned m_num_final_checks = 0;
 
