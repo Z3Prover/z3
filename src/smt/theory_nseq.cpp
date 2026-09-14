@@ -307,6 +307,7 @@ namespace smt {
         literal lit(v, !is_true);
         expr* e1 = nullptr, *e2 = nullptr;
 
+        m_pending_assumptions.reset();
         if (m_seq.str.is_in_re(e, e1, e2)) {
             ensure_enode(e1);
             ensure_enode(e2);
@@ -724,8 +725,10 @@ namespace smt {
                     auto r = ctx.get_assignment(lit);
                     if (r == l_true)
                         continue;
-                    if (r == l_false)
+                    if (r == l_false) {
+                        m_pending_assumptions.reset();
                         return FC_CONTINUE;
+                    }
                     if (r == l_undef)
                         ctx.force_phase(lit);
                     m_pending_assumptions.push_back(lit);
