@@ -118,6 +118,11 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
     unsigned ebits = f->get_parameter(0).get_int();
     unsigned sbits = f->get_parameter(1).get_int();
 
+    // mpf stores sbits in a 16-bit field. Leave larger formats symbolic
+    // instead of creating a numeral with a truncated, and therefore wrong, sort.
+    if (sbits > 0xffffu)
+        return BR_FAILED;
+
     if (num_args == 1) {
         if (m_util.bu().is_numeral(args[0], r1, bvs1)) {
             // BV -> float
@@ -791,6 +796,8 @@ br_status fpa_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
                 arith_util & au = m_util.au();
                 expr_ref not_zero(m().mk_not(m().mk_eq(int_expr, au.mk_int(0))), m());
                 expr_ref inf_cond = mk_is_inf_of_int(rm, ebits, sbits, int_expr);
+                if (!inf_cond)
+                    return BR_FAILED;
                 result = m().mk_and(not_zero, m().mk_not(inf_cond));
                 return BR_REWRITE_FULL;
             }
@@ -1057,6 +1064,30 @@ br_status fpa_rewriter::mk_bvwrap(expr * arg, expr_ref & result) {
 // The overflow boundary depends on the rounding mode and float format.
 expr_ref fpa_rewriter::mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, unsigned sbits, expr * int_expr) {
     arith_util & au = m_util.au();
+    mpf_exp_t max_exp = m_fm.mk_max_exp(ebits);
+
+    if (static_cast<mpf_exp_t>(sbits) > max_exp) {
+        // MAX_FINITE and the nearest-rounding midpoint are both strictly
+        // between 2^(max_exp + 1) - 1 and 2^(max_exp + 1).
+        rational threshold = rational::power_of_two(static_cast<unsigned>(max_exp + 1));
+        expr_ref thr(au.mk_int(threshold), m());
+        expr_ref neg_thr(au.mk_int(-threshold), m());
+        switch (rm) {
+        case MPF_ROUND_NEAREST_TEVEN:
+        case MPF_ROUND_NEAREST_TAWAY:
+            return expr_ref(m().mk_or(au.mk_ge(int_expr, thr), au.mk_le(int_expr, neg_thr)), m());
+        case MPF_ROUND_TOWARD_POSITIVE:
+            return expr_ref(au.mk_ge(int_expr, thr), m());
+        case MPF_ROUND_TOWARD_NEGATIVE:
+            return expr_ref(au.mk_le(int_expr, neg_thr), m());
+        case MPF_ROUND_TOWARD_ZERO:
+            return expr_ref(m().mk_false(), m());
+        }
+    }
+
+    mpf_exp_t half_ulp_exp = max_exp - static_cast<mpf_exp_t>(sbits);
+    if (half_ulp_exp > UINT_MAX)
+        return expr_ref(m());
 
     // Compute MAX_FINITE as a rational
     scoped_mpf max_val(m_fm);
@@ -1066,9 +1097,7 @@ expr_ref fpa_rewriter::mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, un
     rational max_finite(max_q);
 
     // ULP at MAX_FINITE = 2^(max_exp - sbits + 1)
-    mpf_exp_t max_exp = m_fm.mk_max_exp(ebits);
-    int ulp_exp = (int)max_exp - (int)sbits + 1;
-    rational half_ulp = rational::power_of_two(ulp_exp) / rational(2);
+    rational half_ulp = rational::power_of_two(static_cast<unsigned>(half_ulp_exp));
 
     expr_ref r(m());
 

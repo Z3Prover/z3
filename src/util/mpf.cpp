@@ -266,6 +266,12 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         // Check that 1.0 <= sig < 2.0
         SASSERT((m_mpq_manager.le(1, sig) && m_mpq_manager.lt(sig, 2)));
 
+        if (m_mpz_manager.is_int64(exp) &&
+            m_mpz_manager.get_int64(exp) > mk_max_exp(ebits)) {
+            mk_round_inf(rm, o);
+            return;
+        }
+
         scoped_mpz p(m_mpq_manager);
         scoped_mpq t(m_mpq_manager), sq(m_mpq_manager);
         m_mpz_manager.power(2, sbits + 3 - 1, p);
