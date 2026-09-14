@@ -175,7 +175,22 @@ class seq_monadic_test {
                          witness.get_failure_reason() == seq::view_failure_reason::budget;
         m_trail.pop_scope(1);
 
-        bool ok = cached && core_ok && materialized && reason_ok;
+        seq::live_states trail_live(m_rw, m_mode, 1u << 12);
+        seq::view_witness trail_witness(m_trail, m_rw, trail_live, m_mode);
+        trail_witness.set_enable_witness(true);
+        lbool base_result = trail_witness.check();
+        expr_ref base_value = trail_witness.materialize_witness(x);
+        m_trail.push_scope();
+        trail_witness.add(x, seq::view::membership(odd, m), nullptr);
+        lbool scoped_result = trail_witness.check();
+        expr_ref scoped_value = trail_witness.materialize_witness(x);
+        m_trail.pop_scope(1);
+        expr_ref restored_value = trail_witness.materialize_witness(x);
+        bool trail_restored = base_result == l_true && u.str.is_empty(base_value) &&
+                              scoped_result == l_true && !u.str.is_empty(scoped_value) &&
+                              u.str.is_empty(restored_value);
+
+        bool ok = cached && core_ok && materialized && reason_ok && trail_restored;
         if (!ok)
             ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ")

@@ -19,6 +19,17 @@ Abstract:
 
 namespace seq {
 
+    view_witness::saved_state::saved_state(view_witness const& owner) :
+        m_last_result(owner.m_last_result),
+        m_failure(owner.m_failure),
+        m_core(owner.m_core),
+        m_witness_pin(owner.m_witness_pin) {
+    }
+
+    void view_witness::restore_state_trail::undo() {
+        m_owner.restore_state();
+    }
+
     view_witness::view_witness(trail_stack& t, seq_rewriter& rw, live_states& live,
                                transition_mode mode) :
         m(rw.m()),
@@ -36,7 +47,27 @@ namespace seq {
         reset_ivl_cache();
     }
 
+    void view_witness::save_state() {
+        m_saved_states.emplace_back(*this);
+        m_trail.push(restore_state_trail(*this));
+    }
+
+    void view_witness::restore_state() {
+        SASSERT(!m_saved_states.empty());
+        saved_state const& state = m_saved_states.back();
+        m_last_result = state.m_last_result;
+        m_failure = state.m_failure;
+        m_core = state.m_core;
+        m_witness_pin.set(state.m_witness_pin);
+        m_witnesses.reset();
+        SASSERT(m_witness_pin.size() % 2 == 0);
+        for (unsigned i = 0; i < m_witness_pin.size(); i += 2)
+            m_witnesses.insert(m_witness_pin[i].get(), m_witness_pin[i + 1].get());
+        m_saved_states.pop_back();
+    }
+
     void view_witness::add(expr* x, view const& v, void* dependency) {
+        save_state();
         m_assertions.push_back(assertion(x, v, dependency, m));
         m_trail.push(push_back_vector(m_assertions));
         m_last_result = l_undef;

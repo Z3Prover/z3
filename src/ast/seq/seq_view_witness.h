@@ -78,6 +78,22 @@ namespace seq {
             }
         };
 
+        struct saved_state {
+            lbool                       m_last_result;
+            view_failure_reason         m_failure;
+            ptr_vector<void>            m_core;
+            expr_ref_vector             m_witness_pin;
+
+            saved_state(view_witness const& owner);
+        };
+
+        class restore_state_trail : public trail {
+            view_witness& m_owner;
+        public:
+            restore_state_trail(view_witness& owner) : m_owner(owner) {}
+            void undo() override;
+        };
+
         ast_manager&      m;
         seq_rewriter&     m_rw;
         trail_stack&      m_trail;
@@ -100,6 +116,7 @@ namespace seq {
         unsigned         m_cofactor_calls = 0;
         unsigned         m_states = 0;
         unsigned         m_max_state_expansion = 0;
+        std::vector<saved_state> m_saved_states;
 
         seq_util& u() const { return m_rw.u(); }
         seq_util::rex& re() const { return m_rw.u().re; }
@@ -111,6 +128,8 @@ namespace seq {
         static void dedup_views(view_vector const& in, view_vector& out);
         static signature mk_signature(view_vector const& views);
         void minimize_core(expr* var, unsigned_vector const& indices);
+        void save_state();
+        void restore_state();
 
     public:
         view_witness(trail_stack& t, seq_rewriter& rw, live_states& live,
