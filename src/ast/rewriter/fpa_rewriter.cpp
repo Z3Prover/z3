@@ -118,6 +118,11 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
     unsigned ebits = f->get_parameter(0).get_int();
     unsigned sbits = f->get_parameter(1).get_int();
 
+    // mpf stores sbits in a 16-bit field. Leave larger formats symbolic
+    // instead of creating a numeral with a truncated, and therefore wrong, sort.
+    if (sbits > 0xffffu)
+        return BR_FAILED;
+
     if (num_args == 1) {
         if (m_util.bu().is_numeral(args[0], r1, bvs1)) {
             // BV -> float
