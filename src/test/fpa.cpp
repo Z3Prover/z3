@@ -30,6 +30,36 @@ static void test_rem_subnormal_divisor() {
     Z3_del_context(ctx);
 }
 
+static void test_is_inf_large_significand() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* constant_spec =
+        "(set-logic ALL)\n"
+        "(assert (not (fp.isInfinite ((_ to_fp 2 4294967295) RNE (to_real 4)))))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, constant_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+    char const* symbolic_spec =
+        "(declare-const x Int)\n"
+        "(assert (= x 4))\n"
+        "(assert (not (fp.isInfinite ((_ to_fp 2 4294967295) RNE (to_real x)))))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, symbolic_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
     test_rem_subnormal_divisor();
+    test_is_inf_large_significand();
 }
