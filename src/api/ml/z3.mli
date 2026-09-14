@@ -3752,10 +3752,12 @@ sig
   (** Retrieve upper bound in current model for handle *)
   val get_upper : handle -> Expr.expr
 
-  (** Retrieve lower bound as [infinity coefficient, rational, epsilon coefficient]. *)
+  (** Retrieve lower bound as [infinity coefficient, finite value, epsilon coefficient].
+      The finite value can be an exact algebraic number. *)
   val get_lower_as_vector : handle -> Expr.expr list
 
-  (** Retrieve upper bound as [infinity coefficient, rational, epsilon coefficient]. *)
+  (** Retrieve upper bound as [infinity coefficient, finite value, epsilon coefficient].
+      The finite value can be an exact algebraic number. *)
   val get_upper_as_vector : handle -> Expr.expr list
 
   (** Creates a backtracking point. {!pop} *)

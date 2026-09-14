@@ -227,6 +227,11 @@ extern "C" {
     /**
        \brief Retrieve lower bound value or approximation for the i'th optimization objective.
 
+       An attained, certified irrational algebraic optimum is returned as an
+       exact algebraic numeral by both #Z3_optimize_get_lower and
+       #Z3_optimize_get_upper. Use #Z3_get_algebraic_number_lower and
+       #Z3_get_algebraic_number_upper to obtain rational approximations.
+
        \param c - context
        \param o - optimization context
        \param idx - index of optimization objective
@@ -241,6 +246,9 @@ extern "C" {
 
     /**
        \brief Retrieve upper bound value or approximation for the i'th optimization objective.
+
+       An attained, certified irrational algebraic optimum is returned
+       exactly, as described for #Z3_optimize_get_lower.
 
        \param c - context
        \param o - optimization context
@@ -257,9 +265,13 @@ extern "C" {
 
     /**
        \brief Retrieve lower bound value or approximation for the i'th optimization objective.
-              The returned vector is of length 3. It always contains numerals.
-              The three numerals are coefficients \c a, \c b, \c c and encode the result of
+              The returned vector is of length 3.
+              Its entries are coefficients \c a, \c b, \c c and encode the result of
               #Z3_optimize_get_lower \ccode{a * infinity + b + c * epsilon}.
+              The coefficients \c a and \c c are rational numerals. The finite
+              value \c b is a rational numeral or an exact irrational algebraic
+              numeral when such an optimum has been attained and certified.
+              In the latter case, \c a and \c c are zero.
               
        \param c - context
        \param o - optimization context
@@ -275,6 +287,10 @@ extern "C" {
 
     /**
        \brief Retrieve upper bound value or approximation for the i'th optimization objective.
+
+       The returned vector has the same coefficient and algebraic-value
+       semantics as #Z3_optimize_get_lower_as_vector, and encodes the result
+       of #Z3_optimize_get_upper.
 
        \param c - context
        \param o - optimization context

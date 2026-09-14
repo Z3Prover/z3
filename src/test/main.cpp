@@ -147,6 +147,7 @@
     X(prime_generator) \
     X(permutation) \
     X(nlsat) \
+    X(opt_bounds) \
     X(opt_nlsat) \
     X(opt_pareto) \
     X(13) \

@@ -1781,19 +1781,28 @@ namespace opt {
     }
 
     expr_ref context::get_lower(unsigned idx) {
+        expr_ref exact = get_exact(idx);
+        if (exact && m_arith.is_irrational_algebraic_numeral(exact))
+            return exact;
         return to_expr(get_lower_as_num(idx));
     }
 
     expr_ref context::get_upper(unsigned idx) {
+        expr_ref exact = get_exact(idx);
+        if (exact && m_arith.is_irrational_algebraic_numeral(exact))
+            return exact;
         return to_expr(get_upper_as_num(idx));
     }
 
-    void context::to_exprs(inf_eps const& n, expr_ref_vector& es) {
+    void context::to_exprs(inf_eps const& n, expr* exact, expr_ref_vector& es) {
         rational inf = n.get_infinity();
         rational r   = n.get_rational();
         rational eps = n.get_infinitesimal();
         es.push_back(m_arith.mk_numeral(inf, inf.is_int()));
-        es.push_back(m_arith.mk_numeral(r, r.is_int()));
+        // Rational optima keep their existing numeral sorts. Only replace
+        // the rational bracket when an irrational value is certified.
+        es.push_back(exact && m_arith.is_irrational_algebraic_numeral(exact) ?
+                     exact : m_arith.mk_numeral(r, r.is_int()));
         es.push_back(m_arith.mk_numeral(eps, eps.is_int()));
     }
 
@@ -1803,6 +1812,8 @@ namespace opt {
        for minimization and offsets; null otherwise.
     */
     expr_ref context::get_exact(unsigned idx) {
+        if (idx >= m_objectives.size())
+            throw default_exception("index out of bounds");
         expr_ref r(m);
         objective const& obj = m_objectives[idx];
         if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
