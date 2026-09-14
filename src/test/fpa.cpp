@@ -37,7 +37,7 @@ static void test_is_inf_large_significand() {
 
     char const* constant_spec =
         "(set-logic ALL)\n"
-        "(assert (not (fp.isInfinite ((_ to_fp 2 4294967295) RNE (to_real 4)))))\n"
+        "(assert (not (fp.isInfinite ((_ to_fp 2 65535) RNE (to_real 4)))))\n"
         "(check-sat)\n";
 
     std::string response = Z3_eval_smtlib2_string(ctx, constant_spec);
@@ -48,7 +48,7 @@ static void test_is_inf_large_significand() {
     char const* symbolic_spec =
         "(declare-const x Int)\n"
         "(assert (= x 4))\n"
-        "(assert (not (fp.isInfinite ((_ to_fp 2 4294967295) RNE (to_real x)))))\n"
+        "(assert (not (fp.isInfinite ((_ to_fp 2 65535) RNE (to_real x)))))\n"
         "(check-sat)\n";
 
     response = Z3_eval_smtlib2_string(ctx, symbolic_spec);
@@ -59,7 +59,28 @@ static void test_is_inf_large_significand() {
     Z3_del_context(ctx);
 }
 
+static void ignore_error(Z3_context, Z3_error_code) {}
+
+static void test_significand_out_of_range() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // mpf cannot represent formats with more than MPF_MAX_SBITS significand
+    // bits; such formats have to be rejected instead of silently truncated.
+    char const* spec =
+        "(declare-const x (_ FloatingPoint 2 65536))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    ENSURE(response.find("maximum number of significand bits") != std::string::npos);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
+    test_significand_out_of_range();
 }

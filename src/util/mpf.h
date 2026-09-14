@@ -36,6 +36,11 @@ typedef enum {
 
 typedef int64_t mpf_exp_t;
 
+// mpf stores ebits and sbits in bit-fields of these widths; larger formats
+// cannot be represented and must be rejected before an mpf is created.
+const unsigned MPF_MAX_EBITS = (1u << 15) - 1;
+const unsigned MPF_MAX_SBITS = (1u << 16) - 1;
+
 class mpf {
     friend class mpf_manager;
     friend class scoped_mpf;
