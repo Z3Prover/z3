@@ -277,8 +277,8 @@ namespace smt {
             m_ambient->req_facet(*m_root).add_req(e1, e2, true, dep);
         }
         if (m_seq.is_seq(e1)) {
-            expr_ref_vector lhs = m_ambient->purify(e1);
-            expr_ref_vector rhs = m_ambient->purify(e2);
+            expr_ref_vector lhs = m_ambient->tokenize(e1);
+            expr_ref_vector rhs = m_ambient->tokenize(e2);
             m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
         }
     }
@@ -294,8 +294,8 @@ namespace smt {
             m_ambient->req_facet(*m_root).add_req(e1, e2, false, dep);
         }
         if (m_seq.is_seq(e1)) {
-            expr_ref_vector lhs = m_ambient->purify(e1);
-            expr_ref_vector rhs = m_ambient->purify(e2);
+            expr_ref_vector lhs = m_ambient->tokenize(e1);
+            expr_ref_vector rhs = m_ambient->tokenize(e2);
             m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
         }
     }
@@ -317,7 +317,7 @@ namespace smt {
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
             seq::view mv = seq::view::membership(re, m);
-            expr_ref_vector ts = m_ambient->purify(e1);
+            expr_ref_vector ts = m_ambient->tokenize(e1);
             // str_mem itself pins m_view's regex (m_regex, an expr_ref)
             // for as long as the membership is live, so no separate
             // theory_nseq::pin() call is needed here even though the
@@ -341,8 +341,8 @@ namespace smt {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
-                expr_ref_vector lhs = m_ambient->purify(e2);
-                expr_ref_vector rhs = m_ambient->purify(e1);
+                expr_ref_vector lhs = m_ambient->tokenize(e2);
+                expr_ref_vector rhs = m_ambient->tokenize(e1);
                 rhs.push_back(f); // fresh existential, kept alive by rhs's own ref (add_equation copies it into the stored equation)
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
@@ -359,10 +359,10 @@ namespace smt {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
-                expr_ref_vector lhs = m_ambient->purify(e2);
+                expr_ref_vector lhs = m_ambient->tokenize(e2);
                 expr_ref_vector rhs(m);
                 rhs.push_back(f); // fresh existential, kept alive by rhs's own ref
-                rhs.append(m_ambient->purify(e1));
+                rhs.append(m_ambient->tokenize(e1));
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
             else
@@ -377,10 +377,10 @@ namespace smt {
                 // contains(e1,e2) <=> exists x,y. e1 = x ++ e2 ++ y
                 expr* x = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
                 expr* y = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
-                expr_ref_vector lhs = m_ambient->purify(e1);
+                expr_ref_vector lhs = m_ambient->tokenize(e1);
                 expr_ref_vector rhs(m);
                 rhs.push_back(x); // fresh existentials, kept alive by rhs's own ref
-                rhs.append(m_ambient->purify(e2));
+                rhs.append(m_ambient->tokenize(e2));
                 rhs.push_back(y);
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
@@ -401,8 +401,8 @@ namespace smt {
             bool strict = m_seq.str.is_lt(e);
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-            expr_ref_vector lhs = m_ambient->purify(is_true ? e1 : e2);
-            expr_ref_vector rhs = m_ambient->purify(is_true ? e2 : e1);
+            expr_ref_vector lhs = m_ambient->tokenize(is_true ? e1 : e2);
+            expr_ref_vector rhs = m_ambient->tokenize(is_true ? e2 : e1);
             m_ambient->lex_facet(*m_root).add_lex(lhs, rhs, is_true ? strict : !strict, dep);
             return;
         }

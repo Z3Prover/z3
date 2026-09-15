@@ -210,7 +210,7 @@ namespace seq {
         // No fresh variables are introduced; every token (units, powers,
         // uninterpreted constants, or any other compound sequence-sorted
         // subterm) is exactly the term the caller passed in.
-        expr_ref_vector purify(expr* e) {
+        expr_ref_vector tokenize(expr* e) {
             expr_ref_vector tokens(m);
             u.str.get_concat_units(e, tokens);
             return tokens;

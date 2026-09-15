@@ -419,9 +419,7 @@ namespace seq {
                     assumption_facet& asf = ac.assumption_facet_ref();
                     for (auto const& [v, k] : lens) {
                         expr_ref len_eq(m.mk_eq(u.str.mk_length(v), au.mk_int(k)), m);
-                        eq_tree::dep_tracker cond_dep = !asf.assumptions().contains(len_eq) ?
-                            asf.add_assumption(len_eq, ac.context()) :
-                            ac.add_conditional_dep(len_eq);
+                        eq_tree::dep_tracker cond_dep = asf.add_assumption(len_eq, ac.context());
                         sort* re_sort = u.re.mk_re(v->get_sort());
                         app* full_char = u.re.mk_full_char(re_sort);
                         unsigned k_u = k.get_unsigned();

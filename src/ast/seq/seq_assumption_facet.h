@@ -66,15 +66,21 @@ namespace seq {
             m_trail.push(push_back_vector(m_assumptions));
         }
 
-        // Records `a` as an assumption (as above) and also registers it
-        // as a conditional dependency with the ambient context, so a
-        // caller can attach the returned dep_tracker_t to whatever
-        // hypothetical constraint (e.g. a view_witness assertion) relies
-        // on `a`, instead of calling add_assumption(a) and
-        // ac.add_conditional_dep(a) separately.
+        // Records `a` as an assumption (as above, and skipping the
+        // re-add if `a` is already present - e.g. because an earlier
+        // call, possibly for a different tree edge, already added it)
+        // and also registers it as a conditional dependency with the
+        // ambient context, so a caller can attach the returned
+        // dep_tracker_t to whatever hypothetical constraint (e.g. a
+        // view_witness assertion) relies on `a`, instead of calling
+        // add_assumption(a) and ac.add_conditional_dep(a) separately. A
+        // fresh conditional-dep leaf is always minted and returned, even
+        // when `a` was already recorded, since distinct call sites/edges
+        // each need their own dep_tracker_t handle.
         template <typename dep_tracker_t>
         dep_tracker_t add_assumption(expr* a, ambient_context_i<dep_tracker_t>& ac) {
-            add_assumption(a);
+            if (!m_assumptions.contains(a))
+                add_assumption(a);
             return ac.add_conditional_dep(a);
         }
 
