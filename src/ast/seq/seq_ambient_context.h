@@ -79,6 +79,7 @@ namespace seq {
     class assumption_facet;
     class req_facet;
     class lex_facet;
+    class stoi_facet;
 
     /**
      * Abstracted, dependency-tracked bridge into the ambient SMT context.
@@ -136,6 +137,7 @@ namespace seq {
         stx::facet_id m_assumption_id = no_facet;
         stx::facet_id m_req_id = no_facet;
         stx::facet_id m_lex_id = no_facet;
+        stx::facet_id m_stoi_id = no_facet;
 
         // Raw facet ids are deliberately not public: nothing outside this
         // class (or the facet-accessor templates just below, which are
@@ -155,6 +157,7 @@ namespace seq {
         stx::facet_id assumption_id() const { return m_assumption_id; }
         stx::facet_id req_id() const { return m_req_id; }
         stx::facet_id lex_id() const { return m_lex_id; }
+        stx::facet_id stoi_id() const { return m_stoi_id; }
     public:
         ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u), m_cond_deps(m) {}
         ~ambient_context_i() override = default;
@@ -182,6 +185,7 @@ namespace seq {
         void set_assumption_id(stx::facet_id id) { m_assumption_id = id; }
         void set_req_id(stx::facet_id id) { m_req_id = id; }
         void set_lex_id(stx::facet_id id) { m_lex_id = id; }
+        void set_stoi_id(stx::facet_id id) { m_stoi_id = id; }
 
         // Is `e` a token this facet layer's Nielsen-style split rules may
         // treat as a freely-substitutable "variable" - i.e. neither a
@@ -237,6 +241,18 @@ namespace seq {
         // anything within the search tree.
         virtual void add_diseq_axiom(expr* e1, expr* e2) = 0;
 
+        // Ask the ambient context to add a standing clause (a
+        // disjunction of Boolean-sorted literals, each possibly negated
+        // via `m.mk_not`) directly to the ambient SMT context - the same
+        // "mk_axiom" mechanism `seq::axioms`/`smt::seq_axioms` already
+        // use internally (see smt::seq_axioms::add_clause, wired to
+        // `seq::axioms::set_add_clause`), exposed here so search-tree
+        // facets (e.g. `stoi_facet::check_stoi_coherence`) that need to
+        // add an ordinary clause-shaped axiom of their own can reuse the
+        // exact same literal/relevance plumbing instead of re-deriving
+        // it themselves.
+        virtual void add_axiom(expr_ref_vector const& clause) = 0;
+
         // Retrieve one of this node's sibling facets directly, coercing
         // it to its concrete type in one call - e.g. `ac.mem_facet(n)`
         // instead of the old two-step `n.facet_as<mem_facet>(ac.mem_id())`.
@@ -257,6 +273,7 @@ namespace seq {
         template <typename node_t> seq::assumption_facet& assumption_facet(node_t& n) const { return n.template facet_as<seq::assumption_facet>(assumption_id()); }
         template <typename node_t> seq::req_facet& req_facet(node_t& n) const { return n.template facet_as<seq::req_facet>(req_id()); }
         template <typename node_t> seq::lex_facet& lex_facet(node_t& n) const { return n.template facet_as<seq::lex_facet>(lex_id()); }
+        template <typename node_t> seq::stoi_facet& stoi_facet(node_t& n) const { return n.template facet_as<seq::stoi_facet>(stoi_id()); }
 
     };
 
@@ -300,6 +317,7 @@ namespace seq {
         dep_tracker_t literal_if_false(expr* e) const { return m_ac.literal_if_false(e); }
         dep_tracker_t add_conditional_dep(expr* e) const { return m_ac.add_conditional_dep(e); }
         void add_diseq_axiom(expr* e1, expr* e2) const { m_ac.add_diseq_axiom(e1, e2); }
+        void add_axiom(expr_ref_vector const& clause) const { m_ac.add_axiom(clause); }
         trail_stack& trail() const { return m_ac.trail(); }
         theory_seq_params const& fparams() const { return m_ac.fparams(); }
 
@@ -312,6 +330,7 @@ namespace seq {
         assumption_facet& assumption_facet_ref() const { return m_ac.assumption_facet(m_node); }
         req_facet& req_facet_ref() const { return m_ac.req_facet(m_node); }
         lex_facet& lex_facet_ref() const { return m_ac.lex_facet(m_node); }
+        stoi_facet& stoi_facet_ref() const { return m_ac.stoi_facet(m_node); }
 
     };
 
@@ -334,6 +353,7 @@ namespace seq {
         trail_stack& trail() override { return m_trail; }
         theory_seq_params const& fparams() const override { return m_params; }
         void add_diseq_axiom(expr*, expr*) override {}
+        void add_axiom(expr_ref_vector const&) override {}
     protected:
         dep_tracker_t mk_leaf_dep(unsigned) const override { return dep_tracker_t(); }
     };

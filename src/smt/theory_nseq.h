@@ -49,6 +49,7 @@ Author:
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_req_facet.h"
 #include "ast/seq/seq_lex_facet.h"
+#include "ast/seq/seq_stoi_facet.h"
 #include "ast/seq/seq_regex_live.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
@@ -316,6 +317,19 @@ namespace smt {
         bool get_num_value(expr* e, rational& val);
         bool lower_bound(expr* e, rational& lo);
         bool upper_bound(expr* e, rational& hi);
+
+        // Thin forwarder onto `seq::stoi_facet::check_stoi_coherence`
+        // (ast/seq/seq_stoi_facet.h), which now owns the actual
+        // coherence-checking control logic (ported from the c3 branch's
+        // `theory_nseq::check_stoi_coherence` of the same name). Called
+        // once per final check, before m_tree.solve(): returns true if
+        // no new axioms were needed (the tree's answer, if any, can
+        // stand), false if at least one axiom was freshly instantiated
+        // (the caller should FC_CONTINUE instead of committing to
+        // whatever m_tree.solve() would otherwise report, or - if it
+        // would otherwise FC_GIVEUP - FC_CONTINUE instead, since new
+        // information is now available).
+        bool check_stoi_coherence();
 
     public:
         theory_nseq(context& ctx);

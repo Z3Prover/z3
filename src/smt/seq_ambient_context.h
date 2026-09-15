@@ -80,6 +80,13 @@ namespace seq {
             // path instead.
         }
 
+        void add_axiom(expr_ref_vector const&) override {
+            // No-op: theory_seq does not (yet) route any facet through
+            // this ambient context's add_axiom - only theory_nseq's
+            // stoi_facet currently uses it (see
+            // smt/seq_nseq_ambient_context.h).
+        }
+
         trail_stack& trail() override { return m_th.get_trail_stack(); }
 
     protected:

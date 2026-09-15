@@ -62,6 +62,14 @@ namespace seq {
             // theory_nseq's ordinary disequality propagation.
         }
 
+        // "mk_axiom" callback: reuse the same clause-to-literals-plus-
+        // th_axiom plumbing that smt::seq_axioms::add_clause already
+        // implements (mk_literal + add_axiom), rather than re-deriving it
+        // in facet code (e.g. stoi_facet::check_stoi_coherence).
+        void add_axiom(expr_ref_vector const& clause) override {
+            m_th.m_ax.add_axiom_clause(clause);
+        }
+
         trail_stack& trail() override { return m_th.m_tree.trail(); }
 
     protected:

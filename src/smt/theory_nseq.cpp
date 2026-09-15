@@ -134,6 +134,8 @@ namespace smt {
         m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);
         m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::lex_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_lex_id(id); }, m, m_seq, m_tree.dep_mgr());
+        m_tree.register_facet_bound<seq::stoi_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_stoi_id(id); }, m, m_seq, m_autil);
+        m_ambient->stoi_facet(*m_root).set_instantiate([this](expr* e, unsigned k) { m_ax.add_stoi_axiom(e, k); });
 
         // deterministic propagation plugins (order among these does not
         // matter: the engine iterates every propagation plugin to
@@ -484,8 +486,10 @@ namespace smt {
             m_ax.add_nth_axiom(n);
         else if (m_seq.str.is_itos(n))
             m_ax.add_itos_axiom(n);
-        else if (m_seq.str.is_stoi(n))
+        else if (m_seq.str.is_stoi(n)) {
             m_ax.add_stoi_axiom_re(n);
+            m_ambient->stoi_facet(*m_root).add_term(n);
+        }
         else if (m_seq.str.is_unit(n))
             m_ax.add_unit_axiom(n);
         else if (m_seq.str.is_is_digit(n))
@@ -711,6 +715,15 @@ namespace smt {
 
         m_ambient->reset_conditional_deps();
         flush_assigned_literals();
+        // Instantiate any inductive stoi coherence axioms now made
+        // available by the arithmetic sub-solver committing to concrete
+        // lengths (see check_stoi_coherence's declaration). Doing this
+        // before m_tree.solve() lets a `str.to_int` unfolding feed
+        // straight into the very same search; `stoi_progress` also lets
+        // any later FC_GIVEUP in this call fall back to FC_CONTINUE
+        // instead, since new axioms are now available for the core to
+        // reconsider, so giving up here would be premature.
+        bool stoi_progress = !check_stoi_coherence();
         stx::search_result res = m_tree.solve();
         switch (res) {
         case stx::search_result::sat: {
@@ -747,9 +760,11 @@ namespace smt {
                 report_conflict(dep);
                 return FC_CONTINUE;
             }
-            return FC_GIVEUP;
+            return stoi_progress ? FC_CONTINUE : FC_GIVEUP;
         }
         default:
+            if (stoi_progress)
+                return FC_CONTINUE;
             if (getenv("NSEQ_DUMP_UNKNOWN")) {
                 std::cerr << "theory_nseq: giving up (" << (res == stx::search_result::unknown ? "unknown" : "depth_cutoff") << ")\n";
                 for (unsigned id = 0; id < m_root->num_facets(); ++id)
@@ -808,6 +823,16 @@ namespace smt {
         m_th_rewriter(e, e2);
         bool is_strict = true;
         return m_arith_value.get_up_equiv(e2, hi, is_strict) && !is_strict && hi.is_int();
+    }
+
+    // Thin forwarder: the actual coherence-checking control logic now
+    // lives on the facet itself (see seq::stoi_facet::check_stoi_coherence,
+    // ast/seq/seq_stoi_facet.h) - it consults `*m_ambient` (for
+    // `current_value`/`add_axiom`) and the `m_instantiate` callback wired
+    // up at construction time, rather than touching `ctx`/`m_ax` here
+    // directly.
+    bool theory_nseq::check_stoi_coherence() {
+        return m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient);
     }
 
 }
