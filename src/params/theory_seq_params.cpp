@@ -45,4 +45,5 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     m_seq_parikh_k = p.seq_parikh_k();
     m_seq_parikh_n = p.seq_parikh_n();
     m_seq_parikh_chars = p.seq_parikh_chars();
+    m_seq_eq_approx = p.seq_eq_approx();
 }

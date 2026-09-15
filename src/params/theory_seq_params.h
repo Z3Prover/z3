@@ -34,6 +34,12 @@ struct theory_seq_params {
     unsigned m_seq_parikh_k = 2;
     unsigned m_seq_parikh_n = 2;
     unsigned m_seq_parikh_chars = 6;
+    // Opt-in gate for eq_approx_split (ast/seq/seq_eq_facet.h), read via
+    // ambient_context_i::fparams() rather than a bespoke accessor.
+    // Mirrors the c3 branch's `smt.nseq.eq_approx` (also default false -
+    // see nielsen_graph::apply_eq_approx's `if (!m_eq_approx) return
+    // false;` gate in seq_nielsen_regex.cpp).
+    bool m_seq_eq_approx = false;
 
     theory_seq_params(params_ref const & p = params_ref()) {
         updt_params(p);

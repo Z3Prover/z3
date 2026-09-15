@@ -597,6 +597,11 @@ namespace seq {
         has_more = false;
         committed = false;
         auto ac = get_ambient(n);
+        // Opt-in, mirroring the c3 branch's `nielsen_graph::apply_eq_approx`
+        // (`if (!m_eq_approx) return false;`, itself wired from
+        // `smt.nseq.eq_approx`, default false, in seq_nielsen_regex.cpp).
+        if (!ac.fparams().m_seq_eq_approx)
+            return nullptr;
         auto& f = ac.eq_facet_ref();
 
         for (auto const& eq : f.equations()) {
