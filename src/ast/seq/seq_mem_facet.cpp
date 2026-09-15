@@ -411,9 +411,7 @@ namespace seq {
                         lens.push_back({v, k});
                     }
                 }
-                trail_stack& tr = ac.trail();
                 if (!lens.empty()) {
-                    tr.push_scope();
                     auto& sf = ac.solver_facet_ref();
                     arith_util& au = sf.get_arith_util();
                     assumption_facet& asf = ac.assumption_facet_ref();
@@ -431,8 +429,6 @@ namespace seq {
                 vw.set_enable_witness(true);
                 f.reset_vw_budget();
                 lbool r = vw.check();
-                if (!lens.empty())
-                    tr.pop_scope(1);
                 if (r == l_false) {
                     eq_tree::dep_tracker dep = nullptr;
                     for (void* d : vw.core())
