@@ -68,8 +68,8 @@ namespace seq {
         // Compute the stride (period) of the length language of a regex.
         //
         // The stride k satisfies: all lengths in L(re) are congruent to
-        // min_length(re) modulo k.  A stride of 1 means every integer
-        // length is possible (no useful modular constraint).  A stride of
+        // min_length(re) modulo k.  A stride of 1 gives no useful modular
+        // constraint; it does not certify realizability of any length.  A stride of
         // 0 is a sentinel meaning the language is empty or has a single
         // fixed length (already captured by bounds).
         //
@@ -147,10 +147,9 @@ namespace seq {
         //
         // Delegates to the consolidated, nielsen_node/str_mem-free implementation
         // in ast/rewriter/seq_parikh (seq::parikh::encode_length_set), re-tagging
-        // each produced assertion with `dep`.  `len_target` must equal
-        // seq.str.mk_length(str_key): every call site already constructs it that
-        // way, and the delegate computes it internally rather than taking it as
-        // a parameter.
+        // each produced assertion with `dep`.  `len_target` is the caller's
+        // equivalent arithmetic expression for len(str_key), which may expand
+        // concatenations or powers rather than use a literal str.len term.
         bool encode_length_set(expr* str_key, expr* re, expr* len_target, dep_tracker dep, vector<constraint>& out);
 
         // Convert a regex minterm expression to a char_set.

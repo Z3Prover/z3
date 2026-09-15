@@ -857,8 +857,44 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Modifier: apply_monadic_leaf  (monadic decomposition as an END-GAME)
+    // Regular abstraction of word equations
 
+    bool nielsen_graph::equation_abstraction_refute(nielsen_node& node) {
+        if (!m_equation_abstraction || node.str_eqs().empty())
+            return false;
+        m_equation_approx.reset_views();
+        obj_map<expr, dep_tracker> deps;
+        for (str_mem const& mem : node.str_mems()) {
+            // Nielsen's Q-gated land views are not seq_eq_approx reach views.
+            // Omitting them only enlarges the abstraction; reusing their state
+            // as a plain language would be unsound.
+            if (!mem.is_plain() || !mem.m_regex->is_ground())
+                continue;
+            expr* term = mem.m_str->get_expr();
+            m_equation_approx.add_view(term, seq::view::membership(mem.m_regex->get_expr()));
+            dep_tracker old = nullptr;
+            deps.find(term, old);
+            deps.insert(term, m_dep_mgr.mk_join(old, mem.m_dep));
+        }
+        for (str_eq const& eq : node.str_eqs()) {
+            ++m_stats.m_equation_abstractions;
+            if (m_equation_approx.check(eq.m_lhs->get_expr(), eq.m_rhs->get_expr()) != l_false)
+                continue;
+            dep_tracker dep = eq.m_dep;
+            for (expr* term : m_equation_approx.used()) {
+                dep_tracker d = nullptr;
+                if (deps.find(term, d))
+                    dep = m_dep_mgr.mk_join(dep, d);
+            }
+            ++m_stats.m_equation_abstraction_refutations;
+            node.set_general_conflict();
+            node.set_conflict(backtrack_reason::regex_widening, dep);
+            return true;
+        }
+        return false;
+    }
+
+    // Modifier: apply_monadic_leaf (monadic decomposition as an end-game)
     void nielsen_graph::ensure_monadic_leaf() {
         if (m_monadic_leaf_engine)
             return;
@@ -869,7 +905,8 @@ namespace seq {
                                       seq::transition_mode::light_antimirov_tm);
         // The witness is the whole point of this rule.
         m_monadic_leaf_engine->set_gen_solution(true);
-        m_monadic_leaf_engine->set_orientation(seq_monadic::orientation::retry);
+        m_monadic_leaf_engine->set_orientation(m_reverse_retry ? seq_monadic::orientation::retry
+                                                              : seq_monadic::orientation::forward);
         // Intersection refinement, off by default in the engine.  These nodes are an
         // intersection by construction -- every membership on one subject is a conjunct --
         // so without it the engine bails on exactly the re.inter/re.comp shapes this rule
@@ -1102,7 +1139,7 @@ namespace seq {
     }
 
     bool nielsen_graph::letter_count_root_refute() {
-        if (!m_regex_parikh || !m_root || m_root->is_currently_conflict())
+        if (!regex_parikh_enabled() || !m_root || m_root->is_currently_conflict())
             return false;
         if (m_root->str_mems().empty())
             return false;

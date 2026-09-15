@@ -1018,6 +1018,9 @@ namespace smt {
                 m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
                 m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
                 m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
+                m_nielsen.set_parikh_abstraction(get_fparams().m_nseq_parikh_abstraction);
+                m_nielsen.set_equation_abstraction(get_fparams().m_nseq_equation_abstraction);
+                m_nielsen.set_reverse_retry(get_fparams().m_nseq_reverse_retry);
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_block_compression(get_fparams().m_nseq_block_compression);
                 m_nielsen.set_fine_wilf(get_fparams().m_nseq_fine_wilf);
@@ -2247,10 +2250,16 @@ namespace smt {
                 euf::snode const* sigmal_g_node = get_snode(sigmal_g_expr.get());
                 regexes.push_back(sigmal_g_node);
 
-                lbool result_g = m_regex.check_intersection_emptiness(regexes);
+                lbool result_g = get_fparams().m_nseq_parikh_abstraction
+                    ? m_regex.check_intersection_emptiness(regexes) : l_undef;
 
                 expr_ref prop_expr(m);
-                if (result_g == l_true) {
+                if (!get_fparams().m_nseq_parikh_abstraction) {
+                    // This value is impossible: blocking it is mandatory, even
+                    // when the optional gradient/shortest-length accelerators are off.
+                    prop_expr = m.mk_not(m.mk_eq(len_expr, l_expr));
+                }
+                else if (result_g == l_true) {
                     // Block the whole gradient
                     expr_ref g_expr(m_autil.mk_int(g), m);
                     expr_ref len_lt_l(m_autil.mk_lt(len_expr, l_expr), m);
@@ -2327,7 +2336,8 @@ namespace smt {
                     vector<seq::constraint> leaf_constraints;
                     for (unsigned idx : mem_indices) {
                         auto const& mem = mems[idx];
-                        if (mem.is_plain() && mem.m_regex->is_classical() && m_seq.is_re(mem.m_regex->get_expr()))
+                        if (get_fparams().m_nseq_parikh_abstraction &&
+                            mem.is_plain() && mem.m_regex->is_classical() && m_seq.is_re(mem.m_regex->get_expr()))
                             m_nielsen.parikh().encode_length_set(
                                 mem.m_str->get_expr(), mem.m_regex->get_expr(), len_expr, mem.m_dep, leaf_constraints);
                     }

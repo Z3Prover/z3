@@ -882,6 +882,9 @@ namespace seq {
                 return set_simplify_conflict(backtrack_reason::regex_widening, dep);
         }
 
+        if (m_graph.equation_abstraction_refute(*this))
+            return simplify_result::conflict;
+
         // Abelian (per-letter count) refutation.  A pure check -- it neither
         // rewrites nor branches -- so it runs once, after the fixpoint above
         // has normalized the equations.  Opt-in via smt.nseq.abelian.

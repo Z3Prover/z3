@@ -142,8 +142,8 @@ private:
     // Compute the stride (period) of the length language of a regex.
     //
     // The stride k satisfies: all lengths in L(re) are congruent to
-    // min_length(re) modulo k.  A stride of 1 means every integer
-    // length is possible (no useful modular constraint).  A stride of
+    // min_length(re) modulo k.  A stride of 1 gives no useful modular
+    // constraint; it does not certify realizability of any length.  A stride of
     // 0 is a sentinel meaning the language is empty or has a single
     // fixed length (already captured by bounds).
     //
@@ -177,7 +177,10 @@ public:
     // The visit-count skolems are keyed on (str, re) and a per-encoding DFS
     // index, so re-encoding the same membership reuses the same counters
     // instead of leaking new constants on every call.
-    bool encode_length_set(expr* str, expr* re, expr_ref_vector& out);
+    // A caller that already expands len(str) into arithmetic (e.g. over a
+    // concatenation) may supply that equivalent Int expression as len_target.
+    // This changes only the final length equality, not the skolem keys.
+    bool encode_length_set(expr* str, expr* re, expr_ref_vector& out, expr* len_target = nullptr);
 
 private:
     // Deterministic non-negative integer visit-count variable

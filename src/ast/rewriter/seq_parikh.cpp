@@ -510,8 +510,8 @@ bool parikh::over_budget(vector<block> const& l, vector<block> const& r, unsigne
 // Return value semantics:
 //   0 — fixed length (or empty language): no modular constraint needed
 //         beyond the min == max bounds.
-//   1 — all integer lengths >= min_len are achievable: no useful modular
-//         constraint.
+//   1 — no useful modular constraint; this does not establish that all
+//         integer lengths above min_len are achievable.
 //   k > 1 — all lengths in L(re) satisfy len = min_len (mod k):
 //         modular constraint len(str) = min_len + k*j is useful.
 unsigned parikh::compute_length_stride(expr* re) {
@@ -573,7 +573,7 @@ unsigned parikh::compute_length_stride(expr* re) {
         //   - the gap from 0 to min_len(r) is min_len(r) itself, and
         //   - subsequent lengths grow in steps governed by stride(r).
         // A result > 1 gives a useful modular constraint; result == 1
-        // means every non-negative integer is achievable (no constraint).
+        // means only that this abstraction gives no modular constraint.
         if (inner == 0)
             return std::gcd(mn, 0u);   // gcd(mn, 0) = mn; useful when mn > 1
         return std::gcd(inner, mn);
@@ -649,7 +649,7 @@ void parikh::membership_constraints(expr* str, expr* re, expr_ref_vector& out) {
 
     unsigned stride = compute_length_stride(re);
 
-    // stride == 1: every integer length is possible - no useful constraint.
+    // stride == 1: no useful congruence (not a length-realizability claim).
     // stride == 0: fixed length or empty - handled by bounds.
     if (stride <= 1)
         return;
@@ -807,9 +807,10 @@ bool parikh::rec(expr* re, expr* count, expr* str_key, expr* root_re, unsigned& 
     return false;
 }
 
-bool parikh::encode_length_set(expr* str, expr* re, expr_ref_vector& out) {
+bool parikh::encode_length_set(expr* str, expr* re, expr_ref_vector& out, expr* len_target) {
     if (!str || !re || !m_util.is_re(re))
         return false;
+    SASSERT(!len_target || m_autil.is_int(len_target));
     unsigned before = out.size();
     unsigned idx = 0;
     expr_ref contrib(m);
@@ -817,7 +818,7 @@ bool parikh::encode_length_set(expr* str, expr* re, expr_ref_vector& out) {
         out.shrink(before); // discard any partial constraints on bail
         return false;
     }
-    expr_ref len_str(m_util.str.mk_length(str), m);
+    expr_ref len_str(len_target ? len_target : m_util.str.mk_length(str), m);
     out.push_back(m.mk_eq(len_str, contrib));
     return true;
 }
