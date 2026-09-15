@@ -37,8 +37,8 @@ static void test_macro_in_recursive_definition() {
     Z3_del_context(ctx);
 }
 
-// macros over symbols unrelated to recursive definitions are still created.
-static void test_macro_with_recursive_definition() {
+// Macros over symbols unrelated to recursive definitions are still created.
+static void test_macro_unrelated_to_recursive_definition() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
@@ -62,5 +62,5 @@ static void test_macro_with_recursive_definition() {
 
 void tst_macro_finder() {
     test_macro_in_recursive_definition();
-    test_macro_with_recursive_definition();
+    test_macro_unrelated_to_recursive_definition();
 }
