@@ -27,6 +27,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 #include "ast/recurse_expr_def.h"
+#include "ast/recfun_decl_plugin.h"
 
 
 macro_manager::macro_manager(ast_manager & m):
@@ -37,6 +38,7 @@ macro_manager::macro_manager(ast_manager & m):
     m_macro_prs(m),
     m_macro_deps(m),
     m_forbidden(m),
+    m_rec_fun_pinned(m),
     m_deps(m) {
     m_util.set_forbidden_set(&m_forbidden_set);
 }
@@ -91,6 +93,9 @@ void macro_manager::reset() {
     m_forbidden_set.reset();
     m_forbidden.reset();
     m_deps.reset();
+    m_rec_fun_bodies.reset();
+    m_rec_fun_body_decls.reset();
+    m_rec_fun_pinned.reset();
 }
 
 void macro_manager::copy_to(macro_manager& dst) {
@@ -113,12 +118,73 @@ void macro_manager::copy_to(macro_manager& dst) {
     }
 }
 
+/**
+   \brief Return true if \c f occurs in the body of some recursive function definition.
+
+   The bodies of recursive definitions are not asserted formulas, so they are not
+   rewritten when a macro is created. Creating a macro for a symbol that occurs in
+   such a body is unsound: the axiom defining the macro is removed, while the
+   occurrence in the body survives as an unconstrained symbol.
+*/
+bool macro_manager::occurs_in_recursive_definition(func_decl * f) {
+    recfun::util u(m);
+    if (!u.has_defs())
+        return false;
+    func_decl_ref_vector recfuns = u.get_rec_funs();
+    bool changed = recfuns.size() != m_rec_fun_bodies.size();
+    for (unsigned i = 0; !changed && i < recfuns.size(); ++i) {
+        func_decl * g = recfuns.get(i);
+        expr * rhs = u.has_def(g) ? u.get_def(g).get_rhs() : nullptr;
+        expr * old_rhs = nullptr;
+        if (!m_rec_fun_bodies.find(g, old_rhs) || old_rhs != rhs)
+            changed = true;
+    }
+    if (!changed)
+        return m_rec_fun_body_decls.contains(f);
+
+    m_rec_fun_bodies.reset();
+    m_rec_fun_body_decls.reset();
+    m_rec_fun_pinned.reset();
+    struct proc {
+        obj_hashtable<func_decl> & m_decls;
+        ast_ref_vector &           m_pinned;
+        proc(obj_hashtable<func_decl> & d, ast_ref_vector & p):m_decls(d), m_pinned(p) {}
+        void operator()(var * n) {}
+        void operator()(quantifier * n) {}
+        void operator()(app * n) {
+            func_decl * d = n->get_decl();
+            if (d->get_family_id() == null_family_id && !m_decls.contains(d)) {
+                m_decls.insert(d);
+                m_pinned.push_back(d);
+            }
+        }
+    };
+    proc p(m_rec_fun_body_decls, m_rec_fun_pinned);
+    for (func_decl * g : recfuns) {
+        expr * rhs = u.has_def(g) ? u.get_def(g).get_rhs() : nullptr;
+        m_rec_fun_bodies.insert(g, rhs);
+        m_rec_fun_pinned.push_back(g);
+        if (rhs) {
+            m_rec_fun_pinned.push_back(rhs);
+            for_each_expr(p, rhs);
+        }
+    }
+    return m_rec_fun_body_decls.contains(f);
+}
+
 bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr, expr_dependency* dep) {
     TRACE(macro_insert, tout << "trying to create macro: " << f->get_name() << "\n" << mk_pp(q, m) << "\n";);
 
     // if we already have a macro for f then return false;
     if (m_decls.contains(f)) {
         TRACE(macro_insert, tout << "we already have a macro for: " << f->get_name() << "\n";);
+        return false;
+    }
+
+    // creating a macro for a symbol used in a recursive definition is unsound,
+    // the definition bodies are not updated by macro expansion.
+    if (occurs_in_recursive_definition(f)) {
+        TRACE(macro_insert, tout << f->get_name() << " occurs in a recursive definition\n";);
         return false;
     }
 

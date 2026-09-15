@@ -78,6 +78,7 @@ add_executable(test-z3
   lcube.cpp
   len_abs.cpp
   list.cpp
+  macro_finder.cpp
   main.cpp
   map.cpp
   matcher.cpp

@@ -48,6 +48,9 @@ class macro_manager {
     obj_hashtable<func_decl>         m_forbidden_set;
     func_decl_ref_vector             m_forbidden;
     obj_hashtable<func_decl>         m_unsafe_macros;
+    obj_map<func_decl, expr*>        m_rec_fun_bodies;    // cached bodies of recursive definitions
+    obj_hashtable<func_decl>         m_rec_fun_body_decls; // uninterpreted symbols occurring in bodies of recursive definitions
+    ast_ref_vector                   m_rec_fun_pinned;
     struct scope {
         unsigned m_decls_lim;
         unsigned m_forbidden_lim;
@@ -58,6 +61,7 @@ class macro_manager {
 
     void restore_decls(unsigned old_sz);
     void restore_forbidden(unsigned old_sz);
+    bool occurs_in_recursive_definition(func_decl * f);
     
     struct macro_expander_cfg;
     struct macro_expander_rw;
