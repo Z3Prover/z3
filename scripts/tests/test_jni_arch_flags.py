@@ -247,6 +247,23 @@ class TestJNIArchitectureFlagsInMakefile(unittest.TestCase):
                 "@loader_path is macOS-specific and must not appear on Linux",
             )
 
+    def test_linux_uses_origin_rpath(self):
+        """
+        On Linux, the JNI bridge must find libz3.so in its own directory.
+        """
+        comp = self._make_java_dll_component()
+        text = self._generate_makefile(
+            comp, is_windows=False, is_osx=False, is_arch_arm64=False
+        )
+        link_lines = self._find_jni_link_lines(text)
+        self.assertTrue(link_lines, "Expected at least one JNI link line")
+        for line in link_lines:
+            self.assertIn(
+                "-Wl,-rpath,'$$ORIGIN'", line,
+                "Linux JNI link command must use $ORIGIN so libz3java.so "
+                "finds the matching libz3.so at runtime",
+            )
+
     # ------------------------------------------------------------------
     # Consistency check: SLINK_EXTRA_FLAGS in mk_config for cross-compile
     # ------------------------------------------------------------------

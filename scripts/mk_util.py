@@ -1923,6 +1923,9 @@ class JavaDLLComponent(Component):
             elif IS_OSX:
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT) -Wl,-rpath,@loader_path $(SLINK_EXTRA_FLAGS)\n' %
                           os.path.join('api', 'java', 'Native'))
+            elif is_linux():
+                out.write("\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT) -Wl,-rpath,'$$ORIGIN' $(SLINK_EXTRA_FLAGS)\n" %
+                          os.path.join('api', 'java', 'Native'))
             else:
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT) $(SLINK_EXTRA_FLAGS)\n' %
                           os.path.join('api', 'java', 'Native'))

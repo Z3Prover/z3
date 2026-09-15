@@ -54,6 +54,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     BUILD_RPATH "@loader_path"
   )
   target_link_options(z3java PRIVATE "-Wl,-headerpad_max_install_names")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set_target_properties(z3java PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_RPATH "$ORIGIN"
+  )
 endif()
 # FIXME: Should this library have SONAME and VERSION set?
 
