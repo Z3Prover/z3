@@ -1,0 +1,317 @@
+name: resplit-ablation
+
+# Reuses noodler-bench.yml's runner, private regex corpus and CI-app checkout.
+on:
+  workflow_dispatch:
+    inputs:
+      solver_sha:
+        description: "Full Z3 commit SHA containing the ablation implementation"
+        required: true
+        type: string
+      corpus_sha:
+        description: "Full Z3Prover/bench commit SHA (never a moving branch)"
+        default: "13a4c28e426b6508b06950e445da38430b01e162"
+        required: true
+        type: string
+      corpus_subdir:
+        description: "Optional subdirectory within inputs/regexes"
+        default: ""
+        type: string
+      limit:
+        description: "Evenly spaced unique inputs; 0 = all (requires campaign confirmation)"
+        default: "4"
+        type: string
+      campaign:
+        description: "Explicitly authorize more than 20 inputs / full corpus"
+        default: false
+        type: boolean
+      timeout:
+        description: "TOTAL seconds per process, unchanged by reversal"
+        default: "10"
+        type: string
+      memory_mb:
+        description: "Z3 allocator memory limit in MB (not OS RSS)"
+        default: "4096"
+        type: string
+      runner:
+        description: "Existing regex-comparison runner"
+        default: rise-runner-2
+        type: choice
+        options: [rise-runner-2, rise-runner-1]
+
+permissions:
+  contents: read
+
+# Serialize this workflow's campaigns on a chosen label without cancelling one.
+concurrency:
+  group: resplit-ablation-${{ inputs.runner }}
+  cancel-in-progress: false
+
+env:
+  SOLVER_SHA: ${{ inputs.solver_sha }}
+  CORPUS_SHA: ${{ inputs.corpus_sha }}
+  CORPUS_SUBDIR: ${{ inputs.corpus_subdir }}
+  LIMIT: ${{ inputs.limit }}
+  CAMPAIGN: ${{ inputs.campaign }}
+  TIMEOUT: ${{ inputs.timeout }}
+  MEMORY_MB: ${{ inputs.memory_mb }}
+  # Isolate generated files from other runs on persistent self-hosted runners.
+  # Every arm uses the same checkout paths, hence the same corpus manifest paths.
+  STUDY_DIR: resplit-${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  build:
+    runs-on: [linux, X64, "${{ inputs.runner }}"]
+    timeout-minutes: 350
+    outputs:
+      artifact_id: ${{ steps.build_archive.outputs.artifact-id }}
+    steps:
+      - name: Validate immutable inputs
+        shell: python3 {0}
+        run: |
+          import os, re
+          from pathlib import PurePosixPath
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit(message)
+          for key in ("SOLVER_SHA", "CORPUS_SHA"):
+              require(re.fullmatch(r"[0-9a-f]{40}", os.environ[key]),
+                      key + " must be a full lowercase commit SHA")
+          subdir = PurePosixPath(os.environ["CORPUS_SUBDIR"])
+          require(not subdir.is_absolute() and ".." not in subdir.parts
+                  and "\\" not in os.environ["CORPUS_SUBDIR"],
+                  "corpus_subdir must be a relative POSIX path inside inputs/regexes")
+          n = int(os.environ["LIMIT"])
+          require(n >= 0, "limit must be nonnegative")
+          require((0 < n <= 20) or os.environ["CAMPAIGN"] == "true",
+                  "more than 20 inputs / all inputs requires campaign=true")
+          require(int(os.environ["TIMEOUT"]) > 0 and int(os.environ["MEMORY_MB"]) > 0,
+                  "timeout and memory_mb must be positive")
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Z3Prover/z3
+          ref: ${{ inputs.solver_sha }}
+          path: ${{ env.STUDY_DIR }}/z3
+
+      - name: Verify the nine-arm configuration contract
+        shell: python3 {0}
+        run: |
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ["GITHUB_WORKSPACE"]) / os.environ["STUDY_DIR"]
+          spec = json.loads((path / "z3/scripts/resplit_ablation.json").read_text())
+          expected = {"all-on", "no-parikh", "no-equation-regex", "no-reversal",
+                      "p0-e0-r1", "p0-e1-r0", "p1-e0-r0", "all-off", "no-factorization"}
+          names = [c["name"] for c in spec["configurations"]]
+          if len(names) != 9 or set(names) != expected or spec["baseline"] != "all-on":
+              raise SystemExit("workflow matrix does not match the pinned configuration manifest")
+
+      - name: Restore missing build tools privately
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOLS="$GITHUB_WORKSPACE/$STUDY_DIR/tools"
+          mkdir -p "$TOOLS/bin"
+          export PATH="$TOOLS/bin:$PATH"
+          fetch() {
+            if command -v curl >/dev/null 2>&1; then
+              curl -fL --retry 5 --retry-delay 2 -o "$2" "$1"
+            else
+              wget --tries=5 --waitretry=2 --retry-connrefused -O "$2" "$1"
+            fi
+          }
+          if ! command -v cmake >/dev/null 2>&1; then
+            fetch https://github.com/Kitware/CMake/releases/download/v3.30.9/cmake-3.30.9-linux-x86_64.tar.gz "$TOOLS/cmake.tar.gz"
+            tar xzf "$TOOLS/cmake.tar.gz" -C "$TOOLS" --strip-components=1
+            rm "$TOOLS/cmake.tar.gz"
+          fi
+          if ! command -v ninja >/dev/null 2>&1; then
+            fetch https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip "$TOOLS/ninja.zip"
+            python3 -m zipfile -e "$TOOLS/ninja.zip" "$TOOLS/bin"
+            chmod +x "$TOOLS/bin/ninja"
+            rm "$TOOLS/ninja.zip"
+          fi
+          echo "$TOOLS/bin" >> "$GITHUB_PATH"
+          cmake --version
+          ninja --version
+
+      - name: Build once, run targeted tests and record provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/$STUDY_DIR"
+          cmake -S z3 -B z3/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build z3/build --target shell test-z3 --parallel 8
+          ./z3/build/test-z3 nseq_ablation seq_monadic_retry seq_eq_approx seq_profile_abs
+          python3 -m unittest discover -s z3/scripts/tests -p test_resplit_ablation.py
+          python3 z3/scripts/resplit_ablation.py record-build \
+            --source z3 --build-dir z3/build --z3 z3/build/z3 \
+            --build-command "cmake -S z3 -B z3/build -G Ninja -DCMAKE_BUILD_TYPE=Release; cmake --build z3/build --target shell test-z3 --parallel 8" \
+            --out build-record
+          cp z3/build/z3 build-record/z3
+
+      - name: Retain the shared immutable binary and build evidence
+        id: build_archive
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resplit-build-record
+          path: ${{ env.STUDY_DIR }}/build-record/
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  arm:
+    needs: build
+    runs-on: [linux, X64, "${{ inputs.runner }}"]
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        config:
+          - all-on
+          - no-parikh
+          - no-equation-regex
+          - no-reversal
+          - p0-e0-r1
+          - p0-e1-r0
+          - p1-e0-r0
+          - all-off
+          - no-factorization
+    env:
+      CONFIG_NAME: ${{ matrix.config }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Z3Prover/z3
+          ref: ${{ inputs.solver_sha }}
+          path: ${{ env.STUDY_DIR }}/z3
+
+      - name: Download the one shared build artifact
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: ${{ env.STUDY_DIR }}/build-record
+          merge-multiple: true
+
+      - name: Mint corpus access token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.Z3_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.Z3_CI_APP_PRIVATE_KEY }}
+          owner: Z3Prover
+          repositories: bench
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Z3Prover/bench
+          ref: ${{ inputs.corpus_sha }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: ${{ env.STUDY_DIR }}/bench
+          sparse-checkout: inputs/regexes
+          sparse-checkout-cone-mode: true
+
+      - name: Prepare the same pinned corpus and selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/$STUDY_DIR"
+          limit_args=()
+          if [ "$LIMIT" -gt 0 ]; then limit_args=(--limit "$LIMIT"); fi
+          python3 z3/scripts/resplit_ablation.py prepare \
+            --corpus "bench/inputs/regexes${CORPUS_SUBDIR:+/$CORPUS_SUBDIR}" \
+            --corpus-sha "$CORPUS_SHA" --out "arms/$CONFIG_NAME/plan" "${limit_args[@]}"
+
+      - name: Guard the per-arm worst-case runtime
+        shell: python3 {0}
+        run: |
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ["GITHUB_WORKSPACE"]) / os.environ["STUDY_DIR"]
+          manifest = json.loads((root / "arms" / os.environ["CONFIG_NAME"] /
+                                 "plan/manifest.json").read_text())
+          selected_count = len(manifest["selected"])
+          timeout = int(os.environ["TIMEOUT"])
+          preflight_count = 1
+          # CI fixes repetitions to one; each job executes only one configuration.
+          worst_case_seconds = (selected_count + preflight_count) * timeout
+          allowance_seconds = 300 * 60
+          print(f"{selected_count} inputs + {preflight_count} preflight at {timeout}s: "
+                f"{worst_case_seconds}s of the {allowance_seconds}s solving allowance")
+          if selected_count == 0:
+              raise SystemExit("empty selection; choose a nonempty corpus subset")
+          if worst_case_seconds > allowance_seconds:
+              maximum = max(0, allowance_seconds // timeout - preflight_count)
+              raise SystemExit(
+                  f"arm exceeds the 300-minute solving allowance ({worst_case_seconds}s); "
+                  f"select a smaller corpus_subdir or limit <= {maximum}, or reduce timeout. "
+                  "The remaining 50 minutes of the 350-minute job are reserved for overhead.")
+
+      - name: Run one arm with the shared binary and unchanged limits
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/$STUDY_DIR"
+          # Artifact downloads preserve contents, but not executable permission.
+          chmod +x build-record/z3
+          python3 z3/scripts/resplit_ablation.py run \
+            --study "arms/$CONFIG_NAME/plan" --only "$CONFIG_NAME" --repeats 1 \
+            --z3 build-record/z3 --build-record build-record/build.json \
+            --source z3 --build-dir build-record \
+            --timeout "$TIMEOUT" --memory-mb "$MEMORY_MB" --out "arms/$CONFIG_NAME/results"
+
+      - name: Retain this arm's inputs, provenance and raw failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resplit-arm-${{ matrix.config }}
+          path: ${{ env.STUDY_DIR }}/arms/${{ matrix.config }}/
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  merge:
+    needs: [build, arm]
+    # Attempt strict merging even after an arm failure, never call a partial
+    # campaign successful. Missing/failed arms must make merge fail explicitly.
+    if: ${{ always() && needs.build.result == 'success' }}
+    runs-on: [linux, X64, "${{ inputs.runner }}"]
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Z3Prover/z3
+          ref: ${{ inputs.solver_sha }}
+          path: ${{ env.STUDY_DIR }}/z3
+
+      - name: Download every retained arm archive separately
+        uses: actions/download-artifact@v4
+        with:
+          pattern: resplit-arm-*
+          path: ${{ env.STUDY_DIR }}/partials
+          merge-multiple: false
+
+      - name: Strictly merge all nine arms
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/$STUDY_DIR"
+          shopt -s nullglob
+          results=(partials/resplit-arm-*/results)
+          if [ "${#results[@]}" -ne 9 ]; then
+            echo "::error::Expected nine arm result directories; inspect the retained arm archives. Refusing a partial merge."
+            exit 1
+          fi
+          python3 z3/scripts/resplit_ablation.py merge --results "${results[@]}" --out merged
+
+      - name: Retain merged output alongside all original raw archives
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resplit-ablation-merged
+          path: |
+            ${{ env.STUDY_DIR }}/merged/
+            ${{ env.STUDY_DIR }}/partials/
+          include-hidden-files: true
+          if-no-files-found: warn

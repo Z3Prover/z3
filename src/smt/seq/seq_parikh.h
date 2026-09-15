@@ -74,8 +74,8 @@ namespace seq {
         // Compute the stride (period) of the length language of a regex.
         //
         // The stride k satisfies: all lengths in L(re) are congruent to
-        // min_length(re) modulo k.  A stride of 1 means every integer
-        // length is possible (no useful modular constraint).  A stride of
+        // min_length(re) modulo k.  A stride of 1 gives no useful modular
+        // constraint; it does not certify realizability of any length.  A stride of
         // 0 is a sentinel meaning the language is empty or has a single
         // fixed length (already captured by bounds).
         //

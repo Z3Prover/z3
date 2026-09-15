@@ -59,6 +59,9 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_max_depth = p.nseq_max_depth();
     m_nseq_max_nodes = p.nseq_max_nodes();
     m_nseq_parikh = p.nseq_parikh();
+    m_nseq_parikh_abstraction = p.nseq_parikh_abstraction();
+    m_nseq_equation_abstraction = p.nseq_equation_abstraction();
+    m_nseq_reverse_retry = p.nseq_reverse_retry();
     m_nseq_regex_precheck = p.nseq_regex_precheck();
     m_nseq_regex_factorization_threshold = p.nseq_regex_factorization_threshold();
     m_nseq_regex_factorization_eager = p.nseq_regex_factorization_eager();
@@ -195,6 +198,9 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_logic);
     DISPLAY_PARAM(m_string_solver);
     DISPLAY_PARAM(m_nseq_parikh);
+    DISPLAY_PARAM(m_nseq_parikh_abstraction);
+    DISPLAY_PARAM(m_nseq_equation_abstraction);
+    DISPLAY_PARAM(m_nseq_reverse_retry);
     DISPLAY_PARAM(m_nseq_regex_precheck);
     DISPLAY_PARAM(m_nseq_regex_factorization_threshold);
     DISPLAY_PARAM(m_nseq_regex_factorization_eager);

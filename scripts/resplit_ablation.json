@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "baseline": "all-on",
+  "common": {
+    "smt.string_solver": "nseq",
+    "tactic.default_tactic": "smt",
+    "model_validate": true,
+    "smt.random_seed": 0,
+    "sat.random_seed": 0,
+    "smt.nseq.parikh": true,
+    "smt.nseq.abelian": true,
+    "smt.nseq.regex_parikh": true,
+    "smt.nseq.regex_parikh_mod": 5,
+    "smt.nseq.regex_precheck": true,
+    "smt.nseq.monadic_split": true,
+    "smt.nseq.monadic_landing": true,
+    "smt.nseq.monadic_leaf": true,
+    "smt.nseq.monadic_leaf_refute": true,
+    "smt.nseq.monadic_leaf_root": true,
+    "smt.nseq.monadic_leaf_budget": 300000,
+    "smt.nseq.monadic_leaf_budget_refute": 30000,
+    "smt.nseq.monadic_leaf_budget_root": 50000,
+    "smt.nseq.view_length_constraints": true,
+    "smt.nseq.regex_factorization_eager": false,
+    "smt.nseq.regex_factorization_threshold": 1,
+    "smt.nseq.regex_dynamic_decomposition": true,
+    "smt.nseq.eager": true,
+    "smt.nseq.max_depth": 0,
+    "smt.nseq.max_nodes": 0
+  },
+  "groups": {
+    "P": "smt.nseq.parikh_abstraction",
+    "E": "smt.nseq.equation_abstraction",
+    "R": "smt.nseq.reverse_retry"
+  },
+  "configurations": [
+    {"name": "all-on", "P": true,  "E": true,  "R": true},
+    {"name": "no-parikh", "P": false, "E": true,  "R": true},
+    {"name": "no-equation-regex", "P": true,  "E": false, "R": true},
+    {"name": "no-reversal", "P": true,  "E": true,  "R": false},
+    {"name": "p0-e0-r1", "P": false, "E": false, "R": true},
+    {"name": "p0-e1-r0", "P": false, "E": true,  "R": false},
+    {"name": "p1-e0-r0", "P": true,  "E": false, "R": false},
+    {"name": "all-off", "P": false, "E": false, "R": false},
+    {"name": "no-factorization", "P": true, "E": true, "R": true,
+     "overrides": {"smt.nseq.regex_factorization_threshold": 0}}
+  ]
+}

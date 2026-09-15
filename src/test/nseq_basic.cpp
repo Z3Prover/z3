@@ -15,10 +15,12 @@ Abstract:
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
 #include "smt/seq/seq_nielsen.h"
+#include "smt/seq/seq_parikh.h"
 #include "params/smt_params.h"
 #include "ast/seq_decl_plugin.h"
 #include "smt/smt_context.h"
 #include "smt/theory_nseq.h"
+#include "model/model_evaluator.h"
 #include <iostream>
 
 // Trivial solver that always returns sat and ignores all assertions.
@@ -685,6 +687,250 @@ static void test_nseq_regex_parikh_residues() {
     const lbool r = ctx.check();
     SASSERT(r == l_false);
     std::cout << "  ok: unsat at modulus 2\n";
+}
+
+static void test_nseq_ablation_matrix() {
+    for (unsigned mask = 0; mask < 8; ++mask) {
+        bool const p = (mask & 1) != 0, e = (mask & 2) != 0, r = (mask & 4) != 0;
+        std::cout << "  matrix mask=" << mask << std::endl;
+        params_ref raw;
+        raw.set_bool("nseq.parikh_abstraction", p);
+        raw.set_bool("nseq.equation_abstraction", e);
+        raw.set_bool("nseq.reverse_retry", r);
+        smt_params params(raw);
+        ENSURE(params.m_nseq_parikh_abstraction == p);
+        ENSURE(params.m_nseq_equation_abstraction == e);
+        ENSURE(params.m_nseq_reverse_retry == r);
+        ENSURE(params.m_nseq_view_length_constraints);
+
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        euf::egraph eg(m);
+        euf::sgraph sg(m, eg);
+        nseq_basic_dummy_solver solver;
+        seq::context_solver_i context_solver;
+        seq::nielsen_graph ng(sg, solver, context_solver);
+        ng.set_parikh_abstraction(p);
+        ng.set_equation_abstraction(e);
+        ng.set_reverse_retry(r);
+        ng.set_parikh_enabled(true);
+        ng.set_abelian(true);
+        ng.set_regex_parikh(true);
+        ng.set_monadic_leaf(true);
+        ng.set_monadic_leaf_refute(true);
+        ng.set_monadic_landing(true);
+        ng.set_regex_factorization_threshold(0);
+        ng.set_max_nodes(1);
+        ENSURE(ng.abelian_enabled() == p && ng.regex_parikh_enabled() == p);
+        ENSURE(ng.equation_abstraction_enabled() == e && ng.reverse_retry_enabled() == r);
+
+        expr_ref x(m.mk_const("x", u.str.mk_string_sort()), m);
+        expr_ref y(m.mk_const("y", u.str.mk_string_sort()), m);
+        expr_ref a(u.str.mk_string(zstring("a")), m);
+        expr_ref b(u.str.mk_string(zstring("b")), m);
+        expr_ref ra(u.re.mk_to_re(a), m), rb(u.re.mk_to_re(b), m);
+        ng.add_str_eq(sg.mk(u.str.mk_concat(x, y)), sg.mk(u.str.mk_concat(y, x)));
+        ng.add_str_mem(sg.mk(x), sg.mk(u.re.mk_concat(ra, u.re.mk_star(ra))));
+        ng.add_str_mem(sg.mk(y), sg.mk(u.re.mk_concat(rb, u.re.mk_star(rb))));
+        vector<seq::length_constraint> lengths;
+        ng.generate_length_constraints(lengths);
+        unsigned equations = 0, nonneg = 0, optional = 0;
+        for (auto const& c : lengths) {
+            equations += c.m_kind == seq::length_kind::eq;
+            nonneg += c.m_kind == seq::length_kind::nonneg;
+            optional += c.m_kind == seq::length_kind::bound;
+        }
+        ENSURE(equations == 1 && nonneg > 0);
+        ENSURE((optional > 0) == p);
+        ng.solve();
+        ENSURE((ng.stats().m_equation_abstractions > 0) == e);
+        ENSURE((ng.stats().m_equation_abstraction_refutations > 0) == e);
+        ENSURE((ng.stats().m_optional_length_constraints > 0) == p);
+        ENSURE(ng.stats().m_mod_regex_factorization == 0);
+        std::cout << "  P=" << p << " E=" << e << " R=" << r
+                  << " optional-lengths=" << optional
+                  << " equation-refutes=" << ng.stats().m_equation_abstraction_refutations << "\n";
+    }
+}
+
+static void test_nseq_ablation_lengths(bool views) {
+    for (unsigned mask = 0; mask < 8; ++mask) {
+        std::cout << "  lengths views=" << views << " mask=" << mask << std::endl;
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        smt_params params;
+        params.m_string_solver = symbol("nseq");
+        params.m_nseq_parikh_abstraction = (mask & 1) != 0;
+        params.m_nseq_equation_abstraction = (mask & 2) != 0;
+        params.m_nseq_reverse_retry = (mask & 4) != 0;
+        params.m_nseq_parikh = params.m_nseq_abelian = params.m_nseq_regex_parikh = true;
+        params.m_nseq_monadic_leaf = !views;
+        params.m_nseq_monadic_leaf_refute = true;
+        params.m_nseq_monadic_split = params.m_nseq_monadic_landing = true;
+        params.m_nseq_regex_factorization_threshold = 0;
+        params.m_nseq_max_nodes = 2000;
+        smt::context ctx(m, params);
+        expr_ref x(m.mk_const("x", u.str.mk_string_sort()), m);
+        expr_ref ab(u.str.mk_string(zstring("ab")), m);
+        expr_ref subject(views ? u.str.mk_concat(x, u.str.mk_concat(ab, x)) : x.get(), m);
+        expr_ref mem(u.re.mk_in_re(subject, u.re.mk_star(u.re.mk_to_re(ab))), m);
+        ctx.assert_expr(mem);
+        ctx.push();
+        ctx.assert_expr(expr_ref(m.mk_eq(u.str.mk_length(x), a.mk_int(1)), m));
+        ENSURE(ctx.check() == l_false);
+        ctx.pop(1);
+        ctx.push();
+        expr_ref len(m.mk_eq(u.str.mk_length(x), a.mk_int(2)), m);
+        ctx.assert_expr(len);
+        ENSURE(ctx.check() == l_true);
+        model_ref mdl;
+        ctx.get_model(mdl);
+        ENSURE(mdl);
+        model_evaluator eval(*mdl);
+        ENSURE(eval.is_true(mem) && eval.is_true(len));
+        statistics st;
+        ctx.collect_statistics(st);
+        unsigned landings = 0;
+        for (unsigned i = 0; i < st.size(); ++i) {
+            if (std::string(st.get_key(i)) == "nseq mod regex fact")
+                ENSURE(st.get_uint_value(i) == 0);
+            if (std::string(st.get_key(i)) == "nseq mod monadic landing")
+                landings += st.get_uint_value(i);
+        }
+        if (views)
+            ENSURE(landings > 0);
+        ctx.pop(1);
+    }
+}
+
+static void test_nseq_equation_abstraction_is_not_a_witness() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_parikh_abstraction = false;
+    params.m_nseq_equation_abstraction = true;
+    params.m_nseq_eager = false;
+    params.m_nseq_monadic_leaf = true;
+    params.m_nseq_regex_factorization_threshold = 0;
+    smt::context ctx(m, params);
+    expr_ref x(m.mk_const("x", u.str.mk_string_sort()), m);
+    expr_ref lhs(u.str.mk_concat(x, x), m), rhs(u.str.mk_string(zstring("a")), m);
+    seq_rewriter rw(m);
+    seq_eq_approx approx(rw);
+    // The two occurrences become independent Sigma* segments in the
+    // abstraction, which admits "a"; the real equation has no solution.
+    ENSURE(approx.check(lhs, rhs) == l_true);
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    ENSURE(ctx.check() == l_false);
+}
+
+static void test_nseq_parikh_does_not_read_view_state_as_language() {
+    struct probe_context : seq::context_solver_i {
+        mutable unsigned bound_queries = 0;
+        bool lower_bound(expr*, rational&, seq::literal_vector&, seq::enode_pair_vector&) const override {
+            ++bound_queries;
+            // No arithmetic assignment here. In particular, do not invent a
+            // bound for a String-sorted term and construct ill-sorted guards.
+            return false;
+        }
+        bool upper_bound(expr*, rational&, seq::literal_vector&, seq::enode_pair_vector&) const override {
+            ++bound_queries;
+            return false;
+        }
+    } context_solver;
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    nseq_basic_dummy_solver solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
+    expr_ref x(m.mk_const("view.x", u.str.mk_string_sort()), m);
+    expr_ref ra(u.re.mk_to_re(u.str.mk_string(zstring("a"))), m);
+    expr_ref rbb(u.re.mk_to_re(u.str.mk_string(zstring("bb"))), m);
+    auto* state = sg.mk(u.re.mk_concat(ra, u.re.mk_star(rbb)));
+    seq::str_mem plain(m, sg.mk(x), state, nullptr);
+    seq::str_mem view = seq::str_mem::mk_view(m, sg.mk(x), state, state, 1, nullptr);
+    vector<seq::constraint> constraints;
+    std::cout << "    plain length generation" << std::endl;
+    ng.parikh().generate_parikh_constraints(plain, constraints);
+    ENSURE(!constraints.empty());
+    constraints.reset();
+    std::cout << "    view length generation" << std::endl;
+    ng.parikh().generate_parikh_constraints(view, constraints);
+    ENSURE(constraints.empty());
+    auto* node = ng.mk_node();
+    std::cout << "    plain conflict check" << std::endl;
+    node->add_str_mem(plain);
+    seq::dep_tracker dep = nullptr;
+    ENSURE(ng.parikh().check_parikh_conflict(*node, dep) == nullptr);
+    unsigned const plain_queries = context_solver.bound_queries;
+    ENSURE(plain_queries > 0);
+    std::cout << "    view conflict check" << std::endl;
+    node->str_mems().reset();
+    node->add_str_mem(view);
+    ENSURE(ng.parikh().check_parikh_conflict(*node, dep) == nullptr);
+    ENSURE(context_solver.bound_queries == plain_queries);
+    std::cout << "    view guard done" << std::endl;
+}
+
+static void test_nseq_ablation_retry() {
+    for (bool retry : { false, true }) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        euf::egraph eg(m);
+        euf::sgraph sg(m, eg);
+        nseq_basic_dummy_solver solver;
+        seq::context_solver_i context_solver;
+        seq::nielsen_graph ng(sg, solver, context_solver);
+        ng.set_parikh_abstraction(false);
+        ng.set_reverse_retry(retry);
+        ng.set_monadic_leaf(true);
+        ng.set_monadic_leaf_budget_root(1024);
+        ng.set_regex_factorization_threshold(0);
+        ng.set_max_nodes(1);
+        sort* str = u.str.mk_string_sort();
+        sort* re = u.re.mk_re(str);
+        expr_ref x(m.mk_const("retry.x", str), m);
+        expr_ref one(u.re.mk_full_char(re), m), all(u.re.mk_full_seq(re), m);
+        expr_ref ra(u.re.mk_to_re(u.str.mk_string(zstring("a"))), m);
+        expr_ref regex(u.re.mk_concat(all, u.re.mk_concat(ra, u.re.mk_loop(one, 128, 128))), m);
+        std::string suffix(129, 'b');
+        expr_ref term(u.str.mk_concat(x, u.str.mk_string(zstring(suffix.c_str()))), m);
+        ng.add_str_mem(sg.mk(term), sg.mk(regex));
+        ng.solve();
+        statistics st;
+        ng.collect_statistics(st);
+        unsigned retries = 0;
+        for (unsigned i = 0; i < st.size(); ++i)
+            if (std::string(st.get_key(i)) == "seq monadic reverse retries")
+                retries += st.get_uint_value(i);
+        ENSURE((retries > 0) == retry);
+        ENSURE((ng.stats().m_monadic_leaf_root_refutes > 0) == retry);
+    }
+}
+
+void tst_nseq_ablation() {
+    smt_params defaults;
+    ENSURE(defaults.m_nseq_parikh_abstraction);
+    ENSURE(!defaults.m_nseq_equation_abstraction);
+    ENSURE(defaults.m_nseq_reverse_retry);
+    test_nseq_ablation_matrix();
+    test_nseq_ablation_lengths(false);
+    test_nseq_ablation_lengths(true);
+    std::cout << "  abstraction is not a witness" << std::endl;
+    test_nseq_equation_abstraction_is_not_a_witness();
+    std::cout << "  view Parikh guard" << std::endl;
+    test_nseq_parikh_does_not_read_view_state_as_language();
+    std::cout << "  integrated retry" << std::endl;
+    test_nseq_ablation_retry();
+    std::cout << "nseq_ablation: all tests passed\n";
 }
 
 void tst_nseq_basic() {

@@ -30,7 +30,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     void nielsen_graph::apply_parikh_to_node(nielsen_node& node) const {
-        if (!m_parikh_enabled || node.m_parikh_applied)
+        if (!m_parikh_abstraction || !m_parikh_enabled || node.m_parikh_applied)
             return;
         node.m_parikh_applied = true;
 
@@ -119,12 +119,12 @@ namespace seq {
                 return search_result::unsat;
             }
 
-            if (monadic_leaf_root_refute()) {
+            if (equation_abstraction_refute(*m_root) || monadic_leaf_root_refute()) {
                 ++m_stats.m_num_unsat;
                 const auto deps = collect_conflict_deps();
                 m_conflict_sources.reset();
                 m_dep_mgr.linearize(deps, m_conflict_sources);
-                TRACE(seq, tout << "nseq: root refuted by the monadic end-game\n");
+                TRACE(seq, tout << "nseq: root refuted by equation abstraction or monadic end-game\n");
                 return search_result::unsat;
             }
 

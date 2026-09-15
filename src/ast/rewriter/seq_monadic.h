@@ -119,6 +119,8 @@ private:
         unsigned m_split_calls = 0;          // decisions handed to the intersection split
         unsigned m_split_rounds = 0;         // refinement rounds spent across those decisions
         unsigned m_split_decided = 0;        // ... that the split then decided
+        unsigned m_reverse_retries = 0;
+        unsigned m_reverse_retry_decided = 0;
         unsigned m_bails[static_cast<unsigned>(bail_reason::num_reasons)] = {};
 
         void inc_bail(bail_reason reason) {

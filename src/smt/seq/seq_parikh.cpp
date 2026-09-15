@@ -50,8 +50,8 @@ namespace seq {
     // Return value semantics:
     //   0 — fixed length (or empty language): no modular constraint needed
     //         beyond the min == max bounds.
-    //   1 — all integer lengths ≥ min_len are achievable: no useful modular
-    //         constraint.
+    //   1 — no useful modular constraint; this does not establish that all
+    //         integer lengths above min_len are achievable.
     //   k > 1 — all lengths in L(re) satisfy len ≡ min_len (mod k):
     //         modular constraint len(str) = min_len + k·j is useful.
     unsigned seq_parikh::compute_length_stride(expr* re) {
@@ -114,7 +114,7 @@ namespace seq {
             //   - the gap from 0 to min_len(r) is min_len(r) itself, and
             //   - subsequent lengths grow in steps governed by stride(r).
             // A result > 1 gives a useful modular constraint; result == 1
-            // means every non-negative integer is achievable (no constraint).
+            // means only that this abstraction gives no modular constraint.
             if (inner == 0)
                 return std::gcd(mn, 0u);   // gcd(mn, 0) = mn; useful when mn > 1
             return std::gcd(inner, mn);
@@ -322,7 +322,9 @@ namespace seq {
 
     void seq_parikh::generate_parikh_constraints(str_mem const& mem,
                                                   vector<constraint>& out) {
-        if (!mem.m_regex || !mem.m_str)
+        // A land view constrains a run between states, not L(m_regex).
+        // Its lengths are supplied by the view's Q-gated graph instead.
+        if (!mem.is_plain() || !mem.m_regex || !mem.m_str)
             return;
 
         expr* re_expr = mem.m_regex->get_expr();
@@ -342,7 +344,7 @@ namespace seq {
 
         unsigned stride = compute_length_stride(re_expr);
 
-        // stride == 1: every integer length is possible — no useful constraint.
+        // stride == 1: no useful congruence (not a length-realizability claim).
         // stride == 0: fixed length or empty — handled by bounds.
         if (stride <= 1)
             return;
@@ -412,7 +414,7 @@ namespace seq {
     str_mem const* seq_parikh::check_parikh_conflict(nielsen_node& node, dep_tracker& dep) {
         dep = nullptr;
         for (str_mem const& mem : node.str_mems()) {
-            if (!mem.m_str || !mem.m_regex || !mem.m_str->is_var())
+            if (!mem.is_plain() || !mem.m_str || !mem.m_regex || !mem.m_str->is_var())
                 continue;
 
             expr* re_expr = mem.m_regex->get_expr();

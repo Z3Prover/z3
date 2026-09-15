@@ -254,6 +254,9 @@ struct smt_params : public preprocessor_params,
     unsigned m_nseq_max_depth = 0;
     unsigned m_nseq_max_nodes = 0;
     bool m_nseq_parikh = false;
+    bool m_nseq_parikh_abstraction = true;
+    bool m_nseq_equation_abstraction = false;
+    bool m_nseq_reverse_retry = true;
     bool m_nseq_regex_precheck = true;
     unsigned m_nseq_regex_factorization_threshold = 1;
     bool m_nseq_regex_factorization_eager = false;

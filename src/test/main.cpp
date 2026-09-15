@@ -121,6 +121,7 @@
     X(seq_eq_approx) \
     X(seq_regex_witness) \
     X(seq_monadic) \
+    X(seq_monadic_retry) \
     X(seq_monadic_bench) \
     X(seq_profile_abs) \
     X(check_assumptions) \
@@ -208,6 +209,7 @@
     X(seq_regex_bisim) \
     X(seq_nielsen) \
     X(nseq_basic) \
+    X(nseq_ablation) \
     X(nseq_zipt) \
     X(term_enumeration) \
     X(lcube) \
