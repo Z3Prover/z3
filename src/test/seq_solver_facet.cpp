@@ -75,7 +75,7 @@ namespace {
     // symbol clash), independent of solver_facet, so the combination
     // should still find unsat and solver_facet must not introduce a false
     // sat/unknown verdict.
-    static void tst_arith_facet_does_not_break_eq_unsat() {
+    static void tst_solver_facet_does_not_break_eq_unsat() {
         ast_manager m;
         reg_decl_plugins(m);
         seq_util u(m);
@@ -115,7 +115,7 @@ namespace {
     // exercises that solver_facet's push/pop discipline does not leave the
     // shared backend permanently polluted/broken across sibling branches
     // (a bug here would show up as a false unsat/unknown).
-    static void tst_arith_facet_consistent_sat() {
+    static void tst_solver_facet_consistent_sat() {
         ast_manager m;
         reg_decl_plugins(m);
         seq_util u(m);
@@ -152,7 +152,7 @@ namespace {
 
 void tst_seq_solver_facet() {
     tst_arith_length_conflict();
-    tst_arith_facet_does_not_break_eq_unsat();
-    tst_arith_facet_consistent_sat();
+    tst_solver_facet_does_not_break_eq_unsat();
+    tst_solver_facet_consistent_sat();
     std::cout << "seq_solver_facet: all tests passed\n";
 }

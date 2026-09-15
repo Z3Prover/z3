@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Sequence power operator (`s^n`, `seq.power`) facet, following `stx::`
-    in util/stx_search_tree.h and the `eq_facet`/`arith_facet` modules
+    in util/stx_search_tree.h and the `eq_facet`/`solver_facet` modules
     (ast/seq/seq_eq_facet.h, smt/seq_solver_facet.h).
 
     Design, ported from theory_seq's existing power-operator machinery
@@ -40,17 +40,17 @@ Abstract:
             power obligation itself is then fully discharged (removed) -
             `eq_facet`'s own Nielsen machinery takes it from there.
           * if `n` is symbolic, the *length* consequences of
-            `axioms::power_axiom` are asserted into `arith_facet` as
+            `axioms::power_axiom` are asserted into `solver_facet` as
             arithmetic-only clauses (no sequence equality is needed, only
             `str.len`): `n>=1 \/ len(e)=0`, `len(s)!=0 \/ len(e)=0`,
             `~(n>=1) \/ len(e)=n*len(s)`, and
             `~(n>=1) \/ len(s)=0 \/ n<=len(e)`. These are sound
             *under-approximations* of the full (sequence-level) axiom -
             `len(e)=0` stands in for the imprecise-but-sufficient
-            "e=epsilon" antecedent/consequent, exactly as `arith_facet`'s
+            "e=epsilon" antecedent/consequent, exactly as `solver_facet`'s
             own module comment documents for its length-only design - and
             are asserted at most once per obligation (idempotency is
-            `arith_facet::add_constraint`'s own responsibility, mirroring
+            `solver_facet::add_constraint`'s own responsibility, mirroring
             `arith_propagation`).
 
       - `power_split` (split_plugin_i) implements the nondeterministic
@@ -94,7 +94,7 @@ namespace seq {
         expr_ref             m_n;
         eq_tree::dep_tracker  m_dep;
         // Set once this obligation's symbolic-exponent length axioms
-        // (power_propagation) have been asserted into arith_facet, so
+        // (power_propagation) have been asserted into solver_facet, so
         // they are only ever added once (mirrors arith_propagation's own
         // "changed only if new" idiom, but tracked explicitly here since
         // the four clauses must be added atomically as a group).
@@ -223,7 +223,7 @@ namespace seq {
     // Deterministic propagation: known-exponent obligations are fully
     // unfolded into an eq_facet equation and discharged; symbolic-exponent
     // obligations get their length-only axiom clauses asserted into
-    // arith_facet (once). See module comment.
+    // solver_facet (once). See module comment.
     class power_propagation : public eq_tree::propagation_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -388,7 +388,7 @@ namespace seq {
     // relative order of `n` and `m` is not yet determined and must be
     // case-split on directly (arith-only, no string-side progress in
     // either branch - unlike power_fine_wilf, this rule's whole point is
-    // to let arith_facet resolve the comparison, after which ordinary
+    // to let solver_facet resolve the comparison, after which ordinary
     // simplification/propagation can cancel the common `U^min(n,m)`
     // prefix/suffix):
     //
@@ -460,7 +460,7 @@ namespace seq {
     //   Branch 1: n < count    (side constraint `count >= n + 1`)
     //   Branch 2: count <= n   (side constraint `n >= count`)
     //
-    // Both are pure arith_facet side constraints (no string-side
+    // Both are pure solver_facet side constraints (no string-side
     // progress in either branch, same as power_num_cmp) - after either
     // is asserted, ordinary propagation can cancel the common
     // `U^min(n,count)` prefix/suffix. Guarded so it is only offered when

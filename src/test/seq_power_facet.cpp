@@ -9,7 +9,7 @@ Abstract:
 
     Unit test for `seq::power_facet` / `seq::power_propagation` /
     `seq::power_split` (ast/seq/seq_power_facet.h): the `seq.power`
-    (`s^n`) facet, combined with `eq_facet`/`arith_facet`.
+    (`s^n`) facet, combined with `eq_facet`/`solver_facet`.
 
 Author:
 
@@ -118,7 +118,7 @@ namespace {
     // len(e) = 4 with e = s^n has no solution, since len(e) must be a
     // multiple of len(s) once n >= 1, and n <= 0 forces len(e) = 0. This
     // exercises power_propagation's length-only axiomatization into
-    // arith_facet without ever needing to unfold/split.
+    // solver_facet without ever needing to unfold/split.
     static void tst_power_symbolic_length_conflict_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -222,7 +222,7 @@ namespace {
     // false outright (both len(e_u), len(e_w) forced to 5 >= T), so the
     // only way this equation can be satisfied is via case 2 or case 3's
     // string-level elimination (introducing R1/R2 or S1/S2 and relating
-    // them back to eq_facet/arith_facet) - must still be sat, since
+    // them back to eq_facet/solver_facet) - must still be sat, since
     // n=m=5 with X=Y-as-strings-of-equal-content is a genuine solution
     // once the fresh split variables are unified consistently.
     static void tst_fine_wilf_progress_sat() {

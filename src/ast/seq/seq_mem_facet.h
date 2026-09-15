@@ -9,7 +9,7 @@ Abstract:
 
     Positive regular-expression membership facet ("Phase 5" of the modular
     plugin-based search tree design, following `stx::` in
-    util/stx_search_tree.h and the `eq_facet`/`deq_facet` and `arith_facet`
+    util/stx_search_tree.h and the `eq_facet`/`deq_facet` and `solver_facet`
     modules).
 
     A `str_mem` constrains one sequence term against a `seq::view`: either a

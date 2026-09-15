@@ -278,7 +278,7 @@ namespace smt {
         void dequeue_axiom(expr* e);
 
         // Drains ctx.assigned_literals() from m_lits_qhead onward into
-        // the arith facet's shared sub-solver (m_ambient->arith_facet),
+        // the arith facet's shared sub-solver (m_ambient->solver_facet),
         // so that every relevant Boolean literal already forced true in
         // the ambient SMT context is visible to solver_facet's backend,
         // not just the length constraints solver_facet derives on its

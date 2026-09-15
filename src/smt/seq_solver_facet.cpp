@@ -204,16 +204,16 @@ namespace seq {
     stx::simplify_result arith_propagation::propagate(eq_tree::node& n) {
         auto ac = get_ambient(n);
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         m_stats.m_num_propagate++;
         bool changed = false;
         for (auto const& eq : ef.equations()) {
             if (!eq.active())
                 continue;
-            changed = af.add_length_constraint(eq.m_lhs, eq.m_rhs, eq.m_dep) || changed;
+            changed = sf.add_length_constraint(eq.m_lhs, eq.m_rhs, eq.m_dep) || changed;
         }
-        if (af.has_conflict()) {
-            n.set_conflict(stx::br_plugin_base, af.conflict_dep());
+        if (sf.has_conflict()) {
+            n.set_conflict(stx::br_plugin_base, sf.conflict_dep());
             return stx::simplify_result::conflict;
         }
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;

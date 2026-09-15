@@ -523,7 +523,7 @@ namespace smt {
     // See theory_nseq.h's module comment on flush_assigned_literals for
     // the full rationale.
     void theory_nseq::flush_assigned_literals() {
-        seq::solver_facet_i& af = m_ambient->arith_facet(*m_root);
+        seq::solver_facet_i& sf = m_ambient->solver_facet(*m_root);
         literal_vector const& lits = ctx.assigned_literals();
         ctx.push_trail(value_trail<unsigned>(m_lits_qhead));
         for (; m_lits_qhead < lits.size(); ++m_lits_qhead) {
@@ -534,7 +534,7 @@ namespace smt {
             expr_ref e(lit.sign() ? m.mk_not(atom) : atom, m);
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-            af.add_constraint(e, dep);
+            sf.add_constraint(e, dep);
         }
     }
 

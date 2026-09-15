@@ -80,7 +80,7 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         m_stats.m_num_propagate++;
 
         bool changed = false;
@@ -123,19 +123,19 @@ namespace seq {
                 expr_ref s_is_emp(m.mk_eq(len_s, a.mk_int(0)), m);
 
                 // n <= 0 => len(e) = 0 (stands in for e = epsilon)
-                af.add_constraint(m.mk_or(n_ge_1, e_is_emp), p.m_dep);
+                sf.add_constraint(m.mk_or(n_ge_1, e_is_emp), p.m_dep);
                 // s = epsilon => len(e) = 0
-                af.add_constraint(m.mk_or(m.mk_not(s_is_emp), e_is_emp), p.m_dep);
+                sf.add_constraint(m.mk_or(m.mk_not(s_is_emp), e_is_emp), p.m_dep);
                 // n >= 1 => len(e) = n * len(s)
-                af.add_constraint(m.mk_or(m.mk_not(n_ge_1), m.mk_eq(len_e, a.mk_mul(p.m_n.get(), len_s))), p.m_dep);
+                sf.add_constraint(m.mk_or(m.mk_not(n_ge_1), m.mk_eq(len_e, a.mk_mul(p.m_n.get(), len_s))), p.m_dep);
                 // n >= 1 & s != epsilon => n <= len(e)
-                af.add_constraint(m.mk_or(m.mk_not(n_ge_1), s_is_emp, a.mk_le(p.m_n.get(), len_e)), p.m_dep);
+                sf.add_constraint(m.mk_or(m.mk_not(n_ge_1), s_is_emp, a.mk_le(p.m_n.get(), len_e)), p.m_dep);
                 f.set_axiomatized(i);
                 changed = true;
             }
         }
-        if (af.has_conflict()) {
-            n.set_conflict(stx::br_plugin_base, af.conflict_dep());
+        if (sf.has_conflict()) {
+            n.set_conflict(stx::br_plugin_base, sf.conflict_dep());
             return stx::simplify_result::conflict;
         }
         if (f.is_satisfied())
@@ -240,7 +240,7 @@ namespace seq {
         auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         // The trigger equation may already have been consumed/replaced.
         // With eq_facet's append-only equation vector, an index is never
@@ -287,10 +287,10 @@ namespace seq {
 
             expr_ref len_r1(u.str.mk_length(r1), m);
             expr_ref len_r2(u.str.mk_length(r2), m);
-            af.add_constraint(m.mk_eq(a.mk_add(len_y, len_r1), len_upow), dep);
-            af.add_constraint(a.mk_ge(len_r1, T), dep);
-            af.add_constraint(m.mk_eq(a.mk_add(len_r1, len_r2), len_wpow), dep);
-            af.add_constraint(a.mk_ge(len_r2, a.mk_int(0)), dep);
+            sf.add_constraint(m.mk_eq(a.mk_add(len_y, len_r1), len_upow), dep);
+            sf.add_constraint(a.mk_ge(len_r1, T), dep);
+            sf.add_constraint(m.mk_eq(a.mk_add(len_r1, len_r2), len_wpow), dep);
+            sf.add_constraint(a.mk_ge(len_r2, a.mk_int(0)), dep);
 
             out = eq_tree::edge("fine-wilf:case2", dep, true, 0);
             return true;
@@ -313,10 +313,10 @@ namespace seq {
 
             expr_ref len_s1(u.str.mk_length(s1), m);
             expr_ref len_s2(u.str.mk_length(s2), m);
-            af.add_constraint(m.mk_eq(len_s1, a.mk_add(len_y, len_wpow)), dep);
-            af.add_constraint(a.mk_ge(len_wpow, T), dep);
-            af.add_constraint(a.mk_ge(len_s2, a.mk_int(1)), dep);
-            af.add_constraint(m.mk_eq(a.mk_add(len_s1, len_s2), len_upow), dep);
+            sf.add_constraint(m.mk_eq(len_s1, a.mk_add(len_y, len_wpow)), dep);
+            sf.add_constraint(a.mk_ge(len_wpow, T), dep);
+            sf.add_constraint(a.mk_ge(len_s2, a.mk_int(1)), dep);
+            sf.add_constraint(m.mk_eq(a.mk_add(len_s1, len_s2), len_upow), dep);
 
             out = eq_tree::edge("fine-wilf:case3", dep, true, 0);
             return true;
@@ -329,7 +329,7 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         trigger t;
         if (!find_fw_trigger(f, ef, t))
@@ -351,7 +351,7 @@ namespace seq {
         // overlap, arith-only, no string-side progress. Marked so it is
         // never re-offered for this same obligation.
         expr_ref case1(m.mk_or(a.mk_lt(a.mk_sub(len_upow, len_y), T), a.mk_lt(len_wpow, T)), m);
-        af.add_constraint(case1, dep);
+        sf.add_constraint(case1, dep);
         f.set_fw_marked(t.m_pow_idx);
 
         iterator* it = alloc(iterator, n, t, 2u, m, u, a);
@@ -373,13 +373,13 @@ namespace seq {
             return false;
 
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         unsigned j = m_next_j++;
         expr_ref rhs = mk_power_unfold(u, m, p.m_s.get(), j);
         expr_ref_vector repl(m);
         u.str.get_concat_units(rhs.get(), repl);
         broadcast_subst(m_n, p.m_e.get(), repl, m_dep);
-        af.add_constraint(m.mk_eq(p.m_n.get(), a.mk_int(j)), m_dep);
+        sf.add_constraint(m.mk_eq(p.m_n.get(), a.mk_int(j)), m_dep);
         f.remove(m_pow_index);
 
         out = eq_tree::edge("power:n=j", m_dep, true, 0);
@@ -392,7 +392,7 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         for (unsigned i = 0; i < f.powers().size(); ++i) {
             if (!f.powers()[i].active())
@@ -409,7 +409,7 @@ namespace seq {
             // power_axiom/power_unfold_axiom).
             expr_ref_vector empty(m);
             broadcast_subst(n, p.m_e.get(), empty, dep);
-            af.add_constraint(a.mk_le(p.m_n.get(), a.mk_int(0)), dep);
+            sf.add_constraint(a.mk_le(p.m_n.get(), a.mk_int(0)), dep);
             f.remove(i);
 
             iterator* it = alloc(iterator, n, i, bound, dep, m, u, a);
@@ -473,10 +473,10 @@ namespace seq {
         if (m_done)
             return false;
         m_done = true;
-        auto& af = get_ambient(m_n).arith_facet_ref();
+        auto& sf = get_ambient(m_n).solver_facet_ref();
         // Branch 2 (the remaining alternative once branch 1 - "n < m",
         // materialized by split() itself - has been offered): m <= n.
-        af.add_constraint(a.mk_ge(m_n_exp.get(), m_m_exp.get()), m_dep);
+        sf.add_constraint(a.mk_ge(m_n_exp.get(), m_m_exp.get()), m_dep);
         out = eq_tree::edge("power-cmp:>=", m_dep, true, 0);
         return true;
     }
@@ -487,7 +487,7 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         unsigned eq_idx, pow_idx_l, pow_idx_r;
         bool at_front;
@@ -502,7 +502,7 @@ namespace seq {
         // Branch 1 (first, immediately materialized): lexp < rexp, i.e.
         // rexp >= lexp + 1.
         expr_ref lexp_plus_1(a.mk_add(lexp, a.mk_int(1)), m);
-        af.add_constraint(a.mk_ge(rexp, lexp_plus_1.get()), dep);
+        sf.add_constraint(a.mk_ge(rexp, lexp_plus_1.get()), dep);
 
         iterator* it = alloc(iterator, n, lexp, rexp, dep, m, u, a);
         out = eq_tree::edge("power-cmp:<", dep, true, 0);
@@ -652,11 +652,11 @@ namespace seq {
         if (m_done)
             return false;
         m_done = true;
-        auto& af = get_ambient(m_n).arith_facet_ref();
+        auto& sf = get_ambient(m_n).solver_facet_ref();
         // Branch 2 (the remaining alternative once branch 1 - "count >
         // pow_exp", materialized by split() itself - has been offered):
         // pow_exp >= count.
-        af.add_constraint(a.mk_ge(m_pow_exp.get(), m_count.get()), m_dep);
+        sf.add_constraint(a.mk_ge(m_pow_exp.get(), m_count.get()), m_dep);
         out = eq_tree::edge("power-split-elim:<=", m_dep, true, 0);
         return true;
     }
@@ -667,7 +667,7 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         elim_trigger t(m);
         if (!find_split_elim_trigger(f, ef, m, a, u, t))
@@ -681,7 +681,7 @@ namespace seq {
         // Branch 1 (first, immediately materialized): pow_exp < count,
         // i.e. count >= pow_exp + 1.
         expr_ref pow_plus_1(a.mk_add(pow_exp, a.mk_int(1)), m);
-        af.add_constraint(a.mk_ge(count, pow_plus_1.get()), dep);
+        sf.add_constraint(a.mk_ge(count, pow_plus_1.get()), dep);
 
         iterator* it = alloc(iterator, n, pow_exp, count, dep, m, u, a);
         out = eq_tree::edge("power-split-elim:>", dep, true, 0);
@@ -743,7 +743,7 @@ namespace seq {
         auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         if (m_pow_idx >= f.powers().size() || !f.powers()[m_pow_idx].active()
             || m_eq_idx >= ef.equations().size() || !ef.equations()[m_eq_idx].active())
             return false; // defensive; obligation/equation discharged by another route
@@ -769,7 +769,7 @@ namespace seq {
 
         broadcast_subst(m_n, p.m_e.get(), pow_repl, m_dep);
         broadcast_subst(m_n, m_var.get(), var_repl, m_dep);
-        af.add_constraint(a.mk_ge(exp_n, a.mk_int(1)), m_dep);
+        sf.add_constraint(a.mk_ge(exp_n, a.mk_int(1)), m_dep);
         f.remove(m_pow_idx);
 
         out = eq_tree::edge("power-var-peel:n>=1", m_dep, true, 0);
@@ -782,7 +782,7 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         unsigned eq_idx, pow_idx;
         bool pow_on_lhs, fwd;
@@ -800,8 +800,8 @@ namespace seq {
         // U^n with epsilon (progress).
         expr_ref_vector empty(m);
         broadcast_subst(n, e, empty, dep);
-        af.add_constraint(a.mk_ge(exp_n, a.mk_int(0)), dep);
-        af.add_constraint(a.mk_le(exp_n, a.mk_int(0)), dep);
+        sf.add_constraint(a.mk_ge(exp_n, a.mk_int(0)), dep);
+        sf.add_constraint(a.mk_le(exp_n, a.mk_int(0)), dep);
         f.remove(pow_idx);
 
         iterator* it = alloc(iterator, n, eq_idx, pow_on_lhs, fwd, pow_idx, var, dep, m, u, a);
@@ -876,7 +876,7 @@ namespace seq {
     bool power_var_decompose::iterator::next(eq_tree::edge& out) {
         auto ac = get_ambient(m_n);
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         auto& f = ac.power_facet_ref();
 
         while (m_pos < m_base_toks.size()) {
@@ -931,10 +931,10 @@ namespace seq {
             // again literally).
 
             broadcast_subst(m_n, m_var.get(), repl, m_dep);
-            af.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep);
+            sf.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep);
             if (fresh_inner_m) {
-                af.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
-                af.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
+                sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
+                sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
             }
             out = eq_tree::edge("power-var-decompose:pos", m_dep, true, 0);
             return true;
@@ -953,7 +953,7 @@ namespace seq {
             if (m_fwd) { repl.push_back(m_pow_e.get()); repl.push_back(vp); }
             else       { repl.push_back(vp); repl.push_back(m_pow_e.get()); }
             broadcast_subst(m_n, m_var.get(), repl, m_dep);
-            af.add_constraint(a.mk_ge(u.str.mk_length(vp), a.mk_int(0)), m_dep);
+            sf.add_constraint(a.mk_ge(u.str.mk_length(vp), a.mk_int(0)), m_dep);
             out = eq_tree::edge("power-var-decompose:extend", m_dep, true, 0);
             return true;
         }
@@ -966,7 +966,7 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         unsigned pow_idx;
         expr* var = nullptr;
@@ -1111,7 +1111,7 @@ namespace seq {
 
     bool power_gpower_intro::iterator::next(eq_tree::edge& out) {
         auto ac = get_ambient(m_n);
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         auto& f = ac.power_facet_ref();
 
         while (m_pos < m_base_toks.size()) {
@@ -1155,10 +1155,10 @@ namespace seq {
             }
 
             broadcast_subst(m_n, m_var.get(), repl, m_dep);
-            af.add_constraint(a.mk_ge(m_fresh_n.get(), a.mk_int(0)), m_dep);
+            sf.add_constraint(a.mk_ge(m_fresh_n.get(), a.mk_int(0)), m_dep);
             if (fresh_inner_m) {
-                af.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
-                af.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
+                sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
+                sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
             }
             out = eq_tree::edge("power-gpower-intro:pos", m_dep, true, 0);
             return true;

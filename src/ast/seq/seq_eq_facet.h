@@ -57,7 +57,7 @@ Abstract:
     `eq_facet`'s split plugin (`word_eq_split`), discharging a
     disequation when prefix-stripping exposes distinct leading constants
     and flagging a conflict when both sides are forced fully equal.
-    Without an `arith_facet` this is sound but incomplete (a disequation
+    Without an `solver_facet` this is sound but incomplete (a disequation
     whose variables are never pinned down by `eq_facet`'s branching stays
     pending, contributing to "unknown" rather than a definite answer).
 
@@ -120,7 +120,7 @@ namespace seq {
     // same shared variable pool as `eq_facet`'s token lists, so that a
     // substitution chosen by one facet's split plugin (e.g.
     // `word_eq_split`) is broadcast to every other such facet in the same
-    // node - this is how `deq_facet` (and later `arith_facet`) stay in
+    // node - this is how `deq_facet` (and later `solver_facet`) stay in
     // sync with `eq_facet`'s Nielsen branching without needing their own
     // copy of the branching logic (see facet-eq-deq.md section 2.5: a
     // disequation is discharged/refuted only as a side effect of
@@ -536,7 +536,7 @@ namespace seq {
     // (rhs) side at the split point (mirrored if rhs is longer); an
     // exact-length constraint `len(pad) = |padding|` plus the two new
     // equations' own `len(lhs)=len(rhs)` constraints are asserted into
-    // arith_facet, all tagged with the original equation's dependency.
+    // solver_facet, all tagged with the original equation's dependency.
     class eq_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -580,7 +580,7 @@ namespace seq {
      * distinct leading constants; it is a conflict if prefix-stripping
      * reduces both sides to empty (the two sides were forced equal,
      * contradicting `!=`). Otherwise it is left pending (sound but
-     * incomplete without an arith_facet - see module comment).
+     * incomplete without an solver_facet - see module comment).
      */
     class deq_facet : public stx::facet_i, public subst_sink_i {
     public:
@@ -682,7 +682,7 @@ namespace seq {
     //
     // For a stuck disequation `u != v` (both sides nonempty, and not
     // already resolved by simplification), branches into exactly 3
-    // cases, spanning deq_facet + eq_facet + arith_facet:
+    // cases, spanning deq_facet + eq_facet + solver_facet:
     //   1. `len(u) < len(v)` (arith-only; a length mismatch alone
     //      already proves `u != v`, so the disequation is discharged -
     //      removed from deq_facet - in this branch).
@@ -690,7 +690,7 @@ namespace seq {
     //   3. equal-length split: fresh skolem terms `w` (common prefix,
     //      same sort as u/v), `a`, `b` (fresh single-char unit terms),
     //      `u'`, `v'` (fresh suffix vars); asserts new eq_facet equations
-    //      `u = w.a.u'` and `v = w.b.v'`, an arith_facet constraint
+    //      `u = w.a.u'` and `v = w.b.v'`, an solver_facet constraint
     //      `len(u') = len(v')`, and replaces the original disequation
     //      with the finer-grained `a != b` (a single-token disequation
     //      between two fresh unit chars) - this is what actually proves

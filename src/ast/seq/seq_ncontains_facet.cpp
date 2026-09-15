@@ -126,7 +126,7 @@ namespace seq {
     stx::simplify_result ncontains_propagation::propagate(eq_tree::node& n) {
         auto ac = get_ambient(n);
         auto& f = ac.ncontains_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         m_stats.m_num_propagate++;
 
         bool changed = false;
@@ -250,7 +250,7 @@ namespace seq {
             expr_ref len_n(u.str.mk_length(n_expr), m);
             expr_ref gate(m.mk_not(a.mk_le(len_n, len_h)), m); // len(h) < len(n)
 
-            if (af.implies(gate) == l_true) {
+            if (sf.implies(gate) == l_true) {
                 // len(h) < len(n): n cannot possibly occur in h - the
                 // obligation is vacuously satisfied.
                 f.remove(head);

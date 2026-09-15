@@ -10,7 +10,7 @@ Abstract:
     Negative `str.contains` facet ("Phase 6" of the modular plugin-based
     search tree design, following `stx::` in util/stx_search_tree.h, the
     `eq_facet`/`deq_facet` module (ast/seq/seq_eq_facet.h), and
-    `arith_facet` (smt/seq_solver_facet.h)).
+    `solver_facet` (smt/seq_solver_facet.h)).
 
     Nielsen (seq_nielsen.h/.cpp) has no support for `str.contains` at all:
     positive `str.contains(h,n)` reduces to an `eq_facet` equation
@@ -40,7 +40,7 @@ Abstract:
 
       - `ncontains_propagation` (propagation_plugin_i) implements both the
         length-gate check of facet-ncontains.md section 3.3 (given
-        `arith_facet`'s incremental backend, ask whether `len(h) < len(n)`
+        `solver_facet`'s incremental backend, ask whether `len(h) < len(n)`
         is already implied - obligation vacuously satisfied, discharge it)
         and, as deterministic propagation rather than a nondeterministic
         split, the recursive prefix-unrolling occurrence search of
@@ -73,7 +73,7 @@ Abstract:
         required to terminate via eq_facet's own machinery): each step
         strictly shortens the haystack's token list by exactly one
         token, so the loop is bounded by the haystack's initial token
-        count - no separate `arith_facet` upper-bound query (section 3.6)
+        count - no separate `solver_facet` upper-bound query (section 3.6)
         is needed for termination in this concrete/token-list
         representation (as opposed to an open-ended symbolic length).
 

@@ -239,7 +239,7 @@ namespace seq {
                         return false;
                     }
                     auto ambient = get_ambient(n);
-                    ambient.arith_facet_ref().add_constraint(eq_expr, parent_dep);
+                    ambient.solver_facet_ref().add_constraint(eq_expr, parent_dep);
                     ambient.assumption_facet_ref().add_assumption(eq_expr);
                 }
             }
@@ -307,13 +307,13 @@ namespace seq {
         // word_eq_split's character-vs-character splits substitute a
         // bare char variable (e.g. `c := a`), which has no `len()`.
         auto ac = get_ambient(target);
-        auto& af = ac.arith_facet_ref();
-        ast_manager& mgr = af.get_arith_util().get_manager();
+        auto& sf = ac.solver_facet_ref();
+        ast_manager& mgr = sf.get_arith_util().get_manager();
         if (var->get_sort()->get_family_id() != mgr.mk_family_id("seq"))
             return;
         expr_ref_vector lhs(mgr);
         lhs.push_back(var);
-        af.add_length_constraint(lhs, repl, subst_dep);
+        sf.add_length_constraint(lhs, repl, subst_dep);
     }
 
     bool word_eq_split::iterator::next(eq_tree::edge& out) {
@@ -323,7 +323,7 @@ namespace seq {
         broadcast_subst(m_n, a.m_var.get(), a.m_repl, a.m_dep);
         if (a.m_guard.get()) {
             auto ac = get_ambient(m_n);
-            ac.arith_facet_ref().add_constraint(a.m_guard.get(), a.m_dep);
+            ac.solver_facet_ref().add_constraint(a.m_guard.get(), a.m_dep);
         }
         out = eq_tree::edge(a.m_name, a.m_dep, true, 0);
         return true;
@@ -448,7 +448,7 @@ namespace seq {
                     // in assumption_facet (so theory_nseq can, once a
                     // satisfiable node is found, make the ambient context
                     // agree - see assumption_facet's class comment).
-                    ac.arith_facet_ref().add_constraint(eq_expr, eq_dep);
+                    ac.solver_facet_ref().add_constraint(eq_expr, eq_dep);
                     ac.assumption_facet_ref().add_assumption(eq_expr);
                     out = eq_tree::edge("char-eq", eq_dep, true, 0);
                     committed = true;
@@ -502,7 +502,7 @@ namespace seq {
                     // disjointness guards (seq_nielsen_modifiers.cpp).
                     expr* v1_pos = nullptr, *v2_pos = nullptr;
                     {
-                        arith_util& a = ac.arith_facet_ref().get_arith_util();
+                        arith_util& a = ac.solver_facet_ref().get_arith_util();
                         // v1/v2 can themselves be char-sorted variables
                         // (e.g. two bare character variables compared
                         // head-to-head); such tokens have no `len()`, so
@@ -716,7 +716,7 @@ namespace seq {
         committed = false;
         auto ac = get_ambient(n);
         auto& f = ac.eq_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         for (unsigned idx = 0; idx < f.equations().size(); ++idx) {
             eq_facet::equation const& eq = f.equations()[idx];
@@ -770,10 +770,10 @@ namespace seq {
 
             if (pad) {
                 expr_ref len_pad(u.str.mk_length(pad), m);
-                af.add_constraint(m.mk_eq(len_pad, af.get_arith_util().mk_int(std::abs(padding))), eq_dep);
+                sf.add_constraint(m.mk_eq(len_pad, sf.get_arith_util().mk_int(std::abs(padding))), eq_dep);
             }
-            af.add_length_constraint(eq1_lhs, eq1_rhs, eq_dep);
-            af.add_length_constraint(eq2_lhs, eq2_rhs, eq_dep);
+            sf.add_length_constraint(eq1_lhs, eq1_rhs, eq_dep);
+            sf.add_length_constraint(eq2_lhs, eq2_rhs, eq_dep);
 
             out = eq_tree::edge("eq-split", eq_dep, true, 0);
             committed = true;
@@ -937,9 +937,9 @@ namespace seq {
 
             eq_tree::dep_tracker dq_dep = dq.m_dep;
             expr_ref_vector lhs(dq.m_lhs), rhs(dq.m_rhs);
-            auto& af = ac.arith_facet_ref();
-            expr_ref len_lhs = mk_side_len(u, af.get_arith_util(), m, lhs);
-            expr_ref len_rhs = mk_side_len(u, af.get_arith_util(), m, rhs);
+            auto& sf = ac.solver_facet_ref();
+            expr_ref len_lhs = mk_side_len(u, sf.get_arith_util(), m, lhs);
+            expr_ref len_rhs = mk_side_len(u, sf.get_arith_util(), m, rhs);
 
             iterator* it = alloc(iterator, n, idx, lhs, rhs, dq_dep, 2, m, u);
 
@@ -949,7 +949,7 @@ namespace seq {
             // discharged (removed) here - the arith side constraint is
             // what actually justifies the discharge.
             f.remove_disequation_trailed(idx);
-            af.add_constraint(af.get_arith_util().mk_lt(len_lhs, len_rhs), dq_dep);
+            sf.add_constraint(sf.get_arith_util().mk_lt(len_lhs, len_rhs), dq_dep);
             out = eq_tree::edge("diseq len<", dq_dep, true, 0);
             committed = true;
             m_stats.m_num_splits++;
@@ -963,15 +963,15 @@ namespace seq {
             return false;
         unsigned this_case = m_next_case++;
         auto ac = get_ambient(m_n);
-        auto& af = ac.arith_facet_ref();
-        expr_ref len_lhs = mk_side_len(u, af.get_arith_util(), m, m_lhs);
-        expr_ref len_rhs = mk_side_len(u, af.get_arith_util(), m, m_rhs);
+        auto& sf = ac.solver_facet_ref();
+        expr_ref len_lhs = mk_side_len(u, sf.get_arith_util(), m, m_lhs);
+        expr_ref len_rhs = mk_side_len(u, sf.get_arith_util(), m, m_rhs);
         auto& f = ac.deq_facet_ref();
 
         if (this_case == 2) {
             // Branch 2: len(v) < len(u), symmetric to branch 1.
             f.remove_disequation_trailed(m_diseq_idx);
-            af.add_constraint(af.get_arith_util().mk_lt(len_rhs, len_lhs), m_dep);
+            sf.add_constraint(sf.get_arith_util().mk_lt(len_rhs, len_lhs), m_dep);
             out = eq_tree::edge("diseq len>", m_dep, true, 0);
             return true;
         }
@@ -1001,7 +1001,7 @@ namespace seq {
 
         expr_ref len_up(u.str.mk_length(up), m);
         expr_ref len_vp(u.str.mk_length(vp), m);
-        af.add_constraint(m.mk_eq(len_up, len_vp), m_dep);
+        sf.add_constraint(m.mk_eq(len_up, len_vp), m_dep);
 
         f.remove_disequation_trailed(m_diseq_idx);
         expr_ref_vector a_vec(m); a_vec.push_back(a_unit);

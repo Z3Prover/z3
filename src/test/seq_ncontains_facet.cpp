@@ -9,7 +9,7 @@ Abstract:
 
     Unit test for `seq::ncontains_facet` / `seq::ncontains_propagation` /
     `seq::ncontains_split` (ast/seq/seq_ncontains_facet.h): the
-    negative str.contains facet, combined with `eq_facet`/`arith_facet`.
+    negative str.contains facet, combined with `eq_facet`/`solver_facet`.
 
 Author:
 

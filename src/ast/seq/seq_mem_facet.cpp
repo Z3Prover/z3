@@ -305,8 +305,8 @@ namespace seq {
             // means this fires at most once per membership entry, since
             // an entry is never revisited once passed.
             {
-                auto& af = ac.arith_facet_ref();
-                arith_util& a = af.get_arith_util();
+                auto& sf = ac.solver_facet_ref();
+                arith_util& a = sf.get_arith_util();
                 unsigned lo = u.re.min_length(sm.m_view.m_state);
                 unsigned hi = u.re.max_length(sm.m_view.m_state);
                 if (lo > 0 || hi < UINT_MAX) {
@@ -316,9 +316,9 @@ namespace seq {
                         len_str = a.mk_add(len_str, tok_len);
                     }
                     if (lo > 0)
-                        af.add_constraint(a.mk_ge(len_str, a.mk_int(lo)), sm.m_dep);
+                        sf.add_constraint(a.mk_ge(len_str, a.mk_int(lo)), sm.m_dep);
                     if (hi < UINT_MAX)
-                        af.add_constraint(a.mk_le(len_str, a.mk_int(hi)), sm.m_dep);
+                        sf.add_constraint(a.mk_le(len_str, a.mk_int(hi)), sm.m_dep);
                 }
             }
             expr_ref cur(sm.m_view.m_state, m_rw.m());
@@ -414,8 +414,8 @@ namespace seq {
                 trail_stack& tr = ac.trail();
                 if (!lens.empty()) {
                     tr.push_scope();
-                    auto& af = ac.arith_facet_ref();
-                    arith_util& au = af.get_arith_util();
+                    auto& sf = ac.solver_facet_ref();
+                    arith_util& au = sf.get_arith_util();
                     assumption_facet& asf = ac.assumption_facet_ref();
                     for (auto const& [v, k] : lens) {
                         expr_ref len_eq(m.mk_eq(u.str.mk_length(v), au.mk_int(k)), m);
@@ -509,7 +509,7 @@ namespace seq {
         auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
         auto& mf = ac.mem_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         if (m_pow_idx >= f.powers().size() || !f.powers()[m_pow_idx].active()
             || m_mem_idx >= mf.memberships().size() || !mf.memberships()[m_mem_idx].active())
             return false; // defensive; obligation/membership discharged by another route
@@ -544,7 +544,7 @@ namespace seq {
         }
 
         mf.replace(m_mem_idx, new_ts, m_dep);
-        af.add_constraint(a.mk_ge(exp_n, a.mk_int(1)), m_dep);
+        sf.add_constraint(a.mk_ge(exp_n, a.mk_int(1)), m_dep);
         f.remove(m_pow_idx);
 
         out = eq_tree::edge("power-var-peel-mem:n>=1", m_dep, true, 0);
@@ -557,7 +557,7 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& mf = ac.mem_facet_ref();
-        auto& af = ac.arith_facet_ref();
+        auto& sf = ac.solver_facet_ref();
 
         unsigned mem_idx, pow_idx;
         bool fwd;
@@ -578,7 +578,7 @@ namespace seq {
         unsigned drop = fwd ? 0 : ts.size() - 1;
         ts.erase(drop);
         mf.replace(mem_idx, ts, dep);
-        af.add_constraint(m.mk_eq(exp_n, a.mk_int(0)), dep);
+        sf.add_constraint(m.mk_eq(exp_n, a.mk_int(0)), dep);
         f.remove(pow_idx);
 
         iterator* it = alloc(iterator, n, mem_idx, fwd, pow_idx, dep, m, u, a);
