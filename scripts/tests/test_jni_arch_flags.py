@@ -91,6 +91,7 @@ class TestJNIArchitectureFlagsInMakefile(unittest.TestCase):
              patch.object(mk_util, 'IS_WINDOWS', is_windows), \
              patch.object(mk_util, 'IS_OSX', is_osx), \
              patch.object(mk_util, 'IS_ARCH_ARM64', is_arch_arm64), \
+             patch('mk_util.is_linux', return_value=not is_windows and not is_osx), \
              patch.object(mk_util, 'JNI_HOME', '/path/to/jni'), \
              patch.object(mk_util, 'JAVAC', 'javac'), \
              patch.object(mk_util, 'JAR', 'jar'), \
